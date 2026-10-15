@@ -20,11 +20,17 @@ export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? PLATFORM_URL
 export interface PostDeviceReadingResult {
   success: boolean;
   error?: string;
+  /** S70a: accepted, but held for the person to check because the number cannot be real. Not in the record, not triaged. */
+  held?: boolean;
+  /** S70a: accepted, but the same reading was already there from a better source, so it was linked, not stored twice. */
+  merged?: boolean;
 }
 
 export async function postDeviceReading(payload: Record<string, unknown>): Promise<PostDeviceReadingResult> {
-  const result = await request<Record<string, never>>("/api/mobile/device-readings", "POST", payload);
-  return result.ok ? { success: true } : { success: false, error: result.error };
+  const result = await request<{ held?: boolean; merged?: boolean }>("/api/mobile/device-readings", "POST", payload);
+  if (!result.ok) return { success: false, error: result.error };
+  // S70a: the server can accept a reading without storing it in the record. Only reported when true, so nothing changes when the switches are off.
+  return { success: true, ...(result.data?.held ? { held: true } : {}), ...(result.data?.merged ? { merged: true } : {}) };
 }
 
 export interface PostVitalReadingResult {
@@ -386,6 +392,8 @@ export interface CoachTurnResponse {
   reply?: string;
   tier?: "routine" | "clinician_review" | "emergency";
   aiInteractionId?: string | null;
+  /** S51 (7.7): a pre-visit message draft the patient may edit and send. Appointment prep only. */
+  draft?: string;
   error?: string;
 }
 
@@ -430,6 +438,32 @@ export async function postCoachHandoffToCareTeam(
     "POST",
     { conversationId }
   );
+  return result.ok ? result.data : { error: result.error };
+}
+
+export interface AssistantNudges {
+  success?: boolean;
+  daily?: { kind: string; text: string; target: { section: string; path: string } };
+  weekly?: { text: string };
+  error?: string;
+}
+
+/** S51 (7.5): today's one nudge and the weekly reflection. See apps/web/src/app/api/mobile/ai-coach/nudge/route.ts. */
+export async function getAssistantNudges(): Promise<AssistantNudges> {
+  const result = await request<AssistantNudges>("/api/mobile/ai-coach/nudge", "GET");
+  return result.ok ? result.data : { error: result.error };
+}
+
+/** S51 (7.7, INV-11): sends the pre-visit message the patient has read, edited and chosen to send. See
+ * apps/web/src/app/api/mobile/ai-coach/prep-draft/route.ts. */
+export async function postApprovedPrepDraft(
+  text: string,
+  conversationId?: string
+): Promise<{ success?: boolean; threadId?: string; error?: string }> {
+  const result = await request<{ success?: boolean; threadId?: string }>("/api/mobile/ai-coach/prep-draft", "POST", {
+    text,
+    conversationId,
+  });
   return result.ok ? result.data : { error: result.error };
 }
 
@@ -571,4 +605,57 @@ async function request<T>(
   } catch {
     return { ok: false, error: NETWORK_ERROR_MESSAGE };
   }
+}
+
+// ---------------------------------------------------------------------------
+// S70a: photo readings and personal ECG device results
+// ---------------------------------------------------------------------------
+
+/** The body of POST /api/mobile/photo-readings (see apps/web/src/lib/validation/photo-reading.ts). The photo itself is never part of it. */
+export interface PhotoReadingRequest {
+  client_reading_id: string;
+  taken_at: string;
+  confirmed: true;
+  patient_id?: string;
+  reading: Record<string, unknown>;
+}
+
+export type PostPhotoReadingResult =
+  | { ok: true; held: false; merged: boolean; deduped: boolean }
+  | { ok: true; held: true; heldId: string; reasons: string[] }
+  | { ok: false; error: string; status?: number; offline: boolean };
+
+export async function postPhotoReading(payload: PhotoReadingRequest): Promise<PostPhotoReadingResult> {
+  const result = await request<{ held?: boolean; held_id?: string; reasons?: string[]; merged?: boolean; deduped?: boolean }>(
+    "/api/mobile/photo-readings",
+    "POST",
+    payload,
+  );
+  if (!result.ok) return { ok: false, error: result.error, status: result.status, offline: result.error === NETWORK_ERROR_MESSAGE };
+  if (result.data?.held) return { ok: true, held: true, heldId: result.data.held_id ?? "", reasons: result.data.reasons ?? [] };
+  return { ok: true, held: false, merged: result.data?.merged === true, deduped: result.data?.deduped === true };
+}
+
+export interface DeviceRhythmRequest {
+  source: "healthkit_ecg" | "ecg_report" | "device_label";
+  device_label: string;
+  device_name?: string;
+  recorded_at: string;
+  external_id: string;
+  symptoms?: ("chest_pain" | "fainting" | "breathlessness")[];
+  patient_id?: string;
+}
+
+export type PostDeviceRhythmResult =
+  | { ok: true; duplicate: boolean; patientCopy: string | null; redPath: boolean }
+  | { ok: false; error: string; status?: number; offline: boolean };
+
+export async function postDeviceRhythmResult(payload: DeviceRhythmRequest): Promise<PostDeviceRhythmResult> {
+  const result = await request<{ duplicate?: boolean; patient_copy?: string | null; red_path?: boolean }>(
+    "/api/mobile/device-rhythm-results",
+    "POST",
+    payload,
+  );
+  if (!result.ok) return { ok: false, error: result.error, status: result.status, offline: result.error === NETWORK_ERROR_MESSAGE };
+  return { ok: true, duplicate: result.data?.duplicate === true, patientCopy: result.data?.patient_copy ?? null, redPath: result.data?.red_path === true };
 }

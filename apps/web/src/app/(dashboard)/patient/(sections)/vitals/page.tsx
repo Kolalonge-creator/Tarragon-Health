@@ -7,6 +7,7 @@ import { MonitoringCoverCard } from "@/components/monitoring-cover-card";
 import { HbpmSummaryCard } from "@/app/(dashboard)/patient/hbpm-summary-card";
 import { GlucoseInsights } from "@/app/(dashboard)/patient/glucose-insights";
 import { VitalsHistory } from "@/app/(dashboard)/patient/vitals-history";
+import { HeldReadingsCard } from "@/app/(dashboard)/patient/held-readings-card";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { SymptomLogForm } from "@/app/(dashboard)/patient/symptom-log-form";
 import { SymptomLogHistory } from "@/app/(dashboard)/patient/symptom-log-history";
@@ -61,8 +62,12 @@ export default async function PatientVitalsPage() {
         organisationId={profile.organisation_id}
         ageYears={ageYears}
       />
-      <SymptomTriageCheck patientId={subjectId} presentingComplaints={presentingComplaints} />
+      <div id="symptom-check" className="scroll-mt-24">
+        <SymptomTriageCheck patientId={subjectId} presentingComplaints={presentingComplaints} />
+      </div>
 
+      {/* Renders nothing unless a value that cannot be real is waiting for the person to check it (S70a). */}
+      <HeldReadingsCard patientId={subjectId} />
       <VitalsHistory patientId={subjectId} />
       <VisitReportCard />
       {/* Renders nothing unless the patient has an active diabetes care

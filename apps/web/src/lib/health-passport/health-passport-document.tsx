@@ -206,11 +206,7 @@ export function HealthPassportDocument({
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>
             {data.protocolAuthor
-              ? `Protocols supervised by Dr. ${stripDoctorHonorific(data.protocolAuthor.fullName)}${
-                  data.protocolAuthor.credentialType && data.protocolAuthor.credentialNumber
-                    ? ` (${data.protocolAuthor.credentialType} ${data.protocolAuthor.credentialNumber})`
-                    : ""
-                }.`
+              ? `Protocols supervised by Dr. ${stripDoctorHonorific(data.protocolAuthor.fullName)}.`
               : "Protocols supervised by your care team's Clinical Director."}
             {"  "}This is an educational summary, not a complete medical record.
             {"\n"}TarragonHealth · Care that stays with you. · {PDF_CONTACT_EMAIL}

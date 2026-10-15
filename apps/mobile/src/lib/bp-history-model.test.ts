@@ -171,6 +171,10 @@ describe("merging server and phone readings", () => {
     expect(out.map((r) => [r.syncState, r.source])).toEqual([["sent", "manual"], ["sent", "device"], ["sent", "other"]]);
   });
 
+  it("labels a photo the person confirmed as such (S70a)", () => {
+    expect(mergeReadings([server(ID1, { source: "photo_confirmed" })], [])[0]?.source).toBe("photo_confirmed");
+  });
+
   it("shows a waiting row as on the phone and a rejected one as not accepted, with its support code", () => {
     const out = mergeReadings([], [queued("c1", "pending"), queued("c2", "rejected")]);
     expect(out).toMatchObject([{ id: "c1", syncState: "on_phone" }, { id: "c2", syncState: "not_accepted", supportCode: "AB12CD" }]);

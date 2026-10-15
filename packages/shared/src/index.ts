@@ -242,9 +242,23 @@ export * from "./ui-language";
 export * from "./clinical-tier";
 export * from "./specialist-type-options";
 export * from "./proposed-config";
+export * from "./assistant-safety";
+export {
+  lintText as lintNotificationText,
+  FORBIDDEN_TERMS as NOTIFICATION_FORBIDDEN_TERMS,
+  FORBIDDEN_PARAM_KEYS as NOTIFICATION_FORBIDDEN_PARAM_KEYS,
+  type Violation as NotificationViolation,
+} from "./notification-neutral";
 export * from "./breathing";
 export * from "./consent-state";
 export * from "./data-rights";
 export * from "./notification-settings";
 export * from "./notification-diagnosis";
+
+// S70a (Module 18): device plausibility, cross-source de-duplication, photo capture, CGM sustained events, DeviceSource interface.
+export * from "./device-plausibility";
+export * from "./device-dedupe";
+export * from "./photo-reading";
+export * from "./cgm-events";
+export * from "./device-source";
 export * from "./lock-screen-pass";

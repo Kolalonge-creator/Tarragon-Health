@@ -1801,6 +1801,46 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Decision: open (CMO for the version; founder for outside assets).
 - **Decided 2026-10-07 (CMO, in chat, from docs/clinical-signoff/CMO-DECISION-SHEET-2026-10-07.md): the record turned out to be an unapproved draft, not an approved one, so its intended-population wording was corrected in place to Nigerian English only. Approval remains blocked until the two evaluation suites are run.**
 
+
+## Raised by S51 (AI health assistant 1 of 2). Track B uses OQ-350 to OQ-368 so parallel sessions do not collide.
+
+### OQ-350 Stage 1 gate (S40) not closed; the assistant is built but switched off (raised by S51)
+- The founder said on 2026-10-07 to proceed anyway and build everything with nothing switched on. `assistant_enabled` is born off and every condition is unmet today. Recorded here so the override is on the record.
+- Decision: recorded, no action.
+
+### OQ-351 Positive screening rows are still readable by the patient on the base table (raised by S51)
+- INV-04 for the AI path is closed (views, token list, reply screens). The base table `lab_analyte_readings` still lets a patient read their own row, including a positive HIV, HBsAg or HCV value, because its RLS predates the release machinery (the same family as OQ-177 for `lab_result_documents`). S51 adds `lab_analyte_readings.sensitive_positive` (trigger-maintained) so a later policy can use it.
+- Options: (a) add the flag to the patient read policy so a flagged row is hidden until a clinician discloses (recommended, needs the CMO for the disclosure rule); (b) leave until the legacy path is retired.
+- Decision: open.
+
+### OQ-352 Knowledge base rows have no owner or review date today, so retrieval is inert (raised by S51)
+- Live (2026-10-07): 6 reviewed and active health education rows with a reviewer name and no review date; 58 lifestyle blocks marked reviewed with no review date. The assistant uses a row only with an owner, a version and a FUTURE review date, so retrieval returns nothing until the CMO sets dates. The guard needs at least 20 such rows (`assistant.go_live`, PROPOSED, CMO).
+- Options: (a) CMO sets owners and review dates on the reviewed rows and confirms the minimum (recommended); (b) lower the minimum for a pilot.
+- Decision: open (CMO).
+
+### OQ-353 Extra red-flag wording is PROPOSED; the written-question list is unchanged (raised by S51)
+- The assistant screen is the shared written-question list plus extra phrases and word pairs (`packages/clinical/src/assistant-danger-screen.ts`), which keeps everything the old private regex list caught and adds "arm numb" and similar. The written-question list and its database function (`private.screen_care_message_for_emergency`) were NOT widened; a drift test pins the base list.
+- Options: (a) CMO reviews the extra wording, then widen the written-question list and its function in one signed change (recommended); (b) keep two lists with the one-way drift test.
+- Decision: open (CMO).
+
+### OQ-354 The hand-off to the care team stays outside the assistant guard (raised by S51)
+- The brief named the three mobile ai-coach routes. The `handoff` route ("I want to speak to someone") and the new `prep-draft` send are deliberately not behind `assistant_enabled`: both are a patient writing to their own care team, which must not wait on an AI guard. Message and quick-action are guarded.
+- Decision: recorded; reverse only if the founder wants the whole assistant surface hidden.
+
+### OQ-355 `go_live_conditions` is patched in place (raised by S51)
+- Several sessions add a guard branch to `private.go_live_conditions`, and the live body already carries a condition (`clinical_safety_case_current`) that main-dev's files do not. S51 reads the live body, inserts one branch and re-creates it, with an assertion, instead of replacing the whole function. Other sessions should do the same.
+- Decision: recorded.
+
+### OQ-356 Model-polished nudge text and the INV-07 lint on the other free-text paths (raised by S51)
+- The daily nudge and weekly reflection are fully deterministic. A model-polished version would be a new AI call site (register in `ai_systems` first). AI-002 nudge text is now linted against the INV-07 term list (a hit falls back to the generic template). `broadcast_announcement` and the self-care suggestion text, the other two paths in OQ-94, are unchanged.
+- Decision: open (founder, whether polishing is wanted).
+
+### OQ-357 Dose screens will sometimes over-block (raised by S51)
+- The dose-change request screen and the dose-advice reply screen are regular expressions. Over-matching routes a patient to their care team with fixed copy; under-matching is the failure to avoid. The CMO should read the patterns in `apps/web/src/lib/ai-coach/reply-screen.ts` and the fixed refusal wording (PROPOSED).
+- Decision: open (CMO).
+### OQ-270 S28 replaced S36h's pharmacist screen, and the free-text flag door is still open in the database (raised by S28 merge, 2026-10-07)
+- S36h (merged first) built a pharmacist page at `/pharmacist/prescriptions` with a free-text "Flag a problem", a prescriber page `/clinician/pharmacy-flags` and a task type `pharmacy_flag_review`. Founder decision 2026-10-07: S28's screen replaces it. Done: S28 owns `/pharmacist/prescriptions` (list, audited open, dispense, fixed-list questions); S36h's pharmacist form and its server action are removed; `/clinician/pharmacy-flags` redirects to `/clinician/pharmacy`, which also lists the earlier written messages read only; a fixed question now also creates the same `pharmacy_flag_review` task so the clinical queue still gets the work; `pharmacist_prescriptions()` is now audited (S28b).
+- Still open: `public.pharmacist_flag_prescription(uuid, text, text)` (S36h, free text up to 500 characters) can still be called by a pharmacist through the API. No screen uses it. Recommended: revoke execute from `authenticated`, and drop it with the S36h proof once nothing calls it. Not done here because S36h's own proof exercises it and the function was applied live by another session.
 ### F1: fix-first set (2026-10-07), on `s55-60/f1-fix-first`
 Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of S55 to S60. Nothing is applied to production; see the apply checklist in `docs/BUILD-PROGRESS.md` entry F1.
 
@@ -1854,6 +1894,24 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Options: (a) keep tracking the old numbers as PROPOSED budgets in config and fail CI only on growth (recommended); (b) set new targets for the 4 GB floor; (c) drop size budgets.
 - Decision (founder, 2026-10-07): no pass or fail targets for size or cold start. Build what is needed: the low-data setting, accessibility, and a size and start-time report that is tracked, never a gate. Numbers stay PROPOSED in versioned config for information only.
 
+### OQ-358 An emergency message is answered even while the assistant is closed (raised by S51, from the code review)
+- The red-flag screen is a deterministic safety net, so it does not wait for `assistant_enabled`. If a message matching it reaches the assistant while the guard is closed (a stale screen, a direct call), the patient gets the fixed emergency guidance, the clinician alert and escalation are raised, the turn is saved and `assistant.red_flag_detected` is recorded. Every other message gets "the assistant is not open yet" and nothing is saved.
+- Decision: recorded (safety first). Reverse only if the founder wants a closed assistant to be silent even on an emergency, which we recommend against.
+
+### OQ-359 Which other screening results the assistant must never explain (raised by S51)
+- The INV-04 token list covers HIV, hepatitis B and C and the neighbouring markers a lab reports for them (hepatitis B DNA, antigen and antibody markers, CD4, viral load, p24), all PROPOSED. Syphilis, other STI tests, pregnancy tests and genetic results are NOT on it: that is a clinical and legal decision, not a coding one.
+- Options: (a) CMO and counsel decide the list and it is changed in one place (`assistant.excluded_analytes` plus `ai_excluded_analyte_tokens`, kept in step by a test) (recommended); (b) widen now to every STI marker.
+- Decision: open (CMO and counsel).
+
+### OQ-360 Nudges reach patients who used the assistant once, whatever their plan now (raised by S51, from the code review)
+- The daily nudge cron and the mobile `/nudge` route check the go-live guard, role and active status, not entitlement, because `has_ai_coach_access()` answers only for the signed-in person. A patient whose access later lapsed would still get a generic "your check-in is ready" note. The note names nothing and the guard is off today.
+- Options: (a) a service-role access check function used by the cron and the nudge route (recommended before the guard is switched on); (b) accept.
+- Decision: open.
+
+### OQ-361 The conditions and medicines lists reach the model and the visit draft unfiltered (raised by S51, from the code review)
+- INV-04 now covers lab results, explanations and the reply. `patient_conditions` and `medications` rows are still passed to the model and to the pre-visit question list as written. A condition row that names HIV or hepatitis would be seen by the assistant.
+- Options: (a) filter those two reads with the same token list (recommended); (b) leave to the clinician's choice of what is recorded.
+- Decision: open (CMO).
 ### OQ-280 A repeat supply is a new send (DECIDED and built in S28c; raised in the first S28 build)
 - Founder 2026-10-07: a repeat is a new send. A collected prescription can be sent again, with a new code, only while the medicine still permits another supply (`private.supplies_remaining`: 1 plus clinician-approved repeats, never above 1 plus repeats allowed, minus complete, undisputed supplies). The old code stops working. The forward-only machine allows `dispensed` to `sent` only through the patient's own send function. A prescription already supplied some other way (QR check, phone desk) is no longer offered to a partner at all.
 
@@ -1898,6 +1956,31 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Fixed in S11g and S11h: (a) the older server alert path now follows the 200/130 decision once the rule set is APPROVED: the old emergency range with no red-flag symptom (and not in pregnancy or after a birth) raises the Priority 1 alert but no patient emergency record; a symptom keeps it an emergency, and a symptom answered after the reading opens the emergency record then (migration `20261006000812`, proof `s11g`, a no-op until approval). The 160/100 and 135/85 bands are unchanged, so a 165/105 reading still pages Priority 1 for a reading the engine would treat as amber: that is the S12 band alignment of OQ-67 and needs the CMO. (f) Tapping the reminder or the server push now opens the blood pressure screen, from closed or running, once per tap (`notification-tap.ts`). (d) The Pidgin for the question's buttons and the reminder is drafted in the catalogue; the emergency guidance, triage messages and symptom names stay in English until a native reviewer and the CMO sign them; the full list is `docs/PIDGIN-REVIEW-S11.md`.
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
+
+### OQ-370 Device capabilities need the CMO and an admin before anything switches on (raised by S70a)
+- Everything S70a built is off. Unsigned and PROPOSED: all numbers in `devices.plausibility`, `devices.dedupe`, `devices.cgm_events`, `devices.ecg_alert`, the two task types (class, due time, tier), the patient and safety wording, and "one working day" approximated as 1440 minutes.
+- Decision: pending the CMO (read the primary guideline text; the pack's evidence is secondary).
+
+### OQ-371 Go-live uses `platform_modules`, not `go_live_guards` (raised by S70a)
+- A `go_live_guards` row needs a branch in `private.go_live_conditions()`, a function every parallel session edits; a second `create or replace` would silently drop the other's branch. Seven `platform_modules` rows were used. Decide whether to move them to guards once S66 to S69 have merged.
+
+### OQ-372 The wearable Connect card is ungated (raised by S70a)
+- Spec asks for a per-connector flag. The card has been live since 2026-07-31; gating it would switch off a working feature, so it was not done. New connectors (S70b) should be born gated.
+
+### OQ-373 An extreme typed value above the typed limit (raised by S70a)
+- OQ-66 keeps manual limits at 60-260 / 30-160. With the hold on, a DEVICE or photo 270/130 is now saved and triaged, but a typed 270/130 is still refused on the phone. Decide whether typed entry should follow with a confirm step (OQ-66 option b).
+
+### OQ-374 A patient who insists an impossible number is real (raised by S70a)
+- `resolve_held_reading` allows `confirmed_as_shown`, which records the answer but still does not save or triage the value. Decide what a care team should see (a task? a device-fault report?). Today a held value is visible only to the person.
+
+### OQ-375 Photo and ECG recognition need a native build (raised by S70a)
+- No on-device text recogniser and no real-device test exist. Adding one needs a native module, a fresh EAS build and a `runtimeVersion` bump (now `0.1.0-native5`). The HealthKit ECG read adds an authorisation type and has never run on hardware. Which package is for the founder.
+
+### OQ-376 De-duplication side effects to review (raised by S70a)
+- A sensor sample within 5 minutes and 0.3 mmol/L of a finger-prick, in the same triage band, is linked instead of stored (one gap in a CGM trace). A better source arriving later replaces the row in place, so the row's `taken_at` becomes the better source's. Pregnant BP is never merged. Confirm both are acceptable.
+
+### OQ-377 Source badge coverage (raised by S70a)
+- The badge is on the web readings list and the phone BP history. Other phone lists (glucose, weight) and the clinician readings views were not found to list per-reading sources; check before calling "every UI" done.
 
 ### OQ-340 BP-P1 routes every pregnant reading, wider than the wording of decision A1 (raised by S67)
 - CMO selection A1 says "any BP at or above 140/90 in pregnancy: amber, clinician same day". Rule BP-P1 (unchanged since S11) grades EVERY pregnant reading amber and opens a `referral_review` task (de-duplicated to one a week, due in 24 hours), so 118/76 is also amber and a 24 hour task is not "same day". Rule set v4 keeps this as it is and the tests record it (139/89 is amber by BP-P1).
