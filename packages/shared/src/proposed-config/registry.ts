@@ -978,10 +978,10 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       test_page_min_interval_seconds: 120,
       page_notification_stuck_seconds: 120,
       page_notification_retry_stuck_seconds: 660,
-      first_hop_safe_systolic_min: 100,
-      first_hop_safe_systolic_max: 139,
-      first_hop_safe_diastolic_min: 60,
-      first_hop_safe_diastolic_max: 89,
+      first_hop_safe_systolic_min: 100, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_systolic_max: 139, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_min: 60, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_max: 89, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
       objective_readiness_required: 0,
     },
     owner: "CMO",
@@ -1009,10 +1009,10 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       test_page_min_interval_seconds: 120,
       page_notification_stuck_seconds: 120,
       page_notification_retry_stuck_seconds: 660,
-      first_hop_safe_systolic_min: 100,
-      first_hop_safe_systolic_max: 139,
-      first_hop_safe_diastolic_min: 60,
-      first_hop_safe_diastolic_max: 89,
+      first_hop_safe_systolic_min: 100, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_systolic_max: 139, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_min: 60, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_max: 89, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
       objective_readiness_required: 1,
     },
     owner: "CMO",
