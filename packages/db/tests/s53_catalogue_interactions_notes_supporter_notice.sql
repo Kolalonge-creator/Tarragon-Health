@@ -233,7 +233,7 @@ begin
   reset role;
   insert into results values ('C', 'a manage-level helper whose grant lacks view_medication cannot add a note', 'refused', v_err);
   -- a dependant's guardian reads the medicine and so the notes
-  update public.profiles set is_dependent_account = true where id = v_pat;
+  update public.profiles set is_dependent_account = true, dependent_kind = 'minor_child' where id = v_pat;
   perform pg_temp.as_user(v_stranger);
   select count(*) into v_n from public.medication_side_effect_notes;
   select count(*) into v_rows from public.medications where id = v_med;
