@@ -40532,8 +40532,72 @@ export type Database = {
           },
         ]
       }
+      skin_photos: {
+        Row: {
+          assessment_id: string | null
+          body_area: string
+          clinician_id: string | null
+          clinician_message: string | null
+          clinician_next_step: Database["public"]["Enums"]["triage_category"] | null
+          consent_at: string
+          consent_text_version: string
+          content_type: string
+          created_at: string
+          id: string
+          internal_note: string | null
+          is_test: boolean
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          policy_version: number
+          purged_at: string | null
+          recorded_by: string
+          retention_until: string
+          reviewed_at: string | null
+          size_bytes: number
+          source: string
+          status: string
+          storage_path: string
+          task_id: string | null
+          updated_at: string
+        }
+        Insert: Record<string, never>
+        Update: Record<string, never>
+        Relationships: []
+      }
+      skin_photo_policy_config: {
+        Row: { config: Json; created_at: string; is_active: boolean; notes: string | null; version: number }
+        Insert: Record<string, never>
+        Update: Record<string, never>
+        Relationships: []
+      }
+      symptom_session_summaries: {
+        Row: {
+          appointment_id: string | null
+          assessment_id: string
+          created_at: string
+          id: string
+          is_test: boolean
+          linked_at: string | null
+          organisation_id: string
+          patient_id: string
+          payload: Json
+          recorded_by: string
+          sent_at: string
+          source: string
+        }
+        Insert: Record<string, never>
+        Update: Record<string, never>
+        Relationships: []
+      }
       symptom_triage_assessments: {
         Row: {
+          engine: string
+          engine_version: string
+          inputs_used: Json
+          raised_by: string[]
+          urgency_level?: string | null
+          urgency_map_version?: number | null
           category: Database["public"]["Enums"]["triage_category"]
           clinician_alert_id: string | null
           clinician_flagged_false_reassurance: boolean
@@ -40568,6 +40632,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          engine?: string
+          engine_version?: string
+          inputs_used?: Json
+          raised_by?: string[]
+          urgency_level?: string | null
+          urgency_map_version?: number | null
           category: Database["public"]["Enums"]["triage_category"]
           clinician_alert_id?: string | null
           clinician_flagged_false_reassurance?: boolean
@@ -40602,6 +40672,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          engine?: string
+          engine_version?: string
+          inputs_used?: Json
+          raised_by?: string[]
+          urgency_level?: string | null
+          urgency_map_version?: number | null
           category?: Database["public"]["Enums"]["triage_category"]
           clinician_alert_id?: string | null
           clinician_flagged_false_reassurance?: boolean
@@ -44790,7 +44866,6 @@ export type Database = {
           laboratory: string | null
           order_number: string | null
           organisation_id: string | null
-          partner_cost_kobo: number | null
           patient_id: string | null
           payment_confirmed_at: string | null
           total_kobo: number | null
@@ -44953,6 +45028,28 @@ export type Database = {
           red_flag_events_90d: number | null
           red_flag_events_per_100_patients: number | null
           weight_goal_set: number | null
+        }
+        Relationships: []
+      }
+      symptom_sessions: {
+        Row: {
+          answers: Json | null
+          clinician_review_required: boolean | null
+          completed_at: string | null
+          engine: string | null
+          engine_version: string | null
+          id: string | null
+          inputs_used: Json | null
+          logged_by_profile_id: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          presenting_complaint_key: string | null
+          protocol_version: number | null
+          raised_by: string[] | null
+          red_flag_rule_id: string | null
+          urgency: string | null
+          urgency_level: string | null
+          urgency_map_version: number | null
         }
         Relationships: []
       }
@@ -48969,7 +49066,7 @@ export type Database = {
           p_phlebotomist_phone: string
           p_scheduled_at: string
         }
-        Returns: Database["public"]["Tables"]["lab_orders"]["Row"]
+        Returns: undefined
       }
       lab_provider_turnaround_stats: {
         Args: { p_days?: number }
@@ -49787,65 +49884,7 @@ export type Database = {
           p_preferred_time_of_day: Database["public"]["Enums"]["lab_order_time_of_day"]
           p_scheduled_date: string
         }
-        Returns: {
-          applied_voucher_id: string | null
-          chronic_programme_occurrence_id: string | null
-          clinical_indication: string | null
-          courier_reference: string | null
-          created_at: string
-          excluded_test_codes: Json
-          facility_id: string | null
-          fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
-          home_visit_provider_id: string | null
-          home_visit_scheduled_at: string | null
-          id: string
-          investigation_tier: number
-          order_number: string | null
-          ordered_at: string
-          ordered_by: string | null
-          organisation_id: string
-          origin: Database["public"]["Enums"]["booking_origin"]
-          panel_bundle_id: string | null
-          partner_cost_breakdown: Json | null
-          partner_cost_kobo: number | null
-          partner_cost_provider_id: string | null
-          partner_reference: string | null
-          patient_id: string
-          payable_kobo: number | null
-          payment_confirmed_at: string | null
-          payment_provider:
-            | Database["public"]["Enums"]["payment_provider"]
-            | null
-          payment_provider_ref: string | null
-          pending_payment_provider_ref: string | null
-          preferred_time_of_day:
-            | Database["public"]["Enums"]["lab_order_time_of_day"]
-            | null
-          provider_id: string | null
-          rejected_at: string | null
-          rejected_by: string | null
-          rejection_reason: string | null
-          resulted_at: string | null
-          sample_collected_at: string | null
-          scheduled_date: string | null
-          screening_schedule_id: string | null
-          status: Database["public"]["Enums"]["lab_order_status"]
-          subscriber_discount_kobo: number
-          total_kobo: number
-          transmission: Database["public"]["Enums"]["lab_order_transmission"]
-          transmission_ack_at: string | null
-          transmission_note: string | null
-          transmitted_at: string | null
-          updated_at: string
-          urgency: Database["public"]["Enums"]["lab_order_urgency"]
-          voucher_covered_kobo: number
-        }
-        SetofOptions: {
-          from: "*"
-          to: "lab_orders"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: undefined
       }
       request_lab_order_refund: {
         Args: {
@@ -50248,65 +50287,7 @@ export type Database = {
       }
       set_lab_order_facility: {
         Args: { p_facility_id: string; p_order_id: string }
-        Returns: {
-          applied_voucher_id: string | null
-          chronic_programme_occurrence_id: string | null
-          clinical_indication: string | null
-          courier_reference: string | null
-          created_at: string
-          excluded_test_codes: Json
-          facility_id: string | null
-          fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
-          home_visit_provider_id: string | null
-          home_visit_scheduled_at: string | null
-          id: string
-          investigation_tier: number
-          order_number: string | null
-          ordered_at: string
-          ordered_by: string | null
-          organisation_id: string
-          origin: Database["public"]["Enums"]["booking_origin"]
-          panel_bundle_id: string | null
-          partner_cost_breakdown: Json | null
-          partner_cost_kobo: number | null
-          partner_cost_provider_id: string | null
-          partner_reference: string | null
-          patient_id: string
-          payable_kobo: number | null
-          payment_confirmed_at: string | null
-          payment_provider:
-            | Database["public"]["Enums"]["payment_provider"]
-            | null
-          payment_provider_ref: string | null
-          pending_payment_provider_ref: string | null
-          preferred_time_of_day:
-            | Database["public"]["Enums"]["lab_order_time_of_day"]
-            | null
-          provider_id: string | null
-          rejected_at: string | null
-          rejected_by: string | null
-          rejection_reason: string | null
-          resulted_at: string | null
-          sample_collected_at: string | null
-          scheduled_date: string | null
-          screening_schedule_id: string | null
-          status: Database["public"]["Enums"]["lab_order_status"]
-          subscriber_discount_kobo: number
-          total_kobo: number
-          transmission: Database["public"]["Enums"]["lab_order_transmission"]
-          transmission_ack_at: string | null
-          transmission_note: string | null
-          transmitted_at: string | null
-          updated_at: string
-          urgency: Database["public"]["Enums"]["lab_order_urgency"]
-          voucher_covered_kobo: number
-        }
-        SetofOptions: {
-          from: "*"
-          to: "lab_orders"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: undefined
       }
       set_learning_creator_perk: {
         Args: { p_members_only: boolean; p_reason: string }
@@ -50950,6 +50931,26 @@ export type Database = {
         Returns: string
       }
       request_symptom_review: { Args: { p_assessment: string }; Returns: Json }
+      complete_skin_photo_review: {
+        Args: { p_internal_note?: string; p_message: string; p_next_step: Database["public"]["Enums"]["triage_category"]; p_photo: string }
+        Returns: Json
+      }
+      link_symptom_summary_to_appointment: { Args: { p_appointment: string; p_summary: string }; Returns: Json }
+      list_my_skin_photo_reviews: { Args: Record<PropertyKey, never>; Returns: Json }
+      mark_skin_photo_purged: { Args: { p_photo: string }; Returns: undefined }
+      read_skin_photo_audited: { Args: { p_photo: string; p_reason: string }; Returns: Json }
+      read_symptom_session_audited: { Args: { p_assessment: string; p_reason: string }; Returns: Json }
+      register_skin_photo: {
+        Args: { p_assessment?: string; p_body_area: string; p_consent_shown: boolean; p_consent_text_version: string; p_note: string; p_patient: string; p_storage_path: string }
+        Returns: Json
+      }
+      send_symptom_summary: { Args: { p_appointment?: string; p_assessment: string; p_consent_shown: boolean }; Returns: Json }
+      skin_photos_due_for_purge: {
+        Args: Record<PropertyKey, never>
+        Returns: { id: string; retention_until: string; storage_path: string }[]
+      }
+      symptom_check_context: { Args: { p_subject?: string; p_window_days?: number }; Returns: Json }
+      withdraw_skin_photo: { Args: { p_photo: string }; Returns: Json }
       respond_to_gifted_pack: { Args: { p_accept: boolean; p_entitlement: string }; Returns: Json };
       run_symptom_accuracy_audit_now: {
         Args: { p_include_test?: boolean; p_month: string }
@@ -50981,6 +50982,10 @@ export type Database = {
       admin_community_reports: { Args: never; Returns: Json };
       admin_community_resolve_report: { Args: { p_action: string; p_bar?: boolean; p_report: string }; Returns: Json };
       sign_challenge_template: { Args: { p_approve: boolean; p_code: string; p_note: string }; Returns: Json };
+      symptom_checker_eligibility: { Args: { p_subject?: string }; Returns: Json }
+      symptom_review_entitled: { Args: { p_subject?: string }; Returns: boolean }
+      symptom_safety_monitoring: { Args: Record<PropertyKey, never>; Returns: Json }
+      override_symptom_assessment: { Args: { p_assessment: string; p_category: Database["public"]["Enums"]["triage_category"]; p_reason: string }; Returns: Json }
     }
     Enums: {
       correction_status: "corrected" | "amended" | "entered_in_error" | "cancelled"
