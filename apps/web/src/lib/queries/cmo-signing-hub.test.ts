@@ -41,12 +41,16 @@ const readPendingGlucoseTaskTypeSignoff = jest.fn<(...args: unknown[]) => Promis
 jest.mock("@/lib/queries/pending-glucose-task-type-signoff", () => ({
   readPendingGlucoseTaskTypeSignoff: (...args: unknown[]) => readPendingGlucoseTaskTypeSignoff(...args),
 }));
+const readPendingSoleCmoException = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-sole-cmo-exception", () => ({
+  readPendingSoleCmoException: (...args: unknown[]) => readPendingSoleCmoException(...args),
+}));
 const noCommunity = { rulesUnsigned: false, groupsWaiting: 0, statementsWaiting: 0, attentionCount: 0, failed: false };
 jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
 }));
 
-import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub } from "./cmo-signing-hub";
+import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, readCmoSigningHub } from "./cmo-signing-hub";
 
 const supabase = {} as SupabaseClient<Database>;
 
@@ -73,6 +77,8 @@ beforeEach(() => {
   readS06S10Signoffs.mockResolvedValue(emptyS06S10);
   readPendingRedOutreachSignoff.mockReset();
   readPendingRedOutreachSignoff.mockResolvedValue({ waiting: false, failed: false });
+  readPendingSoleCmoException.mockReset();
+  readPendingSoleCmoException.mockResolvedValue({ waiting: false, failed: false });
   readPendingGlucoseTaskTypeSignoff.mockReset();
   readPendingGlucoseTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: false });
   readPendingGlucoseTriageSignoff.mockReset();
@@ -310,5 +316,25 @@ describe("readCmoSigningHub: both new task types and the glucose rules together 
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
     readPendingGlucoseTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: true });
     expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the urgent glucose review task type"] });
+  });
+});
+
+describe("readCmoSigningHub: sole-CMO on-call exception", () => {
+  it("lists the exception line under /clinician only while it is waiting", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingSoleCmoException.mockResolvedValue({ waiting: true, failed: false });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === SOLE_CMO_EXCEPTION_ITEM_KEY);
+    expect(line).toMatchObject({ severity: "draft_pending", count: 1 });
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.title).toMatch(/on-call rota/);
+  });
+  it("shows nothing once an exception is in force or a second CMO exists", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === SOLE_CMO_EXCEPTION_ITEM_KEY)).toBeUndefined();
+  });
+  it("names an unreadable source instead of looking like an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingSoleCmoException.mockResolvedValue({ waiting: false, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the sole-CMO on-call exception"] });
   });
 });
