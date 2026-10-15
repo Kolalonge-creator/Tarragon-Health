@@ -16,7 +16,11 @@
 --  10. SAFETY CASE 16: an expired licence leaves the queue and the rota overnight (claims released, rota cleared, offers
 --      returned, an event for S18's lead reassignment); a missing date or a grace period removes nobody.
 --  11. SABOTAGE: removal turned off; the case 16 check must flip.
+--  2b. (P5, Q16) a new clinician's first N red or prescribing cases are all audited, then the sample applies; 11b sabotages it.
 begin;
+
+-- v2: a version used by an audit is frozen (the guard under test in s20_quality_v2.sql); this v1 proof edits the live config between steps
+alter table public.quality_config disable trigger quality_config_guard;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
@@ -36,11 +40,22 @@ $f$ begin
 end $f$;
 create function pg_temp.back() returns void language plpgsql as
 $f$ begin reset role; perform set_config('request.jwt.claims', '', true); perform set_config('request.jwt.claim.role', '', true); end $f$;
+-- S20 v2: submit_clinical_audit refuses until this reviewer opened the case file, so the v1 checks open it first (errors ignored: a check that
+-- expects a refusal before the open gate still gets that refusal). The v2 proof (s20_quality_v2.sql) tests the gate itself.
+create function pg_temp.pre_open(p_sql text) returns void language plpgsql as
+$f$ declare v_id text;
+begin
+  if p_sql like '%submit_clinical_audit%' then
+    v_id := substring(p_sql from '''([0-9a-f-]{36})''');
+    begin perform public.audit_case_file(v_id::uuid); exception when others then null; end;
+  end if;
+end $f$;
 -- run a statement as a user; returns 'ok' or the error message (the message is the stable queue_* code)
 create function pg_temp.try_as(p_uid uuid, p_sql text) returns text language plpgsql as
 $f$ declare r text;
 begin
   perform pg_temp.act(p_uid);
+  perform pg_temp.pre_open(p_sql);
   begin execute p_sql; r := 'ok'; exception when others then r := sqlerrm; end;
   perform pg_temp.back();
   return r;
@@ -50,6 +65,7 @@ create function pg_temp.q_as(p_uid uuid, p_sql text) returns text language plpgs
 $f$ declare r text;
 begin
   perform pg_temp.act(p_uid);
+  perform pg_temp.pre_open(p_sql);
   begin execute p_sql into r; exception when others then r := 'ERR:' || sqlerrm; end;
   perform pg_temp.back();
   return r;
@@ -95,7 +111,7 @@ begin
   on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone;
   return v;
 end $f$;
-create function pg_temp.mkdoc(p_org uuid, p_label text, p_tier text, p_emp text, p_comps text[], p_admin uuid, p_test boolean default true) returns uuid
+create function pg_temp.mkdoc(p_org uuid, p_label text, p_tier text, p_emp text, p_comps text[], p_admin uuid, p_test boolean default true, p_level integer default null) returns uuid
 language plpgsql as $f$
 declare v uuid; s uuid; c text;
 begin
@@ -104,7 +120,7 @@ begin
       license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
   values (p_org, v, 'S20 ' || p_label, 'MDCN', 'S17-' || p_label || '-' || substr(v::text, 1, 8), true, 'active', now(), p_admin,
       p_tier::public.doctor_tier, p_emp::public.staff_employment_type,
-      case when p_tier in ('senior_medical_officer', 'chief_medical_officer') then 2 else 1 end,
+      coalesce(p_level, case when p_tier in ('senior_medical_officer', 'chief_medical_officer') then 2 else 1 end),
       p_emp = 'contracted', case when p_emp = 'contracted' then p_admin else null end, p_test)
   returning id into s;
   foreach c in array p_comps loop
@@ -146,7 +162,14 @@ begin
   v_t := pg_temp.mktask(pg_temp.f('pat'), p_type);
   v_got := pg_temp.next_task(p_uid);
   if v_got is distinct from v_t then raise exception 'finish: expected the new task, got % (%); task state=% class=% tier=% comps=% test=%', v_got, pg_temp.next_outcome(p_uid), (select state from public.clinical_tasks where id = v_t), (select priority_class from public.clinical_tasks where id = v_t), (select min_tier from public.clinical_tasks where id = v_t), (select required_competencies from public.clinical_tasks where id = v_t), (select is_test from public.clinical_tasks where id = v_t); end if;
-  v_r := pg_temp.try_as(p_uid, format('select public.queue_complete(%L, %L::jsonb)', v_t, '{"note":"done"}'));
+  if p_type in ('symptom_review', 'async_question', 'critical_result_review', 'titration_signoff', 'red_event_unacknowledged') then
+    -- D4 (S16-S20): these types close only against a system record (a signed note, a released result...), which this proof does not
+    -- build; it tests the audit sampling that follows completion, so it closes through the internal transition the real flows also use
+    perform private.apply_task_transition(v_t, 'completed', 'clinician', p_uid, null, null, null, '{"code":"closed_for_proof"}'::jsonb);
+    v_r := 'ok';
+  else
+    v_r := pg_temp.try_as(p_uid, format('select public.queue_complete(%L, %L::jsonb)', v_t, '{"code":"completed_action_taken","note":"done"}'));
+  end if;
   if v_r <> 'ok' then raise exception 'finish: queue_complete failed: %', v_r; end if;
   return v_t;
 end $f$;
@@ -461,7 +484,7 @@ begin
   update public.clinical_staff set active = false where is_test is not true;
   perform pg_temp.setf('cmo', pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', 'contracted', '{hypertension,adult_general,result_review,prescribing,on_call}', v_admin));
   perform pg_temp.setf('fin', pg_temp.mkdoc(v_org, 'fin', 'senior_medical_officer', 'contracted', '{hypertension,adult_general,result_review,prescribing,on_call}', v_admin));
-  perform pg_temp.setf('t1', pg_temp.mkdoc(v_org, 't1', 'medical_officer', 'contracted', '{hypertension,adult_general}', v_admin));
+  perform pg_temp.setf('t1', pg_temp.mkdoc(v_org, 't1', 'senior_medical_officer', 'contracted', '{hypertension,adult_general}', v_admin, true, 1));
   perform pg_temp.setf('other', pg_temp.mkdoc(v_org, 'other', 'senior_medical_officer', 'contracted', '{hypertension,adult_general}', v_admin));
   perform pg_temp.setf('pat', pg_temp.mkuser(v_org, 'pat', 'patient'));
   perform pg_temp.mkblock(v_org, pg_temp.f('cmo'));
@@ -478,8 +501,8 @@ begin
   perform pg_temp.ck('anon cannot read safety_concerns', 'false', has_table_privilege('anon', 'public.safety_concerns', 'SELECT')::text);
   perform pg_temp.ck('signed-in users cannot write safety_concerns directly', 'false', (has_table_privilege('authenticated', 'public.safety_concerns', 'INSERT') or has_table_privilege('authenticated', 'public.safety_concerns', 'UPDATE'))::text);
   perform pg_temp.ck('signed-in users cannot write clinical_audits directly', 'false', (has_table_privilege('authenticated', 'public.clinical_audits', 'INSERT') or has_table_privilege('authenticated', 'public.clinical_audits', 'UPDATE') or has_table_privilege('authenticated', 'public.clinical_audits', 'DELETE'))::text);
-  perform pg_temp.ck('anon cannot raise a concern', 'false', has_function_privilege('anon', 'public.raise_safety_concern(text, text, text, text, uuid)', 'EXECUTE')::text);
-  perform pg_temp.ck('PUBLIC cannot submit an audit', 'false', has_function_privilege('anon', 'public.submit_clinical_audit(uuid, jsonb, jsonb, text)', 'EXECUTE')::text);
+  perform pg_temp.ck('anon cannot raise a concern', 'false', has_function_privilege('anon', 'public.raise_safety_concern(text, text, text, text, uuid, boolean)', 'EXECUTE')::text);
+  perform pg_temp.ck('PUBLIC cannot submit an audit', 'false', has_function_privilege('anon', 'public.submit_clinical_audit(uuid, jsonb, jsonb, text, jsonb, text, jsonb)', 'EXECUTE')::text);
   perform pg_temp.ck('removal is not callable by signed-in users', 'false', has_function_privilege('authenticated', 'private.remove_clinician_from_work(uuid, text)', 'EXECUTE')::text);
   perform pg_temp.ck('the nightly job is not callable by signed-in users', 'false', has_function_privilege('authenticated', 'private.remove_ineligible_from_work()', 'EXECUTE')::text);
   perform pg_temp.ck('audit creation is not callable by signed-in users', 'false', has_function_privilege('authenticated', 'private.create_audit(uuid, text, numeric)', 'EXECUTE')::text);
@@ -494,7 +517,7 @@ begin
   v_a := pg_temp.audit_of(v_t);
   perform pg_temp.ck('a red event is audited', 'red_event', (select reason from public.clinical_audits where id = v_a));
   perform pg_temp.ck('...and assigned to the clinical lead, not the clinician', v_cmo::text, (select reviewer_id::text from public.clinical_audits where id = v_a));
-  perform pg_temp.ck('...with the config and form version recorded (INV-16)', '1/1', (select config_version || '/' || form_version from public.clinical_audits where id = v_a));
+  perform pg_temp.ck('...with the config and form version recorded (INV-16)', (select version::text from public.quality_config where is_active) || '/1', (select config_version || '/' || form_version from public.clinical_audits where id = v_a));
   perform pg_temp.ck('...and an audit assigned event with ids only', 'true',
     (select (count(*) = 1 and bool_and(payload ? 'audit_id' and not payload ? 'description'))::text from public.domain_events where event_type = 'clinical_audit.assigned' and payload ->> 'audit_id' = v_a::text));
   -- every titration
@@ -507,13 +530,13 @@ begin
   v_t := pg_temp.finish(pg_temp.f('fin'), 'symptom_review');
   perform pg_temp.ck('rate 100: an ordinary task is audited as a random sample', 'random_sample', (select reason from public.clinical_audits where task_id = v_t));
   perform pg_temp.ck('...and the draw is stored and replayable', 'true',
-    (select (sample_draw is not null and sample_draw = (abs(hashtextextended(v_t::text || ':' || private.lagos_month(now())::text, 0)) % 1000000) / 10000.0)::text from public.clinical_audits where task_id = v_t));
+    (select (sample_draw is not null and sample_draw = private.sampling_draw(v_t, private.lagos_month(now()), 'random'))::text from public.clinical_audits where task_id = v_t));
   -- at the real 10 percent, an audit exists exactly when the draw is under 10
   perform pg_temp.cfg('{sampling,random_rate_percent}', '10'::jsonb);
   v_rows := '';
   for v_i in 1..12 loop
     v_t := pg_temp.finish(pg_temp.f('other'), 'symptom_review');
-    v_draw := (abs(hashtextextended(v_t::text || ':' || private.lagos_month(now())::text, 0)) % 1000000) / 10000.0;
+    v_draw := private.sampling_draw(v_t, private.lagos_month(now()), 'random');
     if (select count(*) from public.clinical_audits where task_id = v_t) <> (case when v_draw < 10 then 1 else 0 end) then v_rows := v_rows || v_t::text || ' '; end if;
   end loop;
   perform pg_temp.ck('at 10 percent an audit exists exactly when the draw is under 10 (12 tasks)', '', v_rows);
@@ -529,6 +552,64 @@ begin
   perform pg_temp.ck('three unaudited tasks, so the floor adds exactly one audit for t1', '1', (select count(*)::text from public.clinical_audits where clinician_id = pg_temp.f('t1') and state <> 'cancelled'));
   perform pg_temp.ck('...and running it again adds nothing', '0', private.audit_floor_top_up(private.lagos_month(now()))::text);
   perform pg_temp.ck('...marked as a floor top-up', 'floor_top_up', (select reason from public.clinical_audits where clinician_id = pg_temp.f('t1') and state <> 'cancelled' order by created_at desc limit 1));
+end $$;
+
+-- 2b. P5 / CMO answer Q16: a new clinician's first N red or prescribing cases are all audited, then the sample applies --------
+create function pg_temp.finish_rx(p_uid uuid) returns uuid language plpgsql as
+$f$
+declare v_t uuid; v_got uuid; v_r text;
+begin
+  perform pg_temp.clear_queue();
+  -- every task in this proof completes inside one transaction, so now() is the same for all of them; move this clinician's earlier
+  -- completions back a minute so "the n-th case" is decided by time, as it is in real life (the id is only a tie-breaker)
+  perform set_config('tarragon.task_transition', 'on', true);
+  update public.clinical_tasks set completed_at = completed_at - interval '1 minute' where claimed_by = p_uid and state = 'completed';
+  perform set_config('tarragon.task_transition', 'off', true);
+  v_t := private.create_clinical_task(pg_temp.f('pat'), 'admin_clinical', null, null, null, null, null, array['prescribing']);
+  v_got := pg_temp.next_task(p_uid);
+  if v_got is distinct from v_t then raise exception 'finish_rx: expected the new task, got % (%); state=% tier=% comps=% test=% due=%', v_got, pg_temp.next_outcome(p_uid), (select state from public.clinical_tasks where id = v_t), (select min_tier from public.clinical_tasks where id = v_t), (select required_competencies from public.clinical_tasks where id = v_t), (select is_test from public.clinical_tasks where id = v_t), (select due_at from public.clinical_tasks where id = v_t); end if;
+  v_r := pg_temp.try_as(p_uid, format('select public.queue_complete(%L, %L::jsonb)', v_t, '{"code":"completed_action_taken","note":"done"}'));
+  if v_r <> 'ok' then raise exception 'finish_rx: queue_complete failed: %', v_r; end if;
+  return v_t;
+end $f$;
+
+do $$
+declare v_t uuid; v_new uuid; v_org uuid := pg_temp.f('org'); v_adm uuid := pg_temp.f('admin'); v_rows text := ''; v_i integer;
+begin
+  v_new := pg_temp.mkdoc(v_org, 'newc', 'senior_medical_officer', 'contracted', '{adult_general,prescribing}', v_adm);
+  perform pg_temp.setf('newc', v_new);
+  perform pg_temp.mkblock(v_org, v_new);
+  perform pg_temp.ck('the live config carries the Q16 number', '20', (private.quality_setting('sampling') ->> 'new_clinician_full_review_cases'));
+  perform pg_temp.cfg('{sampling,random_rate_percent}', '0'::jsonb);
+  perform pg_temp.cfg('{sampling,new_clinician_full_review_cases}', '3'::jsonb);
+  -- a task that is neither red nor prescribing does not use up one of the N
+  v_t := pg_temp.finish(v_new, 'async_question');
+  perform pg_temp.ck('a plain task by a new clinician is not pulled in', '0', (select count(*)::text from public.clinical_audits where task_id = v_t));
+  perform pg_temp.ck('...and is not a qualifying case', '', coalesce(private.new_clinician_case_ordinal(v_t)::text, ''));
+  for v_i in 1..3 loop
+    v_t := pg_temp.finish_rx(v_new);
+    perform pg_temp.ck('prescribing case ' || v_i || ' is its own ordinal', v_i::text, private.new_clinician_case_ordinal(v_t)::text);
+    perform pg_temp.ck('prescribing case ' || v_i || ' is audited as a new clinician review', 'new_clinician_review', coalesce((select reason from public.clinical_audits where task_id = v_t and state <> 'cancelled'), 'none'));
+  end loop;
+  perform pg_temp.ck('...assigned to the clinical lead, with the stored draw', 'true',
+    (select (reviewer_id = pg_temp.f('cmo') and sample_draw is not null)::text from public.clinical_audits where task_id = v_t));
+  v_t := pg_temp.finish_rx(v_new);
+  perform pg_temp.ck('case 4 tapers to the normal sample (rate 0: not audited)', '0', (select count(*)::text from public.clinical_audits where task_id = v_t));
+  perform pg_temp.setf('rx4', v_t);
+  -- the number is data: off means off
+  perform pg_temp.cfg('{sampling,new_clinician_full_review_cases}', '0'::jsonb);
+  perform pg_temp.setf('newc2', pg_temp.mkdoc(v_org, 'newc2', 'senior_medical_officer', 'contracted', '{adult_general,prescribing}', v_adm));
+  perform pg_temp.mkblock(v_org, pg_temp.f('newc2'));
+  v_t := pg_temp.finish_rx(pg_temp.f('newc2'));
+  perform pg_temp.ck('with 0 the rule is off', '0', (select count(*)::text from public.clinical_audits where task_id = v_t));
+  perform pg_temp.cfg('{sampling,new_clinician_full_review_cases}', '20'::jsonb);
+  -- a red event still carries its own reason and counts as a case
+  v_t := pg_temp.finish(pg_temp.f('fin'), 'red_event_unacknowledged');
+  perform pg_temp.ck('a red event keeps the red_event reason', 'red_event', (select reason from public.clinical_audits where task_id = v_t));
+  perform pg_temp.ck('...and is a qualifying case', 'true', (private.new_clinician_case_ordinal(v_t) is not null)::text);
+  perform pg_temp.cfg('{sampling,new_clinician_full_review_cases}', '3'::jsonb);
+  perform pg_temp.ck('a legacy-style clinician already past N is not swept in (the other clinician''s 3rd and later cases are not full-reviewed)', '0',
+    (select count(*)::text from public.clinical_audits where reason = 'new_clinician_review' and clinician_id = pg_temp.f('fin')));
 end $$;
 
 -- 3. Scheduling can never block a completion ---------------------------------------------------------------------------
@@ -613,7 +694,7 @@ begin
     pg_temp.q_as(case when v_rev = v_cmo then v_cmo2 else v_cmo end, format('select public.audit_case_file(%L)', v_a)));
   v_res := pg_temp.q_as(v_rev, format('select public.audit_case_file(%L)', v_a));
   perform pg_temp.ck('the assigned reviewer reads the case file', 'true', ((v_res::jsonb -> 'task' ->> 'outcome') is not null)::text);
-  perform pg_temp.ck('...and that read is in the audit log with the patient', '1', (select count(*)::text from public.audit_log where action = 'clinical_audit.case_file_read' and entity_id = v_t and event ->> 'patient_id' = pg_temp.f('pat')::text));
+  perform pg_temp.ck('...and that read is in the audit log with the patient', '1', (select count(*)::text from public.audit_log where action = 'clinical_audit.case_file_read' and entity_id = v_t and subject_patient_id = pg_temp.f('pat')));
 
   -- submitting: result, reliability, events, visibility afterwards
   select reliability_score into v_score_before from public.clinical_staff where profile_id = v_fin;
@@ -695,21 +776,25 @@ end $$;
 do $$
 declare v_u uuid := pg_temp.f('other'); v_cmo uuid := pg_temp.f('cmo'); v_i integer; v_t uuid; v_r uuid; v_hb text;
 begin
+  -- keep the 10-minute hand-back cooldown out of the way (it is tested in the S17 proof); the 7-day review window is what is under test
+  update public.queue_claim_config set rules = jsonb_set(jsonb_set(rules, '{handback_cooldown,count}', '99'::jsonb), '{handback_cooldown,hard_count}', '99'::jsonb) where is_active;
   for v_i in 1..4 loop
     perform pg_temp.clear_queue();
     v_t := pg_temp.mktask(pg_temp.f('pat'), 'symptom_review');
     if pg_temp.next_task(v_u) is distinct from v_t then raise exception 'handback fixture: expected the new task, got %', pg_temp.next_outcome(v_u); end if;
-    v_hb := pg_temp.try_as(v_u, format('select public.queue_handback(%L, %L, %L)', v_t, 'technical_problem', null));
+    -- v2: technical_problem and conflict_of_interest are exempt (not counted toward a review, like the cooldown); outside_competence counts
+    v_hb := pg_temp.try_as(v_u, format('select public.queue_handback(%L, %L, %L)', v_t, 'outside_competence', null));
     perform pg_temp.ck('hand-back ' || v_i || ' is accepted', 'ok', v_hb);
+
     perform pg_temp.ck('after hand-back ' || v_i || ', open reviews', case when v_i <= 3 then '0' else '1' end, (select count(*)::text from public.handback_reviews where clinician_id = v_u and state = 'open'));
   end loop;
   perform pg_temp.clear_queue();
   v_t := pg_temp.mktask(pg_temp.f('pat'), 'symptom_review');
   perform pg_temp.next_task(v_u);
-  perform pg_temp.try_as(v_u, format('select public.queue_handback(%L, %L, %L)', v_t, 'technical_problem', null));
+  perform pg_temp.try_as(v_u, format('select public.queue_handback(%L, %L, %L)', v_t, 'outside_competence', null));
   perform pg_temp.ck('a fifth hand-back does not open a second review', '1', (select count(*)::text from public.handback_reviews where clinician_id = v_u and state = 'open'));
   select id into v_r from public.handback_reviews where clinician_id = v_u and state = 'open';
-  perform pg_temp.ck('the review records the reason breakdown', 'true', ((select (reasons ->> 'technical_problem')::integer >= 4 from public.handback_reviews where id = v_r))::text);
+  perform pg_temp.ck('the review records the reason breakdown', 'true', ((select (reasons ->> 'outside_competence')::integer >= 4 from public.handback_reviews where id = v_r))::text);
   perform pg_temp.ck('the lead was told, in neutral words', 'true',
     (select (count(*) >= 1 and bool_and(payload ->> 'message' not ilike '%technical%'))::text from public.notifications where recipient_id = v_cmo and payload ->> 'subject' = 'A hand-back pattern needs review'));
   perform pg_temp.ck('a clinician cannot read the reviews', '0', pg_temp.q_as(v_u, 'select count(*) from public.handback_reviews'));
@@ -783,7 +868,8 @@ begin
   perform pg_temp.ck('...and with no backup reader a neutral incident is opened', 'true',
     (select (count(*) >= 1 and bool_and(summary not ilike '%protocol%' and summary not ilike '%conduct%'))::text from public.ops_incidents where external_reference = 'clinical_safety_overdue'));
   -- a named backup reader sees escalated concerns, and only those
-  v_back := pg_temp.mkuser(pg_temp.f('org'), 'backup', 'admin');
+  -- v2: a backup reader can no longer be an admin account (decision 7), so the named reader is a clinician
+  v_back := pg_temp.mkdoc(pg_temp.f('org'), 'backup', 'senior_medical_officer', 'contracted', '{}', v_adm);
   perform pg_temp.ck('only the lead can name a backup reader', 'ERR:only the clinical lead can name a backup reader', pg_temp.q_as(v_oth, format('select public.add_safety_concern_backup_reader(%L)', v_back)));
   perform pg_temp.ck('an admin account cannot name itself a reader', 'ERR:only the clinical lead can name a backup reader', pg_temp.q_as(v_back, format('select public.add_safety_concern_backup_reader(%L)', v_back)));
   perform pg_temp.ck('before being named, the backup person sees nothing', '0', pg_temp.q_as(v_back, 'select count(*) from public.safety_concerns'));
@@ -984,6 +1070,19 @@ begin
   insert into results values ('sabotaged', 'an expired clinician''s rota is cleared overnight', '0', pg_temp.live_blocks(v));
 end $$;
 
+-- 11b. SABOTAGE: the new-clinician branch removed; the Q16 check must flip
+create or replace function private.new_clinician_case_ordinal(p_task uuid, p_cap integer default 1000) returns integer
+language sql stable security definer set search_path = '' as $$ select null::integer $$;
+do $$
+declare v_t uuid;
+begin
+  perform pg_temp.cfg('{sampling,new_clinician_full_review_cases}', '3'::jsonb);
+  perform pg_temp.cfg('{sampling,random_rate_percent}', '0'::jsonb);
+  v_t := pg_temp.finish_rx(pg_temp.f('newc'));
+  insert into results values ('sabotaged', 'prescribing case 1 is audited as a new clinician review', 'new_clinician_review',
+    coalesce((select reason from public.clinical_audits where task_id = v_t and state <> 'cancelled'), 'none'));
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -996,6 +1095,9 @@ begin
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
   if v_caught = 0 then
     raise exception 'VACUOUS TEST: turning removal off did not change the case 16 check';
+  end if;
+  if not exists (select 1 from results where phase = 'sabotaged' and check_name like 'prescribing case 1%' and expected <> actual) then
+    raise exception 'VACUOUS TEST: removing the new-clinician branch did not change the Q16 check';
   end if;
 end $$;
 

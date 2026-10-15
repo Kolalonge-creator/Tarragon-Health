@@ -2,6 +2,7 @@
 
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { useRiskScores } from "@/lib/queries/risk-assessment";
+import { t } from "@tarragon/i18n";
 import { useLatestMentalHealthScreens } from "@/lib/queries/mental-health";
 import { useCarePlans } from "@/lib/queries/care-plans";
 import { useMedications } from "@/lib/queries/medications";
@@ -103,6 +104,7 @@ export function PreVisitSummary({
     careGaps.isLoading;
   const hasNothing =
     !isLoading &&
+    !mentalHealth.isError &&
     (riskScores.data ?? []).length === 0 &&
     Object.keys(mentalHealth.data ?? {}).length === 0 &&
     (carePlans.data ?? []).length === 0 &&
@@ -130,6 +132,11 @@ export function PreVisitSummary({
       </CardHeader>
       <CardContent className="space-y-3">
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {mentalHealth.isError && (
+          <p className="text-sm text-charcoal-ink/60">
+            {t("mood.denied.previsit")}
+          </p>
+        )}
         {hasNothing && (
           <p className="text-sm text-charcoal-ink/60">
             No risk assessment, intake screen, or active care plan on file yet.

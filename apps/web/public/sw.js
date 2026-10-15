@@ -67,7 +67,26 @@ self.addEventListener("push", (event) => {
     tag: data.notificationId || undefined,
     data: { url: data.url || "/", notificationId: data.notificationId || null },
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    (async () => {
+      await self.registration.showNotification(title, options);
+      // S19c: tell the server a page notification was actually put on the screen (Web Push gives the sender no receipt). The
+      // server only records it for the recipient's own page notification and ignores every other id. Best effort: it must
+      // never stop the notification being shown, and a signed-out browser simply gets a 401 that is ignored.
+      if (data.notificationId && typeof data.url === "string" && data.url.startsWith("/clinician/on-call")) {
+        try {
+          await fetch("/api/paging/displayed", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ notificationId: data.notificationId }),
+            keepalive: true,
+          });
+        } catch {
+          // ignore
+        }
+      }
+    })()
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {

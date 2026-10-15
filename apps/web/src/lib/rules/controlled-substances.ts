@@ -36,12 +36,12 @@ const TIER_COPY: Record<ControlledSubstanceTier, string> = {
 };
 
 const CONTROLLED_PATTERNS: { pattern: RegExp; tier: ControlledSubstanceTier; label: string }[] = [
-  { pattern: /\b(morphine|pethidine|meperidine|fentanyl|oxycodone|hydrocodone|methadone|diamorphine)\b/i, tier: "narcotic", label: "Opioid analgesic" },
-  { pattern: /\b(codeine|tramadol|dihydrocodeine)\b/i, tier: "restricted", label: "Opioid analgesic (lower schedule)" },
-  { pattern: /\b(diazepam|lorazepam|alprazolam|midazolam|clonazepam|chlordiazepoxide)\b/i, tier: "restricted", label: "Benzodiazepine" },
-  { pattern: /\b(methylphenidate|amphetamine|dexamfetamine|dextroamphetamine|lisdexamfetamine)\b/i, tier: "narcotic", label: "Stimulant" },
-  { pattern: /\b(phenobarbital(one)?)\b/i, tier: "restricted", label: "Barbiturate" },
-  { pattern: /\bketamine\b/i, tier: "restricted", label: "Dissociative anaesthetic" },
+  { pattern: /\b(morphine|pethidine|meperidine|fentanyl|oxycodone|hydrocodone|methadone|diamorphine|oxycontin|oxynorm|percocet|duragesic|sublimaze|demerol)\b/i, tier: "narcotic", label: "Opioid analgesic" },
+  { pattern: /\b(codeine|tramadol|dihydrocodeine|tramal|ultram|ultracet|tramacet|zydol|phensedyl|solpadeine|panadeine|co-?codamol|co-?dydramol)\b/i, tier: "restricted", label: "Opioid analgesic (lower schedule)" },
+  { pattern: /\b(diazepam|lorazepam|alprazolam|midazolam|clonazepam|chlordiazepoxide|bromazepam|valium|diazemuls|ativan|xanax|rivotril|klonopin|lexotan|dormicum|librium)\b/i, tier: "restricted", label: "Benzodiazepine" },
+  { pattern: /\b(methylphenidate|amphetamine|dexamfetamine|dextroamphetamine|lisdexamfetamine|ritalin|concerta|adderall|dexedrine|vyvanse)\b/i, tier: "narcotic", label: "Stimulant" },
+  { pattern: /\b(phenobarbital|phenobarbitone|luminal)\b/i, tier: "restricted", label: "Barbiturate" },
+  { pattern: /\b(ketamine|ketalar)\b/i, tier: "restricted", label: "Dissociative anaesthetic" },
 ];
 
 /** Null when the drug name matches none of the curated patterns — this is

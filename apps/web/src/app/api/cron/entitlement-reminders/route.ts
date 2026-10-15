@@ -29,6 +29,9 @@ export async function GET(request: Request): Promise<Response> {
     .update({ reminded_at: new Date().toISOString() })
     .eq("state", "active")
     .is("reminded_at", null)
+    // An employer-paid seat is renewed by the employer, and a Membership has its own 30, 14 and 7 day reminders in the database.
+    .is("roster_member_id", null)
+    .neq("kind", "membership")
     .lte("ends_at", sevenDaysFromNow.toISOString())
     .gt("ends_at", new Date().toISOString())
     .select("id, patient_id, organisation_id, ends_at, kind");

@@ -20,6 +20,9 @@ describe("settings helpers", () => {
     expect(fromRow({ quiet_enabled: false, quiet_start: "22:00:00", quiet_end: "06:30:00" }, true))
       .toEqual({ quietEnabled: false, quietStart: "22:00", quietEnd: "06:30", discreet: true });
     expect(fromRow({ quiet_enabled: true, quiet_start: "bad", quiet_end: "bad" }, undefined))
-      .toEqual(DEFAULT_SETTINGS);
+      .toEqual({ ...DEFAULT_SETTINGS, quietEnabled: true });
+  });
+  it("leaves quiet hours off until a person turns them on", () => {
+    expect(DEFAULT_SETTINGS.quietEnabled).toBe(false);
   });
 });

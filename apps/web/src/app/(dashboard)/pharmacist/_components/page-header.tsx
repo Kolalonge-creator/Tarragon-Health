@@ -11,6 +11,9 @@ const SECTIONS: Record<string, { label: string; subtitle: string }> = {
     subtitle: "Check authenticity, medication detail, and validity for any patient's prescription",
   },
   "/pharmacist/history": { label: "Dispensing history", subtitle: "Everything dispensed against orders" },
+  "/pharmacist/messages": { label: "Patient messages", subtitle: "Questions from patients whose prescription was sent to you" },
+  "/pharmacist/statements": { label: "Statements", subtitle: "What Tarragon owes your pharmacy, month by month" },
+  "/pharmacist/quality": { label: "Quality and sourcing", subtitle: "How you are doing, and where your medicines come from" },
   "/pharmacist/profile": { label: "Pharmacy profile", subtitle: "Regions, contact & licence details" },
 };
 

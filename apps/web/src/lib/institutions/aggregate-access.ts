@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import { isCohortSuppressed, effectiveMinCohortSize } from "./suppression";
 
 /**
@@ -49,6 +50,8 @@ export type InstitutionAggregateAccess = {
  */
 export async function requireInstitutionAggregateAccess(
   organisationId: string,
+  /** A short lowercase label for the page or action doing the read. Never a patient or health value. */
+  surface = "institution_aggregate",
 ): Promise<InstitutionAggregateAccess | null> {
   // Read the caller's own row through their own session, never the service
   // role — the identity check must not use the credential it is gating.
@@ -70,6 +73,18 @@ export async function requireInstitutionAggregateAccess(
     profile.role === "corporate_admin" || profile.role === "hmo_admin";
   if (!isSuperadmin && !isInstitutionAdmin) return null;
   if (!isSuperadmin && profile.organisation_id !== organisationId) return null;
+
+  // S75 A2: record who read which organisation's aggregates, under the caller's own session so the database
+  // knows the real reader. One row per reader, organisation, surface and day (the database de-duplicates). The row
+  // carries no health data. A failure to write it is reported to Sentry but does not take the dashboard down: the
+  // figures are aggregates already held back below the small-group floor.
+  await runBestEffort(async () => {
+    const { error } = await rls.rpc("log_institution_aggregate_read", {
+      p_organisation_id: organisationId,
+      p_surface: surface,
+    });
+    if (error) throw new Error(`log_institution_aggregate_read failed: ${error.message}`);
+  }, { organisationId, surface });
 
   const client = createServiceRoleClient();
 

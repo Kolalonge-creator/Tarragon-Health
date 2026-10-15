@@ -3,7 +3,6 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getContractPerformance } from "@/lib/outcomes-contracts/get-contract-performance";
 import { loadCohortAnalytics } from "@/lib/corporate/load-cohort-analytics";
 import { loadCareGaps } from "@/lib/care-gaps/load-care-gaps";
-import { estimateCostAvoided } from "@/lib/care-gaps/estimate-cost-avoided";
 import { requireInstitutionAggregateAccess } from "@/lib/institutions/aggregate-access";
 import { loadMedicationOutcomes } from "@/lib/outcomes/medication-outcomes";
 import { loadEngagementOutcomeCorrelation } from "@/lib/outcomes/engagement-outcome-correlation";
@@ -25,7 +24,7 @@ async function loadHmoDashboardDataUncached() {
   // patient-scoped table, so the aggregates come through the one verified
   // server-side doorway instead. Roster management still runs on the
   // caller's own session — that table is the HMO's own membership list.
-  const access = await requireInstitutionAggregateAccess(profile.organisation_id);
+  const access = await requireInstitutionAggregateAccess(profile.organisation_id, "hmo_dashboard");
   if (!access) {
     return { state: "no-access" as const, greeting };
   }
@@ -64,12 +63,6 @@ async function loadHmoDashboardDataUncached() {
     };
   }
 
-  const costAvoided = await estimateCostAvoided(
-    access.client,
-    access.organisationId,
-    analytics.abnormal_findings_count
-  );
-
   return {
     state: "ready" as const,
     greeting,
@@ -78,7 +71,6 @@ async function loadHmoDashboardDataUncached() {
     analytics,
     contractPerformance,
     careGaps,
-    costAvoided,
     medicationOutcomes,
     engagementOutcomes,
     vaccinationCoverage,

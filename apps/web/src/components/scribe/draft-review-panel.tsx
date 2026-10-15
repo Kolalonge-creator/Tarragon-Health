@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { splitEntities } from "@/lib/scribe/entity-highlight";
 import { afterEdit, canUseDraft, isEmptySection, setConfirmed, unconfirmed, type Confirmations, type DraftSectionKey } from "@/lib/scribe/draft-review";
 
 const WARNING_KEYS = {
@@ -90,6 +91,7 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
               }}
               rows={key === "patientSummary" ? 4 : 3}
             />
+            <EntityCheck text={fields[key]} />
             {isEmptySection(fields[key]) && (
               <p className="mt-1 text-xs text-amber-700">{t(key === "patientSummary" ? "scribe.review.empty_summary" : "scribe.review.empty_flag", "en")}</p>
             )}
@@ -141,5 +143,30 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * S11-S15 Q19: every drug name and number in the section, marked, so the signing clinician checks them one by one against what was
+ * said. A read-only copy of the text sits under the box (the box itself cannot colour words). It shows only when the section has any.
+ */
+function EntityCheck({ text }: { text: string }) {
+  const parts = splitEntities(text);
+  if (!parts.some((p) => p.kind)) return null;
+  return (
+    <div className="mt-1 rounded-md border border-amber-200 bg-amber-50/60 p-2 text-xs text-charcoal-ink" data-testid="entity-check">
+      <p className="mb-1 font-medium">{t("scribe.review.check_these", "en")}</p>
+      <p className="whitespace-pre-wrap">
+        {parts.map((p, i) =>
+          p.kind ? (
+            <mark key={i} data-kind={p.kind} className={p.kind === "drug" ? "rounded bg-amber-200 px-0.5 font-semibold" : "rounded bg-sky-200 px-0.5 font-semibold"}>
+              {p.text}
+            </mark>
+          ) : (
+            <span key={i}>{p.text}</span>
+          ),
+        )}
+      </p>
+    </div>
   );
 }

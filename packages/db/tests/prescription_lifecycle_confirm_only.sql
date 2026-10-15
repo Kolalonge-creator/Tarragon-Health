@@ -67,7 +67,7 @@ begin
     indemnity_insurer, indemnity_policy_number, indemnity_expires_at
   ) values (
     v_org, v_clin, 'Prescription Lifecycle Probe', true, now(),
-    'medical_officer',
+    'senior_medical_officer',
     'Probe Indemnity Ltd', 'PROBE-RX-LIFECYCLE', now() + interval '1 year'
   ) returning id into v_staff_id;
 

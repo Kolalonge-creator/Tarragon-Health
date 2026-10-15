@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Text } from "react-native";
 import { loadMonitoringCover } from "@/lib/monitoring-cover";
+import { loadMembership } from "@/lib/commerce/api";
 import type { ServicePurchaseWithProduct } from "@/lib/services";
 import { useLegacyColors } from "@/ui/design";
 import { Card, MutedText } from "@/ui/legacy-kit";
@@ -21,19 +22,24 @@ function shortDate(iso: string): string {
 }
 
 /**
- * Mirrors apps/web/src/components/monitoring-cover-card.tsx. Same two rules
- * apply here: never imply an uncovered patient is unmonitored (every reading
- * is still checked against protocols and the full emergency safety net
- * applies regardless of payment), and never suggest cover might auto-renew
- * (it never does — see the pricing page's "no subscription, nothing to
- * cancel" promise).
+ * Mirrors apps/web/src/components/monitoring-cover-card.tsx. Same rules apply
+ * here: never imply a free-plan patient is unmonitored (every reading is still
+ * checked against protocols and the full emergency safety net applies on both
+ * plans), and never suggest anything might auto-renew. Continuous monitoring is
+ * a Membership benefit now, not a product: this card names no price. A pass
+ * bought before that, and still held, is shown until it ends.
  */
 export function MonitoringCoverCard() {
   const colors = useLegacyColors();
   const [cover, setCover] = useState<ServicePurchaseWithProduct | null | undefined>(undefined);
+  const [isMember, setIsMember] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    loadMembership().then((m) => {
+      // inside the 14 day grace the person is still a Member (graceEndsAt is set only then)
+      if (!cancelled && m.ok) setIsMember(m.data.isMember || m.data.graceEndsAt !== undefined);
+    });
     loadMonitoringCover().then((result) => {
       if (!cancelled) setCover(result);
     });
@@ -44,17 +50,30 @@ export function MonitoringCoverCard() {
 
   if (cover === undefined) return null;
 
+  if (isMember) {
+    return (
+      <Card style={{ gap: 6, borderColor: colors.brand }}>
+        <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
+          A doctor is watching your readings
+        </Text>
+        <MutedText>
+          As a Member, a doctor on your care team is told when one of your readings is dangerous and follows up with you.
+        </MutedText>
+      </Card>
+    );
+  }
+
   if (!cover) {
     return (
       <Card style={{ gap: 6 }}>
         <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
-          Nobody is alerted when one of your readings is dangerous
+          On the free plan a doctor is not told when a reading is dangerous
         </Text>
         <MutedText>
           Every reading you log is still checked against care protocols, and you still get the full
           emergency safety net — immediate guidance, your emergency contact notified, and a check-in
-          afterwards. Continuous Monitoring adds a doctor on your care team being told as well, for
-          ₦30,000 across 90 days. Nothing renews and no card is kept.
+          afterwards. Membership adds a doctor on your care team being told as well, and following
+          up with you. You can join from the Membership page.
         </MutedText>
       </Card>
     );
