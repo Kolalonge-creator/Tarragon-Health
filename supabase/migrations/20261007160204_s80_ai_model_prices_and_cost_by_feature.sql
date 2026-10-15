@@ -1,10 +1,12 @@
 -- S80 (25.10): AI model cost by feature.
+-- NOTE: the table is public.ai_model_price_versions, not ai_model_prices: production already has an unrelated public.ai_model_prices
+-- (different columns, from another branch's applied migration), so this one takes its own name. Functions keep their names.
 --
 -- Reconciled first. Every governed AI call already writes `ai_interaction_log` with `model_identifier` and token counts
 -- (`input_token_count`, `output_token_count`), and `ai_systems` names the feature. What was missing: any price. Nothing here
 -- invents one.
 --
---   public.ai_model_prices        append-only price list per model: input and output price per million tokens in INTEGER minor units
+--   public.ai_model_price_versions        append-only price list per model: input and output price per million tokens in INTEGER minor units
 --                                 of the row's currency, valid from a date. PROPOSED and unsigned (config_status, signed_* stay
 --                                 null: no function signs it; a person must). Ships EMPTY. A price is entered through
 --                                 add_ai_model_price with a source note saying where the number came from.
@@ -15,9 +17,9 @@
 --                                 usage across the platform). Cost is returned as `cost_millionths_minor`: millionths of a minor unit,
 --                                 an exact integer (tokens x price per million), so no float is involved; divide by 1,000,000 to show.
 --                                 ai_interaction_log has no is_test column, so there is nothing to exclude; this is stated on the screen.
--- Counts at write time: ai_model_prices is new and empty; no existing rows are changed.
+-- Counts at write time: ai_model_price_versions is new and empty; no existing rows are changed.
 
-create table public.ai_model_prices (
+create table public.ai_model_price_versions (
   id                        uuid primary key default gen_random_uuid(),
   model_identifier          text not null check (char_length(btrim(model_identifier)) > 0),
   input_per_million_minor   bigint not null check (input_per_million_minor >= 0),
@@ -32,15 +34,15 @@ create table public.ai_model_prices (
   created_at                timestamptz not null default now(),
   unique (model_identifier, valid_from)
 );
-alter table public.ai_model_prices enable row level security;
-create policy ai_model_prices_read on public.ai_model_prices for select to authenticated using (private.has_permission('ai_governance.manage'));
-revoke all on public.ai_model_prices from anon, authenticated;
-grant select on public.ai_model_prices to authenticated;
+alter table public.ai_model_price_versions enable row level security;
+create policy ai_model_prices_read on public.ai_model_price_versions for select to authenticated using (private.has_permission('ai_governance.manage'));
+revoke all on public.ai_model_price_versions from anon, authenticated;
+grant select on public.ai_model_price_versions to authenticated;
 
 create function private.ai_model_prices_append_only() returns trigger
 language plpgsql set search_path = ''
-as $$ begin raise exception 'ai_model_prices is append-only: add a new price with a later valid_from' using errcode = '42501'; end $$;
-create trigger ai_model_prices_no_change before update or delete on public.ai_model_prices
+as $$ begin raise exception 'ai_model_price_versions is append-only: add a new price with a later valid_from' using errcode = '42501'; end $$;
+create trigger ai_model_prices_no_change before update or delete on public.ai_model_price_versions
   for each row execute function private.ai_model_prices_append_only();
 
 create function public.add_ai_model_price(
@@ -53,10 +55,10 @@ begin
   if (select auth.uid()) is null or not private.has_permission('ai_governance.manage') then
     raise exception 'you may not enter AI model prices' using errcode = '42501';
   end if;
-  insert into public.ai_model_prices (model_identifier, input_per_million_minor, output_per_million_minor, currency, valid_from, source_note, created_by)
+  insert into public.ai_model_price_versions (model_identifier, input_per_million_minor, output_per_million_minor, currency, valid_from, source_note, created_by)
   values (btrim(p_model), p_input_per_million_minor, p_output_per_million_minor, upper(btrim(p_currency)), p_valid_from, btrim(p_source_note), (select auth.uid()))
   returning id into v_id;
-  perform private.log_audit('ai.model_price_added', 'ai_model_prices', v_id,
+  perform private.log_audit('ai.model_price_added', 'ai_model_price_versions', v_id,
     jsonb_build_object('model', btrim(p_model), 'currency', upper(btrim(p_currency)), 'valid_from', p_valid_from));
   return v_id;
 exception when check_violation or not_null_violation then
@@ -92,7 +94,7 @@ begin
         from public.ai_interaction_log l
         left join lateral (
           select p.currency, p.input_per_million_minor, p.output_per_million_minor
-            from public.ai_model_prices p
+            from public.ai_model_price_versions p
            where p.model_identifier = l.model_identifier and p.valid_from <= l.created_at
            order by p.valid_from desc limit 1) pr on true
        where l.created_at >= p_from and l.created_at < p_to and (v_all or l.organisation_id = v_org)
@@ -118,8 +120,8 @@ begin
      or has_function_privilege('anon', 'public.add_ai_model_price(text, bigint, bigint, text, timestamptz, text)', 'EXECUTE') then
     raise exception 'ai cost functions are executable by anon';
   end if;
-  if has_table_privilege('authenticated', 'public.ai_model_prices', 'INSERT') or has_table_privilege('anon', 'public.ai_model_prices', 'SELECT') then
-    raise exception 'ai_model_prices has a grant it must not have';
+  if has_table_privilege('authenticated', 'public.ai_model_price_versions', 'INSERT') or has_table_privilege('anon', 'public.ai_model_price_versions', 'SELECT') then
+    raise exception 'ai_model_price_versions has a grant it must not have';
   end if;
-  if (select count(*) from public.ai_model_prices) <> 0 then raise exception 'ai_model_prices must ship empty'; end if;
+  if (select count(*) from public.ai_model_price_versions) <> 0 then raise exception 'ai_model_price_versions must ship empty'; end if;
 end $$;
