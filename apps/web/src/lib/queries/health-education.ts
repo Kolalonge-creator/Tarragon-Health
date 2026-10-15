@@ -441,7 +441,8 @@ export function useHealthEducationRecommendations(patientId: string) {
         .is("dismissed_at", null)
         .order("triggered_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as HealthEducationRecommendation[];
+      // F1: content past its review date is hidden by RLS, so its embedded row is null; drop those cards.
+      return ((data ?? []) as unknown as HealthEducationRecommendation[]).filter((r) => r.content !== null);
     },
     enabled: !!patientId,
   });
