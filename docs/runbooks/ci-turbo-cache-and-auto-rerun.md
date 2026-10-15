@@ -5,9 +5,12 @@
 (no Vercel remote-cache token, no secrets). Key: OS, job kind, `pnpm-lock.yaml` hash, commit sha;
 `restore-keys` fall back to the newest entry for the same lockfile, then the same job. Turbo still
 hashes every task's inputs, so a cache hit only happens when the package's files, dependencies and
-upstream outputs are unchanged. A changed package always re-runs. `turbo.json` needed no change:
-`build` already declares outputs; `lint`/`typecheck`/`test` have none, so a hit replays logs and
-(correctly) restores nothing.
+upstream outputs are unchanged. A changed package always re-runs. `turbo.json`: `build` already declares outputs; `lint`/`typecheck`/`test` have none, so a hit replays logs and
+restores nothing. Those three now also list `supabase/migrations/**` and `supabase/functions/**` as inputs,
+because package tests read migration SQL and edge-function sources from outside the package; without this a
+migration-only PR would replay a stale pass. Cache is saved in an `always()` step (failed runs still seed it);
+only web shard 1 saves (all shards build the same thing). `main-dev` was added to the CI push trigger because
+GitHub only shares default-branch caches across PRs. That adds one CI run per merge.
 
 Expected effect (not measured yet): a PR touching one package re-uses cached typecheck/lint/test/build for
 untouched packages, and the 3 web shards skip rebuilding workspace packages. The web Jest run itself
@@ -21,7 +24,9 @@ other's); entries are evicted after 7 days idle or beyond the repo's 10 GB cache
 After CI completes with `failure`, and only for `run_attempt == 1`, it inspects each failed or cancelled
 job (annotations first, then the last 400 log lines). It re-runs failed jobs once, only if every failed
 job shows an infrastructure signature: `received a shutdown signal`, `lost communication with the server`,
-`toomanyrequests`, or `rate limit exceeded` next to docker/registry/supabase/setup-cli. Any other
+`toomanyrequests`, or `rate limit exceeded` within 200 characters of docker/registry/supabase/setup-cli. The
+aggregate `TypeScript (web + shared)` job is ignored (it fails whenever a part fails). Same-repo runs only.
+The rate-limit patterns are guesses at real log text and may miss multi-line messages (fails closed: no re-run). Any other
 failure means no re-run. Loop guard: the re-run is attempt 2, which the workflow ignores.
 Permissions: `actions: write`, `contents: read`, `checks: read`; plain `gh` CLI, no checkout, no
 third-party actions.

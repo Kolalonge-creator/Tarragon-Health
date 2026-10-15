@@ -8,7 +8,8 @@ name: Auto-rerun lost runner
 #   1. Only run_attempt == 1 is considered. The re-run it triggers is attempt 2, which this workflow ignores, so there is at most one automatic
 #      re-run per CI run.
 #   2. The workflow_run trigger only fires for the workflow named "CI" on completion, never for this workflow itself.
-#   3. If any failed job's evidence does not match an infrastructure signature, nothing is re-run.
+#   3. Same-repository runs only (a fork PR could print a signature string on purpose to force a re-run).
+#   4. If any failed job's evidence does not match an infrastructure signature, nothing is re-run.
 # Security: workflow_run runs with the default-branch workflow and a write-capable token, so this file checks out nothing and runs no code from
 # the PR; it only reads job metadata/annotations/logs through the GitHub API and calls the re-run endpoint.
 
@@ -25,7 +26,7 @@ permissions:
 jobs:
   rerun:
     name: Re-run once on infrastructure failure
-    if: ${{ github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.run_attempt == 1 }}
+    if: ${{ github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.run_attempt == 1 && github.event.workflow_run.head_repository.full_name == github.repository }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -40,9 +41,11 @@ jobs:
           # Case-insensitive extended regexes. Runner loss is unambiguous. Rate-limit text is only accepted next to a Docker/registry/Supabase
           # word, because the app's own tests legitimately print "rate limit exceeded" and must never look like infrastructure.
           INFRA='received a shutdown signal|lost communication with the server|toomanyrequests|(docker|registry|supabase|setup-cli).{0,200}rate limit exceeded|rate limit exceeded.{0,200}(docker|registry|supabase|setup-cli)'
-          jobs_json=$(gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/jobs?filter=latest&per_page=100" --jq '.jobs[] | select(.conclusion=="failure" or .conclusion=="cancelled") | {id, name, conclusion}' | jq -s '.')
+          jobs_json=$(gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/jobs?filter=latest&per_page=100" --jq '.jobs[] | select(.conclusion=="failure" or .conclusion=="cancelled") | select(.name != "TypeScript (web + shared)") | {id, name, conclusion}' | jq -s '.')
           count=$(echo "$jobs_json" | jq 'length')
-          echo "failed or cancelled jobs: $count"
+          # The aggregate "TypeScript (web + shared)" job fails whenever one of its parts failed, with no signature of its own, so it is excluded and
+          # only the leaf jobs are classified.
+          echo "failed or cancelled leaf jobs: $count"
           if [ "$count" -eq 0 ]; then echo "nothing to classify"; exit 0; fi
 
           all_infra=true

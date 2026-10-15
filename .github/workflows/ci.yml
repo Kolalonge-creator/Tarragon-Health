@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # main-dev is listed so merges seed the Actions cache: caches made on a PR ref are invisible to other PRs, only default-branch caches are shared.
+    branches: [main, main-dev]
   pull_request:
 
 concurrency:
@@ -41,7 +42,8 @@ jobs:
       # and restores the newest entry for this job, so unchanged packages replay from cache. Turbo hashes task inputs itself; a stale entry can
       # only be reused when the hash matches, so this cannot hide a real change.
       - name: Restore turbo cache
-        uses: actions/cache@v4
+        id: turbo-cache
+        uses: actions/cache/restore@v4
         with:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-core-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
@@ -65,6 +67,13 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Save turbo cache
+        if: ${{ always() && steps.turbo-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-core-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
 
   web-tests:
     name: Web tests (shard ${{ matrix.shard }} of 3)
@@ -95,7 +104,8 @@ jobs:
       # and restores the newest entry for this job, so unchanged packages replay from cache. Turbo hashes task inputs itself; a stale entry can
       # only be reused when the hash matches, so this cannot hide a real change.
       - name: Restore turbo cache
-        uses: actions/cache@v4
+        id: turbo-cache
+        uses: actions/cache/restore@v4
         with:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-web-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
@@ -109,6 +119,13 @@ jobs:
 
       - name: Test (web, shard ${{ matrix.shard }} of 3)
         run: pnpm --filter @tarragon/web exec jest --shard=${{ matrix.shard }}/3 --maxWorkers=2 --workerIdleMemoryLimit=1GB
+
+      - name: Save turbo cache
+        if: ${{ always() && matrix.shard == 1 && steps.turbo-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-web-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
 
   # The check branch protection requires. It only reports green when both halves above are green (a skipped or cancelled half is a failure,
   # so a runner loss can never read as success).
