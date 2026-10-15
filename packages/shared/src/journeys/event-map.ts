@@ -77,9 +77,9 @@ export const EVENT_MAP: readonly EventMapRow[] = [
     spec: "D.7.2 symptom check completed",
     eventType: "symptom_check.completed",
     gap: {
-      missing: ["event_type", "emitter", "subscriber", "effect"],
+      missing: ["subscriber", "effect"],
       owner: "S59, S60",
-      note: "no symptom checker module exists. Only a red-flag symptom row re-emits observation.recorded for a nearby blood pressure reading (private.emit_symptom_regrade), which is a precursor, not this event.",
+      note: "S60 now emits symptom_check.completed (one event per recorded assessment) but nothing subscribes yet, so no next step is driven from it. Before that, only a red-flag symptom row re-emits observation.recorded for a nearby blood pressure reading (private.emit_symptom_regrade), which is a precursor, not this event.",
     },
   },
   {
@@ -137,7 +137,7 @@ export const EVENT_MAP: readonly EventMapRow[] = [
     spec: "D.7.2 pregnancy recorded",
     eventType: "pregnancy.recorded",
     gap: {
-      missing: ["event_type", "emitter", "subscriber", "effect"],
+      missing: ["emitter", "subscriber", "effect"],
       owner: "S67",
       note: "pregnancy tables exist from older work; nothing publishes an event or switches thresholds through the bus",
     },
@@ -154,7 +154,7 @@ export const EVENT_MAP: readonly EventMapRow[] = [
     spec: "D.7.2 silence (no activity for a set period)",
     eventType: "silence.detected",
     gap: {
-      missing: ["emitter", "subscriber", "effect"],
+      missing: ["emitter"],
       owner: "S26",
       note: "the type is seeded and the engine has a silence rule, but no job emits silence.detected and nothing subscribes (assistant re-engagement and the clinician call are not driven from the bus). S26 or an S10 follow-up.",
     },

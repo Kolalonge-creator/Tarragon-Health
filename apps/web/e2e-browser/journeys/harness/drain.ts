@@ -140,5 +140,11 @@ export async function drainBus(opts: { clock?: Clock; maxPasses?: number } = {})
       total.claimFailed = total.claimFailed || s.claimFailed;
       if (s.claimed === 0) break;
   }
+  // S19c: the real edge function records the paging engine's heartbeat after every pass that got as far as claiming; the harness does the same,
+  // so a journey exercises the same RPC set (drain-parity.test.ts pins the two lists together).
+  if (!total.claimFailed) {
+    const { error } = await supabase.rpc("record_engine_heartbeat", { p_component: "process_events" });
+    if (error) throw new Error(error.message);
+  }
   return { summary: total, passes: passes + 1, hosts: [...hosts] };
 }
