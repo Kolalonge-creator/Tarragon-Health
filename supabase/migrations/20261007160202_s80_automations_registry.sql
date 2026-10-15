@@ -70,7 +70,9 @@ select v.job_name, v.schedule, 'vercel' from (values
   ('/api/cron/community-housekeeping', '50 3 * * *'),
   ('/api/cron/skin-photo-purge', '35 3 * * *'),
   ('/api/cron/testing-day-reminders', '35 6 * * *'),
-  ('/api/cron/assistant-nudges', '30 7 * * *')
+  ('/api/cron/assistant-nudges', '30 7 * * *'),
+  ('/api/cron/assistant-silence', '40 7 * * *'),
+  ('/api/cron/assistant-review-sample', '0 4 1 * *')
 ) v (job_name, schedule)
 on conflict (job_name) do nothing;
 -- vercel-crons-end
