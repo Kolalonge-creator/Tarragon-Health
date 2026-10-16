@@ -130,12 +130,18 @@ const ERROR_TEXT: Record<string, string> = {
   pilot_reason_needed: "Give a reason of at least 10 characters.",
   pilot_unknown: "That pilot was not found.",
   organisation_membership_not_open: "Organisation Membership is not switched on yet.",
+  pilot_config_missing: "The pilot limits are not configured. Tell the founder.",
+  pilot_payment_method_invalid: "Choose bank transfer or Paystack payment link.",
+  pilot_state_transition_not_allowed: "That step is not allowed for the pilot's current state. Refresh the page.",
+  pilot_invoice_paid_cannot_void: "A paid pilot invoice cannot be voided. End the pilot instead.",
 };
 
 /** Maps a database error to words a finance person can act on. Unknown errors become a neutral line, never raw SQL text. */
 export function pilotErrorText(message: string | undefined): string {
   if (!message) return "Something went wrong. Please try again.";
-  for (const [code, text] of Object.entries(ERROR_TEXT)) if (message.includes(code)) return text;
+  // longest code first, so a code that is a prefix of another (pilot_unknown, pilot_unknown_employer) cannot shadow it
+  const codes = Object.keys(ERROR_TEXT).sort((a, b) => b.length - a.length);
+  for (const code of codes) if (message.includes(code)) return ERROR_TEXT[code] as string;
   if (message.includes("employer_seat_pilots_payment_reference_key")) return "That reference has already been used for another pilot.";
   if (message.includes("employer_seat_pilots_one_live_per_org")) return "This employer already has a live pilot. Close it before starting another.";
   if (message.includes("employer_invoices_org_period_key")) return "An invoice already exists for this employer and these dates.";

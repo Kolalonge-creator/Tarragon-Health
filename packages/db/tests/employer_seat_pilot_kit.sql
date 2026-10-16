@@ -97,6 +97,8 @@ begin
   insert into public.employer_accounts (organisation_id) values (a), (b), (c);
   perform pg_temp.setf('orgA', a); perform pg_temp.setf('orgB', b); perform pg_temp.setf('orgC', c); perform pg_temp.setf('orgD', d);
   update public.organisations set min_cohort_size = 5 where id = a;
+  -- the platform floor is 20 in production (S75a); the fixtures use 12 members, so the platform number is lowered to 5 for this transaction only
+  update public.outcome_config set config = jsonb_set(config, '{min_cell}', '5') where is_active;
   perform pg_temp.setf('corpA', pg_temp.mkuser(a, 'corpA', 'corporate_admin'));
   perform pg_temp.setf('corpB', pg_temp.mkuser(b, 'corpB', 'corporate_admin'));
   for i in 1..20 loop
@@ -152,6 +154,12 @@ begin
   perform pg_temp.ck('a patient reads none', '0', pg_temp.q_as(pg_temp.f('p1'), 'select count(*)::text from public.employer_seat_pilots'));
   perform pg_temp.ck('the employer admin cannot edit its pilot', 'true',
     (pg_temp.q_as(pg_temp.f('corpA'), format($q$update public.employer_seat_pilots set state = 'cancelled' where id = %L$q$, v_pilot)) like 'ERR:%permission denied%')::text);
+  update public.platform_modules set is_enabled = false where key = 'organisation_membership';
+  perform pg_temp.ck('with the module off a pilot cannot be created', 'true',
+    (pg_temp.q_as(adm, format($q$select public.create_employer_seat_pilot(%L, %L, 5, %L, %L, 'terms-v9')::text$q$, pg_temp.f('orgB'), pg_temp.f('pkgB'), t, t + 30)) like '%organisation_membership_not_open%')::text);
+  perform pg_temp.ck('with the module off the invoice cannot be issued either', 'true',
+    (pg_temp.q_as(adm, format($q$select public.issue_employer_seat_pilot_invoice(%L)::text$q$, v_pilot)) like '%organisation_membership_not_open%')::text);
+  update public.platform_modules set is_enabled = true where key = 'organisation_membership';
   perform pg_temp.ck('nobody but the owner reads the config table', 'true',
     (pg_temp.q_as(pg_temp.f('corpA'), 'select count(*)::text from public.employer_seat_pilot_config') like 'ERR:%permission denied%')::text);
 end $$;
@@ -208,6 +216,8 @@ begin
     (r::jsonb ->> 'result') || '/' || (r::jsonb ->> 'granted') || '/' || (select count(*)::text from public.entitlements where pilot_id = v_pilot));
   perform pg_temp.ck('confirming with a different reference is refused', 'true',
     (pg_temp.q_as(adm, format($q$select public.confirm_employer_seat_pilot_payment(%L, 'bank_transfer', 'OTHER-REF-77')::text$q$, v_pilot)) like '%pilot_already_paid_other_reference%')::text);
+  perform pg_temp.ck('a paid pilot invoice cannot be voided on its own (it would let the seats be billed again)', 'true',
+    (pg_temp.q_as(adm, format($q$select public.employer_set_invoice_status(%L, 'void', 'Voiding a paid pilot invoice')::text$q$, v_inv)) like '%pilot_invoice_paid_cannot_void%')::text);
   perform pg_temp.ck('the confirmation is audited once', '1', (select count(*)::text from public.audit_log where action = 'employer_seat_pilot.payment_confirmed' and entity_id = v_pilot));
 end $$;
 
@@ -251,6 +261,11 @@ begin
   perform pg_temp.ck('closing again is a replay', 'ended', pg_temp.q_as(adm, format($q$select public.close_employer_seat_pilot(%L, 'Pilot review completed in the proof run')::text$q$, pg_temp.f('pilotA'))));
   perform pg_temp.ck('ending a paid pilot leaves members their Membership and the invoice paid', 'true/paid',
     private.patient_is_member(pg_temp.f('p2'))::text || '/' || (select i.status::text from public.employer_seat_pilots p join public.employer_invoices i on i.id = p.invoice_id where p.id = pg_temp.f('pilotA')));
+  perform pg_temp.ck('the employer cannot read finance''s closing note', 'true',
+    (pg_temp.q_as(pg_temp.f('corpA'), 'select close_reason from public.employer_seat_pilots limit 1') like 'ERR:%permission denied%')::text);
+  perform pg_temp.ck('the employer cannot read who created or activated the pilot', 'true',
+    (pg_temp.q_as(pg_temp.f('corpA'), 'select created_by::text from public.employer_seat_pilots limit 1') like 'ERR:%permission denied%')::text);
+  perform pg_temp.ck('but reads its own terms and state', 'ended', pg_temp.q_as(pg_temp.f('corpA'), 'select state from public.employer_seat_pilots limit 1'));
   r14 := pg_temp.claim(a, pg_temp.f('pkgA'), pg_temp.f('p14'));
   perform pg_temp.ck('after the pilot ended a new claim gets no seat', 'pilot_closed/0',
     (select seat_state from public.employer_roster_members where id = r14) || '/' || (select count(*)::text from public.entitlements where patient_id = pg_temp.f('p14')));
@@ -263,25 +278,31 @@ begin
   perform pg_temp.ck('a payment reference cannot be reused on another pilot', 'true',
     (pg_temp.owner_try(format($q$update public.employer_seat_pilots set payment_reference = 'BANK-REF-2002' where id = %L$q$, pg_temp.f('pilotA'))) like '%employer_seat_pilots_payment_reference_key%')::text);
   perform pg_temp.claim(b, pg_temp.f('pkgB'), pg_temp.f('p15'));
-  perform pg_temp.ck('a paid pilot whose window has not opened grants nothing yet', 'pilot_closed/0',
-    (select seat_state from public.employer_roster_members where claimed_profile_id = pg_temp.f('p15')) || '/' || (select count(*)::text from public.entitlements where patient_id = pg_temp.f('p15')));
+  perform pg_temp.ck('a paid pilot grants seats from the day payment is confirmed, even before its start date (nobody waits for a date)', 'seat/1',
+    (select seat_state from public.employer_roster_members where claimed_profile_id = pg_temp.f('p15')) || '/' || (select count(*)::text from public.entitlements where patient_id = pg_temp.f('p15') and pilot_id = v_pb));
 
   -- an unpaid pilot that is cancelled: invoice voided, employer back on arrears billing
   v_pc := pg_temp.q_as(adm, format($q$select public.create_employer_seat_pilot(%L, %L, 6, %L, %L, 'terms-v1', true)::text$q$, c, pg_temp.f('pkgC'), t, t + 30))::uuid;
   v_inv := pg_temp.q_as(adm, format($q$select public.issue_employer_seat_pilot_invoice(%L)::text$q$, v_pc))::uuid;
+  perform pg_temp.claim(c, pg_temp.f('pkgC'), pg_temp.f('p16'));
+  perform pg_temp.ck('while the block is unpaid the claim waits', 'waiting_payment/0',
+    (select seat_state from public.employer_roster_members where claimed_profile_id = pg_temp.f('p16')) || '/' || (select count(*)::text from public.entitlements where patient_id = pg_temp.f('p16')));
   perform pg_temp.ck('finance cancels an unpaid pilot', 'cancelled', pg_temp.q_as(adm, format($q$select public.close_employer_seat_pilot(%L, 'Employer withdrew before paying')::text$q$, v_pc)));
   perform pg_temp.ck('its invoice is voided with the reason', 'void/Employer withdrew before paying',
     (select status::text || '/' || void_reason from public.employer_invoices where id = v_inv));
-  perform pg_temp.claim(c, pg_temp.f('pkgC'), pg_temp.f('p16'));
-  perform pg_temp.ck('after a cancelled pilot the employer is on normal arrears billing again', '1/0',
-    (select count(*)::text || '/' || count(pilot_id)::text from public.entitlements where patient_id = pg_temp.f('p16') and state = 'active'));
+  perform pg_temp.ck('cancelling gives the person who was waiting the ordinary seat, on normal arrears billing again', '1/0/seat',
+    (select count(*)::text || '/' || count(pilot_id)::text from public.entitlements where patient_id = pg_temp.f('p16') and state = 'active') || '/' ||
+    (select seat_state from public.employer_roster_members where claimed_profile_id = pg_temp.f('p16')));
   v_pc := pg_temp.q_as(adm, format($q$select public.create_employer_seat_pilot(%L, %L, 1, %L, %L, 'terms-v2', true)::text$q$, c, pg_temp.f('pkgC'), t, t + 30))::uuid;
   perform pg_temp.ck('a cancelled pilot can be followed by a new one', 'true', (v_pc is not null)::text);
   perform pg_temp.setf('pilotC2', v_pc);
   perform pg_temp.q_as(adm, format($q$select public.issue_employer_seat_pilot_invoice(%L)::text$q$, v_pc));
   perform pg_temp.q_as(adm, format($q$select public.confirm_employer_seat_pilot_payment(%L, 'bank_transfer', 'BANK-REF-3003')::text$q$, v_pc));
+  perform pg_temp.q_as(adm, format($q$select public.set_organisation_member_price(%L, 9000000, 'Price moved after the pilot was created', now() - interval '1 hour')::text$q$, c));
   perform pg_temp.claim(c, pg_temp.f('pkgC'), pg_temp.f('p17'));
   perform pg_temp.claim(c, pg_temp.f('pkgC'), pg_temp.f('p18'));
+  perform pg_temp.ck('a pilot seat keeps the price the pilot was made at, whatever the organisation price becomes', '10000000',
+    (select seat_price_kobo::text from public.entitlements where pilot_id = v_pc));
   perform pg_temp.ck('a one seat pilot gives the first claim the seat and the second none', '1/no_seat_left',
     (select count(*)::text from public.entitlements where pilot_id = v_pc) || '/' || (select seat_state from public.employer_roster_members where claimed_profile_id = pg_temp.f('p18')));
 end $$;
@@ -325,12 +346,17 @@ begin
   perform pg_temp.ck('9 consultations are shown rounded to 10', '10', (r -> 'usage' ->> 'consultations_completed'));
   perform pg_temp.ck('10 of 12 members logged a check-in: withheld, because the 2 who did not would be identifiable (complementary suppression)', 'null',
     coalesce(r -> 'usage' ->> 'members_with_check_in', 'null'));
+  update public.outcome_config set config = jsonb_set(config, '{min_cell}', '20') where is_active;
+  perform pg_temp.ck('with the production platform floor of 20, a 12 member pilot reports no usage at all', 'true',
+    (pg_temp.q_as(pg_temp.f('corpA'), format($q$select (public.employer_seat_pilot_report(%L) -> 'usage' ->> 'suppressed')$q$, v_pilot)))::text);
+  update public.outcome_config set config = jsonb_set(config, '{min_cell}', '5') where is_active;
   perform pg_temp.ck('the minimum cell is the organisation''s own 5, and counts are rounded to 5', '5/5', (r ->> 'min_cell') || '/' || (r ->> 'rounded_to'));
   perform pg_temp.ck('the report is cut at the last completed Lagos week (a Sunday)', '0',
     (extract(dow from (r ->> 'usage_through')::date))::text);
-  perform pg_temp.ck('the cell rule: zero shown, 3 withheld, 5 of 12 shown, 7 of 12 shown, 8 of 12 withheld, 12 of 12 shown', 'true/false/true/true/false/true',
-    private.pilot_cell_showable(0, 12, 5)::text || '/' || private.pilot_cell_showable(3, 12, 5)::text || '/' || private.pilot_cell_showable(5, 12, 5)::text || '/' ||
-    private.pilot_cell_showable(7, 12, 5)::text || '/' || private.pilot_cell_showable(8, 12, 5)::text || '/' || private.pilot_cell_showable(12, 12, 5)::text);
+  perform pg_temp.ck('the platform cell rule at 12 members and a minimum of 5: 0 and 3 withheld, 5 and 7 shown, 8 withheld (4 would be left out), 12 shown', 'under_minimum/under_minimum/ok/ok/small_cell/ok',
+    coalesce(private.suppress_cell(0, array[0, 12]::bigint[], 5), 'ok') || '/' || coalesce(private.suppress_cell(3, array[3, 9]::bigint[], 5), 'ok') || '/' ||
+    coalesce(private.suppress_cell(5, array[5, 7]::bigint[], 5), 'ok') || '/' || coalesce(private.suppress_cell(7, array[7, 5]::bigint[], 5), 'ok') || '/' ||
+    coalesce(private.suppress_cell(8, array[8, 4]::bigint[], 5), 'ok') || '/' || coalesce(private.suppress_cell(12, array[12, 0]::bigint[], 5), 'ok'));
 
   perform pg_temp.ck('the whole report has a closed set of keys: no name, no id of a person, no condition, no reading', 'active,claimed,claims_without_seat,consultations_completed,ends_on,generated_at,id,members_with_check_in,members_with_consultation,min_cell,pilot,purchased,rounded_to,seat_price_kobo,seats,starts_on,state,suppressed,terms_version,total_kobo,unclaimed,usage,usage_through',
     pg_temp.all_keys(r));
@@ -387,20 +413,23 @@ begin
     has_function_privilege('anon', 'private.grant_org_seat(uuid)', 'EXECUTE')::text || '/' || has_function_privilege('authenticated', 'private.grant_org_seat(uuid)', 'EXECUTE')::text);
 end $$;
 
--- SABOTAGE 1: complementary suppression removed; the 10-of-12 check-in count must now be shown
-create or replace function private.pilot_cell_showable(p_n integer, p_denom integer, p_min integer) returns boolean
-language sql immutable set search_path = '' as $$ select p_n = 0 or p_n >= p_min $$;
+-- SABOTAGE 1: the platform cell rule never withholds; the 10-of-12 check-in count must now be shown
+create temp table orig_defs(k text primary key, d text) on commit drop;
+insert into orig_defs values ('suppress_cell', pg_get_functiondef('private.suppress_cell'::regproc));
+create or replace function private.suppress_cell(p_n bigint, p_categories bigint[] default null, p_min integer default null) returns text
+language sql stable security definer set search_path = '' as $$ select null::text $$;
 do $$
 declare r jsonb := pg_temp.q_as(pg_temp.f('admin'), format($q$select public.employer_seat_pilot_report(%L)::text$q$, pg_temp.f('pilotA')))::jsonb;
 begin
   insert into results values ('sabotaged', 'a count whose complement is 2 people is withheld', 'null', coalesce(r -> 'usage' ->> 'members_with_check_in', 'null'));
 end $$;
+do $$ begin execute (select d from orig_defs where k = 'suppress_cell'); end $$;
 
 -- SABOTAGE 2: the minimum-group gate removed; with a handful of members usage must now be shown
 do $$
 declare d text; r jsonb;
 begin
-  d := replace(pg_get_functiondef('public.employer_seat_pilot_report'::regproc), 'if v_denom < v_min then', 'if false then');
+  d := replace(pg_get_functiondef('public.employer_seat_pilot_report'::regproc), 'if private.suppress_cell(v_denom, null, v_min) is not null then', 'if false then');
   if d = pg_get_functiondef('public.employer_seat_pilot_report'::regproc) then raise exception 'VACUOUS TEST: sabotage text not found (gate)'; end if;
   execute d;
   update public.entitlements set starts_at = now() - interval '21 days' where pilot_id = pg_temp.f('pilotA') and patient_id not in (pg_temp.f('p1'), pg_temp.f('p2'), pg_temp.f('p3'));

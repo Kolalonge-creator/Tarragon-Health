@@ -15,13 +15,13 @@
 
 ## 3. Claiming seats
 3.1 Seats are claimed by employees who are on the Employer's roster and who join Tarragon with the work email or phone number the Employer supplied, or with the Employer's join code. Seats are given in the order people join.
-3.2 The pilot has a **claim window** of `[CONFIRM: start]` to `[CONFIRM: end]`. A seat not claimed by the end of the window lapses. It is not carried over and not refunded. People who join after the window or after every seat is taken do not receive a seat and are told so by their Employer contact.
+3.2 The pilot has a **claim window** that opens when Tarragon confirms payment and closes on `[CONFIRM: end date]` (the offer date is `[CONFIRM: start]`). A seat not claimed by the end of the window lapses. It is not carried over and not refunded. People who join after the window or after every seat is taken do not receive a seat and are told so by their Employer contact.
 3.3 If an employee leaves the Employer, their seat ends. The seat is not given to someone else. `[CONFIRM: whether a departed employee keeps the Membership year already paid for. Proposed: the seat ends when the Employer reports the departure.]`
 3.4 An employee who already holds their own Membership is not given a seat while it lasts and the Employer is not charged for them in that time.
 
 ## 4. What the Employer sees, and never sees
 4.1 The Employer receives a report of **counts only**: seats purchased, claimed, active and unclaimed, and how many members used the service (for example had a consultation or logged a check-in).
-4.2 The report is prepared so that no person can be picked out. Figures for fewer than `[CONFIRM: minimum, proposed 10, never below 5]` people are withheld. Figures are rounded and cover whole weeks. The Employer must not try to work out who is behind a figure, and must not combine the report with other information to do so.
+4.2 The report is prepared so that no person can be picked out. Figures for fewer than the platform minimum group size (`[CONFIRM: currently 20 people, the one rule Tarragon applies to every institution report]`) are withheld. Figures are rounded and cover whole weeks. The Employer must not try to work out who is behind a figure, and must not combine the report with other information to do so.
 4.3 The Employer never sees any employee's health information, what an employee discussed with their care team, any reading or result, or whether a named person used the service. The Employer's roster shows who has joined, which the Employer already knows because it supplied the roster.
 4.4 Tarragon will not ask the Employer for, and the Employer must not ask an employee for, access to an employee's health information as a condition of employment, a benefit or a seat.
 4.5 The Employer will not use the Membership or any report to make an employment decision about a named person.

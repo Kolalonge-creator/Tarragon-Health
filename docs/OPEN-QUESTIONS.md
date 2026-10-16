@@ -3859,7 +3859,7 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - Decision: open (founder).
 
 ### OQ-EMP-5 Re-identification by differencing across weekly reports
-- Defences: minimum cell (the greater of the organisation's `min_cohort_size`, default 10, and 5), complementary suppression, figures only through the last completed Lagos week, counts rounded to the nearest 5. Residual: two reports weeks apart can still be subtracted for a small group. Option: freeze a stored snapshot per week and never re-serve a changed past week. Counsel and DPO to say whether this is enough for a first pilot; the default for a small employer is to raise `organisations.min_cohort_size` to 10 or more.
+- Defences: the one platform minimum cell (`private.min_cell_floor`, S75a: 20 today, or the organisation's own number if higher), complementary suppression (`private.suppress_cell`), figures only through the last completed Lagos week, counts rounded to the nearest 5. Residual: two reports weeks apart can still be subtracted for a small group. Option: freeze a stored snapshot per week and never re-serve a changed past week. Counsel and DPO to say whether this is enough for a first pilot; with a platform floor of 20, an employer with fewer than about 40 members will see usage withheld until it grows.
 - Decision: open (DPO).
 
 ### OQ-EMP-6 VAT, withholding tax and invoice wording
@@ -3870,6 +3870,6 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - `docs/legal/employer-pilot-terms-DRAFT.md` and `docs/legal/employee-pilot-notice-DRAFT.md`: roles of controller and processor for the roster (employer to Tarragon), lawful basis for the work-email match, voluntariness inside an employment relationship, the DPA attachment, refund position, governing law, liability.
 - Decision: open (counsel). Not for sending.
 
-### OQ-EMP-8 A claim outside the window is named "pilot_closed" even before the window opens
-- Roster `seat_state` has one word for "no seat because of the window", used both before the window starts and after it ends or the pilot ended. The runbook asks ops to read the dates. Alternative: a separate `pilot_not_open` state.
-- Decision: informational.
+### OQ-EMP-8 starts_on is the offer date, not a gate
+- Seats can be claimed from the day payment is confirmed until ends_on. A "not before" date would leave a paid employee waiting with no sweep to release them. Alternative: a daily sweep that grants seats when the window opens.
+- Decision: informational (founder).

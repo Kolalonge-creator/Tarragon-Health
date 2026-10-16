@@ -31,4 +31,4 @@
 ### Notes for counsel (not part of the notice)
 1. Is acceptance of a seat a consent to processing, or is the lawful basis something else? The roster by work email is the Employer's disclosure to Tarragon; counsel to confirm the Employer's basis and whether the employee must be told by the Employer before the roster is uploaded.
 2. Voluntariness in an employment relationship: confirm wording is enough to show no pressure.
-3. Whether the minimum group size (proposed 10, floor 5) is sufficient for a small employer, and whether the aggregate report counts as personal data in a small workforce.
+3. Whether the platform minimum group size (currently 20) is sufficient for a small employer, and whether the aggregate report counts as personal data in a small workforce.

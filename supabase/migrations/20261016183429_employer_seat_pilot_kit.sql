@@ -7,8 +7,9 @@
 --   3. private.grant_org_seat is extended: an organisation that has a pilot is governed by it (no seat before payment, none past the
 --      purchased count, none outside the claim window). A pilot seat is created already attached to the pilot invoice, so the
 --      arrears invoice generator (which only picks invoice_id is null) can never bill it a second time.
---   4. employer_seat_pilot_report: AGGREGATE ONLY (I9). A minimum cell (the greater of the organisation's min_cohort_size and the
---      configured floor of 5), complementary suppression, figures cut at the last completed Lagos week, usage counts rounded to the
+--   4. employer_seat_pilot_report: AGGREGATE ONLY (I9). The one platform minimum cell (private.min_cell_floor, which already takes the
+--      greater of the platform number and the organisation's min_cohort_size) and private.suppress_cell for every figure, with the
+--      complement (members who did NOT) checked too; figures cut at the last completed Lagos week, usage counts rounded to the
 --      nearest 5. No names, no conditions, no readings, no per-person rows.
 --
 -- Dormant: the organisation_membership module stays off and this migration switches nothing on. The pilot RPCs need a Membership
@@ -39,7 +40,7 @@ grant all on public.employer_seat_pilot_config to service_role;
 
 -- employer-seat-pilot-config-begin (mirrored as employer.seat_pilot in packages/shared/src/proposed-config/registry.ts)
 insert into public.employer_seat_pilot_config (version, is_active, effective_from, rules)
-values (1, true, date '2026-10-16', $json${"max_seats_per_pilot":500,"max_window_days":120,"report_min_cell_floor":5,"report_round_to":5}$json$::jsonb);
+values (1, true, date '2026-10-16', $json${"max_seats_per_pilot":500,"max_window_days":120,"report_round_to":5}$json$::jsonb);
 -- employer-seat-pilot-config-end
 
 -- ---------------------------------------------------------------------------
@@ -113,11 +114,28 @@ create trigger employer_seat_pilots_guard before update or delete on public.empl
 
 alter table public.employer_seat_pilots enable row level security;
 revoke all on public.employer_seat_pilots from public, anon, authenticated;
-grant select on public.employer_seat_pilots to authenticated;
+-- Column grants, not a table grant: finance's internal note, who created, activated and closed it are not the employer's to read.
+grant select (id, organisation_id, benefit_package_id, seats_purchased, seat_price_kobo, seat_price_id, total_kobo, starts_on, ends_on,
+              terms_version, state, invoice_id, payment_method, payment_reference, activated_at, is_test, created_at, updated_at)
+  on public.employer_seat_pilots to authenticated;
 grant all on public.employer_seat_pilots to service_role;
 create policy employer_seat_pilots_read on public.employer_seat_pilots for select to authenticated
   using (private.is_finance() or private.is_admin()
          or (private.is_institution_admin() and organisation_id = private.current_org_id()));
+
+-- A paid pilot's invoice is not voided on its own: the generic void would null invoice_id on every pilot seat and let the arrears
+-- generator bill them again. Cancelling an UNPAID pilot (state draft or invoiced) voids its invoice first, which is allowed.
+create function private.pilot_invoice_void_guard() returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if new.status = 'void' and old.status is distinct from 'void'
+     and exists (select 1 from public.employer_seat_pilots p where p.invoice_id = old.id and p.state in ('active', 'ended')) then
+    raise exception 'pilot_invoice_paid_cannot_void' using errcode = 'P0001';
+  end if;
+  return new;
+end $$;
+revoke all on function private.pilot_invoice_void_guard() from public, anon, authenticated;
+create trigger employer_invoices_pilot_void_guard before update of status on public.employer_invoices
+  for each row execute function private.pilot_invoice_void_guard();
 
 -- A pilot seat remembers its pilot. Not in the employee's column grant on entitlements (the employer's terms are not theirs to read).
 alter table public.entitlements add column pilot_id uuid references public.employer_seat_pilots (id) on delete restrict;
@@ -140,10 +158,17 @@ declare
   it public.catalog_items%rowtype;
   px public.organisation_member_prices%rowtype;
   v_pilot public.employer_seat_pilots%rowtype;
+  v_org uuid;
   v_used integer;
   v_today date := (now() at time zone 'Africa/Lagos')::date;
   v_ends timestamptz; v_ent uuid; v_is_test boolean;
 begin
+  -- Lock order is always pilot first, then roster row (confirm_employer_seat_pilot_payment takes them in that order), so a claim and a
+  -- payment confirmation at the same moment cannot deadlock.
+  select organisation_id into v_org from public.employer_roster_members where id = p_roster;
+  if v_org is null then return 'skipped'; end if;
+  select * into v_pilot from public.employer_seat_pilots
+   where organisation_id = v_org and state <> 'cancelled' order by created_at desc limit 1 for update;
   select * into r from public.employer_roster_members where id = p_roster for update;
   if not found or r.status <> 'claimed' or r.claimed_profile_id is null or r.benefit_package_id is null then return 'skipped'; end if;
   select * into v_package from public.employer_benefit_packages where id = r.benefit_package_id and is_active;
@@ -156,27 +181,28 @@ begin
   -- a replay for someone who already holds the seat is a no-op, whatever the pilot count says now
   if exists (select 1 from public.entitlements where roster_member_id = r.id and state = 'active') then return 'seat'; end if;
   select * into it from public.catalog_items where id = v_package.catalog_item_id;
-  px := private.organisation_member_price(r.organisation_id, it.id);
-  if px.id is null then
-    perform private.order_incident(r.organisation_id, 'org-seat-no-price:' || r.id, 'No organisation Membership price is in force',
-      'Roster row ' || r.id || ' claimed a Membership benefit but no organisation price is in force, so no seat was created.');
-    return 'skipped';
+  -- a pilot carries its own frozen price; only an organisation without a pilot needs a price in force today
+  if v_pilot.id is null then
+    px := private.organisation_member_price(r.organisation_id, it.id);
+    if px.id is null then
+      perform private.order_incident(r.organisation_id, 'org-seat-no-price:' || r.id, 'No organisation Membership price is in force',
+        'Roster row ' || r.id || ' claimed a Membership benefit but no organisation price is in force, so no seat was created.');
+      return 'skipped';
+    end if;
   end if;
   -- the person's own Membership wins; the organisation is not billed until it ends (the daily sweep re-offers the seat)
   if private.patient_is_member(r.claimed_profile_id) then return 'already_member'; end if;
 
-  -- EMP: a pilot governs the organisation. The newest pilot that was not cancelled decides; the row lock serialises concurrent claims,
-  -- which is what stops two people taking the last seat.
-  select * into v_pilot from public.employer_seat_pilots
-   where organisation_id = r.organisation_id and state <> 'cancelled' order by created_at desc limit 1 for update;
+  -- EMP: a pilot governs the organisation. The newest pilot that was not cancelled decides. Seats can be claimed from the day payment is
+  -- confirmed until ends_on (starts_on is the date of the offer, not a gate: a paid block must never leave a person waiting for a date).
   if v_pilot.id is not null then
     if v_pilot.state in ('draft', 'invoiced') then
       update public.employer_roster_members set seat_state = 'waiting_payment' where id = r.id and seat_state is distinct from 'waiting_payment';
       return 'waiting_payment';
     end if;
-    if v_pilot.state = 'ended' or v_today < v_pilot.starts_on or v_today > v_pilot.ends_on then
+    if v_pilot.state = 'ended' or v_today > v_pilot.ends_on then
       update public.employer_roster_members set seat_state = 'pilot_closed' where id = r.id and seat_state is distinct from 'pilot_closed';
-      perform private.order_incident(r.organisation_id, 'pilot-closed:' || r.id, 'A rostered employee claimed outside the pilot window',
+      perform private.order_incident(r.organisation_id, 'pilot-closed:' || r.id, 'A rostered employee claimed after the pilot window closed',
         'Roster row ' || r.id || ' claimed after the pilot window or after the pilot ended, so no seat was created. Decide with the employer whether to extend or start a new offer.');
       return 'pilot_closed';
     end if;
@@ -232,6 +258,9 @@ declare
 begin
   if v_uid is null or not private.is_finance() then raise exception 'pilot_not_authorised' using errcode = '42501'; end if;
   if v_rules is null then raise exception 'pilot_config_missing' using errcode = 'P0001'; end if;
+  if not coalesce((select is_enabled from public.platform_modules where key = 'organisation_membership'), false) then
+    raise exception 'organisation_membership_not_open' using errcode = 'P0001';
+  end if;
   if not exists (select 1 from public.employer_accounts where organisation_id = p_org) then
     raise exception 'pilot_unknown_employer' using errcode = '22023';
   end if;
@@ -267,6 +296,9 @@ begin
   if not found then raise exception 'pilot_unknown' using errcode = '22023'; end if;
   if v_p.state = 'invoiced' then return v_p.invoice_id; end if;
   if v_p.state <> 'draft' then raise exception 'pilot_not_in_draft' using errcode = 'P0001'; end if;
+  if not coalesce((select is_enabled from public.platform_modules where key = 'organisation_membership'), false) then
+    raise exception 'organisation_membership_not_open' using errcode = 'P0001';
+  end if;
   insert into public.employer_invoices (organisation_id, contract_id, period_start, period_end, billing_model, headcount_basis, rate_kobo,
                                         fixed_amount_kobo, amount_kobo, status, issued_at, due_at, notes, created_by)
   values (v_p.organisation_id, null, v_p.starts_on, v_p.ends_on, 'fixed_contract', v_p.seats_purchased, v_p.seat_price_kobo,
@@ -300,6 +332,9 @@ begin
     raise exception 'pilot_already_paid_other_reference' using errcode = 'P0001';
   end if;
   if v_p.state <> 'invoiced' then raise exception 'pilot_not_awaiting_payment' using errcode = 'P0001'; end if;
+  if not coalesce((select is_enabled from public.platform_modules where key = 'organisation_membership'), false) then
+    raise exception 'organisation_membership_not_open' using errcode = 'P0001';
+  end if;
   if (select status from public.employer_invoices where id = v_p.invoice_id) is distinct from 'paid' then
     perform public.employer_set_invoice_status(v_p.invoice_id, 'paid');
   end if;
@@ -325,7 +360,7 @@ end $$;
 create function public.close_employer_seat_pilot(p_pilot uuid, p_reason text) returns text
 language plpgsql security definer set search_path = ''
 as $$
-declare v_uid uuid := (select auth.uid()); v_p public.employer_seat_pilots%rowtype; v_new text;
+declare v_uid uuid := (select auth.uid()); v_p public.employer_seat_pilots%rowtype; v_new text; r record; v_res text;
 begin
   if v_uid is null or not private.is_finance() then raise exception 'pilot_not_authorised' using errcode = '42501'; end if;
   if char_length(btrim(coalesce(p_reason, ''))) < 10 then raise exception 'pilot_reason_needed' using errcode = '22023'; end if;
@@ -340,19 +375,23 @@ begin
   update public.employer_seat_pilots
      set state = v_new, closed_at = now(), closed_by = v_uid, close_reason = btrim(p_reason) where id = v_p.id;
   perform private.log_audit('employer_seat_pilot.' || v_new, 'employer_seat_pilots', v_p.id, jsonb_build_object('reason', btrim(p_reason)));
+  -- a cancelled pilot puts the employer back on ordinary billing, so anyone left waiting for the block is offered the ordinary seat now
+  if v_new = 'cancelled' then
+    for r in select id from public.employer_roster_members
+              where organisation_id = v_p.organisation_id and status = 'claimed' and claimed_profile_id is not null and seat_state = 'waiting_payment'
+              order by claimed_at nulls last, created_at loop
+      v_res := private.grant_org_seat(r.id);
+      update public.employer_roster_members set seat_state = case when v_res in ('seat', 'already_member') then v_res else null end where id = r.id;
+    end loop;
+  end if;
   return v_new;
 end $$;
 
 -- ---------------------------------------------------------------------------
 -- 5. The aggregate report (I9)
 -- ---------------------------------------------------------------------------
--- A figure is shown when it is zero, or when it and its complement are both at least the minimum cell. "Everyone except two" would
--- name two people, so that is withheld as well.
-create function private.pilot_cell_showable(p_n integer, p_denom integer, p_min integer) returns boolean
-language sql immutable set search_path = '' as $$
-  select p_n = 0 or (p_n >= p_min and (p_denom - p_n = 0 or p_denom - p_n >= p_min))
-$$;
-revoke all on function private.pilot_cell_showable(integer, integer, integer) from public, anon, authenticated;
+-- Every figure goes through private.suppress_cell, the platform's one minimum-cell rule (S75a, OQ-233): below the minimum is withheld, and so is a
+-- figure whose complement (members who did NOT) is 1 to minimum-1 people, since 'everyone except two' names two people.
 
 create function public.employer_seat_pilot_report(p_pilot uuid) returns jsonb
 language plpgsql stable security definer set search_path = ''
@@ -371,18 +410,17 @@ begin
              or (private.is_institution_admin() and v_p.organisation_id = private.current_org_id())) then
     raise exception 'pilot_report_not_authorised' using errcode = '42501';
   end if;
-  v_min := greatest(coalesce((select min_cohort_size from public.organisations where id = v_p.organisation_id), 10),
-                    coalesce((v_rules ->> 'report_min_cell_floor')::integer, 5));
+  v_min := private.min_cell_floor((select min_cohort_size from public.organisations where id = v_p.organisation_id));
   -- seat counts are the employer's own HR facts (it already sees its roster): exact
   select count(*), count(*) filter (where e.state = 'active' and (e.ends_at is null or e.ends_at > now()))
     into v_claimed, v_active
     from public.entitlements e where e.pilot_id = v_p.id and e.is_test = v_p.is_test;
   -- usage is health-adjacent: only people who hold a seat from this pilot, only through the last completed Lagos week
   select count(*) into v_denom from public.entitlements e where e.pilot_id = v_p.id and e.is_test = v_p.is_test and e.starts_at < v_cut;
-  if v_denom < v_min then
+  if private.suppress_cell(v_denom, null, v_min) is not null then
     v_usage := jsonb_build_object('suppressed', true, 'reason', 'too_few_members');
   else
-    select count(distinct e.patient_id), count(en.id) into v_consult_people, v_consults
+    select count(distinct e.patient_id), count(distinct en.id) into v_consult_people, v_consults
       from public.entitlements e join public.encounters en on en.patient_id = e.patient_id
        and en.status = 'completed' and en.ended_at >= e.starts_at and en.ended_at < v_cut
      where e.pilot_id = v_p.id and e.is_test = v_p.is_test;
@@ -391,11 +429,11 @@ begin
        and vr.taken_at >= e.starts_at and vr.taken_at < v_cut
      where e.pilot_id = v_p.id and e.is_test = v_p.is_test;
     v_usage := jsonb_build_object('suppressed', false,
-      'members_with_consultation', case when private.pilot_cell_showable(v_consult_people, v_denom, v_min)
+      'members_with_consultation', case when private.suppress_cell(v_consult_people, array[v_consult_people, v_denom - v_consult_people]::bigint[], v_min) is null
                                         then to_jsonb((round(v_consult_people::numeric / v_round) * v_round)::integer) end,
-      'consultations_completed', case when private.pilot_cell_showable(v_consult_people, v_denom, v_min)
+      'consultations_completed', case when private.suppress_cell(v_consult_people, array[v_consult_people, v_denom - v_consult_people]::bigint[], v_min) is null
                                       then to_jsonb((round(v_consults::numeric / v_round) * v_round)::integer) end,
-      'members_with_check_in', case when private.pilot_cell_showable(v_checkin_people, v_denom, v_min)
+      'members_with_check_in', case when private.suppress_cell(v_checkin_people, array[v_checkin_people, v_denom - v_checkin_people]::bigint[], v_min) is null
                                     then to_jsonb((round(v_checkin_people::numeric / v_round) * v_round)::integer) end);
   end if;
   return jsonb_build_object(
@@ -405,7 +443,8 @@ begin
                                 'unclaimed', greatest(v_p.seats_purchased - v_claimed, 0),
                                 'claims_without_seat', (select count(*) from public.employer_roster_members r
                                                          where r.organisation_id = v_p.organisation_id and r.status = 'claimed'
-                                                           and r.seat_state in ('waiting_payment', 'no_seat_left', 'pilot_closed'))),
+                                                           and r.seat_state in ('waiting_payment', 'no_seat_left', 'pilot_closed')
+                                                           and r.updated_at >= v_p.created_at)),
     'usage', v_usage,
     'min_cell', v_min,
     'rounded_to', v_round,
@@ -441,7 +480,7 @@ begin
   foreach f in array array['public.create_employer_seat_pilot(uuid, uuid, integer, date, date, text, boolean)',
       'public.issue_employer_seat_pilot_invoice(uuid)', 'public.confirm_employer_seat_pilot_payment(uuid, text, text)',
       'public.close_employer_seat_pilot(uuid, text)', 'public.employer_seat_pilot_report(uuid)',
-      'private.grant_org_seat(uuid)', 'private.pilot_cell_showable(integer, integer, integer)'] loop
+      'private.grant_org_seat(uuid)'] loop
     if has_function_privilege('anon', f, 'EXECUTE') then raise exception 'FAIL: anon can execute %', f; end if;
   end loop;
   if (select count(*) from public.employer_seat_pilot_config where is_active) <> 1 then raise exception 'FAIL: pilot config not seeded'; end if;

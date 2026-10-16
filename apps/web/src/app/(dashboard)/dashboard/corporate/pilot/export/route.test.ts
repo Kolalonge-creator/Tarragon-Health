@@ -21,7 +21,9 @@ const report = {
 
 const req = (qs: string) => new NextRequest(`http://localhost/dashboard/corporate/pilot/export${qs}`);
 
-beforeEach(() => rpc.mockReset());
+beforeEach(() => {
+  rpc.mockReset();
+});
 
 describe("pilot CSV export", () => {
   it("rejects a missing or malformed pilot id without touching the database", async () => {

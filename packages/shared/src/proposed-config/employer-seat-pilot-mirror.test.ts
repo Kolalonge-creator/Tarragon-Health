@@ -17,7 +17,6 @@ describe("the employer seat pilot config mirrors the migration", () => {
   const cfg = getProposedConfig("employer.seat_pilot").value as {
     max_seats_per_pilot: number;
     max_window_days: number;
-    report_min_cell_floor: number;
     report_round_to: number;
   };
   const sql = migration("_employer_seat_pilot_kit.sql");
@@ -28,8 +27,11 @@ describe("the employer seat pilot config mirrors the migration", () => {
     expect(JSON.parse(match[1])).toEqual(cfg);
   });
 
-  it("the report floor is never below 5, the same floor the organisation threshold has (I9)", () => {
-    expect(cfg.report_min_cell_floor).toBeGreaterThanOrEqual(5);
+  it("holds no minimum cell of its own: the report uses the one platform rule (S75a), so there is a single number to change (I9)", () => {
+    expect(JSON.stringify(cfg).toLowerCase()).not.toMatch(/min_cell|floor|min_group/);
+    expect(sql).toMatch(/private\.min_cell_floor\(/);
+    expect(sql).toMatch(/private\.suppress_cell\(/);
+    expect(sql).not.toMatch(/min_cohort_size\)?\s*,\s*5|greatest\(coalesce\(\(select min_cohort_size/);
   });
 
   it("holds no price: a pilot seat is priced at the organisation price in force", () => {

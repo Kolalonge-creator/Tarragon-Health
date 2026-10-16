@@ -10,7 +10,7 @@ Built on the existing employer platform (docs/design/EMP.md). Nothing here is li
 1. **Create the employer.** Admin, Employers, create. Fill the account, a signed contract, then "go live" once the account is verified (existing flow).
 2. **Create the Membership benefit package.** Employer eligibility and benefits page (or admin). It must point at the Membership item. If the module is off the package cannot be created, which is the intended stop.
 3. **Roster.** The employer uploads the roster (work email or phone) or shares the join code. Check the upload count with the employer. Tell the employer that employees join with their own account and that joining is voluntary.
-4. **Create the pilot.** Admin, Employers, the employer, "Membership seat pilot": benefit package, number of seats, claim window (at most 120 days, starting today or later), the terms version. The price is read from the organisation price and frozen. At most 500 seats; ask the founder for more.
+4. **Create the pilot.** Admin, Employers, the employer, "Membership seat pilot": benefit package, number of seats, claim window (at most 120 days; it opens when you confirm payment and closes on the end date; the start date is the offer date), the terms version. The price is read from the organisation price and frozen. At most 500 seats; ask the founder for more.
 5. **Issue the invoice.** One click. Send it to the employer with bank details, or create a Paystack payment link in the Paystack dashboard for the exact total and send that. Add VAT only as counsel instructs (open: OQ-EMP-6). No seat is granted yet. People who join before payment wait.
 6. **Confirm payment.** Only after you have SEEN the money: the bank statement line, or the transaction in the Paystack dashboard (matching amount, NGN, success). Record the method and the bank or Paystack reference (you cannot reuse a reference). The pilot goes active, the invoice is marked paid, and anyone already waiting gets their seat. Pressing it twice with the same reference changes nothing.
 7. **Watch uptake.** Ask the employer to open the "Seat pilot" tab on its corporate dashboard, or open the same report as finance. Check weekly: seats claimed, claims waiting for a seat, an ops incident `pilot-no-seat` or `pilot-closed` (someone joined but got no seat: tell the employer, offer a new offer, never grant a seat by hand).
@@ -21,7 +21,7 @@ Built on the existing employer platform (docs/design/EMP.md). Nothing here is li
 ## What NOT to promise or do
 - No outcomes, savings, fewer sick days or return on spend. The report describes use only.
 - No names, conditions, readings or "who used it". If an employer asks, the answer is no, in writing, and tell the founder.
-- Do not read the report to the employer in a call if a figure shows "withheld": do not work around it, and do not give a smaller group's number from memory.
+- Usage figures need a group of at least the platform minimum (20 people at the time of writing); a pilot smaller than about 40 members will show seat counts only. Do not read the report to the employer in a call if a figure shows "withheld": do not work around it, and do not give a smaller group's number from memory.
 - No per-employee card payment, no family or dependant seats, no per-head population fee (no capitation), no wallet or credit balance.
 - Do not mark an invoice paid before the money is seen. Do not grant or revoke a seat by editing tables.
 - Do not flip any module on yourself.
