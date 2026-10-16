@@ -1814,7 +1814,7 @@ export const TEMPLATE_MAP: Record<
   }),
   on_call_ops_desk_uncovered: () => ({
     smsText: "A priority case is unanswered and no ops contact is on duty. Phone the clinician on call now. Tarragon Health",
-    pushUrl: "/admin/ops/desk",
+    pushUrl: "/rota",
     email: {
       subject: "No ops contact is on duty: phone the clinician on call now",
       html:
@@ -1824,6 +1824,20 @@ export const TEMPLATE_MAP: Record<
         `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
       text: "A priority case has not been answered and no ops contact is on duty.\n\nPhone the clinician on call and the chief medical officer yourself, and open the Ops desk page to record the calls.\n\nTarragon Health",
+    },
+  }),
+  on_call_ops_desk_roster: () => ({
+    smsText: "Nobody reachable may be on call. Open the ops desk and phone the people on the call sheet. Tarragon Health",
+    pushUrl: "/admin/ops/desk",
+    email: {
+      subject: "Nobody reachable may be on call: please check",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>The system cannot find anyone reachable who is on call right now. No case is waiting on this alone.</p>` +
+        `<p>Open the Ops desk page, phone the people on the call sheet, and check the rota.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "The system cannot find anyone reachable who is on call right now. No case is waiting on this alone.\n\nOpen the Ops desk page, phone the people on the call sheet, and check the rota.\n\nTarragon Health",
     },
   }),
   on_call_expired: () => ({

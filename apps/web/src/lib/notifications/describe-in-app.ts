@@ -752,7 +752,11 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     return { text: "A priority case has not been answered. You are the ops contact: phone the clinician on call now", href: "/admin/ops/desk" };
   }
   if (n.template === "on_call_ops_desk_uncovered") {
-    return { text: "A priority case has not been answered and no ops contact is on duty. Phone the clinician on call now", href: "/admin/ops/desk" };
+    // also sent to the CMO, whose account cannot open /admin/*: the shared rota page, as for on_call_expired
+    return { text: "A priority case has not been answered and no ops contact is on duty. Phone the clinician on call now", href: "/rota" };
+  }
+  if (n.template === "on_call_ops_desk_roster") {
+    return { text: "Nobody reachable may be on call right now. Open the ops desk and phone the people on the call sheet", href: "/admin/ops/desk" };
   }
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };

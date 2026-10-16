@@ -33,6 +33,12 @@ describe("parseWindowLines", () => {
   });
   it("refuses a line that is not a window, naming it", () => {
     expect(() => parseWindowLines("Monday 8 to 6")).toThrow(/not a window/);
+    try {
+      parseWindowLines("Monday 8 to 6");
+    } catch (e) {
+      // the form action only shows the sentence for a 22023 error
+      expect((e as { code?: string }).code).toBe("22023");
+    }
     expect(() => parseWindowLines("8 08:00-18:00")).toThrow(/not a window/);
   });
   it("accepts no windows at all (the database then refuses an active contact)", () => {

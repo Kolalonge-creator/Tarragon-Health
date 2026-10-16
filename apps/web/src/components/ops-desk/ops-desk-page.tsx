@@ -25,8 +25,9 @@ function windowsInput(c: RosterContact): string {
 
 async function adminProfiles(): Promise<{ id: string; full_name: string | null }[]> {
   const supabase = await createClient();
-  const { data } = await supabase.from("profiles").select("id, full_name").eq("role", "admin").eq("is_active", true).order("full_name");
-  return data ?? [];
+  const { data, error } = await supabase.from("profiles").select("id, full_name").eq("role", "admin").eq("is_active", true).order("full_name");
+  if (error || !data) throw new Error("The list of administrators could not be read.");
+  return data;
 }
 
 function IncidentCard({ inc, sheet, me, path }: { inc: PageIncident; sheet: CallSheet | null; me: string | null; path: string }) {
@@ -39,6 +40,9 @@ function IncidentCard({ inc, sheet, me, path }: { inc: PageIncident; sheet: Call
         <span>opened {formatLagos(inc.detected_at)}</span>
         <span className="text-charcoal-ink/60 dark:text-night-ink/60">{inc.owner_id === null ? "Nobody is assigned" : mine ? "Assigned to you" : "Assigned to someone else"}</span>
       </div>
+      {sheet?.page_acknowledged ? (
+        <p className="font-medium">A clinician has acknowledged this page since. Check with them, then resolve the incident in the incident register.</p>
+      ) : null}
       {mine ? (
         <form action={acknowledgeIncident}>
           <Hidden name="returnTo" value={path} />
@@ -100,10 +104,12 @@ export async function OpsDeskPage({ mode, searchParams }: { mode: Mode; searchPa
   const [overview, roster, calls] = await Promise.all([getOpsDeskOverview(30), getOpsDeskRoster(), getOpsDeskCalls(null, 100)]);
   let incidents: PageIncident[] = [];
   let incidentsFailed = false;
-  try {
-    incidents = await getOpenPageIncidents();
-  } catch {
-    incidentsFailed = true;
+  if (mode === "admin") {
+    try {
+      incidents = await getOpenPageIncidents();
+    } catch {
+      incidentsFailed = true;
+    }
   }
   const sheets = new Map<string, CallSheet | null>();
   if (mode === "admin") {
@@ -117,7 +123,16 @@ export async function OpsDeskPage({ mode, searchParams }: { mode: Mode; searchPa
       }),
     );
   }
-  const candidates = mode === "admin" ? await adminProfiles() : [];
+  let candidates: { id: string; full_name: string | null }[] = [];
+  let candidatesFailed = false;
+  if (mode === "admin") {
+    try {
+      const onRoster = new Set(roster.map((r) => r.profile_id));
+      candidates = (await adminProfiles()).filter((p) => !onRoster.has(p.id));
+    } catch {
+      candidatesFailed = true;
+    }
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
@@ -200,6 +215,7 @@ export async function OpsDeskPage({ mode, searchParams }: { mode: Mode; searchPa
             </div>
           ))}
         </div>
+        {candidatesFailed ? <p className="text-sm text-red-700 dark:text-red-300">The list of administrators could not be read, so nobody can be added right now.</p> : null}
         {mode === "admin" ? (
           <form action={saveContact} className="grid gap-2 sm:grid-cols-3">
             <Hidden name="returnTo" value={path} />

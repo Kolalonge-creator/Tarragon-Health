@@ -95,6 +95,7 @@ export const callSheetSchema = z.object({
   incident_id: z.uuid(),
   reference: z.string(),
   opened_at: iso,
+  page_acknowledged: z.boolean().default(false),
   people: z.array(
     z.object({
       kind: z.enum(["on_call_primary", "on_call_backup", "chief_medical_officer"]),
@@ -107,6 +108,15 @@ export const callSheetSchema = z.object({
 });
 export type CallSheet = z.infer<typeof callSheetSchema>;
 
+/** Carries code 22023 so the form action shows the sentence to the person instead of the generic message. */
+export class WindowParseError extends Error {
+  readonly code = "22023";
+  constructor(message: string) {
+    super(message);
+    this.name = "WindowParseError";
+  }
+}
+
 export type WindowInput = { day: number; start: string; end: string };
 export const windowSchema = z.object({ day: z.number().int().min(1).max(7), start: z.string().regex(/^\d{2}:\d{2}$/), end: z.string().regex(/^\d{2}:\d{2}$/) });
 
@@ -117,9 +127,11 @@ export function parseWindowLines(text: string): WindowInput[] {
     const line = raw.trim();
     if (!line) continue;
     const m = /^([1-7])\s+(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/.exec(line);
-    if (!m) throw new Error(`"${line}" is not a window. Write one per line like: 1 08:00-18:00 (1 is Monday, 7 is Sunday).`);
+    if (!m) throw new WindowParseError(`"${line}" is not a window. Write one per line like: 1 08:00-18:00 (1 is Monday, 7 is Sunday).`);
     const pad = (t: string): string => (t.length === 4 ? `0${t}` : t);
-    out.push(windowSchema.parse({ day: Number(m[1]), start: pad(m[2] ?? ""), end: pad(m[3] ?? "") }));
+    const parsed = windowSchema.safeParse({ day: Number(m[1]), start: pad(m[2] ?? ""), end: pad(m[3] ?? "") });
+    if (!parsed.success) throw new WindowParseError(`"${line}" is not a window. Use hours from 00:00 to 23:59.`);
+    out.push(parsed.data);
   }
   return out;
 }

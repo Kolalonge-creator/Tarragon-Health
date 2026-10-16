@@ -115,12 +115,12 @@ begin
   returning id into v_id;
   return v_id;
 end $f$;
-create function pg_temp.mkpage(p_org uuid, p_patient uuid, p_event uuid, p_to uuid) returns uuid language plpgsql as
+create function pg_temp.mkpage(p_org uuid, p_patient uuid, p_event uuid, p_to uuid, p_test boolean default true) returns uuid language plpgsql as
 $f$ declare v uuid;
 begin
   perform set_config('tarragon.paging_write', 'on', true);
   insert into public.pages (organisation_id, patient_id, triage_event_id, role, to_clinician_id, escalation_level, sent_at, config_version, is_test)
-  values (p_org, p_patient, p_event, 'primary', p_to, 0, now(), 1, true) returning id into v;
+  values (p_org, p_patient, p_event, 'primary', p_to, 0, now(), 1, p_test) returning id into v;
   perform set_config('tarragon.paging_write', 'off', true);
   return v;
 end $f$;
@@ -165,6 +165,14 @@ end $f$;
 create function pg_temp.item_state(p_uid uuid, p_item text) returns text language sql as
 $$ select coalesce((select e ->> 'state' from jsonb_array_elements((pg_temp.q_as(p_uid, 'select public.ops_desk_overview(30)')::jsonb) -> 'checklist') e where e ->> 'item_key' = p_item), 'missing') $$;
 
+create function pg_temp.set_world(p_test boolean) returns void language plpgsql as
+$f$ begin
+  alter table public.ops_desk_checklist_attestations disable trigger ops_desk_attestations_append_only;
+  update public.ops_desk_checklist_attestations set is_test = p_test;
+  alter table public.ops_desk_checklist_attestations enable trigger ops_desk_attestations_append_only;
+  update public.ops_desk_contacts set is_test = p_test;
+end $f$;
+
 -- fixtures ----------------------------------------------------------------------------------------------------------------
 do $$
 declare v_org uuid; v_org2 uuid; v_admin uuid; v_ops1 uuid; v_ops2 uuid; v_other_admin uuid; v_cmo uuid; v_a uuid; v_b uuid; v_pat uuid; v_rs uuid;
@@ -201,6 +209,8 @@ begin
     pg_temp.try($q$update public.ops_desk_config set rules = jsonb_set(rules, '{deputy_after_seconds}', '120') where is_active$q$));
   perform pg_temp.rec('config: only the CMO signs (a clinician and an admin are refused)', '42501,42501',
     pg_temp.try_as(v_a, 'select public.sign_ops_desk_config(2)') || ',' || pg_temp.try_as(v_admin, 'select public.sign_ops_desk_config(2)'));
+  perform pg_temp.rec('ops_desk_config carries the superseded-version guard (the other governed tables are counted in governed_config_supersede_guard.sql)', '1',
+    (select count(*)::text from pg_trigger where tgname = 'refuse_superseded_activation' and not tgisinternal and tgrelid = 'public.ops_desk_config'::regclass));
   perform pg_temp.rec('the sweep job exists', '1', (select count(*)::text from cron.job where jobname = 'ops-desk-sweep'));
   perform pg_temp.rec('nothing is seeded: no contact, no attestation, no call', '0,0,0',
     (select count(*)::text from public.ops_desk_contacts) || ',' || (select count(*)::text from public.ops_desk_checklist_attestations) || ',' || (select count(*)::text from public.ops_desk_call_log));
@@ -215,7 +225,7 @@ begin
       'public.ops_desk_roster()', 'public.ops_desk_overview(integer)', 'public.ops_desk_calls(uuid,integer)', 'public.sign_ops_desk_config(integer)'] loop
     if has_function_privilege('anon', f, 'EXECUTE') then n := n + 1; end if;
   end loop;
-  foreach f in array array['private.ops_desk_assign(uuid,text,uuid)', 'private.sweep_ops_desk()', 'private.ops_desk_on_duty(uuid,boolean,timestamptz)', 'private.verified_profile_phone(uuid)', 'private.ops_desk_org_ready(uuid)'] loop
+  foreach f in array array['private.ops_desk_assign(uuid,text,uuid)', 'private.sweep_ops_desk()', 'private.ops_desk_on_duty(uuid,boolean,timestamptz)', 'private.verified_profile_phone(uuid)', 'private.ops_desk_org_ready(uuid,boolean)', 'private.ops_desk_contact_usable(uuid)'] loop
     if has_function_privilege('anon', f, 'EXECUTE') or has_function_privilege('authenticated', f, 'EXECUTE') then n := n + 1; end if;
   end loop;
   perform pg_temp.rec('no new function is callable by anon, and the private ones not by authenticated', '0', n::text);
@@ -275,7 +285,7 @@ end $$;
 -- 3. Assignment ------------------------------------------------------------------------------------------------------------
 do $$
 declare v_admin uuid := pg_temp.f('admin'); v_ops1 uuid := pg_temp.f('ops1'); v_ops2 uuid := pg_temp.f('ops2'); v_a uuid := pg_temp.f('A'); v_b uuid := pg_temp.f('B');
-  v_org uuid := pg_temp.f('org'); v_pat uuid := pg_temp.f('pat'); v_pg uuid; v_pg2 uuid; v_pg3 uuid; v_inc uuid; v_inc2 uuid; v_c1 uuid := pg_temp.f('c1'); v_c2 uuid := pg_temp.f('c2'); v_asg uuid;
+  v_org uuid := pg_temp.f('org'); v_pat uuid := pg_temp.f('pat'); v_pg uuid; v_pg2 uuid; v_pg3 uuid; v_pg4 uuid; v_pg5 uuid; v_inc uuid; v_inc2 uuid; v_c1 uuid := pg_temp.f('c1'); v_c2 uuid := pg_temp.f('c2'); v_asg uuid;
 begin
   -- the page and its expiry: the existing S19c function opens the sev1 incident
   v_pg := pg_temp.mkpage(v_org, v_pat, pg_temp.mkevent(v_pat, pg_temp.f('rs')), v_a);
@@ -335,29 +345,60 @@ begin
   perform pg_temp.rec('deputy silent: the next sweep does not raise it again', '0',
     (private.sweep_ops_desk() ->> 'final'));
 
-  -- nobody on duty at all: loud, and the leadership is told with the dedicated notice
+  -- nobody on duty at all: a REAL page is loud, a drill is not
   update public.ops_desk_contacts set is_active = false, activated_by = null, activated_at = null where organisation_id = v_org;
-  v_pg3 := pg_temp.mkpage(v_org, v_pat, pg_temp.mkevent(v_pat, pg_temp.f('rs')), v_a);
+  v_pg3 := pg_temp.mkpage(v_org, v_pat, pg_temp.mkevent(v_pat, pg_temp.f('rs')), v_a, false);
   perform private.expire_page(v_pg3);
-  perform pg_temp.rec('nobody: no assignment, and a sev1 says no named ops person is on duty', '0,1',
+  perform pg_temp.rec('nobody: a real page gets no assignment and a sev1 says no named ops person is on duty', '0,1',
     (select count(*)::text from public.ops_desk_assignments where incident_id = pg_temp.incident_of(v_pg3)) || ',' ||
     (select count(*)::text from public.ops_incidents where external_reference = 'ops_desk_uncovered:' || pg_temp.incident_of(v_pg3) and severity = 'sev1'));
-  perform pg_temp.rec('nobody: the CMO and the administrators get the uncovered notice (never sms)', 'true,0',
-    ((select count(*) from public.notifications where template = 'on_call_ops_desk_uncovered' and recipient_id = pg_temp.f('cmo') and source_id = v_pg3) >= 1)::text || ',' ||
-    (select count(*)::text from public.notifications where template = 'on_call_ops_desk_uncovered' and channel::text in ('sms', 'voice')));
+  v_pg4 := pg_temp.mkpage(v_org, v_pat, pg_temp.mkevent(v_pat, pg_temp.f('rs')), v_a, true);
+  perform private.expire_page(v_pg4);
+  perform pg_temp.rec('nobody: a drill (test page) raises no sev1 and no uncovered notice, only an audit row', '0,0,1',
+    (select count(*)::text from public.ops_incidents where external_reference = 'ops_desk_uncovered:' || pg_temp.incident_of(v_pg4)) || ',' ||
+    (select count(*)::text from public.notifications where template = 'on_call_ops_desk_uncovered' and source_id = v_pg4) || ',' ||
+    (select count(*)::text from public.audit_log where action = 'ops_desk.uncovered_test' and entity_id = pg_temp.incident_of(v_pg4)));
+  perform pg_temp.rec('nobody: no ops desk template is ever sent by sms or voice', '0',
+    (select count(*)::text from public.notifications where template like 'on_call_ops_desk%' and channel::text in ('sms', 'voice')));
 
   -- a nobody-reachable incident (the health job's) is assigned the same way
   update public.ops_desk_contacts set is_active = true, activated_by = v_admin, activated_at = now() where id = v_c2;
   perform private.page_incident(v_org, 'page_nobody_reachable:' || v_org, 'Nobody reachable is on call', 'proof');
+  perform pg_temp.rec('nobody reachable: the standing condition gets its own, calmer notice (not "a case is unanswered")', '1,0',
+    (select count(*)::text from public.notifications where template = 'on_call_ops_desk_roster' and recipient_id = v_ops2) || ',' ||
+    (select count(*)::text from public.notifications n where n.template = 'on_call_ops_desk' and n.recipient_id = v_ops2 and n.source_id = (select id from public.ops_incidents where external_reference = 'page_nobody_reachable:' || v_org)));
   perform pg_temp.rec('nobody reachable: the same assignment happens', '1',
     (select count(*)::text from public.ops_desk_assignments a join public.ops_incidents i on i.id = a.incident_id where i.external_reference = 'page_nobody_reachable:' || v_org and a.profile_id = v_ops2));
+  perform private.page_incident(v_org, 'page_notifications_stuck', 'x', 'y');
   perform pg_temp.rec('an unrelated incident is not assigned', '0',
-    (select count(*)::text from (select private.page_incident(v_org, 'page_notifications_stuck', 'x', 'y')) s) || '' ::text);
+    (select count(*)::text from public.ops_desk_assignments a join public.ops_incidents i on i.id = a.incident_id where i.external_reference = 'page_notifications_stuck'));
+
+  -- a clinician acknowledges the expired page after all: the escalation stops and the sheet says so
+  v_pg5 := pg_temp.mkpage(v_org, v_pat, pg_temp.mkevent(v_pat, pg_temp.f('rs')), v_b);
+  perform private.expire_page(v_pg5);
+  update public.ops_desk_assignments set assigned_at = now() - interval '10 minutes' where incident_id = pg_temp.incident_of(v_pg5);
+  perform set_config('tarragon.paging_write', 'on', true);
+  update public.pages set acknowledged_at = now(), acknowledged_by = v_a where id = v_pg5;
+  perform set_config('tarragon.paging_write', 'off', true);
+  perform pg_temp.rec('page acknowledged: the sweep neither escalates nor raises the closing sev1 for it', '0,0',
+    (private.sweep_ops_desk() ->> 'final') || ',' || (select count(*)::text from public.ops_incidents where external_reference = 'ops_desk_unacknowledged:' || pg_temp.incident_of(v_pg5)));
+  perform pg_temp.rec('page acknowledged: the call sheet says a clinician has acknowledged it', 'true',
+    (pg_temp.q_as(v_ops2, format('select public.ops_desk_call_sheet(%L)::text', pg_temp.incident_of(v_pg5))) like '%"page_acknowledged": true%')::text);
+
+  -- the roster form cannot silently switch an active contact off
+  perform pg_temp.rec('roster: saving an active contact again is refused instead of switching them off', '22023,true',
+    pg_temp.try_as(v_admin, format('select public.ops_desk_save_contact(%L, ''primary'')', v_ops2)) || ',' || (select is_active::text from public.ops_desk_contacts where id = v_c2));
+  -- an account demoted after activation can always be made inactive, and does not count as cover meanwhile
+  update public.profiles set role = 'clinician' where id = v_ops2;
+  perform pg_temp.rec('demoted account: no longer usable cover, and it can still be made inactive', 'false,ok',
+    private.ops_desk_contact_usable(v_c2)::text || ',' || pg_temp.try_as(v_admin, format('select public.ops_desk_set_contact_active(%L, false, null)', v_c2)));
+  update public.profiles set role = 'admin' where id = v_ops2;
+  update public.ops_desk_contacts set is_active = true, activated_by = v_admin, activated_at = now() where id = v_c2;
 end $$;
 
 -- the uncovered-roster alarm needs a REAL rota; the proof makes one for the real world and removes it with the rollback
 do $$
-declare v_org uuid := pg_temp.f('org'); v_a uuid := pg_temp.f('A'); v_b uuid := pg_temp.f('B'); v_rota uuid; v_n integer;
+declare v_org uuid := pg_temp.f('org'); v_a uuid := pg_temp.f('A'); v_b uuid := pg_temp.f('B'); v_rota uuid; v_n integer; v_ops4 uuid; v_c4 uuid;
 begin
   perform set_config('tarragon.lead_write', 'on', true);
   insert into public.on_call_rota (organisation_id, starts_at, ends_at, primary_clinician_id, backup_clinician_id, built_by, is_test)
@@ -369,8 +410,19 @@ begin
     (v_n >= 1)::text || ',' || (select count(*)::text from public.ops_incidents where external_reference = 'ops_desk_uncovered_roster:' || v_org and severity = 'sev1' and status not in ('resolved', 'closed')));
   perform pg_temp.rec('roster alarm: a second sweep refreshes the same incident, it does not open another', '1',
     (private.sweep_ops_desk() ->> 'errors')::int * 0 + (select count(*) from public.ops_incidents where external_reference = 'ops_desk_uncovered_roster:' || v_org));
+  -- cover returns in the real world (a non-test administrator on duty): the alarm closes itself
+  v_ops4 := pg_temp.mkuser(v_org, 'ops4', 'admin', '+2348090314752', true);
+  update public.profiles set is_test = false where id = v_ops4;
+  perform pg_temp.act(pg_temp.f('admin'));
+  v_c4 := public.ops_desk_save_contact(v_ops4, 'primary');
+  perform public.ops_desk_set_windows(v_c4, pg_temp.today_windows());
+  perform public.ops_desk_set_contact_active(v_c4, true, 'phoned them and they answered');
+  perform pg_temp.back();
+  perform private.sweep_ops_desk();
+  perform pg_temp.rec('roster alarm: when cover returns the alarm closes itself', 'resolved',
+    (select status::text from public.ops_incidents where external_reference = 'ops_desk_uncovered_roster:' || v_org order by detected_at desc limit 1));
   -- switched off in config, the alarm is silent
-  update public.ops_incidents set status = 'resolved', root_cause = 'proof' where external_reference = 'ops_desk_uncovered_roster:' || v_org;
+  update public.ops_desk_contacts set is_active = false, activated_by = null, activated_at = null where id = v_c4;
   perform pg_temp.use_rules('{"uncovered_roster_alarm": 0}'::jsonb);
   perform private.sweep_ops_desk();
   perform pg_temp.rec('roster alarm: with the alarm switched off in config no new incident opens', '0',
@@ -425,7 +477,7 @@ declare v_admin uuid := pg_temp.f('admin'); v_a uuid := pg_temp.f('A'); v_cmo uu
 begin
   perform pg_temp.rec('checklist: before anyone says anything every item reads not attested and the org is not ready', 'not_attested,false',
     (select (e ->> 'state') from jsonb_array_elements((pg_temp.q_as(v_admin, 'select public.ops_desk_overview(30)')::jsonb) -> 'checklist') e where e ->> 'item_key' = 'backup_power') || ',' ||
-    private.ops_desk_org_ready(v_org)::text);
+    private.ops_desk_org_ready(v_org, true)::text);
   perform pg_temp.rec('checklist: a short note, an unknown item, a clinician and a patient are refused', '22023,P0002,42501,42501',
     pg_temp.try_as(v_admin, $q$select public.attest_ops_desk_item('backup_power', 'in_place', 'seen')$q$) || ',' ||
     pg_temp.try_as(v_admin, $q$select public.attest_ops_desk_item('free_coffee', 'in_place', 'seen it in the cupboard behind the desk')$q$) || ',' ||
@@ -446,7 +498,7 @@ begin
   perform public.attest_ops_desk_item('backup_power', 'not_in_place', 'The inverter battery is flat and the power banks are missing.');
   perform pg_temp.back();
   perform pg_temp.rec('checklist: the newest statement wins (not in place after in place)', 'not_in_place,false',
-    pg_temp.item_state(v_admin, 'backup_power') || ',' || private.ops_desk_org_ready(v_org)::text);
+    pg_temp.item_state(v_admin, 'backup_power') || ',' || private.ops_desk_org_ready(v_org, true)::text);
   perform pg_temp.backdate((select id from public.ops_desk_checklist_attestations where item_key = 'backup_power' and state = 'not_in_place'), interval '1 day');
   perform pg_temp.act(v_admin);
   perform public.attest_ops_desk_item('backup_power', 'in_place', 'Replaced the battery and retested: laptop and router ran 4 hours.');
@@ -455,12 +507,12 @@ begin
   end loop;
   perform pg_temp.back();
   perform pg_temp.rec('ready: three of four attested (second link is by the CMO and stands) and no primary active yet, so not ready', 'in_place,false',
-    pg_temp.item_state(v_admin, 'backup_power') || ',' || private.ops_desk_org_ready(v_org)::text);
+    pg_temp.item_state(v_admin, 'backup_power') || ',' || private.ops_desk_org_ready(v_org, true)::text);
   update public.ops_desk_contacts set is_active = true, activated_by = v_admin, activated_at = now() where id = v_c1;
-  perform pg_temp.rec('ready: with all four in place and a primary and a deputy active with confirmed numbers, ready', 'true', private.ops_desk_org_ready(v_org)::text);
+  perform pg_temp.rec('ready: with all four in place and a primary and a deputy active with confirmed numbers, ready', 'true', private.ops_desk_org_ready(v_org, true)::text);
   perform pg_temp.backdate((select id from public.ops_desk_checklist_attestations where item_key = 'deputy_cover'), interval '91 days');
   perform pg_temp.rec('stale: a statement older than the configured age stops counting and is shown as out of date', 'true,true',
-    (private.ops_desk_org_ready(v_org) is false)::text || ',' ||
+    (private.ops_desk_org_ready(v_org, true) is false)::text || ',' ||
     (select (e ->> 'stale') from jsonb_array_elements((pg_temp.q_as(v_admin, 'select public.ops_desk_overview(30)')::jsonb) -> 'checklist') e where e ->> 'item_key' = 'deputy_cover'));
 end $$;
 
@@ -474,8 +526,11 @@ begin
   perform pg_temp.rec('gate on: with the checklist stale the guard cannot be switched on (23514)', '23514', pg_temp.guard_try(true));
   perform pg_temp.rec('gate on: it never blocks switching the guard off', 'ok', pg_temp.guard_try(false));
   perform pg_temp.backdate((select id from public.ops_desk_checklist_attestations where item_key = 'deputy_cover'), interval '0 days');
+  -- the gate looks at the real world; the proof's people are test accounts, so move them across for this one check and back
+  perform pg_temp.set_world(false);
   perform pg_temp.rec('gate on: with the checklist and roster in place the guard switches on', 'ok', pg_temp.guard_try(true));
   perform pg_temp.guard_on('on_call_cover_ok', false);
+  perform pg_temp.set_world(true);
 end $$;
 
 -- 6. Reading (RLS) ---------------------------------------------------------------------------------------------------------

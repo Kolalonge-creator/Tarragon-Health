@@ -4874,7 +4874,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-16",
-    source: "docs/runbooks/ops-desk-expired-page.md; supabase/migrations/20261016191500_ops_desk_expired_page_resilience.sql",
+    source: "docs/runbooks/ops-desk-expired-page.md; supabase/migrations/20261016194640_ops_desk_expired_page_resilience.sql",
   },
   {
     key: "ops_desk.rules_v2",

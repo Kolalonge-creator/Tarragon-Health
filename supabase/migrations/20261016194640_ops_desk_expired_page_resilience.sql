@@ -220,16 +220,20 @@ declare pr public.profiles%rowtype;
 begin
   select * into pr from public.profiles where id = new.profile_id;
   if not found then raise exception 'unknown profile' using errcode = '23503'; end if;
-  if pr.organisation_id is distinct from new.organisation_id then
+  if tg_op = 'INSERT' and pr.organisation_id is distinct from new.organisation_id then
     raise exception 'an ops desk contact must belong to the same organisation' using errcode = '23514';
   end if;
-  if pr.role <> 'admin' then
+  if tg_op = 'INSERT' and pr.role <> 'admin' then
     raise exception 'an ops desk contact must be an administrator account (the desk works from the admin console)' using errcode = '23514';
   end if;
   if tg_op = 'INSERT' and new.is_active then
     raise exception 'a new ops desk contact starts inactive; activate it after the phone and hours are checked' using errcode = '23514';
   end if;
+  -- the checks below apply only to a row that is (becoming) active, so a contact whose account was later demoted or moved can always be made inactive
   if new.is_active then
+    if pr.role <> 'admin' then
+      raise exception 'an ops desk contact must be an administrator account (the desk works from the admin console)' using errcode = '23514';
+    end if;
     if not pr.is_active then raise exception 'that account is deactivated' using errcode = '23514'; end if;
     if private.verified_profile_phone(new.profile_id) is null then
       raise exception 'an ops desk contact needs a real phone number that the person has confirmed on their own account' using errcode = '23514';
@@ -238,7 +242,7 @@ begin
       raise exception 'an ops desk contact needs at least one window of hours' using errcode = '23514';
     end if;
   end if;
-  new.is_test := pr.is_test;
+  if tg_op = 'INSERT' then new.is_test := pr.is_test; end if;
   new.updated_at := now();
   return new;
 end;
@@ -363,6 +367,18 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- 5. Who is on duty, and the assignment
 -- ---------------------------------------------------------------------------
+create function private.ops_desk_contact_usable(p_contact uuid) returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select exists (
+    select 1 from public.ops_desk_contacts c
+      join public.profiles pr on pr.id = c.profile_id and pr.is_active and pr.role = 'admin'
+     where c.id = p_contact and c.is_active
+       and private.verified_profile_phone(c.profile_id) is not null
+       and exists (select 1 from public.ops_desk_contact_windows w where w.contact_id = c.id))
+$$;
+revoke all on function private.ops_desk_contact_usable(uuid) from public, anon, authenticated;
+
 create function private.ops_desk_on_duty(p_org uuid, p_test boolean, p_at timestamptz default now())
 returns table (contact_id uuid, profile_id uuid, role text)
 language sql stable security definer set search_path = ''
@@ -416,10 +432,19 @@ begin
   end if;
 
   if c.contact_id is null then
+    -- a drill (test page) is never a real emergency: no sev1 and no notice, only the audit row
+    if v_test then
+      insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+        values (i.organisation_id, null, 'ops_desk.uncovered_test', 'ops_incident', i.id, jsonb_build_object('mode', p_mode));
+      return null;
+    end if;
     -- nobody named is on duty: say so loudly, and tell the clinical lead and administrators. The expired-page notice has already gone to them.
     perform private.page_incident(i.organisation_id, 'ops_desk_uncovered:' || i.id, 'No named ops person for this hour: phone the on-call clinician now',
       'A red event page needs a phone call and no ops contact is on duty for this hour (or none is named). Phone the on-call clinician and the chief medical officer yourself and record the calls on the Ops desk page. Name and activate ops contacts so this does not happen again.');
-    perform private.page_notify_leadership(i.organisation_id, v_ref, v_test, 'on_call_ops_desk_uncovered');
+    -- a standing "nobody reachable" condition already sits in the incident queue; only an expired page needs the extra notice
+    if v_page is not null then
+      perform private.page_notify_leadership(i.organisation_id, v_ref, v_test, 'on_call_ops_desk_uncovered');
+    end if;
     insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
       values (i.organisation_id, null, 'ops_desk.uncovered', 'ops_incident', i.id, jsonb_build_object('mode', p_mode));
     return null;
@@ -431,7 +456,7 @@ begin
   returning id into v_asg;
   if v_asg is null then return null; end if;
   update public.ops_incidents set owner_id = c.profile_id where id = i.id;
-  perform private.page_notify_ref(c.profile_id, i.organisation_id, 'on_call_ops_desk', v_ref, 'pages', array['push', 'in_app', 'email'], true);
+  perform private.page_notify_ref(c.profile_id, i.organisation_id, case when v_page is not null then 'on_call_ops_desk' else 'on_call_ops_desk_roster' end, v_ref, 'pages', array['push', 'in_app', 'email'], true);
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
     values (i.organisation_id, null, 'ops_desk.assigned', 'ops_incident', i.id, jsonb_build_object('assigned_to', c.profile_id, 'role', c.role, 'reason', v_reason));
   return v_asg;
@@ -482,6 +507,8 @@ begin
      where asg.acknowledged_at is null and asg.escalated_at is null
        and asg.assigned_at <= now() - make_interval(secs => v_after)
        and i.status not in ('resolved', 'closed') and i.acknowledged_at is null
+       -- the page was acknowledged by a clinician after all: the phone call is no longer needed
+       and not exists (select 1 from public.pages pg where i.external_reference = 'page_expired:' || pg.id and pg.acknowledged_at is not null)
      order by asg.assigned_at for update of asg skip locked
   loop
     begin
@@ -514,7 +541,11 @@ begin
   if coalesce(private.ops_desk_rule('uncovered_roster_alarm'), 0) = 1 then
     for o in select distinct r.organisation_id from public.on_call_rota r where r.is_test = false and r.cancelled_at is null and r.ends_at > now() loop
       begin
-        if not exists (select 1 from private.ops_desk_on_duty(o.organisation_id, false)) then
+        if exists (select 1 from private.ops_desk_on_duty(o.organisation_id, false)) then
+          -- cover is back: the alarm closes itself (a person can still reopen the question in the incident)
+          update public.ops_incidents set status = 'resolved', root_cause = 'An ops desk contact is on duty again (closed automatically).'
+           where external_reference = 'ops_desk_uncovered_roster:' || o.organisation_id and status not in ('resolved', 'closed');
+        else
           perform private.page_incident(o.organisation_id, 'ops_desk_uncovered_roster:' || o.organisation_id, 'Nobody is named at the ops desk for this hour',
             'A real on-call rota is running and no ops desk contact is on duty right now. If a red event page expires, no named person will be told to phone the on-call clinician. Name, verify and activate ops contacts on the Ops desk page.');
           v_uncovered := v_uncovered + 1;
@@ -556,10 +587,17 @@ begin
   if not exists (select 1 from public.profiles pr where pr.id = p_profile and pr.organisation_id = c.organisation_id) then
     raise exception 'that person is not in your organisation' using errcode = '22023';
   end if;
-  insert into public.ops_desk_contacts (organisation_id, profile_id, role, created_by)
-  values (c.organisation_id, p_profile, p_role, c.id)
-  on conflict (profile_id) do update set role = excluded.role, is_active = false, activated_by = null, activated_at = null, activation_note = null
-  returning id into v_id;
+  select ct.id into v_id from public.ops_desk_contacts ct where ct.profile_id = p_profile and ct.organisation_id = c.organisation_id;
+  if v_id is not null then
+    if exists (select 1 from public.ops_desk_contacts ct where ct.id = v_id and ct.is_active) then
+      raise exception 'that person is already an active contact; make them not active first if you want to change their role' using errcode = '22023';
+    end if;
+    update public.ops_desk_contacts set role = p_role where id = v_id;
+  else
+    insert into public.ops_desk_contacts (organisation_id, profile_id, role, created_by)
+    values (c.organisation_id, p_profile, p_role, c.id)
+    returning id into v_id;
+  end if;
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
     values (c.organisation_id, c.id, 'ops_desk.contact_saved', 'ops_desk_contact', v_id, jsonb_build_object('role', p_role, 'profile_id', p_profile));
   return v_id;
@@ -680,7 +718,7 @@ begin
     v_rows := v_rows || jsonb_build_array(jsonb_build_object('kind', r.kind, 'profile_id', r.pid, 'name', r.full_name,
       'phone', r.phone, 'phone_status', case when r.phone is null then 'no_confirmed_number' else 'confirmed' end));
   end loop;
-  return jsonb_build_object('incident_id', i.id, 'reference', i.reference, 'opened_at', i.detected_at, 'people', v_rows);
+  return jsonb_build_object('incident_id', i.id, 'reference', i.reference, 'opened_at', i.detected_at, 'page_acknowledged', coalesce(v_root.acknowledged_at is not null, false), 'people', v_rows);
 end;
 $$;
 revoke all on function public.ops_desk_call_sheet(uuid) from public, anon;
@@ -741,20 +779,20 @@ grant execute on function public.attest_ops_desk_item(text, text, text) to authe
 
 -- One organisation is "ready" when each item's newest attestation says in_place and is not older than the configured age, and a primary
 -- and a deputy are active with a confirmed number.
-create function private.ops_desk_org_ready(p_org uuid) returns boolean
+create function private.ops_desk_org_ready(p_org uuid, p_test boolean default false) returns boolean
 language sql stable security definer set search_path = ''
 as $$
   select not exists (
            select 1 from public.ops_desk_checklist_items it
             where not exists (
               select 1 from (select a.state, a.attested_at from public.ops_desk_checklist_attestations a
-                              where a.organisation_id = p_org and a.item_key = it.item_key and not a.is_test
+                              where a.organisation_id = p_org and a.item_key = it.item_key and a.is_test = p_test
                               order by a.attested_at desc limit 1) l
                where l.state = 'in_place' and l.attested_at > now() - make_interval(days => coalesce(private.ops_desk_rule('checklist_max_age_days'), 90))))
-     and exists (select 1 from public.ops_desk_contacts c where c.organisation_id = p_org and c.is_active and not c.is_test and c.role = 'primary' and private.verified_profile_phone(c.profile_id) is not null)
-     and exists (select 1 from public.ops_desk_contacts c where c.organisation_id = p_org and c.is_active and not c.is_test and c.role = 'deputy' and private.verified_profile_phone(c.profile_id) is not null)
+     and exists (select 1 from public.ops_desk_contacts c where c.organisation_id = p_org and c.is_test = p_test and c.role = 'primary' and private.ops_desk_contact_usable(c.id))
+     and exists (select 1 from public.ops_desk_contacts c where c.organisation_id = p_org and c.is_test = p_test and c.role = 'deputy' and private.ops_desk_contact_usable(c.id))
 $$;
-revoke all on function private.ops_desk_org_ready(uuid) from public, anon, authenticated;
+revoke all on function private.ops_desk_org_ready(uuid, boolean) from public, anon, authenticated;
 
 -- Gating, OFF by default: only when the CMO's signed config says checklist_gates_readiness = 1 is the on-call cover guard refused.
 create function private.ops_desk_gate_on_call_cover_guard() returns trigger
@@ -833,10 +871,10 @@ begin
   return jsonb_build_object(
     'config_version', (select version from public.ops_desk_config where is_active),
     'checklist_gates_readiness', coalesce(private.ops_desk_rule('checklist_gates_readiness'), 0) = 1,
-    'ready', private.ops_desk_org_ready(c.organisation_id),
+    'ready', private.ops_desk_org_ready(c.organisation_id, c.is_test),
     'checklist', v_items,
-    'active_primary', (select count(*) from public.ops_desk_contacts x where x.organisation_id = c.organisation_id and x.is_active and x.role = 'primary' and x.is_test = c.is_test),
-    'active_deputy', (select count(*) from public.ops_desk_contacts x where x.organisation_id = c.organisation_id and x.is_active and x.role = 'deputy' and x.is_test = c.is_test),
+    'active_primary', (select count(*) from public.ops_desk_contacts x where x.organisation_id = c.organisation_id and x.role = 'primary' and x.is_test = c.is_test and private.ops_desk_contact_usable(x.id)),
+    'active_deputy', (select count(*) from public.ops_desk_contacts x where x.organisation_id = c.organisation_id and x.role = 'deputy' and x.is_test = c.is_test and private.ops_desk_contact_usable(x.id)),
     'on_duty_now', (select count(*) from private.ops_desk_on_duty(c.organisation_id, c.is_test)),
     'uncovered_hours_next_7_days', v_gap,
     'window_days', v_days,
@@ -894,7 +932,7 @@ begin
     if has_function_privilege('anon', f, 'EXECUTE') or not has_function_privilege('authenticated', f, 'EXECUTE') then raise exception 'ops desk: wrong execute grants on %', f; end if;
   end loop;
   foreach f in array array['private.ops_desk_assign(uuid,text,uuid)', 'private.sweep_ops_desk()', 'private.ops_desk_on_duty(uuid,boolean,timestamptz)', 'private.verified_profile_phone(uuid)',
-      'private.ops_desk_org_ready(uuid)', 'private.ops_desk_rule(text)'] loop
+      'private.ops_desk_org_ready(uuid,boolean)', 'private.ops_desk_rule(text)', 'private.ops_desk_contact_usable(uuid)'] loop
     if has_function_privilege('anon', f, 'EXECUTE') or has_function_privilege('authenticated', f, 'EXECUTE') then raise exception 'ops desk: % must not be callable', f; end if;
   end loop;
   foreach f in array array['ops_desk_contacts', 'ops_desk_contact_windows', 'ops_desk_assignments', 'ops_desk_call_log', 'ops_desk_checklist_attestations', 'ops_desk_config'] loop

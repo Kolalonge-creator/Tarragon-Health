@@ -18,6 +18,7 @@ export const OWN_ADDRESS_ONLY_TEMPLATES: ReadonlySet<string> = new Set([
   "on_call_expired",
   "on_call_ops_desk",
   "on_call_ops_desk_uncovered",
+  "on_call_ops_desk_roster",
   "credential_notice",
   "care_team_notice",
 ]);
