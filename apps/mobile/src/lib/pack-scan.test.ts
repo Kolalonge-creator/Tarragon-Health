@@ -56,9 +56,20 @@ describe("typed NAFDAC number (works today, offline)", () => {
     expect(applyCatalogueLookup(FORM, { kind: "not_matched" })).toBe(FORM);
     expect(applyCatalogueLookup(FORM, { kind: "invalid" })).toBe(FORM);
   });
-  it("keeps the person's own dose when the catalogue has none", () => {
+  it("keeps the person's own dose when the catalogue has none and the name is the same", () => {
     const lookup = lookupNafdacNumber("A4-1234", [{ ...NORVASC, strength: null }]);
-    expect(applyCatalogueLookup({ drugName: "", dose: "10mg", nafdacNumber: "" }, lookup).dose).toBe("10mg");
+    expect(applyCatalogueLookup({ drugName: "amlodipine", dose: "10mg", nafdacNumber: "" }, lookup).dose).toBe("10mg");
+  });
+  it("never leaves a dose typed for another medicine next to the catalogue name", () => {
+    const lookup = lookupNafdacNumber("A4-1234", [{ ...NORVASC, strength: null }]);
+    expect(applyCatalogueLookup({ drugName: "Metformin", dose: "500 mg", nafdacNumber: "" }, lookup)).toMatchObject({ drugName: "Amlodipine", dose: "" });
+  });
+  it("keeps the typed name when two rows disagree about it", () => {
+    const rows = [NORVASC, { ...NORVASC, id: "c2", genericName: "Lisinopril" }];
+    expect(applyCatalogueLookup({ drugName: "Mine", dose: "5 mg", nafdacNumber: "" }, lookupNafdacNumber("A4-1234", rows))).toMatchObject({ drugName: "Mine", dose: "5 mg" });
+  });
+  it("the unavailable path survives a delete that throws", async () => {
+    await expect(scanPackPhoto("file:///p.jpg", [], { discardPhoto: async () => { throw new Error("busy"); } })).resolves.toEqual({ kind: "unavailable" });
   });
 });
 

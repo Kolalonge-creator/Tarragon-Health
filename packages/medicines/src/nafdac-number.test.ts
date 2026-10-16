@@ -51,6 +51,9 @@ describe("normaliseNafdacNumber (typed entry, works offline)", () => {
     expect(normaliseNafdacNumber(raw)).toBeNull();
   });
 
+  it("does not strip the letters NO off the front of a number", () => {
+    expect(normaliseNafdacNumber("NO4-1234")?.value).not.toBe("4-1234");
+  });
   it("truncates a very long input instead of scanning it all", () => {
     expect(normaliseNafdacNumber("A4-1234" + " x".repeat(5000))).toBeNull();
   });
@@ -86,6 +89,9 @@ describe("extractNafdacNumbers (text a phone read off a pack)", () => {
   it("does not offer a batch, lot or manufacture number", () => {
     expect(extractNafdacNumbers(["Batch No: B1-123456", "LOT A4-5678", "mfg. 04-5678"])).toEqual([]);
   });
+  it("does not drop a number just because a label word sits on the line above", () => {
+    expect(extractNafdacNumbers(["Mfg date", "A4-1234"]).map((c) => c.value)).toEqual(["A4-1234"]);
+  });
   it("does not guess at an unlabelled number that needed look-alike repair", () => {
     expect(extractNafdacNumbers(["OIL-1000", "A4-12O4"])).toEqual([]);
   });
@@ -104,10 +110,11 @@ describe("extractStrengthSuggestion", () => {
   it.each([
     [["Amlodipine 5mg tablets"], "5 mg"],
     [["500 MG"], "500 mg"],
-    [["Each 5 ml contains 250mg/5ml"], "5 ml"],
+    [["Syrup 100 ml", "Each 5 ml contains Amoxicillin 125 mg"], "125 mg"],
+    [["Each 5 ml contains 250mg/5ml"], "250 mg/5 ml"],
     [["250 mg/5 ml suspension"], "250 mg/5 ml"],
     [["250mg/ml"], "250 mg/ml"],
-    [["2,5 g"], "2.5 g"],
+    [["2,5 mg"], "2.5 mg"],
     [["100 mcg"], "100 mcg"],
     [["100 µg"], "100 mcg"],
     [["100 ug"], "100 mcg"],
@@ -116,6 +123,10 @@ describe("extractStrengthSuggestion", () => {
     [["Metformin 1,000 mg"], "1000 mg"],
     [["28 gastro-resistant tablets", "Pantoprazole 40 mg"], "40 mg"],
     [["30 Gelcaps", "100 grams", "5 IUs"], null],
+    [["Amlodipine 5 mg / Valsartan 160 mg"], null],
+    [["Take .5 mg"], null],
+    [["Net 30 g", "100 ml"], null],
+    [["500 mg", "Each tablet contains 500 mg"], "500 mg"],
   ])("%j gives %s", (lines, want) => {
     expect(extractStrengthSuggestion(lines)).toBe(want);
   });
@@ -148,7 +159,7 @@ describe("matchCatalogueNamesInText", () => {
     expect(matchCatalogueNamesInText(["Amlodipine"], rows).map((e) => e.id)).toEqual(["a"]);
   });
   it("respects the limit", () => {
-    expect(matchCatalogueNamesInText(["Norvasc Metformin"], cat, undefined, 1)).toHaveLength(1);
+    expect(matchCatalogueNamesInText(["Norvasc Metformin"], cat, { ...NAFDAC_NUMBER_CONFIG, nameMatchLimit: 1 })).toHaveLength(1);
   });
 });
 
@@ -158,7 +169,7 @@ describe("lookupNafdacNumber", () => {
     expect(r).toMatchObject({ kind: "in_catalogue", prefill: { drugName: "Amlodipine", strength: "5 mg", brandName: "Norvasc" } });
   });
   it("is not fooled by punctuation differences on the catalogue side", () => {
-    expect(lookupNafdacNumber("A4-1234", [entry({ nafdacNumber: "a4 1234" })]).kind).toBe("in_catalogue");
+    expect(lookupNafdacNumber("A4-1234", [entry({ nafdacNumber: " a4 - 1234 " })]).kind).toBe("in_catalogue");
   });
   it("two rows with one generic: name pre-filled, strength and brand left for the patient", () => {
     const r = lookupNafdacNumber("A4-1234", [entry({ id: "a" }), entry({ id: "b", strength: "10 mg" })]);
@@ -167,6 +178,15 @@ describe("lookupNafdacNumber", () => {
   it("two rows with different generics: nothing pre-filled", () => {
     const r = lookupNafdacNumber("A4-1234", [entry({ id: "a" }), entry({ id: "b", genericName: "Lisinopril" })]);
     expect(r).toMatchObject({ kind: "in_catalogue", prefill: { drugName: null } });
+  });
+  it("different digit splits are different numbers", () => {
+    expect(lookupNafdacNumber("A4-1234", [entry({ nafdacNumber: "A41-234" })])).toEqual({ kind: "not_matched" });
+  });
+  it("a typed number that needed look-alike repair never pre-fills", () => {
+    expect(lookupNafdacNumber("O4-1234", [entry({ nafdacNumber: "04-1234" })])).toEqual({ kind: "not_matched" });
+  });
+  it("a malformed number in the catalogue never matches", () => {
+    expect(lookupNafdacNumber("A4-1234", [entry({ nafdacNumber: "see register" })])).toEqual({ kind: "not_matched" });
   });
   it("a row that is not verified is not a match and pre-fills nothing", () => {
     expect(lookupNafdacNumber("A4-1234", [entry({ isVerified: false })])).toEqual({ kind: "not_matched" });
