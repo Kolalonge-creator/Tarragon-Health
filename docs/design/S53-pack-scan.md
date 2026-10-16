@@ -1,0 +1,3 @@
+# Pack scan: reading the NAFDAC number (spec 8.1, 8.8)
+
+Rules: a catalogue match is not an authenticity check, and no wording says genuine, fake or safe about a medicine. Authenticity stays NAFDAC's text service (`NAFDAC_MAS`), shown as the next step. Everything read from a photo is a suggestion applied one field at a time on the person's tap; the photo is deleted after reading and never uploaded; adding a medicine is never blocked. Only a verified catalogue row counts as a match. The number format is PROPOSED config `medicines.nafdac_number_format`. The camera path waits for a native text reader (OQ-NAFDAC-SCAN-2); typed entry works today.

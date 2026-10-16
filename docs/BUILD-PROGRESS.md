@@ -1904,3 +1904,11 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
   - Functions to deploy: `supabase functions deploy process-events` (new handler `points.award`; deploy BEFORE or WITH migration 2 so a delivery never meets an unknown handler: an unknown handler dead-letters visibly). Ship web and mobile code with the migrations (mobile OTA is JS only).
   - After apply: check `event_bus_health()` shows `points.award.*` deliveries completing, and that `points_award_decisions` fills.
   - Who signs what: nothing is signed. The founder confirms point values, caps, level thresholds and, separately, the redemption share and the per-order kobo cap (setting it switches redemption on, only after S71/S72 call the functions); the CMO confirms the plausible-range bounds.
+
+## Medicine pack scan reads the NAFDAC number (spec 8.1, 8.8) (2026-10-16), branch `feat/medicine-pack-scan-nafdac`
+
+- **Built**: `packages/medicines/src/nafdac-number.ts` (pure: normalise and OCR-noise repair of a NAFDAC number, extraction from read text, strength and known-name suggestions, verified-only catalogue lookup; 100 percent branch coverage); versioned config `medicines.nafdac_number_format` (PROPOSED) mirrored by `NAFDAC_NUMBER_CONFIG` with a drift test; phone `lib/pack-scan.ts` (capability-gated reader, photo always deleted, one-field-per-tap apply); the NAFDAC number block in the add-medicine form (typed entry always works, offline too; honest catalogue line; the existing NAFDAC text-service guidance shown as the next step); `packscan.*` strings.
+- **Not built, on purpose**: the on-device text reader (native module, OQ-NAFDAC-SCAN-2); no dependency added, `runtimeVersion` unchanged; no migration, no AI call site, no server route.
+- **Tests**: medicines 358 pass at 100 percent coverage; mobile `pack-scan` and mirror tests pass; i18n 215 and shared 1,029 pass; mobile `tsc` clean; eslint 0 errors.
+- **Not run**: nothing on a device or simulator; the camera path cannot run until a text reader exists.
+- **Open**: OQ-NAFDAC-SCAN-1 to OQ-NAFDAC-SCAN-4.
