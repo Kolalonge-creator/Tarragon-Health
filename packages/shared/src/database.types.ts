@@ -48275,6 +48275,11 @@ export type Database = {
       sponsor_outcome_report: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
       sponsor_staff_figures: { Args: { p_cohort: string }; Returns: Json };
       log_sponsor_staff_export: { Args: { p_cohort: string }; Returns: Json };
+      // Optional passkeys (docs/design/passkeys.md): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      authorise_passkey_add: { Args: { p_minutes: number; p_user: string }; Returns: boolean };
+      cancel_passkey_add: { Args: { p_user: string }; Returns: undefined };
+      has_fresh_passkey_add_authorisation: { Args: { p_user: string }; Returns: boolean };
+      passkey_gate_ready: { Args: Record<PropertyKey, never>; Returns: boolean };
       // S03b (accounts that survive a lost number; eligibility-first claims): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       authorise_phone_change: { Args: { p_method: string; p_user: string }; Returns: Json };
       cancel_contact_recovery: { Args: Record<PropertyKey, never>; Returns: Json };
