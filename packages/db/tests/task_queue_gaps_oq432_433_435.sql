@@ -187,9 +187,8 @@ begin
   perform pg_temp.rec('435: an employed doctor without the competency is not pushed the task, although less loaded', e2::text,
     coalesce((select pushed_to::text from public.clinical_tasks where id = t), 'null'));
   perform pg_temp.rec('435: ...it is offered (pushed) to the one who can take it', 'offered_to_lead', pg_temp.state_of(t));
-  perform pg_temp.clear_queue();
 
-  -- control: a task with no prescribing need still goes to the least loaded employed doctor
+  -- control (E2 is still the busier one): a task with no prescribing need still goes to the least loaded employed doctor
   t2 := private.create_clinical_task(pg_temp.f('p9'), 'symptom_review');
   perform pg_temp.rec('435 control: a symptom_review (no prescribing need) is pushed to the less loaded E1', e1::text,
     coalesce((select pushed_to::text from public.clinical_tasks where id = t2), 'null'));
