@@ -2,7 +2,7 @@
 // Run: deno test --no-config supabase/functions/auth-send-sms-hook/handler.test.ts
 
 import { assert, assertEquals, assertFalse } from "jsr:@std/assert@1";
-import { handleHookRequest, MAX_SENDS_PER_HOUR, type SmsLogStore, type SmsOutcome } from "./handler.ts";
+import { handleHookRequest, isPhoneChangeCode, MAX_SENDS_PER_HOUR, type HoldStore, type SmsLogStore, type SmsOutcome } from "./handler.ts";
 import { MockSmsProvider, UnconfiguredSmsProvider, buildOtpText } from "./provider.ts";
 
 const RAW_SECRET = btoa("test-secret-not-for-prod-0123456789");
@@ -70,8 +70,20 @@ class MemoryStore implements SmsLogStore {
   }
 }
 
-function deps(provider = new MockSmsProvider(), store = new MemoryStore()) {
-  return { provider, store, secret: SECRET, pepper: PEPPER, nowSeconds: () => NOW };
+/** Stands in for public.auth_sms_hold: the set of user ids inside the pause. */
+class MemoryHolds implements HoldStore {
+  held = new Set<string>();
+  fail = false;
+  asked: string[] = [];
+  isHeld(userId: string): Promise<boolean> {
+    this.asked.push(userId);
+    if (this.fail) return Promise.reject(new Error("down"));
+    return Promise.resolve(this.held.has(userId));
+  }
+}
+
+function deps(provider = new MockSmsProvider(), store = new MemoryStore(), holds = new MemoryHolds()) {
+  return { provider, store, holds, secret: SECRET, pepper: PEPPER, nowSeconds: () => NOW };
 }
 
 Deno.test("a validly signed request sends once and logs 'sent'", async () => {
@@ -245,4 +257,102 @@ Deno.test("invalid payloads are refused before anything is sent", async () => {
     assert(res.status === 400);
     assertEquals(d.provider.sent.length, 0);
   }
+});
+
+// ---- OQ-43 / OQ-S03B-06: the recovery pause at the Auth level ----
+
+const iso = (secondsAgo: number) => new Date((NOW - secondsAgo) * 1000).toISOString();
+const bodyFor = (user: Record<string, unknown>) => JSON.stringify({ user: { id: "u-1", phone: PHONE, ...user }, sms: { otp: OTP } });
+
+Deno.test("a paused account's code is withheld with the SAME 200 a send gets, takes the same slot, and leaves a record", async () => {
+  const d = deps();
+  d.holds.held.add("u-1");
+  const res = await handleHookRequest(await signedRequest(), d);
+  const ok = await handleHookRequest(await signedRequest({ body: bodyFor({ id: "u-2", phone: "+2348099999999" }) }), d);
+  assertEquals(res.status, 200);
+  assertEquals(await res.text(), await ok.text()); // identical body: no enumeration signal
+  assertEquals(d.provider.sent.length, 1); // only the unpaused account's code went out
+  assertEquals(d.provider.sent[0].to, "+2348099999999");
+  assertEquals(d.store.rows.length, 2); // the paused one took a slot too
+  assertEquals(d.store.rows[0].status, "sent");
+  assertEquals(d.store.rows[0].errorCode, "withheld_pause"); // support can tell a withheld code from a lost one
+});
+
+Deno.test("a paused account hits the same hourly cap (429) as an unpaused one", async () => {
+  const d = deps();
+  d.holds.held.add("u-1");
+  for (let i = 0; i < MAX_SENDS_PER_HOUR; i++) assertEquals((await handleHookRequest(await signedRequest(), d)).status, 200);
+  assertEquals((await handleHookRequest(await signedRequest(), d)).status, 429);
+  assertEquals(d.provider.sent.length, 0);
+});
+
+Deno.test("an account outside the pause is sent as before", async () => {
+  const d = deps();
+  const res = await handleHookRequest(await signedRequest(), d);
+  assertEquals(res.status, 200);
+  assertEquals(d.provider.sent.length, 1);
+  assertEquals(d.holds.asked, ["u-1"]);
+});
+
+Deno.test("the code for a pending number change still goes out during the pause", async () => {
+  const d = deps();
+  d.holds.held.add("u-1");
+  const body = bodyFor({ phone_change: "+2348099999999", phone_change_sent_at: iso(1), confirmation_sent_at: iso(900) });
+  const res = await handleHookRequest(await signedRequest({ body }), d);
+  assertEquals(res.status, 200);
+  assertEquals(d.provider.sent.length, 1);
+  assertEquals(d.provider.sent[0].to, "+2348099999999"); // the NEW number, not the current one
+  // GoTrue's own spelling of the pending number
+  const d2 = deps();
+  d2.holds.held.add("u-1");
+  await handleHookRequest(await signedRequest({ body: bodyFor({ new_phone: "2348077776666", phone_change_sent_at: iso(1) }) }), d2);
+  assertEquals(d2.provider.sent[0].to, "+2348077776666");
+});
+
+Deno.test("a stale pending number change does not let a sign-in code through during the pause", async () => {
+  const d = deps();
+  d.holds.held.add("u-1");
+  // the number-change code is older than a fresh sign-in code: this send is the sign-in code
+  const newerSignIn = bodyFor({ phone_change: "+2348099999999", phone_change_sent_at: iso(60), confirmation_sent_at: iso(1) });
+  await handleHookRequest(await signedRequest({ body: newerSignIn }), d);
+  const staleChange = bodyFor({ phone_change: "+2348099999999", phone_change_sent_at: iso(3600) });
+  await handleHookRequest(await signedRequest({ body: staleChange }), d);
+  assertEquals(d.provider.sent.length, 0);
+});
+
+Deno.test("isPhoneChangeCode is only true when sure", () => {
+  assert(isPhoneChangeCode({ phone_change: "+2348099999999", phone_change_sent_at: iso(2) }, NOW));
+  assertFalse(isPhoneChangeCode({}, NOW));
+  assertFalse(isPhoneChangeCode({ phone_change: "", phone_change_sent_at: iso(2) }, NOW));
+  assertFalse(isPhoneChangeCode({ phone_change: "+2348099999999" }, NOW));
+  assertFalse(isPhoneChangeCode({ phone_change: "+2348099999999", phone_change_sent_at: "garbage" }, NOW));
+  assertFalse(isPhoneChangeCode({ phone_change: "+2348099999999", phone_change_sent_at: iso(2), recovery_sent_at: "garbage" }, NOW));
+  assertFalse(isPhoneChangeCode({ phone_change: "+2348099999999", phone_change_sent_at: iso(2), recovery_sent_at: iso(2) }, NOW));
+  assertFalse(isPhoneChangeCode({ phone_change: "+2348099999999", phone_change_sent_at: iso(2), reauthentication_sent_at: iso(1) }, NOW));
+});
+
+Deno.test("if the pause cannot be read, nothing is sent and the hook says it is unavailable (fail closed)", async () => {
+  const d = deps();
+  d.holds.fail = true;
+  const res = await handleHookRequest(await signedRequest(), d);
+  assertEquals(res.status, 503);
+  assertEquals(d.provider.sent.length, 0);
+  assertEquals(d.store.rows.length, 0);
+});
+
+Deno.test("a payload with no user id cannot be checked and is refused", async () => {
+  const d = deps();
+  const res = await handleHookRequest(await signedRequest({ body: JSON.stringify({ user: { phone: PHONE }, sms: { otp: OTP } }) }), d);
+  assertEquals(res.status, 400);
+  assertEquals(d.provider.sent.length, 0);
+});
+
+Deno.test("a first-time number add (no current phone, number in the pending field) is sent to the pending number", async () => {
+  const d = deps();
+  const body = JSON.stringify({ user: { id: "u-9", phone: "", new_phone: "2348066665555", phone_change_sent_at: iso(1) }, sms: { otp: OTP } });
+  assertEquals((await handleHookRequest(await signedRequest({ body }), d)).status, 200);
+  assertEquals(d.provider.sent[0].to, "+2348066665555");
+  // with neither a current phone nor a provable change code there is nowhere to send
+  const none = JSON.stringify({ user: { id: "u-9", phone: "" }, sms: { otp: OTP } });
+  assertEquals((await handleHookRequest(await signedRequest({ body: none }), deps())).status, 400);
 });
