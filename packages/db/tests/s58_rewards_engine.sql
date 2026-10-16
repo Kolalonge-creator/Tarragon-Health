@@ -360,7 +360,7 @@ begin
     v_flip := v_n = 2;
     raise exception 'rollback_sab';
   exception when others then
-    if sqlerrm <> 'rollback_sab' then v_flip := false; end if;
+    if sqlerrm <> 'rollback_sab' then v_flip := false; raise notice 'SABOTAGE B failed with: %', sqlerrm; end if;
   end;
   insert into results(check_name, ok) values ('SABOTAGE B: without decisions and the dedupe index a replay double awards (so check 1b really guards it)', v_flip);
   if not v_flip then raise exception 'VACUOUS: replay test'; end if;
