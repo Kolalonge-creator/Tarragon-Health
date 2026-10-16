@@ -8,7 +8,7 @@ import type { Tables } from "@tarragon/shared";
  * habits and never duplicate the real reward vouchers prevention_reward already
  * pays for screening/vaccination/health-check events (see
  * 20260730120000_wellness_points_and_badges.sql). Redemption converts points
- * into a real reward voucher via the redeem_wellness_points RPC.
+ * into a real reward voucher (that conversion was removed; S71 to S73 own points at checkout).
  */
 
 export type WellnessPointsBalance = Tables<"wellness_points_balances">;
@@ -40,7 +40,6 @@ export interface MyPointsStatus {
   tier_from?: "this_year" | "last_year";
   next_tier?: string | null;
   points_to_next?: number | null;
-  leaderboards: boolean;
 }
 
 export type RewardRule = Tables<"reward_rules">;

@@ -4604,7 +4604,6 @@ export const en = {
   "points.admin.summary_title": "Last 30 days",
   "points.admin.summary_points": "Points earned (real accounts only)",
   "points.admin.redemption_off": "Redemption at checkout is off. The founder sets the per-order cap in kobo to switch it on.",
-  "points.admin.leaderboards_off": "Leaderboards are off. There is no ranking or comparison between people.",
 } as const;
 
 export type MessageKey = keyof typeof en;

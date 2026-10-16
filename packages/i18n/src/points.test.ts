@@ -25,7 +25,7 @@ describe("points namespace copy (S58)", () => {
   it("never promises money or a points-to-naira rate and never compares people", () => {
     const MONEY = /(₦|naira|\bngn\b|per point|worth|cash value|rank|leaderboard|top earners|beat)/i;
     for (const k of pointsKeys) {
-      if (["points.admin.leaderboards_off", "points.redeem.never_cash"].includes(k)) continue;
+      if (["points.redeem.never_cash"].includes(k)) continue;
       expect([k, MONEY.test(en[k])]).toEqual([k, false]);
     }
   });

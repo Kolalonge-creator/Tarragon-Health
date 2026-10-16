@@ -8,7 +8,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 /**
  * Health Points (S58, spec 11.1 to 11.3). Balance, how to earn, this year's level and a "coming soon" note for checkout
  * discounts (the redemption path is built but switched off until the founder sets the cap). Calm copy only: no counter that
- * resets, no loss wording, no comparison with anyone (leaderboards are off).
+ * resets, no loss wording, no comparison with anyone.
  */
 export function WellnessPointsCard({ patientId }: { patientId: string }) {
   const { data: status, isLoading } = useMyPointsStatus(patientId);

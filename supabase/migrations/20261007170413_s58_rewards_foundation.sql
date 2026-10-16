@@ -74,8 +74,6 @@ insert into public.reward_config (key, version, value, status, note) values
  'Yearly tiers. The year counter resets each 1 January (Lagos); earned status carries through the next year, so a tier is never taken away mid-year. The spendable balance never resets.'),
 ('streak_grace', 1, $json${"window_days":7,"missed_days_allowed":1}$json$::jsonb, 'proposed',
  'A consistency badge tolerates this many quiet days inside its window. A streak is only ever a badge condition: no counter shows a reset and nothing notifies a missed day.'),
-('leaderboards', 1, $json${"enabled":false}$json$::jsonb, 'proposed',
- 'Off by default. No ranking or comparison with other people exists in the product.'),
 ('employer_aggregate', 1, $json${"min_group":10}$json$::jsonb, 'proposed',
  'Module 24 seam: an employer-style report shows counts only and suppresses any group smaller than this (I9: aggregate only).')
 on conflict (key, version) do nothing;
@@ -192,7 +190,7 @@ create trigger wellness_points_ledger_append_only
 do $$
 begin
   if (select count(*) from public.reward_rules where is_active) <> 12 then raise exception 'expected 12 seeded rules'; end if;
-  if (select count(*) from public.reward_config where is_active) <> 7 then raise exception 'expected 7 seeded config keys'; end if;
+  if (select count(*) from public.reward_config where is_active) <> 6 then raise exception 'expected 6 seeded config keys'; end if;
   begin
     insert into public.reward_rules (code, version, trigger_event, points) values ('weight_loss_bonus', 1, 'vitals.logged', 5);
     raise exception 'a body-metric rule was accepted';

@@ -91,7 +91,6 @@ export function RewardRulesManager() {
         </CardHeader>
         <CardContent className="space-y-1 text-sm text-charcoal-ink/70">
           <p>{t("points.admin.redemption_off")}</p>
-          <p>{t("points.admin.leaderboards_off")}</p>
         </CardContent>
       </Card>
       <Card>

@@ -12,7 +12,7 @@
 --    nothing); per_day / per_week / lifetime caps; a decay weight by how many times the person has earned this rule before; the
 --    daily points cap across all rules. A red reading is never touched: awarding happens later, off the outbox, and the emitter
 --    sorts last among the vitals triggers and can never raise into the patient's write.
---  * Yearly tiers that keep earned status (computed, never stored), badges tolerate a quiet day (grace), no leaderboard.
+--  * Yearly tiers that keep earned status (computed, never stored), badges tolerate a quiet day (grace).
 --
 -- ROW COUNTS. No data is converted. The old daily-cap marker rows ('daily_cap' source) stay in the ledger as history.
 -- Behaviour change on purpose: a weight-only reading used to pay 10 points and no longer pays anything (spec 11.3).
@@ -560,7 +560,7 @@ begin
   v_minor := v_dob is not null and v_dob > (current_date - make_interval(years => v_minor_years));
   if v_minor then
     return jsonb_build_object('balance', coalesce(v_bal, 0), 'lifetime_earned', coalesce(v_life, 0), 'is_minor', true,
-      'tier', null, 'leaderboards', false);
+      'tier', null);
   end if;
   select coalesce(sum(points), 0) into v_this from public.wellness_points_ledger
     where patient_id = p_patient and points > 0 and kind = 'earn' and created_at >= v_start;
@@ -578,8 +578,7 @@ begin
     'tier', v_tiers -> v_idx ->> 'key',
     'tier_from', case when v_idx > v_idx_this then 'last_year' else 'this_year' end,
     'next_tier', case when v_next is null then null else v_next ->> 'key' end,
-    'points_to_next', case when v_next is null then null else (v_next ->> 'min')::integer - v_this end,
-    'leaderboards', coalesce((private.reward_config('leaderboards') ->> 'enabled')::boolean, false));
+    'points_to_next', case when v_next is null then null else (v_next ->> 'min')::integer - v_this end);
 end;
 $$;
 revoke all on function private.points_status_for(uuid) from public, anon, authenticated;

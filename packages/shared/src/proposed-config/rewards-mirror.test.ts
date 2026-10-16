@@ -22,7 +22,7 @@ function ruleSeed(): Array<Record<string, unknown>> {
 }
 
 describe("rewards.* configuration mirrors the reward_config seeds", () => {
-  for (const k of ["plausible_ranges", "daily_points_cap", "minor_age_years", "tiers", "streak_grace", "leaderboards", "employer_aggregate"]) {
+  for (const k of ["plausible_ranges", "daily_points_cap", "minor_age_years", "tiers", "streak_grace", "employer_aggregate"]) {
     it(k, () => expect(configSeed(k)).toEqual(getProposedConfig(`rewards.${k}`).value));
   }
 
@@ -34,9 +34,8 @@ describe("rewards.* configuration mirrors the reward_config seeds", () => {
     expect(seeded).toEqual(getProposedConfig("rewards.rules").value);
   });
 
-  it("leaderboards are off, and every value is proposed and unsigned", () => {
-    expect((getProposedConfig("rewards.leaderboards").value as { enabled: boolean }).enabled).toBe(false);
-    for (const k of ["rules", "plausible_ranges", "daily_points_cap", "minor_age_years", "tiers", "streak_grace", "leaderboards", "employer_aggregate"]) {
+  it("every value is proposed and unsigned", () => {
+    for (const k of ["rules", "plausible_ranges", "daily_points_cap", "minor_age_years", "tiers", "streak_grace", "employer_aggregate"]) {
       expect(getProposedConfig(`rewards.${k}`).status).toBe("proposed");
     }
   });

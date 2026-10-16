@@ -7,7 +7,7 @@
 --   4. RED FLOW FIRST: the points emitter sorts last among the vitals triggers, the triage event exists beside the points event, and
 --      if the rewards bus is broken the reading still saves, the triage event still exists and an incident is raised (not silent).
 --   5. CAPS: per-day rule cap, the all-rule daily points cap, a lifetime cap, a decay weight (50 percent on the 3rd lab), catalogue points.
---   6. TIERS: this-year tier, last-year status carried through, minors get no tier; leaderboards off; no one can read anyone else's points.
+--   6. TIERS: this-year tier, last-year status carried through, minors get no tier; no ranking exists; no one can read anyone else's points.
 --   7. GRACE: a 7-day consistency badge is earned with one quiet day, not with two.
 --   8. CHECKOUT SPEND: a negative ledger row (S73 writes one when an order is paid) is a 'spend' and is never counted as earning. S58's own redemption
 --      path is not built: S71 to S73 own points at checkout.
@@ -242,7 +242,6 @@ begin
   perform pg_temp.ck('6c the spendable balance did not reset', (v_j ->> 'balance')::integer = 1300);
   v_j := private.points_status_for(v_m);
   perform pg_temp.ck('6d a minor gets no tier and is flagged', (v_j ->> 'is_minor')::boolean and (v_j -> 'tier') = 'null'::jsonb);
-  perform pg_temp.ck('6e leaderboards are off', (private.points_status_for(v_c) ->> 'leaderboards')::boolean = false);
   perform pg_temp.ck('6f patient B cannot read patient A''s balance or ledger',
     pg_temp.as_count(v_b, format($q$select count(*)::integer from public.wellness_points_balances where patient_id = %L$q$, v_a)) = 0
     and pg_temp.as_count(v_b, format($q$select count(*)::integer from public.wellness_points_ledger where patient_id = %L$q$, v_a)) = 0);

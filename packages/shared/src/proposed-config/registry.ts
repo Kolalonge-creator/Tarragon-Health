@@ -2421,17 +2421,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
   },
   {
-    key: "rewards.leaderboards",
-    // S58 (spec Module 11). Live value is the `leaderboards` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
-    // Off by default. No ranking or comparison with other people exists in the product.
-    value: {"enabled": false},
-    owner: "Founder",
-    status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-07",
-    source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
-  },
-  {
     key: "rewards.employer_aggregate",
     // S58 (spec Module 11). Live value is the `employer_aggregate` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
     // Module 24 seam: an employer-style report shows counts only and suppresses any group smaller than this (I9: aggregate only).

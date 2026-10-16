@@ -45,7 +45,6 @@ export interface MyPointsStatus {
   tier_from?: "this_year" | "last_year";
   next_tier?: string | null;
   points_to_next?: number | null;
-  leaderboards: boolean;
 }
 
 export type RewardRule = Tables<"reward_rules">;

@@ -81,7 +81,7 @@ describe("the real admin menus", () => {
   });
 
   it("finds the Health Points rules page (S58: every console page needs a search entry)", () => {
-    for (const q of ["health points", "rewards", "daily limits", "leaderboard"]) {
+    for (const q of ["health points", "rewards", "daily limits"]) {
       expect(searchAdminEntries(real, q, 8).map((e) => e.href)).toContain("/admin/settings/reward-rules");
     }
   });
