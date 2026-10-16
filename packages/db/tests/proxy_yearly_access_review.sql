@@ -116,7 +116,8 @@ begin
   perform pg_temp.ck('the fresh grant gets nothing', '0', pg_temp.n_notif(v_px2, 'proxy_review_due_proxy'));
   perform pg_temp.ck('the notices name no one (empty payload)', '0', (select count(*)::text from public.notifications where template in ('proxy_review_due', 'proxy_review_due_proxy') and payload <> '{}'::jsonb));
   perform pg_temp.ck('history: one reminder, proxy told once', '1|1', pg_temp.n_hist(v_pa, v_px, 'reminder_sent') || '|' || pg_temp.n_hist(v_pa, v_px, 'proxy_told'));
-  perform pg_temp.ck('the review event is on the bus (ids and a date only)', '1', (select count(*)::text from public.domain_events where event_type = 'proxy.review_due' and patient_id = v_pa));
+  perform pg_temp.ck('the review event is on the bus for the person', '1', (select count(*)::text from public.domain_events where event_type = 'proxy.review_due' and patient_id = v_pa));
+  perform pg_temp.ck('...and carries no grantee and no grant (who has access to whom stays out of the shared bus)', '0', (select count(*)::text from public.domain_events where event_type = 'proxy.review_due' and patient_id = v_pa and (payload::text like '%' || v_px::text || '%' or payload::text like '%' || v_grant::text || '%' or aggregate_id is not null)));
   perform pg_temp.ck('sweep removed no access', '1', pg_temp.n_grant(v_pa, v_px));
   perform pg_temp.ck('categories untouched', '2', (select count(*)::text from public.profile_access_categories where profile_access_id = v_grant));
   v_n := private.sweep_proxy_access_reviews();
@@ -154,6 +155,7 @@ begin
   perform pg_temp.ck('anon cannot answer', '42501', pg_temp.try_anon(format($q$select public.answer_proxy_review(%L, 'keep')$q$, v_px)));
   perform pg_temp.ck('a bad action is refused', '22023', pg_temp.try_as(v_pa, format($q$select public.answer_proxy_review(%L, 'delete')$q$, v_px)));
   perform pg_temp.ck('narrow without categories is refused', '22023', pg_temp.try_as(v_pa, format($q$select public.answer_proxy_review(%L, 'narrow')$q$, v_px)));
+  perform pg_temp.ck('narrow to nothing is refused (that is a removal, not a narrowing)', '22023', pg_temp.try_as(v_pa, format($q$select public.answer_proxy_review(%L, 'narrow', array[]::public.care_access_category[])$q$, v_px)));
   perform pg_temp.ck('refusals changed nothing', '1|0', pg_temp.n_grant(v_pa, v_px) || '|' || pg_temp.n_hist(v_pa, v_px, 'kept'));
 
   -- 3. keep restarts the cycle
@@ -184,6 +186,26 @@ begin
   perform pg_temp.ck('answering a removed grant again is refused', 'P0002', pg_temp.try_as(v_pa, format($q$select public.answer_proxy_review(%L, 'keep')$q$, v_px)));
   perform pg_temp.ck('a removed grant is no longer swept', '0', (select count(*)::text from private.proxy_review_state() s where s.grantee_id = v_px));
 
+  -- no active config: never a silent empty list
+  update public.proxy_review_config set is_active = false;
+  perform pg_temp.ck('with no active config the person''s list errors instead of reading as empty', 'ERR:P0001', pg_temp.q_as(v_stranger, 'select jsonb_array_length(public.my_proxy_reviews())::text'));
+  perform pg_temp.ck('...and the sweep sends nothing', '0', private.sweep_proxy_access_reviews()::text);
+  perform pg_temp.ck('...and opens an incident', '1', (select count(*)::text from public.ops_incidents where external_reference = 'proxy-review:no-config'));
+  update public.proxy_review_config set is_active = true where version = 1;
+
+  -- the safeguarding switch: tell_proxy = false means the proxy hears nothing at all
+  update public.proxy_review_config set tell_proxy = false where version = 1;
+  declare v_sa uuid := pg_temp.mkuser(v_org, 'silentperson'); v_sb uuid := pg_temp.mkuser(v_org, 'silentproxy');
+  begin
+    perform pg_temp.grant_aged(v_sa, v_sb, interval '13 months', array['vitals_readings']);
+    perform private.sweep_proxy_access_reviews();
+    perform pg_temp.ck('tell_proxy off: the person is still reminded', '1', pg_temp.n_notif(v_sa, 'proxy_review_due'));
+    perform pg_temp.ck('tell_proxy off: the proxy gets no notice', '0', pg_temp.n_notif(v_sb, 'proxy_review_due_proxy'));
+    perform pg_temp.ck('tell_proxy off: the proxy sees no due flag', '0', pg_temp.q_as(v_sb, 'select jsonb_array_length(public.proxy_review_due_as_proxy())::text'));
+    perform pg_temp.ck('tell_proxy off: no proxy_told history', '0', pg_temp.n_hist(v_sa, v_sb, 'proxy_told'));
+  end;
+  update public.proxy_review_config set tell_proxy = true where version = 1;
+
   -- 5. scope
   v_child := pg_temp.mkuser(v_org, 'child'); v_guardian := pg_temp.mkuser(v_org, 'guardian');
   update public.profiles set is_dependent_account = true, dependent_kind = 'minor_child', date_of_birth = (current_date - interval '10 years')::date where id = v_child;
@@ -205,13 +227,15 @@ begin
   declare v_a uuid := pg_temp.mkuser(v_org, 'failperson'); v_b uuid := pg_temp.mkuser(v_org, 'failproxy'); v_g uuid;
   begin
     v_g := pg_temp.grant_aged(v_a, v_b, interval '13 months', array['vitals_readings']);
+    perform pg_temp.grant_aged(pg_temp.mkuser(v_org, 'failperson2'), pg_temp.mkuser(v_org, 'failproxy2'), interval '13 months', array['vitals_readings']);
     create function public.pyr_fail_notice() returns trigger language plpgsql as $t$ begin raise exception 'notice queue unavailable'; end $t$;
     create trigger pyr_fail_notice before insert on public.notifications for each row when (new.template = 'proxy_review_due') execute function public.pyr_fail_notice();
     v_n := private.sweep_proxy_access_reviews();
     perform pg_temp.ck('a failed notice queues nothing', '0', v_n::text);
     perform pg_temp.ck('...writes no history row', '0', (select count(*)::text from public.proxy_access_reviews where patient_id = v_a));
     perform pg_temp.ck('...leaves no half-written notice for the proxy', '0', pg_temp.n_notif(v_b, 'proxy_review_due_proxy'));
-    perform pg_temp.ck('...is opened as an incident', '1', (select count(*)::text from public.ops_incidents where external_reference = 'proxy-review:' || v_g::text));
+    perform pg_temp.ck('...is opened as one incident for the run', '1', (select count(*)::text from public.ops_incidents where external_reference = 'proxy-review:notices'));
+    perform pg_temp.ck('...and not one incident per grant', '0', (select count(*)::text from public.ops_incidents where external_reference like 'proxy-review:%' and external_reference not in ('proxy-review:notices', 'proxy-review:no-config')));
     perform pg_temp.ck('...and removes no access', '1', pg_temp.n_grant(v_a, v_b));
     drop trigger pyr_fail_notice on public.notifications;
     v_n := private.sweep_proxy_access_reviews();
@@ -234,6 +258,20 @@ begin
     insert into results values ('real', 'owner-role delete of history is refused', '42501', 'ok');
   exception when others then
     insert into results values ('real', 'owner-role delete of history is refused', '42501', sqlstate);
+  end;
+  declare v_ep uuid := pg_temp.mkuser(v_org, 'erasedperson'); v_ex uuid := pg_temp.mkuser(v_org, 'erasedproxy'); v_eg uuid; v_before text;
+  begin
+    v_eg := pg_temp.grant_aged(v_ep, v_ex, interval '13 months', array['vitals_readings']);
+    perform private.sweep_proxy_access_reviews();
+    v_before := (select count(*)::text from public.proxy_access_reviews where patient_id = v_ep);
+    begin
+      delete from public.profiles where id = v_ex;
+      perform pg_temp.ck('the proxy''s account is erased', '0', (select count(*)::text from public.profiles where id = v_ex));
+    exception when others then
+      perform pg_temp.ck('the proxy''s account is erased', '0', 'could not delete: ' || sqlstate || ' ' || sqlerrm);
+    end;
+    perform pg_temp.ck('the person keeps their history when the proxy''s account is erased', v_before, (select count(*)::text from public.proxy_access_reviews where patient_id = v_ep));
+    perform pg_temp.ck('...with the proxy''s id cleared', '0', (select count(*)::text from public.proxy_access_reviews where patient_id = v_ep and grantee_user_id is not null));
   end;
   perform pg_temp.ck('anon cannot read the history', '42501', pg_temp.try_anon('select count(*) from public.proxy_access_reviews'));
   perform pg_temp.ck('classified for under-18 dependants (guarded by default)', 'guarded', (select policy from public.minor_dependant_table_policy where table_name = 'proxy_access_reviews'));

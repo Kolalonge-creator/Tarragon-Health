@@ -28,7 +28,7 @@ import { ClaimAccountCard } from "./claim-account-card";
 export function AdultsYouManageList() {
   const { data: adults, isLoading, isError } = useAdultsIManage();
   // Only that a yearly check is due for them; never what they chose (narrowing and removal stay silent).
-  const { data: reviewDue } = useProxyReviewDueAsProxy();
+  const { data: reviewDue, isError: reviewDueError } = useProxyReviewDueAsProxy();
 
   if (!isLoading && !isError && (adults?.length ?? 0) === 0) return null;
 
@@ -58,6 +58,9 @@ export function AdultsYouManageList() {
           <CardContent>
             {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
             {isError && <p className="text-sm text-red-600 dark:text-red-400">Could not load this.</p>}
+            {reviewDueError && (
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">We could not check whether a yearly check is due just now.</p>
+            )}
             {others.length > 0 && (
               <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
                 {others.map((adult) => (

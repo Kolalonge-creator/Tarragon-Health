@@ -8971,7 +8971,7 @@ export type Database = {
           created_at: string
           detail: Json
           grant_id: string | null
-          grantee_user_id: string
+          grantee_user_id: string | null
           id: string
           is_test: boolean
           kind: string
@@ -8982,7 +8982,7 @@ export type Database = {
           created_at?: string
           detail?: Json
           grant_id?: string | null
-          grantee_user_id: string
+          grantee_user_id?: string | null
           id?: string
           is_test?: boolean
           kind: string
@@ -8993,7 +8993,7 @@ export type Database = {
           created_at?: string
           detail?: Json
           grant_id?: string | null
-          grantee_user_id?: string
+          grantee_user_id?: string | null
           id?: string
           is_test?: boolean
           kind?: string
@@ -9011,6 +9011,7 @@ export type Database = {
           note: string | null
           repeat_days: number
           status: string
+          tell_proxy: boolean
           version: number
         }
         Insert: {
@@ -9021,6 +9022,7 @@ export type Database = {
           note?: string | null
           repeat_days: number
           status?: string
+          tell_proxy?: boolean
           version: number
         }
         Update: {
@@ -9031,6 +9033,7 @@ export type Database = {
           note?: string | null
           repeat_days?: number
           status?: string
+          tell_proxy?: boolean
           version?: number
         }
         Relationships: []

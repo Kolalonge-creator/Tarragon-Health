@@ -119,9 +119,9 @@ function FollowerControls({ follower }: { follower: CareFollower }) {
           ))}
           <label className="flex items-center gap-2 pt-1 text-xs text-charcoal-ink/70">
             <input type="checkbox" checked={tellThem} onChange={(event) => setTellThem(event.target.checked)} />
-            Tell them I changed this (they are not told unless you tick this)
+            Tell them I changed this (they are not told unless you tick this). To stop all of it, use the button above.
           </label>
-          <Button type="button" size="sm" disabled={!changed || narrow.isPending} onClick={() => narrow.mutate()}>
+          <Button type="button" size="sm" disabled={!changed || keep.length === 0 || narrow.isPending} onClick={() => narrow.mutate()}>
             Save
           </Button>
         </fieldset>

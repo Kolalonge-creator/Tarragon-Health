@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 
 type Mode = "idle" | "narrowing" | "confirming_remove";
 
-function ReviewItem({ row }: { row: ProxyReviewRow }) {
+function ReviewItem({ row, onDone }: { row: ProxyReviewRow; onDone: (message: string) => void }) {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<Mode>("idle");
   const [keep, setKeep] = useState<string[]>(row.categories);
@@ -34,12 +34,13 @@ function ReviewItem({ row }: { row: ProxyReviewRow }) {
     },
     onSuccess: async (action) => {
       setMode("idle");
-      setMessage(
+      // The answered row leaves the list the moment the list refreshes, so the confirmation is lifted to the card, which outlives it.
+      onDone(
         action === "keep"
-          ? "Thank you. We will ask again in a year."
+          ? `Thank you. ${row.first_name} keeps their access, and we will ask again in a year.`
           : action === "narrow"
-            ? "Saved. They can now see less."
-            : "Their access has stopped.",
+            ? `Saved. ${row.first_name} can now see less.`
+            : `${row.first_name}'s access has stopped.`,
       );
       await queryClient.invalidateQueries({ queryKey: MY_PROXY_REVIEWS_KEY });
       await queryClient.invalidateQueries({ queryKey: ["my-care-followers"] });
@@ -83,7 +84,9 @@ function ReviewItem({ row }: { row: ProxyReviewRow }) {
 
       {mode === "narrowing" && (
         <fieldset className="space-y-1.5">
-          <legend className="text-xs text-charcoal-ink/60">Untick what they no longer need to see. They are not told.</legend>
+          <legend className="text-xs text-charcoal-ink/60">
+            Untick what they no longer need to see. They are not told. To stop all of it, choose &quot;Remove their access&quot; instead.
+          </legend>
           {row.categories.map((category) => (
             <label key={category} className="flex items-center gap-2 text-sm">
               <input
@@ -97,7 +100,7 @@ function ReviewItem({ row }: { row: ProxyReviewRow }) {
             </label>
           ))}
           <div className="flex flex-wrap gap-2 pt-1">
-            <Button type="button" size="sm" disabled={!changed || answer.isPending} onClick={() => answer.mutate({ action: "narrow" })}>
+            <Button type="button" size="sm" disabled={!changed || keep.length === 0 || answer.isPending} onClick={() => answer.mutate({ action: "narrow" })}>
               Save
             </Button>
             <Button type="button" size="sm" variant="outline" disabled={answer.isPending} onClick={() => setMode("idle")}>
@@ -136,6 +139,7 @@ function ReviewItem({ row }: { row: ProxyReviewRow }) {
  */
 export function ProxyReviewCard() {
   const reviews = useMyProxyReviews();
+  const [notices, setNotices] = useState<string[]>([]);
   if (reviews.isLoading) return null;
   if (reviews.isError) {
     return (
@@ -148,7 +152,7 @@ export function ProxyReviewCard() {
     );
   }
   const due = dueReviews(reviews.data ?? []);
-  if (due.length === 0) return null;
+  if (due.length === 0 && notices.length === 0) return null;
 
   return (
     <Card>
@@ -159,9 +163,14 @@ export function ProxyReviewCard() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {notices.map((notice) => (
+          <p key={notice} role="status" className="pb-3 text-sm text-charcoal-ink/80">
+            {notice}
+          </p>
+        ))}
         <ul className="divide-y divide-charcoal-ink/10">
           {due.map((row) => (
-            <ReviewItem key={row.grant_id} row={row} />
+            <ReviewItem key={row.grant_id} row={row} onDone={(message) => setNotices((current) => [...current, message])} />
           ))}
         </ul>
       </CardContent>
