@@ -55,9 +55,12 @@ describe("planSession: where a person is inside one morning or evening session",
     expect(planSession({ readings: r, nowMs: at("2026-10-12T06:08:00Z") }, CFG)).toEqual({ kind: "next", part: "morning", number: 2, of: 2 });
   });
 
-  it("a phone clock set in the past never asks anyone to wait longer than the gap", () => {
+  it("a reading dated after now (a phone clock that was wrong when it was saved) is not part of the session, so it can never hold anyone on a wait", () => {
     const r = [rd("2026-10-12T06:05:00Z")];
-    expect(planSession({ readings: r, nowMs: at("2026-10-12T06:00:00Z") }, CFG)).toEqual({ kind: "wait", part: "morning", number: 2, of: 2, secondsLeft: 60 });
+    expect(planSession({ readings: r, nowMs: at("2026-10-12T06:00:00Z") }, CFG)).toMatchObject({ kind: "rest", part: "morning" });
+    // and a good reading beside it still counts
+    const both = [rd("2026-10-12T05:59:30Z"), rd("2026-10-12T06:05:00Z")];
+    expect(planSession({ readings: both, nowMs: at("2026-10-12T06:00:00Z") }, CFG)).toMatchObject({ kind: "wait", number: 2, secondsLeft: 30 });
   });
 
   it("a save made twice (closer than the gap) is one reading, not two", () => {

@@ -15,7 +15,7 @@
  * triage, emergency guidance, the outbox) is exactly what it always was.
  */
 import { lagosDateKey } from "./dates";
-import { dedupeReadings, lagosHourOf, sessionPartOf, type HomeBpConfig, type HomeBpReading, type SessionPart } from "./home-bp";
+import { dedupeReadings, lagosHourOf, meanOf, sessionPartOf, type HomeBpConfig, type HomeBpReading, type SessionPart } from "./home-bp";
 
 export type SessionStep =
   | { readonly kind: "outside_window"; readonly next: SessionPart }
@@ -30,8 +30,6 @@ export interface SessionInput {
   readonly nowMs: number;
 }
 
-const meanOf = (values: readonly number[]): number => Math.round(values.reduce((a, b) => a + b, 0) / values.length);
-
 /** Which window the next session belongs to when none is open: morning before it opens, evening between the two, morning again after both. */
 function nextWindow(nowMs: number, cfg: HomeBpConfig): SessionPart {
   const h = lagosHourOf(nowMs);
@@ -45,7 +43,11 @@ export function planSession(input: SessionInput, cfg: HomeBpConfig): SessionStep
   if (part === null) return { kind: "outside_window", next: nextWindow(input.nowMs, cfg) };
 
   const today = lagosDateKey(input.nowMs);
-  const inSession = dedupeReadings(input.readings, cfg).filter((r) => lagosDateKey(r.atMs) === today && sessionPartOf(r.atMs, cfg) === part);
+  // A reading dated after "now" can only come from a phone clock that was wrong when it was saved; it is not part of this session (it would otherwise
+  // hold the person on a wait that never ends).
+  const inSession = dedupeReadings(input.readings, cfg).filter(
+    (r) => r.atMs <= input.nowMs && lagosDateKey(r.atMs) === today && sessionPartOf(r.atMs, cfg) === part,
+  );
   const per = cfg.protocol.readingsPerSession;
   const n = inSession.length;
 
@@ -63,8 +65,7 @@ export function planSession(input: SessionInput, cfg: HomeBpConfig): SessionStep
   const lastAt = Math.max(...inSession.map((r) => r.atMs));
   const elapsed = input.nowMs - lastAt;
   if (elapsed < gapMs) {
-    // A phone clock set in the past can put the last reading "in the future"; never ask anyone to wait longer than the gap.
-    return { kind: "wait", part, number: n + 1, of: per, secondsLeft: Math.min(Math.ceil((gapMs - elapsed) / 1000), gapMs / 1000) };
+    return { kind: "wait", part, number: n + 1, of: per, secondsLeft: Math.ceil((gapMs - elapsed) / 1000) };
   }
   return { kind: "next", part, number: n + 1, of: per };
 }

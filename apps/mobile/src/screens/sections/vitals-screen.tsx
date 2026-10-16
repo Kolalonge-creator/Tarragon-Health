@@ -12,6 +12,7 @@ import { BP_CHECKLIST_SYMPTOMS, CUFF_TYPES, planBpLog, redFlagsAmong, type BpChe
 import { logBpWithExtras } from "@/lib/bp-log";
 import { bpAckMessage, bpRowState } from "@/lib/bp-ack-view";
 import { listOutbox } from "@/lib/outbox";
+import { toHomeReadings } from "@/lib/home-check";
 import { refreshApprovedGlucoseRuleSet, refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
 import { answerSymptomQuestion, type QuestionSymptom } from "@/lib/symptom-question";
 import { readObstetricStatus, refreshObstetricStatus } from "@/lib/obstetric-status";
@@ -426,6 +427,10 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     : "";
   const levelLabel = (level: BpLevel) => tr(`vitals.level.${level}` as MessageKey);
   const ackText = bpAckMessage(ack, locale);
+  // The guided home-check panel works from the readings this screen already holds (cuff and manual only), and gives way while guidance for the reading just saved is showing.
+  const homeSessionReadings = useMemo(() => toHomeReadings(rawReadings), [rawReadings]);
+  // Emergency guidance or the emergency-symptom question is open: the steps give way until it is dealt with. A repeat prompt does not hold them, since measuring again is what it asks.
+  const holdSession = guidance !== null || question !== null;
 
   return (
     <Screen>
@@ -565,7 +570,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       ) : null}
 
       {/* The seven-day home check (S07x): appears only when the server guard is open, and not while acting for someone else. */}
-      {!beneficiaryProfileId ? <HomeCheckCard patientId={patientId} reloadToken={homeReload} /> : null}
+      {!beneficiaryProfileId ? <HomeCheckCard patientId={patientId} reloadToken={homeReload} session={{ readings: homeSessionReadings, hold: holdSession }} /> : null}
 
       {/* Log a reading */}
       <Card style={{ gap: space.md }}>

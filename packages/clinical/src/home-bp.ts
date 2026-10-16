@@ -192,7 +192,7 @@ export interface HomeCheckAssessment {
   today: readonly SessionProgress[];
 }
 
-const meanOf = (values: readonly number[]): number => Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+export const meanOf = (values: readonly number[]): number => Math.round(values.reduce((a, b) => a + b, 0) / values.length);
 
 export function assessHomeCheck(input: HomeCheckInput, cfg: HomeBpConfig): HomeCheckAssessment {
   const { startDate, nowMs } = input;

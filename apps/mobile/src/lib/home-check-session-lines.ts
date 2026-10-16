@@ -4,7 +4,9 @@ import type { MessageKey } from "@tarragon/i18n";
 type Tr = (key: MessageKey, params?: Record<string, string | number>) => string;
 
 /** The sentence for a guided-session step, in words (colour never carries it). Pure so the wording is tested without rendering. */
-export function sessionLine(step: SessionStep, tr: Tr): string {
+export function sessionLine(step: SessionStep, tr: Tr, opts: { overallComplete?: boolean; hold?: boolean } = {}): string {
+  // Guidance for a reading that was just saved always comes first: the steps wait until it has been read.
+  if (opts.hold) return tr("hc.session.hold");
   switch (step.kind) {
     case "outside_window":
       return tr(step.next === "morning" ? "hc.session.outside_morning" : "hc.session.outside_evening");
@@ -15,6 +17,6 @@ export function sessionLine(step: SessionStep, tr: Tr): string {
     case "next":
       return tr("hc.session.next", { number: step.number, of: step.of });
     case "done":
-      return tr("hc.session.done", { count: step.readings, sys: step.mean.systolic, dia: step.mean.diastolic });
+      return tr(opts.overallComplete ? "hc.session.done_complete" : "hc.session.done", { count: step.readings, sys: step.mean.systolic, dia: step.mean.diastolic });
   }
 }

@@ -3895,8 +3895,8 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 ### OQ-HBP-1 Drop day 1 from the seven-day average? (for the CMO; not built)
 - The founder brief proposed discarding day 1 (ESH-2023). The CMO pack C1 listed it as option (b) and recommended (a) "average every reading", which is also the S11 decision. Building (b) changes the counting rule in three places that must stay identical (`assessHomeCheck`, `private.home_bp_assess_readings`, the 35-case parity block) and is a clinical choice, so it waits for the CMO. The configuration row is still unsigned, so choosing (b) at signing is open; this is a follow-up build of about a day once chosen.
 
-### OQ-HBP-2 "Measure before you take your medicines" is proposed copy
-- ESH-2023 recommends measuring before medicines. The approved C1 text (NG-2023 5.4.5: morning on waking, evening before bed) does not say it. The guided rest step says it as proposed copy in `hc.session.rest`. CMO to confirm or strike.
+### OQ-HBP-2 "Measure before you take your medicines" is not shipped (for the CMO)
+- ESH-2023 recommends measuring before medicines. The approved C1 text (NG-2023 5.4.5: morning on waking, evening before bed) does not say it, and a medicine-timing sentence shown to patients is a clinical instruction, so the guided session leaves it out. If the CMO wants it, add one sentence to `hc.session.rest` at signing; the morning window runs to 12:00 and the evening session is "before bed", so the wording needs care for each.
 
 ### OQ-HBP-3 The panel names no band for a session mean (OQ-67 context)
 - The guided panel shows a session's mean as two numbers and says nothing about whether it is high or low. The C2 words for a complete seven-day average stay in the existing card behind the signed row. The draft `bp_care_triage` bands are not used anywhere in this feature. Classification of an average (and what to say about a single session mean) still awaits the CMO under OQ-67.

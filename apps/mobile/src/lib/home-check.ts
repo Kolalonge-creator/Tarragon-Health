@@ -89,31 +89,28 @@ export function toHomeReadings(list: readonly { systolic: number; diastolic: num
 export interface HomeCheckLoad {
   view: HomeCheckView;
   assessment: HomeCheckAssessment | null;
-  /** The cuff and manual readings the assessment was made from, for the guided session (empty when no check is running). */
-  readings: HomeBpReading[];
 }
 
 /** Everything the card needs, from this phone. Sends a pending request first if one is waiting. */
 export async function loadHomeCheck(patientId: string, nowMs: number): Promise<HomeCheckLoad> {
   // The server acts for the signed-in person only, so the card is for her own account, never one she is viewing on someone's behalf.
   const session = await supabase.auth.getSession().catch(() => null);
-  if (session?.data.session?.user.id !== patientId) return { view: { kind: "hidden" }, assessment: null, readings: [] };
+  if (session?.data.session?.user.id !== patientId) return { view: { kind: "hidden" }, assessment: null };
   const guardOpen = await readGuardOpen(patientId);
   let stored = await readStored(patientId);
-  if (guardOpen !== true) return { view: buildHomeCheckView({ guardOpen, stored: null, assessment: null }), assessment: null, readings: [] };
+  if (guardOpen !== true) return { view: buildHomeCheckView({ guardOpen, stored: null, assessment: null }), assessment: null };
   const cfg = loadHomeBpConfig();
   let assessment: HomeCheckAssessment | null = null;
-  let readings: HomeBpReading[] = [];
   if (stored && !stored.submittedAt) {
     // A 7-day window holds about 4 readings a day: 200 is far above anything the protocol produces (the offline mirror keeps 200).
-    readings = toHomeReadings(await loadRecentBpReadings(patientId, 200).catch(() => []));
+    const readings = toHomeReadings(await loadRecentBpReadings(patientId, 200).catch(() => []));
     assessment = assessHomeCheck({ readings, startDate: stored.startDate, nowMs }, cfg);
     if (stored.sendRequestedAt && assessment.complete) {
       const outcome = await submit(patientId, stored);
       if (outcome.kind === "recorded") stored = (await readStored(patientId)) ?? stored;
     }
   }
-  return { view: buildHomeCheckView({ guardOpen, stored, assessment }), assessment, readings };
+  return { view: buildHomeCheckView({ guardOpen, stored, assessment }), assessment };
 }
 
 export async function startHomeCheck(patientId: string, nowMs: number): Promise<void> {
