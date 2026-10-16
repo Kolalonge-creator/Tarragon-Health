@@ -1,0 +1,51 @@
+# PCC design note: post-consultation check-ins at 48 hours and 7 days
+
+Founder decision (settled): a fixed, short check-in after a completed consultation; red flags escalate; no language model anywhere in the path. Invariants in play: INV-01 (deterministic, no model), INV-05 (a red event never waits), INV-07 (neutral notices, ids only in events), INV-10 and INV-12 (audited, assigned-clinician-only reads), INV-13 (`is_test`), INV-14 (go-live guard, starts OFF), INV-16 (every row records the config version it used).
+
+## 1. What already exists (checked first; nothing here is rebuilt)
+
+- No consult-linked check-in existed. The nearest things are other, unrelated loops: `medication_adherence_checkins`, `care_outreach_tasks`, the chronic-programme check-ins, `emergency_events.follow_up_*` (a discharge follow-up after an emergency), `clinical_follow_ups` (S77: a clinician's own loop closure). None is tied to an `encounters` row or to the patient answering a fixed set of questions.
+- `encounters` (S21): `complete_encounter()` sets `status = 'completed'`, `ended_at = now()`, emits `encounter.completed`. No-show, cancelled and failed are separate statuses and never reach `completed`.
+- `care_tasks` (+ the S07 `patient_tasks` view): the patient task. A patient moves their own task only through an RPC; staff have org-scoped RLS. Reused as the patient task (kind `consult_checkin`) and as the clinician task (owner_role `clinician`).
+- Red-flag path: the deterministic danger-phrase screen `private.screen_care_message_for_emergency` (the SAME list as `packages/clinical/src/written-question-screen.ts`, drift-tested) and the `emergency_events` machinery (its BEFORE INSERT trigger raises the emergency-level `clinician_alerts` row through the governed ladder; the site-wide `EmergencyAlert` shows the acknowledge-gated hospital guidance; emergency-contact auto-notify). Reused as is.
+- Alerts: `private.raise_clinician_alert` with the existing alert type codes (`symptom_escalation`, `medication_access_barrier`); `classify_and_assign_clinician_alert` does severity, dedup and owner assignment. No new alert type code (adding an enum value needs its own earlier migration and a governed `alert_rules` v-next entry; OQ-PCC-3).
+- Config pattern: S16-S20 `capacity_cover_config` (versioned, born unsigned and inactive, `sign_*` by the CMO only, `refuse_superseded_activation`) and its sign-off hub panel. Guard pattern: `go_live_guards` + `private.go_live_conditions` (S37, S69b).
+- Notifications (S13): `notifications` rows with `content_class = 'non_clinical'`, `private.patient_reminder_channel`, the sender's quiet-hours deferral, the INV-07 lint, in-app `describe()`. Cron pattern: `cron.schedule` in pg_cron (never a sub-daily Vercel cron).
+
+## 2. Data model (migration `*_pcc_post_consult_checkins.sql`)
+
+- `post_consult_checkin_config` (versioned; v1 born INACTIVE and UNSIGNED; mirrored in `packages/shared` as `consultations.post_checkin`, PROPOSED, with a drift test). `rules` hold: the offsets (`h48` = 2880 minutes, `d7` = 10080), which encounter types count (video, audio, phone), the open window (a check-in is `expired` this long after it opens), the one gentle nudge (after how long, maximum nudges = 1), the notification quiet hours, the four questions and every option with its English wording and its **route**, the concern alert level, and the free-text length limit. Wording and timing are data the CMO signs, not code.
+- `post_consult_checkins`: one row per (encounter, offset), unique, so a replay or re-completion never duplicates. Columns: ids, `clinician_id` (the consultation's clinician, copied at scheduling), `due_at`, `config_version`, `state` (`scheduled`, `open`, `answered`, `expired`, `cancelled`), `task_id`, `answers jsonb`, `free_text`, `red_flag`, `emergency_event_id`, `alert_id`, `clinician_task_id`, nudge and state timestamps, `is_test`. The patient may read their own; **no staff policy**: a clinician reads answers only through the audited function.
+- `care_tasks.kind` gains `consult_checkin`. A guard trigger refuses any path other than `answer_post_consult_checkin` / the sweep from closing such a task, so the generic "Done" button cannot mark a check-in finished without answers.
+- Event types (ids only, INV-07): `consult_checkin.opened`, `consult_checkin.answered`, `consult_checkin.flagged`, `consult_checkin.expired`.
+
+## 3. Behaviour
+
+1. **Schedule.** `AFTER UPDATE OF status` trigger on `encounters` when the status becomes `completed` calls `private.schedule_post_consult_checkins(encounter)`. It does nothing unless the go-live guard is on AND a SIGNED config is active (fail closed). It inserts both rows `on conflict do nothing`, `due_at = ended_at + offset`. Errors do not abort the consultation (the clinician's completion matters more), but they are never swallowed: the failure is written to `audit_log` and an `ops_incidents` row is opened (one open incident at a time). The sweep below is the backstop: it re-schedules any completed encounter in the last 8 days that has no rows.
+2. **Open and deliver.** `private.post_consult_checkin_sweep()` runs on pg_cron every 15 minutes. A `scheduled` row whose `due_at` has passed becomes `open`: it creates the patient `care_tasks` row (`kind consult_checkin`, `source post_consult_checkin`, title and description neutral and from config) and one notification on the patient's reminder channel plus the in-app companion, with `send_after` pushed to the end of quiet hours (Lagos). **The task exists regardless of the notification**, and nothing waits for a send to succeed (CLAUDE.md rule).
+3. **Cancel.** A pending row is cancelled (with a reason, never deleted) when the encounter is no longer `completed` (reversed), when the patient has already written to the care team after the consultation (a `care_messages` row from the patient since `ended_at`), or when the task was cancelled by the care team.
+4. **Answer.** `public.answer_post_consult_checkin(id, answers, free_text)` (patient only, own row only, `open` only, idempotent: an answered row returns its stored result). Validation is against the options of the config version the row was created with. Routing is read from each chosen option's `route` in that config:
+   - free text that matches the deterministic danger-phrase screen: an `emergency_events` row (existing path), `red_flag = true`; the patient immediately sees the existing guidance (the site-wide alert, plus the same sentence the written-question screen uses). The clinician alert carries ids only.
+   - route `concern_alert` ("feeling worse", "new or worsening symptoms", "cannot take my medicines"): one `clinician_alerts` row (level from config, default `clinician_review`; type `symptom_escalation`, or `medication_access_barrier` for medicines) with neutral text and no free text copied. Exactly one alert per check-in, however many answers match.
+   - route `clinician_task` ("missed some doses"): a low-priority clinician `care_tasks` row owned by the consultation's clinician.
+   - route `clarify_task` ("something was unclear"): a clinician task to clarify, same owner.
+   - all-good: the patient task is completed and nothing else is created.
+   Free-tier reasoning: the CLAUDE.md carve-out ("Tarragon Free consumes no doctor time") is about patient-logged vitals and symptoms. A consultation is a paid Member item and the check-in follows one, so doctor escalation is allowed here; the answer path never consults `patient_has_feature_access`.
+5. **Missed check-in.** An `open` row with no answer after the nudge window gets exactly one gentle nudge (in-app plus the patient's channel; `maxNudges = 1`), then after the expiry window becomes `expired` and its task is marked `expired`. Silence is never read as a clinical signal and raises no alert. A single low-priority clinician `care_tasks` row ("check-in not answered") is created for the consultation's clinician so the loop is visible and closable, never a page.
+6. **Clinician view.** `public.get_consult_checkins(encounter)` returns the answers to the consultation's own clinician only (INV-12) and writes an `audit_log` row per call (INV-10). It is shown as a card on the clinician consultation/patient-record area.
+
+## 4. Safety rules
+
+- No model, no network call anywhere (INV-01). Red-flag phrases come from the one shared list.
+- A red-flag answer never waits for a task pull (INV-05): it opens the emergency event inside the answering transaction.
+- Neutral notifications (INV-07): the templates (`consult_checkin_due`, `consult_checkin_nudge`) name nothing; events and alerts hold ids and codes only.
+- RLS: patient reads own rows, no staff table policy, no direct write grant for anyone; every function `revoke ... from public, anon`; `has_function_privilege('anon', ...)` is asserted false in the migration.
+- The feature does nothing until: the CMO signs a config version (hub panel), and an admin presses the `post_consult_checkins_enabled` guard. Both start off. The patient task and notification only exist after both.
+
+## 5. Surfaces
+
+Web: a check-in card (`/patient/consult-checkin/[id]`) opened from the care-tasks list and the notification, structured choices, optional short note, a thank-you state, and the emergency block for a red flag. Mobile: `consult_checkin` is a known Today kind that opens the check-in on the web room link; a native answer screen is OPEN (OQ-PCC-6). Clinician: a "Check-ins after this visit" card inside the existing consultation page. English only, strings in `packages/i18n`, no em dashes, "your care team".
+
+## 6. Proof plan
+
+DB proof `packages/db/tests/pcc_post_consult_checkins.sql` (registered in `ci.manifest`): scheduling only on `completed`, idempotency under replay and under re-completion, due-time math (Lagos evening completion still due at exactly +48h), unsigned config or guard off schedules nothing, the red-flag answer opens exactly one emergency event and alert, the safe answer none, one alert for several concerning answers, nudge once then expire, the generic task close refused, a patient answers only their own, another clinician reads nothing, the assigned clinician reads and an audit row is written, anon has no execute. Each check has a sabotage run that flips it.

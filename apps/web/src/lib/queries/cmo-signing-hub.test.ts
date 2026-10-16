@@ -53,6 +53,12 @@ jest.mock("@/lib/queries/pending-capacity-config-signoff", () => ({
   readPendingCapacityConfigSignoff: (...args: unknown[]) => readPendingCapacityConfigSignoff(...args),
 }));
 const noCapacityConfig: CapacityPending = { capacityVersion: null, capacityRules: null, leadVersion: null, leadCapDraft: null, leadCapInForce: null, failed: false };
+type PostCheckinPending = { version: number | null; rules: unknown; failed: boolean };
+const readPendingPostCheckinSignoff = jest.fn<(...args: unknown[]) => Promise<PostCheckinPending>>();
+jest.mock("@/lib/queries/pending-post-checkin-signoff", () => ({
+  readPendingPostCheckinSignoff: (...args: unknown[]) => readPendingPostCheckinSignoff(...args),
+}));
+const noPostCheckin: PostCheckinPending = { version: null, rules: null, failed: false };
 const readPendingSoleCmoException = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
 const readUnifiedRedPagingState = jest.fn<(...args: unknown[]) => Promise<{ waitingVersion: number | null; liveVersion: number | null; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-unified-red-paging-signoff", () => ({
@@ -66,7 +72,7 @@ jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
 }));
 
-import { CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub, SOLE_CMO_EXCEPTION_ITEM_KEY } from "./cmo-signing-hub";
+import { CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, POST_CHECKIN_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub, SOLE_CMO_EXCEPTION_ITEM_KEY } from "./cmo-signing-hub";
 
 const supabase = {} as SupabaseClient<Database>;
 
@@ -105,6 +111,28 @@ beforeEach(() => {
   readPendingQualityConfigSignoff.mockResolvedValue(noQualityConfig);
   readPendingCapacityConfigSignoff.mockReset();
   readPendingCapacityConfigSignoff.mockResolvedValue(noCapacityConfig);
+  readPendingPostCheckinSignoff.mockReset();
+  readPendingPostCheckinSignoff.mockResolvedValue(noPostCheckin);
+});
+
+describe("readCmoSigningHub: check-ins after a consultation", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds one line, under /clinician, for an unsigned draft", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingPostCheckinSignoff.mockResolvedValue({ version: 1, rules: null, failed: false });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === POST_CHECKIN_ITEM_KEY);
+    expect(line?.count).toBe(1);
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/No check-in is sent until you sign/);
+  });
+  it("adds no line when nothing waits, and names a failed read", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === POST_CHECKIN_ITEM_KEY)).toBeUndefined();
+    readPendingPostCheckinSignoff.mockResolvedValue({ version: null, rules: null, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the check-in configuration");
+  });
 });
 
 describe("readCmoSigningHub: capacity, rest and fire drills", () => {

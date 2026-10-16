@@ -15,6 +15,7 @@ const ICON_FOR_KIND: Record<TodayItem["kind"], IconName> = {
   book_test: "labs",
   join_consultation: "appointment",
   read_lesson: "info",
+  consult_checkin: "info",
   other: "info",
 };
 

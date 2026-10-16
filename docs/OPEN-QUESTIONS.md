@@ -3839,3 +3839,42 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - None are sent (INV-07 by absence; no streak or missed-day message exists). If the founder later wants a "you earned points" notice it must be neutral and key-based.
 - Decision: informational.
 
+
+## PCC: post-consultation check-ins at 48 hours and 7 days (docs/design/PCC.md)
+
+The CMO must sign the question wording, what each answer does and the offsets (check-in configuration version 1, on the CMO sign-off hub) before anything is sent, and an admin must then switch the `post_consult_checkins_enabled` guard on. Both start off. Nothing below was decided by an agent; each item states the conservative default that shipped.
+
+### OQ-PCC-1 Question wording, offsets and timing are PROPOSED
+- Four questions (how are you feeling, new or worsening symptoms, medicines as agreed, anything unclear), 48 hours and 7 days after the consultation ended, one reminder 24 hours after it opens, closed as not answered 48 hours after it opens, reminders only between 07:00 and 21:00 Africa/Lagos. Value: `consultations.post_checkin` (mirrored by `post_consult_checkin_config` version 1).
+- Decision: the CMO signs or asks for a new version.
+
+### OQ-PCC-2 What counts as a concern
+- Default: "worse", "new or worsening symptoms" and "I cannot take my medicines" each raise a clinician alert (one per check-in, level `clinician_review`); "missed some doses" and "something was unclear" make a task for the clinician on the visit; a danger phrase in the note opens the existing emergency path. The level can be raised to `urgent_escalation` in a new config version.
+- Decision: CMO.
+
+### OQ-PCC-3 No new alert type
+- The alerts reuse `symptom_escalation` and `medication_access_barrier`, so they ride the existing `alert_rules` routing. A dedicated `post_consult_checkin` type would need its own enum migration and a governed `alert_rules` entry.
+- Decision: open (CMO, only if the alerts should be filtered apart).
+
+### OQ-PCC-4 Clinician tasks are `care_tasks`, not `clinical_tasks`
+- A new `task_types` row would carry `needs_confirmation` and, as `crisis_follow_up` did (S57b), block approving any triage rule set until the CMO confirms it. The low-priority "not answered" task and the "help" task therefore use `care_tasks` owned by the consultation's clinician. They are not part of the S16 queue, claim or paging machinery.
+- Decision: open (CMO: should these become S16 task types?).
+
+### OQ-PCC-5 Only video, audio and phone consultations
+- Written (async) consultations are excluded; they have their own answer thread (S22). Confirmed by `encounter_types` in the config.
+- Decision: open.
+
+### OQ-PCC-6 Mobile has no native answer screen
+- The Today list knows the `consult_checkin` kind and opens Care, where the web link lives; the patient answers on the web page `/patient/consult-checkin/[id]` (also reachable from the notification). A native screen over `my_post_consult_checkin` and `answer_post_consult_checkin` is not built and was not run on a device.
+- Decision: product.
+
+### OQ-PCC-7 Patient who has already written to the care team
+- A pending (not yet opened) check-in is skipped when the patient sent a care message after the consultation within 24 hours before it falls due. A message from day 1 does not remove the day 7 check-in. An already-open check-in is never cancelled by a message.
+- Decision: CMO (should any message about the visit end the loop?).
+
+### OQ-PCC-8 The emergency event only alerts when its own entitlement check passes
+- `emergency_events` raises its clinician alert for patients with the doctor-escalation entitlement. A consultation is a paid Member item, but the check-in does not rely on that: if the event raised no alert, the answer function raises one itself. Reading `clinician_alert_id` back, rather than assuming, is why.
+- Decision: informational.
+
+### OQ-PCC-9 Post-merge steps (not done by the author)
+- Apply the migration (merging auto-applies it); redeploy `send-pending-notifications` so `consult_checkin_due` and `consult_checkin_nudge` render (until then the in-app notice and the patient task still work); the CMO signs; an admin switches the guard on. Nothing is sent before the last two.

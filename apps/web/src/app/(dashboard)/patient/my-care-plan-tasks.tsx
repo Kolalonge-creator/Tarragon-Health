@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useCareTasks, useCompleteCareTask, type CareTask } from "@/lib/queries/care-tasks";
 import { useCarePlanGoals, useProposeCarePlanGoal } from "@/lib/queries/care-plan-goals";
 import { useCarePlans, type CarePlan } from "@/lib/queries/care-plans";
@@ -102,7 +103,12 @@ function TaskRow({ task, patientId }: { task: CareTask; patientId: string }) {
         {due && <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Due {due}</span>}
       </div>
       {task.description && <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{task.description}</p>}
-      {!showUnable ? (
+      {task.kind === "consult_checkin" ? (
+        // PCC: a check-in is closed by answering it (the database refuses the generic Done), so it links to the questions.
+        <Link href={`/patient/consult-checkin/${task.source_event_id ?? ""}`} className="text-sm font-medium text-brand-green hover:underline">
+          Answer the check-in
+        </Link>
+      ) : !showUnable ? (
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"

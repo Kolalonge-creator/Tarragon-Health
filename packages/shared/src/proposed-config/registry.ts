@@ -5818,4 +5818,130 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S47-decisions-applied.md",
   },
+  {
+    key: "consultations.post_checkin",
+    // Post-consultation check-ins (PCC, founder decision: a fixed short check-in at 48 hours and 7 days, red flags escalate, no model).
+    // Mirrored by post_consult_checkin_config version 1 (a drift test compares the two). Born INACTIVE and unsigned: the sweep schedules nothing
+    // until the CMO signs it on the sign-off hub AND an admin switches the post_consult_checkins_enabled guard on. The wording and each
+    // option's route are what the CMO signs. Quiet hours: the sender defers for a person's own quiet window; notification_window here only holds
+    // the reminder inside 07:00 to 21:00 Africa/Lagos. The task exists whatever the time.
+    value: {
+      "offsets": [
+        {
+          "code": "h48",
+          "after_minutes": 2880
+        },
+        {
+          "code": "d7",
+          "after_minutes": 10080
+        }
+      ],
+      "encounter_types": [
+        "video",
+        "audio",
+        "phone"
+      ],
+      "nudge_after_minutes": 1440,
+      "max_nudges": 1,
+      "expire_after_minutes": 2880,
+      "skip_if_patient_wrote_within_minutes": 1440,
+      "notification_window": {
+        "start_hour": 7,
+        "end_hour": 21
+      },
+      "concern_alert_level": "clinician_review",
+      "free_text_max_chars": 500,
+      "task_title": "A quick check-in after your visit",
+      "task_description": "A few short questions so your care team knows how you are getting on.",
+      "questions": [
+        {
+          "id": "feeling",
+          "text": "How are you feeling since your visit?",
+          "options": [
+            {
+              "code": "better",
+              "label": "Better",
+              "route": "ok"
+            },
+            {
+              "code": "same",
+              "label": "About the same",
+              "route": "ok"
+            },
+            {
+              "code": "worse",
+              "label": "Worse",
+              "route": "concern_alert",
+              "alert_type": "symptom_escalation"
+            }
+          ]
+        },
+        {
+          "id": "new_symptoms",
+          "text": "Have you noticed any new or worsening symptoms?",
+          "options": [
+            {
+              "code": "no",
+              "label": "No",
+              "route": "ok"
+            },
+            {
+              "code": "yes",
+              "label": "Yes",
+              "route": "concern_alert",
+              "alert_type": "symptom_escalation"
+            }
+          ]
+        },
+        {
+          "id": "medicines",
+          "text": "Are you taking your medicines as agreed with your care team?",
+          "options": [
+            {
+              "code": "yes",
+              "label": "Yes",
+              "route": "ok"
+            },
+            {
+              "code": "none_prescribed",
+              "label": "I was not given any medicines",
+              "route": "ok"
+            },
+            {
+              "code": "some_missed",
+              "label": "I have missed some doses",
+              "route": "clinician_task"
+            },
+            {
+              "code": "cannot_take",
+              "label": "I cannot take them",
+              "route": "concern_alert",
+              "alert_type": "medication_access_barrier"
+            }
+          ]
+        },
+        {
+          "id": "unclear",
+          "text": "Is anything from your visit unclear?",
+          "options": [
+            {
+              "code": "no",
+              "label": "No, it is all clear",
+              "route": "ok"
+            },
+            {
+              "code": "yes",
+              "label": "Yes, I would like some help",
+              "route": "clarify_task"
+            }
+          ]
+        }
+      ]
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/PCC.md; supabase/migrations/20261016183857_pcc_post_consult_checkins.sql",
+  },
 ];

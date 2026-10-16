@@ -5,6 +5,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { ConsultationRoom, type RoomView } from "@/components/consultation/consultation-room";
 import { callPolicyFor } from "@/lib/consultations/call-config";
+import { ConsultCheckinsCard } from "@/components/consultation/consult-checkins-card";
+import { clinicianCheckinsSchema } from "@/lib/consult-checkin/model";
 import { ClinicianIntakePanel, type ClinicianIntake } from "@/components/consultation/clinician-intake-panel";
 
 /**
@@ -24,6 +26,11 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
   // A failed read is shown as an error, never as "nothing was sent".
   const { data: intakeData, error: intakeError } = await supabase.rpc("clinician_consultation_intake" as never, { p_encounter: encounterId } as never);
   const intake = (intakeData ?? null) as unknown as ClinicianIntake | null;
+  // PCC: the patient's answers to the check-ins after this visit. Audited on the database side (one audit row per read) and answered only to this
+  // consultation's own clinician. A failed read is shown as an error, never as "no check-ins".
+  const { data: checkinData, error: checkinError } = await supabase.rpc("get_consult_checkins" as never, { p_encounter: encounterId } as never);
+  const checkinParsed = clinicianCheckinsSchema.safeParse(checkinData ?? []);
+  const checkinFailed = Boolean(checkinError) || !checkinParsed.success;
   // null unless the Meeting SDK is configured; then the room joins inside the page and falls back to the link on any failure.
   const callPolicy = callPolicyFor(view.reconnect_grace_seconds);
 
@@ -47,6 +54,7 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
       ) : (
         <ClinicianIntakePanel intake={intake} locale="en" />
       )}
+      <ConsultCheckinsCard checkins={checkinParsed.success ? checkinParsed.data : null} failed={checkinFailed} />
       <ConsultationRoom view={view} locale="en" call={callPolicy ? { policy: callPolicy } : null} />
     </DashboardPlaceholder>
   );
