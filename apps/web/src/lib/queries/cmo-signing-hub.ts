@@ -10,6 +10,8 @@ import { readS06S10Signoffs, EMPTY_S06S10, type S06S10Snapshot } from "@/lib/que
 import { readPendingQualityConfigSignoff } from "@/lib/queries/pending-quality-config-signoff";
 import { readPendingCapacityConfigSignoff } from "@/lib/queries/pending-capacity-config-signoff";
 import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose-task-type-signoff";
+import { VITALS_TRIAGE_ITEM_KEY, readPendingVitalsTriageSignoff } from "@/lib/queries/pending-vitals-triage-signoff";
+import { readPendingVitalsTaskTypeSignoff } from "@/lib/queries/pending-vitals-task-type-signoff";
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
 import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
@@ -42,6 +44,8 @@ export const COMMUNITY_ITEM_KEY = "community";
 export const RED_OUTREACH_ITEM_KEY = "red_outreach";
 /** The key the urgent glucose review task type line carries (R2, CMO Q7 and Q8), so the page can attach the confirm panel. */
 export const GLUCOSE_TASK_TYPE_ITEM_KEY = "glucose_task_type";
+/** The key the amber vitals review task type line carries (pulse, SpO2, temperature), so the page can attach the confirm panel. */
+export const VITALS_TASK_TYPE_ITEM_KEY = "vitals_task_type";
 /** The line for the S20 v2 quality and credentialing configuration drafts (audit sampling, second review, speak-up check-ins, licence notices). */
 export const QUALITY_CONFIG_ITEM_KEY = "quality_configs";
 /** The line for the capacity and cover configuration drafts (intake gate, hard rest rule, fire drills) and the pilot lead cap. */
@@ -50,7 +54,7 @@ export const CAPACITY_CONFIG_ITEM_KEY = "capacity_configs";
 export const SOLE_CMO_EXCEPTION_ITEM_KEY = "sole_cmo_on_call_exception";
 /** The line for unified red-event paging (S19d): switch the one governed ladder on for SpO2, pulse, temperature, red-flag symptoms and emergency events, or off again. */
 export const UNIFIED_RED_PAGING_ITEM_KEY = "unified_red_paging";
-export { GLUCOSE_TRIAGE_ITEM_KEY };
+export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY };
 
 /**
  * Everything that needs the Chief Medical Officer's signature, in one list.
@@ -72,7 +76,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -85,6 +89,8 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingRedOutreachSignoff(supabase),
     readPendingGlucoseTriageSignoff(supabase),
     readPendingGlucoseTaskTypeSignoff(supabase),
+    readPendingVitalsTriageSignoff(supabase),
+    readPendingVitalsTaskTypeSignoff(supabase),
     readPendingQualityConfigSignoff(supabase),
     readPendingSoleCmoException(supabase),
     readUnifiedRedPagingState(supabase),
@@ -209,6 +215,27 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (vitalsTaskType.waiting) {
+    items.push({
+      key: VITALS_TASK_TYPE_ITEM_KEY,
+      title: "Amber vitals review (task type)",
+      detail: "The task a doctor gets for a pulse, oxygen or temperature reading that is outside the usual range but not an emergency needs your confirmation. Until you confirm it, the vitals rules cannot be signed.",
+      href: "/clinician/task-types",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
+  if (vitals.pending) {
+    items.push({
+      key: VITALS_TRIAGE_ITEM_KEY,
+      title: `Pulse, oxygen and temperature triage rules, version ${vitals.version}`,
+      detail: `Version ${vitals.version} is a draft waiting for your signature, with the guideline basis of every rule (including how it compares with NEWS2) and the patient wording in full.${vitals.approvedVersion !== null ? ` Version ${vitals.approvedVersion} stays in force until you sign.` : " Until you sign, these readings are graded in shadow only and the older alerts keep running."}`,
+      href: "/clinician/vitals-triage-rules",
+      severity: "draft_pending",
+    });
+  }
+
   if (qualityConfigs.qualityVersion !== null || qualityConfigs.credentialingVersion !== null) {
     const parts = [
       qualityConfigs.qualityVersion !== null && `quality configuration version ${qualityConfigs.qualityVersion} (audit sampling, second review, speak-up check-ins)`,
@@ -262,6 +289,8 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(redOutreach.failed ? ["Red alert outreach"] : []),
     ...(glucose.failed ? ["the glucose triage rules"] : []),
     ...(glucoseTaskType.failed ? ["the urgent glucose review task type"] : []),
+    ...(vitals.failed ? ["the pulse, oxygen and temperature triage rules"] : []),
+    ...(vitalsTaskType.failed ? ["the amber vitals review task type"] : []),
     ...(qualityConfigs.failed ? ["the quality and credentialing configurations"] : []),
     ...(soleCmo.failed ? ["the sole-CMO on-call exception"] : []),
     ...(unifiedRed.failed ? ["unified red-event paging"] : []),
