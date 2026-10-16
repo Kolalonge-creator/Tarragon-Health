@@ -14,6 +14,10 @@ import { DoctorSummaryPdfDocument } from "@/lib/doctor-summary-pdf/document";
  * If any ticked section cannot be read the answer is a 503 with no document, never a PDF that quietly lacks a section.
  */
 export async function POST(request: Request): Promise<Response> {
+  // A cross-site form post carries the cookie; refuse one whose Origin is not this host.
+  const origin = request.headers.get("origin");
+  if (origin && new URL(origin).host !== new URL(request.url).host) return new Response("Forbidden", { status: 403 });
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -42,7 +46,12 @@ export async function POST(request: Request): Promise<Response> {
   const result = await loadDoctorSummary(supabase, user.id, parsed.data, Date.now(), cfg);
   if (!result.ok) return new Response("The summary could not be built just now. Please try again.", { status: 503 });
 
-  const buffer = await renderToBuffer(DoctorSummaryPdfDocument({ data: result.data }));
+  let buffer: Buffer;
+  try {
+    buffer = await renderToBuffer(DoctorSummaryPdfDocument({ data: result.data }));
+  } catch {
+    return new Response("The summary could not be built just now. Please try again.", { status: 503 });
+  }
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",

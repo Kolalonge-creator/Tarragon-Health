@@ -52,6 +52,19 @@ describe("POST /api/patient/doctor-summary/pdf", () => {
     expect(recordSummaryGeneration).not.toHaveBeenCalled();
   });
 
+  it("refuses a cross-site post", async () => {
+    const form = new FormData();
+    form.append("section", "bp");
+    const res = await POST(new Request("http://localhost/api/patient/doctor-summary/pdf", { method: "POST", body: form, headers: { origin: "https://evil.example" } }));
+    expect(res.status).toBe(403);
+    expect(recordSummaryGeneration).not.toHaveBeenCalled();
+  });
+
+  it("answers 503, not an unhandled error, when the render throws", async () => {
+    renderToBuffer.mockRejectedValueOnce(new Error("font"));
+    expect((await POST(post([["section", "bp"]]))).status).toBe(503);
+  });
+
   it("answers 404 for anyone who is not a patient (staff cannot build a summary here)", async () => {
     mockProfile = { organisation_id: "org1", role: "clinician" };
     const res = await POST(post([["section", "bp"]]));

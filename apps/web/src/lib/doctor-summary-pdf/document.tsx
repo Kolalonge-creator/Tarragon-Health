@@ -1,7 +1,7 @@
 import { Document, Page, Text, View, Svg, Line, Circle, Rect, Polyline, Text as SvgText, StyleSheet } from "@react-pdf/renderer";
 import { registerPdfFonts, PDF_FONT_FAMILY } from "@/lib/pdf/register-fonts";
 import { PDF_CONTACT_EMAIL } from "@/lib/pdf/pdf-brand";
-import { BP_SOURCE_LABEL, type BpChart } from "./model";
+import { ALLERGY_SOURCE_LABEL, BP_SOURCE_LABEL, type BpChart } from "./model";
 import type { DoctorSummaryData } from "./load";
 
 registerPdfFonts();
@@ -32,6 +32,12 @@ const day = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en
 
 export const SUMMARY_FOOTER =
   "Patient-generated summary, not a clinical document. The patient chose what to include. It may be out of date and does not replace your own assessment. Entries marked as typed in by the patient have not been checked by a clinician. Records kept in the reproductive health and mental health areas are not included; a medicine or note the patient chose to list is listed whatever it is for.";
+
+const MEDICINE_TAG = {
+  signed_prescription: "from a signed prescription",
+  patient: "added by the patient",
+  other: "in the medicine list, not from a signed prescription",
+} as const;
 
 function Tagged({ text, tag }: { text: string; tag?: string }) {
   return (
@@ -106,7 +112,7 @@ export function DoctorSummaryPdfDocument({ data }: { data: DoctorSummaryData }) 
               <Text style={styles.small}>None recorded</Text>
             ) : (
               data.allergiesConditions.allergies.map((a, i) => (
-                <Tagged key={i} text={`${a.allergen}${[a.reaction, a.severity].filter(Boolean).length ? `: ${[a.reaction, a.severity].filter(Boolean).join(", ")}` : ""}`} tag="entered by the patient" />
+                <Tagged key={i} text={`${a.allergen}${a.detail ? `: ${a.detail}` : ""}`} tag={ALLERGY_SOURCE_LABEL[a.provenance]} />
               ))
             )}
             <Text style={styles.sectionTitle}>Ongoing conditions</Text>
@@ -147,6 +153,7 @@ export function DoctorSummaryPdfDocument({ data }: { data: DoctorSummaryData }) 
                 {data.bp.truncated && <Text style={styles.small}>Showing the latest {data.bp.lines.length} of {data.bp.totalListed} readings.</Text>}
               </View>
             )}
+            {data.bp.capped && <Text style={styles.small}>The app read only the newest readings of each kind, so the average and chart may not cover the whole period.</Text>}
             {data.bp.notCounted > 0 && <Text style={styles.small}>{data.bp.notCounted} reading{data.bp.notCounted === 1 ? "" : "s"} not counted because the app could not confirm {data.bp.notCounted === 1 ? "it" : "them"}.</Text>}
           </View>
         )}
@@ -172,7 +179,7 @@ export function DoctorSummaryPdfDocument({ data }: { data: DoctorSummaryData }) 
               <Text style={styles.small}>None recorded</Text>
             ) : (
               data.medicines.map((m, i) => (
-                <Tagged key={i} text={`${m.name}${m.dose ? `, ${m.dose}` : ""}: ${m.schedule}`} tag={m.prescribed ? "from a signed prescription" : "added by the patient"} />
+                <Tagged key={i} text={`${m.name}${m.dose ? `, ${m.dose}` : ""}: ${m.schedule}`} tag={MEDICINE_TAG[m.provenance]} />
               ))
             )}
           </View>
@@ -190,7 +197,7 @@ export function DoctorSummaryPdfDocument({ data }: { data: DoctorSummaryData }) 
                   />
                 ))}
                 <Text style={styles.small}>
-                  This is what the patient marked in the app: doses marked taken (on time or late) out of doses due, as-needed medicines left out. Whole weeks ending yesterday. A percentage is shown only when at least {data.adherence.minDoses} doses were due.
+                  This is what the patient marked in the app: doses marked taken (on time or late) out of doses due, as-needed medicines left out. Whole weeks ending yesterday, all inside the period chosen. A percentage is shown only when at least {data.adherence.minDoses} doses were due.
                 </Text>
               </View>
             ) : (
@@ -207,7 +214,7 @@ export function DoctorSummaryPdfDocument({ data }: { data: DoctorSummaryData }) 
             ) : (
               <View>
                 {data.skipped.lines.map((s, i) => (
-                  <Tagged key={i} text={`${s.when}   ${s.medicine}: ${s.reason}`} tag="entered by the patient" />
+                  <Tagged key={i} text={`${s.when}   ${s.medicine}: ${s.reason}`} tag="logged in the app" />
                 ))}
                 {data.skipped.total > data.skipped.lines.length && <Text style={styles.small}>Showing the latest {data.skipped.lines.length} of {data.skipped.total}.</Text>}
               </View>
@@ -224,10 +231,11 @@ export function DoctorSummaryPdfDocument({ data }: { data: DoctorSummaryData }) 
               <View>
                 {data.symptoms.lines.map((s, i) => (
                   <View key={i} wrap={false}>
-                    <Tagged text={`${dateTime(s.reportedAt)}   ${s.label}${s.severity !== null ? `, severity ${s.severity} (the patient's own scale)` : ""}`} tag="entered by the patient" />
+                    <Tagged text={`${dateTime(s.reportedAt)}   ${s.label}${s.severity !== null ? `, severity ${s.severity} (the patient's own scale)` : ""}`} tag="logged in the app" />
                     {s.note ? <Text style={[styles.small, styles.clamp]}>{s.note}</Text> : null}
                   </View>
                 ))}
+                {data.symptoms.capped && <Text style={styles.small}>Only the newest 500 journal entries were read, so older entries in this period may be missing.</Text>}
                 {data.symptoms.total > data.symptoms.lines.length && <Text style={styles.small}>Showing the latest {data.symptoms.lines.length} of {data.symptoms.total}.</Text>}
               </View>
             )}

@@ -2,15 +2,17 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { addDays, lagosLocalDate, parseScheduleSpec, specFromLegacyTimes, type AdherenceReportWeek } from "@tarragon/medicines";
 import { loadAdherenceReport } from "@/lib/medicines/adherence-report-data";
-import { loadEmergencyDatasetForPatient } from "@/lib/emergency/dataset";
 import {
+  allergyProvenance,
   buildBpChart,
   buildBpSection,
   buildSkipped,
   buildSymptoms,
   describeSchedule,
   summaryConfig,
+  type AllergyLine,
   type BpChart,
+  type BpReadingIn,
   type BpSection,
   type MedicineLine,
   type SectionKey,
@@ -22,7 +24,8 @@ import {
 /**
  * Gathers what the patient ticked, through the patient's OWN session (row level security keeps every read to her own rows), and
  * builds the printable data. Failure is loud on purpose: a section that cannot be read fails the whole summary instead of being
- * left out, because a page handed to a clinic that quietly lacks the medicines or the readings reads as "none".
+ * left out, because a page handed to a clinic that quietly lacks the medicines or the allergies reads as "none". Every query's
+ * `error` is checked, and a read that hits its row limit says so on the page.
  *
  * Wearable-sourced readings are listed and labelled but never enter the average or the chart (model.ts). Nothing here reads a
  * reproductive-health or mental-health table: there is no section for either, so they cannot be ticked by accident.
@@ -37,15 +40,17 @@ export interface DoctorSummaryData {
   bp: BpSection | null;
   chart: BpChart | null;
   medicines: MedicineLine[] | null;
+  /** `weeks` are whole completed Lagos weeks inside the period, so they never cover a day outside it. */
   adherence: { weeks: AdherenceReportWeek[]; minDoses: number; hasScheduledMedicines: boolean } | null;
   skipped: { lines: SkippedLine[]; total: number } | null;
-  symptoms: { lines: SymptomLine[]; total: number; leftOut: number } | null;
-  allergiesConditions: { allergies: { allergen: string; reaction: string | null; severity: string | null }[]; conditions: string[] } | null;
+  symptoms: { lines: SymptomLine[]; total: number; leftOut: number; capped: boolean } | null;
+  allergiesConditions: { allergies: AllergyLine[]; conditions: string[] } | null;
 }
 
 export type DoctorSummaryResult = { ok: true; data: DoctorSummaryData } | { ok: false; error: string };
 
-const READING_FETCH_CAP = 2000;
+/** Row limits for one read. Hitting one is shown on the page (BpSection.capped, symptoms.capped). */
+export const READ_LIMITS = { bpCounted: 2000, bpOther: 500, symptoms: 500, skipped: 500 } as const;
 
 export async function loadDoctorSummary(
   supabase: SupabaseClient<Database>,
@@ -57,6 +62,7 @@ export async function loadDoctorSummary(
   const want = new Set<SectionKey>(request.sections);
   const sinceMs = nowMs - request.days * 24 * 60 * 60 * 1000;
   const sinceIso = new Date(sinceMs).toISOString();
+  const nowIso = new Date(nowMs).toISOString();
   const sinceDate = addDays(lagosLocalDate(nowMs), -request.days);
   const fail = (what: string): DoctorSummaryResult => ({ ok: false, error: `Could not read ${what}.` });
 
@@ -72,27 +78,42 @@ export async function loadDoctorSummary(
   let bp: BpSection | null = null;
   let chart: BpChart | null = null;
   if (want.has("bp") || want.has("bp_chart")) {
-    const { data, error } = await supabase
-      .from("vitals_readings")
-      .select("taken_at, systolic, diastolic, pulse_bpm, source, validation_status")
-      .eq("patient_id", patientId)
-      .eq("vital_type", "blood_pressure")
-      .is("correction_status", null)
-      .gte("taken_at", sinceIso)
-      .order("taken_at", { ascending: false })
-      .limit(READING_FETCH_CAP);
-    if (error) return fail("your blood pressure readings");
-    bp = buildBpSection(
-      (data ?? []).map((r) => ({
-        takenAt: r.taken_at,
-        systolic: r.systolic,
-        diastolic: r.diastolic,
-        pulse: r.pulse_bpm,
-        source: String(r.source),
-        validationStatus: String(r.validation_status),
-      })),
-      cfg,
-    );
+    const bpColumns = "taken_at, systolic, diastolic, pulse_bpm, source, validation_status";
+    // Two reads, so a feed of wearable rows can never crowd the home-cuff readings out of the row limit.
+    const [counted, other] = await Promise.all([
+      supabase
+        .from("vitals_readings")
+        .select(bpColumns)
+        .eq("patient_id", patientId)
+        .eq("vital_type", "blood_pressure")
+        .is("correction_status", null)
+        .in("source", cfg.averageSources as Database["public"]["Enums"]["vital_source"][])
+        .gte("taken_at", sinceIso)
+        .order("taken_at", { ascending: false })
+        .limit(READ_LIMITS.bpCounted),
+      supabase
+        .from("vitals_readings")
+        .select(bpColumns)
+        .eq("patient_id", patientId)
+        .eq("vital_type", "blood_pressure")
+        .is("correction_status", null)
+        .not("source", "in", `(${cfg.averageSources.join(",")})`)
+        .gte("taken_at", sinceIso)
+        .order("taken_at", { ascending: false })
+        .limit(READ_LIMITS.bpOther),
+    ]);
+    if (counted.error || other.error) return fail("your blood pressure readings");
+    const rows = [...(counted.data ?? []), ...(other.data ?? [])];
+    const capped = (counted.data ?? []).length >= READ_LIMITS.bpCounted || (other.data ?? []).length >= READ_LIMITS.bpOther;
+    const readings: BpReadingIn[] = rows.map((r) => ({
+      takenAt: r.taken_at,
+      systolic: r.systolic,
+      diastolic: r.diastolic,
+      pulse: r.pulse_bpm,
+      source: String(r.source),
+      validationStatus: String(r.validation_status),
+    }));
+    bp = buildBpSection(readings, cfg, capped);
     if (want.has("bp_chart")) chart = buildBpChart(bp.chartReadings);
   }
 
@@ -100,23 +121,36 @@ export async function loadDoctorSummary(
   if (want.has("medicines")) {
     const { data, error } = await supabase
       .from("medications")
-      .select("drug_name, dose, frequency, schedule_spec, schedule_times, prescription_id")
+      .select("drug_name, dose, frequency, schedule_spec, schedule_times, prescription_id, source")
       .eq("patient_id", patientId)
       .eq("is_active", true)
       .is("superseded_at", null)
+      // a finished, time-limited course is not a current medicine even if nobody has switched it off
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
       .order("drug_name");
     if (error) return fail("your medicines");
+    const prescriptionIds = [...new Set((data ?? []).map((m) => m.prescription_id).filter((id): id is string => !!id))];
+    // "From a signed prescription" is only said when a signed, uncancelled prescription is actually there (INV-02).
+    const signed = new Set<string>();
+    if (prescriptionIds.length > 0) {
+      const rx = await supabase.from("prescriptions").select("id, signed_at, cancelled_at").in("id", prescriptionIds);
+      if (rx.error) return fail("your medicines");
+      for (const p of rx.data ?? []) if (p.signed_at && !p.cancelled_at) signed.add(p.id);
+    }
     medicines = (data ?? []).map((m) => {
       const parsed = m.schedule_spec != null ? parseScheduleSpec(m.schedule_spec) : null;
       const spec = parsed?.ok ? parsed.spec : m.schedule_times ? specFromLegacyTimes(m.schedule_times) : null;
-      return { name: m.drug_name, dose: m.dose, schedule: describeSchedule(spec, m.frequency), prescribed: m.prescription_id !== null };
+      const provenance: MedicineLine["provenance"] =
+        m.prescription_id && signed.has(m.prescription_id) ? "signed_prescription" : !m.prescription_id && String(m.source) === "patient" ? "patient" : "other";
+      return { name: m.drug_name, dose: m.dose, schedule: describeSchedule(spec, m.frequency), provenance };
     });
   }
 
   let adherence: DoctorSummaryData["adherence"] = null;
   if (want.has("adherence")) {
-    // The same function the app and the care team's chart use. Whole completed Lagos weeks, so the period is rounded up to weeks.
-    const report = await loadAdherenceReport(supabase, patientId, nowMs, Math.min(26, Math.ceil(request.days / 7)));
+    // The same function the app and the care team's chart use. Whole completed Lagos weeks that fit inside the period (rounded
+    // DOWN), so the table never covers a day the page does not say it covers.
+    const report = await loadAdherenceReport(supabase, patientId, nowMs, Math.max(1, Math.min(26, Math.floor(request.days / 7))));
     if (!report.ok) return fail("your medicine adherence");
     adherence = { weeks: report.data.weeks, minDoses: report.data.minDoses, hasScheduledMedicines: report.data.hasScheduledMedicines };
   }
@@ -130,7 +164,7 @@ export async function loadDoctorSummary(
       .eq("status", "skipped")
       .gte("scheduled_for_date", sinceDate)
       .order("scheduled_for_date", { ascending: false })
-      .limit(500);
+      .limit(READ_LIMITS.skipped);
     if (error) return fail("your skipped doses");
     const rows = data ?? [];
     const ids = [...new Set(rows.map((r) => r.medication_id).filter((id): id is string => !!id))];
@@ -156,20 +190,39 @@ export async function loadDoctorSummary(
 
   let symptoms: DoctorSummaryData["symptoms"] = null;
   if (want.has("symptoms")) {
-    const { data, error } = await supabase.rpc("patient_symptom_journal", { p_limit: 500 });
-    if (error) return fail("your symptom journal");
-    const rows = (Array.isArray(data) ? data : []) as unknown as { reported_at: string; symptom_type: string; free_text: string | null; severity: number | null }[];
-    symptoms = buildSymptoms(rows.map((r) => ({ reportedAt: r.reported_at, symptomType: r.symptom_type, freeText: r.free_text, severity: r.severity })), sinceMs, cfg);
+    const { data, error } = await supabase.rpc("patient_symptom_journal", { p_limit: READ_LIMITS.symptoms });
+    if (error || !Array.isArray(data)) return fail("your symptom journal");
+    const rows = data as unknown as { reported_at: string; symptom_type: string; free_text: string | null; severity: number | null }[];
+    symptoms = buildSymptoms(
+      rows.map((r) => ({ reportedAt: r.reported_at, symptomType: r.symptom_type, freeText: r.free_text, severity: r.severity })),
+      sinceMs,
+      cfg,
+      rows.length >= READ_LIMITS.symptoms,
+    );
   }
 
   let allergiesConditions: DoctorSummaryData["allergiesConditions"] = null;
   if (want.has("allergies_conditions")) {
-    try {
-      const facts = await loadEmergencyDatasetForPatient(supabase, patientId);
-      allergiesConditions = { allergies: facts.allergies, conditions: facts.conditions };
-    } catch {
-      return fail("your allergies and conditions");
-    }
+    // Read here with every error checked: the shared emergency-card helper ignores query errors and would turn a failed read
+    // into "None recorded", which on a page handed to a clinic is a false statement about an allergy.
+    const [allergyRes, planRes] = await Promise.all([
+      supabase
+        .from("patient_allergies")
+        .select("allergen, reaction, severity, source, verification_status")
+        .eq("patient_id", patientId)
+        .is("correction_status", null)
+        .order("allergen"),
+      supabase.from("care_plans").select("condition").eq("patient_id", patientId).eq("status", "active"),
+    ]);
+    if (allergyRes.error || planRes.error) return fail("your allergies and conditions");
+    allergiesConditions = {
+      allergies: (allergyRes.data ?? []).map((a) => ({
+        allergen: a.allergen,
+        detail: [a.reaction, a.severity ? String(a.severity) : null].filter(Boolean).join(", ") || null,
+        provenance: allergyProvenance(String(a.source), String(a.verification_status)),
+      })),
+      conditions: [...new Set((planRes.data ?? []).map((c) => String(c.condition)))],
+    };
   }
 
   return {
@@ -179,9 +232,10 @@ export async function loadDoctorSummary(
 }
 
 /**
- * One audit row per generation, written BEFORE the document is built and returned: a summary whose audit row could not be
- * written must not be produced. The event carries ids and choices only (the sections ticked, the period), never a value from
- * the record. The row is the patient's own action on her own record (actor and subject are the same person).
+ * One audit row per request, written BEFORE anything is read: a summary whose audit row could not be written must not be
+ * produced. The action says "requested" because the row is written before the read and the render, so it records the intent to
+ * read the record, not the outcome. The event carries ids and choices only (the sections ticked, the period), never a value from
+ * the record. The patient's own action on her own record (actor and subject are the same person).
  */
 export async function recordSummaryGeneration(
   supabase: SupabaseClient<Database>,
@@ -191,7 +245,7 @@ export async function recordSummaryGeneration(
   const { error } = await supabase.from("audit_log").insert({
     organisation_id: actor.organisationId,
     actor_id: actor.id,
-    action: "patient.doctor_summary_generated",
+    action: "patient.doctor_summary_requested",
     entity_type: "profiles",
     entity_id: actor.id,
     subject_patient_id: actor.id,

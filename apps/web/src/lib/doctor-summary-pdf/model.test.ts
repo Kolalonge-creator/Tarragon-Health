@@ -1,4 +1,7 @@
+import { Constants } from "@tarragon/shared";
 import {
+  PRINTABLE_SYMPTOM_TYPES,
+  REPRODUCTIVE_SYMPTOM_TYPES,
   BP_SOURCE_LABEL,
   buildBpChart,
   buildBpSection,
@@ -161,6 +164,19 @@ describe("symptoms", () => {
       cfg,
     );
     expect(s.lines.map((l) => l.label)).toEqual(["Pain", "Fatigue"]);
+  });
+});
+
+describe("symptom type allow-list", () => {
+  it("covers every value of the database enum, so a new type is a decision and never printed by default", () => {
+    for (const v of Constants.public.Enums.symptom_type) {
+      expect(PRINTABLE_SYMPTOM_TYPES.includes(v) || REPRODUCTIVE_SYMPTOM_TYPES.includes(v)).toBe(true);
+    }
+  });
+  it("drops a type it does not know", () => {
+    const s = buildSymptoms([{ reportedAt: "2026-10-14T18:00:00Z", symptomType: "some_future_type", freeText: "x", severity: null }], Date.parse("2026-09-16T00:00:00Z"), cfg);
+    expect(s.lines).toHaveLength(0);
+    expect(s.leftOut).toBe(1);
   });
 });
 

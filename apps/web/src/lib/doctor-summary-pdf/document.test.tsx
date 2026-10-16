@@ -99,11 +99,11 @@ describe("the summary document", () => {
 
   it("shows plain empty-state lines rather than blanks", () => {
     const d = sampleData(["bp", "bp_chart", "medicines", "skipped", "symptoms", "allergies_conditions"]);
-    d.bp = { lines: [], totalListed: 0, notCounted: 0, excludedFromAverage: 0, average: null, chartReadings: [], truncated: false };
+    d.bp = { lines: [], totalListed: 0, notCounted: 0, excludedFromAverage: 0, average: null, chartReadings: [], truncated: false, capped: false };
     d.chart = null;
     d.medicines = [];
     d.skipped = { lines: [], total: 0 };
-    d.symptoms = { lines: [], total: 0, leftOut: 0 };
+    d.symptoms = { lines: [], total: 0, leftOut: 0, capped: false };
     d.allergiesConditions = { allergies: [], conditions: [] };
     const text = allText(DoctorSummaryPdfDocument({ data: d }));
     expect(text).toContain("No readings in this period");
