@@ -43,12 +43,16 @@ grant execute on function public.rewards_participation_aggregate(uuid, date, dat
 -- Self-check: no points-to-kobo rate exists anywhere, and redemption is still off.
 do $$
 begin
+  -- (wellness_points_config.points_to_kobo_rate and public.redeem_wellness_points are the legacy conversion; S72 drops both later in the replay order.
+  --  S58 adds no rate of its own, which is what this proves.)
   if exists (select 1 from information_schema.columns where table_schema = 'public'
+              and not (table_name = 'wellness_points_config' and column_name = 'points_to_kobo_rate')
               and column_name ~* '(points_to_kobo|kobo_per_point|kobo_rate)') then
     raise exception 'a points-to-kobo rate column exists';
   end if;
   if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-              where n.nspname in ('public', 'private') and p.prosrc ~* '(points_to_kobo|kobo_per_point|kobo_rate)') then
+              where n.nspname in ('public', 'private') and p.proname <> 'redeem_wellness_points'
+                and p.prosrc ~* '(points_to_kobo|kobo_per_point|kobo_rate)') then
     raise exception 'a function uses a points-to-kobo rate';
   end if;
 end $$;
