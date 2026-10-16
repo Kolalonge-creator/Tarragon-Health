@@ -5102,6 +5102,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "S42 safeguard (OQ-48): not from the spec; proposed",
   },
   {
+    key: "proxy.annual_review",
+    // Yearly "still need this person's access?" review (NHS proxy-access standard: grant, redact, review, revoke). A proxy or caregiver grant is due for
+    // review 12 months after it was given or last kept. The reminder repeats every 30 days, at most 4 in a cycle (the first plus three). Access is NEVER
+    // removed by silence. Live value is the active row of `proxy_review_config` v1; a Jest mirror test compares the two.
+    value: { intervalMonths: 12, repeatDays: 30, maxReminders: 4 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "Build proposal 2026-10-16 (NHS proxy-access standard, January 2026); not from the v5 spec; OQ-678",
+  },
+  {
     key: "pharmacy.quality",
     // Partner pharmacy quality rule (S28, spec 8.11). A pharmacy can be chosen for a collection only while its verified
     // licence has at least this many days left. Live value: the active row of `pharmacy_quality_config`; a test fails if the

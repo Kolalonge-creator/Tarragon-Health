@@ -4195,3 +4195,15 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 | OQ-366 | 2831, The go-live guard patches two shared functions (raised by S69) |
 | OQ-370 | 2737, Device capabilities need the CMO and an admin before anything switches on (raised by S70a) |
 | OQ-371 | 2741, Go-live uses `platform_modules`, not `go_live_guards` (raised by S70a) |
+
+### OQ-678 Yearly proxy-access review: the proposed numbers and the silent-person rule (raised by the yearly review build, 2026-10-16)
+- PROPOSED in `proxy_review_config` v1 (mirrored as `proxy.annual_review`): a proxy or caregiver grant is due for review 12 months after it was given or last kept or narrowed; the reminder repeats every 30 days, at most 4 times in a cycle. Nothing is signed.
+- Rule built in, not a number: **silence never removes access.** An elder must never lose help because they did not answer. After the cap the reminders stop, and the item stays on the person's list as due (with a "waiting a while" line) until they answer. If the founder wants a harder rule (for example a flag for the care team after a long silence), that is a new decision.
+- Scope: the person's own `profile_access` grants where they are an adult with their own login. Under-18 dependants (hand-over at 18 covers it) and records with no login of their own (`is_dependent_account`, nobody could answer) are out of scope, as are grants past their own `expires_at`. Care Circle members have their own expiry and renewal flow (S29) and are not part of this.
+- Coercion check (same family as OQ-48): the proxy is told once per cycle, in the app only, that a yearly check is due ("You do not need to do anything"). It says nothing about the outcome, and narrowing and removal stay silent (D5). The "Yearly check due" badge on the proxy's "People whose care you manage" list shows only that it is due. Founder to confirm that telling the proxy at all is wanted: a controlling proxy could use the notice to pressure the person into answering "keep". The alternative is to tell nobody and show the prompt to the person only.
+- Decision: open (founder). Counsel need not be asked.
+
+### OQ-679 Yearly proxy-access review: mobile screen and email/push delivery not exercised (raised by the yearly review build, 2026-10-16)
+- The mobile app has no proxy-controls screen today (narrow, remove, view log are web only), so the review card is web only. The in-app notice appears in the notification list on both. A mobile review card belongs with whichever session first brings the proxy controls to mobile.
+- The patient push and email versions exist (`proxy_review_due` renderers in `send-pending-notifications`) and are queued only when the person's own channel preference allows, but the edge function must be redeployed to carry the two new renderers (`supabase functions deploy send-pending-notifications`); until then those two rows would fail while the guaranteed in-app row still works. No real push or email was sent in this build.
+- Decision: informational (follow-up).

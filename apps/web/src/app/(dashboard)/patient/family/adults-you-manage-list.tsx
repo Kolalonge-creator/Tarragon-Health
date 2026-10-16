@@ -1,6 +1,7 @@
 "use client";
 
 import { useAdultsIManage } from "@/lib/queries/care-access";
+import { useProxyReviewDueAsProxy } from "@/lib/queries/proxy-review";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ClaimAccountCard } from "./claim-account-card";
@@ -26,6 +27,8 @@ import { ClaimAccountCard } from "./claim-account-card";
  */
 export function AdultsYouManageList() {
   const { data: adults, isLoading, isError } = useAdultsIManage();
+  // Only that a yearly check is due for them; never what they chose (narrowing and removal stay silent).
+  const { data: reviewDue } = useProxyReviewDueAsProxy();
 
   if (!isLoading && !isError && (adults?.length ?? 0) === 0) return null;
 
@@ -62,7 +65,10 @@ export function AdultsYouManageList() {
                     <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                       {adult.full_name ?? "Unnamed"}
                     </p>
-                    <Badge variant="grey">They keep their own account</Badge>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {reviewDue?.has(adult.id) && <Badge variant="grey">Yearly check due</Badge>}
+                      <Badge variant="grey">They keep their own account</Badge>
+                    </div>
                   </li>
                 ))}
               </ul>

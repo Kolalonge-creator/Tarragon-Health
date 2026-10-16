@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { CARE_ACCESS_CATEGORIES, useMyCareFollowers, type CareAccessCategory, type CareFollower } from "@/lib/queries/care-access";
+import { MY_PROXY_REVIEWS_KEY } from "@/lib/queries/proxy-review";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -59,20 +60,24 @@ function FollowerControls({ follower }: { follower: CareFollower }) {
 
   const revoke = useMutation({
     mutationFn: async () => {
-      const { error } = await createClient().rpc("revoke_proxy_access", { p_grantee: follower.profileId });
+      // Through the yearly-review door so the removal is recorded in the review history (it composes revoke_proxy_access).
+      const { error } = await createClient().rpc("answer_proxy_review", { p_grantee: follower.profileId, p_action: "remove" });
       if (error) throw error;
     },
     onSuccess: async () => {
       setMessage("Their access has stopped.");
       await queryClient.invalidateQueries({ queryKey: ["my-care-followers"] });
+      await queryClient.invalidateQueries({ queryKey: MY_PROXY_REVIEWS_KEY });
     },
     onError: () => setMessage("We could not stop that just now. Please try again."),
   });
 
   const narrow = useMutation({
     mutationFn: async () => {
-      const { error } = await createClient().rpc("narrow_proxy_access", {
+      // Through the yearly-review door so narrowing restarts the review cycle (it composes narrow_proxy_access).
+      const { error } = await createClient().rpc("answer_proxy_review", {
         p_grantee: follower.profileId,
+        p_action: "narrow",
         p_categories: keep,
         p_notify: tellThem,
       });
@@ -81,6 +86,7 @@ function FollowerControls({ follower }: { follower: CareFollower }) {
     onSuccess: async () => {
       setMessage(tellThem ? "Saved. We let them know." : "Saved. They will not be told.");
       await queryClient.invalidateQueries({ queryKey: ["my-care-followers"] });
+      await queryClient.invalidateQueries({ queryKey: MY_PROXY_REVIEWS_KEY });
     },
     onError: () => setMessage("We could not save that just now. Please try again."),
   });
