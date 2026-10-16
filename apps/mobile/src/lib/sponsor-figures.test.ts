@@ -26,7 +26,8 @@ describe("isSponsorStaffRole", () => {
 describe("shellForRole", () => {
   it("sends only sponsor staff to the sponsor app and everyone else, including no role, to the patient app", () => {
     expect(["hmo_admin", "corporate_admin", "ngo_admin"].map(shellForRole)).toEqual(["sponsor", "sponsor", "sponsor"]);
-    for (const r of ["patient", "clinician", "admin", "payer_admin", "", null, undefined]) expect(shellForRole(r as string | null)).toBe("patient");
+    expect(shellForRole("clinician")).toBe("clinician"); // S19e: the on-call page surface
+    for (const r of ["patient", "admin", "payer_admin", "care_coordinator", "", null, undefined]) expect(shellForRole(r as string | null)).toBe("patient");
   });
 });
 
