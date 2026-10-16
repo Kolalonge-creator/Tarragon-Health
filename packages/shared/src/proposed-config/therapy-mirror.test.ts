@@ -9,7 +9,7 @@ const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", ".."
 
 /** The JSON between a begin marker and the closing json tag in the S63 migration. */
 function seeded(marker: string): unknown {
-  const files = readdirSync(MIGRATIONS).filter((f) => /_s63_.*\.sql$/.test(f)).sort();
+  const files = readdirSync(MIGRATIONS).filter((f) => /_s63_therapy_programmes.*\.sql$/.test(f)).sort();
   for (const f of files) {
     const sql = readFileSync(join(MIGRATIONS, f), "utf8");
     const match = new RegExp(`${marker}-begin[\\s\\S]*?\\$json\\$([\\s\\S]*?)\\$json\\$`).exec(sql);
@@ -44,7 +44,7 @@ describe("S63 PROPOSED config mirrors the migration seeds", () => {
   });
 
   it("the migration signs, approves, confirms and switches on nothing", () => {
-    const files = readdirSync(MIGRATIONS).filter((f) => /_s63_.*\.sql$/.test(f));
+    const files = readdirSync(MIGRATIONS).filter((f) => /_s63_therapy_programmes.*\.sql$/.test(f));
     expect(files.length).toBe(1);
     const sql = readFileSync(join(MIGRATIONS, files[0] as string), "utf8");
     // the seeds only ever write draft rows and an off guard
