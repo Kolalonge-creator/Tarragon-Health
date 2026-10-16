@@ -158,18 +158,24 @@ end $f$;
 
 create function pg_temp.backdate(p_att uuid, p_by interval) returns void language plpgsql as
 $f$ begin
-  perform set_config('session_replication_role', 'replica', true);   -- row triggers off for this one update (ALTER TABLE is refused while the table is being read)
+  alter table public.ops_desk_checklist_attestations disable trigger ops_desk_attestations_append_only;
   update public.ops_desk_checklist_attestations set attested_at = now() - p_by where id = p_att;
-  perform set_config('session_replication_role', 'origin', true);
+  alter table public.ops_desk_checklist_attestations enable trigger ops_desk_attestations_append_only;
+end $f$;
+create function pg_temp.backdate_item(p_item text, p_state text, p_by interval) returns void language plpgsql as
+$f$ begin
+  alter table public.ops_desk_checklist_attestations disable trigger ops_desk_attestations_append_only;
+  update public.ops_desk_checklist_attestations set attested_at = now() - p_by where item_key = p_item and (p_state is null or state = p_state);
+  alter table public.ops_desk_checklist_attestations enable trigger ops_desk_attestations_append_only;
 end $f$;
 create function pg_temp.item_state(p_uid uuid, p_item text) returns text language sql as
 $$ select coalesce((select e ->> 'state' from jsonb_array_elements((pg_temp.q_as(p_uid, 'select public.ops_desk_overview(30)')::jsonb) -> 'checklist') e where e ->> 'item_key' = p_item), 'missing') $$;
 
 create function pg_temp.set_world(p_test boolean) returns void language plpgsql as
 $f$ begin
-  perform set_config('session_replication_role', 'replica', true);
+  alter table public.ops_desk_checklist_attestations disable trigger ops_desk_attestations_append_only;
   update public.ops_desk_checklist_attestations set is_test = p_test;
-  perform set_config('session_replication_role', 'origin', true);
+  alter table public.ops_desk_checklist_attestations enable trigger ops_desk_attestations_append_only;
   update public.ops_desk_contacts set is_test = p_test;
 end $f$;
 
@@ -548,7 +554,7 @@ begin
   perform pg_temp.back();
   perform pg_temp.rec('checklist: the newest statement wins (not in place after in place)', 'not_in_place,false',
     pg_temp.item_state(v_admin, 'backup_power') || ',' || private.ops_desk_org_ready(v_org, true)::text);
-  perform pg_temp.backdate((select id from public.ops_desk_checklist_attestations where item_key = 'backup_power' and state = 'not_in_place'), interval '1 day');
+  perform pg_temp.backdate_item('backup_power', 'not_in_place', interval '1 day');
   perform pg_temp.act(v_admin);
   perform public.attest_ops_desk_item('backup_power', 'in_place', 'Replaced the battery and retested: laptop and router ran 4 hours.');
   foreach it in array array['tested_contact_numbers', 'deputy_cover'] loop
@@ -559,7 +565,7 @@ begin
     pg_temp.item_state(v_admin, 'backup_power') || ',' || private.ops_desk_org_ready(v_org, true)::text);
   update public.ops_desk_contacts set is_active = true, activated_by = v_admin, activated_at = now() where id = v_c1;
   perform pg_temp.rec('ready: with all four in place and a primary and a deputy active with confirmed numbers, ready', 'true', private.ops_desk_org_ready(v_org, true)::text);
-  perform pg_temp.backdate((select id from public.ops_desk_checklist_attestations where item_key = 'deputy_cover'), interval '91 days');
+  perform pg_temp.backdate_item('deputy_cover', null, interval '91 days');
   perform pg_temp.rec('stale: a statement older than the configured age stops counting and is shown as out of date', 'true,true',
     (private.ops_desk_org_ready(v_org, true) is false)::text || ',' ||
     (select (e ->> 'stale') from jsonb_array_elements((pg_temp.q_as(v_admin, 'select public.ops_desk_overview(30)')::jsonb) -> 'checklist') e where e ->> 'item_key' = 'deputy_cover'));
@@ -574,7 +580,7 @@ begin
   perform pg_temp.use_rules('{"checklist_gates_readiness": 1}'::jsonb);
   perform pg_temp.rec('gate on: with the checklist stale the guard cannot be switched on (23514)', '23514', pg_temp.guard_try(true));
   perform pg_temp.rec('gate on: it never blocks switching the guard off', 'ok', pg_temp.guard_try(false));
-  perform pg_temp.backdate((select id from public.ops_desk_checklist_attestations where item_key = 'deputy_cover'), interval '0 days');
+  perform pg_temp.backdate_item('deputy_cover', null, interval '0 days');
   -- the gate looks at the real world; the proof's people are test accounts, so move them across for this one check and back
   perform pg_temp.set_world(false);
   perform pg_temp.rec('gate on: with the checklist and roster in place the guard switches on', 'ok', pg_temp.guard_try(true));
@@ -669,7 +675,7 @@ begin
   perform pg_temp.sab('sabotage: with the confirmation rule removed an unconfirmed number can be activated (real: 23514)', '23514', pg_temp.activate(v_admin, v_c3));
 
   -- (d) the gate removed: the guard switches on with a stale checklist while the CMO's config says gate
-  perform pg_temp.backdate((select id from public.ops_desk_checklist_attestations where item_key = 'deputy_cover'), interval '91 days');
+  perform pg_temp.backdate_item('deputy_cover', null, interval '91 days');
   create or replace function private.ops_desk_gate_on_call_cover_guard() returns trigger language plpgsql as $f$ begin return new; end $f$;
   perform pg_temp.guard_on('on_call_cover_ok', false);
   create or replace function private.ops_desk_sheet_people(p_incident uuid) returns table (kind text, pid uuid) language sql stable security definer set search_path = ''
