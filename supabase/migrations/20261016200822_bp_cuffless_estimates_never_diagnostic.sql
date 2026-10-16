@@ -4,8 +4,8 @@
 -- devices are not recommended for clinical assessment by AHA/ACC-2025). Design and trade-off: docs/design/BP-wearable-estimates.md.
 --
 -- LIVE FACTS (2026-10-16, read-only): 0 vitals_readings rows have source = 'wearable' (no wearable provider has credentials, HealthKit and Health Connect have never run on a
--- device), so nothing below changes a number that exists today. Pulse is deliberately NOT touched (founder decision 2026-08-29: a dangerous single heart rate value from any source
--- is triaged); a wearable BP cannot reach the pulse trigger (it fires on vital_type = 'pulse' only).
+-- device), so nothing below changes a number that exists today. Latest live migration when written: 20261016023011. Pulse is deliberately NOT touched (founder decision
+-- 2026-08-29: a dangerous single heart rate value from any source is triaged); a wearable BP cannot reach the pulse trigger (it fires on vital_type = 'pulse' only).
 --
 -- WHAT THIS DOES
 --  1. private.vitals_readings_diagnostic: private.vitals_readings_current without wearable blood pressure rows. Every other vital, and every other BP source (manual, device,
@@ -14,11 +14,13 @@
 --     (pg_get_functiondef), never from a file copy, and the migration aborts if a listed function no longer reads private.vitals_readings_current. Display readers (the audited
 --     record read, the audit case file, the share view, circle blocks, merge counts, engagement counts, device data-quality) keep reading everything.
 --  3. emit_bp_observation_recorded does not emit observation.recorded for an estimate, so the governed triage engine (S12, built for cuff readings) never grades one.
---  4. handle_bp_reading_red_flag: BORN OFF behind platform module device_cuffless_bp_informational. When the CMO switches it on, a wearable estimate at the red or amber level
---     gives the patient the existing recheck guidance (the same text, the same in-app notice) and raises NO clinician alert and NO page. An estimate in the EMERGENCY range
---     still opens the emergency record exactly as today: the patient safety net (acknowledge-gated guidance, emergency contact, follow-up) never depends on a reading's source.
---     Whether that emergency record should also stay silent for an estimate is the CMO question in docs/OPEN-QUESTIONS.md.
---  Module is OFF: the red and amber path is byte for byte today's behaviour.
+--  4. handle_bp_reading_red_flag: (a) an estimate no longer closes the open "Missing expected blood-pressure readings" alert (the gap detector does not count it, so it would flap);
+--     (b) BORN OFF behind platform module device_cuffless_bp_informational: when the CMO switches it on, a wearable estimate at the red or amber level gives the patient the
+--     existing recheck guidance (the same text, the same in-app notice) and raises NO clinician alert and NO page. NEVER for pregnancy or the weeks after a birth (the obstetric
+--     red route keeps paging), and an emergency-level estimate is not touched: it opens the emergency record exactly as today, so the patient safety net (acknowledge-gated
+--     guidance, emergency contact, follow-up) never depends on a reading's source. Note the live rules already grade a 200/130-range reading with no emergency symptom as red
+--     (S11g), so with the module ON that case gets the patient guidance and no page; whether it should stay silent is the CMO question OQ-BPW-1.
+--  Module OFF: the red and amber path is byte for byte today's behaviour.
 --
 -- KNOWN EFFECT, by design: a person whose only blood pressure readings are wearable estimates now looks like a person with no blood pressure readings to the monitoring-gap,
 -- overdue-vitals and reminder readers (they read the diagnostic view), so the usual "please take a reading" nudges continue. With 0 such rows today nobody is affected.
@@ -26,13 +28,14 @@
 -- 1. The rule, in one place --------------------------------------------------------------------------------------------------------------
 create or replace function private.bp_reading_is_estimate(p_source text)
 returns boolean language sql immutable parallel safe set search_path = '' as $$
-  select p_source = 'wearable'
+  select coalesce(p_source = 'wearable', false)
 $$;
 comment on function private.bp_reading_is_estimate(text) is 'True for a blood pressure source that is a consumer sensor estimate (wearable). The one definition the diagnostic view, the triage emitter and the red-flag handler share.';
 revoke all on function private.bp_reading_is_estimate(text) from public, anon;
 grant execute on function private.bp_reading_is_estimate(text) to authenticated, service_role;
 
 -- 2. The diagnostic view -----------------------------------------------------------------------------------------------------------------
+-- Same owner and same (empty) client grants as private.vitals_readings_current; only SECURITY DEFINER readers owned by postgres use it.
 create or replace view private.vitals_readings_diagnostic with (security_invoker = false) as
   select c.*
   from private.vitals_readings_current c
@@ -66,15 +69,16 @@ begin
     end if;
   end loop;
 
-  -- Three readers take their blood pressure from public.vitals_readings directly; only the blood pressure lines move.
+  -- Two readers take their blood pressure straight from the table (or, once S05b-c has rewritten a definer reader, from the display view);
+  -- only their blood pressure lines move, whichever spelling the live definition uses.
   for r in select p.oid, p.proname from pg_proc p where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace) and p.prokind = 'f'
             and p.proname in ('capture_pathway_baseline', 'health_report_collect') loop
     v_def := pg_get_functiondef(r.oid);
     if r.proname = 'capture_pathway_baseline' then
-      v_new := replace(v_def, E'\'diastolic\', diastolic, \'taken_at\', taken_at) from public.vitals_readings', E'\'diastolic\', diastolic, \'taken_at\', taken_at) from private.vitals_readings_diagnostic');
+      v_new := regexp_replace(v_def, '(''diastolic'', diastolic, ''taken_at'', taken_at\) from )(public\.vitals_readings|private\.vitals_readings_current)', '\1private.vitals_readings_diagnostic');
     else
-      v_new := replace(replace(v_def, 'into v_bp from public.vitals_readings', 'into v_bp from private.vitals_readings_diagnostic'),
-                       'into v_prior from public.vitals_readings', 'into v_prior from private.vitals_readings_diagnostic');
+      v_new := regexp_replace(regexp_replace(v_def, '(into v_bp from )(public\.vitals_readings|private\.vitals_readings_current)', '\1private.vitals_readings_diagnostic'),
+                              '(into v_prior from )(public\.vitals_readings|private\.vitals_readings_current)', '\1private.vitals_readings_diagnostic');
     end if;
     if v_new = v_def then raise exception 'FAIL: % blood pressure lines not found; review this migration', r.proname; end if;
     execute v_new;
@@ -85,38 +89,44 @@ end $$;
 do $$
 declare
   v_def text; v_new text;
-  v_anchor constant text := E'if new.vital_type::text = \'blood_pressure\' and new.systolic is not null and new.diastolic is not null then';
+  v_anchor constant text := 'if new.vital_type::text = ''blood_pressure'' and new.systolic is not null and new.diastolic is not null then';
 begin
   select pg_get_functiondef(p.oid) into v_def from pg_proc p where p.proname = 'emit_bp_observation_recorded' and p.pronamespace = 'private'::regnamespace;
   if position(v_anchor in v_def) = 0 then raise exception 'FAIL: emit_bp_observation_recorded anchor not found'; end if;
-  v_new := replace(v_def, v_anchor, v_anchor || E'\n    if private.bp_reading_is_estimate(new.source::text) then return null; end if;');
+  v_new := replace(v_def, v_anchor, v_anchor || chr(10) || '    if private.bp_reading_is_estimate(new.source::text) then return null; end if;');
   execute v_new;
 end $$;
 
 -- 5. The module, born OFF, and the red and amber patient-only path ----------------------------------------------------------------------------------------------
 insert into public.platform_modules (key, label, description) values
-  ('device_cuffless_bp_informational', 'Wearable blood pressure estimates are informational', 'A blood pressure estimate from a watch, ring or phone sensor in the red or amber range gives the person the usual recheck guidance and raises no clinician alert or page. An emergency-range estimate still opens the emergency record. Off: they alert as they do today.')
+  ('device_cuffless_bp_informational', 'Wearable blood pressure estimates are informational', 'A blood pressure estimate from a watch, ring or phone sensor in the red or amber range gives the person the usual recheck guidance and raises no clinician alert or page, except in pregnancy or the weeks after a birth. An emergency-level estimate still opens the emergency record. Off: they alert as they do today.')
 on conflict (key) do nothing;
 
 do $$
 declare
   v_def text; v_new text;
-  v_anchor constant text := E'  if v_level in (\'unknown\', \'green\') then\n    return new;\n  end if;';
-  v_block constant text := E'  -- Wearable estimate (module device_cuffless_bp_informational, born OFF): the person gets the usual recheck guidance, the care team is not paged.\n'
-    E'  -- An emergency-range estimate is NOT handled here: it continues below and opens the emergency record as it always has.\n'
-    E'  if private.bp_reading_is_estimate(new.source::text) and v_level in (\'red\', \'amber\') and private.module_enabled(\'device_cuffless_bp_informational\') then\n'
-    E'    perform private.raise_dangerous_reading_ai_suggestion(\n'
-    E'      new.organisation_id, new.patient_id, \'blood pressure\', case v_level when \'red\' then \'Priority 1\' else \'Review needed\' end,\n'
-    E'      \'Sit down and rest quietly for 5 minutes, then recheck your blood pressure. Avoid caffeine and salty food for the rest of the day. If it stays this high, or you get a headache, chest pain, or blurred vision, seek care promptly.\');\n'
-    E'    insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)\n'
-    E'    values (new.organisation_id, new.patient_id, \'bp_red_flag.estimate_patient_only\', \'vitals_readings\', new.id,\n'
-    E'      jsonb_build_object(\'level\', v_level, \'systolic\', new.systolic, \'diastolic\', new.diastolic, \'source\', new.source));\n'
-    E'    return new;\n'
-    E'  end if;\n\n';
+  v_anchor constant text := '  if v_level in (''unknown'', ''green'') then' || chr(10) || '    return new;' || chr(10) || '  end if;';
+  v_resolve constant text := 'and title = ''Missing expected blood-pressure readings'';';
+  v_block constant text :=
+    '  -- Wearable estimate (module device_cuffless_bp_informational, born OFF): the person gets the usual recheck guidance, the care team is not paged.' || chr(10) ||
+    '  -- Never for pregnancy or the weeks after a birth (the obstetric red route), and an emergency-level reading is not handled here: it continues below.' || chr(10) ||
+    '  if private.bp_reading_is_estimate(new.source::text) and v_level in (''red'', ''amber'') and private.module_enabled(''device_cuffless_bp_informational'')' || chr(10) ||
+    '     and not coalesce(v_pregnant, false) and not private.bp_is_postpartum(new.patient_id, new.created_at, v_params) then' || chr(10) ||
+    '    perform private.raise_dangerous_reading_ai_suggestion(' || chr(10) ||
+    '      new.organisation_id, new.patient_id, ''blood pressure'', case v_level when ''red'' then ''Priority 1'' else ''Review needed'' end,' || chr(10) ||
+    '      ''Sit down and rest quietly for 5 minutes, then recheck your blood pressure. Avoid caffeine and salty food for the rest of the day. If it stays this high, or you get a headache, chest pain, or blurred vision, seek care promptly.'');' || chr(10) ||
+    '    insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)' || chr(10) ||
+    '    values (new.organisation_id, new.patient_id, ''bp_red_flag.estimate_patient_only'', ''vitals_readings'', new.id,' || chr(10) ||
+    '      jsonb_build_object(''level'', v_level, ''systolic'', new.systolic, ''diastolic'', new.diastolic, ''source'', new.source));' || chr(10) ||
+    '    return new;' || chr(10) ||
+    '  end if;' || chr(10) || chr(10);
 begin
   select pg_get_functiondef(p.oid) into v_def from pg_proc p where p.proname = 'handle_bp_reading_red_flag' and p.pronamespace = 'private'::regnamespace;
   if position(v_anchor in v_def) = 0 then raise exception 'FAIL: handle_bp_reading_red_flag anchor not found'; end if;
+  if position(v_resolve in v_def) = 0 then raise exception 'FAIL: handle_bp_reading_red_flag missing-readings resolve not found'; end if;
   v_new := replace(v_def, v_anchor, v_block || v_anchor);
+  -- An estimate is not a reading for the gap detector (it reads the diagnostic view), so it must not close the "missing readings" alert either; otherwise the alert flaps.
+  v_new := replace(v_new, v_resolve, 'and title = ''Missing expected blood-pressure readings''' || chr(10) || '    and not private.bp_reading_is_estimate(new.source::text);');
   execute v_new;
 end $$;
 

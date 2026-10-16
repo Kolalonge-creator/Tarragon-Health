@@ -1,4 +1,4 @@
-import { diagnosticBpReadings, getProposedConfig, mgDlToMmolL } from "@tarragon/shared";
+import { BP_ESTIMATE_SOURCE, diagnosticBpReadings, getProposedConfig, isEstimateBpSource, mgDlToMmolL } from "@tarragon/shared";
 import { deviceRedFlags, type DeviceRedRules } from "@tarragon/clinical";
 import { supabase } from "./supabase";
 import type { VitalReadingPayload } from "./api";
@@ -33,6 +33,8 @@ export async function loadRecentBpReadings(patientId: string, limit = 10): Promi
       .select("id, systolic, diastolic, taken_at, client_reading_id, source")
       .eq("patient_id", patientId)
       .eq("vital_type", "blood_pressure")
+      // A wearable (cuffless) estimate is excluded in the query, not after the limit, so a watch that syncs often can never crowd cuff readings out of the window.
+      .neq("source", BP_ESTIMATE_SOURCE)
       .order("taken_at", { ascending: false })
       .limit(limit);
     if (error) throw error;
@@ -42,7 +44,7 @@ export async function loadRecentBpReadings(patientId: string, limit = 10): Promi
     // Offline read (S06): the last copy pulled from the server.
     const local = await readLocalRecords<BpRow & { vital_type: string }>("vital", patientId, 200);
     rows = local
-      .filter((r) => r.vital_type === "blood_pressure")
+      .filter((r) => r.vital_type === "blood_pressure" && !isEstimateBpSource(r.source))
       .sort((a, b) => b.taken_at.localeCompare(a.taken_at))
       .slice(0, limit);
   }
@@ -84,6 +86,34 @@ export async function loadRecentBpReadings(patientId: string, limit = 10): Promi
   return [...queued, ...synced]
     .sort((a, b) => b.takenAt.localeCompare(a.takenAt))
     .slice(0, limit);
+}
+
+/**
+ * The newest wearable (cuffless) blood pressure estimate, for the labelled line on the Vitals screen. It is shown, never graded and never averaged
+ * (docs/design/BP-wearable-estimates.md). Null when there is none or it cannot be read; a failed read must not hide anything else.
+ */
+export async function loadNewestBpEstimate(patientId: string): Promise<{ systolic: number; diastolic: number; takenAt: string } | null> {
+  try {
+    const { data, error } = await supabase
+      .from("vitals_readings")
+      .select("systolic, diastolic, taken_at")
+      .eq("patient_id", patientId)
+      .eq("vital_type", "blood_pressure")
+      .eq("source", BP_ESTIMATE_SOURCE)
+      .not("systolic", "is", null)
+      .not("diastolic", "is", null)
+      .order("taken_at", { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    const r = data?.[0];
+    return r && r.systolic !== null && r.diastolic !== null ? { systolic: r.systolic, diastolic: r.diastolic, takenAt: r.taken_at } : null;
+  } catch {
+    const local = await readLocalRecords<BpRow & { vital_type: string }>("vital", patientId, 200).catch(() => []);
+    const r = local
+      .filter((x) => x.vital_type === "blood_pressure" && isEstimateBpSource(x.source) && x.systolic !== null && x.diastolic !== null)
+      .sort((a, b) => b.taken_at.localeCompare(a.taken_at))[0];
+    return r && r.systolic !== null && r.diastolic !== null ? { systolic: r.systolic, diastolic: r.diastolic, takenAt: r.taken_at } : null;
+  }
 }
 
 export interface SevenDayAverage {

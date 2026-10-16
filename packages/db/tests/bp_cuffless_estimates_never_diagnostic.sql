@@ -9,8 +9,10 @@
 --   4. The governed triage engine never sees an estimate (no observation.recorded event), and always sees a cuff reading.
 --   5. Module OFF: a wearable red reading alerts exactly as a manual one does (audit bp_red_flag.raised), nothing is patient-only.
 --   6. Module ON: a wearable red reading gives the patient the recheck notice, raises NO bp_red_flag.raised, no clinician alert; a manual red reading is unchanged;
---      a wearable estimate with an emergency symptom still opens the emergency record (the patient safety net does not depend on the source).
---   7. SABOTAGE: the rule forced to false, the view filter dropped, the module branch removed. Each matching check must flip.
+--      a wearable estimate with an emergency symptom still opens the BP handler's own emergency record (source bp_reading, linked to the reading);
+--      a PREGNANT person's estimate keeps paging (the obstetric red route); an estimate does not close the open "missing readings" alert, a cuff reading does.
+--   7. SABOTAGE: the rule forced to false, the view filter dropped, the patient-only branch widened to the emergency level, the pregnancy guard removed, the
+--      missing-readings guard removed. Each matching check must flip.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -71,14 +73,16 @@ $$ update public.platform_modules set is_enabled = p_on, enabled_at = case when 
 create function pg_temp.core_checks(p_phase text, p_org uuid, p_admin uuid) returns void language plpgsql as
 $f$
 declare
-  v_a uuid; v_b uuid; v_c uuid; v_d uuid; v_e uuid; v_n_cur integer; v_n_dia integer;
+  v_a uuid; v_b uuid; v_c uuid; v_d uuid; v_e uuid; v_f uuid; v_g uuid; v_n_cur integer; v_n_dia integer;
 begin
   v_a := pg_temp.mkuser(p_org, p_phase || '-a', 'patient');   -- view + triage
   v_b := pg_temp.mkuser(p_org, p_phase || '-b', 'patient');   -- module off
   v_c := pg_temp.mkuser(p_org, p_phase || '-c', 'patient');   -- module on, wearable
   v_d := pg_temp.mkuser(p_org, p_phase || '-d', 'patient');   -- module on, manual control
   v_e := pg_temp.mkuser(p_org, p_phase || '-e', 'patient');   -- module on, wearable with an emergency symptom
-  perform pg_temp.member(p_org, v_b); perform pg_temp.member(p_org, v_c); perform pg_temp.member(p_org, v_d); perform pg_temp.member(p_org, v_e);
+  v_f := pg_temp.mkuser(p_org, p_phase || '-f', 'patient');   -- module on, wearable, pregnant
+  v_g := pg_temp.mkuser(p_org, p_phase || '-g', 'patient');   -- the open "missing readings" alert
+  perform pg_temp.member(p_org, v_b); perform pg_temp.member(p_org, v_c); perform pg_temp.member(p_org, v_d); perform pg_temp.member(p_org, v_e); perform pg_temp.member(p_org, v_f);
 
   -- 2/4. the view and the triage emitter
   perform pg_temp.vit(v_a, p_org, 'blood_pressure', 'wearable', 50, 150, 95);
@@ -113,8 +117,21 @@ begin
   insert into results values (p_phase, 'module on: a Member''s manual red reading still opens the Priority 1 alert', '1', (select count(*)::text from public.clinician_alerts where patient_id = v_d and level = 'urgent_escalation'));
   insert into public.symptoms (organisation_id, patient_id, symptom_type, severity) values (p_org, v_e, 'chest_pain', 8);
   perform pg_temp.vit(v_e, p_org, 'blood_pressure', 'wearable', 1, 230, 130);
-  insert into results values (p_phase, 'module on: a wearable estimate with chest pain still opens the emergency record', 'true',
-    (exists (select 1 from public.emergency_events where patient_id = v_e))::text);
+  insert into results values (p_phase, 'module on: a wearable estimate with chest pain still opens the BP handler''s own emergency record', 'true',
+    (exists (select 1 from public.emergency_events where patient_id = v_e and source = 'bp_reading' and vital_reading_id is not null))::text);
+  update public.profiles set is_pregnant = true where id = v_f;
+  perform pg_temp.vit(v_f, p_org, 'blood_pressure', 'wearable', 1, 150, 95);
+  insert into results values (p_phase, 'module on: a pregnant person''s wearable estimate keeps paging (raised, not patient-only)', '1/0', pg_temp.n_audit(v_f, 'bp_red_flag.raised') || '/' || pg_temp.n_audit(v_f, 'bp_red_flag.estimate_patient_only'));
+
+  -- an estimate is not a reading for the gap detector, so it must not close the open "missing readings" alert; a cuff reading does
+  insert into public.clinician_alerts (organisation_id, patient_id, level, status, title, detail, sla_due_at, escalation_level)
+    values (p_org, v_g, 'clinician_review', 'open', 'Missing expected blood-pressure readings', 'proof', now() + interval '1 day', 2);
+  perform pg_temp.vit(v_g, p_org, 'blood_pressure', 'wearable', 3, 120, 80);
+  insert into results values (p_phase, 'a wearable estimate does not close the missing-readings alert', '1',
+    (select count(*)::text from public.clinician_alerts where patient_id = v_g and status = 'open' and title = 'Missing expected blood-pressure readings'));
+  perform pg_temp.vit(v_g, p_org, 'blood_pressure', 'manual', 2, 120, 80);
+  insert into results values (p_phase, 'a cuff reading does close it', '0',
+    (select count(*)::text from public.clinician_alerts where patient_id = v_g and status = 'open' and title = 'Missing expected blood-pressure readings'));
 end $f$;
 
 do $$
@@ -133,6 +150,7 @@ begin
   -- 1. Shape
   perform pg_temp.rec('the module exists and is off', 'false', (select is_enabled::text from public.platform_modules where key = 'device_cuffless_bp_informational'));
   perform pg_temp.rec('the rule: wearable is an estimate', 'true', private.bp_reading_is_estimate('wearable')::text);
+  perform pg_temp.rec('the rule: a missing source is not an estimate (a cuff reading is never hidden)', 'false', private.bp_reading_is_estimate(null)::text);
   perform pg_temp.rec('the rule: manual, device, photo_confirmed, fhir_import, cgm are not', 'false/false/false/false/false',
     private.bp_reading_is_estimate('manual')::text || '/' || private.bp_reading_is_estimate('device')::text || '/' || private.bp_reading_is_estimate('photo_confirmed')::text || '/' || private.bp_reading_is_estimate('fhir_import')::text || '/' || private.bp_reading_is_estimate('cgm')::text);
   -- the view is `select c.*`, which freezes its columns at creation: if the display view ever gains a column, a reader of the diagnostic view must not silently lose it
@@ -171,7 +189,7 @@ do $$ declare v_org uuid; v_admin uuid; begin
   select id into v_admin from public.profiles where full_name = 'BPEST admin' limit 1;
   perform pg_temp.core_checks('sab_rule', v_org, v_admin);
 end $$;
-create or replace function private.bp_reading_is_estimate(p_source text) returns boolean language sql immutable set search_path = '' as $$ select p_source = 'wearable' $$;
+create or replace function private.bp_reading_is_estimate(p_source text) returns boolean language sql immutable set search_path = '' as $$ select coalesce(p_source = 'wearable', false) $$;
 
 -- (2) the view filter dropped
 create or replace view private.vitals_readings_diagnostic with (security_invoker = false) as select c.* from private.vitals_readings_current c;
@@ -180,19 +198,61 @@ do $$ declare v_org uuid; v_admin uuid; begin
   select id into v_admin from public.profiles where full_name = 'BPEST admin' limit 1;
   perform pg_temp.core_checks('sab_view', v_org, v_admin);
 end $$;
+create or replace view private.vitals_readings_diagnostic with (security_invoker = false) as
+  select c.* from private.vitals_readings_current c where not (c.vital_type = 'blood_pressure'::public.vital_type and private.bp_reading_is_estimate(c.source::text));
+
+-- (3) to (5) the handler changed three ways, one at a time, each from the real definition
+create temp table real_handler as select pg_get_functiondef('private.handle_bp_reading_red_flag()'::regprocedure) as def;
+create function pg_temp.sab_handler(p_from text, p_to text) returns void language plpgsql as
+$f$ declare v_def text; v_new text;
+begin
+  select def into v_def from real_handler;
+  v_new := replace(v_def, p_from, p_to);
+  if v_new = v_def then raise exception 'sabotage changed nothing: %', p_from; end if;
+  execute v_new;
+end $f$;
+create function pg_temp.restore_handler() returns void language plpgsql as
+$f$ declare v_def text; begin select def into v_def from real_handler; execute v_def; end $f$;
+
+-- (3) the patient-only branch widened to the emergency level: the BP handler's own emergency record is swallowed
+select pg_temp.sab_handler('v_level in (''red'', ''amber'') and private.module_enabled', 'v_level in (''red'', ''amber'', ''emergency'') and private.module_enabled');
+do $$ declare v_org uuid; v_admin uuid; begin
+  select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
+  select id into v_admin from public.profiles where full_name = 'BPEST admin' limit 1;
+  perform pg_temp.core_checks('sab_emergency', v_org, v_admin);
+end $$;
+select pg_temp.restore_handler();
+
+-- (4) the pregnancy and postpartum guard removed
+select pg_temp.sab_handler('and not coalesce(v_pregnant, false) and not private.bp_is_postpartum(new.patient_id, new.created_at, v_params) then', 'then');
+do $$ declare v_org uuid; v_admin uuid; begin
+  select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
+  select id into v_admin from public.profiles where full_name = 'BPEST admin' limit 1;
+  perform pg_temp.core_checks('sab_pregnant', v_org, v_admin);
+end $$;
+select pg_temp.restore_handler();
+
+-- (5) the missing-readings guard removed
+select pg_temp.sab_handler('and not private.bp_reading_is_estimate(new.source::text);', ';');
+do $$ declare v_org uuid; v_admin uuid; begin
+  select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
+  select id into v_admin from public.profiles where full_name = 'BPEST admin' limit 1;
+  perform pg_temp.core_checks('sab_missing', v_org, v_admin);
+end $$;
+select pg_temp.restore_handler();
 
 do $$
-declare v_bad integer; v_flip_rule integer; v_flip_view integer;
+declare v_bad integer; v_flip integer; v_ph text; v_need integer;
 begin
   select count(*) into v_bad from results where phase = 'real' and expected is distinct from actual;
   if v_bad > 0 then
     raise exception 'BP estimate proof FAILED on the real migration: %',
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
-  select count(*) into v_flip_rule from results where phase = 'sab_rule' and expected is distinct from actual;
-  select count(*) into v_flip_view from results where phase = 'sab_view' and expected is distinct from actual;
-  if v_flip_rule < 5 then raise exception 'VACUOUS TEST: forcing the rule to false flipped only % checks (need 5)', v_flip_rule; end if;
-  if v_flip_view < 2 then raise exception 'VACUOUS TEST: dropping the view filter flipped only % checks (need 2)', v_flip_view; end if;
+  for v_ph, v_need in select * from (values ('sab_rule', 5), ('sab_view', 2), ('sab_emergency', 1), ('sab_pregnant', 1), ('sab_missing', 1)) as t(ph, need) loop
+    select count(*) into v_flip from results where phase = v_ph and expected is distinct from actual;
+    if v_flip < v_need then raise exception 'VACUOUS TEST: sabotage % flipped only % checks (need %)', v_ph, v_flip, v_need; end if;
+  end loop;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result
