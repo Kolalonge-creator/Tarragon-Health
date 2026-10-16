@@ -3514,7 +3514,9 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - The incident `page_expired:<id>` ("Phone the on-call clinician now") currently goes to the ops incident queue and to every admin account. Decision 10 makes a named person the final fallback and no such person is named.
 - Options: name a person and a deputy in config; or the founder until a hire.
 - Recommendation: name both before the readiness gate is switched on. Owner: founder.
-- Decision: open.
+- Built 2026-10-16 (the mechanism, not the people): an ops desk roster (`ops_desk_contacts`, hours in Lagos time, active only with a phone number the person has confirmed on their own account), assignment of the incident to the primary on duty then the deputy after `deputy_after_seconds` (300, PROPOSED), a sev1 when nobody is on duty, an append-only call log, an attestable resilience checklist (backup power, second internet link, tested numbers, deputy cover) and a checklist gate on the on-call cover guard that ships OFF (`ops_desk_config` v2, inactive, unsigned). Runbook `docs/runbooks/ops-desk-expired-page.md`. Screens: `/admin/ops/desk`, `/clinician/ops-desk`.
+- Still needed from a human: the founder names the primary and the deputy, each confirms their phone number on their account and the hours cover all 24; buy and test the backup power and second link and attest them; the CMO confirms the 5 minute deputy time and the 2 minute call gaps and decides whether to sign v2. No name, number or attestation was entered by the agent.
+- Decision: open (the people are still unnamed).
 
 ### OQ-442 A repeat red event is silent while a page family is unacknowledged (raised by pager delivery)
 - A merged repeat is recorded and counted but sends nothing new to the on-call clinician, who is already being alerted. The alternative is one re-send per merge window.
