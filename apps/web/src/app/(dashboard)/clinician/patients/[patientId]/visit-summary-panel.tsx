@@ -43,6 +43,8 @@ const L = "en" as const;
  * only after Approve, and only while the note stays signed, unwithdrawn and unamended.
  */
 export function VisitSummaryPanel({ noteId }: { noteId: string }) {
+  // Closed until opened: opening is an audited read of the chart (INV-10), so it is never done for every note on a page load.
+  const [open, setOpen] = useState(false);
   const [review, setReview] = useState<VisitSummaryReview | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [text, setText] = useState("");
@@ -75,6 +77,7 @@ export function VisitSummaryPanel({ noteId }: { noteId: string }) {
   }, []);
 
   useEffect(() => {
+    if (!open) return;
     let alive = true;
     void loadVisitSummaryReview({ noteId }).then((res) => {
       if (!alive) return;
@@ -88,7 +91,7 @@ export function VisitSummaryPanel({ noteId }: { noteId: string }) {
     return () => {
       alive = false;
     };
-  }, [noteId, reloadKey, apply]);
+  }, [open, noteId, reloadKey, apply]);
 
   const state = review?.summary?.state ?? null;
   const editable = state === "draft";
@@ -118,6 +121,13 @@ export function VisitSummaryPanel({ noteId }: { noteId: string }) {
     });
   }
 
+  if (!open) {
+    return (
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        {t("avs.review.title", L)}
+      </Button>
+    );
+  }
   if (loadError && !review) {
     return (
       <p role="alert" className="text-xs text-red-600">
