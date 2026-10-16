@@ -158,18 +158,18 @@ end $f$;
 
 create function pg_temp.backdate(p_att uuid, p_by interval) returns void language plpgsql as
 $f$ begin
-  alter table public.ops_desk_checklist_attestations disable trigger ops_desk_attestations_append_only;
+  perform set_config('session_replication_role', 'replica', true);   -- row triggers off for this one update (ALTER TABLE is refused while the table is being read)
   update public.ops_desk_checklist_attestations set attested_at = now() - p_by where id = p_att;
-  alter table public.ops_desk_checklist_attestations enable trigger ops_desk_attestations_append_only;
+  perform set_config('session_replication_role', 'origin', true);
 end $f$;
 create function pg_temp.item_state(p_uid uuid, p_item text) returns text language sql as
 $$ select coalesce((select e ->> 'state' from jsonb_array_elements((pg_temp.q_as(p_uid, 'select public.ops_desk_overview(30)')::jsonb) -> 'checklist') e where e ->> 'item_key' = p_item), 'missing') $$;
 
 create function pg_temp.set_world(p_test boolean) returns void language plpgsql as
 $f$ begin
-  alter table public.ops_desk_checklist_attestations disable trigger ops_desk_attestations_append_only;
+  perform set_config('session_replication_role', 'replica', true);
   update public.ops_desk_checklist_attestations set is_test = p_test;
-  alter table public.ops_desk_checklist_attestations enable trigger ops_desk_attestations_append_only;
+  perform set_config('session_replication_role', 'origin', true);
   update public.ops_desk_contacts set is_test = p_test;
 end $f$;
 
