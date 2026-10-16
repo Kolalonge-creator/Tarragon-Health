@@ -291,7 +291,7 @@ end $$;
 -- 3. Assignment ------------------------------------------------------------------------------------------------------------
 do $$
 declare v_admin uuid := pg_temp.f('admin'); v_ops1 uuid := pg_temp.f('ops1'); v_ops2 uuid := pg_temp.f('ops2'); v_a uuid := pg_temp.f('A'); v_b uuid := pg_temp.f('B');
-  v_org uuid := pg_temp.f('org'); v_pat uuid := pg_temp.f('pat'); v_pg uuid; v_pg2 uuid; v_pg3 uuid; v_pg4 uuid; v_pg5 uuid; v_pg6 uuid; v_pg7 uuid; v_inc uuid; v_inc2 uuid; v_c1 uuid := pg_temp.f('c1'); v_c2 uuid := pg_temp.f('c2'); v_asg uuid;
+  v_org uuid := pg_temp.f('org'); v_pat uuid := pg_temp.f('pat'); v_pg uuid; v_pg2 uuid; v_pg3 uuid; v_pg4 uuid; v_pg5 uuid; v_pg6 uuid; v_pg7 uuid; v_sw jsonb; v_ack text; v_inc uuid; v_inc2 uuid; v_c1 uuid := pg_temp.f('c1'); v_c2 uuid := pg_temp.f('c2'); v_asg uuid;
 begin
   -- the page and its expiry: the existing S19c function opens the sev1 incident
   v_pg := pg_temp.mkpage(v_org, v_pat, pg_temp.mkevent(v_pat, pg_temp.f('rs')), v_a);
@@ -320,17 +320,20 @@ begin
   perform pg_temp.rec('deputy: nothing moves before the time has passed', '0',
     ((private.sweep_ops_desk() ->> 'deputies')));
   update public.ops_desk_assignments set assigned_at = now() - interval '10 minutes' where incident_id = v_inc;
+  v_sw := private.sweep_ops_desk();
   perform pg_temp.rec('deputy: after the time the deputy is assigned', '1,deputy,primary_unacknowledged',
-    (private.sweep_ops_desk() ->> 'deputies') || ',' || (select role from public.ops_desk_assignments where incident_id = v_inc and role = 'deputy') || ',' ||
+    (v_sw ->> 'deputies') || ',' || (select role from public.ops_desk_assignments where incident_id = v_inc and role = 'deputy') || ',' ||
     (select reason from public.ops_desk_assignments where incident_id = v_inc and role = 'deputy'));
   perform pg_temp.rec('deputy: the deputy now owns the incident and is told by push, in-app and email', 'true,email,in_app,push',
     (select (owner_id = v_ops2)::text from public.ops_incidents where id = v_inc) || ',' ||
     (select string_agg(channel::text, ',' order by channel::text) from public.notifications where recipient_id = v_ops2 and template = 'on_call_ops_desk' and source_id = v_pg));
+  v_sw := private.sweep_ops_desk();
   perform pg_temp.rec('deputy: a second sweep does not assign again', '0,2',
-    (private.sweep_ops_desk() ->> 'deputies') || ',' || (select count(*)::text from public.ops_desk_assignments where incident_id = v_inc));
+    (v_sw ->> 'deputies') || ',' || (select count(*)::text from public.ops_desk_assignments where incident_id = v_inc));
   perform pg_temp.rec('ack: someone who was not assigned is refused (42501)', '42501', pg_temp.try_as(v_admin, format('select public.ops_desk_acknowledge(%L)', v_inc)));
+  v_ack := pg_temp.try_as(v_ops2, format('select public.ops_desk_acknowledge(%L)', v_inc));
   perform pg_temp.rec('ack: the deputy acknowledges their own assignment and the register''s own acknowledgement is stamped', 'ok,true,true',
-    pg_temp.try_as(v_ops2, format('select public.ops_desk_acknowledge(%L)', v_inc)) || ',' ||
+    v_ack || ',' ||
     (select (acknowledged_by = v_ops2)::text from public.ops_desk_assignments where incident_id = v_inc and role = 'deputy') || ',' ||
     (select (acknowledged_at is not null)::text from public.ops_incidents where id = v_inc));
   perform pg_temp.rec('ack: it is audited and a second acknowledgement is refused', '1,42501',
@@ -349,8 +352,9 @@ begin
   perform pg_temp.setf('inc2', v_inc2);
   -- the deputy does not answer either: one closing alarm and no endless loop
   update public.ops_desk_assignments set assigned_at = now() - interval '10 minutes' where incident_id = v_inc2;
+  v_sw := private.sweep_ops_desk();
   perform pg_temp.rec('deputy silent: the closing sev1 is raised once for a real page', '1,1',
-    (private.sweep_ops_desk() ->> 'final') || ',' || (select count(*)::text from public.ops_incidents where external_reference = 'ops_desk_unacknowledged:' || v_inc2));
+    (v_sw ->> 'final') || ',' || (select count(*)::text from public.ops_incidents where external_reference = 'ops_desk_unacknowledged:' || v_inc2));
   perform pg_temp.rec('deputy silent: the next sweep does not raise it again', '0',
     (private.sweep_ops_desk() ->> 'final'));
   -- a primary who is on duty but silent, with no deputy on duty: one incident about the missing deputy, not a second "nobody named" one
@@ -424,8 +428,9 @@ begin
   perform set_config('tarragon.paging_write', 'on', true);
   update public.pages set acknowledged_at = now(), acknowledged_by = v_a where id = v_pg5;
   perform set_config('tarragon.paging_write', 'off', true);
+  v_sw := private.sweep_ops_desk();
   perform pg_temp.rec('page acknowledged: the sweep neither escalates nor raises the closing sev1 for it', '0,0',
-    (private.sweep_ops_desk() ->> 'final') || ',' || (select count(*)::text from public.ops_incidents where external_reference = 'ops_desk_unacknowledged:' || pg_temp.incident_of(v_pg5)));
+    (v_sw ->> 'final') || ',' || (select count(*)::text from public.ops_incidents where external_reference = 'ops_desk_unacknowledged:' || pg_temp.incident_of(v_pg5)));
   perform pg_temp.rec('page acknowledged: the call sheet says a clinician has acknowledged it', 'true',
     (pg_temp.q_as(v_ops2, format('select public.ops_desk_call_sheet(%L)::text', pg_temp.incident_of(v_pg5))) like '%"page_acknowledged": true%')::text);
 
