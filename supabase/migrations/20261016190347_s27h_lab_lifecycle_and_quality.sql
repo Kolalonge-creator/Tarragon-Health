@@ -215,7 +215,8 @@ create table public.lab_critical_calls (
   config_version       integer,
   is_test              boolean not null default false,
   created_at           timestamptz not null default now(),
-  check ((acknowledged_at is null) = (acknowledged_by is null)),
+  -- acknowledged_by may become null when a profile is removed (on delete set null), so only the other direction is required
+  check (acknowledged_by is null or acknowledged_at is not null),
   check ((closed_at is null) = (close_reason is null))
 );
 create index lab_critical_calls_open_idx on public.lab_critical_calls (called_at) where closed_at is null;
@@ -227,21 +228,23 @@ revoke all on public.lab_critical_calls from public, anon, authenticated;
 -- one notice to a person; fixed neutral template, critical priority, never held back by quiet hours. Deliberately a copy of the S19
 -- page_notify shape rather than a call to it: that helper stamps source_table 'pages', which the S19 delivery watchdog reads, and a lab
 -- call row is not a page. If the S19 fan-out changes (channels, priority, content class), change this too.
-create function private.lab_call_notify(p_recipient uuid, p_org uuid, p_template text, p_call uuid) returns void
+create function private.lab_call_notify(p_recipient uuid, p_org uuid, p_template text, p_ref uuid, p_source text default 'lab_critical_calls') returns void
 language plpgsql security definer set search_path = ''
 as $$
 declare c text;
 begin
   foreach c in array array['push', 'in_app', 'email'] loop
     insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
-    values (p_recipient, p_org, c::public.notification_channel, p_template, jsonb_build_object('call_id', p_call), 'pending', 'non_clinical', 'critical', 'lab_critical_calls', p_call);
+    values (p_recipient, p_org, c::public.notification_channel, p_template,
+            case when p_source = 'lab_results' then jsonb_build_object('lab_result_id', p_ref) else jsonb_build_object('call_id', p_ref) end,
+            'pending', 'non_clinical', 'critical', p_source, p_ref);
   end loop;
 end;
 $$;
-revoke all on function private.lab_call_notify(uuid, uuid, text, uuid) from public, anon, authenticated;
+revoke all on function private.lab_call_notify(uuid, uuid, text, uuid, text) from public, anon, authenticated;
 
 -- the clinical lead (CMO) and ops (admin) of the organisation, matched on the test flag. Returns how many were told.
-create function private.lab_notify_leadership(p_org uuid, p_test boolean, p_template text, p_call uuid) returns integer
+create function private.lab_notify_leadership(p_org uuid, p_test boolean, p_template text, p_ref uuid, p_source text default 'lab_critical_calls') returns integer
 language plpgsql security definer set search_path = ''
 as $$
 declare r record; n integer := 0;
@@ -253,7 +256,7 @@ begin
      where cs.organisation_id = p_org and cs.profile_id is not null and cs.active and cs.status = 'active'
        and cs.doctor_tier = 'chief_medical_officer' and p.is_test = p_test
   loop
-    perform private.lab_call_notify(r.id, p_org, p_template, p_call);
+    perform private.lab_call_notify(r.id, p_org, p_template, p_ref, p_source);
     n := n + 1;
   end loop;
   if n = 0 then
@@ -263,7 +266,7 @@ begin
   return n;
 end;
 $$;
-revoke all on function private.lab_notify_leadership(uuid, boolean, text, uuid) from public, anon, authenticated;
+revoke all on function private.lab_notify_leadership(uuid, boolean, text, uuid, text) from public, anon, authenticated;
 
 -- Opens the call when the first critical item of a result is written. A failure is audited and raises an incident; it never undoes the
 -- result (which is held anyway, with its critical_result_review task) and is never silent.
@@ -380,6 +383,33 @@ as $$
    order by c.called_at;
 $$;
 
+-- INV-12: being called is not enough to open a patient's result, taking responsibility is. Exactly as for an acknowledged red event page (S19),
+-- a clinician who has ACKNOWLEDGED an open critical value call is tied to that patient until the call closes (the result is released, held back,
+-- withdrawn or replaced). Never for the patient, never for a conflicted clinician, never for one who is no longer eligible. The live function is
+-- patched in place with one extra branch; the migration refuses to run if its anchor is not found exactly once.
+do $$
+declare v_def text; v_new text;
+  c_anchor constant text := $q$      -- an open specialist referral assigned to me$q$;
+  c_branch constant text := $q$      -- S27h (INV-12): an open critical lab value call I have ACKNOWLEDGED; it closes with the result
+      or (
+        exists (
+          select 1 from public.lab_critical_calls lc
+           where lc.patient_id = p_patient and lc.closed_at is null and lc.acknowledged_by = (select auth.uid())
+        )
+        and (select auth.uid()) <> p_patient
+        and not private.has_conflict((select auth.uid()), p_patient)
+        and private.clinician_is_eligible((select auth.uid()))
+      )
+$q$ || c_anchor;
+begin
+  select pg_get_functiondef(p.oid) into v_def from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'private' and p.proname = 'clinician_has_patient_access' and p.pronargs = 1;
+  if v_def is null then raise exception 'S27h: private.clinician_has_patient_access(uuid) not found'; end if;
+  if (length(v_def) - length(replace(v_def, c_anchor, ''))) / length(c_anchor) <> 1 then raise exception 'S27h: tie anchor not found exactly once'; end if;
+  v_new := replace(v_def, c_anchor, c_branch);
+  execute v_new;
+end $$;
+
 create function private.sweep_lab_critical_calls() returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
@@ -409,19 +439,22 @@ begin
       -- the clinical lead and ops: at the second time, or at the first when there was nobody else to page
       if not c.no_cover and c.leadership_alerted_at is null and c.backup_paged_at is not null
          and (c.backup_clinician_id is null or now() >= c.called_at + make_interval(mins => v_m2)) then
-        update public.lab_critical_calls set leadership_alerted_at = now(), last_lead_alert_at = now(), lead_repeat_count = 1 where id = c.id;
-        perform private.lab_notify_leadership(c.organisation_id, c.is_test, 'lab_critical_escalation', c.id);
+        -- the incident always opens; the step counts as done only if somebody was told (otherwise it is retried next minute)
         perform private.page_incident(c.organisation_id, 'lab_critical_unacknowledged:' || c.id, 'A critical lab value has not been acknowledged',
           'A critical lab value call has not been acknowledged by the clinicians on call. The result stays held. Open the lab results page.');
-        perform private.log_audit('lab_critical_call.escalated', 'lab_results', c.lab_result_id, jsonb_build_object('call_id', c.id, 'level', 2));
-        v_leads := v_leads + 1;
+        if private.lab_notify_leadership(c.organisation_id, c.is_test, 'lab_critical_escalation', c.id) > 0 then
+          update public.lab_critical_calls set leadership_alerted_at = now(), last_lead_alert_at = now(), lead_repeat_count = 1 where id = c.id;
+          perform private.log_audit('lab_critical_call.escalated', 'lab_results', c.lab_result_id, jsonb_build_object('call_id', c.id, 'level', 2));
+          v_leads := v_leads + 1;
+        end if;
       -- and again at the S19 repeat interval, up to its cap, for as long as nobody acknowledges: one delivery that did not arrive
       -- (no push subscription, a bounced email) must not end the chain
       elsif c.leadership_alerted_at is not null and c.lead_repeat_count < v_repmax
             and now() >= coalesce(c.last_lead_alert_at, c.leadership_alerted_at) + make_interval(mins => v_rep) then
-        update public.lab_critical_calls set last_lead_alert_at = now(), lead_repeat_count = lead_repeat_count + 1 where id = c.id;
-        perform private.lab_notify_leadership(c.organisation_id, c.is_test, 'lab_critical_escalation', c.id);
-        v_repeats := v_repeats + 1;
+        if private.lab_notify_leadership(c.organisation_id, c.is_test, 'lab_critical_escalation', c.id) > 0 then
+          update public.lab_critical_calls set last_lead_alert_at = now(), lead_repeat_count = lead_repeat_count + 1 where id = c.id;
+          v_repeats := v_repeats + 1;
+        end if;
       end if;
     exception when others then
       update public.lab_critical_calls set last_error_at = now() where id = c.id;
@@ -459,6 +492,9 @@ create table public.lab_fallback_wording_signoffs (
   version     integer not null unique check (version >= 1),
   is_active   boolean not null default false,
   wording_key text not null check (wording_key in ('v1')),
+  -- the signature binds the EXACT in-app words: md5 of the template body at signing. If the template body is edited afterwards the fallback
+  -- reads as unsigned again (and says so, see sweep_lab_holds) until the CMO signs the new words.
+  wording_md5 text not null,
   notes       text,
   approved_by uuid references public.clinical_staff (id),
   approved_at timestamptz,
@@ -466,8 +502,8 @@ create table public.lab_fallback_wording_signoffs (
   check ((approved_by is null) = (approved_at is null))
 );
 create unique index lab_fallback_wording_one_active on public.lab_fallback_wording_signoffs (is_active) where is_active;
-insert into public.lab_fallback_wording_signoffs (version, is_active, wording_key, notes)
-values (1, true, 'v1', 'DRAFT, unsigned. Wording v1 is the fixed neutral line "Your care team would like to speak with you. Please open the app and send them a message when you can." Until the CMO signs, the fallback message is never sent. It never releases a result.');
+insert into public.lab_fallback_wording_signoffs (version, is_active, wording_key, wording_md5, notes)
+values (1, true, 'v1', md5('Your care team would like to speak with you. Please open the app and send them a message when you can.'), 'DRAFT, unsigned. Wording v1 is the fixed neutral line "Your care team would like to speak with you. Please open the app and send them a message when you can." Until the CMO signs, the fallback message is never sent. It never releases a result.');
 alter table public.lab_fallback_wording_signoffs enable row level security;
 create policy lab_fallback_wording_read on public.lab_fallback_wording_signoffs for select to authenticated using (true);
 revoke all on public.lab_fallback_wording_signoffs from public, anon, authenticated;
@@ -475,7 +511,13 @@ grant select on public.lab_fallback_wording_signoffs to authenticated;
 
 create function private.lab_fallback_signed() returns boolean
 language sql stable security definer set search_path = ''
-as $$ select exists (select 1 from public.lab_fallback_wording_signoffs where is_active and approved_by is not null); $$;
+as $$
+  select exists (
+    select 1 from public.lab_fallback_wording_signoffs w
+     where w.is_active and w.approved_by is not null
+       and w.wording_md5 = (select md5(l.body) from public.notification_template_locales l
+                             where l.template_key = 'lab_result_contact_us' and l.locale = 'en' and l.channel = 'in_app'));
+$$;
 revoke all on function private.lab_fallback_signed() from public, anon, authenticated;
 
 create function public.sign_lab_fallback_wording(p_id uuid) returns uuid
@@ -540,10 +582,12 @@ begin
       if r.release_state = 'awaiting_review' then
         v_threshold := case when r.release_reason = 'critical' then v_crit else v_def end;
         if hs.lead_escalation_count < v_repmax and now() >= r.received_at + make_interval(mins => v_threshold + hs.lead_escalation_count * v_rep) then
-          update public.lab_hold_state set lead_escalated_at = now(), lead_escalation_count = lead_escalation_count + 1 where lab_result_id = r.id;
-          perform private.lab_notify_leadership(r.organisation_id, r.is_test, 'lab_hold_aging', r.id);
-          perform private.log_audit('lab_result.hold_escalated', 'lab_results', r.id, jsonb_build_object('count', hs.lead_escalation_count + 1));
-          n_lead := n_lead + 1;
+          -- progress is recorded only if somebody was actually told: with no CMO or admin on file the incident opens and the step is retried
+          if private.lab_notify_leadership(r.organisation_id, r.is_test, 'lab_hold_aging', r.id, 'lab_results') > 0 then
+            update public.lab_hold_state set lead_escalated_at = now(), lead_escalation_count = lead_escalation_count + 1 where lab_result_id = r.id;
+            perform private.log_audit('lab_result.hold_escalated', 'lab_results', r.id, jsonb_build_object('count', hs.lead_escalation_count + 1));
+            n_lead := n_lead + 1;
+          end if;
         end if;
       end if;
 
@@ -788,10 +832,12 @@ create table public.lab_trend_notes (
   created_at       timestamptz not null default now()
 );
 create index lab_trend_notes_result_idx on public.lab_trend_notes (lab_result_id, analyte_code, created_at desc);
+-- append only: a note is never edited. (Nobody can delete one either: no role holds DELETE. A patient row removed by the test purge takes its
+-- notes with it through the foreign key, which is why this trigger does not also fire on delete.)
 create function private.lab_trend_notes_append_only() returns trigger language plpgsql security definer set search_path = ''
 as $$ begin raise exception 'lab_trend_notes_append_only' using errcode = '42501'; end; $$;
 revoke all on function private.lab_trend_notes_append_only() from public, anon, authenticated;
-create trigger lab_trend_notes_no_change before update or delete on public.lab_trend_notes
+create trigger lab_trend_notes_no_change before update on public.lab_trend_notes
   for each row execute function private.lab_trend_notes_append_only();
 
 -- The patient reads only their own notes on a result that is released and not withdrawn. Staff have no policy: they write through the

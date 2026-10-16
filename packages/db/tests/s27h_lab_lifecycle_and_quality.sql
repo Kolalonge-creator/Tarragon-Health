@@ -267,7 +267,7 @@ end $$;
 
 -- 3. The critical value call ---------------------------------------------------------------------------------------------------
 do $$
-declare v_pat uuid := pg_temp.f('pat'); rid uuid; c public.lab_critical_calls%rowtype; v_txt text; rid2 uuid; c2 public.lab_critical_calls%rowtype; v_json text;
+declare v_pat uuid := pg_temp.f('pat'); rid uuid; c public.lab_critical_calls%rowtype; v_txt text; v_open text; rid2 uuid; c2 public.lab_critical_calls%rowtype; v_json text;
 begin
   rid := pg_temp.submit('pat', 5.0);   -- creatinine 5.0 mg/dL is above the critical limit 4
   perform pg_temp.setf('crit1', rid);
@@ -285,7 +285,16 @@ begin
   -- who may acknowledge
   perform pg_temp.ck('a stranger clinician cannot acknowledge', 'not_permitted', pg_temp.q_as(pg_temp.f('stranger'), format('select public.acknowledge_lab_critical_call(%L)::jsonb ->> %L', c.id, 'error')));
   perform pg_temp.ck('a patient cannot acknowledge', 'true', (pg_temp.q_as(v_pat, format('select public.acknowledge_lab_critical_call(%L)::text', c.id)) like 'ERR:%')::text);
+  perform pg_temp.ck('being called is not enough: the on-call clinician is not tied to the patient before acknowledging', 'not_permitted',
+    pg_temp.q_as(pg_temp.f('primary'), format('select public.lab_result_for_review(%L, %L)::jsonb ->> %L', rid, 'proof', 'error')));
   v_txt := pg_temp.q_as(pg_temp.f('primary'), format('select public.acknowledge_lab_critical_call(%L)::text', c.id));
+  v_open := pg_temp.q_as(pg_temp.f('primary'), format('select public.lab_result_for_review(%L, %L)::jsonb ->> %L', rid, 'proof', 'error'));
+  perform pg_temp.ck('a clinician who merely works in the organisation is not tied by someone else''s call', 'not_permitted',
+    pg_temp.q_as(pg_temp.f('stranger'), format('select public.lab_result_for_review(%L, %L)::jsonb ->> %L', rid, 'proof', 'error')));
+  perform pg_temp.ck('...acknowledging takes responsibility: the clinician can now open the result (an audited, tied read)', 'null|true',
+    coalesce(v_open, 'null') || '|' ||
+    (exists (select 1 from public.audit_log where subject_patient_id = v_pat and action = 'staff.chart_read' and result = 'success' and actor_id = pg_temp.f('primary')))::text);
+  perform pg_temp.ck('...but the tie is not a release: the result is still held', 'awaiting_review', pg_temp.state_of(rid));
   perform pg_temp.ck('the primary acknowledges: the time is recorded and the call stays open', 'true|true|true',
     ((v_txt)::jsonb ->> 'ok' = 'true')::text || '|' ||
     (select (acknowledged_at is not null and acknowledged_by = pg_temp.f('primary'))::text from public.lab_critical_calls where id = c.id) || '|' ||
@@ -299,6 +308,8 @@ begin
   v_txt := pg_temp.q_as(pg_temp.f('doc'), format('select public.release_lab_result(%L)::text', rid));
   perform pg_temp.ck('a tied senior clinician releases it, and the call closes with the reason', 'true|released|released',
     ((v_txt)::jsonb ->> 'ok' = 'true')::text || '|' || pg_temp.state_of(rid) || '|' || (select close_reason from public.lab_critical_calls where id = c.id));
+  perform pg_temp.ck('when the call closes the acknowledged clinician is no longer tied to the patient', 'not_permitted',
+    pg_temp.q_as(pg_temp.f('primary'), format('select public.lab_result_for_review(%L, %L)::jsonb ->> %L', rid, 'proof', 'error')));
 
   -- an unacknowledged call escalates: backup at 5 minutes, clinical lead and ops at 10, and nothing is released
   rid2 := pg_temp.submit('pat2', 5.5);
@@ -436,6 +447,11 @@ begin
   perform pg_temp.ck('SIGNED wording: exactly one neutral message goes to the patient', '1', pg_temp.notices(pg_temp.f('pat3'), 'lab_result_contact_us')::text);
   perform pg_temp.sweep_holds(); perform pg_temp.sweep_holds();
   perform pg_temp.ck('...never a second', '1', pg_temp.notices(pg_temp.f('pat3'), 'lab_result_contact_us')::text);
+  -- the signature binds the exact words: editing the template body after signing turns the fallback off again
+  update public.notification_template_locales set body = body || ' Thank you.' where template_key = 'lab_result_contact_us' and locale = 'en' and channel = 'in_app';
+  perform pg_temp.ck('editing the signed words makes the wording read as unsigned again', 'false', private.lab_fallback_signed()::text);
+  update public.notification_template_locales set body = replace(body, ' Thank you.', '') where template_key = 'lab_result_contact_us' and locale = 'en' and channel = 'in_app';
+  perform pg_temp.ck('...and restoring them restores the signature', 'true', private.lab_fallback_signed()::text);
   perform pg_temp.ck('THE FALLBACK NEVER RELEASES: still held for disclosure, the patient cannot see it', 'clinician_disclosure_required|0|0',
     pg_temp.state_of(sens) || '|' || pg_temp.visible_to(pg_temp.f('pat3'), sens) || '|' || pg_temp.items_visible_to(pg_temp.f('pat3'), sens));
   perform pg_temp.ck('the message names no value, analyte or condition', '0',
@@ -555,8 +571,9 @@ begin
   perform pg_temp.ck('a patient cannot write a note', 'true', (pg_temp.q_as(v_pat, format('select public.write_lab_trend_note(%L, %L, %L)::text', new_r, 'creatinine', 'Hello there.')) like 'ERR:%')::text);
   perform pg_temp.ck('a note is limited to 300 characters', 'true',
     (pg_temp.q_as(pg_temp.f('doc'), format('select public.write_lab_trend_note(%L, %L, %L)::text', new_r, 'creatinine', repeat('x', 301))) like 'ERR:%lab_trend_note_length%')::text);
-  perform pg_temp.ck('notes cannot be edited or deleted', '42501|42501',
-    pg_temp.try_sql(format($q$update public.lab_trend_notes set note = 'changed note' where lab_result_id = %L$q$, new_r)) || '|' || pg_temp.try_sql(format($q$delete from public.lab_trend_notes where lab_result_id = %L$q$, new_r)));
+  perform pg_temp.ck('notes cannot be edited, and no signed-in role can delete one', '42501|true',
+    pg_temp.try_sql(format($q$update public.lab_trend_notes set note = 'changed note' where lab_result_id = %L$q$, new_r)) || '|' ||
+    (pg_temp.q_as(pg_temp.f('doc'), format($q$delete from public.lab_trend_notes where lab_result_id = %L$q$, new_r)) like 'ERR:permission denied%')::text);
   perform pg_temp.ck('the patient reads only their own notes directly; another patient reads none', '1|0',
     pg_temp.q_as(v_pat, 'select count(*)::text from public.lab_trend_notes') || '|' || pg_temp.q_as(pg_temp.f('pat6'), 'select count(*)::text from public.lab_trend_notes'));
   perform pg_temp.ck('a clinician reads no note directly (the table has no staff policy)', '0', pg_temp.q_as(pg_temp.f('doc'), 'select count(*)::text from public.lab_trend_notes'));
@@ -650,6 +667,17 @@ begin
   insert into results values ('sabotaged', 'a specimen can be rejected while a CMO is on the staff table', 'true', (v_txt ~ '^[0-9a-f-]{36}$')::text);
 end $$;
 
+-- (h) the tie branch widened so that ANY open critical call ties any clinician: the "not tied by someone else's call" check must then flip
+do $$
+declare v_def text; rid uuid;
+begin
+  select pg_get_functiondef(p.oid) into v_def from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'private' and p.proname = 'clinician_has_patient_access' and p.pronargs = 1;
+  execute replace(v_def, 'lc.acknowledged_by = (select auth.uid())', 'true');
+  rid := pg_temp.submit('pat6', 5.6);
+  insert into results values ('sabotaged', 'a clinician who merely works in the organisation is not tied by someone else''s call', 'not_permitted',
+    coalesce(pg_temp.q_as(pg_temp.f('stranger'), format('select public.lab_result_for_review(%L, %L)::jsonb ->> %L', rid, 'proof', 'error')), 'null'));
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -660,7 +688,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 7 then raise exception 'VACUOUS TEST: the sabotage flipped % of 7 checks', v_caught; end if;
+  if v_caught < 8 then raise exception 'VACUOUS TEST: the sabotage flipped % of 8 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result
