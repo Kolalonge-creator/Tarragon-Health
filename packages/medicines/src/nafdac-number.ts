@@ -119,14 +119,14 @@ export function extractNafdacNumbers(lines: readonly string[], config: NafdacNum
 }
 
 const AMOUNT = "[0-9]+(?:[.,][0-9]+)*";
-const STRENGTH = new RegExp(`(?<![0-9.,])(${AMOUNT})\\s?(mg|mcg|µg|ug|g|ml|iu)(?![A-Za-z])(?:\\s?/\\s?(${AMOUNT})?\\s?(ml|mg|g)(?![A-Za-z]))?`, "gi");
+const STRENGTH = new RegExp(`(?<![0-9.,])(${AMOUNT})\\s?(mg|mcg|µg|μg|ug|g|ml|iu)(?![A-Za-z])(?:\\s?/\\s?(${AMOUNT})?\\s?(ml|mg|g)(?![A-Za-z]))?`, "gi");
 
 /** "1,000" is a thousand (a comma followed by exactly three digits); any other comma is a decimal point ("2,5"). */
 const amount = (raw: string): string => (/^[0-9]{1,3}(?:,[0-9]{3})+$/.test(raw) ? raw.replace(/,/g, "") : raw.replace(",", "."));
 
 const unit = (u: string): string => {
   const l = u.toLowerCase();
-  if (l === "ug" || l === "µg") return "mcg";
+  if (l === "ug" || l === "µg" || l === "μg") return "mcg";
   return l === "iu" ? "IU" : l;
 };
 

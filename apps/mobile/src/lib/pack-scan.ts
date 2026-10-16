@@ -112,6 +112,10 @@ export type PackSuggestionChoice =
  * applied (or is dismissed) leaves the form exactly as it was.
  */
 export function applyPackSuggestion(form: PackFormFields, choice: PackSuggestionChoice): PackFormFields {
+  // A new name from a pack must not sit next to a strength typed for a different medicine.
+  if (choice.field === "drugName" && choice.value.trim().toLowerCase() !== form.drugName.trim().toLowerCase()) {
+    return { ...form, drugName: choice.value, dose: "" };
+  }
   return { ...form, [choice.field]: choice.value };
 }
 

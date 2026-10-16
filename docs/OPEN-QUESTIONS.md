@@ -4303,7 +4303,6 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 
 ### OQ-NAFDAC-SCAN-3 New pack-scan wording sits outside the reviewed-strings ledger (raised by the pack-scan build, 2026-10-16)
 - The ledger (S-15) gives clinical namespaces no room for new baseline entries and no reviewer exists to name, so the new strings live under `packscan.*`, outside the gated namespaces. That is a way round the gate, not a review. Needed: the CMO or a pharmacist reads the `packscan.*` keys (especially `packscan.nafdac.not_a_check` and `.in_catalogue`), then they move into a gated namespace with a real reviewer entry.
-- Pidgin: none written. Nigerian Pidgin was removed on 2026-10-06 (D-14); English only.
 - Decision: open (CMO).
 
 ### OQ-NAFDAC-SCAN-4 The number is used for lookup and pre-fill only; it is not stored on the medication (raised by the pack-scan build, 2026-10-16)

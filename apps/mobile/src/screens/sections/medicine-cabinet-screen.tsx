@@ -681,7 +681,7 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
     const lookup = lookupNafdacNumber(nafdacTyped, catalogue);
     const next = applyCatalogueLookup({ drugName, dose, nafdacNumber: nafdacTyped }, lookup);
     setDrugName(next.drugName);
-    setPickedName(next.drugName);
+    if (next.drugName !== drugName) setPickedName(next.drugName);
     setDose(next.dose);
     setFindings(null);
   }
@@ -704,11 +704,11 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
       const outcome = await scanPackPhoto(picked.assets[0].uri, catalogue);
       if (run !== scanRun.current) return;
       if (outcome.kind === "suggestions") setScanSuggestions(outcome.suggestions);
-      else setScanMessage(tr(outcome.kind === "failed" ? "packscan.scan.failed" : "packscan.scan.nothing"));
+      else setScanMessage(tr(outcome.kind === "nothing_read" ? "packscan.scan.nothing" : "packscan.scan.failed"));
     } catch {
-      setScanMessage(tr("packscan.scan.failed"));
+      if (run === scanRun.current) setScanMessage(tr("packscan.scan.failed"));
     } finally {
-      setScanBusy(false);
+      if (run === scanRun.current) setScanBusy(false);
     }
   }
 
