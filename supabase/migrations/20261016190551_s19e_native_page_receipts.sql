@@ -3,9 +3,11 @@
 --
 -- 1. private.clinician_route_confirmed: a 'push' receipt now confirms the route when the clinician has a live WEB or NATIVE
 --    (ios/android with an Expo token) push subscription. Before, only web push counted, so a mobile-only clinician always waited
---    the longer unconfirmed-route window (180 s) even after the app had reported receipts. The change only ever shortens the
+--    the longer unconfirmed-route window (180 s) even after the app had reported receipts. Receipts are not tied to one
+--    subscription, so the native row must also have been seen (the app re-registers on every start) within the same window as
+--    the receipt, which keeps a long-dead token from confirming a route. The change only ever shortens the
 --    early-advance wait for a clinician whose own phone has recently shown a page; it still only ADDS the next person.
---    Everything else in the function is byte for byte the S19c definition.
+--    Apart from the native clause, the function is the S19c definition (checked against the live copy before writing this).
 -- 2. push_subscriptions.page_channel_ready: a phone that has created the Android 'on_call_page' alarm channel says so at
 --    registration. The sender names that channel for page notifications only for such a phone (a channel the phone has never
 --    heard of means the push is accepted and never shown), so a phone on an older build keeps getting pages on 'urgent'.
@@ -25,7 +27,8 @@ as $$
                          or (a.channel = 'push' and exists (select 1 from public.push_subscriptions s
                                                              where s.profile_id = p_profile and s.disabled_at is null
                                                                and (s.platform = 'web'
-                                                                    or (s.platform in ('ios', 'android') and s.expo_push_token is not null))))))
+                                                                    or (s.platform in ('ios', 'android') and s.expo_push_token is not null
+                                                                        and s.last_seen_at > now() - make_interval(days => private.paging_delivery_rule('readiness_test_page_days'))))))))
 $$;
 revoke all on function private.clinician_route_confirmed(uuid) from public, anon, authenticated;
 

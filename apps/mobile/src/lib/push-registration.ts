@@ -77,20 +77,23 @@ export async function registerPushToken(userId: string, organisationId: string, 
     // overwrites its own prior row rather than accumulating duplicates. See
     // push_subscriptions_expo_push_token_key (20260809195100).
     // urgent_channel_ready is not in the generated types yet (S13 R4 migration), hence the cast.
-    await supabase.from("push_subscriptions").upsert(
-      {
-        organisation_id: organisationId,
-        profile_id: userId,
-        platform,
-        expo_push_token: data,
-        last_seen_at: new Date().toISOString(),
-        disabled_at: null,
-        // the sender names the `urgent` channel only for a phone that has created it
-        urgent_channel_ready: urgentChannelReady,
-        page_channel_ready: pageChannelReady,
-      } as never,
-      { onConflict: "expo_push_token" }
-    );
+    const base = {
+      organisation_id: organisationId,
+      profile_id: userId,
+      platform,
+      expo_push_token: data,
+      last_seen_at: new Date().toISOString(),
+      disabled_at: null,
+      // the sender names the `urgent` channel only for a phone that has created it
+      urgent_channel_ready: urgentChannelReady,
+    };
+    // page_channel_ready is sent only by a clinician's phone (S19e). If the column is not there yet the write is retried without it,
+    // so a registration can never be lost to the new field.
+    const withPage = options.clinician === true ? { ...base, page_channel_ready: pageChannelReady } : base;
+    const first = await supabase.from("push_subscriptions").upsert(withPage as never, { onConflict: "expo_push_token" });
+    if (first.error && options.clinician === true) {
+      await supabase.from("push_subscriptions").upsert(base as never, { onConflict: "expo_push_token" });
+    }
   } catch {
     // Best-effort only — a push-registration failure must never surface to
     // the patient or block anything else in the app from working.

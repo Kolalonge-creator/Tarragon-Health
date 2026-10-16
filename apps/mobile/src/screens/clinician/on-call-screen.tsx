@@ -6,6 +6,7 @@ import {
   acknowledgePage,
   acknowledgeTestPage,
   getDeviceId,
+  getLastPingOk,
   loadActivePages,
   loadReadiness,
   recordPageShown,
@@ -29,6 +30,8 @@ const VIBRATION = [0, 700, 500, 700, 500];
 export function OnCallScreen({ onOpenDeviceCheck }: { onOpenDeviceCheck: () => void }) {
   const [pages, setPages] = useState<ActivePage[] | null>(null);
   const [pagesError, setPagesError] = useState(false);
+  const [unreadable, setUnreadable] = useState(0);
+  const [pingOk, setPingOk] = useState<boolean | null>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [readinessError, setReadinessError] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -40,13 +43,13 @@ export function OnCallScreen({ onOpenDeviceCheck }: { onOpenDeviceCheck: () => v
     const result = await loadActivePages();
     if (!result.ok) {
       setPagesError(true);
-      Vibration.cancel();
-      // the repeats keep going: if the pages cannot be read, a missed real page is the worse mistake
+      // an unreadable answer changes nothing about a run that is already ringing, and starts none (an offline blip is not a page)
       await syncAlarm({ alarm: alarm.current, pages: async () => result });
     } else {
       setPagesError(false);
       setPages(result.data.pages);
-      if (needsAlarm(result.data.pages)) Vibration.vibrate(VIBRATION, true);
+      setUnreadable(result.data.dropped);
+      if (needsAlarm(result.data.pages, result.data.dropped)) Vibration.vibrate(VIBRATION, true);
       else Vibration.cancel();
       await syncAlarm({ alarm: alarm.current, pages: async () => result });
       const deviceId = await getDeviceId();
@@ -57,6 +60,7 @@ export function OnCallScreen({ onOpenDeviceCheck }: { onOpenDeviceCheck: () => v
         if (!shown.ok) reported.current.delete(p.pageId); // retried on the next poll
       }
     }
+    setPingOk(getLastPingOk());
     const r = await loadReadiness();
     if (r.ok) {
       setReadiness(r.data);
@@ -98,7 +102,9 @@ export function OnCallScreen({ onOpenDeviceCheck }: { onOpenDeviceCheck: () => v
         On call
       </AppText>
       {message ? <InlineAlert message={message} tone="info" /> : null}
-      {pagesError ? <InlineAlert message="Pages could not be loaded. If you are on call, keep this app open and check your connection." tone="danger" /> : null}
+      {unreadable > 0 ? <InlineAlert message="A page could not be shown on this screen. Treat it as waiting and open the clinician console on the web." tone="danger" /> : null}
+      {pingOk === false ? <InlineAlert message="This phone could not tell the server it is reachable. Check your connection; the clinical lead may see this phone as offline." tone="warn" /> : null}
+      {pagesError ?<InlineAlert message="Pages could not be loaded. If you are on call, keep this app open and check your connection." tone="danger" /> : null}
 
       {pages === null && !pagesError ? (
         <AppText variant="body" tone="textMuted">

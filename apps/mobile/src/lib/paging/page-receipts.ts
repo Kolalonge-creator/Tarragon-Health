@@ -47,7 +47,16 @@ export const realDeps: ReceiptDeps = {
 
 /** A server answer that a retry cannot change (the session is gone or the row is not ours) versus one that might work later. */
 function isTransient(message: string): boolean {
-  return !/not authori[sz]ed|42501|jwt|unknown page/i.test(message);
+  // an expired token is NOT permanent: the client refreshes it and the next attempt passes
+  return !/not authori[sz]ed|42501|unknown page/i.test(message);
+}
+
+/** One storage writer at a time: a flush (slow, network) and a new receipt must not overwrite each other's read-modify-write. */
+let chain: Promise<unknown> = Promise.resolve();
+function exclusive<T>(fn: () => Promise<T>): Promise<T> {
+  const run = chain.then(fn, fn);
+  chain = run.catch(() => undefined);
+  return run;
 }
 
 /** Reports one receipt now; keeps it for a retry when the call fails for a reason that can pass. Returns what happened. */
@@ -55,35 +64,52 @@ export async function reportPageReceipt(notificationId: string, deps: ReceiptDep
   const r = await deps.send(notificationId);
   if (r.ok) return "sent";
   if (!isTransient(r.error)) return "dropped";
-  const pending = await deps.load();
-  if (!pending.some((p) => p.notificationId === notificationId)) {
-    pending.push({ notificationId, at: deps.now() });
-  }
-  try {
-    await deps.save(pending.slice(-MAX_PENDING));
-  } catch {
-    // storage full: the receipt is lost, but the page still follows its normal timers
-    return "dropped";
-  }
-  return "kept";
+  return exclusive(async () => {
+    const pending = await deps.load();
+    if (!pending.some((p) => p.notificationId === notificationId)) {
+      pending.push({ notificationId, at: deps.now() });
+    }
+    try {
+      await deps.save(pending.slice(-MAX_PENDING));
+    } catch {
+      // storage full: the receipt is lost, but the page still follows its normal timers
+      return "dropped" as const;
+    }
+    return "kept" as const;
+  });
 }
 
-/** Retries what is kept. Entries older than 24 hours are dropped; a transient failure leaves the rest for next time. */
+/**
+ * Retries what is kept. Entries older than 24 hours are dropped; a transient failure leaves that entry for next time. The sends
+ * happen outside the storage lock; afterwards the list is re-read and only the entries this run finished with are removed, so a
+ * receipt kept while the flush was running survives.
+ */
 export async function flushPageReceipts(deps: ReceiptDeps = realDeps): Promise<{ sent: number; left: number }> {
-  const pending = await deps.load();
-  if (pending.length === 0) return { sent: 0, left: 0 };
-  const keep: PendingReceipt[] = [];
+  const snapshot = await deps.load();
+  if (snapshot.length === 0) return { sent: 0, left: 0 };
+  const finished = new Set<string>();
   let sent = 0;
-  for (const p of pending) {
-    if (deps.now() - p.at > MAX_AGE_MS) continue;
+  for (const p of snapshot) {
+    if (deps.now() - p.at > MAX_AGE_MS) {
+      finished.add(p.notificationId);
+      continue;
+    }
     const r = await deps.send(p.notificationId);
-    if (r.ok) sent += 1;
-    else if (isTransient(r.error)) keep.push(p);
+    if (r.ok) {
+      sent += 1;
+      finished.add(p.notificationId);
+    } else if (!isTransient(r.error)) {
+      finished.add(p.notificationId);
+    }
   }
-  try {
-    await deps.save(keep);
-  } catch {
-    // leaving the old list is safe: a repeat receipt is idempotent
-  }
-  return { sent, left: keep.length };
+  return exclusive(async () => {
+    const current = await deps.load();
+    const keep = current.filter((p) => !finished.has(p.notificationId));
+    try {
+      await deps.save(keep);
+    } catch {
+      // leaving the old list is safe: a repeat receipt is idempotent
+    }
+    return { sent, left: keep.length };
+  });
 }

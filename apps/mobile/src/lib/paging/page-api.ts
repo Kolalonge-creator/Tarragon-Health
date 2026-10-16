@@ -126,8 +126,16 @@ export async function acknowledgeTestPage(testId: string, rpc: Rpc = realRpc): P
 export async function pingDevice(deviceId: string, rpc: Rpc = realRpc): Promise<boolean> {
   const kind = Platform.OS === "ios" ? "ios" : "android";
   const { error } = await rpc("paging_device_ping", { p_device: deviceId, p_kind: kind });
+  lastPingOk = !error;
   return !error;
 }
+
+let lastPingOk: boolean | null = null;
+/** Whether the latest heartbeat landed (null: none tried yet). The On call screen shows a warning when it is false, because the health sweep treats a silent phone as unreachable. */
+export const getLastPingOk = (): boolean | null => lastPingOk;
+export const __resetPingForTests = (): void => {
+  lastPingOk = null;
+};
 
 const DEVICE_KEY = "tarragon.paging.device-id";
 let cachedDeviceId: string | null = null;

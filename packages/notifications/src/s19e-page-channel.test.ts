@@ -40,6 +40,10 @@ describe("the sender, the app and the migration agree", () => {
     expect(src).toContain("retrying without page_channel_ready");
     expect(readFileSync("../../apps/mobile/src/lib/push-registration.ts", "utf8")).toContain("page_channel_ready");
   });
+  it("a phone that has the page channel but not `urgent` is still sent the page on the page channel", () => {
+    const src = readFileSync("../../supabase/functions/send-pending-notifications/index.ts", "utf8");
+    expect(src).toContain("channelFor(sub, template) === PAGE_CHANNEL_ID || sub.urgent_channel_ready === true");
+  });
   it("a migration adds the column with default false", () => {
     const dir = "../../supabase/migrations";
     const f = readdirSync(dir).find((n) => n.endsWith("_s19e_native_page_receipts.sql"))!;

@@ -14,23 +14,30 @@ export interface SurfaceDeps {
   readonly receipts: ReceiptDeps | undefined;
 }
 
-/** Any page not yet acknowledged by anyone needs the alarm to keep going. */
-export function needsAlarm(pages: readonly ActivePage[]): boolean {
-  return pages.some((p) => !p.acknowledged);
+/** Any page not yet acknowledged by anyone needs the alarm to keep going. A row that could not be read counts as unacknowledged. */
+export function needsAlarm(pages: readonly ActivePage[], dropped = 0): boolean {
+  return dropped > 0 || pages.some((p) => !p.acknowledged);
+}
+
+export interface SyncOptions {
+  /** A page push just arrived on this phone: if the pages cannot be read, ring anyway. A poll or a screen open must not (an offline blip is not a page). */
+  readonly assumePage: boolean;
 }
 
 /**
- * Starts or stops the repeats to match the pages the database shows. When the pages cannot be read (offline) the repeats are
- * started: an alarm that rings a few extra times for a test page is a nuisance, a missed real page is not. Returns what it chose.
+ * Starts or stops the repeats to match the pages the database shows. When the pages cannot be read: after a page push the repeats
+ * are started (a missed real page is the worse mistake); otherwise they are left exactly as they are, so a connection blip neither
+ * rings a phone with nothing waiting nor silences one that is ringing for a real page.
  */
-export async function syncAlarm(deps: Pick<SurfaceDeps, "alarm" | "pages">): Promise<"ringing" | "stopped" | "ringing_unverified"> {
+export async function syncAlarm(deps: Pick<SurfaceDeps, "alarm" | "pages">, opts: SyncOptions = { assumePage: false }): Promise<"ringing" | "stopped" | "ringing_unverified" | "unchanged"> {
   const r = await deps.pages();
   if (!r.ok) {
-    await startPageRepeats(deps.alarm);
+    if (!opts.assumePage) return "unchanged";
+    await startPageRepeats(deps.alarm, true);
     return "ringing_unverified";
   }
-  if (needsAlarm(r.data.pages)) {
-    await startPageRepeats(deps.alarm);
+  if (needsAlarm(r.data.pages, r.data.dropped)) {
+    await startPageRepeats(deps.alarm, opts.assumePage);
     return "ringing";
   }
   await stopPageRepeats(deps.alarm);
@@ -41,11 +48,11 @@ export async function syncAlarm(deps: Pick<SurfaceDeps, "alarm" | "pages">): Pro
  * A notification payload arrived (foreground, tap, background task or tray scan). If it is a page push: report the receipt first
  * (the thing the ladder waits for), then align the alarm. Anything else is ignored without touching the network.
  */
-export async function handlePagePayload(payload: unknown, deps: SurfaceDeps): Promise<"ignored" | "handled"> {
+export async function handlePagePayload(payload: unknown, deps: SurfaceDeps, alignAlarm = true): Promise<"ignored" | "handled"> {
   const push = readPagePush(payload);
   if (!push) return "ignored";
   await reportPageReceipt(push.notificationId, deps.receipts);
-  await syncAlarm(deps);
+  if (alignAlarm) await syncAlarm(deps, { assumePage: true });
   return "handled";
 }
 
@@ -56,8 +63,10 @@ export async function handlePagePayload(payload: unknown, deps: SurfaceDeps): Pr
 export async function recoverPresentedPages(presented: readonly unknown[], deps: SurfaceDeps): Promise<number> {
   let handled = 0;
   for (const n of presented) {
-    if ((await handlePagePayload(n, deps)) === "handled") handled += 1;
+    if ((await handlePagePayload(n, deps, false)) === "handled") handled += 1;
   }
+  // one alignment for the whole tray, not one per notification; a push already in the tray is an old one, so the screen's read decides
+  if (handled > 0) await syncAlarm(deps, { assumePage: false });
   return handled;
 }
 

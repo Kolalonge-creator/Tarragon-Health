@@ -10,7 +10,7 @@ import { PAGE_URL } from "./page-push";
  *
  * Limits, said plainly: this runs only when the app's code runs (foreground, the notification background task, or when the app is
  * opened). A phone that kills background work will ring once (the push itself) and then repeat after the clinician opens the app.
- * The repeats are bounded (8 minutes) so a missed cancel can never ring for ever, and say only fixed neutral words (INV-07).
+ * Each run is bounded (8 minutes), so a missed cancel cannot ring for ever when nothing else is running; while the app is open and still sees an unacknowledged page, a new run is started when the old one ends. They say only fixed neutral words (INV-07).
  */
 export const REPEAT_PREFIX = "page-repeat|";
 export const REPEAT_EVERY_SECONDS = 60;
@@ -26,9 +26,14 @@ export function repeatIdentifier(n: number): string {
   return `${REPEAT_PREFIX}${n}`;
 }
 
-/** Schedules the run (replacing any earlier one). Returns how many were scheduled; never throws. */
-export async function startPageRepeats(port: AlarmPort): Promise<number> {
+/**
+ * Makes sure a run is scheduled. With `restart` (a new page push just arrived) any earlier run is replaced by a fresh 8 minutes;
+ * without it an existing run is left alone, so a screen that polls every few seconds cannot keep sliding the window forward (which
+ * would both defeat the 8 minute bound and stop the repeats ever firing). Returns how many are scheduled; never throws.
+ */
+export async function startPageRepeats(port: AlarmPort, restart = false): Promise<number> {
   try {
+    if (!restart && (await repeatsPending(port))) return REPEAT_COUNT;
     await stopPageRepeats(port);
     let scheduled = 0;
     for (let n = 1; n <= REPEAT_COUNT; n += 1) {

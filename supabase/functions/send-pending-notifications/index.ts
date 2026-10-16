@@ -36,7 +36,7 @@ import webpush from "npm:web-push@3.6.7";
 import { appUrl, substituteTemplatePlaceholders, TEMPLATE_MAP } from "./templates.ts";
 import type { TemplateRender } from "./templates.ts";
 import { describeViolations, lintRenderFn, lintText } from "../_shared/notifications/neutral.ts";
-import { decide, DISCREET_DOCUMENT_TEMPLATES, discreetEmail, EMERGENCY_CONTACT_TEMPLATE, expoChannelFor, expoUrgencyFields, FALLBACK_QUIET, isSafetyCritical, PATIENT_AUDIENCES, privacyFor, pushEnvelope, refusedSmsOutcome, signDocumentLink, withDocumentLink } from "../_shared/notifications/delivery.ts";
+import { decide, DISCREET_DOCUMENT_TEMPLATES, discreetEmail, EMERGENCY_CONTACT_TEMPLATE, expoChannelFor, expoUrgencyFields, PAGE_CHANNEL_ID, FALLBACK_QUIET, isSafetyCritical, PATIENT_AUDIENCES, privacyFor, pushEnvelope, refusedSmsOutcome, signDocumentLink, withDocumentLink } from "../_shared/notifications/delivery.ts";
 import type { DocumentLinkKind } from "../_shared/notifications/delivery.ts";
 import { checkFanoutRowConsent } from "../_shared/notifications/emergency-contact.ts";
 import type { QuietSettings } from "../_shared/notifications/delivery.ts";
@@ -373,6 +373,10 @@ async function sendWebPush(
  * an array of messages in a single call (no per-token round trip needed),
  * and returns tickets in the same order as the request array.
  */
+function channelFor(sub: { page_channel_ready?: boolean | null }, template: string | null): string {
+  return expoChannelFor(template, sub.page_channel_ready);
+}
+
 async function sendExpoPush(
   subscriptions: NativePushSubscription[],
   payload: { title: string; body: string; url: string; notificationId: string },
@@ -394,8 +398,9 @@ async function sendExpoPush(
     ...expoUrgencyFields(
       urgent,
       Deno.env.get("IOS_CRITICAL_ALERTS_ENABLED") === "true",
-      sub.platform !== "android" || sub.urgent_channel_ready === true,
-      sub.platform === "android" ? expoChannelFor(template, sub.page_channel_ready) : undefined,
+      // the phone must have created the channel that is named: the page channel for a page, `urgent` otherwise
+      sub.platform !== "android" || channelFor(sub, template) === PAGE_CHANNEL_ID || sub.urgent_channel_ready === true,
+      sub.platform === "android" ? channelFor(sub, template) : undefined,
     ),
   }));
 

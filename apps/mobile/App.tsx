@@ -33,6 +33,7 @@ import { AppLockScreen } from "@/screens/app-lock-screen";
 import { HomeShell } from "@/screens/home-shell";
 import { SponsorHome } from "@/screens/sponsor-home";
 import { ClinicianHome } from "@/screens/clinician-home";
+import { startPageSurface } from "@/lib/paging/page-native";
 import { shellForRole } from "@/lib/sponsor-figures";
 import { colors, spacing, typeScale } from "@/ui/theme";
 import { PrimaryButton, MutedText } from "@/ui/components";
@@ -77,6 +78,8 @@ function AppContent() {
   const [stuck, setStuck] = useState(false);
   // One-time biometric unlock offer (S03): decided once per signed-in user.
   const [offerBiometric, setOfferBiometric] = useState(false);
+  // A clinician who is also a patient or a carer can open their own record (S19e); the choice lasts until the app restarts or they sign out.
+  const [openOwnRecord, setOpenOwnRecord] = useState(false);
   const offerCheckedFor = useRef<string | null>(null);
   const postSignInFor = useRef<string | null>(null);
 
@@ -99,6 +102,7 @@ function AppContent() {
         postSignInFor.current = null;
         offerCheckedFor.current = null;
         setOfferBiometric(false);
+        setOpenOwnRecord(false);
         // The read mirror holds the previous account's record: wipe it so a
         // shared phone does not keep it readable. The outbox is NOT cleared:
         // unsent logs must survive sign-out and go out when their owner is back.
@@ -307,6 +311,9 @@ function AppContent() {
   useEffect(() => {
     if (session && identity && shellForRole(identity.role) === "clinician") {
       registerPushToken(session.user.id, identity.organisationId, { clinician: true }).catch(() => {});
+      // The page route (alarm channel, background task, receipts, repeats, heartbeat) runs for the whole signed-in session.
+      const handle = startPageSurface(() => AppState.currentState === "active");
+      return () => handle.stop();
     }
   }, [session, identity]);
 
@@ -380,11 +387,11 @@ function AppContent() {
     );
   }
 
-  if (shellForRole(identity.role) === "clinician") {
+  if (shellForRole(identity.role) === "clinician" && !openOwnRecord) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.surface }} edges={["top", "left", "right"]}>
         <StatusBar barStyle={scheme === "dark" ? "light-content" : "dark-content"} />
-        <ClinicianHome onSignOut={() => void supabase.auth.signOut()} />
+        <ClinicianHome onSignOut={() => void supabase.auth.signOut()} onOpenOwnRecord={() => setOpenOwnRecord(true)} />
       </SafeAreaView>
     );
   }

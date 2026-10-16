@@ -29,7 +29,9 @@ begin
     values (v_org, v, 'android', 'ExponentPushToken[s19e-' || v || ']', now());
   insert into results values ('a DISABLED native subscription does not confirm it', 'false', private.clinician_route_confirmed(v)::text);
 
-  update public.push_subscriptions set disabled_at = null where profile_id = v;
+  update public.push_subscriptions set disabled_at = null, last_seen_at = now() - interval '30 days' where profile_id = v;
+  insert into results values ('a native subscription not seen for 30 days (a dead token) does not confirm it', 'false', private.clinician_route_confirmed(v)::text);
+  update public.push_subscriptions set last_seen_at = now() where profile_id = v;
   insert into results values ('a live native (android) subscription with a push receipt confirms it', 'true', private.clinician_route_confirmed(v)::text);
   insert into results values ('page_channel_ready defaults to false', 'false', (select page_channel_ready::text from public.push_subscriptions where profile_id = v));
   insert into results values ('the function is not executable by anon or authenticated', 'false,false',
@@ -37,7 +39,7 @@ begin
 
   -- SABOTAGE: the S19c definition (web subscriptions only)
   v_def := pg_get_functiondef('private.clinician_route_confirmed(uuid)'::regprocedure);
-  v_old := replace(v_def, 'or (s.platform in (''ios'', ''android'') and s.expo_push_token is not null)', 'and false');
+  v_old := replace(v_def, 'or (s.platform in (''ios'', ''android'') and s.expo_push_token is not null', 'and (false');
   if v_old = v_def then raise exception 'VACUOUS TEST: could not strip the native clause'; end if;
   execute v_old;
   insert into results values ('SABOTAGE: web-only definition leaves the native clinician unconfirmed', 'true', private.clinician_route_confirmed(v)::text);

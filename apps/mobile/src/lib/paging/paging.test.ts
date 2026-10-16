@@ -69,6 +69,28 @@ describe("reportPageReceipt", () => {
     await expect(reportPageReceipt(ID, t.deps)).resolves.toBe("kept");
     expect(t.stored()).toHaveLength(1);
   });
+  it("keeps a receipt that failed because the access token had expired (it refreshes; the retry passes)", async () => {
+    const t = receiptDeps([{ ok: false, error: "JWT expired" }]);
+    await expect(reportPageReceipt(ID, t.deps)).resolves.toBe("kept");
+  });
+  it("a receipt kept while a flush is running is not overwritten by the flush", async () => {
+    const t = receiptDeps([], [{ notificationId: "old", at: 1_000_000 }]);
+    const realSend = t.deps.send;
+    let first = true;
+    const racing: ReceiptDeps = {
+      ...t.deps,
+      send: async (id) => {
+        if (first) {
+          first = false;
+          // while the flush is mid-send, a new push fails transiently and is kept
+          await reportPageReceipt("fresh", { ...t.deps, send: async () => ({ ok: false, error: "net" }) });
+        }
+        return realSend(id);
+      },
+    };
+    await flushPageReceipts(racing);
+    expect(t.stored().map((p) => p.notificationId)).toEqual(["fresh"]);
+  });
   it("drops a receipt the server refuses (not authorised), never retrying it", async () => {
     const t = receiptDeps([{ ok: false, error: "not authorised" }]);
     await expect(reportPageReceipt(ID, t.deps)).resolves.toBe("dropped");
@@ -166,9 +188,40 @@ describe("syncAlarm and handlePagePayload", () => {
     await expect(syncAlarm({ alarm: a, pages: pagesOf() })).resolves.toBe("stopped");
     expect(a.ids.size).toBe(0);
   });
-  it("rings when the pages cannot be read (a missed real page is the worse mistake)", async () => {
+  const offline = async () => ({ ok: false as const, error: "offline" });
+  it("an unreadable answer from a poll changes nothing: it neither starts an alarm nor silences one", async () => {
     const a = fakeAlarm();
-    await expect(syncAlarm({ alarm: a, pages: async () => ({ ok: false as const, error: "offline" }) })).resolves.toBe("ringing_unverified");
+    await expect(syncAlarm({ alarm: a, pages: offline })).resolves.toBe("unchanged");
+    expect(a.ids.size).toBe(0);
+    await startPageRepeats(a);
+    await expect(syncAlarm({ alarm: a, pages: offline })).resolves.toBe("unchanged");
+    expect(a.ids.size).toBe(REPEAT_COUNT);
+  });
+  it("right after a page push, an unreadable answer still rings (a missed real page is the worse mistake)", async () => {
+    const a = fakeAlarm();
+    await expect(syncAlarm({ alarm: a, pages: offline }, { assumePage: true })).resolves.toBe("ringing_unverified");
+    expect(a.ids.size).toBe(REPEAT_COUNT);
+  });
+  it("a poll does not slide the run forward; a new page push does", async () => {
+    const a = fakeAlarm();
+    await syncAlarm({ alarm: a, pages: pagesOf(page()) });
+    a.ids.set(`${REPEAT_PREFIX}1`, 5); // pretend time has passed for the first repeat
+    await syncAlarm({ alarm: a, pages: pagesOf(page()) });
+    expect(a.ids.get(`${REPEAT_PREFIX}1`)).toBe(5);
+    await startPageRepeats(a, true);
+    expect(a.ids.get(`${REPEAT_PREFIX}1`)).toBe(60);
+  });
+  it("a row that could not be read counts as an unacknowledged page", async () => {
+    const a = fakeAlarm();
+    const unreadable = async () => ({ ok: true as const, data: { pages: [page({ acknowledged: true })], dropped: 1 } });
+    await expect(syncAlarm({ alarm: a, pages: unreadable })).resolves.toBe("ringing");
+    expect(needsAlarm([], 1)).toBe(true);
+  });
+  it("an offline page push is reported, kept for a retry, and rings", async () => {
+    const t = receiptDeps([{ ok: false, error: "network" }]);
+    const a = fakeAlarm();
+    await handlePagePayload({ request: { content: { data: { url: PAGE_URL, notificationId: ID } } } }, { alarm: a, pages: offline, receipts: t.deps });
+    expect(t.stored()).toHaveLength(1);
     expect(a.ids.size).toBe(REPEAT_COUNT);
   });
   it("a page push is reported first, then the alarm is aligned; any other payload touches nothing", async () => {
