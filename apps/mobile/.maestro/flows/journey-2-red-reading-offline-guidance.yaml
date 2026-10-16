@@ -1,0 +1,87 @@
+# S85 Journey 2 (spec D.7.3), the on-device half: a red reading with no network (INV-06).
+#
+# Proves: with airplane mode ON, logging 190/120 with the severe headache question answered shows the emergency
+# guidance sheet at once ("This may be a medical emergency", go to the nearest hospital), evaluated on the phone by
+# the same pure engine as the server (apps/mobile/src/lib/triage-device.ts, no language model, INV-01), and that
+# after the network returns the reading syncs and the sheet can be acknowledged.
+#
+# Does NOT prove (server side, see apps/web/e2e-browser/journeys/journey-2-red-reading.spec.ts): the server regrade,
+# the page to the on-call clinician, the Care Circle push. Those need a clinician and a supporter session.
+#
+# Android only, because Maestro's setAirplaneMode is Android-only (same reason as medicines-add-remind-take-offline.yaml)
+# and the phones that matter are Tecno, Infinix, Itel and Samsung A-series. Run on a low-end profile (for example a
+# 2 GB, API 30 emulator image, or a real Tecno test phone) with the network throttled, as well as on a flagship.
+#
+# STATUS: written, NOT run. No emulator or device was available, so no selector below is confirmed against a
+# build. Selectors are the visible texts from packages/i18n/src/en.ts and emergency-guidance-modal.tsx:
+#   "Systolic", "Diastolic", "Save reading", "Log a symptom", "This may be a medical emergency", "I'm getting help".
+# The path to the Vitals screen and the symptom question answers are the least certain lines; fix them on first run.
+#
+# Use a test account (is_test = true) on a LOCAL or staging stack, never a real patient on production:
+#   maestro test -e MOBILE_E2E_EMAIL=... -e MOBILE_E2E_PASSWORD=... <this file>
+appId: com.tarragonhealth.app
+name: Journey 2, red reading offline shows emergency guidance
+tags:
+  - journey
+  - triage
+  - offline
+  - android
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Email"
+    timeout: 20000
+- tapOn: "Use email"
+- tapOn: "Email"
+- inputText: ${MOBILE_E2E_EMAIL}
+- tapOn: "Password"
+- inputText: ${MOBILE_E2E_PASSWORD}
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Today at a glance: your numbers, your care team, and recent activity."
+    timeout: 20000
+
+# Let the first sync finish so the bundled or cached rule set is on the phone, then cut the network.
+- tapOn: "Vitals"
+- extendedWaitUntil:
+    visible: "Save reading"
+    timeout: 15000
+- setAirplaneMode: enabled
+
+# Report the headache first (the red rule needs the symptom plus the reading), then the reading.
+- tapOn: "Log a symptom"
+- extendedWaitUntil:
+    visible: ".*headache.*"
+    timeout: 10000
+- tapOn: ".*headache.*"
+- tapOn:
+    text: "Save symptom"
+    optional: true
+- tapOn:
+    text: "Close"
+    optional: true
+
+- tapOn: "Systolic"
+- inputText: "190"
+- tapOn: "Diastolic"
+- inputText: "120"
+- hideKeyboard
+- tapOn: "Save reading"
+
+# The guidance must appear with the radio off. The 3 second ceiling is generous: the on-device rule engine reads
+# only local state and the screen must never make a patient wait (triage-device.ts CONTEXT_BUDGET_MS is 600 ms).
+- extendedWaitUntil:
+    visible: "This may be a medical emergency"
+    timeout: 3000
+- assertVisible: ".*nearest hospital.*"
+# The sheet must not tell the patient to wait for a call or to phone a single national number.
+- assertNotVisible: ".*call 112.*"
+
+# Network back, acknowledge, and confirm the queued reading is no longer waiting.
+- setAirplaneMode: disabled
+- tapOn: "I'm getting help"
+- assertNotVisible: "This may be a medical emergency"
+- extendedWaitUntil:
+    notVisible: ".*Saved on this phone, waiting to send.*"
+    timeout: 30000

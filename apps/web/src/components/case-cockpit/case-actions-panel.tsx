@@ -431,9 +431,7 @@ function DecidedRow({ action }: { action: CaseReviewAction }) {
         <span className="text-charcoal-ink/60">
           {action.status === "modified" ? "Confirmed with changes" : "Confirmed"} by{" "}
           {signer.full_name}
-          {signer.credential_type && signer.credential_number
-            ? ` (${signer.credential_type} ${signer.credential_number})`
-            : ""}{" "}
+          {signer.credential_type ? ` (${signer.credential_type})` : ""}{" "}
           on {formatDate(action.confirmed_at)}
         </span>
       ) : (

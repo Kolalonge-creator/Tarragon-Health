@@ -112,9 +112,9 @@ describe("sabotage: the conformance check notices damage (it does not pass vacuo
 
   it("a gap that gets worse is a finding too", () => {
     const damaged = without(src, {
-      migrations: src.migrations.map((m) => ({ ...m, text: m.text.replace(/emit_domain_event\(\s*'encounter\.completed'/g, "emit_domain_event('encounter.completed_x'") })),
+      migrations: src.migrations.map((m) => ({ ...m, text: m.text.replace(/emit_domain_event\(\s*'lab_result\.received'/g, "emit_domain_event('lab_result.received_x'") })),
     });
-    const f = checkEventMap(damaged).find((x) => x.rowId === "consultation-completed");
+    const f = checkEventMap(damaged).find((x) => x.rowId === "lab-result-received");
     expect(f?.kind).toBe("gap-changed");
   });
 

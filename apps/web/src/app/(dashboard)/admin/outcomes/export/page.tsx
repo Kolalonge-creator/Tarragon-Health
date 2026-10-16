@@ -16,7 +16,7 @@ export default async function OutcomesExportPage() {
       <PageHeader
         title="Export outcomes"
         backTo={{ href: "/admin/outcomes", label: "Outcomes" }}
-        description="A file of the 90-day blood pressure report for a pilot or a renewal conversation. It holds the same figures as the Outcomes page, with the definition and the limits. It lists no individual and makes no claim about cause."
+        description="A file of the 90-day or 180-day blood pressure report for a pilot or a renewal conversation. It holds the same figures as the Outcomes page, with the definition and the limits. It lists no individual and makes no claim about cause."
       />
       <form method="post" action="/admin/outcomes/export/download" className="flex flex-wrap items-end gap-3">
         <label className="space-y-1">
@@ -26,6 +26,10 @@ export default async function OutcomesExportPage() {
         <label className="space-y-1">
           <span className="block text-sm">Joined to</span>
           <input type="date" name="to" className="min-h-11 rounded border px-2" />
+        </label>
+        <label className="space-y-1">
+          <span className="block text-sm">Report</span>
+          <select name="day" defaultValue="90" className="min-h-11 rounded border px-2"><option value="90">Day 90</option><option value="180">Day 180</option></select>
         </label>
         <button type="submit" className="min-h-11 rounded border px-4">Download CSV</button>
       </form>

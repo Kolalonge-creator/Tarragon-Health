@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 const schema = z.object({ on: z.enum(["0", "1"]), note: z.string().trim().max(500).optional(), confirm: z.string().optional() });
 /** Switching ON needs a written record of who approved it and when (at least 10 characters); it is kept with the switch and in the audit log. */
 const MIN_APPROVAL_NOTE = 10;
-const BACK = "/admin/triage-accuracy";
+const BACK = "/admin/triage-agreement";
 
 /** Switch the clinicians' grade review on or off. Admin only. Turning it ON needs the tick-box and a note saying who approved it: the Chief Medical Officer must have approved it first. */
 export async function setReviewSwitchAction(formData: FormData): Promise<void> {

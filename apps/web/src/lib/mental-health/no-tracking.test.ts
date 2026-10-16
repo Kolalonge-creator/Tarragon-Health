@@ -30,11 +30,13 @@ const WEB_ENTRY = [
   "app/(dashboard)/patient/sleep/sleep-extras.tsx",
   "lib/wellbeing-library",
   "lib/mental-health",
+  "components/therapy",
+  "app/(dashboard)/patient/(sections)/self-help",
   "lib/queries/mental-health.ts",
   "lib/queries/wellbeing.ts",
   "lib/queries/mood-trend.ts",
 ];
-const MOBILE_ENTRY = ["screens/sections/wellbeing-screen.tsx", "screens/sections/wellbeing-trend-chart.tsx", "components/mental-health", "components/wellbeing", "lib/calm-library.ts", "lib/journal-store.ts", "lib/mental-health.ts", "lib/wellbeing.ts", "lib/shared-phone.ts"];
+const MOBILE_ENTRY = ["screens/sections/wellbeing-screen.tsx", "screens/sections/wellbeing-trend-chart.tsx", "components/mental-health", "components/wellbeing", "lib/calm-library.ts", "lib/journal-store.ts", "lib/mental-health.ts", "lib/wellbeing.ts", "lib/shared-phone.ts", "screens/sections/therapy-programme-screen.tsx", "components/therapy", "lib/therapy-programmes.ts"];
 
 function filesUnder(p: string): string[] {
   if (!existsSync(p)) return [];

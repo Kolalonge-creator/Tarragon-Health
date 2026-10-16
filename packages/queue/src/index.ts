@@ -5,3 +5,4 @@ export * from "../../../supabase/functions/_shared/queue/lead-handlers";
 export * from "../../../supabase/functions/_shared/queue/paging-handler";
 export * from "../../../supabase/functions/_shared/queue/quality";
 export * from "../../../supabase/functions/_shared/queue/task-layer";
+export * from "../../../supabase/functions/_shared/programme/progress-handler";

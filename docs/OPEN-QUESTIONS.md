@@ -1902,6 +1902,7 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Options: (a) calm disabled state (built); (b) a Tarragon-funded discount-code path now, capped from config; (c) wait for S71/S72 checkout discounts.
 - Recommend (a) now, (c) next. The founder still needs to set the cap (`rewards.points_redemption_cap_kobo`, integer kobo, currently 0), who funds the discount, and whether a cap is a share of the item price or a fixed amount (S58 asks the same).
 - `private.issue_reward_voucher` is NOT removed: referral, prevention and promo-code rewards still use it. Whether those are also stored value under INV-09 is a separate question for OQ-07.
+- S58 built the capped checkout discount and kept it off; see OQ-S58-01 for what the founder must set.
 - Decision: open.
 
 ### OQ-F1-02 The signed escalation SLA (v7) has no `symptom_triage` pathway; the symptom checker cannot be switched on
@@ -2176,6 +2177,41 @@ Built on top of F1; nothing applied to production; `symptom_checker_enabled` sta
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
 
+
+## Raised by S80 (prepared work)
+
+### OQ-310 Who runs the monthly AI review sample draw, and when? (raised by S80c)
+- `draw_ai_review_sample(month, rate)` exists and takes the rate as a parameter; nothing schedules it, deliberately, because `ai.review_sample_rate` (0.05) is proposed and unsigned. Options: (a) a monthly cron that reads the confirmed config value and skips if it is only proposed (recommended); (b) the CMO draws it by hand each month.
+- Decision: open.
+
+### OQ-311 The 213 published health education items that were never clinician-reviewed (raised by S80 fix-first)
+- Live on 2026-10-07: 219 published, 213 with `clinician_reviewed` not true. The new gate does not change them. Options: (a) leave published and re-review in priority order, high-risk categories first (recommended, avoids emptying the app); (b) move all to `review_due` so the CMO re-affirms each; (c) withdraw all not reviewed. Content past its review date is already hidden by the nightly sweep.
+- Decision: open (CMO).
+
+### OQ-312 The AI review queue reads patient-derived text without a patient tie (raised by the S80 code review)
+- INV-12 says a clinician sees a patient only through an active task, lead assignment or page. The monthly AI review sample is a quality-assurance read: the reviewer sees the answer text, never who it was for, only within their own organisation, and each open is audited with the sample ids. It still has no per-patient tie. Same access class as the S20 clinical audits.
+- Options: (a) accept it as a named quality-assurance access class, limited to the CMO and senior doctors (recommended; drop the medical officer tier from `private.ai_reviewer_ok`); (b) the CMO alone reviews; (c) redact the text before it is shown.
+- Decision: open (CMO).
+
+### OQ-313 Six consent types have no version row, on purpose (raised by the S83 audit fix)
+- Added a current optional `research` version (the S81 export gate reads exactly this consent). Not added, because nothing yet obeys them and a withdraw switch that controls nothing is worse than none: `marketing` (no broadcast path checks it), `device_data` and `wearable_device_data` (wearables already hold per-connection consent), `care`, `care_circle_sharing` and `scribe_default` (the scribe asks per consultation and Care Circle has its own access grants, so a second consent would be a second source of truth).
+- Options: (a) retire `device_data`, `wearable_device_data`, `care`, `care_circle_sharing` and `scribe_default` from the privacy list and keep only the enum values (recommended); (b) add a gate first, then a version, for `marketing` only when a marketing message is built; (c) add versions for all and wire gates later.
+- Decision: open (CMO and data protection officer). Related: INV-08 fix `20261007214438` and the sponsor claim link replace the last SMS paths. Correction: the virtual-review join link did NOT still text a patient (S21 had already made it in-app only); the dead `send-patient-link.ts` was deleted, and that notice now also goes by push and email.
+
+### OQ-184 update (guard enforcement, 2026-10-07)
+- `payouts_enabled` was already enforced since S31 (`public.payout_prepare_send` refuses with `payout_guard_off`); only its status text was stale. `prescribing_enabled` now also refuses signing a prescription (draft to signed, signed-in clinician) and `lab_booking_enabled` refuses a patient-initiated Tarragon-billed lab order (migration `20261007222755`). Test accounts stay open. Still not enforced: `on_call_cover_ok` (care pack sales are not built) and `public_signup_enabled` (3 real people signed up in the last 30 days and no pilot allow-list exists, so enforcing it would lock out the next one: build an invite list first).
+- Not covered by the new guards, on purpose: sessions with no signed-in user (migrations, owner scripts, the service role). 7 of 9 older lab and pharmacy proofs could not be re-run against production data (they need the CI seed) and fail identically with and without the migration; they insert as the owner, which the guards do not cover. Re-run them in CI replay.
+
+### OQ-184 update 2 (signup invite list, applied 2026-10-07)
+- Migration `20261007231528` is applied. It adds `signup_invites`, a BEFORE INSERT trigger on `auth.users` (GoTrue's role only; migrations, owner scripts and proofs are never gated) and the platform switch `signup_invites_required`, which ships OFF: nothing changes for anyone until an admin switches it on at `/admin/settings/signup-invites` (web app change, live once merged). With it on and `public_signup_enabled` off, a new person needs a phone, email or code invite, a phone a sponsor has paid for, or an admin-API account; people with an account are never affected.
+- Known edges: (1) Care Circle supporters, employer cohorts and diaspora sponsors arrive as new people with no invite, so an admin must issue them a code or phone/email invite before the switch is turned on. (2) Anyone already in the sign-up funnel when the switch goes on is refused with a kind message, not a crash. (3) The proof cannot impersonate GoTrue's database role, so it exercises the real trigger through a test setting that can only make the gate stricter; a first real sign-up with the switch ON should be tried by hand once (invited, then uninvited) before relying on it. (4) The enforcing guard `public_signup_enabled` itself is still off and is now the "open to everyone" lever: switching it on opens sign-up regardless of the invite switch.
+- Decision needed: when to switch invite-only on, and who issues the first invites.
+
+### Edge functions deployed (2026-10-07), with two things to know
+- `send-pending-notifications` (v90), `abnormal-result-handler` (v38) and `paystack-webhook` (v43) are deployed from this branch with the CLI and byte-verified against source; the webhook was smoke-tested (unsigned and forged requests are refused with `invalid_signature`). `verify_jwt` is unchanged (off) on all three.
+- The live Paystack bundle had drifted from `main-dev` (it still carried the old Pidgin language list and lacked the Zoom host-key option in shared modules the payment path does not use); deploying from source brought it in line. `speech.ts` now reads empty in the live listing because the source file is types-only. This is the same drift the release-integrity job exists to catch: after merge, confirm that job is green.
+- Code review (2026-10-07) found and fixed: admin-created accounts needed `signup_exempt` (six flows); phone invites match only the verified phone; a critical sms hop must end `failed` so the exhausted-ladder alarm fires; the abnormal-result fallback uses the emergency ladder; research export excludes pre-consent data and blanks rare months; the AI review function named the retired Medical Officer tier. A fresh-database rehearsal of the CI replay (188 proofs) is green on the merged tree.
+- Production now also carries migrations from other sessions (`f05_retire_medical_officer_tier`) and a ninth guard (`symptom_checker_enabled`), so `s37_go_live_guards` and `s36b` fail against production data by design (they expect a fresh database); they pass on a fresh replay.
 ### OQ-310 The clinician does not send a prescription to a pharmacy; the patient chooses (raised by S54)
 - The S54 brief asked for a clinician "send to nearest partner pharmacy" writing `state = sent`, the pharmacy and the code. The founder decided on 2026-10-07 (S28) that the patient chooses a verified pharmacy herself, S28 moved the code to a patient-only table and stopped writing `prescriptions.collection_code`, and spec 8.16 says clinicians never see which pharmacy earns more. Doing it the brief's way would reverse a same-day founder decision, so it was not built. What the patient gets is the comparison before choosing, and the signed prescription to take anywhere.
 - Options: (a) as built (recommended); (b) a clinician "suggest a pharmacy" that only pre-selects it for the patient to confirm (stores a suggestion, never routes); (c) full clinician routing (reverses the S28 decision).
@@ -2652,6 +2688,49 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 - OQ-192 (any `profile_access` grantee can read and pay) is still open and must be fixed before any real caregiver grant. OQ-39 (56 older `analytics_*` RPCs ignore `is_test`) is still open. `device.synced` and `device.alert` are not in the S10 event catalogue. Withings, Samsung, inhaler sensors and `LabResultsSource` are not built. `partner_quality`, `partner.quality_breach`, `partner.settlement_due` and `settlement-run` are not built. Price quoting (`price-quote`, `price.changed`, `discount_codes`, `price_books`) is not built.
 - Decision: open; each is in the build plan.
 
+### OQ-380 CMO signature on the outcome measure definitions (raised by S75b)
+- `outcomes.measures` v1 (HbA1c, weight, PHQ-9, GAD-7 windows, thresholds, severity bands, response-time grouping, retention days, evaluation-design note) is PROPOSED. Until the CMO confirms it on the go-live sign-off screen, every report for those measures returns "awaiting signature" and no figure. Nothing was signed by this session.
+- Open: the CMO confirms or asks for changes; any change is a new version.
+- Decision:
+
+### OQ-381 Pregnancy and age rules for the new measures (raised by S75b)
+- Pregnancy is read from the current `patient_pregnancy.is_pregnant`, not from the state at the time of the result, so someone who became pregnant after day 0 is excluded from both ends. Members with no date of birth are excluded (`age_unknown`); all four measures are adult only (under 18 excluded, including PHQ-9 and GAD-7).
+- Options: (a) keep, the safe direction (recommended); (b) store the pregnancy state at each window; (c) include adolescents with their own instruments.
+- Decision:
+
+### OQ-382 HbA1c source of truth (raised by S75b)
+- Snapshots read `lab_analyte_readings` (patient-confirmed extraction and staff entry). Structured partner results in `lab_result_items` (S27) are not read, so a partner-reported HbA1c that never reached `lab_analyte_readings` is invisible to outcomes. Units other than % and mmol/mol are ignored.
+- Options: (a) copy released HbA1c items into `lab_analyte_readings` (recommended, one source); (b) read both with de-duplication.
+- Decision:
+
+### OQ-383 What "programme completion" means (raised by S75c, function 22.2)
+- Decided (S75-7, founder and CMO, 2026-10-07): programme completion = the entitlement was fully used: every consultation and test item in the Membership or care pack is used, or the term ended with the clinical items used. Implemented in the retention report (`fully_used`, labelled exactly that), kept in the engagement family, never combined with a clinical outcome. Revoked (refunded or cancelled) entitlements are not counted either way.
+- Limitation: "fully used" reads each entitlement's own state and `remaining_uses`; sibling consultation or test entitlements bought in the same pack are not linked to it by the schema, so a pack whose items sit in separate entitlements may be under-counted. Revisit if S26 links them.
+- Decision: decided.
+
+### OQ-384 CMO door for the fairness review (raised by S75c, decision S75-4)
+- `record_risk_fairness_review` works and is proven, but the CMO's clinician login cannot open `/admin/risk-fairness`, where the monthly list lives, so there is no button yet. Needs a `/clinician/...` page (the S36e and S37 two-door pattern). Also: who prepares the monthly note (OQ-317).
+- Decision:
+
+### OQ-385 Response times: scope and the S36e overlap (raised by S75c, function 22.7)
+- Added turnaround, escalation, hand-back and follow-up rates by urgency band and finisher tier. "Follow-up" is only the `adherence_follow_up` task type; the CMO may want a wider definition. Hand-backs are counted from `handback_count`, which resets nothing but is a task-level count. No per-clinician view by design.
+- Decision:
+
+### OQ-386 Triage report old name (raised by S75a, decision S75-3)
+- `triage_accuracy_report` remains as a deprecated wrapper of `triage_agreement_report` and the audit action changed from `triage.accuracy_report` to `triage.agreement_report`. Drop the wrapper in the migration after the web deploy.
+- Decision:
+
+### OQ-387 Latent bug in the payer board report (raised by S75a)
+- S38 added measure specs (`bp_control_90d`, now `bp_control_180d`) that the payer board engine cannot compute; `generate_payer_board_report` looped every spec and would have raised on the first report once the payer module is on. Fixed by restricting it to known keys (`private.board_measure_keys()`); the older proof `payer_board_outcomes_report.sql` is in `ci.excluded` and already failed at its attest step before this session (not investigated).
+- Decision:
+
+### OQ-388 Floors raised for older dashboards (raised by S75a)
+- Corporate, payer and reproductive dashboards used 5 to 10; they now use 20 (or the organisation's higher number). Small employers may see "withheld" where they saw figures. Counsel or the DPO confirms the number (OQ-233).
+- Decision:
+
+### OQ-389 OQ-39 progress (raised by S75a)
+- Fixed for the surfaces touched: reproductive analytics, institution subsidy summary, payer dashboard, the new reports. The 56 older `analytics_*` RPCs still ignore `is_test`; see the S75 progress entry for the list. Retrofit or retire them in one session.
+- Decision:
 ## S73 pricing engine (2026-10-07)
 
 ### OQ-328 Sponsor coverage cannot be charged yet (raised by S73)
@@ -2973,6 +3052,15 @@ following are recorded in the system:
 ### OQ-S07X-5 The home check configuration ships inside the app (raised by S07x)
 - The phone reads `bp.home_programme` from the code registry (as the other S07 values do); the server reads the signed row. If the CMO signs a changed version, installed phones keep the old protocol until the next build or update, while the server records the result against the new bands. Today the two are identical (a test fails on drift). Moving the phone's read to a synced config is the same follow-up already noted for the other S07 values.
 
+### OQ-S75X-1 PHQ-9 item 9 below the score line (raised by S75 exclusions; RESOLVED 2026-10-14, DECISIONS S75-9: option (a), the gap is accepted)
+- The exclusion keeps a person out of every outcome report if their PHQ-9 TOTAL reached 20 (config v4 `safeguarding.score_from`). A person who answered item 9 above zero but scored under 20 is NOT excluded by this rule, because the S75 proof forbids any function on the outcomes path from reading item answers or the crisis flag (a positive item 9 follows the red pathway, not analytics). Their score is therefore in the mental-health figures, which only an admin, an analyst or the CMO read as suppressed aggregates.
+- The other build (#1087) excluded them by reading item 9 and the crisis flag. Choose one: (a) accept the gap above, (b) let ONE function read the crisis flag solely to remove a person (and change the scan in `s75_outcome_measures.sql` check 7e to allow exactly that function), or (c) count a person as excluded when an escalation already exists for them. Until decided, v4 stays PROPOSED and inactive.
+
+### OQ-S75X-2 Mental-health outcomes in the sponsor pack (raised by S75 exclusions; RESOLVED 2026-10-14, DECISIONS S75-9: the pack carries PHQ-9 and GAD-7 as suppressed group figures)
+- Resolved: the CMO approved PHQ-9 and GAD-7 in the sponsor pack as suppressed group figures only. `private.outcome_measure_cohort` is the single sponsor-side reader of `outcome_mh_snapshots` (total score only, withheld below the minimum cell, never a person). Check 7a of `s75_outcome_measures.sql` names it; 7c and 7d still forbid any sponsor-named function from touching a mental-health object.
+
+### OQ-S75X-3 Activate v4, not v3 (raised by S75 exclusions; for the CMO)
+- `outcome_config` v3 (#1094) has no exclusions and v3 is left exactly as written, because a sign-off binds to a version. v4 is v3 plus the exclusions and the PHQ-9 / GAD-7 severity bands. To bring the exclusions in the CMO activates v4 instead of v3; activating v3 gives the measures without them. The sponsor pack and both reports show measure figures only once one of them is active.
 
 ## S11 to S15 end-to-end build: questions raised by the six packages (2026-10-13)
 
@@ -3439,3 +3527,66 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - Options: (a) set `HEALTH_CHECK_SECRET` and point an outside uptime service (not hosted on the same Supabase project or the same Vercel account if possible) at `/api/health/deep` every minute, alerting on non-200, on `ok:false` and on no answer, to a phone that reaches a named person; (b) also add a second outside probe that calls the database through a separate path and checks `paging_heartbeats` and `cron.job_run_details` age; (c) rely on the in-database watchdog only.
 - Recommendation: (a) now, because it is a variable and a monitor, and (b) before the readiness gate and the unified red paging flag are switched on. It ties to the final fallback in decision S16-S20-10 (a named ops person phoning on-call). Owner: founder.
 - Decision: open.
+### OQ-S63-1 Table names and the existing `therapy_sessions` (raised by S63)
+- The spec's `programmes`/`programme_enrolments` collide with 13 tables, and `therapy_sessions` is already the S56 therapist booking table. S63 uses `therapy_programmes`, `therapy_programme_sessions`, `therapy_enrolments`. Confirm the naming. Decision: open.
+
+### OQ-S63-2 CMO must read, change or reject every S63 draft (raised by S63)
+- Wave A session text, the 12 exclusion lists (local items flagged unverified: continuous leakage, over-50 onset and night symptoms for IBS, pregnancy and alcohol or sedative dependence for CBT-I, TB, sickle cell bone pain and HIV for pain), the `therapy_programme_config` numbers (only PHQ-9 and GAD-7 worsening and the CBT-I floor are CMO values; due windows, pelvic floor dose, other thresholds and checkpoints were chosen by the build). The plan also listed prolapse symptoms and infection for pelvic floor; not added. Decision: open.
+
+### OQ-S63-3 Red-flag codes are not shown to the tied clinician without consent (raised by S63)
+- A same-day task says only that a programme was stopped. The clinician sees which red flag fired only if the patient shares progress. Confirm, or allow the codes in the task for safety. Decision: open.
+
+### OQ-S63-4 S56 crisis card shows 112; S63 shows no number (raised by S63)
+- CMO decision is no phone number anywhere. The S56 `CrisisCard` still shows the emergency number. Decide whether to align. Decision: open.
+
+### OQ-S63-5 Share-consent wording, and who resumes a paused programme (raised by S63)
+- Consent text version is `draft-1`, unreviewed. A tied non-coordinator clinician may resume a worsening-paused programme; confirm the tier. Decision: open.
+
+### OQ-S63-6 Audio and manifest (raised by S63)
+- Clips `THP-PAN01..` are named but not in `audio/manifest.json`: add via `source/extra-clips.json` and the importer when recordings are commissioned. Group THP needs a title and review entry. Decision: open.
+
+### OQ-S63-7 Mood crisis path reuses F1 task type, not `raise_crisis_follow_up` (raised by S63)
+- That function is keyed on a questionnaire row. The programme crisis route uses the same task type, page and notices keyed on the enrolment. Wave C remains a scaffold until S56 merges and the path is tested. Decision: open.
+
+### OQ-S63-8 `/code-review high` findings fixed, and what is still open (raised by S63)
+- Fixed in the branch before the PR: the live screen uses the highest CONFIRMED list (a newer draft never replaces it); a resumed programme is assessed only on scores recorded after the resume; a failed inline check on the last session leaves the programme open for the bus handler; a missing active config fails closed; an entry-screen stop cannot be undone by answering again (72 hour PROPOSED cooldown); the crisis page is sent once per patient per hour and a failed crisis task now reaches the patient screen; permanent database rejections are shown, only transport faults are queued; the offline queue is scoped to the signed-in person; an offline copy of a session is read-only; offline stops no longer claim the care team was told; task dedup keys are opaque; audit rows point at the profile.
+- Still open: no staff screen yet for `resume_therapy_enrolment` or the consent-gated `read_therapy_progress_audited` (RPCs only); a patient stop button exists on the player; sign-out does not clear the device cache; the go-live condition patches still use text replacement of function bodies (as S56 does); red-flag stops on scaffold programmes still raise a same-day task and page (a patient who reports a red flag gets a clinician even though the programme is not open); `guidanceKeyForRoute` and `assessWorsening` in `packages/shared` are mirrors used by tests only; the guard-open check is one call per programme. Decision: open.
+## S58 (Module 11, Rewards and engagement)
+
+### OQ-S58-01 Redemption is built but OFF: the founder must set the cap, the share and who funds it
+- `apply_points_discount(order, points)` and `release_points_discount(order)` exist and are tested; they refuse while `reward_config.points_redemption_cap_kobo` is 0 (it is). Proposed (unsigned): 1000 points per 10 percent (`points_per_percent` 100, `max_share_bps` 1000, `min_points` 100). Open: the kobo cap per order, whether Tarragon or a partner funds the discount, whether discounts apply to every catalogue kind.
+- S71/S72 must call `apply_points_discount` at checkout and `release_points_discount` when an order fails, is cancelled or expires (the order amount is immutable, so the checkout charges amount minus the redemption's `discount_kobo`). Until then nothing reaches it from the UI.
+- Decision: open (founder). Closes OQ-F1-01 once decided.
+
+### OQ-S58-02 Point values, caps, decay and tier thresholds are PROPOSED
+- All twelve rules are active at version 1 with status `proposed`; the five new ones (course, lab, review, screening, plus tier thresholds 400 / 1200 / 3000) are new proposals. The seven earlier rules keep the points the old triggers paid (10, 10, 15, 20, 15, 50, plus catalogue values). New per-day caps (e.g. lessons 3 a day) and the 100 points daily cap are new. An admin can change any rule from `/admin/settings/reward-rules` as a new proposed version.
+- Decision: open (founder).
+
+### OQ-S58-03 Plausible-range bounds for "no points for an implausible reading"
+- Proposed wide bounds (systolic 50 to 260, glucose 1 to 40 mmol/L, pulse 25 to 230, SpO2 50 to 100, temperature 30 to 43). They only decide whether a reading earns points; the triage path never reads them. A dangerous reading inside the bounds earns normally. CMO to confirm the bounds.
+- Decision: open (CMO).
+
+### OQ-S58-04 No refill reward yet
+- The plan lists "refill" as a verified action. No dependable refill-collected event exists (pharmacy fulfilment, S34 onward). The rule is not seeded; add it when a verified event exists. Self-reported screening completions (`screening_completions`) are deliberately not rewarded (a result row, `screening_results`, is the verified signal).
+- Decision: informational.
+
+### OQ-S58-05 The spendable balance never resets and levels only count the calendar year
+- Vitality-style "annual reset with status kept" is applied to the level counter only, so nobody loses spendable points (no loss framing). Points never expire. Alternative: an expiry date on points. Not chosen.
+- Decision: open (founder).
+
+### OQ-S58-06 Employer-funded reward pools (11.4) wait for Module 24
+- Only the aggregate-only seam (`rewards_participation_aggregate`, minimum group 10 proposed) is built. Design rules for S79: employer funds a pool, never sees a person (I9), per-person cap, the employer's pool pays for the discount at checkout, no individual status leaves Tarragon.
+- Decision: informational.
+
+### OQ-S58-07 Challenge and class points still come from the catalogue row
+- `challenge.completed` and `class.attended` are events; the points are read from the challenge or class itself (`points_source = catalogue`), still subject to caps and the daily limit. Class attendance is self-reported by the patient (existing behaviour), so it is the most gameable source; the daily limit and a per-day cap of 2 bound it.
+- Decision: open (product).
+
+### OQ-S58-08 A failed rewards event opens one shared incident
+- If a rewards event cannot be written the person's own record is saved, an `audit_log` row (`rewards_event.error`) is written and one open incident (`rewards_event_failed`) covers all of them. Confirm severity and whether ops wants it.
+- Decision: open.
+
+### OQ-S58-09 Patient-facing notifications for points
+- None are sent (INV-07 by absence; no streak or missed-day message exists). If the founder later wants a "you earned points" notice it must be neutral and key-based.
+- Decision: informational.
+

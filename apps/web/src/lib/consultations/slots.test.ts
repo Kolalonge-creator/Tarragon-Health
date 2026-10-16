@@ -17,7 +17,7 @@ describe("toConsultSlots", () => {
   it("maps a row onto the slot shape the booking list renders", () => {
     expect(toConsultSlots([row()])).toEqual([
       { clinician_id: "11111111-1111-4111-8111-111111111111", clinician_name: "Dr Ada", slot_start: "2026-10-12T09:00:00Z", slot_end: "2026-10-12T09:30:00Z", consultation_method: "telemedicine", location: null,
-        specialty: "General practice", languages: ["en"], sex: null, mdcn_number: null, licence_checked_on: null },
+        specialty: "General practice", languages: ["en"], sex: null, licence_checked_on: null },
     ]);
   });
 
@@ -40,15 +40,17 @@ describe("toConsultSlots", () => {
   });
 });
 
-describe("S64 licence display (Q19), null-gated", () => {
-  it("shows the number only together with the date it was checked", () => {
-    const [s] = toConsultSlots([row({ mdcn_number: "MDCN/12345", licence_checked_on: "2026-09-20T10:00:00Z" })]);
-    expect([s?.mdcn_number, s?.licence_checked_on]).toEqual(["MDCN/12345", "2026-09-20T10:00:00Z"]);
+describe("licence display (CMO Q17 / OQ-358): the date of a stored check, never the folio", () => {
+  it("carries the checked-on date and no registration number", () => {
+    const [s] = toConsultSlots([row({ licence_checked_on: "2026-09-20T10:00:00Z", ...({ mdcn_number: "MDCN/12345" } as object) })]);
+    expect(s?.licence_checked_on).toBe("2026-09-20T10:00:00Z");
+    expect(Object.keys(s ?? {})).not.toContain("mdcn_number");
+    expect(JSON.stringify(s)).not.toContain("MDCN/12345");
   });
-  it("shows neither when no check is on record, or when the date is unusable", () => {
-    for (const over of [{ mdcn_number: "MDCN/12345", licence_checked_on: null }, { mdcn_number: null, licence_checked_on: "2026-09-20T10:00:00Z" }, { mdcn_number: "MDCN/1", licence_checked_on: "nope" }]) {
+  it("shows nothing when no check is on record, or when the date is unusable", () => {
+    for (const over of [{ licence_checked_on: null }, { licence_checked_on: "nope" }]) {
       const [s] = toConsultSlots([row(over)]);
-      expect([s?.mdcn_number, s?.licence_checked_on]).toEqual([null, null]);
+      expect(s?.licence_checked_on).toBeNull();
     }
   });
 });

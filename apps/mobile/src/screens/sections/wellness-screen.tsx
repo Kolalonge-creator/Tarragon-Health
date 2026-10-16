@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { t, pointsTierLabel, pointsRuleLabel } from "@tarragon/i18n";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
-import { t } from "@tarragon/i18n";
 import {
   enrolInWellnessChallenge,
   loadMyChallengeEnrolments,
@@ -10,7 +10,8 @@ import {
   loadWellnessBadgesCatalogue,
   loadWellnessChallengeProgress,
   loadWellnessChallengesCatalogue,
-  loadWellnessPointsBalance,
+  loadMyPointsStatus,
+  loadRewardRules,
   loadWellnessPointsLedger,
   markWellnessClassAttended,
   reasonLabel,
@@ -21,7 +22,8 @@ import {
   type WellnessChallenge,
   type WellnessClass,
   type WellnessClassRegistration,
-  type WellnessPointsBalance,
+  type MyPointsStatus,
+  type RewardRule,
   type WellnessPointsLedgerEntry,
 } from "@/lib/wellness";
 import type { SectionId } from "@/lib/sections";
@@ -74,7 +76,8 @@ interface WellnessScreenProps {
 export function WellnessScreen({ patientId, organisationId }: WellnessScreenProps) {
   const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
-  const [balance, setBalance] = useState<WellnessPointsBalance | null>(null);
+  const [status, setStatus] = useState<MyPointsStatus | null>(null);
+  const [rules, setRules] = useState<RewardRule[]>([]);
   const [ledger, setLedger] = useState<WellnessPointsLedgerEntry[]>([]);
   const [badgeCatalogue, setBadgeCatalogue] = useState<WellnessBadge[]>([]);
   const [myBadges, setMyBadges] = useState<PatientWellnessBadge[]>([]);
@@ -84,8 +87,9 @@ export function WellnessScreen({ patientId, organisationId }: WellnessScreenProp
   const [registrations, setRegistrations] = useState<WellnessClassRegistration[]>([]);
 
   const refresh = useCallback(async () => {
-    const [b, l, bc, mb, cc, en, cl, reg] = await Promise.all([
-      loadWellnessPointsBalance(patientId),
+    const [b, rl, l, bc, mb, cc, en, cl, reg] = await Promise.all([
+      loadMyPointsStatus(),
+      loadRewardRules(),
       loadWellnessPointsLedger(patientId, 8),
       loadWellnessBadgesCatalogue(),
       loadMyWellnessBadges(patientId),
@@ -94,7 +98,8 @@ export function WellnessScreen({ patientId, organisationId }: WellnessScreenProp
       loadUpcomingWellnessClasses(),
       loadMyClassRegistrations(patientId),
     ]);
-    setBalance(b);
+    setStatus(b);
+    setRules(rl);
     setLedger(l);
     setBadgeCatalogue(bc);
     setMyBadges(mb);
@@ -127,11 +132,11 @@ export function WellnessScreen({ patientId, organisationId }: WellnessScreenProp
         <ScreenTitle>Wellness rewards</ScreenTitle>
         <MutedText>
           Small, everyday habits add up. Earn points for logging, learning, and finishing challenges,
-          collect badges along the way, and use points at checkout to lower Tarragon's own fee on a payment.
+          and collect badges along the way. Points show your progress; they are not money.
         </MutedText>
       </View>
 
-      <PointsCard balance={balance} ledger={ledger} />
+      <PointsCard status={status} rules={rules} ledger={ledger} />
       <BadgesCard catalogue={badgeCatalogue} earned={myBadges} />
       <ChallengesCard catalogue={challengeCatalogue} enrolments={enrolments} onChanged={refresh} />
       <ClassesCard
@@ -145,41 +150,92 @@ export function WellnessScreen({ patientId, organisationId }: WellnessScreenProp
   );
 }
 
-function PointsCard({ balance, ledger }: { balance: WellnessPointsBalance | null; ledger: WellnessPointsLedgerEntry[] }) {
+function PointsCard({
+  status,
+  rules,
+  ledger,
+}: {
+  status: MyPointsStatus | null;
+  rules: RewardRule[];
+  ledger: WellnessPointsLedgerEntry[];
+}) {
   const colors = useLegacyColors();
-
-  const currentBalance = balance?.balance ?? 0;
+  const currentBalance = status?.balance ?? 0;
+  const label = { fontSize: 11, fontWeight: "600" as const, textTransform: "uppercase" as const, letterSpacing: 0.3, color: colors.muted };
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("points.card.title", "en")}</Text>
-      <MutedText>{t("points.card.body", "en")}</MutedText>
+      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("points.title")}</Text>
+      <MutedText>{t("points.subtitle")}</MutedText>
 
       <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
         <Text style={{ fontSize: 28, fontWeight: "700", color: colors.ink }}>{currentBalance.toLocaleString()}</Text>
         <MutedText>
-          points{balance?.lifetime_earned ? ` · ${balance.lifetime_earned.toLocaleString()} earned all-time` : ""}
+          {t("points.balance_unit")}
+          {status?.lifetime_earned ? ` · ${t("points.earned_all_time", "en", { points: status.lifetime_earned.toLocaleString() })}` : ""}
         </MutedText>
       </View>
 
-      <MutedText>{t("points.card.how_to_use", "en")}</MutedText>
+      {status && (
+        <View style={{ gap: 2 }}>
+          <Text style={label}>{t("points.level.title")}</Text>
+          {status.is_minor || !status.tier ? (
+            <MutedText>{t("points.level.adults_only")}</MutedText>
+          ) : (
+            <>
+              <Text style={{ fontSize: 13, color: colors.ink }}>{t("points.level.current", "en", { tier: pointsTierLabel(status.tier) })}</Text>
+              {status.tier_from === "last_year" && (
+                <MutedText>{t("points.level.kept", "en", { tier: pointsTierLabel(status.tier) })}</MutedText>
+              )}
+              {status.next_tier && status.points_to_next != null && status.points_to_next > 0 ? (
+                <MutedText>{t("points.level.next", "en", { points: status.points_to_next, tier: pointsTierLabel(status.next_tier) })}</MutedText>
+              ) : (
+                !status.next_tier && <MutedText>{t("points.level.top")}</MutedText>
+              )}
+              <MutedText>{t("points.level.resets")}</MutedText>
+            </>
+          )}
+        </View>
+      )}
 
-      {ledger.length > 0 && (
+      {rules.length > 0 && (
         <View style={{ gap: 4 }}>
-          <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, color: colors.muted }}>
-            Recent activity
-          </Text>
-          {ledger.map((entry) => (
-            <View key={entry.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
-              <Text style={{ fontSize: 13, color: colors.ink }}>{reasonLabel(entry.reason)}</Text>
-              <Text style={{ fontSize: 13, fontWeight: "600", color: entry.points > 0 ? colors.brandPressed : colors.muted }}>
-                {entry.points > 0 ? "+" : ""}
-                {entry.points}
+          <Text style={label}>{t("points.how.title")}</Text>
+          <MutedText>{t("points.how.intro")}</MutedText>
+          {rules.map((r) => (
+            <View key={r.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 3 }}>
+              <Text style={{ fontSize: 13, color: colors.ink, flexShrink: 1 }}>
+                {pointsRuleLabel(r.code)}
+                {r.verified_action ? ` · ${t("points.how.verified")}` : ""}
+              </Text>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>
+                {r.points_source === "catalogue" ? t("points.how.catalogue") : t("points.how.per", "en", { points: r.points })}
               </Text>
             </View>
           ))}
+          <MutedText>{t("points.how.daily_note")}</MutedText>
         </View>
       )}
+
+      <View style={{ gap: 2 }}>
+        <Text style={label}>{t("points.redeem.title")}</Text>
+        <MutedText>{t("points.redeem.coming_soon")}</MutedText>
+        <MutedText>{t("points.redeem.never_cash")}</MutedText>
+      </View>
+
+      <View style={{ gap: 4 }}>
+        <Text style={label}>{t("points.activity.title")}</Text>
+        {ledger.length === 0 && <MutedText>{t("points.activity.empty")}</MutedText>}
+        {ledger.map((entry) => (
+          <View key={entry.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
+            <Text style={{ fontSize: 13, color: colors.ink }}>{reasonLabel(entry.reason)}</Text>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: entry.points > 0 ? colors.brandPressed : colors.muted }}>
+              {entry.points > 0 ? "+" : ""}
+              {entry.points}
+            </Text>
+          </View>
+        ))}
+      </View>
     </Card>
   );
 }
