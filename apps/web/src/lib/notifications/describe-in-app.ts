@@ -681,7 +681,7 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "proxy_review_due") {
     // From private.sweep_proxy_access_reviews(). Names no one; the person sees who on the card behind the link. Never a reason to act in a hurry.
-    return { text: "A yearly check: do the people who help you still need access? Open the app to keep, change or remove it", href: "/patient/family" };
+    return { text: "A yearly check: do the people who help you still need access? Open Tarragon Health on the web to keep, change or remove it", href: "/patient/family" };
   }
   if (n.template === "proxy_review_due_proxy") {
     // Calm, once per cycle, and says nothing about what the person decides (narrowing and removal stay silent, D5).

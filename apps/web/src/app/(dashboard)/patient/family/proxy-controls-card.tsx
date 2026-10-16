@@ -16,6 +16,11 @@ interface ViewLogRow {
   scope: string | null;
 }
 
+/** PostgREST schema-cache miss, or Postgres undefined_function: the database change has not been applied yet. */
+function isMissingFunction(code: string | undefined): boolean {
+  return code === "PGRST202" || code === "42883";
+}
+
 function when(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
     timeZone: "Africa/Lagos",
@@ -64,8 +69,10 @@ function FollowerControls({ follower }: { follower: CareFollower }) {
       const supabase = createClient();
       const { error } = await supabase.rpc("answer_proxy_review", { p_grantee: follower.profileId, p_action: "remove" });
       if (error && error.code !== "P0002") {
-        // P0002 means it is already gone, which is the outcome wanted. Anything else (for example the review door not being available):
-        // ending a person's access must never depend on bookkeeping, so use the original control.
+        // P0002 means it is already gone, which is the outcome wanted. Only when the review door does not exist at all (the app deployed before its
+        // database change) use the original control: ending a person's access must never depend on bookkeeping. Any other failure, a timeout
+        // included, is shown as a failure rather than retried, because the first call may already have committed.
+        if (!isMissingFunction(error.code)) throw error;
         const fallback = await supabase.rpc("revoke_proxy_access", { p_grantee: follower.profileId });
         if (fallback.error) throw fallback.error;
       }
@@ -89,8 +96,9 @@ function FollowerControls({ follower }: { follower: CareFollower }) {
         p_notify: tellThem,
       });
       if (error) {
-        // A refusal about the choice itself (22023) or a missing grant (P0002) is shown as is; only an unavailable door falls back.
-        if (error.code === "22023" || error.code === "P0002") throw error;
+        // Only a door that does not exist falls back. A refusal (22023, P0002) or a timeout is shown, never retried through the old control, which
+        // would skip the refusal rules and could notify the proxy twice.
+        if (!isMissingFunction(error.code)) throw error;
         const fallback = await supabase.rpc("narrow_proxy_access", { p_grantee: follower.profileId, p_categories: keep, p_notify: tellThem });
         if (fallback.error) throw fallback.error;
       }

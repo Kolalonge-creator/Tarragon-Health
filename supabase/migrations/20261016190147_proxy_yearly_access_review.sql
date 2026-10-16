@@ -26,7 +26,7 @@
 --   * A notice that cannot be queued writes no history row, so the next daily sweep retries it, and the failure is opened as an operations incident.
 --
 -- Counted first (live, 2026-10-16): profile_access holds 0 rows, 0 older than 12 months, so no review is due on the day this lands and no existing
--- row is converted. Live ledger checked the same day: the newest version is 20261016023011, which is also the newest local file, nothing unrecognised.
+-- row is converted. Live ledger checked the same day (before 20261016185844_s03b_auth_sms_hold landed on main-dev): the newest live version was 20261016023011, the newest local file at the time, nothing unrecognised.
 
 -- ---------------------------------------------------------------------------
 -- 1. Versioned PROPOSED config
@@ -36,6 +36,7 @@ create table public.proxy_review_config (
   interval_months integer not null check (interval_months between 1 and 60),
   repeat_days     integer not null check (repeat_days between 1 and 365),
   max_reminders   integer not null check (max_reminders between 1 and 12),
+  proxy_notice_days integer not null default 14 check (proxy_notice_days between 1 and 90),  -- how long the proxy's "yearly check" flag shows, counted from the notice and NOT from the person's answer
   tell_proxy      boolean not null default true,   -- false: the proxy is told nothing at all (no notice, no "due" flag); a safeguarding switch, set by a new version
   status          text not null default 'proposed' check (status in ('proposed', 'confirmed')),
   is_active       boolean not null default false,
@@ -48,8 +49,8 @@ create policy proxy_review_config_read on public.proxy_review_config for select 
 revoke all on public.proxy_review_config from public, anon, authenticated;
 grant select on public.proxy_review_config to authenticated;
 
-insert into public.proxy_review_config (version, interval_months, repeat_days, max_reminders, tell_proxy, status, is_active, note)
-values (1, 12, 30, 4, true, 'proposed', true,
+insert into public.proxy_review_config (version, interval_months, repeat_days, max_reminders, tell_proxy, proxy_notice_days, status, is_active, note)
+values (1, 12, 30, 4, true, 14, 'proposed', true,
         'Build proposal 2026-10-16 (not a signature): review every 12 months from the grant or the last keep; reminders repeat every 30 days, at most 4 in a cycle (the first plus three); access is never removed by silence. tell_proxy = true was asked for in the build brief; the safer value for a coercive household is false, a founder decision before launch (OQ-678).');
 
 -- ---------------------------------------------------------------------------
@@ -181,7 +182,7 @@ begin
      ), '[]'::jsonb);
 end $$;
 
--- For the proxy: only that a yearly check is due for someone they help. A boolean per person, never what was chosen (D5).
+-- For the proxy: only that a yearly check was announced for someone they help. A boolean per person, never what was chosen (D5).
 create function public.proxy_review_due_as_proxy() returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
@@ -195,8 +196,16 @@ begin
   if not (select c.tell_proxy from public.proxy_review_config c where c.is_active) then
     return '[]'::jsonb;
   end if;
-  return coalesce((select jsonb_agg(jsonb_build_object('patient_id', s.patient_id)) from private.proxy_review_state(null, v_uid) s
-                    where s.is_due), '[]'::jsonb);
+  -- Shown for a fixed window counted from the notice, NOT while the review is open and NOT until the person answers: a flag that cleared when they
+  -- answered would tell a controlling proxy the moment of the answer (D5). Still a boolean per person, never an outcome.
+  return coalesce((
+    select jsonb_agg(jsonb_build_object('patient_id', x.patient_id))
+      from (select distinct r.patient_id
+              from public.proxy_access_reviews r
+              join public.profile_access pa on pa.profile_id = r.patient_id and pa.grantee_user_id = r.grantee_user_id
+             where r.grantee_user_id = v_uid and r.kind = 'proxy_told'
+               and r.created_at > now() - make_interval(days => (select c.proxy_notice_days from public.proxy_review_config c where c.is_active))) x
+  ), '[]'::jsonb);
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -210,16 +219,29 @@ returns void
 language plpgsql security definer set search_path = ''
 as $$
 begin
-  insert into public.proxy_access_reviews (organisation_id, patient_id, grantee_user_id, grant_id, kind, detail, is_test)
-  values (p_org, p_patient, p_grantee, p_grant, p_kind, coalesce(p_detail, '{}'::jsonb), p_test);
-  perform private.log_audit('proxy_access.review_' || p_kind, 'profile', p_patient, jsonb_build_object('grant_id', p_grant) || coalesce(p_detail, '{}'::jsonb));
-exception when others then
-  raise warning 'proxy review: % done but its history was not written for grant %: %', p_kind, p_grant, sqlerrm;
   begin
-    perform private.open_job_incident('proxy-review:history', 'A yearly access review answer could not be recorded',
-      'A narrowing or removal succeeded but its review history row failed to write, so the review cycle did not restart. Last reason: ' || left(sqlerrm, 160));
+    insert into public.proxy_access_reviews (organisation_id, patient_id, grantee_user_id, grant_id, kind, detail, is_test)
+    values (p_org, p_patient, p_grantee, p_grant, p_kind, coalesce(p_detail, '{}'::jsonb), p_test);
   exception when others then
-    null;   -- the warning above is the fallback; the person''s action already succeeded
+    raise warning 'proxy review: % done but its history was not written for grant %: %', p_kind, p_grant, sqlerrm;
+    begin
+      perform private.open_job_incident('proxy-review:history', 'A yearly access review answer could not be recorded',
+        'A narrowing or removal succeeded but its review history row failed to write, so the review cycle did not restart. Last reason: ' || left(sqlerrm, 160));
+    exception when others then
+      null;   -- the warning above is the fallback; the person''s action already succeeded
+    end;
+  end;
+  -- A failing audit write must not roll the history row back with it: it is reported separately.
+  begin
+    perform private.log_audit('proxy_access.review_' || p_kind, 'profile', p_patient, jsonb_build_object('grant_id', p_grant) || coalesce(p_detail, '{}'::jsonb));
+  exception when others then
+    raise warning 'proxy review: % done but its audit row was not written for grant %: %', p_kind, p_grant, sqlerrm;
+    begin
+      perform private.open_job_incident('proxy-review:audit', 'A yearly access review answer could not be audited',
+        'A narrowing or removal succeeded and was recorded, but its audit row failed to write. Last reason: ' || left(sqlerrm, 160));
+    exception when others then
+      null;
+    end;
   end;
 end $$;
 revoke all on function private.record_proxy_review_answer(uuid, uuid, uuid, uuid, text, jsonb, boolean) from public, anon, authenticated;
@@ -288,9 +310,9 @@ insert into public.notification_templates (key, category, business_priority, aud
    'Calm notice to someone who helps another person: a yearly check is due. Says nothing about the outcome and never that access was narrowed or removed.')
 on conflict (key) do nothing;
 insert into public.notification_template_locales (template_key, locale, channel, subject, body) values
-  ('proxy_review_due', 'en', 'in_app', null, 'A yearly check: do the people who help you still need access? Open the app to keep, change or remove it'),
-  ('proxy_review_due', 'en', 'email', 'A yearly check on who can help you', 'Once a year we ask whether the people who help you still need access. Open Tarragon Health to keep, change or remove it. Nothing changes unless you choose.'),
-  ('proxy_review_due', 'en', 'push', null, 'A yearly check is waiting. Open the app to review who can help you'),
+  ('proxy_review_due', 'en', 'in_app', null, 'A yearly check: do the people who help you still need access? Open Tarragon Health on the web to keep, change or remove it'),
+  ('proxy_review_due', 'en', 'email', 'A yearly check on who can help you', 'Once a year we ask whether the people who help you still need access. Open Tarragon Health on the web to keep, change or remove it. Nothing changes unless you choose.'),
+  ('proxy_review_due', 'en', 'push', null, 'A yearly check is waiting. Open Tarragon Health on the web to review who can help you'),
   ('proxy_review_due_proxy', 'en', 'in_app', null, 'A yearly check is due. The person you help is looking over who can help them. You do not need to do anything')
 on conflict (template_key, locale, channel) do nothing;
 
@@ -315,7 +337,8 @@ declare
   v_first_error text;
   v_chan public.notification_channel;
   v_test boolean;
-  v_people uuid[] := '{}';    -- people already notified in this run: one notice per person however many grants are due
+  v_people uuid[] := '{}';    -- people already notified in this run: one notice per person per run, however many grants are due. Every due grant still gets its own
+                              -- reminder_sent row (the person was told that cycle), so each grant's cap counts the same notices
   v_proxies uuid[] := '{}';
   v_skip_person boolean;
   v_skip_proxy boolean;
@@ -344,7 +367,7 @@ begin
         values (r.organisation_id, r.patient_id, 'in_app', 'pending', 'proxy_review_due', '{}'::jsonb, 'non_clinical', 'profile_access', r.grant_id);
         -- and the person's own channel as well, when it is not the app (quiet hours and discreet mode are applied by the sender)
         v_chan := private.patient_reminder_channel(r.patient_id);
-        if v_chan <> 'in_app' then
+        if v_chan <> 'in_app' and not v_test then   -- test accounts never get real email or push (same rule as the daily nudge)
           insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class, source_table, source_id)
           values (r.organisation_id, r.patient_id, v_chan, 'pending', 'proxy_review_due', '{}'::jsonb, 'non_clinical', 'profile_access', r.grant_id);
         end if;

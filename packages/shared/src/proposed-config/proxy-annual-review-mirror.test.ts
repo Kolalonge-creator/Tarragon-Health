@@ -6,13 +6,13 @@ import { getProposedConfig } from "./index";
 
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
 
-function seedRow(): { intervalMonths: number; repeatDays: number; maxReminders: number; tellProxy: boolean; status: string } {
+function seedRow(): { intervalMonths: number; repeatDays: number; maxReminders: number; tellProxy: boolean; proxyNoticeDays: number; status: string } {
   const file = readdirSync(MIGRATIONS).find((f) => f.endsWith("_proxy_yearly_access_review.sql"));
   if (!file) throw new Error("proxy yearly access review migration not found");
   const sql = readFileSync(join(MIGRATIONS, file), "utf8");
-  const m = /insert into public\.proxy_review_config[^;]*?values \((\d+), (\d+), (\d+), (\d+), (true|false), '(\w+)', true,/.exec(sql);
+  const m = /insert into public\.proxy_review_config[^;]*?values \((\d+), (\d+), (\d+), (\d+), (true|false), (\d+), '(\w+)', true,/.exec(sql);
   if (!m) throw new Error("proxy_review_config seed not found");
-  return { intervalMonths: Number(m[2]), repeatDays: Number(m[3]), maxReminders: Number(m[4]), tellProxy: m[5] === "true", status: m[6] as string };
+  return { intervalMonths: Number(m[2]), repeatDays: Number(m[3]), maxReminders: Number(m[4]), tellProxy: m[5] === "true", proxyNoticeDays: Number(m[6]), status: m[7] as string };
 }
 
 describe("proxy.annual_review mirrors proxy_review_config v1", () => {

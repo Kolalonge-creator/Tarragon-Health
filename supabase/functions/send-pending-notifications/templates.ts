@@ -1545,10 +1545,10 @@ export const TEMPLATE_MAP: Record<
       html:
         `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
         `<p>Once a year we ask whether the people who help you still need access.</p>` +
-        `<p>Open Tarragon Health to keep, change or remove it. Nothing changes unless you choose.</p>` +
+        `<p>Open Tarragon Health on the web to keep, change or remove it. Nothing changes unless you choose.</p>` +
         `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
-      text: "Once a year we ask whether the people who help you still need access.\n\nOpen Tarragon Health to keep, change or remove it. Nothing changes unless you choose.\n\nTarragon Health",
+      text: "Once a year we ask whether the people who help you still need access.\n\nOpen Tarragon Health on the web to keep, change or remove it. Nothing changes unless you choose.\n\nTarragon Health",
     },
   }),
   circle_pause_ended: () => ({

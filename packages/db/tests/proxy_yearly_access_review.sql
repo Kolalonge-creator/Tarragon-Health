@@ -123,6 +123,10 @@ begin
   v_n := private.sweep_proxy_access_reviews();
   perform pg_temp.ck('a second sweep the same day sends nothing', '0', v_n::text);
   perform pg_temp.ck('...and still one reminder', '1', pg_temp.n_hist(v_pa, v_px, 'reminder_sent'));
+  -- the proxy sees only a boolean "a yearly check was announced", never an outcome, and nothing of the history
+  perform pg_temp.ck('proxy sees a flag for the person they help', v_pa::text, pg_temp.q_as(v_px, $q$select (public.proxy_review_due_as_proxy() -> 0 ->> 'patient_id')$q$));
+  perform pg_temp.ck('proxy flag carries nothing else', '1', pg_temp.q_as(v_px, $q$select (select count(*) from jsonb_object_keys(public.proxy_review_due_as_proxy() -> 0))::text$q$));
+  perform pg_temp.ck('control: the fresh proxy has no flag', '0', pg_temp.q_as(v_px2, $q$select jsonb_array_length(public.proxy_review_due_as_proxy())::text$q$));
 
   -- 2. repeats, cap, never removes
   perform pg_temp.age_history(v_pa, v_px, interval '31 days');
@@ -137,12 +141,10 @@ begin
   perform pg_temp.ck('past the cap nothing more is sent', '0|4', v_n::text || '|' || pg_temp.n_hist(v_pa, v_px, 'reminder_sent'));
   perform pg_temp.age_history(v_pa, v_px, interval '400 days'); perform private.sweep_proxy_access_reviews();
   perform pg_temp.ck('silence for over a year still removes no access', '1', pg_temp.n_grant(v_pa, v_px));
+  perform pg_temp.ck('the proxy flag ended by itself after its window, with the review still open', '0', pg_temp.q_as(v_px, $q$select jsonb_array_length(public.proxy_review_due_as_proxy())::text$q$));
   perform pg_temp.ck('the item stays on the list as due, overdue by days', 'true', pg_temp.q_as(v_pa, format($q$select ((e ->> 'is_due') = 'true' and (e ->> 'days_overdue')::int > 30)::text from jsonb_array_elements(public.my_proxy_reviews()) e where (e ->> 'grant_id') = %L$q$, v_grant)));
 
   -- the proxy sees only a boolean "due", never an outcome, and nothing of the history
-  perform pg_temp.ck('proxy sees a due flag for the person they help', v_pa::text, pg_temp.q_as(v_px, $q$select (public.proxy_review_due_as_proxy() -> 0 ->> 'patient_id')$q$));
-  perform pg_temp.ck('proxy flag carries nothing else', '1', pg_temp.q_as(v_px, $q$select (select count(*) from jsonb_object_keys(public.proxy_review_due_as_proxy() -> 0))::text$q$));
-  perform pg_temp.ck('control: the fresh proxy has no due flag', '0', pg_temp.q_as(v_px2, $q$select jsonb_array_length(public.proxy_review_due_as_proxy())::text$q$));
   perform pg_temp.ck('proxy cannot read the review history', '0', pg_temp.q_as(v_px, 'select count(*)::text from public.proxy_access_reviews'));
   perform pg_temp.ck('control: the person reads their own history', 'true', pg_temp.q_as(v_pa, 'select (count(*) > 0)::text from public.proxy_access_reviews'));
   perform pg_temp.ck('a stranger reads none', '0', pg_temp.q_as(v_stranger, 'select count(*)::text from public.proxy_access_reviews'));
@@ -164,7 +166,6 @@ begin
   perform pg_temp.ck('the person keeps it', 'ok', pg_temp.try_as(v_pa, format($q$select public.answer_proxy_review(%L, 'keep')$q$, v_px)));
   perform pg_temp.ck('no longer due', 'false', pg_temp.q_as(v_pa, format($q$select (e ->> 'is_due') from jsonb_array_elements(public.my_proxy_reviews()) e where (e ->> 'grant_id') = %L$q$, v_grant)));
   perform pg_temp.ck('keep is recorded and audited', '1|1', pg_temp.n_hist(v_pa, v_px, 'kept') || '|' || (select count(*)::text from public.audit_log where action = 'proxy_access.review_kept' and actor_id = v_pa));
-  perform pg_temp.ck('proxy flag clears', '0', pg_temp.q_as(v_px, $q$select jsonb_array_length(public.proxy_review_due_as_proxy())::text$q$));
   v_n := private.sweep_proxy_access_reviews();
   perform pg_temp.ck('a kept grant gets no reminder', '0', v_n::text);
   perform pg_temp.age_history(v_pa, v_px, interval '13 months');   -- a year passes
@@ -256,6 +257,21 @@ begin
     perform pg_temp.ck('two due grants give the person one notice, not two', '1', pg_temp.n_notif(v_mp, 'proxy_review_due'));
     perform pg_temp.ck('...but each grant is counted in its own history', '1|1', pg_temp.n_hist(v_mp, v_m1, 'reminder_sent') || '|' || pg_temp.n_hist(v_mp, v_m2, 'reminder_sent'));
     perform pg_temp.ck('...and each proxy is told once', '1|1', pg_temp.n_notif(v_m1, 'proxy_review_due_proxy') || '|' || pg_temp.n_notif(v_m2, 'proxy_review_due_proxy'));
+    perform pg_temp.ck('the proxy flag is showing before the person answers', '1', pg_temp.q_as(v_m1, 'select jsonb_array_length(public.proxy_review_due_as_proxy())::text'));
+    perform pg_temp.ck('the person keeps it', 'ok', pg_temp.try_as(v_mp, format($q$select public.answer_proxy_review(%L, 'keep')$q$, v_m1)));
+    perform pg_temp.ck('the flag does not change when the person answers (no timing signal to the proxy)', '1', pg_temp.q_as(v_m1, 'select jsonb_array_length(public.proxy_review_due_as_proxy())::text'));
+  end;
+
+  -- test accounts are never sent real email or push, only the in-app row (control: a real account with a push device gets the extra channel)
+  declare v_tp uuid := pg_temp.mkuser(v_org, 'testperson'); v_tx uuid := pg_temp.mkuser(v_org, 'testproxy'); v_rp uuid := pg_temp.mkuser(v_org, 'realperson'); v_rx uuid := pg_temp.mkuser(v_org, 'realproxy');
+  begin
+    update public.profiles set is_test = false where id = v_rp;
+    perform pg_temp.grant_aged(v_tp, v_tx, interval '13 months', array['vitals_readings']);
+    perform pg_temp.grant_aged(v_rp, v_rx, interval '13 months', array['vitals_readings']);
+    insert into public.push_subscriptions (organisation_id, profile_id, endpoint, p256dh_key, auth_key) values (v_org, v_tp, 'https://example.invalid/pyr-test', 'x', 'x'), (v_org, v_rp, 'https://example.invalid/pyr-real', 'x', 'x');
+    perform private.sweep_proxy_access_reviews();
+    perform pg_temp.ck('a test account gets only the in-app notice', '1|0', (select count(*) filter (where channel = 'in_app')::text || '|' || count(*) filter (where channel <> 'in_app')::text from public.notifications where recipient_id = v_tp and template = 'proxy_review_due'));
+    perform pg_temp.ck('control: a real account with a device also gets its own channel', '1|1', (select count(*) filter (where channel = 'in_app')::text || '|' || count(*) filter (where channel <> 'in_app')::text from public.notifications where recipient_id = v_rp and template = 'proxy_review_due'));
   end;
   perform pg_temp.ck('the history table is in the data registry', '1', (select count(*)::text from public.data_registry where table_name = 'proxy_access_reviews'));
 

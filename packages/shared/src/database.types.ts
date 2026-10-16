@@ -9009,6 +9009,7 @@ export type Database = {
           is_active: boolean
           max_reminders: number
           note: string | null
+          proxy_notice_days: number
           repeat_days: number
           status: string
           tell_proxy: boolean
@@ -9020,6 +9021,7 @@ export type Database = {
           is_active?: boolean
           max_reminders: number
           note?: string | null
+          proxy_notice_days?: number
           repeat_days: number
           status?: string
           tell_proxy?: boolean
@@ -9031,6 +9033,7 @@ export type Database = {
           is_active?: boolean
           max_reminders?: number
           note?: string | null
+          proxy_notice_days?: number
           repeat_days?: number
           status?: string
           tell_proxy?: boolean
