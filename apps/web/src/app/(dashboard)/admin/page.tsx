@@ -100,10 +100,10 @@ export default async function AdminPage() {
   ] = await Promise.all([
     supabase.rpc("analytics_business_summary"),
     supabase.rpc("analytics_financial_summary"),
-    supabase.from("clinical_staff").select("*", { count: "exact", head: true }).eq("active", true),
+    supabase.from("clinical_staff").select("id", { count: "exact", head: true }).eq("active", true),
     supabase
       .from("clinical_staff")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .is("license_verified_at", null),
     supabase
       .from("booking_requests")

@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import type { EmergencyCardPayload } from "@/lib/emergency/card";
 import { EmergencyCardBody } from "@/components/emergency/emergency-card-body";
+import { t, type MessageKey } from "@tarragon/i18n";
+import { knownHiddenFields } from "@/lib/emergency/field-choices";
 
 /**
  * The card a stranger doctor reads at 2am, when a patient has explicitly opted
@@ -81,9 +83,25 @@ export default async function EmergencyCardPage({
     );
   }
 
+  // S43: a field the person chose not to share is absent from the payload, not null. Normalised so the body sees what it always saw.
+  const facts: EmergencyCardPayload = {
+    ...card,
+    date_of_birth: card.date_of_birth ?? null,
+    sex: card.sex ?? null,
+    patient_number: card.patient_number ?? null,
+    emergency_contact: card.emergency_contact ?? null,
+    blood: card.blood ?? null,
+    allergies: card.allergies ?? [],
+    medications: card.medications ?? [],
+    conditions: card.conditions ?? [],
+  };
+  const hiddenKeys = knownHiddenFields(card.hidden_fields);
+  const hidden = hiddenKeys.map((f) => t(`ecf.field.${f}` as MessageKey));
+
   return (
     <EmergencyCardBody
-      facts={card}
+      facts={facts}
+      hidden={hiddenKeys}
       headerLabel="Emergency health card"
       headerSubline={`Issued ${formatDate(card.issued_at)} · Valid until ${formatDate(card.expires_at)}`}
       footer={
@@ -94,6 +112,7 @@ export default async function EmergencyCardPage({
             your own assessment. The patient can withdraw it at any time.
           </p>
           <p className="mt-1">Viewing this card is recorded and shown to the patient.</p>
+          {hidden.length > 0 && <p className="mt-1">{t("ecf.hidden_note", "en", { fields: hidden.join(", ").toLowerCase() })}</p>}
         </>
       }
     />

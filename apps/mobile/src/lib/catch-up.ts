@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { loadCatchUpDoses, logDose, type DoseChecklistItem, type LoggableStatus } from "./medications";
 import { recordSyncError } from "./sync-diagnostics";
 import { loadMedicineRules } from "./medicines-config";
+import { loadManagedDependants } from "./acting";
 
 /**
  * The catch-up sheet (S08b): when the app opens, doses from yesterday and today that
@@ -10,6 +11,9 @@ import { loadMedicineRules } from "./medicines-config";
  * and not asked about again (it still reads "no record yet" in the Today list).
  */
 export type CatchUpChoice = "took" | "skipped" | "not_taken";
+
+/** A dose to ask about. `person` is set only for a dependant the device owner manages (OQ-76); it carries who to record the answer for. */
+export type CatchUpItem = DoseChecklistItem & { person?: { profileId: string; organisationId: string; firstName: string } };
 
 const DISMISSED_KEY = "catch-up:dismissed";
 const LAST_OFFERED_KEY = "catch-up:last-offered";
@@ -26,7 +30,7 @@ export function statusForChoice(choice: CatchUpChoice): LoggableStatus {
 }
 
 /** The doses to ask about: not dismissed, oldest first, no more than the configured number. */
-export function selectCatchUp(items: readonly DoseChecklistItem[], dismissed: ReadonlySet<string>): DoseChecklistItem[] {
+export function selectCatchUp<T extends DoseChecklistItem>(items: readonly T[], dismissed: ReadonlySet<string>): T[] {
   const max = loadMedicineRules().catchUpMaxItems;
   return items
     .filter((i) => !dismissed.has(catchUpKey(i)))
@@ -60,7 +64,7 @@ export async function saveLastOffered(nowMs: number): Promise<void> {
 export type CatchUpCheck =
   | { status: "skipped" }
   | { status: "none" }
-  | { status: "show"; items: DoseChecklistItem[] }
+  | { status: "show"; items: CatchUpItem[] }
   | { status: "failed"; error: string };
 
 /** How long to wait before the next try after attempt number `attempt` (0 for the first) failed, or null once the tries are used up. */
@@ -84,7 +88,17 @@ export async function runCatchUpCheck(patientId: string, nowMs: number, recordFa
     if (recordFailure) recordSyncError("catch_up", "read", res.error);
     return { status: "failed", error: res.error };
   }
-  const items = selectCatchUp(res.data, await loadDismissed());
+  const all: CatchUpItem[] = [...res.data];
+  // The dependants this person manages are asked about too; a dependant who cannot be read right now is skipped, never a reason to hide the rest.
+  for (const dep of (await loadManagedDependants(patientId)) ?? []) {
+    const depRes = await loadCatchUpDoses(dep.profileId, nowMs);
+    if (!depRes.ok) {
+      if (recordFailure) recordSyncError("catch_up", "read", depRes.error);
+      continue;
+    }
+    for (const item of depRes.data) all.push({ ...item, person: { profileId: dep.profileId, organisationId: dep.organisationId, firstName: dep.firstName } });
+  }
+  const items = selectCatchUp(all, await loadDismissed());
   return items.length === 0 ? { status: "none" } : { status: "show", items };
 }
 
@@ -113,8 +127,10 @@ export async function saveDismissed(keys: readonly string[]): Promise<void> {
 export function answerCatchUp(
   patientId: string,
   organisationId: string,
-  item: DoseChecklistItem,
+  item: CatchUpItem,
   choice: CatchUpChoice
 ): Promise<{ error?: string; synced?: boolean }> {
+  // A dependant's dose is recorded for the dependant, never under the guardian's own id.
+  if (item.person) return logDose(item.person.profileId, item.person.organisationId, item, statusForChoice(choice));
   return logDose(patientId, organisationId, item, statusForChoice(choice));
 }

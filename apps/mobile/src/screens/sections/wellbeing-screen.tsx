@@ -43,6 +43,7 @@ import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { WellbeingTrendChart } from "./wellbeing-trend-chart";
+import { FeatureConsentGate } from "@/ui/feature-consent-gate";
 
 function ScalePicker({ value, onChange }: { value: number | null; onChange: (v: number) => void }) {
   const colors = useLegacyColors();
@@ -218,7 +219,9 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
         <MentalHealthHandoffCard screens={screens} />
 
         {showScreenForm ? (
-          <MentalHealthScreenForm onDone={() => { setShowScreenForm(false); void refresh(); }} />
+          <FeatureConsentGate dataType="mental_health">
+            <MentalHealthScreenForm onDone={() => { setShowScreenForm(false); void refresh(); }} />
+          </FeatureConsentGate>
         ) : (
           <SecondaryButton title="Take the full mental wellbeing check-in" onPress={() => setShowScreenForm(true)} />
         )}

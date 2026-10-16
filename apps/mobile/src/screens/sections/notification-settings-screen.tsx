@@ -30,8 +30,7 @@ const CATEGORY_LABEL: Record<NotificationPreferenceCategory, string> = {
 };
 
 /**
- * `sms` stays a real, settable column on `patient_notification_preferences`
- * (used for verification codes), but this app only renders Email and Push.
+ * There is no SMS preference any more (S42, INV-08): SMS is for verification codes only. This app renders Email and Push.
  */
 const DISPLAYED_CHANNELS: { key: NotificationChannel; label: string }[] = [
   { key: "email", label: "Email" },
@@ -110,7 +109,6 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
       organisationId,
       category,
       emailEnabled: next.email,
-      smsEnabled: next.sms,
       pushEnabled: next.push,
     });
     setSavingCategory(null);

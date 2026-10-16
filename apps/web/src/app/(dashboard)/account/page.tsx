@@ -4,6 +4,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
 import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
+import { fetchStaffFolios } from "@/lib/clinical/staff-folio";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
@@ -68,7 +69,12 @@ export default async function AccountPage() {
   const idValue = isPatient ? profile.patient_number : staffNumber;
 
   const supabase = await createClient();
-  const { data: factors } = await supabase.auth.mfa.listFactors();
+  // The clinician's OWN folio only (OQ-358): the folio function returns it to its owner, never to a colleague.
+  const [ownFolioMap, { data: factors }] = await Promise.all([
+    staff ? fetchStaffFolios(supabase, [staff.id]) : Promise.resolve(new Map<string, string | null>()),
+    supabase.auth.mfa.listFactors(),
+  ]);
+  const ownFolio = staff ? (ownFolioMap.get(staff.id) ?? null) : null;
   const verifiedFactorId =
     factors?.totp.find((f) => f.status === "verified")?.id ?? null;
 
@@ -121,8 +127,8 @@ export default async function AccountPage() {
               <Field
                 label="Credential"
                 value={
-                  staff.credential_type && staff.credential_number
-                    ? `${staff.credential_type} ${staff.credential_number}`
+                  staff.credential_type && ownFolio
+                    ? `${staff.credential_type} ${ownFolio}`
                     : undefined
                 }
               />
@@ -134,7 +140,7 @@ export default async function AccountPage() {
       {isPatient && (
         <div className="space-y-2">
           <PatientLocationForm
-            initial={{ state: profile.state, city: profile.city, area: profile.area }}
+            initial={{ state: profile.state, city: profile.city, area: profile.area, lga: profile.lga }}
           />
           <p className="text-xs text-charcoal-ink/50">
             Emergency contact, next of kin, and how we explain results to you stay on your

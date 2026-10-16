@@ -3,6 +3,7 @@ import type { Database, Json, TablesInsert } from "@tarragon/shared";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { flagHazardousAlcoholUse } from "@/lib/alcohol/escalate";
 import { runBestEffort } from "@/lib/sentry/run-best-effort";
+import { friendlyDbError, isFeatureConsentError } from "@/lib/consent/feature-consent-error";
 import { scorePhq9, scoreGad7, scoreAuditC, scoreEpds, EPDS_ITEM_COUNT } from "@/lib/rules/mental-health-screening";
 import type { MentalHealthScreenInput } from "@/lib/validation/mental-health-screen";
 
@@ -26,7 +27,7 @@ export const CRISIS_EVENT_DETAIL = "A check-in needs urgent follow-up";
  * the card never says "your care team has been told" on the strength of nothing. It is false when a crisis was flagged and no event
  * could be raised: the card then shows the same go-to-the-nearest-hospital guidance without that promise.
  */
-export type SaveScreensResult = { ok: true; crisis: boolean; told: boolean } | { ok: false; error: string };
+export type SaveScreensResult = { ok: true; crisis: boolean; told: boolean } | { ok: false; error: string; consentRequired?: boolean };
 
 export async function saveMentalHealthScreens(args: {
   /** The signed-in user's own session (used for the profile read and the emergency event, under their RLS). */
@@ -68,7 +69,8 @@ export async function saveMentalHealthScreens(args: {
   // authenticated session's user id, never anything client-supplied.
   const service = createServiceRoleClient();
   const { error: insertError } = await service.from("mental_health_screens").insert(rows);
-  if (insertError) return { ok: false, error: insertError.message };
+  // S47d: the database refuses the write when the person has not said yes to mental-health tracking; show a plain sentence, not the code.
+  if (insertError) return { ok: false, error: friendlyDbError(insertError.message), consentRequired: isFeatureConsentError(insertError.message) };
 
   const crisis = phq9.crisis || epds?.crisis === true;
   let told = false;

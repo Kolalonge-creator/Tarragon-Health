@@ -22,7 +22,8 @@ export type Cohort = z.infer<typeof cohortSchema>;
 const month = z.intersection(z.object({ enrolment_month: z.string() }), cohortSchema);
 
 export const reportSchema = z.object({
-  measure: z.literal("bp_control_90d"),
+  measure: z.enum(["bp_control_90d", "bp_control_180d"]),
+  due_day: z.number().int().optional(),
   config_version: z.number().int(),
   minimum_cell: z.number().int(),
   cohort_all_due: cohortSchema,
@@ -33,11 +34,12 @@ export const reportSchema = z.object({
   months_withheld: z.number().int(),
   data_quality: z.union([
     z.object({
-      enrolled_total: z.number().int(), not_yet_due: z.number().int(), baseline_missing_pct: z.number(), day90_no_reading_pct: z.number(),
+      enrolled_total: z.number().int().nullable(), not_yet_due: z.number().int().nullable(), baseline_missing_pct: z.number(), day90_no_reading_pct: z.number().nullable().optional(), due_day_no_reading_pct: z.number().optional(),
       default_target_used_pct: z.number(), readings_arriving_after_snapshot_pct: z.number(), adherence_unavailable_pct: z.number().optional(),
     }),
-    withheld.extend({ enrolled_total: z.number().int().optional(), not_yet_due: z.number().int().optional() }),
+    withheld.extend({ enrolled_total: z.number().int().nullable().optional(), not_yet_due: z.number().int().nullable().optional() }),
   ]),
+  bp_basis: z.string().optional(),
   definition: z.string(),
   limitations: z.string(),
   range: z.object({ from: z.string().nullable(), to: z.string().nullable() }).optional(),

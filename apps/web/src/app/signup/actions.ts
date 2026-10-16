@@ -3,7 +3,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { phoneOtpVerifySchema, phoneSignupSchema, signupSchema } from "@/lib/validation/auth";
+import { emailOtpVerifySchema, phoneOtpVerifySchema, phoneSignupSchema, signupSchema } from "@/lib/validation/auth";
 import { checkNewPassword } from "@/lib/auth/check-new-password";
 import { authErrorKey } from "@tarragon/auth/auth-error-key";
 import { t, type Locale, type MessageKey } from "@tarragon/i18n";
@@ -16,6 +16,7 @@ import { firstIssue } from "@/lib/validation/first-issue";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
 import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
 import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
+import { checkSignupGate } from "@/lib/auth/signup-gate";
 import { readSignupCohortCode } from "@/lib/auth/signup-cohort-code";
 import { readAdultDob } from "./adult-gate";
 
@@ -26,6 +27,8 @@ export type SignupActionState =
       success?: boolean;
       step?: "verify";
       phone?: string;
+      /** The address the confirmation email went to, set after an email sign-up (S41). */
+      email?: string;
       redirectTo?: string;
       sentAt?: number;
       /**
@@ -80,6 +83,7 @@ export async function signUp(
     phone: formData.get("phone"),
     state: formData.get("state"),
     refCode: formData.get("refCode"),
+    inviteCode: formData.get("inviteCode") ?? undefined,
     intent: formData.get("intent"),
     password: formData.get("password"),
   });
@@ -107,6 +111,12 @@ export async function signUp(
     return { error: verdict.message, field: "password" };
   }
 
+  // Invite-only sign-up (the database enforces it; this just says so kindly before GoTrue is asked).
+  // Email only: the phone typed on this form is not verified, so it can never satisfy a phone invite.
+  const gate = await checkSignupGate({ email: parsed.data.email, inviteCode: parsed.data.inviteCode });
+  if (!gate.allowed) {
+    return { error: t("signup.invite_required", await getAuthLocale()), field: "inviteCode", values };
+  }
   // Optional programme code (S03b): checked now, joined only after the email is verified.
   const cohort = await readSignupCohortCode(formData, await getAuthLocale());
   if (!cohort.ok) return { error: cohort.error, field: "cohortCode", values };
@@ -137,6 +147,7 @@ export async function signUp(
         date_of_birth: adult.dateOfBirth,
         ...(parsed.data.state ? { state: parsed.data.state } : {}),
         ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
+        ...(parsed.data.inviteCode ? { invite_code: parsed.data.inviteCode } : {}),
         ...(parsed.data.intent ? { signup_intent: parsed.data.intent } : {}),
         // Someone signing up to pay for a relative's care rather than to be
         // treated. /auth/callback turns this into profiles.account_purpose,
@@ -170,7 +181,77 @@ export async function signUp(
     await redirectAfterLogin(supabase, user.id, redirectTo);
   }
 
-  return { success: true };
+  // `email` is echoed so the "check your email" state can offer the optional code box (S41, spec 1.4).
+  return { success: true, email: parsed.data.email, ...(redirectTo ? { redirectTo } : {}) };
+}
+
+/**
+ * Confirms the email with the six-digit code from the same email as the link (S41, spec 1.4). Always optional: the link keeps
+ * working, and nothing else in sign-up waits on this. Success creates the session, so the usual post-signup work runs.
+ */
+export async function verifySignupEmail(
+  _prevState: SignupActionState,
+  formData: FormData
+): Promise<SignupActionState> {
+  const locale = await getAuthLocale();
+  const parsed = emailOtpVerifySchema.safeParse({ email: formData.get("email"), token: formData.get("token") });
+  const email = formData.get("email")?.toString();
+  const redirectTo = sanitizeRedirect(formData.get("redirectTo")?.toString()) ?? undefined;
+  if (!parsed.success) {
+    return { error: t("auth.error.wrong_code", locale), field: "token", success: true, email, redirectTo };
+  }
+
+  // Same limits as the phone code: six digits is only a million guesses.
+  const limited = await checkAuthRateLimit(
+    "signup-email-verify",
+    parsed.data.email,
+    { limit: 20, windowSeconds: 300 },
+    { limit: 8, windowSeconds: 900 }
+  );
+  if (!limited.success) {
+    return { error: t("auth.error.rate_limited", locale), success: true, email: parsed.data.email, redirectTo };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.verifyOtp({ email: parsed.data.email, token: parsed.data.token, type: "signup" });
+  if (error || !data.user) {
+    return {
+      error: t(authErrorKey(error, "otp_verify"), locale),
+      field: "token",
+      success: true,
+      email: parsed.data.email,
+      redirectTo,
+    };
+  }
+
+  await backfillSignupMetadata(supabase, data.user, "verifySignupEmail");
+  await redirectAfterLogin(supabase, data.user.id, redirectTo);
+}
+
+/** Sends the confirmation email again (the link and the code come together). */
+export async function resendSignupEmail(
+  _prevState: SignupActionState,
+  formData: FormData
+): Promise<SignupActionState> {
+  const locale = await getAuthLocale();
+  const parsed = emailOtpVerifySchema.shape.email.safeParse(formData.get("email"));
+  const redirectTo = sanitizeRedirect(formData.get("redirectTo")?.toString()) ?? undefined;
+  if (!parsed.success) return { error: t("auth.error.generic", locale), success: true, redirectTo };
+
+  const limited = await checkAuthRateLimit(
+    "signup-email-resend",
+    parsed.data,
+    { limit: 10, windowSeconds: 3600 },
+    { limit: 3, windowSeconds: 3600 }
+  );
+  if (!limited.success) {
+    return { error: t("auth.error.rate_limited", locale), success: true, email: parsed.data, redirectTo };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({ type: "signup", email: parsed.data });
+  if (error) return { error: t(authErrorKey(error, "otp_send"), locale), success: true, email: parsed.data, redirectTo };
+  return { success: true, email: parsed.data, redirectTo, sentAt: Date.now() };
 }
 
 
@@ -206,6 +287,7 @@ export async function signUpWithPhone(
     phone: formData.get("phone"),
     state: formData.get("state"),
     refCode: formData.get("refCode"),
+    inviteCode: formData.get("inviteCode") ?? undefined,
     intent: formData.get("intent"),
     password: formData.get("password"),
   });
@@ -235,6 +317,12 @@ export async function signUpWithPhone(
     };
   }
 
+  // Invite-only sign-up: say so kindly before a code is sent. A number that already has an account never reaches the gate, so this
+  // cannot be used to learn which numbers are registered.
+  const gate = await checkSignupGate({ phone: parsed.data.phone, inviteCode: parsed.data.inviteCode });
+  if (!gate.allowed) {
+    return { error: t("signup.invite_required", locale), field: "inviteCode" };
+  }
   // Optional programme code (S03b): checked now, joined only after the phone is verified.
   const cohort = await readSignupCohortCode(formData, locale);
   if (!cohort.ok) return { error: cohort.error, field: "cohortCode" };
@@ -249,6 +337,7 @@ export async function signUpWithPhone(
         date_of_birth: adult.dateOfBirth,
         ...(parsed.data.state ? { state: parsed.data.state } : {}),
         ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
+        ...(parsed.data.inviteCode ? { invite_code: parsed.data.inviteCode } : {}),
         ...(parsed.data.intent ? { signup_intent: parsed.data.intent } : {}),
         ...(parsed.data.intent === "support" ? { account_purpose: "support" } : {}),
         ...(cohort.code ? { cohort_code: cohort.code } : {}),

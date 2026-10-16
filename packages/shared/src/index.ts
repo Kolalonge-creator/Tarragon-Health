@@ -10,11 +10,13 @@ export * from "./ml-client";
 export * from "./ai-coach-types";
 export * from "./device-readings";
 export * from "./health-record";
+export * from "./onboarding-answers";
 export * from "./clinical-config";
 export * from "./mental-health";
 export * from "./record-integrity";
 export * from "./adult-registration";
 export * from "./wellbeing-library";
+export * from "./therapy-programmes";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,
 // Enums, Constants, Json. Single source of truth for the DB schema.
@@ -256,6 +258,7 @@ export {
 } from "./notification-neutral";
 export * from "./breathing";
 export * from "./consent-state";
+export * from "./consent-matrix";
 export * from "./data-rights";
 export * from "./notification-settings";
 export * from "./notification-diagnosis";
@@ -276,4 +279,8 @@ export * from "./device-dedupe";
 export * from "./photo-reading";
 export * from "./cgm-events";
 export * from "./device-source";
+export * from "./causal-wording";
 export * from "./lock-screen-pass";
+export * from "./therapy-content/wave-a-drafts";
+export * from "./therapy-queue";
+export * from "./therapy-results";

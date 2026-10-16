@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { addElderProxyDependentAction } from "./add-elder-actions";
-import { addElderProxyDependentSchema } from "@/lib/validation/elder-proxy-dependent";
+import { addElderProxyDependentSchema, ELDER_PROXY_REASONS } from "@/lib/validation/elder-proxy-dependent";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,7 @@ export function AddElderProxyForm() {
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [sex, setSex] = useState("");
   const [confirmedConsent, setConfirmedConsent] = useState(false);
+  const [reason, setReason] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -40,6 +41,7 @@ export function AddElderProxyForm() {
       date_of_birth: dateOfBirth,
       sex: sex || undefined,
       confirmed_consent: confirmedConsent || undefined,
+      reason: reason || undefined,
     });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Invalid details");
@@ -59,6 +61,7 @@ export function AddElderProxyForm() {
         setDateOfBirth("");
         setSex("");
         setConfirmedConsent(false);
+        setReason("");
         await queryClient.invalidateQueries({ queryKey: ["adults-i-manage"] });
         await queryClient.invalidateQueries({ queryKey: ["sponsorable-profiles"] });
       }
@@ -73,10 +76,10 @@ export function AddElderProxyForm() {
         <CardTitle>Set up an account for someone who can&apos;t do this themselves</CardTitle>
         <CardDescription>
           For an adult who doesn&apos;t use a smartphone or won&apos;t be signing up on their own:
-          this creates their record and lets you pay for their care. You cannot see or manage their
-          health information until they say yes on their own phone, and then they choose what you
-          can see. Only for someone who&apos;s agreed to this; if they already have a Tarragon
-          account, ask them to accept an eldercare request instead so they keep control of it.
+          you keep their record and handle their bookings, reminders and pharmacy orders. Only for
+          someone who&apos;s agreed to this and who cannot confirm it themselves. If they can receive a
+          text message, use &quot;Set up for my parent&quot; instead: they confirm it on their own phone and choose what you see.
+          If they already have a Tarragon account, ask them to accept an eldercare request so they keep control of it.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -137,6 +140,18 @@ export function AddElderProxyForm() {
                 <option value="male">Male</option>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="elder_reason">Why can&apos;t they confirm this on their own phone?</Label>
+            <Select id="elder_reason" value={reason} onChange={(event) => setReason(event.target.value)} required>
+              <option value="">Choose one</option>
+              {ELDER_PROXY_REASONS.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
+              ))}
+            </Select>
           </div>
 
           <label className="flex items-start gap-2 text-sm text-charcoal-ink dark:text-night-ink">

@@ -115,16 +115,17 @@ describe("BookAppointment accessibility", () => {
   it("shows the filters only when the open times carry clinician details, and filters the list (S64, 15.1)", () => {
     slots = [
       { clinician_id: "c1", clinician_name: "Dr. Ada", slot_start: "2026-09-20T09:00:00Z", slot_end: "2026-09-20T09:30:00Z", consultation_method: "telemedicine", location: null,
-        specialty: "General practice", languages: ["en", "yo"], sex: "female", mdcn_number: "MDCN/1", licence_checked_on: "2026-09-01T00:00:00Z" },
+        specialty: "General practice", languages: ["en", "yo"], sex: "female", licence_checked_on: "2026-09-01T00:00:00Z" },
       { clinician_id: "c2", clinician_name: "Dr. Musa", slot_start: "2026-09-20T10:00:00Z", slot_end: "2026-09-20T10:30:00Z", consultation_method: "telemedicine", location: null,
-        specialty: "Cardiology", languages: ["en"], sex: "male", mdcn_number: null, licence_checked_on: null },
+        specialty: "Cardiology", languages: ["en"], sex: "male", licence_checked_on: null },
     ];
     render(<BookAppointment organisationId="org-1" patientId="patient-1" />);
     expect(screen.getByText("Dr. Ada", { exact: false })).toBeTruthy();
     expect(screen.getByText("Dr. Musa", { exact: false })).toBeTruthy();
-    // the registration number appears only for the clinician with a recorded check, with its date
-    expect(screen.getByText(/MDCN registration number MDCN\/1, checked on/)).toBeTruthy();
-    expect(screen.getAllByText(/MDCN registration number/).length).toBe(1);
+    // only the date of a recorded check appears, for the clinician who has one, and never a registration number (CMO Q17)
+    expect(screen.getByText(/Licence verified on/)).toBeTruthy();
+    expect(screen.getAllByText(/Licence verified on/).length).toBe(1);
+    expect(screen.queryByText(/MDCN/)).toBeNull();
     fireEvent.change(screen.getByLabelText("Specialty"), { target: { value: "Cardiology" } });
     expect(screen.queryByText("Dr. Ada", { exact: false })).toBeNull();
     expect(screen.getByText("Dr. Musa", { exact: false })).toBeTruthy();

@@ -1,83 +1,96 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState, useTransition } from "react";
+import { t } from "@tarragon/i18n";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { acceptHandoverAction, declineHandoverAction } from "./handover-actions";
+import { completeHandoverAction } from "./handover-actions";
 
-export interface PendingHandover {
+export interface HandoverGuardian {
   id: string;
-  guardian_first_name: string | null;
-  expires_at: string;
+  first_name: string;
 }
 
-function HandoverItem({ handover }: { handover: PendingHandover }) {
-  const [acceptState, acceptAction, acceptPending] = useActionState(acceptHandoverAction, undefined);
-  const [declineState, declineAction, declinePending] = useActionState(declineHandoverAction, undefined);
-  const name = handover.guardian_first_name || "Someone";
-  const done = acceptState?.done ?? declineState?.done;
+/**
+ * What a young person sees after their 18th birthday and first sign-in (v5 1.18). Every box starts unticked: the default is
+ * that guardian access ENDS when they finish, and they opt each person in to keep viewing. The wording of the consent line is
+ * draft until counsel approves it.
+ */
+export function HandoverCard({ guardians }: { guardians: HandoverGuardian[] }) {
+  const [keep, setKeep] = useState<string[]>([]);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dob, setDob] = useState("");
+  const [pending, startTransition] = useTransition();
 
   if (done) {
     return (
       <Card>
         <CardContent className="pt-6">
           <p role="status" className="text-sm">
-            {done === "accepted"
-              ? "Your record is now your own. Only you can see it, and you choose who else can."
-              : `Thank you. Nothing has changed, and ${name} still looks after the record for now.`}
+            {t("handover.done")}
           </p>
         </CardContent>
       </Card>
     );
   }
 
-  const pending = acceptPending || declinePending;
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{name} kept a health record for you</CardTitle>
-        <CardDescription>
-          You are an adult now, so it is yours to take over. Until you say yes, nothing changes and {name} still looks
-          after it. Once you say yes it becomes your own account record, and you choose who can see it.
-        </CardDescription>
+        <CardTitle>{t("handover.title")}</CardTitle>
+        <CardDescription>{t("handover.body")}</CardDescription>
       </CardHeader>
-      <CardContent>
-        <form action={acceptAction} className="space-y-4">
-          <input type="hidden" name="handoverId" value={handover.id} />
-          <div className="space-y-1.5">
-            <Label htmlFor={`handover-dob-${handover.id}`}>Your date of birth</Label>
-            <Input id={`handover-dob-${handover.id}`} name="dateOfBirth" type="date" required autoComplete="bday" min="1900-01-01" className="h-11 rounded-xl" />
-            <p className="text-xs text-charcoal-ink/60">We ask so we know it is really you. Only needed to take over the record.</p>
-          </div>
-          {(acceptState?.error || declineState?.error) && (
-            <p role="alert" className="text-sm text-red-700">
-              {acceptState?.error ?? declineState?.error}
-            </p>
-          )}
-          <div className="flex gap-3">
-            <Button type="submit" disabled={pending} className="rounded-xl">
-              Take over my record
-            </Button>
-            <Button type="submit" variant="outline" formAction={declineAction} formNoValidate disabled={pending} className="rounded-xl">
-              Not now
-            </Button>
-          </div>
-        </form>
+      <CardContent className="space-y-3">
+        {guardians.length === 0 ? (
+          <p className="text-sm">{t("handover.nobody")}</p>
+        ) : (
+          <fieldset className="space-y-2">
+            {guardians.map((g) => (
+              <label key={g.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={keep.includes(g.id)}
+                  onChange={(e) => setKeep((k) => (e.target.checked ? [...k, g.id] : k.filter((x) => x !== g.id)))}
+                />
+                {t("handover.keep", "en", { name: g.first_name })}
+              </label>
+            ))}
+            <p className="text-xs text-charcoal-ink/60">{t("handover.keep_note")}</p>
+          </fieldset>
+        )}
+        <p className="text-xs text-charcoal-ink/60">{t("handover.consent_notice")}</p>
+        <div className="space-y-1">
+          <label htmlFor="handover-dob" className="text-sm font-medium">
+            {t("handover.dob_label")}
+          </label>
+          <input id="handover-dob" type="date" required value={dob} onChange={(e) => setDob(e.target.value)} className="block rounded-md border px-2 py-1 text-sm" />
+          <p className="text-xs text-charcoal-ink/60">{t("handover.dob_note")}</p>
+        </div>
+        {error && (
+          <p role="alert" className="text-sm text-red-700">
+            {error}
+          </p>
+        )}
+        <Button
+          type="button"
+          disabled={pending || dob === ""}
+          className="rounded-xl"
+          onClick={() => {
+            setError(null);
+            startTransition(async () => {
+              const result = await completeHandoverAction({ keep, dateOfBirth: dob });
+              if (result?.ok) setDone(true);
+              else if (result?.reason === "wrong_dob") setError(t("handover.error.dob", "en", { n: String(result.attemptsLeft ?? 0) }));
+              else if (result?.reason === "needs_verified_phone") setError(t("handover.error.phone"));
+              else if (result?.reason === "locked") setError(t("handover.error.locked"));
+              else setError(t("handover.error"));
+            });
+          }}
+        >
+          {t("handover.finish")}
+        </Button>
       </CardContent>
     </Card>
-  );
-}
-
-/** Shown to the young person once they have signed in on the number their guardian entered (S04b-1, R3). */
-export function HandoverCard({ handovers }: { handovers: PendingHandover[] }) {
-  if (handovers.length === 0) return null;
-  return (
-    <div className="space-y-4">
-      {handovers.map((handover) => (
-        <HandoverItem key={handover.id} handover={handover} />
-      ))}
-    </div>
   );
 }

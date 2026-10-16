@@ -1,6 +1,6 @@
 import type { FetchLike } from "./http.ts";
 import { identityFromEnv, paymentFromEnv, videoFromEnv, type Env } from "./from-env.ts";
-import type { IdentityVerificationProvider } from "./identity.ts";
+import { withConsentCheck, type ConsentLookup, type IdentityVerificationProvider } from "./identity.ts";
 import { createMockIdentity } from "./identity-mock.ts";
 import { createMockPayment } from "./payment-mock.ts";
 import type { PaymentProvider } from "./payment.ts";
@@ -28,9 +28,11 @@ export function selectPayment(env: Env, fetch: FetchLike): ProviderResult<Paymen
   return selectProvider({ environment: environmentFrom(env["APP_ENV"]), real: paymentFromEnv(env, fetch), mock: () => (mockPayment ??= createMockPayment()) });
 }
 
-/** Which vendor checks an ID number and a face (P5). Same rule: real if configured, a mock only outside production, never a silent mock in production. */
+/** Which vendor checks an ID number and a face (P5). Same rule: real if configured, a mock only outside production, never a silent mock in production. Always behind the consent check; pass `null` and every call is refused. */
 let mockIdentity: IdentityVerificationProvider | undefined;
 
-export function selectIdentity(env: Env, fetch: FetchLike): ProviderResult<IdentityVerificationProvider> {
-  return selectProvider({ environment: environmentFrom(env["APP_ENV"]), real: identityFromEnv(env, fetch), mock: () => (mockIdentity ??= createMockIdentity()) });
+export function selectIdentity(env: Env, fetch: FetchLike, consent: ConsentLookup | null): ProviderResult<IdentityVerificationProvider> {
+  const picked = selectProvider({ environment: environmentFrom(env["APP_ENV"]), real: identityFromEnv(env, fetch), mock: () => (mockIdentity ??= createMockIdentity()) });
+  // Fail closed (OQ-352): whichever provider is picked, no call reaches it without a live stored consent for this subject.
+  return picked.ok ? { ok: true, data: withConsentCheck(picked.data, consent) } : picked;
 }

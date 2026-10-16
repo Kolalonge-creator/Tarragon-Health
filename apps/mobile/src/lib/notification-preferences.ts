@@ -31,7 +31,6 @@ export type PatientNotificationPreferenceRow = {
   patient_id: string;
   category: NotificationPreferenceCategory;
   email_enabled: boolean;
-  sms_enabled: boolean;
   push_enabled: boolean;
   created_at: string;
   updated_at: string;
@@ -39,12 +38,12 @@ export type PatientNotificationPreferenceRow = {
 
 type PatientNotificationPreferenceInsert = Omit<
   PatientNotificationPreferenceRow,
-  "id" | "email_enabled" | "sms_enabled" | "push_enabled" | "created_at" | "updated_at"
+  "id" | "email_enabled" | "push_enabled" | "created_at" | "updated_at"
 > &
   Partial<
     Pick<
       PatientNotificationPreferenceRow,
-      "id" | "email_enabled" | "sms_enabled" | "push_enabled" | "created_at" | "updated_at"
+      "id" | "email_enabled" | "push_enabled" | "created_at" | "updated_at"
     >
   >;
 
@@ -84,7 +83,6 @@ export async function updateNotificationPreference(input: {
   organisationId: string;
   category: NotificationPreferenceCategory;
   emailEnabled: boolean;
-  smsEnabled: boolean;
   pushEnabled: boolean;
 }): Promise<QueryResult<null>> {
   const { error } = await prefsClient.from("patient_notification_preferences").upsert(
@@ -93,7 +91,6 @@ export async function updateNotificationPreference(input: {
       organisation_id: input.organisationId,
       category: input.category,
       email_enabled: input.emailEnabled,
-      sms_enabled: input.smsEnabled,
       push_enabled: input.pushEnabled,
     },
     { onConflict: "patient_id,category" }
@@ -102,18 +99,17 @@ export async function updateNotificationPreference(input: {
   return { ok: true, data: null };
 }
 
-export type NotificationChannel = "email" | "sms" | "push";
+export type NotificationChannel = "email" | "push";
 
 /** Channel toggles for a category. Anything else on the row (for example a
  * legacy column from an older schema) is ignored, and a missing row means
  * every channel is on. */
 export function channelTogglesFromRow(
-  row: Partial<Pick<PatientNotificationPreferenceRow, "email_enabled" | "sms_enabled" | "push_enabled">> | undefined
+  row: Partial<Pick<PatientNotificationPreferenceRow, "email_enabled" | "push_enabled">> | undefined
 ): Record<NotificationChannel, boolean> {
-  if (!row) return { email: true, sms: true, push: true };
+  if (!row) return { email: true, push: true };
   return {
     email: row.email_enabled !== false,
-    sms: row.sms_enabled !== false,
     push: row.push_enabled !== false,
   };
 }

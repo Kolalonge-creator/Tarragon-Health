@@ -9,6 +9,10 @@ import { NAV_ICON } from "@/lib/icons";
 import { emergencyCardQrSvg, emergencyCardUrl } from "@/lib/emergency/card";
 import { EmergencyCardControls } from "./emergency-card-controls";
 import { BloodAttestationForm } from "./blood-attestation-form";
+import { CardFieldsForm } from "./card-fields-form";
+import { applyCardFieldChoices, choicesFromRow, hiddenFields } from "@/lib/emergency/field-choices";
+import { loadEmergencyDatasetForPatient } from "@/lib/emergency/dataset";
+import { EmergencyCardPreview } from "@/components/emergency/emergency-card-preview";
 
 /**
  * "Be the record they carry into any hospital."
@@ -54,6 +58,18 @@ export default async function EmergencyCardPage() {
     .select("blood_group, genotype, genotype_note, provenance")
     .eq("patient_id", user.id)
     .maybeSingle();
+
+  const { data: fields } = await supabase
+    .from("emergency_card_fields")
+    .select(
+      "show_date_of_birth, show_sex, show_patient_number, show_allergies, show_medications, show_conditions, show_blood, show_emergency_contact, show_reproductive, show_mental_health, lock_screen_opt_in",
+    )
+    .eq("patient_id", user.id)
+    .maybeSingle();
+
+  // S47d: the preview is built from the same facts and the same choices as the printed card and the live link
+  const previewChoices = choicesFromRow(fields);
+  const previewFacts = acting ? null : applyCardFieldChoices(await loadEmergencyDatasetForPatient(supabase, user.id), previewChoices);
 
   const { data: lookups, error: lookupsError } = active
     ? await supabase
@@ -124,6 +140,10 @@ export default async function EmergencyCardPage() {
           }
         />
       )}
+
+      {/* S43: the person chooses which details a stranger can see, on the printed card and the live link alike. */}
+      {acting ? null : <CardFieldsForm initial={choicesFromRow(fields)} />}
+      {previewFacts ? <EmergencyCardPreview facts={previewFacts} hidden={hiddenFields(previewChoices)} /> : null}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         {/* THE DEFAULT: a printed card, no new exposure, nothing to consent to. */}

@@ -24,7 +24,6 @@ export type AvailableAppointmentSlot = {
   specialty?: string | null;
   languages?: string[];
   sex?: string | null;
-  mdcn_number?: string | null;
   licence_checked_on?: string | null;
 };
 

@@ -19,6 +19,19 @@
 -- ===========================================================================
 begin;
 
+-- S47d: reproductive health records are written only after the person has said yes. This proof is about something else, so every profile it creates
+-- gets the yes recorded for it by a trigger that exists only in this rolled-back transaction.
+create function pg_temp.s47d_say_yes() returns trigger language plpgsql as $f$
+begin
+  if new.organisation_id is not null and not exists (select 1 from public.consent_matrix_events e where e.patient_id = new.id and e.data_type = 'reproductive') then
+    insert into public.consent_matrix_events (organisation_id, patient_id, data_type, purpose, action, policy_version, source, recorded_by, is_test)
+    values (new.organisation_id, new.id, 'reproductive', 'care', 'granted', 2, 'patient', new.id, false);
+  end if;
+  return new;
+end $f$;
+create trigger zz_s47d_say_yes after insert or update of organisation_id on public.profiles for each row execute function pg_temp.s47d_say_yes();
+
+
 create temporary table s67_result(check_name text, observed text, expected text, verdict text) on commit drop;
 grant all on s67_result to public;   -- some checks run while acting as a fixture user
 create or replace function pg_temp.check_eq(p_name text, p_observed text, p_expected text) returns void language plpgsql as $$

@@ -100,7 +100,8 @@ end $$;
 do $$
 declare v_def text; v_before integer; v_after integer;
 begin
-  select pg_get_functiondef('public.emergency_card_by_token(text)'::regprocedure) into v_def;
+  -- S43 renamed the original card door to emergency_card_full_by_token and put a wrapper in front; the counter lives in the renamed body
+  select pg_get_functiondef('public.emergency_card_full_by_token(text)'::regprocedure) into v_def;
   v_def := replace(v_def, E'perform private.log_public_lookup_failure(''emergency_card'');\n    return null;', 'return null;');
   execute v_def;
   v_before := pg_temp.fails('emergency_card');

@@ -69,7 +69,7 @@ export const PART_C_RULES: readonly PartCRule[] = [
   {
     id: "patient-sms",
     part: "C.2",
-    reason: "SMS is for verification codes and clinician paging only",
+    reason: "SMS is for verification codes only: no clinician paging or emergency-contact SMS (OQ-332, OQ-333)",
     pattern: /(channel|value):\s*["']sms["']|sendPatientLinkSms\(/,
     unless: /\|/, // a type union such as `"sms" | "email"` is a declaration, not a send
   },

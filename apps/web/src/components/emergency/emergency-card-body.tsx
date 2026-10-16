@@ -1,4 +1,6 @@
+import { t } from "@tarragon/i18n";
 import { BLOOD_PROVENANCE, GENOTYPE_NOTE, type EmergencyClinicalFacts } from "@/lib/emergency/card";
+import { NOT_SHARED_TEXT, type CardField } from "@/lib/emergency/field-choices";
 
 /**
  * The visual rendering shared by BOTH emergency-card surfaces:
@@ -22,6 +24,7 @@ export function EmergencyCardBody({
   headerSubline,
   qrSlot,
   footer,
+  hidden = [],
 }: {
   facts: EmergencyClinicalFacts;
   /** e.g. "Emergency health card" (both surfaces use the same label today). */
@@ -31,7 +34,13 @@ export function EmergencyCardBody({
   /** The print page's plain-text QR; the live page passes nothing. */
   qrSlot?: React.ReactNode;
   footer: React.ReactNode;
+  /**
+   * Details the patient chose not to put on the card (S43). A hidden detail is shown as "not shared",
+   * never as "None recorded": a stranger must not read an empty medicine list as "takes no medicines".
+   */
+  hidden?: readonly string[];
 }) {
+  const isHidden = (f: CardField) => hidden.includes(f);
   const severeAllergies = facts.allergies.filter((a) => a.severity === "severe");
   const genotypeNote = facts.blood?.genotype ? GENOTYPE_NOTE[facts.blood.genotype] : undefined;
   const provenance = facts.blood?.provenance ? BLOOD_PROVENANCE[facts.blood.provenance] : undefined;
@@ -42,7 +51,7 @@ export function EmergencyCardBody({
         <p className="text-xs uppercase tracking-widest opacity-80">{headerLabel}</p>
         <h1 className="mt-1 text-2xl font-semibold">{facts.full_name ?? "Name not recorded"}</h1>
         <p className="mt-1 text-sm opacity-90">
-          {formatDob(facts.date_of_birth)}
+          {isHidden("date_of_birth") ? "Date of birth not shared" : formatDob(facts.date_of_birth)}
           {facts.sex ? ` · ${facts.sex}` : ""}
           {facts.patient_number ? ` · ${facts.patient_number}` : ""}
         </p>
@@ -59,7 +68,9 @@ export function EmergencyCardBody({
         }`}
       >
         <h2 className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">Blood</h2>
-        {facts.blood && (facts.blood.blood_group || facts.blood.genotype) ? (
+        {isHidden("blood") ? (
+          <p className="mt-1 text-sm font-medium text-charcoal-ink/80">{NOT_SHARED_TEXT}</p>
+        ) : facts.blood && (facts.blood.blood_group || facts.blood.genotype) ? (
           <>
             <p className="mt-1 text-xl font-semibold text-charcoal-ink">
               {facts.blood.blood_group ?? "Group not recorded"}
@@ -85,7 +96,9 @@ export function EmergencyCardBody({
       </section>
 
       <Section title="Allergies" tone={severeAllergies.length > 0 ? "danger" : "normal"}>
-        {facts.allergies.length === 0 ? (
+        {isHidden("allergies") ? (
+          <p className="text-sm font-medium text-charcoal-ink/80">{NOT_SHARED_TEXT}</p>
+        ) : facts.allergies.length === 0 ? (
           <p className="text-sm text-charcoal-ink/70">
             None recorded. That is not the same as none. Ask if you can.
           </p>
@@ -103,7 +116,9 @@ export function EmergencyCardBody({
       </Section>
 
       <Section title="Current medicines">
-        {facts.medications.length === 0 ? (
+        {isHidden("medications") ? (
+          <p className="text-sm font-medium text-charcoal-ink/80">{NOT_SHARED_TEXT}</p>
+        ) : facts.medications.length === 0 && !(facts.medicines_not_shown && facts.medicines_not_shown > 0) ? (
           <p className="text-sm text-charcoal-ink/70">None recorded.</p>
         ) : (
           <ul className="space-y-1">
@@ -114,12 +129,19 @@ export function EmergencyCardBody({
                 {m.frequency ? <span className="text-charcoal-ink/70"> · {m.frequency}</span> : null}
               </li>
             ))}
+            {facts.medicines_not_shown && facts.medicines_not_shown > 0 ? (
+              <li className="text-sm font-medium text-charcoal-ink/80">
+                {t(facts.medicines_not_shown === 1 ? "ecf.medicines_not_shown_one" : "ecf.medicines_not_shown_many", "en", { count: String(facts.medicines_not_shown) })}
+              </li>
+            ) : null}
           </ul>
         )}
       </Section>
 
       <Section title="Ongoing conditions">
-        {facts.conditions.length === 0 ? (
+        {isHidden("conditions") ? (
+          <p className="text-sm font-medium text-charcoal-ink/80">{NOT_SHARED_TEXT}</p>
+        ) : facts.conditions.length === 0 ? (
           <p className="text-sm text-charcoal-ink/70">None recorded.</p>
         ) : (
           <p className="text-sm text-charcoal-ink">
@@ -127,9 +149,16 @@ export function EmergencyCardBody({
           </p>
         )}
       </Section>
+      {(isHidden("reproductive") || isHidden("mental_health")) && (
+        <Section title="Reproductive and mental health">
+          <p className="text-sm font-medium text-charcoal-ink/80">{NOT_SHARED_TEXT}</p>
+        </Section>
+      )}
 
       <Section title="Emergency contact">
-        {facts.emergency_contact?.name ? (
+        {isHidden("emergency_contact") ? (
+          <p className="text-sm font-medium text-charcoal-ink/80">{NOT_SHARED_TEXT}</p>
+        ) : facts.emergency_contact?.name ? (
           <p className="text-sm text-charcoal-ink">
             <span className="font-medium">{facts.emergency_contact.name}</span>
             {facts.emergency_contact.relationship ? ` (${facts.emergency_contact.relationship})` : ""}

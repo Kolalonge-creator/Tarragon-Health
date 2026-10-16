@@ -11,6 +11,7 @@ import { HeldReadingsCard } from "@/app/(dashboard)/patient/held-readings-card";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { SymptomLogForm } from "@/app/(dashboard)/patient/symptom-log-form";
 import { SymptomLogHistory } from "@/app/(dashboard)/patient/symptom-log-history";
+import { FeatureConsentGate } from "@/components/consent/feature-consent-gate";
 import { WearableConnectSection } from "@/app/(dashboard)/patient/wearable-connect-section";
 import { SleepSummaryCard } from "@/app/(dashboard)/patient/sleep-summary-card";
 import { DiabetesDailyLog } from "@/app/(dashboard)/patient/diabetes-daily-log";
@@ -97,7 +98,9 @@ export default async function PatientVitalsPage() {
           (/patient/vitals#connect-devices) — that link used to land here at
           the top of Vitals with no scroll-to, which read as broken. */}
       <div id="connect-devices">
-        <WearableConnectSection patientId={subjectId} />
+        <FeatureConsentGate dataType="device_data" onBehalfOf={subjectId !== profile.id}>
+          <WearableConnectSection patientId={subjectId} />
+        </FeatureConsentGate>
       </div>
       <DeviceSyncSupportCard patientId={subjectId} />
     </DashboardSection>

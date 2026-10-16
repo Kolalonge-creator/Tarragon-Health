@@ -31,6 +31,7 @@ import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton
 import { PrivateSection } from "@/ui/private-section";
 import { CycleDangerSigns } from "@/ui/cycle-danger-signs";
 import { CyclePrivacyControls } from "@/ui/cycle-privacy-controls";
+import { FeatureConsentGate } from "@/ui/feature-consent-gate";
 
 /**
  * The cycle tracker's native screen (spec §44's large sub-feature —
@@ -160,7 +161,7 @@ function toggle<T>(list: T[], value: T): T[] {
  * thing that stays outside it: they hold no personal data and must be readable on a locked screen. The lock is keyed to the SIGNED-IN
  * account, so a phone shared by two people keeps two PINs.
  */
-export function CycleScreen(props: CycleScreenProps) {
+function CycleScreenInner(props: CycleScreenProps) {
   const colors = useLegacyColors();
   const [accountId, setAccountId] = useState(props.patientId);
   useEffect(() => {
@@ -743,5 +744,14 @@ function DayLogForm({
         {saved && !submitting && <MutedText>Saved</MutedText>}
       </View>
     </View>
+  );
+}
+
+/** S47d: the screen opens only once the person has said yes to reproductive health data; until then it asks. */
+export function CycleScreen(props: CycleScreenProps) {
+  return (
+    <FeatureConsentGate dataType="reproductive" title="Your cycle">
+      <CycleScreenInner {...props} />
+    </FeatureConsentGate>
   );
 }

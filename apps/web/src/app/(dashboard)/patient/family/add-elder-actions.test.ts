@@ -39,6 +39,7 @@ const INPUT = {
   relationship: "father",
   date_of_birth: "1948-03-02",
   confirmed_consent: true,
+  reason: "cannot_receive_code",
 };
 
 beforeEach(() => {

@@ -337,8 +337,9 @@ begin
   perform pg_temp.ck('a sponsor cannot call the audited read', 'true', (pg_temp.q_as(v_spons, format($q$select public.read_patient_mental_health_audited(%L)::text$q$, v_pat)) like 'ERR:not authorised%')::text);
 
   -- corporate aggregate: suppressed under the minimum cohort, never individual, test accounts excluded
+  -- S75a: the floor is the greater of the platform minimum (20) and the organisation's own number (5 here), so 19 respondents are still withheld.
   update public.organisations set min_cohort_size = 5 where id = v_org;
-  for v_i in 1..4 loop
+  for v_i in 1..19 loop
     v_u := pg_temp.mkuser(v_org, 'real' || v_i, 'patient');
     update public.profiles set is_test = false where id = v_u;
     insert into public.mental_health_screens (organisation_id, patient_id, instrument, total_score, severity_band) values (v_org, v_u, 'phq9', 2, 'minimal');
@@ -347,14 +348,14 @@ begin
   set local role service_role;
   r := public.corporate_wellbeing_cohort(v_org)::text;
   reset role;
-  perform pg_temp.ck('four respondents are below the minimum cohort and suppressed', 'true', ((r::jsonb) ->> 'suppressed')::text);
-  v_u := pg_temp.mkuser(v_org, 'real5', 'patient');
+  perform pg_temp.ck('nineteen respondents are below the minimum cohort and suppressed', 'true', ((r::jsonb) ->> 'suppressed')::text);
+  v_u := pg_temp.mkuser(v_org, 'real20', 'patient');
   update public.profiles set is_test = false where id = v_u;
   insert into public.mental_health_screens (organisation_id, patient_id, instrument, total_score, severity_band) values (v_org, v_u, 'phq9', 2, 'minimal');
   set local role service_role;
   r := public.corporate_wellbeing_cohort(v_org)::text;
   reset role;
-  perform pg_temp.ck('five respondents are released as percentages', 'false', ((r::jsonb) ->> 'suppressed')::text);
+  perform pg_temp.ck('twenty respondents are released as percentages', 'false', ((r::jsonb) ->> 'suppressed')::text);
   perform pg_temp.ck('...bands only, no scores and no ids', 'false', (r ~* '(total_score|patient_id|[0-9a-f]{8}-[0-9a-f]{4})')::text);
   perform pg_temp.ck('...and the percentages describe only real accounts (test accounts excluded)', '100', (r::jsonb) -> 'phq9' ->> 'minimal');
   perform pg_temp.ck('an authenticated user cannot call the aggregate', 'true', (pg_temp.q_as(pg_temp.f('corp'), format('select public.corporate_wellbeing_cohort(%L)::text', v_org)) like 'ERR:permission denied%')::text);

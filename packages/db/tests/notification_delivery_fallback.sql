@@ -46,8 +46,9 @@ begin
   v_seq := private.escalation_channel_sequence('screening_abnormal_result', 'emergency');
   -- The raw signed config may still name a retired channel token, so assert
   -- the ladder as the engine reads it (normalized), not the raw tokens.
-  if private.normalize_escalation_channels(v_seq) <> array['push', 'email', 'sms']::public.notification_channel[] then
-    raise exception 'FAIL: screening_abnormal_result/emergency channel_sequence = % (normalized %, expected push,email,sms)',
+  -- FU-notify (OQ-332): the signed sequence still names sms; the engine drops it, so the ladder it reads is push, email.
+  if private.normalize_escalation_channels(v_seq) <> array['push', 'email']::public.notification_channel[] then
+    raise exception 'FAIL: screening_abnormal_result/emergency channel_sequence = % (normalized %, expected push,email)',
       v_seq, private.normalize_escalation_channels(v_seq);
   end if;
   raise notice 'PASS 1a: escalation_channel_sequence resolves the live screening_abnormal_result/emergency ladder';
@@ -71,15 +72,21 @@ do $$
 declare
   v_out public.notification_channel[];
 begin
-  v_out := private.normalize_escalation_channels(array['push', 'email', 'sms']);
-  if v_out <> array['push', 'email', 'sms']::public.notification_channel[] then
+  v_out := private.normalize_escalation_channels(array['push', 'email', 'in_app']);
+  if v_out <> array['push', 'email', 'in_app']::public.notification_channel[] then
     raise exception 'FAIL: plain channel tokens did not pass through unchanged: %', v_out;
+  end if;
+
+  -- FU-notify (OQ-332): sms and voice are never a ladder hop, whatever a signed sequence says.
+  v_out := private.normalize_escalation_channels(array['push', 'email', 'sms', 'voice']);
+  if v_out <> array['push', 'email']::public.notification_channel[] then
+    raise exception 'FAIL: sms or voice survived normalization: %', v_out;
   end if;
 
   -- A retired whatsapp token (still present in signed config) is read as email,
   -- keeping the ladder the same length rather than shortening it.
   v_out := private.normalize_escalation_channels(array['push', 'whatsapp', 'sms']);
-  if v_out <> array['push', 'email', 'sms']::public.notification_channel[] then
+  if v_out <> array['push', 'email']::public.notification_channel[] then
     raise exception 'FAIL: a retired whatsapp token did not normalize to email: %', v_out;
   end if;
 
@@ -102,7 +109,7 @@ begin
   -- call driven by private.notify_unacknowledged_emergencies), not a
   -- notification_channel value — must be dropped, not mis-mapped.
   v_out := private.normalize_escalation_channels(array['push', 'email', 'sms', 'next_of_kin_call_if_unacknowledged']);
-  if v_out <> array['push', 'email', 'sms']::public.notification_channel[] then
+  if v_out <> array['push', 'email']::public.notification_channel[] then
     raise exception 'FAIL: next_of_kin_call_if_unacknowledged was not dropped: %', v_out;
   end if;
 
@@ -370,7 +377,7 @@ begin
     if sqlerrm <> 'sabotage_undo' then raise; end if;
   end;
 
-  if v_out = array['push', 'email', 'sms']::public.notification_channel[] then
+  if v_out = array['push', 'email']::public.notification_channel[] then
     raise exception 'VACUOUS TEST: the naive normalizer still produced the full ladder';
   end if;
   if v_ch = 'push' then

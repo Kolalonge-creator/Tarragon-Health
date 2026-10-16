@@ -38,6 +38,10 @@
 
 begin;
 
+-- The lab booking guard (S37 enforcement) is off by default; this proof is about something else, so switch it on inside the rolled-back test.
+insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note) select 'lab_booking_enabled', 'switched_on', id, 'admin', 'proof setup' from public.profiles limit 1;
+update public.go_live_guards set is_on = true, changed_at = now(), changed_by = (select id from public.profiles limit 1), change_note = 'proof setup' where key = 'lab_booking_enabled';
+
 create temporary table fspoi_fixture(k text primary key, v uuid) on commit drop;
 create temporary table fspoi_result(
   check_name text,

@@ -24,6 +24,12 @@ grant all on results to public;
 create temp table fx(label text primary key, id uuid) on commit drop;
 grant all on fx to public;
 
+-- FU-notify (OQ-329, OQ-330): notifications.rules v5 sets deliveredCountsAsConfirmed and couldNotGetCareOutreachNow to false. This proof
+-- covers the MECHANISMS behind both switches, so it pins the two to true here; fu_notify_rules_and_contact.sql proves the v5 behaviour.
+update public.notification_rules_config
+   set config = jsonb_set(config, '{redUnconfirmed}', (config -> 'redUnconfirmed') || '{"deliveredCountsAsConfirmed":true,"couldNotGetCareOutreachNow":true}'::jsonb)
+ where is_active;
+
 create function pg_temp.rec(p_name text, p_expected text, p_actual text) returns void language sql as
 $$ insert into results values ('real', p_name, p_expected, p_actual) $$;
 create function pg_temp.f(p text) returns uuid language sql as $$ select id from fx where label = p $$;
@@ -134,14 +140,18 @@ begin
   perform pg_temp.rec('A7 the in-app last hop finishes with the exhausted record and an admin alert', '1,true',
     (select count(*)::text from public.notification_escalation_failures where notification_id = n1) || ',' ||
     exists (select 1 from public.notifications where template = 'critical_notification_escalation_exhausted' and recipient_id = v_admin and (payload ->> 'notification_id')::uuid = n1)::text);
-  -- control: the clinician chain is the configured one, hop 3 is still sms
+  -- control: the clinician chain is the configured one with sms dropped (OQ-332)
   n1 := pg_temp.notif(v_org, clin, 'push', 'failed', 'critical');
   perform private.escalate_unconfirmed_critical_notifications();
   select id into n2 from public.notifications where escalated_from_id = n1;
   update public.notifications set status = 'failed', failed_at = now() where id = n2;
   perform private.escalate_unconfirmed_critical_notifications();
   select channel::text into v_next from public.notifications where escalated_from_id = n2;
-  perform pg_temp.rec('A8 CONTROL the clinician chain still reaches sms at hop 3', 'sms', v_next);
+  -- FU-notify (OQ-332): the clinician chain no longer has an sms rung. It is push, email and then the exhausted-ladder alarm.
+  perform pg_temp.rec('A8 CONTROL the clinician chain has no sms hop 3: it ends at email', '<none>', coalesce(v_next, '<none>'));
+  perform private.escalate_unconfirmed_critical_notifications();
+  perform pg_temp.rec('A8b the clinician ladder still ends in the exhausted record and admin alarm', 'true',
+    exists (select 1 from public.notification_escalation_failures where notification_id = n2)::text);
   -- the first hop also obeys it
   n1 := private.enqueue_critical_notification(v_org, pat, 'r4_proof', '{}', 'no_such_pathway', 'emergency', null, null);
   perform pg_temp.rec('A9 enqueue_critical_notification never starts a patient on sms', 'true', (select (channel <> 'sms')::text from public.notifications where id = n1));
@@ -498,7 +508,7 @@ begin
   update public.notifications set status = 'failed', failed_at = now() where id = n2;
   perform private.escalate_unconfirmed_critical_notifications();
   select channel::text into v_next from public.notifications where escalated_from_id = n2;
-  insert into results values ('sabotaged', 'a patient hop 3 is in_app', 'in_app', v_next);
+  insert into results values ('sabotaged', 'a patient hop 3 is in_app', 'in_app', coalesce(v_next, '<none>'));
   execute v_orig;
 
   -- 2. the Free gate stuck open: a Free red alert must then wrongly open a watching record

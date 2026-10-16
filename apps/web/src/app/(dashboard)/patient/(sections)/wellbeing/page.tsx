@@ -12,6 +12,7 @@ import { TherapyNetwork } from "@/components/therapy-network";
 import { CategoryDetail } from "@/app/(dashboard)/patient/health-education";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FeatureConsentGate } from "@/components/consent/feature-consent-gate";
 import { CrisisCard } from "@/components/mental-health/crisis-card";
 import { MentalHealthHandoffCard } from "@/components/mental-health/handoff-card";
 import { SharedPhoneGate } from "@/components/mental-health/shared-phone-gate";
@@ -66,7 +67,9 @@ export default async function PatientWellbeingPage() {
           <WellbeingCheckinForm patientId={subjectId} />
           <div className="space-y-4">
             <MentalHealthSummary patientId={subjectId} />
-            <MentalHealthScreenForm patientId={subjectId} />
+            <FeatureConsentGate dataType="mental_health" onBehalfOf={subjectId !== profile.id}>
+              <MentalHealthScreenForm patientId={subjectId} />
+            </FeatureConsentGate>
             <MentalHealthHandoffCard patientId={subjectId} />
           </div>
         </div>

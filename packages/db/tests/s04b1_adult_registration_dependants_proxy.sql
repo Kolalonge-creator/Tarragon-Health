@@ -11,8 +11,8 @@
 --   4. OQ-51: confirming with "medications" writes view_medication and the proxy reads medication-gated rows; "results"
 --      is refused; reproductive_health maps to nothing.
 --   5. Proxy controls: view log is patient scoped and deduped; narrow only narrows, silently by default; revoke is instant.
---   6. Hand-over at 18 needs the young person's own verified-number acceptance; the handover_due event fires once, 30 days
---      before the 18th birthday.
+--   6. From 18 a guardian's blanket read narrows to immunisation and growth. (The age-18 hand-over itself is S42's
+--      complete_dependant_handover, proved in s42_dependants_handover.sql.)
 --   7. anon cannot execute any new function.
 --   8. SABOTAGE x4: drop a scope guard, neutralise the adult rule, restore the old blanket bypass, grant PUBLIC execute.
 -- Wrapped in BEGIN/ROLLBACK; mints its own fixtures.
@@ -328,12 +328,6 @@ begin
   perform public.provision_dependent_profile_basics(soon, (current_date - interval '18 years' + interval '20 days')::date, null, guardian, 'minor_child');
   perform public.provision_dependent_profile_basics(far,  (current_date - interval '18 years' + interval '40 days')::date, null, guardian, 'minor_child');
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (soon, guardian, 'manage', guardian), (far, guardian, 'manage', guardian);
-  if private.sweep_dependant_handover_due() <> 1 then raise exception 'FAIL 6a: expected exactly the child turning 18 in 20 days'; end if;
-  if private.sweep_dependant_handover_due() <> 0 then raise exception 'FAIL 6b: the event fired twice'; end if;
-  if (select count(*) from public.domain_events where event_type = 'dependant.handover_due' and patient_id = soon) <> 1 then raise exception 'FAIL 6c: event missing'; end if;
-  if exists (select 1 from public.domain_events where event_type = 'dependant.handover_due' and patient_id = far) then raise exception 'FAIL 6d: event fired 40 days out'; end if;
-  if not exists (select 1 from public.notifications where recipient_id = guardian and template = 'dependant_handover_due' and channel = 'in_app') then raise exception 'FAIL 6e: guardian not told in app'; end if;
-  if exists (select 1 from public.notifications where template like 'dependant_handover%' and channel = 'sms') then raise exception 'FAIL 6f: an SMS was queued'; end if;
 
   -- a child who has actually turned 18 (but not handed over yet)
   update public.profiles set date_of_birth = (current_date - interval '18 years')::date where id = soon;
@@ -347,89 +341,13 @@ begin
   if pg_temp.scalar_as(guardian, format($q$select private.can_read_clinical(%L, 'view_medication'::public.caregiver_permission)::text$q$, soon)) <> 'false' then
     raise exception 'FAIL 6s: the guardian reads permission-gated rows of a record that has turned 18';
   end if;
-  -- a payments-only grantee over the same record cannot start the hand-over, nor can anyone cancel the guardian's
-  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, permissions)
-    values (soon, mgr, 'view', guardian, array['manage_payments']::public.caregiver_permission[]);
-  m := pg_temp.try_as(mgr, format($q$select public.start_dependant_handover(%L, '+2348011150019')$q$, soon));
-  if m is null then raise exception 'FAIL 6t: a payments-only grantee started a hand-over'; end if;
-  m := pg_temp.try_as(guardian, format($q$select public.start_dependant_handover(%L, '+2348011150009')$q$, far));
-  if m is null then raise exception 'FAIL 6g: handover started for a child under 18'; end if;
-  m := pg_temp.try_as(mgr, format($q$select public.start_dependant_handover(%L, '+2348011150009')$q$, soon));
-  if m is null then raise exception 'FAIL 6h: handover started by someone who is not the guardian'; end if;
-  hid := pg_temp.scalar_as(guardian, format($q$select public.start_dependant_handover(%L, '+2348011150009')::text$q$, soon))::uuid;
-  -- before the young person acts nothing has changed
-  if not (select is_dependent_account from public.profiles where id = soon) then raise exception 'FAIL 6i: record handed over before agreement'; end if;
-  -- the guardian cannot accept for them; neither can they before verifying the number
-  m := pg_temp.try_as(guardian, format('select public.accept_dependant_handover(%L, %L)', hid, (select date_of_birth from public.profiles where id = soon)));
-  if m is null then raise exception 'FAIL 6j: the guardian accepted on the young person''s behalf'; end if;
-  m := pg_temp.try_as(soon, format('select public.accept_dependant_handover(%L, %L)', hid, (select date_of_birth from public.profiles where id = soon)));
-  if m is null then raise exception 'FAIL 6k: accepted without a verified number'; end if;
-  if pg_temp.scalar_as(soon, 'select count(*)::text from public.my_pending_handover()') <> '0' then raise exception 'FAIL 6l: pending hand-over visible without a verified number'; end if;
-  -- the number is attached unconfirmed, then verified by the young person
-  update auth.users set phone = '2348011150009', phone_confirmed_at = now() where id = soon;
-  if pg_temp.scalar_as(soon, 'select (select guardian_first_name from public.my_pending_handover())') <> 'Ada' then raise exception 'FAIL 6m: pending hand-over not shown to the young person'; end if;
-  -- the number alone is not enough: a wrong date of birth is refused (and counted), the right one accepts
-  if pg_temp.scalar_as(soon, format('select public.accept_dependant_handover(%L, %L)::text', hid, date '1999-09-09')) <> 'false' then
-    raise exception 'FAIL 6u: a wrong date of birth was accepted';
-  end if;
-  if (select is_dependent_account from public.profiles where id = soon) is not true or (select count(*) from public.audit_log where action = 'dependant_handover.wrong_dob' and subject_patient_id = soon) <> 1 then
-    raise exception 'FAIL 6v: a wrong date of birth changed the record or was not counted';
-  end if;
-  if pg_temp.scalar_as(soon, format('select public.accept_dependant_handover(%L, %L)::text', hid, (select date_of_birth from public.profiles where id = soon))) <> 'true' then
-    raise exception 'FAIL 6w: the right date of birth did not accept';
-  end if;
-  if (select is_dependent_account from public.profiles where id = soon) or (select dependent_kind from public.profiles where id = soon) is not null then
-    raise exception 'FAIL 6n: acceptance did not hand the record over';
-  end if;
-  if not exists (select 1 from public.notifications where recipient_id = guardian and template = 'dependant_handover_accepted') then raise exception 'FAIL 6o: guardian not told'; end if;
-  if (select state from public.dependant_handovers where id = hid) <> 'accepted' then raise exception 'FAIL 6p: state'; end if;
-
-  -- unverified numbers are removed when a hand-over ends; a verified one is left alone; five wrong answers close it
-  declare
-    soon2 uuid := gen_random_uuid(); soon3 uuid := gen_random_uuid(); h2 uuid; h3 uuid;
-  begin
-    insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, raw_app_meta_data, raw_user_meta_data)
-    values (soon2, 'dependent+' || soon2 || '@dependents.tarragonhealth.internal', null, now(), now(), jsonb_build_object('role', 'patient', 'organisation_id', v_org), '{}'),
-           (soon3, 'dependent+' || soon3 || '@dependents.tarragonhealth.internal', null, now(), now(), jsonb_build_object('role', 'patient', 'organisation_id', v_org), '{}');
-    perform public.provision_dependent_profile_basics(soon2, (current_date - interval '19 years')::date, null, guardian, 'minor_child');
-    perform public.provision_dependent_profile_basics(soon3, (current_date - interval '19 years')::date, null, guardian, 'minor_child');
-    insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (soon2, guardian, 'view', guardian), (soon3, guardian, 'view', guardian);
-    update auth.users set phone = '2348011150020' where id = soon2;   -- attached unconfirmed, as the action does
-    h2 := pg_temp.scalar_as(guardian, format($q$select public.start_dependant_handover(%L, '+2348011150020')::text$q$, soon2))::uuid;
-    perform pg_temp.as_user(guardian); perform public.cancel_dependant_handover(soon2); perform pg_temp.back();
-    if (select phone from auth.users where id = soon2) is not null then raise exception 'FAIL 6x: a cancelled hand-over left an unverified number on the login'; end if;
-    -- five wrong answers
-    update auth.users set phone = '2348011150021', phone_confirmed_at = now() where id = soon3;
-    h3 := pg_temp.scalar_as(guardian, format($q$select public.start_dependant_handover(%L, '+2348011150021')::text$q$, soon3))::uuid;
-    for n in 1..5 loop
-      perform pg_temp.scalar_as(soon3, format('select public.accept_dependant_handover(%L, %L)::text', h3, date '1990-01-01'));
-    end loop;
-    if (select state from public.dependant_handovers where id = h3) <> 'cancelled' then raise exception 'FAIL 6y: five wrong answers did not close the hand-over'; end if;
-    -- restarting the hand-over does not reset the count: the right answer is refused too while the 24 hour limit holds
-    h3 := pg_temp.scalar_as(guardian, format($q$select public.start_dependant_handover(%L, '+2348011150021')::text$q$, soon3))::uuid;
-    if pg_temp.scalar_as(soon3, format('select public.accept_dependant_handover(%L, %L)::text', h3, (select date_of_birth from public.profiles where id = soon3))) <> 'false' then
-      raise exception 'FAIL 6ab: restarting the hand-over gave five more guesses';
-    end if;
-    if (select phone from auth.users where id = soon3) is null then raise exception 'FAIL 6z: a VERIFIED number was removed'; end if;
-    -- expiry: a stale pending hand-over closes and its unverified number goes
-    update auth.users set phone = '2348011150022', phone_confirmed_at = null where id = soon2;
-    h2 := pg_temp.scalar_as(guardian, format($q$select public.start_dependant_handover(%L, '+2348011150022')::text$q$, soon2))::uuid;
-    update public.dependant_handovers set expires_at = now() - interval '1 hour' where id = h2;
-    n := private.expire_dependant_handovers();
-    if n < 1 or (select state from public.dependant_handovers where id = h2) <> 'expired' or (select phone from auth.users where id = soon2) is not null then
-      raise exception 'FAIL 6aa: expiry did not close the hand-over and remove the unverified number (state %, phone %)',
-        (select state from public.dependant_handovers where id = h2), (select phone from auth.users where id = soon2);
-    end if;
-  end;
 
   -- ===== 7. anon
   foreach tname in array array['public.log_proxy_view(uuid)','public.my_proxy_view_log(integer)',
-      'public.narrow_proxy_access(uuid, public.care_access_category[], boolean)','public.revoke_proxy_access(uuid)',
-      'public.start_dependant_handover(uuid, text)','public.cancel_dependant_handover(uuid)','public.my_pending_handover()',
-      'public.accept_dependant_handover(uuid, date)','public.decline_dependant_handover(uuid)'] loop
+      'public.narrow_proxy_access(uuid, public.care_access_category[], boolean)','public.revoke_proxy_access(uuid)'
+      ] loop
     if has_function_privilege('anon', tname, 'EXECUTE') then raise exception 'FAIL 7: anon can execute %', tname; end if;
   end loop;
-  if has_table_privilege('anon', 'public.dependant_handovers', 'SELECT') then raise exception 'FAIL 7: anon reads dependant_handovers'; end if;
 end $$;
 
 -- ===== 8. SABOTAGE: each check above must be able to fail

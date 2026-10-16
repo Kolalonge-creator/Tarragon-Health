@@ -20,6 +20,8 @@ declare
   v_status  public.health_education_content_status;
   v_caught  boolean;
   v_cat_live integer;
+  v_cmo0    uuid;
+  v_org0    uuid;
 begin
   select id into v_admin   from public.profiles where role = 'admin'   limit 1;
   select id into v_patient from public.profiles where role = 'patient' limit 1;
@@ -151,7 +153,20 @@ begin
   if v_n <> 0 then raise exception 'FAIL 3d: a review_due item past its own date is still readable'; end if;
 
   -- ---------------- 4. Republish guard: cannot publish while the date is still in the past ----------------
-  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  -- S80: bringing a review_due item back to published is an approval, and only the Chief Medical Officer may give it; make one (fixture) and act as them.
+  perform set_config('request.jwt.claims', '', true);  -- no leftover session: a test profile can only be created by the owner, an admin or a service context
+  select organisation_id into v_org0 from public.profiles where id = v_admin;
+  v_cmo0 := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_cmo0, 'f1-republish-cmo-' || v_cmo0 || '@example.invalid', 'x', now(), '{}', '{}');
+  insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, language)
+  values (v_cmo0, v_org0, 'clinician', 'F1 republish cmo', '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), (current_date - interval '45 years')::date, true, 'en')
+  on conflict (id) do nothing;
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
+      license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
+  values (v_org0, v_cmo0, 'F1 republish cmo', 'MDCN', 'F1-REPUB-' || substr(v_cmo0::text, 1, 8), true, 'active', now(), v_admin,
+      'chief_medical_officer', 'contracted', 2, true, v_admin, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_cmo0, 'role', 'authenticated')::text, true);
   set local role authenticated;
   v_caught := false;
   begin
@@ -160,7 +175,10 @@ begin
   end;
   if not v_caught then raise exception 'FAIL 4a: republished an item whose review date is still past'; end if;
 
-  update public.health_education_content set next_review_due = v_today + 90 where id = v_id;
+  reset role;
+  update public.health_education_content set next_review_due = v_today + 90 where id = v_id;  -- as the owner: the CMO's session approves, it does not edit rows
+  perform set_config('request.jwt.claims', json_build_object('sub', v_cmo0, 'role', 'authenticated')::text, true);
+  set local role authenticated;
   perform public.set_health_education_content_status(v_id, 'published', 'reviewed again');
   reset role;
   if not (select is_active from public.health_education_content where id = v_id) then
@@ -193,6 +211,7 @@ begin
     v_ver integer;
   begin
     -- a protocol version can only be signed by the org's active Chief Medical Officer: make one (fixture) and act as them
+    perform set_config('request.jwt.claims', '', true);  -- no leftover session: a test profile can only be created by the owner, an admin or a service context
     select organisation_id into v_org from public.profiles where id = v_admin;
     v_cmo := gen_random_uuid();
     insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)

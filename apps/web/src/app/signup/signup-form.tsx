@@ -18,6 +18,7 @@ import { t, type Locale } from "@tarragon/i18n";
 import { cn } from "@/lib/utils";
 import { PhoneSignupForm } from "./phone-signup-form";
 import { AdultDobField } from "./adult-dob-field";
+import { EmailCodeBox } from "./email-code-box";
 
 const FIELD_CLASS = "h-11 rounded-xl";
 
@@ -25,8 +26,13 @@ function EmailSignupForm({
   refCode,
   intent,
   redirectTo,
+  inviteOnly,
+  locale = "en",
 }: {
+  locale?: Locale;
   refCode?: string;
+  /** Show the invite code box (only while sign-up is invite-only). */
+  inviteOnly?: boolean;
   /** Carried through auth metadata so onboarding can land the visitor on what
    *  they came for. Hidden field, same mechanism as refCode. */
   intent?: "health_check" | "support";
@@ -80,6 +86,8 @@ function EmailSignupForm({
         <p role="status" className="text-sm text-charcoal-ink/80">
           Check your email to confirm your account, then sign in.
         </p>
+        {/* S41 (spec 1.4): the same email carries a code too; typing it here is optional, the link still works. */}
+        {state.email ? <EmailCodeBox email={state.email} redirectTo={state.redirectTo} locale={locale} /> : null}
       </div>
     );
   }
@@ -214,6 +222,26 @@ function EmailSignupForm({
           Helps us show what&apos;s available near you. You can add or change this at any time.
         </p>
       </div>
+      {inviteOnly && (
+        <div className="space-y-1.5">
+          <Label htmlFor="inviteCode" className="text-charcoal-ink/70">
+            {t("signup.invite_code_label")}
+          </Label>
+          <Input
+            id="inviteCode"
+            name="inviteCode"
+            autoComplete="off"
+            autoCapitalize="characters"
+            maxLength={32}
+            disabled={pending}
+            className={FIELD_CLASS}
+            {...fieldErrorProps(errorId, invalid("inviteCode"), "signup-invite-hint")}
+          />
+          <p id="signup-invite-hint" className="text-xs text-charcoal-ink/50">
+            {t("signup.invite_code_hint")}
+          </p>
+        </div>
+      )}
       <AdultDobField
         key={state?.values?.dateOfBirth ?? "dob"}
         idPrefix="signup"
@@ -264,6 +292,7 @@ export function SignupForm({
   refCode?: string;
   intent?: "health_check" | "support";
   redirectTo?: string;
+  inviteOnly?: boolean;
 }) {
   const [method, setMethod] = useState<"email" | "phone">("email");
 
@@ -286,7 +315,7 @@ export function SignupForm({
           </button>
         ))}
       </div>
-      {method === "email" ? <EmailSignupForm {...props} /> : <PhoneSignupForm locale={locale} {...props} />}
+      {method === "email" ? <EmailSignupForm locale={locale} {...props} /> : <PhoneSignupForm locale={locale} {...props} />}
     </div>
   );
 }

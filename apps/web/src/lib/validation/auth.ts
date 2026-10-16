@@ -35,6 +35,13 @@ export const phoneOtpVerifySchema = z.object({
 });
 export type PhoneOtpVerifyInput = z.infer<typeof phoneOtpVerifySchema>;
 
+/** S41 (spec 1.4): the optional six-digit code from the confirmation email, an alternative to clicking its link. */
+export const emailOtpVerifySchema = z.object({
+  email: z.email(),
+  token: z.string().regex(/^\d{6}$/, "Enter the 6-digit code"),
+});
+export type EmailOtpVerifyInput = z.infer<typeof emailOtpVerifySchema>;
+
 export const passwordResetEmailSchema = z.object({
   email: z.email(),
 });
@@ -68,6 +75,13 @@ const signupObject = z
     state: z
       .string()
       .trim()
+      .optional()
+      .transform((v) => (v && v.length > 0 ? v : undefined)),
+    // Only shown while sign-up is invite-only. Case and spaces do not matter (the database trims and upper-cases it); an empty box is no code.
+    inviteCode: z
+      .string()
+      .trim()
+      .max(32)
       .optional()
       .transform((v) => (v && v.length > 0 ? v : undefined)),
     // Carried from a shareable referral link (?ref=CODE on /signup) so

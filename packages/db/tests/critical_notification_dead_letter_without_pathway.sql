@@ -183,7 +183,7 @@ declare
 begin
   insert into public.notifications
     (organisation_id, recipient_id, channel, template, payload, priority, status, escalation_hop)
-  values (v_org, v_rec, 'sms', 'p1_control_pending', '{}'::jsonb, 'critical', 'pending', 3)
+  values (v_org, v_rec, 'push', 'p1_control_pending', '{}'::jsonb, 'critical', 'pending', 3)
   returning id into v_n;
 
   perform private.escalate_unconfirmed_critical_notifications();

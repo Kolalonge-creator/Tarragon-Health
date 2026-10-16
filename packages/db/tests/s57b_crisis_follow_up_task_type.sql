@@ -4,8 +4,8 @@
 --      clinician on call with the neutral notice (push, in-app, email; critical; empty payload): the old behaviour is kept.
 --   3. A replay is idempotent; a second crisis merges into the live task; with the new type switched off the failure is loud (audit row, incident,
 --      no handled marker) and the screen and emergency event survive; a replay after the fix completes it.
---   4. The side effect is real and deliberate: a triage rule set cannot be approved while crisis_follow_up awaits confirmation; the CMO's confirmation
---      (and nobody else's) clears it.
+--   4. Approval looks only at the task types a rule set uses (OQ-334): crisis_follow_up awaiting the CMO does not block a set that never creates it;
+--      a set that uses amber_glucose_review is refused until the CMO confirms that type.
 --   5. anon and authenticated cannot run the follow-up function.
 --   SABOTAGE: the function is put back to the F1 text (creates red_event_unacknowledged); this proof must then fail on the task type.
 -- Wrapped in BEGIN/ROLLBACK; fails loudly with raise exception.
@@ -51,7 +51,7 @@ end $f$;
 
 do $$
 declare
-  v_org uuid; v_admin uuid; v_cmo uuid; v_p uuid; v_b uuid; pt1 uuid; pt2 uuid; pt3 uuid; s1 uuid; s2 uuid; s3 uuid; s4 uuid; v_task uuid; v_n integer; v_def text; v_set uuid; v_ok boolean;
+  v_org uuid; v_admin uuid; v_cmo uuid; v_p uuid; v_b uuid; pt1 uuid; pt2 uuid; pt3 uuid; s1 uuid; s2 uuid; s3 uuid; s4 uuid; v_task uuid; v_n integer; v_def text; v_set uuid; v_set2 uuid; v_ok boolean;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -118,22 +118,29 @@ begin
     raise exception 'FAIL 3e: a replay after the fix did not complete';
   end if;
 
-  -- 4. the deliberate side effect and its cure
+  -- 4. approval looks only at the task types a rule set USES (OQ-334, follow-up 2026-10-15)
   insert into public.triage_rule_sets (code, version, status, rules) values ('s57b_set', 1, 'draft',
     '{"code":"s57b_set","version":1,"rules":[{"id":"R1","actions":[{"kind":"create_task","task":"bp_review","dueMinutes":60}]}]}'::jsonb) returning id into v_set;
+  insert into public.triage_rule_sets (code, version, status, rules) values ('s57b_glucose_set', 1, 'draft',
+    '{"code":"s57b_glucose_set","version":1,"rules":[{"id":"R2","actions":[{"kind":"create_task","task":"urgent_glucose_review","dueMinutes":60}]}]}'::jsonb) returning id into v_set2;
   update public.task_types set confirmed_by = v_cmo, confirmed_at = now() where code = 'adherence_follow_up' and is_active and needs_confirmation;
-  -- other task types that also await the CMO (S13 R4, R2) are out of the way: this proof is about crisis_follow_up
-  update public.task_types set needs_confirmation = false where code in ('red_patient_outreach', 'amber_glucose_review');
+  -- the other unconfirmed types: red_patient_outreach is out of the way; amber_glucose_review is left unconfirmed on purpose (used by the second set)
+  update public.task_types set needs_confirmation = false where code in ('red_patient_outreach');
+  update public.task_types set needs_confirmation = true, confirmed_at = null, confirmed_by = null where code = 'amber_glucose_review';
   perform set_config('request.jwt.claim.sub', v_cmo::text, true); perform set_config('request.jwt.claims', json_build_object('sub', v_cmo, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  begin
-    perform public.approve_triage_rule_set(v_set);
-    raise exception 'FAIL 4a: a rule set was approved while crisis_follow_up awaited confirmation';
-  exception when sqlstate '22023' then null; end;
-  perform public.confirm_task_type('crisis_follow_up', 'proof');
+  -- crisis_follow_up (raised by code, no rule set key) awaits confirmation but no longer blocks a set that does not use it
   perform public.approve_triage_rule_set(v_set);
+  begin
+    perform public.approve_triage_rule_set(v_set2);
+    raise exception 'FAIL 4a: a rule set was approved while a task type it uses awaited confirmation';
+  exception when sqlstate '22023' then null; end;
+  perform public.confirm_task_type('amber_glucose_review', 'proof');
+  perform public.approve_triage_rule_set(v_set2);
   reset role;
-  if (select status from public.triage_rule_sets where id = v_set) <> 'approved' then raise exception 'FAIL 4b: confirming did not release approval'; end if;
+  if (select status from public.triage_rule_sets where id = v_set) <> 'approved' then raise exception 'FAIL 4b: an unrelated unconfirmed task type blocked approval'; end if;
+  if (select status from public.triage_rule_sets where id = v_set2) <> 'approved' then raise exception 'FAIL 4c: confirming the used type did not release approval'; end if;
+  if not exists (select 1 from public.task_types where code = 'crisis_follow_up' and needs_confirmation and confirmed_at is null) then raise exception 'FAIL 4d: crisis_follow_up should still await the CMO'; end if;
 
   -- 5. grants
   if has_function_privilege('anon', 'private.raise_crisis_follow_up(uuid)', 'EXECUTE') or has_function_privilege('authenticated', 'private.raise_crisis_follow_up(uuid)', 'EXECUTE') then
