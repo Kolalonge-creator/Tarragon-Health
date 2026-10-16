@@ -16,8 +16,14 @@
 --      public.list_bookable_consult_slots no longer returns mdcn_number (the booking card shows "Licence verified on <date>").
 --   D. public.clinician_folio_for_document returns a null folio for lab_result_interpretation and verified_document (OQ-358b):
 --      the folio prints on letters and prescriptions only; defence in depth beside the generators that no longer print it.
--- Not changed here (open questions in docs/design/FU-folio-closeout.md): health_passport_by_serial/mint_health_passport carry the
--- attesting doctor's folio (anon-readable by serial); lab_request and vaccination_certificate PDFs still print it.
+--   E. public.record_corrections: the audit trigger on clinical_staff copies the old and new credential_number into it, and its
+--      SELECT policy admits every member of the organisation for table_name = 'clinical_staff' (patients and colleagues
+--      included; 2 live rows already carry a folio change). Rows that changed the folio are now readable only by
+--      private.can_credential_review() callers (admin, CMO). The rows are append-only and are not rewritten.
+-- Not changed here (open questions in docs/design/FU-folio-closeout.md): health_passport_by_serial/mint_health_passport and the
+-- table column health_passport_issuances.attesting_credential_number carry the attesting doctor's folio (the first is readable
+-- without sign-in); lab_request and vaccination_certificate PDFs still print it; clinician_folio_for_document hands the issuing
+-- clinician's folio to anyone entitled to read a letter, prescription, lab request or vaccination record (as printed on it).
 
 -- ---------------------------------------------------------------------------
 -- A. The folio reader
@@ -315,6 +321,23 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- E. record_corrections: a folio change is readable by credentialing staff only
+-- (live policy read 2026-10-15: record_corrections_select, to authenticated, USING private.can_read_record_correction(...))
+-- ---------------------------------------------------------------------------
+drop policy record_corrections_select on public.record_corrections;
+create policy record_corrections_select on public.record_corrections
+  for select to authenticated
+  using (
+    private.can_read_record_correction(table_name, organisation_id, patient_id, corrected_by)
+    and (
+      table_name <> 'clinical_staff'
+      or not ('credential_number' = any (coalesce(changed_columns, array[]::text[])))
+      -- deliberately NOT "corrected_by = me": a colleague who overwrote a folio must not read the value they replaced
+      or private.can_credential_review()
+    )
+  );
+
+-- ---------------------------------------------------------------------------
 -- Assertions: "locked" is provable, not hopeful
 -- ---------------------------------------------------------------------------
 do $$
@@ -348,6 +371,10 @@ begin
   end if;
   if has_function_privilege('anon', 'public.clinician_licence_public(uuid)', 'EXECUTE') then
     raise exception 'anon can execute clinician_licence_public';
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'record_corrections'
+                  and policyname = 'record_corrections_select' and qual ilike '%credential_number%') then
+    raise exception 'record_corrections_select does not guard folio changes';
   end if;
   if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'clinical_staff_directory' and column_name = 'credential_number') then
     raise exception 'the staff directory view exposes credential_number again';
