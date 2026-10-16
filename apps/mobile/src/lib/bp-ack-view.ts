@@ -1,4 +1,4 @@
-import { type BpAckDelivery } from "@tarragon/shared";
+import { type BpAckDelivery, type BpRowState } from "@tarragon/shared";
 import { t, type Locale } from "@tarragon/i18n";
 
 /**
@@ -17,4 +17,22 @@ export function bpAckMessage(delivery: BpAckDelivery | null, locale: Locale): st
     default:
       return null;
   }
+}
+
+/** The part of an outbox row the acknowledgement needs. */
+export interface OutboxRowLike {
+  readonly clientId: string;
+  readonly state: string;
+  readonly supportCode?: string | null | undefined;
+}
+
+/**
+ * Where one blood pressure row stands, from the rows still in the outbox. A row that is no longer there was accepted by the server (the outbox removes
+ * a row only after the server accepts it); a rejected row stays and is never retried; anything else is still waiting.
+ */
+export function bpRowState(clientId: string, outbox: readonly OutboxRowLike[]): { state: BpRowState; supportCode: string | null } {
+  const row = outbox.find((r) => r.clientId === clientId);
+  if (!row) return { state: "sent", supportCode: null };
+  if (row.state === "rejected") return { state: "rejected", supportCode: row.supportCode ?? null };
+  return { state: "waiting", supportCode: null };
 }

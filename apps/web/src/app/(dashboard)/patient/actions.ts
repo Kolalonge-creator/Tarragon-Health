@@ -286,7 +286,15 @@ async function logVitalInner(data: VitalsReadingInput): Promise<LogVitalActionSt
     });
   }
 
-  const bpAckLevel = row.vital_type === "blood_pressure" ? classifyBpLevel(row.systolic, row.diastolic) : undefined;
+  // "Received" is said only for a reading known to be stored: with the plausibility hold or cross-source de-duplication on, the insert can return no row
+  // (held, or already there), and then the form keeps the plain line it always had. When the safety check did not finish, no band wording is shown at all.
+  const confirmedStored = !watching || (Array.isArray(storedRows) && storedRows.length > 0);
+  const bpAckLevel: BpAckLevel | undefined =
+    row.vital_type === "blood_pressure" && confirmedStored
+      ? safetyAssessmentFailed
+        ? "unknown"
+        : classifyBpLevel(row.systolic, row.diastolic)
+      : undefined;
   if (safetyAssessmentFailed) {
     return {
       success: true,

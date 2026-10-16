@@ -10,7 +10,8 @@ import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-t
 import { loadActiveThresholds } from "@/lib/threshold-sync";
 import { BP_CHECKLIST_SYMPTOMS, CUFF_TYPES, planBpLog, redFlagsAmong, type BpChecklistSymptom, type CuffType } from "@/lib/bp-checklist";
 import { logBpWithExtras } from "@/lib/bp-log";
-import { bpAckMessage } from "@/lib/bp-ack-view";
+import { bpAckMessage, bpRowState } from "@/lib/bp-ack-view";
+import { listOutbox } from "@/lib/outbox";
 import { refreshApprovedGlucoseRuleSet, refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
 import { answerSymptomQuestion, type QuestionSymptom } from "@/lib/symptom-question";
 import { readObstetricStatus, refreshObstetricStatus } from "@/lib/obstetric-status";
@@ -152,6 +153,8 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [saveError, setSaveError] = useState<string | null>(null);
   // What is true right after a save (received / saved on this phone and waiting); cleared when the next save starts.
   const [ack, setAck] = useState<BpAckDelivery | null>(null);
+  // The saved blood pressure row the acknowledgement is about, so a saved-on-this-phone line can turn into received when the outbox sends it.
+  const [ackRowId, setAckRowId] = useState<string | null>(null);
   const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
   const [triageCard, setTriageCard] = useState<{ message: string; tone: "warn" | "info"; audioId: string | null } | null>(null);
   const [cuffType, setCuffType] = useState<CuffType | null>(null);
@@ -274,7 +277,31 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   // The chart clears its own highlight when the data or window changes; clear the readout too.
   useEffect(() => setSelected(null), [windowDays, readings]);
 
+  // A different person (or account) is a different screen: nothing said about the last save carries over.
+  useEffect(() => {
+    setAck(null);
+    setAckRowId(null);
+  }, [patientId, beneficiaryProfileId]);
+
+  // Saved-on-this-phone must not stay on screen after the outbox has sent the row (or the server refused it): look at that one row every few seconds.
+  const ackWaiting = ack?.kind === "waiting" && ackRowId !== null;
+  useEffect(() => {
+    if (!ackWaiting || ackRowId === null) return;
+    const id = setInterval(() => {
+      void listOutbox("vital")
+        .then((rows) => {
+          const row = bpRowState(ackRowId, rows);
+          if (row.state === "sent") setAck({ kind: "received" });
+          else if (row.state === "rejected") setAck({ kind: "refused", supportCode: row.supportCode });
+        })
+        .catch(() => {});
+    }, 4000);
+    return () => clearInterval(id);
+  }, [ackWaiting, ackRowId]);
+
   async function handleSave() {
+    setAck(null);
+    setAckRowId(null);
     const plan = planBpLog({ systolic: sys, diastolic: dia, pulse, symptoms: ticked, cuffType }, SYMPTOM_CHECKLIST.severity);
     const symptomList = (list: readonly BpChecklistSymptom[]) => list.map((s) => tr(`vitals.symptom.${s}` as MessageKey)).join(", ");
     if (!plan.ok) {
@@ -301,7 +328,6 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     setSaveError(null);
     setUrgentBanner(null);
     setTriageCard(null);
-    setAck(null);
 
     // The emergency guidance and the urgent banner come from the on-device check and appear at
     // once, before anything is sent: a crisis-range reading or a red-flag symptom is dangerous
@@ -339,6 +365,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       setSaveError(t("outbox.rejected", locale, { count: result.rejectedSupportCodes.length, code: result.rejectedSupportCodes[0] ?? "" }));
     }
     setAck(bpAckDelivery(result));
+    setAckRowId(result.clientReadingId ?? null);
     toast.show(result.syncedAll ? { message: tr("vitals.log.saved"), tone: "success" } : { message: t("outbox.saved_on_phone", locale), tone: "info" });
     setSys("");
     setDia("");
@@ -395,6 +422,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       })
     : "";
   const levelLabel = (level: BpLevel) => tr(`vitals.level.${level}` as MessageKey);
+  const ackText = bpAckMessage(ack, locale);
 
   return (
     <Screen>
@@ -579,7 +607,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
             {triageCard.audioId ? <ListenButton clipIds={[triageCard.audioId]} lang={locale} /> : null}
           </>
         ) : null}
-        {bpAckMessage(ack, locale) ? <InlineAlert tone="info" message={bpAckMessage(ack, locale) ?? ""} /> : null}
+        {ackText ? <InlineAlert tone="info" message={ackText} /> : null}
         <Button title={tr("vitals.log.save")} onPress={handleSave} loading={saving} />
       </Card>
 
