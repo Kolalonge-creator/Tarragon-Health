@@ -39,6 +39,7 @@ export const GOVERNED_CONFIG_TABLES = [
     slug: "vaccination-schedule",
   },
   { table: "lab_panel_signoffs", title: "Lab ranges and release policy", slug: "lab-panels" },
+  { table: "lab_fallback_wording_signoffs", title: "Lab result fallback message", slug: "lab-fallback" },
   {
     // S88: six kinds in one ledger, one live row PER KIND, so it does not follow the single-live-row
     // shape of the rest. Read through its own branch below; its page is the sign-off hub itself.

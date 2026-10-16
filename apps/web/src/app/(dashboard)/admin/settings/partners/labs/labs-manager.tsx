@@ -322,6 +322,17 @@ function LabCommissionRates() {
   );
 }
 
+/** S27h: a laboratory cannot be switched on without recorded proof. Say what is missing instead of failing silently. */
+function describeActivationError(error: Error): string {
+  const m = error.message ?? "";
+  if (m.includes("lab_provider_needs_onboarding_proof")) {
+    const missing = /missing ([a-z_, ]+)/.exec(m)?.[1] ?? "licence and accreditation details";
+    return `This laboratory cannot go live yet. Record it first in Manage (${missing.replace(/_/g, " ")}).`;
+  }
+  if (m.includes("lab_providers_active_needs_real_contacts")) return "This laboratory still has a placeholder contact. Replace it before switching it on.";
+  return "That did not work. Please try again.";
+}
+
 export function LabsManager({
   labPartnerLogins,
   isSuperAdmin,
@@ -503,6 +514,11 @@ export function LabsManager({
                           </Button>
                         </div>
                       </div>
+                      {toggle.error && toggle.variables?.id === lab.id ? (
+                        <p role="alert" className="mt-1 text-xs text-red-600">
+                          {describeActivationError(toggle.error as Error)}
+                        </p>
+                      ) : null}
                       <div className="mt-1">
                         <TurnaroundBadge providerId={lab.id} />
                       </div>

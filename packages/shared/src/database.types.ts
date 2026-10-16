@@ -43560,6 +43560,39 @@ export type Database = {
         }
         Relationships: []
       }
+      lab_fallback_wording_signoffs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+          wording_key: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+          wording_key: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+          wording_key?: string
+        }
+        Relationships: []
+      }
       home_bp_programme_signoffs: {
         Row: {
           approved_at: string | null
@@ -48902,6 +48935,7 @@ export type Database = {
         Returns: Json
       }
       sign_lab_panels: { Args: { p_id: string }; Returns: string };
+      sign_lab_fallback_wording: { Args: { p_id: string }; Returns: string };
       sign_home_bp_programme: { Args: { p_id: string }; Returns: string };
       complete_home_bp_check: { Args: { p_window_start: string }; Returns: Json };
       record_clinic_bp_reading: { Args: { p_diastolic: number; p_measured_at: string; p_note?: string; p_patient: string; p_systolic: number }; Returns: string };
