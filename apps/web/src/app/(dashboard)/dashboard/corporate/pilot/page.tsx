@@ -19,13 +19,24 @@ export default async function CorporatePilotPage() {
   const supabase = await createClient();
 
   // RLS lets this account read its own organisation's pilots only. The newest pilot that was not cancelled is the one in play.
-  const { data: pilots } = await supabase
+  const { data: pilots, error: pilotsError } = await supabase
     .from("employer_seat_pilots")
     .select("id, state")
     .eq("organisation_id", profile.organisation_id)
     .neq("state", "cancelled")
     .order("created_at", { ascending: false })
     .limit(1);
+  if (pilotsError) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <p role="alert" className="text-sm text-status-red">
+            We could not load your seat pilot just now. Please try again in a moment.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
   const pilot = pilots?.[0];
   if (!pilot) {
     return (
@@ -114,7 +125,9 @@ function PilotReportView({ report }: { report: PilotReport }) {
           {employerPilotText("pilot.usage.heading")}
         </h2>
         {u.suppressed ? (
-          <p className="text-sm text-charcoal-ink/70">{employerPilotText("pilot.usage.suppressed")}</p>
+          <p className="text-sm text-charcoal-ink/70">
+            {employerPilotText(u.reason === "not_enabled" ? "pilot.usage.off" : "pilot.usage.suppressed")}
+          </p>
         ) : (
           <>
             <dl className="grid gap-3 sm:grid-cols-3">

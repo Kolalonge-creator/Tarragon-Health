@@ -80,6 +80,8 @@ describe("money and form helpers", () => {
   it("shows integer kobo as whole naira", () => {
     expect(nairaFromKobo(120000000)).toBe("NGN 1,200,000");
     expect(nairaFromKobo(10000000)).toBe("NGN 100,000");
+    expect(nairaFromKobo(4999950)).toBe("NGN 49,999.50");
+    expect(nairaFromKobo(4999905)).toBe("NGN 49,999.05");
   });
 
   it("validates the create form", () => {

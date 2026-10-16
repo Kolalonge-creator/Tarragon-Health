@@ -22,7 +22,7 @@ const STATE_LABEL: Record<string, string> = {
  */
 export async function SeatPilotPanel({ organisationId }: { organisationId: string }) {
   const supabase = await createClient();
-  const [{ data: pilots }, { data: packages }] = await Promise.all([
+  const [{ data: pilots, error: pilotsError }, { data: packages }] = await Promise.all([
     supabase
       .from("employer_seat_pilots")
       .select(
@@ -37,6 +37,17 @@ export async function SeatPilotPanel({ organisationId }: { organisationId: strin
       .eq("is_active", true)
       .not("catalog_item_id", "is", null),
   ]);
+  if (pilotsError) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <p role="alert" className="text-sm text-status-red">
+            Could not load the seat pilot. Refresh the page; do not create a new pilot until it loads.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
   const live = (pilots ?? []).some((p) => ["draft", "invoiced", "active"].includes(p.state));
 
   return (

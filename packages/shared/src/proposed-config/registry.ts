@@ -2916,10 +2916,10 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   {
     key: "employer.seat_pilot",
     // EMP (docs/design/EMP.md): limits for an employer seat pilot and the rounding of its report. max_seats_per_pilot and
-    // max_window_days stop a typo in a finance form; usage counts are shown rounded to report_round_to. The minimum cell is NOT here: the report uses the one platform rule, private.min_cell_floor (S75a, OQ-233), so there is a single number to change (I9). The
+    // max_window_days stop a typo in a finance form; usage counts are shown rounded to report_round_to; usage_report_enabled stays false until counsel and the DPO have signed the employee notice (OQ-EMP-7, OQ-EMP-9), so a pilot reports seat counts only. The minimum cell is NOT here: the report uses the one platform rule, private.min_cell_floor (S75a, OQ-233), so there is a single number to change (I9). The
     // price is NOT here: a pilot seat is priced at the organisation price in force (commerce.membership_prices). Mirrored by
     // employer_seat_pilot_config in the migration seed, with a drift test. UNSIGNED: the founder has not approved the limits.
-    value: { max_seats_per_pilot: 500, max_window_days: 120, report_round_to: 5 },
+    value: { max_seats_per_pilot: 500, max_window_days: 120, report_round_to: 5, usage_report_enabled: false },
     owner: "Founder",
     status: "proposed",
     version: 1,

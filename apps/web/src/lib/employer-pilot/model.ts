@@ -51,8 +51,11 @@ export function parsePilotReport(raw: unknown): PilotReport | null {
 
 /** Whole naira text for an integer kobo amount (INV-15: stored as kobo, shown as naira). */
 export function nairaFromKobo(kobo: number): string {
-  const naira = Math.trunc(kobo / 100);
-  return `NGN ${naira.toLocaleString("en-NG")}`;
+  const whole = Math.trunc(kobo / 100);
+  const rest = Math.abs(kobo % 100);
+  const base = `NGN ${whole.toLocaleString("en-NG")}`;
+  // never drop kobo: what finance quotes must equal the stored integer
+  return rest === 0 ? base : `${base}.${String(rest).padStart(2, "0")}`;
 }
 
 function csvCell(v: string | number | null): string {
@@ -80,9 +83,10 @@ export function pilotReportToCsv(report: PilotReport): string {
   ];
   const note = `Rounded to the nearest ${report.rounded_to}. Counts under ${report.min_cell} people are withheld. Through ${report.usage_through}.`;
   if (report.usage.suppressed) {
-    rows.push(["Members who had a consultation", withheld, "Too few members yet to report usage"]);
-    rows.push(["Consultations completed", withheld, "Too few members yet to report usage"]);
-    rows.push(["Members who logged a check-in", withheld, "Too few members yet to report usage"]);
+    const why = report.usage.reason === "not_enabled" ? "Usage figures are not switched on for this pilot" : "Too few members yet to report usage";
+    rows.push(["Members who had a consultation", withheld, why]);
+    rows.push(["Consultations completed", withheld, why]);
+    rows.push(["Members who logged a check-in", withheld, why]);
   } else {
     rows.push(["Members who had a consultation", report.usage.members_with_consultation ?? withheld, note]);
     rows.push(["Consultations completed", report.usage.consultations_completed ?? withheld, note]);
@@ -133,7 +137,8 @@ const ERROR_TEXT: Record<string, string> = {
   pilot_config_missing: "The pilot limits are not configured. Tell the founder.",
   pilot_payment_method_invalid: "Choose bank transfer or Paystack payment link.",
   pilot_state_transition_not_allowed: "That step is not allowed for the pilot's current state. Refresh the page.",
-  pilot_invoice_paid_cannot_void: "A paid pilot invoice cannot be voided. End the pilot instead.",
+  pilot_invoice_void_via_pilot_only: "A pilot invoice is voided by cancelling the pilot, not on its own.",
+  pilot_covers_this_period: "A seat pilot already covers this employer for these dates, so a per-head invoice would bill the same people twice.",
 };
 
 /** Maps a database error to words a finance person can act on. Unknown errors become a neutral line, never raw SQL text. */

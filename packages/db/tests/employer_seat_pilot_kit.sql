@@ -167,7 +167,7 @@ end $$;
 -- 2. Claims before payment, invoice, payment -------------------------------------------------------------------------------
 do $$
 declare adm uuid := pg_temp.f('admin'); a uuid := pg_temp.f('orgA'); pkg uuid := pg_temp.f('pkgA'); v_pilot uuid := pg_temp.f('pilotA');
-        v_inv uuid; r text; r1 uuid; r2 uuid;
+        v_inv uuid; r text; r1 uuid; r2 uuid; v_contract uuid;
 begin
   r1 := pg_temp.claim(a, pkg, pg_temp.f('p1'));
   r2 := pg_temp.claim(a, pkg, pg_temp.f('p2'));
@@ -189,6 +189,8 @@ begin
   perform pg_temp.ck('issuing again returns the same invoice and makes no second', v_inv::text || '/1',
     pg_temp.q_as(adm, format($q$select public.issue_employer_seat_pilot_invoice(%L)::text$q$, v_pilot)) || '/' || (select count(*)::text from public.employer_invoices where organisation_id = a));
   perform pg_temp.ck('the pilot is now invoiced', 'invoiced', (select state from public.employer_seat_pilots where id = v_pilot));
+  perform pg_temp.ck('an unpaid pilot invoice cannot be voided on its own either (the pilot would be stranded)', 'true',
+    (pg_temp.q_as(adm, format($q$select public.employer_set_invoice_status(%L, 'void', 'Voiding it behind the pilot')::text$q$, v_inv)) like '%pilot_invoice_void_via_pilot_only%')::text);
   perform pg_temp.ck('the employer sees its invoice', '1', pg_temp.q_as(pg_temp.f('corpA'), 'select count(*)::text from public.employer_invoices'));
 
   perform pg_temp.ck('an employer admin cannot record a payment', 'true',
@@ -217,7 +219,15 @@ begin
   perform pg_temp.ck('confirming with a different reference is refused', 'true',
     (pg_temp.q_as(adm, format($q$select public.confirm_employer_seat_pilot_payment(%L, 'bank_transfer', 'OTHER-REF-77')::text$q$, v_pilot)) like '%pilot_already_paid_other_reference%')::text);
   perform pg_temp.ck('a paid pilot invoice cannot be voided on its own (it would let the seats be billed again)', 'true',
-    (pg_temp.q_as(adm, format($q$select public.employer_set_invoice_status(%L, 'void', 'Voiding a paid pilot invoice')::text$q$, v_inv)) like '%pilot_invoice_paid_cannot_void%')::text);
+    (pg_temp.q_as(adm, format($q$select public.employer_set_invoice_status(%L, 'void', 'Voiding a paid pilot invoice')::text$q$, v_inv)) like '%pilot_invoice_void_via_pilot_only%')::text);
+  -- a contract-driven per-head invoice for the same dates would bill the same people twice
+  insert into public.corporate_contracts (organisation_id, name) values (a, 'EP contract') returning id into v_contract;
+  perform pg_temp.ck('a per-head contract invoice overlapping the pilot is refused', 'pilot_covers_this_period',
+    pg_temp.owner_try(format($q$insert into public.employer_invoices (organisation_id, contract_id, period_start, period_end, billing_model, amount_kobo) values (%L, %L, %L, %L, 'per_employee', 1000)$q$, a, v_contract, pg_temp.today(), pg_temp.today() + 10)));
+  perform pg_temp.ck('and so is one for a period after it that touches its window', 'pilot_covers_this_period',
+    pg_temp.owner_try(format($q$insert into public.employer_invoices (organisation_id, contract_id, period_start, period_end, billing_model, amount_kobo) values (%L, %L, %L, %L, 'per_active_member', 1000)$q$, a, v_contract, pg_temp.today() + 30, pg_temp.today() + 60)));
+  perform pg_temp.ck('a per-head contract invoice well after the pilot window is not blocked', 'ok',
+    pg_temp.owner_try(format($q$insert into public.employer_invoices (organisation_id, contract_id, period_start, period_end, billing_model, amount_kobo) values (%L, %L, %L, %L, 'per_employee', 1000)$q$, a, v_contract, pg_temp.today() + 200, pg_temp.today() + 230)));
   perform pg_temp.ck('the confirmation is audited once', '1', (select count(*)::text from public.audit_log where action = 'employer_seat_pilot.payment_confirmed' and entity_id = v_pilot));
 end $$;
 
@@ -313,6 +323,10 @@ do $$
 declare adm uuid := pg_temp.f('admin'); a uuid := pg_temp.f('orgA'); v_pilot uuid := pg_temp.f('pilotA'); r jsonb; i integer; v_json text;
 begin
   r := pg_temp.q_as(pg_temp.f('corpA'), format($q$select public.employer_seat_pilot_report(%L)::text$q$, v_pilot))::jsonb;
+  perform pg_temp.ck('usage reporting ships OFF: seat counts only until counsel and the DPO sign the employee notice', 'true/not_enabled',
+    ((r -> 'usage' ->> 'suppressed') = 'true')::text || '/' || (r -> 'usage' ->> 'reason'));
+  update public.employer_seat_pilot_config set rules = jsonb_set(rules, '{usage_report_enabled}', 'true') where is_active;
+  r := pg_temp.q_as(pg_temp.f('corpA'), format($q$select public.employer_seat_pilot_report(%L)::text$q$, v_pilot))::jsonb;
   perform pg_temp.ck('seats made this week give no usage figures yet (too few reportable members)', 'true/too_few_members',
     ((r -> 'usage' ->> 'suppressed') = 'true')::text || '/' || (r -> 'usage' ->> 'reason'));
   perform pg_temp.ck('the suppressed usage block carries no figure keys at all', 'reason,suppressed', pg_temp.all_keys(r -> 'usage'));
@@ -397,6 +411,20 @@ begin
   r := pg_temp.q_as(adm, format($q$select public.employer_seat_pilot_report(%L)::text$q$, v_pilot))::jsonb;
   perform pg_temp.ck('a real (not test) pilot counts none of the test-account seats', '0', (r -> 'seats' ->> 'claimed'));
   update public.employer_seat_pilots set is_test = true where id = v_pilot;
+end $$;
+
+-- 5b. A new paid pilot re-offers seats to people an earlier pilot could not serve --------------------------------------------
+do $$
+declare adm uuid := pg_temp.f('admin'); a uuid := pg_temp.f('orgA'); t date := pg_temp.today(); v_p2 uuid; r jsonb;
+begin
+  v_p2 := pg_temp.q_as(adm, format($q$select public.create_employer_seat_pilot(%L, %L, 6, %L, %L, 'terms-v2', true)::text$q$, a, pg_temp.f('pkgA'), t, t + 30))::uuid;
+  perform pg_temp.setf('pilotA2', v_p2);
+  perform pg_temp.q_as(adm, format($q$select public.issue_employer_seat_pilot_invoice(%L)::text$q$, v_p2));
+  r := pg_temp.q_as(adm, format($q$select public.confirm_employer_seat_pilot_payment(%L, 'bank_transfer', 'BANK-REF-4004')::text$q$, v_p2))::jsonb;
+  perform pg_temp.ck('a new paid pilot gives the two people who were refused (no seat left, pilot closed) their seats', '2/seat/seat',
+    (r ->> 'granted') || '/' || (select string_agg(seat_state, '/' order by seat_state) from public.employer_roster_members where claimed_profile_id in (pg_temp.f('p13'), pg_temp.f('p14'))));
+  perform pg_temp.ck('and no claim is left waiting on the report', '0',
+    (pg_temp.q_as(adm, format($q$select public.employer_seat_pilot_report(%L) -> 'seats' ->> 'claims_without_seat'$q$, v_p2))));
 end $$;
 
 -- 6. Dormant ---------------------------------------------------------------------------------------------------------------

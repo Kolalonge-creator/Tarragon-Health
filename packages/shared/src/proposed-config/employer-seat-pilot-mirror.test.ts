@@ -18,6 +18,7 @@ describe("the employer seat pilot config mirrors the migration", () => {
     max_seats_per_pilot: number;
     max_window_days: number;
     report_round_to: number;
+    usage_report_enabled: boolean;
   };
   const sql = migration("_employer_seat_pilot_kit.sql");
 
@@ -32,6 +33,10 @@ describe("the employer seat pilot config mirrors the migration", () => {
     expect(sql).toMatch(/private\.min_cell_floor\(/);
     expect(sql).toMatch(/private\.suppress_cell\(/);
     expect(sql).not.toMatch(/min_cohort_size\)?\s*,\s*5|greatest\(coalesce\(\(select min_cohort_size/);
+  });
+
+  it("ships with usage reporting OFF until counsel and the DPO sign the employee notice", () => {
+    expect(cfg.usage_report_enabled).toBe(false);
   });
 
   it("holds no price: a pilot seat is priced at the organisation price in force", () => {

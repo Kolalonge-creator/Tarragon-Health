@@ -17,6 +17,7 @@ export const employerPilotCopy = {
   "pilot.usage.heading": "How the seats are being used",
   "pilot.usage.suppressed":
     "Not enough members have joined yet to report usage without pointing at individuals. This section appears when enough have joined.",
+  "pilot.usage.off": "Usage figures are not switched on for this pilot. The seat counts above are complete.",
   "pilot.usage.note": "Counts are rounded to the nearest {rounded} and cover the weeks completed up to {through}. A figure for fewer than {min} people is withheld.",
   "pilot.withheld": "Withheld",
   "pilot.export.csv": "Download as CSV",

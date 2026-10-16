@@ -24,7 +24,8 @@ Built on the existing employer platform (docs/design/EMP.md). Nothing here is li
 - Usage figures need a group of at least the platform minimum (20 people at the time of writing); a pilot smaller than about 40 members will show seat counts only. Do not read the report to the employer in a call if a figure shows "withheld": do not work around it, and do not give a smaller group's number from memory.
 - No per-employee card payment, no family or dependant seats, no per-head population fee (no capitation), no wallet or credit balance.
 - Do not mark an invoice paid before the money is seen. Do not grant or revoke a seat by editing tables.
-- Do not flip any module on yourself.
+- Do not flip any module on yourself, and do not switch on the usage figures (`usage_report_enabled`): that waits for counsel and the DPO (OQ-EMP-9). Until then the employer report shows seat counts only.
+- A pilot's invoice cannot be voided on its own: cancel the pilot instead. Once a pilot has ended, new joiners get no seat until a new offer is paid (OQ-EMP-10).
 
 ## If something looks wrong
 - A person has no Membership after payment: check their roster row's status (waiting, no seat left, pilot closed) in the pilot panel counts, then the incident list. Do not insert rows.

@@ -3870,6 +3870,14 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - `docs/legal/employer-pilot-terms-DRAFT.md` and `docs/legal/employee-pilot-notice-DRAFT.md`: roles of controller and processor for the roster (employer to Tarragon), lawful basis for the work-email match, voluntariness inside an employment relationship, the DPA attachment, refund position, governing law, liability.
 - Decision: open (counsel). Not for sending.
 
+### OQ-EMP-9 Employee activity in the employer report: lawful basis, and the report ships OFF
+- The usage block counts members with a consultation or a check-in from `encounters` and `vitals_readings`. No record shows the employee saw the notice or agreed, and the notice is a draft. Conservative default taken: `employer.seat_pilot.usage_report_enabled = false`, so a pilot reports seat counts only until counsel and the DPO sign the employee notice and the founder switches it on (an update of the active `employer_seat_pilot_config` row; the registry value must change with it). Alternative: record an in-app acknowledgement per seat and count only members who gave it.
+- Decision: open (counsel, DPO).
+
+### OQ-EMP-10 An ended pilot keeps governing its employer
+- After a pilot ends, new roster claims for that employer get no seat (`pilot_closed`) until a new pilot is paid; ordinary arrears billing returns only if the pilot was cancelled. This avoids silent billing after the review. A paid new pilot re-offers seats to people refused earlier. Alternative: let an ended pilot hand the employer back to arrears billing.
+- Decision: open (founder).
+
 ### OQ-EMP-8 starts_on is the offer date, not a gate
 - Seats can be claimed from the day payment is confirmed until ends_on. A "not before" date would leave a paid employee waiting with no sweep to release them. Alternative: a daily sweep that grants seats when the window opens.
 - Decision: informational (founder).
