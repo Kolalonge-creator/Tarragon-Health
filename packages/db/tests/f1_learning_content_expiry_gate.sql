@@ -211,6 +211,7 @@ begin
     v_ver integer;
   begin
     -- a protocol version can only be signed by the org's active Chief Medical Officer: make one (fixture) and act as them
+    perform set_config('request.jwt.claims', '', true);  -- no leftover session: a test profile can only be created by the owner, an admin or a service context
     select organisation_id into v_org from public.profiles where id = v_admin;
     v_cmo := gen_random_uuid();
     insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
