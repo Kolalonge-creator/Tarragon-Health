@@ -141,7 +141,7 @@ create view private.v_bp_cohort_day with (security_invoker = off) as
          case when s.bp_status <> 'insufficient_data' and s0.bp_status is not null and s0.bp_status <> 'insufficient_data' then s.bp_avg_7d_sys - s0.bp_avg_7d_sys end as d_sys,
          case when s.bp_status <> 'insufficient_data' and s0.bp_status is not null and s0.bp_status <> 'insufficient_data' then s.bp_avg_7d_dia - s0.bp_avg_7d_dia end as d_dia,
          s.adherence_pct::integer as adh, s.adherence_status = 'unavailable' as adh_unavailable, s.target_source = 'default' as defaulted,
-         exists (select 1 from public.vitals_readings o where o.patient_id = s.patient_id and o.vital_type = 'blood_pressure'
+         exists (select 1 from public.vitals_readings o where o.patient_id = s.patient_id and o.vital_type = 'blood_pressure' and o.correction_status is null  -- S05b-g: a superseded reading is not a reading
                     and (o.validation_status = 'valid' or coalesce(o.validation_flags, '{}'::text[]) <@ array['insufficient_context']::text[])
                     and (o.taken_at at time zone 'Africa/Lagos')::date between s.window_start and s.window_end and o.created_at > s.computed_at) as late
     from public.outcome_snapshots s
