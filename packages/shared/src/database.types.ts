@@ -53908,6 +53908,7 @@ export type Database = {
       circle_ack_alert: { Args: { p_patient: string }; Returns: boolean };
       circle_check_in_pending: { Args: never; Returns: Json };
       circle_unanswered_check_ins: { Args: never; Returns: Json };
+      circle_ack_unanswered: { Args: { p_patient: string }; Returns: boolean };
       circle_check_in_status: { Args: { p_patient: string }; Returns: Json };
       circle_checkin_window_enabled: { Args: never; Returns: boolean };
       request_circle_check_in: { Args: { p_patient: string }; Returns: Json };

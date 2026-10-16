@@ -50,7 +50,8 @@ export function CheckInCard() {
       void loadCheckInPending().then((w) => {
         if (!alive) return;
         setReadFailed(w === null);
-        setWaiting(w === true);
+        // a failed poll keeps the last known answer: one flaky read must not take the button away while the timer runs
+        if (w !== null) setWaiting(w);
       });
     };
     check();
@@ -64,15 +65,21 @@ export function CheckInCard() {
   useEffect(() => {
     if (waiting) setOutcome(null);
   }, [waiting]);
+  // The card sits above every section, so the thank-you goes away by itself.
+  useEffect(() => {
+    if (outcome === null) return;
+    const timer = setTimeout(() => setOutcome(null), 10_000);
+    return () => clearTimeout(timer);
+  }, [outcome]);
   if (!open) return null;
   if (outcome === "answered") return <MutedText>{t("circle.checkin.responded", locale)}</MutedText>;
   if (outcome === "too_late") return <MutedText>{t("circle.checkin.too_late", locale)}</MutedText>;
-  if (readFailed) return <MutedText>{t("circle.checkin.read_failed", locale)}</MutedText>;
-  if (!waiting) return null;
+  if (!waiting) return readFailed ? <MutedText>{t("circle.checkin.read_failed", locale)}</MutedText> : null;
   return (
     <Card style={{ gap: 8 }}>
       <Text accessibilityRole="alert" style={{ fontWeight: "700", color: colors.ink }}>{t("circle.checkin.pending_title", locale)}</Text>
       <Text style={{ color: colors.ink }}>{t("circle.checkin.pending_body", locale)}</Text>
+      {readFailed ? <MutedText>{t("circle.checkin.read_failed", locale)}</MutedText> : null}
       <PrimaryButton
         title={t("circle.checkin.respond", locale)}
         onPress={() => {

@@ -103,8 +103,10 @@ export default async function DashboardLayout({
   // read shows as unknown, never as zero. Only people with an open, un-called check-in request count; nothing about the person.
   let supportingBadge: { count: number; failed: boolean } | undefined;
   if (profile?.role === "patient") {
-    const { data: alertData, error: alertError } = await supabase.rpc("circle_open_alerts");
-    const { data: unansweredData, error: unansweredError } = await supabase.rpc("circle_unanswered_check_ins");
+    const [{ data: alertData, error: alertError }, { data: unansweredData, error: unansweredError }] = await Promise.all([
+      supabase.rpc("circle_open_alerts"),
+      supabase.rpc("circle_unanswered_check_ins"),
+    ]);
     supportingBadge =
       alertError || unansweredError
         ? { count: 0, failed: true }

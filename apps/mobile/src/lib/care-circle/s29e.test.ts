@@ -1,12 +1,12 @@
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { clearPendingJoinToken, offerUrl, parseJoinLink, setPendingJoinToken } from "./join-link";
 import {
-  minutesLeft, needsAttentionCount, parseAcceptInvite, parseCheckInPending, parseCheckInResult, parseInvitePreview, parseUnanswered, type OpenAlert,
+  circleErrorKey, minutesLeft, needsAttentionCount, parseAcceptInvite, parseCheckInPending, parseCheckInResult, parseInvitePreview, parseUnanswered, type OpenAlert,
 } from "./parse";
 
 const mockRpc = jest.fn();
 jest.mock("../supabase", () => ({ supabase: { rpc: (...a: unknown[]) => mockRpc(...a) } }));
-import { acceptInvite, answerCheckIn, checkInWindowOpen, loadCheckInPending, loadUnanswered, previewInvite, requestCheckIn } from "./api";
+import { ackUnanswered, acceptInvite, answerCheckIn, checkInWindowOpen, loadCheckInPending, loadUnanswered, previewInvite, requestCheckIn } from "./api";
 
 beforeEach(() => mockRpc.mockReset());
 
@@ -140,5 +140,17 @@ describe("check-in window (non-emergency)", () => {
     expect(minutesLeft("2026-10-16T10:10:00Z", now)).toBe(10);
     expect(minutesLeft("2026-10-16T09:00:00Z", now)).toBe(1);
     expect(minutesLeft("garbage", now)).toBe(5);
+  });
+
+  it("'I called them' for a person who did not answer is one call, true only when the database says so", async () => {
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
+    expect(await ackUnanswered("p")).toBe(true);
+    expect(mockRpc).toHaveBeenLastCalledWith("circle_ack_unanswered", { p_patient: "p" });
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: "circle_not_found" } });
+    expect(await ackUnanswered("p")).toBe(false);
+  });
+
+  it("a supporter abroad left with no view permission has its own message", () => {
+    expect(circleErrorKey("circle_cross_org_needs_a_view_permission")).toBe("circle.error.cross_org_needs_view");
   });
 });

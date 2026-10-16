@@ -127,6 +127,11 @@ export async function loadCheckInPending(): Promise<boolean | null> {
   const { data, error } = await supabase.rpc("circle_check_in_pending");
   return error ? null : parseCheckInPending(data);
 }
+/** "I called them" on a person who did not answer a check-in. */
+export async function ackUnanswered(patientId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("circle_ack_unanswered", { p_patient: patientId });
+  return !error && data === true;
+}
 /** true: the answer landed on a question still waiting. false: it had already ended (the circle may have been told). null: not saved. */
 export async function answerCheckIn(): Promise<boolean | null> {
   const { data, error } = await supabase.rpc("respond_to_circle_check_in");

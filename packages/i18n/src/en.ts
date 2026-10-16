@@ -1564,6 +1564,7 @@ export const en = {
   "circle.checkin.read_failed": "We could not check for a question from your Care Circle just now.",
   "circle.checkin.unanswered_title": "{name} has not answered a check-in",
   "circle.checkin.unanswered_body": "Please call {name} now.",
+  "circle.error.cross_org_needs_view": "Someone in another organisation can only be given a view. Payment is not available to them, so tick at least one thing they can see.",
   "circle.join.network": "We could not check this invite just now. Check your connection and try again.",
   "circle.join.retry": "Try again",
   "circle.pay.title": "Pay for {name}",

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-error";
 import { formatPatientDate } from "@/lib/format-date";
 import { ALERT_MODES, minutesLeft, type AlertMode, type OpenAlert, type SupportedPerson, type UnansweredCheckIn } from "@/lib/care-circle/model";
-import { useAckAlert, useCheckInEnabled, useOpenAlerts, useRequestCheckIn, useSetAlertMode, useSupportedPeople, useUnansweredCheckIns } from "@/lib/queries/care-circle";
+import { useAckAlert, useAckUnanswered, useCheckInEnabled, useOpenAlerts, useRequestCheckIn, useSetAlertMode, useSupportedPeople, useUnansweredCheckIns } from "@/lib/queries/care-circle";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 
@@ -104,10 +104,15 @@ function CheckInAsk({ patientId, locale }: { patientId: string; locale: Locale }
 
 /** S29e: someone did not answer a check-in in time. Name only; the same disclosure as a red alert. */
 function UnansweredCard({ item, locale }: { item: UnansweredCheckIn; locale: Locale }) {
+  const ack = useAckUnanswered();
   return (
     <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-5">
       <p className="font-heading text-base font-semibold">{t("circle.checkin.unanswered_title", locale, { name: item.name })}</p>
       <p className="mt-1 text-sm">{t("circle.checkin.unanswered_body", locale, { name: item.name })}</p>
+      <Button type="button" className="mt-3 min-h-11" disabled={ack.isPending} onClick={() => ack.mutate(item.patient_id)}>
+        {t("circle.alert.called", locale)}
+      </Button>
+      <FormError id={`unanswered-error-${item.patient_id}`} message={ack.isError ? t("circle.alert.error", locale) : null} />
     </div>
   );
 }

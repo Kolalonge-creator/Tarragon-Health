@@ -389,3 +389,16 @@ export function useUnansweredCheckIns() {
     },
   });
 }
+
+/** "I called them" on a person who did not answer a check-in: one tap, no text, private to this supporter. */
+export function useAckUnanswered() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (patientId: string) => {
+      const { data, error } = await createClient().rpc("circle_ack_unanswered", { p_patient: patientId });
+      if (error) throw new CircleError(error.message);
+      if (data !== true) throw new CircleError("unknown");
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["care-circle", "unanswered"] }),
+  });
+}

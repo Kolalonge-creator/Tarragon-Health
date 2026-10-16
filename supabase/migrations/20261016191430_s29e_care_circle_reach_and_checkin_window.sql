@@ -265,6 +265,7 @@ create table public.care_circle_check_ins (
   window_ends_at timestamptz not null,
   resolved_at timestamptz,
   is_test boolean not null default false,
+  called_by uuid[] not null default '{}',
   constraint care_circle_check_ins_resolved_matches_state check ((state = 'waiting') = (resolved_at is null))
 );
 create unique index care_circle_check_ins_one_waiting on public.care_circle_check_ins (patient_id) where state = 'waiting';
@@ -305,7 +306,7 @@ begin
   if v_id is null then return jsonb_build_object('ok', false, 'reason', 'already_waiting'); end if;
   -- only the patient is told, neutrally: no name, no reading, nothing about who asked
   v_channels := array(select distinct c from unnest(array['in_app', private.patient_reminder_channel(p_patient)::text]) c);
-  perform private.circle_notify_always(p_patient, m.organisation_id, 'circle_check_in_asked', 'care_circle_check_ins', v_id, v_channels, 'critical');
+  perform private.circle_notify_always(p_patient, m.organisation_id, 'circle_check_in_asked', 'care_circle_check_ins', v_id, v_channels, 'routine');
   return jsonb_build_object('ok', true, 'window_ends_at', v_ends);
 end $$;
 
@@ -361,8 +362,26 @@ as $$
                                                and c.resolved_at > now() - make_interval(hours => (private.circle_rules() ->> 'alert_visible_hours')::integer)
            where m.supporter_id = (select auth.uid()) and m.state = 'active' and m.expires_at > now() and 'red_alerts' = any (m.permissions)
              and not private.circle_alerts_paused(m.patient_id)
+             and private.circle_page_visible(m.patient_id, c.resolved_at)
+             and not ((select auth.uid()) = any (c.called_by))
            group by m.patient_id, p.full_name) x
 $$;
+
+-- "I called them" for an unanswered check-in: one tap, no text, private to this supporter. It clears the card and the badge for them only.
+create function public.circle_ack_unanswered(p_patient uuid) returns boolean
+language plpgsql security definer set search_path = ''
+as $$
+declare m public.care_circle_members%rowtype; n integer;
+begin
+  m := private.circle_member_for(p_patient, 'red_alerts');
+  if m.id is null then raise exception 'circle_not_found' using errcode = 'P0002'; end if;
+  update public.care_circle_check_ins set called_by = array_append(called_by, (select auth.uid()))
+   where patient_id = p_patient and state = 'escalated'
+     and resolved_at > now() - make_interval(hours => (private.circle_rules() ->> 'alert_visible_hours')::integer)
+     and not ((select auth.uid()) = any (called_by));
+  get diagnostics n = row_count;
+  return true;
+end $$;
 
 -- Escalation: a request nobody answered inside the window tells the circle, neutrally, like any other check-in request. A failure to
 -- tell one member opens an incident and leaves the row waiting, so the next minute retries (the notice is de-duplicated per row); after
@@ -370,7 +389,7 @@ $$;
 create function private.sweep_circle_check_ins() returns integer
 language plpgsql security definer set search_path = ''
 as $$
-declare r record; s record; n integer := 0;
+declare r record; s record; n integer := 0; v_attempts integer;
 begin
   for r in select * from public.care_circle_check_ins where state = 'waiting' and window_ends_at <= now() order by window_ends_at for update skip locked loop
     begin
@@ -400,7 +419,16 @@ begin
          set attempts = attempts + 1,
              state = case when attempts + 1 >= 3 then 'failed' else state end,
              resolved_at = case when attempts + 1 >= 3 then now() else resolved_at end
-       where id = r.id;
+       where id = r.id
+      returning attempts into v_attempts;
+      if v_attempts >= 3 then
+        -- the asker is not left thinking the circle was told: they get the same plain in-app notice and can make the call themselves
+        begin
+          perform private.circle_notify(r.requested_by, r.organisation_id, 'circle_check_in_unanswered', 'care_circle_check_ins', r.id, array['in_app'], 'critical', r.is_test);
+        exception when others then
+          raise warning 'circle check-in: could not tell the asker for %: %', r.id, sqlerrm;
+        end;
+      end if;
     end;
   end loop;
   return n;
@@ -417,6 +445,8 @@ revoke all on function public.circle_check_in_status(uuid) from public, anon;
 revoke all on function public.circle_checkin_window_enabled() from public, anon;
 revoke all on function public.circle_check_in_pending() from public, anon;
 revoke all on function public.circle_unanswered_check_ins() from public, anon;
+revoke all on function public.circle_ack_unanswered(uuid) from public, anon;
+grant execute on function public.circle_ack_unanswered(uuid) to authenticated;
 grant execute on function public.circle_unanswered_check_ins() to authenticated;
 grant execute on function public.circle_checkin_window_enabled() to authenticated;
 grant execute on function public.circle_check_in_pending() to authenticated;
@@ -427,7 +457,7 @@ grant execute on function public.circle_check_in_status(uuid) to authenticated;
 do $$
 declare f text;
 begin
-  foreach f in array array['public.request_circle_check_in(uuid)', 'public.respond_to_circle_check_in()', 'public.circle_check_in_status(uuid)', 'public.circle_checkin_window_enabled()', 'public.circle_check_in_pending()', 'public.circle_unanswered_check_ins()',
+  foreach f in array array['public.request_circle_check_in(uuid)', 'public.respond_to_circle_check_in()', 'public.circle_check_in_status(uuid)', 'public.circle_checkin_window_enabled()', 'public.circle_check_in_pending()', 'public.circle_unanswered_check_ins()', 'public.circle_ack_unanswered(uuid)',
                            'public.preview_care_circle_invite(text)', 'private.sweep_circle_check_ins()', 'private.circle_members_cross_org_permissions()'] loop
     if has_function_privilege('anon', f, 'EXECUTE') then raise exception 'anon can execute %', f; end if;
   end loop;

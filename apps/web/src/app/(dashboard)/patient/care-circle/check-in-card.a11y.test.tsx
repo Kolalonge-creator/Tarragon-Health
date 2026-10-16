@@ -80,4 +80,22 @@ describe("CheckInCard", () => {
     rerender(<CheckInCard locale="en" />);
     expect(screen.getByRole("button", { name: "I am fine" })).toBeTruthy();
   });
+
+  it("one failed poll while a question is waiting keeps the button (the timer is still running)", () => {
+    pending = { data: true, isError: true };
+    render(<CheckInCard locale="en" />);
+    expect(screen.getByRole("button", { name: "I am fine" })).toBeTruthy();
+    expect(screen.getByText(/could not check/)).toBeTruthy();
+  });
+
+  it("the thank-you clears by itself, since the card lives in the layout", async () => {
+    jest.useFakeTimers();
+    respond.mockResolvedValue(true);
+    render(<CheckInCard locale="en" />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "I am fine" })));
+    expect(screen.getByRole("status").textContent).toMatch(/Nobody else has been told/);
+    await act(async () => { jest.advanceTimersByTime(11_000); });
+    expect(screen.queryByRole("status")).toBeNull();
+    jest.useRealTimers();
+  });
 });

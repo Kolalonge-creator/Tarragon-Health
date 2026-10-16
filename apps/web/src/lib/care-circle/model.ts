@@ -176,6 +176,7 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   invite_permissions_invalid: "circle.error.invite_permissions_invalid",
   invite_relationship_invalid: "circle.error.invite_relationship_invalid",
   circle_not_authorised: "circle.error.circle_not_authorised",
+  circle_cross_org_needs_a_view_permission: "circle.error.cross_org_needs_view",
 };
 /** The i18n key for a database refusal. The database raises a bare code; anything unrecognised is the generic message. */
 export function circleErrorKey(message: unknown): MessageKey {

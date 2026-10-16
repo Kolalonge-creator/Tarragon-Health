@@ -131,9 +131,9 @@ end $f$;
 
 
 create function public.s29e_boom() returns trigger language plpgsql as $b$ begin raise exception 'proof: notification write failed'; end $b$;
-create function pg_temp.fail_notify_on() returns void language plpgsql as
+create function pg_temp.fail_notify_on(p_uid uuid) returns void language plpgsql as
 $f$ begin
-  create trigger s29e_boom before insert on public.notifications for each row when (new.template = 'circle_check_in_unanswered') execute function public.s29e_boom();
+  execute format('create trigger s29e_boom before insert on public.notifications for each row when (new.template = ''circle_check_in_unanswered'' and new.recipient_id = %L) execute function public.s29e_boom()', p_uid);
 end $f$;
 create function pg_temp.fail_notify_off() returns void language plpgsql as
 $f$ begin drop trigger s29e_boom on public.notifications; end $f$;
@@ -320,11 +320,19 @@ begin
   perform pg_temp.ck('a member without red_alerts is not told', '0', pg_temp.cnt(v_sa, 'circle_check_in_unanswered', v_ci));
   perform pg_temp.ck('the circle notice is neutral (empty payload, non-clinical) and critical, so quiet hours cannot hold the escalation', 'true',
     (select bool_and(payload = '{}'::jsonb and content_class = 'non_clinical' and priority = 'critical') from public.notifications where template = 'circle_check_in_unanswered' and source_id = v_ci)::text);
-  perform pg_temp.ck('the patient''s ask is critical too, so the window is real', 'critical',
+  perform pg_temp.ck('the patient''s ask is routine, so it never enters the critical follow-up ladder (a stale question 40 minutes later)', 'routine',
     (select min(priority::text) from public.notifications where template = 'circle_check_in_asked' and source_id = v_ci));
+  perform pg_temp.ck('and in-app is never held by quiet hours', '1', pg_temp.cnt(v_pat, 'circle_check_in_asked', v_ci, 'in_app'));
   perform pg_temp.ck('the supporter sees WHO did not answer (name only), so the notice is actionable', 'true',
     ((pg_temp.q_as(v_sb, $q$select public.circle_unanswered_check_ins()::text$q$)) like '%S29 patient%' and (pg_temp.q_as(v_sb, $q$select public.circle_unanswered_check_ins()::text$q$)) not like '%reading%')::text);
   perform pg_temp.ck('a member without red_alerts sees nobody', '[]', pg_temp.q_as(v_sa, $q$select public.circle_unanswered_check_ins()::text$q$));
+  perform pg_temp.ck('a member without red_alerts cannot mark it called', 'true',
+    (pg_temp.q_as(v_sa, format($q$select public.circle_ack_unanswered(%L)::text$q$, v_pat)) like '%circle_not_found%')::text);
+  perform pg_temp.ck('"I called them" clears it for that supporter only', 'true,true',
+    ((pg_temp.q_as(v_sb, format($q$select public.circle_ack_unanswered(%L)::text$q$, v_pat)) = 'true')::text) || ',' ||
+    ((pg_temp.q_as(v_sb, $q$select public.circle_unanswered_check_ins()::text$q$) = '[]')::text));
+  perform pg_temp.ck('and the other supporter still sees it', 'true',
+    (pg_temp.q_as(v_sd, $q$select public.circle_unanswered_check_ins()::text$q$) like '%S29 patient%')::text);
 
   -- answered inside the window: nobody is told
   r := pg_temp.q_as(v_sb, format($q$select public.request_circle_check_in(%L)::text$q$, v_pat));
@@ -347,12 +355,14 @@ begin
   insert into public.care_circle_check_ins (organisation_id, patient_id, requested_by, window_ends_at, is_test)
     select organisation_id, v_pat, v_sb, now() - interval '1 second', true from public.profiles where id = v_pat;
   v_ci := (select id from public.care_circle_check_ins where patient_id = v_pat and state = 'waiting');
-  perform pg_temp.fail_notify_on();
+  perform pg_temp.fail_notify_on(v_sd);
   perform private.sweep_circle_check_ins();
   perform private.sweep_circle_check_ins();
   perform pg_temp.ck('a failing escalation is retried', 'waiting,2', (select state || ',' || attempts from public.care_circle_check_ins where id = v_ci));
   perform private.sweep_circle_check_ins();
   perform pg_temp.ck('and after three tries it is marked failed, not left blocking', 'failed', (select state from public.care_circle_check_ins where id = v_ci));
+  perform pg_temp.ck('the asker is told in-app that it could not be passed on (so they can call themselves)', '1', pg_temp.cnt(v_sb, 'circle_check_in_unanswered', v_ci));
+  perform pg_temp.ck('and the member whose notice failed has none', '0', pg_temp.cnt(v_sd, 'circle_check_in_unanswered', v_ci));
   perform pg_temp.fail_notify_off();
   perform pg_temp.ck('so a new request is possible again', 'true',
     (pg_temp.q_as(v_sb, format($q$select public.request_circle_check_in(%L)::text$q$, v_pat)) like '%"ok": true%')::text);
@@ -379,7 +389,11 @@ begin
   perform private.sweep_circle_check_ins();
   perform pg_temp.ck('paused after asking: the request ends and nobody is told', '0',
     (select count(*)::text from public.notifications where source_id = v_ci and recipient_id <> v_pat));
+  update public.care_circle_pauses set paused_from = now() - interval '10 minutes' where patient_id = v_pat;
   perform pg_temp.q_as(v_pat, $q$select public.resume_care_circle()::text$q$);
+  update public.care_circle_check_ins set resolved_at = now() - interval '2 minutes' where id = v_ci;  -- one transaction has one clock
+  perform pg_temp.ck('and after the pause ends the swept request is never shown as "did not answer"', '[]',
+    pg_temp.q_as(v_sd, $q$select public.circle_unanswered_check_ins()::text$q$));
 end $$;
 
 -- ===========================================================================================================================

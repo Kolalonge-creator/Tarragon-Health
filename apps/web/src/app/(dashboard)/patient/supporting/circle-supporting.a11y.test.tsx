@@ -10,6 +10,7 @@ jest.mock("next/link", () => ({ __esModule: true, default: ({ href, children }: 
 const ack = jest.fn();
 const setMode = jest.fn();
 const requestCheckIn = jest.fn();
+const ackUnanswered = jest.fn();
 let checkInEnabled = false;
 let unanswered: { data: unknown[] } = { data: [] };
 jest.mock("@/lib/queries/care-circle", () => ({
@@ -19,6 +20,7 @@ jest.mock("@/lib/queries/care-circle", () => ({
   useSetAlertMode: () => ({ mutate: setMode, isPending: false }),
   useCheckInEnabled: () => ({ data: checkInEnabled }),
   useUnansweredCheckIns: () => unanswered,
+  useAckUnanswered: () => ({ mutate: ackUnanswered, isPending: false, isError: false }),
   useRequestCheckIn: () => ({ mutateAsync: requestCheckIn, isPending: false }),
 }));
 
@@ -29,6 +31,7 @@ beforeEach(() => {
   ack.mockReset();
   setMode.mockReset();
   requestCheckIn.mockReset();
+  ackUnanswered.mockReset();
   checkInEnabled = false;
   unanswered = { data: [] };
 });
@@ -139,5 +142,13 @@ describe("CircleSupporting", () => {
     render(<CircleSupporting locale="en" />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ask them to check in" })));
     expect(screen.getByRole("status").textContent).toMatch(/about 10 minutes/);
+  });
+
+  it("S29e: one tap on 'I called them' for a person who did not answer, with no text", () => {
+    unanswered = { data: [{ patient_id: "p1", name: "Mama Eze", since: "2026-10-16T10:05:00Z" }] };
+    render(<CircleSupporting locale="en" />);
+    fireEvent.click(screen.getByRole("button", { name: "I called them" }));
+    expect(ackUnanswered).toHaveBeenCalledWith("p1");
+    expect(ackUnanswered.mock.calls[0]).toHaveLength(1);
   });
 });

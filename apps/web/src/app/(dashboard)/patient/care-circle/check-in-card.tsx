@@ -18,15 +18,23 @@ export function CheckInCard({ locale }: { locale: Locale }) {
   const [outcome, setOutcome] = useState<"answered" | "too_late" | null>(null);
   const waiting = pending.data === true;
 
-  // A later question starts clean: an old "thank you" must never hide a new button.
-  useEffect(() => {
+  // A later question starts clean: an old "thank you" must never hide a new button (adjusted while rendering, not in an effect).
+  const [wasWaiting, setWasWaiting] = useState(waiting);
+  if (waiting !== wasWaiting) {
+    setWasWaiting(waiting);
     if (waiting) setOutcome(null);
-  }, [waiting]);
+  }
+  // The layout is on every page, so the thank-you goes away by itself.
+  useEffect(() => {
+    if (outcome === null) return;
+    const timer = setTimeout(() => setOutcome(null), 10_000);
+    return () => clearTimeout(timer);
+  }, [outcome]);
 
   if (outcome === "answered") return <p role="status" className="text-sm">{t("circle.checkin.responded", locale)}</p>;
   if (outcome === "too_late") return <p role="status" className="text-sm">{t("circle.checkin.too_late", locale)}</p>;
-  if (pending.isError) return <p role="status" className="text-sm">{t("circle.checkin.read_failed", locale)}</p>;
-  if (!waiting) return null;
+  // One flaky poll must not take the button away while the last known answer is "waiting": keep it, and say the read failed beside it.
+  if (!waiting) return pending.isError ? <p role="status" className="text-sm">{t("circle.checkin.read_failed", locale)}</p> : null;
   return (
     <Card>
       <CardHeader><CardTitle>{t("circle.checkin.pending_title", locale)}</CardTitle></CardHeader>
@@ -46,6 +54,7 @@ export function CheckInCard({ locale }: { locale: Locale }) {
         >
           {t("circle.checkin.respond", locale)}
         </Button>
+        {pending.isError ? <p role="status" className="text-sm">{t("circle.checkin.read_failed", locale)}</p> : null}
         <FormError id="checkin-respond-error" message={respond.isError ? t("circle.checkin.error", locale) : null} />
       </CardContent>
     </Card>
