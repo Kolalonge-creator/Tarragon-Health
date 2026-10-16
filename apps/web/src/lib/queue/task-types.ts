@@ -30,6 +30,7 @@ export const TASK_TYPE_LABEL: Readonly<Record<string, string>> = {
   async_question: "Written question",
   routine_result_review: "Routine result review",
   admin_clinical: "Referral letters and repeat prescriptions",
+  pharmacy_flag_review: "Pharmacy flag on a prescription",
   crisis_follow_up: "Crisis follow-up (wellbeing check-in)",
   adherence_follow_up: "Adherence follow-up (missed doses or silence)",
   health_report_signoff: "Yearly health report sign-off",
@@ -38,6 +39,24 @@ export const TASK_TYPE_LABEL: Readonly<Record<string, string>> = {
   red_patient_outreach: "Call the patient: a red alert was not confirmed",
   amber_glucose_review: "Urgent glucose review (same day)",
 };
+
+/**
+ * Skills the database adds to a task on top of the type's own list (`private.task_extra_competencies`, OQ-433). They are not on the
+ * `task_types` row, so the page states them here; keep this in step with that function (a Jest test pins the keys).
+ */
+export const EXTRA_SKILLS_NOTE: Readonly<Record<string, string>> = {
+  pharmacy_flag_review: "Prescribing, always (a pharmacy flag is about a prescription)",
+  admin_clinical: "Prescribing, when the work is a prescription",
+};
+
+/** Work a type receives that the triage keys do not show (OQ-432): the symptom checker asks for a clinician review. */
+export const EXTRA_PRODUCER_NOTE: Readonly<Record<string, string>> = {
+  symptom_review: "A Member's symptom check that asks for a clinician review, and a Member's own request for one",
+};
+
+/** Said once on the page: a named clinician who lacks a needed skill is skipped when the work is offered (OQ-435). */
+export const LEAD_SKIP_EXPLANATION =
+  "If the named clinician does not hold every skill the work needs, they are not offered it. It goes to an employed doctor who does, or to the pool, and the task history says why.";
 
 export const TIER_LABEL: Readonly<Record<TaskTypeRow["min_doctor_tier"], string>> = {
   care_coordinator: "Care coordinator and above",

@@ -148,15 +148,23 @@ begin
      'Triage graph reached an unexpected state')
   returning id, clinician_review_alert_id into v_assessment_id, v_review_alert_id;
 
-  if v_review_alert_id is null then
-    raise exception 'FAIL: clinician_review_required=true on a routine outcome did not create a review alert';
+  -- OQ-432: a patient whose plan includes doctor time gets one symptom_review task instead of the alert; a Free patient keeps the alert.
+  if private.patient_may_page_doctor(v_paid_patient) then
+    if (select clinician_review_task_id from public.symptom_triage_assessments where id = v_assessment_id) is null or v_review_alert_id is not null then
+      raise exception 'FAIL: clinician_review_required=true on a routine outcome did not create exactly a review task';
+    end if;
+    raise notice 'PASS 4: clinician_review_required made a symptom_review task (and no alert) for a patient with doctor time';
+  else
+    if v_review_alert_id is null then
+      raise exception 'FAIL: clinician_review_required=true on a routine outcome did not create a review alert';
+    end if;
+    select count(*) into v_alert_count from public.clinician_alerts
+    where id = v_review_alert_id and level = 'clinician_review';
+    if v_alert_count <> 1 then
+      raise exception 'FAIL: expected 1 clinician_review clinician_alerts row, found %', v_alert_count;
+    end if;
+    raise notice 'PASS 4: clinician_review_required forced a clinician_review alert on a routine outcome';
   end if;
-  select count(*) into v_alert_count from public.clinician_alerts
-  where id = v_review_alert_id and level = 'clinician_review';
-  if v_alert_count <> 1 then
-    raise exception 'FAIL: expected 1 clinician_review clinician_alerts row, found %', v_alert_count;
-  end if;
-  raise notice 'PASS 4: clinician_review_required forced a clinician_review alert on a routine outcome';
 
   -- 5) Plain self_management outcome, no review flag -> nothing raised at all.
   insert into public.symptom_triage_assessments

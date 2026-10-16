@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { formatMinutes, taskTypeSchema, TASK_TYPE_LABEL, TIER_LABEL, type TaskTypeRow } from "@/lib/queue/task-types";
+import { EXTRA_PRODUCER_NOTE, EXTRA_SKILLS_NOTE, formatMinutes, LEAD_SKIP_EXPLANATION, taskTypeSchema, TASK_TYPE_LABEL, TIER_LABEL, type TaskTypeRow } from "@/lib/queue/task-types";
 import { confirmTaskTypeAction } from "@/app/(dashboard)/clinician/triage-rules/actions";
 import { createTaskTypeProposalAction } from "@/lib/queue/task-type-actions";
 
@@ -97,6 +97,8 @@ export async function TaskTypesPage({ canConfirm = false, done, error, returnTo 
           The task types could not be loaded just now. Try again in a moment; nothing has been changed.
         </p>
       ) : (
+        <>
+        <p className="text-sm text-charcoal-ink/70">{LEAD_SKIP_EXPLANATION}</p>
         <ul className="grid gap-3">
           {rows.map((t) => (
             <li key={t.code} id={t.code} className="rounded-xl border border-charcoal-ink/10 bg-white p-4 shadow-sm dark:border-night-ink/15 dark:bg-night-card">
@@ -109,10 +111,12 @@ export async function TaskTypesPage({ canConfirm = false, done, error, returnTo 
                 <Row label="Expected within" value={t.default_due_minutes === 0 ? "Immediately" : formatMinutes(t.default_due_minutes)} />
                 <Row label="Who may take it" value={TIER_LABEL[t.min_doctor_tier]} />
                 <Row label="Skills needed" value={t.required_competencies.length ? t.required_competencies.join(", ").replace(/_/g, " ") : "None specific"} />
+                {EXTRA_SKILLS_NOTE[t.code] !== undefined && <Row label="Also needs" value={EXTRA_SKILLS_NOTE[t.code] ?? ""} />}
                 <Row label="Named clinician first for" value={formatMinutes(t.lead_window_minutes)} />
                 <Row label="Claim held for" value={formatMinutes(t.claim_timeout_minutes)} />
                 <Row label="Can be offered to an employed doctor" value={t.pushable ? "Yes" : "No"} />
                 {t.source_task_keys.length > 0 && <Row label="Created from triage keys" value={t.source_task_keys.join(", ")} />}
+                {EXTRA_PRODUCER_NOTE[t.code] !== undefined && <Row label="Also created from" value={EXTRA_PRODUCER_NOTE[t.code] ?? ""} />}
                 {!t.creatable && <Row label="Created directly" value="No, reached by promotion only" />}
               </dl>
               {t.note && <p className="mt-2 text-xs text-charcoal-ink/60">{t.note}</p>}
@@ -144,6 +148,7 @@ export async function TaskTypesPage({ canConfirm = false, done, error, returnTo 
             </li>
           ))}
         </ul>
+        </>
       )}
     </div>
   );
