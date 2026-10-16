@@ -27,8 +27,8 @@ export function ConsultCheckinsCard({ checkins, failed }: { checkins: ClinicianC
           <div key={c.id} className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-medium">{offsetLabel(c.offset_code)}</p>
-              <Badge variant={c.red_flag ? "red" : c.state === "answered" ? "green" : "amber"}>
-                {c.red_flag ? "Needs attention" : c.state === "answered" ? "Answered" : c.state === "open" ? "Waiting for the patient" : c.state === "scheduled" ? "Scheduled" : c.state === "expired" ? "Not answered" : "Cancelled"}
+              <Badge variant={c.red_flag ? "red" : c.state === "answered" && !c.concern ? "green" : "amber"}>
+                {c.red_flag ? "Needs attention" : c.concern ? "Reported a concern" : c.state === "answered" ? "Answered" : c.state === "open" ? "Waiting for the patient" : c.state === "scheduled" ? "Scheduled" : c.state === "expired" ? "Not answered" : "Cancelled"}
               </Badge>
             </div>
             {c.answers && (

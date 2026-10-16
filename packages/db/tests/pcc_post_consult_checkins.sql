@@ -269,8 +269,9 @@ begin
   perform pg_temp.rec('the consultation clinician gets one low-priority task', '1/3/true',
     (select count(*)::text || '/' || min(priority) || '/' || bool_and(owner_id = v_docA)::text from public.care_tasks where patient_id = p5 and owner_role = 'clinician'));
   perform pg_temp.act(p5);
-  perform pg_temp.rec('an expired check-in cannot be answered (its own code, not a validation error)', '55000', pg_temp.try(format('select public.answer_post_consult_checkin(%L, %L::jsonb)', c, pg_temp.answers('better', 'no', 'yes', 'no'))));
+  perform pg_temp.rec('a late answer after expiry is still taken', 'ok', pg_temp.try(format('select public.answer_post_consult_checkin(%L, %L::jsonb)', c, pg_temp.answers('better', 'no', 'yes', 'no'))));
   perform pg_temp.back();
+  perform pg_temp.rec('answering it closes the care team''s not-answered task', 'cancelled', (select t.status::text from public.care_tasks t join public.post_consult_checkins k on k.clinician_task_id = t.id where k.id = c));
 
   -- 9. Cancellation ---------------------------------------------------------------------------------------------
   e12 := pg_temp.mkenc(v_org, p6, v_docA, 'video', v_ended); perform pg_temp.complete(e12, v_ended);
@@ -363,6 +364,35 @@ begin
   perform pg_temp.rec('with the guard off an open check-in still expires, and nothing new opens', 'expired/0/false',
     (select state from public.post_consult_checkins where id = c) || '/' || (v_out ->> 'opened') || '/' || (v_out ->> 'guard_on'));
   perform pg_temp.guard(true);
+
+  -- a cancelled check-in has its own refusal code
+  v_task := (select id from public.post_consult_checkins where patient_id = p6 and state = 'cancelled' limit 1);
+  perform pg_temp.act(p6);
+  perform pg_temp.rec('a cancelled check-in cannot be answered (its own code, not a validation error)', '55000',
+    pg_temp.try(format('select public.answer_post_consult_checkin(%L, %L::jsonb)', v_task, pg_temp.answers('better', 'no', 'yes', 'no'))));
+  perform pg_temp.back();
+  -- a consultation reversed and then completed again gets its check-ins back
+  e12 := pg_temp.mkenc(v_org, p6, v_docA, 'video', v_ended); perform pg_temp.complete(e12, v_ended);
+  update public.encounters set status = 'cancelled' where id = e12;
+  perform private.post_consult_checkin_sweep();
+  update public.encounters set status = 'in_progress' where id = e12;
+  perform pg_temp.complete(e12, v_ended);
+  perform pg_temp.rec('a re-completion after a reversal brings the cancelled check-ins back', '2/0',
+    (select count(*) filter (where state = 'scheduled')::text || '/' || count(*) filter (where state = 'cancelled')::text from public.post_consult_checkins where encounter_id = e12));
+  -- unsent notices are withdrawn once the check-in is answered; a skipped check-in is never silent
+  perform pg_temp.rec('no unsent check-in notice survives an answered check-in', '0',
+    (select count(*)::text from public.notifications where recipient_id = p4 and status = 'pending' and template in ('consult_checkin_due', 'consult_checkin_nudge')));
+  perform pg_temp.rec('a skipped check-in leaves the visit clinician a low-priority task', '1/3',
+    (select count(*)::text || '/' || min(priority) from public.care_tasks where patient_id = p7 and owner_role = 'clinician' and title = 'Check-in after a visit was skipped'));
+  perform pg_temp.act(v_docA);
+  v_out := public.get_consult_checkins(e5);
+  perform pg_temp.back();
+  perform pg_temp.rec('the clinician sees that an answered check-in reported a concern', 'true',
+    (select bool_or((x ->> 'concern')::boolean)::text from jsonb_array_elements(v_out) x));
+  perform pg_temp.rec('a configuration may not promise more than the table keeps of a note', '23514',
+    pg_temp.try($q$insert into public.post_consult_checkin_config (version, effective_from, rules) select 2, current_date, jsonb_set(rules, '{free_text_max_chars}', '3000') from public.post_consult_checkin_config where version = 1$q$));
+  perform pg_temp.rec('the table is in the data registry and the dependant scope list', '1/1',
+    (select count(*)::text from public.data_registry where table_name = 'post_consult_checkins') || '/' || (select count(*)::text from public.data_registry where table_name = 'post_consult_checkins' and in_export));
 
   -- 11. SABOTAGE -------------------------------------------------------------------------------------------------
   -- (a) the scheduling trigger is dropped: a completed consultation now gets no rows

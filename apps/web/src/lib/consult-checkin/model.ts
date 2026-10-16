@@ -55,6 +55,7 @@ export const clinicianCheckinsSchema = z.array(
     due_at: z.string(),
     answered_at: z.string().nullable(),
     red_flag: z.boolean(),
+    concern: z.boolean().optional(),
     answers: z.array(z.object({ question: z.string(), answer: z.string().nullable() })).nullable(),
     free_text: z.string().nullable(),
   }),

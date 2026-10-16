@@ -21,7 +21,18 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
   const supabase = await createClient();
   const { data } = await supabase.rpc("consultation_room_view" as never, { p_encounter: encounterId } as never);
   const view = data as unknown as (RoomView & { video_consultation_id: string | null }) | null;
-  if (!view || view.role !== "clinician") notFound();
+  if (!view || view.role !== "clinician") {
+    // PCC: the doctor a flagged check-in's alert was routed to is not the consultation's clinician, so the room is not theirs to open, but the
+    // answers they were paged about are. The audited read answers them (and refuses everyone else with the same 404 as an unknown id).
+    const { data: only, error: onlyError } = await supabase.rpc("get_consult_checkins" as never, { p_encounter: encounterId } as never);
+    const onlyParsed = clinicianCheckinsSchema.safeParse(only ?? []);
+    if (onlyError || !onlyParsed.success || onlyParsed.data.length === 0) notFound();
+    return (
+      <DashboardPlaceholder greeting="Check-ins after a consultation" roleLabel="Clinician" comingUp={[]}>
+        <ConsultCheckinsCard checkins={onlyParsed.data} failed={false} />
+      </DashboardPlaceholder>
+    );
+  }
   // S64 (15.3): what the patient chose to send before the visit. Audited on the database side; null when nothing was sent.
   // A failed read is shown as an error, never as "nothing was sent".
   const { data: intakeData, error: intakeError } = await supabase.rpc("clinician_consultation_intake" as never, { p_encounter: encounterId } as never);

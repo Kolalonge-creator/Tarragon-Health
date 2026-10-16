@@ -41,10 +41,13 @@ declare
 begin
   if jsonb_typeof(r) <> 'object' then return false; end if;
   foreach k in array array['nudge_after_minutes', 'expire_after_minutes', 'free_text_max_chars', 'skip_if_patient_wrote_within_minutes'] loop
-    if not coalesce((r ->> k) ~ '^[0-9]+$' and (r ->> k)::integer > 0, false) then return false; end if;
+    if not coalesce((r ->> k) ~ '^[0-9]{1,6}$', false) then return false; end if;
+    if (r ->> k)::integer < 1 then return false; end if;
   end loop;
+  -- the table keeps at most 2000 characters of a note: a configuration may not promise more than that
+  if (r ->> 'free_text_max_chars')::integer > 2000 then return false; end if;
   if not coalesce((r ->> 'max_nudges') ~ '^[0-3]$', false) then return false; end if;
-  if not coalesce((r #>> '{notification_window,start_hour}') ~ '^[0-9]+$' and (r #>> '{notification_window,end_hour}') ~ '^[0-9]+$', false) then return false; end if;
+  if not coalesce((r #>> '{notification_window,start_hour}') ~ '^[0-9]{1,2}$' and (r #>> '{notification_window,end_hour}') ~ '^[0-9]{1,2}$', false) then return false; end if;
   if (r #>> '{notification_window,start_hour}')::integer >= (r #>> '{notification_window,end_hour}')::integer or (r #>> '{notification_window,end_hour}')::integer > 24 then return false; end if;
   if coalesce(r ->> 'concern_alert_level', '') not in ('clinician_review', 'urgent_escalation') then return false; end if;
   if nullif(btrim(coalesce(r ->> 'task_title', '')), '') is null or nullif(btrim(coalesce(r ->> 'task_description', '')), '') is null then return false; end if;
@@ -52,7 +55,8 @@ begin
      or exists (select 1 from jsonb_array_elements_text(r -> 'encounter_types') t where t not in ('video', 'audio', 'phone')) then return false; end if;
   if jsonb_typeof(r -> 'offsets') <> 'array' or jsonb_array_length(r -> 'offsets') = 0 then return false; end if;
   for o in select x from jsonb_array_elements(r -> 'offsets') x loop
-    if not coalesce((o ->> 'code') ~ '^[a-z0-9]+$' and (o ->> 'after_minutes') ~ '^[0-9]+$' and (o ->> 'after_minutes')::integer > 0, false) then return false; end if;
+    if not coalesce((o ->> 'code') ~ '^[a-z0-9]+$' and (o ->> 'after_minutes') ~ '^[0-9]{1,7}$', false) then return false; end if;
+    if (o ->> 'after_minutes')::integer < 1 then return false; end if;
   end loop;
   if (select count(distinct x ->> 'code') from jsonb_array_elements(r -> 'offsets') x) <> jsonb_array_length(r -> 'offsets') then return false; end if;
   if jsonb_typeof(r -> 'questions') <> 'array' or jsonb_array_length(r -> 'questions') < 1 or jsonb_array_length(r -> 'questions') > 6 then return false; end if;
@@ -245,6 +249,16 @@ grant select on public.post_consult_checkins to authenticated;
 create policy post_consult_checkins_patient_read on public.post_consult_checkins for select to authenticated
   using (patient_id = (select auth.uid()));
 
+-- Registered like every patient-keyed table (S39d data registry, S04b-1 dependant scope guard), so the patient's export includes their check-in answers
+-- and the standing proofs that list every patient table keep passing. Classification is PROPOSED until the CMO and DPO confirm.
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes)
+select 'post_consult_checkins', 'patient_id', private.retention_class_for('post_consult_checkins'),
+       case when private.retention_class_for('post_consult_checkins') = 'operational' then 'delete' else 'review' end,
+       private.retention_class_for('post_consult_checkins') <> 'audit',
+       'PCC 2026-10-16: PROPOSED, to be confirmed by the CMO and DPO. Answers and the optional note a patient wrote after a consultation.'
+on conflict (table_name) do nothing;
+select private.guard_minor_dependant_table('post_consult_checkins', 'patient_id');
+
 -- ---------------------------------------------------------------------------
 -- 4. Event types (ids only, INV-07) and the go-live guard (born off, INV-14)
 -- ---------------------------------------------------------------------------
@@ -349,7 +363,9 @@ begin
     end if;
     insert into public.post_consult_checkins (organisation_id, encounter_id, patient_id, clinician_id, offset_code, due_at, config_version, is_test)
     values (e.organisation_id, e.id, e.patient_id, e.clinician_id, o ->> 'code', e.ended_at + make_interval(mins => (o ->> 'after_minutes')::integer), c.version, e.is_test)
-    on conflict (encounter_id, offset_code) do nothing;
+    on conflict (encounter_id, offset_code) do update
+      set state = 'scheduled', cancelled_at = null, cancel_reason = null, due_at = excluded.due_at, config_version = excluded.config_version, clinician_id = excluded.clinician_id
+      where public.post_consult_checkins.state = 'cancelled' and public.post_consult_checkins.cancel_reason = 'encounter_reversed';
     get diagnostics v_rows = row_count;
     v_n := v_n + v_rows;
   end loop;
@@ -425,7 +441,7 @@ begin
 
   -- 2. cancel (always, even with the guard off): the consultation was reversed, the care team cancelled the task, or the patient already wrote to
   --    the care team (not yet handed over). Each row uses the rules of the configuration version it was created under.
-  for r in select k.id, k.task_id, case
+  for r in select k.id, k.task_id, k.organisation_id, k.patient_id, k.clinician_id, k.offset_code, case
                  when e.status <> 'completed' then 'encounter_reversed'
                  when t.status = 'cancelled' then 'task_cancelled'
                  else 'patient_already_wrote' end as why
@@ -445,6 +461,14 @@ begin
         perform set_config('tarragon.checkin_task_close', 'on', true);
         update public.care_tasks set status = 'cancelled' where id = r.task_id and status not in ('completed', 'cancelled');
         perform set_config('tarragon.checkin_task_close', 'off', true);
+        delete from public.notifications where status = 'pending' and template in ('consult_checkin_due', 'consult_checkin_nudge') and payload ->> 'checkin_id' = r.id::text;
+        if r.why = 'patient_already_wrote' then
+          -- skipped, not silent: the clinician on the visit sees that the questions were not asked and why
+          insert into public.care_tasks (organisation_id, patient_id, title, description, owner_role, owner_id, priority, source, source_event_id)
+          values (r.organisation_id, r.patient_id, 'Check-in after a visit was skipped',
+                  'The patient wrote to the care team just before the ' || r.offset_code || ' check-in was due, so it was not sent. Read their message; the questions were not asked.',
+                  'clinician', r.clinician_id, 3, 'post_consult_checkin', r.id);
+        end if;
         v_cancelled := v_cancelled + 1;
       end if;
     exception when others then
@@ -469,6 +493,7 @@ begin
               'clinician', r.clinician_id, 3, 'post_consult_checkin', r.id)
       returning id into v_task;
       update public.post_consult_checkins set clinician_task_id = v_task where id = r.id;
+      delete from public.notifications where status = 'pending' and template in ('consult_checkin_due', 'consult_checkin_nudge') and payload ->> 'checkin_id' = r.id::text;
       perform private.pcc_emit('consult_checkin.expired', r.organisation_id, r.id, r.patient_id);
       v_expired := v_expired + 1;
     exception when others then
@@ -578,7 +603,7 @@ begin
   select * into k from public.post_consult_checkins where id = p_id and patient_id = v_uid for update;
   if not found then raise exception 'check-in not found' using errcode = 'P0002'; end if;
   if k.state = 'answered' then return k.outcome; end if;
-  if k.state <> 'open' then raise exception 'this check-in is %', k.state using errcode = '55000'; end if;
+  if k.state not in ('open', 'expired') then raise exception 'this check-in is %', k.state using errcode = '55000'; end if;
   select * into c from public.post_consult_checkin_config where version = k.config_version;
   if jsonb_typeof(p_answers) <> 'object' then raise exception 'answers must be an object' using errcode = '22023'; end if;
   if v_text is not null and char_length(v_text) > (c.rules ->> 'free_text_max_chars')::integer then raise exception 'note is too long' using errcode = '22023'; end if;
@@ -645,11 +670,16 @@ begin
   v_out := jsonb_build_object('red_flag', v_red, 'concern', (v_red or v_concern), 'follow_up', (v_clin or v_clar), 'alert_raised', v_alert is not null);
   update public.post_consult_checkins
      set state = 'answered', answered_at = now(), answers = p_answers, free_text = v_text, red_flag = v_red,
-         emergency_event_id = v_ee, alert_id = v_alert, clinician_task_id = v_task, outcome = v_out
+         emergency_event_id = v_ee, alert_id = v_alert, clinician_task_id = coalesce(v_task, clinician_task_id), outcome = v_out
    where id = k.id;
   perform set_config('tarragon.checkin_task_close', 'on', true);
   update public.care_tasks set status = 'completed' where id = k.task_id and status not in ('completed', 'cancelled');
+  -- answered after it had expired: the care team's "not answered" task no longer applies
+  if k.state = 'expired' then
+    update public.care_tasks set status = 'cancelled' where id = k.clinician_task_id and k.clinician_task_id is not null and status not in ('completed', 'cancelled');
+  end if;
   perform set_config('tarragon.checkin_task_close', 'off', true);
+  delete from public.notifications where status = 'pending' and template in ('consult_checkin_due', 'consult_checkin_nudge') and payload ->> 'checkin_id' = k.id::text;
 
   perform private.pcc_emit('consult_checkin.answered', k.organisation_id, k.id, k.patient_id);
   if v_red or v_concern then
@@ -678,7 +708,7 @@ begin
     raise exception 'not authorised' using errcode = '42501';
   end if;
   select coalesce(jsonb_agg(jsonb_build_object(
-      'id', k.id, 'offset_code', k.offset_code, 'state', k.state, 'due_at', k.due_at, 'answered_at', k.answered_at, 'red_flag', k.red_flag,
+      'id', k.id, 'offset_code', k.offset_code, 'state', k.state, 'due_at', k.due_at, 'answered_at', k.answered_at, 'red_flag', k.red_flag, 'concern', coalesce((k.outcome ->> 'concern')::boolean, false),
       'answers', (select jsonb_agg(jsonb_build_object('question', q ->> 'text',
                     'answer', (select o ->> 'label' from jsonb_array_elements(q -> 'options') o where o ->> 'code' = k.answers ->> (q ->> 'id'))))
                     from jsonb_array_elements(c.rules -> 'questions') q where k.answers is not null),
