@@ -150,7 +150,7 @@ begin
   perform pg_temp.r('A4 anon cannot execute any new public function', '0',
     (select count(*)::text from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in ('record_partner_complaint', 'resolve_partner_complaint', 'suspend_partner_from_new_work', 'reinstate_partner', 'partner_quality_overview', 'partner_my_quality')
         and has_function_privilege('anon', p.oid, 'EXECUTE')));
-  perform pg_temp.r('A5 one active configuration, version 1', '1|1', (select count(*)::text || '|' || max(version)::text from public.partner_quality_config where is_active));
+  perform pg_temp.r('A5 one active configuration, version 2 (S28e added the pharmacy figures)', '1|2', (select count(*)::text || '|' || max(version)::text from public.partner_quality_config where is_active));
   perform pg_temp.r('A6 both events are registered with their required keys', 'partner.quality_breach:4|partner.reinstated:2',
     (select string_agg(event_type || ':' || cardinality(required_keys), '|' order by event_type) from public.event_type_versions where event_type in ('partner.quality_breach', 'partner.reinstated')));
   perform pg_temp.r('A7 the nightly job is scheduled', '1', (select count(*)::text from cron.job where jobname = 'partner-quality-sweep'));
@@ -281,7 +281,13 @@ begin
   perform pg_temp.r('E5 an open pharmacy can be sent a prescription', 'true', (private.pharmacy_location_choosable(v_phA, v_locA))::text);
   update public.pharmacy_partners set license_expires_at = now() - interval '1 day' where id = v_phA;
   perform pg_temp.apply('pharmacy', v_phA);
-  perform pg_temp.r('E6 the pharmacy''s expired licence pauses it by rule', 'suspended|{licence_expired}', pg_temp.status_of('pharmacy', v_phA) || '|' || (select reason_codes::text from public.partner_work_status where partner_id = v_phA));
+  -- S28e: a pharmacy breach is a SUGGESTION for staff (removal.suggest_only_kinds), never an automatic removal. An expired licence is recorded as a breach and
+  -- already hides the pharmacy from patients (E8); a person then pauses it from new work, which is what makes the send refusal below apply.
+  perform pg_temp.r('E6 the pharmacy''s expired licence is flagged but not paused by rule (S28e suggest-only)', 'open|true|false',
+    pg_temp.status_of('pharmacy', v_phA) || '|' || (select ('licence_expired' = any (breaches))::text from public.partner_quality where partner_kind = 'pharmacy' and partner_id = v_phA order by period_month desc limit 1) || '|' ||
+    (private.pharmacy_location_choosable(v_phA, v_locA))::text);
+  perform pg_temp.q_as(pg_temp.f('admin'), format($q$select public.suspend_partner_from_new_work('pharmacy', %L, 'Licence expired, paused until the renewal is on file')::text$q$, v_phA));
+  perform pg_temp.r('E6b a person pauses the pharmacy from new work, recorded as a person', 'suspended|person', pg_temp.status_of('pharmacy', v_phA) || '|' || (select source from public.partner_work_status_log where partner_id = v_phA order by id desc limit 1));
   begin
     insert into public.prescription_collection_codes (prescription_id, organisation_id, patient_id, pharmacy_partner_id, pharmacy_location_id, code, code_expires_at, is_test)
     values (v_rx, v_org, v_pat, v_phA, v_locA, 'ABCD2345', now() + interval '14 days', true);

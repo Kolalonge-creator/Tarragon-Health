@@ -1466,6 +1466,44 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S28.md; docs/design/S54.md section 6; spec 9.6 and 8.9",
   },
   {
+    key: "pharmacy.collection_rules",
+    // Version 3 (S28e, OQ-275): adds max_items_per_visit, how many waiting prescriptions a patient can send to one pharmacy together under one code.
+    // Every other value is version 2's. The live values are the active row of `pharmacy_config`.
+    value: { code_length: 8, code_valid_days: 14, max_wrong_attempts: 5, suggestion_valid_days: 14, max_items_per_visit: 10 },
+    owner: "CMO",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/S28.md section S28e; docs/OPEN-QUESTIONS.md OQ-275; spec 9.6",
+  },
+  {
+    key: "partner.quality",
+    // Version 2 (S28e, spec 21.7): adds the pharmacy figures (turnaround to dispense, how often a pharmacy reports it cannot supply) and
+    // removal.suggest_only_kinds, the kinds of partner the rule only FLAGS for staff and never suspends by itself. Everything else is version 1's,
+    // so laboratories and clinics behave as before. Live values are the active row of `partner_quality_config`. PROPOSED, CMO owned (OQ-360).
+    value: {
+      window_days: 90,
+      turnaround: { lab_target_hours: 72, min_orders: 10, min_within_target_percent: 80 },
+      pharmacy: { dispense_target_hours: 72, min_dispenses: 10, min_within_target_percent: 70, min_sent: 10, out_of_stock_percent: 30 },
+      complaints: { category_codes: ["late_result", "wrong_result", "communication", "charge_dispute", "safety", "licence", "other"], upheld_limit: 3 },
+      licence: { expiring_days: 30 },
+      weights: { turnaround: 40, complaints: 30, licence: 30 },
+      score: { warn_below: 70, suspend_below: 50 },
+      removal: {
+        auto_suspend: true,
+        suspend_on: ["licence_expired", "complaints_upheld_limit", "turnaround_below_target", "score_below_floor"],
+        suggest_only_kinds: ["pharmacy"],
+        override_days: 30,
+        reason_min_chars: 20,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/S28.md section S28e; docs/design/S74.md; spec 21.7",
+  },
+  {
     key: "quality.audit",
     // Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
     // active row of `quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift.

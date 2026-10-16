@@ -1293,3 +1293,11 @@ s58_rewards_engine.sql
 task_queue_gaps_oq432_433_435.sql
 # S19e native page receipts: a live native (ios/android, Expo token) push subscription with a push receipt confirms a mobile-only clinician route (90 s early window); no subscription or a disabled one does not; page_channel_ready defaults false; the function is not executable by anon or authenticated. Sabotage: the web-only definition must flip the native check.
 s19e_native_page_receipts.sql
+
+
+# --- Added 2026-10-16 (S28e) ------------------------------------------------
+# Pharmacy readiness and reach: one visit and one code for several prescriptions (all or nothing, the lock belongs to the visit, each medicine is its own
+# supply with its own controlled-medicine check and the shared supply count), stock confirmation as a plain yes or no, and the pharmacy scorecard
+# (turnaround to supply, flags, licence days; a pharmacy breach is a suggestion and never suspends by itself, a laboratory still does).
+# Sabotage: the visit-aware lock, the suggest-only rule and the stock reset removed; all three must flip.
+s28e_pharmacy_visits_stock_scorecard.sql

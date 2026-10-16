@@ -5,7 +5,7 @@ const redirect = jest.fn((url: string) => {
 jest.mock("next/navigation", () => ({ redirect: (u: string) => redirect(u) }));
 jest.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ rpc }) }));
 
-import { acceptSuggestionAction, choosePharmacyAction, declineSuggestionAction, newCodeAction, withdrawAction } from "./actions";
+import { acceptSuggestionAction, choosePharmacyAction, declineSuggestionAction, newCodeAction, newVisitCodeAction, withdrawAction } from "./actions";
 
 const RX = "11111111-1111-4111-8111-111111111111";
 const P = "22222222-2222-4222-8222-222222222222";
@@ -118,6 +118,63 @@ describe("suggestion actions (S54c)", () => {
   it("never calls the database with a malformed id", async () => {
     expect(await goes(acceptSuggestionAction(fd({ prescription: RX, suggestion: "x" })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=failed`);
     expect(await goes(declineSuggestionAction(fd({ prescription: "x", suggestion: SG })))).toBe("REDIRECT:/patient");
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+const RX2 = "55555555-5555-4555-8555-555555555555";
+const RX3 = "66666666-6666-4666-8666-666666666666";
+describe("one pharmacy for several medicines (S28e, OQ-275)", () => {
+  const many = (o: { also?: string[]; choice?: string; for?: string } = {}) => {
+    const f = new FormData();
+    f.set("prescription", RX);
+    f.set("choice", o.choice ?? `${P}:${L}`);
+    (o.also ?? []).forEach((a) => f.append("also", a));
+    if (o.for) f.set("for", o.for);
+    return f;
+  };
+  it("ticked medicines go to the one visit door together, this one first, and the code is never in the address", async () => {
+    rpc.mockResolvedValue({ data: "ABCD2345", error: null });
+    expect(await goes(choosePharmacyAction(many({ also: [RX2, RX3] })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=chosen_many`);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("patient_choose_pharmacy_for_visit", { p_prescriptions: [RX, RX2, RX3], p_partner: P, p_location: L });
+  });
+  it("with no ticks it is the same single choice as before", async () => {
+    rpc.mockResolvedValue({ data: "ABCD2345", error: null });
+    expect(await goes(choosePharmacyAction(many()))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=chosen`);
+    expect(rpc).toHaveBeenCalledWith("patient_choose_pharmacy", { p_prescription: RX, p_partner: P, p_location: L });
+  });
+  it("this medicine ticked as well, or ticked twice, is counted once", async () => {
+    rpc.mockResolvedValue({ data: "ABCD2345", error: null });
+    await goes(choosePharmacyAction(many({ also: [RX, RX2, RX2] })));
+    expect(rpc).toHaveBeenCalledWith("patient_choose_pharmacy_for_visit", { p_prescriptions: [RX, RX2], p_partner: P, p_location: L });
+  });
+  it("passes who it is for, and keeps them in the address", async () => {
+    const WHO = "44444444-4444-4444-8444-444444444444";
+    rpc.mockResolvedValue({ data: "ABCD2345", error: null });
+    expect(await goes(choosePharmacyAction(many({ also: [RX2], for: WHO })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=chosen_many&for=${WHO}`);
+    expect(rpc).toHaveBeenCalledWith("patient_choose_pharmacy_for_visit", { p_prescriptions: [RX, RX2], p_partner: P, p_location: L, p_beneficiary: WHO });
+  });
+  it("one refusal is a notice for the whole visit, never a success", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "collection_not_open", code: "22023" } });
+    expect(await goes(choosePharmacyAction(many({ also: [RX2] })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=collection_not_open`);
+    rpc.mockResolvedValue({ data: null, error: { message: "visit_size_invalid", code: "22023" } });
+    expect(await goes(choosePharmacyAction(many({ also: [RX2] })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=visit_size_invalid`);
+  });
+  it("a new code for the whole visit goes through its own door and reports a new code, never the code itself", async () => {
+    rpc.mockResolvedValue({ data: "WXYZ6789", error: null });
+    expect(await goes(newVisitCodeAction(fd({ prescription: RX })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=new_code`);
+    expect(rpc).toHaveBeenCalledWith("patient_new_visit_code", { p_prescription: RX });
+    rpc.mockResolvedValue({ data: null, error: { message: "collection_not_open", code: "22023" } });
+    expect(await goes(newVisitCodeAction(fd({ prescription: RX })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=collection_not_open`);
+    expect(await goes(newVisitCodeAction(fd({ prescription: "x" })))).toBe("REDIRECT:/patient");
+  });
+  it("never calls the database with a malformed id, choice or tick, or with more than ten", async () => {
+    expect(await goes(choosePharmacyAction(many({ choice: "nope" })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=failed`);
+    expect(await goes(choosePharmacyAction(many({ also: ["x"] })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=failed`);
+    const ten = Array.from({ length: 10 }, (_, i) => `77777777-7777-4777-8777-${String(i).padStart(12, "0")}`);
+    // too many gets the size message, not a generic failure
+    expect(await goes(choosePharmacyAction(many({ also: ten })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=visit_size_invalid`);
     expect(rpc).not.toHaveBeenCalled();
   });
 });

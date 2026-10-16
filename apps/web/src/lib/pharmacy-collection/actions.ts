@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
-import { chooseFormSchema, noticeForError, prescriptionOnlySchema, suggestionFormSchema, type Notice } from "./model";
+import { chooseFormSchema, noticeForError, prescriptionOnlySchema, suggestionFormSchema, visitChoice, type Notice } from "./model";
 
 /** `forWhom` is set only while a caregiver acts for the patient; it rides in the address so a refresh keeps the same person. */
 const page = (rx: string, n: Notice, forWhom?: string): never => redirect(`/patient/pharmacy/collect/${rx}?n=${n}${forWhom ? `&for=${forWhom}` : ""}`);
@@ -16,6 +16,28 @@ const beneficiary = (forWhom: string | undefined) => (forWhom ? { p_beneficiary:
  * A caregiver with the pharmacy permission may do this for the patient (`for`): the database checks the permission, tells the patient and records who acted.
  */
 export async function choosePharmacyAction(formData: FormData): Promise<void> {
+  // S28e (OQ-275): the list is one form with a `choice` button per pharmacy and a tick box (`also`) per other waiting prescription. With ticks, every
+  // prescription goes in one call and the pharmacy gets one code for the visit. With none, it is the same single door as before.
+  const choice = formData.get("choice");
+  if (choice !== null) {
+    const forWhom = typeof formData.get("for") === "string" && formData.get("for") ? String(formData.get("for")) : undefined;
+    const many = visitChoice({ prescription: formData.get("prescription"), choice, also: formData.getAll("also") });
+    const rx = String(formData.get("prescription") ?? "");
+    const forParsed = prescriptionOnlySchema.safeParse({ prescription: rx, for: forWhom });
+    if (!forParsed.success) return redirect("/patient");
+    if (many === "too_many") return page(rx, "visit_size_invalid", forParsed.data.for);   // the size message, not a generic failure
+    if (!many) return page(rx, "failed", forParsed.data.for);
+    if (many.also.length === 0) {
+      const { error } = await loose(await createClient()).rpc("patient_choose_pharmacy", {
+        p_prescription: many.prescription, p_partner: many.partner, p_location: many.location, ...beneficiary(forParsed.data.for),
+      });
+      return page(many.prescription, error ? noticeForError(error.message) : "chosen", forParsed.data.for);
+    }
+    const { error } = await loose(await createClient()).rpc("patient_choose_pharmacy_for_visit", {
+      p_prescriptions: [many.prescription, ...many.also], p_partner: many.partner, p_location: many.location, ...beneficiary(forParsed.data.for),
+    });
+    return page(many.prescription, error ? noticeForError(error.message) : "chosen_many", forParsed.data.for);
+  }
   const parsed = chooseFormSchema.safeParse({
     prescription: formData.get("prescription"), partner: formData.get("partner"), location: formData.get("location"), for: formData.get("for") || undefined,
   });
@@ -37,6 +59,17 @@ export async function newCodeAction(formData: FormData): Promise<void> {
   const parsed = prescriptionOnlySchema.safeParse({ prescription: formData.get("prescription"), for: formData.get("for") || undefined });
   if (!parsed.success) return redirect("/patient");
   const { error } = await loose(await createClient()).rpc("patient_new_collection_code", { p_prescription: parsed.data.prescription, ...beneficiary(parsed.data.for) });
+  return page(parsed.data.prescription, error ? noticeForError(error.message) : "new_code", parsed.data.for);
+}
+
+/**
+ * S28e: a new code for the whole visit when several medicines were sent together (the old code stops working at once). The single "new code" above is
+ * for one prescription and takes it out of its visit; this keeps them together and sends nothing to the pharmacy again.
+ */
+export async function newVisitCodeAction(formData: FormData): Promise<void> {
+  const parsed = prescriptionOnlySchema.safeParse({ prescription: formData.get("prescription"), for: formData.get("for") || undefined });
+  if (!parsed.success) return redirect("/patient");
+  const { error } = await loose(await createClient()).rpc("patient_new_visit_code", { p_prescription: parsed.data.prescription, ...beneficiary(parsed.data.for) });
   return page(parsed.data.prescription, error ? noticeForError(error.message) : "new_code", parsed.data.for);
 }
 

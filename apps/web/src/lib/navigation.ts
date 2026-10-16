@@ -801,6 +801,8 @@ export function getNavSections(
             { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
             // How each laboratory, pharmacy and clinic is doing; pause or reinstate from new work (S74).
             { label: "Partner quality", href: "/admin/partner-quality", icon: "governance" },
+            // Turnaround to supply, flags, complaints and licence expiry for each partner pharmacy; a flag is a suggestion to review, never an automatic removal (S28e).
+            { label: "Pharmacy scorecard", href: "/admin/pharmacy-scorecard", icon: "governance" },
             // What Tarragon owes a pharmacy or clinic from money it collected; labs are never on it (S74).
             { label: "Partner settlements", href: "/admin/partner-settlements", icon: "billing" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },

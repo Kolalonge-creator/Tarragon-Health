@@ -1728,7 +1728,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-519 One medicine per prescription
 - S24 signs one item per prescription (`issue_signed_prescription`), so a patient with three medicines chooses a pharmacy three times and gets three codes.
 - Options: (a) let the patient choose once for all her waiting prescriptions and get one code per pharmacy visit (recommended, next); (b) leave.
-- Decision: open (founder).
+- Decision: open (founder). **Built 2026-10-16 as option (a) in S28e** (`20261016211735_s28e_pharmacy_visits_stock_scorecard.sql`, not yet applied): the patient ticks several waiting prescriptions, chooses one pharmacy and gets ONE code for the visit (`patient_choose_pharmacy_for_visit`); at the counter each prescription is still its own item (own full or partial supply, own controlled check, the same shared supply count). **A single signed prescription that carries several items was NOT built**: S24 signing, the medicine row (one per prescription), the PDF and the QR verification all assume one item, so that is a change to the signing path and needs its own decision. Question for the founder: is one visit code over several single-item prescriptions what you meant by lifting the limit, or do you want the signing path changed so a doctor signs one prescription with several items?
 
 ### OQ-520 Controlled medicines and repeats at the counter
 - Signing hard-stops controlled medicines (an illustrative list, OQ-170). S28 adds no second check at the counter. After a full supply the prescription is `dispensed`, so an approved repeat is supplied through the existing QR and phone-desk path, not the partner list.
@@ -1737,6 +1737,23 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 
 ### OQ-521 Patient mobile screen and Pidgin review
 - The patient chooser and code are on the web only. The mobile app has no screen for it yet, and the Pidgin strings need a native reviewer.
+- Decision: open (founder). **Phone screen built 2026-10-16 in S28e** (`PharmacyCollectCard` on the Medications screen, English only; Pidgin was removed 2026-10-07). It was type-checked, linted and unit tested for its data layer; it has not been run on a device or simulator.
+
+### OQ-701 Pharmacy breaches are suggestions, laboratories and clinics are not yet (raised by S28e)
+- Spec 21.7 and the S28e brief say a poor-performing partner is flagged for staff, never removed automatically. S74 (already live in the repository) takes any partner out of NEW work by rule (`partner_quality_config.removal.auto_suspend`). S28e adds `removal.suggest_only_kinds = ["pharmacy"]`, so a pharmacy is only ever flagged; laboratories and clinics still pause by rule, unchanged. No pharmacy is active today, so nothing live changes. An expired pharmacy licence is flagged (not paused by rule) and still hides the pharmacy from patients through `pharmacy_location_choosable`.
+- Options: (a) keep as built (pharmacies suggest-only, labs and clinics automatic); (b) make laboratories and clinics suggest-only too (add `"lab"`, `"clinic"` to the list: a new configuration version, no code change); (c) make pharmacies automatic again.
+- Decision: open (founder with the CMO).
+
+### OQ-702 Pharmacy scorecard numbers are proposals (raised by S28e)
+- `partner.quality` v2 adds PROPOSED values: dispense target 72 hours, at least 10 supplies and 70 percent within target before turnaround counts, at least 10 sent and 30 percent "cannot supply" before it is flagged. Turnaround runs from the patient sending the prescription to the full supply, so it includes the patient's own time to reach the counter; nothing records when the patient arrives. Read it as a prompt to look.
+- Decision: open (CMO and pharmacy lead). Nothing is signed. A flag only asks staff to look.
+
+### OQ-703 The pharmacy collection rules need a fresh confirmation (raised by S28e)
+- `pharmacy.collection_rules` is now version 3 (adds `max_items_per_visit`, 10). The go-live condition `pharmacy_rules_confirmed` reads the confirmation for the ACTIVE version, so any earlier confirmation no longer counts. Before the guard can go on, the CMO confirms version 3 at the sign-off hub. Decision: open (CMO), a go-live step in `docs/runbooks/pharmacy-activation.md`.
+
+### OQ-704 The patient page still shows a price comparison (raised by S28e, found not changed)
+- OQ-283 and Part C.2 say the collection flow shows no price. S54 (`patient_price_compare`, `PriceCompare` on `/patient/pharmacy/collect/[id]`) is in the repository and shows prices and stock when a verified pharmacy has entered them. S28e did not add to it, and its own stock answer is a plain yes or no with no price. It shows the empty line today because no pharmacy has price data.
+- Options: (a) hide the comparison behind a switch until prices are reliable (recommended, OQ-283's own wording); (b) leave it.
 - Decision: open (founder).
 ### OQ-301 Overdue review hides a course lesson only; the older programme functions ignore lesson status (raised by S33)
 - Spec 9 says content past its review date is not served. S33 enforces that for the course lessons: `learning_course()` checks it on every read and an hourly job moves an overdue lesson back to clinical review. The rest of the library keeps today's rule (`review_due` is still served), because changing it hides content that is live now with no review date at all (0 of 235 rows have a date).
