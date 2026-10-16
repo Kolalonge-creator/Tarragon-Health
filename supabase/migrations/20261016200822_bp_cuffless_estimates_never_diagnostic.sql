@@ -69,9 +69,9 @@ begin
     end if;
   end loop;
 
-  -- Two readers take their blood pressure straight from the table (or, once S05b-c has rewritten a definer reader, from the display view);
+  -- Two private readers (public.health_report_collect is a thin wrapper with no table read) take their blood pressure straight from the table (or, once S05b-c has rewritten a definer reader, from the display view);
   -- only their blood pressure lines move, whichever spelling the live definition uses.
-  for r in select p.oid, p.proname from pg_proc p where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace) and p.prokind = 'f'
+  for r in select p.oid, p.proname from pg_proc p where p.pronamespace = 'private'::regnamespace and p.prokind = 'f'
             and p.proname in ('capture_pathway_baseline', 'health_report_collect') loop
     v_def := pg_get_functiondef(r.oid);
     if r.proname = 'capture_pathway_baseline' then
