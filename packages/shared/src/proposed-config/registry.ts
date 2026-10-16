@@ -5000,6 +5000,96 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S75.md (exclusions); docs/design/S75-outcome-measures.md; docs/plans/S75-S80-cmo-decisions.md S-5; decision S75-2",
   },
   {
+    key: "notifications.rules",
+    // v5 (follow-up FU-notify, CMO answers 2026-10-16): redUnconfirmed changes two switches and keeps the rest of v4.
+    //  deliveredCountsAsConfirmed false (OQ-329): a delivered push receipt no longer ends the unconfirmed-red wait; only the patient's own
+    //  action does (opened a notice, acknowledged the guidance, replied). couldNotGetCareOutreachNow false (OQ-330): "I could not get care"
+    //  is recorded and shown to on-call but the clinician call waits for the 30 minute rule. undeliveredMinutes 5 and expireHours 6 are
+    //  kept as answered (OQ-331). Owner is the CMO (OQ-337). Live value: the active row of `notification_rules_config`.
+    value: {
+      quietHours: { enabled: false, start: "21:00", end: "07:00" },
+      routinePushPerDay: 4,
+      receiptCheckMinutes: 15,
+      receiptGiveUpHours: 24,
+      pushFallback: { enabled: true, afterMinutes: 240, maxAgeHours: 24, perRecipientPerDay: 1, batchSize: 200 },
+      redUnconfirmed: {
+        enabled: true,
+        unconfirmedMinutes: 30,
+        undeliveredMinutes: 5,
+        expireHours: 6,
+        deliveredCountsAsConfirmed: false,
+        couldNotGetCareOutreachNow: false,
+        criticalReceiptCheckMinutes: 2,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 5,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/FU-notify-closeout.md; CMO answers OQ-329, OQ-330, OQ-331, OQ-337 (2026-10-16)",
+  },
+  {
+    key: "credentialing.rules",
+    // Version 6 (follow-up FU-notify, OQ-346): version 5 plus verification_evidence_retention_years_after_employment (6: employment plus 6 years,
+    // RECORDED ONLY, nothing enforces or deletes by it). document_purge_enabled stays false and the purge skips every evidence document.
+    // Inserted INACTIVE and unsigned, like version 5.
+    value: {
+      min_practice_years: 2,
+      pass_percent: 80,
+      all_red_correct: true,
+      audited_task_count: 20,
+      referees_required: 2,
+      referee_independent_contact: true,
+      test_max_attempts: 3,
+      test_retake_cooldown_hours: 24,
+      test_scenarios_per_attempt: 10,
+      notice_windows_days: [90, 30, 7, 0],
+      grace_max_days: 14,
+      separate_verifier_and_approver: true,
+      document_max_bytes: 8388608,
+      document_retention_years_after_offboarding: 7,
+      require_verified_phone: false,
+      document_purge_enabled: false,
+      rejected_application_document_retention_months: 24,
+      primary_source_required: true,
+      primary_source_routes: ["mdcn_dataflow", "mdcn_written_confirmation", "mdcn_register_check"],
+      primary_source_max_age_days: 365,
+      recheck_months: 6,
+      recheck_overdue_days: 14,
+      credential_date_max_days: 1100,
+      grandfather_ends_on: "2027-01-13",
+      reverify_months: 12,
+      reverify_notice_days: 30,
+      verification_evidence_retention_years_after_employment: 6,
+      renewal_cycle: {
+        cycle_end_month: 12,
+        cycle_end_day: 31,
+        proof_deadline_month: 12,
+        proof_deadline_day: 15,
+      },
+      missing_licence_date_ineligible: true,
+      verification_sources: ["mdcn_register_lookup", "document_sighted", "insurer_confirmation", "other"],
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 6,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/FU-notify-closeout.md; OQ-346 (2026-10-16); builds on version 5 (S76 B2)",
+  },
+  {
+    key: "privacy.webhook_inbox_retention",
+    // OQ-341 (answered 2026-10-16). Live value: the active row of `provider_event_retention_config`; a test fails on drift.
+    //  purgeEnabled false: the count-first purge (run_provider_event_retention) refuses to act and is not scheduled until the DPO signs a new version.
+    //  rejectedDays 30: rejected (bad signature) rows are deleted after this long. verifiedRawBodyDays 90: a verified, processed raw body keeps its
+    //  customer emails this long, then they are redacted (the row, its hash and its status stay). batchLimit: rows per run.
+    value: { purgeEnabled: false, rejectedDays: 30, verifiedRawBodyDays: 90, redactCustomerEmails: true, batchLimit: 500 },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/FU-notify-closeout.md; OQ-341; docs/legal/dpia-addendum-red-alert-channel.md",
+  },
+  {
     key: "proxy.cooling_off",
     // S42, OQ-48 (coercion safeguard): after a parent ends an arrangement that someone else set up for them, that person cannot
     // start a new setup for the same number for this many days. The parent can still invite them again from their own account.

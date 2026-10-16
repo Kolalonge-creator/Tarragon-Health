@@ -9,7 +9,7 @@ import { createHmac } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "@jest/globals";
 import {
-  decide, describeViolations, expoUrgencyFields, isClinicianPageRow, isSafetyCritical, lintRenderFn, lintText, pushEnvelope,
+  decide, describeViolations, expoUrgencyFields, isSafetyCritical, lintRenderFn, lintText, refusedSmsOutcome, pushEnvelope,
   signDocumentLink, URGENT_CHANNEL_ID, URGENT_TTL_SECONDS, withDocumentLink, type DecideInput,
 } from "./index.ts";
 import { TEMPLATE_MAP } from "../../../supabase/functions/send-pending-notifications/templates.ts";
@@ -18,48 +18,28 @@ import { describe as describeInApp } from "../../../apps/web/src/lib/notificatio
 const ctx = { notificationId: "n", recipientId: "r" };
 const base: DecideInput = {
   channel: "sms", priority: "critical", nowMs: Date.UTC(2026, 9, 13, 21, 0), quiet: { enabled: false, start: "21:00", end: "07:00" },
-  routinePushSentToday: 0, routinePushPerDay: 4, wordingViolations: [], smsPurpose: "none", emergencyContactSmsOpen: false,
+  routinePushSentToday: 0, routinePushPerDay: 4, wordingViolations: [],
 };
 const REDS = ["red_event_guidance_waiting", "red_event_outreach_task", "test_alert"] as const;
 
-describe("Q10 / OQ-92: SMS is decided by who the recipient is", () => {
+describe("Q10 / OQ-92 / OQ-332: no recipient is ever sent an SMS", () => {
   it("a critical row to a patient is not sent by SMS", () => {
-    expect(decide({ ...base, smsPurpose: isClinicianPageRow("patient", "emergency_event_clinician_alert") ? "clinician_page" : "none" })).toEqual({ action: "suppress", reason: "sms_not_allowed" });
+    expect(decide({ ...base })).toEqual({ action: "suppress", reason: "sms_not_allowed" });
   });
-  it("a clinician may be paged by SMS for any row, as before", () => {
-    expect(decide({ ...base, priority: "routine", smsPurpose: isClinicianPageRow("clinician", "on_call_page", "routine") ? "clinician_page" : "none" })).toEqual({ action: "send" });
-    expect(decide({ ...base, smsPurpose: isClinicianPageRow("clinician", "on_call_page", "critical") ? "clinician_page" : "none" })).toEqual({ action: "send" });
-  });
-  it("the paging roles (admin, care coordinator) only for a critical row", () => {
-    for (const role of ["admin", "care_coordinator"]) {
-      expect(isClinicianPageRow(role, "on_call_escalation", "critical")).toBe(true);
-      expect(isClinicianPageRow(role, "ops_all_clear", "routine")).toBe(false);
+  it("nor is a clinician, an admin or a care coordinator (the clinician ladder ends at push, then a phone-call task)", () => {
+    for (const template of ["on_call_page", "on_call_escalation", "ops_alert"]) {
+      for (const priority of ["critical", "routine"] as const) {
+        expect(decide({ ...base, priority, template })).toEqual({ action: "suppress", reason: "sms_not_allowed" });
+      }
     }
   });
-  it("every other role never gets an SMS, critical or not (finance, analyst, pharmacist, lab, payer staff)", () => {
-    for (const role of ["finance", "analyst", "pharmacist", "lab_partner", "lab_liaison", "hmo_admin", "corporate_admin", "payer_admin", "provider_org_staff", "ngo_admin"]) {
-      expect(isClinicianPageRow(role, "ops_alert", "critical")).toBe(false);
-      expect(decide({ ...base, smsPurpose: isClinicianPageRow(role, "ops_alert", "critical") ? "clinician_page" : "none" })).toEqual({ action: "suppress", reason: "sms_not_allowed" });
-    }
+  it("a refused critical row fails so the ladder moves on and the exhausted alarm still fires", () => {
+    expect(refusedSmsOutcome("critical")).toBe("fail");
   });
-  it("an unknown role (a failed lookup) is not a clinician", () => {
-    expect(isClinicianPageRow(undefined, "on_call_page")).toBe(false);
-    expect(isClinicianPageRow(null, "on_call_page")).toBe(false);
-  });
-  it("a failed profile lookup leaves an SMS row for the next pass instead of settling it", () => {
+  it("the sender settles every sms row itself and has no role-based allowance left", () => {
     const src = readFileSync("../../supabase/functions/send-pending-notifications/index.ts", "utf8");
-    expect(src).toContain('if (row.channel === "sms" && profilesError) continue;');
-  });
-  it("priority alone no longer opens the door (the old rule did)", () => {
-    expect(decide({ ...base, priority: "critical", smsPurpose: isClinicianPageRow("patient", "free_red_guidance") ? "clinician_page" : "none" }).action).toBe("suppress");
-  });
-  it("the one named exception is the emergency contact alert, which this change does not decide", () => {
-    expect(isClinicianPageRow("patient", "emergency_contact_alert")).toBe(true);
-  });
-  it("the sender uses the role rule and not the priority", () => {
-    const src = readFileSync("../../supabase/functions/send-pending-notifications/index.ts", "utf8");
-    expect(src).toContain("smsPurpose: smsPurpose({ template: row.template, priority: row.priority, recipientRole: roleById.get(row.recipient_id) })");
-    expect(src).not.toMatch(/smsPurpose:\s*row\.priority === "critical"/);
+    expect(src).toContain('if (row.channel === "sms" || row.channel === "voice") {');
+    expect(src).not.toMatch(/smsPurpose|recipientRole/);
   });
 });
 

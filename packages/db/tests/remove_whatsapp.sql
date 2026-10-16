@@ -109,16 +109,23 @@ begin
 
   v_id := private.enqueue_critical_notification(v_org, v_clin, 'clinician_alert_ack_timeout_senior',
             jsonb_build_object('patient_name', 'RMWA Patient'), 'emergency_event', 'emergency');
+  -- FU-notify (OQ-332): the emergency ladder is now push, email and the exhausted alarm. sms is never a hop (the signed sequence still
+  -- names it; private.normalize_escalation_channels drops it).
   v_failed := false;
-  for i in 1..2 loop
-    update public.notifications set status = 'failed' where id = v_id;
-    perform private.escalate_unconfirmed_critical_notifications();
-    select id, channel::text into v_id, v_hop_ch from public.notifications where escalated_from_id = v_id;
-    if v_id is null then raise exception 'FAIL 2: emergency ladder stopped early at step %', i; end if;
-    if i = 1 and v_hop_ch <> 'email' then raise exception 'FAIL 2: emergency hop 2 is %, expected email', v_hop_ch; end if;
-    if i = 2 and v_hop_ch <> 'sms'   then raise exception 'FAIL 2: emergency hop 3 is %, expected sms', v_hop_ch; end if;
-  end loop;
-  insert into _checks (msg) values ('PASS 2c: an emergency alert keeps three hops: push, email, sms');
+  update public.notifications set status = 'failed' where id = v_id;
+  perform private.escalate_unconfirmed_critical_notifications();
+  select id, channel::text into v_id, v_hop_ch from public.notifications where escalated_from_id = v_id;
+  if v_id is null then raise exception 'FAIL 2: emergency ladder stopped early at step 1'; end if;
+  if v_hop_ch <> 'email' then raise exception 'FAIL 2: emergency hop 2 is %, expected email', v_hop_ch; end if;
+  update public.notifications set status = 'failed' where id = v_id;
+  perform private.escalate_unconfirmed_critical_notifications();
+  if exists (select 1 from public.notifications where escalated_from_id = v_id) then
+    raise exception 'FAIL 2: emergency ladder went past email (an sms hop is back)';
+  end if;
+  if not exists (select 1 from public.notification_escalation_failures where notification_id = v_id) then
+    raise exception 'FAIL 2: the emergency ladder ended without the exhausted record';
+  end if;
+  insert into _checks (msg) values ('PASS 2c: an emergency alert has two hops, push and email, then the exhausted alarm (no sms)');
 
   -- 2d. The alert fan-out for a critical clinician alert reads its channel list from alert_rules.config, whose live
   --     abnormal_result entry still names whatsapp. It used to cast each token straight to the enum, which would now

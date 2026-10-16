@@ -70,8 +70,8 @@ begin
   perform pg_temp.rec('...and is born off', 'false', (select is_on::text from public.go_live_guards where key = 'sms_emergency_contact_enabled'));
   perform pg_temp.rec('...and the reader says closed', 'false', private.go_live_guard_on('sms_emergency_contact_enabled')::text);
   perform pg_temp.rec('the sender (service role) can read the guard row', 'true', has_table_privilege('service_role', 'public.go_live_guards', 'SELECT')::text);
-  perform pg_temp.rec('only the service role can ask whether the exception is open', 'true,false,false', has_function_privilege('service_role', 'public.sms_emergency_contact_open()', 'EXECUTE')::text || ',' || has_function_privilege('authenticated', 'public.sms_emergency_contact_open()', 'EXECUTE')::text || ',' || has_function_privilege('anon', 'public.sms_emergency_contact_open()', 'EXECUTE')::text);
-  perform pg_temp.rec('...and it says closed at birth', 'false', public.sms_emergency_contact_open()::text);
+  -- FU-notify (OQ-333): the SMS exception is removed. The guard row stays (a go-live guard is never deleted) but the question function is gone.
+  perform pg_temp.rec('the exception question function is dropped (OQ-333)', 'true', (to_regprocedure('public.sms_emergency_contact_open()') is null)::text);
   perform pg_temp.rec('anon cannot execute attest_go_live_condition', 'false', has_function_privilege('anon', 'public.attest_go_live_condition(text,text,boolean,text)', 'EXECUTE')::text);
 
   perform pg_temp.rec('the contact copies are unique per source row and channel', '1', (select count(*)::text from pg_indexes where indexname = 'notifications_emergency_contact_copy_once'));

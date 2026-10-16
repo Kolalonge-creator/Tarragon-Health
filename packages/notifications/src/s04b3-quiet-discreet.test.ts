@@ -19,7 +19,7 @@ const DAY = 24 * 3600_000;
 const night = utc(21); // 22:00 Lagos
 const reminder: DecideInput = {
   channel: "push", priority: "routine", nowMs: night, quiet: Q, routinePushSentToday: 0, routinePushPerDay: 4,
-  wordingViolations: [], smsPurpose: "none", emergencyContactSmsOpen: false, safetyCritical: false,
+  wordingViolations: [], safetyCritical: false,
 };
 
 describe("quiet hours", () => {
