@@ -36,10 +36,12 @@ export function assistedEntryLabel(name: string | null | undefined, audience: As
 }
 
 /** The caption under a chart that includes helper-entered points. Null when there are none. */
-export function assistedEntryCaption(assistedCount: number, total: number): string | null {
+export function assistedEntryCaption(assistedCount: number, total: number, overLimitCount = 0): string | null {
   if (!Number.isFinite(assistedCount) || assistedCount <= 0 || total <= 0) return null;
   const n = Math.min(assistedCount, total);
-  return `${n} of ${total} readings here ${n === 1 ? "was" : "were"} entered by a helper on the person's behalf.`;
+  const base = `${n} of ${total} readings here ${n === 1 ? "was" : "were"} entered by a helper on the person's behalf.`;
+  const over = Math.min(Math.max(overLimitCount, 0), n);
+  return over > 0 ? `${base} ${over} of them came in faster than the usual limit and were kept, not refused.` : base;
 }
 
 /** Parses the attribution RPC's answer. A malformed answer is an empty list, never a guessed name. */

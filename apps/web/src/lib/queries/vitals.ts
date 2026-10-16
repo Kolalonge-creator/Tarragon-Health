@@ -95,6 +95,7 @@ export function useVitalsTrend(
         pulse_bpm: r.pulse_bpm,
         // A helper entered it for the person (the database sets this flag, never the client; staff-measured rows are not flagged).
         assisted: r.assisted_entry === true,
+        assistedOverLimit: r.assisted_rate_exceeded === true,
       }));
     },
     staleTime: 60_000,

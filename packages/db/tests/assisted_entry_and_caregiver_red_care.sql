@@ -17,7 +17,7 @@
 --      A4  the reading goes through the SAME path: a crisis BP entered by the caregiver raises the emergency event for the patient.
 --      A5  no backdating: a typed reading dated three days ago is stamped now; wearable, cgm and fhir_import rows and a deviceless device row are refused.
 --      A6  a forged logged_by_profile_id is overwritten by the caller's own id.
---      A7  rate limits (per helper per person per hour, per helper per day) refuse with 53400 and a readable reason; the patient's own entries are never limited.
+--      A7  rate limits (per helper per person per hour, per helper per day) STORE and flag the reading, never refuse it; the patient's own entries are never limited.
 --      A8  the ledger: the person reads theirs, the helper reads theirs, a stranger reads none, append only, no direct write.
 --      A9  attribution names for the label; a stranger gets nothing.
 --      A10 the pharmacy seam is closed: guard off, function false, a pharmacist cannot write a reading.
@@ -288,13 +288,24 @@ begin
     perform pg_temp.rec('A7b0 a blind retry of a reading that already landed is a duplicate (23505), not a rate-limit refusal',
       '23505', pg_temp.try(format('insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source, taken_at, client_reading_id) values (%L, %L, ''blood_pressure'', 120, 80, ''manual'', now(), %L)', v_org, pa, v_cid_retry)));
     perform pg_temp.back();
-    perform pg_temp.rec('A7b the next one is refused with 53400 and says why', 'true', (left(v_msg, 5) = '53400' and v_msg like '%assisted_entry_rate_limited%')::text);
-    perform pg_temp.rec('A7c the refused reading was not stored', '0', (select count(*)::text from public.vitals_readings where patient_id = pa and systolic = 150));
+    perform pg_temp.rec('A7b the entry past the hourly limit is STORED, not refused', 'ok', v_msg);
+    perform pg_temp.rec('A7c and flagged as past the limit on the row and in the ledger', 'true,true',
+      (select r.assisted_rate_exceeded::text || ',' || (select l.rate_limit_exceeded::text from public.assisted_entry_log l where l.vital_reading_id = r.id)
+         from public.vitals_readings r where r.patient_id = pa and r.systolic = 150));
+    -- a DANGEROUS reading past the limit is stored and runs the red path for the patient (the limit must never block it).
+    select count(*) into v_before from public.emergency_events where patient_id = pa;
+    perform pg_temp.act(cg2);
+    perform pg_temp.rec('A7c2 a dangerous reading past the hourly limit is accepted', 'ok', pg_temp.bp(v_org, pa, 215, 130));
+    perform pg_temp.back();
+    perform pg_temp.rec('A7c3 it is stored, flagged, and raised the red path for the patient', 'true,true',
+      (select r.assisted_rate_exceeded::text from public.vitals_readings r where r.patient_id = pa and r.systolic = 215) || ',' ||
+      ((select count(*) from public.emergency_events where patient_id = pa) > v_before)::text);
     -- the per-day limit across people: lower it for this transaction only.
     update public.assisted_entry_config set rules = '{"max_per_helper_per_person_per_hour": 100, "max_per_helper_per_day": ' || (lim_h + 2) || '}'::jsonb where is_active;
     perform pg_temp.act(cg2);
-    perform pg_temp.rec('A7d a second person is still allowed under the day limit', 'ok,ok', pg_temp.bp(v_org, pb, 121, 80) || ',' || pg_temp.bp(v_org, pb, 122, 80));
-    perform pg_temp.rec('A7e past the day limit it is refused whoever the person is', '53400', pg_temp.bp(v_org, pb, 123, 80));
+    perform pg_temp.rec('A7d a second person is still allowed under the day limit and not flagged', 'ok,ok,false',
+      pg_temp.bp(v_org, pb, 121, 80) || ',' || pg_temp.bp(v_org, pb, 122, 80) || ',' || (select bool_or(assisted_rate_exceeded)::text from public.vitals_readings where patient_id = pb and systolic in (121, 122)));
+    perform pg_temp.rec('A7e past the day limit it is stored and flagged whoever the person is', 'ok,true', pg_temp.bp(v_org, pb, 123, 80) || ',' || (select assisted_rate_exceeded::text from public.vitals_readings where patient_id = pb and systolic = 123));
     perform pg_temp.back();
     -- the patient's own entries are never limited.
     perform pg_temp.act(pb);
@@ -381,10 +392,20 @@ begin
   v_def := pg_get_functiondef('private.assisted_entry_guard()'::regprocedure);
   if position('if v_n >= v_hour then' in v_def) = 0 then raise exception 'VACUOUS TEST: rate limit anchor not found'; end if;
   execute replace(v_def, 'if v_n >= v_hour then', 'if false then');
+  -- (with the limit removed nothing is ever flagged, so the flag check below changes)
   lim_h := (private.assisted_entry_rules() ->> 'max_per_helper_per_person_per_hour')::int;
   perform pg_temp.act(cg_rate);
   for i in 1..lim_h loop perform pg_temp.bp(v_org, pr, 120 + i, 80); end loop;
-  insert into results values ('sabotaged', 'the entry past the hourly limit is refused', '53400', pg_temp.bp(v_org, pr, 150, 90));
+  perform pg_temp.bp(v_org, pr, 150, 90);
+  perform pg_temp.back();
+  insert into results values ('sabotaged', 'the entry past the hourly limit is flagged', 'true',
+    coalesce((select r.assisted_rate_exceeded::text from public.vitals_readings r where r.patient_id = pr and r.systolic = 150), 'missing'));
+  execute v_def;
+  -- S4 a limit that REFUSES (the rejected design): a dangerous reading past the limit would be lost. Sabotage makes the guard raise.
+  v_def := pg_get_functiondef('private.assisted_entry_guard()'::regprocedure);
+  execute replace(v_def, 'new.assisted_rate_exceeded := true;', 'raise exception ''assisted_entry_rate_limited'' using errcode = ''53400'';');
+  perform pg_temp.act(cg_rate);
+  insert into results values ('sabotaged', 'a dangerous reading past the limit is accepted', 'ok', pg_temp.bp(v_org, pr, 220, 135));
   perform pg_temp.back();
   execute v_def;
 end $$;
@@ -398,8 +419,8 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 3 then
-    raise exception 'VACUOUS TEST: only % of 3 sabotage steps changed the matching check', v_caught;
+  if v_caught < 4 then
+    raise exception 'VACUOUS TEST: only % of 4 sabotage steps changed the matching check', v_caught;
   end if;
 end $$;
 

@@ -36,8 +36,7 @@ entered it, so it is `logged_by_profile_id` plus an `assisted_entry_log` row. Th
   not org staff (testing-day nurses and import confirmations go through their own governed paths). Needs the
   capability (an explicit `log_readings`, or an unrestricted grant PLUS the person's vitals category, so writes are never looser than reads), refuses wearable/cgm/fhir_import rows and deviceless device rows, bounds device/photo times to 7 days, applies versioned limits
   (`assisted_entry_config`: 6 per helper per person per hour, 30 per helper per day, PROPOSED, founder owned; counted on flagged readings, so a ledger
-  failure cannot lift the limit; a blind retry of a reading that already landed is a duplicate, not a limit hit). SQLSTATE 53400 for limits (the
-  phone retries later), 42501 for not permitted, 22023 too old.
+  failure cannot lift the limit; a blind retry of a reading that already landed is a duplicate, not a limit hit). 42501 for not permitted, 22023 too old. **Past a limit a reading is STORED and flagged (`assisted_rate_exceeded`, ledger `rate_limit_exceeded`, noted on the chart caption), never refused** (coordinator decision on OQ-ASSIST-2: a limit must never block a dangerous reading; it still reaches every red-flag trigger).
 - **Ledger (AFTER INSERT):** `assisted_entry_log`, append only, one row per reading: actor, kind, consent_basis (`explicit_permission` when the
   grant names log_readings, `full_manage_grant` when unrestricted, `counter_consent` reserved for pharmacy), grant id. A ledger failure
   warns and never aborts a possibly dangerous reading.
@@ -57,7 +56,7 @@ itself), add the guard's conditions. Proof A10.
 
 ## Open questions for the lead
 - OQ-ASSIST-1 pharmacy: branch verification, counter consent, whose record is it.
-- OQ-ASSIST-2 limits (6/hour, 30/day) are proposals. A limit that refuses a helper's 7th reading in an hour can also refuse a dangerous one before the
+- OQ-ASSIST-2 DECIDED: limits flag, never refuse. Values (6/hour, 30/day) remain proposals. A limit that refuses a helper's 7th reading in an hour can also refuse a dangerous one before the
   red-flag triggers run. The refusal wording tells the helper to get the person to care first and that the person can enter it themselves; the
   alternative (exempt readings in the emergency range) needs the CMO's thresholds duplicated here, so it was not done. Decide.
 - OQ-ASSIST-4 a helper with only `receive_alerts` or `log_readings` can answer for the person's latest red alert of any category (the answer carries

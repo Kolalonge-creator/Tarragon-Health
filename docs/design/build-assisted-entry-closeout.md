@@ -29,6 +29,7 @@ fires only for manual/device), escape the manual no-backdating stamp and the sou
   Dry runs were also to be done with the stand-in label `receive_alerts` for `log_readings` (ADD VALUE cannot be used in its own transaction).
 - Read-only facts that WERE checked live: `vital_source` values, the 28 triggers on `vitals_readings`, 0 manage grants (0 narrowed), the
   anchors in the live `latest_red_patient_response` and `record_red_care_response` text.
+- Rate limits now only flag (OQ-ASSIST-2 decision); proof A7c2/A7c3 and sabotage S4 cover a dangerous 7th reading.
 - Things most likely to need a fix in CI: other triggers or functions that enumerate `vitals_readings` columns (new column `assisted_entry`),
   the data-registry and minor-dependant policy rows for `assisted_entry_log`, and `received_at` being present on every row.
 - No component test for the new label in `VitalsHistory`; the words are unit tested in `packages/shared`.

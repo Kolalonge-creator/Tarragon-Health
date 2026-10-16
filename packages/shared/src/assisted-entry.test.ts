@@ -20,6 +20,8 @@ describe("assisted entry words", () => {
     expect(assistedEntryCaption(1, 10)).toBe("1 of 10 readings here was entered by a helper on the person's behalf.");
     expect(assistedEntryCaption(3, 10)).toContain("3 of 10 readings here were entered");
     expect(assistedEntryCaption(99, 10)).toContain("10 of 10");
+    expect(assistedEntryCaption(3, 10, 2)).toContain("2 of them came in faster than the usual limit and were kept, not refused.");
+    expect(assistedEntryCaption(3, 10, 0)).not.toContain("faster");
   });
   it("parses the attribution answer and drops malformed rows", () => {
     expect(parseAssistedAttribution([{ reading_id: "r1", actor_id: "a1", actor_name: "Tunde", actor_kind: "caregiver" }, { reading_id: 5 }, null, "x"])).toEqual([

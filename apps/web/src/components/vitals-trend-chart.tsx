@@ -164,7 +164,7 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
   }));
   const lastIndex = points.length - 1;
   // Points a helper entered for the person (assisted entry), said once under the chart so a clinician never reads them as the person's own.
-  const assistedCaption = assistedEntryCaption(points.filter((p) => "assisted" in p && p.assisted === true).length, points.length);
+  const assistedCaption = assistedEntryCaption(points.filter((p) => "assisted" in p && p.assisted === true).length, points.length, points.filter((p) => "assistedOverLimit" in p && p.assistedOverLimit === true).length);
   const noHeightOnFile =
     mode === "bmi" && !heightStatus.isLoading && heightStatus.data?.heightCm == null;
   const heightDiscrepancy = mode === "bmi" ? heightStatus.data?.discrepancy : null;

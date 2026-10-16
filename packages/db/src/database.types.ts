@@ -37120,6 +37120,7 @@ export type Database = {
           ketone_urine: string | null
           ketones_mmol_l: number | null
           assisted_entry: boolean
+          assisted_rate_exceeded: boolean
           logged_by_profile_id: string | null
           note: string | null
           organisation_id: string
@@ -37168,6 +37169,7 @@ export type Database = {
           ketone_urine?: string | null
           ketones_mmol_l?: number | null
           assisted_entry?: boolean
+          assisted_rate_exceeded?: boolean
           logged_by_profile_id?: string | null
           note?: string | null
           organisation_id: string
@@ -37216,6 +37218,7 @@ export type Database = {
           ketone_urine?: string | null
           ketones_mmol_l?: number | null
           assisted_entry?: boolean
+          assisted_rate_exceeded?: boolean
           logged_by_profile_id?: string | null
           note?: string | null
           organisation_id?: string
