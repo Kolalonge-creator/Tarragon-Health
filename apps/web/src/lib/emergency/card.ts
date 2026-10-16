@@ -31,6 +31,11 @@ export interface EmergencyClinicalFacts {
   allergies: { allergen: string; reaction: string | null; severity: string | null }[];
   medications: { drug_name: string; dose: string | null; frequency: string | null }[];
   conditions: string[];
+  /**
+   * S47d: how many medicines were left off because they are reproductive or mental health medicines and that switch is off. A count only, never a name,
+   * so a responder reads "some medicines are not shown" instead of "takes nothing".
+   */
+  medicines_not_shown?: number;
   blood: {
     blood_group: string | null;
     genotype: string | null;
@@ -52,6 +57,11 @@ export interface EmergencyCardPayload extends EmergencyClinicalFacts {
   issued_at: string;
   expires_at: string;
   source: string;
+  /**
+   * S43: the fields the person chose not to share, set by the database wrapper only when
+   * they have made a choice. Those keys are absent or empty in the facts above.
+   */
+  hidden_fields?: string[];
 }
 
 /** The URL a scanned QR code opens. */

@@ -10,6 +10,7 @@ export * from "./ml-client";
 export * from "./ai-coach-types";
 export * from "./device-readings";
 export * from "./health-record";
+export * from "./onboarding-answers";
 export * from "./clinical-config";
 export * from "./mental-health";
 export * from "./record-integrity";
@@ -257,6 +258,7 @@ export {
 } from "./notification-neutral";
 export * from "./breathing";
 export * from "./consent-state";
+export * from "./consent-matrix";
 export * from "./data-rights";
 export * from "./notification-settings";
 export * from "./notification-diagnosis";

@@ -25,7 +25,7 @@
       "care_category"
     ]
   },
-  "baselineCeiling": 1071,
+  "baselineCeiling": 1143,
   "entries": {
     "breathing.a11y_phase": {
       "hash": "72354cf0a6f4aa9e",
@@ -6449,6 +6449,438 @@
     },
     "meds.catchup.for_person": {
       "hash": "8d8ddbc6536abd62",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "privacy.summary.matrix": {
+      "hash": "3fff5024ad36e77e",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "privacy.summary.listen": {
+      "hash": "225d29f6201e1a63",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "privacy.export.title": {
+      "hash": "6e3c60f26debedfd",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "privacy.export.ready": {
+      "hash": "e8f8dd9069cad310",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "privacy.export.download_pdf": {
+      "hash": "d1dc113c7ddc595d",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "privacy.export.download_json": {
+      "hash": "2220728b41ab0198",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "proxy.arrangement.title": {
+      "hash": "404fef14b917caa8",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "proxy.arrangement.line": {
+      "hash": "5ad048b112882212",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "proxy.arrangement.end": {
+      "hash": "fb5ef02b4f5f4028",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "proxy.arrangement.end_confirm": {
+      "hash": "98e9ed1637eeabdd",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "proxy.arrangement.ended": {
+      "hash": "1f5ffd3676e05e90",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "proxy.arrangement.note": {
+      "hash": "5349d475c8fc9be5",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "proxy.arrangement.error": {
+      "hash": "e085de82aee76ab0",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "proxy.setup.error.cooling_off": {
+      "hash": "8410c9de6fd17c62",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.sections.procedures": {
+      "hash": "a3ecb35d5ec1e91a",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.sections.family_history": {
+      "hash": "e546086dad2718a2",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.expiry.72h": {
+      "hash": "e82ea78e7a608a5f",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.default_note": {
+      "hash": "1e6d26bec65ed718",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.excluded_note": {
+      "hash": "f42d38cdcd64b83d",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.pin.help": {
+      "hash": "04284f2d1b8734a0",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.max_views.label": {
+      "hash": "70c8fb059c6bc973",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.link_once": {
+      "hash": "c3736bfb56487a39",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.new_link": {
+      "hash": "dce3bc5272192024",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.has_pin": {
+      "hash": "72a1897211861b47",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.views_cap": {
+      "hash": "0e5ea8cf6fdfcfd0",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.attempts.title": {
+      "hash": "cacff27aad29528e",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.attempts.none": {
+      "hash": "70d4e4ac013d0a08",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.outcome.viewed": {
+      "hash": "b19fb8d1b395b333",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.outcome.expired": {
+      "hash": "b45c4e6a121309b8",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.outcome.revoked": {
+      "hash": "5eca6443a92d9e6e",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.outcome.view_cap": {
+      "hash": "d68a072a7f70cad3",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.outcome.pin_wrong": {
+      "hash": "00997339f21794a7",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.outcome.locked": {
+      "hash": "fc3baaf0acfe221d",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.gone_title": {
+      "hash": "247db74b069ce6d1",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.gone.expired": {
+      "hash": "e77041612fbff9da",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.gone.revoked": {
+      "hash": "ef02072b88518e64",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.gone.view_cap": {
+      "hash": "8245434962f67421",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.locked_title": {
+      "hash": "d9ec7ce4473238aa",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.locked_body": {
+      "hash": "06a3764c678c3b65",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.not_available_title": {
+      "hash": "766c4a39f1efed94",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.pin_body": {
+      "hash": "898799c346bcabf9",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.pin_left": {
+      "hash": "205c4fcf853c4e5d",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.views_left": {
+      "hash": "38dd94b52b9f6b23",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.verified": {
+      "hash": "6e440e2639c35f93",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.blood": {
+      "hash": "09d4a1836f5eef57",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.contact": {
+      "hash": "9e04489f8099f7f5",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.source.manual": {
+      "hash": "d390c9e7ddc2aa82",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.source.device": {
+      "hash": "59ba114c40cfdb4d",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.source.wearable": {
+      "hash": "8b5350dc9c241e9d",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.source.cgm": {
+      "hash": "67b92b0119de9dff",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.source.fhir_import": {
+      "hash": "5f54227b74fbba77",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.expiry.default_hours": {
+      "hash": "9a96933e1c5bc148",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.expiry.default_choice": {
+      "hash": "ef6691545d2c5523",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.ready_title": {
+      "hash": "5ee45a504dee5cc5",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.ready_body": {
+      "hash": "53848e8937d18f13",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.ready_button": {
+      "hash": "12f0e64a75658a6a",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "labres.guide.title": {
+      "hash": "e8a4ea2ac2fd5b44",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "labres.guide.normal": {
+      "hash": "b9f5e06732d0d248",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "labres.guide.low": {
+      "hash": "5e4be09bb690eb6c",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "labres.guide.high": {
+      "hash": "8613115f5d20653d",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "labres.guide.critical": {
+      "hash": "28a756ac23979109",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "labres.guide.positive": {
+      "hash": "d94626aa17bff05b",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "labres.guide.negative": {
+      "hash": "5ce9258fd1d18ae7",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "labres.next.title": {
+      "hash": "6164ad73de3089ad",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "labres.next.normal": {
+      "hash": "4eda2e3c33cc9e56",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "labres.next.outside": {
+      "hash": "3b979e6d81488c56",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "labres.next.critical": {
+      "hash": "40883313bf0c66fb",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "labres.next.positive": {
+      "hash": "7f4d12a9f92372e8",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "labres.next.sensitive": {
+      "hash": "6574c6ef282fd70d",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "labres.next.ask_care_team": {
+      "hash": "eeccc09a95beaf13",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "privacy.retention.statement": {
+      "hash": "2ec19c07d655d1b5",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "privacy.retention.period_unconfirmed": {
+      "hash": "14557b343ccda856",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true

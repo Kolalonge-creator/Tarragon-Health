@@ -1,11 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { type Database, type Json } from "@tarragon/shared";
+import { type Database } from "@tarragon/shared";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 export type AlertContactResult = { error?: string; success?: boolean };
 
 /**
- * Immediately messages the saved emergency contact (SMS) for one of the patient's own active emergency events, without waiting for the
+ * Immediately alerts the saved emergency contact (push, in-app and email, never SMS) for one of the patient's own active emergency events, without waiting for the
  * acknowledge-gated timeout. Shared by the web action (cookie session) and the mobile route (bearer token).
  *
  * Ownership and the contact are read under the PATIENT'S OWN session first (RLS), scoped to `subjectId` (the account the emergency belongs
@@ -30,29 +30,17 @@ export async function alertEmergencyContact(
     .select("full_name, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship, emergency_contact_consent")
     .eq("id", args.subjectId)
     .single();
-  if (!profile?.emergency_contact_phone) return { error: "Add an emergency contact number first so we can alert them." };
+  if (!profile?.emergency_contact_phone) return { error: "Add an emergency contact number first. We can only alert a contact who uses Tarragon, so please call them yourself too." };
   if (!profile.emergency_contact_consent) return { error: "Confirm your emergency contact has agreed to be contacted before we alert them." };
 
-  const payload = {
-    to_phone: profile.emergency_contact_phone,
-    contact_name: profile.emergency_contact_name ?? "there",
-    contact_relationship: profile.emergency_contact_relationship,
-    patient_name: profile.full_name ?? "someone who lists you as their emergency contact",
-  } as Json;
-
+  // No SMS (founder decision OQ-333). The contact is told by push, in-app and email only when they are also a Tarragon account with a
+  // confirmed phone number matching the one on file. The database function does the matching and consent check and says how many
+  // copies it queued. Service role only, because `notifications` is queue-write only.
   const serviceRole = createServiceRoleClient();
-  const { error: notifyError } = await serviceRole.from("notifications").insert([
-    {
-      organisation_id: event.organisation_id,
-      recipient_id: args.subjectId,
-      channel: "sms",
-      status: "pending",
-      template: "emergency_contact_alert",
-      payload,
-    },
-  ]);
-  if (notifyError) return { error: "We could not message your emergency contact just now. Please call them, or use the emergency numbers." };
-
-  await serviceRole.rpc("mark_emergency_contact_notified", { p_event_id: args.eventId, p_actor_id: args.actorId });
+  const { data: queued, error: notifyError } = await serviceRole.rpc("alert_emergency_contact", { p_event_id: args.eventId, p_actor_id: args.actorId });
+  if (notifyError) return { error: "We could not alert your emergency contact just now. Please call them, or use the emergency numbers." };
+  if (!queued || queued < 1) {
+    return { error: "We can only alert a contact who uses Tarragon, and we could not reach yours that way. Please call them now, or use the emergency numbers." };
+  }
   return { success: true };
 }

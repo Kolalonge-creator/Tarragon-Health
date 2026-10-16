@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { generatePatientExplanation } from "./generate";
 import type { ExplainerKind } from "./snapshot";
+import { isSensitiveResultCode } from "@/lib/lab-results/guidance";
 
 /** Pinned. See the note on explainPatientResultAction. */
 const EXPLAINER_LANGUAGE = "en";
@@ -35,6 +36,9 @@ export async function explainPatientResultAction(
   subjectKey: string,
   label: string
 ): Promise<PatientExplanationResult> {
+  // INV-04: HIV, hepatitis B and hepatitis C results are never explained by AI. Refused before anything is read, cached or generated.
+  if (kind === "lab_analyte" && isSensitiveResultCode(subjectKey)) return { status: "failed", explanation: null };
+
   const supabase = await createClient();
   const {
     data: { user },

@@ -32,7 +32,18 @@ export const addElderProxyDependentSchema = z.object({
   confirmed_consent: z.literal(true, {
     message: "Confirm they've agreed to this before continuing",
   }),
+  // OQ-47 (S42): this path gives the proxy access before the person has confirmed anything, so it is only for someone who
+  // cannot confirm. Anyone who can receive a text message goes through "Set up for my parent" and confirms on their own phone.
+  // The reason is recorded in the audit log.
+  reason: z.enum(["cannot_receive_code", "cannot_set_up_themselves"], {
+    message: "Say why they cannot confirm this on their own phone. If they can receive a text message, use “Set up for my parent” instead",
+  }),
 });
+
+export const ELDER_PROXY_REASONS = [
+  { value: "cannot_receive_code", label: "They cannot receive or enter a text message code" },
+  { value: "cannot_set_up_themselves", label: "They cannot set this up themselves, for example because of illness" },
+] as const;
 
 export type AddElderProxyDependentInput = z.infer<typeof addElderProxyDependentSchema>;
 

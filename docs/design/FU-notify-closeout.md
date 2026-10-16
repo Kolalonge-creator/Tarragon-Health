@@ -1,0 +1,38 @@
+# FU-notify closeout: notification follow-ups from the CMO and founder answers (2026-10-16)
+
+Branch `fu/notification-followups`. Nothing applied, deployed, merged, signed or switched on. Answers implemented: OQ-316, OQ-329 to OQ-333, OQ-335, OQ-336, OQ-341, OQ-346 (OQ-337 owner CMO, OQ-331 timings kept).
+
+## Built
+- **OQ-329/330/331/337** `notifications.rules` v5 (owner CMO, PROPOSED): `deliveredCountsAsConfirmed` false, `couldNotGetCareOutreachNow` false, `undeliveredMinutes` 5 and `expireHours` 6 kept. Only the patient's own action (opens a notice, acknowledges the guidance, replies "I sought care") ends the 30 minute wait. "I could not get care" is still stored and shown to on-call, and still never a confirmation, but the call waits for the 30 minute rule. Registry entry `notifications.rules` v5 with a drift test.
+- **OQ-332** No ladder hop is ever sms or voice. `private.normalize_escalation_channels` drops them (so the CMO-signed `escalation_slas` row is not edited), the two hard-coded default ladders become push, email, and the exhausted-ladder alarm still fires after the last rung. The INV-08 trigger is untouched. The sender refuses every sms/voice row as a second wall (critical refusals FAIL so the ladder alarms). `delivery.ts` lost `smsPurpose`, `isClinicianPageRow`, the guard flag and the third-party list.
+- **OQ-333** The emergency-contact SMS is removed from `delivery.ts`, the sender and the web action. The contact now gets push, in-app and email copies queued by `private.alert_emergency_contact_copies` (confirmed phone, exactly one account, consent re-checked at queue time and again at each send, content-free text "Please call {name} now."). `notify_unacknowledged_emergencies` and the patient button (`public.alert_emergency_contact`, service role) use it. A contact who is not a Tarragon account cannot be reached by Tarragon: the patient is told so and to call them. `public.sms_emergency_contact_open()` dropped; the go-live guard row `sms_emergency_contact_enabled` stays (guards are never deleted by design), born off and now unused. Part-C scan allowlist entry removed.
+- **OQ-336** Login honours a validated same-origin `next=` (and keeps `redirect=`), via `pickRedirectTarget` in `@tarragon/auth/redirect` (rejects absolute URLs, `//`, backslashes, control characters). `/d/<kind>/<id>` sends a signed-out visitor to `/login?next=<the same signed link>`, so after login they land on the document.
+- **OQ-316** `public.canary_heartbeat()` (service role) and `GET /api/status/canary` return only `{ok, age_bucket}` (200 fresh, 503 quiet or unreadable, 429 rate limited). Runbook `docs/runbooks/canary-external-heartbeat.md` tells the founder how to register UptimeRobot or Better Stack.
+- **OQ-335** `docs/legal/dpia-addendum-red-alert-channel.md`: DRAFT for the DPO, unsigned, retention class `review` proposed for `red_care_responses`.
+- **OQ-341** `provider_event_retention_config` v1 (rejected 30 days, verified raw bodies 90 days then customer emails redacted, `purgeEnabled` false), `provider_event_retention_plan()` (count first), `run_provider_event_retention(dry_run)` (refuses while off, never scheduled), `raw_redacted_at`, a guard that allows the redaction only inside the function, replay refused for a redacted body. Registry `privacy.webhook_inbox_retention` v1 with a drift test.
+- **OQ-346** `credentialing_config` v6 (inactive, unsigned) records `verification_evidence_retention_years_after_employment` 6, config only. The document purge stays off and now skips every evidence document (primary source, licence verification, check evidence).
+
+## Tests
+- DB proof `packages/db/tests/fu_notify_rules_and_contact.sql` (registered in `ci.manifest`): 66 checks (58 plus 8 sabotage rows, all `PASS (caught)`). Run live inside `begin ... rollback` with the three migrations applied in the same transaction; live state checked afterwards (rules max version 4, no new table or function, no leftovers).
+- Existing proofs updated and re-run the same way: `s13r4_critical_ladder_red_outreach.sql` (pins the two switches to the old values to keep covering the mechanisms; clinician hop 3 now ends in the exhausted alarm; 76 pass), `notification_delivery_fallback.sql`, `remove_whatsapp.sql`, `s85d3_sms_emergency_contact_guard.sql`: pass. `exposure_reopens_serology.sql` updated for contact-recipient rows but could not run live (its fixture patient exists only in the seed).
+- Jest: `packages/notifications` 22 suites (608 tests) pass; `packages/shared` proposed-config 59 suites (262) pass including `fu-notify-mirror.test.ts`; part-C scan 8; `packages/auth` redirect 8; web `/d` route 3 and `/api/status/canary` 4.
+
+## Apply order
+1. Deploy code first: `send-pending-notifications` edge function (no longer reads the guard or fans out), then the web app. Old sender plus new schema also works (it only ever saw suppressed sms rows).
+2. Migrations in filename order: `*_fu_notify_rules_v5_and_retention_config.sql`, `*_fu_notify_no_sms_clinician_ladder_and_contact_copies.sql`, `*_fu_notify_canary_heartbeat.sql`. The web action calls `alert_emergency_contact`, so apply migration 2 right after the web deploy (until then the button answers with its "could not alert" message and the patient is told to call).
+3. Founder: register the monitor (runbook). DPO: review the DPIA addendum. CMO: nothing to sign for v5 beyond owning it; `credentialing_config` v6 is inactive.
+
+## Not proven or left for the lead
+- Real push, email and receipt behaviour, and the live edge function, were not exercised (no deploy). The `/api/status/canary` route was tested with mocks only, not against a deployed host.
+- `exposure_reopens_serology.sql` edit is unrun; `critical_notification_dead_letter_without_pathway.sql` fails live before and after for data reasons (same message), so it is unverified for this change.
+- The signed `escalation_slas` row still names sms literals; a future version should drop them (normalize hides them). Other sms inserts remain, all suppressed by the INV-08 trigger and never sendable: `enqueue_lab_order_lab_notifications`, `enqueue_referral_notifications`, broadcast sms. They were not in this brief.
+- CLAUDE.md still says "SMS for clinician paging only"; the lead should update that line. The dead Termii send helpers in the sender are now unreachable and can be deleted later.
+- MFA: the challenge page carries `redirect`, but the proxy dropped the query of a signed link. Fixed (proxy keeps `pathname + search`, test added).
+- Proofs s19d, p1_chain_health, p1_chain_canary, vitals_red_flag_notification_wiring fail live the same way with and without these migrations (live data); two_tier_free_red_event_path passes both ways (56). sr5 comparison was not finished.
+- The code-review skill was NOT run on this diff.
+
+
+## Review fixes (code-review high)
+- Heartbeat: while the canary is gated off (no real non-test patient, the same condition the cron job uses) `canary_heartbeat()` returns ok true with bucket `gated`; the route, tests and runbook know it.
+- `emergency_events.contact_unreachable_checked_at`: the sweep skips an unreachable contact for 30 minutes instead of re-scanning every tick; reachable contacts behave as before (proof E13 to E15 with a sabotage row).
+- Patient copy says up front that the alert reaches contacts who use Tarragon, and to call the contact too.

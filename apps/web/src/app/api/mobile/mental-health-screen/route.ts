@@ -41,8 +41,8 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const result = await saveMentalHealthScreens({ userClient: supabase, userId: user.id, answers: parsed.data });
   if (!result.ok) {
-    const status = result.error === "No organisation on file" ? 400 : 500;
-    return NextResponse.json({ error: result.error }, { status });
+    const status = result.error === "No organisation on file" ? 400 : result.consentRequired ? 403 : 500;
+    return NextResponse.json({ error: result.error, code: result.consentRequired ? "consent_required" : undefined }, { status });
   }
   return NextResponse.json({ success: true, crisis: result.crisis, told: result.told });
 }

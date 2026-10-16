@@ -1,13 +1,18 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
 import { Button } from "@/components/ui/button";
 import { completeOnboarding } from "./actions";
 import { ConsentStep } from "./consent-step";
 import { DemographicsForm } from "./demographics-form";
 import { IntakeStep } from "./intake-step";
-import { IntentStep, type OnboardingIntent } from "./intent-step";
+import type { OnboardingAnswers } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
+import { BloodAttestationForm } from "@/app/(dashboard)/patient/emergency-card/blood-attestation-form";
+import { AnswersStep, intentFromAnswers } from "./answers-step";
+import { ProgrammeCodeStep } from "./programme-code-step";
+import { saveOnboardingAnswers } from "./actions";
 import { PlanPreview } from "./plan-preview";
 import { ReadyNotice } from "./ready-notice";
 import { ExistingPlanNotice } from "./existing-plan-notice";
@@ -101,7 +106,7 @@ function OnboardingProgress({ current }: { current: number }) {
 /**
  * Client-side onboarding orchestrator. Four counted steps (see STEP_LABELS,
  * which is what OnboardingProgress shows the patient):
- *   1. What brings you here (not stored, gates nothing — see intent-step.tsx.
+ *   1. What brings you here (S41: saved as onboarding_answers once consent is given — see answers-step.tsx.
  *      Only ever changes IntakeStep's intro copy below it, never which
  *      risk-assessment section opens: an earlier version of this step tried
  *      to jump the questionnaire straight to a later section, which code
@@ -171,16 +176,26 @@ export function OnboardingFlow({
     intakeDone: boolean;
     dateOfBirth: string | null;
     sex: "male" | "female" | null;
-    location: { state: string | null; city: string | null; area: string | null };
+    location: { state: string | null; city: string | null; area: string | null; lga?: string | null };
+    /** Saved goal and condition choices (S41), or null when none are on file. */
+    answers?: OnboardingAnswers | null;
+    /** Already-recorded blood group and genotype, for the optional card. */
+    bloodProfile?: {
+      bloodGroup: string | null;
+      genotype: string | null;
+      genotypeNote: string | null;
+      provenance: string | null;
+    } | null;
   };
 }) {
-  // Not persisted (see intent-step.tsx) — defaulting to already-answered
-  // skips the intent step entirely for anyone returning to a reopened flow
-  // (consent or demographics already on file means they were here before),
-  // rather than asking a returning visitor "what brings you here" again.
-  const [intent, setIntent] = useState<OnboardingIntent | null>(
-    initial.consentDone || initial.demographicsDone ? "unsure" : null
-  );
+  // S41: the goal and condition choices are real answers now (public.onboarding_answers), not a throwaway intent. They are
+  // asked first, held in the page until the terms are agreed, then saved (see the effect below), so a condition choice is
+  // never stored before the person has agreed to how it is used. Someone whose answers are already on file skips the step.
+  const [answers, setAnswers] = useState<OnboardingAnswers | null>(initial.answers ?? null);
+  const [answersSaved, setAnswersSaved] = useState(!!initial.answers);
+  const [answersSaveFailed, setAnswersSaveFailed] = useState(false);
+  const savingRef = useRef(false);
+  const intent = answers ? intentFromAnswers(answers) : null;
   const [consentDone, setConsentDone] = useState(initial.consentDone);
   const [demographicsDone, setDemographicsDone] = useState(initial.demographicsDone);
   const [intakeCollapsed, setIntakeCollapsed] = useState(initial.intakeDone);
@@ -197,6 +212,17 @@ export function OnboardingFlow({
   // 2, "Your risk profile") — see the component doc comment above.
   const riskProfileDone = demographicsDone && intakeCollapsed;
   const currentStep = intent === null ? 0 : !consentDone ? 1 : !riskProfileDone ? 2 : 3;
+
+  useEffect(() => {
+    if (!answers || !consentDone || answersSaved || savingRef.current) return;
+    savingRef.current = true;
+    void saveOnboardingAnswers([...answers.goals], [...answers.conditions]).then((r) => {
+      savingRef.current = false;
+      if (r.ok) setAnswersSaved(true);
+      // A failed save never blocks setup: they can carry on and answer again later from Home.
+      else setAnswersSaveFailed(true);
+    });
+  }, [answers, consentDone, answersSaved]);
 
   if (!receivesCare) {
     return <SupporterOnboarding profile={profile} done={consentDone} onDone={setConsentDone} />;
@@ -251,12 +277,13 @@ export function OnboardingFlow({
         </p>
       </div>
 
-      {/* Step 1: what brings you here — not stored, gates nothing, just
-          picks which risk-assessment section opens first below. Everything
-          past this point waits for an answer, including the care-team card:
-          there's nothing to show yet that's actually about them. */}
+      {/* Step 1: what brings you here — the goal and condition choices
+          (S41). Gates nothing about care; they decide which cards lead on
+          Home, the plan preview, and the intro line of the questionnaire.
+          Everything past this point waits for an answer, including the
+          care-team card: there's nothing to show yet that's about them. */}
       {intent === null ? (
-        <IntentStep onComplete={setIntent} />
+        <AnswersStep onComplete={setAnswers} />
       ) : (
         <>
           {careTeamSlot}
@@ -300,6 +327,22 @@ export function OnboardingFlow({
             <PatientLocationForm initial={initial.location} />
           )}
 
+          {/* Optional and skippable (S41): the existing attestation card, which
+              already marks a value "what you told us" until a lab report
+              confirms it. Never asked in a way that blocks setup. */}
+          {consentDone && demographicsDone && (
+            <BloodAttestationForm initial={initial.bloodProfile ?? null} />
+          )}
+
+          {/* Optional programme code (S41, spec 1.8). */}
+          {consentDone && <ProgrammeCodeStep />}
+
+          {answersSaveFailed && (
+            <p role="status" className="text-center text-xs text-charcoal-ink/60">
+              {t("onb.answers.save_error")}
+            </p>
+          )}
+
           {consentDone && demographicsDone && !intakeCollapsed && (
             <IntakeStep
               patientId={profile.id}
@@ -321,7 +364,7 @@ export function OnboardingFlow({
       {readyForPlan && intakeCollapsed && existingPlan && (
         <ExistingPlanNotice planName={existingPlan.name} status={existingPlan.status} />
       )}
-      {readyForPlan && intakeCollapsed && !existingPlan && <PlanPreview patientId={profile.id} />}
+      {readyForPlan && intakeCollapsed && !existingPlan && <PlanPreview patientId={profile.id} answers={answers} />}
       {readyForPlan && intakeCollapsed && !existingPlan && <ReadyNotice />}
 
       {intent !== null && !readyForPlan && (

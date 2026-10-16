@@ -7,6 +7,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { CycleTracker } from "@/app/(dashboard)/patient/cycle/cycle-tracker";
 import { CycleDangerSigns } from "@/app/(dashboard)/patient/cycle/cycle-danger-signs";
 import { CyclePrivacyControls } from "@/app/(dashboard)/patient/cycle/cycle-privacy-controls";
+import { FeatureConsentGate } from "@/components/consent/feature-consent-gate";
 import { PrivateSection } from "@/components/private-section/private-section";
 import type { ReproductiveLifeStage } from "@/lib/rules/cycle-prediction";
 import { readPlanningMode } from "@/lib/cycle/planning-mode";
@@ -63,6 +64,7 @@ export default async function CyclePage() {
         {/* Every row written here carries an organisation_id, so without one
             there is nothing to write to. Same guard the Prevention hub puts
             around this card. */}
+        <FeatureConsentGate dataType="reproductive" onBehalfOf={subjectId !== profile.id}>
         {profile.organisation_id ? (
           <div className="space-y-6">
             <CycleTracker
@@ -80,6 +82,7 @@ export default async function CyclePage() {
             contact your care team.
           </p>
         )}
+        </FeatureConsentGate>
       </PrivateSection>
 
       <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">

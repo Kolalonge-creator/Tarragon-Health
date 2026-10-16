@@ -1,0 +1,62 @@
+# S47: CMO and founder choices applied (2026-10-07)
+
+Source: `docs/plans/S41-S46-cmo-decisions-2026-10-07.md` (decisions 1 to 16), `docs/plans/S41-S46-signoff-items.md`, and later chat selections. **These are chat choices, not signatures.** Every signable value is loaded as an UNSIGNED, PROPOSED new version for the CMO to sign. Nothing is applied to production, nothing is pushed, the S40 gate was waived for this session by the founder. Migrations are dated after every file on the branch (newest 20261007233237) and after the newest live version read (20261007231528).
+
+## What changed, by migration
+
+| Migration | Decision | Change |
+|---|---|---|
+| `20261008012315_s47_report_settings_v2_comorbidity_min_readings` | 1 to 6 | `health_report_config_versions` v2 (unsigned): BP target below 140/90, below 130/80 with diabetes, CKD, known CVD or an elevated risk band, care-plan target overrides. 12 readings on at least 3 distinct days; "based on N readings over D days" always printed. No 5 mmHg or 5 percent margin: borderline is the 130-139 / 80-89 band only, labs only outside the lab's own range or flag. Product rules (not guideline facts): max 3 priorities, 3 percent tolerance, recheck 4 weeks, windows, trends. Collector counts days and returns four booleans (no condition name leaves it, INV-04); honesty guard enforces the minimums. New statement and emergency wording (text keys, `statementApprovedByCmo` stays false). |
+| `20261008014742_s47_risk_based_hiv_hcv_cervical_hpv_dna_packages` | 7, 8, 13, 14 | Serology rule v3 (active; v2 legacy): HIV and hepatitis C risk-based; anti-HBs 10 mIU/mL PROPOSED and unconfirmed, a numeric titre alone never sets immunity (the trigger lost its titre path); immunity stops routine HBsAg unless a new exposure is on record. Screening rule set v3 (unsigned) with risk criteria (11 hepatitis C from the FMOH 2016 list, 2 for HIV), HPV DNA milestones 35 and 45 (5 year window), women living with HIV flagged to the care team (`screening_care_team_flags`, event with an id only) and never auto-scheduled. `screening_risk_flags` (self-reported or doctor-recorded, 12 months, revocable). Tier bundles lose hiv, hep_b, hep_c. Patients can still order any test. |
+| `20261008021158_s47_share_view_cap_and_risk_band_actions` | S43, S45 | Share config v2: view cap 10 by default. S45 band actions as unsigned `risk_instrument_versions` v2 (review wording only, the app never prescribes, thresholds unverified against WHO PEN / HEARTS, instrument stays held). |
+| `20261008023634_s47_handover_grace_period_and_auto_end` | 6 | At 18 the guardian is view-only for 90 days (`handover_config`), notices on days 1, 30, 60, 85 (neutral template, queued non_clinical so quiet hours and discreet mode apply), then guardian access ENDS automatically (state `expired`, audited, event with counts). A guardian the young person kept stays view-only. Emergency card untouched. |
+| `20261008030051_s47_go_live_conditions_for_clinical_guards` | 7, 8, 9 | `private.go_live_conditions` restated FROM THE LIVE DEFINITION (it has branches main-dev lacks: research_export_enabled, symptom_checker_enabled and the rest, all kept) plus the seven new guards, each also needing `clinical_safety_case_current`. `attest_go_live_condition` restated from live with the new codes. Unknown key still fails closed. |
+| `20261008032719_s47_consent_matrix_optional_per_use` | chat | `required_for_care` only for vitals and documents; reproductive, mental health and device data care cells are optional per use. |
+| `20261008035104_s47_emergency_card_defaults` | chat | Card defaults and the "not shared" wording on every surface. |
+
+Counts stated in the migration headers: 0 withdrawn matrix consents, 0 emergency-card field rows (S42 and S43 are unapplied), so no data conversion.
+
+## Decided in chat after the first list (recorded, same rules)
+
+1. The failing `no-other-readers` test: S44's `components/item-note.tsx` is allow-listed by name (one file, with a comment and a test that it queries nothing). Every other file stays covered.
+2. Consent matrix: required for care applies ONLY to vitals and documents. Reproductive, mental health and device data are optional per use: asked when the feature is first used (`feature_consent_state`, `grantFeatureConsentAction`), withdrawable, withdrawing stops that feature only. The care-access functions still never read the matrix (the S42 proof scans their source).
+3. Emergency card: on by default blood group and genotype, allergies, current medicines, emergency contacts; off until chosen conditions or diagnoses, reproductive health, mental health. The live link (database wrapper), printed page, QR text and the phone's offline card all use one list; hidden reads "not shared".
+4. Recorded, no code: AI-018 and AI-019 stay off (AI-018 test accounts first, AI-019 after a quarter of real report data). Lab code mappings: the lab liaison proposes, the CMO confirms (as built, S44).
+
+## Things worth knowing
+
+- The "elevated" risk band flag is named `elevatedRisk`, not "high CV risk": a key containing `hcv` is rejected by the INV-04 honesty regex ("highCv" contains "hcv"). The proof caught it.
+- A "borderline" blood pressure is now only possible when the target is stricter than the band (130/80 target, 134/84 reading). With the default 140/90 target, 134/84 is on target.
+- The scheduler's cervical rule is HPV DNA by method, but the calendar item is still the `cervical_smear` screen type: no new catalogue row was invented. The HPV DNA sale stays behind `hpv_dna_enabled`.
+- Not decided here: see `docs/OPEN-QUESTIONS.md`, section S47.
+
+## Review fixes (2026-10-08), what was edited and what was added
+
+Edited IN PLACE, because the migration was created on this branch and never applied: `20261008030051` (go-live: the two research export attestation pairs the first restatement dropped are back, and a proof compares all 16 live pairs), `20261008012315` (the report collector now skips rejected BP readings; condition matching is by ICD-10 prefix or an anchored name with an exclusion list, in the unsigned settings), `20261008014742` (anti-HBs immunity needs a released, non-withdrawn, non-superseded result and is taken back when that result is withdrawn or replaced), `20261008023634` (a hand-over row first seen after its grace has run out gets a 30 day notice window instead of ending silently; Africa/Lagos dates), `20261008035104` (emergency card medicines honour the reproductive and mental health switches).
+
+Added as NEW migrations, because they restate functions from the integration branch: `20261008044519_s47b_review_fixes` (phone key, anonymiser, INV-04 variants and legacy branches, FHIR adolescent gate) and `20261008051236_s47c_report_build_backoff_and_precheck`.
+
+Things worth knowing: the FHIR export classifies by name (a condition word or a medicine word), so it is best effort and says so in `limits`; a staff reader is not held to the guardian gate. The build route now asks `health_report_build_allowed` before any AI draft. The report no longer tells a shared copy or a caregiver why a target is lower, only the number.
+
+
+
+## Second review fixes and the two-tier model (2026-10-08)
+
+Six findings from a second `/code-review high`, all fixed on the same branch, all unsigned and unapplied. Three NEW migrations (all later than every existing file), plus an in-place edit of the emergency card migration (never applied).
+
+**The two-tier model (founder, 2026-10-08).** FREE is technology only. MEMBER is 120,000 naira a year with one annual blood test and a doctor follow-up about monthly. Both tiers get preventive alerts, so nothing about reminders is gated (proved, see below). Recorded in `docs/DECISIONS.md` as T-1 to T-5.
+
+1. **Bundles, price, imaging** (`20261008070751_s47e_two_tier_model_bundles_and_membership_price`). The seven screening and annual health check bundles are flagged `legacy_tier`, made guidance only and not self-bookable, NOT repriced; a trigger refuses to make one purchasable again; imaging tests were removed from the bundles and their descriptions rewritten; the four S45 packages are off. The Membership price is a new catalogue version at 12,000,000 kobo with the old version closed. Marketing and catalogue copy follow (no imaging inside a tier, "about once a month"). Proof `s47_two_tier_model.sql`; Jest `two-tier-copy.test.ts`.
+2. **Optional consents enforced at the write, and one source of truth for device data** (`20261008063418_s47d_optional_consent_enforced_at_write`). A BEFORE INSERT trigger on the seven reproductive tables, `mental_health_screens`, `wearable_readings` and wearable-sourced `vitals_readings` refuses the write with `consent_required:<type>` unless the matrix cell is on. It applies to every API role, even inside a SECURITY DEFINER function (it keys on the session role); migrations, fixtures and ops (no API role) pass. Device data now has ONE source: `public.device_data_consent_in_force()` reads the matrix cell, the old `wearable_device_data` consent is carried over (0 rows live) and no longer consulted. App side: a server `FeatureConsentGate` and client `FeatureConsentPrompt` on women's health, cycle, the mental health questionnaire and wearable connect; the same on the phone; server actions turn the database refusal into a plain sentence; the cloud ingest and the health-store route ask the same function and count refused readings as denied. Proof `s47d_optional_consent_enforced.sql`.
+3. **Hand-over notice failure** and 5. **day-90 soft end** (`20261008074122_s47f_handover_soft_end_notice_retry`). A notice that fails to send is recorded (`notice_failures`, `last_notice_error`), retried on the next sweep, and opens an ops incident at the second failure; access is not ended until the day-90 notice has gone out. The end itself is a move to `profile_access_ended`, not a delete: restorable by the young person for 30 days through `restore_ended_guardian_access` (view only, never manage), and Care Circle seats for the same people are revoked in the same step. A record whose owner never activated their own login is extended once by 30 days with an ops incident, never ended automatically (OQ-S47-13). Late rows (a sweep that missed a day) are caught by a window instead of an exact date. Proof `s47_handover_grace.sql`.
+4. **Emergency card** (edit in place). The medicine lists are narrow (only medicines used almost only for contraception, fertility, depression or psychosis); misoprostol, diazepam, lorazepam, lithium, amitriptyline and similar stay on the card. What is withheld is counted (`medicines_not_shown`, a number, never a name) and shown on the web card, the QR text and the phone card as "N medicines are not shown by the patient", so a responder never reads an empty list as "takes nothing". The patient's own emergency card page has a preview of exactly what a responder sees. Proof `s47b_review_fixes.sql`; Jest `emergency-card-body.hidden.test.tsx`.
+6. **Imaging copy** is part of item 1.
+
+**Preventive alerts not gated, how it is proved.** `s47_two_tier_model.sql` reads the live source of eight reminder and calendar functions and fails if any mentions a plan, entitlement, membership or purchase table, then creates a patient with no membership and shows a due-screening reminder is queued for them. The sabotage slips a membership check into the reminder function and the scan flips.
+
+**Not built:** a screen for the young person to restore a guardian's access (the function exists, OQ-S47-13); the annual panel still lists HIV, HBsAg and hepatitis C antibody (OQ-S47-14, reported not changed).
+
+
+## 2026-10-16: S47e dropped at merge
+
+The two-tier work that landed on main-dev separately (Free and a 120,000 naira Membership, one price catalogue, the live bundle and add-on retirement) replaced S47e. The S47e migration, its proof `s47_two_tier_model.sql` and the `two-tier-copy` test were removed rather than merged, so the live price and copy stand.

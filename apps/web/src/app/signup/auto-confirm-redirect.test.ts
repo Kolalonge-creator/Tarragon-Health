@@ -95,7 +95,7 @@ describe("signUp — auto-confirm redirects instead of claiming an email was sen
 
     const result = await signUp(undefined, formDataFor());
 
-    expect(result).toEqual({ success: true });
+    expect(result).toEqual({ success: true, email: "amaka@example.com" });
     expect(backfillSignupMetadataMock).not.toHaveBeenCalled();
     expect(redirectAfterLoginMock).not.toHaveBeenCalled();
   });
@@ -106,6 +106,6 @@ describe("signUp — auto-confirm redirects instead of claiming an email was sen
 
     const result = await signUp(undefined, formDataFor());
 
-    expect(result).toEqual({ success: true });
+    expect(result).toEqual({ success: true, email: "amaka@example.com" });
   });
 });

@@ -26,6 +26,7 @@ import {
   SecondaryButton,
   SectionLabel,
 } from "@/ui/legacy-kit";
+import { FeatureConsentGate } from "@/ui/feature-consent-gate";
 
 type PatientDevice = Tables<"patient_devices">;
 
@@ -251,8 +252,10 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
       {flags.device_plausibility_hold ? <HeldReadingsSection patientId={patientId} onEnterAgain={() => setShowPhoto(flags.device_photo_capture)} /> : null}
       {flags.device_cgm_sustained_events ? <CgmSafetySection patientId={patientId} /> : null}
 
-      <AppleHealthCard />
-      <AndroidHealthConnectCard />
+      <FeatureConsentGate dataType="device_data">
+        <AppleHealthCard />
+        <AndroidHealthConnectCard />
+      </FeatureConsentGate>
 
       <View style={{ gap: 10 }}>
         <SectionLabel>Paired devices</SectionLabel>

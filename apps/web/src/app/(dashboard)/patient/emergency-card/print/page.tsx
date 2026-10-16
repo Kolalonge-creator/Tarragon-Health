@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getActingFor } from "@/lib/acting/acting-for";
 import { loadEmergencyDatasetForPatient } from "@/lib/emergency/dataset";
+import { applyCardFieldChoices, choicesFromRow, hiddenFields } from "@/lib/emergency/field-choices";
 import { buildEmergencyQrText } from "@/lib/emergency/qr-text";
 import { emergencyTextQrSvg } from "@/lib/emergency/qr-render";
 import { EmergencyCardBody } from "@/components/emergency/emergency-card-body";
@@ -40,14 +41,27 @@ export default async function EmergencyCardPrintPage() {
   const acting = await getActingFor();
 
   const supabase = await createClient();
-  const facts = await loadEmergencyDatasetForPatient(supabase, user.id);
+  // S43: the person chooses what the card shows. Applied here, before the QR text and the body are built from it.
+  const [fullFacts, { data: fieldsRow }] = await Promise.all([
+    loadEmergencyDatasetForPatient(supabase, user.id),
+    supabase
+      .from("emergency_card_fields")
+      .select(
+        "show_date_of_birth, show_sex, show_patient_number, show_allergies, show_medications, show_conditions, show_blood, show_emergency_contact, show_reproductive, show_mental_health, lock_screen_opt_in",
+      )
+      .eq("patient_id", user.id)
+      .maybeSingle(),
+  ]);
+  const choices = choicesFromRow(fieldsRow);
+  const facts = applyCardFieldChoices(fullFacts, choices);
+  const hidden = hiddenFields(choices);
 
   const printedOn = new Date().toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",
   });
-  const qrText = buildEmergencyQrText(facts, printedOn);
+  const qrText = buildEmergencyQrText(facts, printedOn, hidden);
   const qrSvg = await emergencyTextQrSvg(qrText);
 
   return (
@@ -70,6 +84,7 @@ export default async function EmergencyCardPrintPage() {
 
       <EmergencyCardBody
         facts={facts}
+        hidden={hidden}
         headerLabel="Emergency health card"
         headerSubline={`Printed ${printedOn}`}
         qrSlot={

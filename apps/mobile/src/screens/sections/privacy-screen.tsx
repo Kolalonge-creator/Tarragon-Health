@@ -17,6 +17,8 @@ import {
   type ExportRequestRow,
 } from "@/lib/privacy";
 import { OptionalConsentControls, ConsentReceiptsCard } from "./privacy-consent-controls";
+import { ConsentMatrixCard } from "@/screens/sections/consent-matrix-card";
+import { ProxyArrangementsCard } from "@/screens/sections/proxy-section";
 import { DeletionRequestCard, ExportRequestCard } from "./privacy-data-cards";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import type { SectionId } from "@/lib/sections";
@@ -162,6 +164,9 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
       </Card>
 
       <ConsentReceiptsCard receipts={receipts} error={receiptsError} />
+      <ConsentMatrixCard />
+
+      <ProxyArrangementsCard />
 
       <Card style={{ gap: 8 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Connected devices</Text>

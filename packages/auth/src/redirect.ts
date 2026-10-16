@@ -18,3 +18,13 @@ export function sanitizeRedirect(target: string | null | undefined): string | nu
   if (/[\u0000-\u001f\u007f]/.test(target)) return null;
   return target;
 }
+
+/**
+ * The post-login destination from a login URL's query. Both `redirect` (set by the proxy) and `next` (set by signed document
+ * links, OQ-336) are honoured; either goes through sanitizeRedirect, so an absolute URL, a protocol-relative `//host`, a backslash
+ * or a control character yields null and the user lands on their role home. `redirect` wins when both are valid.
+ */
+export function pickRedirectTarget(params: { redirect?: string | string[] | null; next?: string | string[] | null }): string | null {
+  const one = (v: string | string[] | null | undefined) => (Array.isArray(v) ? v[0] : v);
+  return sanitizeRedirect(one(params.redirect)) ?? sanitizeRedirect(one(params.next));
+}

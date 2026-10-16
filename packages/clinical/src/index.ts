@@ -13,6 +13,9 @@ export { screenAssistantMessage, isSelfHarmScreen, ASSISTANT_EXTRA_DANGER_PHRASE
 export { proposeTitration, validateProtocolDefinition, proposalToChangeArgs, ProtocolDefinitionError } from "./titration";
 export { TITRATION_STOP_KEYS, TITRATION_LABEL_KEYS } from "./titration-messages";
 export type * from "./titration-types";
+export { scoreCvdWho2019, runCvdValidationVectors, cvdRiskFraction, bandFor, type CvdInputs, type CvdInstrumentConfig, type CvdOutcome, type CvdSexModel, type CvdNotScoredStatus, type CvdModelKind, type CvdValidationVector } from "./risk/who-cvd-2019";
+export { composeHealthReport, shareableView } from "./health-report/compose";
+export type { HealthReportConfig, HealthReportFacts, ComposedReport, ReportItem, ReportPriority, ReportState, ReportChange, LabPoint } from "./health-report/types";
 export { classifyPulse, classifySpo2, classifyTemperature, deviceRedFlags, needsHospitalNow, emergencyForText, activeEmergencyPack, emergencyFacilitiesForState, topicByKey, findNumbersInPack, type DeviceLevel, type DeviceRedRules, type DeviceReading, type DeviceFlag, type PackLike, type ActiveEmergencyPack } from "./emergency-pack";
 export { livePromptsForSegment, LIVE_RED_FLAG_RULE_ID, LIVE_RED_FLAG_RULE_VERSION, type LivePrompt } from "./live-redflag";
 export * from "./maternal";

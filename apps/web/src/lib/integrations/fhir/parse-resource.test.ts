@@ -95,8 +95,8 @@ describe("parseFhirResourceEntry — Observation", () => {
       effectiveDateTime: "2026-09-01T10:00:00Z",
       code: { coding: [{ code: "85354-9" }] },
       component: [
-        { code: { coding: [{ code: "8480-6" }] }, valueQuantity: { value: 128 } },
-        { code: { coding: [{ code: "8462-4" }] }, valueQuantity: { value: 82 } },
+        { code: { coding: [{ code: "8480-6" }] }, valueQuantity: { value: 128, unit: "mmHg", code: "mm[Hg]" } },
+        { code: { coding: [{ code: "8462-4" }] }, valueQuantity: { value: 82, unit: "mmHg", code: "mm[Hg]" } },
       ],
     };
     const result = await parseFhirResourceEntry(resource, unusedSupabase);
@@ -115,7 +115,7 @@ describe("parseFhirResourceEntry — Observation", () => {
       resourceType: "Observation",
       effectiveDateTime: "2026-09-01T10:00:00Z",
       code: { coding: [{ code: "2339-0" }] },
-      valueQuantity: { value: 5.6 },
+      valueQuantity: { value: 5.6, unit: "mmol/L", code: "mmol/L" },
     };
     const supabase = stubLoincClient({ "2339-0": "glucose" });
     const result = await parseFhirResourceEntry(resource, supabase);
@@ -131,7 +131,7 @@ describe("parseFhirResourceEntry — Observation", () => {
       resourceType: "Observation",
       effectiveDateTime: "2026-09-01T10:00:00Z",
       code: { coding: [{ code: "8867-4" }] },
-      valueQuantity: { value: 72 },
+      valueQuantity: { value: 72, unit: "beats/minute", code: "/min" },
     };
     const supabase = stubLoincClient({ "8867-4": "pulse" });
     const result = await parseFhirResourceEntry(resource, supabase);

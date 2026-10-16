@@ -3,6 +3,7 @@ import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import {
   loadPatientTimeline,
   humaniseSummary,
+  trustTierLabel,
   TIMELINE_EVENT_STYLE,
   type TimelineEvent,
   type TimelineEventType,
@@ -127,6 +128,7 @@ export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
                 event.summary ? humaniseSummary(event.summary) : null,
                 formatWhen(event.occurred_at),
                 actorSubtitle(event.actor),
+                trustTierLabel(event.trust_tier),
               ].filter(Boolean);
               return (
                 <GroupedListRow

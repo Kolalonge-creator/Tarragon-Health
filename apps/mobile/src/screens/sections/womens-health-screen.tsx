@@ -60,6 +60,7 @@ import { FeedLogCardMobile, LifecycleCardMobile } from "@/screens/sections/mater
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { FeatureConsentGate } from "@/ui/feature-consent-gate";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -124,7 +125,7 @@ interface WomensHealthScreenProps {
  * reproductive-health safety notes before changing anything here, in
  * lib/womens-health.ts, or in lib/cycle.ts/cycle-screen.tsx.**
  */
-export function WomensHealthScreen({ patientId, organisationId, onNavigate }: WomensHealthScreenProps) {
+function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: WomensHealthScreenProps) {
   const [accountId, setAccountId] = useState(patientId);
   useEffect(() => {
     void supabase.auth.getUser().then(({ data }) => {
@@ -1190,5 +1191,14 @@ function FertilityRequestCard({
         </View>
       )}
     </Card>
+  );
+}
+
+/** S47d: the screen opens only once the person has said yes to reproductive health data; until then it asks. */
+export function WomensHealthScreen(props: WomensHealthScreenProps) {
+  return (
+    <FeatureConsentGate dataType="reproductive" title="Women's Health">
+      <WomensHealthScreenInner {...props} />
+    </FeatureConsentGate>
   );
 }

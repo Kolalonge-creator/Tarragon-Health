@@ -236,6 +236,7 @@ export function EmergencyAlert({
                   Your emergency contact has been alerted.
                 </p>
               ) : (
+                <>
                 <Button
                   type="button"
                   onClick={handleAlertContact}
@@ -245,11 +246,16 @@ export function EmergencyAlert({
                   <Phone className="mr-2 h-4 w-4" strokeWidth={2} aria-hidden="true" />
                   {pending === "contact" ? "Alerting…" : "Alert my emergency contact now"}
                 </Button>
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                  This reaches a contact who uses Tarragon, by app notice and email. It does not text or call anyone, so
+                  please also call your contact yourself.
+                </p>
+                </>
               )
             ) : (
               <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-                You haven&apos;t saved an emergency contact yet. Add one on your dashboard so we can
-                message them automatically if you don&apos;t respond.
+                You haven&apos;t saved an emergency contact yet. Add one on your dashboard. We can only alert a
+                contact who uses Tarragon, so please call them yourself too.
               </p>
             )}
 

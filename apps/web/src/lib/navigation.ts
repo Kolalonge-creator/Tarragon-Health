@@ -263,6 +263,7 @@ export function getNavSections(
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.
             { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
+            { label: "Yearly reports for people you support", href: "/patient/family/health-reports", icon: "passport" },
             { label: "Group screening days", href: "/patient/screening-days", icon: "booking" },
             // Two-tier model: the Member's yearly check happens at a listed testing day.
             { label: "Testing days", href: "/patient/testing-days", icon: "booking" },
@@ -272,6 +273,7 @@ export function getNavSections(
           label: "Your account",
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
+            { label: "Yearly health report", href: "/patient/health-report", icon: "passport" },
             { label: "Doses marked taken", href: "/patient/medicine-report", icon: "passport" },
             { label: "Your finances", href: "/patient/financial-profile", icon: "payables" },
             { label: "Receipts", href: "/patient/receipts", icon: "receipts" },
@@ -534,6 +536,7 @@ export function getNavSections(
                   icon: "inbox",
                   countKey: "fhirProposedResourcesPending",
                 },
+                { label: "Yearly health reports", href: "/clinician/health-reports", icon: "carePlan" },
                 {
                   label: "Record changes",
                   href: "/clinician/record-changes",
