@@ -16,8 +16,10 @@
 --
 -- Live counts when written: 0 ledger lines, 0 payouts (payouts_enabled off), so no data conversion step exists. Payouts stay behind
 -- `payouts_enabled`; no fee schedule is seeded.
--- NOTE: the live project could not be reached when this was written (connection timeouts), so live list_migrations and live function
--- definitions were NOT re-read; the function bodies below are copied from the latest migration in the repository that defines each one.
+-- NOTE: live list_migrations was read at 2026-10-16 21:4x UTC (latest live version 20261016194828; nothing live redefines the payout or
+-- earnings functions after S31x). Live function DEFINITIONS were not re-read (the connection timed out earlier in the session), so the
+-- bodies copied below (approve_payout, payout_prepare_send, my_payout_overview, post_minimum_topups) come from the latest migration in the
+-- repository that defines each one; check pg_get_functiondef for those four before applying.
 
 -- ---------------------------------------------------------------------------
 -- 1. A system-posted adjustment (late-line netting) has no human author. Allow it only when the line says why.
@@ -35,6 +37,11 @@ begin
         and (created_by is not null or (calculation ? 'system_reason' and char_length(btrim(calculation ->> 'system_reason')) >= 5)))
       or (kind <> 'adjustment' and amount_kobo >= 0));
   end loop;
+  -- Never leave a ledger that would refuse a system adjustment: either the loop rewrote the constraint, or another migration already did.
+  if not exists (select 1 from pg_constraint where conrelid = 'public.earnings_ledger'::regclass and contype = 'c'
+                  and pg_get_constraintdef(oid) like '%system_reason%') then
+    raise exception 'S30b assertion: the ledger adjustment constraint does not allow a system adjustment';
+  end if;
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -245,18 +252,42 @@ revoke all on function private.build_payout_drafts(uuid, date, boolean, uuid) fr
 
 -- A draft was built from the lines that were free at the time. When a dispute opens or closes the set of free lines changes, and approval
 -- would (rightly) refuse the stale draft. So the clinician's draft is thrown away and rebuilt, and the rest of the week still pays.
--- A rebuilt draft that falls under the minimum simply is not drafted: those lines carry over.
+-- A rebuilt draft that falls under the minimum is simply not drafted (those lines carry over); because the cancelled row stays behind with
+-- its reason, the NEXT change (a withdrawn or answered dispute) rebuilds it, so a draft a dispute removed comes back when it is released.
 create function private.refresh_payout_draft(p_clinician uuid) returns void
 language plpgsql security definer set search_path = ''
 as $$
-declare d record;
+declare d record; v_rows integer;
 begin
-  for d in select id, organisation_id, period_end from public.payouts where clinician_id = p_clinician and state = 'draft' loop
-    perform set_config('tarragon.payout_write', 'on', true);
-    update public.payouts set state = 'cancelled', failure_reason = 'rebuilt: a dispute changed which lines are free' where id = d.id;
-    perform private.payout_event(d.id, 'draft', 'cancelled', null, 'system', 'rebuilt after a dispute change');
-    perform set_config('tarragon.payout_write', 'off', true);
+  for d in
+    select distinct on (p.period_end) p.id, p.organisation_id, p.period_end, p.state, p.withholding_kobo, p.withholding_note
+      from public.payouts p
+     where p.clinician_id = p_clinician
+       and (p.state = 'draft' or (p.state = 'cancelled' and p.failure_reason like 'rebuilt:%'))
+       and p.period_end >= (now() at time zone 'Africa/Lagos')::date - 21
+       and not exists (select 1 from public.payouts x where x.clinician_id = p_clinician and x.period_end = p.period_end and x.state not in ('draft', 'cancelled'))
+     order by p.period_end, case when p.state = 'draft' then 0 else 1 end, p.created_at desc
+  loop
+    if d.state = 'draft' then
+      perform set_config('tarragon.payout_write', 'on', true);
+      update public.payouts set state = 'cancelled', failure_reason = 'rebuilt: a dispute changed which lines are free' where id = d.id;
+      perform private.payout_event(d.id, 'draft', 'cancelled', null, 'system', 'rebuilt after a dispute change');
+      perform set_config('tarragon.payout_write', 'off', true);
+    end if;
     perform private.build_payout_drafts(d.organisation_id, d.period_end, false, p_clinician);
+    -- a withholding a person already typed is carried to the rebuilt draft, never silently dropped; if it no longer fits, that is recorded
+    if d.withholding_kobo > 0 then
+      perform set_config('tarragon.payout_write', 'on', true);
+      update public.payouts set withholding_kobo = d.withholding_kobo, withholding_note = d.withholding_note
+       where clinician_id = p_clinician and state = 'draft' and period_end = d.period_end and amount_kobo > d.withholding_kobo;
+      get diagnostics v_rows = row_count;
+      perform set_config('tarragon.payout_write', 'off', true);
+      if v_rows = 0 and d.state = 'draft' then
+        insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+        values (d.organisation_id, 'payout.withholding_dropped', 'payout', d.id,
+                jsonb_build_object('withholding_kobo', d.withholding_kobo, 'why', 'the rebuilt draft is smaller than the withholding or was not drafted'));
+      end if;
+    end if;
   end loop;
 end;
 $$;
@@ -281,6 +312,8 @@ begin
   if not found then raise exception 'payout_unknown' using errcode = '22023'; end if;
   if p.state <> 'draft' then raise exception 'payout_not_a_draft' using errcode = '23514'; end if;
   if p.clinician_id = v_uid then raise exception 'payout_self_approval' using errcode = '42501'; end if;
+  -- A payout with a withholding can never be sent (OQ-193), and once approved it can no longer be edited or cancelled: refuse it here, while it can still be fixed.
+  if p.withholding_kobo > 0 then raise exception 'payout_withholding_undecided' using errcode = '55000'; end if;
   b := private.payout_ready(p.clinician_id);
   if b.id is null then raise exception 'payout_no_verified_bank' using errcode = '55000'; end if;
   -- The ledger is read again now. If it is not exactly what the draft showed, nothing is approved.
@@ -360,9 +393,17 @@ begin
   -- a double tap returns the same dispute
   select id into v_id from public.earnings_disputes where clinician_id = v_uid and request_id = p_request_id;
   if found then return v_id; end if;
+  -- Lock this clinician's draft first. approve_payout locks the same row, so a dispute and an approval for the same clinician run one
+  -- after the other, and the line is read below after any approval in progress has committed.
+  perform 1 from public.payouts where clinician_id = v_uid and state = 'draft' for update;
   select * into l from public.earnings_ledger where id = p_ledger and clinician_id = v_uid and organisation_id = v_org;
   if not found then raise exception 'dispute_unknown_line' using errcode = '22023'; end if;
   if l.earned_at < now() - make_interval(days => v_window) then raise exception 'dispute_window_closed' using errcode = '23514'; end if;
+  -- A line in a payout that is approved, being sent, failed or returned cannot be held back (the money may already be on its way).
+  -- Once the payout has been paid, a question still works: it resolves into a correction in a later payout.
+  if l.payout_id is not null and (select p.state from public.payouts p where p.id = l.payout_id) <> 'succeeded' then
+    raise exception 'dispute_line_in_flight' using errcode = '23514';
+  end if;
   if exists (select 1 from public.earnings_disputes where ledger_id = l.id and state = 'open') then raise exception 'dispute_already_open' using errcode = '23505'; end if;
   perform set_config('tarragon.dispute_write', 'on', true);
   insert into public.earnings_disputes (organisation_id, ledger_id, clinician_id, reason_code, note, request_id, response_due_at, is_test)
@@ -372,6 +413,13 @@ begin
   perform private.refresh_payout_draft(v_uid);
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
   values (v_org, v_uid, 'earnings.dispute_opened', 'earnings_dispute', v_id, jsonb_build_object('ledger_id', l.id, 'reason_code', p_reason_code));
+  -- Finance is told straight away (in the inbox; nothing clinical or personal in it). A notice failing never blocks the question.
+  begin
+    perform private.credential_notify_reviewers(v_org, 'A clinician asked about an earnings line',
+      'A contracted clinician asked about one line on their earnings statement. The line is on hold. Please answer it under Earnings questions.',
+      jsonb_build_object('dispute_id', v_id), 'finance');
+  exception when others then null;
+  end;
   return v_id;
 end;
 $$;
@@ -512,7 +560,9 @@ begin
       from public.earnings_disputes d
       join public.earnings_ledger l on l.id = d.ledger_id
      where d.organisation_id = v_org and (p_state is null or p_state = 'all' or d.state = p_state) and (p_include_test or not d.is_test)
-     order by d.response_due_at
+     order by case when d.state = 'open' then 0 else 1 end,
+              case when d.state = 'open' then d.response_due_at end asc,
+              coalesce(d.resolved_at, d.opened_at) desc
      limit 300;
 end;
 $$;
@@ -525,6 +575,7 @@ declare
   v_org uuid := private.fee_admin_org();
   v_uid uuid := (select auth.uid());
   d public.earnings_disputes%rowtype;
+  l public.earnings_ledger%rowtype;
   v_adj uuid;
 begin
   if p_resolution not in ('adjusted', 'rejected') then raise exception 'dispute_bad_resolution' using errcode = '22023'; end if;
@@ -532,12 +583,15 @@ begin
   select * into d from public.earnings_disputes where id = p_id and organisation_id = v_org for update;
   if not found then raise exception 'dispute_unknown' using errcode = '22023'; end if;
   if d.state <> 'open' then raise exception 'dispute_not_open' using errcode = '23514'; end if;
+  select * into l from public.earnings_ledger where id = d.ledger_id;
   perform set_config('tarragon.dispute_write', 'on', true);
   if p_resolution = 'adjusted' then
     if p_amount_kobo is null or p_amount_kobo = 0 or abs(p_amount_kobo) > 1000000000 then raise exception 'earnings_bad_amount' using errcode = '22023'; end if;
     -- the dispute id is the reference, so a retry returns the same adjustment line (the shared adjustment pattern of the ledger)
     v_adj := private.ledger_insert(d.organisation_id, d.clinician_id, 'adjustment', 'dispute', d.id, p_amount_kobo, null,
-      jsonb_build_object('reason', btrim(p_note), 'corrects', d.ledger_id, 'dispute_id', d.id, 'reason_code', d.reason_code), now(), d.is_test, btrim(p_note), v_uid);
+      jsonb_build_object('reason', btrim(p_note), 'corrects', d.ledger_id, 'dispute_id', d.id, 'reason_code', d.reason_code, 'posted_at', now()),
+      -- dated like the line it corrects, so it falls in the same payout period as that line and never waits a week behind it
+      l.earned_at, d.is_test, btrim(p_note), v_uid);
   elsif p_amount_kobo is not null then
     raise exception 'dispute_rejection_has_no_amount' using errcode = '22023';
   end if;
@@ -547,9 +601,13 @@ begin
   perform private.refresh_payout_draft(d.clinician_id);
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
   values (v_org, v_uid, 'earnings.dispute_resolved', 'earnings_dispute', d.id, jsonb_build_object('resolution', p_resolution, 'adjustment_ledger_id', v_adj));
-  perform private.credential_notify(d.clinician_id, d.organisation_id, 'Your earnings question was answered',
-    'Finance has answered your question about a line on your earnings statement. You can read the answer under Earnings in your console.',
-    jsonb_build_object('dispute_id', d.id), false);
+  -- the notice never blocks a money state change (same as payout_notify)
+  begin
+    perform private.credential_notify(d.clinician_id, d.organisation_id, 'Your earnings question was answered',
+      'Finance has answered your question about a line on your earnings statement. You can read the answer under Earnings in your console.',
+      jsonb_build_object('dispute_id', d.id), false);
+  exception when others then null;
+  end;
   return jsonb_build_object('dispute_id', d.id, 'resolution', p_resolution, 'adjustment_ledger_id', v_adj);
 end;
 $$;
@@ -591,30 +649,8 @@ begin
 end;
 $$;
 
--- 'released' lets the daily job post the top-up at its next run; 'denied' means it is never posted for that run.
-create function public.decide_topup_hold(p_id uuid, p_decision text, p_note text) returns void
-language plpgsql security definer set search_path = ''
-as $$
-declare
-  v_org uuid := private.fee_admin_org();
-  v_uid uuid := (select auth.uid());
-  h public.earnings_topup_holds%rowtype;
-begin
-  if p_decision not in ('released', 'denied') then raise exception 'hold_bad_decision' using errcode = '22023'; end if;
-  if char_length(btrim(coalesce(p_note, ''))) < 10 then raise exception 'earnings_reason_needed' using errcode = '22023'; end if;
-  select * into h from public.earnings_topup_holds where id = p_id and organisation_id = v_org for update;
-  if not found then raise exception 'hold_unknown' using errcode = '22023'; end if;
-  if h.state <> 'held' then raise exception 'hold_already_decided' using errcode = '23514'; end if;
-  perform set_config('tarragon.dispute_write', 'on', true);
-  update public.earnings_topup_holds set state = p_decision, decided_by = v_uid, decided_at = now(), decision_note = btrim(p_note) where id = h.id;
-  perform set_config('tarragon.dispute_write', 'off', true);
-  insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
-  values (v_org, v_uid, 'earnings.topup_hold_decided', 'earnings_topup_hold', h.id, jsonb_build_object('decision', p_decision));
-end;
-$$;
-
 -- ---------------------------------------------------------------------------
--- 9. Pilot minimum: activity check, and late-line netting
+-- 9. Pilot minimum: the calculation, the activity check, release/deny, and late-line netting
 -- ---------------------------------------------------------------------------
 -- Evidence for a run of declared hours. Approximate by design: a hold goes to a person, who decides.
 create function private.run_activity(p_org uuid, p_clinician uuid, p_start timestamptz, p_end timestamptz) returns jsonb
@@ -626,32 +662,104 @@ as $$
     'expired_claims', (select count(*) from public.task_claims c where c.clinician_id = p_clinician and c.claimed_at > p_start and c.claimed_at <= p_end and c.end_reason = 'expired'),
     -- tasks that existed before the run ended and were not taken by this clinician: work that was waiting
     'tasks_waiting', (select count(*) from public.clinical_tasks t
-                       where t.organisation_id = p_org and not t.is_test and t.created_at < p_end
+                       where t.organisation_id = p_org and t.created_at < p_end
+                         -- a test clinician is compared with test tasks, a real one with real tasks (INV-13)
+                         and t.is_test = coalesce((select cs.is_test from public.clinical_staff cs where cs.profile_id = p_clinician), false)
                          and coalesce(t.completed_at, 'infinity'::timestamptz) > p_start
                          and (t.claimed_at is null or t.claimed_at > p_start)
                          and t.claimed_by is distinct from p_clinician));
 $$;
 revoke all on function private.run_activity(uuid, uuid, timestamptz, timestamptz) from public, anon, authenticated;
 
--- Copied from S30. Changes: the activity check before a top-up posts (a flagged run is held, a released hold posts, a denied one never does),
--- and the late-line netting pass at the end.
+-- What a run of declared hours is owed, from the schedule in force when it ended (S30's calculation, in one place).
+-- Null when the clinician is not contracted or no schedule or minimum applies.
+create function private.topup_calc(p_org uuid, p_clinician uuid, p_start timestamptz, p_end timestamptz) returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  fs public.fee_schedules%rowtype;
+  v_counted text[] := coalesce(array(select jsonb_array_elements_text(private.earnings_setting('minimum_guarantee') -> 'counted_kinds')), '{}');
+  v_test boolean;
+  v_earned bigint;
+  v_seconds numeric;
+begin
+  select cs.is_test into v_test from public.clinical_staff cs where cs.profile_id = p_clinician and cs.employment_type::text = 'contracted';
+  if v_test is null then return null; end if;
+  fs := private.fee_schedule_at(p_org, p_end);
+  if fs.id is null or (fs.items ->> 'pilot_minimum_per_declared_hour_kobo')::bigint <= 0 then return null; end if;
+  select coalesce(sum(l.amount_kobo), 0) into v_earned from public.earnings_ledger l
+   where l.clinician_id = p_clinician and l.kind = any (v_counted) and l.earned_at > p_start and l.earned_at <= p_end;
+  v_seconds := extract(epoch from (p_end - p_start));
+  return jsonb_build_object('schedule_id', fs.id, 'schedule_version', fs.version, 'calc', private.fee_minimum_calc(fs.items, v_seconds, v_earned),
+    'earned', v_earned, 'seconds', v_seconds, 'counted', to_jsonb(v_counted), 'is_test', v_test,
+    'ref', private.earnings_ref(p_clinician || '|' || p_start || '|' || p_end));
+end;
+$$;
+revoke all on function private.topup_calc(uuid, uuid, timestamptz, timestamptz) from public, anon, authenticated;
+
+-- Posts the top-up for one run if it is due and not already there. Returns 'no_schedule', 'nothing_due', 'exists' or 'posted'.
+create function private.post_topup_for_run(p_org uuid, p_clinician uuid, p_start timestamptz, p_end timestamptz) returns text
+language plpgsql security definer set search_path = ''
+as $$
+declare c jsonb := private.topup_calc(p_org, p_clinician, p_start, p_end);
+begin
+  if c is null then return 'no_schedule'; end if;
+  if (c -> 'calc' ->> 'top_up_kobo')::bigint <= 0 then return 'nothing_due'; end if;
+  if exists (select 1 from public.earnings_ledger l where l.clinician_id = p_clinician and l.kind = 'minimum_topup' and l.reference_id = (c ->> 'ref')::uuid) then return 'exists'; end if;
+  perform private.ledger_insert(p_org, p_clinician, 'minimum_topup', 'declared_hours', (c ->> 'ref')::uuid, (c -> 'calc' ->> 'top_up_kobo')::bigint, (c ->> 'schedule_id')::uuid,
+    (c -> 'calc') || jsonb_build_object('run_start', p_start, 'run_end', p_end, 'declared_seconds', (c ->> 'seconds')::numeric,
+                                        'earned_in_run_kobo', (c ->> 'earned')::bigint, 'counted_kinds', c -> 'counted', 'schedule_version', (c ->> 'schedule_version')::integer),
+    p_end, (c ->> 'is_test')::boolean);
+  return 'posted';
+end;
+$$;
+revoke all on function private.post_topup_for_run(uuid, uuid, timestamptz, timestamptz) from public, anon, authenticated;
+
+-- A person releases or denies a held top-up. A release posts the top-up in the same step, so it can never be lost to the 60 day look-back
+-- of the daily job; if it cannot be posted (no schedule), the release is refused rather than stored and forgotten.
+create function public.decide_topup_hold(p_id uuid, p_decision text, p_note text) returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_org uuid := private.fee_admin_org();
+  v_uid uuid := (select auth.uid());
+  h public.earnings_topup_holds%rowtype;
+  v_result text;
+begin
+  if p_decision not in ('released', 'denied') then raise exception 'hold_bad_decision' using errcode = '22023'; end if;
+  if char_length(btrim(coalesce(p_note, ''))) < 10 then raise exception 'earnings_reason_needed' using errcode = '22023'; end if;
+  select * into h from public.earnings_topup_holds where id = p_id and organisation_id = v_org for update;
+  if not found then raise exception 'hold_unknown' using errcode = '22023'; end if;
+  if h.state <> 'held' then raise exception 'hold_already_decided' using errcode = '23514'; end if;
+  if p_decision = 'released' then
+    v_result := private.post_topup_for_run(h.organisation_id, h.clinician_id, h.run_start, h.run_end);
+    if v_result = 'no_schedule' then raise exception 'hold_no_fee_schedule' using errcode = '55000'; end if;
+  end if;
+  perform set_config('tarragon.dispute_write', 'on', true);
+  update public.earnings_topup_holds set state = p_decision, decided_by = v_uid, decided_at = now(), decision_note = btrim(p_note) where id = h.id;
+  perform set_config('tarragon.dispute_write', 'off', true);
+  insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+  values (v_org, v_uid, 'earnings.topup_hold_decided', 'earnings_topup_hold', h.id, jsonb_build_object('decision', p_decision, 'posting', v_result));
+end;
+$$;
+
+-- Copied from S30. Changes: each run is isolated (one bad run no longer aborts the day's top-ups for everyone), the activity check before a
+-- top-up posts (a flagged run is held and finance is told; a released hold is already posted; a denied one never is), the calculation
+-- moved into the helpers above, and the late-line netting pass at the end.
 create or replace function private.post_minimum_topups() returns integer
 language plpgsql security definer set search_path = ''
 as $$
 declare
   r record;
-  fs public.fee_schedules%rowtype;
   h public.earnings_topup_holds%rowtype;
+  fs public.fee_schedules%rowtype;
+  c jsonb;
   v_counted text[] := coalesce(array(select jsonb_array_elements_text(private.earnings_setting('minimum_guarantee') -> 'counted_kinds')), '{}');
   v_cfg jsonb := coalesce(private.disputes_setting('pilot_minimum'), '{}'::jsonb);
   v_earned bigint;
-  v_calc jsonb;
-  v_seconds numeric;
   v_n integer := 0;
-  v_test boolean;
   v_act jsonb;
   v_reason text;
-  v_ref uuid;
   t record;
   v_desired bigint;
   v_already bigint;
@@ -665,50 +773,52 @@ begin
            lateral (select unnest(b.agg) as rng) m
      where upper(m.rng) <= now() - interval '2 hours' and upper(m.rng) > now() - interval '60 days'
   loop
-    select cs.is_test into v_test from public.clinical_staff cs where cs.profile_id = r.clinician_id and cs.employment_type::text = 'contracted';
-    continue when v_test is null;
-    fs := private.fee_schedule_at(r.organisation_id, r.run_end);
-    continue when fs.id is null or (fs.items ->> 'pilot_minimum_per_declared_hour_kobo')::bigint <= 0;
-    select coalesce(sum(l.amount_kobo), 0) into v_earned from public.earnings_ledger l
-     where l.clinician_id = r.clinician_id and l.kind = any (v_counted) and l.earned_at > r.run_start and l.earned_at <= r.run_end;
-    v_seconds := extract(epoch from (r.run_end - r.run_start));
-    v_calc := private.fee_minimum_calc(fs.items, v_seconds, v_earned);
-    continue when (v_calc ->> 'top_up_kobo')::bigint <= 0;
-    v_ref := private.earnings_ref(r.clinician_id || '|' || r.run_start || '|' || r.run_end);
-    continue when exists (select 1 from public.earnings_ledger l where l.clinician_id = r.clinician_id and l.kind = 'minimum_topup' and l.reference_id = v_ref);
+    begin
+      c := private.topup_calc(r.organisation_id, r.clinician_id, r.run_start, r.run_end);
+      continue when c is null or (c -> 'calc' ->> 'top_up_kobo')::bigint <= 0;
+      continue when exists (select 1 from public.earnings_ledger l where l.clinician_id = r.clinician_id and l.kind = 'minimum_topup' and l.reference_id = (c ->> 'ref')::uuid);
 
-    -- S30b activity check (OQ-180)
-    if coalesce((v_cfg ->> 'activity_check')::boolean, false) then
-      select * into h from public.earnings_topup_holds where clinician_id = r.clinician_id and run_start = r.run_start and run_end = r.run_end;
-      if found then
-        continue when h.state in ('held', 'denied');
-      else
-        v_act := private.run_activity(r.organisation_id, r.clinician_id, r.run_start, r.run_end);
-        v_reason := case
-          when coalesce((v_cfg ->> 'hold_when_no_claims_and_work_waited')::boolean, false)
-               and (v_act ->> 'claims')::integer = 0 and (v_act ->> 'tasks_waiting')::integer > 0 then 'no_claims_while_work_waited'
-          when coalesce((v_cfg ->> 'hold_when_expired_claims_and_no_completed')::boolean, false)
-               and (v_act ->> 'expired_claims')::integer > 0 and (v_act ->> 'completed_claims')::integer = 0 then 'expired_claims_and_no_completed'
-          else null end;
-        if v_reason is not null then
-          perform set_config('tarragon.dispute_write', 'on', true);
-          insert into public.earnings_topup_holds (organisation_id, clinician_id, run_start, run_end, reason, evidence, is_test)
-          values (r.organisation_id, r.clinician_id, r.run_start, r.run_end, v_reason,
-                  v_act || jsonb_build_object('top_up_kobo', (v_calc ->> 'top_up_kobo')::bigint), v_test)
-          on conflict (clinician_id, run_start, run_end) do nothing;
-          perform set_config('tarragon.dispute_write', 'off', true);
-          insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
-          values (r.organisation_id, 'earnings.topup_held', 'profile', r.clinician_id, jsonb_build_object('reason', v_reason, 'run_start', r.run_start, 'run_end', r.run_end));
-          continue;
+      -- S30b activity check (OQ-180)
+      if coalesce((v_cfg ->> 'activity_check')::boolean, false) then
+        select * into h from public.earnings_topup_holds where clinician_id = r.clinician_id and run_start = r.run_start and run_end = r.run_end;
+        if found then
+          continue when h.state in ('held', 'denied');
+        else
+          v_act := private.run_activity(r.organisation_id, r.clinician_id, r.run_start, r.run_end);
+          v_reason := case
+            when coalesce((v_cfg ->> 'hold_when_no_claims_and_work_waited')::boolean, false)
+                 and (v_act ->> 'claims')::integer = 0 and (v_act ->> 'tasks_waiting')::integer > 0 then 'no_claims_while_work_waited'
+            when coalesce((v_cfg ->> 'hold_when_expired_claims_and_no_completed')::boolean, false)
+                 and (v_act ->> 'expired_claims')::integer > 0 and (v_act ->> 'completed_claims')::integer = 0 then 'expired_claims_and_no_completed'
+            else null end;
+          if v_reason is not null then
+            perform set_config('tarragon.dispute_write', 'on', true);
+            insert into public.earnings_topup_holds (organisation_id, clinician_id, run_start, run_end, reason, evidence, is_test)
+            values (r.organisation_id, r.clinician_id, r.run_start, r.run_end, v_reason,
+                    v_act || jsonb_build_object('top_up_kobo', (c -> 'calc' ->> 'top_up_kobo')::bigint), (c ->> 'is_test')::boolean)
+            on conflict (clinician_id, run_start, run_end) do nothing;
+            perform set_config('tarragon.dispute_write', 'off', true);
+            insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+            values (r.organisation_id, 'earnings.topup_held', 'profile', r.clinician_id, jsonb_build_object('reason', v_reason, 'run_start', r.run_start, 'run_end', r.run_end));
+            if not (c ->> 'is_test')::boolean then
+              begin
+                perform private.credential_notify_reviewers(r.organisation_id, 'A pilot minimum top-up is held for a check',
+                  'A pilot minimum top-up was held because the declared hours show no sign of work. Please release or deny it under Earnings questions.',
+                  jsonb_build_object('clinician_id', r.clinician_id), 'finance');
+              exception when others then null;
+              end;
+            end if;
+            continue;
+          end if;
         end if;
       end if;
-    end if;
 
-    perform private.ledger_insert(r.organisation_id, r.clinician_id, 'minimum_topup', 'declared_hours', v_ref, (v_calc ->> 'top_up_kobo')::bigint, fs.id,
-      v_calc || jsonb_build_object('run_start', r.run_start, 'run_end', r.run_end, 'declared_seconds', v_seconds, 'earned_in_run_kobo', v_earned,
-                                   'counted_kinds', to_jsonb(v_counted), 'schedule_version', fs.version),
-      r.run_end, v_test);
-    v_n := v_n + 1;
+      if private.post_topup_for_run(r.organisation_id, r.clinician_id, r.run_start, r.run_end) = 'posted' then v_n := v_n + 1; end if;
+    exception when others then
+      perform set_config('tarragon.dispute_write', 'off', true);
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+      values (r.organisation_id, 'earnings.sweep_error', 'profile', r.clinician_id, jsonb_build_object('step', 'minimum_topup', 'error', sqlerrm, 'run_start', r.run_start));
+    end;
   end loop;
 
   -- S30b late-line netting (OQ-185). A line posted after a top-up, for work inside its run, can push the clinician past the guarantee.
@@ -716,26 +826,61 @@ begin
   -- Idempotent: the reference carries the desired amount, so the same excess never posts twice. It only ever reduces.
   for t in select l.* from public.earnings_ledger l
             where l.kind = 'minimum_topup' and l.earned_at > now() - interval '60 days' and l.calculation ? 'run_start' and l.fee_schedule_version_id is not null loop
-    select * into fs from public.fee_schedules where id = t.fee_schedule_version_id;
-    continue when not found;
-    select coalesce(sum(l.amount_kobo), 0) into v_earned from public.earnings_ledger l
-     where l.clinician_id = t.clinician_id and l.kind = any (v_counted)
-       and l.earned_at > (t.calculation ->> 'run_start')::timestamptz and l.earned_at <= (t.calculation ->> 'run_end')::timestamptz;
-    v_desired := (private.fee_minimum_calc(fs.items, (t.calculation ->> 'declared_seconds')::numeric, v_earned) ->> 'top_up_kobo')::bigint;
-    select t.amount_kobo + coalesce(sum(a.amount_kobo), 0) into v_already from public.earnings_ledger a
-     where a.clinician_id = t.clinician_id and a.kind = 'adjustment' and a.calculation ->> 'netting_for' = t.id::text;
-    if v_desired < v_already then
-      perform private.ledger_insert(t.organisation_id, t.clinician_id, 'adjustment', 'topup_netting',
-        private.earnings_ref('topup-netting|' || t.id || '|' || v_desired), v_desired - v_already, null,
-        jsonb_build_object('system_reason', 'late_line_netting', 'netting_for', t.id, 'corrects', t.id, 'earned_in_run_kobo', v_earned, 'desired_top_up_kobo', v_desired,
-                           'reason', 'Late line inside the declared hours: the pilot minimum top-up reduced to the shortfall that remains.'),
-        now(), t.is_test, 'Late line inside the declared hours: the pilot minimum top-up reduced to the shortfall that remains.', null);
-      v_n := v_n + 1;
+    begin
+      select * into fs from public.fee_schedules where id = t.fee_schedule_version_id;
+      continue when not found;
+      select coalesce(sum(l.amount_kobo), 0) into v_earned from public.earnings_ledger l
+       where l.clinician_id = t.clinician_id and l.kind = any (v_counted)
+         and l.earned_at > (t.calculation ->> 'run_start')::timestamptz and l.earned_at <= (t.calculation ->> 'run_end')::timestamptz;
+      v_desired := (private.fee_minimum_calc(fs.items, (t.calculation ->> 'declared_seconds')::numeric, v_earned) ->> 'top_up_kobo')::bigint;
+      select t.amount_kobo + coalesce(sum(a.amount_kobo), 0) into v_already from public.earnings_ledger a
+       where a.clinician_id = t.clinician_id and a.kind = 'adjustment' and a.calculation ->> 'netting_for' = t.id::text;
+      if v_desired < v_already then
+        perform private.ledger_insert(t.organisation_id, t.clinician_id, 'adjustment', 'topup_netting',
+          private.earnings_ref('topup-netting|' || t.id || '|' || v_desired), v_desired - v_already, null,
+          jsonb_build_object('system_reason', 'late_line_netting', 'netting_for', t.id, 'corrects', t.id, 'earned_in_run_kobo', v_earned, 'desired_top_up_kobo', v_desired,
+                             'reason', 'Late line inside the declared hours: the pilot minimum top-up reduced to the shortfall that remains.'),
+          now(), t.is_test, 'Late line inside the declared hours: the pilot minimum top-up reduced to the shortfall that remains.', null);
+        v_n := v_n + 1;
+      end if;
+    exception when others then
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+      values (t.organisation_id, 'earnings.sweep_error', 'earnings_ledger', t.id, jsonb_build_object('step', 'topup_netting', 'error', sqlerrm));
+    end;
+  end loop;
+  return v_n;
+end;
+$$;
+
+-- Once a day, finance is reminded of anything left waiting: an unanswered question past its clock, or a held top-up older than a day.
+create function private.earnings_overdue_check() returns integer
+language plpgsql security definer set search_path = ''
+as $$
+declare r record; v_n integer := 0;
+begin
+  for r in
+    select o.organisation_id,
+           (select count(*) from public.earnings_disputes d where d.organisation_id = o.organisation_id and d.state = 'open' and not d.is_test and d.response_due_at < now()) as overdue,
+           (select count(*) from public.earnings_topup_holds h where h.organisation_id = o.organisation_id and h.state = 'held' and not h.is_test and h.created_at < now() - interval '1 day') as old_holds
+      from (select organisation_id from public.earnings_disputes union select organisation_id from public.earnings_topup_holds) o
+  loop
+    if r.overdue + r.old_holds > 0 then
+      begin
+        perform private.credential_notify_reviewers(r.organisation_id, 'Earnings questions are waiting for an answer',
+          format('%s earnings question(s) are past their response time and %s held pilot minimum top-up(s) are waiting. Please see Earnings questions.', r.overdue, r.old_holds),
+          jsonb_build_object('overdue', r.overdue, 'held', r.old_holds), 'finance');
+        v_n := v_n + 1;
+      exception when others then
+        insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+        values (r.organisation_id, 'earnings.sweep_error', 'organisation', r.organisation_id, jsonb_build_object('step', 'overdue_check', 'error', sqlerrm));
+      end;
     end if;
   end loop;
   return v_n;
 end;
 $$;
+revoke all on function private.earnings_overdue_check() from public, anon, authenticated;
+select cron.schedule('earnings-overdue-check', '0 7 * * *', $$ select private.earnings_overdue_check(); $$);
 
 -- ---------------------------------------------------------------------------
 -- 10. RLS and grants
@@ -782,7 +927,8 @@ begin
     if not has_function_privilege('authenticated', v_fn, 'EXECUTE') then raise exception 'S30b assertion: authenticated cannot execute %', v_fn; end if;
   end loop;
   foreach v_fn in array array['private.refresh_payout_draft(uuid)', 'private.build_payout_drafts(uuid,date,boolean,uuid)', 'private.run_activity(uuid,uuid,timestamptz,timestamptz)',
-    'private.post_minimum_topups()', 'private.earnings_line_status(uuid,text,boolean)', 'private.disputes_setting(text)'] loop
+    'private.post_minimum_topups()', 'private.earnings_line_status(uuid,text,boolean)', 'private.disputes_setting(text)',
+    'private.topup_calc(uuid,uuid,timestamptz,timestamptz)', 'private.post_topup_for_run(uuid,uuid,timestamptz,timestamptz)', 'private.earnings_overdue_check()'] loop
     if has_function_privilege('anon', v_fn, 'EXECUTE') or has_function_privilege('authenticated', v_fn, 'EXECUTE') then
       raise exception 'S30b assertion: % is callable from outside', v_fn;
     end if;
@@ -797,4 +943,5 @@ begin
   end if;
   if (select is_on from public.go_live_guards where key = 'payouts_enabled') then raise exception 'S30b assertion: the payouts guard must stay off'; end if;
   if (select count(*) from public.earnings_disputes_config where is_active) <> 1 then raise exception 'S30b assertion: one active dispute config expected'; end if;
+  if (select count(*) from cron.job where jobname = 'earnings-overdue-check') <> 1 then raise exception 'S30b assertion: the overdue check is not scheduled'; end if;
 end $$;

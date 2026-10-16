@@ -44,6 +44,7 @@ const ERROR_WORDS: Record<string, string> = {
   dispute_unknown_line: "That line could not be found on your statement.",
   dispute_window_closed: "That line is too old to question here. Please contact operations.",
   dispute_already_open: "You already have a question open on that line.",
+  dispute_line_in_flight: "That line is in a payout that is being sent. Please question it once that payout has been paid.",
   dispute_unknown: "That question could not be found.",
   dispute_not_open: "That question has already been answered or withdrawn.",
   dispute_bad_resolution: "Please choose whether to add a correction or turn the question down.",
@@ -57,6 +58,7 @@ const ERROR_WORDS: Record<string, string> = {
   payout_withholding_undecided: "This payout has a withholding amount, and how it is paid and recorded is not decided yet, so it cannot be sent.",
   hold_bad_decision: "Please choose release or deny.",
   hold_unknown: "That hold could not be found.",
+  hold_no_fee_schedule: "There is no approved fee schedule, so the top-up cannot be worked out or posted. Approve a schedule first.",
   hold_already_decided: "That hold has already been decided.",
   fee_not_authorised: "You do not have access to this.",
   payout_not_authorised: "You do not have access to this.",
@@ -175,7 +177,10 @@ export const statementSchema = z.object({
 });
 export type PayoutStatement = z.infer<typeof statementSchema>;
 
-/** A question can be opened on a line only when none is already open on it. The database also checks the age of the line. */
-export function canDispute(line: Pick<MyLine, "dispute_state">): boolean {
-  return line.dispute_state !== "open";
+/**
+ * A question can be opened on a line when none is already open on it and the line is not in a payout that is being sent (the money may
+ * already be on its way, so it cannot be held back). The database checks both again, and the age of the line.
+ */
+export function canDispute(line: Pick<MyLine, "dispute_state" | "pay_status">): boolean {
+  return line.dispute_state !== "open" && line.pay_status !== "approved" && line.pay_status !== "failed";
 }

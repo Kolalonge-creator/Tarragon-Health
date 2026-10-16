@@ -40,7 +40,7 @@ export async function resolveEarningsDispute(_prev: DisputeActionState, formData
   return { message: "Answered. The line is released and the clinician has been told." };
 }
 
-/** Releases or denies a pilot-minimum top-up that the activity check held. A release posts at the next daily run. */
+/** Releases or denies a pilot-minimum top-up that the activity check held. A release posts the top-up straight away. */
 export async function decideTopupHold(_prev: DisputeActionState, formData: FormData): Promise<DisputeActionState> {
   const parsed = holdDecisionSchema.safeParse({
     holdId: String(formData.get("hold_id") ?? ""),
@@ -52,7 +52,7 @@ export async function decideTopupHold(_prev: DisputeActionState, formData: FormD
   const { error } = await supabase.rpc("decide_topup_hold", { p_id: parsed.data.holdId, p_decision: parsed.data.decision, p_note: parsed.data.note });
   if (error) return { error: describeDisputeError(error) };
   revalidatePath(PATH);
-  return { message: parsed.data.decision === "released" ? "Released. The top-up posts at the next daily run." : "Denied. No top-up is posted for those hours." };
+  return { message: parsed.data.decision === "released" ? "Released. The top-up has been posted." : "Denied. No top-up is posted for those hours." };
 }
 
 /** Types in a withholding amount (naira) on a draft payout. Stored as entered; nothing calculates it (D-09). Zero clears it. */

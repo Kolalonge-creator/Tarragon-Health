@@ -77,9 +77,14 @@ describe("reads", () => {
     expect(myLinesSchema.safeParse([{ ...line, pay_status: "mystery" }]).success).toBe(false);
   });
   it("a line can be questioned unless a question is already open on it", () => {
-    expect(canDispute({ dispute_state: null })).toBe(true);
-    expect(canDispute({ dispute_state: "rejected" })).toBe(true);
-    expect(canDispute({ dispute_state: "open" })).toBe(false);
+    expect(canDispute({ dispute_state: null, pay_status: "pending" })).toBe(true);
+    expect(canDispute({ dispute_state: "rejected", pay_status: "pending" })).toBe(true);
+    expect(canDispute({ dispute_state: "open", pay_status: "disputed" })).toBe(false);
+  });
+  it("a line in a payout being sent cannot be held, but a paid one can still be questioned", () => {
+    expect(canDispute({ dispute_state: null, pay_status: "approved" })).toBe(false);
+    expect(canDispute({ dispute_state: null, pay_status: "failed" })).toBe(false);
+    expect(canDispute({ dispute_state: null, pay_status: "paid" })).toBe(true);
   });
   it("parses a statement with gross, withholding and net", () => {
     const s = statementSchema.safeParse({
