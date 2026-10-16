@@ -124,8 +124,11 @@ begin
   insert into results values (p_phase, 'module on: a pregnant person''s wearable estimate keeps paging (raised, not patient-only)', '1/0', pg_temp.n_audit(v_f, 'bp_red_flag.raised') || '/' || pg_temp.n_audit(v_f, 'bp_red_flag.estimate_patient_only'));
 
   -- an estimate is not a reading for the gap detector, so it must not close the open "missing readings" alert; a cuff reading does
+  -- (severity is set to 1 for the fixture: a severity-2 alert cannot be resolved by the handler's own bare `status = 'resolved'` update, which the check
+  -- clinician_alerts_resolution_requires_documentation refuses. That is an existing latent fault, OQ-BPW-5, and none of these alerts exists live today.)
   insert into public.clinician_alerts (organisation_id, patient_id, level, status, title, detail, sla_due_at, escalation_level)
     values (p_org, v_g, 'clinician_review', 'open', 'Missing expected blood-pressure readings', 'proof', now() + interval '1 day', 2);
+  update public.clinician_alerts set severity = 1 where patient_id = v_g and title = 'Missing expected blood-pressure readings';
   perform pg_temp.vit(v_g, p_org, 'blood_pressure', 'wearable', 3, 120, 80);
   insert into results values (p_phase, 'a wearable estimate does not close the missing-readings alert', '1',
     (select count(*)::text from public.clinician_alerts where patient_id = v_g and status = 'open' and title = 'Missing expected blood-pressure readings'));
