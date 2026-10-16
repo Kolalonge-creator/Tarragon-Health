@@ -16,17 +16,24 @@ Branch `build/assisted-entry-and-caregiver-red-care`. Design: `docs/design/build
 fires only for manual/device), escape the manual no-backdating stamp and the source lock, and fall out of the S46/S47 source counts.
 
 ## Tests
-- Jest: `packages/shared` assisted-entry and registry mirror, `apps/web` red-care action (7 to 10 tests), assisted-refusal, patient section and
-  mobile API suites, `apps/mobile` red-care outbox (14). tsc (web) and eslint clean.
-- DB proof `packages/db/tests/assisted_entry_and_caregiver_red_care.sql` in `ci.manifest`, three sabotage steps ("PASS (caught)").
-- Dry run note: the live project is shared and busy; see "Unproven" for the state of the dry run.
+- Jest, all passing: `packages/shared` assisted-entry (5) and registry mirror (2), `apps/web` red-care action (10), assisted-refusal (2),
+  red-patient-answer (6), the patient section and mobile API suites, `apps/mobile` red-care outbox (14). tsc (web, mobile, shared) and eslint clean.
+- DB proof `packages/db/tests/assisted_entry_and_caregiver_red_care.sql` is written and registered in `ci.manifest` with three sabotage steps
+  ("PASS (caught)") but has NOT been run to completion by its author (see Unproven).
 
-## Unproven
-- Dry run against the live project was done with the stand-in label `receive_alerts` for `log_readings`, because ADD VALUE cannot be used in
-  the transaction that adds it. The real label is exercised by CI replay (two migration files).
+## Unproven (read this first)
+- **The DB proof and both migrations were never executed successfully.** The shared live project (koiplnmbgnqnbywhpjlf) was saturated for the whole
+  session: the Management API returned "Connection terminated due to connection timeout", "Failed to create login role" and 524s, and a
+  rolled-back dry run needs one uninterrupted request. The first attempt also found another session's vitals proof holding locks on
+  `vitals_readings`. CI replay (`supabase db reset` plus `run-db-proofs`) is therefore the first real execution. Expect to fix small things.
+  Dry runs were also to be done with the stand-in label `receive_alerts` for `log_readings` (ADD VALUE cannot be used in its own transaction).
+- Read-only facts that WERE checked live: `vital_source` values, the 28 triggers on `vitals_readings`, 0 manage grants (0 narrowed), the
+  anchors in the live `latest_red_patient_response` and `record_red_care_response` text.
+- Things most likely to need a fix in CI: other triggers or functions that enumerate `vitals_readings` columns (new column `assisted_entry`),
+  the data-registry and minor-dependant policy rows for `assisted_entry_log`, and `received_at` being present on every row.
 - No component test for the new label in `VitalsHistory`; the words are unit tested in `packages/shared`.
 - The clinician monitoring roster does not flag a helper-entered latest value (chart and history do).
-- Nothing was exercised on a device or against a real helper account.
+- Nothing was exercised on a device or with a real helper account.
 
 ## Apply order
 1. Merge after required CI is green (merge auto-applies migrations per the two-tier hand-off, check that rule at merge time).
