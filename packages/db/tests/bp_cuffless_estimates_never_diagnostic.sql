@@ -171,9 +171,9 @@ begin
     perform pg_temp.rec('reader ' || v_f || ' reads the diagnostic view', 'true', (v_n >= 1)::text);
   end loop;
   perform pg_temp.rec('the pathway baseline takes its blood pressure from the diagnostic view', 'true',
-    (select bool_and(prosrc like '%taken_at) from private.vitals_readings_diagnostic%') from pg_proc where proname = 'capture_pathway_baseline')::text);
+    (select bool_and(prosrc like '%taken_at) from private.vitals_readings_diagnostic%') from pg_proc where proname = 'capture_pathway_baseline' and pronamespace = 'private'::regnamespace)::text);
   perform pg_temp.rec('the health report takes its blood pressure from the diagnostic view', 'true',
-    (select bool_and(prosrc like '%into v_bp from private.vitals_readings_diagnostic%' and prosrc like '%into v_prior from private.vitals_readings_diagnostic%') from pg_proc where proname = 'health_report_collect')::text);
+    (select bool_and(prosrc like '%into v_bp from private.vitals_readings_diagnostic%' and prosrc like '%into v_prior from private.vitals_readings_diagnostic%') from pg_proc where proname = 'health_report_collect' and pronamespace = 'private'::regnamespace)::text);
   -- display readers are deliberately untouched
   perform pg_temp.rec('the audited record read still reads everything', 'true',
     (select bool_and(prosrc like '%vitals_readings_current%' and prosrc not like '%vitals_readings_diagnostic%') from pg_proc where proname = 'read_patient_vitals_audited' and pronamespace = 'public'::regnamespace)::text);
