@@ -3265,6 +3265,21 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/OPEN-QUESTIONS.md OQ-89; docs/design/S11-S15-p6-coverage.md",
   },
   {
+    key: "triage.threshold_override_policy",
+    // N-overrides: clinician-signed personal thresholds. Live value is the active row of `threshold_override_policies` (born unsigned: nothing can be proposed until the CMO
+    // signs it); this entry mirrors the v1 seed and a test fails on drift. The safety CLAMPS (how far a line may move) are code, not config: OVERRIDE_LIMITS in
+    // supabase/functions/_shared/clinical/threshold-override.ts, mirrored by private.threshold_override_limits().
+    //  maxDays: the longest an override may run before it returns to the signed default by itself.
+    //  reviewDays: the monthly review cadence (the review date, never the expiry, moves at review).
+    //  reviewTaskDueMinutes: how long the routine review task has to be done.
+    value: { maxDays: 90, reviewDays: 30, reviewTaskDueMinutes: 4320 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/build-threshold-overrides.md",
+  },
+  {
     key: "chain.canary_and_health",
     // P1 (S11 to S15 end to end): the clinical-chain canary and the chain health page. Live values are the active row of
     // `chain_canary_config`; this entry mirrors the v1 seed and a test fails on drift.

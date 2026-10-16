@@ -9,6 +9,7 @@
 // of the rule set row it is told it used.
 
 import { grade } from "../clinical/engine.ts";
+import { applyBpOverride, applyGlucoseOverride, type ActiveOverride, type OverrideDomain } from "../clinical/threshold-override.ts";
 import { GLUCOSE_RULE_SET_CODE, gradeGlucose, type GlucoseInput, type GlucoseRuleSet } from "../clinical/glucose-engine.ts";
 import type { RuleSet, TriageInput, TriageResult } from "../clinical/types.ts";
 import { PermanentHandlerError, type BusEvent, type Handler, type HandlerContext } from "../event-bus/dispatch.ts";
@@ -52,6 +53,29 @@ export interface TriagePorts {
   loadGlucoseContext(observationId: string): Promise<GlucoseTriageContext>;
   loadGlucoseRuleSet(code: string): Promise<GlucoseRuleSetForGrading | null>;
   recordGlucose(args: { observationId: string; result: TriageResult; ruleSetId: string; causationId: string; basis: string }): Promise<void>;
+  /**
+   * Personal threshold overrides (optional: a port set without them grades exactly as before). Returns the patient's signed, in-date
+   * override for this domain, or null. A load that fails is treated as "no override" (the signed default stands, which can only be
+   * as urgent or more urgent), never as a reason to stop grading.
+   */
+  loadThresholdOverride?(observationId: string, domain: OverrideDomain): Promise<ActiveOverride | null>;
+  /** Stores which override changed this grade next to the triage event. Idempotent. Called only when an override changed the grade. */
+  recordOverrideApplication?(args: { observationId: string; domain: OverrideDomain; result: TriageResult; ruleSetId: string; basis: string }): Promise<void>;
+}
+
+async function overrideFor(ports: TriagePorts, observationId: string, domain: OverrideDomain): Promise<ActiveOverride | null> {
+  if (!ports.loadThresholdOverride) return null;
+  try {
+    return await ports.loadThresholdOverride(observationId, domain);
+  } catch {
+    return null;
+  }
+}
+
+async function recordApplication(ports: TriagePorts, observationId: string, domain: OverrideDomain, result: TriageResult, ruleSetId: string, basis: string): Promise<void> {
+  if (result.override && ports.recordOverrideApplication) {
+    await ports.recordOverrideApplication({ observationId, domain, result, ruleSetId, basis });
+  }
 }
 
 /**
@@ -88,13 +112,17 @@ async function handleGlucose(ports: TriagePorts, observationId: string, event: B
   if (!context.found || !context.input) return;
   const set = await ports.loadGlucoseRuleSet(GLUCOSE_RULE_SET_CODE);
   if (!set) throw new Error(`no ${GLUCOSE_RULE_SET_CODE} rule set to grade with`);
-  const result = gradeGlucose(withKnownGlucoseFields(context.input), set.rules);
+  const glucoseInput = withKnownGlucoseFields(context.input);
+  const defaultResult = gradeGlucose(glucoseInput, set.rules);
+  const result = applyGlucoseOverride(glucoseInput, defaultResult, set.rules, await overrideFor(ports, observationId, "glucose")).result;
   // Same stance as blood pressure: an invalid rule set is not graded half way. It retries, then dead-letters where event_bus_health()
   // shows it, while the older glucose pipeline keeps covering the patient.
   if (result.status === "rejected" && result.reason === "invalid_rule_set") {
     throw new Error(`rule set ${set.id} is not valid`);
   }
-  await ports.recordGlucose({ observationId, result, ruleSetId: set.id, causationId: event.eventId, basis: context.basis ?? "" });
+  const basis = context.basis ?? "";
+  await ports.recordGlucose({ observationId, result, ruleSetId: set.id, causationId: event.eventId, basis });
+  await recordApplication(ports, observationId, "glucose", result, set.id, basis);
 }
 
 export function makeObservationHandler(ports: TriagePorts): Handler {
@@ -110,13 +138,17 @@ export function makeObservationHandler(ports: TriagePorts): Handler {
     const set = await ports.loadRuleSet(BP_RULE_SET_CODE);
     if (!set) throw new Error(`no ${BP_RULE_SET_CODE} rule set to grade with`);
 
-    const result = grade(withKnownAge(context.input), set.rules);
+    const bpInput = withKnownAge(context.input);
+    const defaultResult = grade(bpInput, set.rules);
+    const result = applyBpOverride(bpInput, defaultResult, set.rules, await overrideFor(ports, observationId, "bp")).result;
     // A rule set the engine refuses is not graded half way. Throwing retries, then dead-letters,
     // where event_bus_health() shows it; the live pipeline keeps covering the patient meanwhile.
     if (result.status === "rejected" && result.reason === "invalid_rule_set") {
       throw new Error(`rule set ${set.id} is not valid`);
     }
 
-    await ports.record({ observationId, result, ruleSetId: set.id, causationId: event.eventId, basis: context.basis ?? "" });
+    const basis = context.basis ?? "";
+    await ports.record({ observationId, result, ruleSetId: set.id, causationId: event.eventId, basis });
+    await recordApplication(ports, observationId, "bp", result, set.id, basis);
   };
 }

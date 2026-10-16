@@ -29,3 +29,7 @@ export {
   type GlucoseInput, type GlucoseRuleSet, type GlucoseObservationTrigger, type GlucoseContextCode, type GlucoseSymptomCode, type GlucoseDiabetesType, type KetoneUrine,
 } from "./glucose-engine";
 export { GLUCOSE_SIGN_SYMPTOM_TYPE, TICKED_ON_GLUCOSE_FORM_NOTE, type GlucoseSignSymptomType } from "./glucose-signs";
+export {
+  applyBpOverride, applyGlucoseOverride, validateOverrideParams, OVERRIDE_LIMITS,
+  type ActiveOverride, type BpOverrideParams, type GlucoseOverrideParams, type OverrideDomain, type OverrideOutcome, type IgnoredReason,
+} from "./threshold-override";
