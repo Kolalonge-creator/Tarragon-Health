@@ -61,6 +61,41 @@
 
 ---
 
+## External dead-man's switch (OQ-436)
+
+Every watcher of the event bus and paging engine (`sweep_paging_health`, `queue_watchdog`, the reconciler, `paging_heartbeats`)
+runs inside Supabase under the same pg_cron and pg_net that failed on 2026-10-14 and 2026-10-15. If that dies, nothing inside
+notices. So the platform is also checked from OUTSIDE, two independent ways, both calling one read-only endpoint:
+
+    GET /api/health/deadman      header: x-health-secret: <HEALTH_CHECK_SECRET>   (or Authorization: Bearer <same value>)
+
+It reads `public.deadman_status()` (service_role only) and returns counts and ages only, no patient or staff identifier:
+seconds since the `process_events` heartbeat, deliveries due for over 5 minutes and not claimed, dead-letter count, open
+sev1/sev2 incidents. Thresholds are the PROPOSED config `ops.deadman_thresholds` (packages/shared/src/proposed-config). Answers
+200 for ok or degraded, 503 for down or an unreadable database, 401 for a wrong or missing secret, and 503 "not configured"
+when `HEALTH_CHECK_SECRET` is unset (fails closed, reads nothing).
+
+**Layer 1: GitHub Actions** (`.github/workflows/deadman-switch.yml`, every 5 minutes, runs on a GitHub runner). On
+unhealthy, non-200, timeout or unreachable it opens or updates ONE issue titled "[dead-man's switch] Tarragon platform status
+check failing" with label `incident` (never a duplicate), emails through Resend if configured, and on the next healthy run
+comments "Recovered" and closes it. A missing required secret fails the run (red) with an `::error::` line, never a quiet pass.
+**Caveat: GitHub cron is best effort.** Runs can start minutes late, can be skipped under load, and schedules are switched off
+after 60 days without repository activity. The repository is public, so the issue shows only check names, counts and ages.
+
+**Layer 2: a free third-party HTTP monitor** (UptimeRobot, Better Stack, Checkly or cron-job.org free tier), independent of GitHub:
+create an HTTP(s) monitor on `https://<production app host>/api/health/deadman`, interval 1 to 5 minutes, add the request header
+`x-health-secret` with the secret value, alert on any non-200 response and on a request timeout, alert to the founder's phone
+and email. Optionally add a keyword check that the body contains `"verdict":"ok"` (a degraded answer is 200 and is a warning,
+not a page). The same URL and secret also serve the SR1 monitor on `/api/health/deep`.
+
+**When it fires**: treat it as the paging engine being possibly dead. Open the Supabase dashboard (cron job run history,
+`process-events` edge function logs), check `select * from paging_heartbeats`, `select public.event_bus_health()` as an admin,
+then phone the on-call clinician for any open red case (the in-database path cannot be trusted). Log an `ops_incidents` row
+once the database is reachable. Rotating the secret: change `HEALTH_CHECK_SECRET` in Vercel, the GitHub secret and the
+third-party monitor together.
+
+---
+
 ## Tabletop exercises
 
 A walkthrough to run mentally (or literally, talking through each step) per scenario — **not** a
