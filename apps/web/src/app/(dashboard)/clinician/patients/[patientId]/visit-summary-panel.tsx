@@ -33,6 +33,7 @@ interface EditItem {
   customText: string;
   dueOn: string;
   fromSource: boolean;
+  sourceOk: boolean;
 }
 
 const L = "en" as const;
@@ -66,6 +67,7 @@ export function VisitSummaryPanel({ noteId }: { noteId: string }) {
         customText: i.custom_text ?? "",
         dueOn: i.due_on ?? "",
         fromSource: i.source_table !== null,
+        sourceOk: i.source_ok,
       })),
     );
   }, []);
@@ -190,6 +192,7 @@ export function VisitSummaryPanel({ noteId }: { noteId: string }) {
             <ul className="space-y-2">
               {items.map((item, idx) => (
                 <li key={item.id ?? `new-${idx}`} className="space-y-1 rounded-md bg-charcoal-ink/5 p-2">
+                  {!item.sourceOk && <p className="text-xs text-amber-800">{t("avs.review.source_changed", L)}</p>}
                   <p className="text-xs text-charcoal-ink/70">{avsItemLabel({ kind: item.kind, params: item.params, customText: item.customText }, L)}</p>
                   {editable && (
                     <div className="grid gap-2 sm:grid-cols-[10rem_1fr_9rem_auto]">
@@ -221,7 +224,7 @@ export function VisitSummaryPanel({ noteId }: { noteId: string }) {
               ))}
             </ul>
             {editable && (
-              <Button size="sm" variant="outline" onClick={() => setItems([...items, { kind: "custom", params: {}, customText: "", dueOn: "", fromSource: false }])}>
+              <Button size="sm" variant="outline" onClick={() => setItems([...items, { kind: "custom", params: {}, customText: "", dueOn: "", fromSource: false, sourceOk: true }])}>
                 {t("avs.review.add_item", L)}
               </Button>
             )}

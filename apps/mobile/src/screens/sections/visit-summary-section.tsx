@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { asLocale, AVS_URGENT_KEY, avsItemLabel, t, type MessageKey } from "@tarragon/i18n";
-import { addVisitItemToTasks, loadVisitSummaries, setVisitItemDone } from "@/lib/visit-summary";
+import { addVisitItemToTasks, loadVisitSummaries, recordVisitSummaryOpened, setVisitItemDone } from "@/lib/visit-summary";
 import type { VisitSummary, VisitSummaryItem } from "@/lib/visit-summary/parse";
 import { useUiLanguage } from "@/lib/ui-language";
 import { useLegacyColors } from "@/ui/design";
@@ -40,6 +40,16 @@ export function VisitSummarySection() {
   useEffect(() => {
     refresh().finally(() => setLoading(false));
   }, [refresh]);
+
+  // Once per summary per mount; a failure never blocks reading.
+  const noted = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const s of summaries) {
+      if (noted.current.has(s.id)) continue;
+      noted.current.add(s.id);
+      void recordVisitSummaryOpened(s.id);
+    }
+  }, [summaries]);
 
   if (loading) return <ActivityIndicator color={colors.brand} />;
   if (!failed && summaries.length === 0) return null;

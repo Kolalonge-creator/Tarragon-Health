@@ -43,3 +43,10 @@ export function useAddVisitItemToTasks() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["visit-summaries"] }),
   });
 }
+
+/** Records that a summary was opened. The database writes one audit row and one event per summary, viewer and day, so calling it again is harmless. */
+export async function recordVisitSummaryOpened(summaryId: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("record_visit_summary_opened", { p_summary: summaryId });
+  if (error) throw error;
+}

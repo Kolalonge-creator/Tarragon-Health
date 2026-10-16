@@ -54,6 +54,8 @@ export const reviewItemSchema = z.object({
   custom_text: z.string().nullish().transform((v) => v ?? null),
   due_on: z.string().nullish().transform((v) => v ?? null),
   source_table: z.string().nullish().transform((v) => v ?? null),
+  // false when the order or plan change this step came from has since been cancelled, closed or declined
+  source_ok: z.boolean().nullish().transform((v) => v !== false),
 });
 export type ReviewItem = z.infer<typeof reviewItemSchema>;
 

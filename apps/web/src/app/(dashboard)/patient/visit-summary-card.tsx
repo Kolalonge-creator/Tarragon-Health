@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { AVS_URGENT_KEY, avsItemLabel, t, type Locale } from "@tarragon/i18n";
-import { useAddVisitItemToTasks, useMyVisitSummaries, useSetVisitItemDone } from "@/lib/queries/patient-visit-summaries";
+import { recordVisitSummaryOpened, useAddVisitItemToTasks, useMyVisitSummaries, useSetVisitItemDone } from "@/lib/queries/patient-visit-summaries";
 import { formatPatientDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,16 @@ export function VisitSummaryCard({ locale, patientId, readOnly = false }: { loca
   const addTask = useAddVisitItemToTasks();
 
   const list = summaries.data ?? [];
+
+  // Once per summary per page load; the database also keeps it to one record a day. A failure never blocks reading.
+  const noted = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const s of summaries.data ?? []) {
+      if (noted.current.has(s.id)) continue;
+      noted.current.add(s.id);
+      void recordVisitSummaryOpened(s.id).catch(() => undefined);
+    }
+  }, [summaries.data]);
   if (!summaries.isLoading && !summaries.isError && list.length === 0) return null;
 
   return (
@@ -60,7 +71,6 @@ export function VisitSummaryCard({ locale, patientId, readOnly = false }: { loca
                             className="mt-1 h-5 w-5"
                             checked={done}
                             disabled={readOnly || setDone.isPending}
-                            aria-label={done ? t("avs.item.mark_undone", locale) : t("avs.item.mark_done", locale)}
                             onChange={() => setDone.mutate({ itemId: item.id, done: !done })}
                           />
                           <label htmlFor={checkId} className={`min-w-0 flex-1 text-sm ${done ? "line-through opacity-70" : ""}`}>

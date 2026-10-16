@@ -9,6 +9,7 @@ const summaries = jest.fn();
 const mutation = { mutate: jest.fn(), isPending: false, isError: false };
 jest.mock("@/lib/queries/patient-visit-summaries", () => ({
   useMyVisitSummaries: (...a: unknown[]) => summaries(...a),
+  recordVisitSummaryOpened: jest.fn().mockResolvedValue(undefined),
   useSetVisitItemDone: () => mutation,
   useAddVisitItemToTasks: () => mutation,
 }));

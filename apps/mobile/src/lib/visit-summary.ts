@@ -20,3 +20,8 @@ export async function addVisitItemToTasks(itemId: string): Promise<QueryResult<n
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: null };
 }
+
+/** Records that a summary was opened (one audit row and one event per summary, viewer and day, kept by the database). */
+export async function recordVisitSummaryOpened(summaryId: string): Promise<void> {
+  await supabase.rpc("record_visit_summary_opened", { p_summary: summaryId });
+}

@@ -1376,6 +1376,7 @@ export const en = {
   "avs.review.state.draft": "Draft. The patient cannot see it.",
   "avs.review.state.approved": "Approved. The patient can read it.",
   "avs.review.state.withdrawn": "Taken back. The patient cannot see it.",
+  "avs.review.source_changed": "The order or plan change behind this step has been cancelled, closed or declined. The patient does not see this step.",
   "avs.review.stale": "The note was amended after you approved this. The patient cannot see it until you check it and approve it again.",
   "avs.review.protected": "This note is protected. The patient sees the summary only after the note itself is released.",
   "avs.review.not_visible": "Approved, but not shown to the patient yet.",
