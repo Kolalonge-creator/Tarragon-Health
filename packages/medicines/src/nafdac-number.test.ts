@@ -118,6 +118,7 @@ describe("extractStrengthSuggestion", () => {
     [["100 mcg"], "100 mcg"],
     [["100 µg"], "100 mcg"],
     [["100 ug"], "100 mcg"],
+    [["Vitamin B12 500 μg"], "500 mcg"],
     [["1000 iu"], "1000 IU"],
     [["1,5mg/2,5ml"], "1.5 mg/2.5 ml"],
     [["Metformin 1,000 mg"], "1000 mg"],

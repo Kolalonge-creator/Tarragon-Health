@@ -80,6 +80,11 @@ describe("suggestions are never stored unless the person confirms", () => {
     expect(next).not.toBe(FORM);
     expect(FORM).toEqual({ drugName: "", dose: "", nafdacNumber: "" });
   });
+  it("a different name from the pack clears a strength typed for another medicine; the same name keeps it", () => {
+    const form = { drugName: "Metformin", dose: "500 mg", nafdacNumber: "" };
+    expect(applyPackSuggestion(form, { field: "drugName", value: "Amlodipine" })).toMatchObject({ drugName: "Amlodipine", dose: "" });
+    expect(applyPackSuggestion(form, { field: "drugName", value: "metformin" })).toMatchObject({ dose: "500 mg" });
+  });
   it("a suggestion that is rejected (never applied) leaves the form untouched", () => {
     const form = { drugName: "Amlodipine", dose: "10 mg", nafdacNumber: "" };
     const before = JSON.stringify(form);
