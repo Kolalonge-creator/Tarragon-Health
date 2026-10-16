@@ -85,7 +85,7 @@ jobs:
     # mid-run with no useful failure message.
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check required secrets are configured
         id: secrets-check
