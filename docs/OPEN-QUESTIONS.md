@@ -4209,3 +4209,15 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 | OQ-366 | 2831, The go-live guard patches two shared functions (raised by S69) |
 | OQ-370 | 2737, Device capabilities need the CMO and an admin before anything switches on (raised by S70a) |
 | OQ-371 | 2741, Go-live uses `platform_modules`, not `go_live_guards` (raised by S70a) |
+
+### OQ-702 Should a patient be able to replace a file after the care team has opened the alert (raised by the document supersede)
+- Done: a replacement supersedes the original (new row, old row and file kept, alert handed over with the higher priority). Allowed only before review, as before.
+- Open 1: an alert a clinician already acknowledged (not the document) is resolved as a handover and the replacement starts open again; the acknowledging doctor is not told. A short in-app note to the responsible clinician would close this.
+- Open 2: a retry of the mobile POST after a response was lost returns "already replaced" although the replace worked (the old row is hidden, so the route reports it as not the patient's). An idempotency key from the app would remove it.
+- Open 3: a staff supersede (module 57.14) of a never-reviewed document now hides the original from staff too. Say if staff should still see those.
+- Open 4: other SECURITY DEFINER readers of `lab_result_documents` (care-gap, provenance, folio functions) were not audited one by one; each may still treat a replaced, never-reviewed document as present. Only `clinical_worklist` and `org_open_work_counts` were patched.
+- Open 5: replacement is not rate limited (each call writes a row, an alert and an audit row) and does not check that a storage object exists at the path; a per-hour cap from versioned config is the gate to add.
+- Open 6: the patient UPDATE policy from 20260912 still lets a patient rewrite metadata (filename, mime type, order link) on her own unreviewed upload; it existed only for the in-place replace and could be dropped.
+- Open 7: the supersede flag is a transaction setting (`app.result_document_replace`); anyone who can run arbitrary SQL as an authenticated user can set it. Not reachable through the API today.
+- Decision: open.
+

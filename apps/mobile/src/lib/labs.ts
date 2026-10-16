@@ -164,8 +164,9 @@ export async function uploadLabResult(
 }
 
 /**
- * "I photographed the wrong result" — swaps the file on a document the
- * patient uploaded themselves, in place, while it's still unreviewed.
+ * "I photographed the wrong result" — supersedes a document the
+ * patient uploaded themselves (a new linked document; the old one is kept),
+ * while it's still unreviewed.
  * Mirrors uploadLabResult's multipart shape, against
  * /api/mobile/lab-result-replace (replaceResultDocumentAsPatient's native
  * counterpart, DB-enforced by the same RLS/trigger change as the web path).
