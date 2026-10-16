@@ -81,7 +81,7 @@ export function assistedRefusalMessage(kind: AssistedRefusal): string {
     case "rate_limited":
       return "Too many readings have been entered for this person just now. Please wait a while and try again. If they feel unwell, get them to care first; they can also enter it themselves.";
     case "not_permitted":
-      return "You have not been allowed to enter readings for this person. They can allow it in the people who help them.";
+      return "You have not been allowed to enter readings for this person. If it is urgent, get them to care first; they can allow it in the people who help them.";
     case "source":
       return "A reading entered for someone else has to be typed in or come from their paired device.";
     case "too_old":

@@ -310,33 +310,41 @@ begin
   if new.source in ('wearable', 'cgm', 'fhir_import') or (new.source = 'device' and new.device_id is null) then
     raise exception 'assisted_entry_source: a reading entered for someone else is typed in or comes from a paired device' using errcode = '42501';
   end if;
+  -- A device or photo time outside the window (a fast phone clock, an old offline sync) is clamped to now, never refused: the reading must be
+  -- stored and reach the red-flag triggers whatever its value.
   if new.source in ('device', 'photo_confirmed') and (new.taken_at < now() - interval '7 days' or new.taken_at > now() + interval '10 minutes') then
-    raise exception 'assisted_entry_time: that reading is too old to enter for someone else. Please take it again.' using errcode = '22023';
+    new.taken_at := now();
   end if;
-  v_rules := private.assisted_entry_rules();
-  -- No limits configured: the reading is still stored (a missing config must never block a possibly dangerous reading).
-  if v_rules is null then
-    new.assisted_entry := true;
-    return new;
-  end if;
-  v_hour := (v_rules ->> 'max_per_helper_per_person_per_hour')::integer;
-  v_day := (v_rules ->> 'max_per_helper_per_day')::integer;
-  -- A retry of a reading that already landed (same client reading id) is a duplicate, not a new entry: let the unique index answer it.
-  if new.client_reading_id is not null and exists (select 1 from public.vitals_readings v where v.patient_id = new.patient_id and v.client_reading_id = new.client_reading_id) then
-    new.assisted_entry := true;
-    return new;
-  end if;
-  select count(*) into v_n from public.vitals_readings
-   where logged_by_profile_id = v_uid and assisted_entry and patient_id = new.patient_id and received_at > now() - interval '1 hour';
-  -- Past a limit the reading is STORED and flagged, never refused: it must reach the red-flag triggers whatever its value.
-  if v_n >= v_hour then
-    new.assisted_rate_exceeded := true;
-  end if;
-  select count(*) into v_n from public.vitals_readings
-   where logged_by_profile_id = v_uid and assisted_entry and received_at > now() - interval '24 hours';
-  if v_n >= v_day then
-    new.assisted_rate_exceeded := true;
-  end if;
+  -- Everything below is limit bookkeeping. Only the authorisation checks above may refuse; any error here stores the reading unflagged.
+  begin
+    v_rules := private.assisted_entry_rules();
+    -- No limits configured: the reading is still stored (a missing config must never block a possibly dangerous reading).
+    if v_rules is null then
+      new.assisted_entry := true;
+      return new;
+    end if;
+    v_hour := (v_rules ->> 'max_per_helper_per_person_per_hour')::integer;
+    v_day := (v_rules ->> 'max_per_helper_per_day')::integer;
+    -- A retry of a reading that already landed (same client reading id) is a duplicate, not a new entry: let the unique index answer it.
+    if new.client_reading_id is not null and exists (select 1 from public.vitals_readings v where v.patient_id = new.patient_id and v.client_reading_id = new.client_reading_id) then
+      new.assisted_entry := true;
+      return new;
+    end if;
+    select count(*) into v_n from public.vitals_readings
+     where logged_by_profile_id = v_uid and assisted_entry and patient_id = new.patient_id and received_at > now() - interval '1 hour';
+    -- Past a limit the reading is STORED and flagged, never refused: it must reach the red-flag triggers whatever its value.
+    if v_n >= v_hour then
+      new.assisted_rate_exceeded := true;
+    end if;
+    select count(*) into v_n from public.vitals_readings
+     where logged_by_profile_id = v_uid and assisted_entry and received_at > now() - interval '24 hours';
+    if v_n >= v_day then
+      new.assisted_rate_exceeded := true;
+    end if;
+  exception when others then
+    new.assisted_rate_exceeded := false;
+    raise warning 'assisted entry limit check failed (reading kept): %', sqlerrm;
+  end;
   new.assisted_entry := true;
   return new;
 end;
@@ -361,7 +369,7 @@ begin
     select coalesce(is_test, false) into v_test from public.profiles where id = new.patient_id;
     insert into public.assisted_entry_log (organisation_id, patient_id, actor_id, actor_kind, vital_reading_id, vital_type, grant_id, consent_basis, rate_limit_exceeded, is_test)
     values (new.organisation_id, new.patient_id, new.logged_by_profile_id, b.kind, new.id, new.vital_type, b.grant_id, b.basis, new.assisted_rate_exceeded, coalesce(v_test, false));
-    perform private.log_care_access(new.patient_id, 'acted_for', 'care_status', jsonb_build_object('what', 'reading_entered'), new.logged_by_profile_id);
+    perform private.log_care_access(new.patient_id, 'acted_for', 'care_status', jsonb_build_object('what', 'reading_entered', 'over_limit', new.assisted_rate_exceeded), new.logged_by_profile_id);
   exception when others then
     raise warning 'assisted entry ledger failed for reading %: %', new.id, sqlerrm;
   end;

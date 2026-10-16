@@ -1,6 +1,9 @@
 import { assistedRefusalMessage, classifyAssistedRefusal, type AssistedRefusal } from "@tarragon/shared";
 
 /**
+ * Rate limits and a missing limits config no longer refuse anything (the database stores and flags past a limit, OQ-ASSIST-2); the
+ * rate_limited and unavailable kinds are kept only for older database text and phones. A helper without permission is still refused.
+ *
  * A helper's reading refused by the database's assisted-entry guard (not allowed, too many, not typed or device-sourced, too old), turned into
  * something a client can act on. Null when the error is not one of ours, so the caller keeps its own handling. The phone's outbox reads
  * 403 and 422 as "will never succeed" and 429 and 503 as "try again later", which is exactly the difference between these refusals.

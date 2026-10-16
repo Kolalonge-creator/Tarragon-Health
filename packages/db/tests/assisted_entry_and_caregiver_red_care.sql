@@ -301,13 +301,21 @@ begin
       (select r.assisted_rate_exceeded::text from public.vitals_readings r where r.patient_id = pa and r.systolic = 215) || ',' ||
       ((select count(*) from public.emergency_events where patient_id = pa) > v_before)::text);
     -- the per-day limit across people: lower it for this transaction only.
-    update public.assisted_entry_config set rules = '{"max_per_helper_per_person_per_hour": 100, "max_per_helper_per_day": ' || (lim_h + 2) || '}'::jsonb where is_active;
+    update public.assisted_entry_config set rules = '{"max_per_helper_per_person_per_hour": 100, "max_per_helper_per_day": ' || (lim_h + 4) || '}'::jsonb where is_active;
     perform pg_temp.act(cg2);
     perform pg_temp.rec('A7d a second person is still allowed under the day limit and not flagged', 'ok,ok,false',
       pg_temp.bp(v_org, pb, 121, 80) || ',' || pg_temp.bp(v_org, pb, 122, 80) || ',' || (select bool_or(assisted_rate_exceeded)::text from public.vitals_readings where patient_id = pb and systolic in (121, 122)));
     perform pg_temp.rec('A7e past the day limit it is stored and flagged whoever the person is', 'ok,true', pg_temp.bp(v_org, pb, 123, 80) || ',' || (select assisted_rate_exceeded::text from public.vitals_readings where patient_id = pb and systolic = 123));
     perform pg_temp.back();
-    -- the patient's own entries are never limited.
+    -- no active config at all: a crisis reading is still stored and runs the red path.
+    update public.assisted_entry_config set is_active = false where is_active;
+    select count(*) into v_before from public.emergency_events where patient_id = pb;
+    perform pg_temp.act(cg2);
+    perform pg_temp.rec('A7h with no active limits config a crisis reading is still stored and raises the red path', 'ok,true',
+      pg_temp.bp(v_org, pb, 218, 132) || ',' || ((select count(*) from public.emergency_events where patient_id = pb) > v_before)::text);
+    perform pg_temp.back();
+    update public.assisted_entry_config set is_active = true where rules = v_rules;
+        -- the patient's own entries are never limited.
     perform pg_temp.act(pb);
     res := '';
     for i in 1..(lim_h + 4) loop res := res || pg_temp.bp(v_org, pb, 118 + i, 79) || ','; end loop;
