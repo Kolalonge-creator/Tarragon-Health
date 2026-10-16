@@ -4,7 +4,7 @@ import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
-  answerGift, cancelInvite, createInvite, loadMyCircle, loadPendingGifts, loadPreviewMember, loadPreviewPermissions, loadViewLog, pauseCircle, renewMember, resumeCircle, revokeMember, setMonthlyReportShare, updateMember,
+  answerCheckIn, answerGift, cancelInvite, checkInWindowOpen, createInvite, loadCheckInPending, loadMyCircle, loadPendingGifts, loadPreviewMember, loadPreviewPermissions, loadViewLog, pauseCircle, renewMember, resumeCircle, revokeMember, setMonthlyReportShare, updateMember,
 } from "@/lib/care-circle/api";
 import {
   CIRCLE_PERMISSIONS, GRANT_DAY_CHOICES, endsSoon, inviteLinkPath, permissionKey,
@@ -19,6 +19,73 @@ function lagosDate(iso: string): string {
 }
 function lagosDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * S29e: a question from someone in the circle is waiting. One tap answers it and nobody else is told. It never says who asked. Mounted
+ * in the home shell so it does not depend on a notification arriving or on being in one section, and on screen only while a question
+ * is waiting. With the go-live off it never polls.
+ */
+export function CheckInCard() {
+  const colors = useLegacyColors();
+  const locale = asLocale(useUiLanguage());
+  const [open, setOpen] = useState(false);
+  const [waiting, setWaiting] = useState(false);
+  const [readFailed, setReadFailed] = useState(false);
+  const [outcome, setOutcome] = useState<"answered" | "too_late" | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void checkInWindowOpen().then((o) => {
+      if (alive) setOpen(o);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    const check = () => {
+      void loadCheckInPending().then((w) => {
+        if (!alive) return;
+        setReadFailed(w === null);
+        setWaiting(w === true);
+      });
+    };
+    check();
+    const timer = setInterval(check, 20_000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [open]);
+  // A later question starts clean: an old "thank you" must never hide a new button.
+  useEffect(() => {
+    if (waiting) setOutcome(null);
+  }, [waiting]);
+  if (!open) return null;
+  if (outcome === "answered") return <MutedText>{t("circle.checkin.responded", locale)}</MutedText>;
+  if (outcome === "too_late") return <MutedText>{t("circle.checkin.too_late", locale)}</MutedText>;
+  if (readFailed) return <MutedText>{t("circle.checkin.read_failed", locale)}</MutedText>;
+  if (!waiting) return null;
+  return (
+    <Card style={{ gap: 8 }}>
+      <Text accessibilityRole="alert" style={{ fontWeight: "700", color: colors.ink }}>{t("circle.checkin.pending_title", locale)}</Text>
+      <Text style={{ color: colors.ink }}>{t("circle.checkin.pending_body", locale)}</Text>
+      <PrimaryButton
+        title={t("circle.checkin.respond", locale)}
+        onPress={() => {
+          setFailed(false);
+          void answerCheckIn().then((r) => {
+            if (r === null) setFailed(true);
+            else setOutcome(r ? "answered" : "too_late");
+          });
+        }}
+      />
+      {failed ? <ErrorText>{t("circle.checkin.error", locale)}</ErrorText> : null}
+    </Card>
+  );
 }
 
 /** A care pack or Membership someone else paid for waits here for the patient's yes (S29b). Nothing starts until they accept. */

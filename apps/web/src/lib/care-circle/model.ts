@@ -152,6 +152,8 @@ export const previewSchema = z.union([
     permissions: z.array(permissionSchema),
     grant_days: z.number(),
     expires_at: z.string(),
+    /** S29e: the supporter's organisation differs from the patient's, so payment is not on offer. */
+    cross_organisation: z.boolean().optional(),
   }),
   z.object({ ok: z.literal(false) }),
 ]);
@@ -200,4 +202,36 @@ export const giftResultSchema = z.object({ result: z.enum(["accepted", "declined
 export function parseGiftResult(data: unknown): "accepted" | "declined" | "other" {
   const r = giftResultSchema.safeParse(data);
   return r.success && (r.data.result === "accepted" || r.data.result === "declined") ? r.data.result : "other";
+}
+
+/** S29e: a supporter's non-emergency check-in request. `reason` is only ever one of these two (the database says nothing else). */
+export const checkInRequestSchema = z.union([
+  z.object({ ok: z.literal(true), window_ends_at: z.string() }),
+  z.object({ ok: z.literal(false), reason: z.enum(["limit", "already_waiting"]) }),
+]);
+export type CheckInRequestResult = z.infer<typeof checkInRequestSchema>;
+export function parseCheckInRequest(data: unknown): CheckInRequestResult | null {
+  const r = checkInRequestSchema.safeParse(data);
+  return r.success ? r.data : null;
+}
+/** The patient's own view of a waiting question. A reply that does not parse means "nothing waiting"; the screen never invents one. */
+export function parseCheckInPending(data: unknown): boolean {
+  const r = z.object({ waiting: z.boolean() }).safeParse(data);
+  return r.success && r.data.waiting;
+}
+
+/** S29e: people who did not answer a check-in in time. Name only, like a red alert: no reading, no cause. */
+const unansweredSchema = z.object({ patient_id: z.string(), name: z.string(), since: z.string() });
+export type UnansweredCheckIn = z.infer<typeof unansweredSchema>;
+export function parseUnanswered(data: unknown): UnansweredCheckIn[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const r = unansweredSchema.safeParse(row);
+    return r.success ? [r.data] : [];
+  });
+}
+/** Whole minutes left in a window, never below one, from the end time the database sent (the length is configuration, not a constant here). */
+export function minutesLeft(windowEndsAt: string, nowMs: number): number {
+  const end = Date.parse(windowEndsAt);
+  return Number.isFinite(end) ? Math.max(1, Math.round((end - nowMs) / 60_000)) : 5;
 }

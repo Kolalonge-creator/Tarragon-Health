@@ -1,3 +1,5 @@
+import { parseOpenAlerts, parseUnanswered } from "@/lib/care-circle/model";
+import { CheckInCard } from "@/app/(dashboard)/patient/care-circle/check-in-card";
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/app-shell";
@@ -97,6 +99,18 @@ export default async function DashboardLayout({
     communityOpen = parsedList?.success === true && parsedList.data.open && parsedList.data.adult;
   }
 
+  // A supporter's "needs attention" badge on People you support: the backup for the push, drawn on every page by the server. A failed
+  // read shows as unknown, never as zero. Only people with an open, un-called check-in request count; nothing about the person.
+  let supportingBadge: { count: number; failed: boolean } | undefined;
+  if (profile?.role === "patient") {
+    const { data: alertData, error: alertError } = await supabase.rpc("circle_open_alerts");
+    const { data: unansweredData, error: unansweredError } = await supabase.rpc("circle_unanswered_check_ins");
+    supportingBadge =
+      alertError || unansweredError
+        ? { count: 0, failed: true }
+        : { count: parseOpenAlerts(alertData).filter((a) => !a.called).length + parseUnanswered(unansweredData).length, failed: false };
+  }
+
   const isPatient = profile?.role === "patient" && !supporterOnly;
   const idLabel = isPatient ? "Patient ID" : staffNumber ? "Staff ID" : undefined;
   const idValue = isPatient ? profile?.patient_number : staffNumber;
@@ -172,11 +186,12 @@ export default async function DashboardLayout({
         // The search box for the admin and the Chief Medical Officer: every page they can reach, built from the lists that draw the menus.
         adminSearch={adminSearchEntries}
         // The Chief Medical Officer's pending-signature count beside "Sign-off hub", from the same list the banner and the hub show.
-        hrefBadges={
-          signingHub
+        hrefBadges={{
+          ...(signingHub
             ? { "/clinician/clinical-signoff": { count: signingHub.items.length, failed: signingHub.failed && signingHub.items.length === 0 } }
-            : undefined
-        }
+            : {}),
+          ...(supportingBadge ? { "/patient/supporting": supportingBadge } : {}),
+        }}
         // Patient accounts (supporters included — they share the patient
         // role) get the Warm Ivory ground the mobile app already ships;
         // staff and clinical consoles keep the white canvas.
@@ -186,6 +201,8 @@ export default async function DashboardLayout({
       >
         <OfflineBanner />
         <MfaNudgeBanner role={profile?.role ?? null} />
+        {/* S29e: a supporter asked for a check-in and the patient has a few minutes to answer. Only the patient's own account, only while a question waits. */}
+        {isPatient && <CheckInCard locale="en" />}
         {/* Reachable at /patient/privacy for any signed-in patient, supporter-only
             accounts included (they consent to terms_of_service and can go stale
             same as anyone else) — gated here on onboarding_completed_at so this

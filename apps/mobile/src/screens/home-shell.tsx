@@ -10,6 +10,10 @@ import { replanDoseReminders } from "@/lib/dose-reminders";
 import { CatchUpSheet } from "@/screens/catch-up-sheet";
 import { TopBar } from "@/ui/top-bar";
 import { NavDrawer } from "@/ui/nav-drawer";
+import { JoinInviteModal } from "@/screens/sections/join-invite-modal";
+import { loadOpenAlerts, loadUnanswered } from "@/lib/care-circle/api";
+import { CheckInCard } from "@/screens/sections/care-circle-section";
+import { needsAttentionCount } from "@/lib/care-circle/parse";
 import { BottomTabBar } from "@/ui/bottom-tab-bar";
 import { ActingForBanner } from "@/ui/acting-for-banner";
 import { useTheme } from "@/ui/design";
@@ -245,6 +249,25 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   // supported person's account open, for a supporter-only account, while the go-live guard is off, and for anyone under 18.
   const communityVisible = useCommunityEntry(userId, acting !== null, actingChecked);
   const hiddenSections: SectionId[] = communityVisible ? [] : ["community"];
+  // S29e: people who need a supporter's attention, shown as a count on "People you support" in the menu. The backup for the push:
+  // read on open, on a light timer and whenever the app comes back. A failed read leaves the last known count (never invents one).
+  const [attentionCount, setAttentionCount] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      void Promise.all([loadOpenAlerts(), loadUnanswered()]).then(([a, u]) => {
+        if (alive && a.ok) setAttentionCount(needsAttentionCount(a.data) + (u.ok ? u.data.length : 0));
+      });
+    };
+    refresh();
+    const timer = setInterval(refresh, 60_000);
+    const sub = AppState.addEventListener("change", (s) => { if (s === "active") refresh(); });
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      sub.remove();
+    };
+  }, []);
 
   // One renderer per SectionId, keyed by a Record rather than a chain of
   // `section === "x" &&` branches: TypeScript refuses to compile this object
@@ -395,6 +418,9 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         />
       )}
 
+      {/* S29e: a supporter asked for a check-in; the patient's own account only, and only while a question waits. */}
+      {acting === null ? <CheckInCard /> : null}
+
       <View style={{ flex: 1 }}>{sectionRenderers[section]()}</View>
 
       {/* handleSelect, not setSection: switching tabs must also close the
@@ -410,6 +436,8 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
           device owner's own medicines only, never the person being acted for. */}
       <CatchUpSheet patientId={userId} organisationId={organisationId} enabled={actingChecked && acting === null} />
 
+      <JoinInviteModal onJoined={() => handleSelect("supporting")} />
+
       <NavDrawer
         visible={drawerOpen}
         activeSection={section}
@@ -418,6 +446,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         initials={initials}
         onSelect={handleSelect}
         hiddenSections={hiddenSections}
+        badges={{ supporting: attentionCount }}
         onClose={() => setDrawerOpen(false)}
         onSignOut={() => {
           setDrawerOpen(false);

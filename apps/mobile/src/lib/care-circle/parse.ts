@@ -170,3 +170,38 @@ export function parsePendingGifts(data: unknown): PendingGift[] {
 export function parseGiftAnswer(data: unknown): "accepted" | "declined" | null {
   return isObj(data) && (data["result"] === "accepted" || data["result"] === "declined") ? data["result"] : null;
 }
+
+/** S29e: what the join screen shows before the supporter accepts. `crossOrganisation` means payment is not on offer. */
+export type InvitePreview = { ok: true; inviterFirstName: string; relationship: string; permissions: CirclePermission[]; crossOrganisation: boolean } | { ok: false };
+export function parseInvitePreview(data: unknown): InvitePreview {
+  if (!isObj(data) || data["ok"] !== true || !str(data["inviter_first_name"]) || !str(data["relationship"])) return { ok: false };
+  const perms = permissions(data["permissions"]);
+  if (!perms) return { ok: false };
+  return { ok: true, inviterFirstName: data["inviter_first_name"], relationship: data["relationship"], permissions: perms, crossOrganisation: data["cross_organisation"] === true };
+}
+export function parseAcceptInvite(data: unknown): { ok: true; patientId: string } | { ok: false } {
+  return isObj(data) && data["ok"] === true && str(data["patient_id"]) ? { ok: true, patientId: data["patient_id"] } : { ok: false };
+}
+/** A request for a check-in (S29e, non-emergency). `null` means the reply was not understood; the screen says so and never assumes success. */
+export type CheckInResult = { ok: true; windowEndsAt: string } | { ok: false; reason: "limit" | "already_waiting" };
+export function parseCheckInResult(data: unknown): CheckInResult | null {
+  if (!isObj(data)) return null;
+  if (data["ok"] === true && str(data["window_ends_at"])) return { ok: true, windowEndsAt: data["window_ends_at"] };
+  if (data["ok"] === false && (data["reason"] === "limit" || data["reason"] === "already_waiting")) return { ok: false, reason: data["reason"] };
+  return null;
+}
+export const parseCheckInPending = (data: unknown): boolean => isObj(data) && data["waiting"] === true;
+/** People with an open check-in request nobody has marked "I called them": the number on the menu badge. */
+export const needsAttentionCount = (alerts: readonly OpenAlert[]): number => alerts.filter((a) => !a.called).length;
+
+/** Whole minutes left in a window, never below one, from the end time the database sent (the length is configuration, not a constant here). */
+export function minutesLeft(windowEndsAt: string, nowMs: number): number {
+  const end = Date.parse(windowEndsAt);
+  return Number.isFinite(end) ? Math.max(1, Math.round((end - nowMs) / 60_000)) : 5;
+}
+/** People who did not answer a check-in in time: name and time only, like a red alert. A malformed row is dropped. */
+export interface UnansweredCheckIn { patientId: string; name: string; since: string }
+export function parseUnanswered(data: unknown): UnansweredCheckIn[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((r) => (isObj(r) && str(r["patient_id"]) && str(r["name"]) && str(r["since"]) ? [{ patientId: r["patient_id"], name: r["name"], since: r["since"] }] : []));
+}

@@ -53,6 +53,7 @@ export function JoinCard({ token, locale }: { token: string; locale: Locale }) {
             {p.permissions.map((perm) => <li key={perm}>{t(permissionKey(perm), locale)}</li>)}
           </ul>
         </section>
+        {p.cross_organisation ? <p className={`text-sm ${MUTED}`}>{t("circle.join.cross_org", locale)}</p> : null}
         <div className="flex flex-wrap gap-3">
           <Button type="button" className={TOUCH} disabled={accept.isPending} onClick={() => accept.mutate(token)}>
             {t("circle.join.accept", locale)}
@@ -61,6 +62,10 @@ export function JoinCard({ token, locale }: { token: string; locale: Locale }) {
             <Link href="/patient/supporting">{t("circle.join.decline", locale)}</Link>
           </Button>
         </div>
+        {/* The web page is the fallback for a phone without the app; with the app, this hands the same link over (custom scheme, no rebuild). */}
+        <p className="text-sm">
+          <a className="underline" href={`tarragonhealth://join/${encodeURIComponent(token)}`}>{t("circle.join.open_in_app", locale)}</a>
+        </p>
       </CardContent>
     </Card>
   );

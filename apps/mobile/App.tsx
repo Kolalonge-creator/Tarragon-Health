@@ -10,7 +10,8 @@ import { ToastProvider } from "@/ui/kit";
 import { useEffect, useRef, useState } from "react";
 import { useFonts } from "expo-font";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { ActivityIndicator, AppState, InteractionManager, Image, StatusBar, Text, View } from "react-native";
+import { ActivityIndicator, AppState, InteractionManager, Image, Linking, StatusBar, Text, View } from "react-native";
+import { offerUrl } from "@/lib/care-circle/join-link";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
@@ -61,6 +62,12 @@ type LockState = "unknown" | "locked" | "unlocked";
  */
 function AppContent() {
   const { scheme, colors: theme } = useTheme();
+  // S29e: a Care Circle invite opened from a link (cold start or while running). Held in memory until a signed-in shell can show it.
+  useEffect(() => {
+    void Linking.getInitialURL().then(offerUrl).catch(() => {});
+    const sub = Linking.addEventListener("url", (e) => { offerUrl(e.url); });
+    return () => sub.remove();
+  }, []);
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [identity, setIdentity] = useState<PatientIdentity | null | undefined>(undefined);
   const [lockState, setLockState] = useState<LockState>("unknown");
