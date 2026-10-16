@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import type { FhirResource } from "./bundle-schema";
 import { VITAL_TYPE_VALUE_FIELD } from "./vital-mapping";
+import { convertToCanonical } from "@/lib/fhir/units";
 
 /**
  * Parser version stamped on every fhir_import_proposed_resources row
@@ -12,7 +13,7 @@ import { VITAL_TYPE_VALUE_FIELD } from "./vital-mapping";
  * different rule set" apart from a fresh one, same idea as the wearables
  * field-mapping note in CLAUDE.md.
  */
-export const FHIR_PARSER_VERSION = 1;
+export const FHIR_PARSER_VERSION = 2;
 
 export type SupportedFhirResourceType =
   Database["public"]["Enums"]["fhir_import_resource_type"];
@@ -72,9 +73,20 @@ async function parseObservation(resource: FhirResource, supabase: SupabaseClient
   if (code === BP_PANEL_LOINC || resource.component?.length) {
     const systolicComp = resource.component?.find((c) => codingCode(c.code) === SYSTOLIC_LOINC);
     const diastolicComp = resource.component?.find((c) => codingCode(c.code) === DIASTOLIC_LOINC);
-    const systolic = systolicComp?.valueQuantity?.value;
-    const diastolic = diastolicComp?.valueQuantity?.value;
-    if (systolic != null && diastolic != null) {
+    const rawSystolic = systolicComp?.valueQuantity;
+    const rawDiastolic = diastolicComp?.valueQuantity;
+    if (rawSystolic?.value != null && rawDiastolic?.value != null) {
+      // Units are checked, never assumed (S44): a pressure in another unit is refused, not filed as mmHg.
+      const sys = convertToCanonical("blood_pressure", rawSystolic.value, rawSystolic.unit, rawSystolic.code);
+      const dia = convertToCanonical("blood_pressure", rawDiastolic.value, rawDiastolic.unit, rawDiastolic.code);
+      if (!sys || !dia) {
+        return {
+          ok: false,
+          skip: { resourceType: "Observation", reason: "Blood pressure has no unit or a unit other than mmHg, so the values cannot be filed safely" },
+        };
+      }
+      const systolic = sys.value;
+      const diastolic = dia.value;
       return {
         ok: true,
         proposal: {
@@ -117,10 +129,24 @@ async function parseObservation(resource: FhirResource, supabase: SupabaseClient
   }
 
   const vital_type = mapping.vital_type;
-  const value = resource.valueQuantity?.value;
-  if (value == null) {
+  const quantity = resource.valueQuantity;
+  if (quantity?.value == null) {
     return { ok: false, skip: { resourceType: "Observation", reason: `No valueQuantity for LOINC ${code}` } };
   }
+  // The unit decides what the number means. A glucose of 126 is 126 mg/dL or 126 mmol/L depending on it, so no unit, or a unit this platform does
+  // not know, is a refusal with a reason; a known other unit is converted and the conversion is shown to the reviewing clinician.
+  const converted = convertToCanonical(vital_type, quantity.value, quantity.unit, quantity.code);
+  if (!converted) {
+    return {
+      ok: false,
+      skip: {
+        resourceType: "Observation",
+        reason: `${quantity.unit ?? quantity.code ?? "No unit"} is missing or not a unit this platform can convert for ${vital_type} (LOINC ${code}), so the value was not filed`,
+      },
+    };
+  }
+  const value = converted.value;
+  if (converted.warning) warnings.push(converted.warning);
 
   // VITAL_TYPE_VALUE_FIELD (vital-mapping.ts) is the single source of truth
   // for which vitals_readings column a vital_type lands in — the review UI

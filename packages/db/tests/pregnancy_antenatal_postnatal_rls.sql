@@ -64,6 +64,10 @@ begin
       set organisation_id = excluded.organisation_id,
           role            = excluded.role,
           full_name       = excluded.full_name;
+
+    -- S47d: reproductive health records are written only after the person has said yes (the fixture says it for them)
+    insert into public.consent_matrix_events (organisation_id, patient_id, data_type, purpose, action, policy_version, source, recorded_by, is_test)
+    values (v_org, v_id, 'reproductive', 'care', 'granted', 2, 'patient', v_id, false);
   end loop;
 end $$;
 

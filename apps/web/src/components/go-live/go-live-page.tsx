@@ -140,6 +140,12 @@ function GuardCard({ g, viewer, locale }: { g: GuardStatus; viewer: Viewer | nul
                 {c.source === "data" ? t("golive.cond.source.data", locale) : c.source === "attestation" ? t("golive.cond.source.attestation", locale) : t("golive.cond.source.switch", locale)}
                 {c.detail ? `: ${c.detail}` : ""}
               </p>
+              {/* S47: the code name of a condition a person records, so the CMO can find it, name it in a note and attest it. */}
+              {c.source === "attestation" && (
+                <p className="text-xs text-charcoal-ink/60">
+                  {t("golive.cond.code", locale)} <code data-testid="attestation-code" className="rounded bg-charcoal-ink/10 px-1 font-mono">{c.code}</code>
+                </p>
+              )}
               {c.source === "attestation" && viewer !== null && (
                 <form action={attestConditionAction} className="mt-2 space-y-2">
                   <input type="hidden" name="viewer" value={viewer} />

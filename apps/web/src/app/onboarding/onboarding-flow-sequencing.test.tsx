@@ -24,6 +24,16 @@ jest.mock("@/app/(dashboard)/patient/patient-location-form", () => ({
   PatientLocationForm: () => null,
 }));
 jest.mock("./intake-step", () => ({ IntakeStep: () => <div data-testid="intake-step" /> }));
+jest.mock("@/app/(dashboard)/patient/emergency-card/blood-attestation-form", () => ({
+  BloodAttestationForm: () => null,
+}));
+jest.mock("./actions", () => ({
+  completeOnboarding: jest.fn(),
+  saveOnboardingAnswers: jest.fn().mockResolvedValue({ ok: true }),
+  joinProgrammeCode: jest.fn(),
+  saveDemographics: jest.fn(),
+  acceptConsents: jest.fn(),
+}));
 
 const BASE_INITIAL = {
   consentDone: false,
@@ -60,14 +70,46 @@ describe("OnboardingFlow — intent-first sequencing", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("I want to stay ahead of problems"));
+    fireEvent.click(screen.getByLabelText("Staying ahead of problems"));
+    fireEvent.click(screen.getByLabelText("None of these"));
+    fireEvent.click(screen.getByText("Continue"));
 
     expect(screen.queryByText("What brings you here?")).toBeNull();
     expect(screen.getByText("Your agreement")).toBeTruthy();
     expect(screen.getByTestId("care-team")).toBeTruthy();
   });
 
-  it("skips the intent step entirely for someone reopening an already-started flow", () => {
+  it("keeps the person on the question and explains when nothing is chosen", () => {
+    render(
+      <OnboardingFlow
+        profile={{ id: "patient-1", fullName: "Amaka" }}
+        careTeamSlot={<div data-testid="care-team" />}
+        existingPlan={null}
+        initial={BASE_INITIAL}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Continue"));
+
+    expect(screen.getByRole("alert").textContent).toContain("Choose at least one answer");
+    expect(screen.getByText("What brings you here?")).toBeTruthy();
+  });
+
+  it("skips the question for someone whose answers are already saved", () => {
+    render(
+      <OnboardingFlow
+        profile={{ id: "patient-1", fullName: "Amaka" }}
+        careTeamSlot={<div data-testid="care-team" />}
+        existingPlan={null}
+        initial={{ ...BASE_INITIAL, answers: { goals: ["stay_ahead"], conditions: ["none"] } }}
+      />
+    );
+
+    expect(screen.queryByText("What brings you here?")).toBeNull();
+    expect(screen.getByTestId("care-team")).toBeTruthy();
+  });
+
+  it("asks again when consent is on file but no answers are (an account made before S41)", () => {
     render(
       <OnboardingFlow
         profile={{ id: "patient-1", fullName: "Amaka" }}
@@ -77,8 +119,8 @@ describe("OnboardingFlow — intent-first sequencing", () => {
       />
     );
 
-    expect(screen.queryByText("What brings you here?")).toBeNull();
-    expect(screen.getByTestId("care-team")).toBeTruthy();
+    expect(screen.getByText("What brings you here?")).toBeTruthy();
+    expect(screen.queryByTestId("care-team")).toBeNull();
   });
 
   it("regression: hides the risk-assessment questionnaire when demographics is done but consent is not (was previously gated on demographics alone)", () => {
@@ -92,7 +134,12 @@ describe("OnboardingFlow — intent-first sequencing", () => {
         profile={{ id: "patient-1", fullName: "Amaka" }}
         careTeamSlot={<div data-testid="care-team" />}
         existingPlan={null}
-        initial={{ ...BASE_INITIAL, consentDone: false, demographicsDone: true }}
+        initial={{
+          ...BASE_INITIAL,
+          consentDone: false,
+          demographicsDone: true,
+          answers: { goals: ["stay_ahead"], conditions: ["none"] },
+        }}
       />
     );
 

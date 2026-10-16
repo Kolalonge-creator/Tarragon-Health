@@ -4,9 +4,9 @@ import { useState } from "react";
 import { RiskAssessmentForm } from "@/app/(dashboard)/patient/risk-assessment-form";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
 import { Button } from "@/components/ui/button";
-import type { OnboardingIntent } from "./intent-step";
+import type { OnboardingIntent } from "./answers-step";
 
-/** Keyed off the intent chosen in intent-step.tsx — a straight copy swap,
+/** Keyed off the intent derived in answers-step.tsx — a straight copy swap,
  *  not a change to the questionnaire itself. Deliberately NOT used to open
  *  the assessment on a later section: every section's required fields
  *  (Lifestyle's in particular — smoking/alcohol/sleep/stress/height have no
@@ -39,7 +39,7 @@ export function IntakeStep({
 }: {
   patientId: string;
   onSkip: () => void;
-  /** From intent-step.tsx — only changes which intro line is shown below. */
+  /** From answers-step.tsx — only changes which intro line is shown below. */
   intent: OnboardingIntent;
 }) {
   const [showMeds, setShowMeds] = useState(false);

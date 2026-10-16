@@ -32,6 +32,7 @@ export const TASK_TYPE_LABEL: Readonly<Record<string, string>> = {
   admin_clinical: "Referral letters and repeat prescriptions",
   crisis_follow_up: "Crisis follow-up (wellbeing check-in)",
   adherence_follow_up: "Adherence follow-up (missed doses or silence)",
+  health_report_signoff: "Yearly health report sign-off",
   home_bp_check_review: "Home blood pressure check review",
   bp_pattern_review: "Blood pressure pattern for review (clinic and home differ)",
   red_patient_outreach: "Call the patient: a red alert was not confirmed",

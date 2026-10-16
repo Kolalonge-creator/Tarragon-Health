@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { formatGlucose, type GlucoseDisplayUnit } from "@tarragon/shared";
 import { getGlucoseDisplayUnit } from "@/lib/patient/glucose-unit";
 import Link from "next/link";
+import { t } from "@tarragon/i18n";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { getHealthPassportData, stripDoctorHonorific } from "@/lib/health-passport/get-health-passport-data";
@@ -91,12 +92,38 @@ export default async function HealthPassportPage() {
               href="/api/patient/health-passport/pdf"
               className="rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white hover:opacity-90"
             >
-              Download PDF
+              {t("passport.pdf.full")}
+            </Link>
+            <Link
+              href="/api/patient/health-passport/pdf?variant=doctor"
+              title={t("passport.pdf.doctor_help")}
+              className="rounded-md border border-brand-green px-4 py-2 text-sm font-medium text-brand-green hover:bg-soft-sage"
+            >
+              {t("passport.pdf.doctor")}
             </Link>
           </div>
         }
       />
 
+      {/* S43: the other parts of the record, one tap away. */}
+      <nav aria-label={t("passport.record_nav")} className="flex flex-wrap gap-2 text-sm">
+        {(
+          [
+            ["/patient/timeline", "passport.nav.timeline"],
+            ["/patient/documents", "passport.nav.documents"],
+            ["/patient/biomarkers", "passport.nav.biomarkers"],
+            ["/patient/health-history", "passport.nav.history"],
+            ["/patient/symptom-journal", "passport.nav.journal"],
+            ["/patient/share-records", "passport.nav.share"],
+            ["/patient/emergency-card", "passport.nav.emergency"],
+            ["/patient/data-exchange", "passport.nav.exchange"],
+          ] as const
+        ).map(([href, key]) => (
+          <Link key={href} href={href} className="rounded-full border border-charcoal-ink/15 px-3 py-1 hover:bg-charcoal-ink/5 dark:border-night-ink/20">
+            {t(key)}
+          </Link>
+        ))}
+      </nav>
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>

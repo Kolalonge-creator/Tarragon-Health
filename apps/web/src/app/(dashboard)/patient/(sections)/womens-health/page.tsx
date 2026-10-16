@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { FeatureConsentGate } from "@/components/consent/feature-consent-gate";
 import { ReproductiveHealthCard } from "@/app/(dashboard)/patient/reproductive-health-card";
 import { ContraceptionCard } from "@/app/(dashboard)/patient/contraception-card";
 import { AntenatalCard } from "@/app/(dashboard)/patient/antenatal-card";
@@ -238,6 +239,7 @@ export default async function WomensHealthPage() {
           </CardContent>
         </Card>
 
+        <FeatureConsentGate dataType="reproductive" onBehalfOf={subjectId !== profile.id}>
         {profile.organisation_id && <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />}
 
         {reproUnknown && (
@@ -292,6 +294,7 @@ export default async function WomensHealthPage() {
         )}
 
         <BreastSymptomCard patientId={subjectId} />
+        </FeatureConsentGate>
       </PrivateSection>
     </DashboardSection>
   );

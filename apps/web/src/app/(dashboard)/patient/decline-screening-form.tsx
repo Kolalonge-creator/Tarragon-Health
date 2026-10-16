@@ -1,16 +1,15 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useDeclineScreeningSchedule } from "@/lib/queries/screening";
-import { declineScreeningSchema } from "@/lib/validation/screening-decline";
+import { t } from "@tarragon/i18n";
+import { useSetScreeningState } from "@/lib/queries/screening";
+import { SCREENING_REASON_CODES, screeningStateSchema } from "@/lib/validation/screening-decline";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 /**
- * Lets a patient decline a recommended screening instead of leaving it
- * pending forever — closes the gap where a "no thanks" had no way to stop
- * the graduated reminder ladder or the care-coordinator overdue-outreach
- * queue from nagging about it indefinitely.
+ * Lets a patient close a recommended screening as declined or not applicable, with a reason code and a few words, instead of leaving it
+ * pending forever. The reason is stored (S45, function 3.5), the reminder ladder stops, and a later scheduler run never brings it back.
  */
 export function DeclineScreeningForm({
   patientId,
@@ -19,63 +18,86 @@ export function DeclineScreeningForm({
   patientId: string;
   scheduleId: string;
 }) {
-  const declineSchedule = useDeclineScreeningSchedule();
+  const setState = useSetScreeningState();
   const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState("");
+  const [state, setStateChoice] = useState<"declined" | "not_applicable">("declined");
+  const [reasonCode, setReasonCode] = useState<(typeof SCREENING_REASON_CODES)[number]>("other");
+  const [note, setNote] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [declined, setDeclined] = useState(false);
+  const [saved, setSaved] = useState<"declined" | "not_applicable" | null>(null);
 
-  async function handleDecline(event: FormEvent) {
+  async function handleSave(event: FormEvent) {
     event.preventDefault();
     setValidationError(null);
 
-    const parsed = declineScreeningSchema.safeParse({ schedule_id: scheduleId, reason });
+    const parsed = screeningStateSchema.safeParse({ schedule_id: scheduleId, state, reason_code: reasonCode, note });
     if (!parsed.success) {
-      setValidationError(parsed.error.issues[0]?.message ?? "Invalid input");
+      setValidationError(parsed.error.issues[0]?.message ?? t("screening.state.note_required", "en"));
       return;
     }
 
     try {
-      await declineSchedule.mutateAsync({ ...parsed.data, patientId });
-      setDeclined(true);
+      await setState.mutateAsync({ ...parsed.data, patientId });
+      setSaved(parsed.data.state);
     } catch {
-      // Mutation error surfaces via declineSchedule.error below.
+      // Mutation error surfaces via setState.error below.
     }
   }
 
-  if (declined) {
+  if (saved) {
     return (
       <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-        Marked as declined. Your care team can see this and follow up if needed.
+        {t(saved === "declined" ? "screening.state.saved_declined" : "screening.state.saved_not_applicable", "en")}
       </p>
     );
   }
 
-  const error = validationError ?? (declineSchedule.error as Error | null)?.message ?? null;
+  const error = validationError ?? (setState.error as Error | null)?.message ?? null;
 
   if (!open) {
     return (
       <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}>
-        Not right for me
+        {t("screening.state.open", "en")}
       </Button>
     );
   }
 
   return (
-    <form onSubmit={handleDecline} className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+    <form onSubmit={handleSave} className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+      <fieldset className="space-y-1">
+        <legend className="text-xs font-medium">{t("screening.state.choose", "en")}</legend>
+        {(["declined", "not_applicable"] as const).map((s) => (
+          <label key={s} className="flex items-center gap-2 text-sm">
+            <input type="radio" name={`state-${scheduleId}`} checked={state === s} onChange={() => setStateChoice(s)} />
+            {t(s === "declined" ? "screening.state.declined" : "screening.state.not_applicable", "en")}
+          </label>
+        ))}
+      </fieldset>
+      <select
+        aria-label={t("screening.state.choose", "en")}
+        value={reasonCode}
+        onChange={(event) => setReasonCode(event.target.value as (typeof SCREENING_REASON_CODES)[number])}
+        className="w-full rounded-md border border-charcoal-ink/20 bg-transparent p-2 text-sm"
+      >
+        {SCREENING_REASON_CODES.map((code) => (
+          <option key={code} value={code}>
+            {t(`screening.reason.${code}`, "en")}
+          </option>
+        ))}
+      </select>
       <Textarea
-        placeholder="Let us know why (e.g. already had this elsewhere, not applicable to me)"
-        value={reason}
-        onChange={(event) => setReason(event.target.value)}
+        placeholder={t("screening.state.note_placeholder", "en")}
+        value={note}
+        onChange={(event) => setNote(event.target.value)}
         rows={2}
       />
       {error && <p className="text-xs text-red-600 dark:text-red-300">{error}</p>}
       <div className="flex gap-2">
-        <Button type="submit" size="sm" variant="outline" disabled={declineSchedule.isPending}>
-          {declineSchedule.isPending ? "Saving…" : "Confirm decline"}
+        <Button type="submit" size="sm" variant="outline" disabled={setState.isPending}>
+          {setState.isPending ? t("screening.state.saving", "en") : t("screening.state.save", "en")}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
-          Cancel
+          {t("common.cancel", "en")}
         </Button>
       </div>
     </form>

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScreeningDisclaimer } from "@/components/screening-disclaimer";
 
 const BAND_COPY: Record<CvdRiskBand, { label: string; tone: string }> = {
   low: { label: "Low risk", tone: "text-brand-green dark:text-brand-green-bright" },
@@ -118,6 +119,7 @@ export function CvdRiskCheck() {
                 </p>
               </>
             )}
+            {result.band !== "insufficient" && <ScreeningDisclaimer />}
           </div>
         )}
       </CardContent>

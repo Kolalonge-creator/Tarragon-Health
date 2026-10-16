@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { classifyExpoReceipt, decide, pushEnvelope, quietUntil, type DecideInput, type QuietSettings } from "./index.ts";
+import { classifyExpoReceipt, decide, emailEnvelope, pushEnvelope, quietUntil, type DecideInput, type QuietSettings } from "./index.ts";
 
 const Q: QuietSettings = { enabled: true, start: "21:00", end: "07:00" };
 // Africa/Lagos is UTC+1: 22:00 Lagos is 21:00 UTC.
@@ -96,5 +96,16 @@ describe("classifyExpoReceipt", () => {
     expect(classifyExpoReceipt({ status: "error", message: "boom" })).toEqual({ event: "failed", reason: "boom" });
     expect(classifyExpoReceipt({ status: "error" })).toEqual({ event: "failed", reason: "unknown" });
     expect(classifyExpoReceipt(undefined)).toBeNull();
+  });
+});
+
+describe("emailEnvelope", () => {
+  it("passes the template through normally", () => {
+    expect(emailEnvelope(false, "Subject", "<p>Hi</p>", "Hi")).toEqual({ subject: "Subject", html: "<p>Hi</p>", text: "Hi" });
+  });
+  it("discreet mode sends fixed words and nothing from the template", () => {
+    const e = emailEnvelope(true, "Your appointment tomorrow", "<p>Clinic details</p>", "Clinic details");
+    expect(e.subject).toBe("New message");
+    expect(`${e.subject} ${e.html} ${e.text}`).not.toMatch(/appointment|clinic|Tarragon/i);
   });
 });

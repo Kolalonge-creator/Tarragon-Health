@@ -11,6 +11,19 @@
 --   6. SABOTAGE: (a) the item 10 override removed, (b) the lifecycle transition check removed, (c) the caregiver gate opened on the feed log. Checks must flip.
 begin;
 
+-- S47d: reproductive health records are written only after the person has said yes. This proof is about something else, so every profile it creates
+-- gets the yes recorded for it by a trigger that exists only in this rolled-back transaction.
+create function pg_temp.s47d_say_yes() returns trigger language plpgsql as $f$
+begin
+  if new.organisation_id is not null and not exists (select 1 from public.consent_matrix_events e where e.patient_id = new.id and e.data_type = 'reproductive') then
+    insert into public.consent_matrix_events (organisation_id, patient_id, data_type, purpose, action, policy_version, source, recorded_by, is_test)
+    values (new.organisation_id, new.id, 'reproductive', 'care', 'granted', 2, 'patient', new.id, false);
+  end if;
+  return new;
+end $f$;
+create trigger zz_s47d_say_yes after insert or update of organisation_id on public.profiles for each row execute function pg_temp.s47d_say_yes();
+
+
 -- S04b-1: a child exists only as a minor dependant record, and the minor-scope trigger (also on every table that holds a patient_id) refuses most tables to
 -- minors. These proofs are about the maternal and child content, so the trigger is lifted for this rolled-back transaction only.
 do $$

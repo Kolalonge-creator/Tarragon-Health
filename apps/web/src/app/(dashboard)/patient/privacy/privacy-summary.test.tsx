@@ -17,6 +17,15 @@ describe("PrivacySummary", () => {
     }
   });
 
+  it("says the clinical record is kept under a stated retention period, and does not invent the period (S47)", () => {
+    const { container } = render(<PrivacySummary locale="en" />);
+    const text = container.textContent ?? "";
+    expect(text).toMatch(/keep your clinical record for a stated retention period/);
+    expect(text).toMatch(/still to be confirmed/);
+    expect(text).not.toMatch(/\b\d+\s*(years?|months?)\b/i);
+    expect(text).not.toContain("\u2014");
+  });
+
   it("every purpose key it uses exists in the catalogue", () => {
     const keys = Object.keys(en).filter((k) => k.startsWith("privacy.purpose."));
     expect(keys.length).toBeGreaterThanOrEqual(9);

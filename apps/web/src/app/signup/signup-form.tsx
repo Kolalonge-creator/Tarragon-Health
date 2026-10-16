@@ -18,6 +18,7 @@ import { t, type Locale } from "@tarragon/i18n";
 import { cn } from "@/lib/utils";
 import { PhoneSignupForm } from "./phone-signup-form";
 import { AdultDobField } from "./adult-dob-field";
+import { EmailCodeBox } from "./email-code-box";
 
 const FIELD_CLASS = "h-11 rounded-xl";
 
@@ -26,7 +27,9 @@ function EmailSignupForm({
   intent,
   redirectTo,
   inviteOnly,
+  locale = "en",
 }: {
+  locale?: Locale;
   refCode?: string;
   /** Show the invite code box (only while sign-up is invite-only). */
   inviteOnly?: boolean;
@@ -83,6 +86,8 @@ function EmailSignupForm({
         <p role="status" className="text-sm text-charcoal-ink/80">
           Check your email to confirm your account, then sign in.
         </p>
+        {/* S41 (spec 1.4): the same email carries a code too; typing it here is optional, the link still works. */}
+        {state.email ? <EmailCodeBox email={state.email} redirectTo={state.redirectTo} locale={locale} /> : null}
       </div>
     );
   }
@@ -310,7 +315,7 @@ export function SignupForm({
           </button>
         ))}
       </div>
-      {method === "email" ? <EmailSignupForm {...props} /> : <PhoneSignupForm locale={locale} {...props} />}
+      {method === "email" ? <EmailSignupForm locale={locale} {...props} /> : <PhoneSignupForm locale={locale} {...props} />}
     </div>
   );
 }

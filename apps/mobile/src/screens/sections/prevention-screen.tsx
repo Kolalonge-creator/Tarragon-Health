@@ -79,6 +79,7 @@ const STATUS_TONE: Record<ScheduleStatus, keyof typeof TONE> = {
   overdue: "red",
   cancelled: "grey",
   declined: "grey",
+  not_applicable: "grey",
 };
 
 const STATUS_LABEL: Record<ScheduleStatus, string> = {
@@ -88,6 +89,7 @@ const STATUS_LABEL: Record<ScheduleStatus, string> = {
   overdue: "Overdue",
   cancelled: "Cancelled",
   declined: "Declined",
+  not_applicable: "Not applicable",
 };
 
 function StatusBadge({ status, overdue }: { status: ScheduleStatus; overdue?: boolean }) {

@@ -77,6 +77,13 @@ describe("GoLivePage", () => {
     expect(await html("admin")).toContain("a condition is no longer met");
   });
 
+  it("shows the code name of every condition a person records, and of no other", async () => {
+    guards = [guard({ all_met: false })];
+    const out = await html("admin");
+    const codes = [...out.matchAll(/data-testid="attestation-code"[^>]*>([^<]+)</g)].map((m) => m[1]);
+    expect(codes).toEqual(["fee_schedule_approved"]);
+  });
+
   it("offers attestation forms only for conditions a person records", async () => {
     guards = [guard({})];
     const out = await html("admin");

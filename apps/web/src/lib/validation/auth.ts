@@ -35,6 +35,13 @@ export const phoneOtpVerifySchema = z.object({
 });
 export type PhoneOtpVerifyInput = z.infer<typeof phoneOtpVerifySchema>;
 
+/** S41 (spec 1.4): the optional six-digit code from the confirmation email, an alternative to clicking its link. */
+export const emailOtpVerifySchema = z.object({
+  email: z.email(),
+  token: z.string().regex(/^\d{6}$/, "Enter the 6-digit code"),
+});
+export type EmailOtpVerifyInput = z.infer<typeof emailOtpVerifySchema>;
+
 export const passwordResetEmailSchema = z.object({
   email: z.email(),
 });

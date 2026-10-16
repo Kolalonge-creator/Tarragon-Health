@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { answersFromRows } from "@tarragon/shared";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { YourCareTeam } from "@/components/your-care-team";
@@ -20,8 +21,14 @@ export default async function OnboardingPage() {
 
   // Consent is complete when the patient has an acceptance row for every
   // current consent version.
-  const [{ data: currentVersions }, { data: myConsents }, { count: intakeCount }, { data: existingSubscription }] =
-    await Promise.all([
+  const [
+    { data: currentVersions },
+    { data: myConsents },
+    { count: intakeCount },
+    { data: existingSubscription },
+    { data: answerRows },
+    { data: bloodRow },
+  ] = await Promise.all([
       supabase.from("consent_versions").select("id").eq("is_current", true),
       supabase.from("patient_consents").select("consent_version_id").eq("patient_id", profile.id),
       supabase
@@ -43,6 +50,14 @@ export default async function OnboardingPage() {
         .in("status", ["active", "pending_payment"])
         .order("created_at", { ascending: false })
         .limit(1)
+        .maybeSingle(),
+      // S41: the patient's own saved goal and condition choices (RLS: own rows only), and any blood group and genotype
+      // already on file (self-reported or lab-backed, the card marks which).
+      supabase.from("onboarding_answers").select("question_code, answer").eq("patient_id", profile.id),
+      supabase
+        .from("patient_blood_profile")
+        .select("blood_group, genotype, genotype_note, provenance")
+        .eq("patient_id", profile.id)
         .maybeSingle(),
     ]);
 
@@ -71,7 +86,16 @@ export default async function OnboardingPage() {
           intakeDone: (intakeCount ?? 0) > 0,
           dateOfBirth: profile.date_of_birth,
           sex: profile.sex,
-          location: { state: profile.state, city: profile.city, area: profile.area },
+          location: { state: profile.state, city: profile.city, area: profile.area, lga: profile.lga },
+          answers: answersFromRows(answerRows),
+          bloodProfile: bloodRow
+            ? {
+                bloodGroup: bloodRow.blood_group,
+                genotype: bloodRow.genotype,
+                genotypeNote: bloodRow.genotype_note,
+                provenance: bloodRow.provenance,
+              }
+            : null,
         }}
       />
     </div>
