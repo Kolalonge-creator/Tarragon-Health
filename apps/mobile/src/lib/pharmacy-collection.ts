@@ -15,7 +15,7 @@ const rpc: Rpc = (fn, args) => (supabase as unknown as { rpc: Rpc }).rpc(fn, arg
 
 /** The most prescriptions sent together. Read from the versioned configuration pharmacy.collection_rules (max_items_per_visit); the database refuses more. */
 export const MAX_VISIT_ITEMS: number = (() => {
-  const v = (getProposedConfig("pharmacy.collection_rules").value as unknown as { max_items_per_visit?: number }).max_items_per_visit;
+  const v = (getProposedConfig("pharmacy.collection_rules", "9999-12-31").value as unknown as { max_items_per_visit?: number }).max_items_per_visit;
   // a missing key is a drift between the registry and the database, so it fails loudly here (and in the drift test), never as "no limit"
   if (typeof v !== "number" || v < 2) throw new Error("pharmacy.collection_rules is missing max_items_per_visit");
   return v;

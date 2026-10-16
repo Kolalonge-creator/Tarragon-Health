@@ -58,7 +58,16 @@ export async function choosePharmacyAction(formData: FormData): Promise<void> {
 export async function newCodeAction(formData: FormData): Promise<void> {
   const parsed = prescriptionOnlySchema.safeParse({ prescription: formData.get("prescription"), for: formData.get("for") || undefined });
   if (!parsed.success) return redirect("/patient");
-  const { error } = await loose(await createClient()).rpc("patient_new_collection_code", { p_prescription: parsed.data.prescription, ...beneficiary(parsed.data.for) });
+  const supabase = loose(await createClient());
+  // Someone acting for the patient is not shown whether this prescription was sent together with others (those reads are the patient's own), so for her a
+  // new code renews the whole visit when there is one, instead of quietly splitting this prescription out of it. A prescription sent alone has no visit
+  // and falls through to its own new code.
+  if (parsed.data.for) {
+    const visit = await supabase.rpc("patient_new_visit_code", { p_prescription: parsed.data.prescription, ...beneficiary(parsed.data.for) });
+    if (!visit.error) return page(parsed.data.prescription, "new_code", parsed.data.for);
+    if (!(visit.error.message ?? "").includes("collection_not_open")) return page(parsed.data.prescription, noticeForError(visit.error.message), parsed.data.for);
+  }
+  const { error } = await supabase.rpc("patient_new_collection_code", { p_prescription: parsed.data.prescription, ...beneficiary(parsed.data.for) });
   return page(parsed.data.prescription, error ? noticeForError(error.message) : "new_code", parsed.data.for);
 }
 

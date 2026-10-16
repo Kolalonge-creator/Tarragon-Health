@@ -5,9 +5,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 type Opts = { onSuccess?: (d: unknown) => void };
 const verifyAnswer: { current: unknown[] } = { current: [] };
 const mutate = jest.fn((_i: unknown, o: Opts) => o.onSuccess?.(verifyAnswer.current));
+const dispenseMutate = jest.fn();
 jest.mock("@/lib/pharmacy-collection/desk-queries", () => ({
   useVerifyVisit: () => ({ mutate, isPending: false, isError: false }),
-  useDispensePrescription: () => ({ mutate: jest.fn(), isPending: false, isError: false }),
+  useDispensePrescription: () => ({ mutate: dispenseMutate, isPending: false, isError: false }),
 }));
 
 import { VisitDesk } from "./visit-desk";
@@ -61,6 +62,18 @@ describe("VisitDesk (S28e, OQ-275)", () => {
       expect(screen.getByRole("status")).toBeTruthy();
       unmount();
     }
+  });
+  it("a supply is sent with the code that was CHECKED, even if the box is edited afterwards (a different string would count against the whole visit)", () => {
+    verifyAnswer.current = [okItem(A, "Amlodipine")];
+    check();
+    fireEvent.change(screen.getByLabelText(/code the patient shows/i), { target: { value: "SOMETHING ELSE" } });
+    fireEvent.change(screen.getByLabelText(/pharmacist name/i), { target: { value: "Ada Pharmacist" } });
+    fireEvent.change(screen.getByLabelText(/pcn registration number/i), { target: { value: "PCN12345" } });
+    fireEvent.change(screen.getByLabelText(/batch number/i), { target: { value: "B-1234" } });
+    fireEvent.change(screen.getByLabelText(/expiry date of the pack/i), { target: { value: "2099-01-01" } });
+    fireEvent.click(screen.getByRole("button", { name: /record supply/i }));
+    expect(dispenseMutate).toHaveBeenCalledTimes(1);
+    expect((dispenseMutate.mock.calls[0][0] as { code: string }).code).toBe("ABCD2345");
   });
   it("the staff text uses no em dash", () => {
     expect(CONTROLLED_AT_COUNTER_TEXT).not.toMatch(/[—–]/);

@@ -72,10 +72,14 @@ function Chooser({ id, options, locale, forWhom, others }: { id: string; options
           <legend className="px-1 font-semibold text-charcoal-ink">{t("pharmvisit.also_title", locale)}</legend>
           <p className="text-xs text-charcoal-ink/60">{t("pharmvisit.also_hint", locale)}</p>
           {others.map((o) => (
-            <label key={o.prescription_id} className="flex min-h-11 items-center gap-2 text-sm text-charcoal-ink">
-              <input type="checkbox" name="also" value={o.prescription_id} />
-              {o.medicine ?? "-"}
-            </label>
+            <div key={o.prescription_id}>
+              <label className="flex min-h-11 items-center gap-2 text-sm text-charcoal-ink">
+                <input type="checkbox" name="also" value={o.prescription_id} />
+                {o.medicine ?? "-"}
+              </label>
+              {/* OQ-276: the same plain note as for the page's own prescription, so she is told before she sends a controlled medicine, not at the counter */}
+              {o.controlled ? <p className="pl-6 text-xs text-amber-900">{t("pharmvisit.controlled_item", locale)}</p> : null}
+            </div>
           ))}
         </fieldset>
       )}

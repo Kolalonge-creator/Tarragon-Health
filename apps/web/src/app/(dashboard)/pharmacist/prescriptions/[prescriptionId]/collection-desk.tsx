@@ -82,13 +82,16 @@ function Questions({ prescriptionId }: { prescriptionId: string }) {
 export function CollectionDesk({ prescriptionId }: { prescriptionId: string }) {
   const verify = useVerifyCollection();
   const [code, setCode] = useState("");
+  const [verified, setVerified] = useState("");
   const [seen, setSeen] = useState<DeskVerification | null>(null);
   const [who, setWho] = useState<Supplier>({ pharmacist: "", registration: "" });
 
   function onCheck(e: FormEvent) {
     e.preventDefault();
     setSeen(null);
-    verify.mutate({ prescription: prescriptionId, code }, { onSuccess: (d) => setSeen(d) });
+    // the supply form uses the code that was CHECKED, not whatever is in the box later (a changed box would send a different string with the supply)
+    const checked = code;
+    verify.mutate({ prescription: prescriptionId, code: checked }, { onSuccess: (d) => { setVerified(checked); setSeen(d); } });
   }
 
   const ok = seen?.outcome === "ok";
@@ -119,7 +122,7 @@ export function CollectionDesk({ prescriptionId }: { prescriptionId: string }) {
               {(seen.allergies ?? []).length === 0 ? "none recorded" : (seen.allergies ?? []).map((a) => [a.allergen, a.reaction, a.severity].filter(Boolean).join(" / ")).join("; ")}
             </p>
             <p>Supplies recorded: {seen.supplies_dispensed} of {seen.supplies_permitted}.{seen.outstanding_note ? ` Owed from before: ${seen.outstanding_note}` : ""}</p>
-            <SupplyForm prescriptionId={prescriptionId} code={code} who={who} onWho={setWho} />
+            <SupplyForm prescriptionId={prescriptionId} code={verified} who={who} onWho={setWho} />
           </CardContent>
         </Card>
       )}

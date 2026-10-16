@@ -28,6 +28,28 @@
 -- 1. Versioned rules. pharmacy_config v3 adds the visit size; partner_quality_config v2 adds the pharmacy figures. Both PROPOSED (CMO and pharmacy
 --    lead, OQ-360); mirrored in packages/shared proposed-config with drift tests.
 -- ---------------------------------------------------------------------------
+-- Fail loudly, never revert silently: the new rows below carry the values the previous active rows had when this was written. If either active row has
+-- been changed since (a new version adopted by the CMO or the pharmacy lead), this migration stops instead of putting the old numbers back.
+do $$
+begin
+  if (select config from public.pharmacy_config where is_active) is distinct from '{"code_length": 8, "code_valid_days": 14, "max_wrong_attempts": 5, "suggestion_valid_days": 14}'::jsonb then
+    raise exception 'S28e: the active pharmacy_config is no longer the S54c version; rebase this migration on its current values';
+  end if;
+  if (select rules from public.partner_quality_config where is_active) is distinct from $q$
+{
+  "window_days": 90,
+  "turnaround": { "lab_target_hours": 72, "min_orders": 10, "min_within_target_percent": 80 },
+  "complaints": { "category_codes": ["late_result", "wrong_result", "communication", "charge_dispute", "safety", "licence", "other"], "upheld_limit": 3 },
+  "licence": { "expiring_days": 30 },
+  "weights": { "turnaround": 40, "complaints": 30, "licence": 30 },
+  "score": { "warn_below": 70, "suspend_below": 50 },
+  "removal": { "auto_suspend": true, "suspend_on": ["licence_expired", "complaints_upheld_limit", "turnaround_below_target", "score_below_floor"], "override_days": 30, "reason_min_chars": 20 }
+}
+$q$::jsonb then
+    raise exception 'S28e: the active partner_quality_config is no longer the S74 version; rebase this migration on its current values';
+  end if;
+end $$;
+
 update public.pharmacy_config set is_active = false where is_active;
 -- pharmacy-rules-v3-begin
 insert into public.pharmacy_config (version, is_active, config)

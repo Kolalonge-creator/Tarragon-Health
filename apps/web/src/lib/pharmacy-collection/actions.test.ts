@@ -161,6 +161,22 @@ describe("one pharmacy for several medicines (S28e, OQ-275)", () => {
     rpc.mockResolvedValue({ data: null, error: { message: "visit_size_invalid", code: "22023" } });
     expect(await goes(choosePharmacyAction(many({ also: [RX2] })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=visit_size_invalid`);
   });
+  it("someone acting for the patient renews the whole visit when there is one, and falls back to the single new code when there is not", async () => {
+    const WHO2 = "44444444-4444-4444-8444-444444444444";
+    rpc.mockResolvedValueOnce({ data: "WXYZ6789", error: null });
+    expect(await goes(newCodeAction(fd({ prescription: RX, for: WHO2 })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=new_code&for=${WHO2}`);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("patient_new_visit_code", { p_prescription: RX, p_beneficiary: WHO2 });
+    rpc.mockReset();
+    rpc.mockResolvedValueOnce({ data: null, error: { message: "collection_not_open", code: "22023" } }).mockResolvedValueOnce({ data: "QRST2345", error: null });
+    expect(await goes(newCodeAction(fd({ prescription: RX, for: WHO2 })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=new_code&for=${WHO2}`);
+    expect(rpc).toHaveBeenLastCalledWith("patient_new_collection_code", { p_prescription: RX, p_beneficiary: WHO2 });
+    // any other refusal of the visit renewal is the answer; it is not papered over by splitting the prescription out
+    rpc.mockReset();
+    rpc.mockResolvedValueOnce({ data: null, error: { message: "not_permitted_for_this_person", code: "42501" } });
+    expect(await goes(newCodeAction(fd({ prescription: RX, for: WHO2 })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=not_permitted_for_this_person&for=${WHO2}`);
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
   it("a new code for the whole visit goes through its own door and reports a new code, never the code itself", async () => {
     rpc.mockResolvedValue({ data: "WXYZ6789", error: null });
     expect(await goes(newVisitCodeAction(fd({ prescription: RX })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=new_code`);

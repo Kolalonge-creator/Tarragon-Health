@@ -31,13 +31,17 @@ const ITEM_TEXT: Record<string, string> = {
 export function VisitDesk({ visitId }: { visitId: string }) {
   const verify = useVerifyVisit();
   const [code, setCode] = useState("");
+  const [verified, setVerified] = useState("");
   const [rows, setRows] = useState<VisitItem[] | null>(null);
   const [who, setWho] = useState<Supplier>({ pharmacist: "", registration: "" });
 
   function onCheck(e: FormEvent) {
     e.preventDefault();
     setRows(null);
-    verify.mutate({ visit: visitId, code }, { onSuccess: (d) => setRows(d) });
+    // The supply forms use the code that was CHECKED, not whatever is in the box later: an edited box would send a different string with every supply, and
+    // each wrong string counts against the whole visit.
+    const checked = code;
+    verify.mutate({ visit: visitId, code: checked }, { onSuccess: (d) => { setVerified(checked); setRows(d); } });
   }
 
   const failure = rows && rows[0]?.outcome !== "ok" ? rows[0].outcome : null;
@@ -82,7 +86,7 @@ export function VisitDesk({ visitId }: { visitId: string }) {
                   {(it.allergies ?? []).length === 0 ? "none recorded" : (it.allergies ?? []).map((a) => [a.allergen, a.reaction, a.severity].filter(Boolean).join(" / ")).join("; ")}
                 </p>
                 <p>Supplies recorded: {it.supplies_dispensed} of {it.supplies_permitted}.{it.outstanding_note ? ` Owed from before: ${it.outstanding_note}` : ""}</p>
-                {it.prescription_id && <SupplyForm prescriptionId={it.prescription_id} code={code} who={who} onWho={setWho} idPrefix={`${it.prescription_id}-`} />}
+                {it.prescription_id && <SupplyForm prescriptionId={it.prescription_id} code={verified} who={who} onWho={setWho} idPrefix={`${it.prescription_id}-`} />}
               </>
             )}
           </CardContent>

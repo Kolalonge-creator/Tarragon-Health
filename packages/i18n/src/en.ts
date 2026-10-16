@@ -2638,6 +2638,7 @@ export const en = {
   "pharmdesk.locked_short": "Code locked: the patient must get a new one",
   "pharmvisit.also_title": "Send other medicines to the same pharmacy",
   "pharmvisit.also_hint": "Tick the others you want to collect on the same visit. You get one code for all of them, and the pharmacy checks each medicine on its own.",
+  "pharmvisit.controlled_item": "This is a controlled medicine. Pharmacies cannot supply it through TarragonHealth, so please speak to your care team before you send it.",
   "pharmvisit.covers": "This code covers {count} medicines",
   "pharmvisit.collected": "Collected",
   "pharmvisit.waiting": "Waiting at the pharmacy",
