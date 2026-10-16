@@ -114,6 +114,7 @@ export default async function HealthPassportPage() {
             ["/patient/biomarkers", "passport.nav.biomarkers"],
             ["/patient/health-history", "passport.nav.history"],
             ["/patient/symptom-journal", "passport.nav.journal"],
+            ["/patient/doctor-summary", "passport.pdf.visit"],
             ["/patient/share-records", "passport.nav.share"],
             ["/patient/emergency-card", "passport.nav.emergency"],
             ["/patient/data-exchange", "passport.nav.exchange"],
