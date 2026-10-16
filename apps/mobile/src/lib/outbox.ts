@@ -558,11 +558,21 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
 
     if (item.kind === "red_care") {
       const p = item.payload as RedCarePayload;
-      const { error } = await supabase.rpc("record_red_care_response" as never, {
-        p_client_id: item.clientId,
-        p_response: p.response,
-        p_client_recorded_at: item.clientRecordedAt,
-      } as never);
+      // A caregiver with the person's account open answers FOR the person: the database allows it only for a live manage grant that names
+      // receive_alerts or log_readings and stores the row as the person's with the helper's id on it. The person's own answer is unchanged.
+      const forSomeoneElse = item.subjectId !== item.ownerUserId;
+      const { error } = forSomeoneElse
+        ? await supabase.rpc("record_red_care_response_for" as never, {
+            p_patient: item.subjectId,
+            p_client_id: item.clientId,
+            p_response: p.response,
+            p_client_recorded_at: item.clientRecordedAt,
+          } as never)
+        : await supabase.rpc("record_red_care_response" as never, {
+            p_client_id: item.clientId,
+            p_response: p.response,
+            p_client_recorded_at: item.clientRecordedAt,
+          } as never);
       return error ? asFailure(error) : { ok: true };
     }
 

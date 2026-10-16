@@ -1,5 +1,6 @@
 "use client";
 import {
+  assistedEntryCaption,
   glucoseInDisplayUnit,
   GLUCOSE_UNIT_LABEL,
   type GlucoseDisplayUnit,
@@ -162,6 +163,8 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
         : null,
   }));
   const lastIndex = points.length - 1;
+  // Points a helper entered for the person (assisted entry), said once under the chart so a clinician never reads them as the person's own.
+  const assistedCaption = assistedEntryCaption(points.filter((p) => "assisted" in p && p.assisted === true).length, points.length);
   const noHeightOnFile =
     mode === "bmi" && !heightStatus.isLoading && heightStatus.data?.heightCm == null;
   const heightDiscrepancy = mode === "bmi" ? heightStatus.data?.discrepancy : null;
@@ -240,6 +243,11 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
             profileHeightCm={heightDiscrepancy.profileHeightCm}
             questionnaireHeightCm={heightDiscrepancy.questionnaireHeightCm}
           />
+        )}
+        {assistedCaption && (
+          <p data-testid="assisted-entry-caption" className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+            {assistedCaption}
+          </p>
         )}
         {!isLoading && !isError && !noHeightOnFile && points.length < 2 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Not enough readings yet.</p>

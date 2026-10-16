@@ -276,6 +276,7 @@ export { sponsorMinimumGroupSize } from "./sponsor-min-group";
 // S70a (Module 18): device plausibility, cross-source de-duplication, photo capture, CGM sustained events, DeviceSource interface.
 export * from "./device-plausibility";
 export * from "./device-dedupe";
+export * from "./assisted-entry";
 export * from "./photo-reading";
 export * from "./cgm-events";
 export * from "./device-source";
