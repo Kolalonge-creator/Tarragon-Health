@@ -1,5 +1,5 @@
 import { getProposedConfig } from "@tarragon/shared";
-import type { Verdict } from "./health-evaluation";
+import { worst, type Verdict } from "./health-evaluation";
 
 /**
  * OQ-436: turns the four numbers from public.deadman_status() into one verdict for the external dead-man's switch.
@@ -36,14 +36,12 @@ export function loadDeadmanThresholds(): DeadmanThresholds {
   return getProposedConfig("ops.deadman_thresholds").value as unknown as DeadmanThresholds;
 }
 
-const RANK: Record<Verdict, number> = { ok: 0, degraded: 1, down: 2 };
-
 function byCount(n: number, degraded: number, down: number): Verdict {
   return n >= down ? "down" : n >= degraded ? "degraded" : "ok";
 }
 
 function nonNegative(v: unknown): number | null {
-  const n = typeof v === "string" ? Number(v) : v;
+  const n = typeof v === "string" ? (v.trim() === "" ? Number.NaN : Number(v)) : v;
   return typeof n === "number" && Number.isFinite(n) && n >= 0 ? n : null;
 }
 
@@ -85,6 +83,6 @@ export function evaluateDeadman(s: DeadmanStatus, t: DeadmanThresholds = loadDea
       detail: `${s.open_sev1_sev2_incidents} open`,
     },
   ];
-  const verdict = checks.reduce<Verdict>((acc, c) => (RANK[c.verdict] > RANK[acc] ? c.verdict : acc), "ok");
+  const verdict = worst(checks.map((c) => c.verdict));
   return { verdict, checks };
 }
