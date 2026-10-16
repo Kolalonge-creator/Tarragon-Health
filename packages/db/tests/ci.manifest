@@ -1286,3 +1286,5 @@ s63_therapy_programmes.sql
 # (idempotent replay, no body metrics, plausible readings only, red flow first, caps/decay, tiers, grace, capped checkout discount,
 # append-only ledger, aggregate-only employer seam, roles) with three sabotage steps.
 s58_rewards_engine.sql
+# AVS after-visit summary: signature stamp and CHECKs, deterministic assembly, the one visibility rule (draft, withdrawn, unsigned note, amendment pending or signed, entered in error, unreleased protected note all hidden), caregiver permission, checklist tick-off and care task link, events with ids only, anon denied, with two sabotage steps.
+avs_visit_summaries.sql

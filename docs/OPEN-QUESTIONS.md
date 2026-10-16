@@ -3839,3 +3839,46 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - None are sent (INV-07 by absence; no streak or missed-day message exists). If the founder later wants a "you earned points" notice it must be neutral and key-based.
 - Decision: informational.
 
+
+### OQ-AVS-1 The older consultation summary table is left in place
+- `consultation_patient_summaries` (2026-08-29, publish-once, patient reads by policy, staff read by policy) already gives a patient a short recap of a video visit. It has no draft, no approval stamp, no checklist, no amendment or protected-note handling and no event. The after-visit summary (AVS) is built as its successor on `visit_summaries`, and the Care tab shows the new card above the notes card. The old table, its publish function and the `consultation_summary_ready` notification are not touched or removed, so a patient can still see both for a visit published the old way.
+- Conservative default: do nothing to the old path in this PR. Decision needed (product): retire `publish_consultation_summary` once AVS is live, and whether to migrate the old rows (they would need a doctor to approve them again).
+- Decision: open.
+
+### OQ-AVS-2 Lab orders and referrals have no direct link to a note
+- `prescriptions.encounter_note_id` is a real link; `lab_orders` and `specialist_referrals` have none. The draft picks up the ones the note's author ordered or referred for that patient in the window from two hours before the encounter to two hours after signing, and signed care plan changes the author signed in the same window. A doctor can remove or add steps before approving, so a wrong guess cannot reach a patient unreviewed, but a busy day could add a step from a second visit.
+- Conservative default: the window rule above, shown to the doctor as a draft. Decision needed (clinical and product): add `encounter_note_id` to `lab_orders` and `specialist_referrals` at order time, then drop the window.
+- Decision: open.
+
+### OQ-AVS-3 The urgent-care block reuses the existing wording and has no condition-specific version
+- Every summary shows the existing key `history.unwell` ("If you feel unwell now, do not wait for a review. Open Emergency in the menu, or go to the nearest hospital."). It names no number (OQ-87 stays) and no condition. EMG-001 was not used because it talks about "your reading".
+- Conservative default: the generic line on every summary. Decision needed (CMO): whether a condition-specific "when to get help" line may be added per protocol, and then it must come from a signed wording code, not from the summary text.
+- Decision: open.
+
+### OQ-AVS-4 Plain-language review is advice plus a database floor, not a reading-level test
+- The database refuses an em dash or en dash, the word warning, "your doctor", the word cure, "instant doctor" and "free healthcare" at approval. Sentence length and reading level are only advice in the review panel (more than 25 words in a sentence). There is no automatic reading-age score and no trained-reader check, as the BPC lessons have (`understandability`).
+- Conservative default: the doctor owns the wording and signs it. Decision needed (CMO and product): whether to run the S-BPC style understandability check on a sample of real summaries before the card is switched on for everyone.
+- Decision: open.
+
+### OQ-AVS-5 An amendment hides the summary until a doctor approves it again
+- Any amendment to a note hides its approved summary at once, both while the amendment is a draft and after it is signed, until the doctor reopens the summary (revision 2) and approves it again. The earlier approval is kept in `visit_summary_revisions`. This is the safest default for INV-11 and also means a trivial addendum (a late entry) hides the patient's summary until a doctor spends a minute re-approving.
+- Decision needed (clinical): whether a late-entry amendment should keep the summary visible.
+- Decision: open.
+
+### OQ-AVS-6 Caregiver and proxy access is read only and excludes protected notes
+- A caregiver reads a summary only with the `view_care_plan`, `view_medication` and `view_results` permissions together (a summary names medicines and tests), can tick nothing and add no task, and never sees the summary of a protected note (even after the patient's own release). A guardian of a 10 to 17 year old is not given any special path here: the category gate `guardian_may_view_confidential_domain` is not consulted because a summary is not tied to one access category (a note can mix topics).
+- Conservative default: the narrowest reading above. Decision needed (product and privacy): whether a guardian should be able to tick items for a child, and whether the minor-confidentiality rule needs a per-note flag.
+- Decision: open.
+
+### OQ-AVS-7 Not exercised on a real device or in a browser
+- The web card, the clinician panel and the mobile section were typechecked, linted and unit tested only. They were not clicked through in a browser, and the mobile screen was not run on a phone or a simulator. The database proof ran on a local stack only. The live database was unreachable from this session (connection timeouts), so no live definition could be read; every function this feature extends was read from the migration files on `origin/main-dev` instead (`note_error_flags`, `note_releases`, `may_work_on_note`, `audit_chart_read`, `emit_domain_event`, `written_care_notify`).
+- Decision: informational. Before applying: re-read the live definitions of `private.may_work_on_note`, `private.is_clinical_tier` and `private.can_read_clinical(uuid, caregiver_permission)` with `pg_get_functiondef`.
+
+### OQ-AVS-8 The "checked by" line is its own null-gated line, not the shared ReviewedByDoctor component
+- `ReviewedByDoctor` is a server component keyed to an `escalations` row, so it cannot show an after-visit summary approval. The AVS card shows "Checked by {name} on {date}" only from the summary's own `approved_by_staff` and `approved_at` (both NOT NULL by CHECK once approved), and falls back to "Checked by your care team on {date}" when no staff name can be read, which is the same fallback wording `ReviewedByDoctor` uses. Nothing renders for a draft.
+- Decision needed (product): whether to extract a shared presentational attribution component that both can use, with the doctor profile link.
+- Decision: open.
+
+### OQ-AVS-9 Audit rows for a patient opening a summary
+- Opening a summary writes one `visit_summary.patient_read` audit row and one `visit_summary.viewed` event per summary, viewer and day (`record_visit_summary_opened`); reading the list writes nothing, so a refresh or a tick adds no rows. The count is a daily-open count, not a view count.
+- Decision: informational.
