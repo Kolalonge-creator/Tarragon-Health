@@ -42679,6 +42679,7 @@ export type Database = {
           clinician_flagged_inappropriate_escalation: boolean
           clinician_flagged_missed_red_flag: boolean
           clinician_review_alert_id: string | null
+          clinician_review_task_id: string | null
           clinician_review_required: boolean
           created_at: string
           emergency_event_id: string | null
@@ -42719,6 +42720,7 @@ export type Database = {
           clinician_flagged_inappropriate_escalation?: boolean
           clinician_flagged_missed_red_flag?: boolean
           clinician_review_alert_id?: string | null
+          clinician_review_task_id?: string | null
           clinician_review_required?: boolean
           created_at?: string
           emergency_event_id?: string | null
@@ -42759,6 +42761,7 @@ export type Database = {
           clinician_flagged_inappropriate_escalation?: boolean
           clinician_flagged_missed_red_flag?: boolean
           clinician_review_alert_id?: string | null
+          clinician_review_task_id?: string | null
           clinician_review_required?: boolean
           created_at?: string
           emergency_event_id?: string | null
@@ -42799,6 +42802,13 @@ export type Database = {
             columns: ["clinician_review_alert_id"]
             isOneToOne: false
             referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "symptom_triage_assessments_clinician_review_task_id_fkey"
+            columns: ["clinician_review_task_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_tasks"
             referencedColumns: ["id"]
           },
           {
