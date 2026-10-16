@@ -1103,6 +1103,123 @@ export type Database = {
           },
         ]
       }
+      reward_rules: {
+        Row: {
+          caps: Json
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          points: number
+          points_source: string
+          reward_kind: string
+          status: string
+          trigger_event: string
+          verified_action: boolean
+          version: number
+        }
+        Insert: {
+          caps?: Json
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          points: number
+          points_source?: string
+          reward_kind?: string
+          status?: string
+          trigger_event: string
+          verified_action?: boolean
+          version: number
+        }
+        Update: {
+          caps?: Json
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          points?: number
+          points_source?: string
+          reward_kind?: string
+          status?: string
+          trigger_event?: string
+          verified_action?: boolean
+          version?: number
+        }
+        Relationships: []
+      }
+      reward_config: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          key: string
+          note: string | null
+          status: string
+          value: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          key: string
+          note?: string | null
+          status?: string
+          value: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          key?: string
+          note?: string | null
+          status?: string
+          value?: Json
+          version?: number
+        }
+        Relationships: []
+      }
+      points_award_decisions: {
+        Row: {
+          decided_at: string
+          detail: string | null
+          event_id: string
+          ledger_id: string | null
+          outcome: string
+          patient_id: string
+          points: number
+          rule_code: string
+          rule_version: number
+        }
+        Insert: {
+          decided_at?: string
+          detail?: string | null
+          event_id: string
+          ledger_id?: string | null
+          outcome: string
+          patient_id: string
+          points?: number
+          rule_code: string
+          rule_version: number
+        }
+        Update: {
+          decided_at?: string
+          detail?: string | null
+          event_id?: string
+          ledger_id?: string | null
+          outcome?: string
+          patient_id?: string
+          points?: number
+          rule_code?: string
+          rule_version?: number
+        }
+        Relationships: []
+      }
       task_types: {
         Row: {
           claim_timeout_minutes: number
@@ -44144,6 +44261,8 @@ export type Database = {
         Row: {
           balance_after: number
           created_at: string
+          event_id: string | null
+          kind: string
           id: string
           organisation_id: string
           patient_id: string
@@ -44151,10 +44270,16 @@ export type Database = {
           reason: string
           source_id: string | null
           source_table: string | null
+          rule_code: string | null
+          rule_version: number | null
         }
         Insert: {
           balance_after: number
           created_at?: string
+          event_id?: string | null
+          kind?: string
+          rule_code?: string | null
+          rule_version?: number | null
           id?: string
           organisation_id: string
           patient_id: string
@@ -44166,6 +44291,10 @@ export type Database = {
         Update: {
           balance_after?: number
           created_at?: string
+          event_id?: string | null
+          kind?: string
+          rule_code?: string | null
+          rule_version?: number | null
           id?: string
           organisation_id?: string
           patient_id?: string
@@ -46754,6 +46883,14 @@ export type Database = {
       retention_completion_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       bp_control_report_180d: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       triage_agreement_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      admin_set_reward_rule: {
+        Args: { p_active: boolean; p_caps: Json; p_code: string; p_points: number }
+        Returns: number
+      }
+      admin_rewards_summary: {
+        Args: never
+        Returns: Json
+      }
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
       learning_search_gaps_report: {
         Args: never
@@ -46859,6 +46996,10 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: { lab_result_id: string; received_at: string; order_number: string | null; patient_number: string | null; file_name: string | null; status: string }[];
       };
+      my_points_status: {
+        Args: never
+        Returns: Json
+      }
       patient_released_lab_results: { Args: { p_patient: string; p_reason: string }; Returns: Json };
       lab_partner_mark_collected: { Args: { p_order: string }; Returns: undefined };
       lab_partner_portal_orders: {
@@ -46881,7 +47022,15 @@ export type Database = {
         Args: { p_corrects: string; p_file?: Json; p_items: Json; p_kind: string; p_order: string; p_panel: string; p_reason: string };
         Returns: Json;
       };
+      points_award: {
+        Args: { p_event_id: string }
+        Returns: number
+      }
       record_lab_disclosure_attempt: { Args: { p_note?: string; p_outcome: string; p_result: string }; Returns: Json };
+      rewards_participation_aggregate: {
+        Args: { p_from: string; p_org: string; p_to: string }
+        Returns: Json
+      }
       sign_lab_panels: { Args: { p_id: string }; Returns: string };
       sign_home_bp_programme: { Args: { p_id: string }; Returns: string };
       complete_home_bp_check: { Args: { p_window_start: string }; Returns: Json };

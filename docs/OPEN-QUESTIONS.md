@@ -1902,6 +1902,7 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Options: (a) calm disabled state (built); (b) a Tarragon-funded discount-code path now, capped from config; (c) wait for S71/S72 checkout discounts.
 - Recommend (a) now, (c) next. The founder still needs to set the cap (`rewards.points_redemption_cap_kobo`, integer kobo, currently 0), who funds the discount, and whether a cap is a share of the item price or a fixed amount (S58 asks the same).
 - `private.issue_reward_voucher` is NOT removed: referral, prevention and promo-code rewards still use it. Whether those are also stored value under INV-09 is a separate question for OQ-07.
+- S58 built the capped checkout discount and kept it off; see OQ-S58-01 for what the founder must set.
 - Decision: open.
 
 ### OQ-F1-02 The signed escalation SLA (v7) has no `symptom_triage` pathway; the symptom checker cannot be switched on
@@ -3550,3 +3551,42 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 ### OQ-S63-8 `/code-review high` findings fixed, and what is still open (raised by S63)
 - Fixed in the branch before the PR: the live screen uses the highest CONFIRMED list (a newer draft never replaces it); a resumed programme is assessed only on scores recorded after the resume; a failed inline check on the last session leaves the programme open for the bus handler; a missing active config fails closed; an entry-screen stop cannot be undone by answering again (72 hour PROPOSED cooldown); the crisis page is sent once per patient per hour and a failed crisis task now reaches the patient screen; permanent database rejections are shown, only transport faults are queued; the offline queue is scoped to the signed-in person; an offline copy of a session is read-only; offline stops no longer claim the care team was told; task dedup keys are opaque; audit rows point at the profile.
 - Still open: no staff screen yet for `resume_therapy_enrolment` or the consent-gated `read_therapy_progress_audited` (RPCs only); a patient stop button exists on the player; sign-out does not clear the device cache; the go-live condition patches still use text replacement of function bodies (as S56 does); red-flag stops on scaffold programmes still raise a same-day task and page (a patient who reports a red flag gets a clinician even though the programme is not open); `guidanceKeyForRoute` and `assessWorsening` in `packages/shared` are mirrors used by tests only; the guard-open check is one call per programme. Decision: open.
+## S58 (Module 11, Rewards and engagement)
+
+### OQ-S58-01 Redemption is built but OFF: the founder must set the cap, the share and who funds it
+- `apply_points_discount(order, points)` and `release_points_discount(order)` exist and are tested; they refuse while `reward_config.points_redemption_cap_kobo` is 0 (it is). Proposed (unsigned): 1000 points per 10 percent (`points_per_percent` 100, `max_share_bps` 1000, `min_points` 100). Open: the kobo cap per order, whether Tarragon or a partner funds the discount, whether discounts apply to every catalogue kind.
+- S71/S72 must call `apply_points_discount` at checkout and `release_points_discount` when an order fails, is cancelled or expires (the order amount is immutable, so the checkout charges amount minus the redemption's `discount_kobo`). Until then nothing reaches it from the UI.
+- Decision: open (founder). Closes OQ-F1-01 once decided.
+
+### OQ-S58-02 Point values, caps, decay and tier thresholds are PROPOSED
+- All twelve rules are active at version 1 with status `proposed`; the five new ones (course, lab, review, screening, plus tier thresholds 400 / 1200 / 3000) are new proposals. The seven earlier rules keep the points the old triggers paid (10, 10, 15, 20, 15, 50, plus catalogue values). New per-day caps (e.g. lessons 3 a day) and the 100 points daily cap are new. An admin can change any rule from `/admin/settings/reward-rules` as a new proposed version.
+- Decision: open (founder).
+
+### OQ-S58-03 Plausible-range bounds for "no points for an implausible reading"
+- Proposed wide bounds (systolic 50 to 260, glucose 1 to 40 mmol/L, pulse 25 to 230, SpO2 50 to 100, temperature 30 to 43). They only decide whether a reading earns points; the triage path never reads them. A dangerous reading inside the bounds earns normally. CMO to confirm the bounds.
+- Decision: open (CMO).
+
+### OQ-S58-04 No refill reward yet
+- The plan lists "refill" as a verified action. No dependable refill-collected event exists (pharmacy fulfilment, S34 onward). The rule is not seeded; add it when a verified event exists. Self-reported screening completions (`screening_completions`) are deliberately not rewarded (a result row, `screening_results`, is the verified signal).
+- Decision: informational.
+
+### OQ-S58-05 The spendable balance never resets and levels only count the calendar year
+- Vitality-style "annual reset with status kept" is applied to the level counter only, so nobody loses spendable points (no loss framing). Points never expire. Alternative: an expiry date on points. Not chosen.
+- Decision: open (founder).
+
+### OQ-S58-06 Employer-funded reward pools (11.4) wait for Module 24
+- Only the aggregate-only seam (`rewards_participation_aggregate`, minimum group 10 proposed) is built. Design rules for S79: employer funds a pool, never sees a person (I9), per-person cap, the employer's pool pays for the discount at checkout, no individual status leaves Tarragon.
+- Decision: informational.
+
+### OQ-S58-07 Challenge and class points still come from the catalogue row
+- `challenge.completed` and `class.attended` are events; the points are read from the challenge or class itself (`points_source = catalogue`), still subject to caps and the daily limit. Class attendance is self-reported by the patient (existing behaviour), so it is the most gameable source; the daily limit and a per-day cap of 2 bound it.
+- Decision: open (product).
+
+### OQ-S58-08 A failed rewards event opens one shared incident
+- If a rewards event cannot be written the person's own record is saved, an `audit_log` row (`rewards_event.error`) is written and one open incident (`rewards_event_failed`) covers all of them. Confirm severity and whether ops wants it.
+- Decision: open.
+
+### OQ-S58-09 Patient-facing notifications for points
+- None are sent (INV-07 by absence; no streak or missed-day message exists). If the founder later wants a "you earned points" notice it must be neutral and key-based.
+- Decision: informational.
+
