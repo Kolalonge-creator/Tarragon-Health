@@ -1,5 +1,6 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { DocumentFolioRefusedError, fetchDocumentFolios } from "@/lib/clinical/document-folio";
+import { fetchLicenceVerifiedOn } from "@/lib/clinical/licence-verified";
 import { createClient } from "@/lib/supabase/server";
 import {
   CombinedInterpretationDocument,
@@ -68,6 +69,12 @@ export async function GET(request: Request): Promise<Response> {
     throw e;
   }
 
+  // Q17 / OQ-358b: "Licence verified on <date>" from a stored record, never the folio.
+  const licenceByStaff = await fetchLicenceVerifiedOn(
+    supabase,
+    [...folioByDocId.values()].map((f) => f.clinicianStaffId),
+  );
+
   const items: InterpretationData[] = docs.map((doc) => {
     const staff = doc.reviewed_by ? folioByDocId.get(doc.id) : undefined;
     return {
@@ -79,8 +86,7 @@ export async function GET(request: Request): Promise<Response> {
       nextSteps: doc.next_steps,
       interpretationSentAt: doc.interpretation_sent_at!,
       doctorName: staff?.fullName ?? null,
-      doctorCredentialType: staff?.credentialType ?? null,
-      doctorCredentialNumber: staff?.credentialNumber ?? null,
+      licenceVerifiedOn: staff ? (licenceByStaff.get(staff.clinicianStaffId) ?? null) : null,
     };
   });
 

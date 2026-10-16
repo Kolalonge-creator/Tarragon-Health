@@ -488,7 +488,8 @@ create function pg_temp.item_readers() returns integer language sql as $$
      and p.prosrc ~* 'item_responses|crisis_flagged' $$;
 do $$
 begin
-  perform pg_temp.chk('7a exactly these functions name the mental health snapshot table', 'private.compute_outcome_measure_snapshots,private.outcome_mh_compute,public.clinician_mental_health_outcomes,public.mental_health_outcome_report,public.my_mental_health_outcomes', pg_temp.mh_functions());
+  -- private.outcome_measure_cohort is the one sponsor-side path (CMO decision 2026-10-14, S75-7): suppressed group figures for the sponsor pack, never a person.
+  perform pg_temp.chk('7a exactly these functions name the mental health snapshot table', 'private.compute_outcome_measure_snapshots,private.outcome_measure_cohort,private.outcome_mh_compute,public.clinician_mental_health_outcomes,public.mental_health_outcome_report,public.my_mental_health_outcomes', pg_temp.mh_functions());
   perform pg_temp.chk('7b no view or materialised view in any schema is built on the mental health table (analytics included)', '0',
     ((select count(*) from pg_views where definition ~ 'outcome_mh_snapshots') + (select count(*) from pg_matviews where definition ~ 'outcome_mh_snapshots'))::text);
   perform pg_temp.chk('7c no sponsor, corporate, payer, hmo, ngo, employer or provider-organisation function names a mental health outcome object', '0',

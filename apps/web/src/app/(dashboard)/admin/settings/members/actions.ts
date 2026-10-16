@@ -99,6 +99,8 @@ export async function provisionMemberAction(
     app_metadata: {
       role: input.role,
       organisation_id: input.organisationId ?? null,
+      // An admin creating a login is not a public sign-up: exempt from invite-only sign-up (app metadata cannot be set by a visitor).
+      signup_exempt: "true",
     },
     user_metadata: { full_name: input.fullName },
   });

@@ -1,3 +1,4 @@
+import { fetchStaffFolios } from "@/lib/clinical/staff-folio";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -46,19 +47,23 @@ export async function GET(request: Request): Promise<Response> {
   const [staff, queue] = await Promise.all([
     supabase
       .from("clinical_staff")
-      .select("full_name, staff_number, credential_number, active")
-      .or(`full_name.ilike.%${term}%,staff_number.ilike.%${term}%,credential_number.ilike.%${term}%`)
+      .select("id, full_name, staff_number, active")
+      // OQ-358: credential_number is not readable from the table by everyone, so it is not a search column here.
+      .or(`full_name.ilike.%${term}%,staff_number.ilike.%${term}%`)
       .limit(6),
     rpcParsed(supabase, "credentialing_queue", {}, queueSchema).catch(() => null),
   ]);
 
   if (staff.error) failed = true;
+  // This route is admin / Chief Medical Officer only, both entitled to the folio; it comes from the folio function.
+  const folios = await fetchStaffFolios(supabase, (staff.data ?? []).map((s) => s.id));
   for (const s of staff.data ?? []) {
+    const folio = folios.get(s.id);
     results.push({
       label: s.full_name,
       href: `${base}/expiry`,
       group: "Clinicians",
-      hint: [s.credential_number ? `MDCN ${s.credential_number}` : null, s.staff_number, s.active ? "active" : "not active"].filter(Boolean).join(" · "),
+      hint: [folio ? `MDCN ${folio}` : null, s.staff_number, s.active ? "active" : "not active"].filter(Boolean).join(" · "),
     });
   }
   if (queue === null) failed = true;

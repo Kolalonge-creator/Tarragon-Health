@@ -15,6 +15,7 @@
  * are deliberately absent: the sessions that build them add them here.
  */
 import { DEVICE_RED_RULES, EMERGENCY_PACK } from "./emergency-pack";
+import { THERAPY_EXCLUSION_LISTS, THERAPY_PROGRAMME_CONFIG } from "./therapy-config-data";
 
 export type ConfigOwner = "CMO" | "Founder" | "Founder and counsel";
 export type ConfigStatus = "proposed" | "confirmed";
@@ -2147,6 +2148,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S69.md; docs/plans/S66-S70-cmo-signoff-pack.md (A16)",
   },
+  // S63: digital therapy programmes. DRAFT, unsigned: the CMO confirms or replaces both entries by publishing a higher version.
+  {
+    key: "therapy.exclusion_lists",
+    // Per programme: the entry questions and red flags that stop it (14.9). Live values are the rows of `therapy_exclusion_rules`
+    // at list version 1; a test fails if the migration seed and this value drift. Items with unverified: true are local Nigerian
+    // additions that stay draft until the CMO confirms them (Q16). An empty list (pulmonary_rehab) fails closed. The build never signs a list.
+    value: THERAPY_EXCLUSION_LISTS as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S63.md; docs/plans/S61-S65-cmo-signoff-pack.md Q13 to Q16; NICE NG123 and CG61 style exclusions",
+  },
+  {
+    key: "therapy.programme_config",
+    // Task due windows, outcome instruments, checkpoint sessions, worsening thresholds and the CBT-I and pelvic floor settings.
+    // Live values are the active row of `therapy_programme_config`; a test fails on drift. phq9 and gad7 worsening values and the CBT-I
+    // floor are CMO decisions (Q14, Q15); every other number was chosen by the build so the engine can run and is for the CMO to replace.
+    value: THERAPY_PROGRAMME_CONFIG as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S63.md; docs/plans/S61-S65-cmo-signoff-pack.md Q14, Q15",
+  },
   // S26: entitlements lifecycle, care pack expiry, refunds
   {
     key: "entitlements.expiry_reminder_days",
@@ -2338,6 +2364,84 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S33.md section 5 and docs/research/S33.md section 4 (about six breaths a minute with a longer out-breath; the pace and length are the CMO's to confirm, and the exercise is never presented as a treatment)",
+  },
+  {
+    key: "rewards.plausible_ranges",
+    // S58 (spec Module 11). Live value is the `plausible_ranges` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
+    // A logged reading outside these bounds is treated as a device or typing error and earns no points. Wide on purpose: a dangerous reading is still plausible and still earns normally; the triage path never reads this.
+    value: {"systolic": [50, 260], "diastolic": [30, 160], "glucose_mmol_l": [1, 40], "pulse_bpm": [25, 230], "temperature_c": [30, 43], "spo2_pct": [50, 100], "ketones_mmol_l": [0, 15], "respiratory_rate_bpm": [4, 60], "peak_flow_l_min": [50, 900]},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
+    key: "rewards.daily_points_cap",
+    // S58 (spec Module 11). Live value is the `daily_points_cap` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
+    // Most points one person can earn in a Lagos day across all rules, so effort stays steady and nothing can be farmed.
+    value: {"points": 100},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
+    key: "rewards.minor_age_years",
+    // S58 (spec Module 11). Live value is the `minor_age_years` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
+    // Under this age: fixed rewards only, no tiers shown as a contest, no redemption. No variable or chance-based reward exists at any age.
+    value: {"years": 18},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
+    key: "rewards.tiers",
+    // S58 (spec Module 11). Live value is the `tiers` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
+    // Yearly tiers. The year counter resets each 1 January (Lagos); earned status carries through the next year, so a tier is never taken away mid-year. The spendable balance never resets.
+    value: {"timezone": "Africa/Lagos", "carry_status_next_year": true, "tiers": [{"key": "sprout", "min": 0}, {"key": "leaf", "min": 400}, {"key": "branch", "min": 1200}, {"key": "canopy", "min": 3000}]},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
+    key: "rewards.streak_grace",
+    // S58 (spec Module 11). Live value is the `streak_grace` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
+    // A consistency badge tolerates this many quiet days inside its window. A streak is only ever a badge condition: no counter shows a reset and nothing notifies a missed day.
+    value: {"window_days": 7, "missed_days_allowed": 1},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
+    key: "rewards.employer_aggregate",
+    // S58 (spec Module 11). Live value is the `employer_aggregate` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
+    // Module 24 seam: an employer-style report shows counts only and suppresses any group smaller than this (I9: aggregate only).
+    value: {"min_group": 10},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
+    key: "rewards.rules",
+    // S58 (spec 11.1): what earns Health Points, by rule code, with caps and decay. Live value is the active `reward_rules` version 1
+    // seed; rewards-mirror.test.ts parses the migration marker. No rule may reference weight, BMI or any body metric (CHECK constraint).
+    // Points are not clinical, so the founder owns them; every rule is UNSIGNED and an admin changes one as a new proposed version.
+    value: [{"code": "vitals_logged", "trigger_event": "vitals.logged", "points": 10, "caps": {"per_day": 1}}, {"code": "meal_logged", "trigger_event": "meal.logged", "points": 10, "caps": {"per_day": 1}}, {"code": "adherence_checkin_completed", "trigger_event": "adherence.checkin_answered", "points": 15, "caps": {"per_day": 1}}, {"code": "education_lesson_completed", "trigger_event": "lesson.completed", "points": 20, "caps": {"per_day": 3}}, {"code": "lpe_task_completed", "trigger_event": "lifestyle.task_completed", "points": 15, "caps": {"per_day": 1}}, {"code": "lpe_goal_achieved", "trigger_event": "lifestyle.goal_achieved", "points": 50}, {"code": "challenge_completed", "trigger_event": "challenge.completed", "points": 0, "points_source": "catalogue"}, {"code": "wellness_class_attended", "trigger_event": "class.attended", "points": 0, "points_source": "catalogue", "caps": {"per_day": 2}}, {"code": "course_completed", "trigger_event": "course.completed", "points": 40, "caps": {"lifetime": 20}, "verified_action": true}, {"code": "lab_done", "trigger_event": "lab_result.released", "points": 30, "caps": {"per_day": 1, "decay": [{"upto": 2, "pct": 100}, {"upto": 6, "pct": 50}, {"pct": 25}]}, "verified_action": true}, {"code": "review_attended", "trigger_event": "encounter.completed", "points": 40, "caps": {"per_day": 1, "decay": [{"upto": 1, "pct": 100}, {"upto": 4, "pct": 50}, {"pct": 25}]}, "verified_action": true}, {"code": "screening_done", "trigger_event": "screening.completed", "points": 40, "caps": {"per_day": 2, "decay": [{"upto": 2, "pct": 100}, {"upto": 6, "pct": 50}, {"pct": 25}]}, "verified_action": true}],
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; supabase/migrations/20261007170413_s58_rewards_foundation.sql",
   },
   {
     key: "learning.understandability_pass_rule",
@@ -4755,6 +4859,145 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-15",
     source: "docs/design/S16-S20-capacity-cover.md; lead_config draft (inactive); decision 12",
+  },
+  {
+    key: "ai.review_sample_rate",
+    value: 0.05,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S80-S85-cmo-decision-pack.md decision 6 (5 percent stratified clinician sample per AI system per month; flagged answers always included). Unsigned until the CMO signs.",
+  },
+  {
+    key: "content.review_interval_months",
+    value: { standard: 24, high_risk: 12, start_early_months: 2 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S80-S85-cmo-decision-pack.md decision 5 (24 months standard; 12 months for emergency, medicine-safety, pregnancy and mental-health content). Unsigned until the CMO signs.",
+  },
+  {
+    key: "outcomes.measures",
+    // Programme reporting (S75b slimmed, S75c): the response-time grouping rules, the retention days and the evaluation-design note a sponsor pack carries.
+    // Live values are the active row of `outcome_measure_config`; this entry mirrors it and a test fails if the migration seed and this value drift. Every
+    // number is PROPOSED and owned by the CMO; nothing here is signed. The outcome MEASURES (HbA1c, weight, PHQ-9, GAD-7: windows, goals, exclusions and
+    // severity bands) are in outcome_config and mirrored as `outcomes.measure_rules`; the sponsor pack shows them only once the CMO has activated that config.
+    value: {
+        response_times: {
+          min_clinicians_per_group: 3,
+          priority_bands: {
+            urgent: [1, 2],
+            soon: [3, 5],
+            routine: [6, 9],
+          },
+        },
+        retention: {
+          days: [30, 90, 180],
+          engaged_window_days: 30,
+        },
+        pack: {
+          evaluation_design: "What this pack is: a descriptive before-and-after summary of the members who agreed to share group figures, taken at the day they joined and again 90 and 180 days later. There is no comparison group, members were not chosen at random, and the people who stay are not the same as the people who leave. For these reasons the figures describe what happened to these members and cannot show what would have happened without the programme. Differences between months or groups can arise from who joined, not from anything the programme did.",
+          caveat: "A change in a measure is not a verdict on the programme. Results for the same programme will differ with who joined, how long they stayed and how often they were measured.",
+        },
+      },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S75.md; docs/plans/S70-S75-cmo-signoff-pack.md C7; decision S75-2",
+  },
+  {
+    key: "outcomes.measure_rules",
+    // Version 2 (S75 exclusions and severity bands): version 1 plus, on each measure, who is NOT counted (`exclusions`: under 18 or age unknown for all; pregnant
+    // for HbA1c and weight; a PHQ-9 total of 20 or more for PHQ-9 and GAD-7) and, for PHQ-9 and GAD-7, the severity `bands`. The database holds it as
+    // `outcome_config` v4, which is v3 plus these keys. PROPOSED, UNSIGNED and INACTIVE like v3: the CMO activates v4 (not v3) to bring the exclusions in.
+    // Only the TOTAL score is read to remove a person; item 9 and the crisis flag are never read. A test compares this with the migration seed.
+    value: {
+      bp_report_days: [90, 180],
+      measures: {
+        hba1c: {
+          days: [0, 90, 180],
+          goal_below_percent: 7.0,
+          use_care_plan_target: true,
+          valid_min: 3.0,
+          valid_max: 20.0,
+          baseline_before_days: 90,
+          baseline_after_days: 14,
+          followup_tolerance_days: 30,
+          definition: "HbA1c, as a percentage. Change is the value near the day minus the baseline value near joining. A person reached the goal when the value near the day is under 7.0 percent or at their own care-plan HbA1c target. The result nearest the day inside the window is used.",
+          limitations: "Only people with an HbA1c result are counted in the measure; a person with no result near a day is shown as no result, never as not improved. Results come from the lab results recorded on the platform, not from every lab a person may have used. A before and after view without a comparison group says nothing about cause. People under 18, or with no date of birth on record, are not counted in any measure; people who are pregnant are not counted in HbA1c or weight; and people whose PHQ-9 total reached the safeguarding line (20 or more) are not counted in PHQ-9 or GAD-7. They are followed up through the existing routes, never through a report.",
+          exclusions: {
+            min_age_years: 18,
+            age_required: true,
+            pregnancy: true,
+          },
+        },
+        weight: {
+          days: [0, 30, 90, 180],
+          goal_loss_percent: 5.0,
+          valid_min: 20,
+          valid_max: 400,
+          min_age_years: 18,
+          baseline_before_days: 14,
+          baseline_after_days: 7,
+          followup_tolerance_days: 14,
+          definition: "Weight in kilograms. Change is the percent difference between the weight near the day and the baseline weight near joining. A person reached the goal when weight fell by 5 percent or more. The weight nearest the day inside the window is used. Adults only.",
+          limitations: "Only people who logged a weight are counted; a person with no weight near a day is shown as no result, never as not improved. Weight changes for many reasons, including pregnancy, illness and fluid; the measure is not a judgement of any person. A before and after view without a comparison group says nothing about cause. People under 18, or with no date of birth on record, are not counted in any measure; people who are pregnant are not counted in HbA1c or weight; and people whose PHQ-9 total reached the safeguarding line (20 or more) are not counted in PHQ-9 or GAD-7. They are followed up through the existing routes, never through a report.",
+          exclusions: {
+            min_age_years: 18,
+            age_required: true,
+            pregnancy: true,
+          },
+        },
+        phq9: {
+          days: [0, 30, 90, 180],
+          max_score: 27,
+          response_fall_percent: 50,
+          remission_below: 5,
+          min_baseline_for_outcome: 5,
+          baseline_before_days: 14,
+          baseline_after_days: 14,
+          followup_tolerance_days: 21,
+          definition: "PHQ-9 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
+          limitations: "Only total scores are used; no answer to any single question is read. A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor. People under 18, or with no date of birth on record, are not counted in any measure; people who are pregnant are not counted in HbA1c or weight; and people whose PHQ-9 total reached the safeguarding line (20 or more) are not counted in PHQ-9 or GAD-7. They are followed up through the existing routes, never through a report.",
+          exclusions: {
+            min_age_years: 18,
+            age_required: true,
+            safeguarding: {
+              score_from: 20,
+            },
+          },
+          bands: [["minimal", 0, 4], ["mild", 5, 9], ["moderate", 10, 14], ["moderately_severe", 15, 19], ["severe", 20, 27]],
+        },
+        gad7: {
+          days: [0, 30, 90, 180],
+          max_score: 21,
+          response_fall_percent: 50,
+          remission_below: 5,
+          min_baseline_for_outcome: 5,
+          baseline_before_days: 14,
+          baseline_after_days: 14,
+          followup_tolerance_days: 21,
+          definition: "GAD-7 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
+          limitations: "A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor. People under 18, or with no date of birth on record, are not counted in any measure; people who are pregnant are not counted in HbA1c or weight; and people whose PHQ-9 total reached the safeguarding line (20 or more) are not counted in PHQ-9 or GAD-7. They are followed up through the existing routes, never through a report.",
+          exclusions: {
+            min_age_years: 18,
+            age_required: true,
+            safeguarding: {
+              score_from: 20,
+            },
+          },
+          bands: [["minimal", 0, 4], ["mild", 5, 9], ["moderate", 10, 14], ["severe", 15, 21]],
+        },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S75.md (exclusions); docs/design/S75-outcome-measures.md; docs/plans/S75-S80-cmo-decisions.md S-5; decision S75-2",
   },
   {
     key: "notifications.rules",

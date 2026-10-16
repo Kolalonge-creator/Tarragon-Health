@@ -113,7 +113,7 @@ export type SignUpOutcome =
  */
 export async function startPhoneSignUp(
   auth: AuthApi,
-  args: { phone: string; password: string; fullName: string; dateOfBirth: string; state?: string },
+  args: { phone: string; password: string; fullName: string; dateOfBirth: string; state?: string; inviteCode?: string },
 ): Promise<SignUpOutcome> {
   // Registration is for adults (S04b-1). The database refuses an under-18 date of birth too; this is the calm first answer.
   const age = checkAdultDateOfBirth(args.dateOfBirth);
@@ -128,6 +128,7 @@ export async function startPhoneSignUp(
         phone: args.phone,
         date_of_birth: args.dateOfBirth,
         ...(args.state ? { state: args.state } : {}),
+        ...(args.inviteCode ? { invite_code: args.inviteCode } : {}),
       },
     },
   });
