@@ -6,7 +6,7 @@
 -- four facts, as counts and ages only, no patient or staff identifier:
 --   * seconds since the process_events heartbeat (null = never recorded),
 --   * count of event deliveries due (pending, next_attempt_at older than p_due_older_than_seconds) and not claimed,
---   * count of dead-lettered deliveries,
+--   * count of deliveries dead-lettered in the last 24 hours (older ones are a backlog to triage, not a live signal),
 --   * count of open sev1/sev2 ops incidents (status not resolved or closed).
 -- It decides nothing: thresholds are versioned PROPOSED config (ops.deadman_thresholds); the route turns measures into a verdict.
 -- Purely additive: one new function. service_role only (revoked from public, the pseudo-role anon inherits through).
@@ -29,7 +29,7 @@ as $$
         where d.status = 'pending'
           and d.next_attempt_at < now() - make_interval(secs => greatest(coalesce(p_due_older_than_seconds, 300), 0))),
     'dead_letter_deliveries',
-      (select count(*) from public.domain_event_deliveries d where d.status = 'dead'),
+      (select count(*) from public.domain_event_deliveries d where d.status = 'dead' and d.updated_at > now() - interval '24 hours'),
     'open_sev1_sev2_incidents',
       (select count(*) from public.ops_incidents i
         where i.severity in ('sev1', 'sev2') and i.status not in ('resolved', 'closed'))

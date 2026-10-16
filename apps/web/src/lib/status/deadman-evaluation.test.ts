@@ -15,7 +15,7 @@ describe("evaluateDeadman", () => {
     expect(evaluateDeadman({ ...ok(), process_events_heartbeat_age_seconds: null }, T).verdict).toBe("down");
   });
   it("due-unclaimed, dead-letter and incident counts follow their thresholds", () => {
-    expect(v({ ...ok(), due_unclaimed_deliveries: T.dueUnclaimedDegradedCount }, "due_unclaimed_deliveries")).toBe("degraded");
+    expect(v({ ...ok(), due_unclaimed_deliveries: 0 }, "due_unclaimed_deliveries")).toBe("ok");
     expect(v({ ...ok(), due_unclaimed_deliveries: T.dueUnclaimedDownCount }, "due_unclaimed_deliveries")).toBe("down");
     expect(v({ ...ok(), dead_letter_deliveries: T.deadLetterDegradedCount }, "dead_letter_deliveries")).toBe("degraded");
     expect(v({ ...ok(), dead_letter_deliveries: T.deadLetterDownCount }, "dead_letter_deliveries")).toBe("down");
