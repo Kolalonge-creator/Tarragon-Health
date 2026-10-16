@@ -169,14 +169,14 @@ begin
   perform pg_temp.setf('patE', pg_temp.mkuser(v_org, 'patE', 'patient'));
   v_real := pg_temp.mkuser(v_org, 'real', 'patient'); perform pg_temp.setf('real', v_real);
   update public.profiles set is_test = false where id = v_real;
-  v_doc := pg_temp.mkdoc(v_org, 'doctied', 'medical_officer', 'contracted', '{adult_general}', v_admin); perform pg_temp.setf('doctied', v_doc);
+  v_doc := pg_temp.mkdoc(v_org, 'doctied', 'senior_medical_officer', 'contracted', '{adult_general}', v_admin); perform pg_temp.setf('doctied', v_doc);
   v_coord := pg_temp.mkdoc(v_org, 'coord', 'care_coordinator', 'employed', '{}', v_admin); perform pg_temp.setf('coord', v_coord);
   perform pg_temp.setf('finance', pg_temp.mkuser(v_org, 'finance', 'finance'));
   perform pg_temp.setf('analyst', pg_temp.mkuser(v_org, 'analyst', 'analyst'));
   perform pg_temp.setf('corp', pg_temp.mkuser(v_org, 'corp', 'corporate_admin'));
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, care_coordinator_id) values (v_org, v_pat, v_doc, v_coord);
   v_cmo := pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', 'contracted', '{adult_general}', v_admin); perform pg_temp.setf('cmo', v_cmo);
-  perform pg_temp.setf('docuntied', pg_temp.mkdoc(v_org, 'docuntied', 'medical_officer', 'contracted', '{adult_general}', v_admin));
+  perform pg_temp.setf('docuntied', pg_temp.mkdoc(v_org, 'docuntied', 'senior_medical_officer', 'contracted', '{adult_general}', v_admin));
 end $$;
 
 -- 1. Entry screen: every exclusion in every list refuses enrolment (table-driven), unanswered refuses, no list admits nobody ----------

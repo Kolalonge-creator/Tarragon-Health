@@ -46,6 +46,8 @@ describe("programme.session_completed -> programme-progress handler", () => {
     rpc.mockResolvedValueOnce({ data: { flagged: true, task_failed: false }, error: null });
     expect(await programmeProgressPorts({ rpc }).runProgress("e1")).toEqual({ flagged: true, taskFailed: false });
     expect(rpc).toHaveBeenCalledWith("therapy_run_progress", { p_enrolment: "e1" });
+    rpc.mockResolvedValueOnce({ data: null, error: null });
+    expect(await programmeProgressPorts({ rpc }).runProgress("e1")).toEqual({ flagged: false, taskFailed: false });
     rpc.mockResolvedValueOnce({ data: null, error: { message: "nope" } });
     await expect(programmeProgressPorts({ rpc }).runProgress("e1")).rejects.toThrow("therapy_run_progress: nope");
   });
