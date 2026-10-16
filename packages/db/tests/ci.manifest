@@ -1209,3 +1209,5 @@ s16_s20_capacity_cover.sql
 s58b_creator_fee_and_integrity.sql
 # S39h: a registry row whose table has been dropped must not break the export or the retention report; the registry names no missing table; config v4 is CMO confirmed with unchanged values. Sabotage: guard removed from the export; flips.
 s39h_registry_survives_dropped_tables.sql
+# CMO OQ-358 / OQ-358b (folio base-table lock, step 2): the MDCN folio is refused on the clinical_staff base table to a colleague, a patient and anon (named, select *, filtered) while every other column, joins and a security_invoker view over the table still work; clinical_staff_folio returns the clinician their own folio, the CMO and an admin a colleague's, a colleague and a patient nothing, anon cannot execute it; the directory view still serves names; admin writes untouched; every non-folio column is granted; clinician_licence_public and the slot list carry no folio; lab and verified-document kinds return a null folio. Sabotage: the table grant put back and the function without its entitlement check must each flip.
+clinical_staff_folio_base_table_lock.sql
