@@ -6,6 +6,7 @@
 --      instrument itself stays held (coefficients missing, sign_risk_instrument refuses it). The app never prescribes (INV-02): the actions say
 --      "review", never "start a medicine". Thresholds are NOT verified against WHO PEN / HEARTS.
 
+-- risk-band-actions-begin
 insert into public.risk_instrument_versions (code, version, notes, config)
 select 'who_cvd_2019_wssa', 2,
   'PROPOSED, UNSIGNED. v1 plus bandActions (S47, chat selections 2026-10-07, not a signature). Coefficients are still missing, so this version cannot be signed. The action thresholds are not verified against WHO PEN / HEARTS. The app never prescribes: every action says review.',

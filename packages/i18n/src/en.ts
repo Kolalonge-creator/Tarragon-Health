@@ -1413,7 +1413,7 @@ export const en = {
   "catalog.membership_annual.name": "Tarragon Membership",
   "catalog.membership_annual.description": "A year of care with your care team, on your phone. Medicines are not included: you take your prescription to any pharmacy and pay there.",
   "catalog.membership_annual.incl.1": "A yearly blood test, with your results held for your care team to review before you see them",
-  "catalog.membership_annual.incl.2": "A video call with your care team about once a month",
+  "catalog.membership_annual.incl.2": "A video call with your care team every month, 12 in the year",
   "catalog.membership_annual.incl.3": "Written questions to your care team between calls",
   "catalog.membership_annual.incl.4": "Prescriptions that your care team signs, for you to take to any pharmacy",
   "catalog.bp_care_pack_3m.name": "Blood pressure care pack, 3 months",

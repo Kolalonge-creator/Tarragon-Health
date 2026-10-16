@@ -19,6 +19,8 @@ const ALLOWED = [
 // Exactly one file is allowed by name. S44's item-note.tsx lists "patient_documents" in a Set of table names a note may be attached to; it
 // builds no query and reads no row of that table. Allowing the one file (not its folder) keeps the guard strict for every other file.
 const ALLOWED_FILES = [join("components", "item-note.tsx")];
+// A security scan test that lists the table by name reads no rows; only production source is a reader.
+const SCAN_TESTS = [join("lib", "security", "staff-closed-tables-scan.test.ts")];
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -38,6 +40,7 @@ describe("patient_documents readers", () => {
       .map((f) => ({ f, rel: relative(SRC, f) }))
       .filter(({ rel }) => !ALLOWED.some((a) => rel.startsWith(a)))
       .filter(({ rel }) => !ALLOWED_FILES.includes(rel))
+      .filter(({ rel }) => !SCAN_TESTS.includes(rel))
       .filter(({ f }) => /["'`]patient_documents["'`]/.test(readFileSync(f, "utf8")))
       .map(({ rel }) => rel);
     expect(offenders).toEqual([]);

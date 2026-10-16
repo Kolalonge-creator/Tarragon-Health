@@ -1033,8 +1033,6 @@ s47b_review_fixes.sql
 s47c_report_build_backoff.sql
 # S47d: optional-per-use consents are enforced at write (reproductive, mental health, device data) with simulated sessions, one source of truth for device data. Sabotage: three.
 s47d_optional_consent_enforced.sql
-# S47e: the two-tier model: legacy bundles cannot be bought, no imaging copy, Membership at 12,000,000 kobo as a new price version, preventive alerts ungated for a free patient. Sabotage: three.
-s47_two_tier_model.sql
 # S80 fix-first: patient-facing health education content is approved only by an active Chief Medical Officer (a clinician login, not an admin); an admin and a non-CMO clinician are refused; draft and updated cannot skip review to published; an admin re-affirming review_due content is refused and the CMO may; controls (admin sends to review and publishes approved content, CMO approves and stamps clinician_reviewed) open. Sabotage: the pre-fix function restored in the same transaction lets an admin approve and publish.
 s80_content_approval_requires_cmo.sql
 # S80a: translations (key, language, text, state draft/native_reviewed/clinical_reviewed). Admin may do the native review and refused clinical review; only the CMO sets clinical_reviewed; a text or source-hash change puts the row back to draft and clears the reviewer; the release gate blocks an enabled language with an unreviewed or missing clinical key and blocks nothing with only English; translation.reviewed and content.published events are emitted once, carry ids only (no text), and content.published fires on publish only; a patient reads nothing and cannot review. Sabotage: an admin-only review function lets an admin clinically review.

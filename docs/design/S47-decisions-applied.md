@@ -55,3 +55,8 @@ Six findings from a second `/code-review high`, all fixed on the same branch, al
 **Preventive alerts not gated, how it is proved.** `s47_two_tier_model.sql` reads the live source of eight reminder and calendar functions and fails if any mentions a plan, entitlement, membership or purchase table, then creates a patient with no membership and shows a due-screening reminder is queued for them. The sabotage slips a membership check into the reminder function and the scan flips.
 
 **Not built:** a screen for the young person to restore a guardian's access (the function exists, OQ-S47-13); the annual panel still lists HIV, HBsAg and hepatitis C antibody (OQ-S47-14, reported not changed).
+
+
+## 2026-10-16: S47e dropped at merge
+
+The two-tier work that landed on main-dev separately (Free and a 120,000 naira Membership, one price catalogue, the live bundle and add-on retirement) replaced S47e. The S47e migration, its proof `s47_two_tier_model.sql` and the `two-tier-copy` test were removed rather than merged, so the live price and copy stand.

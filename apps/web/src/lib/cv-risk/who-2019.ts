@@ -139,7 +139,7 @@ export function supabaseCvdDataSource(user: Client, service: Client): CvdDataSou
       const [bp, weight, chol, smoking, plans, cvProfile] = await Promise.all([
         readPatientVitalsAudited(user, patientId, { vitalType: "blood_pressure", limit: 1 }),
         readPatientVitalsAudited(user, patientId, { vitalType: "weight", limit: 1 }),
-        user.from("lab_analyte_readings").select("value").eq("patient_id", patientId).eq("code", "total_cholesterol").order("taken_at", { ascending: false }).limit(1).maybeSingle(),
+        user.from("lab_analyte_readings").select("value").eq("patient_id", patientId).eq("code", "total_cholesterol").is("correction_status", null).order("taken_at", { ascending: false }).limit(1).maybeSingle(),
         user.from("risk_assessment_responses").select("response").eq("profile_id", patientId).eq("question_key", "smoking_status").order("created_at", { ascending: false }).limit(1).maybeSingle(),
         user.from("care_plans").select("condition").eq("patient_id", patientId).eq("status", "active"),
         user.from("patient_cardiovascular_profile").select("established_ascvd").eq("patient_id", patientId).maybeSingle(),

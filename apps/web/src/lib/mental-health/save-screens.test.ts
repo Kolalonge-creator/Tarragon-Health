@@ -85,6 +85,6 @@ describe("saveMentalHealthScreens", () => {
   it("returns an error when the screen itself cannot be saved", async () => {
     serviceInsert.mockResolvedValue({ error: { message: "db down" } });
     const res = await saveMentalHealthScreens({ userClient: userClient({ existingEvent: false, eventError: null, emergencyInsert: jest.fn() }), userId: "u1", answers: answers() });
-    expect(res).toEqual({ ok: false, error: "db down" });
+    expect(res).toEqual({ ok: false, error: "db down", consentRequired: false });
   });
 });

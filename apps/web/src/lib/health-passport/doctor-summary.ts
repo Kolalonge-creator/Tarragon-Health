@@ -187,6 +187,7 @@ export async function getDoctorSummary(supabase: SupabaseClient<Database>, patie
         .select("vital_type, systolic, diastolic, glucose_mmol_l, weight_kg, pulse_bpm, temperature_c, spo2_pct, source, taken_at")
         .eq("patient_id", patientId)
         .eq("vital_type", vt)
+        .is("correction_status", null)
         .order("taken_at", { ascending: false })
         .limit(1)
     ),

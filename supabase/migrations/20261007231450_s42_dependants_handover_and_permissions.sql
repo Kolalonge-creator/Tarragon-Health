@@ -411,7 +411,7 @@ do $$
 begin
   if has_table_privilege('authenticated', 'public.dependant_handovers', 'INSERT,UPDATE,DELETE') then raise exception 'S42: dependant_handovers writable directly'; end if;
   if has_table_privilege('anon', 'public.dependant_handovers', 'SELECT') then raise exception 'S42: anon reads dependant_handovers'; end if;
-  if has_function_privilege('anon', 'public.complete_dependant_handover(uuid[])', 'EXECUTE') then raise exception 'S42: anon can complete a hand-over'; end if;
+  if has_function_privilege('anon', 'public.complete_dependant_handover(uuid[], date)', 'EXECUTE') then raise exception 'S42: anon can complete a hand-over'; end if;
   if has_function_privilege('authenticated', 'private.sweep_dependant_handovers()', 'EXECUTE') then raise exception 'S42: sweep callable by a session'; end if;
   if not exists (select 1 from cron.job where jobname = 'dependant-handover-sweep-daily') then raise exception 'S42: hand-over cron missing'; end if;
 end $$;

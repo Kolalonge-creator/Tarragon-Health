@@ -28686,7 +28686,6 @@ export type Database = {
           id: string
           is_active: boolean
           is_screen_tier: boolean
-          legacy_tier: boolean
           name: string
           preparation_instructions: string | null
           price_kobo: number
@@ -28711,7 +28710,6 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_screen_tier?: boolean
-          legacy_tier?: boolean
           name: string
           preparation_instructions?: string | null
           price_kobo?: number
@@ -28736,7 +28734,6 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_screen_tier?: boolean
-          legacy_tier?: boolean
           name?: string
           preparation_instructions?: string | null
           price_kobo?: number
@@ -55938,6 +55935,7 @@ export type Database = {
         | "overdue"
         | "cancelled"
         | "declined"
+        | "not_applicable"
       second_opinion_status: "submitted" | "in_review" | "answered" | "closed"
       senior_case_review_status:
         | "submitted"
@@ -56101,6 +56099,8 @@ export type Database = {
         | "dependent_account_transitioned"
         | "vitals_recorded"
         | "prescription_signed"
+        | "symptom_logged"
+        | "procedure_recorded"
       triage_category: "emergency" | "urgent" | "routine" | "self_management"
       triage_entry_point:
         | "patient_app"
@@ -58437,6 +58437,7 @@ export const Constants = {
         "overdue",
         "cancelled",
         "declined",
+        "not_applicable",
       ],
       second_opinion_status: ["submitted", "in_review", "answered", "closed"],
       senior_case_review_status: [
@@ -58615,6 +58616,8 @@ export const Constants = {
         "dependent_account_transitioned",
         "vitals_recorded",
         "prescription_signed",
+        "symptom_logged",
+        "procedure_recorded",
       ],
       triage_category: ["emergency", "urgent", "routine", "self_management"],
       triage_entry_point: [
