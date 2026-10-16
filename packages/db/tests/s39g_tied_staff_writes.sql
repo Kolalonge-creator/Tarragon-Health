@@ -107,7 +107,9 @@ select pg_temp.ck('real', 'W11 a care coordinator cannot write a clinical table 
 select pg_temp.ck('real', 'W12 an admin cannot write a clinical table', 'ERR 42501', pg_temp.ins(pg_temp.f('ad'), pg_temp.f('org'), pg_temp.f('t5')));
 select pg_temp.ck('real', 'W13 another organisation''s clinician cannot', 'ERR 42501', pg_temp.ins(pg_temp.f('ox'), pg_temp.f('org'), pg_temp.f('t6')));
 select pg_temp.ck('real', 'W14 anon cannot', 'ERR 42501', pg_temp.as_anon(format('insert into public.patient_smoking_profiles (organisation_id, patient_id) values (%L, %L) returning patient_id::text', pg_temp.f('org'), pg_temp.f('t7'))));
--- reproductive
+-- reproductive. S47d refuses a reproductive write with no consent before row security looks; the patient has said yes here, so the refusal this proves is the row-security one.
+insert into public.consent_matrix_events (organisation_id, patient_id, data_type, purpose, action, policy_version, source, recorded_by, is_test)
+values (pg_temp.f('org'), pg_temp.f('u7'), 'reproductive', 'care', 'granted', 2, 'patient', pg_temp.f('u7'), false);
 select pg_temp.ck('real', 'W15 an opening never opens a reproductive table for writing', 'ERR 42501',
   (select case when pg_temp.as_user(pg_temp.f('b'), format('select public.open_patient_record(%L)::text', pg_temp.f('u7'))) is not null
      then pg_temp.as_user(pg_temp.f('b'), format('insert into public.reproductive_health_profiles (organisation_id, patient_id) values (%L, %L) returning patient_id::text', pg_temp.f('org'), pg_temp.f('u7'))) end));

@@ -79,11 +79,11 @@ declare v uuid := gen_random_uuid();
 begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values (v, 's46-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}');
-  insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, sex, is_test)
+  insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, sex, is_test, is_dependent_account, dependent_kind)
   values (v, p_org, p_role::public.user_role, 'S46 ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'),
-          (current_date - make_interval(years => p_age, days => 30))::date, p_sex::public.sex, true)
+          (current_date - make_interval(years => p_age, days => 30))::date, p_sex::public.sex, true, p_age < 18, case when p_age < 18 then 'minor_child' end)
   on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone,
-     date_of_birth = excluded.date_of_birth, sex = excluded.sex;
+     date_of_birth = excluded.date_of_birth, sex = excluded.sex, is_dependent_account = excluded.is_dependent_account, dependent_kind = excluded.dependent_kind;
   return v;
 end $f$;
 create function pg_temp.mkdoc(p_org uuid, p_label text, p_tier text, p_admin uuid) returns uuid

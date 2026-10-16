@@ -168,6 +168,7 @@ begin
     select v_org, v_b, 'terms_of_service', id, version, 'accepted' from public.consent_versions where id = v_ver;
   perform pg_temp.ck('B cannot withdraw a required consent (direct insert)', '23514',
     pg_temp.try_as(v_b, format($q$insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action) values (%L, %L, 'terms_of_service', %L, 'x', 'withdrawn')$q$, v_org, v_b, v_ver)));
+  update public.consent_versions set is_current = false where consent_type = 'research' and is_current;   -- S04b-2 ships a current research version; one current per type
   insert into public.consent_versions (consent_type, version, title, body, is_current, is_optional)
     values ('research', 's42-proof', 'Draft', 'Draft', true, true);
   insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action)

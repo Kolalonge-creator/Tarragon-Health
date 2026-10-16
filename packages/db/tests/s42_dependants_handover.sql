@@ -58,9 +58,13 @@ declare v uuid := gen_random_uuid(); v_phone text := '+23481' || lpad((random() 
 begin
   insert into auth.users (id, email, phone, phone_confirmed_at, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values (v, 's42-' || p_label || '-' || v || '@example.invalid', v_phone, now(), 'x', now(), '{}', '{}');
-  insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
-  values (v, p_org, p_role::public.user_role, 'S42 ' || p_label || ' Person', v_phone, coalesce(p_dob, (current_date - interval '45 years')::date), true)
-  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, full_name = excluded.full_name, phone = excluded.phone, date_of_birth = excluded.date_of_birth;
+  -- S04b-1: a profile under 18 must be a minor_child dependant from the moment it exists
+  insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, is_dependent_account, dependent_kind)
+  values (v, p_org, p_role::public.user_role, 'S42 ' || p_label || ' Person', v_phone, coalesce(p_dob, (current_date - interval '45 years')::date), true,
+          coalesce(p_dob, (current_date - interval '45 years')::date) > (current_date - interval '18 years')::date,
+          case when coalesce(p_dob, (current_date - interval '45 years')::date) > (current_date - interval '18 years')::date then 'minor_child' end)
+  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, full_name = excluded.full_name, phone = excluded.phone, date_of_birth = excluded.date_of_birth,
+     is_dependent_account = excluded.is_dependent_account, dependent_kind = excluded.dependent_kind;
   return v;
 end $f$;
 create function pg_temp.vitals_seen_by(p_uid uuid, p_patient uuid) returns text language sql as

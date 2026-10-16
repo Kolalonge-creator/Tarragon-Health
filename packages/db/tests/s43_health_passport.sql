@@ -327,12 +327,12 @@ begin
   -- ===== 5. fixtures for the lab filter and trends =========================================================================================================
   -- data for the lab filter
   set local session_replication_role = replica;
-  insert into public.lab_analyte_readings (organisation_id, patient_id, code, value, unit, taken_at, report_status, reference_range_low, reference_range_high, laboratory)
-  values (v_org, v_pat, 'hba1c', 6.1, '%', now() - interval '3 years', 'final', 4.0, 5.6, 'Lab A'),
-         (v_org, v_pat, 'hba1c', 6.9, '%', now() - interval '2 years', 'final', 4.0, 5.6, 'Lab A'),
-         (v_org, v_pat, 'hba1c', 52, 'mmol/mol', now() - interval '1 year', 'final', 20, 38, 'Lab B'),
-         (v_org, v_pat, 'hba1c', 99, '%', now(), 'preliminary', 4.0, 5.6, 'Lab B'),
-         (v_org, v_pat2, 'hba1c', 7.7, '%', now(), 'final', 4.0, 5.6, 'Other');
+  insert into public.lab_analyte_readings (organisation_id, patient_id, code, value, unit, taken_at, report_status, reference_range_low, reference_range_high, laboratory, range_source)
+  values (v_org, v_pat, 'hba1c', 6.1, '%', now() - interval '3 years', 'final', 4.0, 5.6, 'Lab A', 'lab_report'),
+         (v_org, v_pat, 'hba1c', 6.9, '%', now() - interval '2 years', 'final', 4.0, 5.6, 'Lab A', 'lab_report'),
+         (v_org, v_pat, 'hba1c', 52, 'mmol/mol', now() - interval '1 year', 'final', 20, 38, 'Lab B', 'lab_report'),
+         (v_org, v_pat, 'hba1c', 99, '%', now(), 'preliminary', 4.0, 5.6, 'Lab B', 'lab_report'),
+         (v_org, v_pat2, 'hba1c', 7.7, '%', now(), 'final', 4.0, 5.6, 'Other', 'lab_report');
   insert into public.lab_results (id, organisation_id, patient_id, source, submitted_by_kind, release_state, released_at, release_reason)
   values (gen_random_uuid(), v_org, v_pat, 'api', 'partner', 'released', now() - interval '10 days', 'RES-001') returning id into v_cat;
   insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_numeric, value_text, unit, flag, ref_low, ref_high, sensitive_positive)
