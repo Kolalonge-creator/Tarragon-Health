@@ -70,7 +70,7 @@ notices. So the platform is also checked from OUTSIDE, two independent ways, bot
     GET /api/health/deadman      header: x-health-secret: <HEALTH_CHECK_SECRET>   (or Authorization: Bearer <same value>)
 
 It reads `public.deadman_status()` (service_role only) and returns counts and ages only, no patient or staff identifier:
-seconds since the `process_events` heartbeat, deliveries due for over 5 minutes and not claimed, dead-letter count, open
+seconds since the `process_events` heartbeat, deliveries due for over 5 minutes and not claimed, dead letters from the last 24 hours, open
 sev1/sev2 incidents. Thresholds are the PROPOSED config `ops.deadman_thresholds` (packages/shared/src/proposed-config). Answers
 200 for ok or degraded, 503 for down or an unreadable database, 401 for a wrong or missing secret, and 503 "not configured"
 when `HEALTH_CHECK_SECRET` is unset (fails closed, reads nothing).

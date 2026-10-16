@@ -31,10 +31,13 @@ export async function GET(request: Request): Promise<NextResponse> {
     const supabase = createServiceRoleClient() as unknown as {
       rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
     };
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const result = await Promise.race([
       supabase.rpc("deadman_status", { p_due_older_than_seconds: thresholds.dueOlderThanSeconds }),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), thresholds.dbQueryTimeoutMs)),
-    ]);
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("timeout")), thresholds.dbQueryTimeoutMs);
+      }),
+    ]).finally(() => clearTimeout(timer));
     const status = result.error ? null : parseDeadmanStatus(result.data);
     if (!status) {
       return NextResponse.json({ ok: false, verdict: "down", error: "status_failed", latency_ms: Date.now() - started }, { status: 503, headers: NO_STORE });

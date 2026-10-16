@@ -3037,15 +3037,15 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     key: "ops.deadman_thresholds",
     // OQ-436: where /api/health/deadman (polled from OUTSIDE Supabase and Vercel by .github/workflows/deadman-switch.yml) turns the four
     // numbers from public.deadman_status() into ok, degraded or down. Seconds unless the name says otherwise. process-events runs
-    // every 15 seconds and the paging engine itself calls a heartbeat stale at 120 seconds (paging_delivery_config), so 300 seconds
-    // of silence is "down". PROPOSED by engineering; the founder confirms. Do not mark confirmed from an agent.
+    // every 15 seconds and the paging engine itself calls a heartbeat stale at 120 seconds (paging_delivery_config), so 180 seconds
+    // of silence is "down" and any delivery due for 5 minutes and still unclaimed is "down". PROPOSED by engineering; the founder confirms. Do not mark confirmed from an agent.
     value: {
       dbQueryTimeoutMs: 5000,
-      heartbeatDegradedSeconds: 150,
-      heartbeatDownSeconds: 300,
+      heartbeatDegradedSeconds: 90,
+      heartbeatDownSeconds: 180,
       dueOlderThanSeconds: 300,
       dueUnclaimedDegradedCount: 1,
-      dueUnclaimedDownCount: 5,
+      dueUnclaimedDownCount: 1,
       deadLetterDegradedCount: 1,
       deadLetterDownCount: 25,
       openSev1Sev2DegradedCount: 1,
@@ -3055,7 +3055,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-16",
-    source: "docs/OPEN-QUESTIONS.md OQ-436; supabase/migrations/20261016185500_oq436_deadman_status.sql; docs/PLATFORM_OUTAGE_RUNBOOK.md external dead-man's switch",
+    source: "docs/OPEN-QUESTIONS.md OQ-436; supabase/migrations/20261016190347_oq436_deadman_status.sql; docs/PLATFORM_OUTAGE_RUNBOOK.md external dead-man's switch",
   },
   {
     key: "ops.alert_rules",
