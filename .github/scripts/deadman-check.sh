@@ -107,7 +107,10 @@ fi
 if [ "$lookup_failed" -eq 1 ]; then exit 1; fi
 if [ "${verdict:-}" = "degraded" ]; then
   echo "Degraded but reachable at ${now}."
-  [ -n "$existing" ] && echo "Open issue #${existing} stays open until the status is fully ok."
+  if [ -n "$existing" ]; then
+    gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "Update ${now}: the platform is reachable again but still degraded (not fully ok), so this issue stays open. Checks:
+${summary}" >/dev/null || echo "::warning::Could not comment on issue #${existing}"
+  fi
   exit 0
 fi
 echo "Platform status check healthy at ${now}."
