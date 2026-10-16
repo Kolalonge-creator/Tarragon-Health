@@ -397,6 +397,15 @@ as $$
 $$;
 revoke all on function private.ops_desk_on_duty(uuid, boolean, timestamptz) from public, anon, authenticated;
 
+-- The page an incident is about (its notices point at it); the incident itself when there is no page (a standing "nobody reachable" condition).
+create function private.ops_desk_ref(p_incident uuid) returns uuid
+language sql stable security definer set search_path = ''
+as $$
+  select case when i.external_reference ~ '^page_expired:[0-9a-f-]{36}$' then substring(i.external_reference from 14)::uuid else i.id end
+    from public.ops_incidents i where i.id = p_incident
+$$;
+revoke all on function private.ops_desk_ref(uuid) from public, anon, authenticated;
+
 -- p_mode 'first': the primary on duty, else the deputy on duty. 'deputy': a deputy on duty other than p_exclude.
 create function private.ops_desk_assign(p_incident uuid, p_mode text default 'first', p_exclude uuid default null) returns uuid
 language plpgsql security definer set search_path = ''
@@ -431,6 +440,7 @@ begin
     v_reason := 'primary_unacknowledged';
   end if;
 
+  if c.contact_id is null and p_mode <> 'first' then return null; end if;
   if c.contact_id is null then
     -- a drill (test page) is never a real emergency: no sev1 and no notice, only the audit row
     if v_test then
@@ -515,15 +525,17 @@ begin
       update public.ops_desk_assignments set escalated_at = now() where id = a.id;
       if a.role = 'primary' then
         v_got := private.ops_desk_assign(a.incident_id, 'deputy', a.profile_id);
-        if v_got is null then
+        if not exists (select 1 from public.ops_desk_assignments d where d.incident_id = a.incident_id and d.role = 'deputy') and not a.is_test then
           perform private.page_incident(a.organisation_id, 'ops_desk_no_deputy:' || a.incident_id, 'The ops desk primary has not answered and no deputy is on duty',
             'The named ops primary has not acknowledged a page incident and no deputy is on duty. Phone the on-call clinician and the chief medical officer yourself and record the calls.');
         end if;
         v_deputies := v_deputies + 1;
       else
-        perform private.page_incident(a.organisation_id, 'ops_desk_unacknowledged:' || a.incident_id, 'Nobody at the ops desk has acknowledged a page incident',
-          'The named ops deputy has not acknowledged a page incident. Phone the on-call clinician and the chief medical officer yourself and record the calls on the Ops desk page.');
-        perform private.page_notify_leadership(a.organisation_id, a.incident_id, a.is_test, 'on_call_ops_desk_uncovered');
+        if not a.is_test then
+          perform private.page_incident(a.organisation_id, 'ops_desk_unacknowledged:' || a.incident_id, 'Nobody at the ops desk has acknowledged a page incident',
+            'The named ops deputy has not acknowledged a page incident. Phone the on-call clinician and the chief medical officer yourself and record the calls on the Ops desk page.');
+          perform private.page_notify_leadership(a.organisation_id, private.ops_desk_ref(a.incident_id), a.is_test, 'on_call_ops_desk_uncovered');
+        end if;
         v_final := v_final + 1;
       end if;
     exception when others then
@@ -539,11 +551,11 @@ begin
   end loop;
 
   if coalesce(private.ops_desk_rule('uncovered_roster_alarm'), 0) = 1 then
-    for o in select distinct r.organisation_id from public.on_call_rota r where r.is_test = false and r.cancelled_at is null and r.ends_at > now() loop
+    for o in select distinct r.organisation_id from public.on_call_rota r where r.is_test = false and r.cancelled_at is null and r.starts_at <= now() and r.ends_at > now() loop
       begin
         if exists (select 1 from private.ops_desk_on_duty(o.organisation_id, false)) then
           -- cover is back: the alarm closes itself (a person can still reopen the question in the incident)
-          update public.ops_incidents set status = 'resolved', root_cause = 'An ops desk contact is on duty again (closed automatically).'
+          update public.ops_incidents set status = 'resolved', root_cause = coalesce(root_cause, 'An ops desk contact is on duty again (closed automatically).')
            where external_reference = 'ops_desk_uncovered_roster:' || o.organisation_id and status not in ('resolved', 'closed');
         else
           perform private.page_incident(o.organisation_id, 'ops_desk_uncovered_roster:' || o.organisation_id, 'Nobody is named at the ops desk for this hour',
@@ -629,7 +641,7 @@ begin
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
     values (c.organisation_id, c.id, 'ops_desk.windows_set', 'ops_desk_contact', p_contact, jsonb_build_object('windows', n));
   return n;
-exception when invalid_text_representation or datetime_field_overflow or invalid_datetime_format or check_violation or not_null_violation then
+exception when invalid_text_representation or datetime_field_overflow or invalid_datetime_format or check_violation or not_null_violation or numeric_value_out_of_range then
   raise exception 'each window needs a day (1 to 7), a start and an end time (HH:MM) with the end after the start' using errcode = '22023';
 end;
 $$;
@@ -675,9 +687,8 @@ begin
    where incident_id = p_incident and profile_id = v_uid and acknowledged_at is null;
   get diagnostics n = row_count;
   if n = 0 then raise exception 'this incident is not assigned to you, or you already acknowledged it' using errcode = '42501'; end if;
-  -- the other assignment on the same incident no longer needs to escalate
-  update public.ops_desk_assignments set acknowledged_at = now(), acknowledged_by = v_uid where incident_id = p_incident and acknowledged_at is null;
-  update public.ops_incidents set owner_id = v_uid where id = p_incident;
+  -- the register's own acknowledgement is stamped too (moving it to investigating), which is what stops a further escalation to the deputy
+  update public.ops_incidents set owner_id = v_uid, status = case when status = 'open' then 'investigating'::public.ops_incident_status else status end where id = p_incident;
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
     values (i.organisation_id, v_uid, 'ops_desk.acknowledged', 'ops_incident', p_incident, '{}'::jsonb);
 end;
@@ -712,7 +723,7 @@ begin
       union all
       select 'chief_medical_officer', cs.profile_id from public.clinical_staff cs join public.profiles pr on pr.id = cs.profile_id
        where cs.organisation_id = i.organisation_id and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer' and pr.is_test = v_test)
-    select p.kind, p.pid, pr.full_name, private.verified_profile_phone(p.pid) as phone
+    select p.kind, p.pid, coalesce(pr.full_name, 'Unnamed') as full_name, private.verified_profile_phone(p.pid) as phone
       from people p join public.profiles pr on pr.id = p.pid where p.pid is not null
   loop
     v_rows := v_rows || jsonb_build_array(jsonb_build_object('kind', r.kind, 'profile_id', r.pid, 'name', r.full_name,
@@ -827,12 +838,12 @@ begin
   select * into c from private.cap_caller();
   return coalesce((
     select jsonb_agg(jsonb_build_object(
-      'contact_id', ct.id, 'profile_id', ct.profile_id, 'name', pr.full_name, 'role', ct.role, 'is_active', ct.is_active,
+      'contact_id', ct.id, 'profile_id', ct.profile_id, 'name', coalesce(pr.full_name, 'Unnamed'), 'role', ct.role, 'is_active', ct.is_active,
       'phone', private.verified_profile_phone(ct.profile_id),
       'phone_status', case when private.verified_profile_phone(ct.profile_id) is not null then 'confirmed'
                            when pr.phone is null then 'no_number' else 'not_confirmed' end,
       'on_duty_now', exists (select 1 from private.ops_desk_on_duty(c.organisation_id, ct.is_test) d where d.contact_id = ct.id),
-      'activated_by_name', (select ap.full_name from public.profiles ap where ap.id = ct.activated_by), 'activated_at', ct.activated_at,
+      'activated_by_name', (select coalesce(ap.full_name, 'Unnamed') from public.profiles ap where ap.id = ct.activated_by), 'activated_at', ct.activated_at,
       'windows', coalesce((select jsonb_agg(jsonb_build_object('day', w.day_of_week, 'start', to_char(w.start_time, 'HH24:MI'), 'end', to_char(w.end_time, 'HH24:MI')) order by w.day_of_week, w.start_time)
                              from public.ops_desk_contact_windows w where w.contact_id = ct.id), '[]'::jsonb)
     ) order by ct.role, pr.full_name)
@@ -857,7 +868,7 @@ begin
   v_since := now() - make_interval(days => v_days);
   select coalesce(jsonb_agg(jsonb_build_object(
       'item_key', it.item_key, 'title', it.title, 'detail', it.detail,
-      'state', coalesce(l.state, 'not_attested'), 'attested_at', l.attested_at, 'attested_by_name', l.name, 'evidence_note', l.evidence_note,
+      'state', coalesce(l.state, 'not_attested'), 'attested_at', l.attested_at, 'attested_by_name', coalesce(l.name, 'Unnamed'), 'evidence_note', l.evidence_note,
       'stale', l.attested_at is not null and l.attested_at <= now() - make_interval(days => v_age)) order by it.sort_order), '[]'::jsonb)
     into v_items
     from public.ops_desk_checklist_items it
@@ -904,7 +915,7 @@ begin
   return coalesce((
     select jsonb_agg(x order by x ->> 'called_at' desc) from (
       select jsonb_build_object('id', l.id, 'incident_id', l.incident_id, 'incident_reference', i.reference, 'called_at', l.called_at,
-               'called_by_name', cb.full_name, 'callee_kind', l.callee_kind, 'callee_name', ce.full_name, 'callee_phone_masked', l.callee_phone_masked,
+               'called_by_name', coalesce(cb.full_name, 'Unnamed'), 'callee_kind', l.callee_kind, 'callee_name', coalesce(ce.full_name, 'Unnamed'), 'callee_phone_masked', l.callee_phone_masked,
                'outcome', l.outcome, 'note', l.note) as x
         from public.ops_desk_call_log l
         join public.ops_incidents i on i.id = l.incident_id

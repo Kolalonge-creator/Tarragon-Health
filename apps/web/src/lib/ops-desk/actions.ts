@@ -62,8 +62,8 @@ export async function logCall(fd: FormData): Promise<void> {
 }
 
 export async function attestItem(fd: FormData): Promise<void> {
-  const back = text(fd, "returnTo") === "/clinician/ops-desk" ? "/clinician/ops-desk" : PAGE;
-  await runAndRedirect(fd, back, async () => {
+  // the form posts its own page as returnTo (both ops desk pages are on the allowed list), so the CMO comes back to /clinician/ops-desk
+  await runAndRedirect(fd, PAGE, async () => {
     await rpcVoid(await createClient(), "attest_ops_desk_item", {
       p_item: z.string().min(1).max(60).parse(text(fd, "item")),
       p_state: z.enum(["in_place", "not_in_place"]).parse(text(fd, "state")),

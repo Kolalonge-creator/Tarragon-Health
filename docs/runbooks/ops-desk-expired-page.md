@@ -45,7 +45,7 @@ Today the checklist gates nothing. ops desk configuration version 2 (inactive, u
 - The founder buys and tests the backup power (inverter or UPS, power banks) and the second internet link, then a named person attests each on the Ops desk page.
 - Someone phones each number on the call sheet once to prove it works, and attests "tested contact numbers".
 - The CMO confirms the 5 minute deputy time and the 2 minute call gaps, and decides whether to sign version 2 (the checklist gate).
-- Deploy the edge function `send-pending-notifications` before the migration applies (two new templates, `on_call_ops_desk` and `on_call_ops_desk_uncovered`). Until then a page that expires still raises the incident and the in-console alarm, and the new notices wait to send.
+- Deploy the edge function `send-pending-notifications` before the migration applies (three new templates: `on_call_ops_desk`, `on_call_ops_desk_uncovered` and `on_call_ops_desk_roster`). Until then a page that expires still raises the incident and the in-console alarm, and the new notices wait to send.
 
 ## Known limits
 

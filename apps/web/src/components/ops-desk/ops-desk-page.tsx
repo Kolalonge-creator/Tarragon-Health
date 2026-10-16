@@ -101,12 +101,24 @@ export async function OpsDeskPage({ mode, searchParams }: { mode: Mode; searchPa
   const sp = await searchParams;
   const path = PATH[mode];
   const profile = await getCurrentProfile();
-  const [overview, roster, calls] = await Promise.all([getOpsDeskOverview(30), getOpsDeskRoster(), getOpsDeskCalls(null, 100)]);
+  // Each read stands alone: a failure in one never hides the cards that say who to phone.
+  const safe = async <T,>(read: () => Promise<T>): Promise<T | null> => {
+    try {
+      return await read();
+    } catch {
+      return null;
+    }
+  };
+  const [overviewRead, rosterRead, callsRead] = await Promise.all([safe(() => getOpsDeskOverview(30)), safe(() => getOpsDeskRoster()), safe(() => getOpsDeskCalls(null, 100))]);
+  const overview = overviewRead;
+  const roster = rosterRead ?? [];
+  const calls = callsRead ?? [];
   let incidents: PageIncident[] = [];
   let incidentsFailed = false;
   if (mode === "admin") {
     try {
-      incidents = await getOpenPageIncidents();
+      incidents = profile?.organisation_id ? await getOpenPageIncidents(profile.organisation_id) : [];
+      incidentsFailed = !profile?.organisation_id;
     } catch {
       incidentsFailed = true;
     }
@@ -143,6 +155,9 @@ export async function OpsDeskPage({ mode, searchParams }: { mode: Mode; searchPa
       <Flash ok={firstParam(sp.ok)} error={firstParam(sp.error)} />
 
       <Section title="Where it stands" hint="Counts are for the last 30 days.">
+        {overview === null ? <p className="text-sm text-red-700 dark:text-red-300">The summary could not be read. The cards below and the call log still work.</p> : null}
+        {overview !== null ? (
+        <>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <Badge variant={overview.on_duty_now > 0 ? "green" : "red"}>{overview.on_duty_now > 0 ? `${overview.on_duty_now} on duty now` : "Nobody on duty now"}</Badge>
           <Badge variant={overview.active_primary > 0 ? "green" : "amber"}>{overview.active_primary} primary</Badge>
@@ -159,6 +174,8 @@ export async function OpsDeskPage({ mode, searchParams }: { mode: Mode; searchPa
           <li>Calls recorded: {overview.calls_logged}; answered: {overview.calls_answered}.</li>
           {overview.open_uncovered_incidents > 0 ? <li className="text-red-700 dark:text-red-300">{overview.open_uncovered_incidents} open incident(s) say nobody was named for the hour. Fix the roster below.</li> : null}
         </ul>
+        </>
+        ) : null}
       </Section>
 
       {mode === "admin" ? (
@@ -239,8 +256,9 @@ export async function OpsDeskPage({ mode, searchParams }: { mode: Mode; searchPa
       </Section>
 
       <Section title="Resilience checklist" hint="Each line is a statement by a named person with a date and what they saw. The system does not know whether the power or the second link exists; it only records who said so. Statements go stale after a while and need repeating.">
+        {overview === null ? <p className="text-sm text-red-700 dark:text-red-300">The checklist could not be read.</p> : null}
         <div className="space-y-3">
-          {overview.checklist.map((it) => (
+          {(overview?.checklist ?? []).map((it) => (
             <div key={it.item_key} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3 text-sm dark:border-night-ink/15">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{it.title}</span>
