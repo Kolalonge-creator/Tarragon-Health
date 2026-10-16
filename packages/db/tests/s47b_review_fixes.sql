@@ -259,9 +259,11 @@ begin
   insert into public.profile_access_categories (profile_access_id, category) values (v_grant, 'medical_history'), (v_grant, 'medications');
   alter table public.profile_access_categories enable trigger user;
   alter table public.patient_conditions disable trigger "00_minor_dependant_scope";
+  alter table public.health_education_recommendations disable trigger "00_minor_dependant_scope";
   insert into public.patient_conditions (organisation_id, patient_id, condition_name, status, source) values
     (v_org, child, 'Major depression', 'active', 'clinician'), (v_org, child, 'Hypertension', 'active', 'clinician'), (v_org, child, 'Pregnancy', 'active', 'clinician');
   alter table public.patient_conditions enable trigger "00_minor_dependant_scope";
+  alter table public.health_education_recommendations enable trigger "00_minor_dependant_scope";
   alter table public.medications disable trigger "00_minor_dependant_scope";
   perform pg_temp.mkmed(child, 'Sertraline'); perform pg_temp.mkmed(child, 'Levonorgestrel'); perform pg_temp.mkmed(child, 'Amlodipine');
   alter table public.medications enable trigger "00_minor_dependant_scope";

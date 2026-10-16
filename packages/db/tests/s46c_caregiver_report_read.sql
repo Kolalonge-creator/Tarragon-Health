@@ -285,11 +285,15 @@ begin
   j := pg_temp.report_of(ga, c12);
   perform pg_temp.ck('a guardian of a 12 year old with the explicit categories and NO waiver: reproductive and mental health stay closed', 'bp,lab,0',
     pg_temp.kinds(j) || ',' || pg_temp.nz(j, 'questionnaires'));
+  alter table public.adolescent_confidentiality_waivers disable trigger "00_minor_dependant_scope";
   insert into public.adolescent_confidentiality_waivers (organisation_id, patient_id, grantee_user_id, domain) values (v_org, c12, ga, 'sexual_reproductive_health');
+  alter table public.adolescent_confidentiality_waivers enable trigger "00_minor_dependant_scope";
   j := pg_temp.report_of(ga, c12);
   perform pg_temp.ck('CONTROL: with the young person''s reproductive waiver the reproductive screening opens', 'bp,lab,screening', pg_temp.kinds(j));
   perform pg_temp.ck('...the mental health questionnaires are still closed (a different domain)', '0', pg_temp.nz(j, 'questionnaires'));
+  alter table public.adolescent_confidentiality_waivers disable trigger "00_minor_dependant_scope";
   insert into public.adolescent_confidentiality_waivers (organisation_id, patient_id, grantee_user_id, domain) values (v_org, c12, ga, 'mental_health');
+  alter table public.adolescent_confidentiality_waivers enable trigger "00_minor_dependant_scope";
   perform pg_temp.ck('CONTROL: with the mental health waiver the questionnaires open', '1', pg_temp.nz(pg_temp.report_of(ga, c12), 'questionnaires'));
   update public.adolescent_confidentiality_waivers set revoked_at = now() where patient_id = c12 and domain = 'sexual_reproductive_health';
   perform pg_temp.ck('revoking the reproductive waiver closes it again', 'bp,lab', pg_temp.kinds(pg_temp.report_of(ga, c12)));
