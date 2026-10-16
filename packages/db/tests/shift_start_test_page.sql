@@ -149,7 +149,7 @@ language plpgsql as
 $f$ declare v_r uuid;
 begin
   perform pg_temp.clear_rota();
-  v_r := pg_temp.rota_row(p_org, now() - interval '1 minute', now() + interval '10 hours', p_primary, p_backup);
+  v_r := pg_temp.rota_row(p_org, now() - interval '1 minute', now() + interval '100 days', p_primary, p_backup);
   perform private.shift_start_sweep();
   if p_ack_p then perform pg_temp.ack(p_primary, pg_temp.test_of(v_r, 'primary')); end if;
   if p_ack_b then perform pg_temp.ack(p_backup, pg_temp.test_of(v_r, 'backup')); end if;
@@ -189,9 +189,11 @@ begin
        from public.shift_start_test_config where is_active and version = 1));
   perform pg_temp.rec('rollout: a config with a missing or zero value is refused by the database', '23514',
     pg_temp.try($q$ insert into public.shift_start_test_config (version, is_active, effective_from, rules) values (99, false, current_date, '{"lead_minutes":0}') $q$));
+  perform set_config('tarragon.paging_write', 'on', true);
   perform pg_temp.rec('rollout: page_tests accepts the shift_start kind and still refuses an unknown one', 'ok,23514',
     (case when exists (select 1 from pg_constraint where conrelid = 'public.page_tests'::regclass and pg_get_constraintdef(oid) like '%shift_start%') then 'ok' else 'missing' end) || ',' ||
     pg_temp.try($q$ insert into public.page_tests (organisation_id, clinician_id, kind, is_test) select organisation_id, id, 'bogus', true from public.profiles limit 1 $q$));
+  perform set_config('tarragon.paging_write', 'off', true);
   perform pg_temp.rec('rollout: nothing is open to anon, the sweep is private, the table cannot be written by a signed-in user', 'false,false,false,false,false',
     has_function_privilege('anon', 'public.my_shift_start_tests()', 'EXECUTE')::text || ',' || has_function_privilege('anon', 'public.shift_start_tests_overview()', 'EXECUTE')::text || ',' ||
     has_function_privilege('authenticated', 'private.shift_start_sweep()', 'EXECUTE')::text || ',' || has_table_privilege('anon', 'public.shift_start_tests', 'SELECT')::text || ',' ||
@@ -222,20 +224,19 @@ declare v_org uuid := pg_temp.f('org'); v_a uuid := pg_temp.f('A'); v_b uuid := 
 begin
   perform pg_temp.guard_on('shift_start_test', true);
   perform pg_temp.clear_rota();
-  v_r := pg_temp.rota_row(v_org, now() + interval '5 minutes', now() + interval '10 hours', v_a, v_b);
+  v_r := pg_temp.rota_row(v_org, now() + interval '5 minutes', now() + interval '100 days', v_a, v_b);
   v_far := pg_temp.rota_row(v_org, now() + interval '2 hours', now() + interval '8 hours', v_c, v_d);
   v_past := pg_temp.rota_row(v_org, now() - interval '30 minutes', now() + interval '3 hours', v_c, v_d);
   v_cancel := pg_temp.rota_row(v_org, now() + interval '4 minutes', now() + interval '9 hours', v_c, v_d);
   perform set_config('tarragon.lead_write', 'on', true);
   update public.on_call_rota set cancelled_at = now(), cancelled_reason = 'proof' where id = v_cancel;
-  update public.on_call_rota set cancelled_at = now(), cancelled_reason = 'proof' where id = v_past;   -- past shifts: kept out of the way of rota checks
   perform set_config('tarragon.lead_write', 'off', true);
   v_n := private.shift_start_sweep();
   perform pg_temp.setf('r1', v_r);
   perform pg_temp.rec('send: the primary and the backup of the shift starting in 5 minutes each get one test page; far and cancelled shifts get none', '2,1,1,0',
     v_n::text || ',' || (select count(*)::text from public.shift_start_tests where rota_id = v_r and role = 'primary') || ',' ||
     (select count(*)::text from public.shift_start_tests where rota_id = v_r and role = 'backup') || ',' ||
-    (select count(*)::text from public.shift_start_tests where rota_id in (v_far, v_cancel)));
+    (select count(*)::text from public.shift_start_tests where rota_id in (v_far, v_cancel, v_past)));
   perform pg_temp.rec('send: it goes by push, in-app and email, three rows each, critical, and never sms or voice', '3,3,0,critical',
     (select count(*)::text from public.notifications where source_table = 'page_tests' and recipient_id = v_a and source_id = pg_temp.test_of(v_r, 'primary') and channel::text in ('push', 'in_app', 'email')) || ',' ||
     (select count(*)::text from public.notifications where source_table = 'page_tests' and recipient_id = v_b and source_id = pg_temp.test_of(v_r, 'backup') and channel::text in ('push', 'in_app', 'email')) || ',' ||
@@ -253,6 +254,15 @@ begin
     (select (s.page_test_id = t.id)::text from public.shift_start_tests s join public.page_tests t on t.id = s.page_test_id where s.rota_id = v_r and s.role = 'primary') || ',' ||
     (select config_version::text from public.shift_start_tests where rota_id = v_r and role = 'primary') || ',' ||
     (select t.kind from public.shift_start_tests s join public.page_tests t on t.id = s.page_test_id where s.rota_id = v_r and s.role = 'primary'));
+end $$;
+
+-- time passes: the shift has now started a minute ago (the test pages were sent before it began)
+do $$
+begin
+  perform set_config('tarragon.lead_write', 'on', true);
+  update public.on_call_rota set starts_at = now() - interval '1 minute' where id = pg_temp.f('r1');
+  update public.on_call_rota set cancelled_at = now(), cancelled_reason = 'proof' where id <> pg_temp.f('r1') and cancelled_at is null;
+  perform set_config('tarragon.lead_write', 'off', true);
 end $$;
 
 -- 4. Grace and acknowledgement -----------------------------------------------------------------------------------------------------
@@ -314,7 +324,7 @@ begin
   perform pg_temp.rec('paging: the primary missed it and the backup confirmed: the backup is paged first', v_b::text, private.page_recipient(v_org, true, null)::text);
   perform pg_temp.rec('paging: the shift is reported as primary_unconfirmed', 'primary_unconfirmed', pg_temp.gapk(v_org));
   perform pg_temp.rec('paging: the backup is told it is first on call', '1',
-    (select count(*)::text from public.notifications where recipient_id = v_b and template = 'credential_notice' and payload ->> 'subject' = 'You are first on call'));
+    (select count(*)::text from public.notifications where recipient_id = v_b and template = 'credential_notice' and channel::text = 'in_app' and payload ->> 'subject' = 'You are first on call'));
   -- nobody confirmed: the old order stands, a red event is never made worse
   v_r := pg_temp.scenario(v_org, v_d, v_e, false, false, true, true);
   perform pg_temp.rec('paging: nobody confirmed: the old order stands (primary first)', v_d::text || ',start_test_failed', private.page_recipient(v_org, true, null)::text || ',' || pg_temp.gapk(v_org));

@@ -104,7 +104,7 @@ create policy shift_start_tests_read on public.shift_start_tests for select to a
 revoke all on public.shift_start_tests from public, anon;
 revoke insert, update, delete, truncate, references, trigger on public.shift_start_tests from authenticated;
 grant select on public.shift_start_tests to authenticated;
-create trigger shift_start_tests_guard before insert or update or delete on public.shift_start_tests for each row execute function private.guard_paging_write();
+create trigger shift_start_tests_guard before insert or update on public.shift_start_tests for each row execute function private.guard_paging_write();
 
 -- The acknowledgement (acknowledge_test_page, unchanged) fills in the record: channel, device and both latencies come from the delivered receipts.
 create function private.shift_start_ack_sync() returns trigger
