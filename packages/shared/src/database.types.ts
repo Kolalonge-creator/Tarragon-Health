@@ -47000,36 +47000,8 @@ export type Database = {
         Args: never
         Returns: Json
       }
-      lab_results_review_queue: {
-        Args: Record<PropertyKey, never>;
-        Returns: { lab_result_id: string; patient_id: string; release_state: string; release_reason: string | null; received_at: string }[];
-      };
-      my_lab_results: { Args: Record<PropertyKey, never>; Returns: Json };
-      patient_add_lab_result: { Args: { p_file: Json }; Returns: Json };
-      record_lab_disclosure: { Args: { p_attested: boolean; p_method: string; p_note?: string; p_result: string }; Returns: Json };
-      release_lab_result: { Args: { p_note?: string; p_result: string }; Returns: Json };
-      team_submit_lab_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string; p_patient: string }; Returns: Json };
-      withhold_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
-      apply_payout_transfer_event: {
-        Args: {
-          p_event: string
-          p_reason?: string
-          p_reference: string
-          p_transfer_code: string
-        }
-        Returns: Json
-      }
-      lab_result_for_review: { Args: { p_reason: string; p_result: string }; Returns: Json };
-      lab_result_file_path: { Args: { p_result: string }; Returns: string };
-      lab_result_explain_allowed: { Args: { p_result: string }; Returns: boolean };
-      lab_partner_submit_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string }; Returns: Json };
-      withdraw_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
-      sign_lab_panels: { Args: { p_id: string }; Returns: string };
-      rewards_participation_aggregate: {
-        Args: { p_from: string; p_org: string; p_to: string }
-        Returns: Json
-      }
-      record_lab_disclosure_attempt: { Args: { p_note?: string; p_outcome: string; p_result: string }; Returns: Json };
+      patient_released_lab_results: { Args: { p_patient: string; p_reason: string }; Returns: Json };
+      lab_partner_mark_collected: { Args: { p_order: string }; Returns: undefined };
       lab_partner_portal_orders: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -47054,8 +47026,88 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: number
       }
-      lab_partner_mark_collected: { Args: { p_order: string }; Returns: undefined };
-      patient_released_lab_results: { Args: { p_patient: string; p_reason: string }; Returns: Json };
+      record_lab_disclosure_attempt: { Args: { p_note?: string; p_outcome: string; p_result: string }; Returns: Json };
+      rewards_participation_aggregate: {
+        Args: { p_from: string; p_org: string; p_to: string }
+        Returns: Json
+      }
+      sign_lab_panels: { Args: { p_id: string }; Returns: string };
+      sign_home_bp_programme: { Args: { p_id: string }; Returns: string };
+      complete_home_bp_check: { Args: { p_window_start: string }; Returns: Json };
+      record_clinic_bp_reading: { Args: { p_diastolic: number; p_measured_at: string; p_note?: string; p_patient: string; p_systolic: number }; Returns: string };
+      sign_my_health_config: { Args: { p_id: string }; Returns: string };
+      my_access_log: { Args: { p_limit?: number; p_before?: string; p_before_id?: string }; Returns: Json };
+      my_lock_screen_facts: { Args: Record<PropertyKey, never>; Returns: Json };
+      set_lock_screen_pass: { Args: { p_enabled: boolean }; Returns: boolean };
+      withdraw_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
+      lab_partner_submit_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string }; Returns: Json };
+      lab_result_explain_allowed: { Args: { p_result: string }; Returns: boolean };
+      lab_result_file_path: { Args: { p_result: string }; Returns: string };
+      lab_result_for_review: { Args: { p_reason: string; p_result: string }; Returns: Json };
+      lab_results_review_queue: {
+        Args: Record<PropertyKey, never>;
+        Returns: { lab_result_id: string; patient_id: string; release_state: string; release_reason: string | null; received_at: string }[];
+      };
+      my_lab_results: { Args: Record<PropertyKey, never>; Returns: Json };
+      patient_add_lab_result: { Args: { p_file: Json }; Returns: Json };
+      record_lab_disclosure: { Args: { p_attested: boolean; p_method: string; p_note?: string; p_result: string }; Returns: Json };
+      release_lab_result: { Args: { p_note?: string; p_result: string }; Returns: Json };
+      team_submit_lab_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string; p_patient: string }; Returns: Json };
+      withhold_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
+      // Testing days, employer visits and point-of-care results (20261013004659_testing_days_employer_visits_point_of_care.sql)
+      create_testing_event: {
+        Args: {
+          p_address: string; p_capacity: number; p_city: string; p_employer_org?: string; p_event_date: string; p_ends_at: string | null;
+          p_headcount?: number; p_kind: string; p_lab_provider: string | null; p_lga: string | null; p_notes?: string; p_starts_at: string | null;
+          p_state: string | null; p_venue_name: string;
+        };
+        Returns: string;
+      };
+      set_testing_event_team: { Args: { p_event: string; p_team: Json }; Returns: undefined };
+      approve_testing_event_venue: { Args: { p_event: string }; Returns: undefined };
+      update_testing_event: {
+        Args: { p_capacity: number; p_ends_at: string | null; p_event: string; p_lab_provider: string | null; p_starts_at: string | null; p_venue_name: string };
+        Returns: undefined;
+      };
+      set_testing_event_status: { Args: { p_event: string; p_status: string }; Returns: undefined };
+      list_testing_days: { Args: { p_city?: string }; Returns: Json };
+      book_testing_day: { Args: { p_event: string }; Returns: Json };
+      cancel_testing_booking: { Args: { p_booking: string; p_reason?: string }; Returns: undefined };
+      reschedule_testing_booking: { Args: { p_booking: string; p_new_event: string }; Returns: Json };
+      my_testing_bookings: { Args: Record<PropertyKey, never>; Returns: Json };
+      send_testing_day_reminders: { Args: Record<PropertyKey, never>; Returns: number };
+      check_in_testing_booking: { Args: { p_booking: string }; Returns: Json };
+      record_testing_blood_draw: { Args: { p_booking: string }; Returns: undefined };
+      record_poc_measurements: { Args: { p_booking: string; p_data: Json }; Returns: Json };
+      record_poc_urinalysis: { Args: { p_booking: string; p_items: Json }; Returns: string };
+      record_poc_hba1c: { Args: { p_booking: string; p_value: number }; Returns: string };
+      record_poc_ecg: {
+        Args: { p_booking: string; p_device_label?: string; p_file_path: string; p_machine_statement?: string; p_mime_type: string; p_size: number };
+        Returns: string;
+      };
+      interpret_poc_ecg: { Args: { p_class: string; p_interpretation: string; p_recording: string }; Returns: undefined };
+      release_poc_result: { Args: { p_note?: string; p_result: string }; Returns: undefined };
+      withhold_poc_result: { Args: { p_reason: string; p_result: string }; Returns: undefined };
+      poc_review_queue: { Args: Record<PropertyKey, never>; Returns: Json };
+      poc_ecg_file_path: { Args: { p_recording: string }; Returns: string };
+      my_poc_results: { Args: Record<PropertyKey, never>; Returns: Json };
+      list_testing_events_for_staff: { Args: Record<PropertyKey, never>; Returns: Json };
+      testing_event_roster: { Args: { p_event: string }; Returns: Json };
+      request_employer_visit: {
+        Args: { p_address: string; p_city: string; p_event_date: string; p_headcount: number; p_lga: string | null; p_notes?: string };
+        Returns: string;
+      };
+      add_employer_visit_attendees: { Args: { p_event: string; p_roster_ids: string[] }; Returns: Json };
+      employer_visit_summary: { Args: Record<PropertyKey, never>; Returns: Json };
+      apply_payout_transfer_event: {
+        Args: {
+          p_event: string
+          p_reason?: string
+          p_reference: string
+          p_transfer_code: string
+        }
+        Returns: Json
+      }
       approve_fee_schedule: { Args: { p_id: string; p_note?: string }; Returns: Json }
       approve_payout: { Args: { p_id: string }; Returns: Json }
       attach_bank_recipient: {
