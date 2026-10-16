@@ -36,7 +36,7 @@ import webpush from "npm:web-push@3.6.7";
 import { appUrl, substituteTemplatePlaceholders, TEMPLATE_MAP } from "./templates.ts";
 import type { TemplateRender } from "./templates.ts";
 import { describeViolations, lintRenderFn, lintText } from "../_shared/notifications/neutral.ts";
-import { decide, DISCREET_DOCUMENT_TEMPLATES, discreetEmail, EMERGENCY_CONTACT_TEMPLATE, expoUrgencyFields, FALLBACK_QUIET, isSafetyCritical, PATIENT_AUDIENCES, privacyFor, pushEnvelope, refusedSmsOutcome, signDocumentLink, withDocumentLink } from "../_shared/notifications/delivery.ts";
+import { decide, DISCREET_DOCUMENT_TEMPLATES, discreetEmail, EMERGENCY_CONTACT_TEMPLATE, expoChannelFor, expoUrgencyFields, FALLBACK_QUIET, isSafetyCritical, PATIENT_AUDIENCES, privacyFor, pushEnvelope, refusedSmsOutcome, signDocumentLink, withDocumentLink } from "../_shared/notifications/delivery.ts";
 import type { DocumentLinkKind } from "../_shared/notifications/delivery.ts";
 import { checkFanoutRowConsent } from "../_shared/notifications/emergency-contact.ts";
 import type { QuietSettings } from "../_shared/notifications/delivery.ts";
@@ -182,6 +182,7 @@ interface PushSubscriptionRow {
   auth_key: string | null;
   expo_push_token: string | null;
   urgent_channel_ready?: boolean | null;
+  page_channel_ready?: boolean | null;
 }
 
 // Narrowed shapes sendWebPush/sendExpoPush actually operate on, so neither
@@ -199,6 +200,7 @@ interface NativePushSubscription {
   expo_push_token: string;
   platform?: "web" | "ios" | "android";
   urgent_channel_ready?: boolean | null;
+  page_channel_ready?: boolean | null;
 }
 
 function isWebPushSubscription(sub: PushSubscriptionRow): sub is PushSubscriptionRow & WebPushSubscription {
@@ -375,6 +377,7 @@ async function sendExpoPush(
   subscriptions: NativePushSubscription[],
   payload: { title: string; body: string; url: string; notificationId: string },
   urgent = false,
+  template: string | null = null,
 ): Promise<SendResult & { goneSubscriptionIds: string[]; tickets?: Array<{ id: string; subscriptionId: string }> }> {
   if (subscriptions.length === 0) {
     return { ok: false, error: "no active push subscription", goneSubscriptionIds: [] };
@@ -387,7 +390,13 @@ async function sendExpoPush(
     data: { url: payload.url, notificationId: payload.notificationId },
     // S13 R4: safety rows are high priority, on the urgent Android channel, time-sensitive on iPhone (critical only once Apple's
     // entitlement is granted and IOS_CRITICAL_ALERTS_ENABLED is set). Routine rows add nothing here.
-    ...expoUrgencyFields(urgent, Deno.env.get("IOS_CRITICAL_ALERTS_ENABLED") === "true", sub.platform !== "android" || sub.urgent_channel_ready === true),
+    // S19e: a page or test page rings the alarm channel on a phone that has created it (page_channel_ready); any other phone keeps `urgent`.
+    ...expoUrgencyFields(
+      urgent,
+      Deno.env.get("IOS_CRITICAL_ALERTS_ENABLED") === "true",
+      sub.platform !== "android" || sub.urgent_channel_ready === true,
+      sub.platform === "android" ? expoChannelFor(template, sub.page_channel_ready) : undefined,
+    ),
   }));
 
   const result = await withExternalCall((signal) =>
@@ -694,12 +703,23 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
   };
   let deferred = 0;
 
-  const { data: subscriptions } = await supabase
+  // S19e: page_channel_ready arrives with migration 20261016190551. If this function is ever deployed first, the select would fail as a
+  // whole and every push would silently stop, so a failed read is retried without the new column (pages then keep the `urgent` channel).
+  let { data: subscriptions, error: subscriptionsError } = await supabase
     .from("push_subscriptions")
-    .select("id, profile_id, platform, endpoint, p256dh_key, auth_key, expo_push_token, urgent_channel_ready")
+    .select("id, profile_id, platform, endpoint, p256dh_key, auth_key, expo_push_token, urgent_channel_ready, page_channel_ready")
     .in("profile_id", recipientIds)
     .is("disabled_at", null)
     .returns<Array<PushSubscriptionRow & { profile_id: string }>>();
+  if (subscriptionsError) {
+    console.error("push_subscriptions read failed, retrying without page_channel_ready", subscriptionsError.message);
+    ({ data: subscriptions } = await supabase
+      .from("push_subscriptions")
+      .select("id, profile_id, platform, endpoint, p256dh_key, auth_key, expo_push_token, urgent_channel_ready")
+      .in("profile_id", recipientIds)
+      .is("disabled_at", null)
+      .returns<Array<PushSubscriptionRow & { profile_id: string }>>());
+  }
   const subscriptionsByProfile = new Map<string, PushSubscriptionRow[]>();
   for (const sub of subscriptions ?? []) {
     const list = subscriptionsByProfile.get(sub.profile_id) ?? [];
@@ -1181,7 +1201,7 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
       // browser subscriptions for one user.
       const [webResult, nativeResult] = await Promise.all([
         sendWebPush(subs.filter(isWebPushSubscription), pushPayload),
-        sendExpoPush(subs.filter(isNativePushSubscription), pushPayload, isCritical || isSafetyCritical(row.template)),
+        sendExpoPush(subs.filter(isNativePushSubscription), pushPayload, isCritical || isSafetyCritical(row.template), row.template),
       ]);
       const pushOk = webResult.ok || nativeResult.ok;
       const pushResult = {

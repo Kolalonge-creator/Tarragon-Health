@@ -32,6 +32,7 @@ import { LoginScreen } from "@/screens/login-screen";
 import { AppLockScreen } from "@/screens/app-lock-screen";
 import { HomeShell } from "@/screens/home-shell";
 import { SponsorHome } from "@/screens/sponsor-home";
+import { ClinicianHome } from "@/screens/clinician-home";
 import { shellForRole } from "@/lib/sponsor-figures";
 import { colors, spacing, typeScale } from "@/ui/theme";
 import { PrimaryButton, MutedText } from "@/ui/components";
@@ -301,6 +302,14 @@ function AppContent() {
     }
   }, [session, identity]);
 
+  // A clinician's phone is a pager (S19e): register for push (and report that the alarm channel exists) so pages can reach it.
+  // Best effort like the patient registration; the On call screen shows the readiness gaps if it did not work.
+  useEffect(() => {
+    if (session && identity && shellForRole(identity.role) === "clinician") {
+      registerPushToken(session.user.id, identity.organisationId, { clinician: true }).catch(() => {});
+    }
+  }, [session, identity]);
+
   useEffect(() => {
     const userId = session?.user.id;
     if (!userId || !identity || lockState !== "unlocked") return;
@@ -367,6 +376,15 @@ function AppContent() {
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.surface }} edges={["top", "left", "right"]}>
         <StatusBar barStyle={scheme === "dark" ? "light-content" : "dark-content"} />
         <SponsorHome onSignOut={() => void supabase.auth.signOut()} />
+      </SafeAreaView>
+    );
+  }
+
+  if (shellForRole(identity.role) === "clinician") {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.surface }} edges={["top", "left", "right"]}>
+        <StatusBar barStyle={scheme === "dark" ? "light-content" : "dark-content"} />
+        <ClinicianHome onSignOut={() => void supabase.auth.signOut()} />
       </SafeAreaView>
     );
   }

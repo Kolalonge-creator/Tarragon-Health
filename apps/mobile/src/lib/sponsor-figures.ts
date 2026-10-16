@@ -10,9 +10,10 @@ export const SPONSOR_STAFF_ROLES = ["hmo_admin", "corporate_admin", "ngo_admin"]
 export function isSponsorStaffRole(role: string | null | undefined): boolean {
   return !!role && (SPONSOR_STAFF_ROLES as readonly string[]).includes(role);
 }
-/** Which app a signed-in person gets. Anything that is not a sponsor staff role gets the patient app, as before. */
-export function shellForRole(role: string | null | undefined): "sponsor" | "patient" {
-  return isSponsorStaffRole(role) ? "sponsor" : "patient";
+/** Which app a signed-in person gets. A clinician gets the on-call page surface (S19e); anything that is not a sponsor staff role or a clinician gets the patient app, as before. */
+export function shellForRole(role: string | null | undefined): "sponsor" | "clinician" | "patient" {
+  if (isSponsorStaffRole(role)) return "sponsor";
+  return role === "clinician" ? "clinician" : "patient";
 }
 
 export interface Programme { id: string; name: string; code: string | null; validFrom: string; validTo: string; status: "active" | "closed"; latestPeriod: string | null }

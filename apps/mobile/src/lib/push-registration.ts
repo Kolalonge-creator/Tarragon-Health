@@ -4,6 +4,8 @@ import { Platform } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { reportNotificationOpened } from "@/lib/notification-settings";
 import { ensureNotificationChannels } from "@/lib/notification-channels";
+import { ensurePageChannel } from "@/lib/paging/page-channel";
+import { criticalAlertsRequested } from "@/lib/paging/critical-alerts";
 
 /**
  * Registers this device for remote push, closing the one gap left in an
@@ -46,15 +48,20 @@ export function startOpenReporting(): void {
   }
 }
 
-export async function registerPushToken(userId: string, organisationId: string): Promise<void> {
+export async function registerPushToken(userId: string, organisationId: string, options: { clinician?: boolean } = {}): Promise<void> {
   startOpenReporting();
   // Channels first: Android 13+ may not show the permission prompt until one exists, and the server sends safety rows to `urgent`.
   const urgentChannelReady = await ensureNotificationChannels();
+  // The on-call alarm channel exists only for a clinician (S19e). The server names it for a page only when this is true.
+  const pageChannelReady = options.clinician === true ? await ensurePageChannel() : false;
   try {
     const { status: existing } = await Notifications.getPermissionsAsync();
     let status = existing;
     if (status !== "granted") {
-      ({ status } = await Notifications.requestPermissionsAsync());
+      // Critical Alerts (iPhone) are asked for only in a build that carries Apple's entitlement (config flag, off until Apple grants it).
+      ({ status } = await Notifications.requestPermissionsAsync(
+        options.clinician === true && criticalAlertsRequested() ? { ios: { allowAlert: true, allowBadge: true, allowSound: true, allowCriticalAlerts: true } } : undefined
+      ));
     }
     if (status !== "granted") return;
 
@@ -80,6 +87,7 @@ export async function registerPushToken(userId: string, organisationId: string):
         disabled_at: null,
         // the sender names the `urgent` channel only for a phone that has created it
         urgent_channel_ready: urgentChannelReady,
+        page_channel_ready: pageChannelReady,
       } as never,
       { onConflict: "expo_push_token" }
     );
