@@ -1904,3 +1904,8 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
   - Functions to deploy: `supabase functions deploy process-events` (new handler `points.award`; deploy BEFORE or WITH migration 2 so a delivery never meets an unknown handler: an unknown handler dead-letters visibly). Ship web and mobile code with the migrations (mobile OTA is JS only).
   - After apply: check `event_bus_health()` shows `points.award.*` deliveries completing, and that `points_award_decisions` fills.
   - Who signs what: nothing is signed. The founder confirms point values, caps, level thresholds and, separately, the redemption share and the per-order kobo cap (setting it switches redemption on, only after S71/S72 call the functions); the CMO confirms the plausible-range bounds.
+
+## 2026-10-16: OQ renumbering and OQ-192 re-check (branch fix/oq192-profile-access-and-oq-renumber)
+- **Done**: `docs/OPEN-QUESTIONS.md` had 125 numbers used more than once (225 later duplicate headings); the later ones are renumbered 453 to 677 and mapped old to new at the bottom of the file. New scan test `packages/shared/src/open-questions-unique.test.ts` fails on a repeated heading id.
+- **Not done**: the OQ-192 tightening. S71 already fixed paying and four read policies (live `create_order` checked); the remaining candidates (vaccination record and schedule UPDATE policies, any function bodies) could not be audited because the live database timed out for the whole session. No migration shipped. See `docs/design/OQ192-and-oq-renumber.md`.
+- **Tests**: `pnpm --filter @tarragon/shared test -- open-questions-unique` passes (and failed before the two non-numeric duplicates were fixed).
