@@ -78,16 +78,16 @@ export function CheckInCard() {
     return () => clearTimeout(timer);
   }, [outcome]);
   if (open === false) return null;
-  if (outcome === "answered") return <MutedText>{t("circle.checkin.responded", locale)}</MutedText>;
-  if (outcome === "too_late") return <MutedText>{t("circle.checkin.too_late", locale)}</MutedText>;
-  if (!waiting) return readFailed ? <MutedText>{t("circle.checkin.read_failed", locale)}</MutedText> : null;
+  if (outcome === "answered") return <MutedText>{t("checkin.responded", locale)}</MutedText>;
+  if (outcome === "too_late") return <MutedText>{t("checkin.too_late", locale)}</MutedText>;
+  if (!waiting) return readFailed ? <MutedText>{t("checkin.read_failed", locale)}</MutedText> : null;
   return (
     <Card style={{ gap: 8 }}>
-      <Text accessibilityRole="alert" style={{ fontWeight: "700", color: colors.ink }}>{t("circle.checkin.pending_title", locale)}</Text>
-      <Text style={{ color: colors.ink }}>{t("circle.checkin.pending_body", locale)}</Text>
-      {readFailed ? <MutedText>{t("circle.checkin.read_failed", locale)}</MutedText> : null}
+      <Text accessibilityRole="alert" style={{ fontWeight: "700", color: colors.ink }}>{t("checkin.pending_title", locale)}</Text>
+      <Text style={{ color: colors.ink }}>{t("checkin.pending_body", locale)}</Text>
+      {readFailed ? <MutedText>{t("checkin.read_failed", locale)}</MutedText> : null}
       <PrimaryButton
-        title={t("circle.checkin.respond", locale)}
+        title={t("checkin.respond", locale)}
         onPress={() => {
           setFailed(false);
           void answerCheckIn().then((r) => {
@@ -100,7 +100,7 @@ export function CheckInCard() {
           });
         }}
       />
-      {failed ? <ErrorText>{t("circle.checkin.error", locale)}</ErrorText> : null}
+      {failed ? <ErrorText>{t("checkin.error", locale)}</ErrorText> : null}
     </Card>
   );
 }

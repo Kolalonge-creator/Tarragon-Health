@@ -66,16 +66,11 @@ describe("JoinCard", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("S29e: a supporter in another organisation is told payment is not on offer, and the offer lists no payment line", () => {
+  it("S29e: a supporter in another organisation is offered exactly what the database sent, with no payment line", () => {
     preview = { isPending: false, data: { ...OK, permissions: ["weekly_bp_trend"], cross_organisation: true } };
     render(<JoinCard token="tok" locale="en" />);
-    expect(screen.getByText(/different organisation/)).toBeTruthy();
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
-  });
-
-  it("S29e: a same-organisation supporter sees no such note", () => {
-    render(<JoinCard token="tok" locale="en" />);
-    expect(screen.queryByText(/different organisation/)).toBeNull();
+    expect(screen.queryByText(/pay/i)).toBeNull();
   });
 
   it("S29e: offers the same link in the app through the app scheme, with the token encoded", () => {

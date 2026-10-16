@@ -31,15 +31,15 @@ export function CheckInCard({ locale }: { locale: Locale }) {
     return () => clearTimeout(timer);
   }, [outcome]);
 
-  if (outcome === "answered") return <p role="status" className="text-sm">{t("circle.checkin.responded", locale)}</p>;
-  if (outcome === "too_late") return <p role="status" className="text-sm">{t("circle.checkin.too_late", locale)}</p>;
+  if (outcome === "answered") return <p role="status" className="text-sm">{t("checkin.responded", locale)}</p>;
+  if (outcome === "too_late") return <p role="status" className="text-sm">{t("checkin.too_late", locale)}</p>;
   // One flaky poll must not take the button away while the last known answer is "waiting": keep it, and say the read failed beside it.
-  if (!waiting) return pending.isError ? <p role="status" className="text-sm">{t("circle.checkin.read_failed", locale)}</p> : null;
+  if (!waiting) return pending.isError ? <p role="status" className="text-sm">{t("checkin.read_failed", locale)}</p> : null;
   return (
     <Card>
-      <CardHeader><CardTitle>{t("circle.checkin.pending_title", locale)}</CardTitle></CardHeader>
+      <CardHeader><CardTitle>{t("checkin.pending_title", locale)}</CardTitle></CardHeader>
       <CardContent className="space-y-3">
-        <p>{t("circle.checkin.pending_body", locale)}</p>
+        <p>{t("checkin.pending_body", locale)}</p>
         <Button
           type="button"
           className="min-h-11"
@@ -52,10 +52,10 @@ export function CheckInCard({ locale }: { locale: Locale }) {
             }
           }}
         >
-          {t("circle.checkin.respond", locale)}
+          {t("checkin.respond", locale)}
         </Button>
-        {pending.isError ? <p role="status" className="text-sm">{t("circle.checkin.read_failed", locale)}</p> : null}
-        <FormError id="checkin-respond-error" message={respond.isError ? t("circle.checkin.error", locale) : null} />
+        {pending.isError ? <p role="status" className="text-sm">{t("checkin.read_failed", locale)}</p> : null}
+        <FormError id="checkin-respond-error" message={respond.isError ? t("checkin.error", locale) : null} />
       </CardContent>
     </Card>
   );

@@ -151,7 +151,6 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   invite_permissions_invalid: "circle.error.invite_permissions_invalid",
   invite_relationship_invalid: "circle.error.invite_relationship_invalid",
   circle_not_authorised: "circle.error.circle_not_authorised",
-  circle_cross_org_needs_a_view_permission: "circle.error.cross_org_needs_view",
 };
 export function circleErrorKey(message: unknown): MessageKey {
   if (!str(message)) return "circle.error.unknown";

@@ -49,8 +49,8 @@ export function JoinInviteModal({ onJoined }: { onJoined?: () => void }) {
         <Text accessibilityRole="header" style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>{t("circle.join.title", locale)}</Text>
         {unreachable ? (
           <View style={{ gap: 12 }}>
-            <ErrorText>{t("circle.join.network", locale)}</ErrorText>
-            <PrimaryButton title={t("circle.join.retry", locale)} onPress={() => setTries((n) => n + 1)} />
+            <ErrorText>{t("joinlink.network", locale)}</ErrorText>
+            <PrimaryButton title={t("joinlink.retry", locale)} onPress={() => setTries((n) => n + 1)} />
             <SecondaryButton title={t("circle.join.decline", locale)} onPress={close} />
           </View>
         ) : preview === undefined ? (
@@ -71,7 +71,6 @@ export function JoinInviteModal({ onJoined }: { onJoined?: () => void }) {
             <Text style={{ color: colors.ink }}>{t("circle.join.body", locale, { name: preview.inviterFirstName, relationship: preview.relationship })}</Text>
             <Text style={{ fontWeight: "600", color: colors.ink }}>{t("circle.join.sees", locale)}</Text>
             {preview.permissions.map((perm) => <Text key={perm} style={{ color: colors.ink }}>{`\u2022 ${t(permissionKey(perm), locale)}`}</Text>)}
-            {preview.crossOrganisation ? <MutedText>{t("circle.join.cross_org", locale)}</MutedText> : null}
             <PrimaryButton
               title={t("circle.join.accept", locale)}
               disabled={busy}

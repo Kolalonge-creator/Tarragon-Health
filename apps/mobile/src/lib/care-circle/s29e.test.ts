@@ -1,7 +1,7 @@
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { clearPendingJoinToken, offerUrl, parseJoinLink, setPendingJoinToken } from "./join-link";
 import {
-  circleErrorKey, minutesLeft, needsAttentionCount, parseAcceptInvite, parseCheckInPending, parseCheckInResult, parseInvitePreview, parseUnanswered, type OpenAlert,
+  minutesLeft, needsAttentionCount, parseAcceptInvite, parseCheckInPending, parseCheckInResult, parseInvitePreview, parseUnanswered, type OpenAlert,
 } from "./parse";
 
 const mockRpc = jest.fn();
@@ -153,9 +153,5 @@ describe("check-in window (non-emergency)", () => {
     expect(mockRpc).toHaveBeenLastCalledWith("circle_ack_unanswered", { p_patient: "p" });
     mockRpc.mockResolvedValueOnce({ data: null, error: { message: "circle_not_found" } });
     expect(await ackUnanswered("p")).toBe(false);
-  });
-
-  it("a supporter abroad left with no view permission has its own message", () => {
-    expect(circleErrorKey("circle_cross_org_needs_a_view_permission")).toBe("circle.error.cross_org_needs_view");
   });
 });

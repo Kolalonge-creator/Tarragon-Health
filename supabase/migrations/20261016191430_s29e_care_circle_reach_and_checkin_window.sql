@@ -291,6 +291,13 @@ alter table public.care_circle_check_ins enable row level security;
 -- directly. Every read and write goes through the functions below.
 revoke all on public.care_circle_check_ins from anon, authenticated, public;
 
+-- S39d: every public table that holds a patient's rows is in the data registry. Not exported whole (the row names the supporter who asked),
+-- operational retention, deleted at the end of retention; proposed class, to be confirmed by the CMO and DPO like the others.
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes)
+values ('care_circle_check_ins', 'patient_id', 'operational', 'delete', false,
+        'S29e 2026-10-16: PROPOSED, to be confirmed by the CMO and DPO. A supporter''s non-emergency check-in request and how it ended. in_export is false on purpose: the row names the supporter who asked and the patient must not learn who from an export.')
+on conflict (table_name) do nothing;
+
 create function public.request_circle_check_in(p_patient uuid) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$

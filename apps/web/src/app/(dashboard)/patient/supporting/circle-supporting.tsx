@@ -92,15 +92,15 @@ function CheckInAsk({ patientId, locale }: { patientId: string; locale: Locale }
             const minutes = r.ok ? minutesLeft(r.window_ends_at, Date.now()) : null;
             setMessage(
               r.ok
-                ? minutes === null ? t("circle.checkin.asked_soon", locale) : t("circle.checkin.asked", locale, { minutes })
-                : t(r.reason === "limit" ? "circle.checkin.limit" : "circle.checkin.already_waiting", locale),
+                ? minutes === null ? t("checkin.asked_soon", locale) : t("checkin.asked", locale, { minutes })
+                : t(r.reason === "limit" ? "checkin.limit" : "checkin.already_waiting", locale),
             );
           } catch {
-            setMessage(t("circle.checkin.error", locale));
+            setMessage(t("checkin.error", locale));
           }
         }}
       >
-        {t("circle.checkin.ask", locale)}
+        {t("checkin.ask", locale)}
       </Button>
       {message ? <p className={`mt-1 text-sm ${MUTED}`} role="status">{message}</p> : null}
     </div>
@@ -112,8 +112,8 @@ function UnansweredCard({ item, locale }: { item: UnansweredCheckIn; locale: Loc
   const ack = useAckUnanswered();
   return (
     <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-5">
-      <p className="font-heading text-base font-semibold">{t("circle.checkin.unanswered_title", locale, { name: item.name })}</p>
-      <p className="mt-1 text-sm">{t("circle.checkin.unanswered_body", locale, { name: item.name })}</p>
+      <p className="font-heading text-base font-semibold">{t("checkin.unanswered_title", locale, { name: item.name })}</p>
+      <p className="mt-1 text-sm">{t("checkin.unanswered_body", locale, { name: item.name })}</p>
       <Button type="button" className="mt-3 min-h-11" disabled={ack.isPending} onClick={() => ack.mutate(item.patient_id)}>
         {t("circle.alert.called", locale)}
       </Button>

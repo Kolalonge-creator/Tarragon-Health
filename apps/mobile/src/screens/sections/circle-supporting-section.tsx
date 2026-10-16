@@ -146,19 +146,19 @@ function CheckInAsk({ person, open }: { person: SupportedPerson; open: boolean }
   return (
     <View style={{ gap: 6 }}>
       <SecondaryButton
-        title={t("circle.checkin.ask", locale)}
+        title={t("checkin.ask", locale)}
         disabled={busy}
         onPress={() => {
           setBusy(true);
           setMessage(null);
           void requestCheckIn(person.patientId).then((r) => {
             setBusy(false);
-            if (r === null) setMessage(t("circle.checkin.error", locale));
+            if (r === null) setMessage(t("checkin.error", locale));
             else if (r.ok) {
               const minutes = minutesLeft(r.windowEndsAt, Date.now());
-              setMessage(minutes === null ? t("circle.checkin.asked_soon", locale) : t("circle.checkin.asked", locale, { minutes }));
+              setMessage(minutes === null ? t("checkin.asked_soon", locale) : t("checkin.asked", locale, { minutes }));
             }
-            else setMessage(t(r.reason === "limit" ? "circle.checkin.limit" : "circle.checkin.already_waiting", locale));
+            else setMessage(t(r.reason === "limit" ? "checkin.limit" : "checkin.already_waiting", locale));
           });
         }}
       />
@@ -206,8 +206,8 @@ export function CircleSupportingSection() {
       {alerts.map((a) => <AlertCard key={a.patientId} alert={a} onChanged={() => void refresh()} />)}
       {missed.map((m) => (
         <Card key={m.patientId} style={{ gap: 6 }}>
-          <Text accessibilityRole="alert" style={{ fontWeight: "700", color: colors.ink }}>{t("circle.checkin.unanswered_title", locale, { name: m.name })}</Text>
-          <Text style={{ color: colors.ink }}>{t("circle.checkin.unanswered_body", locale, { name: m.name })}</Text>
+          <Text accessibilityRole="alert" style={{ fontWeight: "700", color: colors.ink }}>{t("checkin.unanswered_title", locale, { name: m.name })}</Text>
+          <Text style={{ color: colors.ink }}>{t("checkin.unanswered_body", locale, { name: m.name })}</Text>
           <PrimaryButton title={t("circle.alert.called", locale)} onPress={() => { void ackUnanswered(m.patientId).then((ok) => { if (ok) void refresh(); }); }} />
         </Card>
       ))}

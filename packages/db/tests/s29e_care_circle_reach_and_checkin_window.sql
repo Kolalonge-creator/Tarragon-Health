@@ -7,6 +7,8 @@
 -- SABOTAGE (each must flip a check): the cross-organisation trigger dropped, the module gate removed, the window made to hold back a red event.
 
 
+begin;
+
 -- Two-tier: only the Membership may be on sale (catalog_items_only_membership_sellable). The order machinery under test is generic and
 -- uses care-pack and consultation fixtures, so the constraint is dropped here on purpose, inside this rolled-back transaction.
 alter table public.catalog_items drop constraint catalog_items_only_membership_sellable;
