@@ -175,7 +175,10 @@ begin
   end;
   if not v_caught then raise exception 'FAIL 4a: republished an item whose review date is still past'; end if;
 
-  update public.health_education_content set next_review_due = v_today + 90 where id = v_id;
+  reset role;
+  update public.health_education_content set next_review_due = v_today + 90 where id = v_id;  -- as the owner: the CMO's session approves, it does not edit rows
+  perform set_config('request.jwt.claims', json_build_object('sub', v_cmo0, 'role', 'authenticated')::text, true);
+  set local role authenticated;
   perform public.set_health_education_content_status(v_id, 'published', 'reviewed again');
   reset role;
   if not (select is_active from public.health_education_content where id = v_id) then
