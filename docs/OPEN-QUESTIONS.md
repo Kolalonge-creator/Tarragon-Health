@@ -1049,6 +1049,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The S30 prompt says every user-facing string goes through `packages/i18n` (en, pcm). Every existing admin and clinician page in `apps/web` (members, rota, credentialing) uses inline English, so the two S30 pages match them. The i18n package is for patient-facing text. **Recommendation**: staff screens stay English (the platform decision for staff tools); confirm.
 
 ### OQ-184 Refunds, tax and employed doctors who convert (raised by S30; deferred)
+- **Update 2026-10-16 (S26b): the refund reversal is built** (see OQ-S26b-02 for what still has to call it). Withholding tax and the employed to contracted conversion below are unchanged.
 - A refunded purchase does not reverse a consultation share automatically; an admin posts a negative adjustment. S26 (refunds) should call a reversal. Withholding tax is stored nowhere and calculated nowhere (D-09). A clinician who changes from `employed` to `contracted` earns lines only for work finished after the change and a clinician changed the other way keeps their old lines (each line records `employment_type` as at entry).
 
 ### OQ-185 A late line can push a clinician past the pilot minimum (raised by S30)
@@ -4531,3 +4532,25 @@ Named OQ-S27h-NN (not a plain number) so they cannot collide with the repeated n
 ### OQ-S27h-07 The rejected-specimen staff notice may address the wrong id
 - `lab_partner_reject_specimen` (20260829123304) inserts its staff notice with `recipient_id = clinical_staff.id`, but `notifications.recipient_id` references `profiles(id)`. Whether this raises on a real rejection depends on whether a CMO row exists; see the S27h BUILD-PROGRESS entry for what was verified and fixed.
 - Decision: see the BUILD-PROGRESS entry.
+### OQ-S26b-01 The grace length, the reminder steps and the refund timing are PROPOSED (raised by S26b)
+- Built exactly as the plan states: reminders 30, 7 and 1 day before the end, a 7 day read-only grace after a pack ends, a 14 day cooling-off for every order that is not a Membership (the Membership keeps its 21 days, `membership.refund`), an answer within 3 days, money reaching the bank in 5 to 10 business days. All of it is in `entitlement_policy_config` and `packages/shared/src/proposed-config/registry.ts` (`entitlements.lifecycle`, `refunds.order_rules`), nothing in code.
+- The grace is read-only: the pack shows as "ended recently" with a one-tap renew, `consume_entitlement` still refuses it, so it costs no doctor time. A Membership and an employer seat are not touched (they have their own rules).
+- Decision: open (founder). Changing a number is a new config row, not a deploy.
+
+### OQ-S26b-02 The v5 order to consultation link has no writer yet (raised by S26b; narrows OQ-184)
+- OQ-184 asked that a refund reverse the consultation share a clinician already earned. The reversal is built and proved (`private.reverse_consultation_shares_for_refund`: one negative adjustment per linked share, pro rata on a part refund, old lines never touched). It finds the shares through `order_encounter_links`, which `public.link_order_encounter(order, encounter)` fills (service role).
+- Nothing calls `link_order_encounter` yet, because nothing in the platform consumes a v5 order's entitlement for a consultation today (`consume_entitlement` has no caller; the consultation share is priced from the legacy `service_purchases` row). Whoever builds that consumption path must call the link in the same step. Until then a refund finds no linked share and reverses nothing, which is correct while checkout is off.
+- Decision: open (engineering, with S30b).
+
+### OQ-S26b-03 The deferred revenue release is a finance posting that finance has not reviewed (raised by S26b)
+- The existing refund path posts Dr 4900 Refunds / Cr 1020 Cash. S26b adds, for an order that had a recognition schedule, Dr 2000 Deferred revenue / Cr 4900 for the part never recognised (so 4900 ends up holding exactly the revenue already recognised and 2000 holds nothing for the order). A point-of-sale order needs nothing. This replaces the unused S26 stub, which would have credited cash a second time.
+- Open: an order refunded before it was ever posted (S25c skips posting it) still gets the cash-out posting from the existing path with no cash-in to match. That gap pre-dates S26b and is untouched.
+- Decision: open (finance review).
+
+### OQ-S26b-04 The Paystack refund lookup has not run against a live account (raised by S26b)
+- The weekly `refund-reconcile` edge function reads `GET /refund/:transaction_reference` and maps the answer in `parseProviderRefund`. The endpoint and field names follow Paystack's published reference; there are no Paystack credentials yet, so the first real run is the check. A network failure records nothing; a mismatch raises an incident and blocks an admin retry until a person looks.
+- Decision: informational until the Paystack test payment and test refund (runbook `docs/runbooks/S25-test-payment.md`).
+
+### OQ-S26b-05 Pidgin was not written (raised by S26b)
+- The brief asked for en and pcm strings. The founder removed Pidgin on 2026-10-07 and `packages/i18n` has no pcm catalogue, so the new strings are English only.
+- Decision: closed by the 2026-10-07 decision.

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { parseRefundPolicy, type RefundPolicy } from "@/lib/commerce/refund-rule";
 
 /* ------------------------------------------------------------------ */
 /*  Types — manually defined; the refunds/orders tables may not be in */
@@ -38,6 +39,8 @@ export type AdminOrderRefund = {
 /** What request_order_refund and decide_order_refund return (jsonb): a stable `result` word, and the order `state` when it refuses. */
 export type RefundRpcResult = { result?: string; state?: string } | null;
 
+export type RefundStep = "requested" | "approved" | "declined" | "sending" | "completed" | "problem" | "retrying";
+
 export type MyOrderRefund = {
   id: string;
   organisation_id: string;
@@ -57,6 +60,18 @@ export type MyOrderRefund = {
     amount_kobo: number;
     catalog_item: { code: string; name_key: string } | null;
   } | null;
+  /** The steps so far, oldest first (refund_status_events). */
+  steps: { step: RefundStep; created_at: string }[];
+};
+
+export type FailedOrderRefund = {
+  id: string;
+  order_id: string;
+  amount_kobo: number;
+  attempts: number;
+  last_error_code: string | null;
+  updated_at: string;
+  order: { catalog_item: { code: string; name_key: string } | null; beneficiary: { full_name: string | null } | null } | null;
 };
 
 /* ------------------------------------------------------------------ */
@@ -65,6 +80,7 @@ export type MyOrderRefund = {
 
 const ADMIN_REFUNDS_KEY = ["admin-order-refunds"];
 const MY_REFUNDS_KEY = ["my-order-refunds"];
+const FAILED_REFUNDS_KEY = ["admin-failed-order-refunds"];
 
 /* ------------------------------------------------------------------ */
 /*  Hooks                                                             */
@@ -133,11 +149,14 @@ export function useMyOrderRefunds() {
       const { data, error } = await supabase
         .from("refunds")
         .select(
-          "*, order:orders!refunds_order_id_fkey(amount_kobo, catalog_item:catalog_items(code, name_key))",
+          "*, order:orders!refunds_order_id_fkey(amount_kobo, catalog_item:catalog_items(code, name_key)), steps:refund_status_events(step, created_at)",
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as unknown as MyOrderRefund[];
+      return (data as unknown as MyOrderRefund[]).map((r) => ({
+        ...r,
+        steps: [...(r.steps ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at)),
+      }));
     },
   });
 }
@@ -163,6 +182,57 @@ export function useRequestOrderRefund() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: MY_REFUNDS_KEY });
       queryClient.invalidateQueries({ queryKey: ["commerce", "orders"] });
+    },
+  });
+}
+
+/**
+ * The numbers the refund rule quotes, from the database's active config (public.entitlement_policy_public). A failed or malformed answer
+ * falls back to the shared registry values, so the rule is always shown and never quotes a number typed into a component.
+ */
+export function useRefundPolicy() {
+  return useQuery<RefundPolicy>({
+    queryKey: ["refund-policy"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("entitlement_policy_public");
+      if (error) return parseRefundPolicy(null);
+      return parseRefundPolicy(data);
+    },
+  });
+}
+
+/** Refunds that failed at the provider: an admin looks at why, then sends them back to the queue (public.retry_failed_refund). */
+export function useAdminFailedRefunds() {
+  return useQuery({
+    queryKey: FAILED_REFUNDS_KEY,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("refunds")
+        .select(
+          "id, order_id, amount_kobo, attempts, last_error_code, updated_at, order:orders!refunds_order_id_fkey(catalog_item:catalog_items(code, name_key), beneficiary:profiles!orders_beneficiary_patient_id_fkey(full_name))",
+        )
+        .eq("state", "failed")
+        .order("updated_at", { ascending: true });
+      if (error) throw error;
+      return data as unknown as FailedOrderRefund[];
+    },
+  });
+}
+
+export function useRetryFailedRefund() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (refundId: string) => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("retry_failed_refund", { p_refund: refundId });
+      if (error) throw error;
+      return data as RefundRpcResult;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: FAILED_REFUNDS_KEY });
     },
   });
 }

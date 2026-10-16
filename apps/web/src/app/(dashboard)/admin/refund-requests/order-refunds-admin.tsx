@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import {
+  useAdminFailedRefunds,
   useAdminOrderRefunds,
   useDecideOrderRefund,
+  useRetryFailedRefund,
 } from "@/lib/queries/order-refunds";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,6 +42,8 @@ type Decision = { refund: AdminOrderRefund; approve: boolean };
  */
 export function OrderRefundsAdmin() {
   const refunds = useAdminOrderRefunds();
+  const failed = useAdminFailedRefunds();
+  const retry = useRetryFailedRefund();
   const decide = useDecideOrderRefund();
   const [pending, setPending] = useState<Decision | null>(null);
   const [note, setNote] = useState("");
@@ -135,6 +139,41 @@ export function OrderRefundsAdmin() {
             {(decide.error as Error)?.message ?? "Could not record that decision."}
           </p>
         )}
+        {failed.data && failed.data.length > 0 && (
+          <section aria-labelledby="failed-refunds" className="mt-6 space-y-2">
+            <h3 id="failed-refunds" className="text-sm font-semibold text-charcoal-ink">Refunds that failed at Paystack</h3>
+            <p className="text-xs text-charcoal-ink/60">
+              Check the Paystack dashboard first, then send it back to the queue. It is never retried automatically.
+            </p>
+            <ul className="divide-y divide-charcoal-ink/10">
+              {failed.data.map((f) => (
+                <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <div>
+                    <p className="text-sm font-medium text-charcoal-ink">
+                      {f.order?.beneficiary?.full_name ?? "Unknown patient"}{" "}
+                      <span className="font-normal text-charcoal-ink/60">
+                        &rarr; {itemLabel(f.order?.catalog_item?.name_key, f.order?.catalog_item?.code ?? "Order item")}
+                      </span>
+                    </p>
+                    <p className="text-xs text-charcoal-ink/60">
+                      {formatKobo(f.amount_kobo)} &middot; {f.attempts} attempt{f.attempts === 1 ? "" : "s"} &middot; {f.last_error_code ?? "no code"}
+                    </p>
+                  </div>
+                  <Button type="button" size="sm" variant="outline" disabled={retry.isPending} onClick={() => retry.mutate(f.id)}>
+                    Send back to queue
+                  </Button>
+                </li>
+              ))}
+            </ul>
+            {retry.data && retry.data.result !== "requeued" && (
+              <p className="text-xs text-red-600">
+                {retry.data.result === "provider_mismatch"
+                  ? "The weekly check found Paystack disagreeing with us on this refund. Check the Paystack dashboard first, then resolve the incident."
+                  : "It could not be sent back to the queue."}
+              </p>
+            )}
+          </section>
+        )}
       </CardContent>
 
       <ConfirmDialog
@@ -143,7 +182,7 @@ export function OrderRefundsAdmin() {
         description={
           pending?.approve
             ? "The patient's payment is refunded and their Member access ends straight away, with no grace period. Open follow-ups are cancelled and a doctor is asked to hand over any open work."
-            : "The patient is told this request was declined. Nothing is refunded."
+            : "The patient is told this request was declined and is shown the reason you write. Nothing is refunded."
         }
         confirmLabel={
           decide.isPending
@@ -152,7 +191,7 @@ export function OrderRefundsAdmin() {
               ? "Approve refund"
               : "Deny request"
         }
-        confirmDisabled={decide.isPending}
+        confirmDisabled={decide.isPending || (pending?.approve === false && note.trim().length < 5)}
         cancelLabel="Go back"
         destructive={!pending?.approve}
         onConfirm={() => {
@@ -167,11 +206,14 @@ export function OrderRefundsAdmin() {
             },
             {
               onSuccess: (data) => {
-                if (data?.result !== "ok") {
+                // The RPC answers 'approved' or 'rejected' on success; anything else is a refusal to show, not a silent close.
+                if (data?.result !== "approved" && data?.result !== "rejected") {
                   setDecisionRefusal(
                     data?.result === "already_decided"
                       ? "Someone already decided this refund. Refresh to see the current status."
-                      : `This order can no longer be refunded (status: ${data?.state ?? "unknown"}).`,
+                      : data?.result === "reason_needed"
+                        ? "Write the reason first. The patient is shown it."
+                        : "This refund could not be decided. Refresh and try again.",
                   );
                   return;
                 }
@@ -200,14 +242,14 @@ export function OrderRefundsAdmin() {
             />
             <div className="space-y-1">
               <Label htmlFor="order-refund-decision-note" className="text-xs text-charcoal-ink/60">
-                Note (optional, kept with the refund)
+                {pending.approve ? "Note (optional, kept with the refund)" : "Reason (required, shown to the patient)"}
               </Label>
               <Textarea
                 id="order-refund-decision-note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
-                placeholder="Visible only to admins"
+                placeholder={pending.approve ? "Visible to the patient on their refund" : "Say why, in a sentence the patient can read"}
               />
             </div>
             {decisionRefusal && (

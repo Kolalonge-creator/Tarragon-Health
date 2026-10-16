@@ -2306,8 +2306,34 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   // S26: entitlements lifecycle, care pack expiry, refunds
   {
+    key: "entitlements.lifecycle",
+    // S26b: renewal reminders go this many days before an entitlement ends, longest first, one message per step. After the end an entitlement
+    // stays readable (never usable for doctor time) for grace_days, with a one-tap renew. A Membership and an employer seat have their own
+    // rules (membership.lapse) and are not reminded by this. PROPOSED, founder decision pending. Mirrored by entitlement_policy_config
+    // (kind lifecycle) in the migration seed, with a drift test.
+    value: { reminder_days_before: [30, 7, 1], grace_days: 7 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/research/S26-S30-competitor-review-and-build-plan.md (S26b); supabase/migrations/20261016195633_s26b_entitlement_and_refund_hardening.sql",
+  },
+  {
+    key: "refunds.order_rules",
+    // S26b: the plain-words refund rule shown at checkout and on the receipt. cooling_off_days applies to every order that is not a Membership
+    // (a Membership uses membership.refund). decision_sla_days is how long the care team has to answer; bank_days_min/max is the usual time for
+    // money to reach the bank after it is sent; stuck_processing_hours is how long a refund may sit mid-send before an incident is raised.
+    // PROPOSED, founder decision pending; no counsel-dependent legal claim is made. Mirrored by entitlement_policy_config (kind refund_rules).
+    value: { cooling_off_days: 14, decision_sla_days: 3, bank_days_min: 5, bank_days_max: 10, stuck_processing_hours: 2 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/research/S26-S30-competitor-review-and-build-plan.md (S26b); supabase/migrations/20261016195633_s26b_entitlement_and_refund_hardening.sql",
+  },
+  {
     key: "entitlements.expiry_reminder_days",
-    // Days before an entitlement expires to send the CON-010 renewal reminder.
+    // Superseded 2026-10-16 by entitlements.lifecycle (reminders at 30, 7 and 1 day). Kept so older references still resolve.
     value: 7,
     owner: "Founder",
     status: "proposed",
@@ -2317,7 +2343,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "refunds.cooling_off_days",
-    // Superseded for the Membership by membership.refund (21 days, decision 2026-10-12). Kept for any non-Membership order; none is sold.
+    // Superseded for the Membership by membership.refund (21 days, decision 2026-10-12). Superseded 2026-10-16 for every other order by
+    // refunds.order_rules (cooling_off_days), which the database now enforces. Kept so older references still resolve.
     value: 14,
     owner: "Founder",
     status: "proposed",
