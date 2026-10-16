@@ -1,4 +1,4 @@
-import { getProposedConfig, mgDlToMmolL } from "@tarragon/shared";
+import { diagnosticBpReadings, getProposedConfig, mgDlToMmolL } from "@tarragon/shared";
 import { deviceRedFlags, type DeviceRedRules } from "@tarragon/clinical";
 import { supabase } from "./supabase";
 import type { VitalReadingPayload } from "./api";
@@ -15,20 +15,22 @@ export interface BpReading {
   diastolic: number;
   takenAt: string;
   level: BpLevel;
+  /** Where the reading came from; "wearable" is an estimate (see @tarragon/shared bp-estimate). Absent for a reading saved on this phone. */
+  source?: string | null;
   /** True for a reading saved on this phone that has not reached the server yet. */
   pending?: boolean;
 }
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-type BpRow = { id: string; systolic: number | null; diastolic: number | null; taken_at: string; client_reading_id?: string | null };
+type BpRow = { id: string; systolic: number | null; diastolic: number | null; taken_at: string; client_reading_id?: string | null; source?: string | null };
 
 export async function loadRecentBpReadings(patientId: string, limit = 10): Promise<BpReading[]> {
   let rows: BpRow[];
   try {
     const { data, error } = await supabase
       .from("vitals_readings")
-      .select("id, systolic, diastolic, taken_at, client_reading_id")
+      .select("id, systolic, diastolic, taken_at, client_reading_id, source")
       .eq("patient_id", patientId)
       .eq("vital_type", "blood_pressure")
       .order("taken_at", { ascending: false })
@@ -52,6 +54,7 @@ export async function loadRecentBpReadings(patientId: string, limit = 10): Promi
       diastolic: r.diastolic,
       takenAt: r.taken_at,
       level: classifyBpLevel(r.systolic, r.diastolic),
+      source: r.source ?? null,
     }));
   // Readings logged on this phone and not yet sent (S06): shown at their logged
   // time, marked pending, so an offline reading does not look lost.
@@ -91,7 +94,8 @@ export interface SevenDayAverage {
 
 export function computeSevenDayAverage(readings: BpReading[]): SevenDayAverage | null {
   const cutoff = Date.now() - SEVEN_DAYS_MS;
-  const recent = readings.filter((r) => new Date(r.takenAt).getTime() >= cutoff);
+  // A wearable (cuffless) estimate is never part of an average (docs/design/BP-wearable-estimates.md).
+  const recent = diagnosticBpReadings(readings).filter((r) => new Date(r.takenAt).getTime() >= cutoff);
   if (recent.length === 0) return null;
   const sys = Math.round(recent.reduce((sum, r) => sum + r.systolic, 0) / recent.length);
   const dia = Math.round(recent.reduce((sum, r) => sum + r.diastolic, 0) / recent.length);

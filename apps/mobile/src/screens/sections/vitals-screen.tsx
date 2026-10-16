@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { GLUCOSE_UNIT_LABEL } from "@tarragon/shared";
+import { GLUCOSE_UNIT_LABEL, diagnosticBpReadings, isEstimateBpSource } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
 import { BP_THRESHOLDS, classifyBpLevel, type BpLevel, type BpThresholds } from "@/lib/bp-classification";
@@ -256,9 +256,14 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
 
   // The status badge and the chart's reference lines must agree, so every reading is
   // rated against the same (server-synced) thresholds the chart draws.
+  // A wearable (cuffless) estimate stays visible, labelled, but never feeds the latest grade, the average, the chart or the insights.
   const readings = useMemo(
-    () => rawReadings.map((r) => ({ ...r, level: classifyBpLevel(r.systolic, r.diastolic, thresholds) })),
+    () => diagnosticBpReadings(rawReadings).map((r) => ({ ...r, level: classifyBpLevel(r.systolic, r.diastolic, thresholds) })),
     [rawReadings, thresholds]
+  );
+  const newestEstimate = useMemo(
+    () => rawReadings.find((r) => isEstimateBpSource(r.source)) ?? null,
+    [rawReadings]
   );
   const amber = thresholds.amber;
 
@@ -424,6 +429,16 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
               {formatWhen(latest.takenAt)}
               {latest.pending ? ` · ${t("outbox.row_waiting", locale)}` : ""}
             </AppText>
+            {newestEstimate && (!latest || newestEstimate.takenAt > latest.takenAt) ? (
+              <View accessibilityRole="text" style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: space.sm, marginTop: space.xs }}>
+                <AppText variant="bodyStrong">
+                  {tr("bpe.estimate_label")}: {newestEstimate.systolic}/{newestEstimate.diastolic}
+                </AppText>
+                <AppText variant="caption" tone="textMuted">
+                  {tr("bpe.estimate_note")}
+                </AppText>
+              </View>
+            ) : null}
             {average ? (
               <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: space.sm, marginTop: space.xs }}>
                 <AppText variant="bodyStrong">

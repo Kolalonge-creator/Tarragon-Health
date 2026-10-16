@@ -185,6 +185,8 @@ export const en = {
   "vitals.latest.average": "{days} day average",
   "vitals.latest.average_one": "1 reading",
   "vitals.latest.average_other": "{count} readings",
+  "bpe.estimate_label": "Wearable estimate",
+  "bpe.estimate_note": "From a watch or ring, not a blood pressure cuff. It is not used in your average or your trend. When you can, check with an upper-arm cuff.",
   "vitals.trend.title": "Trend",
   "vitals.trend.control": "Time range",
   "vitals.trend.days_7": "7 days",
