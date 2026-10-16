@@ -142,3 +142,7 @@ or confirms anything; each answer follows the OQ's recommended option and waits 
   The transition reason says "(lead not offered: lacks X)". The wait of up to half the due time on an unclaimable offer is gone.
 - **Restated bodies** (live text, md5 checked on 2026-10-16, with only these changes): `create_clinical_task` (`c335f99e...`), `pick_employed_clinician_for`
   (`99e468de...`), `handle_symptom_triage_assessment` (`f09f4630...`). `queue_candidates` and `sweep_clinical_tasks` were not changed.
+- **Known limits.** A claimant reads the symptom assessment from the patient record: the task carries no text, and `clinician_review_task_id` links the assessment to it (a merged
+  repeat points at the same task). Only a clinician holding `prescribing` can take a pharmacy flag (the CMO is told when one escalates, but cannot claim it without the
+  competency). A repeat merging into a pooled task widens its competencies; a task already offered or claimed keeps its own list. `pick_employed_clinician_for` stays as a
+  no-requirement wrapper for callers outside main-dev; new code calls `pick_employed_clinician_competent`.

@@ -23,9 +23,15 @@
 -- amber_bp_review, requires hypertension, not touched); open pharmacy_flag_review = 0; open admin_clinical = 0;
 -- prescription_pharmacy_flags = 0; symptom_triage_assessments = 0; symptom_reviews = 0; lead_assignments = 0. So no open task
 -- is stranded and no row is converted. A task keeps the competencies stored on it when it was made; this change applies to tasks
--- made after it. (A repeat flag merging into a live task made before this change would not gain `prescribing`; there are none.)
--- Live prescribing holders: 1 clinician. A new pharmacy flag task can be claimed only by a holder; with none on shift it waits in
--- the pool and, past its due time, escalates to the Chief Medical Officer like any unclaimable task (D2). That is the intent of (a).
+-- made after it, and (section 3b) widens any such task still waiting in the pool. A repeat that merges into a task still in the
+-- pool widens it too; a task already offered or claimed keeps its own list.
+-- Live prescribing holders: 1 clinician. A new pharmacy flag task can be claimed ONLY by a holder, whatever the claimant's tier
+-- (private.queue_candidates requires every required competency of everyone, the Chief Medical Officer included). With no holder
+-- free, the task waits in the pool and, past its due time, escalates: the CMO is TOLD (D2) but cannot take it without
+-- `prescribing`. That follows option (a) of OQ-433; the prescribing roster is the CMO's to keep staffed (a clinician with
+-- prescribing authority can be granted the competency).
+-- Known limit (OQ-432): the task carries no text, so a claimant reads the assessment from the patient record
+-- (symptom_triage_assessments.clinician_review_task_id links it; a merged repeat points at the same task).
 --
 -- Restated bodies, each the LIVE body (pg_get_functiondef on 2026-10-16, md5 checked) with only the changes above:
 --   private.create_clinical_task            md5 c335f99e70bf7ea6de9c3a420a106726 (= 20261014235641 section 2)
@@ -41,6 +47,8 @@
 create function private.clinician_missing_competencies(p_profile uuid, p_required text[]) returns text[]
 language sql stable security definer set search_path = ''
 as $$
+  -- The required competencies this person does not hold (a revoked grant does not count). Whether they are active, licensed and
+  -- in hours is decided by the caller: clinician_offerable for a lead, the picker's own conditions for an employed doctor.
   select coalesce(array_agg(r order by r), '{}'::text[])
     from unnest(coalesce(p_required, '{}'::text[])) r
    where r <> all (coalesce((
@@ -96,6 +104,7 @@ create or replace function private.pick_employed_clinician_for(p_org uuid, p_min
  STABLE SECURITY DEFINER
  SET search_path TO ''
 AS $function$
+  -- no requirement: kept only so a caller outside main-dev (an unmerged branch) keeps working. New code calls pick_employed_clinician_competent.
   select private.pick_employed_clinician_competent(p_org, p_min, p_patient, '{}'::text[]);
 $function$;
 
@@ -133,6 +142,9 @@ begin
   select * into pr from public.profiles where id = p_patient and role = 'patient';
   if not found then raise exception 'unknown patient' using errcode = '22023'; end if;
   v_due := now() + make_interval(mins => coalesce(p_due_minutes, ty.default_due_minutes));
+  -- OQ-433: what the task requires is the type's list, the producer's extras, and the type's prescription subtype rule.
+  v_req := (select coalesce(array_agg(distinct x order by x), '{}')
+              from unnest(ty.required_competencies || coalesce(p_extra_competencies, '{}') || private.task_extra_competencies(ty.code, p_dedup_key)) x);
 
   -- A repeat trigger merges into the live task; the merge is counted and a tighter due time wins. Never dropped silently.
   if p_dedup_key is not null then
@@ -149,6 +161,9 @@ begin
       perform set_config('tarragon.task_transition', 'on', true);
       -- D9: a tighter due time tightens an offer still running, by the same fraction of the task's own life
       update public.clinical_tasks set merged_count = merged_count + 1, due_at = v_new_due,
+             required_competencies = case when state in ('open', 'escalated')
+                                          then (select coalesce(array_agg(distinct x order by x), '{}') from unnest(required_competencies || v_req) x)
+                                          else required_competencies end,
              lead_window_ends_at = case when state = 'offered_to_lead' and lead_window_ends_at is not null
                                         then least(lead_window_ends_at, created_at + (v_new_due - created_at) * v_frac)
                                         else lead_window_ends_at end
@@ -157,10 +172,6 @@ begin
       return v_existing.id;
     end if;
   end if;
-
-  -- OQ-433: what the task requires is the type's list, the producer's extras, and the type's prescription subtype rule.
-  v_req := (select coalesce(array_agg(distinct x order by x), '{}')
-              from unnest(ty.required_competencies || coalesce(p_extra_competencies, '{}') || private.task_extra_competencies(ty.code, p_dedup_key)) x);
 
   perform set_config('tarragon.task_transition', 'on', true);
   insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id,
@@ -231,6 +242,21 @@ end;
 $function$;
 
 revoke all on function private.create_clinical_task(uuid, text, integer, text, uuid, integer, uuid, text[]) from public, anon, authenticated;
+
+-- 3b. Data step: a pharmacy flag (or prescription admin) task still waiting in the pool takes the new requirement. Live count on
+-- 2026-10-16: 0. Offered or claimed tasks keep the list they were made with (pharmacy_flag_review has no lead window, so it is never offered).
+do $$
+declare n integer;
+begin
+  perform set_config('tarragon.task_transition', 'on', true);
+  update public.clinical_tasks ct
+     set required_competencies = (select coalesce(array_agg(distinct x order by x), '{}') from unnest(ct.required_competencies || private.task_extra_competencies(ct.type, ct.dedup_key)) x)
+   where ct.state in ('open', 'escalated')
+     and not (ct.required_competencies @> private.task_extra_competencies(ct.type, ct.dedup_key));
+  get diagnostics n = row_count;
+  perform set_config('tarragon.task_transition', 'off', true);
+  raise notice 'task queue gaps OQ-433: widened % pooled task(s) to require prescribing', n;
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- 4. OQ-432: the symptom checker's review becomes one task

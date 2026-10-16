@@ -208,7 +208,7 @@ end $$;
 do $$
 declare
   v_p uuid := pg_temp.f('P'); v_n uuid := pg_temp.f('N');
-  t1 uuid; t2 uuid; t3 uuid; t4 uuid; t5 uuid; t6 uuid; t7 uuid;
+  t1 uuid; t2 uuid; t3 uuid; t4 uuid; t5 uuid; t6 uuid; t7 uuid; t8 uuid;
 begin
   t1 := private.create_clinical_task(pg_temp.f('p11'), 'pharmacy_flag_review', null, 'pharmacy_flag:' || gen_random_uuid());
   perform pg_temp.rec('433: a pharmacy flag task requires prescribing', 'prescribing', pg_temp.comps_of(t1));
@@ -233,6 +233,14 @@ begin
 
   t7 := private.create_clinical_task(pg_temp.f('p11'), 'pharmacy_flag_review', null, 'pharmacy_flag:' || gen_random_uuid(), null, null, null, array['prescribing', 'extra_one']);
   perform pg_temp.rec('433: an explicit extra unions with the rule, without a duplicate', 'extra_one,prescribing', pg_temp.comps_of(t7));
+  perform pg_temp.clear_queue();
+
+  -- a task made before the rule that is still waiting in the pool gains the requirement when a repeat merges into it
+  t8 := private.create_clinical_task(pg_temp.f('p11'), 'pharmacy_flag_review', null, 'pharmacy_flag:widen');
+  perform pg_temp.backdate(t8, 'required_competencies = ''{}''');
+  perform private.create_clinical_task(pg_temp.f('p11'), 'pharmacy_flag_review', null, 'pharmacy_flag:widen');
+  perform pg_temp.rec('433: a repeat merging into an older pooled task widens it to prescribing', 'prescribing,1',
+    pg_temp.comps_of(t8) || ',' || (select merged_count::text from public.clinical_tasks where id = t8));
   perform pg_temp.clear_queue();
 end $$;
 

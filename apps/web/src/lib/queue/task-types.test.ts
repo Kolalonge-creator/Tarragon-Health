@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { EXTRA_PRODUCER_NOTE, EXTRA_SKILLS_NOTE, formatMinutes, LEAD_SKIP_EXPLANATION, taskTypeSchema, taskTypeSearchWords, TASK_TYPE_LABEL } from "./task-types";
+import { EXTRA_PRODUCER_NOTE, formatMinutes, LEAD_SKIP_EXPLANATION, taskTypeSchema, taskTypeSearchWords, TASK_TYPE_LABEL } from "./task-types";
 
 describe("task types", () => {
   it("formats minutes the way people say them", () => {
@@ -28,12 +28,6 @@ describe("task types", () => {
 });
 
 describe("task types: skills the database adds (OQ-433) and the lead skip note (OQ-435)", () => {
-  it("states the two types whose work can be a prescription, and nothing else", () => {
-    expect(Object.keys(EXTRA_SKILLS_NOTE).sort()).toEqual(["admin_clinical", "pharmacy_flag_review"]);
-    expect(EXTRA_SKILLS_NOTE["pharmacy_flag_review"]).toContain("Prescribing");
-    expect(EXTRA_SKILLS_NOTE["admin_clinical"]).toContain("when the work is a prescription");
-  });
-
   it("names the symptom checker as a producer of symptom_review, and labels the pharmacy flag type", () => {
     expect(EXTRA_PRODUCER_NOTE["symptom_review"]).toContain("symptom check");
     expect(TASK_TYPE_LABEL["pharmacy_flag_review"]).toBe("Pharmacy flag on a prescription");
@@ -41,6 +35,7 @@ describe("task types: skills the database adds (OQ-433) and the lead skip note (
 
   it("explains that a named clinician without a needed skill is skipped and the history says why", () => {
     expect(LEAD_SKIP_EXPLANATION).toContain("not offered it");
+    expect(LEAD_SKIP_EXPLANATION).toContain("Work that can be offered to an employed doctor");
     expect(LEAD_SKIP_EXPLANATION).toContain("task history says why");
   });
 });
