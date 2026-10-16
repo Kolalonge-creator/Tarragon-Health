@@ -1,3 +1,4 @@
+import { recordSyncError } from "@/lib/sync-diagnostics";
 import {
   extractNafdacNumbers,
   extractStrengthSuggestion,
@@ -61,8 +62,9 @@ async function defaultDiscard(uri: string): Promise<void> {
     const fs = require("expo-file-system") as typeof import("expo-file-system");
     const file = new fs.File(uri);
     if (file.exists) file.delete();
-  } catch {
-    // a photo that cannot be deleted stays in the system cache, which the OS clears; it is never uploaded
+  } catch (error) {
+    // A photo that cannot be deleted stays in the system cache, which the OS clears; it is never uploaded. Recorded, not hidden.
+    recordSyncError("pack_scan", "discard_photo_failed", error);
   }
 }
 
@@ -113,7 +115,8 @@ export type PackSuggestionChoice =
  */
 export function applyPackSuggestion(form: PackFormFields, choice: PackSuggestionChoice): PackFormFields {
   // A new name from a pack must not sit next to a strength typed for a different medicine.
-  if (choice.field === "drugName" && choice.value.trim().toLowerCase() !== form.drugName.trim().toLowerCase()) {
+  // Only when a different name was already there: a strength tapped first, onto an empty name, belongs to this pack and stays.
+  if (choice.field === "drugName" && form.drugName.trim() !== "" && choice.value.trim().toLowerCase() !== form.drugName.trim().toLowerCase()) {
     return { ...form, drugName: choice.value, dose: "" };
   }
   return { ...form, [choice.field]: choice.value };
@@ -124,7 +127,7 @@ export function applyCatalogueLookup(form: PackFormFields, lookup: NafdacLookup)
   if (lookup.kind !== "in_catalogue") return form;
   // The person tapped to replace what is there. A strength typed for a DIFFERENT medicine is not kept next to the new name.
   const drugName = lookup.prefill.drugName ?? form.drugName;
-  const nameChanged = drugName.trim().toLowerCase() !== form.drugName.trim().toLowerCase();
+  const nameChanged = form.drugName.trim() !== "" && drugName.trim().toLowerCase() !== form.drugName.trim().toLowerCase();
   return { ...form, drugName, dose: lookup.prefill.strength ?? (nameChanged ? "" : form.dose) };
 }
 

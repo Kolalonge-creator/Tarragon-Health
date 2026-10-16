@@ -93,7 +93,7 @@ export interface NafdacCandidate extends NafdacNumber {
 
 /** A month-year such as 10-2027 is an expiry date, not a registration number; only a label can make it one. */
 const NOT_A_REGISTRATION = /\b(?:batch|lot|b\.?\s?no|bn|mfg|mfd|exp|expiry)(?:[^A-Z0-9]*(?:no|number|num))?[^A-Z0-9]*$/i;
-const MONTH_YEAR = /^(0[1-9]|1[0-2])-20[1-4][0-9]$/;
+const MONTH_YEAR = /^(0?[1-9]|1[0-2])-20[1-4][0-9]$/;
 
 /**
  * Every plausible NAFDAC number in the lines a phone read from a pack, labelled ones first. These are suggestions to confirm.
