@@ -444,8 +444,9 @@ begin
   select (private.sweep_ops_desk() ->> 'uncovered')::integer into v_n;
   perform pg_temp.rec('roster alarm: with a real rota and nobody on duty in the real world, a sev1 is opened', 'true,1',
     (v_n >= 1)::text || ',' || (select count(*)::text from public.ops_incidents where external_reference = 'ops_desk_uncovered_roster:' || v_org and severity = 'sev1' and status not in ('resolved', 'closed')));
+  perform private.sweep_ops_desk();
   perform pg_temp.rec('roster alarm: a second sweep refreshes the same incident, it does not open another', '1',
-    (private.sweep_ops_desk() ->> 'errors')::int * 0 + (select count(*) from public.ops_incidents where external_reference = 'ops_desk_uncovered_roster:' || v_org));
+    (select count(*)::text from public.ops_incidents where external_reference = 'ops_desk_uncovered_roster:' || v_org));
   -- cover returns in the real world (a non-test administrator on duty): the alarm closes itself
   v_ops4 := pg_temp.mkuser(v_org, 'ops4', 'admin', '+2348090314752', true);
   update public.profiles set is_test = false where id = v_ops4;
