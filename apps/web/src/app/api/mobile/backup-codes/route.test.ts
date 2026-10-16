@@ -78,6 +78,10 @@ describe("POST", () => {
     expect(limited.status).toBe(429);
     expect(await limited.json()).toEqual({ ok: false, reason: "daily_limit" });
     rpc.mockResolvedValue({ data: null, error: { message: "step_up_required" } });
+    const refused = await POST(req({ password: "x" }));
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toEqual({ ok: false, reason: "refused" });
+    rpc.mockResolvedValue({ data: null, error: { message: "connection reset" } });
     const failed = await POST(req({ password: "x" }));
     expect(failed.status).toBe(503);
     expect(await failed.clone().json()).toEqual({ ok: false, reason: "generation_failed" });
