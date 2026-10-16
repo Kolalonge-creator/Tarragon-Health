@@ -43,7 +43,7 @@ export interface PageSurfaceHandle {
 const PING_EVERY_MS = 60_000;
 
 /**
- * Called once from the clinician home screen. Creates the alarm channel, registers the background notification task, listens for
+ * Called once per signed-in clinician session from App.tsx. Creates the alarm channel, registers the background notification task, listens for
  * pushes and taps, scans the tray, flushes kept receipts, pings the heartbeat about once a minute while the app is open, and
  * schedules the weekly self-test reminder. Every step is best effort: a failure in one never stops the others, and none can
  * throw to the caller. Returns a handle that removes the listeners and the timer.
@@ -62,8 +62,8 @@ export function startPageSurface(isActive: () => boolean): PageSurfaceHandle {
 
   try {
     subs.push(Notifications.addNotificationReceivedListener((n) => guard(() => handlePagePayload(n, deps))));
-    subs.push(Notifications.addNotificationResponseReceivedListener((r) => guard(() => handlePagePayload(r, deps))));
-    void Notifications.getLastNotificationResponseAsync().then((r) => (r ? handlePagePayload(r, deps) : null)).catch(() => {});
+    subs.push(Notifications.addNotificationResponseReceivedListener((r) => guard(() => handlePagePayload(r, deps, "seen"))));
+    void Notifications.getLastNotificationResponseAsync().then((r) => (r ? handlePagePayload(r, deps, "seen") : null)).catch(() => {});
   } catch {
     // an older native build without these: the screen still works and the heartbeat still runs
   }

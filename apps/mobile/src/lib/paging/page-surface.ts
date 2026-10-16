@@ -48,11 +48,14 @@ export async function syncAlarm(deps: Pick<SurfaceDeps, "alarm" | "pages">, opts
  * A notification payload arrived (foreground, tap, background task or tray scan). If it is a page push: report the receipt first
  * (the thing the ladder waits for), then align the alarm. Anything else is ignored without touching the network.
  */
-export async function handlePagePayload(payload: unknown, deps: SurfaceDeps, alignAlarm = true): Promise<"ignored" | "handled"> {
+export async function handlePagePayload(payload: unknown, deps: SurfaceDeps, mode: "arrival" | "seen" | "receipt_only" = "arrival"): Promise<"ignored" | "handled"> {
   const push = readPagePush(payload);
   if (!push) return "ignored";
   await reportPageReceipt(push.notificationId, deps.receipts);
-  if (alignAlarm) await syncAlarm(deps, { assumePage: true });
+  // A test page proves the route and must never ring an alarm. "seen" is a tap, a replayed last tap or a tray scan: an old push says
+  // nothing new about whether a page is waiting, so only the database's own answer may start or stop the alarm.
+  if (mode === "receipt_only" || push.isTest) return "handled";
+  await syncAlarm(deps, { assumePage: mode === "arrival" });
   return "handled";
 }
 
@@ -63,7 +66,7 @@ export async function handlePagePayload(payload: unknown, deps: SurfaceDeps, ali
 export async function recoverPresentedPages(presented: readonly unknown[], deps: SurfaceDeps): Promise<number> {
   let handled = 0;
   for (const n of presented) {
-    if ((await handlePagePayload(n, deps, false)) === "handled") handled += 1;
+    if ((await handlePagePayload(n, deps, "receipt_only")) === "handled") handled += 1;
   }
   // one alignment for the whole tray, not one per notification; a push already in the tray is an old one, so the screen's read decides
   if (handled > 0) await syncAlarm(deps, { assumePage: false });

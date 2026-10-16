@@ -123,18 +123,21 @@ export async function acknowledgeTestPage(testId: string, rpc: Rpc = realRpc): P
 }
 
 /** "I am alive" for the health sweep, so a rota with nobody reachable is noticed. Best effort by design: returns whether it landed. */
+export type PingStatus = "ok" | "not_a_clinician" | "failed";
+let lastPing: PingStatus | null = null;
+
 export async function pingDevice(deviceId: string, rpc: Rpc = realRpc): Promise<boolean> {
   const kind = Platform.OS === "ios" ? "ios" : "android";
   const { error } = await rpc("paging_device_ping", { p_device: deviceId, p_kind: kind });
-  lastPingOk = !error;
+  // The database refuses an account with no working clinical_staff row: that is a set-up problem, not a connection problem.
+  lastPing = !error ? "ok" : /not authori[sz]ed|42501/i.test(error.message) ? "not_a_clinician" : "failed";
   return !error;
 }
 
-let lastPingOk: boolean | null = null;
-/** Whether the latest heartbeat landed (null: none tried yet). The On call screen shows a warning when it is false, because the health sweep treats a silent phone as unreachable. */
-export const getLastPingOk = (): boolean | null => lastPingOk;
+/** The latest heartbeat result (null: none tried yet). The On call screen turns it into words, because the health sweep treats a silent phone as unreachable. */
+export const getLastPing = (): PingStatus | null => lastPing;
 export const __resetPingForTests = (): void => {
-  lastPingOk = null;
+  lastPing = null;
 };
 
 const DEVICE_KEY = "tarragon.paging.device-id";

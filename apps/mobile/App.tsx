@@ -34,7 +34,7 @@ import { HomeShell } from "@/screens/home-shell";
 import { SponsorHome } from "@/screens/sponsor-home";
 import { ClinicianHome } from "@/screens/clinician-home";
 import { startPageSurface } from "@/lib/paging/page-native";
-import { shellForRole } from "@/lib/sponsor-figures";
+import { runsPatientWork, shellForRole } from "@/lib/sponsor-figures";
 import { colors, spacing, typeScale } from "@/ui/theme";
 import { PrimaryButton, MutedText } from "@/ui/components";
 
@@ -155,7 +155,7 @@ function AppContent() {
   // for their owner and for backoff inside flushOutbox, so this is cheap.
   useEffect(() => {
     // Waits for the identity so a sponsor's staff never start the patient outbox and reminder work (it is patient-only).
-    if (!session?.user.id || !identity || shellForRole(identity.role) !== "patient") return;
+    if (!session?.user.id || !identity || !runsPatientWork(identity.role, openOwnRecord)) return;
     const run = () => void flushOutbox().then(() => runDeviceCheckThrottled()).catch(() => {});
     // Honest reconnect trigger (S06x): when the radio says it is back and entries wait, one tiny HEAD proves the
     // server is reachable before the flush. The foreground flush and the one-minute loop below stay as the fallback.
@@ -188,7 +188,7 @@ function AppContent() {
       clearInterval(timer);
       stopWatcher();
     };
-  }, [session?.user.id, identity]);
+  }, [session?.user.id, identity, openOwnRecord]);
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (next) => {
@@ -257,7 +257,7 @@ function AppContent() {
   useEffect(() => {
     // A sponsor's own staff use only the figures screen: none of the patient background work (health sync, push token for care reminders,
     // offline vitals queue, review prompts) applies to them.
-    if (session && identity && shellForRole(identity.role) === "patient") {
+    if (session && identity && runsPatientWork(identity.role, openOwnRecord)) {
       // registerBackgroundHealthSync is deferred a tick past the others:
       // found live in the OS log, once, during this investigation —
       // "Attempt to present <HKHealthPrivacyHostAuthorizationViewController>
@@ -304,7 +304,7 @@ function AppContent() {
       checkForPendingReviewPrompt().catch(() => {});
       return () => healthSyncHandle.cancel();
     }
-  }, [session, identity]);
+  }, [session, identity, openOwnRecord]);
 
   // A clinician's phone is a pager (S19e): register for push (and report that the alarm channel exists) so pages can reach it.
   // Best effort like the patient registration; the On call screen shows the readiness gaps if it did not work.
@@ -315,7 +315,8 @@ function AppContent() {
       const handle = startPageSurface(() => AppState.currentState === "active");
       return () => handle.stop();
     }
-  }, [session, identity]);
+    // keyed on who is signed in and their role, not on the session object: a token refresh must not stop and restart the page route
+  }, [session?.user.id, identity?.role, identity?.organisationId]);
 
   useEffect(() => {
     const userId = session?.user.id;

@@ -6,7 +6,7 @@ import {
   acknowledgePage,
   acknowledgeTestPage,
   getDeviceId,
-  getLastPingOk,
+  getLastPing,
   loadActivePages,
   loadReadiness,
   recordPageShown,
@@ -31,7 +31,7 @@ export function OnCallScreen({ onOpenDeviceCheck }: { onOpenDeviceCheck: () => v
   const [pages, setPages] = useState<ActivePage[] | null>(null);
   const [pagesError, setPagesError] = useState(false);
   const [unreadable, setUnreadable] = useState(0);
-  const [pingOk, setPingOk] = useState<boolean | null>(null);
+  const [ping, setPing] = useState<ReturnType<typeof getLastPing>>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [readinessError, setReadinessError] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -60,7 +60,10 @@ export function OnCallScreen({ onOpenDeviceCheck }: { onOpenDeviceCheck: () => v
         if (!shown.ok) reported.current.delete(p.pageId); // retried on the next poll
       }
     }
-    setPingOk(getLastPingOk());
+    setPing(getLastPing());
+  }, []);
+
+  const loadReadinessNow = useCallback(async () => {
     const r = await loadReadiness();
     if (r.ok) {
       setReadiness(r.data);
@@ -72,18 +75,22 @@ export function OnCallScreen({ onOpenDeviceCheck }: { onOpenDeviceCheck: () => v
 
   useEffect(() => {
     void load();
+    void loadReadinessNow();
     const timer = setInterval(() => {
       if (AppState.currentState === "active") void load();
     }, POLL_MS);
     const sub = AppState.addEventListener("change", (s) => {
-      if (s === "active") void load();
+      if (s === "active") {
+        void load();
+        void loadReadinessNow();
+      }
     });
     return () => {
       clearInterval(timer);
       sub.remove();
       Vibration.cancel();
     };
-  }, [load]);
+  }, [load, loadReadinessNow]);
 
   const run = async (key: string, action: () => Promise<{ ok: true } | { ok: false; error: string }>, done: string | null) => {
     setBusy(key);
@@ -92,6 +99,7 @@ export function OnCallScreen({ onOpenDeviceCheck }: { onOpenDeviceCheck: () => v
     setBusy(null);
     setMessage(r.ok ? done : failureText(r.error));
     await load();
+    await loadReadinessNow();
   };
 
   const due = readiness ? selfTestDue(readiness, Date.now()) : false;
@@ -103,7 +111,8 @@ export function OnCallScreen({ onOpenDeviceCheck }: { onOpenDeviceCheck: () => v
       </AppText>
       {message ? <InlineAlert message={message} tone="info" /> : null}
       {unreadable > 0 ? <InlineAlert message="A page could not be shown on this screen. Treat it as waiting and open the clinician console on the web." tone="danger" /> : null}
-      {pingOk === false ? <InlineAlert message="This phone could not tell the server it is reachable. Check your connection; the clinical lead may see this phone as offline." tone="warn" /> : null}
+      {ping === "failed" ? <InlineAlert message="This phone could not tell the server it is reachable. Check your connection; the clinical lead may see this phone as offline." tone="warn" /> : null}
+      {ping === "not_a_clinician" ? <InlineAlert message="Your account is not set up as a working clinician yet, so pages cannot be sent to this phone. Ask the clinical lead." tone="warn" /> : null}
       {pagesError ?<InlineAlert message="Pages could not be loaded. If you are on call, keep this app open and check your connection." tone="danger" /> : null}
 
       {pages === null && !pagesError ? (

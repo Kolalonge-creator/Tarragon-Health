@@ -44,7 +44,8 @@ export async function ensurePageChannel(): Promise<boolean> {
   if (Platform.OS !== "android") return true;
   try {
     const created = await Notifications.setNotificationChannelAsync(PAGE_CHANNEL_ID, pageChannelInput());
-    return created !== undefined;
+    // null means the phone did not create it: the server must keep naming `urgent`
+    return created != null;
   } catch {
     return false;
   }

@@ -13,6 +13,8 @@ const MAX_DEPTH = 4;
 
 export interface PagePush {
   readonly notificationId: string;
+  /** True when the sender said this is a test page (`template` in the push data, added by S19e). An older sender omits it: then false. */
+  readonly isTest: boolean;
 }
 
 function asRecord(v: unknown): Record<string, unknown> | null {
@@ -29,10 +31,10 @@ function parseJson(v: unknown): Record<string, unknown> | null {
 }
 
 /** The first object in the payload (searched a few levels down) that carries our two fields. */
-function findFields(v: unknown, depth: number): { url: string; notificationId: string } | null {
+function findFields(v: unknown, depth: number): { url: string; notificationId: string; template: string | null } | null {
   const rec = asRecord(v);
   if (!rec || depth > MAX_DEPTH) return null;
-  if (typeof rec.url === "string" && typeof rec.notificationId === "string") return { url: rec.url, notificationId: rec.notificationId };
+  if (typeof rec.url === "string" && typeof rec.notificationId === "string") return { url: rec.url, notificationId: rec.notificationId, template: typeof rec.template === "string" ? rec.template : null };
   for (const key of ["data", "request", "content", "notification", "trigger", "remoteMessage"]) {
     const hit = findFields(rec[key], depth + 1);
     if (hit) return hit;
@@ -48,5 +50,5 @@ function findFields(v: unknown, depth: number): { url: string; notificationId: s
 export function readPagePush(payload: unknown): PagePush | null {
   const f = findFields(payload, 0);
   if (!f || f.url !== PAGE_URL || !UUID.test(f.notificationId)) return null;
-  return { notificationId: f.notificationId };
+  return { notificationId: f.notificationId, isTest: f.template === "on_call_test_page" };
 }

@@ -91,7 +91,8 @@ export async function registerPushToken(userId: string, organisationId: string, 
     // so a registration can never be lost to the new field.
     const withPage = options.clinician === true ? { ...base, page_channel_ready: pageChannelReady } : base;
     const first = await supabase.from("push_subscriptions").upsert(withPage as never, { onConflict: "expo_push_token" });
-    if (first.error && options.clinician === true) {
+    // Only a missing column justifies the retry; any other error (network, auth, policy) is not made to look like success by a second write.
+    if (first.error && options.clinician === true && (first.error.code === "42703" || /page_channel_ready/i.test(first.error.message))) {
       await supabase.from("push_subscriptions").upsert(base as never, { onConflict: "expo_push_token" });
     }
   } catch {

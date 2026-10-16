@@ -120,3 +120,9 @@ export async function loadFigures(cohortId: string): Promise<FiguresLoad> {
     return { ok: false };
   }
 }
+
+/** Whether the patient-app background work (outbox, reminders, health sync, push registration for patients) runs for this role. A clinician gets it once they open their own record. */
+export function runsPatientWork(role: string | null | undefined, openedOwnRecord: boolean): boolean {
+  const shell = shellForRole(role);
+  return shell === "patient" || (shell === "clinician" && openedOwnRecord);
+}

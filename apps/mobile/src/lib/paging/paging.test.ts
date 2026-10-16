@@ -19,10 +19,10 @@ const OK = { ok: true as const, data: true };
 describe("readPagePush", () => {
   it("reads a foreground notification, a tap, and both background-task shapes", () => {
     const data = { url: PAGE_URL, notificationId: ID };
-    expect(readPagePush({ request: { content: { data } } })).toEqual({ notificationId: ID });
-    expect(readPagePush({ notification: { request: { content: { data } } } })).toEqual({ notificationId: ID });
-    expect(readPagePush({ data: { dataString: JSON.stringify(data) } })).toEqual({ notificationId: ID });
-    expect(readPagePush({ data: { body: JSON.stringify(data) } })).toEqual({ notificationId: ID });
+    expect(readPagePush({ request: { content: { data } } })).toEqual({ notificationId: ID, isTest: false });
+    expect(readPagePush({ notification: { request: { content: { data } } } })).toEqual({ notificationId: ID, isTest: false });
+    expect(readPagePush({ data: { dataString: JSON.stringify(data) } })).toEqual({ notificationId: ID, isTest: false });
+    expect(readPagePush({ data: { body: JSON.stringify(data) } })).toEqual({ notificationId: ID, isTest: false });
   });
   it("ignores anything that is not a page push", () => {
     expect(readPagePush({ request: { content: { data: { url: "/patient/vitals", notificationId: ID } } } })).toBeNull();

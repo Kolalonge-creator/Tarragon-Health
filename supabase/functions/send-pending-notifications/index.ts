@@ -36,7 +36,7 @@ import webpush from "npm:web-push@3.6.7";
 import { appUrl, substituteTemplatePlaceholders, TEMPLATE_MAP } from "./templates.ts";
 import type { TemplateRender } from "./templates.ts";
 import { describeViolations, lintRenderFn, lintText } from "../_shared/notifications/neutral.ts";
-import { decide, DISCREET_DOCUMENT_TEMPLATES, discreetEmail, EMERGENCY_CONTACT_TEMPLATE, expoChannelFor, expoUrgencyFields, PAGE_CHANNEL_ID, FALLBACK_QUIET, isSafetyCritical, PATIENT_AUDIENCES, privacyFor, pushEnvelope, refusedSmsOutcome, signDocumentLink, withDocumentLink } from "../_shared/notifications/delivery.ts";
+import { decide, DISCREET_DOCUMENT_TEMPLATES, discreetEmail, EMERGENCY_CONTACT_TEMPLATE, expoChannelFor, expoUrgencyFields, PAGE_ALARM_TEMPLATES, PAGE_CHANNEL_ID, FALLBACK_QUIET, isSafetyCritical, PATIENT_AUDIENCES, privacyFor, pushEnvelope, refusedSmsOutcome, signDocumentLink, withDocumentLink } from "../_shared/notifications/delivery.ts";
 import type { DocumentLinkKind } from "../_shared/notifications/delivery.ts";
 import { checkFanoutRowConsent } from "../_shared/notifications/emergency-contact.ts";
 import type { QuietSettings } from "../_shared/notifications/delivery.ts";
@@ -391,7 +391,7 @@ async function sendExpoPush(
     to: sub.expo_push_token,
     title: payload.title,
     body: payload.body,
-    data: { url: payload.url, notificationId: payload.notificationId },
+    data: { url: payload.url, notificationId: payload.notificationId, ...(template != null && PAGE_ALARM_TEMPLATES.includes(template) ? { template } : {}) },
     // S13 R4: safety rows are high priority, on the urgent Android channel, time-sensitive on iPhone (critical only once Apple's
     // entitlement is granted and IOS_CRITICAL_ALERTS_ENABLED is set). Routine rows add nothing here.
     // S19e: a page or test page rings the alarm channel on a phone that has created it (page_channel_ready); any other phone keeps `urgent`.
