@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { formatLicenceVerifiedDate } from "@/lib/clinical/licence-verified";
 
 export interface InterpretationData {
   patientName: string;
@@ -13,8 +14,11 @@ export interface InterpretationData {
    * §2) — a name is printed only when a real clinical_staff row backs it.
    */
   doctorName: string | null;
-  doctorCredentialType: string | null;
-  doctorCredentialNumber: string | null;
+  /**
+   * "Licence verified on <date>" (CMO Q17 / OQ-358b): the date of a stored verification record, never the MDCN folio. The folio
+   * prints on letters and prescriptions only, so no registration number or type is carried on this document.
+   */
+  licenceVerifiedOn: string | null;
 }
 
 const styles = StyleSheet.create({
@@ -64,13 +68,14 @@ function ResultPage({ data }: { data: InterpretationData }) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Reviewed by</Text>
         {data.doctorName ? (
-          <Text>
-            {data.doctorName}
-            {data.doctorCredentialType && data.doctorCredentialNumber
-              ? ` (${data.doctorCredentialType} ${data.doctorCredentialNumber})`
-              : ""}
-            , TarragonHealth care team · {formatDate(data.interpretationSentAt)}
-          </Text>
+          <View>
+            <Text>
+              {data.doctorName}, TarragonHealth care team · {formatDate(data.interpretationSentAt)}
+            </Text>
+            {data.licenceVerifiedOn && formatLicenceVerifiedDate(data.licenceVerifiedOn) !== "Invalid Date" ? (
+              <Text>Licence verified on {formatLicenceVerifiedDate(data.licenceVerifiedOn)}</Text>
+            ) : null}
+          </View>
         ) : (
           <Text>Your TarragonHealth care team · {formatDate(data.interpretationSentAt)}</Text>
         )}

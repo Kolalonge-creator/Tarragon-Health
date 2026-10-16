@@ -478,9 +478,9 @@ export function BookAppointment({
                     {slot.specialty ? ` · ${slot.specialty}` : ""}
                     {slot.languages && slot.languages.length > 0 ? ` · ${slot.languages.join(", ")}` : ""}
                   </p>
-                  {slot.mdcn_number && slot.licence_checked_on && (
+                  {slot.licence_checked_on && (
                     <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                      {t("book.card.mdcn", locale, { number: slot.mdcn_number, date: formatPatientDateTime(slot.licence_checked_on, { day: "numeric", month: "short", year: "numeric" }) })}
+                      {t("book.card.licence_verified", locale, { date: formatPatientDateTime(slot.licence_checked_on, { day: "numeric", month: "short", year: "numeric" }) })}
                     </p>
                   )}
                 </div>

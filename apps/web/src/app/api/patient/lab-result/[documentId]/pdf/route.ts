@@ -1,5 +1,6 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { DocumentFolioRefusedError, fetchDocumentFolios } from "@/lib/clinical/document-folio";
+import { fetchLicenceVerifiedOn } from "@/lib/clinical/licence-verified";
 import { createClient } from "@/lib/supabase/server";
 import {
   InterpretationDocument,
@@ -51,8 +52,7 @@ export async function GET(
   // Null-gated attribution, exactly like ReviewedByDoctor: a name is printed
   // only when a real clinical_staff row backs it.
   let doctorName: string | null = null;
-  let doctorCredentialType: string | null = null;
-  let doctorCredentialNumber: string | null = null;
+  let licenceVerifiedOn: string | null = null;
   if (doc.reviewed_by) {
     // Folio via the document-scoped function, never the directory view (CMO Q17, OQ-358).
     let folio;
@@ -68,8 +68,8 @@ export async function GET(
     }
     if (folio?.fullName) {
       doctorName = folio.fullName;
-      doctorCredentialType = folio.credentialType;
-      doctorCredentialNumber = folio.credentialNumber;
+      // Q17 / OQ-358b: a lab result PDF carries "Licence verified on <date>" from a stored record, never the folio.
+      licenceVerifiedOn = (await fetchLicenceVerifiedOn(supabase, [folio.clinicianStaffId])).get(folio.clinicianStaffId) ?? null;
     }
   }
 
@@ -81,8 +81,7 @@ export async function GET(
     nextSteps: doc.next_steps,
     interpretationSentAt: doc.interpretation_sent_at,
     doctorName,
-    doctorCredentialType,
-    doctorCredentialNumber,
+    licenceVerifiedOn,
   };
 
   const buffer = await renderToBuffer(InterpretationDocument({ data }));

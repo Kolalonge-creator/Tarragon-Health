@@ -1,5 +1,6 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { DocumentFolioRefusedError, fetchDocumentFolios } from "@/lib/clinical/document-folio";
+import { fetchLicenceVerifiedOn } from "@/lib/clinical/licence-verified";
 import { createClient } from "@/lib/supabase/server";
 import { VerifiedDocumentPdf } from "@/lib/verified-documents/verified-document";
 
@@ -54,7 +55,7 @@ export async function GET(
   // attestation without reopening the column-exposure gap that migration
   // fixed. The name still comes from profiles.full_name (the login identity),
   // not clinical_staff.full_name, matching the original embed's shape exactly.
-  let issuer: { credential_type: string | null; credential_number: string | null } | null = null;
+  let issuerLicenceVerifiedOn: string | null = null;
   let issuerProfile: { full_name: string | null } | null = null;
   if (doc.issued_by) {
     // Folio via the document-scoped function, never the directory view (CMO Q17, OQ-358).
@@ -70,7 +71,8 @@ export async function GET(
       throw e;
     }
     if (folio) {
-      issuer = { credential_type: folio.credentialType, credential_number: folio.credentialNumber };
+      // Q17 / OQ-358b: the PDF carries "Licence verified on <date>" from a stored record, never the folio.
+      issuerLicenceVerifiedOn = (await fetchLicenceVerifiedOn(supabase, [folio.clinicianStaffId])).get(folio.clinicianStaffId) ?? null;
       if (folio.clinicianProfileId) {
         const { data: profile } = await supabase
           .from("profiles")
@@ -98,8 +100,7 @@ export async function GET(
         validUntil: doc.valid_until,
         issuedAt: doc.issued_at ?? doc.valid_from,
         issuerName: issuerProfile?.full_name ?? null,
-        issuerCredentialType: issuer?.credential_type ?? null,
-        issuerCredential: issuer?.credential_number ?? null,
+        issuerLicenceVerifiedOn,
       },
     })
   );

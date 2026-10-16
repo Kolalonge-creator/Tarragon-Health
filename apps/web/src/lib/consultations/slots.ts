@@ -11,8 +11,7 @@ export interface BookableConsultSlotRow {
   /** S64: what the person is booked as. Absent on rows from before S64. */
   care_role?: "doctor" | "dietitian" | "pharmacist" | null;
   sex?: string | null;
-  /** S64 (Q19): shown only when a credential check is on record; null otherwise. */
-  mdcn_number?: string | null;
+  /** Date of the stored credential check; null when none is on record. The MDCN folio is no longer returned (CMO Q17 / OQ-358). */
   licence_checked_on?: string | null;
   licence_current: boolean;
   licence_verified_at: string | null;
@@ -30,8 +29,7 @@ export interface ConsultSlot {
   specialty: string | null;
   languages: string[];
   sex: string | null;
-  /** Null-gated: the number and its checked-on date are both present or both null. */
-  mdcn_number: string | null;
+  /** "Licence verified on <date>": null when no check is on record. Never the folio (CMO Q17 / OQ-358). */
   licence_checked_on: string | null;
 }
 
@@ -53,9 +51,8 @@ export function toConsultSlots(rows: readonly BookableConsultSlotRow[] | null | 
       specialty: r.specialty?.trim() || null,
       languages: (r.languages ?? []).filter((l) => typeof l === "string" && l.length > 0),
       sex: r.sex ?? null,
-      // the number is never shown without the date it was checked, and never when no check is on record
-      mdcn_number: r.mdcn_number && r.licence_checked_on && Number.isFinite(Date.parse(r.licence_checked_on)) ? r.mdcn_number : null,
-      licence_checked_on: r.mdcn_number && r.licence_checked_on && Number.isFinite(Date.parse(r.licence_checked_on)) ? r.licence_checked_on : null,
+      // only the date of a stored check is carried; nothing is claimed when no check is on record
+      licence_checked_on: r.licence_checked_on && Number.isFinite(Date.parse(r.licence_checked_on)) ? r.licence_checked_on : null,
     }));
 }
 
