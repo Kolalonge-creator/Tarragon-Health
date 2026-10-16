@@ -1250,7 +1250,8 @@ export const TEMPLATE_MAP: Record<
       email: neutralMail("Your care team has reviewed a document you uploaded", [`Hi ${patientName},`, "Your care team has reviewed a document you uploaded. Open the Tarragon Health app to see it."], [["Reference", serial]]),
     };
   },
-  // S85-D3: the one named SMS exception. The text is signed and content-free; it lives in _shared/notifications/emergency-contact.ts.
+  // The notice to a patient's own consented emergency contact: push, in-app and email copies only (no SMS since OQ-333). The text is
+  // content-free and lives in _shared/notifications/emergency-contact.ts.
   emergency_contact_alert: (payload) => {
     const smsText = emergencyContactText(payload.patient_name);
     const name = emergencyContactName(payload.patient_name);

@@ -113,6 +113,14 @@ describe("MFA step-up gate", () => {
     expect(res.headers.get("location")).toContain("/login/mfa-challenge");
   });
 
+  it("keeps the query of a signed document link through the challenge (OQ-336)", async () => {
+    stubSession({ user: { id: "u1" }, aal: mfaPending });
+    const res = await proxy(request("/d/care-plan/u1?e=1760000000&s=abc"));
+    const loc = new URL(res.headers.get("location") ?? "");
+    expect(loc.pathname).toBe("/login/mfa-challenge");
+    expect(loc.searchParams.get("redirect")).toBe("/d/care-plan/u1?e=1760000000&s=abc");
+  });
+
   it("still redirects when the caller claims to be a prefetch", async () => {
     // The headers that used to skip this function entirely at the matcher.
     stubSession({ user: { id: "u1" }, aal: mfaPending });

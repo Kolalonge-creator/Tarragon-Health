@@ -15,7 +15,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ kind
   }
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
-  if (!data.user) return NextResponse.redirect(new URL("/login?redirect=/patient", request.url));
+  // Signed out: sign in first, then come straight back to this same signed link (OQ-336), which lands on the document.
+  if (!data.user) return NextResponse.redirect(new URL(`/login?next=${encodeURIComponent(`${url.pathname}${url.search}`)}`, request.url));
   // The care plan link names the patient it was made for: another signed-in person gets nothing.
   if (kind === "care-plan" && data.user.id !== id) return new NextResponse(null, { status: 404 });
   return NextResponse.redirect(new URL(documentTarget(kind as DocumentLinkKind, id), request.url));
