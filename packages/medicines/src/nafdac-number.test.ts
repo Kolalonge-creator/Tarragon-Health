@@ -206,3 +206,9 @@ describe("lookupNafdacNumber", () => {
     expect(text).not.toMatch(/genuine|fake|counterfeit|authentic|safe|approved/i);
   });
 });
+
+describe("single-digit month-year dates", () => {
+  it("is not offered as an unlabelled number", () => {
+    expect(extractNafdacNumbers(["Pack info 9-2027 batch"]).map((c) => c.value)).not.toContain("9-2027");
+  });
+});
