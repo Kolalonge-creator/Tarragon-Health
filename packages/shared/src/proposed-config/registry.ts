@@ -5828,9 +5828,9 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // The CMO signs the RULE SET; this entry is how a reviewer sees the numbers, with their owner and version, in one place.
     // Pulse and the others use "at or below" / "at or above" (inclusive) and "below" (exclusive) exactly as the rule set reads them.
     // amberReviewDueMinutes is the due time of the amber review task (72 hours, the older amber alert's review time); minAdultAgeYears is the age under which
-    // a heart rate outside the adult resting range is routed to a clinician instead of paged.
+    // a fast heart rate (101 to 149) is routed to a clinician instead of paged.
     value: {
-      validation: { pulseMin: 10, pulseMax: 300, spo2Min: 50, spo2Max: 100, temperatureMin: 25, temperatureMax: 45 },
+      validation: { pulseMin: 10, pulseMax: 300, spo2Min: 30, spo2Max: 100, temperatureMin: 20, temperatureMax: 46 },
       minAdultAgeYears: 18,
       amberReviewDueMinutes: 4320,
       pulse: { emergencyAtOrBelow: 35, emergencyAtOrAbove: 150, redAtOrBelow: 39, redAtOrAbove: 121, amberAtOrBelow: 49, amberAtOrAbove: 101 },

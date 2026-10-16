@@ -90,6 +90,9 @@ begin
   perform pg_temp.res('real', 'a wearable reading is not graded by this engine (no event)', '0', (select count(*)::text from public.domain_events where idempotency_key = 'vit:' || v_w));
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, pulse_bpm, source, taken_at) values (v_org, v_p3, 'pulse', 58, 'device', now()) returning id into v_dev;
   perform pg_temp.res('real', 'a Bluetooth device reading is graded (one event)', '1', (select count(*)::text from public.domain_events where idempotency_key = 'vit:' || v_dev));
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, spo2_pct, source, taken_at) values (v_org, v_p3, 'spo2', 89, 'photo_confirmed', now()) returning id into v_ox4;
+  perform pg_temp.res('real', 'a photo-confirmed reading is graded too (one urgent event)', '1|urgent',
+    (select count(*)::text || '|' || min(priority) from public.domain_events where idempotency_key = 'vit:' || v_ox4));
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source, taken_at) values (v_org, v_p, 'blood_pressure', 118, 76, 'device', now() - interval '3 hours') returning id into v_bp;
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, glucose_mmol_l, glucose_context, source, taken_at) values (v_org, v_p, 'glucose', 6.0, 'fasting', 'manual', now()) returning id into v_g;
   perform pg_temp.res('real', 'blood pressure and glucose readings emit no vitals event', '0',
@@ -183,7 +186,7 @@ begin
   perform pg_temp.res('real', 'a reading inserted without its trigger has no event', '0', (select count(*)::text from public.domain_events where idempotency_key = 'vit:' || v_sw));
   perform private.sweep_vitals_observation_events();
   perform private.sweep_vitals_observation_events();
-  perform pg_temp.res('real', 'the sweep emits the missing event once', '1', (select count(*)::text from public.domain_events where idempotency_key = 'vit:' || v_sw));
+  perform pg_temp.res('real', 'the sweep emits the missing event once, at the same priority the producer uses (urgent for 38.6)', '1|urgent', (select count(*)::text || '|' || min(priority) from public.domain_events where idempotency_key = 'vit:' || v_sw));
   perform pg_temp.res('real', 'the sweep leaves a wearable reading alone', '0', (select count(*)::text from public.domain_events where idempotency_key = 'vit:' || v_w));
   perform pg_temp.res('real', 'and the sweep is scheduled every ten minutes, staggered, not every minute', '9-59/10 * * * *', (select schedule from cron.job where jobname = 'triage-vitals-sweep'));
 

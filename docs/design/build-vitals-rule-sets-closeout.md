@@ -13,12 +13,15 @@ Engine twin and rule set (15 rules, draft), handler and ports, four migrations, 
 ## Not proven (read this)
 See the section "DB proofs" at the end of this file for what was and was not run against the live project.
 
+## Code review (high) findings fixed
+The dedupe now keys claims per (key, reading) with the existing look-back as its window; lookup and claim writes cannot block a page; an engine emergency never joins a lower family and opens no second watch; a slow child heart rate stays red; the typo gate floor moved to SpO2 30 and temperature 20; photo-confirmed readings are graded; the sweep keeps the producer's urgent priority; the divergence report reads signed results too and filters by window inside the scan; migration names no longer end on round seconds. Not changed: a reading rejected by the typo gate still stores nothing (open question 5).
+
 ## Open questions (proposed OQ text)
 1. Confirm the starting bands against NEWS2 (pulse 35/150 vs NEWS2 40/131; SpO2 emergency under 90 vs 91; temperature 39.0 vs 39.1) or move them.
-2. Under-18 heart rate routed to a clinician instead of paged (VT-PU3): confirm the age line and the behaviour.
+2. Under-18 fast heart rate (101 to 149) routed to a clinician instead of paged (VT-PU3): confirm the age line and the behaviour; 150 or above still pages at every age, including healthy infants who can run near 160 (the older trigger did the same).
 3. Known COPD patients (target 88 to 92) would be paged at 92; decide a handling before wide use.
 4. Wearable and monitor readings are not graded by the engine in v1; decide a freshness window and a resting-only rule if wanted.
-5. Typo gate: a reading outside the possible range is rejected (the older trigger would page it). Consider a repeat-reading flow.
+5. Typo gate (pulse 10 to 300, SpO2 30 to 100, temperature 20 to 46): a reading outside it is rejected and stored nothing (the older trigger would page it); the divergence report lists it as 'no shadow result'. Consider a repeat-reading flow, and a patient-facing message, before retiring the older triggers.
 6. Amber review due time 72 hours and class 5 are PROPOSED; task type `amber_vitals_review` needs confirmation.
 7. Patient-facing display of vitals grades does not exist; the wording is unsigned and not in the catalogue.
 8. Follow-up: `TriageRulesPanel` lists ANY unconfirmed task type as blocking a signature while the database (OQ-334) counts only those this rule set can create; with the glucose task type unconfirmed the vitals Sign form is hidden although the database would allow it. Fix the panel to match.
@@ -29,7 +32,7 @@ Retire the three older triggers by count-first migration once the divergence rep
 ## Order to apply and deploy
 1. Merge into `main-dev` after CI is green. Merge auto-applies migrations, so deploy first.
 2. Deploy `process-events` from this branch BEFORE the migrations land (its vitals branch is inert until a vitals event exists, but an old handler would consume a `kind: vitals` event as blood pressure and drop it, losing that shadow evidence).
-3. Migrations in file order: `20261016191543_build_vitals_care_triage_v1_draft.sql`, `20261016191800_build_vitals_triage_wiring.sql`, `20261016191830_build_vitals_shadow_divergence.sql`, `20261016191936_build_red_page_dedupe_key.sql`. Re-check `list_migrations` for anything new first.
+3. Migrations in file order: `20261016191543_build_vitals_care_triage_v1_draft.sql`, `20261016191817_build_vitals_triage_wiring.sql`, `20261016191853_build_vitals_shadow_divergence.sql`, `20261016191936_build_red_page_dedupe_key.sql`. Re-check `list_migrations` for anything new first.
 4. Web deploy (hub page, panels).
 5. CMO: confirm task type `amber_vitals_review`, read the hub panel, sign the rules and, separately, the wording. Run `triage_vitals_shadow_divergence` over a window of real readings first.
 6. To make a signed rule set page once per reading: also sign the unified red-event paging config (S19d) after its test pack; until then both the older broadcast and the engine page reach clinicians.

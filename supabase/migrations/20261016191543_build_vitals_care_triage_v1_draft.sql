@@ -9,8 +9,8 @@
 -- on 2026-10-16 (pulse emergency <= 35 or >= 150, red 36-39 or 121-149, amber 40-49 or 101-120; SpO2 emergency < 90, red 90-92, amber 93-94;
 -- temperature emergency >= 40.0 or < 35.0, red >= 39.0, amber >= 38.0), taken over as PROPOSED starting values so the divergence report compares like
 -- with like. Their guideline basis is in docs/research/build-vitals-rule-sets.md. Two differences from the older triggers are deliberate and are
--- listed for the CMO on the sign-off hub: a value outside the physically possible range is rejected as a typo, and a heart rate outside the adult
--- resting range is routed to a clinician (amber) for a patient under 18. The emergency bands apply to everyone.
+-- listed for the CMO on the sign-off hub: a value outside the physically possible range is rejected as a typo, and a fast heart rate (101 to 149) is
+-- routed to a clinician (amber) for a patient under 18. The emergency bands apply to everyone.
 --
 -- The JSON below is the SAME object as VITALS_CARE_V1 in packages/clinical/src/rules/vitals-care-v1.ts; packages/clinical/src/vitals-drift.test.ts
 -- parses this file and fails if the two differ, and the PROPOSED config key triage.single_reading_vitals_bands is held equal to its params.
@@ -34,10 +34,10 @@ values (
   "validation": {
    "pulseMin": 10,
    "pulseMax": 300,
-   "spo2Min": 50,
+   "spo2Min": 30,
    "spo2Max": 100,
-   "temperatureMin": 25,
-   "temperatureMax": 45
+   "temperatureMin": 20,
+   "temperatureMax": 46
   },
   "minAdultAgeYears": 18,
   "pulse": {
@@ -103,7 +103,7 @@ values (
   },
   {
    "id": "VT-PU2",
-   "description": "Heart rate 36 to 39, or 121 to 149, in an adult: same-day care",
+   "description": "Heart rate 36 to 39 at any age, or 121 to 149 in an adult: same-day care",
    "triggers": [
     "pulse"
    ],
@@ -111,33 +111,33 @@ values (
    "grade": "red",
    "explanationKey": "VIT-E02",
    "when": {
-    "all": [
+    "any": [
      {
-      "any": [
-       {
-        "field": "pulse.bpm",
-        "op": "lte",
-        "value": {
-         "ref": "params.pulse.redAtOrBelow"
-        }
-       },
+      "field": "pulse.bpm",
+      "op": "lte",
+      "value": {
+       "ref": "params.pulse.redAtOrBelow"
+      }
+     },
+     {
+      "all": [
        {
         "field": "pulse.bpm",
         "op": "gte",
         "value": {
          "ref": "params.pulse.redAtOrAbove"
         }
+       },
+       {
+        "not": {
+         "field": "age",
+         "op": "lt",
+         "value": {
+          "ref": "params.minAdultAgeYears"
+         }
+        }
        }
       ]
-     },
-     {
-      "not": {
-       "field": "age",
-       "op": "lt",
-       "value": {
-        "ref": "params.minAdultAgeYears"
-       }
-      }
      }
     ]
    },
@@ -153,7 +153,7 @@ values (
   },
   {
    "id": "VT-PU3",
-   "description": "Heart rate outside the adult resting range in a patient under 18: adult bands do not apply, routed to a clinician",
+   "description": "Heart rate 101 or above in a patient under 18 (and not an emergency): adult fast-rate bands do not apply, routed to a clinician",
    "triggers": [
     "pulse"
    ],
@@ -170,22 +170,11 @@ values (
       }
      },
      {
-      "any": [
-       {
-        "field": "pulse.bpm",
-        "op": "lte",
-        "value": {
-         "ref": "params.pulse.amberAtOrBelow"
-        }
-       },
-       {
-        "field": "pulse.bpm",
-        "op": "gte",
-        "value": {
-         "ref": "params.pulse.amberAtOrAbove"
-        }
-       }
-      ]
+      "field": "pulse.bpm",
+      "op": "gte",
+      "value": {
+       "ref": "params.pulse.amberAtOrAbove"
+      }
      }
     ]
    },

@@ -93,7 +93,7 @@ begin
   v_pg1 := public.create_red_page(v_e);
   perform pg_temp.res('real', 'the engine''s red result pages once', 'true|1', (v_pg1 is not null)::text || '|' || (select count(*)::text from public.pages where patient_id = v_p and parent_page_id is null));
   perform pg_temp.res('real', 'and records its claim for the reading', v_pg1::text || '|' || v_r2::text,
-    (select page_id::text || '|' || reading_id::text from public.red_page_dedupe_claims where dedupe_key = 'vitals:' || v_p || ':spo2:red'));
+    (select page_id::text || '|' || reading_id::text from public.red_page_dedupe_claims where dedupe_key = 'vitals:' || v_p || ':spo2:red' and reading_id = v_r2));
   perform set_config('tarragon.paging_write', 'on', true);
   update public.pages set acknowledged_at = now(), acknowledged_by = v_cmo, delivered_at = now() where id = v_pg1;
   perform set_config('tarragon.paging_write', 'off', true);
@@ -112,11 +112,19 @@ begin
   v_page2 := public.create_red_page(v_e);
   perform pg_temp.res('real', 'another reading of the same metric and level after an acknowledgement pages again (INV-05)', 'true|2',
     (v_page2 is not null and v_page2 <> v_pg1)::text || '|' || (select count(*)::text from public.pages where patient_id = v_p and parent_page_id is null));
+  -- interleaved readings: the engine's second event for reading 2 still folds into reading 2's page, although reading 1 has paged since
+  v_n := (select count(*) from public.pages where patient_id = v_p and parent_page_id is null);
+  v_e := (public.record_vitals_triage_result(v_r2, pg_temp.result('red', 'VT-OX2', 'VIT-E02'), v_rs, null, 'redelivered') ->> 'triage_event_id')::uuid;
+  perform pg_temp.res('real', 'two readings of the same metric and level keep their own claims: a late event for the first still folds in', 'true|' || v_n,
+    (public.create_red_page(v_e) = v_pg1)::text || '|' || (select count(*)::text from public.pages where patient_id = v_p and parent_page_id is null));
   -- a worse level of the same metric
   v_e := (public.record_vitals_triage_result(v_r3, pg_temp.result('red', 'VT-OX1', 'VIT-E01'), v_rs, null, 'approved') ->> 'triage_event_id')::uuid;
   v_n := (select count(*) from public.pages where patient_id = v_p and parent_page_id is null);
   perform public.create_red_page(v_e);
   perform pg_temp.res('real', 'a worse level of the same metric (emergency after red) is not a duplicate', (v_n + 1)::text, (select count(*)::text from public.pages where patient_id = v_p and parent_page_id is null));
+  -- an engine EMERGENCY result never joins an open lower-severity family (INV-05): it makes its own page
+  perform pg_temp.res('real', 'the emergency result of the previous step made its own page although a red page was open (INV-05)', '1',
+    (select count(*)::text from public.pages where triage_event_id = v_e and parent_page_id is null));
   -- another metric
   perform set_config('tarragon.paging_write', 'on', true);
   update public.pages set acknowledged_at = now(), acknowledged_by = v_cmo, delivered_at = now() where patient_id = v_p and acknowledged_at is null;
@@ -136,16 +144,16 @@ begin
   v_page2 := public.create_red_page(v_u);
   perform pg_temp.res('real', 'the same reading on a CLOSED page is not folded in: it pages again', 'true|' || (v_n + 1),
     (v_page2 <> v_page)::text || '|' || (select count(*)::text from public.pages where patient_id = v_p and parent_page_id is null));
-  -- a claim older than the window: the pulse page of the "another metric" step is acknowledged, its claim is three hours old, and the legacy event for the same reading comes late
+  -- a claim older than the look-back: the pulse page of the "another metric" step is acknowledged, its claim is three hours old, and the legacy event for the same reading comes late
   select page_id into v_page from public.red_page_dedupe_claims where dedupe_key = 'vitals:' || v_p || ':pulse:red';
   perform set_config('tarragon.paging_write', 'on', true);
   update public.pages set acknowledged_at = now(), acknowledged_by = v_cmo, delivered_at = now() where id = v_page;
-  update public.red_page_dedupe_claims set claimed_at = now() - interval '3 hours' where dedupe_key = 'vitals:' || v_p || ':pulse:red';
+  update public.red_page_dedupe_claims set claimed_at = now() - interval '5 hours' where dedupe_key = 'vitals:' || v_p || ':pulse:red';
   perform set_config('tarragon.paging_write', 'off', true);
   v_u := pg_temp.unified(v_org, v_p, v_r4, 'pulse_red');
   v_n := (select count(*) from public.pages where patient_id = v_p and parent_page_id is null);
   perform public.create_red_page(v_u);
-  perform pg_temp.res('real', 'a claim older than the merge window is not a duplicate: it pages', (v_n + 1)::text, (select count(*)::text from public.pages where patient_id = v_p and parent_page_id is null));
+  perform pg_temp.res('real', 'a claim older than the look-back is not a duplicate: it pages', (v_n + 1)::text, (select count(*)::text from public.pages where patient_id = v_p and parent_page_id is null));
   v_u := pg_temp.unified(v_org, v_p, v_r5, 'temperature_red_late');
   perform pg_temp.res('real', 'an unknown unified basis carries no key at all', '0', (select count(*)::text from private.red_page_dedupe_info(v_u)));
 
@@ -168,6 +176,10 @@ begin
   v_n := (select count(*) from public.pages where patient_id = v_p and parent_page_id is null);
   perform pg_temp.res('real', 'the emergency event of the same reading folds into the acknowledged page, no second page', 'true|' || v_n,
     (public.create_red_page(v_u) = v_page)::text || '|' || (select count(*)::text from public.pages where patient_id = v_p and parent_page_id is null));
+
+  -- the patient-outreach watch: the engine's emergency result opens none (the emergency event has one), its red-level result opens one
+  perform pg_temp.res('real', 'the engine''s VIT-E01 result opens no second red alert watch', '0',
+    (select count(*)::text from public.red_alert_watch w join public.triage_events t on t.id = w.source_id where w.source_kind = 'triage_event' and t.rule_set_code = 'vitals_care_triage' and t.explanation_key = 'VIT-E01' and t.patient_id = v_p));
 
   -- 4. Free patient and other rule sets
   v_e := (public.record_vitals_triage_result(v_rfree, pg_temp.result('red', 'VT-PU1', 'VIT-E01'), v_rs, null, 'approved') ->> 'triage_event_id')::uuid;

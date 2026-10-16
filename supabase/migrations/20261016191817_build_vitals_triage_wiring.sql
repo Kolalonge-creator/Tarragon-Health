@@ -15,9 +15,9 @@
 --  3. public.record_vitals_triage_result (service role): the graded half of record_triage_result for these vitals. It has no recheck handling on purpose:
 --     record_triage_result resolves the patient's pending BLOOD PRESSURE rechecks, and a heart rate must never do that.
 --  4. A sweep every 10 minutes (minute 9, staggered: the production connection budget is tight) that re-emits any reading from the last 24 hours that never
---     got its event, so a failed emit is never silent.
+--     got its event, with the same urgent-or-normal priority as the producer, so a failed emit is never silent and a dangerous reading is not queued behind ordinary ones.
 --
--- WHICH READINGS: manual and device (Bluetooth) readings only. A wearable streams a heart rate every few minutes (hundreds a day per patient) and syncs old
+-- WHICH READINGS: manual, device (Bluetooth) and photo-confirmed readings (a value the patient confirmed from a photo of the device) only. A wearable streams a heart rate every few minutes (hundreds a day per patient) and syncs old
 -- readings in bulk; each would cost an event, a context read and a result on a tight production connection budget, and a stale value in a bulk sync could
 -- page once signed. Those stay on the older triggers in this version (open question for the CMO in the closeout). A reading marked entered in error or
 -- superseded (correction_status not null) is never graded.
@@ -33,7 +33,7 @@ returns trigger language plpgsql security definer set search_path = '' as $$
 declare
   v_level text;
 begin
-  if new.correction_status is not null or new.source::text not in ('manual', 'device') then
+  if new.correction_status is not null or new.source::text not in ('manual', 'device', 'photo_confirmed') then
     return null;
   end if;
   v_level := case new.vital_type::text
@@ -62,7 +62,7 @@ end $$;
 create trigger vitals_readings_emit_vitals_observation
   after insert on public.vitals_readings
   for each row when (new.vital_type in ('pulse'::public.vital_type, 'spo2'::public.vital_type, 'temperature'::public.vital_type)
-                     and new.source in ('manual'::public.vital_source, 'device'::public.vital_source))
+                     and new.source in ('manual'::public.vital_source, 'device'::public.vital_source, 'photo_confirmed'::public.vital_source))
   execute function private.emit_vitals_observation_recorded();
 
 -- 2. Context -----------------------------------------------------------------------------------------------------------------------------
@@ -196,8 +196,11 @@ declare
   v_n integer := 0;
 begin
   for r in
-    select v.id, v.organisation_id, v.patient_id from private.vitals_readings_current v
-    where v.vital_type::text in ('pulse', 'spo2', 'temperature') and v.source::text in ('manual', 'device') and v.correction_status is null
+    select v.id, v.organisation_id, v.patient_id,
+           case case v.vital_type::text when 'pulse' then private.classify_pulse_level(v.pulse_bpm) when 'spo2' then private.classify_spo2_level(v.spo2_pct) else private.classify_temperature_level(v.temperature_c) end
+             when 'green' then 'normal' else 'urgent' end as prio
+      from private.vitals_readings_current v
+    where v.vital_type::text in ('pulse', 'spo2', 'temperature') and v.source::text in ('manual', 'device', 'photo_confirmed') and v.correction_status is null
       and (case v.vital_type::text when 'pulse' then v.pulse_bpm::numeric when 'spo2' then v.spo2_pct::numeric else v.temperature_c end) is not null
       and v.created_at > now() - interval '24 hours' and v.created_at < now() - interval '1 minute'
       and not exists (select 1 from public.domain_events e
@@ -208,7 +211,7 @@ begin
       perform private.emit_domain_event(
         'observation.recorded', r.organisation_id,
         jsonb_build_object('observation_id', r.id, 'kind', 'vitals'),
-        'vit:' || r.id::text, r.patient_id, 'observation', r.id);
+        'vit:' || r.id::text, r.patient_id, 'observation', r.id, r.prio);
       v_n := v_n + 1;
     exception when others then
       raise warning 'vitals triage: sweep could not emit reading %: %', r.id, sqlerrm;

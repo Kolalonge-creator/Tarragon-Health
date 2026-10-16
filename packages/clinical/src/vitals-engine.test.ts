@@ -39,14 +39,14 @@ describe("vitals_care_triage v1: agreement with the older per-vital classifiers"
       expect([bpm, r.grade]).toEqual([bpm, gradeOf(pulseOracle(bpm))]);
     }
   });
-  it("spo2: every whole percent from 50 to 100", () => {
-    for (let p = 50; p <= 100; p++) {
+  it("spo2: every whole percent from 30 to 100", () => {
+    for (let p = 30; p <= 100; p++) {
       const r = g("spo2", p);
       expect([p, r.grade]).toEqual([p, gradeOf(spo2Oracle(p))]);
     }
   });
-  it("temperature: every tenth of a degree from 25.0 to 45.0", () => {
-    for (let tenth = 250; tenth <= 450; tenth++) {
+  it("temperature: every tenth of a degree from 20.0 to 46.0", () => {
+    for (let tenth = 200; tenth <= 460; tenth++) {
       const t = tenth / 10;
       const r = g("temperature", t);
       expect([t, r.grade]).toEqual([t, gradeOf(tempOracle(t))]);
@@ -107,12 +107,16 @@ describe("vitals_care_triage v1: what each grade does", () => {
 });
 
 describe("vitals_care_triage v1: a patient under 18", () => {
-  it("is routed to a clinician for a heart rate outside the adult resting range, not paged on the adult red band", () => {
-    for (const bpm of [39, 45, 101, 130, 149]) {
+  it("is routed to a clinician for a fast heart rate (101 to 149), not paged on the adult red band", () => {
+    for (const bpm of [101, 130, 149]) {
       const r = g("pulse", bpm, { ageYears: 12 });
       expect([bpm, r.grade, r.ruleId]).toEqual([bpm, "amber", "VT-PU3"]);
       expect(r.actions.map((a) => a.kind)).toEqual(["show_message", "route_referral", "create_task"]);
     }
+  });
+  it("is paged for a slow heart rate at any age (a child at 39 or below is never routed to a task), and a mildly slow one is the ordinary amber review", () => {
+    for (const bpm of [36, 39]) expect([bpm, g("pulse", bpm, { ageYears: 12 }).ruleId]).toEqual([bpm, "VT-PU2"]);
+    expect(g("pulse", 45, { ageYears: 12 }).ruleId).toBe("VT-PU4");
   });
   it("still gets the emergency page for a severe heart rate, and the same SpO2 and temperature bands", () => {
     expect(g("pulse", 30, { ageYears: 12 }).grade).toBe("red");
@@ -152,7 +156,7 @@ describe("vitals_care_triage v1: the patient's own amber line", () => {
 
 describe("vitals_care_triage v1: input validation", () => {
   it("rejects a value outside the possible range and never grades it", () => {
-    for (const [m, v] of [["pulse", 9], ["pulse", 301], ["spo2", 49], ["spo2", 101], ["temperature", 24.9], ["temperature", 45.1], ["temperature", 3.6]] as const) {
+    for (const [m, v] of [["pulse", 9], ["pulse", 301], ["spo2", 29], ["spo2", 101], ["temperature", 19.9], ["temperature", 46.1], ["temperature", 3.6]] as const) {
       const r = g(m, v);
       expect([m, v, r.status, r.reason, r.grade, r.actions, r.explanationKey]).toEqual([m, v, "rejected", "implausible_reading", null, [], "VIT-T04"]);
     }
@@ -160,9 +164,10 @@ describe("vitals_care_triage v1: input validation", () => {
   it("keeps the edges of the possible range gradable, so a true extreme is never a typo", () => {
     expect(g("pulse", 10).grade).toBe("red");
     expect(g("pulse", 300).grade).toBe("red");
-    expect(g("spo2", 50).grade).toBe("red");
-    expect(g("temperature", 25).grade).toBe("red");
-    expect(g("temperature", 45).grade).toBe("red");
+    expect(g("spo2", 30).grade).toBe("red");
+    expect(g("spo2", 45).grade).toBe("red");
+    expect(g("temperature", 20).grade).toBe("red");
+    expect(g("temperature", 46).grade).toBe("red");
   });
   it("rejects malformed input as invalid_input", () => {
     const bad: unknown[] = [

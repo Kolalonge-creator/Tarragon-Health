@@ -34,7 +34,7 @@ export const VITALS_CARE_V1: VitalsRuleSet = {
   status: "draft",
   params: {
     // Typo gates, far wider than any band: the physically possible range. A value outside them is a mis-keyed number, not a crisis.
-    validation: { pulseMin: 10, pulseMax: 300, spo2Min: 50, spo2Max: 100, temperatureMin: 25, temperatureMax: 45 },
+    validation: { pulseMin: 10, pulseMax: 300, spo2Min: 30, spo2Max: 100, temperatureMin: 20, temperatureMax: 46 },
     minAdultAgeYears: 18,
     pulse: { emergencyAtOrBelow: 35, emergencyAtOrAbove: 150, redAtOrBelow: 39, redAtOrAbove: 121, amberAtOrBelow: 49, amberAtOrAbove: 101 },
     spo2: { emergencyBelow: 90, redAtOrBelow: 92, amberAtOrBelow: 94 },
@@ -55,27 +55,27 @@ export const VITALS_CARE_V1: VitalsRuleSet = {
     },
     {
       id: "VT-PU2",
-      description: "Heart rate 36 to 39, or 121 to 149, in an adult: same-day care",
+      description: "Heart rate 36 to 39 at any age, or 121 to 149 in an adult: same-day care",
       triggers: ["pulse"],
       result: "grade",
       grade: "red",
       explanationKey: "VIT-E02",
       when: {
-        all: [
-          { any: [{ field: "pulse.bpm", op: "lte", value: { ref: "params.pulse.redAtOrBelow" } }, { field: "pulse.bpm", op: "gte", value: { ref: "params.pulse.redAtOrAbove" } }] },
-          { not: underAdultAge },
+        any: [
+          { field: "pulse.bpm", op: "lte", value: { ref: "params.pulse.redAtOrBelow" } },
+          { all: [{ field: "pulse.bpm", op: "gte", value: { ref: "params.pulse.redAtOrAbove" } }, { not: underAdultAge }] },
         ],
       },
       actions: guidance("VIT-E02"),
     },
     {
       id: "VT-PU3",
-      description: "Heart rate outside the adult resting range in a patient under 18: adult bands do not apply, routed to a clinician",
+      description: "Heart rate 101 or above in a patient under 18 (and not an emergency): adult fast-rate bands do not apply, routed to a clinician",
       triggers: ["pulse"],
       result: "grade",
       grade: "amber",
       explanationKey: "VIT-T03",
-      when: { all: [underAdultAge, { any: [{ field: "pulse.bpm", op: "lte", value: { ref: "params.pulse.amberAtOrBelow" } }, { field: "pulse.bpm", op: "gte", value: { ref: "params.pulse.amberAtOrAbove" } }] }] },
+      when: { all: [underAdultAge, { field: "pulse.bpm", op: "gte", value: { ref: "params.pulse.amberAtOrAbove" } }] },
       actions: [{ kind: "show_message", code: "VIT-T03" }, { kind: "route_referral", reason: "age" }, { kind: "create_task", task: "referral_review", dueMinutes: 1440, notifyKey: taskCreated }],
       taskAnchor: "week",
     },

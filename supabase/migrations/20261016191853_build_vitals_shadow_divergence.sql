@@ -15,7 +15,7 @@
 --    value, or its event never arrived). The aggregate also carries the engine grade against the live level, so an amber that the older trigger calls green (or
 --    the reverse) is visible, not only the urgent classes. by_design marks the one expected disagreement: a heart rate outside the adult range in a patient under 18
 --    is routed to a clinician (amber, rule VT-PU3) where the older trigger pages.
---    LIMITS, stated on the functions: manual and Bluetooth readings only (wearable readings are not graded by the engine in v1); the older triggers merge repeat
+--    LIMITS, stated on the functions: manual, Bluetooth and photo-confirmed readings only (wearable readings are not graded by the engine in v1); the report keeps working after the rule set is signed (it reads the engine's results whether shadow or not), because it is needed until the older triggers are retired; the older triggers merge repeat
 --    readings into an open alert and de-duplicate emergencies over six hours, so the report compares the reading's level, not whether a page was actually sent.
 
 do $$
@@ -60,7 +60,8 @@ language sql stable security definer set search_path = '' as $$
       from private.vitals_readings_current v
       left join public.patient_spo2_targets st on st.patient_id = v.patient_id
       left join public.patient_temperature_targets tt on tt.patient_id = v.patient_id
-     where v.vital_type::text in ('pulse', 'spo2', 'temperature') and v.source::text in ('manual', 'device') and v.correction_status is null
+     where v.vital_type::text in ('pulse', 'spo2', 'temperature') and v.source::text in ('manual', 'device', 'photo_confirmed') and v.correction_status is null
+       and v.created_at >= now() - make_interval(days => greatest(1, least(p_days, 365)))
   )
   select e.id, e.trigger_id, l.metric, e.grade, e.rule_id, l.live_level, e.created_at,
     case
@@ -73,7 +74,7 @@ language sql stable security definer set search_path = '' as $$
   from public.triage_events e
   join live l on l.id = e.trigger_id
   cross join win
-  where e.trigger_type = 'observation' and e.shadow and not e.is_test and e.rule_set_code = 'vitals_care_triage' and e.created_at >= win.since
+  where e.trigger_type = 'observation' and not e.is_test and e.rule_set_code = 'vitals_care_triage' and e.created_at >= win.since
   union all
   -- The older trigger raised something and the engine left no result at all. Only readings made since the draft existed count: an older reading was never going to be graded.
   select null::uuid, l.id, l.metric, null::text, null::text, l.live_level, l.created_at, 'live_urgent_no_shadow', false
@@ -100,7 +101,7 @@ begin
     group by d.metric, d.divergence, d.shadow_grade, d.live_level
     order by d.metric, d.divergence, d.shadow_grade nulls last, d.live_level;
 end $$;
-comment on function public.triage_vitals_shadow_divergence(integer) is 'Counts of shadow pulse, SpO2 and temperature triage grades against the older per-vital classifier, by metric and divergence class (both_urgent, neither_urgent, shadow_only_urgent, live_only_urgent, live_urgent_no_shadow). Aggregates only, manual and Bluetooth readings only. Admin or the active clinical director; test accounts excluded.';
+comment on function public.triage_vitals_shadow_divergence(integer) is 'Counts of pulse, SpO2 and temperature triage grades (shadow or signed) against the older per-vital classifier, by metric and divergence class (both_urgent, neither_urgent, shadow_only_urgent, live_only_urgent, live_urgent_no_shadow). Aggregates only, manual, Bluetooth and photo-confirmed readings only. Admin or the active clinical director; test accounts excluded.';
 
 create or replace function public.triage_vitals_shadow_disagreements(p_days integer default 30, p_limit integer default 200)
 returns table (triage_event_id uuid, observation_id uuid, metric text, shadow_grade text, shadow_rule_id text, live_level text, divergence text, by_design boolean, created_at timestamptz)

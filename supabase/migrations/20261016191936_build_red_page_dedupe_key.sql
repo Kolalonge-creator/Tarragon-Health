@@ -12,8 +12,9 @@
 --   reading = the vitals_readings row both pipelines are looking at
 -- from an engine result (rule_set_code vitals_care_triage; metric from the rule id, level from the guidance code VIT-E01 emergency / VIT-E02 red) or from a unified
 -- legacy event (basis spo2_red, pulse_red, temperature_red: level red; basis emergency_event: the emergency_events row's source and reading, level emergency).
--- create_red_page, before it looks for a family, asks public.red_page_dedupe_claims whether the same key was claimed inside the merge window
--- (private.paging_delivery_rule('merge_window_minutes'), the existing CMO-owned value) FOR THE SAME READING, by a page that is still open. If so the event is recorded as
+-- create_red_page, before it looks for a family, asks public.red_page_dedupe_claims whether the same key was claimed for THE SAME READING inside the reconcile
+-- look-back (private.paging_delivery_rule('reconcile_lookback_hours'), the existing CMO-owned value: the period in which a missed event may still be re-seen), by a page that
+-- is still open. One claim is kept per (key, reading), so two readings of the same metric and level never overwrite each other. If so the event is recorded as
 -- merged into that page and nobody is paged again, acknowledged or not. A different reading, a different metric, a worse level (emergency after red) or a closed or
 -- expired page is not a duplicate and pages as before. Every page that is created or joined for a keyed event records its claim.
 --
@@ -26,11 +27,12 @@
 -- anchor is missing or appears twice, instead of silently doing nothing.
 
 create table public.red_page_dedupe_claims (
-  dedupe_key      text primary key,
+  dedupe_key      text not null,
   page_id         uuid not null references public.pages (id) on delete cascade,
-  reading_id      uuid,
+  reading_id      uuid not null,
   triage_event_id uuid references public.triage_events (id) on delete cascade,
-  claimed_at      timestamptz not null default now()
+  claimed_at      timestamptz not null default now(),
+  primary key (dedupe_key, reading_id)
 );
 create index red_page_dedupe_claims_page_idx on public.red_page_dedupe_claims (page_id);
 alter table public.red_page_dedupe_claims enable row level security;
@@ -41,7 +43,7 @@ revoke all on public.red_page_dedupe_claims from public, anon;
 revoke insert, update, delete, truncate, references, trigger on public.red_page_dedupe_claims from authenticated;
 grant select on public.red_page_dedupe_claims to authenticated;
 create trigger red_page_dedupe_claims_guard before insert or update on public.red_page_dedupe_claims for each row execute function private.guard_paging_write();
-comment on table public.red_page_dedupe_claims is 'One row per dedupe key (patient, vitals metric, level): the latest page that was created or joined for a dangerous single-reading vitals event, and the reading it was about. Written only by create_red_page. A second event for the same reading inside the merge window folds into that page instead of ringing again.';
+comment on table public.red_page_dedupe_claims is 'One row per (dedupe key, reading): the page that was created or joined for a dangerous single-reading vitals event. The key is patient, vitals metric and level. Written only by create_red_page. A second event for the same reading inside the look-back folds into that page instead of ringing again.';
 
 create or replace function private.red_page_dedupe_info(p_triage_event uuid)
 returns table (dedupe_key text, reading_id uuid)
@@ -102,52 +104,84 @@ begin
   v_dedupe_reading uuid;
   v_dup uuid;$b$);
 
-  -- 2. a repeat that joins an open family keeps the claim current (so the same reading arriving later still folds in, even after acknowledgement)
+  -- 2. a repeat that joins an open family keeps the claim (so the same reading arriving later still folds in, even after acknowledgement). Bookkeeping never blocks a page.
   v_def := pg_temp.patch_once(v_def, $a$    update public.pages set merged_count = merged_count + 1, last_merged_at = now() where id = v_family.id;$a$,
     $b$    update public.pages set merged_count = merged_count + 1, last_merged_at = now() where id = v_family.id;
     if v_dedupe_key is not null then
-      insert into public.red_page_dedupe_claims (dedupe_key, page_id, reading_id, triage_event_id)
-      values (v_dedupe_key, v_family.id, v_dedupe_reading, te.id)
-      on conflict (dedupe_key) do update set page_id = excluded.page_id, reading_id = excluded.reading_id, triage_event_id = excluded.triage_event_id, claimed_at = now();
+      begin
+        insert into public.red_page_dedupe_claims (dedupe_key, page_id, reading_id)
+        values (v_dedupe_key, v_family.id, v_dedupe_reading)
+        on conflict (dedupe_key, reading_id) do update set page_id = excluded.page_id, claimed_at = now();
+      exception when others then
+        raise warning 'red page dedupe: could not record a claim for event %: %', te.id, sqlerrm;
+      end;
     end if;$b$);
 
-  -- 3. a brand new page records its claim
+  -- 3. a brand new page records its claim (same rule: a failure here is a warning, never a missing page)
   v_def := pg_temp.patch_once(v_def, $a$'page.sent', 'page', v_page.id, jsonb_build_object('role', v_page.role, 'level', v_page.escalation_level, 'no_cover', v_page.no_cover));$a$,
     $b$'page.sent', 'page', v_page.id, jsonb_build_object('role', v_page.role, 'level', v_page.escalation_level, 'no_cover', v_page.no_cover));
   if v_dedupe_key is not null then
-    perform set_config('tarragon.paging_write', 'on', true);
-    insert into public.red_page_dedupe_claims (dedupe_key, page_id, reading_id, triage_event_id)
-    values (v_dedupe_key, v_page.id, v_dedupe_reading, te.id)
-    on conflict (dedupe_key) do update set page_id = excluded.page_id, reading_id = excluded.reading_id, triage_event_id = excluded.triage_event_id, claimed_at = now();
-    perform set_config('tarragon.paging_write', 'off', true);
+    begin
+      perform set_config('tarragon.paging_write', 'on', true);
+      insert into public.red_page_dedupe_claims (dedupe_key, page_id, reading_id)
+      values (v_dedupe_key, v_page.id, v_dedupe_reading)
+      on conflict (dedupe_key, reading_id) do update set page_id = excluded.page_id, claimed_at = now();
+      perform set_config('tarragon.paging_write', 'off', true);
+    exception when others then
+      perform set_config('tarragon.paging_write', 'off', true);
+      raise warning 'red page dedupe: could not record a claim for event %: %', te.id, sqlerrm;
+    end;
   end if;$b$);
 
-  -- 4. the dedupe itself, before the family lookup
+  -- 4. the dedupe itself, before the family lookup. Any error in this block falls through to the ordinary paging below: a page is never lost to bookkeeping.
   v_def := pg_temp.patch_once(v_def, $a$  perform pg_advisory_xact_lock(hashtext('pagefam:' || te.patient_id));$a$,
     $b$  -- Single-reading vitals: the same dangerous reading seen by the engine and by the older trigger is ONE page, acknowledged or not (see red_page_dedupe_claims).
   -- Only the SAME reading on a page that is still open folds in; a new reading, another metric, a worse level or a closed page pages as before.
-  select i.dedupe_key, i.reading_id into v_dedupe_key, v_dedupe_reading from private.red_page_dedupe_info(te.id) i;
-  if v_dedupe_key is not null then
-    perform pg_advisory_xact_lock(hashtext('pagededupe:' || v_dedupe_key));
-    select c.page_id into v_dup
-      from public.red_page_dedupe_claims c
-      join public.pages pg on pg.id = c.page_id and pg.closed_at is null and pg.expired_at is null
-     where c.dedupe_key = v_dedupe_key and c.reading_id = v_dedupe_reading
-       and c.claimed_at > now() - make_interval(mins => private.paging_delivery_rule('merge_window_minutes'));
-    if found then
-      perform set_config('tarragon.paging_write', 'on', true);
-      insert into public.page_merged_events (triage_event_id, page_id) values (te.id, v_dup);
-      update public.pages set merged_count = merged_count + 1, last_merged_at = now() where id = v_dup;
-      perform set_config('tarragon.paging_write', 'off', true);
-      insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
-        values (te.organisation_id, null, 'page.deduplicated', 'page', v_dup, jsonb_build_object('triage_event_id', te.id));
-      return v_dup;
+  begin
+    select i.dedupe_key, i.reading_id into v_dedupe_key, v_dedupe_reading from private.red_page_dedupe_info(te.id) i;
+    if v_dedupe_key is not null then
+      perform pg_advisory_xact_lock(hashtext('pagededupe:' || v_dedupe_key));
+      select c.page_id into v_dup
+        from public.red_page_dedupe_claims c
+        join public.pages pg on pg.id = c.page_id and pg.closed_at is null and pg.expired_at is null
+       where c.dedupe_key = v_dedupe_key and c.reading_id = v_dedupe_reading
+         and c.claimed_at > now() - make_interval(hours => private.paging_delivery_rule('reconcile_lookback_hours'));
+      if found then
+        perform set_config('tarragon.paging_write', 'on', true);
+        insert into public.page_merged_events (triage_event_id, page_id) values (te.id, v_dup);
+        update public.pages set merged_count = merged_count + 1, last_merged_at = now() where id = v_dup;
+        perform set_config('tarragon.paging_write', 'off', true);
+        insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+          values (te.organisation_id, null, 'page.deduplicated', 'page', v_dup, jsonb_build_object('triage_event_id', te.id));
+        return v_dup;
+      end if;
     end if;
-  end if;
+  exception when others then
+    perform set_config('tarragon.paging_write', 'off', true);
+    v_dup := null;
+    raise warning 'red page dedupe: lookup failed for event %, paging as usual: %', te.id, sqlerrm;
+  end;
   perform pg_advisory_xact_lock(hashtext('pagefam:' || te.patient_id));$b$);
+
+  -- 5. an engine EMERGENCY result never joins a lower-severity family, exactly like the S19d rule for a unified emergency event (INV-05): it makes its own page
+  v_def := pg_temp.patch_once(v_def, $a$and not (te.rule_set_code is not distinct from 'unified_red_paging' and te.basis = 'emergency_event')$a$,
+    $b$and not (te.rule_set_code is not distinct from 'unified_red_paging' and te.basis = 'emergency_event')
+     and not (te.rule_set_code is not distinct from 'vitals_care_triage' and te.explanation_key is not distinct from 'VIT-E01')$b$);
 
   execute v_def;
 end $patch$;
+
+-- The patient-outreach watch (red_alert_watch). An emergency-level reading already opens one through its emergency_events row (every plan), so the engine's
+-- VIT-E01 result must not open a second (the patient would get two "did you get care" notices and two clinician escalation timers). The red level has no emergency
+-- event, so the engine's result is its only watch. Patched in place from the live definition with an asserted anchor.
+do $watch$
+declare
+  v_def text := pg_get_functiondef('private.red_watch_triage_trigger()'::regprocedure);
+begin
+  v_def := pg_temp.patch_once(v_def, $a$if new.rule_set_code = 'unified_red_paging' then return null; end if;$a$,
+    $b$if new.rule_set_code = 'unified_red_paging' or (new.rule_set_code = 'vitals_care_triage' and new.explanation_key is not distinct from 'VIT-E01') then return null; end if;$b$);
+  execute v_def;
+end $watch$;
 
 revoke all on function public.create_red_page(uuid) from public, anon, authenticated;
 grant execute on function public.create_red_page(uuid) to service_role;
@@ -164,6 +198,9 @@ begin
   -- the S19d edit (an emergency-level unified event never joins a lower family) must still be there
   if position('unified_red_paging' in pg_get_functiondef('public.create_red_page(uuid)'::regprocedure)) = 0 then
     raise exception 'dedupe self-check: the S19d edit of create_red_page was lost';
+  end if;
+  if position('VIT-E01' in pg_get_functiondef('private.red_watch_triage_trigger()'::regprocedure)) = 0 then
+    raise exception 'dedupe self-check: the red alert watch patch is missing';
   end if;
   if has_table_privilege('authenticated', 'public.red_page_dedupe_claims', 'INSERT') or has_table_privilege('anon', 'public.red_page_dedupe_claims', 'SELECT') then
     raise exception 'dedupe self-check: the claims table is read-only for staff and closed to anon';

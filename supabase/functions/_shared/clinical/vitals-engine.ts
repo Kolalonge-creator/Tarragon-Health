@@ -10,8 +10,8 @@
 // The numbers are the ones the older per-vital SQL classifiers (private.classify_pulse_level, classify_spo2_level, classify_temperature_level)
 // use today, taken over as PROPOSED starting values so that the divergence report can show where the two agree. Two things are different on
 // purpose and are listed for the CMO in docs/design/build-vitals-rule-sets.md: a reading outside a physically possible range is rejected as a
-// typo and never graded, and a heart rate outside the adult resting range is routed to a clinician (amber) for a patient under 18, because
-// the adult pulse bands are not child bands. The emergency bands apply to everyone.
+// typo and never graded, and a fast heart rate (101 to 149) in a patient under 18 is routed to a clinician (amber), because the adult fast-rate bands are not child
+// bands. A slow rate (39 or below) and the emergency bands apply to everyone.
 //
 // Pure: no clock, no I/O, no model call (INV-01).
 import { evaluate, type EvalEnv } from "./conditions.ts";
