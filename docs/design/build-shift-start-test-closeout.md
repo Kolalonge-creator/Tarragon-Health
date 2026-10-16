@@ -12,8 +12,8 @@ Branch `build/shift-start-test-page`. Nothing was applied to production, deploye
 page_tests, delivered receipts, `acknowledge_test_page`, `page_notify_ref` and the `on_call_test_page` template (no edge function change), S18 rota and the single `rota_gap:<org>` incident from FU-db (no new alert), the one-minute ops tick (no new cron), go-live guards.
 
 ## Tests
-- Jest: `apps/web/src/lib/paging` 17 new tests in `shift-start.test.ts` (paging, go-live suites 62 passing); `packages/shared` proposed-config 315 passing (2 new). tsc and ESLint clean for apps/web and packages/shared.
-- DB proof `packages/db/tests/shift_start_test_page.sql` registered in `ci.manifest`, with four sabotage rows reading `PASS (caught)`. Run result: see PR description.
+- Jest: 8 new tests in `apps/web/src/lib/paging/shift-start.test.ts` (paging and go-live suites 62 passing); `packages/shared` proposed-config 315 passing (2 new, the mirror test). tsc and ESLint clean for apps/web and packages/shared.
+- DB proof `packages/db/tests/shift_start_test_page.sql` registered in `ci.manifest`, with four sabotage rows reading `PASS (caught)`. **NOT RUN against the live project**: from 20:00 to 21:20 BST on 2026-10-16 every `supabase db query --linked` and MCP `execute_sql` call failed with 'Connection terminated due to connection timeout' / 524 (database connection pool saturated by parallel agents), including the migration alone in begin/rollback. The proof and migration were reviewed statically only; the required CI replay (`Supabase migration replay`) is the first real run. If it fails, fix forward in this PR.
 
 ## Apply order
 1. Merge after required CI is green (merge auto-applies the migration). Check `list_migrations` for anything newer first.
