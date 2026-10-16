@@ -45,9 +45,9 @@ create table public.proxy_review_config (
 );
 create unique index proxy_review_config_one_active on public.proxy_review_config (is_active) where is_active;
 alter table public.proxy_review_config enable row level security;
-create policy proxy_review_config_read on public.proxy_review_config for select to authenticated using (true);
+-- No API role reads this table: tell_proxy is a safeguarding switch, and a proxy who could read it would learn whether the person's answers are silent.
+-- Only the SECURITY DEFINER functions below read it.
 revoke all on public.proxy_review_config from public, anon, authenticated;
-grant select on public.proxy_review_config to authenticated;
 
 insert into public.proxy_review_config (version, interval_months, repeat_days, max_reminders, tell_proxy, proxy_notice_days, status, is_active, note)
 values (1, 12, 30, 4, true, 14, 'proposed', true,
@@ -343,6 +343,10 @@ declare
   v_skip_person boolean;
   v_skip_proxy boolean;
 begin
+  -- Two overlapping runs (cron plus a manual call) would both read the same reminder count and queue the notice twice.
+  if not pg_try_advisory_xact_lock(hashtext('proxy-access-review-sweep')) then
+    return 0;
+  end if;
   select * into v_cfg from public.proxy_review_config where is_active limit 1;
   if v_cfg.version is null then
     -- Never a silent zero: with no active config nobody is reminded and the screens error.
@@ -374,7 +378,7 @@ begin
         -- The event names the person and a date. It carries no grantee and no grant: who has access to whom stays in the history table the proxy cannot read.
         perform private.emit_domain_event('proxy.review_due', r.organisation_id,
           jsonb_build_object('due_on', r.due_at::date, 'n', r.reminders_in_cycle + 1),
-          'proxy.review_due:' || md5(r.grant_id::text || ':' || r.cycle_start::date::text) || ':' || (r.reminders_in_cycle + 1)::text,
+          'proxy.review_due:' || md5(r.grant_id::text || ':' || (r.cycle_start at time zone 'UTC')::date::text) || ':' || (r.reminders_in_cycle + 1)::text,
           r.patient_id, 'proxy_review', null);
       end if;
       insert into public.proxy_access_reviews (organisation_id, patient_id, grantee_user_id, grant_id, kind, detail, is_test)
