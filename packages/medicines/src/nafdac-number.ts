@@ -20,11 +20,20 @@ export interface NafdacNumberConfig {
   readonly pattern: string;
   /** Longest block of text scanned, so a huge OCR result cannot stall the phone. */
   readonly maxTextLength: number;
+  /** Most known-medicine names offered from one photo. */
+  readonly nameMatchLimit: number;
+  /** A catalogue name needs at least this many letters or digits to be matched in pack text. */
+  readonly minNameLength: number;
+  /** How many characters before an unlabelled number are checked for a batch, lot or date label. */
+  readonly contextLookback: number;
 }
 
 export const NAFDAC_NUMBER_CONFIG: NafdacNumberConfig = {
   pattern: "^[A-HJ-NP-Z]?[0-9]{1,2}-[0-9]{3,6}[A-HJ-NP-Z]?$",
   maxTextLength: 6000,
+  nameMatchLimit: 3,
+  minNameLength: 4,
+  contextLookback: 16,
 };
 
 const DASH = "\\u2010-\\u2015\\u2212-";
@@ -59,7 +68,7 @@ const fixDigits = (s: string): string => s.replace(/O/g, "0").replace(/[IL]/g, "
 export function normaliseNafdacNumber(raw: string, config: NafdacNumberConfig = NAFDAC_NUMBER_CONFIG): NafdacNumber | null {
   const cleaned = raw
     .slice(0, 64)
-    .replace(/^\s*(?:nafdac)?\s*(?:reg(?:istration)?\.?)?\s*(?:no|number|num)?\s*[.:#]*\s*/i, "")
+    .replace(/^\s*(?:nafdac)?\s*(?:reg(?:istration)?\.?)?\s*(?:(?:no|number|num)\b)?\s*[.:#]*\s*/i, "")
     .replace(DASHES, "-")
     .replace(/\s*-\s*/g, "-")
     .replace(/\s+/g, "")
@@ -83,8 +92,8 @@ export interface NafdacCandidate extends NafdacNumber {
 }
 
 /** A month-year such as 10-2027 is an expiry date, not a registration number; only a label can make it one. */
-const NOT_A_REGISTRATION = /(?:batch|lot|b\.?\s?no|bn|mfg|mfd|exp|expiry|date)(?:[^A-Z0-9]*(?:no|number|num))?[^A-Z0-9]*$/i;
-const MONTH_YEAR = /^(0[1-9]|1[0-2])-(19|20)[0-9]{2}$/;
+const NOT_A_REGISTRATION = /\b(?:batch|lot|b\.?\s?no|bn|mfg|mfd|exp|expiry)(?:[^A-Z0-9]*(?:no|number|num))?[^A-Z0-9]*$/i;
+const MONTH_YEAR = /^(0[1-9]|1[0-2])-20[1-4][0-9]$/;
 
 /**
  * Every plausible NAFDAC number in the lines a phone read from a pack, labelled ones first. These are suggestions to confirm.
@@ -103,14 +112,14 @@ export function extractNafdacNumbers(lines: readonly string[], config: NafdacNum
   for (const m of text.matchAll(LABELLED)) add(m[1] as string, "labelled");
   for (const m of text.matchAll(LOOSE)) {
     // A batch, lot or date number is not a registration number.
-    if (NOT_A_REGISTRATION.test(text.slice(Math.max(0, m.index - 16), m.index))) continue;
+    if (NOT_A_REGISTRATION.test(text.slice(Math.max(0, m.index - config.contextLookback), m.index))) continue;
     add(m[0], "unlabelled");
   }
   return out;
 }
 
 const AMOUNT = "[0-9]+(?:[.,][0-9]+)*";
-const STRENGTH = new RegExp(`\\b(${AMOUNT})\\s?(mg|mcg|µg|ug|g|ml|iu)(?![A-Za-z])(?:\\s?/\\s?(${AMOUNT})?\\s?(ml|mg|g)(?![A-Za-z]))?`, "i");
+const STRENGTH = new RegExp(`(?<![0-9.,])(${AMOUNT})\\s?(mg|mcg|µg|ug|g|ml|iu)(?![A-Za-z])(?:\\s?/\\s?(${AMOUNT})?\\s?(ml|mg|g)(?![A-Za-z]))?`, "gi");
 
 /** "1,000" is a thousand (a comma followed by exactly three digits); any other comma is a decimal point ("2,5"). */
 const amount = (raw: string): string => (/^[0-9]{1,3}(?:,[0-9]{3})+$/.test(raw) ? raw.replace(/,/g, "") : raw.replace(",", "."));
@@ -121,44 +130,48 @@ const unit = (u: string): string => {
   return l === "iu" ? "IU" : l;
 };
 
-/** The first strength printed on the pack in a standard shape ("500 mg", "250 mg/5 ml"), or null. A suggestion only. */
+/**
+ * The strength printed on the pack in a standard shape ("500 mg", "250 mg/5 ml"), or null. Only a dose unit counts (mg, mcg, IU,
+ * or a "mg/ml" concentration): a pack volume or net weight ("100 ml", "30 g") is never offered. A pack that prints two different
+ * strengths (a combination product, or several pack sizes) gets no suggestion, because picking one could be wrong. A suggestion only.
+ */
 export function extractStrengthSuggestion(lines: readonly string[], config: NafdacNumberConfig = NAFDAC_NUMBER_CONFIG): string | null {
-  const m = STRENGTH.exec(lines.join(" \n ").slice(0, config.maxTextLength));
-  if (!m) return null;
-  const base = `${amount(m[1] as string)} ${unit(m[2] as string)}`;
-  if (!m[4]) return base;
-  return `${base}/${m[3] ? `${amount(m[3])} ` : ""}${unit(m[4])}`;
+  const found = new Set<string>();
+  for (const m of lines.join(" \n ").slice(0, config.maxTextLength).matchAll(STRENGTH)) {
+    const u = unit(m[2] as string);
+    if (!m[4] && (u === "ml" || u === "g")) continue;
+    const base = `${amount(m[1] as string)} ${u}`;
+    found.add(m[4] ? `${base}/${m[3] ? `${amount(m[3])} ` : ""}${unit(m[4])}` : base);
+  }
+  return found.size === 1 ? ([...found][0] as string) : null;
 }
 
 /**
  * Catalogue medicines whose brand or generic name is printed in the pack text (every word of the name present). Matching a KNOWN
- * name is safer than guessing which words on a box are the name. Names shorter than four letters are ignored so a short name
+ * name is safer than guessing which words on a box are the name. Names shorter than `minNameLength` are ignored so a short name
  * cannot match by accident.
  */
 export function matchCatalogueNamesInText(
   lines: readonly string[],
   catalogue: readonly CatalogueEntry[],
   config: NafdacNumberConfig = NAFDAC_NUMBER_CONFIG,
-  limit = 3,
 ): CatalogueEntry[] {
   const words = new Set(lines.join(" ").slice(0, config.maxTextLength).split(/[^A-Za-z0-9]+/).map((w) => w.toUpperCase()));
   const printed = (name: string | null): boolean => {
-    if (!name || name.replace(/[^A-Za-z0-9]/g, "").length < 4) return false;
+    if (!name || name.replace(/[^A-Za-z0-9]/g, "").length < config.minNameLength) return false;
     return name.split(/[^A-Za-z0-9]+/).filter(Boolean).every((p) => words.has(p.toUpperCase()));
   };
   const seen = new Set<string>();
   return catalogue
     .filter((e) => printed(e.brandName) || printed(e.genericName))
     .filter((e) => (seen.has(e.genericName) ? false : (seen.add(e.genericName), true)))
-    .slice(0, limit);
+    .slice(0, config.nameMatchLimit);
 }
 
 export type NafdacLookup =
   | { kind: "in_catalogue"; entries: CatalogueEntry[]; prefill: { drugName: string | null; strength: string | null; brandName: string | null } }
   | { kind: "not_matched" }
   | { kind: "invalid" };
-
-const squash = (s: string): string => s.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 
 /**
  * Look a typed or confirmed number up in the catalogue. Only a VERIFIED row counts (a pharmacist checked it against NAFDAC's
@@ -169,8 +182,11 @@ const squash = (s: string): string => s.replace(/[^A-Za-z0-9]/g, "").toUpperCase
 export function lookupNafdacNumber(raw: string, catalogue: readonly CatalogueEntry[], config: NafdacNumberConfig = NAFDAC_NUMBER_CONFIG): NafdacLookup {
   const n = normaliseNafdacNumber(raw, config);
   if (!n) return { kind: "invalid" };
-  const key = squash(n.value);
-  const entries = catalogue.filter((e) => e.isVerified && e.nafdacNumber !== null && squash(e.nafdacNumber) === key);
+  // A look-alike repair is for text read from a photo, where the person then sees and confirms the character. A typed number that
+  // needed repair could be a different, valid number, so it never pre-fills anything.
+  if (n.ocrCorrected) return { kind: "not_matched" };
+  // Compare the hyphenated form: "A4-1234" and "A41-234" are different numbers.
+  const entries = catalogue.filter((e) => e.isVerified && e.nafdacNumber !== null && normaliseNafdacNumber(e.nafdacNumber, config)?.value === n.value);
   const first = entries[0];
   if (!first) return { kind: "not_matched" };
   const single = entries.length === 1;

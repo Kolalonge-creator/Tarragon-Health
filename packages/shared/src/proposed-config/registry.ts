@@ -5872,11 +5872,15 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // source of a canonical number: an optional letter (never I or O), one or two digits, a hyphen, three to six digits, an
     // optional letter. Public examples seen: A4-1234, 04-1234, B4-xxxx, A11-101363 (the Greenbook database prints a six-digit tail).
     // The pattern only decides whether text is SHAPED like a number; it is not a check that a number is real or a pack genuine.
-    // `maxTextLength` bounds the text scanned from a photo. Mirrored by NAFDAC_NUMBER_CONFIG in packages/medicines; a test fails on drift.
+    // `maxTextLength` bounds the text scanned from a photo; `nameMatchLimit` and `minNameLength` bound the known-medicine names offered
+    // from it; `contextLookback` is how many characters before a number are checked for a batch, lot or date label. Mirrored by NAFDAC_NUMBER_CONFIG in packages/medicines; a test fails on drift.
     // PROPOSED: a pharmacist or the CMO to confirm against NAFDAC's Greenbook (see OQ-NAFDAC-SCAN-1).
     value: {
       pattern: "^[A-HJ-NP-Z]?[0-9]{1,2}-[0-9]{3,6}[A-HJ-NP-Z]?$",
       maxTextLength: 6000,
+      nameMatchLimit: 3,
+      minNameLength: 4,
+      contextLookback: 16,
     },
     owner: "CMO",
     status: "proposed",

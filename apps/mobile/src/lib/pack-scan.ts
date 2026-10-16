@@ -80,7 +80,7 @@ export async function scanPackPhoto(photoUri: string, catalogue: readonly Catalo
   const discard = deps.discardPhoto ?? defaultDiscard;
   const active = reader;
   if (!active) {
-    await discard(photoUri);
+    await discard(photoUri).catch(() => undefined);
     return { kind: "unavailable" };
   }
   try {
@@ -118,11 +118,10 @@ export function applyPackSuggestion(form: PackFormFields, choice: PackSuggestion
 /** Pre-fill from a catalogue match on the typed number: name and strength, when the catalogue has them. Applied on one tap. */
 export function applyCatalogueLookup(form: PackFormFields, lookup: NafdacLookup): PackFormFields {
   if (lookup.kind !== "in_catalogue") return form;
-  return {
-    ...form,
-    drugName: lookup.prefill.drugName ?? form.drugName,
-    dose: lookup.prefill.strength ?? form.dose,
-  };
+  // The person tapped to replace what is there. A strength typed for a DIFFERENT medicine is not kept next to the new name.
+  const drugName = lookup.prefill.drugName ?? form.drugName;
+  const nameChanged = drugName.trim().toLowerCase() !== form.drugName.trim().toLowerCase();
+  return { ...form, drugName, dose: lookup.prefill.strength ?? (nameChanged ? "" : form.dose) };
 }
 
 /** Which line to show under the typed number. Keys only; the screen turns them into words. */

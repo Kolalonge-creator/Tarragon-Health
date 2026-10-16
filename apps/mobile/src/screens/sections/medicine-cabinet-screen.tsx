@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -643,6 +643,8 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
   const [scanSuggestions, setScanSuggestions] = useState<PackSuggestions | null>(null);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [scanBusy, setScanBusy] = useState(false);
+  // Bumped when the form is reset, so a scan that finishes afterwards cannot put suggestions on the next medicine's form.
+  const scanRun = useRef(0);
   const suggestions = searchCatalogue(catalogue, drugName === pickedName ? "" : drugName, 5);
   const [kind, setKind] = useState<ScheduleKind>("daily");
   const [intervalDays, setIntervalDays] = useState("2");
@@ -686,6 +688,7 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
 
   async function scanPack() {
     if (scanBusy) return;
+    const run = scanRun.current;
     setScanMessage(null);
     setScanSuggestions(null);
     setScanBusy(true);
@@ -695,9 +698,11 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
         setScanMessage(tr("packscan.scan.camera_off"));
         return;
       }
-      const picked = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+      // No location data is wanted from a pack photo.
+      const picked = await ImagePicker.launchCameraAsync({ quality: 0.8, exif: false });
       if (picked.canceled || !picked.assets[0]) return;
       const outcome = await scanPackPhoto(picked.assets[0].uri, catalogue);
+      if (run !== scanRun.current) return;
       if (outcome.kind === "suggestions") setScanSuggestions(outcome.suggestions);
       else setScanMessage(tr(outcome.kind === "failed" ? "packscan.scan.failed" : "packscan.scan.nothing"));
     } catch {
@@ -716,6 +721,8 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
   }
 
   function resetForm() {
+    scanRun.current += 1;
+    setScanBusy(false);
     setFindings(null);
     setNafdacTyped("");
     setNafdacLine(null);
