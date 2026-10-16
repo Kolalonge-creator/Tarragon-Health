@@ -70,7 +70,8 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
 
   useEffect(() => {
     let cancelled = false;
-    void sendQueued();
+    // sendQueued sets state; it runs from a timer callback, not synchronously in the effect body (react-hooks/set-state-in-effect).
+    const first = setTimeout(() => void sendQueued(), 0);
     window.addEventListener("online", sendQueued);
     (async () => {
       try {
@@ -86,7 +87,7 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
       if (cancelled) return;
       setView(cached ? { kind: "session", session: cached, offlineCopy: true } : { kind: "message", key: "therapy.player.error" });
     })();
-    return () => { cancelled = true; window.removeEventListener("online", sendQueued); };
+    return () => { cancelled = true; clearTimeout(first); window.removeEventListener("online", sendQueued); };
   }, [enrolmentId, programmeCode, ordinal, sendQueued]);
 
   async function start(answers: TherapyAnswers) {
