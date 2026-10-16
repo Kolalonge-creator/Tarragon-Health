@@ -27,7 +27,8 @@ export function describeShiftTest(t: ShiftStartTest): ShiftTestView {
         "If this screen shows the page below, tap the button: that proves this screen works. Then fix your phone settings before the shift.",
         "If nothing works, phone the clinical lead now and ask for a swap or for cover.",
       ],
-      canAcknowledge: t.shown,
+      // the On call screen records its own receipt when it shows the page, so a clinician whose push route is dead can still confirm here
+      canAcknowledge: true,
     };
   }
   if (t.state === "missed") {

@@ -346,13 +346,22 @@ begin
   perform pg_temp.try_as(v_a, format('select public.record_page_delivered(%L, ''push'', ''dev-shift-xx12345'')', pg_temp.test_of(v_r, 'primary')));
   j := pg_temp.q_as(v_a, format('select (e ->> ''undelivered'') || '','' || (e ->> ''shown'') from jsonb_array_elements(public.my_shift_start_tests() -> ''tests'') e where e ->> ''id'' = %L', v_id));
   perform pg_temp.rec('screen: once shown it is not undelivered', 'false,true', j);
-  perform pg_temp.rec('screen: a reviewer sees the team (both rows), a colleague without review rights is refused', '2,42501',
+  perform pg_temp.rec('screen: a reviewer sees the team (both rows), a colleague without review rights gets an empty list (no error)', '2,[]',
     pg_temp.q_as(v_admin, format('select count(*)::text from jsonb_array_elements(public.shift_start_tests_overview()) e where e ->> ''rota_id'' = %L', v_r)) || ',' ||
-    pg_temp.try_as(v_c, 'select public.shift_start_tests_overview()'));
+    pg_temp.q_as(v_c, 'select public.shift_start_tests_overview()::text'));
   perform pg_temp.rec('screen: a colleague cannot read someone else''s rows (row security)', '0',
     pg_temp.q_as(v_c, format('select count(*)::text from public.shift_start_tests where rota_id = %L', v_r)));
   perform pg_temp.rec('screen: the clinician cannot write the table', '42501',
     pg_temp.try_as(v_a, format('update public.shift_start_tests set acknowledged_at = now() where rota_id = %L', v_r)));
+  -- a swap: the old primary's row stops counting and a replacement is tested (no gap from a person who is no longer on the shift)
+  perform set_config('tarragon.lead_write', 'on', true);
+  update public.on_call_rota set primary_clinician_id = pg_temp.f('C') where id = v_r;
+  perform set_config('tarragon.lead_write', 'off', true);
+  perform pg_temp.expire(v_r, 'primary');
+  j := pg_temp.gapk(v_org);
+  perform private.shift_start_sweep();
+  perform pg_temp.rec('swap: after the primary is replaced, the old person''s missed test is ignored and the new primary is sent their own test page',
+    ',1', j || ',' || (select count(*)::text from public.shift_start_tests where rota_id = v_r and clinician_id = pg_temp.f('C') and role = 'primary'));
 end $$;
 
 -- 8. SABOTAGE: each removal must flip the matching check ----------------------------------------------------------------------------

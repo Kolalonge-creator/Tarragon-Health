@@ -22,13 +22,12 @@ describe("describeShiftTest", () => {
     expect(v.headline).toMatch(/not counted as covered/);
     expect(v.canAcknowledge).toBe(true);
   });
-  it("undelivered: tells the clinician what to do, and allows acknowledging only if the page is shown on this screen", () => {
+  it("undelivered: tells the clinician what to do, and still allows acknowledging on this screen (the screen records its own receipt)", () => {
     const v = describeShiftTest(t({ undelivered: true, shown: false }));
     expect(v.badge).toBe("red");
-    expect(v.canAcknowledge).toBe(false);
+    expect(v.canAcknowledge).toBe(true);
     expect(v.instructions.join(" ")).toMatch(/notifications/);
     expect(v.instructions.join(" ")).toMatch(/clinical lead/);
-    expect(describeShiftTest(t({ undelivered: true, shown: true, state: "missed" })).canAcknowledge).toBe(true);
     expect(describeShiftTest(t({ undelivered: true, shown: true, state: "missed" })).headline).toMatch(/never reached you/);
   });
   it("backup wording names the role and no copy contains an em dash", () => {

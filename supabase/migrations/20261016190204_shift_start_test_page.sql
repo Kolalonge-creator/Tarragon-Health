@@ -92,7 +92,7 @@ create table public.shift_start_tests (
   cmo_told_at           timestamptz,
   config_version        integer not null,
   is_test               boolean not null default false,
-  unique (rota_id, role)
+  unique (rota_id, role, clinician_id)
 );
 create index shift_start_tests_org_idx on public.shift_start_tests (organisation_id, shift_starts_at desc);
 create index shift_start_tests_clinician_idx on public.shift_start_tests (clinician_id, shift_starts_at desc);
@@ -110,7 +110,7 @@ create trigger shift_start_tests_guard before insert or update on public.shift_s
 create function private.shift_start_ack_sync() returns trigger
 language plpgsql security definer set search_path = ''
 as $$
-declare v_ack record; v_org uuid;
+declare v_ack record; v_s record; v_prev text := coalesce(current_setting('tarragon.paging_write', true), 'off');
 begin
   select a.channel, a.device_id, a.acked_at into v_ack from public.page_delivered_acks a where a.test_id = new.id order by a.acked_at limit 1;
   perform set_config('tarragon.paging_write', 'on', true);
@@ -118,13 +118,21 @@ begin
      set acknowledged_at = new.acknowledged_at, ack_channel = v_ack.channel, ack_device = v_ack.device_id,
          shown_latency_seconds = case when v_ack.acked_at is not null then greatest(0, extract(epoch from (v_ack.acked_at - new.sent_at)))::integer end,
          ack_latency_seconds = greatest(0, extract(epoch from (new.acknowledged_at - new.sent_at)))::integer
-   where s.page_test_id = new.id returning s.organisation_id into v_org;
-  perform set_config('tarragon.paging_write', 'off', true);
-  if v_org is not null then
+   where s.page_test_id = new.id returning s.organisation_id, s.rota_id, s.role, s.clinician_id into v_s;
+  perform set_config('tarragon.paging_write', v_prev, true);
+  if v_s.organisation_id is not null then
     begin
-      perform private.rota_gap_alert(v_org);   -- the one incident clears at once when cover is back; a failure never undoes the acknowledgement
+      -- a backup who confirms AFTER the primary's miss was already escalated is now first on call: tell them (the sweep tells one who had confirmed before)
+      if v_s.role = 'backup' and private.shift_start_promoted(v_s.rota_id)
+         and exists (select 1 from public.shift_start_tests p where p.rota_id = v_s.rota_id and p.role = 'primary' and p.escalated_at is not null
+                       and private.shift_start_row_current(p.rota_id, p.role, p.clinician_id)) then
+        perform private.credential_notify(v_s.clinician_id, v_s.organisation_id, 'You are first on call',
+          'The primary on-call clinician has not confirmed the start-of-shift test page, so you are first on call for this shift. Open On call.',
+          jsonb_build_object('audience', 'rota'), true);
+      end if;
+      perform private.rota_gap_alert(v_s.organisation_id);   -- the one incident clears at once when cover is back
     exception when others then
-      raise warning 'shift start test: gap refresh failed (%)', sqlerrm;
+      raise warning 'shift start test: follow-up failed (%)', sqlerrm;   -- never undoes the acknowledgement
     end;
   end if;
   return new;
@@ -136,6 +144,16 @@ create trigger page_tests_shift_start_ack after update of acknowledged_at on pub
   execute function private.shift_start_ack_sync();
 
 -- 3. What the shift looks like to the rest of the system -----------------------------------------------------------------------------------
+-- A test row only counts while its person is still the shift's primary or backup and the shift is not cancelled (a swap, a suspension
+-- reassignment or a cancellation leaves the old row behind as history).
+create function private.shift_start_row_current(p_rota uuid, p_role text, p_clinician uuid) returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select exists (select 1 from public.on_call_rota o where o.id = p_rota and o.cancelled_at is null
+                   and ((p_role = 'primary' and o.primary_clinician_id = p_clinician) or (p_role = 'backup' and o.backup_clinician_id = p_clinician)))
+$$;
+revoke all on function private.shift_start_row_current(uuid, text, uuid) from public, anon, authenticated;
+
 -- null = nothing wrong (or the guard is off). Otherwise the gap kind rota_gaps reports.
 create function private.shift_start_gap_kind(p_rota uuid) returns text
 language sql stable security definer set search_path = ''
@@ -143,7 +161,7 @@ as $$
   with s as (
     select bool_or(role = 'primary' and acknowledged_at is null and deadline_at <= now()) as p_bad,
            bool_or(role = 'backup' and acknowledged_at is null and deadline_at <= now()) as b_bad
-      from public.shift_start_tests where rota_id = p_rota)
+      from public.shift_start_tests t where t.rota_id = p_rota and private.shift_start_row_current(t.rota_id, t.role, t.clinician_id))
   select case when not private.go_live_guard_on('shift_start_test') then null
               when coalesce(s.p_bad, false) and coalesce(s.b_bad, false) then 'start_test_failed'
               when coalesce(s.p_bad, false) then 'primary_unconfirmed'
@@ -157,8 +175,10 @@ create function private.shift_start_promoted(p_rota uuid) returns boolean
 language sql stable security definer set search_path = ''
 as $$
   select private.go_live_guard_on('shift_start_test')
-     and exists (select 1 from public.shift_start_tests p where p.rota_id = p_rota and p.role = 'primary' and p.acknowledged_at is null and p.deadline_at <= now())
-     and exists (select 1 from public.shift_start_tests b where b.rota_id = p_rota and b.role = 'backup' and b.acknowledged_at is not null)
+     and exists (select 1 from public.shift_start_tests p where p.rota_id = p_rota and p.role = 'primary' and p.acknowledged_at is null and p.deadline_at <= now()
+                   and private.shift_start_row_current(p.rota_id, p.role, p.clinician_id))
+     and exists (select 1 from public.shift_start_tests b where b.rota_id = p_rota and b.role = 'backup' and b.acknowledged_at is not null
+                   and private.shift_start_row_current(b.rota_id, b.role, b.clinician_id))
 $$;
 revoke all on function private.shift_start_promoted(uuid) from public, anon, authenticated;
 
@@ -172,7 +192,7 @@ begin
   if v_def like '%shift_start_gap_kind%' then return; end if;
   if position(v_anchor in v_def) = 0 then raise exception 'shift start: private.rota_gaps no longer has the expected cursor line; patch by hand'; end if;
   v_new := replace(v_def, v_anchor,
-    E'    if private.shift_start_gap_kind(r.id) is not null then\n      gap_start := greatest(r.starts_at, p_from); gap_end := least(r.ends_at, p_to); kind := private.shift_start_gap_kind(r.id); return next;\n    end if;\n' || v_anchor);
+    E'    kind := private.shift_start_gap_kind(r.id);\n    if kind is not null then\n      gap_start := greatest(r.starts_at, p_from); gap_end := least(r.ends_at, p_to); return next;\n    end if;\n' || v_anchor);
   execute v_new;
 end
 $patch$;
@@ -202,7 +222,7 @@ language plpgsql security definer set search_path = ''
 as $$
 declare
   r record; t record; v_cs public.clinical_staff%rowtype; v_pt uuid; v_n integer := 0; v_orgs uuid[] := '{}';
-  v_ver integer; v_sibling public.shift_start_tests%rowtype; v_test boolean;
+  v_ver integer; v_sibling public.shift_start_tests%rowtype; v_test boolean; v_prev text := coalesce(current_setting('tarragon.paging_write', true), 'off');
 begin
   if not private.go_live_guard_on('shift_start_test') then return 0; end if;
   select version into v_ver from public.shift_start_test_config where is_active order by version desc limit 1;
@@ -217,7 +237,7 @@ begin
      where o.cancelled_at is null and x.clinician is not null and o.ends_at > now()
        and o.starts_at <= now() + make_interval(mins => private.shift_rule('lead_minutes'))
        and o.starts_at > now() - make_interval(mins => private.shift_rule('late_send_minutes'))
-       and not exists (select 1 from public.shift_start_tests s where s.rota_id = o.id and s.role = x.role)
+       and not exists (select 1 from public.shift_start_tests s where s.rota_id = o.id and s.role = x.role and s.clinician_id = x.clinician)
      order by o.starts_at, x.role
      limit private.shift_rule('max_per_run')
   loop
@@ -240,25 +260,31 @@ begin
   end loop;
 
   -- escalate: a test page nobody acknowledged by its deadline. Once per row. Never silent: reviewers are told, the one gap incident is refreshed.
-  for t in select * from public.shift_start_tests where acknowledged_at is null and escalated_at is null and deadline_at <= now() order by deadline_at for update skip locked loop
-    update public.shift_start_tests set escalated_at = now() where id = t.id;
-    select * into v_sibling from public.shift_start_tests where rota_id = t.rota_id and role <> t.role;
-    if t.role = 'primary' and v_sibling.id is not null and v_sibling.acknowledged_at is not null then
-      perform private.credential_notify(v_sibling.clinician_id, t.organisation_id, 'You are first on call',
-        'The primary on-call clinician has not confirmed the start-of-shift test page, so you are first on call for this shift. Open On call.',
-        jsonb_build_object('audience', 'rota'), true);
-    end if;
-    if v_sibling.id is null or v_sibling.cmo_told_at is null then
-      perform private.credential_notify_reviewers(t.organisation_id, 'On-call start check missed',
-        'A clinician starting an on-call shift has not acknowledged the start-of-shift test page, so that shift is not counted as covered. Open the rota.',
-        jsonb_build_object('rota_id', t.rota_id), 'rota_review');
-      update public.shift_start_tests set cmo_told_at = now() where id = t.id;
-    end if;
-    insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
-      values (t.organisation_id, null, 'shift_start_test.missed', 'shift_start_test', t.page_test_id, jsonb_build_object('role', t.role, 'rota_id', t.rota_id, 'clinician_id', t.clinician_id));
-    v_orgs := v_orgs || t.organisation_id;
+  for t in select * from public.shift_start_tests x where x.acknowledged_at is null and x.escalated_at is null and x.deadline_at <= now()
+              and private.shift_start_row_current(x.rota_id, x.role, x.clinician_id) order by x.deadline_at for update skip locked loop
+    begin
+      update public.shift_start_tests set escalated_at = now() where id = t.id;
+      select * into v_sibling from public.shift_start_tests y where y.rota_id = t.rota_id and y.role <> t.role
+         and private.shift_start_row_current(y.rota_id, y.role, y.clinician_id);
+      if t.role = 'primary' and v_sibling.id is not null and v_sibling.acknowledged_at is not null then
+        perform private.credential_notify(v_sibling.clinician_id, t.organisation_id, 'You are first on call',
+          'The primary on-call clinician has not confirmed the start-of-shift test page, so you are first on call for this shift. Open On call.',
+          jsonb_build_object('audience', 'rota'), true);
+      end if;
+      if v_sibling.id is null or v_sibling.cmo_told_at is null then
+        perform private.credential_notify_reviewers(t.organisation_id, 'On-call start check missed',
+          'A clinician starting an on-call shift has not acknowledged the start-of-shift test page, so that shift is not counted as covered. Open the rota.',
+          jsonb_build_object('rota_id', t.rota_id), 'rota_review');
+        update public.shift_start_tests set cmo_told_at = now() where id = t.id;
+      end if;
+      insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+        values (t.organisation_id, null, 'shift_start_test.missed', 'shift_start_test', t.page_test_id, jsonb_build_object('role', t.role, 'rota_id', t.rota_id, 'clinician_id', t.clinician_id));
+      v_orgs := v_orgs || t.organisation_id;
+    exception when others then
+      raise warning 'shift start test escalation failed for %: %', t.id, sqlerrm;   -- one bad row never stops the others or the sends above
+    end;
   end loop;
-  perform set_config('tarragon.paging_write', 'off', true);
+  perform set_config('tarragon.paging_write', v_prev, true);
 
   -- the ONE rota gap incident per organisation (S18) is refreshed at once; the tick's own call a moment later would also do it
   for r in select distinct u as org from unnest(v_orgs) u loop
@@ -312,7 +338,7 @@ language plpgsql stable security definer set search_path = ''
 as $$
 declare v_org uuid;
 begin
-  if not private.can_credential_review() then raise exception 'not authorised' using errcode = '42501'; end if;
+  if not private.can_credential_review() then return '[]'::jsonb; end if;   -- not a reviewer: nothing to show, and no error for the screen to swallow
   select organisation_id into v_org from public.profiles where id = (select auth.uid());
   return coalesce((
     select jsonb_agg(jsonb_build_object(
@@ -333,7 +359,7 @@ grant execute on function public.my_shift_start_tests() to authenticated;
 grant execute on function public.shift_start_tests_overview() to authenticated;
 
 -- 6. The go-live guard (born OFF) -----------------------------------------------------------------------------------------------------------
-create function private.shift_start_go_live_conditions(p_key text) returns jsonb
+create function private.shift_start_go_live_conditions(p_key text, p_org uuid) returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
 begin
@@ -341,11 +367,11 @@ begin
     private.go_live_cond('config_present', 'The shift-start test values (lead time, grace window) are in force',
       exists (select 1 from public.shift_start_test_config where is_active), 'data', (select 'version ' || version from public.shift_start_test_config where is_active)),
     private.go_live_cond('test_page_route_proven', 'A test page has been acknowledged by an on-call clinician in the last days, so the route is known to work',
-      exists (select 1 from public.page_tests t where t.acknowledged_at is not null and t.is_test is not true
+      exists (select 1 from public.page_tests t where t.organisation_id = p_org and t.acknowledged_at is not null and t.is_test is not true
                 and t.acknowledged_at > now() - make_interval(days => coalesce(private.shift_rule('proof_lookback_days'), 30))), 'data', null),
     private.go_live_cond('cmo_switch', 'Chief Medical Officer sign-off', true, 'switch', 'Given by the Chief Medical Officer pressing the switch'));
 end $$;
-revoke all on function private.shift_start_go_live_conditions(text) from public, anon, authenticated, service_role;
+revoke all on function private.shift_start_go_live_conditions(text, uuid) from public, anon, authenticated, service_role;
 
 do $$
 declare
@@ -359,7 +385,7 @@ begin
     raise exception 'private.go_live_conditions no longer ends with the expected fall-through; add the shift start branch by hand' using errcode = '55000';
   end if;
   v_new := replace(v_def, v_anchor,
-    E'\n  elsif p_key = ''shift_start_test'' then\n    return private.shift_start_go_live_conditions(p_key);\n  end if;\n  -- An unknown key has no conditions');
+    E'\n  elsif p_key = ''shift_start_test'' then\n    return private.shift_start_go_live_conditions(p_key, p_org);\n  end if;\n  -- An unknown key has no conditions');
   execute v_new;
 end $$;
 

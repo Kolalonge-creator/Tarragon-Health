@@ -33,3 +33,11 @@ page_tests, page_delivered_acks, acknowledge_test_page, page_notify_ref, S18 rot
 
 ## 7. Known limits
 Not exercised by pg_cron, a real phone or Critical Alerts entitlement (push priority is `critical` as for every page). `page_recipient` promotion pages the backup first; the later 5 minute ladder step also targets the backup (same person), after which the lead is alerted as today.
+
+## 8. Review follow-ups (code-review high)
+- A test row counts only while its person is still the shift's primary or backup and the shift is not cancelled (`shift_start_row_current`); a swap sends the new person their own test page and the old row is history.
+- Each missed row is escalated inside its own exception block so one bad row cannot stop the sends or the other escalations.
+- A backup who confirms after the primary's miss was escalated is told "You are first on call" when they confirm.
+- The On call screen records its own receipt for every pending test, so a clinician whose push route is dead can still confirm on screen.
+- New gap kinds have labels on the rota builder and the reliability page. Consequence by design: an unconfirmed shift also counts as uncovered hours for the capacity figure and the `on_call_cover_ok` go-live condition, because that is what "not covered" means.
+- The go-live route condition is scoped to the organisation. `shift_start_tests_overview` returns an empty list (no error) for a non-reviewer.
