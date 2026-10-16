@@ -95,4 +95,10 @@ describe("the activation checklist", () => {
     expect(activationRefusal(notReady.reasons)).toMatch(/^Not activated\. Nothing was changed\. Still missing: Dr A/);
     expect(activationRefusal([{ code: "no_on_call_clinicians" }])).toMatch(/Nobody on your team has the on-call competency/);
   });
+  it("stays under the 400 character flash limit however many clinicians are not ready", () => {
+    const reasons = Array.from({ length: 12 }, (_, i) => ({ code: "clinician_not_ready", name: `Dr Long Name Number ${i}`, gaps: ["push_subscription", "verified_email", "test_page"] }));
+    const text = activationRefusal(reasons);
+    expect(text.length).toBeLessThan(400);
+    expect(text).toMatch(/and 9 more/);
+  });
 });

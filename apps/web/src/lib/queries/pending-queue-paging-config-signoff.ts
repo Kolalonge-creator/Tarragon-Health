@@ -179,8 +179,10 @@ export function describeActivationReason(r: PagingActivationCheck["reasons"][num
   }
 }
 
-/** The refusal sentence the hub shows when the database declines to activate. */
+/** The refusal sentence the hub shows when the database declines to activate. Capped well under the flash detail limit (400 characters): the first few names and a count. */
 export function activationRefusal(reasons: PagingActivationCheck["reasons"]): string {
   const lines = reasons.map(describeActivationReason);
-  return `Not activated. Nothing was changed. ${lines.length === 0 ? "The checklist was not met." : `Still missing: ${lines.join("; ")}.`}`;
+  const shown = lines.slice(0, 3).map((l) => (l.length > 90 ? `${l.slice(0, 87)}...` : l));
+  const more = lines.length > shown.length ? ` and ${lines.length - shown.length} more (the panel lists everyone)` : "";
+  return `Not activated. Nothing was changed. ${shown.length === 0 ? "The checklist was not met." : `Still missing: ${shown.join("; ")}${more}.`}`;
 }

@@ -227,6 +227,10 @@ begin
     (r ->> 'activated') || ',' || pg_temp.named(r) || ',' || (select string_agg(version || ':' || is_active::int || ':' || (approved_at is not null)::int, ',' order by version) from public.paging_delivery_config));
 
 
+  perform pg_temp.rec('paging: a refusal is audited, and a config cannot be inserted already signed', '2,23514',
+    (select count(*)::text from public.audit_log where action = 'paging_delivery_config.activation_refused' and actor_id = v_cmo) || ',' ||
+    pg_temp.try($q$insert into public.paging_delivery_config (version, is_active, effective_from, rules, approved_at) select 50, false, current_date, rules, now() from public.paging_delivery_config where version = 1$q$));
+
   -- each gap is its own reason
   perform pg_temp.give_push(v_org, v_x); perform pg_temp.give_ack(v_org, v_x, interval '1 hour');
   perform pg_temp.give_push(v_org, v_y, true);                       -- Y's only subscription is disabled

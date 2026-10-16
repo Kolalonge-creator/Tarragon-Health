@@ -33,6 +33,13 @@ declare
   v_top integer;
   v_frozen boolean;
 begin
+  -- nothing is ever inserted already signed: a signature comes only from the sign/activate functions
+  if tg_op = 'INSERT' then
+    if new.approved_at is not null or new.approved_by is not null then
+      raise exception '% cannot be inserted already signed; sign it with the signing function', tg_table_name using errcode = '23514';
+    end if;
+    return new;
+  end if;
   execute format('select max(t.version) from %I.%I t where t.id <> $1 and (t.is_active or t.approved_at is not null)', tg_table_schema, tg_table_name)
     into v_top using old.id;
   v_frozen := old.is_active or old.approved_at is not null or (v_top is not null and old.version < v_top);
@@ -45,7 +52,8 @@ begin
   if v_frozen and (new.version is distinct from old.version or new.rules is distinct from old.rules or new.effective_from is distinct from old.effective_from) then
     raise exception '% version % is signed, in force or superseded and cannot be edited; draft a new version', tg_table_name, old.version using errcode = '23514';
   end if;
-  if old.approved_at is not null and (new.approved_at is distinct from old.approved_at or new.approved_by is distinct from old.approved_by) then
+  -- approved_by may go to null (the foreign key action when the signer's profile is deleted); it may never change to someone else
+  if old.approved_at is not null and (new.approved_at is distinct from old.approved_at or (new.approved_by is distinct from old.approved_by and new.approved_by is not null)) then
     raise exception 'a signed % keeps its signature', tg_table_name using errcode = '23514';
   end if;
   return new;
@@ -53,9 +61,9 @@ end;
 $$;
 revoke all on function private.frozen_config_guard() from public, anon, authenticated;
 
-create trigger frozen_config_guard before update or delete on public.queue_task_layer_config
+create trigger frozen_config_guard before insert or update or delete on public.queue_task_layer_config
   for each row execute function private.frozen_config_guard();
-create trigger frozen_config_guard before update or delete on public.paging_delivery_config
+create trigger frozen_config_guard before insert or update or delete on public.paging_delivery_config
   for each row execute function private.frozen_config_guard();
 create trigger refuse_superseded_activation before update of is_active on public.queue_task_layer_config
   for each row when (new.is_active and not old.is_active) execute function private.refuse_activating_superseded_version();
@@ -76,6 +84,14 @@ begin
     and jsonb_typeof(r -> 'escalated_non_red_any_eligible') = 'boolean'
     and jsonb_typeof(r -> 'handback_also_excludes_task_for') = 'array'
     and jsonb_typeof(r -> 'escalation_alert') = 'object'
+    and jsonb_typeof(r #> '{escalation_alert,immediate_max_class}') = 'number'
+    and jsonb_typeof(r #> '{escalation_alert,immediate_channels}') = 'array'
+    and jsonb_typeof(r #> '{escalation_alert,notice_channels}') = 'array'
+    and jsonb_typeof(r #> '{completion,contact_attempts,min_attempts}') = 'number'
+    and jsonb_typeof(r #> '{completion,note_max_chars}') = 'number'
+    and jsonb_typeof(r #> '{completion,legacy_kind_types}') = 'array'
+    and jsonb_typeof(r #> '{watchdog,job_max_age_minutes,sweep-clinical-tasks}') = 'number'
+    and jsonb_typeof(r #> '{watchdog,job_max_age_minutes,expire-task-claims}') = 'number'
     and jsonb_typeof(r #> '{completion,default_codes}') = 'array'
     and jsonb_typeof(r #> '{completion,codes_by_type}') = 'object'
     and jsonb_typeof(r #> '{watchdog,job_max_age_minutes}') = 'object'
@@ -204,6 +220,9 @@ begin
   end if;
   v_check := public.paging_delivery_activation_check(p_version);
   if not (v_check ->> 'ready')::boolean then
+    insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+      values ((select organisation_id from public.profiles where id = (select auth.uid())), (select auth.uid()), 'paging_delivery_config.activation_refused', 'paging_delivery_config', c.id,
+              jsonb_build_object('version', p_version, 'reason_count', jsonb_array_length(v_check -> 'reasons')));
     return jsonb_build_object('activated', false, 'reasons', v_check -> 'reasons');
   end if;
   update public.paging_delivery_config set is_active = false where is_active and version <> p_version;

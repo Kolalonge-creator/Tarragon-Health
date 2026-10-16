@@ -70,4 +70,4 @@ The body never carries an age, a count, an id, an error message or patient data:
 - It reads only the production database through the web app. If the web app is down the monitor reports that, and cannot tell a web outage from a database outage. Section 4 step 2 covers both.
 - A heartbeat can be fresh while the job it stands for does the wrong thing; the clinical-chain canary and the backlog checks cover some of that.
 - The thresholds in `ops.health_thresholds` are PROPOSED engineering values, not yet confirmed by the founder.
-- Live behaviour of this route against production was not exercised when it was written (the production database was timing out for the session); it was proved against a local database and with unit tests.
+- This route was not called against production when it was written, and its database function was first exercised by CI, not by hand (the production database and the local Docker stack were both unavailable to the author). Call it once yourself after setup (step 2) and read the answer.
