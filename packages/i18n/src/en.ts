@@ -1553,6 +1553,7 @@ export const en = {
   "drawer.badge_a11y": "{label}, {count} need attention",
   "circle.checkin.ask": "Ask them to check in",
   "circle.checkin.asked": "We have asked them. If they do not answer in about {minutes} minutes, you and the others who get check-in requests will be told.",
+  "circle.checkin.asked_soon": "We have asked them. If they do not answer in time, you and the others who get check-in requests will be told.",
   "circle.checkin.limit": "You have asked a few times today. Please try again tomorrow.",
   "circle.checkin.already_waiting": "They have already been asked. Please wait a few minutes.",
   "circle.checkin.error": "That did not go through. Please try again.",

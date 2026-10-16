@@ -77,7 +77,11 @@ describe("needs-attention count (the backup for the push)", () => {
   const alert = (called: boolean): OpenAlert => ({ patientId: "p", name: "Mum", since: "t", called });
   it("counts only people nobody has marked as called", () => {
     expect(needsAttentionCount([])).toBe(0);
-    expect(needsAttentionCount([alert(false), alert(true), alert(false)])).toBe(2);
+    expect(needsAttentionCount([alert(false), alert(true), alert(false)])).toBe(1);
+    const other = { ...alert(false), patientId: "q" };
+    expect(needsAttentionCount([alert(false), other])).toBe(2);
+    // one person with both an open request and an unanswered check-in is one person
+    expect(needsAttentionCount([alert(false)], [{ patientId: "p" }, { patientId: "z" }])).toBe(2);
   });
 });
 
@@ -97,8 +101,9 @@ describe("check-in window (non-emergency)", () => {
   it("reads closed on any failure, never open by accident", async () => {
     mockRpc.mockResolvedValueOnce({ data: true, error: null });
     expect(await checkInWindowOpen()).toBe(true);
+    // a failed read is null (unknown): the supporter's button needs a clear true, the patient's answer path needs a clear false to close
     mockRpc.mockResolvedValueOnce({ data: null, error: { message: "x" } });
-    expect(await checkInWindowOpen()).toBe(false);
+    expect(await checkInWindowOpen()).toBeNull();
     mockRpc.mockResolvedValueOnce({ data: "true", error: null });
     expect(await checkInWindowOpen()).toBe(false);
   });
@@ -139,7 +144,7 @@ describe("check-in window (non-emergency)", () => {
     const now = Date.parse("2026-10-16T10:00:00Z");
     expect(minutesLeft("2026-10-16T10:10:00Z", now)).toBe(10);
     expect(minutesLeft("2026-10-16T09:00:00Z", now)).toBe(1);
-    expect(minutesLeft("garbage", now)).toBe(5);
+    expect(minutesLeft("garbage", now)).toBeNull();
   });
 
   it("'I called them' for a person who did not answer is one call, true only when the database says so", async () => {

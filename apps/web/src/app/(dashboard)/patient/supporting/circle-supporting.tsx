@@ -89,7 +89,12 @@ function CheckInAsk({ patientId, locale }: { patientId: string; locale: Locale }
           setMessage(null);
           try {
             const r = await ask.mutateAsync(patientId);
-            setMessage(r.ok ? t("circle.checkin.asked", locale, { minutes: minutesLeft(r.window_ends_at, Date.now()) }) : t(r.reason === "limit" ? "circle.checkin.limit" : "circle.checkin.already_waiting", locale));
+            const minutes = r.ok ? minutesLeft(r.window_ends_at, Date.now()) : null;
+            setMessage(
+              r.ok
+                ? minutes === null ? t("circle.checkin.asked_soon", locale) : t("circle.checkin.asked", locale, { minutes })
+                : t(r.reason === "limit" ? "circle.checkin.limit" : "circle.checkin.already_waiting", locale),
+            );
           } catch {
             setMessage(t("circle.checkin.error", locale));
           }

@@ -154,7 +154,10 @@ function CheckInAsk({ person, open }: { person: SupportedPerson; open: boolean }
           void requestCheckIn(person.patientId).then((r) => {
             setBusy(false);
             if (r === null) setMessage(t("circle.checkin.error", locale));
-            else if (r.ok) setMessage(t("circle.checkin.asked", locale, { minutes: minutesLeft(r.windowEndsAt, Date.now()) }));
+            else if (r.ok) {
+              const minutes = minutesLeft(r.windowEndsAt, Date.now());
+              setMessage(minutes === null ? t("circle.checkin.asked_soon", locale) : t("circle.checkin.asked", locale, { minutes }));
+            }
             else setMessage(t(r.reason === "limit" ? "circle.checkin.limit" : "circle.checkin.already_waiting", locale));
           });
         }}
@@ -187,7 +190,7 @@ export function CircleSupportingSection() {
   useEffect(() => {
     let alive = true;
     void checkInWindowOpen().then((o) => {
-      if (alive) setCheckInOpen(o);
+      if (alive) setCheckInOpen(o === true);
     });
     return () => {
       alive = false;

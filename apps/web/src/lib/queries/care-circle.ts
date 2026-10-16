@@ -7,6 +7,7 @@ import {
   parseCheckInRequest,
   parseMyCircle,
   parseGiftResult,
+  attentionCount,
   parseOpenAlerts,
   parseUnanswered,
   parsePendingGifts,
@@ -324,14 +325,18 @@ export function useRespondToGift() {
   });
 }
 
-/** S29e: whether the patient-first check-in window is open at all. Any failure reads as closed, so the button never appears by accident. */
+/**
+ * S29e: whether the patient-first check-in window is open at all. A failed read is an ERROR (retried), never "closed": the supporter's
+ * button needs `data === true`, so it never appears by accident, while the patient's answer path keeps working until the read says closed.
+ */
 export function useCheckInEnabled() {
   return useQuery({
     queryKey: ["care-circle", "checkin-enabled"] as const,
-    staleTime: 5 * 60_000,
+    staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await createClient().rpc("circle_checkin_window_enabled");
-      return !error && data === true;
+      if (error) throw new CircleError(error.message);
+      return data === true;
     },
   });
 }
@@ -355,7 +360,8 @@ export function useCheckInPending() {
   return useQuery({
     queryKey: ["care-circle", "checkin-pending"] as const,
     refetchInterval: 20_000,
-    enabled: enabled.data === true,
+    // fail open for the patient: only a clear "closed" stops the poll, so one failed read of the go-live can never hide the answer button
+    enabled: enabled.data !== false,
     queryFn: async () => {
       const { data, error } = await createClient().rpc("circle_check_in_pending");
       if (error) throw new CircleError(error.message);
@@ -400,5 +406,23 @@ export function useAckUnanswered() {
       if (data !== true) throw new CircleError("unknown");
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["care-circle", "unanswered"] }),
+  });
+}
+
+/**
+ * The "People you support" badge, live: the server draws the first value, this keeps it current on every navigation and every minute
+ * (the server layout does not re-render on client-side navigation). A failed read leaves the last value and never shows a lower one.
+ */
+export function useSupportingAttention(enabled: boolean) {
+  return useQuery({
+    queryKey: ["care-circle", "attention"] as const,
+    enabled,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const client = createClient();
+      const [alerts, unanswered] = await Promise.all([client.rpc("circle_open_alerts"), client.rpc("circle_unanswered_check_ins")]);
+      if (alerts.error || unanswered.error) throw new CircleError((alerts.error ?? unanswered.error)?.message ?? "unknown");
+      return attentionCount(parseOpenAlerts(alerts.data), parseUnanswered(unanswered.data));
+    },
   });
 }

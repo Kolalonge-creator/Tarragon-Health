@@ -1,4 +1,4 @@
-import { parseOpenAlerts, parseUnanswered } from "@/lib/care-circle/model";
+import { attentionCount, parseOpenAlerts, parseUnanswered } from "@/lib/care-circle/model";
 import { CheckInCard } from "@/app/(dashboard)/patient/care-circle/check-in-card";
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -110,7 +110,7 @@ export default async function DashboardLayout({
     supportingBadge =
       alertError || unansweredError
         ? { count: 0, failed: true }
-        : { count: parseOpenAlerts(alertData).filter((a) => !a.called).length + parseUnanswered(unansweredData).length, failed: false };
+        : { count: attentionCount(parseOpenAlerts(alertData), parseUnanswered(unansweredData)), failed: false };
   }
 
   const isPatient = profile?.role === "patient" && !supporterOnly;

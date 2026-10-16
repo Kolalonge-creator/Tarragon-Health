@@ -192,13 +192,14 @@ export function parseCheckInResult(data: unknown): CheckInResult | null {
   return null;
 }
 export const parseCheckInPending = (data: unknown): boolean => isObj(data) && data["waiting"] === true;
-/** People with an open check-in request nobody has marked "I called them": the number on the menu badge. */
-export const needsAttentionCount = (alerts: readonly OpenAlert[]): number => alerts.filter((a) => !a.called).length;
+/** People who need a supporter's attention: distinct people across open requests nobody has called about and unanswered check-ins. */
+export const needsAttentionCount = (alerts: readonly OpenAlert[], unanswered: readonly { patientId: string }[] = []): number =>
+  new Set([...alerts.filter((a) => !a.called).map((a) => a.patientId), ...unanswered.map((u) => u.patientId)]).size;
 
 /** Whole minutes left in a window, never below one, from the end time the database sent (the length is configuration, not a constant here). */
-export function minutesLeft(windowEndsAt: string, nowMs: number): number {
+export function minutesLeft(windowEndsAt: string, nowMs: number): number | null {
   const end = Date.parse(windowEndsAt);
-  return Number.isFinite(end) ? Math.max(1, Math.round((end - nowMs) / 60_000)) : 5;
+  return Number.isFinite(end) ? Math.max(1, Math.round((end - nowMs) / 60_000)) : null;
 }
 /** People who did not answer a check-in in time: name and time only, like a red alert. A malformed row is dropped. */
 export interface UnansweredCheckIn { patientId: string; name: string; since: string }

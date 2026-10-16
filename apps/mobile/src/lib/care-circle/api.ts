@@ -112,10 +112,10 @@ export async function acceptInvite(token: string): Promise<{ ok: true; patientId
   return error ? "unreachable" : parseAcceptInvite(data);
 }
 
-/** S29e: is the patient-first check-in window open at all? Any failure reads as closed. */
-export async function checkInWindowOpen(): Promise<boolean> {
+/** S29e: is the patient-first check-in window open at all? null: the read failed. The supporter's button needs a clear true; the patient's answer path keeps working unless this says false. */
+export async function checkInWindowOpen(): Promise<boolean | null> {
   const { data, error } = await supabase.rpc("circle_checkin_window_enabled");
-  return !error && data === true;
+  return error ? null : data === true;
 }
 /** A supporter asks a person to check in. null means the answer was not saved or not understood. */
 export async function requestCheckIn(patientId: string): Promise<CheckInResult | null> {

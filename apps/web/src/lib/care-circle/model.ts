@@ -231,8 +231,13 @@ export function parseUnanswered(data: unknown): UnansweredCheckIn[] {
     return r.success ? [r.data] : [];
   });
 }
-/** Whole minutes left in a window, never below one, from the end time the database sent (the length is configuration, not a constant here). */
-export function minutesLeft(windowEndsAt: string, nowMs: number): number {
+/** Whole minutes left in a window, never below one, from the end time the database sent. The length is configuration: no number is invented when the time cannot be read. */
+export function minutesLeft(windowEndsAt: string, nowMs: number): number | null {
   const end = Date.parse(windowEndsAt);
-  return Number.isFinite(end) ? Math.max(1, Math.round((end - nowMs) / 60_000)) : 5;
+  return Number.isFinite(end) ? Math.max(1, Math.round((end - nowMs) / 60_000)) : null;
+}
+
+/** People who need a supporter's attention: distinct people across open check-in requests nobody has called about and unanswered check-ins. */
+export function attentionCount(alerts: readonly { patient_id: string; called: boolean }[], unanswered: readonly { patient_id: string }[]): number {
+  return new Set([...alerts.filter((a) => !a.called).map((a) => a.patient_id), ...unanswered.map((u) => u.patient_id)]).size;
 }

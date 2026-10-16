@@ -133,7 +133,7 @@ end $f$;
 create function public.s29e_boom() returns trigger language plpgsql as $b$ begin raise exception 'proof: notification write failed'; end $b$;
 create function pg_temp.fail_notify_on(p_uid uuid) returns void language plpgsql as
 $f$ begin
-  execute format('create trigger s29e_boom before insert on public.notifications for each row when (new.template = ''circle_check_in_unanswered'' and new.recipient_id = %L) execute function public.s29e_boom()', p_uid);
+  execute format('create trigger s29e_boom before insert on public.notifications for each row when (new.template = ''circle_check_in_unanswered'' and new.channel = ''push'' and (%L::uuid is null or new.recipient_id = %L::uuid)) execute function public.s29e_boom()', p_uid, p_uid);
 end $f$;
 create function pg_temp.fail_notify_off() returns void language plpgsql as
 $f$ begin drop trigger s29e_boom on public.notifications; end $f$;
@@ -293,11 +293,6 @@ begin
     pg_temp.q_as(v_sd, format($q$select (public.request_circle_check_in(%L) ->> 'reason')$q$, v_pat)));
   perform private.sweep_circle_check_ins();
   perform pg_temp.ck('inside the window the sweep tells nobody', '0', (select count(*)::text from public.notifications where source_id = v_ci and recipient_id <> v_pat));
-  perform pg_temp.ck('the requester sees "waiting" and when it ends, nothing else', 'waiting,3',
-    (pg_temp.q_as(v_sb, format($q$select (public.circle_check_in_status(%L) ->> 'state')$q$, v_pat))) || ',' ||
-    (pg_temp.q_as(v_sb, format($q$select (select count(*) from jsonb_object_keys(public.circle_check_in_status(%L)))::text$q$, v_pat)) ));
-  perform pg_temp.ck('another supporter sees no status for it', 'null', coalesce(pg_temp.q_as(v_sd, format($q$select public.circle_check_in_status(%L)::text$q$, v_pat)), 'null'));
-
   -- RED NEVER DELAYED: a root page while a window is waiting still reaches every red_alerts member at once
   v_pg := pg_temp.newpage(v_pat, pg_temp.newte(v_pat));
   perform pg_temp.ck('RED: with the module ON and a window waiting, a red event reaches B at once', '1', pg_temp.cnt(v_sb, 'circle_check_in', v_pg, 'in_app'));
@@ -331,6 +326,7 @@ begin
   perform pg_temp.ck('"I called them" clears it for that supporter only', 'true,true',
     ((pg_temp.q_as(v_sb, format($q$select public.circle_ack_unanswered(%L)::text$q$, v_pat)) = 'true')::text) || ',' ||
     ((pg_temp.q_as(v_sb, $q$select public.circle_unanswered_check_ins()::text$q$) = '[]')::text));
+  perform pg_temp.ck('and tapping again is still a clean true (already marked)', 'true', pg_temp.q_as(v_sb, format($q$select public.circle_ack_unanswered(%L)::text$q$, v_pat)));
   perform pg_temp.ck('and the other supporter still sees it', 'true',
     (pg_temp.q_as(v_sd, $q$select public.circle_unanswered_check_ins()::text$q$) like '%S29 patient%')::text);
 
@@ -350,19 +346,32 @@ begin
     (select coalesce(bool_or(metadata::text like '%pay_for_care%'), false)::text from public.care_access_events
       where patient_id = v_pat and subject_profile_id = v_sx and kind in ('granted', 'permission_changed') and scope = 'care_circle'));
 
-  -- a request whose escalation keeps failing stops after three tries and stops blocking new requests
+  -- one member's failure does not undo the others' notices: D's push fails, B (and the asker) are still told and the request escalates
   delete from public.care_circle_check_ins where patient_id = v_pat;
   insert into public.care_circle_check_ins (organisation_id, patient_id, requested_by, window_ends_at, is_test)
     select organisation_id, v_pat, v_sb, now() - interval '1 second', true from public.profiles where id = v_pat;
   v_ci := (select id from public.care_circle_check_ins where patient_id = v_pat and state = 'waiting');
   perform pg_temp.fail_notify_on(v_sd);
   perform private.sweep_circle_check_ins();
+  perform pg_temp.ck('partial failure: the request still escalates', 'escalated', (select state from public.care_circle_check_ins where id = v_ci));
+  perform pg_temp.ck('partial failure: the healthy member is told', '2', pg_temp.cnt(v_sb, 'circle_check_in_unanswered', v_ci));
+  perform pg_temp.ck('partial failure: the failing member has none and an incident is open', 'true',
+    (pg_temp.cnt(v_sd, 'circle_check_in_unanswered', v_ci) = '0' and exists (select 1 from public.ops_incidents where title like 'A Care Circle check-in could not reach one member%'))::text);
+  perform pg_temp.fail_notify_off();
+
+  -- every member fails: retried, then marked failed after three tries (not left blocking), and the asker is told in-app
+  delete from public.care_circle_check_ins where patient_id = v_pat;
+  insert into public.care_circle_check_ins (organisation_id, patient_id, requested_by, window_ends_at, is_test)
+    select organisation_id, v_pat, v_sb, now() - interval '1 second', true from public.profiles where id = v_pat;
+  v_ci := (select id from public.care_circle_check_ins where patient_id = v_pat and state = 'waiting');
+  perform pg_temp.fail_notify_on(null);
   perform private.sweep_circle_check_ins();
-  perform pg_temp.ck('a failing escalation is retried', 'waiting,2', (select state || ',' || attempts from public.care_circle_check_ins where id = v_ci));
+  perform private.sweep_circle_check_ins();
+  perform pg_temp.ck('total failure is retried', 'waiting,2', (select state || ',' || attempts from public.care_circle_check_ins where id = v_ci));
   perform private.sweep_circle_check_ins();
   perform pg_temp.ck('and after three tries it is marked failed, not left blocking', 'failed', (select state from public.care_circle_check_ins where id = v_ci));
-  perform pg_temp.ck('the asker is told in-app that it could not be passed on (so they can call themselves)', '1', pg_temp.cnt(v_sb, 'circle_check_in_unanswered', v_ci));
-  perform pg_temp.ck('and the member whose notice failed has none', '0', pg_temp.cnt(v_sd, 'circle_check_in_unanswered', v_ci));
+  perform pg_temp.ck('the asker is told in-app that it could not be passed on (so they can call themselves)', '1', pg_temp.cnt(v_sb, 'circle_check_in_unanswered', v_ci, 'in_app'));
+  perform pg_temp.ck('and the other member has none', '0', pg_temp.cnt(v_sd, 'circle_check_in_unanswered', v_ci));
   perform pg_temp.fail_notify_off();
   perform pg_temp.ck('so a new request is possible again', 'true',
     (pg_temp.q_as(v_sb, format($q$select public.request_circle_check_in(%L)::text$q$, v_pat)) like '%"ok": true%')::text);

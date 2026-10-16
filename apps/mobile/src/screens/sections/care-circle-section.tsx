@@ -29,22 +29,28 @@ function lagosDateTime(iso: string): string {
 export function CheckInCard() {
   const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
-  const [open, setOpen] = useState(false);
+  // null: not read yet or the read failed. Only a clear false closes the answer path; a failed read keeps it working.
+  const [open, setOpen] = useState<boolean | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [readFailed, setReadFailed] = useState(false);
   const [outcome, setOutcome] = useState<"answered" | "too_late" | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let alive = true;
-    void checkInWindowOpen().then((o) => {
-      if (alive) setOpen(o);
-    });
+    const read = () => {
+      void checkInWindowOpen().then((o) => {
+        if (alive && o !== null) setOpen(o);
+      });
+    };
+    read();
+    const timer = setInterval(read, 5 * 60_000);
     return () => {
       alive = false;
+      clearInterval(timer);
     };
   }, []);
   useEffect(() => {
-    if (!open) return;
+    if (open === false) return;
     let alive = true;
     const check = () => {
       void loadCheckInPending().then((w) => {
@@ -71,7 +77,7 @@ export function CheckInCard() {
     const timer = setTimeout(() => setOutcome(null), 10_000);
     return () => clearTimeout(timer);
   }, [outcome]);
-  if (!open) return null;
+  if (open === false) return null;
   if (outcome === "answered") return <MutedText>{t("circle.checkin.responded", locale)}</MutedText>;
   if (outcome === "too_late") return <MutedText>{t("circle.checkin.too_late", locale)}</MutedText>;
   if (!waiting) return readFailed ? <MutedText>{t("circle.checkin.read_failed", locale)}</MutedText> : null;
@@ -86,7 +92,11 @@ export function CheckInCard() {
           setFailed(false);
           void answerCheckIn().then((r) => {
             if (r === null) setFailed(true);
-            else setOutcome(r ? "answered" : "too_late");
+            else {
+              // the question is over either way: the card must not come back from a stale "waiting" when the thank-you clears
+              setWaiting(false);
+              setOutcome(r ? "answered" : "too_late");
+            }
           });
         }}
       />

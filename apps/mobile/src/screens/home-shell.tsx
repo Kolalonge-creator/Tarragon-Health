@@ -257,7 +257,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     const refresh = () => {
       void Promise.all([loadOpenAlerts(), loadUnanswered()]).then(([a, u]) => {
         // both reads must work: a failed one leaves the last known count rather than quietly lowering it
-        if (alive && a.ok && u.ok) setAttentionCount(needsAttentionCount(a.data) + u.data.length);
+        if (alive && a.ok && u.ok) setAttentionCount(needsAttentionCount(a.data, u.data));
       });
     };
     refresh();

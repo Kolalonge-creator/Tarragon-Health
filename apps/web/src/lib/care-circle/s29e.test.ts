@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { minutesLeft, parseCheckInPending, parseCheckInRequest, parseOpenAlerts, parsePreview, parseUnanswered } from "./model";
+import { attentionCount, minutesLeft, parseCheckInPending, parseCheckInRequest, parseOpenAlerts, parsePreview, parseUnanswered } from "./model";
 
 describe("S29e: supporters abroad and the check-in window (web parsers)", () => {
   it("the preview carries whether the supporter is across organisations", () => {
@@ -43,6 +43,11 @@ describe("S29e: supporters abroad and the check-in window (web parsers)", () => 
     expect(minutesLeft("2026-10-16T10:10:00Z", now)).toBe(10);
     expect(minutesLeft("2026-10-16T10:00:10Z", now)).toBe(1);
     expect(minutesLeft("2026-10-16T09:00:00Z", now)).toBe(1);
-    expect(minutesLeft("garbage", now)).toBe(5);
+    expect(minutesLeft("garbage", now)).toBeNull();
+  });
+
+  it("the badge counts distinct people across open requests and unanswered check-ins", () => {
+    expect(attentionCount([{ patient_id: "a", called: false }, { patient_id: "b", called: true }], [{ patient_id: "a" }, { patient_id: "c" }])).toBe(2);
+    expect(attentionCount([], [])).toBe(0);
   });
 });

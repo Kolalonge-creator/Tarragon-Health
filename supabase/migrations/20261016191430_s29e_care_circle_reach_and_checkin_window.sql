@@ -65,6 +65,13 @@ insert into public.care_circle_config (version, is_active, effective_from, rules
 $json$::jsonb);
 -- care-circle-rules-v4-end
 
+-- The channels a notice to the patient travels by: the inbox always, plus the patient's own reminder channel. One place, so the two
+-- expiry warnings and the check-in ask can never route differently.
+create function private.circle_patient_channels(p_patient uuid) returns text[]
+language sql stable security definer set search_path = ''
+as $$ select array(select distinct c from unnest(array['in_app', private.patient_reminder_channel(p_patient)::text]) c) $$;
+revoke all on function private.circle_patient_channels(uuid) from public, anon, authenticated;
+
 -- ---------------------------------------------------------------------------
 -- 2. Expiry warnings travel by the patient's own reminder channel (in-app is always written)
 -- ---------------------------------------------------------------------------
@@ -84,26 +91,34 @@ begin
             where m.state = 'active' and m.expires_at > now() + make_interval(days => v_final)
               and m.expires_at <= now() + make_interval(days => v_first) and m.notice_first_for is distinct from m.expires_at loop
     begin
-      v_channels := array(select distinct c from unnest(array['in_app', private.patient_reminder_channel(r.patient_id)::text]) c);
+      v_channels := private.circle_patient_channels(r.patient_id);
       perform private.circle_notify_always(r.patient_id, r.organisation_id, 'circle_expiring', 'care_circle_members', r.id, v_channels, 'routine');
       update public.care_circle_members set notice_first_for = expires_at where id = r.id;
     exception when others then
       -- one failing row must not stop the sweep (expiry, the final notice and the pause notices for everyone else); it stays due and
       -- is tried again next hour, and an open incident says so
-      perform private.page_incident(r.organisation_id, 'circle_expiry_notice_failed:' || r.id, 'A Care Circle expiry warning could not be sent',
-        'The warning that a supporter''s access is ending (' || r.id || ') failed: ' || sqlerrm);
+      begin
+        perform private.page_incident(r.organisation_id, 'circle_expiry_notice_failed:' || r.id, 'A Care Circle expiry warning could not be sent',
+          'The warning that a supporter''s access is ending (' || r.id || ') failed: ' || sqlerrm);
+      exception when others then
+        raise warning 'circle expiry warning and its incident both failed for %: %', r.id, sqlerrm;
+      end;
     end;
   end loop;
   for r in select m.id, m.patient_id, m.organisation_id from public.care_circle_members m
             where m.state = 'active' and m.expires_at > now() and m.expires_at <= now() + make_interval(days => v_final)
               and m.notice_final_for is distinct from m.expires_at loop
     begin
-      v_channels := array(select distinct c from unnest(array['in_app', private.patient_reminder_channel(r.patient_id)::text]) c);
+      v_channels := private.circle_patient_channels(r.patient_id);
       perform private.circle_notify_always(r.patient_id, r.organisation_id, 'circle_expiring_soon', 'care_circle_members', r.id, v_channels, 'routine');
       update public.care_circle_members set notice_final_for = expires_at, notice_first_for = expires_at where id = r.id;
     exception when others then
-      perform private.page_incident(r.organisation_id, 'circle_expiry_notice_failed:' || r.id, 'A Care Circle expiry warning could not be sent',
-        'The final warning that a supporter''s access is ending (' || r.id || ') failed: ' || sqlerrm);
+      begin
+        perform private.page_incident(r.organisation_id, 'circle_expiry_notice_failed:' || r.id, 'A Care Circle expiry warning could not be sent',
+          'The final warning that a supporter''s access is ending (' || r.id || ') failed: ' || sqlerrm);
+      exception when others then
+        raise warning 'circle expiry warning and its incident both failed for %: %', r.id, sqlerrm;
+      end;
     end;
   end loop;
   for r in update public.care_circle_members set state = 'expired' where state = 'active' and expires_at <= now()
@@ -272,8 +287,8 @@ create unique index care_circle_check_ins_one_waiting on public.care_circle_chec
 create index care_circle_check_ins_due on public.care_circle_check_ins (window_ends_at) where state = 'waiting';
 create index care_circle_check_ins_by_requester on public.care_circle_check_ins (requested_by, patient_id, requested_at desc);
 alter table public.care_circle_check_ins enable row level security;
--- No direct access at all: the patient must not learn WHICH supporter asked (the notice is neutral), and a supporter reads only their
--- own request through circle_check_in_status. Every read and write goes through the functions below.
+-- No direct access at all: the patient must not learn WHICH supporter asked (the notice is neutral), and a supporter reads nothing of it
+-- directly. Every read and write goes through the functions below.
 revoke all on public.care_circle_check_ins from anon, authenticated, public;
 
 create function public.request_circle_check_in(p_patient uuid) returns jsonb
@@ -305,7 +320,7 @@ begin
   returning id into v_id;
   if v_id is null then return jsonb_build_object('ok', false, 'reason', 'already_waiting'); end if;
   -- only the patient is told, neutrally: no name, no reading, nothing about who asked
-  v_channels := array(select distinct c from unnest(array['in_app', private.patient_reminder_channel(p_patient)::text]) c);
+  v_channels := private.circle_patient_channels(p_patient);
   perform private.circle_notify_always(p_patient, m.organisation_id, 'circle_check_in_asked', 'care_circle_check_ins', v_id, v_channels, 'routine');
   return jsonb_build_object('ok', true, 'window_ends_at', v_ends);
 end $$;
@@ -322,17 +337,6 @@ begin
   get diagnostics n = row_count;
   return n > 0;
 end $$;
-
--- A supporter reads only their own latest request about that person: its state and when the window ends, nothing else.
-create function public.circle_check_in_status(p_patient uuid) returns jsonb
-language sql stable security definer set search_path = ''
-as $$
-  select to_jsonb(x) from (
-    select c.state, c.requested_at, c.window_ends_at
-      from public.care_circle_check_ins c
-     where c.requested_by = (select auth.uid()) and c.patient_id = p_patient
-     order by c.requested_at desc limit 1) x
-$$;
 
 -- Whether the window is open at all, so a screen shows the button only while the Chief Medical Officer's go-live is on.
 create function public.circle_checkin_window_enabled() returns boolean
@@ -380,7 +384,10 @@ begin
      and resolved_at > now() - make_interval(hours => (private.circle_rules() ->> 'alert_visible_hours')::integer)
      and not ((select auth.uid()) = any (called_by));
   get diagnostics n = row_count;
-  return true;
+  -- true when this tap marked something, or it was already marked; false when there was nothing recent to mark
+  return n > 0 or exists (select 1 from public.care_circle_check_ins c
+                           where c.patient_id = p_patient and c.state = 'escalated' and (select auth.uid()) = any (c.called_by)
+                             and c.resolved_at > now() - make_interval(hours => (private.circle_rules() ->> 'alert_visible_hours')::integer));
 end $$;
 
 -- Escalation: a request nobody answered inside the window tells the circle, neutrally, like any other check-in request. A failure to
@@ -389,20 +396,35 @@ end $$;
 create function private.sweep_circle_check_ins() returns integer
 language plpgsql security definer set search_path = ''
 as $$
-declare r record; s record; n integer := 0; v_attempts integer;
+declare r record; s record; n integer := 0; v_attempts integer; v_ok integer; v_bad integer;
 begin
   for r in select * from public.care_circle_check_ins where state = 'waiting' and window_ends_at <= now() order by window_ends_at for update skip locked loop
     begin
       -- the patient paused check-in requests since asking: nobody is told, and the request ends
+      v_ok := 0; v_bad := 0;
       if not private.circle_alerts_paused(r.patient_id) then
         for s in
           select m.supporter_id, m.alert_mode from public.care_circle_members m join public.profiles sp on sp.id = m.supporter_id and sp.is_active
            where m.patient_id = r.patient_id and m.state = 'active' and m.expires_at > now() and 'red_alerts' = any (m.permissions)
              and sp.is_test = r.is_test
         loop
-          perform private.circle_notify(s.supporter_id, r.organisation_id, 'circle_check_in_unanswered', 'care_circle_check_ins', r.id,
-                                        case when s.alert_mode = 'app_only' then array['in_app'] else array['in_app', 'push'] end, 'critical', r.is_test);
+          -- one member's failure must not undo the others' notices (the red-alert trigger isolates each member the same way)
+          begin
+            perform private.circle_notify(s.supporter_id, r.organisation_id, 'circle_check_in_unanswered', 'care_circle_check_ins', r.id,
+                                          case when s.alert_mode = 'app_only' then array['in_app'] else array['in_app', 'push'] end, 'critical', r.is_test);
+            v_ok := v_ok + 1;
+          exception when others then
+            v_bad := v_bad + 1;
+            begin
+              perform private.page_incident(r.organisation_id, 'circle_checkin_member_failed:' || r.id || ':' || s.supporter_id, 'A Care Circle check-in could not reach one member',
+                'A check-in request (' || r.id || ') went unanswered, but telling one member of the patient''s Care Circle failed: ' || sqlerrm);
+            exception when others then
+              raise warning 'circle check-in member notice and its incident both failed for %: %', r.id, sqlerrm;
+            end;
+          end;
         end loop;
+        -- somebody was told, or nobody needed to be: the request is escalated. Nobody told although people were due: try again.
+        if v_ok = 0 and v_bad > 0 then raise exception 'no member of the circle could be told'; end if;
       end if;
       update public.care_circle_check_ins set state = 'escalated', resolved_at = now() where id = r.id;
       n := n + 1;
@@ -441,7 +463,6 @@ select cron.schedule('care-circle-checkin-sweep', '* * * * *', $$ select private
 -- ---------------------------------------------------------------------------
 revoke all on function public.request_circle_check_in(uuid) from public, anon;
 revoke all on function public.respond_to_circle_check_in() from public, anon;
-revoke all on function public.circle_check_in_status(uuid) from public, anon;
 revoke all on function public.circle_checkin_window_enabled() from public, anon;
 revoke all on function public.circle_check_in_pending() from public, anon;
 revoke all on function public.circle_unanswered_check_ins() from public, anon;
@@ -452,12 +473,11 @@ grant execute on function public.circle_checkin_window_enabled() to authenticate
 grant execute on function public.circle_check_in_pending() to authenticated;
 grant execute on function public.request_circle_check_in(uuid) to authenticated;
 grant execute on function public.respond_to_circle_check_in() to authenticated;
-grant execute on function public.circle_check_in_status(uuid) to authenticated;
 
 do $$
 declare f text;
 begin
-  foreach f in array array['public.request_circle_check_in(uuid)', 'public.respond_to_circle_check_in()', 'public.circle_check_in_status(uuid)', 'public.circle_checkin_window_enabled()', 'public.circle_check_in_pending()', 'public.circle_unanswered_check_ins()', 'public.circle_ack_unanswered(uuid)',
+  foreach f in array array['public.request_circle_check_in(uuid)', 'public.respond_to_circle_check_in()', 'public.circle_checkin_window_enabled()', 'public.circle_check_in_pending()', 'public.circle_unanswered_check_ins()', 'public.circle_ack_unanswered(uuid)',
                            'public.preview_care_circle_invite(text)', 'private.sweep_circle_check_ins()', 'private.circle_members_cross_org_permissions()'] loop
     if has_function_privilege('anon', f, 'EXECUTE') then raise exception 'anon can execute %', f; end if;
   end loop;
