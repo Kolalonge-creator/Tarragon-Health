@@ -99,8 +99,8 @@ export async function generateBackupCodesRemote(
   }
   if (b.reason === "daily_limit") return { kind: "error", key: "account.backup_codes.error_daily_limit" };
   if (res.status === 429 || b.reason === "rate_limited") return { kind: "error", key: "auth.error.rate_limited" };
-  // A 5xx after the password check may follow a made set; a 400 'invalid' did not reach it.
-  if (res.status >= 500) return { kind: "error", key: "account.backup_codes.error_unsure" };
+  // Only a failure AFTER the password check (the server says so) may follow a made set; anything earlier changed nothing.
+  if (b.reason === "generation_failed") return { kind: "error", key: "account.backup_codes.error_unsure" };
   return { kind: "error", key: "auth.error.generic" };
 }
 

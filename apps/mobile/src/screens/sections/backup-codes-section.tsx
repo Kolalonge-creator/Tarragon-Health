@@ -143,9 +143,9 @@ export function BackupCodesSection() {
           {confirming ? (
             <View style={{ gap: 10 }}>
               <MutedText>
-                {status && status.total > 0
-                  ? ta("account.backup_codes.confirm_replace", locale)
-                  : ta("account.backup_codes.confirm_first", locale)}
+                {status && status.total === 0
+                  ? ta("account.backup_codes.confirm_first", locale)
+                  : ta("account.backup_codes.confirm_replace", locale)}
               </MutedText>
               <TextInput
                 accessibilityLabel={ta("account.backup_codes.password_label", locale)}
@@ -176,7 +176,7 @@ export function BackupCodesSection() {
             </View>
           ) : (
             <SecondaryButton
-              title={status && status.total > 0 ? ta("account.backup_codes.remake", locale) : ta("account.backup_codes.make", locale)}
+              title={status && status.total === 0 ? ta("account.backup_codes.make", locale) : ta("account.backup_codes.remake", locale)}
               onPress={() => setConfirming(true)}
             />
           )}

@@ -185,12 +185,19 @@ export async function handleHookRequest(req: Request, deps: HookDeps): Promise<R
   } catch {
     return hookError(400, "invalid_body");
   }
-  const phone = payload.user?.phone;
   const otp = payload.sms?.otp;
-  if (!phone || !E164.test(phone.startsWith("+") ? phone : `+${phone}`) || !otp || !/^\d{4,10}$/.test(otp)) {
-    return hookError(400, "invalid_payload");
-  }
-  let to = phone.startsWith("+") ? phone : `+${phone}`;
+  if (!otp || !/^\d{4,10}$/.test(otp)) return hookError(400, "invalid_payload");
+  // A first-time number add arrives with no current phone and the number in the pending field, so either may carry the destination.
+  const asE164 = (n: string | undefined): string | null => {
+    if (!n) return null;
+    const e = n.startsWith("+") ? n : `+${n}`;
+    return E164.test(e) ? e : null;
+  };
+  const current = asE164(payload.user?.phone);
+  const pendingTo = asE164(payload.user ? pendingNumber(payload.user) : undefined);
+  const changeCode = isPhoneChangeCode(payload.user ?? {}, now);
+  const to = changeCode && pendingTo ? pendingTo : current;
+  if (!to) return hookError(400, "invalid_payload");
   const userId = payload.user?.id ?? null;
 
   // 2. The recovery pause (OQ-43). The code for a pending number change is the one thing that must still go out, and it goes to the
@@ -200,11 +207,7 @@ export async function handleHookRequest(req: Request, deps: HookDeps): Promise<R
   // id cannot be checked, so it is refused (fail closed).
   if (!userId) return hookError(400, "invalid_payload");
   let withhold = false;
-  if (isPhoneChangeCode(payload.user ?? {}, now)) {
-    const pending = pendingNumber(payload.user ?? {});
-    const pendingE164 = pending.startsWith("+") ? pending : `+${pending}`;
-    if (E164.test(pendingE164)) to = pendingE164;
-  } else {
+  if (!changeCode) {
     try {
       withhold = await deps.holds.isHeld(userId);
     } catch {

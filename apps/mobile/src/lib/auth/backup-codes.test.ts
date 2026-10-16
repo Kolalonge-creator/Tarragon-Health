@@ -55,7 +55,9 @@ describe("generateBackupCodesRemote", () => {
   });
   it("never says 'nothing changed' when the answer was lost or malformed after the server may have acted", async () => {
     expect(await generateBackupCodesRemote(ok, down, BASE)).toEqual({ kind: "error", key: "account.backup_codes.error_unsure" });
-    expect(await generateBackupCodesRemote(ok, reply(503, { ok: false, reason: "unavailable" }), BASE)).toEqual({ kind: "error", key: "account.backup_codes.error_unsure" });
+    expect(await generateBackupCodesRemote(ok, reply(503, { ok: false, reason: "generation_failed" }), BASE)).toEqual({ kind: "error", key: "account.backup_codes.error_unsure" });
+    // a failure before anything was made says so plainly
+    expect(await generateBackupCodesRemote(ok, reply(503, { ok: false, reason: "unavailable" }), BASE)).toEqual({ kind: "error", key: "auth.error.generic" });
   });
   it("posts the password in the body (never the URL) with the bearer token and returns the codes once", async () => {
     const f = reply(200, { ok: true, codes: SET });

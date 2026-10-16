@@ -74,7 +74,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (/backup_codes_rate_limited/.test(error.message)) {
       return NextResponse.json({ ok: false, reason: "daily_limit" }, { status: 429, headers: NO_STORE });
     }
-    return NextResponse.json({ ok: false, reason: "unavailable" }, { status: 503, headers: NO_STORE });
+    // After the password step-up: the set may or may not have been made, so the phone is told to check the count.
+    return NextResponse.json({ ok: false, reason: "generation_failed" }, { status: 503, headers: NO_STORE });
   }
   return NextResponse.json({ ok: true, codes: data ?? [] }, { headers: NO_STORE });
 }

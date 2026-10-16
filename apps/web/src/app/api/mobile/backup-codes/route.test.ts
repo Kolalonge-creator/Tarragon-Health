@@ -80,6 +80,7 @@ describe("POST", () => {
     rpc.mockResolvedValue({ data: null, error: { message: "step_up_required" } });
     const failed = await POST(req({ password: "x" }));
     expect(failed.status).toBe(503);
+    expect(await failed.clone().json()).toEqual({ ok: false, reason: "generation_failed" });
     expect(JSON.stringify(await failed.json())).not.toMatch(/codes/);
   });
 });

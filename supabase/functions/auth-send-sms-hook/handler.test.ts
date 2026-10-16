@@ -346,3 +346,13 @@ Deno.test("a payload with no user id cannot be checked and is refused", async ()
   assertEquals(res.status, 400);
   assertEquals(d.provider.sent.length, 0);
 });
+
+Deno.test("a first-time number add (no current phone, number in the pending field) is sent to the pending number", async () => {
+  const d = deps();
+  const body = JSON.stringify({ user: { id: "u-9", phone: "", new_phone: "2348066665555", phone_change_sent_at: iso(1) }, sms: { otp: OTP } });
+  assertEquals((await handleHookRequest(await signedRequest({ body }), d)).status, 200);
+  assertEquals(d.provider.sent[0].to, "+2348066665555");
+  // with neither a current phone nor a provable change code there is nowhere to send
+  const none = JSON.stringify({ user: { id: "u-9", phone: "" }, sms: { otp: OTP } });
+  assertEquals((await handleHookRequest(await signedRequest({ body: none }), deps())).status, 400);
+});
