@@ -1,4 +1,5 @@
-import type { ProviderResult } from "./result.ts";
+import { isUuid } from "./ids.ts";
+import { fail, type ProviderResult } from "./result.ts";
 
 /**
  * Identity verification for clinician onboarding (P5, plan item R8, decision D6): NIN or BVN lookup plus a face match against the
@@ -7,8 +8,10 @@ import type { ProviderResult } from "./result.ts";
  * `identityFromEnv` once they decide. Rules every adapter must keep:
  * - The raw ID number and the selfie exist for the length of one call. They are NEVER returned, logged, put in an error or
  *   stored by the caller; what is kept is the outcome, the last four digits and the vendor's reference (`IdentityOutcome`).
- * - A call needs a recorded consent id (an opaque uuid). The adapter checks the id is well formed; the caller proves the consent
- *   row exists before it asks.
+ * - A call needs a recorded consent id (an opaque uuid). FAIL CLOSED (OQ-352): `selectIdentity` always returns the provider behind
+ *   `withConsentCheck`, which asks a `ConsentLookup` whether a live stored consent row exists for THIS subject and THIS consent id,
+ *   and refuses (`consent_required`, never retried) when the answer is no, when the lookup is missing, or when it throws.
+ *   The lookup in production is `rpcConsentLookup` over `public.identity_consent_valid` (service role only).
  * - The subject is an opaque uuid (a profile id), never a name, so a vendor log cannot identify a person on its own.
  * - Nothing here suspends, approves or activates anyone. A failed or inconclusive outcome is information for a human reviewer
  *   (a verification can fail because the national database is down), never an automatic rejection.
@@ -61,3 +64,54 @@ export const isIdNumberShape = (s: unknown): s is string => typeof s === "string
 
 /** The last four digits of a well-formed number. */
 export const idLast4Of = (idNumber: string): string => idNumber.slice(-4);
+
+/** Answers: is there a live (not withdrawn) stored consent row with this id for this subject AND this ID kind? Must never throw; a throw is read as "no". */
+export type ConsentLookup = (subjectRef: string, consentId: string, idKind: IdKind) => Promise<boolean>;
+
+/**
+ * Puts the consent check in front of any identity provider. The vendor is not called unless the lookup says yes. A missing lookup
+ * (`null`), a lookup that throws and a lookup that says no all refuse the same way, so a caller that forgets to wire the check
+ * gets a refusal, never an unchecked vendor call.
+ */
+export function withConsentCheck(inner: IdentityVerificationProvider, lookup: ConsentLookup | null): IdentityVerificationProvider {
+  return {
+    name: inner.name,
+    isMock: inner.isMock,
+    async verify(input: VerifyIdentityInput): Promise<ProviderResult<IdentityOutcome>> {
+      if (!isUuid(input.consentId) || !isUuid(input.subjectRef)) return fail("consent_required", "A recorded consent is required before an identity check", false);
+      if (lookup === null) return fail("consent_required", "The consent could not be checked, so no identity check was made", false);
+      let allowed = false;
+      try {
+        allowed = (await lookup(input.subjectRef, input.consentId, input.idKind)) === true;
+      } catch {
+        allowed = false;
+      }
+      if (!allowed) return fail("consent_required", "No live consent could be confirmed for this person and ID kind, so no identity check was made", false);
+      return inner.verify(input);
+    },
+  };
+}
+
+/** The shape of a Supabase client's `rpc` that the lookup needs (kept structural so this file imports no client). */
+export type ConsentRpc = (fn: string, args: Record<string, string>) => PromiseLike<{ readonly data: unknown; readonly error: unknown }>;
+
+/**
+ * The production lookup: `public.identity_consent_valid(p_consent, p_subject, p_id_kind)`, callable by the service role only. Any error
+ * answers false (fail closed), but a broken lookup must not look like a missing consent: `onError` (give it a console.error) gets the
+ * reason, which carries no consent id, subject or ID number.
+ */
+export function rpcConsentLookup(rpc: ConsentRpc, onError: (reason: string) => void = () => undefined): ConsentLookup {
+  return async (subjectRef, consentId, idKind) => {
+    try {
+      const r = await rpc("identity_consent_valid", { p_consent: consentId, p_subject: subjectRef, p_id_kind: idKind });
+      if (r.error !== null && r.error !== undefined) {
+        onError("identity consent lookup failed (the database refused the call)");
+        return false;
+      }
+      return r.data === true;
+    } catch {
+      onError("identity consent lookup failed (could not reach the database)");
+      return false;
+    }
+  };
+}
