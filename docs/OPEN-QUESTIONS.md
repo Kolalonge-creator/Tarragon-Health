@@ -3839,3 +3839,37 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - None are sent (INV-07 by absence; no streak or missed-day message exists). If the founder later wants a "you earned points" notice it must be neutral and key-based.
 - Decision: informational.
 
+
+## EMP: employer seat pilot kit (2026-10-16). Conservative defaults taken; nothing needs a decision to merge, several need one before the pilot is switched on.
+
+### OQ-EMP-1 Paystack payment link: finance records receipt, no new webhook kind
+- Chosen: the pilot invoice is paid by bank transfer or a Paystack payment link created by hand in the Paystack dashboard; finance SEES the money and records the method and reference (`confirm_employer_seat_pilot_payment`, idempotent, unique reference). Why: a new `metadata.kind` in the deployed `paystack-webhook` function touches the highest-risk deployed edge function and the S25 order path for a B2B one-off. Alternative: add a signed webhook kind that activates the pilot on a verified `charge.success`. Not built.
+- Decision: open (founder). Counsel: none.
+
+### OQ-EMP-2 No general ledger posting for a pilot invoice
+- The invoice is an `employer_invoices` row; its paid status is finance's record. No journal entry is posted, no account was invented (S25 posting design not read for B2B revenue). Finance decides the accounts for employer seat revenue and deferral over the 12 month term.
+- Decision: open (finance).
+
+### OQ-EMP-3 No condition or programme uptake count in the employer report
+- The report counts members with a completed consultation, consultations completed, and members who logged any check-in. A chronic-programme or screening-result count would let an employer infer a condition in a small workforce (the Ovia risk, spec 2180). A general "annual health check started" count is also left out until the CMO and DPO approve its definition.
+- Decision: open (CMO, DPO).
+
+### OQ-EMP-4 A departed employee's seat is not reusable
+- Pilot seats are counted by seats ever made (any state). A leaver's seat is not given to a replacement. Alternative: free the seat if the leaver departs within N days of joining.
+- Decision: open (founder).
+
+### OQ-EMP-5 Re-identification by differencing across weekly reports
+- Defences: minimum cell (the greater of the organisation's `min_cohort_size`, default 10, and 5), complementary suppression, figures only through the last completed Lagos week, counts rounded to the nearest 5. Residual: two reports weeks apart can still be subtracted for a small group. Option: freeze a stored snapshot per week and never re-serve a changed past week. Counsel and DPO to say whether this is enough for a first pilot; the default for a small employer is to raise `organisations.min_cohort_size` to 10 or more.
+- Decision: open (DPO).
+
+### OQ-EMP-6 VAT, withholding tax and invoice wording
+- The invoice carries the naira total only. Whether VAT applies to a health-service seat, withholding tax, and a purchase order field are counsel/finance points. Flagged NEEDS COUNSEL in the terms draft.
+- Decision: open (counsel, finance).
+
+### OQ-EMP-7 Legal drafts need counsel
+- `docs/legal/employer-pilot-terms-DRAFT.md` and `docs/legal/employee-pilot-notice-DRAFT.md`: roles of controller and processor for the roster (employer to Tarragon), lawful basis for the work-email match, voluntariness inside an employment relationship, the DPA attachment, refund position, governing law, liability.
+- Decision: open (counsel). Not for sending.
+
+### OQ-EMP-8 A claim outside the window is named "pilot_closed" even before the window opens
+- Roster `seat_state` has one word for "no seat because of the window", used both before the window starts and after it ends or the pilot ended. The runbook asks ops to read the dates. Alternative: a separate `pilot_not_open` state.
+- Decision: informational.

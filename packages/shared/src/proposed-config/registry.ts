@@ -2914,6 +2914,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (D2, C3, C10); supabase/migrations/20261013003317_two_tier_membership_pricing.sql",
   },
   {
+    key: "employer.seat_pilot",
+    // EMP (docs/design/EMP.md): limits for an employer seat pilot, and the privacy floor for its report. max_seats_per_pilot and
+    // max_window_days stop a typo in a finance form; report_min_cell_floor is the smallest figure the employer report may ever show
+    // (the organisation's own min_cohort_size applies when it is higher, I9); usage counts are shown rounded to report_round_to. The
+    // price is NOT here: a pilot seat is priced at the organisation price in force (commerce.membership_prices). Mirrored by
+    // employer_seat_pilot_config in the migration seed, with a drift test. UNSIGNED: the founder and the DPO have not approved the floor.
+    value: { max_seats_per_pilot: 500, max_window_days: 120, report_min_cell_floor: 5, report_round_to: 5 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/EMP.md; supabase/migrations/20261016183429_employer_seat_pilot_kit.sql",
+  },
+  {
     key: "membership.lapse",
     // Founder decision 2026-10-12: when a Membership year ENDS NATURALLY the person keeps Member status for a 14 day grace, then is
     // Free again (state lapsed). A refund is different: it ends Member access at once (membership.refund, decision 2026-10-12). Renewal reminders go 30, 14 and 7 days before the end (in-app, push or email; never SMS). Mirrored by
