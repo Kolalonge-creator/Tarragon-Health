@@ -801,6 +801,7 @@ export function getNavSections(
             { label: "Triage agreement", href: "/admin/triage-agreement", icon: "analytics" },
             // Fee schedules, what contracted clinicians have earned, adjustments (S30).
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
+            { label: "Earnings questions", href: "/admin/earnings/disputes", icon: "analytics" },
             { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
             // How each laboratory, pharmacy and clinic is doing; pause or reinstate from new work (S74).
             { label: "Partner quality", href: "/admin/partner-quality", icon: "governance" },

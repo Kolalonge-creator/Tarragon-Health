@@ -1339,6 +1339,7 @@ s27h_lab_lifecycle_and_quality.sql
 
 
 
+
 # --- Added 2026-10-16 (S28e) ------------------------------------------------
 # Pharmacy readiness and reach: one visit and one code for several prescriptions (all or nothing, the lock belongs to the visit, each medicine is its own
 # supply with its own controlled-medicine check and the shared supply count), stock confirmation as a plain yes or no, and the pharmacy scorecard
@@ -1351,3 +1352,10 @@ s26b_entitlement_and_refund_hardening.sql
 # --- Added 2026-10-21 (OQ-192) ---
 # OQ-192 live audit fix: vaccination writes need manage + unexpired + vaccinations category, buying needs manage_payments, expired grants open nothing, plus a scan that fails on any new bare profile_access policy. Sabotage: the old vaccination_records_insert policy and the old can_purchase_voucher_for put back; both holes reappear (2 sabotage rows must read as the old behaviour).
 oq192_profile_access_permission_tightening.sql
+
+
+# --- Added 2026-10-16 (S30b) -----------------------------------------------
+# Earnings completeness: a dispute holds only its own line out of the payout and resolves into an append-only adjustment; withholding is
+# stored never computed and blocks a send; per-line pay status follows the S31 payout (with retry); the pilot-minimum activity check holds
+# a suspicious top-up for a person; a late line is netted once. Five sabotage steps (dispute guard, ledger guard, withholding guard, activity check).
+s30b_earnings_disputes_withholding_pilot.sql

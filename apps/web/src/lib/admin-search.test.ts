@@ -91,6 +91,8 @@ describe("the real admin menus", () => {
     expect(top("payout")).toContain("/admin/earnings");
     expect(top("adjustment")).toContain("/admin/earnings");
     expect(top("weekly payout")).toContain("/admin/payouts");
+    expect(top("earnings dispute")).toContain("/admin/earnings/disputes");
+    expect(top("held top up")).toContain("/admin/earnings/disputes");
   });
 
   it("finds the testing days and employer visits page (every console page needs a search entry)", () => {
