@@ -1136,6 +1136,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) leave until `profile_access` has real rows and the family flow is next reviewed; (b) tighten each to the matching category or permission now (a change to the RLS surface of several tables, to be proved with a simulated session and a control).
 - Recommendation: (b) in its own small session, before any real caregiver grant is created.
 - **Fixed by S71 (2026-10-07), except the profile row (OQ-404):** paying needs a Care Circle `pay_for_care` or a `manage` grant with `manage_payments`; `booking_requests`, `vaccination_adverse_events` and `vaccination_card_extractions` reads need the matching permission or category; `profiles_select` refuses expired and empty grants.
+- **Status re-check 2026-10-16**: live `create_order` is the S71 version (it calls `private.order_beneficiary_check`, which needs a Care Circle `pay_for_care` or `can_act_for(..., manage_payments)`), so the addendum below (any grantee can pay) is closed. Still unaudited: the vaccination record and schedule UPDATE policies and any function bodies that read `profile_access` bare; the live database was unreachable, so no migration was written. See `docs/design/OQ192-and-oq-renumber.md`.
 
 ### OQ-220 Supporters abroad: organisation, signup and the join link (raised by S29)
 - The Care Circle, like the older care-access guard, requires the supporter and the patient to share an `organisation_id`. A supporter signing up from the diaspora lands in the default organisation today, so it works, but only because there is one. Signing up from an invite link loses the link across the email-verification redirect (the user reopens it).
@@ -1157,7 +1158,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - **Decided 2026-10-06 (founder): add the Vault secret.** Built: the S29 migration creates the Vault secret `care_circle_contact_pepper` (random per environment, if absent) and hashes invitee contacts with HMAC-SHA256 under it (`private.circle_contact_hash`); with no secret an invite fails closed (`circle_not_configured`). Rotating the secret makes every pending invite unusable. The payer-sees-membership-state message stays as it is.
 
 ### OQ-499 addendum (2026-10-06): live `create_order` already let any `profile_access` grantee pay
-- S26's `create_order` (live since 2026-10-06) allows ANY `profile_access` grantee, whatever their permissions, to buy for the patient. The S29 `create_order` keeps that path (so nothing live changes) beside the Care Circle `pay_for_care` path, with the organisation and test-flag checks added to both. A gift that grants a lead now waits for the patient's yes whichever path paid. Tightening the older path to `manage_payments` is part of OQ-499.
+- S26's `create_order` (live since 2026-10-06) allows ANY `profile_access` grantee, whatever their permissions, to buy for the patient. The S29 `create_order` keeps that path (so nothing live changes) beside the Care Circle `pay_for_care` path, with the organisation and test-flag checks added to both. A gift that grants a lead now waits for the patient's yes whichever path paid. Tightening the older path to `manage_payments` is part of OQ-192.
 
 
 
@@ -2006,6 +2007,7 @@ Built on top of F1; nothing applied to production; `symptom_checker_enabled` sta
 - `20261007142457_s60_regulatory_position_and_guard_wiring.sql` patches two live function bodies (`public.attest_go_live_condition`, `private.go_live_conditions`) with `replace()` on a marker, as F1 did, and raises if a marker is missing. That fails loudly rather than silently, but it is brittle: a later edit to either function can break a replay, and each new record-backed condition adds another patch.
 - Proper fix: a small data-driven table (`go_live_condition_evidence`: guard key, condition code, a SQL-free evidence kind such as `exists_row:regulatory_positions:clearing`) read by one generic check inside the two functions, so a new record-backed condition is a row, not a function rewrite. Not done here because it rewrites both functions wholesale and re-proves every S37 and F1 guard proof; that is its own PR.
 - Decision: open (engineering follow-up, no founder input).
+- A second build of S60 patched the same two functions in `20261007131744_s60_regulatory_position_and_guard_wiring.sql`; same question, folded into this entry on 2026-10-16.
 ### OQ-S55-01 The spec says en and pcm; the product is English only (D-14)
 - Blocks: nothing built; the `learn` namespace is English only and `LOCALES` is `["en"]`.
 - Conflict: S55 asks for `learn` strings in en and pcm. Founder decision D-14 (2026-10-07, reverses D-13) removed Pidgin and every other language because unreviewed clinical translation is a safety risk.
@@ -3643,7 +3645,7 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - Decision: open (CMO, with the triage rule set).
 
 ### OQ-670 Who may review (raised by S52)
-- Only the Chief Medical Officer can open the monthly review, in line with "the clinical lead can audit every conversation". A second reviewer (a senior clinician with a tie) would need a purpose-built grant. The reviewer page lives in `apps/web` under `/clinician`, not in the console (OQ-543).
+- Only the Chief Medical Officer can open the monthly review, in line with "the clinical lead can audit every conversation". A second reviewer (a senior clinician with a tie) would need a purpose-built grant. The reviewer page lives in `apps/web` under `/clinician`, not in the console (OQ-99 and OQ-209).
 - Decision: open (CMO).
 
 ### OQ-671 AI-020 needs its governance criteria before it can be switched on (raised by S52)
@@ -3665,14 +3667,6 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - Open: lessons with no `drip_week` are available in any week and sort after dated ones; the CMO should set `drip_week` on every micro-lesson when authoring so weeks do not repeat or skip.
 - Decision: founder decided; the drip_week authoring note is open.
 
-### OQ-S55-15 Creator series are a members-only perk, with a switch (founder decision 2026-10-07)
-- Content with a creator credit (`creator_id`) is locked for anyone who is not a Member (`private.patient_is_member`), a lapsed Member and anyone signed out. They get the title, the creator credit and the summary (the teaser); the body, video, audio, check question, lesson action and self-care text are withheld by the database (detail, library, feed, programme detail, trust, weekly lesson, shared link, offline pack and its status, a direct table select, and a progress write). The two AI knowledge-base searches leave creator content out for everyone. Staff, admins and the creator themselves are never locked. No payout or payment logic. Core non-creator content stays free.
-- The switch is `learning_config` key `creator_perk` `{"members_only": true}` (PROPOSED, mirrored in proposed-config `learning.creator_perk`). An admin changes it with `set_learning_creator_perk(boolean, reason)` (new version row, audited, no deploy). A missing value fails closed (locked). There is no admin screen for it yet.
-- Open: (a) a Member's caregiver or a Care Circle member acting for a Member is judged on their own membership, not the patient's; confirm whether a gifted or circle Membership should unlock for the circle. (b) The summary is the teaser; confirm authors write it as one. (c) A phone that is offline keeps lessons it already downloaded until its next refresh, so a lapsed Member can still read downloaded creator lessons until then (online reads lock at once, and the next refresh removes them); closing that would need the Membership state kept on the phone. (d) The perk is OFF in effect today because no creator content exists and the creator programme stays off.
-- Also recorded (not changed): a shared link opens in the anon client, so a signed-in Member who opens a shared creator link sees the teaser there and reads the lesson inside the app; a care-event recommendation that points at a creator lesson is not shown to a non-member (the lesson row is hidden, so its card is dropped); opening a locked lesson records nothing (a "seen" write is skipped, "understood" is refused).
-- The weekly clock: a condition track counts from its active care plan; the general track counts from the earlier of onboarding and first engagement, so finishing a first lesson never resets it. The feed's own unlock week (`private.health_education_unlock_week`) still falls back to first engagement only, so for a person who onboarded long before their first lesson the feed can unlock fewer lessons than the weekly card offers; decide whether the feed should use the same anchor.
-- Decision: founder decided the perk; (a), (b) and (c) open.
-- Recorded in review, not changed: re-taking an old lesson (fail then pass) restamps its finish time and counts as done this week; the mobile single-lesson viewer shows only the title if the lock lookup fails; the perk switch is not sign-off gated beyond an admin and a reason.
 ### OQ-S59-01 What is signed before the assessment half can open
 - Nothing in S59 is signed. Needed: the CMO signs the urgency map (`symptom.urgency_map`), the context entries (`symptom.context_tightening`, six drafts including the pregnancy branch), and confirms `symptom.dependant_policy` and `symptom.context_window_days`; the founder and counsel confirm `symptom.skin_photo_policy`. The checker stays OFF.
 - Decision: open (CMO, founder).
@@ -3708,11 +3702,6 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 ### OQ-S59-09 Mobile and voice
 - No mobile checker screen or voice input was built (the only seam is the on-device red-flag floor from S60, and wording needs CMO sign-off). Recorded as deferred.
 - Decision: open (founder).
-
-### OQ-S60-13 The go-live function patches are string replacements (follow-up from the PR #1003 review)
-- `20261007131744_s60_regulatory_position_and_guard_wiring.sql` patches two live function bodies (`public.attest_go_live_condition`, `private.go_live_conditions`) with `replace()` on a marker, as F1 did, and raises if a marker is missing. That fails loudly rather than silently, but it is brittle: a later edit to either function can break a replay, and each new record-backed condition adds another patch.
-- Proper fix: a small data-driven table (`go_live_condition_evidence`: guard key, condition code, a SQL-free evidence kind such as `exists_row:regulatory_positions:clearing`) read by one generic check inside the two functions, so a new record-backed condition is a row, not a function rewrite. Not done here because it rewrites both functions wholesale and re-proves every S37 and F1 guard proof; that is its own PR.
-- Decision: open (engineering follow-up, no founder input).
 
 ### OQ-S59b-01 Children are refused until a paediatric protocol is signed; a date of birth is required
 - Founder and CMO decision 2026-10-07, built: the database (trigger `symptom_triage_assessments_01_age_gate`) and the app refuse anyone under 18, and anyone with no date of birth. "Signed" means the ACTIVE protocol contains a pathway whose key starts `paediatric_`. A carer sees a calm state, can message the care team, and can book an ADULT consultation under their own account with the child's concern as free text (kept in the browser tab's session storage, never in a URL, and sent as the booking `reason`). The `symptom.dependant_policy` layer stays for when a paediatric protocol is signed.
@@ -4070,5 +4059,135 @@ Several OQ numbers were handed out twice by parallel sessions. The first heading
 | OQ-331 | OQ-675 | Loose ends of the SMS removal that need their own decision (raised by S85-D3) |
 | OQ-332 | OQ-676 | The emergency-contact SMS exception: switching it on (raised by S85-D3) |
 | OQ-287 | OQ-677 | Sexual health, STI and HIV records are on the open path (CMO choice, counsel to confirm) |
-| OQ-S55-14 | OQ-S55-15 | Creator series are a members-only perk (re-pasted copy) |
-| OQ-S60-12 | OQ-S60-13 | The go-live function patches are string replacements (re-pasted copy) |
+
+### Which heading kept each old number
+
+This is not an open question (the heading level keeps it out of the uniqueness scan only by its text, not an OQ id). Use it with the map above: an old citation of `OQ-N` that does not match a title in the map means the heading below.
+
+| Number | Kept by (line, title) |
+|---|---|
+| OQ-124 | 706, No `pathway_enrolments` table exists; where does the lead live (raised by S18) |
+| OQ-125 | 711, Who may be a lead: spec says tier 2, F-05 collapsed tiers (raised by S18) |
+| OQ-126 | 716, `order.paid` has no producer until S25 (raised by S18) |
+| OQ-127 | 721, Capacity and cover gates are exposed, not wired (raised by S18) |
+| OQ-128 | 726, Working-hours, rest and fatigue numbers need clinical review (raised by S18, OQ-112) |
+| OQ-129 | 731, Patient wording when the lead changes, and whether the patient sees the lead's name (raise |
+| OQ-130 | 736, Changing lead on request (raised by S18) |
+| OQ-131 | 741, Chart access starts at acknowledgement, not at the page (raised by S19) |
+| OQ-132 | 746, What a red page should say to Care Circle supporters and the clinical lead's review (raise |
+| OQ-133 | 751, Acknowledgement targets and how long the lead is re-alerted (raised by S19) |
+| OQ-134 | 756, Contractor status and declared hours (raised by S18, second pass) |
+| OQ-135 | 762, Strikes and a doctor's other job (raised by S18 and S19, second pass) |
+| OQ-136 | 767, Acknowledgement targets are not clinically validated (raised by S19, second pass) |
+| OQ-170 | 977, No ledger posting for catalogue orders yet (raised by S25) |
+| OQ-171 | 983, Paying for someone else is not open yet (raised by S25) |
+| OQ-172 | 987, Care pack price and what is sold at launch (raised by S25) |
+| OQ-173 | 992, Retired payment code paths are still reachable (raised by S25, extends OQ-97) |
+| OQ-174 | 997, Fee estimate is configuration, and its numbers are unverified (raised by S25, extends OQ-9 |
+| OQ-175 | 1003, Secrets and deploy steps for S25 (raised by S25) |
+| OQ-176 | 1027, Service-role writes bypass the signed-medicine trigger (raised by S24) |
+| OQ-177 | 1030, What a consultation share is a share OF, inside the Membership (raised by S30) |
+| OQ-178 | 1033, Fee sharing and the MDCN code (raised by S30; counsel needed) |
+| OQ-179 | 1036, On-call shift fee: the backup, and being ready (raised by S30) |
+| OQ-180 | 1039, The pilot minimum can be earned by declaring hours and doing nothing (raised by S30) |
+| OQ-181 | 1042, Work finished before the first schedule is approved (raised by S30) |
+| OQ-182 | 1045, The wait step is read at the final claim (raised by S30) |
+| OQ-183 | 1048, Staff screens use plain English in the page, not `packages/i18n` (raised by S30) |
+| OQ-184 | 1051, Refunds, tax and employed doctors who convert (raised by S30; deferred) |
+| OQ-185 | 1054, A late line can push a clinician past the pilot minimum (raised by S30) |
+| OQ-192 | 1133, Several older read paths admit ANY profile_access grantee with no permission check (found  |
+| OQ-213 | 1264, The facts stage lists medicines the draft stage may not write (raised by S35c) |
+| OQ-214 | 1270, Language release needs a measured word error rate and a pass mark (raised by S35c) |
+| OQ-215 | 1276, The signed hash detects change; it is not a signature (raised by S35c) |
+| OQ-216 | 1281, No live recording indicator exists because nothing records (raised by S35c) |
+| OQ-220 | 1141, Supporters abroad: organisation, signup and the join link (raised by S29) |
+| OQ-221 | 1146, What a red alert tells a supporter, and who chose it (raised by S29, extends OQ-132) |
+| OQ-222 | 1150, Care Circle PROPOSED values and permission wording to confirm (raised by S29) |
+| OQ-223 | 1154, The Care Circle contact hash has no secret pepper, and a payer can learn some state of the |
+| OQ-224 | 1327, Roster is filtered to the caller's organisation (S36d) |
+| OQ-225 | 1330, Display settings of the reliability and SLA dashboard (S36e) |
+| OQ-270 | 1550, Who joined, and from when (raised by S38; was numbered OQ-235, which S36g already used) |
+| OQ-271 | 1555, Not applied, console home (raised by S38; was numbered OQ-236, which S36g already used) |
+| OQ-272 | 1709, Delivery schema is still present (Part C.2 says no home delivery) |
+| OQ-273 | 1714, Not built in S28: price comparison, verified batches, pharmacist chat |
+| OQ-274 | 1559, Risk points and tier cut-offs (raised by S38c) |
+| OQ-275 | 1564, Monthly report thresholds, and what the care team did (raised by S38c) |
+| OQ-276 | 1569, Sharing the monthly report with the Care Circle (raised by S38c, closed by S38d) |
+| OQ-277 | 1573, Two risk tables with different jobs, worklist cost, who may read it (raised by S38c) |
+| OQ-278 | 1649, Tied direct reads on the other tables are not audited one by one (INV-10) (DECIDED 2026-10 |
+| OQ-280 | 1659, What S39b deliberately left organisation-wide (103 tables, listed with reasons in `staff_r |
+| OQ-281 | 1664, May a patient ask who opened their record, and must they be told? (counsel) (DECIDED 2026- |
+| OQ-282 | 1670, The access log records the opening of a record, not each table read inside the window (DEC |
+| OQ-283 | 1677, Retention periods are proposals until counsel confirms them (DECIDED 2026-10-07: follow th |
+| OQ-284 | 1682, The registry classification is a proposal until the CMO and DPO review it (DECIDED 2026-10 |
+| OQ-285 | 1688, The export function is not yet behind the existing download route (DECIDED 2026-10-07, bui |
+| OQ-286 | 1693, The shared worklist shows the kind of care to any clinician without a logged opening (DECI |
+| OQ-287 | 2159, Pharmacy collection needs the S37 go-live guard (DECIDED and built in S28c) |
+| OQ-290 | 1816, S53 and S54 were built before the Stage 1 gate (S40) closed (raised by S53, recorded 2026- |
+| OQ-291 | 1821, Partner commission columns were readable by every signed-in user, on pharmacy and on labor |
+| OQ-292 | 1826, Where the Nigerian medicine catalogue's real data comes from (raised by S53) |
+| OQ-293 | 1831, A photo of a prescription is not read or stored (raised by S53) |
+| OQ-294 | 1835, NAFDAC MAS short code and coverage need a human check before store publication (raised by  |
+| OQ-295 | 1839, The patient's interaction note on the medicines list changed wording, and the add-time che |
+| OQ-296 | 1844, The phone has no pack-photo reader (raised by S53) |
+| OQ-297 | 1848, Missed-dose and silence signals still do not reach the triage engine (OQ-89, restated by S |
+| OQ-298 | 1851, The supporter missed-dose notice uses the older profile-access grant, not the Care Circle  |
+| OQ-299 | 1855, Side-effect notes: reviewed button is on the chart only, and a note creates no task (raise |
+| OQ-309 | 2674, The Paystack webhook still has a refund branch for a retired Platform Credit charge (raise |
+| OQ-310 | 2434, Who runs the monthly AI review sample draw, and when? (raised by S80c) |
+| OQ-311 | 2438, The 213 published health education items that were never clinician-reviewed (raised by S80 |
+| OQ-312 | 2442, The AI review queue reads patient-derived text without a patient tie (raised by the S80 co |
+| OQ-313 | 2447, Six consent types have no version row, on purpose (raised by the S83 audit fix) |
+| OQ-314 | 2483, Delivery schema and screens are hidden, not removed (D5, restates OQ-16 and OQ-272) |
+| OQ-315 | 2486, No price comparison or pharmacist chat on the phone (raised by S54) |
+| OQ-316 | 2489, Dependants: the server's push and in-app dose reminders still go to the dependant's own ac |
+| OQ-317 | 2493, A possible emergency in a pharmacist chat reaches the patient and the pharmacist, not the  |
+| OQ-318 | 2900, Paid two-week CGM programme (raised by S70, function 18.5) |
+| OQ-319 | 2904, One minimum-cell function (raised by S75, extends OQ-233) |
+| OQ-320 | 2695, Partner cost and refund margin columns are still readable by the patient and org staff (ra |
+| OQ-321 | 2700, Old installed mobile builds break on two reads when the Track E migration is applied (rais |
+| OQ-322 | 2705, Track E ships on top of the unapplied S53 pre-fix (raised by Track E) |
+| OQ-323 | 2922, Community Access Fund legal vehicle (raised by S72, function 19.11; extends OQ-07) |
+| OQ-324 | 2926, Subscription toggle and leftover Paystack plan codes (raised by S73, function 20.2) |
+| OQ-325 | 2930, HMO eligibility adapter (raised by S71, function 19.6) |
+| OQ-326 | 2934, Partner settlement scope (raised by S74, function 21.6) |
+| OQ-327 | 2938, Gaps found in the S70 to S75 review that need an owner |
+| OQ-328 | 2987, Sponsor coverage cannot be charged yet (raised by S73) |
+| OQ-329 | 2991, Hardship pricing is a seam (raised by S73, extends OQ-323) |
+| OQ-330 | 2216, Consent wording is placeholder text: counsel must approve it (extends OQ-49) |
+| OQ-331 | 2220, Should the care purpose be optional for reproductive and mental health data? |
+| OQ-332 | 2224, Sponsor reporting is not wired because the sponsor report is on PR #988 |
+| OQ-333 | 2228, Which matrix cell gates which Care Circle block |
+| OQ-334 | 2232, No research export job exists; the roster is the only door |
+| OQ-335 | 2236, Is the anonymiser enough to count as erasure? |
+| OQ-336 | 2240, The export has no stored file |
+| OQ-337 | 2244, A young person who never signs in |
+| OQ-338 | 2248, Kept guardians |
+| OQ-339 | 2252, The elder-proxy downgrade that already ran |
+| OQ-340 | 2256, Category to permission mapping (closes OQ-51 in the safest direction) |
+| OQ-341 | 2260, The add-an-adult path (closes OQ-47 partly) |
+| OQ-342 | 2264, OQ-48 and the cooling-off |
+| OQ-343 | 2268, Apply order and review |
+| OQ-344 | 2272, Not run, and mobile gaps |
+| OQ-345 | 2276, The OQ-53 rule on the older consent table exempts service and migration contexts |
+| OQ-346 | 2793, Patient screens for the counter, timer, birth plan, week card and schedule are not built ( |
+| OQ-347 | 2798, Kick and contraction results are decided on the phone and trusted by the server (raised by |
+| OQ-350 | 1861, Stage 1 gate (S40) not closed; the assistant is built but switched off (raised by S51) |
+| OQ-351 | 1865, Positive screening rows are still readable by the patient on the base table (raised by S51 |
+| OQ-352 | 1870, Knowledge base rows have no owner or review date today, so retrieval is inert (raised by S |
+| OQ-353 | 1875, Extra red-flag wording is PROPOSED; the written-question list is unchanged (raised by S51) |
+| OQ-354 | 1880, The hand-off to the care team stays outside the assistant guard (raised by S51) |
+| OQ-355 | 1884, `go_live_conditions` is patched in place (raised by S51) |
+| OQ-356 | 1888, Model-polished nudge text and the INV-07 lint on the other free-text paths (raised by S51) |
+| OQ-357 | 1892, Dose screens will sometimes over-block (raised by S51) |
+| OQ-358 | 2119, An emergency message is answered even while the assistant is closed (raised by S51, from t |
+| OQ-359 | 2123, Which other screening results the assistant must never explain (raised by S51) |
+| OQ-360 | 2128, Nudges reach patients who used the assistant once, whatever their plan now (raised by S51, |
+| OQ-361 | 2133, The conditions and medicines lists reach the model and the visit draft unfiltered (raised  |
+| OQ-362 | 2622, Staff reads of the new tables use `is_org_staff` today (raised by S68) |
+| OQ-363 | 2625, Real-clinician paging for severe acute malnutrition does not use the S19 on-call page (rai |
+| OQ-364 | 2823, Activity minutes have no wearable source yet (raised by S69) |
+| OQ-365 | 2827, Templates, consent text and counsel are all drafts (raised by S69) |
+| OQ-366 | 2831, The go-live guard patches two shared functions (raised by S69) |
+| OQ-370 | 2737, Device capabilities need the CMO and an admin before anything switches on (raised by S70a) |
+| OQ-371 | 2741, Go-live uses `platform_modules`, not `go_live_guards` (raised by S70a) |

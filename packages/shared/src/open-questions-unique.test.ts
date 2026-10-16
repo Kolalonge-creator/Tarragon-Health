@@ -14,7 +14,7 @@ describe("docs/OPEN-QUESTIONS.md", () => {
     readFileSync(FILE, "utf8")
       .split("\n")
       .forEach((line, i) => {
-        const m = /^### (OQ-[A-Za-z0-9-]+)/.exec(line);
+        const m = /^#{2,6}\s+(OQ-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)\b(?=\s+[A-Za-z`(])/.exec(line);
         if (!m) return;
         const first = seen.get(m[1]);
         if (first !== undefined) dups.push(`${m[1]} at line ${i + 1} (first at line ${first})`);

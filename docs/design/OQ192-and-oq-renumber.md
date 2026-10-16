@@ -15,7 +15,7 @@
   simulated-JWT proof, a Care Circle and `manage_pharmacy` control, and a sabotage step.
 
 ## OQ renumbering
-- 225 repeated `### OQ-N` headings (125 numbers; up to six topics per number) plus `OQ-S55-14` and `OQ-S60-12`. First heading in the file keeps its number; each later
+- 225 repeated `### OQ-N` headings (125 numbers; up to six topics per number) plus two re-pasted copies (`OQ-S55-14`, `OQ-S60-12`), which were folded into the originals rather than renumbered. First heading in the file keeps its number; each later
   one got a new number from 453 up (677 is the highest). Old to new map at the bottom of `docs/OPEN-QUESTIONS.md`.
 - Citations inside a renumbered entry were updated. Citations elsewhere were not rewritten: a bare "OQ-310" cannot be assigned to one of five topics, and applied migration SQL is never edited.
 - `packages/shared/src/open-questions-unique.test.ts` fails on any repeated heading id (runs in the TypeScript CI job).
