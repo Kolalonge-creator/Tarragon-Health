@@ -2687,6 +2687,49 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 - OQ-192 (any `profile_access` grantee can read and pay) is still open and must be fixed before any real caregiver grant. OQ-39 (56 older `analytics_*` RPCs ignore `is_test`) is still open. `device.synced` and `device.alert` are not in the S10 event catalogue. Withings, Samsung, inhaler sensors and `LabResultsSource` are not built. `partner_quality`, `partner.quality_breach`, `partner.settlement_due` and `settlement-run` are not built. Price quoting (`price-quote`, `price.changed`, `discount_codes`, `price_books`) is not built.
 - Decision: open; each is in the build plan.
 
+### OQ-380 CMO signature on the outcome measure definitions (raised by S75b)
+- `outcomes.measures` v1 (HbA1c, weight, PHQ-9, GAD-7 windows, thresholds, severity bands, response-time grouping, retention days, evaluation-design note) is PROPOSED. Until the CMO confirms it on the go-live sign-off screen, every report for those measures returns "awaiting signature" and no figure. Nothing was signed by this session.
+- Open: the CMO confirms or asks for changes; any change is a new version.
+- Decision:
+
+### OQ-381 Pregnancy and age rules for the new measures (raised by S75b)
+- Pregnancy is read from the current `patient_pregnancy.is_pregnant`, not from the state at the time of the result, so someone who became pregnant after day 0 is excluded from both ends. Members with no date of birth are excluded (`age_unknown`); all four measures are adult only (under 18 excluded, including PHQ-9 and GAD-7).
+- Options: (a) keep, the safe direction (recommended); (b) store the pregnancy state at each window; (c) include adolescents with their own instruments.
+- Decision:
+
+### OQ-382 HbA1c source of truth (raised by S75b)
+- Snapshots read `lab_analyte_readings` (patient-confirmed extraction and staff entry). Structured partner results in `lab_result_items` (S27) are not read, so a partner-reported HbA1c that never reached `lab_analyte_readings` is invisible to outcomes. Units other than % and mmol/mol are ignored.
+- Options: (a) copy released HbA1c items into `lab_analyte_readings` (recommended, one source); (b) read both with de-duplication.
+- Decision:
+
+### OQ-383 What "programme completion" means (raised by S75c, function 22.2)
+- Decided (S75-7, founder and CMO, 2026-10-07): programme completion = the entitlement was fully used: every consultation and test item in the Membership or care pack is used, or the term ended with the clinical items used. Implemented in the retention report (`fully_used`, labelled exactly that), kept in the engagement family, never combined with a clinical outcome. Revoked (refunded or cancelled) entitlements are not counted either way.
+- Limitation: "fully used" reads each entitlement's own state and `remaining_uses`; sibling consultation or test entitlements bought in the same pack are not linked to it by the schema, so a pack whose items sit in separate entitlements may be under-counted. Revisit if S26 links them.
+- Decision: decided.
+
+### OQ-384 CMO door for the fairness review (raised by S75c, decision S75-4)
+- `record_risk_fairness_review` works and is proven, but the CMO's clinician login cannot open `/admin/risk-fairness`, where the monthly list lives, so there is no button yet. Needs a `/clinician/...` page (the S36e and S37 two-door pattern). Also: who prepares the monthly note (OQ-317).
+- Decision:
+
+### OQ-385 Response times: scope and the S36e overlap (raised by S75c, function 22.7)
+- Added turnaround, escalation, hand-back and follow-up rates by urgency band and finisher tier. "Follow-up" is only the `adherence_follow_up` task type; the CMO may want a wider definition. Hand-backs are counted from `handback_count`, which resets nothing but is a task-level count. No per-clinician view by design.
+- Decision:
+
+### OQ-386 Triage report old name (raised by S75a, decision S75-3)
+- `triage_accuracy_report` remains as a deprecated wrapper of `triage_agreement_report` and the audit action changed from `triage.accuracy_report` to `triage.agreement_report`. Drop the wrapper in the migration after the web deploy.
+- Decision:
+
+### OQ-387 Latent bug in the payer board report (raised by S75a)
+- S38 added measure specs (`bp_control_90d`, now `bp_control_180d`) that the payer board engine cannot compute; `generate_payer_board_report` looped every spec and would have raised on the first report once the payer module is on. Fixed by restricting it to known keys (`private.board_measure_keys()`); the older proof `payer_board_outcomes_report.sql` is in `ci.excluded` and already failed at its attest step before this session (not investigated).
+- Decision:
+
+### OQ-388 Floors raised for older dashboards (raised by S75a)
+- Corporate, payer and reproductive dashboards used 5 to 10; they now use 20 (or the organisation's higher number). Small employers may see "withheld" where they saw figures. Counsel or the DPO confirms the number (OQ-233).
+- Decision:
+
+### OQ-389 OQ-39 progress (raised by S75a)
+- Fixed for the surfaces touched: reproductive analytics, institution subsidy summary, payer dashboard, the new reports. The 56 older `analytics_*` RPCs still ignore `is_test`; see the S75 progress entry for the list. Retrofit or retire them in one session.
+- Decision:
 ## S73 pricing engine (2026-10-07)
 
 ### OQ-328 Sponsor coverage cannot be charged yet (raised by S73)
@@ -3008,6 +3051,15 @@ following are recorded in the system:
 ### OQ-S07X-5 The home check configuration ships inside the app (raised by S07x)
 - The phone reads `bp.home_programme` from the code registry (as the other S07 values do); the server reads the signed row. If the CMO signs a changed version, installed phones keep the old protocol until the next build or update, while the server records the result against the new bands. Today the two are identical (a test fails on drift). Moving the phone's read to a synced config is the same follow-up already noted for the other S07 values.
 
+### OQ-S75X-1 PHQ-9 item 9 below the score line (raised by S75 exclusions; RESOLVED 2026-10-14, DECISIONS S75-9: option (a), the gap is accepted)
+- The exclusion keeps a person out of every outcome report if their PHQ-9 TOTAL reached 20 (config v4 `safeguarding.score_from`). A person who answered item 9 above zero but scored under 20 is NOT excluded by this rule, because the S75 proof forbids any function on the outcomes path from reading item answers or the crisis flag (a positive item 9 follows the red pathway, not analytics). Their score is therefore in the mental-health figures, which only an admin, an analyst or the CMO read as suppressed aggregates.
+- The other build (#1087) excluded them by reading item 9 and the crisis flag. Choose one: (a) accept the gap above, (b) let ONE function read the crisis flag solely to remove a person (and change the scan in `s75_outcome_measures.sql` check 7e to allow exactly that function), or (c) count a person as excluded when an escalation already exists for them. Until decided, v4 stays PROPOSED and inactive.
+
+### OQ-S75X-2 Mental-health outcomes in the sponsor pack (raised by S75 exclusions; RESOLVED 2026-10-14, DECISIONS S75-9: the pack carries PHQ-9 and GAD-7 as suppressed group figures)
+- Resolved: the CMO approved PHQ-9 and GAD-7 in the sponsor pack as suppressed group figures only. `private.outcome_measure_cohort` is the single sponsor-side reader of `outcome_mh_snapshots` (total score only, withheld below the minimum cell, never a person). Check 7a of `s75_outcome_measures.sql` names it; 7c and 7d still forbid any sponsor-named function from touching a mental-health object.
+
+### OQ-S75X-3 Activate v4, not v3 (raised by S75 exclusions; for the CMO)
+- `outcome_config` v3 (#1094) has no exclusions and v3 is left exactly as written, because a sign-off binds to a version. v4 is v3 plus the exclusions and the PHQ-9 / GAD-7 severity bands. To bring the exclusions in the CMO activates v4 instead of v3; activating v3 gives the measures without them. The sponsor pack and both reports show measure figures only once one of them is active.
 
 ## S11 to S15 end-to-end build: questions raised by the six packages (2026-10-13)
 

@@ -46745,6 +46745,15 @@ export type Database = {
       media_library_flag_expired: { Args: Record<PropertyKey, never>; Returns: number }
       media_offline_manifest: { Args: Record<PropertyKey, never>; Returns: Json }
       record_media_session: { Args: { p_listened_seconds: number; p_media: string }; Returns: string }
+      log_sponsor_pack_export: { Args: { p_cohort: string; p_format?: string }; Returns: undefined };
+      sponsor_pilot_pack: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
+      record_risk_fairness_review: { Args: { p_month: string; p_note: string }; Returns: Json };
+      risk_fairness_history: { Args: Record<PropertyKey, never>; Returns: Json };
+      outcome_data_quality_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      response_times_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      retention_completion_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      bp_control_report_180d: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      triage_agreement_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
       learning_search_gaps_report: {
         Args: never

@@ -26,6 +26,8 @@ Source: `docs/plans/S70-S75-cmo-signoff-pack.md` and `docs/research/S70-S75-revi
 - **S75-3: the triage dashboard is named "agreement", and no accuracy figure is published** until an outcome-linked study with a written design exists.
 - **S75-4: risk stratification stays deterministic,** with a monthly CMO fairness review (age band, sex, region, language). No ML model before 90 days of real snapshots.
 - **S75-5: minimum cell size stays 20 (30 for two attributes), enforced by one database function** on every aggregate surface. Counsel or the DPO still confirms the number (OQ-233).
+- **S75-6 (founder and CMO, 2026-10-07): the raised minimum-cell floors are accepted.** Corporate, payer and reproductive dashboards now suppress below 20 (previously 5 to 10), via the single `private.suppress_cell` rule. Counsel or the DPO still confirms the number (OQ-233, OQ-388).
+- **S75-7 (founder and CMO, 2026-10-07): programme completion = the entitlement was fully used.** Every consultation and test item in the Membership or care pack is used, or the term ended with the clinical items used. It is an engagement measure, labelled exactly that, kept apart from clinical outcomes; refunded or cancelled entitlements are not counted (OQ-383).
 ## S03b decisions, 2026-10-13
 
 Founder, for sign-in resilience (`docs/research/S01-S05-competitor-gap-and-build-plan.md` section 10; design in `docs/design/S03b.md`).
@@ -365,6 +367,8 @@ Full text, options and guideline basis: `docs/plans/S06-S10-decisions-and-cmo-si
 | D8 test devices | Founder supplies two Android floor phones and one iPhone |
 | D9 counsel on NDPA basis for emergency card and access logs | Instruct now |
 
+- **S75-8: the S75 outcome measures are ONE design (founder, 2026-10-13).** Two builds of the same measures existed (S75 track D, #1094, and S75b, #1087). #1094 ships: `outcome_measure_snapshots` (HbA1c, weight) and `outcome_mh_snapshots` (PHQ-9, GAD-7) with the config in `outcome_config`. From #1087 are kept the single minimum-cell enforcement (S75a), retention, response times, data quality, fairness history and the sponsor pack (S75c), plus the exclusions (under 18, age unknown, pregnant, a PHQ-9 total of 20 or more) and the PHQ-9 / GAD-7 severity bands, added as `outcome_config` v4. Dropped: #1087's second snapshot table, compute job, report, CMO-signature gate on the pack, and the item-9 read (OQ-S75X-1). The sponsor pack's treatment of mental-health outcomes is decided in S75-9.
+- **S75-9 (CMO, 2026-10-14): two approvals on the S75 outcome measures.** (1) The sponsor pack carries PHQ-9 and GAD-7 as **suppressed group figures** (response and remission for a cohort, withheld below the minimum cell, never a person, never an item answer): the one sponsor-side path to a mental-health snapshot is `private.outcome_measure_cohort`, and the allow-list in `s75_outcome_measures.sql` check 7a names it. This resolves OQ-S75X-2. (2) The PHQ-9 item-9 gap is **accepted**: a person who answered item 9 above zero but scored under 20 is not removed from the figures, because no function on the outcomes path may read item answers or the crisis flag (that person follows the red pathway). The exclusion stays at a PHQ-9 total of 20 or more. This resolves OQ-S75X-1.
 ## S09x2 access log shows staff identity (2026-10-13)
 
 | Decision | Chosen |
