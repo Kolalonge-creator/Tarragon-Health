@@ -448,7 +448,22 @@ revoke execute on function public.points_award(uuid) from public;
 revoke execute on function public.points_award(uuid) from anon, authenticated;
 grant execute on function public.points_award(uuid) to service_role;
 
--- One subscriber per event type that has an active rule.
+-- One subscriber per event type that has a rule. Written out as literal rows (not selected from reward_rules) so the S85 static event map can read them; the
+-- statement after it keeps the guarantee for any event a later rule version names.
+insert into public.event_subscribers (subscriber_key, event_type, handler_key, note) values
+  ('points.award.vitals_logged', 'vitals.logged', 'points.award', 'S58: awards Health Points by rule, idempotent per event'),
+  ('points.award.meal_logged', 'meal.logged', 'points.award', 'S58: awards Health Points by rule, idempotent per event'),
+  ('points.award.adherence_checkin_answered', 'adherence.checkin_answered', 'points.award', 'S58: awards Health Points by rule, idempotent per event'),
+  ('points.award.lesson_completed', 'lesson.completed', 'points.award', 'S58: awards Health Points by rule, idempotent per event'),
+  ('points.award.lifestyle_task_completed', 'lifestyle.task_completed', 'points.award', 'S58: awards Health Points by rule, idempotent per event'),
+  ('points.award.lifestyle_goal_achieved', 'lifestyle.goal_achieved', 'points.award', 'S58: awards Health Points by rule, idempotent per event'),
+  ('points.award.challenge_completed', 'challenge.completed', 'points.award', 'S58: awards Health Points by rule, idempotent per event'),
+  ('points.award.class_attended', 'class.attended', 'points.award', 'S58: awards Health Points by rule, idempotent per event'),
+  ('points.award.course_completed', 'course.completed', 'points.award', 'S58: awards Health Points by rule, idempotent per event'),
+  ('points.award.lab_result_released', 'lab_result.released', 'points.award', 'S58: awards Health Points by rule, idempotent per event'),
+  ('points.award.encounter_completed', 'encounter.completed', 'points.award', 'S58: awards Health Points by rule, idempotent per event'),
+  ('points.award.screening_completed', 'screening.completed', 'points.award', 'S58: awards Health Points by rule, idempotent per event')
+on conflict (subscriber_key) do nothing;
 insert into public.event_subscribers (subscriber_key, event_type, handler_key, note)
 select 'points.award.' || replace(t.trigger_event, '.', '_'), t.trigger_event, 'points.award',
        'S58: awards Health Points by rule, idempotent per event'
