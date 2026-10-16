@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { buildCoachHandoffSummary } from "./handoff-summary";
 import { loadHandoffSnapshot } from "./escalate";
+import { sendApprovedPrepDraft, type SendPrepDraftResult } from "./send-prep-draft";
+import { isAssistantOpen } from "./guard";
 
 const conversationIdSchema = z.string().uuid().optional();
 
@@ -38,6 +40,10 @@ export async function requestCareTeamHandoffAction(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Not signed in" };
+  // INV-14: behind the assistant_enabled guard like every other assistant door. The care team is always reachable from the messages page.
+  if (!(await isAssistantOpen(supabase))) {
+    return { success: false, error: "This is not open yet. You can message your care team directly in the app." };
+  }
 
   let recentMessages: CoachChatMessage[] = [];
   if (parsedId.data) {
@@ -45,6 +51,7 @@ export async function requestCareTeamHandoffAction(
       .from("ai_conversations")
       .select("messages")
       .eq("id", parsedId.data)
+      .eq("profile_id", user.id)
       .maybeSingle();
     recentMessages = ((conversation?.messages as CoachChatMessage[] | null) ?? []).slice(-10);
   }
@@ -71,4 +78,22 @@ export async function requestCareTeamHandoffAction(
   }
 
   return { success: true, threadId };
+}
+
+/** S51 (7.7): sends the pre-visit message the patient has edited and approved. See send-prep-draft.ts. */
+export async function sendApprovedPrepDraftAction(input: { text: string; conversationId?: string }): Promise<SendPrepDraftResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not signed in" };
+  const { data: profile } = await supabase.from("profiles").select("organisation_id").eq("id", user.id).maybeSingle();
+  if (!profile?.organisation_id) return { success: false, error: "No organisation on file" };
+  return sendApprovedPrepDraft({
+    supabase,
+    getServiceRoleSupabase: createServiceRoleClient,
+    profileId: user.id,
+    organisationId: profile.organisation_id,
+    input,
+  });
 }

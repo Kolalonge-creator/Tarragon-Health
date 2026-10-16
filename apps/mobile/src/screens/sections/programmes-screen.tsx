@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
+import { sponsorMinimumGroupSize } from "@tarragon/shared";
 import { joinProgramme, leaveProgramme, loadMemberships, loadSharingText, setSharing, type MembershipsLoad } from "@/lib/programmes";
 import { useUiLanguage } from "@/lib/ui-language";
 import { space } from "@/ui/design";
@@ -57,6 +58,14 @@ export function ProgrammesScreen({ acting = false }: { acting?: boolean }) {
         </AppText>
       </View>
       {message ? <InlineAlert tone={message === "programme.error" || message === "programme.code_invalid" ? "warn" : "info"} message={t(message, locale)} /> : null}
+      <Card style={{ gap: space.xs }}>
+        <AppText variant="body" heading>
+          {t("programme.sponsor_sees_title", locale)}
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          {t("programme.sponsor_sees_body", locale, { minimum: sponsorMinimumGroupSize() })}
+        </AppText>
+      </Card>
       <Card style={{ gap: space.md }}>
         <Field label={t("programme.code_label", locale)} value={code} onChangeText={setCode} autoCapitalize="characters" autoCorrect={false} maxLength={20} />
         <Button

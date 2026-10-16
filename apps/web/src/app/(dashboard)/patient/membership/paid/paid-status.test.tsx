@@ -36,6 +36,9 @@ describe("PaidStatus", () => {
     render(<PaidStatus reference="tho_0123456789abcdef" locale="en" />);
     await settle();
     expect(screen.getByText(/have not received your payment yet/)).toBeTruthy();
+    // S71 (19.2): the title is honest about what is happening
+    expect(screen.getByText("Waiting for your bank")).toBeTruthy();
+    expect(screen.getByText(/do not need to pay again/)).toBeTruthy();
     await act(async () => {
       jest.advanceTimersByTime(4000);
     });

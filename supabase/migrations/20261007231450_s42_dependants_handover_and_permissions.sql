@@ -146,6 +146,34 @@ $function$;
 -- ---------------------------------------------------------------------------
 -- 3. Hand-over at 18
 -- ---------------------------------------------------------------------------
+-- Replaces the S04b-1 hand-over (founder decision at the S41 to S47 merge, 2026-10-16: keep S42's). Where S04b-1 is already live,
+-- its dependant_handovers table (a different shape: dependent_id, state pending/accepted/declined/cancelled/expired), its start/
+-- cancel/accept/decline/my_pending functions, its expiry and due sweeps and their two cron jobs are removed first. It refuses to
+-- run if that table holds a row, so a hand-over in flight is never destroyed silently; on a fresh replay none of this exists
+-- (S04b-1's own migration no longer creates it) and the block does nothing.
+do $$
+begin
+  if to_regclass('public.dependant_handovers') is not null
+     and exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'dependant_handovers' and column_name = 'dependent_id') then
+    if exists (select 1 from public.dependant_handovers) then
+      raise exception 'S42: the live S04b-1 dependant_handovers table holds rows; resolve them before replacing it';
+    end if;
+    drop table public.dependant_handovers;
+  end if;
+  if exists (select 1 from cron.job where jobname = 'dependant-handover-expiry-daily') then perform cron.unschedule('dependant-handover-expiry-daily'); end if;
+  if exists (select 1 from cron.job where jobname = 'dependant-handover-due-daily') then perform cron.unschedule('dependant-handover-due-daily'); end if;
+end $$;
+drop function if exists public.start_dependant_handover(uuid, text);
+drop function if exists public.cancel_dependant_handover(uuid);
+drop function if exists public.my_pending_handover();
+drop function if exists public.accept_dependant_handover(uuid, date);
+drop function if exists public.decline_dependant_handover(uuid);
+drop function if exists private.apply_dependant_handover();
+drop function if exists private.close_pending_handovers(uuid, text);
+drop function if exists private.expire_dependant_handovers();
+drop function if exists private.sweep_dependant_handover_due();
+
 create table public.dependant_handovers (
   id                uuid primary key default gen_random_uuid(),
   organisation_id   uuid not null references public.organisations (id) on delete restrict,
@@ -185,7 +213,8 @@ begin
   if v_emitted is null then
     begin
       perform private.emit_domain_event('dependant.handover_due', p.organisation_id,
-        jsonb_build_object('handover_id', v_id, 'birthday_18', (p.date_of_birth + interval '18 years')::date),
+        jsonb_build_object('handover_id', v_id, 'dependent_id', p.id, 'turns_18_on', (p.date_of_birth + interval '18 years')::date,
+                           'birthday_18', (p.date_of_birth + interval '18 years')::date),
         'dependant.handover_due:' || p.id::text, p.id, 'dependant_handover', v_id);
       update public.dependant_handovers set due_emitted_at = now() where id = v_id;
     exception when others then
@@ -287,7 +316,7 @@ insert into public.event_types (event_type, description, owner_section, is_urgen
   ('dependant.handover_completed', 'A young person completed the hand-over of their profile (counts only)', 'S42', false)
 on conflict (event_type) do nothing;
 insert into public.event_type_versions (event_type, version, required_keys) values
-  ('dependant.handover_due', 1, array['handover_id']),
+  ('dependant.handover_due', 1, array['dependent_id', 'turns_18_on']),
   ('dependant.handover_completed', 1, array['handover_id'])
 on conflict do nothing;
 

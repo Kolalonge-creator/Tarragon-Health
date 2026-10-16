@@ -74,6 +74,13 @@ export async function assertNotActingFor(message: string): Promise<{ error: stri
 export async function startActingFor(beneficiaryId: string): Promise<boolean> {
   const { data: allowed } = await supabase.rpc("can_act_for", { p_beneficiary: beneficiaryId });
   if (allowed !== true) return false;
+  // The person this is about can see that their record was opened and when (S04b-1). Best effort and not awaited: it must
+  // never be the reason an errand fails or waits; the database function only writes for a real grant holder, once per
+  // ten minutes.
+  void supabase.rpc("log_proxy_view", { p_patient: beneficiaryId }).then(
+    () => undefined,
+    () => undefined
+  );
   await SecureStore.setItemAsync(ACTING_FOR_KEY, beneficiaryId);
   return true;
 }
@@ -87,6 +94,7 @@ export interface SupportedPerson {
   fullName: string | null;
   permissionLevel: "view" | "manage";
   isDependentAccount: boolean;
+  organisationId: string | null;
 }
 
 /** Mirrors useSupportedPeople's grants query in
@@ -98,7 +106,7 @@ export async function loadPeopleISupport(userId: string): Promise<SupportedPerso
   const { data, error } = await supabase
     .from("profile_access")
     .select(
-      "permission_level, profile:profiles!profile_access_profile_id_fkey(id, full_name, is_dependent_account)"
+      "permission_level, profile:profiles!profile_access_profile_id_fkey(id, full_name, is_dependent_account, organisation_id)"
     )
     .eq("grantee_user_id", userId);
   // A failed query must surface as an error, not as "you support nobody" —
@@ -115,7 +123,35 @@ export async function loadPeopleISupport(userId: string): Promise<SupportedPerso
         fullName: profile.full_name,
         permissionLevel: row.permission_level,
         isDependentAccount: profile.is_dependent_account === true,
+        organisationId: profile.organisation_id ?? null,
       },
     ];
   });
+}
+
+/** A dependant (a child or an adult the person manages as a guardian) as the reminder and catch-up code needs them. */
+export interface ManagedDependant {
+  profileId: string;
+  organisationId: string;
+  /** First name only: it tells two people's reminders apart without naming a medicine or a condition (INV-07). */
+  firstName: string;
+}
+
+/**
+ * The dependants this account manages. A failed read is NULL, not an empty list: "could not find out" must never read as "manages
+ * nobody", or a replan would quietly cancel the reminders it had already set for them.
+ */
+export async function loadManagedDependants(userId: string): Promise<ManagedDependant[] | null> {
+  try {
+    const people = await loadPeopleISupport(userId);
+    return people
+      .filter((p) => p.permissionLevel === "manage" && p.isDependentAccount && p.organisationId)
+      .map((p) => ({
+        profileId: p.profileId,
+        organisationId: p.organisationId as string,
+        firstName: (p.fullName ?? "").trim().split(/\s+/)[0] || "them",
+      }));
+  } catch {
+    return null;
+  }
 }

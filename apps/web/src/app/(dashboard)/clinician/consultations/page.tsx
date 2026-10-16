@@ -54,9 +54,16 @@ export default async function ClinicianConsultationsPage() {
                       {r.final_media_mode === "audio_only" ? " · audio only" : r.final_media_mode === "phone" ? " · on the phone" : ""}
                     </p>
                   </div>
-                  <Link href={`/clinician/consultation/${r.encounter_id}`} className="text-sm font-medium text-brand-green hover:underline">
-                    Open the room →
-                  </Link>
+                  <div className="flex flex-wrap gap-4">
+                    {(r.status === "scheduled" || r.status === "waiting" || r.status === "in_progress") && (
+                      <Link href={`/clinician/precall/${r.encounter_id}`} className="text-sm font-medium text-brand-green hover:underline">
+                        Before the call →
+                      </Link>
+                    )}
+                    <Link href={`/clinician/consultation/${r.encounter_id}`} className="text-sm font-medium text-brand-green hover:underline">
+                      Open the room →
+                    </Link>
+                  </div>
                 </CardContent>
               </Card>
             </li>

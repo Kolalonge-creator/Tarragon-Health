@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { COUNTRY_CALLING_CODES, E164_GENERIC } from "@tarragon/shared";
+import { COUNTRY_CALLING_CODES, E164_GENERIC, checkAdultDateOfBirth } from "@tarragon/shared";
 import { normalisePhoneWithCountry } from "@tarragon/auth/phone";
 import { supabase } from "@/lib/supabase";
 import { ta } from "@/lib/auth/auth-locale";
@@ -141,15 +141,40 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
   const [localPhone, setLocalPhone] = useState("");
   const [stateValue, setStateValue] = useState<string>("");
   const [statePickerOpen, setStatePickerOpen] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Shown only while sign-up is invite-only. A failed read means "not invite-only": the database is the real gate either way.
+  const [inviteOnly, setInviteOnly] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const fullPhone = `${countryCode}${localPhone.trim()}`;
   const selectedStateLabel =
     NIGERIAN_STATES.find((s) => s.value === stateValue)?.label ?? "Prefer not to say";
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const { data, error: rpcError } = await supabase.rpc("platform_switch_is_on", { p_key: "signup_invites_required" });
+        if (alive && !rpcError && data === true) setInviteOnly(true);
+      } catch {
+        /* stay open: the database decides */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /** The database refuses an uninvited sign-up with a generic error; while invite-only is on, say what it means. */
+  function inviteAwareMessage(raw: string, fallback: string): string {
+    const m = raw.toLowerCase();
+    return inviteOnly && (m.includes("signup_invite_required") || m.includes("database error saving new user")) ? ta("signup.invite_required", locale) : fallback;
+  }
 
   async function handlePhoneSignUp() {
     const phone = normalisePhoneWithCountry(countryCode, localPhone);
@@ -168,7 +193,9 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
       phone: phone.e164,
       password,
       fullName: `${firstName.trim()} ${lastName.trim()}`.trim(),
+      dateOfBirth: dateOfBirth.trim(),
       state: stateValue || undefined,
+      inviteCode: inviteCode.trim() || undefined,
     });
     setLoading(false);
     if (outcome.kind === "error") {
@@ -182,6 +209,12 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
     setError(null);
     if (!firstName.trim() || !lastName.trim()) {
       setError("Enter your first and last name.");
+      return;
+    }
+    // Registration is for adults (S04b-1): the same check the web form makes, before anything is sent.
+    const ageVerdict = checkAdultDateOfBirth(dateOfBirth.trim());
+    if (ageVerdict !== "adult") {
+      setError(ta(ageVerdict === "under_age" ? "auth.error.adult_only" : "auth.error.invalid_dob", locale));
       return;
     }
     if (method === "phone") {
@@ -219,13 +252,15 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
         data: {
           full_name: `${firstName.trim()} ${lastName.trim()}`.trim(),
           phone: fullPhone,
+          date_of_birth: dateOfBirth.trim(),
           ...(stateValue ? { state: stateValue } : {}),
+          ...(inviteCode.trim() ? { invite_code: inviteCode.trim() } : {}),
         },
       },
     });
     setLoading(false);
     if (signUpError) {
-      setError(friendlySignUpError(signUpError.message));
+      setError(inviteAwareMessage(signUpError.message, friendlySignUpError(signUpError.message)));
       return;
     }
     setSuccess(true);
@@ -400,6 +435,38 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
           <MutedText>
             Helps us show what&apos;s available near you. You can add or change this at any time.
           </MutedText>
+        </View>
+
+        {inviteOnly && (
+          <View style={{ gap: 6 }}>
+            <TextInput
+              accessibilityLabel={ta("signup.invite_code_label", locale)}
+              placeholder={ta("signup.invite_code_label", locale)}
+              placeholderTextColor={colors.subtle}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={32}
+              value={inviteCode}
+              onChangeText={setInviteCode}
+              style={inputStyle}
+            />
+            <MutedText>{ta("signup.invite_code_hint", locale)}</MutedText>
+          </View>
+        )}
+
+        <View style={{ gap: 6 }}>
+          <TextInput
+            accessibilityLabel={ta("auth.field.dob", locale)}
+            placeholder={ta("auth.field.dob", locale)}
+            placeholderTextColor={colors.subtle}
+            keyboardType="numbers-and-punctuation"
+            autoComplete="birthdate-full"
+            maxLength={10}
+            value={dateOfBirth}
+            onChangeText={setDateOfBirth}
+            style={inputStyle}
+          />
+          <MutedText>{ta("auth.field.dob_hint", locale)}</MutedText>
         </View>
 
         <View style={{ gap: 6 }}>

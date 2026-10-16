@@ -1,16 +1,57 @@
 import { notFound } from "next/navigation";
-import { t } from "@tarragon/i18n";
+import { t, type Locale } from "@tarragon/i18n";
 import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
-import { loadCollection, loadPharmacies } from "@/lib/pharmacy-collection/load";
-import { choosePharmacyAction, newCodeAction, withdrawAction } from "@/lib/pharmacy-collection/actions";
-import { asNotice, viewFor, type PharmacyOption } from "@/lib/pharmacy-collection/model";
+import { loadCollection, loadHasControlledItem, loadPharmacies, loadPriceCompare, loadSuggestion } from "@/lib/pharmacy-collection/load";
+import { acceptSuggestionAction, choosePharmacyAction, declineSuggestionAction, newCodeAction, withdrawAction } from "@/lib/pharmacy-collection/actions";
+import { asNotice, nairaFromKobo, stockKey, viewFor, type PharmacyOption, type PriceRow, type Suggestion } from "@/lib/pharmacy-collection/model";
 import { FlashClean } from "@/components/go-live/flash-clean";
+import { PharmacyChatCard } from "@/components/partner-portal/pharmacy-chat-card";
 
 export const metadata = { title: "Collect your medicine" };
 export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const lagos = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" }) : "");
+/**
+ * S54 8.9: the price and stock comparison. The patient reads it and then chooses; nothing here chooses for her, and nothing in it
+ * (or anywhere a clinician can read) says what Tarragon earns from a pharmacy (8.16). Ordered by items supplied, stock, then price.
+ */
+function PriceCompare({ rows, locale }: { rows: PriceRow[]; locale: Locale }) {
+  if (rows.length === 0) return <p className="text-sm text-charcoal-ink/70">{t("pharmprice.none", locale)}</p>;
+  return (
+    <ul className="space-y-3">
+      {rows.map((r) => (
+        <li key={r.location_id} className="rounded-xl border border-charcoal-ink/15 bg-white p-4 dark:border-night-ink/25">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="font-semibold text-charcoal-ink">{r.partner_name}</p>
+            <p className="font-semibold text-charcoal-ink">{t("pharmprice.total", locale, { amount: nairaFromKobo(r.total_kobo) })}</p>
+          </div>
+          <p className="text-sm text-charcoal-ink/70">{[r.location_name, r.address, r.state].filter(Boolean).join(", ")}</p>
+          <p className="mt-1 text-sm text-charcoal-ink/80">
+            {r.items_matched < r.items_total ? `${t("pharmprice.partial", locale, { matched: r.items_matched, total: r.items_total })}. ` : ""}
+            {r.lines.some((l) => l.stock === "unavailable")
+              ? t("pharmprice.some_unavailable", locale)
+              : r.all_in_stock
+                ? r.any_low_stock ? t("pharmprice.low_stock", locale) : t("pharmprice.in_stock", locale)
+                : t("pharmprice.unknown_stock", locale)}
+          </p>
+          <ul className="mt-1 space-y-0.5 text-xs text-charcoal-ink/70">
+            {r.lines.map((l) => (
+              <li key={l.item}>
+                {l.drug}{l.pack ? ` (${l.pack})` : ""}: {nairaFromKobo(l.price_kobo)}, {t(stockKey(l.stock), locale)}
+                {l.strength_confirmed ? "" : `, ${t("pharmprice.strength_unconfirmed", locale)}`}
+              </li>
+            ))}
+          </ul>
+          {r.all_verified_batch && <p className="mt-1 text-xs text-emerald-900">{t("pharmprice.verified", locale)}</p>}
+          {r.prices_updated_at && <p className="mt-1 text-xs text-charcoal-ink/60">{t("pharmprice.updated", locale, { date: lagos(r.prices_updated_at) })}</p>}
+        </li>
+      ))}
+      <li className="text-xs text-charcoal-ink/60">{t("pharmprice.verified_caveat", locale)}</li>
+    </ul>
+  );
+}
+
 const button = "rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clinical-navy";
 
 function Chooser({ id, options, locale, forWhom }: { id: string; options: PharmacyOption[]; locale: typeof DEFAULT_UI_LANGUAGE; forWhom?: string }) {
@@ -37,6 +78,33 @@ function Chooser({ id, options, locale, forWhom }: { id: string; options: Pharma
 }
 
 /**
+ * S54c: the pharmacy the care team suggested. It is only a suggestion: it says so, nothing is sent until she presses the button, and the
+ * other ways (choose another, decline, take it anywhere) are always there. No price, ranking or earning is shown or implied here.
+ */
+function SuggestionCard({ id, suggestion, locale }: { id: string; suggestion: Suggestion; locale: Locale }) {
+  return (
+    <section aria-labelledby="suggestion-title" className="space-y-3 rounded-xl border border-brand-green/40 bg-emerald-50 p-4 dark:border-night-ink/25">
+      <h3 id="suggestion-title" className="font-semibold text-charcoal-ink">{t("pharmsuggest.title", locale, { pharmacy: suggestion.partner_name })}</h3>
+      <p className="text-sm text-charcoal-ink/70">{[suggestion.location_name, suggestion.address, suggestion.state].filter(Boolean).join(", ")}</p>
+      <p className="text-xs text-charcoal-ink/70">{t("pharmsuggest.hint", locale)}</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <form action={acceptSuggestionAction}>
+          <input type="hidden" name="prescription" value={id} />
+          <input type="hidden" name="suggestion" value={suggestion.suggestion_id} />
+          <button type="submit" className={button}>{t("pharmsuggest.accept", locale)}</button>
+        </form>
+        <a href="#chooser" className="text-sm font-semibold text-clinical-navy underline">{t("pharmsuggest.another", locale)}</a>
+        <form action={declineSuggestionAction}>
+          <input type="hidden" name="prescription" value={id} />
+          <input type="hidden" name="suggestion" value={suggestion.suggestion_id} />
+          <button type="submit" className="text-sm text-charcoal-ink/70 underline">{t("pharmsuggest.decline", locale)}</button>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+/**
  * S28 (spec 9.6, 8.9): the patient picks a verified pharmacy to collect a signed prescription from and reads her collection code.
  * Collection only, no delivery, no payment here (she pays the pharmacy). The database decides everything; this page only shows it.
  */
@@ -52,7 +120,12 @@ export default async function CollectPage({ params, searchParams }: { params: Pr
   if (collection.ok && !collection.data) notFound();
   const view = collection.ok && collection.data ? viewFor(collection.data) : null;
   const pharmacies = view === "choose" || view === "code" || view === "repeat" ? await loadPharmacies(prescriptionId, forWhom) : null;
+  const prices = view === "choose" ? await loadPriceCompare(prescriptionId) : null;
   const off = !collection.ok && collection.off === true;
+  // A failed read of the suggestion just means the card is not shown: the patient can still choose or take the prescription anywhere.
+  const suggestion = view === "choose" ? await loadSuggestion(prescriptionId) : null;
+  // OQ-276: a plain note before choosing, for a prescription that includes a controlled medicine. The patient may still go ahead; the counter refuses it.
+  const controlledNote = view === "choose" || view === "repeat" || view === "code" ? await loadHasControlledItem(prescriptionId, forWhom) : false;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -72,22 +145,33 @@ export default async function CollectPage({ params, searchParams }: { params: Pr
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900">{t("pharmcollect.load_failed", locale)}</p>
       ) : view === "choose" ? (
         <section className="space-y-3">
-          <h3 className="font-semibold text-charcoal-ink">{t("pharmcollect.choose", locale)}</h3>
+          {suggestion?.ok && suggestion.data ? <SuggestionCard id={prescriptionId} suggestion={suggestion.data} locale={locale} /> : null}
+          <section className="space-y-2">
+            <h3 className="font-semibold text-charcoal-ink">{t("pharmprice.title", locale)}</h3>
+            <p className="text-xs text-charcoal-ink/60">{t("pharmprice.intro", locale)}</p>
+            {prices?.ok ? <PriceCompare rows={prices.data} locale={locale} /> : <p className="text-sm text-charcoal-ink/70">{t("pharmprice.failed", locale)}</p>}
+            <p className="text-sm text-charcoal-ink/70">{t("pharmprice.any_pharmacy", locale)}</p>
+          </section>
+          <h3 id="chooser" className="font-semibold text-charcoal-ink">{t("pharmcollect.choose", locale)}</h3>
+          {controlledNote && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{t("pharmcollect.controlled_note", locale)}</p>}
           {pharmacies?.ok ? <Chooser id={prescriptionId} options={pharmacies.data} locale={locale} forWhom={forWhom} /> : <p role="alert" className="text-sm text-red-900">{t("pharmcollect.load_failed", locale)}</p>}
         </section>
       ) : view === "repeat" ? (
         <section className="space-y-3">
           <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{t("pharmcollect.collected", locale)}</p>
           <h3 className="font-semibold text-charcoal-ink">{t("pharmcollect.repeat", locale)}</h3>
+          {controlledNote && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{t("pharmcollect.controlled_note", locale)}</p>}
           <p className="text-xs text-charcoal-ink/60">{t("pharmcollect.repeat_hint", locale)}</p>
           {pharmacies?.ok ? <Chooser id={prescriptionId} options={pharmacies.data} locale={locale} forWhom={forWhom} /> : <p role="alert" className="text-sm text-red-900">{t("pharmcollect.load_failed", locale)}</p>}
         </section>
       ) : view === "code" ? (
         <section className="space-y-4">
+          {controlledNote && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{t("pharmcollect.controlled_note", locale)}</p>}
           <p className="font-semibold text-charcoal-ink">
             {t("pharmcollect.sent_to", locale, { pharmacy: [collection.data?.pharmacy_name, collection.data?.location_name].filter(Boolean).join(", ") })}
           </p>
           {collection.data?.address && <p className="text-sm text-charcoal-ink/70">{collection.data.address}</p>}
+          <p className="text-xs text-charcoal-ink/60">{t("medicines.mas.collect_prompt", locale)} {t("medicines.mas.caveat", locale)}</p>
           <div className="rounded-xl border border-charcoal-ink/15 bg-white p-4 dark:border-night-ink/25">
             <p className="text-xs uppercase tracking-wide text-charcoal-ink/60">{t("pharmcollect.code_label", locale)}</p>
             <p className="mt-1 font-mono text-3xl font-semibold tracking-[0.3em] text-charcoal-ink" aria-label={t("pharmcollect.code_label", locale)}>
@@ -125,6 +209,10 @@ export default async function CollectPage({ params, searchParams }: { params: Pr
         <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{t("pharmcollect.collected", locale)}</p>
       ) : (
         <p className="text-sm text-charcoal-ink/70">{t("pharmcollect.not_open", locale)}</p>
+      )}
+      {/* S74 (21.2): the in-app conversation with the pharmacy, once the prescription is with one. The patient only; a caregiver acting for the patient does not see it. */}
+      {!off && !forWhom && collection.ok && collection.data && (view === "code" || view === "collected" || view === "repeat") && (
+        <PharmacyChatCard prescriptionId={prescriptionId} locale={locale} />
       )}
     </div>
   );

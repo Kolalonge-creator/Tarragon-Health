@@ -220,9 +220,30 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: adminOnly,
       },
       {
+        href: "/admin/settings/media-library",
+        label: "Calm and sleep library",
+        blurb: "Manage meditations, sleep stories, soundscapes, breathing and exercises. Each needs a named reviewer and review dates before patients see it.",
+        icon: SEMANTIC_ICON.mood,
+        visible: adminOnly,
+      },
+      {
+        href: "/admin/settings/crisis-helplines",
+        label: "Crisis helplines",
+        blurb: "Verify the helplines the crisis card may show. Until a line is phoned and verified, the card shows only the emergency number and the nearest hospital.",
+        icon: NAV_ICON.siren,
+        visible: adminOnly,
+      },
+      {
         href: "/admin/settings/provider-quality-policy",
         label: "Provider quality policy",
         blurb: "Metric targets, the credential expiry ladder, and intervention triggers behind provider quality.",
+        icon: NAV_ICON.review,
+        visible: adminOnly,
+      },
+      {
+        href: "/admin/settings/prn-limit-rules",
+        label: "As-needed medicine limits",
+        blurb: "The bounds a clinician may set for an as-needed medicine, and the repeated-dose rule. The CMO signs it.",
         icon: NAV_ICON.review,
         visible: adminOnly,
       },
@@ -276,6 +297,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: adminOnly,
       },
       {
+        href: "/admin/settings/reward-rules",
+        label: "Health Points rules",
+        blurb: "What earns points, how much, the daily limits and how a change is versioned.",
+        icon: NAV_ICON.wellness,
+        visible: adminOnly,
+      },
+      {
         href: "/admin/settings/reproductive-health-analytics",
         label: "Reproductive health analytics",
         blurb: "Aggregate, de-identified profile and cycle-tracking stats for internal research.",
@@ -294,6 +322,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         label: "Retired subscription catalogue",
         blurb: "Read-only history of the plans and add-ons retired in 2026.",
         icon: SEMANTIC_ICON.billing,
+        visible: adminOnly,
+      },
+      {
+        href: "/admin/settings/testing-days",
+        label: "Testing days and employer visits",
+        blurb: "Schedule Member testing days and employer on-site visits, approve venues, run the stations.",
+        icon: SEMANTIC_ICON.booking,
         visible: adminOnly,
       },
       {

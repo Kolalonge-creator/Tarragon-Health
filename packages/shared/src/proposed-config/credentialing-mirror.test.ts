@@ -7,22 +7,53 @@ import { getProposedConfig } from "./index";
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
 
 function seededRules(): unknown {
-  // The newest migration that seeds a rules row is the live one (each new version adds a row and retires the last).
+  // The seed with the highest credentialing_config VERSION is the newest set of rules (each new version adds a row). File order is not
+  // used: a later-dated migration can seed a lower version (version 4, S76 re-verification, was written before version 3, P5, merged).
   const sqls = readdirSync(MIGRATIONS)
     .filter((f) => f.endsWith(".sql"))
     .sort()
     .map((f) => readFileSync(join(MIGRATIONS, f), "utf8"))
-    .filter((sql) => sql.includes("credentialing-rules-begin"));
-  const sql = sqls[sqls.length - 1];
+    .filter((sql) => sql.includes("credentialing-rules-begin"))
+    .map((sql) => ({ sql, version: Number(/credentialing_config \(version[^)]*\)\s*values\s*\((\d+)/.exec(sql)?.[1] ?? 0) }))
+    .sort((a, b) => a.version - b.version);
+  const sql = sqls[sqls.length - 1]?.sql;
   if (!sql) throw new Error("S15 migration not found");
   const match = /credentialing-rules-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
   if (!match?.[1]) throw new Error("credentialing rules seed not found in the migration");
-  return JSON.parse(match[1]);
+  const rules = JSON.parse(match[1]) as Record<string, unknown>;
+  // A later migration may set a value in place on every version that still carries a null (the grandfather end date, OQ-344). It says so with a marker line.
+  for (const file of readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort()) {
+    const marker = /^-- credentialing-grandfather-ends-on: (\d{4}-\d{2}-\d{2})$/m.exec(readFileSync(join(MIGRATIONS, file), "utf8"));
+    if (marker?.[1] && "grandfather_ends_on" in rules && rules["grandfather_ends_on"] === null) rules["grandfather_ends_on"] = marker[1];
+  }
+  return rules;
 }
 
 describe("credentialing.rules mirrors the migration seed", () => {
   it("is identical, so the registry and credentialing_config cannot drift", () => {
     expect(seededRules()).toEqual(getProposedConfig("credentialing.rules").value);
+  });
+
+  it("version 4 (S20 v2) carries the 90/30/7/0 notices, the 15 December proof deadline and the missing-date rule", () => {
+    const v3 = getProposedConfig("credentialing.rules", "2026-10-14");
+    expect(v3.version).toBe(4);
+    expect(v3.status).toBe("proposed");
+    const rules = v3.value as { notice_windows_days: number[]; renewal_cycle: Record<string, number>; missing_licence_date_ineligible: boolean; grace_max_days: number };
+    expect(rules.notice_windows_days).toEqual([90, 30, 7, 0]);
+    expect(rules.renewal_cycle).toEqual({ cycle_end_month: 12, cycle_end_day: 31, proof_deadline_month: 12, proof_deadline_day: 15 });
+    expect(rules.missing_licence_date_ineligible).toBe(true);
+    expect(rules.grace_max_days).toBe(14);
+  });
+
+  it("versions 2 and 3 keep the 90/30/0 notices (never edited)", () => {
+    expect((getProposedConfig("credentialing.rules", "2026-10-06").value as { notice_windows_days: number[] }).notice_windows_days).toEqual([90, 30, 0]);
+  });
+
+  it("the grandfather end date is 2027-01-13 on every version that has the key (OQ-344)", () => {
+    for (const asOf of ["2026-10-13", "2026-10-14", "2026-10-15"]) {
+      const v = getProposedConfig("credentialing.rules", asOf).value as Record<string, unknown>;
+      if ("grandfather_ends_on" in v) expect(v["grandfather_ends_on"]).toBe("2027-01-13");
+    }
   });
 
   it("agrees with the clinician.* spec values it repeats", () => {

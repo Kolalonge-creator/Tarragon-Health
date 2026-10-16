@@ -1,3 +1,4 @@
+import { FERTILE_WINDOW_LABEL } from "@tarragon/i18n";
 import type { CyclePhase, ReproductiveLifeStage } from "./cycle-prediction";
 
 /**
@@ -20,6 +21,8 @@ export interface CycleReading {
   title: string;
   /** Why it is being offered right now, in the patient's terms. */
   reason: string;
+  /** True when the reason names the fertile window, so the screen must show the label with it (S85 D2). */
+  namesFertileWindow?: boolean;
 }
 
 /** Content that applies regardless of phase, keyed by an observed situation. */
@@ -40,15 +43,19 @@ const PHASE_READING: Record<CyclePhase, CycleReading | null> = {
     title: "Understanding your menstrual cycle",
     reason: "A good time to get familiar with what your cycle is doing.",
   },
+  // These two name the fertile window, so they are only ever offered while "Planning a pregnancy" is on (S85 D2) and
+  // each carries the label in its own reason text.
   fertile: {
     code: "women-fertility-basics",
     title: "Fertility basics: what affects it",
-    reason: "You are in your estimated fertile window.",
+    reason: `You are in your estimated fertile window. ${FERTILE_WINDOW_LABEL}`,
+    namesFertileWindow: true,
   },
   ovulation: {
     code: "women-fertility-basics",
     title: "Fertility basics: what affects it",
-    reason: "Ovulation is estimated around now.",
+    reason: `Ovulation is estimated around now. ${FERTILE_WINDOW_LABEL}`,
+    namesFertileWindow: true,
   },
   luteal: {
     code: "women-menstrual-cycle",
@@ -57,6 +64,9 @@ const PHASE_READING: Record<CyclePhase, CycleReading | null> = {
   },
   unknown: null,
 };
+
+/** Phases whose suggestion names the window. Off, they read as a plain between-periods phase. */
+const WINDOW_READING_PHASES: ReadonlySet<CyclePhase> = new Set<CyclePhase>(["fertile", "ovulation"]);
 
 const LIFE_STAGE_READING: Partial<Record<ReproductiveLifeStage, CycleReading>> = {
   trying_to_conceive: {
@@ -97,6 +107,8 @@ export function suggestCycleReading(input: {
   phase: CyclePhase;
   lifeStage: ReproductiveLifeStage;
   isIrregular: boolean;
+  /** "Planning a pregnancy" (S85 D2). Off never offers a suggestion that names the fertile window. */
+  planningMode: boolean;
 }): CycleReading[] {
   const stage = LIFE_STAGE_READING[input.lifeStage];
   if (stage) {
@@ -107,7 +119,7 @@ export function suggestCycleReading(input: {
 
   const suggestions: CycleReading[] = [];
   if (input.isIrregular) suggestions.push(IRREGULAR_CYCLES_READING);
-  const phase = PHASE_READING[input.phase];
+  const phase = PHASE_READING[input.planningMode || !WINDOW_READING_PHASES.has(input.phase) ? input.phase : "follicular"];
   if (phase && !suggestions.some((s) => s.code === phase.code)) suggestions.push(phase);
   return suggestions.slice(0, 2);
 }

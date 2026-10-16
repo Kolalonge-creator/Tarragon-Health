@@ -1,9 +1,9 @@
 -- S47b proof: the review fixes (migration *_s47b_review_fixes.sql, and the edits to the S47 emergency card migration). One rolled-back transaction.
 -- Proves:
 --   1. account.phone_verified: the key holds no phone digits (fresh event, and a legacy key is rewritten, also by the anonymiser).
---   2. The anonymiser revokes the account's share links and emergency card; the anon doors answer gone / null afterwards (control: both worked before).
+--   2. The anonymiser revokes the account's emergency card; the anon door answers null afterwards (control: it worked before).
 --   3. INV-04: every spelling of an HIV, hepatitis B or C code is sensitive (hiv_rna, hbv_dna, anti_hbc, hbsag variants, hcv_rna, hiv_p24), anti_hbs and
---      hba1c are not; an AI explanation row for a variant is refused; a legacy reading of a variant never rides a share link or the FHIR export (control: a
+--      hba1c are not; an AI explanation row for a variant is refused; a legacy reading of a variant never rides the FHIR export (control: a
 --      normal legacy reading does).
 --   4. FHIR export for a guardian of a 15-year-old: mental health and reproductive items are withheld without the waiver, shown with it (control), shown to the
 --      young person themselves and to the supporter of an adult; excluded_domains says what was actually withheld.
@@ -179,16 +179,6 @@ begin
 end $f$;
 create function pg_temp.mkmed(p_pat uuid, p_name text) returns void language sql as
 $$ insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source) values (pg_temp.f('org'), p_pat, p_name, '10 mg', 'daily', true, 'patient') $$;
-create function pg_temp.share_codes(p_pat uuid) returns text language plpgsql as
-$f$ declare v_j jsonb; v_tok text; v_open jsonb; v_raw text;
-begin
-  v_raw := pg_temp.q_as(p_pat, $q$select public.create_record_share(array['lab_results'])::text$q$);
-  if v_raw like 'ERR:%' then raise exception 'share: %', v_raw; end if;
-  v_j := v_raw::jsonb;
-  v_tok := v_j ->> 'token';
-  v_open := public.record_share_open(v_tok, null, true);
-  return coalesce((select string_agg(x ->> 'code', ',' order by x ->> 'code') from jsonb_array_elements(coalesce(v_open -> 'record' -> 'lab_results', '[]'::jsonb)) x), 'none');
-end $f$;
 create function pg_temp.fhir_codes(p_pat uuid) returns text language plpgsql as
 $f$ declare v_j jsonb; v_raw text;
 begin
@@ -224,26 +214,18 @@ begin
     (select coalesce(bool_or(idempotency_key like '%2348099999999%'), false)::text from public.domain_events where event_type = 'account.phone_verified' and patient_id = p));
 end $$;
 
--- 2. Anonymiser closes the public doors ------------------------------------------------------------------------------------------------
+-- 2. Anonymiser closes the public door ------------------------------------------------------------------------------------------------
 do $$
-declare p uuid := pg_temp.mkpatient('anon'); v_j jsonb; v_tok text; v_card text; q uuid := pg_temp.mkpatient('anon_ctrl'); v_tokq text; v_cardq text;
+declare p uuid := pg_temp.mkpatient('anon'); v_card text; q uuid := pg_temp.mkpatient('anon_ctrl'); v_cardq text;
 begin
-  v_j := pg_temp.q_as(p, $q$select public.create_record_share(array['vitals'])::text$q$)::jsonb;  v_tok := v_j ->> 'token';
   v_card := pg_temp.mkcard(p);
-  v_j := pg_temp.q_as(q, $q$select public.create_record_share(array['vitals'])::text$q$)::jsonb; v_tokq := v_j ->> 'token';
   v_cardq := pg_temp.mkcard(q);
-  perform pg_temp.ck('before: the share link opens and the emergency card is served', 'ready,true',
-    (public.record_share_open(v_tok, null, false) ->> 'status') || ',' || (public.emergency_card_by_token(v_card) is not null)::text);
+  perform pg_temp.ck('before: the emergency card is served', 'true', (public.emergency_card_by_token(v_card) is not null)::text);
   perform private.anonymise_patient_account(p);
-  perform pg_temp.ck('after: the share link answers gone', 'gone', public.record_share_open(v_tok, null, false) ->> 'status');
-  perform pg_temp.ck('after: the share link row itself is inactive', 'false', (select bool_or(is_active)::text from public.record_shares where patient_id = p));
-  perform pg_temp.ck('after: the legacy by-token door answers nothing', 'null', coalesce((public.record_share_by_token(v_tok))::text, 'null'));
   perform pg_temp.ck('after: the emergency card is not served', 'null', coalesce((public.emergency_card_by_token(v_card))::text, 'null'));
-  perform pg_temp.ck('after: both rows are revoked, not deleted', 'false,false,true,true',
-    (select (is_active)::text from public.record_shares where patient_id = p) || ',' || (select (is_active)::text from public.emergency_cards where patient_id = p) || ',' ||
-    (select (revoked_at is not null)::text from public.record_shares where patient_id = p) || ',' || (select (revoked_at is not null)::text from public.emergency_cards where patient_id = p));
-  perform pg_temp.ck('control: another patient''s link and card are untouched', 'ready,true',
-    (public.record_share_open(v_tokq, null, false) ->> 'status') || ',' || (public.emergency_card_by_token(v_cardq) is not null)::text);
+  perform pg_temp.ck('after: the card is revoked, not deleted', 'false,true',
+    (select (is_active)::text from public.emergency_cards where patient_id = p) || ',' || (select (revoked_at is not null)::text from public.emergency_cards where patient_id = p));
+  perform pg_temp.ck('control: another patient''s card is untouched', 'true', (public.emergency_card_by_token(v_cardq) is not null)::text);
 end $$;
 
 -- 3. INV-04 ---------------------------------------------------------------------------------------------------------------------------
@@ -263,7 +245,6 @@ begin
   -- legacy readings: a variant never rides a link or the export
   insert into public.lab_analyte_readings (organisation_id, patient_id, code, value, unit, taken_at, report_status) values
     (pg_temp.f('org'), p, 'hiv_rna', 40, 'copies/mL', now(), 'final'), (pg_temp.f('org'), p, 'hbv_dna', 3, 'IU/mL', now(), 'final'), (pg_temp.f('org'), p, 'alt', 24, 'U/L', now(), 'final');
-  perform pg_temp.ck('share link: legacy readings of a blood-borne test are dropped, a normal one stays', 'alt', pg_temp.share_codes(p));
   perform pg_temp.ck('FHIR export: the same', 'alt', pg_temp.fhir_codes(p));
 end $$;
 
@@ -330,16 +311,16 @@ begin
 end $$;
 
 -- 6. Sabotage ------------------------------------------------------------------------------------------------------------------------
--- A: the anonymiser without the revoke lines. The link must then still open.
+-- A: the anonymiser without the emergency card revoke. The card must then still be served.
 do $$
-declare p uuid := pg_temp.mkpatient('sabA'); v_j jsonb; v_tok text; v_def text;
+declare p uuid := pg_temp.mkpatient('sabA'); v_card text; v_def text;
 begin
-  v_j := pg_temp.q_as(p, $q$select public.create_record_share(array['vitals'])::text$q$)::jsonb; v_tok := v_j ->> 'token';
+  v_card := pg_temp.mkcard(p);
   v_def := pg_get_functiondef('private.anonymise_patient_account(uuid)'::regprocedure);
-  v_def := replace(v_def, 'update public.record_shares set is_active = false', 'update public.record_shares set is_active = is_active');
+  v_def := replace(v_def, 'update public.emergency_cards set is_active = false', 'update public.emergency_cards set is_active = is_active');
   execute v_def;
   perform private.anonymise_patient_account(p);
-  insert into results values ('sabotaged', 'after: the share link row itself is inactive', 'false', (select bool_or(is_active)::text from public.record_shares where patient_id = p));
+  insert into results values ('sabotaged', 'after: the emergency card is not served', 'null', coalesce((public.emergency_card_by_token(v_card))::text, 'null'));
 end $$;
 -- B: the old phone key. The number must then appear in the key.
 do $$
@@ -401,7 +382,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 5 then raise exception 'VACUOUS TEST: the sabotage flipped % of 5 checks', v_caught; end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

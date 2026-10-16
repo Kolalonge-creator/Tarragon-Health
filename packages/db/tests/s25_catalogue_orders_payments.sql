@@ -7,6 +7,10 @@
 -- SABOTAGE: the amount check removed, and the replay guard removed; both checks must flip.
 begin;
 
+-- Two-tier: only the Membership may be on sale (catalog_items_only_membership_sellable). The order machinery under test is generic and
+-- uses care-pack and consultation fixtures, so the constraint is dropped here on purpose, inside this rolled-back transaction.
+alter table public.catalog_items drop constraint catalog_items_only_membership_sellable;
+
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
 create temp table fx(k text primary key, v uuid) on commit drop;
@@ -138,8 +142,8 @@ begin
   perform pg_temp.ck('the catalogue shows the item with its price', '500000',
     pg_temp.q_as(v_pat, $q$select (select (e->>'amount_kobo') from jsonb_array_elements(public.catalogue()) e where e->>'code' = 'proof_consult')$q$));
   perform pg_temp.ck('the seeded membership starts off', 'false', (select active::text from public.catalog_items where code = 'membership_annual' and organisation_id = pg_temp.f('org')));
-  perform pg_temp.ck('the seeded membership price is 120,000 naira in kobo', '12000000',
-    (select amount_kobo::text from public.prices p join public.catalog_items i on i.id = p.catalog_item_id where i.code = 'membership_annual' and i.organisation_id = pg_temp.f('org') and p.valid_to is null));
+  perform pg_temp.ck('the price in force today for the seeded membership is 120,000 naira in kobo (two-tier migration)', '12000000',
+    (select amount_kobo::text from public.prices p join public.catalog_items i on i.id = p.catalog_item_id where i.code = 'membership_annual' and i.organisation_id = pg_temp.f('org') and p.valid_from <= now() and (p.valid_to is null or p.valid_to > now())));
   perform pg_temp.ck('anon cannot create an order', '42501', pg_temp.try_anon($q$select public.create_order('proof_consult')$q$));
 end $$;
 
@@ -254,6 +258,9 @@ end $$;
 do $$
 declare v_p3 uuid := pg_temp.f('pat3'); v_admin uuid := pg_temp.f('admin'); ref text; o uuid; v_doc uuid;
 begin
+  -- S73: the Membership is switched on only behind its go-live guard; open it the way the guard allows (a log row in this transaction, then the switch)
+  insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions) values ('membership_billing_enabled', 'switched_on', v_admin, 'admin', 'proof run', '[]'::jsonb);
+  update public.go_live_guards set is_on = true, changed_at = now(), changed_by = v_admin, change_note = 'proof run' where key = 'membership_billing_enabled';
   perform pg_temp.ck('staff switch the membership on', 'ok',
     pg_temp.try_as(v_admin, $q$select public.set_catalog_item_active('membership_annual', true, 'Proof run, membership on for testing')$q$));
   perform pg_temp.ck('a membership needs a free lead slot', 'true',
@@ -350,13 +357,14 @@ begin
     (select count(*)::text from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || o));
   update public.orders set is_test = true where id = o;
 
-  -- a paid date inside a closed month posts today instead of failing for ever
+  -- a paid date inside a closed month posts today instead of failing for ever. The closed month is the month of paid_at (the one before this month); the
+  -- first version closed the month of now() - 10 days, which is the CURRENT month from the 11th onwards, leaving nowhere to post and failing on 11 days of every month.
   v_old := pg_temp.f('ord2');
   update public.orders set paid_at = (date_trunc('month', now()) - interval '10 days') where id = v_mem;
   delete from public.revenue_recognition_schedules where source_kind = 'order' and source_id = v_mem;
   delete from public.finance_journal_lines where entry_id in (select id from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || v_mem);
   delete from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || v_mem;
-  insert into public.finance_periods (period_month, status) values (date_trunc('month', now() - interval '10 days')::date, 'closed') on conflict (period_month) do update set status = 'closed';
+  insert into public.finance_periods (period_month, status) values (date_trunc('month', date_trunc('month', now()) - interval '10 days')::date, 'closed') on conflict (period_month) do update set status = 'closed';
   v_ok := private.post_order_safely(v_mem, true);
   perform pg_temp.ck('an order paid in a closed month posts into the current month', 'true/1/paid',
     v_ok::text || '/' || (select count(*) filter (where entry_date >= v_month)::text from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || v_mem) || '/' || (select state from public.orders where id = v_mem));

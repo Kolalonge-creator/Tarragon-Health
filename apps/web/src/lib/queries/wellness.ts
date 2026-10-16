@@ -8,7 +8,7 @@ import type { Tables } from "@tarragon/shared";
  * habits and never duplicate the real reward vouchers prevention_reward already
  * pays for screening/vaccination/health-check events (see
  * 20260730120000_wellness_points_and_badges.sql). Redemption converts points
- * into a real reward voucher via the redeem_wellness_points RPC.
+ * into a real reward voucher (that conversion was removed; S71 to S73 own points at checkout).
  */
 
 export type WellnessPointsBalance = Tables<"wellness_points_balances">;
@@ -29,6 +29,23 @@ export type WellnessClassRegistration = Tables<"wellness_class_registrations"> &
   wellness_classes: WellnessClass | null;
 };
 
+/** What `my_points_status()` returns (S58). `tier` is null for a minor. */
+export interface MyPointsStatus {
+  balance: number;
+  lifetime_earned: number;
+  is_minor: boolean;
+  year?: number;
+  year_points?: number;
+  tier: string | null;
+  tier_from?: "this_year" | "last_year";
+  next_tier?: string | null;
+  points_to_next?: number | null;
+}
+
+export type RewardRule = Tables<"reward_rules">;
+
+const myPointsStatusKey = (patientId: string) => ["wellness-points-status", patientId] as const;
+const rewardRulesKey = ["wellness-reward-rules"] as const;
 const pointsBalanceKey = (patientId: string) => ["wellness-points-balance", patientId] as const;
 const pointsLedgerKey = (patientId: string) => ["wellness-points-ledger", patientId] as const;
 const myBadgesKey = (patientId: string) => ["wellness-my-badges", patientId] as const;
@@ -65,6 +82,35 @@ export function useWellnessPointsBalance(patientId: string) {
   });
 }
 
+/** Balance, this year's tier and the next step, computed by the database (nothing about tiers is stored). */
+export function useMyPointsStatus(patientId: string) {
+  return useQuery({
+    queryKey: myPointsStatusKey(patientId),
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("my_points_status");
+      if (error) throw error;
+      return data as unknown as MyPointsStatus;
+    },
+    enabled: !!patientId,
+    refetchInterval: 60_000,
+  });
+}
+
+/** The active rules shown on "how you earn" (verified clinical actions first). */
+export function useRewardRules() {
+  return useQuery({
+    queryKey: rewardRulesKey,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from("reward_rules").select("*").eq("is_active", true).order("code");
+      if (error) throw error;
+      const rows = (data ?? []) as RewardRule[];
+      return rows.sort((a, b) => Number(b.verified_action) - Number(a.verified_action) || a.code.localeCompare(b.code));
+    },
+  });
+}
+
 export function useWellnessPointsLedger(patientId: string, limit = 20) {
   return useQuery({
     queryKey: pointsLedgerKey(patientId),
@@ -81,25 +127,6 @@ export function useWellnessPointsLedger(patientId: string, limit = 20) {
     },
     enabled: !!patientId,
     refetchInterval: 60_000,
-  });
-}
-
-export function useRedeemWellnessPoints(patientId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (points: number) => {
-      const supabase = createClient();
-      const { data, error } = await supabase.rpc("redeem_wellness_points", { p_points: points });
-      if (error) throw error;
-      const result = data as { ok: boolean; error?: string; balance?: number; kobo_credited?: number };
-      if (!result.ok) throw new Error(result.error ?? "Could not redeem points.");
-      return result;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: pointsBalanceKey(patientId) });
-      queryClient.invalidateQueries({ queryKey: pointsLedgerKey(patientId) });
-      queryClient.invalidateQueries({ queryKey: ["care-vouchers", patientId] });
-    },
   });
 }
 
@@ -295,7 +322,6 @@ const adminBadgesKey = ["wellness-admin-badges"] as const;
 const adminChallengesKey = ["wellness-admin-challenges"] as const;
 const adminProvidersKey = ["wellness-admin-class-providers"] as const;
 const adminClassesKey = ["wellness-admin-classes"] as const;
-const pointsConfigKey = ["wellness-points-config"] as const;
 
 export function useAdminWellnessBadges() {
   return useQuery({
@@ -429,35 +455,56 @@ export function useSetWellnessClassActive() {
   });
 }
 
-export function useWellnessPointsConfig() {
+
+// ---------------------------------------------------------------------------
+// Admin: reward rules (S58)
+// ---------------------------------------------------------------------------
+
+const adminRewardRulesKey = ["wellness-admin-reward-rules"] as const;
+
+export function useAdminRewardRules() {
   return useQuery({
-    queryKey: pointsConfigKey,
+    queryKey: adminRewardRulesKey,
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("wellness_points_config")
-        .select("*")
-        .eq("id", true)
-        .single();
+      const { data, error } = await supabase.from("reward_rules").select("*").order("code").order("version", { ascending: false });
       if (error) throw error;
-      return data as Tables<"wellness_points_config">;
+      const latest = new Map<string, RewardRule>();
+      for (const r of (data ?? []) as RewardRule[]) if (!latest.has(r.code)) latest.set(r.code, r);
+      return [...latest.values()];
     },
   });
 }
 
-export function useSetWellnessPointsRate() {
+export function useSetRewardRule() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (rate: number) => {
+    mutationFn: async (v: { code: string; points: number; caps: Record<string, unknown>; active: boolean }) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("wellness_points_config")
-        .update({ points_to_kobo_rate: rate })
-        .eq("id", true);
+      const { data, error } = await supabase.rpc("admin_set_reward_rule", {
+        p_code: v.code,
+        p_points: v.points,
+        p_caps: v.caps as never,
+        p_active: v.active,
+      });
       if (error) throw error;
+      return data as number;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: pointsConfigKey });
+      queryClient.invalidateQueries({ queryKey: adminRewardRulesKey });
+      queryClient.invalidateQueries({ queryKey: rewardRulesKey });
+    },
+  });
+}
+
+export function useAdminRewardsSummary() {
+  return useQuery({
+    queryKey: ["wellness-admin-rewards-summary"] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("admin_rewards_summary");
+      if (error) throw error;
+      return data as unknown as { points_30d: number; by_outcome: Record<string, number> };
     },
   });
 }

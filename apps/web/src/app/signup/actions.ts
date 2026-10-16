@@ -16,6 +16,9 @@ import { firstIssue } from "@/lib/validation/first-issue";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
 import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
 import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
+import { checkSignupGate } from "@/lib/auth/signup-gate";
+import { readSignupCohortCode } from "@/lib/auth/signup-cohort-code";
+import { readAdultDob } from "./adult-gate";
 
 export type SignupActionState =
   | {
@@ -47,6 +50,7 @@ export type SignupActionState =
         countryCode?: string;
         phone?: string;
         state?: string;
+        dateOfBirth?: string;
       };
     }
   | undefined;
@@ -69,6 +73,7 @@ export async function signUp(
     countryCode: String(formData.get("countryCode") ?? ""),
     phone: String(formData.get("phone") ?? ""),
     state: String(formData.get("state") ?? ""),
+    dateOfBirth: String(formData.get("dateOfBirth") ?? ""),
   };
   const parsed = signupSchema.safeParse({
     firstName: formData.get("firstName"),
@@ -78,12 +83,15 @@ export async function signUp(
     phone: formData.get("phone"),
     state: formData.get("state"),
     refCode: formData.get("refCode"),
+    inviteCode: formData.get("inviteCode") ?? undefined,
     intent: formData.get("intent"),
     password: formData.get("password"),
   });
   if (!parsed.success) {
     return { ...firstIssue(parsed.error, "Check the details above and try again."), values };
   }
+  const adult = readAdultDob(formData);
+  if (!adult.ok) return { error: adult.error, field: adult.field, values };
 
   // IP-scoped (10/hour) blunts scripted mass account creation; email-scoped
   // (3/hour) stops someone repeatedly triggering Supabase's confirmation
@@ -102,6 +110,16 @@ export async function signUp(
   if (!verdict.ok) {
     return { error: verdict.message, field: "password" };
   }
+
+  // Invite-only sign-up (the database enforces it; this just says so kindly before GoTrue is asked).
+  // Email only: the phone typed on this form is not verified, so it can never satisfy a phone invite.
+  const gate = await checkSignupGate({ email: parsed.data.email, inviteCode: parsed.data.inviteCode });
+  if (!gate.allowed) {
+    return { error: t("signup.invite_required", await getAuthLocale()), field: "inviteCode", values };
+  }
+  // Optional programme code (S03b): checked now, joined only after the email is verified.
+  const cohort = await readSignupCohortCode(formData, await getAuthLocale());
+  if (!cohort.ok) return { error: cohort.error, field: "cohortCode", values };
 
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;
   const supabase = await createClient();
@@ -126,14 +144,17 @@ export async function signUp(
       data: {
         full_name: parsed.data.fullName,
         phone: parsed.data.phone,
+        date_of_birth: adult.dateOfBirth,
         ...(parsed.data.state ? { state: parsed.data.state } : {}),
         ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
+        ...(parsed.data.inviteCode ? { invite_code: parsed.data.inviteCode } : {}),
         ...(parsed.data.intent ? { signup_intent: parsed.data.intent } : {}),
         // Someone signing up to pay for a relative's care rather than to be
         // treated. /auth/callback turns this into profiles.account_purpose,
         // which is what lets them skip consenting to telehealth for
         // themselves — see 20260801093000_supporter_accounts.sql.
         ...(parsed.data.intent === "support" ? { account_purpose: "support" } : {}),
+        ...(cohort.code ? { cohort_code: cohort.code } : {}),
       },
     },
   });
@@ -266,12 +287,15 @@ export async function signUpWithPhone(
     phone: formData.get("phone"),
     state: formData.get("state"),
     refCode: formData.get("refCode"),
+    inviteCode: formData.get("inviteCode") ?? undefined,
     intent: formData.get("intent"),
     password: formData.get("password"),
   });
   if (!parsed.success) {
     return localisedIssue(firstIssue(parsed.error, "Check the details above and try again."), locale);
   }
+  const adult = readAdultDob(formData);
+  if (!adult.ok) return { error: adult.error, field: adult.field };
 
   // Keyed on the phone as well as the IP: every attempt costs an SMS, and the hook's own per-phone hourly cap is the
   // backstop, not the first line.
@@ -293,6 +317,16 @@ export async function signUpWithPhone(
     };
   }
 
+  // Invite-only sign-up: say so kindly before a code is sent. A number that already has an account never reaches the gate, so this
+  // cannot be used to learn which numbers are registered.
+  const gate = await checkSignupGate({ phone: parsed.data.phone, inviteCode: parsed.data.inviteCode });
+  if (!gate.allowed) {
+    return { error: t("signup.invite_required", locale), field: "inviteCode" };
+  }
+  // Optional programme code (S03b): checked now, joined only after the phone is verified.
+  const cohort = await readSignupCohortCode(formData, locale);
+  if (!cohort.ok) return { error: cohort.error, field: "cohortCode" };
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
     phone: parsed.data.phone,
@@ -300,10 +334,13 @@ export async function signUpWithPhone(
     options: {
       data: {
         full_name: parsed.data.fullName,
+        date_of_birth: adult.dateOfBirth,
         ...(parsed.data.state ? { state: parsed.data.state } : {}),
         ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
+        ...(parsed.data.inviteCode ? { invite_code: parsed.data.inviteCode } : {}),
         ...(parsed.data.intent ? { signup_intent: parsed.data.intent } : {}),
         ...(parsed.data.intent === "support" ? { account_purpose: "support" } : {}),
+        ...(cohort.code ? { cohort_code: cohort.code } : {}),
       },
     },
   });

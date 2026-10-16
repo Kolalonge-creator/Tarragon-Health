@@ -3,6 +3,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { CareVisibilityList } from "../family/care-visibility-list";
+import { ConsentReceiptsPanel } from "./consent-receipts-panel";
 import { ConsentStatusPanel } from "./consent-status-panel";
 import { ConnectedDevicesSummary } from "./connected-devices-summary";
 import { DataRightsPanel } from "./data-rights-panel";
@@ -56,7 +57,7 @@ export default async function PrivacyCentrePage() {
         backTo={{ href: "/patient", label: "Dashboard" }}
         title="Privacy & your data"
         icon={SEMANTIC_ICON.privacy}
-        description="What you've agreed to, who can see your record, and how to request, correct, or delete your data."
+        description="What you've agreed to, who can see your record, and how to get a copy of your data, correct it, or close your account."
       />
 
       <PrivacySummary locale={locale} />
@@ -75,6 +76,8 @@ export default async function PrivacyCentrePage() {
         <ConsentStatusPanel patientId={profile.id} />
         <ConnectedDevicesSummary patientId={profile.id} />
       </div>
+
+      <ConsentReceiptsPanel patientId={profile.id} />
 
       <CareVisibilityList />
 

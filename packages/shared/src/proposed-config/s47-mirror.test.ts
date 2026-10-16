@@ -58,7 +58,7 @@ describe("S47 proposed config mirrors its migration seeds and stays proposed", (
   });
 
   it("risk.band_actions is the bandActions of risk_instrument_versions v2 and never says the app prescribes", () => {
-    const seed = json(mig("_s47_share_view_cap_and_risk_band_actions.sql"), "risk-band-actions-begin");
+    const seed = json(mig("_s47_risk_band_actions.sql"), "risk-band-actions-begin");
     const e = getProposedConfig("risk.band_actions");
     expect(seed).toEqual(e.value);
     const v = e.value as { appPrescribes: boolean; thresholdsStatus: string; bands: Record<string, Record<string, unknown>> };

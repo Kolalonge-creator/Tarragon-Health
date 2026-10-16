@@ -6,6 +6,7 @@ import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
 import { NIGERIAN_STATES } from "@/lib/nigeria-states";
 import { signUp } from "./actions";
 import { Button } from "@/components/ui/button";
+import { CohortCodeField } from "./cohort-code-field";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +17,7 @@ import { PASSWORD_MIN_LENGTH, PASSWORD_RULE_HINT } from "@/lib/validation/passwo
 import { t, type Locale } from "@tarragon/i18n";
 import { cn } from "@/lib/utils";
 import { PhoneSignupForm } from "./phone-signup-form";
+import { AdultDobField } from "./adult-dob-field";
 import { EmailCodeBox } from "./email-code-box";
 
 const FIELD_CLASS = "h-11 rounded-xl";
@@ -24,10 +26,13 @@ function EmailSignupForm({
   refCode,
   intent,
   redirectTo,
+  inviteOnly,
   locale = "en",
 }: {
   locale?: Locale;
   refCode?: string;
+  /** Show the invite code box (only while sign-up is invite-only). */
+  inviteOnly?: boolean;
   /** Carried through auth metadata so onboarding can land the visitor on what
    *  they came for. Hidden field, same mechanism as refCode. */
   intent?: "health_check" | "support";
@@ -217,6 +222,34 @@ function EmailSignupForm({
           Helps us show what&apos;s available near you. You can add or change this at any time.
         </p>
       </div>
+      {inviteOnly && (
+        <div className="space-y-1.5">
+          <Label htmlFor="inviteCode" className="text-charcoal-ink/70">
+            {t("signup.invite_code_label")}
+          </Label>
+          <Input
+            id="inviteCode"
+            name="inviteCode"
+            autoComplete="off"
+            autoCapitalize="characters"
+            maxLength={32}
+            disabled={pending}
+            className={FIELD_CLASS}
+            {...fieldErrorProps(errorId, invalid("inviteCode"), "signup-invite-hint")}
+          />
+          <p id="signup-invite-hint" className="text-xs text-charcoal-ink/50">
+            {t("signup.invite_code_hint")}
+          </p>
+        </div>
+      )}
+      <AdultDobField
+        key={state?.values?.dateOfBirth ?? "dob"}
+        idPrefix="signup"
+        errorId={errorId}
+        invalid={invalid("dateOfBirth")}
+        disabled={pending}
+        defaultValue={state?.values?.dateOfBirth}
+      />
       <div className="space-y-1.5">
         <Label htmlFor="password" className="text-charcoal-ink/70">
           Password
@@ -238,6 +271,7 @@ function EmailSignupForm({
           {PASSWORD_RULE_HINT}
         </p>
       </div>
+      <CohortCodeField idPrefix="signup" className={FIELD_CLASS} />
       <FormError id={errorId} message={state?.error} />
       <Button type="submit" size="lg" className="w-full rounded-xl" disabled={pending}>
         {pending ? "Creating account…" : "Create account"}
@@ -258,6 +292,7 @@ export function SignupForm({
   refCode?: string;
   intent?: "health_check" | "support";
   redirectTo?: string;
+  inviteOnly?: boolean;
 }) {
   const [method, setMethod] = useState<"email" | "phone">("email");
 

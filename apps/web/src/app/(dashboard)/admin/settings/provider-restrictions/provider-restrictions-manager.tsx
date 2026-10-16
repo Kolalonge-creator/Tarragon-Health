@@ -122,7 +122,7 @@ function RestrictionRow({ restriction }: { restriction: ProviderRestriction }) {
 }
 
 function ImposeForm() {
-  const { data: staff } = useAllClinicalStaff();
+  const { data: staff } = useAllClinicalStaff({ withFolio: false });
   const impose = useImposeProviderRestriction();
   const [clinicalStaffId, setClinicalStaffId] = useState("");
   const [stage, setStage] = useState<ProviderRestrictionStage>("warning");

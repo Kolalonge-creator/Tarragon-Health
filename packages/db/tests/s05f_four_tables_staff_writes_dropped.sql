@@ -81,7 +81,12 @@ begin
   insert into public.family_history (organisation_id, patient_id, condition_name, relationship) values (v_org, v_pat, 'S05fW diabetes', 'mother') returning id into v_fh;
   insert into public.patient_documents (organisation_id, patient_id, document_type, file_path, source) values (v_org, v_pat, 'other', v_pat || '/own.pdf', 'patient');
   perform set_config('app.change_reason', 'S05fW proof: patient edit', true);
-  update public.patient_allergies set reaction = 'rash' where id = v_allergy;
+  -- S05b: a recorded allergy value is superseded, not edited; the patient still updates her own non-value columns
+  v_failed := false;
+  begin update public.patient_allergies set reaction = 'rash' where id = v_allergy;
+  exception when insufficient_privilege then v_failed := true; end;
+  if not v_failed then execute 'reset role'; raise exception 'FAIL 2a0: the patient edited a recorded allergy value in place'; end if;
+  update public.patient_allergies set noted_at = now() where id = v_allergy;
   get diagnostics v_n = row_count;
   if v_n <> 1 then execute 'reset role'; raise exception 'FAIL 2a: the patient could not update her own allergy'; end if;
   update public.family_history set condition_name = 'S05fW type 2 diabetes' where id = v_fh;

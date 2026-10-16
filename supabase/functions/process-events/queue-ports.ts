@@ -2,6 +2,8 @@
 import type { QueuePorts } from "../_shared/queue/triage-task-handler.ts";
 import type { LeadPorts } from "../_shared/queue/lead-handlers.ts";
 import type { PagingPorts } from "../_shared/queue/paging-handler.ts";
+import type { PartnerWebhookPorts } from "../_shared/event-bus/partner-webhook-handler.ts";
+import type { ProgrammeProgressPorts } from "../_shared/programme/progress-handler.ts";
 import type { RpcClient } from "./triage-ports.ts";
 
 export function queuePorts(client: RpcClient): QueuePorts {
@@ -35,6 +37,29 @@ export function pagingPorts(client: RpcClient): PagingPorts {
       const { data, error } = await client.rpc("create_red_page", { p_triage_event: triageEventId });
       if (error) throw new Error(`create_red_page: ${error.message}`);
       return typeof data === "string" ? data : null;
+    },
+  };
+}
+
+// S10x-b: the database side of the partner.webhook handler, over the service-role client.
+export function partnerWebhookPorts(client: RpcClient): PartnerWebhookPorts {
+  return {
+    async enqueue(deliveryId) {
+      const { data, error } = await client.rpc("partner_webhook_enqueue_for_delivery", { p_delivery_id: deliveryId });
+      if (error) throw new Error(`partner_webhook_enqueue_for_delivery: ${error.message}`);
+      return typeof data === "number" ? data : 0;
+    },
+  };
+}
+
+// S63: the database side of the programme progress handler, over the service-role client.
+export function programmeProgressPorts(client: RpcClient): ProgrammeProgressPorts {
+  return {
+    async runProgress(enrolmentId) {
+      const { data, error } = await client.rpc("therapy_run_progress", { p_enrolment: enrolmentId });
+      if (error) throw new Error(`therapy_run_progress: ${error.message}`);
+      const r = (data ?? {}) as { flagged?: unknown; task_failed?: unknown };
+      return { flagged: r.flagged === true, taskFailed: r.task_failed === true };
     },
   };
 }

@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { koboToNaira } from "@tarragon/shared";
 import { canonicalizeNigerianState } from "@/lib/nigeria-states";
+import { DirectoryLastChecked } from "./directory-last-checked";
 
 /**
  * Per the clinician-originated-orders guardrail (see
@@ -290,6 +291,7 @@ export function PharmacyCatalogue({
                                         .join(", ")}
                                   </p>
                                 )}
+                                <DirectoryLastChecked table="pharmacy_partners" id={option.pharmacy_partner_id} />
                               </div>
                               <div className="flex items-center gap-3">
                                 <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">

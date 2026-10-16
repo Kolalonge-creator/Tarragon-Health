@@ -41,7 +41,8 @@ describe("decideCycleReminder", () => {
   it("sends one late reminder once the window has clearly passed", () => {
     const late = decideCycleReminder(predictionOn("2026-09-01"), "menstruating");
     expect(late?.kind).toBe("period_late");
-    expect(late?.payload.days_overdue).toBe(3);
+    // S66: the payload carries only the dedupe anchor, no day counts.
+    expect(Object.keys(late?.payload ?? {})).toEqual(["expected_date"]);
   });
 
   it("keeps offering the late reminder on later days too, for the cron to de-duplicate", () => {

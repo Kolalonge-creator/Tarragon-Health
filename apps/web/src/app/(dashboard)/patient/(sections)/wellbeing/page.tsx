@@ -1,5 +1,5 @@
-import { FeatureConsentGate } from "@/components/consent/feature-consent-gate";
 import Link from "next/link";
+import { t } from "@tarragon/i18n";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -12,6 +12,12 @@ import { TherapyNetwork } from "@/components/therapy-network";
 import { CategoryDetail } from "@/app/(dashboard)/patient/health-education";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FeatureConsentGate } from "@/components/consent/feature-consent-gate";
+import { CrisisCard } from "@/components/mental-health/crisis-card";
+import { MentalHealthHandoffCard } from "@/components/mental-health/handoff-card";
+import { SharedPhoneGate } from "@/components/mental-health/shared-phone-gate";
+import { SharedPhoneSettings } from "@/components/mental-health/shared-phone-settings";
+import { MoodBesideReadings } from "@/app/(dashboard)/patient/mood-beside-readings";
 
 export default async function PatientWellbeingPage() {
   const { profile, subjectId } = await getPatientDashboardContext();
@@ -27,18 +33,47 @@ export default async function PatientWellbeingPage() {
       description="Track how you're doing, take a mental health check-in, and learn ways to support yourself."
       icon={SEMANTIC_ICON.mood}
     >
-      <WellbeingTiles patientId={subjectId} />
-      <WellbeingTrendChart patientId={subjectId} />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <WellbeingCheckinForm patientId={subjectId} />
-        <div className="space-y-4">
-          <MentalHealthSummary patientId={subjectId} />
-          <FeatureConsentGate dataType="mental_health" onBehalfOf={subjectId !== profile.id}>
-            <MentalHealthScreenForm patientId={subjectId} />
-          </FeatureConsentGate>
+      {/* The crisis card is outside the shared-phone gate on purpose: help is never hidden. */}
+      <details className="rounded-lg border border-red-200 dark:border-red-500/30 p-3">
+        <summary className="cursor-pointer text-sm font-medium">{t("crisis.open_card")}</summary>
+        <div className="mt-3">
+          <CrisisCard />
         </div>
-      </div>
+      </details>
+
+      <SharedPhoneSettings />
+
+      <SharedPhoneGate>
+        <WellbeingTiles patientId={subjectId} />
+        <WellbeingTrendChart patientId={subjectId} />
+        <MoodBesideReadings patientId={subjectId} />
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t("library.title")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p className="text-charcoal-ink/70 dark:text-night-ink/70">{t("library.intro")}</p>
+            <div className="flex flex-wrap gap-4">
+              <Link className="underline" href="/patient/wellbeing/library">{t("library.title")}</Link>
+              <Link className="underline" href="/patient/wellbeing/breathing">{t("breathing.title")}</Link>
+              <Link className="underline" href="/patient/wellbeing/journal">{t("journal.title")}</Link>
+              <Link className="underline" href="/patient/sleep">Sleep</Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <WellbeingCheckinForm patientId={subjectId} />
+          <div className="space-y-4">
+            <MentalHealthSummary patientId={subjectId} />
+            <FeatureConsentGate dataType="mental_health" onBehalfOf={subjectId !== profile.id}>
+              <MentalHealthScreenForm patientId={subjectId} />
+            </FeatureConsentGate>
+            <MentalHealthHandoffCard patientId={subjectId} />
+          </div>
+        </div>
+      </SharedPhoneGate>
 
       {/* Two routes, deliberately side by side and clearly distinguished.
           In-house therapy is booked through the same appointment engine as any

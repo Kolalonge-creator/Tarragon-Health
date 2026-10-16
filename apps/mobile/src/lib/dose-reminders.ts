@@ -12,6 +12,8 @@ import {
   type ReminderIssue,
   type ReminderMedicine,
 } from "@tarragon/medicines";
+import { loadManagedDependants, type ManagedDependant } from "./acting";
+import { ownerOfNotification } from "./reminder-owner";
 import { loadMedicineRules } from "./medicines-config";
 import { readLocalMedications, readLocalRecords } from "./offline-store";
 import { listOutbox, type DosePayload } from "./outbox";
@@ -19,6 +21,7 @@ import { loadReminderBehaviour } from "./s07-config";
 import { scheduleOf } from "./medications";
 import { supabase } from "./supabase";
 import { getUiLanguage } from "./ui-language";
+import { exactAlarmsAllowed } from "./exact-alarms";
 
 /**
  * Local, device-only dose reminders: the one reminder channel that works with
@@ -49,8 +52,11 @@ Notifications.setNotificationHandler({
   }),
 });
 
-async function text(key: "medicines.notify.title" | "medicines.notify.body" | "medicines.notify.follow_up_title" | "medicines.notify.follow_up_body" | "medicines.notify.channel" | "medicines.notify.test_title" | "medicines.notify.test_body") {
-  return t(key, asLocale(await getUiLanguage()));
+async function text(
+  key: "medicines.notify.title" | "medicines.notify.body" | "medicines.notify.follow_up_title" | "medicines.notify.follow_up_body" | "medicines.notify.channel" | "medicines.notify.test_title" | "medicines.notify.test_body" | "medicines.notify.title_for" | "medicines.notify.body_for",
+  params?: Record<string, string | number>,
+) {
+  return t(key, asLocale(await getUiLanguage()), params);
 }
 
 async function ensureChannel(): Promise<void> {
@@ -154,6 +160,25 @@ export async function replanDoseReminders(
     const meds = await loadMedicines(patientId);
     const closed = await loadClosedSlots(patientId, nowMs);
     const reminderMeds: ReminderMedicine[] = meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) }));
+    // The dependants this person manages are reminded about too (OQ-70): one plan, one cap, their first name in the text.
+    const loadedDependants = await loadManagedDependants(patientId);
+    // Could not find out who is managed (offline, a failed read): leave the plan exactly as it is. Replanning from the person's own doses
+    // alone would cancel the reminders already set for the people they care for.
+    if (loadedDependants === null) return { ok: false, planned: 0, pending: 0, allowed: true };
+    const dependants: ManagedDependant[] = loadedDependants;
+    const dependantOfMedicine = new Map<string, string>();
+    for (const dep of dependants) {
+      try {
+        const depMeds = await loadMedicines(dep.profileId);
+        for (const slot of await loadClosedSlots(dep.profileId, nowMs)) closed.add(slot);
+        for (const m of depMeds) {
+          reminderMeds.push({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) });
+          dependantOfMedicine.set(m.id, dep.firstName);
+        }
+      } catch {
+        // A dependant who cannot be read right now is skipped; the person's own reminders still go ahead.
+      }
+    }
     const planned = planDoseNotifications(reminderMeds, closed, nowMs, {
       maxPending: cfg.maxPending,
       horizonDays: cfg.horizonDays,
@@ -171,9 +196,12 @@ export async function replanDoseReminders(
     for (const id of diff.toCancel) await Notifications.cancelScheduledNotificationAsync(id);
     for (const item of diff.toSchedule) {
       const followUp = item.kind === "follow_up";
+      const forName = ownerOfNotification(item.slotKeys, dependantOfMedicine);
+      const title = forName && !followUp ? await text("medicines.notify.title_for", { name: forName }) : followUp ? followTitle : dueTitle;
+      const body = forName && !followUp ? await text("medicines.notify.body_for", { name: forName }) : followUp ? followBody : dueBody;
       await Notifications.scheduleNotificationAsync({
         identifier: item.id,
-        content: { title: followUp ? followTitle : dueTitle, body: followUp ? followBody : dueBody, data: { slotKeys: item.slotKeys } },
+        content: { title, body, data: { slotKeys: item.slotKeys } },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(item.fireAtMs), channelId: DOSE_CHANNEL },
       });
     }
@@ -184,6 +212,22 @@ export async function replanDoseReminders(
     // Best effort: the Today list still shows every dose.
     return { ok: false, planned: 0, pending: 0 };
   }
+}
+
+/**
+ * Cancel every dose reminder this phone holds and plan them again. Used once, when the person has just allowed exact
+ * alarms: reminders already scheduled were created as inexact ones and keep that mode until they are made again.
+ */
+export async function rescheduleAllDoseReminders(patientId: string): Promise<ReplanResult> {
+  try {
+    const held = await Notifications.getAllScheduledNotificationsAsync();
+    for (const n of held) {
+      if (n.identifier.startsWith(DOSE_NOTIFICATION_PREFIX)) await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    }
+  } catch {
+    // The replan below still runs; a reminder that could not be cancelled is replaced by id.
+  }
+  return replanDoseReminders(patientId);
 }
 
 /** Remind again later for one dose, at most `maxSnoozes` times. Nothing is logged: a snooze is only a later reminder. */
@@ -264,7 +308,8 @@ export async function checkReminderHealth(patientId: string, nowMs: number = Dat
       Platform.OS === "android" ? ((Platform.constants as { Manufacturer?: string }).Manufacturer ?? null) : null;
     return reminderIssues({
       notificationsAllowed: status === "granted",
-      exactAlarmsAllowed: null,
+      // Android 12+: false means reminders can arrive a few minutes late; null where the phone or build cannot tell.
+      exactAlarmsAllowed: exactAlarmsAllowed(),
       plannedCount,
       pendingCount: pending,
       lastPlannedAtMs: Number.isFinite(plannedAt) && plannedAt > 0 ? plannedAt : null,

@@ -75,7 +75,7 @@ export const SERVICE_CARDS: ServiceCard[] = [
  * specific, checkable promise, so each entry below is one commitment a
  * visitor can hold Tarragon to:
  *
- *   - "₦0"        free app, founder decision 2026-09-02 (_content/pricing.ts).
+ *   - "Free"      the app, founder decision 2026-09-02 (_content/pricing.ts).
  *   - "12 hrs"    escalation_slas v8, the live active config: 720 minutes for
  *                 a critical screening result, 1440 for any other abnormal
  *                 one. Verified live 2026-09-22 — re-read the active row
@@ -88,9 +88,9 @@ export const SERVICE_CARDS: ServiceCard[] = [
  */
 export const PROOF_STATS = [
   {
-    value: "₦0",
+    value: "Free",
     label: "to join",
-    detail: "The app is free, with no subscription. You pay only when a doctor does a piece of work for you.",
+    detail: "The app is free, with no time limit. Membership adds a yearly blood test and a monthly video call with your care team.",
   },
   {
     value: "12 hrs",
@@ -345,7 +345,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "How much does it cost?",
     answer:
-      "The app is free, with no time limit. You pay only when a doctor does a specific piece of work for you, at a price you see and confirm first, and you pay laboratories and pharmacies directly for tests and refills (we take nothing on those). See the pricing page for what a doctor's time costs.",
+      "The app is free, with no time limit. Membership is one price for a year and adds a yearly blood test and a video call with your care team every month. You pay pharmacies directly for medicines. See the pricing page for the Membership price.",
   },
   {
     category: "general",

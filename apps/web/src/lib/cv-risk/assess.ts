@@ -46,6 +46,7 @@ async function latestAnalyte(
     .select("value, taken_at")
     .eq("patient_id", patientId)
     .eq("code", code)
+    .is("correction_status", null)
     .order("taken_at", { ascending: false })
     .limit(limit);
   return (data ?? []).map((r) => Number(r.value));

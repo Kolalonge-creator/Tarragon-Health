@@ -9,3 +9,5 @@
 export * from "../../../supabase/functions/_shared/notifications/neutral.ts";
 export * from "../../../supabase/functions/_shared/notifications/delivery.ts";
 export * from "../../../supabase/functions/_shared/notifications/resend.ts";
+/** recipient-address.ts: which email address a row goes to (page and staff notices use the recipient's own verified address). */
+export * from "../../../supabase/functions/_shared/notifications/recipient-address.ts";

@@ -28,6 +28,7 @@ export const CONTEXT_FIELDS = [
   "postpartum",
   "obstetric",
   "age",
+  "onBpMedicines",
 ] as const;
 
 /** Numeric `params` values flattened to dotted names (`params.recheck.afterMinutes`), so a rule can refer to them. */
@@ -96,5 +97,7 @@ export function buildContext(input: TriageInput, ruleSet: RuleSet): Context {
     postpartum: input.postpartum === true,
     obstetric: input.pregnant || input.postpartum === true,
     age: input.ageYears,
+    // absent = unknown = treated as taking them (the conservative reading, same as version 3); only an explicit false switches BP-A7 off
+    onBpMedicines: input.onBpMedicines !== false,
   };
 }

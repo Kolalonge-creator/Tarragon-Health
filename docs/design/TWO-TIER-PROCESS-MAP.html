@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tarragon Two-Tier Process Map</title>
+<style>
+:root{--bg:#fafaf7;--card:#fff;--ink:#14231c;--mut:#5c6b63;--line:#dfe5e0;--g:#0E7C52;--gbg:#e6f4ed;--navy:#12324B;--amb:#9a5b00;--ambbg:#fff1d6;--red:#a3261d;--redbg:#fde7e5;--blu:#1c5a8a;--blubg:#e3eff9}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1713;--card:#17211c;--ink:#e8efe9;--mut:#9fb0a6;--line:#2a3830;--g:#4fd1a0;--gbg:#173a2c;--navy:#9cc7ea;--amb:#f0b857;--ambbg:#3a2d12;--red:#ff8d84;--redbg:#3d1c19;--blu:#8cc4f0;--blubg:#16293a}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,system-ui,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:18px;margin:22px 0 8px}h3{font-size:15px;margin:0 0 4px}
+.sub{color:var(--mut);margin:0 0 14px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 18px;position:sticky;top:0;background:var(--bg);padding:8px 0;z-index:5}
+.tabs button{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:6px 11px;border-radius:999px;font:inherit;font-size:13px;cursor:pointer}
+.tabs button.on{background:var(--g);color:#fff;border-color:var(--g)}
+.legend{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:14px}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;vertical-align:middle;margin-left:6px;white-space:nowrap}
+.b{background:var(--gbg);color:var(--g)}.p{background:var(--ambbg);color:var(--amb)}.q{background:var(--redbg);color:var(--red)}.i{background:var(--blubg);color:var(--blu)}
+.flow{display:flex;flex-direction:column;gap:0;margin:8px 0 6px}
+.step{display:flex;gap:12px;align-items:flex-start;position:relative;padding-bottom:12px}
+.step:not(:last-child)::before{content:"";position:absolute;left:14px;top:30px;bottom:0;width:2px;background:var(--line)}
+.n{flex:0 0 30px;height:30px;border-radius:50%;background:var(--g);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;z-index:1}
+.box{flex:1;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+.box p{margin:2px 0 0;color:var(--mut);font-size:13.5px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:760px){.cols{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.panel.free{border-top:4px solid var(--mut)}.panel.mem{border-top:4px solid var(--g)}
+ul{margin:6px 0 0;padding-left:18px}li{margin:3px 0;font-size:14px}
+.call{border-left:4px solid var(--amb);background:var(--ambbg);padding:9px 12px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px}
+.rule{border-left:4px solid var(--red);background:var(--redbg);padding:9px 12px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{background:var(--gbg);color:var(--g)}
+.hand{font-size:13px;color:var(--mut);margin:4px 0 0}
+.hand b{color:var(--ink)}
+.sec{display:none}.sec.on{display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Tarragon: two-tier process map, every actor</h1>
+<p class="sub">Free vs Member (120,000 naira/year individual, 100,000 naira/year per organisation member; founder decisions 2026-10-08, updated with answers to the open points). Built from the repo on <code>origin/main-dev</code>, the memory notes and the v5 design docs. Where the code and the decision disagree, it says so.</p>
+<div class="legend"><span><span class="tag b">BUILT</span> code exists on main-dev</span><span><span class="tag p">PLAN / NOT FOUND</span> decided or planned, I did not find it built</span><span><span class="tag q">DECIDE</span> needs a founder or CMO answer</span><span><span class="tag i">DORMANT</span> built, switched off on purpose</span></div>
+<div class="tabs" id="tabs"></div>
+<div id="out"></div>
+</div>
+
+<script>
+const T = (c,t)=>`<span class="tag ${c}">${t}</span>`;
+const B=T('b','BUILT'),P=T('p','PLAN / NOT FOUND'),Q=T('q','DECIDE'),D=T('i','DORMANT');
+const flow = steps => `<div class="flow">${steps.map((s,i)=>`<div class="step"><div class="n">${i+1}</div><div class="box"><h3>${s[0]}</h3><p>${s[1]}</p></div></div>`).join('')}</div>`;
+const ul = a => `<ul>${a.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+
+const S = {};
+
+S['The big picture'] = `
+<h2>One sentence</h2>
+<p>Everyone gets the technology free. A Member pays 120,000 naira a year and, for that, gets one annual blood test and a doctor who follows up about monthly. Everything else (alerts, safety guidance, record, reminders) is the same for both.</p>
+<div class="cols">
+ <div class="panel free"><h3>FREE (technology only, no human time)</h3>${ul([
+  'Log BP, glucose, weight, SpO2, temperature, pulse (manual, Bluetooth cuff/glucometer, wearable)',
+  'Symptom checker with deterministic red-flag detection and "go to the nearest hospital" guidance',
+  'AI coach, education, medication schedule and reminders, trends, works offline',
+  '<b>Preventive alerts</b> (cancer screening due, immunisations due and similar) ' + B,
+  'Health record, share link, emergency card, Care Circle family view',
+  'No doctor reviews anything, no calls, no prescriptions, no lab order'])}</div>
+ <div class="panel mem"><h3>MEMBER (120,000 naira/year)</h3>${ul([
+  'Everything in Free',
+  '<b>One annual blood test</b> (one panel, <code>membership_annual</code>) with doctor review of every result, including all-clear ' + B,
+  '<b>Doctor follow-up about monthly</b> (video, with audio and phone fallback) ' + B + ' booking; the monthly rhythm itself ' + P,
+  'Doctor can prescribe (PDF, patient fills at any pharmacy); medicines are not included',
+  'Abnormal readings and results go to a doctor queue and get a named owner',
+  'Annual panel includes HIV and hepatitis (B per your note, confirm B or C) ' + Q + '</li><li>Written questions to the care team (proposed 4 a month) ' + B])}</div>
+</div>
+
+<h2>Who touches the platform</h2>
+<table>
+<tr><th>Actor</th><th>Account role</th><th>Where they work</th><th>One-line job</th></tr>
+<tr><td>Patient (Free or Member)</td><td>patient</td><td>App and web</td><td>Logs health, gets alerts, buys Membership, sees released results</td></tr>
+<tr><td>Family supporter</td><td>patient (Care Circle)</td><td>App and web</td><td>Sees what the patient allows, can pay for them, gets red alerts if permitted</td></tr>
+<tr><td>Doctor (Senior Medical Officer)</td><td>clinician</td><td>Clinician console</td><td>Takes tasks from the queue, runs consults, signs notes, prescribes, releases results</td></tr>
+<tr><td>Chief Medical Officer</td><td>clinician (top tier)</td><td>Clinician console + governance</td><td>All of the above, plus rebalances cases, signs protocols, rules and lab ranges, approves payouts</td></tr>
+<tr><td>Care Coordinator</td><td>care_coordinator</td><td>Staff console</td><td>Logistics only: check-ins, missed readings, booking. Never interprets or closes anything</td></tr>
+<tr><td>Lab partner</td><td>lab_partner</td><td>/lab-partner</td><td>Collects sample, enters results for their own orders only</td></tr>
+<tr><td>Lab liaison</td><td>lab_liaison</td><td>Staff console</td><td>Chases held or replacement results and partner problems</td></tr>
+<tr><td>Pharmacist</td><td>pharmacist</td><td>/pharmacist</td><td>Receives a prescription, checks collection code, dispenses ${D}</td></tr>
+<tr><td>Admin / operations / support</td><td>admin</td><td>Staff console</td><td>Queue health, directory, grants, refunds, go-live guards, audited patient lookup</td></tr>
+<tr><td>Finance</td><td>finance</td><td>Staff console</td><td>Ledger, revenue schedule, refunds posted, payouts</td></tr>
+<tr><td>Analyst</td><td>analyst</td><td>Analytics</td><td>Outcome snapshots, monthly figures; no cell under 20 people</td></tr>
+<tr><td>Employer / HMO / NGO sponsor / payer</td><td>corporate_admin, hmo_admin, ngo_admin, payer_admin, provider_org_staff</td><td>Org dashboards</td><td>Aggregate numbers only, never an individual (rule I9). Payer and provider platforms are ${D}</td></tr>
+</table>
+<div class="rule"><b>Standing rules that shape every flow below.</b> A red event never waits for a pull (INV-05). No clinical content in any notification (INV-07). A patient sees a lab result only after release (INV-03). A clinician sees a chart only through an audited read tied to a task, an encounter or a page (INV-10, INV-12). No account may read more than its tie allows. Doctor tiers are now: care coordinator, Senior Medical Officer, Chief Medical Officer (Medical Officer retired, F-05).</div>
+`;
+
+S['Patient: Free'] = `
+<h2>Patient on Free</h2>
+<p class="sub">Goal: be useful with zero human time. Safety net stays on, doctors are not paged.</p>
+${flow([
+ ['Sign up','Phone or email, consent matrix (only vitals and documents required for care), age 18+ for consults. ' + B + ' (S41/S42 are in PR 1047, not merged)'],
+ ['Set up the record','Condition, medicines, emergency contact, risk questionnaire. Health passport, timeline, share link, emergency card. ' + B],
+ ['Log daily','BP (3-day, 12-reading protocol for the yearly report), glucose, weight, symptoms. Works offline and syncs later. ' + B],
+ ['Platform grades it','Deterministic triage rule set grades each reading green / amber / red. Rule set is versioned and CMO-signed, so changing it needs a signature. ' + B],
+ ['What the patient is told','Green: encouragement and trend. Amber: recheck prompt and self-care. Red: acknowledge-gated "go to the nearest hospital now", emergency contact notified. ' + B],
+ ['Medicines','Schedule, reminders, dose log, adherence, refill reminder, catch-up. ' + B],
+ ['Preventive alerts','Cancer screening, immunisation, other screening due by age and sex. Never gated by membership. ' + B],
+ ['Upgrade prompt','Where a doctor would help (worrying trend, wants a yearly check, needs a prescription) the app offers Membership. Checkout is built but dormant until the item is switched on. ' + D]
+])}
+<div class="rule"><b>Decided.</b> A red event on a Free patient does <b>not</b> page a doctor. The patient sees the acknowledge-gated guidance and the emergency contact is notified. Needs a build change: the red-page step must check Member status. The page must still work for a Member.</div>
+`;
+
+S['Patient: Member'] = `
+<h2>Patient who becomes a Member</h2>
+<p class="sub">The year in order. Decided price is 120,000 naira (12,000,000 kobo). Code still seeds <code>membership_annual</code> at 10,000,000 kobo, 365 days, so the price change is not applied yet.</p>
+${flow([
+ ['Buy Membership','Patient taps upgrade, sees the price and what is included, pays by Paystack (card/transfer). Webhook confirms, order moves created to paid, an entitlement is written for 365 days. ' + B + ' ' + D + ' Dormant until staff switch the item on and the <code>v5_checkout</code> module is enabled.'],
+ ['Paying for someone else','A child, parent or Care Circle member can be the beneficiary. The buyer must hold access to them. The entitlement lands on the beneficiary. A sponsor can gift it with a 14-day acceptance window. ' + B],
+ ['Join a testing day','Decided: testing-day dates are listed on the platform with their locations. The Member picks one and attends. Platform listing, signup and attendance ' + P + ' (group screening days exist from before and may be reused). Same panel, <code>membership_annual</code>, is the only one allowed on the lab order.'],
+ ['Sample and results','Lab partner marks collected, enters analyte, value and unit. The database (not the client) computes range and flag. ' + B],
+ ['Release gate','All normal and nothing missing: auto-release. Abnormal or missing: held, a doctor reviews, then releases. Sensitive positive (for example HIV): the doctor must tell the patient in person first. The patient sees only released rows. ' + B + ' Until the CMO signs the panel ranges, nothing auto-releases.'],
+ ['Monthly doctor follow-up','Patient books a slot (Africa/Lagos), 10-minute hold, join from app. Video steps down to audio then phone dial-in if the line is poor. Recording off. Cancel 2h+ before returns the credit. ' + B + ' <b>Decided flow:</b> the doctor posts several available dates and times, the patient picks the day and time that suits them, and it books. Not built ' + P + ' (today the patient browses fixed slots).],
+ ['Between calls','Daily logging, written questions (proposed 4 a month), monthly progress report, care plan. If something turns amber or red, a clinical task is created and routed to the patient\'s lead doctor first. ' + B],
+ ['Prescription','Doctor signs a prescription PDF with a QR/collection code. Patient takes it to any pharmacy. Medicines cost is the patient\'s. ' + B],
+ ['Month 11','Renewal reminder 7 days before expiry. No auto-renewal, so renewing is a new order. ' + B],
+ ['Refund','Request goes to admin; full price refunded within 14 days, then not offered. Entitlement revoked, revenue schedule cancelled, reversing journal posted. ' + B]
+])}
+<div class="call"><b>Questions where you and I may differ.</b><br>${Q} Annual panel vs the CMO's risk-based HIV and hepatitis C decision (HIV/HCV were removed from the bundles, so is it in the annual test or only when risk says so?).<br>${Q} Southwest-only for Members at launch (10-05 plan) or nationwide?<br>${Q} Monthly payment option, or annual upfront only? The 10-05 plan offered both with a 10% annual discount.<br>${Q} What happens when a Member misses calls: does the year still run out at 365 days?</div>
+`;
+
+S['Doctor'] = `
+<h2>Doctor (Senior Medical Officer)</h2>
+<p class="sub">Every patient is reached by a doctor who is either pushed the task or pulls the next one. No coordinator sits in front.</p>
+${flow([
+ ['Go on shift','Declares an availability block (queue or on-call). Credentials checked: MDCN, tier, competencies. No active block, no queue. ' + B],
+ ['Work arrives','Triage or a result creates a <b>clinical task</b>. If the patient\'s lead doctor is eligible and not on leave, it is pushed to them for a lead window; otherwise it goes to the pool. Overdue tasks escalate, never drop. ' + B],
+ ['Take the next task','<code>queue_next</code> claims one task atomically (lease 30 to 60 min), highest class first. Sees only neutral facts until claimed. Can hand back with a reason; abuse is capped. ' + B],
+ ['Open the chart','One audited patient summary (readings, triage, medicines, results). Every read writes an audit row. A claim, an open page or an encounter is the tie. ' + B],
+ ['Consult','Joins the video room from the console. Optional AI scribe (needs the patient\'s own consent each time; AI-017 is off until the CMO runs evaluations). ' + B + ' ' + D],
+ ['Decide','Write the note and sign it. Prescribe (new medicine needs Senior level), change a care plan, refer, or order a test. Released notes and amendments are versioned. ' + B],
+ ['Results','Held lab results appear in a review queue. Doctor releases with a note, or for a sensitive positive records the in-person disclosure first. Corrections are new results that name what they replace. ' + B],
+ ['Red event','Paged on the on-call rota. Must acknowledge. If not, backup at 5 min, clinical lead and ops at 10 min, and it keeps ringing until someone acknowledges. ' + B],
+ ['Complete','<code>queue_complete</code> with an outcome. Reliability score updates from an append-only event log. Contracted doctors get a per-task earning line; employed doctors are salaried and get none. ' + B]
+])}
+<p class="hand"><b>Hands off to:</b> pharmacist (prescription), lab partner (test order), Chief Medical Officer (hand-back for competence, conflicts, safety concern), care coordinator (booking or chasing, never judgement).</p>
+<div class="call">${Q} Capacity. Monthly follow-up for every Member against your 1:2000 aspiration needs a number before launch. The 10-05 plan assumed about 8 minutes per call at 10,000 naira an hour. With the senior rate now 23,000 kobo a minute (F-05), that cost line moves, so the 66% margin in the plan is stale.</div>
+`;
+
+S['Chief Medical Officer'] = `
+<h2>Chief Medical Officer</h2>
+<p class="sub">Everything a doctor does, plus governance. This is the person whose signature turns clinical features on.</p>
+${flow([
+ ['Sign the rules','Triage rule sets, queue task types, alert rules, lab panel ranges, screening rule sets, report rules. Until signed, each is PROPOSED and its feature stays off (INV-14). Done from <code>/clinician/clinical-signoff</code>. ' + B],
+ ['Run the roster','Reassign or rebalance a case when auto-routing got it wrong; team caseload view; lift or review conflicts of interest. ' + B],
+ ['Watch safety','Receives hand-back review flags, paging overview, open pages, quality audits, safety concerns raised by any clinician. ' + B],
+ ['Credential','Approve clinician applications, verify MDCN, set tier and employment type. Indemnity enforced for contracted seniors and the CMO. ' + B],
+ ['Pay','May approve weekly payout drafts (S36j). Actual sending is behind the <code>payouts_enabled</code> guard, which is OFF. ' + B + ' ' + D],
+ ['Go-live guards','Attests the clinical go-live conditions with the admin. Seven new guards from PR 1047 start off. ' + B]
+])}
+<div class="rule">There is no Medical Officer tier any more. The CMO is the only management rung, and it carries governance by itself. No separate director flag exists.</div>
+`;
+
+S['Care Coordinator'] = `
+<h2>Care Coordinator</h2>
+<p class="sub">A scaling lever, not a gate. By design the patient reaches a doctor without going through this role.</p>
+${flow([
+ ['See the work','Adherence gaps, missed readings, booking and refill tasks, outreach tasks. Same staff read access as other non-clinical staff. ' + B],
+ ['Nudge','Contact a patient who has gone quiet or missed a reading (in-app, push, email; SMS only for verification codes). ' + B],
+ ['Book','Help a Member book the monthly call or the lab visit. ' + B],
+ ['Hand off','Anything that needs judgement goes to a doctor as a task. ' + B]
+])}
+<div class="rule"><b>Never:</b> interpret a result, change a medicine, close an escalation, sign a protocol. These are blocked at the server-action layer, not just hidden in the UI.</div>
+<div class="call">${Q} Do we staff coordinators at launch at all? Your 2026-09-18 principle says add them only when volume makes logistics too big for doctors. If not at launch, the "Nudge" and "Book" steps fall to the patient app and the doctor.</div>
+`;
+
+S['Lab and pharmacy'] = `
+<h2>Lab partner, lab liaison</h2>
+${flow([
+ ['Receive order','The partner sees only paid orders for their own provider (scoped by provider, not by org). ' + B],
+ ['Collect','Marks sample collected; unique specimen ID. Rejection and recollection are modelled. ' + B],
+ ['Enter results','Structured entry against the <code>membership_annual</code> panel: unit must match, range and flag are computed by the database. May attach a PDF. Partner sees only "received", never the clinical reason it was held. ' + B],
+ ['Liaison','Chases held results, replacements, withdrawn results, partner problems. ' + B]
+])}
+<div class="call">Contracts: the architecture supports more than one lab, but the earlier record says only one (Synlab) is a real active partner. Check <code>lab_providers.is_active</code> before promising a second site. A lab cannot go live carrying a placeholder contact.</div>
+
+<h2>Pharmacist ${D}</h2>
+${flow([
+ ['Prescription sent','Patient or doctor sends it to a chosen partner pharmacy. The pharmacy sees prescription, name, number, allergies only, audited. ' + B + ' Built but not applied to the live database.'],
+ ['Collection','Patient shows a collection code; five wrong guesses lock it. ' + B],
+ ['Dispense','One shared supply count across QR, phone desk and partner list. Flag a problem back to the doctor. ' + B]
+])}
+<div class="rule">No pharmacy is active or licence-verified, so for launch the patient's route is: PDF prescription to <b>any</b> pharmacy of their choice. Home delivery was removed on 2026-10-07; the logistics partner table is kept dormant for later.</div>
+`;
+
+S['Admin, support, finance'] = `
+<h2>Admin / operations / support</h2>
+${flow([
+ ['Daily watch','Queue health (oldest open per class), paging overview, delivery health, SLA and reliability dashboard, ops exception list. ' + B],
+ ['Support a patient','Search any patient; open requires a written reason; the access is audited. Support "view as" is time-boxed and audited. ' + B],
+ ['People','Clinician roster, role-grant history, directory freshness, rota gaps, speak-up concerns (protected from ops). ' + B],
+ ['Money actions','Decide refunds; approve payout drafts with the CMO. ' + B],
+ ['Switches','Platform modules, kill switches, go-live guards, PROPOSED-config sign-off screen. ' + B]
+])}
+<h2>Finance</h2>
+${flow([
+ ['Revenue','Each paid order creates a revenue schedule; posted journals follow the GL. A refund cancels the schedule and posts a reversal. ' + B],
+ ['Partner costs','Lab and doctor costs: fee schedules (versioned) feed an earnings ledger per contracted doctor. ' + B],
+ ['Payouts','Weekly drafts, approval, Paystack transfers. Sending stays off until tax counsel, Paystack and a real test payout are done. ' + B + ' ' + D],
+ ['Reconcile','Account 2100 still carries a 250,000 kobo test leftover awaiting a finance decision (OQ-28). ' + Q]
+])}
+`;
+
+S['Families and organisations'] = `
+<h2>Care Circle (family)</h2>
+${flow([
+ ['Invite','Patient invites a supporter and picks permissions. ' + B],
+ ['Supporter view','Sees what was allowed, may get red alerts, may pay for the patient or gift a Membership. ' + B],
+ ['Dependants and parents','A parent can act for a child under 18 and an adult can set up for a parent; at 18 the child\'s access hands over with a 90-day grace. ' + B + ' (PR 1047)']
+])}
+<h2>Employer, HMO, NGO sponsor</h2>
+${flow([
+ ['Contract','Sales conversation, roster upload, benefit package set to the organisation price of 100,000 naira a member (flat, replaces the 80k/70k/60k tiers; confirm). ' + B + ' (employer module exists)'],
+ ['Enrol','Each employee signs up and activates Membership. Org sees counts only, never a person. ' + B],
+ ['Report','Aggregate monthly figures, minimum cell size 20. ' + B],
+ ['Sponsors','Sponsor or diaspora relative funds a Membership through a Care Voucher or gift. ' + B + ' The "Care Voucher counsel opinion" is still open.']
+])}
+<div class="call">${Q} Organisation price is 100,000 naira a member. Confirm it is flat with no volume tiers. <b>Decided:</b> employers get an on-site visit (Tarragon team goes to their office: registration, point-of-care tests, blood draw, same-day courier to the lab), while individuals join listed public testing days. On-site scheduling ' + P + '. Payer and provider-organisation platforms are built but ${D}.</div>
+`;
+
+S['Where we might differ'] = `
+<h2>Checklist: are we on the same plan?</h2>
+<table>
+<tr><th>#</th><th>Topic</th><th>What the code shows</th><th>What I need from you</th></tr>
+<tr><td>1</td><td>Price</td><td>Seeded 100k, item inactive</td><td><b>Decided:</b> 120k individual, 100k organisation member. Change needs a go-ahead before it touches live payments</td></tr>
+<tr><td>2</td><td>Free and red events</td><td>Red pages on-call with no membership check</td><td><b>Decided:</b> no page on Free, guidance only. To build</td></tr>
+<tr><td>3</td><td>Monthly follow-up</td><td>Fixed slots only</td><td><b>Decided:</b> doctor offers several date/times, patient picks. To build</td></tr>
+<tr><td>4</td><td>Annual panel</td><td>No HIV or hepatitis; ranges unsigned</td><td><b>Decided:</b> HIV and hepatitis in. Confirm hepatitis B or C. CMO signs the new panel version</td></tr>
+<tr><td>5</td><td>Blood draw</td><td>Lab order flow built; testing days not</td><td><b>Decided:</b> platform-listed testing days with locations. To build</td></tr>
+<tr><td>6</td><td>Old bundles</td><td>Still sellable, prices unchanged</td><td>Make non-sellable, do not reprice</td></tr>
+<tr><td>7</td><td>Region</td><td>10-05 plan: Southwest first</td><td>Locations come from testing-day listings. Confirm launch cities</td></tr>
+<tr><td>8</td><td>Medicine</td><td>PDF prescription, any pharmacy</td><td>Confirm not in Membership</td></tr>
+<tr><td>9</td><td>Doctor capacity</td><td>Senior rate 23,000 kobo/min</td><td>Target members per doctor</td></tr>
+<tr><td>10</td><td>Coordinators</td><td>Role exists, logistics only</td><td>Hire at launch or later?</td></tr>
+<tr><td>11</td><td>Not live yet</td><td>PR 1047 not merged; payouts off; scribe off; pharmacy not applied</td><td>Order of go-live</td></tr>
+</table>
+`;
+
+const tabs = Object.keys(S); const el = document.getElementById('tabs'), out = document.getElementById('out');
+tabs.forEach((k,i)=>{const b=document.createElement('button');b.textContent=k;b.onclick=()=>show(i);el.appendChild(b);
+ const d=document.createElement('div');d.className='sec';d.innerHTML=S[k];out.appendChild(d);});
+function show(i){[...el.children].forEach((b,j)=>b.classList.toggle('on',i===j));[...out.children].forEach((d,j)=>d.classList.toggle('on',i===j));try{sessionStorage.setItem('tab',i)}catch(e){}}
+let s=0;try{s=+sessionStorage.getItem('tab')||0}catch(e){}show(s);
+</script>
+</body>
+</html>

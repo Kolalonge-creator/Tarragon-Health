@@ -61,7 +61,7 @@ begin
       where p.role = 'patient' and not exists (select 1 from public.service_purchases sp where sp.patient_id = p.id)
       limit 1;
     select * into v_product from public.service_products
-      where is_active and currency = 'NGN' and price_kobo > 0 and access_duration_days is not null
+      where is_active and code <> 'second_opinion_credit' and currency = 'NGN' and price_kobo > 0 and access_duration_days is not null
       limit 1;
 
     if v_patient is null or v_product.id is null then

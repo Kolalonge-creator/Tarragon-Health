@@ -2,10 +2,12 @@
 
 import {
   nextPeriodSummary,
-  PHASE_LABEL,
   type CyclePhase,
   type CyclePrediction,
 } from "@/lib/rules/cycle-prediction";
+import { applyPlanningMode, phaseLabel } from "@/lib/rules/cycle-fertile-mode";
+import { en } from "@tarragon/i18n";
+import { FertileWindowNotice } from "./fertile-window-notice";
 
 /**
  * The cycle wheel: one full turn is one predicted cycle, with each phase
@@ -116,7 +118,16 @@ function buildArcs(prediction: CyclePrediction): Arc[] {
   return arcs.filter((arc) => arc.toDay >= arc.fromDay);
 }
 
-export function CycleRing({ prediction }: { prediction: CyclePrediction }) {
+export function CycleRing({
+  prediction: rawPrediction,
+  planningMode,
+}: {
+  prediction: CyclePrediction;
+  /** "Planning a pregnancy" (S85 D2). Off hides the estimated ovulation arcs; there is no default. */
+  planningMode: boolean;
+}) {
+  // Idempotent: the tracker already filtered it, and the ring filters again so it can never draw what the mode hides.
+  const prediction = applyPlanningMode(rawPrediction, planningMode);
   const arcs = buildArcs(prediction);
   const cycleLength = prediction.expectedCycleLengthDays;
   const cycleDay = prediction.currentCycleDay;
@@ -144,7 +155,7 @@ export function CycleRing({ prediction }: { prediction: CyclePrediction }) {
         role="img"
         aria-label={
           cycleDay !== null
-            ? `Cycle day ${cycleDay} of about ${cycleLength}. ${PHASE_LABEL[prediction.currentPhase]}.`
+            ? `Cycle day ${cycleDay} of about ${cycleLength}. ${phaseLabel(prediction.currentPhase, planningMode)}.`
             : "No cycle logged yet."
         }
       >
@@ -214,7 +225,7 @@ export function CycleRing({ prediction }: { prediction: CyclePrediction }) {
           className="fill-charcoal-ink/60 dark:fill-night-ink/60"
           style={{ fontSize: 11 }}
         >
-          {PHASE_LABEL[prediction.currentPhase]}
+          {phaseLabel(prediction.currentPhase, planningMode)}
         </text>
       </svg>
       <p className="mt-1 text-center text-sm text-charcoal-ink/70 dark:text-night-ink/70">{subline}</p>
@@ -223,26 +234,36 @@ export function CycleRing({ prediction }: { prediction: CyclePrediction }) {
 }
 
 /** Shared legend, so the ring and the calendar always mean the same thing. */
-export function CycleLegend() {
-  const entries: { phase: CyclePhase; label: string }[] = [
-    { phase: "menstrual", label: "Period" },
-    { phase: "fertile", label: "Fertile window" },
-    { phase: "ovulation", label: "Ovulation" },
-    { phase: "luteal", label: "Luteal" },
-    { phase: "follicular", label: "Follicular" },
-  ];
+export function CycleLegend({ planningMode }: { planningMode: boolean }) {
+  // Off: a period and "between periods" only. The fertile, ovulation and luteal entries (and the label that goes with
+  // them) appear only while "Planning a pregnancy" is on.
+  const entries: { phase: CyclePhase; label: string }[] = planningMode
+    ? [
+        { phase: "menstrual", label: "Period" },
+        { phase: "fertile", label: "Fertile window" },
+        { phase: "ovulation", label: "Ovulation" },
+        { phase: "luteal", label: "Luteal" },
+        { phase: "follicular", label: "Follicular" },
+      ]
+    : [
+        { phase: "menstrual", label: "Period" },
+        { phase: "follicular", label: en["cycle.between_periods.label"] },
+      ];
   return (
-    <ul className="flex flex-wrap justify-center gap-x-4 gap-y-2">
-      {entries.map((entry) => (
-        <li key={entry.phase} className="flex items-center gap-1.5 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
-          <span
-            aria-hidden
-            className="inline-block h-2.5 w-2.5 rounded-full"
-            style={{ backgroundColor: PHASE_COLOR[entry.phase] }}
-          />
-          {entry.label}
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-3">
+      <ul className="flex flex-wrap justify-center gap-x-4 gap-y-2">
+        {entries.map((entry) => (
+          <li key={entry.phase} className="flex items-center gap-1.5 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+            <span
+              aria-hidden
+              className="inline-block h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: PHASE_COLOR[entry.phase] }}
+            />
+            {entry.label}
+          </li>
+        ))}
+      </ul>
+      {planningMode && <FertileWindowNotice />}
+    </div>
   );
 }

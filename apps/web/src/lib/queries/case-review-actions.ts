@@ -18,14 +18,13 @@ export type CaseReviewAction = Tables<"case_review_actions"> & {
   confirmed_by_staff_record: {
     full_name: string;
     credential_type: string | null;
-    credential_number: string | null;
   } | null;
   dismissed_by_staff_record: { full_name: string } | null;
   protocol_version: { version_number: number; title: string } | null;
 };
 
 const SELECT =
-  "*, confirmed_by_staff_record:clinical_staff!case_review_actions_confirmed_by_staff_fkey(full_name, credential_type, credential_number), dismissed_by_staff_record:clinical_staff!case_review_actions_dismissed_by_staff_fkey(full_name), protocol_version:protocol_versions!case_review_actions_protocol_version_id_fkey(version_number, title)";
+  "*, confirmed_by_staff_record:clinical_staff!case_review_actions_confirmed_by_staff_fkey(full_name, credential_type), dismissed_by_staff_record:clinical_staff!case_review_actions_dismissed_by_staff_fkey(full_name), protocol_version:protocol_versions!case_review_actions_protocol_version_id_fkey(version_number, title)";
 
 export const caseActionsKey = (clinicianAlertId: string) => [
   "case-review-actions",

@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { LifestyleBarrierPicker } from "@/components/lifestyle-barrier-picker";
 import { useT } from "@/components/ui-language-provider";
+import { t as tx } from "@tarragon/i18n";
+import { SleepExtras } from "./sleep-extras";
 
 import { formatPatientDate } from "@/lib/format-date";
 const GOAL_KEY = "sleep-goal";
@@ -26,6 +28,8 @@ export function SleepClient({ patientId }: { patientId: string }) {
     <div className="space-y-6">
       <GoalCard patientId={patientId} goal={goal.data} isLoading={goal.isLoading} />
       <LogCard patientId={patientId} />
+
+      <SleepExtras patientId={patientId} bedtimeGoal={goal.data?.target_bedtime ?? null} />
 
       <LifestyleBarrierPicker domain="sleep" />
 
@@ -176,6 +180,14 @@ function LogCard({ patientId }: { patientId: string }) {
           <div className="grid gap-1">
             <Label htmlFor="waketime">{t("Wake time")}</Label>
             <Input id="waketime" name="waketime" type="time" />
+          </div>
+          <div className="grid gap-1">
+            <Label htmlFor="sleep_latency_minutes">{tx("sleep.diary.latency")} {tx("sleep.diary.optional")}</Label>
+            <Input id="sleep_latency_minutes" name="sleep_latency_minutes" type="number" min={0} max={600} inputMode="numeric" />
+          </div>
+          <div className="grid gap-1">
+            <Label htmlFor="night_awakenings">{tx("sleep.diary.wakings")} {tx("sleep.diary.optional")}</Label>
+            <Input id="night_awakenings" name="night_awakenings" type="number" min={0} max={30} inputMode="numeric" />
           </div>
           <div className="grid gap-1 sm:col-span-2">
             <Label htmlFor="daytime_sleepiness">{t("How likely are you to doze off during the day?")}</Label>

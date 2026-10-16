@@ -1,4 +1,5 @@
 import { stripDoctorTitle } from "@/lib/prescriptions/doctor-name";
+import { formatLicenceVerifiedDate } from "@/lib/clinical/licence-verified";
 import {
   Document,
   Page,
@@ -33,8 +34,11 @@ export interface VerifiedDocumentData {
   /** Null unless a real clinical_staff row backs it — same rule as the
    * referral letter and ReviewedByDoctor: never a placeholder name. */
   issuerName: string | null;
-  issuerCredentialType: string | null;
-  issuerCredential: string | null;
+  /**
+   * "Licence verified on <date>" (CMO Q17 / OQ-358b): the date of a stored verification record, never the MDCN folio or its type.
+   * Null when no stored record exists, and then nothing about registration is printed.
+   */
+  issuerLicenceVerifiedOn: string | null;
 }
 
 /**
@@ -224,10 +228,8 @@ export function VerifiedDocumentPdf({ data }: { data: VerifiedDocumentData }) {
   const issuer = data.issuerName
     ? `Dr. ${stripDoctorTitle(data.issuerName)}`
     : "TarragonHealth care team";
-  const credential =
-    data.issuerCredentialType && data.issuerCredential
-      ? `${data.issuerCredentialType} ${data.issuerCredential}`
-      : null;
+  const licenceDate = data.issuerLicenceVerifiedOn ? formatLicenceVerifiedDate(data.issuerLicenceVerifiedOn) : null;
+  const credential = licenceDate && licenceDate !== "Invalid Date" ? `Licence verified on ${licenceDate}` : null;
   const refCode = data.documentId.slice(0, 8).toUpperCase();
 
   return (

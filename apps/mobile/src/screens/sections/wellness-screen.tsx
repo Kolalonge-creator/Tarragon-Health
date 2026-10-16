@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
-import { koboToNaira } from "@tarragon/shared";
+import { t, pointsTierLabel, pointsRuleLabel } from "@tarragon/i18n";
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import {
   enrolInWellnessChallenge,
   loadMyChallengeEnrolments,
@@ -10,11 +10,11 @@ import {
   loadWellnessBadgesCatalogue,
   loadWellnessChallengeProgress,
   loadWellnessChallengesCatalogue,
-  loadWellnessPointsBalance,
+  loadMyPointsStatus,
+  loadRewardRules,
   loadWellnessPointsLedger,
   markWellnessClassAttended,
   reasonLabel,
-  redeemWellnessPoints,
   registerForWellnessClass,
   type ChallengeEnrolment,
   type PatientWellnessBadge,
@@ -22,13 +22,14 @@ import {
   type WellnessChallenge,
   type WellnessClass,
   type WellnessClassRegistration,
-  type WellnessPointsBalance,
+  type MyPointsStatus,
+  type RewardRule,
   type WellnessPointsLedgerEntry,
 } from "@/lib/wellness";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme, placeholderColorFor } from "@/ui/design";
-import { Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { useLegacyColors } from "@/ui/design";
+import { Card, ErrorText, MutedText, ScreenTitle } from "@/ui/legacy-kit";
 
 function classDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -72,10 +73,11 @@ interface WellnessScreenProps {
  * mutation is a plain RLS-scoped call or a SECURITY DEFINER RPC already
  * granted to authenticated.
  */
-export function WellnessScreen({ patientId, organisationId, onNavigate }: WellnessScreenProps) {
+export function WellnessScreen({ patientId, organisationId }: WellnessScreenProps) {
   const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
-  const [balance, setBalance] = useState<WellnessPointsBalance | null>(null);
+  const [status, setStatus] = useState<MyPointsStatus | null>(null);
+  const [rules, setRules] = useState<RewardRule[]>([]);
   const [ledger, setLedger] = useState<WellnessPointsLedgerEntry[]>([]);
   const [badgeCatalogue, setBadgeCatalogue] = useState<WellnessBadge[]>([]);
   const [myBadges, setMyBadges] = useState<PatientWellnessBadge[]>([]);
@@ -85,8 +87,9 @@ export function WellnessScreen({ patientId, organisationId, onNavigate }: Wellne
   const [registrations, setRegistrations] = useState<WellnessClassRegistration[]>([]);
 
   const refresh = useCallback(async () => {
-    const [b, l, bc, mb, cc, en, cl, reg] = await Promise.all([
-      loadWellnessPointsBalance(patientId),
+    const [b, rl, l, bc, mb, cc, en, cl, reg] = await Promise.all([
+      loadMyPointsStatus(),
+      loadRewardRules(),
       loadWellnessPointsLedger(patientId, 8),
       loadWellnessBadgesCatalogue(),
       loadMyWellnessBadges(patientId),
@@ -95,7 +98,8 @@ export function WellnessScreen({ patientId, organisationId, onNavigate }: Wellne
       loadUpcomingWellnessClasses(),
       loadMyClassRegistrations(patientId),
     ]);
-    setBalance(b);
+    setStatus(b);
+    setRules(rl);
     setLedger(l);
     setBadgeCatalogue(bc);
     setMyBadges(mb);
@@ -128,12 +132,11 @@ export function WellnessScreen({ patientId, organisationId, onNavigate }: Wellne
         <ScreenTitle>Wellness rewards</ScreenTitle>
         <MutedText>
           Small, everyday habits add up. Earn points for logging, learning, and finishing challenges,
-          collect badges along the way, and redeem points any time for a real reward voucher you can put
-          towards your care.
+          and collect badges along the way. Points show your progress; they are not money.
         </MutedText>
       </View>
 
-      <PointsCard balance={balance} ledger={ledger} onChanged={refresh} onNavigate={onNavigate} />
+      <PointsCard status={status} rules={rules} ledger={ledger} />
       <BadgesCard catalogue={badgeCatalogue} earned={myBadges} />
       <ChallengesCard catalogue={challengeCatalogue} enrolments={enrolments} onChanged={refresh} />
       <ClassesCard
@@ -148,97 +151,91 @@ export function WellnessScreen({ patientId, organisationId, onNavigate }: Wellne
 }
 
 function PointsCard({
-  balance,
+  status,
+  rules,
   ledger,
-  onChanged,
-  onNavigate,
 }: {
-  balance: WellnessPointsBalance | null;
+  status: MyPointsStatus | null;
+  rules: RewardRule[];
   ledger: WellnessPointsLedgerEntry[];
-  onChanged: () => void;
-  onNavigate: (section: SectionId) => void;
 }) {
   const colors = useLegacyColors();
-  const { scheme } = useTheme();
-  const [amount, setAmount] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [redeemed, setRedeemed] = useState(false);
-
-  const currentBalance = balance?.balance ?? 0;
-
-  async function submit() {
-    setError(null);
-    setMessage(null);
-    const points = Number(amount);
-    if (!points || points <= 0) {
-      setError("Enter a positive number of points.");
-      return;
-    }
-    setSubmitting(true);
-    const result = await redeemWellnessPoints(points);
-    setSubmitting(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setMessage(`Redeemed: a ₦${koboToNaira(result.data.koboCredited ?? 0).toLocaleString()} reward voucher is now on your account.`);
-    setAmount("");
-    setRedeemed(true);
-    onChanged();
-  }
+  const currentBalance = status?.balance ?? 0;
+  const label = { fontSize: 11, fontWeight: "600" as const, textTransform: "uppercase" as const, letterSpacing: 0.3, color: colors.muted };
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Wellness points</Text>
-      <MutedText>
-        Earn points for logging vitals, meals, and check-ins, finishing lessons, and hitting challenges.
-        Redeem any time for a reward voucher you can put towards your care.
-      </MutedText>
+      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("points.title")}</Text>
+      <MutedText>{t("points.subtitle")}</MutedText>
 
       <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
         <Text style={{ fontSize: 28, fontWeight: "700", color: colors.ink }}>{currentBalance.toLocaleString()}</Text>
         <MutedText>
-          points{balance?.lifetime_earned ? ` · ${balance.lifetime_earned.toLocaleString()} earned all-time` : ""}
+          {t("points.balance_unit")}
+          {status?.lifetime_earned ? ` · ${t("points.earned_all_time", "en", { points: status.lifetime_earned.toLocaleString() })}` : ""}
         </MutedText>
       </View>
 
-      <View style={{ gap: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Redeem for a voucher</Text>
-        <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
-          value={amount}
-          onChangeText={setAmount}
-          placeholder="e.g. 100"
-          keyboardType="numeric"
-          style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, color: colors.ink }}
-        />
-        {error && <ErrorText>{error}</ErrorText>}
-        {message && <MutedText>{message}</MutedText>}
-        <SecondaryButton title="Redeem" onPress={submit} disabled={currentBalance <= 0} loading={submitting} />
-        {redeemed && (
-          <Text onPress={() => onNavigate("financialProfile")} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>
-            See your voucher in Your finances →
-          </Text>
-        )}
-      </View>
+      {status && (
+        <View style={{ gap: 2 }}>
+          <Text style={label}>{t("points.level.title")}</Text>
+          {status.is_minor || !status.tier ? (
+            <MutedText>{t("points.level.adults_only")}</MutedText>
+          ) : (
+            <>
+              <Text style={{ fontSize: 13, color: colors.ink }}>{t("points.level.current", "en", { tier: pointsTierLabel(status.tier) })}</Text>
+              {status.tier_from === "last_year" && (
+                <MutedText>{t("points.level.kept", "en", { tier: pointsTierLabel(status.tier) })}</MutedText>
+              )}
+              {status.next_tier && status.points_to_next != null && status.points_to_next > 0 ? (
+                <MutedText>{t("points.level.next", "en", { points: status.points_to_next, tier: pointsTierLabel(status.next_tier) })}</MutedText>
+              ) : (
+                !status.next_tier && <MutedText>{t("points.level.top")}</MutedText>
+              )}
+              <MutedText>{t("points.level.resets")}</MutedText>
+            </>
+          )}
+        </View>
+      )}
 
-      {ledger.length > 0 && (
+      {rules.length > 0 && (
         <View style={{ gap: 4 }}>
-          <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, color: colors.muted }}>
-            Recent activity
-          </Text>
-          {ledger.map((entry) => (
-            <View key={entry.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
-              <Text style={{ fontSize: 13, color: colors.ink }}>{reasonLabel(entry.reason)}</Text>
-              <Text style={{ fontSize: 13, fontWeight: "600", color: entry.points > 0 ? colors.brandPressed : colors.muted }}>
-                {entry.points > 0 ? "+" : ""}
-                {entry.points}
+          <Text style={label}>{t("points.how.title")}</Text>
+          <MutedText>{t("points.how.intro")}</MutedText>
+          {rules.map((r) => (
+            <View key={r.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 3 }}>
+              <Text style={{ fontSize: 13, color: colors.ink, flexShrink: 1 }}>
+                {pointsRuleLabel(r.code)}
+                {r.verified_action ? ` · ${t("points.how.verified")}` : ""}
+              </Text>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>
+                {r.points_source === "catalogue" ? t("points.how.catalogue") : t("points.how.per", "en", { points: r.points })}
               </Text>
             </View>
           ))}
+          <MutedText>{t("points.how.daily_note")}</MutedText>
         </View>
       )}
+
+      <View style={{ gap: 2 }}>
+        <Text style={label}>{t("points.redeem.title")}</Text>
+        <MutedText>{t("points.redeem.coming_soon")}</MutedText>
+        <MutedText>{t("points.redeem.never_cash")}</MutedText>
+      </View>
+
+      <View style={{ gap: 4 }}>
+        <Text style={label}>{t("points.activity.title")}</Text>
+        {ledger.length === 0 && <MutedText>{t("points.activity.empty")}</MutedText>}
+        {ledger.map((entry) => (
+          <View key={entry.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
+            <Text style={{ fontSize: 13, color: colors.ink }}>{reasonLabel(entry.reason)}</Text>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: entry.points > 0 ? colors.brandPressed : colors.muted }}>
+              {entry.points > 0 ? "+" : ""}
+              {entry.points}
+            </Text>
+          </View>
+        ))}
+      </View>
     </Card>
   );
 }

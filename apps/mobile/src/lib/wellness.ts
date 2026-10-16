@@ -1,15 +1,15 @@
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
 import type { Tables } from "@tarragon/shared";
+import { pointsRuleLabel } from "@tarragon/i18n";
 
 /**
  * Wellness gamification (points, badges, challenges, classes). An engagement
  * layer, free to every patient regardless of plan — mirrors the
  * patient-facing half of apps/web/src/lib/queries/wellness.ts (the admin
  * catalogue functions there are staff-only and not ported). No table/RPC
- * here needs a service-role client, and none is a real financial
- * transaction — redeem_wellness_points mints a care_vouchers row from the
- * patient's own points, it never moves money or calls Paystack.
+ * here needs a service-role client. Points are NON-MONETARY (OQ-08, F1): no
+ * redemption call, no conversion rate, no voucher path exists on the client.
  */
 
 export type WellnessPointsBalance = Tables<"wellness_points_balances">;
@@ -30,21 +30,34 @@ export type WellnessClassRegistration = Tables<"wellness_class_registrations"> &
   wellness_classes: WellnessClass | null;
 };
 
-/** Reuses points-card.tsx's copy map verbatim. */
-export const REASON_LABEL: Record<string, string> = {
-  vitals_logged: "Logged a vitals reading",
-  meal_logged: "Logged a meal",
-  adherence_checkin_completed: "Answered a medication check-in",
-  education_lesson_completed: "Completed a lesson",
-  lpe_task_completed: "Completed a lifestyle task",
-  lpe_goal_achieved: "Achieved a lifestyle goal",
-  challenge_completed: "Completed a challenge",
-  wellness_class_attended: "Attended a class",
-  redeemed_to_voucher: "Redeemed for a voucher",
-};
-
+/** Labels come from the shared `points.rule.*` catalogue (S58) so web and phone say the same thing. */
 export function reasonLabel(reason: string): string {
-  return REASON_LABEL[reason] ?? reason.replace(/_/g, " ");
+  return pointsRuleLabel(reason);
+}
+
+/** What `my_points_status()` returns. `tier` is null for a minor. */
+export interface MyPointsStatus {
+  balance: number;
+  lifetime_earned: number;
+  is_minor: boolean;
+  year_points?: number;
+  tier: string | null;
+  tier_from?: "this_year" | "last_year";
+  next_tier?: string | null;
+  points_to_next?: number | null;
+}
+
+export type RewardRule = Tables<"reward_rules">;
+
+export async function loadMyPointsStatus(): Promise<MyPointsStatus | null> {
+  const { data } = await supabase.rpc("my_points_status");
+  return (data as unknown as MyPointsStatus | null) ?? null;
+}
+
+/** Active rules for "how you earn", verified clinical actions first. */
+export async function loadRewardRules(): Promise<RewardRule[]> {
+  const { data } = await supabase.from("reward_rules").select("*").eq("is_active", true).order("code");
+  return (data ?? []).sort((a, b) => Number(b.verified_action) - Number(a.verified_action) || a.code.localeCompare(b.code));
 }
 
 // ---------------------------------------------------------------------------
@@ -70,24 +83,6 @@ export async function loadWellnessPointsLedger(patientId: string, limit = 8): Pr
     .order("created_at", { ascending: false })
     .limit(limit);
   return data ?? [];
-}
-
-export interface RedeemWellnessPointsResult {
-  balance?: number;
-  koboCredited?: number;
-  voucherId?: string;
-}
-
-/** Not a payment/checkout flow — an internal points-ledger debit that mints
- * a care_vouchers row via private.issue_reward_voucher. Safe as a plain
- * direct RPC call, unlike a real Paystack transaction. */
-export async function redeemWellnessPoints(points: number): Promise<QueryResult<RedeemWellnessPointsResult>> {
-  if (!points || points <= 0) return { ok: false, error: "Enter a positive number of points." };
-  const { data, error } = await supabase.rpc("redeem_wellness_points", { p_points: points });
-  if (error) return { ok: false, error: error.message };
-  const result = data as { ok: boolean; error?: string; balance?: number; kobo_credited?: number; voucher_id?: string };
-  if (!result.ok) return { ok: false, error: result.error ?? "Could not redeem points." };
-  return { ok: true, data: { balance: result.balance, koboCredited: result.kobo_credited, voucherId: result.voucher_id } };
 }
 
 // ---------------------------------------------------------------------------

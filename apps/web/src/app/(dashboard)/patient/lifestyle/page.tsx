@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getLifestyleState, getPastLifestyleGoals } from "@/lib/lifestyle/service";
-import { hasCoachAccess } from "@/lib/ai-coach/entitlement";
+import { isAssistantOffered } from "@/lib/ai-coach/offered";
 import { LifestyleClient } from "./lifestyle-client";
 
 /**
@@ -25,7 +25,7 @@ export default async function LifestylePage() {
       .select("condition_language_preference")
       .eq("id", user.id)
       .single(),
-    hasCoachAccess(supabase),
+    isAssistantOffered(supabase),
   ]);
 
   return (
