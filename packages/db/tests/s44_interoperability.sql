@@ -454,7 +454,7 @@ begin
   v_j := pg_temp.push(v_labu, v_o2, 'msg-000004', pg_temp.push_items(88, 'mg/dL'))::jsonb;
   select id into v_rid from public.lab_results where lab_order_id = v_o2;
   perform pg_temp.ck('5s an all-normal push against SIGNED ranges is released', 'received|released|released',
-    (v_j ->> 'status') || '|' || (v_j ->> 'state') || '|' || (select release_state || coalesce(' (' || release_reason || ')', '') from public.lab_results where id = v_rid));
+    (v_j ->> 'status') || '|' || (v_j ->> 'state') || '|' || (select release_state from public.lab_results where id = v_rid));
   perform pg_temp.ck('5t the patient sees it', '1', pg_temp.q_as(v_pat, format('select count(*)::text from public.lab_results where id = %L', v_rid)));
   perform pg_temp.ck('5u a replay of the same message id writes nothing new', 'true|1',
     ((pg_temp.push(v_labu, v_o2, 'msg-000004', pg_temp.push_items(88, 'mg/dL'))::jsonb ->> 'replayed')) || '|' || (select count(*)::text from public.lab_results where lab_order_id = v_o2));

@@ -129,7 +129,7 @@ begin
   perform pg_temp.ck('a wrong answer changed nothing', '2', (select count(*)::text from public.profile_access where profile_id = v_c));
   perform pg_temp.q_as(v_c, $q$select (public.complete_dependant_handover('{}', date '1990-01-01') ->> 'reason')$q$);
   perform pg_temp.q_as(v_c, $q$select (public.complete_dependant_handover('{}', date '1990-01-01') ->> 'reason')$q$);
-  perform pg_temp.ck('five wrong answers lock it for a day', 't', (select (dob_locked_until > now() + interval '23 hours')::text from public.dependant_handovers where patient_id = v_c));
+  perform pg_temp.ck('five wrong answers lock it for a day', 'true', (select (dob_locked_until > now() + interval '23 hours')::text from public.dependant_handovers where patient_id = v_c));
   perform pg_temp.ck('while locked even the right date of birth is refused', '55000', pg_temp.try_as(v_c, format('select public.complete_dependant_handover(''{}'', %L)', (select date_of_birth from public.profiles where id = v_c))));
   perform pg_temp.ck('and nobody lost access', '2', (select count(*)::text from public.profile_access where profile_id = v_c));
   update public.dependant_handovers set dob_locked_until = now() - interval '1 minute' where patient_id = v_c;
@@ -163,6 +163,9 @@ begin
   update public.profiles set is_dependent_account = true, dependent_kind = 'elder_proxy' where id = v_e;
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v_e, v_g3, 'manage', v_g3);
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, weight_kg) values (v_org, v_e, 'weight', 60);
+  -- S04b-1 (OQ-47): the manager of an elder has no blanket read, so the elder first shares vitals and medical history explicitly
+  select id into v_set from public.profile_access where profile_id = v_e and grantee_user_id = v_g3;
+  perform pg_temp.ck('the elder shares vitals and medical history', 'ok', pg_temp.try_as(v_e, format($q$select public.set_care_access_categories(%L, array['vitals_readings','medical_history']::public.care_access_category[])$q$, v_set)));
   perform pg_temp.ck('control: elder manager reads vitals', '1', pg_temp.vitals_seen_by(v_g3, v_e));
   perform pg_temp.ck('elder manager does NOT read reproductive health', 'false', pg_temp.q_as(v_g3, format($q$select private.can_read_clinical(%L, 'reproductive_health'::public.care_access_category)::text$q$, v_e)));
   perform pg_temp.ck('elder manager still reads medical history', 'true', pg_temp.q_as(v_g3, format($q$select private.can_read_clinical(%L, 'medical_history'::public.care_access_category)::text$q$, v_e)));

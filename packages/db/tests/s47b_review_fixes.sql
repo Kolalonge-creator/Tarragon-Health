@@ -265,8 +265,10 @@ begin
   alter table public.patient_conditions enable trigger "00_minor_dependant_scope";
   alter table public.health_education_recommendations enable trigger "00_minor_dependant_scope";
   alter table public.medications disable trigger "00_minor_dependant_scope";
+  alter table public.health_education_recommendations disable trigger "00_minor_dependant_scope";
   perform pg_temp.mkmed(child, 'Sertraline'); perform pg_temp.mkmed(child, 'Levonorgestrel'); perform pg_temp.mkmed(child, 'Amlodipine');
   alter table public.medications enable trigger "00_minor_dependant_scope";
+  alter table public.health_education_recommendations enable trigger "00_minor_dependant_scope";
   j := pg_temp.jq(g, format($q$select public.fhir_export_snapshot(%L, array['conditions','medications'])::text$q$, child));
   perform pg_temp.ck('guardian of a 15-year-old, no waiver: only the ordinary condition', 'Hypertension', pg_temp.names(j, 'conditions', 'condition_name'));
   perform pg_temp.ck('...and only the ordinary medicine', 'Amlodipine', pg_temp.names(j, 'medications', 'drug_name'));
