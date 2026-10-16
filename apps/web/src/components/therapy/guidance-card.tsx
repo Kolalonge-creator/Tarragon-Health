@@ -25,7 +25,7 @@ export function TherapyGuidanceCard({ route, taskFailed = false, noRules = false
         ) : (
           (route === "crisis" || route === "same_day_clinician" || route === "medical_review_first") && <p className="text-sm font-medium">{t("therapy.guidance.told")}</p>
         )}
-        <Link href="/patient/programmes" className="text-sm font-medium text-brand-green dark:text-brand-green-bright underline">
+        <Link href="/patient/self-help" className="text-sm font-medium text-brand-green dark:text-brand-green-bright underline">
           {t("therapy.guidance.back")}
         </Link>
       </CardContent>

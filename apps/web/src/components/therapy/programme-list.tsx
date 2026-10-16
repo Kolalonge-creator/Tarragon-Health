@@ -61,7 +61,7 @@ export function TherapyProgrammeList() {
                   {mine.current_score !== null && <p>{t("therapy.progress.latest_score", "en", { score: mine.current_score })}</p>}
                 </div>
               )}
-              <Link href={`/patient/programmes/${p.code}`} className="text-sm font-medium text-brand-green dark:text-brand-green-bright underline">
+              <Link href={`/patient/self-help/${p.code}`} className="text-sm font-medium text-brand-green dark:text-brand-green-bright underline">
                 {mine && mine.state !== "completed" ? t("therapy.programme.continue") : t("therapy.programme.start")}
               </Link>
             </CardContent>

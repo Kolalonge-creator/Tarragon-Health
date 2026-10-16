@@ -31,7 +31,7 @@ const WEB_ENTRY = [
   "lib/wellbeing-library",
   "lib/mental-health",
   "components/therapy",
-  "app/(dashboard)/patient/(sections)/programmes",
+  "app/(dashboard)/patient/(sections)/self-help",
   "lib/queries/mental-health.ts",
   "lib/queries/wellbeing.ts",
   "lib/queries/mood-trend.ts",

@@ -69,7 +69,7 @@ export function TherapyEntryScreen({ code }: { code: string }) {
       const { data, error } = await createClient().rpc("enrol_in_therapy_programme", { p_programme_code: code, p_answers: answers as unknown as Record<string, boolean | number> });
       const outcome = error ? ({ kind: "unknown" } as const) : readEnrolOutcome(data);
       if (outcome.kind === "enrolled") {
-        router.push(`/patient/programmes/${code}`);
+        router.push(`/patient/self-help/${code}`);
         router.refresh();
         return;
       }

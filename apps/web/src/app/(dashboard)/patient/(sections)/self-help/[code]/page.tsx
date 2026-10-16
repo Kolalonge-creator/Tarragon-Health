@@ -39,7 +39,7 @@ export default async function PatientProgrammePage({ params }: { params: Promise
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("therapy.title")} icon={SEMANTIC_ICON.mood} backTo={{ href: "/patient/programmes", label: t("therapy.guidance.back") }} />
+      <PageHeader title={t("therapy.title")} icon={SEMANTIC_ICON.mood} backTo={{ href: "/patient/self-help", label: t("therapy.guidance.back") }} />
       <SharedPhoneSettings />
       <SharedPhoneGate>
         {!own ? (

@@ -218,6 +218,7 @@ export function getNavSections(
               icon: "family",
             },
             { label: "Wellbeing", href: "/patient/wellbeing", icon: "mood" },
+            { label: "Self-help programmes", href: "/patient/self-help", icon: "mood" },
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
             { label: "Find a specialist", href: "/patient/find-a-specialist", icon: "referral" },
             { label: "Healthy ageing", href: "/patient/healthy-ageing", icon: "healthyAgeing" },
