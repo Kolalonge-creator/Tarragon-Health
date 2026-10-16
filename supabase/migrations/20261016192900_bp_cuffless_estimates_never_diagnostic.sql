@@ -19,6 +19,9 @@
 --     still opens the emergency record exactly as today: the patient safety net (acknowledge-gated guidance, emergency contact, follow-up) never depends on a reading's source.
 --     Whether that emergency record should also stay silent for an estimate is the CMO question in docs/OPEN-QUESTIONS.md.
 --  Module is OFF: the red and amber path is byte for byte today's behaviour.
+--
+-- KNOWN EFFECT, by design: a person whose only blood pressure readings are wearable estimates now looks like a person with no blood pressure readings to the monitoring-gap,
+-- overdue-vitals and reminder readers (they read the diagnostic view), so the usual "please take a reading" nudges continue. With 0 such rows today nobody is affected.
 
 -- 1. The rule, in one place --------------------------------------------------------------------------------------------------------------
 create or replace function private.bp_reading_is_estimate(p_source text)

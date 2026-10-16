@@ -135,6 +135,10 @@ begin
   perform pg_temp.rec('the rule: wearable is an estimate', 'true', private.bp_reading_is_estimate('wearable')::text);
   perform pg_temp.rec('the rule: manual, device, photo_confirmed, fhir_import, cgm are not', 'false/false/false/false/false',
     private.bp_reading_is_estimate('manual')::text || '/' || private.bp_reading_is_estimate('device')::text || '/' || private.bp_reading_is_estimate('photo_confirmed')::text || '/' || private.bp_reading_is_estimate('fhir_import')::text || '/' || private.bp_reading_is_estimate('cgm')::text);
+  -- the view is `select c.*`, which freezes its columns at creation: if the display view ever gains a column, a reader of the diagnostic view must not silently lose it
+  perform pg_temp.rec('the diagnostic view has exactly the columns of the display view, in order', 'true',
+    ((select array_agg(attname::text order by attnum) from pg_attribute where attrelid = 'private.vitals_readings_diagnostic'::regclass and attnum > 0 and not attisdropped)
+     = (select array_agg(attname::text order by attnum) from pg_attribute where attrelid = 'private.vitals_readings_current'::regclass and attnum > 0 and not attisdropped))::text);
   perform pg_temp.act(v_admin);
   perform pg_temp.rec('a signed-in client cannot read the diagnostic view', '42501', pg_temp.try('select * from private.vitals_readings_diagnostic'));
   perform pg_temp.back();

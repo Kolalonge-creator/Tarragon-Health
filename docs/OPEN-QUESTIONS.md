@@ -3860,6 +3860,9 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 ### OQ-BPW-3 A HealthKit or Health Connect blood pressure cannot be told from a watch estimate
 - Both mobile bridges upload with `source = 'wearable'`. A blood pressure that a validated cuff wrote into the phone's health store (for example an Omron app) is therefore treated as an estimate until the bridge can carry the originating device. Until then the person can type a cuff reading in by hand, which counts. Needs a device run before a discriminator can be designed.
 
+### OQ-BPW-4 The wearable-estimate label text is proposed copy outside the reviewed-strings ledger
+- `bpe.estimate_label` ("Wearable estimate", the same words the web badge already shows) and `bpe.estimate_note` ("From a watch or ring, not a blood pressure cuff. It is not used in your average or your trend. When you can, check with an upper-arm cuff.") sit in a namespace the ledger does not cover, so no reviewer was invented. CMO to read the note; if it should be ledger-covered, move it under `vitals.` with a real entry.
+
 ## Renumbering map (2026-10-16)
 
 Several OQ numbers were handed out twice by parallel sessions. The first heading in this file keeps its number; each later duplicate was given a fresh number above 452 (`packages/shared/src/open-questions-unique.test.ts` now fails on a repeated `### OQ-N`). References INSIDE a renumbered entry were updated. References elsewhere (other docs, code comments, migration headers) were NOT rewritten: a bare "OQ-310" there cannot be told apart from the five other OQ-310 topics, and applied migration bodies are never edited. Read an old citation against this map; the number it most likely means is the one that kept its number unless the citing text matches a title below.
