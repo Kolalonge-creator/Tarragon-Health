@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -34,6 +34,8 @@ import { readPendingCapacityConfigSignoff } from "@/lib/queries/pending-capacity
 import { UnifiedRedPagingPanel } from "../_signoff-panels/unified-red-paging-panel";
 import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
 import { GlucoseTaskTypePanel } from "../_signoff-panels/glucose-task-type-panel";
+import { VitalsTaskTypePanel } from "../_signoff-panels/vitals-task-type-panel";
+import { VitalsTriageRulesPanel } from "../_signoff-panels/vitals-triage-rules-panel";
 import { RedOutreachPanel } from "../_signoff-panels/red-outreach-panel";
 import { SoleCmoExceptionPanel } from "../_signoff-panels/sole-cmo-exception-panel";
 import { GlucoseTriageRulesPanel } from "../_signoff-panels/glucose-triage-rules-panel";
@@ -202,6 +204,7 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has(COMMUNITY_ITEM_KEY)) inlinePanels[COMMUNITY_ITEM_KEY] = <CommunitySignoffPanel />;
 
   if (keys.has(GLUCOSE_TASK_TYPE_ITEM_KEY)) inlinePanels[GLUCOSE_TASK_TYPE_ITEM_KEY] = <GlucoseTaskTypePanel />;
+  if (keys.has(VITALS_TASK_TYPE_ITEM_KEY)) inlinePanels[VITALS_TASK_TYPE_ITEM_KEY] = <VitalsTaskTypePanel />;
   if (keys.has(QUALITY_CONFIG_ITEM_KEY)) {
     const pendingConfigs = await readPendingQualityConfigSignoff(supabase);
     inlinePanels[QUALITY_CONFIG_ITEM_KEY] = <QualityConfigPanel qualityVersion={pendingConfigs.qualityVersion} credentialingVersion={pendingConfigs.credentialingVersion} />;
@@ -218,6 +221,8 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has(SOLE_CMO_EXCEPTION_ITEM_KEY)) inlinePanels[SOLE_CMO_EXCEPTION_ITEM_KEY] = <SoleCmoExceptionPanel />;
   // Glucose triage rules (plan item R2): the numbers, the guideline basis of every rule, the patient wording in full, then the Sign control.
   if (keys.has(GLUCOSE_TRIAGE_ITEM_KEY)) inlinePanels[GLUCOSE_TRIAGE_ITEM_KEY] = <GlucoseTriageRulesPanel back="hub" />;
+  // Pulse, SpO2 and temperature triage rules: the numbers, the guideline basis (with the NEWS2 comparison), the patient wording in full, then the Sign control.
+  if (keys.has(VITALS_TRIAGE_ITEM_KEY)) inlinePanels[VITALS_TRIAGE_ITEM_KEY] = <VitalsTriageRulesPanel back="hub" />;
 
   if (keys.has(PROTOCOL_DRAFTS_ITEM_KEY)) {
     inlinePanels[PROTOCOL_DRAFTS_ITEM_KEY] = (

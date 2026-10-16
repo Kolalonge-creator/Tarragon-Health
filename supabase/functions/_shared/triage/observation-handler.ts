@@ -10,6 +10,7 @@
 
 import { grade } from "../clinical/engine.ts";
 import { GLUCOSE_RULE_SET_CODE, gradeGlucose, type GlucoseInput, type GlucoseRuleSet } from "../clinical/glucose-engine.ts";
+import { gradeVitals, VITALS_RULE_SET_CODE, type VitalsInput, type VitalsRuleSet } from "../clinical/vitals-engine.ts";
 import type { RuleSet, TriageInput, TriageResult } from "../clinical/types.ts";
 import { PermanentHandlerError, type BusEvent, type Handler, type HandlerContext } from "../event-bus/dispatch.ts";
 
@@ -44,6 +45,20 @@ export interface GlucoseRuleSetForGrading {
   rules: GlucoseRuleSet;
 }
 
+/** What the database says about a pulse, SpO2 or temperature reading. Same shape idea as the glucose context, with the vitals engine's input. */
+export interface VitalsTriageContext {
+  found: boolean;
+  isTest?: boolean;
+  basis?: string;
+  input?: VitalsInput;
+}
+
+export interface VitalsRuleSetForGrading {
+  id: string;
+  status: "draft" | "approved";
+  rules: VitalsRuleSet;
+}
+
 export interface TriagePorts {
   loadContext(observationId: string, recheck: "timed_out" | null): Promise<TriageContext>;
   loadRuleSet(code: string): Promise<RuleSetForGrading | null>;
@@ -52,6 +67,10 @@ export interface TriagePorts {
   loadGlucoseContext(observationId: string): Promise<GlucoseTriageContext>;
   loadGlucoseRuleSet(code: string): Promise<GlucoseRuleSetForGrading | null>;
   recordGlucose(args: { observationId: string; result: TriageResult; ruleSetId: string; causationId: string; basis: string }): Promise<void>;
+  /** Vitals (pulse, SpO2, temperature) twins of the same three ports. */
+  loadVitalsContext(observationId: string): Promise<VitalsTriageContext>;
+  loadVitalsRuleSet(code: string): Promise<VitalsRuleSetForGrading | null>;
+  recordVitals(args: { observationId: string; result: TriageResult; ruleSetId: string; causationId: string; basis: string }): Promise<void>;
 }
 
 /**
@@ -71,6 +90,16 @@ export function withKnownAge(input: TriageInput): TriageInput {
 export function withKnownGlucoseFields(input: GlucoseInput): GlucoseInput {
   return input.ageYears === undefined || input.diabetesType === undefined
     ? { ...input, ageYears: input.ageYears ?? null, diabetesType: input.diabetesType ?? null }
+    : input;
+}
+
+/**
+ * The vitals twin of withKnownGlucoseFields. The vitals context is built with jsonb_strip_nulls, so a patient with no date of birth (or no personal
+ * line) arrives with the keys missing; the engine reads absent as "not recorded", and this hands it the explicit null as well. Unknown stays unknown.
+ */
+export function withKnownVitalsFields(input: VitalsInput): VitalsInput {
+  return input.ageYears === undefined || input.personalAmberLine === undefined
+    ? { ...input, ageYears: input.ageYears ?? null, personalAmberLine: input.personalAmberLine ?? null }
     : input;
 }
 
@@ -97,10 +126,26 @@ async function handleGlucose(ports: TriagePorts, observationId: string, event: B
   await ports.recordGlucose({ observationId, result, ruleSetId: set.id, causationId: event.eventId, basis: context.basis ?? "" });
 }
 
+async function handleVitals(ports: TriagePorts, observationId: string, event: BusEvent): Promise<void> {
+  const context = await ports.loadVitalsContext(observationId);
+  // A reading that no longer exists, or is not a pulse, SpO2 or temperature reading, has nothing to grade.
+  if (!context.found || !context.input) return;
+  const set = await ports.loadVitalsRuleSet(VITALS_RULE_SET_CODE);
+  if (!set) throw new Error(`no ${VITALS_RULE_SET_CODE} rule set to grade with`);
+  const result = gradeVitals(withKnownVitalsFields(context.input), set.rules);
+  // Same stance as blood pressure and glucose: an invalid rule set is not graded half way. It retries, then dead-letters where
+  // event_bus_health() shows it, while the older per-vital alerts keep covering the patient.
+  if (result.status === "rejected" && result.reason === "invalid_rule_set") {
+    throw new Error(`rule set ${set.id} is not valid`);
+  }
+  await ports.recordVitals({ observationId, result, ruleSetId: set.id, causationId: event.eventId, basis: context.basis ?? "" });
+}
+
 export function makeObservationHandler(ports: TriagePorts): Handler {
   return async (event: BusEvent, _ctx: HandlerContext): Promise<void> => {
     const observationId = observationIdOf(event);
     if (event.payload["kind"] === "glucose") return handleGlucose(ports, observationId, event);
+    if (event.payload["kind"] === "vitals") return handleVitals(ports, observationId, event);
     const recheck = event.payload["recheck"] === "timed_out" ? "timed_out" : null;
 
     const context = await ports.loadContext(observationId, recheck);

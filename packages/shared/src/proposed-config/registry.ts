@@ -5818,4 +5818,29 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S47-decisions-applied.md",
   },
+  {
+    key: "triage.single_reading_vitals_bands",
+    // The combined registry of single-reading dangerous vitals bands (pulse, SpO2, temperature) and the typo gates around them. These are the starting
+    // values of the DRAFT rule set `vitals_care_triage` v1, taken over unchanged from the live older classifiers (private.classify_pulse_level,
+    // classify_spo2_level, classify_temperature_level, read 2026-10-16) so that the shadow divergence report compares like with like. Four places hold
+    // these numbers and a drift test (packages/clinical/src/vitals-drift.test.ts) fails when any two disagree: this entry, the rule set params in
+    // packages/clinical/src/rules/vitals-care-v1.ts (which the migration seeds), the phone's `vitals.device_red_rules`, and the older SQL classifiers.
+    // The CMO signs the RULE SET; this entry is how a reviewer sees the numbers, with their owner and version, in one place.
+    // Pulse and the others use "at or below" / "at or above" (inclusive) and "below" (exclusive) exactly as the rule set reads them.
+    // amberReviewDueMinutes is the due time of the amber review task (72 hours, the older amber alert's review time); minAdultAgeYears is the age under which
+    // a heart rate outside the adult resting range is routed to a clinician instead of paged.
+    value: {
+      validation: { pulseMin: 10, pulseMax: 300, spo2Min: 50, spo2Max: 100, temperatureMin: 25, temperatureMax: 45 },
+      minAdultAgeYears: 18,
+      amberReviewDueMinutes: 4320,
+      pulse: { emergencyAtOrBelow: 35, emergencyAtOrAbove: 150, redAtOrBelow: 39, redAtOrAbove: 121, amberAtOrBelow: 49, amberAtOrAbove: 101 },
+      spo2: { emergencyBelow: 90, redAtOrBelow: 92, amberAtOrBelow: 94 },
+      temperature: { emergencyAtOrAbove: 40, emergencyBelow: 35, redAtOrAbove: 39, amberAtOrAbove: 38 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/build-vitals-rule-sets.md; triage_rule_sets vitals_care_triage version 1 (draft)",
+  },
 ];
