@@ -4191,3 +4191,21 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 | OQ-366 | 2831, The go-live guard patches two shared functions (raised by S69) |
 | OQ-370 | 2737, Device capabilities need the CMO and an admin before anything switches on (raised by S70a) |
 | OQ-371 | 2741, Go-live uses `platform_modules`, not `go_live_guards` (raised by S70a) |
+
+
+### OQ-PASSKEY-01 Turning passkeys on (your action, in this order)
+- Passkeys ship OFF and nothing works until all of these are done. (1) After merge, redeploy the `send-pending-notifications` edge function (new `security.passkey_*` email templates). (2) In the Supabase dashboard, Authentication, Passkeys: enable, relying-party display name "Tarragon Health", relying-party id `tarragonhealth.ng` (permanent: changing it later invalidates every passkey), origins `https://app.tarragonhealth.ng` plus any other host that serves `/login`. (3) Confirm `select public.passkey_gate_ready()` is true. (4) Sign in as a test patient with a password, add a passkey in Settings, sign out, sign in with it on a real phone and laptop. (5) Only then flip the `passkeys` switch. There is no general switch screen yet: either ask a Claude session to call `public.set_platform_switch('passkeys', true, '<why>')` under a simulated admin session (audited), or in the Supabase SQL editor run `update public.platform_switches set is_on = true, changed_at = now(), change_note = '<why>' where key = 'passkeys';` (not audited). Note the migration's gate refuses to store a passkey while the switch is off, so step 4 needs the switch on for a test window; use a test account.
+- The Auth passkey API is marked experimental by Supabase and may change.
+- Decision: open (founder).
+
+### OQ-PASSKEY-02 Mobile passkeys not built
+- Needs a native passkey library (new native dependency), a `runtimeVersion` bump and a fresh EAS build (never auto-published by the OTA workflow), iOS associated domains plus an Apple App Site Association file and Android `assetlinks.json` on the production domain, the Android origin added to the Auth origins, and tests on real devices. Phone sign-in stays the default there.
+- Decision: open (founder).
+
+### OQ-PASSKEY-03 "Use a passkey" shows only on devices that have used one
+- The sign-in page cannot ask the server who has a passkey before anyone says who they are (that would let anyone test which accounts exist), so the button appears only when this device remembers a passkey was added or used here. A passkey synced to a brand-new device will not show the button there; that person signs in the usual way. Alternative: always show the button when the switch is on (more discoverable, noisier for the many who will never use it).
+- Decision: open (founder).
+
+### OQ-PASSKEY-04 Adding a passkey needs a password
+- A person who signs in only by phone code and has set no password is told to set one first. Reason: a session alone must not be able to plant a lasting way in (the same reason backup codes need the password). Alternative: accept a fresh phone-code re-check instead.
+- Decision: open (founder).

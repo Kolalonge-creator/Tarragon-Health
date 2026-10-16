@@ -168,6 +168,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S03b.md; docs/research/S01-S05-competitor-gap-and-build-plan.md section 10; OQ-41, OQ-43",
   },
   {
+    key: "auth.passkey_rules",
+    // Optional passkeys (docs/design/passkeys.md). add_authorisation_minutes: how long a password re-entry stays good for
+    // adding ONE passkey (single use; the database also clamps the value it is given to 1..15). start_per_ip_per_5min and
+    // verify_per_ip_per_5min: how often one source may ask for, or try, a passkey sign-in. label_max_chars: the longest name a
+    // person can give a passkey. All PROPOSED.
+    value: {
+      add_authorisation_minutes: 3,
+      start_per_ip_per_5min: 30,
+      verify_per_ip_per_5min: 20,
+      label_max_chars: 60,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/passkeys.md; founder decision 2026-10-16 (passkeys strictly optional, off by default)",
+  },
+  {
     key: "proxy.setup",
     // Spec 8.2 "Set up for my parent": the setup expires after 72 hours. The per-day cap on how many setups one person
     // may start is not in the spec; it is a PROPOSED abuse limit (each setup costs a verification code SMS). Mirrored
