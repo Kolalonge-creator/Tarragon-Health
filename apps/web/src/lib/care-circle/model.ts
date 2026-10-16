@@ -240,3 +240,11 @@ export function minutesLeft(windowEndsAt: string, nowMs: number): number | null 
 export function attentionCount(alerts: readonly { patient_id: string; called: boolean }[], unanswered: readonly { patient_id: string }[]): number {
   return new Set([...alerts.filter((a) => !a.called).map((a) => a.patient_id), ...unanswered.map((u) => u.patient_id)]).size;
 }
+
+/**
+ * The database function is not there (yet). The app ships before its migration is applied, so a missing function must read as "this
+ * feature is not available", never as a failure shown to every patient. Any other error is still a failure.
+ */
+export function isMissingFunction(error: { code?: string; message?: string } | null | undefined): boolean {
+  return !!error && (error.code === "PGRST202" || /could not find the function/i.test(error.message ?? ""));
+}

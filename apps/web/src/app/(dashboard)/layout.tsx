@@ -1,4 +1,4 @@
-import { attentionCount, parseOpenAlerts, parseUnanswered } from "@/lib/care-circle/model";
+import { attentionCount, isMissingFunction, parseOpenAlerts, parseUnanswered } from "@/lib/care-circle/model";
 import { CheckInCard } from "@/app/(dashboard)/patient/care-circle/check-in-card";
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -108,9 +108,9 @@ export default async function DashboardLayout({
       supabase.rpc("circle_unanswered_check_ins"),
     ]);
     supportingBadge =
-      alertError || unansweredError
+      alertError || (unansweredError && !isMissingFunction(unansweredError))
         ? { count: 0, failed: true }
-        : { count: attentionCount(parseOpenAlerts(alertData), parseUnanswered(unansweredData)), failed: false };
+        : { count: attentionCount(parseOpenAlerts(alertData), unansweredError ? [] : parseUnanswered(unansweredData)), failed: false };
   }
 
   const isPatient = profile?.role === "patient" && !supporterOnly;
