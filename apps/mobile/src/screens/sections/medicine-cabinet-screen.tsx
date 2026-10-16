@@ -8,6 +8,8 @@ import {
   catalogueLabel,
   checkMedicineOnAdd,
   parseScheduleSpec,
+  lookupNafdacNumber,
+  normaliseNafdacNumber,
   prefillFromCatalogue,
   searchCatalogue,
   validatePillCount,
@@ -17,6 +19,16 @@ import {
   type ScheduleSpec,
 } from "@tarragon/medicines";
 import { addSideEffectNote, loadInteractionCheckState, loadMedicineCatalogue, loadRefillPharmacy, type RefillPharmacy } from "@/lib/medicine-catalogue";
+import {
+  applyCatalogueLookup,
+  applyPackSuggestion,
+  nafdacLineKey,
+  packScanAvailable,
+  scanPackPhoto,
+  type NafdacLineKey,
+  type PackSuggestionChoice,
+  type PackSuggestions,
+} from "@/lib/pack-scan";
 import { useUiLanguage } from "@/lib/ui-language";
 import {
   addMedication,
@@ -625,6 +637,12 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
     };
   }, [open]);
   const [pickedName, setPickedName] = useState<string | null>(null);
+  // Pack NAFDAC number: typed (always works, offline too) or suggested from a photo (only where a text reader exists).
+  const [nafdacTyped, setNafdacTyped] = useState("");
+  const [nafdacLine, setNafdacLine] = useState<NafdacLineKey>(null);
+  const [scanSuggestions, setScanSuggestions] = useState<PackSuggestions | null>(null);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [scanBusy, setScanBusy] = useState(false);
   const suggestions = searchCatalogue(catalogue, drugName === pickedName ? "" : drugName, 5);
   const [kind, setKind] = useState<ScheduleKind>("daily");
   const [intervalDays, setIntervalDays] = useState("2");
@@ -642,6 +660,53 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
     setScheduleTimes((prev) => prev.filter((t) => t !== time));
   }
 
+  function lookUpNafdac(value: string) {
+    setNafdacLine(nafdacLineKey(value, catalogue));
+  }
+
+  /** One tap, one field: the only way a pack suggestion reaches the form. */
+  function useChoice(choice: PackSuggestionChoice) {
+    const next = applyPackSuggestion({ drugName, dose, nafdacNumber: nafdacTyped }, choice);
+    setDrugName(next.drugName);
+    if (choice.field === "drugName") setPickedName(next.drugName);
+    setDose(next.dose);
+    setNafdacTyped(next.nafdacNumber);
+    setFindings(null);
+    if (choice.field === "nafdacNumber") lookUpNafdac(next.nafdacNumber);
+  }
+
+  function useCatalogueDetails() {
+    const lookup = lookupNafdacNumber(nafdacTyped, catalogue);
+    const next = applyCatalogueLookup({ drugName, dose, nafdacNumber: nafdacTyped }, lookup);
+    setDrugName(next.drugName);
+    setPickedName(next.drugName);
+    setDose(next.dose);
+    setFindings(null);
+  }
+
+  async function scanPack() {
+    if (scanBusy) return;
+    setScanMessage(null);
+    setScanSuggestions(null);
+    setScanBusy(true);
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        setScanMessage(tr("packscan.scan.camera_off"));
+        return;
+      }
+      const picked = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+      if (picked.canceled || !picked.assets[0]) return;
+      const outcome = await scanPackPhoto(picked.assets[0].uri, catalogue);
+      if (outcome.kind === "suggestions") setScanSuggestions(outcome.suggestions);
+      else setScanMessage(tr(outcome.kind === "failed" ? "packscan.scan.failed" : "packscan.scan.nothing"));
+    } catch {
+      setScanMessage(tr("packscan.scan.failed"));
+    } finally {
+      setScanBusy(false);
+    }
+  }
+
   function pickSuggestion(entry: CatalogueEntry) {
     const pre = prefillFromCatalogue(entry);
     setDrugName(pre.drugName);
@@ -652,6 +717,10 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
 
   function resetForm() {
     setFindings(null);
+    setNafdacTyped("");
+    setNafdacLine(null);
+    setScanSuggestions(null);
+    setScanMessage(null);
     setDrugName("");
     setDose("");
     setFrequency("");
@@ -776,6 +845,66 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
               </View>
             ) : drugName.trim().length >= 2 && catalogue.length > 0 ? (
               <MutedText>{tr("medicines.search.none")}</MutedText>
+            ) : null}
+          </View>
+          <View style={{ gap: 6 }}>
+            <MutedText>{tr("packscan.nafdac.label")}</MutedText>
+            <TextInput
+              keyboardAppearance={scheme}
+              value={nafdacTyped}
+              onChangeText={(v) => { setNafdacTyped(v); setNafdacLine(null); }}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              style={inputStyle(colors)}
+              placeholder="A4-1234"
+              placeholderTextColor={colors.subtle}
+              accessibilityLabel={tr("packscan.nafdac.label")}
+            />
+            <MutedText>{tr("packscan.nafdac.hint")}</MutedText>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              <SmallGhostButton title={tr("packscan.nafdac.look_up")} onPress={() => lookUpNafdac(nafdacTyped)} />
+              {packScanAvailable() ? <SmallGhostButton title={scanBusy ? "..." : tr("packscan.scan.button")} onPress={() => void scanPack()} /> : null}
+            </View>
+            {packScanAvailable() ? <MutedText>{tr("packscan.scan.intro")}</MutedText> : null}
+            {scanMessage ? <MutedText>{scanMessage}</MutedText> : null}
+            {scanSuggestions ? (
+              <View style={{ gap: 6 }}>
+                {scanSuggestions.nafdacNumbers.slice(0, 2).map((c) => (
+                  <View key={c.value} style={{ gap: 4 }}>
+                    <Text style={{ fontSize: 14, color: colors.ink }}>{tr("packscan.scan.found_number", { value: c.value })}</Text>
+                    {c.ocrCorrected ? <MutedText>{tr("packscan.scan.look_closely")}</MutedText> : null}
+                    <SmallGhostButton title={tr("packscan.scan.use")} onPress={() => useChoice({ field: "nafdacNumber", value: c.value })} />
+                  </View>
+                ))}
+                {scanSuggestions.strength ? (
+                  <View style={{ gap: 4 }}>
+                    <Text style={{ fontSize: 14, color: colors.ink }}>{tr("packscan.scan.found_strength", { value: scanSuggestions.strength })}</Text>
+                    <SmallGhostButton title={tr("packscan.scan.use")} onPress={() => useChoice({ field: "dose", value: scanSuggestions.strength as string })} />
+                  </View>
+                ) : null}
+                {scanSuggestions.names.slice(0, 2).map((e) => (
+                  <View key={e.id} style={{ gap: 4 }}>
+                    <Text style={{ fontSize: 14, color: colors.ink }}>{tr("packscan.scan.found_name", { value: e.genericName })}</Text>
+                    <SmallGhostButton title={tr("packscan.scan.use")} onPress={() => useChoice({ field: "drugName", value: e.genericName })} />
+                  </View>
+                ))}
+                <SmallGhostButton title={tr("packscan.scan.dismiss")} onPress={() => setScanSuggestions(null)} />
+              </View>
+            ) : null}
+            {nafdacLine ? (
+              <View style={{ gap: 4 }}>
+                <Text style={{ fontSize: 14, color: colors.ink }}>{tr(nafdacLine)}</Text>
+                {nafdacLine === "packscan.nafdac.in_catalogue" ? (
+                  <>
+                    <MutedText>{tr("packscan.nafdac.not_a_check")}</MutedText>
+                    <SmallGhostButton title={tr("packscan.nafdac.use_details")} onPress={useCatalogueDetails} />
+                  </>
+                ) : null}
+                {normaliseNafdacNumber(nafdacTyped)?.ocrCorrected ? <MutedText>{tr("packscan.scan.look_closely")}</MutedText> : null}
+                <Text style={{ fontSize: 12, fontWeight: "700", color: colors.ink }}>{tr("packscan.nafdac.next_step")}</Text>
+                <MutedText>{NAFDAC_MAS.howTo}</MutedText>
+                <MutedText>{NAFDAC_MAS.caveat}</MutedText>
+              </View>
             ) : null}
           </View>
           <View style={{ flexDirection: "row", gap: 8 }}>
