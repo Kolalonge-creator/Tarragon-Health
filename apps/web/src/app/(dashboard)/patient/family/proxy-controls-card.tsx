@@ -100,7 +100,15 @@ function FollowerControls({ follower }: { follower: CareFollower }) {
       await queryClient.invalidateQueries({ queryKey: ["my-care-followers"] });
       await queryClient.invalidateQueries({ queryKey: MY_PROXY_REVIEWS_KEY });
     },
-    onError: () => setMessage("We could not save that just now. Please try again."),
+    onError: (error: unknown) => {
+      const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code: unknown }).code) : "";
+      // 22023: the list the person was looking at is out of date, so say so instead of letting them retry the same choice.
+      setMessage(
+        code === "22023"
+          ? "What they can see has changed since this page loaded. Refresh the page to see it now, or stop their access."
+          : "We could not save that just now. Please try again.",
+      );
+    },
   });
 
   const labelFor = (value: CareAccessCategory) => CARE_ACCESS_CATEGORIES.find((c) => c.value === value)?.label ?? value;

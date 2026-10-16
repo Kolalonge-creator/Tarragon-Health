@@ -47,7 +47,14 @@ function ReviewItem({ row, onDone }: { row: ProxyReviewRow; onDone: (message: st
       await queryClient.invalidateQueries({ queryKey: MY_PROXY_REVIEWS_KEY });
       await queryClient.invalidateQueries({ queryKey: ["my-care-followers"] });
     },
-    onError: () => setMessage("We could not save that just now. Nothing has changed. Please try again."),
+    onError: (error: unknown) => {
+      const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code: unknown }).code) : "";
+      setMessage(
+        code === "22023"
+          ? "What they can see has changed since this page loaded. Refresh the page to see it now, or remove their access."
+          : "We could not save that just now. Nothing has changed. Please try again.",
+      );
+    },
   });
 
   const changed = keep.length !== row.categories.length;

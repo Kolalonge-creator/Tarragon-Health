@@ -247,6 +247,18 @@ begin
     drop function public.pyr_fail_notice();
   end;
 
+  -- one notice per person however many grants are due
+  declare v_mp uuid := pg_temp.mkuser(v_org, 'multiperson'); v_m1 uuid := pg_temp.mkuser(v_org, 'multiproxy1'); v_m2 uuid := pg_temp.mkuser(v_org, 'multiproxy2');
+  begin
+    perform pg_temp.grant_aged(v_mp, v_m1, interval '13 months', array['vitals_readings']);
+    perform pg_temp.grant_aged(v_mp, v_m2, interval '13 months', array['vitals_readings']);
+    perform private.sweep_proxy_access_reviews();
+    perform pg_temp.ck('two due grants give the person one notice, not two', '1', pg_temp.n_notif(v_mp, 'proxy_review_due'));
+    perform pg_temp.ck('...but each grant is counted in its own history', '1|1', pg_temp.n_hist(v_mp, v_m1, 'reminder_sent') || '|' || pg_temp.n_hist(v_mp, v_m2, 'reminder_sent'));
+    perform pg_temp.ck('...and each proxy is told once', '1|1', pg_temp.n_notif(v_m1, 'proxy_review_due_proxy') || '|' || pg_temp.n_notif(v_m2, 'proxy_review_due_proxy'));
+  end;
+  perform pg_temp.ck('the history table is in the data registry', '1', (select count(*)::text from public.data_registry where table_name = 'proxy_access_reviews'));
+
   -- 7. append only, privileges, classification, cron
   perform pg_temp.ck('history cannot be updated', '42501', pg_temp.try_as(v_pa, 'update public.proxy_access_reviews set kind = ''kept'''));
   perform pg_temp.ck('a person cannot write history directly', '42501', pg_temp.try_as(v_pa, format($q$insert into public.proxy_access_reviews (organisation_id, patient_id, grantee_user_id, kind) values (%L, %L, %L, 'kept')$q$, v_org, v_pa, v_px)));
