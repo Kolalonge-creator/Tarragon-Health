@@ -5832,4 +5832,15 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S47-decisions-applied.md",
   },
+  {
+    key: "assisted_entry.limits",
+    // A helper (family member or other caregiver) entering readings for the person: how many per helper per person per hour and per helper per
+    // day. PROPOSED, Founder owned, no clinical meaning. Live value is the active row of `assisted_entry_config`.rules.
+    value: { max_per_helper_per_person_per_hour: 6, max_per_helper_per_day: 30 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/build-assisted-entry.md; supabase/migrations/*_assisted_entry_and_caregiver_red_care.sql",
+  },
 ];

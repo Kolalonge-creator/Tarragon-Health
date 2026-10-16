@@ -12,11 +12,16 @@ export function RedPatientAnswer({ answer }: { answer: RedPatientResponse }) {
   return (
     <div className="space-y-1 rounded-lg border border-charcoal-ink/10 p-3 text-sm" data-testid="red-patient-answer">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={could ? "red" : "green"}>{could ? "Patient says: could not get care" : "Patient says: has sought care"}</Badge>
+        <Badge variant={could ? "red" : "green"}>
+          {answer.answered_by_caregiver
+            ? could ? "A helper says: the patient could not get care" : "A helper says: the patient has sought care"
+            : could ? "Patient says: could not get care" : "Patient says: has sought care"}
+        </Badge>
         <span className="text-xs text-muted-foreground">Answered {formatLagos(answer.responded_at)}</span>
       </div>
       <p className="text-xs text-muted-foreground">
-        This is what the patient told the app. It does not stop the paging: only your acknowledgement does.
+        {answer.answered_by_caregiver ? "This is what someone helping the patient told the app, not the patient. " : "This is what the patient told the app. "}
+        It does not stop the paging: only your acknowledgement does.
       </p>
     </div>
   );

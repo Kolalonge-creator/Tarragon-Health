@@ -1,11 +1,11 @@
 "use client";
 
-import { useVitalsReadingsPage } from "@/lib/queries/vitals";
+import { useAssistedEntryAttribution, useVitalsReadingsPage } from "@/lib/queries/vitals";
 import { useOwnTriageResults } from "@/lib/queries/triage-results";
 import { ReadingTriageNote } from "./reading-triage-note";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatGlucose, type GlucoseDisplayUnit, type Tables } from "@tarragon/shared";
+import { assistedEntryLabel, formatGlucose, type GlucoseDisplayUnit, type Tables } from "@tarragon/shared";
 import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
@@ -108,11 +108,25 @@ function formatReading(reading: Tables<"vitals_readings">, unit: GlucoseDisplayU
   }
 }
 
-export function VitalsHistory({ patientId }: { patientId: string }) {
+/** Said instead of "Typed by you" whenever a helper entered the reading (assisted entry). */
+function AssistedEntryNote({ name, kind, viewerIsHelper }: { name: string | null; kind: "caregiver" | "pharmacy"; viewerIsHelper: boolean }) {
+  return (
+    <span
+      data-testid="assisted-entry-note"
+      className="ml-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900 dark:bg-amber-900/30 dark:text-amber-100"
+    >
+      {assistedEntryLabel(name, viewerIsHelper ? "helper" : "patient", kind)}
+    </span>
+  );
+}
+
+export function VitalsHistory({ patientId, viewerId }: { patientId: string; viewerId?: string }) {
   const glucoseUnit = useGlucoseUnit();
   const { data, isLoading, isError, hasNextPage, isFetchingNextPage, fetchNextPage } =
     useVitalsReadingsPage(patientId);
   const readings = data?.pages.flatMap((p) => p.rows) ?? [];
+  const assistedIds = readings.filter((r) => r.assisted_entry).map((r) => r.id);
+  const { data: attribution } = useAssistedEntryAttribution(patientId, assistedIds);
   // P6: the grade the patient was shown for each reading that has one. A failed load only leaves the note out.
   const { data: triageResults } = useOwnTriageResults(readings.flatMap((r) => (r.triage_event_id ? [r.triage_event_id] : [])));
 
@@ -147,7 +161,15 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
                       <TemperatureLevelBadge reading={reading} />
                     )}
                     {reading.vital_type === "pulse" && <PulseLevelBadge reading={reading} />}
-                    <SourceBadge source={reading.source} />
+                    {reading.assisted_entry ? (
+                      <AssistedEntryNote
+                        name={attribution?.get(reading.id)?.actorName ?? null}
+                        kind={attribution?.get(reading.id)?.actorKind ?? "caregiver"}
+                        viewerIsHelper={viewerId != null && reading.logged_by_profile_id === viewerId}
+                      />
+                    ) : (
+                      <SourceBadge source={reading.source} />
+                    )}
                   </p>
                   <WristSpo2Note source={reading.source} vitalType={reading.vital_type} />
                   {reading.note && (

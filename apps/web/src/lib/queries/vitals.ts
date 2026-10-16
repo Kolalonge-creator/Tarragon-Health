@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { computeBmi } from "@/lib/obesity/classify";
 import { fetchHeightStatus, type HeightStatus } from "@/lib/health-metrics/height";
 import { readPatientVitalsOrThrow } from "@/lib/clinical/vitals-audited";
+import { parseAssistedAttribution, type AssistedAttribution } from "@tarragon/shared";
 
 export function useVitalsReadings(patientId: string) {
   return useQuery({
@@ -16,6 +17,29 @@ export function useVitalsReadings(patientId: string) {
     refetchOnWindowFocus: false,
     retry: false,
     enabled: !!patientId,
+  });
+}
+
+/**
+ * Who entered the readings that a helper entered for the person (assisted entry). The database decides who may ask: the person, the helper for
+ * their own entries, and a clinician on the care team. A failed lookup only leaves the name out, so the note falls back to "someone who helps
+ * you"; it never hides that a helper entered the reading, because that fact is on the reading itself (logged_by_profile_id).
+ */
+export function useAssistedEntryAttribution(patientId: string, readingIds: string[]) {
+  const key = [...readingIds].sort().join(",");
+  return useQuery({
+    queryKey: ["assisted-entry-attribution", patientId, key],
+    queryFn: async (): Promise<Map<string, AssistedAttribution>> => {
+      const { data, error } = await (createClient() as unknown as {
+        rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }>;
+      }).rpc("assisted_entry_attribution", { p_patient: patientId, p_reading_ids: readingIds });
+      if (error) return new Map();
+      return new Map(parseAssistedAttribution(data).map((a) => [a.readingId, a]));
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+    enabled: !!patientId && readingIds.length > 0,
   });
 }
 
@@ -69,6 +93,8 @@ export function useVitalsTrend(
         glucose_context: r.glucose_context,
         weight_kg: r.weight_kg,
         pulse_bpm: r.pulse_bpm,
+        // A helper entered it for the person (the database sets this flag, never the client; staff-measured rows are not flagged).
+        assisted: r.assisted_entry === true,
       }));
     },
     staleTime: 60_000,

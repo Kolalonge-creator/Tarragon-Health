@@ -44573,6 +44573,7 @@ export type Database = {
           id: string
           ketone_urine: string | null
           ketones_mmol_l: number | null
+          assisted_entry: boolean
           logged_by_profile_id: string | null
           note: string | null
           organisation_id: string
@@ -44624,6 +44625,7 @@ export type Database = {
           id?: string
           ketone_urine?: string | null
           ketones_mmol_l?: number | null
+          assisted_entry?: boolean
           logged_by_profile_id?: string | null
           note?: string | null
           organisation_id: string
@@ -44675,6 +44677,7 @@ export type Database = {
           id?: string
           ketone_urine?: string | null
           ketones_mmol_l?: number | null
+          assisted_entry?: boolean
           logged_by_profile_id?: string | null
           note?: string | null
           organisation_id?: string
@@ -54373,6 +54376,7 @@ export type Database = {
         | "communicate_with_care_team"
         | "manage_payments"
         | "receive_alerts"
+        | "log_readings"
       care_engagement_level:
         | "highly_engaged"
         | "engaged"
@@ -56669,6 +56673,7 @@ export const Constants = {
         "communicate_with_care_team",
         "manage_payments",
         "receive_alerts",
+        "log_readings",
       ],
       care_engagement_level: [
         "highly_engaged",
