@@ -21,6 +21,8 @@ export interface LabResultsSubmission {
   orderId: string;
   panel: PanelCode;
   items: ResultEntryItem[];
+  /** A preliminary result: held for the care team, never released, replaced by a final one sent as a correction of kind "finalised". */
+  preliminary?: boolean;
   /** A report already stored in the private bucket; produced by the caller, never by a source. */
   file?: { file_path: string; original_filename: string; mime_type: string; file_size_bytes: number } | null;
 }
@@ -65,7 +67,7 @@ export class ManualEntryLabResultsSource implements LabResultsSource {
     if (!parsed.success) return { ok: false, reason: "invalid_input", message: parsed.error.issues[0]?.message ?? "Please check the values." };
     const converted = toPanelUnits(parsed.data.items);
     if ("error" in converted) return { ok: false, reason: "invalid_input", message: converted.error };
-    const { data, error } = await this.client.rpc("lab_partner_submit_result", {
+    const { data, error } = await this.client.rpc(s.preliminary ? "lab_partner_submit_preliminary_result" : "lab_partner_submit_result", {
       p_order: parsed.data.orderId,
       p_panel: parsed.data.panel,
       p_items: converted.items as unknown as Json,

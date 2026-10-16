@@ -21,6 +21,7 @@ import { CvRiskConfigPanel } from "../_signoff-panels/cv-risk-config-panel";
 import { RiskQuestionnaireConfigPanel } from "../_signoff-panels/risk-questionnaire-config-panel";
 import { VaccinationSchedulePanel } from "../_signoff-panels/vaccination-schedule-panel";
 import { LabPanelsPanel } from "../_signoff-panels/lab-panels-panel";
+import { LabFallbackPanel } from "../_signoff-panels/lab-fallback-panel";
 import { ClinicalConfigVersionsPanel } from "../_signoff-panels/clinical-config-versions-panel";
 import { PrnLimitRulesPanel } from "../_signoff-panels/prn-limit-rules-panel";
 import { HomeBpProgrammePanel } from "../_signoff-panels/home-bp-programme-panel";
@@ -74,6 +75,7 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   risk_questionnaire_configs: () => <RiskQuestionnaireConfigPanel />,
   vaccination_schedule_signoffs: () => <VaccinationSchedulePanel />,
   lab_panel_signoffs: () => <LabPanelsPanel />,
+  lab_fallback_wording_signoffs: () => <LabFallbackPanel />,
   clinical_config_versions: () => <ClinicalConfigVersionsPanel />,
   prn_limit_rules: () => <PrnLimitRulesPanel />,
   home_bp_programme_signoffs: () => <HomeBpProgrammePanel />,

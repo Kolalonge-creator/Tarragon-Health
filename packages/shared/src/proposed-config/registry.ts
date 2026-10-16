@@ -648,6 +648,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/research/S27-competitors.md; docs/design/S27.md",
   },
   {
+    key: "lab.lifecycle",
+    // Lab lifecycle (S27h). Live value is the active row of `lab_lifecycle_config`.rules; a test fails if the migration seed and this value
+    // drift. Every use is an alert or a flag: hold-aging tells the clinical lead (never releases), the delta percent flags a change to the
+    // reviewer (never releases), the fallback wait only times a neutral message that the CMO must have signed (never releases). The critical
+    // value call reuses paging.rules (escalation_minutes). The CMO still owes the thresholds and the fallback wording.
+    value: {
+      "holdAging": {
+        "leadEscalateMinutes": { "critical": 720, "default": 1440 },
+        "repeatMinutes": 720,
+        "repeatMax": 3
+      },
+      "delta": {
+        "percent": 50,
+        "windowDays": 365,
+        "perAnalytePercent": { "creatinine": 30, "potassium": 20, "sodium": 5, "hba1c": 20, "haemoglobin": 20 }
+      },
+      "disclosureFallback": { "afterEscalatedMinutes": 1440 }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/research/S26-S30-competitor-review-and-build-plan.md section S27h; escalation_slas v7 (12h critical, 24h non-critical)",
+  },
+  {
     key: "lab.panels",
     // Lab panels and release thresholds (S27). Live values are the active row of `lab_panel_versions`; a test fails if the
     // migration seed and this value drift. Adult reference and critical limits only, NOT signed: the CMO sets them (OQ-176).

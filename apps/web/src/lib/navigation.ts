@@ -801,6 +801,8 @@ export function getNavSections(
             { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
             // How each laboratory, pharmacy and clinic is doing; pause or reinstate from new work (S74).
             { label: "Partner quality", href: "/admin/partner-quality", icon: "governance" },
+            // Samples in flight, delays, rejected samples and re-collections per laboratory (S27h).
+            { label: "Lab turnaround", href: "/admin/lab-turnaround", icon: "operations" },
             // What Tarragon owes a pharmacy or clinic from money it collected; labs are never on it (S74).
             { label: "Partner settlements", href: "/admin/partner-settlements", icon: "billing" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
