@@ -86,11 +86,8 @@ export const EVENT_MAP: readonly EventMapRow[] = [
     id: "consultation-completed",
     spec: "D.7.2 consultation completed",
     eventType: "encounter.completed",
-    gap: {
-      missing: ["subscriber", "effect"],
-      owner: "S64",
-      note: "S21 emits encounter.completed but nothing subscribes: follow-up tasks, the medicine schedule and programme offers are not driven from it. Consultation directory and follow-up booking are S64.",
-    },
+    effectRpc: "points_award",
+    note: "S58: the rewards subscriber awards Health Points for this event (idempotent; the decision record is the replay guard). Follow-up tasks and programme offers are still S64.",
   },
   {
     id: "lab-result-received",
@@ -106,11 +103,8 @@ export const EVENT_MAP: readonly EventMapRow[] = [
     id: "lab-result-released",
     spec: "D.7.2 lab result received from a partner (released half)",
     eventType: "lab_result.released",
-    gap: {
-      missing: ["subscriber", "effect"],
-      owner: "S46",
-      note: "emitted on release; no subscriber generates the plain-language explanation or updates biomarker trends",
-    },
+    effectRpc: "points_award",
+    note: "S58: the rewards subscriber awards Health Points for this event (idempotent; the decision record is the replay guard). Follow-up tasks and programme offers are still S64.",
   },
   {
     id: "wearable-synced",

@@ -118,7 +118,8 @@ begin
   v_a := pg_temp.mkuser(v_org, 'a', 'patient'); v_b := pg_temp.mkuser(v_org, 'b', 'patient');
   v_c := pg_temp.mkuser(v_org, 'c', 'patient'); v_m := pg_temp.mkuser(v_org, 'minor', 'patient');
   v_g := pg_temp.mkuser(v_org, 'grace', 'patient');
-  update public.profiles set date_of_birth = current_date - interval '12 years' where id = v_m;
+  -- S04b-1: a person under 18 exists only as a minor dependant record
+  update public.profiles set date_of_birth = current_date - interval '12 years', is_dependent_account = true, dependent_kind = 'minor_child' where id = v_m;
   update public.profiles set date_of_birth = current_date - interval '35 years' where id in (v_a, v_b, v_c, v_g);
 
   -- ================= 1. idempotent =================
