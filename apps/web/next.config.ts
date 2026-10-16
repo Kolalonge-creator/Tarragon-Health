@@ -252,6 +252,11 @@ const nextConfig: NextConfig = {
         source: "/(patient|clinician)/consultation/:encounterId",
         headers: [{ key: "Content-Security-Policy", value: consultationCspDirectives }],
       },
+      {
+        // CGJ: the room an invited caregiver joins from. Same policy, one more path; the caregiver's room runs the same Zoom SDK.
+        source: "/patient/supporting/consultation/:encounterId",
+        headers: [{ key: "Content-Security-Policy", value: consultationCspDirectives }],
+      },
     ];
   },
 };

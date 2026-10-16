@@ -6,7 +6,7 @@ import type { MessageKey } from "@tarragon/i18n";
  * treated as "nothing to show" rather than rendered half-wrong. The supporter view is the only thing a supporter can read about a
  * patient; the database sends a block only when the matching permission is held, so a missing block means "not shared", never "zero".
  */
-export const CIRCLE_PERMISSIONS = ["adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care"] as const;
+export const CIRCLE_PERMISSIONS = ["adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care", "attend_consultation"] as const;
 export type CirclePermission = (typeof CIRCLE_PERMISSIONS)[number];
 export const permissionSchema = z.enum(CIRCLE_PERMISSIONS);
 
@@ -16,6 +16,8 @@ const PERMISSION_KEYS: Readonly<Record<CirclePermission, MessageKey>> = {
   appointments: "circle.perm.appointments",
   red_alerts: "circle.perm.red_alerts",
   pay_for_care: "circle.perm.pay_for_care",
+  // CGJ: lives outside the `circle` namespace on purpose (the reviewed-strings ledger covers `circle.*`); see OQ-CGJ-5
+  attend_consultation: "consult.cg.perm",
 };
 export const permissionKey = (p: CirclePermission): MessageKey => PERMISSION_KEYS[p];
 

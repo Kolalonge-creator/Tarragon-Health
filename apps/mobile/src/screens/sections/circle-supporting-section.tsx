@@ -6,6 +6,7 @@ import { ackAlert, ackUnanswered, checkInWindowOpen, loadOpenAlerts, loadSupport
 import { ALERT_MODES, minutesLeft, type AlertMode, type OpenAlert, type SupportedPerson, type SupporterView, type UnansweredCheckIn } from "@/lib/care-circle/parse";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { CallInvitesSection } from "./call-invites-section";
 import { MembershipSection } from "./membership-section";
 import { SupporterBlocks } from "./supporter-blocks";
 
@@ -199,10 +200,11 @@ export function CircleSupportingSection() {
 
   if (open) return <PersonView person={open} onBack={() => setOpen(null)} onLeft={() => { setOpen(null); void refresh(); }} />;
   if (people === null) return <ActivityIndicator />;
-  if (people.length === 0 && alerts.length === 0 && missed.length === 0) return null;
+  if (people.length === 0 && alerts.length === 0 && missed.length === 0) return <CallInvitesSection />;
 
   return (
     <View style={{ gap: 12 }}>
+      <CallInvitesSection />
       {alerts.map((a) => <AlertCard key={a.patientId} alert={a} onChanged={() => void refresh()} />)}
       {missed.map((m) => (
         <Card key={m.patientId} style={{ gap: 6 }}>

@@ -1930,6 +1930,22 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S21.md; docs/research/S21.md",
   },
   {
+    key: "consultations.caregiver_join",
+    // A Care Circle member invited by the patient into ONE consultation call (CGJ, founder decision: per call, no standing access).
+    // Mirrored by `consultation_caregiver_config` version 1 (a drift test compares the two).
+    //  inviteExpiryMinutes: how long an invite lasts at most; it also ends when the call's join window closes or the call ends.
+    //  maxCaregiversPerCall: how many invited people one call may hold at once.
+    //  minAgeYears: a caregiver is an adult; a KNOWN age under this is refused.
+    //  requireDateOfBirth: false because a supporter-only account is never asked for a date of birth, so true would exclude exactly the
+    //  daughter or son who supports a parent from another city. A dependant's account is refused either way (OQ-CGJ-4).
+    value: { inviteExpiryMinutes: 240, maxCaregiversPerCall: 1, minAgeYears: 18, requireDateOfBirth: false },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/CGJ.md; docs/OPEN-QUESTIONS.md OQ-CGJ-1 to OQ-CGJ-5",
+  },
+  {
     key: "consultations.host_key",
     // The clinician's Zoom host key (S21 follow-up, OQ-136, founder decision 2026-10-06). A host key lets its holder start meetings as the
     // dedicated consultation host user, and it cannot be tied to one meeting, so it is kept short: minted fresh each time a clinician joins,

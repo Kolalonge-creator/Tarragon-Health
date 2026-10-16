@@ -97,6 +97,19 @@ export function runVideoContract(name: string, make: () => VideoFixture, nowMs: 
       expect(JSON.stringify(d.data)).not.toContain(ENC);
     });
 
+    it("gives an invited caregiver a plain participant's token: never a host key, even when one is asked for (CGJ)", async () => {
+      const f = make();
+      const room = await f.provider.createRoom({ encounterRef: ENC, expiresAtMs: nowMs() + 600_000 });
+      if (!room.ok) throw new Error("room");
+      const t = await f.provider.joinToken({ roomId: room.data.roomId, role: "caregiver", identity: PERSON, ttlSeconds: 300, hostKeyTtlSeconds: 120 });
+      expect(t.ok).toBe(true);
+      if (!t.ok) return;
+      expect(t.data.zak).toBeUndefined();
+      expect(t.data.token).not.toContain(PERSON);
+      const doc = await f.provider.joinToken({ roomId: room.data.roomId, role: "clinician", identity: PERSON, ttlSeconds: 300, hostKeyTtlSeconds: 120 });
+      expect(doc.ok && doc.data.zak !== undefined).toBe(true);
+    });
+
     it("refuses a host key lifetime that is not a positive whole number within the token limit, for any role", async () => {
       const f = make();
       const room = await f.provider.createRoom({ encounterRef: ENC, expiresAtMs: nowMs() + 600_000 });
@@ -153,7 +166,7 @@ export function runVideoContract(name: string, make: () => VideoFixture, nowMs: 
       const room = await f.provider.createRoom({ encounterRef: ENC, expiresAtMs: nowMs() + 600_000 });
       if (!room.ok) throw new Error("room");
       const id = room.data.roomId;
-      for (const role of ["patient", "observer"] as const) {
+      for (const role of ["patient", "observer", "caregiver"] as const) {
         const denied = await f.provider.endRoom(id, role);
         expect(denied.ok).toBe(false);
         if (!denied.ok) expect(denied.error.code).toBe("unauthorized");

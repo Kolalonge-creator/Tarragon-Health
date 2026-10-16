@@ -1291,3 +1291,12 @@ s63_therapy_programmes.sql
 s58_rewards_engine.sql
 # S19e native page receipts: a live native (ios/android, Expo token) push subscription with a push receipt confirms a mobile-only clinician route (90 s early window); no subscription or a disabled one does not; page_channel_ready defaults false; the function is not executable by anon or authenticated. Sabotage: the web-only definition must flip the native check.
 s19e_native_page_receipts.sql
+
+# --- Added 2026-10-16 (CGJ) -------------------------------------------------
+# A caregiver invited into ONE consultation call. Invite only a permitted Care Circle member of that patient (adult, active, unexpired,
+# unpaused, holds attend_consultation, not the doctor) by the patient or a proxy; refused for a stranger, other patient's call, ended call,
+# closed window, cap, duplicate; accept only by the invitee; the credential exists only for an accepted, unexpired pass in a live window
+# and dies with the call, a revoked member, a pause or a removal; the caregiver reads no chart row and cannot touch scribe consent or the
+# call mode; only the assigned clinician removes, final for the call; events append-only, ids only; no anon or signed-in execute on the
+# server-only functions. Sabotage: permission test, live-call test, clinician-only removal, inviter test, a stray grant; each flips.
+cgj_caregiver_in_consultation.sql
