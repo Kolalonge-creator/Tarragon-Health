@@ -120,11 +120,13 @@ export interface BpSection {
   average: { systolic: number; diastolic: number; count: number } | null;
   /** Oldest first. Only readings that count towards the average. */
   chartReadings: { takenAt: string; systolic: number; diastolic: number }[];
-  /** The list was cut at the cap; the average and chart still use every counted reading. */
+  /** The list was cut at the cap; the average and chart still use every counted reading that was read. */
   truncated: boolean;
+  /** The read itself hit its row limit, so the average and chart may not cover the whole period. Said on the page, never silent. */
+  capped: boolean;
 }
 
-export function buildBpSection(readings: readonly BpReadingIn[], cfg: SummaryConfig): BpSection {
+export function buildBpSection(readings: readonly BpReadingIn[], cfg: SummaryConfig, capped = false): BpSection {
   const usable: { r: BpReadingIn; systolic: number; diastolic: number }[] = [];
   let notCounted = 0;
   for (const r of readings) {
@@ -160,6 +162,7 @@ export function buildBpSection(readings: readonly BpReadingIn[], cfg: SummaryCon
     average,
     chartReadings: [...counted].reverse().map((c) => ({ takenAt: c.r.takenAt, systolic: c.systolic, diastolic: c.diastolic })),
     truncated: usable.length > cfg.maxBpRows,
+    capped,
   };
 }
 
@@ -206,6 +209,26 @@ export function buildBpChart(readings: readonly { takenAt: string; systolic: num
   };
 }
 
+export interface AllergyLine {
+  allergen: string;
+  detail: string | null;
+  provenance: "patient" | "clinician" | "imported" | "ruled_out";
+}
+
+export const ALLERGY_SOURCE_LABEL: Record<AllergyLine["provenance"], string> = {
+  patient: "entered by the patient",
+  clinician: "recorded or confirmed by a clinician",
+  imported: "imported from another record",
+  ruled_out: "marked as not an allergy by a clinician",
+};
+
+export function allergyProvenance(source: string, verification: string): AllergyLine["provenance"] {
+  if (verification === "refuted") return "ruled_out";
+  if (source === "clinician" || verification === "confirmed") return "clinician";
+  if (source === "fhir_import") return "imported";
+  return "patient";
+}
+
 // ---------------------------------------------------------------------------
 // Medicines, skipped doses, symptoms
 // ---------------------------------------------------------------------------
@@ -214,8 +237,8 @@ export interface MedicineLine {
   name: string;
   dose: string | null;
   schedule: string;
-  /** A signed prescription stands behind it; otherwise the patient added it. */
-  prescribed: boolean;
+  /** Who stands behind it: a signed, uncancelled prescription; the patient, who added it; or neither (listed, source not a signed prescription). */
+  provenance: "signed_prescription" | "patient" | "other";
 }
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -271,18 +294,30 @@ export interface SymptomLine { reportedAt: string; label: string; note: string |
 
 /**
  * Symptom types that name reproductive organs. Reproductive health is never a section of a summary or a share (OQ-S43-4), so an
- * entry of these types is left out whole rather than printed. A free-text note cannot be classified, which is the same open
- * limit OQ-S43-4 records for the medicines list; the screen says so.
+ * entry of these types is left out whole rather than printed.
  */
 export const REPRODUCTIVE_SYMPTOM_TYPES: readonly string[] = ["testicular_pain", "testicular_lump"];
 
-export function buildSymptoms(rows: readonly SymptomIn[], sinceMs: number, cfg: SummaryConfig): { lines: SymptomLine[]; total: number; leftOut: number } {
+/**
+ * The symptom types that may print. An allow-list, so a type added to the enum later is left out until someone decides it is
+ * safe, never printed by default. A test fails when the database enum has a value in neither list. A free-text note under a
+ * generic type (`other`, `pain`) cannot be classified; that limit is OQ-679, and the page says so.
+ */
+export const PRINTABLE_SYMPTOM_TYPES: readonly string[] = [
+  "pain", "fatigue", "breathlessness", "dizziness", "palpitations", "swelling", "nausea", "other", "chest_pain", "severe_headache",
+  "visual_disturbance", "confusion", "poor_feeding", "lethargy", "grunting_or_retractions", "dehydration_signs", "weakness_or_numbness",
+  "difficulty_speaking", "back_pain", "convulsion", "loss_of_consciousness", "sudden_face_hand_swelling", "vomiting", "abdominal_pain",
+  "cannot_swallow",
+];
+
+export function buildSymptoms(rows: readonly SymptomIn[], sinceMs: number, cfg: SummaryConfig, capped = false): { lines: SymptomLine[]; total: number; leftOut: number; capped: boolean } {
   const inPeriod = rows.filter((r) => Date.parse(r.reportedAt) >= sinceMs);
-  const kept = inPeriod.filter((r) => !REPRODUCTIVE_SYMPTOM_TYPES.includes(r.symptomType));
+  const kept = inPeriod.filter((r) => PRINTABLE_SYMPTOM_TYPES.includes(r.symptomType));
   kept.sort((a, b) => Date.parse(b.reportedAt) - Date.parse(a.reportedAt));
   return {
     total: kept.length,
     leftOut: inPeriod.length - kept.length,
+    capped,
     lines: kept.slice(0, cfg.maxSymptoms).map((r) => ({
       reportedAt: r.reportedAt,
       label: r.symptomType.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()),

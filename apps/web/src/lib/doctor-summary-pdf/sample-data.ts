@@ -37,8 +37,8 @@ export function sampleData(sections: DoctorSummaryData["sections"] = [...SECTION
     bp,
     chart: buildBpChart(bp.chartReadings),
     medicines: [
-      { name: "Amlodipine", dose: "5 mg", schedule: "every day at 08:00", prescribed: true },
-      { name: "Metformin", dose: "500 mg", schedule: "every day at 08:00, 20:00, with food", prescribed: false },
+      { name: "Amlodipine", dose: "5 mg", schedule: "every day at 08:00", provenance: "signed_prescription" },
+      { name: "Metformin", dose: "500 mg", schedule: "every day at 08:00, 20:00, with food", provenance: "patient" },
     ],
     adherence: {
       minDoses: 5,
@@ -65,6 +65,6 @@ export function sampleData(sections: DoctorSummaryData["sections"] = [...SECTION
       SAMPLE_NOW_MS - 30 * 24 * 60 * 60 * 1000,
       cfg,
     ),
-    allergiesConditions: { allergies: [{ allergen: "Penicillin", reaction: "rash", severity: "moderate" }], conditions: ["hypertension", "diabetes"] },
+    allergiesConditions: { allergies: [{ allergen: "Penicillin", detail: "rash, moderate", provenance: "patient" }], conditions: ["hypertension", "diabetes"] },
   };
 }
