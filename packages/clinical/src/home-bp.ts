@@ -72,7 +72,7 @@ export function addLocalDays(date: string, days: number): string {
 }
 
 /** The Lagos hour (0 to 23) of an instant. */
-function lagosHourOf(ms: number): number {
+export function lagosHourOf(ms: number): number {
   return new Date(ms + LAGOS_OFFSET_MS).getUTCHours();
 }
 

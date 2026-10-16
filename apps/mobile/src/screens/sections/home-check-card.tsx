@@ -8,6 +8,7 @@ import { todayLine, type SentResult } from "@/lib/home-check-model";
 import { useBpTarget } from "@/lib/use-bp-target";
 import { radii, space, useTheme } from "@/ui/design";
 import { AppText, Badge, Button, Card, InlineAlert } from "@/ui/kit";
+import { HomeCheckSession } from "@/screens/sections/home-check-session";
 
 type Tr = (key: MessageKey, params?: Record<string, string | number>) => string;
 
@@ -107,6 +108,7 @@ export function HomeCheckCard({ patientId, reloadToken }: { patientId: string; r
           <Badge label={tr("hc.day_of", { day: view.assessment.dayNumber, total: CONFIG.protocol.targetDays })} tone="neutral" />
           <AppText variant="body">{tr("hc.counts", { readings: view.assessment.readings, days: view.assessment.days })}</AppText>
           <AppText variant="bodyStrong">{tr(`hc.today_${todayLine(view.assessment)}` as MessageKey)}</AppText>
+          <HomeCheckSession readings={load.readings} config={CONFIG} {...(reloadToken === undefined ? {} : { reloadKey: reloadToken })} />
           {/* No average yet: the gate is not met, so the screen says what is missing and nothing else. */}
           <AppText variant="caption" tone="textMuted">
             {view.assessment.shortfall && view.assessment.shortfall.moreReadings > 0 && view.assessment.shortfall.moreDays > 0
@@ -131,6 +133,7 @@ export function HomeCheckCard({ patientId, reloadToken }: { patientId: string; r
             </AppText>
           ) : null}
           {!view.assessment.windowOver ? <AppText variant="caption" tone="textMuted">{tr("hc.enough_more", { total: CONFIG.protocol.targetDays })}</AppText> : null}
+          {!view.assessment.windowOver ? <HomeCheckSession readings={load.readings} config={CONFIG} {...(reloadToken === undefined ? {} : { reloadKey: reloadToken })} /> : null}
           {view.queued ? <InlineAlert tone="info" message={tr("hc.queued")} /> : null}
           {view.serverShort ? <InlineAlert tone="warn" message={tr("hc.server_short", { readings: view.serverShort.readings, days: view.serverShort.days })} /> : null}
           {notice === "failed" ? <InlineAlert tone="warn" message={tr("hc.send_failed")} /> : null}

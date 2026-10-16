@@ -3890,6 +3890,20 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 ### OQ-BPA-3 Free members and "Your care team will look at this" (TRI-002)
 - The acknowledgement never adds a care-team promise of its own. TRI-002 (signed without a review promise, OQ-251) is the engine's wording and is unchanged. Whether it should be hidden for a Free patient whose red reading does not reach a doctor (two-tier decision 2026-10-08) is for the CMO; the acknowledgement does not depend on it.
 
+## Guided home blood pressure session (raised 2026-10-16, branch pr3/home-bp-guided-session)
+
+### OQ-HBP-1 Drop day 1 from the seven-day average? (for the CMO; not built)
+- The founder brief proposed discarding day 1 (ESH-2023). The CMO pack C1 listed it as option (b) and recommended (a) "average every reading", which is also the S11 decision. Building (b) changes the counting rule in three places that must stay identical (`assessHomeCheck`, `private.home_bp_assess_readings`, the 35-case parity block) and is a clinical choice, so it waits for the CMO. The configuration row is still unsigned, so choosing (b) at signing is open; this is a follow-up build of about a day once chosen.
+
+### OQ-HBP-2 "Measure before you take your medicines" is proposed copy
+- ESH-2023 recommends measuring before medicines. The approved C1 text (NG-2023 5.4.5: morning on waking, evening before bed) does not say it. The guided rest step says it as proposed copy in `hc.session.rest`. CMO to confirm or strike.
+
+### OQ-HBP-3 The panel names no band for a session mean (OQ-67 context)
+- The guided panel shows a session's mean as two numbers and says nothing about whether it is high or low. The C2 words for a complete seven-day average stay in the existing card behind the signed row. The draft `bp_care_triage` bands are not used anywhere in this feature. Classification of an average (and what to say about a single session mean) still awaits the CMO under OQ-67.
+
+### OQ-HBP-4 A second governed config was not created (decision recorded)
+- The brief named a new `home_bp_protocol` config. S07x already ships it as `home_bp_programme_signoffs` with the guard `home_bp_programme` and its CMO hub panel (see `docs/design/BP-home-guided-session.md`). A second one would give the CMO two sign-offs for one protocol, so it was not built. If the founder wants a differently named row anyway, say so.
+
 ## Renumbering map (2026-10-16)
 
 Several OQ numbers were handed out twice by parallel sessions. The first heading in this file keeps its number; each later duplicate was given a fresh number above 452 (`packages/shared/src/open-questions-unique.test.ts` now fails on a repeated `### OQ-N`). References INSIDE a renumbered entry were updated. References elsewhere (other docs, code comments, migration headers) were NOT rewritten: a bare "OQ-310" there cannot be told apart from the five other OQ-310 topics, and applied migration bodies are never edited. Read an old citation against this map; the number it most likely means is the one that kept its number unless the citing text matches a title below.
