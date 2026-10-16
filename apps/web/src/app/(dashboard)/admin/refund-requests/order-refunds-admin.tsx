@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import {
-  useAdminFailedRefunds,
   useAdminOrderRefunds,
+  useAdminRefundOps,
   useDecideOrderRefund,
   useRetryFailedRefund,
+  useSettleProcessingRefund,
+  type OpsRefund,
 } from "@/lib/queries/order-refunds";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,6 +37,18 @@ export type AdminOrderRefund = {
 
 type Decision = { refund: AdminOrderRefund; approve: boolean };
 
+function OpsRow({ refund, detail }: { refund: OpsRefund; detail: string }) {
+  return (
+    <div>
+      <p className="text-sm font-medium text-charcoal-ink">
+        {refund.patient_name ?? "Unknown patient"}{" "}
+        <span className="font-normal text-charcoal-ink/60">&rarr; {itemLabel(refund.name_key, refund.code ?? "Order item")}</span>
+      </p>
+      <p className="text-xs text-charcoal-ink/60">{formatKobo(refund.amount_kobo)} &middot; {detail}</p>
+    </div>
+  );
+}
+
 /**
  * Pending v5 order refunds (from the `refunds` table), oldest first.
  * Same Approve/Deny → ConfirmDialog pattern as RefundRequestsAdmin — a real
@@ -42,8 +56,11 @@ type Decision = { refund: AdminOrderRefund; approve: boolean };
  */
 export function OrderRefundsAdmin() {
   const refunds = useAdminOrderRefunds();
-  const failed = useAdminFailedRefunds();
+  const ops = useAdminRefundOps();
   const retry = useRetryFailedRefund();
+  const settle = useSettleProcessingRefund();
+  // which row the last retry or settle was for, so its message is never shown under another row
+  const [actedOn, setActedOn] = useState<string | null>(null);
   const decide = useDecideOrderRefund();
   const [pending, setPending] = useState<Decision | null>(null);
   const [note, setNote] = useState("");
@@ -139,39 +156,75 @@ export function OrderRefundsAdmin() {
             {(decide.error as Error)?.message ?? "Could not record that decision."}
           </p>
         )}
-        {failed.data && failed.data.length > 0 && (
+        {ops.isError && <p className="mt-4 text-sm text-red-600">Could not load the failed and stuck refunds.</p>}
+        {ops.data && ops.data.failed.length > 0 && (
           <section aria-labelledby="failed-refunds" className="mt-6 space-y-2">
-            <h3 id="failed-refunds" className="text-sm font-semibold text-charcoal-ink">Refunds that failed at Paystack</h3>
+            <h3 id="failed-refunds" className="text-sm font-semibold text-charcoal-ink">Refunds that Paystack refused</h3>
             <p className="text-xs text-charcoal-ink/60">
               Check the Paystack dashboard first, then send it back to the queue. It is never retried automatically.
             </p>
             <ul className="divide-y divide-charcoal-ink/10">
-              {failed.data.map((f) => (
-                <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                  <div>
-                    <p className="text-sm font-medium text-charcoal-ink">
-                      {f.order?.beneficiary?.full_name ?? "Unknown patient"}{" "}
-                      <span className="font-normal text-charcoal-ink/60">
-                        &rarr; {itemLabel(f.order?.catalog_item?.name_key, f.order?.catalog_item?.code ?? "Order item")}
-                      </span>
-                    </p>
-                    <p className="text-xs text-charcoal-ink/60">
-                      {formatKobo(f.amount_kobo)} &middot; {f.attempts} attempt{f.attempts === 1 ? "" : "s"} &middot; {f.last_error_code ?? "no code"}
-                    </p>
+              {ops.data.failed.map((f) => (
+                <li key={f.id} className="space-y-1 py-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <OpsRow refund={f} detail={`${f.attempts} attempt${f.attempts === 1 ? "" : "s"} \u00B7 ${f.last_error_code ?? "no code"}`} />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={retry.isPending}
+                      onClick={() => { setActedOn(f.id); retry.reset(); retry.mutate(f.id); }}
+                    >
+                      Send back to queue
+                    </Button>
                   </div>
-                  <Button type="button" size="sm" variant="outline" disabled={retry.isPending} onClick={() => retry.mutate(f.id)}>
-                    Send back to queue
-                  </Button>
+                  {actedOn === f.id && retry.isError && (
+                    <p className="text-xs text-red-600">It could not be sent back to the queue. Refresh and try again.</p>
+                  )}
+                  {actedOn === f.id && retry.data && retry.data.result !== "requeued" && (
+                    <p className="text-xs text-red-600">
+                      {retry.data.result === "provider_mismatch"
+                        ? "The weekly check found Paystack disagreeing with us on this refund. Check the Paystack dashboard first, then resolve the incident."
+                        : "It could not be sent back to the queue."}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
-            {retry.data && retry.data.result !== "requeued" && (
-              <p className="text-xs text-red-600">
-                {retry.data.result === "provider_mismatch"
-                  ? "The weekly check found Paystack disagreeing with us on this refund. Check the Paystack dashboard first, then resolve the incident."
-                  : "It could not be sent back to the queue."}
-              </p>
-            )}
+          </section>
+        )}
+        {ops.data && ops.data.stuck.length > 0 && (
+          <section aria-labelledby="stuck-refunds" className="mt-6 space-y-2">
+            <h3 id="stuck-refunds" className="text-sm font-semibold text-charcoal-ink">Refunds stuck mid-send</h3>
+            <p className="text-xs text-charcoal-ink/60">
+              Paystack gave no clear answer, or its answer could not be written. Look at the Paystack dashboard, then say what happened. Marking one as sent
+              also raises a reminder to post its cash entry.
+            </p>
+            <ul className="divide-y divide-charcoal-ink/10">
+              {ops.data.stuck.map((f) => (
+                <li key={f.id} className="space-y-1 py-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <OpsRow refund={f} detail={`started ${f.processing_started_at ? formatPatientDate(f.processing_started_at) : "unknown"}`} />
+                    <div className="flex gap-2">
+                      <Button type="button" size="sm" variant="outline" disabled={settle.isPending}
+                        onClick={() => { setActedOn(f.id); settle.reset(); settle.mutate({ refundId: f.id, paid: false }); }}>
+                        Paystack did not send it
+                      </Button>
+                      <Button type="button" size="sm" disabled={settle.isPending}
+                        onClick={() => { setActedOn(f.id); settle.reset(); settle.mutate({ refundId: f.id, paid: true }); }}>
+                        Paystack sent it
+                      </Button>
+                    </div>
+                  </div>
+                  {actedOn === f.id && settle.isError && <p className="text-xs text-red-600">That could not be saved. Refresh and try again.</p>}
+                  {actedOn === f.id && settle.data && settle.data.result !== "completed" && settle.data.result !== "failed" && (
+                    <p className="text-xs text-red-600">
+                      {settle.data.result === "too_soon" ? "It is too soon to settle this one. Wait for the stuck window to pass." : "This refund can no longer be settled."}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
           </section>
         )}
       </CardContent>

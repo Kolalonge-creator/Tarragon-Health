@@ -54734,6 +54734,11 @@ export type Database = {
         Args: { p_patient_id: string }
         Returns: Json
       }
+      admin_refund_ops: { Args: never; Returns: Json }
+      admin_settle_processing_refund: {
+        Args: { p_paid: boolean; p_reference?: string; p_refund: string }
+        Returns: Json
+      }
       claim_refund_for_provider: { Args: { p_refund: string }; Returns: Json }
       entitlement_policy_public: { Args: never; Returns: Json }
       link_order_encounter: { Args: { p_encounter: string; p_order: string }; Returns: boolean }

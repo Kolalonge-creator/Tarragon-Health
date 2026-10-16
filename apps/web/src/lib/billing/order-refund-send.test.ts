@@ -1,4 +1,4 @@
-import { sendApprovedOrderRefund } from "./order-refund-send";
+import { classifyRefundError, sendApprovedOrderRefund } from "./order-refund-send";
 
 type Call = { fn: string; args: Record<string, unknown> };
 
@@ -47,22 +47,32 @@ describe("sendApprovedOrderRefund", () => {
     expect(posted).toHaveBeenCalledTimes(1);
   });
 
-  it("a failed provider call is recorded as failed and nothing is posted", async () => {
+  it("a clear refusal from Paystack is recorded as failed (retryable by an admin) and nothing is posted", async () => {
     const { supabase, calls } = client(CLAIMED);
-    const refundTransaction = jest.fn(() => Promise.resolve({ ok: false as const, error: "Transaction has already been reversed" }));
+    const refundTransaction = jest.fn(() => Promise.resolve({ ok: false as const, error: "Transaction reference not found" }));
     const out = await sendApprovedOrderRefund({ supabase, refundTransaction, recordRefundLedgerEntry: posted }, "r1");
     expect(out).toBe("failed");
     const rec = calls.find((c) => c.fn === "record_refund_provider_result");
-    expect(rec?.args).toEqual(expect.objectContaining({ p_success: false, p_response: expect.objectContaining({ error_code: "already_refunded" }) }));
+    expect(rec?.args).toEqual(expect.objectContaining({ p_success: false, p_response: expect.objectContaining({ error_code: "provider_error" }) }));
     expect(posted).not.toHaveBeenCalled();
   });
 
-  it("a provider call that throws is recorded as failed, not left in processing", async () => {
+  it("'already reversed' means the money moved: it is NOT recorded as a retryable failure, it is raised and left in processing", async () => {
+    const { supabase, calls } = client(CLAIMED);
+    const refundTransaction = jest.fn(() => Promise.resolve({ ok: false as const, error: "Transaction has already been reversed" }));
+    const out = await sendApprovedOrderRefund({ supabase, refundTransaction, recordRefundLedgerEntry: posted }, "r1");
+    expect(out).toBe("unknown");
+    expect(calls.some((c) => c.fn === "record_refund_provider_result")).toBe(false);
+    expect(calls.find((c) => c.fn === "service_refund_incident")?.args).toEqual(expect.objectContaining({ p_what: "ambiguous_provider_outcome" }));
+  });
+
+  it("a provider call that throws or times out is unknown, never a failure that an admin could retry into a second refund", async () => {
     const { supabase, calls } = client(CLAIMED);
     const refundTransaction = jest.fn(() => Promise.reject(new Error("network down")));
     const out = await sendApprovedOrderRefund({ supabase, refundTransaction, recordRefundLedgerEntry: posted }, "r1");
-    expect(out).toBe("failed");
-    expect(calls.some((c) => c.fn === "record_refund_provider_result" && c.args["p_success"] === false)).toBe(true);
+    expect(out).toBe("unknown");
+    expect(calls.some((c) => c.fn === "record_refund_provider_result")).toBe(false);
+    expect(calls.some((c) => c.fn === "service_refund_incident")).toBe(true);
   });
 
   it("does not call the provider when the claim is refused (already claimed by another run)", async () => {
@@ -80,12 +90,14 @@ describe("sendApprovedOrderRefund", () => {
     expect(refundTransaction).not.toHaveBeenCalled();
   });
 
-  it("raises an incident when the provider took the refund but the database could not record it", async () => {
+  it("retries the write when the provider took the refund but the database errored, then raises an incident with the right title", async () => {
     const { supabase, calls } = client(CLAIMED, { message: "db down" });
     const refundTransaction = jest.fn(() => Promise.resolve({ ok: true as const, data: { refundId: 5, status: "pending" } }));
     const out = await sendApprovedOrderRefund({ supabase, refundTransaction, recordRefundLedgerEntry: posted }, "r1");
-    expect(out).toBe("failed");
-    expect(calls.some((c) => c.fn === "service_refund_incident")).toBe(true);
+    expect(out).toBe("unknown");
+    expect(calls.filter((c) => c.fn === "record_refund_provider_result")).toHaveLength(3);
+    expect(calls.find((c) => c.fn === "service_refund_incident")?.args).toEqual(expect.objectContaining({ p_what: "record_failed" }));
+    expect(refundTransaction).toHaveBeenCalledTimes(1);
     expect(posted).not.toHaveBeenCalled();
   });
 
@@ -104,5 +116,17 @@ describe("sendApprovedOrderRefund", () => {
     const already = jest.fn(() => Promise.resolve({ posted: false, alreadyPosted: true }));
     expect(await sendApprovedOrderRefund({ supabase, refundTransaction, recordRefundLedgerEntry: already }, "r1")).toBe("processed");
     expect(calls.some((c) => c.fn === "service_refund_incident")).toBe(false);
+  });
+});
+
+describe("classifyRefundError", () => {
+  it("treats timeouts, network errors, 5xx and 'already reversed' as unclear", () => {
+    for (const m of ["The operation was aborted", "fetch failed", "Paystack request failed with status 502", "Transaction has already been reversed", "ECONNRESET", "Unknown Paystack request failure"]) {
+      expect(classifyRefundError(m).kind).toBe("ambiguous");
+    }
+  });
+  it("treats a plain rejection as definitive", () => {
+    expect(classifyRefundError("Transaction reference not found")).toEqual({ kind: "definitive", code: "provider_error" });
+    expect(classifyRefundError("Insufficient balance to process refund")).toEqual({ kind: "definitive", code: "insufficient_balance" });
   });
 });

@@ -13,7 +13,7 @@
 --   6. Reconcile: verdict table, record_refund_reconcile raises one incident per mismatch, delays are flagged, service functions refuse
 --      anon and authenticated.
 --   7. SABOTAGE: the reminder step rows removed (a duplicate message appears), the verdict function made to say 'matched' (a mismatch
---      goes unseen), and the state machine made to allow approved to completed. Each check must flip.
+--      goes unseen), the refund state machine emptied, and the table-wide SELECT put back on refunds. Each check must flip.
 begin;
 
 alter table public.catalog_items drop constraint catalog_items_only_membership_sellable;
@@ -190,9 +190,11 @@ begin
   perform pg_temp.ck('reminders: all three steps, one message each', '30:sent,7:sent,1:sent/3', pg_temp.steps(e1) || '/' || pg_temp.notifs(v_pat, 'entitlement_expiring_soon'));
   perform pg_temp.ck('reminders: a reminder never extends or renews', 'active/true',
     (select state from public.entitlements where id = e1) || '/' || ((select ends_at from public.entitlements where id = e1) < ends_before)::text);
-  perform pg_temp.ck('reminders: the payload names the kind and the date only (INV-07)', 'care pack/true',
-    (select payload ->> 'kind' from public.notifications where recipient_id = v_pat and template = 'entitlement_expiring_soon' order by created_at limit 1) || '/' ||
-    (select (payload ? 'entitlement_id' and not payload ? 'name')::text from public.notifications where recipient_id = v_pat and template = 'entitlement_expiring_soon' limit 1));
+  perform pg_temp.ck('reminders: the payload carries the entitlement and the date but names no service (INV-07)', 'true/true',
+    (select (payload ? 'entitlement_id' and payload ? 'ends_at' and not payload ? 'kind' and not payload ? 'name')::text
+       from public.notifications where recipient_id = v_pat and template = 'entitlement_expiring_soon' order by created_at limit 1) || '/' ||
+    (not exists (select 1 from public.notification_template_locales where template_key = 'entitlement_expiring_soon'
+                  and (body ilike '%{{kind}}%' or subject ilike '%{{kind}}%' or body ilike '%lab panel%' or body ilike '%consultation%' or subject ilike '%lab panel%')))::text);
 
   -- a missed run: first seen 20 hours before the end sends ONE message (the 1 day step), and the longer steps are marked, not sent
   o2 := pg_temp.mkorder(v_org, v_pat2, pg_temp.f('pack'), pg_temp.f('pack_price'), 500000, 80);
@@ -230,6 +232,31 @@ begin
   perform pg_temp.svc();
   perform pg_temp.ck('reminders: the service wrapper runs for the service role', 'ok', pg_temp.try_sql('select public.service_run_entitlement_reminders()'));
   perform pg_temp.svc_off();
+end $$;
+
+-- one entitlement that cannot be reminded must not stop the others (a trigger that refuses ONE patient's notification stands in for the fault)
+create function public.s26b_boom() returns trigger language plpgsql as $f$
+begin if new.recipient_id = (select v from fx where k = 'bad_patient') then raise exception 's26b boom'; end if; return new; end $f$;
+do $$
+declare
+  v_org uuid := pg_temp.f('org'); bad uuid; good uuid; o_bad uuid; e_bad uuid; o_good uuid; e_good uuid; n int;
+begin
+  bad := pg_temp.mkuser(v_org, 'badrem', 'patient'); good := pg_temp.mkuser(v_org, 'goodrem', 'patient');
+  insert into fx values ('bad_patient', bad);
+  o_bad := pg_temp.mkorder(v_org, bad, pg_temp.f('pack'), pg_temp.f('pack_price'), 500000, 70);
+  e_bad := pg_temp.mkent(v_org, bad, o_bad, 'care_pack', -70, 20);
+  o_good := pg_temp.mkorder(v_org, good, pg_temp.f('pack'), pg_temp.f('pack_price'), 500000, 70);
+  e_good := pg_temp.mkent(v_org, good, o_good, 'care_pack', -70, 20);
+  create trigger s26b_boom before insert on public.notifications for each row execute function public.s26b_boom();
+  n := private.queue_entitlement_expiry_reminders();
+  perform pg_temp.ck('reminders: one failing entitlement does not stop the others', '1/0',
+    pg_temp.notifs(good, 'entitlement_expiring_soon') || '/' || pg_temp.notifs(bad, 'entitlement_expiring_soon'));
+  perform pg_temp.ck('reminders: the failure is raised once, not swallowed', '1',
+    (select count(*) from public.ops_incidents where external_reference = 'entitlement-reminder:' || e_bad)::text);
+  perform pg_temp.ck('reminders: the failed entitlement has no step claimed, so it is retried', '', pg_temp.steps(e_bad));
+  drop trigger s26b_boom on public.notifications;
+  n := private.queue_entitlement_expiry_reminders();
+  perform pg_temp.ck('reminders: once the fault is gone the next run reminds it', '1', pg_temp.notifs(bad, 'entitlement_expiring_soon')::text);
 end $$;
 
 -- ---------------------------------------------------------------------------------------------------------------------------------
@@ -452,7 +479,7 @@ begin
   perform pg_temp.ck('reversal: the unlinked consultation share is untouched', '0/true',
     (select count(*) from public.earnings_ledger where kind = 'adjustment' and calculation ->> 'corrects' = l2::text)::text || '/' ||
     (md5((select to_jsonb(x)::text from public.earnings_ledger x where id = l2)) = v_md5_l2)::text);
-  perform pg_temp.ck('reversal: the refund remembers it was done', 'true', (select (earnings_reversed_at is not null)::text from public.refunds where id = r2));
+  perform pg_temp.ck('reversal: inside the rescan window the stamp stays empty, so a late share is still caught', 'true', (select (earnings_reversed_at is null)::text from public.refunds where id = r2));
 
   -- idempotence: force the hook to run again and again
   update public.refunds set earnings_reversed_at = null, gl_released_at = null where id = r2;
@@ -468,6 +495,34 @@ begin
   perform pg_temp.ck('reversal: nor deleted', '23514',
     pg_temp.try_sql(format($q$delete from public.earnings_ledger where kind = 'adjustment' and calculation ->> 'corrects' = %L$q$, l1::text)));
   perform pg_temp.ck('reversal: nor the line it corrects', '23514', pg_temp.try_sql(format($q$update public.earnings_ledger set amount_kobo = 1 where id = %L$q$, l1)));
+
+  -- a share linked AFTER the refund completed (the doctor finishes the visit later) is reversed at once
+  declare
+    enc3 uuid; enc4 uuid; l3 uuid; l4 uuid;
+  begin
+    insert into public.encounters (organisation_id, patient_id, clinician_id, type, status, scheduled_at, policy_version, is_test)
+    values (v_org, v_pat, v_doc, 'video', 'scheduled', now(), 1, true) returning id into enc3;
+    l3 := private.ledger_insert(v_org, v_doc, 'consultation', 'encounter', enc3, 100000, v_sched, '{}'::jsonb, now(), true);
+    perform pg_temp.svc();
+    perform public.link_order_encounter(oa, enc3);
+    perform pg_temp.svc_off();
+    perform pg_temp.ck('reversal: a share linked after the refund completed is reversed at once', '-100000',
+      coalesce((select amount_kobo::text from public.earnings_ledger where kind = 'adjustment' and calculation ->> 'corrects' = l3::text), 'none'));
+    -- linked first, the consultation line posted later: the catch-up finds it
+    insert into public.encounters (organisation_id, patient_id, clinician_id, type, status, scheduled_at, policy_version, is_test)
+    values (v_org, v_pat, v_doc, 'video', 'scheduled', now(), 1, true) returning id into enc4;
+    insert into public.order_encounter_links (encounter_id, order_id) values (enc4, oa);
+    l4 := private.ledger_insert(v_org, v_doc, 'consultation', 'encounter', enc4, 80000, v_sched, '{}'::jsonb, now(), true);
+    perform pg_temp.svc();
+    perform public.service_run_refund_catch_up();
+    perform pg_temp.svc_off();
+    perform pg_temp.ck('reversal: a share posted after the refund completed is caught by the catch-up', '-80000',
+      coalesce((select amount_kobo::text from public.earnings_ledger where kind = 'adjustment' and calculation ->> 'corrects' = l4::text), 'none'));
+    -- once the rescan window has passed the stamp is set and the scan stops
+    update public.refunds set completed_at = now() - interval '61 days' where id = r2;
+    perform private.complete_refund_side_effects(r2);
+    perform pg_temp.ck('reversal: after the rescan window the stamp is set', 'true', (select (earnings_reversed_at is not null)::text from public.refunds where id = r2));
+  end;
 end $$;
 
 -- ---------------------------------------------------------------------------------------------------------------------------------
@@ -567,7 +622,7 @@ end $f$;
 do $$
 declare
   v_org uuid := pg_temp.f('org'); v_admin uuid := pg_temp.f('admin'); v_pat uuid := pg_temp.mkuser(pg_temp.f('org'), 'rec', 'patient'); v_other uuid := pg_temp.f('pat2');
-  o1 uuid; o2 uuid; o3 uuid; o4 uuid; o5 uuid; rf1 uuid; rf2 uuid; rf3 uuid; rf4 uuid; rf5 uuid; v text; n bigint; j jsonb; r jsonb;
+  o1 uuid; o2 uuid; o3 uuid; o4 uuid; o5 uuid; o6 uuid; o7 uuid; rf1 uuid; rf2 uuid; rf3 uuid; rf4 uuid; rf5 uuid; rf6 uuid; rf7 uuid; v text; n bigint; j jsonb; r jsonb;
 begin
   -- the verdict table (pure)
   perform pg_temp.ck('verdict: completed here, processed there, same amount', 'matched', private.refund_reconcile_verdict('completed', 'processed', 100, 100));
@@ -576,6 +631,7 @@ begin
   perform pg_temp.ck('verdict: completed here, nothing there', 'not_found', private.refund_reconcile_verdict('completed', 'not_found', 100, null));
   perform pg_temp.ck('verdict: failed here, nothing there is right', 'matched', private.refund_reconcile_verdict('failed', 'not_found', 100, null));
   perform pg_temp.ck('verdict: failed here but processed there is a mismatch', 'mismatch', private.refund_reconcile_verdict('failed', 'processed', 100, 100));
+  perform pg_temp.ck('verdict: failed here and failed there is consistent', 'matched', private.refund_reconcile_verdict('failed', 'failed', 100, 100));
   perform pg_temp.ck('verdict: processing here, failed there is a mismatch', 'mismatch', private.refund_reconcile_verdict('processing', 'failed', 100, 100));
 
   o1 := pg_temp.mkorder(v_org, v_pat, pg_temp.f('pack'), pg_temp.f('pack_price'), 500000, 3, false);
@@ -628,6 +684,34 @@ begin
   perform pg_temp.ck('delays: a request unanswered past the 3 day answer time is flagged', '1', (select count(*) from public.ops_incidents where external_reference = 'refund-delay:' || rf5)::text);
   perform pg_temp.ck('delays: a fresh completed refund is not', '0', (select count(*) from public.ops_incidents where external_reference = 'refund-delay:' || rf1)::text);
 
+  -- the admin's list of what to act on, and settling a refund stuck mid-send
+  o6 := pg_temp.mkorder(v_org, v_pat, pg_temp.f('pack'), pg_temp.f('pack_price'), 500000, 3, false);
+  o7 := pg_temp.mkorder(v_org, v_pat, pg_temp.f('pack'), pg_temp.f('pack_price'), 500000, 3, false);
+  rf6 := pg_temp.mkdone(v_org, v_admin, v_pat, o6, 500000, 'processing');
+  update public.refunds set processing_started_at = now() - interval '3 hours' where id = rf6;
+  rf7 := pg_temp.mkdone(v_org, v_admin, v_pat, o7, 500000, 'processing');
+  perform pg_temp.act(v_admin);
+  j := public.admin_refund_ops();
+  perform pg_temp.back();
+  perform pg_temp.ck('ops: the failed refund is listed with its error code', 'true', (select (x ->> 'last_error_code' = 'provider_error')::text from jsonb_array_elements(j -> 'failed') x where (x ->> 'id')::uuid = rf3));
+  perform pg_temp.ck('ops: only the refund stuck past the window is listed as stuck', 'true/false',
+    exists (select 1 from jsonb_array_elements(j -> 'stuck') x where (x ->> 'id')::uuid = rf6)::text || '/' ||
+    exists (select 1 from jsonb_array_elements(j -> 'stuck') x where (x ->> 'id')::uuid = rf7)::text);
+  perform pg_temp.ck('ops: a patient cannot read the list', '42501', pg_temp.try_as(v_pat, 'select public.admin_refund_ops()'));
+  perform pg_temp.ck('ops: a patient cannot settle a refund', '42501', pg_temp.try_as(v_pat, format($q$select public.admin_settle_processing_refund(%L, true)$q$, rf6)));
+  perform pg_temp.act(v_admin);
+  r := public.admin_settle_processing_refund(rf7, true, 'X');
+  perform pg_temp.ck('ops: a refund still inside the window cannot be settled yet', 'too_soon', r ->> 'result');
+  r := public.admin_settle_processing_refund(rf6, false);
+  perform pg_temp.ck('ops: Paystack did not send it: the refund fails and can be retried', 'failed/failed/settled_not_sent',
+    (r ->> 'result') || '/' || (select state from public.refunds where id = rf6) || '/' || (select last_error_code from public.refunds where id = rf6));
+  r := public.admin_settle_processing_refund(rf4, true, 'PSK-HAND-1');
+  perform pg_temp.ck('ops: Paystack sent it: the refund completes with the reference', 'completed/completed/PSK-HAND-1',
+    (r ->> 'result') || '/' || (select state from public.refunds where id = rf4) || '/' || (select provider_reference from public.refunds where id = rf4));
+  perform pg_temp.ck('ops: and finance is reminded to post the cash entry', '1', (select count(*) from public.ops_incidents where external_reference = 'refund-cash-post:' || rf4)::text);
+  perform pg_temp.ck('ops: a settled refund cannot be settled again', 'not_processing', public.admin_settle_processing_refund(rf4, true) ->> 'result');
+  perform pg_temp.back();
+
   -- cash posting failure raised by the sweep
   perform pg_temp.svc();
   perform public.service_refund_incident(rf1, 'period closed');
@@ -641,6 +725,12 @@ begin
   perform pg_temp.ck('access: nor record a reconcile verdict', '42501', pg_temp.try_as(v_pat, format($q$select public.record_refund_reconcile(%L, 'processed', 1)$q$, rf4)));
   perform pg_temp.ck('access: nor flag delays or run the catch-up', '42501/42501', pg_temp.try_as(v_pat, 'select public.service_flag_refund_delays()') || '/' ||
     pg_temp.try_as(v_pat, 'select public.service_run_refund_catch_up()'));
+  perform pg_temp.ck('access: a patient cannot read the provider response column', '42501', pg_temp.try_as(v_pat, 'select provider_response from public.refunds limit 1'));
+  perform pg_temp.ck('access: nor the retry counters, the error code, or the reconcile verdict', '42501/42501/42501',
+    pg_temp.try_as(v_pat, 'select last_error_code from public.refunds limit 1') || '/' || pg_temp.try_as(v_pat, 'select attempts from public.refunds limit 1') || '/' ||
+    pg_temp.try_as(v_pat, 'select provider_status from public.refunds limit 1'));
+  perform pg_temp.ck('access: select * on refunds is refused for a patient', '42501', pg_temp.try_as(v_pat, 'select * from public.refunds limit 1'));
+  perform pg_temp.ck('access: the columns the refund screen needs are readable', 'ok', pg_temp.try_as(v_pat, 'select id, state, decision_note, amount_kobo, completed_at from public.refunds limit 1'));
   perform pg_temp.ck('access: a patient cannot write the timeline', '42501', pg_temp.try_as(v_pat, format($q$insert into public.refund_status_events (refund_id, organisation_id, step) values (%L, %L, 'completed')$q$, rf4, v_org)));
   perform pg_temp.ck('access: a patient reads the timeline of their own refund', 'true', (pg_temp.q_as(v_pat, format($q$select (count(*) > 0)::text from public.refund_status_events where refund_id = %L$q$, rf4))));
   perform pg_temp.ck('access: another patient sees none of it', '0', pg_temp.q_as(v_other, format($q$select count(*)::text from public.refund_status_events where refund_id = %L$q$, rf4)));
@@ -682,6 +772,11 @@ begin
   insert into results values ('sabotaged', 'reconcile: a mismatch raises an incident', 'one incident',
     case when (select count(*) from public.ops_incidents where external_reference = 'refund-mismatch:' || rf) > before_inc then 'one incident' else 'no incident' end);
 
+  -- (d) the column grant: with the table-wide SELECT back, a patient can read the provider's raw response
+  grant select on public.refunds to authenticated;
+  insert into results values ('sabotaged', 'access: a patient cannot read the provider response', 'refused',
+    case when pg_temp.try_as(v_pat, 'select provider_response from public.refunds limit 1') = 'ok' then 'readable' else 'refused' end);
+
   -- (c) the state machine: with the trigger function emptied, approved -> completed goes through (the S26 bug)
   o := pg_temp.mkorder(v_org, v_pat, pg_temp.f('pack'), pg_temp.f('pack_price'), 500000, 3, false);
   insert into public.refunds (organisation_id, order_id, amount_kobo, reason, requested_by, is_test) values (v_org, o, 500000, 'Sabotage fixture refund', v_pat, true) returning id into rf;
@@ -701,7 +796,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

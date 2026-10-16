@@ -17,8 +17,6 @@ export type AdminOrderRefund = {
   reason: string | null;
   state: RefundState;
   provider: string | null;
-  provider_reference: string | null;
-  provider_response: string | null;
   requested_by: string;
   decided_by: string | null;
   decided_at: string | null;
@@ -49,7 +47,6 @@ export type MyOrderRefund = {
   reason: string | null;
   state: RefundState;
   provider: string | null;
-  provider_reference: string | null;
   decided_by: string | null;
   decided_at: string | null;
   decision_note: string | null;
@@ -64,21 +61,29 @@ export type MyOrderRefund = {
   steps: { step: RefundStep; created_at: string }[];
 };
 
-export type FailedOrderRefund = {
+/** A refund an admin must act on (public.admin_refund_ops). The operational columns are not readable through the table. */
+export type OpsRefund = {
   id: string;
   order_id: string;
   amount_kobo: number;
   attempts: number;
-  last_error_code: string | null;
-  updated_at: string;
-  order: { catalog_item: { code: string; name_key: string } | null; beneficiary: { full_name: string | null } | null } | null;
+  last_error_code?: string | null;
+  provider_status?: string | null;
+  updated_at?: string;
+  processing_started_at?: string;
+  patient_name: string | null;
+  name_key: string | null;
+  code: string | null;
 };
+export type RefundOps = { failed: OpsRefund[]; stuck: OpsRefund[] };
 
 /* ------------------------------------------------------------------ */
 /*  Query keys                                                        */
 /* ------------------------------------------------------------------ */
 
 const ADMIN_REFUNDS_KEY = ["admin-order-refunds"];
+/** The columns of `refunds` a signed-in person may read (the S26b migration grants exactly these; `select *` is refused on purpose). */
+const REFUND_COLUMNS = "id, organisation_id, order_id, amount_kobo, reason, state, provider, requested_by, decided_by, decided_at, decision_note, is_test, created_at, updated_at, completed_at";
 const MY_REFUNDS_KEY = ["my-order-refunds"];
 const FAILED_REFUNDS_KEY = ["admin-failed-order-refunds"];
 
@@ -101,7 +106,7 @@ export function useAdminOrderRefunds() {
       const { data, error } = await supabase
         .from("refunds")
         .select(
-          "*, order:orders!refunds_order_id_fkey(amount_kobo, state, paid_at, catalog_item:catalog_items(code, name_key), beneficiary:profiles!orders_beneficiary_patient_id_fkey(full_name, phone)), requester:profiles!refunds_requested_by_fkey(full_name)",
+          `${REFUND_COLUMNS}, order:orders!refunds_order_id_fkey(amount_kobo, state, paid_at, catalog_item:catalog_items(code, name_key), beneficiary:profiles!orders_beneficiary_patient_id_fkey(full_name, phone)), requester:profiles!refunds_requested_by_fkey(full_name)`,
         )
         .eq("state", "pending")
         .order("created_at", { ascending: true });
@@ -149,7 +154,7 @@ export function useMyOrderRefunds() {
       const { data, error } = await supabase
         .from("refunds")
         .select(
-          "*, order:orders!refunds_order_id_fkey(amount_kobo, catalog_item:catalog_items(code, name_key)), steps:refund_status_events(step, created_at)",
+          `${REFUND_COLUMNS}, order:orders!refunds_order_id_fkey(amount_kobo, catalog_item:catalog_items(code, name_key)), steps:refund_status_events(step, created_at)`,
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -203,21 +208,32 @@ export function useRefundPolicy() {
   });
 }
 
-/** Refunds that failed at the provider: an admin looks at why, then sends them back to the queue (public.retry_failed_refund). */
-export function useAdminFailedRefunds() {
+/** Refunds that failed at the provider, and refunds stuck mid-send, for an admin to act on (public.admin_refund_ops). */
+export function useAdminRefundOps() {
   return useQuery({
     queryKey: FAILED_REFUNDS_KEY,
-    queryFn: async () => {
+    queryFn: async (): Promise<RefundOps> => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("refunds")
-        .select(
-          "id, order_id, amount_kobo, attempts, last_error_code, updated_at, order:orders!refunds_order_id_fkey(catalog_item:catalog_items(code, name_key), beneficiary:profiles!orders_beneficiary_patient_id_fkey(full_name))",
-        )
-        .eq("state", "failed")
-        .order("updated_at", { ascending: true });
+      const { data, error } = await supabase.rpc("admin_refund_ops");
       if (error) throw error;
-      return data as unknown as FailedOrderRefund[];
+      const d = (data ?? {}) as Partial<RefundOps>;
+      return { failed: Array.isArray(d.failed) ? d.failed : [], stuck: Array.isArray(d.stuck) ? d.stuck : [] };
+    },
+  });
+}
+
+/** An admin finishes a refund stuck in 'processing' after looking at the Paystack dashboard: it was sent (paid) or it was not. */
+export function useSettleProcessingRefund() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { refundId: string; paid: boolean }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("admin_settle_processing_refund", { p_refund: input.refundId, p_paid: input.paid });
+      if (error) throw error;
+      return data as RefundRpcResult;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: FAILED_REFUNDS_KEY });
     },
   });
 }

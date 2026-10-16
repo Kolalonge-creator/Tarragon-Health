@@ -50,7 +50,7 @@ values ('lifecycle', 1, true, date '2026-10-16', $json${"reminder_days_before":[
 -- refunds-order-rules-begin (mirrored as refunds.order_rules in packages/shared/src/proposed-config/registry.ts)
 insert into public.entitlement_policy_config (kind, version, is_active, effective_from, rules)
 values ('refund_rules', 1, true, date '2026-10-16',
-        $json${"cooling_off_days":14,"decision_sla_days":3,"bank_days_min":5,"bank_days_max":10,"stuck_processing_hours":2}$json$::jsonb);
+        $json${"cooling_off_days":14,"decision_sla_days":3,"bank_days_min":5,"bank_days_max":10,"stuck_processing_hours":2,"earnings_rescan_days":60}$json$::jsonb);
 -- refunds-order-rules-end
 
 -- The active rules of one kind, or the shipped defaults when no row is active (a missing config never switches a rule off).
@@ -61,7 +61,7 @@ as $$
     (select rules from public.entitlement_policy_config where kind = p_kind and is_active),
     case p_kind
       when 'lifecycle' then '{"reminder_days_before":[30,7,1],"grace_days":7}'::jsonb
-      else '{"cooling_off_days":14,"decision_sla_days":3,"bank_days_min":5,"bank_days_max":10,"stuck_processing_hours":2}'::jsonb
+      else '{"cooling_off_days":14,"decision_sla_days":3,"bank_days_min":5,"bank_days_max":10,"stuck_processing_hours":2,"earnings_rescan_days":60}'::jsonb
     end)
 $$;
 revoke all on function private.entitlement_policy(text) from public, anon, authenticated;
@@ -125,7 +125,6 @@ declare
   v_step integer;
   v_id uuid;
   v_notif uuid;
-  v_label text;
   v_when text;
   n integer := 0;
 begin
@@ -140,42 +139,51 @@ begin
        and e.roster_member_id is null   -- an employer-paid seat is renewed by the employer
        and e.kind <> 'membership'       -- a Membership has its own reminders (membership_lapse_config)
   loop
-    -- the tightest step this entitlement has already entered (steps are longest first)
-    select min(s) into v_step from unnest(v_steps) s where r.ends_at <= now() + make_interval(days => s);
+    -- One bad row must not stop everyone else's reminder: each entitlement runs in its own sub-transaction, and a failure is logged and
+    -- raised as an incident (once per entitlement) instead of rolling the whole run back.
+    begin
+      -- the tightest step this entitlement has already entered (steps are longest first)
+      select min(s) into v_step from unnest(v_steps) s where r.ends_at <= now() + make_interval(days => s);
 
-    -- longer steps that were never recorded are marked, not sent: a missed day must never produce two reminders at once
-    insert into public.entitlement_reminder_steps (entitlement_id, step_days, outcome)
-    select r.id, s, 'skipped_overlap' from unnest(v_steps) s where s > v_step
-    on conflict (entitlement_id, step_days) do nothing;
+      -- longer steps that were never recorded are marked, not sent: a missed day must never produce two reminders at once
+      insert into public.entitlement_reminder_steps (entitlement_id, step_days, outcome)
+      select r.id, s, 'skipped_overlap' from unnest(v_steps) s where s > v_step
+      on conflict (entitlement_id, step_days) do nothing;
 
-    if exists (select 1 from public.entitlement_reminder_steps where entitlement_id = r.id and step_days = v_step) then continue; end if;
+      if exists (select 1 from public.entitlement_reminder_steps where entitlement_id = r.id and step_days = v_step) then continue; end if;
 
-    -- a pack shorter than the step would be reminded the moment it was bought: record it as skipped
-    if r.starts_at is not null and r.ends_at - r.starts_at <= make_interval(days => v_step) then
-      insert into public.entitlement_reminder_steps (entitlement_id, step_days, outcome) values (r.id, v_step, 'skipped_short')
-        on conflict (entitlement_id, step_days) do nothing;
-      continue;
-    end if;
+      -- a pack shorter than the step would be reminded the moment it was bought: record it as skipped
+      if r.starts_at is not null and r.ends_at - r.starts_at <= make_interval(days => v_step) then
+        insert into public.entitlement_reminder_steps (entitlement_id, step_days, outcome) values (r.id, v_step, 'skipped_short')
+          on conflict (entitlement_id, step_days) do nothing;
+        continue;
+      end if;
 
-    -- claim the step first (the unique key makes two overlapping runs send once), notify second
-    insert into public.entitlement_reminder_steps (entitlement_id, step_days, outcome) values (r.id, v_step, 'sent')
-      on conflict (entitlement_id, step_days) do nothing
-      returning id into v_id;
-    if v_id is null then continue; end if;
+      -- claim the step first (the unique key makes two overlapping runs send once), notify second
+      v_id := null;
+      insert into public.entitlement_reminder_steps (entitlement_id, step_days, outcome) values (r.id, v_step, 'sent')
+        on conflict (entitlement_id, step_days) do nothing
+        returning id into v_id;
+      if v_id is null then continue; end if;
 
-    v_label := case r.kind when 'care_pack' then 'care pack' when 'consultation_credit' then 'consultation credit' when 'lab_panel' then 'lab panel'
-                           else replace(r.kind, '_', ' ') end;
-    v_when := case when v_step = 1 then 'tomorrow' else 'in ' || v_step || ' days' end;
-    -- INV-07: the payload names the kind and the date only, never an item name or anything clinical
-    insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
-    values (r.organisation_id, r.patient_id, private.patient_reminder_channel(r.patient_id), 'pending', 'entitlement_expiring_soon',
-            jsonb_build_object('entitlement_id', r.id, 'kind', v_label, 'step_days', v_step, 'when', v_when,
-                               'ends_at', to_char(r.ends_at at time zone 'Africa/Lagos', 'DD Mon YYYY'),
-                               'grace_days', private.entitlement_grace_days()))
-    returning id into v_notif;
-    update public.entitlement_reminder_steps set notification_id = v_notif where id = v_id;
-    update public.entitlements set reminded_at = coalesce(reminded_at, now()) where id = r.id;
-    n := n + 1;
+      v_when := case when v_step = 1 then 'tomorrow' else 'in ' || v_step || ' days' end;
+      -- INV-07: the payload carries the date and the step only. It names no service and no kind: a lock-screen push or an email subject must not
+      -- reveal what care someone bought.
+      insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
+      values (r.organisation_id, r.patient_id, private.patient_reminder_channel(r.patient_id), 'pending', 'entitlement_expiring_soon',
+              jsonb_build_object('entitlement_id', r.id, 'step_days', v_step, 'when', v_when,
+                                 'ends_at', to_char(r.ends_at at time zone 'Africa/Lagos', 'DD Mon YYYY'),
+                                 'grace_days', private.entitlement_grace_days()))
+      returning id into v_notif;
+      update public.entitlement_reminder_steps set notification_id = v_notif where id = v_id;
+      update public.entitlements set reminded_at = coalesce(reminded_at, now()) where id = r.id;
+      n := n + 1;
+    exception when others then
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+      values (r.organisation_id, 'entitlement_reminder.error', 'entitlement', r.id, jsonb_build_object('error', sqlerrm));
+      perform private.order_incident(r.organisation_id, 'entitlement-reminder:' || r.id, 'An expiry reminder could not be queued',
+        'Entitlement ' || r.id || ' could not be reminded (' || sqlerrm || '). Every other reminder was sent.');
+    end;
   end loop;
   return n;
 end $$;
@@ -193,12 +201,12 @@ grant execute on function public.service_run_entitlement_reminders() to service_
 
 insert into public.notification_template_locales (template_key, locale, channel, subject, body)
 values
-  ('entitlement_expiring_soon', 'en', 'in_app', 'Your {{kind}} ends {{when}}',
-   'Your {{kind}} ends on {{ends_at}}. Nothing renews by itself. If you want to keep it going, you can renew in one tap. For {{grace_days}} days after it ends you can still see your records, and you can renew then too.'),
-  ('entitlement_expiring_soon', 'en', 'push', 'Your {{kind}} ends {{when}}',
-   'Your {{kind}} ends on {{ends_at}}. Nothing renews by itself. You can renew in one tap.'),
-  ('entitlement_expiring_soon', 'en', 'email', 'Your TarragonHealth {{kind}} ends {{when}}',
-   E'Hi there,\n\nYour {{kind}} ends on {{ends_at}}. Nothing renews by itself and you will not be charged unless you choose to renew. You can renew in one tap in the app. For {{grace_days}} days after it ends you can still see your records.\n\nYour care team')
+  ('entitlement_expiring_soon', 'en', 'in_app', 'Something you bought ends {{when}}',
+   'Something you bought on TarragonHealth ends on {{ends_at}}. Nothing renews by itself. Open the app to renew in one tap. For {{grace_days}} days after it ends you can still see your records, and you can renew then too.'),
+  ('entitlement_expiring_soon', 'en', 'push', 'A purchase ends {{when}}',
+   'It ends on {{ends_at}}. Nothing renews by itself. Open the app to renew in one tap.'),
+  ('entitlement_expiring_soon', 'en', 'email', 'Something you bought on TarragonHealth ends {{when}}',
+   E'Hi there,\n\nSomething you bought on TarragonHealth ends on {{ends_at}}. Nothing renews by itself and you will not be charged unless you choose to renew. You can renew in one tap in the app. For {{grace_days}} days after it ends you can still see your records.\n\nYour care team')
 on conflict (template_key, locale, channel) do update set subject = excluded.subject, body = excluded.body;
 
 -- ---------------------------------------------------------------------------
@@ -246,6 +254,15 @@ alter table public.refunds
   add column earnings_reversed_at   timestamptz;
 
 -- failed -> approved is the admin retry. Everything else is as S26 built it. completed, rejected stay terminal.
+-- The buyer and the beneficiary read their own refund through RLS, but a table-wide SELECT also exposed the raw provider response, the
+-- provider's refund id, the reconcile verdict and the retry counters. Narrow it to what the refund screen shows. A column added later is NOT
+-- readable by authenticated until it is granted here on purpose (a loud "permission denied", never a silent exposure). Admins read the
+-- operational columns through public.admin_refund_ops(), not through the table.
+revoke select on public.refunds from authenticated;
+grant select (id, organisation_id, order_id, amount_kobo, reason, state, provider, requested_by, decided_by, decided_at, decision_note,
+              is_test, created_at, updated_at, completed_at)
+  on public.refunds to authenticated;
+
 create or replace function private.refunds_state_machine() returns trigger
 language plpgsql set search_path = '' as $$
 begin
@@ -459,12 +476,11 @@ grant execute on function public.claim_refund_for_provider(uuid) to service_role
 
 -- The S26 version moved approved -> completed, which the state trigger refuses, so a refund Paystack accepted was never recorded.
 -- This one moves processing -> completed | failed, then runs the reversal hook. Replaying it on a settled refund changes nothing.
-create or replace function public.record_refund_provider_result(p_refund uuid, p_success boolean, p_reference text default null, p_response jsonb default '{}'::jsonb)
+create function private.apply_refund_provider_result(p_refund uuid, p_success boolean, p_reference text, p_response jsonb)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   r public.refunds%rowtype;
 begin
-  if (select auth.role()) is distinct from 'service_role' then raise exception 'refund_not_authorised' using errcode = '42501'; end if;
   select * into r from public.refunds where id = p_refund for update;
   if not found then return jsonb_build_object('result', 'not_found'); end if;
   if r.state in ('completed', 'failed') then return jsonb_build_object('result', 'replay', 'state', r.state); end if;
@@ -481,8 +497,73 @@ begin
    where id = p_refund;
   return jsonb_build_object('result', 'failed', 'refund_id', p_refund);
 end $$;
+revoke all on function private.apply_refund_provider_result(uuid, boolean, text, jsonb) from public, anon, authenticated;
+
+-- The S26 version moved approved -> completed, which the state trigger refuses, so a refund Paystack accepted was never recorded.
+-- This one moves processing -> completed | failed, then runs the reversal hook. Replaying it on a settled refund changes nothing.
+create or replace function public.record_refund_provider_result(p_refund uuid, p_success boolean, p_reference text default null, p_response jsonb default '{}'::jsonb)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+begin
+  if (select auth.role()) is distinct from 'service_role' then raise exception 'refund_not_authorised' using errcode = '42501'; end if;
+  return private.apply_refund_provider_result(p_refund, p_success, p_reference, p_response);
+end $$;
 revoke all on function public.record_refund_provider_result(uuid, boolean, text, jsonb) from public, anon, authenticated;
 grant execute on function public.record_refund_provider_result(uuid, boolean, text, jsonb) to service_role;
+
+-- A refund stuck in 'processing' (Paystack took it but the result was never written, or Paystack gave no clear answer) is finished by a
+-- person who has looked at the Paystack dashboard. Only after the stuck window, only an admin, and a paid settle also reminds finance
+-- that the cash posting (a TypeScript path) did not run.
+create function public.admin_settle_processing_refund(p_refund uuid, p_paid boolean, p_reference text default null) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  r public.refunds%rowtype;
+  v_stuck integer := (private.entitlement_policy('refund_rules') ->> 'stuck_processing_hours')::integer;
+  v jsonb;
+begin
+  if not private.is_admin() then raise exception 'refund_not_authorised' using errcode = '42501'; end if;
+  select * into r from public.refunds where id = p_refund for update;
+  if not found then return jsonb_build_object('result', 'not_found'); end if;
+  if r.state <> 'processing' then return jsonb_build_object('result', 'not_processing', 'state', r.state); end if;
+  if r.processing_started_at > now() - make_interval(hours => v_stuck) then return jsonb_build_object('result', 'too_soon'); end if;
+  v := private.apply_refund_provider_result(p_refund, p_paid, case when p_paid then coalesce(nullif(btrim(p_reference), ''), 'settled-by-hand') end,
+         jsonb_build_object('settled_by_admin', true, 'error_code', 'settled_not_sent'));
+  insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+  values (r.organisation_id, (select auth.uid()), 'refund.settled_by_hand', 'refund', r.id, jsonb_build_object('paid', p_paid));
+  if p_paid then
+    perform private.order_incident(r.organisation_id, 'refund-cash-post:' || r.id, 'A refund was settled by hand: post its cash entry',
+      'Refund ' || r.id || ' was marked sent by an admin. The automatic cash posting did not run: post Dr 4900 / Cr 1020 for ' || r.amount_kobo || ' kobo.');
+  end if;
+  return v;
+end $$;
+revoke all on function public.admin_settle_processing_refund(uuid, boolean, text) from public, anon;
+grant execute on function public.admin_settle_processing_refund(uuid, boolean, text) to authenticated;
+
+-- What an admin needs to act on, read through a function because the operational columns are not readable through the table.
+create function public.admin_refund_ops() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  v_org uuid;
+  v_stuck integer := (private.entitlement_policy('refund_rules') ->> 'stuck_processing_hours')::integer;
+begin
+  if not private.is_admin() then raise exception 'refund_not_authorised' using errcode = '42501'; end if;
+  select organisation_id into v_org from public.profiles where id = (select auth.uid());
+  return jsonb_build_object(
+    'failed', coalesce((select jsonb_agg(jsonb_build_object('id', rf.id, 'order_id', rf.order_id, 'amount_kobo', rf.amount_kobo, 'attempts', rf.attempts,
+                 'last_error_code', rf.last_error_code, 'provider_status', rf.provider_status, 'updated_at', rf.updated_at,
+                 'patient_name', p.full_name, 'name_key', ci.name_key, 'code', ci.code) order by rf.updated_at)
+          from public.refunds rf join public.orders o on o.id = rf.order_id join public.catalog_items ci on ci.id = o.catalog_item_id
+          left join public.profiles p on p.id = o.beneficiary_patient_id
+         where rf.organisation_id = v_org and rf.is_test = false and rf.state = 'failed'), '[]'::jsonb),
+    'stuck', coalesce((select jsonb_agg(jsonb_build_object('id', rf.id, 'order_id', rf.order_id, 'amount_kobo', rf.amount_kobo, 'attempts', rf.attempts,
+                 'processing_started_at', rf.processing_started_at, 'provider_status', rf.provider_status,
+                 'patient_name', p.full_name, 'name_key', ci.name_key, 'code', ci.code) order by rf.processing_started_at)
+          from public.refunds rf join public.orders o on o.id = rf.order_id join public.catalog_items ci on ci.id = o.catalog_item_id
+          left join public.profiles p on p.id = o.beneficiary_patient_id
+         where rf.organisation_id = v_org and rf.is_test = false and rf.state = 'processing'
+           and rf.processing_started_at < now() - make_interval(hours => v_stuck)), '[]'::jsonb));
+end $$;
+revoke all on function public.admin_refund_ops() from public, anon;
+grant execute on function public.admin_refund_ops() to authenticated;
 
 -- A failed refund goes back to the queue by an admin's hand (never automatically: a person looks at why it failed first).
 create function public.retry_failed_refund(p_refund uuid) returns jsonb
@@ -528,12 +609,24 @@ begin
   if (select auth.role()) is distinct from 'service_role' then raise exception 'not_authorised' using errcode = '42501'; end if;
   insert into public.order_encounter_links (encounter_id, order_id) values (p_encounter, p_order) on conflict (encounter_id) do nothing;
   get diagnostics n = row_count;
+  -- linked after the refund already completed: reverse its share now (the catch-up would do it within the hour; a failure is left to it)
+  if n = 1 then
+    begin
+      perform private.reverse_consultation_shares_for_refund(rf.id) from public.refunds rf where rf.order_id = p_order and rf.state = 'completed';
+    exception when others then
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+      select o.organisation_id, 'refund.link_reverse_error', 'order', o.id, jsonb_build_object('error', sqlerrm) from public.orders o where o.id = p_order;
+    end;
+  end if;
   return n = 1;
 end $$;
 revoke all on function public.link_order_encounter(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.link_order_encounter(uuid, uuid) to service_role;
 
--- 6b. GL: completes the S26 stub. The cash side (Dr 4900 Refunds / Cr 1020 Cash) is posted by the existing refund.processed path
+-- 6b. GL: completes the S26 stub. It returns null when there is nothing to release, and that is final, not "try later": an order becomes 'refunded'
+-- when the refund is approved, and private.post_order_to_ledger never posts a refunded order that has no journal yet (S25c), so a payment journal that
+-- is missing now will not appear later. (The cash-out for such an order is still posted by the existing path: OQ-S26b-03.)
+-- The cash side (Dr 4900 Refunds / Cr 1020 Cash) is posted by the existing refund.processed path
 -- (recordRefundLedgerEntry), so this posts only what that path does not: the deferred revenue that was never recognised before the
 -- schedule was cancelled (Dr 2000 / Cr 4900). Together: 4900 ends up holding exactly the revenue already recognised, 2000 holds nothing
 -- for the order, cash is credited once. An order with no schedule (point-of-sale revenue, or never posted) has nothing deferred to release.
@@ -622,7 +715,11 @@ begin
   if r.earnings_reversed_at is null then
     begin
       perform private.reverse_consultation_shares_for_refund(p_refund);
-      update public.refunds set earnings_reversed_at = now() where id = p_refund and earnings_reversed_at is null;
+      -- A consultation share can be linked or posted AFTER the refund completes (the doctor finishes the visit later). So the reversal is
+      -- re-run on every catch-up for the rescan window and only then stamped; it is idempotent, so a repeat posts nothing twice.
+      if r.completed_at < now() - make_interval(days => coalesce((private.entitlement_policy('refund_rules') ->> 'earnings_rescan_days')::integer, 60)) then
+        update public.refunds set earnings_reversed_at = now() where id = p_refund and earnings_reversed_at is null;
+      end if;
     exception when others then
       perform private.order_incident(r.organisation_id, 'refund-earnings:' || r.id, 'A refund could not reverse a clinician consultation share',
         'Refund ' || r.id || ' was paid but the earnings reversal failed (' || sqlerrm || '). The hourly catch-up retries it.');
@@ -631,17 +728,24 @@ begin
 end $$;
 revoke all on function private.complete_refund_side_effects(uuid) from public, anon, authenticated;
 
-create function public.service_run_refund_catch_up() returns integer
+create function private.refund_catch_up() returns integer
 language plpgsql security definer set search_path = '' as $$
 declare x record; n integer := 0;
 begin
-  if (select auth.role()) is distinct from 'service_role' then raise exception 'not_authorised' using errcode = '42501'; end if;
   for x in select id from public.refunds where state = 'completed' and (gl_released_at is null or earnings_reversed_at is null)
             order by completed_at nulls first limit 200 loop
     perform private.complete_refund_side_effects(x.id);
     n := n + 1;
   end loop;
   return n;
+end $$;
+revoke all on function private.refund_catch_up() from public, anon, authenticated;
+
+create function public.service_run_refund_catch_up() returns integer
+language plpgsql security definer set search_path = '' as $$
+begin
+  if (select auth.role()) is distinct from 'service_role' then raise exception 'not_authorised' using errcode = '42501'; end if;
+  return private.refund_catch_up();
 end $$;
 revoke all on function public.service_run_refund_catch_up() from public, anon, authenticated;
 grant execute on function public.service_run_refund_catch_up() to service_role;
@@ -658,6 +762,7 @@ language sql immutable set search_path = '' as $$
     when p_theirs is not null and p_theirs <> p_ours then 'mismatch'
     when p_state = 'completed'  and p_provider_status in ('pending', 'processing', 'processed') then 'matched'
     when p_state = 'processing' and p_provider_status in ('pending', 'processing', 'processed', 'needs-attention') then 'matched'
+    when p_state = 'failed'     and p_provider_status = 'failed' then 'matched'    -- both sides say it did not go
     else 'mismatch'
   end
 $$;
@@ -745,8 +850,16 @@ begin
   if (select auth.role()) is distinct from 'service_role' then raise exception 'not_authorised' using errcode = '42501'; end if;
   select * into r from public.refunds where id = p_refund;
   if not found then return; end if;
-  perform private.order_incident(r.organisation_id, 'refund-cash-post:' || r.id, 'A paid refund has no cash posting',
-    'Refund ' || r.id || ' was sent to Paystack and recorded, but the cash posting failed (' || left(coalesce(p_what, 'unknown'), 200) || '). Post Dr 4900 / Cr 1020 by hand or re-run the refund.processed posting.');
+  if p_what = 'record_failed' then
+    perform private.order_incident(r.organisation_id, 'refund-record:' || r.id, 'A refund was sent to Paystack but not recorded',
+      'Refund ' || r.id || ' was accepted by Paystack but the result could not be written here. It stays "processing". Check the Paystack dashboard, then settle it from the admin refunds screen.');
+  elsif p_what = 'ambiguous_provider_outcome' then
+    perform private.order_incident(r.organisation_id, 'refund-ambiguous:' || r.id, 'A refund may or may not have reached Paystack',
+      'Refund ' || r.id || ' got no clear answer from Paystack (a timeout, a network failure or an already-reversed reply). It stays "processing" and is NOT retried. Check the Paystack dashboard, then settle it from the admin refunds screen.');
+  else
+    perform private.order_incident(r.organisation_id, 'refund-cash-post:' || r.id, 'A paid refund has no cash posting',
+      'Refund ' || r.id || ' was sent to Paystack and recorded, but the cash posting failed (' || left(coalesce(p_what, 'unknown'), 200) || '). Post Dr 4900 / Cr 1020 by hand or re-run the refund.processed posting.');
+  end if;
 end $$;
 revoke all on function public.service_refund_incident(uuid, text) from public, anon, authenticated;
 grant execute on function public.service_refund_incident(uuid, text) to service_role;
@@ -755,6 +868,9 @@ grant execute on function public.service_refund_incident(uuid, text) to service_
 -- 8. Weekly schedule for the reconcile edge function (Mondays 03:30 Lagos = 02:30 UTC). Fails closed until the Vault secrets exist,
 --    exactly like order-reconcile (S25): the Vault secret refund_reconcile_secret must exist and equal the function's REFUND_RECONCILE_SECRET.
 -- ---------------------------------------------------------------------------
+-- Hourly: flag refunds that are late or stuck and retry any reversal half that failed. Pure SQL, no HTTP, so it needs no secret.
+select cron.schedule('refund-hourly-sweep', '17 * * * *', $$ select private.flag_refund_delays(); select private.refund_catch_up(); $$);
+
 select cron.schedule(
   'refund-reconcile',
   '30 2 * * 1',
@@ -804,6 +920,20 @@ begin
      or not has_function_privilege('authenticated', 'public.request_order_refund(uuid, text)', 'EXECUTE')
      or not has_function_privilege('authenticated', 'public.decide_order_refund(uuid, boolean, text)', 'EXECUTE') then
     raise exception 'S26b: a refund function lost a grant it needs';
+  end if;
+  if has_column_privilege('authenticated', 'public.refunds', 'provider_response', 'SELECT')
+     or has_column_privilege('authenticated', 'public.refunds', 'last_error_code', 'SELECT')
+     or has_column_privilege('authenticated', 'public.refunds', 'provider_status', 'SELECT') then
+    raise exception 'S26b: a patient can read a refund operational column';
+  end if;
+  if not has_column_privilege('authenticated', 'public.refunds', 'decision_note', 'SELECT')
+     or not has_column_privilege('authenticated', 'public.refunds', 'state', 'SELECT') then
+    raise exception 'S26b: a patient cannot read the refund columns the refund screen needs';
+  end if;
+  if has_function_privilege('anon', 'public.admin_refund_ops()', 'EXECUTE')
+     or has_function_privilege('anon', 'public.admin_settle_processing_refund(uuid, boolean, text)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.apply_refund_provider_result(uuid, boolean, text, jsonb)', 'EXECUTE') then
+    raise exception 'S26b: an admin refund function is callable by the wrong role';
   end if;
   if exists (select 1 from pg_proc where proname = 'post_refund_reversal' and pronamespace = 'private'::regnamespace and pronargs = 2) then
     raise exception 'S26b: the old two-argument post_refund_reversal still exists';

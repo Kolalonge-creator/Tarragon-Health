@@ -2322,9 +2322,9 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     key: "refunds.order_rules",
     // S26b: the plain-words refund rule shown at checkout and on the receipt. cooling_off_days applies to every order that is not a Membership
     // (a Membership uses membership.refund). decision_sla_days is how long the care team has to answer; bank_days_min/max is the usual time for
-    // money to reach the bank after it is sent; stuck_processing_hours is how long a refund may sit mid-send before an incident is raised.
+    // money to reach the bank after it is sent; stuck_processing_hours is how long a refund may sit mid-send before an incident is raised and an admin may settle it; earnings_rescan_days is how long after a refund completes the clinician share reversal keeps looking for a share linked or posted late.
     // PROPOSED, founder decision pending; no counsel-dependent legal claim is made. Mirrored by entitlement_policy_config (kind refund_rules).
-    value: { cooling_off_days: 14, decision_sla_days: 3, bank_days_min: 5, bank_days_max: 10, stuck_processing_hours: 2 },
+    value: { cooling_off_days: 14, decision_sla_days: 3, bank_days_min: 5, bank_days_max: 10, stuck_processing_hours: 2, earnings_rescan_days: 60 },
     owner: "Founder",
     status: "proposed",
     version: 1,

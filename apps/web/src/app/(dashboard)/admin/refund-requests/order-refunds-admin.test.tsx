@@ -12,23 +12,27 @@ const refund = {
   order: { amount_kobo: 1_200_000, state: "refunded", paid_at: null, catalog_item: { code: "care_pack_90", name_key: "catalog.care_pack.name" }, beneficiary: { full_name: "Ada" } },
   requester: { full_name: "Ada" },
 };
-const failedRefund = { id: "f1", order_id: "o2", amount_kobo: 500_000, attempts: 2, last_error_code: "provider_error", updated_at: "2026-10-11T10:00:00Z", order: { catalog_item: null, beneficiary: { full_name: "Bola" } } };
+const failedRefund = { id: "f1", order_id: "o2", amount_kobo: 500_000, attempts: 2, last_error_code: "provider_error", updated_at: "2026-10-11T10:00:00Z", patient_name: "Bola", name_key: null, code: "care_pack_90" };
+const stuckRefund = { id: "s1", order_id: "o3", amount_kobo: 700_000, attempts: 1, processing_started_at: "2026-10-12T10:00:00Z", patient_name: "Chidi", name_key: null, code: "care_pack_90" };
+const settleMutate = jest.fn();
+let retryState: { data: unknown; isError: boolean } = { data: null, isError: false };
 
 jest.mock("@/lib/queries/order-refunds", () => ({
   useAdminOrderRefunds: () => ({ data: [refund], isLoading: false, isError: false }),
-  useAdminFailedRefunds: () => ({ data: [failedRefund] }),
+  useAdminRefundOps: () => ({ data: { failed: [failedRefund], stuck: [stuckRefund] }, isError: false }),
+  useSettleProcessingRefund: () => ({ isPending: false, isError: false, data: null, reset: jest.fn(), mutate: settleMutate }),
   useDecideOrderRefund: () => ({
     isPending: false, isError: false,
     mutate: (vars: unknown, opts: { onSuccess?: (d: unknown) => void }) => { mutate(vars); opts.onSuccess?.(reply); },
   }),
-  useRetryFailedRefund: () => ({ isPending: false, data: null, mutate: retryMutate }),
+  useRetryFailedRefund: () => ({ isPending: false, data: retryState.data, isError: retryState.isError, reset: jest.fn(), mutate: retryMutate }),
 }));
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function showModal() { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function close() { this.removeAttribute("open"); };
 });
-beforeEach(() => { mutate.mockClear(); retryMutate.mockClear(); reply = null; });
+beforeEach(() => { mutate.mockClear(); retryMutate.mockClear(); settleMutate.mockClear(); reply = null; retryState = { data: null, isError: false }; });
 afterEach(cleanup);
 
 describe("OrderRefundsAdmin (S26b)", () => {
@@ -69,5 +73,23 @@ describe("OrderRefundsAdmin (S26b)", () => {
     expect(retryMutate).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Send back to queue" }));
     expect(retryMutate).toHaveBeenCalledWith("f1");
+  });
+
+  it("an admin settles a stuck refund either way, only on a click", () => {
+    render(<OrderRefundsAdmin />);
+    expect(screen.getByText("Refunds stuck mid-send")).toBeTruthy();
+    expect(settleMutate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Paystack sent it" }));
+    expect(settleMutate).toHaveBeenCalledWith({ refundId: "s1", paid: true });
+    fireEvent.click(screen.getByRole("button", { name: "Paystack did not send it" }));
+    expect(settleMutate).toHaveBeenCalledWith({ refundId: "s1", paid: false });
+  });
+
+  it("a retry that errors is shown, not swallowed, and only under the row it was for", () => {
+    retryState = { data: null, isError: true };
+    render(<OrderRefundsAdmin />);
+    expect(screen.queryByText(/could not be sent back to the queue/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Send back to queue" }));
+    expect(screen.getByText(/could not be sent back to the queue/)).toBeTruthy();
   });
 });

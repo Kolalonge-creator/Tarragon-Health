@@ -24,7 +24,7 @@ export async function GET(request: Request): Promise<Response> {
 
   const { data: approved } = await supabase.from("refunds").select("id").eq("state", "approved").eq("is_test", false);
 
-  const totals = { processed: 0, failed: 0, skipped: 0 };
+  const totals = { processed: 0, failed: 0, unknown: 0, skipped: 0 };
   if (isPaystackConfigured()) {
     for (const refund of approved ?? []) {
       const outcome = await sendApprovedOrderRefund({ supabase, refundTransaction, recordRefundLedgerEntry }, refund.id);
