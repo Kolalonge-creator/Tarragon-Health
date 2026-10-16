@@ -112,7 +112,7 @@ export function DoctorSummaryPdfDocument({ data }: { data: DoctorSummaryData }) 
               <Text style={styles.small}>None recorded</Text>
             ) : (
               data.allergiesConditions.allergies.map((a, i) => (
-                <Tagged key={i} text={`${a.allergen}${a.detail ? `: ${a.detail}` : ""}`} tag={ALLERGY_SOURCE_LABEL[a.provenance]} />
+                <Tagged key={i} text={`${a.allergen}${a.provenance === "ruled_out" ? " (ruled out by a clinician)" : ""}${a.detail ? `: ${a.detail}` : ""}`} tag={ALLERGY_SOURCE_LABEL[a.provenance]} />
               ))
             )}
             <Text style={styles.sectionTitle}>Ongoing conditions</Text>
@@ -216,6 +216,7 @@ export function DoctorSummaryPdfDocument({ data }: { data: DoctorSummaryData }) 
                 {data.skipped.lines.map((s, i) => (
                   <Tagged key={i} text={`${s.when}   ${s.medicine}: ${s.reason}`} tag="logged in the app" />
                 ))}
+                {data.skipped.capped && <Text style={styles.small}>Only the newest 500 skipped doses were read, so the count above may be too low.</Text>}
                 {data.skipped.total > data.skipped.lines.length && <Text style={styles.small}>Showing the latest {data.skipped.lines.length} of {data.skipped.total}.</Text>}
               </View>
             )}
@@ -235,6 +236,7 @@ export function DoctorSummaryPdfDocument({ data }: { data: DoctorSummaryData }) 
                     {s.note ? <Text style={[styles.small, styles.clamp]}>{s.note}</Text> : null}
                   </View>
                 ))}
+                {data.symptoms.leftOut > 0 && <Text style={styles.small}>{data.symptoms.leftOut} {data.symptoms.leftOut === 1 ? "entry is" : "entries are"} not shown here.</Text>}
                 {data.symptoms.capped && <Text style={styles.small}>Only the newest 500 journal entries were read, so older entries in this period may be missing.</Text>}
                 {data.symptoms.total > data.symptoms.lines.length && <Text style={styles.small}>Showing the latest {data.symptoms.lines.length} of {data.symptoms.total}.</Text>}
               </View>

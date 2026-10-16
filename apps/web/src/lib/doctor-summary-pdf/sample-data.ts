@@ -25,6 +25,8 @@ export function sampleReadings(): BpReadingIn[] {
   return out;
 }
 
+const skippedWith = (...a: Parameters<typeof buildSkipped>) => ({ ...buildSkipped(...a), capped: false });
+
 export function sampleData(sections: DoctorSummaryData["sections"] = [...SECTION_KEYS]): DoctorSummaryData {
   const cfg = summaryConfig();
   const bp = buildBpSection(sampleReadings(), cfg);
@@ -49,7 +51,7 @@ export function sampleData(sections: DoctorSummaryData["sections"] = [...SECTION
         { weekStart: "2026-09-25", weekEnd: "2026-10-01", due: 3, markedTaken: 2, late: 0, skipped: 0, noRecord: 1, couldNotGet: 0, percent: null },
       ],
     },
-    skipped: buildSkipped(
+    skipped: skippedWith(
       [
         { date: "2026-10-12", time: "20:00", medicine: "Metformin", missedReason: "feels_well", reason: "felt fine after supper" },
         { date: "2026-10-04", time: "08:00", medicine: "Amlodipine", missedReason: "forgot", reason: null },

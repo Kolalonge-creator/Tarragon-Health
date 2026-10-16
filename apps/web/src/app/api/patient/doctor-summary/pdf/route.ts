@@ -16,7 +16,15 @@ import { DoctorSummaryPdfDocument } from "@/lib/doctor-summary-pdf/document";
 export async function POST(request: Request): Promise<Response> {
   // A cross-site form post carries the cookie; refuse one whose Origin is not this host.
   const origin = request.headers.get("origin");
-  if (origin && new URL(origin).host !== new URL(request.url).host) return new Response("Forbidden", { status: 403 });
+  if (origin) {
+    let sameHost = false;
+    try {
+      sameHost = new URL(origin).host === new URL(request.url).host;
+    } catch {
+      sameHost = false; // "null" or any malformed Origin
+    }
+    if (!sameHost) return new Response("Forbidden", { status: 403 });
+  }
 
   const supabase = await createClient();
   const {
