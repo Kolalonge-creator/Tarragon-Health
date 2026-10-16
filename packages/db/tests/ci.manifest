@@ -1289,5 +1289,7 @@ s63_therapy_programmes.sql
 # (idempotent replay, no body metrics, plausible readings only, red flow first, caps/decay, tiers, grace, capped checkout discount,
 # append-only ledger, aggregate-only employer seam, roles) with three sabotage steps.
 s58_rewards_engine.sql
+# Shift-start test page: guard born off, send/ack/latency record, not-covered gap on the ONE rota gap incident, backup promotion with the old order kept when nobody is confirmed, undelivered flag, RLS, four sabotage steps.
+shift_start_test_page.sql
 # S19e native page receipts: a live native (ios/android, Expo token) push subscription with a push receipt confirms a mobile-only clinician route (90 s early window); no subscription or a disabled one does not; page_channel_ready defaults false; the function is not executable by anon or authenticated. Sabotage: the web-only definition must flip the native check.
 s19e_native_page_receipts.sql

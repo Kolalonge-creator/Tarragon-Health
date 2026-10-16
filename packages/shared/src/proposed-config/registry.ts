@@ -1144,6 +1144,30 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S16-S20-pager-delivery.md; docs/plans/S16-S20-review-and-build-plan.md section 5, decisions 9, 10, 11, 15",
   },
   {
+    key: "shift_start.test_rules",
+    // Shift-start test page (migration 20261016190204). Live values are the active row of `shift_start_test_config`; this entry mirrors it
+    // and a test fails if the migration seed and this value drift. lead_minutes: the test page goes to the primary and the backup this long
+    // before the shift starts. grace_minutes: the shift is counted as not covered if a test page is still unacknowledged this long after
+    // the shift starts (the deadline). undelivered_after_minutes: a test page with no receipt on any device or screen after this long is
+    // shown to the clinician as "not reached you" with instructions. late_send_minutes: a shift that started less than this long ago, with
+    // no test yet (a tick was missed), still gets one; an older shift never does, so switching the guard on does not disturb a running shift.
+    // max_per_run: test pages sent per one-minute tick. proof_lookback_days: the go-live guard wants a test page acknowledged this recently.
+    // The feature itself is OFF until the CMO switches the go-live guard `shift_start_test` on.
+    value: {
+      lead_minutes: 10,
+      grace_minutes: 15,
+      undelivered_after_minutes: 5,
+      late_send_minutes: 3,
+      max_per_run: 20,
+      proof_lookback_days: 30,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/build-shift-start-test.md; docs/research/build-shift-start-test.md",
+  },
+  {
     key: "paging.delivery_rules_v2",
     // The same delivery rules with objective on-call readiness SWITCHED ON (a working push subscription, a verified email and a recent
     // acknowledged test page to be put on the rota; swaps are never blocked). Shipped as an INACTIVE, unsigned row (paging_delivery_config

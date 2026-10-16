@@ -21,6 +21,8 @@ export const GUARD_KEYS = [
   "prn_limits",
   "symptom_checker_enabled",
   "research_export_enabled",
+  // Shift-start test page (migration 20261016190204). Born off; the Chief Medical Officer switches it on from the go-live page.
+  "shift_start_test",
 ] as const;
 export type GuardKey = (typeof GUARD_KEYS)[number];
 
