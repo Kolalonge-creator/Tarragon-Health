@@ -2,7 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatKobo } from "@/lib/format-money";
-import { KIND_LABEL, explainLine, ledgerRowsSchema, myScheduleSchema, summarySchema } from "@/lib/earnings/earnings";
+import { KIND_LABEL, explainLine, myScheduleSchema, summarySchema } from "@/lib/earnings/earnings";
+import { PAY_STATUS_LABEL, canDispute, myLinesSchema, payStatusVariant } from "@/lib/earnings/disputes";
+import { DisputeForm, WithdrawDisputeButton } from "./dispute-forms";
 
 const dateTime = (value: string): string => new Date(value).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Lagos" });
 
@@ -23,11 +25,11 @@ export async function ClinicianEarningsView() {
   }
   const [scheduleRes, linesRes] = await Promise.all([
     supabase.rpc("my_fee_schedule"),
-    supabase.from("earnings_ledger").select("id, kind, amount_kobo, earned_at, payout_id, is_test, calculation").order("earned_at", { ascending: false }).limit(300),
+    supabase.rpc("my_earnings_lines", { p_limit: 300 }),
   ]);
   const summary = summaryRes.error ? null : summarySchema.safeParse(summaryRes.data);
   const schedule = scheduleRes.error ? null : myScheduleSchema.safeParse(scheduleRes.data);
-  const lines = linesRes.error ? null : ledgerRowsSchema.safeParse(linesRes.data);
+  const lines = linesRes.error ? null : myLinesSchema.safeParse(linesRes.data);
 
   return (
     <div className="space-y-6">
@@ -61,9 +63,18 @@ export async function ClinicianEarningsView() {
                 <div>
                   <p className="font-medium">
                     {KIND_LABEL[l.kind] ?? l.kind} <span className="font-normal text-charcoal-ink/60">{dateTime(l.earned_at)}</span>
-                    {l.payout_id ? <Badge variant="green" className="ml-2">Paid out</Badge> : null}
+                    <Badge variant={payStatusVariant(l.pay_status)} className="ml-2">{PAY_STATUS_LABEL[l.pay_status]}</Badge>
                   </p>
                   <p className="text-charcoal-ink/70">{explainLine(l)}</p>
+                  {l.dispute_state === "open" && l.dispute_id && (
+                    <div className="mt-1 space-y-1">
+                      <p className="text-xs text-charcoal-ink/60">You questioned this line.{l.dispute_due_at ? ` We aim to answer by ${dateTime(l.dispute_due_at)}.` : ""}</p>
+                      <WithdrawDisputeButton disputeId={l.dispute_id} />
+                    </div>
+                  )}
+                  {l.dispute_state === "adjusted" && <p className="mt-1 text-xs text-charcoal-ink/60">Your question was answered with a correction line.</p>}
+                  {l.dispute_state === "rejected" && <p className="mt-1 text-xs text-charcoal-ink/60">Your question was answered and the line stands.</p>}
+                  {canDispute(l) && <div className="mt-1"><DisputeForm ledgerId={l.id} /></div>}
                 </div>
                 <p className={l.amount_kobo < 0 ? "font-semibold text-red-600" : "font-semibold"}>{formatKobo(l.amount_kobo)}</p>
               </div>

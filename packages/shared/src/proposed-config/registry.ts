@@ -1669,6 +1669,29 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S30.md; spec 7.7 and 17",
   },
   {
+    key: "earnings.disputes",
+    // S30b: the response clock and reasons for a clinician's question about one earnings line, and the activity check on the pilot
+    // minimum. Live value is the active row of `earnings_disputes_config`; a test fails if the migration seed and this value drift.
+    // Holds no money. The check HOLDS a suspicious top-up for a person; it never pays or drops one on its own.
+    value: {
+      dispute: {
+        response_sla_hours: 72,
+        window_days: 60,
+        reason_codes: ["wrong_amount", "missing_work", "duplicate", "wrong_type", "other"],
+      },
+      pilot_minimum: {
+        activity_check: true,
+        hold_when_no_claims_and_work_waited: true,
+        hold_when_expired_claims_and_no_completed: true,
+      },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/research/S26-S30-competitor-review-and-build-plan.md (S30b); OQ-180, OQ-185",
+  },
+  {
     key: "payouts.rules",
     // The rules of the weekly payout run (S31, spec 7.7). Live value is the active row of `payouts_config`; a test fails if the
     // migration seed and this value drift. The minimum is a floor below which earnings carry over to the next week.

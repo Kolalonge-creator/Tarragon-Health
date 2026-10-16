@@ -4209,3 +4209,22 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 | OQ-366 | 2831, The go-live guard patches two shared functions (raised by S69) |
 | OQ-370 | 2737, Device capabilities need the CMO and an admin before anything switches on (raised by S70a) |
 | OQ-371 | 2741, Go-live uses `platform_modules`, not `go_live_guards` (raised by S70a) |
+
+## S30b: earnings completeness (2026-10-16)
+
+Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumbered by another session. Cite by title.
+
+### OQ-S30b-01 The pilot minimum with no sign of work, and late lines: update to "The pilot minimum can be earned by declaring hours and doing nothing" and "A late line can push a clinician past the pilot minimum"
+- **Built**: before a top-up posts, the run is checked. It is HELD (not paid, not dropped) when the clinician took no task while tasks were waiting, or took tasks that all timed out and finished none. A person releases or denies each hold on `/admin/earnings/disputes`; a release posts at the next daily run. A late line inside a run is netted off the top-up by a system adjustment (idempotent, only ever reduces). The rules are PROPOSED values (`earnings.disputes`).
+- **Approximate by design**: "tasks waiting" counts tasks that existed before the run ended and were not taken by this clinician. It does not know whether this clinician was eligible for them (competencies, tier). That is why the outcome is a hold for a person, never an automatic refusal. **Decide** after the first month whether the rule should read eligibility, or whether holds are rare enough to leave as is.
+- **Netting after payment**: if the top-up was already paid, the netting adjustment is a negative line in a later payout; a clinician whose net for a week is zero or below carries it over (existing S31 rule). **Decide** whether that is acceptable or netting should be skipped once the top-up is paid.
+
+### OQ-S30b-02 Withholding is stored and blocks a send
+- A finance user types a withholding amount on a DRAFT payout. Nothing calculates it (D-09). Statement and PDF show gross, withholding and net. A payout with a withholding above zero is REFUSED at send, because the transfer amount (net or gross), how the withholding is remitted and how it is posted to the books (OQ-193, OQ-194) are all undecided, and sending gross under a statement that says net would be wrong. **Decide with counsel**: the rate and basis, who remits it, the amount sent to the bank, the GL postings, and a tax credit note (OQ-200). Until then, leave withholding at zero.
+
+### OQ-S30b-03 Dispute response clock and who is told
+- PROPOSED: 72 hours to answer, a 60 day window to question a line. The overdue state is shown on the admin page; no notification is sent to finance when a question is opened or overdue (the clinician is told when it is answered). **Decide**: who is paged or emailed, and whether 72 hours is right.
+- A line already linked to an approved or sent payout cannot be held (the money may already be on its way). Questioning it still works and resolves into an adjustment in a later payout.
+
+### OQ-S30b-04 A system-posted adjustment (shared with S26b, the refund reversal)
+- The ledger required every adjustment to have a human author. Late-line netting is posted by a job, so the check now accepts `created_by` null when the line states a `system_reason`. If S26b changed the same constraint, whichever migration applies second must keep both rules. Both agents use the shared `kind = 'adjustment'` pattern with `calculation.corrects` pointing at the line being corrected.
