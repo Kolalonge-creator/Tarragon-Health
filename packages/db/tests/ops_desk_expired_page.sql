@@ -389,9 +389,20 @@ begin
   -- a nobody-reachable incident (the health job's) is assigned the same way
   update public.ops_desk_contacts set is_active = true, activated_by = v_admin, activated_at = now() where id = v_c2;
   perform private.page_incident(v_org, 'page_nobody_reachable:' || v_org, 'Nobody reachable is on call', 'proof');
-  perform pg_temp.rec('nobody reachable: the standing condition gets its own, calmer notice (not "a case is unanswered")', '1,0',
+  perform pg_temp.rec('nobody reachable: the standing condition gets its own calmer notice, three channels, never the page wording', '3,0',
     (select count(*)::text from public.notifications where template = 'on_call_ops_desk_roster' and recipient_id = v_ops2) || ',' ||
-    (select count(*)::text from public.notifications n where n.template = 'on_call_ops_desk' and n.recipient_id = v_ops2 and n.source_id = (select id from public.ops_incidents where external_reference = 'page_nobody_reachable:' || v_org)));
+    (select count(*)::text from public.notifications n where n.template = 'on_call_ops_desk' and n.recipient_id = v_ops2
+        and n.source_id = (select id from public.ops_incidents where external_reference = 'page_nobody_reachable:' || v_org)));
+  perform pg_temp.rec('nobody reachable: the notice points at the incident (its own source table, routine priority), not at a page that does not exist', 'ops_incidents,routine,true,0',
+    (select min(source_table) || ',' || min(priority::text) || ',' ||
+            (min(source_id::text) = (select id::text from public.ops_incidents where external_reference = 'page_nobody_reachable:' || v_org))::text
+       from public.notifications where template = 'on_call_ops_desk_roster' and recipient_id = v_ops2) || ',' ||
+    (select count(*)::text from public.notifications n where n.source_table = 'pages' and n.template like 'on_call_ops_desk%' and not exists (select 1 from public.pages pg where pg.id = n.source_id)));
+  perform pg_temp.rec('nobody reachable: an sms or voice row for an ops desk notice is refused whatever table it points at', '23514,23514',
+    pg_temp.try($q$insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
+      select id, organisation_id, 'sms', 'on_call_ops_desk_roster', '{}'::jsonb, 'pending', 'non_clinical', 'routine', 'ops_incidents', gen_random_uuid() from public.profiles where id = pg_temp.f('ops2')$q$) || ',' ||
+    pg_temp.try($q$insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
+      select id, organisation_id, 'voice', 'on_call_ops_desk', '{}'::jsonb, 'pending', 'non_clinical', 'routine', 'ops_incidents', gen_random_uuid() from public.profiles where id = pg_temp.f('ops2')$q$));
   perform pg_temp.rec('nobody reachable: the same assignment happens', '1',
     (select count(*)::text from public.ops_desk_assignments a join public.ops_incidents i on i.id = a.incident_id where i.external_reference = 'page_nobody_reachable:' || v_org and a.profile_id = v_ops2));
   perform private.page_incident(v_org, 'page_notifications_stuck', 'x', 'y');
@@ -446,6 +457,10 @@ begin
   perform private.sweep_ops_desk();
   perform pg_temp.rec('roster alarm: when cover returns the alarm closes itself', 'resolved',
     (select status::text from public.ops_incidents where external_reference = 'ops_desk_uncovered_roster:' || v_org order by detected_at desc limit 1));
+  perform pg_temp.rec('roster alarm: the register''s own stamps and timeline agree (resolved_at, acknowledged_at, a status-change entry)', 'true,true,true',
+    (select (resolved_at is not null)::text || ',' || (acknowledged_at is not null)::text || ',' ||
+            (exists (select 1 from public.ops_incident_updates u where u.incident_id = i.id and u.status_to = 'resolved'))::text
+       from public.ops_incidents i where i.external_reference = 'ops_desk_uncovered_roster:' || v_org order by i.detected_at desc limit 1));
   -- switched off in config, the alarm is silent
   update public.ops_desk_contacts set is_active = false, activated_by = null, activated_at = null where id = v_c4;
   perform pg_temp.use_rules('{"uncovered_roster_alarm": 0}'::jsonb);
@@ -470,7 +485,12 @@ begin
     (select (callee_phone_masked is not null and callee_phone_masked <> '+2348033958271' and callee_phone_masked like '+234%' and callee_phone_masked like '%*%')::text from public.ops_desk_call_log where id = v_id) || ',' ||
     (select (position('8033958271' in coalesce(string_agg(callee_phone_masked, ''), '')) = 0)::text from public.ops_desk_call_log));
   perform pg_temp.rec('call log: a person with no confirmed number is logged with no number', 'null',
-    coalesce((select l.callee_phone_masked from (select public.log_ops_desk_call(v_inc, 'on_call_backup', v_b, 'wrong_or_no_number', null) as id) x join public.ops_desk_call_log l on l.id = x.id), 'null'));
+    coalesce((select l.callee_phone_masked from (select public.log_ops_desk_call(v_inc, 'other', v_b, 'wrong_or_no_number', 'phoned the backup from the paper list') as id) x join public.ops_desk_call_log l on l.id = x.id), 'null'));
+  perform pg_temp.rec('call log: only someone on the call sheet can be logged under a sheet role; anyone else needs "someone else" with a reason', '22023,22023,22023,ok',
+    pg_temp.try_as(v_ops2, format('select public.log_ops_desk_call(%L, ''on_call_primary'', %L, ''no_answer'', null)', v_inc, v_b)) || ',' ||
+    pg_temp.try_as(v_ops2, format('select public.log_ops_desk_call(%L, ''on_call_backup'', %L, ''no_answer'', null)', v_inc, v_a)) || ',' ||
+    pg_temp.try_as(v_ops2, format('select public.log_ops_desk_call(%L, ''other'', %L, ''no_answer'', ''short'')', v_inc, v_b)) || ',' ||
+    pg_temp.try_as(v_ops2, format('select public.log_ops_desk_call(%L, ''on_call_primary'', %L, ''no_answer'', null)', v_inc, v_a)));
   perform pg_temp.rec('call log: update, delete and truncate are refused even for the owner', '23514,23514,23514',
     pg_temp.try(format('update public.ops_desk_call_log set outcome = ''busy_or_off'' where id = %L', v_id)) || ',' ||
     pg_temp.try(format('delete from public.ops_desk_call_log where id = %L', v_id)) || ',' || pg_temp.try('truncate public.ops_desk_call_log'));
@@ -558,6 +578,39 @@ begin
   perform pg_temp.set_world(true);
 end $$;
 
+-- 24 hour cover: midnight is not a gap
+do $$
+declare v_admin uuid := pg_temp.f('admin'); v_org uuid := pg_temp.f('org'); v_c2 uuid := pg_temp.f('c2'); v_ts timestamptz; d integer;
+begin
+  perform pg_temp.rec('windows: 25:00, an end before the start and a start of 24:00 are refused (22023)', '22023,22023,22023',
+    pg_temp.try_as(v_admin, format('select public.ops_desk_set_windows(%L, ''[{"day":1,"start":"08:00","end":"25:00"}]''::jsonb)', v_c2)) || ',' ||
+    pg_temp.try_as(v_admin, format('select public.ops_desk_set_windows(%L, ''[{"day":1,"start":"18:00","end":"08:00"}]''::jsonb)', v_c2)) || ',' ||
+    pg_temp.try_as(v_admin, format('select public.ops_desk_set_windows(%L, ''[{"day":1,"start":"24:00","end":"24:00"}]''::jsonb)', v_c2)));
+  perform pg_temp.act(v_admin);
+  perform public.ops_desk_set_windows(v_c2, (select jsonb_agg(jsonb_build_object('day', g, 'start', '00:00', 'end', '24:00')) from generate_series(1, 7) g));
+  perform pg_temp.back();
+  perform pg_temp.rec('windows: 24:00 is stored and shown back as 24:00', '24:00',
+    (select e ->> 'end' from jsonb_array_elements(pg_temp.q_as(v_admin, 'select public.ops_desk_roster()')::jsonb) r, jsonb_array_elements(r -> 'windows') e where (r ->> 'contact_id')::uuid = v_c2 limit 1));
+  v_ts := (date_trunc('day', now() at time zone 'Africa/Lagos') + interval '23 hours 59 minutes 30 seconds') at time zone 'Africa/Lagos';
+  perform pg_temp.rec('windows: a deputy on 24 hour windows is on duty at 23:59:30 and at 00:00:00 Lagos time', '1,1',
+    (select count(*)::text from private.ops_desk_on_duty(v_org, true, v_ts) where role = 'deputy' and contact_id = v_c2) || ',' ||
+    (select count(*)::text from private.ops_desk_on_duty(v_org, true, v_ts + interval '30 seconds') where role = 'deputy' and contact_id = v_c2));
+  select count(*) into d from generate_series(date_trunc('hour', now()), date_trunc('hour', now()) + interval '167 hours', interval '1 hour') h
+   where not exists (select 1 from private.ops_desk_on_duty(v_org, true, h + interval '59 minutes 59 seconds'));
+  perform pg_temp.rec('windows: with 24 hour cover there is no uncovered minute in the next 7 days, so the roster alarm cannot flap', '0', d::text);
+  -- a night: 22:00 to 06:00 stored as two windows across midnight
+  perform pg_temp.act(v_admin);
+  perform public.ops_desk_set_windows(v_c2, '[{"day":1,"start":"22:00","end":"24:00"},{"day":2,"start":"00:00","end":"06:00"}]'::jsonb);
+  perform pg_temp.back();
+  perform pg_temp.rec('windows: a night shift across midnight covers both sides of midnight', 'true,true,false',
+    ((select count(*) from private.ops_desk_on_duty(v_org, true, '2026-10-12 23:59:30+01'::timestamptz) where contact_id = v_c2) = 1)::text || ',' ||
+    ((select count(*) from private.ops_desk_on_duty(v_org, true, '2026-10-13 00:00:30+01'::timestamptz) where contact_id = v_c2) = 1)::text || ',' ||
+    ((select count(*) from private.ops_desk_on_duty(v_org, true, '2026-10-13 06:00:30+01'::timestamptz) where contact_id = v_c2) = 1)::text);
+  perform pg_temp.act(v_admin);
+  perform public.ops_desk_set_windows(v_c2, pg_temp.today_windows());
+  perform pg_temp.back();
+end $$;
+
 -- 6. Reading (RLS) ---------------------------------------------------------------------------------------------------------
 do $$
 declare v_admin uuid := pg_temp.f('admin'); v_cmo uuid := pg_temp.f('cmo'); v_a uuid := pg_temp.f('A'); v_pat uuid := pg_temp.f('pat'); v_oa uuid := pg_temp.f('otheradmin'); t text; r text;
@@ -615,6 +668,10 @@ begin
   perform pg_temp.backdate((select id from public.ops_desk_checklist_attestations where item_key = 'deputy_cover'), interval '91 days');
   create or replace function private.ops_desk_gate_on_call_cover_guard() returns trigger language plpgsql as $f$ begin return new; end $f$;
   perform pg_temp.guard_on('on_call_cover_ok', false);
+  create or replace function private.ops_desk_sheet_people(p_incident uuid) returns table (kind text, pid uuid) language sql stable security definer set search_path = ''
+    as $f$ select k.kind, pr.id from (values ('on_call_primary'), ('on_call_backup'), ('chief_medical_officer')) k(kind), public.profiles pr $f$;
+  perform pg_temp.sab('sabotage: with the call sheet rule removed anyone can be logged as the on-call clinician (real: 22023)', '22023',
+    pg_temp.try_as(pg_temp.f('ops2'), format('select public.log_ops_desk_call(%L, ''on_call_primary'', %L, ''no_answer'', null)', pg_temp.f('inc'), pg_temp.f('B'))));
   perform pg_temp.sab('sabotage: with the gate function emptied the guard switches on with a stale checklist (real: 23514)', '23514', pg_temp.guard_try(true));
 end $$;
 

@@ -406,6 +406,36 @@ as $$
 $$;
 revoke all on function private.ops_desk_ref(uuid) from public, anon, authenticated;
 
+-- A notice about an incident rather than a page. Routine priority and its own source table, so neither the page monitors nor the legacy
+-- critical-notification ladder (which has an sms rung) ever look at it; sms and voice are refused by the trigger below. A failure to send is
+-- watched by sweep_ops_desk (ops_desk_notifications_failed).
+create function private.ops_desk_notify_incident(p_recipient uuid, p_org uuid, p_template text, p_incident uuid) returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare c text;
+begin
+  foreach c in array array['push', 'in_app', 'email'] loop
+    insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
+    values (p_recipient, p_org, c::public.notification_channel, p_template, jsonb_build_object('incident_id', p_incident), 'pending', 'non_clinical', 'routine', 'ops_incidents', p_incident);
+  end loop;
+  perform private.nudge_send_pending();
+end;
+$$;
+revoke all on function private.ops_desk_notify_incident(uuid, uuid, text, uuid) from public, anon, authenticated;
+
+-- No ops desk notice is ever an sms or a voice call, whatever table it points at (the human makes the call).
+create function private.ops_desk_no_sms() returns trigger
+language plpgsql set search_path = ''
+as $$
+begin
+  raise exception 'ops desk notices are never sent by sms or voice' using errcode = '23514';
+end;
+$$;
+revoke all on function private.ops_desk_no_sms() from public, anon, authenticated;
+create trigger notifications_ops_desk_no_sms before insert on public.notifications
+  for each row when (new.template like 'on\_call\_ops\_desk%' and new.channel::text in ('sms', 'voice'))
+  execute function private.ops_desk_no_sms();
+
 -- p_mode 'first': the primary on duty, else the deputy on duty. 'deputy': a deputy on duty other than p_exclude.
 create function private.ops_desk_assign(p_incident uuid, p_mode text default 'first', p_exclude uuid default null) returns uuid
 language plpgsql security definer set search_path = ''
@@ -466,7 +496,12 @@ begin
   returning id into v_asg;
   if v_asg is null then return null; end if;
   update public.ops_incidents set owner_id = c.profile_id where id = i.id;
-  perform private.page_notify_ref(c.profile_id, i.organisation_id, case when v_page is not null then 'on_call_ops_desk' else 'on_call_ops_desk_roster' end, v_ref, 'pages', array['push', 'in_app', 'email'], true);
+  if v_page is not null then
+    perform private.page_notify_ref(c.profile_id, i.organisation_id, 'on_call_ops_desk', v_page, 'pages', array['push', 'in_app', 'email'], true);
+  else
+    -- a standing "nobody reachable" condition has no page: the notice points at the incident it is about, not at a page that does not exist
+    perform private.ops_desk_notify_incident(c.profile_id, i.organisation_id, 'on_call_ops_desk_roster', i.id);
+  end if;
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
     values (i.organisation_id, null, 'ops_desk.assigned', 'ops_incident', i.id, jsonb_build_object('assigned_to', c.profile_id, 'role', c.role, 'reason', v_reason));
   return v_asg;
@@ -487,7 +522,11 @@ begin
     begin
       perform private.page_incident(new.organisation_id, 'ops_desk_assign_failed:' || new.id, 'The ops desk could not be assigned to a page incident',
         'Assigning the named ops person failed (see audit_log ops_desk.assign_error). Phone the on-call clinician and the chief medical officer now.');
-    exception when others then null;
+    exception when others then
+      -- the fallback incident failed too: say so in the audit trail and the database log, never silently
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+        values (new.organisation_id, 'ops_desk.assign_fallback_error', 'ops_incident', new.id, jsonb_build_object('error', sqlerrm));
+      raise warning 'ops desk: assigning % failed and so did the fallback incident: %', new.id, sqlerrm;
     end;
   end;
   return null;
@@ -534,7 +573,9 @@ begin
         if not a.is_test then
           perform private.page_incident(a.organisation_id, 'ops_desk_unacknowledged:' || a.incident_id, 'Nobody at the ops desk has acknowledged a page incident',
             'The named ops deputy has not acknowledged a page incident. Phone the on-call clinician and the chief medical officer yourself and record the calls on the Ops desk page.');
-          perform private.page_notify_leadership(a.organisation_id, private.ops_desk_ref(a.incident_id), a.is_test, 'on_call_ops_desk_uncovered');
+          if private.ops_desk_ref(a.incident_id) <> a.incident_id then
+            perform private.page_notify_leadership(a.organisation_id, private.ops_desk_ref(a.incident_id), a.is_test, 'on_call_ops_desk_uncovered');
+          end if;
         end if;
         v_final := v_final + 1;
       end if;
@@ -545,16 +586,26 @@ begin
       begin
         perform private.page_incident(a.organisation_id, 'ops_desk_sweep_failed', 'The ops desk escalation failed',
           'Moving a page incident to the ops deputy failed (see audit_log ops_desk.sweep_error). Phone the on-call clinician and the chief medical officer now.');
-      exception when others then null;
+      exception when others then
+        insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+          values (a.organisation_id, 'ops_desk.sweep_fallback_error', 'ops_incident', a.incident_id, jsonb_build_object('error', sqlerrm));
+        raise warning 'ops desk sweep: % failed and so did the fallback incident: %', a.incident_id, sqlerrm;
       end;
     end;
   end loop;
+
+  -- a notice that failed to send: the page monitors do not see these (they point at an incident, not a page)
+  if exists (select 1 from public.notifications n where n.source_table = 'ops_incidents' and n.template like 'on\_call\_ops\_desk%' and n.status = 'failed' and n.created_at > now() - interval '1 hour') then
+    perform private.page_incident(null, 'ops_desk_notifications_failed', 'Ops desk notices are failing to send',
+      'A notice to an ops contact failed in the last hour (see notifications.last_error). Check who is affected and phone them.');
+  end if;
 
   if coalesce(private.ops_desk_rule('uncovered_roster_alarm'), 0) = 1 then
     for o in select distinct r.organisation_id from public.on_call_rota r where r.is_test = false and r.cancelled_at is null and r.starts_at <= now() and r.ends_at > now() loop
       begin
         if exists (select 1 from private.ops_desk_on_duty(o.organisation_id, false)) then
           -- cover is back: the alarm closes itself (a person can still reopen the question in the incident)
+          -- the register's own path: moving the status fires its stamp trigger (resolved_at, mitigated_at, acknowledged_at) and its timeline trigger
           update public.ops_incidents set status = 'resolved', root_cause = coalesce(root_cause, 'An ops desk contact is on duty again (closed automatically).')
            where external_reference = 'ops_desk_uncovered_roster:' || o.organisation_id and status not in ('resolved', 'closed');
         else
@@ -631,6 +682,14 @@ begin
   if ct.is_active and jsonb_array_length(p_windows) = 0 then
     raise exception 'an active contact needs at least one window; deactivate the contact first' using errcode = '22023';
   end if;
+  -- every window: an ISO day, a start HH:MM (00:00 to 23:59), an end HH:MM or exactly 24:00 (midnight), the end after the start.
+  -- A night shift is two windows (22:00 to 24:00 on one day, 00:00 to 06:00 on the next), so there is never a one-minute gap at midnight.
+  for w in select * from jsonb_array_elements(p_windows) loop
+    if (w ->> 'day') !~ '^[1-7]$' or coalesce(w ->> 'start', '') !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+       or coalesce(w ->> 'end', '') !~ '^(([01][0-9]|2[0-3]):[0-5][0-9]|24:00)$' or (w ->> 'end')::time <= (w ->> 'start')::time then
+      raise exception 'each window needs a day (1 to 7), a start time (00:00 to 23:59) and an end time after it (up to 24:00 for midnight)' using errcode = '22023';
+    end if;
+  end loop;
   delete from public.ops_desk_contact_windows where contact_id = p_contact;
   for w in select * from jsonb_array_elements(p_windows) loop
     insert into public.ops_desk_contact_windows (organisation_id, contact_id, day_of_week, start_time, end_time)
@@ -697,6 +756,30 @@ revoke all on function public.ops_desk_acknowledge(uuid) from public, anon;
 grant execute on function public.ops_desk_acknowledge(uuid) to authenticated;
 
 -- The people to phone. Clinicians only: no patient, no case detail (INV-07). A person with no confirmed number shows no number.
+-- The people the call sheet lists for an incident (kind and profile). One definition, used by the sheet and by the call log.
+create function private.ops_desk_sheet_people(p_incident uuid) returns table (kind text, pid uuid)
+language plpgsql stable security definer set search_path = ''
+as $$
+declare i public.ops_incidents%rowtype; v_root public.pages%rowtype; v_test boolean := false;
+begin
+  select * into i from public.ops_incidents where id = p_incident;
+  if not found then return; end if;
+  if i.external_reference ~ '^page_expired:[0-9a-f-]{36}$' then
+    select * into v_root from public.pages where id = substring(i.external_reference from 14)::uuid;
+    v_test := coalesce(v_root.is_test, false);
+  end if;
+  return query
+    select 'on_call_primary'::text, coalesce(v_root.to_clinician_id, (select d.primary_id from private.on_call_now(i.organisation_id, v_test) d))
+    union all
+    select 'on_call_backup'::text, coalesce((select pg.to_clinician_id from public.pages pg where pg.parent_page_id = v_root.id and pg.role = 'backup' limit 1),
+                                            (select d.backup_id from private.on_call_now(i.organisation_id, v_test) d))
+    union all
+    select 'chief_medical_officer'::text, cs.profile_id from public.clinical_staff cs join public.profiles pr on pr.id = cs.profile_id
+     where cs.organisation_id = i.organisation_id and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer' and pr.is_test = v_test;
+end;
+$$;
+revoke all on function private.ops_desk_sheet_people(uuid) from public, anon, authenticated;
+
 create function public.ops_desk_call_sheet(p_incident uuid) returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
@@ -715,16 +798,8 @@ begin
     v_test := coalesce(v_root.is_test, false);
   end if;
   for r in
-    with people as (
-      select 'on_call_primary' as kind, coalesce(v_root.to_clinician_id, (select d.primary_id from private.on_call_now(i.organisation_id, v_test) d)) as pid
-      union all
-      select 'on_call_backup', coalesce((select pg.to_clinician_id from public.pages pg where pg.parent_page_id = v_root.id and pg.role = 'backup' limit 1),
-                                        (select d.backup_id from private.on_call_now(i.organisation_id, v_test) d))
-      union all
-      select 'chief_medical_officer', cs.profile_id from public.clinical_staff cs join public.profiles pr on pr.id = cs.profile_id
-       where cs.organisation_id = i.organisation_id and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer' and pr.is_test = v_test)
     select p.kind, p.pid, coalesce(pr.full_name, 'Unnamed') as full_name, private.verified_profile_phone(p.pid) as phone
-      from people p join public.profiles pr on pr.id = p.pid where p.pid is not null
+      from private.ops_desk_sheet_people(p_incident) p join public.profiles pr on pr.id = p.pid where p.pid is not null
   loop
     v_rows := v_rows || jsonb_build_array(jsonb_build_object('kind', r.kind, 'profile_id', r.pid, 'name', r.full_name,
       'phone', r.phone, 'phone_status', case when r.phone is null then 'no_confirmed_number' else 'confirmed' end));
@@ -748,9 +823,13 @@ begin
   if not found or i.external_reference !~ '^page_(expired|nobody_reachable):' then raise exception 'unknown page incident' using errcode = 'P0002'; end if;
   select * into callee from public.profiles where id = p_callee_profile and organisation_id = c.organisation_id and is_active and role in ('clinician', 'admin');
   if not found then raise exception 'that person is not active staff in your organisation' using errcode = '22023'; end if;
-  if p_callee_kind = 'chief_medical_officer' and not exists (
-       select 1 from public.clinical_staff cs where cs.profile_id = p_callee_profile and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer') then
-    raise exception 'that person is not the chief medical officer' using errcode = '22023';
+  if p_callee_kind = 'other' then
+    -- someone who is not on the call sheet (for example from the paper list) needs a written reason
+    if char_length(btrim(coalesce(p_note, ''))) < 10 then
+      raise exception 'say in a few words why you phoned someone who is not on the call sheet' using errcode = '22023';
+    end if;
+  elsif not exists (select 1 from private.ops_desk_sheet_people(p_incident) s where s.kind = p_callee_kind and s.pid = p_callee_profile) then
+    raise exception 'that person is not on the call sheet for this incident as the %; choose someone listed, or use "someone else" with a note', replace(p_callee_kind, '_', ' ') using errcode = '22023';
   end if;
   if char_length(coalesce(p_note, '')) > v_max then raise exception 'keep the note to % characters, with no patient names or numbers', v_max using errcode = '22023'; end if;
   insert into public.ops_desk_call_log (organisation_id, incident_id, called_by, callee_kind, callee_profile_id, callee_phone_masked, outcome, note, is_test)
@@ -844,7 +923,7 @@ begin
                            when pr.phone is null then 'no_number' else 'not_confirmed' end,
       'on_duty_now', exists (select 1 from private.ops_desk_on_duty(c.organisation_id, ct.is_test) d where d.contact_id = ct.id),
       'activated_by_name', (select coalesce(ap.full_name, 'Unnamed') from public.profiles ap where ap.id = ct.activated_by), 'activated_at', ct.activated_at,
-      'windows', coalesce((select jsonb_agg(jsonb_build_object('day', w.day_of_week, 'start', to_char(w.start_time, 'HH24:MI'), 'end', to_char(w.end_time, 'HH24:MI')) order by w.day_of_week, w.start_time)
+      'windows', coalesce((select jsonb_agg(jsonb_build_object('day', w.day_of_week, 'start', left(w.start_time::text, 5), 'end', left(w.end_time::text, 5)) order by w.day_of_week, w.start_time)
                              from public.ops_desk_contact_windows w where w.contact_id = ct.id), '[]'::jsonb)
     ) order by ct.role, pr.full_name)
       from public.ops_desk_contacts ct join public.profiles pr on pr.id = ct.profile_id

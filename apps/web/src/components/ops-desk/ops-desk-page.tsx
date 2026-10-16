@@ -211,7 +211,7 @@ export async function OpsDeskPage({ mode, searchParams }: { mode: Mode; searchPa
                   <form action={setWindows} className="space-y-2">
                     <Hidden name="returnTo" value={path} />
                     <Hidden name="contact" value={c.contact_id} />
-                    <Field label="Hours (one per line)" hint="Like: 1 08:00-18:00. 1 is Monday, 7 is Sunday. For a night, write two lines.">
+                    <Field label="Hours (one per line)" hint="Like: 1 08:00-18:00. 1 is Monday, 7 is Sunday. A whole day: 1 24h (every day: all 24h). A night: 1 22:00-06:00 is saved as two windows across midnight.">
                       <textarea name="windows" rows={4} defaultValue={windowsInput(c)} className={`${fieldClass} h-auto py-2`} />
                     </Field>
                     <SubmitButton tone="outline">Save hours</SubmitButton>

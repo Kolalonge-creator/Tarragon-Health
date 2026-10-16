@@ -118,20 +118,53 @@ export class WindowParseError extends Error {
 }
 
 export type WindowInput = { day: number; start: string; end: string };
-export const windowSchema = z.object({ day: z.number().int().min(1).max(7), start: z.string().regex(/^\d{2}:\d{2}$/), end: z.string().regex(/^\d{2}:\d{2}$/) });
 
-/** Windows as typed on the form: one per line like "1 08:00-18:00" (ISO day, 1 Monday to 7 Sunday, Lagos time). */
+const hhmm = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+export const windowSchema = z
+  .object({ day: z.number().int().min(1).max(7), start: z.string().regex(hhmm), end: z.string().refine((v) => v === "24:00" || hhmm.test(v)) })
+  .refine((w) => w.end > w.start, { message: "end after start" });
+
+const nextDay = (d: number): number => (d % 7) + 1;
+const pad = (t: string): string => (t.length === 4 ? `0${t}` : t);
+
+/**
+ * Windows as typed on the form, one per line, in Lagos time. ISO days: 1 Monday to 7 Sunday.
+ *   `1 08:00-18:00`   a normal window (end may be 24:00 for midnight)
+ *   `1 24h`           the whole day (00:00-24:00); `all 24h` is every day of the week
+ *   `1 22:00-06:00`   a night: an end at or before the start runs into the next day, and is stored as two windows
+ *                     (22:00-24:00 on day 1 and 00:00-06:00 on day 2) so there is no gap at midnight.
+ */
 export function parseWindowLines(text: string): WindowInput[] {
   const out: WindowInput[] = [];
+  const bad = (line: string): never => {
+    throw new WindowParseError(`"${line}" is not a window. Write one per line like: 1 08:00-18:00, 1 22:00-06:00 (a night) or 1 24h (1 is Monday, 7 is Sunday; "all 24h" is every day).`);
+  };
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
     if (!line) continue;
+    const whole = /^(all|[1-7])\s+24\s*h$/i.exec(line);
+    if (whole) {
+      const days = whole[1]?.toLowerCase() === "all" ? [1, 2, 3, 4, 5, 6, 7] : [Number(whole[1])];
+      for (const day of days) out.push({ day, start: "00:00", end: "24:00" });
+      continue;
+    }
     const m = /^([1-7])\s+(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/.exec(line);
-    if (!m) throw new WindowParseError(`"${line}" is not a window. Write one per line like: 1 08:00-18:00 (1 is Monday, 7 is Sunday).`);
-    const pad = (t: string): string => (t.length === 4 ? `0${t}` : t);
-    const parsed = windowSchema.safeParse({ day: Number(m[1]), start: pad(m[2] ?? ""), end: pad(m[3] ?? "") });
-    if (!parsed.success) throw new WindowParseError(`"${line}" is not a window. Use hours from 00:00 to 23:59.`);
-    out.push(parsed.data);
+    if (!m) return bad(line);
+    const day = Number(m[1]);
+    const start = pad(m[2] ?? "");
+    const end = pad(m[3] ?? "");
+    if (!hhmm.test(start) || !(end === "24:00" || hhmm.test(end))) return bad(line);
+    if (end > start) {
+      out.push({ day, start, end });
+    } else if (end === "00:00" && start !== "00:00") {
+      out.push({ day, start, end: "24:00" });
+    } else if (end !== "24:00" && end <= start) {
+      // overnight
+      out.push({ day, start, end: "24:00" });
+      if (end !== "00:00") out.push({ day: nextDay(day), start: "00:00", end });
+    } else {
+      return bad(line);
+    }
   }
   return out;
 }

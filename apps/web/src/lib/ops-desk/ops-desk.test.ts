@@ -31,6 +31,27 @@ describe("parseWindowLines", () => {
       { day: 7, start: "22:00", end: "23:59" },
     ]);
   });
+  it("allows 24:00 and the 24 hour shortcuts, so midnight is never a gap", () => {
+    expect(parseWindowLines("2 00:00-24:00")).toEqual([{ day: 2, start: "00:00", end: "24:00" }]);
+    expect(parseWindowLines("3 24h")).toEqual([{ day: 3, start: "00:00", end: "24:00" }]);
+    expect(parseWindowLines("all 24h")).toHaveLength(7);
+    expect(parseWindowLines("1 18:00-00:00")).toEqual([{ day: 1, start: "18:00", end: "24:00" }]);
+  });
+  it("splits a night across the two days, wrapping Sunday to Monday", () => {
+    expect(parseWindowLines("1 22:00-06:00")).toEqual([
+      { day: 1, start: "22:00", end: "24:00" },
+      { day: 2, start: "00:00", end: "06:00" },
+    ]);
+    expect(parseWindowLines("7 20:00-08:00")).toEqual([
+      { day: 7, start: "20:00", end: "24:00" },
+      { day: 1, start: "00:00", end: "08:00" },
+    ]);
+  });
+  it("refuses 25:00, a missing end and a start of 24:00", () => {
+    expect(() => parseWindowLines("1 08:00-25:00")).toThrow(/not a window/);
+    expect(() => parseWindowLines("1 24:00-24:00")).toThrow(/not a window/);
+    expect(() => parseWindowLines("1 08:00")).toThrow(/not a window/);
+  });
   it("refuses a line that is not a window, naming it", () => {
     expect(() => parseWindowLines("Monday 8 to 6")).toThrow(/not a window/);
     try {
