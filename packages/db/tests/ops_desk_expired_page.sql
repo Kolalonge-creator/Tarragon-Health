@@ -473,7 +473,7 @@ end $$;
 -- 4. Call log and call sheet -------------------------------------------------------------------------------------------------
 do $$
 declare v_admin uuid := pg_temp.f('admin'); v_ops2 uuid := pg_temp.f('ops2'); v_a uuid := pg_temp.f('A'); v_b uuid := pg_temp.f('B'); v_cmo uuid := pg_temp.f('cmo'); v_inc uuid := pg_temp.f('inc');
-  v_pat uuid := pg_temp.f('pat'); v_oa uuid := pg_temp.f('otheradmin'); v_id uuid; sheet text;
+  v_pat uuid := pg_temp.f('pat'); v_oa uuid := pg_temp.f('otheradmin'); v_id uuid; v_id2 uuid; sheet text;
 begin
   perform pg_temp.use_rules('{}'::jsonb);
   perform pg_temp.act(v_ops2);
@@ -485,8 +485,11 @@ begin
   perform pg_temp.rec('call log: only a masked number is kept, never the full one', 'true,true',
     (select (callee_phone_masked is not null and callee_phone_masked <> '+2348033958271' and callee_phone_masked like '+234%' and callee_phone_masked like '%*%')::text from public.ops_desk_call_log where id = v_id) || ',' ||
     (select (position('8033958271' in coalesce(string_agg(callee_phone_masked, ''), '')) = 0)::text from public.ops_desk_call_log));
+  perform pg_temp.act(v_ops2);
+  v_id2 := public.log_ops_desk_call(v_inc, 'other', v_b, 'wrong_or_no_number', 'phoned the backup from the paper list');
+  perform pg_temp.back();
   perform pg_temp.rec('call log: a person with no confirmed number is logged with no number', 'null',
-    coalesce((select l.callee_phone_masked from (select public.log_ops_desk_call(v_inc, 'other', v_b, 'wrong_or_no_number', 'phoned the backup from the paper list') as id) x join public.ops_desk_call_log l on l.id = x.id), 'null'));
+    coalesce((select l.callee_phone_masked from public.ops_desk_call_log l where l.id = v_id2), 'null'));
   perform pg_temp.rec('call log: only someone on the call sheet can be logged under a sheet role; anyone else needs "someone else" with a reason', '22023,22023,22023,ok',
     pg_temp.try_as(v_ops2, format('select public.log_ops_desk_call(%L, ''on_call_primary'', %L, ''no_answer'', null)', v_inc, v_b)) || ',' ||
     pg_temp.try_as(v_ops2, format('select public.log_ops_desk_call(%L, ''on_call_backup'', %L, ''no_answer'', null)', v_inc, v_a)) || ',' ||
