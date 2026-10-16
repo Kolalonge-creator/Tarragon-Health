@@ -12,6 +12,8 @@ import { readPendingCapacityConfigSignoff } from "@/lib/queries/pending-capacity
 import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose-task-type-signoff";
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
+import { GLUCOSE_WORDING_SIGNED } from "@tarragon/i18n";
+import { FAST_SUGAR_ITEM_KEY, readPendingFastSugarWordingSignoff } from "@/lib/queries/pending-fast-sugar-wording-signoff";
 import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
 
 export type CmoSigningHub = {
@@ -50,7 +52,7 @@ export const CAPACITY_CONFIG_ITEM_KEY = "capacity_configs";
 export const SOLE_CMO_EXCEPTION_ITEM_KEY = "sole_cmo_on_call_exception";
 /** The line for unified red-event paging (S19d): switch the one governed ladder on for SpO2, pulse, temperature, red-flag symptoms and emergency events, or off again. */
 export const UNIFIED_RED_PAGING_ITEM_KEY = "unified_red_paging";
-export { GLUCOSE_TRIAGE_ITEM_KEY };
+export { GLUCOSE_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY };
 
 /**
  * Everything that needs the Chief Medical Officer's signature, in one list.
@@ -72,7 +74,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -89,6 +91,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingSoleCmoException(supabase),
     readUnifiedRedPagingState(supabase),
     readPendingCapacityConfigSignoff(supabase),
+    readPendingFastSugarWordingSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -164,6 +167,16 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
 
   const credentialItem = credentialAttentionItem(credentials);
   const attention = credentialItem ? [credentialItem] : [];
+  // Signed on the hub but not yet in the app: the proposed fast-sugar text reaches patients only when the build marks the wording signed (a code change).
+  if (fastSugar.signed && GLUCOSE_WORDING_SIGNED === null) {
+    attention.push({
+      key: `${FAST_SUGAR_ITEM_KEY}_not_shipped`,
+      title: "Fast-sugar wording is signed but not yet in the app",
+      detail: "Your signature is recorded. Patients still see the plain text until the app build marks the wording signed (a code change). Ask the build owner to ship it.",
+      href: "/clinician/go-live#glucose_fast_sugar_wording",
+      severity: "draft_pending",
+    });
+  }
   if (redOutreach.waiting) {
     items.push({
       key: RED_OUTREACH_ITEM_KEY,
@@ -206,6 +219,17 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
       detail: `Version ${glucose.version} is a draft waiting for your signature, with the guideline basis of every rule and the patient wording in full.${glucose.approvedVersion !== null ? ` Version ${glucose.approvedVersion} stays in force until you sign.` : " Until you sign, glucose readings are graded in shadow only and the older glucose alerts keep running."}`,
       href: "/clinician/glucose-triage-rules",
       severity: "draft_pending",
+    });
+  }
+
+  if (fastSugar.waiting) {
+    items.push({
+      key: FAST_SUGAR_ITEM_KEY,
+      title: "Fast-sugar treatment wording (separate from the glucose rules)",
+      detail: "The message that tells a patient with a low sugar to take fast sugar (a sweet drink, sugar or honey, about 15 grams, and to check again in 15 minutes) needs its own signature. It stays unsigned, and the plain text stays in use, until you sign.",
+      href: "/clinician/go-live#glucose_fast_sugar_wording",
+      severity: "draft_pending",
+      count: 1,
     });
   }
 
@@ -266,6 +290,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(soleCmo.failed ? ["the sole-CMO on-call exception"] : []),
     ...(unifiedRed.failed ? ["unified red-event paging"] : []),
     ...(capacityConfigs.failed ? ["the capacity and lead configurations"] : []),
+    ...(fastSugar.failed ? ["the fast-sugar wording signature"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it

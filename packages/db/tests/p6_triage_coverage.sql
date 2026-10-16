@@ -254,7 +254,7 @@ begin
     (select count(*)::text from public.domain_events where event_type = 'adherence.below_line' and idempotency_key = 'cov:adherence:' || pg_temp.f('adh') || ':' || v_today));
   perform pg_temp.res('real', 'a Member with no medicines gets no adherence event', '0', pg_temp.events_for(pg_temp.f('recent'), 'adherence.below_line')::text);
   v_ctx := public.triage_context_for_coverage(pg_temp.f('adh'), 'adherence', v_today);
-  perform pg_temp.res('real', 'adherence context carries the percentage', 'adherence|true', (v_ctx #>> '{input,trigger,type}') || '|' || ((v_ctx #>> '{input,trigger,percent7d}') is not null)::text);
+  perform pg_temp.res('real', 'adherence context carries the percentage', 'adherence|true', (v_ctx #>> '{input,trigger,type}') || '|' || ((v_ctx #>> '{input,trigger,percentWindow}') is not null)::text);
   select id into v_rs from public.triage_rule_sets where code = 'bp_care_triage' and status = 'approved' order by version desc limit 1;
   v_key := 'BP-A4:' || to_char(v_today, 'IYYY-"W"IW');
   v_out := public.record_coverage_triage_result(pg_temp.f('adh'), 'adherence', v_today, pg_temp.coverage_result('BP-A4', 'adherence_review', v_key), v_rs, v_ctx -> 'trigger');
