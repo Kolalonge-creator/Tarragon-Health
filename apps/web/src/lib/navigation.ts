@@ -386,6 +386,9 @@ export function getNavSections(
                 { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
                 { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
                 { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+                { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
+                { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
+                { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
                 { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
                 { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
               ],
@@ -665,6 +668,8 @@ export function getNavSections(
                 { label: "Assistant monthly review", href: "/clinician/assistant-review", icon: "review" },
                 // Audits of completed clinical work and hand-back reviews (S36c). CMO only; the page redirects anyone below that tier.
                 { label: "Quality and safety", href: "/clinician/quality", icon: "review" },
+                { label: "AI answer review", href: "/clinician/ai-review", icon: "review" },
+                { label: "Research protocols", href: "/clinician/research", icon: "governance" },
                 // Every clinician with status, licence, competencies; decide competency grants and reinstatements, pause someone (S36d). CMO only; the page redirects others.
                 { label: "Clinician roster", href: "/clinician/roster", icon: "members" },
                 // Queue and page times against their limits, on-call cover and reliability bands (S36e). CMO only; the page redirects others.
@@ -730,6 +735,9 @@ export function getNavSections(
                 { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
                 { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
                 { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+                { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
+                { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
+                { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
               ],
             },
           ];
@@ -803,6 +811,9 @@ export function getNavSections(
             { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
             { label: "Automations", href: "/admin/ops/automations", icon: "settings" },
+            { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
+            { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
+            { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
@@ -903,6 +914,9 @@ export function getNavSections(
             { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
             { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+            { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
+            { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
+            { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
             { label: "Feature flags", href: "/admin/settings/feature-flags", icon: "flag" },
           ],
         },
@@ -952,6 +966,9 @@ export function getNavSections(
             { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
             { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+            { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
+            { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
+            { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
           ],
         },
         {

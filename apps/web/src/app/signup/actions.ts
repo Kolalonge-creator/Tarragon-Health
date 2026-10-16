@@ -16,6 +16,7 @@ import { firstIssue } from "@/lib/validation/first-issue";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
 import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
 import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
+import { checkSignupGate } from "@/lib/auth/signup-gate";
 import { readSignupCohortCode } from "@/lib/auth/signup-cohort-code";
 import { readAdultDob } from "./adult-gate";
 
@@ -80,6 +81,7 @@ export async function signUp(
     phone: formData.get("phone"),
     state: formData.get("state"),
     refCode: formData.get("refCode"),
+    inviteCode: formData.get("inviteCode") ?? undefined,
     intent: formData.get("intent"),
     password: formData.get("password"),
   });
@@ -107,6 +109,12 @@ export async function signUp(
     return { error: verdict.message, field: "password" };
   }
 
+  // Invite-only sign-up (the database enforces it; this just says so kindly before GoTrue is asked).
+  // Email only: the phone typed on this form is not verified, so it can never satisfy a phone invite.
+  const gate = await checkSignupGate({ email: parsed.data.email, inviteCode: parsed.data.inviteCode });
+  if (!gate.allowed) {
+    return { error: t("signup.invite_required", await getAuthLocale()), field: "inviteCode", values };
+  }
   // Optional programme code (S03b): checked now, joined only after the email is verified.
   const cohort = await readSignupCohortCode(formData, await getAuthLocale());
   if (!cohort.ok) return { error: cohort.error, field: "cohortCode", values };
@@ -137,6 +145,7 @@ export async function signUp(
         date_of_birth: adult.dateOfBirth,
         ...(parsed.data.state ? { state: parsed.data.state } : {}),
         ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
+        ...(parsed.data.inviteCode ? { invite_code: parsed.data.inviteCode } : {}),
         ...(parsed.data.intent ? { signup_intent: parsed.data.intent } : {}),
         // Someone signing up to pay for a relative's care rather than to be
         // treated. /auth/callback turns this into profiles.account_purpose,
@@ -206,6 +215,7 @@ export async function signUpWithPhone(
     phone: formData.get("phone"),
     state: formData.get("state"),
     refCode: formData.get("refCode"),
+    inviteCode: formData.get("inviteCode") ?? undefined,
     intent: formData.get("intent"),
     password: formData.get("password"),
   });
@@ -235,6 +245,12 @@ export async function signUpWithPhone(
     };
   }
 
+  // Invite-only sign-up: say so kindly before a code is sent. A number that already has an account never reaches the gate, so this
+  // cannot be used to learn which numbers are registered.
+  const gate = await checkSignupGate({ phone: parsed.data.phone, inviteCode: parsed.data.inviteCode });
+  if (!gate.allowed) {
+    return { error: t("signup.invite_required", locale), field: "inviteCode" };
+  }
   // Optional programme code (S03b): checked now, joined only after the phone is verified.
   const cohort = await readSignupCohortCode(formData, locale);
   if (!cohort.ok) return { error: cohort.error, field: "cohortCode" };
@@ -249,6 +265,7 @@ export async function signUpWithPhone(
         date_of_birth: adult.dateOfBirth,
         ...(parsed.data.state ? { state: parsed.data.state } : {}),
         ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
+        ...(parsed.data.inviteCode ? { invite_code: parsed.data.inviteCode } : {}),
         ...(parsed.data.intent ? { signup_intent: parsed.data.intent } : {}),
         ...(parsed.data.intent === "support" ? { account_purpose: "support" } : {}),
         ...(cohort.code ? { cohort_code: cohort.code } : {}),

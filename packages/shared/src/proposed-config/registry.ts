@@ -4756,4 +4756,22 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-15",
     source: "docs/design/S16-S20-capacity-cover.md; lead_config draft (inactive); decision 12",
   },
+  {
+    key: "ai.review_sample_rate",
+    value: 0.05,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S80-S85-cmo-decision-pack.md decision 6 (5 percent stratified clinician sample per AI system per month; flagged answers always included). Unsigned until the CMO signs.",
+  },
+  {
+    key: "content.review_interval_months",
+    value: { standard: 24, high_risk: 12, start_early_months: 2 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S80-S85-cmo-decision-pack.md decision 5 (24 months standard; 12 months for emergency, medicine-safety, pregnancy and mental-health content). Unsigned until the CMO signs.",
+  },
 ];
