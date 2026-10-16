@@ -14,8 +14,12 @@ type Rpc = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unkno
 const rpc: Rpc = (fn, args) => (supabase as unknown as { rpc: Rpc }).rpc(fn, args);
 
 /** The most prescriptions sent together. Read from the versioned configuration pharmacy.collection_rules (max_items_per_visit); the database refuses more. */
-export const MAX_VISIT_ITEMS: number =
-  (getProposedConfig("pharmacy.collection_rules").value as unknown as { max_items_per_visit?: number }).max_items_per_visit ?? Number.POSITIVE_INFINITY;
+export const MAX_VISIT_ITEMS: number = (() => {
+  const v = (getProposedConfig("pharmacy.collection_rules").value as unknown as { max_items_per_visit?: number }).max_items_per_visit;
+  // a missing key is a drift between the registry and the database, so it fails loudly here (and in the drift test), never as "no limit"
+  if (typeof v !== "number" || v < 2) throw new Error("pharmacy.collection_rules is missing max_items_per_visit");
+  return v;
+})();
 
 export interface WaitingItem {
   prescriptionId: string;
@@ -97,7 +101,9 @@ export function parseOptions(data: unknown): PharmacyOption[] | null {
   return out;
 }
 
-const isOff = (e: RpcError) => (e?.message ?? "").includes("pharmacy_collection_off");
+/** The go-live guard is closed, or the app is a little ahead of its database (the function is not there yet): either way there is nothing to show and nothing to retry. */
+const isOff = (e: RpcError) =>
+  (e?.message ?? "").includes("pharmacy_collection_off") || e?.code === "PGRST202" || e?.code === "42883" || (e?.message ?? "").includes("Could not find the function");
 
 export async function loadWaiting(): Promise<LoadResult<WaitingItem[]>> {
   const { data, error } = await rpc("patient_collection_overview", {});
@@ -170,6 +176,18 @@ export async function withdraw(prescriptionIds: string[]): Promise<WithdrawResul
     }
   }
   return failed ? { ok: false, notice: failed, done } : { ok: true };
+}
+
+/**
+ * What to tell the patient after taking a group back. Never states a cause the phone does not know: "already started to supply" only when the database said
+ * so (collection_already_started); any other partial failure says how many were taken back and to try again.
+ */
+export function withdrawMessage(result: WithdrawResult, total: number): { key: string; params?: Record<string, number> } {
+  if (result.ok) return { key: "pharmmob.notice.withdrawn" };
+  if (result.done > 0) {
+    return { key: result.notice === "collection_already_started" ? "pharmmob.partly_withdrawn" : "pharmmob.partly_withdrawn_retry", params: { done: result.done, total } };
+  }
+  return { key: result.notice === "failed" ? "pharmmob.failed" : `pharmcollect.notice.${result.notice}` };
 }
 
 export interface CollectionGroup {

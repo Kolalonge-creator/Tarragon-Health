@@ -4,7 +4,7 @@ import type { MessageKey } from "@tarragon/i18n";
 import { space } from "@/ui/design";
 import { AppText, Button, Card, Chip, InlineAlert, PressableScale } from "@/ui/kit";
 import {
-  choosePharmacy, loadOptions, loadWaiting, newCode, newVisitCode, sentGroups, toggleSelection, unsent, withdraw,
+  choosePharmacy, loadOptions, loadWaiting, newCode, newVisitCode, sentGroups, toggleSelection, unsent, withdraw, withdrawMessage,
   type ActionResult, type CollectionGroup, type PharmacyOption, type WaitingItem,
 } from "@/lib/pharmacy-collection";
 
@@ -101,20 +101,26 @@ export function PharmacyCollectCard({ tr }: { tr: Tr }) {
     if (busy) return;
     setBusy(true);
     const result = await withdraw(group.items.map((i) => i.prescriptionId));
-    if (!result.ok && result.done > 0) {
-      // some were taken back and some could not be (one already partly supplied): say which, not just "it failed"
-      setNotice({ tone: "warn", text: tr("pharmmob.partly_withdrawn", { done: result.done, total: group.items.length }) });
-    } else {
-      say(result, "pharmmob.notice.withdrawn");
-    }
+    // some may have been taken back and some not: the message says how many, and only names a cause the database gave
+    const m = withdrawMessage(result, group.items.length);
+    setNotice({ tone: result.ok ? "info" : "warn", text: tr(m.key as MessageKey, m.params) });
     await refresh();
     setBusy(false);
   }
 
-  // Nothing at all while collection is closed, while nothing has loaded, or when the first load failed: most patients have nothing waiting, and a warning
-  // on every visit to this screen (offline, or the app a little ahead of its database) would only worry them. Once something has loaded, a later failed
-  // refresh is said out loud (the "may be out of date" line below).
-  if (off || failed || !items) return null;
+  // Nothing at all while collection is closed (or the app is a little ahead of its database), and while the first load is still running. A first load that
+  // FAILED is said quietly with a way to try again, never hidden as "nothing is waiting"; once something has loaded, a later failed refresh is said out
+  // loud (the "may be out of date" line below).
+  if (off) return null;
+  if (failed) {
+    return (
+      <View style={{ gap: space.xs }}>
+        <AppText variant="caption" tone="textMuted">{tr("pharmmob.load_failed_quiet")}</AppText>
+        <Button title={tr("pharmmob.retry")} variant="ghost" fullWidth={false} onPress={() => void refresh()} />
+      </View>
+    );
+  }
+  if (!items) return null;
   const waiting = unsent(items);
   const groups = sentGroups(items);
   if (waiting.length === 0 && groups.length === 0) return null;

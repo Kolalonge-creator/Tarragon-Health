@@ -319,7 +319,7 @@ end $$;
 -- 3b. A new code for the whole visit keeps the visit together
 do $$
 declare v_org uuid := pg_temp.f('org'); v_pat uuid := pg_temp.f('pat'); v_doc uuid := pg_temp.f('doc'); phA uuid := pg_temp.f('phA'); cg uuid := pg_temp.f('cg');
-  pA uuid := pg_temp.f('pA'); lA uuid := pg_temp.f('lA'); r1 uuid; r2 uuid; r3 uuid; v_old text; v_new text; v_vr uuid; n0 integer; v_chosen timestamptz; i integer;
+  pA uuid := pg_temp.f('pA'); lA uuid := pg_temp.f('lA'); r1 uuid; r2 uuid; r3 uuid; v_ghost uuid; v_old text; v_new text; v_vr uuid; n0 integer; v_chosen timestamptz; i integer;
 begin
   r1 := pg_temp.mkrx(v_org, v_pat, v_doc, 'Renew drug one', 'signed'); r2 := pg_temp.mkrx(v_org, v_pat, v_doc, 'Renew drug two', 'signed');
   r3 := pg_temp.mkrx(v_org, v_pat, v_doc, 'Renew drug alone', 'signed');
@@ -352,6 +352,13 @@ begin
     (pg_temp.q_as(cg, format($q$select public.patient_new_visit_code(%L, %L)$q$, r1, v_pat)) not like 'ERR:%')::text);
   perform pg_temp.ck('real', '3ac the renewal was audited', 'true',
     ((select count(*) from public.audit_log where action = 'prescription.visit_code_renewed' and entity_id = v_vr) >= 1)::text);
+  -- fail closed: a code row that points at a visit its own pharmacy cannot see is not_found, never tried without a count
+  insert into public.pharmacy_collection_visits (organisation_id, patient_id, pharmacy_partner_id, pharmacy_location_id, is_test)
+    values (v_org, v_pat, pg_temp.f('pB'), pg_temp.f('lB'), true) returning id into v_ghost;
+  update public.prescription_collection_codes set visit_id = v_ghost where prescription_id = r3;
+  perform pg_temp.ck('real', '3ae a code row pointing at a visit its pharmacy cannot see fails closed: not_found and no free guesses', 'not_found|0',
+    pg_temp.verify_as(phA, r3, 'WRONG123') || '|' || (select wrong_attempts::text from public.prescription_collection_codes where prescription_id = r3));
+  update public.prescription_collection_codes set visit_id = null where prescription_id = r3;
   select count(*) into n0 from public.notifications where recipient_id = v_pat and template = 'pharmacy_collection_update';
   perform pg_temp.q_as(cg, format($q$select public.patient_new_visit_code(%L, %L)$q$, r1, v_pat));
   perform pg_temp.ck('real', '3ad a caregiver''s renewal tells the patient with one neutral in-app notice that carries nothing (INV-07)', '1|0',
@@ -446,7 +453,8 @@ $f$ declare r text; begin execute format('select %I::text from public.partner_qu
 
 do $$
 declare v_org uuid := pg_temp.f('org'); v_doc uuid := pg_temp.f('doc'); v_admin uuid := pg_temp.f('admin');
-  rpat uuid; tpat uuid; pS uuid; lS uuid; pT uuid; lT uuid; pQ uuid; pX uuid; pM uuid; lM uuid; pW uuid; v_lab uuid; i integer; v jsonb; n integer;
+  rpat uuid; tpat uuid; pS uuid; lS uuid; pT uuid; lT uuid; pQ uuid; pX uuid; pM uuid; lM uuid; pW uuid; pN1 uuid; pN2 uuid; v_lab uuid; i integer; v jsonb; n integer;
+  k0 integer; k1 integer; k2 integer; k3 integer;
 begin
   rpat := pg_temp.mkuser(v_org, 'rpat', 'patient', 'S28e Real Patient', false); tpat := pg_temp.mkuser(v_org, 'tpat', 'patient', 'S28e Test Patient', true);
   pS := pg_temp.mkpharm('S28e Slow', 'S28e Slow Yaba'); lS := pg_temp.f('l:S28e Slow');
@@ -463,7 +471,8 @@ begin
   perform private.compute_partner_quality('pharmacy', pX);
   perform pg_temp.ck('real', '5c a test patient''s supplies are left out (INV-13)', '0|false',
     pg_temp.quality_of(pX, 'orders_measured') || '|' || (select ('dispense_turnaround_slow' = any (breaches))::text from public.partner_quality where partner_kind = 'pharmacy' and partner_id = pX order by period_month desc limit 1));
-  -- a breach is a SUGGESTION: nothing suspends the pharmacy
+  -- a breach is a SUGGESTION: nothing suspends the pharmacy. (One sent prescription gives the pharmacy an organisation to announce to.)
+  perform pg_temp.mksent(v_org, rpat, v_doc, pS, lS, false, false);
   v := private.apply_partner_quality('pharmacy', pS);
   perform pg_temp.ck('real', '5d applying the rule to a pharmacy with a breach does not suspend it', 'false|open|true',
     (v ->> 'suspended_now') || '|' || pg_temp.status_of('pharmacy', pS) || '|' || private.pharmacy_location_choosable(pS, lS)::text);
@@ -552,6 +561,20 @@ begin
   -- a person can still pause a pharmacy, with a reason
   perform pg_temp.ck('real', '5p a person pauses a pharmacy from new work with a written reason, and it is then not offered to patients', 'false',
     (select private.pharmacy_location_choosable(pT, lT)::text from (select pg_temp.q_as(v_admin, format($q$select public.suspend_partner_from_new_work('pharmacy', %L, 'Repeated stock failures reviewed with the superintendent')::text$q$, pT)) r) x));
+  -- a suggestion is announced once per partner and breach set: the same breach again is silent, and a second partner the same day is not swallowed by the first
+  pN1 := pg_temp.mkpharm('S28e Notify One', 'S28e Notify One Yaba'); pN2 := pg_temp.mkpharm('S28e Notify Two', 'S28e Notify Two Yaba');
+  for i in 1 .. 10 loop perform pg_temp.mkdispensed(v_org, rpat, v_doc, pN1, 168); perform pg_temp.mkdispensed(v_org, rpat, v_doc, pN2, 168); end loop;
+  perform pg_temp.mksent(v_org, rpat, v_doc, pN1, pg_temp.f('l:S28e Notify One'), false, false);   -- gives each an organisation to announce to
+  perform pg_temp.mksent(v_org, rpat, v_doc, pN2, pg_temp.f('l:S28e Notify Two'), false, false);
+  select count(*) into k0 from public.notifications where template = 'partner_quality_attention' and recipient_id = v_admin;
+  perform private.apply_partner_quality('pharmacy', pN1);
+  select count(*) into k1 from public.notifications where template = 'partner_quality_attention' and recipient_id = v_admin;
+  perform private.apply_partner_quality('pharmacy', pN1);
+  select count(*) into k2 from public.notifications where template = 'partner_quality_attention' and recipient_id = v_admin;
+  perform private.apply_partner_quality('pharmacy', pN2);
+  select count(*) into k3 from public.notifications where template = 'partner_quality_attention' and recipient_id = v_admin;
+  perform pg_temp.ck('real', '5q0 a suggestion is announced once per partner and breach set: the same breach again is silent, and a second partner the same day is not swallowed by the first', '1|0|1',
+    (k1 - k0)::text || '|' || (k2 - k1)::text || '|' || (k3 - k2)::text);
   -- the nightly sweep still runs over pharmacies without error
   perform pg_temp.ck('real', '5q the nightly sweep checks pharmacies without error', '0', (private.partner_quality_sweep() ->> 'errors'));
 end $$;
@@ -575,13 +598,20 @@ begin
 end $$;
 do $$
 declare v_org uuid := pg_temp.f('org'); v_pat uuid := pg_temp.f('pat'); v_doc uuid := pg_temp.f('doc'); phA uuid := pg_temp.f('phA'); pA uuid := pg_temp.f('pA'); lA uuid := pg_temp.f('lA');
-  a uuid; b uuid; v_c text; v_v uuid; hi uuid; i integer;
+  a uuid; b uuid; v_c text; v_v uuid; hi uuid; i integer; g2 uuid; ghost uuid;
 begin
   a := pg_temp.mkrx(v_org, v_pat, v_doc, 'Sab drug one', 'signed'); b := pg_temp.mkrx(v_org, v_pat, v_doc, 'Sab drug two', 'signed');
   v_c := pg_temp.q_as(v_pat, pg_temp.visit_arr(array[a, b], pA, lA)); v_v := pg_temp.visit_of(a);
   hi := greatest(a, b);   -- verify_visit checks the code on the lowest id, so the highest is the "other" member
   for i in 1 .. 5 loop perform pg_temp.q_as(phA, format($q$select outcome from public.pharmacist_verify_visit(%L, 'WRONG123')$q$, v_v)); end loop;
   insert into results values ('sabotaged', 'five wrong tries on a visit still lock the other member', 'locked', pg_temp.verify_as(phA, hi, v_c));
+  -- and the fail-closed branch (a code row pointing at a visit its pharmacy cannot see) is gone with the visit-aware check
+  g2 := pg_temp.mkrx(v_org, v_pat, v_doc, 'Sab ghost drug', 'signed');
+  perform pg_temp.q_as(v_pat, format($q$select public.patient_choose_pharmacy(%L, %L, %L)$q$, g2, pA, lA));
+  insert into public.pharmacy_collection_visits (organisation_id, patient_id, pharmacy_partner_id, pharmacy_location_id, is_test)
+    values (v_org, v_pat, pg_temp.f('pB'), pg_temp.f('lB'), true) returning id into ghost;
+  update public.prescription_collection_codes set visit_id = ghost where prescription_id = g2;
+  insert into results values ('sabotaged', 'a code row pointing at an unseen visit still fails closed', 'not_found', pg_temp.verify_as(phA, g2, 'WRONG123'));
 end $$;
 
 -- (b) the suggest-only rule removed from the active configuration: a pharmacy breach would suspend the pharmacy by itself
@@ -617,7 +647,7 @@ begin
     raise exception 'S28e proof FAILED: %', (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), E'\n   ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks (%)', v_caught, (select string_agg(check_name || '=' || coalesce(actual, 'null'), ' | ') from results where phase = 'sabotaged'); end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks (%)', v_caught, (select string_agg(check_name || '=' || coalesce(actual, 'null'), ' | ') from results where phase = 'sabotaged'); end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results where phase = 'real' order by check_name;

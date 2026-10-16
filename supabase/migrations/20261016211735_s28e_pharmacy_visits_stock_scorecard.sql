@@ -627,7 +627,11 @@ begin
       perform private.emit_domain_event('partner.quality_breach', v_org,
         jsonb_build_object('partner_kind', p_kind, 'partner_id', p_id, 'breaches', to_jsonb(q.breaches), 'suspended', v_suspend or coalesce(st.state, 'open') = 'suspended'),
         v_key, null, 'partner', p_id);
-      if v_suspend or ((v_new or not (p_kind = any (v_so))) and not exists (select 1 from public.notifications n where n.template = 'partner_quality_attention' and n.created_at > p_now - interval '1 day')) then
+      -- a suggestion-only kind is announced when ITS breach set is new (per partner, so one partner's notice never swallows another's); every other kind keeps
+      -- the S74 rule (at most one desk notice a day while a breach stands)
+      if v_suspend
+         or (p_kind = any (v_so) and v_new)
+         or (not (p_kind = any (v_so)) and not exists (select 1 from public.notifications n where n.template = 'partner_quality_attention' and n.created_at > p_now - interval '1 day')) then
         perform private.partner_notify_desk(v_org);
       end if;
     end if;
@@ -657,8 +661,9 @@ begin
   select ph.id, ph.name, ph.is_active, coalesce(s.state, 'open'), coalesce(s.reason_codes, '{}'), s.override_until,
          q.score,
          (select coalesce(array_agg(distinct x order by x), '{}'::text[]) from unnest(
-            coalesce(q.breaches, '{}'::text[]) || case lv.st when 'expired' then array['licence_expired']::text[] when 'expiring' then array['licence_expiring']::text[] else '{}'::text[] end) x),
-         coalesce(s.state, 'open') = 'open' and (cardinality(coalesce(q.breaches, '{}'::text[])) > 0 or lv.st in ('expired', 'expiring')),
+            coalesce(q.breaches, '{}'::text[]) || case when not ph.is_active then '{}'::text[] when lv.st = 'expired' then array['licence_expired']::text[] when lv.st = 'expiring' then array['licence_expiring']::text[] else '{}'::text[] end) x),
+         -- an inactive pharmacy (a placeholder or a retired one) cannot receive work, so its licence date alone never asks for a review
+         coalesce(s.state, 'open') = 'open' and (cardinality(coalesce(q.breaches, '{}'::text[])) > 0 or (ph.is_active and lv.st in ('expired', 'expiring'))),
          lv.st,
          ph.license_expires_at,
          case when ph.license_expires_at is null then null

@@ -6,7 +6,7 @@ jest.mock("./supabase", () => ({ supabase: { rpc: jest.fn() } }));
 
 import { supabase } from "./supabase";
 import {
-  choosePharmacy, loadOptions, loadWaiting, MAX_VISIT_ITEMS, newCode, newVisitCode, noticeForError, parseOptions, parseWaiting, sentGroups, toggleSelection, unsent, withdraw,
+  choosePharmacy, loadOptions, loadWaiting, MAX_VISIT_ITEMS, newCode, newVisitCode, noticeForError, parseOptions, parseWaiting, sentGroups, toggleSelection, unsent, withdraw, withdrawMessage,
   type WaitingItem,
 } from "./pharmacy-collection";
 
@@ -119,6 +119,20 @@ describe("the code on screen", () => {
     expect(rpc).toHaveBeenCalledWith("patient_new_visit_code", { p_prescription: A });
     rpc.mockResolvedValue({ data: null, error: { message: "collection_not_open", code: "22023" } });
     expect(await newVisitCode(A)).toEqual({ ok: false, notice: "collection_not_open" });
+  });
+  it("taking back says how many were taken back, and names a cause only when the database gave it", () => {
+    expect(withdrawMessage({ ok: true }, 3)).toEqual({ key: "pharmmob.notice.withdrawn" });
+    expect(withdrawMessage({ ok: false, notice: "collection_already_started", done: 1 }, 3)).toEqual({ key: "pharmmob.partly_withdrawn", params: { done: 1, total: 3 } });
+    // a dropped connection after the first call is not "the pharmacy has started to supply": it asks to try again
+    expect(withdrawMessage({ ok: false, notice: "failed", done: 1 }, 3)).toEqual({ key: "pharmmob.partly_withdrawn_retry", params: { done: 1, total: 3 } });
+    expect(withdrawMessage({ ok: false, notice: "failed", done: 0 }, 3)).toEqual({ key: "pharmmob.failed" });
+    expect(withdrawMessage({ ok: false, notice: "collection_already_started", done: 0 }, 1)).toEqual({ key: "pharmcollect.notice.collection_already_started" });
+  });
+  it("a missing database function is treated as 'not open' (quiet), a real failure is not", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "Could not find the function public.patient_collection_overview", code: "PGRST202" } });
+    expect(await loadWaiting()).toEqual({ ok: false, off: true });
+    rpc.mockResolvedValue({ data: null, error: { message: "network request failed" } });
+    expect(await loadWaiting()).toEqual({ ok: false, off: false });
   });
   it("the visit limit comes from the versioned configuration, not from this file", () => {
     expect(MAX_VISIT_ITEMS).toBeGreaterThanOrEqual(2);

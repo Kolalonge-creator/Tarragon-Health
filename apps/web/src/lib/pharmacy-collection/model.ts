@@ -30,7 +30,12 @@ export const chooseFormSchema = z.object({
  * S28e (OQ-275): up to this many waiting prescriptions can go to one pharmacy together. Read from the versioned configuration `pharmacy.collection_rules`
  * (max_items_per_visit), never typed here; the database enforces the active row and refuses more.
  */
-export const MAX_VISIT_ITEMS: number = (getProposedConfig("pharmacy.collection_rules").value as { max_items_per_visit?: number }).max_items_per_visit ?? Number.POSITIVE_INFINITY;
+export const MAX_VISIT_ITEMS: number = (() => {
+  const v = (getProposedConfig("pharmacy.collection_rules").value as { max_items_per_visit?: number }).max_items_per_visit;
+  // a missing key is a drift between the registry and the database, so it fails loudly here (and in the drift test), never as "no limit"
+  if (typeof v !== "number" || v < 2) throw new Error("pharmacy.collection_rules is missing max_items_per_visit");
+  return v;
+})();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
