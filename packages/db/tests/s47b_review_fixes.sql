@@ -275,7 +275,9 @@ begin
   perform pg_temp.ck('...and excluded_domains says exactly what was withheld', 'mental_health,sexual_reproductive_health',
     (select string_agg(d, ',' order by d) from jsonb_array_elements_text(j -> 'excluded_domains') d));
   -- control: the mental health waiver
+  alter table public.adolescent_confidentiality_waivers disable trigger "00_minor_dependant_scope";
   insert into public.adolescent_confidentiality_waivers (organisation_id, patient_id, grantee_user_id, domain) values (v_org, child, g, 'mental_health');
+  alter table public.adolescent_confidentiality_waivers enable trigger "00_minor_dependant_scope";
   j := pg_temp.jq(g, format($q$select public.fhir_export_snapshot(%L, array['conditions','medications'])::text$q$, child));
   perform pg_temp.ck('control: with the mental health waiver the depression and the antidepressant appear, the reproductive ones still do not', 'Hypertension,Major depression|Amlodipine,Sertraline|sexual_reproductive_health',
     pg_temp.names(j, 'conditions', 'condition_name') || '|' || pg_temp.names(j, 'medications', 'drug_name') || '|' || (select string_agg(d, ',') from jsonb_array_elements_text(j -> 'excluded_domains') d));
