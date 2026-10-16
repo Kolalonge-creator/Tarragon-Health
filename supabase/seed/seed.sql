@@ -240,8 +240,7 @@ update public.panel_bundles
   set test_codes = array['hba1c', 'lipid_panel', 'psa', 'cervical_smear', 'hiv', 'hep_b', 'hep_c'],
       description = 'Everything in the Annual Health Check plus HIV, Hepatitis B, and Hepatitis C screening. Doctor-reviewed.'
   where code = 'health_check_comprehensive'
-    and not ('hep_c' = any(test_codes))
-    and not legacy_tier;
+    and not ('hep_c' = any(test_codes));
 
 -- Two-tier item 8 (2026-10-12): annual_health_check, health_check_basic and health_check_comprehensive stay NOT self-bookable
 -- (a CHECK constraint on panel_bundles refuses it); they duplicate the Membership annual test.
@@ -250,8 +249,7 @@ update public.panel_bundles
 -- confidential screenings (cervical smear per the WHO 90-70-90 elimination
 -- strategy, HIV, Hep B, Hep C) plus blood group & genotype. Deliberately NOT
 -- a general wellness catalogue — PSA stays package-only per WHO guidance;
--- everything else stays clinician-originated. S47e: annual_health_check is a legacy
--- tier bundle (replaced by Membership) and must never be made bookable again.
+-- everything else stays clinician-originated.
 update public.panel_bundles set self_bookable = true
   where code in ('single_cervical_smear', 'single_hiv', 'single_hep_b', 'single_hep_c', 'single_blood_group_genotype');
 
