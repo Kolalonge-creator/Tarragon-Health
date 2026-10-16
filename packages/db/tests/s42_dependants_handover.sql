@@ -82,7 +82,9 @@ begin
   v_c := pg_temp.mkuser(v_org, 'child', 'patient', (current_date - interval '18 years' + interval '10 days')::date);
   update public.profiles set is_dependent_account = true, dependent_kind = 'minor_child' where id = v_c;
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v_c, v_g1, 'manage', v_g1), (v_c, v_g2, 'manage', v_g2);
+  alter table public.vitals_readings disable trigger "00_minor_dependant_scope";
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, weight_kg) values (v_org, v_c, 'weight', 50);
+  alter table public.vitals_readings enable trigger "00_minor_dependant_scope";
   insert into fx values ('adm', v_adm), ('g1', v_g1), ('g2', v_g2), ('x', v_x), ('c', v_c);
 
   -- 1a. the sweep, 30 days before

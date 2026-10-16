@@ -192,8 +192,8 @@ begin
   -- those two branches read tables that exist only on the live project (research_protocols, ...), so they are checked in the function text
   -- the outer function is a chain of wrappers by now, so its own text names nothing: ask it instead
   perform pg_temp.rec('the later live branches still answer (research export, symptom checker, prescribing, scribe, and the wrapped S60 to S74 guards)', '4',
-    (select count(*)::text from unnest(array['research_export_enabled', 'symptom_checker_enabled', 'prescribing_enabled', 'scribe_enabled']) k
-      where position('unknown_guard' in pg_temp.codes(k)) = 0));
+    (select count(*)::text from unnest(array['research_export_enabled', 'symptom_checker_enabled', 'prescribing_enabled', 'scribe_enabled']) as g(guard_key)
+      where position('unknown_guard' in pg_temp.codes(g.guard_key)) = 0));
   -- every (guard, code) pair of the LIVE attest_go_live_condition (captured read-only from koiplnmbgnqnbywhpjlf, 2026-10-07, 16 pairs) is still attestable
   perform pg_temp.rec('every live attestation pair is still in the allow-list (16 captured from the live definition)', '16',
     (select count(*)::text from unnest(array[

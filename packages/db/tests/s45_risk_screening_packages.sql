@@ -324,22 +324,14 @@ end $$;
 do $$
 declare v_f uuid := pg_temp.f('fpat'); v_real uuid := pg_temp.f('real'); v_m uuid := pg_temp.f('mpat');
 begin
-  -- S47e: the four old tier packages are switched off in production (the screen tiers are legacy); the listing is exercised here with 'essential' switched back on inside this rolled-back proof
-  perform pg_temp.ck('(S47e) the old tier packages are switched off as shipped', '0', (select count(*)::text from public.screening_packages where code in ('essential', 'preventive', 'full_screen', 'annual_health_check') and is_active));
-  update public.screening_packages set is_active = true where code = 'essential';
-  perform pg_temp.ck('the essential package shows a price, its tests and a rate card before checkout', 'true',
-    (pg_temp.q_as(v_real, $q$select (price_kobo > 0 and cardinality(test_codes) > 0 and jsonb_array_length(rate_card) = cardinality(test_codes))::text from public.list_screening_packages() where code = 'essential'$q$)));
-  -- S47 (decision 14): no blood-borne virus test is bundled for everyone, so the tier packages hold no sensitive test any more
-  perform pg_temp.ck('...and (S47) holds no HIV or hepatitis test: those come by risk and history, not for everyone', 'false',
-    pg_temp.q_as(v_real, $q$select (includes_sensitive or test_codes && array['hiv','hep_b','hep_c'])::text from public.list_screening_packages() where code = 'essential'$q$));
+  -- The four tier packages (essential, preventive, full_screen, annual_health_check) sit on bundles the live two-tier model retired (panel_bundles check
+  -- panel_bundles_membership_duplicates_not_sellable), so the listing no longer shows them and they are not exercised here.
   perform pg_temp.ck('HPV DNA is not available to a real patient while its guard is off', 'false|not_available_yet',
     pg_temp.q_as(v_real, $q$select eligible || '|' || ineligible_reason from public.list_screening_packages() where code = 'hpv_dna'$q$));
   perform pg_temp.ck('HPV DNA needs a positive-result pathway and a guard, both recorded', 'true|hpv_dna_enabled',
     (select requires_positive_pathway || '|' || guard_key from public.screening_packages where code = 'hpv_dna'));
   perform pg_temp.ck('no bundled video consult exists on any package', '0',
     (select count(*)::text from public.screening_packages p join public.panel_bundles b on b.id = p.panel_bundle_id where b.test_codes && array['video_consult'] or p.extra_test_codes && array['video_consult']));
-  perform pg_temp.ck('an essential package is open to an adult', 'true',
-    pg_temp.q_as(v_m, $q$select eligible::text from public.list_screening_packages() where code = 'essential'$q$));
   perform pg_temp.ck('anon cannot list packages', '42501', pg_temp.try_anon('select * from public.list_screening_packages()'));
   perform pg_temp.ck('package names are provisional until confirmed', '0', (select count(*)::text from public.screening_packages where name_status <> 'provisional'));
 end $$;

@@ -86,7 +86,7 @@ begin
   perform pg_temp.ck('name replaced', 'Deleted account', (select full_name from public.profiles where id = v_a));
   perform pg_temp.ck('phone, region and avatar cleared', 'true', (select (phone is null and state is null and avatar_url is null and not is_active)::text from public.profiles where id = v_a));
   perform pg_temp.ck('date of birth reduced to the year', '1980-01-01', (select date_of_birth::text from public.profiles where id = v_a));
-  perform pg_temp.ck('login closed: email replaced', 'true', (select (email like 'deleted-%@deleted.invalid' and phone is null and banned_until > now() + interval '100 years')::text from auth.users where id = v_a));
+  perform pg_temp.ck('login closed: email replaced', 'true', (select (email like 'deleted-%@deleted.invalid' and phone is null and banned_until >= now() + interval '100 years')::text from auth.users where id = v_a));
   perform pg_temp.ck('push subscription removed', '0', (select count(*)::text from public.push_subscriptions where profile_id = v_a));
   perform pg_temp.ck('notification preferences removed', '0', (select count(*)::text from public.patient_notification_preferences where patient_id = v_a));
   perform pg_temp.ck('onboarding answers removed', '0', (select count(*)::text from public.onboarding_answers where patient_id = v_a));

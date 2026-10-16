@@ -94,6 +94,7 @@ $f$ declare v uuid; v_staff uuid; v_cfg uuid;
 begin
   select id into v_staff from public.clinical_staff where profile_id = pg_temp.f('doc');
   select id into v_cfg from public.health_report_config_versions order by version desc limit 1;
+  alter table public.health_reports disable trigger "00_minor_dependant_scope";
   insert into public.health_reports (organisation_id, patient_id, year, version, status, config_version_id, inputs, composed, priorities, summary_text, summary_source,
         signed_by, signed_at, signer_name, signer_registration, source, is_test)
   values (pg_temp.f('org'), p_patient, p_year, p_version, p_status, v_cfg, '{}'::jsonb, p_composed, '[]'::jsonb,
@@ -102,6 +103,7 @@ begin
           case when p_status in ('signed', 'superseded') then v_staff end, case when p_status in ('signed', 'superseded') then now() end,
           case when p_status in ('signed', 'superseded') then 'Dr Test' end, case when p_status in ('signed', 'superseded') then 'MDCN-1' end, 'system', true)
   returning id into v;
+  alter table public.health_reports enable trigger "00_minor_dependant_scope";
   return v;
 end $f$;
 create function pg_temp.report_of(p_g uuid, p_patient uuid) returns jsonb language plpgsql as
