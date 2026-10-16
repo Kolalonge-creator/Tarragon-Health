@@ -154,6 +154,7 @@ begin
 
   -- ---------------- 4. Republish guard: cannot publish while the date is still in the past ----------------
   -- S80: bringing a review_due item back to published is an approval, and only the Chief Medical Officer may give it; make one (fixture) and act as them.
+  perform set_config('request.jwt.claims', '', true);  -- no leftover session: a test profile can only be created by the owner, an admin or a service context
   select organisation_id into v_org0 from public.profiles where id = v_admin;
   v_cmo0 := gen_random_uuid();
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
