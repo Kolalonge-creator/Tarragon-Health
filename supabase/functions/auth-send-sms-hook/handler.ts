@@ -4,10 +4,13 @@
 // What this does, in order, and refuses at the first failure:
 //   1. Verifies the Standard Webhooks signature (HMAC-SHA256, constant-time compare, 5 minute tolerance) BEFORE
 //      reading anything from the body. An unsigned or stale call gets 401 and touches nothing.
-//   2. Enforces a PHONE-keyed limit from sms_delivery_log (max sends per hour), so rotating IP addresses cannot
+//   2. OQ-43 / OQ-S03B-06: WITHHOLDS the code (silently, with the same 200 as a normal send) when the account's sign-in number
+//      moved inside the recovery pause (public.auth_sms_hold) and this is not the code for a pending number change. This is the
+//      only place a text code is checked at the Auth level, so it covers a direct call to the Auth API. Fails closed (503).
+//   3. Enforces a PHONE-keyed limit from sms_delivery_log (max sends per hour), so rotating IP addresses cannot
 //      bypass it. If the log cannot be read, it refuses (503): an unbounded SMS sender is the worse failure.
-//   3. Sends through the SmsProvider interface (mock by default), one retry for a retryable failure.
-//   4. Records the outcome. The phone is stored only as an HMAC, the code never.
+//   4. Sends through the SmsProvider interface (mock by default), one retry for a retryable failure.
+//   5. Records the outcome. The phone is stored only as an HMAC, the code never.
 // Nothing here logs a phone number or a code. Errors returned to Auth carry no phone or code either.
 
 import type { SmsProvider } from "./provider.ts";
@@ -34,11 +37,20 @@ export interface SmsLogStore {
   finish(reservationId: string, outcome: SmsOutcome): Promise<void>;
 }
 
+export interface HoldStore {
+  /**
+   * Is the account inside the recovery pause (its sign-in number was replaced recently and no recovery contact has released it)?
+   * Throws if the database cannot be read, which the handler treats as "refuse", never "allow".
+   */
+  isHeld(userId: string): Promise<boolean>;
+}
+
 export interface HookDeps {
   secret: string; // SEND_SMS_HOOK_SECRET, "v1,whsec_<base64>" as Supabase issues it
   pepper: string; // SMS_LOG_PEPPER, keys the phone hash
   provider: SmsProvider;
   store: SmsLogStore;
+  holds: HoldStore;
   nowSeconds?: () => number;
 }
 
@@ -115,6 +127,44 @@ function hookError(httpCode: number, message: string): Response {
   return json(httpCode, { error: { http_code: httpCode, message } });
 }
 
+/** The slice of Auth's user object the hook reads to tell a number-change code from every other code. */
+export interface HookUser {
+  id?: string;
+  phone?: string;
+  phone_change?: string;
+  /** GoTrue serialises the pending number as `new_phone`; both spellings are read. */
+  new_phone?: string;
+  phone_change_sent_at?: string;
+  confirmation_sent_at?: string;
+  recovery_sent_at?: string;
+  reauthentication_sent_at?: string;
+}
+
+const PHONE_CHANGE_FRESH_SECONDS = 120;
+
+/**
+ * True only when we are SURE this code is the one for a pending number change (the code to the NEW number, which must still go
+ * out during the pause). Auth sends a sign-in code and a recovery code the same way, so they cannot be told apart; a number-change
+ * code is the one whose own timestamp is the newest of all the code timestamps and is seconds old. Anything unclear is treated as
+ * NOT a number-change code, because the mistake that fails closed (withholding a code) is the safe one.
+ */
+function pendingNumber(user: HookUser): string {
+  return user.new_phone || user.phone_change || "";
+}
+
+export function isPhoneChangeCode(user: HookUser, nowSeconds: number): boolean {
+  if (!pendingNumber(user) || !user.phone_change_sent_at) return false;
+  const own = Date.parse(user.phone_change_sent_at) / 1000;
+  if (!Number.isFinite(own) || Math.abs(nowSeconds - own) > PHONE_CHANGE_FRESH_SECONDS) return false;
+  for (const other of [user.confirmation_sent_at, user.recovery_sent_at, user.reauthentication_sent_at]) {
+    if (other === undefined || other === null || other === "") continue;
+    const t = Date.parse(other) / 1000;
+    if (!Number.isFinite(t)) return false; // an unreadable timestamp: cannot be sure
+    if (t >= own) return false;
+  }
+  return true;
+}
+
 const E164 = /^\+[1-9]\d{7,14}$/;
 
 export async function handleHookRequest(req: Request, deps: HookDeps): Promise<Response> {
@@ -129,7 +179,7 @@ export async function handleHookRequest(req: Request, deps: HookDeps): Promise<R
     return hookError(401, "invalid_signature");
   }
 
-  let payload: { user?: { id?: string; phone?: string }; sms?: { otp?: string } };
+  let payload: { user?: HookUser; sms?: { otp?: string } };
   try {
     payload = JSON.parse(raw);
   } catch {
@@ -140,12 +190,31 @@ export async function handleHookRequest(req: Request, deps: HookDeps): Promise<R
   if (!phone || !E164.test(phone.startsWith("+") ? phone : `+${phone}`) || !otp || !/^\d{4,10}$/.test(otp)) {
     return hookError(400, "invalid_payload");
   }
-  const to = phone.startsWith("+") ? phone : `+${phone}`;
+  let to = phone.startsWith("+") ? phone : `+${phone}`;
   const userId = payload.user?.id ?? null;
+
+  // 2. The recovery pause (OQ-43). The code for a pending number change is the one thing that must still go out, and it goes to the
+  // NEW number. Everything else for a paused account is withheld below, AFTER the same hourly slot is taken as for a real send, so a
+  // paused and an unpaused account see the same 200 and the same 429 once the cap is reached (no enumeration signal), and a row
+  // is left in sms_delivery_log (error_code 'withheld_pause') so support can tell a withheld code from a lost one. A missing user
+  // id cannot be checked, so it is refused (fail closed).
+  if (!userId) return hookError(400, "invalid_payload");
+  let withhold = false;
+  if (isPhoneChangeCode(payload.user ?? {}, now)) {
+    const pending = pendingNumber(payload.user ?? {});
+    const pendingE164 = pending.startsWith("+") ? pending : `+${pending}`;
+    if (E164.test(pendingE164)) to = pendingE164;
+  } else {
+    try {
+      withhold = await deps.holds.isHeld(userId);
+    } catch {
+      return hookError(503, "temporarily_unavailable");
+    }
+  }
 
   const hash = await phoneHash(to, deps.pepper);
 
-  // 2. Phone-keyed rate limit, taken atomically BEFORE sending. Fail closed if the database is unreachable.
+  // 3. Phone-keyed rate limit, taken atomically BEFORE sending. Fail closed if the database is unreachable.
   let reservation: string | null;
   try {
     reservation = await deps.store.reserve(hash, userId, deps.provider.name);
@@ -154,7 +223,17 @@ export async function handleHookRequest(req: Request, deps: HookDeps): Promise<R
   }
   if (reservation === null) return hookError(429, "too_many_requests");
 
-  // 3. Send, with one retry when the provider says the failure is transient.
+  if (withhold) {
+    try {
+      await deps.store.finish(reservation, { status: "sent", attempts: 1, errorCode: "withheld_pause" });
+    } catch {
+      console.error("auth-send-sms-hook: could not record a withheld code");
+    }
+    console.warn("auth-send-sms-hook: a code was withheld (recovery pause)");
+    return json(200, {});
+  }
+
+  // 4. Send, with one retry when the provider says the failure is transient.
   const text = buildOtpText(otp);
   let attempts = 1;
   let result = await deps.provider.send({ to, text });
@@ -163,7 +242,7 @@ export async function handleHookRequest(req: Request, deps: HookDeps): Promise<R
     result = await deps.provider.send({ to, text });
   }
 
-  // 4. Record the outcome (never the code, never the number). If this write fails the row stays 'reserved', which still
+  // 5. Record the outcome (never the code, never the number). If this write fails the row stays 'reserved', which still
   // counts toward the cap, so a broken log can only make the limit stricter, never looser. The failure is reported
   // without any identifying detail so it is not silent.
   try {
