@@ -53,6 +53,8 @@ describe("patient collect page (S28e)", () => {
     expect(html).toContain(`value="${P}:${L}"`);
     expect(html).toContain('name="choice"');
     expect((html.match(/<form/g) ?? []).length).toBe(1); // one form: the ticks and the pharmacy buttons travel together
+    // Enter on a tick box must not press the first pharmacy for her: the form's first (default) submit button is a disabled one
+    expect(html).toMatch(/<form[^>]*><button type="submit" disabled=""[^>]*class="hidden"/);
     expect(html).toContain("Losartan");
   });
   it("with no other medicine waiting there are no tick boxes", async () => {

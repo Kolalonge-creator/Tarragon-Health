@@ -62,6 +62,9 @@ function Chooser({ id, options, locale, forWhom, others }: { id: string; options
   if (options.length === 0) return <p className="text-sm text-charcoal-ink/70">{t("pharmcollect.none", locale)}</p>;
   return (
     <form action={choosePharmacyAction} className="space-y-3">
+      {/* The first submit button in a form is its default one: pressing Enter on a tick box would otherwise press the first pharmacy for her. A disabled
+          default button makes Enter do nothing; only a pharmacy button she presses sends anything. */}
+      <button type="submit" disabled aria-hidden="true" tabIndex={-1} className="hidden" />
       <input type="hidden" name="prescription" value={id} />
       {forWhom && <input type="hidden" name="for" value={forWhom} />}
       {others.length > 0 && (

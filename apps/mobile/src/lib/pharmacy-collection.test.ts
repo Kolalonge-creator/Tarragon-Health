@@ -133,6 +133,7 @@ describe("the code on screen", () => {
   });
   it("taking back reports a failure if any one could not be taken back", async () => {
     rpc.mockResolvedValueOnce({ data: { ok: true }, error: null }).mockResolvedValueOnce({ data: null, error: { message: "collection_already_started", code: "22023" } });
-    expect(await withdraw([A, B])).toEqual({ ok: false, notice: "collection_already_started" });
+    // and it says how many WERE taken back, so the screen never reads as "nothing changed"
+    expect(await withdraw([A, B])).toEqual({ ok: false, notice: "collection_already_started", done: 1 });
   });
 });

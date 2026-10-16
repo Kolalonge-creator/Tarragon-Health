@@ -120,6 +120,8 @@ begin
   select cc.visit_id into v_visit from public.prescription_collection_codes cc where cc.prescription_id = p_rx and cc.pharmacy_partner_id = p_partner;
   if v_visit is not null then
     select * into v from public.pharmacy_collection_visits where id = v_visit and pharmacy_partner_id = p_partner for update;
+    -- a code row that points at a visit this pharmacy cannot see must never be tried without a count: fail closed
+    if not found then return 'not_found'; end if;
   end if;
   select * into c from public.prescription_collection_codes where prescription_id = p_rx and pharmacy_partner_id = p_partner for update;
   if not found then return 'not_found'; end if;
@@ -594,6 +596,8 @@ declare
   v_suspend boolean := false;
   v_org uuid;
   v_id uuid;
+  v_key text;
+  v_new boolean;
 begin
   v_id := private.compute_partner_quality(p_kind, p_id, p_now);
   select * into q from public.partner_quality where id = v_id;
@@ -616,12 +620,14 @@ begin
   if cardinality(q.breaches) > 0 then
     v_org := private.partner_event_org(p_kind, p_id);
     if v_org is not null then
+      -- the key carries the RESULTING state, so the run that suspends and every later run that finds it already suspended share one key (one event, not two)
+      v_key := 'partner_quality_breach:' || p_kind || ':' || p_id || ':' || q.period_month || ':' || md5(array_to_string(q.breaches, ',')) || ':' || (v_suspend or coalesce(st.state, 'open') = 'suspended')::text;
+      -- S28e: a suggestion-only breach never clears by itself (nothing is suspended), so the desk is told when the breach set is NEW, not every night
+      v_new := not exists (select 1 from public.domain_events e where e.event_type = 'partner.quality_breach' and e.idempotency_key = v_key);
       perform private.emit_domain_event('partner.quality_breach', v_org,
         jsonb_build_object('partner_kind', p_kind, 'partner_id', p_id, 'breaches', to_jsonb(q.breaches), 'suspended', v_suspend or coalesce(st.state, 'open') = 'suspended'),
-        -- the key carries the RESULTING state, so the run that suspends and every later run that finds it already suspended share one key (one event, not two)
-        'partner_quality_breach:' || p_kind || ':' || p_id || ':' || q.period_month || ':' || md5(array_to_string(q.breaches, ',')) || ':' || (v_suspend or coalesce(st.state, 'open') = 'suspended')::text,
-        null, 'partner', p_id);
-      if v_suspend or not exists (select 1 from public.notifications n where n.template = 'partner_quality_attention' and n.created_at > p_now - interval '1 day') then
+        v_key, null, 'partner', p_id);
+      if v_suspend or ((v_new or not (p_kind = any (v_so))) and not exists (select 1 from public.notifications n where n.template = 'partner_quality_attention' and n.created_at > p_now - interval '1 day')) then
         perform private.partner_notify_desk(v_org);
       end if;
     end if;
@@ -645,22 +651,29 @@ language plpgsql stable security definer set search_path = ''
 as $$
 begin
   if not private.partner_desk_actor() then raise exception 'not authorised' using errcode = '42501'; end if;
+  -- The licence is read LIVE from the pharmacy row, not from the last nightly snapshot: a pharmacy with no snapshot yet, or a licence that ran out
+  -- since the last run, must still show as expired and ask for a review (the nightly figures are for the rest).
   return query
   select ph.id, ph.name, ph.is_active, coalesce(s.state, 'open'), coalesce(s.reason_codes, '{}'), s.override_until,
          q.score,
-         case when q.id is null then '{}'::text[]
-              else coalesce(q.breaches, '{}') || case when q.licence_state = 'expiring' then array['licence_expiring']::text[] else '{}'::text[] end end,
-         coalesce(s.state, 'open') = 'open' and q.id is not null and (cardinality(coalesce(q.breaches, '{}')) > 0 or q.licence_state = 'expiring'),
-         coalesce(q.licence_state, case when ph.license_expires_at is null and ph.license_verified_at is null then 'unverified' else 'current' end),
-         coalesce(q.licence_expires_at, ph.license_expires_at),
-         case when coalesce(q.licence_expires_at, ph.license_expires_at) is null then null
-              else ((coalesce(q.licence_expires_at, ph.license_expires_at) at time zone 'Africa/Lagos')::date - (now() at time zone 'Africa/Lagos')::date) end,
+         (select coalesce(array_agg(distinct x order by x), '{}'::text[]) from unnest(
+            coalesce(q.breaches, '{}'::text[]) || case lv.st when 'expired' then array['licence_expired']::text[] when 'expiring' then array['licence_expiring']::text[] else '{}'::text[] end) x),
+         coalesce(s.state, 'open') = 'open' and (cardinality(coalesce(q.breaches, '{}'::text[])) > 0 or lv.st in ('expired', 'expiring')),
+         lv.st,
+         ph.license_expires_at,
+         case when ph.license_expires_at is null then null
+              else ((ph.license_expires_at at time zone 'Africa/Lagos')::date - (now() at time zone 'Africa/Lagos')::date) end,
          q.turnaround_target_hours, q.turnaround_actual_median_hours, q.pct_within_target, coalesce(q.orders_measured, 0),
          coalesce(q.sent_measured, 0), coalesce(q.flags_raised, 0), coalesce(q.out_of_stock_flags, 0),
          coalesce(q.complaints_upheld, 0), coalesce(q.complaints_open, 0), q.computed_at
     from public.pharmacy_partners ph
     left join public.partner_work_status s on s.partner_kind = 'pharmacy' and s.partner_id = ph.id
     left join lateral (select * from public.partner_quality x where x.partner_kind = 'pharmacy' and x.partner_id = ph.id order by x.period_month desc limit 1) q on true
+    cross join lateral (select case
+        when ph.license_expires_at is not null and ph.license_expires_at <= now() then 'expired'
+        when ph.license_expires_at is null and ph.license_verified_at is null then 'unverified'
+        when ph.license_expires_at is not null and ph.license_expires_at <= now() + make_interval(days => coalesce((private.partner_quality_setting('licence') ->> 'expiring_days')::integer, 30)) then 'expiring'
+        else 'current' end as st) lv
    order by ph.is_active desc, ph.name;
 end $$;
 

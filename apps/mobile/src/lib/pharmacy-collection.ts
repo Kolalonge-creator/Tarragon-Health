@@ -14,7 +14,8 @@ type Rpc = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unkno
 const rpc: Rpc = (fn, args) => (supabase as unknown as { rpc: Rpc }).rpc(fn, args);
 
 /** The most prescriptions sent together. Read from the versioned configuration pharmacy.collection_rules (max_items_per_visit); the database refuses more. */
-export const MAX_VISIT_ITEMS = (getProposedConfig("pharmacy.collection_rules").value as unknown as { max_items_per_visit: number }).max_items_per_visit;
+export const MAX_VISIT_ITEMS: number =
+  (getProposedConfig("pharmacy.collection_rules").value as unknown as { max_items_per_visit?: number }).max_items_per_visit ?? Number.POSITIVE_INFINITY;
 
 export interface WaitingItem {
   prescriptionId: string;
@@ -151,14 +152,24 @@ export async function newVisitCode(prescriptionId: string): Promise<ActionResult
   return error ? { ok: false, notice: noticeForError(error.message) } : { ok: true };
 }
 
-/** Takes prescriptions back from the pharmacy (consent to share is revocable). Reports failure if any one could not be taken back. */
-export async function withdraw(prescriptionIds: string[]): Promise<ActionResult> {
+export type WithdrawResult = { ok: true } | { ok: false; notice: ChooseNotice; done: number };
+
+/**
+ * Takes prescriptions back from the pharmacy (consent to share is revocable). Each one is its own database call, so some can succeed and some not (one
+ * already partly supplied cannot be taken back): a failure says how many WERE taken back, so the screen never reads as "nothing changed".
+ */
+export async function withdraw(prescriptionIds: string[]): Promise<WithdrawResult> {
   let failed: ChooseNotice | null = null;
+  let done = 0;
   for (const id of prescriptionIds) {
     const { error } = await rpc("patient_withdraw_from_pharmacy", { p_prescription: id });
-    if (error && !failed) failed = noticeForError(error.message);
+    if (error) {
+      if (!failed) failed = noticeForError(error.message);
+    } else {
+      done += 1;
+    }
   }
-  return failed ? { ok: false, notice: failed } : { ok: true };
+  return failed ? { ok: false, notice: failed, done } : { ok: true };
 }
 
 export interface CollectionGroup {

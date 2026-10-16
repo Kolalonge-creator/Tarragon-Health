@@ -2648,7 +2648,7 @@ export const en = {
   "pharmvisit.other_needed": "This pharmacy could not supply this one. Choose a different pharmacy for it.",
   "pharmcollect.notice.chosen_many": "Sent to your pharmacy. One collection code covers all of them.",
   "pharmcollect.notice.visit_size_invalid": "That is too many (or too few) medicines to send together. Please check what you ticked and try again.",
-  "pharmmob.retry": "Try again",
+  "pharmmob.partly_withdrawn": "{done} of {total} were taken back. The rest cannot be changed now, because the pharmacy has already started to supply them.",
   "pharmmob.title": "Collect your medicines",
   "pharmmob.intro": "Choose a pharmacy for the medicines your care team prescribed. You pay the pharmacy yourself.",
   "pharmmob.off": "Collecting from a pharmacy is not open yet. You can still take your prescription to any pharmacy.",

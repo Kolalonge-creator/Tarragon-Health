@@ -540,6 +540,13 @@ begin
   perform pg_temp.ck('real', '5n a pharmacy with no figures yet is not marked for review and says it has none', 'false|true',
     pg_temp.q_as(v_admin, format($q$select review_suggested::text from public.pharmacy_scorecard() where partner_id = %L$q$, pg_temp.f('pB'))) || '|' ||
     pg_temp.q_as(v_admin, format($q$select (computed_at is null)::text from public.pharmacy_scorecard() where partner_id = %L$q$, pg_temp.f('pB'))));
+  -- the licence is read live: a pharmacy with no nightly snapshot yet, whose licence has already run out, still asks for a review and says expired
+  update public.pharmacy_partners set license_expires_at = now() - interval '2 days' where id = pg_temp.f('pB');
+  perform pg_temp.ck('real', '5n2 an expired licence shows as expired and asks for a review even before any snapshot exists', 'expired|true|true',
+    pg_temp.q_as(v_admin, format($q$select licence_state from public.pharmacy_scorecard() where partner_id = %L$q$, pg_temp.f('pB'))) || '|' ||
+    pg_temp.q_as(v_admin, format($q$select review_suggested::text from public.pharmacy_scorecard() where partner_id = %L$q$, pg_temp.f('pB'))) || '|' ||
+    pg_temp.q_as(v_admin, format($q$select ('licence_expired' = any (suggestions))::text from public.pharmacy_scorecard() where partner_id = %L$q$, pg_temp.f('pB'))));
+  update public.pharmacy_partners set license_expires_at = current_date + 365 where id = pg_temp.f('pB');
   perform pg_temp.ck('real', '5o the scorecard carries no patient data: no column is a name, a number or a medicine', '0',
     (select count(*)::text from pg_proc p, unnest(p.proargnames) a where p.proname = 'pharmacy_scorecard' and p.pronamespace = 'public'::regnamespace and a ~* '(patient|medicine|drug|name_of|phone|email)'));
   -- a person can still pause a pharmacy, with a reason

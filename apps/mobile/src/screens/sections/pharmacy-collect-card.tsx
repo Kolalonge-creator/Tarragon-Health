@@ -60,7 +60,7 @@ export function PharmacyCollectCard({ tr }: { tr: Tr }) {
 
   async function openChooser() {
     const first = selected[0];
-    if (!first) return;
+    if (!first || busy) return;
     setBusy(true);
     setNotice(null);
     const result = await loadOptions(first);
@@ -74,6 +74,7 @@ export function PharmacyCollectCard({ tr }: { tr: Tr }) {
   }
 
   async function send(option: PharmacyOption) {
+    if (busy) return;   // a second tap must not send again: that would rotate the code just shown and notify the pharmacy twice
     setBusy(true);
     const result = await choosePharmacy(selected, option.partnerId, option.locationId);
     say(result, "pharmmob.notice.chosen");
@@ -87,6 +88,7 @@ export function PharmacyCollectCard({ tr }: { tr: Tr }) {
   }
 
   async function renew(group: CollectionGroup) {
+    if (busy) return;
     setBusy(true);
     // sent together: one new code for the whole visit (nothing is sent to the pharmacy again); sent alone: that medicine's own new code
     const result = group.items.length > 1 ? await newVisitCode(group.items[0].prescriptionId) : await newCode(group.items[0].prescriptionId);
@@ -96,23 +98,23 @@ export function PharmacyCollectCard({ tr }: { tr: Tr }) {
   }
 
   async function takeBack(group: CollectionGroup) {
+    if (busy) return;
     setBusy(true);
     const result = await withdraw(group.items.map((i) => i.prescriptionId));
-    say(result, "pharmmob.notice.withdrawn");
+    if (!result.ok && result.done > 0) {
+      // some were taken back and some could not be (one already partly supplied): say which, not just "it failed"
+      setNotice({ tone: "warn", text: tr("pharmmob.partly_withdrawn", { done: result.done, total: group.items.length }) });
+    } else {
+      say(result, "pharmmob.notice.withdrawn");
+    }
     await refresh();
     setBusy(false);
   }
 
-  if (off) return null;
-  if (failed) {
-    return (
-      <Card style={{ gap: space.sm }}>
-        <InlineAlert tone="warn" message={tr("pharmmob.load_failed")} />
-        <Button title={tr("pharmmob.retry")} variant="secondary" onPress={() => void refresh()} />
-      </Card>
-    );
-  }
-  if (!items) return null;
+  // Nothing at all while collection is closed, while nothing has loaded, or when the first load failed: most patients have nothing waiting, and a warning
+  // on every visit to this screen (offline, or the app a little ahead of its database) would only worry them. Once something has loaded, a later failed
+  // refresh is said out loud (the "may be out of date" line below).
+  if (off || failed || !items) return null;
   const waiting = unsent(items);
   const groups = sentGroups(items);
   if (waiting.length === 0 && groups.length === 0) return null;

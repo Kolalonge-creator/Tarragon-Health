@@ -30,7 +30,7 @@ export const chooseFormSchema = z.object({
  * S28e (OQ-275): up to this many waiting prescriptions can go to one pharmacy together. Read from the versioned configuration `pharmacy.collection_rules`
  * (max_items_per_visit), never typed here; the database enforces the active row and refuses more.
  */
-export const MAX_VISIT_ITEMS = (getProposedConfig("pharmacy.collection_rules").value as { max_items_per_visit: number }).max_items_per_visit;
+export const MAX_VISIT_ITEMS: number = (getProposedConfig("pharmacy.collection_rules").value as { max_items_per_visit?: number }).max_items_per_visit ?? Number.POSITIVE_INFINITY;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
