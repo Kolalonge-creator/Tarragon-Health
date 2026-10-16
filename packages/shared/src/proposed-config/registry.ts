@@ -3250,6 +3250,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C6; docs/design/S08x.md",
   },
   {
+    key: "record.doctor_summary_pdf",
+    // The patient-generated visit summary PDF (blood pressure, medicines, adherence, symptoms): the period choices and the row caps.
+    // Display only: it changes no treatment, raises no task and classifies no reading. Wearable readings are listed but never averaged
+    // or charted (`averageSources`); the list is the reading sources a home cuff, a typed entry or a confirmed photo of a cuff display can have.
+    value: { periodDays: [30, 60, 90], defaultDays: 30, maxBpRows: 30, maxSymptoms: 30, maxSkippedDoses: 30, averageSources: ["manual", "device", "photo_confirmed"] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/BUILD-SPEC-v5.md 2.9; docs/design/S43.md; docs/design/doctor-summary-pdf.md",
+  },
+  {
     key: "triage.coverage",
     // The daily silence (BP-A5) and adherence (BP-A4) sweep (P6, plan item R3). The LINES themselves (7 days of silence, 80 percent) are
     // in the signed bp_care_triage rule set and are read from it; this entry holds only the switch and who counts as having a blood
