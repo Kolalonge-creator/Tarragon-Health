@@ -1,4 +1,4 @@
-import { getProposedConfig, mgDlToMmolL } from "@tarragon/shared";
+import { BP_ESTIMATE_SOURCE, diagnosticBpReadings, getProposedConfig, isEstimateBpSource, mgDlToMmolL } from "@tarragon/shared";
 import { deviceRedFlags, type DeviceRedRules } from "@tarragon/clinical";
 import { supabase } from "./supabase";
 import type { VitalReadingPayload } from "./api";
@@ -15,22 +15,26 @@ export interface BpReading {
   diastolic: number;
   takenAt: string;
   level: BpLevel;
+  /** Where the reading came from; "wearable" is an estimate (see @tarragon/shared bp-estimate). Absent for a reading saved on this phone. */
+  source?: string | null;
   /** True for a reading saved on this phone that has not reached the server yet. */
   pending?: boolean;
 }
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-type BpRow = { id: string; systolic: number | null; diastolic: number | null; taken_at: string; client_reading_id?: string | null };
+type BpRow = { id: string; systolic: number | null; diastolic: number | null; taken_at: string; client_reading_id?: string | null; source?: string | null };
 
 export async function loadRecentBpReadings(patientId: string, limit = 10): Promise<BpReading[]> {
   let rows: BpRow[];
   try {
     const { data, error } = await supabase
       .from("vitals_readings")
-      .select("id, systolic, diastolic, taken_at, client_reading_id")
+      .select("id, systolic, diastolic, taken_at, client_reading_id, source")
       .eq("patient_id", patientId)
       .eq("vital_type", "blood_pressure")
+      // A wearable (cuffless) estimate is excluded in the query, not after the limit, so a watch that syncs often can never crowd cuff readings out of the window.
+      .neq("source", BP_ESTIMATE_SOURCE)
       .order("taken_at", { ascending: false })
       .limit(limit);
     if (error) throw error;
@@ -40,7 +44,7 @@ export async function loadRecentBpReadings(patientId: string, limit = 10): Promi
     // Offline read (S06): the last copy pulled from the server.
     const local = await readLocalRecords<BpRow & { vital_type: string }>("vital", patientId, 200);
     rows = local
-      .filter((r) => r.vital_type === "blood_pressure")
+      .filter((r) => r.vital_type === "blood_pressure" && !isEstimateBpSource(r.source))
       .sort((a, b) => b.taken_at.localeCompare(a.taken_at))
       .slice(0, limit);
   }
@@ -52,6 +56,7 @@ export async function loadRecentBpReadings(patientId: string, limit = 10): Promi
       diastolic: r.diastolic,
       takenAt: r.taken_at,
       level: classifyBpLevel(r.systolic, r.diastolic),
+      source: r.source ?? null,
     }));
   // Readings logged on this phone and not yet sent (S06): shown at their logged
   // time, marked pending, so an offline reading does not look lost.
@@ -83,6 +88,34 @@ export async function loadRecentBpReadings(patientId: string, limit = 10): Promi
     .slice(0, limit);
 }
 
+/**
+ * The newest wearable (cuffless) blood pressure estimate, for the labelled line on the Vitals screen. It is shown, never graded and never averaged
+ * (docs/design/BP-wearable-estimates.md). Null when there is none or it cannot be read; a failed read must not hide anything else.
+ */
+export async function loadNewestBpEstimate(patientId: string): Promise<{ systolic: number; diastolic: number; takenAt: string } | null> {
+  try {
+    const { data, error } = await supabase
+      .from("vitals_readings")
+      .select("systolic, diastolic, taken_at")
+      .eq("patient_id", patientId)
+      .eq("vital_type", "blood_pressure")
+      .eq("source", BP_ESTIMATE_SOURCE)
+      .not("systolic", "is", null)
+      .not("diastolic", "is", null)
+      .order("taken_at", { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    const r = data?.[0];
+    return r && r.systolic !== null && r.diastolic !== null ? { systolic: r.systolic, diastolic: r.diastolic, takenAt: r.taken_at } : null;
+  } catch {
+    const local = await readLocalRecords<BpRow & { vital_type: string }>("vital", patientId, 200).catch(() => []);
+    const r = local
+      .filter((x) => x.vital_type === "blood_pressure" && isEstimateBpSource(x.source) && x.systolic !== null && x.diastolic !== null)
+      .sort((a, b) => b.taken_at.localeCompare(a.taken_at))[0];
+    return r && r.systolic !== null && r.diastolic !== null ? { systolic: r.systolic, diastolic: r.diastolic, takenAt: r.taken_at } : null;
+  }
+}
+
 export interface SevenDayAverage {
   systolic: number;
   diastolic: number;
@@ -91,7 +124,8 @@ export interface SevenDayAverage {
 
 export function computeSevenDayAverage(readings: BpReading[]): SevenDayAverage | null {
   const cutoff = Date.now() - SEVEN_DAYS_MS;
-  const recent = readings.filter((r) => new Date(r.takenAt).getTime() >= cutoff);
+  // A wearable (cuffless) estimate is never part of an average (docs/design/BP-wearable-estimates.md).
+  const recent = diagnosticBpReadings(readings).filter((r) => new Date(r.takenAt).getTime() >= cutoff);
   if (recent.length === 0) return null;
   const sys = Math.round(recent.reduce((sum, r) => sum + r.systolic, 0) / recent.length);
   const dia = Math.round(recent.reduce((sum, r) => sum + r.diastolic, 0) / recent.length);
