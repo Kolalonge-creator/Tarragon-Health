@@ -3,7 +3,7 @@
 -- 1. OQ-451: the CMO sign-off hub gets a signing function for queue_task_layer_config (sign a version) and an activation function for
 --    paging_delivery_config (activate v2) that REFUSES until the pre-sign checklist in docs/plans/S16-S20-cmo-signoff-pack.md section 3
 --    step 5 is met: every on-call clinician has a working push subscription, a verified email and a test page acknowledged within the
---    window of the version being activated. Both tables get approval columns, a freeze guard (a signed, in-force or superseded version is
+--    window of the version being activated. Both tables get approval columns, a freeze guard (a signed or superseded version is
 --    never edited or deleted; a change is a NEW version) and the "never activate an older version than one already signed" trigger.
 -- 2. OQ-452: public.platform_deep_health(), service role only, the heartbeat facts /api/health/deep needs beyond platform_health_snapshot().
 --
@@ -24,8 +24,9 @@ alter table public.paging_delivery_config
 create index if not exists queue_task_layer_config_approved_by_idx on public.queue_task_layer_config (approved_by) where approved_by is not null;
 create index if not exists paging_delivery_config_approved_by_idx on public.paging_delivery_config (approved_by) where approved_by is not null;
 
--- A version is frozen once it is signed, is (or was) in force, or sits below a version that is in force or signed. Only a draft above
--- everything live may still be corrected. The sign/activate functions change only is_active, approved_at and approved_by.
+-- A version is frozen once it is signed, or sits below a version that is in force or signed (superseded). The signature is the freeze point,
+-- as with quality_config: an unsigned version in force may still be corrected by the database owner (the existing proofs tune it in place
+-- inside rolled-back transactions); once the CMO signs it, or a newer version takes over, it is fixed and a change is a NEW version. The sign/activate functions change only is_active, approved_at and approved_by.
 create function private.frozen_config_guard() returns trigger
 language plpgsql set search_path = ''
 as $$
@@ -42,15 +43,15 @@ begin
   end if;
   execute format('select max(t.version) from %I.%I t where t.id <> $1 and (t.is_active or t.approved_at is not null)', tg_table_schema, tg_table_name)
     into v_top using old.id;
-  v_frozen := old.is_active or old.approved_at is not null or (v_top is not null and old.version < v_top);
+  v_frozen := old.approved_at is not null or (v_top is not null and old.version < v_top);
   if tg_op = 'DELETE' then
     if v_frozen then
-      raise exception '% version % is signed, in force or superseded and cannot be deleted; draft a new version', tg_table_name, old.version using errcode = '23514';
+      raise exception '% version % is signed or superseded and cannot be deleted; draft a new version', tg_table_name, old.version using errcode = '23514';
     end if;
     return old;
   end if;
   if v_frozen and (new.version is distinct from old.version or new.rules is distinct from old.rules or new.effective_from is distinct from old.effective_from) then
-    raise exception '% version % is signed, in force or superseded and cannot be edited; draft a new version', tg_table_name, old.version using errcode = '23514';
+    raise exception '% version % is signed or superseded and cannot be edited; draft a new version', tg_table_name, old.version using errcode = '23514';
   end if;
   -- approved_by may go to null (the foreign key action when the signer's profile is deleted); it may never change to someone else
   if old.approved_at is not null and (new.approved_at is distinct from old.approved_at or (new.approved_by is distinct from old.approved_by and new.approved_by is not null)) then
@@ -73,12 +74,13 @@ create trigger refuse_superseded_activation before update of is_active on public
 -- ---------------------------------------------------------------------------
 -- 2. sign_queue_task_layer_config
 -- ---------------------------------------------------------------------------
--- The task layer reads these keys on every task; a draft missing one would break task creation the moment it went live.
+-- The task layer reads these keys on every task; a draft missing one would break task creation the moment it went live. Every test is
+-- wrapped in coalesce(..., false): jsonb_typeof of a missing key is NULL, and a NULL result would read as "not invalid" at the caller.
 create function private.task_layer_rules_valid(r jsonb) returns boolean
 language plpgsql immutable set search_path = ''
 as $$
 begin
-  return jsonb_typeof(r) = 'object'
+  return coalesce(jsonb_typeof(r) = 'object'
     and jsonb_typeof(r -> 'lead_window_cap_fraction') = 'number'
     and (r ->> 'lead_window_cap_fraction')::numeric > 0 and (r ->> 'lead_window_cap_fraction')::numeric <= 1
     and jsonb_typeof(r -> 'escalated_non_red_any_eligible') = 'boolean'
@@ -95,7 +97,7 @@ begin
     and jsonb_typeof(r #> '{completion,default_codes}') = 'array'
     and jsonb_typeof(r #> '{completion,codes_by_type}') = 'object'
     and jsonb_typeof(r #> '{watchdog,job_max_age_minutes}') = 'object'
-    and jsonb_typeof(r #> '{watchdog,class_warning_minutes}') = 'object';
+    and jsonb_typeof(r #> '{watchdog,class_warning_minutes}') = 'object', false);
 exception when others then
   return false;
 end;

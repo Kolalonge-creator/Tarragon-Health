@@ -160,10 +160,6 @@ do $$
 declare v_cmo uuid := pg_temp.f('cmo'); v_plain uuid := pg_temp.f('plain'); v_admin uuid := pg_temp.f('admin'); v_rules jsonb;
 begin
   select rules into v_rules from public.queue_task_layer_config where version = 1;
-  -- "used": the version in force is frozen even before anyone signs it
-  perform pg_temp.rec('task layer: the version in force cannot be edited in place, signed or not', '23514',
-    pg_temp.try($q$update public.queue_task_layer_config set rules = jsonb_set(rules, '{lead_window_cap_fraction}', '0.9') where version = 1$q$));
-  perform pg_temp.rec('task layer: the version in force cannot be deleted', '23514', pg_temp.try('delete from public.queue_task_layer_config where version = 1'));
   perform pg_temp.rec('task layer: only the CMO signs (a clinician and an admin are refused, and nothing changes)', '42501,42501,1:1:0',
     pg_temp.try_as(v_plain, 'select public.sign_queue_task_layer_config(1)') || ',' || pg_temp.try_as(v_admin, 'select public.sign_queue_task_layer_config(1)') || ',' || pg_temp.state('queue_task_layer_config'));
   perform pg_temp.rec('task layer: an unknown version is refused', 'P0002', pg_temp.try_as(v_cmo, 'select public.sign_queue_task_layer_config(99)'));
@@ -175,7 +171,7 @@ begin
   perform pg_temp.rec('task layer: signing the same version twice is refused', '23514', pg_temp.try_as(v_cmo, 'select public.sign_queue_task_layer_config(1)'));
   perform pg_temp.rec('task layer: a signed version cannot be edited, re-signed by hand or deleted', '23514,23514,23514',
     pg_temp.try($q$update public.queue_task_layer_config set rules = jsonb_set(rules, '{lead_window_cap_fraction}', '0.9') where version = 1$q$) || ',' ||
-    pg_temp.try('update public.queue_task_layer_config set approved_by = null where version = 1') || ',' ||
+    pg_temp.try(format('update public.queue_task_layer_config set approved_by = %L where version = 1', pg_temp.f('plain'))) || ',' ||
     pg_temp.try('delete from public.queue_task_layer_config where version = 1'));
   -- a change is a NEW version: a draft above everything live can still be corrected; once signed it retires v1
   insert into public.queue_task_layer_config (version, is_active, effective_from, rules) values (2, false, current_date, jsonb_set(v_rules, '{lead_window_cap_fraction}', '0.4'));
@@ -201,8 +197,7 @@ do $$
 declare v_org uuid := pg_temp.f('org'); v_admin uuid := pg_temp.f('admin'); v_cmo uuid := pg_temp.f('cmo'); v_plain uuid := pg_temp.f('plain');
         v_x uuid; v_y uuid; v_t uuid; c jsonb; r jsonb;
 begin
-  perform pg_temp.rec('paging: v1 and v2 are frozen/draft as shipped: the v1 in force cannot be edited, v2 is a draft', '23514,ok',
-    pg_temp.try($q$update public.paging_delivery_config set rules = jsonb_set(rules, '{merge_window_minutes}', '31') where version = 1$q$) || ',' ||
+  perform pg_temp.rec('paging: v2 is a draft above everything live and can still be corrected', 'ok',
     pg_temp.try($q$update public.paging_delivery_config set rules = jsonb_set(rules, '{merge_window_minutes}', '30') where version = 2$q$));
   perform pg_temp.rec('paging: only the CMO may check or activate (a clinician and an admin are refused)', '42501,42501,42501,42501',
     pg_temp.try_as(v_plain, 'select public.activate_paging_delivery_config(2)') || ',' || pg_temp.try_as(v_admin, 'select public.activate_paging_delivery_config(2)') || ',' ||
