@@ -84,7 +84,7 @@ begin
   values (v, 'opsd-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}', case when p_confirm then regexp_replace(p_phone, '\D', '', 'g') end, case when p_confirm then now() end);
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, language)
   values (v, p_org, p_role::public.user_role, 'OpsDesk ' || p_label, p_phone, (current_date - interval '45 years')::date, true, 'en')
-  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone;
+  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone, organisation_id = excluded.organisation_id, full_name = excluded.full_name;
   return v;
 end $f$;
 create function pg_temp.confirm_phone(p_uid uuid, p_phone text) returns void language plpgsql as
@@ -278,7 +278,7 @@ begin
     pg_temp.try_as(v_admin, format('select public.ops_desk_set_windows(%L, ''[{"day": 9, "start": "08:00", "end": "07:00"}]''::jsonb)', v_c1)));
   perform pg_temp.rec('hours: an active contact cannot be left with no hours', '22023',
     pg_temp.try_as(v_admin, format('select public.ops_desk_set_windows(%L, ''[]''::jsonb)', v_c1)));
-  perform pg_temp.rec('on duty: both are on duty now (Lagos day), primary and deputy', '2,primary,deputy',
+  perform pg_temp.rec('on duty: both are on duty now (Lagos day), primary and deputy', '2,deputy,primary',
     (select count(*)::text from private.ops_desk_on_duty(v_org, true)) || ',' ||
     (select string_agg(role, ',' order by role) from private.ops_desk_on_duty(v_org, true)));
   perform pg_temp.rec('on duty: at the same instant on a day with no window nobody is', '0',
@@ -394,7 +394,9 @@ begin
 
   -- a nobody-reachable incident (the health job's) is assigned the same way
   update public.ops_desk_contacts set is_active = true, activated_by = v_admin, activated_at = now() where id = v_c2;
+  perform pg_temp.set_world(false);
   perform private.page_incident(v_org, 'page_nobody_reachable:' || v_org, 'Nobody reachable is on call', 'proof');
+  perform pg_temp.set_world(true);
   perform pg_temp.rec('nobody reachable: the standing condition gets its own calmer notice, three channels, never the page wording', '3,0',
     (select count(*)::text from public.notifications where template = 'on_call_ops_desk_roster' and recipient_id = v_ops2) || ',' ||
     (select count(*)::text from public.notifications n where n.template = 'on_call_ops_desk' and n.recipient_id = v_ops2
@@ -691,7 +693,8 @@ begin
   select count(*) into v_bad from results where phase = 'real' and expected is distinct from actual;
   if v_bad > 0 then
     raise exception 'Ops desk proof FAILED on the real migration: %',
-      (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
+      (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual)
+      || ' || ops desk audit errors: ' || coalesce((select string_agg(action || ' ' || coalesce(event ->> 'error', ''), ' / ') from public.audit_log where action like 'ops\_desk.%error%'), 'none');
   end if;
   select count(*) into v_sab from results where phase = 'sabotaged';
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
