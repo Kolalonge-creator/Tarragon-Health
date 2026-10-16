@@ -190,9 +190,10 @@ begin
   perform pg_temp.rec('scribe, payouts, signup, on-call keep theirs', 'clinical_safety_case_current,con001_legal_review_recorded,speech_provider_configured|fee_schedule_approved,paystack_transfers_configured|stage2_exit_criteria_met|rota_covers_next_7_days',
     pg_temp.codes('scribe_enabled') || '|' || pg_temp.codes('payouts_enabled') || '|' || pg_temp.codes('public_signup_enabled') || '|' || pg_temp.codes('on_call_cover_ok'));
   -- those two branches read tables that exist only on the live project (research_protocols, ...), so they are checked in the function text
-  perform pg_temp.rec('the later live branches are kept in the function (research export, symptom checker, prescribing, scribe)', '7',
-    (select count(*)::text from unnest(array['research_export_enabled', 'counsel_cross_border_cleared', 'dpo_registered', 'symptom_checker_enabled', 'symptom_triage_sla_signed', 'pharmacy_licence_current', 'con001_legal_review_recorded'])
-        t where pg_get_functiondef('private.go_live_conditions(text,uuid)'::regprocedure) like '%' || t || '%'));
+  -- the outer function is a chain of wrappers by now, so its own text names nothing: ask it instead
+  perform pg_temp.rec('the later live branches still answer (research export, symptom checker, prescribing, scribe, and the wrapped S60 to S74 guards)', '4',
+    (select count(*)::text from unnest(array['research_export_enabled', 'symptom_checker_enabled', 'prescribing_enabled', 'scribe_enabled']) k
+      where position('unknown_guard' in pg_temp.codes(k)) = 0));
   -- every (guard, code) pair of the LIVE attest_go_live_condition (captured read-only from koiplnmbgnqnbywhpjlf, 2026-10-07, 16 pairs) is still attestable
   perform pg_temp.rec('every live attestation pair is still in the allow-list (16 captured from the live definition)', '16',
     (select count(*)::text from unnest(array[

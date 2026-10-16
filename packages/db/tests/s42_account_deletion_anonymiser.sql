@@ -70,7 +70,9 @@ begin
   select id into v_req from public.data_deletion_requests where patient_id = v_a;
   insert into fx values ('req', v_req);
   -- S04b-2: a request cannot be approved or completed until its waiting period has ended; this proof is about the anonymiser, so the wait is over
+  alter table public.data_deletion_requests disable trigger user;
   update public.data_deletion_requests set grace_ends_at = now() - interval '1 minute' where id = v_req;
+  alter table public.data_deletion_requests enable trigger user;
 
   -- 1. who and when
   perform pg_temp.ck('patient cannot complete a deletion', '42501', pg_temp.try_as(v_a, format('select public.complete_account_deletion(%L)', v_req)));

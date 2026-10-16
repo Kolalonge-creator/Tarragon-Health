@@ -62,7 +62,7 @@ begin
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, is_dependent_account, dependent_kind)
   values (v, p_org, p_role::public.user_role, 'S42 ' || p_label || ' Person', v_phone, coalesce(p_dob, (current_date - interval '45 years')::date), true,
           coalesce(p_dob, (current_date - interval '45 years')::date) > (current_date - interval '18 years')::date,
-          case when coalesce(p_dob, (current_date - interval '45 years')::date) > (current_date - interval '18 years')::date then 'minor_child' end)
+          case when coalesce(p_dob, (current_date - interval '45 years')::date) > (current_date - interval '18 years')::date then 'minor_child'::public.dependent_kind end)
   on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, full_name = excluded.full_name, phone = excluded.phone, date_of_birth = excluded.date_of_birth,
      is_dependent_account = excluded.is_dependent_account, dependent_kind = excluded.dependent_kind;
   return v;

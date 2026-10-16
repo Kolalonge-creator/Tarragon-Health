@@ -239,10 +239,11 @@ begin
     (pg_temp.q_as(v_pat, format($q$select public.set_item_note('vitals_readings', %L, 'Clinic cuff', null, null)::text$q$, v_vd)) like '%"id"%')::text);
   select systolic into v_sys from public.vitals_readings where id = v_vd;
   perform pg_temp.ck('3c ...and the device reading itself is unchanged', '150', v_sys::text);
-  perform pg_temp.ck('3d the source lock still blocks a patient edit of the device reading', 'true',
-    (pg_temp.q_as(v_pat, format($q$update public.vitals_readings set systolic = 120 where id = %L$q$, v_vd)) like 'ERR:This reading was recorded automatically%')::text);
-  perform pg_temp.ck('3e a patient edit of a manual reading still works', 'ok',
-    pg_temp.try_as(v_pat, format($q$update public.vitals_readings set systolic = 128 where id = %L$q$, v_vm)));
+  -- S05b: a recorded value is never edited in place, by anyone; a correction supersedes it (public.correct_clinical_value)
+  perform pg_temp.ck('3d a patient edit of the device reading is refused', 'true',
+    (pg_temp.q_as(v_pat, format($q$update public.vitals_readings set systolic = 120 where id = %L$q$, v_vd)) like 'ERR:%')::text);
+  perform pg_temp.ck('3e a patient edit of a manual reading in place is refused too (S05b: supersede, never edit)', 'true',
+    (pg_temp.q_as(v_pat, format($q$update public.vitals_readings set systolic = 128 where id = %L$q$, v_vm)) like 'ERR:a recorded vitals_readings value is never edited%')::text);
   perform pg_temp.ck('3f another patient cannot annotate this item, and learns nothing about it', 'ERR:item not found',
     pg_temp.q_as(v_pat2, format($q$select public.set_item_note('vitals_readings', %L, 'x', null, null)::text$q$, v_vm)));
   perform pg_temp.ck('3g a table outside the closed list is refused the same way', 'ERR:item not found',
