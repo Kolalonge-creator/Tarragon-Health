@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { GLUCOSE_UNIT_LABEL, diagnosticBpReadings } from "@tarragon/shared";
+import { GLUCOSE_UNIT_LABEL, bpAckDelivery, diagnosticBpReadings, type BpAckDelivery } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
 import { BP_THRESHOLDS, classifyBpLevel, type BpLevel, type BpThresholds } from "@/lib/bp-classification";
@@ -10,6 +10,7 @@ import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-t
 import { loadActiveThresholds } from "@/lib/threshold-sync";
 import { BP_CHECKLIST_SYMPTOMS, CUFF_TYPES, planBpLog, redFlagsAmong, type BpChecklistSymptom, type CuffType } from "@/lib/bp-checklist";
 import { logBpWithExtras } from "@/lib/bp-log";
+import { bpAckMessage } from "@/lib/bp-ack-view";
 import { refreshApprovedGlucoseRuleSet, refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
 import { answerSymptomQuestion, type QuestionSymptom } from "@/lib/symptom-question";
 import { readObstetricStatus, refreshObstetricStatus } from "@/lib/obstetric-status";
@@ -149,6 +150,8 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [saving, setSaving] = useState(false);
   const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // What is true right after a save (received / saved on this phone and waiting); cleared when the next save starts.
+  const [ack, setAck] = useState<BpAckDelivery | null>(null);
   const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
   const [triageCard, setTriageCard] = useState<{ message: string; tone: "warn" | "info"; audioId: string | null } | null>(null);
   const [cuffType, setCuffType] = useState<CuffType | null>(null);
@@ -298,6 +301,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     setSaveError(null);
     setUrgentBanner(null);
     setTriageCard(null);
+    setAck(null);
 
     // The emergency guidance and the urgent banner come from the on-device check and appear at
     // once, before anything is sent: a crisis-range reading or a red-flag symptom is dangerous
@@ -334,6 +338,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     if (result.rejectedSupportCodes && result.rejectedSupportCodes.length > 0) {
       setSaveError(t("outbox.rejected", locale, { count: result.rejectedSupportCodes.length, code: result.rejectedSupportCodes[0] ?? "" }));
     }
+    setAck(bpAckDelivery(result));
     toast.show(result.syncedAll ? { message: tr("vitals.log.saved"), tone: "success" } : { message: t("outbox.saved_on_phone", locale), tone: "info" });
     setSys("");
     setDia("");
@@ -574,6 +579,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
             {triageCard.audioId ? <ListenButton clipIds={[triageCard.audioId]} lang={locale} /> : null}
           </>
         ) : null}
+        {bpAckMessage(ack, locale) ? <InlineAlert tone="info" message={bpAckMessage(ack, locale) ?? ""} /> : null}
         <Button title={tr("vitals.log.save")} onPress={handleSave} loading={saving} />
       </Card>
 

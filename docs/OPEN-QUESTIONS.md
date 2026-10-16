@@ -3866,6 +3866,17 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 ### OQ-BPW-5 Latent fault found: the blood pressure handler cannot resolve a severity-2 "Missing expected blood-pressure readings" alert
 - The first statement of `private.handle_bp_reading_red_flag` resolves that alert with a bare `status = 'resolved'`. The check `clinician_alerts_resolution_requires_documentation` (20260828204033) refuses a resolved severity-2 alert without `resolution_action` and `resolution_outcome`, and the generator (`20260720015541`) inserts the alert at level `clinician_review`, which classifies as severity 2. If such an alert is ever open, the next blood pressure insert for that patient would error and roll back. **None exists today** (live count 0, checked 2026-10-16), so nothing is failing; found because the PR 1 proof tried to close one. Fix is small (set the two columns when resolving, using the values the taxonomy allows) but changes a live safety path, so it is left for its own PR with the CMO's wording for the outcome.
 
+## Blood pressure acknowledgement (raised 2026-10-16, branch pr2/bp-immediate-acknowledgement)
+
+### OQ-BPA-1 The web shows rest-and-measure-again (TRI-005) for a very high reading, not EMG-001 (for the CMO)
+- The web has no emergency-symptom question and no on-device engine. After a very high reading it shows "Received by TarragonHealth." and TRI-005 (the CMO-approved first step for a 200/130-range reading with no symptom). EMG-001 assumes the symptom answer, so it is not shown. The server's emergency record (unchanged) still raises the full safety net. Options: (a) leave (recommended until the web asks the question); (b) add the same emergency-symptom question to the web form; (c) show EMG-001 for the top band (over-warns people with no symptom, contradicts the 2026-10-05 decision).
+
+### OQ-BPA-2 New acknowledgement sentences are proposed copy and sit outside the reviewed-strings ledger
+- `bpack.received`, `bpack.received_note`, `bpack.waiting_note` and `bpe.estimate_label`/`bpe.estimate_note` are in namespaces the ledger does not cover (as `hc.*` is), so no reviewer was invented for them. They say only what is true (received, saved on the phone and not yet sent, a wearable estimate is not used in averages) and are scanned for review, time and clinician words. The CMO should read them; if they should be ledger-covered, move them under `vitals.` and add a real entry.
+
+### OQ-BPA-3 Free members and "Your care team will look at this" (TRI-002)
+- The acknowledgement never adds a care-team promise of its own. TRI-002 (signed without a review promise, OQ-251) is the engine's wording and is unchanged. Whether it should be hidden for a Free patient whose red reading does not reach a doctor (two-tier decision 2026-10-08) is for the CMO; the acknowledgement does not depend on it.
+
 ## Renumbering map (2026-10-16)
 
 Several OQ numbers were handed out twice by parallel sessions. The first heading in this file keeps its number; each later duplicate was given a fresh number above 452 (`packages/shared/src/open-questions-unique.test.ts` now fails on a repeated `### OQ-N`). References INSIDE a renumbered entry were updated. References elsewhere (other docs, code comments, migration headers) were NOT rewritten: a bare "OQ-310" there cannot be told apart from the five other OQ-310 topics, and applied migration bodies are never edited. Read an old citation against this map; the number it most likely means is the one that kept its number unless the citing text matches a title below.

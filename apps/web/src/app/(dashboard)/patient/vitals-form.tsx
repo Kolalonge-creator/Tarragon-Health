@@ -1,4 +1,5 @@
 "use client";
+import { vitalSavedMessage } from "@/lib/vitals/bp-ack-message";
 import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 
 import { useActionState, useEffect, useRef, useState } from "react";
@@ -420,7 +421,7 @@ export function VitalsForm({
           )}
 
           <FormError id={errorId} message={displayedError} />
-          <FormSuccess message={state?.success && "Reading logged."} />
+          <FormSuccess message={state?.success && vitalSavedMessage(state.bpAckLevel)} />
 
           {!crosscheck && (
             <Button type="submit" disabled={pending}>
