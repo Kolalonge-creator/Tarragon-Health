@@ -112,15 +112,31 @@ begin
   perform pg_temp.ck('control: guardian two can read before completion', '1', pg_temp.vitals_seen_by(v_g2, v_c));
   perform pg_temp.ck('my_handover shows it is pending with two guardians', 'true|2', pg_temp.q_as(v_c, $q$select (public.my_handover() ->> 'pending') || '|' || jsonb_array_length(public.my_handover() -> 'guardians')::text$q$));
 
+  -- S04b-1 safeguards carried into this hand-over: a verified phone, the young person's own date of birth, a five-try lockout.
+  update auth.users set phone_confirmed_at = null where id = v_c;
+  perform pg_temp.ck('an unverified phone cannot complete', '23514', pg_temp.try_as(v_c, format('select public.complete_dependant_handover(''{}'', %L)', (select date_of_birth from public.profiles where id = v_c))));
+  update auth.users set phone_confirmed_at = now() where id = v_c;
+  perform pg_temp.ck('no date of birth is a wrong answer, not a pass', 'wrong_dob', pg_temp.q_as(v_c, $q$select (public.complete_dependant_handover('{}') ->> 'reason')$q$));
+  perform pg_temp.ck('a wrong date of birth says how many tries are left', '3', pg_temp.q_as(v_c, $q$select (public.complete_dependant_handover('{}', date '1990-01-01') ->> 'attempts_left')$q$));
+  perform pg_temp.ck('the wrong tries are counted on the row', '2', (select wrong_dob_attempts::text from public.dependant_handovers where patient_id = v_c));
+  perform pg_temp.ck('a wrong date of birth does not complete', 'false', pg_temp.q_as(v_c, $q$select (public.complete_dependant_handover('{}', date '1990-01-02') ->> 'ok')$q$));
+  perform pg_temp.ck('a wrong answer changed nothing', '2', (select count(*)::text from public.profile_access where profile_id = v_c));
+  perform pg_temp.q_as(v_c, $q$select (public.complete_dependant_handover('{}', date '1990-01-01') ->> 'reason')$q$);
+  perform pg_temp.q_as(v_c, $q$select (public.complete_dependant_handover('{}', date '1990-01-01') ->> 'reason')$q$);
+  perform pg_temp.ck('five wrong answers lock it for a day', 't', (select (dob_locked_until > now() + interval '23 hours')::text from public.dependant_handovers where patient_id = v_c));
+  perform pg_temp.ck('while locked even the right date of birth is refused', '55000', pg_temp.try_as(v_c, format('select public.complete_dependant_handover(''{}'', %L)', (select date_of_birth from public.profiles where id = v_c))));
+  perform pg_temp.ck('and nobody lost access', '2', (select count(*)::text from public.profile_access where profile_id = v_c));
+  update public.dependant_handovers set dob_locked_until = now() - interval '1 minute' where patient_id = v_c;
+
   -- refusals
   perform pg_temp.ck('a stranger cannot complete', 'P0002', pg_temp.try_as(v_x, 'select public.complete_dependant_handover(''{}'')'));
   perform pg_temp.ck('a guardian cannot complete for them', 'P0002', pg_temp.try_as(v_g1, 'select public.complete_dependant_handover(''{}'')'));
   perform pg_temp.ck('anon cannot complete', '42501', pg_temp.try_anon('select public.complete_dependant_handover(''{}'')'));
-  perform pg_temp.ck('an id that is not a guardian is refused', '22023', pg_temp.try_as(v_c, format('select public.complete_dependant_handover(array[%L]::uuid[])', v_x)));
+  perform pg_temp.ck('an id that is not a guardian is refused', '22023', pg_temp.try_as(v_c, format('select public.complete_dependant_handover(array[%L]::uuid[], %L)', v_x, (select date_of_birth from public.profiles where id = v_c))));
   perform pg_temp.ck('nothing changed by the refusals', '2', (select count(*)::text from public.profile_access where profile_id = v_c));
 
   -- completion: keep guardian two only
-  perform pg_temp.ck('young person completes, keeping guardian two', 'ok', pg_temp.try_as(v_c, format('select public.complete_dependant_handover(array[%L]::uuid[])', v_g2)));
+  perform pg_temp.ck('young person completes, keeping guardian two', 'ok', pg_temp.try_as(v_c, format('select public.complete_dependant_handover(array[%L]::uuid[], %L)', v_g2, (select date_of_birth from public.profiles where id = v_c))));
   perform pg_temp.ck('guardian one lost access: zero rows', '0', pg_temp.vitals_seen_by(v_g1, v_c));
   perform pg_temp.ck('guardian one grant is gone', '0', (select count(*)::text from public.profile_access where profile_id = v_c and grantee_user_id = v_g1));
   perform pg_temp.ck('guardian two (consented) still reads', '1', pg_temp.vitals_seen_by(v_g2, v_c));
@@ -214,6 +230,22 @@ begin
     (select permissions::text from public.profile_access where profile_id = v_pa and grantee_user_id = v_px));
 end $$;
 
+-- SABOTAGE C: the date-of-birth check removed. A wrong date of birth must then complete the hand-over.
+do $$
+declare v_org uuid; v_c uuid; v_g uuid; v_def text; v_r text;
+begin
+  select id into v_org from public.organisations order by created_at limit 1;
+  v_c := pg_temp.mkuser(v_org, 'sab-child', 'patient', (current_date - interval '18 years' - interval '1 day')::date);
+  v_g := pg_temp.mkuser(v_org, 'sab-guardian', 'patient');
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v_c, v_g, 'view', v_g);
+  insert into public.dependant_handovers (organisation_id, patient_id, birthday_18, is_test) values (v_org, v_c, current_date - 1, true);
+  v_def := pg_get_functiondef('public.complete_dependant_handover(uuid[], date)'::regprocedure);
+  v_def := replace(v_def, 'p_date_of_birth <> p.date_of_birth', 'false');
+  execute v_def;
+  v_r := pg_temp.q_as(v_c, $q$select (public.complete_dependant_handover('{}', date '1990-01-01') ->> 'ok')$q$);
+  insert into results values ('sabotaged', 'a wrong date of birth does not complete', 'false', coalesce(v_r, 'null'));
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -224,7 +256,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of 2 checks', v_caught; end if;
+  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

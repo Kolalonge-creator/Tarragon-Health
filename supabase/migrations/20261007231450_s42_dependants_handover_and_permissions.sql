@@ -185,6 +185,8 @@ create table public.dependant_handovers (
   guardians_ended   integer check (guardians_ended >= 0),
   guardians_kept    uuid[] not null default '{}',
   consent_text_key  text,
+  wrong_dob_attempts integer not null default 0 check (wrong_dob_attempts >= 0),
+  dob_locked_until  timestamptz,
   is_test           boolean not null default false,
   created_at        timestamptz not null default now(),
   check (state <> 'completed' or (completed_at is not null and guardians_ended is not null and consent_text_key is not null))
@@ -269,7 +271,7 @@ end $$;
 revoke all on function public.my_handover() from public, anon;
 grant execute on function public.my_handover() to authenticated;
 
-create function public.complete_dependant_handover(p_keep uuid[] default '{}') returns jsonb
+create function public.complete_dependant_handover(p_keep uuid[] default '{}', p_date_of_birth date default null) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare
@@ -277,7 +279,7 @@ declare
   h public.dependant_handovers%rowtype;
   p public.profiles%rowtype;
   v_keep uuid[] := coalesce(p_keep, '{}');
-  k uuid; v_ended integer;
+  k uuid; v_ended integer; v_phone_ok boolean; v_left integer;
 begin
   if v_uid is null then raise exception 'handover_not_authorised' using errcode = '42501'; end if;
   select * into p from public.profiles where id = v_uid;
@@ -286,6 +288,26 @@ begin
   if current_date < h.birthday_18 then raise exception 'handover_not_yet' using errcode = '23514'; end if;
   -- The young person acts from their own login. A record still marked as a dependant has none.
   if p.is_dependent_account then raise exception 'handover_needs_own_login' using errcode = '23514'; end if;
+  -- Carried over from S04b-1 (the hand-over it replaced): the young person must hold a VERIFIED phone number, and must confirm their
+  -- own date of birth. Five wrong answers lock the hand-over for 24 hours; the count lives on the row, so it survives a retry and a
+  -- new session. The wrong answer is returned, not raised, so the counter write is not rolled back.
+  select (u.phone_confirmed_at is not null) into v_phone_ok from auth.users u where u.id = v_uid;
+  if not coalesce(v_phone_ok, false) then raise exception 'handover_needs_verified_phone' using errcode = '23514'; end if;
+  if h.dob_locked_until is not null and h.dob_locked_until > now() then raise exception 'handover_locked' using errcode = '55000'; end if;
+  if h.dob_locked_until is not null and h.dob_locked_until <= now() then
+    update public.dependant_handovers set wrong_dob_attempts = 0, dob_locked_until = null where id = h.id;
+    h.wrong_dob_attempts := 0;
+  end if;
+  if p_date_of_birth is null or p.date_of_birth is null or p_date_of_birth <> p.date_of_birth then
+    v_left := greatest(0, 5 - (h.wrong_dob_attempts + 1));
+    update public.dependant_handovers
+       set wrong_dob_attempts = wrong_dob_attempts + 1,
+           dob_locked_until = case when wrong_dob_attempts + 1 >= 5 then now() + interval '24 hours' else null end
+     where id = h.id;
+    perform private.log_audit('dependant.handover_wrong_dob', 'profile', v_uid, jsonb_build_object('attempts_left', v_left));
+    return jsonb_build_object('ok', false, 'reason', 'wrong_dob', 'attempts_left', v_left);
+  end if;
+  update public.dependant_handovers set wrong_dob_attempts = 0, dob_locked_until = null where id = h.id;
   foreach k in array v_keep loop
     if not exists (select 1 from public.profile_access where profile_id = v_uid and grantee_user_id = k) then
       raise exception 'handover_unknown_guardian' using errcode = '22023';
@@ -308,8 +330,8 @@ begin
   perform private.log_audit('dependant.handover_completed', 'profile', v_uid, jsonb_build_object('guardians_ended', v_ended, 'guardians_kept', cardinality(v_keep)));
   return jsonb_build_object('ok', true, 'guardians_ended', v_ended, 'guardians_kept', cardinality(v_keep));
 end $$;
-revoke all on function public.complete_dependant_handover(uuid[]) from public, anon;
-grant execute on function public.complete_dependant_handover(uuid[]) to authenticated;
+revoke all on function public.complete_dependant_handover(uuid[], date) from public, anon;
+grant execute on function public.complete_dependant_handover(uuid[], date) to authenticated;
 
 insert into public.event_types (event_type, description, owner_section, is_urgent) values
   ('dependant.handover_due', 'A dependant is within 30 days of their 18th birthday and a hand-over is waiting (ids and a date only)', 'S42', false),

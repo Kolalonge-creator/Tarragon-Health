@@ -13661,7 +13661,9 @@ export type Database = {
           notice_failures: number
           restorable_until: string | null
           guardians_ended: number | null
+          dob_locked_until: string | null
           guardians_kept: string[]
+          wrong_dob_attempts: number
           id: string
           is_test: boolean
           organisation_id: string
@@ -13679,7 +13681,9 @@ export type Database = {
           notice_failures?: number
           restorable_until?: string | null
           guardians_ended?: number | null
+          dob_locked_until?: string | null
           guardians_kept?: string[]
+          wrong_dob_attempts?: number
           id?: string
           is_test?: boolean
           organisation_id: string
@@ -13697,7 +13701,9 @@ export type Database = {
           notice_failures?: number
           restorable_until?: string | null
           guardians_ended?: number | null
+          dob_locked_until?: string | null
           guardians_kept?: string[]
+          wrong_dob_attempts?: number
           id?: string
           is_test?: boolean
           organisation_id?: string
@@ -48763,7 +48769,7 @@ export type Database = {
       my_handover: { Args: never; Returns: Json }
       my_consent_matrix_history: { Args: { p_limit?: number }; Returns: Json }
       my_consent_matrix: { Args: never; Returns: Json }
-      complete_dependant_handover: { Args: { p_keep?: string[] }; Returns: Json }
+      complete_dependant_handover: { Args: { p_date_of_birth?: string; p_keep?: string[] }; Returns: Json }
       complete_account_deletion: { Args: { p_request: string }; Returns: Json }
       apply_consent_bundle: { Args: { p_bundle: string }; Returns: Json }
       save_my_tax_profile: {

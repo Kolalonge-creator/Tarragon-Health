@@ -101,7 +101,14 @@ export async function loadMyHandover(): Promise<HandoverState> {
   return { pending: raw.pending === true, guardians: (raw.guardians ?? []).map((g) => ({ id: g.id, firstName: g.first_name })) };
 }
 
-export async function completeHandover(keep: string[]): Promise<QueryResult<null>> {
-  const { error } = await supabase.rpc("complete_dependant_handover", { p_keep: keep });
-  return error ? { ok: false, error: t("handover.error") } : { ok: true, data: null };
+export async function completeHandover(keep: string[], dateOfBirth: string): Promise<QueryResult<null>> {
+  const { data, error } = await supabase.rpc("complete_dependant_handover", { p_keep: keep, p_date_of_birth: dateOfBirth });
+  if (error) {
+    if (error.message?.includes("handover_needs_verified_phone")) return { ok: false, error: t("handover.error.phone") };
+    if (error.message?.includes("handover_locked")) return { ok: false, error: t("handover.error.locked") };
+    return { ok: false, error: t("handover.error") };
+  }
+  const result = data as { ok?: boolean; attempts_left?: number } | null;
+  if (result?.ok === false) return { ok: false, error: t("handover.error.dob", "en", { n: String(result.attempts_left ?? 0) }) };
+  return { ok: true, data: null };
 }

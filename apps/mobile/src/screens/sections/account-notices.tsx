@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { t, type MessageKey } from "@tarragon/i18n";
 import {
   CARE_ACCESS_CATEGORIES,
@@ -86,11 +86,12 @@ function HandoverCard({ state, onDone }: { state: HandoverState; onDone: () => v
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [dob, setDob] = useState("");
 
   async function finish() {
     setBusy(true);
     setError(null);
-    const result = await completeHandover(keep);
+    const result = await completeHandover(keep, dob);
     setBusy(false);
     if (!result.ok) {
       setError(result.error);
@@ -122,8 +123,20 @@ function HandoverCard({ state, onDone }: { state: HandoverState; onDone: () => v
         </>
       )}
       <MutedText>{t("handover.consent_notice")}</MutedText>
+      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{t("handover.dob_label")}</Text>
+      <TextInput
+        accessibilityLabel={t("handover.dob_label")}
+        placeholder="YYYY-MM-DD"
+        placeholderTextColor={colors.muted}
+        value={dob}
+        onChangeText={setDob}
+        keyboardType="numbers-and-punctuation"
+        maxLength={10}
+        style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 10, color: colors.ink }}
+      />
+      <MutedText>{t("handover.dob_note")}</MutedText>
       {error && <ErrorText>{error}</ErrorText>}
-      <PrimaryButton title={t("handover.finish")} onPress={() => void finish()} loading={busy} />
+      <PrimaryButton title={t("handover.finish")} onPress={() => void finish()} loading={busy} disabled={!/^\d{4}-\d{2}-\d{2}$/.test(dob)} />
     </Card>
   );
 }

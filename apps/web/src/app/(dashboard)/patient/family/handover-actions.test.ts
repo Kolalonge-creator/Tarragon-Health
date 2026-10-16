@@ -11,26 +11,41 @@ import { completeHandoverAction } from "./handover-actions";
 import { endProxyAccessAction } from "./proxy-arrangement-actions";
 
 const UUID = "123e4567-e89b-42d3-a456-426614174000";
+const DOB = "2008-01-02";
 
 beforeEach(() => rpcMock.mockReset().mockResolvedValue({ data: { ok: true }, error: null }));
 
 describe("completeHandoverAction", () => {
   it("sends only the guardians the young person chose to keep", async () => {
-    expect(await completeHandoverAction({ keep: [UUID] })).toEqual({ ok: true });
-    expect(rpcMock).toHaveBeenCalledWith("complete_dependant_handover", { p_keep: [UUID] });
+    expect(await completeHandoverAction({ keep: [UUID], dateOfBirth: DOB })).toEqual({ ok: true });
+    expect(rpcMock).toHaveBeenCalledWith("complete_dependant_handover", { p_keep: [UUID], p_date_of_birth: DOB });
   });
   it("an empty choice ends everyone's access (the default)", async () => {
-    expect(await completeHandoverAction({ keep: [] })).toEqual({ ok: true });
-    expect(rpcMock).toHaveBeenCalledWith("complete_dependant_handover", { p_keep: [] });
+    expect(await completeHandoverAction({ keep: [], dateOfBirth: DOB })).toEqual({ ok: true });
+    expect(rpcMock).toHaveBeenCalledWith("complete_dependant_handover", { p_keep: [], p_date_of_birth: DOB });
   });
   it("refuses a value that is not a list of ids", async () => {
     expect((await completeHandoverAction({ keep: ["someone"] }))?.error).toBe(true);
     expect((await completeHandoverAction({}))?.error).toBe(true);
+    expect((await completeHandoverAction({ keep: [] }))?.error).toBe(true); // no date of birth
     expect(rpcMock).not.toHaveBeenCalled();
   });
   it("reports a database refusal", async () => {
     rpcMock.mockResolvedValue({ data: null, error: { code: "23514", message: "handover_not_yet" } });
-    expect((await completeHandoverAction({ keep: [] }))?.error).toBe(true);
+    expect((await completeHandoverAction({ keep: [], dateOfBirth: DOB }))?.error).toBe(true);
+  });
+});
+
+describe("completeHandoverAction safeguards", () => {
+  it("reports a wrong date of birth with the tries left, not a generic failure", async () => {
+    rpcMock.mockResolvedValue({ data: { ok: false, reason: "wrong_dob", attempts_left: 3 }, error: null });
+    expect(await completeHandoverAction({ keep: [], dateOfBirth: DOB })).toEqual({ error: true, reason: "wrong_dob", attemptsLeft: 3 });
+  });
+  it("names an unverified phone and a locked hand-over", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: { code: "23514", message: "handover_needs_verified_phone" } });
+    expect((await completeHandoverAction({ keep: [], dateOfBirth: DOB }))?.reason).toBe("needs_verified_phone");
+    rpcMock.mockResolvedValue({ data: null, error: { code: "55000", message: "handover_locked" } });
+    expect((await completeHandoverAction({ keep: [], dateOfBirth: DOB }))?.reason).toBe("locked");
   });
 });
 

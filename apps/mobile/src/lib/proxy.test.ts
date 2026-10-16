@@ -61,9 +61,11 @@ describe("hand-over at 18", () => {
 
   it("completes with exactly the guardians chosen, and an empty list ends everyone", async () => {
     mockRpc.mockResolvedValue({ data: { ok: true }, error: null });
-    await completeHandover([]);
-    expect(mockRpc).toHaveBeenCalledWith("complete_dependant_handover", { p_keep: [] });
+    await completeHandover([], "2008-01-02");
+    expect(mockRpc).toHaveBeenCalledWith("complete_dependant_handover", { p_keep: [], p_date_of_birth: "2008-01-02" });
     mockRpc.mockResolvedValue({ data: null, error: { message: "handover_not_yet" } });
-    expect((await completeHandover(["g1"])).ok).toBe(false);
+    expect((await completeHandover(["g1"], "2008-01-02")).ok).toBe(false);
+    mockRpc.mockResolvedValue({ data: { ok: false, reason: "wrong_dob", attempts_left: 2 }, error: null });
+    expect((await completeHandover([], "1999-09-09")).ok).toBe(false);
   });
 });

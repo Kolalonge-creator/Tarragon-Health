@@ -19,7 +19,8 @@ export interface HandoverGuardian {
 export function HandoverCard({ guardians }: { guardians: HandoverGuardian[] }) {
   const [keep, setKeep] = useState<string[]>([]);
   const [done, setDone] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dob, setDob] = useState("");
   const [pending, startTransition] = useTransition();
 
   if (done) {
@@ -59,21 +60,31 @@ export function HandoverCard({ guardians }: { guardians: HandoverGuardian[] }) {
           </fieldset>
         )}
         <p className="text-xs text-charcoal-ink/60">{t("handover.consent_notice")}</p>
+        <div className="space-y-1">
+          <label htmlFor="handover-dob" className="text-sm font-medium">
+            {t("handover.dob_label")}
+          </label>
+          <input id="handover-dob" type="date" required value={dob} onChange={(e) => setDob(e.target.value)} className="block rounded-md border px-2 py-1 text-sm" />
+          <p className="text-xs text-charcoal-ink/60">{t("handover.dob_note")}</p>
+        </div>
         {error && (
           <p role="alert" className="text-sm text-red-700">
-            {t("handover.error")}
+            {error}
           </p>
         )}
         <Button
           type="button"
-          disabled={pending}
+          disabled={pending || dob === ""}
           className="rounded-xl"
           onClick={() => {
-            setError(false);
+            setError(null);
             startTransition(async () => {
-              const result = await completeHandoverAction({ keep });
+              const result = await completeHandoverAction({ keep, dateOfBirth: dob });
               if (result?.ok) setDone(true);
-              else setError(true);
+              else if (result?.reason === "wrong_dob") setError(t("handover.error.dob", "en", { n: String(result.attemptsLeft ?? 0) }));
+              else if (result?.reason === "needs_verified_phone") setError(t("handover.error.phone"));
+              else if (result?.reason === "locked") setError(t("handover.error.locked"));
+              else setError(t("handover.error"));
             });
           }}
         >

@@ -180,7 +180,7 @@ begin
   update public.profiles set is_dependent_account = false, dependent_kind = null where id = b;   -- then they claim their own login
   perform private.sweep_dependant_handovers();
   perform pg_temp.ck('child B: the choice is still open on day 21', 'due', (select state from public.dependant_handovers where patient_id = b));
-  perform pg_temp.ck('child B completes the hand-over keeping guardian two', 'ok', pg_temp.try_as(b, format('select public.complete_dependant_handover(array[%L]::uuid[])', b2)));
+  perform pg_temp.ck('child B completes the hand-over keeping guardian two', 'ok', pg_temp.try_as(b, format('select public.complete_dependant_handover(array[%L]::uuid[], %L)', b2, (select date_of_birth from public.profiles where id = b))));
   perform pg_temp.at_day(b, 120); perform private.sweep_dependant_handovers();
   perform pg_temp.ck('after day 90 the kept guardian is still there, view-only; the other is gone', '1,view,0',
     (select count(*)::text from public.profile_access where profile_id = b and grantee_user_id = b2) || ',' || (select permission_level::text from public.profile_access where profile_id = b and grantee_user_id = b2) || ',' ||
