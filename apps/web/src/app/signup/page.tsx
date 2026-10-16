@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import { SignupForm } from "./signup-form";
 import { GuardLeafMark } from "@/components/brand/guard-leaf-mark";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
+import { isInviteOnlySignup } from "@/lib/auth/signup-gate";
 
 /**
  * The first screen a new user sees, so nothing on it may outlive the business
@@ -54,6 +55,7 @@ export default async function SignupPage({
 }) {
   const { ref, intent, redirect } = await searchParams;
   const locale = await getAuthLocale();
+  const inviteOnly = await isInviteOnlySignup();
   const bookingCheck = intent === "health_check";
   // Someone here to pay for a relative's care. They are not signing up to be
   // treated, so we neither promise them care nor ask them to consent to it.
@@ -109,6 +111,7 @@ export default async function SignupPage({
             refCode={ref}
             intent={bookingCheck ? "health_check" : supporting ? "support" : undefined}
             redirectTo={redirect}
+            inviteOnly={inviteOnly}
           />
         </div>
 

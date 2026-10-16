@@ -428,10 +428,10 @@ begin
   exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
   if v_state is distinct from '42501' then raise exception 'FAIL B9: a patient corrected a lab value (state %)', v_state; end if;
   execute 'reset role';
-  -- anon cannot execute
+  -- S05b-d: the read paths now hide superseded rows, so signed-in users may execute it; anon never (it inherits through PUBLIC)
   if has_function_privilege('anon', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE')
-     or has_function_privilege('authenticated', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
-    raise exception 'FAIL B10: anon or authenticated can execute the correction function before the read paths hide superseded rows';
+     or not has_function_privilege('authenticated', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
+    raise exception 'FAIL B10: anon can execute the correction function, or authenticated cannot (S05b-d grant)';
   end if;
   perform set_config('request.jwt.claims', '', true);
   raise notice 'PASS B: supersede, never edit';

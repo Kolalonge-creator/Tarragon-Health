@@ -25,8 +25,12 @@ type Rules = {
 const live = () => getProposedConfig("security.rules").value as Rules;
 
 describe("security.rules mirrors the migration seeds", () => {
+  it("v4 (CMO confirmed) is identical to the security_config v4 seed and is a confirmed entry", () => {
+    expect(seed("_s39h_security_rules_confirmed.sql", "security-rules-v4")).toEqual(live());
+    expect(getProposedConfig("security.rules").status).toBe("confirmed");
+  });
   it("v3 is identical to the security_config v3 seed", () => {
-    expect(seed("_s39d_data_registry_purge_export.sql", "security-rules-v3")).toEqual(live());
+    expect(seed("_s39d_data_registry_purge_export.sql", "security-rules-v3")).toEqual(live());  // v4 only confirms v3: same values
   });
   it("v2 (S39c) is v3 without the export review clock", () => {
     const { export_review_days: _omit, ...rest } = live() as Rules & { export_review_days: number };

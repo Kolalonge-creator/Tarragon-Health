@@ -282,6 +282,15 @@ Recorded as CMO decisions (not a database signature). Pack: `docs/plans/S11-S15-
 - Q19: no speech-to-text vendor until a 20 to 30 clip consented real-consult gold set is scored; thresholds set after seeing results; every drug name and number in a draft is highlighted for the signing clinician.
 - Next steps: new DRAFT versions only. Nothing is signed. `glucose_care_triage` v1 is drafted and shown to the CMO in full; BP v3 is unchanged. Open conflict to resolve with the founder: OQ-97 (2026-10-06) set the Paystack transfer OTP off with compensating limits, while the review plan suggested keeping it on until reconciliation and reversal handling exist.
 
+**What was built per decision (integration, 2026-10-13; all DRAFT or flagged OFF, nothing signed):**
+- Q1: `triage_engine_parity()` and the chain health parity table (P1), glucose divergence report (P2). Legacy alerts are NOT retired.
+- Q2, Q3, Q5: no change (BP v3). Q4: upper-arm advice beside the repeat prompt on the phone, red never downgraded (P2).
+- Q6 to Q9: `glucose_care_triage` v1 draft, hub panel with guideline basis and full wording (P2). Not signed.
+- Q10 to Q13: patient ladder, 30 minute unconfirmed sweep, generic wording, patient answer recorded (P3). The `red_patient_outreach` task type awaits confirmation on the hub.
+- Q14 to Q17: verification gate with grandfathering, six-month spot re-check, first-20 review, "Licence verified on" with no folio (P5). Folio still readable through `clinical_staff_directory` (OQ-358).
+- Q18, Q19: scribe consent enforced in the database, drug and number highlight, ASR gold-set harness, no vendor (P4).
+- Tooling not tied to one decision: chain canary and health page (P1), coverage sweep for silence and adherence (P6), provider inbox and payout controls (P4).
+
 ### Two-tier answers, 2026-10-08
 Founder decisions in chat after the process-map review. Full per-session effect: `docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md`.
 - Member price 120,000 naira a year individual, 100,000 naira per organisation member (volume tiers dropped, confirm flat). Code still seeds 100,000; not changed.
@@ -297,6 +306,10 @@ Founder decisions in chat after the process-map review. Full per-session effect:
 - **What stays:** the `Locale`/`UiLanguage` types and `t()` helpers (one language, so call sites compile unchanged), the `platform_switches` table and its functions (a general mechanism; only the `pidgin_language` row is deleted), `en-NG` as the language stored by the scribe, and free-text `languages` fields describing what a clinician speaks (not an app language). The empty `health_education_translations` table stays because four SQL functions still join it; its admin UI and queries are removed.
 - **If another language ever returns:** it needs a native reviewer and a clinician-signed translation process before any string ships.
 - OQ-19 (Pidgin part), 61, 63, 74, 82 (Pidgin part), 93, 96 (Pidgin part), 134 and 156 are marked moot in `docs/OPEN-QUESTIONS.md`. No open question concerned Yoruba, Hausa or Igbo review.
+
+### S86 languages framework, 2026-10-07
+- **S86-1: spec D.8 ("add yo, ha, ig") is superseded by D-14.** The product stays English only. S86 builds the process and checks for adding a language in dormant form (versioned registry config `i18n.language_registry`, coverage report, a gate, a picker rule) and proves them with a test-only stub language. No language ships, no database constraint is widened, no migration. The shared rules text "(en, pcm)" in the session prompts is stale for the same reason.
+- **Return conditions (from D-14), as a checklist:** native reviewer; forward translation; independent back translation; reconciliation; native clinical review of each string set; CMO signature per string set; audio recorded only after signature; then enablement per feature by a new signed registry version. Nothing is switched on by a build.
 
 ### S46 to S50 planning, 2026-10-07 (founder)
 - **S46-1: hepatitis B immunity uses anti-HBs as a clinician add-on to the annual blood draw.** HBsAg stays part of the annual check. When HBsAg is negative and immunity is unknown, the lab adds anti-HBs once to that same draw, set by the clinician and never chosen by the patient (there are no packages any more: the Membership includes an annual blood test and review). A result at or above the CMO-signed threshold marks the patient immune and retires the annual HBsAg. HIV and hepatitis C stay annual. The threshold and wording go in the CMO-signed lab-panel and screening-rule configuration. Built in S46a.
@@ -314,6 +327,15 @@ Founder decisions in chat after the process-map review. Full per-session effect:
 - **Postpartum:** the engine takes a `postpartum` input (first 6 weeks after a birth). It uses the pregnancy red lines (160/110, and 140/90 with a pre-eclampsia symptom) and an amber review at 150/100 (BP-P5).
 - These are rule set version 2 (draft, in `triage_rule_sets` next to the unused draft v1). Still a draft until the CMO signs it in the console (S37).
 
+### S85 to S87 planning, 2026-10-07 (founder selections, UNSIGNED)
+Source: `docs/plans/S85-S87-build-plan.md` and `docs/plans/S85-S87-cmo-signoff-pack.md` (exact wording and the list of guideline statements still to verify). Nothing below is signed. The CMO signs each item by name in chat after its draft row exists.
+- **S85-1 (D1): blood pressure of 180/120 or higher asks the emergency-symptom question** (today it is 200/130). A reported emergency symptom is RED; no symptom is AMBER with same-day clinician contact and a 2 hour recheck. Needs a new draft version of `bp_care_triage`; v1 and v2 are not edited.
+- **S85-2 (D2): the fertile window is hidden by default**, shown only in an opt-in "Planning a pregnancy" mode, always with "Not contraception. This cannot prevent pregnancy." (implements OQ-12).
+- **S85-3 (D3): SMS has one named exception** beyond verification codes and clinician paging: a content-free alert to the patient's own consented emergency contact when the patient triggers an emergency. Other patient SMS paths (push-failure fallback, dependent claim, broadcast channel, routine critical-result rung) are removed. Reverses part of C.2 and D-12, so it also needs the founder's explicit approval; the exception is not relied on until live delivery is proven.
+- **S86-1 (D4): languages stay English only (D-14).** Build a dormant, test-only-proven readiness framework; no language ships; spec D.8 is superseded. Future review standard: forward translation, back translation, reconciliation, native clinical review, CMO signature.
+- **S87-1: salaried clinicians.** Part C.2's last row is updated to match the 2026-09-30 decision (employed doctors are allowed). The code stays.
+- **S85-4: journey tests are built now**, with steps for unbuilt modules marked pending and counted. No journey is reported passing until none are pending and S40 has passed.
+- **Order:** S87 first, then S86, then S85.
 ## 2026-10-07 CMO decision sheet (all items selected in chat; see docs/clinical-signoff/CMO-DECISION-SHEET-2026-10-07.md)
 | Question | Decision |
 |---|---|
@@ -352,3 +374,57 @@ Full text, options and guideline basis: `docs/plans/S06-S10-decisions-and-cmo-si
 | Decision | Chosen |
 |---|---|
 | OQ-S09x-1 (extends OQ-281): may a patient see that staff opened their record | Yes, name and role plus time only. No reason, no basis, no category detail (reproductive_health included), no contact details, no IP or device. Break-glass and emergency access stay shown, with the role. |
+
+## S04b counsel position on adult-only registration and dependants (2026-10-13)
+
+| Decision | Chosen |
+|---|---|
+| Counsel brief `docs/plans/S01-S05-counsel-brief.md` (guardian consent, child age, hand-over at 18, DPIA, consent receipts, EU hosting, under-18 refusal) | Founder reports counsel has signed off on the plan as built: adults 18 and over only; guardian consent for a dependant under 18 limited to immunisation and preventive tracking; hand-over at 18 only with the young person's own agreement after a 30 day notice; consent receipts as evidence; refusal of under-18 sign-up. Recorded from the founder in chat. The written opinion is not in the repo yet; file it under `docs/legal/` when received. No code change follows, because the build already matches the brief. |
+
+## S05b-d a patient's own allergy correction waits for a clinician (2026-10-14)
+
+| Decision | Chosen |
+|---|---|
+| When a patient voids or corrects an allergy she entered herself and no clinician verified (S05b-c open risk: it would leave prescription safety and the emergency card at once) | Her request is saved, but the ORIGINAL allergy stays active in prescription safety, the emergency card and every reader until a tied clinician (not a care coordinator) confirms. A clinician-tied user's correction takes effect immediately, as before. A rejected request leaves the original untouched and tells the patient by one in-app notice with no clinical words. Every other table keeps its current rule (a patient still corrects her own manual reading at once). Chosen by the founder in chat. Built in `20261014162552_s05b_d_patient_allergy_correction_requests_and_grant.sql`. |
+
+## S05b-f the same hold rule for conditions a patient entered herself (2026-10-14)
+
+| Decision | Chosen |
+|---|---|
+| S05b-d open question: should the allergy hold rule extend to conditions (`patient_conditions`, source patient)? | Yes, the same rule. When a PATIENT voids or corrects a condition she entered herself that no clinician verified, her request is saved and the ORIGINAL stays active in every reader until a tied clinician (not a care coordinator) confirms or rejects. A clinician-tied user's own correction stays immediate. A condition a clinician recorded, diagnosed or reviewed cannot be changed by the patient at all (she is told to ask her care team). Other tables (vitals and the rest) are unchanged. The same resubmit limit (3 per record in a rolling 7 days) and the same neutral in-app notices apply. Chosen by the founder in chat. Built as one mechanism with a record table column (not a copy) in `20261014223123_s05b_f_condition_correction_requests.sql`. |
+
+## S16-S20 hardening: the CMO's 16 selections of 2026-10-07 (recorded 2026-10-15)
+
+Source: `docs/plans/S16-S20-review-and-build-plan.md` section 5, selected by the CMO in decision prompts on 2026-10-07. These are the CMO's **recorded selections, not signatures**: nothing below has been signed in the system. Signing is the CMO's own act in the console (the hub `/clinician/clinical-signoff` or `/clinician/go-live`), as a new version, never an edit. The sign-off pack is `docs/plans/S16-S20-cmo-signoff-pack.md`. Basis and `[verify]` flags are kept as the plan has them: `[V]` vendor or published practice, `[I]` inferred, `[U]` unverified, `[verify]` needs outside confirmation before signing (MDCN licence cycle and register lookup, Nigerian doctors' hours rules, NICE NG136 and WHO 2021 clause references, Federal Ministry of Health hypertension protocol alignment, Apple Critical Alerts entitlement, who the independent guardian is). Open questions OQ-432 to OQ-451 hold the follow-ups.
+
+| Id | Decision | Selected | Guideline or evidence basis |
+|---|---|---|---|
+| S16-S20-1 | Offer window | Cap at 50% of due; a lapsed offer returns to the pool; escalated non-red tasks are claimable by any eligible clinician; red unchanged | Joint Commission NPSG.02.03.01; Manchester Triage and NHS 111 time to first contact; BMJ Open 2018 continuity (the lead still gets first refusal) |
+| S16-S20-2 | Escalation alert | Tiered: classes 1 to 2 alert the CMO by in-app, push and email at once; classes 3 to 9 in-app plus a daily digest | NPSG.02.03.01 closed loop; NPSG.06.01.01 alarm fatigue; NEWS2 |
+| S16-S20-3 | Completion | A structured outcome per task type, system-checked | NPSG.02.03.01; NICE NG136 [verify]; WHO 2021 hypertension guideline [verify]; the S20 audit needs recorded decisions |
+| S16-S20-4 | `queue.claims` | Sign with two changes: hand-backs for conflict_of_interest and technical_problem do not count towards the 3-in-7-days flag; the reliability score is visible to the clinician and is a tie-break only, never pay or removal without CMO review | NHS Just Culture and PSIRF; Joint Commission OPPE/FPPE |
+| S16-S20-5 | Audit review | The reviewer reads the record through the audited read and must open it before submitting; a second independent reviewer on any critical miss or unsafe score; the clinician can reply | Joint Commission OPPE/FPPE; NHS SJR pattern; Teladoc and Amwell peer review [V] |
+| S16-S20-6 | Sampling | Secret server-side seed, stratified by clinician, floor kept; 100% of red and titration; the first 20 for each new clinician; AI-scribe notes 20% scored for omission and invented content | OPPE; a published AI-note study [I]; Teladoc 10% [V] |
+| S16-S20-7 | Speak-up | No admin-role readers; a named clinician or an external independent person reads; concerns by or about the CMO go only to the independent reader; a reader screen; optional anonymous intake; detriment check-ins at 30 and 90 days; aggregate-only board report | NHS Freedom to Speak Up; Babylon lesson; Nigeria has no whistleblower law [I] |
+| S16-S20-8 | Licences | Notices at 90, 30, 7 and 0 days; proof-of-renewal deadline 15 December; the rota excludes anyone whose licence ends before the shift starts; a missing date is ineligible after onboarding; grace of 1 to 14 days, CMO only and logged; record the evidence source, the checker and the time | MDCN annual licence [I, verify the register and date rules with MDCN]; continuous-monitoring practice [I] |
+| S16-S20-9 | Page delivery | Release blocker: immediate push; email address resolved and delivery proven by a test; per-channel delivered-ack with an early advance after 60 to 90 seconds; heartbeats for the engine and each on-call device; an "expired" alarm to the CMO and an ops person. The 5 and 10 minute timers stay | NPSG.02.03.01; Manchester Triage orange 10 minutes; NEWS2; incident.io and Opsgenie design [V]; FCM gives no receipt [I] |
+| S16-S20-10 | SMS | No SMS for pages. The SMS rung is blocked. The final fallback is the in-console alarm plus a named ops person phoning the on-call clinician and the CMO. Request iOS Critical Alerts (medical use) and build an Android reliability kit (alarm channel, full-screen alarm, Tecno and Infinix battery onboarding, weekly self-test). **Consequence for the operating contract: SMS is for phone verification codes only; `CLAUDE.md` is edited to say so (OQ-05 in effect).** | SMS filtering in Nigeria [I]; hospital phone fallback [V/I]; NPSG.06.01.01 |
+| S16-S20-11 | Red pathway | Fix in order: (1) a reconciler within 60 seconds for any red triage event with no page; (2) conflict and self exclusion for paging and chart access, falling to the backup; (3) retire the parallel older paging and extend pages to SpO2, pulse, temperature, glucose and symptom red flags. Step 3 is behind a flag with a CMO-signed test and rollback | NEWS2 and Manchester Triage (any red physiological trigger, not BP only); NPSG.02.03.01; NPSG.06.01.01 |
+| S16-S20-12 | Capacity | An intake gate tied to lead headroom, rota coverage (primary and backup every hour) and oldest task age; a CMO override with a reason; the lead cap starts at **40** for the pilot (a conservative guess; panel evidence is [U]); a CMO surge mode (pause intake, widen eligibility, lengthen routine times, page the backup), expiring and recorded; wire `on_call_cover_ok` into checkout | Babylon / GP at Hand [I]; NHS 111 OPEL [I] |
+| S16-S20-13 | Pause guard | A pause stops new enrolments, sales, bookings and non-urgent offers; it never stops red paging, emergency guidance, on-call or claimed work; the CMO pauses alone; an admin can only request and the CMO must confirm in time or it lapses; logged and expiring | INV-05, INV-06; Joint Commission; NHS OPEL |
+| S16-S20-14 | Fatigue (OQ-128) | A hard 11 hour rest in 24 hours for on-call and queue after overnight-page shifts; a cover offer after 2 or more overnight pages with a fitness confirmation; only the CMO overrides, with a written reason | EU Working Time Directive and NHS junior doctor rest rules [I]; Nigerian hours rules [U], confirm MDCN/NARD [verify] |
+| S16-S20-15 | Readiness and drills | On-call is schedulable only with a valid licence and indemnity, a working push token, a verified email, a test page acknowledged in the last 7 days and the battery check done; a monthly unannounced fire drill; report p50 and p95 acknowledge time by clinician, hour and device against a target (proposed: 90% within 5 minutes) | PagerDuty and Opsgenie testing practice [V]; Nigeria device reliability [I]; the NPSG measurement duty |
+| S16-S20-16 | Config sign-off | The agent drafts unsigned new versions of `queue.claims`, `queue.task_types`, `queue.rules`, `queue.sla_warning`, `paging.rules`, `lead.rules` and `quality.audit` plus a one-page pack; **the CMO signs in the console**. A new version, never an edit; an immutability trigger on `quality_config` | The CMO sign-off rule; NPSG.02.03.01 (the organisation defines the timeframes) |
+
+Where each was built, as of 2026-10-15 (merged and applied): decisions 1, 2, 3 and part of 4 in the task layer (#1139); 9, 10, 11 steps 1 and 2, 15 (the readiness gate, shipped off) in pager delivery (#1137); 5, 6, 7, 8 and the `quality_config` guard of 16 in quality v2 (#1135). Not built yet: 11 step 3, 12, 13, 14 and the fire drills and p50/p95 report of 15 (other streams of the same hardening), the Android kit and Critical Alerts of 10, and the drafted new versions of the seven registry keys in 16 (see the sign-off pack for what exists).
+### CMO decisions on record access, retention, erasure and export, 2026-10-07
+Selected in chat by the Chief Medical Officer (the founder) from a list of options with guideline references. This is a governance record of the CMO's choices; it is not a legal opinion, and Nigerian counsel still confirms the points marked for counsel.
+1. **Sensitive records (sexual health, STI, HIV, mental health)**: keep on the open path, audited, weekly CMO review (the CMO chose this over the recommended tie for sexual health and HIV). Reproductive health stays closed to the open path. Counsel to confirm against the UK STI Directions 2000 equivalents, the HIV and AIDS (Anti-Discrimination) Act 2014 and the National Health Act 2014 (OQ-287).
+2. **Audit depth (OQ-282)**: opening-level log for everything plus a table-level access log for HIV, sexual health, mental health and reproductive records (to be built).
+3. **Patient access to the access log (OQ-281)**: not shown in the app; the DPO answers a request within 30 days (UK GDPR Art 12(3) and 15, NHS Care Record Guarantee; counsel confirms NDPA). A DPO report for one patient is to be built.
+4. **Access thresholds**: confirmed as proposed (8 hour window, 20 untied openings an hour, after hours 22:00 to 06:00 Lagos), review against real log data at 90 days. `security.rules` v4, status confirmed.
+5. **Retention (OQ-283)**: the UK and US periods confirmed (NHS Records Management Code 2021, HIPAA 164.316(b)(2) and 164.530(j)); counsel asked only whether a Nigerian rule requires longer. Config only: nothing is deleted automatically.
+6. **Erasure of real data (OQ-262)**: no erasure; restrict on request, with a written reason and anonymisation after the retention period subject to counsel (UK GDPR Art 17(3), NHS code, HIPAA). A record restriction flag is to be built.
+7. **Tied staff writes (OQ-279)**: apply now with the kill switch ready (S39g, applied 2026-10-07).
+8. **Export (OQ-285)**: next build is a FHIR style export plus a mobile download (UK GDPR Art 20, HIPAA 164.524).
+Also confirmed earlier today: registry classes (OQ-284), worklist labels left as they are (OQ-286), complete export after admin approval (OQ-285, built).

@@ -374,6 +374,11 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/patient/care",
     };
   }
+  // S05b-d: a clinician looked at a change the patient asked for in her record and left it as it was. Neutral by design (INV-07, INV-08):
+  // never the entry, its name or the clinician's note; in-app only.
+  if (n.template === "record_change_not_confirmed") {
+    return { text: "Your care team looked at the change you asked for and left your record as it was. You can message them about it", href: "/patient/messages" };
+  }
   // S22 written questions and clinical notes. Neutral by design (INV-07): never the question, a condition or a reading.
   if (n.template === "written_question_received") {
     return { text: "Your care team has your message", href: "/patient/care" };
@@ -650,6 +655,14 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // From private.notify_circle_red_alert (S29): fixed neutral line for a supporter who holds red_alerts (INV-07).
     return { text: "Someone in your Care Circle may need you. Please call them.", href: "/patient/supporting" };
   }
+  if (n.template === "circle_help_tap") {
+    // From public.send_circle_help_alert (S65): the patient's own tap. Fixed neutral line, no location, no name (INV-07).
+    return { text: "Someone in your Care Circle has asked for you. Please call them.", href: "/patient/supporting" };
+  }
+  if (n.template === "facility_booking_reminder") {
+    // From private.facility_booking_reminder_sweep (S65): names no facility, service or time.
+    return { text: "You have a visit coming up. Tell us if you are coming.", href: "/patient/directory/bookings" };
+  }
   if (n.template === "community_update") {
     // S69 (INV-07): one generic line for every community milestone; never a cohort name, metric, figure or condition.
     return { text: "Your group has an update", href: "/patient/cohorts" };
@@ -691,13 +704,35 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "free_red_checkin") {
     return { text: t("freered.notice.checkin", "en"), href: "/patient" };
   }
+  // S13 R4: fixed neutral lines (INV-07). The guidance is on the dashboard, never in the message.
+  if (n.template === "red_event_guidance_waiting") {
+    return { text: "A safety message is waiting for you. Open it now", href: "/patient" };
+  }
+  if (n.template === "red_event_outreach_task") {
+    return { text: "A priority call is waiting for you", href: "/clinician/queue" };
+  }
+  if (n.template === "test_alert") {
+    return { text: "This is a test alert. Nothing is wrong", href: "/patient" };
+  }
   if (n.template === "on_call_page") {
-    // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).
+    // Fixed neutral line, never the patient or the reading (INV-07). A page from the assistant's self-harm path (S52) has no S19 page row,
+    // so /clinician/on-call would be empty: it points to the queue, where the class 1 task is counted and "claim next" hands it out first.
+    if (payload.kind === "assistant_crisis") return { text: "A priority case is waiting for you", href: "/clinician/queue" };
     return { text: "A priority case is waiting for you", href: "/clinician/on-call" };
   }
   if (n.template === "response_slower_notice") {
     // S78b: fixed plain wording, no number, no condition (INV-07, CMO decision S-9).
     return { text: "We are slower than usual. If this is urgent, please use emergency care now.", href: "/patient/care" };
+  }
+  if (n.template === "assistant_daily_nudge") {
+    // S51: generic by design (INV-07): no condition, reading or medicine is ever named.
+    return { text: "Your check-in for today is ready", href: "/patient/care" };
+  }
+  if (n.template === "assistant_weekly_reflection") {
+    return { text: "Your look back at this week is ready", href: "/patient/care" };
+  }
+  if (n.template === "assistant_reengage") {
+    return { text: "It has been a little while. Your assistant is here whenever you have a question", href: "/patient/care" };
   }
   if (n.template === "ops_alert") {
     // From private.ops_alert_notify (SR5): fixed wording, no detail, no patient reference.
@@ -706,8 +741,31 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "ops_all_clear") {
     return { text: "An operations alert has cleared", href: "/admin/ops/wall" };
   }
+  if (n.template === "on_call_test_page") {
+    return { text: "Test page: open On call and acknowledge it", href: "/clinician/on-call" };
+  }
+  if (n.template === "on_call_expired") {
+    return { text: "Nobody has answered a priority case. Phone the clinician on call now", href: "/rota" };
+  }
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };
+  }
+  if (n.template === "task_escalation_alert") {
+    // From private.notify_task_escalated (S16-S20 D2): fixed neutral line for the clinical lead, nothing from the payload (INV-07).
+    return { text: "A clinical task needs attention now", href: "/clinician/queue" };
+  }
+  if (n.template === "task_escalation_more") {
+    return { text: "More clinical tasks need attention", href: "/clinician/queue" };
+  }
+  if (n.template === "task_withdrawn_notice") {
+    // From public.cancel_clinical_task (S16-S20): fixed wording, no reason, no patient, nothing clinical (INV-07).
+    return { text: "A task you were working on was withdrawn by the clinical lead", href: "/clinician/queue" };
+  }
+  if (n.template === "queue_backlog_notice") {
+    return { text: "A clinical task is waiting longer than planned", href: "/clinician/queue" };
+  }
+  if (n.template === "queue_backlog_digest") {
+    return { text: "Escalated clinical tasks are waiting", href: "/clinician/queue" };
   }
   if (n.template === "on_call_escalation") {
     return { text: "A priority case has not been picked up", href: "/rota" };
@@ -738,6 +796,7 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
         : audience === "reviewer" ? "/credentialing"
         : audience === "rota_review" ? "/rota"
         : audience === "rota" ? "/clinician/rota"
+        : audience === "concern_reader" ? "/reader/concerns"
         : audience === "lead" ? "/clinician/patients"
         : "/clinician/credentials",
     };
@@ -830,16 +889,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     n.template === "cycle_period_due_today" ||
     n.template === "cycle_period_late"
   ) {
-    // From lib/cycle/reminders.ts. Worded softly on purpose: an estimate
-    // that turns out to be wrong should read as a guess that missed, not as
-    // the app telling somebody something is wrong with them.
-    const days = Number(payload.days_overdue ?? 0);
-    const text =
-      n.template === "cycle_period_due_soon"
-        ? "Your period is expected in a couple of days"
-        : n.template === "cycle_period_due_today"
-          ? "Your period is expected around today"
-          : `Your period is ${days} days later than expected. Cycles shift for all sorts of reasons.`;
+    // From lib/cycle/reminders.ts. S66 (INV-07, decision A14): the inbox preview names nothing. A phone is read over shoulders and
+    // shared, so the text is the same for every cycle reminder and says only that the tracker has something. What it is, and the
+    // estimate behind it, is shown inside the private section after the PIN. The three template keys stay (they drive dedupe).
+    const text = "Your tracker has an update";
     return { text, href: "/patient/cycle" };
   }
   if (n.template === "finance_posting_failed") {

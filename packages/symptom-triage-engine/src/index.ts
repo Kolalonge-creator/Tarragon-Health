@@ -1,3 +1,12 @@
 export * from "./types/index";
 export * from "./engine/index";
 export * from "./protocols/index";
+export * from "./safety/bundled-red-flags";
+export * from "./safety/risk-tightening";
+export * from "./safety/safe-triage";
+export * from "./safety/context-tightening";
+export * from "./urgency/levels";
+export * from "./adapter/symptom-engine";
+export * from "./adapter/in-house-engine";
+export * from "./protocols/paediatric-drafts";
+export { bundledFloorDrift } from "./safety/floor-drift";

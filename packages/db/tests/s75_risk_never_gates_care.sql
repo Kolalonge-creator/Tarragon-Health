@@ -93,7 +93,7 @@ begin
       exit when v_id is null;
       v_idx := array_position(v_task, v_id);
       v_order := v_order || coalesce(v_labels[v_idx], '?');
-      perform public.queue_complete(v_id, '{"done":true}'::jsonb);
+      perform public.queue_complete(v_id, '{"code":"completed_action_taken"}'::jsonb);
     end loop;
     reset role;
     perform set_config('request.jwt.claims', '', true);

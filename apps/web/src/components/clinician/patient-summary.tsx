@@ -2,6 +2,7 @@ import { t, type Locale } from "@tarragon/i18n";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { PatientSummary } from "@/lib/clinician/queue-console";
+import { CUFF_KEY, parseContext, readingLine } from "@/lib/triage/explainer";
 
 const dateTime = (value: string): string =>
   new Date(value).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Lagos" });
@@ -69,11 +70,44 @@ export function PatientSummaryView({ summary, locale = "en" }: { summary: Patien
                   <li key={`${e.created_at}-${i}`} className="flex items-center gap-2">
                     <Badge variant={e.grade === "red" ? "red" : e.grade === "amber" ? "amber" : "green"}>{e.grade}</Badge>
                     <span>{e.trigger_type.replace(/_/g, " ")}</span>
+                    {e.rule_id && e.rule_set_code && e.rule_set_version != null && (
+                      <span className="text-xs text-charcoal-ink/60">{t("summary.rule_line", locale, { rule: e.rule_id, code: e.rule_set_code, version: e.rule_set_version })}</span>
+                    )}
+                    {(() => {
+                      const line = parseContext(e.context ?? null);
+                      const text = line ? readingLine(line) : null;
+                      return text ? <span className="text-xs text-charcoal-ink/60">{text}</span> : null;
+                    })()}
                     <span className="ml-auto text-xs text-charcoal-ink/60">{dateTime(e.created_at)}</span>
                   </li>
                 ))}
               </ul>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {s.symptom_summaries && s.symptom_summaries.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>{t("symptom.summary.clinician.title", locale)}</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p className="text-xs text-charcoal-ink/60">{t("symptom.summary.clinician.sent_by_choice", locale)}</p>
+            {s.symptom_summaries.map((x) => (
+              <div key={x.id} className="space-y-1">
+                <p className="font-medium">
+                  {x.payload.complaint_label} <Badge variant={x.payload.category === "emergency" ? "red" : x.payload.category === "urgent" ? "amber" : "green"}>{x.payload.category.replace(/_/g, " ")}</Badge>
+                  <span className="ml-2 text-xs text-charcoal-ink/60">{dateTime(x.sent_at)}</span>
+                </p>
+                {x.payload.answered_by_carer && <p className="text-xs">{t("symptom.summary.clinician.carer", locale)}</p>}
+                <p>{[x.payload.onset, typeof x.payload.severity === "number" ? `${x.payload.severity}/10` : null, ...(x.payload.associated_symptoms ?? []), ...(x.payload.history ?? [])].filter(Boolean).map((v) => String(v).replace(/_/g, " ")).join(", ")}</p>
+                {(x.payload.questions ?? []).length > 0 && (
+                  <ul className="list-disc pl-4 text-charcoal-ink/80">
+                    {(x.payload.questions ?? []).map((q, i) => <li key={i}>{q.prompt}: {q.answer === true ? "yes" : q.answer === false ? "no" : String(q.answer ?? "")}</li>)}
+                  </ul>
+                )}
+                {(x.payload.red_flags_fired ?? []).length > 0 && <p className="text-red-800">{(x.payload.red_flags_fired ?? []).join("; ")}</p>}
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}
@@ -93,7 +127,10 @@ export function PatientSummaryView({ summary, locale = "en" }: { summary: Patien
               <ul className="divide-y divide-charcoal-ink/10 text-sm">
                 {s.readings.rows.slice(0, 30).map((r, i) => (
                   <li key={`${r.measured_at}-${i}`} className="flex justify-between py-1">
-                    <span>{r.type.replace(/_/g, " ")} {readingText(r)}</span>
+                    <span>
+                      {r.type.replace(/_/g, " ")} {readingText(r)}
+                      {r.cuff_type && <span className="ml-2 text-xs text-charcoal-ink/60">{t(CUFF_KEY[r.cuff_type], locale)}</span>}
+                    </span>
                     <span className="text-xs text-charcoal-ink/60">{dateTime(r.measured_at)}</span>
                   </li>
                 ))}

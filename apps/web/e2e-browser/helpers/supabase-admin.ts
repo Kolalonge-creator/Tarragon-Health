@@ -64,6 +64,9 @@ export async function createTestPatient(runId: string): Promise<TestPatient> {
     password,
     email_confirm: true,
     user_metadata: { full_name: "[e2e-test] Patient" },
+    // Test accounts are created through the admin API, so they are exempt from invite-only sign-up whatever the switch says.
+    // (App metadata can only be set by this API; a visitor's own user metadata cannot exempt them.)
+    app_metadata: { signup_exempt: "true" },
   });
   if (userError || !user.user) throw userError ?? new Error("patient user create failed");
   const userId = user.user.id;

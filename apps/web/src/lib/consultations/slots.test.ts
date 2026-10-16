@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { toConsultSlots, type BookableConsultSlotRow } from "./slots";
+import { filterConsultSlots, NO_SLOT_FILTERS, slotFilterOptions, toConsultSlots, type BookableConsultSlotRow } from "./slots";
 
 const row = (over: Partial<BookableConsultSlotRow> = {}): BookableConsultSlotRow => ({
   clinician_id: "11111111-1111-4111-8111-111111111111",
@@ -16,7 +16,8 @@ const row = (over: Partial<BookableConsultSlotRow> = {}): BookableConsultSlotRow
 describe("toConsultSlots", () => {
   it("maps a row onto the slot shape the booking list renders", () => {
     expect(toConsultSlots([row()])).toEqual([
-      { clinician_id: "11111111-1111-4111-8111-111111111111", clinician_name: "Dr Ada", slot_start: "2026-10-12T09:00:00Z", slot_end: "2026-10-12T09:30:00Z", consultation_method: "telemedicine", location: null },
+      { clinician_id: "11111111-1111-4111-8111-111111111111", clinician_name: "Dr Ada", slot_start: "2026-10-12T09:00:00Z", slot_end: "2026-10-12T09:30:00Z", consultation_method: "telemedicine", location: null,
+        specialty: "General practice", languages: ["en"], sex: null, licence_checked_on: null },
     ]);
   });
 
@@ -36,5 +37,39 @@ describe("toConsultSlots", () => {
     expect(toConsultSlots(null)).toEqual([]);
     expect(toConsultSlots(undefined)).toEqual([]);
     expect(toConsultSlots([])).toEqual([]);
+  });
+});
+
+describe("licence display (CMO Q17 / OQ-358): the date of a stored check, never the folio", () => {
+  it("carries the checked-on date and no registration number", () => {
+    const [s] = toConsultSlots([row({ licence_checked_on: "2026-09-20T10:00:00Z", ...({ mdcn_number: "MDCN/12345" } as object) })]);
+    expect(s?.licence_checked_on).toBe("2026-09-20T10:00:00Z");
+    expect(Object.keys(s ?? {})).not.toContain("mdcn_number");
+    expect(JSON.stringify(s)).not.toContain("MDCN/12345");
+  });
+  it("shows nothing when no check is on record, or when the date is unusable", () => {
+    for (const over of [{ licence_checked_on: null }, { licence_checked_on: "nope" }]) {
+      const [s] = toConsultSlots([row(over)]);
+      expect(s?.licence_checked_on).toBeNull();
+    }
+  });
+});
+
+describe("S64 booking filters (15.1)", () => {
+  const slots = toConsultSlots([
+    row({ clinician_id: "a", specialty: "General practice", languages: ["en", "yo"], sex: "female" }),
+    row({ clinician_id: "b", specialty: "Cardiology", languages: ["en"], sex: "male" }),
+    row({ clinician_id: "c", specialty: null, languages: ["ig"], sex: null }),
+  ]);
+  const ids = (x: typeof slots) => x.map((s) => s.clinician_id);
+  it("no filter keeps everything", () => expect(ids(filterConsultSlots(slots, NO_SLOT_FILTERS))).toEqual(["a", "b", "c"]));
+  it("filters by specialty, spoken language and sex, case-insensitively, and combines them", () => {
+    expect(ids(filterConsultSlots(slots, { ...NO_SLOT_FILTERS, specialty: "cardiology" }))).toEqual(["b"]);
+    expect(ids(filterConsultSlots(slots, { ...NO_SLOT_FILTERS, language: "YO" }))).toEqual(["a"]);
+    expect(ids(filterConsultSlots(slots, { ...NO_SLOT_FILTERS, sex: "Female" }))).toEqual(["a"]);
+    expect(ids(filterConsultSlots(slots, { specialty: "General practice", language: "en", sex: "male" }))).toEqual([]);
+  });
+  it("offers only choices that exist in the open slots", () => {
+    expect(slotFilterOptions(slots)).toEqual({ specialties: ["Cardiology", "General practice"], languages: ["en", "ig", "yo"], sexes: ["female", "male"] });
   });
 });

@@ -42,7 +42,9 @@ export async function confirmTaskTypeAction(formData: FormData): Promise<void> {
 export async function approveRuleSetAction(formData: FormData): Promise<void> {
   // The sign-off hub renders the same form and asks to come back to itself (back=hub); anything else returns to this page.
   const hub = formData.get("back") === "hub";
-  const path = hub ? "/clinician/clinical-signoff" : "/clinician/triage-rules";
+  // The glucose rule set has its own page (plan item R2); anything else returns to the blood pressure page. Only these two values are ever used.
+  const own = formData.get("page") === "glucose" ? "/clinician/glucose-triage-rules" : "/clinician/triage-rules";
+  const path = hub ? "/clinician/clinical-signoff" : own;
   // On the hub the result travels in the one-shot cookie notice (a link cannot forge it); on the rule set's own page it stays in the address as before.
   const finish = async (key: "done" | "error", value: string): Promise<never> => {
     if (!hub) return back(path, key, value);
@@ -66,6 +68,7 @@ export async function approveRuleSetAction(formData: FormData): Promise<void> {
   if (error) return finish("error", readable(error));
   revalidatePath(path);
   revalidatePath("/clinician/triage-rules");
+  revalidatePath("/clinician/glucose-triage-rules");
   revalidatePath("/clinician/clinical-signoff");
   return finish("done", "Signed. New triage results now create clinical tasks.");
 }

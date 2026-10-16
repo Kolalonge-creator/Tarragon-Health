@@ -1,4 +1,6 @@
 import { renderToBuffer } from "@react-pdf/renderer";
+import { DocumentFolioRefusedError, fetchDocumentFolios } from "@/lib/clinical/document-folio";
+import { fetchLicenceVerifiedOn } from "@/lib/clinical/licence-verified";
 import { createClient } from "@/lib/supabase/server";
 import {
   InterpretationDocument,
@@ -50,19 +52,24 @@ export async function GET(
   // Null-gated attribution, exactly like ReviewedByDoctor: a name is printed
   // only when a real clinical_staff row backs it.
   let doctorName: string | null = null;
-  let doctorCredentialType: string | null = null;
-  let doctorCredentialNumber: string | null = null;
+  let licenceVerifiedOn: string | null = null;
   if (doc.reviewed_by) {
-    const { data: staff } = await supabase
-      .from("clinical_staff_directory")
-      .select("full_name, credential_type, credential_number")
-      .eq("profile_id", doc.reviewed_by)
-      .eq("active", true)
-      .maybeSingle();
-    if (staff?.full_name) {
-      doctorName = staff.full_name;
-      doctorCredentialType = staff.credential_type;
-      doctorCredentialNumber = staff.credential_number;
+    // Folio via the document-scoped function, never the directory view (CMO Q17, OQ-358).
+    let folio;
+    try {
+      folio = (
+        await fetchDocumentFolios(supabase, "lab_result_interpretation", [doc.id])
+      ).get(doc.id);
+    } catch (e) {
+      if (e instanceof DocumentFolioRefusedError) {
+        return new Response("You are not permitted to produce this document", { status: 403 });
+      }
+      throw e;
+    }
+    if (folio?.fullName) {
+      doctorName = folio.fullName;
+      // Q17 / OQ-358b: a lab result PDF carries "Licence verified on <date>" from a stored record, never the folio.
+      licenceVerifiedOn = (await fetchLicenceVerifiedOn(supabase, [folio.clinicianStaffId])).get(folio.clinicianStaffId) ?? null;
     }
   }
 
@@ -74,8 +81,7 @@ export async function GET(
     nextSteps: doc.next_steps,
     interpretationSentAt: doc.interpretation_sent_at,
     doctorName,
-    doctorCredentialType,
-    doctorCredentialNumber,
+    licenceVerifiedOn,
   };
 
   const buffer = await renderToBuffer(InterpretationDocument({ data }));

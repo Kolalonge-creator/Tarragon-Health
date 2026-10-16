@@ -16,7 +16,7 @@ export async function acknowledgeFollowUp(_prev: FollowUpActionState, formData: 
   if (!id.success) return { error: t("followups.err.not_found", "en") };
   const supabase = await createClient();
   const { error } = await supabase.rpc("acknowledge_clinical_follow_up" as never, { p_id: id.data } as never);
-  if (error) return { error: describeRpcError(error, t("followups.err.generic", "en")) };
+  if (error) return { error: describeRpcError(error, t("followups.err.close_generic", "en")) };
   revalidatePath(PATH);
   return { message: "acknowledged" };
 }
@@ -34,7 +34,7 @@ export async function closeFollowUp(_prev: FollowUpActionState, formData: FormDa
     "close_clinical_follow_up" as never,
     { p_id: parsed.data.id, p_outcome: parsed.data.outcome, p_reason: parsed.data.reason } as never,
   );
-  if (error) return { error: describeRpcError(error, t("followups.err.generic", "en")) };
+  if (error) return { error: describeRpcError(error, t("followups.err.close_generic", "en")) };
   revalidatePath(PATH);
   return { message: "closed" };
 }

@@ -8,6 +8,11 @@ export interface BookableConsultSlotRow {
   clinician_name: string | null;
   specialty: string | null;
   languages: string[] | null;
+  /** S64: what the person is booked as. Absent on rows from before S64. */
+  care_role?: "doctor" | "dietitian" | "pharmacist" | null;
+  sex?: string | null;
+  /** Date of the stored credential check; null when none is on record. The MDCN folio is no longer returned (CMO Q17 / OQ-358). */
+  licence_checked_on?: string | null;
   licence_current: boolean;
   licence_verified_at: string | null;
   slot_start: string;
@@ -21,6 +26,11 @@ export interface ConsultSlot {
   slot_end: string;
   consultation_method: "telemedicine";
   location: null;
+  specialty: string | null;
+  languages: string[];
+  sex: string | null;
+  /** "Licence verified on <date>": null when no check is on record. Never the folio (CMO Q17 / OQ-358). */
+  licence_checked_on: string | null;
 }
 
 const valid = (r: BookableConsultSlotRow): boolean =>
@@ -38,5 +48,38 @@ export function toConsultSlots(rows: readonly BookableConsultSlotRow[] | null | 
       slot_end: r.slot_end,
       consultation_method: "telemedicine" as const,
       location: null,
+      specialty: r.specialty?.trim() || null,
+      languages: (r.languages ?? []).filter((l) => typeof l === "string" && l.length > 0),
+      sex: r.sex ?? null,
+      // only the date of a stored check is carried; nothing is claimed when no check is on record
+      licence_checked_on: r.licence_checked_on && Number.isFinite(Date.parse(r.licence_checked_on)) ? r.licence_checked_on : null,
     }));
+}
+
+/** S64 (15.1): what the patient has picked to narrow the list. Empty string means "any". Price is shown, never filtered (one price). */
+export interface SlotFilters {
+  specialty: string;
+  language: string;
+  sex: string;
+}
+
+export const NO_SLOT_FILTERS: SlotFilters = { specialty: "", language: "", sex: "" };
+
+export function filterConsultSlots(slots: readonly ConsultSlot[], f: SlotFilters): ConsultSlot[] {
+  return slots.filter(
+    (s) =>
+      (!f.specialty || (s.specialty ?? "").toLowerCase() === f.specialty.toLowerCase()) &&
+      (!f.language || s.languages.some((l) => l.toLowerCase() === f.language.toLowerCase())) &&
+      (!f.sex || (s.sex ?? "").toLowerCase() === f.sex.toLowerCase()),
+  );
+}
+
+/** The choices on offer are only ones that exist in the open slots, so a filter can never be picked that matches nothing. */
+export function slotFilterOptions(slots: readonly ConsultSlot[]): { specialties: string[]; languages: string[]; sexes: string[] } {
+  const uniq = (xs: string[]) => [...new Set(xs)].sort((a, b) => a.localeCompare(b));
+  return {
+    specialties: uniq(slots.map((s) => s.specialty).filter((x): x is string => !!x)),
+    languages: uniq(slots.flatMap((s) => s.languages)),
+    sexes: uniq(slots.map((s) => s.sex).filter((x): x is string => !!x)),
+  };
 }

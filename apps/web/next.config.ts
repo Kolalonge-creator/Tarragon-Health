@@ -223,6 +223,29 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // S20 v2: the readers' screen and the clinician's own audit results. Separate entries: Next's matcher rejects nested capture groups.
+        source: "/reader/concerns",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
+      {
+        source: "/clinician/my-quality",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
+      {
+        // S20 v2: an audit page shows clinical content read through an audited read. Never cached, never sent on as a referrer.
+        source: "/clinician/quality/audits/:auditId",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
+      {
         // The consultation rooms only. Declared after the rule above on purpose: when two rules set the same header on one path, the
         // last one wins (Next's "Header Overriding Behavior"), so these two routes get the wider policy and everything else keeps the
         // strict one.

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "@jest/globals";
 import { formatWaiting, nextPollMs, pageHeadline, pagesNeedingAction, POLL_QUIET_MS, POLL_RINGING_MS } from "./alarm";
-import { activePagesSchema, pagingCountsSchema, pagingOverviewSchema, READINESS_ITEMS, readinessOverviewSchema, myReadinessSchema, type ActivePage } from "./schemas";
+import { activePagesSchema, GAP_LABELS, pagingCountsSchema, pagingHealthSchema, pagingOverviewSchema, READINESS_ITEMS, readinessOverviewSchema, myReadinessSchema, type ActivePage } from "./schemas";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const page = (over: Partial<ActivePage> = {}): ActivePage => ({
-  page_id: id, root_id: id, role: "primary", escalation_level: 0, sent_at: "2026-10-06T10:00:00Z", acknowledged_at: null, patient_id: id, seconds_waiting: 0, ...over,
+  page_id: id, root_id: id, role: "primary", escalation_level: 0, sent_at: "2026-10-06T10:00:00Z", acknowledged_at: null, patient_id: id, seconds_waiting: 0, delivered_at: null, expired_at: null, ...over,
 });
 
 describe("alarm logic", () => {
@@ -35,7 +35,7 @@ describe("alarm logic", () => {
 
 describe("answers from the database are parsed, not trusted", () => {
   it("accepts a real list, including a level 2 row with no patient reference", () => {
-    const parsed = activePagesSchema.parse([{ page_id: id, root_id: id, role: "escalation", escalation_level: 2, sent_at: "2026-10-06T10:00:00Z", acknowledged_at: null, patient_id: null, seconds_waiting: 700 }]);
+    const parsed = activePagesSchema.parse([{ page_id: id, root_id: id, role: "escalation", escalation_level: 2, sent_at: "2026-10-06T10:00:00Z", acknowledged_at: null, patient_id: null, seconds_waiting: 700, delivered_at: null, expired_at: "2026-10-06T11:10:00Z" }]);
     expect(parsed[0]?.patient_id).toBeNull();
   });
   it("refuses a role or level it does not know", () => {
@@ -43,7 +43,7 @@ describe("answers from the database are parsed, not trusted", () => {
     expect(activePagesSchema.safeParse([{ ...page(), escalation_level: 3 }]).success).toBe(false);
   });
   it("parses the overview", () => {
-    expect(pagingOverviewSchema.parse([{ root_id: id, sent_at: "2026-10-06T10:00:00Z", no_cover: false, max_level: 2, acknowledged_at: null, acknowledged_by_name: null, closed_at: null, backup_paged_at: "2026-10-06T10:05:00Z", lead_alerted_at: "2026-10-06T10:10:00Z", seconds_waiting: 700 }])).toHaveLength(1);
+    expect(pagingOverviewSchema.parse([{ root_id: id, sent_at: "2026-10-06T10:00:00Z", no_cover: false, max_level: 2, acknowledged_at: null, acknowledged_by_name: null, closed_at: null, backup_paged_at: "2026-10-06T10:05:00Z", lead_alerted_at: "2026-10-06T10:10:00Z", seconds_waiting: 700, expired_at: null, delivered_at: null, merged_count: 1 }])).toHaveLength(1);
     expect(pagingOverviewSchema.safeParse([{ root_id: "x" }]).success).toBe(false);
   });
 });
@@ -59,9 +59,38 @@ describe("on-call readiness checklist (S19b)", () => {
     }
   });
   it("parses what the database returns", () => {
-    expect(myReadinessSchema.parse({ version: 1, items: ["a"], confirmed_at: null, on_call_clinician: true }).confirmed_at).toBeNull();
-    expect(readinessOverviewSchema.parse([{ clinician_id: id, name: "A", ready: false, confirmed_at: null }])).toHaveLength(1);
-    expect(() => readinessOverviewSchema.parse([{ clinician_id: "x", name: "A", ready: false, confirmed_at: null }])).toThrow();
+    expect(myReadinessSchema.parse({
+      version: 1, items: ["a"], confirmed_at: null, on_call_clinician: true, gaps: ["test_page"], objective_required: true, test_page_days: 7,
+      last_test_page_acknowledged_at: null, pending_test_page_id: null,
+    }).confirmed_at).toBeNull();
+    expect(readinessOverviewSchema.parse([{ clinician_id: id, name: "A", ready: false, confirmed_at: null, gaps: [] }])).toHaveLength(1);
+    expect(() => readinessOverviewSchema.parse([{ clinician_id: "x", name: "A", ready: false, confirmed_at: null, gaps: [] }])).toThrow();
+  });
+});
+
+describe("delivery hardening (S19c)", () => {
+  it("rejects a gap the database does not know", () => {
+    const base = { version: 1, items: [], confirmed_at: null, on_call_clinician: true, objective_required: true, test_page_days: 7, last_test_page_acknowledged_at: null, pending_test_page_id: null };
+    expect(myReadinessSchema.safeParse({ ...base, gaps: ["coffee"] }).success).toBe(false);
+  });
+  it("has plain, neutral wording for every gap and no em dash", () => {
+    expect(Object.keys(GAP_LABELS).sort()).toEqual(["push_subscription", "test_page", "verified_email"]);
+    for (const text of Object.values(GAP_LABELS)) expect(text).not.toMatch(/blood|pressure|reading|result|\u2014/i);
+  });
+  it("parses the health view the reviewers read", () => {
+    const parsed = pagingHealthSchema.parse({
+      engine: [{ component: "sweep_pages", last_seen_at: "2026-10-14T10:00:00Z", age_seconds: 4, stale: false }],
+      rota_covered: true,
+      on_call: [{ clinician_id: id, name: "A", role: "primary", reachable: true, devices: [{ kind: "web", last_seen_at: "2026-10-14T10:00:00Z", last_delivered_at: null, silent: false }] }],
+      open_unacknowledged: 0,
+      expired_open: 1,
+    });
+    expect(parsed.expired_open).toBe(1);
+    expect(pagingHealthSchema.safeParse({ engine: [] }).success).toBe(false);
+  });
+  it("a page the console has not yet shown is one the receipt call is for; an expired one is flagged", () => {
+    expect(page().delivered_at).toBeNull();
+    expect(page({ expired_at: "2026-10-14T11:00:00Z" }).expired_at).not.toBeNull();
   });
 });
 

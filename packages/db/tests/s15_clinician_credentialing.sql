@@ -69,7 +69,7 @@ begin
   perform pg_temp.back();
   update public.clinician_applications set employment_type = 'employed' where id = v_app;  -- a reviewer's act in real life
   perform pg_temp.act(p_uid);
-  foreach v_k in array array['mdcn_practising_licence', 'mdcn_portal_screenshot', 'graduation_certificate', 'nysc_certificate', 'government_id', 'cv'] loop
+  foreach v_k in array array['mdcn_practising_licence', 'mdcn_portal_screenshot', 'graduation_certificate', 'nysc_certificate', 'government_id', 'cv', 'mdcn_confirmation'] loop
     perform pg_temp.reg(v_app, v_k::public.clinician_document_kind, p_org || '/' || p_uid || '/' || v_k || '.pdf', 'application/pdf', 1000, repeat('a', 64));
   end loop;
   perform public.save_clinician_application(v_app, jsonb_build_object(
@@ -153,7 +153,7 @@ begin
     pg_temp.try(format('select pg_temp.reg(%L, ''cv'', %L, ''application/x-msdownload'', 100, %L)', v_app, v_org || '/' || v_p1 || '/x.exe', v_hash)));
   perform pg_temp.rec('an oversize file is refused', '23514',
     pg_temp.try(format('select pg_temp.reg(%L, ''cv'', %L, ''application/pdf'', 99999999, %L)', v_app, v_org || '/' || v_p1 || '/x.pdf', v_hash)));
-  foreach v_k in array array['mdcn_practising_licence', 'mdcn_portal_screenshot', 'graduation_certificate', 'nysc_certificate', 'government_id', 'cv', 'indemnity_certificate'] loop
+  foreach v_k in array array['mdcn_practising_licence', 'mdcn_portal_screenshot', 'graduation_certificate', 'nysc_certificate', 'government_id', 'cv', 'indemnity_certificate', 'mdcn_confirmation'] loop
     v_doc := pg_temp.reg(v_app, v_k::public.clinician_document_kind, v_org || '/' || v_p1 || '/' || v_k || '.pdf', 'application/pdf', 1000, v_hash);
     v_docs := v_docs || v_doc;
   end loop;
@@ -193,7 +193,7 @@ begin
   perform pg_temp.act(v_admin);
   perform public.begin_credential_checks(v_app);
   perform pg_temp.back();
-  perform pg_temp.rec('begin creates the six checks', '6', (select count(*)::text from public.clinician_checks where application_id = v_app and result = 'pending'));
+  perform pg_temp.rec('begin creates the seven checks (P5 adds the MDCN primary-source check)', '7', (select count(*)::text from public.clinician_checks where application_id = v_app and result = 'pending'));
 
   perform pg_temp.act(v_c2);
   perform pg_temp.rec('another clinician cannot begin checks', '42501', pg_temp.try(format('select public.begin_credential_checks(%L)', v_app)));
@@ -215,14 +215,16 @@ begin
   perform public.record_credential_check(v_app, 'identity', 'passed');
   perform public.record_credential_check(v_app, 'practice_years', 'passed');
   perform public.record_credential_check(v_app, 'referee_1', 'passed', null, '{"confirmed_back":true,"contact_source":"independent_institution","called_on":"2026-10-05"}'::jsonb);
+  perform public.record_credential_check(v_app, 'primary_source', 'passed', null,
+    jsonb_build_object('route', 'mdcn_dataflow', 'reference', 'DF-S15-0001', 'verified_on', (now() at time zone 'Africa/Lagos')::date));
   perform pg_temp.back();
   select state::text into v_state from public.clinician_applications where id = v_app;
-  perform pg_temp.rec('five of six checks passed stays in checks', 'checks_in_progress', v_state);
+  perform pg_temp.rec('six of seven checks passed stays in checks', 'checks_in_progress', v_state);
   perform pg_temp.act(v_admin);
   perform public.record_credential_check(v_app, 'referee_2', 'passed', null, '{"confirmed_back":true,"contact_source":"independent_institution","called_on":"2026-10-05"}'::jsonb);
   perform pg_temp.back();
   select state::text into v_state from public.clinician_applications where id = v_app;
-  perform pg_temp.rec('all six passed moves to training on its own', 'training', v_state);
+  perform pg_temp.rec('all seven passed moves to training on its own', 'training', v_state);
   perform pg_temp.rec('the licence evidence document was stamped verified', 'true',
     (select (verified_by = v_admin and verified_at is not null)::text from public.clinician_documents where application_id = v_app and kind = 'mdcn_practising_licence'));
   perform pg_temp.rec('the licence expiry was kept on the application', 'true', (select (licence_expires_at > now() + interval '190 days')::text from public.clinician_applications where id = v_app));
@@ -427,6 +429,8 @@ begin
   perform public.reinstate_clinician(v_staff, 'renewed licence checked');
   perform pg_temp.back();
   perform pg_temp.rec('reinstated: active again with the role back', 'active,true,clinician', (select status::text || ',' || active::text || ',' || (select role::text from public.profiles where id = v_p1) from public.clinical_staff where id = v_staff));
+  perform pg_temp.rec('a renewal records its evidence: source, checker and time (S20 v2)', 'document_sighted/true/true',
+    (select evidence_source || '/' || (checked_by = v_admin)::text || '/' || (checked_at > now() - interval '1 minute')::text from public.credential_verifications where clinical_staff_id = v_staff and kind = 'licence' order by checked_at desc limit 1));
   perform pg_temp.rec('reinstatement is audited', 'true', ((select count(*) from public.audit_log where action = 'clinical_staff.reinstated' and entity_id = v_staff) = 1)::text);
 
   -- grace period: a licence expired yesterday is held for 5 audited days, then suspended
@@ -434,7 +438,11 @@ begin
       license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, license_expires_at, is_test)
     values (v_org, v_p5, 'S15 Grace', 'MDCN', 'S15-GRACE-1', true, 'active', now(), v_admin, 'senior_medical_officer', 'employed', 2, v_noon_today - interval '1 day', true)
     returning id into v_p5_staff;
+  -- S20 v2 (decision 8): grace is the chief medical officer's alone; an admin account is refused
   perform pg_temp.act(v_admin);
+  perform pg_temp.rec('an admin account can no longer grant a grace period', '42501', pg_temp.try(format('select public.grant_credential_grace(%L, ''licence'', 5, ''a long enough reason'')', v_p5_staff)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_cmo);
   perform pg_temp.rec('a grace period needs a real reason', '23514', pg_temp.try(format('select public.grant_credential_grace(%L, ''licence'', 5, ''short'')', v_p5_staff)));
   perform pg_temp.rec('a grace period is capped', '23514', pg_temp.try(format('select public.grant_credential_grace(%L, ''licence'', 60, ''a long enough reason'')', v_p5_staff)));
   v_grace := public.grant_credential_grace(v_p5_staff, 'licence', 5, 'MDCN renewal portal outage, evidence on file');
@@ -591,10 +599,22 @@ begin
   perform set_config('tarragon.credential_transition', 'off', true);
   insert into public.clinician_checks (organisation_id, application_id, kind, result, performed_by, performed_at, is_test)
     values (v_org, v_app9b, 'licence', 'passed', v_admin, now(), true);
+  -- P5/Q14: approval is refused until the MDCN / DataFlow primary-source check has passed, with its evidence file
+  perform pg_temp.act(v_cmo);
+  perform pg_temp.rec('P5: approval is refused without the primary-source verification', '23514',
+    pg_temp.try(format('select public.approve_clinician_application(%L)', v_app9b)));
+  perform pg_temp.back();
+  insert into public.clinician_documents (organisation_id, owner_profile_id, application_id, kind, storage_path, mime_type, size_bytes, sha256, is_test)
+    values (v_org, v_p9, v_app9b, 'mdcn_confirmation', v_org || '/' || v_p9 || '/dataflow.pdf', 'application/pdf', 1000, v_hash, true) returning id into v_doc;
+  insert into public.clinician_checks (organisation_id, application_id, kind, result, performed_by, performed_at, evidence_document_id, details, is_test)
+    values (v_org, v_app9b, 'primary_source', 'passed', v_admin, now(), v_doc,
+            jsonb_build_object('route', 'mdcn_dataflow', 'reference', 'DF-S15-REJAPPR', 'verified_on', (now() at time zone 'Africa/Lagos')::date), true);
   perform pg_temp.act(v_cmo);
   v_staff9 := public.approve_clinician_application(v_app9b);
   perform pg_temp.back();
   perform pg_temp.rec('approval created a clinician record', 'true', (exists (select 1 from public.clinical_staff where id = v_staff9))::text);
+  perform pg_temp.rec('P5: approval carried the verification record to the clinician (route, reference, verifier, evidence)', 'mdcn_dataflow/DF-S15-REJAPPR/initial/true',
+    (select route || '/' || reference || '/' || kind || '/' || (verified_by = v_admin and evidence_document_id = v_doc)::text from public.clinician_primary_source_verifications where clinical_staff_id = v_staff9));
   perform pg_temp.act(v_admin);
   perform public.reject_clinician_application(v_app9b, 'changed our mind after approval');
   perform pg_temp.back();

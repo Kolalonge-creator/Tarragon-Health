@@ -30,7 +30,7 @@ $$ select (pg_temp.next_as(p_uid) -> 'task' ->> 'id')::uuid $$;
 create function pg_temp.finish(p_uid uuid, p_task uuid) returns void language plpgsql as
 $f$ begin
   perform pg_temp.act(p_uid);
-  perform public.queue_complete(p_task, '{"done":true}'::jsonb);
+  perform public.queue_complete(p_task, '{"code":"completed_action_taken"}'::jsonb);
   perform pg_temp.back();
 end $f$;
 create function pg_temp.mkuser(p_org uuid, p_label text, p_role text) returns uuid

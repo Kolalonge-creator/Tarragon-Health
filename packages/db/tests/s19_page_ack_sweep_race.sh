@@ -111,6 +111,11 @@ begin
       returning id into v_staff;
     insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test) values (v_org, v_staff, 'on_call', v_admin, true);
     insert into public.on_call_readiness (clinician_id, checklist_version, organisation_id, items, is_test) values (r.id, private.readiness_version(), v_org, private.readiness_items(), true);
+    -- S19c (P9): objective readiness too: a working push subscription and an acknowledged test page (the email is already confirmed)
+    insert into public.push_subscriptions (organisation_id, profile_id, endpoint, p256dh_key, auth_key) values (v_org, r.id, 'https://push.example.invalid/' || r.id, 'k', 'a');
+    perform set_config('tarragon.paging_write', 'on', true);
+    insert into public.page_tests (organisation_id, clinician_id, kind, acknowledged_at, delivered_at, is_test) values (v_org, r.id, 'readiness', now(), now(), true);
+    perform set_config('tarragon.paging_write', 'off', true);
   end loop;
   insert into public.triage_rule_sets (code, version, status, rules, approved_by, approved_at, note)
     values ('$TAG', 1, 'approved', jsonb_build_object('code', '$TAG', 'version', 1), v_cmo, now(), 'S19 race proof fixture');
@@ -133,6 +138,10 @@ do \$\$
 declare v_ev uuid; v_root uuid; v_rs public.triage_rule_sets%rowtype;
 begin
   select * into v_rs from public.triage_rule_sets where code = '$TAG';
+  -- S19c (P6): a repeat red event for the same patient joins an OPEN page family, so each round starts from a closed one
+  perform set_config('tarragon.paging_write', 'on', true);
+  update public.pages set closed_at = now(), close_note = 'race harness: next round' where patient_id = '$PATIENT' and closed_at is null;
+  perform set_config('tarragon.paging_write', 'off', true);
   insert into public.triage_events (organisation_id, patient_id, trigger_type, trigger_id, grade, rule_id, rule_set_id, rule_set_code, rule_set_version, rule_set_status, actions, shadow, is_test, basis)
     select organisation_id, id, 'observation', gen_random_uuid(), 'red', 'R1', v_rs.id, v_rs.code, v_rs.version, v_rs.status, '[{"kind":"page_on_call"}]'::jsonb, false, true, gen_random_uuid()::text
       from public.profiles where id = '$PATIENT' returning id into v_ev;

@@ -9,7 +9,6 @@ export type AnnualReviewWorkupItem = Tables<"annual_review_workup_items">;
 type ReviewingStaff = {
   full_name: string | null;
   credential_type: string | null;
-  credential_number: string | null;
 } | null;
 
 export type AnnualReviewConsult = {
@@ -28,7 +27,7 @@ export type AnnualReviewWithContext = AnnualReview & {
 };
 
 const REVIEW_SELECT =
-  "*, patient:profiles!annual_reviews_patient_id_fkey(full_name, patient_number), reviewed_by_staff:clinical_staff!annual_reviews_reviewed_by_fkey(full_name, credential_type, credential_number), workup_items:annual_review_workup_items(*), video_consult:video_consultations!annual_reviews_video_consultation_id_fkey(id, proposed_slots, scheduled_at, join_url, status)";
+  "*, patient:profiles!annual_reviews_patient_id_fkey(full_name, patient_number), reviewed_by_staff:clinical_staff!annual_reviews_reviewed_by_fkey(full_name, credential_type), workup_items:annual_review_workup_items(*), video_consult:video_consultations!annual_reviews_video_consultation_id_fkey(id, proposed_slots, scheduled_at, join_url, status)";
 
 const orgKey = ["annual-reviews", "org"] as const;
 

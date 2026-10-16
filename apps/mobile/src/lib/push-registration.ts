@@ -3,6 +3,7 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { reportNotificationOpened } from "@/lib/notification-settings";
+import { ensureNotificationChannels } from "@/lib/notification-channels";
 
 /**
  * Registers this device for remote push, closing the one gap left in an
@@ -47,6 +48,8 @@ export function startOpenReporting(): void {
 
 export async function registerPushToken(userId: string, organisationId: string): Promise<void> {
   startOpenReporting();
+  // Channels first: Android 13+ may not show the permission prompt until one exists, and the server sends safety rows to `urgent`.
+  const urgentChannelReady = await ensureNotificationChannels();
   try {
     const { status: existing } = await Notifications.getPermissionsAsync();
     let status = existing;
@@ -66,6 +69,7 @@ export async function registerPushToken(userId: string, organisationId: string):
     // `endpoint` — a device re-registering (reinstall, permission re-grant)
     // overwrites its own prior row rather than accumulating duplicates. See
     // push_subscriptions_expo_push_token_key (20260809195100).
+    // urgent_channel_ready is not in the generated types yet (S13 R4 migration), hence the cast.
     await supabase.from("push_subscriptions").upsert(
       {
         organisation_id: organisationId,
@@ -74,7 +78,9 @@ export async function registerPushToken(userId: string, organisationId: string):
         expo_push_token: data,
         last_seen_at: new Date().toISOString(),
         disabled_at: null,
-      },
+        // the sender names the `urgent` channel only for a phone that has created it
+        urgent_channel_ready: urgentChannelReady,
+      } as never,
       { onConflict: "expo_push_token" }
     );
   } catch {

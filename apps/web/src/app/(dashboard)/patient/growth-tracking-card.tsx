@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
-import { useGrowthMeasurements, useLogGrowthMeasurement } from "@/lib/queries/growth";
+import { useGrowthMeasurements, useLogGrowthMeasurement, useMaternalFollowUpOpen } from "@/lib/queries/growth";
+import { t } from "@tarragon/i18n";
+import { nutritionCopyKey } from "@tarragon/shared";
 import { zScoreToPercentile, formatPercentile } from "@/lib/growth/zscore-to-percentile";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,11 +50,16 @@ export function GrowthTrackingCard({
   const [heightCm, setHeightCm] = useState("");
   const [weightKg, setWeightKg] = useState("");
   const [headCircumferenceCm, setHeadCircumferenceCm] = useState("");
+  const [muacMm, setMuacMm] = useState("");
+  const [position, setPosition] = useState<"" | "recumbent" | "standing">("");
+  const [oedema, setOedema] = useState(false);
+  const followUp = useMaternalFollowUpOpen();
   const { data: measurements, isLoading, isError } = useGrowthMeasurements(patientId);
   const logMeasurement = useLogGrowthMeasurement();
 
   if (ageYears !== null && ageYears >= 19) return null;
   const showHeadCircumference = showsHeadCircumference(ageYears);
+  const underFive = ageYears !== null && ageYears < 5;
 
   const weightPoints = (measurements ?? [])
     .filter((m) => m.weight_kg !== null)
@@ -76,7 +83,13 @@ export function GrowthTrackingCard({
       heightCm: heightCm ? Number(heightCm) : null,
       weightKg: weightKg ? Number(weightKg) : null,
       headCircumferenceCm: headCircumferenceCm ? Number(headCircumferenceCm) : null,
+      muacMm: muacMm ? Number(muacMm) : null,
+      measurePosition: position || null,
+      bilateralOedema: oedema,
     });
+    setMuacMm("");
+    setPosition("");
+    setOedema(false);
     setHeightCm("");
     setWeightKg("");
     setHeadCircumferenceCm("");
@@ -97,12 +110,24 @@ export function GrowthTrackingCard({
         {isError && <p className="text-sm text-red-600 dark:text-red-300">Could not load growth measurements.</p>}
 
         {latest && (
-          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-            Latest:{" "}
-            {latestZ !== null
-              ? formatPercentile(zScoreToPercentile(latestZ))
-              : "Reference data pending, showing raw measurements only"}
-          </p>
+          <div className="space-y-1">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              Latest:{" "}
+              {latestZ !== null ? formatPercentile(zScoreToPercentile(latestZ)) : t("mch.growth.reference_missing")}
+            </p>
+            {latest.reference_version && (
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                {t("mch.growth.reference_line", "en", { version: latest.reference_version })}
+              </p>
+            )}
+            {latest.plausibility_flags.length > 0 && (
+              <p className="text-sm text-amber-700 dark:text-amber-300">{t("mch.growth.check_measurement")}</p>
+            )}
+            {(() => {
+              const key = nutritionCopyKey(latest.nutrition_class, followUp.data === true);
+              return key ? <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{t(key)}</p> : null;
+            })()}
+          </div>
         )}
 
         {weightPoints.length >= 2 && (
@@ -184,6 +209,33 @@ export function GrowthTrackingCard({
               />
             </div>
           )}
+          {underFive && (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="muac_mm">{t("mch.growth.muac_label")}</Label>
+                <Input id="muac_mm" type="number" step="1" min="40" max="400" value={muacMm} onChange={(e) => setMuacMm(e.target.value)} aria-describedby="muac_help" />
+                <p id="muac_help" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t("mch.growth.muac_help")}</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="measure_position">{t("mch.growth.position_label")}</Label>
+                <select
+                  id="measure_position"
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                  value={position}
+                  onChange={(e) => setPosition(e.target.value as "" | "recumbent" | "standing")}
+                >
+                  <option value=""></option>
+                  <option value="recumbent">{t("mch.growth.position_lying")}</option>
+                  <option value="standing">{t("mch.growth.position_standing")}</option>
+                </select>
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t("mch.growth.position_help")}</p>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={oedema} onChange={(e) => setOedema(e.target.checked)} />
+                {t("mch.growth.oedema_label")}
+              </label>
+            </>
+          )}
           <div className={showHeadCircumference ? "sm:col-span-3" : "sm:col-span-2"}>
             {logMeasurement.isError && (
               <p className="mb-2 text-sm text-red-600 dark:text-red-300">Could not save this measurement.</p>
@@ -191,7 +243,7 @@ export function GrowthTrackingCard({
             <Button
               type="submit"
               disabled={
-                logMeasurement.isPending || (!heightCm && !weightKg && !headCircumferenceCm) || !organisationId
+                logMeasurement.isPending || (!heightCm && !weightKg && !headCircumferenceCm && !muacMm) || !organisationId
               }
             >
               {logMeasurement.isPending ? "Saving…" : "Log measurement"}

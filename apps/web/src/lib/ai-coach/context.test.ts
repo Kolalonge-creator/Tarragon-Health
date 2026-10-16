@@ -56,7 +56,7 @@ describe("loadPatientContext", () => {
       medications: { data: [], error: null },
       patient_allergies: { data: [], error: null },
       vitals_readings: { data: [], error: null },
-      lab_analyte_readings: { data: [], error: null },
+      ai_readable_lab_readings: { data: [], error: null },
       appointments: { data: [], error: null },
       patient_pregnancy: { data: null, error: null },
     });
@@ -77,7 +77,7 @@ describe("loadPatientContext", () => {
       medications: { data: [], error: null },
       patient_allergies: { data: [], error: null },
       vitals_readings: { data: [], error: null },
-      lab_analyte_readings: { data: [], error: null },
+      ai_readable_lab_readings: { data: [], error: null },
       appointments: { data: [], error: null },
       patient_pregnancy: { data: null, error: null },
     });
@@ -122,7 +122,7 @@ describe("loadPatientContext", () => {
         ],
         error: null,
       },
-      lab_analyte_readings: { data: [], error: null },
+      ai_readable_lab_readings: { data: [], error: null },
       appointments: { data: [], error: null },
       patient_pregnancy: { data: null, error: null },
     });
@@ -149,7 +149,7 @@ describe("loadPatientContext", () => {
       medications: { data: [], error: null },
       patient_allergies: { data: [], error: null },
       vitals_readings: { data: [], error: null },
-      lab_analyte_readings: { data: [], error: null },
+      ai_readable_lab_readings: { data: [], error: null },
       appointments: { data: [], error: null },
       patient_pregnancy: { data: null, error: null },
     });
@@ -168,7 +168,7 @@ describe("loadPatientContext", () => {
       medications: { data: [], error: null },
       patient_allergies: { data: [], error: null },
       vitals_readings: { data: [], error: null },
-      lab_analyte_readings: { data: [], error: null },
+      ai_readable_lab_readings: { data: [], error: null },
       appointments: { data: [], error: null },
       patient_pregnancy: { data: { is_pregnant: true }, error: null },
     });
@@ -181,7 +181,7 @@ describe("loadPatientContext", () => {
       medications: { data: [], error: null },
       patient_allergies: { data: [], error: null },
       vitals_readings: { data: [], error: null },
-      lab_analyte_readings: { data: [], error: null },
+      ai_readable_lab_readings: { data: [], error: null },
       appointments: { data: [], error: null },
       patient_pregnancy: { data: null, error: null },
     });

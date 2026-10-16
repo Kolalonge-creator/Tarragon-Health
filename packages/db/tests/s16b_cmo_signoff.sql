@@ -48,15 +48,18 @@ begin
   insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status, license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, is_test)
     values (v_org, v_doc, 'S16b Doctor', 'MDCN', 'S16B-DOC-1', true, 'active', now(), v_admin, 'senior_medical_officer', 'employed', 2, true);
 
-  -- a fresh draft rule set (the live draft is left alone) that asks for a task key the types answer
+  -- a fresh draft rule set (the live draft is left alone) that asks for a task key the adherence type answers (approval only looks at the types a set uses, OQ-334)
   insert into public.triage_rule_sets (code, version, status, rules) values ('s16b_set', 1, 'draft',
-    '{"code":"s16b_set","version":1,"rules":[{"id":"R1","actions":[{"kind":"create_task","task":"bp_review","dueMinutes":60}]}]}'::jsonb) returning id into v_draft;
+    '{"code":"s16b_set","version":1,"rules":[{"id":"R1","actions":[{"kind":"create_task","task":"adherence_review","dueMinutes":60}]}]}'::jsonb) returning id into v_draft;
   insert into public.triage_rule_sets (code, version, status, rules) values ('s16b_set', 2, 'draft',
     '{"code":"s16b_set","version":2,"rules":[{"id":"R1","actions":[{"kind":"create_task","task":"no_such_key"}]}]}'::jsonb) returning id into v_bad;
 
   perform pg_temp.rec('adherence_follow_up awaits confirmation', 'true,null',
     (select needs_confirmation::text || ',' || coalesce(confirmed_at::text, 'null') from public.task_types where code = 'adherence_follow_up' and is_active));
-  perform pg_temp.rec('only that type needs confirming', '1', (select count(*)::text from public.task_types where is_active and needs_confirmation));
+  perform pg_temp.rec('only that type needs confirming', '1', (select count(*)::text from public.task_types where is_active and needs_confirmation and code not in ('red_patient_outreach', 'amber_glucose_review', 'crisis_follow_up')));
+  -- S13 R4 added red_patient_outreach, which also awaits the CMO; this proof is about the adherence type, so take that one out of the way
+  -- R2 likewise added amber_glucose_review; same treatment (its own confirmation is covered by the glucose proofs)
+  update public.task_types set needs_confirmation = false where code in ('red_patient_outreach', 'amber_glucose_review');
 
   -- who can act
   perform pg_temp.act(v_doc);
@@ -75,10 +78,16 @@ begin
   perform pg_temp.rec('approval is refused while a task type awaits confirmation', '22023', pg_temp.try(format('select public.approve_triage_rule_set(%L)', v_draft)));
   perform pg_temp.rec('confirming something that needs no confirmation is refused', '22023', pg_temp.try($q$select public.confirm_task_type('symptom_review')$q$));
   perform public.confirm_task_type('adherence_follow_up', 'class 8 and coordinator tier are right');
+  perform pg_temp.rec('an unconfirmed type this rule set does not use (crisis_follow_up, S57b) does not block it (OQ-334)', 'true',
+    ((select count(*) from public.task_types where is_active and needs_confirmation and confirmed_at is null and code = 'crisis_follow_up') = 1
+     and not exists (select 1 from public.task_types t, public.triage_rule_sets rs,
+            lateral jsonb_path_query(rs.rules, '$.rules[*].actions[*] ? (@.kind == "create_task")') x
+          where rs.id = v_draft and t.code = 'crisis_follow_up' and t.source_task_keys @> array[x ->> 'task']))::text);
+  perform public.confirm_task_type('crisis_follow_up', 'same class and tier as the red event task');
   perform pg_temp.back();
   perform pg_temp.rec('confirmed: who, when and note recorded', 'true,true,class 8 and coordinator tier are right',
     (select (confirmed_by = v_cmo)::text || ',' || (confirmed_at is not null)::text || ',' || confirmation_note from public.task_types where code = 'adherence_follow_up' and is_active));
-  perform pg_temp.rec('the confirmation is audited', '1', (select count(*)::text from public.audit_log where action = 'task_type.confirmed' and actor_id = v_cmo));
+  perform pg_temp.rec('the confirmations are audited (adherence_follow_up and crisis_follow_up)', '2', (select count(*)::text from public.audit_log where action = 'task_type.confirmed' and actor_id = v_cmo));
   perform pg_temp.act(v_cmo);
   perform pg_temp.rec('a second confirmation is refused', '22023', pg_temp.try($q$select public.confirm_task_type('adherence_follow_up')$q$));
 

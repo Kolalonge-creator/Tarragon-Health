@@ -2,7 +2,9 @@ import { flushOutbox, getPendingCount } from "@/lib/outbox";
 import { runDeviceCheckThrottled } from "@/lib/device-lease";
 import { startReconnectWatcher } from "@/lib/reachability";
 import { syncReminders } from "@/lib/reminder-notifications";
+import { refreshPackIfEnabled } from "@/lib/learning-pack";
 import { clearLocalMirror } from "@/lib/offline-store";
+import { purgeAllDownloads } from "@/lib/offline-downloads";
 import { FONT_ASSETS, ThemeProvider, useTheme } from "@/ui/design";
 import { ToastProvider } from "@/ui/kit";
 import { useEffect, useRef, useState } from "react";
@@ -102,6 +104,8 @@ function AppContent() {
         void clearLocalMirror().catch(() => {});
         // Drafts are NOT cleared (S06x, decision D2): they stay in the encrypted store, tied to their account,
         // and come back when that account signs in again. Another account cannot read them.
+        // Offline audio downloads (S57b) belong to the previous account's session: delete them all, flag or no flag.
+        void purgeAllDownloads().catch(() => {});
       }
       if (event === "SIGNED_IN" && newSession?.user.id && postSignInFor.current !== newSession.user.id) {
         const userId = newSession.user.id;
@@ -158,11 +162,17 @@ function AppContent() {
     // opens or returns to the foreground (and never ask for permission here: only the patient's
     // own action does).
     const topUpReminders = () => void syncReminders().catch(() => {});
+    // S55: downloaded lessons are refreshed on return to the app (only if the patient opted in): anything the server
+    // no longer serves is deleted, changed lessons are fetched again.
+    const lessonUserId = session.user.id;
+    const refreshLessons = () => void refreshPackIfEnabled(lessonUserId);
     topUpReminders();
+    refreshLessons();
     const sub = AppState.addEventListener("change", (next) => {
       if (next === "active") {
         run();
         topUpReminders();
+        refreshLessons();
       }
     });
     const timer = setInterval(() => {

@@ -139,13 +139,13 @@ export function useMarkRosterMemberDeparted(organisationId: string) {
   });
 }
 
-/** §26.4 email/SMS invitation. Returns the redeemable link's token — the
+/** §26.4 email invitation (SMS was removed, S85-D3: a person with only a phone number joins with the organisation code). Returns the redeemable link's token — the
  * caller is responsible for getting it to the person (this RPC only issues
  * it; sending it is the notifications pipeline's job elsewhere). */
 export function useInviteRosterMember(organisationId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ rosterId, channel }: { rosterId: string; channel: "email" | "sms" }) => {
+    mutationFn: async ({ rosterId, channel }: { rosterId: string; channel: "email" }) => {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("employer_invite_roster_member", {
         p_roster_member_id: rosterId,

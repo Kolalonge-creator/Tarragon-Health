@@ -33,6 +33,7 @@
 // anon-executable.
 
 import { execFileSync } from "node:child_process";
+import { execWithRetry } from "./retry-sync.mjs";
 import { writeFileSync, rmSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -82,6 +83,9 @@ const ALLOWLIST = new Set([
   // 20261005222628_platform_switches_pidgin_kill_switch.sql -- revokes from public, then grants anon on purpose;
   // the row-level opt-in (readable_by_anon) limits what anon can learn, and an unknown key is false.
   "public.platform_switch_is_on(p_key text)",
+  // 20261007153127_s55_review_fixes_shared_article_and_creator_writes.sql -- a shared learning article opens signed out by its code. It serves
+  // only an item with a named reviewer, a review date and a future next-review date, and the migration asserts anon EXECUTE must stay on.
+  "public.learn_shared_article(p_code text)",
 ]);
 
 const QUERY = `
@@ -108,12 +112,7 @@ function sh(cmd, args, opts = {}) {
 // role..." (seen in CI 2026-09-03 while the identical call succeeded in a sibling job of the
 // same run) — transient management-API/CLI flake, not a config problem. One retry absorbs it.
 function shRetry(cmd, args, opts = {}) {
-  try {
-    return sh(cmd, args, opts);
-  } catch (err) {
-    console.log(`retrying once after transient failure: ${err instanceof Error ? err.message.split("\n")[0] : err}`);
-    return sh(cmd, args, opts);
-  }
+  return execWithRetry(cmd, args, opts); // see retry-sync.mjs
 }
 
 function parseRows(raw) {

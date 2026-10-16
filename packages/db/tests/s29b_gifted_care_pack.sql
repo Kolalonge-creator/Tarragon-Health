@@ -135,6 +135,9 @@ begin
   v_doc1 := pg_temp.mkdoc(v_org, 'lead1', v_admin);
   v_doc2 := pg_temp.mkdoc(v_org, 'lead2', v_admin);
   v_doc3 := pg_temp.mkdoc(v_org, 'lead3', v_admin);
+  -- S73: the Membership is switched on only behind its go-live guard; open it the way the guard allows (a log row in this transaction, then the switch)
+  insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions) values ('membership_billing_enabled', 'switched_on', v_admin, 'admin', 'proof run', '[]'::jsonb);
+  update public.go_live_guards set is_on = true, changed_at = now(), changed_by = v_admin, change_note = 'proof run' where key = 'membership_billing_enabled';
   perform pg_temp.try_as(v_admin, $q$select public.set_catalog_item_active('membership_annual', true, 'Proof run, membership on for testing')$q$);
   update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = v_admin, activation_note = 'S29b proof run' where key = 'v5_checkout';
 

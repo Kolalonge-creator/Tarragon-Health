@@ -2,6 +2,7 @@
 // template and prove none puts a condition, reading, drug or result in the text (INV-07). Behaviour is unchanged.
 import { createHmac } from "node:crypto";
 import { resolveI18n } from "../_shared/i18n/resolve.ts";
+import { emergencyContactName, emergencyContactText } from "../_shared/notifications/emergency-contact.ts";
 
 // Patient-experience review 2026-07-31: several reminder templates only ever
 // said "open the app" with no actual link — real friction for a patient
@@ -1222,8 +1223,8 @@ export const TEMPLATE_MAP: Record<
     const orderNumber = String(payload.order_number ?? "your order");
     const selfBooked = payload.self_booked === true;
     const lead = selfBooked
-      ? `Your order is confirmed. A printable PDF is attached: take it with you, or show order ${orderNumber}.`
-      : "Your care team has made a request for you. A printable PDF is attached.";
+      ? `Your order is confirmed. Sign in to open your printable request: take it with you, or show order ${orderNumber}.`
+      : "Your care team has made a request for you. Sign in to open it.";
     const smsText = selfBooked
       ? `Hi ${patientName}, your order ${orderNumber} is confirmed. Show it when you arrive. Tarragon Health`
       : `Hi ${patientName}, your care team made a request for you (order ${orderNumber}). See the details in the Tarragon Health app. Tarragon Health`;
@@ -1237,7 +1238,7 @@ export const TEMPLATE_MAP: Record<
     const smsText = `Hi ${patientName}, your care plan has been updated. See the Tarragon Health app for what is due. Tarragon Health`;
     return {
       smsText,
-      email: neutralMail("Your care plan has been updated", [`Hi ${patientName},`, "Your care plan has been updated. A copy is attached as a PDF."]),
+      email: neutralMail("Your care plan has been updated", [`Hi ${patientName},`, "Your care plan has been updated. Sign in to open it."]),
     };
   },
   vaccination_verified: (payload) => {
@@ -1249,17 +1250,17 @@ export const TEMPLATE_MAP: Record<
       email: neutralMail("Your care team has reviewed a document you uploaded", [`Hi ${patientName},`, "Your care team has reviewed a document you uploaded. Open the Tarragon Health app to see it."], [["Reference", serial]]),
     };
   },
+  // S85-D3: the one named SMS exception. The text is signed and content-free; it lives in _shared/notifications/emergency-contact.ts.
   emergency_contact_alert: (payload) => {
-    const contactName = String(payload.contact_name ?? "there");
-    const patientName = String(
-      payload.patient_name ?? "someone who lists you as their emergency contact",
-    );
-    const smsText =
-      `${contactName}, this is an urgent alert from Tarragon Health. ${patientName} reported a ` +
-      `possible medical emergency and may need your help. Please try to reach them now. If you ` +
-      `cannot and it is an emergency, help them get to the nearest hospital. Tarragon Health`;
+    const smsText = emergencyContactText(payload.patient_name);
+    const name = emergencyContactName(payload.patient_name);
     return {
       smsText,
+      email: {
+        subject: `Please call ${name} now`,
+        html: `<p>${escapeHtmlForBroadcast(smsText)}</p>`,
+        text: smsText,
+      },
     };
   },
   // Sent to org clinicians when an abnormal/critical screening result lands
@@ -1430,6 +1431,36 @@ export const TEMPLATE_MAP: Record<
         `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
       text: "Someone in your Care Circle may need you now.\n\nPlease call them, then open Tarragon Health to see what you can do.\n\nTarragon Health",
+    },
+  }),
+  // S65 (INV-07): the patient's own one-tap "I need you". Fixed wording, nothing from the payload, no location, no name, no condition.
+  circle_help_tap: () => ({
+    smsText: "Someone in your Care Circle has asked for you. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient/supporting",
+    email: {
+      subject: "Someone in your Care Circle is asking for you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone in your Care Circle has asked for you.</p>` +
+        `<p>Please call them, then open Tarragon Health to see what you can do.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone in your Care Circle has asked for you.\n\nPlease call them, then open Tarragon Health to see what you can do.\n\nTarragon Health",
+    },
+  }),
+  // S65: a reminder for a booked visit. Names no facility, service, condition or time; the app shows the details and the I come / I cancel buttons.
+  facility_booking_reminder: () => ({
+    smsText: "You have a visit coming up. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient/directory/bookings",
+    email: {
+      subject: "You have a visit coming up",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>You have a visit coming up.</p>` +
+        `<p>Open Tarragon Health to see the details and tell us whether you are coming.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "You have a visit coming up.\n\nOpen Tarragon Health to see the details and tell us whether you are coming.\n\nTarragon Health",
     },
   }),
   circle_joined: () => ({
@@ -1620,6 +1651,103 @@ export const TEMPLATE_MAP: Record<
       text: "We are checking in on you.\n\nOpen Tarragon Health to tell us how you are.\n\nTarragon Health",
     },
   }),
+  // S13 R4 (CMO Q11, Q12): the red alert notice a Member gets, and the call-the-patient alert the clinician on call gets. Fixed
+  // generic wording (INV-07): no condition, reading, name or result, and nothing from the payload is echoed. The guidance
+  // itself is shown only after the app is opened.
+  red_event_guidance_waiting: () => ({
+    smsText: "A safety message is waiting for you. Open the Tarragon Health app now. Tarragon Health",
+    pushUrl: "/patient",
+    email: {
+      subject: "A message is waiting for you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A safety message is waiting for you in the app.</p>` +
+        `<p>Please open Tarragon Health now.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A safety message is waiting for you in the app.\n\nPlease open Tarragon Health now.\n\nTarragon Health",
+    },
+  }),
+  red_event_outreach_task: () => ({
+    smsText: "A priority call is waiting. Open your Tarragon Health worklist. Tarragon Health",
+    pushUrl: "/clinician/queue",
+    email: {
+      subject: "A priority call is waiting",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A priority call needs you now.</p>` +
+        `<p>Open Tarragon Health and take it from your worklist.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A priority call needs you now.\n\nOpen Tarragon Health and take it from your worklist.\n\nTarragon Health",
+    },
+  }),
+  // S13b/S13 R4: "send me a test alert" on the notifications-not-arriving card. It travels like a safety message so the person
+  // learns whether those reach this phone.
+  test_alert: () => ({
+    smsText: "This is a test alert from Tarragon Health. Nothing is wrong. If you can see this, alerts reach this phone.",
+    pushUrl: "/patient",
+    email: {
+      subject: "Test alert",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>This is a test alert from Tarragon Health. Nothing is wrong.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "This is a test alert from Tarragon Health. Nothing is wrong.\n\nTarragon Health",
+    },
+  }),
+  // S16-S20 D2: a clinical task escalated (task_escalation_alert, classes 1 and 2: in-app, push and email at critical priority, from
+  // private.notify_task_escalated) and the daily digest of the rest (queue_backlog_digest). Fixed neutral wording (INV-07): no
+  // condition, reading, name or result, and nothing from the payload is echoed. Never sent by SMS or WhatsApp.
+  task_escalation_alert: () => ({
+    smsText: "A clinical task needs attention. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/clinician/queue",
+    email: {
+      subject: "A clinical task needs attention",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A clinical task has passed its time and is now escalated.</p>` +
+        `<p>Open Tarragon Health to see where it stands.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A clinical task has passed its time and is now escalated.\n\nOpen Tarragon Health to see where it stands.\n\nTarragon Health",
+    },
+  }),
+  // The folded follow-up for further immediate escalations inside the coalescing window: a count and nothing else.
+  task_escalation_more: (payload) => {
+    const raw = Math.floor(Number(payload.count));
+    const n = Number.isFinite(raw) && raw >= 1 ? raw : 1;
+    const line = n === 1 ? "One more clinical task has been escalated." : `${n} more clinical tasks have been escalated.`;
+    return {
+      smsText: "More clinical tasks need attention. Open Tarragon Health. Tarragon Health",
+      pushUrl: "/clinician/queue",
+      email: {
+        subject: "More clinical tasks need attention",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>${line}</p>` +
+          `<p>Open Tarragon Health to see where they stand.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: `${line}\n\nOpen Tarragon Health to see where they stand.\n\nTarragon Health`,
+      },
+    };
+  },
+  queue_backlog_digest: () => ({
+    smsText: "Escalated clinical tasks are waiting. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/clinician/queue",
+    email: {
+      subject: "Escalated clinical tasks are waiting",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Some clinical tasks have been waiting longer than planned.</p>` +
+        `<p>Open Tarragon Health to see them and how long they have waited.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Some clinical tasks have been waiting longer than planned.\n\nOpen Tarragon Health to see them and how long they have waited.\n\nTarragon Health",
+    },
+  }),
   // S19: a red event page to the clinician on call (on_call_page) and the alert to the clinical lead and ops when nobody
   // has acknowledged it (on_call_escalation). Sent as push, in-app and email together at critical priority. The wording
   // is fixed and neutral (INV-07): no condition, reading, name or result, and nothing from the payload is echoed.
@@ -1649,6 +1777,37 @@ export const TEMPLATE_MAP: Record<
         `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
       text: "A priority case has not been acknowledged by the clinicians on call.\n\nOpen Tarragon Health to see where it stands.\n\nTarragon Health",
+    },
+  }),
+  // S19c: the test page that proves a phone and
+  // inbox work (on_call_test_page), and the alarm when the whole ladder ran out with nobody answering (on_call_expired). Fixed,
+  // neutral wording (INV-07): nothing from the payload is echoed.
+  on_call_test_page: () => ({
+    smsText: "This is a test page. Open Tarragon Health and acknowledge it on the On call page. Tarragon Health",
+    pushUrl: "/clinician/on-call",
+    email: {
+      subject: "Test page: please acknowledge",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>This is a test page. Nothing is wrong.</p>` +
+        `<p>Open Tarragon Health and acknowledge it on the On call page.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "This is a test page. Nothing is wrong.\n\nOpen Tarragon Health and acknowledge it on the On call page.\n\nTarragon Health",
+    },
+  }),
+  on_call_expired: () => ({
+    smsText: "Nobody has answered a priority case. Phone the clinician on call now. Tarragon Health",
+    pushUrl: "/rota",
+    email: {
+      subject: "Nobody has answered a priority case",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Every alert for a priority case has gone out and nobody has acknowledged it.</p>` +
+        `<p>Phone the clinician on call now, then open Tarragon Health to see where it stands.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Every alert for a priority case has gone out and nobody has acknowledged it.\n\nPhone the clinician on call now, then open Tarragon Health to see where it stands.\n\nTarragon Health",
     },
   }),
   on_call_unfinished: () => ({
@@ -1764,9 +1923,20 @@ export const TEMPLATE_MAP: Record<
     };
   },
   // S21: neutral by design (INV-07). Nothing here names a reason, a condition or a clinician; the details live in the app.
+  // Push and email carry the same neutral line as the in-app notice (INV-08: no SMS; the join link is issued by the page after sign-in).
   video_call_requested: (payload) => ({
     smsText: "Your care team would like a quick call. Open the app to join. Tarragon Health",
     pushUrl: `/patient/video-visit/${String(payload.consultation_id ?? "")}`,
+    email: {
+      subject: "Your care team would like a quick call",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your care team would like a quick call. Open the Tarragon Health app to join.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">The call link is in the app, after you sign in. We never send it by text message.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Your care team would like a quick call. Open the Tarragon Health app to join. The call link is in the app, after you sign in. We never send it by text message.",
+    },
   }),
   consult_join_ready: (payload) => ({
     smsText: "Your consultation room is open. Open the app to join. Tarragon Health",

@@ -12,6 +12,7 @@
 // Usage: SUPABASE_ACCESS_TOKEN=... node check-minor-guard-gaps.mjs
 
 import { execFileSync } from "node:child_process";
+import { execWithRetry } from "./retry-sync.mjs";
 import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
@@ -25,12 +26,7 @@ function sh(cmd, args, opts = {}) {
 }
 
 function shRetry(cmd, args, opts = {}) {
-  try {
-    return sh(cmd, args, opts);
-  } catch (err) {
-    console.log(`retrying once after transient failure: ${err instanceof Error ? err.message.split("\n")[0] : err}`);
-    return sh(cmd, args, opts);
-  }
+  return execWithRetry(cmd, args, opts); // see retry-sync.mjs
 }
 
 /** The CLI prints either a bare array or {rows: [...]}, sometimes after a status blob: take the first balanced JSON with rows. */

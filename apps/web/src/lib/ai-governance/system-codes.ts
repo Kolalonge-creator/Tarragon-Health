@@ -114,6 +114,11 @@ export const AI_SYSTEMS = {
     // 20260922190712_ai016_imaging_report_extraction_registration.sql.
     failClosedIfGovernanceUnavailable: true,
   },
+  // S52 (7.12): the patient's remembered goals and preferences, read into AI-001's context. Registered DISABLED (kill switch, off by default).
+  assistantMemory: {
+    code: "AI-020",
+    failClosedIfGovernanceUnavailable: true,
+  },
   scribeDraft: {
     code: "AI-017",
     // Generates a structured clinical note from an STT transcript (S23).
