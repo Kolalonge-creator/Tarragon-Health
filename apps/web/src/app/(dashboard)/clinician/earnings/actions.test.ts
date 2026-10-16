@@ -20,7 +20,7 @@ describe("openEarningsDispute", () => {
   it("sends the line, the reason and the request id that makes a double tap one question", async () => {
     rpc.mockResolvedValue({ data: id, error: null });
     const r = await openEarningsDispute(undefined, form({ ledger_id: id, reason_code: "wrong_amount", request_id: req, note: "Looks short" }));
-    expect(r?.message).toMatch(/on hold/);
+    expect(r?.message).toMatch(/held back/);
     expect(rpc).toHaveBeenCalledWith("open_earnings_dispute", { p_ledger: id, p_reason_code: "wrong_amount", p_request_id: req, p_note: "Looks short" });
   });
   it("leaves the note out when there is none", async () => {

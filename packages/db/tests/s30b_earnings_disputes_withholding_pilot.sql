@@ -143,13 +143,13 @@ end $$;
 do $$
 declare
   v_org uuid := pg_temp.f('org'); v_admin uuid := pg_temp.f('admin'); v_a uuid := pg_temp.f('a'); v_b uuid := pg_temp.f('b'); v_e uuid := pg_temp.f('emp');
-  l1 uuid; l2 uuid; l3 uuid; lb uuid; lb_old uuid; d1 uuid; d1b uuid; r1 uuid := gen_random_uuid(); r2 uuid := gen_random_uuid(); v_n integer; v_pay uuid; r jsonb;
+  l1 uuid; l2 uuid; l3 uuid; lb uuid; lb_old uuid; lb2 uuid; d1 uuid; d1b uuid; r1 uuid := gen_random_uuid(); r2 uuid := gen_random_uuid(); v_n integer; v_pay uuid; r jsonb;
 begin
   l1 := pg_temp.line(v_org, v_a, v_admin, 60000, '20 days'); l2 := pg_temp.line(v_org, v_a, v_admin, 70000, '15 days'); l3 := pg_temp.line(v_org, v_a, v_admin, 50000, '12 days');
-  lb := pg_temp.line(v_org, v_b, v_admin, 200000, '14 days'); lb_old := pg_temp.line(v_org, v_b, v_admin, 1000, '90 days');
-  perform pg_temp.setf('l1', l1); perform pg_temp.setf('l2', l2); perform pg_temp.setf('l3', l3); perform pg_temp.setf('lb', lb);
+  lb := pg_temp.line(v_org, v_b, v_admin, 200000, '14 days'); lb_old := pg_temp.line(v_org, v_b, v_admin, 1000, '90 days'); lb2 := pg_temp.line(v_org, v_b, v_admin, 20000, '5 days');
+  perform pg_temp.setf('l1', l1); perform pg_temp.setf('l2', l2); perform pg_temp.setf('l3', l3); perform pg_temp.setf('lb', lb); perform pg_temp.setf('lb2', lb2);
   perform pg_temp.act(v_admin); v_n := public.build_payout_drafts_now(); perform pg_temp.back();
-  perform pg_temp.ck('setup: drafts for A (180000/3) and B (201000/2)', '180000/3,201000/2',
+  perform pg_temp.ck('setup: drafts for A (180000/3) and B (221000/3)', '180000/3,221000/3',
     (select string_agg(amount_kobo || '/' || line_count, ',' order by amount_kobo) from public.payouts where state = 'draft' and clinician_id in (v_a, v_b)));
 
   perform pg_temp.ck('an employed doctor cannot open a dispute', 'earnings_not_contracted', pg_temp.try_as(v_e, format('select public.open_earnings_dispute(%L, ''other'')', l1)));
@@ -172,7 +172,7 @@ begin
     (select count(*) from public.payouts where clinician_id = v_a and state = 'cancelled' and failure_reason like 'rebuilt:%')::text);
   perform pg_temp.ck('the new draft is the other two lines only (60000 + 50000)', '110000/2',
     (select amount_kobo || '/' || line_count from public.payouts where clinician_id = v_a and state = 'draft'));
-  perform pg_temp.ck('B''s draft is untouched by A''s dispute', '201000/2', (select amount_kobo || '/' || line_count from public.payouts where clinician_id = v_b and state = 'draft'));
+  perform pg_temp.ck('B''s draft is untouched by A''s dispute', '221000/3', (select amount_kobo || '/' || line_count from public.payouts where clinician_id = v_b and state = 'draft'));
 
   -- approval pays the rest and links only the free lines
   select id into v_pay from public.payouts where clinician_id = v_a and state = 'draft'; perform pg_temp.setf('pay_a', v_pay);
@@ -180,6 +180,8 @@ begin
   perform pg_temp.ck('approved at 110000: the disputed line was not paid', '110000', (select amount_kobo::text from public.payouts where id = v_pay));
   perform pg_temp.ck('...the disputed line is not linked to any payout', 'null', coalesce((select payout_id::text from public.earnings_ledger where id = l2), 'null'));
   perform pg_temp.ck('...the other two lines are linked', '2', (select count(*) from public.earnings_ledger where payout_id = v_pay)::text);
+  perform pg_temp.ck('a line already in an approved payout cannot be questioned (it cannot be held back)', 'dispute_line_in_flight',
+    pg_temp.try_as(v_a, format('select public.open_earnings_dispute(%L, ''other'')', l1)));
 
   -- pay status follows the payout
   perform pg_temp.ck('status: a line in an approved payout is approved', 'approved', pg_temp.q_as(v_a, format('select pay_status from public.my_earnings_lines() where id = %L', l1)));
@@ -201,7 +203,7 @@ end $$;
 do $$
 declare
   v_org uuid := pg_temp.f('org'); v_admin uuid := pg_temp.f('admin'); v_a uuid := pg_temp.f('a'); v_b uuid := pg_temp.f('b');
-  d1 uuid := pg_temp.f('d1'); l2 uuid := pg_temp.f('l2'); lb uuid := pg_temp.f('lb'); r jsonb; v_adj uuid; dB uuid; dB2 uuid; v_n integer;
+  d1 uuid := pg_temp.f('d1'); l2 uuid := pg_temp.f('l2'); lb uuid := pg_temp.f('lb'); r jsonb; v_adj uuid; dB uuid; dB2 uuid; dB3 uuid; lb2 uuid := pg_temp.f('lb2'); v_n integer;
 begin
   perform pg_temp.ck('a clinician cannot resolve', 'fee_not_authorised', pg_temp.try_as(v_a, format($q$select public.resolve_earnings_dispute(%L, 'rejected', null, 'not allowed at all')$q$, d1)));
   perform pg_temp.ck('a resolution needs a reason', 'earnings_reason_needed', pg_temp.try_as(v_admin, format($q$select public.resolve_earnings_dispute(%L, 'rejected', null, 'short')$q$, d1)));
@@ -217,6 +219,8 @@ begin
   perform pg_temp.ck('...signed by the admin', v_admin::text, (select created_by::text from public.earnings_ledger where id = v_adj));
   perform pg_temp.ck('...the dispute records the resolution', 'adjusted/' || v_adj::text, (select state || '/' || adjustment_ledger_id from public.earnings_disputes where id = d1));
   perform pg_temp.ck('the disputed line itself is unchanged (append only)', '70000', (select amount_kobo::text from public.earnings_ledger where id = l2));
+  perform pg_temp.ck('the correction is dated like the line it corrects (same payout period, never a week behind)', 'true',
+    (select (a.earned_at = l.earned_at) from public.earnings_ledger a, public.earnings_ledger l where a.id = v_adj and l.id = l2)::text);
   perform pg_temp.ck('resolving again is refused', 'dispute_not_open', pg_temp.try_as(v_admin, format($q$select public.resolve_earnings_dispute(%L, 'rejected', null, 'a perfectly good reason')$q$, d1)));
   perform pg_temp.ck('only one adjustment exists for the dispute (a retry cannot double post)', '1', (select count(*) from public.earnings_ledger where kind = 'adjustment' and reference_id = d1)::text);
 
@@ -234,21 +238,28 @@ begin
   perform pg_temp.ck('after resolution the line and its correction form a new draft (70000 + 40000)', '1/110000/2',
     v_n || '/' || (select amount_kobo || '/' || line_count from public.payouts where clinician_id = v_a and state = 'draft'));
 
-  -- B: reject path, withdraw path, in and out of the draft
+  -- B: withdraw path, correction path, reject path, in and out of the draft
   perform pg_temp.act(v_b); dB := public.open_earnings_dispute(lb, 'missing_work', null); perform pg_temp.back();
   perform pg_temp.ck('B''s draft falls under the minimum without the disputed line: no draft, line carried over', '0',
     (select count(*) from public.payouts where clinician_id = v_b and state = 'draft')::text);
   perform pg_temp.ck('...and the disputed line is still unpaid and untouched', 'null/200000', coalesce((select payout_id::text from public.earnings_ledger where id = lb), 'null') || '/' || (select amount_kobo from public.earnings_ledger where id = lb));
   perform pg_temp.act(v_b); perform public.withdraw_earnings_dispute(dB); perform pg_temp.back();
-  perform pg_temp.ck('withdrawn: the draft is back at 201000/2', '201000/2', (select amount_kobo || '/' || line_count from public.payouts where clinician_id = v_b and state = 'draft'));
+  perform pg_temp.ck('withdrawn: the draft is back at 221000/3', '221000/3', (select amount_kobo || '/' || line_count from public.payouts where clinician_id = v_b and state = 'draft'));
   perform pg_temp.ck('...a withdrawn dispute is final', 'dispute_not_open', pg_temp.try_as(v_b, format('select public.withdraw_earnings_dispute(%L)', dB)));
+  -- the correction joins the released line in the SAME rebuilt draft
   perform pg_temp.act(v_b); dB2 := public.open_earnings_dispute(lb, 'duplicate', null); perform pg_temp.back();
-  perform pg_temp.act(v_admin); perform public.resolve_earnings_dispute(dB2, 'rejected', null, 'Checked: this is one task, not a duplicate'); perform pg_temp.back();
+  perform pg_temp.act(v_admin); perform public.resolve_earnings_dispute(dB2, 'adjusted', -50000, 'Part of this was counted twice; taking it back'); perform pg_temp.back();
+  perform pg_temp.ck('a negative correction is in the same rebuilt draft as the released line (200000 + 1000 + 20000 - 50000)', '171000/4',
+    (select amount_kobo || '/' || line_count from public.payouts where clinician_id = v_b and state = 'draft'));
+  -- rejected: no adjustment, line released
+  perform pg_temp.act(v_b); dB3 := public.open_earnings_dispute(lb2, 'other', null); perform pg_temp.back();
+  perform pg_temp.ck('only the questioned 20000 line leaves the draft', '151000/3', (select amount_kobo || '/' || line_count from public.payouts where clinician_id = v_b and state = 'draft'));
+  perform pg_temp.act(v_admin); perform public.resolve_earnings_dispute(dB3, 'rejected', null, 'Checked: this is one task, not a duplicate'); perform pg_temp.back();
   perform pg_temp.ck('rejected: no adjustment line, the line stands and is released', '0/rejected',
-    (select count(*) from public.earnings_ledger where kind = 'adjustment' and reference_id = dB2) || '/' || (select state from public.earnings_disputes where id = dB2));
-  perform pg_temp.ck('...the draft is back at 201000/2', '201000/2', (select amount_kobo || '/' || line_count from public.payouts where clinician_id = v_b and state = 'draft'));
+    (select count(*) from public.earnings_ledger where kind = 'adjustment' and reference_id = dB3) || '/' || (select state from public.earnings_disputes where id = dB3));
+  perform pg_temp.ck('...the draft is back at 171000/4', '171000/4', (select amount_kobo || '/' || line_count from public.payouts where clinician_id = v_b and state = 'draft'));
   perform pg_temp.ck('the admin list shows the open and answered disputes', 'true',
-    (pg_temp.q_as(v_admin, $q$select (count(*) >= 3)::text from public.list_earnings_disputes(null)$q$)));
+    (pg_temp.q_as(v_admin, $q$select (count(*) >= 4)::text from public.list_earnings_disputes(null)$q$)));
   perform pg_temp.ck('only an admin lists disputes', 'fee_not_authorised', pg_temp.try_as(v_a, 'select * from public.list_earnings_disputes()'));
 end $$;
 
@@ -264,21 +275,35 @@ begin
     (select exists (select 1 from information_schema.columns where table_name = 'payouts' and table_schema = 'public' and column_name ~ '(pct|percent|rate)')::text));
   perform pg_temp.ck('only an admin sets withholding', 'payout_not_authorised', pg_temp.try_as(v_b, format('select public.set_payout_withholding(%L, 100, ''a note long enough'')', v_pb)));
   perform pg_temp.ck('a withholding needs a note', 'earnings_reason_needed', pg_temp.try_as(v_admin, format('select public.set_payout_withholding(%L, 5000, null)', v_pb)));
-  perform pg_temp.ck('a withholding equal to the payout is refused', 'payout_bad_withholding', pg_temp.try_as(v_admin, format('select public.set_payout_withholding(%L, 201000, ''a note long enough'')', v_pb)));
+  perform pg_temp.ck('a withholding equal to the payout is refused', 'payout_bad_withholding', pg_temp.try_as(v_admin, format('select public.set_payout_withholding(%L, 171000, ''a note long enough'')', v_pb)));
   perform pg_temp.ck('a negative withholding is refused', 'payout_bad_withholding', pg_temp.try_as(v_admin, format('select public.set_payout_withholding(%L, -1, ''a note long enough'')', v_pb)));
   perform pg_temp.ck('the typed withholding is saved', 'ok', pg_temp.try_as(v_admin, format('select public.set_payout_withholding(%L, 5000, ''Entered by finance for the proof'')', v_pb)));
-  perform pg_temp.ck('STORED, NOT COMPUTED: gross is untouched, withholding is exactly what was typed', '201000/5000',
+  perform pg_temp.ck('STORED, NOT COMPUTED: gross is untouched, withholding is exactly what was typed', '171000/5000',
     (select amount_kobo || '/' || withholding_kobo from public.payouts where id = v_pb));
-
+  perform pg_temp.ck('a payout with a withholding cannot be APPROVED (it could never be sent, and could not be edited afterwards)', 'payout_withholding_undecided',
+    pg_temp.try_as(v_admin, format('select public.approve_payout(%L)', v_pb)));
+  -- a dispute rebuilds the draft: the typed withholding is carried over, not dropped
+  perform pg_temp.act(v_b); perform public.withdraw_earnings_dispute(public.open_earnings_dispute(pg_temp.f('lb2'), 'other', null)); perform pg_temp.back();
+  perform pg_temp.ck('the withholding survives a rebuilt draft', '171000/5000/Entered by finance for the proof',
+    (select amount_kobo || '/' || withholding_kobo || '/' || withholding_note from public.payouts where clinician_id = v_b and state = 'draft'));
+  select id into v_pb from public.payouts where clinician_id = v_b and state = 'draft'; perform pg_temp.setf('pay_b', v_pb);
+  perform pg_temp.act(v_admin); perform public.set_payout_withholding(v_pb, 0, null); perform pg_temp.back();
+  perform pg_temp.ck('...and it can be cleared to zero', '0', (select withholding_kobo::text from public.payouts where id = v_pb));
   perform pg_temp.act(v_admin); r := public.approve_payout(v_pb); perform pg_temp.back();
   perform pg_temp.ck('an approved payout''s withholding cannot be set by the function', 'payout_not_a_draft', pg_temp.try_as(v_admin, format('select public.set_payout_withholding(%L, 1, ''a note long enough'')', v_pb)));
   perform pg_temp.ck('...nor by a function-level writer', '23514',
     pg_temp.try_sql(format($q$select set_config('tarragon.payout_write', 'on', true); update public.payouts set withholding_kobo = 1 where id = %L$q$, v_pb)));
+  -- to prove the statement arithmetic and the send refusal, put a withholding on the approved payout with the guard briefly off
+  alter table public.payouts disable trigger payouts_withholding_guard;
+  perform set_config('tarragon.payout_write', 'on', true);
+  update public.payouts set withholding_kobo = 5000, withholding_note = 'Entered by finance for the proof' where id = v_pb;
+  perform set_config('tarragon.payout_write', 'off', true);
+  alter table public.payouts enable trigger payouts_withholding_guard;
   perform pg_temp.ck('a payout carrying a withholding is refused at send', 'payout_withholding_undecided', pg_temp.try_as(v_admin, format('select public.payout_prepare_send(%L)', v_pb)));
   r := (pg_temp.q_as(v_b, format('select public.my_payout_statement(%L)::text', v_pb)))::jsonb;
-  perform pg_temp.ck('statement: gross 201000, withholding 5000, net 196000', '201000/5000/196000', (r ->> 'gross_kobo') || '/' || (r ->> 'withholding_kobo') || '/' || (r ->> 'net_kobo'));
+  perform pg_temp.ck('statement: gross 171000, withholding 5000, net 166000', '171000/5000/166000', (r ->> 'gross_kobo') || '/' || (r ->> 'withholding_kobo') || '/' || (r ->> 'net_kobo'));
   r := (pg_temp.q_as(v_b, 'select public.my_payout_overview()::text'))::jsonb;
-  perform pg_temp.ck('overview: net and withholding per payout', '196000/5000', (r -> 'payouts' -> 0 ->> 'net_kobo') || '/' || (r -> 'payouts' -> 0 ->> 'withholding_kobo'));
+  perform pg_temp.ck('overview: net and withholding per payout', '166000/5000', (r -> 'payouts' -> 0 ->> 'net_kobo') || '/' || (r -> 'payouts' -> 0 ->> 'withholding_kobo'));
   perform pg_temp.ck('A''s payout has no withholding so it can be sent', 'ok', pg_temp.try_as(v_admin, format('select public.payout_prepare_send(%L)', v_pa)));
 end $$;
 
@@ -302,6 +327,8 @@ begin
   perform public.apply_payout_transfer_event('transfer.success', v_ref2, 'TRF_a2');
   perform pg_temp.ck('status: a succeeded payout reads as paid', 'paid/paid',
     pg_temp.q_as(v_a, format('select pay_status from public.my_earnings_lines() where id = %L', l1)) || '/' || pg_temp.q_as(v_a, format('select pay_status from public.my_earnings_lines() where id = %L', l3)));
+  perform pg_temp.ck('once paid, a line can still be questioned (the correction comes in a later payout)', 'ok',
+    pg_temp.try_as(v_a, format('select public.open_earnings_dispute(%L, ''wrong_amount'')', l1)));
   perform pg_temp.ck('status: the released line with its correction is pending', 'pending',
     pg_temp.q_as(v_a, format('select pay_status from public.my_earnings_lines() where id = %L', pg_temp.f('l2'))));
 end $$;
@@ -356,10 +383,11 @@ begin
   perform public.decide_topup_hold((select id from public.earnings_topup_holds where clinician_id = v_c), 'released', 'Checked with the lead: the app was down that day');
   perform public.decide_topup_hold((select id from public.earnings_topup_holds where clinician_id = v_f), 'denied', 'Claims timed out and nothing was finished');
   perform pg_temp.back();
+  perform pg_temp.ck('a released hold is paid in the same step (it cannot be lost to the look-back window)', '2000000', (select amount_kobo::text from public.earnings_ledger where clinician_id = v_c and kind = 'minimum_topup'));
   perform pg_temp.ck('a decided hold cannot be decided again', 'hold_already_decided', pg_temp.try_as(v_admin, format($q$select public.decide_topup_hold(%L, 'denied', 'changing my mind now')$q$, (select id from public.earnings_topup_holds where clinician_id = v_c))));
   perform pg_temp.ck('...nor edited', '23514', pg_temp.try_sql(format($q$select set_config('tarragon.dispute_write', 'on', true); update public.earnings_topup_holds set state = 'held', decided_at = null, decided_by = null where clinician_id = %L$q$, v_c)));
   perform private.post_minimum_topups();
-  perform pg_temp.ck('a released hold is paid at the next run', '2000000', (select amount_kobo::text from public.earnings_ledger where clinician_id = v_c and kind = 'minimum_topup'));
+  perform pg_temp.ck('...and the daily job does not pay it a second time', '1', pg_temp.lines_of(v_c, 'minimum_topup')::text);
   perform pg_temp.ck('a denied hold is never paid', '0', pg_temp.lines_of(v_f, 'minimum_topup')::text);
 
   -- late-line netting (OQ-185): D earned 600000 inside the run after the top-up was posted
@@ -384,7 +412,7 @@ do $$
 declare v_admin uuid := pg_temp.f('admin'); v_a uuid := pg_temp.f('a'); v_b uuid := pg_temp.f('b'); v_c uuid := pg_temp.f('c');
 begin
   perform pg_temp.ck('A sees only their own disputes', '0', pg_temp.q_as(v_a, format('select count(*) from public.earnings_disputes where clinician_id <> %L', v_a)));
-  perform pg_temp.ck('...and does see their own', '1', pg_temp.q_as(v_a, format('select count(*) from public.earnings_disputes where clinician_id = %L', v_a)));
+  perform pg_temp.ck('...and does see their own', '2', pg_temp.q_as(v_a, format('select count(*) from public.earnings_disputes where clinician_id = %L', v_a)));
   perform pg_temp.ck('B sees none of A''s disputes', '0', pg_temp.q_as(v_b, format('select count(*) from public.earnings_disputes where clinician_id = %L', v_a)));
   perform pg_temp.ck('the admin sees every dispute', 'true', (pg_temp.q_as(v_admin, 'select (count(*) >= 3)::text from public.earnings_disputes')));
   perform pg_temp.ck('a clinician cannot insert a dispute', 'permission denied for table earnings_disputes',

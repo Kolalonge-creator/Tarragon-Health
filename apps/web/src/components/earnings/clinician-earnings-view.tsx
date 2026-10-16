@@ -75,6 +75,7 @@ export async function ClinicianEarningsView() {
                   {l.dispute_state === "adjusted" && <p className="mt-1 text-xs text-charcoal-ink/60">Your question was answered with a correction line.</p>}
                   {l.dispute_state === "rejected" && <p className="mt-1 text-xs text-charcoal-ink/60">Your question was answered and the line stands.</p>}
                   {canDispute(l) && <div className="mt-1"><DisputeForm ledgerId={l.id} /></div>}
+                  {!canDispute(l) && l.dispute_state !== "open" && <p className="mt-1 text-xs text-charcoal-ink/60">This line is in a payout being sent. You can question it once it has been paid.</p>}
                 </div>
                 <p className={l.amount_kobo < 0 ? "font-semibold text-red-600" : "font-semibold"}>{formatKobo(l.amount_kobo)}</p>
               </div>
