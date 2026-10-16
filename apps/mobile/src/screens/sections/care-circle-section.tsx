@@ -4,7 +4,7 @@ import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
-  answerGift, cancelInvite, createInvite, loadMyCircle, loadPendingGifts, loadPreviewMember, loadPreviewPermissions, loadViewLog, pauseCircle, renewMember, resumeCircle, revokeMember, setMonthlyReportShare, updateMember,
+  answerCheckIn, answerGift, cancelInvite, checkInWindowOpen, createInvite, loadCheckInPending, loadMyCircle, loadPendingGifts, loadPreviewMember, loadPreviewPermissions, loadViewLog, pauseCircle, renewMember, resumeCircle, revokeMember, setMonthlyReportShare, updateMember,
 } from "@/lib/care-circle/api";
 import {
   CIRCLE_PERMISSIONS, GRANT_DAY_CHOICES, endsSoon, inviteLinkPath, permissionKey,
@@ -19,6 +19,90 @@ function lagosDate(iso: string): string {
 }
 function lagosDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * S29e: a question from someone in the circle is waiting. One tap answers it and nobody else is told. It never says who asked. Mounted
+ * in the home shell so it does not depend on a notification arriving or on being in one section, and on screen only while a question
+ * is waiting. With the go-live off it never polls.
+ */
+export function CheckInCard() {
+  const colors = useLegacyColors();
+  const locale = asLocale(useUiLanguage());
+  // null: not read yet or the read failed. Only a clear false closes the answer path; a failed read keeps it working.
+  const [open, setOpen] = useState<boolean | null>(null);
+  const [waiting, setWaiting] = useState(false);
+  const [readFailed, setReadFailed] = useState(false);
+  const [outcome, setOutcome] = useState<"answered" | "too_late" | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    const read = () => {
+      void checkInWindowOpen().then((o) => {
+        if (alive && o !== null) setOpen(o);
+      });
+    };
+    read();
+    const timer = setInterval(read, 5 * 60_000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, []);
+  useEffect(() => {
+    if (open === false) return;
+    let alive = true;
+    const check = () => {
+      void loadCheckInPending().then((w) => {
+        if (!alive) return;
+        setReadFailed(w === null);
+        // a failed poll keeps the last known answer: one flaky read must not take the button away while the timer runs
+        if (w !== null) setWaiting(w);
+      });
+    };
+    check();
+    const timer = setInterval(check, 20_000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [open]);
+  // A later question starts clean: an old "thank you" must never hide a new button.
+  useEffect(() => {
+    if (waiting) setOutcome(null);
+  }, [waiting]);
+  // The card sits above every section, so the thank-you goes away by itself.
+  useEffect(() => {
+    if (outcome === null) return;
+    const timer = setTimeout(() => setOutcome(null), 10_000);
+    return () => clearTimeout(timer);
+  }, [outcome]);
+  if (open === false) return null;
+  if (outcome === "answered") return <MutedText>{t("checkin.responded", locale)}</MutedText>;
+  if (outcome === "too_late") return <MutedText>{t("checkin.too_late", locale)}</MutedText>;
+  if (!waiting) return readFailed ? <MutedText>{t("checkin.read_failed", locale)}</MutedText> : null;
+  return (
+    <Card style={{ gap: 8 }}>
+      <Text accessibilityRole="alert" style={{ fontWeight: "700", color: colors.ink }}>{t("checkin.pending_title", locale)}</Text>
+      <Text style={{ color: colors.ink }}>{t("checkin.pending_body", locale)}</Text>
+      {readFailed ? <MutedText>{t("checkin.read_failed", locale)}</MutedText> : null}
+      <PrimaryButton
+        title={t("checkin.respond", locale)}
+        onPress={() => {
+          setFailed(false);
+          void answerCheckIn().then((r) => {
+            if (r === null) setFailed(true);
+            else {
+              // the question is over either way: the card must not come back from a stale "waiting" when the thank-you clears
+              setWaiting(false);
+              setOutcome(r ? "answered" : "too_late");
+            }
+          });
+        }}
+      />
+      {failed ? <ErrorText>{t("checkin.error", locale)}</ErrorText> : null}
+    </Card>
+  );
 }
 
 /** A care pack or Membership someone else paid for waits here for the patient's yes (S29b). Nothing starts until they accept. */

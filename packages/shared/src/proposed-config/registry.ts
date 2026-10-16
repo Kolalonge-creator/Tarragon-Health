@@ -2111,6 +2111,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S29.md; docs/research/S29.md; docs/research/S29-ranked-design-plan.md; spec 4.7, 8.6",
   },
+  {
+    key: "care_circle.rules",
+    // Care Circle (S29, spec 4.7). Live values are the active row of `care_circle_config`; this entry mirrors it and a test fails
+    // if the migration seed and this value drift. Version 4 (S29e) adds the patient-first window for a supporter's NON-EMERGENCY
+    // check-in request: checkin_window_minutes is how long the patient alone is asked before the circle is told, and
+    // checkin_max_per_day caps requests from one supporter about one person. The window never applies to a red event, and the whole
+    // feature is OFF until the Chief Medical Officer rules (platform module `care_circle_checkin_window`, OQ-700). All other keys are as in version 3.
+    value: { invite_ttl_hours: 72, default_grant_days: 365, max_invites_per_day: 5, max_members: 8, max_attempts: 5, view_weeks: 8, alert_visible_hours: 3, expiry_notice_days: 14, expiry_final_notice_days: 3, pause_days: 7, gift_decide_days: 14, gift_remind_days: 7, checkin_window_minutes: 5, checkin_max_per_day: 3 },
+    owner: "Founder",
+    status: "proposed",
+    version: 4,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/S29.md; docs/research/S26-S30-competitor-review-and-build-plan.md (S29d); spec 4.7, 8.6",
+  },
   // S69: community cohorts and challenges (spec 17.6 to 17.9). Live values are the active row of `community_config` and the rows of
   // `challenge_templates`; a test (community-mirror.test.ts) fails if either drifts from the migration seed.
   {

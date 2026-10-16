@@ -3,9 +3,13 @@ import { createClient } from "@/lib/supabase/client";
 import {
   inviteMadeSchema,
   parseAccept,
+  parseCheckInPending,
+  parseCheckInRequest,
   parseMyCircle,
   parseGiftResult,
+  attentionCount,
   parseOpenAlerts,
+  parseUnanswered,
   parsePendingGifts,
   parsePreview,
   parsePreviewView,
@@ -317,6 +321,108 @@ export function useRespondToGift() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: circleKeys.gifts });
       void qc.invalidateQueries({ queryKey: ["commerce"] });
+    },
+  });
+}
+
+/**
+ * S29e: whether the patient-first check-in window is open at all. A failed read is an ERROR (retried), never "closed": the supporter's
+ * button needs `data === true`, so it never appears by accident, while the patient's answer path keeps working until the read says closed.
+ */
+export function useCheckInEnabled() {
+  return useQuery({
+    queryKey: ["care-circle", "checkin-enabled"] as const,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("circle_checkin_window_enabled");
+      if (error) throw new CircleError(error.message);
+      return data === true;
+    },
+  });
+}
+
+/** A supporter asks a person to check in. The patient is told first; the circle only if they do not answer in time. */
+export function useRequestCheckIn() {
+  return useMutation({
+    mutationFn: async (patientId: string) => {
+      const { data, error } = await createClient().rpc("request_circle_check_in", { p_patient: patientId });
+      if (error) throw new CircleError(error.message);
+      const parsed = parseCheckInRequest(data);
+      if (!parsed) throw new CircleError("unknown");
+      return parsed;
+    },
+  });
+}
+
+/** The patient: is a question from someone in my circle waiting? Polled lightly, and only while the go-live is on. */
+export function useCheckInPending() {
+  const enabled = useCheckInEnabled();
+  return useQuery({
+    queryKey: ["care-circle", "checkin-pending"] as const,
+    refetchInterval: 20_000,
+    // fail open for the patient: only a clear "closed" stops the poll, so one failed read of the go-live can never hide the answer button
+    enabled: enabled.data !== false,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("circle_check_in_pending");
+      if (error) throw new CircleError(error.message);
+      return parseCheckInPending(data);
+    },
+  });
+}
+
+/** Returns whether the answer landed on a question that was still waiting. False means it had already ended (the circle may have been told). */
+export function useRespondCheckIn() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await createClient().rpc("respond_to_circle_check_in");
+      if (error) throw new CircleError(error.message);
+      return data === true;
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["care-circle", "checkin-pending"] }),
+  });
+}
+
+/** A supporter's people who did not answer a check-in lately: the actionable half of the "has not answered" notice. */
+export function useUnansweredCheckIns() {
+  return useQuery({
+    queryKey: ["care-circle", "unanswered"] as const,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("circle_unanswered_check_ins");
+      if (error) throw new CircleError(error.message);
+      return parseUnanswered(data);
+    },
+  });
+}
+
+/** "I called them" on a person who did not answer a check-in: one tap, no text, private to this supporter. */
+export function useAckUnanswered() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (patientId: string) => {
+      const { data, error } = await createClient().rpc("circle_ack_unanswered", { p_patient: patientId });
+      if (error) throw new CircleError(error.message);
+      if (data !== true) throw new CircleError("unknown");
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["care-circle", "unanswered"] }),
+  });
+}
+
+/**
+ * The "People you support" badge, live: the server draws the first value, this keeps it current on every navigation and every minute
+ * (the server layout does not re-render on client-side navigation). A failed read leaves the last value and never shows a lower one.
+ */
+export function useSupportingAttention(enabled: boolean) {
+  return useQuery({
+    queryKey: ["care-circle", "attention"] as const,
+    enabled,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const client = createClient();
+      const [alerts, unanswered] = await Promise.all([client.rpc("circle_open_alerts"), client.rpc("circle_unanswered_check_ins")]);
+      if (alerts.error || unanswered.error) throw new CircleError((alerts.error ?? unanswered.error)?.message ?? "unknown");
+      return attentionCount(parseOpenAlerts(alerts.data), parseUnanswered(unanswered.data));
     },
   });
 }

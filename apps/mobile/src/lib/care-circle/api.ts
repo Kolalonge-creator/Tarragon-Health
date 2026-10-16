@@ -1,8 +1,8 @@
 import type { QueryResult } from "../medications";
 import { supabase } from "../supabase";
 import {
-  circleErrorKey, parseAlerts, parseGiftAnswer, parsePendingGifts, parseInviteMade, parseMyCircle, parseOk, parsePaused, parsePreviewView, parseSupported, parseSupporterView, parseViewLog,
-  type AlertMode, type CirclePermission, type InviteMade, type PendingGift, type MyCircle, type OpenAlert, type PreviewView, type SupportedPerson, type SupporterView, type ViewLogRow,
+  circleErrorKey, parseAcceptInvite, parseAlerts, parseCheckInPending, parseCheckInResult, parseInvitePreview, parseUnanswered, parseGiftAnswer, parsePendingGifts, parseInviteMade, parseMyCircle, parseOk, parsePaused, parsePreviewView, parseSupported, parseSupporterView, parseViewLog,
+  type AlertMode, type CheckInResult, type CirclePermission, type InvitePreview, type UnansweredCheckIn, type InviteMade, type PendingGift, type MyCircle, type OpenAlert, type PreviewView, type SupportedPerson, type SupporterView, type ViewLogRow,
 } from "./parse";
 
 export async function loadMyCircle(): Promise<QueryResult<MyCircle>> {
@@ -99,4 +99,45 @@ export async function setAlertMode(patientId: string, mode: AlertMode): Promise<
 export async function ackAlert(patientId: string): Promise<boolean> {
   const { data, error } = await supabase.rpc("circle_ack_alert", { p_patient: patientId });
   return !error && data === true;
+}
+
+/** The join screen: the database answers the same silent `{ok: false}` for every failure, so nothing here says who was invited. */
+export async function previewInvite(token: string): Promise<InvitePreview | "unreachable"> {
+  const { data, error } = await supabase.rpc("preview_care_circle_invite", { p_token: token });
+  // a failed call is not the same as a bad link: the first is worth retrying, the second is not
+  return error ? "unreachable" : parseInvitePreview(data);
+}
+export async function acceptInvite(token: string): Promise<{ ok: true; patientId: string } | { ok: false } | "unreachable"> {
+  const { data, error } = await supabase.rpc("accept_care_circle_invite", { p_token: token });
+  return error ? "unreachable" : parseAcceptInvite(data);
+}
+
+/** S29e: is the patient-first check-in window open at all? null: the read failed. The supporter's button needs a clear true; the patient's answer path keeps working unless this says false. */
+export async function checkInWindowOpen(): Promise<boolean | null> {
+  const { data, error } = await supabase.rpc("circle_checkin_window_enabled");
+  return error ? null : data === true;
+}
+/** A supporter asks a person to check in. null means the answer was not saved or not understood. */
+export async function requestCheckIn(patientId: string): Promise<CheckInResult | null> {
+  const { data, error } = await supabase.rpc("request_circle_check_in", { p_patient: patientId });
+  return error ? null : parseCheckInResult(data);
+}
+/** null: the read failed (shown as such, never as "nothing waiting"). */
+export async function loadCheckInPending(): Promise<boolean | null> {
+  const { data, error } = await supabase.rpc("circle_check_in_pending");
+  return error ? null : parseCheckInPending(data);
+}
+/** "I called them" on a person who did not answer a check-in. */
+export async function ackUnanswered(patientId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("circle_ack_unanswered", { p_patient: patientId });
+  return !error && data === true;
+}
+/** true: the answer landed on a question still waiting. false: it had already ended (the circle may have been told). null: not saved. */
+export async function answerCheckIn(): Promise<boolean | null> {
+  const { data, error } = await supabase.rpc("respond_to_circle_check_in");
+  return error ? null : data === true;
+}
+export async function loadUnanswered(): Promise<QueryResult<UnansweredCheckIn[]>> {
+  const { data, error } = await supabase.rpc("circle_unanswered_check_ins");
+  return error ? { ok: false, error: error.message } : { ok: true, data: parseUnanswered(data) };
 }

@@ -53912,6 +53912,12 @@ export type Database = {
       cancel_care_circle_invite: { Args: { p_invite: string }; Returns: boolean };
       circle_open_alerts: { Args: never; Returns: Json };
       circle_ack_alert: { Args: { p_patient: string }; Returns: boolean };
+      circle_check_in_pending: { Args: never; Returns: Json };
+      circle_unanswered_check_ins: { Args: never; Returns: Json };
+      circle_ack_unanswered: { Args: { p_patient: string }; Returns: boolean };
+      circle_checkin_window_enabled: { Args: never; Returns: boolean };
+      request_circle_check_in: { Args: { p_patient: string }; Returns: Json };
+      respond_to_circle_check_in: { Args: never; Returns: boolean };
       circle_preview_member: { Args: { p_member: string }; Returns: Json };
       circle_preview_permissions: { Args: { p_permissions: string[]; p_relationship?: string }; Returns: Json };
       pause_care_circle: { Args: { p_pause_alerts?: boolean }; Returns: Json };
