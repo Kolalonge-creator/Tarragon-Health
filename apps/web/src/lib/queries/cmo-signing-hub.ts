@@ -12,6 +12,7 @@ import { readPendingCapacityConfigSignoff } from "@/lib/queries/pending-capacity
 import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose-task-type-signoff";
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
+import { readThresholdHubState } from "@/lib/queries/threshold-overrides";
 import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
 
 export type CmoSigningHub = {
@@ -50,6 +51,8 @@ export const CAPACITY_CONFIG_ITEM_KEY = "capacity_configs";
 export const SOLE_CMO_EXCEPTION_ITEM_KEY = "sole_cmo_on_call_exception";
 /** The line for unified red-event paging (S19d): switch the one governed ladder on for SpO2, pulse, temperature, red-flag symptoms and emergency events, or off again. */
 export const UNIFIED_RED_PAGING_ITEM_KEY = "unified_red_paging";
+/** The line for the personal-threshold policy (N-overrides): nothing can be proposed until the CMO signs it. */
+export const THRESHOLD_POLICY_ITEM_KEY = "threshold_override_policy";
 export { GLUCOSE_TRIAGE_ITEM_KEY };
 
 /**
@@ -72,7 +75,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, thresholds] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -89,6 +92,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingSoleCmoException(supabase),
     readUnifiedRedPagingState(supabase),
     readPendingCapacityConfigSignoff(supabase),
+    readThresholdHubState(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -164,6 +168,27 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
 
   const credentialItem = credentialAttentionItem(credentials);
   const attention = credentialItem ? [credentialItem] : [];
+  if (thresholds.reviewsOverdue > 0) {
+    // Not a signature: the monthly review of a personal threshold is overdue. Kept out of `items` so the banner still counts only signatures.
+    attention.push({
+      key: "threshold_override_reviews",
+      title: "Personal thresholds: monthly review overdue",
+      detail: `${thresholds.reviewsOverdue} personal alert threshold${thresholds.reviewsOverdue === 1 ? " is" : "s are"} past the monthly review date. Keep or end each one.`,
+      href: "/clinician/threshold-overrides",
+      severity: "draft_pending",
+      count: thresholds.reviewsOverdue,
+    });
+  }
+  if (thresholds.policyWaiting) {
+    items.push({
+      key: THRESHOLD_POLICY_ITEM_KEY,
+      title: "Personal alert thresholds: sign the policy to switch the feature on",
+      detail: "Senior doctors can set a signed, time-limited personal threshold for a patient whose usual readings sit outside the standard lines. It can never lower a red, relax a reading with a symptom or apply in pregnancy or under 18. Nothing can be proposed until you sign.",
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
   if (redOutreach.waiting) {
     items.push({
       key: RED_OUTREACH_ITEM_KEY,
@@ -266,6 +291,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(soleCmo.failed ? ["the sole-CMO on-call exception"] : []),
     ...(unifiedRed.failed ? ["unified red-event paging"] : []),
     ...(capacityConfigs.failed ? ["the capacity and lead configurations"] : []),
+    ...(thresholds.failed ? ["personal alert thresholds"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it
