@@ -25,7 +25,7 @@ export async function submitCheckinAction(input: unknown): Promise<SubmitCheckin
     p_answers: parsed.data.answers,
     p_free_text: parsed.data.note?.trim() ? parsed.data.note : null,
   });
-  if (error) return { ok: false, reason: error.code === "22023" ? "not_open" : error.code === "P0002" ? "not_open" : "failed" };
+  if (error) return { ok: false, reason: error.code === "55000" || error.code === "P0002" ? "not_open" : error.code === "22023" ? "invalid" : "failed" };
   const outcome = checkinOutcomeSchema.safeParse(data);
   if (!outcome.success) return { ok: false, reason: "failed" };
   return { ok: true, outcome: outcome.data };

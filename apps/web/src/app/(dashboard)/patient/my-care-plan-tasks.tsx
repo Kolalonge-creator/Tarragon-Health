@@ -233,7 +233,8 @@ export function MyCarePlanTasks({
   const { data: tasks, isLoading, isError } = useCareTasks(patientId);
   const { data: goals } = useCarePlanGoals(patientId);
 
-  const buckets = groupCareTasksByBucket(tasks ?? [], new Date());
+  // PCC: the care team's own follow-up tasks about a check-in (owned by a clinician) are staff work, not the patient's to see or close.
+  const buckets = groupCareTasksByBucket((tasks ?? []).filter((t) => !(t.source === "post_consult_checkin" && t.owner_role !== "patient")), new Date());
   const visibleGoals = (goals ?? []).filter((g) => g.status === "open" || g.status === "proposed");
 
   return (

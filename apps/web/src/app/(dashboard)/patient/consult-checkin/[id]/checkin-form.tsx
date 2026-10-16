@@ -58,6 +58,7 @@ export function CheckinForm({ view, patientId }: { view: CheckinView; patientId:
     const res = await submitCheckinAction({ checkinId: view.id, answers, note: note.trim() || undefined });
     setPending(false);
     if (!res.ok) {
+      // only a check-in that is really closed closes the form; any other failure keeps what the patient typed
       if (res.reason === "not_open") setClosed(true);
       else setError(t("consult.checkin.error", "en"));
       return;

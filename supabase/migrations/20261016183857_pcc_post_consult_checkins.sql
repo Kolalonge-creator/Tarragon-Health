@@ -65,7 +65,7 @@ begin
     for op in select x from jsonb_array_elements(q -> 'options') x loop
       if not coalesce((op ->> 'code') ~ '^[a-z_]+$', false) or nullif(btrim(coalesce(op ->> 'label', '')), '') is null then return false; end if;
       if coalesce(op ->> 'route', '') not in ('ok', 'concern_alert', 'clinician_task', 'clarify_task') then return false; end if;
-      if op ? 'alert_type' and (op ->> 'alert_type') not in ('symptom_escalation', 'medication_access_barrier') then return false; end if;
+      if op ? 'alert_type' and (op ->> 'alert_type') not in ('symptom_escalation') then return false; end if;
       if op ->> 'code' = any (v_codes) then return false; end if;
       v_codes := v_codes || (op ->> 'code');
     end loop;
@@ -104,7 +104,7 @@ insert into public.post_consult_checkin_config (version, is_active, effective_fr
       { "code": "yes", "label": "Yes", "route": "ok" },
       { "code": "none_prescribed", "label": "I was not given any medicines", "route": "ok" },
       { "code": "some_missed", "label": "I have missed some doses", "route": "clinician_task" },
-      { "code": "cannot_take", "label": "I cannot take them", "route": "concern_alert", "alert_type": "medication_access_barrier" } ] },
+      { "code": "cannot_take", "label": "I cannot take them", "route": "concern_alert", "alert_type": "symptom_escalation" } ] },
     { "id": "unclear", "text": "Is anything from your visit unclear?", "options": [
       { "code": "no", "label": "No, it is all clear", "route": "ok" },
       { "code": "yes", "label": "Yes, I would like some help", "route": "clarify_task" } ] }
@@ -176,10 +176,13 @@ alter table public.care_tasks add constraint care_tasks_kind_check
 create function private.care_task_checkin_close_guard() returns trigger
 language plpgsql set search_path = '' as $$
 begin
-  if new.kind = 'consult_checkin' and new.status in ('completed', 'unable_to_complete', 'in_progress')
-     and new.status is distinct from old.status
+  if new.status is distinct from old.status and new.status in ('completed', 'unable_to_complete', 'in_progress')
      and coalesce(current_setting('tarragon.checkin_task_close', true), '') <> 'on' then
-    raise exception 'a check-in is closed by answering it' using errcode = '42501';
+    -- the patient's own check-in task is closed by answering; the care team's follow-up task (owned by a clinician) is not the patient's to close
+    if new.kind = 'consult_checkin'
+       or (new.source = 'post_consult_checkin' and new.owner_role <> 'patient' and (select auth.uid()) = new.patient_id) then
+      raise exception 'a check-in is closed by answering it' using errcode = '42501';
+    end if;
   end if;
   return new;
 end $$;
@@ -340,6 +343,10 @@ begin
   if e.id is null or e.status <> 'completed' or e.ended_at is null then return 0; end if;
   if not (e.type = any (select jsonb_array_elements_text(c.rules -> 'encounter_types'))) then return 0; end if;
   for o in select x from jsonb_array_elements(c.rules -> 'offsets') x loop
+    -- an offset whose whole window has already passed (a visit from days ago, found when the guard was first switched on) is not asked for
+    if e.ended_at + make_interval(mins => ((o ->> 'after_minutes')::integer + (c.rules ->> 'expire_after_minutes')::integer)) <= now() then
+      continue;
+    end if;
     insert into public.post_consult_checkins (organisation_id, encounter_id, patient_id, clinician_id, offset_code, due_at, config_version, is_test)
     values (e.organisation_id, e.id, e.patient_id, e.clinician_id, o ->> 'code', e.ended_at + make_interval(mins => (o ->> 'after_minutes')::integer), c.version, e.is_test)
     on conflict (encounter_id, offset_code) do nothing;
@@ -373,6 +380,18 @@ create trigger encounters_schedule_checkins after update of status on public.enc
 -- ---------------------------------------------------------------------------
 -- 7. The sweep: backfill, cancel, open, expire, nudge
 -- ---------------------------------------------------------------------------
+-- An event is for downstream observers. It must never undo a patient's answer or stop a check-in opening: a failure is written down and an incident opened.
+create function private.pcc_emit(p_type text, p_org uuid, p_checkin uuid, p_patient uuid) returns void
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  perform private.emit_domain_event(p_type, p_org, jsonb_build_object('checkin_id', p_checkin), p_type || ':' || p_checkin::text, p_patient, 'post_consult_checkin', p_checkin);
+exception when others then
+  insert into public.audit_log (action, entity_type, entity_id, event) values ('pcc_checkin.error_event', 'post_consult_checkin', p_checkin, jsonb_build_object('type', p_type, 'error', left(sqlerrm, 300)));
+  perform private.pcc_open_incident('event bus', 1);
+end $$;
+revoke all on function private.pcc_emit(text, uuid, uuid, uuid) from public, anon, authenticated;
+
 create function private.post_consult_checkin_sweep() returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
@@ -380,82 +399,67 @@ declare
   r record;
   c public.post_consult_checkin_config%rowtype;
   rc public.post_consult_checkin_config%rowtype;
-  v_start integer; v_end integer; v_after timestamptz; v_ch public.notification_channel;
+  v_on boolean := private.go_live_guard_on('post_consult_checkins_enabled');
+  v_start integer; v_end integer; v_after timestamptz; v_ch public.notification_channel; v_maxoff integer;
   v_task uuid; v_errors integer := 0; v_opened integer := 0; v_nudged integer := 0; v_expired integer := 0; v_cancelled integer := 0; v_back integer := 0;
 begin
-  if not private.go_live_guard_on('post_consult_checkins_enabled') then return jsonb_build_object('skipped', 'guard_off'); end if;
   c := private.pcc_active_config();
-  if c.id is null then return jsonb_build_object('skipped', 'no_signed_config'); end if;
-  v_start := (c.rules #>> '{notification_window,start_hour}')::integer;
-  v_end := (c.rules #>> '{notification_window,end_hour}')::integer;
 
-  -- 1. backfill: a completed encounter with no rows (the trigger failed or the guard was off at the time and was switched on within 8 days)
-  for r in select e.id from public.encounters e
-            where e.status = 'completed' and e.ended_at > now() - interval '8 days'
-              and not exists (select 1 from public.post_consult_checkins k where k.encounter_id = e.id) loop
-    begin
-      v_back := v_back + private.schedule_post_consult_checkins(r.id);
-    exception when others then
-      v_errors := v_errors + 1;
-      insert into public.audit_log (action, entity_type, entity_id, event) values ('pcc_checkin.error_backfill', 'encounter', r.id, jsonb_build_object('error', left(sqlerrm, 300)));
-    end;
-  end loop;
+  -- 1. backfill (only while the feature is on): a completed consultation with no rows (the trigger failed, or the guard was off at the time and
+  --    was switched on since). Only consultations that still have an offset worth asking for.
+  if v_on and c.id is not null then
+    select max((x ->> 'after_minutes')::integer) into v_maxoff from jsonb_array_elements(c.rules -> 'offsets') x;
+    for r in select e.id from public.encounters e
+              where e.status = 'completed' and e.ended_at is not null
+                and e.type = any (select jsonb_array_elements_text(c.rules -> 'encounter_types'))
+                and e.ended_at + make_interval(mins => (v_maxoff + (c.rules ->> 'expire_after_minutes')::integer)) > now()
+                and not exists (select 1 from public.post_consult_checkins k where k.encounter_id = e.id) loop
+      begin
+        v_back := v_back + private.schedule_post_consult_checkins(r.id);
+      exception when others then
+        v_errors := v_errors + 1;
+        insert into public.audit_log (action, entity_type, entity_id, event) values ('pcc_checkin.error_backfill', 'encounter', r.id, jsonb_build_object('error', left(sqlerrm, 300)));
+      end;
+    end loop;
+  end if;
 
-  -- 2. cancel: the consultation was reversed, the care team cancelled the task, or the patient already wrote to the care team (not yet handed over)
-  for r in select k.id, case
+  -- 2. cancel (always, even with the guard off): the consultation was reversed, the care team cancelled the task, or the patient already wrote to
+  --    the care team (not yet handed over). Each row uses the rules of the configuration version it was created under.
+  for r in select k.id, k.task_id, case
                  when e.status <> 'completed' then 'encounter_reversed'
                  when t.status = 'cancelled' then 'task_cancelled'
                  else 'patient_already_wrote' end as why
              from public.post_consult_checkins k
              join public.encounters e on e.id = k.encounter_id
+             join public.post_consult_checkin_config cc on cc.version = k.config_version
              left join public.care_tasks t on t.id = k.task_id
             where k.state in ('scheduled', 'open')
               and (e.status <> 'completed'
                    or t.status = 'cancelled'
                    or (k.state = 'scheduled' and exists (select 1 from public.care_messages m
                         where m.patient_id = k.patient_id and m.author_role = 'patient' and m.created_at > e.ended_at
-                          and m.created_at > k.due_at - make_interval(mins => (c.rules ->> 'skip_if_patient_wrote_within_minutes')::integer)))) loop
+                          and m.created_at > k.due_at - make_interval(mins => (cc.rules ->> 'skip_if_patient_wrote_within_minutes')::integer)))) loop
     begin
-      update public.post_consult_checkins set state = 'cancelled', cancelled_at = now(), cancel_reason = r.why where id = r.id;
-      perform set_config('tarragon.checkin_task_close', 'on', true);
-      update public.care_tasks set status = 'cancelled' where id = (select task_id from public.post_consult_checkins where id = r.id) and status not in ('completed', 'cancelled');
-      perform set_config('tarragon.checkin_task_close', 'off', true);
-      v_cancelled := v_cancelled + 1;
+      update public.post_consult_checkins set state = 'cancelled', cancelled_at = now(), cancel_reason = r.why where id = r.id and state in ('scheduled', 'open');
+      if found then
+        perform set_config('tarragon.checkin_task_close', 'on', true);
+        update public.care_tasks set status = 'cancelled' where id = r.task_id and status not in ('completed', 'cancelled');
+        perform set_config('tarragon.checkin_task_close', 'off', true);
+        v_cancelled := v_cancelled + 1;
+      end if;
     exception when others then
       v_errors := v_errors + 1;
       insert into public.audit_log (action, entity_type, entity_id, event) values ('pcc_checkin.error_cancel', 'post_consult_checkin', r.id, jsonb_build_object('error', left(sqlerrm, 300)));
     end;
   end loop;
 
-  -- 3. open what is due: the task always, then the notices (the task does not wait for them)
-  for r in select * from public.post_consult_checkins where state = 'scheduled' and due_at <= now() order by due_at limit 500 loop
+  -- 3. expire (always): no answer inside the window. Silence is not a clinical signal: no alert, one low-priority task so the loop is visible.
+  --    The row is only moved while it is still open, so a late answer that commits first is never overwritten.
+  for r in select k.*, cc.rules as rules from public.post_consult_checkins k join public.post_consult_checkin_config cc on cc.version = k.config_version
+            where k.state = 'open' and k.opened_at + make_interval(mins => (cc.rules ->> 'expire_after_minutes')::integer) <= now() loop
     begin
-      select * into rc from public.post_consult_checkin_config where version = r.config_version;
-      insert into public.care_tasks (organisation_id, patient_id, title, description, owner_role, priority, due_at, source, kind, source_event_id)
-      values (r.organisation_id, r.patient_id, rc.rules ->> 'task_title', rc.rules ->> 'task_description', 'patient', 2, r.due_at, 'post_consult_checkin', 'consult_checkin', r.id)
-      returning id into v_task;
-      update public.post_consult_checkins set state = 'open', opened_at = now(), task_id = v_task where id = r.id;
-      v_after := private.pcc_send_after(now(), v_start, v_end);
-      v_ch := private.patient_reminder_channel(r.patient_id);
-      insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class, send_after)
-      values (r.organisation_id, r.patient_id, v_ch, 'pending', 'consult_checkin_due', jsonb_build_object('checkin_id', r.id), 'non_clinical', v_after);
-      if v_ch <> 'in_app' then
-        insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
-        values (r.organisation_id, r.patient_id, 'in_app', 'pending', 'consult_checkin_due', jsonb_build_object('checkin_id', r.id), 'non_clinical');
-      end if;
-      perform private.emit_domain_event('consult_checkin.opened', r.organisation_id, jsonb_build_object('checkin_id', r.id), 'consult_checkin.opened:' || r.id::text, r.patient_id, 'post_consult_checkin', r.id);
-      v_opened := v_opened + 1;
-    exception when others then
-      v_errors := v_errors + 1;
-      insert into public.audit_log (action, entity_type, entity_id, event) values ('pcc_checkin.error_open', 'post_consult_checkin', r.id, jsonb_build_object('error', left(sqlerrm, 300)));
-    end;
-  end loop;
-
-  -- 4. expire: no answer inside the window. Silence is not a clinical signal: no alert, one low-priority task so the loop is visible.
-  for r in select k.* from public.post_consult_checkins k
-            where k.state = 'open' and k.opened_at + make_interval(mins => (c.rules ->> 'expire_after_minutes')::integer) <= now() loop
-    begin
-      update public.post_consult_checkins set state = 'expired', expired_at = now() where id = r.id;
+      update public.post_consult_checkins set state = 'expired', expired_at = now() where id = r.id and state = 'open';
+      if not found then continue; end if;
       perform set_config('tarragon.checkin_task_close', 'on', true);
       update public.care_tasks set status = 'expired' where id = r.task_id and status not in ('completed', 'cancelled', 'expired');
       perform set_config('tarragon.checkin_task_close', 'off', true);
@@ -465,7 +469,7 @@ begin
               'clinician', r.clinician_id, 3, 'post_consult_checkin', r.id)
       returning id into v_task;
       update public.post_consult_checkins set clinician_task_id = v_task where id = r.id;
-      perform private.emit_domain_event('consult_checkin.expired', r.organisation_id, jsonb_build_object('checkin_id', r.id), 'consult_checkin.expired:' || r.id::text, r.patient_id, 'post_consult_checkin', r.id);
+      perform private.pcc_emit('consult_checkin.expired', r.organisation_id, r.id, r.patient_id);
       v_expired := v_expired + 1;
     exception when others then
       v_errors := v_errors + 1;
@@ -473,29 +477,63 @@ begin
     end;
   end loop;
 
-  -- 5. one gentle nudge (config max_nudges), only for check-ins still open
-  for r in select k.* from public.post_consult_checkins k
-            where k.state = 'open' and k.nudge_count < (c.rules ->> 'max_nudges')::integer
-              and k.opened_at + make_interval(mins => (c.rules ->> 'nudge_after_minutes')::integer) <= now() loop
-    begin
-      v_after := private.pcc_send_after(now(), v_start, v_end);
-      v_ch := private.patient_reminder_channel(r.patient_id);
-      insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class, send_after)
-      values (r.organisation_id, r.patient_id, v_ch, 'pending', 'consult_checkin_nudge', jsonb_build_object('checkin_id', r.id), 'non_clinical', v_after);
-      if v_ch <> 'in_app' then
-        insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
-        values (r.organisation_id, r.patient_id, 'in_app', 'pending', 'consult_checkin_nudge', jsonb_build_object('checkin_id', r.id), 'non_clinical');
-      end if;
-      update public.post_consult_checkins set nudge_count = nudge_count + 1, nudged_at = now() where id = r.id;
-      v_nudged := v_nudged + 1;
-    exception when others then
-      v_errors := v_errors + 1;
-      insert into public.audit_log (action, entity_type, entity_id, event) values ('pcc_checkin.error_nudge', 'post_consult_checkin', r.id, jsonb_build_object('error', left(sqlerrm, 300)));
-    end;
-  end loop;
+  if v_on and c.id is not null then
+    v_start := (c.rules #>> '{notification_window,start_hour}')::integer;
+    v_end := (c.rules #>> '{notification_window,end_hour}')::integer;
+
+    -- 4. open what is due: the task always, then the notices (the task does not wait for them). The task's due time is when it will expire, so the
+    --    nightly overdue job never sees a check-in as late while it is still inside its own window.
+    for r in select k.*, cc.rules as rules from public.post_consult_checkins k join public.post_consult_checkin_config cc on cc.version = k.config_version
+              where k.state = 'scheduled' and k.due_at <= now() order by k.due_at limit 500 loop
+      begin
+        update public.post_consult_checkins set state = 'open', opened_at = now() where id = r.id and state = 'scheduled';
+        if not found then continue; end if;
+        insert into public.care_tasks (organisation_id, patient_id, title, description, owner_role, priority, due_at, source, kind, source_event_id)
+        values (r.organisation_id, r.patient_id, r.rules ->> 'task_title', r.rules ->> 'task_description', 'patient', 2,
+                now() + make_interval(mins => (r.rules ->> 'expire_after_minutes')::integer), 'post_consult_checkin', 'consult_checkin', r.id)
+        returning id into v_task;
+        update public.post_consult_checkins set task_id = v_task where id = r.id;
+        v_after := private.pcc_send_after(now(), v_start, v_end);
+        v_ch := private.patient_reminder_channel(r.patient_id);
+        insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class, send_after)
+        values (r.organisation_id, r.patient_id, v_ch, 'pending', 'consult_checkin_due', jsonb_build_object('checkin_id', r.id), 'non_clinical', v_after);
+        if v_ch <> 'in_app' then
+          insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
+          values (r.organisation_id, r.patient_id, 'in_app', 'pending', 'consult_checkin_due', jsonb_build_object('checkin_id', r.id), 'non_clinical');
+        end if;
+        perform private.pcc_emit('consult_checkin.opened', r.organisation_id, r.id, r.patient_id);
+        v_opened := v_opened + 1;
+      exception when others then
+        v_errors := v_errors + 1;
+        insert into public.audit_log (action, entity_type, entity_id, event) values ('pcc_checkin.error_open', 'post_consult_checkin', r.id, jsonb_build_object('error', left(sqlerrm, 300)));
+      end;
+    end loop;
+
+    -- 5. one gentle nudge (the configuration's max_nudges), only for check-ins still open
+    for r in select k.*, cc.rules as rules from public.post_consult_checkins k join public.post_consult_checkin_config cc on cc.version = k.config_version
+              where k.state = 'open' and k.nudge_count < (cc.rules ->> 'max_nudges')::integer
+                and k.opened_at + make_interval(mins => (cc.rules ->> 'nudge_after_minutes')::integer) <= now() loop
+      begin
+        update public.post_consult_checkins set nudge_count = nudge_count + 1, nudged_at = now() where id = r.id and state = 'open' and nudge_count = r.nudge_count;
+        if not found then continue; end if;
+        v_after := private.pcc_send_after(now(), (r.rules #>> '{notification_window,start_hour}')::integer, (r.rules #>> '{notification_window,end_hour}')::integer);
+        v_ch := private.patient_reminder_channel(r.patient_id);
+        insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class, send_after)
+        values (r.organisation_id, r.patient_id, v_ch, 'pending', 'consult_checkin_nudge', jsonb_build_object('checkin_id', r.id), 'non_clinical', v_after);
+        if v_ch <> 'in_app' then
+          insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
+          values (r.organisation_id, r.patient_id, 'in_app', 'pending', 'consult_checkin_nudge', jsonb_build_object('checkin_id', r.id), 'non_clinical');
+        end if;
+        v_nudged := v_nudged + 1;
+      exception when others then
+        v_errors := v_errors + 1;
+        insert into public.audit_log (action, entity_type, entity_id, event) values ('pcc_checkin.error_nudge', 'post_consult_checkin', r.id, jsonb_build_object('error', left(sqlerrm, 300)));
+      end;
+    end loop;
+  end if;
 
   if v_errors > 0 then perform private.pcc_open_incident('sweep', v_errors); end if;
-  return jsonb_build_object('backfilled', v_back, 'cancelled', v_cancelled, 'opened', v_opened, 'expired', v_expired, 'nudged', v_nudged, 'errors', v_errors);
+  return jsonb_build_object('guard_on', v_on, 'backfilled', v_back, 'cancelled', v_cancelled, 'opened', v_opened, 'expired', v_expired, 'nudged', v_nudged, 'errors', v_errors);
 end $$;
 revoke all on function private.post_consult_checkin_sweep() from public, anon, authenticated;
 select cron.schedule('pcc-checkin-sweep', '*/15 * * * *', $$ select private.post_consult_checkin_sweep(); $$);
@@ -532,15 +570,15 @@ declare
   c public.post_consult_checkin_config%rowtype;
   q jsonb; op jsonb; v_code text;
   v_text text := nullif(btrim(coalesce(p_free_text, '')), '');
-  v_red boolean := false; v_concern boolean := false; v_clin boolean := false; v_clar boolean := false; v_symptom boolean := false;
+  v_red boolean := false; v_concern boolean := false; v_clin boolean := false; v_clar boolean := false;
   v_alert uuid; v_ee uuid; v_task uuid; v_desc text := ''; v_out jsonb; v_codes text := ''; v_level public.alert_level;
-  v_type public.alert_type_code;
+  v_ref text;
 begin
   if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
   select * into k from public.post_consult_checkins where id = p_id and patient_id = v_uid for update;
   if not found then raise exception 'check-in not found' using errcode = 'P0002'; end if;
   if k.state = 'answered' then return k.outcome; end if;
-  if k.state <> 'open' then raise exception 'this check-in is %', k.state using errcode = '22023'; end if;
+  if k.state <> 'open' then raise exception 'this check-in is %', k.state using errcode = '55000'; end if;
   select * into c from public.post_consult_checkin_config where version = k.config_version;
   if jsonb_typeof(p_answers) <> 'object' then raise exception 'answers must be an object' using errcode = '22023'; end if;
   if v_text is not null and char_length(v_text) > (c.rules ->> 'free_text_max_chars')::integer then raise exception 'note is too long' using errcode = '22023'; end if;
@@ -553,7 +591,6 @@ begin
     case op ->> 'route'
       when 'concern_alert' then
         v_concern := true;
-        if coalesce(op ->> 'alert_type', 'symptom_escalation') = 'symptom_escalation' then v_symptom := true; end if;
       when 'clinician_task' then v_clin := true;
       when 'clarify_task' then v_clar := true;
       else null;
@@ -563,6 +600,7 @@ begin
     raise exception 'unexpected answers' using errcode = '22023';
   end if;
 
+  v_ref := 'Check-in after a consultation. Consultation ' || k.encounter_id::text || ' (open /clinician/consultation/' || k.encounter_id::text || ').';
   -- INV-01: the deterministic danger-phrase list only
   if v_text is not null and coalesce(array_length(private.screen_care_message_for_emergency(v_text), 1), 0) > 0 then v_red := true; end if;
 
@@ -577,14 +615,21 @@ begin
       -- a consultation is a paid Member item, so doctor escalation is allowed here: never leave a red flag with no alert
       v_alert := private.raise_clinician_alert(k.organisation_id, k.patient_id, 'emergency'::public.alert_level,
         'Priority 1: danger wording in a check-in after a consultation',
-        'The patient''s check-in note matched the deterministic danger-phrase screen. Open the consultation to read it.', 'clinical', 'symptom_escalation');
+        'The patient''s check-in note matched the deterministic danger-phrase screen. ' || v_ref, 'clinical', 'symptom_escalation');
+    else
+      -- name the consultation on the alert the emergency path raised, so whoever it was routed to can find the note. Cosmetic: a failure is
+      -- written down and never undoes the red flag.
+      begin
+        update public.clinician_alerts set detail = left(coalesce(detail, '') || ' ' || v_ref, 2000) where id = v_alert;
+      exception when others then
+        insert into public.audit_log (action, entity_type, entity_id, event) values ('pcc_checkin.error_alert_detail', 'post_consult_checkin', k.id, jsonb_build_object('error', left(sqlerrm, 300)));
+      end;
     end if;
   elsif v_concern then
     v_level := (c.rules ->> 'concern_alert_level')::public.alert_level;
-    v_type := case when v_symptom then 'symptom_escalation' else 'medication_access_barrier' end;
     v_alert := private.raise_clinician_alert(k.organisation_id, k.patient_id, v_level,
       'Check-in after a consultation: the patient reports a concern',
-      'Answers (codes): ' || v_codes || '. Open the consultation to read the check-in.', 'clinical', v_type);
+      'Answers (codes): ' || v_codes || '. ' || v_ref, 'clinical', 'symptom_escalation');
   end if;
 
   if v_clin or v_clar then
@@ -606,9 +651,9 @@ begin
   update public.care_tasks set status = 'completed' where id = k.task_id and status not in ('completed', 'cancelled');
   perform set_config('tarragon.checkin_task_close', 'off', true);
 
-  perform private.emit_domain_event('consult_checkin.answered', k.organisation_id, jsonb_build_object('checkin_id', k.id), 'consult_checkin.answered:' || k.id::text, k.patient_id, 'post_consult_checkin', k.id);
+  perform private.pcc_emit('consult_checkin.answered', k.organisation_id, k.id, k.patient_id);
   if v_red or v_concern then
-    perform private.emit_domain_event('consult_checkin.flagged', k.organisation_id, jsonb_build_object('checkin_id', k.id), 'consult_checkin.flagged:' || k.id::text, k.patient_id, 'post_consult_checkin', k.id);
+    perform private.pcc_emit('consult_checkin.flagged', k.organisation_id, k.id, k.patient_id);
   end if;
   return v_out;
 end $$;
@@ -625,7 +670,13 @@ declare v_uid uuid := (select auth.uid()); e public.encounters%rowtype; v_out js
 begin
   if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
   select * into e from public.encounters where id = p_encounter;
-  if not found or e.clinician_id is distinct from v_uid then raise exception 'not authorised' using errcode = '42501'; end if;
+  if not found or (e.clinician_id is distinct from v_uid and not exists (
+        select 1 from public.post_consult_checkins k
+          join public.clinician_alerts a on a.id = k.alert_id
+          join public.clinical_staff cs on cs.id = a.responsible_clinician_id
+         where k.encounter_id = p_encounter and cs.profile_id = v_uid)) then
+    raise exception 'not authorised' using errcode = '42501';
+  end if;
   select coalesce(jsonb_agg(jsonb_build_object(
       'id', k.id, 'offset_code', k.offset_code, 'state', k.state, 'due_at', k.due_at, 'answered_at', k.answered_at, 'red_flag', k.red_flag,
       'answers', (select jsonb_agg(jsonb_build_object('question', q ->> 'text',

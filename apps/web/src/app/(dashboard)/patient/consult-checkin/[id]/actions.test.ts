@@ -34,8 +34,11 @@ describe("submitCheckinAction", () => {
   });
 
   it("maps a closed check-in to not_open and any other error to a code, never a database message", async () => {
-    rpc.mockResolvedValue({ data: null, error: { message: "secret detail", code: "22023" } });
+    rpc.mockResolvedValue({ data: null, error: { message: "secret detail", code: "55000" } });
     expect(await submitCheckinAction({ checkinId: id, answers: { a: "b" } })).toEqual({ ok: false, reason: "not_open" });
+    // a validation error keeps the form open so nothing the patient typed is thrown away
+    rpc.mockResolvedValue({ data: null, error: { message: "secret detail", code: "22023" } });
+    expect(await submitCheckinAction({ checkinId: id, answers: { a: "b" } })).toEqual({ ok: false, reason: "invalid" });
     rpc.mockResolvedValue({ data: null, error: { message: "secret detail", code: "XX000" } });
     expect(await submitCheckinAction({ checkinId: id, answers: { a: "b" } })).toEqual({ ok: false, reason: "failed" });
   });

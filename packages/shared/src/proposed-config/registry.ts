@@ -5916,7 +5916,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "code": "cannot_take",
               "label": "I cannot take them",
               "route": "concern_alert",
-              "alert_type": "medication_access_barrier"
+              "alert_type": "symptom_escalation"
             }
           ]
         },

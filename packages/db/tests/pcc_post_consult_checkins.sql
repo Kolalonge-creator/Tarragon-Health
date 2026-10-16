@@ -269,7 +269,7 @@ begin
   perform pg_temp.rec('the consultation clinician gets one low-priority task', '1/3/true',
     (select count(*)::text || '/' || min(priority) || '/' || bool_and(owner_id = v_docA)::text from public.care_tasks where patient_id = p5 and owner_role = 'clinician'));
   perform pg_temp.act(p5);
-  perform pg_temp.rec('an expired check-in cannot be answered', '22023', pg_temp.try(format('select public.answer_post_consult_checkin(%L, %L::jsonb)', c, pg_temp.answers('better', 'no', 'yes', 'no'))));
+  perform pg_temp.rec('an expired check-in cannot be answered (its own code, not a validation error)', '55000', pg_temp.try(format('select public.answer_post_consult_checkin(%L, %L::jsonb)', c, pg_temp.answers('better', 'no', 'yes', 'no'))));
   perform pg_temp.back();
 
   -- 9. Cancellation ---------------------------------------------------------------------------------------------
@@ -328,6 +328,41 @@ begin
   perform pg_temp.rec('a new config version cannot be created active or signed', '42501', pg_temp.try('insert into public.post_consult_checkin_config (version, is_active, effective_from, rules) select 2, true, current_date, rules from public.post_consult_checkin_config where version = 1'));
   perform pg_temp.rec('a config with an unknown route is refused by the table', '23514',
     pg_temp.try($q$insert into public.post_consult_checkin_config (version, effective_from, rules) select 2, current_date, jsonb_set(rules, '{questions,0,options,0,route}', '"page_everyone"') from public.post_consult_checkin_config where version = 1$q$));
+
+  -- 12. Review fixes ---------------------------------------------------------------------------------------------
+  -- the alert the red flag raised may be routed to a different doctor: that doctor (and only that doctor) can open the check-in, and the alert names the visit
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, is_test, active, languages, license_verified_at, license_expires_at, specialty, indemnity_exempt, indemnity_exempt_by)
+  values (v_org, v_docB, 'PCC doctor-b', true, true, array['en'], now() - interval '3 days', now() + interval '1 year', 'General practice', true, v_admin);
+  perform pg_temp.act(v_docB);
+  perform pg_temp.rec('a doctor the alert was not routed to cannot open the check-in', '42501', pg_temp.try(format('select public.get_consult_checkins(%L)', e9)));
+  perform pg_temp.back();
+  update public.clinician_alerts set responsible_clinician_id = (select id from public.clinical_staff where profile_id = v_docB) where patient_id = p3;
+  perform pg_temp.act(v_docB);
+  perform pg_temp.rec('the doctor the alert was routed to can open the check-in', 'ok', pg_temp.try(format('select public.get_consult_checkins(%L)', e9)));
+  perform pg_temp.back();
+  perform pg_temp.rec('the emergency alert names the consultation', 'true', (select (bool_and(detail like '%' || e9::text || '%'))::text from public.clinician_alerts where patient_id = p3));
+  perform pg_temp.rec('the concern alert names the consultation and carries codes only', 'true', (select (detail like '%' || e5::text || '%' and detail like '%feeling=worse%')::text from public.clinician_alerts where patient_id = p2));
+  -- the care team's own follow-up task is not the patient's to close
+  v_task := (select id from public.care_tasks where patient_id = p4 and owner_role = 'clinician');
+  perform pg_temp.act(p4);
+  perform pg_temp.rec('a patient cannot close the care team''s follow-up task', '42501', pg_temp.try(format('select public.complete_care_task(%L, ''completed'')', v_task)));
+  perform pg_temp.back();
+  -- the patient task is due when it will expire, never in the past
+  perform pg_temp.rec('the patient task is not due in the past', 'true',
+    (select (due_at > now())::text from public.care_tasks where patient_id = p2 and kind = 'consult_checkin' limit 1));
+  -- a visit from days ago is only asked about what is still worth asking
+  e12 := pg_temp.mkenc(v_org, stranger, v_docA, 'video', now() - interval '6 days'); perform pg_temp.complete(e12, now() - interval '6 days');
+  perform pg_temp.rec('a visit from 6 days ago gets the 7 day check-in only', '1/d7', (select count(*)::text || '/' || min(offset_code) from public.post_consult_checkins where encounter_id = e12));
+  -- switching the guard off pauses opening and reminders, but never strands an open check-in: it still expires
+  c := (select id from public.post_consult_checkins where patient_id = p5 limit 1);
+  e12 := pg_temp.mkenc(v_org, p5, v_docA, 'video', v_ended); perform pg_temp.complete(e12, v_ended);
+  c := pg_temp.open_one(e12, 'h48');
+  perform pg_temp.guard(false);
+  update public.post_consult_checkins set opened_at = now() - interval '49 hours' where id = c;
+  v_out := private.post_consult_checkin_sweep();
+  perform pg_temp.rec('with the guard off an open check-in still expires, and nothing new opens', 'expired/0/false',
+    (select state from public.post_consult_checkins where id = c) || '/' || (v_out ->> 'opened') || '/' || (v_out ->> 'guard_on'));
+  perform pg_temp.guard(true);
 
   -- 11. SABOTAGE -------------------------------------------------------------------------------------------------
   -- (a) the scheduling trigger is dropped: a completed consultation now gets no rows

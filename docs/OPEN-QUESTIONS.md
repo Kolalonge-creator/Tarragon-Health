@@ -3853,7 +3853,7 @@ The CMO must sign the question wording, what each answer does and the offsets (c
 - Decision: CMO.
 
 ### OQ-PCC-3 No new alert type
-- The alerts reuse `symptom_escalation` and `medication_access_barrier`, so they ride the existing `alert_rules` routing. A dedicated `post_consult_checkin` type would need its own enum migration and a governed `alert_rules` entry.
+- Every alert reuses `symptom_escalation`, so it rides the existing `alert_rules` routing. (`medication_access_barrier` has no `alert_rules` entry and would sit unassigned, so "cannot take my medicines" is raised as `symptom_escalation` with its own title text.) `alert_raised` in the patient's result means an alert row was created; if routing marks it a duplicate of an open one the care team already has that alert. A dedicated `post_consult_checkin` type would need its own enum migration and a governed `alert_rules` entry.
 - Decision: open (CMO, only if the alerts should be filtered apart).
 
 ### OQ-PCC-4 Clinician tasks are `care_tasks`, not `clinical_tasks`
@@ -3878,3 +3878,11 @@ The CMO must sign the question wording, what each answer does and the offsets (c
 
 ### OQ-PCC-9 Post-merge steps (not done by the author)
 - Apply the migration (merging auto-applies it); redeploy `send-pending-notifications` so `consult_checkin_due` and `consult_checkin_nudge` render (until then the in-app notice and the patient task still work); the CMO signs; an admin switches the guard on. Nothing is sent before the last two.
+
+### OQ-PCC-10 Who may read the answers
+- The consultation's clinician, and the clinician a flagged check-in's alert was routed to. Nobody else, including the CMO and admin (a break-glass read is the existing audited path). If the consultation's clinician has left and nothing was flagged, nobody can read a routine check-in; say if the lead clinician should.
+- Decision: CMO.
+
+### OQ-PCC-11 Old visits when the guard is first switched on
+- An offset whose whole window (due time plus the open window) has already passed is skipped, so switching the guard on never sends a burst of check-ins about old visits. A visit 3 days old still gets its 7 day check-in, and its 48 hour check-in if that window has not passed.
+- Decision: informational.
