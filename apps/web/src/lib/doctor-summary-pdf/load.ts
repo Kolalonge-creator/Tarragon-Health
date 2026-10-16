@@ -42,7 +42,7 @@ export interface DoctorSummaryData {
   medicines: MedicineLine[] | null;
   /** `weeks` are whole completed Lagos weeks inside the period, so they never cover a day outside it. */
   adherence: { weeks: AdherenceReportWeek[]; minDoses: number; hasScheduledMedicines: boolean } | null;
-  skipped: { lines: SkippedLine[]; total: number } | null;
+  skipped: { lines: SkippedLine[]; total: number; capped: boolean } | null;
   symptoms: { lines: SymptomLine[]; total: number; leftOut: number; capped: boolean } | null;
   allergiesConditions: { allergies: AllergyLine[]; conditions: string[] } | null;
 }
@@ -174,7 +174,8 @@ export async function loadDoctorSummary(
       if (med.error) return fail("your skipped doses");
       for (const m of med.data ?? []) names.set(m.id, m.drug_name);
     }
-    skipped = buildSkipped(
+    const skippedCapped = rows.length >= READ_LIMITS.skipped;
+    skipped = { ...buildSkipped(
       rows
         .filter((r) => r.scheduled_for_date && r.scheduled_time)
         .map((r) => ({
@@ -185,7 +186,7 @@ export async function loadDoctorSummary(
           reason: r.reason,
         })),
       cfg,
-    );
+    ), capped: skippedCapped };
   }
 
   let symptoms: DoctorSummaryData["symptoms"] = null;
@@ -197,7 +198,8 @@ export async function loadDoctorSummary(
       rows.map((r) => ({ reportedAt: r.reported_at, symptomType: r.symptom_type, freeText: r.free_text, severity: r.severity })),
       sinceMs,
       cfg,
-      rows.length >= READ_LIMITS.symptoms,
+      // capped only when the oldest row read is still inside the period: otherwise every in-period entry was read
+      rows.length >= READ_LIMITS.symptoms && rows.every((r) => Date.parse(r.reported_at) >= sinceMs),
     );
   }
 

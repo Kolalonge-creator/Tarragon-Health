@@ -60,6 +60,13 @@ describe("POST /api/patient/doctor-summary/pdf", () => {
     expect(recordSummaryGeneration).not.toHaveBeenCalled();
   });
 
+  it("refuses an Origin of null with 403, not a crash", async () => {
+    const form = new FormData();
+    form.append("section", "bp");
+    const res = await POST(new Request("http://localhost/api/patient/doctor-summary/pdf", { method: "POST", body: form, headers: { origin: "null" } }));
+    expect(res.status).toBe(403);
+  });
+
   it("answers 503, not an unhandled error, when the render throws", async () => {
     renderToBuffer.mockRejectedValueOnce(new Error("font"));
     expect((await POST(post([["section", "bp"]]))).status).toBe(503);
