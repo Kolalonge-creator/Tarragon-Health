@@ -365,7 +365,8 @@ as $$
 $$;
 
 -- Escalation: a request nobody answered inside the window tells the circle, neutrally, like any other check-in request. A failure to
--- tell one member opens an incident and leaves the row waiting, so the next minute retries (the notice is de-duplicated per row).
+-- tell one member opens an incident and leaves the row waiting, so the next minute retries (the notice is de-duplicated per row); after
+-- three tries the row is marked failed so it stops blocking new requests.
 create function private.sweep_circle_check_ins() returns integer
 language plpgsql security definer set search_path = ''
 as $$
