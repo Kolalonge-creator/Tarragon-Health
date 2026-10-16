@@ -156,6 +156,8 @@ begin
   perform pg_temp.ck('a bad action is refused', '22023', pg_temp.try_as(v_pa, format($q$select public.answer_proxy_review(%L, 'delete')$q$, v_px)));
   perform pg_temp.ck('narrow without categories is refused', '22023', pg_temp.try_as(v_pa, format($q$select public.answer_proxy_review(%L, 'narrow')$q$, v_px)));
   perform pg_temp.ck('narrow to nothing is refused (that is a removal, not a narrowing)', '22023', pg_temp.try_as(v_pa, format($q$select public.answer_proxy_review(%L, 'narrow', array[]::public.care_access_category[])$q$, v_px)));
+  perform pg_temp.ck('a stale list that leaves no shared category is refused and rolled back', '22023', pg_temp.try_as(v_pa, format($q$select public.answer_proxy_review(%L, 'narrow', array['labs_results']::public.care_access_category[])$q$, v_px)));
+  perform pg_temp.ck('...and the categories are untouched', '2', (select count(*)::text from public.profile_access_categories where profile_access_id = v_grant));
   perform pg_temp.ck('refusals changed nothing', '1|0', pg_temp.n_grant(v_pa, v_px) || '|' || pg_temp.n_hist(v_pa, v_px, 'kept'));
 
   -- 3. keep restarts the cycle
@@ -189,6 +191,7 @@ begin
   -- no active config: never a silent empty list
   update public.proxy_review_config set is_active = false;
   perform pg_temp.ck('with no active config the person''s list errors instead of reading as empty', 'ERR:P0001', pg_temp.q_as(v_stranger, 'select jsonb_array_length(public.my_proxy_reviews())::text'));
+  perform pg_temp.ck('...and the proxy''s reader errors too, not an empty list', 'ERR:P0001', pg_temp.q_as(v_px2, 'select jsonb_array_length(public.proxy_review_due_as_proxy())::text'));
   perform pg_temp.ck('...and the sweep sends nothing', '0', private.sweep_proxy_access_reviews()::text);
   perform pg_temp.ck('...and opens an incident', '1', (select count(*)::text from public.ops_incidents where external_reference = 'proxy-review:no-config'));
   update public.proxy_review_config set is_active = true where version = 1;

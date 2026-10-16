@@ -1536,7 +1536,7 @@ export const TEMPLATE_MAP: Record<
     },
   }),
   // Yearly proxy-access review. Names no one; the person sees who behind the sign-in. Email and push are only queued when the person's own
-  // channel preference allows, and the sender applies quiet hours and discreet mode. The proxy's notice is in-app only.
+  // channel preference allows, and the sender applies quiet hours and discreet mode. The proxy's notice is in-app only and needs no renderer here.
   proxy_review_due: () => ({
     smsText: "A yearly check is waiting: do the people who help you still need access? Tarragon Health",
     pushUrl: "/patient/family",
@@ -1549,20 +1549,6 @@ export const TEMPLATE_MAP: Record<
         `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
       text: "Once a year we ask whether the people who help you still need access.\n\nOpen Tarragon Health to keep, change or remove it. Nothing changes unless you choose.\n\nTarragon Health",
-    },
-  }),
-  proxy_review_due_proxy: () => ({
-    smsText: "A yearly check is due. You do not need to do anything. Tarragon Health",
-    pushUrl: "/patient/family",
-    email: {
-      subject: "A yearly check is due",
-      html:
-        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
-        `<p>A yearly check is due. The person you help is looking over who can help them.</p>` +
-        `<p>You do not need to do anything.</p>` +
-        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
-        `</div>`,
-      text: "A yearly check is due. The person you help is looking over who can help them.\n\nYou do not need to do anything.\n\nTarragon Health",
     },
   }),
   circle_pause_ended: () => ({

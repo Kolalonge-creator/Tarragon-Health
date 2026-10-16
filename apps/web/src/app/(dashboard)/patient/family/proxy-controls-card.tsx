@@ -61,8 +61,14 @@ function FollowerControls({ follower }: { follower: CareFollower }) {
   const revoke = useMutation({
     mutationFn: async () => {
       // Through the yearly-review door so the removal is recorded in the review history (it composes revoke_proxy_access).
-      const { error } = await createClient().rpc("answer_proxy_review", { p_grantee: follower.profileId, p_action: "remove" });
-      if (error) throw error;
+      const supabase = createClient();
+      const { error } = await supabase.rpc("answer_proxy_review", { p_grantee: follower.profileId, p_action: "remove" });
+      if (error && error.code !== "P0002") {
+        // P0002 means it is already gone, which is the outcome wanted. Anything else (for example the review door not being available):
+        // ending a person's access must never depend on bookkeeping, so use the original control.
+        const fallback = await supabase.rpc("revoke_proxy_access", { p_grantee: follower.profileId });
+        if (fallback.error) throw fallback.error;
+      }
     },
     onSuccess: async () => {
       setMessage("Their access has stopped.");
@@ -75,13 +81,19 @@ function FollowerControls({ follower }: { follower: CareFollower }) {
   const narrow = useMutation({
     mutationFn: async () => {
       // Through the yearly-review door so narrowing restarts the review cycle (it composes narrow_proxy_access).
-      const { error } = await createClient().rpc("answer_proxy_review", {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("answer_proxy_review", {
         p_grantee: follower.profileId,
         p_action: "narrow",
         p_categories: keep,
         p_notify: tellThem,
       });
-      if (error) throw error;
+      if (error) {
+        // A refusal about the choice itself (22023) or a missing grant (P0002) is shown as is; only an unavailable door falls back.
+        if (error.code === "22023" || error.code === "P0002") throw error;
+        const fallback = await supabase.rpc("narrow_proxy_access", { p_grantee: follower.profileId, p_categories: keep, p_notify: tellThem });
+        if (fallback.error) throw fallback.error;
+      }
     },
     onSuccess: async () => {
       setMessage(tellThem ? "Saved. We let them know." : "Saved. They will not be told.");

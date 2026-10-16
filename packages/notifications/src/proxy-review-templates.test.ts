@@ -15,13 +15,18 @@ const payload = { patient_name: "Ada Obi", grantee_name: "Chidi Eze", reading: "
 const LEAK = /Ada|Obi|Chidi|Eze|182|112|hypertension|medications/i;
 
 describe("yearly proxy review notification templates", () => {
+  // Only the person's notice can reach email or push, so only it has a sender renderer. The proxy's notice is in-app only.
+  it("proxy_review_due: sender renderer passes the lint and never echoes the payload", () => {
+    const fn = TEMPLATE_MAP["proxy_review_due"];
+    expect(fn).toBeDefined();
+    expect(describeViolations(lintRenderFn((p) => fn!(p, ctx)))).toEqual([]);
+    expect(JSON.stringify(fn!(payload, ctx))).not.toMatch(LEAK);
+  });
+  it("proxy_review_due_proxy: has no email or push renderer (in-app only, so it can never be sent outside the app)", () => {
+    expect(TEMPLATE_MAP["proxy_review_due_proxy"]).toBeUndefined();
+  });
+
   for (const key of KEYS) {
-    it(`${key}: sender renderer passes the lint and never echoes the payload`, () => {
-      const fn = TEMPLATE_MAP[key];
-      expect(fn).toBeDefined();
-      expect(describeViolations(lintRenderFn((p) => fn!(p, ctx)))).toEqual([]);
-      expect(JSON.stringify(fn!(payload, ctx))).not.toMatch(LEAK);
-    });
     it(`${key}: in-app copy is mapped, passes the lint and never echoes the payload`, () => {
       const text = describeInApp({ template: key, payload }).text;
       expect(text).not.toBe(describeInApp({ template: "unknown_template_zz", payload }).text);
@@ -29,13 +34,13 @@ describe("yearly proxy review notification templates", () => {
       expect(text).not.toMatch(LEAK);
     });
     it(`${key}: no em dashes`, () => {
-      expect(JSON.stringify(TEMPLATE_MAP[key]!(payload, ctx))).not.toContain("—");
+      expect(JSON.stringify(TEMPLATE_MAP[key]?.(payload, ctx) ?? "")).not.toContain("—");
       expect(describeInApp({ template: key, payload }).text).not.toContain("—");
     });
   }
 
   it("the proxy notice is calm: no alarm words, and nothing that hints at narrowing or removal (D5)", () => {
-    const out = JSON.stringify(TEMPLATE_MAP["proxy_review_due_proxy"]!(payload, ctx)) + describeInApp({ template: "proxy_review_due_proxy", payload }).text;
+    const out = describeInApp({ template: "proxy_review_due_proxy", payload }).text;
     expect(out).not.toMatch(/remov|narrow|revok|end(ed)? your|lose|lost|urgent|warning|deadline|must/i);
     expect(out).toMatch(/do not need to do anything/i);
   });

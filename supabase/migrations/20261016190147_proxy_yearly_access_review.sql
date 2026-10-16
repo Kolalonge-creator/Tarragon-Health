@@ -181,8 +181,11 @@ as $$
 declare v_uid uuid := (select auth.uid());
 begin
   if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
+  if not exists (select 1 from public.proxy_review_config c where c.is_active) then
+    raise exception 'proxy review: no active proxy_review_config row' using errcode = 'P0001';
+  end if;
   -- A safeguarding switch: when the active config says the proxy is told nothing, they see nothing.
-  if not coalesce((select c.tell_proxy from public.proxy_review_config c where c.is_active), false) then
+  if not (select c.tell_proxy from public.proxy_review_config c where c.is_active) then
     return '[]'::jsonb;
   end if;
   return coalesce((select jsonb_agg(jsonb_build_object('patient_id', s.patient_id)) from private.proxy_review_state(null, v_uid) s
@@ -230,6 +233,11 @@ begin
       raise exception 'keep at least one category, or remove the access' using errcode = '22023';
     end if;
     v_left := public.narrow_proxy_access(p_grantee, p_categories, coalesce(p_notify, false));
+    if v_left = 0 then
+      -- narrow_proxy_access keeps the INTERSECTION of what the proxy holds and what was passed, so a stale list can still leave nothing. Raising
+      -- rolls the narrowing back: a grant with no category but its payment and alert permissions must never look like "removed".
+      raise exception 'none of those categories are shared any more; choose again or remove the access' using errcode = '22023';
+    end if;
     -- The narrowing has happened. Bookkeeping must never undo it.
     begin
       insert into public.proxy_access_reviews (organisation_id, patient_id, grantee_user_id, grant_id, kind, detail, is_test)
@@ -237,6 +245,11 @@ begin
       perform private.log_audit('proxy_access.review_narrowed', 'profile', v_uid, jsonb_build_object('grant_id', v_grant.id, 'categories_left', v_left));
     exception when others then
       raise warning 'proxy review: narrowing done but its history was not written for grant %: %', v_grant.id, sqlerrm;
+      begin
+        perform private.open_job_incident('proxy-review:history', 'A yearly access review answer could not be recorded',
+          'A narrowing or removal succeeded but its review history row failed to write, so the review cycle did not restart. Last reason: ' || left(sqlerrm, 160));
+      exception when others then null;   -- the warning above is the fallback; the person''s action already succeeded
+      end;
     end;
     return jsonb_build_object('ok', true, 'action', 'narrow', 'categories_left', v_left);
   else
@@ -248,6 +261,11 @@ begin
       perform private.log_audit('proxy_access.review_removed', 'profile', v_uid, jsonb_build_object('grant_id', v_grant.id));
     exception when others then
       raise warning 'proxy review: removal done but its history was not written for grant %: %', v_grant.id, sqlerrm;
+      begin
+        perform private.open_job_incident('proxy-review:history', 'A yearly access review answer could not be recorded',
+          'A narrowing or removal succeeded but its review history row failed to write, so the review cycle did not restart. Last reason: ' || left(sqlerrm, 160));
+      exception when others then null;   -- the warning above is the fallback; the person''s action already succeeded
+      end;
     end;
     return jsonb_build_object('ok', true, 'action', 'remove');
   end if;
@@ -256,10 +274,10 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- 6. Templates (INV-07 lint: no person, condition, reading or result named) and the event
 -- ---------------------------------------------------------------------------
-insert into public.notification_templates (key, category, business_priority, audience, default_channels, description) values
-  ('proxy_review_due', 'administrative', 'routine', 'patient', array['in_app']::public.notification_channel[],
+insert into public.notification_templates (key, category, business_priority, audience, default_channels, timing, description) values
+  ('proxy_review_due', 'administrative', 'routine', 'patient', array['in_app', 'email', 'push']::public.notification_channel[], 'scheduled',
    'Yearly prompt to the person: do the people who help you still need access. Names no one. In-app is always written; push or email are added only when the person''s own channel preference allows.'),
-  ('proxy_review_due_proxy', 'administrative', 'routine', 'patient', array['in_app']::public.notification_channel[],
+  ('proxy_review_due_proxy', 'administrative', 'routine', 'patient', array['in_app']::public.notification_channel[], 'scheduled',
    'Calm notice to someone who helps another person: a yearly check is due. Says nothing about the outcome and never that access was narrowed or removed.')
 on conflict (key) do nothing;
 insert into public.notification_template_locales (template_key, locale, channel, subject, body) values

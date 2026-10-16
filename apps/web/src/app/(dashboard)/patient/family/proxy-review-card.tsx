@@ -24,12 +24,14 @@ function ReviewItem({ row, onDone }: { row: ProxyReviewRow; onDone: (message: st
 
   const answer = useMutation({
     mutationFn: async (input: { action: "keep" | "narrow" | "remove" }) => {
+      setMessage(null);
       const { error } = await createClient().rpc("answer_proxy_review", {
         p_grantee: row.grantee_id,
         p_action: input.action,
         ...(input.action === "narrow" ? { p_categories: keep as CareAccessCategory[], p_notify: false } : {}),
       });
-      if (error) throw error;
+      // P0002: the access is already gone (another tab, a double click). For a removal that is the outcome the person wanted.
+      if (error && !(input.action === "remove" && error.code === "P0002")) throw error;
       return input.action;
     },
     onSuccess: async (action) => {
@@ -163,8 +165,8 @@ export function ProxyReviewCard() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {notices.map((notice) => (
-          <p key={notice} role="status" className="pb-3 text-sm text-charcoal-ink/80">
+        {notices.map((notice, index) => (
+          <p key={`${index}-${notice}`} role="status" className="pb-3 text-sm text-charcoal-ink/80">
             {notice}
           </p>
         ))}
