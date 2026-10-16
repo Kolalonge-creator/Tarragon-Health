@@ -320,6 +320,24 @@ describe("safety sweep: an override never lowers a red or relaxes a symptom, ove
     }
     expect(relaxed).toBeGreaterThan(0);
   });
+  it("DRIFT PIN: an override that restates the signed defaults changes nothing, for every rule set and every case (the engine's copy of BP-A2 and BP-A7 equals the rule set's)", () => {
+    for (const [, rs] of SETS) {
+      const low = (rs.params["low"] as { redSystolic: number }).redSystolic;
+      const same = bp("same", { target: { systolic: 135, diastolic: 85 }, lowAmberSystolic: low });
+      for (let s = 70; s <= 230; s += 4) {
+        for (let d = 40; d <= 140; d += 10) {
+          for (const symptoms of [[], ["dizziness"], ["palpitations"]] as SymptomCode[][]) {
+            for (const hist of [history(6, 140, 88), history(6, 160, 95), history(6, 185, 118), history(3, 160, 95), []]) {
+              const input = bpInput({ history: hist }, { systolic: s, diastolic: Math.min(d, s - 1) }, symptoms);
+              const base = grade(input, rs);
+              if (base.status !== "graded") continue;
+              expect(applyBpOverride(input, base, rs, same).result).toBe(base);
+            }
+          }
+        }
+      }
+    }
+  });
   it("never relaxes a pregnant patient across the grid", () => {
     for (let s = 70; s <= 200; s += 10) {
       const input = bpInput({ pregnant: true, history: history(6, 160, 95) }, { systolic: s, diastolic: Math.min(80, s - 1) });

@@ -11,7 +11,7 @@ const fromClient = (data: unknown, error: unknown = null) =>
 describe("threshold override readers", () => {
   it("hub state: policy waiting, live, and a failure that is never an all-clear", async () => {
     expect(await readThresholdHubState(rpcClient({ policyActive: false, policyVersionWaiting: 1, policyIdWaiting: "pid", active: 0, reviewsOverdue: 0 }))).toMatchObject({ policyWaiting: true, policyVersion: 1, policyId: "pid", failed: false });
-    expect(await readThresholdHubState(rpcClient({ policyActive: true, policyVersionWaiting: null, active: "3", reviewsOverdue: 2 }))).toMatchObject({ policyWaiting: false, policyActive: true, active: 3, reviewsOverdue: 2 });
+    expect(await readThresholdHubState(rpcClient({ policyActive: true, policyVersionWaiting: null, active: "3", reviewsOverdue: 2, reviewTaskFailures7d: 4 }))).toMatchObject({ policyWaiting: false, policyActive: true, active: 3, reviewsOverdue: 2, reviewTaskFailures: 4 });
     expect(await readThresholdHubState(rpcClient({}))).toMatchObject({ policyWaiting: false, active: 0, failed: false });
     expect((await readThresholdHubState(rpcClient(null, { code: "42501" }))).failed).toBe(true);
     expect((await readThresholdHubState(rpcClient(null))).failed).toBe(true);
@@ -19,7 +19,11 @@ describe("threshold override readers", () => {
     expect((await readThresholdHubState(throwing)).failed).toBe(true);
   });
   it("patient overrides and roster report a failed read", async () => {
-    expect(await readPatientOverrides(fromClient([{ id: "a" }]), "p")).toEqual({ rows: [{ id: "a" }], failed: false });
+    const past = new Date(Date.now() - 86_400_000).toISOString();
+    const future = new Date(Date.now() + 86_400_000).toISOString();
+    const out = await readPatientOverrides(fromClient([{ id: "a", status: "draft", expires_at: null }, { id: "b", status: "active", expires_at: past }, { id: "c", status: "active", expires_at: future }]), "p");
+    expect(out.failed).toBe(false);
+    expect(out.rows.map((r) => r.expired)).toEqual([false, true, false]);
     expect((await readPatientOverrides(fromClient(null, { m: 1 }), "p")).failed).toBe(true);
     expect((await readPatientOverrides(fromClient(null), "p")).failed).toBe(true);
     expect((await readPatientOverrides(throwing, "p")).failed).toBe(true);

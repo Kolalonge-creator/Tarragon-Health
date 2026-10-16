@@ -2,6 +2,7 @@ import { describe, expect, it, jest } from "@jest/globals";
 import { BP_CARE_V3, GLUCOSE_CARE_V1, type GlucoseInput } from "./index";
 import {
   makeObservationHandler,
+  OVERRIDE_LOAD_ATTEMPTS,
   TRIAGE_HANDLER_KEY,
   type RuleSetForGrading,
   type TriagePorts,
@@ -14,8 +15,8 @@ import type { TriageInput, TriageResult } from "./types";
 /** The handler wiring of personal threshold overrides: loaded, applied after the signed grade, stored with provenance, never a reason to stop grading. */
 const NOW = "2026-10-15T10:00:00.000Z";
 const ctx = { once: async () => true };
-const event = (payload: Record<string, unknown>): BusEvent => ({
-  deliveryId: "d1", leaseToken: "l1", attempt: 1, eventId: "e1", eventType: "observation.recorded", eventVersion: 1,
+const event = (payload: Record<string, unknown>, attempt = 1): BusEvent => ({
+  deliveryId: "d1", leaseToken: "l1", attempt, eventId: "e1", eventType: "observation.recorded", eventVersion: 1,
   organisationId: "o1", patientId: "p1", aggregateType: "observation", aggregateId: "obs1", payload, priority: "normal",
   isTest: true, occurredAt: NOW, subscriberKey: TRIAGE_HANDLER_KEY, handlerKey: TRIAGE_HANDLER_KEY,
 });
@@ -77,11 +78,52 @@ describe("threshold overrides in the observation handler", () => {
     await makeObservationHandler(p)(event({ observation_id: "obs1" }), ctx);
     expect(recorded[0]?.grade).toBe("green");
   });
-  it("a failed override load never stops grading: the signed default is recorded", async () => {
-    const { p, recorded, applications } = ports({ loadThresholdOverride: jest.fn(async () => { throw new Error("db down"); }) });
-    await makeObservationHandler(p)(event({ observation_id: "obs1" }), ctx);
+  it("a failed override load is retried first (a lost override can be a silent downgrade), then graded at the default with a loud log", async () => {
+    const load = jest.fn(async () => { throw new Error("rpc timed out"); });
+    const { p, recorded, applications } = ports({ loadThresholdOverride: load });
+    await expect(makeObservationHandler(p)(event({ observation_id: "obs1" }, 1), ctx)).rejects.toThrow("rpc timed out");
+    await expect(makeObservationHandler(p)(event({ observation_id: "obs1", kind: "glucose" }, 2), ctx)).rejects.toThrow("rpc timed out");
+    expect(recorded).toHaveLength(0);
+    const log = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    await makeObservationHandler(p)(event({ observation_id: "obs1" }, OVERRIDE_LOAD_ATTEMPTS), ctx);
     expect(recorded[0]?.grade).toBe("amber");
     expect(applications).toHaveLength(0);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("graded at the signed default"));
+    log.mockRestore();
+  });
+  it("a database without the override functions yet grades as before, quietly", async () => {
+    const log = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const { p, recorded } = ports({ loadThresholdOverride: async () => { throw new Error("triage_active_override_for_observation: Could not find the function public.triage_active_override_for_observation"); } });
+    await makeObservationHandler(p)(event({ observation_id: "obs1" }), ctx);
+    expect(recorded[0]?.grade).toBe("amber");
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+  it("a fault inside the override layer never stops the signed grade being recorded (Error or not)", async () => {
+    const log = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    // the clamp check reads `target` once; the engine reads it again when it applies the override, and that read throws
+    const faulty = (thrown: unknown): ActiveOverride => {
+      let reads = 0;
+      const params = { get target() { reads += 1; if (reads > 1) throw thrown; return { systolic: 150, diastolic: 95 }; } };
+      return { id: "x", domain: "bp", params, signedAt: "2026-10-01T00:00:00.000Z", expiresAt: "2026-11-30T00:00:00.000Z" } as ActiveOverride;
+    };
+    for (const thrown of [new Error("boom in the override layer"), "boom as plain text"]) {
+      const { p, recorded } = ports({ loadThresholdOverride: async () => faulty(thrown) });
+      await makeObservationHandler(p)(event({ observation_id: "obs1" }), ctx);
+      expect(recorded).toHaveLength(1);
+      expect(recorded[0]?.grade).toBe("amber");
+    }
+    expect(log).toHaveBeenCalledTimes(2);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("could not be applied"));
+    log.mockRestore();
+  });
+  it("a non-error rejection is logged as text", async () => {
+    const log = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const { p, recorded } = ports({ loadThresholdOverride: async () => Promise.reject("plain text failure") });
+    await makeObservationHandler(p)(event({ observation_id: "obs1" }, OVERRIDE_LOAD_ATTEMPTS), ctx);
+    expect(recorded).toHaveLength(1);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("plain text failure"));
+    log.mockRestore();
   });
   it("a failed provenance write is raised so the event retries (the grade write is idempotent)", async () => {
     const { p } = ports({ recordOverrideApplication: async () => { throw new Error("nope"); } });

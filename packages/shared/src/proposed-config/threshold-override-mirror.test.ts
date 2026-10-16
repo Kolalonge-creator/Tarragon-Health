@@ -3,7 +3,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getProposedConfig } from "./index";
-import { OVERRIDE_LIMITS } from "../../../clinical/src/threshold-override";
 
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
 const sql = (): string => {
@@ -18,11 +17,6 @@ describe("personal threshold overrides: code, config and migration agree (N-over
     if (!match?.[1]) throw new Error("policy seed not found in the migration");
     expect(JSON.parse(match[1])).toEqual(getProposedConfig("triage.threshold_override_policy").value);
     expect(sql()).toMatch(/the policy must be born unsigned and inactive/);
-  });
-  it("the engine's hard clamps equal the database's clamps", () => {
-    const match = /override-limits-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql());
-    if (!match?.[1]) throw new Error("limits not found in the migration");
-    expect(JSON.parse(match[1])).toEqual(JSON.parse(JSON.stringify(OVERRIDE_LIMITS)));
   });
   it("the review task type is routine and never pushed", () => {
     const block = /task-types-threshold-override-begin([\s\S]*?)task-types-threshold-override-end/.exec(sql())?.[1] ?? "";

@@ -59,7 +59,8 @@ begin
   if v_staff is null then raise exception 'not authorised: only the active Chief Medical Officer can sign the personal threshold policy' using errcode = '42501'; end if;
   select config into v_cfg from public.threshold_override_policies where id = p_id;
   if not found then raise exception 'policy version not found' using errcode = '22023'; end if;
-  if exists (select 1 from public.threshold_override_policies where id = p_id and approved_by is not null) then raise exception 'this version is already signed; a change is a new version' using errcode = '22023'; end if;
+  -- Signing a version that was withdrawn switches it back on (the withdraw is not one-way); one that is already on cannot be signed again.
+  if exists (select 1 from public.threshold_override_policies where id = p_id and is_active) then raise exception 'this version is already signed and on; a change is a new version' using errcode = '22023'; end if;
   if jsonb_typeof(v_cfg -> 'maxDays') is distinct from 'number' or jsonb_typeof(v_cfg -> 'reviewDays') is distinct from 'number' or jsonb_typeof(v_cfg -> 'reviewTaskDueMinutes') is distinct from 'number'
      or (v_cfg ->> 'maxDays')::int not between 7 and 180 or (v_cfg ->> 'reviewDays')::int not between 7 and (v_cfg ->> 'maxDays')::int or (v_cfg ->> 'reviewTaskDueMinutes')::int < 60 then
     raise exception 'this version is missing a value the policy needs or has one outside 7-180 days' using errcode = '22023';
@@ -226,8 +227,10 @@ create trigger triage_override_applications_no_change before update or delete on
 alter table public.patient_threshold_overrides enable row level security;
 alter table public.patient_threshold_override_events enable row level security;
 alter table public.triage_override_applications enable row level security;
+-- Tied staff only. The patient is deliberately NOT given a direct read: the table holds the numbers and the doctor's reason (INV-07), and the patient's only
+-- window is my_threshold_override_notice(), a bare yes or no.
 create policy patient_threshold_overrides_read on public.patient_threshold_overrides for select to authenticated
-  using (patient_id = (select auth.uid()) or private.staff_may_read(patient_id, organisation_id, 'medical_history'::public.care_access_category));
+  using (private.staff_may_read(patient_id, organisation_id, 'medical_history'::public.care_access_category));
 create policy patient_threshold_override_events_read on public.patient_threshold_override_events for select to authenticated
   using (private.staff_may_read(patient_id, organisation_id, 'medical_history'::public.care_access_category));
 create policy triage_override_applications_read on public.triage_override_applications for select to authenticated
@@ -247,7 +250,7 @@ insert into public.data_registry (table_name, patient_expr, retention_class, end
 on conflict (table_name) do nothing;
 
 -- 4. Authority, eligibility and the RPCs -------------------------------------------------------------------------------------------------
--- The doctor acting on this patient: prescribing authority in the patient's organisation AND a care relationship (or a logged opening).
+-- The doctor acting on this patient: prescribing authority in the patient's organisation AND a true care relationship.
 create function private.threshold_override_actor(p_patient uuid) returns uuid
 language plpgsql stable security definer set search_path = ''
 as $$
@@ -258,7 +261,9 @@ begin
   if not private.has_prescribing_authority(v_org) then
     raise exception 'not authorised: only a senior doctor can set a personal threshold' using errcode = '42501';
   end if;
-  if not private.staff_may_write(p_patient, v_org, 'medical_history'::public.care_access_category) then
+  -- A true care relationship (care team, open escalation or alert, live consultation, active task, post-consult window, assigned referral). A logged record
+  -- opening is NOT enough here: a safety-affecting setting is not something a doctor who merely opened the chart can propose and sign alone.
+  if not private.clinician_has_patient_access(p_patient) then
     raise exception 'not authorised: you have no care relationship with this patient' using errcode = '42501';
   end if;
   select cs.id into v_staff from public.clinical_staff cs
@@ -351,7 +356,8 @@ end $$;
 revoke all on function public.sign_threshold_override(uuid, text) from public, anon;
 grant execute on function public.sign_threshold_override(uuid, text) to authenticated;
 
--- The active Chief Medical Officer of the patient's organisation may act on any override (oversight); any other doctor needs authority and a tie.
+-- Ending an override is a stop-only action: the active Chief Medical Officer of the patient's organisation may end any override (oversight) without a tie;
+-- any other doctor needs authority and a tie. Keeping or proposing one always needs the tie (private.threshold_override_actor).
 create function private.threshold_override_overseer(p_patient uuid) returns uuid
 language plpgsql stable security definer set search_path = ''
 as $$
@@ -390,8 +396,8 @@ declare o public.patient_threshold_overrides%rowtype; v_staff uuid; v_policy jso
 begin
   select * into o from public.patient_threshold_overrides where id = p_id for update;
   if not found then raise exception 'override not found' using errcode = '22023'; end if;
-  v_staff := private.threshold_override_overseer(o.patient_id);
   if p_outcome not in ('continue', 'revoke') then raise exception 'outcome must be continue or revoke' using errcode = '22023'; end if;
+  v_staff := case when p_outcome = 'revoke' then private.threshold_override_overseer(o.patient_id) else private.threshold_override_actor(o.patient_id) end;
   if o.status <> 'active' or o.expires_at <= now() then raise exception 'only a live override can be reviewed' using errcode = '22023'; end if;
   if length(btrim(coalesce(p_note, ''))) < 5 then raise exception 'a review note is required' using errcode = '22023'; end if;
   if p_outcome = 'revoke' then
@@ -430,6 +436,10 @@ begin
     left join public.clinical_staff ss on ss.id = o.signed_by
    where o.organisation_id = v_org and (o.status in ('draft', 'active') or o.ended_at > now() - interval '30 days');
   perform private.log_audit('threshold_override.oversight_listed', 'patient_threshold_overrides', null, jsonb_build_object('count', jsonb_array_length(v_rows)));
+  -- one audit row per override read, so who looked at which patient's setting is on record
+  insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+    select v_org, (select auth.uid()), 'threshold_override.oversight_read', 'patient_threshold_overrides', (e ->> 'id')::uuid, jsonb_build_object('patient_id', e ->> 'patientId')
+      from jsonb_array_elements(v_rows) e;
   return v_rows;
 end $$;
 revoke all on function public.list_threshold_overrides_for_oversight() from public, anon;
@@ -446,10 +456,11 @@ begin
   if v_org is null then raise exception 'not authorised' using errcode = '42501'; end if;
   return jsonb_build_object(
     'policyActive', private.threshold_override_policy() is not null,
-    'policyVersionWaiting', (select version from public.threshold_override_policies where not is_active and approved_by is null order by version desc limit 1),
-    'policyIdWaiting', (select id from public.threshold_override_policies where not is_active and approved_by is null order by version desc limit 1),
+    'policyVersionWaiting', (select version from public.threshold_override_policies where not is_active order by version desc limit 1),
+    'policyIdWaiting', (select id from public.threshold_override_policies where not is_active order by version desc limit 1),
     'active', (select count(*) from public.patient_threshold_overrides where organisation_id = v_org and status = 'active' and expires_at > now()),
-    'reviewsOverdue', (select count(*) from public.patient_threshold_overrides where organisation_id = v_org and status = 'active' and expires_at > now() and review_due_at <= now()));
+    'reviewsOverdue', (select count(*) from public.patient_threshold_overrides where organisation_id = v_org and status = 'active' and expires_at > now() and review_due_at <= now()),
+    'reviewTaskFailures7d', (select count(*) from public.patient_threshold_override_events where organisation_id = v_org and event = 'review_task_failed' and created_at > now() - interval '7 days'));
 end $$;
 revoke all on function public.threshold_override_oversight_counts() from public, anon;
 grant execute on function public.threshold_override_oversight_counts() to authenticated;
@@ -527,7 +538,8 @@ begin
       perform private.threshold_override_event(r.id, 'review_task_created', null, jsonb_build_object('dueAt', r.review_due_at));
       n := n + 1;
     exception when others then
-      -- visible, not silent: the CMO roster shows the review as overdue whatever the task layer does
+      if sqlstate in ('57014', '57P01') then raise; end if;   -- a cancelled or shut-down statement is not a task failure
+      -- visible, not silent: the CMO page counts these, and the roster shows the review as overdue whatever the task layer does
       perform private.threshold_override_event(r.id, 'review_task_failed', null, jsonb_build_object('sqlstate', sqlstate, 'message', sqlerrm));
     end;
   end loop;

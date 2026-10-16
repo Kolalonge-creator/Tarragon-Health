@@ -139,7 +139,8 @@ begin
   perform pg_temp.ck('real', 'D3 a non-CMO cannot withdraw the policy', 'ERR 42501', pg_temp.as_user(v_c1, $q$select public.withdraw_threshold_override_policy('not allowed')::text$q$));
   perform pg_temp.as_user(v_cmo, $q$select public.withdraw_threshold_override_policy('proof withdrawal')::text$q$);
   perform pg_temp.ck('real', 'D4 withdrawing the policy stops every override at once', 'null|false', coalesce(public.triage_active_override_for_observation(v_obs, 'bp')::text, 'null') || '|' || pg_temp.as_user(v_p, 'select public.my_threshold_override_notice()::text'));
-  update public.threshold_override_policies set is_active = true where id = v_policy;
+  perform pg_temp.ck('real', 'D5a a withdrawn policy can be signed again (the kill switch is not one-way)', 'true', (pg_temp.as_user(v_cmo, format($q$select public.sign_threshold_override_policy(%L, 'SIGN')::text$q$, v_policy)) is not null)::text);
+  perform pg_temp.ck('real', 'D5b a version that is already on cannot be signed again', 'ERR 22023', pg_temp.as_user(v_cmo, format($q$select public.sign_threshold_override_policy(%L, 'SIGN')::text$q$, v_policy)));
   perform pg_temp.ck('real', 'D5 and they return when a policy is signed again', v_ov::text, public.triage_active_override_for_observation(v_obs, 'bp') ->> 'id');
 
   -- E. supersede, review, revoke, reads --------------------------------------------------------------------------------------------------
@@ -152,12 +153,13 @@ begin
   update public.patient_threshold_overrides set review_due_at = now() - interval '1 hour' where id = v_ov2;
   perform pg_temp.ck('real', 'E2 a review needs a note and an outcome', 'ERR 22023', pg_temp.as_user(v_c1, format($q$select public.review_threshold_override(%L, 'continue', 'x')::text$q$, v_ov2)));
   perform pg_temp.ck('real', 'E3 an untied senior doctor cannot review', 'ERR 42501', pg_temp.as_user(v_c2, format($q$select public.review_threshold_override(%L, 'continue', 'looks fine to me')::text$q$, v_ov2)));
+  perform pg_temp.ck('real', 'E3b the CMO can end an override without a tie but cannot keep one (keeping needs the care relationship)', 'ERR 42501', pg_temp.as_user(v_cmo, format($q$select public.review_threshold_override(%L, 'continue', 'Keeping it without a tie')::text$q$, v_ov2)));
   perform pg_temp.as_user(v_c1, format($q$select public.review_threshold_override(%L, 'continue', 'Readings still sit near the baseline')::text$q$, v_ov2));
   perform pg_temp.ck('real', 'E4 a review moves the review date and never the expiry', 'true|true',
     ((select review_due_at > now() + interval '20 days' from public.patient_threshold_overrides where id = v_ov2))::text || '|' || ((select expires_at = v_exp from public.patient_threshold_overrides where id = v_ov2))::text);
   perform pg_temp.ck('real', 'E5 the tied doctor reads the override', '1', pg_temp.as_user(v_c1, format($q$select count(*)::text from public.patient_threshold_overrides where patient_id = %L and status = 'active'$q$, v_p)));
   perform pg_temp.ck('real', 'E6 an untied doctor does not', '0', pg_temp.as_user(v_c2, format($q$select count(*)::text from public.patient_threshold_overrides where patient_id = %L$q$, v_p)));
-  perform pg_temp.ck('real', 'E7 the patient reads their own', '2', pg_temp.as_user(v_p, format($q$select count(*)::text from public.patient_threshold_overrides where patient_id = %L$q$, v_p)));
+  perform pg_temp.ck('real', 'E7 the patient gets no direct read of the table (numbers and reason stay clinician-side, INV-07)', '0', pg_temp.as_user(v_p, format($q$select count(*)::text from public.patient_threshold_overrides where patient_id = %L$q$, v_p)));
   perform pg_temp.ck('real', 'E8 another patient does not', '0', pg_temp.as_user(v_pa, format($q$select count(*)::text from public.patient_threshold_overrides where patient_id = %L$q$, v_p)));
   perform pg_temp.ck('real', 'E9 the patient notice is a bare yes, the other patient gets no', 'true|false', pg_temp.as_user(v_p, 'select public.my_threshold_override_notice()::text') || '|' || pg_temp.as_user(v_pa, 'select public.my_threshold_override_notice()::text'));
   perform pg_temp.ck('real', 'E10 nobody can write the table directly', 'ERR 42501', pg_temp.as_user(v_c1, format($q$update public.patient_threshold_overrides set status = 'revoked' where id = %L returning id::text$q$, v_ov2)));
@@ -215,7 +217,7 @@ do $$
 declare v_def text; v_p uuid := pg_temp.f('p'); v_c2 uuid := pg_temp.f('c2'); v_out text;
 begin
   select pg_get_functiondef('private.threshold_override_actor(uuid)'::regprocedure) into v_def;
-  v_def := replace(replace(v_def, 'if not private.has_prescribing_authority(v_org) then', 'if false then'), 'if not private.staff_may_write(p_patient, v_org, ''medical_history''::public.care_access_category) then', 'if false then');
+  v_def := replace(replace(v_def, 'if not private.has_prescribing_authority(v_org) then', 'if false then'), 'if not private.clinician_has_patient_access(p_patient) then', 'if false then');
   execute v_def;
   v_out := pg_temp.as_user(v_c2, format($q$select public.propose_threshold_override(%L, 'bp', '{"target":{"systolic":150,"diastolic":95}}', 'Chronic baseline around 150 over 95 for two years', 60) is not null$q$, v_p));
   insert into results values ('sabotaged', 'SABOTAGE 1: tie and authority removed, an untied doctor proposes', 'ERR 42501', v_out);

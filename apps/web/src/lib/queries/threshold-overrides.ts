@@ -6,7 +6,7 @@ import type { Database } from "@tarragon/shared";
 type Rows<T> = PromiseLike<{ data: T[] | null; error: unknown }>;
 type Rpc<T> = PromiseLike<{ data: T | null; error: unknown }>;
 type Loose = {
-  from(table: string): { select(columns: string): { eq(column: string, value: string): { in(column: string, values: string[]): { order(column: string, o: { ascending: boolean }): Rows<PatientOverrideRow> } } } };
+  from(table: string): { select(columns: string): { eq(column: string, value: string): { in(column: string, values: string[]): { order(column: string, o: { ascending: boolean }): Rows<Omit<PatientOverrideRow, "expired">> } } } };
   rpc(fn: string, args?: Record<string, unknown>): Rpc<unknown>;
 };
 
@@ -19,6 +19,8 @@ export type PatientOverrideRow = {
   valid_days: number;
   expires_at: string | null;
   review_due_at: string | null;
+  /** Past its expiry but not yet lapsed by the daily sweep: the engine already ignores it, so the screen must say so. */
+  expired: boolean;
 };
 
 /** The draft and active personal thresholds on one patient (RLS: only a doctor tied to the patient sees any). Never throws; `failed` says a read failed. */
@@ -31,21 +33,22 @@ export async function readPatientOverrides(supabase: SupabaseClient<Database>, p
       .in("status", ["draft", "active"])
       .order("created_at", { ascending: false });
     if (error || !data) return { rows: [], failed: true };
-    return { rows: data, failed: false };
+    const now = Date.now();
+    return { rows: data.map((r) => ({ ...r, expired: r.status === "active" && r.expires_at !== null && Date.parse(r.expires_at) <= now })), failed: false };
   } catch {
     return { rows: [], failed: true };
   }
 }
 
-export type ThresholdHubState = { policyWaiting: boolean; policyVersion: number | null; policyId: string | null; policyActive: boolean; active: number; reviewsOverdue: number; failed: boolean };
+export type ThresholdHubState = { policyWaiting: boolean; policyVersion: number | null; policyId: string | null; policyActive: boolean; active: number; reviewsOverdue: number; reviewTaskFailures: number; failed: boolean };
 
 /** What the CMO sign-off hub needs: is the policy waiting for a signature, and how many overrides are live / overdue for review. Never throws. */
 export async function readThresholdHubState(supabase: SupabaseClient<Database>): Promise<ThresholdHubState> {
-  const failed: ThresholdHubState = { policyWaiting: false, policyVersion: null, policyId: null, policyActive: false, active: 0, reviewsOverdue: 0, failed: true };
+  const failed: ThresholdHubState = { policyWaiting: false, policyVersion: null, policyId: null, policyActive: false, active: 0, reviewsOverdue: 0, reviewTaskFailures: 0, failed: true };
   try {
     const { data, error } = await (supabase as unknown as Loose).rpc("threshold_override_oversight_counts");
     if (error || !data || typeof data !== "object") return failed;
-    const d = data as { policyActive?: boolean; policyVersionWaiting?: number | null; policyIdWaiting?: string | null; active?: number; reviewsOverdue?: number };
+    const d = data as { policyActive?: boolean; policyVersionWaiting?: number | null; policyIdWaiting?: string | null; active?: number; reviewsOverdue?: number; reviewTaskFailures7d?: number };
     return {
       policyWaiting: d.policyActive !== true && typeof d.policyVersionWaiting === "number",
       policyVersion: typeof d.policyVersionWaiting === "number" ? d.policyVersionWaiting : null,
@@ -53,6 +56,7 @@ export async function readThresholdHubState(supabase: SupabaseClient<Database>):
       policyActive: d.policyActive === true,
       active: Number(d.active ?? 0),
       reviewsOverdue: Number(d.reviewsOverdue ?? 0),
+      reviewTaskFailures: Number(d.reviewTaskFailures7d ?? 0),
       failed: false,
     };
   } catch {

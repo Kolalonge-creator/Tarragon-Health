@@ -36,6 +36,8 @@ export default async function ThresholdOverridesPage() {
         or apply in pregnancy, the six weeks after a birth or under 18. It returns to the default on its own when it expires.
       </p>
       {roster.failed || state.failed ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">Part of this page could not be read. Do not treat what is shown as complete.</p> : null}
+      {state.reviewTaskFailures > 0 ? <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">The monthly review task could not be created {state.reviewTaskFailures} time{state.reviewTaskFailures === 1 ? "" : "s"} in the last 7 days. Reviews are still listed below as overdue; tell engineering.</p> : null}
+      <p className="text-sm text-charcoal-ink/70">Keeping a setting needs a care relationship with the patient, so the doctor tied to the patient does the monthly review. You can end any setting at any time.</p>
       <p className="text-sm text-charcoal-ink">
         Policy: <strong>{state.policyActive ? "signed and on" : "not on"}</strong>. Live thresholds: <strong>{state.active}</strong>. Reviews overdue: <strong>{state.reviewsOverdue}</strong>.
       </p>

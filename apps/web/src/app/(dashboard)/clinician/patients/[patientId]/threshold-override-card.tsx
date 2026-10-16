@@ -26,11 +26,11 @@ function Existing({ row, patientId }: { row: PatientOverrideRow; patientId: stri
     <li className="space-y-2 rounded-lg border border-charcoal-ink/15 p-3 text-sm">
       <p className="font-medium text-charcoal-ink">
         {row.domain === "bp" ? "Blood pressure" : "Glucose"}: {describe(row)}{" "}
-        <span className="rounded bg-charcoal-ink/10 px-1.5 py-0.5 text-xs">{row.status === "active" ? "signed and live" : "proposed, not signed, no effect yet"}</span>
+        <span className="rounded bg-charcoal-ink/10 px-1.5 py-0.5 text-xs">{row.expired ? "expired, the default applies" : row.status === "active" ? "signed and live" : "proposed, not signed, no effect yet"}</span>
       </p>
       <p className="text-charcoal-ink/70">Reason: {row.reason}</p>
       {row.status === "active" && row.expires_at ? (
-        <p className="text-charcoal-ink/70">Returns to the default on {new Date(row.expires_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" })}. Monthly review due {row.review_due_at ? new Date(row.review_due_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" }) : "-"}.</p>
+        <p className="text-charcoal-ink/70">{row.expired ? "Returned to the default on" : "Returns to the default on"} {new Date(row.expires_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" })}. Monthly review due {row.review_due_at ? new Date(row.review_due_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" }) : "-"}.</p>
       ) : (
         <p className="text-charcoal-ink/70">Review period {row.valid_days} days once signed.</p>
       )}
