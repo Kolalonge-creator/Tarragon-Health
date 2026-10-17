@@ -92,6 +92,9 @@ export default async function DashboardLayout({
 
   // The Community entry shows only while the database says the community is open to this member (go-live guard) and they are an
   // adult. A failed or malformed reply means "closed": nothing about the community leaks into the menu.
+  // Header/cookie reads are independent of the database, so start them now and let them overlap the round trips below.
+  const themePromise = cookies().then((c) => parseThemePreference(c.get(THEME_COOKIE)?.value));
+  const embeddedPromise = isEmbeddedInApp();
   let communityOpen = false;
   if (profile?.role === "patient" && !supporterOnly) {
     const { data: communityList, error: communityError } = await supabase.rpc("community_list_groups");
@@ -128,7 +131,7 @@ export default async function DashboardLayout({
   // bars stacked. Content only.
   // Cookie-persisted so the very first server render carries the right
   // data-theme attribute (no flash). Only the patient surface consumes it.
-  const theme = parseThemePreference((await cookies()).get(THEME_COOKIE)?.value);
+  const theme = await themePromise;
 
   // Admin only. The admin role is the super admin and holds every capability, so every settings page is visible to it
   // (no per-page check to repeat here); delegated members do not get the box.
@@ -148,7 +151,7 @@ export default async function DashboardLayout({
   const communityStaff =
     profile?.role === "clinician" || profile?.role === "care_coordinator" ? await getCommunityStaffContext() : null;
 
-  const embedded = await isEmbeddedInApp();
+  const embedded = await embeddedPromise;
   if (embedded) {
     // The native shell paints #FAF7F2 around this WebView; the patient's
     // embedded content carries the same warm ground so web pages don't sit
