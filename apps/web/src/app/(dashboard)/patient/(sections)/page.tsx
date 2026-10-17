@@ -80,15 +80,18 @@ function CardSkeleton({ className = "h-40" }: { className?: string }) {
 export default async function PatientOverviewPage() {
   const { subjectId, acting, subjectSex, glucoseUnit, profile } =
     await getPatientDashboardContext();
-  const stats = await getPatientSummaryStats(subjectId);
-  const prevention = await getPatientPreventionStats(subjectId);
-  // Same gate ai-coach-chat.tsx's own mount point (care/page.tsx) applies —
-  // runCoachTurn's own entitlement check would otherwise return a canned
-  // decline reply that AskTarragonCard has no way to distinguish from a real
-  // answer (it would render with the doctor/booking CTAs and a "report this
-  // answer" control, same as any other reply).
+  // Independent reads: run them together, not one after another.
   const supabase = await createClient();
-  const coachAccess = await isAssistantOffered(supabase);
+  const [stats, prevention, coachAccess] = await Promise.all([
+    getPatientSummaryStats(subjectId),
+    getPatientPreventionStats(subjectId),
+    // Same gate ai-coach-chat.tsx's own mount point (care/page.tsx) applies —
+    // runCoachTurn's own entitlement check would otherwise return a canned
+    // decline reply that AskTarragonCard has no way to distinguish from a real
+    // answer (it would render with the doctor/booking CTAs and a "report this
+    // answer" control, same as any other reply).
+    isAssistantOffered(supabase),
+  ]);
 
   const greetingWord = getLagosGreetingWord();
   const actingSubject = acting ? (acting.fullName ? `${acting.fullName}'s` : "their") : null;
