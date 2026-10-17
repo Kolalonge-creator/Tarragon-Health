@@ -95,25 +95,74 @@ export function useSubmitSecondOpinionRequest() {
       existingDiagnosisOrResult,
       sourceDescription,
       specificQuestion,
+      sharedLabResultIds = [],
     }: {
       patientId: string;
       organisationId: string;
       existingDiagnosisOrResult: string;
       sourceDescription?: string;
       specificQuestion?: string;
+      /** Released lab results the patient chose to show the doctor; the database re-checks every id. */
+      sharedLabResultIds?: string[];
     }) => {
       const supabase = createClient();
-      const { error } = await supabase.from("second_opinion_requests").insert({
-        patient_id: patientId,
-        organisation_id: organisationId,
-        existing_diagnosis_or_result: existingDiagnosisOrResult,
-        source_description: sourceDescription || null,
-        specific_question: specificQuestion || null,
-      });
+      const { data, error } = await supabase
+        .from("second_opinion_requests")
+        .insert({
+          patient_id: patientId,
+          organisation_id: organisationId,
+          existing_diagnosis_or_result: existingDiagnosisOrResult,
+          source_description: sourceDescription || null,
+          specific_question: specificQuestion || null,
+        })
+        .select("id")
+        .single();
       if (error) throw error;
+      if (sharedLabResultIds.length > 0) {
+        const { error: shareError } = await supabase.rpc("share_results_with_second_opinion", {
+          p_request: data.id,
+          p_lab_results: sharedLabResultIds,
+        });
+        // The request (and its redeemed credit) already exist, so this must not surface as a failed submit: the form would
+        // keep its text and a second click would spend a second credit. Report it as a warning on a successful send instead.
+        if (shareError) return { resultsAttached: false };
+      }
+      return { resultsAttached: true };
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: secondOpinionKeys.mine(variables.patientId) });
+    },
+  });
+}
+
+/** The referral a doctor recommended with the answer (a draft until the patient accepts). Read under the patient's own RLS. */
+export function useSecondOpinionReferral(referralId: string | null) {
+  return useQuery({
+    queryKey: ["second-opinion-referral", referralId],
+    enabled: !!referralId,
+    queryFn: async () => {
+      const { data, error } = await createClient()
+        .from("specialist_referrals")
+        .select("id, status, specialist_type, urgency, referral_reason")
+        .eq("id", referralId as string)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+/** Patient accepts the recommended referral; the existing consent trigger stamps patient_consent_at. */
+export function useAcceptSecondOpinionReferral(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (requestId: string) => {
+      const { error } = await createClient().rpc("accept_second_opinion_referral", { p_request: requestId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["second-opinion-referral"] });
+      queryClient.invalidateQueries({ queryKey: secondOpinionKeys.mine(patientId) });
     },
   });
 }

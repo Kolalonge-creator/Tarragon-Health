@@ -39573,6 +39573,7 @@ export type Database = {
           id: string
           organisation_id: string
           patient_id: string
+          referral_id: string | null
           sla_due_at: string
           source_description: string | null
           specific_question: string | null
@@ -39588,6 +39589,7 @@ export type Database = {
           id?: string
           organisation_id: string
           patient_id: string
+          referral_id?: string | null
           sla_due_at?: string
           source_description?: string | null
           specific_question?: string | null
@@ -39603,6 +39605,7 @@ export type Database = {
           id?: string
           organisation_id?: string
           patient_id?: string
+          referral_id?: string | null
           sla_due_at?: string
           source_description?: string | null
           specific_question?: string | null
@@ -50785,6 +50788,23 @@ export type Database = {
       decide_purchase_guarantee_refund: {
         Args: { p_approve: boolean; p_claim_id: string; p_note?: string }
         Returns: Json
+      }
+      accept_second_opinion_referral: { Args: { p_request: string }; Returns: string }
+      answer_second_opinion_request: {
+        Args: {
+          p_answer: string
+          p_reason?: string
+          p_request: string
+          p_requested_service?: string
+          p_specialist_type?: Database["public"]["Enums"]["specialist_type"]
+          p_urgency?: Database["public"]["Enums"]["referral_urgency"]
+        }
+        Returns: string
+      }
+      read_second_opinion_audited: { Args: { p_request: string }; Returns: Json }
+      share_results_with_second_opinion: {
+        Args: { p_lab_results: string[]; p_request: string }
+        Returns: number
       }
       confirm_care_plan_change: { Args: { p_change: string }; Returns: Json };
       decline_care_plan_change: {

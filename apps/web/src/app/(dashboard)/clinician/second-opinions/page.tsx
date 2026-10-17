@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useOrgSecondOpinionRequests,
@@ -8,13 +8,76 @@ import {
   secondOpinionKeys,
   type SecondOpinionRequestWithPatient,
 } from "@/lib/queries/second-opinion";
-import { answerSecondOpinionRequest, type AnswerSecondOpinionState } from "./actions";
+import { answerSecondOpinionRequest, readSharedResults, type AnswerSecondOpinionState } from "./actions";
+import {
+  SECOND_OPINION_SPECIALIST_TYPES,
+  SPECIALIST_TYPE_LABEL,
+  type SecondOpinionRead,
+} from "@/lib/validation/second-opinion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
+function formatValue(i: SecondOpinionRead["results"][number]["items"][number]): string {
+  const value = i.value_numeric !== null ? String(i.value_numeric) : (i.value_text ?? "");
+  const range = i.ref_low !== null || i.ref_high !== null ? ` (range ${i.ref_low ?? "…"} to ${i.ref_high ?? "…"})` : "";
+  return `${value} ${i.unit}${range}`.trim();
+}
+
+/** The results the patient chose to share for this request. Opening them is an audited read in the database. */
+function SharedResults({ requestId }: { requestId: string }) {
+  const [pending, start] = useTransition();
+  const [read, setRead] = useState<SecondOpinionRead | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="space-y-2">
+      {!read && (
+        <Button
+          size="sm"
+          type="button"
+          variant="outline"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const r = await readSharedResults(requestId);
+              if (r.data) {
+                setRead(r.data);
+                setError(null);
+              } else {
+                setError(r.error ?? "Could not open the shared results.");
+              }
+            })
+          }
+        >
+          {pending ? "Opening…" : "View results the patient shared"}
+        </Button>
+      )}
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      {read && read.results.length === 0 && (
+        <p className="text-xs text-charcoal-ink/60">The patient did not share any Tarragon results.</p>
+      )}
+      {read?.results.map((res) => (
+        <div key={res.id} className="rounded-md border border-charcoal-ink/10 p-2">
+          <p className="text-xs font-medium text-charcoal-ink">
+            {res.panel_code ?? "Lab result"} · {new Date(res.received_at).toLocaleDateString()}
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {res.items.map((i) => (
+              <li key={i.analyte_code} className="text-xs text-charcoal-ink/80">
+                {i.analyte_code}: {formatValue(i)}
+                {i.flag !== "normal" && i.flag !== "negative" ? ` · ${i.flag}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function RequestRow({ request }: { request: SecondOpinionRequestWithPatient }) {
+  const [refer, setRefer] = useState(false);
   const markInReview = useMarkSecondOpinionInReview();
   const queryClient = useQueryClient();
   const [state, formAction, isPending] = useActionState<AnswerSecondOpinionState, FormData>(
@@ -62,6 +125,7 @@ function RequestRow({ request }: { request: SecondOpinionRequestWithPatient }) {
           Start review
         </Button>
       )}
+      <SharedResults requestId={request.id} />
       <form action={formAction} className="space-y-2">
         <input type="hidden" name="request_id" value={request.id} />
         <Textarea
@@ -69,6 +133,35 @@ function RequestRow({ request }: { request: SecondOpinionRequestWithPatient }) {
           rows={4}
           placeholder="Your assessment, written for the patient, not for the notes."
         />
+        <label className="flex items-center gap-2 text-xs text-charcoal-ink">
+          <input type="checkbox" name="refer" checked={refer} onChange={(e) => setRefer(e.target.checked)} />
+          Recommend a specialist referral (the patient accepts it, then downloads the letter)
+        </label>
+        {refer && (
+          <div className="space-y-2 rounded-md border border-charcoal-ink/10 p-2">
+            <select name="specialist_type" className="w-full rounded-md border border-charcoal-ink/20 p-2 text-sm" defaultValue="" required>
+              <option value="" disabled>
+                Specialty
+              </option>
+              {SECOND_OPINION_SPECIALIST_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {SPECIALIST_TYPE_LABEL[t]}
+                </option>
+              ))}
+            </select>
+            <select name="urgency" className="w-full rounded-md border border-charcoal-ink/20 p-2 text-sm" defaultValue="routine">
+              <option value="routine">Routine</option>
+              <option value="priority">Priority</option>
+              <option value="urgent">Urgent</option>
+            </select>
+            <Textarea name="referral_reason" rows={3} placeholder="Reason for the referral, as it should read on the letter." />
+            <input
+              name="requested_service"
+              className="w-full rounded-md border border-charcoal-ink/20 p-2 text-sm"
+              placeholder="What you are asking the specialist to do (optional)"
+            />
+          </div>
+        )}
         {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
         {state?.message && <p className="text-xs text-brand-green">{state.message}</p>}
         <Button size="sm" type="submit" disabled={isPending}>

@@ -2,12 +2,18 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
 import { useMyMembership } from "@/lib/queries/commerce";
 import {
+  useAcceptSecondOpinionReferral,
   useMySecondOpinionRequests,
+  useSecondOpinionReferral,
   useSubmitSecondOpinionRequest,
   type SecondOpinionRequestWithAnswerer,
 } from "@/lib/queries/second-opinion";
+import { myLabResultsSchema, PANEL_LABEL, type PanelCode } from "@/lib/lab-results/structured";
+import { SPECIALIST_TYPE_LABEL } from "@/lib/validation/second-opinion";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
 import { PayByCard } from "@/components/billing/pay-by-card";
 import { secondOpinionRequestSchema } from "@/lib/validation/second-opinion";
@@ -22,10 +28,53 @@ import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
 import { DoctorNameLink } from "@/components/doctor-name-link";
 const SECOND_OPINION_CREDIT_CODE = "second_opinion_credit";
 
+/** The referral a doctor recommended with the answer: accept it, then take the letter anywhere. */
+function RecommendedReferral({ request, patientId }: { request: SecondOpinionRequestWithAnswerer; patientId: string }) {
+  const { data: referral } = useSecondOpinionReferral(request.referral_id);
+  const accept = useAcceptSecondOpinionReferral(patientId);
+  if (!request.referral_id || !referral) return null;
+  const specialty =
+    SPECIALIST_TYPE_LABEL[referral.specialist_type as keyof typeof SPECIALIST_TYPE_LABEL] ?? "a specialist";
+  return (
+    <div className="mt-2 space-y-2 rounded-lg border border-brand-green/20 dark:border-brand-green-bright/20 p-3">
+      <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
+        Your doctor suggests seeing a specialist: {specialty}
+      </p>
+      {referral.referral_reason && (
+        <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{referral.referral_reason}</p>
+      )}
+      {referral.status === "draft" ? (
+        <>
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+            Accepting shares the relevant part of your record with the specialist and gives you a referral letter.
+          </p>
+          <Button size="sm" disabled={accept.isPending} onClick={() => accept.mutate(request.id)}>
+            {accept.isPending ? "Accepting…" : "Accept this referral"}
+          </Button>
+          {accept.isError && (
+            <p className="text-xs text-red-600 dark:text-red-300">Could not accept the referral. Try again.</p>
+          )}
+        </>
+      ) : (
+        <a
+          className="inline-block text-sm font-medium underline"
+          href={`/api/patient/referral/${referral.id}/letter`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Download your referral letter
+        </a>
+      )}
+    </div>
+  );
+}
+
 function RequestRow({
   request,
+  patientId,
 }: {
   request: SecondOpinionRequestWithAnswerer;
+  patientId: string;
 }) {
   const answered = request.status === "answered" || request.status === "closed";
 
@@ -59,6 +108,7 @@ function RequestRow({
               {formatPatientDate(request.answered_at)}
             </p>
           )}
+          <RecommendedReferral request={request} patientId={patientId} />
         </div>
       )}
     </li>
@@ -90,6 +140,20 @@ export function SecondOpinionRequestCard({
   const [sourceDescription, setSourceDescription] = useState("");
   const [specificQuestion, setSpecificQuestion] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [sharedIds, setSharedIds] = useState<string[]>([]);
+  // Only released, current results that carry structured values can be shown to the doctor (the database enforces the same rule).
+  const { data: shareable } = useQuery({
+    queryKey: ["second-opinion-shareable-results", patientId],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("my_lab_results");
+      if (error) throw error;
+      return myLabResultsSchema
+        .parse(data ?? [])
+        .filter((r) => r.status === "released" && !r.replaced && r.items.length > 0);
+    },
+  });
+  const toggleShared = (id: string) =>
+    setSharedIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : cur.length >= 10 ? cur : [...cur, id]));
 
   if (!organisationId) return null;
 
@@ -99,6 +163,7 @@ export function SecondOpinionRequestCard({
       existingDiagnosisOrResult,
       sourceDescription: sourceDescription || undefined,
       specificQuestion: specificQuestion || undefined,
+      sharedLabResultIds: sharedIds,
     });
     if (!parsed.success) {
       setFormError(
@@ -114,12 +179,14 @@ export function SecondOpinionRequestCard({
         existingDiagnosisOrResult: parsed.data.existingDiagnosisOrResult,
         sourceDescription: parsed.data.sourceDescription,
         specificQuestion: parsed.data.specificQuestion,
+        sharedLabResultIds: parsed.data.sharedLabResultIds,
       },
       {
         onSuccess: () => {
           setExistingDiagnosisOrResult("");
           setSourceDescription("");
           setSpecificQuestion("");
+          setSharedIds([]);
         },
         onError: (error) => {
           setFormError(
@@ -204,12 +271,37 @@ export function SecondOpinionRequestCard({
             disabled={!hasCredit}
           />
         </div>
+        {shareable && shareable.length > 0 && (
+          <fieldset className="space-y-2" disabled={!hasCredit}>
+            <legend className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
+              Show the doctor your Tarragon results (optional)
+            </legend>
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              Only the results you tick are shown, only to the doctor reviewing this request.
+            </p>
+            {shareable.map((r) => (
+              <label key={r.lab_result_id} className="flex min-h-11 items-center gap-2 text-sm text-charcoal-ink dark:text-night-ink">
+                <input
+                  type="checkbox"
+                  checked={sharedIds.includes(r.lab_result_id)}
+                  onChange={() => toggleShared(r.lab_result_id)}
+                />
+                <span>
+                  {PANEL_LABEL[r.panel_code as PanelCode] ?? "Lab result"} · {formatPatientDate(r.received_at)} ·{" "}
+                  {r.items.length} {r.items.length === 1 ? "value" : "values"}
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        )}
         {formError && (
           <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>
         )}
         {submit.isSuccess && (
           <p className="text-sm text-brand-green dark:text-brand-green-bright">
             Sent. A doctor will answer here within 72 hours.
+            {submit.data?.resultsAttached === false &&
+              " We could not attach the results you chose, so the doctor will review your description only."}
           </p>
         )}
         <Button onClick={onSubmit} disabled={submit.isPending || !hasCredit}>
@@ -219,7 +311,7 @@ export function SecondOpinionRequestCard({
         {requests && requests.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15 border-t border-charcoal-ink/10 dark:border-night-ink/15">
             {requests.map((r) => (
-              <RequestRow key={r.id} request={r} />
+              <RequestRow key={r.id} request={r} patientId={patientId} />
             ))}
           </ul>
         )}
