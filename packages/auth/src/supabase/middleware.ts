@@ -8,7 +8,10 @@ import type { Database } from "@tarragon/shared";
  * any other cookie-dependent logic (Server Components read the cookies the
  * proxy sets here).
  */
-export async function updateSession(request: NextRequest) {
+export async function updateSession(
+  request: NextRequest,
+  options: { verify?: "server" | "claims" } = {},
+) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient<Database>(
@@ -31,6 +34,19 @@ export async function updateSession(request: NextRequest) {
       },
     }
   );
+
+  // "server" (default): ask Supabase Auth, so a revoked or deleted session is
+  // refused at once. Costs one network round trip on every request.
+  // "claims": verify the JWT signature locally (cached JWKS) and refresh an
+  // expired session first, with no round trip. A revoked session is then
+  // trusted until its access token expires, which is already the window RLS
+  // itself honours; pages still call getUser() via getCurrentUser(). Fails
+  // closed: an unverifiable token yields user = null. Only `id` is provided.
+  if (options.verify === "claims") {
+    const { data } = await supabase.auth.getClaims();
+    const sub = data?.claims?.sub;
+    return { response, supabase, user: sub ? { id: sub } : null };
+  }
 
   const {
     data: { user },
