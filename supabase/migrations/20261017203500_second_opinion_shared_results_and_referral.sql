@@ -34,6 +34,38 @@ create index second_opinion_shared_results_request_idx on public.second_opinion_
 alter table public.second_opinion_shared_results enable row level security;
 revoke all on public.second_opinion_shared_results from public, anon, authenticated;
 
+-- Outside documents (a report from another hospital, a scan report): files in a private bucket, patient folder only.
+-- Same shape as async_consult_attachments: the table is closed, staff get no storage policy and download through an audited
+-- server route that first proves access with read_second_opinion_audited.
+create table public.second_opinion_documents (
+  id              uuid primary key default gen_random_uuid(),
+  organisation_id uuid not null references public.organisations (id) on delete restrict,
+  request_id      uuid not null references public.second_opinion_requests (id) on delete cascade,
+  patient_id      uuid not null references public.profiles (id) on delete cascade,
+  storage_path    text not null unique,
+  mime_type       text not null check (mime_type in ('application/pdf', 'image/jpeg', 'image/png', 'image/webp')),
+  size_bytes      bigint not null check (size_bytes > 0 and size_bytes <= 8388608),
+  is_test         boolean not null default false,
+  created_at      timestamptz not null default now()
+);
+create index second_opinion_documents_request_idx on public.second_opinion_documents (request_id);
+alter table public.second_opinion_documents enable row level security;
+revoke all on public.second_opinion_documents from public, anon, authenticated;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('second-opinion-documents', 'second-opinion-documents', false, 8388608,
+        array['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do nothing;
+
+drop policy if exists "second opinion document patient insert" on storage.objects;
+create policy "second opinion document patient insert" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'second-opinion-documents' and (storage.foldername(name))[1] = (select auth.uid())::text);
+drop policy if exists "second opinion document patient select" on storage.objects;
+create policy "second opinion document patient select" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'second-opinion-documents' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
 -- referral_id is set only by the functions below.
 create function private.guard_second_opinion_referral_link() returns trigger
 language plpgsql security definer set search_path = '' as $$
@@ -110,6 +142,8 @@ begin
     'id', r.id, 'patient_id', r.patient_id, 'status', r.status, 'sla_due_at', r.sla_due_at, 'created_at', r.created_at,
     'existing_diagnosis_or_result', r.existing_diagnosis_or_result, 'source_description', r.source_description,
     'specific_question', r.specific_question, 'answer', r.answer, 'referral_id', r.referral_id,
+    'documents', coalesce((select jsonb_agg(jsonb_build_object('id', d.id, 'mime_type', d.mime_type, 'size_bytes', d.size_bytes) order by d.created_at)
+                             from public.second_opinion_documents d where d.request_id = r.id), '[]'::jsonb),
     'results', coalesce((
       select jsonb_agg(jsonb_build_object(
                'id', lr.id, 'panel_code', lr.panel_code, 'received_at', lr.received_at,
@@ -149,9 +183,10 @@ begin
     end if;
     -- private.enforce_specialist_referral_create requires a clinical-tier member and stamps referred_by.
     insert into public.specialist_referrals
-      (organisation_id, patient_id, specialist_type, referral_source, urgency, referral_reason, requested_service, appropriateness_flags, status)
+      (organisation_id, patient_id, specialist_type, referral_source, urgency, referral_reason, requested_service, appropriateness_flags, status, set_by)
+    -- set_by is what the referral letter's folio and "Referred by" line read (clinician_folio_for_document); without it the letter prints unattributed.
     values (r.organisation_id, r.patient_id, p_specialist_type, 'clinician_initiated', coalesce(p_urgency, 'routine'),
-            btrim(p_reason), nullif(btrim(p_requested_service), ''), '[]'::jsonb, 'draft')
+            btrim(p_reason), nullif(btrim(p_requested_service), ''), '[]'::jsonb, 'draft', v_uid)
     returning id into v_ref;
   end if;
   perform set_config('tarragon.second_opinion_referral_write', 'on', true);
@@ -177,6 +212,94 @@ begin
 end;
 $$;
 
+-- Patient: register an uploaded outside document (path <patient>/<request>/<file>) on one of their own open requests.
+create function public.attach_second_opinion_document(p_request uuid, p_path text, p_mime text, p_bytes bigint) returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_uid uuid := (select auth.uid());
+  r public.second_opinion_requests%rowtype;
+  v_id uuid;
+begin
+  if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
+  select * into r from public.second_opinion_requests where id = p_request and patient_id = v_uid;
+  if not found then raise exception 'not your request' using errcode = '42501'; end if;
+  if r.status not in ('submitted', 'in_review') then
+    raise exception 'this request is closed to changes' using errcode = 'P0001';
+  end if;
+  if split_part(p_path, '/', 1) <> v_uid::text or split_part(p_path, '/', 2) <> p_request::text then
+    raise exception 'file path must be in your own folder for this request' using errcode = '42501';
+  end if;
+  if p_mime not in ('application/pdf', 'image/jpeg', 'image/png', 'image/webp') then
+    raise exception 'that file type is not accepted' using errcode = '22023';
+  end if;
+  if p_bytes is null or p_bytes <= 0 or p_bytes > 8388608 then
+    raise exception 'file too large' using errcode = '22023';
+  end if;
+  if (select count(*) from public.second_opinion_documents where request_id = p_request) >= 5 then
+    raise exception 'too many files' using errcode = '22023';
+  end if;
+  insert into public.second_opinion_documents (organisation_id, request_id, patient_id, storage_path, mime_type, size_bytes, is_test)
+  values (r.organisation_id, p_request, v_uid, p_path, p_mime, p_bytes, (select pr.is_test from public.profiles pr where pr.id = v_uid))
+  on conflict (storage_path) do update set storage_path = excluded.storage_path   -- a retry after a lost reply is the same file
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+
+-- Doctor worklist: the open requests of the doctor's organisation. A request is addressed to the whole care team and creates no
+-- care-team tie, so the S39b tied SELECT on second_opinion_requests would hide it from a doctor who has never met the patient.
+-- This returns only what the worklist needs (no results, no files); opening shared material is the audited read.
+create function public.list_second_opinion_worklist() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  v_uid uuid := (select auth.uid());
+begin
+  if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'id', r.id, 'status', r.status, 'sla_due_at', r.sla_due_at, 'created_at', r.created_at,
+             'existing_diagnosis_or_result', r.existing_diagnosis_or_result, 'source_description', r.source_description,
+             'specific_question', r.specific_question,
+             'patient_name', p.full_name, 'patient_number', p.patient_number,
+             'shared_results', (select count(*) from public.second_opinion_shared_results s where s.request_id = r.id),
+             'documents', (select count(*) from public.second_opinion_documents d where d.request_id = r.id))
+           order by r.sla_due_at)
+      from public.second_opinion_requests r
+      join public.profiles p on p.id = r.patient_id
+     where r.status in ('submitted', 'in_review')
+       and exists (select 1 from public.clinical_staff cs
+                    where cs.profile_id = v_uid and cs.organisation_id = r.organisation_id and cs.active
+                      and cs.doctor_tier is not null and cs.doctor_tier <> 'care_coordinator')), '[]'::jsonb);
+end;
+$$;
+
+-- Doctor: claim a request for review (submitted -> in_review) so two doctors do not work the same one.
+create function public.start_second_opinion_review(p_request uuid) returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_uid uuid := (select auth.uid());
+  r public.second_opinion_requests%rowtype;
+begin
+  if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
+  select * into r from public.second_opinion_requests where id = p_request for update;
+  if not found or not exists (select 1 from public.clinical_staff cs
+                               where cs.profile_id = v_uid and cs.organisation_id = r.organisation_id and cs.active
+                                 and cs.doctor_tier is not null and cs.doctor_tier <> 'care_coordinator') then
+    raise exception 'request not found' using errcode = '42501';
+  end if;
+  if r.status = 'submitted' then
+    update public.second_opinion_requests set status = 'in_review' where id = p_request;
+  end if;
+end;
+$$;
+
+revoke all on function public.attach_second_opinion_document(uuid, text, text, bigint) from public, anon;
+revoke all on function public.list_second_opinion_worklist() from public, anon;
+revoke all on function public.start_second_opinion_review(uuid) from public, anon;
+grant execute on function public.attach_second_opinion_document(uuid, text, text, bigint) to authenticated;
+grant execute on function public.list_second_opinion_worklist() to authenticated;
+grant execute on function public.start_second_opinion_review(uuid) to authenticated;
+
 revoke all on function public.share_results_with_second_opinion(uuid, uuid[]) from public, anon;
 revoke all on function public.read_second_opinion_audited(uuid) from public, anon;
 revoke all on function public.answer_second_opinion_request(uuid, text, public.specialist_type, public.referral_urgency, text, text) from public, anon;
@@ -191,11 +314,14 @@ declare f text;
 begin
   foreach f in array array['public.share_results_with_second_opinion(uuid,uuid[])', 'public.read_second_opinion_audited(uuid)',
       'public.answer_second_opinion_request(uuid,text,public.specialist_type,public.referral_urgency,text,text)',
-      'public.accept_second_opinion_referral(uuid)'] loop
+      'public.accept_second_opinion_referral(uuid)', 'public.attach_second_opinion_document(uuid,text,text,bigint)',
+      'public.list_second_opinion_worklist()', 'public.start_second_opinion_review(uuid)'] loop
     if has_function_privilege('anon', f, 'EXECUTE') then raise exception 'assertion: anon can execute %', f; end if;
   end loop;
   if has_table_privilege('authenticated', 'public.second_opinion_shared_results', 'SELECT')
-     or has_table_privilege('anon', 'public.second_opinion_shared_results', 'SELECT') then
-    raise exception 'assertion: second_opinion_shared_results must be closed';
+     or has_table_privilege('anon', 'public.second_opinion_shared_results', 'SELECT')
+     or has_table_privilege('authenticated', 'public.second_opinion_documents', 'SELECT')
+     or has_table_privilege('anon', 'public.second_opinion_documents', 'SELECT') then
+    raise exception 'assertion: the second opinion sharing and document tables must be closed';
   end if;
 end $$;

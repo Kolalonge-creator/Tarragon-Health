@@ -60,6 +60,35 @@ export const secondOpinionAnswerSchema = z.object({
   referral: secondOpinionReferralSchema.optional(),
 });
 
+export const SECOND_OPINION_DOCUMENT_BUCKET = "second-opinion-documents";
+export const SECOND_OPINION_DOCUMENT_MIME = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
+export const SECOND_OPINION_DOCUMENT_MAX_BYTES = 8 * 1024 * 1024;
+export const SECOND_OPINION_DOCUMENT_MAX_FILES = 5;
+export const SECOND_OPINION_DOCUMENT_EXT: Record<(typeof SECOND_OPINION_DOCUMENT_MIME)[number], string> = {
+  "application/pdf": "pdf",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+/** What public.list_second_opinion_worklist returns: enough to triage, never the shared material itself. */
+export const secondOpinionWorklistSchema = z.array(
+  z.object({
+    id: z.string().uuid(),
+    status: z.string(),
+    sla_due_at: z.string().nullable(),
+    created_at: z.string(),
+    existing_diagnosis_or_result: z.string(),
+    source_description: z.string().nullable(),
+    specific_question: z.string().nullable(),
+    patient_name: z.string().nullable(),
+    patient_number: z.string().nullable(),
+    shared_results: z.number(),
+    documents: z.number(),
+  }),
+);
+export type SecondOpinionWorklistItem = z.infer<typeof secondOpinionWorklistSchema>[number];
+
 /** What public.read_second_opinion_audited returns to the doctor. */
 export const secondOpinionReadSchema = z.object({
   id: z.string().uuid(),
@@ -68,6 +97,7 @@ export const secondOpinionReadSchema = z.object({
   existing_diagnosis_or_result: z.string(),
   source_description: z.string().nullable(),
   specific_question: z.string().nullable(),
+  documents: z.array(z.object({ id: z.string().uuid(), mime_type: z.string(), size_bytes: z.number() })).default([]),
   results: z.array(
     z.object({
       id: z.string().uuid(),

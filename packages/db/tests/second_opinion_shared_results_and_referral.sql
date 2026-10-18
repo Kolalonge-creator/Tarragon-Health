@@ -165,6 +165,32 @@ end $$;
 do $$
 declare v_pat uuid := pg_temp.f('pat'); v_doc uuid := pg_temp.f('doc'); v_coord uuid := pg_temp.f('coord'); v_req uuid := pg_temp.f('req');
 begin
+  -- worklist: a doctor with no care-team tie still sees the open request; a coordinator and a patient see none
+  perform pg_temp.rec('an untied doctor sees the open request in the worklist', '1',
+    pg_temp.q_as(v_doc, format($q$select count(*)::text from jsonb_array_elements(public.list_second_opinion_worklist()) e where e ->> 'id' = %L$q$, v_req)));
+  perform pg_temp.rec('the worklist shows how many results are shared', '1',
+    pg_temp.q_as(v_doc, format($q$select (e ->> 'shared_results') from jsonb_array_elements(public.list_second_opinion_worklist()) e where e ->> 'id' = %L$q$, v_req)));
+  perform pg_temp.rec('a care coordinator sees an empty worklist', '0', pg_temp.q_as(v_coord, 'select jsonb_array_length(public.list_second_opinion_worklist())::text'));
+  perform pg_temp.rec('a patient sees an empty worklist', '0', pg_temp.q_as(v_pat, 'select jsonb_array_length(public.list_second_opinion_worklist())::text'));
+  -- outside documents
+  perform pg_temp.rec('a file outside the patient''s own folder is refused', 'ERR:file path must be in your own folder for this request',
+    pg_temp.q_as(v_pat, format($q$select public.attach_second_opinion_document(%L, %L, 'application/pdf', 1000)::text$q$, v_req, gen_random_uuid()::text || '/' || v_req::text || '/a.pdf')));
+  perform pg_temp.rec('a file type that is not accepted is refused', 'ERR:that file type is not accepted',
+    pg_temp.q_as(v_pat, format($q$select public.attach_second_opinion_document(%L, %L, 'application/zip', 1000)::text$q$, v_req, v_pat::text || '/' || v_req::text || '/a.zip')));
+  perform pg_temp.rec('another patient cannot attach a file to my request', 'ERR:not your request',
+    pg_temp.q_as(pg_temp.f('other'), format($q$select public.attach_second_opinion_document(%L, %L, 'application/pdf', 1000)::text$q$, v_req, pg_temp.f('other')::text || '/' || v_req::text || '/a.pdf')));
+  perform pg_temp.rec('my own file is registered', 'true',
+    (pg_temp.q_as(v_pat, format($q$select public.attach_second_opinion_document(%L, %L, 'application/pdf', 1000)::text$q$, v_req, v_pat::text || '/' || v_req::text || '/report.pdf')) !~ '^ERR:')::text);
+  perform pg_temp.rec('the documents table is closed to a patient', 'true',
+    (pg_temp.q_as(v_pat, 'select count(*)::text from public.second_opinion_documents') like 'ERR:permission denied%')::text);
+  perform pg_temp.rec('the doctor''s audited read lists the file', '1',
+    pg_temp.q_as(v_doc, format('select jsonb_array_length(public.read_second_opinion_audited(%L) -> ''documents'')::text', v_req)));
+  -- claiming the review
+  perform pg_temp.rec('a care coordinator cannot start a review', 'ERR:request not found',
+    pg_temp.q_as(v_coord, format('select public.start_second_opinion_review(%L)::text', v_req)));
+  perform pg_temp.rec('a doctor starts the review', 'in_review',
+    (select case when pg_temp.try_as(v_doc, format('select public.start_second_opinion_review(%L)', v_req)) = 'ok' then status::text else 'failed' end
+       from public.second_opinion_requests where id = v_req));
   perform pg_temp.rec('the doctor sees only the shared result (not the patient''s other released one)', '1',
     pg_temp.q_as(v_doc, format('select jsonb_array_length(public.read_second_opinion_audited(%L) -> ''results'')::text', v_req)));
   perform pg_temp.rec('...with its values', 'hba1c',
@@ -203,6 +229,8 @@ begin
   perform pg_temp.rec('the referral is a draft, doctor-referred, with no consent yet', 'draft|true|true',
     (select status::text || '|' || (referred_by is not null)::text || '|' || (patient_consent_at is null)::text
        from public.specialist_referrals where id = v_ref::uuid));
+  perform pg_temp.rec('the letter is attributed to the recommending doctor (set_by)', 'true',
+    (select (set_by = v_doc)::text from public.specialist_referrals where id = v_ref::uuid));
   perform pg_temp.rec('a second answer is refused', 'true',
     (pg_temp.q_as(v_doc, format('select public.answer_second_opinion_request(%L, %L)::text', v_req, 'Answering again after the first answer.')) like 'ERR:request not found or already answered')::text);
   perform pg_temp.rec('the patient cannot repoint the request at a referral (guard trigger)', 'true',

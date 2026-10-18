@@ -27,7 +27,12 @@ function stubClient(result: CountResult): Client {
   for (const method of ["from", "select", "eq", "neq", "in", "or", "is", "gte", "not"]) {
     builder[method] = () => builder;
   }
-  builder.rpc = () => Promise.resolve({ data: result.count, error: result.error });
+  // list_second_opinion_worklist returns the open requests themselves (an array), not a number; the counter takes its length.
+  builder.rpc = (fn: string) =>
+    Promise.resolve({
+      data: fn === "list_second_opinion_worklist" && result.count !== null ? Array.from({ length: result.count }) : result.count,
+      error: result.error,
+    });
   return builder as unknown as Client;
 }
 

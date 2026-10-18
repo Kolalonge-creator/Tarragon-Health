@@ -13,7 +13,12 @@ import {
   type SecondOpinionRequestWithAnswerer,
 } from "@/lib/queries/second-opinion";
 import { myLabResultsSchema, PANEL_LABEL, type PanelCode } from "@/lib/lab-results/structured";
-import { SPECIALIST_TYPE_LABEL } from "@/lib/validation/second-opinion";
+import {
+  SECOND_OPINION_DOCUMENT_MAX_BYTES,
+  SECOND_OPINION_DOCUMENT_MAX_FILES,
+  SECOND_OPINION_DOCUMENT_MIME,
+  SPECIALIST_TYPE_LABEL,
+} from "@/lib/validation/second-opinion";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
 import { PayByCard } from "@/components/billing/pay-by-card";
 import { secondOpinionRequestSchema } from "@/lib/validation/second-opinion";
@@ -141,6 +146,25 @@ export function SecondOpinionRequestCard({
   const [specificQuestion, setSpecificQuestion] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [sharedIds, setSharedIds] = useState<string[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
+  const onPickFiles = (picked: FileList | null) => {
+    const next = Array.from(picked ?? []);
+    if (next.length > SECOND_OPINION_DOCUMENT_MAX_FILES) {
+      setFormError(`Add at most ${SECOND_OPINION_DOCUMENT_MAX_FILES} files`);
+      return;
+    }
+    const bad = next.find(
+      (f) =>
+        !(SECOND_OPINION_DOCUMENT_MIME as readonly string[]).includes(f.type) ||
+        f.size > SECOND_OPINION_DOCUMENT_MAX_BYTES,
+    );
+    if (bad) {
+      setFormError("Files must be a PDF or a photo (JPEG, PNG or WebP), 8 MB or smaller");
+      return;
+    }
+    setFormError(null);
+    setFiles(next);
+  };
   // Only released, current results that carry structured values can be shown to the doctor (the database enforces the same rule).
   const { data: shareable } = useQuery({
     queryKey: ["second-opinion-shareable-results", patientId],
@@ -180,6 +204,7 @@ export function SecondOpinionRequestCard({
         sourceDescription: parsed.data.sourceDescription,
         specificQuestion: parsed.data.specificQuestion,
         sharedLabResultIds: parsed.data.sharedLabResultIds,
+        files,
       },
       {
         onSuccess: () => {
@@ -187,6 +212,7 @@ export function SecondOpinionRequestCard({
           setSourceDescription("");
           setSpecificQuestion("");
           setSharedIds([]);
+          setFiles([]);
         },
         onError: (error) => {
           setFormError(
@@ -294,6 +320,20 @@ export function SecondOpinionRequestCard({
             ))}
           </fieldset>
         )}
+        <div className="space-y-2">
+          <Label htmlFor="second-opinion-files">Add reports from elsewhere (optional)</Label>
+          <Input
+            id="second-opinion-files"
+            type="file"
+            multiple
+            accept={SECOND_OPINION_DOCUMENT_MIME.join(",")}
+            onChange={(e) => onPickFiles(e.target.files)}
+            disabled={!hasCredit}
+          />
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+            PDF or photo, up to {SECOND_OPINION_DOCUMENT_MAX_FILES} files of 8 MB each. Only the doctor reviewing this request sees them.
+          </p>
+        </div>
         {formError && (
           <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>
         )}
@@ -302,6 +342,8 @@ export function SecondOpinionRequestCard({
             Sent. A doctor will answer here within 72 hours.
             {submit.data?.resultsAttached === false &&
               " We could not attach the results you chose, so the doctor will review your description only."}
+            {(submit.data?.filesFailed ?? 0) > 0 &&
+              ` ${submit.data?.filesFailed} of your files could not be uploaded; you can describe them in a message to your care team.`}
           </p>
         )}
         <Button onClick={onSubmit} disabled={submit.isPending || !hasCredit}>

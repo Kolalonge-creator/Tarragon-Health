@@ -6,7 +6,7 @@ import {
   useOrgSecondOpinionRequests,
   useMarkSecondOpinionInReview,
   secondOpinionKeys,
-  type SecondOpinionRequestWithPatient,
+  type SecondOpinionWorklistItem,
 } from "@/lib/queries/second-opinion";
 import { answerSecondOpinionRequest, readSharedResults, type AnswerSecondOpinionState } from "./actions";
 import {
@@ -54,8 +54,24 @@ function SharedResults({ requestId }: { requestId: string }) {
         </Button>
       )}
       {error && <p className="text-xs text-red-600">{error}</p>}
-      {read && read.results.length === 0 && (
-        <p className="text-xs text-charcoal-ink/60">The patient did not share any Tarragon results.</p>
+      {read && read.results.length === 0 && read.documents.length === 0 && (
+        <p className="text-xs text-charcoal-ink/60">The patient did not share any results or files.</p>
+      )}
+      {read && read.documents.length > 0 && (
+        <ul className="space-y-0.5">
+          {read.documents.map((d, i) => (
+            <li key={d.id} className="text-xs">
+              <a
+                className="underline"
+                href={`/api/second-opinions/documents/${d.id}?request=${requestId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open file {i + 1} ({d.mime_type === "application/pdf" ? "PDF" : "photo"}, {Math.round(d.size_bytes / 1024)} KB)
+              </a>
+            </li>
+          ))}
+        </ul>
       )}
       {read?.results.map((res) => (
         <div key={res.id} className="rounded-md border border-charcoal-ink/10 p-2">
@@ -76,7 +92,7 @@ function SharedResults({ requestId }: { requestId: string }) {
   );
 }
 
-function RequestRow({ request }: { request: SecondOpinionRequestWithPatient }) {
+function RequestRow({ request }: { request: SecondOpinionWorklistItem }) {
   const [refer, setRefer] = useState(false);
   const markInReview = useMarkSecondOpinionInReview();
   const queryClient = useQueryClient();
@@ -97,8 +113,8 @@ function RequestRow({ request }: { request: SecondOpinionRequestWithPatient }) {
     <li className="space-y-2 py-3">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sm font-medium text-charcoal-ink">
-          {request.patient?.full_name ?? "Patient"}
-          {request.patient?.patient_number ? ` · ${request.patient.patient_number}` : ""}
+          {request.patient_name ?? "Patient"}
+          {request.patient_number ? ` · ${request.patient_number}` : ""}
         </p>
         {request.status === "in_review" && <Badge variant="amber">In review</Badge>}
         {overdue && <Badge variant="red">SLA passed</Badge>}
@@ -124,6 +140,12 @@ function RequestRow({ request }: { request: SecondOpinionRequestWithPatient }) {
         >
           Start review
         </Button>
+      )}
+      {(request.shared_results > 0 || request.documents > 0) && (
+        <p className="text-xs text-charcoal-ink/60">
+          Shared: {request.shared_results} {request.shared_results === 1 ? "result" : "results"}, {request.documents}{" "}
+          {request.documents === 1 ? "file" : "files"}
+        </p>
       )}
       <SharedResults requestId={request.id} />
       <form action={formAction} className="space-y-2">
