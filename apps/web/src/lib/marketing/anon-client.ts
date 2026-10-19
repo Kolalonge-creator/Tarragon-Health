@@ -26,11 +26,22 @@ export function marketingAnonKey(): string | undefined {
   );
 }
 
+export const MARKETING_FETCH_TIMEOUT_MS = 10_000;
+
 export function marketingAnonClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = marketingAnonKey();
   if (!url || !key) return null;
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
+    // supabase-js has no request timeout of its own. These loaders run while
+    // Next prerenders the public pages, where one stalled call holds the
+    // build's single worker and every page in flight times out with it
+    // (production builds failed this way 2026-10-17/18). Every loader fails
+    // soft, so a call that gives up costs a section its live data, not a build.
+    global: {
+      fetch: (input, init) =>
+        fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(MARKETING_FETCH_TIMEOUT_MS) }),
+    },
   });
 }

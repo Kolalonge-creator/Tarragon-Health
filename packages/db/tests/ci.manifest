@@ -1295,3 +1295,9 @@ task_queue_gaps_oq432_433_435.sql
 s19e_native_page_receipts.sql
 # OQ-451 and OQ-452: signing/activation functions for the task layer and paging delivery configs (CMO only; version frozen once signed or in force; a new version is a new row; a version older than one signed is never made live; the paging activation REFUSES with a reason list until every non-test on-call clinician has a working push subscription, a verified email and a test page acknowledged inside the version window; nobody on call is itself a refusal) and platform_deep_health() (service role only; stale or missing queue and pager heartbeats, open sev1 count). Sabotage: the freeze guard, the checklist and the CMO test each removed; each must flip.
 oq451_oq452_signing_and_deep_health.sql
+
+# --- Added 2026-10-16 (hardening: audit_log SELECT narrowed to own rows + admin) ---
+audit_log_select_narrowed.sql
+bp_cuffless_estimates_never_diagnostic.sql
+# Record share extras: recipient label, view cap (1 to 50, the fourth open of a three-view link is refused like any dead link, peek too), date window (30/90/180 days drops older readings), options door refuses bad input and anon; pin_hash stays unreadable; the original create door still works. Sabotage: the cap and the window each removed; both must flip.
+record_share_recipient_views_window.sql
