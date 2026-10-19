@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@tarragon/shared";
+import { BP_ESTIMATE_SOURCE, type Database } from "@tarragon/shared";
 import type { RuleWindowSpec } from "./types";
 
 /** Column each vital_type's threshold check reads, mirroring vitals_readings' shape. */
@@ -39,13 +39,15 @@ export async function evaluateWindow(
       const field = window.field ?? (window.vital_type ? VITAL_FIELD_BY_TYPE[window.vital_type] : undefined);
       if (!window.vital_type || !field) return null;
 
-      const base = supabase
+      const counted = supabase
         .from("vitals_readings")
         .select("id", { count: "exact", head: true })
         .eq("patient_id", patientId)
         .eq("vital_type", window.vital_type)
         .is("correction_status", null)
         .gte("taken_at", since);
+      // A wearable (cuffless) blood pressure is an estimate, never a diagnostic number: a rule over repeated high readings does not count it.
+      const base = window.vital_type === "blood_pressure" ? counted.neq("source", BP_ESTIMATE_SOURCE) : counted;
 
       const filtered =
         window.comparator === "gte"
