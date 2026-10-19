@@ -4230,6 +4230,7 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 | OQ-370 | 2737, Device capabilities need the CMO and an admin before anything switches on (raised by S70a) |
 | OQ-371 | 2741, Go-live uses `platform_modules`, not `go_live_guards` (raised by S70a) |
 
+<<<<<<< HEAD
 ### OQ-702 Should a patient be able to replace a file after the care team has opened the alert (raised by the document supersede)
 - Done: a replacement supersedes the original (new row, old row and file kept, alert handed over with the higher priority). Allowed only before review, as before.
 - Open 1: an alert a clinician already acknowledged (not the document) is resolved as a handover and the replacement starts open again; the acknowledging doctor is not told. A short in-app note to the responsible clinician would close this.
@@ -4239,6 +4240,14 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - Open 5: replacement is not rate limited (each call writes a row, an alert and an audit row) and does not check that a storage object exists at the path; a per-hour cap from versioned config is the gate to add.
 - Open 6: the patient UPDATE policy from 20260912 still lets a patient rewrite metadata (filename, mime type, order link) on her own unreviewed upload; it existed only for the in-place replace and could be dropped.
 - Open 7: the supersede flag is a transaction setting (`app.result_document_replace`); anyone who can run arbitrary SQL as an authenticated user can set it. Not reachable through the API today.
+=======
+### OQ-707 Share extras: mobile screen, and whether a label should ever gate access (raised by the share-extras build, 2026-10-19)
+- The recipient label is a label only. Anyone holding the link (and the PIN, if one was set) can open it; the label does not check who opens it. The page says so. If you want the doctor to prove who they are, that is a different, larger feature.
+- The phone app's share screen does not have the three new fields yet; it can still create a plain share.
+- The date window trims vitals and lab results only (the other sections have no time dimension that matters to a visit).
+- Options: (a) leave as is (recommended), (b) build the phone fields next.
+- Decision: open.
+>>>>>>> origin/main-dev
 ### OQ-701 Who may read the audit log directly (raised by the audit_log narrowing)
 - Done: `audit_log` is directly readable only by its own actor and by admins. Org staff, tied clinicians and the CMO account lost the organisation-wide read; the screens they use read through SECURITY DEFINER functions that self-gate.
 - Open 1: should the CMO or a clinical-governance reviewer have a scoped direct read (for example by action prefix) instead of only the S20 sampling RPCs?

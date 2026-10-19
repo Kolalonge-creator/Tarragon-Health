@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import {
   useRecordShares,
   useCreateRecordShare,
@@ -15,6 +16,7 @@ import {
   type RecordShareSection,
 } from "@/lib/queries/record-shares";
 import { expiryLabel, getSharingConfig } from "@/lib/my-health/share-config";
+import { SHARE_MAX_VIEWS_CHOICES, SHARE_WINDOW_DAYS_CHOICES, viewsLeft } from "@/lib/my-health/share-options";
 import { t, type Locale } from "@tarragon/i18n";
 
 const SECTION_LABELS: Record<RecordShareSection, string> = {
@@ -56,6 +58,9 @@ export function ShareControls({
   const [expiryHours, setExpiryHours] = useState(String(SHARING.default_expiry_hours));
   const [usePin, setUsePin] = useState(false);
   const [oneSession, setOneSession] = useState(false);
+  const [recipientLabel, setRecipientLabel] = useState("");
+  const [maxViews, setMaxViews] = useState("");
+  const [windowDays, setWindowDays] = useState("");
   const [created, setCreated] = useState<CreatedRecordShare | null>(null);
   const [createFailed, setCreateFailed] = useState(false);
   const [pinCopied, setPinCopied] = useState(false);
@@ -83,15 +88,21 @@ export function ShareControls({
         expiresInHours: Number.parseInt(expiryHours, 10),
         usePin,
         oneSession,
+        recipientLabel,
+        maxViews: maxViews ? Number.parseInt(maxViews, 10) : null,
+        windowDays: windowDays ? Number.parseInt(windowDays, 10) : null,
       });
       setCreated(result);
       setSelectedSections(new Set());
       setUsePin(false);
       setOneSession(false);
+      setRecipientLabel("");
+      setMaxViews("");
+      setWindowDays("");
     } catch {
       setCreateFailed(true);
     }
-  }, [selectedSections, expiryHours, usePin, oneSession, createShare]);
+  }, [selectedSections, expiryHours, usePin, oneSession, recipientLabel, maxViews, windowDays, createShare]);
 
   const handleCopy = useCallback(async (token: string, shareId: string) => {
     try {
@@ -158,6 +169,45 @@ export function ShareControls({
               {SHARING.expiry_options_hours.map((hours) => (
                 <option key={hours} value={String(hours)}>
                   {expiryLabel(hours, locale)}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="recipient" className="text-sm">
+              {t("sharelink.recipient.label", locale)}
+            </Label>
+            <Input
+              id="recipient"
+              value={recipientLabel}
+              maxLength={80}
+              placeholder={t("sharelink.recipient.placeholder", locale)}
+              onChange={(e) => setRecipientLabel(e.target.value)}
+            />
+            <p className="text-xs text-charcoal-ink/60">{t("sharelink.recipient.hint", locale)}</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Label htmlFor="maxviews" className="text-sm whitespace-nowrap">
+              {t("sharelink.max_views.label", locale)}
+            </Label>
+            <Select id="maxviews" className="w-36" value={maxViews} onChange={(e) => setMaxViews(e.target.value)}>
+              <option value="">{t("sharelink.max_views.any", locale)}</option>
+              {SHARE_MAX_VIEWS_CHOICES.map((n) => (
+                <option key={n} value={String(n)}>
+                  {n === 1 ? t("sharelink.max_views.one", locale) : t("sharelink.max_views.n", locale, { count: String(n) })}
+                </option>
+              ))}
+            </Select>
+            <Label htmlFor="window" className="text-sm whitespace-nowrap">
+              {t("sharelink.window.label", locale)}
+            </Label>
+            <Select id="window" className="w-40" value={windowDays} onChange={(e) => setWindowDays(e.target.value)}>
+              <option value="">{t("sharelink.window.latest", locale)}</option>
+              {SHARE_WINDOW_DAYS_CHOICES.map((d) => (
+                <option key={d} value={String(d)}>
+                  {t("sharelink.window.days", locale, { days: String(d) })}
                 </option>
               ))}
             </Select>
@@ -255,7 +305,18 @@ export function ShareControls({
                         {share.one_session ? (
                           <span className="ml-2 rounded-full bg-charcoal-ink/10 px-2 py-0.5 text-xs">{t("share.badge.session", locale)}</span>
                         ) : null}
+                        {viewsLeft(share.max_views, share.view_count) !== null ? (
+                          <span className="ml-2 rounded-full bg-charcoal-ink/10 px-2 py-0.5 text-xs">
+                            {t("sharelink.badge.views_left", locale, { count: String(viewsLeft(share.max_views, share.view_count)) })}
+                          </span>
+                        ) : null}
+                        {share.window_days !== null ? (
+                          <span className="ml-2 rounded-full bg-charcoal-ink/10 px-2 py-0.5 text-xs">
+                            {t("sharelink.badge.window", locale, { days: String(share.window_days) })}
+                          </span>
+                        ) : null}
                       </p>
+                      {share.recipient_label ? <p className="text-xs text-charcoal-ink/70">{share.recipient_label}</p> : null}
                       <p className="text-xs text-charcoal-ink/60">
                         {t("share.expires", locale, {
                           date: formatDate(share.expires_at),
