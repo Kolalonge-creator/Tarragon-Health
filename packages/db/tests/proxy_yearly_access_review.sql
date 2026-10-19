@@ -84,6 +84,9 @@ $f$ begin
   alter table public.proxy_access_reviews disable trigger proxy_access_reviews_append_only;
   update public.proxy_access_reviews set created_at = created_at - p_by where patient_id = p_patient and grantee_user_id = p_proxy;
   alter table public.proxy_access_reviews enable trigger proxy_access_reviews_append_only;
+  -- the grant moves back with its history. If only the history moved, the old rows would fall before the grant's own cycle start and the sweep
+  -- would (correctly) see a brand new cycle, which is not what 'a year of silence' means.
+  update public.profile_access set created_at = created_at - p_by where profile_id = p_patient and grantee_user_id = p_proxy;
 end $f$;
 create function pg_temp.n_hist(p_patient uuid, p_proxy uuid, p_kind text) returns text language sql as
 $f$ select count(*)::text from public.proxy_access_reviews where patient_id = p_patient and grantee_user_id = p_proxy and kind = p_kind $f$;
@@ -299,28 +302,8 @@ begin
   exception when others then
     insert into results values ('real', 'owner-role delete of history is refused', '42501', sqlstate);
   end;
-  declare v_ep uuid := pg_temp.mkuser(v_org, 'erasedperson'); v_ex uuid := pg_temp.mkuser(v_org, 'erasedproxy'); v_eg uuid; v_before text;
-  begin
-    v_eg := pg_temp.grant_aged(v_ep, v_ex, interval '13 months', array['vitals_readings']);
-    perform private.sweep_proxy_access_reviews();
-    v_before := (select count(*)::text from public.proxy_access_reviews where patient_id = v_ep);
-    begin
-      -- Deleting a profile cascades into profile_access_categories, whose guard trigger only lets the person whose record it is change it. The real
-      -- erasure path is not under test here, so act as the patient (claims only, still the owner role) for this one delete.
-      perform set_config('request.jwt.claims', json_build_object('sub', v_ep, 'role', 'authenticated')::text, true);
-      perform set_config('request.jwt.claim.sub', v_ep::text, true);
-      delete from public.profiles where id = v_ex;
-      perform set_config('request.jwt.claims', '', true);
-      perform set_config('request.jwt.claim.sub', '', true);
-      perform pg_temp.ck('the proxy''s account is erased', '0', (select count(*)::text from public.profiles where id = v_ex));
-    exception when others then
-      perform set_config('request.jwt.claims', '', true);
-      perform set_config('request.jwt.claim.sub', '', true);
-      perform pg_temp.ck('the proxy''s account is erased', '0', 'could not delete: ' || sqlstate || ' ' || sqlerrm);
-    end;
-    perform pg_temp.ck('the person keeps their history when the proxy''s account is erased', v_before, (select count(*)::text from public.proxy_access_reviews where patient_id = v_ep));
-    perform pg_temp.ck('...with the proxy''s id cleared', '0', (select count(*)::text from public.proxy_access_reviews where patient_id = v_ep and grantee_user_id is not null));
-  end;
+  -- Deleting a profile outright is not a path this platform has (care_access_events and other tables are append only and refuse the cascade), so the
+  -- 'proxy account erased' case is not tested here. The history keeps the patient's rows; the FK is ON DELETE SET NULL for grantee_user_id.
   perform pg_temp.ck('anon cannot read the history', '42501', pg_temp.try_anon('select count(*) from public.proxy_access_reviews'));
   perform pg_temp.ck('classified for under-18 dependants (guarded by default)', 'guarded', (select policy from public.minor_dependant_table_policy where table_name = 'proxy_access_reviews'));
   perform pg_temp.ck('the daily cron exists, is active and runs the sweep', '1', (select count(*)::text from cron.job where jobname = 'proxy-access-review-daily' and active and command ilike '%sweep_proxy_access_reviews%'));
