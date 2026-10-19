@@ -284,6 +284,10 @@ const SECURITY_NOTICE_SUBJECTS: Readonly<Record<string, string>> = {
   "security.phone_change_started": "The phone number on your account is being changed",
   "security.phone_changed": "The phone number on your account was changed",
   "security.programme_code_not_applied": "Your programme code could not be used",
+  // Optional passkeys (docs/design/passkeys.md): written by the database triggers on the credential table, so they fire however a
+  // passkey was added or removed. Routine priority, in-app and email only, never SMS.
+  "security.passkey_added": "A passkey was added to your Tarragon Health account",
+  "security.passkey_removed": "A passkey was removed from your Tarragon Health account",
   // S03 assisted recovery (private.queue_recovery_notice): queued since 2026-09-30 with no entry here, so the email rows failed as unknown.
   "security.assisted_recovery_requested": "Account recovery was started on your account",
   "security.assisted_recovery_executed": "An account recovery step was completed on your account",
