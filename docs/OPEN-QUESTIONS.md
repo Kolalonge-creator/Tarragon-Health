@@ -4229,3 +4229,10 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 | OQ-366 | 2831, The go-live guard patches two shared functions (raised by S69) |
 | OQ-370 | 2737, Device capabilities need the CMO and an admin before anything switches on (raised by S70a) |
 | OQ-371 | 2741, Go-live uses `platform_modules`, not `go_live_guards` (raised by S70a) |
+
+### OQ-701 Who may read the audit log directly (raised by the audit_log narrowing)
+- Done: `audit_log` is directly readable only by its own actor and by admins. Org staff, tied clinicians and the CMO account lost the organisation-wide read; the screens they use read through SECURITY DEFINER functions that self-gate.
+- Open 1: should the CMO or a clinical-governance reviewer have a scoped direct read (for example by action prefix) instead of only the S20 sampling RPCs?
+- Open 2: `authenticated` can still INSERT audit rows about itself (S02 follow-up 5). Moving every writer to a definer function would let that insert policy be dropped.
+- Decision: open.
+
