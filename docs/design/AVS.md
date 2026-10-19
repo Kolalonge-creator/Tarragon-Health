@@ -14,7 +14,7 @@ Reused as is
 
 New
 - `visit_summaries` (one per note), `visit_summary_items` (the checklist; frozen once approved), `visit_summary_item_progress` (the patient's tick-off, the only thing a patient writes).
-- Functions: `assemble_visit_summary`, `update_visit_summary_draft`, `approve_visit_summary`, `withdraw_visit_summary`, `read_visit_summary_for_review` (audited), `my_visit_summaries`, `set_visit_summary_item_done`, `add_visit_summary_item_to_tasks`.
+- Functions: `assemble_visit_summary`, `update_visit_summary_draft`, `approve_visit_summary`, `withdraw_visit_summary`, `read_visit_summary_for_review` (audited), `my_visit_summaries` (a pure read), `record_visit_summary_opened` (the one audited, once-a-day opening record), `set_visit_summary_item_done`, `add_visit_summary_item_to_tasks`.
 - Events `visit_summary.approved`, `visit_summary.withdrawn`, `visit_summary.viewed`; template `visit_summary_ready` (in-app and push, no content).
 - Screens: clinician panel on the note page; patient card on the Care tab (web) and in the Notes section (mobile).
 
@@ -32,9 +32,13 @@ New
 
 ## 4. Visibility (INV-11), one function used by RLS and by the RPC
 
-`private.visit_summary_state_ok(id)` is true only when ALL of: summary `state = approved`; the note is `finalized`; the note has no `note_error_flags` row (withdrawn); the note has no amendment still in draft AND the count of signed amendments equals `amendment_count_at_approval` (an amendment hides the summary while it is a draft, and after it is signed until the clinician re-assembles and re-approves the summary); and, when the note `is_protected`, `private.note_patient_visible` says the CMO has released it. Draft and withdrawn rows are never visible. Caregivers see a summary only through `private.can_read_clinical(patient, 'view_care_plan'::public.caregiver_permission)` and never when the note is protected (the reproductive-health rule: no summary of a protected note reaches a proxy). RLS: patient policy and caregiver policy both call the state function; there is NO staff policy, staff read only through the audited function.
+`private.visit_summary_state_ok(id)` is true only when ALL of: summary `state = approved`; the note is `finalized`; the note has no `note_error_flags` row (withdrawn); the note (and any amendment of an amendment, walked recursively) has no amendment still in draft AND the count of signed amendments equals `amendment_count_at_approval` (an amendment hides the summary while it is a draft, and after it is signed until the clinician re-assembles and re-approves the summary); and, when the note `is_protected`, `private.note_patient_visible` says the CMO has released it. Draft and withdrawn rows are never visible. Caregivers see a summary only when they hold `view_care_plan`, `view_medication` and `view_results` together (`private.can_read_clinical(patient, '<permission>'::public.caregiver_permission)` for each, explicit casts), and never when the note is protected (the reproductive-health rule: no summary of a protected note reaches a proxy). RLS: patient policy and caregiver policy both call the state function; there is NO staff policy, staff read only through the audited function.
 
 Re-approving after an amendment: `assemble_visit_summary` on a note whose summary is approved but stale (amendment count moved) opens a new draft revision by resetting the same row to `draft` (clearing the signature, bumping `revision`); the previous approval is kept in `visit_summary_revisions` (id, summary, revision, approved_by, approved_at, text hash). Reset is the one allowed transition out of `approved`, performed only by the function.
+
+A checklist step is also checked against the record it was copied from (`private.visit_summary_item_source_ok`): a cancelled prescription, a declined or expired care plan change, a cancelled or resulted lab order and a closed referral drop their step out of what the patient sees (the doctor is told in the review panel). A step whose wording or date is changed in a reopened draft starts unticked.
+
+All four tables are registered in `data_registry` (export, retention, purge); `visit_summary_items` uses a patient expression that goes through its summary.
 
 ## 5. The checklist and tasks
 
