@@ -4230,7 +4230,6 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 | OQ-370 | 2737, Device capabilities need the CMO and an admin before anything switches on (raised by S70a) |
 | OQ-371 | 2741, Go-live uses `platform_modules`, not `go_live_guards` (raised by S70a) |
 
-<<<<<<< HEAD
 ### OQ-705 Yearly proxy-access review: the proposed numbers and the silent-person rule (raised by the yearly review build, 2026-10-16)
 - PROPOSED in `proxy_review_config` v1 (mirrored as `proxy.annual_review`): a proxy or caregiver grant is due for review 12 months after it was given or last kept or narrowed; the reminder repeats every 30 days, at most 4 times in a cycle. Nothing is signed.
 - Rule built in, not a number: **silence never removes access.** An elder must never lose help because they did not answer. After the cap the reminders stop, and the item stays on the person's list as due (with a "waiting a while" line) until they answer. If the founder wants a harder rule (for example a flag for the care team after a long silence), that is a new decision.
@@ -4242,14 +4241,12 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - The mobile app has no proxy-controls screen today (narrow, remove, view log are web only), so the review card is web only. The in-app notice appears in the notification list on both. A mobile review card belongs with whichever session first brings the proxy controls to mobile.
 - The patient push and email versions exist (`proxy_review_due` renderers in `send-pending-notifications`) and are queued only when the person's own channel preference allows, but the edge function must be redeployed to carry the two new renderers (`supabase functions deploy send-pending-notifications`); until then those two rows would fail while the guaranteed in-app row still works. No real push or email was sent in this build.
 - Decision: informational (follow-up).
-=======
 ### OQ-707 Share extras: mobile screen, and whether a label should ever gate access (raised by the share-extras build, 2026-10-19)
 - The recipient label is a label only. Anyone holding the link (and the PIN, if one was set) can open it; the label does not check who opens it. The page says so. If you want the doctor to prove who they are, that is a different, larger feature.
 - The phone app's share screen does not have the three new fields yet; it can still create a plain share.
 - The date window trims vitals and lab results only (the other sections have no time dimension that matters to a visit).
 - Options: (a) leave as is (recommended), (b) build the phone fields next.
 - Decision: open.
->>>>>>> origin/main-dev
 ### OQ-701 Who may read the audit log directly (raised by the audit_log narrowing)
 - Done: `audit_log` is directly readable only by its own actor and by admins. Org staff, tied clinicians and the CMO account lost the organisation-wide read; the screens they use read through SECURITY DEFINER functions that self-gate.
 - Open 1: should the CMO or a clinical-governance reviewer have a scoped direct read (for example by action prefix) instead of only the S20 sampling RPCs?
