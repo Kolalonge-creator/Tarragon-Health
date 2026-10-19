@@ -64,12 +64,18 @@ begin
 end $f$;
 -- a grant made some time ago, with categories
 create function pg_temp.grant_aged(p_patient uuid, p_proxy uuid, p_age interval, p_cats text[]) returns uuid language plpgsql as
-$f$ declare v uuid;
+$f$ declare v uuid; v_prev_sub text := current_setting('request.jwt.claim.sub', true); v_prev_claims text := current_setting('request.jwt.claims', true);
 begin
+  -- profile_access_categories has a guard trigger (insert or delete) that only lets the person whose record it is change it, so act as the patient
+  -- (claims only; the role stays the owner) for these two inserts, then put the previous claims back.
+  perform set_config('request.jwt.claims', json_build_object('sub', p_patient, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', p_patient::text, true);
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, created_at)
   values (p_patient, p_proxy, 'view', p_patient, now() - p_age) returning id into v;
   insert into public.profile_access_categories (profile_access_id, category)
     select v, c::public.care_access_category from unnest(p_cats) c;
+  perform set_config('request.jwt.claims', coalesce(v_prev_claims, ''), true);
+  perform set_config('request.jwt.claim.sub', coalesce(v_prev_sub, ''), true);
   return v;
 end $f$;
 -- move the whole history of a pair back in time (a proof cannot wait 31 days)
@@ -353,6 +359,9 @@ language plpgsql security definer set search_path = '' as $$
 declare r record;
 begin
   for r in select * from private.proxy_review_state() s where s.is_due loop
+    -- the category guard trigger needs the owner's claims for the cascade; this stand-in sweep deliberately removes access
+    perform set_config('request.jwt.claims', json_build_object('sub', r.patient_id, 'role', 'authenticated')::text, true);
+    perform set_config('request.jwt.claim.sub', r.patient_id::text, true);
     delete from public.profile_access where id = r.grant_id;
   end loop;
   return 0;
