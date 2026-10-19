@@ -15,15 +15,19 @@ import { Select } from "@/components/ui/select";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui/phone-field";
 import { cn } from "@/lib/utils";
+import { PasskeySignIn } from "./passkey-sign-in";
 
 const FIELD_CLASS = "h-11 rounded-xl";
 
 export function LoginForm({
   redirectTo,
   locale = "en",
+  passkeysEnabled = false,
 }: {
   redirectTo?: string;
   locale?: Locale;
+  /** Optional passkeys: decided on the server from the platform switch. Off by default; never replaces the forms below. */
+  passkeysEnabled?: boolean;
 }) {
   const [tab, setTab] = useState<"email" | "phone">("email");
 
@@ -50,6 +54,7 @@ export function LoginForm({
       ) : (
         <PhoneLoginForm redirectTo={redirectTo} locale={locale} />
       )}
+      <PasskeySignIn enabled={passkeysEnabled} redirectTo={redirectTo} />
     </div>
   );
 }

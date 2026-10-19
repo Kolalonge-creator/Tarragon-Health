@@ -3866,6 +3866,17 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 ### OQ-BPW-5 Latent fault found: the blood pressure handler cannot resolve a severity-2 "Missing expected blood-pressure readings" alert
 - The first statement of `private.handle_bp_reading_red_flag` resolves that alert with a bare `status = 'resolved'`. The check `clinician_alerts_resolution_requires_documentation` (20260828204033) refuses a resolved severity-2 alert without `resolution_action` and `resolution_outcome`, and the generator (`20260720015541`) inserts the alert at level `clinician_review`, which classifies as severity 2. If such an alert is ever open, the next blood pressure insert for that patient would error and roll back. **None exists today** (live count 0, checked 2026-10-16), so nothing is failing; found because the PR 1 proof tried to close one. Fix is small (set the two columns when resolving, using the values the taxonomy allows) but changes a live safety path, so it is left for its own PR with the CMO's wording for the outcome.
 
+## Blood pressure acknowledgement (raised 2026-10-16, branch pr2/bp-immediate-acknowledgement)
+
+### OQ-BPA-1 The web shows the signed emergency wording (EMG-001) for a crisis-range reading because it cannot ask the symptom question (for the CMO)
+- The phone asks the emergency-symptom question first for a 200/130-range reading (CMO 2026-10-05) and shows EMG-001 only with a symptom. The web has no such question and no on-device engine, and its display band calls 200 systolic or 120 diastolic a crisis (wider than 200/130). After saving, the web now says "Received by TarragonHealth." and, for that band, the signed EMG-001; for a high band the signed TRI-005 (rest and measure again). It never says within target or a little above, because it does not know a person's own target or pregnancy. Options: (a) leave (recommended until the web asks the question); (b) add the same question to the web form; (c) show TRI-005 only for the top band (less safe: it can delay a hospital visit for a person with symptoms).
+
+### OQ-BPA-2 New acknowledgement sentences are proposed copy and sit outside the reviewed-strings ledger
+- `bpack.received`, `bpack.received_note` and `bpack.waiting_note` are in a namespace the ledger does not cover (as `hc.*` is), so no reviewer was invented for them. They say only what is true (received, saved on the phone and not yet sent, a wearable estimate is not used in averages) and are scanned for review, time and clinician words. The CMO should read them; if they should be ledger-covered, move them under `vitals.` and add a real entry.
+
+### OQ-BPA-3 Free members and "Your care team will look at this" (TRI-002)
+- The acknowledgement never adds a care-team promise of its own. TRI-002 (signed without a review promise, OQ-251) is the engine's wording and is unchanged. Whether it should be hidden for a Free patient whose red reading does not reach a doctor (two-tier decision 2026-10-08) is for the CMO; the acknowledgement does not depend on it.
+
 ## Renumbering map (2026-10-16)
 
 Several OQ numbers were handed out twice by parallel sessions. The first heading in this file keeps its number; each later duplicate was given a fresh number above 452 (`packages/shared/src/open-questions-unique.test.ts` now fails on a repeated `### OQ-N`). References INSIDE a renumbered entry were updated. References elsewhere (other docs, code comments, migration headers) were NOT rewritten: a bare "OQ-310" there cannot be told apart from the five other OQ-310 topics, and applied migration bodies are never edited. Read an old citation against this map; the number it most likely means is the one that kept its number unless the citing text matches a title below.
@@ -4239,6 +4250,23 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - Open 5: replacement is not rate limited (each call writes a row, an alert and an audit row) and does not check that a storage object exists at the path; a per-hour cap from versioned config is the gate to add.
 - Open 6: the patient UPDATE policy from 20260912 still lets a patient rewrite metadata (filename, mime type, order link) on her own unreviewed upload; it existed only for the in-place replace and could be dropped.
 - Open 7: the supersede flag is a transaction setting (`app.result_document_replace`); anyone who can run arbitrary SQL as an authenticated user can set it. Not reachable through the API today.
+
+### OQ-PASSKEY-01 Turning passkeys on (your action, in this order)
+- Passkeys ship OFF and nothing works until all of these are done. (1) After merge, redeploy the `send-pending-notifications` edge function (new `security.passkey_*` email templates). (2) In the Supabase dashboard, Authentication, Passkeys: enable, relying-party display name "Tarragon Health", relying-party id `tarragonhealth.ng` (permanent: changing it later invalidates every passkey), origins `https://app.tarragonhealth.ng` plus any other host that serves `/login`. (3) Confirm `select public.passkey_gate_ready()` is true. (4) Sign in as a test patient with a password, add a passkey in Settings, sign out, sign in with it on a real phone and laptop. (5) Only then flip the `passkeys` switch. There is no general switch screen yet: either ask a Claude session to call `public.set_platform_switch('passkeys', true, '<why>')` under a simulated admin session (audited), or in the Supabase SQL editor run `update public.platform_switches set is_on = true, changed_at = now(), change_note = '<why>' where key = 'passkeys';` (not audited). Note the migration's gate refuses to store a passkey while the switch is off, so step 4 needs the switch on for a test window; use a test account.
+- The Auth passkey API is marked experimental by Supabase and may change.
+- Decision: open (founder).
+
+### OQ-PASSKEY-02 Mobile passkeys not built
+- Needs a native passkey library (new native dependency), a `runtimeVersion` bump and a fresh EAS build (never auto-published by the OTA workflow), iOS associated domains plus an Apple App Site Association file and Android `assetlinks.json` on the production domain, the Android origin added to the Auth origins, and tests on real devices. Phone sign-in stays the default there.
+- Decision: open (founder).
+
+### OQ-PASSKEY-03 "Use a passkey" shows only on devices that have used one
+- The sign-in page cannot ask the server who has a passkey before anyone says who they are (that would let anyone test which accounts exist), so the button appears only when this device remembers a passkey was added or used here. A passkey synced to a brand-new device will not show the button there; that person signs in the usual way. Alternative: always show the button when the switch is on (more discoverable, noisier for the many who will never use it).
+- Decision: open (founder).
+
+### OQ-PASSKEY-04 Adding a passkey needs a password
+- A person who signs in only by phone code and has set no password is told to set one first. Reason: a session alone must not be able to plant a lasting way in (the same reason backup codes need the password). Alternative: accept a fresh phone-code re-check instead.
+- Decision: open (founder).
 ### OQ-707 Share extras: mobile screen, and whether a label should ever gate access (raised by the share-extras build, 2026-10-19)
 - The recipient label is a label only. Anyone holding the link (and the PIN, if one was set) can open it; the label does not check who opens it. The page says so. If you want the doctor to prove who they are, that is a different, larger feature.
 - The phone app's share screen does not have the three new fields yet; it can still create a plain share.
