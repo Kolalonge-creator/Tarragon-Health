@@ -8966,6 +8966,81 @@ export type Database = {
         }
         Relationships: []
       }
+      proxy_access_reviews: {
+        Row: {
+          created_at: string
+          detail: Json
+          grant_id: string | null
+          grantee_user_id: string | null
+          id: string
+          is_test: boolean
+          kind: string
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json
+          grant_id?: string | null
+          grantee_user_id?: string | null
+          id?: string
+          is_test?: boolean
+          kind: string
+          organisation_id: string
+          patient_id: string
+        }
+        Update: {
+          created_at?: string
+          detail?: Json
+          grant_id?: string | null
+          grantee_user_id?: string | null
+          id?: string
+          is_test?: boolean
+          kind?: string
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: []
+      }
+      proxy_review_config: {
+        Row: {
+          created_at: string
+          interval_months: number
+          is_active: boolean
+          max_reminders: number
+          note: string | null
+          proxy_notice_days: number
+          repeat_days: number
+          status: string
+          tell_proxy: boolean
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          interval_months: number
+          is_active?: boolean
+          max_reminders: number
+          note?: string | null
+          proxy_notice_days?: number
+          repeat_days: number
+          status?: string
+          tell_proxy?: boolean
+          version: number
+        }
+        Update: {
+          created_at?: string
+          interval_months?: number
+          is_active?: boolean
+          max_reminders?: number
+          note?: string | null
+          proxy_notice_days?: number
+          repeat_days?: number
+          status?: string
+          tell_proxy?: boolean
+          version?: number
+        }
+        Relationships: []
+      }
       proxy_setups: {
         Row: {
           confirmed_at: string | null
@@ -49310,6 +49385,17 @@ export type Database = {
         Returns: number
       }
       revoke_proxy_access: { Args: { p_grantee: string }; Returns: boolean }
+      my_proxy_reviews: { Args: never; Returns: Json }
+      proxy_review_due_as_proxy: { Args: never; Returns: Json }
+      answer_proxy_review: {
+        Args: {
+          p_action: string
+          p_categories?: Database["public"]["Enums"]["care_access_category"][]
+          p_grantee: string
+          p_notify?: boolean
+        }
+        Returns: Json
+      }
       my_pending_proxy_setups: {
         Args: never
         Returns: {

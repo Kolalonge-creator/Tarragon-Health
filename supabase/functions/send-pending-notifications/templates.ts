@@ -1569,6 +1569,22 @@ export const TEMPLATE_MAP: Record<
       text: "Someone in your Care Circle has not answered a check-in yet.\n\nPlease give them a call, then open Tarragon Health to see what you can do.\n\nTarragon Health",
     },
   }),
+  // Yearly proxy-access review. Names no one; the person sees who behind the sign-in. Email and push are only queued when the person's own
+  // channel preference allows, and the sender applies quiet hours and discreet mode. The proxy's notice is in-app only and needs no renderer here.
+  proxy_review_due: () => ({
+    smsText: "A yearly check is waiting: do the people who help you still need access? Tarragon Health",
+    pushUrl: "/patient/family",
+    email: {
+      subject: "A yearly check on who can help you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Once a year we ask whether the people who help you still need access.</p>` +
+        `<p>Open Tarragon Health on the web to keep, change or remove it. Nothing changes unless you choose.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Once a year we ask whether the people who help you still need access.\n\nOpen Tarragon Health on the web to keep, change or remove it. Nothing changes unless you choose.\n\nTarragon Health",
+    },
+  }),
   circle_pause_ended: () => ({
     smsText: "Your pause on sharing has ended. Tarragon Health",
     pushUrl: "/patient/care-circle",
