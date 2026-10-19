@@ -1294,3 +1294,5 @@ task_queue_gaps_oq432_433_435.sql
 # S19e native page receipts: a live native (ios/android, Expo token) push subscription with a push receipt confirms a mobile-only clinician route (90 s early window); no subscription or a disabled one does not; page_channel_ready defaults false; the function is not executable by anon or authenticated. Sabotage: the web-only definition must flip the native check.
 s19e_native_page_receipts.sql
 bp_cuffless_estimates_never_diagnostic.sql
+# Record share extras: recipient label, view cap (1 to 50, the fourth open of a three-view link is refused like any dead link, peek too), date window (30/90/180 days drops older readings), options door refuses bad input and anon; pin_hash stays unreadable; the original create door still works. Sabotage: the cap and the window each removed; both must flip.
+record_share_recipient_views_window.sql
