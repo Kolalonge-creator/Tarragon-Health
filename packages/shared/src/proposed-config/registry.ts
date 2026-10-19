@@ -3091,7 +3091,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-16",
-    source: "docs/OPEN-QUESTIONS.md OQ-436; supabase/migrations/20261016190347_oq436_deadman_status.sql; docs/PLATFORM_OUTAGE_RUNBOOK.md external dead-man's switch",
+    source: "docs/OPEN-QUESTIONS.md OQ-436; supabase/migrations/20261019204512_oq436_deadman_status.sql; docs/PLATFORM_OUTAGE_RUNBOOK.md external dead-man's switch",
   },
   {
     key: "ops.alert_rules",

@@ -1,5 +1,5 @@
 -- ===========================================================================
--- Verification: OQ-436 20261016190347_oq436_deadman_status
+-- Verification: OQ-436 20261019204512_oq436_deadman_status
 -- Proves public.deadman_status(): service_role only; reports heartbeat age; counts a due-and-old pending delivery but not a
 -- fresh one (CONTROL) nor a done one; counts dead letters; counts open sev1/sev2 incidents but not sev3 or resolved ones.
 -- SABOTAGE: the function is replaced inside the transaction by a version without the pending filter and the 24 hour window; the +1 checks must flip.
