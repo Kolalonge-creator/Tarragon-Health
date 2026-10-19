@@ -4,6 +4,8 @@ import { Platform } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { reportNotificationOpened } from "@/lib/notification-settings";
 import { ensureNotificationChannels } from "@/lib/notification-channels";
+import { ensurePageChannel } from "@/lib/paging/page-channel";
+import { criticalAlertsRequested } from "@/lib/paging/critical-alerts";
 
 /**
  * Registers this device for remote push, closing the one gap left in an
@@ -46,15 +48,20 @@ export function startOpenReporting(): void {
   }
 }
 
-export async function registerPushToken(userId: string, organisationId: string): Promise<void> {
+export async function registerPushToken(userId: string, organisationId: string, options: { clinician?: boolean } = {}): Promise<void> {
   startOpenReporting();
   // Channels first: Android 13+ may not show the permission prompt until one exists, and the server sends safety rows to `urgent`.
   const urgentChannelReady = await ensureNotificationChannels();
+  // The on-call alarm channel exists only for a clinician (S19e). The server names it for a page only when this is true.
+  const pageChannelReady = options.clinician === true ? await ensurePageChannel() : false;
   try {
     const { status: existing } = await Notifications.getPermissionsAsync();
     let status = existing;
     if (status !== "granted") {
-      ({ status } = await Notifications.requestPermissionsAsync());
+      // Critical Alerts (iPhone) are asked for only in a build that carries Apple's entitlement (config flag, off until Apple grants it).
+      ({ status } = await Notifications.requestPermissionsAsync(
+        options.clinician === true && criticalAlertsRequested() ? { ios: { allowAlert: true, allowBadge: true, allowSound: true, allowCriticalAlerts: true } } : undefined
+      ));
     }
     if (status !== "granted") return;
 
@@ -70,19 +77,24 @@ export async function registerPushToken(userId: string, organisationId: string):
     // overwrites its own prior row rather than accumulating duplicates. See
     // push_subscriptions_expo_push_token_key (20260809195100).
     // urgent_channel_ready is not in the generated types yet (S13 R4 migration), hence the cast.
-    await supabase.from("push_subscriptions").upsert(
-      {
-        organisation_id: organisationId,
-        profile_id: userId,
-        platform,
-        expo_push_token: data,
-        last_seen_at: new Date().toISOString(),
-        disabled_at: null,
-        // the sender names the `urgent` channel only for a phone that has created it
-        urgent_channel_ready: urgentChannelReady,
-      } as never,
-      { onConflict: "expo_push_token" }
-    );
+    const base = {
+      organisation_id: organisationId,
+      profile_id: userId,
+      platform,
+      expo_push_token: data,
+      last_seen_at: new Date().toISOString(),
+      disabled_at: null,
+      // the sender names the `urgent` channel only for a phone that has created it
+      urgent_channel_ready: urgentChannelReady,
+    };
+    // page_channel_ready is sent only by a clinician's phone (S19e). If the column is not there yet the write is retried without it,
+    // so a registration can never be lost to the new field.
+    const withPage = options.clinician === true ? { ...base, page_channel_ready: pageChannelReady } : base;
+    const first = await supabase.from("push_subscriptions").upsert(withPage as never, { onConflict: "expo_push_token" });
+    // Only a missing column justifies the retry; any other error (network, auth, policy) is not made to look like success by a second write.
+    if (first.error && options.clinician === true && (first.error.code === "42703" || /page_channel_ready/i.test(first.error.message))) {
+      await supabase.from("push_subscriptions").upsert(base as never, { onConflict: "expo_push_token" });
+    }
   } catch {
     // Best-effort only — a push-registration failure must never surface to
     // the patient or block anything else in the app from working.

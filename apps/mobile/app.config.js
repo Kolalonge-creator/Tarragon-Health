@@ -18,5 +18,8 @@ module.exports = ({ config }) => {
     entitlements["com.apple.developer.usernotifications.critical-alerts"] = true;
   }
   if (Object.keys(entitlements).length === 0) return config;
-  return { ...config, ios: { ...config.ios, entitlements } };
+  const next = { ...config, ios: { ...config.ios, entitlements } };
+  // Read at run time by src/lib/paging/critical-alerts.ts so the app asks for the Critical Alerts permission only in a build that has the entitlement.
+  if (process.env.IOS_CRITICAL_ALERTS_ENTITLEMENT === "1") next.extra = { ...(config.extra ?? {}), iosCriticalAlerts: true };
+  return next;
 };

@@ -237,6 +237,16 @@ describe("history and the rule set on the phone", () => {
     expect(h.map((r) => r.systolic)).toEqual([150, 148]);
   });
 
+  it("leaves a wearable estimate out of the history a reading is graded against, and keeps a row with no source", async () => {
+    mockMirror = async () => [
+      { id: "w", source: "wearable", vital_type: "blood_pressure", systolic: 190, diastolic: 110, taken_at: "2026-10-04T08:00:00.000Z" },
+      { id: "m", source: "manual", vital_type: "blood_pressure", systolic: 150, diastolic: 95, taken_at: "2026-10-03T08:00:00.000Z" },
+      { id: "n", vital_type: "blood_pressure", systolic: 148, diastolic: 94, taken_at: "2026-10-02T08:00:00.000Z" },
+    ];
+    const h = await localBpHistory(SUBJECT, NOW);
+    expect(h.map((r) => r.systolic)).toEqual([150, 148]);
+  });
+
   it("seven readings averaging target plus 25 systolic raise the 24 hour review (safety case 6)", async () => {
     mockMirror = async () =>
       Array.from({ length: 7 }, (_, i) => ({ id: `r${i}`, vital_type: "blood_pressure", systolic: 160, diastolic: 92, taken_at: `2026-10-0${i % 4 + 1}T0${i}:00:00.000Z` }));

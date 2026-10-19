@@ -7,7 +7,7 @@
 // verify_jwt is off: Auth authenticates with the Standard Webhooks signature, not a JWT (supabase/config.toml).
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { handleHookRequest, MAX_SENDS_PER_HOUR, type SmsLogStore } from "./handler.ts";
+import { handleHookRequest, MAX_SENDS_PER_HOUR, type HoldStore, type SmsLogStore } from "./handler.ts";
 import { providerFromEnv } from "./provider.ts";
 
 const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
@@ -39,11 +39,22 @@ const store: SmsLogStore = {
   },
 };
 
+const holds: HoldStore = {
+  async isHeld(userId) {
+    const { data, error } = await supabase.rpc("auth_sms_hold", { p_user: userId });
+    const held = (data as { held?: unknown } | null)?.held;
+    // Anything but an explicit true/false is an unreadable answer: refuse (the handler answers 503), never assume "not held".
+    if (error || typeof held !== "boolean") throw new Error("hold_failed");
+    return held;
+  },
+};
+
 Deno.serve((req) =>
   handleHookRequest(req, {
     secret: Deno.env.get("SEND_SMS_HOOK_SECRET") ?? "",
     pepper: Deno.env.get("SMS_LOG_PEPPER") ?? "",
     provider: providerFromEnv((k) => Deno.env.get(k)),
     store,
+    holds,
   }),
 );
