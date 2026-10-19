@@ -364,6 +364,8 @@ begin
     perform set_config('request.jwt.claim.sub', r.patient_id::text, true);
     delete from public.profile_access where id = r.grant_id;
   end loop;
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.jwt.claim.sub', '', true);
   return 0;
 end $$;
 do $$
