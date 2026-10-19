@@ -103,10 +103,9 @@ export function VitalsForm({
 
   // What the last save said stops being true the moment the person edits the form, is blocked offline, or is asked to confirm a different value:
   // an old "Received" must never sit beside a reading that was not sent. A new result from the server shows again.
-  const [ackStale, setAckStale] = useState(false);
-  useEffect(() => {
-    setAckStale(false);
-  }, [state]);
+  // Held as "stale for THIS server result" so a new result is fresh without a reset effect (setState in an effect is a lint error).
+  const [staleMark, setStaleMark] = useState<{ for: typeof state } | null>(null);
+  const ackStale = staleMark !== null && staleMark.for === state;
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     // Checked ahead of the crosscheck-bypass branch below too — a confirmed
@@ -127,7 +126,7 @@ export function VitalsForm({
       // no dedup constraint.
       confirmedRef.current = false;
       setOfflineBlocked(true);
-      setAckStale(true);
+      setStaleMark({ for: state });
       return;
     }
     if (offlineBlocked) setOfflineBlocked(false);
@@ -155,7 +154,7 @@ export function VitalsForm({
   // Any edit (including changing the reading type) invalidates a pending
   // crosscheck so the patient re-confirms the corrected value.
   function resetGuard() {
-    setAckStale(true);
+    setStaleMark({ for: state });
     confirmedRef.current = false;
     setCrosscheck((current) => (current ? null : current));
   }
