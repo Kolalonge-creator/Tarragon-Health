@@ -13,6 +13,7 @@ import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
 import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
+import { readLegacyNoticeRetirementState } from "@/lib/queries/pending-legacy-notice-retirement-signoff";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -50,6 +51,8 @@ export const CAPACITY_CONFIG_ITEM_KEY = "capacity_configs";
 export const SOLE_CMO_EXCEPTION_ITEM_KEY = "sole_cmo_on_call_exception";
 /** The line for unified red-event paging (S19d): switch the one governed ladder on for SpO2, pulse, temperature, red-flag symptoms and emergency events, or off again. */
 export const UNIFIED_RED_PAGING_ITEM_KEY = "unified_red_paging";
+/** The line for retiring the older notify-everyone message for blood pressure and glucose once the on-call page is proven, and the Care Circle notice for unified pages (S19f). */
+export const LEGACY_NOTICE_RETIREMENT_ITEM_KEY = "legacy_notice_retirement";
 export { GLUCOSE_TRIAGE_ITEM_KEY };
 
 /**
@@ -72,7 +75,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, legacyRetire] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -89,6 +92,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingSoleCmoException(supabase),
     readUnifiedRedPagingState(supabase),
     readPendingCapacityConfigSignoff(supabase),
+    readLegacyNoticeRetirementState(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -238,6 +242,20 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (legacyRetire.liveVersion !== null || legacyRetire.waiting.length > 0) {
+    const on = legacyRetire.liveVersion !== null;
+    items.push({
+      key: LEGACY_NOTICE_RETIREMENT_ITEM_KEY,
+      title: on ? "Older clinician-message retirement is ON (switch off here)" : "Older clinician-message retirement (off)",
+      detail: on
+        ? `Version ${legacyRetire.liveVersion?.version} is live. You can switch it off at any time; any held message with no confirmed page is sent at once.`
+        : "Several versions are ready and OFF. Start with the parallel run (it changes nothing and measures how often the on-call page arrives), then look at the evidence here before retiring any older message.",
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   if (capacityConfigs.capacityVersion !== null || capacityConfigs.leadVersion !== null) {
     const parts = [
       capacityConfigs.capacityVersion !== null && `capacity configuration version ${capacityConfigs.capacityVersion} (intake gate, rest rule, fire drills)`,
@@ -265,6 +283,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(qualityConfigs.failed ? ["the quality and credentialing configurations"] : []),
     ...(soleCmo.failed ? ["the sole-CMO on-call exception"] : []),
     ...(unifiedRed.failed ? ["unified red-event paging"] : []),
+    ...(legacyRetire.failed ? ["the older clinician-message retirement"] : []),
     ...(capacityConfigs.failed ? ["the capacity and lead configurations"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);

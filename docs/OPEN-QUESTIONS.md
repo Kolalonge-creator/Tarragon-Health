@@ -3865,6 +3865,20 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 
 ### OQ-BPW-5 Latent fault found: the blood pressure handler cannot resolve a severity-2 "Missing expected blood-pressure readings" alert
 - The first statement of `private.handle_bp_reading_red_flag` resolves that alert with a bare `status = 'resolved'`. The check `clinician_alerts_resolution_requires_documentation` (20260828204033) refuses a resolved severity-2 alert without `resolution_action` and `resolution_outcome`, and the generator (`20260720015541`) inserts the alert at level `clinician_review`, which classifies as severity 2. If such an alert is ever open, the next blood pressure insert for that patient would error and roll back. **None exists today** (live count 0, checked 2026-10-16), so nothing is failing; found because the PR 1 proof tried to close one. Fix is small (set the two columns when resolving, using the values the taxonomy allows) but changes a live safety path, so it is left for its own PR with the CMO's wording for the outcome.
+### OQ-S19F-01 How long a held older clinician message waits for its page (raised by S19f)
+- `hold_seconds = 60` in `legacy_notice_retirement_config` (PROPOSED). It is the longest the older notify-everyone message for a blood pressure red event, a blood pressure crisis or a glucose emergency waits for its on-call page before it is sent anyway (plus up to 15 seconds for the sweep). Too short sends needless duplicates; too long slows the fallback when no page comes.
+- Recommended: switch version 1 (parallel run) on first and set the number from the measured page lag shown on the sign-off hub (the slowest 5 percent, plus a margin).
+- Decision: open (CMO).
+
+### OQ-S19F-02 Should a vitals page for a pregnant patient tell her Care Circle (raised by S19f)
+- Version 4 of the retirement config lets a unified page tell the Care Circle with the neutral check-in notice. A symptom event for a patient with a pregnancy or reproductive-health footprint, and a reproductive symptom type, are withheld. A vitals event (oxygen, pulse, temperature) for a pregnant patient is NOT withheld: the notice carries no content and the event is not reproductive.
+- Option A (as built): tell the circle for vitals events. Option B: withhold every unified page for a patient with a footprint.
+- Decision: open (CMO and DPO).
+
+### OQ-S19F-03 When to retire the older emergency messages (raised by S19f)
+- Version 3 retires the notify-everyone message for a blood pressure crisis and a glucose emergency as well as the red level, through the separate `suppress_legacy_emergency_notice` key. Nothing about it can be proved on real patients until the parallel run has produced real events and the glucose rules are signed.
+- Recommended: leave version 3 until version 2 has run on real traffic.
+- Decision: open (CMO).
 
 ## Renumbering map (2026-10-16)
 
