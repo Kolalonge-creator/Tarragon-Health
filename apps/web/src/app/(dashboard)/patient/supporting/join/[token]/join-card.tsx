@@ -61,6 +61,10 @@ export function JoinCard({ token, locale }: { token: string; locale: Locale }) {
             <Link href="/patient/supporting">{t("circle.join.decline", locale)}</Link>
           </Button>
         </div>
+        {/* The web page is the fallback for a phone without the app; with the app, this hands the same link over (custom scheme, no rebuild). */}
+        <p className="text-sm">
+          <a className="underline" href={`tarragonhealth://join/${encodeURIComponent(token)}`}>{t("joinlink.open_in_app", locale)}</a>
+        </p>
       </CardContent>
     </Card>
   );

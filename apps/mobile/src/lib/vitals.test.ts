@@ -45,6 +45,14 @@ describe("computeSevenDayAverage", () => {
     ).toEqual({ systolic: 135, diastolic: 85, readingCount: 2 });
   });
 
+  it("never counts a wearable estimate, and says nothing when only estimates exist", () => {
+    const est = { ...reading(1, 170, 100), source: "wearable" };
+    expect(computeSevenDayAverage([est, reading(1, 140, 90), reading(2, 130, 80)])).toEqual({ systolic: 135, diastolic: 85, readingCount: 2 });
+    expect(computeSevenDayAverage([est])).toBeNull();
+    // a cuff reading with an unknown source (a row saved on the phone) still counts
+    expect(computeSevenDayAverage([{ ...reading(1, 140, 90), source: null }])).toEqual({ systolic: 140, diastolic: 90, readingCount: 1 });
+  });
+
   it("returns null rather than 0/0 when nothing falls inside the window", () => {
     expect(computeSevenDayAverage([])).toBeNull();
     expect(computeSevenDayAverage([reading(30, 140, 90)])).toBeNull();
