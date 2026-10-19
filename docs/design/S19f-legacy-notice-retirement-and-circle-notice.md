@@ -1,6 +1,6 @@
 # S19f: confirmed retirement of the legacy clinician broadcast, and the Care Circle notice for unified pages (all OFF)
 
-Continues `docs/design/S16-S20-unified-red-paging.md` sections C and D (rows 2 and 6, the confirmation path, `suppress_legacy_emergency_notice`). Migration `20261016192040_s19f_legacy_notice_retirement_and_circle_page_notice.sql`. Proof `packages/db/tests/s19f_legacy_notice_retirement.sql`. CMO test pack `docs/plans/S19f-legacy-notice-retirement-test-pack.md`.
+Continues `docs/design/S16-S20-unified-red-paging.md` sections C and D (rows 2 and 6, the confirmation path, `suppress_legacy_emergency_notice`). Migration `20261019205946_s19f_legacy_notice_retirement_and_circle_page_notice.sql`. Proof `packages/db/tests/s19f_legacy_notice_retirement.sql`. CMO test pack `docs/plans/S19f-legacy-notice-retirement-test-pack.md`.
 
 **Nothing is switched on or signed.** Four config versions ship inactive and unsigned. With no signed live version every new function reads OFF and the two patched legacy handlers run the code path they ran before (the only edit to either is one extra boolean that is false). Only the Chief Medical Officer can sign, on the sign-off hub, after the test pack.
 
