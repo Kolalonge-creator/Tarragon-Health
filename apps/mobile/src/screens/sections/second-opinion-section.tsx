@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Text, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
 import {
   acceptSecondOpinionReferral,
   getReferralLetterUrl,
@@ -10,7 +11,7 @@ import {
   loadShareableResults,
   loadSecondOpinionPriceKobo,
   SECOND_OPINION_CREDIT_REQUIRED_MARKER,
-  SECOND_OPINION_MAX_PHOTOS,
+  SECOND_OPINION_MAX_FILES,
   SECOND_OPINION_MAX_SHARED_RESULTS,
   submitSecondOpinionWithMaterial,
   type RecommendedReferral,
@@ -106,12 +107,33 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
     });
   }, []);
 
+  // A report saved as a PDF (or any photo already in Files): the system picker copies it into the app's cache so it can be read.
+  async function addFile() {
+    if (photos.length >= SECOND_OPINION_MAX_FILES) {
+      setError(`Add at most ${SECOND_OPINION_MAX_FILES} files`);
+      return;
+    }
+    setError(null);
+    const picked = await DocumentPicker.getDocumentAsync({
+      type: ["application/pdf", "image/jpeg", "image/png", "image/webp"],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+    const asset = picked.canceled ? null : picked.assets[0];
+    if (!asset) return;
+    if (typeof asset.size === "number" && asset.size > 8 * 1024 * 1024) {
+      setError("That file is over 8 MB. Choose a smaller one.");
+      return;
+    }
+    setPhotos((cur) => [...cur, { uri: asset.uri, mimeType: asset.mimeType ?? "application/pdf" }]);
+  }
+
   const toggleShared = (id: string) =>
     setSharedIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : cur.length >= SECOND_OPINION_MAX_SHARED_RESULTS ? cur : [...cur, id]));
 
   async function addPhoto(source: "camera" | "library") {
-    if (photos.length >= SECOND_OPINION_MAX_PHOTOS) {
-      setError(`Add at most ${SECOND_OPINION_MAX_PHOTOS} photos`);
+    if (photos.length >= SECOND_OPINION_MAX_FILES) {
+      setError(`Add at most ${SECOND_OPINION_MAX_FILES} files`);
       return;
     }
     setError(null);
@@ -191,7 +213,7 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
     setSent(true);
     const notes: string[] = [];
     if (!result.data.resultsAttached) notes.push("We could not attach the results you chose, so the doctor will review your description only.");
-    if (result.data.photosFailed > 0) notes.push(`${result.data.photosFailed} of your photos could not be uploaded.`);
+    if (result.data.filesFailed > 0) notes.push(`${result.data.filesFailed} of your files could not be uploaded.`);
     setWarning(notes.length > 0 ? notes.join(" ") : null);
     void refresh();
   }
@@ -267,11 +289,13 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
         </View>
       )}
       <View style={{ gap: 6 }}>
-        <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>Photos of reports from elsewhere (optional)</Text>
-        {photos.length > 0 && <MutedText>{photos.length} {photos.length === 1 ? "photo" : "photos"} added</MutedText>}
+        <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>Reports from elsewhere (optional)</Text>
+        <MutedText>PDF or photo, up to {SECOND_OPINION_MAX_FILES} files of 8 MB each. Only the doctor reviewing this request sees them.</MutedText>
+        {photos.length > 0 && <MutedText>{photos.length} {photos.length === 1 ? "file" : "files"} added</MutedText>}
+        <SecondaryButton title="Choose a PDF or file" onPress={() => void addFile()} />
         <SecondaryButton title="Take a photo" onPress={() => void addPhoto("camera")} />
         <SecondaryButton title="Choose from your photos" onPress={() => void addPhoto("library")} />
-        {photos.length > 0 && <SecondaryButton title="Remove photos" onPress={() => setPhotos([])} />}
+        {photos.length > 0 && <SecondaryButton title="Remove files" onPress={() => setPhotos([])} />}
       </View>
       {error && <ErrorText>{error}</ErrorText>}
       {sent && <MutedText>Sent. A doctor will answer here within 72 hours.</MutedText>}

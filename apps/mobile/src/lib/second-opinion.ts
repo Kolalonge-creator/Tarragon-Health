@@ -117,11 +117,11 @@ export async function loadShareableResults(): Promise<QueryResult<ShareableResul
 }
 
 export const SECOND_OPINION_MAX_SHARED_RESULTS = 10;
-export const SECOND_OPINION_MAX_PHOTOS = 5;
-const SECOND_OPINION_PHOTO_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+export const SECOND_OPINION_MAX_FILES = 5;
+const SECOND_OPINION_PHOTO_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "application/pdf": "pdf" };
 const SECOND_OPINION_PHOTO_MAX_BYTES = 8 * 1024 * 1024;
 
-export type SubmitWithMaterialResult = QueryResult<{ resultsAttached: boolean; photosFailed: number }>;
+export type SubmitWithMaterialResult = QueryResult<{ resultsAttached: boolean; filesFailed: number }>;
 
 /**
  * Sends the request, then attaches the chosen results and photos. Attaching never fails the send: the request (and its redeemed credit)
@@ -158,17 +158,17 @@ export async function submitSecondOpinionWithMaterial(input: {
     if (shareError) resultsAttached = false;
   }
 
-  let photosFailed = 0;
+  let filesFailed = 0;
   for (const photo of input.photos) {
     const ext = SECOND_OPINION_PHOTO_EXT[photo.mimeType];
     if (!ext) {
-      photosFailed += 1;
+      filesFailed += 1;
       continue;
     }
     try {
       const bytes = await (await fetch(photo.uri)).arrayBuffer();
       if (bytes.byteLength === 0 || bytes.byteLength > SECOND_OPINION_PHOTO_MAX_BYTES) {
-        photosFailed += 1;
+        filesFailed += 1;
         continue;
       }
       const path = `${input.patientId}/${created.id}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
@@ -176,7 +176,7 @@ export async function submitSecondOpinionWithMaterial(input: {
         .from("second-opinion-documents")
         .upload(path, bytes, { contentType: photo.mimeType, upsert: false });
       if (uploadError) {
-        photosFailed += 1;
+        filesFailed += 1;
         continue;
       }
       const { error: attachError } = await supabase.rpc("attach_second_opinion_document", {
@@ -185,12 +185,12 @@ export async function submitSecondOpinionWithMaterial(input: {
         p_mime: photo.mimeType,
         p_bytes: bytes.byteLength,
       });
-      if (attachError) photosFailed += 1;
+      if (attachError) filesFailed += 1;
     } catch {
-      photosFailed += 1;
+      filesFailed += 1;
     }
   }
-  return { ok: true, data: { resultsAttached, photosFailed } };
+  return { ok: true, data: { resultsAttached, filesFailed } };
 }
 
 export type RecommendedReferral = { id: string; status: string; specialistType: string; reason: string | null };
