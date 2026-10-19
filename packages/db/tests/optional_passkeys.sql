@@ -76,7 +76,7 @@ declare
   p1 uuid := gen_random_uuid();      -- patient with a confirmed email
   p2 uuid := gen_random_uuid();      -- another patient
   clin uuid := gen_random_uuid();    -- clinician
-  v_txt text; r jsonb; n integer; v_exp timestamptz; v_cred uuid; has_table boolean := to_regclass('auth.webauthn_credentials') is not null;
+  v_txt text; r jsonb; n integer; v_exp timestamptz; v_cred uuid; has_table boolean := to_regclass('auth.webauthn_credentials') is not null and pg_has_role(current_user, 'supabase_auth_admin', 'member');   -- GoTrue stores credentials as that role; CI's proof user may not be allowed to become it, and then the gate sections are skipped (they need a real run as that role)
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   if v_org is null then raise exception 'fixture FAIL: no organisation'; end if;
