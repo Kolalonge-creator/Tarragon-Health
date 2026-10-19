@@ -4239,5 +4239,9 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - Open 5: replacement is not rate limited (each call writes a row, an alert and an audit row) and does not check that a storage object exists at the path; a per-hour cap from versioned config is the gate to add.
 - Open 6: the patient UPDATE policy from 20260912 still lets a patient rewrite metadata (filename, mime type, order link) on her own unreviewed upload; it existed only for the in-place replace and could be dropped.
 - Open 7: the supersede flag is a transaction setting (`app.result_document_replace`); anyone who can run arbitrary SQL as an authenticated user can set it. Not reachable through the API today.
+### OQ-701 Who may read the audit log directly (raised by the audit_log narrowing)
+- Done: `audit_log` is directly readable only by its own actor and by admins. Org staff, tied clinicians and the CMO account lost the organisation-wide read; the screens they use read through SECURITY DEFINER functions that self-gate.
+- Open 1: should the CMO or a clinical-governance reviewer have a scoped direct read (for example by action prefix) instead of only the S20 sampling RPCs?
+- Open 2: `authenticated` can still INSERT audit rows about itself (S02 follow-up 5). Moving every writer to a definer function would let that insert policy be dropped.
 - Decision: open.
 
