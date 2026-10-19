@@ -190,7 +190,7 @@ declare
   s_ok uuid; s_noperm uuid; s_preg uuid; s_bp uuid; s_gen uuid; s_tes uuid; s_paused uuid;               -- their supporters
   v_orig text; v_orig2 text; v_cfg uuid; v_json jsonb; v_open jsonb; v_shape_off_bp text; v_shape_off_em text; v_shape_off_gl text;
   v_hold uuid; v_cnt integer;
-  h11b uuid; x1 uuid; x2 uuid; x3 uuid; x4 uuid; x5 uuid; x6 uuid; x7 uuid; x8 uuid; v_h text;
+  h11b uuid; v_pgs uuid[]; x1 uuid; x2 uuid; x3 uuid; x4 uuid; x5 uuid; x6 uuid; x7 uuid; x8 uuid; v_h text;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -544,7 +544,7 @@ begin
   -- the EMERGENCY window is much shorter than the red-level one, and an emergency is only held while the event bus is clearly alive
   perform pg_temp.rec('version 3: an emergency hold waits 15 seconds, a red-level hold 60', '15|60',
     (select extract(epoch from deadline_at - created_at)::integer::text from public.legacy_notice_holds where patient_id = e1) || '|' ||
-    (select extract(epoch from deadline_at - created_at)::integer::text from public.legacy_notice_holds where patient_id = h2));
+    (select extract(epoch from deadline_at - created_at)::integer::text from public.legacy_notice_holds where patient_id = h1));
   perform pg_temp.hb(60);
   x2 := pg_temp.member(v_org, v_admin, 'v3-em-stale-bus'); x3 := pg_temp.member(v_org, v_admin, 'v3-red-stale-bus');
   perform pg_temp.bp_em(x2);
@@ -600,15 +600,17 @@ begin
   x5 := pg_temp.member(v_org, v_admin, 'allow-1'); x6 := pg_temp.member(v_org, v_admin, 'allow-2'); x7 := pg_temp.member(v_org, v_admin, 'allow-3');
   x8 := pg_temp.member(v_org, v_admin, 'allow-preg');
   update public.profiles set is_pregnant = true where id = x8;
+  -- (the pages are made first, in their own statement: a STABLE function in the same statement would not see the rows a volatile one just wrote)
+  v_pgs := array[pg_temp.uni(x5, 'emergency_event', 'exposure_report'), pg_temp.uni(x6, 'emergency_event', 'ai_coach'), pg_temp.uni(x7, 'emergency_event', null),
+                 pg_temp.uni(pg_temp.member(v_org, v_admin, 'allow-4'), 'emergency_event', 'spo2_red_flag'),
+                 pg_temp.uni(pg_temp.member(v_org, v_admin, 'allow-5'), 'emergency_event', 'symptom_log'),
+                 pg_temp.uni(x8, 'emergency_event', 'symptom_log'),
+                 pg_temp.uni(pg_temp.member(v_org, v_admin, 'allow-6'), 'symptom_red_flag', 'symptom:chest_pain')];
   perform pg_temp.rec('circle: an emergency from an exposure report, an AI coach chat or an unknown origin is withheld; vitals and symptom sources are allowed (symptoms footprint-gated)',
     'false,false,false,true,true,false,true',
-    private.page_circle_may_know(pg_temp.uni(x5, 'emergency_event', 'exposure_report'))::text || ',' ||
-    private.page_circle_may_know(pg_temp.uni(x6, 'emergency_event', 'ai_coach'))::text || ',' ||
-    private.page_circle_may_know(pg_temp.uni(x7, 'emergency_event', null))::text || ',' ||
-    private.page_circle_may_know(pg_temp.uni(pg_temp.member(v_org, v_admin, 'allow-4'), 'emergency_event', 'spo2_red_flag'))::text || ',' ||
-    private.page_circle_may_know(pg_temp.uni(pg_temp.member(v_org, v_admin, 'allow-5'), 'emergency_event', 'symptom_log'))::text || ',' ||
-    private.page_circle_may_know(pg_temp.uni(x8, 'emergency_event', 'symptom_log'))::text || ',' ||
-    private.page_circle_may_know(pg_temp.uni(pg_temp.member(v_org, v_admin, 'allow-6'), 'symptom_red_flag', 'symptom:chest_pain'))::text);
+    private.page_circle_may_know(v_pgs[1])::text || ',' || private.page_circle_may_know(v_pgs[2])::text || ',' || private.page_circle_may_know(v_pgs[3])::text || ',' ||
+    private.page_circle_may_know(v_pgs[4])::text || ',' || private.page_circle_may_know(v_pgs[5])::text || ',' || private.page_circle_may_know(v_pgs[6])::text || ',' ||
+    private.page_circle_may_know(v_pgs[7])::text);
   c_gen := pg_temp.member(v_org, v_admin, 'circle-vitals-2'); s_gen := pg_temp.mkuser(v_org, 'sup-vitals-2', 'patient');
   insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at) values (v_org, c_gen, s_gen, 'Friend', array['red_alerts'], now() + interval '300 days');
   perform pg_temp.spo2(c_gen, 91);
@@ -825,7 +827,8 @@ begin
   if replace(v_orig, 'if v_basis = ''emergency_event'' and not coalesce(', 'if false and v_basis = ''emergency_event'' and not coalesce(') = v_orig then raise exception 'VACUOUS TEST: allow-list text not found'; end if;
   execute replace(v_orig, 'if v_basis = ''emergency_event'' and not coalesce(', 'if false and v_basis = ''emergency_event'' and not coalesce(');
   x5 := pg_temp.member(v_org, v_admin, 'sab-allow');
-  perform pg_temp.sab('circle: an emergency from an exposure report is withheld', 'false', private.page_circle_may_know(pg_temp.uni(x5, 'emergency_event', 'exposure_report'))::text);
+  v_pgs := array[pg_temp.uni(x5, 'emergency_event', 'exposure_report')];
+  perform pg_temp.sab('circle: an emergency from an exposure report is withheld', 'false', private.page_circle_may_know(v_pgs[1])::text);
   execute v_orig;
 
   -- the remaining sabotages run on version 2 / 3
