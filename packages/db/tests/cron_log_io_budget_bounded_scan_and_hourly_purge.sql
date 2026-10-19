@@ -20,7 +20,7 @@ create function pg_temp.left_n(p_note text) returns text language sql as
 $$ select count(*)::text from cron.job_run_details where command = 'iobudget-proof' and return_message = p_note $$;
 
 do $$
-declare v_sweep bigint;
+declare v_sweep bigint; i integer;
 begin
   select cron.schedule('iobudget-proof-sweep-pages', '0 0 1 1 *', 'select 1') into v_sweep;
 
@@ -51,7 +51,11 @@ begin
   perform pg_temp.ck('real', 'a second pass opens no duplicate', '2',
     (select count(*)::text from public.ops_incidents where external_reference like 'cron-failure:job 999105:%' or external_reference like 'cron-failure:iobudget-proof-sweep-pages:%'));
 
-  perform private.purge_cron_history();
+  -- the purge deletes at most 60,000 rows a call, so drain any backlog first (a no-op on a fresh database)
+  for i in 1..30 loop
+    exit when private.purge_cron_history() = 0;
+  end loop;
+  perform pg_temp.ck('real', 'one purge call never deletes more than 60,000 rows', 'true', (private.purge_cron_history() <= 60000)::text);
   perform pg_temp.ck('real', 'an old succeeded run that is not the latest is deleted', '0', pg_temp.left_n('ok-5d'));
   perform pg_temp.ck('real', 'the latest succeeded run of a job is kept however old', '1', pg_temp.left_n('ok-3d-latest'));
   perform pg_temp.ck('real', 'a succeeded run older than a day is deleted when a newer success exists', '0', pg_temp.left_n('ok-2d'));

@@ -1,4 +1,4 @@
--- SR2 proof: scheduled-job history is purged on the 7/30-day rule, and a failed run opens an ops incident first
+-- SR2 proof (retention superseded by cron_log_io_budget_bounded_scan_and_hourly_purge.sql, which keeps succeeded runs 1 day plus each job's latest; the 7-day assertions below still pass only because of that keep rule): scheduled-job history is purged on the 7/30-day rule, and a failed run opens an ops incident first
 -- (migration *_sr2_cron_history_purge_and_failure_incidents.sql).
 -- Proves in one rolled-back transaction: a succeeded run older than 7 days and a failed run older than 30 days are deleted; a succeeded
 -- run 6 days old and a failed run 29 days old are kept; a recent failed run of an ordinary job opens ONE sev3 technical incident and a

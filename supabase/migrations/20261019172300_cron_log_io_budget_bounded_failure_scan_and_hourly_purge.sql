@@ -11,8 +11,11 @@
 --      so ops_check_stale_cron (72 h lookback, last success per job) and sync_automations_from_cron (latest run per job) see exactly what they
 --      saw before, including for daily jobs. Failed runs are still kept 30 days. The purge now runs hourly, not daily, so the table
 --      holds ~1 day of history instead of 7-8.
--- Rows deleted by this migration: none. The first hourly purge removes the backlog (about 250,000 succeeded runs older than a day) in
--- batches of 50,000, up to 8 batches per run, so a larger backlog finishes on the next run.
+-- Rows deleted by this migration: none. The hourly purge removes the backlog (about 250,000 succeeded runs older than a day) at most
+-- 60,000 rows per run (3 batches of 20,000), so it drains over roughly 4-5 hours instead of one burst while the IO budget is low.
+-- Known limit: deleting rows does not shrink the table file and the table cannot be indexed or rewritten by us, so measure
+-- pg_relation_size and Disk IO after the backlog has drained; the other readers (ops_check_stale_cron, platform_health_snapshot,
+-- automations_list, media_library_expiry_sweep_health) are left for a separate change.
 
 create or replace function private.record_cron_failures()
 returns integer
@@ -26,18 +29,29 @@ declare
   v_n integer := 0;
   v_sev public.ops_incident_severity;
   v_cutoff timestamptz := now() - interval '45 minutes';
+  v_floor bigint;
+  v_in_window integer;
 begin
   -- runids rise with time, so the newest 20,000 runs on the primary key cover the 45 minute window many times over (~35 runs a minute);
   -- the window edge is the lowest runid among them that is still inside it. Only those rows are aggregated.
+  select min(x.runid), count(*) into v_floor, v_in_window
+    from (select t.runid, t.start_time from cron.job_run_details t order by t.runid desc limit 20000) x
+   where x.start_time > v_cutoff;
+  if v_in_window >= 20000 then
+    -- the cap itself was reached, so older failures inside the window may not have been read: say so rather than miss them quietly
+    v_ref := 'cron-failure-scan-truncated:' || to_char(date_trunc('hour', now()), 'YYYYMMDDHH24');
+    if not exists (select 1 from public.ops_incidents where external_reference = v_ref) then
+      insert into public.ops_incidents (category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
+      values ('technical', 'sev3', 'Scheduled job failure scan hit its row cap',
+              'More than 20,000 cron runs in 45 minutes: record_cron_failures() may have missed older failures in the window. Raise the cap in private.record_cron_failures().',
+              v_ref, now() + interval '4 hours', now() + interval '24 hours');
+    end if;
+  end if;
   for r in
     with recent as (
       select d.jobid, d.start_time, d.return_message, d.status
         from cron.job_run_details d
-       where d.runid >= coalesce((
-               select min(x.runid) from (
-                 select t.runid, t.start_time from cron.job_run_details t order by t.runid desc limit 20000
-               ) x where x.start_time > v_cutoff
-             ), 9223372036854775807)  -- no run inside the window means nothing to report, and nothing to read
+       where d.runid >= coalesce(v_floor, 9223372036854775807)  -- no run inside the window means nothing to report, and nothing to read
     )
     select coalesce(j.jobname, 'job ' || f.jobid) as jobname, f.jobid, count(*) as failures, max(f.start_time) as last_at,
            max(f.return_message) as msg, to_char(date_trunc('hour', f.start_time), 'YYYYMMDDHH24') as hr
@@ -72,25 +86,27 @@ as $$
 declare
   v_total bigint := 0;
   v_batch bigint;
+  v_keep bigint[];
   i integer;
 begin
   perform private.record_cron_failures();
-  for i in 1..8 loop
-    with keep as (
-      select max(runid) filter (where status = 'succeeded') as last_ok, max(runid) as last_any
-        from cron.job_run_details group by jobid
-    )
+  -- each job's latest run and latest succeeded run, worked out once per call (one pass over the table, not one per batch)
+  select coalesce(array_agg(k), '{}') into v_keep from (
+    select max(runid) filter (where status = 'succeeded') as k from cron.job_run_details group by jobid
+    union
+    select max(runid) from cron.job_run_details group by jobid
+  ) s where k is not null;
+  -- at most 3 batches of 20,000 per call, so the first backlog (~250,000 rows) drains over a few hourly runs instead of one big burst
+  for i in 1..3 loop
     delete from cron.job_run_details
      where runid in (
        select d.runid from cron.job_run_details d
-        where ((d.status = 'succeeded' and d.start_time < now() - interval '1 day'
-                and d.runid not in (select last_ok from keep where last_ok is not null)
-                and d.runid not in (select last_any from keep))
+        where ((d.status = 'succeeded' and d.start_time < now() - interval '1 day' and d.runid <> all (v_keep))
             or (d.status = 'failed' and d.start_time < now() - interval '30 days'))
-        limit 50000);
+        limit 20000);
     get diagnostics v_batch = row_count;
     v_total := v_total + v_batch;
-    exit when v_batch < 50000;
+    exit when v_batch < 20000;
   end loop;
   return v_total;
 end $$;
