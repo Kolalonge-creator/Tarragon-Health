@@ -11,7 +11,7 @@ What it does not change: the emergency guidance the patient sees, the emergency 
 | Version | What it does | Needs |
 |---|---|---|
 | 1 | **Parallel run.** Nothing changes for anyone. Every event records whether and how fast its page arrived. | Nothing. Switch this on first and leave it on until you have enough real events to judge. |
-| 2 | Stops the older message for blood pressure red events and glucose emergencies' RED level, once the page is confirmed. Emergency-level events keep their older message. | A version 1 run (the database refuses otherwise). |
+| 2 | Stops the older message for blood pressure red events and glucose emergencies' RED level, once the page is confirmed. Emergency-level events keep their older message. | A version 1 run of at least 7 days that measured at least 20 real events (the database refuses otherwise and tells you the numbers). |
 | 3 | As 2, and also stops the older message for a blood pressure crisis and a glucose emergency. | The same. |
 | 4 | Tells the Care Circle about the new unified pages (neutral check-in notice). Retires nothing. | Unified red-event paging switched on separately. |
 

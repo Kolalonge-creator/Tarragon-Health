@@ -152,6 +152,28 @@ create function pg_temp.roots(p_patient uuid) returns integer language sql as
 $f$ select count(*)::integer from public.pages where patient_id = p_patient and parent_page_id is null $f$;
 create function pg_temp.circle_n(p_supporter uuid) returns integer language sql as
 $f$ select count(distinct source_id)::integer from public.notifications where recipient_id = p_supporter and template = 'circle_check_in' $f$;
+-- the message of the error a statement raises
+create function pg_temp.msg(p_sql text) returns text language plpgsql as
+$f$ begin execute p_sql; return 'ok'; exception when others then return sqlerrm; end $f$;
+-- the event bus heartbeat, p_secs seconds old
+create function pg_temp.hb(p_secs integer) returns void language plpgsql as
+$f$ begin
+  perform set_config('tarragon.paging_write', 'on', true);
+  update public.paging_heartbeats set last_seen_at = now() - make_interval(secs => p_secs) where component = 'process_events';
+  perform set_config('tarragon.paging_write', 'off', true);
+end $f$;
+-- a unified red page made directly (as unified_red_page_covers would), with a given source label and origin; returns the page
+create function pg_temp.uni(p_patient uuid, p_basis text, p_origin text) returns uuid language plpgsql as
+$f$ declare v_te uuid;
+begin
+  insert into public.triage_events (organisation_id, patient_id, trigger_type, trigger_id, grade, rule_id, rule_set_id, rule_set_code,
+      rule_set_version, rule_set_status, explanation_key, actions, matched_rule_ids, task_key, basis, shadow, is_test, context)
+  select pr.organisation_id, p_patient, 'unified_red', gen_random_uuid(), 'red', 'UNIFIED-X', null, 'unified_red_paging', 1, 'approved', null,
+         '[{"kind":"page_on_call"}]'::jsonb, '{}', null, p_basis, false, true,
+         jsonb_build_object('source', p_basis, 'ref_table', 'x', 'ref_id', gen_random_uuid(), 'origin', p_origin)
+    from public.profiles pr where pr.id = p_patient returning id into v_te;
+  return public.create_red_page(v_te);
+end $f$;
 -- make a held notice due now (now() is frozen inside the transaction)
 create function pg_temp.due(p_patient uuid) returns void language sql as
 $f$ update public.legacy_notice_holds set deadline_at = now() - interval '1 second' where patient_id = p_patient and status = 'held' $f$;
@@ -168,6 +190,7 @@ declare
   s_ok uuid; s_noperm uuid; s_preg uuid; s_bp uuid; s_gen uuid; s_tes uuid; s_paused uuid;               -- their supporters
   v_orig text; v_orig2 text; v_cfg uuid; v_json jsonb; v_open jsonb; v_shape_off_bp text; v_shape_off_em text; v_shape_off_gl text;
   v_hold uuid; v_cnt integer;
+  h11b uuid; x1 uuid; x2 uuid; x3 uuid; x4 uuid; x5 uuid; x6 uuid; x7 uuid; x8 uuid; v_h text;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -299,7 +322,19 @@ begin
   -- 5. HOLD (version 2) --------------------------------------------------------------------------------------------------
   perform pg_temp.act(v_cmo);
   perform public.switch_off_legacy_notice_retirement();
-  perform pg_temp.rec('version 2 can now be signed (a parallel run has been live)', 'ok', pg_temp.try('select public.sign_legacy_notice_retirement_config(2, true)'));
+  -- a retiring version needs the parallel run to have been on for min_parallel_days AND to have measured min_parallel_events real events, with a clear reason
+  v_h := pg_temp.msg('select public.sign_legacy_notice_retirement_config(2, true)');
+  perform pg_temp.rec('version 2 is refused with no evidence, and the CMO is told why (days and events)', 'true', (v_h like '%on for 0.0 of the 7 days%' and v_h like '%measured 0 of the 20 real events%')::text);
+  update public.legacy_notice_retirement_config set activated_at = now() - interval '8 days' where version = 1;
+  v_h := pg_temp.msg('select public.sign_legacy_notice_retirement_config(2, true)');
+  perform pg_temp.rec('version 2 is still refused with enough days but too few real events (test patients do not count)', 'true', (v_h like '%on for 8.0 of the 7 days%' and v_h like '%measured 0 of the 20%')::text);
+  insert into public.legacy_notice_holds (organisation_id, patient_id, kind, status, reading_id, rule_set_code, source_table, template, pathway, alert_level, is_test, decided_at, fired_at, reason, measured_at)
+    select v_org, a1, 'bp_red', 'observed', gen_random_uuid(), 'bp_care_triage', 'clinician_alerts', 'vitals_red_flag_clinician_alert', 'bp_vitals_red_flag', 'urgent_escalation', false, now(), now(), 'proof_evidence', now()
+      from generate_series(1, 19);
+  perform pg_temp.rec('version 2 is refused with 19 of 20 real events', '23514', pg_temp.try('select public.sign_legacy_notice_retirement_config(2, true)'));
+  insert into public.legacy_notice_holds (organisation_id, patient_id, kind, status, reading_id, rule_set_code, source_table, template, pathway, alert_level, is_test, decided_at, fired_at, reason, measured_at)
+    values (v_org, a1, 'bp_red', 'observed', gen_random_uuid(), 'bp_care_triage', 'clinician_alerts', 'vitals_red_flag_clinician_alert', 'bp_vitals_red_flag', 'urgent_escalation', false, now(), now(), 'proof_evidence', now());
+  perform pg_temp.rec('version 2 can now be signed (a parallel run has been live long enough and measured enough real events)', 'ok', pg_temp.try('select public.sign_legacy_notice_retirement_config(2, true)'));
   perform pg_temp.back();
   perform pg_temp.rec('version 2: BP red holds, glucose emergency and BP emergency only observe (separate emergency key is 0)', 'hold,observe,observe',
     private.legacy_notice_mode('bp_red') || ',' || private.legacy_notice_mode('bp_emergency') || ',' || private.legacy_notice_mode('glucose_emergency'));
@@ -389,11 +424,20 @@ begin
   perform pg_temp.rec('HOLD: calling the hook directly for a Free patient says send and records why', 'false|fired/bp_red/free_patient',
     private.legacy_notice_deferred('bp_red', v_org, a6, gen_random_uuid(), 'clinician_alerts', gen_random_uuid(), 'vitals_red_flag_clinician_alert', 'bp_vitals_red_flag', 'urgent_escalation', '{}'::jsonb)::text || '|' || pg_temp.hstat(a6));
 
-  -- 5j. a repeat inside an open family that is already ringing a reachable primary: nothing to wait for
+  -- 5j. an open family is not proof for THIS reading: its own red triage event has to exist (or merge) first
   h11 := pg_temp.member(v_org, v_admin, 'hold-family');
-  perform pg_temp.eng(h11, gen_random_uuid(), 'bp_care_triage');
-  perform pg_temp.rec('HOLD: an open page family already ringing a reachable primary suppresses at once', 'true|suppressed/bp_red/family_already_paged',
-    private.legacy_notice_deferred('bp_red', v_org, h11, gen_random_uuid(), 'clinician_alerts', gen_random_uuid(), 'vitals_red_flag_clinician_alert', 'bp_vitals_red_flag', 'urgent_escalation', jsonb_build_object('vital_label', 'blood pressure', 'level_label', 'Priority 1'))::text || '|' || pg_temp.hstat(h11));
+  v_rd := gen_random_uuid();
+  perform pg_temp.eng(h11, v_rd, 'bp_care_triage');
+  perform pg_temp.rec('HOLD: this reading''s own red event exists inside an open family already ringing a reachable primary: suppressed at once', 'true|suppressed/bp_red/family_already_paged',
+    private.legacy_notice_deferred('bp_red', v_org, h11, v_rd, 'clinician_alerts', gen_random_uuid(), 'vitals_red_flag_clinician_alert', 'bp_vitals_red_flag', 'urgent_escalation', jsonb_build_object('vital_label', 'blood pressure', 'level_label', 'Priority 1'))::text || '|' || pg_temp.hstat(h11));
+  h11b := pg_temp.member(v_org, v_admin, 'hold-family-other-reading');
+  perform pg_temp.eng(h11b, gen_random_uuid(), 'bp_care_triage');
+  v_rd2 := gen_random_uuid();
+  perform pg_temp.rec('HOLD: an open family alone does NOT suppress a reading with no event of its own: it is held', 'true|held/bp_red/-',
+    private.legacy_notice_deferred('bp_red', v_org, h11b, v_rd2, 'clinician_alerts', gen_random_uuid(), 'vitals_red_flag_clinician_alert', 'bp_vitals_red_flag', 'urgent_escalation', jsonb_build_object('vital_label', 'blood pressure', 'level_label', 'Priority 1'))::text || '|' || pg_temp.hstat(h11b));
+  perform pg_temp.eng(h11b, v_rd2, 'bp_care_triage');
+  perform private.sweep_legacy_notice_holds();
+  perform pg_temp.rec('HOLD: once that reading''s event merges into the family the sweep confirms it', 'suppressed/bp_red/page_confirmed', pg_temp.hstat(h11b));
 
   -- 5k. switching off while a notice is held releases it at once
   h12 := pg_temp.member(v_org, v_admin, 'hold-switch-off');
@@ -435,6 +479,27 @@ begin
   execute v_orig;
   perform private.sweep_legacy_notice_holds();
   perform pg_temp.rec('...and once the sweep is back the overdue notice is released', v_n_clin::text, pg_temp.legacy_n(v_x)::text);
+  -- a release that FAILS for a row past its deadline raises the incident from the sweep itself, at once (not +120 s later)
+  v_orig := pg_get_functiondef('private.release_legacy_notice(uuid)'::regprocedure);
+  create or replace function private.release_legacy_notice(p_hold uuid) returns integer language plpgsql security definer set search_path = '' as $f$ begin raise exception 'simulated release failure'; end $f$;
+  x1 := pg_temp.member(v_org, v_admin, 'release-fails');
+  perform pg_temp.bp(x1, 170, 95);
+  perform pg_temp.due(x1);
+  perform private.sweep_legacy_notice_holds();
+  perform pg_temp.rec('a failing release past the deadline opens an incident from the sweep at once, the notice stays held and the failure is audited', '1|held/bp_red/-|1',
+    (select count(*)::text from public.ops_incidents where external_reference = 'legacy_notice_release_failed:' || (select id from public.legacy_notice_holds where patient_id = x1) and status not in ('resolved', 'closed')) || '|' || pg_temp.hstat(x1) || '|' ||
+    (select count(*)::text from public.audit_log where action = 'legacy_notice.sweep_error' and entity_id = (select id from public.legacy_notice_holds where patient_id = x1)));
+  execute v_orig;
+  perform private.sweep_legacy_notice_holds();
+  perform pg_temp.rec('...and the next pass releases it', v_n_clin || '|released/bp_red/no_page_in_time', pg_temp.legacy_n(x1) || '|' || pg_temp.hstat(x1));
+  -- the parallel-run measurement loop does not fail silently either
+  v_orig := pg_get_functiondef('private.legacy_hold_page(uuid)'::regprocedure);
+  create or replace function private.legacy_hold_page(p_hold uuid, out o_page uuid, out o_page_at timestamptz, out o_to uuid, out o_no_cover boolean, out o_ack boolean) returns record
+    language plpgsql stable security definer set search_path = '' as $f$ begin raise exception 'simulated lookup failure'; end $f$;
+  perform private.sweep_legacy_notice_holds();
+  perform pg_temp.rec('a failing measurement lookup is audited (phase measurement), not swallowed', 'true',
+    (exists (select 1 from public.audit_log where action = 'legacy_notice.sweep_error' and event ->> 'phase' = 'measurement'))::text);
+  execute v_orig;
 
   -- 6. Version 3: the emergency broadcast is retired too -----------------------------------------------------------------
   perform pg_temp.act(v_cmo);
@@ -468,6 +533,27 @@ begin
   e4 := pg_temp.member(v_org, v_admin, 'v3-other-emergencies');
   perform pg_temp.ee(e4, 'ai_coach');
   perform pg_temp.rec('version 3: other emergency sources are untouched (sent at once, nothing held)', v_n_clin || '|0', pg_temp.legacy_n(e4) || '|' || pg_temp.holds(e4));
+  -- the EMERGENCY window is much shorter than the red-level one, and an emergency is only held while the event bus is clearly alive
+  perform pg_temp.rec('version 3: an emergency hold waits 15 seconds, a red-level hold 60', '15|60',
+    (select extract(epoch from deadline_at - created_at)::integer::text from public.legacy_notice_holds where patient_id = e1) || '|' ||
+    (select extract(epoch from deadline_at - created_at)::integer::text from public.legacy_notice_holds where patient_id = h2));
+  perform pg_temp.hb(60);
+  x2 := pg_temp.member(v_org, v_admin, 'v3-em-stale-bus'); x3 := pg_temp.member(v_org, v_admin, 'v3-red-stale-bus');
+  perform pg_temp.bp_em(x2);
+  perform pg_temp.bp(x3, 170, 95);
+  perform pg_temp.rec('version 3: with the event bus 60 seconds quiet an emergency fires at once while a red-level notice is still held', v_n_clin || '|fired/bp_emergency/engine_stale|0|held/bp_red/-',
+    pg_temp.legacy_n(x2) || '|' || pg_temp.hstat(x2) || '|' || pg_temp.legacy_n(x3) || '|' || pg_temp.hstat(x3));
+  perform pg_temp.hb(0);
+  x4 := pg_temp.member(v_org, v_admin, 'v3-em-bus-dies');
+  perform pg_temp.bp_em(x4);
+  perform pg_temp.rec('version 3: an emergency is held while the bus is fresh', '0|held/bp_emergency/-', pg_temp.legacy_n(x4) || '|' || pg_temp.hstat(x4));
+  perform pg_temp.hb(60);
+  perform private.sweep_legacy_notice_holds();
+  perform pg_temp.rec('version 3: the bus goes quiet before any page: the sweep cannot confirm and sends the emergency notice now (before its 15 second deadline)', v_n_clin || '|released/bp_emergency/engine_stale',
+    pg_temp.legacy_n(x4) || '|' || pg_temp.hstat(x4));
+  perform pg_temp.hb(0);
+  perform pg_temp.due(x3);
+  perform private.sweep_legacy_notice_holds();
   e5 := pg_temp.mkuser(v_org, 'v3-free', 'patient');
   perform pg_temp.glu(e5, 2.5);
   perform pg_temp.rec('version 3: a Free patient glucose emergency keeps the emergency event, no alert, no broadcast, nothing held', '1|0|0|0',
@@ -502,6 +588,19 @@ begin
   perform public.sign_legacy_notice_retirement_config(4, true);
   perform pg_temp.back();
   perform pg_temp.rec('version 4 is live: the circle key reads 1, nothing is retired', '1,observe', coalesce(private.legacy_retire_rule('circle_notice_unified_page')::text, 'null') || ',' || private.legacy_notice_mode('bp_red'));
+  -- the predicate itself, on pages made directly: an emergency source is allowed only from an allow-list
+  x5 := pg_temp.member(v_org, v_admin, 'allow-1'); x6 := pg_temp.member(v_org, v_admin, 'allow-2'); x7 := pg_temp.member(v_org, v_admin, 'allow-3');
+  x8 := pg_temp.member(v_org, v_admin, 'allow-preg');
+  update public.profiles set is_pregnant = true where id = x8;
+  perform pg_temp.rec('circle: an emergency from an exposure report, an AI coach chat or an unknown origin is withheld; vitals and symptom sources are allowed (symptoms footprint-gated)',
+    'false,false,false,true,true,false,true',
+    private.page_circle_may_know(pg_temp.uni(x5, 'emergency_event', 'exposure_report'))::text || ',' ||
+    private.page_circle_may_know(pg_temp.uni(x6, 'emergency_event', 'ai_coach'))::text || ',' ||
+    private.page_circle_may_know(pg_temp.uni(x7, 'emergency_event', null))::text || ',' ||
+    private.page_circle_may_know(pg_temp.uni(pg_temp.member(v_org, v_admin, 'allow-4'), 'emergency_event', 'spo2_red_flag'))::text || ',' ||
+    private.page_circle_may_know(pg_temp.uni(pg_temp.member(v_org, v_admin, 'allow-5'), 'emergency_event', 'symptom_log'))::text || ',' ||
+    private.page_circle_may_know(pg_temp.uni(x8, 'emergency_event', 'symptom_log'))::text || ',' ||
+    private.page_circle_may_know(pg_temp.uni(pg_temp.member(v_org, v_admin, 'allow-6'), 'symptom_red_flag', 'symptom:chest_pain'))::text);
   c_gen := pg_temp.member(v_org, v_admin, 'circle-vitals-2'); s_gen := pg_temp.mkuser(v_org, 'sup-vitals-2', 'patient');
   insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at) values (v_org, c_gen, s_gen, 'Friend', array['red_alerts'], now() + interval '300 days');
   perform pg_temp.spo2(c_gen, 91);
@@ -713,9 +812,105 @@ begin
   perform pg_temp.symptom(c_preg, 'chest_pain', 8);
   perform pg_temp.sab('circle: a symptom red flag for a pregnant patient: the circle is told NOTHING (footprint branch)', '0', pg_temp.circle_n(s_preg)::text);
   execute v_orig;
+  -- S16: the emergency allow-list removed: an exposure-report emergency must then wrongly reach the circle
+  v_orig := pg_get_functiondef('private.page_circle_may_know(uuid)'::regprocedure);
+  if replace(v_orig, 'if v_basis = ''emergency_event'' and not coalesce(', 'if false and v_basis = ''emergency_event'' and not coalesce(') = v_orig then raise exception 'VACUOUS TEST: allow-list text not found'; end if;
+  execute replace(v_orig, 'if v_basis = ''emergency_event'' and not coalesce(', 'if false and v_basis = ''emergency_event'' and not coalesce(');
+  x5 := pg_temp.member(v_org, v_admin, 'sab-allow');
+  perform pg_temp.sab('circle: an emergency from an exposure report is withheld', 'false', private.page_circle_may_know(pg_temp.uni(x5, 'emergency_event', 'exposure_report'))::text);
+  execute v_orig;
+
+  -- the remaining sabotages run on version 2 / 3
+  perform pg_temp.act(v_cmo);
+  perform public.sign_legacy_notice_retirement_config(2, true);
+  perform pg_temp.back();
+
+  -- S15: the "this reading's own event exists" requirement removed: an open family alone would wrongly suppress
+  v_orig := pg_get_functiondef('private.legacy_notice_deferred(text,uuid,uuid,uuid,text,uuid,text,text,text,jsonb)'::regprocedure);
+  if replace(v_orig, 'and private.legacy_reading_has_red_event(', 'and true or private.legacy_reading_has_red_event(') = v_orig then raise exception 'VACUOUS TEST: family requirement text not found'; end if;
+  execute replace(v_orig, 'and private.legacy_reading_has_red_event(', 'and true or private.legacy_reading_has_red_event(');
+  x6 := pg_temp.member(v_org, v_admin, 'sab-family');
+  perform pg_temp.eng(x6, gen_random_uuid(), 'bp_care_triage');
+  perform pg_temp.sab('HOLD: an open family alone does NOT suppress a reading with no event of its own: it is held', 'true|held/bp_red/-',
+    private.legacy_notice_deferred('bp_red', v_org, x6, gen_random_uuid(), 'clinician_alerts', gen_random_uuid(), 'vitals_red_flag_clinician_alert', 'bp_vitals_red_flag', 'urgent_escalation', '{}'::jsonb)::text || '|' || pg_temp.hstat(x6));
+  execute v_orig;
+
+  -- S17: the immediate incident for a failing release renamed away
+  v_orig := pg_get_functiondef('private.sweep_legacy_notice_holds(boolean)'::regprocedure);
+  if replace(v_orig, '''legacy_notice_release_failed:'' || h.id', '''legacy_notice_release_failed_x:'' || h.id') = v_orig then raise exception 'VACUOUS TEST: incident text not found'; end if;
+  execute replace(v_orig, '''legacy_notice_release_failed:'' || h.id', '''legacy_notice_release_failed_x:'' || h.id');
+  v_orig2 := pg_get_functiondef('private.release_legacy_notice(uuid)'::regprocedure);
+  create or replace function private.release_legacy_notice(p_hold uuid) returns integer language plpgsql security definer set search_path = '' as $f$ begin raise exception 'simulated release failure'; end $f$;
+  x7 := pg_temp.member(v_org, v_admin, 'sab-release-fail');
+  perform pg_temp.bp(x7, 170, 95);
+  perform pg_temp.due(x7);
+  perform private.sweep_legacy_notice_holds();
+  perform pg_temp.sab('a failing release past the deadline opens an incident from the sweep at once', '1',
+    (select count(*)::text from public.ops_incidents where external_reference = 'legacy_notice_release_failed:' || (select id from public.legacy_notice_holds where patient_id = x7)));
+  execute v_orig2;
+  execute v_orig;
+  perform private.sweep_legacy_notice_holds();
+
+  -- S18: the measurement failure no longer logged
+  if replace(v_orig, '''phase'', ''measurement''', '''phase'', ''x''') = v_orig then raise exception 'VACUOUS TEST: measurement log text not found'; end if;
+  execute replace(v_orig, '''phase'', ''measurement''', '''phase'', ''x''');
+  v_orig2 := pg_get_functiondef('private.legacy_hold_page(uuid)'::regprocedure);
+  create or replace function private.legacy_hold_page(p_hold uuid, out o_page uuid, out o_page_at timestamptz, out o_to uuid, out o_no_cover boolean, out o_ack boolean) returns record
+    language plpgsql stable security definer set search_path = '' as $f$ begin raise exception 'simulated lookup failure'; end $f$;
+  x8 := pg_temp.member(v_org, v_admin, 'sab-measure');
+  perform pg_temp.bp_em(x8);
+  perform private.sweep_legacy_notice_holds();
+  perform pg_temp.sab('a failing measurement lookup is audited (phase measurement), not swallowed', 'true',
+    (exists (select 1 from public.audit_log where action = 'legacy_notice.sweep_error' and event ->> 'phase' = 'measurement'
+                and entity_id = (select id from public.legacy_notice_holds where patient_id = x8)))::text);
+  execute v_orig2;
+  execute v_orig;
+
+  -- S13 and S14 need version 3 and a quiet event bus
+  perform pg_temp.act(v_cmo);
+  perform public.sign_legacy_notice_retirement_config(3, true);
+  perform pg_temp.back();
+  perform pg_temp.hb(0);
+  -- S13: the emergency pre-check uses the long red-level heartbeat window: a BP crisis with a 60 second quiet bus would wrongly be held
+  v_orig := pg_get_functiondef('private.legacy_notice_deferred(text,uuid,uuid,uuid,text,uuid,text,text,text,jsonb)'::regprocedure);
+  if replace(v_orig, 'coalesce(private.legacy_retire_rule(''emergency_engine_fresh_seconds''), 30)', '120') = v_orig then raise exception 'VACUOUS TEST: emergency freshness text not found'; end if;
+  execute replace(v_orig, 'coalesce(private.legacy_retire_rule(''emergency_engine_fresh_seconds''), 30)', '120');
+  perform pg_temp.hb(60);
+  x1 := pg_temp.member(v_org, v_admin, 'sab-em-fresh');
+  perform pg_temp.bp_em(x1);
+  perform pg_temp.sab('version 3: with the event bus 60 seconds quiet an emergency fires at once', v_n_clin::text, pg_temp.legacy_n(x1)::text);
+  execute v_orig;
+  perform pg_temp.hb(0);
+  -- S14: the sweep no longer sends an emergency notice when the bus goes quiet
+  v_orig := pg_get_functiondef('private.sweep_legacy_notice_holds(boolean)'::regprocedure);
+  if replace(v_orig, 'or (v_emerg and not v_engine_ok) then', 'then') = v_orig then raise exception 'VACUOUS TEST: sweep emergency text not found'; end if;
+  execute replace(v_orig, 'or (v_emerg and not v_engine_ok) then', 'then');
+  x2 := pg_temp.member(v_org, v_admin, 'sab-em-bus-dies');
+  perform pg_temp.bp_em(x2);
+  perform pg_temp.hb(60);
+  perform private.sweep_legacy_notice_holds();
+  perform pg_temp.sab('version 3: the bus goes quiet before any page: the sweep sends the emergency notice now', v_n_clin::text, pg_temp.legacy_n(x2)::text);
+  execute v_orig;
+  perform pg_temp.hb(0);
+
   perform pg_temp.act(v_cmo);
   perform public.switch_off_legacy_notice_retirement();
   perform pg_temp.back();
+
+  -- S12: the parallel-run evidence gate removed: with no evidence a retiring version would wrongly be signed
+  update public.legacy_notice_retirement_config set activated_at = now() where version = 1;
+  delete from public.legacy_notice_holds where reason = 'proof_evidence';
+  v_orig := pg_get_functiondef('public.sign_legacy_notice_retirement_config(integer,boolean)'::regprocedure);
+  if replace(v_orig, 'if v_days < v_need_days or v_events < v_need_events then', 'if false then') = v_orig then raise exception 'VACUOUS TEST: evidence gate text not found'; end if;
+  perform pg_temp.act(v_cmo);
+  perform pg_temp.rec('with no evidence version 2 is refused again', '23514', pg_temp.try('select public.sign_legacy_notice_retirement_config(2, true)'));
+  perform pg_temp.back();
+  execute replace(v_orig, 'if v_days < v_need_days or v_events < v_need_events then', 'if false then');
+  perform pg_temp.act(v_cmo);
+  perform pg_temp.sab('with no evidence version 2 is refused again', '23514', pg_temp.try('select public.sign_legacy_notice_retirement_config(2, true)'));
+  perform public.switch_off_legacy_notice_retirement();
+  perform pg_temp.back();
+  execute v_orig;
 end $$;
 
 do $$
@@ -728,8 +923,8 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 11 then
-    raise exception 'VACUOUS TEST: only % of 11 sabotage steps changed the matching check: %', v_caught,
+  if v_caught < 18 then
+    raise exception 'VACUOUS TEST: only % of 18 sabotage steps changed the matching check: %', v_caught,
       (select string_agg(check_name, '; ') from results where phase = 'sabotaged' and expected = actual);
   end if;
 end $$;

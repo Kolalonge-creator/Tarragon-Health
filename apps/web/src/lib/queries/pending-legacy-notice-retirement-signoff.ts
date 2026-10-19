@@ -10,6 +10,10 @@ export type LegacyNoticeRules = {
   suppress_legacy_emergency_notice: number;
   circle_notice_unified_page: number;
   hold_seconds: number;
+  emergency_hold_seconds: number;
+  emergency_engine_fresh_seconds: number;
+  min_parallel_days: number;
+  min_parallel_events: number;
 };
 
 export type LegacyNoticeVersion = { version: number; rules: LegacyNoticeRules; description: string };
@@ -54,6 +58,10 @@ const KEYS: Array<keyof LegacyNoticeRules> = [
   "suppress_legacy_emergency_notice",
   "circle_notice_unified_page",
   "hold_seconds",
+  "emergency_hold_seconds",
+  "emergency_engine_fresh_seconds",
+  "min_parallel_days",
+  "min_parallel_events",
 ];
 
 /** Pure: a row's rules as whole numbers, or null when any value is missing or not a whole number (never guessed). */
@@ -79,7 +87,7 @@ export function describeLegacyNoticeRules(r: LegacyNoticeRules): string {
         ? "Emergency-level events are included."
         : "Emergency-level events keep their notify-everyone message.";
     parts.push(
-      `The notify-everyone message for ${retired.join(" and ")} is held for up to ${r.hold_seconds} seconds and dropped only once the on-call page for that same event exists and the paged clinician can be reached; otherwise it is sent. ${emergency}`,
+      `The notify-everyone message for ${retired.join(" and ")} is held for up to ${r.hold_seconds} seconds (${r.emergency_hold_seconds} for emergency-level events, and only while the event bus is alive) and dropped only once the on-call page for that same event exists and the paged clinician can be reached; otherwise it is sent. ${emergency} It can only be switched on after the parallel run has been on for ${r.min_parallel_days} days and measured ${r.min_parallel_events} real events.`,
     );
   } else if (r.observe === 1 && r.circle_notice_unified_page !== 1) {
     parts.push("Parallel run: nothing changes. Both messages are sent as today, and each event records whether and how quickly its page arrived.");

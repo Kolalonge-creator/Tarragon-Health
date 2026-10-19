@@ -53,12 +53,25 @@ create table public.legacy_notice_retirement_config (
   approved_at      timestamptz,
   approved_by      uuid references public.profiles (id) on delete set null,
   test_pack_confirmed_at timestamptz,
+  -- when this version was last switched on (the parallel-run evidence is measured from here)
+  activated_at     timestamptz,
   switched_off_at  timestamptz,
   switched_off_by  uuid references public.profiles (id) on delete set null,
   created_at       timestamptz not null default now(),
   constraint legacy_notice_retirement_config_live_needs_signature check (not is_active or approved_at is not null)
 );
 create unique index legacy_notice_retirement_config_one_active on public.legacy_notice_retirement_config (is_active) where is_active;
+
+create function private.legacy_notice_int_in(r jsonb, k text, lo integer, hi integer) returns boolean
+language plpgsql immutable set search_path = ''
+as $$
+begin
+  return (r ->> k) is not null and (r ->> k) ~ '^[0-9]{1,5}$' and (r ->> k)::integer between lo and hi;
+exception when others then
+  return false;
+end;
+$$;
+revoke all on function private.legacy_notice_int_in(jsonb, text, integer, integer) from public, anon, authenticated;
 
 create function private.legacy_notice_rules_valid(r jsonb) returns boolean
 language plpgsql immutable set search_path = ''
@@ -68,9 +81,12 @@ begin
   foreach k in array array['observe', 'suppress_legacy_bp_notice', 'suppress_legacy_glucose_notice', 'suppress_legacy_emergency_notice', 'circle_notice_unified_page'] loop
     if not coalesce((r ->> k) in ('0', '1'), false) then return false; end if;
   end loop;
-  -- how long a held notice waits for its page before it is released: 15 seconds to 5 minutes, a whole number
-  if (r ->> 'hold_seconds') is null or (r ->> 'hold_seconds') !~ '^[0-9]{2,3}$'
-     or (r ->> 'hold_seconds')::integer < 15 or (r ->> 'hold_seconds')::integer > 300 then return false; end if;
+  -- whole numbers within a range: how long a held notice waits for its page (15 s to 5 min); the much shorter wait for an EMERGENCY-level
+  -- notice (5 s to 2 min); how recent the event-bus heartbeat must be before an emergency notice is held at all (5 s to 2 min); the evidence a
+  -- retiring version needs from the parallel run (days switched on, real events measured)
+  if not private.legacy_notice_int_in(r, 'hold_seconds', 15, 300) or not private.legacy_notice_int_in(r, 'emergency_hold_seconds', 5, 120)
+     or not private.legacy_notice_int_in(r, 'emergency_engine_fresh_seconds', 5, 120) or not private.legacy_notice_int_in(r, 'min_parallel_days', 0, 90)
+     or not private.legacy_notice_int_in(r, 'min_parallel_events', 0, 10000) then return false; end if;
   return true;
 exception when others then
   return false;
@@ -102,16 +118,16 @@ create trigger legacy_notice_config_guard before update or delete on public.lega
 --   4  Care Circle is told about a unified red-event page (neutral notice, existing consent rules). Nothing retired.
 insert into public.legacy_notice_retirement_config (version, is_active, effective_from, rules) values
 (1, false, '2026-10-16', $json$
-{"observe": 1, "suppress_legacy_bp_notice": 0, "suppress_legacy_glucose_notice": 0, "suppress_legacy_emergency_notice": 0, "circle_notice_unified_page": 0, "hold_seconds": 60}
+{"observe": 1, "suppress_legacy_bp_notice": 0, "suppress_legacy_glucose_notice": 0, "suppress_legacy_emergency_notice": 0, "circle_notice_unified_page": 0, "hold_seconds": 60, "emergency_hold_seconds": 15, "emergency_engine_fresh_seconds": 30, "min_parallel_days": 7, "min_parallel_events": 20}
 $json$::jsonb),
 (2, false, '2026-10-16', $json$
-{"observe": 1, "suppress_legacy_bp_notice": 1, "suppress_legacy_glucose_notice": 1, "suppress_legacy_emergency_notice": 0, "circle_notice_unified_page": 0, "hold_seconds": 60}
+{"observe": 1, "suppress_legacy_bp_notice": 1, "suppress_legacy_glucose_notice": 1, "suppress_legacy_emergency_notice": 0, "circle_notice_unified_page": 0, "hold_seconds": 60, "emergency_hold_seconds": 15, "emergency_engine_fresh_seconds": 30, "min_parallel_days": 7, "min_parallel_events": 20}
 $json$::jsonb),
 (3, false, '2026-10-16', $json$
-{"observe": 1, "suppress_legacy_bp_notice": 1, "suppress_legacy_glucose_notice": 1, "suppress_legacy_emergency_notice": 1, "circle_notice_unified_page": 0, "hold_seconds": 60}
+{"observe": 1, "suppress_legacy_bp_notice": 1, "suppress_legacy_glucose_notice": 1, "suppress_legacy_emergency_notice": 1, "circle_notice_unified_page": 0, "hold_seconds": 60, "emergency_hold_seconds": 15, "emergency_engine_fresh_seconds": 30, "min_parallel_days": 7, "min_parallel_events": 20}
 $json$::jsonb),
 (4, false, '2026-10-16', $json$
-{"observe": 1, "suppress_legacy_bp_notice": 0, "suppress_legacy_glucose_notice": 0, "suppress_legacy_emergency_notice": 0, "circle_notice_unified_page": 1, "hold_seconds": 60}
+{"observe": 1, "suppress_legacy_bp_notice": 0, "suppress_legacy_glucose_notice": 0, "suppress_legacy_emergency_notice": 0, "circle_notice_unified_page": 1, "hold_seconds": 60, "emergency_hold_seconds": 15, "emergency_engine_fresh_seconds": 30, "min_parallel_days": 7, "min_parallel_events": 20}
 $json$::jsonb);
 -- legacy-notice-retirement-rules-end
 
@@ -212,6 +228,15 @@ $$;
 revoke all on function private.legacy_primary_reachable(uuid) from public, anon, authenticated;
 
 -- The page of THIS event: the red, non-shadow triage event of the same reading and pathway, and its root page (or the open family it merged into).
+create function private.legacy_reading_has_red_event(p_patient uuid, p_reading uuid, p_code text, p_test boolean) returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select exists (select 1 from public.triage_events te
+                  where te.patient_id = p_patient and te.trigger_type = 'observation' and te.trigger_id = p_reading
+                    and te.rule_set_code = p_code and te.grade = 'red' and not te.shadow and te.is_test = p_test)
+$$;
+revoke all on function private.legacy_reading_has_red_event(uuid, uuid, text, boolean) from public, anon, authenticated;
+
 create function private.legacy_hold_page(p_hold uuid, out o_page uuid, out o_page_at timestamptz, out o_to uuid, out o_no_cover boolean, out o_ack boolean)
 returns record
 language plpgsql stable security definer set search_path = ''
@@ -267,8 +292,10 @@ begin
     -- an event with no reading cannot be matched to a page, so there is nothing to wait for
     elsif p_reading is null then v_why := 'no_reading_id';
     elsif not exists (select 1 from public.triage_rule_sets rs where rs.code = v_code and rs.status = 'approved') then v_why := 'rule_set_not_approved';
+    -- an EMERGENCY-level notice needs a much fresher heartbeat than a red-level one before it is held at all
     elsif not exists (select 1 from public.paging_heartbeats b where b.component = 'process_events'
-                       and b.last_seen_at > now() - make_interval(secs => private.paging_delivery_rule('engine_heartbeat_stale_seconds'))) then v_why := 'engine_stale';
+                       and b.last_seen_at > now() - make_interval(secs => case when p_kind like '%\_emergency' then coalesce(private.legacy_retire_rule('emergency_engine_fresh_seconds'), 30)
+                                                                                else private.paging_delivery_rule('engine_heartbeat_stale_seconds') end)) then v_why := 'engine_stale';
     else
       v_to := private.page_recipient(p_org, v_test, p_patient);
       if v_to is null then v_why := 'no_cover';
@@ -283,14 +310,17 @@ begin
       return false;
     end if;
 
-    v_hold := coalesce(private.legacy_retire_rule('hold_seconds'), 60);
-    -- A repeat inside an open, unacknowledged family that is already ringing a reachable primary: nothing to wait for.
+    v_hold := case when p_kind like '%\_emergency' then coalesce(private.legacy_retire_rule('emergency_hold_seconds'), 15) else coalesce(private.legacy_retire_rule('hold_seconds'), 60) end;
+    -- A repeat inside an open, unacknowledged family that is already ringing a reachable primary, AND this reading's own red triage event already
+    -- exists (so its page is the family): nothing to wait for. An open family alone proves nothing about THIS reading, so without its own event
+    -- the notice is held and the sweep confirms it through the event's own page.
     select * into v_fam from public.pages
      where patient_id = p_patient and is_test = v_test and parent_page_id is null and closed_at is null and expired_at is null
        and acknowledged_at is null and not no_cover
        and sent_at > now() - make_interval(mins => private.paging_delivery_rule('merge_window_minutes'))
      order by sent_at desc limit 1;
-    if found and private.legacy_primary_reachable(v_fam.to_clinician_id) then
+    if found and private.legacy_primary_reachable(v_fam.to_clinician_id)
+       and private.legacy_reading_has_red_event(p_patient, p_reading, v_code, v_test) then
       insert into public.legacy_notice_holds (organisation_id, patient_id, kind, status, reading_id, rule_set_code, source_table, source_id, template, pathway, alert_level,
           payload_extra, config_version, is_test, decided_at, reason, page_id, page_at, page_lag_seconds, primary_reachable, measured_at)
       values (p_org, p_patient, p_kind, 'suppressed', p_reading, v_code, p_source_table, p_source, p_template, p_pathway, p_alert_level,
@@ -347,7 +377,7 @@ create function private.sweep_legacy_notice_holds(p_release_unconfirmed boolean 
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  h public.legacy_notice_holds%rowtype; pg record; v_reach boolean; v_n integer := 0; v_reason text; v_lag integer;
+  h public.legacy_notice_holds%rowtype; pg record; v_reach boolean; v_n integer := 0; v_reason text; v_lag integer; v_emerg boolean; v_engine_ok boolean;
 begin
   for h in select * from public.legacy_notice_holds where status = 'held' order by created_at limit 200 for update skip locked loop
     begin
@@ -355,6 +385,10 @@ begin
       v_reach := pg.o_page is not null and not coalesce(pg.o_no_cover, true)
                  and (coalesce(pg.o_ack, false) or private.legacy_primary_reachable(pg.o_to));
       v_lag := case when pg.o_page_at is not null then extract(epoch from pg.o_page_at - h.created_at)::integer end;
+      -- an EMERGENCY-level notice whose page has not appeared and whose event bus has gone quiet is sent now: the sweep cannot confirm it
+      v_emerg := h.kind like '%\_emergency';
+      v_engine_ok := exists (select 1 from public.paging_heartbeats b where b.component = 'process_events'
+                              and b.last_seen_at > now() - make_interval(secs => coalesce(private.legacy_retire_rule('emergency_engine_fresh_seconds'), 30)));
       if v_reach then
         update public.legacy_notice_holds set status = 'suppressed', decided_at = now(), reason = 'page_confirmed', page_id = pg.o_page, page_at = pg.o_page_at,
                page_lag_seconds = v_lag, primary_reachable = true, measured_at = now() where id = h.id;
@@ -362,8 +396,10 @@ begin
           values (h.organisation_id, null, 'legacy_notice.suppressed', 'legacy_notice', h.id, jsonb_build_object('kind', h.kind, 'page_id', pg.o_page, 'lag_seconds', v_lag));
         v_n := v_n + 1;
       -- a page exists but cannot be confirmed (no cover, or its primary cannot be reached): waiting would only delay the older notice, send it now
-      elsif p_release_unconfirmed or pg.o_page is not null or h.deadline_at <= now() or private.legacy_notice_mode(h.kind) <> 'hold' then
+      elsif p_release_unconfirmed or pg.o_page is not null or h.deadline_at <= now() or private.legacy_notice_mode(h.kind) <> 'hold'
+            or (v_emerg and not v_engine_ok) then
         v_reason := case when p_release_unconfirmed or private.legacy_notice_mode(h.kind) <> 'hold' then 'switched_off'
+                         when pg.o_page is null and v_emerg and not v_engine_ok and h.deadline_at > now() then 'engine_stale'
                          when pg.o_page is null then 'no_page_in_time'
                          when coalesce(pg.o_no_cover, true) then 'page_no_cover'
                          else 'primary_unreachable' end;
@@ -375,7 +411,16 @@ begin
         v_n := v_n + 1;
       end if;
     exception when others then
-      -- The row stays held and is retried on the next pass; the health job opens an incident when it is overdue. Audited at most once an hour per row.
+      -- The row stays held and is retried on the next pass. Audited at most once an hour per row, and a row already past its deadline raises the
+      -- incident NOW (the health job's overdue check is only the second line).
+      if h.deadline_at <= now() then
+        begin
+          perform private.page_incident(h.organisation_id, 'legacy_notice_release_failed:' || h.id, 'A held clinician notice could not be released',
+            'A held red-event clinician notice is past its deadline and sending it failed (' || sqlerrm || '). Phone the on-call clinician for any open case and check audit_log action legacy_notice.sweep_error.');
+        exception when others then
+          raise warning 'legacy notice release failure and its incident both failed for %: %', h.id, sqlerrm;
+        end;
+      end if;
       if not exists (select 1 from public.audit_log a where a.action = 'legacy_notice.sweep_error' and a.entity_id = h.id and a.created_at > now() - interval '1 hour') then
         insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
           values (h.organisation_id, 'legacy_notice.sweep_error', 'legacy_notice', h.id, jsonb_build_object('error', sqlerrm));
@@ -396,7 +441,11 @@ begin
         update public.legacy_notice_holds set measured_at = now(), reason = 'no_page_seen' where id = h.id;
       end if;
     exception when others then
-      null; -- measurement only; the row is tried again next pass
+      -- measurement only (nothing is held or sent), tried again next pass; but never silent: audited at most once an hour per row
+      if not exists (select 1 from public.audit_log a where a.action = 'legacy_notice.sweep_error' and a.entity_id = h.id and a.created_at > now() - interval '1 hour') then
+        insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+          values (h.organisation_id, 'legacy_notice.sweep_error', 'legacy_notice', h.id, jsonb_build_object('error', sqlerrm, 'phase', 'measurement'));
+      end if;
     end;
   end loop;
   return v_n;
@@ -431,7 +480,7 @@ revoke all on function private.legacy_notice_health() from public, anon, authent
 create function public.sign_legacy_notice_retirement_config(p_version integer, p_test_pack_run boolean) returns void
 language plpgsql security definer set search_path = ''
 as $$
-declare c public.legacy_notice_retirement_config%rowtype; v_uid uuid; v_retires boolean;
+declare c public.legacy_notice_retirement_config%rowtype; v_uid uuid; v_retires boolean; v_days numeric; v_events bigint; v_need_days integer; v_need_events integer;
 begin
   v_uid := private.uid_or_deny();
   if not private.credential_is_cmo() then raise exception 'only the chief medical officer can switch legacy notice retirement on' using errcode = '42501'; end if;
@@ -441,15 +490,23 @@ begin
   if c.is_active then raise exception 'that version is already on' using errcode = '23514'; end if;
   v_retires := (c.rules ->> 'suppress_legacy_bp_notice') = '1' or (c.rules ->> 'suppress_legacy_glucose_notice') = '1' or (c.rules ->> 'suppress_legacy_emergency_notice') = '1';
   -- Retiring a broadcast needs a parallel run first: an observe-only version (nothing retired) must have been switched on at some time.
-  if v_retires and not exists (select 1 from public.legacy_notice_retirement_config o
-                                where o.approved_at is not null and (o.rules ->> 'observe') = '1'
-                                  and (o.rules ->> 'suppress_legacy_bp_notice') = '0' and (o.rules ->> 'suppress_legacy_glucose_notice') = '0'
-                                  and (o.rules ->> 'suppress_legacy_emergency_notice') = '0') then
-    raise exception 'run the parallel-run version (nothing retired) first, and look at the measurement, before retiring a broadcast' using errcode = '23514';
+  if v_retires then
+    -- A retiring version needs real evidence from a parallel run (an observe-only version): switched on for at least min_parallel_days and with at
+    -- least min_parallel_events real (non-test) events measured. The numbers are the version's own PROPOSED values.
+    v_need_days := (c.rules ->> 'min_parallel_days')::integer; v_need_events := (c.rules ->> 'min_parallel_events')::integer;
+    select coalesce(max(extract(epoch from coalesce(o.switched_off_at, now()) - o.activated_at) / 86400.0), 0) into v_days
+      from public.legacy_notice_retirement_config o
+     where o.activated_at is not null and (o.rules ->> 'observe') = '1' and (o.rules ->> 'suppress_legacy_bp_notice') = '0'
+       and (o.rules ->> 'suppress_legacy_glucose_notice') = '0' and (o.rules ->> 'suppress_legacy_emergency_notice') = '0';
+    select count(*) into v_events from public.legacy_notice_holds where status = 'observed' and measured_at is not null and not is_test;
+    if v_days < v_need_days or v_events < v_need_events then
+      raise exception 'run the parallel-run version first: it has been on for % of the % days required and has measured % of the % real events required before a broadcast can be retired',
+        round(v_days, 1), v_need_days, v_events, v_need_events using errcode = '23514';
+    end if;
   end if;
   update public.legacy_notice_retirement_config set is_active = false where is_active and version <> p_version;
   update public.legacy_notice_retirement_config
-     set approved_at = coalesce(approved_at, now()), approved_by = coalesce(approved_by, v_uid), test_pack_confirmed_at = now(),
+     set approved_at = coalesce(approved_at, now()), approved_by = coalesce(approved_by, v_uid), test_pack_confirmed_at = now(), activated_at = now(),
          is_active = true, switched_off_at = null, switched_off_by = null
    where version = p_version;
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
@@ -556,8 +613,11 @@ begin
   -- Vitals-origin (oxygen, pulse, temperature, and their emergency events) carry no reproductive content. Everything else is treated as a
   -- symptom: an unknown origin is withheld, never guessed.
   v_vitals := v_basis in ('spo2_red', 'pulse_red', 'temperature_red')
-              or (v_basis = 'emergency_event' and v_origin in ('spo2_red_flag', 'temperature_red_flag', 'pulse_red_flag'));
+              or (v_basis = 'emergency_event' and v_origin in ('spo2_red_flag', 'temperature_red_flag', 'pulse_red_flag', 'bp_reading', 'glucose_red_flag'));
   if v_vitals then return true; end if;
+  -- ALLOW-LIST for emergency events: only the three symptom-type sources may continue (to the footprint test below). Any other emergency source
+  -- (pregnancy checklist, exposure report, AI coach, support ticket, a new one added later) is withheld, never guessed.
+  if v_basis = 'emergency_event' and not coalesce(v_origin = any (array['symptom_log', 'symptom_triage', 'danger_symptom_checklist']), false) then return false; end if;
   if not (v_basis = 'symptom_red_flag' or v_basis = 'emergency_event') or v_origin is null then return false; end if;
   if v_origin in ('symptom:testicular_pain', 'symptom:testicular_lump') then return false; end if;
   -- symptom-origin: withheld for any pregnancy or reproductive-health footprint (the existence of the page must not reveal it)

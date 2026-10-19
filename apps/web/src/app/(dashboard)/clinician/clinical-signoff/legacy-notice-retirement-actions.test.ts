@@ -66,7 +66,7 @@ describe("switching it off", () => {
 });
 
 describe("version rules", () => {
-  const base = { observe: 1, suppress_legacy_bp_notice: 0, suppress_legacy_glucose_notice: 0, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 0, hold_seconds: 60 };
+  const base = { observe: 1, suppress_legacy_bp_notice: 0, suppress_legacy_glucose_notice: 0, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 };
   it("reads whole numbers only and never guesses a missing value", () => {
     expect(parseLegacyNoticeRules(base)).toEqual(base);
     expect(parseLegacyNoticeRules({ ...base, hold_seconds: "60" })).toBeNull();

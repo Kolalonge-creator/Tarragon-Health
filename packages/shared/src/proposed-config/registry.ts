@@ -1218,13 +1218,16 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // also covers emergency-level events (blood pressure crisis, glucose emergency). circle_notice_unified_page: 1 = a neutral check-in
     // notice also goes to Care Circle members who allowed red alerts when the page is a unified page (never for a symptom event when the patient
     // has a pregnancy or reproductive-health record). hold_seconds: how long a held message waits for its page before it is sent.
+    // emergency_hold_seconds: the much shorter wait for an EMERGENCY-level message; emergency_engine_fresh_seconds: how recent the event-bus
+    // heartbeat must be to hold an emergency message at all (older: sent at once). min_parallel_days / min_parallel_events: the evidence a
+    // retiring version needs from the parallel run (days switched on, real events measured) before it can be signed.
     // Version 1 = parallel run. 2 = retire red-level BP and glucose. 3 = 2 plus emergency-level. 4 = Care Circle notice only.
     value: {
       versions: {
-        "1": { observe: 1, suppress_legacy_bp_notice: 0, suppress_legacy_glucose_notice: 0, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 0, hold_seconds: 60 },
-        "2": { observe: 1, suppress_legacy_bp_notice: 1, suppress_legacy_glucose_notice: 1, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 0, hold_seconds: 60 },
-        "3": { observe: 1, suppress_legacy_bp_notice: 1, suppress_legacy_glucose_notice: 1, suppress_legacy_emergency_notice: 1, circle_notice_unified_page: 0, hold_seconds: 60 },
-        "4": { observe: 1, suppress_legacy_bp_notice: 0, suppress_legacy_glucose_notice: 0, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 1, hold_seconds: 60 },
+        "1": { observe: 1, suppress_legacy_bp_notice: 0, suppress_legacy_glucose_notice: 0, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+        "2": { observe: 1, suppress_legacy_bp_notice: 1, suppress_legacy_glucose_notice: 1, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+        "3": { observe: 1, suppress_legacy_bp_notice: 1, suppress_legacy_glucose_notice: 1, suppress_legacy_emergency_notice: 1, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+        "4": { observe: 1, suppress_legacy_bp_notice: 0, suppress_legacy_glucose_notice: 0, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 1, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
       },
     },
     owner: "CMO",
