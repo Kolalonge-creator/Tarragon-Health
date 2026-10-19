@@ -18,6 +18,9 @@ import {
 } from "@/lib/validation/lab-result-documents";
 
 type DocumentSource = Database["public"]["Enums"]["lab_result_document_source"];
+/** SQLSTATEs public.replace_my_result_document raises before it writes anything. */
+const REPLACE_REFUSAL_CODES: ReadonlySet<string> = new Set(["28000", "42501", "55000", "22023"]);
+
 export type ResultUploadResult = {
   error?: string;
   success?: boolean;
@@ -362,19 +365,15 @@ export async function uploadResultDocumentAsPatient(
 }
 
 /**
- * A patient replaces a result document they uploaded themselves — "I
- * attached the wrong file." Updates the SAME row in place (never a
- * delete+reinsert): the insert trigger's clinician_alerts row stays pointed
- * at something real, rather than orphaning. DB-enforced, not just an app
- * check — 20260912220345_lab_result_documents_patient_self_replace.sql
- * gives the patient a narrow UPDATE policy (their own row, source =
- * 'patient', reviewed_at is null) and teaches the immutability trigger to
- * let file_path move under exactly that condition; everything below is
- * defence in depth plus the parts the DB can't do (storage, re-extraction).
- *
- * Once reviewed, a doctor has already acted on the original file — the DB
- * itself refuses the update at that point, so this returns early with a
- * clear message instead of letting a silent no-op reach storage.
+ * A patient replaces a result document they uploaded themselves ("I
+ * attached the wrong file"). The original is SUPERSEDED, never edited: the
+ * database function public.replace_my_result_document inserts a new document
+ * row, links the two (supersedes_document_id / superseded_by_document_id),
+ * keeps the old row and its stored file, and hands the open review alert to
+ * the new document in one transaction, so an abnormal-result review is never
+ * lost or doubled. Allowed only for the patient's own unreviewed upload, i.e.
+ * before any clinician relied on the file; the function refuses anything else.
+ * The checks below only produce a clearer message than the database error.
  */
 export async function replaceResultDocumentAsPatient(
   formData: FormData,
@@ -414,7 +413,6 @@ export async function replaceResultDocumentAsPatient(
     return { error: "Your care team has already reviewed this one — message them instead." };
   }
 
-  const oldPath = doc.file_path;
   const ext = EXT_BY_MIME[file.type] ?? "bin";
   const path = `${user.id}/${randomUUID()}.${ext}`;
 
@@ -423,38 +421,32 @@ export async function replaceResultDocumentAsPatient(
     .upload(path, file, { contentType: file.type, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
-  const { error: updateError } = await supabase
-    .from("lab_result_documents")
-    .update({
-      file_path: path,
-      original_filename: file.name,
-      mime_type: file.type,
-      file_size_bytes: file.size,
-      // Omitted (rather than set to null) when the patient didn't type a new
-      // one — a partial update, so the existing note survives untouched.
-      ...(note ? { note } : {}),
-      ai_summary_status: "pending",
-      ai_summary_generated_at: null,
-    })
-    .eq("id", documentId);
-  if (updateError) {
-    // The DB-enforced gate (RLS + the immutability trigger) is what actually
-    // rejects a reviewed/foreign/non-patient-source row — the checks above are
-    // just for a clearer message. Roll back the newly-uploaded object either way.
-    await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
-    return { error: updateError.message };
+  // Supersede, never edit: one SECURITY DEFINER function inserts the new document, links both ways, keeps the old row and its file,
+  // and hands the open clinician alert over to the new document (see 20261016*_supersede_patient_result_document_replace.sql).
+  const { data: newDocumentId, error: replaceError } = await supabase.rpc("replace_my_result_document", {
+    p_document_id: documentId,
+    p_file_path: path,
+    p_original_filename: file.name,
+    p_mime_type: file.type,
+    p_file_size_bytes: file.size,
+    ...(note ? { p_note: note } : {}),
+  });
+  if (replaceError || !newDocumentId) {
+    // Remove the object just uploaded only when the database clearly refused (not yours, reviewed or already replaced, bad path). On any
+    // other failure (a timeout, a dropped response) the replace may have committed, and deleting the file would leave a document row
+    // pointing at nothing; an orphaned object is the harmless side to err on. The original document and its file are never touched.
+    if (replaceError && REPLACE_REFUSAL_CODES.has(replaceError.code)) {
+      await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
+    }
+    return { error: replaceError?.message ?? "Could not replace that upload." };
   }
 
-  // The old file is no longer referenced by any row — remove it. Best-effort:
-  // the replacement has already succeeded, so a cleanup failure here is a
-  // storage-hygiene issue, not a reason to tell the patient anything failed.
-  await supabase.storage.from(RESULT_DOC_BUCKET).remove([oldPath]);
+  // The old file is deliberately KEPT: the superseded document is part of the record, hidden from the patient's list but not deleted.
 
-  // Re-read the new file into structured values, same as a fresh upload —
-  // upserts onto the same document_id, so the old extraction is replaced
-  // rather than left stale.
+  // Read the new file into structured values, same as a fresh upload. It runs against the NEW document, so the escalation bridge
+  // raises the priority of the new document's alert (the one the replace handed over), not the superseded one.
   await runLabReportExtraction(createServiceRoleClient(), {
-    documentId,
+    documentId: newDocumentId,
     organisationId: doc.organisation_id,
     patientId: user.id,
     filePath: path,
