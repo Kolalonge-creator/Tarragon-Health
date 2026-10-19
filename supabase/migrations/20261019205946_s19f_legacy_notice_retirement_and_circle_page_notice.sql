@@ -702,6 +702,21 @@ end
 $patch$;
 
 -- ---------------------------------------------------------------------------
+-- 7b. The one patient-keyed table is registered in the S39d data registry (default classification, awaiting CMO and DPO review), as S58 did.
+--     Idempotent: a table already registered is left alone.
+-- ---------------------------------------------------------------------------
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes)
+select t.table_name,
+       'patient_id',
+       private.retention_class_for(t.table_name),
+       case when private.retention_class_for(t.table_name) = 'operational' then 'delete' else 'review' end,
+       private.retention_class_for(t.table_name) <> 'audit',
+       'Registered with the default S39d classification when S19f was added; awaiting review.'
+  from unnest(array['legacy_notice_holds']) as t(table_name)
+ where to_regclass('public.' || t.table_name) is not null
+on conflict (table_name) do nothing;
+
+-- ---------------------------------------------------------------------------
 -- 8. Self-checks
 -- ---------------------------------------------------------------------------
 do $check$

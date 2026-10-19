@@ -323,17 +323,25 @@ begin
   perform pg_temp.act(v_cmo);
   perform public.switch_off_legacy_notice_retirement();
   -- a retiring version needs the parallel run to have been on for min_parallel_days AND to have measured min_parallel_events real events, with a clear reason
+  perform pg_temp.back();
+  perform pg_temp.act(v_cmo);
   v_h := pg_temp.msg('select public.sign_legacy_notice_retirement_config(2, true)');
+  perform pg_temp.back();
   perform pg_temp.rec('version 2 is refused with no evidence, and the CMO is told why (days and events)', 'true', (v_h like '%on for 0.0 of the 7 days%' and v_h like '%measured 0 of the 20 real events%')::text);
   update public.legacy_notice_retirement_config set activated_at = now() - interval '8 days' where version = 1;
+  perform pg_temp.act(v_cmo);
   v_h := pg_temp.msg('select public.sign_legacy_notice_retirement_config(2, true)');
+  perform pg_temp.back();
   perform pg_temp.rec('version 2 is still refused with enough days but too few real events (test patients do not count)', 'true', (v_h like '%on for 8.0 of the 7 days%' and v_h like '%measured 0 of the 20%')::text);
   insert into public.legacy_notice_holds (organisation_id, patient_id, kind, status, reading_id, rule_set_code, source_table, template, pathway, alert_level, is_test, decided_at, fired_at, reason, measured_at)
     select v_org, a1, 'bp_red', 'observed', gen_random_uuid(), 'bp_care_triage', 'clinician_alerts', 'vitals_red_flag_clinician_alert', 'bp_vitals_red_flag', 'urgent_escalation', false, now(), now(), 'proof_evidence', now()
       from generate_series(1, 19);
+  perform pg_temp.act(v_cmo);
   perform pg_temp.rec('version 2 is refused with 19 of 20 real events', '23514', pg_temp.try('select public.sign_legacy_notice_retirement_config(2, true)'));
+  perform pg_temp.back();
   insert into public.legacy_notice_holds (organisation_id, patient_id, kind, status, reading_id, rule_set_code, source_table, template, pathway, alert_level, is_test, decided_at, fired_at, reason, measured_at)
     values (v_org, a1, 'bp_red', 'observed', gen_random_uuid(), 'bp_care_triage', 'clinician_alerts', 'vitals_red_flag_clinician_alert', 'bp_vitals_red_flag', 'urgent_escalation', false, now(), now(), 'proof_evidence', now());
+  perform pg_temp.act(v_cmo);
   perform pg_temp.rec('version 2 can now be signed (a parallel run has been live long enough and measured enough real events)', 'ok', pg_temp.try('select public.sign_legacy_notice_retirement_config(2, true)'));
   perform pg_temp.back();
   perform pg_temp.rec('version 2: BP red holds, glucose emergency and BP emergency only observe (separate emergency key is 0)', 'hold,observe,observe',
