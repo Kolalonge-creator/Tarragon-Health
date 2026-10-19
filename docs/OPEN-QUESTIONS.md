@@ -4230,6 +4230,12 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 | OQ-370 | 2737, Device capabilities need the CMO and an admin before anything switches on (raised by S70a) |
 | OQ-371 | 2741, Go-live uses `platform_modules`, not `go_live_guards` (raised by S70a) |
 
+### OQ-707 Share extras: mobile screen, and whether a label should ever gate access (raised by the share-extras build, 2026-10-19)
+- The recipient label is a label only. Anyone holding the link (and the PIN, if one was set) can open it; the label does not check who opens it. The page says so. If you want the doctor to prove who they are, that is a different, larger feature.
+- The phone app's share screen does not have the three new fields yet; it can still create a plain share.
+- The date window trims vitals and lab results only (the other sections have no time dimension that matters to a visit).
+- Options: (a) leave as is (recommended), (b) build the phone fields next.
+- Decision: open.
 ### OQ-701 Who may read the audit log directly (raised by the audit_log narrowing)
 - Done: `audit_log` is directly readable only by its own actor and by admins. Org staff, tied clinicians and the CMO account lost the organisation-wide read; the screens they use read through SECURITY DEFINER functions that self-gate.
 - Open 1: should the CMO or a clinical-governance reviewer have a scoped direct read (for example by action prefix) instead of only the S20 sampling RPCs?

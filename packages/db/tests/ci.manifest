@@ -1297,3 +1297,5 @@ s19e_native_page_receipts.sql
 # --- Added 2026-10-16 (hardening: audit_log SELECT narrowed to own rows + admin) ---
 audit_log_select_narrowed.sql
 bp_cuffless_estimates_never_diagnostic.sql
+# Record share extras: recipient label, view cap (1 to 50, the fourth open of a three-view link is refused like any dead link, peek too), date window (30/90/180 days drops older readings), options door refuses bad input and anon; pin_hash stays unreadable; the original create door still works. Sabotage: the cap and the window each removed; both must flip.
+record_share_recipient_views_window.sql
