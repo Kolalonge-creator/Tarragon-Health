@@ -924,6 +924,7 @@ s29_care_circle.sql
 # S29b: a gifted Membership or care pack waits for the patient's yes. Paid but pending: order.paid carries care_pack false and gift_pending true, no Membership starts, no lead is asked for, the patient is asked once and the payer sees nothing; only the patient can answer; accept starts the Membership from the yes and asks for a lead exactly once under its own key; decline closes it, starts nothing and opens a finance incident to refund the payer (payer not told); an unanswered gift is swept as declined after the configured days; buying for yourself is unchanged. Sabotage: the patient check and the gift detection each removed; both must flip.
 s29b_gifted_care_pack.sql
 s29c_care_circle_followup.sql
+s29e_care_circle_reach_and_checkin_window.sql
 # S39: catalog-wide security sweep over every table and role. RLS on for all tables in public/private/analytics; anon grants and anon EXECUTE only on the reviewed lists; every SECURITY DEFINER pins search_path; only reviewed views run as owner and none is anon-readable; only reviewed public buckets; a stranger of each role (patient, clinician, care coordinator, finance) and anon read zero rows from every patient_id table. Sabotage: RLS off, an anon function, an owner view and an open policy; all four must flip.
 s39_security_catalog.sql
 # S39 round 1: failed guesses on the emergency-card and record-share doors are counted per hour (no token stored) and alarm once at the configured threshold; valid lookups add nothing and still open; anon cannot read or call the counter. REGRESSION: a share with all seven sections opens (the vitals and lab sections used to fail on a renamed column and a non-existent enum value). Sabotage: counter call removed, bad column restored; both must flip.
@@ -1294,5 +1295,13 @@ build_vitals_triage_wiring.sql
 build_vitals_shadow_divergence.sql
 # Vitals rule set: one page for one dangerous reading. The engine's red result and the unified legacy event for the SAME reading are one page even after the first was acknowledged; another reading, a worse level, another metric, a closed page and a claim older than the window still page; the emergency event shares the engine's emergency key; a shadow result, a Free patient and a blood pressure result carry no claim; the claim table is closed to staff writes; the S19d edit of create_red_page survives. Sabotage: the key function returning nothing (the acknowledged duplicate pages twice) and the claims wiped; both must flip.
 build_red_page_dedupe_key.sql
+# Task queue gaps OQ-432/433/435: a Member's symptom-check review is ONE symptom_review task (Free keeps the alert, a task that cannot be made falls back to the alert with an audit row and incident); pharmacy_flag_review requires prescribing, admin_clinical only for the prescription subtype; a lead or pushed doctor who lacks a required competency is skipped with the reason on the transition. Sabotage: the lead check, the pushed-doctor check, the prescribing rule and the task producer each removed; each must flip.
+task_queue_gaps_oq432_433_435.sql
 # S19e native page receipts: a live native (ios/android, Expo token) push subscription with a push receipt confirms a mobile-only clinician route (90 s early window); no subscription or a disabled one does not; page_channel_ready defaults false; the function is not executable by anon or authenticated. Sabotage: the web-only definition must flip the native check.
 s19e_native_page_receipts.sql
+
+# --- Added 2026-10-16 (hardening: audit_log SELECT narrowed to own rows + admin) ---
+audit_log_select_narrowed.sql
+bp_cuffless_estimates_never_diagnostic.sql
+# Record share extras: recipient label, view cap (1 to 50, the fourth open of a three-view link is refused like any dead link, peek too), date window (30/90/180 days drops older readings), options door refuses bad input and anon; pin_hash stays unreadable; the original create door still works. Sabotage: the cap and the window each removed; both must flip.
+record_share_recipient_views_window.sql

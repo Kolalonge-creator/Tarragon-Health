@@ -21,6 +21,8 @@ interface NavDrawerProps {
   onSignOut: () => void;
   /** Sections to leave out of the menu for this account (for example Community while it is not open). */
   hiddenSections?: readonly SectionId[];
+  /** A small count on a menu tile (S29e: people who need a supporter's attention, the backup for the push). Zero or missing shows nothing. */
+  badges?: Partial<Record<SectionId, number>>;
 }
 
 /**
@@ -30,7 +32,7 @@ interface NavDrawerProps {
  * duplicates it. The section names and band names still come from lib/sections.ts
  * and the older translator (useT); only the drawer's own words are new keys.
  */
-export function NavDrawer({ visible, activeSection, patientName, patientNumber, initials, onSelect, onClose, onSignOut, hiddenSections = [] }: NavDrawerProps) {
+export function NavDrawer({ visible, activeSection, patientName, patientNumber, initials, onSelect, onClose, onSignOut, hiddenSections = [], badges = {} }: NavDrawerProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const locale = asLocale(useUiLanguage());
@@ -55,6 +57,8 @@ export function NavDrawer({ visible, activeSection, patientName, patientNumber, 
           section={section.id}
           label={tr(section.label)}
           active={section.id === activeSection}
+          badge={badges[section.id] ?? 0}
+          a11yBadge={(n) => label("drawer.badge_a11y", { label: tr(section.label), count: n })}
           onPress={() => onSelect(section.id)}
         />
       ))}
@@ -153,14 +157,14 @@ export function NavDrawer({ visible, activeSection, patientName, patientNumber, 
   );
 }
 
-function Tile({ section, label, active, onPress }: { section: SectionId; label: string; active: boolean; onPress: () => void }) {
+function Tile({ section, label, active, onPress, badge = 0, a11yBadge }: { section: SectionId; label: string; active: boolean; onPress: () => void; badge?: number; a11yBadge?: (n: number) => string }) {
   const { colors } = useTheme();
   const Glyph = SECTION_ICONS[section];
   return (
     <PressableScale
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={badge > 0 && a11yBadge ? a11yBadge(badge) : label}
       accessibilityState={{ selected: active }}
       style={{ width: "33.33%", alignItems: "center", gap: space.xs }}
     >
@@ -175,6 +179,11 @@ function Tile({ section, label, active, onPress }: { section: SectionId; label: 
         }}
       >
         <Glyph size={22} color={active ? colors.brandText : colors.text} strokeWidth={2} accessibilityElementsHidden importantForAccessibility="no" />
+        {badge > 0 ? (
+          <View style={{ position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.dangerBg, borderWidth: 1, borderColor: colors.dangerText, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 }} accessibilityElementsHidden importantForAccessibility="no">
+            <AppText variant="caption" style={{ color: colors.dangerText }}>{badge > 9 ? "9+" : String(badge)}</AppText>
+          </View>
+        ) : null}
       </View>
       <AppText variant={active ? "label" : "caption"} tone={active ? "brandText" : "text"} align="center" numberOfLines={3}>
         {label}

@@ -9,6 +9,7 @@
 export * from "./ml-client";
 export * from "./ai-coach-types";
 export * from "./device-readings";
+export * from "./bp-estimate";
 export * from "./health-record";
 export * from "./onboarding-answers";
 export * from "./clinical-config";

@@ -43,3 +43,11 @@ fdbb56df4666f5c499053c92898c6348f3544dfb:apps/mobile/ios/Podfile.lock:generic-ap
 # The first wording of the comment above quoted that identifier and tripped the same rule in two commits; reviewed, same reason.
 b6e4c1fe34c5b46a559228c6cfbee56e2b3cf736:.gitleaksignore:generic-api-key:37
 ea8e2dec61eb8efdaaad925aa4f2363d2aaf02a0:.gitleaksignore:generic-api-key:37
+
+# S47 go-live guard: more findings in the commits that introduced the guard name risk_instrument_who2019_enabled, the guard
+# description text, and the s46c proof's placeholder consent key. Reviewed: identifiers and prose, no credentials.
+22d9b2f3562f190c46e77bd8e00b20f3eb632109:apps/web/src/lib/cv-risk/assess.ts:generic-api-key:142
+22d9b2f3562f190c46e77bd8e00b20f3eb632109:packages/db/tests/s46c_caregiver_report_read.sql:generic-api-key:321
+22d9b2f3562f190c46e77bd8e00b20f3eb632109:supabase/migrations/20261008030051_s47_go_live_conditions_for_clinical_guards.sql:generic-api-key:110
+22d9b2f3562f190c46e77bd8e00b20f3eb632109:supabase/migrations/20261008030051_s47_go_live_conditions_for_clinical_guards.sql:generic-api-key:22
+e3e886808493c59871ca8099be0ffc2fa29f9a0f:supabase/migrations/20261008030051_s47_go_live_conditions_for_clinical_guards.sql:generic-api-key:22
