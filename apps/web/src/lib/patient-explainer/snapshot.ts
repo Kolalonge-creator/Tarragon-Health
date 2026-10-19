@@ -194,11 +194,13 @@ export async function buildResultSnapshot(
   // is a plain caller-supplied string (patient-facing, not narrowed to the
   // vital_type enum at the type level) -- cast at the query boundary, same
   // as every other "search by a caller-supplied key" read in this file.
-  const { data } = await supabase
+  const vitalsBase = supabase
     .from("vitals_readings")
     .select("systolic, diastolic, pulse_bpm, glucose_mmol_l, weight_kg, spo2_pct, temperature_c, taken_at")
     .eq("patient_id", patientId)
-    .eq("vital_type", subjectKey as Database["public"]["Enums"]["vital_type"])
+    .eq("vital_type", subjectKey as Database["public"]["Enums"]["vital_type"]);
+  // A wearable (cuffless) blood pressure estimate is never the reading the assistant explains as the latest.
+  const { data } = await (subjectKey === "blood_pressure" ? vitalsBase.neq("source", "wearable") : vitalsBase)
     .order("taken_at", { ascending: false })
     .limit(2);
   if (!data || data.length === 0) return null;

@@ -1296,3 +1296,4 @@ s19e_native_page_receipts.sql
 
 # --- Added 2026-10-16 (hardening: audit_log SELECT narrowed to own rows + admin) ---
 audit_log_select_narrowed.sql
+bp_cuffless_estimates_never_diagnostic.sql

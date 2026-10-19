@@ -278,6 +278,8 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
           .select("systolic, diastolic, taken_at")
           .eq("patient_id", profileId)
           .eq("vital_type", "blood_pressure")
+          // A wearable (cuffless) estimate is never part of the blood pressure a supporter sees as the latest or its change.
+          .neq("source", "wearable")
           .order("taken_at", { ascending: false })
           // Two, so the latest reading can be shown as moving rather than
           // floating on its own with no scale.
