@@ -255,7 +255,7 @@ begin
     perform pg_temp.ck('...and removes no access', '1', pg_temp.n_grant(v_a, v_b));
     drop trigger pyr_fail_notice on public.notifications;
     v_n := private.sweep_proxy_access_reviews();
-    perform pg_temp.ck('once the queue works the next sweep retries it', '1', v_n::text);
+    perform pg_temp.ck('once the queue works the next sweep retries both failed grants', '2', v_n::text);   -- two due grants were created above on purpose
     perform pg_temp.ck('...and the notice exists', '1', pg_temp.n_notif(v_a, 'proxy_review_due'));
     drop function public.pyr_fail_notice();
   end;
