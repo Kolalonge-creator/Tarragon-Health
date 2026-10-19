@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { GLUCOSE_UNIT_LABEL } from "@tarragon/shared";
+import { GLUCOSE_UNIT_LABEL, diagnosticBpReadings } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
 import { BP_THRESHOLDS, classifyBpLevel, type BpLevel, type BpThresholds } from "@/lib/bp-classification";
@@ -27,6 +27,7 @@ import { GLUCOSE_SYMPTOMS, KETONE_URINE_BANDS, type GlucoseSymptomCode, type Ket
 import {
   classifyVitalOffline,
   computeSevenDayAverage,
+  loadNewestBpEstimate,
   loadRecentBpReadings,
   logOtherVital,
   type BpReading,
@@ -133,6 +134,8 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const toast = useToast();
 
   const [rawReadings, setRawReadings] = useState<BpReading[]>([]);
+  // The newest wearable estimate: shown on its own labelled line, never graded, averaged or charted (docs/design/BP-wearable-estimates.md).
+  const [newestEstimate, setNewestEstimate] = useState<{ systolic: number; diastolic: number; takenAt: string } | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [thresholds, setThresholds] = useState<BpThresholds>(BP_THRESHOLDS);
@@ -203,6 +206,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     // Enough for a 30 day chart even for someone who logs several times a day.
     const list = await loadRecentBpReadings(patientId, HISTORY_LIMIT);
     setRawReadings(list);
+    setNewestEstimate(await loadNewestBpEstimate(patientId));
     setNowMs(Date.now());
   }, [patientId]);
 
@@ -256,10 +260,12 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
 
   // The status badge and the chart's reference lines must agree, so every reading is
   // rated against the same (server-synced) thresholds the chart draws.
+  // A wearable (cuffless) estimate stays visible, labelled, but never feeds the latest grade, the average, the chart or the insights.
   const readings = useMemo(
-    () => rawReadings.map((r) => ({ ...r, level: classifyBpLevel(r.systolic, r.diastolic, thresholds) })),
+    () => diagnosticBpReadings(rawReadings).map((r) => ({ ...r, level: classifyBpLevel(r.systolic, r.diastolic, thresholds) })),
     [rawReadings, thresholds]
   );
+
   const amber = thresholds.amber;
 
   // The chart clears its own highlight when the data or window changes; clear the readout too.
@@ -439,6 +445,20 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           <EmptyState icon="vitals" title={tr("vitals.latest.empty_title")} body={tr("vitals.latest.empty_body")} />
         )}
       </Card>
+
+      {newestEstimate ? (
+        <Card style={{ gap: space.xs }}>
+          <AppText variant="bodyStrong">
+            {tr("bpe.estimate_label")}: {newestEstimate.systolic}/{newestEstimate.diastolic}
+          </AppText>
+          <AppText variant="caption" tone="textSubtle">
+            {formatWhen(newestEstimate.takenAt)}
+          </AppText>
+          <AppText variant="caption" tone="textMuted">
+            {tr("bpe.estimate_note")}
+          </AppText>
+        </Card>
+      ) : null}
 
       {/* Trend */}
       <Card style={{ gap: space.md }}>

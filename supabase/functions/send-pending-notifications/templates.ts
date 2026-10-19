@@ -1535,6 +1535,36 @@ export const TEMPLATE_MAP: Record<
       text: "Someone's access to your Care Circle ends in a few days.\n\nOpen Tarragon Health and renew it with one tap if you want them to keep it.\n\nTarragon Health",
     },
   }),
+  // S29e (INV-07): a supporter's non-emergency check-in request reaches the patient first, then the circle if the patient does not answer.
+  // Fixed wording, nothing from the payload is echoed, no name, no reading, no condition.
+  circle_check_in_asked: () => ({
+    smsText: "Someone in your Care Circle would like to hear from you. Tarragon Health",
+    pushUrl: "/patient/care-circle",
+    email: {
+      subject: "Someone would like to hear from you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone in your Care Circle would like to hear from you.</p>` +
+        `<p>Open Tarragon Health and tap "I am fine" so they know you are well.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone in your Care Circle would like to hear from you.\n\nOpen Tarragon Health and tap \"I am fine\" so they know you are well.\n\nTarragon Health",
+    },
+  }),
+  circle_check_in_unanswered: () => ({
+    smsText: "Someone in your Care Circle has not answered a check-in. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient/supporting",
+    email: {
+      subject: "Please check in with someone you support",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone in your Care Circle has not answered a check-in yet.</p>` +
+        `<p>Please give them a call, then open Tarragon Health to see what you can do.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone in your Care Circle has not answered a check-in yet.\n\nPlease give them a call, then open Tarragon Health to see what you can do.\n\nTarragon Health",
+    },
+  }),
   // Yearly proxy-access review. Names no one; the person sees who behind the sign-in. Email and push are only queued when the person's own
   // channel preference allows, and the sender applies quiet hours and discreet mode. The proxy's notice is in-app only and needs no renderer here.
   proxy_review_due: () => ({

@@ -86,10 +86,11 @@ against the call or message logs; `in_app_message` attempts could be verified ag
 - **`symptom_review` producer.** `docs/design/S55-S60-build-plan.md` plans a `symptom_reviews` table with its own SLA row for the symptom
   engine; the existing symptom triage already raises a `clinician_alerts` review alert, so a task now would put the same review in two
   queues (the P5 parallel-paging problem). Needs a founder/CMO decision on which queue wins. The completion check for it (a finalized note
-  by the caller) is ready, and the screen points to Consultations.
+  by the caller) is ready, and the screen points to Consultations. **Closed 2026-10-16 (OQ-432): see "Queue gaps closed" below.**
 - **`p_extra_competencies` for other prescription tasks.** `pharmacy_flag_review` is created by two functions in other sessions' files
   (`20261006220538`, `20261007141623`); `admin_clinical` has no producer. Only the titration producer passes `prescribing`. Whether a
   pharmacy-flag task should also require `prescribing` is a clinical call (it changes who may take it), so it is not decided here.
+  **Closed 2026-10-16 (OQ-433): see "Queue gaps closed" below.**
 - **A "nobody online" escalation trigger** (plan section 2, S16 escalation row) is not part of W2.1 to W2.7.
 
 ## Things found on the way
@@ -120,3 +121,28 @@ against the call or message logs; `in_app_message` attempts could be verified ag
   has no email rendering" and is retried or marked failed, never dropped silently, and the in-app notice and the incident paths still work.
 - `database.types.ts` was not regenerated (production types would import other branches' schema); the web code reads the new RPCs through the
   existing untyped `loose` client.
+
+## Queue gaps closed (2026-10-16): OQ-432, OQ-433, OQ-435
+
+One migration, `*_task_queue_gaps_symptom_producer_prescribing_lead_competency.sql`, proof `packages/db/tests/task_queue_gaps_oq432_433_435.sql`. Nothing here signs
+or confirms anything; each answer follows the OQ's recommended option and waits for the CMO to confirm or change it.
+
+- **OQ-432, the symptom review producer.** `private.handle_symptom_triage_assessment` (the BEFORE INSERT trigger on `symptom_triage_assessments`) now makes ONE
+  `symptom_review` task, dedup key `symptom_triage:<patient>:<complaint>`, when a routine or self-care result still asks for a clinician review and the patient's plan
+  includes doctor time. It no longer raises the `clinician_review` alert beside it. Fallbacks that keep the old behaviour: a Free patient (unchanged, OQ-678) and a task
+  that cannot be made (audit `symptom_triage.task_error`, a sev2 incident, then the alert), so a review is never dropped. The new column
+  `symptom_triage_assessments.clinician_review_task_id` points at the task. Shadow events: the producer is not fed by triage events at all, and the rule-set path
+  (`create_tasks_from_triage_event`) already skips shadow events and Free patients, so no shadow grade can make this task. Task types: `symptom_review` is not
+  `needs_confirmation`; no `task_types` row was changed or sent for confirmation.
+- **OQ-433, prescribing for prescription work.** `private.task_extra_competencies(type, dedup_key)` (a PROPOSED code constant) adds `prescribing` to every
+  `pharmacy_flag_review` and to an `admin_clinical` whose key starts `prescription:` or `repeat_prescription:`. `create_clinical_task` unions it with the type's list and
+  the producer's `p_extra_competencies`. The three live `admin_clinical` producers are not prescriptions and are unaffected. A task keeps the competencies it was made with.
+- **OQ-435, the lead window.** `create_clinical_task` asks `private.clinician_missing_competencies(lead, required)`; a lead who lacks any is skipped, then the
+  pushable route uses `private.pick_employed_clinician_competent` (the old `pick_employed_clinician_for` is now a wrapper with no requirement), else the task goes to the pool.
+  The transition reason says "(lead not offered: lacks X)". The wait of up to half the due time on an unclaimable offer is gone.
+- **Restated bodies** (live text, md5 checked on 2026-10-16, with only these changes): `create_clinical_task` (`c335f99e...`), `pick_employed_clinician_for`
+  (`99e468de...`), `handle_symptom_triage_assessment` (`f09f4630...`). `queue_candidates` and `sweep_clinical_tasks` were not changed.
+- **Known limits.** A claimant reads the symptom assessment from the patient record: the task carries no text, and `clinician_review_task_id` links the assessment to it (a merged
+  repeat points at the same task). Only a clinician holding `prescribing` can take a pharmacy flag (the CMO is told when one escalates, but cannot claim it without the
+  competency). A repeat merging into a pooled task widens its competencies; a task already offered or claimed keeps its own list. `pick_employed_clinician_for` stays as a
+  no-requirement wrapper for callers outside main-dev; new code calls `pick_employed_clinician_competent`.
