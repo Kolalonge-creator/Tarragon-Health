@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 import { postConfirmHealthCheckVideoSlot } from "./api";
 import type { QueryResult } from "./medications";
-import type { Enums } from "@tarragon/shared";
+import { isEstimateBpSource, type Enums } from "@tarragon/shared";
 
 /**
  * Mirrors apps/web/src/lib/screening/health-check-stage-state.ts verbatim —
@@ -112,7 +112,7 @@ export async function loadHealthCheckState(patientId: string): Promise<QueryResu
       .select("id", { count: "exact", head: true })
       .eq("patient_id", patientId)
       .gte("created_at", yearStart),
-    supabase.from("vitals_readings").select("vital_type").eq("patient_id", patientId).gte("taken_at", vitalsWindowStart),
+    supabase.from("vitals_readings").select("vital_type, source").eq("patient_id", patientId).gte("taken_at", vitalsWindowStart),
     supabase
       .from("screening_schedules")
       .select("id", { count: "exact", head: true })
@@ -121,6 +121,8 @@ export async function loadHealthCheckState(patientId: string): Promise<QueryResu
   ]);
 
   const vitalTypeCounts = (vitalsRows ?? []).reduce<Record<string, number>>((acc, row) => {
+    // A wearable (cuffless) blood pressure estimate does not count toward the readings the annual check needs.
+    if (row.vital_type === "blood_pressure" && isEstimateBpSource(row.source)) return acc;
     acc[row.vital_type] = (acc[row.vital_type] ?? 0) + 1;
     return acc;
   }, {});

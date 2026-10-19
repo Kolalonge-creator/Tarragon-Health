@@ -1296,3 +1296,4 @@ s19e_native_page_receipts.sql
 
 # --- Added 2026-10-16 (hardening: result document replacement supersedes) ---
 supersede_patient_result_document_replace.sql
+bp_cuffless_estimates_never_diagnostic.sql

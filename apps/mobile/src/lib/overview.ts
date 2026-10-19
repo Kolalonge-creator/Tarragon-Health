@@ -28,6 +28,7 @@ export async function getSummaryStats(patientId: string): Promise<QueryResult<Su
         .select("systolic, diastolic")
         .eq("patient_id", patientId)
         .eq("vital_type", "blood_pressure")
+        .neq("source", "wearable")
         .order("taken_at", { ascending: false })
         .limit(1),
       supabase

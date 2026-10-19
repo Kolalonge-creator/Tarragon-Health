@@ -30,7 +30,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(consoleTarget, 307);
   }
 
-  const { response, supabase, user } = await updateSession(request);
+  const { response, supabase, user } = await updateSession(request, { verify: "claims" });
   const { pathname } = request.nextUrl;
   const host = request.headers.get("host") ?? "";
   const isApp = isAppHost(host);
