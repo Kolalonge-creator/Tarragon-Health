@@ -1,4 +1,5 @@
 "use client";
+import { vitalSavedMessage } from "@/lib/vitals/bp-ack-message";
 import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 
 import { useActionState, useEffect, useRef, useState } from "react";
@@ -100,6 +101,12 @@ export function VitalsForm({
     }
   }, [state?.success, queryClient, patientId]);
 
+  // What the last save said stops being true the moment the person edits the form, is blocked offline, or is asked to confirm a different value:
+  // an old "Received" must never sit beside a reading that was not sent. A new result from the server shows again.
+  // Held as "stale for THIS server result" so a new result is fresh without a reset effect (setState in an effect is a lint error).
+  const [staleMark, setStaleMark] = useState<{ for: typeof state } | null>(null);
+  const ackStale = staleMark !== null && staleMark.for === state;
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     // Checked ahead of the crosscheck-bypass branch below too — a confirmed
     // resubmission from the crosscheck dialog is just as doomed offline as a
@@ -119,6 +126,7 @@ export function VitalsForm({
       // no dedup constraint.
       confirmedRef.current = false;
       setOfflineBlocked(true);
+      setStaleMark({ for: state });
       return;
     }
     if (offlineBlocked) setOfflineBlocked(false);
@@ -146,6 +154,7 @@ export function VitalsForm({
   // Any edit (including changing the reading type) invalidates a pending
   // crosscheck so the patient re-confirms the corrected value.
   function resetGuard() {
+    setStaleMark({ for: state });
     confirmedRef.current = false;
     setCrosscheck((current) => (current ? null : current));
   }
@@ -420,7 +429,7 @@ export function VitalsForm({
           )}
 
           <FormError id={errorId} message={displayedError} />
-          <FormSuccess message={state?.success && "Reading logged."} />
+          <FormSuccess message={state?.success && !ackStale && !offlineBlocked && !crosscheck && vitalSavedMessage(state.bpAckLevel)} />
 
           {!crosscheck && (
             <Button type="submit" disabled={pending}>
