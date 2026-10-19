@@ -37,7 +37,7 @@ create table public.proxy_review_config (
   repeat_days     integer not null check (repeat_days between 1 and 365),
   max_reminders   integer not null check (max_reminders between 1 and 12),
   proxy_notice_days integer not null default 14 check (proxy_notice_days between 1 and 90),  -- how long the proxy's "yearly check" flag shows, counted from the notice and NOT from the person's answer
-  tell_proxy      boolean not null default true,   -- false: the proxy is told nothing at all (no notice, no "due" flag); a safeguarding switch, set by a new version
+  tell_proxy      boolean not null default false,   -- false: the proxy is told nothing at all (no notice, no "due" flag); a safeguarding switch, set by a new version
   status          text not null default 'proposed' check (status in ('proposed', 'confirmed')),
   is_active       boolean not null default false,
   note            text,
@@ -50,8 +50,8 @@ alter table public.proxy_review_config enable row level security;
 revoke all on public.proxy_review_config from public, anon, authenticated;
 
 insert into public.proxy_review_config (version, interval_months, repeat_days, max_reminders, tell_proxy, proxy_notice_days, status, is_active, note)
-values (1, 12, 30, 4, true, 14, 'proposed', true,
-        'Build proposal 2026-10-16 (not a signature): review every 12 months from the grant or the last keep; reminders repeat every 30 days, at most 4 in a cycle (the first plus three); access is never removed by silence. tell_proxy = true was asked for in the build brief; the safer value for a coercive household is false, a founder decision before launch (OQ-678).');
+values (1, 12, 30, 4, false, 14, 'proposed', true,
+        'Build proposal 2026-10-16 (not a signature): review every 12 months from the grant or the last keep; reminders repeat every 30 days, at most 4 in a cycle (the first plus three); access is never removed by silence. tell_proxy = false: founder decision 2026-10-19 (OQ-705), the safer value where a controlling family member helps; a new version with true turns the calm in-app notice on.');
 
 -- ---------------------------------------------------------------------------
 -- 2. Append-only history

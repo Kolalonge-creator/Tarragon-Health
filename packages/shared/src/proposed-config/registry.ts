@@ -5123,13 +5123,13 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     key: "proxy.annual_review",
     // Yearly "still need this person's access?" review (NHS proxy-access standard: grant, redact, review, revoke). A proxy or caregiver grant is due for
     // review 12 months after it was given or last kept. The reminder repeats every 30 days, at most 4 in a cycle (the first plus three). Access is NEVER
-    // removed by silence. tellProxy is a safeguarding switch (OQ-678): true sends the proxy one calm in-app notice per cycle and shows them a "due" flag; false tells them nothing. proxyNoticeDays is how long the proxy's flag shows, counted from the notice and not from the person's answer. Live value is the active row of `proxy_review_config` v1; a Jest mirror test compares the two.
-    value: { intervalMonths: 12, repeatDays: 30, maxReminders: 4, tellProxy: true, proxyNoticeDays: 14 },
+    // removed by silence. tellProxy is a safeguarding switch (OQ-705): true sends the proxy one calm in-app notice per cycle and shows them a "due" flag; false tells them nothing. proxyNoticeDays is how long the proxy's flag shows, counted from the notice and not from the person's answer. Live value is the active row of `proxy_review_config` v1; a Jest mirror test compares the two.
+    value: { intervalMonths: 12, repeatDays: 30, maxReminders: 4, tellProxy: false, proxyNoticeDays: 14 },
     owner: "Founder",
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-16",
-    source: "Build proposal 2026-10-16 (NHS proxy-access standard, January 2026); not from the v5 spec; OQ-678",
+    source: "Build proposal 2026-10-16 (NHS proxy-access standard, January 2026); not from the v5 spec; OQ-705",
   },
   {
     key: "pharmacy.quality",

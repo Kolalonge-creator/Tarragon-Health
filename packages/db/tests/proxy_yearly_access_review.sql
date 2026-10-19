@@ -100,6 +100,9 @@ begin
   -- config mirrors the proposal
   select interval_months || '|' || repeat_days || '|' || max_reminders || '|' || status into v_cfg_rows from public.proxy_review_config where is_active;
   perform pg_temp.ck('active config is the proposal', '12|30|4|proposed', v_cfg_rows);
+  perform pg_temp.ck('shipped default: the proxy is told nothing (OQ-705)', 'false', (select tell_proxy::text from public.proxy_review_config where is_active));
+  -- the sections below exercise the notice path, so turn it on for this rolled-back transaction
+  update public.proxy_review_config set tell_proxy = true where version = 1;
 
   -- 1. due and not due
   v_grant := pg_temp.grant_aged(v_pa, v_px, interval '13 months', array['vitals_readings', 'medications']);
