@@ -1296,6 +1296,8 @@ task_queue_gaps_oq432_433_435.sql
 s19e_native_page_receipts.sql
 proxy_yearly_access_review.sql
 
+# --- Added 2026-10-16 (hardening: result document replacement supersedes) ---
+supersede_patient_result_document_replace.sql
 # --- Added 2026-10-16 (hardening: audit_log SELECT narrowed to own rows + admin) ---
 audit_log_select_narrowed.sql
 bp_cuffless_estimates_never_diagnostic.sql
