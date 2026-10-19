@@ -136,8 +136,13 @@ begin
 
   -- ===== B. THE GATE ON THE CREDENTIAL TABLE
   if not has_table then
-    if public.passkey_gate_ready() then raise exception 'FAIL B0: no credential table but passkey_gate_ready() is true'; end if;
-    raise notice 'SKIP B: auth.webauthn_credentials does not exist on this database; passkey_gate_ready() is false, so the app keeps passkeys closed';
+    if to_regclass('auth.webauthn_credentials') is null then
+      if public.passkey_gate_ready() then raise exception 'FAIL B0: no credential table but passkey_gate_ready() is true'; end if;
+      raise notice 'SKIP B: auth.webauthn_credentials does not exist on this database; passkey_gate_ready() is false, so the app keeps passkeys closed';
+    else
+      if not public.passkey_gate_ready() then raise exception 'FAIL B0: the credential table exists but the five triggers are not all installed'; end if;
+      raise notice 'SKIP B: the proof user cannot become supabase_auth_admin here, so the inserts that fire the gate were not run; the triggers are installed (passkey_gate_ready() is true)';
+    end if;
   else
     if not public.passkey_gate_ready() then raise exception 'FAIL B0: the credential table exists but the five triggers are not all installed'; end if;
 
