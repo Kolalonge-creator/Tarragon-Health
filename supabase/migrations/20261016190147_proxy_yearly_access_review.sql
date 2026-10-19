@@ -428,8 +428,9 @@ end $$;
 select cron.schedule('proxy-access-review-daily', '50 3 * * *', $$ select private.sweep_proxy_access_reviews(); $$);
 
 -- the automations registry (S80) lists every scheduled job
-insert into public.automation_jobs (job_name, purpose, schedule, source)
-select 'proxy-access-review-daily', 'Queues the yearly "still need this person''s access?" reminders. Never removes access.', '50 3 * * *', 'pg_cron'
+-- No purpose or owner here on purpose: the S80 registry proof requires that nothing is invented; an operator fills those in.
+insert into public.automation_jobs (job_name, schedule, source)
+select 'proxy-access-review-daily', '50 3 * * *', 'pg_cron'
  where to_regclass('public.automation_jobs') is not null
 on conflict (job_name) do nothing;
 

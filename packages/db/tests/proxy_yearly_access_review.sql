@@ -299,9 +299,17 @@ begin
     perform private.sweep_proxy_access_reviews();
     v_before := (select count(*)::text from public.proxy_access_reviews where patient_id = v_ep);
     begin
+      -- Deleting a profile cascades into profile_access_categories, whose guard trigger only lets the person whose record it is change it. The real
+      -- erasure path is not under test here, so act as the patient (claims only, still the owner role) for this one delete.
+      perform set_config('request.jwt.claims', json_build_object('sub', v_ep, 'role', 'authenticated')::text, true);
+      perform set_config('request.jwt.claim.sub', v_ep::text, true);
       delete from public.profiles where id = v_ex;
+      perform set_config('request.jwt.claims', '', true);
+      perform set_config('request.jwt.claim.sub', '', true);
       perform pg_temp.ck('the proxy''s account is erased', '0', (select count(*)::text from public.profiles where id = v_ex));
     exception when others then
+      perform set_config('request.jwt.claims', '', true);
+      perform set_config('request.jwt.claim.sub', '', true);
       perform pg_temp.ck('the proxy''s account is erased', '0', 'could not delete: ' || sqlstate || ' ' || sqlerrm);
     end;
     perform pg_temp.ck('the person keeps their history when the proxy''s account is erased', v_before, (select count(*)::text from public.proxy_access_reviews where patient_id = v_ep));
