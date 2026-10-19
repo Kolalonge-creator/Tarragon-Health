@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { computeHealthScore, type HealthScoreInputs } from "@/lib/rules/health-score";
 import { fetchLatestBmi } from "@/lib/health-metrics/bmi";
-import type { Database, Json } from "@tarragon/shared";
+import { BP_ESTIMATE_SOURCE, type Database, type Json } from "@tarragon/shared";
 
 const BP_CONTROL_WINDOW_DAYS = 90;
 const BP_CONTROL_SYSTOLIC_MAX = 140;
@@ -18,6 +18,8 @@ async function fetchBpControlPercent(
     .select("systolic, diastolic")
     .eq("patient_id", patientId)
     .eq("vital_type", "blood_pressure")
+    // A wearable (cuffless) estimate is not a diagnostic number: it never counts toward BP control.
+    .neq("source", BP_ESTIMATE_SOURCE)
     .is("correction_status", null)
     .gte("taken_at", since);
 

@@ -5,7 +5,7 @@ import { t, type Locale } from "@tarragon/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-error";
-import { useCheckInPending, useRespondCheckIn } from "@/lib/queries/care-circle";
+import { useCheckInEnabled, useCheckInPending, useRespondCheckIn } from "@/lib/queries/care-circle";
 
 /**
  * S29e: a question from someone in the circle is waiting. The patient answers with one tap and nobody else is told. Never says who
@@ -13,6 +13,7 @@ import { useCheckInPending, useRespondCheckIn } from "@/lib/queries/care-circle"
  * a question is waiting (so with the go-live off it is never on screen and never polls).
  */
 export function CheckInCard({ locale }: { locale: Locale }) {
+  const enabled = useCheckInEnabled();
   const pending = useCheckInPending();
   const respond = useRespondCheckIn();
   const [outcome, setOutcome] = useState<"answered" | "too_late" | null>(null);
@@ -34,7 +35,9 @@ export function CheckInCard({ locale }: { locale: Locale }) {
   if (outcome === "answered") return <p role="status" className="text-sm">{t("checkin.responded", locale)}</p>;
   if (outcome === "too_late") return <p role="status" className="text-sm">{t("checkin.too_late", locale)}</p>;
   // One flaky poll must not take the button away while the last known answer is "waiting": keep it, and say the read failed beside it.
-  if (!waiting) return pending.isError ? <p role="status" className="text-sm">{t("checkin.read_failed", locale)}</p> : null;
+  // A failed read is only worth saying when the feature is known to be on; if the go-live cannot be read (or the app is ahead of its
+  // database), the card stays silent rather than telling every patient something is wrong.
+  if (!waiting) return pending.isError && enabled.data === true ? <p role="status" className="text-sm">{t("checkin.read_failed", locale)}</p> : null;
   return (
     <Card>
       <CardHeader><CardTitle>{t("checkin.pending_title", locale)}</CardTitle></CardHeader>

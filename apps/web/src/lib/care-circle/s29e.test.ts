@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { attentionCount, minutesLeft, parseCheckInPending, parseCheckInRequest, parseOpenAlerts, parsePreview, parseUnanswered } from "./model";
+import { attentionCount, isMissingFunction, minutesLeft, parseCheckInPending, parseCheckInRequest, parseOpenAlerts, parsePreview, parseUnanswered } from "./model";
 
 describe("S29e: supporters abroad and the check-in window (web parsers)", () => {
   it("the preview carries whether the supporter is across organisations", () => {
@@ -49,5 +49,12 @@ describe("S29e: supporters abroad and the check-in window (web parsers)", () => 
   it("the badge counts distinct people across open requests and unanswered check-ins", () => {
     expect(attentionCount([{ patient_id: "a", called: false }, { patient_id: "b", called: true }], [{ patient_id: "a" }, { patient_id: "c" }])).toBe(2);
     expect(attentionCount([], [])).toBe(0);
+  });
+
+  it("a missing database function is recognised, other errors are not", () => {
+    expect(isMissingFunction({ code: "PGRST202", message: "x" })).toBe(true);
+    expect(isMissingFunction({ message: "Could not find the function public.circle_unanswered_check_ins without parameters in the schema cache" })).toBe(true);
+    expect(isMissingFunction({ code: "42501", message: "permission denied" })).toBe(false);
+    expect(isMissingFunction(null)).toBe(false);
   });
 });

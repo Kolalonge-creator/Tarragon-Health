@@ -37273,6 +37273,9 @@ export type Database = {
           one_session: boolean
           first_opened_at: string | null
           pin_protected: boolean | null
+          recipient_label: string | null
+          max_views: number | null
+          window_days: number | null
         }
         Insert: {
           id?: string
@@ -37291,6 +37294,9 @@ export type Database = {
           locked_at?: string | null
           one_session?: boolean
           first_opened_at?: string | null
+          recipient_label?: string | null
+          max_views?: number | null
+          window_days?: number | null
         }
         Update: {
           id?: string
@@ -37309,6 +37315,9 @@ export type Database = {
           locked_at?: string | null
           one_session?: boolean
           first_opened_at?: string | null
+          recipient_label?: string | null
+          max_views?: number | null
+          window_days?: number | null
         }
         Relationships: [
           {
@@ -42679,6 +42688,7 @@ export type Database = {
           clinician_flagged_inappropriate_escalation: boolean
           clinician_flagged_missed_red_flag: boolean
           clinician_review_alert_id: string | null
+          clinician_review_task_id: string | null
           clinician_review_required: boolean
           created_at: string
           emergency_event_id: string | null
@@ -42719,6 +42729,7 @@ export type Database = {
           clinician_flagged_inappropriate_escalation?: boolean
           clinician_flagged_missed_red_flag?: boolean
           clinician_review_alert_id?: string | null
+          clinician_review_task_id?: string | null
           clinician_review_required?: boolean
           created_at?: string
           emergency_event_id?: string | null
@@ -42759,6 +42770,7 @@ export type Database = {
           clinician_flagged_inappropriate_escalation?: boolean
           clinician_flagged_missed_red_flag?: boolean
           clinician_review_alert_id?: string | null
+          clinician_review_task_id?: string | null
           clinician_review_required?: boolean
           created_at?: string
           emergency_event_id?: string | null
@@ -42799,6 +42811,13 @@ export type Database = {
             columns: ["clinician_review_alert_id"]
             isOneToOne: false
             referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "symptom_triage_assessments_clinician_review_task_id_fkey"
+            columns: ["clinician_review_task_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_tasks"
             referencedColumns: ["id"]
           },
           {
@@ -50729,6 +50748,18 @@ export type Database = {
           p_expires_in_hours?: number
           p_use_pin?: boolean
           p_one_session?: boolean
+        }
+        Returns: Json
+      }
+      create_record_share_with_options: {
+        Args: {
+          p_sections: string[]
+          p_expires_in_hours?: number
+          p_use_pin?: boolean
+          p_one_session?: boolean
+          p_recipient_label?: string | null
+          p_max_views?: number | null
+          p_window_days?: number | null
         }
         Returns: Json
       }

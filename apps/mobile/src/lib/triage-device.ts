@@ -21,6 +21,7 @@ import {
   type TriageInput,
   type TriageResult,
 } from "@tarragon/clinical";
+import { isEstimateBpSource } from "@tarragon/shared";
 import type { VitalReadingPayload } from "./api";
 import { loadTriageWiringConfig } from "./triage-config";
 import { clipIdFor } from "./audio/manifest";
@@ -168,7 +169,7 @@ export async function refreshApprovedRuleSet(): Promise<"updated" | "none_approv
   }
 }
 
-type LocalVital = { id?: string; vital_type?: string; systolic?: number | null; diastolic?: number | null; taken_at?: string; client_reading_id?: string | null };
+type LocalVital = { id?: string; vital_type?: string; source?: string | null; systolic?: number | null; diastolic?: number | null; taken_at?: string; client_reading_id?: string | null };
 
 /** Blood pressure readings of the last 14 days from this phone only: the mirror plus readings not yet sent. */
 export async function localBpHistory(subjectId: string, nowMs: number): Promise<Reading[]> {
@@ -177,6 +178,8 @@ export async function localBpHistory(subjectId: string, nowMs: number): Promise<
   const synced = await readLocalRecords<LocalVital>("vital", subjectId, 200).catch(() => [] as LocalVital[]);
   for (const r of synced) {
     if (r.vital_type !== "blood_pressure" || typeof r.systolic !== "number" || typeof r.diastolic !== "number" || !r.taken_at) continue;
+    // A wearable (cuffless) estimate is not part of the history a reading is graded against (docs/design/BP-wearable-estimates.md).
+    if (isEstimateBpSource(r.source)) continue;
     const ms = Date.parse(r.taken_at);
     if (Number.isFinite(ms) && ms >= since && ms <= nowMs) out.set(r.client_reading_id ?? r.id ?? r.taken_at, { systolic: r.systolic, diastolic: r.diastolic, takenAt: r.taken_at });
   }

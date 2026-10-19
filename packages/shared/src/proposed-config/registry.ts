@@ -975,6 +975,10 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // Two further PROPOSED numbers are code constants until that v2 (config v1 cannot be edited in place): a contact attempt may be
     // dated up to 24 hours before its task existed (CONTACT_ATTEMPT_LOOKBACK_HOURS; private.contact_attempt_lookback()), and further
     // immediate escalations within 10 minutes of the last alert are folded into one follow-up (private.escalation_coalesce_window()).
+    // A third PROPOSED code constant (OQ-433): private.task_extra_competencies() adds the `prescribing` competency to every
+    // pharmacy_flag_review task and to an admin_clinical task whose dedup key starts prescription: or repeat_prescription:.
+    // A task keeps the competencies stored on it when it was made. Offers also skip a lead (or an employed doctor) who lacks a
+    // required competency (OQ-435); the transition reason records why. The CMO confirms or changes both in the v2 pack.
     value: {
       lead_window_cap_fraction: 0.5,
       escalated_non_red_any_eligible: true,

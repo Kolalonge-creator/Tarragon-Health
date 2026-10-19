@@ -8,14 +8,17 @@ import { expectNoA11yViolations } from "@/test/a11y";
 import { CheckInCard } from "./check-in-card";
 
 let pending: { data: boolean; isError?: boolean };
+let enabled: { data: boolean | undefined } = { data: true };
 const respond = jest.fn();
 let respondState: { isPending: boolean; isError: boolean };
 jest.mock("@/lib/queries/care-circle", () => ({
+  useCheckInEnabled: () => enabled,
   useCheckInPending: () => pending,
   useRespondCheckIn: () => ({ mutateAsync: respond, ...respondState }),
 }));
 
 beforeEach(() => {
+  enabled = { data: true };
   pending = { data: true };
   respondState = { isPending: false, isError: false };
   respond.mockReset();
@@ -97,5 +100,12 @@ describe("CheckInCard", () => {
     await act(async () => { jest.advanceTimersByTime(11_000); });
     expect(screen.queryByRole("status")).toBeNull();
     jest.useRealTimers();
+  });
+
+  it("when the go-live cannot be read (or the app is ahead of its database) a failed poll stays silent", () => {
+    enabled = { data: undefined };
+    pending = { data: false, isError: true };
+    const { container } = render(<CheckInCard locale="en" />);
+    expect(container.textContent).toBe("");
   });
 });
