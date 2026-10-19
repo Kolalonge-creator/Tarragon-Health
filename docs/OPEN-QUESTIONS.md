@@ -4247,3 +4247,9 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-PASSKEY-04 Adding a passkey needs a password
 - A person who signs in only by phone code and has set no password is told to set one first. Reason: a session alone must not be able to plant a lasting way in (the same reason backup codes need the password). Alternative: accept a fresh phone-code re-check instead.
 - Decision: open (founder).
+### OQ-701 Who may read the audit log directly (raised by the audit_log narrowing)
+- Done: `audit_log` is directly readable only by its own actor and by admins. Org staff, tied clinicians and the CMO account lost the organisation-wide read; the screens they use read through SECURITY DEFINER functions that self-gate.
+- Open 1: should the CMO or a clinical-governance reviewer have a scoped direct read (for example by action prefix) instead of only the S20 sampling RPCs?
+- Open 2: `authenticated` can still INSERT audit rows about itself (S02 follow-up 5). Moving every writer to a definer function would let that insert policy be dropped.
+- Decision: open.
+
