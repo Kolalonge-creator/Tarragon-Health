@@ -56,6 +56,7 @@ export const GOVERNED_CONFIG_TABLES = [
     title: "Hepatitis and HIV repeat rules (anti-HBs threshold)",
     slug: "serology-rules",
   },
+  { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
   { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
 ] as const;
 
