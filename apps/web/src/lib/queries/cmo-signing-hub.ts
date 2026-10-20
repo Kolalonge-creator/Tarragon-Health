@@ -14,6 +14,7 @@ import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreac
 import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
 import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
 import { readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
+import { readPendingBpDeviceReview } from "@/lib/queries/pending-bp-device-review";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -55,6 +56,8 @@ export const UNIFIED_RED_PAGING_ITEM_KEY = "unified_red_paging";
 export const TASK_LAYER_CONFIG_ITEM_KEY = "queue_task_layer_config";
 /** OQ-451: activate the paging delivery configuration v2 (objective on-call readiness), refused until the test-page checklist is met. */
 export const PAGING_DELIVERY_CONFIG_ITEM_KEY = "paging_delivery_config";
+/** S07y: recommended blood pressure monitors an admin entered that wait for the CMO to review them against a public validation registry. */
+export const BP_DEVICE_REVIEW_ITEM_KEY = "bp_device_review";
 export { GLUCOSE_TRIAGE_ITEM_KEY };
 
 /**
@@ -77,7 +80,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, queuePaging] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, queuePaging, bpDevices] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -95,6 +98,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readUnifiedRedPagingState(supabase),
     readPendingCapacityConfigSignoff(supabase),
     readPendingQueuePagingConfigSignoff(supabase),
+    readPendingBpDeviceReview(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -285,6 +289,17 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (bpDevices.waiting > 0) {
+    items.push({
+      key: BP_DEVICE_REVIEW_ITEM_KEY,
+      title: "Recommended blood pressure monitors to review",
+      detail: `${bpDevices.waiting} monitor${bpDevices.waiting === 1 ? "" : "s"} entered with a validation source, waiting for your review. Nothing is shown to patients as checked until you review it against the public registry.`,
+      href: "/clinician/recommended-devices",
+      severity: "draft_pending",
+      count: bpDevices.waiting,
+    });
+  }
+
   const failedSources = [
     ...queue.failedSources,
     ...s06s10.failedSources,
@@ -299,6 +314,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(unifiedRed.failed ? ["unified red-event paging"] : []),
     ...(capacityConfigs.failed ? ["the capacity and lead configurations"] : []),
     ...(queuePaging.failed ? ["the task layer and paging delivery configurations"] : []),
+    ...(bpDevices.failed ? ["the recommended blood pressure monitors"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it

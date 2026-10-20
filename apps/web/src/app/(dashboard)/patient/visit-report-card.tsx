@@ -23,6 +23,12 @@ export function VisitReportCard() {
             Last {days} days (PDF)
           </a>
         ))}
+        <a
+          href="/api/patient/bp-monthly-summary/pdf?kind=visit"
+          className="rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+        >
+          Bring this to your visit: last 7 days (PDF)
+        </a>
       </div>
     </section>
   );

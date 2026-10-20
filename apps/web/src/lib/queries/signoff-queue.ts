@@ -44,7 +44,8 @@ type VersionedTableName =
   | "lab_panel_signoffs"
   | "prn_limit_rules"
   | "my_health_config"
-  | "home_bp_programme_signoffs";
+  | "home_bp_programme_signoffs"
+  | "bp_cuff_guidance_signoffs";
 
 const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string }[] = [
   { table: "alert_rules", title: "Alert rules", slug: "alert-rules" },
@@ -67,6 +68,7 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   { table: "prn_limit_rules", title: "As-needed medicine limits", slug: "prn-limit-rules" },
   { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
+  { table: "bp_cuff_guidance_signoffs", title: "Home blood pressure cuff sizes", slug: "cuff-guidance" },
 ];
 
 export type SettledConfig = { table: string; title: string; href: string; version: number };
