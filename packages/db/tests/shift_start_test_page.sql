@@ -175,7 +175,7 @@ begin
   perform pg_temp.setf('org', v_org); perform pg_temp.setf('admin', v_admin); perform pg_temp.setf('cmo', v_cmo);
   perform pg_temp.setf('A', v_a); perform pg_temp.setf('B', v_b); perform pg_temp.setf('C', v_c); perform pg_temp.setf('D', v_d); perform pg_temp.setf('E', v_e);
   -- the live project may carry an open incident for the real organisation; the proof counts only what it causes
-  update public.ops_incidents set status = 'resolved', resolved_at = now() where external_reference = 'rota_gap:' || v_org and status not in ('resolved', 'closed');
+  update public.ops_incidents set status = 'resolved', resolved_at = now(), acknowledged_at = coalesce(acknowledged_at, now()), mitigated_at = coalesce(mitigated_at, now()), root_cause = 'proof fixture', corrective_action = 'proof fixture', preventive_action = 'proof fixture' where external_reference = 'rota_gap:' || v_org and status not in ('resolved', 'closed');
 end $$;
 
 -- 1. Rollout ------------------------------------------------------------------------------------------------------------------
