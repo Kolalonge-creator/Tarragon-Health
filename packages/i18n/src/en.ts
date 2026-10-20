@@ -5324,6 +5324,9 @@ export const en = {
   "pharm.trend_note": "{count} points on this chart were taken at a pharmacy or clinic machine. They are shown but not counted in your home average.",
   "diary.trend_note": "{count} points on this chart are from your paper diary.",
   "pharm.history_note": "Shown with its label. Not counted in your home average.",
-} as const;
+  "activity.gate.rest": "Today is a day to rest, so we are not suggesting a workout right now. Gentle everyday movement is fine. If you feel unwell, tell your care team in the app.",
+  "activity.gate.restrict": "Gentle activity only for now. We are showing the lighter options. You can ask your care team in the app if you would like to do more.",
+  "activity.gate.allow": "Choose something you enjoy and go at your own pace.",
+  "activity.gate.unavailable": "We could not check today's activity advice, so please keep to gentle activity and try again in a moment.",} as const;
 
 export type MessageKey = keyof typeof en;

@@ -3300,6 +3300,55 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C8 and D4; supabase/migrations/20261013181946_s09x_my_health_completion.sql",
   },
   {
+    key: "activity.safety_rules",
+    // Activity safety gate (S48a, spec 5.2 / 5.5). PROPOSED, UNSIGNED: the CMO owns every number and every blocked kind below. Live values are the
+    // active row of `activity_safety_config`.config; activity-gate-parity.test.ts fails if the migration seed and this value drift. The gate only
+    // ever restricts, so enforcing unsigned rules errs toward rest; signing records the CMO's review, it does not switch the gate on.
+    //  lookback: a red triage event inside red_hours is rest; an amber one inside amber_hours is gentle-only; unsettled_bp_days is how far back a
+    //            BP-observation amber or red marks hypertension as not settled.
+    //  kinds:    effort_met is for display and weekly load; intensity is what the gate compares to a rule's max_intensity.
+    value: {
+      lookback: { red_hours: 48, amber_hours: 48, unsettled_bp_days: 7 },
+      kinds: {
+        walking: { effort_met: 3.5, intensity: "gentle" },
+        chair_based: { effort_met: 2.5, intensity: "gentle" },
+        cycling: { effort_met: 6, intensity: "moderate" },
+        dancing: { effort_met: 5, intensity: "moderate" },
+        farm_manual_work: { effort_met: 5, intensity: "moderate" },
+        running: { effort_met: 8, intensity: "vigorous" },
+        football: { effort_met: 8, intensity: "vigorous" },
+      },
+      condition_match: {
+        hypertension: { name_patterns: ["hypertens", "high blood pressure"], icd10_prefixes: ["I10", "I11", "I12", "I13", "I15"] },
+        arthritis: { name_patterns: ["arthrit"], icd10_prefixes: ["M05", "M06", "M15", "M16", "M17", "M18", "M19"] },
+        back_pain: { name_patterns: ["back pain", "lumbago", "sciatica", "slipped disc"], icd10_prefixes: ["M54"] },
+      },
+      rules: {
+        amber: { max_intensity: "gentle", blocked_kinds: [] },
+        pregnancy: { max_intensity: "moderate", blocked_kinds: ["football"] },
+        pregnancy_high_risk: { max_intensity: "gentle", blocked_kinds: ["football", "running"] },
+        hypertension_unsettled: { max_intensity: "gentle", blocked_kinds: [] },
+        arthritis: { max_intensity: "moderate", blocked_kinds: ["running", "football"] },
+        back_pain: { max_intensity: "moderate", blocked_kinds: ["football", "farm_manual_work"] },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/BUILD-SPEC-v5.md Module 5 (5.2, 5.5) and invariants INV-01, INV-14; docs/design/S48a.md; supabase/migrations/20261020180745_s48a_activity_safety_gate.sql",
+  },
+  {
+    key: "activity.goals",
+    // Weekly activity goal (S48a, spec 5.1). 150 minutes a week of moderate activity is the commonly cited adult guideline figure; a person can set their own.
+    value: { weekly_active_minutes_default: 150, daily_steps_default: 7500 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/BUILD-SPEC-v5.md Module 5 (5.1); supabase/migrations/20261020180745_s48a_activity_safety_gate.sql",
+  },
+  {
     key: "medicines.prn_limits",
     // As-needed (PRN) limits (S08x, decision C7). There are NO default limits: a clinician sets a shortest gap and/or a most doses in a
     // Lagos day per medicine, and only inside these bounds. A dose outside them is still logged; the patient is shown a notice.

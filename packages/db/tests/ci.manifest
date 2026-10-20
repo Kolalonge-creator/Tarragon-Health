@@ -1320,3 +1320,6 @@ record_share_recipient_views_window.sql
 oq436_deadman_status.sql
 # S07y: the pharmacy_machine and paper_diary reading labels on the ordinary reading table: guards, bounded time rules (pharmacy 72 h, diary 30 days, refused outside), frozen label, home protocol and home averages leave them out as decided, and a dangerous labelled value fires exactly what an ordinary one fires (BP, glucose, pulse; the ordinary control is not vacuous). A labelled reading can still be corrected after its window and with its guard off. Sabotage: the protocol filter, the diary window, the guard check, the home-average filter and the correction branch each removed; all five must flip.
 s07y_reading_provenance.sql
+
+# S48a: activity safety gate (red event in 48h = rest, enforced on enrolment incl. re-activation), kinds/goals/events, unreviewed workout plans hidden, owner-only private routes. Sabotage: trigger dropped, gate ignoring red, staff route policy; each must flip.
+s48a_activity_safety_gate.sql
