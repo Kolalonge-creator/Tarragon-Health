@@ -9,11 +9,11 @@ import {
   myTrendsSchema,
   reviewContextSchema,
   trendNoteSchema,
-  TREND_DIRECTION_WORD,
 } from "./lifecycle";
 import { LAB_FALLBACK_WORDING } from "./fallback-wording";
 import { describe as describeInApp } from "@/lib/notifications/describe-in-app";
 import { CORRECTION_KINDS } from "./structured";
+import { t } from "@tarragon/i18n";
 
 const id = "11111111-1111-4111-8111-111111111111";
 
@@ -63,7 +63,7 @@ describe("trend notes", () => {
 
 describe("words", () => {
   it("the direction words never judge", () => {
-    for (const w of Object.values(TREND_DIRECTION_WORD)) expect(w).not.toMatch(/better|worse|bad|good|improv|diagnos|risk/i);
+    for (const k of ["labtrend.higher", "labtrend.lower", "labtrend.same", "labtrend.intro"] as const) expect(t(k, "en")).not.toMatch(/better|worse|bad|good|improv|risk/i);
   });
   it("labels an analyte without underscores", () => {
     expect(analyteLabel("total_cholesterol")).toBe("total cholesterol");

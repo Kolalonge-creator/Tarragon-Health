@@ -295,6 +295,13 @@ begin
     coalesce(v_open, 'null') || '|' ||
     (exists (select 1 from public.audit_log where subject_patient_id = v_pat and action = 'staff.chart_read' and result = 'success' and actor_id = pg_temp.f('primary')))::text);
   perform pg_temp.ck('...but the tie is not a release: the result is still held', 'awaiting_review', pg_temp.state_of(rid));
+  -- the tie is bounded like an acknowledged page: past the S19 access window it ends even though the call is still open
+  update public.lab_critical_calls set acknowledged_at = now() - interval '25 hours' where id = c.id;
+  perform pg_temp.ck('...and it ends after the S19 access window (24 hours) even with the call still open', 'not_permitted',
+    pg_temp.q_as(pg_temp.f('primary'), format('select public.lab_result_for_review(%L, %L)::jsonb ->> %L', rid, 'proof', 'error')));
+  update public.lab_critical_calls set acknowledged_at = now() where id = c.id;
+  perform pg_temp.ck('the legacy critical alert engine skips lab calls and lead alerts (they have their own ladder)', 'true',
+    (pg_get_functiondef('private.escalate_unconfirmed_critical_notifications()'::regprocedure) like '%''lab_critical_calls'', ''lab_results''%')::text);
   perform pg_temp.ck('the primary acknowledges: the time is recorded and the call stays open', 'true|true|true',
     ((v_txt)::jsonb ->> 'ok' = 'true')::text || '|' ||
     (select (acknowledged_at is not null and acknowledged_by = pg_temp.f('primary'))::text from public.lab_critical_calls where id = c.id) || '|' ||
@@ -438,6 +445,10 @@ begin
   perform pg_temp.ck('...and the wait is not silent: once per result an audit row and one open incident say patients are waiting on the unsigned wording', '1|1',
     (select count(*)::text from public.audit_log where action = 'lab_result.disclosure_fallback_blocked_unsigned' and entity_id = sens) || '|' ||
     (select count(*)::text from public.ops_incidents where external_reference = 'lab_fallback_wording_unsigned' and status not in ('resolved', 'closed')));
+  update public.notification_template_locales set body = body || ' Edited.' where template_key = 'lab_result_contact_us' and locale = 'en' and channel = 'in_app';
+  perform pg_temp.ck('signing refuses a version whose words no longer match the template', 'true|false',
+    (pg_temp.q_as(pg_temp.f('cmo'), format('select public.sign_lab_fallback_wording(%L)::text', (select id from public.lab_fallback_wording_signoffs where is_active))) like 'ERR:%lab_fallback_wording_changed%')::text || '|' || private.lab_fallback_signed()::text);
+  update public.notification_template_locales set body = replace(body, ' Edited.', '') where template_key = 'lab_result_contact_us' and locale = 'en' and channel = 'in_app';
   perform pg_temp.ck('a clinician cannot sign the fallback wording', 'true',
     (pg_temp.q_as(pg_temp.f('doc'), format('select public.sign_lab_fallback_wording(%L)::text', (select id from public.lab_fallback_wording_signoffs where is_active))) like 'ERR:not authorised%')::text);
   perform pg_temp.ck('anon cannot sign it', '42501', pg_temp.try_anon(format('select public.sign_lab_fallback_wording(%L)', (select id from public.lab_fallback_wording_signoffs where is_active))));

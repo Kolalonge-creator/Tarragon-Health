@@ -118,13 +118,6 @@ export function analyteLabel(code: string): string {
   return code.replace(/_/g, " ");
 }
 
-/** The three plain direction words, never a verdict. */
-export const TREND_DIRECTION_WORD: Record<MyTrend["direction"], string> = {
-  higher: "Higher than last time",
-  lower: "Lower than last time",
-  same: "The same as last time",
-};
-
 /** Maps the stable error codes of the S27h functions to plain words. */
 const MESSAGES: Record<string, string> = {
   lab_trend_note_length: "Please write between 3 and 300 characters.",

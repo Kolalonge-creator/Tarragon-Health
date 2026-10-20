@@ -239,9 +239,29 @@ begin
             case when p_source = 'lab_results' then jsonb_build_object('lab_result_id', p_ref) else jsonb_build_object('call_id', p_ref) end,
             'pending', 'non_clinical', 'critical', p_source, p_ref);
   end loop;
+  -- best effort, like the S19c page rows: send now instead of waiting for the 5 minute cron backstop
+  perform private.nudge_send_pending();
 end;
 $$;
 revoke all on function private.lab_call_notify(uuid, uuid, text, uuid, text) from public, anon, authenticated;
+
+-- The older critical alert engine hops an unopened critical notification push, email, sms and re-notifies after an acknowledgement. A lab call and a
+-- lead alert have their own ladder (the sweeps below), so the legacy engine must not touch them (it would repeat them and write exhausted-ladder
+-- alarms for every admin). Same in-place patch as S19c did for pages: the live definition is read, one exclusion widened, and the migration
+-- stops if the S19c exclusion is not there exactly once.
+do $patch$
+declare
+  v_def text := pg_get_functiondef('private.escalate_unconfirmed_critical_notifications()'::regprocedure);
+  c_old constant text := $q$not in ('pages', 'page_tests')$q$;
+  c_new constant text := $q$not in ('pages', 'page_tests', 'lab_critical_calls', 'lab_results')$q$;
+begin
+  if v_def like '%''lab_critical_calls''%' then return; end if;
+  if (length(v_def) - length(replace(v_def, c_old, ''))) / length(c_old) <> 1 then
+    raise exception 'S27h: the S19c exclusion in the legacy critical alert engine was not found exactly once; patch it by hand';
+  end if;
+  execute replace(v_def, c_old, c_new);
+end
+$patch$;
 
 -- the clinical lead (CMO) and ops (admin) of the organisation, matched on the test flag. Returns how many were told.
 create function private.lab_notify_leadership(p_org uuid, p_test boolean, p_template text, p_ref uuid, p_source text default 'lab_critical_calls') returns integer
@@ -277,7 +297,7 @@ begin
   select * into r from public.lab_results where id = new.lab_result_id;
   if r.id is null or r.superseded_by is not null then return null; end if;
   begin
-    v_m2 := coalesce((private.paging_rule('escalation_minutes') ->> 1)::integer, 10);
+    v_m2 := (private.paging_rule('escalation_minutes') ->> 1)::integer;   -- null (no paging rules) raises below and is audited, never defaulted
     -- never a clinician who is the patient or has a conflict with them (S19c P4), for the first call and for the backup
     v_to := private.page_recipient(r.organisation_id, r.is_test, r.patient_id);
     select oc.backup_id into v_backup from private.on_call_now(r.organisation_id, r.is_test) oc;
@@ -395,6 +415,8 @@ declare v_def text; v_new text;
         exists (
           select 1 from public.lab_critical_calls lc
            where lc.patient_id = p_patient and lc.closed_at is null and lc.acknowledged_by = (select auth.uid())
+             -- bounded like an acknowledged page: the S19 access window (paging_rule page_access_hours); a missing rule means no access
+             and lc.acknowledged_at > now() - make_interval(hours => (private.paging_rule('page_access_hours') #>> '{}')::integer)
         )
         and (select auth.uid()) <> p_patient
         and not private.has_conflict((select auth.uid()), p_patient)
@@ -415,12 +437,17 @@ language plpgsql security definer set search_path = ''
 as $$
 declare
   c public.lab_critical_calls%rowtype;
-  v_m1 integer := coalesce((private.paging_rule('escalation_minutes') ->> 0)::integer, 5);
-  v_m2 integer := coalesce((private.paging_rule('escalation_minutes') ->> 1)::integer, 10);
-  v_rep integer := coalesce((private.paging_rule('lead_repeat_minutes') #>> '{}')::integer, 5);
-  v_repmax integer := coalesce((private.paging_rule('lead_repeat_max') #>> '{}')::integer, 12);
+  v_m1 integer := (private.paging_rule('escalation_minutes') ->> 0)::integer;
+  v_m2 integer := (private.paging_rule('escalation_minutes') ->> 1)::integer;
+  v_rep integer := (private.paging_rule('lead_repeat_minutes') #>> '{}')::integer;
+  v_repmax integer := (private.paging_rule('lead_repeat_max') #>> '{}')::integer;
   v_backups integer := 0; v_leads integer := 0; v_repeats integer := 0;
 begin
+  if v_m1 is null or v_m2 is null or v_rep is null or v_repmax is null then
+    perform private.page_incident((select id from public.organisations order by created_at limit 1), 'lab_critical_paging_rules_missing', 'The critical lab value sweep has no paging rules',
+      'No active paging configuration is readable, so unacknowledged critical lab value calls are not being escalated. Activate the S19 paging configuration.');
+    return jsonb_build_object('skipped', 'no_paging_rules');
+  end if;
   -- a row that raised is skipped for 10 minutes so one bad row cannot be re-tried and re-logged every minute, but it is never dropped
   for c in select * from public.lab_critical_calls
             where closed_at is null and acknowledged_at is null and (last_error_at is null or last_error_at < now() - interval '10 minutes')
@@ -526,6 +553,12 @@ as $$
 declare v_staff uuid;
 begin
   if not exists (select 1 from public.lab_fallback_wording_signoffs where id = p_id) then raise exception 'Fallback wording version not found'; end if;
+  -- the signature binds the exact words: refuse to sign a version whose words are no longer the ones the patient would receive
+  if not exists (select 1 from public.lab_fallback_wording_signoffs w
+                  where w.id = p_id and w.wording_md5 = (select md5(l.body) from public.notification_template_locales l
+                                                          where l.template_key = 'lab_result_contact_us' and l.locale = 'en' and l.channel = 'in_app')) then
+    raise exception 'lab_fallback_wording_changed: the message words changed since this version was written; a new version is needed' using errcode = '22023';
+  end if;
   select cs.id into v_staff from public.clinical_staff cs
    where cs.profile_id = (select auth.uid()) and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer' limit 1;
   if v_staff is null then raise exception 'not authorised: only the active Chief Medical Officer can sign the fallback wording'; end if;
@@ -552,15 +585,21 @@ declare
   r public.lab_results%rowtype;
   hs public.lab_hold_state%rowtype;
   v_expected integer := private.lab_expected_minutes();
-  v_crit integer := coalesce((private.lab_lifecycle_rule('{holdAging,leadEscalateMinutes,critical}') #>> '{}')::integer, 720);
-  v_def integer := coalesce((private.lab_lifecycle_rule('{holdAging,leadEscalateMinutes,default}') #>> '{}')::integer, 1440);
-  v_rep integer := coalesce((private.lab_lifecycle_rule('{holdAging,repeatMinutes}') #>> '{}')::integer, 720);
-  v_repmax integer := coalesce((private.lab_lifecycle_rule('{holdAging,repeatMax}') #>> '{}')::integer, 3);
-  v_after integer := coalesce((private.lab_lifecycle_rule('{disclosureFallback,afterEscalatedMinutes}') #>> '{}')::integer, 1440);
+  v_crit integer := (private.lab_lifecycle_rule('{holdAging,leadEscalateMinutes,critical}') #>> '{}')::integer;
+  v_def integer := (private.lab_lifecycle_rule('{holdAging,leadEscalateMinutes,default}') #>> '{}')::integer;
+  v_rep integer := (private.lab_lifecycle_rule('{holdAging,repeatMinutes}') #>> '{}')::integer;
+  v_repmax integer := (private.lab_lifecycle_rule('{holdAging,repeatMax}') #>> '{}')::integer;
+  v_after integer := (private.lab_lifecycle_rule('{disclosureFallback,afterEscalatedMinutes}') #>> '{}')::integer;
   v_max integer := coalesce((private.lab_config('disclosure') ->> 'maxAttempts')::integer, 3);
   v_threshold integer; v_attempts integer;
   n_patient integer := 0; n_lead integer := 0; n_fallback integer := 0;
 begin
+  -- no active lifecycle config means no thresholds: say so and stop, rather than run on numbers nobody configured
+  if v_crit is null or v_def is null or v_rep is null or v_repmax is null or v_after is null then
+    perform private.page_incident((select id from public.organisations order by created_at limit 1), 'lab_lifecycle_config_missing', 'The lab hold sweep has no configuration',
+      'No active lab_lifecycle_config row is readable, so held lab results are not being aged or escalated. Activate a configuration.');
+    return jsonb_build_object('skipped', 'no_config');
+  end if;
   for r in select * from public.lab_results
             where release_state in ('awaiting_review', 'clinician_disclosure_required') and superseded_by is null and withdrawn_at is null
               and submitted_by_kind <> 'patient'
@@ -634,7 +673,7 @@ as $$
   select r.id, r.release_state, r.report_status, r.received_at,
          r.received_at + make_interval(mins => private.lab_expected_minutes()),
          case when r.release_state = 'awaiting_review' then r.received_at + make_interval(mins =>
-           coalesce((private.lab_lifecycle_rule(case when r.release_reason = 'critical' then '{holdAging,leadEscalateMinutes,critical}'::text[] else '{holdAging,leadEscalateMinutes,default}'::text[] end) #>> '{}')::integer, 1440)) end,
+           (private.lab_lifecycle_rule(case when r.release_reason = 'critical' then '{holdAging,leadEscalateMinutes,critical}'::text[] else '{holdAging,leadEscalateMinutes,default}'::text[] end) #>> '{}')::integer) end,
          (extract(epoch from now() - r.received_at) / 60)::integer,
          now() > r.received_at + make_interval(mins => private.lab_expected_minutes()),
          coalesce(h.lead_escalated_at is not null, false)
@@ -653,9 +692,9 @@ create function private.lab_delta_flags(p_result uuid) returns jsonb
 language sql stable security definer set search_path = ''
 as $$
   with cfg as (
-    select coalesce((private.lab_lifecycle_rule('{delta,percent}') #>> '{}')::numeric, 50) as dflt,
-           coalesce((private.lab_lifecycle_rule('{delta,windowDays}') #>> '{}')::integer, 365) as win,
-           coalesce(private.lab_lifecycle_rule('{delta,perAnalytePercent}'), '{}'::jsonb) as per
+    select (private.lab_lifecycle_rule('{delta,percent}') #>> '{}')::numeric as dflt,
+           (private.lab_lifecycle_rule('{delta,windowDays}') #>> '{}')::integer as win,
+           private.lab_lifecycle_rule('{delta,perAnalytePercent}') as per
   ), cur as (
     select i.analyte_code, i.unit, i.value_numeric, r.patient_id, r.received_at
       from public.lab_result_items i join public.lab_results r on r.id = i.lab_result_id
@@ -695,6 +734,7 @@ begin
   if coalesce(btrim(p_reason), '') = '' then raise exception 'A reason is required' using errcode = '22023'; end if;
   r := private.lab_review_actor(p_result, false);
   if r.id is null then return jsonb_build_object('error', 'not_permitted'); end if;
+  if private.lab_lifecycle_rule('{delta,percent}') is null then raise exception 'lab_lifecycle_config_missing' using errcode = '55000'; end if;
   perform private.audit_chart_read(r.patient_id, array['lab_results'], p_reason, 'success');
   select * into c from public.lab_critical_calls where lab_result_id = r.id;
   select * into h from public.lab_hold_state where lab_result_id = r.id;
