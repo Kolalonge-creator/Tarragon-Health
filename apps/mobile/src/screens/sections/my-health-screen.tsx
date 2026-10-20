@@ -108,6 +108,7 @@ export function MyHealthScreen({ userId, acting, onNavigate }: MyHealthScreenPro
           trailing="chevron"
           onPress={() => void Linking.openURL(`${PLATFORM_URL}/patient/share-records`)}
         />
+        <GroupedListRow title={t("my_phones.card")} subtitle={t("my_phones.card_body")} trailing="chevron" onPress={() => onNavigate("myPhones")} />
       </GroupedList>
 
       {acting ? (
