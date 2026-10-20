@@ -1,13 +1,16 @@
 "use client";
 import {
+  bandCaption,
   glucoseInDisplayUnit,
+  glucoseTrendBand,
   GLUCOSE_UNIT_LABEL,
+  weightTrendBand,
   type GlucoseDisplayUnit,
 } from "@tarragon/shared";
 import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 
 import { useState, type Key as ReactKey } from "react";
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, ReferenceArea, XAxis, YAxis } from "recharts";
 import { useVitalsTrend, useHba1cTrend, useBmiTrend, useHeightStatus } from "@/lib/queries/vitals";
 import { getHba1cBracket } from "@/lib/rules/hba1c-bracket";
 import { bmiCategory, type BmiCategory } from "@/lib/obesity/classify";
@@ -162,6 +165,8 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
         : null,
   }));
   const lastIndex = points.length - 1;
+  const glucoseBand = glucoseTrendBand(glucoseUnit);
+  const weightBand = weightTrendBand(heightStatus.data?.heightCm);
   const noHeightOnFile =
     mode === "bmi" && !heightStatus.isLoading && heightStatus.data?.heightCm == null;
   const heightDiscrepancy = mode === "bmi" ? heightStatus.data?.discrepancy : null;
@@ -289,9 +294,12 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
           </div>
         )}
         {points.length >= 2 && mode === "glucose" && (
+          <div className="space-y-2">
           <ChartContainer config={glucoseConfig(glucoseUnit)}>
             <LineChart data={points}>
               <CartesianGrid {...GRID_PROPS} />
+              {/* S47a 4.6: the target band, shaded and also named in the caption below (colour is never the only signal). */}
+              <ReferenceArea y1={glucoseBand.low} y2={glucoseBand.high} fill="var(--chart-glucose)" fillOpacity={0.12} ifOverflow="hidden" />
               <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} axisLine={false} />
               <YAxis
                 tick={AXIS_TICK}
@@ -315,11 +323,19 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
               />
             </LineChart>
           </ChartContainer>
+          <p data-testid="glucose-band-caption" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+            {bandCaption("glucose", glucoseBand, GLUCOSE_UNIT_LABEL[glucoseUnit])}
+          </p>
+          </div>
         )}
         {points.length >= 2 && mode === "weight" && (
+          <div className="space-y-2">
           <ChartContainer config={WEIGHT_CONFIG}>
             <LineChart data={points}>
               <CartesianGrid {...GRID_PROPS} />
+              {weightBand ? (
+                <ReferenceArea y1={weightBand.low} y2={weightBand.high} fill="var(--chart-glucose)" fillOpacity={0.12} ifOverflow="hidden" />
+              ) : null}
               <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} axisLine={false} />
               <YAxis
                 tick={AXIS_TICK}
@@ -337,6 +353,16 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
               />
             </LineChart>
           </ChartContainer>
+          {weightBand ? (
+            <p data-testid="weight-band-caption" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              {bandCaption("weight", weightBand, "kg")}
+            </p>
+          ) : (
+            <p data-testid="weight-band-missing" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              Add your height in your profile settings to see the usual target range for your weight on this chart.
+            </p>
+          )}
+          </div>
         )}
         {points.length >= 2 && mode === "pulse" && (
           <ChartContainer config={PULSE_CONFIG}>

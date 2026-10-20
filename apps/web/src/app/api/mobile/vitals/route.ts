@@ -16,8 +16,13 @@ import {
   pulseSchema,
   temperatureSchema,
   spo2Schema,
+  waterSchema,
+  sleepSchema,
+  moodSchema,
+  inhalerUseSchema,
   GLUCOSE_RANGE,
 } from "@/lib/validation/vitals";
+import { lifestyleRow, NOT_SWITCHED_ON_MESSAGE, readExtendedObservationsEnabled } from "@/lib/vitals/extended-observations";
 import { mgDlToMmolL, type TablesInsert } from "@tarragon/shared";
 import { z } from "zod";
 
@@ -64,6 +69,11 @@ const mobileVitalsSchema = z
     pulseSchema,
     temperatureSchema,
     spo2Schema,
+    // S47a: water, sleep, mood and the inhaler log (behind the extended_observations module)
+    waterSchema,
+    sleepSchema,
+    moodSchema,
+    inhalerUseSchema,
   ])
   .superRefine((data, ctx) => {
     if (data.vital_type === "glucose") {
@@ -154,6 +164,40 @@ export async function POST(request: Request): Promise<NextResponse> {
   // the runBestEffort closures further down, which read this via a fresh
   // arrow function rather than a direct access.
   const organisationId = profile.organisation_id;
+
+  // S47a (4.2, 6.6): water, sleep, mood and inhaler use. No red-flag path exists for these types (no rule set, nothing pages anyone), so there is no
+  // assessor to run; the module switch and the database CHECK both guard the write. A blind retry of a queued entry is an idempotent success.
+  if (reading.vital_type === "inhaler_use") {
+    if (!(await readExtendedObservationsEnabled(supabase))) return NextResponse.json({ error: NOT_SWITCHED_ON_MESSAGE }, { status: 403 });
+    const { error: inhalerError } = await supabase.rpc("log_inhaler_use", {
+      p_puffs: reading.puffs,
+      p_reason: reading.reason,
+      ...(taken_at ? { p_client_recorded_at: new Date(taken_at).toISOString() } : {}),
+      ...(clientReadingId ? { p_client_log_id: clientReadingId } : {}),
+      ...(beneficiaryId ? { p_beneficiary: beneficiaryId } : {}),
+    });
+    if (inhalerError) {
+      return NextResponse.json({ error: inhalerError.code === "22023" ? inhalerError.message : "Could not save that. Please try again." }, { status: inhalerError.code === "22023" ? 400 : 500 });
+    }
+    return NextResponse.json({ success: true });
+  }
+  if (reading.vital_type === "water_ml" || reading.vital_type === "sleep_hours" || reading.vital_type === "mood") {
+    if (!(await readExtendedObservationsEnabled(supabase))) return NextResponse.json({ error: NOT_SWITCHED_ON_MESSAGE }, { status: 403 });
+    const lifestyle = lifestyleRow(reading, {
+      patientId: subjectId,
+      organisationId,
+      clientRecordedAt: taken_at ? new Date(taken_at).toISOString() : null,
+      clientReadingId: clientReadingId ?? null,
+    });
+    const { error: lifestyleError } = await supabase.from("vitals_readings").insert(lifestyle);
+    if (lifestyleError) {
+      if (clientReadingId && lifestyleError.code === "23505") return NextResponse.json({ success: true });
+      if (lifestyleError.code === "23514") return NextResponse.json({ error: "That number does not look right. Check it and try again." }, { status: 400 });
+      if (lifestyleError.code === "55000") return NextResponse.json({ error: NOT_SWITCHED_ON_MESSAGE }, { status: 403 });
+      return NextResponse.json({ error: lifestyleError.message }, { status: 500 });
+    }
+    return NextResponse.json({ success: true });
+  }
 
   // Same glucose_value/glucose_unit → glucose_mmol_l normalisation as
   // logVital — vitals_readings only ever stores the canonical mmol/L column.

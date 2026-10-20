@@ -3,6 +3,9 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { VitalsForm } from "@/app/(dashboard)/patient/vitals-form";
+import { LifestyleLogCard } from "@/app/(dashboard)/patient/lifestyle-log-card";
+import { createClient } from "@/lib/supabase/server";
+import { readExtendedObservationsEnabled } from "@/lib/vitals/extended-observations";
 import { MonitoringCoverCard } from "@/components/monitoring-cover-card";
 import { HbpmSummaryCard } from "@/app/(dashboard)/patient/hbpm-summary-card";
 import { GlucoseInsights } from "@/app/(dashboard)/patient/glucose-insights";
@@ -28,6 +31,8 @@ import { VisitReportCard } from "@/app/(dashboard)/patient/visit-report-card";
 export default async function PatientVitalsPage() {
   const { profile, subjectId, subjectDateOfBirth, glucoseUnit } = await getPatientDashboardContext();
   const ageYears = ageFromDateOfBirth(subjectDateOfBirth);
+  // S47a: water, sleep, mood and inhaler logs show only while the extended_observations module is on (born off).
+  const extendedObservationsOn = await readExtendedObservationsEnabled(await createClient());
   const presentingComplaints = await listAvailablePresentingComplaints();
   // The stated review time is read from the signed SLA only when the checker is open (nothing to promise otherwise).
   const reviewTime = presentingComplaints.length > 0 ? await getSymptomReviewTime() : ({ stated: false } as const);
@@ -56,6 +61,8 @@ export default async function PatientVitalsPage() {
           <GlucoseInsights patientId={subjectId} />
         </div>
       </div>
+
+      {extendedObservationsOn ? <LifestyleLogCard types={["water_ml", "sleep_hours", "mood", "inhaler_use"]} /> : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SymptomLogForm patientId={subjectId} ageYears={ageYears} />

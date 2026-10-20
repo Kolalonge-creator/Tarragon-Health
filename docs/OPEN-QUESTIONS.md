@@ -4321,3 +4321,32 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-NAFDAC-SCAN-4 The number is used for lookup and pre-fill only; it is not stored on the medication (raised by the pack-scan build, 2026-10-16)
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
+
+### OQ-S47A-1 Plausibility limits for water, sleep, mood and inhaler puffs are PROPOSED (raised by S47a, 2026-10-20)
+- Registry key `observations.plausibility` v1, mirrored by `observation_limit_signoffs` v1 (born unsigned and inactive) and, for the new types, by a database CHECK (`vitals_readings_s47a_lifestyle_plausible`, `inhaler_use_logs.puffs`). Hard limits: water 10 to 3000 ml in one log, sleep 0.5 to 24 hours, mood whole 1 to 5, puffs whole 1 to 20. Soft (ask to confirm, never refuse): water over 1500 ml, sleep under 2 or over 14 hours, puffs over 8. The first nine rows only restate limits already enforced on the phone, web and API.
+- Needed: the CMO reads the table at `/clinician/observation-limits` (also a line on the sign-off hub) and signs `sign_observation_limits`. Signing does not switch the logs on. Changing a hard limit later also needs a new migration for the CHECK; the mirror test fails until both agree.
+- Decision: open (CMO).
+
+### OQ-S47A-2 Inhaler use has no alert rule and no advice wording (raised by S47a, 2026-10-20)
+- `inhaler_use_logs` records puffs and a reason and nothing else. No frequency line (for example repeated reliever use in a week), no task, no page, no notice exists, and none was invented: that is a clinical rule set and the CMO's. The phone and web show no inhaler advice for the same reason; any wording in the `vitals.*` namespace needs a real reviewer entry in the reviewed-strings ledger.
+- Needed: the CMO decides what repeated reliever use means, who is told and how fast, and supplies the wording; then a rule set is built on the S16 task layer.
+- Decision: open (CMO).
+
+### OQ-S47A-3 Do water, sleep and mood logs earn points? (raised by S47a, 2026-10-20)
+- The rewards trigger `private.wellness_points_on_vitals_logged` is changed so the three new lifestyle types never earn (a water tap is easy to game, and rewards already exclude weight and waist for a similar reason). Streaks and "small daily goals" (spec 4.5) are the S47b work and are not built here.
+- Needed: the founder decides whether any lifestyle log should earn, with what daily cap.
+- Decision: open (founder). Default stays: no points.
+
+### OQ-S47A-4 The trend-chart target bands are PROPOSED (raised by S47a, 2026-10-20)
+- `observations.target_bands` v1: glucose 3.9 to 10.0 mmol/L (the time-in-range band the diabetes view already uses; a test fails if they drift) and the WHO healthy BMI band 18.5 to 24.9 turned into kilograms at the person's own height. No band is drawn for weight without a usable height. A care-team glucose target for the person is not yet read (the function accepts one); only the standard band shows today.
+- Needed: the CMO confirms both bands, and says whether a per-person glucose target should replace the standard one on the chart. The phone has no single-series chart yet, so the bands are web-only in this change.
+- Decision: open (CMO).
+
+### OQ-S47A-5 New strings sit outside the reviewed-strings ledger namespaces (raised by S47a, 2026-10-20)
+- The water, sleep, mood, inhaler and "Changed" wording lives under `observation.*`, outside the gated clinical namespaces, because the ledger takes no new baseline entries and no reviewer exists to name. That is a route around the gate, not a review (same as OQ-NAFDAC-SCAN-3). The typo sentences make no clinical claim.
+- Needed: the CMO or a clinical lead reads the `observation.*` keys, then they move into a gated namespace with a real reviewer entry.
+- Decision: open (CMO).
+
+### OQ-S47A-6 Switching the logs on (raised by S47a, 2026-10-20)
+- Platform module `extended_observations` is born off and the database refuses the rows while it is off. It needs: OQ-S47A-1 signed, an answer to OQ-S47A-3, and the edge function `process-events` redeployed with the S47a change to `observation-handler.ts` (it returns at once for kinds water, sleep and mood; an older deployed handler also finds nothing to grade because the context loader answers "not a blood pressure reading", but redeploy first all the same).
+- Decision: open (founder).

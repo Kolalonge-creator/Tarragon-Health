@@ -15,6 +15,7 @@
  * are deliberately absent: the sessions that build them add them here.
  */
 import { DEVICE_RED_RULES, EMERGENCY_PACK } from "./emergency-pack";
+import { OBSERVATION_LIMITS_V1 } from "./observation-limits-data";
 import { THERAPY_EXCLUSION_LISTS, THERAPY_PROGRAMME_CONFIG } from "./therapy-config-data";
 
 export type ConfigOwner = "CMO" | "Founder" | "Founder and counsel";
@@ -5943,5 +5944,33 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-16",
     source: "docs/design/S53-pack-scan.md; NAFDAC Greenbook public examples",
+  },
+  {
+    key: "observations.plausibility",
+    // S47a (BUILD-SPEC-v5 4.3, 4.7): the typo gate for every hand-typed number. Hard limits refuse with a plain message; soft limits (water, sleep,
+    // inhaler puffs) only ask the person to confirm. Mirrored in the database CHECK for the lifestyle types and the inhaler log; a test fails on drift.
+    // PROPOSED: the Chief Medical Officer confirms the lifestyle-type limits (OQ-S47A-1).
+    value: OBSERVATION_LIMITS_V1,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-09-30",
+    source: "docs/BUILD-SPEC-v5.md Module 4 (4.3, 4.7); docs/research/S46-S50-competitor-gap-and-build-plan.md S47a",
+  },
+  {
+    key: "observations.target_bands",
+    // S47a (BUILD-SPEC-v5 4.6): the shaded band on the glucose and weight trend charts. Glucose is the usual time-in-range band that
+    // apps/web/src/lib/vitals/time-in-range.ts already uses (DEFAULT_TIR_LOW / DEFAULT_TIR_HIGH; a test fails if they drift). Weight is the WHO healthy BMI
+    // band, turned into kilograms at the person's own height. A care-team target for the person replaces the standard band.
+    // PROPOSED: the Chief Medical Officer confirms (OQ-S47A-4).
+    value: {
+      glucose_mmol_l: { low: 3.9, high: 10.0 },
+      healthy_bmi: { low: 18.5, high: 24.9 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-09-30",
+    source: "apps/web/src/lib/vitals/time-in-range.ts; WHO BMI bands (apps/web/src/lib/obesity/classify.ts bmiCategory)",
   },
 ];

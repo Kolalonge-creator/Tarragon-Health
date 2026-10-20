@@ -393,6 +393,93 @@ export type Database = {
           },
         ]
       }
+      inhaler_use_logs: {
+        Row: {
+          client_log_id: string | null
+          correction_reason: string | null
+          created_at: string
+          entered_in_error: boolean
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          puffs: number
+          reason: string
+          recorded_by: string
+          source: Database["public"]["Enums"]["record_source"]
+          supersedes_id: string | null
+          taken_at: string
+          time_basis: string
+        }
+        Insert: {
+          client_log_id?: string | null
+          correction_reason?: string | null
+          created_at?: string
+          entered_in_error?: boolean
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          puffs: number
+          reason: string
+          recorded_by: string
+          source?: Database["public"]["Enums"]["record_source"]
+          supersedes_id?: string | null
+          taken_at?: string
+          time_basis?: string
+        }
+        Update: {
+          client_log_id?: string | null
+          correction_reason?: string | null
+          created_at?: string
+          entered_in_error?: boolean
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          puffs?: number
+          reason?: string
+          recorded_by?: string
+          source?: Database["public"]["Enums"]["record_source"]
+          supersedes_id?: string | null
+          taken_at?: string
+          time_basis?: string
+        }
+        Relationships: []
+      }
+      observation_limit_signoffs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       my_health_config: {
         Row: {
           approved_at: string | null
@@ -47385,6 +47472,21 @@ export type Database = {
       }
     }
     Views: {
+      inhaler_use_current: {
+        Row: {
+          id: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          puffs: number | null
+          reason: string | null
+          recorded_by: string | null
+          source: Database["public"]["Enums"]["record_source"] | null
+          supersedes_id: string | null
+          taken_at: string | null
+          was_changed: boolean | null
+        }
+        Relationships: []
+      }
       ai_readable_lab_readings: {
         Row: {
           abnormal_flag: Database["public"]["Enums"]["lab_analyte_flag"] | null
@@ -48646,6 +48748,9 @@ export type Database = {
       complete_home_bp_check: { Args: { p_window_start: string }; Returns: Json };
       record_clinic_bp_reading: { Args: { p_diastolic: number; p_measured_at: string; p_note?: string; p_patient: string; p_systolic: number }; Returns: string };
       sign_my_health_config: { Args: { p_id: string }; Returns: string };
+      sign_observation_limits: { Args: { p_id: string }; Returns: string };
+      log_inhaler_use: { Args: { p_puffs: number; p_reason: string; p_client_recorded_at?: string; p_client_log_id?: string; p_beneficiary?: string }; Returns: string };
+      correct_inhaler_use: { Args: { p_id: string; p_puffs: number; p_reason: string; p_why: string; p_entered_in_error?: boolean }; Returns: string };
       my_access_log: { Args: { p_limit?: number; p_before?: string; p_before_id?: string }; Returns: Json };
       my_lock_screen_facts: { Args: Record<PropertyKey, never>; Returns: Json };
       set_lock_screen_pass: { Args: { p_enabled: boolean }; Returns: boolean };
@@ -56430,6 +56535,9 @@ export type Database = {
         | "ketones"
         | "respiratory_rate"
         | "peak_flow"
+        | "water_ml"
+        | "sleep_hours"
+        | "mood"
       vitals_validation_status: "valid" | "requires_validation"
       wearable_connection_status: "active" | "disconnected" | "error" | "paused"
       wearable_provider:
@@ -58965,6 +59073,9 @@ export const Constants = {
         "ketones",
         "respiratory_rate",
         "peak_flow",
+        "water_ml",
+        "sleep_hours",
+        "mood",
       ],
       vitals_validation_status: ["valid", "requires_validation"],
       wearable_connection_status: ["active", "disconnected", "error", "paused"],
