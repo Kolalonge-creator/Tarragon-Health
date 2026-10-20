@@ -2018,7 +2018,6 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **Tests**: medicines 358 pass at 100 percent coverage; mobile `pack-scan` and mirror tests pass; i18n 215 and shared 1,029 pass; mobile `tsc` clean; eslint 0 errors.
 - **Not run**: nothing on a device or simulator; the camera path cannot run until a text reader exists.
 - **Open**: OQ-NAFDAC-SCAN-1 to OQ-NAFDAC-SCAN-4.
-<<<<<<< HEAD
 ## OQ-436: external dead-man's switch (2026-10-16), branch `feat/oq436-external-deadman`
 - Built: `public.deadman_status(int)` (service_role only, anon EXECUTE revoked via `revoke ... from public`, closing DO block asserts it), `GET /api/health/deadman` (secret header or bearer, constant-time compare, fails closed, counts and ages only), pure `evaluateDeadman`/`parseDeadmanStatus` with PROPOSED config `ops.deadman_thresholds`, `.github/workflows/deadman-switch.yml` plus `.github/scripts/deadman-check.sh` (every 5 minutes; one `incident` issue opened or updated, closed on recovery; optional Resend email; missing required secret fails the run), runbook section and OQ-436 closed as built-needs-secrets.
 - Tests: Jest for the route (no secret, wrong secret, right secret, bearer, down, degraded, rpc error) and the threshold function; `packages/db/tests/oq436_deadman_status.sql` registered in `ci.manifest`; the bash script was exercised with stubbed `curl` and `gh` for ok, degraded, down (new and existing issue), 401, unreachable, recovery and missing secrets.
@@ -2031,9 +2030,6 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **Safety**: required empty sections are `unavailable`, never `nilknown`; wearable values stay tagged as estimates; no profile or conformance claim; copy says the file is unvalidated.
 - **Tests**: web `src/lib/fhir` 77 pass (structure, reference resolution, excluded categories, empty sections, escaping, units round trip through our own import parser, service); shared 1,055 pass; i18n 215 pass; web `tsc` clean; eslint clean.
 - **Not run**: no HAPI or other FHIR validator; the screens were not opened in a browser or on a device.
-<<<<<<< HEAD
 - **Open**: OQ-IPS-1 to OQ-IPS-3.
->>>>>>> 5fa70a857 (IPS export: International Patient Summary shaped FHIR document from the existing export snapshot)
 
 - **Open**: OQ-IPS-1 to OQ-IPS-4.
->>>>>>> 6d2b17b62 (IPS export: review fixes (withheld sections, short summary, mapping version, preview on request))
