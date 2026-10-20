@@ -4321,3 +4321,15 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-NAFDAC-SCAN-4 The number is used for lookup and pre-fill only; it is not stored on the medication (raised by the pack-scan build, 2026-10-16)
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
+
+### OQ-RCPT-1-1 Consent receipt download is web only (raised by RCPT-1, 2026-10-20)
+- The mobile privacy screen has no session-authenticated way to fetch the web PDF route, and the mobile document flows use their own bearer routes. A bearer route (or an in-app render) would add it. Not built.
+- Decision: open (product).
+
+### OQ-RCPT-1-2 Receipt wording is placeholder until counsel approves it (raised by RCPT-1, 2026-10-20)
+- The matrix wording is `draft_pending_counsel` (OQ-330), so a receipt says so on the page. The strings in `consent.receipt.*` are plain-language engineering text, not legal text. Counsel reviews them with the matrix wording.
+- Decision: open (counsel).
+
+### OQ-RCPT-1-3 A guardian cannot download a dependant's receipts (raised by RCPT-1, 2026-10-20)
+- By design for this change (own rows only). If a guardian needs them, it is a new access rule on the audited function, with the category checks the dependant model already has.
+- Decision: open (product, DPO).

@@ -2023,3 +2023,10 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - Tests: Jest for the route (no secret, wrong secret, right secret, bearer, down, degraded, rpc error) and the threshold function; `packages/db/tests/oq436_deadman_status.sql` registered in `ci.manifest`; the bash script was exercised with stubbed `curl` and `gh` for ok, degraded, down (new and existing issue), 401, unreachable, recovery and missing secrets.
 - Not exercised: the migration dry run on production timed out at the connection (database unresponsive at the time), so it relied on CI replay; the workflow has never run on GitHub and the endpoint never against production; the Resend call was not sent; actionlint was not available.
 - Needs the founder: the secrets in OQ-436. Paging logic untouched.
+
+## RCPT-1 consent receipts as a one-page PDF (2026-10-20), branch `feat/consent-receipts`
+
+- **Built**: migration `20261020232611` (`public.consent_receipt_data(scope, ref)`: own rows only, patient role only, one audit row per call in the same function; `my_consent_matrix_history` now carries entry ids); `GET /api/patient/consent-receipt/pdf`; `lib/consent/consent-receipt.ts` and an A4 black and white react-pdf document; download links in the privacy matrix history, a "current choices" link and a per-agreement link; `consent.receipt.*` strings.
+- **Tests**: DB proof `rcpt1_consent_receipts.sql` 30 checks plus 3 sabotage flips (own-rows filter, audit call, role gate), run against live in a rolled-back transaction with the migration spliced in (no Docker); Jest lib 13, route 9, panel 1 added (privacy dir 56 pass); i18n 215; tsc clean; PDF rendered and viewed (whole picture fits one A4 page, single change one page).
+- **Not run**: not applied to production; the privacy page links were not clicked in a browser signed in as a patient; mobile not built (OQ-RCPT-1-1).
+- **Open**: OQ-RCPT-1-1 to OQ-RCPT-1-3.
