@@ -13,3 +13,4 @@ export * from "./pack-prefill";
 export * from "./add-check";
 export * from "./prn";
 export * from "./adherence-report";
+export * from "./nafdac-number";
