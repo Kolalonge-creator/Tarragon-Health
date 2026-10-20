@@ -102,7 +102,8 @@ describe("reconnect watcher", () => {
     t.emit({ isConnected: true, isInternetReachable: true, type: "cellular" });
     await flushPromises();
     expect(onReachable).toHaveBeenCalledTimes(1);
-    t.advance(61_000);
+    // Twenty seconds after a probe on mobile data: arriving on Wi-Fi is not throttled by it.
+    t.advance(20_000);
     t.emit({ isConnected: true, isInternetReachable: true, type: "wifi" });
     await flushPromises();
     expect(onReachable).toHaveBeenCalledTimes(2);

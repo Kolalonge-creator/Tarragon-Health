@@ -190,8 +190,10 @@ describe("shouldHoldForWifi", () => {
     expect(hold({ kind: "dose", dueAgoMs: 0, ageMs: HOLD })).toBe(false);
   });
 
-  it("never holds a scheduled dose when the server's missed window is unknown", () => {
+  it("never holds a scheduled dose when the server's missed window is unknown, even one logged long before it is due", () => {
     expect(hold({ kind: "dose", dueAgoMs: HOUR, serverMissedMs: 0 })).toBe(false);
+    expect(hold({ kind: "dose", dueAgoMs: -3 * HOUR, serverMissedMs: 0 })).toBe(false);
+    expect(hold({ kind: "dose", dueAgoMs: -3 * HOUR })).toBe(true);
     // An as-needed dose has no due time and no missed rule: only the cap applies.
     expect(hold({ kind: "dose", dueAgoMs: null, serverMissedMs: 0 })).toBe(true);
   });
@@ -230,7 +232,10 @@ describe("connectionKindFromNetInfo", () => {
     expect(connectionKindFromNetInfo("unknown", true)).toBe("unknown");
     expect(connectionKindFromNetInfo(undefined, undefined)).toBe("unknown");
     expect(connectionKindFromNetInfo(null, null)).toBe("unknown");
-    expect(connectionKindFromNetInfo("vpn", true)).toBe("other");
+    // A VPN can ride on mobile data, so it is "unknown" (counted toward the estimate, never a reason to hold); only wired ethernet is free.
+    expect(connectionKindFromNetInfo("vpn", true)).toBe("unknown");
+    expect(connectionKindFromNetInfo("bluetooth", true)).toBe("unknown");
+    expect(connectionKindFromNetInfo("other", true)).toBe("unknown");
     expect(connectionKindFromNetInfo("ethernet", true)).toBe("other");
   });
 });

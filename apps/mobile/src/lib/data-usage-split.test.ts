@@ -47,15 +47,15 @@ describe("last sync", () => {
     await addDataUsage(1_000, at(0), "cellular");
     await addDataUsage(2_000, at(5_000), "cellular");
     await addDataUsage(500, at(10_000), "wifi");
-    expect((await getUsageFigures(at(10_000))).lastSync).toEqual({ bytes: 3_000, at: at(10_000).getTime() });
+    expect((await getUsageFigures(at(10_000))).lastSync).toEqual({ bytes: 3_000, at: at(5_000).getTime() });
     await addDataUsage(700, at(10 * 60_000), "cellular");
     expect((await getUsageFigures(at(10 * 60_000))).lastSync).toEqual({ bytes: 700, at: at(10 * 60_000).getTime() });
   });
 
-  it("a sync that used only Wi-Fi shows zero mobile data, not the previous sync", async () => {
+  it("a later Wi-Fi sync leaves the last mobile-data sync as it was, never blanks or replaces it", async () => {
     await addDataUsage(4_000, at(0), "cellular");
-    await addDataUsage(9_000, at(10 * 60_000), "wifi");
-    expect((await getUsageFigures(at(10 * 60_000))).lastSync?.bytes).toBe(0);
+    await addDataUsage(9_000, at(30 * 60_000), "wifi");
+    expect((await getUsageFigures(at(30 * 60_000))).lastSync).toEqual({ bytes: 4_000, at: at(0).getTime() });
   });
 
   it("survives a corrupt stored record and a failing store without throwing", async () => {

@@ -6,7 +6,11 @@ import type { ConnectionKind } from "./data-cost-rules";
  * counts it separately and Wi-Fi only never holds anything because of it. Never throws.
  */
 
-/** Maps NetInfo's connection type names to ours. Anything not Wi-Fi or mobile data is "other". */
+/**
+ * Maps NetInfo's connection type names to ours. Wi-Fi, mobile data and wired ethernet are named. Anything else (a VPN, which can
+ * ride on mobile data, bluetooth tethering, wimax, "other") cannot be told apart from metered data, so it is "unknown": the data
+ * meter counts it toward the estimate and Wi-Fi only never holds anything because of it.
+ */
 export function connectionKindFromNetInfo(type: string | null | undefined, isConnected: boolean | null | undefined): ConnectionKind {
   if (isConnected === false || type === "none") return "none";
   switch (type) {
@@ -14,13 +18,10 @@ export function connectionKindFromNetInfo(type: string | null | undefined, isCon
       return "wifi";
     case "cellular":
       return "cellular";
-    case "unknown":
-    case undefined:
-    case null:
-      return "unknown";
-    default:
-      // ethernet, bluetooth tethering, vpn, wimax and so on: not known to be metered mobile data.
+    case "ethernet":
       return "other";
+    default:
+      return "unknown";
   }
 }
 

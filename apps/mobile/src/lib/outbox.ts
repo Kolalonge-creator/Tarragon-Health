@@ -708,13 +708,13 @@ export async function flushOutboxIncludingHeld(): Promise<FlushResult> {
 }
 
 /** How many entries Wi-Fi only is holding back right now, by the same rule the flush uses. */
-export async function countHeldForWifi(): Promise<number> {
+export async function countHeldForWifi(rows?: readonly OutboxItem[]): Promise<number> {
   try {
     const ctx = await loadHoldContext();
     if (!ctx.wifiOnly || ctx.connection !== "cellular") return 0;
     const userId = await currentUserId();
     const nowMs = Date.now();
-    const items = await listAllOutbox();
+    const items = rows ?? (await listAllOutbox());
     return items.filter((i) => i.state === "pending" && mayFlushUnder(i.ownerUserId, userId) && isHeldForWifi(i, ctx, nowMs)).length;
   } catch {
     return 0;

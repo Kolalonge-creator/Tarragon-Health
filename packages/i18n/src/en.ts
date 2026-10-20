@@ -193,7 +193,7 @@ export const en = {
   "datacost.wifi_only.title": "Sync on Wi-Fi only",
   "datacost.wifi_only.subtitle": "Dose records and weight wait for Wi-Fi.",
   "datacost.wifi_only.body": "Dose records and weight entries wait for Wi-Fi for up to {hours} hours, then send anyway so your care team is not left waiting. Your history is read on Wi-Fi too. Every other reading, every symptom and anything urgent are never held. They send straight away on any connection.",
-  "datacost.wifi_only.waiting": "{count} waiting for Wi-Fi. They send when you are on Wi-Fi, or within {hours} hours.",
+  "datacost.wifi_only.waiting": "{count} waiting for Wi-Fi. They send when you are on Wi-Fi, and never later than {hours} hours after you logged them.",
   "datacost.send_now": "Send now on mobile data",
   "datacost.web.faq_question": "How much mobile data does the app use, and what does it cost?",
   "datacost.web.faq_answer": "The app keeps a running count of the data its syncing uses while you are on mobile data, and turns it into a rough cost in naira at {price} for each megabyte. It is an estimate, so your own plan may differ. To use less, turn on low-data mode and Wi-Fi only in the phone app's settings. Wi-Fi only holds dose records and weight entries for up to {hours} hours until you are on Wi-Fi, and reads your history on Wi-Fi. Every other reading, every symptom and anything urgent always send straight away.",

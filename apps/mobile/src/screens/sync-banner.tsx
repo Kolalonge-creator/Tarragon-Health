@@ -51,7 +51,7 @@ export function SyncBanner() {
       setCost(buildDataCostView(await getUsageFigures(), config, locale));
       setHoldHours(Math.round(config.maxHoldMs / 3_600_000));
       // What Wi-Fi only is holding right now, by the same rule the flush uses, so the banner says why entries wait.
-      setHeldForWifi(await countHeldForWifi());
+      setHeldForWifi(await countHeldForWifi(items));
     } catch {
       // A failed read of the local queue must not blank the screen.
     }
@@ -65,7 +65,8 @@ export function SyncBanner() {
 
   if (!summary && notices.length === 0) return null;
   const stuckWaiting = summary ? Math.max(0, summary.stuck - summary.rejected) : 0;
-  const quietlyWaiting = summary ? Math.max(0, summary.waiting - stuckWaiting - heldForWifi) : 0;
+  // A row can be both held and old enough to count as stuck only if the server shortens the stuck notice below the hold cap; count it once.
+  const quietlyWaiting = summary ? Math.max(0, summary.waiting - Math.max(stuckWaiting, heldForWifi)) : 0;
   const nothingHeld = !summary || summary.waiting + summary.rejected + summary.heldForOtherAccount === 0;
   if (nothingHeld && notices.length === 0) return null;
 
@@ -128,7 +129,7 @@ export function SyncBanner() {
               {t("datacost.wifi_only.waiting", locale, { count: heldForWifi, hours: holdHours })}
             </AppText>
           </View>
-          <Button title={t("datacost.send_now", locale)} variant="secondary" onPress={() => void flushOutboxIncludingHeld().then(refresh)} />
+          <Button title={t("datacost.send_now", locale)} variant="secondary" onPress={() => void flushOutboxIncludingHeld().then(refresh, refresh)} />
         </Card>
       ) : null}
       {stuckWaiting > 0 ? (

@@ -117,6 +117,8 @@ export function shouldHoldForWifi(input: HoldInput): boolean {
   let deadline = input.entry.createdAtMs + input.maxHoldMs;
   const due = input.entry.dueMs;
   if (typeof due === "number" && Number.isFinite(due)) {
+    // Without the server's missed window the dose-late rule cannot be honoured, so a scheduled dose is not held.
+    if (!(input.serverMissedMs > 0)) return false;
     deadline = Math.min(deadline, due + input.serverMissedMs - DOSE_MISSED_SLACK_MS);
   }
   return input.nowMs < deadline;

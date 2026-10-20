@@ -92,13 +92,16 @@ export function startReconnectWatcher(deps: WatcherDeps, io: WatcherIo = default
   let connected = false;
   let onWifi = false;
 
-  const attempt = async (): Promise<void> => {
+  const attempt = async (arrivedOnWifi = false): Promise<void> => {
     if (inFlight) return;
     inFlight = true;
     try {
       const rowsWaiting = await deps.rowsWaiting().catch(() => 0);
       const now = io.now();
-      if (!shouldProbe({ now, lastProbeAt, minIntervalMs: config.probeMinIntervalMs, rowsWaiting })) return;
+      // Arriving on Wi-Fi (S06z) is not throttled by a probe made a moment ago on mobile data: entries held for Wi-Fi are waiting for
+      // exactly this, and the one HEAD request costs nothing on Wi-Fi. It still needs something waiting.
+      const throttle = arrivedOnWifi ? 0 : config.probeMinIntervalMs;
+      if (!shouldProbe({ now, lastProbeAt, minIntervalMs: throttle, rowsWaiting })) return;
       lastProbeAt = now;
       const reachable = await io.probe(config.probeTimeoutMs);
       await addDataUsage(PROBE_BYTES_ESTIMATE);
@@ -118,7 +121,7 @@ export function startReconnectWatcher(deps: WatcherDeps, io: WatcherIo = default
     onWifi = connected && connectionKindFromNetInfo(state.type, state.isConnected) === "wifi";
     // A transition to connected is the trigger; repeated reports of the same state are not. So is arriving on Wi-Fi from
     // mobile data (S06z): entries held for Wi-Fi are waiting for exactly that, and the phone never stopped being "connected".
-    if (connected && (!was || (onWifi && !wasOnWifi))) void attempt();
+    if (connected && (!was || (onWifi && !wasOnWifi))) void attempt(onWifi && !wasOnWifi);
   });
   // A failed probe (captive portal, weak signal) is retried once a minute, no faster, only while entries wait.
   const timer = io.setInterval(() => {

@@ -51,7 +51,8 @@ export function addDataUsage(bytes: number, now: Date = new Date(), connection?:
         const partKey = `${part}${key.slice(PREFIX.length)}`;
         await AsyncStorage.setItem(partKey, String(Math.round((await readCount(partKey)) + bytes)));
       }
-      await noteLastSync(bytes, part !== null, now.getTime());
+      // The last sync is the last one that used mobile data (or could not be placed): a later Wi-Fi sync must not blank it.
+      if (part !== null) await noteLastSync(bytes, now.getTime());
     } catch {
       // a meter that cannot count must never get in the way of syncing
     }
@@ -79,14 +80,13 @@ function parseLast(raw: string | null): LastSync | null {
   return null;
 }
 
-async function noteLastSync(bytes: number, counted: boolean, nowMs: number): Promise<void> {
+async function noteLastSync(bytes: number, nowMs: number): Promise<void> {
   const last = parseLast(await AsyncStorage.getItem(LAST_KEY));
-  const add = counted ? bytes : 0;
   const sameSync = last !== null && nowMs >= last.updatedAt && nowMs - last.updatedAt <= SAME_SYNC_GAP_MS;
   const next: LastSync =
     sameSync && last
-      ? { startedAt: last.startedAt, updatedAt: nowMs, bytes: Math.round(last.bytes + add) }
-      : { startedAt: nowMs, updatedAt: nowMs, bytes: Math.round(add) };
+      ? { startedAt: last.startedAt, updatedAt: nowMs, bytes: Math.round(last.bytes + bytes) }
+      : { startedAt: nowMs, updatedAt: nowMs, bytes: Math.round(bytes) };
   await AsyncStorage.setItem(LAST_KEY, JSON.stringify(next));
 }
 
