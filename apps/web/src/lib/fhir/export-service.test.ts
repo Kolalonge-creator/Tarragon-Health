@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
-import { exportFhirBundle } from "./export-service";
+import { exportFhirBundle, exportIpsBundle, IPS_SECTIONS } from "./export-service";
 import { fixtureSnapshot } from "./test-fixtures";
 
 function client(reply: { data: unknown; error: { message: string } | null }) {
@@ -48,5 +48,29 @@ describe("exportFhirBundle", () => {
   it("refuses to map a reply that is not the snapshot shape", async () => {
     const { supabase } = client({ data: { status: "ok", surprise: true }, error: null });
     expect(await exportFhirBundle(supabase, { patientId: PATIENT })).toMatchObject({ ok: false, status: 500 });
+  });
+});
+
+describe("exportIpsBundle", () => {
+  it("asks the same database function, for the IPS sections only (no documents), and returns a document Bundle", async () => {
+    const { supabase, rpc } = client({ data: fixtureSnapshot(), error: null });
+    const out = await exportIpsBundle(supabase, { patientId: PATIENT });
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.result.bundle.type).toBe("document");
+    expect(out.ipsMappingVersion).toBe(1);
+    expect(IPS_SECTIONS).not.toContain("documents");
+    expect(rpc).toHaveBeenCalledWith("fhir_export_snapshot", { p_patient: PATIENT, p_sections: IPS_SECTIONS, p_reason: undefined });
+  });
+
+  it("answers a plain 500, never a throw, when the snapshot cannot be mapped", async () => {
+    const odd = fixtureSnapshot({ patient: undefined as unknown as never });
+    const out = await exportIpsBundle(client({ data: odd, error: null }).supabase, { patientId: PATIENT });
+    expect(out).toMatchObject({ ok: false, status: 500 });
+  });
+
+  it("answers 403 when the database denies, and a plain 500 on any other failure", async () => {
+    expect(await exportIpsBundle(client({ data: { status: "denied" }, error: null }).supabase, { patientId: PATIENT })).toEqual({ ok: false, status: 403, error: "Not permitted" });
+    expect(await exportIpsBundle(client({ data: null, error: { message: "boom" } }).supabase, { patientId: PATIENT })).toMatchObject({ ok: false, status: 500 });
   });
 });
