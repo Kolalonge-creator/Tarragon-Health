@@ -118,8 +118,8 @@ describe("validateInput", () => {
   const v = (input: unknown) => validateInput(input as TriageInput, BP_CARE_V1);
   it("accepts good input of every trigger type", () => {
     expect(v(base())).toBeNull();
-    expect(v(base({ trigger: { type: "adherence", percent7d: 70 } }))).toBeNull();
-    expect(v(base({ trigger: { type: "adherence", percent7d: null } }))).toBeNull();
+    expect(v(base({ trigger: { type: "adherence", percentWindow: 70 } }))).toBeNull();
+    expect(v(base({ trigger: { type: "adherence", percentWindow: null } }))).toBeNull();
     expect(v(base({ trigger: { type: "silence", lastReadingAt: null, sinceAt: NOW } }))).toBeNull();
     expect(v(base({ trigger: { type: "silence", lastReadingAt: NOW, sinceAt: NOW } }))).toBeNull();
   });
@@ -160,9 +160,9 @@ describe("validateInput", () => {
     expect(v(obs({ recheck: { kind: "repeat", previous: { ...prev, systolic: 20 }, minutesSincePrevious: 6 } }))).toBe("invalid_input");
     expect(v(obs({ recheck: { kind: "repeat", previous: prev, minutesSincePrevious: 6 } }))).toBeNull();
     expect(v(obs({ recheck: { kind: "timed_out" } }))).toBeNull();
-    expect(v(base({ trigger: { type: "adherence", percent7d: 101 } }))).toBe("invalid_input");
-    expect(v(base({ trigger: { type: "adherence", percent7d: -1 } }))).toBe("invalid_input");
-    expect(v(base({ trigger: { type: "adherence", percent7d: "7" as never } }))).toBe("invalid_input");
+    expect(v(base({ trigger: { type: "adherence", percentWindow: 101 } }))).toBe("invalid_input");
+    expect(v(base({ trigger: { type: "adherence", percentWindow: -1 } }))).toBe("invalid_input");
+    expect(v(base({ trigger: { type: "adherence", percentWindow: "7" as never } }))).toBe("invalid_input");
     expect(v(base({ trigger: { type: "silence", lastReadingAt: "x", sinceAt: NOW } }))).toBe("invalid_input");
     expect(v(base({ trigger: { type: "silence", lastReadingAt: null, sinceAt: "x" } }))).toBe("invalid_input");
   });
@@ -182,7 +182,7 @@ describe("grade: refusals and edges", () => {
 
   it("rejects a non-list of symptoms without guidance and a bad adherence trigger", () => {
     expect(grade(obs({ symptoms: "chest_pain" as never }), BP_CARE_V1)).toMatchObject({ status: "rejected", actions: [], redFlagSymptomPresent: false });
-    expect(grade(base({ trigger: { type: "adherence", percent7d: 500 } }), BP_CARE_V1)).toMatchObject({ status: "rejected", actions: [] });
+    expect(grade(base({ trigger: { type: "adherence", percentWindow: 500 } }), BP_CARE_V1)).toMatchObject({ status: "rejected", actions: [] });
   });
 
   it("grades an observation green with no rule when the rule set has no green rules", () => {
@@ -191,7 +191,7 @@ describe("grade: refusals and edges", () => {
   });
 
   it("drops only a task key that is actually open", () => {
-    const input = base({ trigger: { type: "adherence", percent7d: 10 }, pathway: { state: "care_pack_active" }, existingOpenTaskKeys: ["BP-A5:2026-09-29"] });
+    const input = base({ trigger: { type: "adherence", percentWindow: 10 }, pathway: { state: "care_pack_active" }, existingOpenTaskKeys: ["BP-A5:2026-09-29"] });
     const r = grade(input, BP_CARE_V1);
     expect(r.duplicateSuppressed).toBe(false);
     expect(r.actions.map(actionToString)).toEqual(["create_task:adherence_review"]);
@@ -206,7 +206,7 @@ describe("grade: refusals and edges", () => {
 
   it("a paused or discharged pathway never creates adherence or silence tasks", () => {
     for (const state of ["paused", "discharged", "referred_out"] as const) {
-      const r = grade(base({ trigger: { type: "adherence", percent7d: 0 }, pathway: { state } }), BP_CARE_V1);
+      const r = grade(base({ trigger: { type: "adherence", percentWindow: 0 }, pathway: { state } }), BP_CARE_V1);
       expect(r.actions).toEqual([]);
     }
   });
@@ -280,7 +280,7 @@ describe("rule thresholds sit exactly on the line", () => {
     expect(sys(134, 85).ruleId).toBe("BP-G2");
   });
   it("the adherence line is 80 and the silence line is 5 days", () => {
-    const ad = (p: number) => grade(base({ trigger: { type: "adherence", percent7d: p }, pathway: { state: "care_pack_active" } }), BP_CARE_V1);
+    const ad = (p: number) => grade(base({ trigger: { type: "adherence", percentWindow: p }, pathway: { state: "care_pack_active" } }), BP_CARE_V1);
     expect(ad(79.9).grade).toBe("amber");
     expect(ad(80).grade).toBe("green");
     const si = (days: number) =>
@@ -366,8 +366,8 @@ describe("context", () => {
     expect(ctx["avg.systolic"]).toBe(135);
   });
   it("has no average for an adherence trigger with no history, and always defines every field", () => {
-    const ctx = buildContext(base({ trigger: { type: "adherence", percent7d: 50 } }), BP_CARE_V1);
-    expect(ctx).toMatchObject({ "avg.count": 0, "avg.systolic": null, "avg.systolicOver": null, "adherence.percent7d": 50, "reading.systolic": null });
+    const ctx = buildContext(base({ trigger: { type: "adherence", percentWindow: 50 } }), BP_CARE_V1);
+    expect(ctx).toMatchObject({ "avg.count": 0, "avg.systolic": null, "avg.systolicOver": null, "adherence.percentWindow": 50, "reading.systolic": null });
   });
   it("counts silence in Lagos calendar days from the last reading or, with none, the start", () => {
     const silence = (last: string | null, since: string) =>
