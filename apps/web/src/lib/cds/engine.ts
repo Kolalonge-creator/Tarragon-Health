@@ -18,6 +18,7 @@
  * ADVISORY, NEVER A BLOCK (§38.1 "augment clinicians rather than replace
  * them"): nothing here can be used to gate a write anywhere in the app.
  */
+import { BP_CARE_V3 } from "@tarragon/clinical";
 import type { SafetyReport, DrugSafetySeverity } from "@/lib/rules/drug-safety";
 import type { CdsRecommendation, CdsPriority } from "./types";
 
@@ -123,26 +124,29 @@ function fromMedicationSafety(report: SafetyReport): CdsRecommendation[] {
 }
 
 /**
- * Mirrors private.classify_bp_level's home-BP triage bands (bp_red_flag_engine
- * migration, §15/§16) — the same population thresholds the platform's BP
- * red-flag trigger already uses to decide EMERGENCY/RED/AMBER escalation
- * elsewhere on the platform. Reused here, not re-derived, per this module's
- * own rule against inventing new clinical logic: this only grades how the
- * existing "BP remains uncontrolled." recommendation is prioritised, it never
- * raises or suppresses anything itself. 'high' is reserved for the same
- * readings that would trigger the red-flag engine's RED/EMERGENCY tiers
- * (urgent same-day review or hypertensive-crisis territory); 'medium' is the
- * red-flag engine's AMBER band; 'low' is above the patient's own target but
- * below every population red-flag threshold.
+ * How the existing "BP remains uncontrolled." recommendation is prioritised. The bands are NOT held here: they are read from the approved blood pressure
+ * rule set (`bp_care_triage` version 3, bundled as BP_CARE_V3 in @tarragon/clinical, the same object the phone and the server grade with), so the clinician
+ * console cannot disagree with what a patient is told (follow-up OQ-328; it used to carry its own 200/120, 160/100 and 135/85). This only grades how the
+ * recommendation is ranked, it never raises or suppresses anything itself.
+ *  - 'high': the home average is at or above the rule set's urgent line (`params.urgent`, the same-day-review line); the note says crisis when it is at or
+ *    above `params.extreme`.
+ *  - 'medium': the average is well above the patient's own target, by the rule set's own margin (`params.average.overSystolic` / `overDiastolic`, the BP-A2 line).
+ *  - 'low': above target, but below both lines.
+ * When a newer rule set version is approved, bundle it here (change the import) in the same change that bundles it for the phone.
  */
-function bpControlSeverity(systolic: number, diastolic: number): { priority: CdsPriority; note: string } {
-  if (diastolic >= 120 || systolic >= 200) {
+type BpLine = { systolic: number; diastolic: number };
+/** The lines this module reads, taken from the bundled approved rule set (its params carry them; `urgent` and `average` are untyped extras there). */
+export const CDS_BP_BANDS = BP_CARE_V3.params as unknown as { urgent: BpLine; extreme: BpLine; average: { overSystolic: number; overDiastolic: number } };
+
+function bpControlSeverity(systolic: number, diastolic: number, target: { systolic: number; diastolic: number }): { priority: CdsPriority; note: string } {
+  const { urgent, extreme, average } = CDS_BP_BANDS;
+  if (systolic >= extreme.systolic || diastolic >= extreme.diastolic) {
     return { priority: "high", note: " This is in the hypertensive-crisis range." };
   }
-  if (systolic >= 160 || diastolic >= 100) {
+  if (systolic >= urgent.systolic || diastolic >= urgent.diastolic) {
     return { priority: "high", note: " This is in the urgent, same-day-review range." };
   }
-  if (systolic >= 135 || diastolic >= 85) {
+  if (systolic - target.systolic >= average.overSystolic || diastolic - target.diastolic >= average.overDiastolic) {
     return { priority: "medium", note: "" };
   }
   return { priority: "low", note: "" };
@@ -152,7 +156,7 @@ function bpControlSeverity(systolic: number, diastolic: number): { priority: Cds
 function fromBpControl(hbpm: HbpmContext | null): CdsRecommendation[] {
   if (!hbpm?.average || hbpm.average.at_target) return [];
   const { systolic, diastolic, n_readings, n_days } = hbpm.average;
-  const { priority, note } = bpControlSeverity(systolic, diastolic);
+  const { priority, note } = bpControlSeverity(systolic, diastolic, hbpm.target);
   return [
     {
       key: "bp_uncontrolled",
