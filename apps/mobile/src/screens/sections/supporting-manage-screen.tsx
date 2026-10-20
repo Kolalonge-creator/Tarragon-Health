@@ -8,6 +8,10 @@ import {
   type SupportedPersonVoucher,
 } from "@/lib/supporting-finance";
 import { loadSponsorCareReport, type SponsorCareReport } from "@/lib/sponsor-care-report";
+import { loadSupporterTodaysDoses } from "@/lib/medicine-safety";
+import { supporterDoseState, type SupporterDosesView } from "@tarragon/medicines";
+import { asLocale, t, type MessageKey } from "@tarragon/i18n";
+import { useUiLanguage } from "@/lib/ui-language";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
@@ -156,6 +160,56 @@ function VoucherRow({ voucher, trailing }: { voucher: SupportedPersonVoucher; tr
   );
 }
 
+const DOSE_STATE_KEY: Record<ReturnType<typeof supporterDoseState>, MessageKey> = {
+  taken: "supporter.doses.taken",
+  skipped: "supporter.doses.skipped",
+  no_record_yet: "supporter.doses.no_record_yet",
+  not_due_yet: "supporter.doses.not_due_yet",
+};
+
+/**
+ * "Was today's dose taken" (S08y), read only. The database answers only when this person shared their medicines with you and the
+ * supporter view is switched on; otherwise this renders nothing, so nobody learns a list exists. A failed read says so: it never shows
+ * an empty list that could read as "all done".
+ */
+function SupporterDosesSection({ beneficiaryId, name }: { beneficiaryId: string; name: string }) {
+  const colors = useLegacyColors();
+  const locale = asLocale(useUiLanguage());
+  const [view, setView] = useState<SupporterDosesView | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadSupporterTodaysDoses(beneficiaryId).then((v) => {
+      if (!cancelled) setView(v);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [beneficiaryId]);
+
+  if (!view || view.status === "not_shared" || view.status === "closed") return null;
+  if (view.status === "unreadable") {
+    return (
+      <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
+        <ErrorText>{t("supporter.doses.unreadable", locale)}</ErrorText>
+      </View>
+    );
+  }
+  const now = Date.now();
+  return (
+    <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8, gap: 4 }}>
+      <Text style={{ fontSize: 12, fontWeight: "700", color: colors.ink }}>{t("supporter.doses.title", locale)}</Text>
+      {view.doses.length === 0 ? <MutedText>{t("supporter.doses.none_today", locale)}</MutedText> : null}
+      {view.doses.map((dose) => (
+        <Text key={`${dose.medicationId}-${dose.time}`} style={{ fontSize: 13, color: colors.ink }}>
+          {`${dose.time} · ${dose.name} · ${t(DOSE_STATE_KEY[supporterDoseState(dose, now)], locale)}`}
+        </Text>
+      ))}
+      <MutedText>{t("supporter.doses.read_only", locale, { name })}</MutedText>
+    </View>
+  );
+}
+
 /**
  * The activity half of "what your money paid for" — mirrors
  * apps/web/src/components/sponsor-care-report.tsx's SponsorCareReport.
@@ -283,6 +337,7 @@ function PersonFinanceCard({ person }: { person: SupportedPersonFinance }) {
       )}
 
       <SponsorActivitySection beneficiaryId={person.profileId} />
+      <SupporterDosesSection beneficiaryId={person.profileId} name={person.fullName ?? "They"} />
 
       <Pressable
         accessibilityRole="button"

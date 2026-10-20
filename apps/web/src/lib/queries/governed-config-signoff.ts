@@ -47,6 +47,7 @@ export const GOVERNED_CONFIG_TABLES = [
     slug: "clinical-config-versions",
   },
   { table: "prn_limit_rules", title: "As-needed medicine limits", slug: "prn-limit-rules" },
+  { table: "medicine_interaction_rule_sets", title: "Medicine interaction rules", slug: "medicine-interaction-rules" },
   { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
 ] as const;

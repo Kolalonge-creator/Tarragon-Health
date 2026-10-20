@@ -23,6 +23,7 @@ import { VaccinationSchedulePanel } from "../_signoff-panels/vaccination-schedul
 import { LabPanelsPanel } from "../_signoff-panels/lab-panels-panel";
 import { ClinicalConfigVersionsPanel } from "../_signoff-panels/clinical-config-versions-panel";
 import { PrnLimitRulesPanel } from "../_signoff-panels/prn-limit-rules-panel";
+import { MedicineInteractionRulesPanel } from "../_signoff-panels/medicine-interaction-rules-panel";
 import { HomeBpProgrammePanel } from "../_signoff-panels/home-bp-programme-panel";
 import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
 import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
@@ -78,6 +79,7 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   lab_panel_signoffs: () => <LabPanelsPanel />,
   clinical_config_versions: () => <ClinicalConfigVersionsPanel />,
   prn_limit_rules: () => <PrnLimitRulesPanel />,
+  medicine_interaction_rule_sets: () => <MedicineInteractionRulesPanel />,
   home_bp_programme_signoffs: () => <HomeBpProgrammePanel />,
   my_health_config: () => <MyHealthConfigPanel />,
 };

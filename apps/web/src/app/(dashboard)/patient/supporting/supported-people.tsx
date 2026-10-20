@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SupporterTodaysDoses } from "./supporter-todays-doses";
 import { useActionState, useState } from "react";
 import { koboToNaira } from "@tarragon/shared";
 import { APPOINTMENT_TYPE_LABELS } from "../appointments/appointment-labels";
@@ -806,6 +807,8 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
               )}
             </div>
           )}
+
+          <SupporterTodaysDoses patientId={person.profileId} name={name} hasMedicinesCategory={person.categories.includes("medications")} />
 
           {data.medications.length > 0 && (
             <div>

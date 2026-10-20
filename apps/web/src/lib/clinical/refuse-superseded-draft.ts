@@ -13,6 +13,7 @@ export type VersionedGovernedTable =
   | "result_release_policies"
   | "lab_panel_signoffs"
   | "prn_limit_rules"
+  | "medicine_interaction_rule_sets"
   | "my_health_config"
   | "home_bp_programme_signoffs";
 

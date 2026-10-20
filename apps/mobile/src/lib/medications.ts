@@ -623,10 +623,11 @@ export type MedicationCabinetItem = Pick<
   | "rx_number"
   | "verification_code"
   | "superseded_at"
+  | "prescription_id"
 > & { care_plan_condition: string | null };
 
 const MEDICATION_CABINET_SELECT =
-  "id, drug_name, dose, frequency, schedule_times, source, prescriber_name, prescriber_document_url, refill_date, last_confirmed_at, expires_at, repeats_allowed, organisation_id, created_at, rx_number, verification_code, superseded_at, care_plan:care_plans(condition)";
+  "id, drug_name, dose, frequency, schedule_times, source, prescriber_name, prescriber_document_url, refill_date, last_confirmed_at, expires_at, repeats_allowed, organisation_id, created_at, rx_number, verification_code, superseded_at, prescription_id, care_plan:care_plans(condition)";
 
 type MedicationCabinetRow = Omit<MedicationCabinetItem, "care_plan_condition"> & {
   care_plan: { condition: string } | { condition: string }[] | null;
@@ -674,7 +675,7 @@ export interface AddMedicationInput {
  * sign, safety notes, controlled-substance ack) is web-only — a patient's own
  * cabinet never reaches that flow on either platform.
  */
-export async function addMedication(patientId: string, input: AddMedicationInput): Promise<{ error?: string }> {
+export async function addMedication(patientId: string, input: AddMedicationInput): Promise<{ error?: string; id?: string }> {
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("organisation_id")
@@ -684,7 +685,7 @@ export async function addMedication(patientId: string, input: AddMedicationInput
   if (!profile?.organisation_id) return { error: "This patient has no organisation on file" };
 
   const source: MedicationSource = input.startedBySpecialist ? "specialist" : "patient";
-  const { error } = await supabase.from("medications").insert({
+  const { data: inserted, error } = await supabase.from("medications").insert({
     drug_name: input.drugName,
     dose: input.dose || null,
     frequency: input.frequency || null,
@@ -696,8 +697,9 @@ export async function addMedication(patientId: string, input: AddMedicationInput
     source,
     prescriber_name: source === "specialist" ? input.prescriberName || null : null,
     prescriber_document_url: source === "specialist" ? input.prescriberDocumentUrl || null : null,
-  });
-  return error ? { error: error.message } : {};
+  }).select("id").single();
+  // The new row's id lets the form attach the NAFDAC number noted from the pack (S08y).
+  return error ? { error: error.message } : { id: inserted.id };
 }
 
 // --- Adherence check-ins ----------------------------------------------------

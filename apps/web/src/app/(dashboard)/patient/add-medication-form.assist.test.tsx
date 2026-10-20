@@ -28,6 +28,15 @@ jest.mock("@/lib/queries/medicine-catalogue", () => ({
     data: [{ id: "c1", brandName: null, genericName: "Ramipril", strength: "5 mg", form: "tablet", nafdacNumber: null, isVerified: false }],
   }),
 }));
+let duplicateOpen = false;
+let rulesData: unknown[] = [];
+const setNafdacMutate = jest.fn();
+jest.mock("@/lib/queries/medicine-safety", () => ({
+  useBrandMap: () => ({ data: [], isPending: false, isError: false }),
+  useDuplicateIngredientCheckOpen: () => ({ data: duplicateOpen, isPending: false, isError: false }),
+  useInteractionRules: () => ({ data: rulesData, isPending: false, isError: false }),
+  useSetNafdacNumber: () => ({ mutate: (...a: unknown[]) => setNafdacMutate(...a) }),
+}));
 jest.mock("@/lib/medications/pack-actions", () => ({ checkMedicationPack: (...a: unknown[]) => checkMedicationPack(...a) }));
 jest.mock("./actions", () => ({ checkMedicationSafetyAfterAdd: jest.fn() }));
 
@@ -37,6 +46,9 @@ beforeEach(() => {
   mutate.mockReset();
   checkMedicationPack.mockReset();
   guardOpen = false;
+  duplicateOpen = false;
+  rulesData = [];
+  setNafdacMutate.mockReset();
 });
 
 function type(name: string) {
@@ -163,3 +175,60 @@ describe("patient add form: interaction and duplication check (go-live guard)", 
     expect(mutate).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("patient add form: S08y same-ingredient warning, governed rules and the NAFDAC note", () => {
+  it("same ingredient under another entry: warns only while its switch is open, and Add it anyway still adds", () => {
+    duplicateOpen = true;
+    render(<AddMedicationForm patientId="p1" source="patient" />);
+    type("Lisinopril");
+    submit();
+    expect(screen.getByText(/same active ingredient/i)).toBeTruthy();
+    expect(mutate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /Add it anyway/ }));
+    expect(mutate).toHaveBeenCalledTimes(1);
+  });
+
+  it("with the switch closed (the default) there is no pause", () => {
+    render(<AddMedicationForm patientId="p1" source="patient" />);
+    type("Lisinopril");
+    submit();
+    expect(screen.queryByText(/same active ingredient/i)).toBeNull();
+    expect(mutate).toHaveBeenCalledTimes(1);
+  });
+
+  it("a signed rule for the pair shows the care-team wording, never an instruction to stop", () => {
+    rulesData = [{ code: "r1", ingredientA: "lisinopril", ingredientB: "exampleone", severity: "caution", source: "https://example.org/s" }];
+    render(<AddMedicationForm patientId="p1" source="patient" />);
+    type("Exampleone");
+    submit();
+    const text = screen.getByRole("alert").textContent ?? "";
+    expect(text).toMatch(/care team/i);
+    expect(text).not.toMatch(/\bstop (taking|your)\b/i);
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it("a number that is not a NAFDAC number is sent back before saving; a well-formed one is stored after the add", () => {
+    render(<AddMedicationForm patientId="p1" source="patient" />);
+    type("Paracetamol");
+    fireEvent.change(screen.getByLabelText(/NAFDAC number on the pack/), { target: { value: "genuine" } });
+    submit();
+    expect(screen.getByText(/does not look like a NAFDAC number/i)).toBeTruthy();
+    expect(mutate).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText(/NAFDAC number on the pack/), { target: { value: "a4-1234" } });
+    submit();
+    expect(mutate).toHaveBeenCalledTimes(1);
+    const options = mutate.mock.calls[0]![1] as { onSuccess: (created: { id: string }) => void };
+    options.onSuccess({ id: "m9" });
+    expect(setNafdacMutate).toHaveBeenCalledWith({ medicationId: "m9", number: "A4-1234" }, expect.anything());
+  });
+
+  it("a blank NAFDAC box stores nothing", () => {
+    render(<AddMedicationForm patientId="p1" source="patient" />);
+    type("Paracetamol");
+    submit();
+    (mutate.mock.calls[0]![1] as { onSuccess: (created: { id: string }) => void }).onSuccess({ id: "m9" });
+    expect(setNafdacMutate).not.toHaveBeenCalled();
+  });
+});
+
