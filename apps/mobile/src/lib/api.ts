@@ -672,6 +672,16 @@ export async function postPhotoReading(payload: PhotoReadingRequest): Promise<Po
   return { ok: true, held: false, merged: result.data?.merged === true, deduped: result.data?.deduped === true };
 }
 
+/**
+ * S43m: asks the server to read a document photo the person just saved into SUGGESTIONS (apps/web/.../api/mobile/document-reading). The answer is a
+ * status and one sentence; it never carries what was read. Not retried blind: a request that reached the server may already have started a reading.
+ */
+export async function postDocumentReading(documentId: string): Promise<{ ok: true; status: string; message: string } | { ok: false; offline: boolean }> {
+  const result = await request<{ status?: string; message?: string }>("/api/mobile/document-reading", "POST", { document_id: documentId }, false, true);
+  if (!result.ok) return { ok: false, offline: result.error === NETWORK_ERROR_MESSAGE };
+  return { ok: true, status: result.data?.status ?? "suggested", message: result.data?.message ?? "" };
+}
+
 export interface DeviceRhythmRequest {
   source: "healthkit_ecg" | "ecg_report" | "device_label";
   device_label: string;

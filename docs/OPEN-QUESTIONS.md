@@ -4357,3 +4357,16 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-S43m-9 The emergency card's saved copy was overwritten by a failed read (found and fixed by the S43m review, 2026-10-20)
 - `loadEmergencyFacts` ignored every query error, so a dropped connection mid-load wrote an empty card (or the defaults over a hidden choice) over the saved copy that has to work with no signal. It now throws on any failed read, so the screen keeps the last saved copy and says so. A regression test covers each of the six reads. Recorded because the old behaviour was live in the shipped app.
 - Decision: closed in this PR; no action unless the founder wants the same check on the other offline caches.
+
+### OQ-S43m-10 Reading from a photo has never run, and the phone adds the route that would ask for it (raised by the S43m build, 2026-10-20)
+- `document_capture_enabled` is off and cannot be switched on until its conditions are written (OQ-S43-6). The phone checks the guard itself and the new `POST /api/mobile/document-reading` checks it again, so with the guard off nothing is sent to any model and a photo is saved as a plain upload. With the guard on, the same route would run the web reader (AI-018). No real image was ever read by a model, on the web or the phone. Needed before switching it on: the guard conditions, the evaluation run and the CMO's approval of AI-018, then a real device test of the phone's upload, the confirm screen and a refused reading.
+- Decision: open (CMO, founder).
+
+### OQ-S43m-11 The record download cannot start from the phone (raised by the S43m build, 2026-10-20)
+- `GET /api/patient/fhir-export` answers to the website's cookie session only. The phone's "Open the website to download" button opens the page in the browser, where the person signs in again. A bearer-token twin of the route (reusing the same builder and consent checks) would let the phone save and share the file directly. Not built: it is a new route that releases a whole record and deserves its own review.
+- Decision: open (product).
+
+### OQ-S43m-12 Turning and trimming uses buttons, not a drag box; a document photo is not queued while offline (raised by the S43m build, 2026-10-20)
+- The trim is four steppers (4 percent a press, at most 40 percent an edge and 70 percent an axis) with a shaded preview, chosen so it works with a screen reader, large type and a low-end phone with no gesture library. It has not been tried by a person on a phone; a drag box could be added later. A document that cannot be saved for want of a connection stays on the add screen for a retry and is lost if the person leaves it (the screen says so); making it survive means a new outbox kind with an encrypted file store, which was left out of this change on purpose.
+- Decision: open (product).
+

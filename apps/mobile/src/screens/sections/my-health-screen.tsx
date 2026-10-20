@@ -101,6 +101,8 @@ export function MyHealthScreen({ userId, acting, onNavigate }: MyHealthScreenPro
         <GroupedListRow title={t("my_health.card.timeline")} subtitle={t("my_health.card.timeline_body")} trailing="chevron" onPress={() => onNavigate("timeline")} />
         <GroupedListRow title={t("my_health.card.emergency")} subtitle={t("my_health.card.emergency_body")} trailing="chevron" onPress={() => onNavigate("emergency")} />
         <GroupedListRow title={t("passport.nav.biomarkers")} subtitle={t("mpass.hub.biomarkers_body")} trailing="chevron" onPress={() => onNavigate("biomarkers")} />
+        <GroupedListRow title={t("passport.nav.documents")} subtitle={t("mpass.hub.documents_body")} trailing="chevron" onPress={() => onNavigate("documents")} />
+        <GroupedListRow title={t("passport.nav.exchange")} subtitle={t("mpass.hub.exchange_body")} trailing="chevron" onPress={() => onNavigate("dataExchange")} />
         <GroupedListRow title={t("my_health.card.passport")} subtitle={t("my_health.card.passport_body")} trailing="chevron" onPress={() => onNavigate("passport")} />
         <GroupedListRow title={t("passport.nav.history")} subtitle={t("mpass.hub.history_body")} trailing="chevron" onPress={() => onNavigate("healthHistory")} />
         <GroupedListRow title={t("passport.nav.journal")} subtitle={t("mpass.hub.journal_body")} trailing="chevron" onPress={() => onNavigate("symptomJournal")} />
