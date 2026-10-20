@@ -10,6 +10,8 @@ import { emergencyCardQrSvg, emergencyCardUrl } from "@/lib/emergency/card";
 import { EmergencyCardControls } from "./emergency-card-controls";
 import { BloodAttestationForm } from "./blood-attestation-form";
 import { CardFieldsForm } from "./card-fields-form";
+import { CoverageForm } from "./coverage-form";
+import { t } from "@tarragon/i18n";
 import { applyCardFieldChoices, choicesFromRow, hiddenFields } from "@/lib/emergency/field-choices";
 import { loadEmergencyDatasetForPatient } from "@/lib/emergency/dataset";
 import { EmergencyCardPreview } from "@/components/emergency/emergency-card-preview";
@@ -64,6 +66,13 @@ export default async function EmergencyCardPage() {
     .select(
       "show_date_of_birth, show_sex, show_patient_number, show_allergies, show_medications, show_conditions, show_blood, show_emergency_contact, show_reproductive, show_mental_health, lock_screen_opt_in",
     )
+    .eq("patient_id", user.id)
+    .maybeSingle();
+
+  // S09y: cover the patient typed in (own-row read). A failed read is not an empty form: saving would overwrite cover that is really there.
+  const { data: coverageRow, error: coverageError } = await supabase
+    .from("emergency_card_coverage")
+    .select("scheme, member_number, plan_name")
     .eq("patient_id", user.id)
     .maybeSingle();
 
@@ -143,6 +152,22 @@ export default async function EmergencyCardPage() {
 
       {/* S43: the person chooses which details a stranger can see, on the printed card and the live link alike. */}
       {acting ? null : <CardFieldsForm initial={choicesFromRow(fields)} />}
+      {acting ? null : coverageError ? (
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">{t("ecf.coverage.title")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p role="alert" className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+              {t("ecf.coverage.load_failed")}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <CoverageForm
+          initial={coverageRow ? { scheme: coverageRow.scheme === "nhia" ? "nhia" : "hmo", memberNumber: coverageRow.member_number, planName: coverageRow.plan_name } : null}
+        />
+      )}
       {previewFacts ? <EmergencyCardPreview facts={previewFacts} hidden={hiddenFields(previewChoices)} /> : null}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">

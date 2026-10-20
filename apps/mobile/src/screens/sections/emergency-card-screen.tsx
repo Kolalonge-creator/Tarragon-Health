@@ -11,6 +11,9 @@ import {
 import { spacing } from "@/ui/theme";
 import { lightPalette, useLegacyColors } from "@/ui/design";
 import { EmergencyPackView } from "@/screens/emergency-pack-view";
+import { COVERAGE_SCHEME_LABEL } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
+import { EmergencyCoverageCard } from "./emergency-coverage-card";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
 interface EmergencyCardScreenProps {
@@ -37,16 +40,23 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
       .catch(() => setShareLinkError(true));
   }, [patientId]);
 
-  useEffect(() => {
+  const reloadFacts = useCallback(() => {
     loadEmergencyFacts(patientId)
-      .then(setFacts)
+      .then((fresh) => {
+        setOffline(false);
+        setFacts(fresh);
+      })
       .catch(() => {
         setOffline(true);
         return loadCachedEmergencyFacts().then(setFacts);
       })
       .catch(() => {});
+  }, [patientId]);
+
+  useEffect(() => {
+    reloadFacts();
     refreshShareLink();
-  }, [patientId, refreshShareLink]);
+  }, [reloadFacts, refreshShareLink]);
 
   async function handleCreateLink() {
     setCreating(true);
@@ -117,7 +127,25 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
               : "Not on file")
           }
         />
+        {/* S09y: shown only when the person filled it in. Absent otherwise, never "none". Patient entered, not checked with the scheme. */}
+        {facts.coverage ? (
+          <FactRow
+            label={`${COVERAGE_SCHEME_LABEL[facts.coverage.scheme]} cover`}
+            value={[facts.coverage.plan_name, facts.coverage.member_number ? `no. ${facts.coverage.member_number}` : null].filter(Boolean).join(" · ") + " (patient entered)"}
+          />
+        ) : null}
       </View>
+
+      {/* undefined means the cover could not be read (not that none is saved): saving then could overwrite real cover, so the form is not offered. */}
+      {!offline ? (
+        facts.coverage === undefined ? (
+          <Card>
+            <ErrorText>{t("ecf.coverage.load_failed")}</ErrorText>
+          </Card>
+        ) : (
+          <EmergencyCoverageCard key={facts.coverage ? "filled" : "empty"} initial={facts.coverage} onChanged={reloadFacts} />
+        )
+      ) : null}
 
       <Card style={{ alignItems: "center", gap: 8 }}>
         {shareLinkError ? (

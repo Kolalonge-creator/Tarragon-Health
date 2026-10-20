@@ -1307,3 +1307,5 @@ audit_log_select_narrowed.sql
 bp_cuffless_estimates_never_diagnostic.sql
 # Record share extras: recipient label, view cap (1 to 50, the fourth open of a three-view link is refused like any dead link, peek too), date window (30/90/180 days drops older readings), options door refuses bad input and anon; pin_hash stays unreadable; the original create door still works. Sabotage: the cap and the window each removed; both must flip.
 record_share_recipient_views_window.sql
+# S09y: My Health gaps. Emergency card cover (HMO / NHIA number and plan: patient-typed, fixed provenance, RPC-only writes, own-row read, live card shows it only when filled, never in the lock-screen payload, audited without the number) and outside records (patient files start unchecked; only a tied clinical-tier doctor can verify, once; reviewed_by/at are the server's; denied attempts audited; worklist carries the queue). Sabotage: care-tie check, clinical-tier check and the status guard each removed; each must flip.
+s09y_my_health_gaps.sql

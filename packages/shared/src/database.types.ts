@@ -14902,6 +14902,42 @@ export type Database = {
           },
         ]
       }
+      emergency_card_coverage: {
+        Row: {
+          created_at: string
+          entered_by: string | null
+          member_number: string | null
+          organisation_id: string
+          patient_id: string
+          plan_name: string | null
+          provenance: string
+          scheme: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entered_by?: string | null
+          member_number?: string | null
+          organisation_id: string
+          patient_id: string
+          plan_name?: string | null
+          provenance?: string
+          scheme: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entered_by?: string | null
+          member_number?: string | null
+          organisation_id?: string
+          patient_id?: string
+          plan_name?: string | null
+          provenance?: string
+          scheme?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       emergency_card_fields: {
         Row: {
           lock_screen_opt_in: boolean
@@ -30233,6 +30269,7 @@ export type Database = {
           source: Database["public"]["Enums"]["patient_document_source"]
           updated_at: string
           uploaded_by: string | null
+          verification_status: string
         }
         Insert: {
           created_at?: string
@@ -30258,6 +30295,7 @@ export type Database = {
           source: Database["public"]["Enums"]["patient_document_source"]
           updated_at?: string
           uploaded_by?: string | null
+          verification_status?: string
         }
         Update: {
           created_at?: string
@@ -30283,6 +30321,7 @@ export type Database = {
           source?: Database["public"]["Enums"]["patient_document_source"]
           updated_at?: string
           uploaded_by?: string | null
+          verification_status?: string
         }
         Relationships: [
           {
@@ -47509,6 +47548,7 @@ export type Database = {
           source: Database["public"]["Enums"]["record_source"] | null
           storage_path: string | null
           uploaded_by: string | null
+          verification_status: string | null
         }
         Relationships: []
       }
@@ -49410,6 +49450,7 @@ export type Database = {
       my_written_questions: { Args: Record<PropertyKey, never>; Returns: Json };
       open_care_attachment_audited: { Args: { p_attachment: string }; Returns: string };
       open_care_thread_audited: { Args: { p_thread: string }; Returns: Json };
+      open_outside_record_for_check: { Args: { p_document: string }; Returns: Json }
       open_patient_document_audited: {
         Args: { p_document: string; p_reason: string }
         Returns: string
@@ -53263,6 +53304,8 @@ export type Database = {
         Returns: undefined
       }
       revoke_emergency_card: { Args: never; Returns: undefined }
+      set_emergency_card_coverage: { Args: { p_member_number: string; p_plan_name: string; p_scheme: string }; Returns: Json }
+      verify_outside_record: { Args: { p_document: string; p_note?: string; p_outcome: string }; Returns: Json }
       revoke_pathway_override: {
         Args: { p_override: string }
         Returns: boolean

@@ -4311,3 +4311,27 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-NAFDAC-SCAN-4 The number is used for lookup and pre-fill only; it is not stored on the medication (raised by the pack-scan build, 2026-10-16)
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
+
+### OQ-S09y-1 Virus scanning for outside records (raised by the S09y build, 2026-10-20)
+- Uploads are limited by size (10 MB) and type (image and PDF) at the bucket, and are only ever opened through a short-lived signed URL by a doctor. There is no malware scan on the path (none exists for any upload on the platform). A PDF is the realistic carrier. Needed: a decision on a scanning step before a doctor opens a patient-supplied PDF.
+- Decision: open (founder / security).
+
+### OQ-S09y-2 Does the patient get told when a record is checked? (S09y)
+- Checking changes the label on the patient's own page and phone only. No notification is sent (a new template would need wording sign-off). Needed: whether to send an in-app notice, and its words.
+- Decision: open (product).
+
+### OQ-S09y-3 Cover is shown to anyone with the live link (S09y)
+- The member number appears on the printed card and on the public live link, only when the patient filled it in, with a note that it is unchecked. A stranger holding the link could copy a member number. There is no per-field switch for it (filling it in is the choice). Needed: whether cover should get its own show switch like the other card fields, and the NDPA basis for exposing it (counsel, with OQ-S09x-2).
+- Decision: open (founder / counsel).
+
+### OQ-S09y-4 Cover is not on the lock-screen card, on purpose (S09y)
+- `my_health_config.lock_screen_pass` is unsigned and awaiting the CMO. If cover should ever be on the lock-screen card it must be added to that governed list and signed, not added in code.
+- Decision: open (CMO).
+
+### OQ-S09y-5 Care coordinators can call the shared worklist function (S09y finding)
+- `clinical_worklist()` checks only an active `clinical_staff` row, so a care coordinator can call it directly although the page redirects them and the S39e header says it refuses them. The new `outside_records` kind therefore shows a coordinator patient names and dates. The check and open functions themselves refuse a coordinator. Needed: confirm whether the worklist should refuse a coordinator.
+- Decision: open (CMO / security).
+
+### OQ-S09y-6 Outside records on the phone take photos only (S09y)
+- No document-picker package is installed, so the phone adds photos from the camera or library; a PDF is added on the web. Adding a picker is a native module and needs an EAS build and a runtimeVersion bump.
+- Decision: open (product).

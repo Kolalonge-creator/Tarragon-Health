@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import type { EmergencyClinicalFacts } from "./card";
+import { toEmergencyCoverage } from "./coverage";
 
 /**
  * Assembles the SAME clinical facts as `public.emergency_card_by_token`, but
@@ -24,7 +25,7 @@ export async function loadEmergencyDatasetForPatient(
   supabase: SupabaseClient<Database>,
   patientId: string,
 ): Promise<EmergencyClinicalFacts> {
-  const [{ data: profile }, { data: allergies }, { data: medications }, { data: carePlans }, { data: blood }] =
+  const [{ data: profile }, { data: allergies }, { data: medications }, { data: carePlans }, { data: blood }, { data: coverage }] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -52,6 +53,8 @@ export async function loadEmergencyDatasetForPatient(
         .select("blood_group, genotype, genotype_note, provenance, recorded_at")
         .eq("patient_id", patientId)
         .maybeSingle(),
+      // S09y: cover the patient typed in. Own-row read (RLS), shown only when filled.
+      supabase.from("emergency_card_coverage").select("scheme, member_number, plan_name").eq("patient_id", patientId).maybeSingle(),
     ]);
 
   return {
@@ -78,5 +81,6 @@ export async function loadEmergencyDatasetForPatient(
           recorded_at: blood.recorded_at,
         }
       : null,
+    coverage: toEmergencyCoverage(coverage),
   };
 }

@@ -137,7 +137,7 @@ begin
   perform pg_temp.back();
   perform pg_temp.setf('d1', v_d1);
   perform pg_temp.ck('2a the upload row is the photo itself, tier patient (what is read from it gets its own rows)', 'patient',
-    (select trust_tier from public.patient_timeline where source_id = v_d1 and source_table = 'patient_documents' and title = 'Document added to your record'));
+    (select trust_tier from public.patient_timeline where source_id = v_d1 and source_table = 'patient_documents' and title = 'Document you supplied'));
   perform pg_temp.ck('2b the upload emitted document.uploaded', '1',
     (select count(*)::text from public.domain_events where event_type = 'document.uploaded' and aggregate_id = v_d1));
   perform pg_temp.ck('2c a patient cannot insert a document with suggested values', 'true',
