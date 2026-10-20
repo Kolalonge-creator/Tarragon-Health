@@ -1,6 +1,6 @@
 export { grade, recheckWindowMinutes } from "./engine";
 export { validateInput, validateRuleSet } from "./validate";
-export { BP_CARE_V1, BP_CARE_V3, BP_CARE_V4, BP_CARE_V5, BP_CARE_V6 } from "./rules";
+export { BP_CARE_V1, BP_CARE_V3, BP_CARE_V4, BP_CARE_V5, BP_CARE_V6, BP_CARE_V7, SYMPTOM_ALONE_EMERGENCY } from "./rules";
 export { actionToString } from "./actions";
 export { summarise, expectationWithDefaults, type ResultSummary } from "./summary";
 export { TRIAGE_MESSAGE_KEYS, messageKeyFor } from "./messages";
@@ -29,3 +29,8 @@ export {
   type GlucoseInput, type GlucoseRuleSet, type GlucoseObservationTrigger, type GlucoseContextCode, type GlucoseSymptomCode, type GlucoseDiabetesType, type KetoneUrine,
 } from "./glucose-engine";
 export { GLUCOSE_SIGN_SYMPTOM_TYPE, TICKED_ON_GLUCOSE_FORM_NOTE, type GlucoseSignSymptomType } from "./glucose-signs";
+export {
+  activityGate, activityGateMessageKey, parseActivityGate, unavailableActivityGate, conditionPresent, intensityAllowed, kindAllowed, lowerIntensity, INTENSITY_ORDER,
+  type ActivityConditionRecord, type ActivityGateDecision, type ActivityGateInput, type ActivityGateReason, type ActivityGateResult, type ActivityIntensity,
+  type ActivityKindConfig, type ActivityRuleConfig, type ActivitySafetyConfig, type ActivityTriageEvent, type ConditionMatchConfig,
+} from "./activity-gate";
