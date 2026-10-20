@@ -2,14 +2,15 @@ import { getProposedConfig } from "@tarragon/shared";
 import { en, t, type MessageKey } from "@tarragon/i18n";
 import { supabase } from "./supabase";
 import { PLATFORM_URL } from "./platform-url";
-import { isOffline, readThrough, type ReadResult } from "./passport-cache";
+import { cacheRead, cacheWrite, isOffline, readThrough, type ReadResult } from "./passport-cache";
 
 /**
  * Share my record (S09/S09x/S43 spec 2.8) on the phone: choose what, for how long, with an optional PIN, a one-session window, a label and a view
  * cap; see who can still open it; stop it. Same database functions as the web page (apps/web/src/lib/queries/record-shares.ts).
  *
  * Rules kept here:
- *  - There is no reproductive-health or mental-health section to choose, so a link can never include them by default or by accident.
+ *  - There is no reproductive-health or mental-health section to choose. That is NOT the same as a link never carrying such details: the medicines
+ *    and conditions sections list everything on those lists, so the screen says so beside them (OQ-S43m-7).
  *  - The link and the PIN are returned once by the database and are shown once. They are never put in the saved copy, never logged, and the
  *    saved list does not contain the link at all (the list is for seeing and stopping links, not for reading them back).
  *  - Everything here needs a connection and says so; nothing is queued, because a link that looks created but is not is a worse failure than none.
@@ -99,7 +100,23 @@ export function parseShares(rows: unknown, now: Date = new Date()): ShareSummary
  * The person's own links. The link itself is NOT selected: it is fetched only when they ask to send it again (fetchShareLink), so it never
  * sits in the saved copy. A supporter does not manage someone else's links from the phone, so there is no `own: false` read.
  */
-export function loadShares(patientId: string): Promise<ReadResult<ShareSummary[]>> {
+export async function loadShares(patientId: string): Promise<ReadResult<ShareSummary[]>> {
+  const r = await readSharesThrough(patientId);
+  // A saved copy may hold a link that has expired since it was saved: expiry is applied again when it is read, never trusted from the copy.
+  if (r.ok && r.stale) {
+    const now = Date.now();
+    return { ...r, data: r.data.filter((s) => new Date(s.expiresAt).getTime() > now) };
+  }
+  return r;
+}
+
+/** After a link is stopped: take it out of the saved copy too, so a later failed refresh cannot show it as live again. */
+export async function forgetShare(patientId: string, shareId: string): Promise<void> {
+  const copy = await cacheRead<ShareSummary[]>(sharesCacheKey(patientId));
+  if (copy) await cacheWrite(sharesCacheKey(patientId), copy.value.filter((s) => s.id !== shareId));
+}
+
+function readSharesThrough(patientId: string): Promise<ReadResult<ShareSummary[]>> {
   return readThrough(sharesCacheKey(patientId), async () => {
     const { data, error } = await supabase
       .from("record_shares")
@@ -199,7 +216,7 @@ export async function fetchShareLink(shareId: string): Promise<{ ok: true; token
   return { ok: true, token: data.token };
 }
 
-export function shareFailureMessage(reason: ShareFailure): string {
+export function shareFailureMessage(reason: ShareFailure | "revoke_failed"): string {
   if (reason === "offline") return t("mpass.needs_connection");
   const key = `mpass.share.err.${reason}`;
   return Object.hasOwn(en, key) ? t(key as MessageKey) : t("mpass.save_failed");

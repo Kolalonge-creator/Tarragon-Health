@@ -72,6 +72,26 @@ describe("loadEmergencyFacts", () => {
     await expect(loadCachedEmergencyFacts()).resolves.toEqual(facts);
   });
 
+  it("a failed read throws and leaves the saved copy alone: never a blank card, never the defaults over a hidden choice", async () => {
+    seed();
+    await loadEmergencyFacts("patient-1");
+    await Promise.resolve();
+    const before = await SecureStore.getItemAsync(CACHE_KEY);
+    for (const failing of ["emergency_card_fields", "patient_allergies", "medications", "patient_blood_profile", "profiles", "care_plans"]) {
+      mockFrom.mockImplementation((name: string) => {
+        const b = table(null) as Record<string, unknown>;
+        if (name === failing) {
+          b.then = (resolve: (value: unknown) => unknown) => Promise.resolve({ data: null, error: { message: "Network request failed" } }).then(resolve);
+          b.maybeSingle = () => Promise.resolve({ data: null, error: { message: "Network request failed" } });
+        }
+        return b;
+      });
+      await expect(loadEmergencyFacts("patient-1")).rejects.toThrow();
+      await Promise.resolve();
+      expect(await SecureStore.getItemAsync(CACHE_KEY)).toBe(before);
+    }
+  });
+
   it("returns a null contact rather than a half-filled one when no name is on file", async () => {
     seed({ profiles: { full_name: "Ada Obi", emergency_contact_phone: "+2348012345678" } });
     await expect(loadEmergencyFacts("patient-1")).resolves.toMatchObject({ emergencyContact: null });

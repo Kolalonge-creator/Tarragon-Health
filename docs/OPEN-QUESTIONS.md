@@ -4335,3 +4335,15 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-S43m-6 The web results page has no words for the flags `critical`, `positive`, `negative` and `abnormal` (raised by the S43m review, 2026-10-20)
 - `lab_result_items.flag` allows `normal, low, high, critical, positive, negative`, but `biomarkers.flag.*` only has `normal, low, high, critical_low, critical_high`. On the web a critical result prints no flag text at all. The phone maps every flag (and says "outside the laboratory's range" for any it does not know). Needed: the web page should use the same mapping.
 - Decision: open (product, small).
+
+### OQ-S43m-7 A share link's medicines and conditions sections do not hold back reproductive or mental health items, unlike the emergency card (raised by the S43m review, 2026-10-20)
+- The emergency card removes contraceptives, antidepressants and conditions that look reproductive or mental health unless their own switch is on (S47). The share link's `medications` and `conditions` sections list everything. The phone now says so beside those two switches ("tick them only if you are happy for the person to see all of it"); web has no such sentence. Needed: decide whether the share viewer applies the same rule as the card (a database change in `record_share_by_token`), or keeps the warning only. OQ-S43-4 is the earlier, wider form of this question.
+- Decision: open (CMO, product).
+
+### OQ-S43m-8 "Show everything" on the emergency card chooser does not show everything (raised by the S43m review, 2026-10-20)
+- On the web, `ecf.preset_all` ("Show everything") applies the defaults, which leave conditions, reproductive health and mental health off. The phone uses a new label, "Use the standard choices" (`mpass.ecf.preset_standard`). Needed: rename the web button, or make it do what it says, with a plain note that three details are never switched on by a preset.
+- Decision: open (product, small).
+
+### OQ-S43m-9 The emergency card's saved copy was overwritten by a failed read (found and fixed by the S43m review, 2026-10-20)
+- `loadEmergencyFacts` ignored every query error, so a dropped connection mid-load wrote an empty card (or the defaults over a hidden choice) over the saved copy that has to work with no signal. It now throws on any failed read, so the screen keeps the last saved copy and says so. A regression test covers each of the six reads. Recorded because the old behaviour was live in the shipped app.
+- Decision: closed in this PR; no action unless the founder wants the same check on the other offline caches.

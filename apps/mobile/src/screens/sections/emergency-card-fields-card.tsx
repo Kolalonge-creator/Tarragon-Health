@@ -41,6 +41,12 @@ export function EmergencyCardFieldsCard({ patientId, organisationId, onSaved }: 
     void load();
   }, [load]);
 
+  // Any change after a save clears "Saved.": the screen must never say saved while what is shown differs from what was stored.
+  const change = (fn: (c: EmergencyCardChoices) => EmergencyCardChoices) => {
+    setMessage(null);
+    setChoices(fn);
+  };
+
   async function save() {
     setMessage(null);
     setBusy(true);
@@ -70,14 +76,14 @@ export function EmergencyCardFieldsCard({ patientId, organisationId, onSaved }: 
       {state.kind === "ready" ? (
         <>
           {EMERGENCY_CARD_FIELDS.map((f) => (
-            <ToggleRow key={f} label={t(`ecf.field.${f}` as MessageKey)} value={choices[f]} onChange={(v) => setChoices((c) => ({ ...c, [f]: v }))} />
+            <ToggleRow key={f} label={t(`ecf.field.${f}` as MessageKey)} value={choices[f]} onChange={(v) => change((c) => ({ ...c, [f]: v }))} />
           ))}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
-            <Button title={t("ecf.preset_minimal")} variant="secondary" fullWidth={false} onPress={() => setChoices((c) => ({ ...EMERGENCY_MINIMAL_CHOICES, lock_screen_opt_in: c.lock_screen_opt_in }))} />
-            <Button title={t("ecf.preset_all")} variant="secondary" fullWidth={false} onPress={() => setChoices((c) => ({ ...EMERGENCY_DEFAULT_CHOICES, lock_screen_opt_in: c.lock_screen_opt_in }))} />
+            <Button title={t("ecf.preset_minimal")} variant="secondary" fullWidth={false} onPress={() => change((c) => ({ ...EMERGENCY_MINIMAL_CHOICES, lock_screen_opt_in: c.lock_screen_opt_in }))} />
+            <Button title={t("mpass.ecf.preset_standard")} variant="secondary" fullWidth={false} onPress={() => change((c) => ({ ...EMERGENCY_DEFAULT_CHOICES, lock_screen_opt_in: c.lock_screen_opt_in }))} />
           </View>
           <InlineAlert tone="warn" message={t("ecf.lock_screen_help")} />
-          <ToggleRow label={t("ecf.lock_screen")} value={choices.lock_screen_opt_in} onChange={(v) => setChoices((c) => ({ ...c, lock_screen_opt_in: v }))} />
+          <ToggleRow label={t("ecf.lock_screen")} value={choices.lock_screen_opt_in} onChange={(v) => change((c) => ({ ...c, lock_screen_opt_in: v }))} />
           {message ? <InlineAlert tone={message.tone} message={message.text} /> : null}
           <Button title={t("ecf.save")} loading={busy} onPress={() => void save()} />
         </>
