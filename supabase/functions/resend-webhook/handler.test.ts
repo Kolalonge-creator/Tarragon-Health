@@ -105,3 +105,13 @@ Deno.test("with the inbox unreachable the event is handled directly, as before t
   assertEquals((await post(delivered, { secret: SECRET, db: fakeDb({ rpcError: true }).db, store: null, nowMs: () => NOW }, true, "msg_f")).status, 500);
   assertEquals((await post(JSON.stringify({ type: "email.sent", data: { email_id: "x" } }), { secret: SECRET, db: fakeDb().db, store: null, nowMs: () => NOW }, true, "msg_g")).json, { ignored: true });
 });
+
+Deno.test("a body over the size cap is refused with 413 before any signature work or storage", async () => {
+  const store = createMemoryInbox();
+  const { db, rpcCalls } = fakeDb();
+  const big = "x".repeat(1_048_577);
+  const res = await handleResendWebhook(new Request("https://x.test/resend", { method: "POST", body: big }), { secret: SECRET, db, store, nowMs: () => NOW });
+  assertEquals(res.status, 413);
+  assertEquals(store.rows.length, 0);
+  assertEquals(rpcCalls.length, 0);
+});

@@ -192,3 +192,10 @@ Deno.test("a far-future or non-numeric timestamp is stale; the edge of the windo
   assertEquals(isStaleZoomTimestamp("1e9", 1_800_000_000_000), true);
   assertEquals(isStaleZoomTimestamp("", 0), true);
 });
+
+Deno.test("a body over the size cap is refused with 413 before any signature work or storage", async () => {
+  const { deps, store } = mk();
+  const res = await handleZoomWebhook(new Request("https://x.test/zoom", { method: "POST", body: "x".repeat(1_048_577) }), deps);
+  assertEquals(res.status, 413);
+  assertEquals(store.rows.length, 0);
+});
