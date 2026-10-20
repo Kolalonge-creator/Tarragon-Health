@@ -7,8 +7,9 @@ jest.mock("./adherence-report-data", () => ({ loadAdherenceReport: (...a: unknow
 
 import { COUNTER_WEEKS, createCounterSnapshot, weeksForCounter } from "./counter-snapshot";
 
-const week = (i: number) => ({ weekStart: `2026-10-0${i}`, weekEnd: `2026-10-1${i}`, due: 14, markedTaken: 10, late: 1, skipped: 2, noRecord: 2, couldNotGet: 0, percent: 71 });
-const report = (weeks: ReturnType<typeof week>[], has = true) => ({ ok: true, data: { weeks, minDoses: 7, generatedAtMs: 0, hasScheduledMedicines: has } });
+type TestWeek = { weekStart: string; weekEnd: string; due: number; markedTaken: number; late: number; skipped: number; noRecord: number; couldNotGet: number; percent: number | null };
+const week = (i: number): TestWeek => ({ weekStart: `2026-10-0${i}`, weekEnd: `2026-10-1${i}`, due: 14, markedTaken: 10, late: 1, skipped: 2, noRecord: 2, couldNotGet: 0, percent: 71 });
+const report = (weeks: TestWeek[], has = true) => ({ ok: true, data: { weeks, minDoses: 7, generatedAtMs: 0, hasScheduledMedicines: has } });
 
 function client(result: { data: unknown; error: { code?: string } | null }) {
   const rpc = jest.fn(async () => result);

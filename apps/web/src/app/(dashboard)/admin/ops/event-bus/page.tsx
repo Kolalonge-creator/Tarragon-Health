@@ -56,12 +56,6 @@ export default async function EventBusPage({
         </p>
       )}
 
-      <p className="text-sm">
-        <Link className="underline" href="/admin/ops/event-bus/partners">
-          {t("busp.link", locale)}
-        </Link>
-      </p>
-
       <EventBusTile locale={locale} />
 
       <Card>

@@ -11,7 +11,7 @@ import { loadAdherenceReport } from "./adherence-report-data";
  */
 export const COUNTER_WEEKS = 4;
 
-export interface CounterWeek {
+export type CounterWeek = {
   week_start: string;
   week_end: string;
   due: number;
@@ -21,7 +21,7 @@ export interface CounterWeek {
   no_record: number;
   could_not_get: number;
   percent: number | null;
-}
+};
 
 /** Exactly the keys the database accepts, newest week first, the most recent `COUNTER_WEEKS`. */
 export function weeksForCounter(weeks: readonly AdherenceReportWeek[]): CounterWeek[] {
