@@ -1,4 +1,4 @@
-import { computeCdsRecommendations, type CdsEngineInput } from "./engine";
+import { CDS_BP_BANDS, computeCdsRecommendations, type CdsEngineInput } from "./engine";
 import type { SafetyReport } from "@/lib/rules/drug-safety";
 
 const NOW = new Date("2026-08-29T10:00:00Z");
@@ -171,57 +171,53 @@ describe("computeCdsRecommendations — BP control (§38.3 'BP remains uncontrol
     expect(recs).toHaveLength(0);
   });
 
-  describe("severity gradient (mirrors private.classify_bp_level's EMERGENCY/RED/AMBER bands)", () => {
-    it("is 'low' priority for a mildly above-target average, below every population red-flag threshold", () => {
-      const recs = computeCdsRecommendations(
-        baseInput({ hbpm: { ...hbpm, average: { ...hbpm.average, systolic: 134, diastolic: 84 } } }),
-      );
-      expect(recs[0].priority).toBe("low");
-      expect(recs[0].triggerText).not.toContain("crisis");
-      expect(recs[0].triggerText).not.toContain("urgent");
+  describe("severity gradient (read from the approved bp_care_triage rule set, not held in this module)", () => {
+    const avg = (systolic: number, diastolic: number) =>
+      computeCdsRecommendations(baseInput({ hbpm: { ...hbpm, average: { ...hbpm.average, systolic, diastolic } } }))[0];
+
+    it("is 'low' priority for a mildly above-target average, below the rule set's well-above-target margin and urgent line", () => {
+      const rec = avg(134, 84);
+      expect(rec.priority).toBe("low");
+      expect(rec.triggerText).not.toContain("crisis");
+      expect(rec.triggerText).not.toContain("urgent");
     });
 
-    it("is 'medium' priority for the AMBER band (systolic 135-159 or diastolic 85-99)", () => {
-      const recs = computeCdsRecommendations(
-        baseInput({ hbpm: { ...hbpm, average: { ...hbpm.average, systolic: 145, diastolic: 92 } } }),
-      );
-      expect(recs[0].priority).toBe("medium");
+    it("is 'medium' priority when the average is well above the patient's own target (the rule set's BP-A2 margin: 20 systolic or 10 diastolic)", () => {
+      expect(avg(145, 92).priority).toBe("medium"); // diastolic 12 over a target of 80
+      expect(avg(150, 84).priority).toBe("medium"); // systolic exactly 20 over a target of 130
+      expect(avg(149, 89).priority).toBe("low"); // 19 and 9: one short on each
     });
 
-    it("is 'high' priority for the RED band (systolic 160-199 or diastolic 100-119) and notes it's urgent", () => {
-      const recs = computeCdsRecommendations(
-        baseInput({ hbpm: { ...hbpm, average: { ...hbpm.average, systolic: 165, diastolic: 95 } } }),
-      );
-      expect(recs[0].priority).toBe("high");
-      expect(recs[0].triggerText).toContain("urgent, same-day-review range");
+    it("is 'high' priority from the rule set's urgent line (180/110) and notes it's urgent", () => {
+      for (const [s, d] of [[180, 90], [150, 110], [185, 95]] as const) {
+        const rec = avg(s, d);
+        expect(rec.priority).toBe("high");
+        expect(rec.triggerText).toContain("urgent, same-day-review range");
+      }
+      expect(avg(179, 109).priority).toBe("medium");
     });
 
-    it("is 'high' priority for a diastolic-only crisis (diastolic >= 120) and names the crisis range", () => {
-      const recs = computeCdsRecommendations(
-        baseInput({ hbpm: { ...hbpm, average: { ...hbpm.average, systolic: 150, diastolic: 130 } } }),
-      );
-      expect(recs[0].priority).toBe("high");
-      expect(recs[0].triggerText).toContain("hypertensive-crisis range");
+    it("is 'high' priority from the rule set's crisis line (200/130, either number) and names the crisis range", () => {
+      for (const [s, d] of [[150, 130], [200, 90], [205, 130]] as const) {
+        const rec = avg(s, d);
+        expect(rec.priority).toBe("high");
+        expect(rec.triggerText).toContain("hypertensive-crisis range");
+      }
     });
 
-    it("is 'high' priority for the live crisis case (205/130) — never the same priority as a barely-above-target reading", () => {
-      const crisis = computeCdsRecommendations(
-        baseInput({ hbpm: { ...hbpm, average: { ...hbpm.average, systolic: 205, diastolic: 130 } } }),
-      )[0];
-      const mild = computeCdsRecommendations(
-        baseInput({ hbpm: { ...hbpm, average: { ...hbpm.average, systolic: 136, diastolic: 86 } } }),
-      )[0];
-      expect(crisis.priority).toBe("high");
-      expect(mild.priority).toBe("medium");
-      expect(crisis.priority).not.toBe(mild.priority);
+    it("never gives a crisis the same priority as a barely-above-target reading", () => {
+      expect(avg(205, 130).priority).not.toBe(avg(136, 86).priority);
     });
 
     it("grades the systolic and diastolic bands independently — the more severe of the two wins", () => {
-      // Systolic alone is only AMBER-range, but diastolic 105 is RED-range.
-      const recs = computeCdsRecommendations(
-        baseInput({ hbpm: { ...hbpm, average: { ...hbpm.average, systolic: 140, diastolic: 105 } } }),
-      );
-      expect(recs[0].priority).toBe("high");
+      expect(avg(140, 110).priority).toBe("high"); // systolic alone is only medium, diastolic 110 is the urgent line
+    });
+
+    it("moves with the rule set: the margin it uses is the bundled one", () => {
+      const { average, urgent, extreme } = CDS_BP_BANDS;
+      expect(avg(130 + average.overSystolic, 80).priority).toBe("medium");
+      expect(avg(urgent.systolic, 80).priority).toBe("high");
+      expect(avg(extreme.systolic, 80).triggerText).toContain("crisis");
     });
   });
 });

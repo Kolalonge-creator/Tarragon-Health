@@ -53,6 +53,23 @@ export default async function DataExchangePage() {
           </Card>
 
           <Card>
+            <CardHeader><CardTitle>{t("exchange.ips.title", uiLanguage)}</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm">{t("exchange.ips.body", uiLanguage)}</p>
+              <p className="text-sm">{t("exchange.ips.leaves_out", uiLanguage)}</p>
+              <p className="text-sm">{t("exchange.ips.not_validated", uiLanguage)}</p>
+              <div className="flex flex-wrap gap-3">
+                <a href="/api/patient/ips-export" download className="inline-block min-h-11 rounded-md bg-brand-green px-4 py-3 text-sm font-medium text-white">
+                  {t("exchange.ips.button", uiLanguage)}
+                </a>
+                <a href="/patient/data-exchange/summary" className="inline-block min-h-11 rounded-md border border-brand-green px-4 py-3 text-sm font-medium">
+                  {t("exchange.ips.preview_link", uiLanguage)}
+                </a>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader><CardTitle>{t("exchange.consents_title", uiLanguage)}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               {(consents?.data ?? []).length === 0 ? (
