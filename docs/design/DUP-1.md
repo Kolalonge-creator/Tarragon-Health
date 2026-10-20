@@ -19,10 +19,12 @@ Can the same lab value, arriving once as a structured result (S27 writer, S44 pa
 - Red-flag logic is NOT de-duplicated: a critical value arriving twice may page twice. Two pages are safe, a suppressed one is not.
 
 ## 4. Proof
-`packages/db/tests/dup1_duplicate_lab_value_safety.sql` (39 checks, 3 sabotage steps: links removed, triggers dropped, visibility check bypassed; each flips a check). Run against live inside a rolled-back transaction with the migration spliced in (no local Docker was available). Jest: trend parser, disagreement parser, registry mirror.
+`packages/db/tests/dup1_duplicate_lab_value_safety.sql` (45 checks, 3 sabotage steps: links removed, triggers dropped, visibility check bypassed; each flips a check). Run against live inside a rolled-back transaction with the migration spliced in (no local Docker was available). Jest: trend parser, disagreement parser, registry mirror.
 
 ## 5. Not built
 A staff screen to confirm or edit the match config; merging disputed pairs (a clinician files a correction through the existing correction path); export de-duplication.
 
 ## 6. Review findings fixed (code-review high)
 Links readable by the person before release (removed the read); matcher read the base table (now `_current`); date window used receipt not collection (now the lab order's collection date); unconfirmed config draft went live (now inert); any user could write audit rows about another patient (now staff-only, refused early); Health Report promoted an older reading when the newest was disputed (now the analyte is omitted). Not fixed, recorded: no resolve or dismiss for a disagreement caused only by a unit label (OQ-DUP-1-4); AI explainer and exports still list both rows (OQ-DUP-1-3); the case-file note writes one audit row per open (OQ-DUP-1-5).
+
+Second review pass fixed: a genuine repeat test no longer becomes a disagreement with a reading that already has a same-value partner; unit case and spacing are not a disagreement; a link failure never blocks a result insert (written to `lab_value_link_failures`, warning raised); an advisory lock per patient and code closes the concurrent-insert miss; the list screen shows no arbitrary latest value for a disputed series; the Health Report disputed check runs once per call. Links are not re-evaluated on update because the supersession trigger already freezes `code`, `value`, `unit` and dates on `lab_analyte_readings` (a correction is a new row); readers check `report_status` at read time. The staff reproductive filter is a keyword list plus the shared text classifier because no central lab-code classifier exists (OQ-DUP-1-7).

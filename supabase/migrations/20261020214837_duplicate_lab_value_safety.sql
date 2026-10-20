@@ -14,7 +14,8 @@
 --   2. lab_value_links: append-only evidence of a pair (a structured item and a legacy reading for the same patient and code inside the window).
 --      relation 'duplicate' (same unit, value inside tolerance) or 'disagreement' (value outside tolerance or unit differs; never converted).
 --      Nothing is deleted or edited; both source rows stay as they were.
---   3. Triggers on both source tables write the links (loud: a failure aborts the insert, it is never swallowed).
+--   3. Triggers on both source tables write the links. A link failure never blocks a result insert (a critical value must reach the record); it is
+--      written to lab_value_link_failures and raised as a warning, and the safe consequence is that the value shows twice until re-linked.
 --   4. The two readers show a duplicate ONCE (the structured result, labelled with both sources). A legacy reading is hidden only while the
 --      structured result it duplicates is itself visible (released, not withdrawn, not replaced), so withdrawing the structured one brings the
 --      paper value back. A disagreement shows BOTH values, each marked as disagreeing, in the trend; the Health Report leaves a disputed analyte
@@ -102,13 +103,20 @@ declare
   v_window integer := (v_cfg ->> 'window_days')::integer;
   v_tol numeric := (v_cfg ->> 'value_tolerance_pct')::numeric;
   v_same boolean := coalesce((v_cfg ->> 'require_same_unit')::boolean, true);
-  v_n integer;
+  v_test boolean := coalesce((select pr.is_test from public.profiles pr where pr.id = p_patient), false);
+  v_n integer := 0;
+  rw record;
+  v_rel text;
+  v_reason text;
 begin
   -- a sensitive code is never linked (INV-04): the link would carry a value and a unit. (The legacy table's own sensitive flag is checked in its trigger.)
   if p_code is null or private.report_excluded_code(p_code) then return 0; end if;
-  with pairs as (
+  -- one writer per (patient, code): a paper report filed in one transaction and a lab push in another each see the other once it commits
+  perform pg_advisory_xact_lock(hashtextextended('lab_value_link:' || p_patient::text || ':' || lower(p_code), 0));
+  -- closest values first, so a reading that already has a same-value partner is never also called a disagreement with a different, genuine repeat test
+  for rw in
     select i.id as item_id, l.id as legacy_id, i.organisation_id, i.analyte_code, i.value_numeric as sv, i.unit as su, l.value as lv, l.unit as lu,
-           (lower(btrim(coalesce(i.unit, ''))) = lower(btrim(coalesce(l.unit, '')))) as same_unit,
+           (regexp_replace(lower(coalesce(i.unit, '')), '\s+', '', 'g') = regexp_replace(lower(coalesce(l.unit, '')), '\s+', '', 'g')) as same_unit,
            (abs(i.value_numeric - l.value) <= greatest(abs(i.value_numeric), abs(l.value)) * v_tol / 100.0) as near
       from public.lab_result_items i
       join public.lab_results r on r.id = i.lab_result_id
@@ -118,28 +126,64 @@ begin
        and i.value_numeric is not null and l.value is not null
        and not i.sensitive_positive
        and abs((timezone('Africa/Lagos', coalesce(lo.sample_collected_at, r.received_at, r.created_at)))::date
-             - (timezone('Africa/Lagos', coalesce(l.specimen_collected_at, l.taken_at)))::date) <= v_window)
-  insert into public.lab_value_links (organisation_id, patient_id, analyte_code, structured_item_id, legacy_reading_id, relation, reason,
-                                      structured_value, structured_unit, legacy_value, legacy_unit, config_version, is_test)
-  select p.organisation_id, p_patient, p.analyte_code, p.item_id, p.legacy_id,
-         case when p.near and (p.same_unit or not v_same) then 'duplicate' else 'disagreement' end,
-         case when p.near and (p.same_unit or not v_same) then 'same_value' when not p.same_unit and v_same then 'unit_differs' else 'value_differs' end,
-         p.sv, p.su, p.lv, p.lu, v_ver, coalesce((select pr.is_test from public.profiles pr where pr.id = p_patient), false)
-    from pairs p
-  on conflict (structured_item_id, legacy_reading_id) do nothing;
-  get diagnostics v_n = row_count;
+             - (timezone('Africa/Lagos', coalesce(l.specimen_collected_at, l.taken_at)))::date) <= v_window
+       and not exists (select 1 from public.lab_value_links k where k.structured_item_id = i.id and k.legacy_reading_id = l.id)
+     order by abs(i.value_numeric - l.value) asc
+  loop
+    if rw.near and (rw.same_unit or not v_same) then
+      v_rel := 'duplicate'; v_reason := 'same_value';
+    else
+      -- a disagreement only between two readings that have no same-value partner yet
+      if exists (select 1 from public.lab_value_links k where k.relation = 'duplicate' and (k.structured_item_id = rw.item_id or k.legacy_reading_id = rw.legacy_id)) then
+        continue;
+      end if;
+      v_rel := 'disagreement';
+      v_reason := case when not rw.same_unit and v_same then 'unit_differs' else 'value_differs' end;
+    end if;
+    insert into public.lab_value_links (organisation_id, patient_id, analyte_code, structured_item_id, legacy_reading_id, relation, reason,
+                                        structured_value, structured_unit, legacy_value, legacy_unit, config_version, is_test)
+    values (rw.organisation_id, p_patient, rw.analyte_code, rw.item_id, rw.legacy_id, v_rel, v_reason, rw.sv, rw.su, rw.lv, rw.lu, v_ver, v_test)
+    on conflict (structured_item_id, legacy_reading_id) do nothing;
+    v_n := v_n + 1;
+  end loop;
   return v_n;
 end;
 $$;
 revoke all on function private.link_lab_value_pairs(uuid, text) from public, anon, authenticated;
 
+-- A failure to link must NEVER stop a lab result or a filed reading being stored (a critical value must reach the record and its escalation). The
+-- failure is written to lab_value_link_failures and raised as a warning; the safe consequence is that the value shows twice until it is re-linked.
+create table public.lab_value_link_failures (
+  id           uuid primary key default gen_random_uuid(),
+  source_table text not null,
+  source_id    uuid not null,
+  error        text not null,
+  created_at   timestamptz not null default now()
+);
+alter table public.lab_value_link_failures enable row level security;
+revoke all on public.lab_value_link_failures from public, anon, authenticated;
+comment on table public.lab_value_link_failures is 'DUP-1: a duplicate-link attempt that failed. Ids and an error text only. Nothing reads it yet (OQ-DUP-1-6); re-link by calling private.link_lab_value_pairs(patient, code).';
+
 create function private.lab_value_link_trigger_item() returns trigger
 language plpgsql security definer set search_path = '' as
-$$ begin perform private.link_lab_value_pairs(new.patient_id, new.analyte_code); return null; end $$;
+$$ begin
+  begin
+    perform private.link_lab_value_pairs(new.patient_id, new.analyte_code);
+  exception when others then
+    insert into public.lab_value_link_failures (source_table, source_id, error) values ('lab_result_items', new.id, left(sqlerrm, 500));
+    raise warning 'DUP-1 link failed for lab_result_items %: %', new.id, sqlerrm;
+  end;
+  return null;
+end $$;
 create function private.lab_value_link_trigger_legacy() returns trigger
 language plpgsql security definer set search_path = '' as
 $$ begin
-  if not coalesce(new.sensitive_positive, false) and new.correction_status is null then perform private.link_lab_value_pairs(new.patient_id, new.code); end if;
+  begin
+    if not coalesce(new.sensitive_positive, false) and new.correction_status is null then perform private.link_lab_value_pairs(new.patient_id, new.code); end if;
+  exception when others then
+    insert into public.lab_value_link_failures (source_table, source_id, error) values ('lab_analyte_readings', new.id, left(sqlerrm, 500));
+    raise warning 'DUP-1 link failed for lab_analyte_readings %: %', new.id, sqlerrm;
+  end;
   return null;
 end $$;
 revoke all on function private.lab_value_link_trigger_item() from public, anon, authenticated;
@@ -215,13 +259,13 @@ $$
    where i.patient_id = p_patient and lower(i.analyte_code) = lower(p_code) and i.value_numeric is not null
      and r.release_state = 'released' and r.withdrawn_at is null and r.superseded_by is null
      and not i.sensitive_positive and not private.report_excluded_code(i.analyte_code)
-     and not private.lab_code_disputed(p_patient, p_code)
+     and not (select private.lab_code_disputed(p_patient, p_code))
   union all
   select l.taken_at, l.value, l.unit, l.reference_range_low, l.reference_range_high, l.abnormal_flag::text
     from private.lab_analyte_readings_current l
    where l.patient_id = p_patient and lower(l.code) = lower(p_code) and l.value is not null
      and l.report_status in ('final', 'corrected', 'amended') and not private.report_excluded_code(l.code)
-     and not private.lab_code_disputed(p_patient, p_code)
+     and not (select private.lab_code_disputed(p_patient, p_code))
      and not exists (select 1 from public.lab_value_links k where k.legacy_reading_id = l.id and k.relation = 'duplicate' and private.lab_item_visible(k.structured_item_id))
 $$;
 revoke all on function private.hr_biomarker_points(uuid, text) from public, anon, authenticated;
@@ -267,6 +311,41 @@ $$;
 revoke all on function public.patient_biomarker_trend(text, uuid, date) from public, anon;
 grant execute on function public.patient_biomarker_trend(text, uuid, date) to authenticated;
 
+-- patient_biomarker_list: the latest value is NOT shown when the series is disputed (two points that disagree would otherwise let an arbitrary one
+-- stand as "latest"). Restated from the S43 body with the disputed flag added.
+create or replace function public.patient_biomarker_list(p_patient uuid default null)
+returns jsonb
+language plpgsql stable security definer set search_path = '' as
+$$
+declare
+  v_patient uuid := coalesce(p_patient, (select auth.uid()));
+begin
+  if not private.may_read_biomarkers(v_patient) then
+    raise exception 'not authorised' using errcode = '42501';
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object('code', c.code, 'readings', c.n, 'first_at', c.first_at, 'last_at', c.last_at,
+             'disputed', c.disputed,
+             'latest_value', case when c.disputed then null else c.latest_value end, 'latest_unit', c.latest_unit,
+             'latest_flag', case when c.disputed then null else c.latest_flag end,
+             'latest_ref_low', c.latest_ref_low, 'latest_ref_high', c.latest_ref_high, 'latest_ref_text', c.latest_ref_text) order by c.last_at desc)
+      from (
+        select codes.code, count(*) n, min(p.taken_at) first_at, max(p.taken_at) last_at, coalesce(bool_or(p.disagrees), false) disputed,
+               (array_agg(p.value order by p.taken_at desc))[1] latest_value,
+               (array_agg(p.unit order by p.taken_at desc))[1] latest_unit,
+               (array_agg(p.flag order by p.taken_at desc))[1] latest_flag,
+               (array_agg(p.ref_low order by p.taken_at desc))[1] latest_ref_low,
+               (array_agg(p.ref_high order by p.taken_at desc))[1] latest_ref_high,
+               (array_agg(p.ref_text order by p.taken_at desc))[1] latest_ref_text
+          from (select lower(i.analyte_code) code from public.lab_result_items i where i.patient_id = v_patient
+                union select lower(l.code) from private.lab_analyte_readings_current l where l.patient_id = v_patient) codes
+          cross join lateral private.biomarker_points(v_patient, codes.code) p
+         group by codes.code) c), '[]'::jsonb);
+end;
+$$;
+revoke all on function public.patient_biomarker_list(uuid) from public, anon;
+grant execute on function public.patient_biomarker_list(uuid) to authenticated;
+
 -- ---------------------------------------------------------------------------
 -- 5. The clinician-visible note
 -- ---------------------------------------------------------------------------
@@ -310,7 +389,7 @@ begin
      and l.report_status in ('final', 'corrected', 'amended')
      -- staff never see a reproductive or mental health analyte through this note (the person does, it is their own record)
      and (v_patient = v_uid or (private.confidential_domain_of_text(k.analyte_code) is null
-                              and k.analyte_code !~* '(^|[^a-z])(hcg|amh|fsh|lh|estradiol|progesterone|prolactin|testosterone|pregnan)'));
+                              and k.analyte_code !~* '(^|[^a-z])(hcg|amh|fsh|lh|estradiol|estrogen|oestr|progesterone|prolactin|testosterone|shbg|dhea|inhibin|semen|sperm|pregnan|ovar|cervic|hpv)'));
   return jsonb_build_object('disagreements', v_out);
 end;
 $$;

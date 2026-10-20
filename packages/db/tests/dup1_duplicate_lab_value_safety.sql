@@ -158,6 +158,23 @@ begin
   perform pg_temp.ck('3g the trend still lists all three, so the person loses nothing', '3',
     (select count(*)::text from private.biomarker_points(v_pat, 'ldl')));
 
+  -- ===== 3h. review fixes: a genuine repeat test is not a disagreement; unit spacing and case are not a disagreement ====================
+  insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_numeric, unit, flag, sensitive_positive, is_test)
+  values (v_res2, v_org, v_pat, 'glucose', 5.0, 'mmol/L', 'normal', false, true);
+  insert into public.lab_analyte_readings (organisation_id, patient_id, code, value, unit, taken_at, report_status)
+  values (v_org, v_pat, 'glucose', 5.0, 'mmol/l ', now(), 'final');
+  perform pg_temp.ck('3h unit case and spacing is not a disagreement', 'duplicate:same_value',
+    (select relation || ':' || reason from public.lab_value_links where patient_id = v_pat and analyte_code = 'glucose'));
+  insert into public.lab_analyte_readings (organisation_id, patient_id, code, value, unit, taken_at, report_status)
+  values (v_org, v_pat, 'glucose', 7.9, 'mmol/L', now(), 'final');
+  perform pg_temp.ck('3i a different reading the same day that already has a partner elsewhere is not called a disagreement', '1:duplicate',
+    (select count(*)::text || ':' || min(relation) from public.lab_value_links where patient_id = v_pat and analyte_code = 'glucose'));
+  perform pg_temp.ck('3j ...and the analyte is not disputed', 'false',
+    (private.lab_code_disputed(v_pat, 'glucose'))::text);
+  perform pg_temp.ck('3k the list does not show an arbitrary latest value for a disputed series (ldl) and does for others', 'true:false',
+    pg_temp.q_as(v_pat, $q$select (select (e ->> 'latest_value') is null from jsonb_array_elements(public.patient_biomarker_list()) e where e ->> 'code' = 'ldl')::text
+                         || ':' || (select (e ->> 'latest_value') is null from jsonb_array_elements(public.patient_biomarker_list()) e where e ->> 'code' = 'cholesterol')::text$q$));
+
   -- ===== 4. nothing is lost by collapsing ========================================================================================
   update public.lab_results set withdrawn_at = now(), withdrawn_by = v_admin, withdrawn_reason = 'DUP1 proof withdrawal' where id = v_res;
   perform pg_temp.ck('4a withdrawing the structured result brings the paper value back (one point, legacy source)', '1:legacy_report',
@@ -227,6 +244,17 @@ begin
   perform pg_temp.ck('7k a confirmed v2 takes over', '2', (private.lab_value_match_active()).version::text);
   delete from public.lab_value_match_config where version = 2;
   perform pg_temp.ck('7l back to v1', '1', (private.lab_value_match_active()).version::text);
+
+  -- ===== 7m. a failure to link never blocks a result from being stored =====================================================================
+  create or replace function private.link_lab_value_pairs(p_patient uuid, p_code text) returns integer language plpgsql set search_path = '' as
+    $f$ begin raise exception 'DUP1 proof: matcher broken on purpose'; end $f$;
+  insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_numeric, unit, flag, sensitive_positive, is_test)
+  values (v_res3, v_org, v_pat, 'potassium', 6.9, 'mmol/L', 'high', false, true);
+  perform pg_temp.ck('7m the result is stored even though the matcher failed, and the failure is recorded', '1:1',
+    (select count(*)::text from public.lab_result_items where patient_id = v_pat and analyte_code = 'potassium') || ':' ||
+    (select count(*)::text from public.lab_value_link_failures where error like '%matcher broken on purpose%'));
+  perform pg_temp.ck('7n no client can read the failures table', 'true',
+    (pg_temp.q_as(v_pat, 'select count(*) from public.lab_value_link_failures') like '%permission denied%')::text);
 
   -- ===== 8. sabotage ============================================================================================================
   -- A. the links removed (as if the matcher never ran): the hba1c duplicate must come back as two points

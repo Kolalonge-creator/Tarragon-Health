@@ -4341,3 +4341,11 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-DUP-1-5 The case-file note writes an audit row per open (raised by DUP-1, 2026-10-20)
 - Each case-file open reads the note through the audited function (one row, 5 minute cache). Lazy loading or folding it into the existing audited read would cut the volume.
 - Decision: open (engineering).
+
+### OQ-DUP-1-6 Nothing reads or alerts on lab_value_link_failures yet (raised by DUP-1, 2026-10-20)
+- A failed link is recorded and the value shows twice until re-linked. A sweep or an alert is not built.
+- Decision: open (engineering).
+
+### OQ-DUP-1-7 No central lab-code classifier for reproductive or mental health analytes (raised by DUP-1, 2026-10-20)
+- The staff disagreement note withholds analytes by a keyword list plus `confidential_domain_of_text`, which classifies conditions and medicines, not lab codes. A reviewed central list would replace it.
+- Decision: open (CMO, DPO).
