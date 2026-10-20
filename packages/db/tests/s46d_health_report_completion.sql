@@ -98,7 +98,7 @@ begin
   return v;
 end $f$;
 create function pg_temp.full_composed() returns jsonb language sql as
-$$ select '{"schema":1,"year":2026,"templateSummary":"TEMPLATESUMMARY",
+$$ select '{"schema":1,"year":2026,"templateSummary":"TEMPLATESUMMARY","clinicianNote":"SECRETNOTE","weight":{"latestKg":70,"count":2},
  "items":[
   {"id":"bp","kind":"bp","code":"blood_pressure","state":"needs_attention","value":152,"value2":96,"readingCount":14,"readingDays":6,"target":{"low":null,"high":140,"high2":90,"source":"higher_risk"}},
   {"id":"lab:alt","kind":"lab","code":"alt","state":"needs_attention","value":70,"readingCount":1},
@@ -242,6 +242,7 @@ begin
   perform pg_temp.ck('reproductive screening is removed', 'false', (txt like '%cervical_smear%')::text);
   perform pg_temp.ck('a risk priority is removed (both lists)', 'false', (txt like '%"category": "risk"%' or txt like '%"category":"risk"%')::text);
   perform pg_temp.ck('the doctor''s free text and the summary counts are not in the link', 'false', (txt like '%DOCTORNOTE%' or txt like '%TEMPLATESUMMARY%' or txt like '%needsAttention%')::text);
+  perform pg_temp.ck('a whitelist: a field nobody listed (a clinician note, the weight) is not in the link', 'false', (txt like '%SECRETNOTE%' or txt like '%latestKg%')::text);
   perform pg_temp.ck('INV-04: nothing that looks like a blood-borne test is in the link (items, priorities, trends, screening)', 'false', (txt ~* 'hbv|hbs|hiv|hepat|hcv|hep_b')::text);
   perform pg_temp.ck('the reason for a lower blood pressure target is not revealed', 'false', (txt like '%higher_risk%')::text);
   perform pg_temp.ck('control: the ordinary lab item, the trend and the blood pressure are there', 'true,true,true',

@@ -6,7 +6,8 @@
 --   2. lab_panel_versions membership_annual v3 = v2 plus ONE analyte, anti_hbs (qualitative, optional, addOn, orderedBy clinician). Founder decision
 --      S46-1: anti-HBs is a clinician-set add-on to the annual draw and is never chosen by the patient. It is optional, so a result without it is not
 --      incomplete. It carries no price: no price row exists or is written, and it is not in any patient-orderable list. PROPOSED, the CMO signs through
---      lab_panel_signoffs as for every panel change. Counts first (live 2026-10-20): 2 panel versions, v2 active; 0 lab results carry a panel version that
+--      lab_panel_signoffs as for every panel change. NOTE: v3 becomes the ACTIVE panel version when this migration applies (a panel version is not gated by
+--      the sign-off row; release stays governed by it, and a draft sign-off is created below for the CMO). Counts first (live 2026-10-20): 2 panel versions, v2 active; 0 lab results carry a panel version that
 --      this changes (a result keeps the version it was judged under, INV-16).
 --   3. health_report_config_versions v3 = v2 plus `retest` (suggested recheck weeks for a value that was off, blood pressure weeks, a mid-year line).
 --      PROPOSED and UNSIGNED, placeholders for the CMO. v2 is untouched. Live 2026-10-20: 2 settings versions, 0 reports built.
@@ -74,10 +75,17 @@ end $$;
 
 -- A draft lab sign-off for the CMO to sign with panel v3 in view (the same step S27g took for its panel change). It carries the same release policy as the
 -- latest sign-off; it is NOT signed and NOT active, so which sign-off governs result release does not change.
-insert into public.lab_panel_signoffs (version, is_active, config, notes)
-select (select max(version) from public.lab_panel_signoffs) + 1, false, l.config,
-       'S46d: panel membership_annual v3 adds the optional anti-HBs add-on (every result held for a clinician). Same release policy as sign-off version ' || l.version || '. PROPOSED, unsigned: sign_lab_panels() by the CMO.'
-  from public.lab_panel_signoffs l order by l.version desc limit 1;
+do $$
+declare v_n integer;
+begin
+  -- copy the release policy from the SIGNED, ACTIVE sign-off only (never from an unsigned draft, which may hold unreviewed edits)
+  insert into public.lab_panel_signoffs (version, is_active, config, notes)
+  select (select max(version) from public.lab_panel_signoffs) + 1, false, l.config,
+         'S46d: panel membership_annual v3 adds the optional anti-HBs add-on (every result held for a clinician). Same release policy as the signed sign-off version ' || l.version || '. PROPOSED, unsigned: sign_lab_panels() by the CMO.'
+    from public.lab_panel_signoffs l where l.is_active and l.approved_by is not null;
+  get diagnostics v_n = row_count;
+  if v_n <> 1 then raise exception 'S46d: expected exactly one signed active lab sign-off to copy the release policy from, found %', v_n; end if;
+end $$;
 
 -- Hold an analyte that asks for it: holdForReview makes any value, including a negative, wait for a clinician (the generic "nothing to do" text would be wrong
 -- for a hepatitis B antibody result). Patched in place by anchor; it must match exactly once.
@@ -150,8 +158,15 @@ begin
     select jsonb_agg(x order by o) from jsonb_array_elements(coalesce(c -> 'trends', '[]'::jsonb)) with ordinality t(x, o)
      where not private.report_excluded_code(x ->> 'code')), '[]'::jsonb));
 
+  -- a WHITELIST: the shared copy is built from named fields only, so a field added to the stored report later cannot reach a public link by default
   return jsonb_build_object('year', r.year, 'version', r.version, 'signed_at', r.signed_at, 'signer_name', r.signer_name,
-                            'signer_registration', r.signer_registration, 'composed', c);
+    'signer_registration', r.signer_registration,
+    'composed', jsonb_build_object(
+      'schema', c -> 'schema', 'year', c -> 'year', 'items', c -> 'items', 'priorities', c -> 'priorities', 'alsoWorthKnowing', c -> 'alsoWorthKnowing',
+      'risk', c -> 'risk', 'screening', c -> 'screening', 'trends', c -> 'trends', 'questionnaires', c -> 'questionnaires',
+      'devices', coalesce(c -> 'devices', '{"manual":0,"device":0,"wearable":0}'::jsonb), 'weight', null,
+      'midYearRetestMonths', c -> 'midYearRetestMonths', 'statementKey', c -> 'statementKey', 'statementApprovedByCmo', coalesce(c -> 'statementApprovedByCmo', 'false'::jsonb),
+      'minBpReadings', c -> 'minBpReadings', 'minBpDays', c -> 'minBpDays'));
 end $$;
 revoke all on function private.health_report_share_body(uuid) from public, anon, authenticated;
 

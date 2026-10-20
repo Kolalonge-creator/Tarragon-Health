@@ -78,7 +78,7 @@ function ReportDetail({ row, onBack }: { row: SignedReportRow; onBack: () => voi
   const v = buildMobileReportView(row);
   return (
     <View style={{ gap: space.md }}>
-      <Button title="Back" onPress={onBack} variant="secondary" />
+      <Button title={t("report.mobile.back", "en")} onPress={onBack} variant="secondary" />
       <AppText variant="title" heading>
         {v.title}
       </AppText>
@@ -101,8 +101,8 @@ function ReportDetail({ row, onBack }: { row: SignedReportRow; onBack: () => voi
           </AppText>
         </Card>
       ))}
-      {v.items.map((i) => (
-        <Card key={i.label} style={{ gap: space.xs }}>
+      {v.items.map((i, n) => (
+        <Card key={`${i.label}-${n}`} style={{ gap: space.xs }}>
           <AppText variant="body" heading>
             {i.label}
             {i.value ? `: ${i.value}` : ""}

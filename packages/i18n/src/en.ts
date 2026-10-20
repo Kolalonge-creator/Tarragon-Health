@@ -3733,6 +3733,7 @@ export const en = {
   "report.share.section_label": "Yearly health report",
   "report.share.link_summary": "This is a shared copy of a yearly health report that a named clinician has signed. It leaves out the heart risk band, questionnaire answers, reproductive health screening and the doctor's note.",
   "report.share.link_unavailable": "The yearly health report on this link is not available any more.",
+  "report.mobile.back": "Back to the list",
   "report.mobile.title": "Your yearly report",
   "report.mobile.empty": "There is no signed report yet. When your care team has signed your yearly report, it will appear here.",
   "report.mobile.stale": "Showing the copy saved on this phone from {date}. Connect to check for a newer one.",
