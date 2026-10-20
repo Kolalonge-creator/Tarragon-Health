@@ -98,4 +98,12 @@ describe("home readings in target (control rate)", () => {
     expect(s.controlRate).toMatch(/not enough readings/);
     expect(s.controlRate).not.toMatch(/percent/);
   });
+
+  it("counts the month in Lagos days: a reading at 00:30 on the 1st (Lagos) is in, one at 00:30 on the next month's 1st is out", () => {
+    const first = { systolic: 120, diastolic: 80, atMs: Date.parse("2026-08-31T23:30:00Z") }; // 00:30 on 1 Sept in Lagos
+    const next = { systolic: 150, diastolic: 95, atMs: Date.parse("2026-09-30T23:30:00Z") }; // 00:30 on 1 Oct in Lagos
+    const mid = [reading("05", 125, 80), reading("12", 128, 82)];
+    const s = buildBpMonthlySummary({ patientName: "Ada", reportRows: rows, month: null, checks: [], control: control([first, ...mid, next]) })!;
+    expect(s.controlRate).toContain("3 of 3");
+  });
 });

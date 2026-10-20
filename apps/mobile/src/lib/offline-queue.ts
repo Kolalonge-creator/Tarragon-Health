@@ -1,7 +1,7 @@
 import { postDeviceReading, postHealthSamples, postPhotoReading, type PhotoReadingRequest } from "./api";
 import type { HealthProvider } from "./health-sync";
 import type { HealthReadingType, HealthSample } from "./healthkit";
-import { mergeQueueJson, secureKvGet, secureKvSet } from "./secure-kv";
+import { mergeQueueJson, secureKvGet, secureKvUpdate } from "./secure-kv";
 import { recordSyncError, type SyncSource } from "./sync-diagnostics";
 
 /**
@@ -96,23 +96,32 @@ function isQueuedEntry(value: unknown): value is QueuedEntry<unknown> {
   );
 }
 
+/** Parses a stored queue. Filters rather than rejects the whole queue on one bad entry (the "one broken thing must not cost every other item"
+ * principle healthkit.ts/health-connect.ts apply per reading type). A value that is not a list is read as empty and recorded. */
+function parseEntries<T>(raw: string | null, source: SyncSource): QueuedEntry<T>[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isQueuedEntry) as QueuedEntry<T>[];
+  } catch (error) {
+    recordSyncError(source, "offline_queue:read", error);
+    return [];
+  }
+}
+
 /**
- * Generic persisted-list plumbing shared by both queues below. Not exported
+ * Generic persisted-list plumbing shared by the queues below. Not exported
  * — every caller outside this file goes through the health-samples- or
- * device-reading-specific functions further down, so the two queues can
+ * device-reading-specific functions further down, so the queues can
  * never be pointed at each other's storage key by mistake.
+ *
+ * The queues live in the ENCRYPTED on-device store (secure-kv.ts). Reads merge any copy an older build left in plaintext AsyncStorage; an
+ * append or a removal is ONE locked read-and-write, so two callers (a BLE reading and a background flush, say) cannot lose each other's entry.
  */
 async function readQueue<T>(key: string, source: SyncSource): Promise<QueuedEntry<T>[]> {
   try {
-    // Encrypted store first; a copy an older build left in AsyncStorage is moved across (verified) and the union kept.
-    const raw = await secureKvGet(key, mergeQueueJson);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    // Filter rather than reject the whole queue on one bad entry — the same
-    // "one broken thing must not cost every other item" principle
-    // healthkit.ts/health-connect.ts already apply per reading type.
-    return parsed.filter(isQueuedEntry) as QueuedEntry<T>[];
+    return parseEntries<T>(await secureKvGet(key, mergeQueueJson), source);
   } catch (error) {
     recordSyncError(source, "offline_queue:read", error);
     return [];
@@ -124,9 +133,26 @@ async function readQueue<T>(key: string, source: SyncSource): Promise<QueuedEntr
  * this rather than assuming; callers doing a best-effort background flush
  * (everywhere else) can ignore it, since the failure is already recorded
  * here regardless. */
-async function writeQueue<T>(key: string, entries: QueuedEntry<T>[], source: SyncSource): Promise<boolean> {
+async function appendToQueue<T>(key: string, item: T, source: SyncSource): Promise<boolean> {
   try {
-    const landed = await secureKvSet(key, JSON.stringify(entries));
+    const landed = await secureKvUpdate(key, mergeQueueJson, (raw) => {
+      const next = [...parseEntries<T>(raw, source), { id: newId(), enqueuedAt: new Date().toISOString(), item }];
+      if (next.length > MAX_QUEUE_SIZE) {
+        // Drop-oldest — see MAX_QUEUE_SIZE's doc comment for why the NEWEST
+        // reading is the one a full queue must never refuse. The discard itself
+        // is recorded rather than silent: losing a queued clinical reading is
+        // exactly the kind of event that must be visible to whoever is holding
+        // the device when this path first runs for real. The policy is
+        // unchanged; only its visibility is.
+        const dropped = next.splice(0, next.length - MAX_QUEUE_SIZE);
+        recordSyncError(
+          source,
+          "offline_queue:overflow",
+          `Queue full (${MAX_QUEUE_SIZE}); discarded ${dropped.length} oldest entr${dropped.length === 1 ? "y" : "ies"} (oldest enqueued ${dropped[0]?.enqueuedAt}).`
+        );
+      }
+      return JSON.stringify(next);
+    });
     if (!landed) recordSyncError(source, "offline_queue:write", "The queue could not be stored");
     return landed;
   } catch (error) {
@@ -135,31 +161,16 @@ async function writeQueue<T>(key: string, entries: QueuedEntry<T>[], source: Syn
   }
 }
 
-async function appendToQueue<T>(key: string, item: T, source: SyncSource): Promise<boolean> {
-  const entries = await readQueue<T>(key, source);
-  const next = [...entries, { id: newId(), enqueuedAt: new Date().toISOString(), item }];
-  if (next.length > MAX_QUEUE_SIZE) {
-    // Drop-oldest — see MAX_QUEUE_SIZE's doc comment for why the NEWEST
-    // reading is the one a full queue must never refuse. The discard itself
-    // is recorded rather than silent: losing a queued clinical reading is
-    // exactly the kind of event that must be visible to whoever is holding
-    // the device when this path first runs for real. The policy is
-    // unchanged; only its visibility is.
-    const dropped = next.splice(0, next.length - MAX_QUEUE_SIZE);
-    recordSyncError(
-      source,
-      "offline_queue:overflow",
-      `Queue full (${MAX_QUEUE_SIZE}); discarded ${dropped.length} oldest entr${dropped.length === 1 ? "y" : "ies"} (oldest enqueued ${dropped[0]?.enqueuedAt}).`
-    );
-  }
-  return writeQueue(key, next, source);
-}
-
 async function removeFromQueue<T>(key: string, id: string, source: SyncSource): Promise<void> {
-  const entries = await readQueue<T>(key, source);
-  const next = entries.filter((entry) => entry.id !== id);
-  if (next.length !== entries.length) {
-    await writeQueue(key, next, source);
+  try {
+    const landed = await secureKvUpdate(key, mergeQueueJson, (raw) => {
+      const entries = parseEntries<T>(raw, source);
+      const next = entries.filter((entry) => entry.id !== id);
+      return next.length === entries.length ? null : JSON.stringify(next);
+    });
+    if (!landed) recordSyncError(source, "offline_queue:write", "The queue could not be stored");
+  } catch (error) {
+    recordSyncError(source, "offline_queue:write", error);
   }
 }
 

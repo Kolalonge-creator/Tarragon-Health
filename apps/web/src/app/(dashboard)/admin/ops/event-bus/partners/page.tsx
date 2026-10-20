@@ -151,6 +151,7 @@ export default async function PartnerWebhooksPage({ searchParams }: { searchPara
 
           <form action={setMappingAction} className="max-w-xl space-y-3 rounded-lg border border-charcoal-ink/10 p-4">
             <h3 className="text-sm font-semibold text-charcoal-ink">{t("busp.mappings.add_title")}</h3>
+            {busTypes.failed && <LoadFailure>{t("busp.load_failed")}</LoadFailure>}
             <p className="text-sm text-charcoal-ink/70">{t("busp.mappings.add_help")}</p>
             <label className="block text-sm">
               {t("busp.mappings.bus")}

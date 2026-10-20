@@ -71,7 +71,8 @@ export function buildBpMonthlySummary(args: {
 
   let controlRate: string | null = null;
   if (args.control) {
-    const lastMs = Math.min(Date.parse(`${endKey}T00:00:00Z`) - 1, Date.now());
+    // The last instant of the month in LAGOS time (UTC+1): midnight UTC at the end of the month is already 01:00 on the 1st in Lagos.
+    const lastMs = Math.min(Date.parse(`${endKey}T00:00:00Z`) - 3_600_000 - 1, Date.now());
     const rate = computeBpControlRate({
       readings: args.control.readings,
       target: { systolicBelow: payload.target.systolic, diastolicBelow: payload.target.diastolic },

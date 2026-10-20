@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SQLite from "expo-sqlite";
 import * as storage from "../test/mocks/async-storage";
-import { mergeQueueJson, secureKvGet, secureKvRemove, secureKvSet } from "./secure-kv";
+import { mergeQueueJson, secureKvGet, secureKvRemove, secureKvSet, secureKvUpdate } from "./secure-kv";
 import { readCachedBpTarget } from "./bp-target";
 import { readPendingRecheck } from "./triage-device";
 
@@ -39,12 +39,62 @@ describe("secureKv", () => {
     expect(await AsyncStorage.getItem("k")).toBe("old");
   });
 
-  it("falls back to AsyncStorage for a write when the store is unavailable, and reports false only if that fails too", async () => {
+  it("falls back to a side copy in AsyncStorage for a write when the store is unavailable, and reports false only if that fails too", async () => {
     jest.spyOn(SQLite, "openDatabaseAsync").mockRejectedValue(new Error("cannot open"));
     await expect(secureKvSet("k", "v")).resolves.toBe(true);
-    expect(await AsyncStorage.getItem("k")).toBe("v");
+    expect(await AsyncStorage.getItem("k#fb")).toBe("v");
     storage.__failNextSet();
     await expect(secureKvSet("k2", "v")).resolves.toBe(false);
+  });
+
+  it("a value written to the side copy while the store was down is moved into the store (and wins over an older stored value) once it works", async () => {
+    await secureKvSet("k", "older");
+    jest.spyOn(SQLite, "openDatabaseAsync").mockRejectedValue(new Error("cannot open"));
+    await secureKvSet("k", "newer");
+    jest.restoreAllMocks();
+    expect(await secureKvGet("k")).toBe("newer");
+    expect(await AsyncStorage.getItem("k#fb")).toBeNull();
+  });
+
+  it("never replaces a good encrypted row after a failed read: the write goes to the side copy and a queue keeps every entry", async () => {
+    const e = (id: string, at: string) => ({ id, enqueuedAt: at, item: 1 });
+    await secureKvSet("q", JSON.stringify([e("a", "2026-10-01T00:00:00Z"), e("b", "2026-10-02T00:00:00Z")]), mergeQueueJson);
+    const spy = jest.spyOn(SQLite, "openDatabaseAsync").mockRejectedValueOnce(new Error("busy"));
+    // The read fails (store unreadable), so the caller sees no entries and appends one...
+    const during = await secureKvUpdate("q", mergeQueueJson, (raw) => JSON.stringify([...(raw ? JSON.parse(raw) : []), e("c", "2026-10-03T00:00:00Z")]));
+    expect(during).toBe(true);
+    spy.mockRestore();
+    // ...and the next good read finds all three, not just the new one.
+    const ids = (JSON.parse((await secureKvGet("q", mergeQueueJson)) ?? "[]") as { id: string }[]).map((x) => x.id);
+    expect(ids).toEqual(["a", "b", "c"]);
+  });
+
+  it("does not remove a plaintext copy it could not read (a timeout is unknown, not empty)", async () => {
+    storage.__seedRaw("k", "old-queue");
+    const real = AsyncStorage.getItem;
+    jest.spyOn(AsyncStorage, "getItem").mockImplementation((name: string) => (name === "k" ? new Promise(() => {}) : real(name)));
+    jest.useFakeTimers();
+    const pending = secureKvSet("k", "new");
+    await jest.advanceTimersByTimeAsync(2000);
+    await expect(pending).resolves.toBe(true);
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    expect(await AsyncStorage.getItem("k")).toBe("old-queue");
+  });
+
+  it("concurrent updates of one key all land (no lost update)", async () => {
+    const add = (n: number) => secureKvUpdate("q", mergeQueueJson, (raw) => JSON.stringify([...(raw ? JSON.parse(raw) : []), { id: `x${n}`, enqueuedAt: `2026-10-0${n}T00:00:00Z`, item: n }]));
+    await Promise.all([add(1), add(2), add(3), add(4), add(5)]);
+    expect((JSON.parse((await secureKvGet("q", mergeQueueJson)) ?? "[]") as unknown[]).length).toBe(5);
+  });
+
+  it("a removal that the encrypted delete could not make leaves a tombstone, so the value does not come back", async () => {
+    await secureKvSet("k", "v");
+    jest.spyOn(SQLite, "openDatabaseAsync").mockRejectedValue(new Error("cannot open"));
+    await secureKvRemove("k");
+    jest.restoreAllMocks();
+    expect(await secureKvGet("k")).toBeNull();
+    expect(await AsyncStorage.getItem("k#fb")).toBeNull();
   });
 
   it("remove clears both homes", async () => {

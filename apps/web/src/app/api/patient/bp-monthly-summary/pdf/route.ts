@@ -41,8 +41,9 @@ export async function GET(request: Request): Promise<Response> {
       .select("systolic, diastolic, taken_at")
       .eq("patient_id", user.id)
       .eq("vital_type", "blood_pressure")
+      // The month in Lagos time: from 00:00 on the 1st (23:00 UTC the day before) up to, not including, 00:00 on the 1st of the next month.
       .gte("taken_at", new Date(Date.parse(`${resolved}T00:00:00Z`) - 3_600_000).toISOString())
-      .lt("taken_at", end.toISOString())
+      .lt("taken_at", new Date(end.getTime() - 3_600_000).toISOString())
       .order("taken_at", { ascending: true })
       .limit(1000);
     if (!vitals.error) {

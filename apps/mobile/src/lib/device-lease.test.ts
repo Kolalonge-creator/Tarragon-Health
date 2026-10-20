@@ -6,8 +6,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { __databaseNames } from "../test/mocks/expo-sqlite";
-import { __resetDeviceCheckThrottle, listMyPhones, reportThisPhoneLostNow, runDeviceCheck, runDeviceCheckThrottled, thisPhoneDeviceId } from "./device-lease";
+import { __resetDeviceCheckThrottle, listMyPhones, reportPhoneLost, reportThisPhoneLostNow, runDeviceCheck, runDeviceCheckThrottled, thisPhoneDeviceId } from "./device-lease";
 import { enqueueDeviceReading } from "./offline-queue";
+import * as queues from "./offline-queue";
 import { getStore } from "./secure-db";
 import { getOrCreateDeviceId, listDeviceAccounts } from "./store-key";
 import { listStoreNotices, noticesFor } from "./store-notices";
@@ -21,6 +22,7 @@ let mockConfirm: { error: { code?: string; message: string } | null } = { error:
 const mockConfirmArgs: { p_device: string; p_unsent: number; p_danger: number; p_reason: string }[] = [];
 let mockOwners: { owner: string; total: number; danger: number }[] = [{ owner: "user-1", total: 3, danger: 0 }];
 let mockFlushThrows = false;
+let mockRequestWipe: { data: unknown; error: unknown } = { data: true, error: null };
 let mockPhones: { data: unknown; error: unknown } = { data: [], error: null };
 
 jest.mock("./supabase", () => ({
@@ -41,6 +43,7 @@ jest.mock("./supabase", () => ({
     rpc: async (name: string, args: never) => {
       calls.push(`rpc:${name}`);
       if (name === "offline_device_checkin") return mockCheckin;
+      if (name === "request_offline_device_wipe") return mockRequestWipe;
       mockConfirmArgs.push(args);
       return mockConfirm;
     },
@@ -146,6 +149,20 @@ describe("a lost-phone report", () => {
     // 3 outbox entries (mock) + 1 queued reading, none of them urgent
     expect(mockConfirmArgs[0]).toMatchObject({ p_unsent: 4, p_danger: 0 });
     expect((await listStoreNotices())[0]).toMatchObject({ kind: "wiped", unsent: 4 });
+  });
+
+  it("still wipes when the last upload attempt for the reading queues hangs (it is given a fixed budget, then the wipe goes on)", async () => {
+    await seedPhone();
+    await runDeviceCheck(NOW);
+    jest.spyOn(queues, "flushOfflineQueues").mockImplementation(() => new Promise(() => {}));
+    mockCheckin = REVOKED;
+    jest.useFakeTimers();
+    const wiping = runDeviceCheck(NOW);
+    await jest.advanceTimersByTimeAsync(21_000);
+    expect(await wiping).toBe("wiped");
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    expect(phoneIsGone()).toEqual([]);
   });
 
   it("wipes an urgent entry too (an explicit report is the one thing that does), and reports the urgent COUNT", async () => {
@@ -433,6 +450,13 @@ describe("my phones", () => {
     const id = await thisPhoneDeviceId("user-1");
     expect(id).toMatch(/^[0-9a-f-]{36}$/);
     expect(await thisPhoneDeviceId("someone-else")).toBeNull();
+  });
+
+  it("a report the server did not record (it answered false) is not claimed as made", async () => {
+    mockRequestWipe = { data: false, error: null };
+    expect(await reportPhoneLost("d1")).toBe(false);
+    expect(await reportThisPhoneLostNow("d1")).toBe(false);
+    mockRequestWipe = { data: true, error: null };
   });
 
   it("reporting THIS phone lost asks the server, then checks in straight away so it clears now", async () => {

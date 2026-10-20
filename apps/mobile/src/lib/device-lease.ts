@@ -56,6 +56,22 @@ interface PendingConfirm {
   at: string;
 }
 
+const QUEUE_FLUSH_BUDGET_MS = 20_000;
+const QUEUE_COUNT_BUDGET_MS = 5_000;
+
+/** The promise's value, or `fallback` once `ms` has passed; the timer is cleared as soon as the promise settles. */
+async function withDeadline<T, F>(promise: Promise<T>, ms: number, fallback: F): Promise<T | F> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<F>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), ms);
+  });
+  try {
+    return await Promise.race([promise, late]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export type DeviceCheckOutcome = "ok" | "offline" | "wiped" | "held" | "skipped";
 
 /** The last lease the server gave this phone. A property of the phone, not of whoever is signed in now. */
@@ -118,10 +134,14 @@ export async function wipeThisPhone(
   // The device-reading, health-sample and photo-reading queues now live in the same encrypted store (secure-kv.ts) and go with it,
   // so they get the same last attempt and are counted too, never wiped uncounted. They belong to whoever was signed in (the trigger
   // account, or the only account on the phone) and are never urgent entries.
+  // Bounded: a wipe must finish even on a captive network, so the queues get QUEUE_FLUSH_BUDGET_MS in all, then the wipe goes on.
   let queued = 0;
   try {
-    await flushOfflineQueues();
-    queued = await getPendingCount();
+    const flushed = await withDeadline(flushOfflineQueues().then(() => true), QUEUE_FLUSH_BUDGET_MS, false);
+    if (!flushed) recordSyncError("offline_outbox", "wipe:queues", "The last upload attempt for the reading queues did not finish in time");
+    const counted = await withDeadline(getPendingCount(), QUEUE_COUNT_BUDGET_MS, null);
+    if (counted === null) recordSyncError("offline_outbox", "wipe:queues", "The reading queues could not be counted in time");
+    else queued = counted;
   } catch (error) {
     recordSyncError("offline_outbox", "wipe:queues", error);
   }
@@ -331,8 +351,9 @@ export function __resetDeviceCheckThrottle(): void {
 
 /** Patient report from a signed-in phone or the web: "this phone is lost". The phone wipes the next time it syncs. */
 export async function reportPhoneLost(deviceId: string, reason: "lost_phone" | "stolen" = "lost_phone"): Promise<boolean> {
-  const { error } = await supabase.rpc("request_offline_device_wipe", { p_device: deviceId, p_reason: reason });
-  return !error;
+  const { data, error } = await supabase.rpc("request_offline_device_wipe", { p_device: deviceId, p_reason: reason });
+  // The function answers true when it recorded the request; anything else (an error, or false) means nothing was requested.
+  return !error && data === true;
 }
 
 export type MyPhonesResult = { ok: true; phones: PhoneLeaseRow[] } | { ok: false };

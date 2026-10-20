@@ -19,6 +19,10 @@
 --   * go-live guard 'pharmacy_counter_snapshot', born OFF, with NO conditions branch (the wallet_pass pattern): an unknown key is one unmet
 --     'unknown_guard' condition, so set_go_live_guard refuses to switch it on until a later change adds the branch and its attestations.
 --
+-- KNOWN LIMIT (kept on purpose): the guard closes the counter feature (create, the counter door and the page), not the ordinary share link. A counter
+-- view is a real record share limited to the medicines section, so while it is live it can still be opened through the ordinary share door
+-- (/share/[token], same PIN, same lockout) and shows the medicines list the patient already chose to share. Switching the guard off does not
+-- revoke links already issued; they end by themselves within 24 hours and the patient can revoke them under Share records.
 -- No notification is sent by any of this (INV-07: nothing here can carry a medicine name). Counted before writing (live, 2026-10-20): record_shares
 -- holds no counter snapshot and the table does not exist, so no data is converted.
 -- The new table is keyed by profile_id, not patient_id, on purpose (the S09x lock-screen table did the same): a patient_id column would put it in
