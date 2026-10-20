@@ -19,7 +19,7 @@
 -- (private.approved_bp_rule_params() not null), an emergency-range reading with no red-flag symptom near it (not in pregnancy or after a birth) is treated as red.
 -- device_catalog held 3 rows; no cuff guidance or cuff record table existed. Latest live migration 20261020173600 matches a file on main-dev.
 -- LIMITS of the report (also in the function comment): it re-derives the level from the stored reading and the CURRENT profile and target (pregnancy and target may
--- have differed on the day), it does not model plan gating (Free patients get a self-care suggestion, not an alert) or alert merging. It leaves out corrected
+-- have differed on the day), it does not model plan gating (Free patients get a self-care suggestion, not an alert) or alert merging. It reads private.vitals_readings_current, which leaves out corrected
 -- (superseded) rows and wearable estimates, and looks back at most 90 days.
 
 -- 1. The governed cuff-size table ------------------------------------------------------------------------------------------------------------
@@ -226,9 +226,9 @@ begin
   with r as (
     select v.patient_id, v.systolic::int s, v.diastolic::int d, v.created_at, coalesce(p.is_pregnant, false) preg,
            private.classify_bp_level(v.systolic::int, v.diastolic::int) app
-      from public.vitals_readings v join public.profiles p on p.id = v.patient_id
+      from private.vitals_readings_current v join public.profiles p on p.id = v.patient_id
      where v.vital_type = 'blood_pressure' and v.systolic is not null and v.diastolic is not null and not coalesce(p.is_test, false)
-       and v.correction_status is null and not private.bp_reading_is_estimate(v.source::text)
+       and not private.bp_reading_is_estimate(v.source::text)
        and v.created_at >= now() - make_interval(days => greatest(1, least(coalesce(p_days, 30), 90)))
   ), tg as (
     -- the personal target is worked out once per patient, not once per reading
