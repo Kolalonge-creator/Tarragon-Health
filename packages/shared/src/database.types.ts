@@ -27312,6 +27312,7 @@ export type Database = {
         Row: {
           account_id: string
           danger_at_wipe: number | null
+          device_label: string | null
           device_id: string
           last_checkin_at: string
           lease_expires_at: string
@@ -27322,6 +27323,7 @@ export type Database = {
           revoke_reason: string | null
           revoked_at: string | null
           revoked_by: string | null
+          shared_phone: boolean
           unsent_at_wipe: number | null
           wipe_confirmed_at: string | null
           wipe_reason: string | null
@@ -27329,6 +27331,7 @@ export type Database = {
         Insert: {
           account_id: string
           danger_at_wipe?: number | null
+          device_label?: string | null
           device_id: string
           last_checkin_at?: string
           lease_expires_at: string
@@ -27339,6 +27342,7 @@ export type Database = {
           revoke_reason?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
+          shared_phone?: boolean
           unsent_at_wipe?: number | null
           wipe_confirmed_at?: string | null
           wipe_reason?: string | null
@@ -27346,6 +27350,7 @@ export type Database = {
         Update: {
           account_id?: string
           danger_at_wipe?: number | null
+          device_label?: string | null
           device_id?: string
           last_checkin_at?: string
           lease_expires_at?: string
@@ -27356,6 +27361,7 @@ export type Database = {
           revoke_reason?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
+          shared_phone?: boolean
           unsent_at_wipe?: number | null
           wipe_confirmed_at?: string | null
           wipe_reason?: string | null
@@ -49481,6 +49487,10 @@ export type Database = {
         }[]
       }
       request_offline_device_wipe: { Args: { p_device: string; p_reason?: string }; Returns: boolean }
+      update_my_offline_device: {
+        Args: { p_clear_label?: boolean; p_device: string; p_label?: string; p_shared?: boolean }
+        Returns: boolean
+      }
       read_medication_dose_log_audited: {
         Args: { p_patient: string; p_reason: string }
         Returns: Json
