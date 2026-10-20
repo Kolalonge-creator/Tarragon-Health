@@ -4,6 +4,7 @@ import { supabase } from "./supabase";
 import { recordSyncError } from "./sync-diagnostics";
 import { classifyFailure } from "./outbox-rules";
 import { countDangerUnsent, countUnsentByOwner, flushOutbox } from "./outbox";
+import { countQueuedByOwner } from "./offline-queue-store";
 import { destroyStore } from "./secure-db";
 import { forgetAllDeviceIds, getOrCreateDeviceId, listDeviceAccounts } from "./store-key";
 import { addStoreNotice } from "./store-notices";
@@ -109,6 +110,16 @@ export async function wipeThisPhone(
     owners = await countUnsentByOwner();
   } catch (error) {
     recordSyncError("offline_outbox", "wipe:count", error);
+  }
+  // Queued device and health-store readings (S06y) are unsent entries too: count them per account, never urgent-flagged.
+  try {
+    for (const q of await countQueuedByOwner()) {
+      const mine = owners.find((o) => o.owner === q.owner);
+      if (mine) mine.total += q.total;
+      else owners.push({ owner: q.owner, total: q.total, danger: 0 });
+    }
+  } catch (error) {
+    recordSyncError("offline_outbox", "wipe:countQueues", error);
   }
   const accounts = await listDeviceAccounts();
   const everyone = new Set<string>([...Object.keys(accounts), ...owners.map((o) => o.owner)]);
