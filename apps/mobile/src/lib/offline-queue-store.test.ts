@@ -183,6 +183,10 @@ describe("fail-silent and data-loss edges", () => {
     mockSessionError = null;
     expect(await listQueue("device_readings", "ble")).toEqual([]);
     expect(await appendQueue("device_readings", { n: 3 }, "ble")).toBe(false);
+    // ...and the next person on the phone cannot inherit the remembered account if the network drops for them.
+    mockSessionError = { name: "AuthRetryableFetchError", message: "Network request failed" };
+    expect(await appendQueue("device_readings", { n: 4 }, "ble")).toBe(false);
+    mockSessionError = null;
     mockUser = "user-1";
     expect(await listQueue("device_readings", "ble")).toHaveLength(2);
   });
@@ -233,6 +237,31 @@ describe("fail-silent and data-loss edges", () => {
     expect(await appendQueue("device_readings", { n: 5 }, "ble")).toBe(true);
     expect(await listQueue("device_readings", "ble")).toHaveLength(5);
     __setCipherAvailable(true);
+  });
+});
+
+describe("more edges", () => {
+  it("an entry that was uploaded is removed even if the session lapsed or switched during the upload", async () => {
+    await appendQueue("device_readings", { n: 1 }, "ble");
+    const id = (await listQueue("device_readings", "ble"))[0].id;
+    mockUser = null;
+    await removeFromQueueStore("device_readings", id, "ble");
+    mockUser = "user-1";
+    expect(await listQueue("device_readings", "ble")).toEqual([]);
+  });
+
+  it("a held copy is tried again while the app runs and then completes without losing or duplicating anything", async () => {
+    await AsyncStorage.setItem(DEVICE, legacyList(7));
+    const real = rules.rowsChecksum;
+    let calls = 0;
+    const spy = jest.spyOn(rules, "rowsChecksum").mockImplementation((rows, seed) => (++calls === 2 ? "deadbeef" : real(rows, seed)));
+    expect(await listQueue("device_readings", "ble")).toHaveLength(7);
+    expect(await rowCount()).toBe(0); // no half copy left behind
+    spy.mockRestore();
+    jest.spyOn(Date, "now").mockReturnValue(Date.now() + 120_000);
+    expect(await listQueue("device_readings", "ble")).toHaveLength(7);
+    expect(await AsyncStorage.getItem(DEVICE)).toBeNull();
+    expect(await rowCount()).toBe(7);
   });
 });
 

@@ -139,10 +139,11 @@ const LAST_OWNER_KEY = "@tarragon/offline-queue-owner/v1";
 let lastOwner: string | null = null;
 
 /**
- * The signed-in account. Offline with an expired token the auth client cannot refresh and answers "no session" WITH an
- * error; that is not a sign-out, and a reading taken then must still be queued (the old queue needed no session at
- * all). So an answer with a fetch error falls back to the last account seen with a live session (an id, no health data).
- * An answer without an error is a real sign-out: nobody is signed in and the queue shows nothing.
+ * The signed-in account. When the auth client cannot give a session AND reports an error (offline with an expired
+ * token, or a refresh token it could not renew), a reading must still be queued: the old queue needed no session at
+ * all. So an answer with an error falls back to the last account seen with a live session (an id, no health data). An
+ * answer without an error is a real sign-out: the remembered account is forgotten and the queue shows nothing, so
+ * the next person on a shared phone can never inherit it.
  */
 async function sessionUserId(): Promise<string | null> {
   try {
@@ -158,19 +159,27 @@ async function sessionUserId(): Promise<string | null> {
       }
       return id;
     }
-    if (error && /retryable|fetch|network|timeout/i.test(`${error.name ?? ""} ${error.message ?? ""}`)) {
+    if (error) {
       if (lastOwner) return lastOwner;
       return (await AsyncStorage.getItem(LAST_OWNER_KEY).catch(() => null)) ?? null;
     }
+    await clearQueueOwner();
     return null;
   } catch {
     return null;
   }
 }
 
+/** Forgets the remembered account (a real sign-out, and the remote wipe). */
+export async function clearQueueOwner(): Promise<void> {
+  lastOwner = null;
+  await AsyncStorage.removeItem(LAST_OWNER_KEY).catch(() => {});
+}
+
 /** Test hook. */
 export function __resetQueueOwnerForTests(): void {
   lastOwner = null;
+  lastRetry.clear();
 }
 
 async function migrateQueue(db: SQLite.SQLiteDatabase, queue: QueueName): Promise<void> {
@@ -217,10 +226,13 @@ async function migrateQueue(db: SQLite.SQLiteDatabase, queue: QueueName): Promis
     ]);
     const opaque = planned.filter((r) => r.readable === 0).length;
     if (opaque > 0) recordSyncError("offline_outbox", `offline_queue:unreadable:${queue}`, `${opaque} entries could not be read; kept encrypted, not uploaded`);
+    heldFor(db).delete(queue);
     await finishRemoval(db, queue, key);
   } catch (error) {
-    // The old list stays exactly where it is and readers keep using it. Retried at the next start.
+    // The old list stays exactly where it is and readers keep using it. A half copy is removed so nothing is counted twice.
+    await db.runAsync("delete from offline_queue_v1 where queue = ? and legacy = 1", [queue]).catch(() => {});
     heldFor(db).add(queue);
+    lastRetry.set(queue, Date.now());
     const code = eventCode(Crypto.randomUUID());
     recordSyncError("offline_outbox", `offline_queue:migrate:${queue}:${code}`, error);
     await addStoreNotice({ kind: "migration_held", code });
@@ -237,8 +249,20 @@ async function finishRemoval(db: SQLite.SQLiteDatabase, queue: QueueName, key: s
   }
 }
 
-function getDb(): Promise<SQLite.SQLiteDatabase> {
-  return getStoreWithSchema("offline_queues", setup);
+const RETRY_HELD_MS = 60_000;
+const lastRetry = new Map<QueueName, number>();
+
+async function getDb(): Promise<SQLite.SQLiteDatabase> {
+  const db = await getStoreWithSchema("offline_queues", setup);
+  // A copy that was held back is tried again while the app runs, not only at the next start.
+  const stuck = heldFor(db);
+  for (const queue of [...stuck]) {
+    const now = Date.now();
+    if (now - (lastRetry.get(queue) ?? 0) < RETRY_HELD_MS) continue;
+    lastRetry.set(queue, now);
+    await migrateQueue(db, queue);
+  }
+  return db;
 }
 
 async function claimUnclaimed(db: SQLite.SQLiteDatabase, owner: string): Promise<void> {
@@ -334,14 +358,11 @@ export async function appendQueue<T>(queue: QueueName, item: T, source: SyncSour
 }
 
 export async function removeFromQueueStore(queue: QueueName, id: string, source: SyncSource): Promise<void> {
-  const owner = await sessionUserId();
-  if (!owner) {
-    recordSyncError(source, "offline_queue:remove", "No signed-in account; the sent entry stays queued and is re-sent (the server dedupes).");
-    return;
-  }
   try {
     const db = await getDb();
-    await db.runAsync("delete from offline_queue_v1 where owner_user_id = ? and queue = ? and id = ?", [owner, queue, id]);
+    // By queue and id only: ids are unique per queue, and an upload that succeeded must be removable even if the
+    // session lapsed or switched while it was in flight (otherwise it would be sent again on every flush).
+    await db.runAsync("delete from offline_queue_v1 where queue = ? and id = ?", [queue, id]);
     if (heldFor(db).has(queue)) await removeLegacyEntry(queue, id);
   } catch (error) {
     recordSyncError(source, "offline_queue:write", error);

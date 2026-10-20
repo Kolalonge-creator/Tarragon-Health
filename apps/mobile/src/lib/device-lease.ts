@@ -4,7 +4,8 @@ import { supabase } from "./supabase";
 import { recordSyncError } from "./sync-diagnostics";
 import { classifyFailure } from "./outbox-rules";
 import { countDangerUnsent, countUnsentByOwner, flushOutbox } from "./outbox";
-import { countQueuedByOwner } from "./offline-queue-store";
+import { flushOfflineQueues } from "./offline-queue";
+import { clearQueueOwner, countQueuedByOwner } from "./offline-queue-store";
 import { destroyStore } from "./secure-db";
 import { forgetAllDeviceIds, getOrCreateDeviceId, listDeviceAccounts } from "./store-key";
 import { addStoreNotice } from "./store-notices";
@@ -104,6 +105,11 @@ export async function wipeThisPhone(
   } catch (error) {
     recordSyncError("offline_outbox", "wipe:lastFlush", error);
   }
+  try {
+    await flushOfflineQueues();
+  } catch (error) {
+    recordSyncError("offline_outbox", "wipe:lastFlushQueues", error);
+  }
   // 2. Count what did not go, per account on the phone. Counts are all anyone ever hears about it.
   let owners: Awaited<ReturnType<typeof countUnsentByOwner>> = [];
   try {
@@ -142,6 +148,7 @@ export async function wipeThisPhone(
   await AsyncStorage.setItem(PENDING_CONFIRM_KEY, JSON.stringify(pending)).catch(() => {});
   // 4. The store, its key, and every earlier generation. A failure leaves the revoked flag in place, so it is retried.
   await destroyStore();
+  await clearQueueOwner();
   // 5. Fresh ids for EVERY account known on this phone (signed in or not), so each registers as a new device next time.
   //    Before the sweep below, which would otherwise remove the list of accounts first.
   await forgetAllDeviceIds();

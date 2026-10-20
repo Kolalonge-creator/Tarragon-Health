@@ -40,6 +40,12 @@ jest.mock("./supabase", () => ({
     },
   },
 }));
+jest.mock("./offline-queue", () => ({
+  flushOfflineQueues: async () => {
+    calls.push("flushQueues");
+    return {};
+  },
+}));
 jest.mock("./outbox", () => ({
   flushOutbox: async () => {
     calls.push("flush");

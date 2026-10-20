@@ -153,6 +153,7 @@ async function syncHealthReadings(
   let vitals = 0;
   let wearable = 0;
   let queued = 0;
+  let notSaved = false;
   const pages = paginate(samples, UPLOAD_PAGE_SIZE);
   for (let index = 0; index < pages.length; index++) {
     const page = pages[index];
@@ -182,12 +183,17 @@ async function syncHealthReadings(
         });
         // Only count what really landed (S06y: a missing session or an unopenable store now fails the write).
         if (stored) queued += remaining.length;
+        else notSaved = true;
       }
       break;
     }
     vitals += result.data.vitals_inserted;
     wearable += result.data.wearable_inserted;
   }
+
+  // Not uploaded and not saved on the phone either. The server-held cursor did not move past them, so the next sync
+  // reads them again; say so rather than reporting a clean sync.
+  if (notSaved) return { status: "error", message: "Couldn't save your readings on this phone to send later. We will try again at the next sync." };
 
   return {
     status: "synced",
