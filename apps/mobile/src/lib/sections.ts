@@ -20,6 +20,7 @@ export type SectionId =
   | "healthSummary"
   | "timeline"
   | "myHealth"
+  | "shareRecords"
   | "womensHealth"
   | "sexualHealth"
   | "wellbeing"
@@ -127,6 +128,12 @@ export const SECTIONS: SectionDef[] = [
     id: "myHealth",
     label: "My Health",
     icon: "id-card-outline",
+    group: "Your health",
+  },
+  {
+    id: "shareRecords",
+    label: "Share records",
+    icon: "share-outline",
     group: "Your health",
   },
   {

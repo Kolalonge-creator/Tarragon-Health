@@ -1998,3 +1998,12 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **Tests**: shared `bp-ack`; mobile `bp-ack-view` (incl. the wording scan: no review claim, no time, no digit, no dash), `bp-log` (row state), web `bp-ack-message` (incl. a compile-time check that the shared and web bands are the same union), `vitals-bp-ack-level` (held reading, safety-check failure), `vitals-form-ack` (failed save, stale line after edit, offline). The browser journey `journey-2-red-reading-at-night` now waits for "Received by TarragonHealth." instead of "Reading logged." (not run here). A `/code-review high` pass found and I fixed: judging delivery from the whole group, false reassurance on the web, stale lines, a false "received" for a held reading.
 - **Not run**: no device and no browser run; the 4-second outbox poll and the persistent line are exercised only in Jest. English only.
 - **Follow-ups**: OQ-BPA-1 to OQ-BPA-3.
+
+## Phone screens and standard-format share (2026-10-20, draft PR, nothing applied, no migration)
+
+- **Built**: (1) phone Share records screen (all share extras, PIN shown once, send through the phone's share sheet, revoke); (2) phone yearly proxy-access review card on Family and Privacy; (3) FHIR R4 file download on the public share page (built in the browser from what the recipient has already opened, so it never counts as another view); (4) SMART Health Link: `/api/shl/{token}` manifest (same share door, PIN as `passcode`, encrypted compact JWE with the key derived from a server secret), owner routes `/api/patient/share-shl` and `/api/mobile/share-shl`, and a "Copy hospital-system link" button on web and phone.
+- **No database change.** The manifest calls the existing `record_share_by_token`; the owner routes read the patient's own `record_shares` row under RLS.
+- **Needs**: `SHARE_LINK_KEY_SECRET` on the web host (runbook section E). The phone screens ship over the air (JS only, no native module, no runtime version change).
+- **Not built**: passkeys on the phone (native module, needs a new app build); Print / Save as PDF on the phone.
+- **Tests**: Jest web `share-fhir`, `smart-health-link` (a standard A256GCM reader decrypts it; a wrong key or edited header fails), `api/shl` route (PIN, lockout answers, 404/429/413/503); mobile `record-share`, `proxy-review`. Not run on a device or against a real receiving system (OQ-708).
+

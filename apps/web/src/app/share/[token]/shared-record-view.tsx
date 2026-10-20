@@ -1,6 +1,7 @@
 import { t } from "@tarragon/i18n";
 import { rangeMayBeShownAsClinical, rangeSourceLabel } from "@tarragon/shared";
 import { PrintButton } from "./print-button";
+import { FhirDownloadButton } from "./fhir-download-button";
 
 /** What `record_share_by_token` returns on success. No directive: rendered by the server page and by the PIN gate on the client. */
 export type SharedData = {
@@ -161,6 +162,7 @@ export function SharedRecordView({ record }: { record: SharedData }) {
           </p>
         ) : null}
         <PrintButton />
+        <FhirDownloadButton record={record} />
       </header>
 
       {record.vitals && record.vitals.length > 0 && (

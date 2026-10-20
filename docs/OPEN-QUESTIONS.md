@@ -4251,6 +4251,7 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-706 Yearly proxy-access review: mobile screen and email/push delivery not exercised (raised by the yearly review build, 2026-10-16)
 - The mobile app has no proxy-controls screen today (narrow, remove, view log are web only), so the review card is web only. The in-app notice appears in the notification list on both. A mobile review card belongs with whichever session first brings the proxy controls to mobile.
 - The patient push and email versions exist (`proxy_review_due` renderers in `send-pending-notifications`) and are queued only when the person's own channel preference allows, but the edge function must be redeployed to carry the two new renderers (`supabase functions deploy send-pending-notifications`); until then those two rows would fail while the guaranteed in-app row still works. No real push or email was sent in this build.
+- UPDATE 2026-10-20: the phone now shows the yearly review card (Family and Privacy screens) with the same three answers, and the same rules: silence never removes access, a narrowing or removal tells the proxy nothing. Not yet seen on a device.
 - Decision: informational (follow-up).
 ### OQ-702 Should a patient be able to replace a file after the care team has opened the alert (raised by the document supersede)
 - Done: a replacement supersedes the original (new row, old row and file kept, alert handed over with the higher priority). Allowed only before review, as before.
@@ -4280,10 +4281,21 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - Decision: open (founder).
 ### OQ-707 Share extras: mobile screen, and whether a label should ever gate access (raised by the share-extras build, 2026-10-19)
 - The recipient label is a label only. Anyone holding the link (and the PIN, if one was set) can open it; the label does not check who opens it. The page says so. If you want the doctor to prove who they are, that is a different, larger feature.
-- The phone app's share screen does not have the three new fields yet; it can still create a plain share.
+- UPDATE 2026-10-20: the phone now has a native Share records screen (My Health, Share records) with all three fields, a PIN, send through the phone's share sheet, and revoke. Print / Save as PDF stays web only (it needs a native print module, which means a new app build); on the phone the link itself is sent and the recipient prints from the page.
 - The date window trims vitals and lab results only (the other sections have no time dimension that matters to a visit).
 - Options: (a) leave as is (recommended), (b) build the phone fields next.
 - Decision: open.
+### OQ-708 Share in a standard format: FHIR file and SMART Health Link (raised by the standard-format share build, 2026-10-20)
+- Built: a recipient who has opened a share can save it as a FHIR R4 `collection` bundle (built in their browser from what is already on the page, so it is not a second view). The patient can also copy a SMART Health Link (`shlink:/...`) for a clinic's software; it asks `/api/shl/{token}`, which uses the same share door as the web link, so the PIN, lockout, view cap, date window, expiry, revoke and access log all apply.
+- NOT verified: no receiving hospital system, EHR or SMART Health Links viewer has been tried. The bundle is a plain `collection` using the S44 mapping, not an International Patient Summary document, and no Nigeria Core or NPHCDA profile is claimed (none is published). Whether a Nigerian hospital can import it is unknown.
+- Needs a server secret: `SHARE_LINK_KEY_SECRET` (32+ characters). The link's key is HMAC(secret, share token), never stored. Without the secret the button says "not available" and `/api/shl/*` answers 503. Changing the secret makes every SMART Health Link already handed out stop opening (the ordinary share link keeps working).
+- Each manifest request counts as one view of the link, like a person opening it. A link capped at 1 view is used up by the first successful request; a system that retries after a failure on its side will find it closed.
+- The file is sent inline in the manifest. If a recipient says it cannot take a file that large the answer is 413 (no separate download address yet). A normal shared record is far below any limit seen in practice, but this has not been measured on real data.
+- What is left out on purpose: emergency blood group and contact (no neutral FHIR home for them), and conditions travel as "unconfirmed" because the share does not carry who confirmed them.
+- Passkeys on the phone are NOT built. They need a native module, which means a new app runtime version and a fresh store build; an over-the-air update cannot carry it. Decide if and when to do that as a native release.
+- Options: (a) leave as is until a real clinic asks (recommended), (b) pilot with one clinic and fix what their software rejects, (c) move to an International Patient Summary bundle.
+- Decision: open.
+
 ### OQ-701 Who may read the audit log directly (raised by the audit_log narrowing)
 - Done: `audit_log` is directly readable only by its own actor and by admins. Org staff, tied clinicians and the CMO account lost the organisation-wide read; the screens they use read through SECURITY DEFINER functions that self-gate.
 - Open 1: should the CMO or a clinical-governance reviewer have a scoped direct read (for example by action prefix) instead of only the S20 sampling RPCs?

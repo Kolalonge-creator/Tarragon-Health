@@ -65,6 +65,7 @@ export function ShareControls({
   const [createFailed, setCreateFailed] = useState(false);
   const [pinCopied, setPinCopied] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [shlState, setShlState] = useState<{ id: string; state: "copied" | "unavailable" } | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
   const toggleSection = useCallback((section: RecordShareSection) => {
@@ -113,6 +114,19 @@ export function ShareControls({
     } catch {
       // Clipboard unavailable or denied: the link is on screen to copy by hand.
     }
+  }, []);
+
+  const handleCopyShl = useCallback(async (shareId: string) => {
+    try {
+      const res = await fetch(`/api/patient/share-shl?id=${encodeURIComponent(shareId)}`, { cache: "no-store" });
+      const body = (await res.json()) as { link?: string };
+      if (!res.ok || !body.link) throw new Error("unavailable");
+      await navigator.clipboard.writeText(body.link);
+      setShlState({ id: shareId, state: "copied" });
+    } catch {
+      setShlState({ id: shareId, state: "unavailable" });
+    }
+    setTimeout(() => setShlState(null), 3000);
   }, []);
 
   const handleCopyPin = useCallback(async (pin: string) => {
@@ -331,6 +345,11 @@ export function ShareControls({
                           {t("share.locked", locale)}
                         </p>
                       ) : null}
+                      {shlState?.id === share.id && shlState.state === "unavailable" ? (
+                        <p role="status" className="text-xs text-red-700">
+                          {t("sharelink.shl.unavailable", locale)}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -341,6 +360,9 @@ export function ShareControls({
                         {copiedId === share.id
                           ? t("share.link_copied", locale)
                           : t("share.copy_link", locale)}
+                      </Button>
+                      <Button variant="outline" size="sm" title={t("sharelink.shl.hint", locale)} onClick={() => void handleCopyShl(share.id)}>
+                        {shlState?.id === share.id && shlState.state === "copied" ? t("sharelink.shl.copied", locale) : t("sharelink.shl.copy", locale)}
                       </Button>
                       <Button
                         variant="outline"
