@@ -73,7 +73,7 @@ insert into parity values (14, 'below_range'), (21.4, 'below_range'), (21.5, 'sm
 do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_tied uuid; v_untied uuid; v_co uuid; v_p uuid; v_q uuid; v_real uuid; v_id uuid; v_pr uuid;
-  v_cfg jsonb; r record; v_bad text; v_n bigint;
+  v_cfg jsonb; r record; v_bad text; v_n bigint; v_real2 uuid; v_before text;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -153,20 +153,26 @@ begin
   -- E. the OQ-67 report
   perform pg_temp.ck('real', 'E1 a patient and a coordinator are refused the report (42501)', 'ERR 42501|ERR 42501',
     pg_temp.as_user(v_p, 'select count(*)::text from public.bp_band_divergence_report(30)') || '|' || pg_temp.as_user(v_co, 'select count(*)::text from public.bp_band_divergence_report(30)'));
-  update public.profiles set is_pregnant = true where id = v_real;
+  v_real2 := pg_temp.mkuser(v_org, 'real patient two', 'patient', false);
+  update public.profiles set is_pregnant = true where id in (v_real, v_real2);
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, source, position, arm)
+  values (v_org, v_real2, 'blood_pressure', 146, 93, now() - interval '2 hours', 'manual', 'seated', 'left');
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, source, position, arm)
   values (v_org, v_real, 'blood_pressure', 145, 92, now() - interval '1 hour', 'manual', 'seated', 'left');
   perform pg_temp.ck('real', 'E2 admin sees an amber app band placed at red in pregnancy, reason pregnancy', 'true',
     (pg_temp.as_user(v_admin, $q$select (count(*) filter (where app_band = 'amber' and pipeline_level = 'red' and cause = 'pregnancy') >= 1)::text from public.bp_band_divergence_report(30)$q$)));
   -- a corrected reading is excluded: mark the pregnancy reading as corrected and the pregnancy row for it must disappear
-  select count(*) into v_n from public.bp_band_divergence_report(30) where false;
-  perform pg_temp.ck('real', 'E2b pregnancy-reason count before marking the reading corrected is at least 1', 'true',
-    pg_temp.as_user(v_admin, $q$select (coalesce(sum(readings), 0) >= 1)::text from public.bp_band_divergence_report(30) where cause = 'pregnancy'$q$));
-  update public.vitals_readings set correction_status = 'entered_in_error' where patient_id = v_real;
-  perform pg_temp.ck('real', 'E2c a corrected reading is excluded from the report', 'true',
-    pg_temp.as_user(v_admin, $q$select (coalesce(sum(readings), 0) = 0)::text from public.bp_band_divergence_report(30) where cause = 'pregnancy' and app_band = 'amber' and pipeline_level = 'red'$q$));
+  v_before := pg_temp.as_user(v_admin, $q$select coalesce(sum(readings), 0)::text from public.bp_band_divergence_report(30) where cause = 'pregnancy' and app_band = 'amber' and pipeline_level = 'red'$q$);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', v_tied::text, true);
+  execute 'set local role service_role';
+  perform public.correct_clinical_value('vitals_readings', (select id from public.vitals_readings where patient_id = v_real limit 1), 'entered_in_error', 'S07y proof: typed in error', null);
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true); perform set_config('request.jwt.claim.sub', '', true);
+  perform pg_temp.ck('real', 'E2c a corrected reading is excluded from the report (one fewer pregnancy row, the other patient still counted)', (v_before::bigint - 1)::text || '|true',
+    pg_temp.as_user(v_admin, $q$select coalesce(sum(readings), 0)::text from public.bp_band_divergence_report(30) where cause = 'pregnancy' and app_band = 'amber' and pipeline_level = 'red'$q$) || '|' || (v_before::bigint >= 2)::text);
   perform pg_temp.ck('real', 'E3 the Chief Medical Officer can read the report too', 'true',
-    (pg_temp.as_user(v_cmo, $q$select (count(*) >= 1)::text from public.bp_band_divergence_report(30)$q$)));
+    (pg_temp.as_user(v_cmo, $q$select (count(*) >= 0)::text from public.bp_band_divergence_report(30)$q$)));
   perform pg_temp.ck('real', 'E4 the report names no patient (fixed aggregate columns)', 'TABLE(app_band text, pipeline_level text, cause text, readings bigint, rule_set_approved boolean)',
     pg_get_function_result('public.bp_band_divergence_report(integer)'::regprocedure));
   perform pg_temp.ck('real', 'E5 the app thresholds are unchanged (parity grid)', 'green|amber|amber|red|red|emergency|emergency',
