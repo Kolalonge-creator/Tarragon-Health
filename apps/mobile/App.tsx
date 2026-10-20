@@ -1,3 +1,4 @@
+import { unsealKv } from "@/lib/secure-kv";
 import { flushOutbox, getPendingCount } from "@/lib/outbox";
 import { runDeviceCheckThrottled } from "@/lib/device-lease";
 import { startReconnectWatcher } from "@/lib/reachability";
@@ -119,6 +120,7 @@ function AppContent() {
         // Offline audio downloads (S57b) belong to the previous account's session: delete them all, flag or no flag.
         void purgeAllDownloads().catch(() => {});
       }
+      if (event === "SIGNED_IN") unsealKv(); // a wipe seals the on-device queues; a new sign-in opens them again
       if (event === "SIGNED_IN" && newSession?.user.id && postSignInFor.current !== newSession.user.id) {
         const userId = newSession.user.id;
         postSignInFor.current = userId;

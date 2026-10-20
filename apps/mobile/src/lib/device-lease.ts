@@ -6,6 +6,7 @@ import { classifyFailure } from "./outbox-rules";
 import { countDangerUnsent, countUnsentByOwner, flushOutbox } from "./outbox";
 import { destroyStore } from "./secure-db";
 import { flushOfflineQueues, getPendingCount } from "./offline-queue";
+import { sealKvForWipe, unsealKv } from "./secure-kv";
 import { forgetAllDeviceIds, getOrCreateDeviceId, listDeviceAccounts } from "./store-key";
 import { addStoreNotice } from "./store-notices";
 import { leaseVerdict, type WipeReason } from "./store-rules";
@@ -135,17 +136,29 @@ export async function wipeThisPhone(
   // so they get the same last attempt and are counted too, never wiped uncounted. They belong to whoever was signed in (the trigger
   // account, or the only account on the phone) and are never urgent entries.
   // Bounded: a wipe must finish even on a captive network, so the queues get QUEUE_FLUSH_BUDGET_MS in all, then the wipe goes on.
-  let queued = 0;
+  // The count is its own step (a failed flush must not skip it), and the queues belong to whoever is signed in: the trigger account, else the
+  // signed-in one, else the only account known on the phone.
   try {
     const flushed = await withDeadline(flushOfflineQueues().then(() => true), QUEUE_FLUSH_BUDGET_MS, false);
     if (!flushed) recordSyncError("offline_outbox", "wipe:queues", "The last upload attempt for the reading queues did not finish in time");
+  } catch (error) {
+    recordSyncError("offline_outbox", "wipe:queues", error);
+  }
+  let queued = 0;
+  try {
     const counted = await withDeadline(getPendingCount(), QUEUE_COUNT_BUDGET_MS, null);
     if (counted === null) recordSyncError("offline_outbox", "wipe:queues", "The reading queues could not be counted in time");
     else queued = counted;
   } catch (error) {
     recordSyncError("offline_outbox", "wipe:queues", error);
   }
-  const queueOwner = triggerUserId ?? (everyone.size === 1 ? [...everyone][0] : null);
+  let sessionUser: string | null = null;
+  try {
+    sessionUser = (await supabase.auth.getSession()).data.session?.user?.id ?? null;
+  } catch {
+    // no session to read: fall back to the other rules
+  }
+  const queueOwner = triggerUserId ?? sessionUser ?? (everyone.size === 1 ? [...everyone][0] : ([...everyone][0] ?? null));
   const counts = (userId: string) => {
     const base = owners.find((o) => o.owner === userId) ?? { owner: userId, total: 0, danger: 0 };
     return userId === queueOwner ? { ...base, total: base.total + queued } : base;
@@ -163,6 +176,8 @@ export async function wipeThisPhone(
   }
   await AsyncStorage.setItem(PENDING_CONFIRM_KEY, JSON.stringify(pending)).catch(() => {});
   // 4. The store, its key, and every earlier generation. A failure leaves the revoked flag in place, so it is retried.
+  // Sealed first: a reading-queue flush that outlived its budget must not write anything back once this has started.
+  sealKvForWipe();
   await destroyStore();
   // 5. Fresh ids for EVERY account known on this phone (signed in or not), so each registers as a new device next time.
   //    Before the sweep below, which would otherwise remove the list of accounts first.
@@ -306,6 +321,7 @@ export async function runDeviceCheck(now: Date = new Date()): Promise<DeviceChec
       return "wiped";
     }
 
+    unsealKv(); // not revoked: the reading queues may be written again (a wipe seals them)
     const leaseDays = typeof answer.lease_days === "number" ? answer.lease_days : loadOfflineTrustConfig().deviceLeaseDays;
     const renewed: LeaseState | null =
       typeof answer.lease_expires_at === "string"

@@ -5331,7 +5331,7 @@ export const en = {
   "busp.rotate.button": "Rotate key",
   "busp.rotate.help": "The new key is shown once. Receivers that check the V2 signature keep working during the grace window.",
   "busp.rotate.shown_once": "New signing key. Copy it now, it will not be shown again:",
-  "busp.rotate.window_open": "The previous rotation is still in its grace window.",
+  "busp.rotate.window_open": "The previous rotation is still in its grace window. If the new key was never seen, a developer can end the window early.",
   "busp.rotate.failed": "The key could not be rotated. Nothing was changed.",
   "busp.rotate.invalid": "Hours must be a whole number from 1 to 168.",
   "busp.rotate.forbidden": "Only an administrator can rotate a key.",

@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type * as SQLite from "expo-sqlite";
 import { getStoreWithSchema } from "./secure-db";
+import { addStoreNotice } from "./store-notices";
 import { recordSyncError } from "./sync-diagnostics";
 
 /**
@@ -29,8 +30,8 @@ const TABLE = "local_kv";
 const FALLBACK_SUFFIX = "#fb";
 const TOMBSTONE = "__removed__";
 
-/** A waiter gives up on the operation ahead of it after this long and goes on. */
-const LOCK_WAIT_MS = 3000;
+/** A waiter gives up on the operation ahead of it after this long and goes on. Longer than STORE_OPEN_MS plus a plaintext read, so a slow first open never lets two updates overlap. */
+const LOCK_WAIT_MS = 15_000;
 /** A plaintext AsyncStorage read that has not answered by now is "unknown", recorded, and the lock is released. */
 const LEGACY_READ_MS = 1500;
 /** Opening the encrypted store (the first open may be doing the one-time copy) is not waited on for ever. */
@@ -76,6 +77,27 @@ function withKeyLock<T>(key: string, run: () => Promise<T>): Promise<T> {
 /** Combines two values of one key; the first is older. */
 export type KvMerge = (older: string, newer: string) => string;
 
+/**
+ * Set by the remote wipe just before the store is destroyed: a reading-queue flush still running when the wipe stopped waiting for it must
+ * not write anything back afterwards (it would open a new store, or leave a plaintext side copy on a phone that has just been wiped).
+ * Cleared when an account signs in again or a check-in proves the phone is live.
+ */
+let sealed = false;
+export function sealKvForWipe(): void {
+  sealed = true;
+}
+export function unsealKv(): void {
+  sealed = false;
+}
+
+let notifiedPlain = false;
+/** A write that had to go to plaintext AsyncStorage is told to the patient once, with the same notice the store itself uses. */
+function noteFallbackWrite(): void {
+  if (notifiedPlain) return;
+  notifiedPlain = true;
+  void addStoreNotice({ kind: "not_encrypted", why: "keystore" });
+}
+
 /** Keys whose encrypted row could not be read on the last try: `set` must not write the row for these (it could replace a good one). */
 const storeUnreadable = new Set<string>();
 
@@ -115,6 +137,7 @@ async function writeRowVerified(db: SQLite.SQLiteDatabase, key: string, value: s
 }
 
 async function getUnlocked(key: string, merge?: KvMerge): Promise<string | null> {
+  if (sealed) return null;
   const fbName = key + FALLBACK_SUFFIX;
   let db: SQLite.SQLiteDatabase | null = null;
   let row: string | null = null;
@@ -166,6 +189,7 @@ async function getUnlocked(key: string, merge?: KvMerge): Promise<string | null>
 }
 
 async function setUnlocked(key: string, next: string, merge?: KvMerge): Promise<boolean> {
+  if (sealed) return false;
   const fbName = key + FALLBACK_SUFFIX;
   if (!storeUnreadable.has(key)) {
     try {
@@ -190,6 +214,7 @@ async function setUnlocked(key: string, next: string, merge?: KvMerge): Promise<
   // The store cannot be used right now: keep the value where a later good read will find and merge it.
   try {
     await AsyncStorage.setItem(fbName, next);
+    noteFallbackWrite();
     return true;
   } catch (error) {
     recordSyncError("offline_outbox", "kv:fallbackWrite", error);
@@ -198,6 +223,7 @@ async function setUnlocked(key: string, next: string, merge?: KvMerge): Promise<
 }
 
 async function removeUnlocked(key: string): Promise<void> {
+  if (sealed) return;
   const fbName = key + FALLBACK_SUFFIX;
   let deleted = false;
   if (!storeUnreadable.has(key)) {
@@ -280,6 +306,8 @@ export function mergeQueueJson(older: string, newer: string): string {
 
 /** Test hook: forgets which keys were unreadable and drops any lock state. */
 export function __resetKvForTests(): void {
+  sealed = false;
+  notifiedPlain = false;
   storeUnreadable.clear();
   locks.clear();
 }

@@ -11,6 +11,8 @@ describe("parseIdKeys", () => {
   it("refuses a key that names a person, whatever else is listed", () => {
     expect(parseIdKeys("lab_order_id, patient_id")).toEqual({ ok: false, reason: "person" });
     expect(parseIdKeys("user_id")).toEqual({ ok: false, reason: "person" });
+    // keys that can carry a person indirectly are refused on this screen too
+    for (const k of ["aggregate_id", "subject_id", "recipient_id", "owner_id"]) expect(parseIdKeys(k)).toEqual({ ok: false, reason: "person" });
   });
   it("refuses anything that is not an id key, and more than twenty", () => {
     expect(parseIdKeys("systolic")).toEqual({ ok: false, reason: "format" });

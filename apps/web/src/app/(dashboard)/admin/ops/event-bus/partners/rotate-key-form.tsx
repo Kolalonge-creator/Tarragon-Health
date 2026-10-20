@@ -28,7 +28,7 @@ export function RotateKeyForm({ endpointId, graceOpen }: { endpointId: string; g
         </label>
         <button
           type="submit"
-          disabled={pending || graceOpen}
+          disabled={pending || graceOpen || state.status === "rotated"}
           className="rounded-lg border border-charcoal-ink/20 px-3 py-1 text-xs font-semibold text-charcoal-ink disabled:opacity-50"
         >
           {t("busp.rotate.button")}

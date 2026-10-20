@@ -199,7 +199,7 @@ begin
   update public.profiles set is_test = true where id = pg_temp.f('p3');
   perform pg_temp.make(pg_temp.f('p3'), 'sab1', pg_temp.weeks());
   update public.profiles set is_test = false where id = pg_temp.f('p3');
-  v_def := replace(v_orig, 'if not private.go_live_open_patient(''pharmacy_counter_snapshot'', v_profile) then return null; end if;', '');
+  v_def := replace(v_orig, 'if not private.go_live_open_patient(''pharmacy_counter_snapshot'', v_profile) then', 'if false then');
   if v_def = v_orig then raise exception 'sabotage 1 anchor missing'; end if;
   execute v_def;
   insert into results values ('sabotaged', 'SABOTAGE 1: with the guard check gone a real patient''s counter view opens while the feature is off', 'null',
@@ -207,8 +207,8 @@ begin
   execute v_orig;
 
   -- 2. the snapshot-exists check removed: an ordinary share is served through the counter door
-  v_def := replace(replace(v_orig, 'if not found then return null; end if;', ''),
-                   'if not private.go_live_open_patient(''pharmacy_counter_snapshot'', v_profile) then return null; end if;', '');
+  v_def := replace(replace(v_orig, 'if not found then', 'if false then'),
+                   'if not private.go_live_open_patient(''pharmacy_counter_snapshot'', v_profile) then', 'if false then');
   if v_def = v_orig then raise exception 'sabotage 2 anchor missing'; end if;
   execute v_def;
   insert into results values ('sabotaged', 'SABOTAGE 2: with the snapshot check gone (and the guard that keys on its owner) an ordinary share leaks through the counter door', 'null',

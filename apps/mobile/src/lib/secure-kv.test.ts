@@ -1,7 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SQLite from "expo-sqlite";
 import * as storage from "../test/mocks/async-storage";
-import { mergeQueueJson, secureKvGet, secureKvRemove, secureKvSet, secureKvUpdate } from "./secure-kv";
+import { listStoreNotices } from "./store-notices";
+import { mergeQueueJson, sealKvForWipe, secureKvGet, secureKvRemove, secureKvSet, secureKvUpdate, unsealKv } from "./secure-kv";
 import { readCachedBpTarget } from "./bp-target";
 import { readPendingRecheck } from "./triage-device";
 
@@ -95,6 +96,25 @@ describe("secureKv", () => {
     jest.restoreAllMocks();
     expect(await secureKvGet("k")).toBeNull();
     expect(await AsyncStorage.getItem("k#fb")).toBeNull();
+  });
+
+  it("tells the patient once that a value had to go to plaintext storage", async () => {
+    jest.spyOn(SQLite, "openDatabaseAsync").mockRejectedValue(new Error("cannot open"));
+    await secureKvSet("k", "v1");
+    await secureKvSet("k", "v2");
+    const notices = (await listStoreNotices()).filter((n) => n.kind === "not_encrypted");
+    expect(notices).toHaveLength(1);
+  });
+
+  it("once sealed for a wipe it writes, updates and removes nothing, and reads nothing, until it is unsealed", async () => {
+    await secureKvSet("k", "v");
+    sealKvForWipe();
+    expect(await secureKvSet("k", "late")).toBe(false);
+    expect(await secureKvUpdate("k", undefined, () => "late")).toBe(false);
+    expect(await secureKvGet("k")).toBeNull();
+    expect(await AsyncStorage.getItem("k#fb")).toBeNull();
+    unsealKv();
+    expect(await secureKvGet("k")).toBe("v");
   });
 
   it("remove clears both homes", async () => {

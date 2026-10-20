@@ -102,7 +102,8 @@ begin
   select organisation_id into v_org from public.profiles where id = v_uid;
   if v_org is null then raise exception 'profile not found' using errcode = 'P0002'; end if;
 
-  -- a brake on piling up links: at most 5 counter views live at once for one person
+  -- a brake on piling up links: at most 5 counter views live at once for one person (the lock stops parallel calls both passing the count)
+  perform pg_advisory_xact_lock(hashtext('pharmacy_counter_snapshot:' || v_uid::text));
   select count(*) into v_live
     from public.pharmacy_counter_snapshots s join public.record_shares r on r.id = s.share_id
    where s.profile_id = v_uid and r.is_active and r.expires_at > now();
@@ -136,9 +137,15 @@ begin
   select s.weeks, s.min_doses, s.profile_id into v_weeks, v_min, v_profile
     from public.pharmacy_counter_snapshots s join public.record_shares r on r.id = s.share_id
    where r.token = p_token;
-  -- not a counter view, or the feature is off: the same silent answer as any other dead link
-  if not found then return null; end if;
-  if not private.go_live_open_patient('pharmacy_counter_snapshot', v_profile) then return null; end if;
+  -- not a counter view, or the feature is off: the same silent answer as any other dead link, counted the same way (a guessed token is a failed lookup)
+  if not found then
+    perform private.log_public_lookup_failure('record_share');
+    return null;
+  end if;
+  if not private.go_live_open_patient('pharmacy_counter_snapshot', v_profile) then
+    perform private.log_public_lookup_failure('record_share');
+    return null;
+  end if;
 
   -- PIN, lockout, slow-down, expiry, one-session window, open counting and the access log are the share door's own.
   v_res := public.record_share_by_token(p_token, p_pin, p_client_key);

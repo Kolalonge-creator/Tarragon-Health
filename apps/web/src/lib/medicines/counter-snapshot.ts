@@ -50,11 +50,12 @@ export async function createCounterSnapshot(
 ): Promise<CounterResult> {
   const report = await loadAdherenceReport(supabase, patientId, nowMs);
   if (!report.ok) return { ok: false, reason: "report_failed" };
-  // Nothing scheduled, nothing to show: never hand out a PIN for an empty sheet.
-  if (!report.data.hasScheduledMedicines) return { ok: false, reason: "no_doses" };
+  // Nothing due in the weeks actually sent, nothing to show: never hand out a PIN for an empty sheet.
+  const weeks = weeksForCounter(report.data.weeks);
+  if (!weeks.some((w) => w.due > 0)) return { ok: false, reason: "no_doses" };
 
   const { data, error } = await supabase.rpc("create_pharmacy_counter_snapshot", {
-    p_weeks: weeksForCounter(report.data.weeks) as never,
+    p_weeks: weeks,
     p_min_doses: report.data.minDoses,
     p_expires_in_hours: hours,
   });

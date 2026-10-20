@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { secureKvGet, secureKvRemove, secureKvSet } from "./secure-kv";
+import { recordSyncError } from "./sync-diagnostics";
 import {
   BP_CARE_V5,
   GLUCOSE_CARE_V1,
@@ -268,7 +269,8 @@ export async function readPendingRecheck(subjectId: string): Promise<PendingRech
   }
 }
 async function savePendingRecheck(subjectId: string, reading: Reading, afterMinutes: number, nowMs: number): Promise<void> {
-  await secureKvSet(RECHECK_KEY(subjectId), JSON.stringify({ reading }));
+  // A failed save is recorded, and the reminder is still scheduled: being told to measure again matters more than the saved context.
+  if (!(await secureKvSet(RECHECK_KEY(subjectId), JSON.stringify({ reading })))) recordSyncError("offline_outbox", "triage:recheckSave", "The pending recheck could not be stored");
   // The reminder to measure again, at the time the rule set says (5 minutes, or 2 hours after a very high reading).
   await scheduleRecheckReminder(subjectId, Date.parse(reading.takenAt) + afterMinutes * 60_000, nowMs);
 }

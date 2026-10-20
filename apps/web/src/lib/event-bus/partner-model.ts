@@ -8,7 +8,11 @@ export type IntegrationEventType = (typeof INTEGRATION_EVENT_TYPES)[number];
 const BUS_TYPE = /^[a-z][a-z0-9_.]{0,119}$/;
 const ID_KEY = /^[a-z][a-z0-9_]*(_id|_ids)$/;
 /** The database refuses these too: a partner never receives a person's id from the bus. */
-const PERSON_KEYS = new Set(["patient_id", "profile_id", "user_id", "member_id", "person_id", "clinician_id", "staff_id", "caregiver_id"]);
+/** The database refuses the first eight; this screen also refuses the keys that can carry a person indirectly (an event's own subject, owner or recipient, and the aggregate id, which is a patient or profile id for a person's events). */
+const PERSON_KEYS = new Set([
+  "patient_id", "profile_id", "user_id", "member_id", "person_id", "clinician_id", "staff_id", "caregiver_id",
+  "aggregate_id", "subject_id", "owner_id", "recipient_id", "account_id", "actor_id", "target_id", "dependant_id", "guardian_id",
+]);
 
 /** The current time, behind a function so server pages can ask for it without calling the clock during render. */
 export const currentMs = (): number => Date.now();

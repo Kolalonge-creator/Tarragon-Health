@@ -40,7 +40,16 @@ describe("createCounterSnapshot", () => {
     const { client: c, rpc } = client({ data: null, error: null });
     mockLoad.mockResolvedValue({ ok: false, error: "x" });
     expect(await createCounterSnapshot(c as never, "p1", 2)).toEqual({ ok: false, reason: "report_failed" });
-    mockLoad.mockResolvedValue(report([week(1)], false));
+    mockLoad.mockResolvedValue(report([{ ...week(1), due: 0, markedTaken: 0, late: 0, skipped: 0, noRecord: 0, couldNotGet: 0, percent: null }], false));
+    expect(await createCounterSnapshot(c as never, "p1", 2)).toEqual({ ok: false, reason: "no_doses" });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("hands out nothing when the weeks that would be sent have no doses due, even if an older week had", async () => {
+    const old = { ...week(5), due: 14 };
+    const empty = (i: number) => ({ ...week(i), due: 0, markedTaken: 0, late: 0, skipped: 0, noRecord: 0, couldNotGet: 0, percent: null });
+    mockLoad.mockResolvedValue(report([empty(1), empty(2), empty(3), empty(4), old]));
+    const { client: c, rpc } = client({ data: null, error: null });
     expect(await createCounterSnapshot(c as never, "p1", 2)).toEqual({ ok: false, reason: "no_doses" });
     expect(rpc).not.toHaveBeenCalled();
   });

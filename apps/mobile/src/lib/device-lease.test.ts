@@ -165,6 +165,25 @@ describe("a lost-phone report", () => {
     expect(phoneIsGone()).toEqual([]);
   });
 
+  it("a queue flush that outlives the wipe's budget cannot write anything back afterwards", async () => {
+    await runDeviceCheck(NOW);
+    await enqueueDeviceReading({ systolic: 150 });
+    let finishFlush: () => void = () => {};
+    jest.spyOn(queues, "flushOfflineQueues").mockImplementation(() => new Promise((resolve) => { finishFlush = () => resolve({} as never); }));
+    mockCheckin = REVOKED;
+    jest.useFakeTimers();
+    const wiping = runDeviceCheck(NOW);
+    await jest.advanceTimersByTimeAsync(21_000);
+    expect(await wiping).toBe("wiped");
+    jest.useRealTimers();
+    // the late flush now finishes and tries to record its progress
+    finishFlush();
+    expect(await queues.getPendingCount()).toBe(0);
+    await enqueueDeviceReading({ systolic: 160 }).then((landed) => expect(landed).toBe(false));
+    jest.restoreAllMocks();
+    expect(await AsyncStorage.getItem("@tarragon/offline-queue/device-readings/v1#fb")).toBeNull();
+  });
+
   it("wipes an urgent entry too (an explicit report is the one thing that does), and reports the urgent COUNT", async () => {
     mockOwners = [{ owner: "user-1", total: 2, danger: 1 }];
     mockCheckin = REVOKED;
