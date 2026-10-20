@@ -2032,3 +2032,13 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - Tests: Jest for the route (no secret, wrong secret, right secret, bearer, down, degraded, rpc error) and the threshold function; `packages/db/tests/oq436_deadman_status.sql` registered in `ci.manifest`; the bash script was exercised with stubbed `curl` and `gh` for ok, degraded, down (new and existing issue), 401, unreachable, recovery and missing secrets.
 - Not exercised: the migration dry run on production timed out at the connection (database unresponsive at the time), so it relied on CI replay; the workflow has never run on GitHub and the endpoint never against production; the Resend call was not sent; actionlint was not available.
 - Needs the founder: the secrets in OQ-436. Paging logic untouched.
+
+## International Patient Summary (IPS) export (spec 2.10) (2026-10-20), branch `feat/ips-export`
+
+- **Built**: `fhir.ips_mapping` v1 (PROPOSED, founder-owned, mirror test); `apps/web/src/lib/fhir/ips-bundle.ts` (pure, IPS-shaped document Bundle: Composition 60591-5 with problems, allergies, medicines, immunizations, results, vital signs, plus Patient and an author Organization); `exportIpsBundle`; `GET /api/patient/ips-export`; a "Download my summary (IPS)" card and a one-page "what is inside" preview under `/patient/data-exchange`. Reuses the S44 snapshot, so exclusions (no reproductive or mental health, released labs only, no private notes), consent categories and the `fhir_export_log` audit are unchanged. Documents are left out. No migration.
+- **Safety**: required empty sections are `unavailable`, never `nilknown`; wearable values stay tagged as estimates; no profile or conformance claim; copy says the file is unvalidated.
+- **Tests**: web `src/lib/fhir` 77 pass (structure, reference resolution, excluded categories, empty sections, escaping, units round trip through our own import parser, service); shared 1,055 pass; i18n 215 pass; web `tsc` clean; eslint clean.
+- **Not run**: no HAPI or other FHIR validator; the screens were not opened in a browser or on a device.
+- **Open**: OQ-IPS-1 to OQ-IPS-3.
+
+- **Open**: OQ-IPS-1 to OQ-IPS-4.
