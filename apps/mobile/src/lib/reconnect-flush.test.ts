@@ -49,18 +49,53 @@ describe("reconnectFlush", () => {
     expect(r).toEqual({ ran: true, bulk: "sent", failedSteps: [] });
   });
 
-  it("never runs two flushes at once: a second caller gets the run already in flight", async () => {
+  it("never runs two flushes at once: a second caller shares the run already in flight", async () => {
     let release: () => void = () => {};
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const d = deps({ flushOutbox: async () => { calls.push("outbox"); await gate; } });
+    let active = 0;
+    let maxActive = 0;
+    const d = deps({
+      flushOutbox: async () => {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        calls.push("outbox");
+        await gate;
+        active -= 1;
+      },
+    });
     const first = reconnectFlush(d);
     const second = reconnectFlush(d);
+    expect(second).toBe(first);
     release();
-    const [a, b] = await Promise.all([first, second]);
-    expect(a).toBe(b);
-    expect(calls.filter((c) => c === "outbox")).toHaveLength(1);
+    await first;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(maxActive).toBe(1);
+  });
+
+  it("a call that arrives mid-run gets ONE follow-up run after it (an entry saved after the outbox was listed is not left waiting)", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let n = 0;
+    const d = deps({
+      flushOutbox: async () => {
+        n += 1;
+        calls.push("outbox");
+        if (n === 1) await gate;
+      },
+    });
+    const first = reconnectFlush(d);
+    void reconnectFlush(d);
+    void reconnectFlush(d); // a third call in the same run does not queue a second follow-up
+    release();
+    await first;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(calls.filter((c) => c === "outbox")).toHaveLength(2);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(calls.filter((c) => c === "outbox")).toHaveLength(2); // and it does not loop
   });
 
   it("debounces: a second run inside the minimum gap does not start, one after it does", async () => {

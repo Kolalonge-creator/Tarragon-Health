@@ -120,7 +120,8 @@ async function setupQueueTable(db: SQLite.SQLiteDatabase): Promise<void> {
        item text not null,
        unique (queue, id)
      );
-     create index if not exists offline_queue_by_queue on offline_queue (queue, seq);`
+     create index if not exists offline_queue_by_queue on offline_queue (queue, enqueued_at, seq);
+     create table if not exists offline_queue_migrated (queue text primary key);`
   );
 }
 
@@ -140,7 +141,12 @@ async function atomically(db: SQLite.SQLiteDatabase, label: string, source: Sync
 
 const migrated = new WeakMap<object, Map<string, Promise<void>>>();
 
-/** Moves the plaintext copy an older build left in AsyncStorage into the encrypted table. Throws only when the copy itself failed (it is retried). */
+/**
+ * Moves the plaintext copy an older build left in AsyncStorage into the encrypted table. Throws only when the copy itself
+ * failed (it is retried on the next call). Safe against two JS contexts (the app and the background task) moving the same
+ * key: the move and a per-queue marker are written in ONE transaction, and a context that finds the marker already there
+ * inserts nothing, so an entry the other context moved, sent and deleted is never put back.
+ */
 async function migrateLegacy(db: SQLite.SQLiteDatabase, key: string, source: SyncSource): Promise<void> {
   const raw = await AsyncStorage.getItem(key);
   if (raw === null) return;
@@ -163,6 +169,8 @@ async function migrateLegacy(db: SQLite.SQLiteDatabase, key: string, source: Syn
     recordSyncError(source, "offline_queue:migrate", `${malformed.length} malformed queue entr${malformed.length === 1 ? "y" : "ies"} could not be moved and were left in place`);
   }
   await atomically(db, "migrate", source, async (conn) => {
+    const already = await conn.getFirstAsync<{ x: number }>("select 1 as x from offline_queue_migrated where queue = ?", [key]);
+    if (already) return;
     for (const entry of good) {
       await conn.runAsync("insert or ignore into offline_queue (queue, id, enqueued_at, item) values (?, ?, ?, ?)", [
         key,
@@ -171,14 +179,25 @@ async function migrateLegacy(db: SQLite.SQLiteDatabase, key: string, source: Syn
         JSON.stringify(entry.item),
       ]);
     }
+    await conn.runAsync("insert or ignore into offline_queue_migrated (queue) values (?)", [key]);
   });
-  // Only after every good entry is in the encrypted table does the plaintext copy shrink. What could not be read as an entry is
+  // Only after the entries and the marker are committed does the plaintext copy shrink. What could not be read as an entry is
   // not ours to destroy: it stays in place (the remote wipe still removes it).
   if (malformed.length > 0) await AsyncStorage.setItem(key, JSON.stringify(malformed));
   else await AsyncStorage.removeItem(key);
 }
 
-async function queueDb(key: string, source: SyncSource): Promise<SQLite.SQLiteDatabase> {
+interface QueueHandle {
+  db: SQLite.SQLiteDatabase;
+  /** False when moving an older plaintext copy failed this time. The store itself works; the move is retried on the next call. */
+  moved: boolean;
+}
+
+/**
+ * The store, with the plaintext move attempted. A failing move NEVER blocks the caller: saving a new entry goes straight into
+ * the encrypted table whatever happened to the old copy. Throws only when the store itself cannot be opened.
+ */
+async function queueDb(key: string, source: SyncSource): Promise<QueueHandle> {
   const db = await getStoreWithSchema("offline_queue", setupQueueTable);
   let perDb = migrated.get(db);
   if (!perDb) {
@@ -187,51 +206,59 @@ async function queueDb(key: string, source: SyncSource): Promise<SQLite.SQLiteDa
   }
   let done = perDb.get(key);
   if (!done) {
-    done = migrateLegacy(db, key, source).catch((error) => {
-      perDb?.delete(key); // try again on the next call; the plaintext copy stays where it is until the move succeeds
-      recordSyncError(source, "offline_queue:migrate", error);
-      throw error;
-    });
+    done = migrateLegacy(db, key, source);
     perDb.set(key, done);
   }
-  await done;
-  return db;
+  try {
+    await done;
+    return { db, moved: true };
+  } catch (error) {
+    if (perDb.get(key) === done) perDb.delete(key); // try again on the next call; the plaintext copy stays until the move succeeds
+    recordSyncError(source, "offline_queue:migrate", error);
+    return { db, moved: false };
+  }
 }
 
 async function readQueue<T>(key: string, source: SyncSource): Promise<QueuedEntry<T>[]> {
+  let stored: QueuedEntry<T>[] = [];
+  let moved = false;
   try {
-    const db = await queueDb(key, source);
-    const rows = await db.getAllAsync<{ id: string; enqueued_at: string; item: string }>(
-      "select id, enqueued_at, item from offline_queue where queue = ? order by seq",
+    const handle = await queueDb(key, source);
+    moved = handle.moved;
+    const rows = await handle.db.getAllAsync<{ id: string; enqueued_at: string; item: string }>(
+      "select id, enqueued_at, item from offline_queue where queue = ? order by enqueued_at, seq",
       [key]
     );
-    const out: QueuedEntry<T>[] = [];
     for (const row of rows) {
       try {
-        out.push({ id: row.id, enqueuedAt: row.enqueued_at, item: JSON.parse(row.item) as T });
+        stored.push({ id: row.id, enqueuedAt: row.enqueued_at, item: JSON.parse(row.item) as T });
       } catch (error) {
         recordSyncError(source, "offline_queue:read", error);
       }
     }
-    return out;
   } catch (error) {
     recordSyncError(source, "offline_queue:read", error);
-    // The encrypted store cannot be opened right now. An older build's plaintext copy (if any) is still the truth for
-    // those entries: show it, so counts, the reconnect trigger and the flush keep working. New entries are not written
-    // there (appendToQueue reports false instead).
-    return readLegacyEntries<T>(key);
+    stored = [];
   }
+  if (moved) return stored;
+  // The encrypted store is closed, or the plaintext move has not completed: an older build's plaintext copy is still the truth for
+  // those entries. Show it alongside what the store holds, so counts, the reconnect trigger and the flush keep working.
+  const have = new Set(stored.map((entry) => entry.id));
+  const legacy = (await readLegacyEntries<T>(key)).filter((entry) => !have.has(entry.id));
+  return [...stored, ...legacy].sort((a, b) => a.enqueuedAt.localeCompare(b.enqueuedAt));
 }
 
-/** How many entries wait, without reading any of them (the banner and the reconnect watcher ask often). */
+/** How many entries wait, without reading any of them when the store is healthy (the banner and the reconnect watcher ask often). */
 async function countQueue(key: string, source: SyncSource): Promise<number> {
   try {
-    const db = await queueDb(key, source);
-    return (await db.getFirstAsync<{ n: number }>("select count(*) as n from offline_queue where queue = ?", [key]))?.n ?? 0;
+    const handle = await queueDb(key, source);
+    if (handle.moved) {
+      return (await handle.db.getFirstAsync<{ n: number }>("select count(*) as n from offline_queue where queue = ?", [key]))?.n ?? 0;
+    }
   } catch (error) {
     recordSyncError(source, "offline_queue:read", error);
-    return (await readLegacyEntries<unknown>(key)).length;
   }
+  return (await readQueue<unknown>(key, source)).length;
 }
 
 async function readLegacyEntries<T>(key: string): Promise<QueuedEntry<T>[]> {
@@ -252,7 +279,7 @@ async function readLegacyEntries<T>(key: string): Promise<QueuedEntry<T>[]> {
  * here regardless. */
 async function appendToQueue<T>(key: string, item: T, source: SyncSource): Promise<boolean> {
   try {
-    const db = await queueDb(key, source);
+    const { db } = await queueDb(key, source); // never blocked by a failing plaintext move
     let dropped: { enqueued_at: string }[] = [];
     const id = newId();
     const enqueuedAt = new Date().toISOString();
@@ -268,11 +295,11 @@ async function appendToQueue<T>(key: string, item: T, source: SyncSource): Promi
       if (count > MAX_QUEUE_SIZE) {
         // Drop-oldest — see MAX_QUEUE_SIZE's doc comment for why the NEWEST reading is the one a full queue must never refuse.
         dropped = await conn.getAllAsync<{ enqueued_at: string }>(
-          "select enqueued_at from offline_queue where queue = ? order by seq limit ?",
+          "select enqueued_at from offline_queue where queue = ? order by enqueued_at, seq limit ?",
           [key, count - MAX_QUEUE_SIZE]
         );
         await conn.runAsync(
-          "delete from offline_queue where seq in (select seq from offline_queue where queue = ? order by seq limit ?)",
+          "delete from offline_queue where seq in (select seq from offline_queue where queue = ? order by enqueued_at, seq limit ?)",
           [key, count - MAX_QUEUE_SIZE]
         );
       }
@@ -293,21 +320,26 @@ async function appendToQueue<T>(key: string, item: T, source: SyncSource): Promi
   }
 }
 
+async function removeFromLegacy(key: string, id: string): Promise<void> {
+  try {
+    if ((await AsyncStorage.getItem(key)) !== null) {
+      const left = (await readLegacyEntries<unknown>(key)).filter((entry) => entry.id !== id);
+      await AsyncStorage.setItem(key, JSON.stringify(left));
+    }
+  } catch {
+    // nothing more to do: the entry stays and the server dedupes a repeat
+  }
+}
+
 async function removeFromQueue(key: string, id: string, source: SyncSource): Promise<void> {
   try {
-    const db = await queueDb(key, source);
+    const { db, moved } = await queueDb(key, source);
     await db.runAsync("delete from offline_queue where queue = ? and id = ?", [key, id]);
+    // Entries still in an unmoved plaintext copy must go from there too, or they would be sent again.
+    if (!moved) await removeFromLegacy(key, id);
   } catch (error) {
     recordSyncError(source, "offline_queue:write", error);
-    // Store unavailable: take the entry out of a leftover plaintext copy so it is not sent again.
-    try {
-      if ((await AsyncStorage.getItem(key)) !== null) {
-        const left = (await readLegacyEntries<unknown>(key)).filter((entry) => entry.id !== id);
-        await AsyncStorage.setItem(key, JSON.stringify(left));
-      }
-    } catch {
-      // nothing more to do: the entry stays and the server dedupes a repeat
-    }
+    await removeFromLegacy(key, id);
   }
 }
 

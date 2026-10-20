@@ -84,21 +84,48 @@ export function defaultReconnectFlushDeps(): ReconnectFlushDeps {
 let inFlight: Promise<ReconnectFlushResult> | null = null;
 let lastStartedAt: number | null = null;
 let trailingScheduled = false;
+let followUpQueued = false;
 
 /** Test seam. */
 export function resetReconnectFlushForTests(): void {
   inFlight = null;
   lastStartedAt = null;
   trailingScheduled = false;
+  followUpQueued = false;
+}
+
+function start(deps: ReconnectFlushDeps): Promise<ReconnectFlushResult> {
+  lastStartedAt = deps.now();
+  inFlight = run(deps).finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
 }
 
 /**
- * Starts a flush, or does the next best thing. A call while one is running shares it. A call inside the minimum gap
- * does not start a second run, but it is NOT dropped: one trailing run is scheduled for when the gap ends, so an entry
- * saved during the gap still gets a reconnect flush (the watcher counts a good probe as handled and would not retry).
+ * Starts a flush, or does the next best thing, and never loses a call:
+ *  - A call while a run is in flight shares that run. The run may already have listed the outbox, so an entry saved a moment
+ *    ago could be missed: ONE follow-up run starts right after the in-flight one ends (a flag, not a loop; calls that arrive
+ *    during the follow-up queue at most one more).
+ *  - A call inside the minimum gap does not start a second run, but one trailing run is scheduled for when the gap ends (the
+ *    watcher counts a good probe as handled and would not retry).
  */
 export function reconnectFlush(deps: ReconnectFlushDeps = defaultReconnectFlushDeps()): Promise<ReconnectFlushResult> {
-  if (inFlight) return inFlight;
+  if (inFlight) {
+    if (!followUpQueued) {
+      followUpQueued = true;
+      void inFlight.then(
+        () => {
+          followUpQueued = false;
+          void start(deps).catch(() => undefined);
+        },
+        () => {
+          followUpQueued = false;
+        }
+      );
+    }
+    return inFlight;
+  }
   const now = deps.now();
   if (lastStartedAt !== null && now - lastStartedAt < deps.minGapMs) {
     if (!trailingScheduled) {
@@ -110,11 +137,7 @@ export function reconnectFlush(deps: ReconnectFlushDeps = defaultReconnectFlushD
     }
     return Promise.resolve({ ran: false, skipped: "debounced", failedSteps: [] });
   }
-  lastStartedAt = now;
-  inFlight = run(deps).finally(() => {
-    inFlight = null;
-  });
-  return inFlight;
+  return start(deps);
 }
 
 async function run(deps: ReconnectFlushDeps): Promise<ReconnectFlushResult> {

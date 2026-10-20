@@ -168,3 +168,43 @@ describe("migration records what it leaves behind", () => {
     expect(getRecentSyncDiagnostics().some((e) => e.detail === "offline_queue:migrate" && /2 malformed/.test(String(e.message)))).toBe(true);
   });
 });
+
+describe("a failing plaintext move never blocks saving", () => {
+  const old = { id: "old", enqueuedAt: "2026-10-01T00:00:00.000Z", item: { seq: 0 } };
+
+  it("saves the new entry into the encrypted table even when the move fails, shows both, and finishes the move on a later call", async () => {
+    await AsyncStorage.setItem(DEVICE_KEY, JSON.stringify([old]));
+    const real = AsyncStorage.getItem.bind(AsyncStorage);
+    const spy = jest.spyOn(AsyncStorage, "getItem").mockImplementation(async (k: string) => {
+      if (k === DEVICE_KEY) throw new Error("storage read failed");
+      return real(k);
+    });
+    try {
+      await expect(enqueueDeviceReading({ seq: 1 })).resolves.toBe(true);
+      const db = await getStore();
+      const rows = await db.getAllAsync<{ id: string }>("select id from offline_queue where queue = ?", [DEVICE_KEY]);
+      expect(rows).toHaveLength(1); // the new entry is in the encrypted table already
+    } finally {
+      spy.mockRestore();
+    }
+    // The move now works: old entry first (older enqueuedAt), new entry second, each once, plaintext gone.
+    expect((await listPendingDeviceReadings()).map((e) => e.item)).toEqual([{ seq: 0 }, { seq: 1 }]);
+    expect(await AsyncStorage.getItem(DEVICE_KEY)).toBeNull();
+  });
+});
+
+describe("two JS contexts moving the same plaintext queue", () => {
+  it("never puts back an entry the other context already moved, sent and deleted", async () => {
+    const x = { id: "x", enqueuedAt: "2026-10-01T00:00:00.000Z", item: { seq: 1 } };
+    await AsyncStorage.setItem(DEVICE_KEY, JSON.stringify([x]));
+    expect((await listPendingDeviceReadings()).map((e) => e.id)).toEqual(["x"]);
+    // The background task sends x and deletes it.
+    const db = await getStore();
+    await db.runAsync("delete from offline_queue where queue = ? and id = 'x'", [DEVICE_KEY]);
+    // The app's context still holds the plaintext it read before the other one finished, and now writes its move.
+    await AsyncStorage.setItem(DEVICE_KEY, JSON.stringify([x]));
+    __resetStoreForTests();
+    expect(await listPendingDeviceReadings()).toEqual([]);
+    expect(await AsyncStorage.getItem(DEVICE_KEY)).toBeNull();
+  });
+});
