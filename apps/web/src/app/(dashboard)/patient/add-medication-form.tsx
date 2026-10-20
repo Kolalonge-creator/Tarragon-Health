@@ -2,6 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import { useAddMedication, useMedications } from "@/lib/queries/medications";
+import { useAnchors } from "@/lib/queries/dose-anchors";
+import { defaultsProfile } from "@/lib/medication-schedule/anchor-profile";
+import { AnchorChooser } from "./anchor-chooser";
+import { allTimes, anchorBaseTime, parseScheduleSpec, toStoredSpec, type AnchoredDose, type AnchorId, type AnchorProfile } from "@tarragon/medicines";
+import type { Json } from "@tarragon/shared";
 import { useInteractionCheckOpen } from "@/lib/queries/medicine-catalogue";
 import { t } from "@tarragon/i18n";
 import {
@@ -72,6 +77,11 @@ export function AddMedicationForm({
   const [refillDate, setRefillDate] = useState("");
   const [scheduleTimes, setScheduleTimes] = useState<string[]>([]);
   const [newTime, setNewTime] = useState("");
+  // S08z: doses tied to the patient's day (a meal, waking, a prayer, bedtime) instead of a clock time. Patient self-add only.
+  const [anchored, setAnchored] = useState<AnchoredDose[]>([]);
+  const [anchorDrafts, setAnchorDrafts] = useState<Partial<Record<AnchorId, string>>>({});
+  const anchorsQuery = useAnchors(patientId);
+  const anchorProfile: AnchorProfile = anchorsQuery.data?.profile ?? defaultsProfile();
   const [validationError, setValidationError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   // The allergy list was not readable by this clinician, so the post-add allergy cross-check did not run (INV-10: unknown, not none).
@@ -149,6 +159,8 @@ export function AddMedicationForm({
     setFrequency("");
     setRefillDate("");
     setScheduleTimes([]);
+    setAnchored([]);
+    setAnchorDrafts({});
     setStartedBySpecialist(false);
     setPrescriberName("");
     setPrescriberDocUrl("");
@@ -166,11 +178,45 @@ export function AddMedicationForm({
     setOverrideReason("");
   }
 
+  /**
+   * The stored schedule and the anchor times to save for a medicine tied to the patient's day. The window check and the legacy list of
+   * times use the times the patient typed here, ahead of the ones already saved.
+   */
+  function anchoredSchedule(data: MedicationInput): { schedule_times: string[]; schedule_spec: Json; anchorTimes: Partial<Record<AnchorId, string>> } | { error: string } {
+    const times = { ...anchorProfile.times };
+    const toSave: Partial<Record<AnchorId, string>> = {};
+    for (const a of anchored) {
+      const typed = anchorDrafts[a.anchor];
+      if (typed !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(typed)) return { error: t("doseanchor.myday.error") };
+      const wanted = typed ?? anchorBaseTime(anchorProfile, a.anchor);
+      if (typed !== undefined || (anchorProfile.times[a.anchor] ?? []).length === 0) {
+        toSave[a.anchor] = wanted;
+        times[a.anchor] = [{ effectiveFrom: "9999-12-31", time: wanted }];
+      }
+    }
+    const parsed = parseScheduleSpec(
+      { kind: "daily", times: data.schedule_times, anchored, startDate: null, endDate: null, foodNote: null, windowMinutes: 0 },
+      { ...anchorProfile, times }
+    );
+    if (!parsed.ok) return { error: t("doseanchor.myday.error") };
+    return { schedule_times: allTimes(parsed.spec), schedule_spec: toStoredSpec(parsed.spec) as unknown as Json, anchorTimes: toSave };
+  }
+
   function submitMedication(data: MedicationInput) {
     const effectiveSource = specialistFieldsShown ? "specialist" : source;
+    let withAnchors: Partial<{ schedule_times: string[]; schedule_spec: Json; anchorTimes: Partial<Record<AnchorId, string>> }> = {};
+    if (source === "patient" && anchored.length > 0) {
+      const built = anchoredSchedule(data);
+      if ("error" in built) {
+        setValidationError(built.error);
+        return;
+      }
+      withAnchors = built;
+    }
     addMedication.mutate(
       {
         ...data,
+        ...withAnchors,
         patientId,
         source: effectiveSource,
         safety: source === "clinician" ? { allergiesConfirmed, overrideReason } : undefined,
@@ -562,6 +608,9 @@ export function AddMedicationForm({
               onChange={(event) => setRefillDate(event.target.value)}
             />
           </div>
+          {source === "patient" ? (
+            <AnchorChooser profile={anchorProfile} value={anchored} onChange={setAnchored} drafts={anchorDrafts} onDrafts={setAnchorDrafts} />
+          ) : null}
           <div className="space-y-1.5">
             <Label htmlFor="new_time">Dose times</Label>
             <div className="flex flex-wrap gap-2">

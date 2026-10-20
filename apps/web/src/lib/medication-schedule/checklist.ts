@@ -1,5 +1,6 @@
 import type { Tables } from "@tarragon/shared";
-import { lagosLocalDate, parseScheduleSpec, slotsOn, specFromLegacyTimes } from "@tarragon/medicines";
+import { lagosLocalDate, parseScheduleSpec, slotsOn, specFromLegacyTimes, type AnchoredDose, type AnchorProfile } from "@tarragon/medicines";
+import { defaultsProfile } from "./anchor-profile";
 
 export type DoseStatus = "pending" | "taken" | "missed" | "skipped" | "delayed" | "not_available";
 
@@ -8,6 +9,8 @@ export type DoseChecklistItem = {
   drugName: string;
   time: string;
   status: DoseStatus;
+  /** S08z: set when this dose is tied to a daily anchor (a meal, waking, a prayer, bedtime), so the list can say so in plain words. */
+  anchored?: AnchoredDose;
 };
 
 type MedicationForChecklist = Pick<Tables<"medications">, "id" | "drug_name" | "schedule_times"> & {
@@ -26,14 +29,16 @@ type LogForChecklist = Pick<
 export function buildTodaysDoseChecklist(
   medications: MedicationForChecklist[],
   logs: LogForChecklist[],
-  nowMs: number = Date.now()
+  nowMs: number = Date.now(),
+  /** The patient's anchor times and day shifts. Without one, anchored doses resolve at the proposed starting times. */
+  profile: AnchorProfile = defaultsProfile()
 ): DoseChecklistItem[] {
   const today = lagosLocalDate(nowMs);
   const items: DoseChecklistItem[] = [];
   for (const medication of medications) {
-    const parsed = medication.schedule_spec != null ? parseScheduleSpec(medication.schedule_spec) : null;
+    const parsed = medication.schedule_spec != null ? parseScheduleSpec(medication.schedule_spec, profile) : null;
     const spec = parsed?.ok ? parsed.spec : specFromLegacyTimes(medication.schedule_times);
-    for (const { time } of slotsOn(spec, today)) {
+    for (const { time, anchored } of slotsOn(spec, today)) {
       const log = logs.find(
         (l) => l.medication_id === medication.id && l.scheduled_time === time
       );
@@ -42,6 +47,7 @@ export function buildTodaysDoseChecklist(
         drugName: medication.drug_name,
         time,
         status: (log?.status as DoseStatus | undefined) ?? "pending",
+        ...(anchored ? { anchored } : {}),
       });
     }
   }

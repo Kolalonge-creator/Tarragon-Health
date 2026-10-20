@@ -55,7 +55,29 @@ export interface RedCarePayload {
   response: "sought_care" | "could_not_get_care";
 }
 
+/** S08z: anchor times the patient set (anchor id to "HH:MM") and the first Lagos date they apply from. */
+export interface AnchorTimesPayload {
+  times: Record<string, string>;
+  effective_from: string;
+}
+
+/** S08z: a "my day has shifted" entry: the dates and how many minutes to move each named anchor. Sent with the row's client id, so a retry makes one shift. */
+export interface DayShiftPayload {
+  starts_on: string;
+  ends_on: string;
+  offsets: Record<string, number>;
+}
+
+/** S08z: ending a shift the server already holds, from `cancelled_from` onward. */
+export interface DayShiftEndPayload {
+  shift_id: string;
+  cancelled_from: string;
+}
+
 export type OutboxPayload =
+  | AnchorTimesPayload
+  | DayShiftPayload
+  | DayShiftEndPayload
   | VitalReadingPayload
   | SymptomPayload
   | DosePayload
@@ -563,6 +585,34 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
         p_response: p.response,
         p_client_recorded_at: item.clientRecordedAt,
       } as never);
+      return error ? asFailure(error) : { ok: true };
+    }
+
+    if (item.kind === "anchor_times") {
+      const p = item.payload as AnchorTimesPayload;
+      const { error } = await supabase.rpc("save_dose_anchor_times" as never, {
+        p_patient: item.subjectId,
+        p_times: p.times,
+        p_effective_from: p.effective_from,
+      } as never);
+      return error ? asFailure(error) : { ok: true };
+    }
+
+    if (item.kind === "day_shift") {
+      const p = item.payload as DayShiftPayload;
+      const { error } = await supabase.rpc("create_day_shift" as never, {
+        p_patient: item.subjectId,
+        p_client_id: item.clientId,
+        p_starts_on: p.starts_on,
+        p_ends_on: p.ends_on,
+        p_offsets: p.offsets,
+      } as never);
+      return error ? asFailure(error) : { ok: true };
+    }
+
+    if (item.kind === "day_shift_end") {
+      const p = item.payload as DayShiftEndPayload;
+      const { error } = await supabase.rpc("cancel_day_shift" as never, { p_patient: item.subjectId, p_id: p.shift_id } as never);
       return error ? asFailure(error) : { ok: true };
     }
 

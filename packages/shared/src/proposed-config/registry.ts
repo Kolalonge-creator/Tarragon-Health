@@ -3238,6 +3238,40 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["lease\\w*days?\\s*[=:]\\s*30\\b", "probe\\w*(interval|seconds)\\w*\\s*[=:]\\s*60\\b"],
   },
   {
+    key: "medicines.dose_anchors",
+    // S08z. PROPOSED: dose times anchored to daily events. `anchors` are the STARTING times shown for each anchor (waking, meals, the five daily prayers,
+    // bedtime) before a patient sets their own; a patient confirms each one they use, and it is never presented as a prayer calendar or as clinical guidance. They
+    // are placeholders chosen to be plausible for Lagos, nothing is computed from location or a calendar, and the patient's own time always wins. The database seeds
+    // the same ten rows into `dose_anchor_defaults` (medicines-anchors-mirror.test.ts fails if they drift). `offset_choices_minutes` is what the phone offers beside
+    // an anchor (0 is "with it"; the database accepts any whole minute from -120 to 180), and `shift_offset_choices_minutes` what it offers for "move this part of my day by" (the
+    // database accepts up to 360 either way). `max_shift_days` is the longest a "my day has shifted" entry may run
+    // (a month of fasting fits; the table constraint mirrors it) and `max_shift_offset_minutes` the furthest it may move one anchor.
+    value: {
+      anchors: {
+        waking: "06:30",
+        morning_prayer: "05:45",
+        breakfast: "07:30",
+        midday_prayer: "13:15",
+        lunch: "13:30",
+        afternoon_prayer: "16:30",
+        evening_prayer: "19:00",
+        dinner: "20:00",
+        night_prayer: "20:15",
+        bedtime: "22:30",
+      },
+      offset_choices_minutes: [-30, 0, 15, 30, 60],
+      shift_offset_choices_minutes: [-120, -60, -30, 0, 30, 60, 90, 120],
+      max_shift_days: 45,
+      max_shift_offset_minutes: 360,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-09-30",
+    source: "docs/design/S08z.md (dose times anchored to daily events); supabase/migrations/20261021011847_s08z_dose_time_anchors.sql",
+    guardPatterns: ["max_?[sS]hift_?[dD]ays\\s*[=:]\\s*45\\b"],
+  },
+  {
     key: "my_health.sharing_and_access_log",
     // My Health completion (S09x). Live values are the active row of `my_health_config`.config (sharing, access_log); my-health-mirror.test.ts fails if the
     // migration seed and this value drift. PROPOSED: the default share expiry (12 hours, shorter than the 24 the first share screen used; the 30 day cap is

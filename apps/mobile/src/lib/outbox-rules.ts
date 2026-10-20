@@ -5,7 +5,17 @@
  * is only the bundled fallback for a phone that has never synced.
  */
 
-export type OutboxKind = "vital" | "symptom" | "dose" | "red_care" | "kick_session" | "contraction_session";
+export type OutboxKind =
+  | "vital"
+  | "symptom"
+  | "dose"
+  | "red_care"
+  | "kick_session"
+  | "contraction_session"
+  // S08z: the patient's anchor times and "my day has shifted" entries. Settings, not records: they queue so they work offline.
+  | "anchor_times"
+  | "day_shift"
+  | "day_shift_end";
 export type OutboxState = "pending" | "rejected";
 
 export interface OfflineSyncConfig {

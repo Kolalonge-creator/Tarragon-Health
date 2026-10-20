@@ -1,3 +1,4 @@
+import type { AnchoredDose, AnchorProfile } from "./anchors";
 import type { LocalDate } from "./lagos";
 
 export type FoodNote = "with_food" | "before_food" | "after_food" | "empty_stomach" | "bedtime";
@@ -14,6 +15,16 @@ export interface ScheduleCommon {
    * window long enough, once more at the middle.
    */
   windowMinutes?: number;
+  /**
+   * Doses tied to a daily anchor (waking, a meal, a prayer, bedtime) instead of a clock time (S08z). Only daily, every-N-days and
+   * weekday schedules carry them. They sit alongside `times`, which may then be empty.
+   */
+  anchored?: AnchoredDose[];
+  /**
+   * RUNTIME ONLY, never stored: the patient's anchor times and day shifts, attached by the caller so every reader of the spec
+   * resolves anchored doses the same way. Strip it with `toStoredSpec` before saving.
+   */
+  anchorProfile?: AnchorProfile;
 }
 
 export interface TaperStep {
@@ -39,6 +50,8 @@ export interface Slot {
   time: string;
   /** Set only by a taper step. */
   doseText: string | null;
+  /** Set only on a slot that came from an anchored dose (S08z): which anchor and offset it was resolved from, so it can be shown in plain words. */
+  anchored?: AnchoredDose;
 }
 
 export type LogStatus = "taken" | "delayed" | "skipped" | "missed" | "not_available";

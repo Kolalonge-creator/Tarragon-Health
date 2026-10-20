@@ -29,6 +29,8 @@ jest.mock("@/lib/queries/medicine-catalogue", () => ({
   }),
 }));
 jest.mock("@/lib/medications/pack-actions", () => ({ checkMedicationPack: (...a: unknown[]) => checkMedicationPack(...a) }));
+// S08z: the form reads the patient's anchor times; these tests are about other things, so it reads none (the proposed starting times apply).
+jest.mock("@/lib/queries/dose-anchors", () => ({ useAnchors: () => ({ data: undefined }) }));
 jest.mock("./actions", () => ({ checkMedicationSafetyAfterAdd: jest.fn() }));
 
 import { AddMedicationForm } from "./add-medication-form";

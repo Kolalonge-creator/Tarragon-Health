@@ -14,14 +14,17 @@ import {
   allTimes,
   groupLogsBySlot,
   type AdherenceResult,
+  type AnchoredDose,
   type DoseLog,
   type FoodNote,
   type LogStatus,
   type ScheduleSpec,
   type SlotState,
   type SupplyEstimate,
+  toStoredSpec,
 } from "@tarragon/medicines";
 import { enqueue, flushOutbox, listOutbox, removePendingRow, type DosePayload } from "./outbox";
+import { anchorProfileFor, refreshAnchorProfile } from "./anchor-profile";
 import { loadReminderBehaviour } from "./s07-config";
 import { loadAdherenceBand, loadMedicineRules } from "./medicines-config";
 import { pullChangesThrottled, readLocalMedications, readLocalRecords } from "./offline-store";
@@ -63,6 +66,8 @@ export interface DoseChecklistItem {
   date?: string;
   /** The strength and dose the medicine record carries, shown as read-only text. */
   doseLabel?: string | null;
+  /** S08z: set when this dose is tied to a daily anchor (a meal, waking, a prayer, bedtime), so the list can say so in plain words. */
+  anchored?: AnchoredDose;
 }
 
 type MedicationForChecklist = Pick<Tables<"medications">, "id" | "drug_name" | "schedule_times"> & {
@@ -93,9 +98,13 @@ type LogForChecklist = Pick<
 };
 
 /** The schedule a medicine row carries: the structured spec when it parses, otherwise the old plain list of daily times. */
-export function scheduleOf(medication: { schedule_times: unknown; schedule_spec?: unknown }): ScheduleSpec {
+export function scheduleOf(
+  medication: { schedule_times: unknown; schedule_spec?: unknown; patient_id?: string | null },
+  patientId?: string | null
+): ScheduleSpec {
   if (medication.schedule_spec !== null && medication.schedule_spec !== undefined) {
-    const parsed = parseScheduleSpec(medication.schedule_spec);
+    // S08z: the person's anchor times and day shifts ride on the spec so every reader resolves anchored doses the same way.
+    const parsed = parseScheduleSpec(medication.schedule_spec, anchorProfileFor(patientId ?? medication.patient_id));
     if (parsed.ok) return parsed.spec;
   }
   return specFromLegacyTimes(medication.schedule_times);
@@ -115,7 +124,8 @@ function legacyStatus(logStatus: string | undefined): DoseStatus {
 export function buildTodaysDoseChecklist(
   medications: MedicationForChecklist[],
   logs: LogForChecklist[],
-  nowMs: number = Date.now()
+  nowMs: number = Date.now(),
+  patientId?: string
 ): DoseChecklistItem[] {
   const today = lagosLocalDate(nowMs);
   const yesterday = addDays(today, -1);
@@ -123,7 +133,7 @@ export function buildTodaysDoseChecklist(
   const items: DoseChecklistItem[] = [];
   for (const medication of medications) {
     const startedAtMs = activeFromMs(medication);
-    const spec = scheduleOf(medication);
+    const spec = scheduleOf(medication, patientId);
     const closeMinutes = slotCloseMinutes(spec, missedAfterMinutes);
     for (const slot of [...slotsOn(spec, yesterday), ...slotsOn(spec, today)]) {
       const dueAtMs = lagosTimeToUtcMs(slot.date, slot.time);
@@ -152,6 +162,7 @@ export function buildTodaysDoseChecklist(
         origin: medication.source === "clinician" ? "prescription" : "patient_added",
         date: slot.date,
         doseLabel: medication.dose ?? null,
+        ...(slot.anchored ? { anchored: slot.anchored } : {}),
       });
     }
   }
@@ -175,6 +186,7 @@ export function todayIsoDate(): string {
  * as-needed logs (no scheduled slot) are never deduped, each stands alone.
  */
 export async function loadTodaysDoses(patientId: string): Promise<QueryResult<DoseChecklistItem[]>> {
+  await refreshAnchorProfile(patientId);
   const today = todayIsoDate();
   const yesterday = addDays(today, -1);
   // Doses logged on this phone and not yet sent. Listed first so they win over
@@ -206,7 +218,7 @@ export async function loadTodaysDoses(patientId: string): Promise<QueryResult<Do
     pullChangesThrottled(patientId);
     return {
       ok: true,
-      data: buildTodaysDoseChecklist(medsRes.data ?? [], [...(await pendingLogs()), ...(logsRes.data ?? [])]),
+      data: buildTodaysDoseChecklist(medsRes.data ?? [], [...(await pendingLogs()), ...(logsRes.data ?? [])], Date.now(), patientId),
     };
   } catch (e) {
     return await localDoses(patientId, today, await pendingLogs().catch(() => []), e instanceof Error ? e.message : String(e));
@@ -235,7 +247,7 @@ async function localDoses(
   ))
     .filter((r) => r.scheduled_for_date >= yesterday)
     .map((r) => ({ medication_id: r.medication_id, scheduled_time: r.scheduled_time, status: r.status as never, scheduled_for_date: r.scheduled_for_date }));
-  return { ok: true, data: buildTodaysDoseChecklist(meds, [...pending, ...mirrored]) };
+  return { ok: true, data: buildTodaysDoseChecklist(meds, [...pending, ...mirrored], Date.now(), patientId) };
 }
 
 export interface LogDoseOptions {
@@ -327,6 +339,7 @@ interface CatchUpLogRow {
  * the patient confirmed (source patient) is an answer and is not asked about again.
  */
 export async function loadCatchUpDoses(patientId: string, nowMs: number = Date.now()): Promise<QueryResult<DoseChecklistItem[]>> {
+  await refreshAnchorProfile(patientId);
   const today = lagosLocalDate(nowMs);
   const yesterday = addDays(today, -1);
   const { missedAfterMinutes } = loadReminderBehaviour();
@@ -361,7 +374,7 @@ export async function loadCatchUpDoses(patientId: string, nowMs: number = Date.n
 
     const items: DoseChecklistItem[] = [];
     for (const medication of (medsRes.data ?? []) as MedicationForChecklist[]) {
-      const spec = scheduleOf(medication);
+      const spec = scheduleOf(medication, patientId);
       const closeMinutes = slotCloseMinutes(spec, missedAfterMinutes);
       const startedAtMs = activeFromMs(medication);
       for (const date of [yesterday, today]) {
@@ -383,6 +396,7 @@ export async function loadCatchUpDoses(patientId: string, nowMs: number = Date.n
             origin: medication.source === "clinician" ? "prescription" : "patient_added",
             date: slot.date,
             doseLabel: medication.dose ?? null,
+            ...(slot.anchored ? { anchored: slot.anchored } : {}),
           });
         }
       }
@@ -416,6 +430,7 @@ interface AdherenceLogRow {
 
 /** The patient's own week, computed on the phone so it works offline: doses marked taken over doses due. */
 export async function loadWeeklyAdherence(patientId: string, nowMs: number = Date.now()): Promise<QueryResult<AdherenceResult>> {
+  await refreshAnchorProfile(patientId);
   const band = loadAdherenceBand();
   const rules = loadMedicineRules();
   const missedAfterMinutes = loadReminderBehaviour().missedAfterMinutes;
@@ -478,7 +493,7 @@ export async function loadWeeklyAdherence(patientId: string, nowMs: number = Dat
   const result = computeWeeklyAdherence(
     meds.map((m) => ({
       id: m.id,
-      spec: scheduleOf(m),
+      spec: scheduleOf(m, patientId),
       logs: groupLogsBySlot(byMed.get(m.id) ?? []),
       activeFromMs: activeFromMs(m),
     })),
@@ -511,6 +526,7 @@ export async function loadSupplies(
   medications: { id: string; schedule_times: unknown; schedule_spec?: unknown }[],
   nowMs: number = Date.now()
 ): Promise<QueryResult<Map<string, SupplyView>>> {
+  await refreshAnchorProfile(patientId);
   const rules = loadMedicineRules();
   const today = lagosLocalDate(nowMs);
   try {
@@ -552,7 +568,7 @@ export async function loadSupplies(
         pillsOnHand: Number(row.pills_on_hand),
         countedAtMs: Date.parse(row.counted_at),
         pillsPerDose: Number(row.pills_per_dose),
-        spec: scheduleOf(med),
+        spec: scheduleOf(med, patientId),
         dosesTakenSinceCount: taken,
         nowMs,
         answeredSlots: answered,
@@ -690,7 +706,8 @@ export async function addMedication(patientId: string, input: AddMedicationInput
     frequency: input.frequency || null,
     refill_date: input.refillDate || null,
     schedule_times: input.scheduleSpec ? allTimes(input.scheduleSpec) : input.scheduleTimes,
-    schedule_spec: input.scheduleSpec ? (input.scheduleSpec as unknown as Json) : null,
+    // The runtime anchor profile rides on the spec in memory and is never stored.
+    schedule_spec: input.scheduleSpec ? (toStoredSpec(input.scheduleSpec) as unknown as Json) : null,
     patient_id: patientId,
     organisation_id: profile.organisation_id,
     source,

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useMedications, useTodaysDoseLogs, useLogDose, todayIsoDate } from "@/lib/queries/medications";
+import { useAnchors } from "@/lib/queries/dose-anchors";
+import { anchorPhrase } from "@tarragon/i18n";
 import { buildTodaysDoseChecklist, type DoseStatus } from "@/lib/medication-schedule/checklist";
 import { MISSED_REASONS } from "@/lib/validation/medication-logs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,12 +51,14 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
   const { data: medications, isLoading: medsLoading } = useMedications(patientId);
   const { data: logs, isLoading: logsLoading } = useTodaysDoseLogs(patientId);
   const logDose = useLogDose();
+  // S08z: doses tied to the patient's day resolve against their own anchor times and day shifts.
+  const { data: anchors } = useAnchors(patientId);
   // Key: `${medicationId}-${time}` of the row currently asking for a missed-reason.
   const [reasonPromptFor, setReasonPromptFor] = useState<string | null>(null);
 
   const isLoading = medsLoading || logsLoading;
   const checklist =
-    medications && logs ? buildTodaysDoseChecklist(medications, logs) : [];
+    medications && logs ? buildTodaysDoseChecklist(medications, logs, undefined, anchors?.profile) : [];
 
   function log(
     medicationId: string,
@@ -113,7 +117,10 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
                         </span>
                         <Badge variant={badge.variant}>{badge.label}</Badge>
                       </div>
-                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{item.drugName}</p>
+                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                        {item.drugName}
+                        {item.anchored ? ` · ${anchorPhrase(item.anchored.anchor, item.anchored.offsetMinutes)}` : ""}
+                      </p>
                     </div>
                     {medication && (
                       <div className="flex flex-wrap gap-2">

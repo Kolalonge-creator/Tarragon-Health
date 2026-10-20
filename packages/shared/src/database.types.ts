@@ -248,6 +248,21 @@ export type Database = {
         }
         Relationships: []
       }
+      dose_anchor_defaults: {
+        Row: {
+          anchor: string
+          default_time: string
+        }
+        Insert: {
+          anchor: string
+          default_time: string
+        }
+        Update: {
+          anchor?: string
+          default_time?: string
+        }
+        Relationships: []
+      }
       maternal_child_config: {
         Row: {
           config_key: string
@@ -515,6 +530,99 @@ export type Database = {
           {
             foreignKeyName: "maternal_child_content_reviewed_by_fkey"
             columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_day_shifts: {
+        Row: {
+          cancelled_from: string | null
+          client_id: string | null
+          created_at: string
+          ends_on: string
+          id: string
+          offsets: Json
+          organisation_id: string
+          patient_id: string
+          starts_on: string
+        }
+        Insert: {
+          cancelled_from?: string | null
+          client_id?: string | null
+          created_at?: string
+          ends_on: string
+          id?: string
+          offsets: Json
+          organisation_id: string
+          patient_id: string
+          starts_on: string
+        }
+        Update: {
+          cancelled_from?: string | null
+          client_id?: string | null
+          created_at?: string
+          ends_on?: string
+          id?: string
+          offsets?: Json
+          organisation_id?: string
+          patient_id?: string
+          starts_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_day_shifts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_day_shifts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_dose_anchors: {
+        Row: {
+          anchor: string
+          created_at: string
+          effective_from: string
+          local_time: string
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          anchor: string
+          created_at?: string
+          effective_from: string
+          local_time: string
+          organisation_id: string
+          patient_id: string
+        }
+        Update: {
+          anchor?: string
+          created_at?: string
+          effective_from?: string
+          local_time?: string
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_dose_anchors_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_dose_anchors_patient_id_fkey"
+            columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -48209,8 +48317,20 @@ export type Database = {
       }
     }
     Functions: {
+      cancel_day_shift: {
+        Args: { p_id: string; p_patient: string }
+        Returns: string
+      }
+      create_day_shift: {
+        Args: { p_client_id: string; p_ends_on: string; p_offsets: Json; p_patient: string; p_starts_on: string }
+        Returns: string
+      }
       medication_refill_pharmacy: { Args: { p_medication: string }; Returns: { partner_id: string; partner_name: string | null; location_name: string | null; address: string | null }[] };
       attest_pharmacy_nafdac_source: { Args: { p_partner: string; p_note: string }; Returns: Json };
+      save_dose_anchor_times: {
+        Args: { p_effective_from?: string; p_patient: string; p_times: Json }
+        Returns: string
+      }
       sign_interaction_dataset: { Args: { p_version: number; p_content_hash: string; p_note: string }; Returns: Json };
       care_team_side_effect_notes: {
         Args: { p_patient: string; p_reason: string };

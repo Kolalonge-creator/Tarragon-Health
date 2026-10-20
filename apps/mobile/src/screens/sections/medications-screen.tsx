@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Linking, Platform, View } from "react-native";
-import { asLocale, t, type MessageKey } from "@tarragon/i18n";
+import { anchorPhrase, asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { resolveTakenTime, isDoubleTap, lagosLocalDate, slotKey, windowEndTime, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
 import { useUiLanguage } from "@/lib/ui-language";
 import {
@@ -388,7 +388,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
                       <View style={{ flex: 1, gap: 2 }}>
                         <AppText variant="bodyStrong">{item.drugName}</AppText>
                         <AppText variant="caption" tone="textMuted">
-                          {[windowLabel(item, tr), item.doseText ?? item.doseLabel ?? null, item.foodNote ? tr(`meds.food.${item.foodNote}` as MessageKey) : null]
+                          {[item.anchored ? capitalise(anchorPhrase(item.anchored.anchor, item.anchored.offsetMinutes, locale)) : null, windowLabel(item, tr), item.doseText ?? item.doseLabel ?? null, item.foodNote ? tr(`meds.food.${item.foodNote}` as MessageKey) : null]
                             .filter(Boolean)
                             .join(" · ")}
                         </AppText>
@@ -629,4 +629,9 @@ function AndroidReminderHelp({
       ) : null}
     </Card>
   );
+}
+
+/** "with breakfast" becomes "With breakfast" at the start of a line. */
+function capitalise(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

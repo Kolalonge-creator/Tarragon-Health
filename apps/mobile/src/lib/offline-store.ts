@@ -59,6 +59,18 @@ async function setupMirror(db: SQLite.SQLiteDatabase): Promise<void> {
       subject_id text not null,
       row text not null
     );
+    create table if not exists local_anchor_times (
+      id text primary key,
+      owner_user_id text not null,
+      subject_id text not null,
+      row text not null
+    );
+    create table if not exists local_day_shifts (
+      id text primary key,
+      owner_user_id text not null,
+      subject_id text not null,
+      row text not null
+    );
     create table if not exists sync_state (key text primary key, value text not null);`
   );
 }
@@ -227,11 +239,81 @@ async function countLocal(
   return row?.n ?? 0;
 }
 
+/**
+ * S08z: the person's anchor times and day shifts. Small, and the server is the only writer, so each pull replaces the whole
+ * list. The tables are not in the generated client types yet, so they are read through this narrow shape.
+ */
+interface UntypedSelect {
+  from(table: string): {
+    select(cols: string): { eq(col: string, value: string): PromiseLike<{ data: unknown[] | null; error: { code?: string; message: string } | null }> };
+  };
+}
+
+async function pullAnchors(db: SQLite.SQLiteDatabase, owner: string, subjectId: string, result: PullResult): Promise<void> {
+  const client = supabase as unknown as UntypedSelect;
+  const [times, shifts] = await Promise.all([
+    client.from("patient_dose_anchors").select("anchor, effective_from, local_time").eq("patient_id", subjectId),
+    client.from("patient_day_shifts").select("id, starts_on, ends_on, offsets, cancelled_from, created_at").eq("patient_id", subjectId),
+  ]);
+  result.pages += 1;
+  const failure = times.error ?? shifts.error;
+  if (failure) {
+    if (classifyFailure({ code: failure.code, message: failure.message }) === "network") result.stoppedOffline = true;
+    recordSyncError("offline_outbox", "pull:anchors", failure.message);
+    return;
+  }
+  const timeRows = (times.data ?? []) as { anchor: string; effective_from: string }[];
+  const shiftRows = (shifts.data ?? []) as { id: string }[];
+  result.bytes += JSON.stringify(timeRows).length + JSON.stringify(shiftRows).length;
+  await db.execAsync("begin");
+  try {
+    await db.runAsync("delete from local_anchor_times where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
+    await db.runAsync("delete from local_day_shifts where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
+    for (const row of timeRows) {
+      await db.runAsync("insert or replace into local_anchor_times (id, owner_user_id, subject_id, row) values (?, ?, ?, ?)", [
+        `${subjectId}|${row.anchor}|${row.effective_from}`,
+        owner,
+        subjectId,
+        JSON.stringify(row),
+      ]);
+    }
+    for (const row of shiftRows) {
+      await db.runAsync("insert or replace into local_day_shifts (id, owner_user_id, subject_id, row) values (?, ?, ?, ?)", [
+        row.id,
+        owner,
+        subjectId,
+        JSON.stringify(row),
+      ]);
+    }
+    await db.execAsync("commit");
+  } catch (e) {
+    await db.execAsync("rollback");
+    throw e;
+  }
+  result.pulled += timeRows.length + shiftRows.length;
+}
+
+export async function readLocalAnchorRows<T>(subjectId: string): Promise<T[]> {
+  const owner = await currentUserId();
+  if (!owner) return [];
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ row: string }>("select row from local_anchor_times where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
+  return rows.map((r) => JSON.parse(r.row) as T);
+}
+
+export async function readLocalShiftRows<T>(subjectId: string): Promise<T[]> {
+  const owner = await currentUserId();
+  if (!owner) return [];
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ row: string }>("select row from local_day_shifts where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
+  return rows.map((r) => JSON.parse(r.row) as T);
+}
+
 /** Active medications are small and clinician-owned: replace the whole list. */
 async function pullMedications(db: SQLite.SQLiteDatabase, owner: string, subjectId: string, result: PullResult) {
   const { data, error } = await supabase
     .from("medications")
-    .select("id, drug_name, dose, frequency, schedule_times, schedule_spec, source, is_active, superseded_at, created_at, schedule_effective_from")
+    .select("id, patient_id, drug_name, dose, frequency, schedule_times, schedule_spec, source, is_active, superseded_at, created_at, schedule_effective_from")
     .eq("patient_id", subjectId)
     .eq("is_active", true);
   result.pages += 1;
@@ -311,6 +393,7 @@ export async function pullChanges(subjectId: string): Promise<PullResult> {
       if (!result.stoppedOffline) await verifyCounts(db, kind, owner, subjectId, config, result);
     }
     if (!result.stoppedOffline) await pullMedications(db, owner, subjectId, result);
+    if (!result.stoppedOffline) await pullAnchors(db, owner, subjectId, result).catch((error) => recordSyncError("offline_outbox", "pull:anchors", error));
     if (!result.stoppedOffline) await pullTasks(db, owner, subjectId, result);
     // Local housekeeping, safe offline. Never lets a purge failure fail the pull.
     await purgeMirror(owner).catch((error) => recordSyncError("offline_outbox", "purgeMirror", error));
@@ -394,7 +477,7 @@ export async function readLocalTasks<T>(subjectId: string): Promise<T[]> {
  */
 export async function clearLocalMirror(): Promise<void> {
   const db = await getDb();
-  await db.execAsync("delete from local_records; delete from local_medications; delete from local_tasks; delete from sync_state;");
+  await db.execAsync("delete from local_records; delete from local_medications; delete from local_tasks; delete from local_anchor_times; delete from local_day_shifts; delete from sync_state;");
 }
 
 const lastPullAt = new Map<string, number>();

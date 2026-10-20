@@ -4321,3 +4321,19 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-NAFDAC-SCAN-4 The number is used for lookup and pre-fill only; it is not stored on the medication (raised by the pack-scan build, 2026-10-16)
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
+
+### OQ-S08z-1 The starting time of each anchor is PROPOSED (raised by S08z, 2026-10-20)
+- `medicines.dose_anchors.anchors` (and the seeded `dose_anchor_defaults`) hold a plausible starting time for each of ten parts of the day (waking, the five daily prayers, three meals, bedtime). They are placeholders: nothing is computed from location or a calendar, and the patient confirms the time of each anchor they use. Needed: the founder or CMO confirms or replaces them (a new registry version and a new migration row, never an edit in place).
+- Decision: open (founder).
+
+### OQ-S08z-2 A patient who shifts their day for a fast: care-team visibility and counselling (raised by S08z, 2026-10-20)
+- Shifting reminders for a month of fasting can matter clinically (for example for diabetes or blood pressure medicines). The app gives no advice and does not hide it: tied clinicians can already read a patient's shifts under the existing access rules, but no screen shows them and nothing prompts a conversation. Needed from the CMO: whether a shift should create a care-team signal or task, and what a fasting conversation looks like. Nothing was built that decides this.
+- Decision: open (CMO).
+
+### OQ-S08z-3 Clinician-prescribed schedules cannot be tied to the day yet (raised by S08z, 2026-10-20)
+- Anchors are offered on patient-added medicines only (a prescribed schedule is fixed by the care team and the existing allow-list refuses a patient edit). A prescriber cannot choose "with dinner", and a patient cannot tie a prescribed medicine to their day. If wanted, it is a prescribing-flow change (INV-02: the prescriber signs the anchor) and a separate piece of work.
+- Decision: open (product, CMO).
+
+### OQ-S08z-4 The new `doseanchor.*` strings sit outside the reviewed-strings ledger (raised by S08z, 2026-10-20)
+- The ledger gives the clinical namespaces (`medicines.*` among them) no room for new baseline entries and no reviewer exists to name, so the anchor and My day copy lives under `doseanchor.*`, outside the gated namespaces. That is a way round the gate, not a review. Needed: the CMO or a pharmacist reads the keys (especially `doseanchor.pick_help` and `doseanchor.myday.shift_help`), then they move into a gated namespace with a real reviewer entry.
+- Decision: open (CMO).
