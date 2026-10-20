@@ -5992,4 +5992,26 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-16",
     source: "docs/design/PCC.md; supabase/migrations/20261016183857_pcc_post_consult_checkins.sql",
   },
+  {
+    key: "medicines.nafdac_number_format",
+    // Reading a NAFDAC registration number off a medicine pack (typed, or read from a photo). `pattern` is the anchored regex
+    // source of a canonical number: an optional letter (never I or O), one or two digits, a hyphen, three to six digits, an
+    // optional letter. Public examples seen: A4-1234, 04-1234, B4-xxxx, A11-101363 (the Greenbook database prints a six-digit tail).
+    // The pattern only decides whether text is SHAPED like a number; it is not a check that a number is real or a pack genuine.
+    // `maxTextLength` bounds the text scanned from a photo; `nameMatchLimit` and `minNameLength` bound the known-medicine names offered
+    // from it; `contextLookback` is how many characters before a number are checked for a batch, lot or date label. Mirrored by NAFDAC_NUMBER_CONFIG in packages/medicines; a test fails on drift.
+    // PROPOSED: a pharmacist or the CMO to confirm against NAFDAC's Greenbook (see OQ-NAFDAC-SCAN-1).
+    value: {
+      pattern: "^[A-HJ-NP-Z]?[0-9]{1,2}-[0-9]{3,6}[A-HJ-NP-Z]?$",
+      maxTextLength: 6000,
+      nameMatchLimit: 3,
+      minNameLength: 4,
+      contextLookback: 16,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/S53-pack-scan.md; NAFDAC Greenbook public examples",
+  },
 ];
