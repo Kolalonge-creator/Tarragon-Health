@@ -42,18 +42,18 @@ export function TodayCard({
   const line = (l: Line) => tr(l.key, l.params);
   const [state, setState] = useState<TodayLoad | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pulledAt, setPulledAt] = useState<string | null>(null);
+  // undefined while the time is being read: the note waits for it instead of flashing "cannot tell".
+  const [pulledAt, setPulledAt] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     let alive = true;
     loadToday(patientId)
-      .then(async (res) => {
-        // Only the saved copy needs a "last updated" time; a live answer is current by definition.
-        const at = res.fromPhone ? await readMirrorLastPulledAt(patientId) : null;
-        if (alive) {
-          setPulledAt(at);
-          setState(res);
-        }
+      .then((res) => {
+        if (!alive) return;
+        setPulledAt(undefined);
+        setState(res);
+        // Only the saved copy needs a "last updated" time (a live answer is current by definition), and it never delays the first paint.
+        if (res.fromPhone) void readMirrorLastPulledAt(patientId).then((at) => alive && setPulledAt(at));
       })
       .catch(() => alive && setState(null))
       .finally(() => alive && setLoading(false));
@@ -117,7 +117,7 @@ export function TodayCard({
           onPress={() => onNavigate("care")}
         />
       ) : null}
-      {state.fromPhone ? <FreshnessNote lastUpdatedAt={pulledAt} /> : null}
+      {state.fromPhone && pulledAt !== undefined ? <FreshnessNote lastUpdatedAt={pulledAt} /> : null}
       {state.partial ? <InlineAlert tone="info" message={tr("today.partial")} /> : null}
     </Card>
   );

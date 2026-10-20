@@ -91,6 +91,11 @@ export interface PullResult {
   drifted: MirrorKind[];
   /** Tables the widened re-read then brought back in line. */
   repaired: MirrorKind[];
+  /**
+   * Set when any part of the pull did not finish for a reason other than the network: a failed query, a page budget that ran
+   * out with pages left, or drift the widened read could not repair (S06y). Such a pull never records a "last updated" time.
+   */
+  incomplete?: true;
 }
 
 async function readCursor(db: SQLite.SQLiteDatabase, key: string): Promise<string | null> {
@@ -137,6 +142,7 @@ async function pullKind(
     if (error) {
       if (classifyFailure({ code: error.code, message: error.message }) === "network") result.stoppedOffline = true;
       recordSyncError("offline_outbox", `pull:${kind}`, error.message);
+      result.incomplete = true;
       return;
     }
     const rows = (data ?? []) as unknown as RemoteRow[];
@@ -157,6 +163,8 @@ async function pullKind(
     }
     if (rows.length < activeBudget().pullPageSize) return;
   }
+  // The loop ended on the page budget with a full last page: there may be more to read.
+  result.incomplete = true;
 }
 
 /**
@@ -192,8 +200,12 @@ async function verifyCounts(
     await pullKind(db, kind, owner, subjectId, config, { pagesLeft: activeBudget().maxPagesPerPull }, result, window);
     const after = await countLocal(db, kind, owner, subjectId, window, cursor);
     if (!hasDrifted(after, remote)) result.repaired.push(kind);
-    else recordSyncError("offline_outbox", `drift:${kind}:unrepaired`, `mirror has ${after} of ${remote} rows after a widened read`);
+    else {
+      result.incomplete = true;
+      recordSyncError("offline_outbox", `drift:${kind}:unrepaired`, `mirror has ${after} of ${remote} rows after a widened read`);
+    }
   } catch (error) {
+    result.incomplete = true;
     recordSyncError("offline_outbox", `verifyCounts:${kind}`, error);
   }
 }
@@ -238,6 +250,7 @@ async function pullMedications(db: SQLite.SQLiteDatabase, owner: string, subject
   if (error) {
     if (classifyFailure({ code: error.code, message: error.message }) === "network") result.stoppedOffline = true;
     recordSyncError("offline_outbox", "pull:medications", error.message);
+    result.incomplete = true;
     return;
   }
   const rows = (data ?? []) as unknown as { id: string }[];
@@ -273,6 +286,7 @@ async function pullTasks(db: SQLite.SQLiteDatabase, owner: string, subjectId: st
   if (error) {
     if (classifyFailure({ code: error.code, message: error.message }) === "network") result.stoppedOffline = true;
     recordSyncError("offline_outbox", "pull:tasks", error.message);
+    result.incomplete = true;
     return;
   }
   result.bytes += JSON.stringify(rows).length;
@@ -332,7 +346,7 @@ export async function pullChanges(subjectId: string): Promise<PullResult> {
     if (!result.stoppedOffline) await pullTasks(db, owner, subjectId, result);
     // The copy is only as new as the START of a pull that reached the end without going offline (S06y). A pull that
     // stopped half way records nothing, so the screens keep showing the older time instead of claiming a fresh copy.
-    if (!result.stoppedOffline) {
+    if (!result.stoppedOffline && !result.incomplete) {
       await writeCursor(db, lastPullKey(owner, subjectId), startedAt).catch((error) => recordSyncError("offline_outbox", "pull:lastPulledAt", error));
     }
     // Local housekeeping, safe offline. Never lets a purge failure fail the pull.

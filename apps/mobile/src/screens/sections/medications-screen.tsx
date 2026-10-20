@@ -141,8 +141,9 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
       setLoadError(true);
       return;
     }
+    const copyAt = result.fromPhone ? await readMirrorLastPulledAt(patientId) : null;
     setLoadError(false);
-    setPhoneCopy(result.fromPhone ? { pulledAt: await readMirrorLastPulledAt(patientId) } : null);
+    setPhoneCopy(result.fromPhone ? { pulledAt: copyAt } : null);
     setDoses(result.data);
     setAsNeeded(await loadAsNeededMedicines(patientId).catch(() => []));
     // The screen is something the patient opened, so it may ask for notification permission.

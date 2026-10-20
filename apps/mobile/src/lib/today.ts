@@ -31,14 +31,14 @@ export interface TodayLoad {
 /** PostgREST and Postgres codes for "that table or view is not there". */
 const MISSING_RELATION_CODES = new Set(["PGRST205", "42P01", "PGRST200"]);
 
-async function loadTasks(patientId: string, nowMs: number): Promise<{ tasks: TodayTask[]; partial: boolean; fromPhone?: boolean }> {
+async function loadTasks(patientId: string, nowMs: number): Promise<{ tasks: TodayTask[]; partial: boolean; fromPhone: boolean }> {
   try {
     const { rows, error } = await fetchPatientTasks(patientId, nowMs);
     if (!error) {
       pullChangesThrottled(patientId);
-      return { tasks: toTodayTasks(rows), partial: false };
+      return { tasks: toTodayTasks(rows), partial: false, fromPhone: false };
     }
-    if (error.code && MISSING_RELATION_CODES.has(error.code)) return { tasks: [], partial: false };
+    if (error.code && MISSING_RELATION_CODES.has(error.code)) return { tasks: [], partial: false, fromPhone: false };
   } catch {
     // fall through to the mirrored copy
   }
@@ -49,7 +49,7 @@ async function loadTasks(patientId: string, nowMs: number): Promise<{ tasks: Tod
   } catch {
     // no mirror either
   }
-  return { tasks: [], partial: true };
+  return { tasks: [], partial: true, fromPhone: false };
 }
 
 export async function loadToday(patientId: string, nowMs: number = Date.now()): Promise<TodayLoad> {
@@ -59,7 +59,7 @@ export async function loadToday(patientId: string, nowMs: number = Date.now()): 
     loadRecentBpReadings(patientId, 5),
   ]);
 
-  const tasks = tasksRes.status === "fulfilled" ? tasksRes.value : { tasks: [], partial: true };
+  const tasks = tasksRes.status === "fulfilled" ? tasksRes.value : { tasks: [], partial: true, fromPhone: false };
   const dosesOk = dosesRes.status === "fulfilled" && dosesRes.value.ok;
   const dosesFromPhone = dosesRes.status === "fulfilled" && dosesRes.value.ok && dosesRes.value.fromPhone === true;
   const doses = dosesRes.status === "fulfilled" && dosesRes.value.ok ? dosesRes.value.data : [];
@@ -74,6 +74,6 @@ export async function loadToday(patientId: string, nowMs: number = Date.now()): 
   return {
     list: buildTodayList({ nowMs, tasks: tasks.tasks, doses, bpLoggedToday }),
     partial: tasks.partial || !dosesOk,
-    fromPhone: ("fromPhone" in tasks && tasks.fromPhone === true) || dosesFromPhone,
+    fromPhone: tasks.fromPhone || dosesFromPhone,
   };
 }

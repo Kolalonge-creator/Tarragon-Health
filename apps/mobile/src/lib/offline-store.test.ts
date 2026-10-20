@@ -400,6 +400,23 @@ describe("last successful pull time (S06y)", () => {
     jest.restoreAllMocks();
   });
 
+  it("a pull where a table failed for a non-network reason (RLS, missing view) is not complete and records nothing", async () => {
+    mockFail = { message: "permission denied for table vitals_readings", code: "42501" };
+    const result = await pullChanges("p1");
+    expect(result.stoppedOffline).toBe(false);
+    expect(result.incomplete).toBe(true);
+    expect(await readMirrorLastPulledAt("p1")).toBeNull();
+  });
+
+  it("a pull that ran out of page budget with pages left is not complete", async () => {
+    const same = new Date(Date.now() - 5 * 60_000).toISOString();
+    const total = OFFLINE_BUDGET.pullPageSize * OFFLINE_BUDGET.maxPagesPerPull + 5;
+    mockTables.vitals_readings = Array.from({ length: total }, (_, i) => ({ id: `id-${String(i).padStart(6, "0")}`, created_at: same, patient_id: "p1" }));
+    const result = await pullChanges("p1");
+    expect(result.incomplete).toBe(true);
+    expect(await readMirrorLastPulledAt("p1")).toBeNull();
+  });
+
   it("a later complete pull moves it forward, and signed out reads as unknown", async () => {
     await pullChanges("p1");
     const first = Date.parse((await readMirrorLastPulledAt("p1")) ?? "");
