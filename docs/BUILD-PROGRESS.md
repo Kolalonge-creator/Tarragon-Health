@@ -2011,3 +2011,11 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **Tests**: medicines 358 pass at 100 percent coverage; mobile `pack-scan` and mirror tests pass; i18n 215 and shared 1,029 pass; mobile `tsc` clean; eslint 0 errors.
 - **Not run**: nothing on a device or simulator; the camera path cannot run until a text reader exists.
 - **Open**: OQ-NAFDAC-SCAN-1 to OQ-NAFDAC-SCAN-4.
+
+## S10y: partner webhook endpoint admin (2026-10-20), branch `s10y/partner-endpoint-admin`
+
+- **Built**: migration `20261020180118_s10y_partner_endpoint_admin.sql` (four admin-only functions, additive: endpoint and map overviews that never return a secret, `admin_reenable_partner_webhook_endpoint` with a required reason, `remove_partner_event_mapping`); page `/admin/ops/partner-webhooks` (endpoint list with state and auto-disable, rotate key shown once, re-enable with reason, event map edit, banner when `process-events` is not known to be running); menu entry and admin-search entry; types spliced into `packages/shared` by hand (only the four new functions).
+- **Contention test**: confirmed, not changed. `s10x_bus_contention.sh` is registered in `ci.manifest` and run by `scripts/run-db-proofs.sh` in the "Supabase migration replay" job on every PR.
+- **FHIR Subscription facade**: closed as documentation only (still a design note in `docs/design/S10x.md`).
+- **Tests**: DB proof `s10y_partner_endpoint_admin.sql` (registered; 32 checks; sabotage steps that must fail: reason check removed, an overview that leaks the secret and drops the organisation filter); Jest `partner-admin` model and actions, admin-search; i18n 215; web tsc and eslint clean.
+- **Not run**: the proof was run against the live database inside one rolled-back transaction (migration plus proof, nothing committed), not on a fresh local stack (Docker was not running). No browser walk-through (no admin credentials or env in the worktree). The edge function `process-events` is not deployed by this change.

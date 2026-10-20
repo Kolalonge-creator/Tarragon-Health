@@ -50374,6 +50374,42 @@ export type Database = {
           subscriber_key: string
         }[]
       }
+      admin_reenable_partner_webhook_endpoint: { Args: { p_endpoint_id: string; p_reason: string }; Returns: undefined }
+      partner_event_map_admin_overview: {
+        Args: never
+        Returns: {
+          bus_event_type: string
+          id_keys: string[]
+          integration_event_type: string
+          is_mapped: boolean
+          ordered: boolean
+          subscriber_active: boolean
+          subscriber_key: string
+        }[]
+      }
+      partner_webhook_admin_overview: {
+        Args: never
+        Returns: {
+          auto_disabled_at: string
+          consecutive_failures: number
+          dead: number
+          delivered_24h: number
+          disabled_reason: string
+          endpoint_id: string
+          environment: string
+          event_types: string[]
+          is_active: boolean
+          last_failure_at: string
+          last_success_at: string
+          name: string
+          partner_name: string
+          previous_key_expires_at: string
+          queued: number
+          signing_key_version: number
+          url: string
+        }[]
+      }
+      remove_partner_event_mapping: { Args: { p_bus_event_type: string }; Returns: undefined }
       partner_webhook_enqueue_for_delivery: { Args: { p_delivery_id: string }; Returns: number }
       reenable_partner_webhook_endpoint: { Args: { p_endpoint_id: string }; Returns: undefined }
       rotate_partner_webhook_secret: { Args: { p_endpoint_id: string; p_grace_hours?: number }; Returns: string }
