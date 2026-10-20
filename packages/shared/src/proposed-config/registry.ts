@@ -3070,6 +3070,30 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/SCALE-READINESS-PLAN.md section 3 (Phase 3 alert rules); supabase/migrations/20261013010258_sr1_platform_health_snapshot.sql",
   },
   {
+    key: "ops.deadman_thresholds",
+    // OQ-436: where /api/health/deadman (polled from OUTSIDE Supabase and Vercel by .github/workflows/deadman-switch.yml) turns the four
+    // numbers from public.deadman_status() into ok, degraded or down. Seconds unless the name says otherwise. process-events runs
+    // every 15 seconds and the paging engine itself calls a heartbeat stale at 120 seconds (paging_delivery_config), so 180 seconds
+    // of silence is "down" and 10 deliveries due for 5 minutes and still unclaimed is "down" (one or a few is a warning). PROPOSED by engineering; the founder confirms. Do not mark confirmed from an agent.
+    value: {
+      dbQueryTimeoutMs: 5000,
+      heartbeatDegradedSeconds: 90,
+      heartbeatDownSeconds: 180,
+      dueOlderThanSeconds: 300,
+      dueUnclaimedDegradedCount: 1,
+      dueUnclaimedDownCount: 10,
+      deadLetterDegradedCount: 1,
+      deadLetterDownCount: 25,
+      openSev1Sev2DegradedCount: 1,
+      openSev1Sev2DownCount: 5,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/OPEN-QUESTIONS.md OQ-436; supabase/migrations/20261019204512_oq436_deadman_status.sql; docs/PLATFORM_OUTAGE_RUNBOOK.md external dead-man's switch",
+  },
+  {
     key: "ops.alert_rules",
     // SR5 operations alert rules (docs/plans/SCALE-READINESS-PLAN.md section 3). Live values are the rows of `ops_alert_rules`; this
     // entry mirrors the migration seed and a test fails if they drift. Every number is a proposal for the founder and CMO: the
