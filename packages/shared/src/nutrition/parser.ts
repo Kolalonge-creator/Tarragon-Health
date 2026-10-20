@@ -99,6 +99,13 @@ function splitSegments(text: string): string[] {
     .filter((s) => s.length > 0);
 }
 
+/** Removes trailing dots and commas with a plain loop. A regular expression such as /[.,]+$/ can backtrack badly on a long run of commas typed into a meal note. */
+function stripTrailingPunctuation(text: string): string {
+  let end = text.length;
+  while (end > 0 && (text[end - 1] === "." || text[end - 1] === ",")) end -= 1;
+  return text.slice(0, end);
+}
+
 function extractUnitWords(words: string[]): { unit: FoodPortionUnit | null; rest: string[] } {
   if (words.length >= 2) {
     const twoWord = `${words[0]} ${words[1]}`.toLowerCase();
@@ -110,7 +117,7 @@ function extractUnitWords(words: string[]): { unit: FoodPortionUnit | null; rest
     }
   }
   if (words.length >= 1) {
-    const oneWord = words[0].toLowerCase().replace(/[.,]+$/, "");
+    const oneWord = stripTrailingPunctuation(words[0].toLowerCase());
     const single = UNIT_SYNONYMS[oneWord];
     if (single) {
       let idx = 1;

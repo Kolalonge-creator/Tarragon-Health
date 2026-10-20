@@ -81,3 +81,17 @@ describe("parseFoodText", () => {
     expect(item.grams).toBeGreaterThan(0);
   });
 });
+
+describe("parseFoodText: trailing punctuation on a unit word", () => {
+  it("still reads a unit that is followed by a comma or full stop", () => {
+    const [item] = parseFoodText("2 spoons., of rice", FIXTURE_CATALOGUE);
+    expect(item.unit).toBe("spoon");
+  });
+
+  it("finishes quickly on a very long run of commas (no catastrophic backtracking)", () => {
+    const started = Date.now();
+    parseFoodText("2 rice" + ",".repeat(50_000) + "x", FIXTURE_CATALOGUE);
+    parseFoodText("2 " + "spoons" + ",".repeat(50_000), FIXTURE_CATALOGUE);
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+});
