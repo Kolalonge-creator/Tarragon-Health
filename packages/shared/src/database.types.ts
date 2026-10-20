@@ -14,6 +14,123 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_safety_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      activity_routes: {
+        Row: {
+          activity_log_entry_id: string | null
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          recorded_by: string | null
+          route_geojson: Json
+          source: Database["public"]["Enums"]["record_source"]
+        }
+        Insert: {
+          activity_log_entry_id?: string | null
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          recorded_by?: string | null
+          route_geojson: Json
+          source?: Database["public"]["Enums"]["record_source"]
+        }
+        Update: {
+          activity_log_entry_id?: string | null
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          recorded_by?: string | null
+          route_geojson?: Json
+          source?: Database["public"]["Enums"]["record_source"]
+        }
+        Relationships: []
+      }
+      workout_plans: {
+        Row: {
+          audio_clip_ids: string[]
+          clinician_reviewed: boolean
+          code: string
+          conditions_safe_for: string[]
+          created_at: string
+          format: string
+          id: string
+          is_active: boolean
+          level: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sessions: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audio_clip_ids?: string[]
+          clinician_reviewed?: boolean
+          code: string
+          conditions_safe_for?: string[]
+          created_at?: string
+          format: string
+          id?: string
+          is_active?: boolean
+          level: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sessions?: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audio_clip_ids?: string[]
+          clinician_reviewed?: boolean
+          code?: string
+          conditions_safe_for?: string[]
+          created_at?: string
+          format?: string
+          id?: string
+          is_active?: boolean
+          level?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sessions?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       breastfeeding_feed_log: {
         Row: {
           amount_ml: number | null
@@ -392,6 +509,93 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      inhaler_use_logs: {
+        Row: {
+          client_log_id: string | null
+          correction_reason: string | null
+          created_at: string
+          entered_in_error: boolean
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          puffs: number
+          reason: string
+          recorded_by: string
+          source: Database["public"]["Enums"]["record_source"]
+          supersedes_id: string | null
+          taken_at: string
+          time_basis: string
+        }
+        Insert: {
+          client_log_id?: string | null
+          correction_reason?: string | null
+          created_at?: string
+          entered_in_error?: boolean
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          puffs: number
+          reason: string
+          recorded_by: string
+          source?: Database["public"]["Enums"]["record_source"]
+          supersedes_id?: string | null
+          taken_at?: string
+          time_basis?: string
+        }
+        Update: {
+          client_log_id?: string | null
+          correction_reason?: string | null
+          created_at?: string
+          entered_in_error?: boolean
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          puffs?: number
+          reason?: string
+          recorded_by?: string
+          source?: Database["public"]["Enums"]["record_source"]
+          supersedes_id?: string | null
+          taken_at?: string
+          time_basis?: string
+        }
+        Relationships: []
+      }
+      observation_limit_signoffs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
       }
       my_health_config: {
         Row: {
@@ -2029,8 +2233,10 @@ export type Database = {
       }
       activity_log_entries: {
         Row: {
+          activity_kind: Database["public"]["Enums"]["activity_kind"] | null
           activity_name: string | null
           created_at: string
+          distance_m: number | null
           duration_minutes: number | null
           entry_type: Database["public"]["Enums"]["activity_entry_type"]
           id: string
@@ -2044,8 +2250,10 @@ export type Database = {
           step_count: number | null
         }
         Insert: {
+          activity_kind?: Database["public"]["Enums"]["activity_kind"] | null
           activity_name?: string | null
           created_at?: string
+          distance_m?: number | null
           duration_minutes?: number | null
           entry_type: Database["public"]["Enums"]["activity_entry_type"]
           id?: string
@@ -2059,8 +2267,10 @@ export type Database = {
           step_count?: number | null
         }
         Update: {
+          activity_kind?: Database["public"]["Enums"]["activity_kind"] | null
           activity_name?: string | null
           created_at?: string
+          distance_m?: number | null
           duration_minutes?: number | null
           entry_type?: Database["public"]["Enums"]["activity_entry_type"]
           id?: string
@@ -29369,7 +29579,9 @@ export type Database = {
           id: string
           organisation_id: string
           patient_id: string
+          route_recording_enabled: boolean
           updated_at: string
+          weekly_active_minutes_goal: number
         }
         Insert: {
           created_at?: string
@@ -29377,7 +29589,9 @@ export type Database = {
           id?: string
           organisation_id: string
           patient_id: string
+          route_recording_enabled?: boolean
           updated_at?: string
+          weekly_active_minutes_goal?: number
         }
         Update: {
           created_at?: string
@@ -29385,7 +29599,9 @@ export type Database = {
           id?: string
           organisation_id?: string
           patient_id?: string
+          route_recording_enabled?: boolean
           updated_at?: string
+          weekly_active_minutes_goal?: number
         }
         Relationships: [
           {
@@ -47509,6 +47725,46 @@ export type Database = {
       }
     }
     Views: {
+      inhaler_use_current: {
+        Row: {
+          id: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          puffs: number | null
+          reason: string | null
+          recorded_by: string | null
+          source: Database["public"]["Enums"]["record_source"] | null
+          supersedes_id: string | null
+          taken_at: string | null
+          was_changed: boolean | null
+        }
+        Relationships: []
+      }
+      activity_sessions: {
+        Row: {
+          distance_m: number | null
+          duration_s: number | null
+          id: string | null
+          kind: string | null
+          logged_on: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          source: string | null
+          started_at: string | null
+          steps: number | null
+        }
+        Relationships: []
+      }
+      activity_goals: {
+        Row: {
+          metric: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          set_by: string | null
+          target: number | null
+        }
+        Relationships: []
+      }
       ai_readable_lab_readings: {
         Row: {
           abnormal_flag: Database["public"]["Enums"]["lab_analyte_flag"] | null
@@ -48333,6 +48589,10 @@ export type Database = {
       }
     }
     Functions: {
+      activity_gate: { Args: Record<PropertyKey, never>; Returns: Json };
+      activity_week_progress: { Args: { p_week_start?: string }; Returns: Json };
+      my_workout_plans: { Args: Record<PropertyKey, never>; Returns: Json };
+      sign_activity_safety_config: { Args: { p_id: string }; Returns: string };
       medication_refill_pharmacy: { Args: { p_medication: string }; Returns: { partner_id: string; partner_name: string | null; location_name: string | null; address: string | null }[] };
       attest_pharmacy_nafdac_source: { Args: { p_partner: string; p_note: string }; Returns: Json };
       sign_interaction_dataset: { Args: { p_version: number; p_content_hash: string; p_note: string }; Returns: Json };
@@ -48770,6 +49030,9 @@ export type Database = {
       complete_home_bp_check: { Args: { p_window_start: string }; Returns: Json };
       record_clinic_bp_reading: { Args: { p_diastolic: number; p_measured_at: string; p_note?: string; p_patient: string; p_systolic: number }; Returns: string };
       sign_my_health_config: { Args: { p_id: string }; Returns: string };
+      sign_observation_limits: { Args: { p_id: string }; Returns: string };
+      log_inhaler_use: { Args: { p_puffs: number; p_reason: string; p_client_recorded_at?: string; p_client_log_id?: string; p_beneficiary?: string }; Returns: string };
+      correct_inhaler_use: { Args: { p_id: string; p_puffs: number; p_reason: string; p_why: string; p_entered_in_error?: boolean }; Returns: string };
       my_access_log: { Args: { p_limit?: number; p_before?: string; p_before_id?: string }; Returns: Json };
       my_lock_screen_facts: { Args: Record<PropertyKey, never>; Returns: Json };
       set_lock_screen_pass: { Args: { p_enabled: boolean }; Returns: boolean };
@@ -54479,6 +54742,7 @@ export type Database = {
         | "single_test"
         | "other"
       activity_entry_type: "steps" | "workout"
+      activity_kind: "walking" | "running" | "cycling" | "dancing" | "football" | "farm_manual_work" | "chair_based"
       ageing_assessment_domain:
         | "mobility"
         | "falls"
@@ -56591,6 +56855,9 @@ export type Database = {
         | "ketones"
         | "respiratory_rate"
         | "peak_flow"
+        | "water_ml"
+        | "sleep_hours"
+        | "mood"
       vitals_validation_status: "valid" | "requires_validation"
       wearable_connection_status: "active" | "disconnected" | "error" | "paused"
       wearable_provider:
@@ -56745,6 +57012,7 @@ export const Constants = {
     Enums: {
       correction_status: ["corrected", "amended", "entered_in_error", "cancelled"],
       activity_entry_type: ["steps", "workout"],
+      activity_kind: ["walking", "running", "cycling", "dancing", "football", "farm_manual_work", "chair_based"],
       ageing_assessment_domain: [
         "mobility",
         "falls",
@@ -59126,6 +59394,9 @@ export const Constants = {
         "ketones",
         "respiratory_rate",
         "peak_flow",
+        "water_ml",
+        "sleep_hours",
+        "mood",
       ],
       vitals_validation_status: ["valid", "requires_validation"],
       wearable_connection_status: ["active", "disconnected", "error", "paused"],
