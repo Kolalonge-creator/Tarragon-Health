@@ -5,10 +5,12 @@
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
-import { __databaseNames } from "../test/mocks/expo-sqlite";
+import * as sqliteMock from "../test/mocks/expo-sqlite";
+import { __databaseNames, __setCipherAvailable } from "../test/mocks/expo-sqlite";
 import {
   LEGACY_QUEUE_KEYS,
   MAX_QUEUE_SIZE,
+  __resetQueueOwnerForTests,
   appendQueue,
   checksumRows,
   countQueuedByOwner,
@@ -21,8 +23,11 @@ import { listStoreNotices } from "./store-notices";
 import * as rules from "./store-rules";
 
 let mockUser: string | null = "user-1";
+let mockSessionError: { name: string; message: string } | null = null;
 jest.mock("./supabase", () => ({
-  supabase: { auth: { getSession: async () => ({ data: { session: mockUser ? { user: { id: mockUser } } : null } }) } },
+  supabase: {
+    auth: { getSession: async () => ({ data: { session: mockUser ? { user: { id: mockUser } } : null }, error: mockUser ? null : mockSessionError }) },
+  },
 }));
 
 const KEY_NAME = "tarragon.offline.store.key.v1";
@@ -49,6 +54,8 @@ function restart(): void {
 
 beforeEach(() => {
   mockUser = "user-1";
+  mockSessionError = null;
+  __resetQueueOwnerForTests();
 });
 afterEach(() => {
   jest.restoreAllMocks();
@@ -56,7 +63,7 @@ afterEach(() => {
 
 describe("planLegacyRows", () => {
   it("makes exactly one row per element, readable or not, and the checksum is order sensitive", () => {
-    const raw = JSON.stringify([{ id: "a", enqueuedAt: "t1", item: { x: 1 } }, { broken: true }, null, { id: "a", enqueuedAt: "t2", item: 2 }]);
+    const raw = JSON.stringify([{ id: "a", enqueuedAt: "t1", item: { x: 1 } }, { broken: true }, null, { id: "a", enqueuedAt: "t2", item: { y: 2 } }]);
     const rows = planLegacyRows("device_readings", raw);
     expect(rows).toHaveLength(4);
     expect(rows.map((r) => r.readable)).toEqual([1, 0, 0, 1]);
@@ -162,6 +169,70 @@ describe("moving the old AsyncStorage lists", () => {
     expect((await listStoreNotices()).map((n) => n.kind)).toContain("key_lost");
     expect(await appendQueue("device_readings", { n: 2 }, "ble")).toBe(true);
     expect(await listQueue("device_readings", "ble")).toHaveLength(1);
+  });
+});
+
+describe("fail-silent and data-loss edges", () => {
+  it("a reading taken offline with an expired token (session null WITH a fetch error) is still queued under the last account", async () => {
+    await appendQueue("device_readings", { n: 1 }, "ble");
+    mockUser = null;
+    mockSessionError = { name: "AuthRetryableFetchError", message: "Network request failed" };
+    expect(await appendQueue("device_readings", { n: 2 }, "ble")).toBe(true);
+    expect(await listQueue("device_readings", "ble")).toHaveLength(2);
+    // A real sign-out has no error: nothing is shown and nothing is queued.
+    mockSessionError = null;
+    expect(await listQueue("device_readings", "ble")).toEqual([]);
+    expect(await appendQueue("device_readings", { n: 3 }, "ble")).toBe(false);
+    mockUser = "user-1";
+    expect(await listQueue("device_readings", "ble")).toHaveLength(2);
+  });
+
+  it("when the store cannot be opened, an old unmoved list is still listed and removable, never shown as empty", async () => {
+    await AsyncStorage.setItem(DEVICE, legacyList(3));
+    jest.spyOn(sqliteMock, "openDatabaseAsync").mockRejectedValue(new Error("database is locked")); // transient: busy disk
+    const entries = await listQueue("device_readings", "ble");
+    expect(entries).toHaveLength(3);
+    await removeFromQueueStore("device_readings", entries[0].id, "ble");
+    expect(await listQueue("device_readings", "ble")).toHaveLength(2);
+    expect(await appendQueue("device_readings", { n: 9 }, "ble")).toBe(false); // says so; nothing written in clear
+  });
+
+  it("a held migration still counts its unmoved entries for the wipe, as unclaimed", async () => {
+    await AsyncStorage.setItem(DEVICE, legacyList(6));
+    const real = rules.rowsChecksum;
+    let calls = 0;
+    jest.spyOn(rules, "rowsChecksum").mockImplementation((rows, seed) => (++calls === 2 ? "deadbeef" : real(rows, seed)));
+    expect(await countQueuedByOwner()).toEqual([{ owner: "", total: 6 }]);
+  });
+
+  it("an entry with a null item is kept as unreadable, so it can never block the head of a flush", async () => {
+    await AsyncStorage.setItem(DEVICE, JSON.stringify([{ id: "x", enqueuedAt: "2026-10-01T00:00:00Z", item: null }, ...JSON.parse(legacyList(1))]));
+    expect(await listQueue("device_readings", "ble")).toHaveLength(1);
+    expect(await rowCount()).toBe(2);
+  });
+
+  it("trims by insertion order, so a phone clock that went backwards cannot delete the newest reading", async () => {
+    const db = await getStore();
+    await listQueue("device_readings", "ble");
+    for (let i = 0; i < MAX_QUEUE_SIZE; i++) {
+      await db.runAsync(
+        "insert into offline_queue_v1 (queue, owner_user_id, id, enqueued_at, payload) values ('device_readings', 'user-1', ?, '2026-12-31T00:00:00.000Z', ?)",
+        [`s${i}`, JSON.stringify({ i })]
+      );
+    }
+    expect(await appendQueue("device_readings", { i: "new" }, "ble")).toBe(true); // clock now earlier than every queued row
+    const list = await listQueue<{ i: number | string }>("device_readings", "ble");
+    expect(list).toHaveLength(MAX_QUEUE_SIZE);
+    expect(list[MAX_QUEUE_SIZE - 1].item.i).toBe("new");
+  });
+
+  it("still queues when S06x had to use its plain file (no SQLCipher), and nothing is lost on the way", async () => {
+    __setCipherAvailable(false);
+    await AsyncStorage.setItem(DEVICE, legacyList(4));
+    expect(await listQueue("device_readings", "ble")).toHaveLength(4);
+    expect(await appendQueue("device_readings", { n: 5 }, "ble")).toBe(true);
+    expect(await listQueue("device_readings", "ble")).toHaveLength(5);
+    __setCipherAvailable(true);
   });
 });
 

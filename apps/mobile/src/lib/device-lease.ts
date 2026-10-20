@@ -114,9 +114,12 @@ export async function wipeThisPhone(
   // Queued device and health-store readings (S06y) are unsent entries too: count them per account, never urgent-flagged.
   try {
     for (const q of await countQueuedByOwner()) {
-      const mine = owners.find((o) => o.owner === q.owner);
+      // Entries nobody has claimed yet (from before the change) would be claimed by the account that wakes the queue first: the triggering one.
+      const owner = q.owner || triggerUserId || owners[0]?.owner || "";
+      if (!owner) continue;
+      const mine = owners.find((o) => o.owner === owner);
       if (mine) mine.total += q.total;
-      else owners.push({ owner: q.owner, total: q.total, danger: 0 });
+      else owners.push({ owner, total: q.total, danger: 0 });
     }
   } catch (error) {
     recordSyncError("offline_outbox", "wipe:countQueues", error);

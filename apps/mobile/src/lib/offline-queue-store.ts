@@ -24,7 +24,10 @@ import { supabase } from "./supabase";
  *  3. Entries from before this change have no account. They are claimed by the first signed-in account that
  *     touches the queue, which is exactly who would have uploaded them before.
  *  4. If the store cannot be opened, the write fails and says so (enqueue returns false). Nothing falls back to
- *     AsyncStorage: that would put a health reading back in clear.
+ *     AsyncStorage: that would put a health reading back in clear. Reads still show an old list that has not been
+ *     moved, so a waiting reading never looks synced. If S06x had to fall back to its PLAIN file (no keystore or no
+ *     SQLCipher in the build) the queue lives in that file and the patient has already been told "not encrypted".
+ *     Offline with an expired token the queue keeps using the last account seen (see sessionUserId).
  *  5. The remote wipe removes the store file, so these rows go with it; it also removes any old AsyncStorage
  *     list that is still waiting to be moved.
  */
@@ -46,6 +49,7 @@ export interface StoredEntry<T> {
 const UNCLAIMED = "";
 /** Opaque rows sort first so they never interleave with readable entries; they are never returned. */
 const OPAQUE_ENQUEUED_AT = "0";
+const INSERT_CHUNK = 50;
 
 interface PlannedRow {
   id: string;
@@ -98,7 +102,8 @@ function isReadable(value: unknown): value is StoredEntry<unknown> {
     value !== null &&
     typeof (value as { id?: unknown }).id === "string" &&
     typeof (value as { enqueuedAt?: unknown }).enqueuedAt === "string" &&
-    "item" in value
+    typeof (value as { item?: unknown }).item === "object" &&
+    (value as { item?: unknown }).item !== null
   );
 }
 
@@ -130,15 +135,42 @@ export function checksumRows(rows: readonly PlannedRow[]): string {
   return rowsChecksum(rows.map((r) => [r.id, r.enqueuedAt, r.payload, r.readable]));
 }
 
+const LAST_OWNER_KEY = "@tarragon/offline-queue-owner/v1";
+let lastOwner: string | null = null;
+
+/**
+ * The signed-in account. Offline with an expired token the auth client cannot refresh and answers "no session" WITH an
+ * error; that is not a sign-out, and a reading taken then must still be queued (the old queue needed no session at
+ * all). So an answer with a fetch error falls back to the last account seen with a live session (an id, no health data).
+ * An answer without an error is a real sign-out: nobody is signed in and the queue shows nothing.
+ */
 async function sessionUserId(): Promise<string | null> {
   try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    return session?.user?.id ?? null;
+    const { data, error } = (await supabase.auth.getSession()) as {
+      data: { session: { user?: { id?: string } } | null };
+      error?: { name?: string; message?: string } | null;
+    };
+    const id = data.session?.user?.id ?? null;
+    if (id) {
+      if (id !== lastOwner) {
+        lastOwner = id;
+        await AsyncStorage.setItem(LAST_OWNER_KEY, id).catch(() => {});
+      }
+      return id;
+    }
+    if (error && /retryable|fetch|network|timeout/i.test(`${error.name ?? ""} ${error.message ?? ""}`)) {
+      if (lastOwner) return lastOwner;
+      return (await AsyncStorage.getItem(LAST_OWNER_KEY).catch(() => null)) ?? null;
+    }
+    return null;
   } catch {
     return null;
   }
+}
+
+/** Test hook. */
+export function __resetQueueOwnerForTests(): void {
+  lastOwner = null;
 }
 
 async function migrateQueue(db: SQLite.SQLiteDatabase, queue: QueueName): Promise<void> {
@@ -158,28 +190,33 @@ async function migrateQueue(db: SQLite.SQLiteDatabase, queue: QueueName): Promis
     const planned = planLegacyRows(queue, raw);
     const sourceChecksum = checksumRows(planned);
     const owner = (await sessionUserId()) ?? UNCLAIMED;
-    await db.withTransactionAsync(async () => {
-      for (const r of planned) {
-        await db.runAsync(
-          "insert into offline_queue_v1 (queue, owner_user_id, id, enqueued_at, payload, readable, legacy) values (?, ?, ?, ?, ?, ?, 1)",
-          [queue, owner, r.id, r.enqueuedAt, r.payload, r.readable]
-        );
-      }
-      // Read back what the store now holds, in the same order, and compare. A throw here rolls the whole copy back.
-      const back = await db.getAllAsync<{ id: string; enqueued_at: string; payload: string; readable: number }>(
-        "select id, enqueued_at, payload, readable from offline_queue_v1 where queue = ? and legacy = 1 order by seq",
-        [queue]
+    // No transaction on the shared handle: other modules (the outbox) write on the same connection and would be rolled
+    // back with it. Instead: clear any half copy from a crashed earlier attempt, insert in single statements, read back
+    // and compare, and only a match writes the marker (the commit point). A mismatch deletes the copy again.
+    await db.runAsync("delete from offline_queue_v1 where queue = ? and legacy = 1", [queue]);
+    for (let i = 0; i < planned.length; i += INSERT_CHUNK) {
+      const chunk = planned.slice(i, i + INSERT_CHUNK);
+      await db.runAsync(
+        `insert into offline_queue_v1 (queue, owner_user_id, id, enqueued_at, payload, readable, legacy) values ${chunk.map(() => "(?, ?, ?, ?, ?, ?, 1)").join(", ")}`,
+        chunk.flatMap((r) => [queue, owner, r.id, r.enqueuedAt, r.payload, r.readable])
       );
-      const copied = back.map((b): PlannedRow => ({ id: b.id, enqueuedAt: b.enqueued_at, payload: b.payload, readable: b.readable === 1 ? 1 : 0 }));
-      if (copied.length !== planned.length || checksumRows(copied) !== sourceChecksum) {
-        throw new Error(`offline queue ${queue}: ${planned.length} entries in the old list, ${copied.length} copied, or checksum differs`);
-      }
-      await db.runAsync("insert into offline_queue_migration (queue, state, entries, checksum) values (?, 'verified', ?, ?)", [
-        queue,
-        planned.length,
-        sourceChecksum,
-      ]);
-    });
+    }
+    const back = await db.getAllAsync<{ id: string; enqueued_at: string; payload: string; readable: number }>(
+      "select id, enqueued_at, payload, readable from offline_queue_v1 where queue = ? and legacy = 1 order by seq",
+      [queue]
+    );
+    const copied = back.map((r): PlannedRow => ({ id: r.id, enqueuedAt: r.enqueued_at, payload: r.payload, readable: r.readable === 1 ? 1 : 0 }));
+    if (copied.length !== planned.length || checksumRows(copied) !== sourceChecksum) {
+      await db.runAsync("delete from offline_queue_v1 where queue = ? and legacy = 1", [queue]);
+      throw new Error(`offline queue ${queue}: ${planned.length} entries in the old list, ${copied.length} copied, or checksum differs`);
+    }
+    await db.runAsync("insert into offline_queue_migration (queue, state, entries, checksum) values (?, 'verified', ?, ?)", [
+      queue,
+      planned.length,
+      sourceChecksum,
+    ]);
+    const opaque = planned.filter((r) => r.readable === 0).length;
+    if (opaque > 0) recordSyncError("offline_outbox", `offline_queue:unreadable:${queue}`, `${opaque} entries could not be read; kept encrypted, not uploaded`);
     await finishRemoval(db, queue, key);
   } catch (error) {
     // The old list stays exactly where it is and readers keep using it. Retried at the next start.
@@ -232,13 +269,13 @@ async function removeLegacyEntry(queue: QueueName, id: string): Promise<void> {
 export const MAX_QUEUE_SIZE = 500;
 
 export async function listQueue<T>(queue: QueueName, source: SyncSource): Promise<StoredEntry<T>[]> {
+  const owner = await sessionUserId();
+  if (!owner) return [];
   try {
-    const owner = await sessionUserId();
-    if (!owner) return [];
     const db = await getDb();
     await claimUnclaimed(db, owner);
     const rows = await db.getAllAsync<{ id: string; enqueued_at: string; payload: string }>(
-      "select id, enqueued_at, payload from offline_queue_v1 where owner_user_id = ? and queue = ? and readable = 1 order by enqueued_at, seq",
+      "select id, enqueued_at, payload from offline_queue_v1 where owner_user_id = ? and queue = ? and readable = 1 order by seq",
       [owner, queue]
     );
     const entries: StoredEntry<T>[] = [];
@@ -256,8 +293,10 @@ export async function listQueue<T>(queue: QueueName, source: SyncSource): Promis
     }
     return entries;
   } catch (error) {
+    // The store could not be used (keychain locked, disk busy). An old list that has not been moved yet must still be
+    // visible, or its readings would look synced when they are not. Entries already in the store show again next call.
     recordSyncError(source, "offline_queue:read", error);
-    return [];
+    return legacyEntries<T>(queue);
   }
 }
 
@@ -274,22 +313,18 @@ export async function appendQueue<T>(queue: QueueName, item: T, source: SyncSour
       "insert into offline_queue_v1 (queue, owner_user_id, id, enqueued_at, payload, readable, legacy) values (?, ?, ?, ?, ?, 1, 0)",
       [queue, owner, id, enqueuedAt, JSON.stringify(item ?? null)]
     );
+    // Oldest by insertion order (seq), never by clock: a phone clock that went backwards must not make the NEWEST reading look oldest.
     const count = await db.getFirstAsync<{ n: number }>(
       "select count(*) as n from offline_queue_v1 where owner_user_id = ? and queue = ? and readable = 1",
       [owner, queue]
     );
     const over = (count?.n ?? 0) - MAX_QUEUE_SIZE;
     if (over > 0) {
-      const oldest = await db.getAllAsync<{ seq: number; enqueued_at: string }>(
-        "select seq, enqueued_at from offline_queue_v1 where owner_user_id = ? and queue = ? and readable = 1 order by enqueued_at, seq limit ?",
+      await db.runAsync(
+        "delete from offline_queue_v1 where seq in (select seq from offline_queue_v1 where owner_user_id = ? and queue = ? and readable = 1 order by seq limit ?)",
         [owner, queue, over]
       );
-      for (const o of oldest) await db.runAsync("delete from offline_queue_v1 where seq = ?", [o.seq]);
-      recordSyncError(
-        source,
-        "offline_queue:overflow",
-        `Queue full (${MAX_QUEUE_SIZE}); discarded ${oldest.length} oldest entr${oldest.length === 1 ? "y" : "ies"} (oldest enqueued ${oldest[0]?.enqueued_at}).`
-      );
+      recordSyncError(source, "offline_queue:overflow", `Queue full (${MAX_QUEUE_SIZE}); discarded ${over} oldest entr${over === 1 ? "y" : "ies"}.`);
     }
     return true;
   } catch (error) {
@@ -299,14 +334,19 @@ export async function appendQueue<T>(queue: QueueName, item: T, source: SyncSour
 }
 
 export async function removeFromQueueStore(queue: QueueName, id: string, source: SyncSource): Promise<void> {
+  const owner = await sessionUserId();
+  if (!owner) {
+    recordSyncError(source, "offline_queue:remove", "No signed-in account; the sent entry stays queued and is re-sent (the server dedupes).");
+    return;
+  }
   try {
-    const owner = await sessionUserId();
-    if (!owner) return;
     const db = await getDb();
     await db.runAsync("delete from offline_queue_v1 where owner_user_id = ? and queue = ? and id = ?", [owner, queue, id]);
     if (heldFor(db).has(queue)) await removeLegacyEntry(queue, id);
   } catch (error) {
     recordSyncError(source, "offline_queue:write", error);
+    // The store was unusable, so the entry may be one that is still in the old list.
+    await removeLegacyEntry(queue, id).catch(() => {});
   }
 }
 
@@ -315,11 +355,23 @@ export interface QueuedByOwner {
   total: number;
 }
 
-/** Counts of waiting queue entries for every account on the phone (counts only). Used by the remote wipe. */
+/**
+ * Counts of waiting queue entries for every account on the phone (counts only). Used by the remote wipe. Old
+ * AsyncStorage lists that have not been moved yet count too, under the unclaimed owner "" (the wipe removes them).
+ */
 export async function countQueuedByOwner(): Promise<QueuedByOwner[]> {
-  const db = await getDb();
-  const rows = await db.getAllAsync<{ owner_user_id: string; n: number }>(
-    "select owner_user_id, count(*) as n from offline_queue_v1 where readable = 1 group by owner_user_id"
-  );
-  return rows.map((r) => ({ owner: r.owner_user_id, total: r.n }));
+  const out = new Map<string, number>();
+  try {
+    const db = await getDb();
+    const rows = await db.getAllAsync<{ owner_user_id: string; n: number }>(
+      "select owner_user_id, count(*) as n from offline_queue_v1 where readable = 1 group by owner_user_id"
+    );
+    for (const r of rows) out.set(r.owner_user_id, r.n);
+  } catch (error) {
+    recordSyncError("offline_outbox", "offline_queue:count", error);
+  }
+  let unmoved = 0;
+  for (const queue of Object.keys(LEGACY_QUEUE_KEYS) as QueueName[]) unmoved += (await legacyEntries(queue)).length;
+  if (unmoved > 0) out.set(UNCLAIMED, (out.get(UNCLAIMED) ?? 0) + unmoved);
+  return [...out].map(([owner, total]) => ({ owner, total }));
 }
