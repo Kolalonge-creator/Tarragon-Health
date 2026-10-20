@@ -124,12 +124,12 @@ The code now builds Sentry's options in one place (`apps/web/src/lib/sentry/opti
 | 8.7 Uptime monitor (Better Stack, UptimeRobot or Sentry Uptime) with these checks, each alerting your phone by push or phone call, not only email: | | |
 | 8.7a `GET https://tarragonhealth.ng/` every 1 minute, expect 200 | | Done: ____ |
 | 8.7b `GET https://app.tarragonhealth.ng/api/status` every 1 minute, expect 200 (this is the public liveness probe) | | Done: ____ |
-| 8.7c `GET https://app.tarragonhealth.ng/api/health/deep` every 1 minute with the header `x-health-secret: <HEALTH_CHECK_SECRET>`; alert on any non-200 (503 means a check is down: a red page unanswered 10 minutes, a stale cron job, a payment webhook unprocessed for 30 minutes, connections above 90 percent and so on). If the tool can read the body, also warn when `"verdict":"degraded"`. | | Done: ____ |
-| 8.7d Edge function liveness is covered by the backlog checks in 8.7c (a stopped function shows up as a growing backlog) and by Sentry. Do not point the monitor at the webhook URLs themselves. | | |
+| 8.7c `GET https://app.tarragonhealth.ng/api/health/deep` every 1 minute with the header `x-health-secret: <HEALTH_CHECK_SECRET>`; alert on any non-200 (as of 2026-10-16 only a fully healthy answer is 200: a degraded or down check, a stale pager or queue heartbeat, an open sev1 incident, a quiet canary or an unreachable database all answer 503 with the failing check names). Full setup, what each name means and who is alerted: `docs/runbooks/external-dead-man-monitor.md`. | | Done: ____ |
+| 8.7d Edge function liveness: the `process_events` heartbeat and the chain canary are checks inside 8.7c, and a stopped function also shows up as a growing backlog and in Sentry. Do not point the monitor at the webhook URLs themselves. | | |
 | 8.8 Who receives the alerts, and who is the backup? (Open decision 3 in the plan.) | | Primary: ____  Backup: ____ |
 | 8.9 Run the platform-outage runbook tabletop once with the alert actually firing (`docs/PLATFORM_OUTAGE_RUNBOOK.md`). | | Date: ____ |
 
-What `/api/health/deep` returns: `verdict` (ok, degraded, down) and a list of named checks, each with a short plain detail (counts and ages only, never a patient identifier). The thresholds are versioned configuration, key `ops.health_thresholds`, still PROPOSED until you confirm them.
+What `/api/health/deep` returns: `ok`, `verdict` (ok, degraded, down), `failing` (the names of every check that is not healthy) and `checks` (name and verdict only; never a count, an age or a patient identifier). Status 200 only when everything is healthy, 503 otherwise. The thresholds are versioned configuration, key `ops.health_thresholds`, still PROPOSED until you confirm them.
 
 ## 9. Service targets to sign
 
