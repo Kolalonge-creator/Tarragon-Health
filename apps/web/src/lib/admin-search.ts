@@ -55,6 +55,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/settings/lab-panels", "lab ranges reference critical limits release policy panels read only signed"],
   ["/clinician/my-health-config", "lock screen pass wallet card fields sign cmo emergency basics initials blood group genotype allergies on file my health c8"],
   ["/admin/settings/my-health-config", "lock screen pass wallet card fields read only signed my health emergency basics"],
+  ["/clinician/activity-safety-config", "activity safety rules exercise workout rest gentle red amber pregnancy arthritis back pain hypertension sign cmo gate s48a"],
+  ["/admin/settings/activity-safety-config", "activity safety rules exercise workout rest gentle read only signed gate"],
   ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo s06 s07 s08 s09 s10 c1 c2 c3 c4 c5 c6 c7 c8 cuff wording low blood pressure adherence as needed prn limits lock screen pass"],
   ["/clinician/assistant-review", "assistant ai coach chat monthly review sample conversations reported answers report an answer unsafe appropriate verdict clinical lead cmo audit read reason safety review ai health assistant"],
   ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo"],
@@ -163,6 +165,7 @@ export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Care funnel", href: "/clinician/funnel", group: "Clinical governance", hint: "Alerts, red-event pages, doctor reviews and emergencies over 30 days as a ratio per alert, and how often a patient's own lead handled the task." },
   { label: "Home blood pressure programme", href: "/clinician/home-bp-programme", group: "Clinical sign-off", hint: "Sign the seven-day home check protocol, the bands and the white-coat or masked pattern rule (C1 to C3)." },
   { label: "My Health lock-screen pass fields", href: "/clinician/my-health-config", group: "Clinical sign-off", hint: "Sign what a lock-screen or wallet pass may show (C8)." },
+  { label: "Activity safety rules", href: "/clinician/activity-safety-config", group: "Clinical sign-off", hint: "Sign when a patient is told to rest or kept to gentle activity, and the kinds blocked for pregnancy, arthritis and back pain." },
 ];
 
 export interface SettingsPageInput {
