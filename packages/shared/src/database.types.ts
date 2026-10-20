@@ -50380,6 +50380,7 @@ export type Database = {
         Returns: {
           auto_disabled_at: string | null
           consecutive_failures: number
+          dead_events: number
           disabled_reason: string | null
           environment: Database["public"]["Enums"]["api_environment"]
           event_types: Database["public"]["Enums"]["integration_event_type"][]

@@ -4,8 +4,9 @@ import { Constants } from "@tarragon/shared";
 /** Pure rules for the partner endpoint admin screen (S10y). No database, no React. Mirrors the database checks so a bad form fails early with a plain sentence; the database still enforces them. */
 
 const ID_KEY = /^[a-z][a-z0-9_]*(_id|_ids)$/;
-/** Names that identify a person. The database refuses these too (set_partner_event_mapping). */
-export const PERSON_ID_KEYS = ["patient_id", "profile_id", "user_id", "member_id", "person_id", "clinician_id", "staff_id", "caregiver_id"] as const;
+/** Names that identify a person, or can be one (aggregate_id is the patient for a patient-scoped event). The database refuses the first eight too (set_partner_event_mapping); this screen is stricter. */
+export const PERSON_ID_KEYS = ["patient_id", "profile_id", "user_id", "member_id", "person_id", "clinician_id", "staff_id", "caregiver_id",
+  "aggregate_id", "subject_id", "beneficiary_id", "dependent_id", "guardian_id", "doctor_id", "owner_id", "recipient_id"] as const;
 
 /** "lab_result_id, order_id" to ["lab_result_id", "order_id"]; null when any key is not allowed. Duplicates are dropped; at most 20 keys. */
 export function parseIdKeys(raw: string): string[] | null {

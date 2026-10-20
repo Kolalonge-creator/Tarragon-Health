@@ -69,7 +69,7 @@ export function RotateKeyForm({ endpointId, inGrace, locale }: { endpointId: str
       </form>
       {state.status === "error" ? <Result state={state} locale={locale} /> : null}
       {secret ? (
-        <div role="alert" className="mt-4 rounded-lg border border-amber-400 bg-amber-50 p-4">
+        <div role="group" aria-label={t("busops.partners.rotate.done", locale)} className="mt-4 rounded-lg border border-amber-400 bg-amber-50 p-4">
           <p className="text-sm font-semibold text-charcoal-ink">{t("busops.partners.rotate.done", locale)}</p>
           <input ref={secretRef} readOnly value={secret} aria-label={t("busops.partners.rotate.done", locale)} onFocus={(e) => e.currentTarget.select()} className={`${field} font-mono text-xs`} autoComplete="off" spellCheck={false} />
           <p className="mt-2 text-sm text-charcoal-ink">{t("busops.partners.rotate.once", locale)}</p>

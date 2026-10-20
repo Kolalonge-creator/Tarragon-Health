@@ -10,7 +10,7 @@ describe("parseIdKeys", () => {
     expect(parseIdKeys("")).toEqual([]);
   });
   it("refuses person ids and keys of the wrong shape", () => {
-    for (const bad of ["patient_id", "user_id", "caregiver_id", "name", "Lab_id", "1_id", "reading", "order_id,patient_id"]) {
+    for (const bad of ["patient_id", "user_id", "caregiver_id", "name", "Lab_id", "1_id", "reading", "order_id,patient_id", "aggregate_id", "dependent_id", "doctor_id"]) {
       expect(parseIdKeys(bad)).toBeNull();
     }
   });

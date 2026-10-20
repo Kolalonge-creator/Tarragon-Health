@@ -17,7 +17,7 @@ returns table (
   id uuid, name text, url_host text, environment public.api_environment, is_active boolean,
   event_types public.integration_event_type[], last_success_at timestamptz, last_failure_at timestamptz,
   consecutive_failures integer, auto_disabled_at timestamptz, disabled_reason text,
-  signing_key_version integer, previous_secret_expires_at timestamptz, queued_events bigint
+  signing_key_version integer, previous_secret_expires_at timestamptz, queued_events bigint, dead_events bigint
 )
 language plpgsql
 stable
@@ -35,7 +35,9 @@ begin
          w.signing_key_version,
          case when w.previous_secret_expires_at > now() then w.previous_secret_expires_at end,
          (select count(*) from public.integration_outbound_events e
-           where e.webhook_endpoint_id = w.id and e.status in ('pending', 'failed'))
+           where e.webhook_endpoint_id = w.id and e.status in ('pending', 'failed', 'delivering')),
+         (select count(*) from public.integration_outbound_events e
+           where e.webhook_endpoint_id = w.id and e.status = 'dead_letter')
     from public.partner_webhook_endpoints w
    where w.organisation_id = private.current_org_id()
    order by w.created_at desc;

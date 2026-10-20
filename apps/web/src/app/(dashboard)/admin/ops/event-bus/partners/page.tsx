@@ -73,6 +73,7 @@ export default async function PartnerEndpointsPage() {
                   <Fact label={t("busops.partners.field.last_failure", locale)}>{lagos(e.last_failure_at)}</Fact>
                   <Fact label={t("busops.partners.field.failures", locale)}>{e.consecutive_failures}</Fact>
                   <Fact label={t("busops.partners.field.queued", locale)}>{e.queued_events}</Fact>
+                  <Fact label={t("busops.partners.field.dead", locale)}>{e.dead_events}</Fact>
                   <Fact label={t("busops.partners.field.events", locale)}>{e.event_types.join(", ")}</Fact>
                   {e.previous_secret_expires_at && <Fact label={t("busops.partners.field.grace", locale)}>{lagos(e.previous_secret_expires_at)}</Fact>}
                   {e.auto_disabled_at && <Fact label={t("busops.partners.field.disabled_at", locale)}>{lagos(e.auto_disabled_at)}</Fact>}
