@@ -214,7 +214,11 @@ export function ActivityScreen({ patientId }: { patientId: string }) {
           return logActivity(patientId, { activityName: name, durationMinutes: minutes });
         },
         summary: (s) =>
-          s.dailyStepGoal != null ? { label: "Daily step goal", value: `${s.dailyStepGoal}` } : null,
+          s.week
+            ? { label: "This week", value: `${s.week.activeMinutes} of ${s.week.goalMinutes} minutes` }
+            : s.dailyStepGoal != null
+              ? { label: "Daily step goal", value: `${s.dailyStepGoal}` }
+              : null,
         history: (s) =>
           s.entries.map((e, i) => ({
             id: `${e.loggedOn}:${i}`,

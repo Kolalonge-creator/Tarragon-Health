@@ -45,6 +45,7 @@ type VersionedTableName =
   | "prn_limit_rules"
   | "my_health_config"
   | "nutrition_target_config"
+  | "activity_safety_config"
   | "home_bp_programme_signoffs";
 
 const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string }[] = [
@@ -69,6 +70,7 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
   { table: "nutrition_target_config", title: "Nutrition targets and meal summary", slug: "nutrition-targets-config" },
+  { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
 ];
 
 export type SettledConfig = { table: string; title: string; href: string; version: number };

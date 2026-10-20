@@ -13,12 +13,16 @@ import { useLatestWeightKg } from "@/lib/queries/vitals";
 import { classifyActivity, caloriesBurned, WHO_WEEKLY_TARGET_MINUTES } from "@/lib/activity/intensity";
 import {
   setActivityGoalAction,
+  setWeeklyGoalAction,
   logStepsAction,
   logWorkoutAction,
   toggleActivityFavoriteAction,
   type ActivityActionState,
 } from "./actions";
 import { COMMON_ACTIVITY_NAMES } from "@/lib/validation/activity";
+import { useWeekProgress, useActivityGate, useActivitySafetyConfig } from "@/lib/queries/activity-gate";
+import { pickerLabel } from "@/lib/activity/not-suggested";
+import { ActivityGateBanner } from "@/components/activity/activity-gate-banner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +36,7 @@ const GOAL_QUERY_KEY = "activity-goal";
 const TODAY_STEPS_KEY = "today-steps";
 const ENTRIES_KEY = "activity-entries";
 const WEEKLY_MINUTES_KEY = "weekly-activity-minutes";
+const WEEK_PROGRESS_KEY = "activity-week-progress";
 
 function StepRing({ current, goal }: { current: number; goal: number }) {
   const size = 176;
@@ -120,12 +125,15 @@ export function ActivityClient({ patientId }: { patientId: string }) {
 
   return (
     <div className="space-y-6">
+      <ActivityGateBanner />
       <TodayCard
         patientId={patientId}
         currentSteps={todaySteps.data ?? 0}
         stepGoal={stepGoal}
         loading={todaySteps.isLoading || goal.isLoading}
       />
+
+      <WeeklyGoalCard patientId={patientId} />
 
       <LogWorkoutCard patientId={patientId} />
 
@@ -225,6 +233,7 @@ function TodayCard({
         queryClient.invalidateQueries({ queryKey: [GOAL_QUERY_KEY, patientId] });
         queryClient.invalidateQueries({ queryKey: [TODAY_STEPS_KEY, patientId] });
         queryClient.invalidateQueries({ queryKey: [ENTRIES_KEY, patientId] });
+        queryClient.invalidateQueries({ queryKey: [WEEK_PROGRESS_KEY, patientId] });
         setEditing(false);
       }
       return result;
@@ -295,12 +304,16 @@ function TodayCard({
 function LogWorkoutCard({ patientId }: { patientId: string }) {
   const t = useT();
   const queryClient = useQueryClient();
+  const gateAnswer = useActivityGate();
+  const safetyConfig = useActivitySafetyConfig();
+  const gate = gateAnswer.data && !gateAnswer.data.unavailable ? gateAnswer.data.gate : null;
   const [state, formAction, pending] = useActionState<ActivityActionState, FormData>(
     async (prev, formData) => {
       const result = await logWorkoutAction(prev, formData);
       if (result?.success) {
         queryClient.invalidateQueries({ queryKey: [ENTRIES_KEY, patientId] });
         queryClient.invalidateQueries({ queryKey: [WEEKLY_MINUTES_KEY, patientId] });
+        queryClient.invalidateQueries({ queryKey: [WEEK_PROGRESS_KEY, patientId] });
       }
       return result;
     },
@@ -313,13 +326,13 @@ function LogWorkoutCard({ patientId }: { patientId: string }) {
         <CardTitle>{t("Log a workout")}</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="grid gap-3 sm:grid-cols-3 sm:items-end">
+        <form action={formAction} className="grid gap-3 sm:grid-cols-4 sm:items-end">
           <div className="grid gap-1">
             <Label htmlFor="activity_name">Activity</Label>
             <Select id="activity_name" name="activity_name" defaultValue={COMMON_ACTIVITY_NAMES[0]} required>
               {COMMON_ACTIVITY_NAMES.map((name) => (
                 <option key={name} value={name}>
-                  {name}
+                  {pickerLabel(name, gate, safetyConfig.data ?? null)}
                 </option>
               ))}
             </Select>
@@ -327,6 +340,10 @@ function LogWorkoutCard({ patientId }: { patientId: string }) {
           <div className="grid gap-1">
             <Label htmlFor="duration_minutes">{t("Duration (min)")}</Label>
             <Input id="duration_minutes" name="duration_minutes" type="number" min={1} placeholder="30" required />
+          </div>
+          <div className="grid gap-1">
+            <Label htmlFor="distance_km">Distance (km, optional)</Label>
+            <Input id="distance_km" name="distance_km" type="number" min={0} step="0.1" placeholder="2.5" />
           </div>
           <Button type="submit" disabled={pending}>
             {pending ? t("Logging…") : t("Log workout")}
@@ -418,5 +435,74 @@ function EntryRow({
         </button>
       )}
     </li>
+  );
+}
+
+/** This week against the person's own goal, beside the daily step goal. A plain bar with the numbers in words; no ranking against anyone. */
+function WeeklyGoalCard({ patientId }: { patientId: string }) {
+  const queryClient = useQueryClient();
+  const progress = useWeekProgress(patientId);
+  const [editing, setEditing] = useState(false);
+  const [state, formAction] = useActionState<ActivityActionState, FormData>(
+    async (prev, formData) => {
+      const result = await setWeeklyGoalAction(prev, formData);
+      if (result?.success) {
+        queryClient.invalidateQueries({ queryKey: [WEEK_PROGRESS_KEY, patientId] });
+        setEditing(false);
+      }
+      return result;
+    },
+    undefined,
+  );
+  const p = progress.data;
+  const pct = p && p.weekly_active_minutes_goal > 0 ? Math.min(100, Math.round((p.active_minutes / p.weekly_active_minutes_goal) * 100)) : 0;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardTitle>Your week</CardTitle>
+        {p && (
+          <Button size="sm" variant="outline" onClick={() => setEditing((v) => !v)}>
+            {editing ? "Close" : "Change goal"}
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {progress.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {!progress.isLoading && !p && (
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">We could not load your week just now. Your logged activity is safe. Please try again shortly.</p>
+        )}
+        {p && (
+          <>
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+              <span className="font-semibold text-charcoal-ink dark:text-night-ink">{p.active_minutes} of {p.weekly_active_minutes_goal} minutes</span> of
+              of movement this week (every minute counts towards your own goal), and you reached your step goal on{" "}
+              <span className="font-semibold text-charcoal-ink dark:text-night-ink">{p.days_step_goal_met} {p.days_step_goal_met === 1 ? "day" : "days"}</span>.
+            </p>
+            <div
+              className="h-2 w-full overflow-hidden rounded-full bg-charcoal-ink/10 dark:bg-night-ink/15"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={pct}
+              aria-label="Weekly activity goal"
+            >
+              <div className="h-full rounded-full bg-brand-green transition-all" style={{ width: `${pct}%` }} />
+            </div>
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              {pct >= 100 ? "Weekly goal reached, nice work." : `${pct}% of the way there. Any movement counts.`}
+            </p>
+            {editing && (
+              <form action={formAction} className="grid gap-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3 sm:max-w-xs">
+                <Label htmlFor="weekly_active_minutes_goal">Weekly goal (minutes)</Label>
+                <Input id="weekly_active_minutes_goal" name="weekly_active_minutes_goal" type="number" min={1} defaultValue={p.weekly_active_minutes_goal} required />
+                <Button type="submit" size="sm">Save goal</Button>
+              </form>
+            )}
+            {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

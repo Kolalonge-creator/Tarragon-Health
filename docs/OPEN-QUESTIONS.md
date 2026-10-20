@@ -4322,6 +4322,37 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
 
+### OQ-S48A-1 The activity safety rules are PROPOSED and unsigned (raised by S48a, 2026-10-20)
+- Every figure (48 hour red and amber windows, 7 day unsettled blood pressure window), every maximum level and every blocked kind for pregnancy, high-risk pregnancy, unsettled hypertension, arthritis and back pain is a starting proposal in `activity_safety_config` v1. The CMO reads and signs it on the sign-off hub ("Activity safety rules"). The gate already enforces these rows because it only ever restricts; if the CMO changes a row, that is a new version.
+- Also needed from the CMO: the ICD-10 prefixes and name patterns that count as arthritis, back pain and hypertension; whether a diabetes rule is wanted (v1 has none); and whether `shadow` triage rows (graded by a rule set nobody has approved) should count towards rest. v1 counts them, which is the safe direction.
+- Decision: open (CMO).
+
+### OQ-S48A-2 Workout plans need clinician review and real audio (raised by S48a, 2026-10-20)
+- Three starter plans (a gentle 10 minute routine, a chair-based class, a steady 20 minute routine) are written text only: `clinician_reviewed = false`, inactive, no audio. Patients see nothing until a clinician reviews a plan and an administrator activates it. No audio was recorded or generated.
+- Needed: a clinician (and a physiotherapist for the chair-based class and the back-pain and arthritis lists) to review or replace the text, and a content owner and budget for recorded audio and low-data video (5.4).
+- Decision: open (CMO and content owner).
+
+### OQ-S48A-3 Private route recording: privacy review, retention, and whether the owner can download their own route (raised by S48a, 2026-10-20)
+- The table, the owner-only policies and the guard (`private_route_recording`, off) exist; nothing records a route. Before any UI is built: a privacy review (home and workplace inference from a route), a retention period, and counsel's view. Routes are excluded from the patient export on purpose (acceptance: "Routes are never shared"); whether an owner-only download for data-rights requests should exist is the DPO's call.
+- Decision S48-1 keeps emergency location a separate feature with its own consent and retention; it is not here.
+- Decision: open (DPO, counsel, founder).
+
+### OQ-S48A-4 Platform pedometer fallback needs a native dependency (raised by S48a, 2026-10-20)
+- `expo-sensors` is not installed and `Pedometer` needs motion permission on both platforms, so it is a new native module, a new EAS build and a `runtimeVersion` bump. Not added. Steps continue to come from HealthKit and Health Connect and from manual entry.
+- Decision: open (founder), bundle with the next native build.
+
+### OQ-S48A-5 Two effort tables exist (raised by S48a, 2026-10-20)
+- The older web `lib/activity/intensity.ts` has its own MET values by activity name (used for the history list and the WHO guideline card); the new config has `effort_met` per kind. They agree in direction but not in every figure. The gate never reads either for a decision (it uses the kind's intensity word). Needed: pick one source, probably the signed config, and have the web history read it.
+- Decision: open (product, CMO).
+
+### OQ-S48A-6 Which events count as "red" for the activity gate (raised by S48a, 2026-10-20)
+- v1 reads `triage_events` only (any red grade, shadow rows included). Two gaps found in review and left, because they cannot be proven without the full database: (a) `triage_events` is written after grading, so a reading logged seconds ago may not have a row yet; (b) red-class emergencies raised on other paths (`emergency_events` from the pulse, SpO2, temperature and glucose red-flag triggers, `clinician_alerts`) are not consulted. The enrolment trigger and the plans list therefore rest on the graded record, not on the raw reading.
+- Needed: confirm with the clinical lead that every red-class path ends in a `triage_events` row, or add `emergency_events` as a second red source (with a proof that builds its fixtures through the real triggers).
+- Decision: open (CMO and engineering).
+
+### OQ-S48A-7 Pregnancy and the enrolment gate when staff enrol a patient (raised by S48a, 2026-10-20)
+- Pregnancy is part of the enrolment gate for the patient themself, for staff the category-scoped path (`staff_may_read(..., 'reproductive_health')`) entitles, and for a system actor. For other organisation staff it is left out, so the refusal wording cannot disclose it. The cost: an untied staff member can enrol a pregnant patient into a programme the patient's own enrolment would be refused. Organisation-wide staff insert on `patient_exercise_enrollments` is existing behaviour; S39b may want to tie it.
+- Decision: open (CMO and DPO).
 ### OQ-IPS-1 Validate the IPS export before anyone relies on it (raised by the IPS build, 2026-10-20)
 - The file is IPS-shaped (structure) but no HL7 validator was run and no IPS or Nigeria Core profile is claimed. Run the HAPI validator against a real export and against the IPS implementation guide, record the result, and only then decide whether a later `fhir.ips_mapping` version may list a profile URL. Do not state conformance in product or marketing copy until then.
 - Decision: open (founder / health-informatics advisor).
