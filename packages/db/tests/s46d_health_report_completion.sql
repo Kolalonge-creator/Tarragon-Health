@@ -217,7 +217,7 @@ end $$;
 -- 4. The share link --------------------------------------------------------------------------------------------------------------
 do $$
 declare pat uuid := pg_temp.f('pat'); nd uuid := pg_temp.f('nodraft'); yr integer := extract(year from now())::integer;
-        s jsonb; tok text; b jsonb; txt text; s2 jsonb; s3 jsonb;
+        s jsonb; tok text; b jsonb; txt text; s2 jsonb; s3 jsonb; s4 jsonb;
 begin
   -- no report at all, and a draft only: refused
   perform pg_temp.ck('no report: the section is refused', 'true', ((pg_temp.mkshare(nd, '{health_report}') ->> 'error') like '%no signed yearly report%')::text);
@@ -250,6 +250,11 @@ begin
     || ',' || ((b -> 'health_report' -> 'composed' -> 'items') @> '[{"id":"bp"}]'::jsonb)::text);
   perform pg_temp.ck('control: the non-reproductive screening is there and the retest line survives', 'true,6',
     ((b -> 'health_report' -> 'composed' -> 'screening' -> 'done') @> '[{"code":"fit"}]'::jsonb)::text || ',' || (b -> 'health_report' -> 'composed' ->> 'midYearRetestMonths'));
+
+  -- a link limited to a date window never carries the yearly report (it cannot be trimmed; the window is the patient's limit on what a stranger sees)
+  s4 := pg_temp.mkshare(pat, '{health_report,vitals}');
+  update public.record_shares set window_days = 30 where token = s4 ->> 'token';
+  perform pg_temp.ck('a link with a date window carries no yearly report', 'false', (pg_temp.shared_report(s4 ->> 'token') ? 'health_report')::text);
 
   -- a share without the section carries no report
   s2 := pg_temp.mkshare(pat, '{vitals}');

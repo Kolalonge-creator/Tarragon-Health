@@ -150,6 +150,7 @@ export function ShareControls({
                 <input
                   type="checkbox"
                   checked={selectedSections.has(section)}
+                  disabled={section === "health_report" && windowDays !== ""}
                   onChange={() => toggleSection(section)}
                   className="h-4 w-4 accent-brand-green"
                 />
@@ -159,6 +160,9 @@ export function ShareControls({
               </label>
             ))}
           </div>
+          {hasSignedReport && windowDays !== "" && (
+            <p className="text-xs text-charcoal-ink/60">{t("report.share.window_note", locale)}</p>
+          )}
 
           <div className="flex items-center gap-3">
             <Label htmlFor="expiry" className="text-sm whitespace-nowrap">
@@ -207,7 +211,17 @@ export function ShareControls({
             <Label htmlFor="window" className="text-sm whitespace-nowrap">
               {t("sharelink.window.label", locale)}
             </Label>
-            <Select id="window" className="w-40" value={windowDays} onChange={(e) => setWindowDays(e.target.value)}>
+            <Select id="window" className="w-40" value={windowDays} onChange={(e) => {
+                setWindowDays(e.target.value);
+                // a yearly report cannot be trimmed to a date window, so choosing a window removes it from this link
+                if (e.target.value !== "") {
+                  setSelectedSections((prev) => {
+                    const next = new Set(prev);
+                    next.delete("health_report");
+                    return next;
+                  });
+                }
+              }}>
               <option value="">{t("sharelink.window.latest", locale)}</option>
               {SHARE_WINDOW_DAYS_CHOICES.map((d) => (
                 <option key={d} value={String(d)}>

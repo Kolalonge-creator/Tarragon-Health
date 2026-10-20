@@ -200,7 +200,8 @@ do $$
 declare
   v_oid oid; v_def text; v_n integer := 0;
   c_old constant text := E'  if ''emergency_info'' = any(v_share.sections) then\n';
-  c_new constant text := E'  if ''health_report'' = any(v_share.sections) then\n    v_result := v_result || jsonb_build_object(''health_report'', private.health_report_share_body(v_share.patient_id));\n  end if;\n\n' || c_old;
+  -- a yearly report cannot be trimmed to a date window, so a link limited to recent dates never carries it (the patient limited what a stranger may see)
+  c_new constant text := E'  if ''health_report'' = any(v_share.sections) and v_share.window_days is null then\n    v_result := v_result || jsonb_build_object(''health_report'', private.health_report_share_body(v_share.patient_id));\n  end if;\n\n' || c_old;
 begin
   for v_oid in select p.oid from pg_proc p where p.proname = 'record_share_by_token' and p.pronamespace = 'public'::regnamespace loop
     v_def := pg_get_functiondef(v_oid);
