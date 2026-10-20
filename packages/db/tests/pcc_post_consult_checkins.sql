@@ -337,7 +337,10 @@ begin
   perform pg_temp.act(v_docB);
   perform pg_temp.rec('a doctor the alert was not routed to cannot open the check-in', '42501', pg_temp.try(format('select public.get_consult_checkins(%L)', e9)));
   perform pg_temp.back();
+  -- fixture routing, as an owner-run backfill would do it: the reassignment guard (CMO only) is a real-session rule, not what this proof tests
+  set local session_replication_role = replica;
   update public.clinician_alerts set responsible_clinician_id = (select id from public.clinical_staff where profile_id = v_docB) where patient_id = p3;
+  set local session_replication_role = origin;
   perform pg_temp.act(v_docB);
   perform pg_temp.rec('the doctor the alert was routed to can open the check-in', 'ok', pg_temp.try(format('select public.get_consult_checkins(%L)', e9)));
   perform pg_temp.back();
