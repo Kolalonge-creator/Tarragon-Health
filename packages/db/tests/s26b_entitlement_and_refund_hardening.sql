@@ -234,27 +234,32 @@ begin
   perform pg_temp.svc_off();
 end $$;
 
--- one entitlement that cannot be reminded must not stop the others (a trigger that refuses ONE patient's notification stands in for the fault)
-create function public.s26b_boom() returns trigger language plpgsql as $f$
-begin if new.recipient_id = (select v from fx where k = 'bad_patient') then raise exception 's26b boom'; end if; return new; end $f$;
+-- one entitlement that cannot be reminded must not stop the others. A channel chooser that refuses ONE patient stands in for the fault
+-- (a function is swapped inside this rolled-back transaction, so no table lock is taken that a live worker could deadlock on).
 do $$
 declare
-  v_org uuid := pg_temp.f('org'); bad uuid; good uuid; o_bad uuid; e_bad uuid; o_good uuid; e_good uuid; n int;
+  v_org uuid := pg_temp.f('org'); bad uuid; good uuid; o_bad uuid; e_bad uuid; o_good uuid; e_good uuid; n int; v_def text;
 begin
   bad := pg_temp.mkuser(v_org, 'badrem', 'patient'); good := pg_temp.mkuser(v_org, 'goodrem', 'patient');
-  insert into fx values ('bad_patient', bad);
   o_bad := pg_temp.mkorder(v_org, bad, pg_temp.f('pack'), pg_temp.f('pack_price'), 500000, 70);
   e_bad := pg_temp.mkent(v_org, bad, o_bad, 'care_pack', -70, 20);
   o_good := pg_temp.mkorder(v_org, good, pg_temp.f('pack'), pg_temp.f('pack_price'), 500000, 70);
   e_good := pg_temp.mkent(v_org, good, o_good, 'care_pack', -70, 20);
-  create trigger s26b_boom before insert on public.notifications for each row execute function public.s26b_boom();
+  v_def := pg_get_functiondef('private.patient_reminder_channel(uuid, boolean)'::regprocedure);
+  execute format($fmt$
+    create or replace function private.patient_reminder_channel(p_recipient uuid, p_allow_email boolean default true)
+    returns public.notification_channel language plpgsql stable security definer set search_path = '' as $b$
+    begin
+      if p_recipient = %L::uuid then raise exception 's26b boom'; end if;
+      return 'in_app'::public.notification_channel;
+    end $b$$fmt$, bad);
   n := private.queue_entitlement_expiry_reminders();
   perform pg_temp.ck('reminders: one failing entitlement does not stop the others', '1/0',
     pg_temp.notifs(good, 'entitlement_expiring_soon') || '/' || pg_temp.notifs(bad, 'entitlement_expiring_soon'));
   perform pg_temp.ck('reminders: the failure is raised once, not swallowed', '1',
     (select count(*) from public.ops_incidents where external_reference = 'entitlement-reminder:' || e_bad)::text);
   perform pg_temp.ck('reminders: the failed entitlement has no step claimed, so it is retried', '', pg_temp.steps(e_bad));
-  drop trigger s26b_boom on public.notifications;
+  execute v_def;   -- the real chooser back
   n := private.queue_entitlement_expiry_reminders();
   perform pg_temp.ck('reminders: once the fault is gone the next run reminds it', '1', pg_temp.notifs(bad, 'entitlement_expiring_soon')::text);
 end $$;
