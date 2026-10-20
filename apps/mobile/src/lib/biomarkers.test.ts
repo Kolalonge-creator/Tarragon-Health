@@ -1,5 +1,5 @@
 import { en } from "@tarragon/i18n";
-import { latestLabel, loadBiomarkerList, loadBiomarkerTrend, parseBiomarkerList, readingsLabel, trendSummary } from "./biomarkers";
+import { flagLabel, latestLabel, loadBiomarkerList, loadBiomarkerTrend, parseBiomarkerList, readingsLabel, trendSummary } from "./biomarkers";
 
 let mockUser: string | null = "user-1";
 let mockError: { code?: string; message: string } | null = null;
@@ -85,6 +85,21 @@ describe("results over time on the phone (S43m)", () => {
     expect(latestLabel({ latestValue: null, latestUnit: "%" })).toBeNull();
     expect(readingsLabel(1)).toBe("1 result");
     expect(readingsLabel(4)).toBe("4 results");
+  });
+
+  it("reads the year in Lagos time", () => {
+    expect(trendSummary("ldl", null, [{ takenAt: "2025-12-31T23:30:00Z" }])).toBe("LDL, 1 result, in 2026");
+  });
+
+  it("drops a list row with no readings or a bad date rather than showing 0 results", () => {
+    expect(parseBiomarkerList([{ code: "a", readings: null, last_at: "2026-01-01T00:00:00Z" }, { code: "b", readings: 2, last_at: "garbage" }, { code: "c", readings: "", last_at: "2026-01-01T00:00:00Z" }])).toEqual([]);
+  });
+
+  it("gives every flag the database allows words, and never reads an unknown flag as within range", () => {
+    for (const f of ["low", "high", "critical", "positive", "negative", "abnormal", "critical_low", "critical_high"]) expect(flagLabel(f)).toBeTruthy();
+    expect(flagLabel("normal")).toBeNull();
+    expect(flagLabel(null)).toBeNull();
+    expect(flagLabel("something_new")).toBe("Outside the laboratory's range");
   });
 
   it("has a label for every flag and source the database can send", () => {

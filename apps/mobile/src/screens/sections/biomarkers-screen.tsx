@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, View } from "react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
-import { chartGeometry, displayCode, groupByUnit, labRangeLabel, targetLabel, type TrendPoint, type TrendSeries, type TrendTarget } from "@tarragon/shared";
+import { chartGeometry, displayCode, groupByUnit, labRangeLabel, targetLabel, type TrendPoint, type TrendSeries } from "@tarragon/shared";
 import { t, type MessageKey } from "@tarragon/i18n";
 import {
+  flagLabel,
   latestLabel,
   loadBiomarkerList,
   loadBiomarkerTrend,
@@ -31,35 +32,24 @@ type Load<T> = { kind: "loading" } | { kind: "failed"; offline: boolean } | { ki
  * team's target. Both are said in words under the chart, and every point is in the list under it, so the chart is never the only way to read a
  * result. The drawing is hidden from the screen reader behind a one-sentence summary.
  */
-function Chart({ code, unit, points, target }: { code: string; unit: string | null; points: TrendPoint[]; target: TrendTarget | null }) {
+function Chart({ code, unit, points }: { code: string; unit: string | null; points: TrendPoint[] }) {
   const { colors } = useTheme();
   const [width, setWidth] = useState(0);
-  const g = width > 0 ? chartGeometry(points, target, width, CHART_HEIGHT) : null;
+  const g = width > 0 ? chartGeometry(points, null, width, CHART_HEIGHT) : null;
   const range = g?.band ? labRangeLabel(points[0]) : null;
+  const rangeCaption = range ? t("biomarkers.chart.range", "en", { range }) : null;
   return (
     <View
       onLayout={(e) => setWidth(Math.floor(e.nativeEvent.layout.width))}
       accessible
       accessibilityRole="image"
-      accessibilityLabel={trendSummary(code, unit, points)}
+      accessibilityLabel={[trendSummary(code, unit, points), rangeCaption].filter(Boolean).join(". ")}
       style={{ gap: space.xs }}
     >
       <View style={{ height: CHART_HEIGHT }}>
         {g ? (
           <Svg width={g.width} height={g.height}>
             {g.band ? <Rect x={0} width={g.width} y={Math.min(g.band.y1, g.band.y2)} height={Math.abs(g.band.y2 - g.band.y1)} fill={colors.brandTint} /> : null}
-            {g.targetBand ? (
-              <Rect
-                x={1}
-                width={g.width - 2}
-                y={Math.min(g.targetBand.y1, g.targetBand.y2)}
-                height={Math.abs(g.targetBand.y2 - g.targetBand.y1)}
-                fill="none"
-                stroke={colors.text}
-                strokeWidth={1}
-                strokeDasharray="4 3"
-              />
-            ) : null}
             <Path d={g.path} fill="none" stroke={colors.brand} strokeWidth={2} />
             {g.dots.map((d, i) => (
               <Circle key={i} cx={d.x} cy={d.y} r={3.5} fill={colors.brand} />
@@ -67,14 +57,9 @@ function Chart({ code, unit, points, target }: { code: string; unit: string | nu
           </Svg>
         ) : null}
       </View>
-      {range ? (
+      {rangeCaption ? (
         <AppText variant="caption" tone="textMuted">
-          {t("biomarkers.chart.range", "en", { range })}
-        </AppText>
-      ) : null}
-      {target && g?.targetBand ? (
-        <AppText variant="caption" tone="textMuted">
-          {t("biomarkers.chart.target", "en", { range: targetLabel(target) })}
+          {rangeCaption}
         </AppText>
       ) : null}
     </View>
@@ -82,7 +67,7 @@ function Chart({ code, unit, points, target }: { code: string; unit: string | nu
 }
 
 function ReadingRow({ p }: { p: TrendPoint }) {
-  const flag = p.flag && p.flag !== "normal" ? t(`biomarkers.flag.${p.flag}` as MessageKey) : null;
+  const flag = flagLabel(p.flag);
   const range = labRangeLabel(p);
   const from = p.laboratory ?? t(`biomarkers.source.${p.source === "legacy_report" ? "legacy_report" : "lab_result"}` as MessageKey);
   return (
@@ -105,9 +90,14 @@ function SeriesView({ series }: { series: TrendSeries }) {
     <>
       {series.unitMixed ? <InlineAlert tone="warn" message={t("biomarkers.unit_mixed")} /> : null}
       {series.target ? (
-        <AppText variant="bodyStrong" tone="brandText">
-          {t("biomarkers.care_target", "en", { range: targetLabel(series.target) })}
-        </AppText>
+        <View style={{ gap: space.xs }} accessible>
+          <AppText variant="bodyStrong" tone="brandText">
+            {t("biomarkers.care_target", "en", { range: targetLabel(series.target) })}
+          </AppText>
+          <AppText variant="caption" tone="textMuted">
+            {t("mpass.bio.target_unit_note")}
+          </AppText>
+        </View>
       ) : null}
       {groups.map((g) => (
         <Card key={g.unit ?? "none"} style={{ gap: space.md }}>
@@ -115,7 +105,7 @@ function SeriesView({ series }: { series: TrendSeries }) {
             {displayCode(series.code)}
             {g.unit ? ` (${g.unit})` : ""}
           </AppText>
-          <Chart code={series.code} unit={g.unit} points={g.points} target={groups.length === 1 ? series.target : null} />
+          <Chart code={series.code} unit={g.unit} points={g.points} />
           <View>
             {[...g.points].reverse().map((p, i) => (
               <ReadingRow key={`${p.takenAt}-${i}`} p={p} />
@@ -137,9 +127,14 @@ export function BiomarkersScreen({ subjectId, userId }: Props) {
   const [code, setCode] = useState<string | null>(null);
   const [trend, setTrend] = useState<Load<TrendSeries | null>>({ kind: "loading" });
 
+  // A slower answer for an earlier person or an earlier visit must never replace the current one (it would show one person's tests under another's name).
+  const listRequest = useRef(0);
   const loadList = useCallback(async () => {
+    const mine = ++listRequest.current;
     setList({ kind: "loading" });
+    setCode(null);
     const r = await loadBiomarkerList(subjectId, own);
+    if (mine !== listRequest.current) return;
     if (!r.ok) {
       setList({ kind: "failed", offline: r.offline });
       return;
@@ -161,7 +156,11 @@ export function BiomarkersScreen({ subjectId, userId }: Props) {
       const r = await loadBiomarkerTrend(subjectId, c, own);
       if (mine !== latestRequest.current) return;
       if (!r.ok) setTrend({ kind: "failed", offline: r.offline });
-      else setTrend({ kind: "ready", data: r.data, stale: r.stale ? { offline: r.offline, savedAt: r.savedAt } : null });
+      else {
+        setTrend({ kind: "ready", data: r.data, stale: r.stale ? { offline: r.offline, savedAt: r.savedAt } : null });
+        // A change of test is otherwise only visible on screen.
+        AccessibilityInfo.announceForAccessibility(t("mpass.bio.showing", "en", { name: displayCode(c) }));
+      }
     },
     [subjectId, own]
   );

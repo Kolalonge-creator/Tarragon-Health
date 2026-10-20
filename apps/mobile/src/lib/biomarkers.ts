@@ -1,5 +1,5 @@
 import { displayCode, parseTrend, type TrendSeries } from "@tarragon/shared";
-import { t } from "@tarragon/i18n";
+import { en, t, type MessageKey } from "@tarragon/i18n";
 import { supabase } from "./supabase";
 import { readThrough, type ReadResult } from "./passport-cache";
 
@@ -27,7 +27,7 @@ export function parseBiomarkerList(data: unknown): BiomarkerListItem[] {
   for (const raw of data as Record<string, unknown>[]) {
     if (!raw || typeof raw.code !== "string" || typeof raw.last_at !== "string") continue;
     const readings = typeof raw.readings === "number" ? raw.readings : Number(raw.readings);
-    if (!Number.isFinite(readings)) continue;
+    if (!Number.isInteger(readings) || readings < 1 || Number.isNaN(Date.parse(raw.last_at))) continue;
     const latest = raw.latest_value === null || raw.latest_value === undefined ? null : Number(raw.latest_value);
     out.push({
       code: raw.code,
@@ -65,18 +65,37 @@ export function loadBiomarkerTrend(subjectId: string, code: string, own: boolean
   );
 }
 
-/** The one sentence a screen reader gets in place of the drawing. The table under the chart carries every value. */
+/** The year in Lagos time, so a result at 23:30 UTC on 31 December reads as the next year, as it does on the web. */
+function lagosYear(iso: string | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", year: "numeric" });
+}
+
+/** The one sentence a screen reader gets in place of the drawing. The list under the chart carries every value. */
 export function trendSummary(code: string, unit: string | null, points: readonly { takenAt: string }[]): string {
-  const first = points[0]?.takenAt;
-  const last = points[points.length - 1]?.takenAt;
   const count = points.length;
-  return t(count === 1 ? "mpass.bio.summary_one" : "mpass.bio.summary_other", "en", {
+  const key: MessageKey = `mpass.bio.summary_${count === 1 ? "one" : "other"}${unit ? "_unit" : ""}` as MessageKey;
+  return t(key, "en", {
     name: displayCode(code),
     count: String(count),
-    unit: unit ? ` in ${unit}` : "",
-    from: String(first ? new Date(first).getFullYear() : ""),
-    to: String(last ? new Date(last).getFullYear() : ""),
+    unit: unit ?? "",
+    from: lagosYear(points[0]?.takenAt),
+    to: lagosYear(points[count - 1]?.takenAt),
   });
+}
+
+/**
+ * What a result's flag says, in words. The database allows more flags than the web page had words for (critical, positive, negative, abnormal),
+ * and a flag with no words must never read as "within range": anything unknown but not normal says it is outside the laboratory's range.
+ * "normal" says nothing.
+ */
+export function flagLabel(flag: string | null | undefined): string | null {
+  if (!flag || flag === "normal") return null;
+  const key = `biomarkers.flag.${flag}`;
+  if (Object.hasOwn(en, key)) return t(key as MessageKey);
+  const own = `mpass.bio.flag.${flag}`;
+  return Object.hasOwn(en, own) ? t(own as MessageKey) : t("mpass.bio.flag.other");
 }
 
 /** "5.4 mmol/L" for the chip under a test name. Null when the lab sent no number. */
