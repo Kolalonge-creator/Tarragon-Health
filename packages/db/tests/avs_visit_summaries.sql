@@ -325,6 +325,11 @@ begin
   perform pg_temp.ck('...it is stored', 'true', ((select done_at from public.visit_summary_item_progress where item_id = v_item) is not null)::text);
   perform pg_temp.ck('a stranger cannot tick it', 'true', (pg_temp.try_as(v_sp, format('select public.set_visit_summary_item_done(%L, true)', v_item)) like 'not found%')::text);
   perform pg_temp.ck('a caregiver cannot tick it (read only)', 'true', (pg_temp.try_as(v_cg, format('select public.set_visit_summary_item_done(%L, true)', v_item)) like 'not found%')::text);
+  raise notice 'AVSDIAG %', (select json_build_object('state_ok', private.visit_summary_state_ok(vs.id), 'state', vs.state, 'note_status', n.status,
+      'protected', n.is_protected, 'pending', (select ac.pending from private.visit_summary_amend_counts(n.id) ac),
+      'finalized', (select ac.finalized from private.visit_summary_amend_counts(n.id) ac), 'at_approval', vs.amendment_count_at_approval,
+      'flags', (select count(*) from public.note_error_flags f where f.note_id = n.id))
+    from public.visit_summaries vs join public.clinical_encounter_notes n on n.id = vs.note_id where vs.id = s);
   v_task := (pg_temp.q_as(v_np, format('select public.add_visit_summary_item_to_tasks(%L)::text', v_item)))::uuid;
   perform pg_temp.ck('the patient adds the step to their tasks', 'true',
     (select (patient_id = v_np and source = 'visit_summary' and owner_role = 'patient')::text from public.care_tasks where id = v_task));
