@@ -635,6 +635,7 @@ export const en = {
   "doseanchor.myday.cancel": "Not now",
   "doseanchor.myday.show": "Show",
   "doseanchor.myday.hide": "Hide",
+  "doseanchor.today_waiting": "Your list for the parts of your day you set will show as soon as we have read your times.",
   "meds.catchup.for_person": "For {name}",
   "medicines.notify.test_title": "Test reminder",
   "medicines.notify.test_body": "This is a test. If you can see it, reminders can reach this phone.",

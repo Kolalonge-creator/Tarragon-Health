@@ -240,20 +240,13 @@ async function countLocal(
 }
 
 /**
- * S08z: the person's anchor times and day shifts. Small, and the server is the only writer, so each pull replaces the whole
- * list. The tables are not in the generated client types yet, so they are read through this narrow shape.
+ * S08z: the person's anchor times and day shifts. Small, and the server is the only writer, so each pull replaces the whole list.
+ * A marker records that they have been read at least once, so the phone can tell "this person has none" from "not read yet".
  */
-interface UntypedSelect {
-  from(table: string): {
-    select(cols: string): { eq(col: string, value: string): PromiseLike<{ data: unknown[] | null; error: { code?: string; message: string } | null }> };
-  };
-}
-
 async function pullAnchors(db: SQLite.SQLiteDatabase, owner: string, subjectId: string, result: PullResult): Promise<void> {
-  const client = supabase as unknown as UntypedSelect;
   const [times, shifts] = await Promise.all([
-    client.from("patient_dose_anchors").select("anchor, effective_from, local_time").eq("patient_id", subjectId),
-    client.from("patient_day_shifts").select("id, starts_on, ends_on, offsets, cancelled_from, created_at").eq("patient_id", subjectId),
+    supabase.from("patient_dose_anchors").select("anchor, effective_from, local_time").eq("patient_id", subjectId),
+    supabase.from("patient_day_shifts").select("id, starts_on, ends_on, offsets, cancelled_from, created_at").eq("patient_id", subjectId),
   ]);
   result.pages += 1;
   const failure = times.error ?? shifts.error;
@@ -262,8 +255,8 @@ async function pullAnchors(db: SQLite.SQLiteDatabase, owner: string, subjectId: 
     recordSyncError("offline_outbox", "pull:anchors", failure.message);
     return;
   }
-  const timeRows = (times.data ?? []) as { anchor: string; effective_from: string }[];
-  const shiftRows = (shifts.data ?? []) as { id: string }[];
+  const timeRows = times.data ?? [];
+  const shiftRows = shifts.data ?? [];
   result.bytes += JSON.stringify(timeRows).length + JSON.stringify(shiftRows).length;
   await db.execAsync("begin");
   try {
@@ -285,12 +278,40 @@ async function pullAnchors(db: SQLite.SQLiteDatabase, owner: string, subjectId: 
         JSON.stringify(row),
       ]);
     }
+    await writeCursor(db, `anchors:${owner}:${subjectId}`, new Date().toISOString());
     await db.execAsync("commit");
   } catch (e) {
     await db.execAsync("rollback");
     throw e;
   }
   result.pulled += timeRows.length + shiftRows.length;
+}
+
+/** Reads a person's anchor times and shifts from the server now (not throttled). Never throws; false when it could not. */
+export async function pullAnchorsFor(subjectId: string): Promise<boolean> {
+  try {
+    const owner = await currentUserId();
+    if (!owner) return false;
+    const db = await getDb();
+    const result: PullResult = { pulled: 0, stoppedOffline: false, pages: 0, bytes: 0, drifted: [], repaired: [] };
+    await pullAnchors(db, owner, subjectId, result);
+    await addDataUsage(result.bytes);
+    return (await readCursor(db, `anchors:${owner}:${subjectId}`)) !== null;
+  } catch (error) {
+    recordSyncError("offline_outbox", "pull:anchors", error);
+    return false;
+  }
+}
+
+/** True once this person's anchor times and shifts have been read from the server on this phone. */
+export async function anchorsKnownFor(subjectId: string): Promise<boolean> {
+  try {
+    const owner = await currentUserId();
+    if (!owner) return false;
+    return (await readCursor(await getDb(), `anchors:${owner}:${subjectId}`)) !== null;
+  } catch {
+    return false;
+  }
 }
 
 export async function readLocalAnchorRows<T>(subjectId: string): Promise<T[]> {

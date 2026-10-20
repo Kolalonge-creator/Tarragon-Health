@@ -4327,7 +4327,7 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - Decision: open (founder).
 
 ### OQ-S08z-2 A patient who shifts their day for a fast: care-team visibility and counselling (raised by S08z, 2026-10-20)
-- Shifting reminders for a month of fasting can matter clinically (for example for diabetes or blood pressure medicines). The app gives no advice and does not hide it: tied clinicians can already read a patient's shifts under the existing access rules, but no screen shows them and nothing prompts a conversation. Needed from the CMO: whether a shift should create a care-team signal or task, and what a fasting conversation looks like. Nothing was built that decides this.
+- Shifting reminders for a month of fasting can matter clinically (for example for diabetes or blood pressure medicines). The app gives no advice. The anchor and shift tables are readable only by the patient and an acting guardian (see OQ-S08z-5), so a care team does not see a shift and nothing prompts a conversation. Needed from the CMO: whether a shift should create a care-team signal or task (a privacy-preserving one, without naming a prayer), and what a fasting conversation looks like. Nothing was built that decides this.
 - Decision: open (CMO).
 
 ### OQ-S08z-3 Clinician-prescribed schedules cannot be tied to the day yet (raised by S08z, 2026-10-20)
@@ -4337,3 +4337,11 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-S08z-4 The new `doseanchor.*` strings sit outside the reviewed-strings ledger (raised by S08z, 2026-10-20)
 - The ledger gives the clinical namespaces (`medicines.*` among them) no room for new baseline entries and no reviewer exists to name, so the anchor and My day copy lives under `doseanchor.*`, outside the gated namespaces. That is a way round the gate, not a review. Needed: the CMO or a pharmacist reads the keys (especially `doseanchor.pick_help` and `doseanchor.myday.shift_help`), then they move into a gated namespace with a real reviewer entry.
 - Decision: open (CMO).
+
+### OQ-S08z-5 Which prayers a patient ties a medicine to is special-category data (raised by S08z, 2026-10-21)
+- `patient_dose_anchors` and `patient_day_shifts` name the prayers a person uses, which discloses religious belief (special-category data). They are readable by the person and an acting guardian only; tied clinicians and caregivers are deliberately NOT given read access, and the migration's closing check fails if a policy ever does. They are listed in the S39d data registry as unreviewed, in the patient export. Needed: the DPO and CMO class review (retention, export wording, whether a guardian should see prayer names at all), and a decision on what a care team should see (a resolved time is already visible; a "day shifted" signal without the anchor names is the likely answer).
+- Decision: open (DPO, CMO).
+
+### OQ-S08z-6 A day shift is not checked against dose windows (raised by S08z, 2026-10-21)
+- A flexible window may not overlap the next dose at the person's normal times, and that is enforced. During a shift two anchors can end up closer than a window for those dates (a shift moves each anchor independently), which only makes a dose read "due" a little longer. If it should be refused instead, the shift RPC and the phone need to check the shifted times of every active medicine with a window.
+- Decision: open (product).

@@ -97,9 +97,8 @@ export async function saveAnchorTimes(
   const today = lagosLocalDate(nowMs);
   const profile = anchorProfileFor(subjectId);
   const specs = await localSpecs(subjectId);
-  for (const [anchor, time] of entries) {
-    if (anchorChangeConflicts(specs, profile, anchor as AnchorId, time).length > 0) return { ok: false, error: "window_overlap" };
-  }
+  // Judged together, as the database judges one save: a pair that is fine is not refused because one half alone would not be.
+  if (anchorChangeConflicts(specs, profile, times).length > 0) return { ok: false, error: "window_overlap" };
   const hasAnswers = await anchorDayHasAnswers(subjectId, entries.map(([k]) => k), today);
   const effectiveFrom = effectiveFromFor(today, hasAnswers);
   try {

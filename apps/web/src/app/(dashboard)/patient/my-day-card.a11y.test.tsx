@@ -80,7 +80,9 @@ describe("MyDayCard", () => {
     fireEvent.change(screen.getByLabelText("Move dinner by"), { target: { value: "90" } });
     fireEvent.click(screen.getByRole("button", { name: "Start this shift" }));
     await waitFor(() => expect(create).toHaveBeenCalled());
-    expect(create.mock.calls[0]?.[0]).toEqual({ patientId: "p1", startsOn: "2026-10-07", endsOn: "2026-11-05", offsets: { dinner: 90 } });
+    const sent = create.mock.calls[0]?.[0] as { clientId: string };
+    expect(sent).toEqual({ patientId: "p1", clientId: expect.any(String), startsOn: "2026-10-07", endsOn: "2026-11-05", offsets: { dinner: 90 } });
+    expect(sent.clientId).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it("shows a shift in force, and ends it after a confirmation", async () => {

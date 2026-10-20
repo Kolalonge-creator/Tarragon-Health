@@ -6,6 +6,7 @@ import type { ContractionSessionPayload, KickSessionPayload } from "./pregnancy-
 import { getStoreWithSchema } from "./secure-db";
 import { applyReportOutcome, reportOnHold, reportRejection } from "./rejection-report";
 import { addDataUsage } from "./data-usage";
+import { pullAnchorsFor } from "./offline-store";
 import { recordSyncError } from "./sync-diagnostics";
 import { loadOfflineSyncConfig } from "./offline-sync-config";
 import {
@@ -590,29 +591,29 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
 
     if (item.kind === "anchor_times") {
       const p = item.payload as AnchorTimesPayload;
-      const { error } = await supabase.rpc("save_dose_anchor_times" as never, {
+      const { error } = await supabase.rpc("save_dose_anchor_times", {
         p_patient: item.subjectId,
         p_times: p.times,
         p_effective_from: p.effective_from,
-      } as never);
+      });
       return error ? asFailure(error) : { ok: true };
     }
 
     if (item.kind === "day_shift") {
       const p = item.payload as DayShiftPayload;
-      const { error } = await supabase.rpc("create_day_shift" as never, {
+      const { error } = await supabase.rpc("create_day_shift", {
         p_patient: item.subjectId,
         p_client_id: item.clientId,
         p_starts_on: p.starts_on,
         p_ends_on: p.ends_on,
         p_offsets: p.offsets,
-      } as never);
+      });
       return error ? asFailure(error) : { ok: true };
     }
 
     if (item.kind === "day_shift_end") {
       const p = item.payload as DayShiftEndPayload;
-      const { error } = await supabase.rpc("cancel_day_shift" as never, { p_patient: item.subjectId, p_id: p.shift_id } as never);
+      const { error } = await supabase.rpc("cancel_day_shift", { p_patient: item.subjectId, p_id: p.shift_id });
       return error ? asFailure(error) : { ok: true };
     }
 
@@ -738,7 +739,21 @@ export function flushOutbox(): Promise<FlushResult> {
   return flushing;
 }
 
+/**
+ * Once an anchor change or a day shift has been sent, the person's anchors are read back from the server (S08z). The row leaves the
+ * outbox when it is sent, so without this the phone would drop the change from its profile until the next routine pull, and resolve
+ * anchored doses at the OLD time in between (and the server decides the effective date, which the phone should show too).
+ */
 async function runFlush(): Promise<FlushResult> {
+  const sentAnchors = new Set<string>();
+  try {
+    return await runFlushRows(sentAnchors);
+  } finally {
+    for (const subjectId of sentAnchors) await pullAnchorsFor(subjectId);
+  }
+}
+
+async function runFlushRows(sentAnchors: Set<string>): Promise<FlushResult> {
   const db = await getDb();
   const userId = await currentUserId();
   const now = new Date();
@@ -767,6 +782,7 @@ async function runFlush(): Promise<FlushResult> {
     if (outcome.ok) {
       await db.runAsync("delete from outbox where client_id = ?", [item.clientId]);
       await addDataUsage(JSON.stringify(item.payload).length + 300);
+      if (item.kind === "anchor_times" || item.kind === "day_shift" || item.kind === "day_shift_end") sentAnchors.add(item.subjectId);
       result.synced += 1;
       result.remaining -= 1;
       continue;

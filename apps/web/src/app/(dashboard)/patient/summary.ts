@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { todayIsoDate } from "@/lib/queries/medications";
-import { buildTodaysDoseChecklist } from "@/lib/medication-schedule/checklist";
+import { buildTodaysDoseChecklist, hasAnchoredDoses } from "@/lib/medication-schedule/checklist";
 import { loadAnchors } from "@/lib/medication-schedule/anchor-profile";
 
 export interface PatientSummaryStats {
@@ -61,8 +61,12 @@ export async function getPatientSummaryStats(patientId: string): Promise<Patient
     .select("id", { count: "exact", head: true })
     .eq("patient_id", patientId);
 
-  const anchors = await loadAnchors(supabase, patientId);
-  const checklist = buildTodaysDoseChecklist(medications ?? [], doseLogs ?? [], Date.now(), anchors.profile);
+  // S08z: only a patient with doses tied to their day needs their anchor times read. If they could not be, those doses are left out of
+  // the count rather than counted at times that are not theirs.
+  const meds = medications ?? [];
+  const anchors = hasAnchoredDoses(meds) ? await loadAnchors(supabase, patientId) : null;
+  const countable = anchors && !anchors.loaded ? meds.filter((m) => !hasAnchoredDoses([m])) : meds;
+  const checklist = buildTodaysDoseChecklist(countable, doseLogs ?? [], Date.now(), anchors?.profile);
   const dosesTaken = checklist.filter((item) => item.status === "taken").length;
 
   const bp = bpRows?.[0];

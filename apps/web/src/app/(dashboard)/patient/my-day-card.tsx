@@ -185,13 +185,15 @@ function ShiftForm({
   maxDays: number;
   choices: readonly number[];
   pending: boolean;
-  onSubmit: (input: { startsOn: string; endsOn: string; offsets: Partial<Record<AnchorId, number>> }, onDone: () => void) => void;
+  onSubmit: (input: { clientId: string; startsOn: string; endsOn: string; offsets: Partial<Record<AnchorId, number>> }, onDone: () => void) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(addDays(today, 29));
   const [offsets, setOffsets] = useState<Partial<Record<AnchorId, number>>>({});
   const [error, setError] = useState<string | null>(null);
+  // One id for this shift, made when the form opens and renewed only after it was saved, so a double click or a retry makes one shift.
+  const [clientId, setClientId] = useState(() => crypto.randomUUID());
 
   if (!open) {
     return (
@@ -213,9 +215,10 @@ function ShiftForm({
       return;
     }
     setError(null);
-    onSubmit({ startsOn: plan.startsOn, endsOn: plan.endsOn, offsets: plan.offsets }, () => {
+    onSubmit({ clientId, startsOn: plan.startsOn, endsOn: plan.endsOn, offsets: plan.offsets }, () => {
       setOpen(false);
       setOffsets({});
+      setClientId(crypto.randomUUID());
     });
   }
 

@@ -34,11 +34,17 @@ export function useSaveAnchorTimes() {
 export function useCreateDayShift() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (v: { patientId: string; startsOn: string; endsOn: string; offsets: Partial<Record<AnchorId, number>> }): Promise<string> => {
+    mutationFn: async (v: {
+      patientId: string;
+      /** One id per user action (the form makes it when it opens): a retry or a double click then makes one shift, never two. */
+      clientId: string;
+      startsOn: string;
+      endsOn: string;
+      offsets: Partial<Record<AnchorId, number>>;
+    }): Promise<string> => {
       const { data, error } = await createClient().rpc("create_day_shift", {
         p_patient: v.patientId,
-        // A retry of the same click makes one shift, never two.
-        p_client_id: crypto.randomUUID(),
+        p_client_id: v.clientId,
         p_starts_on: v.startsOn,
         p_ends_on: v.endsOn,
         p_offsets: v.offsets,

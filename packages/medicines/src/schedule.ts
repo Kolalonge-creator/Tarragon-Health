@@ -351,25 +351,28 @@ export function slotKey(medicationId: string, slot: Pick<Slot, "date" | "time">)
 }
 
 /**
- * Which medicines would have a flexible window overlap the next dose if this anchor were moved to `time` (S08z). Only schedules
- * with anchored doses and a window can conflict. Returns their ids; empty means the change is safe. The database refuses the
- * same change (a trigger on patient_dose_anchors), so this is what lets the phone say why before it tries.
+ * Which medicines would have a flexible window overlap the next dose if these anchors were moved to these times (S08z). The changes
+ * are judged TOGETHER, as the database judges them (on the final state of one save), so moving breakfast and lunch as a pair is not
+ * refused because breakfast alone would be too close to the old lunch. Only schedules with anchored doses and a window can conflict.
+ * Returns their ids; empty means the change is safe. The database refuses the same change, so this is what lets the phone say why
+ * before it tries.
  */
 export function anchorChangeConflicts(
   medicines: readonly { id: string; spec: ScheduleSpec }[],
   profile: AnchorProfile,
-  anchor: AnchorId,
-  time: string,
+  changes: Partial<Record<AnchorId, string>>,
 ): string[] {
-  const moved: AnchorProfile = { ...profile, times: { ...profile.times, [anchor]: [{ effectiveFrom: "9999-12-31", time }] } };
+  const times: AnchorProfile["times"] = { ...profile.times };
+  for (const [anchor, time] of Object.entries(changes) as [AnchorId, string][]) times[anchor] = [{ effectiveFrom: "9999-12-31", time }];
+  const moved: AnchorProfile = { ...profile, times };
   const out: string[] = [];
   for (const { id, spec } of medicines) {
     if (spec.kind === "taper" || spec.kind === "as_needed") continue;
     const window = spec.windowMinutes ?? 0;
     const anchored = spec.anchored ?? [];
     if (window <= 0 || anchored.length === 0) continue;
-    const times = [...new Set([...spec.times, ...anchoredBaseTimes(anchored, moved)])];
-    if (minGapMinutes(times) <= window) out.push(id);
+    const all = [...new Set([...spec.times, ...anchoredBaseTimes(anchored, moved)])];
+    if (minGapMinutes(all) <= window) out.push(id);
   }
   return out;
 }

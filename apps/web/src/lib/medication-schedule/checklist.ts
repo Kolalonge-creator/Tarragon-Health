@@ -25,6 +25,14 @@ type LogForChecklist = Pick<
   "medication_id" | "scheduled_time" | "status"
 >;
 
+/** True when any of these medicines has doses tied to the patient's day (S08z), so their times depend on the patient's own anchor times. */
+export function hasAnchoredDoses(medications: readonly { schedule_spec?: unknown }[]): boolean {
+  return medications.some((m) => {
+    const spec = m.schedule_spec as { anchored?: unknown } | null | undefined;
+    return Array.isArray(spec?.anchored) && spec.anchored.length > 0;
+  });
+}
+
 /** `logs` is expected to already be scoped to today's date (Africa/Lagos) by the caller. */
 export function buildTodaysDoseChecklist(
   medications: MedicationForChecklist[],

@@ -308,8 +308,17 @@ describe("anchorChangeConflicts", () => {
   it("flags a medicine whose window would overlap after the move, and not one that still fits", () => {
     const meds = [{ id: "a", spec: spec(two) }];
     // Waking 06:30, breakfast moved to 06:45: 15 minutes apart, inside a 30 minute window.
-    expect(anchorChangeConflicts(meds, profileOf(), "breakfast", "06:45")).toEqual(["a"]);
-    expect(anchorChangeConflicts(meds, profileOf(), "breakfast", "08:30")).toEqual([]);
+    expect(anchorChangeConflicts(meds, profileOf(), { breakfast: "06:45" })).toEqual(["a"]);
+    expect(anchorChangeConflicts(meds, profileOf(), { breakfast: "08:30" })).toEqual([]);
+  });
+
+  it("judges changes together: a pair that is fine is not refused because one half alone would overlap the old other half", () => {
+    const pair = { anchored: [{ anchor: "breakfast", offsetMinutes: 0 }, { anchor: "lunch", offsetMinutes: 0 }], windowMinutes: 60 };
+    const meds = [{ id: "a", spec: spec(pair) }];
+    // Test defaults: breakfast 07:30, lunch 13:00. Breakfast alone at 12:30 would be 30 minutes from lunch.
+    expect(anchorChangeConflicts(meds, profileOf(), { breakfast: "12:30" })).toEqual(["a"]);
+    expect(anchorChangeConflicts(meds, profileOf(), { breakfast: "12:30", lunch: "18:00" })).toEqual([]);
+    expect(anchorChangeConflicts(meds, profileOf(), {})).toEqual([]);
   });
 
   it("ignores medicines with no window, no anchored doses, or a kind that cannot carry them", () => {
@@ -326,12 +335,12 @@ describe("anchorChangeConflicts", () => {
       { id: "d", spec: prn },
       { id: "e", spec: unset },
     ];
-    expect(anchorChangeConflicts(meds, profileOf(), "breakfast", "06:45")).toEqual([]);
+    expect(anchorChangeConflicts(meds, profileOf(), { breakfast: "06:45" })).toEqual([]);
   });
 
   it("counts the same time twice as one dose, as the database does", () => {
     const meds = [{ id: "a", spec: spec({ times: ["07:30"], anchored: [{ anchor: "breakfast", offsetMinutes: 0 }], windowMinutes: 30 }) }];
-    expect(anchorChangeConflicts(meds, profileOf(), "dinner", "20:00")).toEqual([]);
+    expect(anchorChangeConflicts(meds, profileOf(), { dinner: "20:00" })).toEqual([]);
   });
 });
 

@@ -24,10 +24,19 @@
 --   * private.is_valid_schedule_spec  accepts `anchored` (daily, every-N-days, weekdays only), with no clock times when anchored
 --                                       doses exist; mirrors parseScheduleSpec without a profile. The profile-dependent window
 --                                       check (two anchored doses closer than the window) is enforced by triggers on medications and
---                                       on patient_dose_anchors, so no write path can create an overlap.
+--                                       on patient_dose_anchors (checked on the FINAL state of a save), so no write path leaves windows
+--                                       overlapping at the person's normal times. A day shift is NOT checked against windows: during a
+--                                       shift two anchors may sit closer than a window, which only makes a dose read "due" a little longer
+--                                       (recorded in docs/design/S08z.md).
 --   * Three RPCs, the only write path: save_dose_anchor_times, create_day_shift, cancel_day_shift. Each takes the patient (self or
 --     an acting guardian), is idempotent where a retry is possible, and moves an effective date to TOMORROW when today already
---     has logged doses on an affected anchor, so resolution of a day with answers never changes.
+--     has logged doses on an affected anchor, so resolution of a day with answers never changes. A change made on a phone that
+--     was offline and sent up to 3 days late is accepted from the date it was made ONLY when no dose on an affected anchor has
+--     been logged since; otherwise it starts today (never rewriting a day that has answers).
+--   * Anchor times and shifts are readable by the person and an acting guardian ONLY. Which prayers a person ties a medicine to
+--     discloses religious belief (special-category data), so tied clinicians and caregivers do not read these tables; they see the
+--     resolved dose times through the ordinary medicine records. The care team's view of a shifted day is an open question
+--     (OQ-S08z-2, OQ-S08z-5).
 --
 -- Row counts at writing (live): medications with a schedule_spec: 0 anchored (the field is new). Nothing is converted.
 -- Safe to apply: additive tables, one function replaced in place, four rewritten from their live definitions with exact-match
@@ -127,17 +136,11 @@ alter table public.patient_dose_anchors enable row level security;
 alter table public.patient_day_shifts enable row level security;
 drop policy if exists patient_dose_anchors_select on public.patient_dose_anchors;
 create policy patient_dose_anchors_select on public.patient_dose_anchors for select to authenticated using (
-  patient_id = (select auth.uid())
-  or private.can_act_for(patient_id)
-  or private.can_read_clinical(patient_id, 'medications'::public.care_access_category)
-  or private.can_read_clinical(patient_id, 'view_medication'::public.caregiver_permission)
+  patient_id = (select auth.uid()) or private.can_act_for(patient_id)
 );
 drop policy if exists patient_day_shifts_select on public.patient_day_shifts;
 create policy patient_day_shifts_select on public.patient_day_shifts for select to authenticated using (
-  patient_id = (select auth.uid())
-  or private.can_act_for(patient_id)
-  or private.can_read_clinical(patient_id, 'medications'::public.care_access_category)
-  or private.can_read_clinical(patient_id, 'view_medication'::public.caregiver_permission)
+  patient_id = (select auth.uid()) or private.can_act_for(patient_id)
 );
 -- No insert, update or delete policy: the three RPCs below are the only write path.
 revoke all on public.patient_dose_anchors, public.patient_day_shifts from public, anon, authenticated;
@@ -513,37 +516,48 @@ drop trigger if exists medication_anchor_window_guard on public.medications;
 create trigger medication_anchor_window_guard before insert or update of schedule_spec on public.medications
   for each row execute function private.medication_anchor_window_guard();
 
+create or replace function private.dose_anchor_fill()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  select organisation_id into new.organisation_id from public.profiles where id = new.patient_id;
+  if new.organisation_id is null then raise exception 'patient has no organisation' using errcode = '23503'; end if;
+  return new;
+end;
+$$;
+drop trigger if exists dose_anchor_fill on public.patient_dose_anchors;
+create trigger dose_anchor_fill before insert on public.patient_dose_anchors
+  for each row execute function private.dose_anchor_fill();
+
+-- Checked on the FINAL state: save_dose_anchor_times defers it until every time in the call is written, so moving breakfast and lunch
+-- together is judged as a pair, not one at a time. A direct write (the proof, an admin) is judged at once.
 create or replace function private.dose_anchor_window_guard()
 returns trigger language plpgsql security definer set search_path = '' as $$
 declare v_conflict uuid;
 begin
-  select organisation_id into new.organisation_id from public.profiles where id = new.patient_id;
-  if new.organisation_id is null then raise exception 'patient has no organisation' using errcode = '23503'; end if;
   select m.id into v_conflict
     from public.medications m
    where m.patient_id = new.patient_id and m.is_active and m.superseded_at is null
      and jsonb_typeof(m.schedule_spec -> 'anchored') = 'array'
      and coalesce(nullif(m.schedule_spec ->> 'windowMinutes', '')::numeric, 0) > 0
-     and private.min_gap_of_minutes(private.spec_normal_minutes(m.schedule_spec, m.patient_id, new.anchor, new.local_time))
-         <= (m.schedule_spec ->> 'windowMinutes')::numeric
+     and private.min_gap_of_minutes(private.spec_normal_minutes(m.schedule_spec, m.patient_id)) <= (m.schedule_spec ->> 'windowMinutes')::numeric
    limit 1;
   if v_conflict is not null then
     raise exception 'this time would make a dose window overlap the next dose' using errcode = '23514', detail = 'anchored_window_overlap';
   end if;
-  return new;
+  return null;
 exception
   when sqlstate '23514' then raise;
-  when sqlstate '23503' then raise;
   when others then
     raise warning 'dose_anchor_window_guard skipped: %', sqlerrm;
-    return new;
+    return null;
 end;
 $$;
 drop trigger if exists dose_anchor_window_guard on public.patient_dose_anchors;
-create trigger dose_anchor_window_guard before insert or update on public.patient_dose_anchors
-  for each row execute function private.dose_anchor_window_guard();
+create constraint trigger dose_anchor_window_guard after insert or update on public.patient_dose_anchors
+  deferrable initially immediate for each row execute function private.dose_anchor_window_guard();
 revoke all on function private.medication_anchor_window_guard() from public, anon, authenticated;
 revoke all on function private.dose_anchor_window_guard() from public, anon, authenticated;
+revoke all on function private.dose_anchor_fill() from public, anon, authenticated;
 
 -- 7. The write path -------------------------------------------------------------------------------------------------------
 -- True when today already has any dose answer logged for a medicine anchored to one of these anchors: moving the anchor from today
@@ -559,6 +573,20 @@ returns boolean language sql stable security definer set search_path = '' as $$
        and exists (select 1 from jsonb_array_elements(m.schedule_spec -> 'anchored') a where (a ->> 'anchor') = any (p_anchors)));
 $$;
 revoke all on function private.anchor_day_has_answers(uuid, text[], date) from public, anon, authenticated;
+
+-- True when ANY dose log exists from the day before p_from onward for a medicine tied to one of these anchors. A change accepted
+-- from a past date (an offline phone sending late) is safe only when there is nothing logged since it could orphan.
+create or replace function private.anchor_logs_since(p_patient uuid, p_anchors text[], p_from date)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1
+      from public.medication_logs l
+      join public.medications m on m.id = l.medication_id
+     where l.patient_id = p_patient and l.scheduled_for_date >= p_from - 1 and l.scheduled_time is not null
+       and jsonb_typeof(m.schedule_spec -> 'anchored') = 'array'
+       and exists (select 1 from jsonb_array_elements(m.schedule_spec -> 'anchored') a where (a ->> 'anchor') = any (p_anchors)));
+$$;
+revoke all on function private.anchor_logs_since(uuid, text[], date) from public, anon, authenticated;
 
 create or replace function public.save_dose_anchor_times(p_patient uuid, p_times jsonb, p_effective_from date default null)
 returns date
@@ -581,20 +609,27 @@ begin
                  or jsonb_typeof(x.value) <> 'string' or (x.value #>> '{}') !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$') then
     raise exception 'unknown anchor or bad time' using errcode = '22023';
   end if;
-  v_from := greatest(coalesce(p_effective_from, v_today), v_today);
+  v_from := coalesce(p_effective_from, v_today);
   if v_from > v_today + 30 then
     raise exception 'effective date too far ahead' using errcode = '22023';
   end if;
   select array_agg(k) into v_keys from jsonb_object_keys(p_times) k;
+  -- A past date (a phone that was offline) is kept only up to 3 days back and only when nothing on these anchors has been logged since.
+  if v_from < v_today and (v_from < v_today - 3 or private.anchor_logs_since(p_patient, v_keys, v_from)) then
+    v_from := v_today;
+  end if;
   -- Today already has answers on these anchors: the new time starts tomorrow so those answers keep their slot.
   if v_from <= v_today + 1 and private.anchor_day_has_answers(p_patient, v_keys, v_today) then
     v_from := greatest(v_from, v_today + 1);
   end if;
+  -- The window check runs once, on the final state of this save, not after each time.
+  set constraints public.dose_anchor_window_guard deferred;
   for e in select key, value #>> '{}' as t from jsonb_each(p_times) loop
     insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id)
     values (p_patient, e.key, v_from, e.t, (select organisation_id from public.profiles where id = p_patient))
     on conflict (patient_id, anchor, effective_from) do update set local_time = excluded.local_time;
   end loop;
+  set constraints public.dose_anchor_window_guard immediate;
   return v_from;
 end;
 $$;
@@ -618,8 +653,12 @@ begin
   if p_starts_on is null or p_ends_on is null or not private.day_shift_offsets_ok(p_offsets) then
     raise exception 'bad day shift' using errcode = '22023';
   end if;
-  -- A shift never reaches back into days already lived; one created offline and sent late starts today at the earliest.
-  v_start := greatest(p_starts_on, v_today);
+  -- A shift never reaches back into days that have answers. One created on a phone that was offline and sent up to 3 days late keeps its
+  -- own start when nothing on its anchors has been logged since; otherwise it starts today at the earliest.
+  v_start := p_starts_on;
+  if v_start < v_today and (v_start < v_today - 3 or private.anchor_logs_since(p_patient, (select array_agg(k) from jsonb_object_keys(p_offsets) k), v_start)) then
+    v_start := v_today;
+  end if;
   if v_start = v_today and private.anchor_day_has_answers(p_patient, (select array_agg(k) from jsonb_object_keys(p_offsets) k), v_today) then
     v_start := v_today + 1;
   end if;
@@ -645,7 +684,8 @@ begin
   if v_uid is null or (v_uid <> p_patient and not private.can_act_for(p_patient)) then
     raise exception 'not allowed' using errcode = '42501';
   end if;
-  select * into s from public.patient_day_shifts where id = p_id and patient_id = p_patient;
+  -- The phone knows a shift it has just created only by the client id it sent; the server's own id is accepted too.
+  select * into s from public.patient_day_shifts where patient_id = p_patient and (id = p_id or client_id = p_id) order by (id = p_id) desc limit 1;
   if not found then raise exception 'no such day shift' using errcode = 'P0002'; end if;
   v_from := v_today;
   if private.anchor_day_has_answers(p_patient, (select array_agg(k) from jsonb_object_keys(s.offsets) k), v_today) then
@@ -654,7 +694,7 @@ begin
   -- Never earlier than the shift's own start (a shift not yet begun is simply void), never later than an earlier end.
   v_from := greatest(v_from, s.starts_on);
   if s.cancelled_from is not null then v_from := least(v_from, s.cancelled_from); end if;
-  update public.patient_day_shifts set cancelled_from = v_from where id = p_id;
+  update public.patient_day_shifts set cancelled_from = v_from where id = s.id;
   return v_from;
 end;
 $$;
@@ -669,7 +709,7 @@ grant execute on function public.cancel_day_shift(uuid, uuid) to authenticated;
 -- Left UNREVIEWED on purpose: a class review is the CMO's and DPO's to give.
 insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, reviewed, notes)
 select t, 'patient_id', private.retention_class_for(t), 'review', true, false,
-       'Added by S08z (2026-10-21). Class proposed by the standing name rule; awaiting the next CMO and DPO class review.'
+       'Added by S08z (2026-10-21). Class proposed by the standing name rule; awaiting the next CMO and DPO class review. SPECIAL-CATEGORY: which prayers a person ties a medicine to discloses religious belief; readable by the person and an acting guardian only (OQ-S08z-5).'
   from unnest(array['patient_dose_anchors', 'patient_day_shifts']) t
 on conflict (table_name) do nothing;
 
@@ -682,6 +722,10 @@ begin
               where table_name in ('dose_anchor_defaults', 'patient_dose_anchors', 'patient_day_shifts')
                 and table_schema = 'public' and grantee in ('anon', 'PUBLIC')) then
     raise exception 'S08z: anchor tables must not be reachable by anon';
+  end if;
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename in ('patient_dose_anchors', 'patient_day_shifts')
+                and (qual ilike '%can_read_clinical%' or qual ilike '%care_access%')) then
+    raise exception 'S08z: anchor times and shifts must not be readable by clinical readers (religious belief)';
   end if;
   if exists (select 1 from information_schema.table_privileges
               where table_name in ('patient_dose_anchors', 'patient_day_shifts') and table_schema = 'public'

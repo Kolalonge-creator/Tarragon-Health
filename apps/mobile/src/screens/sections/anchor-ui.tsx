@@ -203,13 +203,13 @@ export function MyDaySection({ patientId }: { patientId: string }) {
   const loadShifts = useCallback(async () => {
     const [server, pending] = await Promise.all([readLocalShiftRows<DayShiftRow>(patientId), listOutbox()]);
     const waiting: DayShiftRow[] = pending
-      .filter((i) => i.kind === "day_shift" && i.subjectId === patientId)
+      .filter((i) => i.kind === "day_shift" && i.subjectId === patientId && i.state === "pending")
       .map((i) => {
         const p = i.payload as { starts_on: string; ends_on: string; offsets: Record<string, number> };
         return { id: i.clientId, starts_on: p.starts_on, ends_on: p.ends_on, offsets: p.offsets, cancelled_from: null, created_at: i.createdAt };
       });
     const ended = new Map(
-      pending.filter((i) => i.kind === "day_shift_end" && i.subjectId === patientId).map((i) => {
+      pending.filter((i) => i.kind === "day_shift_end" && i.subjectId === patientId && i.state === "pending").map((i) => {
         const p = i.payload as { shift_id: string; cancelled_from: string };
         return [p.shift_id, p.cancelled_from] as const;
       })

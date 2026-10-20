@@ -9,7 +9,7 @@ import { addMedication, buildTodaysDoseChecklist, scheduleOf } from "./medicatio
 import { parseScheduleSpec } from "@tarragon/medicines";
 import { clearLocalMirror, pullChanges } from "./offline-store";
 import { __resetOutboxForTests, enqueue, flushOutbox, listOutbox } from "./outbox";
-import { slotsOn } from "@tarragon/medicines";
+import { MAX_SHIFT_OFFSET, slotsOn } from "@tarragon/medicines";
 
 type Row = Record<string, unknown>;
 const mockTables: Record<string, Row[]> = {};
@@ -349,7 +349,8 @@ describe("the configured values", () => {
     expect(c.offsetChoices).toContain(0);
     expect(c.shiftOffsetChoices).toContain(0);
     expect(c.maxShiftDays).toBeGreaterThan(0);
-    expect(c.maxShiftOffsetMinutes).toBeGreaterThan(0);
+    // The structural bound in the package, the registry and the database are one number.
+    expect(c.maxShiftOffsetMinutes).toBe(MAX_SHIFT_OFFSET);
   });
 
   it("still load on a phone whose clock runs behind the date the values took effect", () => {
@@ -359,5 +360,51 @@ describe("the configured values", () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+});
+
+describe("staying in step with the server", () => {
+  it("reads the anchors back once a change has been sent, so the phone shows what the server holds (including the date it chose)", async () => {
+    mockTables.medications = [breakfastMed];
+    await pullChanges("p1");
+    // The server stores the change from tomorrow, not today.
+    mockRpc.mockImplementationOnce(async () => {
+      mockTables.patient_dose_anchors = [{ anchor: "breakfast", effective_from: "2026-10-08", local_time: "09:00" }];
+      return { error: null };
+    });
+    await saveAnchorTimes("p1", { breakfast: "09:00" }, NOW);
+    await flushOutbox();
+    expect(await listOutbox("anchor_times")).toHaveLength(0);
+    const profile = await refreshAnchorProfile("p1");
+    expect(profile.times.breakfast).toEqual([{ effectiveFrom: "2026-10-08", time: "09:00" }]);
+    const spec = scheduleOf(breakfastMed, "p1");
+    expect(slotsOn(spec, TODAY).map((x) => x.time)).toEqual([DEFAULTS.breakfast]);
+    expect(slotsOn(spec, "2026-10-08").map((x) => x.time)).toEqual(["09:00"]);
+  });
+
+  it("a change the server refused is kept for the patient but is not applied", async () => {
+    mockRpc.mockResolvedValueOnce({ error: { code: "23514", message: "this time would make a dose window overlap the next dose" } });
+    await saveAnchorTimes("p1", { breakfast: "09:00" }, NOW);
+    expect(anchorProfileFor("p1").times.breakfast).toBeDefined();
+    await flushOutbox();
+    expect((await listOutbox("anchor_times"))[0]?.state).toBe("rejected");
+    const profile = await refreshAnchorProfile("p1");
+    expect(profile.times.breakfast).toBeUndefined();
+  });
+
+  it("reads a person's anchors from the server the first time, when they were set on another device", async () => {
+    mockTables.patient_dose_anchors = [{ anchor: "breakfast", effective_from: "2026-01-01", local_time: "08:20" }];
+    const profile = await refreshAnchorProfile("p1");
+    expect(profile.times.breakfast?.[0]?.time).toBe("08:20");
+  });
+
+  it("judges a pair of anchors together when it checks a window", async () => {
+    mockTables.medications = [
+      { ...breakfastMed, id: "med-pair", schedule_spec: { ...base, kind: "daily", times: [], windowMinutes: 60, anchored: [{ anchor: "breakfast", offsetMinutes: 0 }, { anchor: "lunch", offsetMinutes: 0 }] } },
+    ];
+    await pullChanges("p1");
+    // Breakfast alone at 13:20 would sit ten minutes from lunch at its proposed time; moved together with lunch it is fine.
+    expect(await saveAnchorTimes("p1", { breakfast: "13:20" }, NOW)).toEqual({ ok: false, error: "window_overlap" });
+    expect((await saveAnchorTimes("p1", { breakfast: "13:20", lunch: "18:30" }, NOW)).ok).toBe(true);
   });
 });

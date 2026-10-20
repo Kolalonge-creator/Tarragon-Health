@@ -374,7 +374,7 @@ do $$
 declare
   v_org uuid; v_a uuid; v_b uuid; v_med uuid; v_eff date; v_id uuid; v_id2 uuid; v_err text; v_n integer; v_row record;
   v_today date := (now() at time zone 'Africa/Lagos')::date;
-  v_c1 uuid := gen_random_uuid(); v_c2 uuid := gen_random_uuid();
+  v_c1 uuid := gen_random_uuid(); v_c2 uuid := gen_random_uuid(); v_c3 uuid := gen_random_uuid(); v_id3 uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_a := pg_temp.mkpatient(v_org, 'rpc-owner');
@@ -389,6 +389,8 @@ begin
   insert into results values ('real', 'a new anchor time with nothing logged takes effect today', '0', (v_eff - v_today)::text);
   v_eff := public.save_dose_anchor_times(v_a, '{"lunch":"13:10"}'::jsonb, v_today - 5);
   insert into results values ('real', 'an effective date in the past is clamped to today, never rewriting a day lived', '0', (v_eff - v_today)::text);
+  v_eff := public.save_dose_anchor_times(v_a, '{"waking":"06:40"}'::jsonb, v_today - 2);
+  insert into results values ('real', 'a change made offline and sent up to 3 days late keeps its own date when nothing on that anchor has been logged since', '-2', (v_eff - v_today)::text);
   v_eff := public.save_dose_anchor_times(v_a, '{"lunch":"13:20"}'::jsonb, v_today + 3);
   insert into results values ('real', 'an effective date in the future is kept', '3', (v_eff - v_today)::text);
   begin perform public.save_dose_anchor_times(v_a, '{"brunch":"08:00"}'::jsonb); v_err := 'accepted'; exception when sqlstate '22023' then v_err := 'refused'; end;
@@ -404,8 +406,11 @@ begin
   v_id2 := public.create_day_shift(v_a, v_c1, v_today + 2, v_today + 10, '{"dinner":60}'::jsonb);
   insert into results values ('real', 'creating the same shift twice (a retry) gives one row', 'true', (v_id is not null and v_id = v_id2)::text);
   v_id2 := public.create_day_shift(v_a, gen_random_uuid(), v_today - 4, v_today + 3, '{"lunch":30}'::jsonb);
-  insert into results values ('real', 'a shift never reaches into days already lived: its start is clamped to today', '0',
+  insert into results values ('real', 'a shift never reaches back more than 3 days: its start is clamped to today', '0',
     (select (starts_on - v_today)::text from public.patient_day_shifts where id = v_id2));
+  v_id3 := public.create_day_shift(v_a, v_c3, v_today - 2, v_today + 5, '{"dinner":30}'::jsonb);
+  insert into results values ('real', 'a shift made offline and sent up to 3 days late keeps its own start when nothing on its anchors has been logged since', '-2',
+    (select (starts_on - v_today)::text from public.patient_day_shifts where id = v_id3));
   begin perform public.create_day_shift(v_a, gen_random_uuid(), v_today - 5, v_today - 1, '{"lunch":30}'::jsonb); v_err := 'accepted'; exception when sqlstate '22023' then v_err := 'refused'; end;
   insert into results values ('real', 'a shift that is already over is refused', 'refused', v_err);
   begin perform public.create_day_shift(v_a, gen_random_uuid(), v_today + 1, v_today + 46, '{"lunch":30}'::jsonb); v_err := 'accepted'; exception when check_violation then v_err := 'refused'; end;
@@ -422,6 +427,9 @@ begin
   insert into results values ('real', 'ending a shift in force takes effect today when nothing is logged on its anchors', '0', (v_eff - v_today)::text);
   v_eff := public.cancel_day_shift(v_a, v_id2);
   insert into results values ('real', 'ending a shift twice never moves its end later', '0', (v_eff - v_today)::text);
+  -- The phone knows a shift it has just created only by the client id it sent.
+  v_eff := public.cancel_day_shift(v_a, v_c3);
+  insert into results values ('real', 'a shift can be ended by the client id it was created with', 'true', (v_eff is not null and (select cancelled_from from public.patient_day_shifts where id = v_id3) = v_eff)::text);
   begin perform public.cancel_day_shift(v_a, gen_random_uuid()); v_err := 'accepted'; exception when sqlstate 'P0002' then v_err := 'refused'; end;
   insert into results values ('real', 'ending a shift that does not exist is refused', 'refused', v_err);
 
@@ -455,6 +463,11 @@ begin
   insert into results values ('real', 'a stranger cannot end another patient''s shift', 'refused', v_err);
   reset role;
 
+  -- A tied clinician or caregiver reads neither anchor times nor shifts (which prayers a person uses discloses religious belief).
+  insert into results values ('real', 'no read policy on anchor times or shifts names a clinical reader', 'false',
+    (exists (select 1 from pg_policies where schemaname = 'public' and tablename in ('patient_dose_anchors', 'patient_day_shifts')
+               and (qual ilike '%can_read_clinical%' or qual ilike '%care_access%')))::text);
+
   -- No one signed in.
   perform set_config('request.jwt.claim.sub', '', true);
   perform set_config('request.jwt.claims', '', true);
@@ -478,11 +491,14 @@ begin
   insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_time, scheduled_for_date, source, client_id)
     values (v_org, v_a, v_med, 'taken', '07:30', v_today, 'patient', gen_random_uuid());
   perform pg_temp.as_user(v_a);
+  v_eff := public.save_dose_anchor_times(v_a, '{"breakfast":"08:10"}'::jsonb, v_today - 2);
+  insert into results values ('real', 'a past date is not kept when an answer on that anchor has been logged since: it starts tomorrow (today has an answer)', '1', (v_eff - v_today)::text);
   v_id := public.create_day_shift(v_a, gen_random_uuid(), v_today, v_today + 5, '{"breakfast":60}'::jsonb);
   insert into results values ('real', 'a shift on an anchor with answers today starts tomorrow', '1', (select (starts_on - v_today)::text from public.patient_day_shifts where id = v_id));
+  v_id2 := public.create_day_shift(v_a, gen_random_uuid(), v_today - 2, v_today + 5, '{"breakfast":30}'::jsonb);
+  insert into results values ('real', 'a past shift start is not kept when an answer on its anchors has been logged since', '1', (select (starts_on - v_today)::text from public.patient_day_shifts where id = v_id2));
   begin perform public.create_day_shift(v_a, gen_random_uuid(), v_today, v_today, '{"breakfast":60}'::jsonb); v_err := 'accepted'; exception when sqlstate '22023' then v_err := 'refused'; end;
   insert into results values ('real', 'a one-day shift today on an anchor with answers is refused (it would move nothing)', 'refused', v_err);
-  v_id2 := public.create_day_shift(v_a, gen_random_uuid(), v_today - 1, v_today + 4, '{"breakfast":30}'::jsonb);
   v_eff := public.cancel_day_shift(v_a, v_id2);
   insert into results values ('real', 'ending a shift on an anchor with answers today takes effect tomorrow', '1', (v_eff - v_today)::text);
   insert into results values ('real', 'shifts that begin tomorrow leave today as it was', '07:30',
@@ -493,7 +509,7 @@ $$;
 -- 5. No write path can leave a window overlapping ---------------------------------------------------------------------------------
 do $$
 declare
-  v_org uuid; v_g uuid; v_err text; v_med uuid;
+  v_org uuid; v_g uuid; v_err text; v_med uuid; v_eff date;
   v_today date := (now() at time zone 'Africa/Lagos')::date;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
@@ -517,6 +533,19 @@ begin
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_g, 'breakfast', v_today, '08:30', v_org);
   insert into results values ('real', 'moving it somewhere the window still fits is accepted (control)', '1',
     (select count(*)::text from public.patient_dose_anchors where patient_id = v_g and anchor = 'breakfast' and local_time = '08:30'));
+
+  -- Two anchors moved together are judged as a pair: breakfast to 12:30 alone would sit 30 minutes from lunch (inside a 60 minute window),
+  -- and the pair (breakfast 12:30, lunch 18:00) is fine.
+  v_g := pg_temp.mkpatient(v_org, 'guard-pair');
+  insert into public.medications (organisation_id, patient_id, drug_name, schedule_times, schedule_spec, source, is_active)
+  values (v_org, v_g, 'S08z pair', '["07:30","13:00"]', '{"kind":"daily","windowMinutes":60,"anchored":[{"anchor":"breakfast","offsetMinutes":0},{"anchor":"lunch","offsetMinutes":0}]}', 'patient', true);
+  perform pg_temp.as_user(v_g);
+  v_eff := public.save_dose_anchor_times(v_g, '{"breakfast":"12:30","lunch":"18:00"}'::jsonb);
+  insert into results values ('real', 'two anchors moved together are judged as a pair on the final state', '2',
+    (select count(*)::text from public.patient_dose_anchors where patient_id = v_g and local_time in ('12:30', '18:00')));
+  begin perform public.save_dose_anchor_times(v_g, '{"breakfast":"17:40"}'::jsonb); v_err := 'accepted'; exception when check_violation then v_err := 'refused'; end;
+  insert into results values ('real', 'a save whose final state overlaps a window is refused as a whole', 'refused', v_err);
+  insert into results values ('real', 'and nothing of the refused save was kept', '0', (select count(*)::text from public.patient_dose_anchors where patient_id = v_g and local_time = '17:40'));
 end
 $$;
 
