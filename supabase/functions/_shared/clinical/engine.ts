@@ -59,7 +59,8 @@ export function grade(input: TriageInput, ruleSet: RuleSet): TriageResult {
   if (validateRuleSet(ruleSet).length > 0) return rejected("invalid_rule_set", { code: "invalid", version: 0 });
   const id = { code: ruleSet.code, version: ruleSet.version };
   const { redFlag } = ruleSet.params.symptomGroups;
-  const symptoms: readonly string[] = input.trigger.type === "observation" && Array.isArray(input.trigger.symptoms) ? input.trigger.symptoms : [];
+  const symptoms: readonly string[] =
+    (input.trigger.type === "observation" || input.trigger.type === "symptom") && Array.isArray(input.trigger.symptoms) ? input.trigger.symptoms : [];
   // S67: a convulsion or loss of consciousness in pregnancy is an emergency whatever the reading says, so a rejected
   // (impossible) reading must still show the guidance. The group is optional: older rule sets simply have none.
   const emergencyGroup = ruleSet.params.symptomGroups.obstetricEmergency ?? [];

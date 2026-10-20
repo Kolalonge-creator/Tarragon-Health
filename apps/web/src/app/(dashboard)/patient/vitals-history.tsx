@@ -19,6 +19,7 @@ import {
 import { VITAL_LEVEL_BADGE_CLASSNAME as LEVEL_STYLE } from "@/lib/rules/vital-level-style";
 
 import { formatPatientDateTime } from "@/lib/format-date";
+import { ChangedMarker, EditReading } from "./reading-edit";
 import { SourceBadge, WristSpo2Note } from "@/components/source-badge";
 const BP_LEVEL_STYLE: Record<Exclude<BpLevel, "unknown">, string> = LEVEL_STYLE;
 
@@ -103,6 +104,13 @@ function formatReading(reading: Tables<"vitals_readings">, unit: GlucoseDisplayU
       return reading.ketones_mmol_l !== null
         ? `${reading.ketones_mmol_l} mmol/L (blood ketones)`
         : `${reading.ketone_urine ?? "—"} (urine ketones)`;
+    // S47a: water, sleep and mood keep their one number in value_numeric
+    case "water_ml":
+      return `${reading.value_numeric} ml (water)`;
+    case "sleep_hours":
+      return `${reading.value_numeric} hours (sleep)`;
+    case "mood":
+      return `Mood ${reading.value_numeric} of 5`;
     default:
       return "—";
   }
@@ -148,12 +156,14 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
                     )}
                     {reading.vital_type === "pulse" && <PulseLevelBadge reading={reading} />}
                     <SourceBadge source={reading.source} />
+                    <ChangedMarker reading={reading} />
                   </p>
                   <WristSpo2Note source={reading.source} vitalType={reading.vital_type} />
                   {reading.note && (
                     <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{reading.note}</p>
                   )}
                   <ReadingTriageNote result={reading.triage_event_id ? triageResults?.get(reading.triage_event_id) : undefined} />
+                  <EditReading reading={reading} />
                 </div>
                 <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   {formatPatientDateTime(reading.taken_at)}

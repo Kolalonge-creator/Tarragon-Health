@@ -15,6 +15,7 @@
  * are deliberately absent: the sessions that build them add them here.
  */
 import { DEVICE_RED_RULES, EMERGENCY_PACK } from "./emergency-pack";
+import { OBSERVATION_LIMITS_V1 } from "./observation-limits-data";
 import { THERAPY_EXCLUSION_LISTS, THERAPY_PROGRAMME_CONFIG } from "./therapy-config-data";
 
 export type ConfigOwner = "CMO" | "Founder" | "Founder and counsel";
@@ -1223,6 +1224,36 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-15",
     source: "docs/design/S16-S20-unified-red-paging.md; docs/plans/S16-S20-review-and-build-plan.md section 5, decision 11",
+  },
+  {
+    key: "paging.legacy_notice_retirement_rules",
+    // Retiring the older "notify every clinician" message for blood pressure and glucose, and the Care Circle notice for unified red-event
+    // pages (S19f). Live values are the active row of `legacy_notice_retirement_config`; this entry mirrors the four seeded versions and a test
+    // fails if the migration seed and this value drift. All four versions ship INACTIVE and UNSIGNED: no active signed row means every key reads
+    // OFF and the older paths run exactly as before. The CMO switches ONE version on from the sign-off hub after the test pack.
+    // observe: 1 = record, for every event, whether and when its page arrived (nothing changes for anyone). suppress_legacy_bp_notice and
+    // suppress_legacy_glucose_notice: 1 = the older message for the RED level of that pathway is held until the page of that same event is
+    // confirmed with a reachable paged clinician, then dropped; otherwise it is sent. suppress_legacy_emergency_notice: the SEPARATE key that
+    // also covers emergency-level events (blood pressure crisis, glucose emergency). circle_notice_unified_page: 1 = a neutral check-in
+    // notice also goes to Care Circle members who allowed red alerts when the page is a unified page (never for a symptom event when the patient
+    // has a pregnancy or reproductive-health record). hold_seconds: how long a held message waits for its page before it is sent.
+    // emergency_hold_seconds: the much shorter wait for an EMERGENCY-level message; emergency_engine_fresh_seconds: how recent the event-bus
+    // heartbeat must be to hold an emergency message at all (older: sent at once). min_parallel_days / min_parallel_events: the evidence a
+    // retiring version needs from the parallel run (days switched on, real events measured) before it can be signed.
+    // Version 1 = parallel run. 2 = retire red-level BP and glucose. 3 = 2 plus emergency-level. 4 = Care Circle notice only.
+    value: {
+      versions: {
+        "1": { observe: 1, suppress_legacy_bp_notice: 0, suppress_legacy_glucose_notice: 0, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+        "2": { observe: 1, suppress_legacy_bp_notice: 1, suppress_legacy_glucose_notice: 1, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+        "3": { observe: 1, suppress_legacy_bp_notice: 1, suppress_legacy_glucose_notice: 1, suppress_legacy_emergency_notice: 1, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+        "4": { observe: 1, suppress_legacy_bp_notice: 0, suppress_legacy_glucose_notice: 0, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 1, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/S19f-legacy-notice-retirement-and-circle-notice.md; docs/design/S16-S20-unified-red-paging.md sections C and D",
   },
   {
     key: "free_red_event.rules",
@@ -3279,6 +3310,55 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C8 and D4; supabase/migrations/20261013181946_s09x_my_health_completion.sql",
   },
   {
+    key: "activity.safety_rules",
+    // Activity safety gate (S48a, spec 5.2 / 5.5). PROPOSED, UNSIGNED: the CMO owns every number and every blocked kind below. Live values are the
+    // active row of `activity_safety_config`.config; activity-gate-parity.test.ts fails if the migration seed and this value drift. The gate only
+    // ever restricts, so enforcing unsigned rules errs toward rest; signing records the CMO's review, it does not switch the gate on.
+    //  lookback: a red triage event inside red_hours is rest; an amber one inside amber_hours is gentle-only; unsettled_bp_days is how far back a
+    //            BP-observation amber or red marks hypertension as not settled.
+    //  kinds:    effort_met is for display and weekly load; intensity is what the gate compares to a rule's max_intensity.
+    value: {
+      lookback: { red_hours: 48, amber_hours: 48, unsettled_bp_days: 7 },
+      kinds: {
+        walking: { effort_met: 3.5, intensity: "gentle" },
+        chair_based: { effort_met: 2.5, intensity: "gentle" },
+        cycling: { effort_met: 6, intensity: "moderate" },
+        dancing: { effort_met: 5, intensity: "moderate" },
+        farm_manual_work: { effort_met: 5, intensity: "moderate" },
+        running: { effort_met: 8, intensity: "vigorous" },
+        football: { effort_met: 8, intensity: "vigorous" },
+      },
+      condition_match: {
+        hypertension: { name_patterns: ["hypertens", "high blood pressure"], icd10_prefixes: ["I10", "I11", "I12", "I13", "I15"] },
+        arthritis: { name_patterns: ["arthrit"], icd10_prefixes: ["M05", "M06", "M15", "M16", "M17", "M18", "M19"] },
+        back_pain: { name_patterns: ["back pain", "lumbago", "sciatica", "slipped disc"], icd10_prefixes: ["M54"] },
+      },
+      rules: {
+        amber: { max_intensity: "gentle", blocked_kinds: [] },
+        pregnancy: { max_intensity: "moderate", blocked_kinds: ["football"] },
+        pregnancy_high_risk: { max_intensity: "gentle", blocked_kinds: ["football", "running"] },
+        hypertension_unsettled: { max_intensity: "gentle", blocked_kinds: [] },
+        arthritis: { max_intensity: "moderate", blocked_kinds: ["running", "football"] },
+        back_pain: { max_intensity: "moderate", blocked_kinds: ["football", "farm_manual_work"] },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/BUILD-SPEC-v5.md Module 5 (5.2, 5.5) and invariants INV-01, INV-14; docs/design/S48a.md; supabase/migrations/20261020180745_s48a_activity_safety_gate.sql",
+  },
+  {
+    key: "activity.goals",
+    // Weekly activity goal (S48a, spec 5.1). 150 minutes a week of moderate activity is the commonly cited adult guideline figure; a person can set their own.
+    value: { weekly_active_minutes_default: 150, daily_steps_default: 7500 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/BUILD-SPEC-v5.md Module 5 (5.1); supabase/migrations/20261020180745_s48a_activity_safety_gate.sql",
+  },
+  {
     key: "medicines.prn_limits",
     // As-needed (PRN) limits (S08x, decision C7). There are NO default limits: a clinician sets a shortest gap and/or a most doses in a
     // Lagos day per medicine, and only inside these bounds. A dose outside them is still logged; the patient is shown a notice.
@@ -3323,6 +3403,22 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-13",
     source: "docs/OPEN-QUESTIONS.md OQ-89; docs/design/S11-S15-p6-coverage.md",
+  },
+  {
+    key: "triage.glucose_monitor",
+    // Follow-up OQ-320 (founder answer 2026-10-15): glucose from continuous monitors and wearables is graded by glucose_care_triage, behind the same unsigned
+    // rule set (so nothing pages or opens a task until the CMO signs it). Three guards protect the production connection budget and stop a stale value paging;
+    // live values are the active row of `triage_glucose_monitor_config`, this mirrors the v1 seed and a test fails on drift.
+    //  enabled: the producer and the dedupe are active (grading is still shadow while the rule set is a draft).
+    //  freshMinutes: a monitor reading older than this when it reaches the server is not graded (a bulk sync of old values must not page a stale low).
+    //  dedupeMinutes: the same level (grade and rule) for the same patient is not graded again within this long, for monitor readings only.
+    //  sources: the reading sources these guards apply to (the vital_source values for a monitor and a wearable). A bulk sync grades only its latest reading.
+    value: { enabled: true, freshMinutes: 30, dedupeMinutes: 60, sources: ["wearable", "cgm"] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-15",
+    source: "docs/OPEN-QUESTIONS.md OQ-320; docs/design/FU-engine-closeout.md",
   },
   {
     key: "chain.canary_and_health",
@@ -5412,6 +5508,44 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/S41-S45-build-plan.md section 6; spec 2.10; docs/research/S44.md",
   },
   {
+    key: "fhir.ips_mapping",
+    // International Patient Summary export (spec 2.10; docs/design/IPS.md). The IPS (ISO 27269, HL7 IPS) is under national adoption balloting in
+    // Nigeria in 2026 and the Nigeria Core FHIR implementation guide is still a draft, so NO profile URL is claimed and nothing here says the
+    // file conforms to the IPS or Nigeria Core IG: it is "IPS-shaped" (a document Bundle with the IPS section structure) and nothing more.
+    // Section codes are LOINC document-section codes the IPS uses. A required IPS section with nothing to show is written with
+    // emptyReason "unavailable" (not recorded here), never "nilknown": we must not tell a hospital a person has no known allergies.
+    value: {
+      ig_status: "ips_shaped_no_conformance_claimed",
+      profiles: {},
+      composition_type: { system: "http://loinc.org", code: "60591-5", display: "Patient summary Document" },
+      title: "International Patient Summary",
+      author_name: "Tarragon Health",
+      composition_status: "preliminary",
+      document_identifier_system: "https://tarragonhealth.ng/fhir/identifier/ips-document",
+      empty_reason_system: "http://terminology.hl7.org/CodeSystem/list-empty-reason",
+      empty_reason_code: "unavailable",
+      // A section the database did not give this reader (a supporter without that category) is "withheld", never "unavailable": "nothing
+      // recorded" and "not shared with you" must not read the same to a clinician.
+      withheld_reason_code: "withheld",
+      // A summary is short: the newest readings of each kind and the newest results of each test, not years of daily logs.
+      vitals_per_type: 5,
+      results_per_analyte: 3,
+      sections: [
+        { key: "problems", loinc: "11450-4", display: "Problem list - Reported", title: "Problems", required: true },
+        { key: "allergies", loinc: "48765-2", display: "Allergies and adverse reactions Document", title: "Allergies and intolerances", required: true },
+        { key: "medications", loinc: "10160-0", display: "History of Medication use Narrative", title: "Medicines", required: true },
+        { key: "immunizations", loinc: "11369-6", display: "History of Immunization note", title: "Immunizations", required: false },
+        { key: "results", loinc: "30954-2", display: "Relevant diagnostic tests/laboratory data Narrative", title: "Results", required: false },
+        { key: "vital_signs", loinc: "8716-3", display: "Vital signs", title: "Vital signs", required: false },
+      ],
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/IPS.md; spec 2.10; ISO 27269 (International Patient Summary)",
+  },
+  {
     key: "risk.who_cvd_2019",
     // WHO 2019 cardiovascular risk charts, Western sub-Saharan Africa (S45, function 3.2). Live value is the `config` of `risk_instrument_versions`
     // (code who_cvd_2019_wssa); a test fails if the migration seed and this value drift. NO COEFFICIENTS are loaded (the paper's appendix was not
@@ -5943,5 +6077,33 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-16",
     source: "docs/design/S53-pack-scan.md; NAFDAC Greenbook public examples",
+  },
+  {
+    key: "observations.plausibility",
+    // S47a (BUILD-SPEC-v5 4.3, 4.7): the typo gate for every hand-typed number. Hard limits refuse with a plain message; soft limits (water, sleep,
+    // inhaler puffs) only ask the person to confirm. Mirrored in the database CHECK for the lifestyle types and the inhaler log; a test fails on drift.
+    // PROPOSED: the Chief Medical Officer confirms the lifestyle-type limits (OQ-S47A-1).
+    value: OBSERVATION_LIMITS_V1,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-09-30",
+    source: "docs/BUILD-SPEC-v5.md Module 4 (4.3, 4.7); docs/research/S46-S50-competitor-gap-and-build-plan.md S47a",
+  },
+  {
+    key: "observations.target_bands",
+    // S47a (BUILD-SPEC-v5 4.6): the shaded band on the glucose and weight trend charts. Glucose is the usual time-in-range band that
+    // apps/web/src/lib/vitals/time-in-range.ts already uses (DEFAULT_TIR_LOW / DEFAULT_TIR_HIGH; a test fails if they drift). Weight is the WHO healthy BMI
+    // band, turned into kilograms at the person's own height. A care-team target for the person replaces the standard band.
+    // PROPOSED: the Chief Medical Officer confirms (OQ-S47A-4).
+    value: {
+      glucose_mmol_l: { low: 3.9, high: 10.0 },
+      healthy_bmi: { low: 18.5, high: 24.9 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-09-30",
+    source: "apps/web/src/lib/vitals/time-in-range.ts; WHO BMI bands (apps/web/src/lib/obesity/classify.ts bmiCategory)",
   },
 ];

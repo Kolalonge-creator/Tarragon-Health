@@ -49,7 +49,7 @@ export function TriageExplainer({ explainer, locale = "en" }: { explainer: Expla
               : c.sinceAt ? t("explainer.silence_never", locale, { date: day(c.sinceAt) }) : null}
           </p>
         )}
-        {c?.type === "adherence" && typeof c.percent7d === "number" && <p>{t("explainer.adherence", locale, { percent: c.percent7d })}</p>}
+        {c?.type === "adherence" && typeof (c.percentWindow ?? c.percent7d) === "number" && <p>{t("explainer.adherence", locale, { percent: c.percentWindow ?? c.percent7d ?? 0 })}</p>}
       </CardContent>
     </Card>
   );
