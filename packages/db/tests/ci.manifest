@@ -320,6 +320,7 @@ preventive_health_check_review_sku.sql
 # directions and carry sabotage steps that flip.
 s03b_account_recovery_routes.sql
 s03b_eligibility_first_claims.sql
+optional_passkeys.sql
 # S03b follow-up: the Auth Send SMS hook asks public.auth_sms_hold (OQ-S03B-06): held after a number move, lifted by a recovery-contact release, service role only. Sabotage x3 flips.
 s03b_auth_sms_hold.sql
 
@@ -1297,7 +1298,10 @@ assisted_entry_and_caregiver_red_care.sql
 task_queue_gaps_oq432_433_435.sql
 # S19e native page receipts: a live native (ios/android, Expo token) push subscription with a push receipt confirms a mobile-only clinician route (90 s early window); no subscription or a disabled one does not; page_channel_ready defaults false; the function is not executable by anon or authenticated. Sabotage: the web-only definition must flip the native check.
 s19e_native_page_receipts.sql
+proxy_yearly_access_review.sql
 
+# --- Added 2026-10-16 (hardening: result document replacement supersedes) ---
+supersede_patient_result_document_replace.sql
 # --- Added 2026-10-16 (hardening: audit_log SELECT narrowed to own rows + admin) ---
 audit_log_select_narrowed.sql
 bp_cuffless_estimates_never_diagnostic.sql

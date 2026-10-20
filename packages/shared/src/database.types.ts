@@ -8966,6 +8966,81 @@ export type Database = {
         }
         Relationships: []
       }
+      proxy_access_reviews: {
+        Row: {
+          created_at: string
+          detail: Json
+          grant_id: string | null
+          grantee_user_id: string | null
+          id: string
+          is_test: boolean
+          kind: string
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json
+          grant_id?: string | null
+          grantee_user_id?: string | null
+          id?: string
+          is_test?: boolean
+          kind: string
+          organisation_id: string
+          patient_id: string
+        }
+        Update: {
+          created_at?: string
+          detail?: Json
+          grant_id?: string | null
+          grantee_user_id?: string | null
+          id?: string
+          is_test?: boolean
+          kind?: string
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: []
+      }
+      proxy_review_config: {
+        Row: {
+          created_at: string
+          interval_months: number
+          is_active: boolean
+          max_reminders: number
+          note: string | null
+          proxy_notice_days: number
+          repeat_days: number
+          status: string
+          tell_proxy: boolean
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          interval_months: number
+          is_active?: boolean
+          max_reminders: number
+          note?: string | null
+          proxy_notice_days?: number
+          repeat_days: number
+          status?: string
+          tell_proxy?: boolean
+          version: number
+        }
+        Update: {
+          created_at?: string
+          interval_months?: number
+          is_active?: boolean
+          max_reminders?: number
+          note?: string | null
+          proxy_notice_days?: number
+          repeat_days?: number
+          status?: string
+          tell_proxy?: boolean
+          version?: number
+        }
+        Relationships: []
+      }
       proxy_setups: {
         Row: {
           confirmed_at: string | null
@@ -48116,6 +48191,7 @@ export type Database = {
       // S05b-d: spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       confirm_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
       reject_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
+      replace_my_result_document: { Args: { p_document_id: string; p_file_path: string; p_original_filename: string; p_mime_type: string; p_file_size_bytes: number; p_note?: string }; Returns: string }
       my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }
       withdraw_patient_allergy_correction: { Args: { p_request_id: string }; Returns: Json }
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
@@ -48300,6 +48376,11 @@ export type Database = {
       sponsor_outcome_report: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
       sponsor_staff_figures: { Args: { p_cohort: string }; Returns: Json };
       log_sponsor_staff_export: { Args: { p_cohort: string }; Returns: Json };
+      // Optional passkeys (docs/design/passkeys.md): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      authorise_passkey_add: { Args: { p_minutes: number; p_user: string }; Returns: boolean };
+      cancel_passkey_add: { Args: { p_user: string }; Returns: undefined };
+      has_fresh_passkey_add_authorisation: { Args: { p_user: string }; Returns: boolean };
+      passkey_gate_ready: { Args: Record<PropertyKey, never>; Returns: boolean };
       // S03b (accounts that survive a lost number; eligibility-first claims): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       authorise_phone_change: { Args: { p_method: string; p_user: string }; Returns: Json };
       cancel_contact_recovery: { Args: Record<PropertyKey, never>; Returns: Json };
@@ -49310,6 +49391,17 @@ export type Database = {
         Returns: number
       }
       revoke_proxy_access: { Args: { p_grantee: string }; Returns: boolean }
+      my_proxy_reviews: { Args: never; Returns: Json }
+      proxy_review_due_as_proxy: { Args: never; Returns: Json }
+      answer_proxy_review: {
+        Args: {
+          p_action: string
+          p_categories?: Database["public"]["Enums"]["care_access_category"][]
+          p_grantee: string
+          p_notify?: boolean
+        }
+        Returns: Json
+      }
       my_pending_proxy_setups: {
         Args: never
         Returns: {

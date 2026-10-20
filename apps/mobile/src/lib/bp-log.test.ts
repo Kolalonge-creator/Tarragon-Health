@@ -170,6 +170,21 @@ describe("logBpWithExtras", () => {
     expect(seen).toEqual([{ severity: "emergency", postsSoFar: 0 }]);
   });
 
+  it("reports the blood pressure row's own state: sent when it reached the server, even if a companion row is still waiting", async () => {
+    // the symptom insert is refused (stays), the blood pressure and pulse post fine
+    mockInsertError = { code: "42501", message: "row-level security" };
+    const res = await logBpWithExtras(plan({ pulse: "88", symptoms: ["chest_pain"] }));
+    expect(res.syncedAll).toBe(false);
+    expect(res).toMatchObject({ bpState: "sent" });
+  });
+
+  it("reports the blood pressure row as waiting while offline, and as rejected when the server refuses it", async () => {
+    mockPost.mockImplementation(async () => ({ success: false, error: NETWORK_ERROR_MESSAGE }));
+    const offline = await logBpWithExtras(plan());
+    expect(offline).toMatchObject({ saved: 1, bpState: "waiting" });
+    for (const row of await listOutbox()) await discardRejectedRow(row.clientId);
+  });
+
   it("keeps a refused member on the phone with a support code while the rest go through", async () => {
     mockInsertError = { code: "42501", message: "row-level security" };
     const res = await logBpWithExtras(plan({ symptoms: ["chest_pain"] }));
