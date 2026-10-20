@@ -27,6 +27,7 @@ import { HomeBpProgrammePanel } from "../_signoff-panels/home-bp-programme-panel
 import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
 import { HealthReportConfigPanel } from "../_signoff-panels/health-report-config-panel";
 import { SerologyRulesPanel } from "../_signoff-panels/serology-rules-panel";
+import { ActivitySafetyConfigPanel } from "../_signoff-panels/activity-safety-config-panel";
 import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
 import { TriageRulesPanel } from "../_signoff-panels/triage-rules-panel";
 import { QualityConfigPanel } from "../_signoff-panels/quality-config-panel";
@@ -86,6 +87,7 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   my_health_config: () => <MyHealthConfigPanel />,
   health_report_config_versions: () => <HealthReportConfigPanel />,
   serology_rule_versions: () => <SerologyRulesPanel />,
+  activity_safety_config: () => <ActivitySafetyConfigPanel />,
 };
 
 /**

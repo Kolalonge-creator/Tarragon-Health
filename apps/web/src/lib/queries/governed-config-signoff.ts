@@ -56,6 +56,7 @@ export const GOVERNED_CONFIG_TABLES = [
     title: "Hepatitis and HIV repeat rules (anti-HBs threshold)",
     slug: "serology-rules",
   },
+  { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
 ] as const;
 
 /** Tables that hold one live row per kind rather than one live row in total. */

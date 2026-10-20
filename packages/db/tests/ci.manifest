@@ -1320,3 +1320,6 @@ record_share_recipient_views_window.sql
 oq436_deadman_status.sql
 # S46d health report completion: CMO-only anti-HBs threshold signing, panel v3 anti_hbs clinician add-on (optional, unpriced, not sensitive), report settings v3 unsigned, share link carries only the latest SIGNED report with risk band / questionnaires / reproductive screening / doctor text / blood-borne codes removed, PIN, revoke, no supporter read. Sabotage: unfiltered body, code filter off, signer check off; all must flip.
 s46d_health_report_completion.sql
+
+# S48a: activity safety gate (red event in 48h = rest, enforced on enrolment incl. re-activation), kinds/goals/events, unreviewed workout plans hidden, owner-only private routes. Sabotage: trigger dropped, gate ignoring red, staff route policy; each must flip.
+s48a_activity_safety_gate.sql
