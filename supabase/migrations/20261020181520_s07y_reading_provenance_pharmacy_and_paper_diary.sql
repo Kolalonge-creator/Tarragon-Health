@@ -150,23 +150,25 @@ $$;
 revoke all on function private.stamp_manual_vitals_timestamp() from public, anon, authenticated;
 
 -- 4. the two views gain the columns at the end -------------------------------------------------------------------------------------------
-create or replace view private.vitals_readings_current with (security_invoker = false) as
- select id, organisation_id, patient_id, vital_type, systolic, diastolic, glucose_mmol_l, glucose_context, weight_kg, pulse_bpm, temperature_c, spo2_pct, note,
-        taken_at, created_at, source, device_id, external_reading_id, cgm_connection_id, waist_cm, ketones_mmol_l, ketone_urine, logged_by_profile_id,
-        wearable_connection_id, respiratory_rate_bpm, peak_flow_l_min, "position", arm, validation_status, validation_flags, validated_by, validated_at,
-        client_reading_id, triage_event_id, value_numeric, value_unit, client_recorded_at, received_at, time_basis, cuff_type, supersedes_id, superseded_by_id,
-        correction_status, correction_reason, corrected_by, corrected_at, entry_origin, place_label
-   from public.vitals_readings
-  where correction_status is null;
-
-create or replace view private.vitals_readings_diagnostic with (security_invoker = false) as
- select id, organisation_id, patient_id, vital_type, systolic, diastolic, glucose_mmol_l, glucose_context, weight_kg, pulse_bpm, temperature_c, spo2_pct, note,
-        taken_at, created_at, source, device_id, external_reading_id, cgm_connection_id, waist_cm, ketones_mmol_l, ketone_urine, logged_by_profile_id,
-        wearable_connection_id, respiratory_rate_bpm, peak_flow_l_min, "position", arm, validation_status, validation_flags, validated_by, validated_at,
-        client_reading_id, triage_event_id, value_numeric, value_unit, client_recorded_at, received_at, time_basis, cuff_type, supersedes_id, superseded_by_id,
-        correction_status, correction_reason, corrected_by, corrected_at, entry_origin, place_label
-   from private.vitals_readings_current c
-  where not (vital_type = 'blood_pressure'::public.vital_type and private.bp_reading_is_estimate(source::text));
+-- Built from each view's CURRENT definition, not from a fixed column list: the column set of these views is whatever `select *` expanded to when each was last
+-- created, and it differs between the live database and a fresh replay of every migration (a replay failed on a fixed list: "cannot change name of view column").
+-- Appending to the existing select list is the only change, so nothing is renamed, reordered or dropped, and security_invoker stays false as it was.
+do $views$
+declare
+  v_cur text;
+  v_dia text;
+begin
+  perform set_config('search_path', 'public, pg_catalog', true);
+  if not exists (select 1 from pg_attribute where attrelid = 'private.vitals_readings_current'::regclass and attname = 'entry_origin' and not attisdropped) then
+    v_cur := regexp_replace(rtrim(pg_get_viewdef('private.vitals_readings_current'::regclass, true), E' ;\n'), '\sFROM\s', ', entry_origin, place_label FROM ');
+    execute 'create or replace view private.vitals_readings_current with (security_invoker = false) as ' || v_cur;
+  end if;
+  if not exists (select 1 from pg_attribute where attrelid = 'private.vitals_readings_diagnostic'::regclass and attname = 'entry_origin' and not attisdropped) then
+    v_dia := regexp_replace(rtrim(pg_get_viewdef('private.vitals_readings_diagnostic'::regclass, true), E' ;\n'), '\sFROM\s', ', entry_origin, place_label FROM ');
+    execute 'create or replace view private.vitals_readings_diagnostic with (security_invoker = false) as ' || v_dia;
+  end if;
+end
+$views$;
 
 -- 5. the three home-reading functions ---------------------------------------------------------------------------------------------------
 -- (a) the signed 7-day protocol: neither label counts (the live definition reads the diagnostic view, which the cuffless-estimate work put there; only the label line is new)
