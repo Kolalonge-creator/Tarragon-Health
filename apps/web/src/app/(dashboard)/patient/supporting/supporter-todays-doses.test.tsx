@@ -51,7 +51,7 @@ describe("SupporterTodaysDoses", () => {
 
   it("lists today's doses with a plain state and the read-only note, never the word missed", () => {
     hook = {
-      data: { status: "ok", date: "2026-10-20", doses: [dose("taken", 0), dose("none", Date.now() + 3_600_000), dose("none", 1000)] },
+      data: { status: "ok", date: "2026-10-20", activeMedicines: 2, doses: [dose("taken", 0), dose("none", Date.now() + 3_600_000), dose("none", 1000)] },
       isLoading: false,
       isError: false,
     };
@@ -64,9 +64,14 @@ describe("SupporterTodaysDoses", () => {
     expect(text).not.toMatch(/missed/i);
   });
 
-  it("an empty day says there are no scheduled doses", () => {
-    hook = { data: { status: "ok", date: "2026-10-20", doses: [] }, isLoading: false, isError: false };
+  it("an empty day is not read as an empty list: no medicines, versus nothing scheduled", () => {
+    hook = { data: { status: "ok", date: "2026-10-20", activeMedicines: 0, doses: [] }, isLoading: false, isError: false };
+    const first = render(<SupporterTodaysDoses patientId="p1" name="Ada" hasMedicinesCategory />);
+    expect(screen.getByText(/no medicines listed/)).toBeTruthy();
+    first.unmount();
+    hook = { data: { status: "ok", date: "2026-10-20", activeMedicines: 3, doses: [] }, isLoading: false, isError: false };
     render(<SupporterTodaysDoses patientId="p1" name="Ada" hasMedicinesCategory />);
-    expect(screen.getByText(/No scheduled doses today/)).toBeTruthy();
+    expect(screen.getByText(/No dose is scheduled for today/)).toBeTruthy();
+    expect(screen.getByText(/Only medicines with a schedule appear here/)).toBeTruthy();
   });
 });

@@ -31,20 +31,21 @@ describe("supporterDoseState", () => {
 });
 
 describe("parseSupporterDoses", () => {
-  const good = { status: "ok", date: "2026-10-20", doses: [{ medication_id: "m", name: "N", time: "08:00", due_at: "2026-10-20T07:00:00Z", answer: "taken" }] };
+  const good = { status: "ok", date: "2026-10-20", active_medicines: 2, doses: [{ medication_id: "m", name: "N", time: "08:00", due_at: "2026-10-20T07:00:00Z", answer: "taken" }] };
   it("reads the three answers", () => {
-    expect(parseSupporterDoses(good)).toEqual({ status: "ok", date: "2026-10-20", doses: [{ medicationId: "m", name: "N", time: "08:00", dueAtMs: Date.parse("2026-10-20T07:00:00Z"), answer: "taken" }] });
+    expect(parseSupporterDoses(good)).toEqual({ status: "ok", date: "2026-10-20", activeMedicines: 2, doses: [{ medicationId: "m", name: "N", time: "08:00", dueAtMs: Date.parse("2026-10-20T07:00:00Z"), answer: "taken" }] });
     expect(parseSupporterDoses({ status: "not_shared" })).toEqual({ status: "not_shared" });
     expect(parseSupporterDoses({ status: "closed" })).toEqual({ status: "closed" });
-    expect(parseSupporterDoses({ status: "ok", date: "d", doses: [] })).toEqual({ status: "ok", date: "d", doses: [] });
+    expect(parseSupporterDoses({ status: "ok", date: "d", active_medicines: 0, doses: [] })).toEqual({ status: "ok", date: "d", activeMedicines: 0, doses: [] });
   });
   it("treats anything unexpected as unreadable, never as nothing due", () => {
     expect(parseSupporterDoses(null)).toEqual({ status: "unreadable" });
     expect(parseSupporterDoses([])).toEqual({ status: "unreadable" });
     expect(parseSupporterDoses({ status: "denied" })).toEqual({ status: "unreadable" });
-    expect(parseSupporterDoses({ status: "ok", date: 1, doses: [] })).toEqual({ status: "unreadable" });
-    expect(parseSupporterDoses({ status: "ok", date: "d", doses: "x" })).toEqual({ status: "unreadable" });
-    expect(parseSupporterDoses({ status: "ok", date: "d", doses: [3] })).toEqual({ status: "unreadable" });
+    expect(parseSupporterDoses({ status: "ok", date: 1, active_medicines: 0, doses: [] })).toEqual({ status: "unreadable" });
+    expect(parseSupporterDoses({ status: "ok", date: "d", doses: [] })).toEqual({ status: "unreadable" });
+    expect(parseSupporterDoses({ status: "ok", date: "d", active_medicines: 0, doses: "x" })).toEqual({ status: "unreadable" });
+    expect(parseSupporterDoses({ status: "ok", date: "d", active_medicines: 0, doses: [3] })).toEqual({ status: "unreadable" });
     const d = good.doses[0];
     for (const bad of [{ ...d, medication_id: 1 }, { ...d, name: 1 }, { ...d, time: 1 }, { ...d, due_at: "nope" }, { ...d, due_at: 5 }, { ...d, answer: "gone" }, { ...d, answer: 1 }]) {
       expect(parseSupporterDoses({ ...good, doses: [bad] })).toEqual({ status: "unreadable" });

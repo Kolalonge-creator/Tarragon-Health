@@ -25,7 +25,7 @@ export function supporterDoseState(row: SupporterDoseRow, nowMs: number): Suppor
   return nowMs < row.dueAtMs ? "not_due_yet" : "no_record_yet";
 }
 
-export type SupporterDosesView = { status: "ok"; date: string; doses: SupporterDoseRow[] } | { status: "not_shared" } | { status: "closed" } | { status: "unreadable" };
+export type SupporterDosesView = { status: "ok"; date: string; /** Active medicines on the list, scheduled or not, so an empty day is not mistaken for an empty list. */ activeMedicines: number; doses: SupporterDoseRow[] } | { status: "not_shared" } | { status: "closed" } | { status: "unreadable" };
 
 const ANSWERS: readonly string[] = ["taken", "delayed", "skipped", "not_available", "missed", "none"];
 
@@ -42,7 +42,8 @@ export function parseSupporterDoses(data: unknown): SupporterDosesView {
   if (data["status"] === "not_shared") return { status: "not_shared" };
   if (data["status"] === "closed") return { status: "closed" };
   const doses = data["doses"];
-  if (data["status"] !== "ok" || typeof data["date"] !== "string" || !Array.isArray(doses)) return { status: "unreadable" };
+  const active = data["active_medicines"];
+  if (data["status"] !== "ok" || typeof data["date"] !== "string" || !Array.isArray(doses) || typeof active !== "number") return { status: "unreadable" };
   const out: SupporterDoseRow[] = [];
   for (const d of doses) {
     if (!isRecord(d)) return { status: "unreadable" };
@@ -59,5 +60,5 @@ export function parseSupporterDoses(data: unknown): SupporterDosesView {
     }
     out.push({ medicationId: d["medication_id"], name: d["name"], time: d["time"], dueAtMs, answer: d["answer"] as SupporterDoseAnswer });
   }
-  return { status: "ok", date: data["date"], doses: out };
+  return { status: "ok", date: data["date"], activeMedicines: active, doses: out };
 }

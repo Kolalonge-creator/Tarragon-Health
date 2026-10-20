@@ -1,3 +1,4 @@
+import * as Crypto from "expo-crypto";
 import {
   computeWeeklyAdherence,
   estimateSupply,
@@ -685,7 +686,10 @@ export async function addMedication(patientId: string, input: AddMedicationInput
   if (!profile?.organisation_id) return { error: "This patient has no organisation on file" };
 
   const source: MedicationSource = input.startedBySpecialist ? "specialist" : "patient";
-  const { data: inserted, error } = await supabase.from("medications").insert({
+  // The id is made here (not read back with RETURNING, which would need a SELECT policy someone acting for the patient may not have).
+  const id = Crypto.randomUUID();
+  const { error } = await supabase.from("medications").insert({
+    id,
     drug_name: input.drugName,
     dose: input.dose || null,
     frequency: input.frequency || null,
@@ -697,9 +701,9 @@ export async function addMedication(patientId: string, input: AddMedicationInput
     source,
     prescriber_name: source === "specialist" ? input.prescriberName || null : null,
     prescriber_document_url: source === "specialist" ? input.prescriberDocumentUrl || null : null,
-  }).select("id").single();
-  // The new row's id lets the form attach the NAFDAC number noted from the pack (S08y).
-  return error ? { error: error.message } : { id: inserted.id };
+  });
+  // The id lets the form attach the NAFDAC number noted from the pack (S08y).
+  return error ? { error: error.message } : { id };
 }
 
 // --- Adherence check-ins ----------------------------------------------------

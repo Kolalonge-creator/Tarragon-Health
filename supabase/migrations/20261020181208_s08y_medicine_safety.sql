@@ -12,7 +12,7 @@
 --      newer signed one cannot be re-activated. private.interaction_rules_valid is the SQL twin of validateRuleSet.
 --      WARN ONLY: no function here can stop, edit or remove a medicine. No model is used (INV-01).
 --   3. medicine_brand_generic_map: brand name to active ingredients, with a public citation for every row and a publish gate
---      (a named reviewer, who is not the person who entered it). Born EMPTY, nothing seeded. Writes only through audited functions.
+--      (a named doctor as reviewer, who is not the person who entered or last changed it). Born EMPTY, nothing seeded. Writes only through audited functions.
 --   4. medication_pack_numbers: the NAFDAC number a person copies from a pack, stored as a note beside the medicine. Store only:
 --      no outbound call, no claim about authenticity. The prescribed `medications` row is never touched (INV-02).
 --   5. public.supporter_todays_doses: read-only "was today's dose taken" for a person who granted the `medications` category
@@ -94,10 +94,12 @@ comment on table public.medicine_interaction_rule_sets is
   'S08y. Governed, versioned, Chief-Medical-Officer-signed interaction rules (ingredient pairs, severity, public source). Born empty, unsigned and inactive: this repository authors no clinical rule. Warn only; an unsigned draft does nothing and is not readable by patients.';
 
 alter table public.medicine_interaction_rule_sets enable row level security;
--- A patient (any signed-in person) reads only the signed, active set. Staff and admins also read drafts, to review them.
+-- Staff and admins read the table (drafts included, to review them). A patient reads NOTHING from it directly: the rules reach a patient
+-- only through public.active_medicine_interaction_rules(), which honours the go-live guard, so a closed switch cannot be bypassed by a query.
+drop policy if exists medicine_interaction_rule_sets_select on public.medicine_interaction_rule_sets;
 create policy medicine_interaction_rule_sets_select on public.medicine_interaction_rule_sets for select to authenticated
-  using ((is_active and approved_by is not null) or private.is_admin()
-         or exists (select 1 from public.clinical_staff cs where cs.profile_id = (select auth.uid()) and cs.active));
+  using (private.is_admin() or exists (select 1 from public.clinical_staff cs where cs.profile_id = (select auth.uid()) and cs.active));
+drop policy if exists medicine_interaction_rule_sets_insert on public.medicine_interaction_rule_sets;
 create policy medicine_interaction_rule_sets_insert on public.medicine_interaction_rule_sets for insert to authenticated
   with check (
     (private.is_admin() or exists (
@@ -179,6 +181,7 @@ create table if not exists public.medicine_brand_generic_map (
   ingredients     text[] not null check (private.ingredient_list_ok(ingredients)),
   source_citation text not null check (char_length(btrim(source_citation)) between 5 and 400 and source_citation ~* 'https://\S+'),
   created_by      uuid references public.profiles (id) on delete restrict,
+  edited_by       uuid references public.profiles (id) on delete restrict,
   created_at      timestamptz not null default now(),
   reviewed_by     uuid references public.profiles (id) on delete restrict,
   reviewer_name   text,
@@ -187,7 +190,8 @@ create table if not exists public.medicine_brand_generic_map (
   constraint medicine_brand_generic_map_brand_key_unique unique (brand_key),
   constraint medicine_brand_generic_map_review_paired check ((reviewed_by is null) = (reviewed_at is null) and (reviewed_by is null) = (reviewer_name is null)),
   constraint medicine_brand_generic_map_active_requires_review check (not is_active or (reviewed_by is not null and char_length(btrim(reviewer_name)) >= 2)),
-  constraint medicine_brand_generic_map_reviewer_not_author check (reviewed_by is null or created_by is null or reviewed_by <> created_by)
+  constraint medicine_brand_generic_map_reviewer_not_author check (
+    reviewed_by is null or ((created_by is null or reviewed_by <> created_by) and (edited_by is null or reviewed_by <> edited_by)))
 );
 comment on table public.medicine_brand_generic_map is
   'S08y. Brand name to active ingredients, each row with a public citation. Used for search and the same-ingredient warning only. Born empty. A row is used only when active, with a named reviewer who is not the author; editing a row clears its review.';
@@ -197,12 +201,16 @@ language sql stable security definer set search_path = '' as $$
   select private.is_admin()
       or exists (select 1 from public.clinical_staff cs where cs.profile_id = (select auth.uid()) and cs.active)
 $$;
+-- A reviewer is a doctor. A Care Coordinator (logistics only, no clinical judgement) may enter a draft but never approves one.
 create or replace function private.can_review_brand_map() returns boolean
 language sql stable security definer set search_path = '' as $$
-  select exists (select 1 from public.clinical_staff cs where cs.profile_id = (select auth.uid()) and cs.active)
+  select exists (select 1 from public.clinical_staff cs
+                  where cs.profile_id = (select auth.uid()) and cs.active
+                    and cs.doctor_tier in ('senior_medical_officer', 'chief_medical_officer'))
 $$;
 
 alter table public.medicine_brand_generic_map enable row level security;
+drop policy if exists medicine_brand_generic_map_select on public.medicine_brand_generic_map;
 create policy medicine_brand_generic_map_select on public.medicine_brand_generic_map for select to authenticated
   using ((is_active and reviewed_by is not null) or private.can_edit_brand_map());
 revoke all on public.medicine_brand_generic_map from public, anon, authenticated;
@@ -231,12 +239,13 @@ begin
     raise exception 'not authorised' using errcode = '42501';
   end if;
   if p_id is null then
-    insert into public.medicine_brand_generic_map (brand_name, ingredients, source_citation, created_by)
-    values (btrim(p_brand), p_ingredients, btrim(p_citation), (select auth.uid()))
+    insert into public.medicine_brand_generic_map (brand_name, ingredients, source_citation, created_by, edited_by)
+    values (btrim(p_brand), p_ingredients, btrim(p_citation), (select auth.uid()), (select auth.uid()))
     returning id into v_id;
   else
+    -- edited_by is the LAST person to change what the row says: they may not review it either.
     update public.medicine_brand_generic_map
-       set brand_name = btrim(p_brand), ingredients = p_ingredients, source_citation = btrim(p_citation)
+       set brand_name = btrim(p_brand), ingredients = p_ingredients, source_citation = btrim(p_citation), edited_by = (select auth.uid())
      where id = p_id returning id into v_id;
     if v_id is null then raise exception 'brand map row not found' using errcode = '22023'; end if;
   end if;
@@ -258,10 +267,10 @@ begin
   if jsonb_typeof(p_rows) is distinct from 'array' or jsonb_array_length(p_rows) > 500 then
     raise exception 'rows must be a list of at most 500' using errcode = '22023';
   end if;
-  insert into public.medicine_brand_generic_map (brand_name, ingredients, source_citation, created_by)
+  insert into public.medicine_brand_generic_map (brand_name, ingredients, source_citation, created_by, edited_by)
   select btrim(r ->> 'brand_name'),
          array(select jsonb_array_elements_text(r -> 'ingredients')),
-         btrim(r ->> 'source_citation'), (select auth.uid())
+         btrim(r ->> 'source_citation'), (select auth.uid()), (select auth.uid())
     from jsonb_array_elements(p_rows) r
   on conflict (brand_key) do nothing;
   get diagnostics v_n = row_count;
@@ -279,13 +288,13 @@ declare
   m      public.medicine_brand_generic_map;
 begin
   if (select auth.uid()) is null or not private.can_review_brand_map() then
-    raise exception 'only an active clinician may review a brand mapping' using errcode = '42501';
+    raise exception 'only an active doctor may review a brand mapping' using errcode = '42501';
   end if;
   select * into m from public.medicine_brand_generic_map where id = p_id;
   if not found then raise exception 'brand map row not found' using errcode = '22023'; end if;
   if p_approve then
-    if m.created_by is not distinct from (select auth.uid()) then
-      raise exception 'a row cannot be reviewed by the person who entered it' using errcode = '42501';
+    if m.created_by is not distinct from (select auth.uid()) or m.edited_by is not distinct from (select auth.uid()) then
+      raise exception 'a row cannot be reviewed by the person who entered or last changed it' using errcode = '42501';
     end if;
     select nullif(btrim(full_name), '') into v_name from public.profiles where id = (select auth.uid());
     if v_name is null then raise exception 'the reviewer has no display name on their profile' using errcode = '22023'; end if;
@@ -317,6 +326,7 @@ comment on table public.medication_pack_numbers is
 create index if not exists medication_pack_numbers_patient_idx on public.medication_pack_numbers (patient_id);
 create index if not exists medication_pack_numbers_org_idx on public.medication_pack_numbers (organisation_id);
 alter table public.medication_pack_numbers enable row level security;
+drop policy if exists medication_pack_numbers_select on public.medication_pack_numbers;
 -- Read: the person, someone acting for them, a supporter holding the medicines category. No staff policy (like medication_supply).
 create policy medication_pack_numbers_select on public.medication_pack_numbers for select to authenticated using (
   patient_id = (select auth.uid())
@@ -360,9 +370,12 @@ grant execute on function public.set_medication_nafdac_number(uuid, text) to aut
 create or replace function private.carry_pack_number_on_amend() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
+  -- previous_version_id is supplied by the inserting client, so the note is copied only from a pack number that belongs to the SAME
+  -- person, and the new row's own owner and organisation are used, never the source row's.
   insert into public.medication_pack_numbers (medication_id, organisation_id, patient_id, nafdac_number, recorded_by, recorded_at)
-  select new.id, p.organisation_id, p.patient_id, p.nafdac_number, p.recorded_by, p.recorded_at
-    from public.medication_pack_numbers p where p.medication_id = new.previous_version_id
+  select new.id, new.organisation_id, new.patient_id, p.nafdac_number, p.recorded_by, p.recorded_at
+    from public.medication_pack_numbers p
+   where p.medication_id = new.previous_version_id and p.patient_id = new.patient_id
   on conflict (medication_id) do nothing;
   return null;
 end $$;
@@ -380,6 +393,7 @@ language plpgsql security definer set search_path = '' as $$
 declare
   v_today date := (now() at time zone 'Africa/Lagos')::date;
   v_doses jsonb;
+  v_active integer;
 begin
   if (select auth.uid()) is null then raise exception 'not authorised' using errcode = '42501'; end if;
   if p_patient is null or p_patient = (select auth.uid())
@@ -389,6 +403,9 @@ begin
   if not private.go_live_open_patient('supporter_todays_doses', (select auth.uid())) then
     return jsonb_build_object('status', 'closed');
   end if;
+
+  select count(*) into v_active from public.medications m
+   where m.patient_id = p_patient and m.is_active and m.superseded_at is null and m.stopped_at is null;
 
   select coalesce(jsonb_agg(jsonb_build_object(
            'medication_id', s.med_id, 'name', s.name, 'time', s.slot_time, 'due_at', s.due_at,
@@ -407,8 +424,14 @@ begin
       on v.medication_id = s.med_id and v.scheduled_for_date = v_today and v.scheduled_time = s.slot_time
    where s.due_at >= s.active_from;
 
-  perform private.log_audit('supporter.todays_doses_viewed', 'profile', p_patient, jsonb_build_object('date', v_today));
-  return jsonb_build_object('status', 'ok', 'date', v_today, 'doses', v_doses);
+  -- Every read is audited; a repeat by the same supporter inside ten minutes adds no second row. An audit failure fails the read (no swallow).
+  if not exists (select 1 from public.audit_log a
+                  where a.actor_id = (select auth.uid()) and a.action = 'supporter.todays_doses_viewed' and a.entity_id = p_patient
+                    and a.created_at > now() - interval '10 minutes') then
+    perform private.log_audit('supporter.todays_doses_viewed', 'profile', p_patient, jsonb_build_object('date', v_today));
+  end if;
+  -- active_medicines lets the screen say honestly when nothing is SCHEDULED, instead of looking like "all clear".
+  return jsonb_build_object('status', 'ok', 'date', v_today, 'active_medicines', v_active, 'doses', v_doses);
 end $$;
 revoke all on function public.supporter_todays_doses(uuid) from public, anon;
 grant execute on function public.supporter_todays_doses(uuid) to authenticated;
@@ -511,12 +534,14 @@ begin
      or has_table_privilege('authenticated', 'public.medication_pack_numbers', 'INSERT') then
     raise exception 'S08y: authenticated can write a brand row or a pack number directly';
   end if;
-  if (select count(*) from public.medicine_interaction_rule_sets where is_active) <> 0 then raise exception 'S08y: a rule set is already live'; end if;
-  if (select count(*) from public.medicine_interaction_rule_sets where jsonb_array_length(config -> 'rules') <> 0) <> 0 then raise exception 'S08y: a rule was seeded'; end if;
-  if (select count(*) from public.medicine_brand_generic_map) <> 0 then raise exception 'S08y: a brand mapping was seeded'; end if;
+  -- These hold on a fresh replay and on a re-run: v1 never carries a rule, and the three guards exist. (Whether a guard is on, or a set
+  -- is signed, is a human's decision after this migration and is deliberately not asserted here, so a replay never fails on it.)
+  if not exists (select 1 from public.medicine_interaction_rule_sets where version = 1 and jsonb_array_length(config -> 'rules') = 0) then
+    raise exception 'S08y: v1 of the rule set is missing or carries a rule';
+  end if;
   if (select count(*) from public.go_live_guards
-       where key in ('medicine_duplicate_ingredient_check', 'medicine_interaction_rules', 'supporter_todays_doses') and not is_on) <> 3 then
-    raise exception 'S08y: a guard is missing or on';
+       where key in ('medicine_duplicate_ingredient_check', 'medicine_interaction_rules', 'supporter_todays_doses')) <> 3 then
+    raise exception 'S08y: a guard is missing';
   end if;
   if private.go_live_conditions('medicine_interaction_rules', null) is null then raise exception 'S08y: go_live_conditions has no medicine safety branch'; end if;
   if not exists (select 1 from public.data_registry where table_name = 'medication_pack_numbers') then raise exception 'S08y: pack numbers are not in the data registry'; end if;

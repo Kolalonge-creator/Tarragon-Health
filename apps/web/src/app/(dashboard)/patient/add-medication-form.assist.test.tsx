@@ -7,7 +7,7 @@
  *  - with the guard closed (the default) the add goes straight through exactly as before;
  *  - the warning never tells the patient to stop a medicine.
  */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const mutate = jest.fn();
 let guardOpen = false;
@@ -207,14 +207,20 @@ describe("patient add form: S08y same-ingredient warning, governed rules and the
     expect(mutate).not.toHaveBeenCalled();
   });
 
-  it("a number that is not a NAFDAC number is sent back before saving; a well-formed one is stored after the add", () => {
+  it("a value that is not a NAFDAC number never holds the medicine back: it is added, and the note is not saved", () => {
     render(<AddMedicationForm patientId="p1" source="patient" />);
     type("Paracetamol");
     fireEvent.change(screen.getByLabelText(/NAFDAC number on the pack/), { target: { value: "genuine" } });
     submit();
-    expect(screen.getByText(/does not look like a NAFDAC number/i)).toBeTruthy();
-    expect(mutate).not.toHaveBeenCalled();
+    expect(mutate).toHaveBeenCalledTimes(1);
+    act(() => (mutate.mock.calls[0]![1] as { onSuccess: (created: { id: string }) => void }).onSuccess({ id: "m9" }));
+    expect(setNafdacMutate).not.toHaveBeenCalled();
+    expect(screen.getByText(/did not look like a NAFDAC number, so we did not save it/i)).toBeTruthy();
+  });
 
+  it("a well-formed number is stored after the add", () => {
+    render(<AddMedicationForm patientId="p1" source="patient" />);
+    type("Paracetamol");
     fireEvent.change(screen.getByLabelText(/NAFDAC number on the pack/), { target: { value: "a4-1234" } });
     submit();
     expect(mutate).toHaveBeenCalledTimes(1);

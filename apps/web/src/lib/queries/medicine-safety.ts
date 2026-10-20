@@ -14,9 +14,10 @@ import { createClient } from "@/lib/supabase/client";
  */
 
 /** Published brand mappings (active, with a named reviewer). The database only sends a patient those rows. */
-export function useBrandMap() {
+export function useBrandMap(enabled = true) {
   return useQuery({
     queryKey: ["medicine-brand-map"],
+    enabled,
     staleTime: 60 * 60 * 1000,
     refetchOnWindowFocus: false,
     retry: false,

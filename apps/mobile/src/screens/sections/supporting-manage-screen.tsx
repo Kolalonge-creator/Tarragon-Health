@@ -199,12 +199,13 @@ function SupporterDosesSection({ beneficiaryId, name }: { beneficiaryId: string;
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8, gap: 4 }}>
       <Text style={{ fontSize: 12, fontWeight: "700", color: colors.ink }}>{t("supporter.doses.title", locale)}</Text>
-      {view.doses.length === 0 ? <MutedText>{t("supporter.doses.none_today", locale)}</MutedText> : null}
+      {view.doses.length === 0 ? <MutedText>{t(view.activeMedicines === 0 ? "supporter.doses.no_medicines" : "supporter.doses.none_scheduled", locale)}</MutedText> : null}
       {view.doses.map((dose) => (
         <Text key={`${dose.medicationId}-${dose.time}`} style={{ fontSize: 13, color: colors.ink }}>
           {`${dose.time} · ${dose.name} · ${t(DOSE_STATE_KEY[supporterDoseState(dose, now)], locale)}`}
         </Text>
       ))}
+      <MutedText>{t("supporter.doses.schedule_only", locale)}</MutedText>
       <MutedText>{t("supporter.doses.read_only", locale, { name })}</MutedText>
     </View>
   );

@@ -719,8 +719,8 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
   }, [open]);
   const [pickedName, setPickedName] = useState<string | null>(null);
   // S08y: reviewed brand mappings help search and name the ingredients; the NAFDAC number noted from the pack is kept as a note.
-  const [brandMap, setBrandMap] = useState<BrandMapEntry[]>([]);
-  const [nafdacSaved, setNafdacSaved] = useState<"none" | "saved" | "failed">("none");
+  const [brandMap, setBrandMap] = useState<BrandMapEntry[] | null>([]);
+  const [nafdacSaved, setNafdacSaved] = useState<"none" | "saved" | "failed" | "invalid">("none");
   useEffect(() => {
     if (!open) return;
     let alive = true;
@@ -739,7 +739,7 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
   const [scanBusy, setScanBusy] = useState(false);
   // Bumped when the form is reset, so a scan that finishes afterwards cannot put suggestions on the next medicine's form.
   const scanRun = useRef(0);
-  const suggestions = searchCatalogue([...catalogue, ...brandEntriesAsCatalogue(brandMap)], drugName === pickedName ? "" : drugName, 5);
+  const suggestions = searchCatalogue([...catalogue, ...brandEntriesAsCatalogue(brandMap ?? [])], drugName === pickedName ? "" : drugName, 5);
   const [kind, setKind] = useState<ScheduleKind>("daily");
   const [intervalDays, setIntervalDays] = useState("2");
   const [weekdays, setWeekdays] = useState<number[]>([]);
@@ -878,18 +878,16 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
       setError(built.error);
       return;
     }
-    // A number that is not shaped like a NAFDAC number is sent back to be fixed or cleared; a blank is fine.
+    // The NAFDAC number is an optional note: a value that is not shaped like one never holds the medicine back (it is simply not saved).
     const nafdac = nafdacNumberToStore(nafdacTyped);
-    if (!nafdac.ok) {
-      setError(tr("medicines.nafdac.invalid"));
-      return;
-    }
     setPending(true);
     // The checks only advise: they can pause the add to show one warning, never refuse it (spec 8.7, S08y).
-    const guard = skipCheck ? "closed" : await loadInteractionCheckState();
-    const dupState = skipCheck ? "closed" : await loadDuplicateIngredientCheckState();
-    const rules = skipCheck ? [] : await loadInteractionRules();
-    setCheckSkipped(guard === "unknown" || dupState === "unknown" || rules === null);
+    const [guard, dupState, rules] = skipCheck
+      ? (["closed", "closed", []] as const)
+      : await Promise.all([loadInteractionCheckState(), loadDuplicateIngredientCheckState(), loadInteractionRules()]);
+    const ingredientChecksOn = dupState === "open" || (rules?.length ?? 0) > 0;
+    // Without the brand mapping a brand name cannot be resolved, so the same-ingredient answer would be weaker: say so.
+    setCheckSkipped(guard === "unknown" || dupState === "unknown" || rules === null || (ingredientChecksOn && brandMap === null));
     const found: AddCheckFinding[] = [];
     if (guard === "open") {
       found.push(
@@ -899,12 +897,12 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
         ).findings,
       );
     }
-    if (dupState === "open" || (rules?.length ?? 0) > 0) {
+    if (ingredientChecksOn) {
       found.push(
         ...checkIngredientsOnAdd({
           candidateName: name,
           existing: existing.map((m) => ({ id: m.id, drugName: m.drug_name })),
-          brandMap,
+          brandMap: brandMap ?? [],
           catalogue,
           duplicateCheck: dupState === "open",
           rules: rules ?? [],
@@ -933,8 +931,8 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
       return;
     }
     // The medicine is saved either way; the NAFDAC number is a note beside it and its failure is said out loud, not hidden.
-    setNafdacSaved("none");
-    if (nafdac.value && result.id) {
+    setNafdacSaved(nafdac.ok ? "none" : "invalid");
+    if (nafdac.ok && nafdac.value && result.id) {
       const saved = await setNafdacNumber(result.id, nafdac.value);
       setNafdacSaved(saved.error ? "failed" : "saved");
     }
@@ -960,6 +958,7 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
           <NafdacVerifyBlock />
         </View>
       ) : null}
+      {success && !open && nafdacSaved === "invalid" ? <MutedText>{tr("medicines.nafdac.invalid")}</MutedText> : null}
       {success && !open && nafdacSaved === "failed" ? <ErrorText>{tr("medicines.nafdac.save_failed")}</ErrorText> : null}
       {open ? (
         <Card style={{ gap: 10 }}>

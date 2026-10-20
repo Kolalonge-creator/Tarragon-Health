@@ -30,7 +30,9 @@ export function SupporterTodaysDoses({ patientId, name, hasMedicinesCategory }: 
     <div className="space-y-1">
       <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t("supporter.doses.title")}</p>
       {data.doses.length === 0 ? (
-        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("supporter.doses.none_today")}</p>
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+          {t(data.activeMedicines === 0 ? "supporter.doses.no_medicines" : "supporter.doses.none_scheduled")}
+        </p>
       ) : (
         <ul className="space-y-1">
           {data.doses.map((dose) => (
@@ -43,6 +45,7 @@ export function SupporterTodaysDoses({ patientId, name, hasMedicinesCategory }: 
           ))}
         </ul>
       )}
+      <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{t("supporter.doses.schedule_only")}</p>
       <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{t("supporter.doses.read_only", undefined, { name })}</p>
     </div>
   );

@@ -43,8 +43,8 @@ export async function loadInteractionRules(): Promise<IngredientRule[] | null> {
   }
 }
 
-/** Published (reviewed, active) brand mappings. A failed read is an empty list: it only leaves brand help out. */
-export async function loadBrandMap(): Promise<BrandMapEntry[]> {
+/** Published (reviewed, active) brand mappings, or null when they could not be read (so the form can say the check was weaker). */
+export async function loadBrandMap(): Promise<BrandMapEntry[] | null> {
   try {
     const { data, error } = await supabase
       .from("medicine_brand_generic_map")
@@ -52,7 +52,7 @@ export async function loadBrandMap(): Promise<BrandMapEntry[]> {
       .eq("is_active", true)
       .not("reviewed_by", "is", null)
       .limit(1000);
-    if (error) return [];
+    if (error) return null;
     return (data ?? []).map((r) => ({
       id: r.id,
       brandName: r.brand_name,
@@ -64,7 +64,7 @@ export async function loadBrandMap(): Promise<BrandMapEntry[]> {
       isActive: r.is_active,
     }));
   } catch {
-    return [];
+    return null;
   }
 }
 

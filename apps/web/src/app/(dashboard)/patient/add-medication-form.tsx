@@ -62,10 +62,11 @@ export function AddMedicationForm({
   // arrive only while their switch is open and a signed set exists; the brand mapping and catalogue only help name the ingredients.
   const duplicateCheckOpen = useDuplicateIngredientCheckOpen();
   const interactionRules = useInteractionRules();
-  const brandMap = useBrandMap();
+  const ingredientChecksOn = duplicateCheckOpen.data === true || (interactionRules.data?.length ?? 0) > 0;
+  // Fetched only for a patient's add, and only when a check is open (the name search loads it for itself).
+  const brandMap = useBrandMap(source === "patient" && ingredientChecksOn);
   const catalogue = useMedicineCatalogue();
   const setNafdac = useSetNafdacNumber(patientId);
-  const ingredientChecksOn = duplicateCheckOpen.data === true || (interactionRules.data?.length ?? 0) > 0;
   const anyCheckOpen = interactionCheckOpen.data === true || ingredientChecksOn;
   const existingMedications = useMedications(source === "patient" && anyCheckOpen ? patientId : "");
   // Do not let the add race the check: wait until the guards and (when one is open) the medicine list have answered, or failed.
@@ -74,6 +75,7 @@ export function AddMedicationForm({
     (interactionCheckOpen.isPending ||
       duplicateCheckOpen.isPending ||
       interactionRules.isPending ||
+      (ingredientChecksOn && (brandMap.isPending || catalogue.isPending)) ||
       (anyCheckOpen && existingMedications.isPending));
   // "could not find out" is different from "closed": say so rather than letting a failure read as a pass
   const checkCouldNotRun =
@@ -81,10 +83,12 @@ export function AddMedicationForm({
     (interactionCheckOpen.isError ||
       duplicateCheckOpen.isError ||
       interactionRules.isError ||
+      // Without the brand mapping or the catalogue a brand name cannot be resolved, so the same-ingredient answer would be weaker: say so.
+      (ingredientChecksOn && (brandMap.isError || catalogue.isError)) ||
       (anyCheckOpen && existingMedications.isError));
   // S08y (item 4): the NAFDAC number noted from the pack. Store only; adding the medicine never depends on it.
   const [nafdacTyped, setNafdacTyped] = useState("");
-  const [nafdacSaved, setNafdacSaved] = useState<"none" | "saved" | "failed">("none");
+  const [nafdacSaved, setNafdacSaved] = useState<"none" | "saved" | "failed" | "invalid">("none");
   const [addFindings, setAddFindings] = useState<AddCheckFinding[] | null>(null);
   const [pickedName, setPickedName] = useState<string | null>(null);
   // S53 (8.1): a photo or catalogue prefill never saves on its own. A photo prefill needs the patient's "I checked it" tick.
@@ -197,6 +201,7 @@ export function AddMedicationForm({
     // Read before resetForm clears the box; "" means nothing to store.
     const nafdac = source === "patient" ? nafdacNumberToStore(nafdacTyped) : null;
     const nafdacValue = nafdac?.ok ? nafdac.value : null;
+    const nafdacInvalid = nafdac !== null && !nafdac.ok;
     addMedication.mutate(
       {
         ...data,
@@ -207,7 +212,7 @@ export function AddMedicationForm({
       {
         onSuccess: (created) => {
           setSuccess(true);
-          setNafdacSaved("none");
+          setNafdacSaved(nafdacInvalid ? "invalid" : "none");
           resetForm();
           if (nafdacValue && created?.id) {
             setNafdac.mutate(
@@ -268,11 +273,7 @@ export function AddMedicationForm({
     setSuccess(false);
 
     if (source === "patient") {
-      // A number that is not shaped like a NAFDAC number is sent back to be fixed or cleared; a blank is fine.
-      if (!nafdacNumberToStore(nafdacTyped).ok) {
-        setValidationError(t("medicines.nafdac.invalid"));
-        return;
-      }
+      // The NAFDAC number is an optional note: a value that is not shaped like one never holds the medicine back (it is simply not saved).
       // Nothing is saved from a photo prefill until the patient has checked every field against the pack.
       if (!canSubmitAddForm({ hasName: true, prefilledFromPhoto, confirmedAgainstPack })) {
         setValidationError(t("medicines.pack.confirm"));
@@ -745,6 +746,9 @@ export function AddMedicationForm({
               <p role="status" className="text-sm text-charcoal-ink dark:text-night-ink">{t("medicines.nafdac.saved")}</p>
               <NafdacVerifyCard />
             </div>
+          ) : null}
+          {source === "patient" && nafdacSaved === "invalid" ? (
+            <p role="status" className="text-sm text-amber-700 dark:text-amber-300">{t("medicines.nafdac.invalid")}</p>
           ) : null}
           {source === "patient" && nafdacSaved === "failed" ? (
             <p role="alert" className="text-sm text-amber-700 dark:text-amber-300">{t("medicines.nafdac.save_failed")}</p>

@@ -10,7 +10,7 @@
 --      a patient reads only the signed set, never a draft; the rules reach a client only while the guard is open (and never when
 --      the guard is closed); the guard is born off.
 --   3. Brand map: born empty; only staff/admin enter rows (draft, citation must be an https link); a draft is invisible to a patient;
---      the person who entered a row cannot review it; a second clinician can; a reviewed row is visible; editing it withdraws the
+--      the person who entered OR last changed a row cannot review it; a care coordinator cannot review; another doctor can; a reviewed row is visible; editing it withdraws the
 --      review; an admin, a pharmacist account and a patient cannot review; nothing writes directly to the table.
 --   4. NAFDAC note: the person (not another patient) can store a well-formed number; free text is refused; blank clears; no direct
 --      write; the note follows an amended medicine; the prescribed row is untouched.
@@ -50,6 +50,7 @@ declare
   v_smo uuid := gen_random_uuid();        -- clinician 1 (enters brand rows)
   v_smo2 uuid := gen_random_uuid();       -- clinician 2 (reviews them)
   v_cmo uuid := gen_random_uuid();
+  v_coord uuid := gen_random_uuid();      -- care coordinator (non-clinical tier)
   v_admin uuid := gen_random_uuid();
   v_pharm uuid := gen_random_uuid();
   v_sup uuid := gen_random_uuid();        -- supporter WITH the medicines category (is_test)
@@ -70,13 +71,14 @@ begin
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   select u, 's08y-' || substr(u::text, 1, 8) || '@example.invalid', 'x', now(), '{}', '{}'
-    from unnest(array[v_pat, v_other, v_smo, v_smo2, v_cmo, v_admin, v_pharm, v_sup, v_sup_real, v_sup_nocat, v_sup_other, v_stranger]) u;
+    from unnest(array[v_pat, v_other, v_smo, v_smo2, v_cmo, v_coord, v_admin, v_pharm, v_sup, v_sup_real, v_sup_nocat, v_sup_other, v_stranger]) u;
   insert into public.profiles (id, organisation_id, role, full_name, is_test) values
     (v_pat,        v_org, 'patient',    'S08y Patient', true),
     (v_other,      v_org, 'patient',    'S08y Other Patient', true),
     (v_smo,        v_org, 'clinician',  'S08y Clinician One', false),
     (v_smo2,       v_org, 'clinician',  'S08y Clinician Two', false),
     (v_cmo,        v_org, 'clinician',  'S08y CMO', false),
+    (v_coord,      v_org, 'care_coordinator', 'S08y Coordinator', false),
     (v_admin,      v_org, 'admin',      'S08y Admin', false),
     (v_pharm,      v_org, 'pharmacist', 'S08y Pharmacist', false),
     (v_sup,        v_org, 'patient',    'S08y Supporter', true),
@@ -90,6 +92,8 @@ begin
     (v_org, v_smo,  'S08y Clinician One', true, now(), 'senior_medical_officer', 'Probe Indemnity', 'S08Y-1', now() + interval '1 year'),
     (v_org, v_smo2, 'S08y Clinician Two', true, now(), 'senior_medical_officer', 'Probe Indemnity', 'S08Y-2', now() + interval '1 year'),
     (v_org, v_cmo,  'S08y CMO',           true, now(), 'chief_medical_officer',  'Probe Indemnity', 'S08Y-3', now() + interval '1 year');
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
+    values (v_org, v_coord, 'S08y Coordinator', true, now(), 'care_coordinator');
 
   -- 1. SQL twin: the shared cases -------------------------------------------------------------------------------------------
   for v_case in select * from (values
@@ -191,7 +195,7 @@ begin
   update public.medicine_interaction_rule_sets set is_active = true where id = v_set2;
 
   perform pg_temp.as_user(v_pat);
-  v_res := v_res || jsonb_build_array(jsonb_build_array('a patient reads only the signed set, not the draft', '1',
+  v_res := v_res || jsonb_build_array(jsonb_build_array('a patient cannot read the rule table at all, even the signed set (the guarded door is the only way)', '0',
     (select count(*)::text from public.medicine_interaction_rule_sets)));
   v_doc := public.active_medicine_interaction_rules();
   v_res := v_res || jsonb_build_array(jsonb_build_array('guard open (test account) and a signed set: the rules arrive', 'ok:1',
@@ -257,6 +261,20 @@ begin
   execute 'reset role';
   v_res := v_res || jsonb_build_array(jsonb_build_array('editing a row withdraws its review and takes it out of use', 'false:true',
     (select (is_active)::text || ':' || (reviewed_by is null)::text from public.medicine_brand_generic_map where id = v_row)));
+  execute 'reset role';
+  perform pg_temp.as_user(v_smo2);
+  perform public.save_medicine_brand_map(v_row, 'Examplebrand', array['exampleone', 'exampletwo'], 'https://example.org/greenbook/1-second-edit');
+  v_res := v_res || jsonb_build_array(jsonb_build_array('the last person to change a row cannot review it, even if someone else entered it', '42501',
+    pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true)', v_row))));
+  execute 'reset role';
+  perform pg_temp.as_user(v_coord);
+  v_res := v_res || jsonb_build_array(jsonb_build_array('a care coordinator can enter a draft row', 'ok',
+    pg_temp.attempt($$select public.save_medicine_brand_map(null, 'Coordbrand', array['examplesix'], 'https://example.org/greenbook/6')$$)));
+  v_res := v_res || jsonb_build_array(jsonb_build_array('a care coordinator cannot review', '42501', pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true)', v_row))));
+  execute 'reset role';
+  perform pg_temp.as_user(v_cmo);
+  v_res := v_res || jsonb_build_array(jsonb_build_array('another doctor reviews the edited row', 'ok', pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true)', v_row))));
+  execute 'reset role';
   v_res := v_res || jsonb_build_array(jsonb_build_array('a row cannot be active without a reviewer', '23514',
     pg_temp.attempt(format('update public.medicine_brand_generic_map set is_active = true where id = %L', v_row2))));
 
@@ -282,6 +300,11 @@ begin
     values (v_org, v_pat, 'S08y Daily amended', '10 mg', 'daily', '["08:00"]', 'clinician', false, v_med, 2) returning id into v_amend;
   v_res := v_res || jsonb_build_array(jsonb_build_array('the note follows an amended medicine', 'A4-1234',
     coalesce((select nafdac_number from public.medication_pack_numbers where medication_id = v_amend), 'none')));
+  -- previous_version_id is client-supplied: naming SOMEONE ELSE'S medicine copies nothing across
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, schedule_times, source, is_active, previous_version_id, version)
+    values (v_org, v_other, 'S08y Other amended', '1', 'daily', '["08:00"]', 'patient', false, v_med, 2) returning id into v_row2;
+  v_res := v_res || jsonb_build_array(jsonb_build_array('naming another person''s medicine as the previous version copies no note', 'none',
+    coalesce((select nafdac_number from public.medication_pack_numbers where medication_id = v_row2), 'none')));
   v_res := v_res || jsonb_build_array(jsonb_build_array('the prescribed row itself is untouched', 'S08y Daily:10 mg',
     (select drug_name || ':' || dose from public.medications where id = v_med)));
   perform pg_temp.as_user(v_pat);
@@ -313,11 +336,15 @@ begin
   perform pg_temp.as_user(v_sup);
   v_audits_before := (select count(*) from public.audit_log where action = 'supporter.todays_doses_viewed' and entity_id = v_pat);
   v_doc := public.supporter_todays_doses(v_pat);
-  v_res := v_res || jsonb_build_array(jsonb_build_array('a supporter with the medicines category reads today''s doses', 'ok:2:taken,none',
-    (v_doc ->> 'status') || ':' || jsonb_array_length(v_doc -> 'doses')::text || ':' ||
+  v_res := v_res || jsonb_build_array(jsonb_build_array('a supporter with the medicines category reads today''s doses', 'ok:1:2:taken,none',
+    (v_doc ->> 'status') || ':' || (v_doc ->> 'active_medicines') || ':' || jsonb_array_length(v_doc -> 'doses')::text || ':' ||
     coalesce((select string_agg(d ->> 'answer', ',' order by d ->> 'time') from jsonb_array_elements(v_doc -> 'doses') d), '')));
   v_res := v_res || jsonb_build_array(jsonb_build_array('the supporter''s read is audited', 'true',
     ((select count(*) from public.audit_log where action = 'supporter.todays_doses_viewed' and entity_id = v_pat) > v_audits_before)::text));
+  v_audits_before := (select count(*) from public.audit_log where action = 'supporter.todays_doses_viewed' and entity_id = v_pat);
+  perform public.supporter_todays_doses(v_pat);
+  v_res := v_res || jsonb_build_array(jsonb_build_array('a repeat read within ten minutes adds no second audit row', 'true',
+    ((select count(*) from public.audit_log where action = 'supporter.todays_doses_viewed' and entity_id = v_pat) = v_audits_before)::text));
   execute 'reset role';
 
   perform pg_temp.as_user(v_sup_nocat);
