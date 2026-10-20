@@ -8,7 +8,7 @@ Prepared 2026-10-15 from a read-only look at the live project `koiplnmbgnqnbywhp
 
 1. Items marked **needs outside confirmation** carry a `[verify]` flag from the plan: MDCN licence cycle and register lookup, Nigerian doctors' hours rules, NICE NG136 and WHO 2021 clause references, Federal Ministry of Health hypertension protocol alignment, Apple Critical Alerts entitlement, who the independent guardian is. Confirm before signing the item that cites them.
 2. Today all of these counts are near zero in production: no task has yet been claimed and no real page has been sent, so no number below has been tested against real work.
-3. Two of the five database configs below have **no sign-off line on the hub** (paging delivery, task layer). See section 4.
+3. All five database configs below now have a sign-off line on the hub (the paging delivery and task layer lines were added 2026-10-16). See section 4.
 
 ## 1. Database configs awaiting a decision (live state, 2026-10-15)
 
@@ -32,14 +32,14 @@ Note: `docs/design/S16-S20-quality-v2.md` calls the new rows "v2" and "v3"; the 
 - **Why**: Joint Commission NPSG.02.03.01, NPSG.06.01.01, Manchester Triage, NEWS2, BMJ Open 2018 continuity; NICE NG136 and WHO 2021 hypertension [verify].
 - **Changed since the last signature**: this is the first signature of this table. The behaviour is already live under the unsigned v1 (the same pattern S16 and S17 used for their first seeds).
 - **When signed**: a signed record exists that the CMO accepted the numbers; a later change is a new version (a new row and a new registry entry), never an edit. Nothing switches behaviour, because v1 is already active. If the CMO wants different numbers, ask for a v2 instead of signing.
-- **Console path**: no hub line and no signing function exists. Recommendation (OQ-451): add a hub line and a signing function. Until then, record the decision in `docs/DECISIONS.md` (done: S16-S20-1 to 3) and the registry entry `queue.task_layer` can be confirmed as a proposed value in `/clinician/go-live` once it is listed there.
+- **Console path** (added 2026-10-16, OQ-451): `/clinician/clinical-signoff`, line "Task layer rules: accept the version in force" (key `queue_task_layer_config`), inline panel with the numbers read from the version, button calls `sign_queue_task_layer_config(1)` (CMO only, tick-box). Signing v1 records your acceptance and changes no behaviour. If you want different numbers, ask for a v2 draft first: a signed version is frozen (it cannot be edited or deleted, by a trigger), and signing a newer draft makes it the version in force and retires v1, which stays on record.
 
 ### 1.2 `paging_delivery_config` v1 active, v2 inactive (decisions S16-S20-9, 10, 11 steps 1 and 2, 15)
 
 - **What it sets**: early advance to the backup at 90 seconds (180 for a route not confirmed), a 30 minute merge window for repeat red events, a 7 day test-page window, a 120 second stale-heartbeat limit, a reconciler that pages an unpaged red event after 60 seconds (4 hour look-back, 20 per pass), a safe blood-pressure band 100-139 / 60-89 for the urgent first hop. The 5 and 10 minute timers are `paging.rules` v1 (already signed 2026-10-07) and are unchanged.
 - **v2**: same numbers, `objective_readiness_required` = 1. When v2 is made active, an on-call clinician can be added to or swapped onto the rota only with a working push subscription, a verified email, a test page acknowledged in the last 7 days, a valid licence and indemnity, and the checklist. Existing shifts are not cancelled. Swaps are never blocked.
 - **When activated**: from then on rota changes need the readiness items above; a clinician who is not ready cannot be scheduled on call. Reversible by activating a later version with readiness 0.
-- **Console path**: none on the hub (OQ-451). Today this is a database owner's SQL, which the pre-sign checklist below must cover. Do not activate v2 until section 3 is done.
+- **Console path** (added 2026-10-16, OQ-451): `/clinician/clinical-signoff`, line "Pager readiness gate: activate version 2" (key `paging_delivery_config`). The panel shows the same checklist the database enforces, read now: each on-call clinician with what they still lack (a working push subscription, a verified email, a test page acknowledged within the version's 7 days). The button calls `activate_paging_delivery_config(2)` (CMO only), which REFUSES, changes nothing and returns the reasons until the checklist is met; the panel disables the button while the checklist is not met or cannot be read. Test clinicians and accounts without the on-call competency are not counted; nobody on call at all is itself a refusal. Do not activate v2 until section 3 step 5 is done.
 
 ### 1.3 `quality_config` v3 (decisions S16-S20-5, 6, 7 and the guard of 16)
 
@@ -90,7 +90,7 @@ Do these in order. Nothing here is done by the agent.
 1. **Licence dates.** Enter the licence expiry date for every active clinician who lacks one (live: EMP-000011 and EMP-010492; the second is a test account, retire or date it). Without this `sign_credentialing_config(4)` is refused.
 2. **MDCN checks.** Confirm the annual cycle, the 31 December end, the 15 December proof date and how the register is looked up (the plan could not reach mdcn.gov.ng).
 3. **Deploy state.** Confirm `send-pending-notifications` and `process-events` are deployed from `main-dev` and that the sev1 incident `paging_engine_stale:process_events` (opened 2026-10-15 07:39 UTC at the merge) is closed after confirming the `process_events` heartbeat. The deployed entrypoints recorded on 2026-10-15 point at worktrees; the edge drift job should compare them with `origin/main-dev`.
-4. **Named ops person and an external monitor.** Set `HEALTH_CHECK_SECRET` and point an outside monitor at `/api/health/deep` (OQ-452); two pg_cron outages (14 and 15 October) were first flagged by the in-database watchers only after 38 minutes to about five hours. Also name the person (and a deputy) who phones the on-call clinician and the CMO when a page expires (OQ-441, decision 10). The incident currently goes to the ops incident queue and to every admin account.
+4. **Named ops person and an external monitor.** Set `HEALTH_CHECK_SECRET` and point an outside monitor at `/api/health/deep` (OQ-452; step by step in `docs/runbooks/external-dead-man-monitor.md`; the route now also checks the queue and pager heartbeats, open sev1 incidents and the canary, and answers 200 only when all are healthy); two pg_cron outages (14 and 15 October) were first flagged by the in-database watchers only after 38 minutes to about five hours. Also name the person (and a deputy) who phones the on-call clinician and the CMO when a page expires (OQ-441, decision 10). The incident currently goes to the ops incident queue and to every admin account.
 5. **Test pages before readiness goes on.** Every clinician on the rota sends themselves a test page from the On call screen, sees it on their phone (push) and in the console, and acknowledges it. Keep a note of who and when. Only then activate `paging_delivery_config` v2. A clinician reachable only through the mobile app cannot pass this gate yet because the app records no delivered receipt (see the pager design note, known limits).
 6. **Battery and phone settings** on each on-call phone (Tecno and Infinix handsets can block push with the screen off).
 7. **A second reviewer.** With one CMO, a critical audit miss waits for a second CMO-tier reviewer. Decide who that is before signing `quality_config` v3.
@@ -103,11 +103,11 @@ Do these in order. Nothing here is done by the agent.
 |---|---|---|
 | `quality_config` v3 | Yes, line "Quality and licence rules", signs through `sign_quality_config` | none |
 | `credentialing_config` v4 | Yes, same line, `sign_credentialing_config` | none |
-| `queue_task_layer_config` | **No** (no signing function either) | add a hub line and a signing function, then sign a v2 if numbers change (OQ-451) |
-| `paging_delivery_config` v2 | **No** (activation is SQL) | add a hub line and an activation function that refuses until the test-page checklist is met (OQ-451) |
+| `queue_task_layer_config` | **Yes (2026-10-16)**, line "Task layer rules", signs through `sign_queue_task_layer_config` | accept v1, or ask for a v2 first if numbers should change |
+| `paging_delivery_config` v2 | **Yes (2026-10-16)**, line "Pager readiness gate", `activate_paging_delivery_config` (refuses until the checklist is met) | activate only after section 3 step 5 |
 | Registry values (`queue.*`, `paging.*`, `lead.*`, `quality.audit`, `credentialing.rules`) | Confirmed in `/clinician/go-live`, not on a hub panel of their own | acceptable; the hub lists them only where a panel exists |
 
-CLAUDE.md says anything the CMO must sign belongs on the hub. The two missing lines are therefore a standing gap, not a choice.
+CLAUDE.md says anything the CMO must sign belongs on the hub. The two lines that were missing are added (OQ-451, 2026-10-16); the banner counts them.
 
 ## 4b. Configs from the two open PRs (state at the time of writing, 2026-10-15)
 
