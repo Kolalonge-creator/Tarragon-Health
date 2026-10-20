@@ -19,6 +19,9 @@ export const GUARD_KEYS = [
   "home_bp_programme",
   "bp_pattern_flag",
   "prn_limits",
+  // S07y: the clinician-only cuff flag and the neutral patient line. Both born off.
+  "cuff_check_flag",
+  "cuff_visit_prompt",
   "symptom_checker_enabled",
   "research_export_enabled",
 ] as const;

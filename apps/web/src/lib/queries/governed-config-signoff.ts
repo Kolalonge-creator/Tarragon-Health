@@ -48,6 +48,7 @@ export const GOVERNED_CONFIG_TABLES = [
   },
   { table: "prn_limit_rules", title: "As-needed medicine limits", slug: "prn-limit-rules" },
   { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
+  { table: "cuff_check_rules", title: "Home cuff vs clinic cuff check", slug: "cuff-check-rules" },
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
 ] as const;
 

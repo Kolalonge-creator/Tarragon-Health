@@ -4311,3 +4311,15 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-NAFDAC-SCAN-4 The number is used for lookup and pre-fill only; it is not stored on the medication (raised by the pack-scan build, 2026-10-16)
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
+
+### OQ-S07Y-1 A home-log pair only sees home readings from before the clinic reading was saved (raised by S07y, 2026-10-20)
+- The pair is made when the clinic reading is saved, from the patient's own manual or device readings within the window either side. A home reading logged after that moment (inside the window) is not picked up. The same-visit pair has no such limit. Fixing it means a daily sweep that re-pairs recent clinic readings; not built.
+- Decision: open (product, CMO).
+
+### OQ-S07Y-2 Do pairs and flags belong in a subject-access request? (raised by S07y, 2026-10-20)
+- `cuff_check_pairs` and `cuff_check_flags` are registered `clinical_record`, `in_export = false`, clinician-only working data. Whether the patient's right of access covers them is the DPO's decision.
+- Decision: open (DPO).
+
+### OQ-S07Y-3 The neutral "bring your cuff to a visit" line has no patient screen yet (raised by S07y, 2026-10-20)
+- `cuff_visit_prompt_open()` and the unsigned string `cuff.visit_prompt` exist; the guard `cuff_visit_prompt` is off and needs the CMO's wording attestation. A web and phone placement (on the cuff guidance card) is not built.
+- Decision: open (product, CMO).

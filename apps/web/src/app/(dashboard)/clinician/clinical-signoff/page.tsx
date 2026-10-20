@@ -24,6 +24,7 @@ import { LabPanelsPanel } from "../_signoff-panels/lab-panels-panel";
 import { ClinicalConfigVersionsPanel } from "../_signoff-panels/clinical-config-versions-panel";
 import { PrnLimitRulesPanel } from "../_signoff-panels/prn-limit-rules-panel";
 import { HomeBpProgrammePanel } from "../_signoff-panels/home-bp-programme-panel";
+import { CuffCheckRulesPanel } from "../_signoff-panels/cuff-check-rules-panel";
 import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
 import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
 import { TriageRulesPanel } from "../_signoff-panels/triage-rules-panel";
@@ -47,7 +48,7 @@ import { readFlash } from "@/lib/go-live/flash";
 import { FlashClean } from "@/components/go-live/flash-clean";
 import { t } from "@tarragon/i18n";
 import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
-import { attestItemKey, C4_CODE, HOME_BP_GUARD, PATTERN_CODE, PATTERN_GUARD, PROPOSED_VALUES_ITEM_KEY, TRIAGE_DRAFT_ITEM_KEY } from "@/lib/clinical/s06-s10-signoff-model";
+import { attestItemKey, C4_CODE, CUFF_FLAG_CODE, CUFF_FLAG_GUARD, CUFF_PROMPT_CODE, CUFF_PROMPT_GUARD, HOME_BP_GUARD, PATTERN_CODE, PATTERN_GUARD, PROPOSED_VALUES_ITEM_KEY, TRIAGE_DRAFT_ITEM_KEY } from "@/lib/clinical/s06-s10-signoff-model";
 import { SignoffChecklist } from "@/app/(dashboard)/admin/settings/clinical-signoff/signoff-checklist";
 import { SignoffQueueList } from "@/app/(dashboard)/admin/settings/clinical-protocols/signoff-queue-list";
 import {
@@ -79,6 +80,7 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   clinical_config_versions: () => <ClinicalConfigVersionsPanel />,
   prn_limit_rules: () => <PrnLimitRulesPanel />,
   home_bp_programme_signoffs: () => <HomeBpProgrammePanel />,
+  cuff_check_rules: () => <CuffCheckRulesPanel />,
   my_health_config: () => <MyHealthConfigPanel />,
 };
 
@@ -197,6 +199,8 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has(TRIAGE_DRAFT_ITEM_KEY)) inlinePanels[TRIAGE_DRAFT_ITEM_KEY] = <TriageRulesPanel back="hub" />;
   if (keys.has(attestItemKey(HOME_BP_GUARD, C4_CODE))) inlinePanels[attestItemKey(HOME_BP_GUARD, C4_CODE)] = <WordingAttestationPanel kind="c4" />;
   if (keys.has(attestItemKey(PATTERN_GUARD, PATTERN_CODE))) inlinePanels[attestItemKey(PATTERN_GUARD, PATTERN_CODE)] = <WordingAttestationPanel kind="pattern" />;
+  if (keys.has(attestItemKey(CUFF_FLAG_GUARD, CUFF_FLAG_CODE))) inlinePanels[attestItemKey(CUFF_FLAG_GUARD, CUFF_FLAG_CODE)] = <WordingAttestationPanel kind="cuff_flag" />;
+  if (keys.has(attestItemKey(CUFF_PROMPT_GUARD, CUFF_PROMPT_CODE))) inlinePanels[attestItemKey(CUFF_PROMPT_GUARD, CUFF_PROMPT_CODE)] = <WordingAttestationPanel kind="cuff_prompt" />;
   if (keys.has(PROPOSED_VALUES_ITEM_KEY)) inlinePanels[PROPOSED_VALUES_ITEM_KEY] = <ProposedValuesPanel rows={hub.s06s10.openProposed} />;
 
   if (keys.has("ai_governance")) inlinePanels.ai_governance = <AiGovernancePanel />;

@@ -50,6 +50,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/lab-panels", "lab ranges reference critical limits sign cmo release policy disclosure attempts panels essential annual health check"],
   ["/clinician/home-bp-programme", "home blood pressure check seven day protocol sign cmo bands 135 85 white coat masked pattern flag clinic reading cuff"],
   ["/admin/settings/home-bp-programme", "home blood pressure check seven day protocol bands pattern read only signed"],
+  ["/clinician/cuff-check-rules", "home cuff clinic cuff check blood pressure monitor device reads differently validated cheap unvalidated cuff flag pairs sign cmo s07y"],
+  ["/admin/settings/cuff-check-rules", "home cuff clinic cuff check blood pressure monitor device reads differently read only signed"],
   ["/admin/settings/lab-panels", "lab ranges reference critical limits release policy panels read only signed"],
   ["/clinician/my-health-config", "lock screen pass wallet card fields sign cmo emergency basics initials blood group genotype allergies on file my health c8"],
   ["/admin/settings/my-health-config", "lock screen pass wallet card fields read only signed my health emergency basics"],
@@ -158,6 +160,7 @@ export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Chain health", href: "/clinician/chain-health", group: "Clinical governance", hint: "Whether readings become grades, tasks, pages and notices, the test run, timings, and the new grading against the old alerts." },
   { label: "Care funnel", href: "/clinician/funnel", group: "Clinical governance", hint: "Alerts, red-event pages, doctor reviews and emergencies over 30 days as a ratio per alert, and how often a patient's own lead handled the task." },
   { label: "Home blood pressure programme", href: "/clinician/home-bp-programme", group: "Clinical sign-off", hint: "Sign the seven-day home check protocol, the bands and the white-coat or masked pattern rule (C1 to C3)." },
+  { label: "Home cuff vs clinic cuff check", href: "/clinician/cuff-check-rules", group: "Clinical sign-off", hint: "Sign how far apart the patient's own cuff and the clinic cuff may read, and how many pairs, before the care team is asked to consider a cuff check (clinician-only)." },
   { label: "My Health lock-screen pass fields", href: "/clinician/my-health-config", group: "Clinical sign-off", hint: "Sign what a lock-screen or wallet pass may show (C8)." },
 ];
 
