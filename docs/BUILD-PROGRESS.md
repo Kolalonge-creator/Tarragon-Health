@@ -2019,6 +2019,13 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **Not run**: nothing on a device or simulator; the camera path cannot run until a text reader exists.
 - **Open**: OQ-NAFDAC-SCAN-1 to OQ-NAFDAC-SCAN-4.
 
+## S06y PR 1: the upload queues move into the encrypted store (2026-10-20), branch `s06y/encrypted-queues-and-freshness`
+
+- **Built**: `apps/mobile/src/lib/offline-queue-store.ts`; `offline-queue.ts` (health-store pages, BLE device readings, photo readings) now keeps its rows in the SQLCipher store opened by `secure-db.ts`, per account, not in AsyncStorage. Copy-then-delete from the old keys inside one transaction with a read-back count and checksum; mismatch rolls back, keeps the old list serving, shows the existing `migration_held` notice; a damaged list is kept as an opaque encrypted row, never dropped; pre-change entries are claimed by the first signed-in account. Queued entries count in the remote-wipe unsent total. Full AsyncStorage inventory with a keep/move decision per store in `docs/design/S06y.md`.
+- **Reused**: `getStoreWithSchema`, `rowsChecksum`, the `migration_held` notice, `destroyStore` and the S06x wipe.
+- **Tests**: new `offline-queue-store.test.ts` (1000 queued rows, mismatch with escape hatch and retry, delete-only failure, damaged list, claim by first account, lost key, sign-out and account scoping, cap, wipe); `offline-queue.test.ts` and `device-lease.test.ts` updated; whole mobile suite 178 suites pass, `tsc` and eslint clean.
+- **Not run**: nothing ran on a device or simulator. SQLCipher, the keychain and real migration on a phone with a queued reading are unverified (Jest uses the S06x SQLite stand-in). JS only: no native change, `runtimeVersion` not touched, no migration.
+- **Open questions**: the other health-bearing AsyncStorage stores (triage facts and recheck, kick history, therapy diary, cached BP target and PRN limits, crisis card cache) are still in clear; listed as follow-up S06z. Entries held back by a failed migration are not in the wipe count (they are removed by the wipe).
 ## S10y: partner webhook endpoint admin (2026-10-20), branch `s10y/partner-endpoint-admin`
 
 - **Built**: migration `20261020180118_s10y_partner_endpoint_admin.sql` (four admin-only functions, additive: endpoint and map overviews that never return a secret, `admin_reenable_partner_webhook_endpoint` with a required reason, `remove_partner_event_mapping`); page `/admin/ops/partner-webhooks` (endpoint list with state and auto-disable, rotate key shown once, re-enable with reason, event map edit, banner when `process-events` is not known to be running); menu entry and admin-search entry; types spliced into `packages/shared` by hand (only the four new functions).
