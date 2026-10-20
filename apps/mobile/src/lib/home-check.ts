@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { assessHomeCheck, parseHomeBpConfig, type HomeBpConfig, type HomeBpReading, type HomeCheckAssessment } from "@tarragon/clinical";
-import { getProposedConfig } from "@tarragon/shared";
+import { diagnosticBpReadings, getProposedConfig } from "@tarragon/shared";
 import { lagosLocalDate } from "./lagos-date";
 import { supabase } from "./supabase";
 import { loadRecentBpReadings } from "./vitals";
@@ -79,8 +79,9 @@ export async function readGuardOpen(patientId: string): Promise<boolean | null> 
   }
 }
 
-function toHomeReadings(list: readonly { systolic: number; diastolic: number; takenAt: string }[]): HomeBpReading[] {
-  return list
+/** A wearable (cuffless) estimate is never counted in a home check, matching the server, which counts cuff readings only (docs/design/BP-wearable-estimates.md). */
+export function toHomeReadings(list: readonly { systolic: number; diastolic: number; takenAt: string; source?: string | null }[]): HomeBpReading[] {
+  return diagnosticBpReadings(list)
     .map((r) => ({ systolic: r.systolic, diastolic: r.diastolic, atMs: Date.parse(r.takenAt) }))
     .filter((r) => Number.isFinite(r.atMs));
 }

@@ -7,8 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-error";
 import { formatPatientDate } from "@/lib/format-date";
-import { ALERT_MODES, type AlertMode, type OpenAlert, type SupportedPerson } from "@/lib/care-circle/model";
-import { useAckAlert, useOpenAlerts, useSetAlertMode, useSupportedPeople } from "@/lib/queries/care-circle";
+import { ALERT_MODES, minutesLeft, type AlertMode, type OpenAlert, type SupportedPerson, type UnansweredCheckIn } from "@/lib/care-circle/model";
+import { useAckAlert, useAckUnanswered, useCheckInEnabled, useOpenAlerts, useRequestCheckIn, useSetAlertMode, useSupportedPeople, useUnansweredCheckIns } from "@/lib/queries/care-circle";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 
@@ -69,17 +69,73 @@ function AlertMode({ person, locale }: { person: SupportedPerson; locale: Locale
   );
 }
 
+/**
+ * S29e: ask a person to check in. Not an emergency path: the person is asked first and has a few minutes before the circle is told.
+ * Shown only while the Chief Medical Officer's go-live is on (a failed read means off).
+ */
+function CheckInAsk({ patientId, locale }: { patientId: string; locale: Locale }) {
+  const enabled = useCheckInEnabled();
+  const ask = useRequestCheckIn();
+  const [message, setMessage] = useState<string | null>(null);
+  if (!enabled.data) return null;
+  return (
+    <div className="mt-2">
+      <Button
+        type="button"
+        variant="outline"
+        className="min-h-11"
+        disabled={ask.isPending}
+        onClick={async () => {
+          setMessage(null);
+          try {
+            const r = await ask.mutateAsync(patientId);
+            const minutes = r.ok ? minutesLeft(r.window_ends_at, Date.now()) : null;
+            setMessage(
+              r.ok
+                ? minutes === null ? t("checkin.asked_soon", locale) : t("checkin.asked", locale, { minutes })
+                : t(r.reason === "limit" ? "checkin.limit" : "checkin.already_waiting", locale),
+            );
+          } catch {
+            setMessage(t("checkin.error", locale));
+          }
+        }}
+      >
+        {t("checkin.ask", locale)}
+      </Button>
+      {message ? <p className={`mt-1 text-sm ${MUTED}`} role="status">{message}</p> : null}
+    </div>
+  );
+}
+
+/** S29e: someone did not answer a check-in in time. Name only; the same disclosure as a red alert. */
+function UnansweredCard({ item, locale }: { item: UnansweredCheckIn; locale: Locale }) {
+  const ack = useAckUnanswered();
+  return (
+    <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-5">
+      <p className="font-heading text-base font-semibold">{t("checkin.unanswered_title", locale, { name: item.name })}</p>
+      <p className="mt-1 text-sm">{t("checkin.unanswered_body", locale, { name: item.name })}</p>
+      <Button type="button" className="mt-3 min-h-11" disabled={ack.isPending} onClick={() => ack.mutate(item.patient_id)}>
+        {t("circle.alert.called", locale)}
+      </Button>
+      <FormError id={`unanswered-error-${item.patient_id}`} message={ack.isError ? t("circle.alert.error", locale) : null} />
+    </div>
+  );
+}
+
 /** The Care Circle half of the supporter's home: any open check-in request first, then the people who have shared something. */
 export function CircleSupporting({ locale }: { locale: Locale }) {
   const people = useSupportedPeople();
   const alerts = useOpenAlerts();
+  const unanswered = useUnansweredCheckIns();
   const list = people.data ?? [];
   const open = alerts.data ?? [];
-  if (people.isSuccess && list.length === 0 && open.length === 0) return null;
+  const missed = unanswered.data ?? [];
+  if (people.isSuccess && list.length === 0 && open.length === 0 && missed.length === 0) return null;
 
   return (
     <div className="space-y-4">
       {open.map((a) => <AlertCard key={a.patient_id} alert={a} locale={locale} />)}
+      {missed.map((m) => <UnansweredCard key={m.patient_id} item={m} locale={locale} />)}
       <Card>
         <CardHeader><CardTitle>{t("circle.supporting.title", locale)}</CardTitle></CardHeader>
         <CardContent>
@@ -103,6 +159,7 @@ export function CircleSupporting({ locale }: { locale: Locale }) {
                     </Button>
                   </div>
                   {p.permissions.includes("red_alerts") ? <AlertMode person={p} locale={locale} /> : null}
+                  {p.permissions.includes("red_alerts") ? <CheckInAsk patientId={p.patient_id} locale={locale} /> : null}
                 </li>
               );
             })}

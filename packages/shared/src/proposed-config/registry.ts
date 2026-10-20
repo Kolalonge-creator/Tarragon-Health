@@ -168,6 +168,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S03b.md; docs/research/S01-S05-competitor-gap-and-build-plan.md section 10; OQ-41, OQ-43",
   },
   {
+    key: "auth.passkey_rules",
+    // Optional passkeys (docs/design/passkeys.md). add_authorisation_minutes: how long a password re-entry stays good for
+    // adding ONE passkey (single use; the database also clamps the value it is given to 1..15). start_per_ip_per_5min and
+    // verify_per_ip_per_5min: how often one source may ask for, or try, a passkey sign-in. label_max_chars: the longest name a
+    // person can give a passkey. All PROPOSED.
+    value: {
+      add_authorisation_minutes: 3,
+      start_per_ip_per_5min: 30,
+      verify_per_ip_per_5min: 20,
+      label_max_chars: 60,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/passkeys.md; founder decision 2026-10-16 (passkeys strictly optional, off by default)",
+  },
+  {
     key: "proxy.setup",
     // Spec 8.2 "Set up for my parent": the setup expires after 72 hours. The per-day cap on how many setups one person
     // may start is not in the spec; it is a PROPOSED abuse limit (each setup costs a verification code SMS). Mirrored
@@ -975,6 +993,10 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // Two further PROPOSED numbers are code constants until that v2 (config v1 cannot be edited in place): a contact attempt may be
     // dated up to 24 hours before its task existed (CONTACT_ATTEMPT_LOOKBACK_HOURS; private.contact_attempt_lookback()), and further
     // immediate escalations within 10 minutes of the last alert are folded into one follow-up (private.escalation_coalesce_window()).
+    // A third PROPOSED code constant (OQ-433): private.task_extra_competencies() adds the `prescribing` competency to every
+    // pharmacy_flag_review task and to an admin_clinical task whose dedup key starts prescription: or repeat_prescription:.
+    // A task keeps the competencies stored on it when it was made. Offers also skip a lead (or an employed doctor) who lacks a
+    // required competency (OQ-435); the transition reason records why. The CMO confirms or changes both in the v2 pack.
     value: {
       lead_window_cap_fraction: 0.5,
       escalated_non_red_any_eligible: true,
@@ -2110,6 +2132,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 3,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S29.md; docs/research/S29.md; docs/research/S29-ranked-design-plan.md; spec 4.7, 8.6",
+  },
+  {
+    key: "care_circle.rules",
+    // Care Circle (S29, spec 4.7). Live values are the active row of `care_circle_config`; this entry mirrors it and a test fails
+    // if the migration seed and this value drift. Version 4 (S29e) adds the patient-first window for a supporter's NON-EMERGENCY
+    // check-in request: checkin_window_minutes is how long the patient alone is asked before the circle is told, and
+    // checkin_max_per_day caps requests from one supporter about one person. The window never applies to a red event, and the whole
+    // feature is OFF until the Chief Medical Officer rules (platform module `care_circle_checkin_window`, OQ-700). All other keys are as in version 3.
+    value: { invite_ttl_hours: 72, default_grant_days: 365, max_invites_per_day: 5, max_members: 8, max_attempts: 5, view_weeks: 8, alert_visible_hours: 3, expiry_notice_days: 14, expiry_final_notice_days: 3, pause_days: 7, gift_decide_days: 14, gift_remind_days: 7, checkin_window_minutes: 5, checkin_max_per_day: 3 },
+    owner: "Founder",
+    status: "proposed",
+    version: 4,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/S29.md; docs/research/S26-S30-competitor-review-and-build-plan.md (S29d); spec 4.7, 8.6",
   },
   // S69: community cohorts and challenges (spec 17.6 to 17.9). Live values are the active row of `community_config` and the rows of
   // `challenge_templates`; a test (community-mirror.test.ts) fails if either drifts from the migration seed.
@@ -5116,6 +5152,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: FROM,
     source: "S42 safeguard (OQ-48): not from the spec; proposed",
+  },
+  {
+    key: "proxy.annual_review",
+    // Yearly "still need this person's access?" review (NHS proxy-access standard: grant, redact, review, revoke). A proxy or caregiver grant is due for
+    // review 12 months after it was given or last kept. The reminder repeats every 30 days, at most 4 in a cycle (the first plus three). Access is NEVER
+    // removed by silence. tellProxy is a safeguarding switch (OQ-705): true sends the proxy one calm in-app notice per cycle and shows them a "due" flag; false tells them nothing. proxyNoticeDays is how long the proxy's flag shows, counted from the notice and not from the person's answer. Live value is the active row of `proxy_review_config` v1; a Jest mirror test compares the two.
+    value: { intervalMonths: 12, repeatDays: 30, maxReminders: 4, tellProxy: false, proxyNoticeDays: 14 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "Build proposal 2026-10-16 (NHS proxy-access standard, January 2026); not from the v5 spec; OQ-705",
   },
   {
     key: "pharmacy.quality",
