@@ -1,7 +1,7 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { postDeviceReading, postHealthSamples, postPhotoReading, type PhotoReadingRequest } from "./api";
 import type { HealthProvider } from "./health-sync";
 import type { HealthReadingType, HealthSample } from "./healthkit";
+import { mergeQueueJson, secureKvGet, secureKvSet } from "./secure-kv";
 import { recordSyncError, type SyncSource } from "./sync-diagnostics";
 
 /**
@@ -14,7 +14,8 @@ import { recordSyncError, type SyncSource } from "./sync-diagnostics";
  * Integration section for why none of this has ever run against real
  * hardware yet.
  *
- * Two independent AsyncStorage-backed queues, not one combined queue: the
+ * Independent queues (S06x follow-up: kept in the ENCRYPTED on-device store through secure-kv.ts, not plaintext AsyncStorage;
+ * a queue an older build left in AsyncStorage is moved across with a verified copy first and a union by id, never dropped), not one combined queue: the
  * two call sites retry against different endpoints with structurally
  * different payloads (a whole page of samples vs. one device reading), and
  * giving each its own storage key and its own MAX_QUEUE_SIZE keeps a burst
@@ -103,7 +104,8 @@ function isQueuedEntry(value: unknown): value is QueuedEntry<unknown> {
  */
 async function readQueue<T>(key: string, source: SyncSource): Promise<QueuedEntry<T>[]> {
   try {
-    const raw = await AsyncStorage.getItem(key);
+    // Encrypted store first; a copy an older build left in AsyncStorage is moved across (verified) and the union kept.
+    const raw = await secureKvGet(key, mergeQueueJson);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
@@ -124,8 +126,9 @@ async function readQueue<T>(key: string, source: SyncSource): Promise<QueuedEntr
  * here regardless. */
 async function writeQueue<T>(key: string, entries: QueuedEntry<T>[], source: SyncSource): Promise<boolean> {
   try {
-    await AsyncStorage.setItem(key, JSON.stringify(entries));
-    return true;
+    const landed = await secureKvSet(key, JSON.stringify(entries));
+    if (!landed) recordSyncError(source, "offline_queue:write", "The queue could not be stored");
+    return landed;
   } catch (error) {
     recordSyncError(source, "offline_queue:write", error);
     return false;

@@ -6,7 +6,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { __databaseNames } from "../test/mocks/expo-sqlite";
-import { __resetDeviceCheckThrottle, runDeviceCheck, runDeviceCheckThrottled } from "./device-lease";
+import { __resetDeviceCheckThrottle, listMyPhones, reportThisPhoneLostNow, runDeviceCheck, runDeviceCheckThrottled, thisPhoneDeviceId } from "./device-lease";
+import { enqueueDeviceReading } from "./offline-queue";
 import { getStore } from "./secure-db";
 import { getOrCreateDeviceId, listDeviceAccounts } from "./store-key";
 import { listStoreNotices, noticesFor } from "./store-notices";
@@ -20,6 +21,7 @@ let mockConfirm: { error: { code?: string; message: string } | null } = { error:
 const mockConfirmArgs: { p_device: string; p_unsent: number; p_danger: number; p_reason: string }[] = [];
 let mockOwners: { owner: string; total: number; danger: number }[] = [{ owner: "user-1", total: 3, danger: 0 }];
 let mockFlushThrows = false;
+let mockPhones: { data: unknown; error: unknown } = { data: [], error: null };
 
 jest.mock("./supabase", () => ({
   supabase: {
@@ -31,6 +33,11 @@ jest.mock("./supabase", () => ({
         return { error: null };
       },
     },
+    from: () => ({
+      select: () => ({
+        order: () => ({ limit: async () => mockPhones }),
+      }),
+    }),
     rpc: async (name: string, args: never) => {
       calls.push(`rpc:${name}`);
       if (name === "offline_device_checkin") return mockCheckin;
@@ -38,6 +45,11 @@ jest.mock("./supabase", () => ({
       return mockConfirm;
     },
   },
+}));
+jest.mock("./api", () => ({
+  postDeviceReading: async () => ({ success: false, error: "offline" }),
+  postHealthSamples: async () => ({ ok: false, error: "offline" }),
+  postPhotoReading: async () => ({ ok: false, error: "offline", status: 0 }),
 }));
 jest.mock("./outbox", () => ({
   flushOutbox: async () => {
@@ -124,6 +136,16 @@ describe("a lost-phone report", () => {
     expect((await listStoreNotices())[0]).toMatchObject({ kind: "wiped", reason: "stolen", unsent: 3, ownerUserId: "user-1" });
     expect(mockConfirmArgs).toEqual([{ p_device: expect.stringMatching(/^[0-9a-f-]{36}$/), p_unsent: 3, p_danger: 0, p_reason: "stolen" }]);
     expect(await AsyncStorage.getItem(PENDING_KEY)).toBeNull();
+  });
+
+  it("counts a queued device reading in the confirmation too (it is wiped with the store, so it is never lost uncounted)", async () => {
+    await runDeviceCheck(NOW);
+    await enqueueDeviceReading({ systolic: 150 });
+    mockCheckin = REVOKED;
+    expect(await runDeviceCheck(NOW)).toBe("wiped");
+    // 3 outbox entries (mock) + 1 queued reading, none of them urgent
+    expect(mockConfirmArgs[0]).toMatchObject({ p_unsent: 4, p_danger: 0 });
+    expect((await listStoreNotices())[0]).toMatchObject({ kind: "wiped", unsent: 4 });
   });
 
   it("wipes an urgent entry too (an explicit report is the one thing that does), and reports the urgent COUNT", async () => {
@@ -380,5 +402,47 @@ describe("the key lease", () => {
       mockOwners = [{ owner: "user-1", total: 0, danger: 0 }];
       expect(await runDeviceCheck(new Date("2026-11-21T00:00:00Z"))).toBe("wiped");
     });
+  });
+});
+
+describe("my phones", () => {
+  const ROW = {
+    device_id: "d1",
+    platform: "android",
+    registered_at: null,
+    last_checkin_at: "2026-10-12T00:00:00Z",
+    lease_expires_at: "2026-11-12T00:00:00Z",
+    revoked_at: null,
+    revoke_reason: null,
+    wipe_confirmed_at: null,
+    wipe_reason: null,
+    unsent_at_wipe: null,
+    danger_at_wipe: null,
+    retired_at: null,
+  };
+
+  it("lists the rows, and reports a failed read as failed (never an empty list)", async () => {
+    mockPhones = { data: [ROW, { nope: 1 }], error: null };
+    expect(await listMyPhones()).toEqual({ ok: true, phones: [ROW] });
+    mockPhones = { data: null, error: { message: "boom" } };
+    expect(await listMyPhones()).toEqual({ ok: false });
+  });
+
+  it("knows which row is this phone", async () => {
+    await runDeviceCheck(NOW);
+    const id = await thisPhoneDeviceId("user-1");
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await thisPhoneDeviceId("someone-else")).toBeNull();
+  });
+
+  it("reporting THIS phone lost asks the server, then checks in straight away so it clears now", async () => {
+    await runDeviceCheck(NOW);
+    const id = (await thisPhoneDeviceId("user-1")) as string;
+    calls.length = 0;
+    mockCheckin = REVOKED;
+    expect(await reportThisPhoneLostNow(id)).toBe(true);
+    expect(calls.indexOf("rpc:request_offline_device_wipe")).toBeGreaterThanOrEqual(0);
+    expect(calls.indexOf("rpc:request_offline_device_wipe")).toBeLessThan(calls.indexOf("rpc:offline_device_checkin"));
+    expect(calls).toContain("signOut");
   });
 });

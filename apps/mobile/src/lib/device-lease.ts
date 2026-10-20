@@ -5,10 +5,12 @@ import { recordSyncError } from "./sync-diagnostics";
 import { classifyFailure } from "./outbox-rules";
 import { countDangerUnsent, countUnsentByOwner, flushOutbox } from "./outbox";
 import { destroyStore } from "./secure-db";
+import { flushOfflineQueues, getPendingCount } from "./offline-queue";
 import { forgetAllDeviceIds, getOrCreateDeviceId, listDeviceAccounts } from "./store-key";
 import { addStoreNotice } from "./store-notices";
 import { leaseVerdict, type WipeReason } from "./store-rules";
 import { loadOfflineTrustConfig } from "./offline-trust-config";
+import { PHONE_ROW_COLUMNS, type PhoneLeaseRow } from "@tarragon/shared";
 
 /**
  * Remote wipe and key lease (S06x, decision D3, refined for urgent entries). The phone checks in whenever it syncs.
@@ -113,7 +115,21 @@ export async function wipeThisPhone(
   const accounts = await listDeviceAccounts();
   const everyone = new Set<string>([...Object.keys(accounts), ...owners.map((o) => o.owner)]);
   if (triggerUserId) everyone.add(triggerUserId);
-  const counts = (userId: string) => owners.find((o) => o.owner === userId) ?? { owner: userId, total: 0, danger: 0 };
+  // The device-reading, health-sample and photo-reading queues now live in the same encrypted store (secure-kv.ts) and go with it,
+  // so they get the same last attempt and are counted too, never wiped uncounted. They belong to whoever was signed in (the trigger
+  // account, or the only account on the phone) and are never urgent entries.
+  let queued = 0;
+  try {
+    await flushOfflineQueues();
+    queued = await getPendingCount();
+  } catch (error) {
+    recordSyncError("offline_outbox", "wipe:queues", error);
+  }
+  const queueOwner = triggerUserId ?? (everyone.size === 1 ? [...everyone][0] : null);
+  const counts = (userId: string) => {
+    const base = owners.find((o) => o.owner === userId) ?? { owner: userId, total: 0, danger: 0 };
+    return userId === queueOwner ? { ...base, total: base.total + queued } : base;
+  };
 
   // 3. Tell each account BEFORE anything is removed, so a crash half way still leaves the notices.
   const pending: PendingConfirm[] = [...(await readPending())];
@@ -319,13 +335,36 @@ export async function reportPhoneLost(deviceId: string, reason: "lost_phone" | "
   return !error;
 }
 
-/** The phones registered to the signed-in account, for a "my phones" list. */
-export async function listMyPhones(): Promise<{ deviceId: string; platform: string; lastSeenAt: string; revoked: boolean }[]> {
-  const { data, error } = await supabase
-    .from("offline_device_leases")
-    .select("device_id, platform, last_checkin_at, revoked_at")
-    .is("retired_at", null)
-    .order("last_checkin_at", { ascending: false });
-  if (error || !data) return [];
-  return data.map((d) => ({ deviceId: d.device_id, platform: d.platform, lastSeenAt: d.last_checkin_at, revoked: d.revoked_at !== null }));
+export type MyPhonesResult = { ok: true; phones: PhoneLeaseRow[] } | { ok: false };
+
+/** The phones registered to the signed-in account (row policy: own rows only). A failed read is `{ ok: false }`, never an empty list. */
+export async function listMyPhones(): Promise<MyPhonesResult> {
+  const { data, error } = await supabase.from("offline_device_leases").select(PHONE_ROW_COLUMNS).order("last_checkin_at", { ascending: false }).limit(50);
+  if (error || !Array.isArray(data)) return { ok: false };
+  const phones = (data as unknown[]).filter(
+    (r): r is PhoneLeaseRow =>
+      typeof r === "object" &&
+      r !== null &&
+      typeof (r as PhoneLeaseRow).device_id === "string" &&
+      typeof (r as PhoneLeaseRow).platform === "string" &&
+      typeof (r as PhoneLeaseRow).last_checkin_at === "string" &&
+      typeof (r as PhoneLeaseRow).lease_expires_at === "string",
+  );
+  return { ok: true, phones };
+}
+
+/** The id this phone registered under for the signed-in account, or null (never registered or nobody signed in). */
+export async function thisPhoneDeviceId(userId: string): Promise<string | null> {
+  const accounts = await listDeviceAccounts();
+  return accounts[userId] ?? null;
+}
+
+/**
+ * The patient says THIS phone is lost (they still have it, e.g. it was found, or they want it cleared now): the report is made on the
+ * server, then a check-in runs straight away so the phone makes its one last upload attempt and clears itself without waiting.
+ */
+export async function reportThisPhoneLostNow(deviceId: string): Promise<boolean> {
+  const accepted = await reportPhoneLost(deviceId);
+  if (accepted) await runDeviceCheck();
+  return accepted;
 }

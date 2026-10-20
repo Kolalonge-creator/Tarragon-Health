@@ -11,6 +11,7 @@ import {
   type PassState,
 } from "@/lib/my-health";
 import { PLATFORM_URL } from "@/lib/platform-url";
+import { MyPhonesCard } from "./my-phones-card";
 import type { SectionId } from "@/lib/sections";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
@@ -143,6 +144,8 @@ export function MyHealthScreen({ userId, acting, onNavigate }: MyHealthScreenPro
             ) : null}
             {passError ? <ErrorText>{t("my_health.pass.failed")}</ErrorText> : null}
           </Card>
+
+          <MyPhonesCard userId={userId} />
 
           <View>
             <Text style={{ color: colors.ink, fontWeight: "600", fontSize: 18 }}>{t("my_health.log.title")}</Text>

@@ -26,3 +26,4 @@ export * from "./cycle-copy";
 export * from "./maternal-child";
 export { activeGlucoseWording, GLUCOSE_WORDING_CODES, GLUCOSE_WORDING_DATA, GLUCOSE_WORDING_KEYS, GLUCOSE_WORDING_SIGNED, type GlucoseWordingCode } from "./glucose-wording";
 export * from "./points";
+export * from "./my-phones-copy";

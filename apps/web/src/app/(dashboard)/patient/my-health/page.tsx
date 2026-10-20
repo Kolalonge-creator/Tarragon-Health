@@ -15,6 +15,7 @@ const CARDS = [
   { href: "/patient/health-passport", title: "my_health.card.passport", body: "my_health.card.passport_body" },
   { href: "/patient/share-records", title: "my_health.card.shares", body: "my_health.card.shares_body" },
   { href: "/patient/my-health/lock-screen-card", title: "my_health.card.pass", body: "my_health.card.pass_body" },
+  { href: "/patient/my-health/my-phones", title: "my_health.card.phones", body: "my_health.card.phones_body" },
 ] as const;
 
 /**

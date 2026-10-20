@@ -19,12 +19,18 @@ export function isWellFormedPin(pin: string): boolean {
  * `clientKey` is the viewer's network address as the platform sees it; the database stores only a hash, to rate-limit wrong PINs per client.
  * Any transport or parse failure is 'unavailable', never a thrown error and never a partial record.
  */
-export async function openShare(token: string, pin: string | null, clientKey: string | null): Promise<OpenShareResult> {
+export async function openShare(
+  token: string,
+  pin: string | null,
+  clientKey: string | null,
+  /** The pharmacy counter view opens through its own door, which wraps this one (same PIN, lockout and counting). */
+  door: "record_share_by_token" | "pharmacy_snapshot_by_token" = "record_share_by_token",
+): Promise<OpenShareResult> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return { kind: "unavailable" };
   const supabase = createClient<Database>(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data, error } = await supabase.rpc("record_share_by_token", {
+  const { data, error } = await supabase.rpc(door, {
     p_token: token,
     ...(pin ? { p_pin: pin } : {}),
     ...(clientKey ? { p_client_key: clientKey } : {}),

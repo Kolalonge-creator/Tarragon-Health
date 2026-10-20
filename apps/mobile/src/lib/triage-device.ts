@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { secureKvGet, secureKvRemove, secureKvSet } from "./secure-kv";
 import {
   BP_CARE_V5,
   GLUCOSE_CARE_V1,
@@ -218,7 +219,7 @@ export function ageYearsOn(dateOfBirth: string | null, nowMs: number): number | 
 
 async function readFacts(subjectId: string): Promise<PatientFacts> {
   try {
-    const raw = await AsyncStorage.getItem(FACTS_KEY(subjectId));
+    const raw = await secureKvGet(FACTS_KEY(subjectId));
     if (raw) {
       const v = JSON.parse(raw) as Partial<PatientFacts>;
       return { dateOfBirth: typeof v.dateOfBirth === "string" ? v.dateOfBirth : null, pregnant: v.pregnant === true, diabetesType: asDiabetesType(v.diabetesType) };
@@ -248,7 +249,7 @@ export async function refreshPatientFacts(subjectId: string): Promise<"updated" 
       pregnant: pregnancy.data?.is_pregnant === true,
       diabetesType: asDiabetesType(diabetes.data?.confirmed_type) ?? asDiabetesType(diabetes.data?.patient_reported_type),
     };
-    await AsyncStorage.setItem(FACTS_KEY(subjectId), JSON.stringify(facts));
+    if (!(await secureKvSet(FACTS_KEY(subjectId), JSON.stringify(facts)))) return "failed";
     return "updated";
   } catch {
     return "failed";
@@ -257,7 +258,7 @@ export async function refreshPatientFacts(subjectId: string): Promise<"updated" 
 
 export async function readPendingRecheck(subjectId: string): Promise<PendingRecheck | null> {
   try {
-    const raw = await AsyncStorage.getItem(RECHECK_KEY(subjectId));
+    const raw = await secureKvGet(RECHECK_KEY(subjectId));
     if (!raw) return null;
     const v = JSON.parse(raw) as { reading?: Reading };
     const r = v.reading;
@@ -267,12 +268,12 @@ export async function readPendingRecheck(subjectId: string): Promise<PendingRech
   }
 }
 async function savePendingRecheck(subjectId: string, reading: Reading, afterMinutes: number, nowMs: number): Promise<void> {
-  await AsyncStorage.setItem(RECHECK_KEY(subjectId), JSON.stringify({ reading })).catch(() => {});
+  await secureKvSet(RECHECK_KEY(subjectId), JSON.stringify({ reading }));
   // The reminder to measure again, at the time the rule set says (5 minutes, or 2 hours after a very high reading).
   await scheduleRecheckReminder(subjectId, Date.parse(reading.takenAt) + afterMinutes * 60_000, nowMs);
 }
 export async function clearPendingRecheck(subjectId: string): Promise<void> {
-  await AsyncStorage.removeItem(RECHECK_KEY(subjectId)).catch(() => {});
+  await secureKvRemove(RECHECK_KEY(subjectId));
   await cancelRecheckReminder(subjectId);
 }
 
