@@ -299,9 +299,10 @@ begin
     (select count(*)::text from public.notifications where template = 'credential_notice' and channel::text = 'in_app' and recipient_id = v_admin and payload ->> 'subject' = 'On-call start check missed') || ',' ||
     (select count(*)::text from public.notifications where template = 'credential_notice' and channel::text = 'in_app' and recipient_id = v_cmo and payload ->> 'subject' = 'On-call start check missed') || ',' ||
     (select count(*)::text from public.notifications where payload ->> 'subject' = 'On-call start check missed' and payload ->> 'message' ~* 'blood|pressure|reading|result|glucose|patient'));
+  select count(*) into n_before from public.notifications where template = 'credential_notice' and payload ->> 'subject' = 'On-call start check missed';
   perform private.shift_start_sweep();
   perform pg_temp.rec('gap: running the sweep again does not tell them again', 'false',
-    ((select count(*) from public.notifications where template = 'credential_notice' and payload ->> 'subject' = 'On-call start check missed') > n_before + 2)::text);
+    ((select count(*) from public.notifications where template = 'credential_notice' and payload ->> 'subject' = 'On-call start check missed') > n_before)::text);
   perform pg_temp.rec('gap: there is exactly ONE open rota gap incident for the organisation, and the SR5 rule raises no second alert', '1,0',
     pg_temp.open_incidents(v_org)::text || ',' || (select count(*)::text from public.ops_alerts where rule_code = 'rota_gap_12h' and state = 'open' and dedup_key like v_org::text || '%'));
   perform (select count(*) from private.ops_check_rota_gap_12h('{}'::jsonb, true));
