@@ -58,3 +58,48 @@ describe("fhir.mapping", () => {
     for (const c of [...Object.values(v.lab_analyte_loinc), ...Object.values(v.vitals).map((x) => x.loinc)]) expect(c).toMatch(/^[0-9]{1,7}-[0-9]$/);
   });
 });
+
+describe("fhir.ips_mapping", () => {
+  const entry = getProposedConfig("fhir.ips_mapping");
+  const v = entry.value as unknown as {
+    ig_status: string;
+    profiles: Record<string, string[]>;
+    composition_type: { code: string };
+    empty_reason_code: string;
+    withheld_reason_code: string;
+    vitals_per_type: number;
+    results_per_analyte: number;
+    composition_status: string;
+    sections: { key: string; loinc: string; required: boolean }[];
+  };
+
+  it("is a PROPOSED entry owned by the founder, never confirmed by an agent", () => {
+    expect(entry.status).toBe("proposed");
+    expect(entry.owner).toBe("Founder");
+    expect(entry.version).toBe(1);
+  });
+
+  it("claims no conformance and no profile: the IPS is under ballot in Nigeria and Nigeria Core is a draft", () => {
+    expect(v.ig_status).toBe("ips_shaped_no_conformance_claimed");
+    expect(v.profiles).toEqual({});
+  });
+
+  it("is a preliminary patient summary and writes an empty required section as unavailable, never nil known", () => {
+    expect(v.composition_type.code).toBe("60591-5");
+    expect(v.composition_status).toBe("preliminary");
+    expect(v.empty_reason_code).toBe("unavailable");
+  });
+
+  it("writes a section the reader was not given as withheld, a different code from nothing recorded, and keeps the summary short", () => {
+    expect(v.withheld_reason_code).toBe("withheld");
+    expect(v.withheld_reason_code).not.toBe(v.empty_reason_code);
+    expect(v.vitals_per_type).toBeGreaterThan(0);
+    expect(v.results_per_analyte).toBeGreaterThan(0);
+  });
+
+  it("holds the six IPS sections with LOINC section codes, and problems, allergies and medicines as the required three", () => {
+    expect(v.sections.map((s) => s.key)).toEqual(["problems", "allergies", "medications", "immunizations", "results", "vital_signs"]);
+    for (const s of v.sections) expect(s.loinc).toMatch(/^[0-9]{1,7}-[0-9]$/);
+    expect(v.sections.filter((s) => s.required).map((s) => s.key)).toEqual(["problems", "allergies", "medications"]);
+  });
+});

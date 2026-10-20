@@ -2018,6 +2018,15 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **Tests**: medicines 358 pass at 100 percent coverage; mobile `pack-scan` and mirror tests pass; i18n 215 and shared 1,029 pass; mobile `tsc` clean; eslint 0 errors.
 - **Not run**: nothing on a device or simulator; the camera path cannot run until a text reader exists.
 - **Open**: OQ-NAFDAC-SCAN-1 to OQ-NAFDAC-SCAN-4.
+
+## S10y: partner webhook endpoint admin (2026-10-20), branch `s10y/partner-endpoint-admin`
+
+- **Built**: migration `20261020180118_s10y_partner_endpoint_admin.sql` (four admin-only functions, additive: endpoint and map overviews that never return a secret, `admin_reenable_partner_webhook_endpoint` with a required reason, `remove_partner_event_mapping`); page `/admin/ops/partner-webhooks` (endpoint list with state and auto-disable, rotate key shown once, re-enable with reason, event map edit, banner when `process-events` is not known to be running); menu entry and admin-search entry; types spliced into `packages/shared` by hand (only the four new functions).
+- **Contention test**: confirmed, not changed. `s10x_bus_contention.sh` is registered in `ci.manifest` and run by `scripts/run-db-proofs.sh` in the "Supabase migration replay" job on every PR.
+- **FHIR Subscription facade**: closed as documentation only (still a design note in `docs/design/S10x.md`).
+- **Tests**: DB proof `s10y_partner_endpoint_admin.sql` (registered; 32 checks; sabotage steps that must fail: reason check removed, an overview that leaks the secret and drops the organisation filter); Jest `partner-admin` model and actions, admin-search; i18n 215; web tsc and eslint clean.
+- **Not run**: the proof was run against the live database inside one rolled-back transaction (migration plus proof, nothing committed), not on a fresh local stack (Docker was not running). No browser walk-through (no admin credentials or env in the worktree). The edge function `process-events` is not deployed by this change.
+
 ## OQ-436: external dead-man's switch (2026-10-16), branch `feat/oq436-external-deadman`
 - Built: `public.deadman_status(int)` (service_role only, anon EXECUTE revoked via `revoke ... from public`, closing DO block asserts it), `GET /api/health/deadman` (secret header or bearer, constant-time compare, fails closed, counts and ages only), pure `evaluateDeadman`/`parseDeadmanStatus` with PROPOSED config `ops.deadman_thresholds`, `.github/workflows/deadman-switch.yml` plus `.github/scripts/deadman-check.sh` (every 5 minutes; one `incident` issue opened or updated, closed on recovery; optional Resend email; missing required secret fails the run), runbook section and OQ-436 closed as built-needs-secrets.
 - Tests: Jest for the route (no secret, wrong secret, right secret, bearer, down, degraded, rpc error) and the threshold function; `packages/db/tests/oq436_deadman_status.sql` registered in `ci.manifest`; the bash script was exercised with stubbed `curl` and `gh` for ok, degraded, down (new and existing issue), 401, unreachable, recovery and missing secrets.
@@ -2030,3 +2039,12 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **Tests**: DB proof `rcpt1_consent_receipts.sql` 30 checks plus 3 sabotage flips (own-rows filter, audit call, role gate), run against live in a rolled-back transaction with the migration spliced in (no Docker); Jest lib 13, route 9, panel 1 added (privacy dir 56 pass); i18n 215; tsc clean; PDF rendered and viewed (whole picture fits one A4 page, single change one page).
 - **Not run**: not applied to production; the privacy page links were not clicked in a browser signed in as a patient; mobile not built (OQ-RCPT-1-1).
 - **Open**: OQ-RCPT-1-1 to OQ-RCPT-1-3.
+## International Patient Summary (IPS) export (spec 2.10) (2026-10-20), branch `feat/ips-export`
+
+- **Built**: `fhir.ips_mapping` v1 (PROPOSED, founder-owned, mirror test); `apps/web/src/lib/fhir/ips-bundle.ts` (pure, IPS-shaped document Bundle: Composition 60591-5 with problems, allergies, medicines, immunizations, results, vital signs, plus Patient and an author Organization); `exportIpsBundle`; `GET /api/patient/ips-export`; a "Download my summary (IPS)" card and a one-page "what is inside" preview under `/patient/data-exchange`. Reuses the S44 snapshot, so exclusions (no reproductive or mental health, released labs only, no private notes), consent categories and the `fhir_export_log` audit are unchanged. Documents are left out. No migration.
+- **Safety**: required empty sections are `unavailable`, never `nilknown`; wearable values stay tagged as estimates; no profile or conformance claim; copy says the file is unvalidated.
+- **Tests**: web `src/lib/fhir` 77 pass (structure, reference resolution, excluded categories, empty sections, escaping, units round trip through our own import parser, service); shared 1,055 pass; i18n 215 pass; web `tsc` clean; eslint clean.
+- **Not run**: no HAPI or other FHIR validator; the screens were not opened in a browser or on a device.
+- **Open**: OQ-IPS-1 to OQ-IPS-3.
+
+- **Open**: OQ-IPS-1 to OQ-IPS-4.
