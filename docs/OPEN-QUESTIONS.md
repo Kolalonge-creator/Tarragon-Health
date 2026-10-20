@@ -4362,3 +4362,18 @@ Design: `docs/design/S07y.md`. All three guards (`pharmacy_bp_readings`, `paper_
 
 ### OQ-S07Y-9 Export, FHIR and the data registry (raised by S07y; DPO)
 - `entry_origin` and `place_label` are columns on `vitals_readings`, so they are already part of the patient's own data export and the S39d registry row for that table. The place is a name the person typed; it is never used for any decision. The `observations` view (and so S44's FHIR export) does not carry the label; a pharmacy reading therefore exports as an ordinary patient-recorded observation. Options: carry the label into `observations.context` (a small change to a public view) so a receiving clinician sees the setting. Decision: open (DPO, interoperability).
+### OQ-IPS-1 Validate the IPS export before anyone relies on it (raised by the IPS build, 2026-10-20)
+- The file is IPS-shaped (structure) but no HL7 validator was run and no IPS or Nigeria Core profile is claimed. Run the HAPI validator against a real export and against the IPS implementation guide, record the result, and only then decide whether a later `fhir.ips_mapping` version may list a profile URL. Do not state conformance in product or marketing copy until then.
+- Decision: open (founder / health-informatics advisor).
+
+### OQ-IPS-2 Section titles and the author wording in the file (raised by the IPS build, 2026-10-20)
+- Section titles, the Composition narrative and the preliminary status live in the PROPOSED config (founder-owned, not confirmed). "Preliminary" says the summary is not clinician-attested. Confirm the wording and status with the CMO before a facility is told to rely on it.
+- Decision: open (CMO).
+
+### OQ-IPS-3 `fhir_export_log` has no format column (raised by the IPS build, 2026-10-20)
+- An IPS download is logged exactly like a collection export; it is recognisable only because its section list has no `documents`. Opening the "what is inside" preview is logged the same way (it uses the same audited call), so the "who made a copy" list counts previews; the preview text says so. If audit review needs to tell exports, IPS copies and previews apart, add a nullable `format` or `purpose` column in a separate additive migration.
+- Decision: open (product / DPO).
+
+### OQ-IPS-4 Items inside general sections are not sorted by purpose, for supporters too (raised by the IPS build, 2026-10-20)
+- `fhir_export_snapshot` (S47b) hides reproductive and mental-health-named conditions, medicines and allergies only for a guardian of a 10 to 17 year old without a waiver. A supporter who holds only the medications or conditions category, and the person themselves, still get such items inside Problems and Medicines, as in the existing collection export. The summary says so in words (file narrative and page copy) but a sentence is not a control. Decide whether the snapshot should withhold those items for every non-self reader, and whether a stopped medicine should be left out of the Medicines section. Do not weaken the existing exclusion; this build adds no new way to read them.
+- Decision: open (CMO / DPO).

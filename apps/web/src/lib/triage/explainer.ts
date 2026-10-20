@@ -53,6 +53,8 @@ export const triageContextSchema = z
     type: z.enum(["silence", "adherence"]).optional(),
     lastReadingAt: z.string().nullish(),
     sinceAt: z.string().nullish(),
+    /** The adherence percentage over the configured window (OQ-356). `percent7d` is the old name, still read for events stored before the rename. */
+    percentWindow: z.number().nullish(),
     percent7d: z.number().nullish(),
     reading: readingContext.optional(),
     cuffType: z.enum(["upper_arm", "wrist", "not_sure"]).nullish(),
