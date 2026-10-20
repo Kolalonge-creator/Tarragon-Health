@@ -391,11 +391,13 @@ begin
     pg_temp.q_as(v_pat, format($q$select (stock_confirmed_at is not null)::text from public.patient_collection_overview() where prescription_id = %L$q$, rxS)));
   perform pg_temp.ck('real', '4e the confirmation answer was audited', 'true',
     ((select count(*) from public.audit_log where action = 'pharmacy.stock_answered' and entity_id = rxS and (event ->> 'in_stock')::boolean) >= 1)::text);
+  v_yes := pg_temp.q_as(phA, format($q$select public.pharmacist_confirm_stock(%L, true)$q$, rxK));   -- the write first, the reads after (separate statements)
   perform pg_temp.ck('real', '4f a controlled medicine is never confirmed and is audited', 'controlled_medicine|false|true',
-    pg_temp.q_as(phA, format($q$select public.pharmacist_confirm_stock(%L, true)$q$, rxK)) || '|' || (select (stock_confirmed_at is not null)::text from public.prescription_collection_codes where prescription_id = rxK) || '|' ||
+    v_yes || '|' || (select (stock_confirmed_at is not null)::text from public.prescription_collection_codes where prescription_id = rxK) || '|' ||
     ((select count(*) from public.audit_log where action = 'pharmacy.controlled_medicine_refused' and entity_id = rxK and event ->> 'step' = 'stock') >= 1)::text);
+  v_yes := pg_temp.q_as(phA, format($q$select public.pharmacist_confirm_stock(%L, false)$q$, rxK));
   perform pg_temp.ck('real', '4f2 a no for a controlled medicine is not an out-of-stock report either: no flag, no task, nothing recorded but the refusal', 'controlled_medicine|0|0',
-    pg_temp.q_as(phA, format($q$select public.pharmacist_confirm_stock(%L, false)$q$, rxK)) || '|' ||
+    v_yes || '|' ||
     (select count(*)::text from public.prescription_pharmacy_flags where prescription_id = rxK) || '|' ||
     (select count(*)::text from public.clinical_tasks where patient_id = v_pat and type = 'pharmacy_flag_review'));
   perform pg_temp.ck('real', '4g a null answer is refused', 'ERR:22023', pg_temp.q_as(phA, format($q$select public.pharmacist_confirm_stock(%L, null)$q$, rxT)));
