@@ -5366,6 +5366,52 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/S41-S45-cmo-signoff-pack.md section B; founder decisions 2026-10-07",
   },
   {
+    key: "records_request.letter",
+    // Records request letter (docs/design/RRL.md). UNSIGNED PLACEHOLDER WORDING: written by an engineer, not by counsel, and nothing here has been
+    // reviewed as legal text. It asks a facility for the person's own records and names the Nigeria Data Protection Act 2023 right of access only
+    // because the person asked for that framing; it states no section number, no deadline as law and no penalty. Counsel replaces it by publishing
+    // a higher version (OQ-RRL-1). The letter is printed or handed over by the person; the platform never sends it.
+    value: {
+      wording_status: "unsigned_placeholder_pending_counsel",
+      title: "Request for a copy of my health records",
+      greeting: "To the Medical Records Officer, {facility}",
+      intro:
+        "I am the person these records are about. I am asking for a copy of the health records you hold about me, and I am making this request under my right of access to my own personal data under the Nigeria Data Protection Act 2023.",
+      identity_heading: "Details that identify me",
+      identity_labels: { name: "Name", date_of_birth: "Date of birth", phone: "Phone" },
+      fill_in: ["Hospital or patient number, if you know it:", "Address or email to send the records to:"],
+      scope_heading: "What I am asking for",
+      scopes: {
+        discharge_summary: "My discharge summary or summaries",
+        lab_results: "My laboratory results",
+        imaging_report: "The written reports of my scans and X-rays",
+        whole_record: "My whole record, as far as it can be given to me",
+      },
+      format: "Either a paper copy or an electronic copy will do. Please tell me if there is a form to fill in or a charge, and what you need from me to prove who I am.",
+      timing: "I would be grateful for a reply as soon as you can, and I will follow up with you after {days} days. If you need more time or more information from me, please tell me.",
+      closing: "Thank you for your help.",
+      sign_off: "Yours faithfully,",
+      footer: "Prepared at my request with TarragonHealth.",
+      draft_notice: "Draft wording, not yet checked by a lawyer.",
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/RRL.md; spec 2.3 and 2.11 (records fill the Passport); wording pending counsel",
+  },
+  {
+    key: "records_request.response_days",
+    // How long after the person hands the letter over the app treats a request as overdue. A PLACEHOLDER pending counsel and not a statement of what
+    // the law requires: the app only says "you asked on <date>, you hoped for a reply by <date>". It sets a reminder, never a legal claim.
+    value: { days: 30, label: "placeholder_pending_counsel" },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/RRL.md; OQ-RRL-1",
+  },
+  {
     key: "fhir.mapping",
     // FHIR export mapping (S44, spec 2.10). Identifiers, not thresholds, but they decide what an outside system believes a value means, so they
     // are versioned data a human reviews, not code. The Nigeria Core and NPHCDA implementation guides are both still under development

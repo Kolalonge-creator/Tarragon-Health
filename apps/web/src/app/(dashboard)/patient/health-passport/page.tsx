@@ -76,6 +76,9 @@ export default async function HealthPassportPage() {
 
   const supabase = await createClient();
   const data = await getHealthPassportData(supabase, profile.id, profile.organisation_id);
+  // A records request that was handed over and has had no reply by its date: shown here, in the app. Nothing sends it and a failure here shows nothing.
+  const { data: requestRows } = await supabase.rpc("my_records_requests");
+  const hasOverdueRequest = (requestRows ?? []).some((r) => r.is_overdue);
 
   const periodLabel = `${formatPatientDate(data.periodStart)} – ${formatPatientDate(data.periodEnd)}`;
 
@@ -117,6 +120,7 @@ export default async function HealthPassportPage() {
             ["/patient/share-records", "passport.nav.share"],
             ["/patient/emergency-card", "passport.nav.emergency"],
             ["/patient/data-exchange", "passport.nav.exchange"],
+            ["/patient/records-requests", "passport.nav.records_requests"],
           ] as const
         ).map(([href, key]) => (
           <Link key={href} href={href} className="rounded-full border border-charcoal-ink/15 px-3 py-1 hover:bg-charcoal-ink/5 dark:border-night-ink/20">
@@ -124,6 +128,12 @@ export default async function HealthPassportPage() {
           </Link>
         ))}
       </nav>
+      {hasOverdueRequest ? (
+        <p role="status" className="rounded-md border border-charcoal-ink/20 px-4 py-3 text-sm dark:border-night-ink/30">
+          {t("records_request.overdue_banner")}{" "}
+          <Link href="/patient/records-requests" className="font-medium underline">{t("records_request.overdue_banner_link")}</Link>
+        </p>
+      ) : null}
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
