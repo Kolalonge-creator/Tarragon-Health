@@ -20,8 +20,8 @@ export function sampleReadings(): BpReadingIn[] {
       validationStatus: "valid",
     });
   }
-  out.push({ takenAt: new Date(SAMPLE_NOW_MS - 3600_000).toISOString(), systolic: 190, diastolic: 120, pulse: 99, source: "wearable", validationStatus: "valid" });
-  out.push({ takenAt: new Date(SAMPLE_NOW_MS - 7200_000).toISOString(), systolic: 80, diastolic: 40, pulse: null, source: "manual", validationStatus: "rejected" });
+  out.push({ takenAt: new Date(SAMPLE_NOW_MS - 3600_000).toISOString(), systolic: 190, diastolic: 120, pulse: 99, source: "wearable", validationStatus: "valid" });  // band-ok: sample fixture reading for the layout test, not a classification
+  out.push({ takenAt: new Date(SAMPLE_NOW_MS - 7200_000).toISOString(), systolic: 80, diastolic: 40, pulse: null, source: "manual", validationStatus: "rejected" });  // band-ok: sample fixture reading for the layout test, not a classification
   return out;
 }
 
