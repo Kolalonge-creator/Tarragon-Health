@@ -48911,6 +48911,7 @@ export type Database = {
       device_data_consent_in_force: { Args: { p_patient: string }; Returns: boolean }
       my_handover: { Args: never; Returns: Json }
       my_consent_matrix_history: { Args: { p_limit?: number }; Returns: Json }
+      record_emergency_card_image: { Args: { p_include_qr?: boolean; p_minimum?: boolean }; Returns: Json }
       my_consent_matrix: { Args: never; Returns: Json }
       complete_dependant_handover: { Args: { p_date_of_birth?: string; p_keep?: string[] }; Returns: Json }
       complete_account_deletion: { Args: { p_request: string }; Returns: Json }

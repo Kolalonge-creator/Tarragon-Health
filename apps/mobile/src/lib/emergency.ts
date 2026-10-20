@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { supabase } from "./supabase";
 import { PLATFORM_URL } from "./platform-url";
+import { API_BASE_URL } from "./api";
 
 export const EMERGENCY_REPRODUCTIVE_MEDICINE_PATTERN = /(contracept|levonorgestrel|norethisterone|ethinylestradiol|medroxyprogesterone|depo.?provera|mifepristone|clomiphene)/i;
 export const EMERGENCY_MENTAL_HEALTH_MEDICINE_PATTERN = /(antidepress|sertraline|fluoxetine|citalopram|escitalopram|paroxetine|venlafaxine|risperidone|olanzapine|quetiapine)/i;
@@ -192,4 +193,31 @@ export async function loadActiveShareLink(patientId: string): Promise<ShareLink 
 export async function createShareLink(): Promise<{ error?: string }> {
   const { error } = await supabase.rpc("create_emergency_card");
   return error ? { error: error.message } : {};
+}
+
+/**
+ * LSI-1: is the person's lock-screen picture option on (off by default)? Read live and never cached: a failed read counts as off, so the picture
+ * controls are never shown on a guess.
+ */
+export async function loadLockScreenOptIn(patientId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.from("emergency_card_fields").select("lock_screen_opt_in").eq("patient_id", patientId).maybeSingle();
+    return !error && data?.lock_screen_opt_in === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The lock-screen picture, opened in the in-app browser (the same bearer-token query pattern as the verified-document PDF), where the person
+ * presses and holds it to save. No new native module or permission. Both options default to the safe side. The server checks the person's own
+ * switch and audits the picture; `confirm=1` is added only here, after the person ticked the shared-phone warning.
+ */
+export async function getLockScreenImageUrl(opts: { minimum: boolean; qr: boolean }): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) return { ok: false, error: "Not signed in" };
+  const q = `confirm=1&minimum=${opts.minimum ? "1" : "0"}&qr=${opts.qr ? "1" : "0"}&token=${encodeURIComponent(session.access_token)}`;
+  return { ok: true, url: `${API_BASE_URL}/api/mobile/emergency-card/lock-screen-image?${q}` };
 }

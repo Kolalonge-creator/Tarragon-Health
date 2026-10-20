@@ -2023,3 +2023,10 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - Tests: Jest for the route (no secret, wrong secret, right secret, bearer, down, degraded, rpc error) and the threshold function; `packages/db/tests/oq436_deadman_status.sql` registered in `ci.manifest`; the bash script was exercised with stubbed `curl` and `gh` for ok, degraded, down (new and existing issue), 401, unreachable, recovery and missing secrets.
 - Not exercised: the migration dry run on production timed out at the connection (database unresponsive at the time), so it relied on CI replay; the workflow has never run on GitHub and the endpoint never against production; the Resend call was not sent; actionlint was not available.
 - Needs the founder: the secrets in OQ-436. Paging logic untouched.
+
+## LSI-1 emergency card as a lock-screen picture (2026-10-20), branch `feat/emergency-card-lockscreen`
+
+- **Built**: pure content model, `next/og` PNG renderer (1170 x 2532), two routes (web cookie, mobile bearer), audit door `record_emergency_card_image` (migration `20261021000142`), web card with the shared-phone warning and a required tick, mobile controls (in-app browser, press and hold to save), strings `lsi.*`, help text corrected. Part B: the two guard keys were already in `GUARD_KEYS`; nothing changed.
+- **Tests**: DB proof `lsi1_emergency_card_image_audit.sql` 16 checks plus 3 sabotage flips (against live in a rolled-back transaction, no Docker); web Jest lib 10, response 8, routes 9, component 4; mobile 6 added; i18n 215; tsc clean (web and mobile). Two PNGs rendered and viewed (minimum with QR; everything chosen, sertraline withheld and counted).
+- **Not run**: not applied to production; not scanned or set as a wallpaper on a real phone; the mobile in-app browser save was not run on a device; the web card was not clicked in a browser.
+- **Open**: OQ-LSI-1-1 to OQ-LSI-1-3.
