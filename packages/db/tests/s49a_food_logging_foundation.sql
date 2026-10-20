@@ -105,7 +105,8 @@ begin
   insert into public.reproductive_health_profiles (organisation_id, patient_id, life_stage) values (v_org, pg_temp.f('preg_stage'), 'pregnant');
   insert into public.reproductive_health_profiles (organisation_id, patient_id, life_stage) values (v_org, pg_temp.f('postpartum_stage'), 'postpartum');
   insert into public.postnatal_profiles (organisation_id, patient_id, delivery_date) values (v_org, pg_temp.f('postnatal'), current_date - 100);
-  insert into public.obesity_ed_screens (organisation_id, patient_id, positive, self_reported) values (v_org, pg_temp.f('ed'), true, true);
+  -- a trigger derives `positive` from the SCOFF answers (two or more), so a real positive screen carries them; a bare positive = true is reset to false
+  insert into public.obesity_ed_screens (organisation_id, patient_id, scoff_sick, scoff_control) values (v_org, pg_temp.f('ed'), true, true);
 end $$;
 
 -- 1 catalogue -----------------------------------------------------------------------------------------------------------------------
