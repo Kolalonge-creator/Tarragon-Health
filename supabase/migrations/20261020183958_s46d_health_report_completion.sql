@@ -84,7 +84,12 @@ begin
          'S46d: panel membership_annual v3 adds the optional anti-HBs add-on (every result held for a clinician). Same release policy as the signed sign-off version ' || l.version || '. PROPOSED, unsigned: sign_lab_panels() by the CMO.'
     from public.lab_panel_signoffs l where l.is_active and l.approved_by is not null;
   get diagnostics v_n = row_count;
-  if v_n <> 1 then raise exception 'S46d: expected exactly one signed active lab sign-off to copy the release policy from, found %', v_n; end if;
+  -- Production has one signed, active sign-off. A fresh database (CI replay, a local reset) has none, because signing is the CMO's act and nothing here signs: skip with a notice rather than stop the whole replay. More than one cannot happen (one active row).
+  if v_n = 0 then
+    raise notice 'S46d: no signed active lab sign-off here (a fresh database); no draft sign-off created. The CMO signs one before panel v3 releases results.';
+  elsif v_n <> 1 then
+    raise exception 'S46d: expected at most one signed active lab sign-off to copy the release policy from, found %', v_n;
+  end if;
 end $$;
 
 -- Hold an analyte that asks for it: holdForReview makes any value, including a negative, wait for a clinician (the generic "nothing to do" text would be wrong
@@ -226,6 +231,8 @@ begin
   if (select count(*) from public.lab_panel_versions where is_active) <> 1 then raise exception 'S46d self-check: expected one active panel version'; end if;
   if (select jsonb_array_length(analytes) from public.lab_panel_versions where is_active) <> 19 then raise exception 'S46d self-check: expected 19 analytes'; end if;
   if pg_get_functiondef('private.classify_lab_result(uuid,jsonb,uuid)'::regprocedure) not like '%holdForReview%' then raise exception 'S46d self-check: the classifier was not patched'; end if;
-  if not exists (select 1 from public.lab_panel_signoffs where not is_active and approved_by is null and notes like 'S46d:%') then raise exception 'S46d self-check: no draft lab sign-off'; end if;
+  -- the draft exists only where there was a signed active sign-off to copy (production); a fresh database has none and creates none
+  if exists (select 1 from public.lab_panel_signoffs where is_active and approved_by is not null)
+     and not exists (select 1 from public.lab_panel_signoffs where not is_active and approved_by is null and notes like 'S46d:%') then raise exception 'S46d self-check: no draft lab sign-off'; end if;
   if exists (select 1 from public.health_report_config_versions where version = 3 and (is_active or approved_by is not null)) then raise exception 'S46d self-check: report settings v3 must be unsigned'; end if;
 end $$;

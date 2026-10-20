@@ -198,7 +198,9 @@ begin
   perform pg_temp.ck('a positive anti-HBs does not use the sensitive-disclosure state', 'true', ((r ->> 'release_state') <> 'clinician_disclosure_required')::text);
   r := private.classify_lab_result(v3.id, '[{"analyte_code":"anti_hbs","value_text":"negative"}]'::jsonb, null);
   perform pg_temp.ck('a NEGATIVE anti-HBs is held for a clinician (holdForReview), never auto-released', 'awaiting_review', r ->> 'release_state');
-  perform pg_temp.ck('a draft lab sign-off exists for the CMO, unsigned and not active', '1',
+  -- one draft where a signed active sign-off existed to copy (production); none on a fresh database, which has no signed sign-off
+  perform pg_temp.ck('a draft lab sign-off exists for the CMO, unsigned and not active (where a signed one existed)',
+    (case when exists (select 1 from public.lab_panel_signoffs where is_active and approved_by is not null) then '1' else '0' end),
     (select count(*)::text from public.lab_panel_signoffs where not is_active and approved_by is null and notes like 'S46d:%'));
   perform pg_temp.ck('no screen type exists for anti-HBs, so a patient cannot order or be priced for it', 'false', exists (select 1 from public.screen_types where code = 'anti_hbs')::text);
 end $$;
