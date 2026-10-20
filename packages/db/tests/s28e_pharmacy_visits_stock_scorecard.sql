@@ -368,7 +368,7 @@ end $$;
 do $$
 declare v_org uuid := pg_temp.f('org'); v_pat uuid := pg_temp.f('pat'); v_doc uuid := pg_temp.f('doc'); phA uuid := pg_temp.f('phA'); phB uuid := pg_temp.f('phB');
   pA uuid := pg_temp.f('pA'); lA uuid := pg_temp.f('lA'); pB uuid := pg_temp.f('pB'); lB uuid := pg_temp.f('lB');
-  rxS uuid; rxT uuid; rxK uuid; n0 integer; n1 integer;
+  rxS uuid; rxT uuid; rxK uuid; n0 integer; n1 integer; v_yes text;
 begin
   rxS := pg_temp.mkrx(v_org, v_pat, v_doc, 'Stock drug', 'signed'); rxT := pg_temp.mkrx(v_org, v_pat, v_doc, 'Second stock drug', 'signed'); rxK := pg_temp.mkrx(v_org, v_pat, v_doc, 'Tramadol 50 mg', 'signed');
   perform pg_temp.setf('rxS', rxS); perform pg_temp.setf('rxT', rxT);
@@ -379,7 +379,8 @@ begin
     pg_temp.q_as(phB, format($q$select public.pharmacist_confirm_stock(%L, true)$q$, rxS)) || '|' || pg_temp.q_as(v_pat, format($q$select public.pharmacist_confirm_stock(%L, true)$q$, rxS)) || '|' ||
     pg_temp.anon_q(format($q$select public.pharmacist_confirm_stock(%L, true)$q$, rxS)));
   select count(*) into n0 from public.notifications where recipient_id = v_pat and template = 'pharmacy_collection_update';
-  perform pg_temp.ck('real', '4b the pharmacy says yes: confirmed and stamped', 'confirmed|true', pg_temp.q_as(phA, format($q$select public.pharmacist_confirm_stock(%L, true)$q$, rxS)) || '|' ||
+  v_yes := pg_temp.q_as(phA, format($q$select public.pharmacist_confirm_stock(%L, true)$q$, rxS));   -- the write and the read are separate statements
+  perform pg_temp.ck('real', '4b the pharmacy says yes: confirmed and stamped', 'confirmed|true', v_yes || '|' ||
     (select (stock_confirmed_at is not null)::text from public.prescription_collection_codes where prescription_id = rxS));
   select count(*) into n1 from public.notifications where recipient_id = v_pat and template = 'pharmacy_collection_update';
   perform pg_temp.ck('real', '4c the patient got one neutral notice', '1', (n1 - n0)::text);
