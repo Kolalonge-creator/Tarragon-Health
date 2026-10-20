@@ -24,9 +24,6 @@ declare
   d text;
   anchor1 constant text := 'return private.go_live_conditions_s71(p_key, p_org);';
   new1 constant text := E'if p_key = ''glucose_fast_sugar_wording'' then\n    return private.fast_sugar_go_live_conditions(p_key);\n  end if;\n  return private.go_live_conditions_s71(p_key, p_org);';
-  anchor2 constant text := $q$('maternal_enabled', 'regulator_queries_answered')) then$q$;
-  new2 constant text := $q$('maternal_enabled', 'regulator_queries_answered'),
-       ('glucose_fast_sugar_wording', 'fast_sugar_wording_signed')) then$q$;
 begin
   d := pg_get_functiondef('private.go_live_conditions(text, uuid)'::regprocedure);
   if d like '%fast_sugar_go_live_conditions%' then
@@ -37,13 +34,16 @@ begin
     execute replace(d, anchor1, new1);
   end if;
 
+  -- The list of attestable (guard, condition) pairs ends "...')) then raise exception 'that condition is read from the data". Other migrations keep adding pairs
+  -- before that tail, so match the TAIL (the closing of the list), not any particular last pair, and require exactly one match.
   d := pg_get_functiondef('public.attest_go_live_condition(text, text, boolean, text)'::regprocedure);
   if d like '%fast_sugar_wording_signed%' then
     null;
-  elsif (length(d) - length(replace(d, anchor2, ''))) / length(anchor2) <> 1 then
-    raise exception 'OQ-326: attest_go_live_condition no longer has the expected list tail; review before changing it';
+  elsif (select count(*) from regexp_matches(d, E'\\)\\) then(\\s+raise exception ''that condition is read from the data)', 'g')) <> 1 then
+    raise exception 'OQ-326: attest_go_live_condition no longer ends its list as expected; review before changing it';
   else
-    execute replace(d, anchor2, new2);
+    execute regexp_replace(d, E'\\)\\) then(\\s+raise exception ''that condition is read from the data)',
+      E'), (''glucose_fast_sugar_wording'', ''fast_sugar_wording_signed'')) then\\1');
   end if;
 end $mig$;
 revoke all on function public.attest_go_live_condition(text, text, boolean, text) from public, anon;
