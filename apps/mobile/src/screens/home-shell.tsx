@@ -44,6 +44,7 @@ import { BpHistoryScreen } from "@/screens/sections/bp-history-screen";
 import { MonthlyReportScreen } from "@/screens/sections/monthly-report-screen";
 import { ProgrammesScreen } from "@/screens/sections/programmes-screen";
 import { TimelineScreen } from "@/screens/sections/timeline-screen";
+import { BiomarkersScreen } from "@/screens/sections/biomarkers-screen";
 import { HealthHistoryScreen } from "@/screens/sections/health-history-screen";
 import { SymptomJournalScreen } from "@/screens/sections/symptom-journal-screen";
 import { MyHealthScreen } from "@/screens/sections/my-health-screen";
@@ -325,6 +326,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     myActions: () => <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />,
     healthSummary: () => <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />,
     timeline: () => <TimelineScreen patientId={subjectId} acting={acting != null} onNavigate={handleSelect} />,
+    biomarkers: () => <BiomarkersScreen subjectId={subjectId} userId={userId} />,
     myHealth: () => <MyHealthScreen userId={userId} acting={acting != null} onNavigate={handleSelect} />,
     healthHistory: () => <HealthHistoryScreen subjectId={subjectId} userId={userId} organisationId={organisationId} />,
     symptomJournal: () => <SymptomJournalScreen subjectId={subjectId} acting={acting != null} onNavigate={handleSelect} />,

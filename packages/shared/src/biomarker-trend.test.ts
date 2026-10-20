@@ -1,4 +1,5 @@
-import { chartGeometry, displayCode, groupByUnit, labRangeLabel, parseTrend, positionInLabRange, targetLabel, type TrendPoint } from "./trend";
+import { describe, expect, it } from "@jest/globals";
+import { chartGeometry, displayCode, groupByUnit, labRangeLabel, parseTrend, positionInLabRange, targetLabel, type TrendPoint } from "./biomarker-trend";
 
 const pt = (over: Partial<TrendPoint> = {}): TrendPoint => ({
   takenAt: "2025-01-01T00:00:00Z",
