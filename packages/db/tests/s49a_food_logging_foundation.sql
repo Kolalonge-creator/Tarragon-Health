@@ -32,9 +32,14 @@ begin
   values (v, 's49a-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
   values (v, p_org, p_role::public.user_role, 'S49a ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'),
-          coalesce(p_dob, (current_date - interval '45 years')::date), true)
+          -- registration is adult-only (counsel-signed): a minor is created as an adult and then made a minor_child dependant, as the other proofs do
+          case when p_dob is not null and p_dob > (current_date - interval '18 years')::date then (current_date - interval '45 years')::date
+               else coalesce(p_dob, (current_date - interval '45 years')::date) end, true)
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, is_test = excluded.is_test, is_active = true,
     date_of_birth = excluded.date_of_birth;
+  if p_dob is not null and p_dob > (current_date - interval '18 years')::date then
+    update public.profiles set is_dependent_account = true, dependent_kind = 'minor_child', date_of_birth = p_dob where id = v;
+  end if;
   return v;
 end $f$;
 create function pg_temp.mkdoc(p_org uuid, p_label text, p_tier text, p_admin uuid) returns uuid language plpgsql as
