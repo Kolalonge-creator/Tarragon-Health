@@ -82,6 +82,17 @@ begin
       '{consistency,minPairs}', '{consistency,maxPairs}', '{consistency,lookbackDays}', '{consistency,minSharePercent}', '{tasks,reviewDueMinutes}']::text[]) k
    where c.id = p_id and (c.config #> k::text[]) is null;
   if found then raise exception 'this version is missing a value the rule needs and cannot be signed'; end if;
+  -- every value must be a whole number inside the range the rule can work with; the same checks the TypeScript loader makes (a signed version that never fires is a silent failure)
+  perform 1 from public.cuff_check_rules c,
+    (values ('{pairing,windowHours}', 1), ('{pairing,minHomeReadings}', 1), ('{difference,systolic}', 1), ('{difference,diastolic}', 1),
+            ('{consistency,minPairs}', 2), ('{consistency,maxPairs}', 2), ('{consistency,lookbackDays}', 1), ('{consistency,minSharePercent}', 51), ('{tasks,reviewDueMinutes}', 1)) as k(path, lo)
+   where c.id = p_id
+     and (jsonb_typeof(c.config #> k.path::text[]) <> 'number' or (c.config #>> k.path::text[]) !~ '^[0-9]+$' or (c.config #>> k.path::text[])::numeric < k.lo);
+  if found then raise exception 'this version has a value that is not a whole number in range and cannot be signed'; end if;
+  if (select (config #>> '{consistency,maxPairs}')::int < (config #>> '{consistency,minPairs}')::int or (config #>> '{consistency,minSharePercent}')::int > 100
+        from public.cuff_check_rules where id = p_id) then
+    raise exception 'this version has a pair count or share that cannot work and cannot be signed';
+  end if;
   select cs.id into v_staff from public.clinical_staff cs
    where cs.profile_id = (select auth.uid()) and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer' limit 1;
   if v_staff is null then raise exception 'not authorised: only the active Chief Medical Officer can sign the cuff check rules'; end if;
@@ -95,7 +106,9 @@ revoke all on function public.sign_cuff_check_rules(uuid) from public, anon;
 grant execute on function public.sign_cuff_check_rules(uuid) to authenticated;
 
 alter table public.cuff_check_rules enable row level security;
-create policy cuff_check_rules_read on public.cuff_check_rules for select to authenticated using (true);
+-- staff only: a patient has no reason to read the thresholds of a clinician-only rule
+create policy cuff_check_rules_read on public.cuff_check_rules for select to authenticated
+  using (private.is_admin() or exists (select 1 from public.clinical_staff cs where cs.profile_id = (select auth.uid()) and cs.active));
 revoke all on public.cuff_check_rules from public, anon, authenticated;
 grant select on public.cuff_check_rules to authenticated;
 
@@ -105,6 +118,11 @@ create trigger refuse_superseded_activation before update of is_active on public
   execute function private.refuse_activating_superseded_version();
 
 -- 2. Pairs and flags (append-only; written only by the functions below; NO patient policy) -----------------------------------------------
+create function private.cuff_check_append_only() returns trigger
+language plpgsql set search_path = ''
+as $$ begin raise exception '% is append-only', tg_table_name using errcode = '42501'; end $$;
+revoke all on function private.cuff_check_append_only() from public, anon, authenticated;
+
 create table public.cuff_check_pairs (
   id                uuid primary key default gen_random_uuid(),
   organisation_id   uuid not null references public.organisations (id) on delete restrict,
@@ -152,8 +170,8 @@ do $$
 declare t text;
 begin
   foreach t in array array['cuff_check_pairs', 'cuff_check_flags'] loop
-    execute format('create trigger %I before update or delete on public.%I for each row execute function private.home_bp_append_only()', t || '_no_change', t);
-    execute format('create trigger %I before truncate on public.%I for each statement execute function private.home_bp_append_only()', t || '_no_truncate', t);
+    execute format('create trigger %I before update or delete on public.%I for each row execute function private.cuff_check_append_only()', t || '_no_change', t);
+    execute format('create trigger %I before truncate on public.%I for each statement execute function private.cuff_check_append_only()', t || '_no_truncate', t);
     execute format('alter table public.%I enable row level security', t);
     execute format('revoke all on public.%I from public, anon, authenticated', t);
     execute format('grant select on public.%I to authenticated', t);
@@ -310,7 +328,7 @@ begin
     if not exists (select 1 from public.ops_incidents where external_reference = 'cuff_check_rule' and status not in ('resolved', 'closed')) then
       insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
       values ((select organisation_id from public.profiles where id = p_patient), 'technical', 'sev3', 'The home cuff vs clinic cuff rule failed',
-              format('The rule raised %s (%s). The clinician''s reading or pair was saved; only the cuff check was skipped. Check task type cuff_check_review and the signed configuration.', p_state, p_msg),
+              format('The rule raised %s (%s). The clinician''s reading or pair was saved; only the cuff check was skipped. Every patient''s pairs are re-judged together at their next pair or clinic reading, so nobody is lost once the cause is fixed. Check task type cuff_check_review and the signed configuration.', p_state, p_msg),
               'cuff_check_rule', now(), now());
     end if;
   exception when others then
@@ -341,8 +359,13 @@ begin
   if not found then return null; end if;
 
   perform pg_advisory_xact_lock(hashtextextended('cuff_check:' || p_patient, 0));
-  select coalesce(jsonb_agg(jsonb_build_object('at', measured_at, 'ds', d_systolic, 'dd', d_diastolic)), '[]'::jsonb) into v_pairs
-    from public.cuff_check_pairs where patient_id = p_patient;
+  -- one visit is one pair: a home-log pair made around a clinic reading is not counted when a same-visit pair was entered within the same window
+  select coalesce(jsonb_agg(jsonb_build_object('at', p.measured_at, 'ds', p.d_systolic, 'dd', p.d_diastolic)), '[]'::jsonb) into v_pairs
+    from public.cuff_check_pairs p
+   where p.patient_id = p_patient
+     and not (p.source = 'home_log' and exists (
+           select 1 from public.cuff_check_pairs s where s.patient_id = p.patient_id and s.source = 'same_visit'
+              and abs(extract(epoch from (s.measured_at - p.measured_at))) <= (v_cfg -> 'pairing' ->> 'windowHours')::int * 3600));
   v_res := private.cuff_check_kind(v_pairs, now(), v_cfg);
   v_kind := v_res ->> 'kind';
   if v_kind is null then return null; end if;
@@ -352,9 +375,9 @@ begin
   if exists (select 1 from public.cuff_check_flags f join public.clinical_tasks t on t.id = f.task_id
               where f.patient_id = p_patient and f.kind = v_kind and t.state not in ('completed', 'cancelled')) then return null; end if;
 
-  -- one open task per patient and direction: a further flag merges into it instead of adding another
+  -- one open task per patient (the key carries no direction, so a task list never shows which way a cuff reads): a further flag merges into it
   v_task := private.create_clinical_task(p_patient, 'cuff_check_review', (v_cfg -> 'tasks' ->> 'reviewDueMinutes')::int,
-    'cuff_check:' || p_patient || ':' || (case v_kind when 'home_higher' then 'h' else 'l' end), null, null, null);
+    'cuff_check:' || p_patient, null, null, null);
   insert into public.cuff_check_flags (id, organisation_id, patient_id, kind, pairs_used, matching, latest_pair_id, config_version, task_id, is_test)
   values (v_flag, v_pr.organisation_id, p_patient, v_kind, (v_res ->> 'pairsUsed')::int, (v_res ->> 'matching')::int, v_latest, private.cuff_check_config_version(), v_task, coalesce(v_pr.is_test, false));
   -- No audit_log row on purpose (audit_log is readable by its actor); the flag row and its task are the record, and neither has a patient policy.
@@ -455,6 +478,12 @@ begin
     raise exception 'that measurement time is not usable' using errcode = '22023';
   end if;
   if v_label is not null and length(v_label) > 80 then raise exception 'that device label is too long' using errcode = '22023'; end if;
+  -- a double submit is the same pair: answer with the earlier one, never a second (the table is append-only, so a duplicate could not be removed)
+  select id into v_id from public.cuff_check_pairs
+   where patient_id = p_patient and source = 'same_visit' and measured_at = p_measured_at and clinic_systolic = p_clinic_systolic and clinic_diastolic = p_clinic_diastolic
+     and own_systolic = p_own_systolic and own_diastolic = p_own_diastolic;
+  if found then return v_id; end if;
+  v_id := gen_random_uuid();
   insert into public.cuff_check_pairs (id, organisation_id, patient_id, source, clinic_systolic, clinic_diastolic, own_systolic, own_diastolic, own_readings,
       d_systolic, d_diastolic, measured_at, device_label, recorded_by, is_test)
   values (v_id, v_org, p_patient, 'same_visit', p_clinic_systolic, p_clinic_diastolic, p_own_systolic, p_own_diastolic, 1,

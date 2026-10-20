@@ -10,7 +10,7 @@
 --    nothing reaches the patient's notifications or audit view;
 --  * the only patient-visible fact (cuff_visit_prompt_open) is identical for flagged and unflagged patients and needs the CMO's wording attestation;
 --  * a failure inside the rule never loses the clinician's data and opens an incident rather than passing silently.
--- SABOTAGE: (1) the share gate removed; (2) the tie check removed from the pair function; (3) the boundary made exclusive. All three must flip.
+-- SABOTAGE: (1) the share gate removed; (2) the tie check removed from the pair function; (3) the boundary made exclusive; (4) the one-visit-one-pair exclusion removed. All four must flip.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -251,6 +251,23 @@ insert into public.cuff_check_rules (version, config, notes) values (2, '{"pairi
 select pg_temp.ck('real', 'G4 a draft missing a value the rule reads cannot be signed, and version 1 stays active', 'ERR P0001|1',
   pg_temp.as_user(pg_temp.f('cmo'), format('select public.sign_cuff_check_rules(%L)::text', (select id from public.cuff_check_rules where version = 2))) || '|' ||
   (select version from public.cuff_check_rules where is_active)::text);
+insert into public.cuff_check_rules (version, config, notes) values
+  (3, jsonb_set(jsonb_set((select config from public.cuff_check_rules where version = 1), '{consistency,minPairs}', '4'), '{consistency,maxPairs}', '3'), 'proof: maxPairs below minPairs'),
+  (4, jsonb_set((select config from public.cuff_check_rules where version = 1), '{consistency,minSharePercent}', '120'), 'proof: share over 100'),
+  (5, jsonb_set((select config from public.cuff_check_rules where version = 1), '{difference,systolic}', '"ten"'), 'proof: a word where a number belongs'),
+  (6, jsonb_set((select config from public.cuff_check_rules where version = 1), '{difference,systolic}', '0'), 'proof: a zero threshold'),
+  (7, jsonb_set((select config from public.cuff_check_rules where version = 1), '{pairing,windowHours}', '24.5'), 'proof: a fraction of an hour');
+select pg_temp.ck('real', 'G4b drafts with an impossible pair count, a share over 100, a word, a zero threshold or a fraction cannot be signed; version 1 stays active', 'ERR P0001|ERR P0001|ERR P0001|ERR P0001|ERR P0001|1',
+  pg_temp.as_user(pg_temp.f('cmo'), format('select public.sign_cuff_check_rules(%L)::text', (select id from public.cuff_check_rules where version = 3))) || '|' ||
+  pg_temp.as_user(pg_temp.f('cmo'), format('select public.sign_cuff_check_rules(%L)::text', (select id from public.cuff_check_rules where version = 4))) || '|' ||
+  pg_temp.as_user(pg_temp.f('cmo'), format('select public.sign_cuff_check_rules(%L)::text', (select id from public.cuff_check_rules where version = 5))) || '|' ||
+  pg_temp.as_user(pg_temp.f('cmo'), format('select public.sign_cuff_check_rules(%L)::text', (select id from public.cuff_check_rules where version = 6))) || '|' ||
+  pg_temp.as_user(pg_temp.f('cmo'), format('select public.sign_cuff_check_rules(%L)::text', (select id from public.cuff_check_rules where version = 7))) || '|' ||
+  (select version from public.cuff_check_rules where is_active)::text);
+select pg_temp.ck('real', 'G4c the thresholds are readable by staff and not by a patient or anon', '1|0|ERR 42501',
+  pg_temp.as_user(pg_temp.f('c2'), 'select count(*)::text from public.cuff_check_rules where version = 1') || '|' ||
+  pg_temp.as_user(pg_temp.f('r'), 'select count(*)::text from public.cuff_check_rules') || '|' ||
+  pg_temp.as_anon('select count(*)::text from public.cuff_check_rules'));
 select pg_temp.ck('real', 'G5 the rule guard now reads the configuration as signed (the attestation is still unmet)', 'true|false',
   (private.go_live_conditions('cuff_check_flag', pg_temp.f('org')) -> 0 ->> 'met') || '|' || (private.go_live_conditions('cuff_check_flag', pg_temp.f('org')) -> 2 ->> 'met'));
 
@@ -287,7 +304,7 @@ select pg_temp.ck('real', 'R3 the pairs fired nothing a home reading fires: no v
   ((select count(*) from public.domain_events where patient_id = pg_temp.f('r') and event_type = 'observation.recorded') - (select n from snap where k = 'events')) || '|' ||
   ((select count(*) from public.notifications where recipient_id = pg_temp.f('r')) - (select n from snap where k = 'notifications')));
 select pg_temp.ck('real', 'R4 the task is an ordinary routine task; no reading, direction or label is stored on it', 'true',
-  (select (not (to_jsonb(t) ?| array['systolic', 'diastolic', 'kind', 'band', 'value', 'reading', 'device_label']) and t.dedup_key like 'cuff_check:%' and t.priority_class = 8)::text
+  (select (not (to_jsonb(t) ?| array['systolic', 'diastolic', 'kind', 'band', 'value', 'reading', 'device_label']) and t.dedup_key = 'cuff_check:' || t.patient_id and t.priority_class = 8)::text
      from public.clinical_tasks t where t.patient_id = pg_temp.f('r') and t.type = 'cuff_check_review' limit 1));
 select pg_temp.ck('real', 'R5 the pair keeps the device label and the own-minus-clinic differences', 'Proof cuff|14|12',
   (select device_label || '|' || d_systolic || '|' || d_diastolic from public.cuff_check_pairs where patient_id = pg_temp.f('r') and clinic_systolic = 128 and own_systolic = 142 and measured_at::date = current_date - 30 limit 1));
@@ -378,6 +395,18 @@ update public.task_types set is_active = true where code = 'cuff_check_review';
 select pg_temp.ck('real', 'L2 once the task type is back, the next pair raises the flag (nothing was lost)', 'true|home_higher',
   (pg_temp.pair(pg_temp.f('c1'), pg_temp.f('p7'), 127, 77, 141, 89, 5) !~ '^ERR')::text || '|' || pg_temp.flags(pg_temp.f('p7')));
 
+-- M. one visit is one pair ----------------------------------------------------------------------------------------------------------------------
+select pg_temp.setf('p8', pg_temp.mkuser(pg_temp.f('org'), 'patient p8', 'patient'));
+insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, care_coordinator_id, assigned_at) values (pg_temp.f('org'), pg_temp.f('p8'), pg_temp.f('c1'), pg_temp.f('co'), now());
+select pg_temp.ck('real', 'M1 submitting the same pair twice (a double click) stores ONE pair and answers with the same id', 'true|1',
+  (pg_temp.pair(pg_temp.f('c1'), pg_temp.f('q'), 128, 78, 142, 90, 6) = pg_temp.pair(pg_temp.f('c1'), pg_temp.f('q'), 128, 78, 142, 90, 6))::text || '|' || pg_temp.npairs(pg_temp.f('q')));
+select pg_temp.home2(pg_temp.f('p8'), pg_temp.f('org'), 90, 140, 88);
+select pg_temp.home2(pg_temp.f('p8'), pg_temp.f('org'), 70, 141, 89);
+select pg_temp.ck('real', 'M2 two clinic readings with home readings make two home-log pairs', 'true|2',
+  (pg_temp.clinic(pg_temp.f('c1'), pg_temp.f('p8'), 128, 78, 90) !~ '^ERR' and pg_temp.clinic(pg_temp.f('c1'), pg_temp.f('p8'), 128, 78, 70) !~ '^ERR')::text || '|' || pg_temp.npairs(pg_temp.f('p8')));
+select pg_temp.ck('real', 'M3 a same-visit pair for the same visit as a home-log pair is NOT counted twice: three stored pairs, two visits, no flag', 'true|3|none|0',
+  (pg_temp.pair(pg_temp.f('c1'), pg_temp.f('p8'), 128, 78, 141, 90, 70) !~ '^ERR')::text || '|' || pg_temp.npairs(pg_temp.f('p8')) || '|' || pg_temp.flags(pg_temp.f('p8')) || '|' || pg_temp.ctasks(pg_temp.f('p8')));
+
 -- SABOTAGE 1: the share gate removed. Three higher pairs out of five (60 percent) must now flag.
 do $$
 declare v_def text; v_out jsonb; v_cfg jsonb := (select config from public.cuff_check_rules where version = 1);
@@ -409,6 +438,17 @@ begin
   insert into results values ('sabotaged', 'SABOTAGE 3: an exclusive boundary reads exactly-at-threshold as agreeing', 'home_higher', private.cuff_pair_class(10, 0, v_cfg));
 end $$;
 
+-- SABOTAGE 4: the one-visit-one-pair exclusion removed. The visit above would now count twice and raise the flag.
+do $$
+declare v_def text; v_out uuid;
+begin
+  select pg_get_functiondef('private.evaluate_cuff_check(uuid)'::regprocedure) into v_def;
+  v_def := replace(v_def, 'not (p.source = ''home_log'' and exists (', 'not (false and exists (');
+  execute v_def;
+  v_out := private.evaluate_cuff_check(pg_temp.f('p8'));
+  insert into results values ('sabotaged', 'SABOTAGE 4: without the exclusion one visit counts twice and raises a flag', 'none', case when v_out is null then 'none' else 'flagged' end);
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -417,7 +457,7 @@ begin
     raise exception 'S07y proof FAILED: %', (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and check_name like 'SABOTAGE%' and expected <> actual;
-  if v_caught < 3 then raise exception 'VACUOUS TEST: a sabotage did not flip (% of 3)', v_caught; end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: a sabotage did not flip (% of 4)', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results where phase = 'real' order by check_name;

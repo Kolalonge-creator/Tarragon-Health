@@ -13,11 +13,12 @@ const SOURCE_LABEL: Record<string, string> = {
   home_log: "Home log around a clinic reading",
 };
 
+const day = (iso: string) => new Date(iso).toLocaleDateString("en-NG", { timeZone: "Africa/Lagos" });
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 
 /**
  * Home cuff vs clinic cuff (S07y), clinician-only. Shows the flags the rule has raised and the recent pairs, and the form for a same-visit pair. A read that fails or is
- * refused says so; it never reads as "no pairs". Nothing here is shown to the patient, and the flag only suggests considering a cuff check.
+ * refused says so. A read the database filters out (not on the care team) is an empty list, so the empty text says that too. Nothing here is shown to the patient, and the flag only suggests considering a cuff check.
  */
 export async function CuffCheckPanel({ patientId, canRecord }: { patientId: string; canRecord: boolean }) {
   const supabase = await createClient();
@@ -60,13 +61,15 @@ export async function CuffCheckPanel({ patientId, canRecord }: { patientId: stri
               <li key={f.id} className="flex flex-wrap items-center gap-2 text-sm">
                 <Badge variant="amber">Consider a cuff check</Badge>
                 <span>
-                  {KIND_LABEL[f.kind] ?? f.kind}: {f.matching} of the last {f.pairs_used} pairs, flagged {new Date(f.created_at).toLocaleDateString("en-NG")}.
+                  {KIND_LABEL[f.kind] ?? f.kind}: {f.matching} of the last {f.pairs_used} pairs, flagged {day(f.created_at)}.
                 </span>
               </li>
             ))}
           </ul>
         ) : null}
-        {!failed && pairs.length === 0 ? <p className="text-sm text-charcoal-ink/60">No pairs recorded yet.</p> : null}
+        {!failed && pairs.length === 0 ? (
+          <p className="text-sm text-charcoal-ink/60">No pairs are shown. If you expected some, check that this patient is on your care team: a pair you may not read is not listed.</p>
+        ) : null}
         {pairs.length > 0 ? (
           <table className="w-full text-sm">
             <caption className="sr-only">Recent pairs, patient&apos;s cuff minus clinic cuff</caption>
@@ -81,7 +84,7 @@ export async function CuffCheckPanel({ patientId, canRecord }: { patientId: stri
             <tbody>
               {pairs.map((p) => (
                 <tr key={p.id} className="border-t">
-                  <td className="py-1 pr-3">{new Date(p.measured_at).toLocaleDateString("en-NG")}</td>
+                  <td className="py-1 pr-3">{day(p.measured_at)}</td>
                   <td className="pr-3">{SOURCE_LABEL[p.source] ?? p.source}{p.source === "home_log" ? ` (${p.own_readings} readings)` : ""}</td>
                   <td className="pr-3">{signed(p.d_systolic)} / {signed(p.d_diastolic)} mmHg</td>
                   <td>{p.device_label ?? ""}</td>

@@ -4323,3 +4323,7 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-S07Y-3 The neutral "bring your cuff to a visit" line has no patient screen yet (raised by S07y, 2026-10-20)
 - `cuff_visit_prompt_open()` and the unsigned string `cuff.visit_prompt` exist; the guard `cuff_visit_prompt` is off and needs the CMO's wording attestation. A web and phone placement (on the cuff guidance card) is not built.
 - Decision: open (product, CMO).
+
+### OQ-S07Y-4 Switching the cuff rule on does not look back, and a wrong pair cannot be removed (raised by S07y review, 2026-10-20)
+- Pairs are stored while the guard is off, but nothing is flagged until the guard is on, the rule is signed and a NEW pair or clinic reading arrives (the rule then judges all the patient's pairs together). There is no sweep at switch-on, and home-log pairs for clinic readings saved while the guard was off were never made. The tables are append-only, so a mistyped same-visit pair cannot be corrected; it leaves the judgement after five newer pairs, and an identical double submit is already merged. A correction path (a void row) and a switch-on sweep are not built.
+- Decision: open (product, CMO).
