@@ -556,9 +556,9 @@ const REQUEST_TIMEOUT_MS = 20_000;
  * this recovers from without a caller having to notice or handle it. */
 const RETRY_DELAY_MS = 1_500;
 
-async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number = REQUEST_TIMEOUT_MS): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } finally {
@@ -592,7 +592,8 @@ async function request<T>(
   method: "GET" | "POST",
   body?: unknown,
   isRetry = false,
-  noRetry = false
+  noRetry = false,
+  timeoutMs: number = REQUEST_TIMEOUT_MS
 ): Promise<RequestResult<T>> {
   const {
     data: { session },
@@ -613,7 +614,7 @@ async function request<T>(
 
   let response: Response;
   try {
-    response = noRetry ? await fetchWithTimeout(url, init) : await fetchWithTimeoutAndRetry(url, init);
+    response = noRetry ? await fetchWithTimeout(url, init, timeoutMs) : await fetchWithTimeoutAndRetry(url, init);
   } catch {
     return { ok: false, error: NETWORK_ERROR_MESSAGE };
   }
@@ -626,7 +627,7 @@ async function request<T>(
   if (response.status === 401 && !isRetry) {
     const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
     if (!refreshError && refreshed.session) {
-      return request<T>(path, method, body, true, noRetry);
+      return request<T>(path, method, body, true, noRetry, timeoutMs);
     }
     await supabase.auth.signOut();
     return { ok: false, error: "Your session expired — please sign in again.", status: 401 };
@@ -676,9 +677,14 @@ export async function postPhotoReading(payload: PhotoReadingRequest): Promise<Po
  * S43m: asks the server to read a document photo the person just saved into SUGGESTIONS (apps/web/.../api/mobile/document-reading). The answer is a
  * status and one sentence; it never carries what was read. Not retried blind: a request that reached the server may already have started a reading.
  */
-export async function postDocumentReading(documentId: string): Promise<{ ok: true; status: string; message: string } | { ok: false; offline: boolean }> {
-  const result = await request<{ status?: string; message?: string }>("/api/mobile/document-reading", "POST", { document_id: documentId }, false, true);
-  if (!result.ok) return { ok: false, offline: result.error === NETWORK_ERROR_MESSAGE };
+export async function postDocumentReading(documentId: string): Promise<{ ok: true; status: string; message: string } | { ok: false; offline: boolean; unknown: boolean }> {
+  // The reading runs while the request is open (a multi-page document can take a while), so it gets a long timeout. A request that gets no answer
+  // may STILL be running on the server: that is "unknown", not "offline", and the caller must not ask again straight away.
+  const result = await request<{ status?: string; message?: string }>("/api/mobile/document-reading", "POST", { document_id: documentId }, false, true, 75_000);
+  if (!result.ok) {
+    const noAnswer = result.error === NETWORK_ERROR_MESSAGE;
+    return { ok: false, offline: false, unknown: noAnswer };
+  }
   return { ok: true, status: result.data?.status ?? "suggested", message: result.data?.message ?? "" };
 }
 

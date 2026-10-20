@@ -1,7 +1,9 @@
 import {
   DOCUMENT_CAPTURE_GUARD,
   confirmFields,
+  firstBlankKept,
   isReadingOpen,
+  requestReading,
   loadDocumentDetail,
   loadDocuments,
   parseDocumentList,
@@ -23,6 +25,7 @@ const mockSelects: string[] = [];
 const mockRpcs: { fn: string; args: Record<string, unknown> }[] = [];
 const mockPost = jest.fn();
 
+const mockRemoves: string[][] = [];
 jest.mock("../api", () => ({ postDocumentReading: (...a: unknown[]) => mockPost(...a) }));
 jest.mock("../supabase", () => ({
   supabase: {
@@ -37,6 +40,10 @@ jest.mock("../supabase", () => ({
         upload: async (path: string, _bytes: unknown, opts: unknown) => {
           mockUploads.push({ path, opts });
           return { error: mockUploadError };
+        },
+        remove: async (paths: string[]) => {
+          mockRemoves.push(paths);
+          return { data: null, error: null };
         },
         createSignedUrl: async () => ({ data: { signedUrl: "https://signed.example/photo" }, error: null }),
       }),
@@ -73,6 +80,7 @@ beforeEach(() => {
   mockListError = null;
   mockDetail = { data: null, error: null };
   mockInserts.length = 0;
+  mockRemoves.length = 0;
   mockUploads.length = 0;
   mockSelects.length = 0;
   mockRpcs.length = 0;
@@ -98,12 +106,33 @@ describe("photo capture on the phone (S43m)", () => {
     expect(mockPost).not.toHaveBeenCalled();
   });
 
-  it("a guard that cannot be read is closed", async () => {
+  it("a guard that cannot be read is not 'closed': the photo is marked waiting and the SERVER decides (it checks the guard before any model)", async () => {
     mockGuard = { data: null, error: { message: "Network request failed" } };
+    mockPost.mockResolvedValue({ ok: true, status: "closed", message: "Reading from photos is not open yet. Your photo is saved." });
     const r = await saveDocument(input);
-    expect(r).toMatchObject({ ok: true, reading: "closed" });
-    expect(mockInserts[0].ocr_state).toBeNull();
-    expect(mockPost).not.toHaveBeenCalled();
+    expect(r).toEqual({ ok: true, documentId: ID, reading: "closed" });
+    expect(mockInserts[0].ocr_state).toBe("pending");
+    expect(mockPost).toHaveBeenCalledWith(ID);
+    expect(await isReadingOpen()).toBe(false);
+  });
+
+  it("the server saying closed is never reported as a reading being asked for", async () => {
+    mockGuard = { data: true, error: null };
+    mockPost.mockResolvedValue({ ok: true, status: "closed", message: "" });
+    expect(await saveDocument(input)).toMatchObject({ reading: "closed" });
+    expect(await requestReading(ID)).toEqual({ outcome: "closed" });
+    mockPost.mockResolvedValue({ ok: true, status: "not_pending", message: "" });
+    expect(await requestReading(ID)).toEqual({ outcome: "saved" });
+    mockPost.mockResolvedValue({ ok: true, status: "suggested", message: "" });
+    expect(await requestReading(ID)).toEqual({ outcome: "asked" });
+  });
+
+  it("no answer from the server is 'unknown' (it may be running), not a failure to ask and not a lost connection", async () => {
+    mockGuard = { data: true, error: null };
+    mockPost.mockResolvedValue({ ok: false, offline: false, unknown: true });
+    expect(await saveDocument(input)).toMatchObject({ ok: true, reading: "unknown" });
+    mockPost.mockResolvedValue({ ok: false, offline: false, unknown: false });
+    expect(await saveDocument({ ...input, attemptId: "33333333-3333-4333-8333-333333333333" })).toMatchObject({ reading: "failed" });
   });
 
   it("with the guard open the photo waits for a reading and one is asked for, and a refused ask still keeps the photo", async () => {
@@ -111,7 +140,7 @@ describe("photo capture on the phone (S43m)", () => {
     expect(await saveDocument(input)).toEqual({ ok: true, documentId: ID, reading: "asked" });
     expect(mockInserts[0].ocr_state).toBe("pending");
     expect(mockPost).toHaveBeenCalledWith(ID);
-    mockPost.mockResolvedValue({ ok: false, offline: true });
+    mockPost.mockResolvedValue({ ok: false, offline: false, unknown: false });
     expect(await saveDocument({ ...input, attemptId: "22222222-2222-4222-8222-222222222222" })).toMatchObject({ ok: true, reading: "failed" });
   });
 
@@ -123,7 +152,22 @@ describe("photo capture on the phone (S43m)", () => {
   it("a retry after a lost answer makes no second document: an object or row that already exists counts as done", async () => {
     mockUploadError = { message: "The resource already exists", statusCode: "409" };
     mockInsertError = { code: "23505", message: "duplicate key" };
-    expect(await saveDocument(input)).toMatchObject({ ok: true, documentId: ID });
+    mockGuard = { data: true, error: null };
+    expect(await saveDocument(input)).toEqual({ ok: true, documentId: ID, reading: "saved" });
+    // the earlier attempt landed, so a reading is not asked for a second time
+    expect(mockPost).not.toHaveBeenCalled();
+  });
+
+  it("a failed save removes the file it just uploaded, so no unlisted document is left in the bucket", async () => {
+    mockInsertError = { code: "42501", message: "denied" };
+    await saveDocument(input);
+    expect(mockRemoves).toEqual([[`user-1/${ID}.jpg`]]);
+    mockRemoves.length = 0;
+    mockInsertError = null;
+    mockUploadError = { message: "The resource already exists", statusCode: "409" };
+    mockInsertError = { code: "500", message: "boom" };
+    await saveDocument(input);
+    expect(mockRemoves).toEqual([]); // a file an earlier attempt uploaded is not this attempt's to remove
   });
 
   it("says offline for a lost connection and failed for anything else, and never inserts a row for a failed upload", async () => {
@@ -193,6 +237,13 @@ describe("photo capture on the phone (S43m)", () => {
       { key: "hb", label: "Haemoglobin", value: "12.1", unit: "g/dL", confidence: "high" as const },
       { key: "wbc", label: "WBC", value: "6", unit: null, confidence: "low" as const },
     ];
+
+    it("finds a kept detail whose value was cleared (it would be confirmed as the original reading)", () => {
+      expect(firstBlankKept(fields, [{ key: "hb", accept: true, value: "  " }])?.key).toBe("hb");
+      expect(firstBlankKept(fields, [{ key: "hb", accept: true }])).toBeNull();
+      expect(firstBlankKept(fields, [{ key: "hb", accept: false, value: "" }])).toBeNull();
+      expect(firstBlankKept(fields, [{ key: "hb", accept: true, value: "12" }])).toBeNull();
+    });
 
     it("will not send a confirm until at least one detail is kept", async () => {
       expect(await confirmFields("d1", fields, [])).toEqual({ ok: false, reason: "none_accepted" });

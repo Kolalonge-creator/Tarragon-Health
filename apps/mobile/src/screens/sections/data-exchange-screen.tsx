@@ -38,14 +38,16 @@ export function DataExchangeScreen({ userId, acting }: Props) {
   const [message, setMessage] = useState<{ tone: "info" | "danger"; text: string } | null>(null);
   const latest = useRef(0);
 
+  /** True when the lists on screen were freshly read. After a change a refresh that could not reach the server leaves them as they are (and the caller says so). */
   const load = useCallback(
-    async (quiet = false) => {
+    async (quiet = false): Promise<boolean> => {
       const mine = ++latest.current;
       const r = await loadExchange(userId);
-      if (mine !== latest.current) return;
-      if (quiet && (!r.ok || r.stale)) return;
+      if (mine !== latest.current) return true;
+      if (quiet && (!r.ok || r.stale)) return false;
       if (!r.ok) setState({ kind: "failed", offline: r.offline, refused: r.refused });
       else setState({ kind: "ready", data: r.data, stale: r.stale ? { offline: r.offline, savedAt: r.savedAt } : null });
+      return r.ok && !r.stale;
     },
     [userId]
   );
@@ -66,8 +68,8 @@ export function DataExchangeScreen({ userId, acting }: Props) {
       return;
     }
     setSource("");
-    setMessage({ tone: "info", text: t("exchange.saved") });
-    await load(true);
+    const fresh = await load(true);
+    setMessage({ tone: "info", text: fresh ? t("exchange.saved") : t("mpass.exch.saved_not_refreshed") });
   }
 
   function confirmWithdraw(id: string, name: string) {
@@ -84,8 +86,10 @@ export function DataExchangeScreen({ userId, acting }: Props) {
               setMessage({ tone: r.reason === "offline" ? "info" : "danger", text: failure(r) });
               return;
             }
-            setMessage({ tone: "info", text: t("exchange.saved") });
-            await load(true);
+            // The system is shown as stopped at once, whatever the refresh does next.
+            setState((prev) => (prev.kind === "ready" ? { ...prev, data: { ...prev.data, consents: prev.data.consents.map((c) => (c.id === id ? { ...c, withdrawnAt: new Date().toISOString() } : c)) } } : prev));
+            const fresh = await load(true);
+            setMessage({ tone: "info", text: fresh ? t("exchange.saved") : t("mpass.exch.saved_not_refreshed") });
           })(),
       },
     ]);

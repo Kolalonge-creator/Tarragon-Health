@@ -23,6 +23,7 @@ describe("preparing a document photo (S43m)", () => {
     const r = await prepareDocumentPhoto("file://a.jpg", 1000, 800, { rotation: 0, trim: NO_TRIM }, deps());
     expect(r.ok).toBe(true);
     if (r.ok) {
+      expect(r.renderedUri).toBe("file://rendered.jpg");
       expect(Array.from(r.bytes.slice(0, 2))).toEqual([0xff, 0xd8]);
       expect(Array.from(r.bytes)).not.toContain(0xe1); // the APP1 marker is gone
       expect(Buffer.from(r.bytes).toString("latin1")).not.toContain("GPS");
@@ -35,7 +36,7 @@ describe("preparing a document photo (S43m)", () => {
     expect(d.calls).toEqual([
       {
         uri: "file://a.jpg",
-        plan: { rotation: 90, crop: { originX: 0, originY: 320, width: 2880, height: 3680 }, resize: { height: 1600 } },
+        plan: { rotation: 90, crop: { originX: 0, originY: 320, width: 2880, height: 3680 }, resize: { height: 2400 } },
       },
     ]);
   });

@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, AccessibilityInfo, Image, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { DOCUMENT_CAPTURE_TYPES, saveDocument, type DocumentCaptureType, type ReadingOutcome } from "@/lib/document-capture/capture";
 import { NO_TRIM, rotate, stepTrim, type Edge, type Rotation, type Trim } from "@/lib/document-capture/crop";
-import { chooseDocumentPhoto, choosePdf, renderPreview, takeDocumentPhoto, type PickedImage } from "@/lib/document-capture/pick";
+import { chooseDocumentPhoto, choosePdf, discardTemporaryFiles, renderPreview, takeDocumentPhoto, type PickedImage } from "@/lib/document-capture/pick";
 import { prepareDocumentPhoto } from "@/lib/document-capture/prepare";
 import { space, useTheme } from "@/ui/design";
 import { AppText, Button, Card, Chip, InlineAlert } from "@/ui/kit";
@@ -39,11 +39,25 @@ export function AddFlow({ userId, organisationId, onCancel, onSaved }: Props) {
   const [message, setMessage] = useState<{ tone: "info" | "danger"; text: string } | null>(null);
   // One id per document: a retry after a lost answer reuses it, so the upload and the row are never made twice.
   const attemptId = useRef<string>(Crypto.randomUUID());
+  // Every temporary copy made for this document (the original, the previews) is deleted when the flow ends, however it ends.
+  const temps = useRef<Set<string>>(new Set());
+  useEffect(
+    () => () => {
+      void discardTemporaryFiles([...temps.current]);
+    },
+    []
+  );
+  const rememberTemp = useCallback((uri: string) => {
+    temps.current.add(uri);
+  }, []);
 
   async function pick(run: () => Promise<Awaited<ReturnType<typeof takeDocumentPhoto>>>) {
     setMessage(null);
     const r = await run();
-    if (r.kind === "picked") setStep({ kind: "crop", image: r.image });
+    if (r.kind === "picked") {
+      temps.current.add(r.image.uri);
+      setStep({ kind: "crop", image: r.image });
+    }
     else if (r.kind === "denied") setMessage({ tone: "info", text: t("mpass.doc.permission_denied") });
     else if (r.kind === "failed") setMessage({ tone: "danger", text: t("mpass.doc.pick_failed") });
   }
@@ -51,7 +65,10 @@ export function AddFlow({ userId, organisationId, onCancel, onSaved }: Props) {
   async function pickPdf() {
     setMessage(null);
     const r = await choosePdf();
-    if (r.kind === "picked") await save(r.bytes, "application/pdf", r.filename);
+    if (r.kind === "picked") {
+      temps.current.add(r.uri);
+      await save(r.bytes, "application/pdf", r.filename);
+    }
     else if (r.kind === "too_big") setMessage({ tone: "danger", text: t("passport.documents.too_big") });
     else if (r.kind === "not_pdf") setMessage({ tone: "danger", text: t("mpass.doc.not_pdf") });
     else if (r.kind === "failed") setMessage({ tone: "danger", text: t("mpass.doc.pick_failed") });
@@ -62,6 +79,8 @@ export function AddFlow({ userId, organisationId, onCancel, onSaved }: Props) {
     setStep({ kind: "saving" });
     const r = await saveDocument({ userId, organisationId, attemptId: attemptId.current, type, bytes, mime, filename });
     if (r.ok) {
+      await discardTemporaryFiles([...temps.current]);
+      temps.current.clear();
       onSaved(r.reading);
       return;
     }
@@ -105,9 +124,15 @@ export function AddFlow({ userId, organisationId, onCancel, onSaved }: Props) {
             setMessage({ tone: "danger", text: prepared.reason === "too_big" ? t("passport.documents.too_big") : t("mpass.doc.unreadable") });
             return;
           }
+          temps.current.add(prepared.renderedUri);
           await save(prepared.bytes, "image/jpeg", step.image.filename.replace(/\.[a-z0-9]+$/i, "") + ".jpg");
         }}
-        onChooseAnother={() => setStep({ kind: "choose" })}
+        onChooseAnother={() => {
+          void discardTemporaryFiles([step.image.uri]);
+          temps.current.delete(step.image.uri);
+          setStep({ kind: "choose" });
+        }}
+        onPreview={rememberTemp}
         message={message}
       />
     );
@@ -139,41 +164,54 @@ function CropStep({
   image,
   onUse,
   onChooseAnother,
+  onPreview,
   message,
 }: {
   image: PickedImage;
   onUse: (rotation: Rotation, trim: Trim) => void;
   onChooseAnother: () => void;
+  onPreview: (uri: string) => void;
   message: { tone: "info" | "danger"; text: string } | null;
 }) {
   const { colors } = useTheme();
   const [rotation, setRotation] = useState<Rotation>(0);
   const [trim, setTrim] = useState<Trim>(NO_TRIM);
   const [width, setWidth] = useState(0);
-  const [preview, setPreview] = useState<{ uri: string; width: number; height: number } | null>(null);
+  // The preview that is on screen and the turn it was drawn at. The trim buttons, the shading and the saved crop always refer to THIS turn, so
+  // what the person sees is what is cropped. If a new turn cannot be drawn, the turn goes back to the one that is on screen.
+  const [shown, setShown] = useState<{ uri: string; width: number; height: number; rotation: Rotation } | null>(null);
+  const shownRotation = useRef<Rotation | null>(null);
+  const [drawing, setDrawing] = useState(true);
   const [previewFailed, setPreviewFailed] = useState(false);
   const latest = useRef(0);
 
-  // The preview is a small turned copy, redrawn when the turn changes. A newer request wins; a failed one leaves the photo usable as it is.
   useEffect(() => {
     const mine = ++latest.current;
-    setPreviewFailed(false);
+    setDrawing(true);
     void renderPreview(image.uri, image.width, image.height, rotation).then((p) => {
       if (mine !== latest.current) return;
-      if (p) setPreview(p);
-      else setPreviewFailed(true);
+      setDrawing(false);
+      if (p) {
+        onPreview(p.uri);
+        setPreviewFailed(false);
+        if (shownRotation.current !== null) AccessibilityInfo.announceForAccessibility(t("mpass.doc.turned"));
+        shownRotation.current = rotation;
+        setShown({ ...p, rotation });
+      } else {
+        setPreviewFailed(true);
+        if (shownRotation.current !== null && shownRotation.current !== rotation) setRotation(shownRotation.current);
+      }
     });
-  }, [image, rotation]);
+  }, [image, rotation, onPreview]);
 
+  const preview = shown;
   const aspect = preview ? preview.height / preview.width : image.height / image.width;
   const boxHeight = Math.min(width * aspect, 360);
   const boxWidth = Math.min(width, boxHeight / aspect);
   const pct = (n: number) => `${n}%` as const;
 
   const change = (edge: Edge, direction: 1 | -1) => {
-    const next = stepTrim(trim, edge, direction);
-    setTrim(next);
-    AccessibilityInfo.announceForAccessibility(t("mpass.doc.trim_value", "en", { edge: t(`mpass.doc.edge.${edge}` as MessageKey), percent: String(next[edge]) }));
+    setTrim(stepTrim(trim, edge, direction));
   };
 
   return (
@@ -194,13 +232,14 @@ function CropStep({
             <View pointerEvents="none" style={{ position: "absolute", left: 0, top: pct(trim.top), bottom: pct(trim.bottom), width: pct(trim.left), backgroundColor: "rgba(0,0,0,0.45)" }} />
             <View pointerEvents="none" style={{ position: "absolute", right: 0, top: pct(trim.top), bottom: pct(trim.bottom), width: pct(trim.right), backgroundColor: "rgba(0,0,0,0.45)" }} />
           </View>
-        ) : previewFailed ? (
+        ) : previewFailed && !shown ? (
           <InlineAlert tone="info" message={t("mpass.doc.preview_failed")} />
         ) : (
           <ActivityIndicator accessibilityLabel={t("mpass.loading")} />
         )}
       </View>
 
+      {previewFailed && shown ? <InlineAlert tone="info" message={t("mpass.doc.turn_failed")} /> : null}
       <View style={{ flexDirection: "row", gap: space.sm }}>
         <Button title={t("mpass.doc.turn_left")} variant="secondary" fullWidth={false} onPress={() => setRotation((r) => rotate(r, "left"))} />
         <Button title={t("mpass.doc.turn_right")} variant="secondary" fullWidth={false} onPress={() => setRotation((r) => rotate(r, "right"))} />
@@ -214,12 +253,12 @@ function CropStep({
             <AppText accessibilityLiveRegion="polite" style={{ flex: 1, textAlign: "center" }}>
               {t("mpass.doc.trim_value", "en", { edge: name, percent: String(trim[edge]) })}
             </AppText>
-            <Button title="+" accessibilityLabel={t("mpass.doc.trim_more", "en", { edge: name.toLowerCase() })} variant="secondary" fullWidth={false} onPress={() => change(edge, 1)} />
+            <Button title="+" accessibilityLabel={t("mpass.doc.trim_more", "en", { edge: name.toLowerCase() })} variant="secondary" fullWidth={false} disabled={stepTrim(trim, edge, 1) === trim} onPress={() => change(edge, 1)} />
           </View>
         );
       })}
 
-      <Button title={t("mpass.doc.use_photo")} onPress={() => onUse(rotation, trim)} />
+      <Button title={t("mpass.doc.use_photo")} disabled={drawing || !shown} onPress={() => shown && onUse(shown.rotation, trim)} />
       <Button title={t("mpass.doc.choose_another")} variant="ghost" onPress={onChooseAnother} />
     </Card>
   );

@@ -68,14 +68,25 @@ export function loadDocuments(userId: string): Promise<ReadResult<DocumentListIt
   });
 }
 
-/** True only when the guard answers true. An error, a refusal or a missing answer is "closed". */
-export async function isReadingOpen(): Promise<boolean> {
+/**
+ * What the phone can learn about the guard: true, false, or null when it could not be read (a dropped connection, a refusal). The phone only uses
+ * this to decide whether to mark the photo as waiting for a reading; the SERVER checks the guard again before any model is reached, so a guess
+ * can never send a photo to a model. A guard that cannot be read is therefore treated as "ask the server" (null), never as closed: closed would
+ * leave a photo with no way to ever request a reading and tell the person reading is not switched on when it may be.
+ */
+export async function readGuard(): Promise<boolean | null> {
   try {
     const { data, error } = await supabase.rpc("go_live_guard_is_open", { p_key: DOCUMENT_CAPTURE_GUARD });
-    return !error && data === true;
+    if (error) return null;
+    return data === true;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** True only when the guard answers true. */
+export async function isReadingOpen(): Promise<boolean> {
+  return (await readGuard()) === true;
 }
 
 export interface SaveDocumentInput {
@@ -89,7 +100,8 @@ export interface SaveDocumentInput {
   filename: string;
 }
 
-export type ReadingOutcome = "not_asked" | "asked" | "closed" | "failed";
+/** asked: a reading was started. closed: the server says reading is not switched on, nothing was read. failed: it could not be asked for (the photo is kept). unknown: no answer, it may be running. saved: saved with no reading involved. */
+export type ReadingOutcome = "asked" | "closed" | "failed" | "unknown" | "saved";
 
 export type SaveDocumentResult =
   | { ok: true; documentId: string; reading: ReadingOutcome }
@@ -99,7 +111,9 @@ const DUPLICATE = "23505";
 
 export async function saveDocument(input: SaveDocumentInput): Promise<SaveDocumentResult> {
   if (!(DOCUMENT_CAPTURE_TYPES as readonly string[]).includes(input.type)) return { ok: false, reason: "bad_type" };
-  const open = await isReadingOpen();
+  // false: closed, a plain upload. true or null (could not be read): mark it waiting and let the server decide.
+  const guard = await readGuard();
+  const ask = guard !== false;
   const ext = input.mime === "application/pdf" ? "pdf" : "jpg";
   const path = `${input.userId}/${input.attemptId}.${ext}`;
 
@@ -121,19 +135,33 @@ export async function saveDocument(input: SaveDocumentInput): Promise<SaveDocume
     file_size_bytes: input.bytes.length,
     source: "patient",
     // Only asked to be read when reading is open; otherwise the photo is a plain upload and no reading is ever waiting.
-    ocr_state: open ? "pending" : null,
+    ocr_state: ask ? "pending" : null,
   });
-  if (error && error.code !== DUPLICATE) return { ok: false, reason: isOffline(error) ? "offline" : "failed" };
+  if (error && error.code !== DUPLICATE) {
+    // The file is in the bucket with no row: remove it (best effort) so a failed save does not leave an unlisted document behind.
+    if (!upload.error) await supabase.storage.from(DOCUMENT_BUCKET).remove([path]).catch(() => {});
+    return { ok: false, reason: isOffline(error) ? "offline" : "failed" };
+  }
 
-  if (!open) return { ok: true, documentId: input.attemptId, reading: "closed" };
+  if (!ask) return { ok: true, documentId: input.attemptId, reading: "closed" };
+  // A row that already existed means an earlier attempt landed (its answer was lost): do not ask for a reading a second time.
+  if (error?.code === DUPLICATE) return { ok: true, documentId: input.attemptId, reading: "saved" };
   // The photo is saved whatever happens next: a reading that cannot be asked for is reported, never a lost photo.
-  const asked = await postDocumentReading(input.attemptId);
-  return { ok: true, documentId: input.attemptId, reading: asked.ok && asked.status !== "failed" ? "asked" : "failed" };
+  return { ok: true, documentId: input.attemptId, reading: outcomeOf(await postDocumentReading(input.attemptId)) };
 }
 
-export async function requestReading(documentId: string): Promise<{ ok: true; status: string } | { ok: false; offline: boolean }> {
-  const r = await postDocumentReading(documentId);
-  return r.ok ? { ok: true, status: r.status } : { ok: false, offline: r.offline };
+/** What the server's answer means for the person. "closed" is NOT "asked": nothing was read and nothing is coming. */
+function outcomeOf(r: Awaited<ReturnType<typeof postDocumentReading>>): ReadingOutcome {
+  if (!r.ok) return r.unknown ? "unknown" : "failed";
+  if (r.status === "suggested") return "asked";
+  if (r.status === "closed") return "closed";
+  if (r.status === "not_pending") return "saved";
+  return "failed";
+}
+
+/** Asks again for a reading (the "Read now" button). */
+export async function requestReading(documentId: string): Promise<{ outcome: ReadingOutcome }> {
+  return { outcome: outcomeOf(await postDocumentReading(documentId)) };
 }
 
 export interface DocumentDetail {
@@ -169,6 +197,18 @@ export async function loadDocumentDetail(documentId: string): Promise<DocumentDe
   } catch {
     return null;
   }
+}
+
+/**
+ * A detail that is kept but whose value was cleared. The database treats a blank edit as "no edit" and would confirm the ORIGINAL reading, so a
+ * misread value the person meant to remove would be kept by accident. The screen refuses to send it and names the field.
+ */
+export function firstBlankKept(fields: readonly SuggestedField[], decisions: readonly FieldDecision[]): SuggestedField | null {
+  const byKey = new Map(decisions.map((d) => [d.key, d]));
+  return fields.find((f) => {
+    const d = byKey.get(f.key);
+    return d?.accept === true && d.value !== undefined && d.value.trim() === "";
+  }) ?? null;
 }
 
 export type ConfirmResult = { ok: true; kept: number } | { ok: false; reason: "none_accepted" | "offline" | "not_waiting" | "failed" };

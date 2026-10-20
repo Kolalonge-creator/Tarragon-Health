@@ -26,7 +26,18 @@ type View_ = { kind: "list" } | { kind: "add" } | { kind: "open"; doc: DocumentL
 function savedMessage(reading: ReadingOutcome): string {
   if (reading === "asked") return t("mpass.doc.saved_asked");
   if (reading === "failed") return t("mpass.doc.saved_ask_failed");
+  if (reading === "unknown") return t("mpass.doc.saved_unknown");
+  if (reading === "saved") return t("mpass.doc.saved_plain");
   return t("mpass.doc.saved_closed");
+}
+
+/** What "Read now" came to. Closed and unknown are said as they are: nothing is coming, or it may be running (so do not ask again straight away). */
+function readingMessage(outcome: ReadingOutcome): { tone: "info" | "danger"; text: string } {
+  if (outcome === "asked") return { tone: "info", text: t("mpass.doc.asked_again") };
+  if (outcome === "closed") return { tone: "info", text: t("mpass.doc.saved_closed") };
+  if (outcome === "unknown") return { tone: "info", text: t("mpass.doc.ask_unknown") };
+  if (outcome === "saved") return { tone: "info", text: t("mpass.doc.not_waiting") };
+  return { tone: "danger", text: t("mpass.doc.ask_failed") };
 }
 
 function stateLine(doc: DocumentListItem): string | null {
@@ -48,17 +59,24 @@ export function DocumentsScreen({ userId, organisationId, acting }: Props) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const latest = useRef(0);
 
+  /** True when the list on screen is the freshly read one. After a change a refresh that could not reach the server leaves the list as it is (and the caller says so). */
   const load = useCallback(
-    async (quiet = false) => {
+    async (quiet = false): Promise<boolean> => {
       const mine = ++latest.current;
       const r = await loadDocuments(userId);
-      if (mine !== latest.current) return;
-      if (quiet && (!r.ok || r.stale)) return;
+      if (mine !== latest.current) return true;
+      if (quiet && (!r.ok || r.stale)) return false;
       if (!r.ok) setList({ kind: "failed", offline: r.offline, refused: r.refused });
       else setList({ kind: "ready", docs: r.data, stale: r.stale ? { offline: r.offline, savedAt: r.savedAt } : null });
+      return r.ok && !r.stale;
     },
     [userId]
   );
+
+  /** What the person just did, applied to the list on screen when the refresh could not be read, so it never shows the old state under a "saved" message. */
+  const patchLocal = useCallback((id: string, ocrState: DocumentListItem["ocrState"]) => {
+    setList((prev) => (prev.kind === "ready" ? { ...prev, docs: prev.docs.map((d) => (d.id === id ? { ...d, ocrState } : d)) } : prev));
+  }, []);
 
   useEffect(() => {
     if (!acting) void load();
@@ -71,7 +89,7 @@ export function DocumentsScreen({ userId, organisationId, acting }: Props) {
     setBusyId(id);
     const r = await requestReading(id);
     setBusyId(null);
-    setMessage(r.ok ? { tone: "info", text: t("mpass.doc.asked_again") } : { tone: r.offline ? "info" : "danger", text: r.offline ? t("mpass.needs_connection") : t("mpass.doc.ask_failed") });
+    setMessage(readingMessage(r.outcome));
     await load(true);
   }
 
@@ -80,9 +98,13 @@ export function DocumentsScreen({ userId, organisationId, acting }: Props) {
     setBusyId(id);
     const r = await rejectReading(id);
     setBusyId(null);
-    if (r.ok) setMessage({ tone: "info", text: t("mpass.doc.rejected_done") });
-    else setMessage({ tone: r.reason === "offline" ? "info" : "danger", text: r.reason === "offline" ? t("mpass.needs_connection") : t("mpass.save_failed") });
-    await load(true);
+    if (!r.ok) {
+      setMessage({ tone: r.reason === "offline" ? "info" : "danger", text: r.reason === "offline" ? t("mpass.needs_connection") : t("mpass.save_failed") });
+      return;
+    }
+    const fresh = await load(true);
+    if (!fresh) patchLocal(id, "rejected");
+    setMessage({ tone: "info", text: t("mpass.doc.rejected_done") });
   }
 
   if (acting) {
@@ -117,10 +139,13 @@ export function DocumentsScreen({ userId, organisationId, acting }: Props) {
         <DocumentView
           doc={view.doc}
           onBack={() => setView({ kind: "list" })}
-          onChanged={(text) => {
+          onChanged={(text, ocrState) => {
             setMessage({ tone: "info", text });
+            const id = view.doc.id;
             setView({ kind: "list" });
-            void load(true);
+            void load(true).then((fresh) => {
+              if (!fresh) patchLocal(id, ocrState);
+            });
           }}
         />
       </Screen>

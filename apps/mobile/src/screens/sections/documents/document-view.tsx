@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Image, Linking, View } from "react-native";
 import { summariseDecisions, type FieldDecision, type SuggestedField } from "@tarragon/shared";
 import { t, type MessageKey } from "@tarragon/i18n";
-import { confirmFields, loadDocumentDetail, rejectReading, type DocumentDetail, type DocumentListItem } from "@/lib/document-capture/capture";
+import { confirmFields, firstBlankKept, loadDocumentDetail, rejectReading, type DocumentDetail, type DocumentListItem } from "@/lib/document-capture/capture";
 import { formatPassportDate } from "@/lib/passport-format";
 import { space, useTheme } from "@/ui/design";
 import { AppText, Button, Card, Field, InlineAlert } from "@/ui/kit";
@@ -12,7 +12,7 @@ interface Props {
   doc: DocumentListItem;
   onBack: () => void;
   /** After a confirm or a rejection, so the list shows the new state. */
-  onChanged: (message: string) => void;
+  onChanged: (message: string, ocrState: DocumentListItem["ocrState"]) => void;
 }
 
 /**
@@ -51,11 +51,18 @@ export function DocumentView({ doc, onBack, onChanged }: Props) {
   async function confirm() {
     if (!detail) return;
     setMessage(null);
+    // A kept detail with its value cleared would be confirmed as the ORIGINAL reading (the database treats a blank edit as "no edit"): refuse it here,
+    // so a misread value the person meant to remove is never kept by accident.
+    const blank = firstBlankKept(detail.fields, list);
+    if (blank) {
+      setMessage(t("mpass.doc.blank_value", "en", { label: blank.label }));
+      return;
+    }
     setBusy(true);
     const r = await confirmFields(doc.id, detail.fields, list);
     setBusy(false);
     if (r.ok) {
-      onChanged(r.kept === 1 ? t("mpass.doc.kept_one") : t("mpass.doc.kept_many", "en", { count: String(r.kept) }));
+      onChanged(r.kept === 1 ? t("mpass.doc.kept_one") : t("mpass.doc.kept_many", "en", { count: String(r.kept) }), "confirmed");
       return;
     }
     setMessage(
@@ -68,7 +75,7 @@ export function DocumentView({ doc, onBack, onChanged }: Props) {
     setBusy(true);
     const r = await rejectReading(doc.id);
     setBusy(false);
-    if (r.ok) onChanged(t("mpass.doc.rejected_done"));
+    if (r.ok) onChanged(t("mpass.doc.rejected_done"), "rejected");
     else setMessage(r.reason === "offline" ? t("mpass.needs_connection") : t("mpass.save_failed"));
   }
 

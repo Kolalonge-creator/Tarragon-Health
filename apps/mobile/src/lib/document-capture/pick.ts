@@ -1,5 +1,4 @@
 import * as ImagePicker from "expo-image-picker";
-import * as DocumentPicker from "expo-document-picker";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { DOCUMENT_MAX_BYTES } from "./prepare";
 import { rotatedSize, type Rotation } from "./crop";
@@ -44,7 +43,7 @@ export async function chooseDocumentPhoto(): Promise<PickImageResult> {
   }
 }
 
-export type PickPdfResult = { kind: "picked"; bytes: Uint8Array; filename: string } | { kind: "cancelled" } | { kind: "too_big" } | { kind: "not_pdf" } | { kind: "failed" };
+export type PickPdfResult = { kind: "picked"; bytes: Uint8Array; filename: string; uri: string } | { kind: "cancelled" } | { kind: "too_big" } | { kind: "not_pdf" } | { kind: "failed" };
 
 /** True for bytes that start with the PDF signature. A file with a .pdf name that is not one is refused. */
 export function looksLikePdf(bytes: Uint8Array): boolean {
@@ -53,6 +52,9 @@ export function looksLikePdf(bytes: Uint8Array): boolean {
 
 export async function choosePdf(): Promise<PickPdfResult> {
   try {
+    // Loaded only when asked for, so a build without the module loses the PDF choice and nothing else.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const DocumentPicker = require("expo-document-picker") as typeof import("expo-document-picker");
     const picked = await DocumentPicker.getDocumentAsync({ type: ["application/pdf"], copyToCacheDirectory: true, multiple: false });
     const asset = picked.canceled ? null : picked.assets[0];
     if (!asset) return { kind: "cancelled" };
@@ -60,7 +62,7 @@ export async function choosePdf(): Promise<PickPdfResult> {
     const bytes = new Uint8Array(await (await fetch(asset.uri)).arrayBuffer());
     if (bytes.length > DOCUMENT_MAX_BYTES) return { kind: "too_big" };
     if (!looksLikePdf(bytes)) return { kind: "not_pdf" };
-    return { kind: "picked", bytes, filename: asset.name || "document.pdf" };
+    return { kind: "picked", bytes, filename: asset.name || "document.pdf", uri: asset.uri };
   } catch {
     return { kind: "failed" };
   }
@@ -82,5 +84,22 @@ export async function renderPreview(uri: string, width: number, height: number, 
     }
   } catch {
     return null;
+  }
+}
+
+/**
+ * Deletes the temporary copies the picker, the preview and the render left in the app's cache (the original can carry the camera's location data,
+ * and the others are readable copies of a document). Best effort and lazy: a build without the file-system module simply skips it, and a file that
+ * is already gone is not an error. Called after a save, on cancel, on "choose a different photo" and when the screen closes.
+ */
+export async function discardTemporaryFiles(uris: readonly (string | null | undefined)[]): Promise<void> {
+  const list = uris.filter((u): u is string => typeof u === "string" && u.startsWith("file:"));
+  if (list.length === 0) return;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require("expo-file-system/legacy") as typeof import("expo-file-system/legacy");
+    await Promise.all(list.map((u) => fs.deleteAsync(u, { idempotent: true }).catch(() => {})));
+  } catch {
+    // The native module is not in this build: nothing to do.
   }
 }
