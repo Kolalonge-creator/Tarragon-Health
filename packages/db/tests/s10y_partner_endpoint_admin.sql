@@ -135,9 +135,10 @@ begin
   insert into results values ('real', 'a clinician cannot list mappings', '42501', v_err);
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  select count(*) into v_n from public.admin_list_partner_event_mappings() where event_type = 'lab_result.released' and not mapped;
+  select count(*) into v_n from public.admin_list_partner_event_mappings() where event_type = 'lab_result.released';
   reset role;
-  insert into results values ('real', 'admin sees the event type as not mapped after removal', '1', v_n::text);
+  -- the event type was switched off above and the mapping is gone: it is no longer offered in the picklist
+  insert into results values ('real', 'an inactive, unmapped event type is not offered in the picklist', '0', v_n::text);
 
   -- 5. anon ------------------------------------------------------------------------------------------
   insert into results values ('real', 'anon cannot execute the new functions', 'false',
