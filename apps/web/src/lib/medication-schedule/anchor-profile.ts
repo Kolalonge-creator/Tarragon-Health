@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getProposedConfig, type Database } from "@tarragon/shared";
-import { ANCHOR_IDS, buildAnchorProfile, type AnchorId, type AnchorProfile, type AnchorTimeRow, type DayShiftRow } from "@tarragon/medicines";
+import { ANCHOR_IDS, buildAnchorProfile, type AnchorId, type AnchorProfile, type AnchorSlotRow, type AnchorTimeRow, type DayShiftRow } from "@tarragon/medicines";
 
 /**
  * The patient's anchor times and "my day has shifted" entries (S08z), read for the web. Anchored doses resolve against this, in
@@ -55,13 +55,14 @@ export function doseAnchorConfig(): DoseAnchorConfig {
 
 /** The proposed starting times alone: what anchored doses resolve against until the person's own are known. */
 export function defaultsProfile(): AnchorProfile {
-  return { defaults: doseAnchorConfig().defaults, times: {}, shifts: [] };
+  return { slots: {}, defaults: doseAnchorConfig().defaults, times: {}, shifts: [] };
 }
 
 export interface LoadedAnchors {
   profile: AnchorProfile;
   timeRows: AnchorTimeRow[];
   shiftRows: DayShiftRow[];
+  slotRows: AnchorSlotRow[];
   /** False when the person's own times could not be read: the profile is then the proposed starting times only. */
   loaded: boolean;
 }
@@ -69,17 +70,19 @@ export interface LoadedAnchors {
 /** Reads a person's anchors and shifts with their own session (row level security keeps it to them and the people allowed to act for them). Never throws. */
 export async function loadAnchors(supabase: SupabaseClient<Database>, patientId: string): Promise<LoadedAnchors> {
   try {
-    const [times, shifts] = await Promise.all([
+    const [times, shifts, slots] = await Promise.all([
       supabase.from("patient_dose_anchors").select("anchor, effective_from, local_time").eq("patient_id", patientId),
       supabase.from("patient_day_shifts").select("id, starts_on, ends_on, offsets, cancelled_from, created_at").eq("patient_id", patientId),
+      supabase.from("patient_dose_anchor_slots").select("slot, anchor").eq("patient_id", patientId),
     ]);
-    if (times.error || shifts.error) return { profile: defaultsProfile(), timeRows: [], shiftRows: [], loaded: false };
+    if (times.error || shifts.error || slots.error) return { profile: defaultsProfile(), timeRows: [], shiftRows: [], slotRows: [], loaded: false };
     const timeRows = (times.data ?? []) as AnchorTimeRow[];
+    const slotRows = (slots.data ?? []) as AnchorSlotRow[];
     const shiftRows = ((shifts.data ?? []) as { id: string; starts_on: string; ends_on: string; offsets: unknown; cancelled_from: string | null; created_at: string }[]).map(
       (s) => ({ ...s, offsets: (typeof s.offsets === "object" && s.offsets !== null ? s.offsets : {}) as Record<string, number> })
     );
-    return { profile: buildAnchorProfile(doseAnchorConfig().defaults, timeRows, shiftRows), timeRows, shiftRows, loaded: true };
+    return { profile: buildAnchorProfile(doseAnchorConfig().defaults, timeRows, shiftRows, slotRows), timeRows, shiftRows, slotRows, loaded: true };
   } catch {
-    return { profile: defaultsProfile(), timeRows: [], shiftRows: [], loaded: false };
+    return { profile: defaultsProfile(), timeRows: [], shiftRows: [], slotRows: [], loaded: false };
   }
 }

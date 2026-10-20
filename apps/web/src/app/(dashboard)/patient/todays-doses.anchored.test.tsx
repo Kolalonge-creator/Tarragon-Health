@@ -12,7 +12,7 @@ const anchored = {
   drug_name: "Anchored",
   organisation_id: "org-1",
   schedule_times: ["07:30"],
-  schedule_spec: { kind: "daily", times: [], startDate: null, endDate: null, foodNote: null, anchored: [{ anchor: "breakfast", offsetMinutes: 0 }] },
+  schedule_spec: { kind: "daily", times: [], startDate: null, endDate: null, foodNote: null, anchored: [{ slot: "s00000000a3", offsetMinutes: 0 }] },
 };
 const plain = { id: "m2", drug_name: "Plain", organisation_id: "org-1", schedule_times: ["20:00"], schedule_spec: null };
 let meds: unknown[] = [anchored];
@@ -33,7 +33,7 @@ describe("Today's doses with doses tied to the day", () => {
   });
 
   it("shows no time, and says why, while the patient's own times have not been read (or could not be)", () => {
-    for (const data of [undefined, { profile: defaultsProfile(), timeRows: [], shiftRows: [], loaded: false }]) {
+    for (const data of [undefined, { profile: defaultsProfile(), timeRows: [], shiftRows: [], slotRows: [], loaded: false }]) {
       anchorData = data;
       const { unmount } = render(<TodaysDoses patientId="p1" />);
       expect(screen.getByRole("status").textContent).toMatch(/as soon as we have read your times/);
@@ -44,9 +44,10 @@ describe("Today's doses with doses tied to the day", () => {
 
   it("shows the dose at the patient's own time, in plain words, once their times are read", () => {
     anchorData = {
-      profile: { ...defaultsProfile(), times: { breakfast: [{ effectiveFrom: "2026-01-01", time: "09:05" }] } },
+      profile: { ...defaultsProfile(), slots: { s00000000a3: "breakfast" }, times: { breakfast: [{ effectiveFrom: "2026-01-01", time: "09:05" }] } },
       timeRows: [],
       shiftRows: [],
+      slotRows: [],
       loaded: true,
     };
     render(<TodaysDoses patientId="p1" />);

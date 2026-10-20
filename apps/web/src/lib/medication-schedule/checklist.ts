@@ -1,5 +1,5 @@
 import type { Tables } from "@tarragon/shared";
-import { lagosLocalDate, parseScheduleSpec, slotsOn, specFromLegacyTimes, type AnchoredDose, type AnchorProfile } from "@tarragon/medicines";
+import { lagosLocalDate, parseScheduleSpec, slotsOn, specFromLegacyTimes, type ResolvedAnchor, type AnchorProfile } from "@tarragon/medicines";
 import { defaultsProfile } from "./anchor-profile";
 
 export type DoseStatus = "pending" | "taken" | "missed" | "skipped" | "delayed" | "not_available";
@@ -10,7 +10,7 @@ export type DoseChecklistItem = {
   time: string;
   status: DoseStatus;
   /** S08z: set when this dose is tied to a daily anchor (a meal, waking, a prayer, bedtime), so the list can say so in plain words. */
-  anchored?: AnchoredDose;
+  anchored?: ResolvedAnchor;
 };
 
 type MedicationForChecklist = Pick<Tables<"medications">, "id" | "drug_name" | "schedule_times"> & {

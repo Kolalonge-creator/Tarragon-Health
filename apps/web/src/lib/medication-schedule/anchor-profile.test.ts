@@ -11,10 +11,12 @@ const breakfast = {
   id: "m1",
   drug_name: "Anchored",
   schedule_times: ["07:30"],
-  schedule_spec: { ...base, kind: "daily", times: [], anchored: [{ anchor: "breakfast", offsetMinutes: 30 }] },
+  // The stored schedule names an opaque slot, never the anchor (religious belief).
+  schedule_spec: { ...base, kind: "daily", times: [], anchored: [{ slot: "s00000000a3", offsetMinutes: 30 }] },
 };
+const slotRows = [{ slot: "s00000000a3", anchor: "breakfast" }];
 
-function client(opts: { times?: unknown; shifts?: unknown; timesError?: boolean; throws?: boolean }) {
+function client(opts: { times?: unknown; shifts?: unknown; slots?: unknown; slotsError?: boolean; timesError?: boolean; throws?: boolean }) {
   const q = (data: unknown, error: unknown) => {
     const o: Record<string, unknown> = { select: () => o, eq: () => o, then: (res: (v: unknown) => unknown) => Promise.resolve({ data, error }).then(res) };
     return o;
@@ -22,6 +24,7 @@ function client(opts: { times?: unknown; shifts?: unknown; timesError?: boolean;
   return {
     from: (table: string) => {
       if (opts.throws) throw new Error("network");
+      if (table === "patient_dose_anchor_slots") return opts.slotsError ? q(null, { message: "boom" }) : q(opts.slots ?? slotRows, null);
       return table === "patient_dose_anchors"
         ? q(opts.timesError ? null : (opts.times ?? []), opts.timesError ? { message: "boom" } : null)
         : q(opts.shifts ?? [], null);
@@ -48,7 +51,7 @@ describe("the configured anchor values", () => {
   });
 
   it("the starting profile has no chosen times and no shifts", () => {
-    expect(defaultsProfile()).toEqual({ defaults: DEFAULTS, times: {}, shifts: [] });
+    expect(defaultsProfile()).toEqual({ slots: {}, defaults: DEFAULTS, times: {}, shifts: [] });
   });
 });
 
@@ -64,6 +67,7 @@ describe("loading the patient's anchors", () => {
     expect(r.loaded).toBe(true);
     expect(r.timeRows).toHaveLength(1);
     expect(r.shiftRows).toHaveLength(1);
+    expect(r.slotRows).toEqual(slotRows);
     const spec = parseScheduleSpec(breakfast.schedule_spec, r.profile);
     if (!spec.ok) throw new Error("fixture");
     // 08:00 plus the 60 minute shift plus the dose's own 30 minutes, then back to normal the next day.
@@ -72,7 +76,7 @@ describe("loading the patient's anchors", () => {
   });
 
   it("falls back to the proposed times and says it could not read the person's own, on an error or a thrown failure", async () => {
-    for (const c of [client({ timesError: true }), client({ throws: true })]) {
+    for (const c of [client({ timesError: true }), client({ throws: true }), client({ slotsError: true })]) {
       const r = await loadAnchors(c, "p1");
       expect(r.loaded).toBe(false);
       expect(r.profile).toEqual(defaultsProfile());
@@ -88,19 +92,21 @@ describe("loading the patient's anchors", () => {
 
 describe("the Today checklist with anchored doses", () => {
   it("resolves an anchored dose at the proposed time with no profile, says which anchor it is, and follows the patient's own time", () => {
-    const [d] = buildTodaysDoseChecklist([breakfast], [], NOW);
+    // Without the person's slot mapping read, an anchored dose has no time to show (it is never guessed); with only the proposed times it is shown at them.
+    expect(buildTodaysDoseChecklist([breakfast], [], NOW)).toEqual([]);
+    const [d] = buildTodaysDoseChecklist([breakfast], [], NOW, { ...defaultsProfile(), slots: { s00000000a3: "breakfast" } });
     const [h, m] = DEFAULTS.breakfast.split(":").map(Number);
     const total = (h ?? 0) * 60 + (m ?? 0) + 30;
     expect(d?.time).toBe(`${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`);
     expect(d?.anchored).toEqual({ anchor: "breakfast", offsetMinutes: 30 });
 
-    const own = defaultsProfile();
+    const own = { ...defaultsProfile(), slots: { s00000000a3: "breakfast" as const } };
     const mine = { ...own, times: { breakfast: [{ effectiveFrom: "2026-01-01", time: "08:15" }] } };
     expect(buildTodaysDoseChecklist([breakfast], [], NOW, mine)[0]?.time).toBe("08:45");
   });
 
   it("matches a logged answer against the resolved time", () => {
-    const mine = { ...defaultsProfile(), times: { breakfast: [{ effectiveFrom: "2026-01-01", time: "08:15" }] } };
+    const mine = { ...defaultsProfile(), slots: { s00000000a3: "breakfast" as const }, times: { breakfast: [{ effectiveFrom: "2026-01-01", time: "08:15" }] } };
     const items = buildTodaysDoseChecklist([breakfast], [{ medication_id: "m1", scheduled_time: "08:45", status: "taken" }], NOW, mine);
     expect(items[0]?.status).toBe("taken");
   });

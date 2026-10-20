@@ -1,4 +1,4 @@
-import { isAnchorId, isAnchorOffset, resolveAnchoredDose, anchorBaseTime, type AnchorId, type AnchoredDose, type AnchorProfile } from "./anchors";
+import { isAnchorOffset, isSlotKey, resolveAnchoredDose, anchorBaseTime, specNamesAPrayer, type AnchorId, type AnchoredDose, type AnchorProfile } from "./anchors";
 import { addDays, daysBetween, isValidLocalDate, isValidTime, weekdayOf, type LocalDate } from "./lagos";
 import type { FoodNote, ScheduleSpec, Slot, TaperStep } from "./types";
 
@@ -71,16 +71,18 @@ function cleanAnchored(raw: unknown, errors: string[]): AnchoredDose[] {
   const seen = new Set<string>();
   raw.forEach((entry, i) => {
     const e = isRecord(entry) ? entry : {};
-    if (!isAnchorId(e.anchor)) errors.push(`anchored[${i}].anchor`);
+    if (!isSlotKey(e.slot)) errors.push(`anchored[${i}].slot`);
     if (!isAnchorOffset(e.offsetMinutes)) errors.push(`anchored[${i}].offsetMinutes`);
-    if (isAnchorId(e.anchor) && isAnchorOffset(e.offsetMinutes)) {
-      const key = `${e.anchor}|${e.offsetMinutes}`;
+    // An entry carries a slot and an offset and nothing else: in particular never the anchor's own name.
+    if (Object.keys(e).some((k) => k !== "slot" && k !== "offsetMinutes")) errors.push(`anchored[${i}]:keys`);
+    if (isSlotKey(e.slot) && isAnchorOffset(e.offsetMinutes)) {
+      const key = `${e.slot}|${e.offsetMinutes}`;
       if (seen.has(key)) errors.push(`anchored[${i}]:duplicate`);
       seen.add(key);
-      out.push({ anchor: e.anchor, offsetMinutes: e.offsetMinutes });
+      out.push({ slot: e.slot, offsetMinutes: e.offsetMinutes });
     }
   });
-  return out.sort((a, b) => (a.anchor === b.anchor ? a.offsetMinutes - b.offsetMinutes : a.anchor < b.anchor ? -1 : 1));
+  return out.sort((a, b) => (a.slot === b.slot ? a.offsetMinutes - b.offsetMinutes : a.slot < b.slot ? -1 : 1));
 }
 
 /**
@@ -107,6 +109,8 @@ export function parseScheduleSpec(input: unknown, profile?: AnchorProfile): Pars
     if (typeof w === "number" && Number.isInteger(w) && w >= 0 && w <= MAX_WINDOW_MINUTES) windowMinutes = w;
     else errors.push("windowMinutes");
   }
+  // A prayer name anywhere in a stored schedule would reach every reader of the medicine (religious belief); the slot is the only way in.
+  if (specNamesAPrayer(input)) errors.push("spec:anchor_name");
   const kindIsAnchorable = typeof input.kind === "string" && ANCHORABLE_KINDS.includes(input.kind);
   const anchored = cleanAnchored(input.anchored, errors);
   if (anchored.length > 0 && !kindIsAnchorable) errors.push("anchored:kind");
@@ -203,11 +207,16 @@ export function specFromLegacyTimes(times: unknown): ScheduleSpec {
 
 /** The clock times anchored doses take with no shift in force: what the schedule normally looks like. */
 function anchoredBaseTimes(anchored: AnchoredDose[], profile: AnchorProfile): string[] {
-  return anchored.map((a) => {
-    const total = minutesOf(anchorBaseTime(profile, a.anchor)) + a.offsetMinutes;
+  const out: string[] = [];
+  for (const a of anchored) {
+    const anchor = profile.slots[a.slot];
+    // A slot the patient's mapping does not know has no normal time.
+    if (anchor === undefined) continue;
+    const total = minutesOf(anchorBaseTime(profile, anchor)) + a.offsetMinutes;
     const m = ((total % 1440) + 1440) % 1440;
-    return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-  });
+    out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  }
+  return out;
 }
 
 function minutesOf(time: string): number {
@@ -298,9 +307,9 @@ export function slotsOn(spec: ScheduleSpec, date: LocalDate): Slot[] {
     if (!inRange(spec, day) || !occursOn(spec, day)) continue;
     for (const dose of anchored) {
       const r = resolveAnchoredDose(profile, dose, day);
-      if (r.date === date && !seen.has(r.time)) {
+      if (r !== null && r.date === date && !seen.has(r.time)) {
         seen.add(r.time);
-        out.push({ date, time: r.time, doseText: null, anchored: dose });
+        out.push({ date, time: r.time, doseText: null, anchored: { anchor: r.anchor, offsetMinutes: dose.offsetMinutes } });
       }
     }
   }

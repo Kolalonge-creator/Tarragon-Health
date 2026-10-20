@@ -65,6 +65,12 @@ async function setupMirror(db: SQLite.SQLiteDatabase): Promise<void> {
       subject_id text not null,
       row text not null
     );
+    create table if not exists local_dose_anchor_slots (
+      id text primary key,
+      owner_user_id text not null,
+      subject_id text not null,
+      row text not null
+    );
     create table if not exists local_day_shifts (
       id text primary key,
       owner_user_id text not null,
@@ -244,12 +250,13 @@ async function countLocal(
  * A marker records that they have been read at least once, so the phone can tell "this person has none" from "not read yet".
  */
 async function pullAnchors(db: SQLite.SQLiteDatabase, owner: string, subjectId: string, result: PullResult): Promise<void> {
-  const [times, shifts] = await Promise.all([
+  const [times, shifts, slots] = await Promise.all([
     supabase.from("patient_dose_anchors").select("anchor, effective_from, local_time").eq("patient_id", subjectId),
     supabase.from("patient_day_shifts").select("id, starts_on, ends_on, offsets, cancelled_from, created_at").eq("patient_id", subjectId),
+    supabase.from("patient_dose_anchor_slots").select("slot, anchor").eq("patient_id", subjectId),
   ]);
   result.pages += 1;
-  const failure = times.error ?? shifts.error;
+  const failure = times.error ?? shifts.error ?? slots.error;
   if (failure) {
     if (classifyFailure({ code: failure.code, message: failure.message }) === "network") result.stoppedOffline = true;
     recordSyncError("offline_outbox", "pull:anchors", failure.message);
@@ -257,11 +264,21 @@ async function pullAnchors(db: SQLite.SQLiteDatabase, owner: string, subjectId: 
   }
   const timeRows = times.data ?? [];
   const shiftRows = shifts.data ?? [];
-  result.bytes += JSON.stringify(timeRows).length + JSON.stringify(shiftRows).length;
+  const slotRows = slots.data ?? [];
+  result.bytes += JSON.stringify(timeRows).length + JSON.stringify(shiftRows).length + JSON.stringify(slotRows).length;
   await db.execAsync("begin");
   try {
     await db.runAsync("delete from local_anchor_times where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
     await db.runAsync("delete from local_day_shifts where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
+    await db.runAsync("delete from local_dose_anchor_slots where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
+    for (const row of slotRows) {
+      await db.runAsync("insert or replace into local_dose_anchor_slots (id, owner_user_id, subject_id, row) values (?, ?, ?, ?)", [
+        `${subjectId}|${row.slot}`,
+        owner,
+        subjectId,
+        JSON.stringify(row),
+      ]);
+    }
     for (const row of timeRows) {
       await db.runAsync("insert or replace into local_anchor_times (id, owner_user_id, subject_id, row) values (?, ?, ?, ?)", [
         `${subjectId}|${row.anchor}|${row.effective_from}`,
@@ -284,7 +301,7 @@ async function pullAnchors(db: SQLite.SQLiteDatabase, owner: string, subjectId: 
     await db.execAsync("rollback");
     throw e;
   }
-  result.pulled += timeRows.length + shiftRows.length;
+  result.pulled += timeRows.length + shiftRows.length + slotRows.length;
 }
 
 /** Reads a person's anchor times and shifts from the server now (not throttled). Never throws; false when it could not. */
@@ -319,6 +336,14 @@ export async function readLocalAnchorRows<T>(subjectId: string): Promise<T[]> {
   if (!owner) return [];
   const db = await getDb();
   const rows = await db.getAllAsync<{ row: string }>("select row from local_anchor_times where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
+  return rows.map((r) => JSON.parse(r.row) as T);
+}
+
+export async function readLocalSlotRows<T>(subjectId: string): Promise<T[]> {
+  const owner = await currentUserId();
+  if (!owner) return [];
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ row: string }>("select row from local_dose_anchor_slots where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
   return rows.map((r) => JSON.parse(r.row) as T);
 }
 
@@ -498,7 +523,7 @@ export async function readLocalTasks<T>(subjectId: string): Promise<T[]> {
  */
 export async function clearLocalMirror(): Promise<void> {
   const db = await getDb();
-  await db.execAsync("delete from local_records; delete from local_medications; delete from local_tasks; delete from local_anchor_times; delete from local_day_shifts; delete from sync_state;");
+  await db.execAsync("delete from local_records; delete from local_medications; delete from local_tasks; delete from local_anchor_times; delete from local_dose_anchor_slots; delete from local_day_shifts; delete from sync_state;");
 }
 
 const lastPullAt = new Map<string, number>();

@@ -12,6 +12,7 @@ import {
 import { loadDoseAnchorConfig } from "./anchor-config";
 import { anchorProfileFor, refreshAnchorProfile, type DayShiftRow } from "./anchor-profile";
 import { replanDoseReminders } from "./dose-reminders";
+import { pullAnchorsFor } from "./offline-store";
 import { enqueue, flushOutbox, listOutbox, removePendingRow, type DosePayload } from "./outbox";
 import { readLocalMedications, readLocalRecords } from "./offline-store";
 import { supabase } from "./supabase";
@@ -41,8 +42,9 @@ interface MedRow {
 
 /** The person's active medicines on this phone, with their schedule as the phone resolves it. */
 async function localSpecs(subjectId: string): Promise<{ id: string; spec: ScheduleSpec }[]> {
+  // The person's slot mapping is what says which anchor each stored slot is; read it from the mirror and the outbox first.
+  const profile = await refreshAnchorProfile(subjectId);
   const meds = await readLocalMedications<MedRow>(subjectId);
-  const profile = anchorProfileFor(subjectId);
   const out: { id: string; spec: ScheduleSpec }[] = [];
   for (const m of meds) {
     if (m.schedule_spec === null || m.schedule_spec === undefined) continue;
@@ -59,7 +61,8 @@ async function localSpecs(subjectId: string): Promise<{ id: string; spec: Schedu
  */
 export async function anchorDayHasAnswers(subjectId: string, anchors: readonly string[], today: string): Promise<boolean> {
   const specs = await localSpecs(subjectId);
-  const tied = new Set(specs.filter((s) => (s.spec.anchored ?? []).some((a) => anchors.includes(a.anchor))).map((s) => s.id));
+  const slots = anchorProfileFor(subjectId).slots;
+  const tied = new Set(specs.filter((s) => (s.spec.anchored ?? []).some((a) => anchors.includes(slots[a.slot] ?? ""))).map((s) => s.id));
   if (tied.size === 0) return false;
   const lo = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
   const hi = new Date(Date.parse(`${today}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
@@ -95,8 +98,8 @@ export async function saveAnchorTimes(
   const entries = Object.entries(times) as [string, string][];
   if (entries.length === 0 || entries.some(([k, v]) => !isAnchorId(k) || !isValidTime(v))) return { ok: false, error: "bad_time" };
   const today = lagosLocalDate(nowMs);
-  const profile = anchorProfileFor(subjectId);
   const specs = await localSpecs(subjectId);
+  const profile = anchorProfileFor(subjectId);
   // Judged together, as the database judges one save: a pair that is fine is not refused because one half alone would not be.
   if (anchorChangeConflicts(specs, profile, times).length > 0) return { ok: false, error: "window_overlap" };
   const hasAnswers = await anchorDayHasAnswers(subjectId, entries.map(([k]) => k), today);
@@ -152,4 +155,30 @@ export async function endDayShift(subjectId: string, shift: DayShiftRow, nowMs: 
   }
   await afterChange(subjectId);
   return { ok: true };
+}
+
+/**
+ * The opaque slot for each of these anchors, made by the server when missing (online). A medicine tied to the day stores the SLOT, never
+ * the anchor's name: which prayers a person uses discloses religious belief, and a medicine's schedule is read by the care team,
+ * caregivers and exports. The slots are read back so the phone can name them to the patient. Returns null when it could not be done
+ * (offline, refused): adding such a medicine needs a connection, as adding any medicine does.
+ */
+export async function ensureAnchorSlots(subjectId: string, anchors: readonly AnchorId[]): Promise<Record<string, string> | null> {
+  try {
+    const unique = [...new Set(anchors)];
+    const { data, error } = await supabase.rpc("ensure_dose_anchor_slots", { p_patient: subjectId, p_anchors: unique });
+    if (error || data === null || typeof data !== "object" || Array.isArray(data)) return null;
+    const map = data as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    for (const a of unique) {
+      const slot = map[a];
+      if (typeof slot !== "string") return null;
+      out[a] = slot;
+    }
+    await pullAnchorsFor(subjectId);
+    await refreshAnchorProfile(subjectId);
+    return out;
+  } catch {
+    return null;
+  }
 }

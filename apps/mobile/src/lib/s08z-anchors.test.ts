@@ -50,13 +50,16 @@ jest.mock("./supabase", () => ({
 }));
 
 const DEFAULTS = loadDoseAnchorConfig().defaults;
+// The patient's own mapping: a stored schedule names an opaque slot, never the anchor (religious belief).
+const SLOT = { waking: "s00000000a1", breakfast: "s00000000a3", lunch: "s00000000a5", dinner: "s00000000a8", bedtime: "s00000000b0" } as const;
+const SLOT_ROWS = Object.entries(SLOT).map(([anchor, slot]) => ({ slot, anchor }));
 const base = { startDate: null, endDate: null, foodNote: null };
 const breakfastMed = {
   id: "med-b",
   patient_id: "p1",
   drug_name: "Anchored",
   schedule_times: ["07:30"],
-  schedule_spec: { ...base, kind: "daily", times: [], anchored: [{ anchor: "breakfast", offsetMinutes: 0 }] },
+  schedule_spec: { ...base, kind: "daily", times: [], anchored: [{ slot: SLOT.breakfast, offsetMinutes: 0 }] },
   created_at: "2026-09-01T00:00:00Z",
 };
 const bedtimeMed = {
@@ -64,7 +67,7 @@ const bedtimeMed = {
   patient_id: "p1",
   drug_name: "Night",
   schedule_times: ["23:30"],
-  schedule_spec: { ...base, kind: "daily", times: [], anchored: [{ anchor: "bedtime", offsetMinutes: 60 }] },
+  schedule_spec: { ...base, kind: "daily", times: [], anchored: [{ slot: SLOT.bedtime, offsetMinutes: 60 }] },
   created_at: "2026-09-01T00:00:00Z",
 };
 // Wednesday 7 October 2026, 09:00 Lagos
@@ -75,6 +78,7 @@ beforeEach(async () => {
   for (const k of Object.keys(mockTables)) delete mockTables[k];
   mockRpc.mockClear();
   mockInserts.length = 0;
+  mockTables.patient_dose_anchor_slots = SLOT_ROWS;
   __resetAnchorProfilesForTests();
   __resetOutboxForTests();
   await clearLocalMirror();
@@ -133,27 +137,29 @@ describe("building the profile", () => {
 
 describe("the Today list resolves anchored doses", () => {
   it("shows an anchored dose at the patient's time, says which anchor it is, and falls back to the proposed time when none is set", () => {
+    // The patient has a slot for breakfast but has never set its time: the proposed starting time applies.
+    setAnchorProfile("p1", buildAnchorProfile(DEFAULTS, [], [], SLOT_ROWS));
     const withDefault = buildTodaysDoseChecklist([breakfastMed], [], NOW, "p1");
     expect(withDefault.map((i) => `${i.date} ${i.time}`)).toEqual([`${TODAY} ${DEFAULTS.breakfast}`]);
     expect(withDefault[0]?.anchored).toEqual({ anchor: "breakfast", offsetMinutes: 0 });
 
-    setAnchorProfile("p1", buildAnchorProfile(DEFAULTS, [{ anchor: "breakfast", effective_from: "2026-01-01", local_time: "08:15" }], []));
+    setAnchorProfile("p1", buildAnchorProfile(DEFAULTS, [{ anchor: "breakfast", effective_from: "2026-01-01", local_time: "08:15" }], [], SLOT_ROWS));
     expect(buildTodaysDoseChecklist([breakfastMed], [], NOW, "p1").map((i) => i.time)).toEqual(["08:15"]);
   });
 
   it("a day shift moves the time and the schedule itself is untouched", () => {
     setAnchorProfile("p1", buildAnchorProfile(DEFAULTS, [{ anchor: "breakfast", effective_from: "2026-01-01", local_time: "08:00" }], [
       { id: "s", starts_on: TODAY, ends_on: TODAY, offsets: { breakfast: 120 }, cancelled_from: null, created_at: "2026-10-01T00:00:00Z" },
-    ]));
+    ], SLOT_ROWS));
     const [item] = buildTodaysDoseChecklist([breakfastMed], [], NOW, "p1");
     expect(item?.time).toBe("10:00");
-    expect(scheduleOf(breakfastMed, "p1").anchored).toEqual([{ anchor: "breakfast", offsetMinutes: 0 }]);
+    expect(scheduleOf(breakfastMed, "p1").anchored).toEqual([{ slot: SLOT.breakfast, offsetMinutes: 0 }]);
     // The next day is back to normal with no action.
     expect(slotsOn(scheduleOf(breakfastMed, "p1"), "2026-10-08").map((s) => s.time)).toEqual(["08:00"]);
   });
 
   it("a bedtime dose that crosses midnight is listed on the date it lands on", () => {
-    setAnchorProfile("p1", buildAnchorProfile(DEFAULTS, [{ anchor: "bedtime", effective_from: "2026-01-01", local_time: "23:30" }], []));
+    setAnchorProfile("p1", buildAnchorProfile(DEFAULTS, [{ anchor: "bedtime", effective_from: "2026-01-01", local_time: "23:30" }], [], SLOT_ROWS));
     // 00:20 on the 7th (Lagos): last night's 23:30 + 60 minutes is 00:30 today, still to come.
     const at0020 = Date.parse("2026-10-06T23:20:00Z");
     const items = buildTodaysDoseChecklist([bedtimeMed], [], at0020, "p1");
@@ -163,8 +169,13 @@ describe("the Today list resolves anchored doses", () => {
     expect(items[0]?.dueAtMs).toBe(Date.parse("2026-10-06T23:30:00Z"));
   });
 
+  it("with the patient's slot mapping not read, an anchored dose is not shown at all (it is never guessed)", () => {
+    expect(buildTodaysDoseChecklist([breakfastMed], [], NOW, "p1")).toEqual([]);
+  });
+
   it("another person's profile is never used", () => {
-    setAnchorProfile("p2", buildAnchorProfile(DEFAULTS, [{ anchor: "breakfast", effective_from: "2026-01-01", local_time: "05:00" }], []));
+    setAnchorProfile("p1", buildAnchorProfile(DEFAULTS, [], [], SLOT_ROWS));
+    setAnchorProfile("p2", buildAnchorProfile(DEFAULTS, [{ anchor: "breakfast", effective_from: "2026-01-01", local_time: "05:00" }], [], SLOT_ROWS));
     expect(buildTodaysDoseChecklist([breakfastMed], [], NOW, "p1").map((i) => i.time)).toEqual([DEFAULTS.breakfast]);
     expect(anchorProfileFor(null).times).toEqual({});
   });
@@ -228,7 +239,7 @@ describe("changing the anchors offline", () => {
     expect(await saveAnchorTimes("p1", {}, NOW)).toEqual({ ok: false, error: "bad_time" });
     expect(await saveAnchorTimes("p1", { brunch: "08:00" } as never, NOW)).toEqual({ ok: false, error: "bad_time" });
     mockTables.medications = [
-      { ...breakfastMed, id: "med-w", schedule_spec: { ...base, kind: "daily", times: [], windowMinutes: 45, anchored: [{ anchor: "waking", offsetMinutes: 0 }, { anchor: "breakfast", offsetMinutes: 0 }] } },
+      { ...breakfastMed, id: "med-w", schedule_spec: { ...base, kind: "daily", times: [], windowMinutes: 45, anchored: [{ slot: SLOT.waking, offsetMinutes: 0 }, { slot: SLOT.breakfast, offsetMinutes: 0 }] } },
     ];
     await pullChanges("p1");
     // Waking is at its proposed time; moving breakfast to ten minutes after it is inside a 45 minute window.
@@ -310,7 +321,7 @@ describe("shifting the day", () => {
     expect(ended.ok).toBe(true);
     const [row] = await listOutbox("day_shift_end");
     expect(row?.payload).toEqual({ shift_id: "srv-1", cancelled_from: TODAY });
-    const spec = scheduleOf({ ...breakfastMed, schedule_spec: { ...base, kind: "daily", times: [], anchored: [{ anchor: "dinner", offsetMinutes: 0 }] } }, "p1");
+    const spec = scheduleOf({ ...breakfastMed, schedule_spec: { ...base, kind: "daily", times: [], anchored: [{ slot: SLOT.dinner, offsetMinutes: 0 }] } }, "p1");
     // Days already lived keep the shifted time; today and later are back to normal.
     expect(slotsOn(spec, "2026-10-06")[0]?.time).not.toBe(DEFAULTS.dinner);
     expect(slotsOn(spec, TODAY)[0]?.time).toBe(DEFAULTS.dinner);
@@ -328,16 +339,16 @@ describe("shifting the day", () => {
 
 describe("adding a medicine tied to the day", () => {
   it("stores the anchors in the spec, never the runtime profile, and lists the normal times for older readers", async () => {
-    setAnchorProfile("p1", buildAnchorProfile(DEFAULTS, [{ anchor: "breakfast", effective_from: "2026-01-01", local_time: "08:15" }], []));
+    setAnchorProfile("p1", buildAnchorProfile(DEFAULTS, [{ anchor: "breakfast", effective_from: "2026-01-01", local_time: "08:15" }], [], SLOT_ROWS));
     const parsed = parseScheduleSpec(
-      { kind: "daily", times: ["21:00"], anchored: [{ anchor: "breakfast", offsetMinutes: 0 }], startDate: null, endDate: null, foodNote: null, windowMinutes: 0 },
+      { kind: "daily", times: ["21:00"], anchored: [{ slot: SLOT.breakfast, offsetMinutes: 0 }], startDate: null, endDate: null, foodNote: null, windowMinutes: 0 },
       anchorProfileFor("p1")
     );
     if (!parsed.ok) throw new Error("fixture");
     expect(await addMedication("p1", { drugName: "Anchored", scheduleTimes: [], scheduleSpec: parsed.spec, startedBySpecialist: false })).toEqual({});
     const [{ row }] = mockInserts.filter((i) => i.table === "medications");
     expect(row.schedule_times).toEqual(["08:15", "21:00"]);
-    expect(row.schedule_spec).toMatchObject({ kind: "daily", times: ["21:00"], anchored: [{ anchor: "breakfast", offsetMinutes: 0 }] });
+    expect(row.schedule_spec).toMatchObject({ kind: "daily", times: ["21:00"], anchored: [{ slot: SLOT.breakfast, offsetMinutes: 0 }] });
     expect(JSON.stringify(row.schedule_spec)).not.toContain("anchorProfile");
   });
 });
@@ -400,7 +411,7 @@ describe("staying in step with the server", () => {
 
   it("judges a pair of anchors together when it checks a window", async () => {
     mockTables.medications = [
-      { ...breakfastMed, id: "med-pair", schedule_spec: { ...base, kind: "daily", times: [], windowMinutes: 60, anchored: [{ anchor: "breakfast", offsetMinutes: 0 }, { anchor: "lunch", offsetMinutes: 0 }] } },
+      { ...breakfastMed, id: "med-pair", schedule_spec: { ...base, kind: "daily", times: [], windowMinutes: 60, anchored: [{ slot: SLOT.breakfast, offsetMinutes: 0 }, { slot: SLOT.lunch, offsetMinutes: 0 }] } },
     ];
     await pullChanges("p1");
     // Breakfast alone at 13:20 would sit ten minutes from lunch at its proposed time; moved together with lunch it is fine.

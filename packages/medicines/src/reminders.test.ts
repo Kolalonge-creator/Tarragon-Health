@@ -2,7 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 import { diffNotifications, keepRemindersGroup, planDoseNotifications, reminderIssues, type ReminderHealthInput, type ReminderMedicine } from "./reminders";
 import type { ScheduleSpec } from "./types";
 import { parseScheduleSpec } from "./schedule";
-import { TEST_ANCHOR_DEFAULTS } from "./anchors.fixtures";
+import { TEST_ANCHOR_DEFAULTS, TEST_SLOT_OF, TEST_SLOTS } from "./anchors.fixtures";
 
 const base = { startDate: null, endDate: null, foodNote: null } as const;
 const daily = (times: string[]): ScheduleSpec => ({ ...base, kind: "daily", times });
@@ -184,7 +184,7 @@ describe("keepRemindersGroup", () => {
 });
 
 describe("anchored doses in the reminder plan (S08z)", () => {
-  const profile = { defaults: TEST_ANCHOR_DEFAULTS, times: {}, shifts: [] };
+  const profile = { slots: TEST_SLOTS, defaults: TEST_ANCHOR_DEFAULTS, times: {}, shifts: [] };
   const spec = (anchored: unknown[], times: string[] = []): ScheduleSpec => {
     const r = parseScheduleSpec({ kind: "daily", times, anchored }, profile);
     if (!r.ok) throw new Error("fixture");
@@ -194,7 +194,7 @@ describe("anchored doses in the reminder plan (S08z)", () => {
   const now = Date.parse("2026-10-05T00:00:00Z");
 
   it("plans an anchored dose at its resolved time and says which anchor it is", () => {
-    const plan = planDoseNotifications([{ id: "m1", active: true, spec: spec([{ anchor: "breakfast", offsetMinutes: 30 }]) }], new Set(), now, cfg);
+    const plan = planDoseNotifications([{ id: "m1", active: true, spec: spec([{ slot: TEST_SLOT_OF.breakfast, offsetMinutes: 30 }]) }], new Set(), now, cfg);
     expect(plan[0]?.anchor).toEqual({ anchor: "breakfast", offsetMinutes: 30 });
     // Breakfast 07:30 plus 30 minutes is 08:00 Lagos, which is 07:00 UTC.
     expect(new Date(plan[0]!.fireAtMs).toISOString()).toBe("2026-10-05T07:00:00.000Z");
@@ -203,8 +203,8 @@ describe("anchored doses in the reminder plan (S08z)", () => {
   it("names the anchor only when every dose in the notification shares it", () => {
     const same = planDoseNotifications(
       [
-        { id: "m1", active: true, spec: spec([{ anchor: "breakfast", offsetMinutes: 0 }]) },
-        { id: "m2", active: true, spec: spec([{ anchor: "breakfast", offsetMinutes: 0 }]) },
+        { id: "m1", active: true, spec: spec([{ slot: TEST_SLOT_OF.breakfast, offsetMinutes: 0 }]) },
+        { id: "m2", active: true, spec: spec([{ slot: TEST_SLOT_OF.breakfast, offsetMinutes: 0 }]) },
       ],
       new Set(),
       now,
@@ -214,7 +214,7 @@ describe("anchored doses in the reminder plan (S08z)", () => {
     expect(same[0]?.anchor).toEqual({ anchor: "breakfast", offsetMinutes: 0 });
     const mixed = planDoseNotifications(
       [
-        { id: "m1", active: true, spec: spec([{ anchor: "breakfast", offsetMinutes: 0 }]) },
+        { id: "m1", active: true, spec: spec([{ slot: TEST_SLOT_OF.breakfast, offsetMinutes: 0 }]) },
         { id: "m2", active: true, spec: spec([], ["07:30"]) },
       ],
       new Set(),
@@ -225,8 +225,8 @@ describe("anchored doses in the reminder plan (S08z)", () => {
     expect("anchor" in (mixed[0] ?? {})).toBe(false);
     const differentOffset = planDoseNotifications(
       [
-        { id: "m1", active: true, spec: spec([{ anchor: "waking", offsetMinutes: 60 }]) },
-        { id: "m2", active: true, spec: spec([{ anchor: "breakfast", offsetMinutes: 0 }]) },
+        { id: "m1", active: true, spec: spec([{ slot: TEST_SLOT_OF.waking, offsetMinutes: 60 }]) },
+        { id: "m2", active: true, spec: spec([{ slot: TEST_SLOT_OF.breakfast, offsetMinutes: 0 }]) },
       ],
       new Set(),
       now,
@@ -238,8 +238,8 @@ describe("anchored doses in the reminder plan (S08z)", () => {
 
   it("a day shift moves the planned time with no change to the schedule", () => {
     const shifted = parseScheduleSpec(
-      { kind: "daily", anchored: [{ anchor: "dinner", offsetMinutes: 0 }] },
-      { defaults: TEST_ANCHOR_DEFAULTS, times: {}, shifts: [{ startsOn: "2026-10-05", endsOn: "2026-10-05", offsets: { dinner: 90 } }] }
+      { kind: "daily", anchored: [{ slot: TEST_SLOT_OF.dinner, offsetMinutes: 0 }] },
+      { slots: TEST_SLOTS, defaults: TEST_ANCHOR_DEFAULTS, times: {}, shifts: [{ startsOn: "2026-10-05", endsOn: "2026-10-05", offsets: { dinner: 90 } }] }
     );
     if (!shifted.ok) throw new Error("fixture");
     const plan = planDoseNotifications([{ id: "m1", active: true, spec: shifted.spec }], new Set(), now, cfg);

@@ -34,10 +34,41 @@ export const MAX_ANCHOR_OFFSET = 180;
 /** A shift moves one anchor by at most six hours either way. */
 export const MAX_SHIFT_OFFSET = 360;
 
+/**
+ * A dose tied to a part of the patient's day, AS STORED in a medicine's schedule. It names an opaque per-patient SLOT, never the anchor
+ * itself: which prayers a person ties a medicine to discloses religious belief, and a medicine's schedule is read by the care team,
+ * caregivers, exports and printed reports. The slot means something only through the patient's own mapping (`AnchorProfile.slots`),
+ * which only the patient and an acting guardian can read. What anyone else sees is the resolved clock time.
+ */
 export interface AnchoredDose {
-  anchor: AnchorId;
+  slot: string;
   /** Minutes after the anchor (negative: before). */
   offsetMinutes: number;
+}
+
+/** An anchored dose as the PATIENT sees it, with its slot looked up: used for plain-words display and for grouping reminders. Never stored. */
+export interface ResolvedAnchor {
+  anchor: AnchorId;
+  offsetMinutes: number;
+}
+
+/** A slot key: "s" and ten lowercase hex digits, made by the server at random for one patient and one anchor. */
+const SLOT_KEY_RE = /^s[0-9a-f]{10}$/;
+export function isSlotKey(value: unknown): value is string {
+  return typeof value === "string" && SLOT_KEY_RE.test(value);
+}
+
+/**
+ * True when a schedule names one of the five daily prayers anywhere in it. A stored schedule must not: the database refuses it, and the
+ * phone and web refuse to build one, so a prayer name can never reach a reader of a medicine.
+ */
+const PRAYER_NAME_RE = /(morning|midday|afternoon|evening|night)_prayer/;
+export function specNamesAPrayer(spec: unknown): boolean {
+  try {
+    return PRAYER_NAME_RE.test(JSON.stringify(spec) ?? "");
+  } catch {
+    return true;
+  }
 }
 
 export interface DayShift {
@@ -65,6 +96,8 @@ export interface AnchorTimeVersion {
  * chose; `shifts` are their "my day has shifted" entries.
  */
 export interface AnchorProfile {
+  /** Which anchor each of the patient's slots stands for. Patient-private. A slot not listed here cannot be resolved. */
+  slots: Readonly<Record<string, AnchorId>>;
   defaults: Record<AnchorId, string>;
   times: Partial<Record<AnchorId, readonly AnchorTimeVersion[]>>;
   shifts: readonly DayShift[];
@@ -126,6 +159,8 @@ export interface ResolvedDose {
   date: LocalDate;
   /** "HH:MM", Africa/Lagos. */
   time: string;
+  /** The anchor the dose's slot stands for (patient-side only). */
+  anchor: AnchorId;
 }
 
 /**
@@ -133,11 +168,14 @@ export interface ResolvedDose {
  * own offset add up in minutes, so a bedtime dose an hour after a 23:30 bedtime lands at 00:30 on the NEXT date, and a
  * dose before a 00:10 waking lands at 23:xx on the PREVIOUS one, never clamped to the wrong day.
  */
-export function resolveAnchoredDose(profile: AnchorProfile, dose: AnchoredDose, scheduleDate: LocalDate): ResolvedDose {
-  const total = minutesOf(anchorBaseTime(profile, dose.anchor, scheduleDate)) + shiftOffsetOn(profile, dose.anchor, scheduleDate) + dose.offsetMinutes;
+export function resolveAnchoredDose(profile: AnchorProfile, dose: AnchoredDose, scheduleDate: LocalDate): ResolvedDose | null {
+  const anchor = profile.slots[dose.slot];
+  // A slot the patient's own mapping does not know cannot be resolved (it is never guessed).
+  if (anchor === undefined) return null;
+  const total = minutesOf(anchorBaseTime(profile, anchor, scheduleDate)) + shiftOffsetOn(profile, anchor, scheduleDate) + dose.offsetMinutes;
   const dayShift = Math.floor(total / 1440);
   const minuteOfDay = ((total % 1440) + 1440) % 1440;
-  return { date: dayShift === 0 ? scheduleDate : addDays(scheduleDate, dayShift), time: clock(minuteOfDay) };
+  return { date: dayShift === 0 ? scheduleDate : addDays(scheduleDate, dayShift), time: clock(minuteOfDay), anchor };
 }
 
 /** Checks a patient's proposed day shift. Returns the reasons it is refused (empty when fine). Never throws. */
@@ -211,6 +249,12 @@ export interface AnchorTimeRow {
   local_time: string;
 }
 
+/** A stored slot of the patient's, as the database returns it. */
+export interface AnchorSlotRow {
+  slot: string;
+  anchor: string;
+}
+
 /** A stored "my day has shifted" entry, as the database returns it. */
 export interface DayShiftRow {
   id: string;
@@ -228,8 +272,11 @@ export interface DayShiftRow {
 export function buildAnchorProfile(
   defaults: Record<AnchorId, string>,
   timeRows: readonly AnchorTimeRow[],
-  shiftRows: readonly DayShiftRow[]
+  shiftRows: readonly DayShiftRow[],
+  slotRows: readonly AnchorSlotRow[] = []
 ): AnchorProfile {
+  const slots: Record<string, AnchorId> = {};
+  for (const r of slotRows) if (isSlotKey(r.slot) && isAnchorId(r.anchor)) slots[r.slot] = r.anchor;
   const times: Partial<Record<AnchorId, AnchorTimeVersion[]>> = {};
   for (const r of timeRows) {
     if (!isAnchorId(r.anchor) || !isValidTime(r.local_time) || !isValidLocalDate(r.effective_from)) continue;
@@ -243,5 +290,10 @@ export function buildAnchorProfile(
       for (const [k, v] of Object.entries(s.offsets)) if (isAnchorId(k) && typeof v === "number" && Number.isFinite(v)) offsets[k] = v;
       return { startsOn: s.starts_on, endsOn: s.ends_on, cancelledFrom: s.cancelled_from, offsets };
     });
-  return { defaults, times, shifts };
+  return { slots, defaults, times, shifts };
+}
+
+/** The slot a patient's anchor is stored under, or undefined when they have not got one yet. */
+export function slotForAnchor(profile: AnchorProfile, anchor: AnchorId): string | undefined {
+  return Object.keys(profile.slots).find((slot) => profile.slots[slot] === anchor);
 }

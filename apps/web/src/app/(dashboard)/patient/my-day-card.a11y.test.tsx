@@ -6,7 +6,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { defaultsProfile } from "@/lib/medication-schedule/anchor-profile";
-import type { AnchoredDose } from "@tarragon/medicines";
+import type { ResolvedAnchor } from "@tarragon/medicines";
 import { MyDayCard } from "./my-day-card";
 import { AnchorChooser } from "./anchor-chooser";
 
@@ -31,7 +31,7 @@ beforeEach(() => {
   save.mockReset();
   create.mockReset();
   end.mockReset();
-  anchorData = { profile: defaultsProfile(), timeRows: [], shiftRows: [], loaded: true };
+  anchorData = { profile: defaultsProfile(), timeRows: [], shiftRows: [], slotRows: [], loaded: true };
 });
 
 describe("MyDayCard", () => {
@@ -46,7 +46,7 @@ describe("MyDayCard", () => {
   });
 
   it("says a time that was never set is a proposed one, and saves only what was typed", async () => {
-    anchorData = { profile: { ...defaultsProfile(), times: { lunch: [{ effectiveFrom: "2026-01-01", time: "13:30" }] } }, timeRows: [], shiftRows: [], loaded: true };
+    anchorData = { profile: { ...defaultsProfile(), times: { lunch: [{ effectiveFrom: "2026-01-01", time: "13:30" }] } }, timeRows: [], shiftRows: [], slotRows: [], loaded: true };
     await expectNoA11yViolations(<MyDayCard patientId="p1" />);
     fireEvent.click(screen.getByRole("button", { name: "Show" }));
     expect(screen.getAllByText(/Not set yet/).length).toBe(9);
@@ -90,6 +90,7 @@ describe("MyDayCard", () => {
       profile: defaultsProfile(),
       timeRows: [],
       shiftRows: [{ id: "s1", starts_on: "2026-10-01", ends_on: "2026-10-30", offsets: { dinner: 60 }, cancelled_from: null, created_at: "2026-10-01T00:00:00Z" }],
+      slotRows: [],
       loaded: true,
     };
     await expectNoA11yViolations(<MyDayCard patientId="p1" />);
@@ -103,7 +104,7 @@ describe("MyDayCard", () => {
   });
 
   it("says plainly when the person's own times could not be read", async () => {
-    anchorData = { profile: defaultsProfile(), timeRows: [], shiftRows: [], loaded: false };
+    anchorData = { profile: defaultsProfile(), timeRows: [], shiftRows: [], slotRows: [], loaded: false };
     await expectNoA11yViolations(<MyDayCard patientId="p1" />);
     expect(screen.getByRole("alert").textContent).toMatch(/could not save|Check the times/i);
   });
@@ -111,7 +112,7 @@ describe("MyDayCard", () => {
 
 describe("AnchorChooser", () => {
   it("has no axe violations, adds an anchor with a plain-words offset choice, and a time to confirm", async () => {
-    let value: AnchoredDose[] = [];
+    let value: ResolvedAnchor[] = [];
     const onChange = jest.fn((v: typeof value) => {
       value = v;
     });

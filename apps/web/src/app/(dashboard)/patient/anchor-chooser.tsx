@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { ANCHOR_IDS, anchorBaseTime, type AnchoredDose, type AnchorId, type AnchorProfile } from "@tarragon/medicines";
+import { ANCHOR_IDS, anchorBaseTime, type ResolvedAnchor, type AnchorId, type AnchorProfile } from "@tarragon/medicines";
 import { anchorPhrase, anchorTitle, t, type MessageKey } from "@tarragon/i18n";
 import { doseAnchorConfig } from "@/lib/medication-schedule/anchor-profile";
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,8 @@ export function AnchorChooser({
   onDrafts,
 }: {
   profile: AnchorProfile;
-  value: AnchoredDose[];
-  onChange: (next: AnchoredDose[]) => void;
+  value: ResolvedAnchor[];
+  onChange: (next: ResolvedAnchor[]) => void;
   /** Times typed in this form and not yet saved. */
   drafts: Partial<Record<AnchorId, string>>;
   onDrafts: (next: Partial<Record<AnchorId, string>>) => void;

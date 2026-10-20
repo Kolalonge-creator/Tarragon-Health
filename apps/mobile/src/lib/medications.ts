@@ -14,7 +14,7 @@ import {
   allTimes,
   groupLogsBySlot,
   type AdherenceResult,
-  type AnchoredDose,
+  type ResolvedAnchor,
   type DoseLog,
   type FoodNote,
   type LogStatus,
@@ -67,7 +67,7 @@ export interface DoseChecklistItem {
   /** The strength and dose the medicine record carries, shown as read-only text. */
   doseLabel?: string | null;
   /** S08z: set when this dose is tied to a daily anchor (a meal, waking, a prayer, bedtime), so the list can say so in plain words. */
-  anchored?: AnchoredDose;
+  anchored?: ResolvedAnchor;
 }
 
 type MedicationForChecklist = Pick<Tables<"medications">, "id" | "drug_name" | "schedule_times"> & {

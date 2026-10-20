@@ -1,6 +1,6 @@
-import { buildAnchorProfile, type AnchorProfile, type AnchorTimeRow, type DayShiftRow } from "@tarragon/medicines";
+import { buildAnchorProfile, type AnchorProfile, type AnchorSlotRow, type AnchorTimeRow, type DayShiftRow } from "@tarragon/medicines";
 import { loadDoseAnchorConfig } from "./anchor-config";
-import { anchorsKnownFor, pullAnchorsFor, readLocalAnchorRows, readLocalShiftRows } from "./offline-store";
+import { anchorsKnownFor, pullAnchorsFor, readLocalAnchorRows, readLocalShiftRows, readLocalSlotRows } from "./offline-store";
 import { listOutbox, type AnchorTimesPayload, type DayShiftEndPayload, type DayShiftPayload } from "./outbox";
 import { recordSyncError } from "./sync-diagnostics";
 
@@ -55,7 +55,7 @@ export function mergeRows(
 const profiles = new Map<string, AnchorProfile>();
 
 export function defaultsOnlyProfile(): AnchorProfile {
-  return { defaults: loadDoseAnchorConfig().defaults, times: {}, shifts: [] };
+  return { slots: {}, defaults: loadDoseAnchorConfig().defaults, times: {}, shifts: [] };
 }
 
 /** The profile to resolve a person's anchored doses against. Always returns one: the defaults alone when none has been read. */
@@ -92,9 +92,10 @@ export async function refreshAnchorProfile(subjectId: string): Promise<AnchorPro
         await pullAnchorsFor(subjectId);
       }
     }
-    const [timeRows, shiftRows, pendingItems] = await Promise.all([
+    const [timeRows, shiftRows, slotRows, pendingItems] = await Promise.all([
       readLocalAnchorRows<AnchorTimeRow>(subjectId),
       readLocalShiftRows<DayShiftRow>(subjectId),
+      readLocalSlotRows<AnchorSlotRow>(subjectId),
       listOutbox(),
     ]);
     // Only changes still waiting to be sent apply. One the server refused is kept for the patient to see, but is not what the server holds.
@@ -102,7 +103,7 @@ export async function refreshAnchorProfile(subjectId: string): Promise<AnchorPro
       (i) => i.subjectId === subjectId && i.state === "pending" && (i.kind === "anchor_times" || i.kind === "day_shift" || i.kind === "day_shift_end")
     );
     const merged = mergeRows(timeRows, shiftRows, pendingToRows(mine));
-    const profile = buildAnchorProfile(loadDoseAnchorConfig().defaults, merged.times, merged.shifts);
+    const profile = buildAnchorProfile(loadDoseAnchorConfig().defaults, merged.times, merged.shifts, slotRows);
     profiles.set(subjectId, profile);
     return profile;
   } catch (error) {

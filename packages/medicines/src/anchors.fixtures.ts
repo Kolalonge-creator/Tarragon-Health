@@ -21,6 +21,33 @@ export const TEST_ANCHOR_DEFAULTS: Record<AnchorId, string> = {
   bedtime: "22:30",
 };
 
+/**
+ * Test slot keys, one per anchor. A stored schedule names a SLOT, never the anchor (religious belief, see anchors.ts), so the cases below
+ * are written in anchor terms for readability and `toSlotSpec` turns them into what is stored. The database proof uses the same keys.
+ */
+export const TEST_SLOT_OF: Record<AnchorId, string> = {
+  waking: "s00000000a1",
+  morning_prayer: "s00000000a2",
+  breakfast: "s00000000a3",
+  midday_prayer: "s00000000a4",
+  lunch: "s00000000a5",
+  afternoon_prayer: "s00000000a6",
+  evening_prayer: "s00000000a7",
+  dinner: "s00000000a8",
+  night_prayer: "s00000000a9",
+  bedtime: "s00000000b0",
+};
+export const TEST_SLOTS: Record<string, AnchorId> = Object.fromEntries(
+  (Object.entries(TEST_SLOT_OF) as [AnchorId, string][]).map(([anchor, slot]) => [slot, anchor])
+);
+
+/** The stored form of a case's schedule: each `{anchor, offsetMinutes}` becomes `{slot, offsetMinutes}`. */
+export function toSlotSpec(spec: Record<string, unknown>): Record<string, unknown> {
+  const anchored = spec.anchored as { anchor: AnchorId; offsetMinutes: number }[] | undefined;
+  if (!anchored) return spec;
+  return { ...spec, anchored: anchored.map((a) => ({ slot: TEST_SLOT_OF[a.anchor], offsetMinutes: a.offsetMinutes })) };
+}
+
 export interface AnchorCase {
   name: string;
   spec: Record<string, unknown>;

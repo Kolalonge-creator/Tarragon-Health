@@ -58,11 +58,15 @@ jest.mock("expo-notifications", () => ({
   }),
 }));
 
+// The patient's own mapping: a stored schedule names an opaque slot, never the anchor (religious belief).
+const SLOT = { waking: "s00000000a1", breakfast: "s00000000a3" } as const;
+const SLOT_ROWS = Object.entries(SLOT).map(([anchor, slot]) => ({ slot, anchor }));
+
 // Monday 5 October 2026, 06:00 Lagos.
 const NOW = Date.parse("2026-10-05T05:00:00Z");
 const base = { startDate: null, endDate: null, foodNote: null };
-const breakfast = { id: "m-b", is_active: true, schedule_times: ["07:30"], schedule_spec: { ...base, kind: "daily", times: [], anchored: [{ anchor: "breakfast", offsetMinutes: 0 }] } };
-const breakfastPlus = { id: "m-b2", is_active: true, schedule_times: ["08:00"], schedule_spec: { ...base, kind: "daily", times: [], anchored: [{ anchor: "breakfast", offsetMinutes: 30 }] } };
+const breakfast = { id: "m-b", is_active: true, schedule_times: ["07:30"], schedule_spec: { ...base, kind: "daily", times: [], anchored: [{ slot: SLOT.breakfast, offsetMinutes: 0 }] } };
+const breakfastPlus = { id: "m-b2", is_active: true, schedule_times: ["08:00"], schedule_spec: { ...base, kind: "daily", times: [], anchored: [{ slot: SLOT.breakfast, offsetMinutes: 30 }] } };
 const fixed = { id: "m-f", is_active: true, schedule_times: ["07:30"], schedule_spec: null };
 
 beforeEach(async () => {
@@ -77,6 +81,7 @@ beforeEach(async () => {
 async function seed(times: { anchor: string; effective_from: string; local_time: string }[], shifts: Row[] = []): Promise<void> {
   mockTables.patient_dose_anchors = times;
   mockTables.patient_day_shifts = shifts;
+  mockTables.patient_dose_anchor_slots = SLOT_ROWS;
   await pullChanges("p1");
 }
 
@@ -96,6 +101,7 @@ describe("reminders for anchored doses", () => {
   });
 
   it("says an offset in plain words", async () => {
+    await seed([]);
     mockTables.medications = [breakfastPlus];
     await replanDoseReminders("p1", NOW);
     expect(scheduled[0]?.content.body).toBe(t("doseanchor.notify.body", "en", { when: "30 minutes after breakfast" }));

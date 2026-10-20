@@ -6,7 +6,7 @@ import {
   addDays,
   isValidTime,
   lagosLocalDate,
-  type AnchoredDose,
+  type ResolvedAnchor,
   type AnchorId,
   type AnchorProfile,
 } from "@tarragon/medicines";
@@ -103,8 +103,8 @@ export function useAnchorProfile(patientId: string): { profile: AnchorProfile; r
 
 export interface AnchorPickerProps {
   patientId: string;
-  value: AnchoredDose[];
-  onChange: (next: AnchoredDose[]) => void;
+  value: ResolvedAnchor[];
+  onChange: (next: ResolvedAnchor[]) => void;
   /** Times the patient has typed for anchors in this form, not yet saved. */
   drafts: Partial<Record<AnchorId, string>>;
   onDrafts: (next: Partial<Record<AnchorId, string>>) => void;

@@ -59,133 +59,182 @@ begin
 
   -- case 1
   v_p := pg_temp.mkpatient(v_org, 'c1');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000a3', 'breakfast', v_org);
   v_got := '';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "breakfast", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a3", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
   insert into results values ('real', $n$with breakfast, the patient never set it: the proposed default$n$, '2026-10-05=07:30;', v_got);
   -- case 2
   v_p := pg_temp.mkpatient(v_org, 'c2');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000a3', 'breakfast', v_org);
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_p, 'breakfast', date '2000-01-01', '08:15', v_org);
   v_got := '';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "breakfast", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a3", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
   insert into results values ('real', $n$with breakfast at the time the patient chose$n$, '2026-10-05=08:15;', v_got);
   -- case 3
   v_p := pg_temp.mkpatient(v_org, 'c3');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000a8', 'dinner', v_org);
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000a2', 'morning_prayer', v_org);
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_p, 'morning_prayer', date '2000-01-01', '05:20', v_org);
   v_got := '';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "morning_prayer", "offsetMinutes": 30}, {"anchor": "dinner", "offsetMinutes": -30}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a2", "offsetMinutes": 30}, {"slot": "s00000000a8", "offsetMinutes": -30}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
   insert into results values ('real', $n$thirty minutes after the morning prayer, and thirty before dinner$n$, '2026-10-05=05:50,19:00;', v_got);
   -- case 4
   v_p := pg_temp.mkpatient(v_org, 'c4');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000a3', 'breakfast', v_org);
   v_got := '';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": ["07:30", "21:00"], "anchored": [{"anchor": "breakfast", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": ["07:30", "21:00"], "anchored": [{"slot": "s00000000a3", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
   insert into results values ('real', $n$a fixed clock time beside an anchored one, and a duplicate time is one dose$n$, '2026-10-05=07:30,21:00;', v_got);
   -- case 5
   v_p := pg_temp.mkpatient(v_org, 'c5');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000a8', 'dinner', v_org);
   insert into public.patient_day_shifts (patient_id, organisation_id, starts_on, ends_on, offsets, cancelled_from, created_at) values (v_p, v_org, date '2026-10-05', date '2026-10-07', '{"dinner": 90}'::jsonb, null, now() + interval '0 seconds');
   v_got := '';
-  v_got := v_got || '2026-10-04=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "dinner", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-04', v_p)), '') || ';';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "dinner", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
-  v_got := v_got || '2026-10-07=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "dinner", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-07', v_p)), '') || ';';
-  v_got := v_got || '2026-10-08=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "dinner", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-08', v_p)), '') || ';';
+  v_got := v_got || '2026-10-04=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a8", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-04', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a8", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-07=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a8", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-07', v_p)), '') || ';';
+  v_got := v_got || '2026-10-08=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a8", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-08', v_p)), '') || ';';
   insert into results values ('real', $n$a day shift moves the anchor on its dates only, then returns to normal$n$, '2026-10-04=19:30;2026-10-05=21:00;2026-10-07=21:00;2026-10-08=19:30;', v_got);
   -- case 6
   v_p := pg_temp.mkpatient(v_org, 'c6');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000a3', 'breakfast', v_org);
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000a8', 'dinner', v_org);
   insert into public.patient_day_shifts (patient_id, organisation_id, starts_on, ends_on, offsets, cancelled_from, created_at) values (v_p, v_org, date '2026-10-05', date '2026-10-06', '{"breakfast": -120}'::jsonb, null, now() + interval '0 seconds');
   v_got := '';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "breakfast", "offsetMinutes": 0}, {"anchor": "dinner", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a3", "offsetMinutes": 0}, {"slot": "s00000000a8", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
   insert into results values ('real', $n$a shift moves only the anchors it names$n$, '2026-10-05=05:30,19:30;', v_got);
   -- case 7
   v_p := pg_temp.mkpatient(v_org, 'c7');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000a8', 'dinner', v_org);
   insert into public.patient_day_shifts (patient_id, organisation_id, starts_on, ends_on, offsets, cancelled_from, created_at) values (v_p, v_org, date '2026-10-05', date '2026-10-09', '{"dinner": 60}'::jsonb, null, now() + interval '0 seconds');
   insert into public.patient_day_shifts (patient_id, organisation_id, starts_on, ends_on, offsets, cancelled_from, created_at) values (v_p, v_org, date '2026-10-06', date '2026-10-07', '{"dinner": -30}'::jsonb, null, now() + interval '1 seconds');
   v_got := '';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "dinner", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
-  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "dinner", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
-  v_got := v_got || '2026-10-08=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "dinner", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-08', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a8", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a8", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
+  v_got := v_got || '2026-10-08=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a8", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-08', v_p)), '') || ';';
   insert into results values ('real', $n$when two shifts cover a date the one listed last (the newest) applies$n$, '2026-10-05=20:30;2026-10-06=19:00;2026-10-08=20:30;', v_got);
   -- case 8
   v_p := pg_temp.mkpatient(v_org, 'c8');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000b0', 'bedtime', v_org);
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_p, 'bedtime', date '2000-01-01', '23:30', v_org);
   v_got := '';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "bedtime", "offsetMinutes": 60}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
-  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "bedtime", "offsetMinutes": 60}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000b0", "offsetMinutes": 60}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000b0", "offsetMinutes": 60}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
   insert into results values ('real', $n$an hour after a 23:30 bedtime is 00:30 on the NEXT date, not 23:59 on the same one$n$, '2026-10-05=00:30;2026-10-06=00:30;', v_got);
   -- case 9
   v_p := pg_temp.mkpatient(v_org, 'c9');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000a1', 'waking', v_org);
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_p, 'waking', date '2000-01-01', '00:10', v_org);
   v_got := '';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "waking", "offsetMinutes": -30}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a1", "offsetMinutes": -30}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
   insert into results values ('real', $n$half an hour before a 00:10 waking is 23:40 on the PREVIOUS date$n$, '2026-10-05=23:40;', v_got);
   -- case 10
   v_p := pg_temp.mkpatient(v_org, 'c10');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000b0', 'bedtime', v_org);
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_p, 'bedtime', date '2000-01-01', '23:30', v_org);
   insert into public.patient_day_shifts (patient_id, organisation_id, starts_on, ends_on, offsets, cancelled_from, created_at) values (v_p, v_org, date '2026-10-05', date '2026-10-05', '{"bedtime": 45}'::jsonb, null, now() + interval '0 seconds');
   v_got := '';
-  v_got := v_got || '2026-10-04=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "bedtime", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-04', v_p)), '') || ';';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "bedtime", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
-  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "bedtime", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
+  v_got := v_got || '2026-10-04=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000b0", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-04', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000b0", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000b0", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
   insert into results values ('real', $n$a shift can carry an anchor across midnight, and the day the dose belongs to decides the shift$n$, '2026-10-04=23:30;2026-10-05=;2026-10-06=00:15,23:30;', v_got);
   -- case 11
   v_p := pg_temp.mkpatient(v_org, 'c11');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000b0', 'bedtime', v_org);
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_p, 'bedtime', date '2000-01-01', '23:00', v_org);
   v_got := '';
-  v_got := v_got || '2026-10-01=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "every_n_days", "intervalDays": 3, "anchorDate": "2026-10-01", "times": [], "anchored": [{"anchor": "bedtime", "offsetMinutes": 90}]}$s$::jsonb, null, date '2026-10-01', v_p)), '') || ';';
-  v_got := v_got || '2026-10-02=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "every_n_days", "intervalDays": 3, "anchorDate": "2026-10-01", "times": [], "anchored": [{"anchor": "bedtime", "offsetMinutes": 90}]}$s$::jsonb, null, date '2026-10-02', v_p)), '') || ';';
-  v_got := v_got || '2026-10-03=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "every_n_days", "intervalDays": 3, "anchorDate": "2026-10-01", "times": [], "anchored": [{"anchor": "bedtime", "offsetMinutes": 90}]}$s$::jsonb, null, date '2026-10-03', v_p)), '') || ';';
-  v_got := v_got || '2026-10-04=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "every_n_days", "intervalDays": 3, "anchorDate": "2026-10-01", "times": [], "anchored": [{"anchor": "bedtime", "offsetMinutes": 90}]}$s$::jsonb, null, date '2026-10-04', v_p)), '') || ';';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "every_n_days", "intervalDays": 3, "anchorDate": "2026-10-01", "times": [], "anchored": [{"anchor": "bedtime", "offsetMinutes": 90}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-01=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "every_n_days", "intervalDays": 3, "anchorDate": "2026-10-01", "times": [], "anchored": [{"slot": "s00000000b0", "offsetMinutes": 90}]}$s$::jsonb, null, date '2026-10-01', v_p)), '') || ';';
+  v_got := v_got || '2026-10-02=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "every_n_days", "intervalDays": 3, "anchorDate": "2026-10-01", "times": [], "anchored": [{"slot": "s00000000b0", "offsetMinutes": 90}]}$s$::jsonb, null, date '2026-10-02', v_p)), '') || ';';
+  v_got := v_got || '2026-10-03=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "every_n_days", "intervalDays": 3, "anchorDate": "2026-10-01", "times": [], "anchored": [{"slot": "s00000000b0", "offsetMinutes": 90}]}$s$::jsonb, null, date '2026-10-03', v_p)), '') || ';';
+  v_got := v_got || '2026-10-04=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "every_n_days", "intervalDays": 3, "anchorDate": "2026-10-01", "times": [], "anchored": [{"slot": "s00000000b0", "offsetMinutes": 90}]}$s$::jsonb, null, date '2026-10-04', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "every_n_days", "intervalDays": 3, "anchorDate": "2026-10-01", "times": [], "anchored": [{"slot": "s00000000b0", "offsetMinutes": 90}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
   insert into results values ('real', $n$every third day: only the occurrence days, and one that crosses midnight lands on the next date$n$, '2026-10-01=;2026-10-02=00:30;2026-10-03=;2026-10-04=;2026-10-05=00:30;', v_got);
   -- case 12
   v_p := pg_temp.mkpatient(v_org, 'c12');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000a9', 'night_prayer', v_org);
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_p, 'night_prayer', date '2000-01-01', '22:00', v_org);
   v_got := '';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "weekdays", "days": [1], "times": [], "anchored": [{"anchor": "night_prayer", "offsetMinutes": 180}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
-  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "weekdays", "days": [1], "times": [], "anchored": [{"anchor": "night_prayer", "offsetMinutes": 180}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
-  v_got := v_got || '2026-10-07=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "weekdays", "days": [1], "times": [], "anchored": [{"anchor": "night_prayer", "offsetMinutes": 180}]}$s$::jsonb, null, date '2026-10-07', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "weekdays", "days": [1], "times": [], "anchored": [{"slot": "s00000000a9", "offsetMinutes": 180}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "weekdays", "days": [1], "times": [], "anchored": [{"slot": "s00000000a9", "offsetMinutes": 180}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
+  v_got := v_got || '2026-10-07=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "weekdays", "days": [1], "times": [], "anchored": [{"slot": "s00000000a9", "offsetMinutes": 180}]}$s$::jsonb, null, date '2026-10-07', v_p)), '') || ';';
   insert into results values ('real', $n$certain weekdays: an anchored dose on a Monday that crosses midnight lands on Tuesday$n$, '2026-10-05=;2026-10-06=01:00;2026-10-07=;', v_got);
   -- case 13
   v_p := pg_temp.mkpatient(v_org, 'c13');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000b0', 'bedtime', v_org);
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_p, 'bedtime', date '2000-01-01', '23:30', v_org);
   v_got := '';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "endDate": "2026-10-05", "anchored": [{"anchor": "bedtime", "offsetMinutes": 60}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
-  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "endDate": "2026-10-05", "anchored": [{"anchor": "bedtime", "offsetMinutes": 60}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
-  v_got := v_got || '2026-10-07=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "endDate": "2026-10-05", "anchored": [{"anchor": "bedtime", "offsetMinutes": 60}]}$s$::jsonb, null, date '2026-10-07', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "endDate": "2026-10-05", "anchored": [{"slot": "s00000000b0", "offsetMinutes": 60}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "endDate": "2026-10-05", "anchored": [{"slot": "s00000000b0", "offsetMinutes": 60}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
+  v_got := v_got || '2026-10-07=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "endDate": "2026-10-05", "anchored": [{"slot": "s00000000b0", "offsetMinutes": 60}]}$s$::jsonb, null, date '2026-10-07', v_p)), '') || ';';
   insert into results values ('real', $n$the end date is the last schedule day: its dose that crosses midnight still lands, the next one does not$n$, '2026-10-05=00:30;2026-10-06=00:30;2026-10-07=;', v_got);
   -- case 14
   v_p := pg_temp.mkpatient(v_org, 'c14');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000b0', 'bedtime', v_org);
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_p, 'bedtime', date '2000-01-01', '23:30', v_org);
   v_got := '';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "startDate": "2026-10-05", "anchored": [{"anchor": "bedtime", "offsetMinutes": 60}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
-  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "startDate": "2026-10-05", "anchored": [{"anchor": "bedtime", "offsetMinutes": 60}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "startDate": "2026-10-05", "anchored": [{"slot": "s00000000b0", "offsetMinutes": 60}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "startDate": "2026-10-05", "anchored": [{"slot": "s00000000b0", "offsetMinutes": 60}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
   insert into results values ('real', $n$the start date: nothing resolves from a schedule day before it$n$, '2026-10-05=;2026-10-06=00:30;', v_got);
   -- case 15
   v_p := pg_temp.mkpatient(v_org, 'c15');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000a3', 'breakfast', v_org);
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_p, 'breakfast', date '2026-09-01', '07:00', v_org);
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_p, 'breakfast', date '2026-10-06', '08:30', v_org);
   v_got := '';
-  v_got := v_got || '2026-09-15=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "breakfast", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-09-15', v_p)), '') || ';';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "breakfast", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
-  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "breakfast", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
-  v_got := v_got || '2026-10-20=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "breakfast", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-20', v_p)), '') || ';';
+  v_got := v_got || '2026-09-15=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a3", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-09-15', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a3", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a3", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
+  v_got := v_got || '2026-10-20=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a3", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-20', v_p)), '') || ';';
   insert into results values ('real', $n$a changed anchor time applies from its own date: earlier days keep the old time$n$, '2026-09-15=07:00;2026-10-05=07:00;2026-10-06=08:30;2026-10-20=08:30;', v_got);
   -- case 16
   v_p := pg_temp.mkpatient(v_org, 'c16');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000a5', 'lunch', v_org);
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_p, 'lunch', date '2026-10-06', '12:00', v_org);
   v_got := '';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "lunch", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
-  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "lunch", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a5", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a5", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
   insert into results values ('real', $n$before the patient's first chosen time takes effect the proposed default applies$n$, '2026-10-05=13:00;2026-10-06=12:00;', v_got);
   -- case 17
   v_p := pg_temp.mkpatient(v_org, 'c17');
+  insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id) values (v_p, 's00000000a8', 'dinner', v_org);
   insert into public.patient_day_shifts (patient_id, organisation_id, starts_on, ends_on, offsets, cancelled_from, created_at) values (v_p, v_org, date '2026-10-05', date '2026-10-10', '{"dinner": 60}'::jsonb, date '2026-10-07', now() + interval '0 seconds');
   v_got := '';
-  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "dinner", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
-  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "dinner", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
-  v_got := v_got || '2026-10-07=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "dinner", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-07', v_p)), '') || ';';
-  v_got := v_got || '2026-10-09=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"anchor": "dinner", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-09', v_p)), '') || ';';
+  v_got := v_got || '2026-10-05=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a8", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-05', v_p)), '') || ';';
+  v_got := v_got || '2026-10-06=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a8", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-06', v_p)), '') || ';';
+  v_got := v_got || '2026-10-07=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a8", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-07', v_p)), '') || ';';
+  v_got := v_got || '2026-10-09=' || coalesce((select string_agg(slot_time, ',' order by slot_time) from private.medication_slots_on($s${"kind": "daily", "times": [], "anchored": [{"slot": "s00000000a8", "offsetMinutes": 0}]}$s$::jsonb, null, date '2026-10-09', v_p)), '') || ';';
   insert into results values ('real', $n$ending a shift early leaves the days already lived as they were$n$, '2026-10-05=20:30;2026-10-06=20:30;2026-10-07=19:30;2026-10-09=19:30;', v_got);
 end
 $$;
+
+
+-- The readable form of a schedule ({"anchor":"breakfast"}) turned into what is stored ({"slot":"s00000000a3"}), making the patient's slot
+-- for that anchor the first time it is needed. The proof reads better in anchors; the database only ever sees slots.
+create or replace function pg_temp.slot_of(p_patient uuid, p_anchor text) returns text language plpgsql as $f$
+declare v text;
+begin
+  select slot into v from public.patient_dose_anchor_slots where patient_id = p_patient and anchor = p_anchor;
+  if v is null then
+    v := (select s from (values ('waking','s00000000a1'),('morning_prayer','s00000000a2'),('breakfast','s00000000a3'),('midday_prayer','s00000000a4'),
+                                ('lunch','s00000000a5'),('afternoon_prayer','s00000000a6'),('evening_prayer','s00000000a7'),('dinner','s00000000a8'),
+                                ('night_prayer','s00000000a9'),('bedtime','s00000000b0')) t(a, s) where a = p_anchor);
+    if v is not null then
+      insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id)
+        values (p_patient, v, p_anchor, (select organisation_id from public.profiles where id = p_patient));
+    end if;
+  end if;
+  return v;
+end $f$;
+
+create or replace function pg_temp.aspec(p_patient uuid, p_spec text) returns jsonb language plpgsql as $f$
+declare j jsonb := p_spec::jsonb;
+begin
+  if jsonb_typeof(j -> 'anchored') = 'array' then
+    j := jsonb_set(j, '{anchored}', (
+      select coalesce(jsonb_agg(jsonb_build_object('slot', pg_temp.slot_of(p_patient, e ->> 'anchor'), 'offsetMinutes', e -> 'offsetMinutes')), '[]'::jsonb)
+        from jsonb_array_elements(j -> 'anchored') e));
+  end if;
+  return j;
+end $f$;
 
 -- 2. The validator, rule by rule (the same cases as parseScheduleSpec without a profile) -----------------------------------
 do $$
@@ -195,30 +244,36 @@ begin
   select id into v_org from public.organisations order by created_at limit 1;
   for c in
     select * from (values
-      ('anchored only, daily', '{"kind":"daily","anchored":[{"anchor":"dinner","offsetMinutes":-30}]}', true),
-      ('anchored only with empty times', '{"kind":"daily","times":[],"anchored":[{"anchor":"dinner","offsetMinutes":0}]}', true),
+      ('anchored only, daily', '{"kind":"daily","anchored":[{"slot":"s00000000a8","offsetMinutes":-30}]}', true),
+      ('anchored only with empty times', '{"kind":"daily","times":[],"anchored":[{"slot":"s00000000a8","offsetMinutes":0}]}', true),
       ('no times and no anchors', '{"kind":"daily","times":[]}', false),
       ('no times key and no anchors', '{"kind":"daily"}', false),
-      ('unknown anchor', '{"kind":"daily","anchored":[{"anchor":"brunch","offsetMinutes":0}]}', false),
-      ('offset 180 is the most after', '{"kind":"daily","anchored":[{"anchor":"bedtime","offsetMinutes":180}]}', true),
-      ('offset -120 is the most before', '{"kind":"daily","anchored":[{"anchor":"waking","offsetMinutes":-120}]}', true),
-      ('offset 181', '{"kind":"daily","anchored":[{"anchor":"bedtime","offsetMinutes":181}]}', false),
-      ('offset -121', '{"kind":"daily","anchored":[{"anchor":"waking","offsetMinutes":-121}]}', false),
-      ('offset not whole', '{"kind":"daily","anchored":[{"anchor":"waking","offsetMinutes":1.5}]}', false),
-      ('offset a string', '{"kind":"daily","anchored":[{"anchor":"waking","offsetMinutes":"30"}]}', false),
-      ('anchored on as_needed', '{"kind":"as_needed","anchored":[{"anchor":"dinner","offsetMinutes":0}]}', false),
-      ('anchored on a taper', '{"kind":"taper","startDate":"2026-10-01","steps":[{"days":3,"times":["08:00"],"doseText":"one"}],"anchored":[{"anchor":"dinner","offsetMinutes":0}]}', false),
-      ('the same anchor and offset twice', '{"kind":"daily","anchored":[{"anchor":"lunch","offsetMinutes":0},{"anchor":"lunch","offsetMinutes":0}]}', false),
-      ('the same anchor at two offsets', '{"kind":"daily","anchored":[{"anchor":"lunch","offsetMinutes":0},{"anchor":"lunch","offsetMinutes":30}]}', true),
+      ('unknown anchor', '{"kind":"daily","anchored":[{"slot":"brunch","offsetMinutes":0}]}', false),
+      ('offset 180 is the most after', '{"kind":"daily","anchored":[{"slot":"s00000000b0","offsetMinutes":180}]}', true),
+      ('offset -120 is the most before', '{"kind":"daily","anchored":[{"slot":"s00000000a1","offsetMinutes":-120}]}', true),
+      ('offset 181', '{"kind":"daily","anchored":[{"slot":"s00000000b0","offsetMinutes":181}]}', false),
+      ('offset -121', '{"kind":"daily","anchored":[{"slot":"s00000000a1","offsetMinutes":-121}]}', false),
+      ('offset not whole', '{"kind":"daily","anchored":[{"slot":"s00000000a1","offsetMinutes":1.5}]}', false),
+      ('offset a string', '{"kind":"daily","anchored":[{"slot":"s00000000a1","offsetMinutes":"30"}]}', false),
+      ('anchored on as_needed', '{"kind":"as_needed","anchored":[{"slot":"s00000000a8","offsetMinutes":0}]}', false),
+      ('anchored on a taper', '{"kind":"taper","startDate":"2026-10-01","steps":[{"days":3,"times":["08:00"],"doseText":"one"}],"anchored":[{"slot":"s00000000a8","offsetMinutes":0}]}', false),
+      ('the same anchor and offset twice', '{"kind":"daily","anchored":[{"slot":"s00000000a5","offsetMinutes":0},{"slot":"s00000000a5","offsetMinutes":0}]}', false),
+      ('the same anchor at two offsets', '{"kind":"daily","anchored":[{"slot":"s00000000a5","offsetMinutes":0},{"slot":"s00000000a5","offsetMinutes":30}]}', true),
       ('anchored is not a list', '{"kind":"daily","times":["08:00"],"anchored":"dinner"}', false),
+      ('an entry that names the anchor instead of a slot', '{"kind":"daily","anchored":[{"anchor":"dinner","offsetMinutes":0}]}', false),
+      ('an entry that names a prayer', '{"kind":"daily","anchored":[{"anchor":"night_prayer","offsetMinutes":0}]}', false),
+      ('an entry with a slot AND the anchor name', '{"kind":"daily","anchored":[{"slot":"s00000000a8","offsetMinutes":0,"anchor":"dinner"}]}', false),
+      ('an upper-case slot', '{"kind":"daily","anchored":[{"slot":"S00000000A8","offsetMinutes":0}]}', false),
+      ('a prayer name anywhere else in the schedule', '{"kind":"daily","times":["08:00"],"note":"morning_prayer"}', false),
+      ('bedtime as a food note is not a prayer', '{"kind":"daily","times":["08:00"],"foodNote":"bedtime"}', true),
       ('anchored is null beside clock times', '{"kind":"daily","times":["08:00"],"anchored":null}', true),
       ('anchored entry is not an object', '{"kind":"daily","anchored":[null]}', false),
-      ('every N days, anchored', '{"kind":"every_n_days","intervalDays":3,"anchorDate":"2026-10-01","anchored":[{"anchor":"dinner","offsetMinutes":0}]}', true),
-      ('weekdays, anchored', '{"kind":"weekdays","days":[1],"anchored":[{"anchor":"dinner","offsetMinutes":0}]}', true),
-      ('clock times and anchored doses together: 12', '{"kind":"daily","times":["01:00","02:00","03:00","04:00","05:00","06:00","07:00","08:00","09:00","10:00","11:00"],"anchored":[{"anchor":"dinner","offsetMinutes":0}]}', true),
-      ('clock times and anchored doses together: 13', '{"kind":"daily","times":["01:00","02:00","03:00","04:00","05:00","06:00","07:00","08:00","09:00","10:00","11:00"],"anchored":[{"anchor":"dinner","offsetMinutes":0},{"anchor":"lunch","offsetMinutes":0}]}', false),
+      ('every N days, anchored', '{"kind":"every_n_days","intervalDays":3,"anchorDate":"2026-10-01","anchored":[{"slot":"s00000000a8","offsetMinutes":0}]}', true),
+      ('weekdays, anchored', '{"kind":"weekdays","days":[1],"anchored":[{"slot":"s00000000a8","offsetMinutes":0}]}', true),
+      ('clock times and anchored doses together: 12', '{"kind":"daily","times":["01:00","02:00","03:00","04:00","05:00","06:00","07:00","08:00","09:00","10:00","11:00"],"anchored":[{"slot":"s00000000a8","offsetMinutes":0}]}', true),
+      ('clock times and anchored doses together: 13', '{"kind":"daily","times":["01:00","02:00","03:00","04:00","05:00","06:00","07:00","08:00","09:00","10:00","11:00"],"anchored":[{"slot":"s00000000a8","offsetMinutes":0},{"slot":"s00000000a5","offsetMinutes":0}]}', false),
       ('a window beside overlapping clock times is still refused', '{"kind":"daily","times":["08:00","08:20"],"windowMinutes":30}', false),
-      ('a window with anchored doses only passes the profile-free check', '{"kind":"daily","windowMinutes":90,"anchored":[{"anchor":"waking","offsetMinutes":0},{"anchor":"breakfast","offsetMinutes":0}]}', true)
+      ('a window with anchored doses only passes the profile-free check', '{"kind":"daily","windowMinutes":90,"anchored":[{"slot":"s00000000a1","offsetMinutes":0},{"slot":"s00000000a3","offsetMinutes":0}]}', true)
     ) as t(name, spec, ok)
   loop
     insert into results values ('real', 'validator: ' || c.name, c.ok::text, private.is_valid_schedule_spec(c.spec::jsonb)::text);
@@ -228,22 +283,22 @@ begin
   v_p := pg_temp.mkpatient(v_org, 'val');
   begin
     insert into public.medications (organisation_id, patient_id, drug_name, schedule_times, schedule_spec, source, is_active)
-    values (v_org, v_p, 'S08z bad', '[]', '{"kind":"daily","anchored":[{"anchor":"brunch","offsetMinutes":0}]}', 'patient', true);
+    values (v_org, v_p, 'S08z bad', '[]', '{"kind":"daily","anchored":[{"slot":"brunch","offsetMinutes":0}]}', 'patient', true);
     v_err := 'accepted';
   exception when check_violation then v_err := 'refused'; end;
   insert into results values ('real', 'the column constraint refuses an unknown anchor', 'refused', v_err);
   begin
     insert into public.medications (organisation_id, patient_id, drug_name, schedule_times, schedule_spec, source, is_active)
-    values (v_org, v_p, 'S08z good', '["07:30"]', '{"kind":"daily","anchored":[{"anchor":"breakfast","offsetMinutes":0}]}', 'patient', true);
+    values (v_org, v_p, 'S08z good', '["07:30"]', '{"kind":"daily","anchored":[{"slot":"s00000000a3","offsetMinutes":0}]}', 'patient', true);
     v_err := 'accepted';
   exception when others then v_err := 'refused'; end;
   insert into results values ('real', 'the column constraint accepts an anchored schedule', 'accepted', v_err);
 
   -- No overload ambiguity: the 3-argument form still resolves with bare literals, and agrees with the 4-argument form with no patient.
-  insert into results values ('real', 'the 3-argument form still works and uses the defaults', '07:30',
-    (select string_agg(slot_time, ',') from private.medication_slots_on('{"kind":"daily","anchored":[{"anchor":"breakfast","offsetMinutes":0}]}', null, date '2026-10-05')));
-  insert into results values ('real', 'the 4-argument form with a null patient agrees', '07:30',
-    (select string_agg(slot_time, ',') from private.medication_slots_on('{"kind":"daily","anchored":[{"anchor":"breakfast","offsetMinutes":0}]}', null, date '2026-10-05', null)));
+  insert into results values ('real', 'the 3-argument form still works for clock times and resolves an anchored dose to nothing (no slot mapping)', '21:00',
+    (select string_agg(slot_time, ',') from private.medication_slots_on('{"kind":"daily","times":["21:00"],"anchored":[{"slot":"s00000000a3","offsetMinutes":0}]}', null, date '2026-10-05')));
+  insert into results values ('real', 'the 4-argument form with a null patient agrees', '21:00',
+    (select string_agg(slot_time, ',') from private.medication_slots_on('{"kind":"daily","times":["21:00"],"anchored":[{"slot":"s00000000a3","offsetMinutes":0}]}', null, date '2026-10-05', null)));
 end
 $$;
 
@@ -260,7 +315,7 @@ begin
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values
     (v_p, 'breakfast', date '2000-01-01', '07:00', v_org), (v_p, 'breakfast', v_today - 1, '09:00', v_org);
   insert into public.medications (organisation_id, patient_id, drug_name, schedule_times, schedule_spec, source, is_active, created_at)
-    values (v_org, v_p, 'S08z drift', '["07:00"]', '{"kind":"daily","anchored":[{"anchor":"breakfast","offsetMinutes":0}]}', 'patient', true, now() - interval '6 days')
+    values (v_org, v_p, 'S08z drift', '["07:00"]', pg_temp.aspec(v_p, '{"kind":"daily","anchored":[{"anchor":"breakfast","offsetMinutes":0}]}'), 'patient', true, now() - interval '6 days')
     returning id into v_med;
   -- The patient took each day's dose at the time it was on that day.
   for d in select (v_today - g)::date from generate_series(4, 2, -1) g loop
@@ -275,13 +330,15 @@ begin
 end $f$;
 
 create or replace function pg_temp.shift_case() returns text language plpgsql as $f$
-declare v_org uuid; v_p uuid;
+declare v_org uuid; v_p uuid; v_spec jsonb;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_p := pg_temp.mkpatient(v_org, 'shiftcase');
+  -- The slot is made in its own statement: a stable function does not see a row inserted by the statement that calls it.
+  v_spec := pg_temp.aspec(v_p, '{"kind":"daily","anchored":[{"anchor":"dinner","offsetMinutes":0}]}');
   insert into public.patient_day_shifts (patient_id, organisation_id, starts_on, ends_on, offsets)
     values (v_p, v_org, date '2026-10-05', date '2026-10-07', '{"dinner":90}');
-  return coalesce((select string_agg(slot_time, ',') from private.medication_slots_on('{"kind":"daily","anchored":[{"anchor":"dinner","offsetMinutes":0}]}', null, date '2026-10-06', v_p)), '');
+  return coalesce((select string_agg(slot_time, ',') from private.medication_slots_on(v_spec, null, date '2026-10-06', v_p)), '');
 end $f$;
 
 -- Sets the caller for auth.uid() without switching role (the RPCs are security definer and check auth.uid()).
@@ -299,7 +356,7 @@ begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_p := pg_temp.mkpatient(v_org, 'effans');
   insert into public.medications (organisation_id, patient_id, drug_name, schedule_times, schedule_spec, source, is_active, created_at)
-    values (v_org, v_p, 'S08z answered', '["08:45"]', '{"kind":"daily","anchored":[{"anchor":"breakfast","offsetMinutes":0}]}', 'patient', true, now() - interval '3 days')
+    values (v_org, v_p, 'S08z answered', '["08:45"]', pg_temp.aspec(v_p, '{"kind":"daily","anchored":[{"anchor":"breakfast","offsetMinutes":0}]}'), 'patient', true, now() - interval '3 days')
     returning id into v_med;
   insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_time, scheduled_for_date, source, client_id)
     values (v_org, v_p, v_med, 'taken', '07:30', v_today, 'patient', gen_random_uuid());
@@ -320,7 +377,7 @@ begin
   v_p := pg_temp.mkpatient(v_org, 'missed');
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_p, 'breakfast', date '2000-01-01', '08:15', v_org);
   insert into public.medications (organisation_id, patient_id, drug_name, schedule_times, schedule_spec, source, is_active, created_at)
-    values (v_org, v_p, 'S08z anchored', '["07:30"]', '{"kind":"daily","anchored":[{"anchor":"breakfast","offsetMinutes":0}]}', 'patient', true, now() - interval '5 days')
+    values (v_org, v_p, 'S08z anchored', '["07:30"]', pg_temp.aspec(v_p, '{"kind":"daily","anchored":[{"anchor":"breakfast","offsetMinutes":0}]}'), 'patient', true, now() - interval '5 days')
     returning id into v_med;
   perform private.mark_overdue_doses_missed();
   select count(*) into v_n from public.medication_logs where medication_id = v_med and source = 'system' and status = 'missed' and scheduled_time = '08:15';
@@ -335,7 +392,7 @@ begin
   v_p := pg_temp.mkpatient(v_org, 'adh');
   insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_p, 'waking', date '2000-01-01', '00:05', v_org);
   insert into public.medications (organisation_id, patient_id, drug_name, schedule_times, schedule_spec, source, is_active, created_at)
-    values (v_org, v_p, 'S08z adh', '["00:05"]', '{"kind":"daily","anchored":[{"anchor":"waking","offsetMinutes":0}]}', 'patient', true, now() - interval '10 days')
+    values (v_org, v_p, 'S08z adh', '["00:05"]', pg_temp.aspec(v_p, '{"kind":"daily","anchored":[{"anchor":"waking","offsetMinutes":0}]}'), 'patient', true, now() - interval '10 days')
     returning id into v_med;
   for d in select (v_today - g)::date from generate_series(0, 6) g loop
     insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_time, scheduled_for_date, source, client_id)
@@ -352,7 +409,7 @@ begin
     values (v_org, v_p, 'S08z clock', '["08:00","20:00"]', '{"kind":"daily","times":["08:00","20:00"]}', 'patient', true, now() - interval '1 day')
     returning id into v_med;
   insert into public.medications (organisation_id, patient_id, drug_name, schedule_times, schedule_spec, source, is_active, created_at)
-    values (v_org, v_p, 'S08z anch', '["08:00","20:00"]', '{"kind":"daily","anchored":[{"anchor":"breakfast","offsetMinutes":0},{"anchor":"dinner","offsetMinutes":0}]}', 'patient', true, now() - interval '1 day')
+    values (v_org, v_p, 'S08z anch', '["08:00","20:00"]', pg_temp.aspec(v_p, '{"kind":"daily","anchored":[{"anchor":"breakfast","offsetMinutes":0},{"anchor":"dinner","offsetMinutes":0}]}'), 'patient', true, now() - interval '1 day')
     returning id into v_med2;
   insert into public.medication_supply (medication_id, organisation_id, patient_id, pills_on_hand, pills_per_dose) values (v_med, v_org, v_p, 10, 1), (v_med2, v_org, v_p, 10, 1);
   select run_out_date into v_run1 from private.medication_supply_status(v_med);
@@ -486,7 +543,7 @@ begin
   insert into results values ('real', 'a new anchor time starts tomorrow when today already has answers on it', '1', pg_temp.effective_with_answers());
   v_a := pg_temp.mkpatient(v_org, 'rpc-answers');
   insert into public.medications (organisation_id, patient_id, drug_name, schedule_times, schedule_spec, source, is_active, created_at)
-    values (v_org, v_a, 'S08z answered 2', '["07:30"]', '{"kind":"daily","anchored":[{"anchor":"breakfast","offsetMinutes":0}]}', 'patient', true, now() - interval '3 days')
+    values (v_org, v_a, 'S08z answered 2', '["07:30"]', pg_temp.aspec(v_a, '{"kind":"daily","anchored":[{"anchor":"breakfast","offsetMinutes":0}]}'), 'patient', true, now() - interval '3 days')
     returning id into v_med;
   insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_time, scheduled_for_date, source, client_id)
     values (v_org, v_a, v_med, 'taken', '07:30', v_today, 'patient', gen_random_uuid());
@@ -502,7 +559,7 @@ begin
   v_eff := public.cancel_day_shift(v_a, v_id2);
   insert into results values ('real', 'ending a shift on an anchor with answers today takes effect tomorrow', '1', (v_eff - v_today)::text);
   insert into results values ('real', 'shifts that begin tomorrow leave today as it was', '07:30',
-    (select string_agg(slot_time, ',') from private.medication_slots_on('{"kind":"daily","anchored":[{"anchor":"breakfast","offsetMinutes":0}]}', null, v_today, v_a)));
+    (select string_agg(slot_time, ',') from private.medication_slots_on(pg_temp.aspec(v_a, '{"kind":"daily","anchored":[{"anchor":"breakfast","offsetMinutes":0}]}'), null, v_today, v_a)));
 end
 $$;
 
@@ -517,12 +574,12 @@ begin
   -- Test defaults: waking 06:30 and breakfast 07:30 are an hour apart.
   begin
     insert into public.medications (organisation_id, patient_id, drug_name, schedule_times, schedule_spec, source, is_active)
-    values (v_org, v_g, 'S08z overlap', '["06:30","07:30"]', '{"kind":"daily","windowMinutes":90,"anchored":[{"anchor":"waking","offsetMinutes":0},{"anchor":"breakfast","offsetMinutes":0}]}', 'patient', true);
+    values (v_org, v_g, 'S08z overlap', '["06:30","07:30"]', pg_temp.aspec(v_g, '{"kind":"daily","windowMinutes":90,"anchored":[{"anchor":"waking","offsetMinutes":0},{"anchor":"breakfast","offsetMinutes":0}]}'), 'patient', true);
     v_err := 'accepted';
   exception when check_violation then v_err := 'refused'; end;
   insert into results values ('real', 'a window longer than the gap between two anchored doses is refused', 'refused', v_err);
   insert into public.medications (organisation_id, patient_id, drug_name, schedule_times, schedule_spec, source, is_active)
-  values (v_org, v_g, 'S08z fits', '["06:30","07:30"]', '{"kind":"daily","windowMinutes":30,"anchored":[{"anchor":"waking","offsetMinutes":0},{"anchor":"breakfast","offsetMinutes":0}]}', 'patient', true)
+  values (v_org, v_g, 'S08z fits', '["06:30","07:30"]', pg_temp.aspec(v_g, '{"kind":"daily","windowMinutes":30,"anchored":[{"anchor":"waking","offsetMinutes":0},{"anchor":"breakfast","offsetMinutes":0}]}'), 'patient', true)
   returning id into v_med;
   insert into results values ('real', 'the same doses with a window that fits are accepted (control)', 'true', (v_med is not null)::text);
   begin
@@ -538,7 +595,7 @@ begin
   -- and the pair (breakfast 12:30, lunch 18:00) is fine.
   v_g := pg_temp.mkpatient(v_org, 'guard-pair');
   insert into public.medications (organisation_id, patient_id, drug_name, schedule_times, schedule_spec, source, is_active)
-  values (v_org, v_g, 'S08z pair', '["07:30","13:00"]', '{"kind":"daily","windowMinutes":60,"anchored":[{"anchor":"breakfast","offsetMinutes":0},{"anchor":"lunch","offsetMinutes":0}]}', 'patient', true);
+  values (v_org, v_g, 'S08z pair', '["07:30","13:00"]', pg_temp.aspec(v_g, '{"kind":"daily","windowMinutes":60,"anchored":[{"anchor":"breakfast","offsetMinutes":0},{"anchor":"lunch","offsetMinutes":0}]}'), 'patient', true);
   perform pg_temp.as_user(v_g);
   v_eff := public.save_dose_anchor_times(v_g, '{"breakfast":"12:30","lunch":"18:00"}'::jsonb);
   insert into results values ('real', 'two anchors moved together are judged as a pair on the final state', '2',
@@ -549,9 +606,110 @@ begin
 end
 $$;
 
+
+-- 5b. RELIGIOUS BELIEF: no clinician, caregiver or other reader of a medicine can learn which prayers a patient ties a medicine to -----
+-- A medicine's schedule is read by the care team, caregivers, exports and printed reports. It stores an opaque slot, never the anchor, and the
+-- database refuses to store a schedule that names a prayer. The mapping from slot to anchor, the anchor times and the shifts are readable by the
+-- person and an acting guardian only. Tested as a TIED CLINICIAN and as a CAREGIVER, each with a control that the reader can read the medicine.
+create or replace function pg_temp.reader_sees(p_reader uuid, p_med uuid, p_prayer_pattern text) returns text language plpgsql as $f$
+declare v_rows integer; v_text text; v_other integer;
+begin
+  perform pg_temp.as_user(p_reader);
+  set local role authenticated;
+  select count(*), coalesce(string_agg(schedule_spec::text, ' '), '') into v_rows, v_text from public.medications where id = p_med;
+  select (select count(*) from public.patient_dose_anchors) + (select count(*) from public.patient_day_shifts) + (select count(*) from public.patient_dose_anchor_slots) into v_other;
+  reset role;
+  return v_rows::text || '|' || (v_text ~ p_prayer_pattern)::text || '|' || (v_text ~ 's[0-9a-f]{10}')::text || '|' || v_other::text;
+end $f$;
+
+do $$
+declare
+  v_org uuid; v_pat uuid; v_clin uuid; v_cg uuid; v_med uuid; v_med2 uuid;
+  v_pat_re text := '(morning|midday|afternoon|evening|night)_prayer';
+begin
+  select id into v_org from public.organisations order by created_at limit 1;
+  v_pat := pg_temp.mkpatient(v_org, 'priv-patient');
+  v_clin := pg_temp.mkpatient(v_org, 'priv-clinician');
+  v_cg := pg_temp.mkpatient(v_org, 'priv-caregiver');
+  update public.profiles set role = 'clinician' where id = v_clin;
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, indemnity_insurer, indemnity_policy_number, indemnity_expires_at)
+    values (v_org, v_clin, 'S08z privacy clinician', true, now(), 'senior_medical_officer', 'Probe Indemnity', 'S08Z-1', now() + interval '1 year');
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at) values (v_org, v_pat, v_clin, now())
+    on conflict (patient_id) do update set clinician_id = v_clin;
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, clinical_access, permissions)
+    values (v_pat, v_cg, 'view', v_pat, true, array['view_medication']::public.caregiver_permission[]);
+  -- A new grant starts with clinical access off; the patient turns it on as a separate act.
+  perform pg_temp.as_user(v_pat);
+  set local role authenticated;
+  update public.profile_access set clinical_access = true where profile_id = v_pat and grantee_user_id = v_cg;
+  reset role;
+
+  -- The patient ties a medicine to the night prayer (and one to dinner), with a time of their own and a shift.
+  insert into public.patient_dose_anchors (patient_id, anchor, effective_from, local_time, organisation_id) values (v_pat, 'night_prayer', date '2000-01-01', '20:10', v_org);
+  insert into public.patient_day_shifts (patient_id, organisation_id, starts_on, ends_on, offsets) values (v_pat, v_org, current_date, current_date + 5, '{"night_prayer":30}');
+  insert into public.medications (organisation_id, patient_id, drug_name, schedule_times, schedule_spec, source, is_active)
+    values (v_org, v_pat, 'S08z private', '["20:10"]', pg_temp.aspec(v_pat, '{"kind":"daily","anchored":[{"anchor":"night_prayer","offsetMinutes":0}]}'), 'patient', true) returning id into v_med;
+  -- The patient can read their own mapping, so the screen can say "after the night prayer".
+  perform pg_temp.as_user(v_pat);
+  set local role authenticated;
+  insert into results values ('real', 'the patient reads their own slot mapping', '1', (select count(*)::text from public.patient_dose_anchor_slots where anchor = 'night_prayer'));
+  reset role;
+
+  -- A tied clinician: the medicine is the control that the gate opens only if they can read it at all, so this is skipped honestly (not passed)
+  -- when staff cannot read the table directly (they read through audited functions that never return the schedule).
+  insert into results values ('real', 'a TIED CLINICIAN: whatever they can read of the medicine never contains a prayer name, and they read none of the anchor tables', 'ok',
+    case when split_part(pg_temp.reader_sees(v_clin, v_med, v_pat_re), '|', 2) = 'false' and split_part(pg_temp.reader_sees(v_clin, v_med, v_pat_re), '|', 4) = '0' then 'ok' else pg_temp.reader_sees(v_clin, v_med, v_pat_re) end);
+  insert into results values ('real', 'a CAREGIVER with the medicines permission reads the medicine (the gate opens), sees an opaque slot and no prayer name, and reads none of the anchor tables', '1|false|true|0',
+    pg_temp.reader_sees(v_cg, v_med, v_pat_re));
+  insert into results values ('real', 'the stored schedule of the medicine names a slot and no prayer', 'false|true',
+    (select (schedule_spec::text ~ v_pat_re)::text || '|' || (schedule_spec::text ~ 's[0-9a-f]{10}')::text from public.medications where id = v_med));
+
+  -- Nothing else a reader sees names the anchor: the stored legacy times are clock times, and the records the server writes carry time only.
+  insert into results values ('real', 'the legacy list of times on the medicine is clock times only', 'true', (select (schedule_times::text !~ '[a-z]')::text from public.medications where id = v_med));
+  insert into results values ('real', 'no stored medicine schedule anywhere names a prayer', 'false',
+    (exists (select 1 from public.medications where schedule_spec is not null and schedule_spec::text ~ v_pat_re))::text);
+
+  -- The database refuses to store one that does (the write path a future screen or import could take).
+  begin
+    insert into public.medications (organisation_id, patient_id, drug_name, schedule_times, schedule_spec, source, is_active)
+      values (v_org, v_pat, 'S08z leak', '["20:10"]', '{"kind":"daily","anchored":[{"anchor":"night_prayer","offsetMinutes":0}]}', 'patient', true);
+    insert into results values ('real', 'a schedule that names a prayer cannot be stored', 'refused', 'stored');
+  exception when check_violation then
+    insert into results values ('real', 'a schedule that names a prayer cannot be stored', 'refused', 'refused');
+  end;
+end
+$$;
+
+-- The probe the sabotage runs again: try to store a schedule that names the prayer, then read it as the caregiver.
+create or replace function pg_temp.leak_probe() returns text language plpgsql as $f$
+declare v_org uuid; v_pat uuid; v_cg uuid; v_med uuid; v_text text;
+begin
+  select id into v_org from public.organisations order by created_at limit 1;
+  v_pat := pg_temp.mkpatient(v_org, 'leak-patient');
+  v_cg := pg_temp.mkpatient(v_org, 'leak-caregiver');
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, clinical_access, permissions)
+    values (v_pat, v_cg, 'view', v_pat, true, array['view_medication']::public.caregiver_permission[]);
+  perform pg_temp.as_user(v_pat);
+  set local role authenticated;
+  update public.profile_access set clinical_access = true where profile_id = v_pat and grantee_user_id = v_cg;
+  reset role;
+  begin
+    insert into public.medications (organisation_id, patient_id, drug_name, schedule_times, schedule_spec, source, is_active)
+      values (v_org, v_pat, 'S08z leak probe', '["20:10"]', '{"kind":"daily","anchored":[{"anchor":"night_prayer","offsetMinutes":0}]}', 'patient', true) returning id into v_med;
+  exception when check_violation then
+    return 'refused';
+  end;
+  perform pg_temp.as_user(v_cg);
+  set local role authenticated;
+  select schedule_spec::text into v_text from public.medications where id = v_med;
+  reset role;
+  return case when v_text ~ 'night_prayer' then 'a caregiver can read the prayer name' else 'stored but hidden' end;
+end $f$;
+
 -- 6. Sabotage: each rule removed must flip its check ------------------------------------------------------------------------------
 -- The real answer to (b), taken before anything is sabotaged: dinner 19:30 moved 90 minutes.
 insert into results values ('real', 'a day shift moves the anchor on its dates', '21:00', pg_temp.shift_case());
+insert into results values ('real', 'a schedule that names a prayer is refused and so never readable by a caregiver', 'refused', pg_temp.leak_probe());
 -- (a) the date rule dropped from the anchor time: a changed time rewrites the days already lived.
 create or replace function private.dose_anchor_minutes(p_patient uuid, p_anchor text, p_date date)
 returns integer language sql stable security definer set search_path = '' as $$
@@ -566,6 +724,10 @@ insert into results values ('sabotaged', 'a changed anchor time writes no false 
 create or replace function private.dose_anchor_shift(p_patient uuid, p_anchor text, p_date date)
 returns integer language sql stable security definer set search_path = '' as $$ select 0; $$;
 insert into results values ('sabotaged', 'a day shift moves the anchor on its dates', '21:00', pg_temp.shift_case());
+
+-- (d) the database no longer refuses a schedule that names a prayer: a caregiver reads the prayer name off the medicine.
+alter table public.medications drop constraint medications_schedule_spec_valid;
+insert into results values ('sabotaged', 'a schedule that names a prayer is refused and so never readable by a caregiver', 'refused', pg_temp.leak_probe());
 
 -- (c) "today has answers" dropped.
 create or replace function private.anchor_day_has_answers(p_patient uuid, p_anchors text[], p_date date)
@@ -582,8 +744,8 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 3 then
-    raise exception 'VACUOUS TEST: only % of 3 sabotaged rules failed their check', v_caught;
+  if v_caught < 4 then
+    raise exception 'VACUOUS TEST: only % of 4 sabotaged rules failed their check', v_caught;
   end if;
 end $$;
 

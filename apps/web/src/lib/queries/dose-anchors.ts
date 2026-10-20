@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { loadAnchors, type LoadedAnchors } from "@/lib/medication-schedule/anchor-profile";
 import type { AnchorId } from "@tarragon/medicines";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@tarragon/shared";
 
 /** The patient's anchor times and day shifts (S08z), for the Today list and the "My day" card. */
 export function doseAnchorsKey(patientId: string) {
@@ -66,4 +68,31 @@ export function useEndDayShift() {
     },
     onSuccess: (_d, v) => queryClient.invalidateQueries({ queryKey: doseAnchorsKey(v.patientId) }),
   });
+}
+
+/**
+ * The opaque slot for each of these anchors, made by the server when missing. A medicine tied to the day stores the SLOT, never the
+ * anchor's name: which prayers a person uses discloses religious belief, and a medicine's schedule is read by the care team, caregivers
+ * and exports. Returns null when it could not be done.
+ */
+export async function ensureDoseAnchorSlots(
+  supabase: SupabaseClient<Database>,
+  patientId: string,
+  anchors: readonly AnchorId[]
+): Promise<Record<string, string> | null> {
+  try {
+    const unique = [...new Set(anchors)];
+    const { data, error } = await supabase.rpc("ensure_dose_anchor_slots", { p_patient: patientId, p_anchors: unique });
+    if (error || data === null || typeof data !== "object" || Array.isArray(data)) return null;
+    const map = data as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    for (const a of unique) {
+      const slot = map[a];
+      if (typeof slot !== "string") return null;
+      out[a] = slot;
+    }
+    return out;
+  } catch {
+    return null;
+  }
 }

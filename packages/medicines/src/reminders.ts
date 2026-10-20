@@ -1,5 +1,5 @@
 import { addDays, lagosLocalDate, lagosTimeToUtcMs, DAY_MS, MINUTE_MS } from "./lagos";
-import type { AnchoredDose } from "./anchors";
+import type { ResolvedAnchor } from "./anchors";
 import { slotsBetween, slotKey } from "./schedule";
 import type { ScheduleSpec } from "./types";
 
@@ -41,7 +41,7 @@ export interface PlannedNotification {
    * Set when EVERY dose in this notification is tied to the same daily anchor and offset (S08z), so the text can say "with
    * breakfast" in plain words. Absent when the notification mixes anchors or any clock-time dose: the generic wording then.
    */
-  anchor?: AnchoredDose;
+  anchor?: ResolvedAnchor;
 }
 
 export interface PlanConfig {
@@ -66,9 +66,9 @@ export function planDoseNotifications(
   const today = lagosLocalDate(nowMs);
   const last = addDays(today, cfg.horizonDays);
   const horizonMs = nowMs + cfg.horizonDays * DAY_MS;
-  type Entry = { keys: string[]; kind: NotificationKind; anchors: (AnchoredDose | null)[] };
+  type Entry = { keys: string[]; kind: NotificationKind; anchors: (ResolvedAnchor | null)[] };
   const byFire = new Map<number, Entry>();
-  const add = (fireAt: number, key: string, kind: NotificationKind, anchored: AnchoredDose | null) => {
+  const add = (fireAt: number, key: string, kind: NotificationKind, anchored: ResolvedAnchor | null) => {
     const existing = byFire.get(fireAt);
     if (!existing) byFire.set(fireAt, { keys: [key], kind, anchors: [anchored] });
     else {

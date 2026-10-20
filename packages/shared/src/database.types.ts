@@ -791,6 +791,45 @@ export type Database = {
           },
         ]
       }
+      patient_dose_anchor_slots: {
+        Row: {
+          anchor: string
+          created_at: string
+          organisation_id: string
+          patient_id: string
+          slot: string
+        }
+        Insert: {
+          anchor: string
+          created_at?: string
+          organisation_id: string
+          patient_id: string
+          slot: string
+        }
+        Update: {
+          anchor?: string
+          created_at?: string
+          organisation_id?: string
+          patient_id?: string
+          slot?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_dose_anchor_slots_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_dose_anchor_slots_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_dose_anchors: {
         Row: {
           anchor: string
@@ -48576,6 +48615,10 @@ export type Database = {
       cancel_day_shift: {
         Args: { p_id: string; p_patient: string }
         Returns: string
+      }
+      ensure_dose_anchor_slots: {
+        Args: { p_anchors: string[]; p_patient: string }
+        Returns: Json
       }
       create_day_shift: {
         Args: { p_client_id: string; p_ends_on: string; p_offsets: Json; p_patient: string; p_starts_on: string }

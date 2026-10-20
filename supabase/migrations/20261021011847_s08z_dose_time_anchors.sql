@@ -33,10 +33,14 @@
 --     has logged doses on an affected anchor, so resolution of a day with answers never changes. A change made on a phone that
 --     was offline and sent up to 3 days late is accepted from the date it was made ONLY when no dose on an affected anchor has
 --     been logged since; otherwise it starts today (never rewriting a day that has answers).
---   * Anchor times and shifts are readable by the person and an acting guardian ONLY. Which prayers a person ties a medicine to
---     discloses religious belief (special-category data), so tied clinicians and caregivers do not read these tables; they see the
---     resolved dose times through the ordinary medicine records. The care team's view of a shifted day is an open question
---     (OQ-S08z-2, OQ-S08z-5).
+--   * RELIGIOUS BELIEF. Which prayers a person ties a medicine to is special-category data, and a medicine's schedule is read by the care
+--     team, caregivers, exports, share links and printed reports. So a stored schedule NEVER names an anchor: it names an opaque
+--     per-patient SLOT ("anchored":[{"slot":"s1f3a9c02e","offsetMinutes":30}]), and the slot means something only through
+--     public.patient_dose_anchor_slots, which (like the anchor times and the shifts) the person and an acting guardian alone can read.
+--     private.is_valid_schedule_spec refuses any schedule that contains a prayer name anywhere, so the database itself will not store
+--     one, and the closing check below fails the migration if one exists or if a read policy on these tables names a clinical reader.
+--     What a reader of a medicine can still see: the resolved clock times, that some doses share a slot, and the offsets. The care
+--     team's view of a shifted day is an open question (OQ-S08z-2, OQ-S08z-5).
 --
 -- Row counts at writing (live): medications with a schedule_spec: 0 anchored (the field is new). Nothing is converted.
 -- Safe to apply: additive tables, one function replaced in place, four rewritten from their live definitions with exact-match
@@ -75,6 +79,27 @@ create table if not exists public.patient_dose_anchors (
   primary key (patient_id, anchor, effective_from)
 );
 create index if not exists patient_dose_anchors_org_idx on public.patient_dose_anchors (organisation_id);
+
+-- Which anchor each opaque slot stands for. A slot is made at random by ensure_dose_anchor_slots, one per patient and anchor, and is
+-- what a medicine's schedule stores in place of the anchor's name. Patient-private, like the anchor times.
+create table if not exists public.patient_dose_anchor_slots (
+  patient_id      uuid not null references public.profiles (id) on delete cascade,
+  slot            text not null check (slot ~ '^s[0-9a-f]{10}$'),
+  anchor          text not null check (anchor in ('waking', 'morning_prayer', 'breakfast', 'midday_prayer', 'lunch',
+                                                  'afternoon_prayer', 'evening_prayer', 'dinner', 'night_prayer', 'bedtime')),
+  organisation_id uuid not null references public.organisations (id),
+  created_at      timestamptz not null default now(),
+  primary key (patient_id, slot),
+  unique (patient_id, anchor)
+);
+create index if not exists patient_dose_anchor_slots_org_idx on public.patient_dose_anchor_slots (organisation_id);
+alter table public.patient_dose_anchor_slots enable row level security;
+drop policy if exists patient_dose_anchor_slots_select on public.patient_dose_anchor_slots;
+create policy patient_dose_anchor_slots_select on public.patient_dose_anchor_slots for select to authenticated using (
+  patient_id = (select auth.uid()) or private.can_act_for(patient_id)
+);
+revoke all on public.patient_dose_anchor_slots from public, anon, authenticated;
+grant select on public.patient_dose_anchor_slots to authenticated;
 
 create table if not exists public.patient_day_shifts (
   id              uuid primary key default gen_random_uuid(),
@@ -189,6 +214,13 @@ returns integer language sql immutable set search_path = '' as $$
    where (select count(distinct x) from unnest(p_minutes) x) >= 2;
 $$;
 
+-- The anchor an opaque slot stands for, for one patient; null when the patient has no such slot.
+create or replace function private.dose_slot_anchor(p_patient uuid, p_slot text)
+returns text language sql stable security definer set search_path = '' as $$
+  select s.anchor from public.patient_dose_anchor_slots s where s.patient_id = p_patient and s.slot = p_slot;
+$$;
+revoke all on function private.dose_slot_anchor(uuid, text) from public, anon, authenticated;
+
 -- The minute-of-day of every dose of a daily-shaped spec at its normal look (clock times plus anchored doses at the latest chosen
 -- anchor time, with one anchor optionally overridden to a proposed new time).
 create or replace function private.spec_normal_minutes(p_spec jsonb, p_patient uuid, p_override_anchor text default null, p_override_time text default null)
@@ -197,18 +229,20 @@ returns integer[] language sql stable security definer set search_path = '' as $
     select (substr(t, 1, 2)::integer * 60 + substr(t, 4, 2)::integer) as m
       from jsonb_array_elements_text(case when jsonb_typeof(p_spec -> 'times') = 'array' then p_spec -> 'times' else '[]'::jsonb end) t
     union all
-    select ((coalesce(case when a ->> 'anchor' = p_override_anchor and p_override_time is not null
+    select ((coalesce(case when x.anc = p_override_anchor and p_override_time is not null
                            then substr(p_override_time, 1, 2)::integer * 60 + substr(p_override_time, 4, 2)::integer end,
-                      private.dose_anchor_latest_minutes(p_patient, a ->> 'anchor'))
+                      private.dose_anchor_latest_minutes(p_patient, x.anc))
              + (a ->> 'offsetMinutes')::integer) % 1440 + 1440) % 1440
       from jsonb_array_elements(case when jsonb_typeof(p_spec -> 'anchored') = 'array' then p_spec -> 'anchored' else '[]'::jsonb end) a
+     cross join lateral (select private.dose_slot_anchor(p_patient, a ->> 'slot') as anc) x
+     where x.anc is not null
   ) q;
 $$;
 
 -- 3. The one SQL expansion ------------------------------------------------------------------------------------------
 -- The 4-argument form resolves anchored doses for a patient. An anchored dose belongs to the SCHEDULE day it was resolved from, so
 -- one that crosses midnight lands on the neighbouring date: this looks at the day before, the day itself and the day after and
--- keeps what resolves onto p_date. With no patient only the proposed defaults apply (the 3-argument wrapper below).
+-- keeps what resolves onto p_date. With no patient there is no slot mapping, so anchored doses resolve to nothing (the 3-argument wrapper).
 create or replace function private.medication_slots_on(p_spec jsonb, p_times jsonb, p_date date, p_patient uuid)
 returns table (slot_time text, dose_text text)
 language plpgsql stable security definer set search_path = '' as $$
@@ -224,6 +258,7 @@ declare
   v_ans   jsonb;
   v_a     jsonb;
   v_d     date;
+  v_anc   text;
   v_occ   boolean;
   v_total integer;
   v_min   integer;
@@ -277,8 +312,11 @@ begin
                  end;
         if not v_occ then continue; end if;
         for v_a in select * from jsonb_array_elements(v_ans) loop
-          v_total := private.dose_anchor_minutes(p_patient, v_a ->> 'anchor', v_d)
-                     + private.dose_anchor_shift(p_patient, v_a ->> 'anchor', v_d)
+          -- The schedule names an opaque slot; the patient's own mapping says which anchor it is. A slot with no mapping has no time.
+          v_anc := private.dose_slot_anchor(p_patient, v_a ->> 'slot');
+          if v_anc is null then continue; end if;
+          v_total := private.dose_anchor_minutes(p_patient, v_anc, v_d)
+                     + private.dose_anchor_shift(p_patient, v_anc, v_d)
                      + (v_a ->> 'offsetMinutes')::integer;
           if v_d + floor(v_total / 1440.0)::integer = p_date then
             v_min := ((v_total % 1440) + 1440) % 1440;
@@ -301,7 +339,7 @@ exception when others then
 end;
 $$;
 
--- The 3-argument form is kept for callers with no patient in hand: proposed defaults only.
+-- The 3-argument form is kept for callers with no patient in hand: clock times only (an anchored dose needs the patient's slot mapping).
 create or replace function private.medication_slots_on(p_spec jsonb, p_times jsonb, p_date date)
 returns table (slot_time text, dose_text text)
 language sql stable security definer set search_path = '' as $$
@@ -359,8 +397,8 @@ returns boolean language sql immutable set search_path = '' as $$
               else private.schedule_times_ok(p_times) end;
 $$;
 
--- `anchored`: an array of at most 12 { anchor, offsetMinutes } (a known anchor, whole minutes from -120 to 180, no repeat of the
--- same pair), only on daily, every-N-days and weekdays schedules.
+-- `anchored`: an array of at most 12 { slot, offsetMinutes } (an opaque slot key, whole minutes from -120 to 180, nothing else in the
+-- entry, no repeat of the same pair), only on daily, every-N-days and weekdays schedules. An entry that names an anchor is refused.
 create or replace function private.schedule_anchored_ok(p_anchored jsonb)
 returns boolean language plpgsql immutable set search_path = '' as $$
 begin
@@ -369,14 +407,14 @@ begin
   if exists (
     select 1 from jsonb_array_elements(p_anchored) e
      where jsonb_typeof(e) <> 'object'
-        or jsonb_typeof(e -> 'anchor') is distinct from 'string'
-        or (e ->> 'anchor') <> all (array['waking', 'morning_prayer', 'breakfast', 'midday_prayer', 'lunch', 'afternoon_prayer',
-                                          'evening_prayer', 'dinner', 'night_prayer', 'bedtime'])
+        or jsonb_typeof(e -> 'slot') is distinct from 'string'
+        or (e ->> 'slot') !~ '^s[0-9a-f]{10}$'
+        or exists (select 1 from jsonb_object_keys(e) k where k not in ('slot', 'offsetMinutes'))
         or not private.schedule_int_ok(e -> 'offsetMinutes', -120, 180)) then
     return false;
   end if;
   if (select count(*) from jsonb_array_elements(p_anchored)) <>
-     (select count(distinct ((e ->> 'anchor') || '|' || (e ->> 'offsetMinutes'))) from jsonb_array_elements(p_anchored) e) then
+     (select count(distinct ((e ->> 'slot') || '|' || (e ->> 'offsetMinutes'))) from jsonb_array_elements(p_anchored) e) then
     return false;
   end if;
   return true;
@@ -403,6 +441,8 @@ declare
 begin
   if p_spec is null then return true; end if;
   if jsonb_typeof(p_spec) <> 'object' then return false; end if;
+  -- A stored schedule never names a prayer (religious belief): a reader of the medicine would see it. The slot is the only way in.
+  if p_spec::text ~ '(morning|midday|afternoon|evening|night)_prayer' then return false; end if;
 
   if p_spec ? 'startDate' and jsonb_typeof(p_spec -> 'startDate') <> 'null' then
     if jsonb_typeof(p_spec -> 'startDate') <> 'string' or not private.schedule_date_ok(p_spec ->> 'startDate') then return false; end if;
@@ -570,7 +610,8 @@ returns boolean language sql stable security definer set search_path = '' as $$
       join public.medications m on m.id = l.medication_id
      where l.patient_id = p_patient and l.scheduled_for_date in (p_date - 1, p_date, p_date + 1) and l.scheduled_time is not null
        and jsonb_typeof(m.schedule_spec -> 'anchored') = 'array'
-       and exists (select 1 from jsonb_array_elements(m.schedule_spec -> 'anchored') a where (a ->> 'anchor') = any (p_anchors)));
+       and exists (select 1 from jsonb_array_elements(m.schedule_spec -> 'anchored') a
+                    where (a ->> 'slot') in (select sl.slot from public.patient_dose_anchor_slots sl where sl.patient_id = p_patient and sl.anchor = any (p_anchors))));
 $$;
 revoke all on function private.anchor_day_has_answers(uuid, text[], date) from public, anon, authenticated;
 
@@ -584,9 +625,49 @@ returns boolean language sql stable security definer set search_path = '' as $$
       join public.medications m on m.id = l.medication_id
      where l.patient_id = p_patient and l.scheduled_for_date >= p_from - 1 and l.scheduled_time is not null
        and jsonb_typeof(m.schedule_spec -> 'anchored') = 'array'
-       and exists (select 1 from jsonb_array_elements(m.schedule_spec -> 'anchored') a where (a ->> 'anchor') = any (p_anchors)));
+       and exists (select 1 from jsonb_array_elements(m.schedule_spec -> 'anchored') a
+                    where (a ->> 'slot') in (select sl.slot from public.patient_dose_anchor_slots sl where sl.patient_id = p_patient and sl.anchor = any (p_anchors))));
 $$;
 revoke all on function private.anchor_logs_since(uuid, text[], date) from public, anon, authenticated;
+
+-- The slots for these anchors for one patient, made at random when missing: { "breakfast": "s1f3a9c02e", ... }. A medicine tied to an
+-- anchor stores the slot, never the anchor's name. Callable by the person or an acting guardian only.
+create or replace function public.ensure_dose_anchor_slots(p_patient uuid, p_anchors text[])
+returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_uid uuid := (select auth.uid());
+  a     text;
+  v_slot text;
+  v_out jsonb := '{}'::jsonb;
+begin
+  if v_uid is null or (v_uid <> p_patient and not private.can_act_for(p_patient)) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  if p_anchors is null or cardinality(p_anchors) = 0 or exists (select 1 from unnest(p_anchors) x where x <> all (private.dose_anchor_ids())) then
+    raise exception 'unknown anchor' using errcode = '22023';
+  end if;
+  foreach a in array p_anchors loop
+    select slot into v_slot from public.patient_dose_anchor_slots where patient_id = p_patient and anchor = a;
+    if v_slot is null then
+      loop
+        v_slot := 's' || substr(replace(gen_random_uuid()::text, '-', ''), 1, 10);
+        begin
+          insert into public.patient_dose_anchor_slots (patient_id, slot, anchor, organisation_id)
+          values (p_patient, v_slot, a, (select organisation_id from public.profiles where id = p_patient));
+          exit;
+        exception when unique_violation then
+          -- Either the slot key collided (try another) or a concurrent call made this anchor's slot (use it).
+          select slot into v_slot from public.patient_dose_anchor_slots where patient_id = p_patient and anchor = a;
+          exit when v_slot is not null;
+        end;
+      end loop;
+    end if;
+    v_out := v_out || jsonb_build_object(a, v_slot);
+  end loop;
+  return v_out;
+end;
+$$;
 
 create or replace function public.save_dose_anchor_times(p_patient uuid, p_times jsonb, p_effective_from date default null)
 returns date
@@ -698,6 +779,8 @@ begin
   return v_from;
 end;
 $$;
+revoke all on function public.ensure_dose_anchor_slots(uuid, text[]) from public, anon;
+grant execute on function public.ensure_dose_anchor_slots(uuid, text[]) to authenticated;
 revoke all on function public.save_dose_anchor_times(uuid, jsonb, date) from public, anon;
 revoke all on function public.create_day_shift(uuid, uuid, date, date, jsonb) from public, anon;
 revoke all on function public.cancel_day_shift(uuid, uuid) from public, anon;
@@ -710,7 +793,7 @@ grant execute on function public.cancel_day_shift(uuid, uuid) to authenticated;
 insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, reviewed, notes)
 select t, 'patient_id', private.retention_class_for(t), 'review', true, false,
        'Added by S08z (2026-10-21). Class proposed by the standing name rule; awaiting the next CMO and DPO class review. SPECIAL-CATEGORY: which prayers a person ties a medicine to discloses religious belief; readable by the person and an acting guardian only (OQ-S08z-5).'
-  from unnest(array['patient_dose_anchors', 'patient_day_shifts']) t
+  from unnest(array['patient_dose_anchors', 'patient_day_shifts', 'patient_dose_anchor_slots']) t
 on conflict (table_name) do nothing;
 
 -- 8. Closing self-check ------------------------------------------------------------------------------------------------------
@@ -719,21 +802,26 @@ declare v_fn text;
 begin
   if (select count(*) from public.dose_anchor_defaults) <> 10 then raise exception 'S08z: expected 10 anchor defaults'; end if;
   if exists (select 1 from information_schema.table_privileges
-              where table_name in ('dose_anchor_defaults', 'patient_dose_anchors', 'patient_day_shifts')
+              where table_name in ('dose_anchor_defaults', 'patient_dose_anchors', 'patient_day_shifts', 'patient_dose_anchor_slots')
                 and table_schema = 'public' and grantee in ('anon', 'PUBLIC')) then
     raise exception 'S08z: anchor tables must not be reachable by anon';
   end if;
-  if exists (select 1 from pg_policies where schemaname = 'public' and tablename in ('patient_dose_anchors', 'patient_day_shifts')
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename in ('patient_dose_anchors', 'patient_day_shifts', 'patient_dose_anchor_slots')
                 and (qual ilike '%can_read_clinical%' or qual ilike '%care_access%')) then
     raise exception 'S08z: anchor times and shifts must not be readable by clinical readers (religious belief)';
   end if;
+  -- The disclosure is not only in these tables: a medicine's schedule is read by every reader of the medicine. No stored schedule may name a prayer.
+  if exists (select 1 from public.medications where schedule_spec is not null and schedule_spec::text ~ '(morning|midday|afternoon|evening|night)_prayer') then
+    raise exception 'S08z: a stored medicine schedule names a prayer (religious belief)';
+  end if;
   if exists (select 1 from information_schema.table_privileges
-              where table_name in ('patient_dose_anchors', 'patient_day_shifts') and table_schema = 'public'
+              where table_name in ('patient_dose_anchors', 'patient_day_shifts', 'patient_dose_anchor_slots') and table_schema = 'public'
                 and grantee = 'authenticated' and privilege_type in ('INSERT', 'UPDATE', 'DELETE')) then
     raise exception 'S08z: patients must write anchors and shifts only through the RPCs';
   end if;
   foreach v_fn in array array[
-    'public.save_dose_anchor_times(uuid,jsonb,date)', 'public.create_day_shift(uuid,uuid,date,date,jsonb)', 'public.cancel_day_shift(uuid,uuid)'] loop
+    'public.save_dose_anchor_times(uuid,jsonb,date)', 'public.create_day_shift(uuid,uuid,date,date,jsonb)', 'public.cancel_day_shift(uuid,uuid)',
+    'public.ensure_dose_anchor_slots(uuid,text[])'] loop
     if has_function_privilege('anon', v_fn, 'EXECUTE') then raise exception 'S08z: % must not be executable by anon', v_fn; end if;
     if not has_function_privilege('authenticated', v_fn, 'EXECUTE') then raise exception 'S08z: % must be executable by authenticated', v_fn; end if;
   end loop;
@@ -745,16 +833,16 @@ begin
       raise exception 'S08z: % must not be executable by anon or authenticated', v_fn;
     end if;
   end loop;
-  -- The expansion: defaults with no patient, and a dose that crosses midnight lands on the next date.
-  if (select array_agg(slot_time) from private.medication_slots_on(
-        '{"kind":"daily","times":[],"anchored":[{"anchor":"breakfast","offsetMinutes":0}]}', null, date '2026-10-05')) is distinct from array['07:30'] then
-    raise exception 'S08z: anchored breakfast with no patient did not resolve to the proposed default';
-  end if;
-  if not private.is_valid_schedule_spec('{"kind":"daily","anchored":[{"anchor":"dinner","offsetMinutes":-30}]}')
+  -- The validator accepts the slot form and refuses every form that names an anchor or a prayer.
+  if not private.is_valid_schedule_spec('{"kind":"daily","anchored":[{"slot":"s00000000a8","offsetMinutes":-30}]}')
      or private.is_valid_schedule_spec('{"kind":"daily","times":[]}')
-     or private.is_valid_schedule_spec('{"kind":"as_needed","anchored":[{"anchor":"dinner","offsetMinutes":0}]}')
-     or private.is_valid_schedule_spec('{"kind":"daily","anchored":[{"anchor":"brunch","offsetMinutes":0}]}') then
-    raise exception 'S08z: the schedule validator does not accept and refuse the anchored forms';
+     or private.is_valid_schedule_spec('{"kind":"as_needed","anchored":[{"slot":"s00000000a8","offsetMinutes":0}]}')
+     or private.is_valid_schedule_spec('{"kind":"daily","anchored":[{"anchor":"dinner","offsetMinutes":0}]}')
+     or private.is_valid_schedule_spec('{"kind":"daily","anchored":[{"anchor":"night_prayer","offsetMinutes":0}]}')
+     or private.is_valid_schedule_spec('{"kind":"daily","anchored":[{"slot":"s00000000a8","offsetMinutes":0,"anchor":"dinner"}]}')
+     or private.is_valid_schedule_spec('{"kind":"daily","times":["08:00"],"foodNote":"bedtime","note":"morning_prayer"}')
+     or not private.is_valid_schedule_spec('{"kind":"daily","times":["08:00"],"foodNote":"bedtime"}') then
+    raise exception 'S08z: the schedule validator does not accept the slot form and refuse every form that names an anchor or a prayer';
   end if;
 end
 $$;

@@ -9,7 +9,7 @@ const NOW = Date.parse("2026-10-15T12:00:00+01:00");
 const anchoredMed = {
   id: "m1",
   schedule_times: ["08:15"],
-  schedule_spec: { kind: "daily", times: [], startDate: null, endDate: null, foodNote: null, anchored: [{ anchor: "breakfast", offsetMinutes: 0 }] },
+  schedule_spec: { kind: "daily", times: [], startDate: null, endDate: null, foodNote: null, anchored: [{ slot: "s00000000a3", offsetMinutes: 0 }] },
   created_at: "2026-09-01T00:00:00+01:00",
   schedule_effective_from: null,
 };
@@ -41,6 +41,7 @@ function client(opts: { anchorsError?: boolean; times?: unknown[] }) {
       if (table === "medications") return q([anchoredMed]);
       if (table === "patient_dose_anchors") return opts.anchorsError ? q(null, { message: "boom" }) : q(opts.times ?? []);
       if (table === "patient_day_shifts") return q([]);
+      if (table === "patient_dose_anchor_slots") return q([{ slot: "s00000000a3", anchor: "breakfast" }]);
       return q(logs);
     },
   } as never;

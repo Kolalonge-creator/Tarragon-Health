@@ -1,4 +1,4 @@
-import type { AnchoredDose, AnchorProfile } from "./anchors";
+import type { AnchoredDose, AnchorProfile, ResolvedAnchor } from "./anchors";
 import type { LocalDate } from "./lagos";
 
 export type FoodNote = "with_food" | "before_food" | "after_food" | "empty_stomach" | "bedtime";
@@ -51,7 +51,7 @@ export interface Slot {
   /** Set only by a taper step. */
   doseText: string | null;
   /** Set only on a slot that came from an anchored dose (S08z): which anchor and offset it was resolved from, so it can be shown in plain words. */
-  anchored?: AnchoredDose;
+  anchored?: ResolvedAnchor;
 }
 
 export type LogStatus = "taken" | "delayed" | "skipped" | "missed" | "not_available";

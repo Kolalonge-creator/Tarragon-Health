@@ -12,13 +12,16 @@ import {
   planDayShift,
   type AnchorId,
   isAnchorId,
+  isSlotKey,
+  slotForAnchor,
+  specNamesAPrayer,
   isAnchorOffset,
   resolveAnchoredDose,
   shiftOffsetOn,
   validateDayShift,
   type AnchorProfile,
 } from "./anchors";
-import { ANCHOR_CASES, TEST_ANCHOR_DEFAULTS } from "./anchors.fixtures";
+import { ANCHOR_CASES, TEST_ANCHOR_DEFAULTS, TEST_SLOT_OF, TEST_SLOTS, toSlotSpec } from "./anchors.fixtures";
 import { allTimes, anchorChangeConflicts, parseScheduleSpec, slotsBetween, slotsOn, toStoredSpec } from "./schedule";
 
 /** Anchor times given as plain "HH:MM" are in force from the start; versions carry their own dates. */
@@ -29,12 +32,12 @@ const profileOf = (
 ): AnchorProfile => {
   const times: AnchorProfile["times"] = { ...versions };
   for (const [anchor, time] of Object.entries(patientTimes) as [AnchorId, string][]) times[anchor] = [{ effectiveFrom: "2000-01-01", time }];
-  return { defaults: TEST_ANCHOR_DEFAULTS, times, shifts };
+  return { slots: TEST_SLOTS, defaults: TEST_ANCHOR_DEFAULTS, times, shifts };
 };
 
 describe("anchored dose resolution (cases shared with the database proof)", () => {
   it.each(ANCHOR_CASES)("$name", ({ spec, patientTimes, patientVersions, shifts, expect: byDate }) => {
-    const parsed = parseScheduleSpec(spec, profileOf(patientTimes, shifts, patientVersions));
+    const parsed = parseScheduleSpec(toSlotSpec(spec), profileOf(patientTimes, shifts, patientVersions));
     if (!parsed.ok) throw new Error(`fixture does not parse: ${parsed.errors.join(",")}`);
     for (const [date, times] of Object.entries(byDate)) {
       expect({ date, times: slotsOn(parsed.spec, date).map((s) => s.time) }).toEqual({ date, times });
@@ -48,7 +51,7 @@ describe("anchored dose resolution (cases shared with the database proof)", () =
 
   it("a hand-built taper or as-needed schedule that names anchors never resolves them", () => {
     const profile = profileOf();
-    const anchored = [{ anchor: "breakfast" as const, offsetMinutes: 0 }];
+    const anchored = [{ slot: TEST_SLOT_OF.breakfast, offsetMinutes: 0 }];
     const taper = { kind: "taper" as const, startDate: "2026-10-01", endDate: null, foodNote: null, steps: [{ days: 5, times: ["08:00"], doseText: "one" }], anchored, anchorProfile: profile };
     expect(slotsOn(taper, "2026-10-02").map((s) => s.time)).toEqual(["08:00"]);
     const prn = { kind: "as_needed" as const, startDate: null, endDate: null, foodNote: null, maxPerDay: null, anchored, anchorProfile: profile };
@@ -57,7 +60,7 @@ describe("anchored dose resolution (cases shared with the database proof)", () =
 
   it("an anchored slot says which anchor it came from; a fixed one carries no such key", () => {
     const parsed = parseScheduleSpec(
-      { kind: "daily", times: ["21:00"], anchored: [{ anchor: "dinner", offsetMinutes: 30 }] },
+      { kind: "daily", times: ["21:00"], anchored: [{ slot: TEST_SLOT_OF.dinner, offsetMinutes: 30 }] },
       profileOf({ dinner: "19:00" })
     );
     if (!parsed.ok) throw new Error("fixture");
@@ -68,7 +71,7 @@ describe("anchored dose resolution (cases shared with the database proof)", () =
 
   it("slotsBetween walks the same resolution across a range", () => {
     const parsed = parseScheduleSpec(
-      { kind: "daily", times: [], anchored: [{ anchor: "bedtime", offsetMinutes: 60 }] },
+      { kind: "daily", times: [], anchored: [{ slot: TEST_SLOT_OF.bedtime, offsetMinutes: 60 }] },
       profileOf({ bedtime: "23:30" })
     );
     if (!parsed.ok) throw new Error("fixture");
@@ -80,7 +83,7 @@ describe("anchored dose resolution (cases shared with the database proof)", () =
   });
 
   it("a schedule that names an anchor and has no profile attached yields only its fixed times, never a guess", () => {
-    const parsed = parseScheduleSpec({ kind: "daily", times: ["21:00"], anchored: [{ anchor: "breakfast", offsetMinutes: 0 }] });
+    const parsed = parseScheduleSpec({ kind: "daily", times: ["21:00"], anchored: [{ slot: TEST_SLOT_OF.breakfast, offsetMinutes: 0 }] });
     if (!parsed.ok) throw new Error("fixture");
     expect(slotsOn(parsed.spec, "2026-10-05").map((s) => s.time)).toEqual(["21:00"]);
     expect(allTimes(parsed.spec)).toEqual(["21:00"]);
@@ -140,12 +143,12 @@ describe("anchor helpers", () => {
 
   it("resolves exactly at the day boundaries", () => {
     const p = profileOf({ bedtime: "23:59", waking: "00:00" });
-    expect(resolveAnchoredDose(p, { anchor: "bedtime", offsetMinutes: 1 }, "2026-10-05")).toEqual({ date: "2026-10-06", time: "00:00" });
-    expect(resolveAnchoredDose(p, { anchor: "waking", offsetMinutes: -1 }, "2026-10-05")).toEqual({ date: "2026-10-04", time: "23:59" });
-    expect(resolveAnchoredDose(p, { anchor: "waking", offsetMinutes: 0 }, "2026-10-05")).toEqual({ date: "2026-10-05", time: "00:00" });
-    expect(resolveAnchoredDose(p, { anchor: "bedtime", offsetMinutes: 0 }, "2026-10-05")).toEqual({ date: "2026-10-05", time: "23:59" });
+    expect(resolveAnchoredDose(p, { slot: TEST_SLOT_OF.bedtime, offsetMinutes: 1 }, "2026-10-05")).toEqual({ date: "2026-10-06", time: "00:00", anchor: "bedtime" });
+    expect(resolveAnchoredDose(p, { slot: TEST_SLOT_OF.waking, offsetMinutes: -1 }, "2026-10-05")).toEqual({ date: "2026-10-04", time: "23:59", anchor: "waking" });
+    expect(resolveAnchoredDose(p, { slot: TEST_SLOT_OF.waking, offsetMinutes: 0 }, "2026-10-05")).toEqual({ date: "2026-10-05", time: "00:00", anchor: "waking" });
+    expect(resolveAnchoredDose(p, { slot: TEST_SLOT_OF.bedtime, offsetMinutes: 0 }, "2026-10-05")).toEqual({ date: "2026-10-05", time: "23:59", anchor: "bedtime" });
     // Month and year edges.
-    expect(resolveAnchoredDose(p, { anchor: "bedtime", offsetMinutes: 60 }, "2026-12-31")).toEqual({ date: "2027-01-01", time: "00:59" });
+    expect(resolveAnchoredDose(p, { slot: TEST_SLOT_OF.bedtime, offsetMinutes: 60 }, "2026-12-31")).toEqual({ date: "2027-01-01", time: "00:59", anchor: "bedtime" });
   });
 });
 
@@ -175,7 +178,7 @@ describe("validateDayShift", () => {
 });
 
 describe("parsing anchored schedules", () => {
-  const anchoredBreakfast = [{ anchor: "breakfast", offsetMinutes: 0 }];
+  const anchoredBreakfast = [{ slot: TEST_SLOT_OF.breakfast, offsetMinutes: 0 }];
   const errorsOf = (spec: unknown, profile?: AnchorProfile): string[] => {
     const r = parseScheduleSpec(spec, profile);
     return r.ok ? [] : r.errors;
@@ -201,21 +204,31 @@ describe("parsing anchored schedules", () => {
   });
 
   it("refuses an unknown anchor, a bad offset, a repeat and a bad list", () => {
-    expect(errorsOf({ kind: "daily", anchored: [{ anchor: "brunch", offsetMinutes: 0 }] })).toContain("anchored[0].anchor");
-    expect(errorsOf({ kind: "daily", anchored: [{ anchor: "lunch", offsetMinutes: 500 }] })).toContain("anchored[0].offsetMinutes");
-    expect(errorsOf({ kind: "daily", anchored: [null] })).toEqual(expect.arrayContaining(["anchored[0].anchor", "anchored[0].offsetMinutes"]));
+    expect(errorsOf({ kind: "daily", anchored: [{ slot: "brunch", offsetMinutes: 0 }] })).toContain("anchored[0].slot");
+    expect(errorsOf({ kind: "daily", anchored: [{ slot: "S00000000A1", offsetMinutes: 0 }] })).toContain("anchored[0].slot");
+    expect(errorsOf({ kind: "daily", anchored: [{ slot: TEST_SLOT_OF.lunch, offsetMinutes: 500 }] })).toContain("anchored[0].offsetMinutes");
+    expect(errorsOf({ kind: "daily", anchored: [null] })).toEqual(expect.arrayContaining(["anchored[0].slot", "anchored[0].offsetMinutes"]));
     expect(
-      errorsOf({ kind: "daily", anchored: [{ anchor: "lunch", offsetMinutes: 0 }, { anchor: "lunch", offsetMinutes: 0 }] })
+      errorsOf({ kind: "daily", anchored: [{ slot: TEST_SLOT_OF.lunch, offsetMinutes: 0 }, { slot: TEST_SLOT_OF.lunch, offsetMinutes: 0 }] })
     ).toContain("anchored[1]:duplicate");
     expect(errorsOf({ kind: "daily", anchored: "breakfast" })).toContain("anchored:count");
-    expect(errorsOf({ kind: "daily", anchored: Array.from({ length: 13 }, (_, i) => ({ anchor: "lunch", offsetMinutes: i })) })).toContain("anchored:count");
+    // An entry carries a slot and an offset and nothing else: never the anchor's own name.
+    expect(errorsOf({ kind: "daily", anchored: [{ slot: TEST_SLOT_OF.lunch, offsetMinutes: 0, anchor: "lunch" }] })).toContain("anchored[0]:keys");
+    expect(errorsOf({ kind: "daily", anchored: Array.from({ length: 13 }, (_, i) => ({ slot: TEST_SLOT_OF.lunch, offsetMinutes: i })) })).toContain("anchored:count");
+  });
+
+  it("refuses a schedule that names a prayer anywhere, so a prayer name can never reach a reader of the medicine", () => {
+    expect(errorsOf({ kind: "daily", times: ["08:00"], foodNote: "night_prayer" })).toContain("spec:anchor_name");
+    expect(errorsOf({ kind: "daily", anchored: [{ slot: TEST_SLOT_OF.lunch, offsetMinutes: 0 }], extra: { x: "morning_prayer" } })).toContain("spec:anchor_name");
+    // The five non-religious anchors are not secret, and "bedtime" is a valid food note.
+    expect(errorsOf({ kind: "daily", times: ["08:00"], foodNote: "bedtime" })).toEqual([]);
   });
 
   it("counts clock times and anchored doses together against the daily limit", () => {
     const eleven = Array.from({ length: 11 }, (_, i) => `${String(8 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`);
     expect(errorsOf({ kind: "daily", times: eleven, anchored: anchoredBreakfast })).toEqual([]);
     expect(
-      errorsOf({ kind: "daily", times: eleven, anchored: [{ anchor: "breakfast", offsetMinutes: 0 }, { anchor: "lunch", offsetMinutes: 0 }] })
+      errorsOf({ kind: "daily", times: eleven, anchored: [{ slot: TEST_SLOT_OF.breakfast, offsetMinutes: 0 }, { slot: TEST_SLOT_OF.lunch, offsetMinutes: 0 }] })
     ).toContain("times:count");
   });
 
@@ -223,21 +236,21 @@ describe("parsing anchored schedules", () => {
     const r = parseScheduleSpec({
       kind: "daily",
       anchored: [
-        { anchor: "dinner", offsetMinutes: 30 },
-        { anchor: "breakfast", offsetMinutes: 0 },
-        { anchor: "dinner", offsetMinutes: -30 },
+        { slot: TEST_SLOT_OF.dinner, offsetMinutes: 30 },
+        { slot: TEST_SLOT_OF.breakfast, offsetMinutes: 0 },
+        { slot: TEST_SLOT_OF.dinner, offsetMinutes: -30 },
       ],
     });
     if (!r.ok) throw new Error("fixture");
     expect(r.spec.anchored).toEqual([
-      { anchor: "breakfast", offsetMinutes: 0 },
-      { anchor: "dinner", offsetMinutes: -30 },
-      { anchor: "dinner", offsetMinutes: 30 },
+      { slot: TEST_SLOT_OF.breakfast, offsetMinutes: 0 },
+      { slot: TEST_SLOT_OF.dinner, offsetMinutes: -30 },
+      { slot: TEST_SLOT_OF.dinner, offsetMinutes: 30 },
     ]);
   });
 
   it("checks a flexible window against the resolved times when the profile is given", () => {
-    const spec = { kind: "daily", windowMinutes: 90, times: [], anchored: [{ anchor: "breakfast", offsetMinutes: 0 }, { anchor: "waking", offsetMinutes: 0 }] };
+    const spec = { kind: "daily", windowMinutes: 90, times: [], anchored: [{ slot: TEST_SLOT_OF.breakfast, offsetMinutes: 0 }, { slot: TEST_SLOT_OF.waking, offsetMinutes: 0 }] };
     // Waking 06:30 and breakfast 07:30 are an hour apart: a 90 minute window would overlap.
     expect(errorsOf(spec, profileOf())).toContain("windowMinutes:overlap");
     expect(errorsOf(spec, profileOf({ breakfast: "09:30" }))).toEqual([]);
@@ -246,12 +259,12 @@ describe("parsing anchored schedules", () => {
   });
 
   it("allTimes lists anchored doses at their normal times, and the stored form drops the runtime profile", () => {
-    const r = parseScheduleSpec({ kind: "daily", times: ["21:00"], anchored: [{ anchor: "breakfast", offsetMinutes: 15 }] }, profileOf({ breakfast: "08:00" }));
+    const r = parseScheduleSpec({ kind: "daily", times: ["21:00"], anchored: [{ slot: TEST_SLOT_OF.breakfast, offsetMinutes: 15 }] }, profileOf({ breakfast: "08:00" }));
     if (!r.ok) throw new Error("fixture");
     expect(allTimes(r.spec)).toEqual(["08:15", "21:00"]);
     const stored = toStoredSpec(r.spec);
     expect("anchorProfile" in stored).toBe(false);
-    expect(stored.anchored).toEqual([{ anchor: "breakfast", offsetMinutes: 15 }]);
+    expect(stored.anchored).toEqual([{ slot: TEST_SLOT_OF.breakfast, offsetMinutes: 15 }]);
     expect(r.spec.anchorProfile).toBeDefined();
   });
 
@@ -264,7 +277,7 @@ describe("parsing anchored schedules", () => {
   });
 
   it("wraps an anchored time that crosses midnight when listing the normal times", () => {
-    const r = parseScheduleSpec({ kind: "daily", anchored: [{ anchor: "bedtime", offsetMinutes: 90 }] }, profileOf({ bedtime: "23:30" }));
+    const r = parseScheduleSpec({ kind: "daily", anchored: [{ slot: TEST_SLOT_OF.bedtime, offsetMinutes: 90 }] }, profileOf({ bedtime: "23:30" }));
     if (!r.ok) throw new Error("fixture");
     expect(allTimes(r.spec)).toEqual(["01:00"]);
   });
@@ -303,7 +316,7 @@ describe("anchorChangeConflicts", () => {
     if (!r.ok) throw new Error(`fixture: ${r.errors.join(",")}`);
     return r.spec;
   };
-  const two = { anchored: [{ anchor: "waking", offsetMinutes: 0 }, { anchor: "breakfast", offsetMinutes: 0 }], windowMinutes: 30 };
+  const two = { anchored: [{ slot: TEST_SLOT_OF.waking, offsetMinutes: 0 }, { slot: TEST_SLOT_OF.breakfast, offsetMinutes: 0 }], windowMinutes: 30 };
 
   it("flags a medicine whose window would overlap after the move, and not one that still fits", () => {
     const meds = [{ id: "a", spec: spec(two) }];
@@ -313,7 +326,7 @@ describe("anchorChangeConflicts", () => {
   });
 
   it("judges changes together: a pair that is fine is not refused because one half alone would overlap the old other half", () => {
-    const pair = { anchored: [{ anchor: "breakfast", offsetMinutes: 0 }, { anchor: "lunch", offsetMinutes: 0 }], windowMinutes: 60 };
+    const pair = { anchored: [{ slot: TEST_SLOT_OF.breakfast, offsetMinutes: 0 }, { slot: TEST_SLOT_OF.lunch, offsetMinutes: 0 }], windowMinutes: 60 };
     const meds = [{ id: "a", spec: spec(pair) }];
     // Test defaults: breakfast 07:30, lunch 13:00. Breakfast alone at 12:30 would be 30 minutes from lunch.
     expect(anchorChangeConflicts(meds, profileOf(), { breakfast: "12:30" })).toEqual(["a"]);
@@ -339,7 +352,7 @@ describe("anchorChangeConflicts", () => {
   });
 
   it("counts the same time twice as one dose, as the database does", () => {
-    const meds = [{ id: "a", spec: spec({ times: ["07:30"], anchored: [{ anchor: "breakfast", offsetMinutes: 0 }], windowMinutes: 30 }) }];
+    const meds = [{ id: "a", spec: spec({ times: ["07:30"], anchored: [{ slot: TEST_SLOT_OF.breakfast, offsetMinutes: 0 }], windowMinutes: 30 }) }];
     expect(anchorChangeConflicts(meds, profileOf(), { dinner: "20:00" })).toEqual([]);
   });
 });
@@ -370,5 +383,46 @@ describe("buildAnchorProfile", () => {
     expect(profile.shifts.map((s) => s.offsets)).toEqual([{ dinner: 60 }, { dinner: 15 }, { dinner: -30 }]);
     expect(profile.shifts[0]?.cancelledFrom).toBe("2026-10-08");
     expect(profile.defaults).toBe(TEST_ANCHOR_DEFAULTS);
+  });
+});
+
+describe("slots and the patient's mapping", () => {
+  it("knows a slot key by its shape", () => {
+    expect(isSlotKey("s0123456789")).toBe(true);
+    expect(isSlotKey("s01234567890")).toBe(false);
+    expect(isSlotKey("S0123456789")).toBe(false);
+    expect(isSlotKey("s012345678g")).toBe(false);
+    expect(isSlotKey(5)).toBe(false);
+  });
+
+  it("finds a prayer name anywhere in a spec, even one that cannot be serialised or has no value", () => {
+    expect(specNamesAPrayer({ a: [{ b: "evening_prayer" }] })).toBe(true);
+    expect(specNamesAPrayer({ kind: "daily", times: ["08:00"] })).toBe(false);
+    expect(specNamesAPrayer(undefined)).toBe(false);
+    const loop: Record<string, unknown> = {};
+    loop.self = loop;
+    expect(specNamesAPrayer(loop)).toBe(true);
+  });
+
+  it("a dose whose slot the patient's mapping does not know resolves to nothing and has no normal time (never a guess)", () => {
+    const parsed = parseScheduleSpec({ kind: "daily", times: ["21:00"], anchored: [{ slot: "s0000000fff", offsetMinutes: 0 }] }, profileOf());
+    if (!parsed.ok) throw new Error("fixture");
+    expect(slotsOn(parsed.spec, "2026-10-05").map((x) => x.time)).toEqual(["21:00"]);
+    expect(allTimes(parsed.spec)).toEqual(["21:00"]);
+  });
+
+  it("finds the slot a patient stores an anchor under", () => {
+    expect(slotForAnchor(profileOf(), "dinner")).toBe(TEST_SLOT_OF.dinner);
+    expect(slotForAnchor({ ...profileOf(), slots: {} }, "dinner")).toBeUndefined();
+  });
+
+  it("builds the mapping from stored rows, ignoring a row it cannot read", () => {
+    const p = buildAnchorProfile(TEST_ANCHOR_DEFAULTS, [], [], [
+      { slot: "s0000000001", anchor: "lunch" },
+      { slot: "bad", anchor: "lunch" },
+      { slot: "s0000000002", anchor: "brunch" },
+    ]);
+    expect(p.slots).toEqual({ s0000000001: "lunch" });
+    expect(buildAnchorProfile(TEST_ANCHOR_DEFAULTS, [], []).slots).toEqual({});
   });
 });

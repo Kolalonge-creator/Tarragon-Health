@@ -9,7 +9,7 @@ import {
   checkMedicineOnAdd,
   parseScheduleSpec,
   anchorBaseTime,
-  type AnchoredDose,
+  type ResolvedAnchor,
   type AnchorId,
   type AnchorProfile,
   lookupNafdacNumber,
@@ -24,7 +24,7 @@ import {
 } from "@tarragon/medicines";
 import { AnchorPicker, MyDaySection, normaliseClock } from "@/screens/sections/anchor-ui";
 import { anchorProfileFor } from "@/lib/anchor-profile";
-import { saveAnchorTimes } from "@/lib/anchor-actions";
+import { ensureAnchorSlots, saveAnchorTimes } from "@/lib/anchor-actions";
 import { addSideEffectNote, loadInteractionCheckState, loadMedicineCatalogue, loadRefillPharmacy, type RefillPharmacy } from "@/lib/medicine-catalogue";
 import {
   applyCatalogueLookup,
@@ -624,7 +624,7 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
   const [scheduleTimes, setScheduleTimes] = useState<string[]>([]);
   const [newTime, setNewTime] = useState("");
   // S08z: doses tied to the patient's day (a meal, waking, a prayer, bedtime) instead of a clock time.
-  const [anchored, setAnchored] = useState<AnchoredDose[]>([]);
+  const [anchored, setAnchored] = useState<ResolvedAnchor[]>([]);
   const [anchorDrafts, setAnchorDrafts] = useState<Partial<Record<AnchorId, string>>>({});
   const [startedBySpecialist, setStartedBySpecialist] = useState(false);
   const [prescriberName, setPrescriberName] = useState("");
@@ -759,7 +759,7 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
   }
 
   /** The structured schedule the form describes, or null for the plain "every day at these times" case. */
-  function buildSpec(): { spec: ScheduleSpec | null } | { error: string } {
+  function buildSpec(slotOf: Record<string, string>): { spec: ScheduleSpec | null } | { error: string } {
     const plainDaily = kind === "daily" && anchored.length === 0 && !startDate.trim() && !endDate.trim() && foodNote === null && windowMinutes === 0;
     if (plainDaily) return { spec: null };
     const today = todayIsoDate();
@@ -769,7 +769,8 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
       endDate: endDate.trim() || null,
       foodNote,
       windowMinutes: kind === "as_needed" ? 0 : windowMinutes,
-      ...(canAnchor && anchored.length > 0 ? { anchored } : {}),
+      // The schedule stores the opaque slot, never the anchor's name (religious belief): see packages/medicines anchors.ts.
+      ...(canAnchor && anchored.length > 0 ? { anchored: anchored.map((a) => ({ slot: slotOf[a.anchor], offsetMinutes: a.offsetMinutes })) } : {}),
     };
     let raw: Record<string, unknown>;
     if (kind === "daily") raw = { ...common, kind, times: scheduleTimes };
@@ -794,7 +795,9 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
       const norm = normaliseClock(v);
       if (norm !== null) times[k] = [{ effectiveFrom: "9999-12-31", time: norm }];
     }
-    const parsed = parseScheduleSpec(raw, { ...base, times });
+    const slots: Record<string, AnchorId> = { ...base.slots };
+    for (const [anchor, slot] of Object.entries(slotOf)) slots[slot] = anchor as AnchorId;
+    const parsed = parseScheduleSpec(raw, { ...base, slots, times });
     if (parsed.ok) return { spec: parsed.spec };
     return { error: parsed.errors.includes("windowMinutes:overlap") && anchored.length > 0 ? tr("doseanchor.window_overlap") : tr("meds.schedule.invalid") };
   }
@@ -807,7 +810,17 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
       setError("Drug name is required");
       return;
     }
-    const built = buildSpec();
+    // A medicine tied to the day needs the patient's opaque slot for each anchor, made by the server (so it needs a connection, as adding any medicine does).
+    let slotOf: Record<string, string> = {};
+    if (anchored.length > 0) {
+      const ensured = await ensureAnchorSlots(patientId, anchored.map((a) => a.anchor));
+      if (ensured === null) {
+        setError(tr("doseanchor.myday.error"));
+        return;
+      }
+      slotOf = ensured;
+    }
+    const built = buildSpec(slotOf);
     if ("error" in built) {
       setError(built.error);
       return;
