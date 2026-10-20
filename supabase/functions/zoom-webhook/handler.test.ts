@@ -56,7 +56,7 @@ const started = JSON.stringify({ event: "meeting.started", event_ts: 1600, paylo
 const mk = (extra: Partial<Parameters<typeof handleZoomWebhook>[1]> = {}) => {
   const f = fakeDb();
   const store = createMemoryInbox();
-  return { f, store, deps: { secret: SECRET, db: f.db, store, appBaseUrl: undefined, fetch: noFetch, ...extra } };
+  return { f, store, deps: { secret: SECRET, db: f.db, store, appBaseUrl: undefined, fetch: noFetch, nowMs: () => 1_800_000_000_000, ...extra } };
 };
 
 Deno.test("signature check: fails closed without a secret, rejects a missing or wrong one", async () => {
@@ -173,4 +173,22 @@ Deno.test("with the inbox unreachable the event is handled directly, as before",
   assertEquals((await post(ended, { ...deps, db: f3.db, store: null })).status, 500);
   // a signed body whose JSON is valid but not an object with an event still parses safely
   assertEquals((await post(JSON.stringify({ payload: {} }), { ...deps, store: createMemoryInbox() })).json, { ok: true });
+});
+
+Deno.test("a correctly signed request outside the five minute window is acknowledged and never acted on", async () => {
+  const { deps, f, store } = mk({ nowMs: () => 1_800_000_000_000 + 6 * 60_000 });
+  const out = await post(ended, deps);
+  assertEquals(out.status, 200);
+  assertEquals(out.json["error"], "stale_event");
+  assertEquals(f.consultation?.["status"], "scheduled");
+  assertEquals(store.rows.length, 0);
+});
+
+Deno.test("a far-future or non-numeric timestamp is stale; the edge of the window is not", async () => {
+  const { isStaleZoomTimestamp } = await import("./handler.ts");
+  assertEquals(isStaleZoomTimestamp("1800000000", 1_800_000_000_000 + 300_000), false);
+  assertEquals(isStaleZoomTimestamp("1800000000", 1_800_000_000_000 + 300_001), true);
+  assertEquals(isStaleZoomTimestamp("1800000600", 1_800_000_000_000), true);
+  assertEquals(isStaleZoomTimestamp("1e9", 1_800_000_000_000), true);
+  assertEquals(isStaleZoomTimestamp("", 0), true);
 });

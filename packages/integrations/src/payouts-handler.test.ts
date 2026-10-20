@@ -76,6 +76,52 @@ describe("sendPayout", () => {
   });
 });
 
+describe("sendPayout when the answer is unknown (timeout, network, 5xx)", () => {
+  const setup = async (failure: { code: "timeout" | "network" | "vendor_error" | "invalid_input"; retryable: boolean }, reached: boolean) => {
+    const { deps, calls, payment } = make();
+    const code = await recipient(payment);
+    const asUser: PayoutDeps["asUser"] = async () => ({ data: { reference: REF, amount_kobo: 181_000, recipient_code: code, reason: "x" }, error: null });
+    const real = payment.initiateTransfer.bind(payment);
+    let verifies = 0;
+    const realVerify = payment.verifyTransfer.bind(payment);
+    (payment as { initiateTransfer: typeof real }).initiateTransfer = async (i) => {
+      if (reached) await real(i);
+      return { ok: false, error: { code: failure.code, message: "Vendor did not answer in time", retryable: failure.retryable } };
+    };
+    (payment as { verifyTransfer: typeof realVerify }).verifyTransfer = async (r) => { verifies += 1; return realVerify(r); };
+    return { deps: { ...deps, asUser }, calls, verifies: () => verifies };
+  };
+
+  it("a timeout after Paystack accepted the transfer records what Paystack says, not an error (the money may already be moving)", async () => {
+    const { deps, calls, verifies } = await setup({ code: "timeout", retryable: true }, true);
+    const r = await sendPayout(deps, ID);
+    expect(r.status).toBe(200);
+    expect(verifies()).toBe(1);
+    expect(calls.find((c) => c.fn === "payout_record_send")!.args).toMatchObject({ p_status: "pending", p_reference: REF });
+    expect(calls.find((c) => c.fn === "payout_record_send")!.args["p_transfer_code"]).toMatch(/^TRF_/);
+  });
+
+  it("a timeout where Paystack never saw it is an error the admin can retry with the same reference", async () => {
+    const { deps, calls, verifies } = await setup({ code: "network", retryable: true }, false);
+    const r = await sendPayout(deps, ID);
+    expect(r.body).toMatchObject({ error: "send_failed", retryable: true });
+    expect(verifies()).toBe(1);
+    expect(calls.find((c) => c.fn === "payout_record_send")!.args["p_status"]).toBe("error");
+  });
+
+  it("a refusal that is not about reaching Paystack is not second-guessed with a lookup", async () => {
+    const { deps, verifies } = await setup({ code: "invalid_input", retryable: false }, false);
+    expect((await sendPayout(deps, ID)).status).toBe(502);
+    expect(verifies()).toBe(0);
+  });
+
+  it("a 5xx marked retryable is checked the same way", async () => {
+    const { deps, verifies } = await setup({ code: "vendor_error", retryable: true }, true);
+    expect((await sendPayout(deps, ID)).status).toBe(200);
+    expect(verifies()).toBe(1);
+  });
+});
+
 describe("verifyBank", () => {
   it("a person who may not look accounts up is refused before Paystack is asked anything", async () => {
     const { deps, calls } = make({ data: null, error: { message: "payout_not_a_contracted_clinician" } });

@@ -95,7 +95,7 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
       const res = await call("POST", `${configuredHost}/meetings`, {
         topic: TOPIC,
         type: 2,
-        start_time: new Date(startMs).toISOString(),
+        start_time: new Date(startMs).toISOString().replace(/\.\d{3}Z$/, "Z"),
         duration,
         timezone: "Africa/Lagos",
         settings: { join_before_host: false, waiting_room: true, host_video: true, participant_video: true, mute_upon_entry: false, auto_recording: "none", audio: "both", global_dial_in_countries: ["NG"] },

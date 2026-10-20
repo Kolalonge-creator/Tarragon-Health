@@ -16,5 +16,8 @@ export default {
   moduleNameMapper: { "^(\\.{1,2}/.*)\\.js$": "$1" },
   collectCoverageFrom: ["<rootDir>/supabase/functions/_shared/integrations/*.ts", "!<rootDir>/supabase/functions/_shared/integrations/index.ts"],
   coverageProvider: "v8",
+  // Branch coverage is 100 percent on the modules that talk to a real vendor, verify its signatures or store its events: see
+  // check-adapter-coverage.mjs, run after jest (jest cannot gate files that live outside this package's directory by path).
   coverageThreshold: { global: { branches: 95, functions: 100, lines: 100, statements: 100 } },
+  coverageReporters: ["text", "json"],
 };

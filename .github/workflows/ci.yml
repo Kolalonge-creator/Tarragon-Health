@@ -62,8 +62,11 @@ jobs:
       - name: Test (packages and console)
         run: pnpm test:ci
 
-      - name: Speech evaluation harness (node:test, synthetic data only)
-        run: node --test scripts/asr-eval/score.test.mjs
+      - name: Speech evaluation harness and pass-mark gate (node:test, synthetic data only)
+        run: node --test scripts/asr-eval/score.test.mjs scripts/asr-eval/gate.test.mjs
+
+      - name: Provider sandbox check and audio fallback report (node:test, fake vendors, no credentials)
+        run: node --test scripts/provider-sandbox-check/checks.test.mjs scripts/audio-fallback-measure/report.test.mjs
 
       - name: Build
         run: pnpm build

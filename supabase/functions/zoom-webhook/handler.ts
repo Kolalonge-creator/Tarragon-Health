@@ -13,6 +13,8 @@
 // cannot be reached the event is handled directly, as before. The state updates are written so that running them twice, or running a
 // late "started" after "ended", can never move a consultation backwards.
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { readCappedBody } from "../_shared/integrations/webhook-body.ts";
+import { constantTimeEqual } from "../_shared/integrations/crypto.ts";
 import { isSafeWebhookChallenge } from "../_shared/integrations/webhook-challenge.ts";
 import { forwardPresenceEvent, isPresenceEvent, type ForwardOutcome } from "../_shared/integrations/webhook-forward.ts";
 import { receiveProviderEvent, zoomEventKey, type Dispatch, type DispatchOutcome, type InboxStore } from "../_shared/integrations/webhook-inbox.ts";
@@ -44,7 +46,14 @@ export async function verifyZoomSignature(secret: string | null, rawBody: string
   }
   if (!timestampHeader || !signatureHeader) return false;
   const expected = `v0=${await hmacHex(secret, `v0:${timestampHeader}:${rawBody}`)}`;
-  return signatureHeader === expected;
+  return constantTimeEqual(signatureHeader, expected);
+}
+
+/** Zoom advises refusing a request more than about five minutes from now (seconds since the epoch). Checked only AFTER the signature holds. */
+export const ZOOM_REPLAY_WINDOW_MS = 5 * 60_000;
+export function isStaleZoomTimestamp(timestampHeader: string, nowMs: number): boolean {
+  if (!/^\d{1,12}$/.test(timestampHeader)) return true;
+  return Math.abs(nowMs - Number(timestampHeader) * 1000) > ZOOM_REPLAY_WINDOW_MS;
 }
 
 export interface ZoomDeps {
@@ -53,6 +62,8 @@ export interface ZoomDeps {
   readonly store: InboxStore | null;
   readonly appBaseUrl: string | undefined;
   readonly fetch: FetchLike;
+  /** Injected so a test can pin the clock; defaults to the real one. */
+  readonly nowMs?: () => number;
 }
 
 /** Acts on a verified meeting event. Safe to run twice and safe out of order: a consultation never moves backwards. */
@@ -130,7 +141,9 @@ export function zoomDispatcher(db: SupabaseClient): Dispatch {
 export async function handleZoomWebhook(req: Request, deps: ZoomDeps): Promise<Response> {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
-  const rawBody = await req.text();
+  const capped = await readCappedBody(req);
+  if (!capped.ok) return Response.json({ ok: false, error: "payload_too_large" }, { status: 413 });
+  const rawBody = capped.body;
 
   let event: ZoomWebhookEvent;
   try {
@@ -159,6 +172,12 @@ export async function handleZoomWebhook(req: Request, deps: ZoomDeps): Promise<R
   if (!verified) {
     if (deps.store) await receiveProviderEvent(deps.store, { provider: "zoom", rawBody, verified: false, derive: () => zoomEventKey(rawBody) }, () => Promise.resolve({ ok: true }));
     return Response.json({ ok: false, error: "invalid_signature" }, { status: 200 });
+  }
+
+  // Signed correctly but outside the window: a captured request replayed later, or a very late retry. It is acknowledged (a 401 would make
+  // Zoom count the endpoint as failing) and nothing is acted on or forwarded. Zoom's own retries stay inside the window.
+  if (isStaleZoomTimestamp(timestamp as string, (deps.nowMs ?? Date.now)())) {
+    return Response.json({ ok: false, error: "stale_event" }, { status: 200 });
   }
 
   // Zoom allows ONE event-subscription URL per app, and this is it. The consultation presence route (apps/web /api/zoom/webhook) needs the
