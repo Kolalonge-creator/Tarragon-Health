@@ -220,6 +220,17 @@ async function readQueue<T>(key: string, source: SyncSource): Promise<QueuedEntr
   }
 }
 
+/** How many entries wait, without reading any of them (the banner and the reconnect watcher ask often). */
+async function countQueue(key: string, source: SyncSource): Promise<number> {
+  try {
+    const db = await queueDb(key, source);
+    return (await db.getFirstAsync<{ n: number }>("select count(*) as n from offline_queue where queue = ?", [key]))?.n ?? 0;
+  } catch (error) {
+    recordSyncError(source, "offline_queue:read", error);
+    return (await readLegacyEntries<unknown>(key)).length;
+  }
+}
+
 async function readLegacyEntries<T>(key: string): Promise<QueuedEntry<T>[]> {
   try {
     const raw = await AsyncStorage.getItem(key);
@@ -333,7 +344,7 @@ export async function removeHealthSamplesPage(id: string): Promise<void> {
 }
 
 export async function getHealthSamplesQueueCount(): Promise<number> {
-  return (await listPendingHealthSamplesPages()).length;
+  return countQueue(HEALTH_SAMPLES_QUEUE_KEY, "apple_health");
 }
 
 export interface HealthSamplesFlushResult {
@@ -422,7 +433,7 @@ export async function removeDeviceReading(id: string): Promise<void> {
 }
 
 export async function getDeviceReadingsQueueCount(): Promise<number> {
-  return (await listPendingDeviceReadings()).length;
+  return countQueue(DEVICE_READINGS_QUEUE_KEY, BLE_SOURCE);
 }
 
 /** Same stop-on-first-failure reasoning as flushHealthSamplesQueue above —
@@ -470,7 +481,7 @@ export async function listPendingPhotoReadings(): Promise<QueuedEntry<PhotoReadi
 }
 
 export async function getPhotoReadingsQueueCount(): Promise<number> {
-  return (await listPendingPhotoReadings()).length;
+  return countQueue(PHOTO_READINGS_QUEUE_KEY, PHOTO_SOURCE);
 }
 
 /**

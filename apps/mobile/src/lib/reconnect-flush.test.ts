@@ -1,6 +1,8 @@
 import { registerPowerReader, readPowerState, resetPowerPortForTests } from "./power-port";
 import { UNKNOWN_POWER, type PowerState } from "./power-rules";
-import { currentBulkDeferral, reconnectFlush, resetReconnectFlushForTests, type ReconnectFlushDeps } from "./reconnect-flush";
+import { enqueueDeviceReading, enqueueHealthSamplesPage } from "./offline-queue";
+import { resetLowDataLoadedForTests, writeLowDataEnabled } from "./low-data";
+import { currentBulkDeferral, getAllWaitingCount, reconnectFlush, resetReconnectFlushForTests, type ReconnectFlushDeps } from "./reconnect-flush";
 import { getRecentSyncDiagnostics } from "./sync-diagnostics";
 
 jest.mock("./outbox", () => ({ flushOutbox: jest.fn(), getPendingCount: jest.fn().mockResolvedValue(0) }));
@@ -129,5 +131,29 @@ describe("currentBulkDeferral", () => {
     expect(await currentBulkDeferral({ ...lowPower, readPower: async () => ({ batteryPercent: 5, batterySaver: null, charging: true }) })).toBeNull();
     expect(await currentBulkDeferral({ ...base, isLowData: () => true, readConnection: async () => "cellular" })).toBe("low_data");
     expect(await currentBulkDeferral({ ...base, isLowData: () => false, readConnection: async () => "cellular" })).toBeNull();
+  });
+});
+
+describe("a flush that returns with nothing sent", () => {
+  it("does not hold off the next attempt (the server or the network said no)", async () => {
+    await reconnectFlush(deps({ flushDeviceReadings: async () => ({ flushed: 0, remaining: 3 }) }));
+    clock += 1_000;
+    await expect(reconnectFlush(deps())).resolves.toMatchObject({ ran: true });
+  });
+});
+
+describe("getAllWaitingCount", () => {
+  afterEach(async () => {
+    await writeLowDataEnabled(false);
+    resetLowDataLoadedForTests();
+  });
+
+  it("counts the small queues, and counts health pages only while they are not deliberately waiting", async () => {
+    await enqueueDeviceReading({ seq: 1 });
+    await enqueueHealthSamplesPage({ provider: "apple_health", samples: [] });
+    expect(await getAllWaitingCount()).toBe(2);
+    // Low-data mode with no Wi-Fi known: the health page waits on purpose, so it is no reason to probe the network.
+    await writeLowDataEnabled(true);
+    expect(await getAllWaitingCount()).toBe(1);
   });
 });

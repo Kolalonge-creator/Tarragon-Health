@@ -1,7 +1,15 @@
 import type { Connection } from "./media-policy";
 import { readConnectionType } from "./net-connection";
-import { flushDeviceReadingsQueue, flushHealthSamplesQueue, flushPhotoReadingsQueue, getPendingCount as getOfflineQueuePendingCount } from "./offline-queue";
+import {
+  flushDeviceReadingsQueue,
+  flushHealthSamplesQueue,
+  flushPhotoReadingsQueue,
+  getDeviceReadingsQueueCount,
+  getHealthSamplesQueueCount,
+  getPhotoReadingsQueueCount,
+} from "./offline-queue";
 import { isLowDataActive } from "./offline-budget";
+import { ensureLowDataLoaded } from "./low-data";
 import { loadOfflineReconnectConfig } from "./offline-reconnect-config";
 import { flushOutbox, getPendingCount as getOutboxPendingCount } from "./outbox";
 import { readPowerState } from "./power-port";
@@ -31,7 +39,8 @@ export interface ReconnectFlushDeps {
   flushHealthSamples: () => Promise<unknown>;
   readPower: () => Promise<PowerState>;
   readConnection: () => Promise<Connection>;
-  isLowData: () => boolean;
+  /** Async because the saved choice must be loaded first: a cold background start has not read it yet. */
+  isLowData: () => boolean | Promise<boolean>;
   now: () => number;
   minGapMs: number;
   lowBatteryPercent: number;
@@ -59,7 +68,10 @@ export function defaultReconnectFlushDeps(): ReconnectFlushDeps {
     flushHealthSamples: () => flushHealthSamplesQueue(),
     readPower: readPowerState,
     readConnection: readConnectionType,
-    isLowData: isLowDataActive,
+    isLowData: async () => {
+      await ensureLowDataLoaded();
+      return isLowDataActive();
+    },
     now: () => Date.now(),
     minGapMs: config.reconnectFlushMinGapMs,
     lowBatteryPercent: config.lowBatteryPercent,
@@ -95,6 +107,13 @@ export function reconnectFlush(deps: ReconnectFlushDeps = defaultReconnectFlushD
   return inFlight;
 }
 
+/** A flush that returns (rather than throws) with entries left and none sent: the server or the network said no. */
+function madeNoProgress(outcome: unknown): boolean {
+  const o = outcome as { remaining?: number; flushed?: number; flushedPages?: number } | null | undefined;
+  if (!o || typeof o.remaining !== "number" || o.remaining <= 0) return false;
+  return (o.flushed ?? o.flushedPages ?? 0) === 0;
+}
+
 async function run(deps: ReconnectFlushDeps): Promise<ReconnectFlushResult> {
   const failedSteps: string[] = [];
   const step = async (name: string, fn: () => Promise<unknown>): Promise<void> => {
@@ -111,21 +130,21 @@ async function run(deps: ReconnectFlushDeps): Promise<ReconnectFlushResult> {
     const outcome = await deps.flushOutbox();
     if ((outcome as { stoppedOffline?: boolean } | null)?.stoppedOffline === true) incomplete = true;
   });
-  await step("device_readings", deps.flushDeviceReadings);
-  await step("photo_readings", deps.flushPhotoReadings);
-
-  const [power, connection] = await Promise.all([deps.readPower(), deps.readConnection()]);
-  const decision = workDecision({
-    work: "upload_bulk",
-    power,
-    lowBatteryPercent: deps.lowBatteryPercent,
-    lowData: deps.isLowData(),
-    connection,
+  await step("device_readings", async () => {
+    if (madeNoProgress(await deps.flushDeviceReadings())) incomplete = true;
   });
+  await step("photo_readings", async () => {
+    if (madeNoProgress(await deps.flushPhotoReadings())) incomplete = true;
+  });
+
+  const [power, connection, lowData] = await Promise.all([deps.readPower(), deps.readConnection(), deps.isLowData()]);
+  const decision = workDecision({ work: "upload_bulk", power, lowBatteryPercent: deps.lowBatteryPercent, lowData, connection });
   if (decision.action === "defer") {
     return { ran: true, bulk: decision.reason === "low_power" ? "deferred_low_power" : "deferred_low_data", failedSteps, incomplete };
   }
-  await step("health_samples", deps.flushHealthSamples);
+  await step("health_samples", async () => {
+    if (madeNoProgress(await deps.flushHealthSamples())) incomplete = true;
+  });
   return { ran: true, bulk: "sent", failedSteps, incomplete };
 }
 
@@ -137,13 +156,19 @@ async function run(deps: ReconnectFlushDeps): Promise<ReconnectFlushResult> {
 export async function currentBulkDeferral(
   deps: Pick<ReconnectFlushDeps, "readPower" | "readConnection" | "isLowData" | "lowBatteryPercent"> = defaultReconnectFlushDeps()
 ): Promise<DeferReason | null> {
-  const [power, connection] = await Promise.all([deps.readPower(), deps.readConnection()]);
-  const decision = workDecision({ work: "upload_bulk", power, lowBatteryPercent: deps.lowBatteryPercent, lowData: deps.isLowData(), connection });
+  const [power, connection, lowData] = await Promise.all([deps.readPower(), deps.readConnection(), deps.isLowData()]);
+  const decision = workDecision({ work: "upload_bulk", power, lowBatteryPercent: deps.lowBatteryPercent, lowData, connection });
   return decision.action === "defer" ? decision.reason : null;
 }
 
 /** Entries waiting anywhere on the phone: the outbox plus the encrypted device, photo and health-sample queues. */
 export async function getAllWaitingCount(): Promise<number> {
-  const [outbox, queues] = await Promise.all([getOutboxPendingCount(), getOfflineQueuePendingCount()]);
-  return outbox + queues;
+  const [outbox, small, healthPages, deferral] = await Promise.all([
+    getOutboxPendingCount(),
+    getDeviceReadingsQueueCount().then(async (devices) => devices + (await getPhotoReadingsQueueCount())),
+    getHealthSamplesQueueCount(),
+    currentBulkDeferral(),
+  ]);
+  // Health pages that are deliberately waiting (low power, low data off Wi-Fi) are not a reason to probe the network again.
+  return outbox + small + (deferral === null ? healthPages : 0);
 }
