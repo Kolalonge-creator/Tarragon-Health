@@ -295,6 +295,23 @@ async function pullTasks(db: SQLite.SQLiteDatabase, owner: string, subjectId: st
   result.pulled += rows.length;
 }
 
+const lastPullKey = (owner: string, subjectId: string): string => `lastpull:${owner}:${subjectId}`;
+
+/**
+ * When the mirror for this person last completed a pull (ISO), or null if it never has, or the mirror was cleared
+ * (sign-out wipes sync_state). Never throws: a failure reads as "unknown", which the screens word calmly.
+ */
+export async function readMirrorLastPulledAt(subjectId: string): Promise<string | null> {
+  try {
+    const owner = await currentUserId();
+    if (!owner) return null;
+    const db = await getDb();
+    return await readCursor(db, lastPullKey(owner, subjectId));
+  } catch {
+    return null;
+  }
+}
+
 /** Pulls the patient's own changes into the mirror. Never throws. */
 export async function pullChanges(subjectId: string): Promise<PullResult> {
   const result: PullResult = { pulled: 0, stoppedOffline: false, pages: 0, bytes: 0, drifted: [], repaired: [] };
@@ -303,6 +320,7 @@ export async function pullChanges(subjectId: string): Promise<PullResult> {
     const owner = await currentUserId();
     if (!owner) return result;
     const db = await getDb();
+    const startedAt = new Date(Date.now()).toISOString();
     const config = await loadOfflineSyncConfig();
     for (const kind of ["vital", "symptom", "dose"] as const) {
       if (result.stoppedOffline) break;
@@ -312,6 +330,11 @@ export async function pullChanges(subjectId: string): Promise<PullResult> {
     }
     if (!result.stoppedOffline) await pullMedications(db, owner, subjectId, result);
     if (!result.stoppedOffline) await pullTasks(db, owner, subjectId, result);
+    // The copy is only as new as the START of a pull that reached the end without going offline (S06y). A pull that
+    // stopped half way records nothing, so the screens keep showing the older time instead of claiming a fresh copy.
+    if (!result.stoppedOffline) {
+      await writeCursor(db, lastPullKey(owner, subjectId), startedAt).catch((error) => recordSyncError("offline_outbox", "pull:lastPulledAt", error));
+    }
     // Local housekeeping, safe offline. Never lets a purge failure fail the pull.
     await purgeMirror(owner).catch((error) => recordSyncError("offline_outbox", "purgeMirror", error));
     await addDataUsage(result.bytes);

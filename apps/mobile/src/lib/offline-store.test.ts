@@ -4,7 +4,7 @@
  * keyset or, order, limit) so the cursor rules are exercised for real.
  */
 import { OFFLINE_BUDGET } from "./offline-budget";
-import { clearLocalMirror, pullChanges, purgeMirror, readLocalMedications, readLocalRecords, readLocalTasks } from "./offline-store";
+import { clearLocalMirror, pullChanges, purgeMirror, readLocalMedications, readLocalRecords, readLocalTasks, readMirrorLastPulledAt } from "./offline-store";
 
 type Row = { id: string; created_at: string; patient_id: string; [k: string]: unknown };
 
@@ -366,5 +366,48 @@ describe("post-pull count check (S06x)", () => {
     const result = await pullChanges("p1");
     expect(result.pulled).toBeGreaterThan(0);
     expect(result.drifted).toEqual([]);
+  });
+});
+
+describe("last successful pull time (S06y)", () => {
+  it("is null before any pull, and after the mirror is cleared", async () => {
+    expect(await readMirrorLastPulledAt("p1")).toBeNull();
+    await pullChanges("p1");
+    expect(await readMirrorLastPulledAt("p1")).not.toBeNull();
+    await clearLocalMirror();
+    expect(await readMirrorLastPulledAt("p1")).toBeNull();
+  });
+
+  it("records the START of a pull that finished, per account and per person", async () => {
+    const before = Date.now();
+    await pullChanges("p1");
+    const at = Date.parse((await readMirrorLastPulledAt("p1")) ?? "");
+    expect(at).toBeGreaterThanOrEqual(before - 1);
+    expect(at).toBeLessThanOrEqual(Date.now());
+    expect(await readMirrorLastPulledAt("p2")).toBeNull();
+    mockUser = "user-2";
+    expect(await readMirrorLastPulledAt("p1")).toBeNull();
+  });
+
+  it("a pull that stopped offline does not move it, so a stale copy never looks fresh", async () => {
+    await pullChanges("p1");
+    const first = await readMirrorLastPulledAt("p1");
+    jest.spyOn(Date, "now").mockReturnValue(Date.now() + 3 * 3_600_000);
+    mockFail = { message: "Network request failed" };
+    const result = await pullChanges("p1");
+    expect(result.stoppedOffline).toBe(true);
+    expect(await readMirrorLastPulledAt("p1")).toBe(first);
+    jest.restoreAllMocks();
+  });
+
+  it("a later complete pull moves it forward, and signed out reads as unknown", async () => {
+    await pullChanges("p1");
+    const first = Date.parse((await readMirrorLastPulledAt("p1")) ?? "");
+    jest.spyOn(Date, "now").mockReturnValue(first + 600_000);
+    await pullChanges("p1");
+    expect(Date.parse((await readMirrorLastPulledAt("p1")) ?? "")).toBeGreaterThan(first);
+    jest.restoreAllMocks();
+    mockUser = null;
+    expect(await readMirrorLastPulledAt("p1")).toBeNull();
   });
 });

@@ -2011,3 +2011,11 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **Tests**: medicines 358 pass at 100 percent coverage; mobile `pack-scan` and mirror tests pass; i18n 215 and shared 1,029 pass; mobile `tsc` clean; eslint 0 errors.
 - **Not run**: nothing on a device or simulator; the camera path cannot run until a text reader exists.
 - **Open**: OQ-NAFDAC-SCAN-1 to OQ-NAFDAC-SCAN-4.
+
+## S06y PR 2: how old is the offline copy (2026-10-20), branch `s06y/offline-copy-freshness`
+
+- **Built**: the mirror now records the start time of its last completed pull (`readMirrorLastPulledAt`); pure `apps/mobile/src/lib/freshness.ts` (recent / stale / unknown, label and calm notice); shared `ui/freshness-note.tsx` on three surfaces: emergency card (its own `cachedAt`), the Medicines dose list and Today, each only when the saved copy is on screen. PROPOSED registry key `offline.freshness` (24 hours, status proposed, owner Founder). English strings `freshness.*` in `packages/i18n`. Note in `docs/design/S06y-freshness.md`.
+- **Reused**: `sync_state`, `loadTodaysDoses` local fallback, `loadToday`, the kit `AppText` and `InlineAlert`, `getProposedConfig`.
+- **Tests**: `freshness.test.ts` (boundaries, plural, config, clock skew, unknown, wording scan), `offline-store.test.ts` (last pull: null, per account, offline pull does not move it, clear, signed out), `today.test.ts` (`fromPhone`), `offline-reads.test.ts`; mobile 178 suites / 2317 tests, shared 1050, i18n 215 pass; `tsc` clean for mobile, shared and i18n; eslint 0 errors.
+- **Not run**: nothing on a device or simulator; layout, font scaling and screen reader behaviour unverified. JS only: `runtimeVersion` untouched, no migration, no AI.
+- **Open questions**: is 24 hours right (CMO or founder), should the emergency card use its own threshold. Follow-ups: list `offline.freshness` in the founder review list; the same note on other mirror-backed screens.
