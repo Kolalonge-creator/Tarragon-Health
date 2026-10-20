@@ -188,6 +188,35 @@ describe("buildIpsBundle: what must never be in it", () => {
     expect(buildIpsBundle(late, mapping, ips).sections.find((s) => s.key === "vital_signs")?.lines[0]).toBe("Body weight: 70 kg, 2026-10-02");
   });
 
+  it("keeps a measured reading ahead of wearable estimates, so a day of watch syncs cannot push out the last cuff reading", () => {
+    const watch = Array.from({ length: 8 }, (_, i) => ({
+      id: `aaaaaaaa-0000-4000-8000-0000000002${String(i).padStart(2, "0")}`,
+      vital_type: "pulse",
+      taken_at: `2026-10-02T0${i}:00:00+00:00`,
+      source: "wearable",
+      pulse_bpm: 60 + i,
+    }));
+    const cuff = { id: "aaaaaaaa-0000-4000-8000-000000000299", vital_type: "pulse", taken_at: "2026-09-01T08:00:00+00:00", source: "manual", pulse_bpm: 66 };
+    const out = buildIpsBundle(fixtureSnapshot({ vitals: [...watch, cuff] }), mapping, ips);
+    const lines = out.sections.find((s) => s.key === "vital_signs")?.lines ?? [];
+    expect(lines).toHaveLength(ips.vitals_per_type);
+    expect(lines.filter((l) => !l.includes("(estimate from a wearable)"))).toHaveLength(1);
+  });
+
+  it("writes into the document how many readings were left out and which mapping version made it", () => {
+    const many = Array.from({ length: 9 }, (_, i) => ({
+      id: `aaaaaaaa-0000-4000-8000-0000000003${String(i).padStart(2, "0")}`,
+      vital_type: "weight",
+      taken_at: `2026-09-0${i + 1}T08:00:00+00:00`,
+      source: "manual",
+      weight_kg: 70 + i,
+    }));
+    const out = buildIpsBundle(fixtureSnapshot({ vitals: many }), mapping, ips, { mappingVersion: 1, mappingStatus: "proposed" });
+    const json = JSON.stringify(out.bundle);
+    expect(json).toContain(`${9 - ips.vitals_per_type} older readings and results are left out of this summary.`);
+    expect(json).toContain("ips-mapping-v1-proposed");
+  });
+
   it("keeps the summary short: the newest few readings of each kind and results of each test, and says how many were left out", () => {
     const many = Array.from({ length: 12 }, (_, i) => ({
       id: `aaaaaaaa-0000-4000-8000-0000000001${String(i).padStart(2, "0")}`,

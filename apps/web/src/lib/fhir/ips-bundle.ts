@@ -160,12 +160,19 @@ const SNAPSHOT_SECTION: Record<IpsSectionKey, string> = {
 };
 
 /** Newest `limit` rows per key. Pure; the input order is not assumed. */
-function newestPer<T>(rows: T[] | undefined, keyOf: (r: T) => string, whenOf: (r: T) => string, limit: number): { kept: T[] | undefined; trimmed: number } {
+function newestPer<T>(
+  rows: T[] | undefined,
+  keyOf: (r: T) => string,
+  whenOf: (r: T) => string,
+  limit: number,
+  rankOf: (r: T) => number = () => 0
+): { kept: T[] | undefined; trimmed: number } {
   if (!rows) return { kept: rows, trimmed: 0 };
   const groups = new Map<string, T[]>();
   for (const r of rows) groups.set(keyOf(r), [...(groups.get(keyOf(r)) ?? []), r]);
   const kept: T[] = [];
-  for (const list of groups.values()) kept.push(...[...list].sort((a, b) => whenOf(b).localeCompare(whenOf(a))).slice(0, limit));
+  // a lower rank is kept first (a measured reading before a wearable estimate), then the newest
+  for (const list of groups.values()) kept.push(...[...list].sort((a, b) => rankOf(a) - rankOf(b) || whenOf(b).localeCompare(whenOf(a))).slice(0, limit));
   return { kept: kept.sort((a, b) => whenOf(b).localeCompare(whenOf(a))), trimmed: rows.length - kept.length };
 }
 
@@ -173,10 +180,11 @@ export function buildIpsBundle(
   snapshot: ExportSnapshot,
   mapping: FhirMapping,
   ips: IpsMapping,
-  options: { documentId?: string } = {}
+  options: { documentId?: string; mappingVersion?: number; mappingStatus?: string } = {}
 ): IpsResult {
   // A summary is short: the newest readings of each kind and the newest results of each test. Documents are never part of it.
-  const vitals = newestPer(snapshot.vitals, (v) => v.vital_type, (v) => v.taken_at, ips.vitals_per_type);
+  // a measured reading is kept before a wearable estimate, so a day of watch syncs cannot push out the last cuff reading
+  const vitals = newestPer(snapshot.vitals, (v) => v.vital_type, (v) => v.taken_at, ips.vitals_per_type, (v) => (v.source === "wearable" ? 1 : 0));
   const labs = newestPer(snapshot.lab_results, (r) => r.code, (r) => r.taken_at ?? "", ips.results_per_analyte);
   const base = buildFhirBundle({ ...snapshot, documents: undefined, vitals: vitals.kept, lab_results: labs.kept }, mapping);
   const trimmed = vitals.trimmed + labs.trimmed;
@@ -239,6 +247,8 @@ export function buildIpsBundle(
         "Not included: private notes and documents. There is no separate reproductive health or mental health section, but items inside the other sections are not sorted by what they are for, so read this before you use it.",
         ...(leftOut.length > 0 ? [`Withheld for this reader: ${leftOut.join(", ")}.`] : []),
         "Released laboratory results only. Only the most recent readings and results are included. Readings from a consumer wearable are estimates.",
+        ...(trimmed > 0 ? [`${trimmed} older readings and results are left out of this summary.`] : []),
+        ...(base.skipped.length > 0 ? [`${base.skipped.length} items could not be put into this format and are not included.`] : []),
       ],
       ""
     ),
@@ -259,7 +269,13 @@ export function buildIpsBundle(
     type: "document",
     identifier: { system: ips.document_identifier_system, value: documentId },
     timestamp: snapshot.generated_at,
-    meta: base.bundle.meta,
+    meta: {
+      tag: [
+        ...(((base.bundle.meta as { tag?: FhirOut[] } | undefined)?.tag) ?? []),
+        // which version of the (proposed) mapping made this file, so it can be traced after the mapping changes
+        ...(options.mappingVersion != null ? [{ system: qualitySystem, code: `ips-mapping-v${options.mappingVersion}-${options.mappingStatus ?? "proposed"}` }] : []),
+      ],
+    },
     entry: [entry(composition), ...(patientEntry ? [patientEntry] : []), entry(author), ...bodyEntries],
   };
   return { bundle, sections: summaries, skipped: base.skipped, trimmed, resourceCount: bodyEntries.length, documentId };

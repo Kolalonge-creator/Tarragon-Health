@@ -2029,7 +2029,11 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 
 - **Built**: `fhir.ips_mapping` v1 (PROPOSED, founder-owned, mirror test); `apps/web/src/lib/fhir/ips-bundle.ts` (pure, IPS-shaped document Bundle: Composition 60591-5 with problems, allergies, medicines, immunizations, results, vital signs, plus Patient and an author Organization); `exportIpsBundle`; `GET /api/patient/ips-export`; a "Download my summary (IPS)" card and a one-page "what is inside" preview under `/patient/data-exchange`. Reuses the S44 snapshot, so exclusions (no reproductive or mental health, released labs only, no private notes), consent categories and the `fhir_export_log` audit are unchanged. Documents are left out. No migration.
 - **Safety**: required empty sections are `unavailable`, never `nilknown`; wearable values stay tagged as estimates; no profile or conformance claim; copy says the file is unvalidated.
-- **Tests**: web `src/lib/fhir` 69 pass (structure, reference resolution, excluded categories, empty sections, escaping, units round trip through our own import parser, service); shared 1,054 pass; i18n 215 pass; web `tsc` clean; eslint clean.
+- **Tests**: web `src/lib/fhir` 77 pass (structure, reference resolution, excluded categories, empty sections, escaping, units round trip through our own import parser, service); shared 1,055 pass; i18n 215 pass; web `tsc` clean; eslint clean.
 - **Not run**: no HAPI or other FHIR validator; the screens were not opened in a browser or on a device.
+<<<<<<< HEAD
 - **Open**: OQ-IPS-1 to OQ-IPS-3.
 >>>>>>> 5fa70a857 (IPS export: International Patient Summary shaped FHIR document from the existing export snapshot)
+
+- **Open**: OQ-IPS-1 to OQ-IPS-4.
+>>>>>>> 6d2b17b62 (IPS export: review fixes (withheld sections, short summary, mapping version, preview on request))

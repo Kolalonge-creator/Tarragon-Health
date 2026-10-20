@@ -82,8 +82,8 @@ export async function exportIpsBundle(supabase: SupabaseClient<Database>, input:
   if (!got.ok) return got;
   try {
     const { mapping, version } = loadFhirMapping();
-    const { ips, version: ipsMappingVersion } = loadIpsMapping();
-    const result = buildIpsBundle(got.snapshot, mapping, ips);
+    const { ips, version: ipsMappingVersion, status: ipsStatus } = loadIpsMapping();
+    const result = buildIpsBundle(got.snapshot, mapping, ips, { mappingVersion: ipsMappingVersion, mappingStatus: ipsStatus });
     return {
       ok: true,
       result,
@@ -93,7 +93,9 @@ export async function exportIpsBundle(supabase: SupabaseClient<Database>, input:
       mappingVersion: version,
       ipsMappingVersion,
     };
-  } catch {
+  } catch (error) {
+    // never the snapshot (it holds health data): only that it failed and why, so a broken mapping is seen by an operator
+    console.error("ips-export: could not map the snapshot", error instanceof Error ? error.message : "unknown error");
     // a configuration that no longer parses, or a mapper fault, is a plain failure the caller can show, never an unhandled throw
     return { ok: false, status: 500, error: "The export could not be made." };
   }
