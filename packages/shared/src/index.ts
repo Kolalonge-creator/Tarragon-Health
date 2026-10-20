@@ -287,3 +287,6 @@ export * from "./therapy-content/wave-a-drafts";
 export * from "./therapy-queue";
 export * from "./therapy-results";
 export * from "./device-guides";
+
+// S43m: health history entry rules shared by web and phone.
+export * from "./health-history";

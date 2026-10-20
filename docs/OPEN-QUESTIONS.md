@@ -4311,3 +4311,11 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-NAFDAC-SCAN-4 The number is used for lookup and pre-fill only; it is not stored on the medication (raised by the pack-scan build, 2026-10-16)
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
+
+### OQ-S43m-1 The web symptom journal says severity is "of 5"; the database and the phone use 1 to 10 (raised by the S43m build, 2026-10-20)
+- `i18n` key `journal.severity` reads "How bad: {value} of 5" and `/patient/symptom-journal` uses it, but `symptoms.severity` is entered on a 1 to 10 scale (phone `symptom-screen.tsx`, red-flag trigger at 8 and above). A person who logged 8 sees "8 of 5" on the web. The phone uses a new key, `mpass.journal.severity` ("out of 10"). Needed: change the web page to the same wording. Not changed here to keep the PR to the phone; the key `journal.severity` also collides in name with the private-journal keys and should be renamed when it is.
+- Decision: open (product, small).
+
+### OQ-S43m-2 The full activity timeline has no saved copy for offline reading (raised by the S43m build, 2026-10-20)
+- The other Passport read screens fall back to a last good copy (`lib/passport-cache.ts`). The existing timeline screen reads with a growing limit and was only given an honest offline or failed message, not a cache, because a cached page of a growing list needs its own rule for which page to keep. Needed: decide whether to cache the newest 20 items.
+- Decision: open (product).

@@ -2011,3 +2011,12 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **Tests**: medicines 358 pass at 100 percent coverage; mobile `pack-scan` and mirror tests pass; i18n 215 and shared 1,029 pass; mobile `tsc` clean; eslint 0 errors.
 - **Not run**: nothing on a device or simulator; the camera path cannot run until a text reader exists.
 - **Open**: OQ-NAFDAC-SCAN-1 to OQ-NAFDAC-SCAN-4.
+
+## S43m: the Health Passport on the phone (2026-10-20)
+
+Design `docs/design/S43m.md`, research `docs/research/S43m.md`. Four PRs by screen group; this entry is appended to by each.
+
+### PR 1: health history, symptom journal, timeline links and honest states (`s43m/history-journal`)
+- **Built**: `lib/passport-cache.ts` (last good copy in the SQLCipher store, per account, cleared at sign-out, `readThrough` shows a stale copy with a notice and never an empty list for a failed read); `lib/health-history.ts` and the Health history screen (procedures and family history, add, remove through the tombstone function, read-only for a supporter, writes need a connection and say so); `lib/symptom-journal.ts` and the Symptom journal screen (the web function `patient_symptom_journal`, last copy, S06 mirror fallback, entries waiting in the outbox shown as waiting); `packages/shared/src/health-history.ts` (relatives list and entry rules, now used by the web schema too); timeline event links for symptoms and procedures; My Health hub rows; `mpass.*` strings.
+- **Not built, on purpose**: no migration, no new dependency, no native change, `runtimeVersion` untouched.
+- **Open**: OQ-S43m-1, OQ-S43m-2.
