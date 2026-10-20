@@ -252,7 +252,7 @@ begin
     begin
       if p_recipient = %L::uuid then raise exception 's26b boom'; end if;
       return 'in_app'::public.notification_channel;
-    end $b$$fmt$, bad);
+    end $b$ $fmt$, bad);
   n := private.queue_entitlement_expiry_reminders();
   perform pg_temp.ck('reminders: one failing entitlement does not stop the others', '1/0',
     pg_temp.notifs(good, 'entitlement_expiring_soon') || '/' || pg_temp.notifs(bad, 'entitlement_expiring_soon'));
@@ -706,14 +706,18 @@ begin
   perform pg_temp.ck('ops: a patient cannot settle a refund', '42501', pg_temp.try_as(v_pat, format($q$select public.admin_settle_processing_refund(%L, true)$q$, rf6)));
   perform pg_temp.act(v_admin);
   r := public.admin_settle_processing_refund(rf7, true, 'X');
-  perform pg_temp.ck('ops: a refund still inside the window cannot be settled yet', 'too_soon', r ->> 'result');
-  r := public.admin_settle_processing_refund(rf6, false);
-  perform pg_temp.ck('ops: Paystack did not send it: the refund fails and can be retried', 'failed/failed/settled_not_sent',
-    (r ->> 'result') || '/' || (select state from public.refunds where id = rf6) || '/' || (select last_error_code from public.refunds where id = rf6));
+  v := r ->> 'result';
+  j := public.admin_settle_processing_refund(rf6, false);
   r := public.admin_settle_processing_refund(rf4, true, 'PSK-HAND-1');
+  perform pg_temp.back();
+  -- (the operational columns are read here as the owner: a signed-in person cannot read them, which is the point)
+  perform pg_temp.ck('ops: a refund still inside the window cannot be settled yet', 'too_soon', v);
+  perform pg_temp.ck('ops: Paystack did not send it: the refund fails and can be retried', 'failed/failed/settled_not_sent',
+    (j ->> 'result') || '/' || (select state from public.refunds where id = rf6) || '/' || (select last_error_code from public.refunds where id = rf6));
   perform pg_temp.ck('ops: Paystack sent it: the refund completes with the reference', 'completed/completed/PSK-HAND-1',
     (r ->> 'result') || '/' || (select state from public.refunds where id = rf4) || '/' || (select provider_reference from public.refunds where id = rf4));
   perform pg_temp.ck('ops: and finance is reminded to post the cash entry', '1', (select count(*) from public.ops_incidents where external_reference = 'refund-cash-post:' || rf4)::text);
+  perform pg_temp.act(v_admin);
   perform pg_temp.ck('ops: a settled refund cannot be settled again', 'not_processing', public.admin_settle_processing_refund(rf4, true) ->> 'result');
   perform pg_temp.back();
 

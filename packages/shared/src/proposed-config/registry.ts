@@ -2316,7 +2316,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-16",
-    source: "docs/research/S26-S30-competitor-review-and-build-plan.md (S26b); supabase/migrations/20261016195633_s26b_entitlement_and_refund_hardening.sql",
+    source: "docs/research/S26-S30-competitor-review-and-build-plan.md (S26b); supabase/migrations/20261020175126_s26b_entitlement_and_refund_hardening.sql",
   },
   {
     key: "refunds.order_rules",
@@ -2329,7 +2329,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-16",
-    source: "docs/research/S26-S30-competitor-review-and-build-plan.md (S26b); supabase/migrations/20261016195633_s26b_entitlement_and_refund_hardening.sql",
+    source: "docs/research/S26-S30-competitor-review-and-build-plan.md (S26b); supabase/migrations/20261020175126_s26b_entitlement_and_refund_hardening.sql",
   },
   {
     key: "entitlements.expiry_reminder_days",
