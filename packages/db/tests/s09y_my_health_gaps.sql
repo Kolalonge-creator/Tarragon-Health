@@ -201,6 +201,14 @@ begin
   -- the queue
   perform pg_temp.ck('the shared worklist shows the unchecked files to a clinician with no tie (name and date only)', '4',
     pg_temp.q_as(pg_temp.f('untied'), $q$select count(*)::text from public.clinical_worklist() w where w.kind = 'outside_records'$q$));
+  -- a care coordinator is non-clinical: no clinical reads, so no list and no totals (the control: the tied clinical-tier doctor still sees the item)
+  perform pg_temp.ck('a care coordinator (on the care team) is refused the worklist, so sees no outside record', 'true',
+    (pg_temp.q_as(pg_temp.f('co'), $q$select count(*)::text from public.clinical_worklist() w where w.kind = 'outside_records'$q$) like 'ERR:only an active clinician%')::text);
+  perform pg_temp.ck('...and is refused the organisation totals', 'true',
+    (pg_temp.q_as(pg_temp.f('co'), $q$select n::text from public.org_open_work_counts() where kind = 'outside_records'$q$) like 'ERR:not allowed%')::text);
+  perform pg_temp.ck('control: the tied clinical-tier doctor still sees the item in the list and the totals', '4|4',
+    pg_temp.q_as(pg_temp.f('tied'), $q$select count(*)::text from public.clinical_worklist() w where w.kind = 'outside_records'$q$) || '|' ||
+    pg_temp.q_as(pg_temp.f('tied'), $q$select n::text from public.org_open_work_counts() where kind = 'outside_records'$q$));
 end $$;
 
 -- Opening a file to check it ---------------------------------------------------------------------------------------------------------
@@ -291,6 +299,15 @@ begin
   insert into results values ('sabotaged', 'SABOTAGE: without the clinical-tier check a coordinator verifies', 'ERR:not authorised', r);
   execute v_def0;
 
+  -- (4) the coordinator exclusion removed from the worklist: a coordinator must then see the outside records
+  v_def0 := pg_get_functiondef('public.clinical_worklist()'::regprocedure);
+  v_def := replace(v_def0, ' and cs.doctor_tier <> ''care_coordinator''', '');
+  if v_def = v_def0 then raise exception 'sabotage 4 did not apply'; end if;
+  execute v_def;
+  insert into results values ('sabotaged', 'SABOTAGE: without the exclusion a coordinator reads the outside-record queue', 'ERR:only an active clinician',
+    left(pg_temp.q_as(pg_temp.f('co'), $q$select count(*)::text from public.clinical_worklist() w where w.kind = 'outside_records'$q$), 27));
+  execute v_def0;
+
   -- (3) the status guard dropped: a direct flip must then succeed
   drop trigger patient_documents_verification_guard on public.patient_documents;
   d := pg_temp.mkdoc_as(pg_temp.f('p'), 'sab3');
@@ -311,7 +328,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and check_name like 'SABOTAGE%' and expected <> actual;
-  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

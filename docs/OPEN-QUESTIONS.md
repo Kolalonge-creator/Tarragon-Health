@@ -4328,9 +4328,9 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - `my_health_config.lock_screen_pass` is unsigned and awaiting the CMO. If cover should ever be on the lock-screen card it must be added to that governed list and signed, not added in code.
 - Decision: open (CMO).
 
-### OQ-S09y-5 Care coordinators can call the shared worklist function (S09y finding)
-- `clinical_worklist()` checks only an active `clinical_staff` row, so a care coordinator can call it directly although the page redirects them and the S39e header says it refuses them. The new `outside_records` kind therefore shows a coordinator patient names and dates. The check and open functions themselves refuse a coordinator. Needed: confirm whether the worklist should refuse a coordinator.
-- Decision: open (CMO / security).
+### OQ-S09y-5 Care coordinators could call the shared worklist function (S09y finding) - FIXED in PR #1225
+- `clinical_worklist()` and `org_open_work_counts()` checked only an active `clinical_staff` row, so a care coordinator (non-clinical, no clinical reads) could call them directly although the page redirects them and the S39e header says they are refused. The S09y migration now excludes `doctor_tier = 'care_coordinator'` from both guards (this closes it for every queue, not only `outside_records`). Proved with a simulated coordinator session, a tied-doctor control and a sabotage step in `s09y_my_health_gaps.sql`; `s39e` re-run clean.
+- Decision: closed unless the CMO wants a coordinator to see queue counts again.
 
 ### OQ-S09y-6 Outside records on the phone take photos only (S09y)
 - No document-picker package is installed, so the phone adds photos from the camera or library; a PDF is added on the web. Adding a picker is a native module and needs an EAS build and a runtimeVersion bump.

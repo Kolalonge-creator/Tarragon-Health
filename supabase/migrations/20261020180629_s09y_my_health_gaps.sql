@@ -263,10 +263,17 @@ declare
   v_cdef text := pg_get_functiondef('public.org_open_work_counts()'::regprocedure);
   v_cnew text := replace(v_cdef, 'union all select ''async_consults''',
     'union all select ''outside_records'', count(*) from public.patient_documents where organisation_id = v_org and source = ''patient'' and verification_status = ''unchecked''' || E'\n    union all select ''async_consults''');
+  v_new2 text;
+  v_cnew2 text;
 begin
   if v_new = v_def or v_cnew = v_cdef then raise exception 'S09y: the worklist functions did not have the expected shape'; end if;
-  execute v_new;
-  execute v_cnew;
+  -- A care coordinator is non-clinical (logistics only) and gets no clinical reads. The S39e header says the worklist refuses a coordinator, but the live
+  -- body only checked for an active clinical_staff row, which a coordinator also has. Close it here, for the list and for the totals.
+  v_new2 := replace(v_new, 'where cs.profile_id = (select auth.uid()) and cs.active) then', 'where cs.profile_id = (select auth.uid()) and cs.active and cs.doctor_tier <> ''care_coordinator'') then');
+  v_cnew2 := replace(v_cnew, 'where cs.profile_id = p.id and cs.active)', 'where cs.profile_id = p.id and cs.active and cs.doctor_tier <> ''care_coordinator'')');
+  if v_new2 = v_new or v_cnew2 = v_cnew then raise exception 'S09y: the worklist guards did not have the expected shape; nothing was changed'; end if;
+  execute v_new2;
+  execute v_cnew2;
 end $$;
 
 -- ---------------------------------------------------------------------------------------------------------------------------------------------
