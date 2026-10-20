@@ -4927,6 +4927,38 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S16-S20-capacity-cover.md; lead_config draft (inactive); decision 12",
   },
   {
+    key: "ops_desk.rules",
+    // Ops desk resilience (OQ-441, decision S16-S20-10). Live values are the active row of `ops_desk_config`; a test fails if the migration seed and this value drift. deputy_after_seconds: how long the named primary has to acknowledge a page incident before the deputy is told (PROPOSED). uncovered_roster_alarm: 1 opens a sev1 when a real rota runs and no ops contact is on duty. checklist_gates_readiness: 0 = the resilience checklist is recorded and gates nothing (ships OFF); version 2 turns it on. checklist_max_age_days: a statement older than this no longer counts. call_note_max_chars: the longest note on a logged call.
+    value: {
+      deputy_after_seconds: 300,
+      uncovered_roster_alarm: 1,
+      checklist_gates_readiness: 0,
+      checklist_max_age_days: 90,
+      call_note_max_chars: 500,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/runbooks/ops-desk-expired-page.md; supabase/migrations/20261020173800_ops_desk_expired_page_resilience.sql",
+  },
+  {
+    key: "ops_desk.rules_v2",
+    // Version 2 of ops_desk.rules: the same rules with the checklist gate ON. Shipped as an INACTIVE, unsigned row (ops_desk_config version 2). The CMO signs it in the sign-off hub.
+    value: {
+      deputy_after_seconds: 300,
+      uncovered_roster_alarm: 1,
+      checklist_gates_readiness: 1,
+      checklist_max_age_days: 90,
+      call_note_max_chars: 500,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "ops_desk_config version 2 (inactive)",
+  },
+  {
     key: "ai.review_sample_rate",
     value: 0.05,
     owner: "CMO",
@@ -5166,6 +5198,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: FROM,
     source: "S42 safeguard (OQ-48): not from the spec; proposed",
+  },
+  {
+    key: "proxy.annual_review",
+    // Yearly "still need this person's access?" review (NHS proxy-access standard: grant, redact, review, revoke). A proxy or caregiver grant is due for
+    // review 12 months after it was given or last kept. The reminder repeats every 30 days, at most 4 in a cycle (the first plus three). Access is NEVER
+    // removed by silence. tellProxy is a safeguarding switch (OQ-705): true sends the proxy one calm in-app notice per cycle and shows them a "due" flag; false tells them nothing. proxyNoticeDays is how long the proxy's flag shows, counted from the notice and not from the person's answer. Live value is the active row of `proxy_review_config` v1; a Jest mirror test compares the two.
+    value: { intervalMonths: 12, repeatDays: 30, maxReminders: 4, tellProxy: false, proxyNoticeDays: 14 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "Build proposal 2026-10-16 (NHS proxy-access standard, January 2026); not from the v5 spec; OQ-705",
   },
   {
     key: "pharmacy.quality",
@@ -5883,5 +5927,27 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "medicines.nafdac_number_format",
+    // Reading a NAFDAC registration number off a medicine pack (typed, or read from a photo). `pattern` is the anchored regex
+    // source of a canonical number: an optional letter (never I or O), one or two digits, a hyphen, three to six digits, an
+    // optional letter. Public examples seen: A4-1234, 04-1234, B4-xxxx, A11-101363 (the Greenbook database prints a six-digit tail).
+    // The pattern only decides whether text is SHAPED like a number; it is not a check that a number is real or a pack genuine.
+    // `maxTextLength` bounds the text scanned from a photo; `nameMatchLimit` and `minNameLength` bound the known-medicine names offered
+    // from it; `contextLookback` is how many characters before a number are checked for a batch, lot or date label. Mirrored by NAFDAC_NUMBER_CONFIG in packages/medicines; a test fails on drift.
+    // PROPOSED: a pharmacist or the CMO to confirm against NAFDAC's Greenbook (see OQ-NAFDAC-SCAN-1).
+    value: {
+      pattern: "^[A-HJ-NP-Z]?[0-9]{1,2}-[0-9]{3,6}[A-HJ-NP-Z]?$",
+      maxTextLength: 6000,
+      nameMatchLimit: 3,
+      minNameLength: 4,
+      contextLookback: 16,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/S53-pack-scan.md; NAFDAC Greenbook public examples",
   },
 ];

@@ -687,6 +687,14 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // From private.sweep_circle_check_ins (S29e): a request the patient did not answer in time. Same neutral family as circle_check_in.
     return { text: "Someone in your Care Circle has not answered a check-in. Please call them.", href: "/patient/supporting" };
   }
+  if (n.template === "proxy_review_due") {
+    // From private.sweep_proxy_access_reviews(). Names no one; the person sees who on the card behind the link. Never a reason to act in a hurry.
+    return { text: "A yearly check: do the people who help you still need access? Open Tarragon Health on the web to keep, change or remove it", href: "/patient/family" };
+  }
+  if (n.template === "proxy_review_due_proxy") {
+    // Calm, once per cycle, and says nothing about what the person decides (narrowing and removal stay silent, D5).
+    return { text: "A yearly check is due. The person you help is looking over who can help them. You do not need to do anything", href: "/patient/family" };
+  }
   if (n.template === "circle_pause_ended") {
     return { text: "Your pause on sharing has ended. Your Care Circle can see what you chose to share again", href: "/patient/care-circle" };
   }
@@ -754,6 +762,17 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "on_call_expired") {
     return { text: "Nobody has answered a priority case. Phone the clinician on call now", href: "/rota" };
+  }
+  if (n.template === "on_call_ops_desk") {
+    // From private.ops_desk_assign (ops desk resilience, OQ-441): fixed neutral wording, nothing from the payload (INV-07). A person makes the calls.
+    return { text: "A priority case has not been answered. You are the ops contact: phone the clinician on call now", href: "/admin/ops/desk" };
+  }
+  if (n.template === "on_call_ops_desk_uncovered") {
+    // also sent to the CMO, whose account cannot open /admin/*: the shared rota page, as for on_call_expired
+    return { text: "A priority case has not been answered and no ops contact is on duty. Phone the clinician on call now", href: "/rota" };
+  }
+  if (n.template === "on_call_ops_desk_roster") {
+    return { text: "Nobody reachable may be on call right now. Open the ops desk and phone the people on the call sheet", href: "/admin/ops/desk" };
   }
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };

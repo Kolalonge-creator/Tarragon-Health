@@ -47,6 +47,18 @@ describe("sign-off hub inline panels", () => {
     expect(source).toContain("inlinePanels[GLUCOSE_TASK_TYPE_ITEM_KEY] = <GlucoseTaskTypePanel");
   });
 
+  it("opens the task layer and paging delivery lines inline on the hub, with the database doing the refusing (OQ-451)", () => {
+    expect(source).toContain("inlinePanels[TASK_LAYER_CONFIG_ITEM_KEY] = <TaskLayerConfigPanel");
+    expect(source).toContain("inlinePanels[PAGING_DELIVERY_CONFIG_ITEM_KEY] = <PagingDeliveryConfigPanel");
+    const panel = readFileSync(join(__dirname, "../_signoff-panels/queue-paging-config-panel.tsx"), "utf8");
+    expect(panel).toContain("signTaskLayerConfigAction");
+    expect(panel).toContain("activatePagingDeliveryConfigAction");
+    const actions = readFileSync(join(__dirname, "queue-paging-config-actions.ts"), "utf8");
+    expect(actions).toContain("canAssignCases");
+    expect(actions).toContain('"sign_queue_task_layer_config"');
+    expect(actions).toContain('"activate_paging_delivery_config"');
+  });
+
   it("opens the unified red-event paging switch inline on the hub, with the test-pack confirmation and a switch-off (S19d)", () => {
     expect(source).toContain("inlinePanels[UNIFIED_RED_PAGING_ITEM_KEY] = <UnifiedRedPagingPanel");
     const panel = readFileSync(join(__dirname, "../_signoff-panels/unified-red-paging-panel.tsx"), "utf8");
