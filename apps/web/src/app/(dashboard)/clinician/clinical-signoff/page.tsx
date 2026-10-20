@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -30,6 +30,7 @@ import { TriageRulesPanel } from "../_signoff-panels/triage-rules-panel";
 import { QualityConfigPanel } from "../_signoff-panels/quality-config-panel";
 import { readPendingQualityConfigSignoff } from "@/lib/queries/pending-quality-config-signoff";
 import { CapacityConfigPanel } from "../_signoff-panels/capacity-config-panel";
+import { OpsDeskConfigPanel } from "../_signoff-panels/ops-desk-config-panel";
 import { readPendingCapacityConfigSignoff } from "@/lib/queries/pending-capacity-config-signoff";
 import { PagingDeliveryConfigPanel, TaskLayerConfigPanel } from "../_signoff-panels/queue-paging-config-panel";
 import { readPagingActivationCheck, readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
@@ -215,6 +216,10 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has(CAPACITY_CONFIG_ITEM_KEY)) {
     const pendingCapacity = await readPendingCapacityConfigSignoff(supabase);
     inlinePanels[CAPACITY_CONFIG_ITEM_KEY] = <CapacityConfigPanel capacityVersion={pendingCapacity.capacityVersion} capacityRules={pendingCapacity.capacityRules} leadVersion={pendingCapacity.leadVersion} leadCapDraft={pendingCapacity.leadCapDraft} leadCapInForce={pendingCapacity.leadCapInForce} />;
+  }
+  if (keys.has(OPS_DESK_CONFIG_ITEM_KEY)) {
+    const pendingOps = await readPendingCapacityConfigSignoff(supabase);
+    inlinePanels[OPS_DESK_CONFIG_ITEM_KEY] = <OpsDeskConfigPanel version={pendingOps.opsDeskVersion} />;
   }
   if (keys.has(TASK_LAYER_CONFIG_ITEM_KEY) || keys.has(PAGING_DELIVERY_CONFIG_ITEM_KEY)) {
     const pending = await readPendingQueuePagingConfigSignoff(supabase);
