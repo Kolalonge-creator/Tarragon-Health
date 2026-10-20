@@ -14,6 +14,7 @@ export type VersionedGovernedTable =
   | "lab_panel_signoffs"
   | "prn_limit_rules"
   | "my_health_config"
+  | "activity_safety_config"
   | "home_bp_programme_signoffs";
 
 /**

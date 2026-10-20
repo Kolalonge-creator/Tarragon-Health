@@ -5234,6 +5234,10 @@ export const en = {
   "points.admin.summary_title": "Last 30 days",
   "points.admin.summary_points": "Points earned (real accounts only)",
   "points.admin.redemption_off": "Redemption at checkout is off. The founder sets the per-order cap in kobo to switch it on.",
+  "activity.gate.rest": "Today is a day to rest, so we are not suggesting a workout right now. Gentle everyday movement is fine. If you feel unwell, tell your care team in the app.",
+  "activity.gate.restrict": "Gentle activity only for now. We are showing the lighter options. You can ask your care team in the app if you would like to do more.",
+  "activity.gate.allow": "Choose something you enjoy and go at your own pace.",
+  "activity.gate.unavailable": "We could not check today's activity advice, so please keep to gentle activity and try again in a moment.",
 } as const;
 
 export type MessageKey = keyof typeof en;

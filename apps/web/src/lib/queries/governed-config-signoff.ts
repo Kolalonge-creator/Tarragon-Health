@@ -49,6 +49,7 @@ export const GOVERNED_CONFIG_TABLES = [
   { table: "prn_limit_rules", title: "As-needed medicine limits", slug: "prn-limit-rules" },
   { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
+  { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
 ] as const;
 
 /** Tables that hold one live row per kind rather than one live row in total. */
