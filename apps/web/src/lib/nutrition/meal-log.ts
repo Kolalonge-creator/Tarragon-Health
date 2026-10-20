@@ -25,9 +25,18 @@ export function analyseDescriptionWith(description: string | null | undefined, c
   return { parsedItems: items as unknown as Json, nutritionAnalysis: analysis ? (analysis as unknown as Json) : null };
 }
 
-export async function analyseDescription(supabase: SupabaseClient<Database>, description: string | null | undefined): Promise<MealAnalysis> {
+/**
+ * Analyses words against the food table. Returns `unavailable` (not an empty analysis) when the table could not be read, so a caller that can
+ * retry (the phone's outbox, a one-tap repeat) does so instead of saving a meal that is permanently uncounted in the daily totals.
+ */
+export async function analyseDescription(
+  supabase: SupabaseClient<Database>,
+  description: string | null | undefined,
+): Promise<MealAnalysis | "unavailable"> {
   if (!description || description.trim().length === 0) return { parsedItems: null, nutritionAnalysis: null };
-  return analyseDescriptionWith(description, await fetchFoodCatalogue(supabase));
+  const catalogue = await fetchFoodCatalogue(supabase);
+  if (catalogue.length === 0) return "unavailable";
+  return analyseDescriptionWith(description, catalogue);
 }
 
 export interface InsertMealInput {
@@ -43,14 +52,21 @@ export interface InsertMealInput {
   source?: Database["public"]["Enums"]["record_source"];
 }
 
-export type InsertMealResult = { ok: true; id: string | null; duplicate: boolean } | { ok: false; error: string };
+export type InsertMealResult =
+  | { ok: true; id: string | null; duplicate: boolean }
+  // `retryable`: nothing was wrong with the meal itself (the food list was unreadable); trying again later is right. `code` is the database error code, if any.
+  | { ok: false; error: string; retryable?: boolean; code?: string };
 
 export async function insertMeal(
   supabase: SupabaseClient<Database>,
   ctx: { userId: string; organisationId: string },
   input: InsertMealInput,
 ): Promise<InsertMealResult> {
-  const analysis = input.analysis ?? (await analyseDescription(supabase, input.description));
+  const computed = input.analysis ?? (await analyseDescription(supabase, input.description));
+  if (computed === "unavailable") {
+    return { ok: false, error: "The food list is unavailable right now. Please try again in a moment.", retryable: true };
+  }
+  const analysis = computed;
   const row: TablesInsert<"nutrition_log_entries"> = {
     organisation_id: ctx.organisationId,
     patient_id: ctx.userId,
@@ -69,7 +85,7 @@ export async function insertMeal(
   if (error) {
     // 23505 on (patient_id, client_id): this exact send already landed. That is success, not a second meal.
     if (error.code === "23505" && input.clientId) return { ok: true, id: null, duplicate: true };
-    return { ok: false, error: error.message };
+    return { ok: false, error: error.message, code: error.code };
   }
 
   // Bridges into the Weekly Plan card's own completion tracking, a no-op without an active diet goal. Best effort by design.

@@ -66,6 +66,14 @@ function buildUserText(description?: string | null): string {
   return base;
 }
 
+/**
+ * S49a: the prompt is grounded on the food table by default. Setting MEAL_VISION_TABLE_GROUNDING=off puts the hand-kept list back with no
+ * deploy of code (an instant rollback while the AI-008 re-evaluation is outstanding, see OQ-S49A-5).
+ */
+function tableGroundingEnabled(): boolean {
+  return process.env.MEAL_VISION_TABLE_GROUNDING !== "off";
+}
+
 export function isMealVisionConfigured(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY);
 }
@@ -101,7 +109,7 @@ export async function analyzeMealPhoto(input: {
       name: "meal_estimate",
     });
     const messages = [
-      new SystemMessage(buildMealVisionSystemPrompt(input.catalogue)),
+      new SystemMessage(buildMealVisionSystemPrompt(tableGroundingEnabled() ? input.catalogue : null)),
       new HumanMessage({
         content: [
           { type: "text", text: buildUserText(input.description) },

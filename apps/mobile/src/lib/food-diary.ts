@@ -169,6 +169,12 @@ export async function saveFavourite(patientId: string, input: { name: string; de
   return {};
 }
 
+/** Marks a favourite as just used so the ones used most recently come first. Needs a connection; failing quietly is fine, ordering is cosmetic. */
+export async function touchFavourite(patientId: string, id: string): Promise<void> {
+  const { error } = await supabase.from("favourite_meals").update({ last_used_at: new Date().toISOString() }).eq("id", id).eq("patient_id", patientId);
+  if (error) recordSyncError("food_diary", "touchFavourite", error);
+}
+
 export async function removeFavourite(patientId: string, id: string): Promise<{ error?: string }> {
   const { error } = await supabase.from("favourite_meals").delete().eq("id", id).eq("patient_id", patientId);
   return error ? { error: "We could not remove that right now. Check your connection and try again." } : {};

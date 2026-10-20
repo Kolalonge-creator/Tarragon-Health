@@ -66,4 +66,16 @@ describe("POST /api/mobile/nutrition/meal-log", () => {
     insertMeal.mockResolvedValue({ ok: false, error: "down" });
     expect((await POST(req({ meal_type: "lunch", description: "rice", client_id: CID }))).status).toBe(500);
   });
+
+  it("an unreadable food list is a 503 so the outbox retries, instead of saving an uncounted meal", async () => {
+    insertMeal.mockResolvedValue({ ok: false, error: "The food list is unavailable", retryable: true });
+    expect((await POST(req({ meal_type: "lunch", description: "rice", client_id: CID }))).status).toBe(503);
+  });
+
+  it("a refusal that will never succeed is a 4xx so the outbox holds it for the person and does not retry forever", async () => {
+    insertMeal.mockResolvedValue({ ok: false, error: "x", code: "23514" });
+    expect((await POST(req({ meal_type: "lunch", description: "rice", client_id: CID }))).status).toBe(422);
+    insertMeal.mockResolvedValue({ ok: false, error: "x", code: "42501" });
+    expect((await POST(req({ meal_type: "lunch", description: "rice", client_id: CID }))).status).toBe(403);
+  });
 });

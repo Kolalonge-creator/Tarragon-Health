@@ -70,9 +70,13 @@ export function MealSummaryLine({ analysis, guidance }: { analysis: NutritionAna
   );
 }
 
-/** True when this patient asked for words AND the database lets them see a summary: then the number block is replaced by the words. */
-export function showsWordsOnly(guidance: NutritionGuidance | undefined): boolean {
-  return Boolean(guidance && guidance.state !== "hidden" && guidance.mode === "words");
+/**
+ * True when the per-meal number block must NOT be shown: while the preference is still loading (no flash of numbers), and whenever the patient
+ * chose words, including when the words themselves may not be shown (then they get neither). Only an explicit "numbers" choice shows numbers.
+ */
+export function hidesMealNumbers(guidance: NutritionGuidance | undefined, loading: boolean): boolean {
+  if (loading) return true;
+  return Boolean(guidance && guidance.mode === "words");
 }
 
 /** Pick from the list instead of typing: search, choose a measure, add it to the description. */

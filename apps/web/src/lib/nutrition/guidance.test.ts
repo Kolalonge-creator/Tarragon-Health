@@ -54,30 +54,31 @@ const NOW = new Date("2026-10-20T10:00:00Z");
 const ADULT = { date_of_birth: "1986-03-01", sex: "female" as const, height_cm: 165 };
 
 describe("loadNutritionGuidance", () => {
-  it("withheld: hidden, and nothing else is even read", async () => {
-    const f = fake({ gate: { data: { state: "withheld" }, error: null }, profile: ADULT, weight: 70 });
-    const g = await loadNutritionGuidance(f as never, "p1", NOW);
-    expect(g).toEqual({ state: "hidden" });
-    expect(f.from).not.toHaveBeenCalled();
+  it("unavailable (withheld or not signed): hidden, and only the person's own preference is read", async () => {
+    for (const state of ["unavailable", "withheld", "not_active"]) {
+      const f = fake({ gate: { data: { state }, error: null }, profile: ADULT, weight: 70, mode: "numbers" });
+      const g = await loadNutritionGuidance(f as never, "p1", NOW);
+      expect(g).toEqual({ state: "hidden", mode: "numbers" });
+      expect(f.from.mock.calls.map((c) => c[0])).toEqual(["nutrition_preferences"]);
+    }
   });
 
-  it("not active (unsigned): hidden", async () => {
-    const f = fake({ gate: { data: { state: "not_active" }, error: null }, profile: ADULT, weight: 70 });
-    expect(await loadNutritionGuidance(f as never, "p1", NOW)).toEqual({ state: "hidden" });
-    expect(f.from).not.toHaveBeenCalled();
+  it("a patient who chose words keeps words when targets are withheld (no numbers come back)", async () => {
+    const f = fake({ gate: { data: { state: "unavailable" }, error: null }, profile: ADULT, weight: 70, mode: "words" });
+    expect(await loadNutritionGuidance(f as never, "p1", NOW)).toEqual({ state: "hidden", mode: "words" });
   });
 
   it("a failed gate call is hidden, logged, never zeros", async () => {
     const spy = jest.spyOn(console, "error").mockImplementation(() => undefined);
-    const f = fake({ gate: { data: null, error: { message: "boom" } }, profile: ADULT, weight: 70 });
-    expect(await loadNutritionGuidance(f as never, "p1", NOW)).toEqual({ state: "hidden" });
+    const f = fake({ gate: { data: null, error: { message: "boom" } }, profile: ADULT, weight: 70, mode: "words" });
+    expect(await loadNutritionGuidance(f as never, "p1", NOW)).toEqual({ state: "hidden", mode: "words" });
     expect(spy).toHaveBeenCalled();
     spy.mockRestore();
   });
 
   it("a gate answer that is not understood is hidden", async () => {
     const f = fake({ gate: { data: { state: "ok", config: { energy: {} } }, error: null }, profile: ADULT, weight: 70 });
-    expect(await loadNutritionGuidance(f as never, "p1", NOW)).toEqual({ state: "hidden" });
+    expect(await loadNutritionGuidance(f as never, "p1", NOW)).toEqual({ state: "hidden", mode: "numbers" });
   });
 
   it("ok: computes targets from the signed config and sums today's meals", async () => {
@@ -118,7 +119,37 @@ describe("loadNutritionGuidance", () => {
       profile: { date_of_birth: "2012-01-01", sex: "male", height_cm: 150 },
       weight: 40,
     });
-    expect(await loadNutritionGuidance(f as never, "p1", NOW)).toEqual({ state: "hidden" });
+    expect(await loadNutritionGuidance(f as never, "p1", NOW)).toEqual({ state: "hidden", mode: "numbers" });
+  });
+
+  it("an unreadable preference is hidden and counts as words, never as numbers", async () => {
+    const spy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const f = fake({ gate: { data: { state: "ok", config_version: 1, config: CONFIG }, error: null }, profile: ADULT, weight: 70 });
+    const original = f.from.getMockImplementation()!;
+    f.from.mockImplementation((table: string) => {
+      if (table !== "nutrition_preferences") return original(table);
+      const c: Record<string, unknown> = {};
+      for (const m of ["select", "eq"]) c[m] = () => c;
+      c.maybeSingle = async () => ({ data: null, error: { message: "denied" } });
+      return c;
+    });
+    expect(await loadNutritionGuidance(f as never, "p1", NOW)).toEqual({ state: "hidden", mode: "words" });
+    spy.mockRestore();
+  });
+
+  it("an unreadable weight is hidden, not 'add your weight'", async () => {
+    const spy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const f = fake({ gate: { data: { state: "ok", config_version: 1, config: CONFIG }, error: null }, profile: ADULT, weight: 70 });
+    const original = f.from.getMockImplementation()!;
+    f.from.mockImplementation((table: string) => {
+      if (table !== "vitals_readings") return original(table);
+      const c: Record<string, unknown> = {};
+      for (const m of ["select", "eq", "not", "is", "order", "limit"]) c[m] = () => c;
+      c.maybeSingle = async () => ({ data: null, error: { message: "denied" } });
+      return c;
+    });
+    expect(await loadNutritionGuidance(f as never, "p1", NOW)).toEqual({ state: "hidden", mode: "numbers" });
+    spy.mockRestore();
   });
 
   it("an unreadable profile or day is hidden, not zeros", async () => {
@@ -131,7 +162,7 @@ describe("loadNutritionGuidance", () => {
       c.then = (resolve: (v: unknown) => unknown) => resolve({ data: [], error: null });
       return c;
     });
-    expect(await loadNutritionGuidance(f as never, "p1", NOW)).toEqual({ state: "hidden" });
+    expect(await loadNutritionGuidance(f as never, "p1", NOW)).toEqual({ state: "hidden", mode: "numbers" });
     spy.mockRestore();
   });
 });

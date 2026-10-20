@@ -68,19 +68,23 @@ describe("parseNutritionTargetConfig", () => {
 });
 
 describe("parseTargetsGate", () => {
-  it("treats anything unexpected as withheld", () => {
-    expect(parseTargetsGate(null)).toEqual({ state: "withheld" });
-    expect(parseTargetsGate({ state: "weird" })).toEqual({ state: "withheld" });
-    expect(parseTargetsGate({ state: "ok", config_version: 1, config: { energy: {} } })).toEqual({ state: "withheld" });
+  it("treats anything unexpected as unavailable", () => {
+    expect(parseTargetsGate(null)).toEqual({ state: "unavailable" });
+    expect(parseTargetsGate({ state: "weird" })).toEqual({ state: "unavailable" });
+    expect(parseTargetsGate({ state: "ok", config_version: 1, config: { energy: {} } })).toEqual({ state: "unavailable" });
   });
-  it("passes through not_active and a valid ok", () => {
-    expect(parseTargetsGate({ state: "not_active" })).toEqual({ state: "not_active" });
+  it("withheld, not active and unavailable are one and the same answer to the app", () => {
+    expect(parseTargetsGate({ state: "withheld" })).toEqual(parseTargetsGate({ state: "not_active" }));
+    expect(parseTargetsGate({ state: "withheld" })).toEqual(parseTargetsGate({ state: "unavailable" }));
+  });
+  it("passes through a valid ok", () => {
     const ok = parseTargetsGate({ state: "ok", config_version: 3, config: seededConfig() });
     expect(ok.state).toBe("ok");
     if (ok.state === "ok") expect(ok.configVersion).toBe(3);
   });
-  it("a withheld gate carries no numbers", () => {
+  it("a gate that is not ok carries no numbers even if it sends some", () => {
     expect(Object.keys(parseTargetsGate({ state: "withheld", config: seededConfig() }))).toEqual(["state"]);
+    expect(Object.keys(parseTargetsGate({ state: "unavailable", config: seededConfig() }))).toEqual(["state"]);
   });
 });
 

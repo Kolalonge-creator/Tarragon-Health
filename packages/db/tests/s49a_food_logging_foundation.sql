@@ -157,8 +157,26 @@ select pg_temp.ck('2', 'a ten day old phone time is not trusted (server)', 'serv
 update public.event_types set is_active = false where event_type = 'food.logged';
 do $$ declare v text; begin v := pg_temp.log_meal(pg_temp.f('p1')); perform pg_temp.setf('meal_nobus', v::uuid); end $$;
 select pg_temp.ck('2', 'with the event type off the meal is still saved', 'true', (select exists (select 1 from public.nutrition_log_entries where id = pg_temp.f('meal_nobus'))::text));
+select pg_temp.ck('2', 'and the failure left a durable trace in the audit log', 'true', (select (count(*) >= 1)::text from public.audit_log where action = 'food.logged.emit_failed' and entity_id = pg_temp.f('meal_nobus')));
 select pg_temp.ck('2', 'and no event was written', '0', (select count(*)::text from public.domain_events where event_type = 'food.logged' and aggregate_id = pg_temp.f('meal_nobus')));
 update public.event_types set is_active = true where event_type = 'food.logged';
+
+-- provenance is set by the database, not claimed by the client
+do $$ declare v text; begin
+  v := pg_temp.as_user(pg_temp.f('p1'), format($q$ insert into public.nutrition_log_entries (organisation_id, patient_id, meal_type, description, source, recorded_by)
+       values (%L, %L, 'snack', 'x', 'clinician', %L) returning id::text $q$, pg_temp.f('org'), pg_temp.f('p1'), pg_temp.f('cmo')));
+  perform pg_temp.setf('spoof_meal', v::uuid);
+end $$;
+select pg_temp.ck('2', 'a patient claiming to be a clinician is stored as the patient', 'patient/',
+  (select source::text || '/' || coalesce(recorded_by::text, '') from public.nutrition_log_entries where id = pg_temp.f('spoof_meal')));
+select pg_temp.ck('2', 'the source cannot be changed afterwards', 'ERR 42501',
+  pg_temp.as_user(pg_temp.f('p1'), format($$ update public.nutrition_log_entries set source = 'system' where id = %L returning 'x' $$, pg_temp.f('meal1'))));
+do $$ declare v text; begin
+  v := pg_temp.as_user(pg_temp.f('p1'), format($q$ insert into public.favourite_meals (organisation_id, patient_id, name, description, source)
+       values (%L, %L, 'spoof', 'x', 'clinician') returning id::text $q$, pg_temp.f('org'), pg_temp.f('p1')));
+  perform pg_temp.setf('spoof_fav', v::uuid);
+end $$;
+select pg_temp.ck('3', 'a favourite claiming a clinician source is stored as the patient', 'patient', (select source::text from public.favourite_meals where id = pg_temp.f('spoof_fav')));
 
 -- 3 favourites ----------------------------------------------------------------------------------------------------------------------
 select pg_temp.ck('3', 'a patient saves a favourite', 'true', (pg_temp.as_user(pg_temp.f('p1'), format($$ insert into public.favourite_meals (organisation_id, patient_id, name, meal_type, description)
@@ -175,9 +193,20 @@ select pg_temp.ck('3', 'anon cannot read favourites', 'ERR 42501', pg_temp.as_an
 create function pg_temp.gate(p uuid) returns jsonb language plpgsql as $f$ begin return pg_temp.as_user(p, 'select public.my_nutrition_target_gate()::text')::jsonb; end $f$;
 select pg_temp.ck('4', 'the config is born inactive and unsigned', '0', (select count(*)::text from public.nutrition_target_config where is_active or approved_by is not null));
 select pg_temp.ck('4', 'one draft exists', '1', (select count(*)::text from public.nutrition_target_config where version = 1));
-select pg_temp.ck('4', 'unsigned: the gate says not_active and gives no numbers', '{"state": "not_active"}', pg_temp.gate(pg_temp.f('p1'))::text);
+select pg_temp.ck('4', 'unsigned: the gate says unavailable and gives no numbers', '{"state": "unavailable"}', pg_temp.gate(pg_temp.f('p1'))::text);
+select pg_temp.ck('4', 'unsigned: a pregnant patient gets the IDENTICAL answer (the gate cannot be used to learn who is withheld)', pg_temp.gate(pg_temp.f('p1'))::text, pg_temp.gate(pg_temp.f('preg_profile'))::text);
+select pg_temp.ck('4', 'unsigned: and so does a patient under 18', pg_temp.gate(pg_temp.f('p1'))::text, pg_temp.gate(pg_temp.f('minor'))::text);
 select pg_temp.ck('4', 'a patient cannot read the config table', '0', pg_temp.as_user(pg_temp.f('p1'), $$ select count(*)::text from public.nutrition_target_config $$));
 create function pg_temp.try(p_sql text) returns text language plpgsql as $f$ begin execute p_sql; return 'ok'; exception when others then return 'ERR ' || sqlstate; end $f$;
+select pg_temp.ck('4', 'macros that do not add up to 100 are refused', 'ERR 23514', pg_temp.try($$
+  insert into public.nutrition_target_config (version, config) select 93, jsonb_set(config, '{macros_pct_of_energy,fat}', '45') from public.nutrition_target_config where version = 1 $$));
+select pg_temp.ck('4', 'a rounding step of zero is refused', 'ERR 23514', pg_temp.try($$
+  insert into public.nutrition_target_config (version, config) select 94, jsonb_set(config, '{energy,round_to_kcal}', '0') from public.nutrition_target_config where version = 1 $$));
+select pg_temp.ck('4', 'a word summary whose light line is not below its heavy line is refused', 'ERR 23514', pg_temp.try($$
+  insert into public.nutrition_target_config (version, config) select 95, jsonb_set(config, '{meal_summary,light_below_kcal}', '900') from public.nutrition_target_config where version = 1 $$));
+select pg_temp.ck('4', 'a config with a text value where a number belongs is refused, not an error', 'ERR 23514', pg_temp.try($$
+  insert into public.nutrition_target_config (version, config) select 96, jsonb_set(config, '{energy,floor_kcal,female}', '"lots"') from public.nutrition_target_config where version = 1 $$));
+select pg_temp.ck('4', 'the seeded config passes the validator', 'true', (select private.nutrition_target_config_valid(config)::text from public.nutrition_target_config where version = 1));
 select pg_temp.ck('4', 'a floor below 1000 is refused by the database', 'ERR 23514', pg_temp.try($$
   insert into public.nutrition_target_config (version, config) values (90, '{"min_age_years":18,"energy":{"floor_kcal":{"female":800,"male":1500}},"macros_pct_of_energy":{},"salt_sugar_fibre":{},"meal_summary":{}}'::jsonb) $$));
 select pg_temp.ck('4', 'a config live without a signature is refused', 'ERR 23514', pg_temp.try($$
@@ -200,13 +229,13 @@ create function pg_temp.withheld_shape(p uuid) returns text language plpgsql as
 $f$ declare g jsonb := pg_temp.gate(p); begin
   return (g ->> 'state') || '/' || (g ? 'config')::text || '/' || (select count(*) from jsonb_object_keys(g))::text;
 end $f$;
-select pg_temp.ck('4', 'pregnant (profile flag) is withheld with nothing else', 'withheld/false/1', pg_temp.withheld_shape(pg_temp.f('preg_profile')));
-select pg_temp.ck('4', 'pregnant (patient_pregnancy) is withheld', 'withheld/false/1', pg_temp.withheld_shape(pg_temp.f('preg_table')));
-select pg_temp.ck('4', 'pregnant (reproductive life stage) is withheld', 'withheld/false/1', pg_temp.withheld_shape(pg_temp.f('preg_stage')));
-select pg_temp.ck('4', 'postpartum (reproductive life stage) is withheld', 'withheld/false/1', pg_temp.withheld_shape(pg_temp.f('postpartum_stage')));
-select pg_temp.ck('4', 'within a year of delivery is withheld', 'withheld/false/1', pg_temp.withheld_shape(pg_temp.f('postnatal')));
-select pg_temp.ck('4', 'a positive eating-disorder screen is withheld', 'withheld/false/1', pg_temp.withheld_shape(pg_temp.f('ed')));
-select pg_temp.ck('4', 'under 18 is withheld', 'withheld/false/1', pg_temp.withheld_shape(pg_temp.f('minor')));
+select pg_temp.ck('4', 'pregnant (profile flag) is withheld with nothing else', 'unavailable/false/1', pg_temp.withheld_shape(pg_temp.f('preg_profile')));
+select pg_temp.ck('4', 'pregnant (patient_pregnancy) is withheld', 'unavailable/false/1', pg_temp.withheld_shape(pg_temp.f('preg_table')));
+select pg_temp.ck('4', 'pregnant (reproductive life stage) is withheld', 'unavailable/false/1', pg_temp.withheld_shape(pg_temp.f('preg_stage')));
+select pg_temp.ck('4', 'postpartum (reproductive life stage) is withheld', 'unavailable/false/1', pg_temp.withheld_shape(pg_temp.f('postpartum_stage')));
+select pg_temp.ck('4', 'within a year of delivery is withheld', 'unavailable/false/1', pg_temp.withheld_shape(pg_temp.f('postnatal')));
+select pg_temp.ck('4', 'a positive eating-disorder screen is withheld', 'unavailable/false/1', pg_temp.withheld_shape(pg_temp.f('ed')));
+select pg_temp.ck('4', 'under 18 is withheld', 'unavailable/false/1', pg_temp.withheld_shape(pg_temp.f('minor')));
 
 -- clinician hold
 select pg_temp.ck('4', 'a patient cannot set a hold', 'ERR 42501', pg_temp.as_user(pg_temp.f('p1'), format($$ select public.set_nutrition_target_hold(%L, true)::text $$, pg_temp.f('held'))));
@@ -218,7 +247,7 @@ select pg_temp.ck('4', 'the refused attempts left the patient able to see target
 -- the tie itself is proven by s39g_tied_staff_writes.sql; here the organisation-wide fallback stands in for a tied clinician
 update public.platform_modules set is_enabled = false where key = 'tied_staff_writes';
 select pg_temp.ck('4', 'a tied clinician sets a hold', 'true', (pg_temp.as_user(pg_temp.f('smo'), format($$ select public.set_nutrition_target_hold(%L, true, 'eating_disorder_concern')::text $$, pg_temp.f('held'))) ~ '^[0-9a-f-]{36}$')::text);
-select pg_temp.ck('4', 'a held patient is withheld with nothing else', 'withheld/false/1', pg_temp.withheld_shape(pg_temp.f('held')));
+select pg_temp.ck('4', 'a held patient is withheld with nothing else', 'unavailable/false/1', pg_temp.withheld_shape(pg_temp.f('held')));
 select pg_temp.ck('4', 'the patient cannot read the hold', '0', pg_temp.as_user(pg_temp.f('held'), $$ select count(*)::text from public.nutrition_target_holds $$));
 select pg_temp.ck('4', 'setting it twice keeps one open hold', '1', (
   select (pg_temp.as_user(pg_temp.f('smo'), format($$ select public.set_nutrition_target_hold(%L, true, 'clinician_flag')::text $$, pg_temp.f('held'))) is not null)::int::text

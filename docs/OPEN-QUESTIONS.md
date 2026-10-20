@@ -4358,4 +4358,5 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 
 ### OQ-S49A-5 AI-008 prompt now lists 108 dishes; live re-evaluation not run (raised by the S49a build, 2026-10-20)
 - The photo prompt's grounding line is built from the food table, with the hand-kept list as the fallback; every rule in the prompt is unchanged (proved by a deterministic test that the two prompts differ only on that line). `scripts/eval-ai008-meal-photo.ts` now runs each case twice (fallback and table). It needs `ANTHROPIC_API_KEY` and a Supabase service key and was NOT run in this build (no keys in the build environment). There is still no real Nigerian-dish photo in the suite, so dish-recognition accuracy is untested. The AI-008 governance record (prompt approval, evaluation run) was not touched or seeded: whether a changed prompt needs a fresh human approval is for the AI governance owner.
+- The grounding can be switched back to the hand-kept list with no deploy: set `MEAL_VISION_TABLE_GROUNDING=off`.
 - Decision: open (AI governance owner: run the eval and decide on re-approval).

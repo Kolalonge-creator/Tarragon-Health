@@ -12,7 +12,7 @@ import {
   FoodPicker,
   MealSummaryLine,
   RepeatAndFavourites,
-  showsWordsOnly,
+  hidesMealNumbers,
   useNutritionGuidance,
 } from "./nutrition-foundation";
 import { MealPlanSection } from "./meal-plan-section";
@@ -369,7 +369,7 @@ function EntryCard({
   const queryClient = useQueryClient();
   const [carbs, setCarbs] = useState<string>("");
   const [saved, setSaved] = useState(false);
-  const { data: guidance } = useNutritionGuidance();
+  const { data: guidance, isLoading: guidanceLoading } = useNutritionGuidance();
   const estimate = (entry.ai_estimate ?? null) as MealEstimateShape | null;
   const analysis = (entry.nutrition_analysis ?? null) as unknown as NutritionAnalysisResult | null;
   const parsedItems = (entry.parsed_items ?? null) as unknown as ParsedFoodItem[] | null;
@@ -431,7 +431,7 @@ function EntryCard({
         </div>
       )}
 
-      {analysis && !showsWordsOnly(guidance) && <NutritionAnalysisBlock analysis={analysis} items={parsedItems} />}
+      {analysis && !hidesMealNumbers(guidance, guidanceLoading) && <NutritionAnalysisBlock analysis={analysis} items={parsedItems} />}
       {analysis && <MealSummaryLine analysis={analysis} guidance={guidance} />}
 
       {analysis?.reliable && (

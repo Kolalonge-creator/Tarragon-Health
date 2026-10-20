@@ -375,7 +375,13 @@ export function MealsScreen({ patientId }: { patientId: string }) {
       return;
     }
     // S49a: a meal in words goes through the offline outbox, so it is saved on the phone first and sent when there is signal.
-    await queueMeal(patientId, { mealType, description: trimmedDescription });
+    try {
+      await queueMeal(patientId, { mealType, description: trimmedDescription });
+    } catch {
+      setSaving(false);
+      setSaveError("We could not save that on your phone. Please try again.");
+      return;
+    }
     setSaving(false);
     setDescription("");
     setMealType(undefined);

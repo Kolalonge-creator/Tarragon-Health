@@ -4,7 +4,7 @@ import { portionUnitLabel, type FoodCatalogueItem, type FoodPortionUnit } from "
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { radius, typeScale } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
-import { lookupBarcode, loadFoodList, loadFavourites, queueMeal, removeFavourite, saveFavourite, type Favourite } from "@/lib/food-diary";
+import { lookupBarcode, loadFoodList, loadFavourites, queueMeal, removeFavourite, saveFavourite, touchFavourite, type Favourite } from "@/lib/food-diary";
 import {
   defaultUnit,
   foodPhrase,
@@ -220,6 +220,7 @@ export function RepeatAndFavouritesCard({ patientId, entries, onLogged }: { pati
   const [error, setError] = useState<string | null>(null);
   const [naming, setNaming] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
 
   async function refreshFavourites() {
     const r = await loadFavourites(patientId);
@@ -232,11 +233,21 @@ export function RepeatAndFavouritesCard({ patientId, entries, onLogged }: { pati
   const recent = useMemo(() => recentDistinctMeals(entries, 5), [entries]);
   if (recent.length === 0 && favourites.length === 0) return null;
 
-  async function logAgain(description: string, mealType: MealType | null) {
+  async function logAgain(description: string, mealType: MealType | null, favouriteId?: string) {
+    if (busy) return; // a second tap while the first is saving must not queue a second meal
+    setBusy(true);
     setError(null);
-    await queueMeal(patientId, { mealType: mealType ?? mealTypeForLagosHour(new Date()), description });
-    setMessage("Saved on your phone. It will be added to your record when there is signal.");
-    onLogged();
+    setMessage(null);
+    try {
+      await queueMeal(patientId, { mealType: mealType ?? mealTypeForLagosHour(new Date()), description });
+      setMessage("Saved on your phone. It will be added to your record when there is signal.");
+      if (favouriteId) void touchFavourite(patientId, favouriteId);
+      onLogged();
+    } catch {
+      setError("We could not save that on your phone. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -248,7 +259,7 @@ export function RepeatAndFavouritesCard({ patientId, entries, onLogged }: { pati
           <MutedText>{f.description}</MutedText>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1 }}>
-              <PrimaryButton title="Log" onPress={() => void logAgain(f.description, f.mealType)} />
+              <PrimaryButton title="Log" disabled={busy} onPress={() => void logAgain(f.description, f.mealType, f.id)} />
             </View>
             <View style={{ flex: 1 }}>
               <SecondaryButton
@@ -270,7 +281,7 @@ export function RepeatAndFavouritesCard({ patientId, entries, onLogged }: { pati
           <Text style={{ fontSize: typeScale.body, color: colors.ink }}>{e.description}</Text>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1 }}>
-              <PrimaryButton title="Log again" onPress={() => void logAgain(e.description ?? "", e.mealType)} />
+              <PrimaryButton title="Log again" disabled={busy} onPress={() => void logAgain(e.description ?? "", e.mealType)} />
             </View>
             <View style={{ flex: 1 }}>
               <SecondaryButton title="Save" onPress={() => { setNaming(naming === e.id ? null : e.id); setName(""); }} />

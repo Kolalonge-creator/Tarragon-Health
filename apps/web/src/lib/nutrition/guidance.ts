@@ -23,7 +23,9 @@ import {
 export type MealSummaryMode = "numbers" | "words";
 
 export type NutritionGuidance =
-  | { state: "hidden" }
+  // `mode` is the patient's own preference, kept even when nothing may be shown, so that a patient who asked for no numbers never gets numbers back
+  // because targets were withheld, the call failed or the preference could not be read (an unreadable preference counts as "words", the cautious reading).
+  | { state: "hidden"; mode: MealSummaryMode }
   | {
       state: "needs_profile";
       missing: ("age" | "sex" | "weight" | "height")[];
@@ -52,15 +54,24 @@ export async function loadNutritionGuidance(
   userId: string,
   now: Date = new Date(),
 ): Promise<NutritionGuidance> {
-  const { data: raw, error } = await supabase.rpc("my_nutrition_target_gate");
-  if (error) {
-    console.error("nutrition: targets gate failed, showing no targets", error.message);
-    return { state: "hidden" };
+  const [gateRes, prefRes] = await Promise.all([
+    supabase.rpc("my_nutrition_target_gate"),
+    supabase.from("nutrition_preferences").select("meal_summary_mode").eq("patient_id", userId).maybeSingle(),
+  ]);
+  let mode: MealSummaryMode = "words";
+  if (prefRes.error) {
+    console.error("nutrition: summary preference unreadable, showing no numbers", prefRes.error.message);
+  } else {
+    mode = prefRes.data?.meal_summary_mode === "words" ? "words" : "numbers";
   }
-  const gate = parseTargetsGate(raw);
-  if (gate.state !== "ok") return { state: "hidden" };
+  if (gateRes.error) {
+    console.error("nutrition: targets gate failed, showing no targets", gateRes.error.message);
+    return { state: "hidden", mode };
+  }
+  const gate = parseTargetsGate(gateRes.data);
+  if (gate.state !== "ok" || prefRes.error) return { state: "hidden", mode };
 
-  const [profileRes, weightRes, prefRes, entriesRes] = await Promise.all([
+  const [profileRes, weightRes, entriesRes] = await Promise.all([
     supabase.from("profiles").select("date_of_birth, sex, height_cm").eq("id", userId).maybeSingle(),
     supabase
       .from("vitals_readings")
@@ -72,14 +83,15 @@ export async function loadNutritionGuidance(
       .order("taken_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase.from("nutrition_preferences").select("meal_summary_mode").eq("patient_id", userId).maybeSingle(),
     supabase.from("nutrition_log_entries").select("nutrition_analysis").eq("patient_id", userId).gte("logged_at", lagosDayStart(now)),
   ]);
-  if (profileRes.error || entriesRes.error) {
-    console.error("nutrition: could not read profile or today's meals, showing no targets", profileRes.error?.message ?? entriesRes.error?.message);
-    return { state: "hidden" };
+  if (profileRes.error || weightRes.error || entriesRes.error) {
+    console.error(
+      "nutrition: could not read profile, weight or today's meals, showing no targets",
+      profileRes.error?.message ?? weightRes.error?.message ?? entriesRes.error?.message,
+    );
+    return { state: "hidden", mode };
   }
-  const mode: MealSummaryMode = prefRes.data?.meal_summary_mode === "words" ? "words" : "numbers";
   const mealSummary = gate.config.meal_summary;
   const profile = profileRes.data;
 
@@ -92,7 +104,7 @@ export async function loadNutritionGuidance(
     },
     gate.config,
   );
-  if (result.status === "too_young") return { state: "hidden" };
+  if (result.status === "too_young") return { state: "hidden", mode };
   if (result.status === "needs_profile") return { state: "needs_profile", missing: result.missing, mode, mealSummary };
 
   const totals = sumDay((entriesRes.data ?? []).map((e) => e.nutrition_analysis as unknown as AnalysisLike | null));

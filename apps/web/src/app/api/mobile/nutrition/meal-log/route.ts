@@ -50,6 +50,13 @@ export async function POST(request: Request): Promise<NextResponse> {
       clientRecordedAt: parsed.data.client_recorded_at ?? null,
     },
   );
-  if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
+  if (!result.ok) {
+    // The outbox retries a 5xx and holds a 4xx for the person, so the status must say which this is: an unreadable food list is retryable (503);
+    // a rule the database refused (data 22xxx, constraint 23xxx, permission 42501) will never succeed on retry.
+    if (result.retryable) return NextResponse.json({ error: result.error }, { status: 503 });
+    if (result.code === "42501") return NextResponse.json({ error: "That meal could not be saved." }, { status: 403 });
+    if (result.code && /^(22|23)/.test(result.code)) return NextResponse.json({ error: "That meal could not be saved." }, { status: 422 });
+    return NextResponse.json({ error: result.error }, { status: 500 });
+  }
   return NextResponse.json({ success: true, duplicate: result.duplicate, entryId: result.id });
 }

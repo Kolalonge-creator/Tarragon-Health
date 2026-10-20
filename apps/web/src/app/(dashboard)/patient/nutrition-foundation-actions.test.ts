@@ -5,8 +5,11 @@
 import { FIXTURE_CATALOGUE } from "@/lib/nutrition/test-fixtures";
 
 jest.mock("@/lib/lifestyle/weekly-plan-progress", () => ({ recordWeeklyPlanProgress: jest.fn().mockResolvedValue(undefined) }));
+let catalogueAvailable = true;
 jest.mock("@/lib/nutrition/food-catalogue-fetch", () => ({
-  fetchFoodCatalogue: jest.fn(async () => (jest.requireActual("@/lib/nutrition/test-fixtures") as { FIXTURE_CATALOGUE: unknown[] }).FIXTURE_CATALOGUE),
+  fetchFoodCatalogue: jest.fn(async () =>
+    catalogueAvailable ? (jest.requireActual("@/lib/nutrition/test-fixtures") as { FIXTURE_CATALOGUE: unknown[] }).FIXTURE_CATALOGUE : [],
+  ),
 }));
 jest.mock("@/lib/ai-governance", () => ({ AI_SYSTEMS: { mealPhotoNutrition: { code: "AI-008" }, mealPlanGeneration: { code: "AI-011" } }, runGovernedAi: jest.fn() }));
 jest.mock("@/lib/nutrition/meal-vision", () => ({ analyzeMealPhoto: jest.fn(), isMealVisionConfigured: () => false }));
@@ -59,6 +62,7 @@ beforeEach(() => {
   entryRow = null;
   favouriteRow = null;
   insertError = null;
+  catalogueAvailable = true;
 });
 
 describe("repeatMealAction: one tap", () => {
@@ -99,6 +103,14 @@ describe("repeatMealAction: one tap", () => {
     entryRow = { meal_type: "snack", description: "  ", ai_estimate: null };
     const res = await repeatMealAction("11111111-1111-4111-8111-111111111111");
     expect(res).toEqual({ error: "There is nothing in that meal to repeat." });
+    expect(inserted).toHaveLength(0);
+  });
+
+  it("when the food list cannot be read it fails loudly and saves nothing, rather than saving a meal that is never counted", async () => {
+    entryRow = { meal_type: "lunch", description: "rice and beans", ai_estimate: null };
+    catalogueAvailable = false;
+    const res = await repeatMealAction("11111111-1111-4111-8111-111111111111");
+    expect(res?.error).toContain("food list is unavailable");
     expect(inserted).toHaveLength(0);
   });
 

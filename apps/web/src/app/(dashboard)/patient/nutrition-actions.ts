@@ -535,7 +535,7 @@ export async function setMealSummaryModeAction(mode: string): Promise<FavouriteA
 /** Today's targets and totals, or `hidden` (which the interface renders as nothing at all). See lib/nutrition/guidance.ts. */
 export async function loadNutritionGuidanceAction(): Promise<NutritionGuidance> {
   const ctx = await currentPatient();
-  if ("error" in ctx) return { state: "hidden" };
+  if ("error" in ctx) return { state: "hidden", mode: "words" };
   return loadNutritionGuidance(ctx.supabase, ctx.userId);
 }
 

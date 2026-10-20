@@ -58,19 +58,19 @@ export function parseNutritionTargetConfig(raw: unknown): NutritionTargetConfig 
   return raw as NutritionTargetConfig;
 }
 
-export type TargetsGate =
-  | { state: "withheld" }
-  | { state: "not_active" }
-  | { state: "ok"; configVersion: number; config: NutritionTargetConfig };
+/**
+ * `unavailable` covers "withheld for this person" and "not signed off yet" on purpose: the database answers both the same way so the
+ * function cannot be used to learn who is withheld, and the app must not distinguish them either.
+ */
+export type TargetsGate = { state: "unavailable" } | { state: "ok"; configVersion: number; config: NutritionTargetConfig };
 
-/** Reads the JSON `my_nutrition_target_gate()` returns. Anything unexpected is treated as withheld: the safe direction. */
+/** Reads the JSON `my_nutrition_target_gate()` returns. Anything unexpected is unavailable: the safe direction. */
 export function parseTargetsGate(raw: unknown): TargetsGate {
-  if (!raw || typeof raw !== "object") return { state: "withheld" };
+  if (!raw || typeof raw !== "object") return { state: "unavailable" };
   const g = raw as { state?: unknown; config?: unknown; config_version?: unknown };
-  if (g.state === "not_active") return { state: "not_active" };
-  if (g.state !== "ok") return { state: "withheld" };
+  if (g.state !== "ok") return { state: "unavailable" };
   const config = parseNutritionTargetConfig(g.config);
-  if (!config || !isNum(g.config_version)) return { state: "withheld" };
+  if (!config || !isNum(g.config_version)) return { state: "unavailable" };
   return { state: "ok", configVersion: g.config_version, config };
 }
 

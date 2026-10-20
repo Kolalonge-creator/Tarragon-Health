@@ -17,7 +17,7 @@
 --   5. favourite_meals; nutrition_preferences (meal summary mode); nutrition_target_holds (clinician hold, reason never shown to the patient).
 --   6. nutrition_target_config: versioned, governed, SEEDED UNSIGNED AND INACTIVE. Until the CMO signs it no patient sees any target.
 --      my_nutrition_target_gate() is the only door: it returns the config to a patient ONLY when targets are not withheld for them
---      (pregnancy, postpartum year, clinician hold, eating-disorder screen positive, under 18) and never says why.
+--      (pregnancy, postpartum year, clinician hold, eating-disorder screen positive, under 18) and never says why; "withheld" and "not signed yet" return the same answer.
 --   7. barcodes: team-curated Nigerian packaged foods with NAFDAC number; lookup_barcode(). No rows seeded: none can be stated with confidence.
 
 -- 1. Food catalogue columns --------------------------------------------------------------------------------------------------------
@@ -296,6 +296,40 @@ drop trigger if exists nutrition_log_entries_stamp_time on public.nutrition_log_
 create trigger nutrition_log_entries_stamp_time before insert on public.nutrition_log_entries
   for each row execute function private.stamp_nutrition_entry_time();
 
+-- Provenance is set by the database, not claimed by the client: a row the patient writes for herself is always source 'patient' with no recorded_by;
+-- a row written by anyone else carries that person's id. It cannot be changed afterwards.
+create or replace function private.force_nutrition_provenance()
+returns trigger language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := (select auth.uid());
+begin
+  if v_uid is not null and v_uid = new.patient_id then
+    new.source := 'patient';
+    new.recorded_by := null;
+  elsif v_uid is not null then
+    new.recorded_by := v_uid;
+    if new.source = 'patient' then new.source := 'clinician'; end if;
+  end if;
+  return new;
+end $$;
+revoke all on function private.force_nutrition_provenance() from public, anon, authenticated;
+
+create or replace function private.freeze_nutrition_provenance()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if new.source is distinct from old.source or new.recorded_by is distinct from old.recorded_by then
+    raise exception 'source and recorded_by cannot be changed' using errcode = '42501';
+  end if;
+  return new;
+end $$;
+revoke all on function private.freeze_nutrition_provenance() from public, anon, authenticated;
+
+drop trigger if exists nutrition_log_entries_provenance on public.nutrition_log_entries;
+create trigger nutrition_log_entries_provenance before insert on public.nutrition_log_entries
+  for each row execute function private.force_nutrition_provenance();
+drop trigger if exists nutrition_log_entries_freeze_provenance on public.nutrition_log_entries;
+create trigger nutrition_log_entries_freeze_provenance before update on public.nutrition_log_entries
+  for each row execute function private.freeze_nutrition_provenance();
+
 -- v5 food_logs: a view, not a second store. photo_document_id is null by design (a meal photo is a storage path in the meal-photos bucket,
 -- not a documents row); photo_path is exposed instead. energy_kcal is the food-database total when the meal was matched, else the photo estimate.
 create or replace view public.food_logs with (security_invoker = true) as
@@ -332,7 +366,7 @@ insert into public.event_type_versions (event_type, version, required_keys) valu
 on conflict (event_type, version) do nothing;
 
 -- The payload carries the entry id only (INV-07: no food, no condition, no number). A bus failure must never lose the diary row, so it
--- is caught and surfaced as a warning rather than raised.
+-- is caught, written to the audit log (food.logged.emit_failed) and surfaced as a warning rather than raised.
 create or replace function private.emit_food_logged()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
@@ -341,6 +375,12 @@ begin
       'food.logged:' || new.id::text, new.patient_id, 'nutrition_log_entry', new.id);
   exception when others then
     raise warning 'food.logged event not emitted for %: %', new.id, sqlerrm;
+    -- a durable trace too, so a systematic failure shows up in the audit log and not only in a server log
+    begin
+      perform private.log_audit('food.logged.emit_failed', 'nutrition_log_entries', new.id, jsonb_build_object('error', left(sqlerrm, 200)));
+    exception when others then
+      null; -- the diary row must still be saved
+    end;
   end;
   return new;
 end $$;
@@ -369,6 +409,8 @@ create index favourite_meals_patient_idx on public.favourite_meals (patient_id, 
 create unique index favourite_meals_client_id_uidx on public.favourite_meals (patient_id, client_id) where client_id is not null;
 create unique index favourite_meals_name_uidx on public.favourite_meals (patient_id, lower(btrim(name)));
 create trigger favourite_meals_set_updated_at before update on public.favourite_meals for each row execute function private.set_updated_at();
+create trigger favourite_meals_provenance before insert on public.favourite_meals for each row execute function private.force_nutrition_provenance();
+create trigger favourite_meals_freeze_provenance before update on public.favourite_meals for each row execute function private.freeze_nutrition_provenance();
 comment on table public.favourite_meals is 'S49a (6.3): a meal the patient saved by name to log again in one tap. Text only; nutrition is recomputed from the catalogue each time it is logged, never stored here. Patient-only (no staff policy).';
 alter table public.favourite_meals enable row level security;
 revoke all on public.favourite_meals from public, anon, authenticated;
@@ -451,13 +493,31 @@ revoke all on function public.set_nutrition_target_hold(uuid, boolean, text) fro
 grant execute on function public.set_nutrition_target_hold(uuid, boolean, text) to authenticated;
 
 -- 6. Governed targets configuration --------------------------------------------------------------------------------------------------
+-- Mirrors parseNutritionTargetConfig (packages/shared/src/nutrition/targets.ts): a configuration the app would refuse must not be signable,
+-- or every patient silently sees nothing. The app re-checks the same rules, so a config can never be half-valid in one place.
 create function private.nutrition_target_config_valid(p_config jsonb) returns boolean
-language sql immutable set search_path = '' as $$
-  select p_config ? 'energy' and p_config ? 'macros_pct_of_energy' and p_config ? 'salt_sugar_fibre' and p_config ? 'meal_summary'
-     and coalesce((p_config #>> '{energy,floor_kcal,female}')::numeric, 0) >= 1000
-     and coalesce((p_config #>> '{energy,floor_kcal,male}')::numeric, 0) >= 1000
-     and coalesce((p_config ->> 'min_age_years')::numeric, 0) >= 18
-$$;
+language plpgsql immutable set search_path = '' as $$
+declare v_level text;
+begin
+  if not (p_config ? 'energy' and p_config ? 'macros_pct_of_energy' and p_config ? 'salt_sugar_fibre' and p_config ? 'meal_summary') then return false; end if;
+  if coalesce((p_config #>> '{energy,floor_kcal,female}')::numeric, 0) < 1000 or coalesce((p_config #>> '{energy,floor_kcal,male}')::numeric, 0) < 1000 then return false; end if;
+  if coalesce((p_config ->> 'min_age_years')::numeric, 0) < 18 then return false; end if;
+  foreach v_level in array array['low', 'light', 'moderate', 'high'] loop
+    if coalesce((p_config #>> array['energy', 'activity_factors', v_level])::numeric, 0) <= 0 then return false; end if;
+  end loop;
+  if (p_config #>> '{energy,default_activity}') is null or (p_config #>> '{energy,default_activity}') not in ('low', 'light', 'moderate', 'high') then return false; end if;
+  if coalesce((p_config #>> '{energy,round_to_kcal}')::numeric, 0) <= 0 then return false; end if;
+  if coalesce((p_config #>> '{energy,ceiling_kcal}')::numeric, 0) < greatest((p_config #>> '{energy,floor_kcal,female}')::numeric, (p_config #>> '{energy,floor_kcal,male}')::numeric) then return false; end if;
+  if abs(coalesce((p_config #>> '{macros_pct_of_energy,carbs}')::numeric, 0) + coalesce((p_config #>> '{macros_pct_of_energy,protein}')::numeric, 0)
+         + coalesce((p_config #>> '{macros_pct_of_energy,fat}')::numeric, 0) - 100) > 0.5 then return false; end if;
+  if (p_config #>> '{salt_sugar_fibre,sodium_mg_max}') is null or (p_config #>> '{salt_sugar_fibre,sugar_pct_of_energy_max}') is null
+     or (p_config #>> '{salt_sugar_fibre,fibre_g_per_1000_kcal}') is null then return false; end if;
+  if (p_config #>> '{meal_summary,salty_above_sodium_mg}') is null or (p_config #>> '{meal_summary,sugary_above_sugar_g}') is null then return false; end if;
+  if coalesce((p_config #>> '{meal_summary,light_below_kcal}')::numeric, 0) >= coalesce((p_config #>> '{meal_summary,heavy_above_kcal}')::numeric, 0) then return false; end if;
+  return true;
+exception when others then
+  return false; -- a non-numeric value where a number belongs is simply not valid
+end $$;
 grant execute on function private.nutrition_target_config_valid(jsonb) to authenticated;
 
 create table public.nutrition_target_config (
@@ -539,16 +599,17 @@ create function public.my_nutrition_target_gate() returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare v_uid uuid := (select auth.uid()); v_cfg public.nutrition_target_config%rowtype;
 begin
-  if v_uid is null then return jsonb_build_object('state', 'withheld'); end if;
-  if private.nutrition_targets_withheld(v_uid) then return jsonb_build_object('state', 'withheld'); end if;
+  -- ONE answer for "withheld for you" and "not signed off yet", so that calling this function tells nobody which of the two it is.
+  if v_uid is null then return jsonb_build_object('state', 'unavailable'); end if;
+  if private.nutrition_targets_withheld(v_uid) then return jsonb_build_object('state', 'unavailable'); end if;
   select * into v_cfg from public.nutrition_target_config where is_active and approved_by is not null;
-  if not found then return jsonb_build_object('state', 'not_active'); end if;
+  if not found then return jsonb_build_object('state', 'unavailable'); end if;
   return jsonb_build_object('state', 'ok', 'config_version', v_cfg.version, 'config', v_cfg.config);
 end $$;
 revoke all on function public.my_nutrition_target_gate() from public, anon;
 grant execute on function public.my_nutrition_target_gate() to authenticated;
 comment on function public.my_nutrition_target_gate() is
-  'S49a: the only way a patient receives nutrition targets. state withheld (no reason given), not_active (config unsigned), or ok with the signed config.';
+  'S49a: the only way a patient receives nutrition targets. state unavailable (withheld for this person, or not signed off yet: the two are deliberately indistinguishable) or ok with the signed config.';
 
 -- 7. Barcodes -----------------------------------------------------------------------------------------------------------------------
 create function private.gtin_valid(p_code text) returns boolean
@@ -627,6 +688,7 @@ begin
   if exists (select 1 from public.nigerian_food_portion_sizes where photo_path is not null) then raise exception 'S49a: no portion photo may exist yet'; end if;
   if (select count(*) from public.nutrition_target_config where is_active) <> 0 then raise exception 'S49a: the targets config must be born inactive'; end if;
   if (select count(*) from public.barcodes) <> 0 then raise exception 'S49a: no barcodes may be seeded'; end if;
+  if (select private.nutrition_target_config_valid(config) from public.nutrition_target_config where version = 1) is not true then raise exception 'S49a: the seeded config fails its own validator'; end if;
   if has_function_privilege('anon', 'public.my_nutrition_target_gate()', 'EXECUTE') then raise exception 'S49a: anon can call the targets gate'; end if;
   if has_function_privilege('anon', 'public.lookup_barcode(text)', 'EXECUTE') then raise exception 'S49a: anon can look up barcodes'; end if;
   if has_function_privilege('anon', 'public.set_nutrition_target_hold(uuid, boolean, text)', 'EXECUTE') then raise exception 'S49a: anon can set a hold'; end if;
