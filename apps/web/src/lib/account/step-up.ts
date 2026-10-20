@@ -38,15 +38,12 @@ export type StepUpResult =
   | { ok: true }
   | { ok: false; reason: "wrong_password" | "no_password_route" | "rate_limited" | "unavailable" };
 
-export async function verifyPasswordAndRecordStepUp(
-  user: PhoneChangeUser & { id: string },
-  password: string,
-  purpose: StepUpPurpose,
-  sessionId: string | null,
-): Promise<StepUpResult> {
+/**
+ * Checks the account password with a throw-away client against a VERIFIED channel (rate limited), and ends the throw-away session.
+ * Shared by every step-up that needs "the person typed the password just now". Returns ok only when the password matched THIS user.
+ */
+export async function verifyAccountPassword(user: PhoneChangeUser & { id: string }, password: string): Promise<StepUpResult> {
   if (!password) return { ok: false, reason: "wrong_password" };
-  // No session to bind to means no step-up (fail closed).
-  if (!sessionId) return { ok: false, reason: "unavailable" };
 
   // Only a VERIFIED channel is used to check the password, and the address or number comes from Auth, never the request.
   const credentials =
@@ -73,6 +70,21 @@ export async function verifyPasswordAndRecordStepUp(
   // which would revoke EVERY session of this account, including the one the person is typing the password in.
   if (data?.session) await probe.auth.signOut({ scope: "local" }).catch(() => undefined);
   if (error || !data.user || data.user.id !== user.id) return { ok: false, reason: "wrong_password" };
+  return { ok: true };
+}
+
+export async function verifyPasswordAndRecordStepUp(
+  user: PhoneChangeUser & { id: string },
+  password: string,
+  purpose: StepUpPurpose,
+  sessionId: string | null,
+): Promise<StepUpResult> {
+  if (!password) return { ok: false, reason: "wrong_password" };
+  // No session to bind to means no step-up (fail closed).
+  if (!sessionId) return { ok: false, reason: "unavailable" };
+
+  const checked = await verifyAccountPassword(user, password);
+  if (!checked.ok) return checked;
 
   const { data: recorded, error: rpcError } = await createServiceRoleClient().rpc("record_step_up", {
     p_user: user.id,
