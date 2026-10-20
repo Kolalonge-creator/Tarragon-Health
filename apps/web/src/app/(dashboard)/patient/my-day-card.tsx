@@ -27,7 +27,8 @@ export function MyDayCard({ patientId }: { patientId: string }) {
   const [open, setOpen] = useState(false);
   const [drafts, setDrafts] = useState<Partial<Record<AnchorId, string>>>({});
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
-  const today = lagosLocalDate(Date.now());
+  // read once on mount: the lint rule forbids the impure clock during render, and a card left open across midnight is refreshed by the next load
+  const [today] = useState(() => lagosLocalDate(Date.now()));
 
   const profile = anchors?.profile;
   const loadFailed = anchors !== undefined && !anchors.loaded;
