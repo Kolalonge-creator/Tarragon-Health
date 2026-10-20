@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { isOffline, readThrough, type ReadResult } from "./passport-cache";
+import { cacheDelete, cacheWrite, isOffline, readThrough, type ReadResult } from "./passport-cache";
 
 /**
  * Records from other places (S44, spec 2.10 and 2.11) on the phone: which named outside systems the person allows to send records to them (or to
@@ -111,4 +111,14 @@ export async function withdrawConsent(id: string): Promise<ExchangeWrite> {
   const { error } = await supabase.rpc("withdraw_external_exchange_consent", { p_id: id });
   if (error) return { ok: false, reason: isOffline(error) ? "offline" : "failed" };
   return { ok: true };
+}
+
+/** After a change the screen applied locally: keep the saved copy in step, so a later offline open does not show a stopped system as allowed. */
+export async function saveExchangeCopy(userId: string, data: ExchangeData): Promise<void> {
+  await cacheWrite(exchangeCacheKey(userId), data);
+}
+
+/** After a grant the new consent's id is not known until a read: drop the saved copy rather than keep one that lacks it. */
+export async function forgetExchangeCopy(userId: string): Promise<void> {
+  await cacheDelete(exchangeCacheKey(userId));
 }

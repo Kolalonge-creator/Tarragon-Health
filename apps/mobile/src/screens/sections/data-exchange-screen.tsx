@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, View } from "react-native";
 import { t, type MessageKey } from "@tarragon/i18n";
-import { grantConsent, loadExchange, withdrawConsent, type ExchangeData, type ExchangeDirection, type ExchangeWrite } from "@/lib/data-exchange";
+import { forgetExchangeCopy, grantConsent, loadExchange, saveExchangeCopy, withdrawConsent, type ExchangeData, type ExchangeDirection, type ExchangeWrite } from "@/lib/data-exchange";
 import { formatPassportDate } from "@/lib/passport-format";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { space, useTheme } from "@/ui/design";
@@ -69,6 +69,7 @@ export function DataExchangeScreen({ userId, acting }: Props) {
     }
     setSource("");
     const fresh = await load(true);
+    if (!fresh) await forgetExchangeCopy(userId);
     setMessage({ tone: "info", text: fresh ? t("exchange.saved") : t("mpass.exch.saved_not_refreshed") });
   }
 
@@ -87,7 +88,13 @@ export function DataExchangeScreen({ userId, acting }: Props) {
               return;
             }
             // The system is shown as stopped at once, whatever the refresh does next.
-            setState((prev) => (prev.kind === "ready" ? { ...prev, data: { ...prev.data, consents: prev.data.consents.map((c) => (c.id === id ? { ...c, withdrawnAt: new Date().toISOString() } : c)) } } : prev));
+            const stoppedAt = new Date().toISOString();
+            setState((prev) => {
+              if (prev.kind !== "ready") return prev;
+              const data = { ...prev.data, consents: prev.data.consents.map((c) => (c.id === id ? { ...c, withdrawnAt: stoppedAt } : c)) };
+              void saveExchangeCopy(userId, data);
+              return { ...prev, data };
+            });
             const fresh = await load(true);
             setMessage({ tone: "info", text: fresh ? t("exchange.saved") : t("mpass.exch.saved_not_refreshed") });
           })(),

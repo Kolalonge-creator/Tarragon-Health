@@ -11,7 +11,7 @@ import { cropRect, rotatedSize, type Rotation, type Trim } from "./crop";
 export const DOCUMENT_MAX_SIDE = 2400;
 export const DOCUMENT_JPEG_QUALITY = 0.8;
 
-/** The largest document file kept (the web screen's limit too). A 1600 pixel JPEG is far smaller; this only refuses a large PDF. */
+/** The largest document file kept (the web screen's limit too). A 2400 pixel JPEG is far smaller; this only refuses a large PDF. */
 export const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
 
 export interface PrepareEdits {

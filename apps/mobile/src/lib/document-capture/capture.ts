@@ -1,7 +1,7 @@
 import { CONFIDENCE_LEVELS, DOCUMENT_CAPTURE_TYPES, decisionsForRpc, summariseDecisions, type DocumentCaptureType, type FieldDecision, type SuggestedField } from "@tarragon/shared";
 import { supabase } from "../supabase";
 import { postDocumentReading } from "../api";
-import { isOffline, readThrough, type ReadResult } from "../passport-cache";
+import { cacheWrite, isOffline, readThrough, type ReadResult } from "../passport-cache";
 
 /**
  * Photo capture of a paper health document (S43, spec 2.3) on the phone: the ONLY module in the app that reads or writes `patient_documents`
@@ -27,7 +27,6 @@ export type OcrState = "pending" | "suggested" | "confirmed" | "rejected" | "fai
 export interface DocumentListItem {
   id: string;
   documentType: string;
-  filename: string | null;
   createdAt: string;
   ocrState: OcrState;
   isPdf: boolean;
@@ -45,7 +44,6 @@ export function parseDocumentList(rows: unknown): DocumentListItem[] {
     out.push({
       id: r.id,
       documentType: r.document_type,
-      filename: typeof r.original_filename === "string" ? r.original_filename : null,
       createdAt: r.created_at,
       ocrState: (OCR_STATES as readonly unknown[]).includes(r.ocr_state) ? (r.ocr_state as OcrState) : null,
       isPdf: r.mime_type === "application/pdf",
@@ -54,12 +52,15 @@ export function parseDocumentList(rows: unknown): DocumentListItem[] {
   return out;
 }
 
-/** The person's own documents, newest first. Only metadata is selected: never `extracted` or `ocr_text`. */
+/**
+ * The person's own documents, newest first. Only type, date and state are selected and kept: never `extracted` or `ocr_text`, and never the file
+ * name (a person may have named a file after what it says). The name is read live, on opening one document.
+ */
 export function loadDocuments(userId: string): Promise<ReadResult<DocumentListItem[]>> {
   return readThrough(documentsCacheKey(userId), async () => {
     const { data, error } = await supabase
       .from("patient_documents")
-      .select("id, document_type, original_filename, created_at, ocr_state, mime_type")
+      .select("id, document_type, created_at, ocr_state, mime_type")
       .eq("patient_id", userId)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -100,8 +101,8 @@ export interface SaveDocumentInput {
   filename: string;
 }
 
-/** asked: a reading was started. closed: the server says reading is not switched on, nothing was read. failed: it could not be asked for (the photo is kept). unknown: no answer, it may be running. saved: saved with no reading involved. */
-export type ReadingOutcome = "asked" | "closed" | "failed" | "unknown" | "saved";
+/** offline: no connection, nothing was asked. asked: a reading was started. closed: the server says reading is not switched on, nothing was read. failed: it could not be asked for (the photo is kept). unknown: no answer, it may be running. saved: saved with no reading involved. */
+export type ReadingOutcome = "asked" | "closed" | "failed" | "unknown" | "saved" | "offline";
 
 export type SaveDocumentResult =
   | { ok: true; documentId: string; reading: ReadingOutcome }
@@ -144,15 +145,15 @@ export async function saveDocument(input: SaveDocumentInput): Promise<SaveDocume
   }
 
   if (!ask) return { ok: true, documentId: input.attemptId, reading: "closed" };
-  // A row that already existed means an earlier attempt landed (its answer was lost): do not ask for a reading a second time.
-  if (error?.code === DUPLICATE) return { ok: true, documentId: input.attemptId, reading: "saved" };
+  // A row that already existed means an earlier attempt landed (its answer was lost), but that attempt may not have got as far as asking for a
+  // reading. Ask anyway: the server answers "not waiting" if one already ran, which is reported as saved, never as a failure.
   // The photo is saved whatever happens next: a reading that cannot be asked for is reported, never a lost photo.
   return { ok: true, documentId: input.attemptId, reading: outcomeOf(await postDocumentReading(input.attemptId)) };
 }
 
 /** What the server's answer means for the person. "closed" is NOT "asked": nothing was read and nothing is coming. */
 function outcomeOf(r: Awaited<ReturnType<typeof postDocumentReading>>): ReadingOutcome {
-  if (!r.ok) return r.unknown ? "unknown" : "failed";
+  if (!r.ok) return r.unknown ? "unknown" : r.offline ? "offline" : "failed";
   if (r.status === "suggested") return "asked";
   if (r.status === "closed") return "closed";
   if (r.status === "not_pending") return "saved";
@@ -165,6 +166,7 @@ export async function requestReading(documentId: string): Promise<{ outcome: Rea
 }
 
 export interface DocumentDetail {
+  filename: string | null;
   fields: SuggestedField[];
   photoUrl: string | null;
   isPdf: boolean;
@@ -189,11 +191,12 @@ export function parseSuggestedFields(extracted: unknown): SuggestedField[] {
  */
 export async function loadDocumentDetail(documentId: string): Promise<DocumentDetail | null> {
   try {
-    const { data, error } = await supabase.from("patient_documents").select("extracted, file_path, mime_type").eq("id", documentId).maybeSingle();
+    const { data, error } = await supabase.from("patient_documents").select("extracted, file_path, mime_type, original_filename").eq("id", documentId).maybeSingle();
     if (error || !data) return null;
     const isPdf = data.mime_type === "application/pdf";
-    const signed = await supabase.storage.from(DOCUMENT_BUCKET).createSignedUrl(data.file_path, 600);
-    return { fields: parseSuggestedFields(data.extracted), photoUrl: signed.data?.signedUrl ?? null, isPdf };
+    // A PDF is handed to the phone's browser, so its link lives for five minutes; a photo is drawn in the app and keeps ten.
+    const signed = await supabase.storage.from(DOCUMENT_BUCKET).createSignedUrl(data.file_path, isPdf ? 300 : 600);
+    return { filename: typeof data.original_filename === "string" ? data.original_filename : null, fields: parseSuggestedFields(data.extracted), photoUrl: signed.data?.signedUrl ?? null, isPdf };
   } catch {
     return null;
   }
@@ -232,4 +235,9 @@ export async function rejectReading(documentId: string): Promise<{ ok: true } | 
   const { error } = await supabase.rpc("reject_document_extraction", { p_document: documentId });
   if (error) return { ok: false, reason: isOffline(error) ? "offline" : "failed" };
   return { ok: true };
+}
+
+/** After a change the screen applied locally: keep the saved copy in step, so a later offline open does not show the old state. */
+export async function saveDocumentsCopy(userId: string, docs: readonly DocumentListItem[]): Promise<void> {
+  await cacheWrite(documentsCacheKey(userId), docs);
 }

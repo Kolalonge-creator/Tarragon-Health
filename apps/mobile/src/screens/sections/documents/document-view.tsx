@@ -87,7 +87,7 @@ export function DocumentView({ doc, onBack, onChanged }: Props) {
       </AppText>
       <AppText variant="caption" tone="textMuted">
         {formatPassportDate(doc.createdAt)}
-        {doc.filename ? ` · ${doc.filename}` : ""}
+        {detail?.filename ? ` · ${detail.filename}` : ""}
       </AppText>
 
       {state.kind === "loading" ? <ActivityIndicator color={colors.brand} accessibilityLabel={t("mpass.loading")} /> : null}
@@ -102,7 +102,12 @@ export function DocumentView({ doc, onBack, onChanged }: Props) {
         <>
           {detail.isPdf ? (
             detail.photoUrl ? (
-              <Button title={t("mpass.doc.open_pdf")} variant="secondary" onPress={() => void Linking.openURL(detail.photoUrl ?? "")} />
+              <>
+                <Button title={t("mpass.doc.open_pdf")} variant="secondary" onPress={() => void Linking.openURL(detail.photoUrl ?? "")} />
+                <AppText variant="caption" tone="textMuted">
+                  {t("mpass.doc.pdf_browser_note")}
+                </AppText>
+              </>
             ) : (
               <InlineAlert tone="info" message={t("mpass.doc.photo_none")} />
             )

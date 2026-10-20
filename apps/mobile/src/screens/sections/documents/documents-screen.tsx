@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { t, type MessageKey } from "@tarragon/i18n";
-import { loadDocuments, rejectReading, requestReading, type DocumentListItem, type ReadingOutcome } from "@/lib/document-capture/capture";
+import { loadDocuments, rejectReading, requestReading, saveDocumentsCopy, type DocumentListItem, type ReadingOutcome } from "@/lib/document-capture/capture";
 import { formatPassportDate } from "@/lib/passport-format";
 import { space, useTheme } from "@/ui/design";
 import { AppText, Button, Card, EmptyState, InlineAlert, Screen } from "@/ui/kit";
@@ -25,7 +25,7 @@ type View_ = { kind: "list" } | { kind: "add" } | { kind: "open"; doc: DocumentL
 
 function savedMessage(reading: ReadingOutcome): string {
   if (reading === "asked") return t("mpass.doc.saved_asked");
-  if (reading === "failed") return t("mpass.doc.saved_ask_failed");
+  if (reading === "failed" || reading === "offline") return t("mpass.doc.saved_ask_failed");
   if (reading === "unknown") return t("mpass.doc.saved_unknown");
   if (reading === "saved") return t("mpass.doc.saved_plain");
   return t("mpass.doc.saved_closed");
@@ -37,6 +37,7 @@ function readingMessage(outcome: ReadingOutcome): { tone: "info" | "danger"; tex
   if (outcome === "closed") return { tone: "info", text: t("mpass.doc.saved_closed") };
   if (outcome === "unknown") return { tone: "info", text: t("mpass.doc.ask_unknown") };
   if (outcome === "saved") return { tone: "info", text: t("mpass.doc.not_waiting") };
+  if (outcome === "offline") return { tone: "info", text: t("mpass.needs_connection") };
   return { tone: "danger", text: t("mpass.doc.ask_failed") };
 }
 
@@ -57,6 +58,8 @@ export function DocumentsScreen({ userId, organisationId, acting }: Props) {
   const [list, setList] = useState<ListState>({ kind: "loading" });
   const [message, setMessage] = useState<{ tone: "info" | "danger"; text: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // A reading that may already be running is not asked for again from this screen until the list has been read afresh and still shows it waiting.
+  const [maybeRunning, setMaybeRunning] = useState<Set<string>>(new Set());
   const latest = useRef(0);
 
   /** True when the list on screen is the freshly read one. After a change a refresh that could not reach the server leaves the list as it is (and the caller says so). */
@@ -74,9 +77,18 @@ export function DocumentsScreen({ userId, organisationId, acting }: Props) {
   );
 
   /** What the person just did, applied to the list on screen when the refresh could not be read, so it never shows the old state under a "saved" message. */
-  const patchLocal = useCallback((id: string, ocrState: DocumentListItem["ocrState"]) => {
-    setList((prev) => (prev.kind === "ready" ? { ...prev, docs: prev.docs.map((d) => (d.id === id ? { ...d, ocrState } : d)) } : prev));
-  }, []);
+  const patchLocal = useCallback(
+    (id: string, ocrState: DocumentListItem["ocrState"]) => {
+      setList((prev) => {
+        if (prev.kind !== "ready") return prev;
+        const docs = prev.docs.map((d) => (d.id === id ? { ...d, ocrState } : d));
+        // The saved copy follows, so a later offline open does not show the old state.
+        void saveDocumentsCopy(userId, docs);
+        return { ...prev, docs };
+      });
+    },
+    [userId]
+  );
 
   useEffect(() => {
     if (!acting) void load();
@@ -90,7 +102,9 @@ export function DocumentsScreen({ userId, organisationId, acting }: Props) {
     const r = await requestReading(id);
     setBusyId(null);
     setMessage(readingMessage(r.outcome));
-    await load(true);
+    if (r.outcome === "unknown") setMaybeRunning((prev) => new Set(prev).add(id));
+    const fresh = await load(true);
+    if (fresh) setMaybeRunning((prev) => (prev.has(id) && r.outcome !== "unknown" ? new Set([...prev].filter((x) => x !== id)) : prev));
   }
 
   async function notNow(id: string) {
@@ -172,7 +186,6 @@ export function DocumentsScreen({ userId, organisationId, acting }: Props) {
                 <AppText variant="bodyStrong">{t(`passport.documents.type.${doc.documentType}` as MessageKey)}</AppText>
                 <AppText variant="caption" tone="textMuted">
                   {formatPassportDate(doc.createdAt)}
-                  {doc.filename ? ` · ${doc.filename}` : ""}
                 </AppText>
                 <AppText variant="caption" tone="textMuted">
                   {stateLine(doc)}
@@ -180,7 +193,7 @@ export function DocumentsScreen({ userId, organisationId, acting }: Props) {
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: space.sm }}>
                   {doc.ocrState === "pending" ? (
                     <>
-                      <Button title={t("passport.documents.read_now")} variant="secondary" fullWidth={false} disabled={!live || busyId === doc.id} onPress={() => void readNow(doc.id)} />
+                      <Button title={t("passport.documents.read_now")} variant="secondary" fullWidth={false} disabled={!live || busyId === doc.id || maybeRunning.has(doc.id)} onPress={() => void readNow(doc.id)} />
                       <Button title={t("passport.documents.not_now")} variant="secondary" fullWidth={false} disabled={!live || busyId === doc.id} onPress={() => void notNow(doc.id)} />
                     </>
                   ) : null}

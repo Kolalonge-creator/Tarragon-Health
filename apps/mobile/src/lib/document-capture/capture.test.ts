@@ -131,8 +131,10 @@ describe("photo capture on the phone (S43m)", () => {
     mockGuard = { data: true, error: null };
     mockPost.mockResolvedValue({ ok: false, offline: false, unknown: true });
     expect(await saveDocument(input)).toMatchObject({ ok: true, reading: "unknown" });
+    mockPost.mockResolvedValue({ ok: false, offline: true, unknown: false });
+    expect(await saveDocument({ ...input, attemptId: "33333333-3333-4333-8333-333333333333" })).toMatchObject({ reading: "offline" });
     mockPost.mockResolvedValue({ ok: false, offline: false, unknown: false });
-    expect(await saveDocument({ ...input, attemptId: "33333333-3333-4333-8333-333333333333" })).toMatchObject({ reading: "failed" });
+    expect(await saveDocument({ ...input, attemptId: "44444444-4444-4444-8444-444444444444" })).toMatchObject({ reading: "failed" });
   });
 
   it("with the guard open the photo waits for a reading and one is asked for, and a refused ask still keeps the photo", async () => {
@@ -153,9 +155,12 @@ describe("photo capture on the phone (S43m)", () => {
     mockUploadError = { message: "The resource already exists", statusCode: "409" };
     mockInsertError = { code: "23505", message: "duplicate key" };
     mockGuard = { data: true, error: null };
+    // the earlier attempt landed but may never have asked for a reading: it is asked now, and "not waiting" from the server means it already ran
+    mockPost.mockResolvedValue({ ok: true, status: "not_pending", message: "" });
     expect(await saveDocument(input)).toEqual({ ok: true, documentId: ID, reading: "saved" });
-    // the earlier attempt landed, so a reading is not asked for a second time
-    expect(mockPost).not.toHaveBeenCalled();
+    expect(mockPost).toHaveBeenCalledWith(ID);
+    mockPost.mockResolvedValue({ ok: true, status: "suggested", message: "" });
+    expect(await saveDocument(input)).toMatchObject({ reading: "asked" });
   });
 
   it("a failed save removes the file it just uploaded, so no unlisted document is left in the bucket", async () => {
@@ -190,7 +195,9 @@ describe("photo capture on the phone (S43m)", () => {
     const r = await loadDocuments("user-1");
     expect(mockSelects[0]).not.toMatch(/extracted|ocr_text/);
     expect(JSON.stringify(r)).not.toMatch(/secret|extracted|ocr_text|fields/);
-    expect(r.ok && r.data[0]).toEqual({ id: "d1", documentType: "prescription", filename: "a.jpg", createdAt: "2026-10-01T10:00:00Z", ocrState: "suggested", isPdf: false });
+    expect(r.ok && r.data[0]).toEqual({ id: "d1", documentType: "prescription", createdAt: "2026-10-01T10:00:00Z", ocrState: "suggested", isPdf: false });
+    expect(mockSelects[0]).not.toMatch(/original_filename/);
+    expect(JSON.stringify(r)).not.toMatch(/a\.jpg/);
     mockListError = { message: "Network request failed" };
     const offline = await loadDocuments("user-1");
     expect(offline.ok && offline.stale).toBe(true);
@@ -199,7 +206,7 @@ describe("photo capture on the phone (S43m)", () => {
 
   it("ignores malformed list rows and unknown states", () => {
     expect(parseDocumentList([{ id: 1 }, null, { id: "a", created_at: "2026-01-01T00:00:00Z", document_type: "other", ocr_state: "weird" }])).toEqual([
-      { id: "a", documentType: "other", filename: null, createdAt: "2026-01-01T00:00:00Z", ocrState: null, isPdf: false },
+      { id: "a", documentType: "other", createdAt: "2026-01-01T00:00:00Z", ocrState: null, isPdf: false },
     ]);
   });
 
@@ -222,9 +229,9 @@ describe("photo capture on the phone (S43m)", () => {
   });
 
   it("opening one document gives its details and a short-lived link, or null: never an empty document", async () => {
-    mockDetail = { data: { extracted: { fields: [{ key: "hb", label: "Hb", value: "12", confidence: "medium" }] }, file_path: "user-1/a.jpg", mime_type: "image/jpeg" }, error: null };
+    mockDetail = { data: { extracted: { fields: [{ key: "hb", label: "Hb", value: "12", confidence: "medium" }] }, file_path: "user-1/a.jpg", mime_type: "image/jpeg", original_filename: "a.jpg" }, error: null };
     const d = await loadDocumentDetail("d1");
-    expect(d).toMatchObject({ isPdf: false, photoUrl: "https://signed.example/photo" });
+    expect(d).toMatchObject({ isPdf: false, photoUrl: "https://signed.example/photo", filename: "a.jpg" });
     expect(d?.fields).toHaveLength(1);
     mockDetail = { data: null, error: { message: "Network request failed" } };
     expect(await loadDocumentDetail("d1")).toBeNull();

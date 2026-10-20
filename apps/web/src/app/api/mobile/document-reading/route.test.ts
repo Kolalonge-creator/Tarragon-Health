@@ -48,6 +48,13 @@ describe("POST /api/mobile/document-reading", () => {
     expect(await res.json()).toEqual({ status: "closed", message: "Reading from photos is not open yet. Your photo is saved." });
   });
 
+  it("a document that is no longer waiting is an ordinary answer, not an error to retry", async () => {
+    requestReadingFor.mockResolvedValue({ error: "That photo is not waiting to be read.", status: "not_pending" });
+    const res = await POST(req({ document_id: DOC }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: "not_pending", message: "That photo is not waiting to be read." });
+  });
+
   it("someone else's or a missing document is a not-found with no detail", async () => {
     requestReadingFor.mockResolvedValue({ error: "That photo could not be found." });
     const res = await POST(req({ document_id: DOC }));

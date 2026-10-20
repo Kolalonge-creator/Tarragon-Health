@@ -38,6 +38,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (result.error) {
     // A reading that failed is an ordinary answer (the photo is kept); a document that is not the caller's or not waiting is a not-found.
     if (result.status === "failed") return NextResponse.json({ status: "failed", message: result.error });
+    // Already read, confirmed or dropped: an ordinary answer, so the phone can say there is nothing waiting instead of "try again".
+    if (result.status === "not_pending") return NextResponse.json({ status: "not_pending", message: result.error });
     return NextResponse.json({ status: "refused", error: result.error }, { status: 404 });
   }
   return NextResponse.json({ status: result.status ?? "suggested", message: result.message ?? "" });

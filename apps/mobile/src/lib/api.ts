@@ -677,16 +677,23 @@ export async function postPhotoReading(payload: PhotoReadingRequest): Promise<Po
  * S43m: asks the server to read a document photo the person just saved into SUGGESTIONS (apps/web/.../api/mobile/document-reading). The answer is a
  * status and one sentence; it never carries what was read. Not retried blind: a request that reached the server may already have started a reading.
  */
-export async function postDocumentReading(documentId: string): Promise<{ ok: true; status: string; message: string } | { ok: false; offline: boolean; unknown: boolean }> {
-  // The reading runs while the request is open (a multi-page document can take a while), so it gets a long timeout. A request that gets no answer
-  // may STILL be running on the server: that is "unknown", not "offline", and the caller must not ask again straight away.
-  const result = await request<{ status?: string; message?: string }>("/api/mobile/document-reading", "POST", { document_id: documentId }, false, true, 75_000);
+export async function postDocumentReading(
+  documentId: string
+): Promise<{ ok: true; status: string; message: string } | { ok: false; offline: boolean; unknown: boolean }> {
+  // The reading runs while the request is open (a multi-page document can take a while), so it gets a long timeout. A request that waited the whole
+  // timeout may STILL be running on the server: that is "unknown", and the caller must not ask again straight away. A request that failed sooner never
+  // got an answer at all (no connection): that is "offline".
+  const started = Date.now();
+  const result = await request<{ status?: string; message?: string }>("/api/mobile/document-reading", "POST", { document_id: documentId }, false, true, DOCUMENT_READING_TIMEOUT_MS);
   if (!result.ok) {
     const noAnswer = result.error === NETWORK_ERROR_MESSAGE;
-    return { ok: false, offline: false, unknown: noAnswer };
+    const timedOut = noAnswer && Date.now() - started >= DOCUMENT_READING_TIMEOUT_MS - 2_000;
+    return { ok: false, offline: noAnswer && !timedOut, unknown: timedOut };
   }
   return { ok: true, status: result.data?.status ?? "suggested", message: result.data?.message ?? "" };
 }
+
+const DOCUMENT_READING_TIMEOUT_MS = 75_000;
 
 export interface DeviceRhythmRequest {
   source: "healthkit_ecg" | "ecg_report" | "device_label";

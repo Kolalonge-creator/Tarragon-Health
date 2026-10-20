@@ -15,19 +15,21 @@ export type CaptureActionResult = { error?: string; success?: boolean; message?:
 export async function requestReadingFor(supabase: SupabaseClient<Database>, userId: string, documentId: string): Promise<CaptureActionResult> {
   const { data: doc } = await supabase.from("patient_documents").select("id, patient_id, ocr_state").eq("id", documentId).maybeSingle();
   if (!doc || doc.patient_id !== userId) return { error: "That photo could not be found." };
-  if (doc.ocr_state !== "pending") return { error: "That photo is not waiting to be read." };
+  if (doc.ocr_state !== "pending") return { error: "That photo is not waiting to be read.", status: "not_pending" };
 
   const { data: open } = await supabase.rpc("go_live_guard_is_open", { p_key: DOCUMENT_CAPTURE_GUARD });
   if (open !== true) {
     // Closed: keep the photo, ask for nothing from a model. Mark the reading failed (it needs no open guard) so the photo
     // does not wait forever; the patient types any details in by hand.
-    await createServiceRoleClient().rpc("record_document_suggestion", {
+    const { error } = await createServiceRoleClient().rpc("record_document_suggestion", {
       p_document: documentId,
       p_ocr_text: "",
       p_extracted: {},
       p_model: "none",
       p_failed: true,
     });
+    // If the photo could not be marked, say so: "closed" would be a false answer for a photo that still waits and would keep offering Read now.
+    if (error) return { error: "That could not be saved just now. Please try again.", status: "failed" };
     return { success: true, status: "closed", message: "Reading from photos is not open yet. Your photo is saved." };
   }
 

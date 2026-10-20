@@ -5321,6 +5321,7 @@ export const en = {
   "mpass.doc.not_waiting": "There is nothing waiting for you to confirm.",
   "mpass.doc.asked_again": "We asked for a reading. Check back in a moment.",
   "mpass.doc.ask_failed": "We could not ask for a reading just now. Please try again.",
+  "mpass.doc.pdf_browser_note": "The PDF opens in your phone's browser. The link stops working after five minutes.",
   "mpass.doc.turned": "Turned. The preview is updated.",
   "mpass.doc.turn_failed": "That turn could not be drawn, so the picture is back as it was. Please try again.",
   "mpass.doc.blank_value": "{label} is switched on but its value is empty. Type the value, or switch it off to drop it.",
