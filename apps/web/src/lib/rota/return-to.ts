@@ -12,6 +12,9 @@ export const ROTA_PAGES = [
   "/admin/capacity",
   "/clinician/rest-and-cover",
   "/clinician/device-check",
+  // ops desk (OQ-441)
+  "/admin/ops/desk",
+  "/clinician/ops-desk",
 ] as const;
 
 const PATIENT_PAGE = /^\/clinician\/patients\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
