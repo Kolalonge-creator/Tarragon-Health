@@ -21,6 +21,8 @@ export const GUARD_KEYS = [
   "prn_limits",
   "symptom_checker_enabled",
   "research_export_enabled",
+  // S48a: private GPS route recording (5.7). Born off; no UI records a route yet, so this only gates the database insert policy.
+  "private_route_recording",
 ] as const;
 export type GuardKey = (typeof GUARD_KEYS)[number];
 

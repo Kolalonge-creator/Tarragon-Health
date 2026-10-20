@@ -4,8 +4,11 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
   setActivityGoalSchema,
+  setWeeklyGoalSchema,
   logStepsSchema,
   logWorkoutSchema,
+  KIND_BY_ACTIVITY_NAME,
+  COMMON_ACTIVITY_NAMES,
 } from "@/lib/validation/activity";
 import { recordWeeklyPlanProgress } from "@/lib/lifestyle/weekly-plan-progress";
 
@@ -47,6 +50,31 @@ export async function setActivityGoalAction(
       organisation_id: ctx.organisationId,
       patient_id: ctx.userId,
       daily_step_goal: parsed.data.daily_step_goal,
+    },
+    { onConflict: "patient_id" },
+  );
+  if (error) return { error: error.message };
+
+  revalidatePath("/patient/activity");
+  return { success: true };
+}
+
+/** The weekly active-minutes goal beside the daily step goal (5.1). */
+export async function setWeeklyGoalAction(
+  _prev: ActivityActionState,
+  formData: FormData,
+): Promise<ActivityActionState> {
+  const parsed = setWeeklyGoalSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const ctx = await currentPatient();
+  if ("error" in ctx) return { error: ctx.error };
+
+  const { error } = await ctx.supabase.from("patient_activity_goals").upsert(
+    {
+      organisation_id: ctx.organisationId,
+      patient_id: ctx.userId,
+      weekly_active_minutes_goal: parsed.data.weekly_active_minutes_goal,
     },
     { onConflict: "patient_id" },
   );
@@ -129,6 +157,10 @@ export async function logWorkoutAction(
     patient_id: ctx.userId,
     entry_type: "workout",
     activity_name: parsed.data.activity_name,
+    activity_kind: (COMMON_ACTIVITY_NAMES as readonly string[]).includes(parsed.data.activity_name)
+      ? (KIND_BY_ACTIVITY_NAME[parsed.data.activity_name as (typeof COMMON_ACTIVITY_NAMES)[number]] ?? null)
+      : null,
+    distance_m: parsed.data.distance_km != null ? Math.round(parsed.data.distance_km * 1000) : null,
     duration_minutes: parsed.data.duration_minutes,
     note: parsed.data.note ?? null,
     logged_on: lagosToday(),

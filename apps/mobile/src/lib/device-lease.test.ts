@@ -7,6 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { __databaseNames } from "../test/mocks/expo-sqlite";
 import { __resetDeviceCheckThrottle, runDeviceCheck, runDeviceCheckThrottled } from "./device-lease";
+import { appendQueue } from "./offline-queue-store";
 import { getStore } from "./secure-db";
 import { getOrCreateDeviceId, listDeviceAccounts } from "./store-key";
 import { listStoreNotices, noticesFor } from "./store-notices";
@@ -37,6 +38,12 @@ jest.mock("./supabase", () => ({
       mockConfirmArgs.push(args);
       return mockConfirm;
     },
+  },
+}));
+jest.mock("./offline-queue", () => ({
+  flushOfflineQueues: async () => {
+    calls.push("flushQueues");
+    return {};
   },
 }));
 jest.mock("./outbox", () => ({
@@ -125,6 +132,21 @@ describe("a lost-phone report", () => {
     expect((await listStoreNotices())[0]).toMatchObject({ kind: "wiped", reason: "stolen", unsent: 3, ownerUserId: "user-1" });
     expect(mockConfirmArgs).toEqual([{ p_device: expect.stringMatching(/^[0-9a-f-]{36}$/), p_unsent: 3, p_danger: 0, p_reason: "stolen" }]);
     expect(await AsyncStorage.getItem(PENDING_KEY)).toBeNull();
+  });
+
+  it("counts queued device and health-store readings as unsent, per account, and removes them with the store (S06y)", async () => {
+    await AsyncStorage.setItem(
+      "@tarragon/offline-queue/health-samples/v1",
+      JSON.stringify([{ id: "h1", enqueuedAt: "2026-10-01T08:00:00Z", item: { provider: "apple_health", samples: [] } }])
+    );
+    await appendQueue("device_readings", { systolic: 150 }, "ble");
+    await appendQueue("device_readings", { systolic: 160 }, "ble");
+    mockOwners = [{ owner: "user-1", total: 1, danger: 1 }];
+    mockCheckin = REVOKED;
+    expect(await runDeviceCheck(NOW)).toBe("wiped");
+    expect(mockConfirmArgs[0]).toMatchObject({ p_unsent: 4, p_danger: 1 }); // 1 outbox + 1 migrated page + 2 readings
+    expect(phoneIsGone()).toEqual([]);
+    expect(await AsyncStorage.getItem("@tarragon/offline-queue/health-samples/v1")).toBeNull();
   });
 
   it("wipes an urgent entry too (an explicit report is the one thing that does), and reports the urgent COUNT", async () => {
