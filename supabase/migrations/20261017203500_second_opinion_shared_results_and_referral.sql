@@ -183,10 +183,13 @@ begin
     end if;
     -- private.enforce_specialist_referral_create requires a clinical-tier member and stamps referred_by.
     insert into public.specialist_referrals
-      (organisation_id, patient_id, specialist_type, referral_source, urgency, referral_reason, requested_service, appropriateness_flags, status, set_by)
+      (organisation_id, patient_id, specialist_type, referral_source, urgency, referral_reason, requested_service, appropriateness_flags, status, set_by,
+       signed_by, signed_at)
     -- set_by is what the referral letter's folio and "Referred by" line read (clinician_folio_for_document); without it the letter prints unattributed.
+    -- INV-02: nothing leaves draft unsigned (specialist_referrals_signed_before_send). The recommending doctor signs here, as themselves
+    -- (private.stamp_referral_signature refuses any other signer); the patient accepting later only releases an already-signed referral.
     values (r.organisation_id, r.patient_id, p_specialist_type, 'clinician_initiated', coalesce(p_urgency, 'routine'),
-            btrim(p_reason), nullif(btrim(p_requested_service), ''), '[]'::jsonb, 'draft', v_uid)
+            btrim(p_reason), nullif(btrim(p_requested_service), ''), '[]'::jsonb, 'draft', v_uid, v_uid, now())
     returning id into v_ref;
   end if;
   perform set_config('tarragon.second_opinion_referral_write', 'on', true);
@@ -325,3 +328,13 @@ begin
     raise exception 'assertion: the second opinion sharing and document tables must be closed';
   end if;
 end $$;
+
+-- S39d: every public table that holds a patient's rows is in the data registry. Both are part of the patient's clinical record (what they
+-- showed a doctor, and the outside reports they sent), kept for the clinical-record period and reviewed, never auto-deleted, and included
+-- in the patient's own export. Proposed classification, to be confirmed by the CMO and DPO like the others.
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes) values
+  ('second_opinion_shared_results', 'patient_id', 'clinical_record', 'review', true,
+   'Second opinion 2026-10-17: PROPOSED, to be confirmed by the CMO and DPO. Which of the patient''s released results they chose to show the reviewing doctor.'),
+  ('second_opinion_documents', 'patient_id', 'clinical_record', 'review', true,
+   'Second opinion 2026-10-17: PROPOSED, to be confirmed by the CMO and DPO. Metadata of outside reports the patient attached; the files sit in the private second-opinion-documents bucket.')
+on conflict (table_name) do nothing;

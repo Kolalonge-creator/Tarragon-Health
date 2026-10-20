@@ -188,16 +188,17 @@ begin
   -- claiming the review
   perform pg_temp.rec('a care coordinator cannot start a review', 'ERR:request not found',
     pg_temp.q_as(v_coord, format('select public.start_second_opinion_review(%L)::text', v_req)));
-  perform pg_temp.rec('a doctor starts the review', 'in_review',
-    (select case when pg_temp.try_as(v_doc, format('select public.start_second_opinion_review(%L)', v_req)) = 'ok' then status::text else 'failed' end
-       from public.second_opinion_requests where id = v_req));
+  -- run the call first and read the row afterwards: a single statement would read the row from before the update
+  perform pg_temp.rec('a doctor can start the review', 'ok', pg_temp.try_as(v_doc, format('select public.start_second_opinion_review(%L)', v_req)));
+  perform pg_temp.rec('...and the request is then in review', 'in_review', (select status::text from public.second_opinion_requests where id = v_req));
   perform pg_temp.rec('the doctor sees only the shared result (not the patient''s other released one)', '1',
     pg_temp.q_as(v_doc, format('select jsonb_array_length(public.read_second_opinion_audited(%L) -> ''results'')::text', v_req)));
   perform pg_temp.rec('...with its values', 'hba1c',
     pg_temp.q_as(v_doc, format('select public.read_second_opinion_audited(%L) -> ''results'' -> 0 -> ''items'' -> 0 ->> ''analyte_code''', v_req)));
-  perform pg_temp.rec('the read is audited with its basis', '1',
-    (select count(*)::text from public.audit_log where entity_type = 'second_opinion_request' and entity_id = v_req
-        and actor_id = v_doc and event ->> 'basis' = 'second_opinion_share'));
+  -- every read writes a row (this doctor has read the request more than once by now), so the proof is "at least one", not an exact count
+  perform pg_temp.rec('the read is audited with its basis', 'true',
+    ((select count(*) from public.audit_log where entity_type = 'second_opinion_request' and entity_id = v_req
+        and actor_id = v_doc and event ->> 'basis' = 'second_opinion_share') >= 1)::text);
   perform pg_temp.rec('a care coordinator is refused', 'ERR:request not found',
     pg_temp.q_as(v_coord, format('select public.read_second_opinion_audited(%L)::text', v_req)));
   perform pg_temp.rec('the patient is refused through the doctor function', 'ERR:request not found',
@@ -231,6 +232,8 @@ begin
        from public.specialist_referrals where id = v_ref::uuid));
   perform pg_temp.rec('the letter is attributed to the recommending doctor (set_by)', 'true',
     (select (set_by = v_doc)::text from public.specialist_referrals where id = v_ref::uuid));
+  perform pg_temp.rec('the draft is already signed by that doctor (INV-02: nothing leaves draft unsigned)', 'true',
+    (select (signed_by = v_doc and signed_at is not null)::text from public.specialist_referrals where id = v_ref::uuid));
   perform pg_temp.rec('a second answer is refused', 'true',
     (pg_temp.q_as(v_doc, format('select public.answer_second_opinion_request(%L, %L)::text', v_req, 'Answering again after the first answer.')) like 'ERR:request not found or already answered')::text);
   perform pg_temp.rec('the patient cannot repoint the request at a referral (guard trigger)', 'true',
