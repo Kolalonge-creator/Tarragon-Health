@@ -16,7 +16,7 @@
     "lint": "eslint .",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:e2e-mobile": "maestro test .maestro/flows"
+    "test:e2e-mobile": "maestro test .maestro/flows --exclude-tags=device-lab"
   },
   "dependencies": {
     "@babel/runtime": "^7.25.0",

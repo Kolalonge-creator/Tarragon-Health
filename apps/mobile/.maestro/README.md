@@ -132,6 +132,8 @@ results go are in `docs/device-lab/RUNBOOK.md`.
 - **`reminder-after-reboot.yaml`** - **manual middle step**: `PHASE=prepare` adds a medicine due in five minutes, you run `adb reboot` and do not open the app, `PHASE=check` looks for the generic reminder in the notification shade (never the medicine name). Maestro cannot reboot a phone.
 - **`remote-wipe-lease-checklist.yaml`** - **checklist, three phases** (`prepare`, `verify_admin`, `verify_lease`). The wipe request (`request_offline_device_wipe`) and the 31 day clock change happen outside Maestro; the flow only prepares the phone and asserts the on-screen notice afterwards.
 
+`npm run test:e2e-mobile` (the whole folder) skips every flow tagged `device-lab`, because these need a person, a throttle, a reboot or a deliberately offline phone and cannot go green in a folder run.
+
 The harness's own flows live in `apps/mobile/.maestro/device-lab/` (`prepare-offline-log.yaml`, `assert-flushed.yaml`, `noop.yaml`). They are split in two on
 purpose so the harness can turn the network back on from adb and time the flush. They are not part of `maestro test .maestro/flows`. The harness passes the test account to Maestro through `MAESTRO_MOBILE_E2E_EMAIL` and `MAESTRO_MOBILE_E2E_PASSWORD` in the child's environment (Maestro exposes `MAESTRO_`-prefixed variables to flows without the prefix, per the note above) rather than `-e`, so the password is not in `ps`; that mapping is also unconfirmed until a real run. The YAML lint in
 CI covers both folders.

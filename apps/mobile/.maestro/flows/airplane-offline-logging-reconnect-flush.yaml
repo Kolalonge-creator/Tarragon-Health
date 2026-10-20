@@ -61,7 +61,7 @@ tags:
 - tapOn: "Save reading"
 - assertVisible: ".*waiting to send.*"
 
-# Still offline after a few seconds: nothing may have been dropped or sent.
+# A quick check that the rows are still held while offline. This is not a dwell time: Maestro has no sleep, and waitForAnimationToEnd returns early.
 - waitForAnimationToEnd:
     timeout: 5000
 - assertVisible: ".*waiting to send.*"

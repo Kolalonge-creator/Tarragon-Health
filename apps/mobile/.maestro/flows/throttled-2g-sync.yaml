@@ -61,5 +61,5 @@ tags:
 - extendedWaitUntil:
     notVisible: ".*waiting to send.*"
     timeout: ${SYNC_CEILING_MS}
-- assertNotVisible: ".*could not be sent.*"
+- assertNotVisible: ".*(could not be saved|not sent yet).*"
 - assertVisible: "Save reading"

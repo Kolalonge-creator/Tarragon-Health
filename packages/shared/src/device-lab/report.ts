@@ -34,7 +34,7 @@ export interface EvalContext {
   /** false for a simulator or emulator. */
   readonly realDevice: boolean;
   readonly buildKind: BuildKind;
-  /** Whether build kind matters for this metric (cold start, size, memory do; a network flush does not). */
+  /** Whether build kind matters for this metric. Every collector sets it true today (a debug build also slows logging and the flush), so an unknown or debug build never yields PASS or FAIL for any metric. */
   readonly buildSensitive: boolean;
 }
 

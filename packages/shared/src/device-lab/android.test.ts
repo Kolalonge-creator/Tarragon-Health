@@ -255,6 +255,25 @@ describe("fail-silent guards", () => {
     const edge = collectAndroid(fakeExec({ flushMs: 62_000, noopMs: 4000 }).exec, opts(), budgets);
     expect(byId(edge, "reconnect_flush_seconds").verdict).toBe("INCONCLUSIVE");
   });
+  it("the banner's 15 s refresh lag is not blamed on the app", () => {
+    const r = collectAndroid(fakeExec({ flushMs: 70_000, noopMs: 4000 }).exec, opts(), budgets);
+    expect(byId(r, "reconnect_flush_seconds").verdict).toBe("INCONCLUSIVE");
+  });
+  it("30 rows waiting is not mistaken for 3", () => {
+    const many = fx.UI_DUMP_WAITING.replace("waiting to send: 3", "waiting to send: 30");
+    const r = collectAndroid(fakeExec({ uiBefore: many }).exec, opts(), budgets);
+    expect(byId(r, "reconnect_flush_seconds").status).toBe("not measured");
+  });
+  it("a package the flows do not support leaves the flow metrics not measured", () => {
+    const { exec, calls } = fakeExec();
+    const r = collectAndroid(exec, opts({ packageId: "com.tarragonhealth.app.preview" }), budgets);
+    expect(byId(r, "reconnect_flush_seconds").reason).toMatch(/written for/);
+    expect(calls.some((c) => c.startsWith("maestro"))).toBe(false);
+  });
+  it("a send failure on screen also raises a WARNING note", () => {
+    const r = collectAndroid(fakeExec({ uiAfter: fx.UI_DUMP_REJECTED }).exec, opts(), budgets);
+    expect(r.notes.some((n) => n.startsWith("WARNING"))).toBe(true);
+  });
   it("always tries to turn airplane mode off at the end, even after a failure", () => {
     const { exec, calls } = fakeExec({ prepOk: false });
     collectAndroid(exec, opts(), budgets);

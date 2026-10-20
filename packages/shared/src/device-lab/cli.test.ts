@@ -46,6 +46,8 @@ describe("arguments", () => {
     expect(() => parseCliArgs(["--runs", "0"])).toThrow();
     expect(() => parseCliArgs(["--platform", "windows"])).toThrow();
     expect(() => parseCliArgs(["--enforce"])).toThrow();
+    expect(() => parseCliArgs(["--device-name", "Kola's iPhone"])).toThrow(/not an owner/);
+    expect(parseCliArgs(["--device-name", "iPhone 12"]).deviceName).toBe("iPhone 12");
   });
 });
 

@@ -1,5 +1,6 @@
 import { parseArgs } from "node:util";
 import type { BuildKind } from "./parse";
+import { DEFAULT_ANDROID_PACKAGE } from "./constants";
 import { MANUAL_IDS } from "./metrics";
 
 export type Platform = "android" | "ios" | "ios-device" | "auto";
@@ -24,14 +25,14 @@ export interface CliArgs {
   readonly deviceName: string | null;
 }
 
-export const DEFAULT_ANDROID_PACKAGE = "com.tarragonhealth.app";
+export { DEFAULT_ANDROID_PACKAGE };
 export const DEFAULT_IOS_BUNDLE = "com.tarragonhealth.mobile";
 
 export const USAGE = `Usage: scripts/device-lab/run.sh [options]
 
   --platform android|ios|ios-device   default: android if an adb device is attached, else a booted iOS simulator
   --serial <adb serial>               required when more than one adb device is attached
-  --package <id>                      Android package (default ${DEFAULT_ANDROID_PACKAGE})
+  --package <id>                      Android package (default ${DEFAULT_ANDROID_PACKAGE}); the Maestro flows only support the default
   --bundle-id <id>                    iOS bundle id (default ${DEFAULT_IOS_BUNDLE})
   --apk <file>                        install this APK first (adb install -r)
   --app <dir>                         install this .app on the booted simulator first
@@ -94,6 +95,10 @@ export function parseCliArgs(argv: readonly string[]): CliArgs {
     manual[m[1]] = n;
   }
 
+  const dn = values["device-name"];
+  if (dn !== undefined && (/['\u2019]s\b|\bof\b/i.test(dn) || dn.trim() === "")) {
+    throw new Error('--device-name must be a model such as "iPhone 12", not an owner\'s name (it goes into a committed file name)');
+  }
   const bk = values["build-kind"] ?? "unknown";
   if (!["release", "debug", "unknown"].includes(bk)) throw new Error("--build-kind must be release or debug");
 

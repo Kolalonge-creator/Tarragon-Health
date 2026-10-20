@@ -14,6 +14,7 @@ import {
   type BuildKind,
 } from "./parse";
 import { measured, notMeasured, redactId, type AppInfo, type DeviceInfo, type EvalContext, type MetricResult } from "./report";
+import { DEFAULT_ANDROID_PACKAGE } from "./constants";
 import { budgetFor, MANUAL_IDS, METRIC_IDS, METRIC_ORDER } from "./metrics";
 import { median } from "./stats";
 
@@ -195,7 +196,9 @@ export function collectAndroid(exec: Exec, opts: AndroidOptions, budgets: Device
       ? "no test account: set MOBILE_E2E_EMAIL and MOBILE_E2E_PASSWORD (a test account, is_test = true)"
       : !installedPaths
         ? "the app is not installed on the phone"
-        : null;
+        : opts.packageId !== DEFAULT_ANDROID_PACKAGE
+          ? `the Maestro flows are written for ${DEFAULT_ANDROID_PACKAGE} only, not ${opts.packageId}`
+          : null;
   if (reasonNoFlows) {
     fail(METRIC_IDS.memory, LABELS.memory, "MB", reasonNoFlows);
     fail(METRIC_IDS.reconnect, LABELS.reconnect, "s", reasonNoFlows);
@@ -240,6 +243,8 @@ export function collectAndroid(exec: Exec, opts: AndroidOptions, budgets: Device
 type Shell = (cmd: string, timeoutMs?: number) => ExecResult;
 
 const WAITING_RE = /waiting to send/;
+/** The sync banner re-reads the queue every 15 s (apps/mobile/src/screens/sync-banner.tsx REFRESH_MS), so a cleared notice can lag the real flush by up to this. */
+const BANNER_POLL_MS = 15_000;
 const AIRPLANE_OFF_CMD = "cmd connectivity airplane-mode disable";
 
 /** Reads the screen through uiautomator. Throws when it cannot, so the caller turns "could not look" into "not measured". */
@@ -280,6 +285,7 @@ function runFlows(
     const overheadMs = median(overheads);
 
     const prep = maestro("prepare-offline-log.yaml", true, 420_000);
+    if (/ETIMEDOUT/.test(prep.stderr)) notes.push("WARNING: Maestro timed out. A Maestro Java process may still be driving the phone: check `ps` and stop it before the next run.");
     if (!prep.ok) {
       const why = "the prepare-offline-log flow failed (login, a selector that differs on this build, or the rows never showed as waiting to send); run apps/mobile/.maestro/device-lab/prepare-offline-log.yaml with maestro by hand to see why";
       fail(METRIC_IDS.memory, LABELS.memory, "MB", why);
@@ -313,7 +319,7 @@ function runFlows(
     }
     try {
       if (!appInFocus(shell, opts.packageId)) throw new Error("the app is not in the foreground");
-      if (!screenShows(shell, /waiting to send: 3/)) throw new Error("the screen does not show 3 rows waiting to send");
+      if (!screenShows(shell, /waiting to send: 3\b/)) throw new Error("the screen does not show 3 rows waiting to send");
     } catch (e) {
       fail(METRIC_IDS.reconnect, LABELS.reconnect, "s", `could not confirm the queued rows before reconnecting: ${errText(e)}`);
       return;
@@ -346,6 +352,7 @@ function runFlows(
     }
     const ceilingMs = Math.round((budgets.reconnectFlushSecondsMax + 30) * 1000);
     const flush = maestro("assert-flushed.yaml", false, ceilingMs + 90_000, ["-e", `FLUSH_CEILING_MS=${ceilingMs}`]);
+    if (/ETIMEDOUT/.test(flush.stderr)) notes.push("WARNING: Maestro timed out. A Maestro Java process may still be driving the phone: check `ps` and stop it before the next run.");
     const rawMs = check.elapsedMs + pingMs + flush.elapsedMs;
     const raw = rawMs / 1000;
     const corrected = Math.max(0, rawMs - overheadMs) / 1000;
@@ -371,11 +378,12 @@ function runFlows(
       return;
     }
     if (reportedFailure) {
+      notes.push("WARNING: after reconnecting the app showed a send failure (rows could not be saved, or are stuck). That is a possible data problem, not a timing result: look at the phone and the server.");
       fail(METRIC_IDS.reconnect, LABELS.reconnect, "s", "REVIEW: after reconnecting the app showed a send failure (rows could not be saved, or are stuck). That is a possible data problem, not a timing result; look at the phone and the server");
       return;
     }
     if (!flush.ok || stillWaiting) {
-      if (stillWaiting && corrected > budget) {
+      if (stillWaiting && corrected - BANNER_POLL_MS / 1000 > budget) {
         record(measured({
           id: METRIC_IDS.reconnect, label: LABELS.reconnect, unit: "s", source: "maestro", value: raw, budget, context: ctx, bound: "lower",
           notes: [
@@ -397,9 +405,9 @@ function runFlows(
       ? (delivered
         ? { verdict: "PASS" as const, reason: null }
         : { verdict: "INCONCLUSIVE" as const, reason: "the waiting notice cleared in time, but the screen never showed \"Received by TarragonHealth.\", so delivery is unconfirmed (the rows may have been dropped); confirm on the dashboard" })
-      : corrected > budget
+      : corrected - BANNER_POLL_MS / 1000 > budget
         ? { verdict: "FAIL" as const, reason: null }
-        : { verdict: "INCONCLUSIVE" as const, reason: `the upper bound (${raw.toFixed(1)} s, includes Maestro start-up) is over the budget but the estimate after removing Maestro start-up (${corrected.toFixed(1)} s) is not; repeat with a stopwatch` };
+        : { verdict: "INCONCLUSIVE" as const, reason: `the upper bound (${raw.toFixed(1)} s, includes Maestro start-up) is over the budget but the estimate after removing Maestro start-up and the banner's 15 s refresh lag (${(corrected - BANNER_POLL_MS / 1000).toFixed(1)} s) is not; repeat with a stopwatch` };
     record(measured({
       id: METRIC_IDS.reconnect, label: LABELS.reconnect, unit: "s", source: "maestro", value: raw, budget,
       context: ctx,
@@ -408,7 +416,8 @@ function runFlows(
         `Value is an UPPER BOUND: adb return to Maestro exit, which includes Maestro start-up (median ${(overheadMs / 1000).toFixed(1)} s measured on a do-nothing flow).`,
         `Estimate after removing that start-up: ${corrected.toFixed(1)} s.`,
         `Evidence: the screen showed 3 rows waiting to send with the app in front before reconnecting; afterwards no waiting notice, no send failure, the app still in front, and ${delivered ? "\"Received by TarragonHealth.\" on screen" : "NO delivery confirmation on screen"}; a ping to the internet worked before the wait began. The harness did NOT check the server; confirm the rows on the dashboard.`,
-        "PASS only when the upper bound is within budget; FAIL only when even the estimate is over budget.",
+        `The sync banner refreshes every ${BANNER_POLL_MS / 1000} s, so the notice can clear up to that late. FAIL needs the estimate minus that lag to be over budget too.`,
+        "PASS only when the upper bound is within budget (and delivery is shown); FAIL only when even the estimate minus the lag is over budget.",
       ],
     }));
   } catch (e) {
