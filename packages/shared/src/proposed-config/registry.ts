@@ -5428,6 +5428,44 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/S41-S45-build-plan.md section 6; spec 2.10; docs/research/S44.md",
   },
   {
+    key: "fhir.ips_mapping",
+    // International Patient Summary export (spec 2.10; docs/design/IPS.md). The IPS (ISO 27269, HL7 IPS) is under national adoption balloting in
+    // Nigeria in 2026 and the Nigeria Core FHIR implementation guide is still a draft, so NO profile URL is claimed and nothing here says the
+    // file conforms to the IPS or Nigeria Core IG: it is "IPS-shaped" (a document Bundle with the IPS section structure) and nothing more.
+    // Section codes are LOINC document-section codes the IPS uses. A required IPS section with nothing to show is written with
+    // emptyReason "unavailable" (not recorded here), never "nilknown": we must not tell a hospital a person has no known allergies.
+    value: {
+      ig_status: "ips_shaped_no_conformance_claimed",
+      profiles: {},
+      composition_type: { system: "http://loinc.org", code: "60591-5", display: "Patient summary Document" },
+      title: "International Patient Summary",
+      author_name: "Tarragon Health",
+      composition_status: "preliminary",
+      document_identifier_system: "https://tarragonhealth.ng/fhir/identifier/ips-document",
+      empty_reason_system: "http://terminology.hl7.org/CodeSystem/list-empty-reason",
+      empty_reason_code: "unavailable",
+      // A section the database did not give this reader (a supporter without that category) is "withheld", never "unavailable": "nothing
+      // recorded" and "not shared with you" must not read the same to a clinician.
+      withheld_reason_code: "withheld",
+      // A summary is short: the newest readings of each kind and the newest results of each test, not years of daily logs.
+      vitals_per_type: 5,
+      results_per_analyte: 3,
+      sections: [
+        { key: "problems", loinc: "11450-4", display: "Problem list - Reported", title: "Problems", required: true },
+        { key: "allergies", loinc: "48765-2", display: "Allergies and adverse reactions Document", title: "Allergies and intolerances", required: true },
+        { key: "medications", loinc: "10160-0", display: "History of Medication use Narrative", title: "Medicines", required: true },
+        { key: "immunizations", loinc: "11369-6", display: "History of Immunization note", title: "Immunizations", required: false },
+        { key: "results", loinc: "30954-2", display: "Relevant diagnostic tests/laboratory data Narrative", title: "Results", required: false },
+        { key: "vital_signs", loinc: "8716-3", display: "Vital signs", title: "Vital signs", required: false },
+      ],
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/IPS.md; spec 2.10; ISO 27269 (International Patient Summary)",
+  },
+  {
     key: "risk.who_cvd_2019",
     // WHO 2019 cardiovascular risk charts, Western sub-Saharan Africa (S45, function 3.2). Live value is the `config` of `risk_instrument_versions`
     // (code who_cvd_2019_wssa); a test fails if the migration seed and this value drift. NO COEFFICIENTS are loaded (the paper's appendix was not
