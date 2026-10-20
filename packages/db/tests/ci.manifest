@@ -1308,6 +1308,8 @@ supersede_patient_result_document_replace.sql
 # --- Added 2026-10-16 (hardening: audit_log SELECT narrowed to own rows + admin) ---
 audit_log_select_narrowed.sql
 bp_cuffless_estimates_never_diagnostic.sql
+# Second opinion with patient-shared results and a recommended referral: the sharing table is closed; a patient shares only their own released, current result with items on their own open request; an unreleased, foreign or withdrawn result never reaches the doctor; the doctor read is audited and refuses a care coordinator and the patient; the answer creates a DRAFT referral (referred_by stamped, no consent) the patient alone accepts; the guard trigger stops repointing a request at a referral. Sabotage: the guard trigger and the table closure each removed; each must flip.
+second_opinion_shared_results_and_referral.sql
 # Record share extras: recipient label, view cap (1 to 50, the fourth open of a three-view link is refused like any dead link, peek too), date window (30/90/180 days drops older readings), options door refuses bad input and anon; pin_hash stays unreadable; the original create door still works. Sabotage: the cap and the window each removed; both must flip.
 record_share_recipient_views_window.sql
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted; only open sev1/sev2 incidents counted. Sabotage: without the status filter the done delivery would count.
