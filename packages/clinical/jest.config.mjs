@@ -25,6 +25,7 @@ export default {
     "<rootDir>/packages/clinical/src/titration.ts",
     "<rootDir>/packages/clinical/src/live-redflag.ts",
     "<rootDir>/packages/clinical/src/home-bp.ts",
+    "<rootDir>/packages/clinical/src/cuff-check.ts",
   ],
   coverageThreshold: { global: { branches: 100, functions: 100, lines: 100, statements: 100 } },
 };
