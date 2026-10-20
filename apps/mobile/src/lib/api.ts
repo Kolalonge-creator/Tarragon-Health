@@ -67,7 +67,12 @@ export type VitalReadingPayload =
   | { vital_type: "weight"; weight_kg: number; note?: string }
   | { vital_type: "pulse"; pulse_bpm: number; note?: string }
   | { vital_type: "temperature"; temperature_c: number; note?: string }
-  | { vital_type: "spo2"; spo2_pct: number; note?: string };
+  | { vital_type: "spo2"; spo2_pct: number; note?: string }
+  // S47a: water, sleep and mood, and the inhaler log (puffs and a reason). Behind the extended_observations module on the server.
+  | { vital_type: "water_ml"; water_ml: number; note?: string }
+  | { vital_type: "sleep_hours"; sleep_hours: number; note?: string }
+  | { vital_type: "mood"; mood: number; note?: string }
+  | { vital_type: "inhaler_use"; puffs: number; reason: "breathless_or_wheeze" | "before_exercise" | "routine_dose" | "night_symptoms" | "other" };
 
 /** Goes through the API (not a direct client insert) so a dangerous reading
  * triggers the same red-flag/health-score reassessment a web-logged one

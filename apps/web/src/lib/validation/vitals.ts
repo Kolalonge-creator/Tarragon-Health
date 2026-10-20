@@ -1,5 +1,22 @@
 import { z } from "zod";
-import { cleanPlaceLabel } from "@tarragon/shared";
+import { cleanPlaceLabel, observationLimit, observationRangeMessageKey, type ObservationLimitKey } from "@tarragon/shared";
+import { en } from "@tarragon/i18n";
+
+/** S47a: the typo-gate limits come from the versioned config (observations.plausibility), the same value the phone bundles. */
+const LIM = {
+  sys: observationLimit("systolic_mmhg"),
+  dia: observationLimit("diastolic_mmhg"),
+  weight: observationLimit("weight_kg"),
+  pulse: observationLimit("pulse_bpm"),
+  temp: observationLimit("temperature_c"),
+  spo2: observationLimit("spo2_pct"),
+  waist: observationLimit("waist_cm"),
+  glucoseMmol: observationLimit("glucose_mmol_l"),
+  glucoseMg: observationLimit("glucose_mg_dl"),
+};
+
+/** The plain sentence for a refused number (packages/i18n, English only). */
+export const rangeMessage = (key: ObservationLimitKey): string => en[observationRangeMessageKey(key)];
 
 const noteField = z.string().trim().max(500).optional();
 
@@ -31,13 +48,13 @@ export const bloodPressureSchema = z
     systolic: z.coerce
       .number()
       .int()
-      .min(60, "Systolic must be at least 60 mmHg")
-      .max(260, "Please re-check — systolic above 260 mmHg is outside the measurable range"),
+      .min(LIM.sys.min, `Systolic must be at least ${LIM.sys.min} mmHg`)
+      .max(LIM.sys.max, `Please re-check — systolic above ${LIM.sys.max} mmHg is outside the measurable range`),
     diastolic: z.coerce
       .number()
       .int()
-      .min(30, "Diastolic must be at least 30 mmHg")
-      .max(160, "Please re-check — diastolic above 160 mmHg is outside the measurable range"),
+      .min(LIM.dia.min, `Diastolic must be at least ${LIM.dia.min} mmHg`)
+      .max(LIM.dia.max, `Please re-check — diastolic above ${LIM.dia.max} mmHg is outside the measurable range`),
     note: noteField,
     taken_at: takenAtField,
     cuff_type: z.enum(["upper_arm", "wrist", "not_sure"]).optional(),
@@ -67,8 +84,8 @@ export const bloodPressureSchema = z
  * than blocked as "invalid input".
  */
 export const GLUCOSE_RANGE = {
-  mmol_l: { min: 1, max: 40, label: "mmol/L" },
-  mg_dl: { min: 18, max: 720, label: "mg/dL" },
+  mmol_l: { min: LIM.glucoseMmol.min, max: LIM.glucoseMmol.max, label: "mmol/L" },
+  mg_dl: { min: LIM.glucoseMg.min, max: LIM.glucoseMg.max, label: "mg/dL" },
 } as const;
 
 export const GLUCOSE_UNITS = ["mmol_l", "mg_dl"] as const;
@@ -117,8 +134,8 @@ export const weightSchema = z.object({
   vital_type: z.literal("weight"),
   weight_kg: z.coerce
     .number()
-    .min(20, "Weight must be at least 20 kg")
-    .max(300, "Weight must be at most 300 kg"),
+    .min(LIM.weight.min, `Weight must be at least ${LIM.weight.min} kg`)
+    .max(LIM.weight.max, `Weight must be at most ${LIM.weight.max} kg`),
   note: noteField,
   taken_at: takenAtField,
 });
@@ -140,8 +157,8 @@ export const pulseSchema = z.object({
   pulse_bpm: z.coerce
     .number()
     .int()
-    .min(20, "Pulse must be at least 20 bpm")
-    .max(300, "Please re-check — a pulse above 300 bpm is outside the measurable range"),
+    .min(LIM.pulse.min, `Pulse must be at least ${LIM.pulse.min} bpm`)
+    .max(LIM.pulse.max, `Please re-check — a pulse above ${LIM.pulse.max} bpm is outside the measurable range`),
   note: noteField,
   taken_at: takenAtField,
 });
@@ -157,8 +174,8 @@ export const temperatureSchema = z.object({
   vital_type: z.literal("temperature"),
   temperature_c: z.coerce
     .number()
-    .min(30, "Temperature must be at least 30°C")
-    .max(45, "Please re-check — a temperature above 45°C is outside the measurable range"),
+    .min(LIM.temp.min, `Temperature must be at least ${LIM.temp.min}°C`)
+    .max(LIM.temp.max, `Please re-check — a temperature above ${LIM.temp.max}°C is outside the measurable range`),
   note: noteField,
   taken_at: takenAtField,
 });
@@ -181,8 +198,8 @@ export const spo2Schema = z.object({
   spo2_pct: z.coerce
     .number()
     .int()
-    .min(50, "SpO2 must be at least 50%")
-    .max(100, "SpO2 must be at most 100%"),
+    .min(LIM.spo2.min, `SpO2 must be at least ${LIM.spo2.min}%`)
+    .max(LIM.spo2.max, `SpO2 must be at most ${LIM.spo2.max}%`),
   note: noteField,
   taken_at: takenAtField,
 });
@@ -191,9 +208,32 @@ export const waistCircumferenceSchema = z.object({
   vital_type: z.literal("waist_circumference"),
   waist_cm: z.coerce
     .number()
-    .min(40, "Waist must be at least 40 cm")
-    .max(200, "Waist must be at most 200 cm"),
+    .min(LIM.waist.min, `Waist must be at least ${LIM.waist.min} cm`)
+    .max(LIM.waist.max, `Waist must be at most ${LIM.waist.max} cm`),
   note: noteField,
+  taken_at: takenAtField,
+});
+
+/**
+ * S47a (BUILD-SPEC-v5 4.2): water, sleep, mood. Each is one number in vitals_readings.value_numeric; the database CHECK holds the same hard limits.
+ * A refused number says plainly what to check (4.3). Behind the extended_observations module, which the API route checks first.
+ */
+const lifestyleNumber = (type: "water_ml" | "sleep_hours" | "mood") => {
+  const l = observationLimit(type);
+  const message = rangeMessage(type);
+  const num = z.coerce.number({ message }).min(l.min, message).max(l.max, message);
+  return l.integer ? num.int(message) : num;
+};
+export const waterSchema = z.object({ vital_type: z.literal("water_ml"), water_ml: lifestyleNumber("water_ml"), note: noteField, taken_at: takenAtField });
+export const sleepSchema = z.object({ vital_type: z.literal("sleep_hours"), sleep_hours: lifestyleNumber("sleep_hours"), note: noteField, taken_at: takenAtField });
+export const moodSchema = z.object({ vital_type: z.literal("mood"), mood: lifestyleNumber("mood"), note: noteField, taken_at: takenAtField });
+
+/** The inhaler log (puffs and a reason) is its own record, see public.inhaler_use_logs. */
+export const INHALER_REASONS = ["breathless_or_wheeze", "before_exercise", "routine_dose", "night_symptoms", "other"] as const;
+export const inhalerUseSchema = z.object({
+  vital_type: z.literal("inhaler_use"),
+  puffs: z.coerce.number({ message: rangeMessage("inhaler_puffs") }).int(rangeMessage("inhaler_puffs")).min(observationLimit("inhaler_puffs").min, rangeMessage("inhaler_puffs")).max(observationLimit("inhaler_puffs").max, rangeMessage("inhaler_puffs")),
+  reason: z.enum(INHALER_REASONS),
   taken_at: takenAtField,
 });
 

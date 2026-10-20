@@ -1,10 +1,13 @@
 import { ageFromDateOfBirth } from "@tarragon/shared";
-import { createClient } from "@/lib/supabase/server";
 import { readProvenanceGuards } from "@/lib/diary/guards";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { VitalsForm } from "@/app/(dashboard)/patient/vitals-form";
+import { LifestyleLogCard } from "@/app/(dashboard)/patient/lifestyle-log-card";
+import { InhalerHistory } from "@/app/(dashboard)/patient/inhaler-history";
+import { createClient } from "@/lib/supabase/server";
+import { readExtendedObservationsEnabled } from "@/lib/vitals/extended-observations";
 import { MonitoringCoverCard } from "@/components/monitoring-cover-card";
 import { HbpmSummaryCard } from "@/app/(dashboard)/patient/hbpm-summary-card";
 import { GlucoseInsights } from "@/app/(dashboard)/patient/glucose-insights";
@@ -32,6 +35,8 @@ export default async function PatientVitalsPage() {
   const ageYears = ageFromDateOfBirth(subjectDateOfBirth);
   // S07y: the pharmacy label is born off; the box only appears once its guard is open for this person.
   const guards = await readProvenanceGuards(await createClient());
+  // S47a: water, sleep, mood and inhaler logs show only while the extended_observations module is on (born off).
+  const extendedObservationsOn = await readExtendedObservationsEnabled(await createClient());
   const presentingComplaints = await listAvailablePresentingComplaints();
   // The stated review time is read from the signed SLA only when the checker is open (nothing to promise otherwise).
   const reviewTime = presentingComplaints.length > 0 ? await getSymptomReviewTime() : ({ stated: false } as const);
@@ -60,6 +65,9 @@ export default async function PatientVitalsPage() {
           <GlucoseInsights patientId={subjectId} />
         </div>
       </div>
+
+      {extendedObservationsOn ? <LifestyleLogCard types={["water_ml", "sleep_hours", "mood", "inhaler_use"]} /> : null}
+      {extendedObservationsOn ? <InhalerHistory patientId={subjectId} /> : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SymptomLogForm patientId={subjectId} ageYears={ageYears} />

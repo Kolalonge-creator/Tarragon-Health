@@ -15,6 +15,7 @@
  * are deliberately absent: the sessions that build them add them here.
  */
 import { DEVICE_RED_RULES, EMERGENCY_PACK } from "./emergency-pack";
+import { OBSERVATION_LIMITS_V1 } from "./observation-limits-data";
 import { THERAPY_EXCLUSION_LISTS, THERAPY_PROGRAMME_CONFIG } from "./therapy-config-data";
 
 export type ConfigOwner = "CMO" | "Founder" | "Founder and counsel";
@@ -1223,6 +1224,36 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-15",
     source: "docs/design/S16-S20-unified-red-paging.md; docs/plans/S16-S20-review-and-build-plan.md section 5, decision 11",
+  },
+  {
+    key: "paging.legacy_notice_retirement_rules",
+    // Retiring the older "notify every clinician" message for blood pressure and glucose, and the Care Circle notice for unified red-event
+    // pages (S19f). Live values are the active row of `legacy_notice_retirement_config`; this entry mirrors the four seeded versions and a test
+    // fails if the migration seed and this value drift. All four versions ship INACTIVE and UNSIGNED: no active signed row means every key reads
+    // OFF and the older paths run exactly as before. The CMO switches ONE version on from the sign-off hub after the test pack.
+    // observe: 1 = record, for every event, whether and when its page arrived (nothing changes for anyone). suppress_legacy_bp_notice and
+    // suppress_legacy_glucose_notice: 1 = the older message for the RED level of that pathway is held until the page of that same event is
+    // confirmed with a reachable paged clinician, then dropped; otherwise it is sent. suppress_legacy_emergency_notice: the SEPARATE key that
+    // also covers emergency-level events (blood pressure crisis, glucose emergency). circle_notice_unified_page: 1 = a neutral check-in
+    // notice also goes to Care Circle members who allowed red alerts when the page is a unified page (never for a symptom event when the patient
+    // has a pregnancy or reproductive-health record). hold_seconds: how long a held message waits for its page before it is sent.
+    // emergency_hold_seconds: the much shorter wait for an EMERGENCY-level message; emergency_engine_fresh_seconds: how recent the event-bus
+    // heartbeat must be to hold an emergency message at all (older: sent at once). min_parallel_days / min_parallel_events: the evidence a
+    // retiring version needs from the parallel run (days switched on, real events measured) before it can be signed.
+    // Version 1 = parallel run. 2 = retire red-level BP and glucose. 3 = 2 plus emergency-level. 4 = Care Circle notice only.
+    value: {
+      versions: {
+        "1": { observe: 1, suppress_legacy_bp_notice: 0, suppress_legacy_glucose_notice: 0, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+        "2": { observe: 1, suppress_legacy_bp_notice: 1, suppress_legacy_glucose_notice: 1, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+        "3": { observe: 1, suppress_legacy_bp_notice: 1, suppress_legacy_glucose_notice: 1, suppress_legacy_emergency_notice: 1, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+        "4": { observe: 1, suppress_legacy_bp_notice: 0, suppress_legacy_glucose_notice: 0, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 1, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/S19f-legacy-notice-retirement-and-circle-notice.md; docs/design/S16-S20-unified-red-paging.md sections C and D",
   },
   {
     key: "free_red_event.rules",
@@ -6067,5 +6098,33 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-16",
     source: "docs/design/S53-pack-scan.md; NAFDAC Greenbook public examples",
+  },
+  {
+    key: "observations.plausibility",
+    // S47a (BUILD-SPEC-v5 4.3, 4.7): the typo gate for every hand-typed number. Hard limits refuse with a plain message; soft limits (water, sleep,
+    // inhaler puffs) only ask the person to confirm. Mirrored in the database CHECK for the lifestyle types and the inhaler log; a test fails on drift.
+    // PROPOSED: the Chief Medical Officer confirms the lifestyle-type limits (OQ-S47A-1).
+    value: OBSERVATION_LIMITS_V1,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-09-30",
+    source: "docs/BUILD-SPEC-v5.md Module 4 (4.3, 4.7); docs/research/S46-S50-competitor-gap-and-build-plan.md S47a",
+  },
+  {
+    key: "observations.target_bands",
+    // S47a (BUILD-SPEC-v5 4.6): the shaded band on the glucose and weight trend charts. Glucose is the usual time-in-range band that
+    // apps/web/src/lib/vitals/time-in-range.ts already uses (DEFAULT_TIR_LOW / DEFAULT_TIR_HIGH; a test fails if they drift). Weight is the WHO healthy BMI
+    // band, turned into kilograms at the person's own height. A care-team target for the person replaces the standard band.
+    // PROPOSED: the Chief Medical Officer confirms (OQ-S47A-4).
+    value: {
+      glucose_mmol_l: { low: 3.9, high: 10.0 },
+      healthy_bmi: { low: 18.5, high: 24.9 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-09-30",
+    source: "apps/web/src/lib/vitals/time-in-range.ts; WHO BMI bands (apps/web/src/lib/obesity/classify.ts bmiCategory)",
   },
 ];
