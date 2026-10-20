@@ -1,0 +1,65 @@
+# S06x-c / D8 device lab: sync over a throttled, 2G-class connection.
+#
+# Checks (on a real phone, once someone runs it): a reading logged on a very slow, lossy link is accepted on the phone at once, the app stays on
+# the Vitals screen, and the "waiting to send" notice clears inside a long ceiling. It does NOT check for duplicates or that the server got the
+# row: the screen is its only evidence. Confirm one new row on the dashboard by hand after each run.
+# Maestro cannot throttle a network. The tester must do it BEFORE running, then confirm with -e THROTTLE_CONFIRMED=yes so this flow refuses to
+# run (and so cannot report a pass) on an unthrottled link:
+#   - emulator:  adb emu network speed gsm   and   adb emu network delay gprs
+#   - real phone: join a Wi-Fi hotspot shaped to about 50 kbit/s, 400 ms latency, 3 percent loss (macOS Network Link Conditioner "Edge" or
+#     "3G, Poor" profile, or `tc netem` on a Linux hotspot), with mobile data off.
+# Long wait on purpose: the ceiling is a hang guard, not a budget.
+#
+# STATUS: written, NOT run on a device. Selectors are copied from the existing offline flows and are unconfirmed.
+#   maestro test -e THROTTLE_CONFIRMED=yes -e MOBILE_E2E_EMAIL=... -e MOBILE_E2E_PASSWORD=... <this file>
+# Use a test account (is_test = true).
+appId: com.tarragonhealth.app
+name: Throttled 2G-class sync
+env:
+  THROTTLE_CONFIRMED: "no"
+  SYNC_CEILING_MS: "300000"
+tags:
+  - offline
+  - device-lab
+  - throttled
+  - android
+---
+- assertTrue:
+    condition: ${THROTTLE_CONFIRMED == 'yes'}
+    label: "Throttle the network first, then pass -e THROTTLE_CONFIRMED=yes"
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Email"
+    timeout: 60000
+- tapOn: "Use email"
+- tapOn: "Email"
+- inputText: ${MOBILE_E2E_EMAIL}
+- tapOn: "Password"
+- inputText: ${MOBILE_E2E_PASSWORD}
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Today at a glance: your numbers, your care team, and recent activity."
+    timeout: 120000
+- tapOn: "Vitals"
+- extendedWaitUntil:
+    visible: "Save reading"
+    timeout: 60000
+
+# Logging must not wait on the slow link: the saved-on-phone state shows at once.
+- tapOn: "Systolic"
+- inputText: "120"
+- tapOn: "Diastolic"
+- inputText: "80"
+- hideKeyboard
+- tapOn: "Save reading"
+- extendedWaitUntil:
+    visible: ".*(Saved on this phone|waiting to send|Received by TarragonHealth).*"
+    timeout: 5000
+
+# The queue clears eventually, on the same screen, without the app reporting a failure.
+- extendedWaitUntil:
+    notVisible: ".*waiting to send.*"
+    timeout: ${SYNC_CEILING_MS}
+- assertNotVisible: ".*could not be sent.*"
+- assertVisible: "Save reading"

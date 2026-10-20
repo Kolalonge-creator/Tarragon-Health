@@ -1,0 +1,73 @@
+# S06x-c / D8 device lab: airplane-mode logging, then the reconnect flush.
+#
+# Proves (on a real phone, once someone runs it): with airplane mode ON the readings are kept on the phone and shown as waiting to send, and when
+# the network returns the NetInfo reconnect (or the minute foreground flush) sends them and the waiting notice clears inside the flush limit.
+# Android only: Maestro's setAirplaneMode is Android-only. For a timed, reported run use scripts/device-lab/run.sh instead; this flow is the
+# pass/fail version for a person watching.
+#
+# FLUSH_TIMEOUT_MS mirrors device_lab.budgets.reconnect_flush_seconds_max (60 s) in packages/shared/src/proposed-config/registry.ts. It is a
+# flow parameter, not a hidden constant: change it with -e FLUSH_TIMEOUT_MS=... and the budget together.
+#
+# onFlowComplete always turns airplane mode back off, even when an assertion fails, so a failed run never leaves the phone offline.
+#
+# STATUS: written, NOT run on a device. Selectors are copied from the existing offline flows and are unconfirmed.
+#   maestro test -e MOBILE_E2E_EMAIL=... -e MOBILE_E2E_PASSWORD=... <this file>
+# Use a test account (is_test = true).
+appId: com.tarragonhealth.app
+name: Airplane mode logging then reconnect flush
+env:
+  FLUSH_TIMEOUT_MS: "60000"
+onFlowComplete:
+  - setAirplaneMode: disabled
+tags:
+  - offline
+  - device-lab
+  - android
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Email"
+    timeout: 30000
+- tapOn: "Use email"
+- tapOn: "Email"
+- inputText: ${MOBILE_E2E_EMAIL}
+- tapOn: "Password"
+- inputText: ${MOBILE_E2E_PASSWORD}
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Today at a glance: your numbers, your care team, and recent activity."
+    timeout: 30000
+- tapOn: "Vitals"
+- extendedWaitUntil:
+    visible: "Save reading"
+    timeout: 15000
+
+- setAirplaneMode: enabled
+- tapOn: "Systolic"
+- inputText: "118"
+- tapOn: "Diastolic"
+- inputText: "76"
+- hideKeyboard
+- tapOn: "Save reading"
+- extendedWaitUntil:
+    visible: ".*waiting to send.*"
+    timeout: 10000
+- tapOn: "Systolic"
+- inputText: "121"
+- tapOn: "Diastolic"
+- inputText: "79"
+- hideKeyboard
+- tapOn: "Save reading"
+- assertVisible: ".*waiting to send.*"
+
+# Still offline after a few seconds: nothing may have been dropped or sent.
+- waitForAnimationToEnd:
+    timeout: 5000
+- assertVisible: ".*waiting to send.*"
+
+# Network returns. The waiting notice must clear inside the flush limit.
+- setAirplaneMode: disabled
+- extendedWaitUntil:
+    notVisible: ".*waiting to send.*"
+    timeout: ${FLUSH_TIMEOUT_MS}

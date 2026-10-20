@@ -1,0 +1,15 @@
+# Device lab harness, part 2. Run by the harness right after it turns airplane mode OFF from adb. It does not relaunch the app and does not
+# touch the network: it only waits for the "waiting to send" notice to clear. The harness times how long this takes, bounds it by the Maestro
+# start-up it measured on noop.yaml, and compares it with the reconnect budget. The wait limit below is a ceiling to avoid hanging, not the budget.
+#
+# STATUS: written, NOT run on a device. If this flow fails the harness records the reconnect flush as "not measured" and says why.
+appId: com.tarragonhealth.app
+name: Device lab part 2, queued readings flush after reconnect
+tags:
+  - device-lab
+  - offline
+  - android
+---
+- extendedWaitUntil:
+    notVisible: ".*waiting to send.*"
+    timeout: 90000

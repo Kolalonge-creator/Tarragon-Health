@@ -1,0 +1,91 @@
+# S08x-3 / D8 device lab: a medicine reminder still fires after the phone reboots (OQ-73 boot reschedule).
+#
+# Maestro CANNOT reboot a phone, so this is a three-step run with a manual middle. Pass -e PHASE=prepare, then reboot by hand, then -e PHASE=check:
+#   1. maestro test -e PHASE=prepare -e MOBILE_E2E_EMAIL=... -e MOBILE_E2E_PASSWORD=... <this file>
+#      Signs in, adds a medicine with a dose time FIVE minutes from now, and stops. It does not leave the app waiting.
+#   2. MANUAL: run `adb reboot`, let the phone boot, DO NOT open TarragonHealth. Do not unlock into the app. (Unlocking the home screen is fine.)
+#      The point is to prove the reminder comes from the alarm re-registered at boot, not from the app being launched.
+#   3. maestro test -e PHASE=check <this file>
+#      After the dose time, opens the notification shade and asserts the reminder is there. It must not name the medicine (the lock screen shows
+#      only generic wording). Record in docs/device-lab/<date>-<device>.md: reminder arrived, minutes late (Maestro cannot read the minute; note
+#      it from the shade), exact-alarm permission state.
+# Repeat on each phone with the battery-manager settings both at the maker default and after the "Keep reminders working" steps (RUNBOOK).
+#
+# The check phase is ADVISORY. It can only see that an entry titled "Tarragon Health" is in the shade; it cannot read when it arrived or prove the
+# app was not opened. The pass is the tester reading the arrival time in the shade against the dose time and writing it in the report. The prepare
+# phase clears old notifications first so an entry from an earlier run cannot satisfy the check.
+#
+# STATUS: written, NOT run on a device. The notification title is the string reminders.notif.title ("Tarragon Health"); unconfirmed on a build.
+# Use a test account (is_test = true).
+appId: com.tarragonhealth.app
+name: Reminder fires after reboot
+env:
+  PHASE: "prepare"
+tags:
+  - reminders
+  - device-lab
+  - android
+  - manual-step
+---
+- runFlow:
+    when:
+      true: ${PHASE == 'prepare'}
+    commands:
+      - launchApp:
+          clearState: true
+      - extendedWaitUntil:
+          visible: "Email"
+          timeout: 30000
+      - tapOn: "Use email"
+      - tapOn: "Email"
+      - inputText: ${MOBILE_E2E_EMAIL}
+      - tapOn: "Password"
+      - inputText: ${MOBILE_E2E_PASSWORD}
+      - tapOn: "Sign in"
+      - extendedWaitUntil:
+          visible: "Today at a glance: your numbers, your care team, and recent activity."
+          timeout: 30000
+      - tapOn: "Medications"
+      - extendedWaitUntil:
+          visible: "Today's doses"
+          timeout: 15000
+      - tapOn: "Your medicines cabinet"
+      - tapOn: "+ Add"
+      - tapOn:
+          text: "Drug name"
+          below: "Add a medication"
+      - inputText: "S08 reboot test"
+      # Lagos wall-clock (UTC+1, no daylight saving), five minutes from now.
+      - evalScript: ${output.doseTime = new Date(Date.now() + 3600000 + 300000).toISOString().slice(11, 16)}
+      - tapOn: "HH:MM"
+      - inputText: ${output.doseTime}
+      - tapOn:
+          text: "Add"
+          index: 1
+      - tapOn: "Add medication"
+      - extendedWaitUntil:
+          visible: "Medication added."
+          timeout: 10000
+      # Clear old notifications so a stale entry cannot satisfy the check later.
+      - swipe:
+          start: 50%, 0%
+          end: 50%, 70%
+          duration: 600
+      - tapOn:
+          text: "Clear all"
+          optional: true
+      - back
+      # Stop here. Now reboot by hand (step 2 above).
+
+- runFlow:
+    when:
+      true: ${PHASE == 'check'}
+    commands:
+      - swipe:
+          start: 50%, 0%
+          end: 50%, 70%
+          duration: 600
+      - extendedWaitUntil:
+          visible: "Tarragon Health"
+          timeout: 20000
+      - assertNotVisible: ".*S08 reboot test.*"

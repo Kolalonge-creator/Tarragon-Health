@@ -1,0 +1,84 @@
+# S06x-c / D8 device lab: a power cut or a low-battery shutdown with unsent rows.
+#
+# Proves (on a real phone, once someone runs it): rows saved while offline survive the app process being killed without warning, are still listed
+# as waiting to send after relaunch (nothing silently dropped, no key-lost notice), and then flush when the network returns.
+# `killApp` stops the process the way the OS does when memory runs out. It is the closest Maestro gets to a power cut. A true battery pull or a
+# low-battery shutdown cannot be scripted: do it by hand as RUNBOOK step "Power cut" and repeat the two assertions after the phone boots.
+#
+# onFlowComplete always turns airplane mode back off, even when an assertion fails, so a failed run never leaves the phone offline.
+#
+# STATUS: written, NOT run on a device. Selectors are copied from the existing offline flows and are unconfirmed.
+#   maestro test -e MOBILE_E2E_EMAIL=... -e MOBILE_E2E_PASSWORD=... <this file>
+# Use a test account (is_test = true).
+appId: com.tarragonhealth.app
+name: Restart mid-queue keeps unsent rows then flushes
+env:
+  FLUSH_TIMEOUT_MS: "60000"
+onFlowComplete:
+  - setAirplaneMode: disabled
+tags:
+  - offline
+  - device-lab
+  - android
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Email"
+    timeout: 30000
+- tapOn: "Use email"
+- tapOn: "Email"
+- inputText: ${MOBILE_E2E_EMAIL}
+- tapOn: "Password"
+- inputText: ${MOBILE_E2E_PASSWORD}
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Today at a glance: your numbers, your care team, and recent activity."
+    timeout: 30000
+- tapOn: "Vitals"
+- extendedWaitUntil:
+    visible: "Save reading"
+    timeout: 15000
+
+- setAirplaneMode: enabled
+- tapOn: "Systolic"
+- inputText: "117"
+- tapOn: "Diastolic"
+- inputText: "75"
+- hideKeyboard
+- tapOn: "Save reading"
+- extendedWaitUntil:
+    visible: ".*waiting to send.*"
+    timeout: 10000
+- tapOn: "Systolic"
+- inputText: "123"
+- tapOn: "Diastolic"
+- inputText: "81"
+- hideKeyboard
+- tapOn: "Save reading"
+- tapOn: "Systolic"
+- inputText: "119"
+- tapOn: "Diastolic"
+- inputText: "77"
+- hideKeyboard
+- tapOn: "Save reading"
+- assertVisible: ".*waiting to send: 3.*"
+
+# The process dies with three unsent rows. No clearState on relaunch: the encrypted store must still open with its key.
+- killApp
+- launchApp
+- extendedWaitUntil:
+    visible: "Today at a glance: your numbers, your care team, and recent activity."
+    timeout: 45000
+- tapOn: "Vitals"
+- extendedWaitUntil:
+    visible: ".*waiting to send: 3.*"
+    timeout: 20000
+# The store must not have told the patient it lost anything.
+- assertNotVisible: ".*tell support this code.*"
+- assertNotVisible: ".*were cleared from it.*"
+
+- setAirplaneMode: disabled
+- extendedWaitUntil:
+    notVisible: ".*waiting to send.*"
+    timeout: ${FLUSH_TIMEOUT_MS}
