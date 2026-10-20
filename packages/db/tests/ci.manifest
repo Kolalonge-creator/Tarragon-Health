@@ -822,6 +822,7 @@ s07_care_tasks_kind_patient_tasks_view.sql
 s10_event_bus.sql
 s10x_bus_operations.sql
 s10x_bus_contention.sh
+s10y_partner_endpoint_admin.sql
 s11_triage_rule_sets.sql
 s11e_new_symptom_answers_page.sql
 s11f_recheck_backup_push.sql
@@ -1282,6 +1283,8 @@ s16_s20_capacity_cover.sql
 s58b_creator_fee_and_integrity.sql
 # S39h: a registry row whose table has been dropped must not break the export or the retention report; the registry names no missing table; config v4 is CMO confirmed with unchanged values. Sabotage: guard removed from the export; flips.
 s39h_registry_survives_dropped_tables.sql
+# FU engine follow-ups (OQ-320/326/354/355/356): glucose from a monitor or wearable is graded with a freshness window, latest-of-a-bulk-statement and a per-level dedupe in the writer (a manual or Bluetooth reading is never deduped and keeps its single emit; config off emits and dedupes nothing; every result is shadow, nothing pages); the BP-A4 task replaces the medication_adherence_low alert only for a Member with a BP interest while the sweep is on and BP-A4 is approved (Free and no-BP Members keep the alert; sweep off keeps it for all); the coverage context sends percentWindow; bp_care_triage v7 is an unsigned draft with three symptom rules and one approved version remains; the fast-sugar wording guard is off, unmet until the CMO records it, a patient cannot, and signing it does not sign the glucose rules, older guards unaffected. Sabotage: monitor producer dropped, BP-A4 cover forced false, wording condition forced met; each must flip.
+fu_engine_followups.sql
 # FU-notify (OQ-316, OQ-329 to OQ-333, OQ-341, OQ-346): rules v5, no sms ladders, emergency contact by push/email/in-app, webhook inbox retention, evidence retention, canary heartbeat. Seven sabotage rows read PASS (caught).
 fu_notify_rules_and_contact.sql
 # Follow-up 2026-10-15 (OQ-314..358 answers): ONE rota gap alert per organisation (the SR5 check returns nothing, its open rows are resolved quietly with no notice, S18's one incident resolves itself when cover is back and reopens when lost); lead_ineligibility_reason returns verification_missing for a real clinician with no recorded verification (expired licence and suspended unchanged, test clinicians and care coordinators exempt); the grandfather end date 2027-01-13 touches only null end dates and ends eligibility on 2027-01-14; approve_triage_rule_set refuses only for a task type the rule set uses; the identity-check consent (subject records and withdraws, lookup service-role only, wrong subject/unknown/withdrawn all false); is_test changes on a clinician are audited. Sabotage: the S18 auto-resolve, the gate forced open, the date cleared, the old any-task-type check, the lookup answering true, the audit trigger dropped; each must flip.

@@ -418,7 +418,7 @@ begin
   -- several clinic readings at one visit are normal: one visit is one pair, so a pair already made around this time (either kind) means this reading adds none
   if exists (select 1 from public.cuff_check_pairs x where x.patient_id = c.patient_id and x.measured_at between c.measured_at - v_w and c.measured_at + v_w) then return null; end if;
   select coalesce(jsonb_agg(jsonb_build_object('s', v.systolic, 'd', v.diastolic, 'at', v.taken_at)), '[]'::jsonb) into v_readings
-    from public.vitals_readings v
+    from private.vitals_readings_current v
    where v.patient_id = c.patient_id and v.vital_type = 'blood_pressure' and v.systolic is not null and v.diastolic is not null
      and v.source::text in ('manual', 'device') and v.taken_at between c.measured_at - v_w and c.measured_at + v_w;
   v_mean := private.cuff_home_mean(v_readings, c.measured_at, v_cfg);

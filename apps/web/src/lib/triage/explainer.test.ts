@@ -31,6 +31,10 @@ describe("parseContext and readingLine", () => {
     expect(readingLine(parseContext({ type: "silence", lastReadingAt: null, sinceAt: "2026-09-01T00:00:00Z" })!)).toBeNull();
     expect(readingLine(parseContext({ reading: { value: 3.4 } })!)).toBe("3.4");
   });
+  it("reads the adherence percentage under its new name and under the old one stored before the rename (OQ-356)", () => {
+    expect(parseContext({ type: "adherence", percentWindow: 62 })?.percentWindow).toBe(62);
+    expect(parseContext({ type: "adherence", percent7d: 55 })?.percent7d).toBe(55);
+  });
   it("a context of the wrong shape is null, not guessed at", () => {
     expect(parseContext("nope")).toBeNull();
     expect(parseContext({ cuffType: "ankle" })).toBeNull();
