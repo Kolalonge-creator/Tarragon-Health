@@ -4321,3 +4321,15 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-NAFDAC-SCAN-4 The number is used for lookup and pre-fill only; it is not stored on the medication (raised by the pack-scan build, 2026-10-16)
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
+
+### OQ-IPS-1 Validate the IPS export before anyone relies on it (raised by the IPS build, 2026-10-20)
+- The file is IPS-shaped (structure) but no HL7 validator was run and no IPS or Nigeria Core profile is claimed. Run the HAPI validator against a real export and against the IPS implementation guide, record the result, and only then decide whether a later `fhir.ips_mapping` version may list a profile URL. Do not state conformance in product or marketing copy until then.
+- Decision: open (founder / health-informatics advisor).
+
+### OQ-IPS-2 Section titles and the author wording in the file (raised by the IPS build, 2026-10-20)
+- Section titles, the Composition narrative and the preliminary status live in the PROPOSED config (founder-owned, not confirmed). "Preliminary" says the summary is not clinician-attested. Confirm the wording and status with the CMO before a facility is told to rely on it.
+- Decision: open (CMO).
+
+### OQ-IPS-3 `fhir_export_log` has no format column (raised by the IPS build, 2026-10-20)
+- An IPS download is logged exactly like a collection export; it is recognisable only because its section list has no `documents`. Opening the "what is inside" preview is logged the same way (it uses the same audited call), so the "who made a copy" list counts previews; the preview text says so. If audit review needs to tell exports, IPS copies and previews apart, add a nullable `format` or `purpose` column in a separate additive migration.
+- Decision: open (product / DPO).
