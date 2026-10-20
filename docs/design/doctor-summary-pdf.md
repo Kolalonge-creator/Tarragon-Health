@@ -28,7 +28,7 @@ Period 30, 60 or 90 days (`record.doctor_summary_pdf`, PROPOSED, owner CMO, with
 - **No GET.** A POST from a form, so a link preview or prefetch never generates one or writes an audit row.
 
 ## 4. Not built (decisions needed)
-Offline build on the phone: OQ-678. Explicit opt-in for reproductive or mental health content: OQ-679.
+Offline build on the phone: OQ-708. Explicit opt-in for reproductive or mental health content: OQ-679.
 
 ## 5. Verification
 Jest beside each file (model, loader with a recording fake client, document tree, route, and a real render in a child process under tsx that reads the PDF back). Sabotage: adding `wearable` to `averageSources` flips 8 tests; emptying the reproductive symptom list flips 4. The real render was also read as text with `pdftotext` and viewed as page images.
