@@ -561,8 +561,9 @@ begin
   perform pg_temp.ck('real', '5o the scorecard carries no patient data: no column is a name, a number or a medicine', '0',
     (select count(*)::text from pg_proc p, unnest(p.proargnames) a where p.proname = 'pharmacy_scorecard' and p.pronamespace = 'public'::regnamespace and a ~* '(patient|medicine|drug|name_of|phone|email)'));
   -- a person can still pause a pharmacy, with a reason
+  perform pg_temp.q_as(v_admin, format($q$select public.suspend_partner_from_new_work('pharmacy', %L, 'Repeated stock failures reviewed with the superintendent')::text$q$, pT));
   perform pg_temp.ck('real', '5p a person pauses a pharmacy from new work with a written reason, and it is then not offered to patients', 'false',
-    (select private.pharmacy_location_choosable(pT, lT)::text from (select pg_temp.q_as(v_admin, format($q$select public.suspend_partner_from_new_work('pharmacy', %L, 'Repeated stock failures reviewed with the superintendent')::text$q$, pT)) r) x));
+    private.pharmacy_location_choosable(pT, lT)::text);
   -- a suggestion is announced once per partner and breach set: the same breach again is silent, and a second partner the same day is not swallowed by the first
   pN1 := pg_temp.mkpharm('S28e Notify One', 'S28e Notify One Yaba'); pN2 := pg_temp.mkpharm('S28e Notify Two', 'S28e Notify Two Yaba');
   for i in 1 .. 10 loop perform pg_temp.mkdispensed(v_org, rpat, v_doc, pN1, 168); perform pg_temp.mkdispensed(v_org, rpat, v_doc, pN2, 168); end loop;
