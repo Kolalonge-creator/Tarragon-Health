@@ -6,7 +6,7 @@
  * the screen — and the small amount of shaping loadEmergencyFacts does.
  */
 import * as SecureStore from "expo-secure-store";
-import { applyEmergencyFieldChoices, loadCachedEmergencyFacts, loadEmergencyFacts } from "./emergency";
+import { applyEmergencyFieldChoices, loadCachedEmergencyFacts, loadEmergencyFacts, narrowCachedEmergencyFacts } from "./emergency";
 import { supabase } from "./supabase";
 
 jest.mock("./supabase", () => ({ supabase: { from: jest.fn() } }));
@@ -90,6 +90,21 @@ describe("loadEmergencyFacts", () => {
       await Promise.resolve();
       expect(await SecureStore.getItemAsync(CACHE_KEY)).toBe(before);
     }
+  });
+
+  it("narrowing the saved copy removes what was hidden even when no reload follows, and never adds anything", async () => {
+    seed({ medications: [{ drug_name: "Lisinopril", dose: "10 mg", frequency: "daily" }] });
+    await loadEmergencyFacts("patient-1");
+    await Promise.resolve();
+    const row = { show_allergies: false, show_medications: true, show_conditions: true, show_blood: true, show_emergency_contact: true, show_reproductive: true, show_mental_health: true };
+    await narrowCachedEmergencyFacts(row);
+    const cached = await loadCachedEmergencyFacts();
+    expect(cached?.allergies).toEqual([]);
+    expect(cached?.hidden).toContain("allergies");
+    expect(cached?.medications.map((m) => m.drugName)).toEqual(["Lisinopril"]);
+    // widening needs a read: the copy does not invent details it never held
+    await narrowCachedEmergencyFacts({ ...row, show_allergies: true });
+    expect((await loadCachedEmergencyFacts())?.allergies).toEqual([]);
   });
 
   it("returns a null contact rather than a half-filled one when no name is on file", async () => {

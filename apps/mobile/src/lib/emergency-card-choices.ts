@@ -24,6 +24,19 @@ export async function loadCardChoices(patientId: string): Promise<ChoicesResult>
   return { ok: true, choices: emergencyChoicesFromRow((data as EmergencyCardFieldsRow | null) ?? null) };
 }
 
+/** The seven choices the phone card applies (it does not show date of birth, sex or patient number), from the ten the person sets. */
+export function cardRowFor(c: EmergencyCardChoices) {
+  return {
+    show_allergies: c.allergies,
+    show_medications: c.medications,
+    show_conditions: c.conditions,
+    show_blood: c.blood,
+    show_emergency_contact: c.emergency_contact,
+    show_reproductive: c.reproductive,
+    show_mental_health: c.mental_health,
+  };
+}
+
 export async function saveCardChoices(patientId: string, organisationId: string, choices: EmergencyCardChoices): Promise<{ ok: true } | { ok: false; reason: "offline" | "failed" }> {
   const { error } = await supabase
     .from("emergency_card_fields")

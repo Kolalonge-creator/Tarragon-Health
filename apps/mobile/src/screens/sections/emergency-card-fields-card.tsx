@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { EMERGENCY_CARD_FIELDS, EMERGENCY_DEFAULT_CHOICES, EMERGENCY_MINIMAL_CHOICES, type EmergencyCardChoices } from "@tarragon/shared";
 import { t, type MessageKey } from "@tarragon/i18n";
-import { loadCardChoices, saveCardChoices } from "@/lib/emergency-card-choices";
+import { cardRowFor, loadCardChoices, saveCardChoices } from "@/lib/emergency-card-choices";
+import { narrowCachedEmergencyFacts } from "@/lib/emergency";
 import { space, useTheme } from "@/ui/design";
 import { AppText, Button, Card, InlineAlert } from "@/ui/kit";
 import { ToggleRow } from "@/screens/sections/passport-parts";
@@ -10,8 +11,8 @@ import { ToggleRow } from "@/screens/sections/passport-parts";
 interface Props {
   patientId: string;
   organisationId: string;
-  /** Called after a save, so the card on this screen (and its saved copy) is rebuilt from the new choices. */
-  onSaved: () => void;
+  /** Called after a save, so the card on this screen (and its saved copy) is rebuilt from the new choices. Resolves true when the card was read fresh. */
+  onSaved: () => Promise<boolean>;
 }
 
 /**
@@ -42,7 +43,9 @@ export function EmergencyCardFieldsCard({ patientId, organisationId, onSaved }: 
   }, [load]);
 
   // Any change after a save clears "Saved.": the screen must never say saved while what is shown differs from what was stored.
+  // While a save is in flight a change is ignored: the screen would otherwise say Saved for choices that differ from what was stored.
   const change = (fn: (c: EmergencyCardChoices) => EmergencyCardChoices) => {
+    if (busy) return;
     setMessage(null);
     setChoices(fn);
   };
@@ -56,8 +59,11 @@ export function EmergencyCardFieldsCard({ patientId, organisationId, onSaved }: 
       setMessage({ tone: "danger", text: r.reason === "offline" ? t("mpass.needs_connection") : t("ecf.error") });
       return;
     }
-    setMessage({ tone: "info", text: t("ecf.saved") });
-    onSaved();
+    // Take what was hidden off the saved copy at once, then rebuild it from the database. If the rebuild cannot happen the card on the phone still
+    // carries nothing the person hid, and the message says what is left to do.
+    await narrowCachedEmergencyFacts(cardRowFor(choices));
+    const fresh = await onSaved();
+    setMessage({ tone: "info", text: fresh ? t("ecf.saved") : t("mpass.ecf.saved_not_refreshed") });
   }
 
   return (

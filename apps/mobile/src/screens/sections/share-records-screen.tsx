@@ -5,6 +5,7 @@ import {
   SHARE_MAX_VIEWS_CHOICES,
   SHARE_SECTIONS,
   createShare,
+  deadReason,
   expiryLabel,
   fetchShareLink,
   forgetShare,
@@ -36,10 +37,16 @@ type ListState =
 
 function badges(s: ShareSummary): string[] {
   const left = viewsLeft(s.maxViews, s.viewCount);
-  return [s.pinProtected ? t("share.badge.pin") : null, s.oneSession ? t("share.badge.session") : null, left !== null ? t("sharelink.badge.views_left", "en", { count: String(left) }) : null].filter(
-    (b): b is string => b !== null
-  );
+  const dead = deadReason(s);
+  return [
+    s.pinProtected ? t("share.badge.pin") : null,
+    s.oneSession ? t("share.badge.session") : null,
+    left !== null ? (left === 1 ? t("mpass.share.views_left_one") : t("sharelink.badge.views_left", "en", { count: String(left) })) : null,
+    dead === "used_up" ? t("mpass.share.used_up") : null,
+  ].filter((b): b is string => b !== null);
 }
+
+const shownBadges = (s: ShareSummary): string => badges(s).join(" · ");
 
 export function ShareRecordsScreen({ userId, acting }: Props) {
   const { colors } = useTheme();
@@ -81,7 +88,10 @@ export function ShareRecordsScreen({ userId, acting }: Props) {
     const r = await createShare({ sections: [...selected], expiresInHours: expiry, usePin, oneSession, recipientLabel: label, maxViews });
     setBusy(false);
     if (!r.ok) {
-      setMessage(shareFailureMessage(r.reason));
+      // A lost answer is not a failure to create: the link may exist. Check the list below before making another one.
+      const maybe = r.reason === "offline" || r.reason === "failed";
+      setMessage(maybe ? `${shareFailureMessage(r.reason)} ${t("mpass.share.maybe_made")}` : shareFailureMessage(r.reason));
+      if (maybe) void load(true);
       return;
     }
     setCreated(r.share);
@@ -153,6 +163,15 @@ export function ShareRecordsScreen({ userId, acting }: Props) {
       return next;
     });
 
+  if (acting) {
+    return (
+      <Screen edges={[]}>
+        <PassportHeader title={t("passport.nav.share")} />
+        <InlineAlert tone="info" message={t("mpass.own_only")} />
+      </Screen>
+    );
+  }
+
   // The link and the PIN are shown once. While they are on screen nothing else is, so the card cannot be missed off-screen and a second link cannot
   // replace the first one's PIN before the person has sent it.
   if (created) {
@@ -175,15 +194,6 @@ export function ShareRecordsScreen({ userId, acting }: Props) {
           ) : null}
           <Button title={t("share.created.done")} variant="ghost" onPress={() => setCreated(null)} />
         </Card>
-      </Screen>
-    );
-  }
-
-  if (acting) {
-    return (
-      <Screen edges={[]}>
-        <PassportHeader title={t("passport.nav.share")} />
-        <InlineAlert tone="info" message={t("mpass.own_only")} />
       </Screen>
     );
   }
@@ -248,9 +258,9 @@ export function ShareRecordsScreen({ userId, acting }: Props) {
               <Card key={s.id} style={{ gap: space.xs }}>
                 <AppText variant="bodyStrong">{s.sections.map(sectionLabel).join(", ")}</AppText>
                 {s.recipientLabel ? <AppText variant="caption" tone="textMuted">{s.recipientLabel}</AppText> : null}
-                {badges(s).length > 0 ? (
+                {shownBadges(s) ? (
                   <AppText variant="caption" tone="textMuted">
-                    {badges(s).join(" · ")}
+                    {shownBadges(s)}
                   </AppText>
                 ) : null}
                 <AppText variant="caption" tone="textMuted">
@@ -261,9 +271,14 @@ export function ShareRecordsScreen({ userId, acting }: Props) {
                     {t("share.locked")}
                   </AppText>
                 ) : null}
+                {deadReason(s) !== null ? (
+                  <AppText variant="caption" tone="textMuted">
+                    {t("mpass.share.cannot_send_dead")}
+                  </AppText>
+                ) : null}
                 {itemMessage?.id === s.id ? <InlineAlert tone="danger" message={itemMessage.text} /> : null}
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: space.sm }}>
-                  <Button title={t("mpass.share.send_again")} accessibilityLabel={t("mpass.share.send_again_aria", "en", { what: s.sections.map(sectionLabel).join(", ") })} variant="secondary" fullWidth={false} disabled={!live} onPress={() => void sendAgain(s.id)} />
+                  <Button title={t("mpass.share.send_again")} accessibilityLabel={t("mpass.share.send_again_aria", "en", { what: s.sections.map(sectionLabel).join(", ") })} variant="secondary" fullWidth={false} disabled={!live || deadReason(s) !== null} onPress={() => void sendAgain(s.id)} />
                   <Button title={t("share.revoke")} accessibilityLabel={t("mpass.share.stop_aria", "en", { what: s.sections.map(sectionLabel).join(", ") })} variant="secondary" fullWidth={false} disabled={!live} onPress={() => confirmStop(s.id)} />
                 </View>
               </Card>

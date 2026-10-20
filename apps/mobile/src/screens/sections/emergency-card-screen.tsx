@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, Share, Text, View } from "react-native";
+import { t } from "@tarragon/i18n";
 import {
   createShareLink,
   loadActiveShareLink,
@@ -39,21 +40,41 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
       .catch(() => setShareLinkError(true));
   }, [patientId]);
 
-  const reloadFacts = useCallback(() => {
-    loadEmergencyFacts(patientId)
-      .then((f) => {
-        setOffline(false);
-        setFacts(f);
-      })
-      .catch(() => {
-        setOffline(true);
-        return loadCachedEmergencyFacts().then(setFacts);
-      })
-      .catch(() => {});
+  // Two loads can overlap (the first one and the one after a save): the newest request wins, so an older answer built from the old choices never
+  // lands last and puts a hidden detail back on the card or in the saved copy.
+  const latestLoad = useRef(0);
+  const [loadFailed, setLoadFailed] = useState(false);
+  /** True when the card was read fresh. False means the saved copy (or nothing) is what is on screen. */
+  const reloadFacts = useCallback(async (): Promise<boolean> => {
+    const mine = ++latestLoad.current;
+    try {
+      const f = await loadEmergencyFacts(patientId);
+      if (mine !== latestLoad.current) return true;
+      setOffline(false);
+      setLoadFailed(false);
+      setFacts(f);
+      return true;
+    } catch {
+      if (mine !== latestLoad.current) return false;
+      setOffline(true);
+      const cached = await loadCachedEmergencyFacts().catch(() => null);
+      if (mine !== latestLoad.current) return false;
+      if (cached) {
+        setFacts(cached);
+        setLoadFailed(false);
+      } else {
+        // Nothing saved and no read: say so, with a way to try again. Never an empty card, never a spinner that does not end.
+        setFacts((current) => {
+          if (!current) setLoadFailed(true);
+          return current;
+        });
+      }
+      return false;
+    }
   }, [patientId]);
 
   useEffect(() => {
-    reloadFacts();
+    void reloadFacts();
     refreshShareLink();
   }, [reloadFacts, refreshShareLink]);
 
@@ -69,6 +90,15 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
       refreshShareLink();
     }
     setCreating(false);
+  }
+
+  if (!facts && loadFailed) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", backgroundColor: colors.background, padding: spacing.screen, gap: 12 }}>
+        <ErrorText>{t("mpass.emergency.load_failed")}</ErrorText>
+        <SecondaryButton title={t("common.try_again")} onPress={() => void reloadFacts()} />
+      </View>
+    );
   }
 
   if (!facts) {
@@ -116,7 +146,7 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
           }
         />
         <FactRow label="Conditions" value={notShared("conditions") ?? (facts.conditions.length > 0 ? facts.conditions.join(", ") : "None on file")} />
-        <FactRow label="Reproductive and mental health" value={notShared("reproductive") ?? notShared("mental_health") ?? "Not on file"} />
+        <FactRow label="Reproductive and mental health" value={notShared("reproductive") ?? notShared("mental_health") ?? t("mpass.emergency.included_above")} />
         <FactRow
           label="Emergency contact"
           value={

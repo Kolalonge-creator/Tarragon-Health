@@ -43,6 +43,13 @@ export function expiryLabel(hours: number): string {
   return t(hours === 1 ? "share.expiry.hours_one" : "share.expiry.hours_other", "en", { count: String(hours) });
 }
 
+/** Why a listed link cannot be opened any more, or null when it can. Sending a dead link to a clinic would only make them think the record was shared. */
+export function deadReason(s: Pick<ShareSummary, "locked" | "maxViews" | "viewCount">): "locked" | "used_up" | null {
+  if (s.locked) return "locked";
+  if (viewsLeft(s.maxViews, s.viewCount) === 0) return "used_up";
+  return null;
+}
+
 export function viewsLeft(maxViews: number | null, viewCount: number): number | null {
   return maxViews === null ? null : Math.max(maxViews - viewCount, 0);
 }
@@ -72,9 +79,14 @@ interface ShareRow {
   max_views: number | null;
 }
 
+const BASE_COLUMNS = "id, sections, expires_at, is_active, view_count, pin_protected, one_session, locked_at";
+
 export const sharesCacheKey = (patientId: string) => `shares:${patientId}`;
 
-/** Links that can still be opened: active, not past their expiry and not locked out. Sorted soonest-to-end first is not needed: newest first as stored. */
+/**
+ * Links that are still live: active and not past their expiry, newest first as stored. A locked link or one with no views left is still listed (so
+ * it can be seen and stopped) and is marked dead by `deadReason`, which the screen uses to disable "send again".
+ */
 export function parseShares(rows: unknown, now: Date = new Date()): ShareSummary[] {
   if (!Array.isArray(rows)) return [];
   const out: ShareSummary[] = [];
@@ -118,12 +130,11 @@ export async function forgetShare(patientId: string, shareId: string): Promise<v
 
 function readSharesThrough(patientId: string): Promise<ReadResult<ShareSummary[]>> {
   return readThrough(sharesCacheKey(patientId), async () => {
-    const { data, error } = await supabase
-      .from("record_shares")
-      .select("id, sections, expires_at, is_active, view_count, pin_protected, one_session, locked_at, recipient_label, max_views")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: false })
-      .limit(20);
+    // The label and view-cap columns arrive with a later migration than the base table. A database without them answers 42703: ask again for the
+    // base columns, so a person can always see and stop the links they made.
+    const read = (cols: string) => supabase.from("record_shares").select(cols).eq("patient_id", patientId).order("created_at", { ascending: false }).limit(20);
+    let { data, error } = await read(BASE_COLUMNS + ", recipient_label, max_views");
+    if (error?.code === "42703") ({ data, error } = await read(BASE_COLUMNS));
     if (error) return { ok: false, error };
     return { ok: true, data: parseShares(data) };
   });
@@ -204,7 +215,8 @@ export async function createShare(input: CreateShareInput): Promise<CreateShareR
 
 export async function revokeShare(shareId: string): Promise<{ ok: true } | { ok: false; reason: "offline" | "failed" }> {
   const { error } = await supabase.rpc("revoke_record_share", { p_share_id: shareId });
-  if (error) return { ok: false, reason: isOffline(error) ? "offline" : "failed" };
+  // Already stopped (on the web, or by a second tap) is the outcome the person asked for.
+  if (error && !/already revoked/i.test(error.message ?? "")) return { ok: false, reason: isOffline(error) ? "offline" : "failed" };
   return { ok: true };
 }
 

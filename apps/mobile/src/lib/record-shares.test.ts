@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { en } from "@tarragon/i18n";
 import {
+  deadReason,
+  forgetShare,
   SHARE_MAX_VIEWS_CHOICES,
   SHARE_SECTIONS,
   createShare,
@@ -23,6 +25,8 @@ import {
 let mockUser: string | null = "user-1";
 let mockError: { code?: string; message: string } | null = null;
 let mockOptionsMissing = false;
+let mockColumnsMissing = false;
+let mockRevokeMessage: string | null = null;
 let mockRows: unknown[] = [];
 const mockRpcs: { fn: string; args: Record<string, unknown> }[] = [];
 const mockSelects: string[] = [];
@@ -33,6 +37,7 @@ jest.mock("./supabase", () => ({
     rpc: async (fn: string, args: Record<string, unknown>) => {
       mockRpcs.push({ fn, args });
       if (mockError) return { data: null, error: mockError };
+      if (fn === "revoke_record_share" && mockRevokeMessage) return { data: null, error: { message: mockRevokeMessage } };
       if (fn === "create_record_share_with_options" && mockOptionsMissing) return { data: null, error: { code: "PGRST202", message: "Could not find the function" } };
       if (fn.startsWith("create_record_share")) return { data: { id: "s1", token: "tok_abc", pin: args.p_use_pin ? "123456" : null, expires_at: "2026-10-25T10:00:00Z" }, error: null };
       return { data: null, error: null };
@@ -45,7 +50,14 @@ jest.mock("./supabase", () => ({
           order: () => q,
           limit: () => q,
           maybeSingle: async () => (mockError ? { data: null, error: mockError } : { data: { token: "tok_abc" }, error: null }),
-          then: (res: (v: unknown) => unknown) => res(mockError ? { data: null, error: mockError } : { data: mockRows, error: null }),
+          then: (res: (v: unknown) => unknown) =>
+            res(
+              mockError
+                ? { data: null, error: mockError }
+                : mockColumnsMissing && cols.includes("recipient_label")
+                  ? { data: null, error: { code: "42703", message: "column record_shares.recipient_label does not exist" } }
+                  : { data: mockRows, error: null }
+            ),
         };
         return q;
       },
@@ -57,6 +69,8 @@ beforeEach(() => {
   mockUser = "user-1";
   mockError = null;
   mockOptionsMissing = false;
+  mockColumnsMissing = false;
+  mockRevokeMessage = null;
   mockRows = [];
   mockRpcs.length = 0;
   mockSelects.length = 0;
@@ -128,6 +142,42 @@ describe("share my record on the phone (S43m)", () => {
     expect(r.ok && r.data.map((s) => s.id)).toEqual(["a"]);
     expect(mockSelects[0]).not.toMatch(/\btoken\b/);
     expect(JSON.stringify(r)).not.toMatch(/tok_|token/);
+  });
+
+  it("still lists links on a database without the label and view-cap columns", async () => {
+    mockColumnsMissing = true;
+    mockRows = [{ id: "a", sections: ["vitals"], expires_at: new Date(Date.now() + 86_400_000).toISOString(), is_active: true, view_count: 0, pin_protected: false, one_session: false, locked_at: null }];
+    const r = await loadShares("user-1");
+    expect(r.ok && r.data.map((s) => s.id)).toEqual(["a"]);
+    expect(mockSelects).toHaveLength(2);
+    expect(mockSelects[1]).not.toMatch(/recipient_label/);
+  });
+
+  it("treats a link that is already stopped as stopped", async () => {
+    mockRevokeMessage = "share not found or already revoked";
+    expect(await revokeShare("s1")).toEqual({ ok: true });
+    mockRevokeMessage = "something else broke";
+    expect(await revokeShare("s1")).toEqual({ ok: false, reason: "failed" });
+  });
+
+  it("marks a locked link or one with no views left as no longer working", () => {
+    expect(deadReason({ locked: true, maxViews: null, viewCount: 0 })).toBe("locked");
+    expect(deadReason({ locked: false, maxViews: 3, viewCount: 3 })).toBe("used_up");
+    expect(deadReason({ locked: false, maxViews: 3, viewCount: 1 })).toBeNull();
+    expect(deadReason({ locked: false, maxViews: null, viewCount: 9 })).toBeNull();
+  });
+
+  it("applies expiry again to a saved copy, and a stopped link is removed from the copy", async () => {
+    const soon = new Date(Date.now() + 86_400_000).toISOString();
+    mockRows = [
+      { id: "a", sections: ["vitals"], expires_at: soon, is_active: true, view_count: 0, pin_protected: false, one_session: false, locked_at: null, recipient_label: null, max_views: null },
+      { id: "b", sections: ["vitals"], expires_at: soon, is_active: true, view_count: 0, pin_protected: false, one_session: false, locked_at: null, recipient_label: null, max_views: null },
+    ];
+    await loadShares("user-1");
+    await forgetShare("user-1", "a");
+    mockError = { message: "Network request failed" };
+    const offline = await loadShares("user-1");
+    expect(offline.ok && offline.stale && offline.data.map((s) => s.id)).toEqual(["b"]);
   });
 
   it("fetches a link only on request and returns it without saving it", async () => {
