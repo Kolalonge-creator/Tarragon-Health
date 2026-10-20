@@ -480,7 +480,7 @@ create function public.triage_active_override_for_observation(p_observation_id u
 language sql stable security definer set search_path = ''
 as $$
   select jsonb_build_object('id', o.id, 'domain', o.domain, 'params', o.params, 'signedAt', o.signed_at, 'expiresAt', o.expires_at)
-    from public.vitals_readings v
+    from private.vitals_readings_current v
     join public.patient_threshold_overrides o on o.patient_id = v.patient_id and o.domain = p_domain and o.status = 'active' and o.signed_at is not null and o.expires_at > now()
    where v.id = p_observation_id and private.threshold_override_policy() is not null
 $$;

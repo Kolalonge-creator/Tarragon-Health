@@ -73,7 +73,10 @@ begin
   v_c3 := pg_temp.mkdoc(v_org, 'tied coordinator tier', 'care_coordinator', v_admin);
   v_p := pg_temp.mkuser(v_org, 'adult patient', 'patient'); v_pa := pg_temp.mkuser(v_org, 'other patient', 'patient');
   v_preg := pg_temp.mkuser(v_org, 'pregnant patient', 'patient'); v_young := pg_temp.mkuser(v_org, 'young patient', 'patient'); v_pp := pg_temp.mkuser(v_org, 'postpartum patient', 'patient');
+  -- the adults-only registration trigger would refuse a 15 year old profile; the proof needs one, so triggers are bypassed for this one update
+  set local session_replication_role = replica;
   update public.profiles set date_of_birth = (current_date - interval '15 years')::date where id = v_young;
+  set local session_replication_role = origin;
   insert into public.patient_pregnancy (patient_id, organisation_id, is_pregnant) values (v_preg, v_org, true);
   insert into public.postnatal_profiles (organisation_id, patient_id, delivery_date) values (v_org, v_pp, current_date - 10);
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at) values (v_org, v_p, v_c1, now()), (v_org, v_preg, v_c1, now()), (v_org, v_young, v_c1, now()), (v_org, v_pp, v_c1, now());
