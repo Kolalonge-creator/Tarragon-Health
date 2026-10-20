@@ -283,8 +283,12 @@ begin
   perform pg_temp.ck('a payout with a withholding cannot be APPROVED (it could never be sent, and could not be edited afterwards)', 'payout_withholding_undecided',
     pg_temp.try_as(v_admin, format('select public.approve_payout(%L)', v_pb)));
   -- a dispute rebuilds the draft: the typed withholding is carried over, not dropped
-  perform pg_temp.act(v_b); perform public.withdraw_earnings_dispute(public.open_earnings_dispute(pg_temp.f('lb2'), 'other', null)); perform pg_temp.back();
-  perform pg_temp.ck('the withholding survives a rebuilt draft', '171000/5000/Entered by finance for the proof',
+  perform pg_temp.setf('lb3', pg_temp.line(pg_temp.f('org'), v_b, v_admin, 5000, '3 days'));
+  perform pg_temp.act(v_b); perform public.withdraw_earnings_dispute(public.open_earnings_dispute(pg_temp.f('lb3'), 'other', null)); perform pg_temp.back();
+  perform pg_temp.ck('a line already answered cannot be questioned again', 'dispute_already_answered', pg_temp.try_as(v_b, format('select public.open_earnings_dispute(%L, ''other'')', pg_temp.f('lb2'))));
+  perform pg_temp.ck('a deduction cannot be questioned to keep it out of a payout', 'dispute_negative_line',
+    pg_temp.try_as(v_b, format('select public.open_earnings_dispute(%L, ''other'')', (select id from public.earnings_ledger where clinician_id = v_b and amount_kobo < 0 limit 1))));
+  perform pg_temp.ck('the withholding survives a rebuilt draft', '176000/5000/Entered by finance for the proof',
     (select amount_kobo || '/' || withholding_kobo || '/' || withholding_note from public.payouts where clinician_id = v_b and state = 'draft'));
   select id into v_pb from public.payouts where clinician_id = v_b and state = 'draft'; perform pg_temp.setf('pay_b', v_pb);
   perform pg_temp.act(v_admin); perform public.set_payout_withholding(v_pb, 0, null); perform pg_temp.back();
@@ -301,9 +305,9 @@ begin
   alter table public.payouts enable trigger payouts_withholding_guard;
   perform pg_temp.ck('a payout carrying a withholding is refused at send', 'payout_withholding_undecided', pg_temp.try_as(v_admin, format('select public.payout_prepare_send(%L)', v_pb)));
   r := (pg_temp.q_as(v_b, format('select public.my_payout_statement(%L)::text', v_pb)))::jsonb;
-  perform pg_temp.ck('statement: gross 171000, withholding 5000, net 166000', '171000/5000/166000', (r ->> 'gross_kobo') || '/' || (r ->> 'withholding_kobo') || '/' || (r ->> 'net_kobo'));
+  perform pg_temp.ck('statement: gross 171000, withholding 5000, net 166000', '176000/5000/171000', (r ->> 'gross_kobo') || '/' || (r ->> 'withholding_kobo') || '/' || (r ->> 'net_kobo'));
   r := (pg_temp.q_as(v_b, 'select public.my_payout_overview()::text'))::jsonb;
-  perform pg_temp.ck('overview: net and withholding per payout', '166000/5000', (r -> 'payouts' -> 0 ->> 'net_kobo') || '/' || (r -> 'payouts' -> 0 ->> 'withholding_kobo'));
+  perform pg_temp.ck('overview: net and withholding per payout', '171000/5000', (r -> 'payouts' -> 0 ->> 'net_kobo') || '/' || (r -> 'payouts' -> 0 ->> 'withholding_kobo'));
   perform pg_temp.ck('A''s payout has no withholding so it can be sent', 'ok', pg_temp.try_as(v_admin, format('select public.payout_prepare_send(%L)', v_pa)));
 end $$;
 

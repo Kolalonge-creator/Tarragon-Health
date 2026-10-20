@@ -216,6 +216,8 @@ declare
   v_built integer := 0;
   r record;
   v_id uuid;
+  v_old_wh bigint;
+  v_old_note text;
 begin
   select id into v_cfg from public.payouts_config where is_active;
   if v_cfg is null then raise exception 'payouts_config_missing' using errcode = '55000'; end if;
@@ -236,11 +238,19 @@ begin
       if not p_force then continue; end if;
       if exists (select 1 from public.payouts where clinician_id = r.clinician_id and period_end = p_period_end and state <> 'draft' and state <> 'cancelled') then continue; end if;
     end if;
+    select coalesce(max(withholding_kobo), 0), max(withholding_note) into v_old_wh, v_old_note
+      from public.payouts where clinician_id = r.clinician_id and state = 'draft';
     update public.payouts set state = 'cancelled', failure_reason = 'replaced by a newer draft'
      where clinician_id = r.clinician_id and state = 'draft';
-    insert into public.payouts (organisation_id, clinician_id, period_start, period_end, amount_kobo, line_count, state, payouts_config_id)
-    values (p_org, r.clinician_id, (r.first_at at time zone 'Africa/Lagos')::date, p_period_end, r.total, r.n, 'draft', v_cfg)
+    insert into public.payouts (organisation_id, clinician_id, period_start, period_end, amount_kobo, line_count, state, payouts_config_id,
+                                withholding_kobo, withholding_note)
+    values (p_org, r.clinician_id, (r.first_at at time zone 'Africa/Lagos')::date, p_period_end, r.total, r.n, 'draft', v_cfg,
+            case when v_old_wh > 0 and v_old_wh < r.total then v_old_wh else 0 end, case when v_old_wh > 0 and v_old_wh < r.total then v_old_note end)
     returning id into v_id;
+    if v_old_wh > 0 and v_old_wh >= r.total then
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+      values (p_org, 'payout.withholding_dropped', 'payout', v_id, jsonb_build_object('withholding_kobo', v_old_wh, 'why', 'the replacement draft is not larger than the withholding'));
+    end if;
     perform private.payout_event(v_id, null, 'draft', null, 'system', 'weekly draft');
     v_built := v_built + 1;
   end loop;
@@ -259,6 +269,7 @@ language plpgsql security definer set search_path = ''
 as $$
 declare d record; v_rows integer;
 begin
+  perform 1 from public.payouts where clinician_id = p_clinician and state = 'draft' for update;
   for d in
     select distinct on (p.period_end) p.id, p.organisation_id, p.period_end, p.state, p.withholding_kobo, p.withholding_note
       from public.payouts p
@@ -270,7 +281,7 @@ begin
   loop
     if d.state = 'draft' then
       perform set_config('tarragon.payout_write', 'on', true);
-      update public.payouts set state = 'cancelled', failure_reason = 'rebuilt: a dispute changed which lines are free' where id = d.id;
+      update public.payouts set state = 'cancelled', failure_reason = 'rebuilt: a dispute changed which lines are free' where id = d.id and state = 'draft';
       perform private.payout_event(d.id, 'draft', 'cancelled', null, 'system', 'rebuilt after a dispute change');
       perform set_config('tarragon.payout_write', 'off', true);
     end if;
@@ -399,6 +410,9 @@ begin
   select * into l from public.earnings_ledger where id = p_ledger and clinician_id = v_uid and organisation_id = v_org;
   if not found then raise exception 'dispute_unknown_line' using errcode = '22023'; end if;
   if l.earned_at < now() - make_interval(days => v_window) then raise exception 'dispute_window_closed' using errcode = '23514'; end if;
+  -- a deduction cannot be held out of a payout by questioning it, and a line already answered is not re-opened (ask operations instead)
+  if l.amount_kobo <= 0 then raise exception 'dispute_negative_line' using errcode = '23514'; end if;
+  if exists (select 1 from public.earnings_disputes where ledger_id = l.id and state in ('adjusted', 'rejected')) then raise exception 'dispute_already_answered' using errcode = '23514'; end if;
   -- A line in a payout that is approved, being sent, failed or returned cannot be held back (the money may already be on its way).
   -- Once the payout has been paid, a question still works: it resolves into a correction in a later payout.
   if l.payout_id is not null and (select p.state from public.payouts p where p.id = l.payout_id) <> 'succeeded' then
@@ -734,6 +748,7 @@ begin
   if p_decision = 'released' then
     v_result := private.post_topup_for_run(h.organisation_id, h.clinician_id, h.run_start, h.run_end);
     if v_result = 'no_schedule' then raise exception 'hold_no_fee_schedule' using errcode = '55000'; end if;
+    perform private.refresh_payout_draft(h.clinician_id);
   end if;
   perform set_config('tarragon.dispute_write', 'on', true);
   update public.earnings_topup_holds set state = p_decision, decided_by = v_uid, decided_at = now(), decision_note = btrim(p_note) where id = h.id;
@@ -787,7 +802,8 @@ begin
           v_act := private.run_activity(r.organisation_id, r.clinician_id, r.run_start, r.run_end);
           v_reason := case
             when coalesce((v_cfg ->> 'hold_when_no_claims_and_work_waited')::boolean, false)
-                 and (v_act ->> 'claims')::integer = 0 and (v_act ->> 'tasks_waiting')::integer > 0 then 'no_claims_while_work_waited'
+                 and (v_act ->> 'claims')::integer = 0 and (v_act ->> 'tasks_waiting')::integer > 0
+                 and (c ->> 'earned')::bigint = 0 then 'no_claims_while_work_waited'
             when coalesce((v_cfg ->> 'hold_when_expired_claims_and_no_completed')::boolean, false)
                  and (v_act ->> 'expired_claims')::integer > 0 and (v_act ->> 'completed_claims')::integer = 0 then 'expired_claims_and_no_completed'
             else null end;
@@ -818,6 +834,12 @@ begin
       perform set_config('tarragon.dispute_write', 'off', true);
       insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
       values (r.organisation_id, 'earnings.sweep_error', 'profile', r.clinician_id, jsonb_build_object('step', 'minimum_topup', 'error', sqlerrm, 'run_start', r.run_start));
+      if not exists (select 1 from public.ops_incidents where external_reference = 'earnings_topups' and status not in ('resolved', 'closed')) then
+        insert into public.ops_incidents (category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
+        values ('technical', 'sev2', 'Pilot minimum top-ups could not be worked out',
+                'private.post_minimum_topups() failed for at least one run; see audit_log action earnings.sweep_error. A contracted clinician may be missing a top-up.',
+                'earnings_topups', now(), now());
+      end if;
     end;
   end loop;
 
@@ -825,7 +847,7 @@ begin
   -- The top-up is recomputed with the schedule it used; any excess is taken back with an adjustment that points at the top-up.
   -- Idempotent: the reference carries the desired amount, so the same excess never posts twice. It only ever reduces.
   for t in select l.* from public.earnings_ledger l
-            where l.kind = 'minimum_topup' and l.earned_at > now() - interval '60 days' and l.calculation ? 'run_start' and l.fee_schedule_version_id is not null loop
+            where l.kind = 'minimum_topup' and l.payout_id is null and l.earned_at > now() - interval '60 days' and l.calculation ? 'run_start' and l.fee_schedule_version_id is not null loop
     begin
       select * into fs from public.fee_schedules where id = t.fee_schedule_version_id;
       continue when not found;
@@ -841,6 +863,7 @@ begin
           jsonb_build_object('system_reason', 'late_line_netting', 'netting_for', t.id, 'corrects', t.id, 'earned_in_run_kobo', v_earned, 'desired_top_up_kobo', v_desired,
                              'reason', 'Late line inside the declared hours: the pilot minimum top-up reduced to the shortfall that remains.'),
           now(), t.is_test, 'Late line inside the declared hours: the pilot minimum top-up reduced to the shortfall that remains.', null);
+        perform private.refresh_payout_draft(t.clinician_id);
         v_n := v_n + 1;
       end if;
     exception when others then
