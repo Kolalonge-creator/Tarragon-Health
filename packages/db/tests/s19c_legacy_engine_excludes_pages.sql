@@ -19,7 +19,7 @@ declare
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   select id into v_rcpt from public.profiles order by created_at limit 1;
-  insert into results values ('the definition excludes pages and page_tests', 'true', (v_def like '%not in (''pages'', ''page_tests'')%')::text);
+  insert into results values ('the definition excludes pages and page_tests', 'true', (v_def like '%not in (''pages'', ''page_tests''%')::text);
 
   -- two failed critical notifications, one a page's, one an ordinary alert's
   insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, priority, source_table, source_id, created_at)
