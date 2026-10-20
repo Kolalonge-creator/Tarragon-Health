@@ -4,6 +4,7 @@ import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { readFlash } from "@/lib/go-live/flash";
 import { GoLivePage } from "@/components/go-live/go-live-page";
+import { OpsDeskReadinessLine } from "@/components/ops-desk/ops-desk-readiness-line";
 
 export const metadata = { title: "Go-live guards" };
 export const dynamic = "force-dynamic";
@@ -17,5 +18,10 @@ export default async function ClinicianGoLive({ searchParams }: { searchParams: 
   if (!canAssignCases(staff)) redirect("/clinician");
   const flash = await readFlash((await searchParams).n);
   const locale = DEFAULT_UI_LANGUAGE;
-  return <GoLivePage viewer="cmo" locale={locale} notice={flash?.notice} detail={flash?.detail} ok={flash?.ok} />;
+  return (
+    <div className="space-y-6">
+      <OpsDeskReadinessLine href="/clinician/ops-desk" />
+      <GoLivePage viewer="cmo" locale={locale} notice={flash?.notice} detail={flash?.detail} ok={flash?.ok} />
+    </div>
+  );
 }

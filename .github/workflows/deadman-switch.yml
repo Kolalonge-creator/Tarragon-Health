@@ -1,0 +1,49 @@
+name: Dead-man's switch
+
+# OQ-436: everything that watches process-events inside Supabase (pg_cron, pg_net, sweep_paging_health, queue_watchdog) dies
+# together with pg_cron, so this runs OUTSIDE Supabase and Vercel, on a GitHub runner, every 5 minutes. It calls
+# /api/health/deadman and, when the platform is stale, unhealthy or unreachable, opens or updates ONE issue labelled "incident"
+# (no duplicates), optionally emails via Resend, and comments and closes the issue when healthy again.
+#
+# CAVEAT: GitHub scheduled workflows are best effort. Runs can start several minutes late and GitHub may skip runs under load
+# (and disables schedules on repos with no activity for 60 days). Treat this as one layer; the runbook
+# (docs/PLATFORM_OUTAGE_RUNBOOK.md) describes a second, independent layer: a free third-party HTTP monitor on the same URL.
+#
+# Required repo secrets (Settings -> Secrets and variables -> Actions). A missing one FAILS the run loudly, it never passes silently:
+#   DEADMAN_STATUS_URL   https://<production app host>/api/health/deadman   (e.g. https://app.tarragonhealth.ng/api/health/deadman)
+#   HEALTH_CHECK_SECRET  the same value as the HEALTH_CHECK_SECRET environment variable on the Vercel project (>= 24 characters)
+# Optional (email; skipped with a notice unless all three are set):
+#   RESEND_API_KEY, DEADMAN_EMAIL_TO (comma separated), DEADMAN_EMAIL_FROM (a sender verified in Resend)
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: deadman-switch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check platform status from outside
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - name: Run the dead-man's switch check
+        env:
+          DEADMAN_STATUS_URL: ${{ secrets.DEADMAN_STATUS_URL }}
+          HEALTH_CHECK_SECRET: ${{ secrets.HEALTH_CHECK_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          DEADMAN_EMAIL_TO: ${{ secrets.DEADMAN_EMAIL_TO }}
+          DEADMAN_EMAIL_FROM: ${{ secrets.DEADMAN_EMAIL_FROM }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bash .github/scripts/deadman-check.sh
