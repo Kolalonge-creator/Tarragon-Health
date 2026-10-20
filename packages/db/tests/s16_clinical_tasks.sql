@@ -100,6 +100,10 @@ begin
   insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
       license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
     values (v_org, v_other, 'S16 Other', 'MDCN', 'S16-OTH-1', true, 'active', now(), v_admin, 'senior_medical_officer', 'contracted', 2, true, v_admin, true);
+  -- OQ-435: a task is pushed only to an employed doctor who holds the competencies it requires (amber_bp_review: hypertension;
+  -- symptom_review: adult_general). Before that change this fixture doctor held none and was pushed everything.
+  insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test)
+  select v_org, cs.id, c, v_admin, true from public.clinical_staff cs, unnest(array['hypertension', 'adult_general']) c where cs.profile_id = v_emp;
 
   insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
       license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, is_test)

@@ -284,6 +284,10 @@ const SECURITY_NOTICE_SUBJECTS: Readonly<Record<string, string>> = {
   "security.phone_change_started": "The phone number on your account is being changed",
   "security.phone_changed": "The phone number on your account was changed",
   "security.programme_code_not_applied": "Your programme code could not be used",
+  // Optional passkeys (docs/design/passkeys.md): written by the database triggers on the credential table, so they fire however a
+  // passkey was added or removed. Routine priority, in-app and email only, never SMS.
+  "security.passkey_added": "A passkey was added to your Tarragon Health account",
+  "security.passkey_removed": "A passkey was removed from your Tarragon Health account",
   // S03 assisted recovery (private.queue_recovery_notice): queued since 2026-09-30 with no entry here, so the email rows failed as unknown.
   "security.assisted_recovery_requested": "Account recovery was started on your account",
   "security.assisted_recovery_executed": "An account recovery step was completed on your account",
@@ -1533,6 +1537,52 @@ export const TEMPLATE_MAP: Record<
         `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
       text: "Someone's access to your Care Circle ends in a few days.\n\nOpen Tarragon Health and renew it with one tap if you want them to keep it.\n\nTarragon Health",
+    },
+  }),
+  // S29e (INV-07): a supporter's non-emergency check-in request reaches the patient first, then the circle if the patient does not answer.
+  // Fixed wording, nothing from the payload is echoed, no name, no reading, no condition.
+  circle_check_in_asked: () => ({
+    smsText: "Someone in your Care Circle would like to hear from you. Tarragon Health",
+    pushUrl: "/patient/care-circle",
+    email: {
+      subject: "Someone would like to hear from you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone in your Care Circle would like to hear from you.</p>` +
+        `<p>Open Tarragon Health and tap "I am fine" so they know you are well.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone in your Care Circle would like to hear from you.\n\nOpen Tarragon Health and tap \"I am fine\" so they know you are well.\n\nTarragon Health",
+    },
+  }),
+  circle_check_in_unanswered: () => ({
+    smsText: "Someone in your Care Circle has not answered a check-in. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient/supporting",
+    email: {
+      subject: "Please check in with someone you support",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone in your Care Circle has not answered a check-in yet.</p>` +
+        `<p>Please give them a call, then open Tarragon Health to see what you can do.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone in your Care Circle has not answered a check-in yet.\n\nPlease give them a call, then open Tarragon Health to see what you can do.\n\nTarragon Health",
+    },
+  }),
+  // Yearly proxy-access review. Names no one; the person sees who behind the sign-in. Email and push are only queued when the person's own
+  // channel preference allows, and the sender applies quiet hours and discreet mode. The proxy's notice is in-app only and needs no renderer here.
+  proxy_review_due: () => ({
+    smsText: "A yearly check is waiting: do the people who help you still need access? Tarragon Health",
+    pushUrl: "/patient/family",
+    email: {
+      subject: "A yearly check on who can help you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Once a year we ask whether the people who help you still need access.</p>` +
+        `<p>Open Tarragon Health on the web to keep, change or remove it. Nothing changes unless you choose.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Once a year we ask whether the people who help you still need access.\n\nOpen Tarragon Health on the web to keep, change or remove it. Nothing changes unless you choose.\n\nTarragon Health",
     },
   }),
   circle_pause_ended: () => ({

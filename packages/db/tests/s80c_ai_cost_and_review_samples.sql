@@ -78,7 +78,10 @@ begin
   if public.draw_ai_review_sample(v_m, 0.10) <> 0 then raise exception 'FAIL: a second draw duplicated samples'; end if;
 
   -- reviewer reads the queue (audited) and scores
+  -- counted as the owner: audit_log_select is own rows + admin, so a reviewer's own count would undercount other actors' rows
+  reset role;
   select count(*) into v_audit_before from public.audit_log where action = 'ai_review_samples.queue_read';
+  set local role authenticated;
   select sample_id into v_s from public.ai_review_queue(5) limit 1;
   reset role;
   if (select count(*) from public.audit_log where action = 'ai_review_samples.queue_read') <> v_audit_before + 1 then raise exception 'FAIL: queue read not audited'; end if;

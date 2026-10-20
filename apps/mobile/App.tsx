@@ -10,7 +10,8 @@ import { ToastProvider } from "@/ui/kit";
 import { useEffect, useRef, useState } from "react";
 import { useFonts } from "expo-font";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { ActivityIndicator, AppState, InteractionManager, Image, StatusBar, Text, View } from "react-native";
+import { ActivityIndicator, AppState, InteractionManager, Image, Linking, StatusBar, Text, View } from "react-native";
+import { offerUrl } from "@/lib/care-circle/join-link";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
@@ -32,7 +33,9 @@ import { LoginScreen } from "@/screens/login-screen";
 import { AppLockScreen } from "@/screens/app-lock-screen";
 import { HomeShell } from "@/screens/home-shell";
 import { SponsorHome } from "@/screens/sponsor-home";
-import { shellForRole } from "@/lib/sponsor-figures";
+import { ClinicianHome } from "@/screens/clinician-home";
+import { startPageSurface } from "@/lib/paging/page-native";
+import { runsPatientWork, shellForRole } from "@/lib/sponsor-figures";
 import { colors, spacing, typeScale } from "@/ui/theme";
 import { PrimaryButton, MutedText } from "@/ui/components";
 
@@ -61,6 +64,12 @@ type LockState = "unknown" | "locked" | "unlocked";
  */
 function AppContent() {
   const { scheme, colors: theme } = useTheme();
+  // S29e: a Care Circle invite opened from a link (cold start or while running). Held in memory until a signed-in shell can show it.
+  useEffect(() => {
+    void Linking.getInitialURL().then(offerUrl).catch(() => {});
+    const sub = Linking.addEventListener("url", (e) => { offerUrl(e.url); });
+    return () => sub.remove();
+  }, []);
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [identity, setIdentity] = useState<PatientIdentity | null | undefined>(undefined);
   const [lockState, setLockState] = useState<LockState>("unknown");
@@ -76,6 +85,8 @@ function AppContent() {
   const [stuck, setStuck] = useState(false);
   // One-time biometric unlock offer (S03): decided once per signed-in user.
   const [offerBiometric, setOfferBiometric] = useState(false);
+  // A clinician who is also a patient or a carer can open their own record (S19e); the choice lasts until the app restarts or they sign out.
+  const [openOwnRecord, setOpenOwnRecord] = useState(false);
   const offerCheckedFor = useRef<string | null>(null);
   const postSignInFor = useRef<string | null>(null);
 
@@ -98,6 +109,7 @@ function AppContent() {
         postSignInFor.current = null;
         offerCheckedFor.current = null;
         setOfferBiometric(false);
+        setOpenOwnRecord(false);
         // The read mirror holds the previous account's record: wipe it so a
         // shared phone does not keep it readable. The outbox is NOT cleared:
         // unsent logs must survive sign-out and go out when their owner is back.
@@ -150,7 +162,7 @@ function AppContent() {
   // for their owner and for backoff inside flushOutbox, so this is cheap.
   useEffect(() => {
     // Waits for the identity so a sponsor's staff never start the patient outbox and reminder work (it is patient-only).
-    if (!session?.user.id || !identity || shellForRole(identity.role) !== "patient") return;
+    if (!session?.user.id || !identity || !runsPatientWork(identity.role, openOwnRecord)) return;
     const run = () => void flushOutbox().then(() => runDeviceCheckThrottled()).catch(() => {});
     // Honest reconnect trigger (S06x): when the radio says it is back and entries wait, one tiny HEAD proves the
     // server is reachable before the flush. The foreground flush and the one-minute loop below stay as the fallback.
@@ -183,7 +195,7 @@ function AppContent() {
       clearInterval(timer);
       stopWatcher();
     };
-  }, [session?.user.id, identity]);
+  }, [session?.user.id, identity, openOwnRecord]);
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (next) => {
@@ -252,7 +264,7 @@ function AppContent() {
   useEffect(() => {
     // A sponsor's own staff use only the figures screen: none of the patient background work (health sync, push token for care reminders,
     // offline vitals queue, review prompts) applies to them.
-    if (session && identity && shellForRole(identity.role) === "patient") {
+    if (session && identity && runsPatientWork(identity.role, openOwnRecord)) {
       // registerBackgroundHealthSync is deferred a tick past the others:
       // found live in the OS log, once, during this investigation —
       // "Attempt to present <HKHealthPrivacyHostAuthorizationViewController>
@@ -299,7 +311,19 @@ function AppContent() {
       checkForPendingReviewPrompt().catch(() => {});
       return () => healthSyncHandle.cancel();
     }
-  }, [session, identity]);
+  }, [session, identity, openOwnRecord]);
+
+  // A clinician's phone is a pager (S19e): register for push (and report that the alarm channel exists) so pages can reach it.
+  // Best effort like the patient registration; the On call screen shows the readiness gaps if it did not work.
+  useEffect(() => {
+    if (session && identity && shellForRole(identity.role) === "clinician") {
+      registerPushToken(session.user.id, identity.organisationId, { clinician: true }).catch(() => {});
+      // The page route (alarm channel, background task, receipts, repeats, heartbeat) runs for the whole signed-in session.
+      const handle = startPageSurface(() => AppState.currentState === "active");
+      return () => handle.stop();
+    }
+    // keyed on who is signed in and their role, not on the session object: a token refresh must not stop and restart the page route
+  }, [session?.user.id, identity?.role, identity?.organisationId]);
 
   useEffect(() => {
     const userId = session?.user.id;
@@ -367,6 +391,15 @@ function AppContent() {
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.surface }} edges={["top", "left", "right"]}>
         <StatusBar barStyle={scheme === "dark" ? "light-content" : "dark-content"} />
         <SponsorHome onSignOut={() => void supabase.auth.signOut()} />
+      </SafeAreaView>
+    );
+  }
+
+  if (shellForRole(identity.role) === "clinician" && !openOwnRecord) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.surface }} edges={["top", "left", "right"]}>
+        <StatusBar barStyle={scheme === "dark" ? "light-content" : "dark-content"} />
+        <ClinicianHome onSignOut={() => void supabase.auth.signOut()} onOpenOwnRecord={() => setOpenOwnRecord(true)} />
       </SafeAreaView>
     );
   }

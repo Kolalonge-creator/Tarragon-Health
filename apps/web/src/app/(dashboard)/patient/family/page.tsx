@@ -20,6 +20,7 @@ import { AdultsYouManageList } from "./adults-you-manage-list";
 import { CareAccessRequestsList, type CareAccessRequestRow } from "./care-access-requests-list";
 import { CareVisibilityList } from "./care-visibility-list";
 import { ProxyControlsCard } from "./proxy-controls-card";
+import { ProxyReviewCard } from "./proxy-review-card";
 import { EmergencyAccessBanner } from "./emergency-access-banner";
 import { CareAccessLog, type CareAccessLogRow } from "./care-access-log";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -209,6 +210,8 @@ export default async function CareCirclePage() {
       <NextOfKinForm current={nextOfKin} />
 
       <CareVisibilityList />
+
+      <ProxyReviewCard />
 
       <ProxyControlsCard />
 

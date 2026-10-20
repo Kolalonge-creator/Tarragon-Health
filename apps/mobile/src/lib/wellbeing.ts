@@ -174,7 +174,7 @@ export async function loadMoodBesideReadings(patientId: string): Promise<MoodTre
   const sinceIso = since.toISOString();
   const [checkins, bp, sleep] = await Promise.all([
     supabase.from("wellbeing_checkins").select("checked_in_at, mood_score, stress_score, tags").eq("patient_id", patientId).gte("checked_in_at", sinceIso).order("checked_in_at", { ascending: true }),
-    supabase.from("vitals_readings").select("taken_at, systolic, diastolic").eq("patient_id", patientId).eq("vital_type", "blood_pressure").gte("taken_at", sinceIso).order("taken_at", { ascending: true }).limit(200),
+    supabase.from("vitals_readings").select("taken_at, systolic, diastolic").eq("patient_id", patientId).eq("vital_type", "blood_pressure").neq("source", "wearable").gte("taken_at", sinceIso).order("taken_at", { ascending: true }).limit(200),
     supabase.from("sleep_log_entries").select("logged_on, duration_hours").eq("patient_id", patientId).gte("logged_on", sinceIso.slice(0, 10)).order("logged_on", { ascending: true }),
   ]);
   if (checkins.error) throw checkins.error;

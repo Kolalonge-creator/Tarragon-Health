@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { CARE_ACCESS_CATEGORIES, useMyCareFollowers, type CareAccessCategory, type CareFollower } from "@/lib/queries/care-access";
+import { MY_PROXY_REVIEWS_KEY } from "@/lib/queries/proxy-review";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -13,6 +14,11 @@ interface ViewLogRow {
   actor_first_name: string | null;
   kind: string;
   scope: string | null;
+}
+
+/** PostgREST schema-cache miss, or Postgres undefined_function: the database change has not been applied yet. */
+function isMissingFunction(code: string | undefined): boolean {
+  return code === "PGRST202" || code === "42883";
 }
 
 function when(iso: string): string {
@@ -59,30 +65,58 @@ function FollowerControls({ follower }: { follower: CareFollower }) {
 
   const revoke = useMutation({
     mutationFn: async () => {
-      const { error } = await createClient().rpc("revoke_proxy_access", { p_grantee: follower.profileId });
-      if (error) throw error;
+      // Through the yearly-review door so the removal is recorded in the review history (it composes revoke_proxy_access).
+      const supabase = createClient();
+      const { error } = await supabase.rpc("answer_proxy_review", { p_grantee: follower.profileId, p_action: "remove" });
+      if (error && error.code !== "P0002") {
+        // P0002 means it is already gone, which is the outcome wanted. Only when the review door does not exist at all (the app deployed before its
+        // database change) use the original control: ending a person's access must never depend on bookkeeping. Any other failure, a timeout
+        // included, is shown as a failure rather than retried, because the first call may already have committed.
+        if (!isMissingFunction(error.code)) throw error;
+        const fallback = await supabase.rpc("revoke_proxy_access", { p_grantee: follower.profileId });
+        if (fallback.error) throw fallback.error;
+      }
     },
     onSuccess: async () => {
       setMessage("Their access has stopped.");
       await queryClient.invalidateQueries({ queryKey: ["my-care-followers"] });
+      await queryClient.invalidateQueries({ queryKey: MY_PROXY_REVIEWS_KEY });
     },
     onError: () => setMessage("We could not stop that just now. Please try again."),
   });
 
   const narrow = useMutation({
     mutationFn: async () => {
-      const { error } = await createClient().rpc("narrow_proxy_access", {
+      // Through the yearly-review door so narrowing restarts the review cycle (it composes narrow_proxy_access).
+      const supabase = createClient();
+      const { error } = await supabase.rpc("answer_proxy_review", {
         p_grantee: follower.profileId,
+        p_action: "narrow",
         p_categories: keep,
         p_notify: tellThem,
       });
-      if (error) throw error;
+      if (error) {
+        // Only a door that does not exist falls back. A refusal (22023, P0002) or a timeout is shown, never retried through the old control, which
+        // would skip the refusal rules and could notify the proxy twice.
+        if (!isMissingFunction(error.code)) throw error;
+        const fallback = await supabase.rpc("narrow_proxy_access", { p_grantee: follower.profileId, p_categories: keep, p_notify: tellThem });
+        if (fallback.error) throw fallback.error;
+      }
     },
     onSuccess: async () => {
       setMessage(tellThem ? "Saved. We let them know." : "Saved. They will not be told.");
       await queryClient.invalidateQueries({ queryKey: ["my-care-followers"] });
+      await queryClient.invalidateQueries({ queryKey: MY_PROXY_REVIEWS_KEY });
     },
-    onError: () => setMessage("We could not save that just now. Please try again."),
+    onError: (error: unknown) => {
+      const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code: unknown }).code) : "";
+      // 22023: the list the person was looking at is out of date, so say so instead of letting them retry the same choice.
+      setMessage(
+        code === "22023"
+          ? "What they can see has changed since this page loaded. Refresh the page to see it now, or stop their access."
+          : "We could not save that just now. Please try again.",
+      );
+    },
   });
 
   const labelFor = (value: CareAccessCategory) => CARE_ACCESS_CATEGORIES.find((c) => c.value === value)?.label ?? value;
@@ -113,9 +147,9 @@ function FollowerControls({ follower }: { follower: CareFollower }) {
           ))}
           <label className="flex items-center gap-2 pt-1 text-xs text-charcoal-ink/70">
             <input type="checkbox" checked={tellThem} onChange={(event) => setTellThem(event.target.checked)} />
-            Tell them I changed this (they are not told unless you tick this)
+            Tell them I changed this (they are not told unless you tick this). To stop all of it, use the button above.
           </label>
-          <Button type="button" size="sm" disabled={!changed || narrow.isPending} onClick={() => narrow.mutate()}>
+          <Button type="button" size="sm" disabled={!changed || keep.length === 0 || narrow.isPending} onClick={() => narrow.mutate()}>
             Save
           </Button>
         </fieldset>

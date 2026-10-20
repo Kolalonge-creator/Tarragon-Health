@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { type Database, type Json } from "@tarragon/shared";
+import { BP_ESTIMATE_SOURCE, type Database, type Json } from "@tarragon/shared";
 import { createGovernedMlClient } from "./governed-ml-client";
 import { bpControlRiskLevel } from "@/lib/rules/bp-control-risk";
 import { queueRiskSignalAttentionBestEffort } from "@/lib/notifications/queue-risk-signal-attention";
@@ -64,6 +64,8 @@ export async function assessBpControlBestEffort(
     .select("taken_at, systolic, diastolic")
     .eq("patient_id", patientId)
     .eq("vital_type", "blood_pressure")
+    // A wearable (cuffless) estimate is not a diagnostic number: it never enters a control assessment.
+    .neq("source", BP_ESTIMATE_SOURCE)
     .is("correction_status", null)
     .gte("taken_at", since)
     .order("taken_at", { ascending: true });

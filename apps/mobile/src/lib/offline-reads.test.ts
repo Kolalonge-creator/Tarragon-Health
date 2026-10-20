@@ -26,6 +26,7 @@ jest.mock("./supabase", () => ({
       const q: Record<string, unknown> = {
         select: () => q,
         eq: () => q,
+        neq: () => q,
         is: () => q,
         in: () => q,
         gte: () => q,
