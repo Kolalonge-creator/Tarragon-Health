@@ -154,7 +154,7 @@ begin
   v_n := (select count(*) from public.pages where patient_id = v_p and parent_page_id is null);
   perform public.create_red_page(v_u);
   perform pg_temp.res('real', 'a claim older than the look-back is not a duplicate: it pages', (v_n + 1)::text, (select count(*)::text from public.pages where patient_id = v_p and parent_page_id is null));
-  v_u := pg_temp.unified(v_org, v_p, v_r5, 'temperature_red_late');
+  v_u := pg_temp.unified(v_org, v_p, v_r6, 'bogus_basis');
   perform pg_temp.res('real', 'an unknown unified basis carries no key at all', '0', (select count(*)::text from private.red_page_dedupe_info(v_u)));
 
   -- 3. The emergency path

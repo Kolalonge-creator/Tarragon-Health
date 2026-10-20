@@ -17,7 +17,7 @@ Blood pressure (`bp_care_triage`) and glucose (`glucose_care_triage`) run on the
 
 ## 3. Pieces
 - Engine twin `supabase/functions/_shared/clinical/vitals-engine.ts` (same evaluator, actions, result shape and INV-05 check as the glucose twin), rules `packages/clinical/src/rules/vitals-care-v1.ts`, handler branch (`kind: vitals`) and ports in `observation-handler.ts` / `triage-ports.ts`.
-- Migrations: `..._build_vitals_care_triage_v1_draft.sql` (rule set JSON, task type), `..._build_vitals_triage_wiring.sql` (producer trigger, context, writer, 10-minute sweep at minute 9), `..._build_vitals_shadow_divergence.sql`, `..._build_red_page_dedupe_key.sql`.
+- Migrations: `..._build_vitals_care_triage_v1_draft.sql` (rule set JSON, task type), `..._build_vitals_triage_wiring.sql` (producer trigger, context, writer, 10-minute sweep at minute 6), `..._build_vitals_shadow_divergence.sql`, `..._build_red_page_dedupe_key.sql`.
 - PROPOSED config key `triage.single_reading_vitals_bands` and `vitals-drift.test.ts`: the registry, the rule set params, the phone's `vitals.device_red_rules` and the older SQL classifiers must agree. The band scan test now also covers pulse, SpO2 and temperature (legacy files allowlisted with exact counts).
 - CMO hub: line "Pulse, oxygen and temperature triage rules" with inline panel (numbers, per-rule basis and NEWS2 comparison, open points, full wording, Sign) at `/clinician/vitals-triage-rules`, a line and panel for the task type, nav and search entries.
 

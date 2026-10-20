@@ -14,7 +14,7 @@
 --  2. public.triage_context_for_vitals_observation (service role): the reading, the patient's age and the patient's own clinician-set amber line.
 --  3. public.record_vitals_triage_result (service role): the graded half of record_triage_result for these vitals. It has no recheck handling on purpose:
 --     record_triage_result resolves the patient's pending BLOOD PRESSURE rechecks, and a heart rate must never do that.
---  4. A sweep every 10 minutes (minute 9, staggered: the production connection budget is tight) that re-emits any reading from the last 24 hours that never
+--  4. A sweep every 10 minutes (minute 6, staggered: the production connection budget is tight) that re-emits any reading from the last 24 hours that never
 --     got its event, with the same urgent-or-normal priority as the producer, so a failed emit is never silent and a dangerous reading is not queued behind ordinary ones.
 --
 -- WHICH READINGS: manual, device (Bluetooth) and photo-confirmed readings (a value the patient confirmed from a photo of the device) only. A wearable streams a heart rate every few minutes (hundreds a day per patient) and syncs old
@@ -220,7 +220,7 @@ begin
   return v_n;
 end $$;
 
-select cron.schedule('triage-vitals-sweep', '9-59/10 * * * *', $$select private.sweep_vitals_observation_events()$$);
+select cron.schedule('triage-vitals-sweep', '6-56/10 * * * *', $$select private.sweep_vitals_observation_events()$$);
 
 -- 5. Grants ------------------------------------------------------------------------------------------------------------------------------
 revoke all on function private.emit_vitals_observation_recorded() from public, anon, authenticated;

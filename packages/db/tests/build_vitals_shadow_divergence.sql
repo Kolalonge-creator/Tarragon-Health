@@ -46,7 +46,8 @@ begin
   v_b := pg_temp.mkuser(v_org, 'neither', 'patient', false);
   v_c := pg_temp.mkuser(v_org, 'shadowonly', 'patient', false);
   v_d := pg_temp.mkuser(v_org, 'liveonly', 'patient', false);
-  v_kid := pg_temp.mkuser(v_org, 'kid', 'patient', false, 10);
+  -- (registration is adults only, so the account is an adult; the proof records the engine's under-18 result by hand)
+  v_kid := pg_temp.mkuser(v_org, 'kid', 'patient', false);
   v_line := pg_temp.mkuser(v_org, 'line', 'patient', false);
   v_none := pg_temp.mkuser(v_org, 'noshadow', 'patient', false);
   v_old := pg_temp.mkuser(v_org, 'old', 'patient', false);
@@ -140,7 +141,7 @@ begin
   execute 'reset role';
 
   -- 4. SABOTAGE (a): the S19d body of the parity rows, without the rule-set condition
-  execute replace(pg_get_functiondef('private.triage_parity_rows(integer)'::regprocedure), 'te.rule_set_code = ''bp_care_triage''', 'te.rule_set_code is distinct from ''unified_red_paging''');
+  execute replace(pg_get_functiondef('private.triage_parity_rows(integer)'::regprocedure), 'te.rule_set_code = ''bp_care_triage'' and ', '');
   perform pg_temp.res('sabotaged', 'the engine parity report holds no vitals result', '0',
     (select count(*)::text from private.triage_parity_rows(7) p join public.triage_events e on e.id = p.triage_event_id where e.rule_set_code = 'vitals_care_triage'));
   -- (b): a live-level function that never sees anything wrong

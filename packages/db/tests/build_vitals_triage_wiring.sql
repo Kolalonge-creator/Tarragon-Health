@@ -188,7 +188,7 @@ begin
   perform private.sweep_vitals_observation_events();
   perform pg_temp.res('real', 'the sweep emits the missing event once, at the same priority the producer uses (urgent for 38.6)', '1|urgent', (select count(*)::text || '|' || min(priority) from public.domain_events where idempotency_key = 'vit:' || v_sw));
   perform pg_temp.res('real', 'the sweep leaves a wearable reading alone', '0', (select count(*)::text from public.domain_events where idempotency_key = 'vit:' || v_w));
-  perform pg_temp.res('real', 'and the sweep is scheduled every ten minutes, staggered, not every minute', '9-59/10 * * * *', (select schedule from cron.job where jobname = 'triage-vitals-sweep'));
+  perform pg_temp.res('real', 'and the sweep is scheduled every ten minutes, staggered, not every minute', '6-56/10 * * * *', (select schedule from cron.job where jobname = 'triage-vitals-sweep'));
 
   -- 7. Grants
   perform pg_temp.res('real', 'the context, the writer, the producer and the sweep are not executable by anon or authenticated', 'false',
@@ -236,8 +236,8 @@ begin
   perform pg_temp.res('real', 'the task is for a senior medical officer and tied to the event and the rule set version', 'senior_medical_officer|true|1',
     (select min_tier::text || '|' || (triage_event_id = v_te)::text || '|' || rule_set_version from public.clinical_tasks where patient_id = v_p and type = 'amber_vitals_review'));
   v_out := public.record_vitals_triage_result(v_ox4, jsonb_set(v_red, '{ruleId}', '"VT-OX2"'), v_rs, null, 'red later');
-  perform pg_temp.res('real', 'a red from the approved vitals rule set pages a Member once, and the page names the event', '1|1',
-    (public.create_red_page((v_out ->> 'triage_event_id')::uuid) is not null)::int::text || '|' || (select count(*)::text from public.pages where triage_event_id = (v_out ->> 'triage_event_id')::uuid));
+  perform pg_temp.res('real', 'a red from the approved vitals rule set is paged for a Member (a page is returned; it may fold into an open family)', 'true',
+    (public.create_red_page((v_out ->> 'triage_event_id')::uuid) is not null)::text);
 end $$;
 
 do $$

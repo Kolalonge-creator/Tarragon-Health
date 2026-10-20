@@ -22,7 +22,7 @@ do $$
 declare
   v_def text := pg_get_functiondef('private.triage_parity_rows(integer)'::regprocedure);
   v_old constant text := 'te.rule_set_code is distinct from ''unified_red_paging''';
-  v_new constant text := 'te.rule_set_code = ''bp_care_triage''';
+  v_new constant text := 'te.rule_set_code = ''bp_care_triage'' and te.rule_set_code is distinct from ''unified_red_paging''';
 begin
   if v_def not like '%' || v_old || '%' then
     raise exception 'vitals divergence: private.triage_parity_rows no longer has the expected anchor; patch it from its current definition by hand';
