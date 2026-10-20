@@ -33,10 +33,12 @@ for (const c of manifest.clips ?? []) {
 }
 const result = evaluate(clips, drugs);
 const markArg = process.argv.includes("--pass-mark") ? process.argv[process.argv.indexOf("--pass-mark") + 1] : String(DEFAULTS.passMark * 100);
-const verdict = markArg === "none" ? null : gate(result, { passMark: Number(markArg) / 100 });
-if (verdict && !(verdict.passMark > 0 && verdict.passMark <= 1)) {
-  console.error("--pass-mark must be a percent from 1 to 100, or none");
+// A percent from 1 to 100. A fraction such as 0.95 is refused, not read as 0.95 percent (which would pass almost anything).
+const percent = markArg === "none" ? null : Number(markArg);
+if (percent !== null && !(Number.isFinite(percent) && percent >= 1 && percent <= 100)) {
+  console.error("--pass-mark must be a percent from 1 to 100 (for example 95), or none");
   process.exit(2);
 }
+const verdict = percent === null ? null : gate(result, { passMark: percent / 100 });
 console.log(process.argv.includes("--json") ? JSON.stringify({ ...result, gate: verdict }, null, 2) : `${renderReport(result)}${verdict ? `\n\n${renderGate(verdict)}` : ""}`);
 process.exit(missing > 0 ? 1 : verdict?.verdict === "FAIL" ? 3 : verdict?.verdict === "NOT_ENOUGH_DATA" ? 4 : 0);

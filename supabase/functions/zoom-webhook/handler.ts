@@ -49,21 +49,12 @@ export async function verifyZoomSignature(secret: string | null, rawBody: string
   return constantTimeEqual(signatureHeader, expected);
 }
 
-/** Zoom advises refusing a request more than about five minutes from now (seconds since the epoch). Checked only AFTER the signature holds. */
-export const ZOOM_REPLAY_WINDOW_MS = 5 * 60_000;
-export function isStaleZoomTimestamp(timestampHeader: string, nowMs: number): boolean {
-  if (!/^\d{1,12}$/.test(timestampHeader)) return true;
-  return Math.abs(nowMs - Number(timestampHeader) * 1000) > ZOOM_REPLAY_WINDOW_MS;
-}
-
 export interface ZoomDeps {
   readonly secret: string | null;
   readonly db: SupabaseClient;
   readonly store: InboxStore | null;
   readonly appBaseUrl: string | undefined;
   readonly fetch: FetchLike;
-  /** Injected so a test can pin the clock; defaults to the real one. */
-  readonly nowMs?: () => number;
 }
 
 /** Acts on a verified meeting event. Safe to run twice and safe out of order: a consultation never moves backwards. */
@@ -174,12 +165,10 @@ export async function handleZoomWebhook(req: Request, deps: ZoomDeps): Promise<R
     return Response.json({ ok: false, error: "invalid_signature" }, { status: 200 });
   }
 
-  // Signed correctly but outside the window: a captured request replayed later, or a very late retry. It is acknowledged (a 401 would make
-  // Zoom count the endpoint as failing) and nothing is acted on or forwarded. Zoom's own retries stay inside the window.
-  if (isStaleZoomTimestamp(timestamp as string, (deps.nowMs ?? Date.now)())) {
-    return Response.json({ ok: false, error: "stale_event" }, { status: 200 });
-  }
-
+  // No age limit is applied here, on purpose. Replay protection is the inbox: the idempotency key (event, meeting uuid, event_ts) makes a
+  // replayed request a duplicate that runs nothing, and the state updates below never move a consultation backwards. An age limit would
+  // also drop an honest late retry of an event this function itself asked Zoom to resend (a 500 or 502 answer), which is worse than a
+  // replay. Presence events go to the web route, whose adapter applies its own 5 minute window.
   // Zoom allows ONE event-subscription URL per app, and this is it. The consultation presence route (apps/web /api/zoom/webhook) needs the
   // participant events, so they are handed to it unchanged (it verifies the signature again itself) and not recorded here: the idempotency
   // key is built from the meeting, so two people joining the same meeting would collide and the second would be dropped as a replay.

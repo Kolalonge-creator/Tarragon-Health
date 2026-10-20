@@ -95,6 +95,9 @@ test("run.mjs exits 3 on FAIL, 4 on not enough data, 0 on PASS, and --pass-mark 
   assert.equal(run("--pass-mark", "none").status, 0);
   assert.doesNotMatch(run("--pass-mark", "none").stdout, /PASS MARK/);
   assert.equal(run("--pass-mark", "0").status, 2);
+  assert.equal(run("--pass-mark", "0.95").status, 2); // a fraction is not a percent: it would have been a 0.95 percent mark
+  assert.equal(run("--pass-mark", "abc").status, 2);
+  assert.equal(run("--pass-mark", "101").status, 2);
   writeSet(4, () => "take amlodipine 5 mg daily");
   assert.equal(run().status, 4);
 });

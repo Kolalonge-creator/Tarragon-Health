@@ -126,6 +126,11 @@ begin
   perform pg_temp.ck('the maker still cannot release their own batch (checked first)', 'ERR:payout_batch_self_release', pg_temp.q_as(v_cmo, format($q$select public.release_payout_batch(%L)::text$q$, v_batch)));
   perform pg_temp.ck('an admin releases a CMO''s batch', 'released', (pg_temp.q_as(v_admin, format($q$select public.release_payout_batch(%L)::text$q$, v_batch))::jsonb ->> 'state'));
 
+  -- 1b. A batch cannot pay its maker
+  v_pay2 := pg_temp.mkpay(v_org, v_cmo, v_admin, 500000, 'approved', 21);
+  perform pg_temp.ck('a maker cannot put their own payout in a batch', 'ERR:payout_batch_pays_the_maker', pg_temp.q_as(v_cmo, format($q$select public.propose_payout_batch(array[%L]::uuid[])::text$q$, v_pay2)));
+  perform pg_temp.ck('someone else can propose that payout', 'true', (pg_temp.q_as(v_admin, format($q$select (public.propose_payout_batch(array[%L]::uuid[])::text)::jsonb ? 'batch_id'$q$, v_pay2)) = 'true')::text);
+
   -- 2. The flag and the money guard are tied together -----------------------------------------------
   perform pg_temp.guard_real();
   -- (the guard table refuses a direct change; a log row in the same transaction is exactly what set_go_live_guard writes)
@@ -141,6 +146,11 @@ begin
   perform pg_temp.ck('and the flag is still on', 'on', (select status::text from public.feature_flags where key = 'payout_batch_maker_checker'));
   begin update public.feature_flags set status = 'on' where key = 'payout_batch_maker_checker'; v_s := 'accepted'; exception when others then v_s := sqlstate; end;
   perform pg_temp.ck('setting the flag on again is fine', 'accepted', v_s);
+  begin update public.feature_flags set key = 'payout_batch_maker_checker_x' where key = 'payout_batch_maker_checker'; v_s := 'accepted'; exception when others then v_s := sqlstate || ':' || split_part(sqlerrm, ':', 1); end;
+  perform pg_temp.ck('while the guard is on the flag cannot be renamed away', '55000:payout_maker_checker_held', v_s);
+  begin delete from public.feature_flags where key = 'payout_batch_maker_checker'; v_s := 'accepted'; exception when others then v_s := sqlstate || ':' || split_part(sqlerrm, ':', 1); end;
+  perform pg_temp.ck('while the guard is on the flag cannot be deleted', '55000:payout_maker_checker_held', v_s);
+  perform pg_temp.ck('the flag row is still there and on', 'on', (select status::text from public.feature_flags where key = 'payout_batch_maker_checker'));
   begin update public.feature_flags set status = 'off' where key = 'payout_gl_posting'; v_s := 'accepted'; exception when others then v_s := sqlstate; end;
   perform pg_temp.ck('other flags are not affected', 'accepted', v_s);
 
@@ -154,8 +164,8 @@ begin
   insert into results values ('sabotaged', 'two admins cannot pass a batch between them (CMO test neutered)', 'ERR:payout_batch_needs_cmo_pair', pg_temp.q_as(v_admin2, format($q$select public.release_payout_batch(%L)::text$q$, r ->> 'batch_id')));
   -- 3b. SABOTAGE: the flag trigger dropped -> the flag can now be turned off while the guard is on
   drop trigger feature_flags_payout_controls_held on public.feature_flags;
-  begin update public.feature_flags set status = 'off' where key = 'payout_batch_maker_checker'; v_s := 'accepted'; exception when others then v_s := sqlstate; end;
-  insert into results values ('sabotaged', 'while the guard is on the flag cannot be turned off (trigger dropped)', '55000', v_s);
+  begin delete from public.feature_flags where key = 'payout_batch_maker_checker'; v_s := 'accepted'; exception when others then v_s := sqlstate; end;
+  insert into results values ('sabotaged', 'while the guard is on the flag cannot be deleted (trigger dropped)', '55000', v_s);
 end $$;
 
 do $$

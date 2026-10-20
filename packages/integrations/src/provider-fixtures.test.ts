@@ -269,7 +269,7 @@ describe("oversize bodies are refused before any signature work", () => {
     expect(await readCappedBody(new Request("https://x.test/hook", { method: "POST" }))).toEqual({ ok: true, body: "" });
   });
   it("refuses a body over the cap, whether or not the length is declared", async () => {
-    const big = "x".repeat(1_048_577);
+    const big = "x".repeat(262_145);
     expect(await readCappedBody(post(big))).toEqual({ ok: false });
     expect(await readCappedBody(post("tiny", { "content-length": "99999999" }))).toEqual({ ok: false });
     const stream = new ReadableStream<Uint8Array>({ start(c) { c.enqueue(new Uint8Array(600)); c.enqueue(new Uint8Array(600)); c.close(); } });

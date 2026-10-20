@@ -125,7 +125,7 @@ export const providerLayerHealthSchema = z.object({
     waiting_too_long: nonNegInt,
     rejected_24h: nonNegInt,
     stale_after_seconds: nonNegInt,
-    by_provider: z.array(z.object({ provider: z.string(), open: nonNegInt, oldest_open_seconds: nonNegInt, dead: nonNegInt, last_received_at: z.string().nullable() })),
+    by_provider: z.array(z.object({ provider: z.string(), open: nonNegInt, oldest_open_seconds: nonNegInt, dead: nonNegInt, rejected_24h: nonNegInt, verified_24h: nonNegInt, last_received_at: z.string().nullable() })),
   }),
   breakers: z.object({ open: nonNegInt, half_open: nonNegInt }),
   reconciliation: z.object({ open_breaks: nonNegInt, older_than_limit: nonNegInt, limit_hours: nonNegInt, oldest_hours: nonNegInt }),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { createMockPayment } from "../../../supabase/functions/_shared/integrations/index.ts";
-import { sendPayout, verifyBank, type PayoutDeps, type RpcReply } from "../../../supabase/functions/_shared/payouts/handler.ts";
+import { listBanks, sendPayout, verifyBank, type PayoutDeps, type RpcReply } from "../../../supabase/functions/_shared/payouts/handler.ts";
 
 const ID = "11111111-2222-3333-4444-555555555555";
 const REF = "tpo-11111111222233334444555555555555-01";
@@ -77,7 +77,7 @@ describe("sendPayout", () => {
 });
 
 describe("sendPayout when the answer is unknown (timeout, network, 5xx)", () => {
-  const setup = async (failure: { code: "timeout" | "network" | "vendor_error" | "invalid_input"; retryable: boolean }, reached: boolean) => {
+  const setup = async (failure: { code: "timeout" | "network" | "vendor_error" | "invalid_input" | "bad_response"; retryable: boolean }, reached: boolean) => {
     const { deps, calls, payment } = make();
     const code = await recipient(payment);
     const asUser: PayoutDeps["asUser"] = async () => ({ data: { reference: REF, amount_kobo: 181_000, recipient_code: code, reason: "x" }, error: null });
@@ -113,6 +113,13 @@ describe("sendPayout when the answer is unknown (timeout, network, 5xx)", () => 
     const { deps, verifies } = await setup({ code: "invalid_input", retryable: false }, false);
     expect((await sendPayout(deps, ID)).status).toBe(502);
     expect(verifies()).toBe(0);
+  });
+
+  it("a 2xx reply we could not read is checked the same way (Paystack may have created the transfer)", async () => {
+    const { deps, calls, verifies } = await setup({ code: "bad_response", retryable: false }, true);
+    expect((await sendPayout(deps, ID)).status).toBe(200);
+    expect(verifies()).toBe(1);
+    expect(calls.find((c) => c.fn === "payout_record_send")!.args["p_status"]).toBe("pending");
   });
 
   it("a 5xx marked retryable is checked the same way", async () => {
@@ -160,5 +167,62 @@ describe("verifyBank", () => {
     expect(r.body).toMatchObject({ verified: true, last4: "6789" });
     expect(calls.map((c) => c.fn)).toEqual(["payout_bank_check_allowed", "record_bank_resolution", "attach_bank_recipient"]);
     expect(calls.find((c) => c.fn === "attach_bank_recipient")!.args["p_recipient_code"]).toMatch(/^RCP_/);
+  });
+});
+
+describe("sendPayout and bank lookups: the remaining refusals", () => {
+  it("a reused reference whose lookup then fails is recorded as an error, not guessed", async () => {
+    const { deps, calls, payment } = make();
+    (payment as { initiateTransfer: PayoutDeps["payment"]["initiateTransfer"] }).initiateTransfer = async () => ({ ok: false, error: { code: "conflict", message: "already exists", retryable: false } });
+    (payment as { verifyTransfer: PayoutDeps["payment"]["verifyTransfer"] }).verifyTransfer = async () => ({ ok: false, error: { code: "not_found", message: "no such transfer", retryable: false } });
+    const r = await sendPayout(deps, ID);
+    expect(r.status).toBe(502);
+    expect(calls.find((c) => c.fn === "payout_record_send")!.args).toMatchObject({ p_status: "error", p_error: "no such transfer" });
+  });
+
+  it("a failed record of what Paystack said is a 500, never a silent success", async () => {
+    const { deps, payment } = make();
+    const code = await recipient(payment);
+    const asUser: PayoutDeps["asUser"] = async () => ({ data: { reference: REF, amount_kobo: 181_000, recipient_code: code, reason: "x" }, error: null });
+    const asService: PayoutDeps["asService"] = async () => ({ data: null, error: { message: "boom" } });
+    expect(await sendPayout({ ...deps, asUser, asService }, ID)).toEqual({ status: 500, body: { error: "record_failed" } });
+  });
+
+  it("verifyBank: an unknown bank, an account that cannot be resolved, a recipient that fails, an attach that is refused", async () => {
+    const base = make();
+    expect((await verifyBank(base.deps, { bankCode: "999", accountNumber: "0123456789" })).body).toEqual({ error: "unknown_bank" });
+    const unresolved = make();
+    (unresolved.payment as { resolveAccount: PayoutDeps["payment"]["resolveAccount"] }).resolveAccount = async () => ({ ok: false, error: { code: "not_found", message: "x", retryable: false } });
+    expect((await verifyBank(unresolved.deps, { bankCode: "044", accountNumber: "0123456789" })).status).toBe(422);
+    (unresolved.payment as { resolveAccount: PayoutDeps["payment"]["resolveAccount"] }).resolveAccount = async () => ({ ok: false, error: { code: "network", message: "x", retryable: true } });
+    expect((await verifyBank(unresolved.deps, { bankCode: "044", accountNumber: "0123456789" })).status).toBe(502);
+    const matched = (over: (p: ReturnType<typeof createMockPayment>) => void, service?: PayoutDeps["asService"]) => {
+      const m = make();
+      const real = m.payment.resolveAccount.bind(m.payment);
+      (m.payment as { resolveAccount: typeof real }).resolveAccount = async (i) => {
+        const r = await real(i);
+        return r.ok ? { ok: true, data: { ...r.data, accountName: "OKAFOR ADA CHINWE" } } : r;
+      };
+      over(m.payment);
+      return { ...m, deps: service ? { ...m.deps, asService: service } : m.deps };
+    };
+    const noRecipient = matched((p) => { (p as { createTransferRecipient: PayoutDeps["payment"]["createTransferRecipient"] }).createTransferRecipient = async () => ({ ok: false, error: { code: "vendor_error", message: "x", retryable: true } }); });
+    expect((await verifyBank(noRecipient.deps, { bankCode: "044", accountNumber: "0123456789" })).body).toEqual({ error: "recipient_failed", retryable: true });
+    const inner = make().deps.asService;
+    const refusedAttach = matched(() => undefined, async (fn, args) => (fn === "attach_bank_recipient" ? { data: null, error: { message: "payout_bank_changed" } } : inner(fn, args)));
+    expect((await verifyBank(refusedAttach.deps, { bankCode: "044", accountNumber: "0123456789" })).status).toBe(409);
+    const refusedRecord = matched(() => undefined, async (fn, args) => (fn === "record_bank_resolution" ? { data: null, error: { message: "payout_bank_too_many_lookups" } } : inner(fn, args)));
+    expect((await verifyBank(refusedRecord.deps, { bankCode: "044", accountNumber: "0123456789" })).status).toBe(429);
+  });
+
+  it("listBanks: the list for a signed-in person, a refusal, and Paystack being down", async () => {
+    const { deps } = make();
+    const ok = await listBanks(deps);
+    expect(ok.status).toBe(200);
+    expect(Array.isArray(ok.body["banks"])).toBe(true);
+    expect((await listBanks({ ...deps, asUser: async () => ({ data: null, error: { message: "payout_not_a_contracted_clinician" } }) })).status).toBe(403);
+    const down = make();
+    down.payment.failNextCall();
+    expect((await listBanks(down.deps)).body).toEqual({ error: "banks_unavailable" });
   });
 });

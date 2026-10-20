@@ -1,10 +1,12 @@
 /**
  * Reads a webhook body with a size cap, BEFORE any signature work. A vendor's real events are a few kilobytes (Paystack, Zoom and Resend
- * all send well under 100 KB); a megabyte-sized body is either a mistake or someone trying to make the function hold it in memory. The
+ * all send well under 100 KB); a body over the limit is either a mistake or someone trying to make the function hold it in memory. The
+ * limit is the same 262144 bytes the inbox stores (`providers.layer` inbox.maxBodyBytes, PROPOSED), so a body is never accepted here and then
+ * refused by the inbox, which would fall back to handling it with no inbox row. If that setting is raised, raise this with it. The
  * Content-Length header is a quick refusal; the streamed count is the real check, because the header can be absent or false.
  * Plain Web APIs only, so Deno and Jest both run it.
  */
-export const MAX_WEBHOOK_BODY_BYTES = 1_048_576;
+export const MAX_WEBHOOK_BODY_BYTES = 262_144;
 
 export type CappedBody = { readonly ok: true; readonly body: string } | { readonly ok: false };
 

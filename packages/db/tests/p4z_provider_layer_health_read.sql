@@ -90,7 +90,16 @@ begin
   b := a; a := pg_temp.hj(v_admin);
   perform pg_temp.ck('a dead event is counted', '1', ((a #>> '{inbox,dead}')::integer - (b #>> '{inbox,dead}')::integer)::text);
 
-  -- 3. A flood of forged deliveries is shown but never judged -------------------------------------------------
+  -- 2b. An event being retried normally (failed, next attempt not yet due) is NOT counted as waiting, however old it is
+  b := a;
+  set local session_replication_role = replica;
+  insert into public.provider_events (provider, event_type, idempotency_key, raw_body, content_sha256, signature_verified, status, received_at, next_attempt_at, attempt_count)
+  values ('paystack', 'charge.success', 'p4z-retrying-' || gen_random_uuid(), '{}', repeat('d', 64), true, 'failed', now() - interval '3 days', now() + interval '30 minutes', 5);
+  set local session_replication_role = origin;
+  a := pg_temp.hj(v_admin);
+  perform pg_temp.ck('a failed event with its retry still ahead is not waiting too long, however old', '0', ((a #>> '{inbox,waiting_too_long}')::integer - (b #>> '{inbox,waiting_too_long}')::integer)::text);
+
+  -- 3. A provider whose messages ALL fail their signature check needs a look; one stranger among real traffic does not ------
   set local session_replication_role = replica;
   for v_n in 1..5 loop
     insert into public.provider_events (provider, event_type, idempotency_key, raw_body, content_sha256, signature_verified, status, received_at)
@@ -99,7 +108,15 @@ begin
   set local session_replication_role = origin;
   b := a; a := pg_temp.hj(v_admin);
   perform pg_temp.ck('rejected deliveries in the last day are shown', '5', ((a #>> '{inbox,rejected_24h}')::integer - (b #>> '{inbox,rejected_24h}')::integer)::text);
-  perform pg_temp.ck('and add no reason and do not count as waiting', 'true', ((jsonb_array_length(a -> 'reasons') = jsonb_array_length(b -> 'reasons')) and (a #>> '{inbox,waiting_too_long}') = (b #>> '{inbox,waiting_too_long}'))::text);
+  perform pg_temp.ck('all rejected and none passed adds a reason that names the secret', 'true', ((a ->> 'reasons') like '%resend: all 5 message(s)%wrong or rotated%')::text);
+  perform pg_temp.ck('and they do not count as waiting', 'true', ((a #>> '{inbox,waiting_too_long}') = (b #>> '{inbox,waiting_too_long}'))::text);
+  set local session_replication_role = replica;
+  insert into public.provider_events (provider, event_type, idempotency_key, raw_body, content_sha256, signature_verified, status, received_at, processed_at)
+  values ('resend', 'email.delivered', 'p4z-ok-' || gen_random_uuid(), '{}', repeat('e', 64), true, 'processed', now() - interval '5 minutes', now());
+  set local session_replication_role = origin;
+  a := pg_temp.hj(v_admin);
+  perform pg_temp.ck('with real traffic passing, the same strangers are shown but not judged', 'false|5', ((a ->> 'reasons') like '%resend: all%')::text || '|' || (a #>> '{inbox,rejected_24h}'));
+  perform pg_temp.ck('and the provider row shows its last message and counts', 'true', (exists (select 1 from jsonb_array_elements(a #> '{inbox,by_provider}') x where x ->> 'provider' = 'resend' and (x ->> 'verified_24h')::integer = 1 and (x ->> 'rejected_24h')::integer = 5))::text);
 
   -- 4. An open circuit breaker -----------------------------------------------------------------------------
   b := a;

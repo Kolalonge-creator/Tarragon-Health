@@ -109,7 +109,7 @@ Deno.test("with the inbox unreachable the event is handled directly, as before t
 Deno.test("a body over the size cap is refused with 413 before any signature work or storage", async () => {
   const store = createMemoryInbox();
   const { db, rpcCalls } = fakeDb();
-  const big = "x".repeat(1_048_577);
+  const big = "x".repeat(262_145);
   const res = await handleResendWebhook(new Request("https://x.test/resend", { method: "POST", body: big }), { secret: SECRET, db, store, nowMs: () => NOW });
   assertEquals(res.status, 413);
   assertEquals(store.rows.length, 0);

@@ -3,12 +3,17 @@
 -- (providers.layer), so the numbers that decide "needs a look" are the ones the inbox, breaker and reconciliation already run on.
 --
 --   * an event that gave up after every retry (status dead)                                   -> needs a look
---   * an event still waiting longer than a retry can ever be delayed (backoffMaxSeconds + leaseSeconds): nothing is draining the inbox
---     (provider-event-drain is not scheduled until the founder adds the cron) -> needs a look. This is the "it silently stopped" case.
+--   * an event whose NEXT ATTEMPT is overdue by more than a retry can ever be delayed (backoffMaxSeconds + leaseSeconds), or whose lease
+--     expired that long ago: nothing is draining the inbox (provider-event-drain is not scheduled until the founder adds the cron) ->
+--     needs a look. This is the "it silently stopped" case. It is measured from the due time, not from receipt, so an event being
+--     retried normally with its backoff growing is never counted.
+--   * a provider whose messages in the last day ALL failed their signature check (and none passed): the webhook secret is wrong or was
+--     rotated, the vendor is being answered "invalid" and is not retrying, so real events are being lost -> needs a look. A single stranger
+--     knocking among real traffic is shown but not judged.
 --   * a circuit breaker open (the platform has stopped calling that vendor operation)         -> needs a look
 --   * a reconciliation break older than reconciliation.unsettledAfterHours                     -> needs a look
 --   * a payout ledger posting that failed or was skipped                                        -> needs a look
--- Rejected (forged or unverifiable) deliveries in the last day are SHOWN but never judged: a count of strangers knocking is not an outage.
+-- Silence (no message at all) is shown as the last time one arrived, never judged: there is no expected traffic to compare it with.
 --
 -- Read only. Admin or the Chief Medical Officer (the same two people the chain-health page admits). Counts before: provider_events 2 rows.
 
@@ -26,6 +31,7 @@ declare
   v_breaks integer; v_breaks_old integer; v_oldest_break numeric;
   v_gl_failed integer; v_gl_skipped integer;
   v_per jsonb;
+  r record;
 begin
   if (select auth.uid()) is null or not (private.is_admin() or private.credential_is_cmo()) then
     raise exception 'provider_health_not_authorised' using errcode = '42501';
@@ -33,7 +39,8 @@ begin
   v_stale := v_back + v_lease;
 
   select count(*) filter (where status = 'dead'),
-         count(*) filter (where status in ('received', 'failed', 'processing') and received_at < now() - make_interval(secs => v_stale)),
+         count(*) filter (where (status in ('received', 'failed') and next_attempt_at < now() - make_interval(secs => v_stale))
+                            or (status = 'processing' and locked_until < now() - make_interval(secs => v_stale))),
          count(*) filter (where status = 'rejected' and received_at >= now() - interval '24 hours'),
          count(*) filter (where status in ('received', 'failed', 'processing')),
          extract(epoch from (now() - min(received_at) filter (where status in ('received', 'failed', 'processing'))))
@@ -45,12 +52,16 @@ begin
            'open', p.open,
            'oldest_open_seconds', p.oldest,
            'dead', p.dead,
+           'rejected_24h', p.rejected,
+           'verified_24h', p.verified,
            'last_received_at', p.last_received) order by p.provider), '[]'::jsonb)
     into v_per
     from (select e.provider,
                  count(*) filter (where e.status in ('received', 'failed', 'processing'))::integer as open,
                  coalesce(floor(extract(epoch from (now() - min(e.received_at) filter (where e.status in ('received', 'failed', 'processing')))))::integer, 0) as oldest,
                  count(*) filter (where e.status = 'dead')::integer as dead,
+                 count(*) filter (where e.status = 'rejected' and e.received_at >= now() - interval '24 hours')::integer as rejected,
+                 count(*) filter (where e.signature_verified and e.received_at >= now() - interval '24 hours')::integer as verified,
                  max(e.received_at) as last_received
             from public.provider_events e group by e.provider) p;
 
@@ -64,7 +75,13 @@ begin
   select count(*) filter (where status = 'failed'), count(*) filter (where status = 'skipped') into v_gl_failed, v_gl_skipped from public.payout_gl_postings;
 
   if v_dead > 0 then v_reasons := v_reasons || (v_dead || ' webhook event(s) gave up after every retry'); end if;
-  if v_stuck > 0 then v_reasons := v_reasons || (v_stuck || ' webhook event(s) have waited longer than a retry can take: nothing is draining the inbox (is provider-event-drain scheduled?)'); end if;
+  if v_stuck > 0 then v_reasons := v_reasons || (v_stuck || ' webhook event(s) are overdue by more than a retry can take: nothing is draining the inbox (is provider-event-drain scheduled?)'); end if;
+  for r in select e.provider, count(*) filter (where e.status = 'rejected')::integer as rej, count(*) filter (where e.signature_verified)::integer as ok
+             from public.provider_events e where e.received_at >= now() - interval '24 hours' group by e.provider order by e.provider loop
+    if r.rej > 0 and r.ok = 0 then
+      v_reasons := v_reasons || (r.provider || ': all ' || r.rej || ' message(s) in the last day failed their signature check and none passed (is the webhook secret wrong or rotated? the vendor is being refused and real events are lost)');
+    end if;
+  end loop;
   if v_breakers_open > 0 then v_reasons := v_reasons || (v_breakers_open || ' vendor operation(s) are switched off by the circuit breaker'); end if;
   if v_breaks_old > 0 then v_reasons := v_reasons || (v_breaks_old || ' reconciliation break(s) are older than ' || v_unsettled || ' hours'); end if;
   if v_gl_failed + v_gl_skipped > 0 then v_reasons := v_reasons || ((v_gl_failed + v_gl_skipped) || ' payout ledger posting(s) need finance'); end if;

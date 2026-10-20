@@ -31,11 +31,11 @@ export function ProviderLayerCard({ health }: { health: ProviderLayerHealth | nu
         <div className="overflow-x-auto">
           <table className="min-w-full text-left">
             <thead>
-              <tr><th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">Service</th><th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">Waiting to be handled</th><th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">Longest wait</th><th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">Gave up</th></tr>
+              <tr><th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">Service</th><th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">Waiting to be handled</th><th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">Longest wait</th><th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">Gave up</th><th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">Last day: accepted / refused</th><th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">Last message</th></tr>
             </thead>
             <tbody>
               {health.inbox.by_provider.length === 0 ? (
-                <tr><td className="px-3 py-2" colSpan={4}>No message from any service has been recorded yet.</td></tr>
+                <tr><td className="px-3 py-2" colSpan={6}>No message from any service has been recorded yet.</td></tr>
               ) : (
                 health.inbox.by_provider.map((p) => (
                   <tr key={p.provider}>
@@ -43,6 +43,8 @@ export function ProviderLayerCard({ health }: { health: ProviderLayerHealth | nu
                     <td className="px-3 py-2">{p.open}</td>
                     <td className="px-3 py-2">{p.open === 0 ? "none" : formatSeconds(p.oldest_open_seconds)}</td>
                     <td className="px-3 py-2">{p.dead}</td>
+                    <td className="px-3 py-2">{p.verified_24h} / {p.rejected_24h}</td>
+                    <td className="px-3 py-2">{p.last_received_at ? new Date(p.last_received_at).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "never"}</td>
                   </tr>
                 ))
               )}
@@ -50,11 +52,11 @@ export function ProviderLayerCard({ health }: { health: ProviderLayerHealth | nu
           </table>
         </div>
         <p>
-          A message that has waited more than {formatSeconds(health.inbox.stale_after_seconds)} has outlasted any retry, so something is not draining the inbox.
+          A message whose next attempt is more than {formatSeconds(health.inbox.stale_after_seconds)} overdue has outlasted any retry, so something is not draining the inbox.
           Switched off by the circuit breaker: {health.breakers.open}. Money differences open: {health.reconciliation.open_breaks}, of which {health.reconciliation.older_than_limit} are older than {health.reconciliation.limit_hours} hours.
           Payout ledger entries needing finance: {health.payout_postings.failed + health.payout_postings.skipped}.
         </p>
-        <p className="text-charcoal-ink/60">Messages that failed their signature check in the last day: {health.inbox.rejected_24h} (shown, not counted as a fault). Details are on the Providers board.</p>
+        <p className="text-charcoal-ink/60">Messages refused for a failed signature check in the last day: {health.inbox.rejected_24h}. A few among real traffic are shown, not counted as a fault; a service where every message was refused is. Silence is shown as the last message time, not judged. Details are on the Providers board.</p>
       </CardContent>
     </Card>
   );

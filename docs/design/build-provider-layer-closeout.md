@@ -3,13 +3,13 @@
 Branch `build/provider-layer-completion`. Nothing was applied, deployed, merged or switched on. No live vendor was called. No signed configuration value changed. All four provider flags, `payouts_enabled`, `payout_gl_posting` and AI-017 are as they were (OFF). Design: `docs/design/build-provider-layer.md`. Research and vendor audit: `docs/research/build-provider-layer.md`.
 
 ## Built
-- Vendor audit of Zoom, Paystack, Resend, Termii and a speech shortlist, with every field mapping tabled; five defects fixed (Zoom webhook replay window and constant-time compare, `start_time` format, Svix timestamp strictness, oversize body cap on all three webhooks, payout send after a timeout now looks the reference up).
-- 31 recorded-fixture contract tests plus branch tests; `check-adapter-coverage.mjs` makes 100 percent of branches, lines, functions and statements on the eleven vendor-facing modules a failing condition of `pnpm test` in `packages/integrations`.
+- Vendor audit of Zoom, Paystack, Resend, Termii and a speech shortlist, with every field mapping tabled; defects fixed (Zoom webhook constant-time compare, `start_time` format, Svix timestamp strictness, 256 KiB body cap on all three webhooks, payout send after a timeout or unreadable reply now looks the reference up).
+- 31 recorded-fixture contract tests plus branch tests; `check-adapter-coverage.mjs` makes 100 percent of branches, lines, functions and statements on the fourteen vendor-facing modules a failing condition of `pnpm test` in `packages/integrations`.
 - `scripts/provider-sandbox-check.mjs` and runbook: PASS / FAIL / SKIP per capability against vendor sandboxes; refuses `sk_live`; masks secrets; 10 tests with sabotage.
 - Audio fallback handset probe and report tool; 6 tests.
 - Speech gold-set pass-mark gate (95 percent), scaffold, `SCORING.md`; 23 tests across the harness.
-- Payout re-audit: CMO as second approver enforced in the database (OQ-338), maker-checker flag tied to the `payouts_enabled` guard both ways. Proof `p4y` (sabotage caught); S31x proof updated and still 59 of 59.
-- `public.provider_layer_health()` and a card on both chain-health pages. Proof `p4z` (15 checks, sabotage caught). No cron added.
+- Payout re-audit: CMO as second approver enforced in the database (OQ-338), a batch cannot pay its own maker, maker-checker flag tied to the `payouts_enabled` guard both ways (flag cannot be turned off, renamed or deleted while the guard is on). Proof `p4y` (sabotage caught); S31x proof updated (59 of 59) and the S37 guard proof updated to turn the flag on first (S37 is a fresh-replay proof and cannot run against live data; it needs the CI replay).
+- `public.provider_layer_health()` and a card on both chain-health pages. Proof `p4z` (sabotage caught); a provider whose every message failed its signature check (wrong or rotated secret) now shows as needing a look. No cron added.
 
 ## Credentials and accounts the founder must supply, per remaining check
 | Check | Needs | Command |

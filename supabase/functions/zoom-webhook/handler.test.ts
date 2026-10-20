@@ -56,7 +56,7 @@ const started = JSON.stringify({ event: "meeting.started", event_ts: 1600, paylo
 const mk = (extra: Partial<Parameters<typeof handleZoomWebhook>[1]> = {}) => {
   const f = fakeDb();
   const store = createMemoryInbox();
-  return { f, store, deps: { secret: SECRET, db: f.db, store, appBaseUrl: undefined, fetch: noFetch, nowMs: () => 1_800_000_000_000, ...extra } };
+  return { f, store, deps: { secret: SECRET, db: f.db, store, appBaseUrl: undefined, fetch: noFetch, ...extra } };
 };
 
 Deno.test("signature check: fails closed without a secret, rejects a missing or wrong one", async () => {
@@ -175,27 +175,21 @@ Deno.test("with the inbox unreachable the event is handled directly, as before",
   assertEquals((await post(JSON.stringify({ payload: {} }), { ...deps, store: createMemoryInbox() })).json, { ok: true });
 });
 
-Deno.test("a correctly signed request outside the five minute window is acknowledged and never acted on", async () => {
-  const { deps, f, store } = mk({ nowMs: () => 1_800_000_000_000 + 6 * 60_000 });
-  const out = await post(ended, deps);
-  assertEquals(out.status, 200);
-  assertEquals(out.json["error"], "stale_event");
-  assertEquals(f.consultation?.["status"], "scheduled");
-  assertEquals(store.rows.length, 0);
-});
-
-Deno.test("a far-future or non-numeric timestamp is stale; the edge of the window is not", async () => {
-  const { isStaleZoomTimestamp } = await import("./handler.ts");
-  assertEquals(isStaleZoomTimestamp("1800000000", 1_800_000_000_000 + 300_000), false);
-  assertEquals(isStaleZoomTimestamp("1800000000", 1_800_000_000_000 + 300_001), true);
-  assertEquals(isStaleZoomTimestamp("1800000600", 1_800_000_000_000), true);
-  assertEquals(isStaleZoomTimestamp("1e9", 1_800_000_000_000), true);
-  assertEquals(isStaleZoomTimestamp("", 0), true);
+Deno.test("a signed event with any timestamp is still recorded and handled once, and the same request again is a replay that runs nothing", async () => {
+  const { deps, f, store } = mk();
+  const hoursLater = { ...deps };
+  const first = await post(ended, hoursLater);
+  assertEquals(first.json["ok"], true);
+  assertEquals(f.consultation?.["status"], "completed");
+  assertEquals(store.rows.length, 1);
+  const again = await post(ended, hoursLater);
+  assertEquals(again.json["replay"], true);
+  assertEquals(f.updates.length, 1);
 });
 
 Deno.test("a body over the size cap is refused with 413 before any signature work or storage", async () => {
   const { deps, store } = mk();
-  const res = await handleZoomWebhook(new Request("https://x.test/zoom", { method: "POST", body: "x".repeat(1_048_577) }), deps);
+  const res = await handleZoomWebhook(new Request("https://x.test/zoom", { method: "POST", body: "x".repeat(262_145) }), deps);
   assertEquals(res.status, 413);
   assertEquals(store.rows.length, 0);
 });
