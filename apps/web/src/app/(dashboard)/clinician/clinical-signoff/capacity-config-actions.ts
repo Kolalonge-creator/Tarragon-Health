@@ -14,7 +14,7 @@ import { setFlash } from "@/lib/go-live/flash";
  * (42501) and refuse a version already signed or older than the one in force. Nothing else calls these.
  */
 const versionSchema = z.coerce.number().int().min(1).max(10_000);
-const FN = { capacity: "sign_capacity_cover_config", lead: "sign_lead_config" } as const;
+const FN = { capacity: "sign_capacity_cover_config", lead: "sign_lead_config", opsDesk: "sign_ops_desk_config" } as const;
 
 async function sign(kind: keyof typeof FN, formData: FormData): Promise<void> {
   const path = "/clinician/clinical-signoff";
@@ -40,4 +40,9 @@ export async function signCapacityConfigAction(formData: FormData): Promise<void
 
 export async function signLeadConfigAction(formData: FormData): Promise<void> {
   return sign("lead", formData);
+}
+
+/** The ops desk checklist gate (OQ-441): signing a version that gates readiness stops the on-call cover guard being switched on until the checklist is attested. */
+export async function signOpsDeskConfigAction(formData: FormData): Promise<void> {
+  return sign("opsDesk", formData);
 }
