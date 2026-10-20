@@ -252,6 +252,8 @@ alter table public.vitals_readings add column assisted_entry boolean not null de
 comment on column public.vitals_readings.assisted_entry is 'True when a helper (family caregiver, later a verified pharmacy) entered this reading for the person. Set by private.assisted_entry_guard only.';
 alter table public.vitals_readings add column assisted_rate_exceeded boolean not null default false;
 comment on column public.vitals_readings.assisted_rate_exceeded is 'True when a helper entered this reading past the per-hour or per-day limit. The reading is STORED and runs the red-flag triggers like any other; the limit only flags it (a limit must never block a dangerous reading). Set by private.assisted_entry_guard only.';
+-- The corrected-table read view is `select *` frozen at creation, so it must be re-created to carry the new columns (S05b checklist item 6).
+create or replace view private.vitals_readings_current with (security_invoker = false) as select * from public.vitals_readings where correction_status is null;
 create index vitals_readings_assisted_idx on public.vitals_readings (logged_by_profile_id, received_at) where assisted_entry;
 
 -- The guard and the ledger use assisted_entry_basis. The insert policy is the coarser first gate (capability only); the guard is the stricter one.
@@ -326,17 +328,17 @@ begin
     v_hour := (v_rules ->> 'max_per_helper_per_person_per_hour')::integer;
     v_day := (v_rules ->> 'max_per_helper_per_day')::integer;
     -- A retry of a reading that already landed (same client reading id) is a duplicate, not a new entry: let the unique index answer it.
-    if new.client_reading_id is not null and exists (select 1 from public.vitals_readings v where v.patient_id = new.patient_id and v.client_reading_id = new.client_reading_id) then
+    if new.client_reading_id is not null and exists (select 1 from private.vitals_readings_current v where v.patient_id = new.patient_id and v.client_reading_id = new.client_reading_id) then
       new.assisted_entry := true;
       return new;
     end if;
-    select count(*) into v_n from public.vitals_readings
+    select count(*) into v_n from private.vitals_readings_current
      where logged_by_profile_id = v_uid and assisted_entry and patient_id = new.patient_id and received_at > now() - interval '1 hour';
     -- Past a limit the reading is STORED and flagged, never refused: it must reach the red-flag triggers whatever its value.
     if v_n >= v_hour then
       new.assisted_rate_exceeded := true;
     end if;
-    select count(*) into v_n from public.vitals_readings
+    select count(*) into v_n from private.vitals_readings_current
      where logged_by_profile_id = v_uid and assisted_entry and received_at > now() - interval '24 hours';
     if v_n >= v_day then
       new.assisted_rate_exceeded := true;

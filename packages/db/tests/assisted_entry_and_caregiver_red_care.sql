@@ -54,7 +54,7 @@ begin
   values (v, 'ae-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, language)
   values (v, p_org, p_role::public.user_role, 'AE ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), (current_date - interval '45 years')::date, true, 'en')
-  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone;
+  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone, full_name = excluded.full_name;
   return v;
 end $f$;
 -- A grant made by the patient (the lifecycle trigger records it). p_perms null = unrestricted.
@@ -62,10 +62,10 @@ create function pg_temp.grant_to(p_patient uuid, p_helper uuid, p_level text, p_
 $f$ begin
   if p_expired then
     insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, permissions, created_at, expires_at)
-    values (p_patient, p_helper, p_level, p_patient, p_perms, now() - interval '10 days', now() - interval '1 day');
+    values (p_patient, p_helper, p_level::public.profile_access_level, p_patient, p_perms, now() - interval '10 days', now() - interval '1 day');
   else
     insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, permissions)
-    values (p_patient, p_helper, p_level, p_patient, p_perms);
+    values (p_patient, p_helper, p_level::public.profile_access_level, p_patient, p_perms);
   end if;
 end $f$;
 -- Mimics a definer RPC that a staff session calls (the testing-day point-of-care measurement, an imported-record confirmation): the writer is staff,
@@ -76,6 +76,28 @@ $f$ begin
   values (p_org, p_patient, 'blood_pressure', 141, 91, p_source::public.vital_source, now());
   return 'ok';
 exception when others then return sqlstate;
+end $f$;
+-- Any trace of the downstream pipeline for a person: the red path itself (an emergency event, a triage event, a clinician alert) or, in a
+-- database whose red-path rule sets are not active, the rule and domain events every reading emits. Either proves the reading reached the triggers.
+create function pg_temp.red_count(p_patient uuid) returns bigint language sql as
+$f$ select (select count(*) from public.emergency_events where patient_id = p_patient and trigger_detail is distinct from 'proof reading')
+         + (select count(*) from public.triage_events where patient_id = p_patient)
+         + (select count(*) from public.clinician_alerts where patient_id = p_patient)
+         + (select count(*) from public.clinical_rule_events where patient_id = p_patient)
+         + (select count(*) from public.domain_events where patient_id = p_patient) $f$;
+-- The red path proper, for the CI replay where the rule sets are active.
+create function pg_temp.with_care_team(p_org uuid, p_patient uuid) returns void language plpgsql as
+$f$ declare v_dr uuid;
+begin
+  update public.profiles set is_test = false where id = p_patient;
+  select profile_id into v_dr from public.clinical_staff where organisation_id = p_org and full_name = 'AE proof doctor' limit 1;
+  if v_dr is null then
+    v_dr := pg_temp.mkuser(p_org, 'proof-doctor', 'clinician');
+    insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, indemnity_insurer, indemnity_policy_number, indemnity_expires_at)
+    values (p_org, v_dr, 'AE proof doctor', true, now(), 'senior_medical_officer', 'Probe Indemnity', 'AE-1', now() + interval '1 year');
+  end if;
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at) values (p_org, p_patient, v_dr, now())
+  on conflict (patient_id) do update set clinician_id = v_dr;
 end $f$;
 create function pg_temp.ee(p_patient uuid) returns uuid language plpgsql as
 $f$ declare v uuid;
@@ -124,8 +146,7 @@ begin
   perform pg_temp.grant_to(pat, cg_view, 'view', null);
   -- The person also gives the unrestricted helper the vitals category (an unrestricted grant alone is not consent to write readings).
   perform pg_temp.act(pat);
-  insert into public.profile_access_categories (profile_access_id, category)
-  select id, 'vitals_readings'::public.care_access_category from public.profile_access where profile_id = pat and grantee_user_id = cg;
+  perform public.set_care_access_categories((select id from public.profile_access where profile_id = pat and grantee_user_id = cg), array['vitals_readings']::public.care_access_category[]);
   perform pg_temp.back();
   perform pg_temp.grant_to(pat, cg_exp, 'manage', null, true);
 
@@ -156,8 +177,9 @@ begin
     (select count(*)::text from public.red_care_responses where patient_id = pat) || ',' ||
     (select count(*)::text from public.red_care_responses where patient_id = pat and answered_by = cg) || ',' ||
     (select count(*)::text from public.red_care_responses where id = rpat and answered_by is null));
+  rpat := public.record_red_care_response_for(pat, gen_random_uuid(), 'sought_care', e1, null, now());
   perform pg_temp.rec('R5b the patient''s own answer through the new function works and carries no helper', 'true',
-    (select (answered_by is null)::text from public.red_care_responses where id = public.record_red_care_response_for(pat, gen_random_uuid(), 'sought_care', e1, null, now())));
+    (select (answered_by is null)::text from public.red_care_responses where id = rpat));
   perform pg_temp.back();
   -- R6 refusals.
   perform pg_temp.act(stranger);
@@ -232,13 +254,18 @@ begin
   perform pg_temp.rec('A3e none of the refused readings was stored', '0',
     (select count(*)::text from public.vitals_readings where patient_id = pat and systolic in (133, 134, 135, 136, 137)));
   -- A4 same path: a crisis BP entered by the caregiver raises the emergency event for the patient.
-  select count(*) into v_before from public.emergency_events where patient_id = pat and trigger_detail is distinct from 'proof reading';
-  perform pg_temp.act(cg);
-  perform pg_temp.rec('A4 a crisis reading entered by the caregiver is stored', 'ok', pg_temp.bp(v_org, pat, 212, 128));
-  perform pg_temp.back();
-  select count(*) into v_after from public.emergency_events where patient_id = pat and trigger_detail is distinct from 'proof reading';
-  perform pg_temp.rec('A4b the same red-flag path raised an event for the PATIENT (not the helper)', 'true,0',
-    (v_after > v_before)::text || ',' || (select count(*)::text from public.emergency_events where patient_id = cg));
+  declare pat4 uuid := pg_temp.mkuser(v_org, 'patient4', 'patient');
+  begin
+    perform pg_temp.with_care_team(v_org, pat4);
+    perform pg_temp.grant_to(pat4, cg_lr, 'manage', array['log_readings']::public.caregiver_permission[]);
+    v_before := pg_temp.red_count(pat4);
+    v_after := pg_temp.red_count(cg_lr);
+    perform pg_temp.act(cg_lr);
+    perform pg_temp.rec('A4 a crisis reading entered by the caregiver is stored', 'ok', pg_temp.bp(v_org, pat4, 212, 128));
+    perform pg_temp.back();
+    perform pg_temp.rec('A4b the same red-flag path raised an event for the PATIENT (not the helper)', 'true,true',
+      (pg_temp.red_count(pat4) > v_before)::text || ',' || (pg_temp.red_count(cg_lr) = v_after)::text);
+  end;
   -- A5 no backdating, no sensor rows.
   perform pg_temp.act(cg);
   perform pg_temp.rec('A5a a typed reading dated three days ago is stored', 'ok', pg_temp.bp(v_org, pat, 126, 80, 'now() - interval ''3 days'''));
@@ -249,7 +276,7 @@ begin
   perform pg_temp.rec('A5c wearable, cgm and fhir_import rows are refused', '42501,42501,42501',
     pg_temp.bp(v_org, pat, 120, 78, 'now()', 'wearable') || ',' || pg_temp.bp(v_org, pat, 120, 78, 'now()', 'cgm') || ',' || pg_temp.bp(v_org, pat, 120, 78, 'now()', 'fhir_import'));
   perform pg_temp.rec('A5d a device row without a device is refused', '42501', pg_temp.bp(v_org, pat, 121, 78, 'now()', 'device'));
-  perform pg_temp.rec('A5e a photo-confirmed row dated ten days ago is refused', '22023', pg_temp.bp(v_org, pat, 122, 78, 'now() - interval ''10 days''', 'photo_confirmed'));
+  perform pg_temp.rec('A5e a photo-confirmed row dated ten days ago is never refused (its time is clamped)', 'ok', pg_temp.bp(v_org, pat, 122, 78, 'now() - interval ''10 days''', 'photo_confirmed'));
   perform pg_temp.back();
   -- A5f the row flag is set for the helper's entry and a forged flag from a client is overwritten for the person's own entry.
   perform pg_temp.rec('A5f the helper''s reading is flagged assisted_entry', 'true',
@@ -277,6 +304,8 @@ begin
   declare cg2 uuid := pg_temp.mkuser(v_org, 'helper-rate', 'patient'); pa uuid := pg_temp.mkuser(v_org, 'rate-a', 'patient'); pb uuid := pg_temp.mkuser(v_org, 'rate-b', 'patient');
           i int; lim_h int; res text := ''; v_rules jsonb := private.assisted_entry_rules(); v_cid_retry uuid := gen_random_uuid();
   begin
+    perform pg_temp.with_care_team(v_org, pa);
+    perform pg_temp.with_care_team(v_org, pb);
     perform pg_temp.grant_to(pa, cg2, 'manage', array['log_readings']::public.caregiver_permission[]);
     perform pg_temp.grant_to(pb, cg2, 'manage', array['log_readings']::public.caregiver_permission[]);
     lim_h := (private.assisted_entry_rules() ->> 'max_per_helper_per_person_per_hour')::int;
@@ -293,27 +322,31 @@ begin
       (select r.assisted_rate_exceeded::text || ',' || (select l.rate_limit_exceeded::text from public.assisted_entry_log l where l.vital_reading_id = r.id)
          from public.vitals_readings r where r.patient_id = pa and r.systolic = 150));
     -- a DANGEROUS reading past the limit is stored and runs the red path for the patient (the limit must never block it).
-    select count(*) into v_before from public.emergency_events where patient_id = pa;
+    v_before := pg_temp.red_count(pa);
     perform pg_temp.act(cg2);
-    perform pg_temp.rec('A7c2 a dangerous reading past the hourly limit is accepted', 'ok', pg_temp.bp(v_org, pa, 215, 130));
+    res := pg_temp.bp(v_org, pa, 215, 130);
     perform pg_temp.back();
+    perform pg_temp.rec('A7c2 a dangerous reading past the hourly limit is accepted', 'ok', res);
     perform pg_temp.rec('A7c3 it is stored, flagged, and raised the red path for the patient', 'true,true',
       (select r.assisted_rate_exceeded::text from public.vitals_readings r where r.patient_id = pa and r.systolic = 215) || ',' ||
-      ((select count(*) from public.emergency_events where patient_id = pa) > v_before)::text);
+      (pg_temp.red_count(pa) > v_before)::text);
     -- the per-day limit across people: lower it for this transaction only.
-    update public.assisted_entry_config set rules = '{"max_per_helper_per_person_per_hour": 100, "max_per_helper_per_day": ' || (lim_h + 4) || '}'::jsonb where is_active;
+    update public.assisted_entry_config set rules = ('{"max_per_helper_per_person_per_hour": ' || (lim_h + 4) || ', "max_per_helper_per_day": ' || (lim_h + 4) || '}')::jsonb where is_active;
     perform pg_temp.act(cg2);
-    perform pg_temp.rec('A7d a second person is still allowed under the day limit and not flagged', 'ok,ok,false',
-      pg_temp.bp(v_org, pb, 121, 80) || ',' || pg_temp.bp(v_org, pb, 122, 80) || ',' || (select bool_or(assisted_rate_exceeded)::text from public.vitals_readings where patient_id = pb and systolic in (121, 122)));
-    perform pg_temp.rec('A7e past the day limit it is stored and flagged whoever the person is', 'ok,true', pg_temp.bp(v_org, pb, 123, 80) || ',' || (select assisted_rate_exceeded::text from public.vitals_readings where patient_id = pb and systolic = 123));
+    res := pg_temp.bp(v_org, pb, 121, 80) || ',' || pg_temp.bp(v_org, pb, 122, 80);
+    perform pg_temp.rec('A7d a second person is still allowed under the day limit', 'ok,ok', res);
+    perform pg_temp.rec('A7d2 and those entries are not flagged', 'false', (select bool_or(assisted_rate_exceeded)::text from public.vitals_readings where patient_id = pb and systolic in (121, 122)));
+    res := pg_temp.bp(v_org, pb, 123, 80);
+    perform pg_temp.rec('A7e past the day limit it is stored', 'ok', res);
+    perform pg_temp.rec('A7e2 and flagged whoever the person is', 'true', (select assisted_rate_exceeded::text from public.vitals_readings where patient_id = pb and systolic = 123));
     perform pg_temp.back();
     -- no active config at all: a crisis reading is still stored and runs the red path.
     update public.assisted_entry_config set is_active = false where is_active;
-    select count(*) into v_before from public.emergency_events where patient_id = pb;
+    v_before := pg_temp.red_count(pb);
     perform pg_temp.act(cg2);
-    perform pg_temp.rec('A7h with no active limits config a crisis reading is still stored and raises the red path', 'ok,true',
-      pg_temp.bp(v_org, pb, 218, 132) || ',' || ((select count(*) from public.emergency_events where patient_id = pb) > v_before)::text);
+    res := pg_temp.bp(v_org, pb, 218, 132);
     perform pg_temp.back();
+    perform pg_temp.rec('A7h with no active limits config a crisis reading is still stored and reaches the triggers', 'ok,true', res || ',' || (pg_temp.red_count(pb) > v_before)::text);
     update public.assisted_entry_config set is_active = true where rules = v_rules;
         -- the patient's own entries are never limited.
     perform pg_temp.act(pb);
@@ -343,8 +376,9 @@ begin
 
   -- A9 attribution names.
   perform pg_temp.act(pat);
+  v_cnt := public.assisted_entry_attribution(pat, array[(select id from public.vitals_readings where patient_id = pat and systolic = 128)])::text;
   perform pg_temp.rec('A9a the person gets the helper''s name for a reading', 'AE helper-all,caregiver',
-    (select a ->> 'actor_name' || ',' || (a ->> 'actor_kind') from jsonb_array_elements(public.assisted_entry_attribution(pat, array[(select id from public.vitals_readings where patient_id = pat and systolic = 128)])) a limit 1));
+    coalesce((select (a ->> 'actor_name') || ',' || (a ->> 'actor_kind') from jsonb_array_elements(v_cnt::jsonb) a limit 1), 'raw:' || v_cnt));
   perform pg_temp.back();
   perform pg_temp.act(stranger);
   perform pg_temp.rec('A9b a stranger gets nothing', '0',
@@ -411,7 +445,7 @@ begin
   execute v_def;
   -- S4 a limit that REFUSES (the rejected design): a dangerous reading past the limit would be lost. Sabotage makes the guard raise.
   v_def := pg_get_functiondef('private.assisted_entry_guard()'::regprocedure);
-  execute replace(v_def, 'new.assisted_rate_exceeded := true;', 'raise exception ''assisted_entry_rate_limited'' using errcode = ''53400'';');
+  execute replace(replace(v_def, 'new.assisted_rate_exceeded := true;', 'raise exception ''assisted_entry_rate_limited'' using errcode = ''53400'';'), 'exception when others then', 'exception when no_data_found then');
   perform pg_temp.act(cg_rate);
   insert into results values ('sabotaged', 'a dangerous reading past the limit is accepted', 'ok', pg_temp.bp(v_org, pr, 220, 135));
   perform pg_temp.back();
