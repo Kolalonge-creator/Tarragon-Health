@@ -26,6 +26,7 @@ import { PrnLimitRulesPanel } from "../_signoff-panels/prn-limit-rules-panel";
 import { HomeBpProgrammePanel } from "../_signoff-panels/home-bp-programme-panel";
 import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
 import { ObservationLimitsPanel } from "../_signoff-panels/observation-limits-panel";
+import { ActivitySafetyConfigPanel } from "../_signoff-panels/activity-safety-config-panel";
 import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
 import { TriageRulesPanel } from "../_signoff-panels/triage-rules-panel";
 import { QualityConfigPanel } from "../_signoff-panels/quality-config-panel";
@@ -84,6 +85,7 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   home_bp_programme_signoffs: () => <HomeBpProgrammePanel />,
   my_health_config: () => <MyHealthConfigPanel />,
   observation_limit_signoffs: () => <ObservationLimitsPanel />,
+  activity_safety_config: () => <ActivitySafetyConfigPanel />,
 };
 
 /**

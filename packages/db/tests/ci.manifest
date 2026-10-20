@@ -1321,3 +1321,6 @@ oq436_deadman_status.sql
 # --- Added 2026-10-20 (S47a observation types and safety) ---
 # Water/sleep/mood vital types + inhaler log + plausibility CHECK + events + signed limits. Born off; existing glucose red-flag engine untouched. Sabotage: CHECK dropped, guard trigger dropped, glucose backstop disabled; each must flip.
 s47a_observation_types.sql
+
+# S48a: activity safety gate (red event in 48h = rest, enforced on enrolment incl. re-activation), kinds/goals/events, unreviewed workout plans hidden, owner-only private routes. Sabotage: trigger dropped, gate ignoring red, staff route policy; each must flip.
+s48a_activity_safety_gate.sql
