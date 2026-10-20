@@ -35,6 +35,11 @@ describe("ChangedMarker", () => {
     expect(screen.getByText("Changed")).toBeTruthy();
     expect(screen.getByLabelText(/You changed this entry/)).toBeTruthy();
   });
+  it("does not say 'you changed' when someone else made the change", () => {
+    render(<ChangedMarker reading={{ supersedes_id: "old-1", patient_id: "p1", logged_by_profile_id: "staff-1" }} />);
+    expect(screen.getByLabelText(/changed by someone else/)).toBeTruthy();
+    expect(screen.queryByLabelText(/You changed this entry/)).toBeNull();
+  });
   it("shows nothing for an untouched reading", () => {
     const { container } = render(<ChangedMarker reading={{ supersedes_id: null }} />);
     expect(container.textContent).toBe("");

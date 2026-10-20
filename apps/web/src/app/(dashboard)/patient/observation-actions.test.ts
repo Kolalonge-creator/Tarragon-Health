@@ -8,12 +8,13 @@ jest.mock("@/lib/acting/acting-for", () => ({ resolveSubjectId: async (id: strin
 const insert = jest.fn();
 const rpc = jest.fn();
 const moduleRow = jest.fn();
+const storedRow = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: "patient-1" } } }) },
     from: (table: string) => {
       if (table === "profiles") return { select: () => ({ eq: () => ({ single: async () => ({ data: { organisation_id: "org-1" } }) }) }) };
-      if (table === "vitals_readings") return { insert };
+      if (table === "vitals_readings") return { insert, select: () => ({ eq: () => ({ maybeSingle: storedRow }) }) };
       if (table === "platform_modules") return { select: () => ({ eq: () => ({ maybeSingle: moduleRow }) }) };
       throw new Error(`unexpected table ${table}`);
     },
@@ -21,7 +22,7 @@ jest.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-import { correctOwnReading, logInhalerUse, logObservation } from "./observation-actions";
+import { correctInhalerUse, correctOwnReading, logInhalerUse, logObservation } from "./observation-actions";
 
 const fd = (o: Record<string, string>) => {
   const f = new FormData();
@@ -29,11 +30,14 @@ const fd = (o: Record<string, string>) => {
   return f;
 };
 const ID = "5b1f1b6e-2d6c-4b7e-8d57-1f0e7d0c9a11";
+let storedType = "weight";
 
 beforeEach(() => {
   insert.mockReset().mockResolvedValue({ error: null });
   rpc.mockReset().mockResolvedValue({ data: {}, error: null });
   moduleRow.mockReset().mockResolvedValue({ data: { is_enabled: true }, error: null });
+  storedRow.mockReset().mockImplementation(async () => ({ data: { vital_type: storedType }, error: null }));
+  storedType = "weight";
 });
 
 describe("logObservation", () => {
@@ -102,12 +106,25 @@ describe("correctOwnReading", () => {
   });
 
   it("converts a glucose typed in mg/dL to the stored mmol/L", async () => {
+    storedType = "glucose";
     await correctOwnReading(undefined, fd({ reading_id: ID, vital_type: "glucose", glucose_unit: "mg_dl", new_value: "108", reason: "misread the meter" }));
     expect((rpc.mock.calls[0][1] as { p_replacement: { glucose_mmol_l: number } }).p_replacement.glucose_mmol_l).toBeCloseTo(5.99, 1);
   });
 
+  it("takes the type from the stored row, not the form: a weight posted for a pulse or blood pressure row is refused and nothing is changed", async () => {
+    storedType = "pulse";
+    expect((await correctOwnReading(undefined, fd({ reading_id: ID, vital_type: "weight", new_value: "80", reason: "wrong number" })))?.error).toContain("does not match");
+    storedType = "blood_pressure";
+    expect((await correctOwnReading(undefined, fd({ reading_id: ID, vital_type: "weight", new_value: "80", reason: "wrong number" })))?.error).toContain("does not match");
+    storedRow.mockResolvedValue({ data: null, error: null });
+    expect((await correctOwnReading(undefined, fd({ reading_id: ID, vital_type: "weight", new_value: "80", reason: "wrong number" })))?.error).toContain("could not be found");
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("will not change a blood pressure here, and refuses an implausible replacement", async () => {
+    storedType = "blood_pressure";
     expect((await correctOwnReading(undefined, fd({ reading_id: ID, vital_type: "blood_pressure", new_value: "120", reason: "wrong number" })))?.error).toContain("care team");
+    storedType = "water_ml";
     expect((await correctOwnReading(undefined, fd({ reading_id: ID, vital_type: "water_ml", new_value: "99999", reason: "wrong number" })))?.error).toContain("millilitres");
     expect((await correctOwnReading(undefined, fd({ reading_id: ID, vital_type: "weight", new_value: "70", reason: "x" })))?.error).toContain("at least 5");
     expect(rpc).not.toHaveBeenCalled();
@@ -118,5 +135,22 @@ describe("correctOwnReading", () => {
     expect((await correctOwnReading(undefined, fd({ reading_id: ID, vital_type: "weight", new_value: "70", reason: "wrong number" })))?.error).toContain("care team");
     rpc.mockResolvedValue({ data: null, error: { code: "22023", message: "already" } });
     expect((await correctOwnReading(undefined, fd({ reading_id: ID, vital_type: "weight", new_value: "70", reason: "wrong number" })))?.error).toContain("already changed");
+  });
+});
+
+describe("correctInhalerUse", () => {
+  it("changes an entry through correct_inhaler_use and maps the refusals to plain words", async () => {
+    expect(await correctInhalerUse(undefined, fd({ id: ID, puffs: "3", reason: "other", why: "it was three puffs" }))).toEqual({ success: true });
+    expect(rpc).toHaveBeenCalledWith("correct_inhaler_use", { p_id: ID, p_puffs: 3, p_reason: "other", p_why: "it was three puffs" });
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "no" } });
+    expect((await correctInhalerUse(undefined, fd({ id: ID, puffs: "3", reason: "other", why: "it was three puffs" })))?.error).toContain("your own");
+    rpc.mockResolvedValue({ data: null, error: { code: "22023", message: "this entry was already changed" } });
+    expect((await correctInhalerUse(undefined, fd({ id: ID, puffs: "3", reason: "other", why: "it was three puffs" })))?.error).toContain("already changed");
+  });
+  it("refuses 25 puffs and a missing reason for the change before calling the database", async () => {
+    rpc.mockClear();
+    expect((await correctInhalerUse(undefined, fd({ id: ID, puffs: "25", reason: "other", why: "it was wrong" })))?.error).toContain("1 to 20");
+    expect((await correctInhalerUse(undefined, fd({ id: ID, puffs: "2", reason: "other", why: "x" })))?.error).toContain("at least 5");
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

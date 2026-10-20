@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Tables } from "@tarragon/shared";
 import { en } from "@tarragon/i18n";
@@ -40,13 +40,20 @@ export function canOfferEdit(reading: Pick<Tables<"vitals_readings">, "vital_typ
   );
 }
 
-export function ChangedMarker({ reading }: { reading: Pick<Tables<"vitals_readings">, "supersedes_id"> }) {
+export function ChangedMarker({
+  reading,
+}: {
+  reading: Pick<Tables<"vitals_readings">, "supersedes_id"> & Partial<Pick<Tables<"vitals_readings">, "patient_id" | "logged_by_profile_id">>;
+}) {
   if (!reading.supersedes_id) return null;
+  // a replacement entered by someone other than the person (the care team, a supporter) is not worded as her own change
+  const byOther = Boolean(reading.logged_by_profile_id && reading.patient_id && reading.logged_by_profile_id !== reading.patient_id);
+  const words = byOther ? en["observation.changed.a11y_other"] : en["observation.changed.a11y"];
   return (
     <span
       className="ml-2 inline-block rounded-full border border-charcoal-ink/30 px-2 py-0.5 text-[11px] font-medium text-charcoal-ink dark:border-night-ink/40 dark:text-night-ink"
-      title={en["observation.changed.a11y"]}
-      aria-label={en["observation.changed.a11y"]}
+      title={words}
+      aria-label={words}
     >
       {en["observation.changed.marker"]}
     </span>
@@ -57,16 +64,18 @@ export function EditReading({ reading }: { reading: Tables<"vitals_readings"> })
   const [state, action, pending] = useActionState<ObservationActionState, FormData>(correctOwnReading, undefined);
   const queryClient = useQueryClient();
   const glucoseUnit = useGlucoseUnit();
+  // refresh the lists after the server answered (not on submit, which would race the action and show the old number)
+  useEffect(() => {
+    if (!state?.success) return;
+    void queryClient.invalidateQueries({ queryKey: ["vitals-readings-page"] });
+    void queryClient.invalidateQueries({ queryKey: ["vitals-readings"] });
+    void queryClient.invalidateQueries({ queryKey: ["vitals-trend"] });
+  }, [state, queryClient]);
   if (!canOfferEdit(reading)) return null;
   return (
     <details className="mt-1 text-xs">
       <summary className="cursor-pointer text-deep-forest underline dark:text-brand-green-bright">Change this number</summary>
-      <form
-        action={action}
-        onSubmit={() => void queryClient.invalidateQueries({ queryKey: ["vitals-readings-page"] })}
-        className="mt-2 space-y-2"
-        noValidate
-      >
+      <form action={action} className="mt-2 space-y-2" noValidate>
         <input type="hidden" name="reading_id" value={reading.id} />
         <input type="hidden" name="vital_type" value={reading.vital_type} />
         {reading.vital_type === "glucose" ? <input type="hidden" name="glucose_unit" value={glucoseUnit} /> : null}

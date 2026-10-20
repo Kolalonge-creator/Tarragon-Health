@@ -8,15 +8,18 @@ import type { Database, TablesInsert } from "@tarragon/shared";
  */
 export const EXTENDED_OBSERVATIONS_MODULE = "extended_observations";
 
-export async function readExtendedObservationsEnabled(supabase: SupabaseClient<Database>): Promise<boolean> {
+/** One platform module's switch, fail closed: a missing row, a refused read or a thrown error is OFF. */
+export async function readModuleEnabled(supabase: SupabaseClient<Database>, key: string): Promise<boolean> {
   try {
-    const { data, error } = await supabase.from("platform_modules").select("is_enabled").eq("key", EXTENDED_OBSERVATIONS_MODULE).maybeSingle();
+    const { data, error } = await supabase.from("platform_modules").select("is_enabled").eq("key", key).maybeSingle();
     if (error || !data) return false;
     return data.is_enabled === true;
   } catch {
     return false;
   }
 }
+
+export const readExtendedObservationsEnabled = (supabase: SupabaseClient<Database>): Promise<boolean> => readModuleEnabled(supabase, EXTENDED_OBSERVATIONS_MODULE);
 
 export const LIFESTYLE_VITAL_TYPES = ["water_ml", "sleep_hours", "mood"] as const;
 export type LifestyleVitalType = (typeof LIFESTYLE_VITAL_TYPES)[number];

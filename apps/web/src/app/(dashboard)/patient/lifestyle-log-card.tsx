@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { en } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
@@ -36,18 +36,28 @@ export function LifestyleLogCard({ types, title }: { types: readonly LifestyleKi
   const pending = kind === "inhaler_use" ? inhalerPending : observationPending;
   const action = kind === "inhaler_use" ? inhalerAction : observationAction;
   const [confirmed, setConfirmed] = useState(false);
-  const [lastSavedKey, setLastSavedKey] = useState<string | null>(null);
   // one key per entry, so a double click or a resubmit of the same entry is saved once (the action treats a repeat as done)
   const [entryKey, setEntryKey] = useState(() => crypto.randomUUID());
+  const saved = observationState?.success === true || inhalerState?.success === true;
 
-  const afterSubmit = () => {
-    void queryClient.invalidateQueries({ queryKey: ["vitals-readings-page"] });
-  };
-  // a saved entry is done: the next one gets a fresh key
-  if (state?.success && lastSavedKey !== entryKey) {
-    setLastSavedKey(entryKey);
-    setEntryKey(crypto.randomUUID());
+  // A saved entry is done: the next entry gets a fresh key and the "yes, the number is right" tick is forgotten, so an unusual number next time asks
+  // again. Derived while rendering from the action's result object; it settles at once because the result is remembered after the first pass.
+  const [seenState, setSeenState] = useState<ObservationActionState>(undefined);
+  if (state !== seenState) {
+    setSeenState(state);
+    if (state?.success) {
+      setEntryKey(crypto.randomUUID());
+      setConfirmed(false);
+    }
   }
+
+  // Refresh the lists after the server answered (not on submit, which would race the action and show the old list). No state is set here.
+  useEffect(() => {
+    if (!saved) return;
+    void queryClient.invalidateQueries({ queryKey: ["vitals-readings-page"] });
+    void queryClient.invalidateQueries({ queryKey: ["vitals-readings"] });
+    void queryClient.invalidateQueries({ queryKey: ["inhaler-use-current"] });
+  }, [observationState, inhalerState, saved, queryClient]);
 
   return (
     <Card>
@@ -55,7 +65,7 @@ export function LifestyleLogCard({ types, title }: { types: readonly LifestyleKi
         <CardTitle>{title ?? (types.length === 1 ? `Log ${LABEL[types[0]!].toLowerCase()}` : "Log water, sleep, mood or inhaler")}</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={action} onSubmit={afterSubmit} className="space-y-4" noValidate>
+        <form action={action} className="space-y-4" noValidate>
           {types.length > 1 && (
             <div className="space-y-1.5">
               <Label htmlFor="lifestyle_kind">What to log</Label>

@@ -58,15 +58,25 @@ export function weightTrendBand(heightCm: number | null | undefined): TrendBand 
  * is on (born off while the bands are unconfirmed), the person is an adult with a known date of birth (the BMI band is an adult band; children have the
  * growth chart), and she is not recorded as pregnant (pregnancy has its own, tighter glucose and weight guidance). Fail closed on everything else.
  */
+/** How long after a delivery the standard adult bands stay off (the postnatal period has its own guidance). */
+export const POSTPARTUM_WITHHOLD_DAYS = 365;
+
 export function trendBandsEligible(input: {
   moduleEnabled: boolean | null | undefined;
   dateOfBirth: string | null | undefined;
   isPregnant: boolean | null | undefined;
+  /** The most recent delivery date on file (postnatal_profiles), if any. A delivery within the last 12 months also withholds the standard band. */
+  lastDeliveryDate?: string | null;
   now?: Date;
 }): boolean {
   if (input.moduleEnabled !== true) return false;
   // profiles.is_pregnant is null for someone never recorded as pregnant (the rest of the platform reads null as not pregnant)
   if (input.isPregnant === true) return false;
+  if (input.lastDeliveryDate) {
+    const delivered = new Date(input.lastDeliveryDate).getTime();
+    // an unreadable date is treated as a recent delivery (fail closed)
+    if (Number.isNaN(delivered) || (input.now ?? new Date()).getTime() - delivered < POSTPARTUM_WITHHOLD_DAYS * 86_400_000) return false;
+  }
   if (!input.dateOfBirth) return false;
   const dob = new Date(input.dateOfBirth);
   if (Number.isNaN(dob.getTime())) return false;

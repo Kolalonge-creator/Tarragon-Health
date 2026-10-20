@@ -62,5 +62,11 @@ describe("trend bands (S47a 4.6)", () => {
       expect(trendBandsEligible({ ...ok, dateOfBirth: "not a date" })).toBe(false);
       expect(trendBandsEligible({ ...ok, isPregnant: true })).toBe(false);
     });
+    it("is false for a year after a delivery, true after that, and false for an unreadable delivery date", () => {
+      expect(trendBandsEligible({ ...ok, lastDeliveryDate: "2026-06-01" })).toBe(false);
+      expect(trendBandsEligible({ ...ok, lastDeliveryDate: "2025-06-01" })).toBe(true);
+      expect(trendBandsEligible({ ...ok, lastDeliveryDate: "garbage" })).toBe(false);
+      expect(trendBandsEligible({ ...ok, lastDeliveryDate: null })).toBe(true);
+    });
   });
 });

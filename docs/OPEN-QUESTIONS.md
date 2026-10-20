@@ -4339,7 +4339,7 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 
 ### OQ-S47A-4 The trend-chart target bands are PROPOSED (raised by S47a, 2026-10-20)
 - `observations.target_bands` v1: glucose 3.9 to 10.0 mmol/L (the time-in-range band the diabetes view already uses; a test fails if they drift) and the WHO healthy BMI band 18.5 to 24.9 turned into kilograms at the person's own height. No band is drawn for weight without a usable height. A care-team glucose target for the person is not yet read (the function accepts one); only the standard band shows today.
-- The bands are behind the platform module `trend_target_bands` (born off) and are drawn only for an adult with a known date of birth who is not recorded as pregnant (a child has the growth chart, pregnancy has its own tighter targets; both are on the way to the person's own plan, not this standard band).
+- The bands are behind the platform module `trend_target_bands` (born off) and are drawn only for an adult with a known date of birth who is not recorded as pregnant (`patient_pregnancy`) and has no delivery in the last 12 months (`postnatal_profiles`). A child has the growth chart; pregnancy and the postnatal period have their own guidance. Any failed read means no band.
 - Needed: the CMO confirms both bands, and says whether a per-person glucose target should replace the standard one on the chart (the function accepts a care-team band but no code passes one yet, so the `care_team` caption is not reachable today). The phone has no single-series chart yet, so the bands are web-only in this change.
 - Decision: open (CMO).
 

@@ -4,6 +4,7 @@ import { computeBmi } from "@/lib/obesity/classify";
 import { fetchHeightStatus, type HeightStatus } from "@/lib/health-metrics/height";
 import { readPatientVitalsOrThrow } from "@/lib/clinical/vitals-audited";
 import { trendBandsEligible } from "@tarragon/shared";
+import { readModuleEnabled } from "@/lib/vitals/extended-observations";
 
 export function useVitalsReadings(patientId: string) {
   return useQuery({
@@ -88,15 +89,20 @@ export function useTrendBandsEligible(patientId: string) {
     queryKey: ["trend-bands-eligible", patientId],
     queryFn: async (): Promise<boolean> => {
       const supabase = createClient();
-      const [mod, prof] = await Promise.all([
-        supabase.from("platform_modules").select("is_enabled").eq("key", "trend_target_bands").maybeSingle(),
+      // Pregnancy is recorded in patient_pregnancy (the profile flag is not kept in step with it) and a recent delivery in postnatal_profiles; either one,
+      // or any read that fails, means no standard band.
+      const [moduleEnabled, prof, preg, post] = await Promise.all([
+        readModuleEnabled(supabase, "trend_target_bands"),
         supabase.from("profiles").select("date_of_birth, is_pregnant").eq("id", patientId).maybeSingle(),
+        supabase.from("patient_pregnancy").select("is_pregnant").eq("patient_id", patientId).maybeSingle(),
+        supabase.from("postnatal_profiles").select("delivery_date").eq("patient_id", patientId).order("delivery_date", { ascending: false }).limit(1).maybeSingle(),
       ]);
-      if (mod.error || prof.error || !prof.data) return false;
+      if (prof.error || preg.error || post.error || !prof.data) return false;
       return trendBandsEligible({
-        moduleEnabled: mod.data?.is_enabled ?? null,
+        moduleEnabled,
         dateOfBirth: prof.data.date_of_birth,
-        isPregnant: prof.data.is_pregnant,
+        isPregnant: prof.data.is_pregnant === true || preg.data?.is_pregnant === true,
+        lastDeliveryDate: post.data?.delivery_date ?? null,
       });
     },
     staleTime: 5 * 60_000,

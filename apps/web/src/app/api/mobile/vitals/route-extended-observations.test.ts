@@ -109,6 +109,17 @@ describe("POST /api/mobile/vitals: water, sleep, mood, inhaler (S47a)", () => {
     expect(res.status).toBe(200);
   });
 
+  it("a revoked supporter grant (42501) is a 4xx with no raw database text, so the phone shows it as rejected instead of retrying", async () => {
+    insert.mockResolvedValue({ error: { code: "42501", message: "new row violates row-level security policy for table vitals_readings" } });
+    const res = await POST(request({ vital_type: "sleep_hours", sleep_hours: 7 }));
+    expect(res.status).toBe(403);
+    expect(JSON.stringify(await res.json())).not.toContain("row-level");
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "x" } });
+    expect((await POST(request({ vital_type: "inhaler_use", puffs: 2, reason: "other" }))).status).toBe(403);
+    rpc.mockResolvedValue({ data: null, error: { code: "55000", message: "x" } });
+    expect((await POST(request({ vital_type: "inhaler_use", puffs: 2, reason: "other" }))).status).toBe(403);
+  });
+
   it("the database CHECK answering is the same plain refusal, not a 500", async () => {
     insert.mockResolvedValue({ error: { code: "23514", message: "check" } });
     const res = await POST(request({ vital_type: "water_ml", water_ml: 250 }));

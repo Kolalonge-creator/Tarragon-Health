@@ -198,7 +198,9 @@ export async function POST(request: Request): Promise<NextResponse> {
       if (clientReadingId && lifestyleError.code === "23505") return NextResponse.json({ success: true });
       if (lifestyleError.code === "23514") return NextResponse.json({ error: "That number does not look right. Check it and try again." }, { status: 400 });
       if (lifestyleError.code === "55000") return NextResponse.json({ error: NOT_SWITCHED_ON_MESSAGE }, { status: 403 });
-      return NextResponse.json({ error: lifestyleError.message }, { status: 500 });
+      // a refusal retrying cannot fix (a revoked supporter grant) is a 4xx so the phone shows it as rejected instead of retrying forever
+      if (lifestyleError.code === "42501") return NextResponse.json({ error: "You cannot log this for that person." }, { status: 403 });
+      return NextResponse.json({ error: "Could not save that. Please try again." }, { status: 500 });
     }
     return NextResponse.json({ success: true });
   }

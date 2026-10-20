@@ -150,7 +150,21 @@ const correctSchema = z.object({
 export async function correctOwnReading(_prev: ObservationActionState, formData: FormData): Promise<ObservationActionState> {
   const parsed = correctSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
-  const { reading_id, vital_type, new_value, reason } = parsed.data;
+  const { reading_id, new_value, reason } = parsed.data;
+
+  // The type comes from the stored row, never from the form: a stale or crafted post must not apply (say) a weight to a pulse or blood pressure row.
+  let vital_type: string;
+  try {
+    const supabase = await createClient();
+    const { data: stored, error: readError } = await supabase.from("vitals_readings").select("vital_type").eq("id", reading_id).maybeSingle();
+    if (readError) return { error: "Couldn't change that. Check your connection and try again." };
+    if (!stored) return { error: "That reading could not be found." };
+    vital_type = stored.vital_type;
+  } catch (err) {
+    Sentry.captureException(err, { extra: { action: "correctOwnReading", stage: "read" } });
+    return { error: "Couldn't change that. Check your connection and try again." };
+  }
+  if (parsed.data.vital_type !== vital_type) return { error: "That reading does not match the form. Reload the page and try again." };
 
   let replacement: Json;
   let limitKey: ObservationLimitKey;
@@ -187,6 +201,42 @@ export async function correctOwnReading(_prev: ObservationActionState, formData:
     return { success: true };
   } catch (err) {
     Sentry.captureException(err, { extra: { action: "correctOwnReading", vitalType: vital_type } });
+    return { error: "Couldn't change that. Check your connection and try again." };
+  }
+}
+
+const correctInhalerSchema = z.object({
+  id: z.string().uuid(),
+  puffs: z.coerce.number({ message: en["observation.range.inhaler_puffs"] }).int(en["observation.range.inhaler_puffs"]).min(1, en["observation.range.inhaler_puffs"]).max(20, en["observation.range.inhaler_puffs"]),
+  reason: z.enum(["breathless_or_wheeze", "before_exercise", "routine_dose", "night_symptoms", "other"]),
+  why: z.string().trim().min(5, "Say in a few words what was wrong (at least 5 characters).").max(300),
+});
+
+/**
+ * The person changes one of her own inhaler entries. The original is kept; the replacement points at it and the list marks it Changed. Only she can do
+ * this: the database refuses a supporter and anyone else.
+ */
+export async function correctInhalerUse(_prev: ObservationActionState, formData: FormData): Promise<ObservationActionState> {
+  const parsed = correctInhalerSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("correct_inhaler_use", {
+      p_id: parsed.data.id,
+      p_puffs: parsed.data.puffs,
+      p_reason: parsed.data.reason,
+      p_why: parsed.data.why,
+    });
+    if (error) {
+      if (error.code === "42501") return { error: "You can only change your own entries." };
+      if (error.code === "22023") return { error: error.message.includes("already changed") ? "This entry was already changed." : en["observation.range.inhaler_puffs"] };
+      if (error.code === "55000") return { error: NOT_SWITCHED_ON_MESSAGE };
+      return { error: "Couldn't change that. Check your connection and try again." };
+    }
+    revalidatePath("/patient/vitals");
+    return { success: true };
+  } catch (err) {
+    Sentry.captureException(err, { extra: { action: "correctInhalerUse" } });
     return { error: "Couldn't change that. Check your connection and try again." };
   }
 }

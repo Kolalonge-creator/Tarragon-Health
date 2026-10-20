@@ -301,6 +301,7 @@ export const en = {
   "observation.inhaler.reason.other": "Something else",
   "observation.changed.marker": "Changed",
   "observation.changed.a11y": "You changed this entry. The first number is kept in your history.",
+  "observation.changed.a11y_other": "This entry was changed by someone else on your care team or your account. The first number is kept in your history.",
   "observation.range.glucose_mmol_l": "Glucose in mmol/L is usually between 1 and 40. If your meter shows mg/dL, switch the unit and try again?",
   "observation.range.glucose_mg_dl": "Glucose in mg/dL is usually between 18 and 720. If your meter shows mmol/L, switch the unit and try again?",
   "observation.range.weight_kg": "That does not look like a usual weight in kg, from 20 to 300. Check the number and try again?",

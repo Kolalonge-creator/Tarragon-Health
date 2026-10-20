@@ -4,6 +4,7 @@ import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { VitalsForm } from "@/app/(dashboard)/patient/vitals-form";
 import { LifestyleLogCard } from "@/app/(dashboard)/patient/lifestyle-log-card";
+import { InhalerHistory } from "@/app/(dashboard)/patient/inhaler-history";
 import { createClient } from "@/lib/supabase/server";
 import { readExtendedObservationsEnabled } from "@/lib/vitals/extended-observations";
 import { MonitoringCoverCard } from "@/components/monitoring-cover-card";
@@ -63,6 +64,7 @@ export default async function PatientVitalsPage() {
       </div>
 
       {extendedObservationsOn ? <LifestyleLogCard types={["water_ml", "sleep_hours", "mood", "inhaler_use"]} /> : null}
+      {extendedObservationsOn ? <InhalerHistory patientId={subjectId} /> : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SymptomLogForm patientId={subjectId} ageYears={ageYears} />
