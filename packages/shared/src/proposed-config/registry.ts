@@ -3070,6 +3070,30 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/SCALE-READINESS-PLAN.md section 3 (Phase 3 alert rules); supabase/migrations/20261013010258_sr1_platform_health_snapshot.sql",
   },
   {
+    key: "ops.deadman_thresholds",
+    // OQ-436: where /api/health/deadman (polled from OUTSIDE Supabase and Vercel by .github/workflows/deadman-switch.yml) turns the four
+    // numbers from public.deadman_status() into ok, degraded or down. Seconds unless the name says otherwise. process-events runs
+    // every 15 seconds and the paging engine itself calls a heartbeat stale at 120 seconds (paging_delivery_config), so 180 seconds
+    // of silence is "down" and 10 deliveries due for 5 minutes and still unclaimed is "down" (one or a few is a warning). PROPOSED by engineering; the founder confirms. Do not mark confirmed from an agent.
+    value: {
+      dbQueryTimeoutMs: 5000,
+      heartbeatDegradedSeconds: 90,
+      heartbeatDownSeconds: 180,
+      dueOlderThanSeconds: 300,
+      dueUnclaimedDegradedCount: 1,
+      dueUnclaimedDownCount: 10,
+      deadLetterDegradedCount: 1,
+      deadLetterDownCount: 25,
+      openSev1Sev2DegradedCount: 1,
+      openSev1Sev2DownCount: 5,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/OPEN-QUESTIONS.md OQ-436; supabase/migrations/20261019204512_oq436_deadman_status.sql; docs/PLATFORM_OUTAGE_RUNBOOK.md external dead-man's switch",
+  },
+  {
     key: "ops.alert_rules",
     // SR5 operations alert rules (docs/plans/SCALE-READINESS-PLAN.md section 3). Live values are the rows of `ops_alert_rules`; this
     // entry mirrors the migration seed and a test fails if they drift. Every number is a proposal for the founder and CMO: the
@@ -4895,6 +4919,38 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-15",
     source: "docs/design/S16-S20-capacity-cover.md; lead_config draft (inactive); decision 12",
+  },
+  {
+    key: "ops_desk.rules",
+    // Ops desk resilience (OQ-441, decision S16-S20-10). Live values are the active row of `ops_desk_config`; a test fails if the migration seed and this value drift. deputy_after_seconds: how long the named primary has to acknowledge a page incident before the deputy is told (PROPOSED). uncovered_roster_alarm: 1 opens a sev1 when a real rota runs and no ops contact is on duty. checklist_gates_readiness: 0 = the resilience checklist is recorded and gates nothing (ships OFF); version 2 turns it on. checklist_max_age_days: a statement older than this no longer counts. call_note_max_chars: the longest note on a logged call.
+    value: {
+      deputy_after_seconds: 300,
+      uncovered_roster_alarm: 1,
+      checklist_gates_readiness: 0,
+      checklist_max_age_days: 90,
+      call_note_max_chars: 500,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/runbooks/ops-desk-expired-page.md; supabase/migrations/20261020173800_ops_desk_expired_page_resilience.sql",
+  },
+  {
+    key: "ops_desk.rules_v2",
+    // Version 2 of ops_desk.rules: the same rules with the checklist gate ON. Shipped as an INACTIVE, unsigned row (ops_desk_config version 2). The CMO signs it in the sign-off hub.
+    value: {
+      deputy_after_seconds: 300,
+      uncovered_roster_alarm: 1,
+      checklist_gates_readiness: 1,
+      checklist_max_age_days: 90,
+      call_note_max_chars: 500,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "ops_desk_config version 2 (inactive)",
   },
   {
     key: "ai.review_sample_rate",
