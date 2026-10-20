@@ -1,6 +1,9 @@
 import type * as SQLite from "expo-sqlite";
 import { getStoreWithSchema } from "./secure-db";
 import { addDataUsage } from "./data-usage";
+import { getConnectionKind } from "./connection-kind";
+import { shouldHoldPullForWifi } from "./data-cost-rules";
+import { readWifiOnly } from "./wifi-only";
 import { driftFloor, hasDrifted } from "./mirror-drift";
 import { supabase } from "./supabase";
 import { recordSyncError } from "./sync-diagnostics";
@@ -91,6 +94,11 @@ export interface PullResult {
   drifted: MirrorKind[];
   /** Tables the widened re-read then brought back in line. */
   repaired: MirrorKind[];
+  /**
+   * True when the patient chose Wi-Fi only, the phone is on mobile data and the history pages (readings, symptoms, doses) were left for
+   * Wi-Fi (S06z). Medicines and tasks, which are small and can change what the patient should do, are still read.
+   */
+  historyHeldForWifi: boolean;
 }
 
 async function readCursor(db: SQLite.SQLiteDatabase, key: string): Promise<string | null> {
@@ -297,14 +305,25 @@ async function pullTasks(db: SQLite.SQLiteDatabase, owner: string, subjectId: st
 
 /** Pulls the patient's own changes into the mirror. Never throws. */
 export async function pullChanges(subjectId: string): Promise<PullResult> {
-  const result: PullResult = { pulled: 0, stoppedOffline: false, pages: 0, bytes: 0, drifted: [], repaired: [] };
+  const result: PullResult = { pulled: 0, stoppedOffline: false, pages: 0, bytes: 0, drifted: [], repaired: [], historyHeldForWifi: false };
   try {
     await ensureLowDataLoaded();
     const owner = await currentUserId();
     if (!owner) return result;
     const db = await getDb();
     const config = await loadOfflineSyncConfig();
+    // S06z: on Wi-Fi only, over mobile data, the bulky history reads wait. Never the very first read on a phone (it would show an empty app).
+    const wifiOnly = await readWifiOnly();
+    const connection = await getConnectionKind();
+    if (wifiOnly) {
+      const pulledBefore =
+        (await readCursor(db, `pull:${owner}:${subjectId}:vital`)) !== null ||
+        (await readCursor(db, `pull:${owner}:${subjectId}:symptom`)) !== null ||
+        (await readCursor(db, `pull:${owner}:${subjectId}:dose`)) !== null;
+      result.historyHeldForWifi = shouldHoldPullForWifi({ wifiOnly, connection, hasPulledBefore: pulledBefore });
+    }
     for (const kind of ["vital", "symptom", "dose"] as const) {
+      if (result.historyHeldForWifi) break;
       if (result.stoppedOffline) break;
       // Each table gets its own page budget so a big vitals backlog cannot starve the others.
       await pullKind(db, kind, owner, subjectId, config, { pagesLeft: activeBudget().maxPagesPerPull }, result);
@@ -314,7 +333,7 @@ export async function pullChanges(subjectId: string): Promise<PullResult> {
     if (!result.stoppedOffline) await pullTasks(db, owner, subjectId, result);
     // Local housekeeping, safe offline. Never lets a purge failure fail the pull.
     await purgeMirror(owner).catch((error) => recordSyncError("offline_outbox", "purgeMirror", error));
-    await addDataUsage(result.bytes);
+    await addDataUsage(result.bytes, new Date(), connection);
   } catch (error) {
     recordSyncError("offline_outbox", "pull", error);
   }

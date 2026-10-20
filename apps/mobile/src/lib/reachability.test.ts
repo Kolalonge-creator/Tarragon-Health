@@ -94,6 +94,32 @@ describe("reconnect watcher", () => {
     expect(await getMonthlyDataUsage()).toBeGreaterThan(0); // the probe is counted in the data meter
   });
 
+  it("arriving on Wi-Fi from mobile data is a trigger too, so entries held for Wi-Fi go without waiting for the next timer (S06z)", async () => {
+    const t = makeIo();
+    t.probe.mockResolvedValue(true);
+    const onReachable = jest.fn().mockResolvedValue(undefined);
+    startReconnectWatcher({ rowsWaiting: async () => 2, onReachable }, t.io);
+    t.emit({ isConnected: true, isInternetReachable: true, type: "cellular" });
+    await flushPromises();
+    expect(onReachable).toHaveBeenCalledTimes(1);
+    t.advance(61_000);
+    t.emit({ isConnected: true, isInternetReachable: true, type: "wifi" });
+    await flushPromises();
+    expect(onReachable).toHaveBeenCalledTimes(2);
+    // Staying on Wi-Fi, or a repeat report, is not a new trigger.
+    t.advance(61_000);
+    t.emit({ isConnected: true, isInternetReachable: true, type: "wifi" });
+    await flushPromises();
+    expect(onReachable).toHaveBeenCalledTimes(2);
+    // Mobile data again, then Wi-Fi again, is.
+    t.advance(61_000);
+    t.emit({ isConnected: true, isInternetReachable: true, type: "cellular" });
+    t.advance(61_000);
+    t.emit({ isConnected: true, isInternetReachable: true, type: "wifi" });
+    await flushPromises();
+    expect(onReachable).toHaveBeenCalledTimes(3);
+  });
+
   it("never probes with an empty outbox", async () => {
     const t = makeIo();
     startReconnectWatcher({ rowsWaiting: async () => 0, onReachable: jest.fn() }, t.io);

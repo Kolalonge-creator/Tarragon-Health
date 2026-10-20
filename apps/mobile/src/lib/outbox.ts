@@ -6,6 +6,9 @@ import type { ContractionSessionPayload, KickSessionPayload } from "./pregnancy-
 import { getStoreWithSchema } from "./secure-db";
 import { applyReportOutcome, reportOnHold, reportRejection } from "./rejection-report";
 import { addDataUsage } from "./data-usage";
+import { getConnectionKind } from "./connection-kind";
+import { isHeldForWifi, loadHoldContext } from "./wifi-hold";
+import type { ConnectionKind } from "./data-cost-rules";
 import { recordSyncError } from "./sync-diagnostics";
 import { loadOfflineSyncConfig } from "./offline-sync-config";
 import {
@@ -510,6 +513,8 @@ export interface FlushResult {
   held: number;
   /** Rows marked rejected during this run. */
   newlyRejected: number;
+  /** Ordinary entries left on the phone this run because the patient chose Wi-Fi only and the phone is on mobile data (S06z). Never an urgent entry. */
+  heldForWifi: number;
 }
 
 type SendOutcome = { ok: true } | ({ ok: false } & FailureInfo);
@@ -681,19 +686,66 @@ let flushing: Promise<FlushResult> | null = null;
  */
 export function flushOutbox(): Promise<FlushResult> {
   if (!flushing) {
-    flushing = runFlush().finally(() => {
+    flushing = runFlush(false).finally(() => {
       flushing = null;
     });
   }
   return flushing;
 }
 
-async function runFlush(): Promise<FlushResult> {
+/**
+ * S06z: sends everything held for Wi-Fi, whatever the connection. Used by the patient's "Send now on mobile data" and by the
+ * last upload attempt before a phone is wiped (a held row must never be destroyed unsent). It waits for any run in progress
+ * and then runs on its own, so the same row is never in flight twice and the override belongs to this run alone.
+ */
+export async function flushOutboxIncludingHeld(): Promise<FlushResult> {
+  while (flushing) await flushing.catch(() => undefined);
+  const run: Promise<FlushResult> = runFlush(true).finally(() => {
+    if (flushing === run) flushing = null;
+  });
+  flushing = run;
+  return run;
+}
+
+/** How many entries Wi-Fi only is holding back right now, by the same rule the flush uses. */
+export async function countHeldForWifi(): Promise<number> {
+  try {
+    const ctx = await loadHoldContext();
+    if (!ctx.wifiOnly || ctx.connection !== "cellular") return 0;
+    const userId = await currentUserId();
+    const nowMs = Date.now();
+    const items = await listAllOutbox();
+    return items.filter((i) => i.state === "pending" && mayFlushUnder(i.ownerUserId, userId) && isHeldForWifi(i, ctx, nowMs)).length;
+  } catch {
+    return 0;
+  }
+}
+
+/** What one run sent, counted once at the end (S06z) instead of once per row, against the connection it used. */
+interface RunMeter {
+  bytes: number;
+  connection: ConnectionKind;
+}
+
+async function runFlush(forced: boolean): Promise<FlushResult> {
+  const meter: RunMeter = { bytes: 0, connection: "unknown" };
+  try {
+    return await runFlushRows(forced, meter);
+  } finally {
+    await addDataUsage(meter.bytes, new Date(), meter.connection);
+  }
+}
+
+async function runFlushRows(forced: boolean, meter: RunMeter): Promise<FlushResult> {
   const db = await getDb();
   const userId = await currentUserId();
   const now = new Date();
   const items = await listAllOutbox();
-  const result: FlushResult = { synced: 0, remaining: items.length, stoppedOffline: false, held: 0, newlyRejected: 0 };
+  const result: FlushResult = { synced: 0, remaining: items.length, stoppedOffline: false, held: 0, newlyRejected: 0, heldForWifi: 0 };
+  // S06z: the Wi-Fi-only choice, the connection and the configured values are read once per run. Any failure means "send".
+  const hold = await loadHoldContext();
+  // The meter attributes this run's bytes to the connection it used: one read per run, and only when there is something to send.
+  meter.connection = items.length > 0 ? (hold.wifiOnly ? hold.connection : await getConnectionKind()) : "unknown";
   // Rejection reports (S06x) wait until every sendable row has gone: an urgent reading must never queue behind
   // two slow requests per old rejected row.
   const toReport: { item: OutboxItem; info?: FailureInfo }[] = [];
@@ -713,10 +765,16 @@ async function runFlush(): Promise<FlushResult> {
     );
     if (due && new Date(due.next_attempt_at).getTime() > now.getTime()) continue;
 
+    // Only a dose log and a weight reading are ever held, and only on a known mobile connection (data-cost-rules.ts).
+    if (isHeldForWifi(item, hold, now.getTime(), forced)) {
+      result.heldForWifi += 1;
+      continue;
+    }
+
     const outcome = await send(item);
     if (outcome.ok) {
       await db.runAsync("delete from outbox where client_id = ?", [item.clientId]);
-      await addDataUsage(JSON.stringify(item.payload).length + 300);
+      meter.bytes += JSON.stringify(item.payload).length + 300;
       result.synced += 1;
       result.remaining -= 1;
       continue;

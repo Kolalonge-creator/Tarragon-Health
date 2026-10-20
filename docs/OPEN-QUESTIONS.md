@@ -4311,3 +4311,15 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-NAFDAC-SCAN-4 The number is used for lookup and pre-fill only; it is not stored on the medication (raised by the pack-scan build, 2026-10-16)
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
+
+### OQ-S06z-1 Price per megabyte behind the data-cost estimate is PROPOSED (raised by S06z, 2026-10-20)
+- `offline.data_cost.price_per_mb_kobo` is 80 (N0.80 a MB, about N800 a GB), a guess at a mid-range prepaid bundle. It only feeds a figure labelled "estimate". Needed: the founder confirms or replaces it against current Nigerian prepaid prices, by publishing a new registry version (never an edit in place).
+- Decision: open (founder).
+
+### OQ-S06z-2 The Wi-Fi-only hold cap and the list of urgent kinds need the CMO's eyes (raised by S06z, 2026-10-20)
+- Held: only a dose log (deadline: the earlier of `max_hold_hours`, 6, and one hour before the server would write "missed" for that dose) and a weight reading. Never held: danger-flagged entries, symptoms, red-alert answers, kick and contraction logs, and every reading other than weight (the phone's flag is not proof a reading is ordinary). This is a patient-safety trade (data saved against a delay), so the CMO should confirm the cap, the one-hour slack, and that weight and dose logs may wait at all. Setting the cap to 0 disables holding. Holding a normal blood pressure needs a stored "classified, normal" result per row; not built.
+- Decision: open (CMO).
+
+### OQ-S06z-3 Wi-Fi only does not cover the device-reading and health-sample queues (raised by S06z, 2026-10-20)
+- A BLE reading or a wearable sample can carry an extreme value the phone cannot classify and the server's red-flag engine judges, so those queues are never held. They are a real share of data for a patient with a connected device; the meter counts them but the switch does not touch them. If the founder wants a "bulk only" hold (steps, sleep, HRV) it needs the server's red-flag-relevant types split out first.
+- Decision: open (product, CMO).
