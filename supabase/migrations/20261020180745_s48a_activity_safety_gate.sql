@@ -223,7 +223,7 @@ begin
   end if;
 
   select count(*) > 0, coalesce(bool_or(pc.status::text = 'uncontrolled'), false) into v_hyp, v_hyp_unc
-    from public.patient_conditions pc
+    from private.patient_conditions_current pc
    where pc.patient_id = p_patient and pc.status::text not in ('resolved', 'historical')
      and private.activity_condition_matches(pc.condition_name, pc.icd10_code, v_cfg #> '{condition_match,hypertension}');
   if v_hyp and (v_hyp_unc or exists (
@@ -234,12 +234,12 @@ begin
     v_rules := array_append(v_rules, v_cfg #> '{rules,hypertension_unsettled}');
   end if;
 
-  if exists (select 1 from public.patient_conditions pc where pc.patient_id = p_patient and pc.status::text not in ('resolved', 'historical')
+  if exists (select 1 from private.patient_conditions_current pc where pc.patient_id = p_patient and pc.status::text not in ('resolved', 'historical')
               and private.activity_condition_matches(pc.condition_name, pc.icd10_code, v_cfg #> '{condition_match,arthritis}')) then
     v_reasons := array_append(v_reasons, 'arthritis');
     v_rules := array_append(v_rules, v_cfg #> '{rules,arthritis}');
   end if;
-  if exists (select 1 from public.patient_conditions pc where pc.patient_id = p_patient and pc.status::text not in ('resolved', 'historical')
+  if exists (select 1 from private.patient_conditions_current pc where pc.patient_id = p_patient and pc.status::text not in ('resolved', 'historical')
               and private.activity_condition_matches(pc.condition_name, pc.icd10_code, v_cfg #> '{condition_match,back_pain}')) then
     v_reasons := array_append(v_reasons, 'back_pain');
     v_rules := array_append(v_rules, v_cfg #> '{rules,back_pain}');

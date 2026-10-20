@@ -296,7 +296,7 @@ begin
 end $$;
 -- the guard table has its own guard trigger; disabled for this test transaction only (rolled back)
 alter table public.go_live_guards disable trigger go_live_guards_guard;
-update public.go_live_guards set is_on = true where key = 'private_route_recording';
+update public.go_live_guards set is_on = true, changed_at = now(), changed_by = pg_temp.f('doc'), change_note = 'S48a proof: rolled back' where key = 'private_route_recording';
 alter table public.go_live_guards enable trigger go_live_guards_guard;
 do $$
 declare v_org uuid := pg_temp.f('org'); v_p uuid := pg_temp.f('p'); v_q uuid := pg_temp.f('q'); v_doc uuid := pg_temp.f('doc'); v_ins text; v_rid uuid;
