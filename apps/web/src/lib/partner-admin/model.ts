@@ -28,6 +28,8 @@ export function processorState(rows: readonly HeartbeatRow[], failed: boolean, n
   const active = rows.filter((r) => r.is_active);
   if (active.length === 0 || active.every((r) => !r.last_success_at)) return "never";
   for (const r of active) {
+    // a partner subscriber that never succeeded is reported by the more specific partner_stuck check below, not as a stall
+    if (r.handler_key === "partner.webhook" && !r.last_success_at) continue;
     if (r.lag_incident_open) return "stalled";
     if (r.oldest_due_seconds >= STALL_SECONDS) {
       const lastOk = r.last_success_at ? new Date(r.last_success_at).getTime() : 0;
@@ -64,7 +66,7 @@ export function parseIdKeys(raw: string): { keys: string[] } | { error: "invalid
   return { keys };
 }
 
-export type ActionError = "forbidden" | "grace_open" | "reason" | "invalid" | "generic";
+export type ActionError = "forbidden" | "not_found" | "grace_open" | "reason" | "invalid" | "generic";
 
 /**
  * Maps a database error code to a fixed word. The raw message is never shown (or logged), so nothing unexpected reaches the page.
@@ -73,6 +75,7 @@ export type ActionError = "forbidden" | "grace_open" | "reason" | "invalid" | "g
 export function errorWord(code: string | undefined, context: "reason" | "mapping" | "other" = "other"): ActionError {
   if (code === "42501") return "forbidden";
   if (code === "55000") return "grace_open";
+  if (code === "P0001" || code === "P0002") return "not_found";
   if (code === "22023") return context === "reason" ? "reason" : context === "mapping" ? "invalid" : "generic";
   return "generic";
 }

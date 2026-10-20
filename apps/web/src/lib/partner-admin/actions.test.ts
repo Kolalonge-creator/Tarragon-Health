@@ -87,6 +87,6 @@ describe("partner webhook admin actions", () => {
     rpc.mockResolvedValue({ data: null, error: null });
     expect(await removeMappingAction("lab_result.released")).toEqual({ ok: true });
     rpc.mockResolvedValue({ data: null, error: { code: "P0002" } });
-    expect(await removeMappingAction("lab_result.released")).toEqual({ ok: false, error: "generic" });
+    expect(await removeMappingAction("lab_result.released")).toEqual({ ok: false, error: "not_found" });
   });
 });

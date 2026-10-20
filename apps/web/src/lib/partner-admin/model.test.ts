@@ -28,6 +28,10 @@ describe("processorState", () => {
     expect(processorState([row({ oldest_due_seconds: 5000, last_success_at: "2026-10-20T11:59:30Z" })], false, NOW)).toBe("ok");
     expect(processorState([row()], false, NOW)).toBe("ok");
   });
+  it("names a never-succeeded partner subscriber with an overdue backlog as partner_stuck, not stalled", () => {
+    const partner = row({ handler_key: "partner.webhook", last_success_at: null, pending: 3, oldest_due_seconds: 4000 });
+    expect(processorState([row({ handler_key: "triage.grade" }), partner], false, NOW)).toBe("partner_stuck");
+  });
   it("flags partner subscribers that never succeeded while the rest of the bus is healthy", () => {
     const partner = row({ handler_key: "partner.webhook", last_success_at: null, dead: 2 });
     expect(processorState([row({ handler_key: "triage.grade" }), partner], false, NOW)).toBe("partner_stuck");
@@ -55,6 +59,7 @@ describe("errorWord", () => {
     expect(errorWord("55000")).toBe("grace_open");
     expect(errorWord("22023", "reason")).toBe("reason");
     expect(errorWord("22023", "mapping")).toBe("invalid");
+    expect(errorWord("P0002")).toBe("not_found");
     expect(errorWord("XX000")).toBe("generic");
     expect(errorWord(undefined)).toBe("generic");
   });

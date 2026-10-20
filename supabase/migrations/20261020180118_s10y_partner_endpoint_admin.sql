@@ -9,7 +9,9 @@
 --      as built in S10x-b; admin-only is the existing gate and is unchanged.
 --   3. admin_reenable_partner_webhook_endpoint(endpoint, reason): admin only, a written reason of 10 to 500 characters is required,
 --      and the reason goes to the audit log with the endpoint id. The existing reenable_partner_webhook_endpoint is left as it was.
---   4. remove_partner_event_mapping(event type): admin only, audited through set_partner_event_mapping (no new write path).
+--   4. remove_partner_event_mapping(event type): admin only. Deletes the mapping, switches its subscriber off and writes the same
+--      'event_bus.partner_mapping' audit row as set_partner_event_mapping. It does not call that function because that one refuses an
+--      event type that has since been deactivated, which would leave such a mapping impossible to remove.
 -- Rotation and mapping edits keep using the S10x-b functions (already audited; the audit row never holds a secret).
 -- No new table, so no data_registry row. Row counts at writing (live): 0 partner_webhook_endpoints, 0 partner_event_map. No conversion.
 

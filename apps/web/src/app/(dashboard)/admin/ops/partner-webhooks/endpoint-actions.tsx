@@ -12,8 +12,9 @@ const field = "mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-
 const ghost = "rounded-lg border border-charcoal-ink/20 px-3 py-1 text-xs font-semibold text-charcoal-ink";
 const solid = "rounded-lg bg-brand-green px-3 py-1 text-xs font-semibold text-white disabled:opacity-60";
 
-const ERRORS: Record<ActionError, "partnerops.error.forbidden" | "partnerops.error.grace_open" | "partnerops.error.reason" | "partnerops.error.invalid" | "partnerops.error.generic"> = {
+const ERRORS: Record<ActionError, "partnerops.error.not_found" | "partnerops.error.forbidden" | "partnerops.error.grace_open" | "partnerops.error.reason" | "partnerops.error.invalid" | "partnerops.error.generic"> = {
   forbidden: "partnerops.error.forbidden",
+  not_found: "partnerops.error.not_found",
   grace_open: "partnerops.error.grace_open",
   reason: "partnerops.error.reason",
   invalid: "partnerops.error.invalid",
@@ -38,7 +39,14 @@ export function EndpointActions({ endpointId, isActive, rotationLocked }: { endp
   const rotate = () =>
     start(async () => {
       setMessage(null);
-      const r = await rotateSecretAction(endpointId, Number(grace));
+      let r;
+      try {
+        r = await rotateSecretAction(endpointId, Number(grace));
+      } catch {
+        // the call itself was lost (network, server error): the key may have been rotated, so never say "nothing changed"
+        setMessage({ tone: "error", text: t("partnerops.error.rotate_unknown", locale) });
+        return;
+      }
       // A generic failure may have happened after the database rotated the key (the answer was lost on the way back): say so.
       if (!r.ok) return r.error === "generic" ? setMessage({ tone: "error", text: t("partnerops.error.rotate_unknown", locale) }) : fail(r.error);
       setSecret(r.secret);
@@ -48,7 +56,12 @@ export function EndpointActions({ endpointId, isActive, rotationLocked }: { endp
   const reenable = () =>
     start(async () => {
       setMessage(null);
-      const r = await reenableEndpointAction(endpointId, reason);
+      let r;
+      try {
+        r = await reenableEndpointAction(endpointId, reason);
+      } catch {
+        return fail("generic");
+      }
       if (!r.ok) return fail(r.error);
       setReason("");
       setMode("idle");

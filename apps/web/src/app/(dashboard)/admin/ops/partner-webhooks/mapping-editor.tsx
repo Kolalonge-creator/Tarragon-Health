@@ -11,8 +11,9 @@ const field = "mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-
 const ghost = "rounded-lg border border-charcoal-ink/20 px-3 py-1 text-xs font-semibold text-charcoal-ink";
 const solid = "rounded-lg bg-brand-green px-3 py-1 text-xs font-semibold text-white disabled:opacity-60";
 
-const ERRORS: Record<ActionError, "partnerops.error.forbidden" | "partnerops.error.grace_open" | "partnerops.error.reason" | "partnerops.error.invalid" | "partnerops.error.generic"> = {
+const ERRORS: Record<ActionError, "partnerops.error.not_found" | "partnerops.error.forbidden" | "partnerops.error.grace_open" | "partnerops.error.reason" | "partnerops.error.invalid" | "partnerops.error.generic"> = {
   forbidden: "partnerops.error.forbidden",
+  not_found: "partnerops.error.not_found",
   grace_open: "partnerops.error.grace_open",
   reason: "partnerops.error.reason",
   invalid: "partnerops.error.invalid",
@@ -34,15 +35,22 @@ export function MappingEditor({
   partnerEventTypes: readonly string[];
 }) {
   const [open, setOpen] = useState(false);
-  const [partner, setPartner] = useState(partnerEventType ?? partnerEventTypes[0] ?? "");
+  const [partner, setPartner] = useState(partnerEventType ?? "");
   const [keys, setKeys] = useState(idKeys.join(", "));
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [pending, start] = useTransition();
 
   const run = (work: () => Promise<{ ok: true } | { ok: false; error: ActionError }>, okKey: "partnerops.result.mapping_saved" | "partnerops.result.mapping_removed") =>
     start(async () => {
       setMessage(null);
-      const r = await work();
+      let r: { ok: true } | { ok: false; error: ActionError };
+      try {
+        r = await work();
+      } catch {
+        return setMessage({ tone: "error", text: t(ERRORS.generic, locale) });
+      }
+      setConfirmRemove(false);
       if (!r.ok) return setMessage({ tone: "error", text: t(ERRORS[r.error], locale) });
       setOpen(false);
       setMessage({ tone: "ok", text: t(okKey, locale) });
@@ -55,10 +63,19 @@ export function MappingEditor({
           <button type="button" className={ghost} onClick={() => setOpen(true)} disabled={pending}>
             {isMapped ? t("partnerops.map.edit", locale) : t("partnerops.map.add", locale)}
           </button>
-          {isMapped && (
-            <button type="button" className={ghost} onClick={() => run(() => removeMappingAction(busEventType), "partnerops.result.mapping_removed")} disabled={pending}>
+          {isMapped && !confirmRemove && (
+            <button type="button" className={ghost} onClick={() => setConfirmRemove(true)} disabled={pending}>
               {t("partnerops.map.remove", locale)}
             </button>
+          )}
+          {isMapped && confirmRemove && (
+            <span className="flex flex-wrap items-center gap-2 text-xs">
+              {t("partnerops.map.remove_confirm", locale)}
+              <button type="button" className={solid} onClick={() => run(() => removeMappingAction(busEventType), "partnerops.result.mapping_removed")} disabled={pending}>
+                {t("partnerops.map.remove", locale)}
+              </button>
+              <button type="button" className={ghost} onClick={() => setConfirmRemove(false)} disabled={pending}>{t("partnerops.cancel", locale)}</button>
+            </span>
           )}
         </div>
       )}
@@ -67,6 +84,7 @@ export function MappingEditor({
           <label className="block text-xs">
             {t("partnerops.map.partner_event", locale)}
             <select value={partner} onChange={(e) => setPartner(e.target.value)} className={field}>
+              {!partnerEventType && <option value="">{t("partnerops.map.choose", locale)}</option>}
               {partnerEventTypes.map((p) => (
                 <option key={p} value={p}>{p}</option>
               ))}
@@ -77,7 +95,7 @@ export function MappingEditor({
             <input value={keys} onChange={(e) => setKeys(e.target.value)} maxLength={400} className={`${field} font-mono`} />
           </label>
           <div className="flex gap-2">
-            <button type="button" className={solid} onClick={() => run(() => saveMappingAction(busEventType, partner, keys), "partnerops.result.mapping_saved")} disabled={pending}>
+            <button type="button" className={solid} onClick={() => run(() => saveMappingAction(busEventType, partner, keys), "partnerops.result.mapping_saved")} disabled={pending || !partner || keys.trim().length === 0}>
               {t("partnerops.map.save", locale)}
             </button>
             <button type="button" className={ghost} onClick={() => setOpen(false)} disabled={pending}>{t("partnerops.cancel", locale)}</button>
