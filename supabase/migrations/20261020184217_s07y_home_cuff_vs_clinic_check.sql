@@ -84,12 +84,14 @@ begin
   if found then raise exception 'this version is missing a value the rule needs and cannot be signed'; end if;
   -- every value must be a whole number inside the range the rule can work with; the same checks the TypeScript loader makes (a signed version that never fires is a silent failure)
   perform 1 from public.cuff_check_rules c,
-    (values ('{pairing,windowHours}', 1), ('{pairing,minHomeReadings}', 1), ('{difference,systolic}', 1), ('{difference,diastolic}', 1),
-            ('{consistency,minPairs}', 2), ('{consistency,maxPairs}', 2), ('{consistency,lookbackDays}', 1), ('{consistency,minSharePercent}', 51), ('{tasks,reviewDueMinutes}', 1)) as k(path, lo)
+    (values ('{pairing,windowHours}', 1, 168), ('{pairing,minHomeReadings}', 1, 50), ('{difference,systolic}', 1, 100), ('{difference,diastolic}', 1, 100),
+            ('{consistency,minPairs}', 2, 20), ('{consistency,maxPairs}', 2, 50), ('{consistency,lookbackDays}', 1, 3650), ('{consistency,minSharePercent}', 51, 100),
+            ('{tasks,reviewDueMinutes}', 1, 525600)) as k(path, lo, hi)
    where c.id = p_id
-     and (jsonb_typeof(c.config #> k.path::text[]) <> 'number' or (c.config #>> k.path::text[]) !~ '^[0-9]+$' or (c.config #>> k.path::text[])::numeric < k.lo);
+     and (jsonb_typeof(c.config #> k.path::text[]) <> 'number' or (c.config #>> k.path::text[]) !~ '^[0-9]{1,7}$'
+          or (c.config #>> k.path::text[])::numeric < k.lo or (c.config #>> k.path::text[])::numeric > k.hi);
   if found then raise exception 'this version has a value that is not a whole number in range and cannot be signed'; end if;
-  if (select (config #>> '{consistency,maxPairs}')::int < (config #>> '{consistency,minPairs}')::int or (config #>> '{consistency,minSharePercent}')::int > 100
+  if (select (config #>> '{consistency,maxPairs}')::int < (config #>> '{consistency,minPairs}')::int
         from public.cuff_check_rules where id = p_id) then
     raise exception 'this version has a pair count or share that cannot work and cannot be signed';
   end if;
@@ -328,7 +330,7 @@ begin
     if not exists (select 1 from public.ops_incidents where external_reference = 'cuff_check_rule' and status not in ('resolved', 'closed')) then
       insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
       values ((select organisation_id from public.profiles where id = p_patient), 'technical', 'sev3', 'The home cuff vs clinic cuff rule failed',
-              format('The rule raised %s (%s). The clinician''s reading or pair was saved; only the cuff check was skipped. Every patient''s pairs are re-judged together at their next pair or clinic reading, so nobody is lost once the cause is fixed. Check task type cuff_check_review and the signed configuration.', p_state, p_msg),
+              format('The rule raised %s (%s). The clinician''s reading or pair was saved; only the cuff check was skipped. A patient is re-judged over all their pairs at their next pair or clinic reading, but there is no sweep, so list the clinic readings and pairs saved since this opened. Check task type cuff_check_review and the signed configuration.', p_state, p_msg),
               'cuff_check_rule', now(), now());
     end if;
   exception when others then
@@ -366,7 +368,7 @@ begin
      and not (p.source = 'home_log' and exists (
            select 1 from public.cuff_check_pairs s where s.patient_id = p.patient_id and s.source = 'same_visit'
               and abs(extract(epoch from (s.measured_at - p.measured_at))) <= (v_cfg -> 'pairing' ->> 'windowHours')::int * 3600));
-  v_res := private.cuff_check_kind(v_pairs, now(), v_cfg);
+  v_res := private.cuff_check_kind(v_pairs, now() + interval '5 minutes', v_cfg);  -- a pair may be dated up to 5 minutes ahead (clock skew); the one just entered must count
   v_kind := v_res ->> 'kind';
   if v_kind is null then return null; end if;
   select id into v_latest from public.cuff_check_pairs where patient_id = p_patient order by measured_at desc, created_at desc, id limit 1;
@@ -413,6 +415,8 @@ begin
   v_cfg := private.cuff_check_config();
   if v_cfg is null then return null; end if;
   v_w := make_interval(hours => (v_cfg -> 'pairing' ->> 'windowHours')::int);
+  -- several clinic readings at one visit are normal: one visit is one pair, so a pair already made around this time (either kind) means this reading adds none
+  if exists (select 1 from public.cuff_check_pairs x where x.patient_id = c.patient_id and x.measured_at between c.measured_at - v_w and c.measured_at + v_w) then return null; end if;
   select coalesce(jsonb_agg(jsonb_build_object('s', v.systolic, 'd', v.diastolic, 'at', v.taken_at)), '[]'::jsonb) into v_readings
     from public.vitals_readings v
    where v.patient_id = c.patient_id and v.vital_type = 'blood_pressure' and v.systolic is not null and v.diastolic is not null
@@ -478,10 +482,12 @@ begin
     raise exception 'that measurement time is not usable' using errcode = '22023';
   end if;
   if v_label is not null and length(v_label) > 80 then raise exception 'that device label is too long' using errcode = '22023'; end if;
-  -- a double submit is the same pair: answer with the earlier one, never a second (the table is append-only, so a duplicate could not be removed)
+  -- one visit is one pair: a second entry within an hour of an existing same-visit pair (a double submit, a retyped time) is answered with the earlier one, never a second
+  -- (the table is append-only, so a duplicate could not be removed); the advisory lock makes two simultaneous submits take turns
+  perform pg_advisory_xact_lock(hashtextextended('cuff_check_pair:' || p_patient, 0));
   select id into v_id from public.cuff_check_pairs
-   where patient_id = p_patient and source = 'same_visit' and measured_at = p_measured_at and clinic_systolic = p_clinic_systolic and clinic_diastolic = p_clinic_diastolic
-     and own_systolic = p_own_systolic and own_diastolic = p_own_diastolic;
+   where patient_id = p_patient and source = 'same_visit' and measured_at between p_measured_at - interval '60 minutes' and p_measured_at + interval '60 minutes'
+   order by created_at limit 1;
   if found then return v_id; end if;
   v_id := gen_random_uuid();
   insert into public.cuff_check_pairs (id, organisation_id, patient_id, source, clinic_systolic, clinic_diastolic, own_systolic, own_diastolic, own_readings,
@@ -496,12 +502,23 @@ revoke all on function public.record_cuff_check_pair(uuid, integer, integer, int
 grant execute on function public.record_cuff_check_pair(uuid, integer, integer, integer, integer, timestamptz, text) to authenticated;
 
 -- 10. The only thing a patient can ever learn: whether the neutral line may be shown. Same answer for every patient; it reads no flag. ----------------
+-- The attestation is a boolean row, and the database cannot see the sentence. So the attestation is bound to the sentence by a fingerprint: the first 12 characters of
+-- the SHA-256 of the exact text of the i18n string cuff.visit_prompt. The CMO's panel puts the fingerprint into the attestation note, and the prompt is open only while
+-- the LATEST attestation is a yes whose note carries THIS fingerprint. A Jest test fails if the sentence and this constant disagree, so changing the sentence means
+-- shipping a new fingerprint here, which closes the prompt until the CMO attests the new text.
+create function private.cuff_visit_prompt_fingerprint() returns text
+language sql immutable set search_path = ''
+as $$ select 'c09105f47a65'::text $$;
+revoke all on function private.cuff_visit_prompt_fingerprint() from public, anon, authenticated;
+
 create function public.cuff_visit_prompt_open() returns boolean
 language sql stable security definer set search_path = ''
 as $$
   select (select auth.uid()) is not null
      and private.go_live_open_patient('cuff_visit_prompt', (select auth.uid()))
-     and private.go_live_attested('cuff_visit_prompt', 'visit_prompt_wording_signed')
+     and coalesce((select a.met and a.note like '%' || private.cuff_visit_prompt_fingerprint() || '%'
+                     from public.go_live_attestations a
+                    where a.guard_key = 'cuff_visit_prompt' and a.condition_code = 'visit_prompt_wording_signed' order by a.id desc limit 1), false)
 $$;
 revoke all on function public.cuff_visit_prompt_open() from public, anon;
 grant execute on function public.cuff_visit_prompt_open() to authenticated;
@@ -519,6 +536,7 @@ begin
   select count(*) into v_n from public.task_types where code = 'cuff_check_review' and priority_class = 8 and creatable;
   if v_n <> 1 then raise exception 'S07y self-check: the task type is missing'; end if;
   if has_function_privilege('anon', 'public.record_cuff_check_pair(uuid,integer,integer,integer,integer,timestamptz,text)', 'EXECUTE') then raise exception 'S07y self-check: anon can record a pair'; end if;
+  if has_function_privilege('authenticated', 'private.cuff_visit_prompt_fingerprint()', 'EXECUTE') then raise exception 'S07y self-check: a signed-in user can call a private function'; end if;
   if has_function_privilege('anon', 'public.cuff_visit_prompt_open()', 'EXECUTE') then raise exception 'S07y self-check: anon can read the prompt'; end if;
   if has_function_privilege('anon', 'public.sign_cuff_check_rules(uuid)', 'EXECUTE') then raise exception 'S07y self-check: anon can sign'; end if;
   if has_function_privilege('authenticated', 'private.evaluate_cuff_check(uuid)', 'EXECUTE') or has_function_privilege('authenticated', 'private.cuff_check_pair_from_clinic(uuid)', 'EXECUTE')

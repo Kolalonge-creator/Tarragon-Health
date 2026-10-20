@@ -20,7 +20,7 @@ const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
  * Home cuff vs clinic cuff (S07y), clinician-only. Shows the flags the rule has raised and the recent pairs, and the form for a same-visit pair. A read that fails or is
  * refused says so. A read the database filters out (not on the care team) is an empty list, so the empty text says that too. Nothing here is shown to the patient, and the flag only suggests considering a cuff check.
  */
-export async function CuffCheckPanel({ patientId, canRecord }: { patientId: string; canRecord: boolean }) {
+export async function CuffCheckPanel({ patientId }: { patientId: string }) {
   const supabase = await createClient();
   const [pairsRes, flagsRes] = await Promise.all([
     supabase
@@ -93,7 +93,7 @@ export async function CuffCheckPanel({ patientId, canRecord }: { patientId: stri
             </tbody>
           </table>
         ) : null}
-        {canRecord ? <CuffCheckForm patientId={patientId} /> : null}
+        <CuffCheckForm patientId={patientId} />
       </CardContent>
     </Card>
   );

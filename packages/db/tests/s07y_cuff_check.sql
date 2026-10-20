@@ -256,13 +256,15 @@ insert into public.cuff_check_rules (version, config, notes) values
   (4, jsonb_set((select config from public.cuff_check_rules where version = 1), '{consistency,minSharePercent}', '120'), 'proof: share over 100'),
   (5, jsonb_set((select config from public.cuff_check_rules where version = 1), '{difference,systolic}', '"ten"'), 'proof: a word where a number belongs'),
   (6, jsonb_set((select config from public.cuff_check_rules where version = 1), '{difference,systolic}', '0'), 'proof: a zero threshold'),
-  (7, jsonb_set((select config from public.cuff_check_rules where version = 1), '{pairing,windowHours}', '24.5'), 'proof: a fraction of an hour');
-select pg_temp.ck('real', 'G4b drafts with an impossible pair count, a share over 100, a word, a zero threshold or a fraction cannot be signed; version 1 stays active', 'ERR P0001|ERR P0001|ERR P0001|ERR P0001|ERR P0001|1',
+  (7, jsonb_set((select config from public.cuff_check_rules where version = 1), '{pairing,windowHours}', '24.5'), 'proof: a fraction of an hour'),
+  (8, jsonb_set((select config from public.cuff_check_rules where version = 1), '{pairing,windowHours}', '3000000000'), 'proof: a number too large for the rule to compute with');
+select pg_temp.ck('real', 'G4b drafts with an impossible pair count, a share over 100, a word, a zero threshold, a fraction or a huge number cannot be signed; version 1 stays active', 'ERR P0001|ERR P0001|ERR P0001|ERR P0001|ERR P0001|ERR P0001|1',
   pg_temp.as_user(pg_temp.f('cmo'), format('select public.sign_cuff_check_rules(%L)::text', (select id from public.cuff_check_rules where version = 3))) || '|' ||
   pg_temp.as_user(pg_temp.f('cmo'), format('select public.sign_cuff_check_rules(%L)::text', (select id from public.cuff_check_rules where version = 4))) || '|' ||
   pg_temp.as_user(pg_temp.f('cmo'), format('select public.sign_cuff_check_rules(%L)::text', (select id from public.cuff_check_rules where version = 5))) || '|' ||
   pg_temp.as_user(pg_temp.f('cmo'), format('select public.sign_cuff_check_rules(%L)::text', (select id from public.cuff_check_rules where version = 6))) || '|' ||
   pg_temp.as_user(pg_temp.f('cmo'), format('select public.sign_cuff_check_rules(%L)::text', (select id from public.cuff_check_rules where version = 7))) || '|' ||
+  pg_temp.as_user(pg_temp.f('cmo'), format('select public.sign_cuff_check_rules(%L)::text', (select id from public.cuff_check_rules where version = 8))) || '|' ||
   (select version from public.cuff_check_rules where is_active)::text);
 select pg_temp.ck('real', 'G4c the thresholds are readable by staff and not by a patient or anon', '1|0|ERR 42501',
   pg_temp.as_user(pg_temp.f('c2'), 'select count(*)::text from public.cuff_check_rules where version = 1') || '|' ||
@@ -296,7 +298,7 @@ grant all on snap to public;
 select pg_temp.ck('real', 'R1 with the guard on, the REAL patient''s next pair brings the pair count to 5 and raises ONE home_higher flag and ONE routine task', 'true|5|home_higher|1',
   (pg_temp.pair(pg_temp.f('c1'), pg_temp.f('r'), 130, 80, 143, 91, 1) !~ '^ERR')::text || '|' || pg_temp.npairs(pg_temp.f('r')) || '|' || pg_temp.flags(pg_temp.f('r')) || '|' || pg_temp.ctasks(pg_temp.f('r')));
 select pg_temp.ck('real', 'R2 a further pair in the same direction while the task is open adds no second flag and no second task', 'true|home_higher|1',
-  (pg_temp.pair(pg_temp.f('c1'), pg_temp.f('r'), 130, 80, 146, 93, 0) !~ '^ERR')::text || '|' || pg_temp.flags(pg_temp.f('r')) || '|' || pg_temp.ctasks(pg_temp.f('r')));
+  (pg_temp.pair(pg_temp.f('c1'), pg_temp.f('r'), 130, 80, 146, 93, 2) !~ '^ERR')::text || '|' || pg_temp.flags(pg_temp.f('r')) || '|' || pg_temp.ctasks(pg_temp.f('r')));
 select pg_temp.ck('real', 'R3 the pairs fired nothing a home reading fires: no vitals row, alert, emergency, observation event or notification', '0|0|0|0|0',
   ((select count(*) from public.vitals_readings where patient_id = pg_temp.f('r')) - (select n from snap where k = 'vitals')) || '|' ||
   ((select count(*) from public.clinician_alerts where patient_id = pg_temp.f('r')) - (select n from snap where k = 'alerts')) || '|' ||
@@ -375,8 +377,11 @@ select pg_temp.ck('real', 'K1 the prompt is closed for a real patient and for a 
   pg_temp.as_anon('select public.cuff_visit_prompt_open()::text'));
 select pg_temp.ck('real', 'K2 the prompt guard cannot be switched on before the wording attestation', 'refused',
   (select case when o ~ '^ERR' then 'refused' else o end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.set_go_live_guard(''cuff_visit_prompt'', true, ''S07y proof'')::text') o) z));
-select pg_temp.ck('real', 'K3 an admin who is not the CMO is not asked to attest here, and the CMO can: attested but guard off keeps a real patient out, and a test patient in', 'ok|false|true',
+select pg_temp.ck('real', 'K3a an attestation whose note does not carry the fingerprint of the sentence does not open the prompt, even for a test patient', 'ok|false',
   (select case when o ~ '^ERR' then o else 'ok' end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.attest_go_live_condition(''cuff_visit_prompt'', ''visit_prompt_wording_signed'', true, ''S07y proof: the neutral line was read in full'')::text') o) z) || '|' ||
+  pg_temp.as_user(pg_temp.f('p'), 'select public.cuff_visit_prompt_open()::text'));
+select pg_temp.ck('real', 'K3 an attestation that carries the fingerprint: guard off keeps a real patient out and lets a test patient in', 'ok|false|true',
+  (select case when o ~ '^ERR' then o else 'ok' end from (select pg_temp.as_user(pg_temp.f('cmo'), format('select public.attest_go_live_condition(''cuff_visit_prompt'', ''visit_prompt_wording_signed'', true, %L)::text', 'S07y proof: text fingerprint ' || private.cuff_visit_prompt_fingerprint() || ', read in full')) o) z) || '|' ||
   pg_temp.as_user(pg_temp.f('r'), 'select public.cuff_visit_prompt_open()::text') || '|' || pg_temp.as_user(pg_temp.f('p'), 'select public.cuff_visit_prompt_open()::text'));
 select pg_temp.ck('real', 'K4 the CMO switches the prompt guard on; the answer is the same for a flagged and an unflagged real patient', 'ok|true|true',
   (select case when o ~ '^ERR' then o else 'ok' end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.set_go_live_guard(''cuff_visit_prompt'', true, ''S07y proof'')::text') o) z) || '|' ||
@@ -400,10 +405,14 @@ select pg_temp.setf('p8', pg_temp.mkuser(pg_temp.f('org'), 'patient p8', 'patien
 insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, care_coordinator_id, assigned_at) values (pg_temp.f('org'), pg_temp.f('p8'), pg_temp.f('c1'), pg_temp.f('co'), now());
 select pg_temp.ck('real', 'M1 submitting the same pair twice (a double click) stores ONE pair and answers with the same id', 'true|1',
   (pg_temp.pair(pg_temp.f('c1'), pg_temp.f('q'), 128, 78, 142, 90, 6) = pg_temp.pair(pg_temp.f('c1'), pg_temp.f('q'), 128, 78, 142, 90, 6))::text || '|' || pg_temp.npairs(pg_temp.f('q')));
+select pg_temp.ck('real', 'M1b a second entry for the same visit with different values is answered with the first pair: still ONE pair', 'true|1',
+  (pg_temp.pair(pg_temp.f('c1'), pg_temp.f('q'), 128, 78, 142, 90, 6) = pg_temp.pair(pg_temp.f('c1'), pg_temp.f('q'), 130, 80, 150, 96, 6))::text || '|' || pg_temp.npairs(pg_temp.f('q')));
 select pg_temp.home2(pg_temp.f('p8'), pg_temp.f('org'), 90, 140, 88);
 select pg_temp.home2(pg_temp.f('p8'), pg_temp.f('org'), 70, 141, 89);
 select pg_temp.ck('real', 'M2 two clinic readings with home readings make two home-log pairs', 'true|2',
   (pg_temp.clinic(pg_temp.f('c1'), pg_temp.f('p8'), 128, 78, 90) !~ '^ERR' and pg_temp.clinic(pg_temp.f('c1'), pg_temp.f('p8'), 128, 78, 70) !~ '^ERR')::text || '|' || pg_temp.npairs(pg_temp.f('p8')));
+select pg_temp.ck('real', 'M2b a second clinic reading at the same visit makes no second pair', 'true|2',
+  (pg_temp.clinic(pg_temp.f('c1'), pg_temp.f('p8'), 130, 80, 90) !~ '^ERR')::text || '|' || pg_temp.npairs(pg_temp.f('p8')));
 select pg_temp.ck('real', 'M3 a same-visit pair for the same visit as a home-log pair is NOT counted twice: three stored pairs, two visits, no flag', 'true|3|none|0',
   (pg_temp.pair(pg_temp.f('c1'), pg_temp.f('p8'), 128, 78, 141, 90, 70) !~ '^ERR')::text || '|' || pg_temp.npairs(pg_temp.f('p8')) || '|' || pg_temp.flags(pg_temp.f('p8')) || '|' || pg_temp.ctasks(pg_temp.f('p8')));
 

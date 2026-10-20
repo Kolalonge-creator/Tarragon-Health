@@ -378,7 +378,7 @@ export default async function ClinicianPatientPage({
                     no longer excludes them. */}
                 {isClinicalTier(callerStaff) && <GlucoseTargetForm patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && <ClinicBpForm patientId={patient.id} />}
-                {isClinicalTier(callerStaff) && <CuffCheckPanel patientId={patient.id} canRecord />}
+                {isClinicalTier(callerStaff) && <CuffCheckPanel patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && (
                   <DiabetesTypeForm
                     patientId={patient.id}

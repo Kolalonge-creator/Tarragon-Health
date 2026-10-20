@@ -104,7 +104,8 @@ describe("cuff check: loading the configuration", () => {
   });
   it("refuses a configuration that contradicts itself", () => {
     expect(() => parseCuffCheckConfig(1, { ...RAW, consistency: { ...RAW.consistency, minPairs: 4, maxPairs: 3 } })).toThrow(/maxPairs cannot be below/);
-    expect(() => parseCuffCheckConfig(1, { ...RAW, consistency: { ...RAW.consistency, minSharePercent: 101 } })).toThrow(/cannot exceed 100/);
+    expect(() => parseCuffCheckConfig(1, { ...RAW, consistency: { ...RAW.consistency, minSharePercent: 101 } })).toThrow(/minSharePercent/);
+    expect(() => parseCuffCheckConfig(1, { ...RAW, pairing: { ...RAW.pairing, windowHours: 3_000_000_000 } })).toThrow(/windowHours/);
     expect(() => parseCuffCheckConfig(1, { ...RAW, consistency: { ...RAW.consistency, minSharePercent: 50 } })).toThrow(/minSharePercent/);
     expect(() => parseCuffCheckConfig(1, { ...RAW, consistency: { ...RAW.consistency, minPairs: 1 } })).toThrow(/minPairs/);
   });

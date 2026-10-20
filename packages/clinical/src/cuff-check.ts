@@ -124,9 +124,9 @@ function section(raw: Raw, name: string): Raw {
   if (!isRecord(v)) throw new Error(`cuff check config: ${name} must be an object`);
   return v;
 }
-function whole(raw: Raw, name: string, field: string, min: number): number {
+function whole(raw: Raw, name: string, field: string, min: number, max: number): number {
   const v = raw[field];
-  if (typeof v !== "number" || !Number.isInteger(v) || v < min) throw new Error(`cuff check config: ${name}.${field} must be a whole number of at least ${min}`);
+  if (typeof v !== "number" || !Number.isInteger(v) || v < min || v > max) throw new Error(`cuff check config: ${name}.${field} must be a whole number from ${min} to ${max}`);
   return v;
 }
 
@@ -139,17 +139,17 @@ export function parseCuffCheckConfig(version: number, value: unknown): CuffCheck
   const t = section(value, "tasks");
   const cfg: CuffCheckConfig = {
     version,
-    pairing: { windowHours: whole(p, "pairing", "windowHours", 1), minHomeReadings: whole(p, "pairing", "minHomeReadings", 1) },
-    difference: { systolic: whole(d, "difference", "systolic", 1), diastolic: whole(d, "difference", "diastolic", 1) },
+    // the ranges are the same ones sign_cuff_check_rules() enforces, so a version the database signs is a version this loader accepts
+    pairing: { windowHours: whole(p, "pairing", "windowHours", 1, 168), minHomeReadings: whole(p, "pairing", "minHomeReadings", 1, 50) },
+    difference: { systolic: whole(d, "difference", "systolic", 1, 100), diastolic: whole(d, "difference", "diastolic", 1, 100) },
     consistency: {
-      minPairs: whole(c, "consistency", "minPairs", 2),
-      maxPairs: whole(c, "consistency", "maxPairs", 2),
-      lookbackDays: whole(c, "consistency", "lookbackDays", 1),
-      minSharePercent: whole(c, "consistency", "minSharePercent", 51),
+      minPairs: whole(c, "consistency", "minPairs", 2, 20),
+      maxPairs: whole(c, "consistency", "maxPairs", 2, 50),
+      lookbackDays: whole(c, "consistency", "lookbackDays", 1, 3650),
+      minSharePercent: whole(c, "consistency", "minSharePercent", 51, 100),
     },
-    tasks: { reviewDueMinutes: whole(t, "tasks", "reviewDueMinutes", 1) },
+    tasks: { reviewDueMinutes: whole(t, "tasks", "reviewDueMinutes", 1, 525600) },
   };
   if (cfg.consistency.maxPairs < cfg.consistency.minPairs) throw new Error("cuff check config: consistency.maxPairs cannot be below consistency.minPairs");
-  if (cfg.consistency.minSharePercent > 100) throw new Error("cuff check config: consistency.minSharePercent cannot exceed 100");
   return cfg;
 }

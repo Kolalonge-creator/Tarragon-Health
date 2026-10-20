@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { attestConditionAction } from "@/lib/go-live/actions";
@@ -53,6 +54,9 @@ const ATTEST: Record<"c4" | "pattern" | "cuff_flag" | "cuff_prompt", { guard: st
   cuff_prompt: { guard: CUFF_PROMPT_GUARD, code: CUFF_PROMPT_CODE, title: "s06s10.attest.cuff_prompt.title", intro: "s06s10.attest.cuff_prompt.intro" },
 };
 
+/** First 12 hex characters of the SHA-256 of a sentence: the database holds the same value for cuff.visit_prompt and opens the prompt only for an attestation that carries it. */
+const fingerprintOf = (text: string) => createHash("sha256").update(text).digest("hex").slice(0, 12);
+
 export function WordingAttestationPanel({ kind }: { kind: "c4" | "pattern" | "cuff_flag" | "cuff_prompt" }) {
   const { guard, code, title, intro } = ATTEST[kind];
   return (
@@ -95,7 +99,15 @@ export function WordingAttestationPanel({ kind }: { kind: "c4" | "pattern" | "cu
         </label>
         <label className="block text-xs text-charcoal-ink">
           {t("s06s10.attest.note", locale)}
-          <input name="note" required minLength={10} maxLength={1000} placeholder={t("s06s10.attest.note_placeholder", locale)} className={field} />
+          <input
+            name="note"
+            required
+            minLength={10}
+            maxLength={1000}
+            placeholder={t("s06s10.attest.note_placeholder", locale)}
+            defaultValue={kind === "cuff_prompt" ? `Text fingerprint ${fingerprintOf(t("cuff.visit_prompt", locale))}. Read in full.` : undefined}
+            className={field}
+          />
         </label>
         <button
           type="submit"
