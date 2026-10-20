@@ -685,6 +685,22 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "circle_expiring_soon") {
     return { text: "Someone's access to your Care Circle ends in a few days. Renew it if you want them to keep it", href: "/patient/care-circle" };
   }
+  if (n.template === "circle_check_in_asked") {
+    // From public.request_circle_check_in (S29e): the patient is asked first. No name, no reading (INV-07).
+    return { text: "Someone in your Care Circle would like to hear from you. Tap I am fine so they know you are well", href: "/patient/care-circle" };
+  }
+  if (n.template === "circle_check_in_unanswered") {
+    // From private.sweep_circle_check_ins (S29e): a request the patient did not answer in time. Same neutral family as circle_check_in.
+    return { text: "Someone in your Care Circle has not answered a check-in. Please call them.", href: "/patient/supporting" };
+  }
+  if (n.template === "proxy_review_due") {
+    // From private.sweep_proxy_access_reviews(). Names no one; the person sees who on the card behind the link. Never a reason to act in a hurry.
+    return { text: "A yearly check: do the people who help you still need access? Open Tarragon Health on the web to keep, change or remove it", href: "/patient/family" };
+  }
+  if (n.template === "proxy_review_due_proxy") {
+    // Calm, once per cycle, and says nothing about what the person decides (narrowing and removal stay silent, D5).
+    return { text: "A yearly check is due. The person you help is looking over who can help them. You do not need to do anything", href: "/patient/family" };
+  }
   if (n.template === "circle_pause_ended") {
     return { text: "Your pause on sharing has ended. Your Care Circle can see what you chose to share again", href: "/patient/care-circle" };
   }

@@ -109,6 +109,13 @@ export function decide(i: DecideInput): Decision {
  * that claimed it would be rejected. Full-screen intents are deliberately never used (Play restricts them to calls and alarms).
  */
 export const URGENT_CHANNEL_ID = "urgent";
+/** The Android alarm channel for on-call pages (S19e); created by apps/mobile/src/lib/paging/page-channel.ts, kept equal by a test. */
+export const PAGE_CHANNEL_ID = "on_call_page";
+/** Only a page or a test page sent TO the clinician rings the alarm channel; escalation notices to leadership stay on `urgent`. */
+export const PAGE_ALARM_TEMPLATES: readonly string[] = ["on_call_page", "on_call_test_page"];
+export function expoChannelFor(template: string | null | undefined, pageChannelReady: boolean | null | undefined): string {
+  return template != null && PAGE_ALARM_TEMPLATES.includes(template) && pageChannelReady === true ? PAGE_CHANNEL_ID : URGENT_CHANNEL_ID;
+}
 export const URGENT_TTL_SECONDS = 86_400;
 export interface ExpoUrgencyFields {
   readonly priority?: "high";
@@ -117,13 +124,13 @@ export interface ExpoUrgencyFields {
   readonly interruptionLevel?: "time-sensitive" | "critical";
   readonly sound?: "default";
 }
-export function expoUrgencyFields(urgent: boolean, criticalAlertsEnabled: boolean, channelReady = true): ExpoUrgencyFields {
+export function expoUrgencyFields(urgent: boolean, criticalAlertsEnabled: boolean, channelReady = true, channelId: string = URGENT_CHANNEL_ID): ExpoUrgencyFields {
   if (!urgent) return {};
   return {
     priority: "high",
     // Only a phone that has created the channel (push_subscriptions.urgent_channel_ready) is sent to it; otherwise the push would
     // be accepted and reported delivered but never shown.
-    ...(channelReady ? { channelId: URGENT_CHANNEL_ID } : {}),
+    ...(channelReady ? { channelId } : {}),
     ttl: URGENT_TTL_SECONDS,
     interruptionLevel: criticalAlertsEnabled ? "critical" : "time-sensitive",
     sound: "default",

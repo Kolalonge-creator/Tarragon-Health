@@ -320,6 +320,9 @@ preventive_health_check_review_sku.sql
 # directions and carry sabotage steps that flip.
 s03b_account_recovery_routes.sql
 s03b_eligibility_first_claims.sql
+optional_passkeys.sql
+# S03b follow-up: the Auth Send SMS hook asks public.auth_sms_hold (OQ-S03B-06): held after a number move, lifted by a recovery-contact release, service role only. Sabotage x3 flips.
+s03b_auth_sms_hold.sql
 
 # S04b-2: consent receipts (channel, who, exact-text hash, forged values overwritten), the OQ-53 rule (an active account cannot withdraw a required consent; optional give and withdraw work; closed account and service context are not blocked), drafted optional wording (hidden from patients and anon, cannot be accepted, publish needs the module on and an admin, text immutable once agreed), guardian scope for a dependant, patient_consents append-only, deletion request grace clamped 7 to 30 days, one open request, no approval before the grace ends, owner-only audited cancel. Sabotage: the withdrawal rule removed (a required consent is withdrawn) and the grace gate removed (an admin approves early); both must flip, then are restored.
 s04b2_consent_receipts_and_deletion_grace.sql
@@ -922,6 +925,7 @@ s29_care_circle.sql
 # S29b: a gifted Membership or care pack waits for the patient's yes. Paid but pending: order.paid carries care_pack false and gift_pending true, no Membership starts, no lead is asked for, the patient is asked once and the payer sees nothing; only the patient can answer; accept starts the Membership from the yes and asks for a lead exactly once under its own key; decline closes it, starts nothing and opens a finance incident to refund the payer (payer not told); an unanswered gift is swept as declined after the configured days; buying for yourself is unchanged. Sabotage: the patient check and the gift detection each removed; both must flip.
 s29b_gifted_care_pack.sql
 s29c_care_circle_followup.sql
+s29e_care_circle_reach_and_checkin_window.sql
 # S39: catalog-wide security sweep over every table and role. RLS on for all tables in public/private/analytics; anon grants and anon EXECUTE only on the reviewed lists; every SECURITY DEFINER pins search_path; only reviewed views run as owner and none is anon-readable; only reviewed public buckets; a stranger of each role (patient, clinician, care coordinator, finance) and anon read zero rows from every patient_id table. Sabotage: RLS off, an anon function, an owner view and an open policy; all four must flip.
 s39_security_catalog.sql
 # S39 round 1: failed guesses on the emergency-card and record-share doors are counted per hour (no token stored) and alarm once at the configured threshold; valid lookups add nothing and still open; anon cannot read or call the counter. REGRESSION: a share with all seven sections opens (the vitals and lab sections used to fail on a renamed column and a non-existent enum value). Sabotage: counter call removed, bad column restored; both must flip.
@@ -1153,8 +1157,10 @@ community_images_ops_qa.sql
 oq276_controlled_medicines_at_the_counter.sql
 # Community 6/6 (search, split, picture flag, welcome, reminder): a member searches post text only inside groups they have joined (case-insensitive, short queries refused, held and removed posts and hidden people left out, no account id in the answer, never callable by anon or the service role); a moderator turns a reply into its own post (same group, author, words and time; patients and hand edits refused; written to the log; the author is told nothing); the automatic picture check can only add a flag to a held picture post, once, and never releases or removes anything; a member who has just joined is a new member for the configured days; the reminder goes once to a member who chose the weekly note and has an old unread reply, with an empty fixed notice and nothing identifying. Sabotage: the reader check opened to everyone and the post guard disabled; the matching checks must flip.
 community_search_split_nudges.sql
-# SR2: scheduled-job history is purged (succeeded older than 7 days, failed older than 30), and a failed cron run opens one ops incident per job per hour (sev2 for paging, claim, triage, notification and event jobs, otherwise sev3) before anything is deleted; the second pass adds no duplicate; the purge keeps the incident; both jobs scheduled; anon and authenticated cannot execute either function. Sabotage: a purge that deletes everything older than a day; both keep checks must flip.
+# SR2 (retention since changed to 1 day plus keep-latest, hourly; see the IO budget proof): scheduled-job history is purged (succeeded older than 7 days, failed older than 30), and a failed cron run opens one ops incident per job per hour (sev2 for paging, claim, triage, notification and event jobs, otherwise sev3) before anything is deleted; the second pass adds no duplicate; the purge keeps the incident; both jobs scheduled; anon and authenticated cannot execute either function. Sabotage: a purge that deletes everything older than a day; both keep checks must flip.
 sr2_cron_history_purge_and_failure_incidents.sql
+# Disk IO budget: record_cron_failures reads only the newest cron runs (45 minute window) and still opens one sev3/sev2 incident per job per hour with no duplicate and nothing for an older failure; purge_cron_history (at most 60,000 rows per call) deletes succeeded runs older than a day but always keeps each job's latest succeeded run and latest run of any status, keeps failed runs 30 days, runs hourly, and is not executable by anon. Sabotage: a purge with no keep rule; the latest-succeeded check must flip.
+cron_log_io_budget_bounded_scan_and_hourly_purge.sql
 # OQ-276 follow-up: the read-only QR views flag a controlled medicine and the patient can ask whether a prescription holds one. verify_prescription_public and desk_verify_prescription answer status controlled_medicine with no supply available (ordinary ones stay active); the patient function is true for the owner (medicine row, or only a signed item under the real drug_name key), false for an ordinary prescription and for another patient, refused for anon. Sabotage: the controlled branch removed from the public view, and the patient function forced false; both must flip.
 oq276b_qr_views_and_patient_note.sql
 two_tier_free_red_event_path.sql
@@ -1286,5 +1292,21 @@ s63_therapy_programmes.sql
 # (idempotent replay, no body metrics, plausible readings only, red flow first, caps/decay, tiers, grace, capped checkout discount,
 # append-only ledger, aggregate-only employer seam, roles) with three sabotage steps.
 s58_rewards_engine.sql
+<<<<<<< HEAD
 # AVS after-visit summary: signature stamp and CHECKs, deterministic assembly, the one visibility rule (draft, withdrawn, unsigned note, amendment pending or signed, entered in error, unreleased protected note all hidden), caregiver permission, checklist tick-off and care task link, events with ids only, anon denied, with two sabotage steps.
 avs_visit_summaries.sql
+=======
+# Task queue gaps OQ-432/433/435: a Member's symptom-check review is ONE symptom_review task (Free keeps the alert, a task that cannot be made falls back to the alert with an audit row and incident); pharmacy_flag_review requires prescribing, admin_clinical only for the prescription subtype; a lead or pushed doctor who lacks a required competency is skipped with the reason on the transition. Sabotage: the lead check, the pushed-doctor check, the prescribing rule and the task producer each removed; each must flip.
+task_queue_gaps_oq432_433_435.sql
+# S19e native page receipts: a live native (ios/android, Expo token) push subscription with a push receipt confirms a mobile-only clinician route (90 s early window); no subscription or a disabled one does not; page_channel_ready defaults false; the function is not executable by anon or authenticated. Sabotage: the web-only definition must flip the native check.
+s19e_native_page_receipts.sql
+proxy_yearly_access_review.sql
+
+# --- Added 2026-10-16 (hardening: result document replacement supersedes) ---
+supersede_patient_result_document_replace.sql
+# --- Added 2026-10-16 (hardening: audit_log SELECT narrowed to own rows + admin) ---
+audit_log_select_narrowed.sql
+bp_cuffless_estimates_never_diagnostic.sql
+# Record share extras: recipient label, view cap (1 to 50, the fourth open of a three-view link is refused like any dead link, peek too), date window (30/90/180 days drops older readings), options door refuses bad input and anon; pin_hash stays unreadable; the original create door still works. Sabotage: the cap and the window each removed; both must flip.
+record_share_recipient_views_window.sql
+>>>>>>> origin/main-dev
