@@ -1,4 +1,4 @@
-import { __resetPassportCacheForTests, cacheRead, cacheWrite, clearPassportCache, isOffline, readThrough } from "./passport-cache";
+import { __resetPassportCacheForTests, cacheDeleteExcept, cacheRead, cacheWrite, clearPassportCache, isOffline, readThrough } from "./passport-cache";
 
 let mockUser: string | null = "user-1";
 jest.mock("./supabase", () => ({
@@ -88,6 +88,24 @@ describe("passport cache (S43m)", () => {
       return { ok: false as const, error: { code: "42501", message: "denied" } };
     });
     expect((await cacheRead<string[]>("shared-key"))?.value).toEqual(["b's"]);
+  });
+
+  it("a data error (not a permission refusal) keeps the copy and shows it as stale", async () => {
+    await readThrough("k7", async () => ({ ok: true as const, data: ["kept"] }));
+    const r = await readThrough<string[]>("k7", async () => ({ ok: false as const, error: { code: "22023", message: "invalid parameter" } }));
+    expect(r.ok && r.stale && r.data).toEqual(["kept"]);
+  });
+
+  it("removes saved copies under a prefix that are no longer wanted, only for this account", async () => {
+    await cacheWrite("t:a", 1);
+    await cacheWrite("t:b", 2);
+    await cacheWrite("other:z", 3);
+    await cacheDeleteExcept("t:", ["t:a"]);
+    expect(await cacheRead("t:a")).not.toBeNull();
+    expect(await cacheRead("t:b")).toBeNull();
+    expect(await cacheRead("other:z")).not.toBeNull();
+    await cacheDeleteExcept("t:", []);
+    expect(await cacheRead("t:a")).toBeNull();
   });
 
   it("keep:false reads live and never stores or serves a copy (someone else's record)", async () => {

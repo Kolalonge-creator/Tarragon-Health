@@ -118,6 +118,21 @@ export async function cacheDelete(key: string, expectedOwner?: string): Promise<
   }
 }
 
+/** Removes saved copies under a prefix that are not in `keep` (a test whose results were all withdrawn must not stay readable offline). */
+export async function cacheDeleteExcept(prefix: string, keep: readonly string[], expectedOwner?: string): Promise<void> {
+  try {
+    const owner = await ownerIfStillSignedIn(expectedOwner);
+    if (!owner) return;
+    const marks = keep.map(() => "?").join(", ");
+    await (await db()).runAsync(
+      `delete from passport_cache where owner_user_id = ? and substr(key, 1, ?) = ?${keep.length > 0 ? ` and key not in (${marks})` : ""}`,
+      [owner, prefix.length, prefix, ...keep]
+    );
+  } catch (error) {
+    recordSyncError("offline_outbox", "passportCachePruneKeys", error);
+  }
+}
+
 /** Sign-out: nothing of the previous account stays readable on a shared phone. */
 export async function clearPassportCache(): Promise<void> {
   await (await db()).execAsync("delete from passport_cache;");
@@ -146,7 +161,7 @@ export interface ReadOptions {
 
 /**
  * Live read first. On success the copy is refreshed; on a lost connection, a server error or an expired sign-in the last copy is shown and
- * marked stale, so the screen can say so. A REFUSAL (the database said no) never falls back: the copy is deleted and the failure reported
+ * marked stale, so the screen can say so. A REFUSAL (a permission error, 42501) never falls back: the copy is deleted and the failure reported
  * with `refused`, so access that was withdrawn does not keep showing the old record. With no copy the failure is reported as it is (offline
  * or another error), never as an empty list that would read as "nothing here".
  */
@@ -165,7 +180,8 @@ export async function readThrough<T>(key: string, fetcher: () => Promise<FetchOu
   }
   const failure = classifyFailure({ code: outcome.error.code, message: outcome.error.message });
   const offline = failure === "network";
-  if (failure === "rejected") {
+  // Only a permission refusal (42501) means access is not there. Other 4xx or data errors are faults: the copy stays and is shown as stale.
+  if (outcome.error.code === "42501") {
     if (keep && owner) await cacheDelete(key, owner);
     return { ok: false, offline: false, refused: true };
   }

@@ -105,11 +105,13 @@ export function groupByUnit(points: readonly TrendPoint[]): { unit: string | nul
 export function labRangeLabel(p: Pick<TrendPoint, "refLow" | "refHigh" | "refText">): string | null {
   // The database builds ref_text from the two bounds when the lab sent none ("4 to 5.6", or a bare "5.6" for a one-sided range). A bare number
   // would read as an exact target, so text that is only the bounds is described from the bounds instead ("up to 5.6").
+  const same = (text: string, n: number) => Number.isFinite(Number(text)) && Number(text) === n;
+  const parts = p.refText?.split(" to ") ?? [];
   const fromBounds =
     p.refText !== null &&
-    ((p.refLow !== null && p.refHigh !== null && p.refText === `${p.refLow} to ${p.refHigh}`) ||
-      (p.refLow === null && p.refHigh !== null && p.refText === String(p.refHigh)) ||
-      (p.refHigh === null && p.refLow !== null && p.refText === String(p.refLow)));
+    ((p.refLow !== null && p.refHigh !== null && parts.length === 2 && same(parts[0], p.refLow) && same(parts[1], p.refHigh)) ||
+      (p.refLow === null && p.refHigh !== null && parts.length === 1 && same(parts[0], p.refHigh)) ||
+      (p.refHigh === null && p.refLow !== null && parts.length === 1 && same(parts[0], p.refLow)));
   if (p.refText && !fromBounds) return p.refText;
   if (p.refLow !== null && p.refHigh !== null) return `${p.refLow} to ${p.refHigh}`;
   if (p.refHigh !== null) return `up to ${p.refHigh}`;

@@ -152,6 +152,10 @@ describe("labRangeLabel one-sided text built by the database", () => {
     expect(labRangeLabel({ refLow: 4, refHigh: null, refText: "4" })).toBe("4 or more");
     expect(labRangeLabel({ refLow: 4, refHigh: 5.6, refText: "4 to 5.6" })).toBe("4 to 5.6");
   });
+  it("sees through trailing zeros the database keeps on numeric text", () => {
+    expect(labRangeLabel({ refLow: null, refHigh: 5.6, refText: "5.6000" })).toBe("up to 5.6");
+    expect(labRangeLabel({ refLow: 4, refHigh: 5.6, refText: "4.0000 to 5.6000" })).toBe("4 to 5.6");
+  });
   it("keeps the laboratory's own wording when it sent any", () => {
     expect(labRangeLabel({ refLow: null, refHigh: 5.6, refText: "Less than 5.6 (non-diabetic)" })).toBe("Less than 5.6 (non-diabetic)");
   });

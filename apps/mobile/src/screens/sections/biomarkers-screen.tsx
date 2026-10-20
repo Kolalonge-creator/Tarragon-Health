@@ -108,10 +108,13 @@ function UnitCard({ code, unit, points }: { code: string; unit: string | null; p
   );
 }
 
-function SeriesView({ series }: { series: TrendSeries }) {
+function SeriesView({ series, totalReadings }: { series: TrendSeries; totalReadings: number | null }) {
   const groups = groupByUnit(series.points);
   return (
     <>
+      {totalReadings !== null && totalReadings > series.points.length ? (
+        <InlineAlert tone="info" message={t("mpass.bio.trimmed", "en", { shown: String(series.points.length), total: String(totalReadings) })} />
+      ) : null}
       {series.unitMixed ? <InlineAlert tone="warn" message={t("biomarkers.unit_mixed")} /> : null}
       {series.target ? (
         <View style={{ gap: space.xs }} accessible>
@@ -219,7 +222,7 @@ export function BiomarkersScreen({ subjectId, userId }: Props) {
               {trend.kind === "ready" ? (
                 <>
                   {trend.stale ? <StaleNotice offline={trend.stale.offline} savedAt={trend.stale.savedAt} /> : null}
-                  {trend.data.points.length > 0 ? <SeriesView series={trend.data} /> : <EmptyState icon="vitals" title={t("biomarkers.none")} />}
+                  {trend.data.points.length > 0 ? <SeriesView series={trend.data} totalReadings={list.data.find((i) => i.code === code)?.readings ?? null} /> : <EmptyState icon="vitals" title={t("biomarkers.none")} />}
                 </>
               ) : null}
             </>

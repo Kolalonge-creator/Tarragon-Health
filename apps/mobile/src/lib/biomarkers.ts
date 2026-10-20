@@ -1,7 +1,7 @@
 import { displayCode, parseTrend, type TrendSeries } from "@tarragon/shared";
 import { en, t, type MessageKey } from "@tarragon/i18n";
 import { supabase } from "./supabase";
-import { readThrough, type ReadResult } from "./passport-cache";
+import { cacheDeleteExcept, readThrough, type ReadResult } from "./passport-cache";
 import { formatPassportYear } from "./passport-format";
 
 /**
@@ -43,7 +43,19 @@ export function parseBiomarkerList(data: unknown): BiomarkerListItem[] {
   return out;
 }
 
-export function loadBiomarkerList(subjectId: string, own: boolean): Promise<ReadResult<BiomarkerListItem[]>> {
+export async function loadBiomarkerList(subjectId: string, own: boolean): Promise<ReadResult<BiomarkerListItem[]>> {
+  const result = await readListThrough(subjectId, own);
+  // A fresh list is the truth about which tests exist: a saved trend for a test that is gone (every result withdrawn) is removed, not kept readable offline.
+  if (own && result.ok && !result.stale) {
+    await cacheDeleteExcept(
+      `bio:trend:${subjectId}:`,
+      result.data.map((i) => biomarkerTrendKey(subjectId, i.code))
+    );
+  }
+  return result;
+}
+
+function readListThrough(subjectId: string, own: boolean): Promise<ReadResult<BiomarkerListItem[]>> {
   return readThrough(
     biomarkerListKey(subjectId),
     async () => {
@@ -51,7 +63,10 @@ export function loadBiomarkerList(subjectId: string, own: boolean): Promise<Read
       if (error) return { ok: false, error };
       // An answer of the wrong shape is a failed read (the saved copy is kept and shown), not "no results".
       if (!Array.isArray(data)) return { ok: false, error: { message: "unexpected answer" } };
-      return { ok: true, data: parseBiomarkerList(data) };
+      const rows = parseBiomarkerList(data);
+      // Rows that all failed to parse are a changed shape, not an empty record: never saved over a good copy as "none".
+      if (data.length > 0 && rows.length === 0) return { ok: false, error: { message: "unexpected answer" } };
+      return { ok: true, data: rows };
     },
     { keep: own }
   );
@@ -65,7 +80,8 @@ export function loadBiomarkerTrend(subjectId: string, code: string, own: boolean
       const { data, error } = await supabase.rpc("patient_biomarker_trend", { p_code: code, p_patient: subjectId });
       if (error) return { ok: false, error };
       const series = parseTrend(data);
-      if (!series) return { ok: false, error: { message: "unexpected answer" } };
+      const rawPoints = (data as { points?: unknown } | null)?.points;
+      if (!series || !Array.isArray(rawPoints) || (rawPoints.length > 0 && series.points.length === 0)) return { ok: false, error: { message: "unexpected answer" } };
       return { ok: true, data: series };
     },
     { keep: own }
@@ -107,7 +123,7 @@ export function latestLabel(item: Pick<BiomarkerListItem, "latestValue" | "lates
 /** A result as plain digits: a very small or very large value never prints in exponent form (1e-7). */
 export function formatResultValue(value: number): string {
   if (!Number.isFinite(value)) return "";
-  return value.toLocaleString("en-GB", { useGrouping: false, maximumFractionDigits: 12 });
+  return value.toLocaleString("en-GB", { useGrouping: false, maximumFractionDigits: 20 });
 }
 
 export function readingsLabel(count: number): string {
