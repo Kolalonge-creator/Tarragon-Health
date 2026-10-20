@@ -320,6 +320,7 @@ preventive_health_check_review_sku.sql
 # directions and carry sabotage steps that flip.
 s03b_account_recovery_routes.sql
 s03b_eligibility_first_claims.sql
+optional_passkeys.sql
 # S03b follow-up: the Auth Send SMS hook asks public.auth_sms_hold (OQ-S03B-06): held after a number move, lifted by a recovery-contact release, service role only. Sabotage x3 flips.
 s03b_auth_sms_hold.sql
 
@@ -1295,7 +1296,10 @@ task_queue_gaps_oq432_433_435.sql
 s19e_native_page_receipts.sql
 # OQ-451 and OQ-452: signing/activation functions for the task layer and paging delivery configs (CMO only; version frozen once signed or in force; a new version is a new row; a version older than one signed is never made live; the paging activation REFUSES with a reason list until every non-test on-call clinician has a working push subscription, a verified email and a test page acknowledged inside the version window; nobody on call is itself a refusal) and platform_deep_health() (service role only; stale or missing queue and pager heartbeats, open sev1 count). Sabotage: the freeze guard, the checklist and the CMO test each removed; each must flip.
 oq451_oq452_signing_and_deep_health.sql
+proxy_yearly_access_review.sql
 
+# --- Added 2026-10-16 (hardening: result document replacement supersedes) ---
+supersede_patient_result_document_replace.sql
 # --- Added 2026-10-16 (hardening: audit_log SELECT narrowed to own rows + admin) ---
 audit_log_select_narrowed.sql
 bp_cuffless_estimates_never_diagnostic.sql

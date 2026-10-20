@@ -131,7 +131,7 @@ test.describe("Journey 2: a red reading at night", () => {
       const confirm = page.getByRole("button", { name: /yes, this reading is correct/i });
       if (await confirm.isVisible({ timeout: 4000 }).catch(() => false)) await confirm.click();
       // The first server action call compiles on demand in `next dev`, which is slow on a busy machine.
-      await expect(page.getByText("Reading logged.")).toBeVisible({ timeout: 150_000 });
+      await expect(page.getByText("Received by TarragonHealth.")).toBeVisible({ timeout: 150_000 });
       readingId = sqlValue<string>(
         `select id from public.vitals_readings where patient_id = ${lit(patient.id)} and vital_type::text = 'blood_pressure' order by created_at desc limit 1`,
       );
@@ -178,7 +178,7 @@ test.describe("Journey 2: a red reading at night", () => {
         const confirm = page.getByRole("button", { name: /yes, this reading is correct/i });
         if (await confirm.isVisible({ timeout: 2000 }).catch(() => false)) await confirm.click();
         await expect(page.locator("#vitals-form-error")).toContainText(/you're offline/i, { timeout: 10_000 });
-        await expect(page.getByText("Reading logged.")).toHaveCount(0);
+        await expect(page.getByText("Received by TarragonHealth.")).toHaveCount(0);
       } finally {
         await context.setOffline(false);
       }
