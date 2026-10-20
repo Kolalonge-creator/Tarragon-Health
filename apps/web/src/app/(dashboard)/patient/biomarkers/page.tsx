@@ -4,12 +4,12 @@ import { PageHeader } from "@/components/ui/page-header";
 import { NAV_ICON } from "@/lib/icons";
 import { createClient } from "@/lib/supabase/server";
 import { t, type MessageKey } from "@tarragon/i18n";
-import { getProposedConfig, type BiomarkerBand } from "@tarragon/shared";
+import type { BiomarkerBand } from "@tarragon/shared";
 import { BiomarkerResultCard } from "@/components/biomarker/biomarker-result-card";
 import { LifestyleGuide, type LifestyleItem } from "@/components/biomarker/lifestyle-guide";
 import { ResultExplainer } from "@/components/result-explainer";
-import { activeBiomarkerBands, gradeResult } from "@/lib/biomarkers/grade";
-import { displayCode, groupByUnit, labRangeLabel, parseTrend, targetLabel } from "@/lib/biomarkers/trend";
+import { activeBiomarkerBands, gradeResult, latestConfirmedConfig } from "@/lib/biomarkers/grade";
+import { displayCode, groupByUnit, labRangeLabel, parseTrend, targetLabel, type TrendPoint } from "@/lib/biomarkers/trend";
 import { TrendChart } from "./trend-chart";
 
 interface ListItem {
@@ -18,6 +18,10 @@ interface ListItem {
   last_at: string;
   latest_value: number | null;
   latest_unit: string | null;
+  latest_flag: string | null;
+  latest_ref_low: number | null;
+  latest_ref_high: number | null;
+  latest_ref_text: string | null;
 }
 
 function fmt(value: string): string {
@@ -49,16 +53,26 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
 
   // One latest-result card per test. The Tarragon grade and range bar appear only once the CMO has confirmed the bands.
   const bands = activeBiomarkerBands();
-  const cards = (
-    await Promise.all(
-      list.map(async (item) => {
-        const { data } = await supabase.rpc("patient_biomarker_trend", { p_code: item.code, p_patient: subjectId });
-        const latest = parseTrend(data)?.points.at(-1);
-        return latest ? { code: item.code, latest } : null;
-      }),
-    )
-  ).filter((c): c is NonNullable<typeof c> => c !== null);
-  const guide = getProposedConfig("biomarkers.lifestyle_guide").value as unknown as { items: LifestyleItem[] };
+  const cards = list.flatMap((item) =>
+    item.latest_value === null
+      ? []
+      : [{
+          code: item.code,
+          latest: {
+            takenAt: item.last_at,
+            value: Number(item.latest_value),
+            unit: item.latest_unit,
+            refLow: item.latest_ref_low === null ? null : Number(item.latest_ref_low),
+            refHigh: item.latest_ref_high === null ? null : Number(item.latest_ref_high),
+            refText: item.latest_ref_text,
+            flag: item.latest_flag,
+            source: "lab_result",
+            laboratory: null,
+          } satisfies TrendPoint,
+        }],
+  );
+  // Unapproved wording is never shown: the guide appears only once the CMO has confirmed it.
+  const guide = latestConfirmedConfig<{ items: LifestyleItem[] }>("biomarkers.lifestyle_guide");
 
   return (
     <div className="space-y-6">
@@ -150,7 +164,7 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
               <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t("biomarkers.note", uiLanguage)}</p>
             </>
           )}
-          <LifestyleGuide items={guide.items} uiLanguage={uiLanguage} />
+          {guide && <LifestyleGuide items={guide.items} uiLanguage={uiLanguage} />}
         </>
       )}
     </div>

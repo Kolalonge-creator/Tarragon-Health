@@ -3,7 +3,7 @@ import { t, type MessageKey } from "@tarragon/i18n";
 import type { BiomarkerBand } from "@tarragon/shared";
 import { Badge } from "@/components/ui/badge";
 import { displayCode, labRangeLabel, positionInLabRange, type TrendPoint } from "@/lib/biomarkers/trend";
-import type { BiomarkerGrade } from "@/lib/biomarkers/grade";
+import { isCriticalFlag, type BiomarkerGrade } from "@/lib/biomarkers/grade";
 import { RangeBar, rangeBarLabel } from "./range-bar";
 
 type Lang = Parameters<typeof t>[1];
@@ -11,12 +11,12 @@ type Lang = Parameters<typeof t>[1];
 const GRADE_BADGE: Record<BiomarkerGrade, "green" | "amber" | "red"> = { good: "green", acceptable: "amber", needs_attention: "red" };
 
 /** The lab-only chip used while Tarragon's bands are unconfirmed, or for a test with no band. Never invents a grade. */
-function labChip(point: TrendPoint): { variant: "green" | "amber" | "grey"; key: MessageKey } {
-  if (point.flag === "critical_low" || point.flag === "critical_high") return { variant: "amber", key: `biomarkers.flag.${point.flag}` as MessageKey };
+function labChip(point: TrendPoint): { variant: "green" | "amber" | "red" | "grey"; key: MessageKey } {
+  if (isCriticalFlag(point.flag)) return { variant: "red", key: "biomarkers.flag.critical_high" };
   const pos = positionInLabRange(point);
+  if (pos === "below" || point.flag === "low") return { variant: "amber", key: "biomarkers.flag.low" };
+  if (pos === "above" || point.flag === "high") return { variant: "amber", key: "biomarkers.flag.high" };
   if (pos === "within") return { variant: "green", key: "biomarkers.flag.normal" };
-  if (pos === "below") return { variant: "amber", key: "biomarkers.flag.low" };
-  if (pos === "above") return { variant: "amber", key: "biomarkers.flag.high" };
   return { variant: "grey", key: "biomarkers.card.no_range" };
 }
 

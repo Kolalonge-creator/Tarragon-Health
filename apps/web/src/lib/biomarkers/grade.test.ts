@@ -1,5 +1,5 @@
 import type { BiomarkerBands } from "@tarragon/shared";
-import { activeBiomarkerBands, gradeResult, rangeBarModel } from "./grade";
+import { activeBiomarkerBands, gradeResult, isCriticalFlag, rangeBarModel } from "./grade";
 
 const bands: BiomarkerBands = {
   analytes: {
@@ -47,7 +47,27 @@ describe("gradeResult", () => {
   });
 });
 
+describe("critical flags and units", () => {
+  it("treats the plain 'critical' flag the database stores as critical", () => {
+    expect(isCriticalFlag("critical")).toBe(true);
+    expect(isCriticalFlag("critical_low")).toBe(true);
+    expect(isCriticalFlag("high")).toBe(false);
+    expect(gradeResult("total_cholesterol", pt(4.2, { flag: "critical" }), bands)).toBe("needs_attention");
+  });
+  it("matches eGFR spelled with a superscript two", () => {
+    const egfr: BiomarkerBands = { analytes: { egfr: { unit: "mL/min/1.73m2", good: { min: 90, max: null }, acceptable: { min: 60, max: null } } } };
+    expect(gradeResult("egfr", pt(95, { unit: "mL/min/1.73 m²" }), egfr)).toBe("good");
+  });
+});
+
 describe("rangeBarModel", () => {
+  it("keeps the good and acceptable segments visible for an outlier value", () => {
+    const m = rangeBarModel(20, bands.analytes.total_cholesterol);
+    const good = m.segments.find((s) => s.grade === "good");
+    expect(good).toBeDefined();
+    expect((good?.to ?? 0) - (good?.from ?? 0)).toBeGreaterThan(5);
+    expect(m.marker).toBeLessThanOrEqual(100);
+  });
   const band = bands.analytes.total_cholesterol;
   it("covers 0..100 with ordered, non-overlapping segments", () => {
     const m = rangeBarModel(5.02, band);
