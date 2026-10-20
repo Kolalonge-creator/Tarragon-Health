@@ -29,7 +29,7 @@ begin
   values (v, 'nov-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
   values (v, p_org, p_role::public.user_role, 'NOv ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), (current_date - interval '45 years')::date, p_test)
-  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, is_test = excluded.is_test, is_active = true;
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, is_test = excluded.is_test, is_active = true, date_of_birth = excluded.date_of_birth;
   return v;
 end $f$;
 create function pg_temp.mkdoc(p_org uuid, p_label text, p_tier text, p_admin uuid) returns uuid language plpgsql as
@@ -58,6 +58,8 @@ begin
   perform set_config('request.jwt.claims', '', true); perform set_config('request.jwt.claim.sub', '', true); perform set_config('request.jwt.claim.role', '', true);
   return r;
 end $f$;
+-- a propose that was refused returns the 'ERR <sqlstate>' text; a plain cast would hide which call it was
+create function pg_temp.uid(p_t text) returns uuid language plpgsql as $f$ begin if p_t like 'ERR %' then raise exception 'fixture call refused: %', p_t; end if; return p_t::uuid; end $f$;
 create function pg_temp.try(p_sql text) returns text language plpgsql as $f$ begin execute p_sql; return 'OK'; exception when others then return 'ERR ' || sqlstate; end $f$;
 
 do $$
@@ -121,7 +123,7 @@ begin
 
   -- C. propose, draft is never served, sign -----------------------------------------------------------------------------------------
   v_t := pg_temp.as_user(v_c1, format($q$select public.propose_threshold_override(%L, 'bp', '{"target":{"systolic":150,"diastolic":95}}', 'Chronic baseline around 150 over 95 for two years', 60)::text$q$, v_p));
-  v_ov := v_t::uuid;
+  v_ov := pg_temp.uid(v_t);
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, source, position, arm)
     values (v_org, v_p, 'blood_pressure', 150, 92, now() - interval '5 minutes', 'device', 'seated', 'left') returning id into v_obs;
   perform pg_temp.ck('real', 'C1 a proposed (unsigned) override is never served to the engine', 'null', coalesce(public.triage_active_override_for_observation(v_obs, 'bp')::text, 'null'));
@@ -147,7 +149,7 @@ begin
   perform pg_temp.ck('real', 'D5 and they return when a policy is signed again', v_ov::text, public.triage_active_override_for_observation(v_obs, 'bp') ->> 'id');
 
   -- E. supersede, review, revoke, reads --------------------------------------------------------------------------------------------------
-  v_ov2 := pg_temp.as_user(v_c1, format($q$select public.propose_threshold_override(%L, 'bp', '{"target":{"systolic":145,"diastolic":90},"lowAmberSystolic":85}', 'Revised after the clinic review this month', 30)::text$q$, v_p))::uuid;
+  v_ov2 := pg_temp.uid(pg_temp.as_user(v_c1, format($q$select public.propose_threshold_override(%L, 'bp', '{"target":{"systolic":145,"diastolic":90},"lowAmberSystolic":85}', 'Revised after the clinic review this month', 30)::text$q$, v_p)));
   perform pg_temp.as_user(v_c1, format($q$select public.sign_threshold_override(%L, 'SIGN')::text$q$, v_ov2));
   perform pg_temp.ck('real', 'E1 a newly signed override supersedes the previous one', 'superseded|active|1',
     (select status from public.patient_threshold_overrides where id = v_ov) || '|' || (select status from public.patient_threshold_overrides where id = v_ov2) ||
@@ -203,7 +205,7 @@ begin
   update public.patient_threshold_overrides set signed_at = now() - interval '31 days', expires_at = now() - interval '1 hour' where id = v_ov2;
   perform private.sweep_threshold_override_reviews();
   perform pg_temp.ck('real', 'G3 the sweep lapses an expired override', 'lapsed', (select status from public.patient_threshold_overrides where id = v_ov2));
-  v_ov := pg_temp.as_user(v_c1, format($q$select public.propose_threshold_override(%L, 'glucose', '{"hypoAlertMmol":4.4,"hypoSevereMmol":3.3}', 'Hypoglycaemia unawareness on insulin', 30)::text$q$, v_p))::uuid;
+  v_ov := pg_temp.uid(pg_temp.as_user(v_c1, format($q$select public.propose_threshold_override(%L, 'glucose', '{"hypoAlertMmol":4.4,"hypoSevereMmol":3.3}', 'Hypoglycaemia unawareness on insulin', 30)::text$q$, v_p)));
   perform pg_temp.as_user(v_c1, format($q$select public.sign_threshold_override(%L, 'SIGN')::text$q$, v_ov));
   perform pg_temp.as_user(v_cmo, format($q$select public.revoke_threshold_override(%L, 'oversight revoke in proof')::text$q$, v_ov));
   perform pg_temp.ck('real', 'G4 the CMO can revoke any override without a tie', 'revoked', (select status from public.patient_threshold_overrides where id = v_ov));
