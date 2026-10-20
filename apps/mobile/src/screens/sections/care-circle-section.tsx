@@ -80,7 +80,8 @@ export function CheckInCard() {
   if (open === false) return null;
   if (outcome === "answered") return <MutedText>{t("checkin.responded", locale)}</MutedText>;
   if (outcome === "too_late") return <MutedText>{t("checkin.too_late", locale)}</MutedText>;
-  if (!waiting) return readFailed ? <MutedText>{t("checkin.read_failed", locale)}</MutedText> : null;
+  // only said when the feature is known to be on: a go-live that cannot be read (or an app ahead of its database) stays silent
+  if (!waiting) return readFailed && open === true ? <MutedText>{t("checkin.read_failed", locale)}</MutedText> : null;
   return (
     <Card style={{ gap: 8 }}>
       <Text accessibilityRole="alert" style={{ fontWeight: "700", color: colors.ink }}>{t("checkin.pending_title", locale)}</Text>

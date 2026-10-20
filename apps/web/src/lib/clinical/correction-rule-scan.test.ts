@@ -29,15 +29,6 @@ const ALLOWED: Allowed[] = [
   { file: "apps/web/src/lib/lab-results/actions.ts", table: "lab_result_documents", count: 1, why: "clinician review stamp and the interpretation sent to the patient" },
 ];
 
-/**
- * Known debt, tracked: these replace the stored file of a result document in place. The rule says a replacement is a new document with
- * supersedes_document_id (which already exists). The count may only go down; fix them in S05b-c and remove the entries.
- */
-const KNOWN_DEBT: Allowed[] = [
-  { file: "apps/web/src/app/api/mobile/lab-result-replace/route.ts", table: "lab_result_documents", count: 1, why: "replaces file_path in place" },
-  { file: "apps/web/src/lib/lab-results/actions.ts", table: "lab_result_documents", count: 1, why: "replaces file_path in place" },
-];
-
 const SCAN_DIRS = ["apps/web/src", "apps/mobile/src", "apps/console/src", "supabase/functions", "packages/staff-core/src", "packages/shared/src", "packages/ui/src", "packages/auth/src"];
 
 function sourceFiles(dir: string): string[] {
@@ -57,6 +48,9 @@ function sourceFiles(dir: string): string[] {
 
 const tableList = [...STRICT_TABLES, ...WATCHED_TABLES].join("|");
 const CALL = new RegExp(`\\.from\\(\\s*["'\`](${tableList})["'\`]\\s*\\)\\s*\\.(update|delete|upsert)\\s*\\(`, "g");
+
+/** `.from("lab_result_documents").update({ ... file_path ...` : the old in-place replace. Bounded so it cannot span into a later statement. */
+const REPLACE_IN_PLACE = /\.from\(\s*["'`]lab_result_documents["'`]\s*\)\s*\.update\s*\(\s*\{[^;]{0,600}?\bfile_path\s*:/g;
 
 type Hit = { file: string; table: string; verb: string; line: number };
 
@@ -95,7 +89,7 @@ describe("S05b correction rule: no direct edit or delete of a recorded clinical 
     const offenders: string[] = [];
     for (const [key, n] of counts) {
       const [file, table] = key.split("|");
-      const allowed = [...ALLOWED, ...KNOWN_DEBT].filter((a) => a.file === file && a.table === table).reduce((s, a) => s + a.count, 0);
+      const allowed = ALLOWED.filter((a) => a.file === file && a.table === table).reduce((s, a) => s + a.count, 0);
       if (n > allowed) offenders.push(`${file} ${table}: ${n} direct write(s), ${allowed} listed`);
     }
     expect(offenders).toEqual([]);
@@ -103,12 +97,34 @@ describe("S05b correction rule: no direct edit or delete of a recorded clinical 
 
   it("keeps the allow list honest: every entry still exists (remove it when the code goes)", () => {
     const stale: string[] = [];
-    for (const a of [...ALLOWED, ...KNOWN_DEBT]) {
+    for (const a of ALLOWED) {
       const n = hits.filter((h) => h.file === a.file && h.table === a.table).length;
-      const listed = [...ALLOWED, ...KNOWN_DEBT].filter((x) => x.file === a.file && x.table === a.table).reduce((s, x) => s + x.count, 0);
+      const listed = ALLOWED.filter((x) => x.file === a.file && x.table === a.table).reduce((s, x) => s + x.count, 0);
       if (n < listed) stale.push(`${a.file} ${a.table}: ${n} found, ${listed} listed`);
     }
     expect([...new Set(stale)]).toEqual([]);
+  });
+
+  it("no code path replaces a result document's stored file in place (replacement is a new superseding document)", () => {
+    // Every document replacement goes through public.replace_my_result_document. A direct update that sets file_path (or the other
+    // upload-time facts) on lab_result_documents is the old in-place replace and is never allowed, whatever the allow list says.
+    const offenders: string[] = [];
+    for (const dir of SCAN_DIRS) {
+      for (const full of sourceFiles(join(REPO_ROOT, dir))) {
+        const text = readFileSync(full, "utf8");
+        for (const m of text.matchAll(REPLACE_IN_PLACE)) {
+          offenders.push(`${relative(REPO_ROOT, full)}:${text.slice(0, m.index).split("\n").length}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("the in-place replace pattern can see a violation (sabotage check)", () => {
+    const bad = `await supabase\n  .from("lab_result_documents")\n  .update({\n    file_path: path,\n    mime_type: file.type,\n  })\n  .eq("id", id);`;
+    expect([...bad.matchAll(REPLACE_IN_PLACE)].length).toBe(1);
+    const fine = `await supabase.from("lab_result_documents").update({ reviewed_at: now }).eq("id", id);`;
+    expect([...fine.matchAll(REPLACE_IN_PLACE)].length).toBe(0);
   });
 
   it("the scan itself can see a violation (sabotage check)", () => {

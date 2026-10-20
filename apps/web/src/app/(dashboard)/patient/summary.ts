@@ -27,6 +27,8 @@ export async function getPatientSummaryStats(patientId: string): Promise<Patient
         .select("systolic, diastolic")
         .eq("patient_id", patientId)
         .eq("vital_type", "blood_pressure")
+        // A wearable (cuffless) estimate is never the "latest blood pressure" on the overview.
+        .neq("source", "wearable")
         .order("taken_at", { ascending: false })
         .limit(1),
       supabase

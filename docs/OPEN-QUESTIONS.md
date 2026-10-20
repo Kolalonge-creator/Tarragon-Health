@@ -3848,6 +3848,37 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - Questions for the Chief Medical Officer before the module is switched on: (1) is a patient-first window acceptable for a non-emergency check-in at all, and is 5 minutes right; (2) the patient's ask is ROUTINE priority (a critical one would enter the unconfirmed-critical follow-up ladder and repeat a stale question 40 minutes later): in-app is never held by quiet hours, but the push may be, so a patient asleep may not see it and the circle is then told after 5 minutes; the circle's "has not answered" notice is CRITICAL (like a red alert, so an unopened one is followed up). Confirm, or ask for the ask to bypass quiet hours; (3) the asker is told nothing when the patient answers (an answer tells nobody) and is told only if the circle could not be reached; confirm; (4) the circle notice goes to every `red_alerts` holder, including the asker.
 - Wording: the check-in copy lives under the `checkin.` string prefix and the join-link chrome under `joinlink.`, NOT under `circle.`, because the reviewed-strings ledger (S-15) forbids new unreviewed strings in the `circle` consent namespace and no reviewer has read them. Neither prefix is in the ledger namespaces yet. Before the module is switched on the CMO (or a named reviewer) must read the `checkin.*` strings in `packages/i18n/src/en.ts` and the prefix should be added to the ledger with a real reviewer.
 - Decision: open (CMO). Do not switch the module on without a signed decision.
+## Blood pressure from a wearable (raised 2026-10-16, branch pr1/bp-wearable-estimate-exclusion)
+
+### OQ-BPW-1 Should a wearable blood pressure estimate ever page the care team? (for the CMO; the switch is born OFF)
+- Built: a wearable (cuffless) blood pressure is an estimate. It is shown with its label and is never counted in a home average, an outcome or risk number, or graded by the triage engine (always, no switch). The one change to a live alert path is behind platform module `device_cuffless_bp_informational`, born OFF: with it ON, a red or amber estimate gives the person the existing recheck guidance and raises no clinician alert or page.
+- Trade-off: ON means a true crisis that only a watch saw does not page at red or amber (the person is told to rest and recheck with a cuff). OFF means an unreliable estimate can page a clinician. Pregnancy and the weeks after a birth are never patient-only: an estimate there pages as a cuff reading does. An emergency-level estimate (a red-flag symptom near the reading) still opens the emergency record whichever way the switch is set. The live rules already grade a 200/130-range reading with no symptom as red (S11g), so with the switch ON that case gets the guidance and no page.
+- Question: (a) leave OFF until wearables are live and there is data (recommended, since 0 wearable blood pressure rows exist today); (b) switch ON before wearables go live; (c) also stay silent for an emergency-level estimate or for pregnancy (not recommended: the emergency record and the obstetric route are patient safety nets).
+- Evidence for the policy: the CMO pack C1 text already says a watch or ring is not used for care decisions; AHA/ACC-2025 does not recommend cuffless devices for clinical assessment.
+
+### OQ-BPW-2 Wearable heart rate is left as it is (decision recorded, not an oversight)
+- A single dangerously low or high heart-rate value from any source, a wearable included, is still triaged (founder decision 2026-08-29). Optical wrist heart rate is far better validated than cuffless blood pressure, and the pulse trigger fires on `vital_type = 'pulse'` only, so a wearable blood pressure cannot reach it. Revisit only if the CMO wants wrist heart rate treated as informational too.
+
+### OQ-BPW-3 A HealthKit or Health Connect blood pressure cannot be told from a watch estimate
+- Both mobile bridges upload with `source = 'wearable'`. A blood pressure that a validated cuff wrote into the phone's health store (for example an Omron app) is therefore treated as an estimate until the bridge can carry the originating device. Until then the person can type a cuff reading in by hand, which counts. Needs a device run before a discriminator can be designed.
+
+### OQ-BPW-4 The wearable-estimate label text is proposed copy outside the reviewed-strings ledger
+- `bpe.estimate_label` ("Wearable estimate", the same words the web badge already shows) and `bpe.estimate_note` ("From a watch or ring, not a blood pressure cuff. It is not used in your average or your trend. When you can, check with an upper-arm cuff.") sit in a namespace the ledger does not cover, so no reviewer was invented. CMO to read the note; if it should be ledger-covered, move it under `vitals.` with a real entry.
+
+### OQ-BPW-5 Latent fault found: the blood pressure handler cannot resolve a severity-2 "Missing expected blood-pressure readings" alert
+- The first statement of `private.handle_bp_reading_red_flag` resolves that alert with a bare `status = 'resolved'`. The check `clinician_alerts_resolution_requires_documentation` (20260828204033) refuses a resolved severity-2 alert without `resolution_action` and `resolution_outcome`, and the generator (`20260720015541`) inserts the alert at level `clinician_review`, which classifies as severity 2. If such an alert is ever open, the next blood pressure insert for that patient would error and roll back. **None exists today** (live count 0, checked 2026-10-16), so nothing is failing; found because the PR 1 proof tried to close one. Fix is small (set the two columns when resolving, using the values the taxonomy allows) but changes a live safety path, so it is left for its own PR with the CMO's wording for the outcome.
+
+## Blood pressure acknowledgement (raised 2026-10-16, branch pr2/bp-immediate-acknowledgement)
+
+### OQ-BPA-1 The web shows the signed emergency wording (EMG-001) for a crisis-range reading because it cannot ask the symptom question (for the CMO)
+- The phone asks the emergency-symptom question first for a 200/130-range reading (CMO 2026-10-05) and shows EMG-001 only with a symptom. The web has no such question and no on-device engine, and its display band calls 200 systolic or 120 diastolic a crisis (wider than 200/130). After saving, the web now says "Received by TarragonHealth." and, for that band, the signed EMG-001; for a high band the signed TRI-005 (rest and measure again). It never says within target or a little above, because it does not know a person's own target or pregnancy. Options: (a) leave (recommended until the web asks the question); (b) add the same question to the web form; (c) show TRI-005 only for the top band (less safe: it can delay a hospital visit for a person with symptoms).
+
+### OQ-BPA-2 New acknowledgement sentences are proposed copy and sit outside the reviewed-strings ledger
+- `bpack.received`, `bpack.received_note` and `bpack.waiting_note` are in a namespace the ledger does not cover (as `hc.*` is), so no reviewer was invented for them. They say only what is true (received, saved on the phone and not yet sent, a wearable estimate is not used in averages) and are scanned for review, time and clinician words. The CMO should read them; if they should be ledger-covered, move them under `vitals.` and add a real entry.
+
+### OQ-BPA-3 Free members and "Your care team will look at this" (TRI-002)
+- The acknowledgement never adds a care-team promise of its own. TRI-002 (signed without a review promise, OQ-251) is the engine's wording and is unchanged. Whether it should be hidden for a Free patient whose red reading does not reach a doctor (two-tier decision 2026-10-08) is for the CMO; the acknowledgement does not depend on it.
+
 ## Renumbering map (2026-10-16)
 
 Several OQ numbers were handed out twice by parallel sessions. The first heading in this file keeps its number; each later duplicate was given a fresh number above 452 (`packages/shared/src/open-questions-unique.test.ts` now fails on a repeated `### OQ-N`). References INSIDE a renumbered entry were updated. References elsewhere (other docs, code comments, migration headers) were NOT rewritten: a bare "OQ-310" there cannot be told apart from the five other OQ-310 topics, and applied migration bodies are never edited. Read an old citation against this map; the number it most likely means is the one that kept its number unless the citing text matches a title below.
@@ -4211,3 +4242,53 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 | OQ-366 | 2831, The go-live guard patches two shared functions (raised by S69) |
 | OQ-370 | 2737, Device capabilities need the CMO and an admin before anything switches on (raised by S70a) |
 | OQ-371 | 2741, Go-live uses `platform_modules`, not `go_live_guards` (raised by S70a) |
+
+### OQ-705 Yearly proxy-access review: the proposed numbers and the silent-person rule (raised by the yearly review build, 2026-10-16)
+- PROPOSED in `proxy_review_config` v1 (mirrored as `proxy.annual_review`): a proxy or caregiver grant is due for review 12 months after it was given or last kept or narrowed; the reminder repeats every 30 days, at most 4 times in a cycle. Nothing is signed.
+- Rule built in, not a number: **silence never removes access.** An elder must never lose help because they did not answer. After the cap the reminders stop, and the item stays on the person's list as due (with a "waiting a while" line) until they answer. If the founder wants a harder rule (for example a flag for the care team after a long silence), that is a new decision.
+- Scope: the person's own `profile_access` grants where they are an adult with their own login. Under-18 dependants (hand-over at 18 covers it) and records with no login of their own (`is_dependent_account`, nobody could answer) are out of scope, as are grants past their own `expires_at`. Care Circle members have their own expiry and renewal flow (S29) and are not part of this.
+- Coercion check (same family as OQ-48): the proxy is told once per cycle, in the app only, that a yearly check is due ("You do not need to do anything"). It says nothing about the outcome, and narrowing and removal stay silent (D5). The "Yearly check due" badge on the proxy's "People whose care you manage" list shows only that it is due. Review of the build found the real risk: the notice and the badge tell a controlling proxy that a review is under way, and, as first built, the badge cleared when the person kept or narrowed (a timing signal). That was fixed: the proxy flag now shows for a fixed `proxy_notice_days` (14) counted from the notice, whatever the person does, so it carries no signal of their answer. What remains is the notice itself, and removal visibly ending the access. DECIDED 2026-10-19 (founder, in chat): `proxy_review_config.tell_proxy = false`, so the proxy is told nothing and sees no flag. The switch is data, not code: a new config version with `tell_proxy = true` turns the calm in-app notice, the badge and the `proxy_told` history on.
+- Decision: open (founder). Counsel need not be asked.
+
+### OQ-706 Yearly proxy-access review: mobile screen and email/push delivery not exercised (raised by the yearly review build, 2026-10-16)
+- The mobile app has no proxy-controls screen today (narrow, remove, view log are web only), so the review card is web only. The in-app notice appears in the notification list on both. A mobile review card belongs with whichever session first brings the proxy controls to mobile.
+- The patient push and email versions exist (`proxy_review_due` renderers in `send-pending-notifications`) and are queued only when the person's own channel preference allows, but the edge function must be redeployed to carry the two new renderers (`supabase functions deploy send-pending-notifications`); until then those two rows would fail while the guaranteed in-app row still works. No real push or email was sent in this build.
+- Decision: informational (follow-up).
+### OQ-702 Should a patient be able to replace a file after the care team has opened the alert (raised by the document supersede)
+- Done: a replacement supersedes the original (new row, old row and file kept, alert handed over with the higher priority). Allowed only before review, as before.
+- Open 1: an alert a clinician already acknowledged (not the document) is resolved as a handover and the replacement starts open again; the acknowledging doctor is not told. A short in-app note to the responsible clinician would close this.
+- Open 2: a retry of the mobile POST after a response was lost returns "already replaced" although the replace worked (the old row is hidden, so the route reports it as not the patient's). An idempotency key from the app would remove it.
+- Open 3: a staff supersede (module 57.14) of a never-reviewed document now hides the original from staff too. Say if staff should still see those.
+- Open 4: other SECURITY DEFINER readers of `lab_result_documents` (care-gap, provenance, folio functions) were not audited one by one; each may still treat a replaced, never-reviewed document as present. Only `clinical_worklist` and `org_open_work_counts` were patched.
+- Open 5: replacement is not rate limited (each call writes a row, an alert and an audit row) and does not check that a storage object exists at the path; a per-hour cap from versioned config is the gate to add.
+- Open 6: the patient UPDATE policy from 20260912 still lets a patient rewrite metadata (filename, mime type, order link) on her own unreviewed upload; it existed only for the in-place replace and could be dropped.
+- Open 7: the supersede flag is a transaction setting (`app.result_document_replace`); anyone who can run arbitrary SQL as an authenticated user can set it. Not reachable through the API today.
+
+### OQ-PASSKEY-01 Turning passkeys on (your action, in this order)
+- Passkeys ship OFF and nothing works until all of these are done. (1) After merge, redeploy the `send-pending-notifications` edge function (new `security.passkey_*` email templates). (2) In the Supabase dashboard, Authentication, Passkeys: enable, relying-party display name "Tarragon Health", relying-party id `tarragonhealth.ng` (permanent: changing it later invalidates every passkey), origins `https://app.tarragonhealth.ng` plus any other host that serves `/login`. (3) Confirm `select public.passkey_gate_ready()` is true. (4) Sign in as a test patient with a password, add a passkey in Settings, sign out, sign in with it on a real phone and laptop. (5) Only then flip the `passkeys` switch. There is no general switch screen yet: either ask a Claude session to call `public.set_platform_switch('passkeys', true, '<why>')` under a simulated admin session (audited), or in the Supabase SQL editor run `update public.platform_switches set is_on = true, changed_at = now(), change_note = '<why>' where key = 'passkeys';` (not audited). Note the migration's gate refuses to store a passkey while the switch is off, so step 4 needs the switch on for a test window; use a test account.
+- The Auth passkey API is marked experimental by Supabase and may change.
+- Decision: open (founder).
+
+### OQ-PASSKEY-02 Mobile passkeys not built
+- Needs a native passkey library (new native dependency), a `runtimeVersion` bump and a fresh EAS build (never auto-published by the OTA workflow), iOS associated domains plus an Apple App Site Association file and Android `assetlinks.json` on the production domain, the Android origin added to the Auth origins, and tests on real devices. Phone sign-in stays the default there.
+- Decision: open (founder).
+
+### OQ-PASSKEY-03 "Use a passkey" shows only on devices that have used one
+- The sign-in page cannot ask the server who has a passkey before anyone says who they are (that would let anyone test which accounts exist), so the button appears only when this device remembers a passkey was added or used here. A passkey synced to a brand-new device will not show the button there; that person signs in the usual way. Alternative: always show the button when the switch is on (more discoverable, noisier for the many who will never use it).
+- Decision: open (founder).
+
+### OQ-PASSKEY-04 Adding a passkey needs a password
+- A person who signs in only by phone code and has set no password is told to set one first. Reason: a session alone must not be able to plant a lasting way in (the same reason backup codes need the password). Alternative: accept a fresh phone-code re-check instead.
+- Decision: open (founder).
+### OQ-707 Share extras: mobile screen, and whether a label should ever gate access (raised by the share-extras build, 2026-10-19)
+- The recipient label is a label only. Anyone holding the link (and the PIN, if one was set) can open it; the label does not check who opens it. The page says so. If you want the doctor to prove who they are, that is a different, larger feature.
+- The phone app's share screen does not have the three new fields yet; it can still create a plain share.
+- The date window trims vitals and lab results only (the other sections have no time dimension that matters to a visit).
+- Options: (a) leave as is (recommended), (b) build the phone fields next.
+- Decision: open.
+### OQ-701 Who may read the audit log directly (raised by the audit_log narrowing)
+- Done: `audit_log` is directly readable only by its own actor and by admins. Org staff, tied clinicians and the CMO account lost the organisation-wide read; the screens they use read through SECURITY DEFINER functions that self-gate.
+- Open 1: should the CMO or a clinical-governance reviewer have a scoped direct read (for example by action prefix) instead of only the S20 sampling RPCs?
+- Open 2: `authenticated` can still INSERT audit rows about itself (S02 follow-up 5). Moving every writer to a definer function would let that insert policy be dropped.
+- Decision: open.
+
