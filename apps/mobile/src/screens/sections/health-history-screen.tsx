@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import * as Crypto from "expo-crypto";
 import { ActivityIndicator, Alert, View } from "react-native";
 import { FAMILY_RELATIONSHIPS } from "@tarragon/shared";
 import { t, type MessageKey } from "@tarragon/i18n";
@@ -53,6 +54,12 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
   const [message, setMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // One id per distinct entry: pressing Add again after an answer was lost sends the same id, so the row cannot be made twice.
+  const attempt = useRef<{ key: string; id: string } | null>(null);
+  const idFor = (key: string): string => {
+    if (!attempt.current || attempt.current.key !== key) attempt.current = { key, id: Crypto.randomUUID() };
+    return attempt.current.id;
+  };
 
   const [pName, setPName] = useState("");
   const [pYear, setPYear] = useState("");
@@ -63,11 +70,14 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
 
   // `quiet` refreshes in place after a write: the lists, the scroll position and the screen reader's place are kept.
   const load = useCallback(
-    async (quiet = false) => {
+    async (quiet = false): Promise<boolean> => {
       if (!quiet) setState({ kind: "loading" });
       const r = await loadHistory(subjectId, canEdit);
+      // After a write a failed or stale refresh must not replace the list with an older one that lacks (or still has) the entry just changed.
+      if (quiet && (!r.ok || r.stale)) return false;
       if (!r.ok) setState({ kind: "failed", offline: r.offline });
       else setState({ kind: "ready", data: r.data, stale: r.stale ? { offline: r.offline, savedAt: r.savedAt } : null });
+      return r.ok && !r.stale;
     },
     [subjectId, canEdit]
   );
@@ -90,8 +100,8 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
       return;
     }
     reset?.();
-    await load(true);
-    setNotice(t(done));
+    const refreshed = await load(true);
+    setNotice(t(refreshed ? done : "mpass.history.saved_not_refreshed"));
   }
 
   const confirmRemove = (kind: "procedure" | "family_history", id: string) =>
@@ -106,7 +116,7 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
   const familyDetail = (f: FamilyItem) =>
     [
       relativeLabel(f.relationship),
-      f.age_of_onset_years ? t("mpass.history.from_age", "en", { age: String(f.age_of_onset_years) }) : "",
+      f.age_of_onset_years !== null ? t("mpass.history.from_age", "en", { age: String(f.age_of_onset_years) }) : "",
       verified(f.verified_by_clinician),
     ]
       .filter(Boolean)
@@ -155,7 +165,7 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
                 disabled={!live || !pName.trim()}
                 onPress={() =>
                   void run(
-                    () => addProcedure({ name: pName, year: pYear, facility: pWhere }, { userId, organisationId }),
+                    () => addProcedure({ name: pName, year: pYear, facility: pWhere }, { userId, organisationId }, idFor(`p|${pName}|${pYear}|${pWhere}`)),
                     "mpass.history.added",
                     () => {
                       setPName("");
@@ -170,24 +180,23 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
 
           {canEdit ? (
             <>
-            <AppText variant="title" heading>
-              {t("healthhistory.family_title")}
-            </AppText>
-            {state.data.family.length === 0 ? (
-              <AppText tone="textMuted">{t("healthhistory.none")}</AppText>
-            ) : (
-              state.data.family.map((f) => (
-                <ItemRow
-                  key={f.id}
-                  title={f.condition_name}
-                  detail={familyDetail(f)}
-                  removeLabel={canEdit ? t("mpass.history.remove_aria", "en", { name: f.condition_name }) : null}
-                  disabled={busy || !live}
-                  onRemove={() => confirmRemove("family_history", f.id)}
-                />
-              ))
-            )}
-            {canEdit ? (
+              <AppText variant="title" heading>
+                {t("healthhistory.family_title")}
+              </AppText>
+              {state.data.family.length === 0 ? (
+                <AppText tone="textMuted">{t("healthhistory.none")}</AppText>
+              ) : (
+                state.data.family.map((f) => (
+                  <ItemRow
+                    key={f.id}
+                    title={f.condition_name}
+                    detail={familyDetail(f)}
+                    removeLabel={t("mpass.history.remove_aria", "en", { name: f.condition_name })}
+                    disabled={busy || !live}
+                    onRemove={() => confirmRemove("family_history", f.id)}
+                  />
+                ))
+              )}
               <Card style={{ gap: space.md }}>
                 <AppText variant="bodyStrong">{t("mpass.history.add_family")}</AppText>
                 <Field label={t("healthhistory.condition_label")} value={fCondition} onChangeText={setFCondition} maxLength={120} />
@@ -206,7 +215,7 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
                   disabled={!live || !fCondition.trim()}
                   onPress={() =>
                     void run(
-                      () => addFamilyHistory({ condition: fCondition, relationship: fRelative, onsetAge: fOnset }, { userId, organisationId }),
+                      () => addFamilyHistory({ condition: fCondition, relationship: fRelative, onsetAge: fOnset }, { userId, organisationId }, idFor(`f|${fCondition}|${fRelative}|${fOnset}`)),
                       "mpass.history.added",
                       () => {
                         setFCondition("");
@@ -216,7 +225,6 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
                   }
                 />
               </Card>
-            ) : null}
             </>
           ) : (
             <>

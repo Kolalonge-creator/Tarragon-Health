@@ -77,6 +77,12 @@ describe("symptom journal on the phone (S43m)", () => {
     expect(r.ok && r.rows[0]).toMatchObject({ id: "m1", triageGrade: null, fromCheck: true });
   });
 
+  it("a refused read shows nothing from the phone's mirror either", async () => {
+    mockRpc = { error: { code: "42501", message: "permission denied" } };
+    mockMirror = [{ id: "m1", reported_at: "2026-10-02T10:00:00Z", symptom_type: "nausea", description: null, severity: 3, assessment_id: null }];
+    expect(await loadJournal("user-1")).toEqual({ ok: false, offline: false });
+  });
+
   it("offline with nothing at all is a failure, not an empty journal", async () => {
     mockRpc = { error: { message: "Network request failed" } };
     expect(await loadJournal("user-1")).toEqual({ ok: false, offline: true });

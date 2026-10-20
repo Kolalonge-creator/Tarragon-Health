@@ -52,12 +52,12 @@ describe("passport cache (S43m)", () => {
   });
 
   it("with no copy, reports the failure rather than an empty list", async () => {
-    expect(await readThrough("never", async () => ({ ok: false as const, error: { message: "Network request failed" } }))).toEqual({ ok: false, offline: true });
-    expect(await readThrough("never", async () => ({ ok: false as const, error: { code: "42501", message: "denied" } }))).toEqual({ ok: false, offline: false });
+    expect(await readThrough("never", async () => ({ ok: false as const, error: { message: "Network request failed" } }))).toEqual({ ok: false, offline: true, refused: false });
+    expect(await readThrough("never", async () => ({ ok: false as const, error: { code: "42501", message: "denied" } }))).toEqual({ ok: false, offline: false, refused: true });
   });
 
   it("treats a thrown fetcher as a failure", async () => {
-    expect(await readThrough("thrown", async () => { throw new Error("Network request failed"); })).toEqual({ ok: false, offline: true });
+    expect(await readThrough("thrown", async () => { throw new Error("Network request failed"); })).toEqual({ ok: false, offline: true, refused: false });
   });
 
   it("tells a lost connection from a refusal", () => {
@@ -65,15 +65,29 @@ describe("passport cache (S43m)", () => {
     expect(isOffline({ code: "42501", message: "permission denied" })).toBe(false);
   });
 
-  it("a refusal or an expired session never falls back to the copy and deletes it (withdrawn access stays withdrawn)", async () => {
+  it("a refusal never falls back to the copy and deletes it (withdrawn access stays withdrawn)", async () => {
     await readThrough("k5", async () => ({ ok: true as const, data: ["private"] }));
     const refused = await readThrough<string[]>("k5", async () => ({ ok: false as const, error: { code: "42501", message: "permission denied" } }));
-    expect(refused).toEqual({ ok: false, offline: false });
+    expect(refused).toEqual({ ok: false, offline: false, refused: true });
     expect(await cacheRead("k5")).toBeNull();
+  });
+
+  it("an expired sign-in keeps the copy and shows it as stale (the token will refresh; the offline copy is the point)", async () => {
     await readThrough("k6", async () => ({ ok: true as const, data: ["x"] }));
     const expired = await readThrough<string[]>("k6", async () => ({ ok: false as const, error: { code: "PGRST301", message: "JWT expired" } }));
-    expect(expired).toEqual({ ok: false, offline: false });
-    expect(await cacheRead("k6")).toBeNull();
+    expect(expired.ok && expired.stale && expired.data).toEqual(["x"]);
+    expect((await cacheRead<string[]>("k6"))?.value).toEqual(["x"]);
+  });
+
+  it("a refusal for an account that has since signed out does not delete the next account's copy", async () => {
+    mockUser = "user-2";
+    await cacheWrite("shared-key", ["b's"]);
+    mockUser = "user-1";
+    await readThrough("shared-key", async () => {
+      mockUser = "user-2";
+      return { ok: false as const, error: { code: "42501", message: "denied" } };
+    });
+    expect((await cacheRead<string[]>("shared-key"))?.value).toEqual(["b's"]);
   });
 
   it("keep:false reads live and never stores or serves a copy (someone else's record)", async () => {
@@ -82,7 +96,7 @@ describe("passport cache (S43m)", () => {
     expect(await cacheRead("other")).toBeNull();
     await cacheWrite("other", ["old"]);
     const offline = await readThrough<string[]>("other", async () => ({ ok: false as const, error: { message: "Network request failed" } }), { keep: false });
-    expect(offline).toEqual({ ok: false, offline: true });
+    expect(offline).toEqual({ ok: false, offline: true, refused: false });
   });
 
   it("drops a read that finished after the account changed, rather than storing it under the next account", async () => {

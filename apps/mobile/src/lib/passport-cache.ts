@@ -11,6 +11,9 @@ import { recordSyncError } from "./sync-diagnostics";
  * the person is allowed to read anyway, in the same encrypted store as the S06 mirror, scoped to the signed-in account, and wiped at
  * sign-out and by a remote wipe (the store itself is removed). It never holds a share link, a PIN, a photo or a document's extracted
  * text, and a failed read never overwrites a good copy.
+ *
+ * Every call takes the account that was signed in when the read BEGAN (`owner`), so a read that finishes after a sign-out and a different
+ * sign-in can neither store, serve nor delete anything under the new account.
  */
 
 async function setup(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -47,12 +50,17 @@ let prunedFor: string | null = null;
 
 /**
  * Rows of any other account are removed the first time an account opens the cache. The sign-out wipe is the main guard, but it can fail
- * (a busy store) or never run (a session revoked while the app was closed), and a phone is often shared.
+ * (a busy store) or never run (a session revoked while the app was closed), and a phone is often shared. Best effort: a failure here must
+ * never make the person's own copy unreadable.
  */
 async function pruneOtherOwners(owner: string): Promise<void> {
   if (prunedFor === owner) return;
-  await (await db()).runAsync("delete from passport_cache where owner_user_id <> ?", [owner]);
-  prunedFor = owner;
+  try {
+    await (await db()).runAsync("delete from passport_cache where owner_user_id <> ?", [owner]);
+    prunedFor = owner;
+  } catch (error) {
+    recordSyncError("offline_outbox", "passportCachePrune", error);
+  }
 }
 
 /** Test hook. */
@@ -60,14 +68,18 @@ export function __resetPassportCacheForTests(): void {
   prunedFor = null;
 }
 
-/**
- * Best effort: a store that will not open never stops a screen from showing what it just read. `expectedOwner` is who was signed in when the
- * read began: if the account changed while it was in flight the copy is dropped, never stored under the next account.
- */
+/** The signed-in account, or null when nobody is, or when it is not the account the caller started with. */
+async function ownerIfStillSignedIn(expected?: string): Promise<string | null> {
+  const owner = await currentUserId();
+  if (!owner || (expected !== undefined && expected !== owner)) return null;
+  return owner;
+}
+
+/** Best effort: a store that will not open never stops a screen from showing what it just read. */
 export async function cacheWrite(key: string, value: unknown, expectedOwner?: string): Promise<void> {
   try {
-    const owner = await currentUserId();
-    if (!owner || (expectedOwner !== undefined && expectedOwner !== owner)) return;
+    const owner = await ownerIfStillSignedIn(expectedOwner);
+    if (!owner) return;
     await pruneOtherOwners(owner);
     await (await db()).runAsync("insert or replace into passport_cache (owner_user_id, key, body, saved_at) values (?, ?, ?, ?)", [
       owner,
@@ -80,9 +92,9 @@ export async function cacheWrite(key: string, value: unknown, expectedOwner?: st
   }
 }
 
-export async function cacheRead<T>(key: string): Promise<CachedCopy<T> | null> {
+export async function cacheRead<T>(key: string, expectedOwner?: string): Promise<CachedCopy<T> | null> {
   try {
-    const owner = await currentUserId();
+    const owner = await ownerIfStillSignedIn(expectedOwner);
     if (!owner) return null;
     await pruneOtherOwners(owner);
     const row = await (await db()).getFirstAsync<{ body: string; saved_at: string }>(
@@ -96,9 +108,9 @@ export async function cacheRead<T>(key: string): Promise<CachedCopy<T> | null> {
   }
 }
 
-export async function cacheDelete(key: string): Promise<void> {
+export async function cacheDelete(key: string, expectedOwner?: string): Promise<void> {
   try {
-    const owner = await currentUserId();
+    const owner = await ownerIfStillSignedIn(expectedOwner);
     if (!owner) return;
     await (await db()).runAsync("delete from passport_cache where owner_user_id = ? and key = ?", [owner, key]);
   } catch (error) {
@@ -117,7 +129,8 @@ export type ReadResult<T> =
   | { ok: true; data: T; stale: false }
   /** A copy from an earlier visit, shown because the live read failed. `offline` says whether that was a lost connection. */
   | { ok: true; data: T; stale: true; savedAt: string; offline: boolean }
-  | { ok: false; offline: boolean };
+  /** `refused`: the database said no (access withdrawn or never given). Callers must not fall back to any other saved source either. */
+  | { ok: false; offline: boolean; refused: boolean };
 
 export function isOffline(error: { code?: string; message?: string }): boolean {
   return classifyFailure({ code: error.code, message: error.message }) === "network";
@@ -126,20 +139,20 @@ export function isOffline(error: { code?: string; message?: string }): boolean {
 export interface ReadOptions {
   /**
    * False for anything that is not the signed-in person's own record (a supporter looking at someone they support): it is read live and
-   * never kept on this phone, because the other person can withdraw access and a saved copy would outlive that.
+   * never kept on this phone, because the other person can withdraw access and a saved copy would outlive it.
    */
   keep?: boolean;
 }
 
 /**
- * Live read first. On success the copy is refreshed; on a lost connection or a server error the last copy is shown and marked stale, so the
- * screen can say so. A REFUSAL (the database said no, or the session is no longer valid) never falls back: the copy is deleted and the failure
- * reported, so access that was withdrawn does not keep showing the old record. With no copy the failure is reported as it is (offline or another
- * error), never as an empty list that would read as "nothing here".
+ * Live read first. On success the copy is refreshed; on a lost connection, a server error or an expired sign-in the last copy is shown and
+ * marked stale, so the screen can say so. A REFUSAL (the database said no) never falls back: the copy is deleted and the failure reported
+ * with `refused`, so access that was withdrawn does not keep showing the old record. With no copy the failure is reported as it is (offline
+ * or another error), never as an empty list that would read as "nothing here".
  */
 export async function readThrough<T>(key: string, fetcher: () => Promise<FetchOutcome<T>>, options: ReadOptions = {}): Promise<ReadResult<T>> {
   const keep = options.keep !== false;
-  const owner = keep ? await currentUserId() : null;
+  const owner = keep ? ((await currentUserId()) ?? undefined) : undefined;
   let outcome: FetchOutcome<T>;
   try {
     outcome = await fetcher();
@@ -152,11 +165,11 @@ export async function readThrough<T>(key: string, fetcher: () => Promise<FetchOu
   }
   const failure = classifyFailure({ code: outcome.error.code, message: outcome.error.message });
   const offline = failure === "network";
-  if (failure === "rejected" || failure === "auth") {
-    if (keep) await cacheDelete(key);
-    return { ok: false, offline: false };
+  if (failure === "rejected") {
+    if (keep && owner) await cacheDelete(key, owner);
+    return { ok: false, offline: false, refused: true };
   }
-  const copy = keep ? await cacheRead<T>(key) : null;
+  const copy = keep && owner ? await cacheRead<T>(key, owner) : null;
   if (copy) return { ok: true, data: copy.value, stale: true, savedAt: copy.savedAt, offline };
-  return { ok: false, offline };
+  return { ok: false, offline, refused: false };
 }

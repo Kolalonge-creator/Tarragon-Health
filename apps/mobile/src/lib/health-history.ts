@@ -63,10 +63,9 @@ export function loadHistory(subjectId: string, own: boolean): Promise<ReadResult
 
 /** A rough year is shown as the year only, because many people remember nothing more. */
 export function procedureWhen(p: Pick<ProcedureItem, "performed_on" | "approximate_year">): string {
-  if (p.performed_on) {
-    const y = new Date(p.performed_on).getFullYear();
-    if (!Number.isNaN(y)) return String(y);
-  }
+  // A date-only value is read as text: parsing it as a Date and asking for the local year would shift 1 January in zones behind UTC.
+  const fromDate = p.performed_on ? /^(\d{4})/.exec(p.performed_on)?.[1] : undefined;
+  if (fromDate) return fromDate;
   return p.approximate_year ? String(p.approximate_year) : "";
 }
 
@@ -77,31 +76,36 @@ interface WriteContext {
   organisationId: string;
 }
 
-export async function addProcedure(input: { name: string; year?: string; facility?: string }, ctx: WriteContext): Promise<WriteResult> {
+/** A retry of the same entry must not make a second row. The screen passes one id per distinct entry; a unique-violation on retry means the first attempt did land. */
+const DUPLICATE = "23505";
+
+export async function addProcedure(input: { name: string; year?: string; facility?: string }, ctx: WriteContext, id?: string): Promise<WriteResult> {
   const v = validateProcedure(input);
   if (!v.ok) return { ok: false, reason: v.error };
   const { error } = await supabase.from("procedures").insert({
+    ...(id ? { id } : {}),
     organisation_id: ctx.organisationId,
     patient_id: ctx.userId,
     name: v.value.name,
     approximate_year: v.value.year,
     facility: v.value.facility,
   });
-  if (error) return { ok: false, reason: isOffline(error) ? "offline" : "failed" };
+  if (error && error.code !== DUPLICATE) return { ok: false, reason: isOffline(error) ? "offline" : "failed" };
   return { ok: true };
 }
 
-export async function addFamilyHistory(input: { condition: string; relationship: string; onsetAge?: string }, ctx: WriteContext): Promise<WriteResult> {
+export async function addFamilyHistory(input: { condition: string; relationship: string; onsetAge?: string }, ctx: WriteContext, id?: string): Promise<WriteResult> {
   const v = validateFamilyHistory(input);
   if (!v.ok) return { ok: false, reason: v.error };
   const { error } = await supabase.from("family_history").insert({
+    ...(id ? { id } : {}),
     organisation_id: ctx.organisationId,
     patient_id: ctx.userId,
     condition_name: v.value.condition,
     relationship: v.value.relationship,
     age_of_onset_years: v.value.onsetAge,
   });
-  if (error) return { ok: false, reason: isOffline(error) ? "offline" : "failed" };
+  if (error && error.code !== DUPLICATE) return { ok: false, reason: isOffline(error) ? "offline" : "failed" };
   return { ok: true };
 }
 

@@ -58,7 +58,7 @@ describe("health history on the phone (S43m)", () => {
   it("with nothing saved, a failed read is a failure and not an empty history", async () => {
     mockUser = "user-9";
     mockFail = { message: "Network request failed" };
-    expect(await loadHistory("user-9", true)).toEqual({ ok: false, offline: true });
+    expect(await loadHistory("user-9", true)).toEqual({ ok: false, offline: true, refused: false });
   });
 
   it("a supporter reads live, without family history (owner only) and without keeping a copy", async () => {
@@ -66,13 +66,13 @@ describe("health history on the phone (S43m)", () => {
     expect(live.ok && !live.stale && live.data.family).toEqual([]);
     expect(live.ok && live.data.procedures).toHaveLength(1);
     mockFail = { message: "Network request failed" };
-    expect(await loadHistory("someone-else", false)).toEqual({ ok: false, offline: true });
+    expect(await loadHistory("someone-else", false)).toEqual({ ok: false, offline: true, refused: false });
   });
 
   it("withdrawn access is not served from a saved copy", async () => {
     await loadHistory("user-1", true);
     mockFail = { code: "42501", message: "permission denied" };
-    expect(await loadHistory("user-1", true)).toEqual({ ok: false, offline: false });
+    expect(await loadHistory("user-1", true)).toEqual({ ok: false, offline: false, refused: true });
   });
 
   it("adds a procedure with the person's own id and organisation, and only what was typed", async () => {
@@ -110,8 +110,17 @@ describe("health history on the phone (S43m)", () => {
     expect(mockRpcs).toEqual([{ fn: "remove_history_item", args: { p_kind: "family_history", p_id: "f1" } }]);
   });
 
+  it("sends the entry's own id, and treats a duplicate on retry as the first attempt having landed", async () => {
+    await addProcedure({ name: "x" }, ctx, "11111111-1111-4111-8111-111111111111");
+    expect(mockInserts[0].row).toMatchObject({ id: "11111111-1111-4111-8111-111111111111" });
+    mockFail = { code: "23505", message: "duplicate key value violates unique constraint" };
+    expect(await addProcedure({ name: "x" }, ctx, "11111111-1111-4111-8111-111111111111")).toEqual({ ok: true });
+    expect(await addFamilyHistory({ condition: "x", relationship: "mother" }, ctx, "22222222-2222-4222-8222-222222222222")).toEqual({ ok: true });
+  });
+
   it("shows a year from a date, else the rough year, else nothing", () => {
     expect(procedureWhen({ performed_on: "2018-03-04", approximate_year: null })).toBe("2018");
+    expect(procedureWhen({ performed_on: "2020-01-01", approximate_year: null })).toBe("2020");
     expect(procedureWhen({ performed_on: null, approximate_year: 2010 })).toBe("2010");
     expect(procedureWhen({ performed_on: null, approximate_year: null })).toBe("");
   });

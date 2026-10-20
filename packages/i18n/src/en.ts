@@ -5260,6 +5260,7 @@ export const en = {
   "mpass.history.err.relationship_invalid": "Choose a relative from the list.",
   "mpass.history.err.onset_invalid": "Enter an age between 0 and 120.",
   "mpass.history.added": "Added.",
+  "mpass.history.saved_not_refreshed": "Saved. We could not refresh the list just now, so it may not show the change yet.",
   "mpass.history.family_private": "Family history is private to the person it belongs to, so it is not shown here.",
   "mpass.history.from_age": "from age {age}",
   "mpass.history.remove_title": "Remove this?",

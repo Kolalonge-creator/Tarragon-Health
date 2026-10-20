@@ -105,12 +105,16 @@ export async function loadJournal(subjectId: string): Promise<JournalLoad> {
   ]);
 
   if (live.ok) {
-    const seen = new Set(live.data.map((r) => r.id));
-    const rows = [...waiting.filter((w) => !seen.has(w.id)), ...live.data].sort(newestFirst);
+    // An entry whose send reached the server but whose acknowledgement was lost can show twice for a moment (once confirmed, once waiting):
+    // the journal function does not return the client id that would match them. The next flush removes the waiting copy.
+    const rows = [...waiting, ...live.data].sort(newestFirst);
     return live.stale
       ? { ok: true, rows, stale: true, offline: live.offline, savedAt: live.savedAt }
       : { ok: true, rows, stale: false, offline: false, savedAt: null };
   }
+
+  // The database refused the read: nothing else on the phone is shown in its place (access that was withdrawn stays withdrawn).
+  if (live.refused) return { ok: false, offline: false };
 
   // No live read and no saved copy: the S06 mirror still holds the symptoms this phone has seen.
   let mirror: SymptomLog[] = [];
