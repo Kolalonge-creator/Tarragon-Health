@@ -822,6 +822,7 @@ s07_care_tasks_kind_patient_tasks_view.sql
 s10_event_bus.sql
 s10x_bus_operations.sql
 s10x_bus_contention.sh
+s10y_partner_endpoint_admin.sql
 s11_triage_rule_sets.sql
 s11e_new_symptom_answers_page.sql
 s11f_recheck_backup_push.sql
@@ -1280,6 +1281,8 @@ s16_s20_capacity_cover.sql
 s58b_creator_fee_and_integrity.sql
 # S39h: a registry row whose table has been dropped must not break the export or the retention report; the registry names no missing table; config v4 is CMO confirmed with unchanged values. Sabotage: guard removed from the export; flips.
 s39h_registry_survives_dropped_tables.sql
+# FU engine follow-ups (OQ-320/326/354/355/356): glucose from a monitor or wearable is graded with a freshness window, latest-of-a-bulk-statement and a per-level dedupe in the writer (a manual or Bluetooth reading is never deduped and keeps its single emit; config off emits and dedupes nothing; every result is shadow, nothing pages); the BP-A4 task replaces the medication_adherence_low alert only for a Member with a BP interest while the sweep is on and BP-A4 is approved (Free and no-BP Members keep the alert; sweep off keeps it for all); the coverage context sends percentWindow; bp_care_triage v7 is an unsigned draft with three symptom rules and one approved version remains; the fast-sugar wording guard is off, unmet until the CMO records it, a patient cannot, and signing it does not sign the glucose rules, older guards unaffected. Sabotage: monitor producer dropped, BP-A4 cover forced false, wording condition forced met; each must flip.
+fu_engine_followups.sql
 # FU-notify (OQ-316, OQ-329 to OQ-333, OQ-341, OQ-346): rules v5, no sms ladders, emergency contact by push/email/in-app, webhook inbox retention, evidence retention, canary heartbeat. Seven sabotage rows read PASS (caught).
 fu_notify_rules_and_contact.sql
 # Follow-up 2026-10-15 (OQ-314..358 answers): ONE rota gap alert per organisation (the SR5 check returns nothing, its open rows are resolved quietly with no notice, S18's one incident resolves itself when cover is back and reopens when lost); lead_ineligibility_reason returns verification_missing for a real clinician with no recorded verification (expired licence and suspended unchanged, test clinicians and care coordinators exempt); the grandfather end date 2027-01-13 touches only null end dates and ends eligibility on 2027-01-14; approve_triage_rule_set refuses only for a task type the rule set uses; the identity-check consent (subject records and withdraws, lookup service-role only, wrong subject/unknown/withdrawn all false); is_test changes on a clinician are audited. Sabotage: the S18 auto-resolve, the gate forced open, the date cleared, the old any-task-type check, the lookup answering true, the audit trigger dropped; each must flip.
@@ -1308,6 +1311,8 @@ supersede_patient_result_document_replace.sql
 # --- Added 2026-10-16 (hardening: audit_log SELECT narrowed to own rows + admin) ---
 audit_log_select_narrowed.sql
 bp_cuffless_estimates_never_diagnostic.sql
+# Second opinion with patient-shared results and a recommended referral: the sharing table is closed; a patient shares only their own released, current result with items on their own open request; an unreleased, foreign or withdrawn result never reaches the doctor; the doctor read is audited and refuses a care coordinator and the patient; the answer creates a DRAFT referral (referred_by stamped, no consent) the patient alone accepts; the guard trigger stops repointing a request at a referral. Sabotage: the guard trigger and the table closure each removed; each must flip.
+second_opinion_shared_results_and_referral.sql
 # Record share extras: recipient label, view cap (1 to 50, the fourth open of a three-view link is refused like any dead link, peek too), date window (30/90/180 days drops older readings), options door refuses bad input and anon; pin_hash stays unreadable; the original create door still works. Sabotage: the cap and the window each removed; both must flip.
 record_share_recipient_views_window.sql
 # S09y: My Health gaps. Emergency card cover (HMO / NHIA number and plan: patient-typed, fixed provenance, RPC-only writes, own-row read, live card shows it only when filled, never in the lock-screen payload, audited without the number) and outside records (patient files start unchecked; only a tied clinical-tier doctor can verify, once; reviewed_by/at are the server's; denied attempts audited; worklist carries the queue). Sabotage: care-tie check, clinical-tier check and the status guard each removed; each must flip.

@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
+import {
+  secondOpinionWorklistSchema,
+  SECOND_OPINION_DOCUMENT_BUCKET,
+  SECOND_OPINION_DOCUMENT_EXT,
+} from "@/lib/validation/second-opinion";
 
 export type SecondOpinionRequest = Tables<"second_opinion_requests">;
 
@@ -11,9 +16,7 @@ export type SecondOpinionRequestWithAnswerer = SecondOpinionRequest & {
   } | null;
 };
 
-export type SecondOpinionRequestWithPatient = SecondOpinionRequest & {
-  patient: { full_name: string | null; patient_number: string | null } | null;
-};
+export type { SecondOpinionWorklistItem } from "@/lib/validation/second-opinion";
 
 export const secondOpinionKeys = {
   mine: (patientId: string) => ["second-opinion-requests", "mine", patientId] as const,
@@ -95,25 +98,101 @@ export function useSubmitSecondOpinionRequest() {
       existingDiagnosisOrResult,
       sourceDescription,
       specificQuestion,
+      sharedLabResultIds = [],
+      files = [],
     }: {
       patientId: string;
       organisationId: string;
       existingDiagnosisOrResult: string;
       sourceDescription?: string;
       specificQuestion?: string;
+      /** Released lab results the patient chose to show the doctor; the database re-checks every id. */
+      sharedLabResultIds?: string[];
+      /** Outside reports (PDF or photo) to upload after the request exists; the caller has already checked type, size and count. */
+      files?: File[];
     }) => {
       const supabase = createClient();
-      const { error } = await supabase.from("second_opinion_requests").insert({
-        patient_id: patientId,
-        organisation_id: organisationId,
-        existing_diagnosis_or_result: existingDiagnosisOrResult,
-        source_description: sourceDescription || null,
-        specific_question: specificQuestion || null,
-      });
+      const { data, error } = await supabase
+        .from("second_opinion_requests")
+        .insert({
+          patient_id: patientId,
+          organisation_id: organisationId,
+          existing_diagnosis_or_result: existingDiagnosisOrResult,
+          source_description: sourceDescription || null,
+          specific_question: specificQuestion || null,
+        })
+        .select("id")
+        .single();
       if (error) throw error;
+      // The request (and its redeemed credit) already exist, so nothing below may surface as a failed submit: the form would
+      // keep its text and a second click would spend a second credit. Report problems as a warning on a successful send.
+      let resultsAttached = true;
+      if (sharedLabResultIds.length > 0) {
+        const { error: shareError } = await supabase.rpc("share_results_with_second_opinion", {
+          p_request: data.id,
+          p_lab_results: sharedLabResultIds,
+        });
+        if (shareError) resultsAttached = false;
+      }
+      let filesFailed = 0;
+      for (const file of files) {
+        const ext = SECOND_OPINION_DOCUMENT_EXT[file.type as keyof typeof SECOND_OPINION_DOCUMENT_EXT];
+        if (!ext) {
+          filesFailed += 1;
+          continue;
+        }
+        const path = `${patientId}/${data.id}/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from(SECOND_OPINION_DOCUMENT_BUCKET)
+          .upload(path, file, { contentType: file.type, upsert: false });
+        if (uploadError) {
+          filesFailed += 1;
+          continue;
+        }
+        const { error: attachError } = await supabase.rpc("attach_second_opinion_document", {
+          p_request: data.id,
+          p_path: path,
+          p_mime: file.type,
+          p_bytes: file.size,
+        });
+        if (attachError) filesFailed += 1;
+      }
+      return { resultsAttached, filesFailed };
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: secondOpinionKeys.mine(variables.patientId) });
+    },
+  });
+}
+
+/** The referral a doctor recommended with the answer (a draft until the patient accepts). Read under the patient's own RLS. */
+export function useSecondOpinionReferral(referralId: string | null) {
+  return useQuery({
+    queryKey: ["second-opinion-referral", referralId],
+    enabled: !!referralId,
+    queryFn: async () => {
+      const { data, error } = await createClient()
+        .from("specialist_referrals")
+        .select("id, status, specialist_type, urgency, referral_reason")
+        .eq("id", referralId as string)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+/** Patient accepts the recommended referral; the existing consent trigger stamps patient_consent_at. */
+export function useAcceptSecondOpinionReferral(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (requestId: string) => {
+      const { error } = await createClient().rpc("accept_second_opinion_referral", { p_request: requestId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["second-opinion-referral"] });
+      queryClient.invalidateQueries({ queryKey: secondOpinionKeys.mine(patientId) });
     },
   });
 }
@@ -123,16 +202,11 @@ export function useOrgSecondOpinionRequests() {
   return useQuery({
     queryKey: secondOpinionKeys.org,
     queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("second_opinion_requests")
-        .select(
-          "*, patient:profiles!second_opinion_requests_patient_id_fkey(full_name, patient_number)"
-        )
-        .in("status", ["submitted", "in_review"])
-        .order("sla_due_at", { ascending: true });
+      // Through a function, not the table: a request creates no care-team tie, so the S39b tied SELECT would hide it from a doctor
+      // who has never met the patient.
+      const { data, error } = await createClient().rpc("list_second_opinion_worklist");
       if (error) throw error;
-      return data as SecondOpinionRequestWithPatient[];
+      return secondOpinionWorklistSchema.parse(data ?? []);
     },
   });
 }
@@ -143,11 +217,7 @@ export function useMarkSecondOpinionInReview() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (requestId: string) => {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("second_opinion_requests")
-        .update({ status: "in_review" })
-        .eq("id", requestId);
+      const { error } = await createClient().rpc("start_second_opinion_review", { p_request: requestId });
       if (error) throw error;
     },
     onSuccess: () => {
