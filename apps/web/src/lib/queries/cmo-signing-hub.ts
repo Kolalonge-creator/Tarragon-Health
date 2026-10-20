@@ -15,6 +15,7 @@ import { readPendingVitalsTaskTypeSignoff } from "@/lib/queries/pending-vitals-t
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
 import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
+import { readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -54,6 +55,10 @@ export const CAPACITY_CONFIG_ITEM_KEY = "capacity_configs";
 export const SOLE_CMO_EXCEPTION_ITEM_KEY = "sole_cmo_on_call_exception";
 /** The line for unified red-event paging (S19d): switch the one governed ladder on for SpO2, pulse, temperature, red-flag symptoms and emergency events, or off again. */
 export const UNIFIED_RED_PAGING_ITEM_KEY = "unified_red_paging";
+/** OQ-451: the task layer configuration (accept the version in force, or sign a newer one). */
+export const TASK_LAYER_CONFIG_ITEM_KEY = "queue_task_layer_config";
+/** OQ-451: activate the paging delivery configuration v2 (objective on-call readiness), refused until the test-page checklist is met. */
+export const PAGING_DELIVERY_CONFIG_ITEM_KEY = "paging_delivery_config";
 export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY };
 
 /**
@@ -76,7 +81,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, queuePaging] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -95,6 +100,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingSoleCmoException(supabase),
     readUnifiedRedPagingState(supabase),
     readPendingCapacityConfigSignoff(supabase),
+    readPendingQueuePagingConfigSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -280,6 +286,32 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (queuePaging.taskLayer !== null) {
+    const ask = queuePaging.taskLayer;
+    items.push({
+      key: TASK_LAYER_CONFIG_ITEM_KEY,
+      title: ask.kind === "sign_new" ? "Task layer rules: sign a new version" : "Task layer rules: accept the version in force",
+      detail:
+        ask.kind === "sign_new"
+          ? `Task layer configuration version ${ask.version} is a draft waiting for your signature. Signing it makes it the version in force; the old one stays on record.`
+          : `Task layer configuration version ${ask.version} is already running (offer windows, who can take an escalated task, hand-back rules, completion codes, watchdog limits) but has never been signed. Signing records that you accept it and changes nothing else.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
+  if (queuePaging.pagingVersion !== null) {
+    items.push({
+      key: PAGING_DELIVERY_CONFIG_ITEM_KEY,
+      title: "Pager readiness gate: activate version " + queuePaging.pagingVersion,
+      detail: `Paging delivery configuration version ${queuePaging.pagingVersion} turns on the objective on-call readiness check. It cannot be activated until every on-call clinician has a working push subscription, a verified email and an acknowledged test page.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   const failedSources = [
     ...queue.failedSources,
     ...s06s10.failedSources,
@@ -295,6 +327,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(soleCmo.failed ? ["the sole-CMO on-call exception"] : []),
     ...(unifiedRed.failed ? ["unified red-event paging"] : []),
     ...(capacityConfigs.failed ? ["the capacity and lead configurations"] : []),
+    ...(queuePaging.failed ? ["the task layer and paging delivery configurations"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it
