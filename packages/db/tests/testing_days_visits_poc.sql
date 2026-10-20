@@ -439,10 +439,13 @@ end $$;
 -- 8. Annual screening analytes are required -------------------------------------------------------------------------------------
 do $$
 begin
-  perform pg_temp.ck('the active annual panel is version 2', '2', (select version::text from public.lab_panel_versions where panel_code = 'membership_annual' and is_active));
+  perform pg_temp.ck('the active annual panel is version 3 (v2 plus the anti-HBs add-on, S46d)', '3', (select version::text from public.lab_panel_versions where panel_code = 'membership_annual' and is_active));
   perform pg_temp.ck('HIV, HBsAg and anti-HCV are all in the panel and none is optional', '3|0',
     (select count(*)::text from public.lab_panel_versions p, jsonb_array_elements(p.analytes) a where p.is_active and a ->> 'code' in ('hiv_screen', 'hbsag', 'hcv_ab'))
-    || '|' || (select count(*)::text from public.lab_panel_versions p, jsonb_array_elements(p.analytes) a where p.is_active and coalesce((a ->> 'optional')::boolean, false)));
+    || '|' || (select count(*)::text from public.lab_panel_versions p, jsonb_array_elements(p.analytes) a where p.is_active and a ->> 'code' in ('hiv_screen', 'hbsag', 'hcv_ab') and coalesce((a ->> 'optional')::boolean, false)));
+  -- S46d: the one optional analyte on the panel is the clinician-set anti-HBs add-on, and nothing else
+  perform pg_temp.ck('the only optional analyte on the active panel is the anti-HBs add-on', 'anti_hbs',
+    (select string_agg(a ->> 'code', ',' order by a ->> 'code') from public.lab_panel_versions p, jsonb_array_elements(p.analytes) a where p.is_active and coalesce((a ->> 'optional')::boolean, false)));
   perform pg_temp.ck('version 1 is kept (never edited) and inactive', 'false', (select is_active::text from public.lab_panel_versions where panel_code = 'membership_annual' and version = 1));
   perform pg_temp.ck('the lab sign-off was not touched: still unsigned', 'false', private.lab_panels_signed()::text);
 end $$;

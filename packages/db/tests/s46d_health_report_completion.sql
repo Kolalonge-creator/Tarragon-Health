@@ -169,7 +169,7 @@ begin
   perform pg_temp.ck('the CMO confirms it', v_rule::text, pg_temp.q_as(pg_temp.f('cmo'), format('select public.sign_serology_rule_threshold(%L)::text', v_rule)));
   v_after := private.anti_hbs_threshold_confirmed()::text;
   perform pg_temp.ck('after: the threshold is confirmed', 'true', v_after);
-  perform pg_temp.ck('a second confirmation changes nothing and writes no second audit line', '1',
+  perform pg_temp.ck('a second confirmation changes nothing and writes no second audit line', 'true',
     (pg_temp.q_as(pg_temp.f('cmo'), format('select public.sign_serology_rule_threshold(%L)::text', v_rule)) is not null and ((select count(*) from public.audit_log where action = 'serology_rule_threshold.signed') - n_audit = 1))::text);
   perform pg_temp.ck('an audit line was written', '1', ((select count(*) from public.audit_log where action = 'serology_rule_threshold.signed') - n_audit)::text);
 end $$;
