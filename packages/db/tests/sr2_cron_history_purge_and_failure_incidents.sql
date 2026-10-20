@@ -1,4 +1,4 @@
--- SR2 proof: scheduled-job history is purged on the 7/30-day rule, and a failed run opens an ops incident first
+-- SR2 proof (retention superseded by cron_log_io_budget_bounded_scan_and_hourly_purge.sql, which keeps succeeded runs 1 day plus each job's latest; the retention assertions below hold because each job's runs are inserted in order, so the old non-latest success is deleted and the newest one is kept): scheduled-job history is purged on the 7/30-day rule, and a failed run opens an ops incident first
 -- (migration *_sr2_cron_history_purge_and_failure_incidents.sql).
 -- Proves in one rolled-back transaction: a succeeded run older than 7 days and a failed run older than 30 days are deleted; a succeeded
 -- run 6 days old and a failed run 29 days old are kept; a recent failed run of an ordinary job opens ONE sev3 technical incident and a
@@ -11,9 +11,11 @@ create temp table results(phase text, check_name text, expected text, actual tex
 grant all on results to public;
 create function pg_temp.ck(p_phase text, p_name text, p_expected text, p_actual text) returns void language sql as
 $$ insert into results values (p_phase, p_name, p_expected, p_actual) $$;
+-- runids rise in insertion order (the purge now keeps each job's latest run, and "latest" is the highest runid)
+create sequence pg_temp.sr2_runid_seq start 9000000000;
 create function pg_temp.run(p_job bigint, p_status text, p_age interval, p_msg text) returns void language sql as
 $$ insert into cron.job_run_details (runid, jobid, database, username, command, status, return_message, start_time, end_time)
-   values (9000000000 + (random() * 800000000)::bigint, p_job, 'postgres', 'postgres', 'sr2-proof', p_status, p_msg, now() - p_age, now() - p_age) $$;
+   values (nextval('pg_temp.sr2_runid_seq'), p_job, 'postgres', 'postgres', 'sr2-proof', p_status, p_msg, now() - p_age, now() - p_age) $$;
 create function pg_temp.left_n(p_note text) returns text language sql as
 $$ select count(*)::text from cron.job_run_details where command = 'sr2-proof' and return_message = p_note $$;
 
