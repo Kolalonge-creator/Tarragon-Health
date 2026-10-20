@@ -50375,6 +50375,39 @@ export type Database = {
         }[]
       }
       partner_webhook_enqueue_for_delivery: { Args: { p_delivery_id: string }; Returns: number }
+      admin_list_partner_webhook_endpoints: {
+        Args: never
+        Returns: {
+          auto_disabled_at: string | null
+          consecutive_failures: number
+          disabled_reason: string | null
+          environment: Database["public"]["Enums"]["api_environment"]
+          event_types: Database["public"]["Enums"]["integration_event_type"][]
+          id: string
+          is_active: boolean
+          last_failure_at: string | null
+          last_success_at: string | null
+          name: string
+          previous_secret_expires_at: string | null
+          queued_events: number
+          signing_key_version: number
+          url_host: string
+        }[]
+      }
+      admin_list_partner_event_mappings: {
+        Args: never
+        Returns: {
+          description: string
+          event_type: string
+          id_keys: string[]
+          integration_event_type: Database["public"]["Enums"]["integration_event_type"] | null
+          is_urgent: boolean
+          mapped: boolean
+          subscriber_active: boolean | null
+        }[]
+      }
+      admin_reenable_partner_webhook_endpoint: { Args: { p_endpoint_id: string; p_reason: string }; Returns: undefined }
+      admin_disable_partner_event_mapping: { Args: { p_bus_event_type: string }; Returns: undefined }
       reenable_partner_webhook_endpoint: { Args: { p_endpoint_id: string }; Returns: undefined }
       rotate_partner_webhook_secret: { Args: { p_endpoint_id: string; p_grace_hours?: number }; Returns: string }
       set_partner_event_mapping: {
