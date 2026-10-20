@@ -75,10 +75,12 @@ export function actorSubtitle(actor: TimelineEvent["actor"]): string | undefined
 
 interface TimelineScreenProps {
   patientId: string;
+  /** While acting for someone else the symptom journal is not shown (it is the signed-in person's own), so those events are not linked to it. */
+  acting?: boolean;
   onNavigate: (section: SectionId) => void;
 }
 
-export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
+export function TimelineScreen({ patientId, acting = false, onNavigate }: TimelineScreenProps) {
   const colors = useLegacyColors();
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,7 +131,7 @@ export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
           <GroupedList>
             {events.map((event) => {
               const style = TIMELINE_EVENT_STYLE[event.event_type];
-              const section = EVENT_LINK_SECTION[event.event_type];
+              const section = acting && event.event_type === "symptom_logged" ? undefined : EVENT_LINK_SECTION[event.event_type];
               const subtitleParts = [
                 event.summary ? humaniseSummary(event.summary) : null,
                 formatWhen(event.occurred_at),

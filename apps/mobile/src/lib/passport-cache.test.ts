@@ -1,4 +1,4 @@
-import { cacheRead, cacheWrite, clearPassportCache, isOffline, readThrough } from "./passport-cache";
+import { __resetPassportCacheForTests, cacheRead, cacheWrite, clearPassportCache, isOffline, readThrough } from "./passport-cache";
 
 let mockUser: string | null = "user-1";
 jest.mock("./supabase", () => ({
@@ -7,6 +7,7 @@ jest.mock("./supabase", () => ({
 
 beforeEach(() => {
   mockUser = "user-1";
+  __resetPassportCacheForTests();
 });
 
 describe("passport cache (S43m)", () => {
@@ -62,5 +63,44 @@ describe("passport cache (S43m)", () => {
   it("tells a lost connection from a refusal", () => {
     expect(isOffline({ message: "Network request failed" })).toBe(true);
     expect(isOffline({ code: "42501", message: "permission denied" })).toBe(false);
+  });
+
+  it("a refusal or an expired session never falls back to the copy and deletes it (withdrawn access stays withdrawn)", async () => {
+    await readThrough("k5", async () => ({ ok: true as const, data: ["private"] }));
+    const refused = await readThrough<string[]>("k5", async () => ({ ok: false as const, error: { code: "42501", message: "permission denied" } }));
+    expect(refused).toEqual({ ok: false, offline: false });
+    expect(await cacheRead("k5")).toBeNull();
+    await readThrough("k6", async () => ({ ok: true as const, data: ["x"] }));
+    const expired = await readThrough<string[]>("k6", async () => ({ ok: false as const, error: { code: "PGRST301", message: "JWT expired" } }));
+    expect(expired).toEqual({ ok: false, offline: false });
+    expect(await cacheRead("k6")).toBeNull();
+  });
+
+  it("keep:false reads live and never stores or serves a copy (someone else's record)", async () => {
+    const r = await readThrough("other", async () => ({ ok: true as const, data: ["theirs"] }), { keep: false });
+    expect(r).toEqual({ ok: true, data: ["theirs"], stale: false });
+    expect(await cacheRead("other")).toBeNull();
+    await cacheWrite("other", ["old"]);
+    const offline = await readThrough<string[]>("other", async () => ({ ok: false as const, error: { message: "Network request failed" } }), { keep: false });
+    expect(offline).toEqual({ ok: false, offline: true });
+  });
+
+  it("drops a read that finished after the account changed, rather than storing it under the next account", async () => {
+    const r = await readThrough("late", async () => {
+      mockUser = "user-2";
+      return { ok: true as const, data: ["a's record"] };
+    });
+    expect(r.ok).toBe(true);
+    expect(await cacheRead("late")).toBeNull();
+  });
+
+  it("removes another account's rows when a different account first opens the cache", async () => {
+    await cacheWrite("mine", { a: 1 });
+    mockUser = "user-2";
+    __resetPassportCacheForTests();
+    expect(await cacheRead("mine")).toBeNull();
+    mockUser = "user-1";
+    __resetPassportCacheForTests();
+    expect(await cacheRead("mine")).toBeNull();
   });
 });

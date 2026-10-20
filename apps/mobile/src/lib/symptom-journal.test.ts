@@ -54,14 +54,19 @@ describe("symptom journal on the phone (S43m)", () => {
     expect(r.ok && r.rows[0]).toMatchObject({ waiting: true, symptomType: "dizziness", triageGrade: null });
   });
 
-  it("does not show another person's waiting entries or a rejected one", async () => {
+  it("does not show another person's waiting entries", async () => {
     mockRpc = { data: [] };
-    mockOutbox = [
-      { clientId: "c1", state: "pending", subjectId: "someone-else", clientRecordedAt: "2026-10-04T10:00:00Z", payload: { symptom_type: "pain", severity: 1, description: null } },
-      { clientId: "c2", state: "rejected", subjectId: "user-1", clientRecordedAt: "2026-10-04T10:00:00Z", payload: { symptom_type: "pain", severity: 1, description: null } },
-    ];
+    mockOutbox = [{ clientId: "c1", state: "pending", subjectId: "someone-else", clientRecordedAt: "2026-10-04T10:00:00Z", payload: { symptom_type: "pain", severity: 1, description: null } }];
     const r = await loadJournal("user-1");
     expect(r.ok && r.rows).toHaveLength(0);
+  });
+
+  it("keeps an entry the server refused in view, marked not sent, never as sent and never dropped", async () => {
+    mockRpc = { data: [] };
+    mockOutbox = [{ clientId: "c2", state: "rejected", subjectId: "user-1", clientRecordedAt: "2026-10-04T10:00:00Z", payload: { symptom_type: "pain", severity: 1, description: null } }];
+    const r = await loadJournal("user-1");
+    expect(r.ok && r.rows).toHaveLength(1);
+    expect(r.ok && r.rows[0]).toMatchObject({ rejected: true, waiting: false });
   });
 
   it("offline with nothing saved falls back to the symptoms mirrored on the phone, without grades", async () => {

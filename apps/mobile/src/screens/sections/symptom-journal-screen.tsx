@@ -6,6 +6,7 @@ import { formatPassportDateTime } from "@/lib/passport-format";
 import type { SectionId } from "@/lib/sections";
 import { space, useTheme } from "@/ui/design";
 import { AppText, Button, Card, EmptyState, InlineAlert, Screen } from "@/ui/kit";
+import { SyncBanner } from "@/screens/sync-banner";
 import { LoadFailed, PassportHeader, StaleNotice } from "@/screens/sections/passport-parts";
 
 interface Props {
@@ -40,6 +41,11 @@ function EntryCard({ row }: { row: JournalRow }) {
           {t(`journal.grade.${row.triageGrade}` as MessageKey)}
         </AppText>
       ) : null}
+      {row.rejected ? (
+        <AppText variant="caption" tone="dangerText">
+          {t("mpass.journal.rejected")}
+        </AppText>
+      ) : null}
       {row.waiting ? (
         <AppText variant="caption" tone="warnText">
           {t("mpass.journal.waiting")}
@@ -70,6 +76,7 @@ export function SymptomJournalScreen({ subjectId, acting, onNavigate }: Props) {
       ) : (
         <>
           <Button title={t("mpass.journal.log")} variant="secondary" onPress={() => onNavigate("vitals")} />
+          <SyncBanner />
           {state === "loading" ? <ActivityIndicator color={colors.brand} accessibilityLabel={t("mpass.loading")} /> : null}
           {state !== "loading" && !state.ok ? <LoadFailed offline={state.offline} onRetry={() => void load()} /> : null}
           {state !== "loading" && state.ok ? (

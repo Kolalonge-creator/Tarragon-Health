@@ -4319,3 +4319,7 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-S43m-2 The full activity timeline has no saved copy for offline reading (raised by the S43m build, 2026-10-20)
 - The other Passport read screens fall back to a last good copy (`lib/passport-cache.ts`). The existing timeline screen reads with a growing limit and was only given an honest offline or failed message, not a cache, because a cached page of a growing list needs its own rule for which page to keep. Needed: decide whether to cache the newest 20 items.
 - Decision: open (product).
+
+### OQ-S43m-3 History and journal are not under the shared-phone or private-section lock, and procedures are not classified by category (raised by the S43m build, 2026-10-20)
+- `procedures` has no access category: a supporter holding the general medical-history grant reads every procedure, including a reproductive one (a hysterectomy, a termination). The web page does the same. The phone mitigates by never keeping a supporter's read on the phone and by never serving a saved copy after access is refused, but it does not hide them. The symptom journal can hold free text of any kind, and neither screen sits behind the shared-phone mode or `PrivateSection`. Needed: decide whether procedures get a category (or a keyword rule like the emergency card's) and whether these two screens join the shared-phone mode.
+- Decision: open (CMO, product).

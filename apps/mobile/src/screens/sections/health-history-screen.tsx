@@ -39,7 +39,7 @@ function ItemRow({ title, detail, removeLabel, onRemove, disabled }: { title: st
       <AppText variant="caption" tone="textMuted">
         {detail}
       </AppText>
-      {removeLabel ? <Button title={t("healthhistory.remove")} accessibilityHint={removeLabel} variant="secondary" fullWidth={false} disabled={disabled} onPress={onRemove} /> : null}
+      {removeLabel ? <Button title={t("healthhistory.remove")} accessibilityLabel={removeLabel} variant="secondary" fullWidth={false} disabled={disabled} onPress={onRemove} /> : null}
     </Card>
   );
 }
@@ -51,6 +51,7 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
     { kind: "loading" } | { kind: "failed"; offline: boolean } | { kind: "ready"; data: HistoryData; stale: { offline: boolean; savedAt: string } | null }
   >({ kind: "loading" });
   const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [pName, setPName] = useState("");
@@ -60,12 +61,16 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
   const [fRelative, setFRelative] = useState<string>("mother");
   const [fOnset, setFOnset] = useState("");
 
-  const load = useCallback(async () => {
-    setState({ kind: "loading" });
-    const r = await loadHistory(subjectId);
-    if (!r.ok) setState({ kind: "failed", offline: r.offline });
-    else setState({ kind: "ready", data: r.data, stale: r.stale ? { offline: r.offline, savedAt: r.savedAt } : null });
-  }, [subjectId]);
+  // `quiet` refreshes in place after a write: the lists, the scroll position and the screen reader's place are kept.
+  const load = useCallback(
+    async (quiet = false) => {
+      if (!quiet) setState({ kind: "loading" });
+      const r = await loadHistory(subjectId, canEdit);
+      if (!r.ok) setState({ kind: "failed", offline: r.offline });
+      else setState({ kind: "ready", data: r.data, stale: r.stale ? { offline: r.offline, savedAt: r.savedAt } : null });
+    },
+    [subjectId, canEdit]
+  );
 
   useEffect(() => {
     void load();
@@ -74,8 +79,9 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
   // A write only runs on a live read: while showing a saved copy the screen is read-only, and says why.
   const live = state.kind === "ready" && state.stale === null;
 
-  async function run(action: () => Promise<WriteResult>, reset?: () => void) {
+  async function run(action: () => Promise<WriteResult>, done: MessageKey, reset?: () => void) {
     setMessage(null);
+    setNotice(null);
     setBusy(true);
     const r = await action();
     setBusy(false);
@@ -84,13 +90,14 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
       return;
     }
     reset?.();
-    await load();
+    await load(true);
+    setNotice(t(done));
   }
 
   const confirmRemove = (kind: "procedure" | "family_history", id: string) =>
     Alert.alert(t("mpass.history.remove_title"), t("mpass.history.remove_body"), [
       { text: t("mpass.history.keep"), style: "cancel" },
-      { text: t("healthhistory.remove"), style: "destructive", onPress: () => void run(() => removeHistoryItem(kind, id)) },
+      { text: t("healthhistory.remove"), style: "destructive", onPress: () => void run(() => removeHistoryItem(kind, id), "healthhistory.removed") },
     ]);
 
   const verified = (v: boolean) => (v ? t("healthhistory.verified") : t("healthhistory.not_verified"));
@@ -117,6 +124,7 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
           {state.stale ? <StaleNotice offline={state.stale.offline} savedAt={state.stale.savedAt} /> : null}
           {!canEdit ? <InlineAlert tone="info" message={t("mpass.history.read_only")} /> : null}
           {message ? <InlineAlert tone="danger" message={message} /> : null}
+          {notice ? <InlineAlert tone="info" message={notice} /> : null}
 
           <AppText variant="title" heading>
             {t("healthhistory.procedures_title")}
@@ -148,6 +156,7 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
                 onPress={() =>
                   void run(
                     () => addProcedure({ name: pName, year: pYear, facility: pWhere }, { userId, organisationId }),
+                    "mpass.history.added",
                     () => {
                       setPName("");
                       setPYear("");
@@ -159,52 +168,64 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
             </Card>
           ) : null}
 
-          <AppText variant="title" heading>
-            {t("healthhistory.family_title")}
-          </AppText>
-          {state.data.family.length === 0 ? (
-            <AppText tone="textMuted">{t("healthhistory.none")}</AppText>
-          ) : (
-            state.data.family.map((f) => (
-              <ItemRow
-                key={f.id}
-                title={f.condition_name}
-                detail={familyDetail(f)}
-                removeLabel={canEdit ? t("mpass.history.remove_aria", "en", { name: f.condition_name }) : null}
-                disabled={busy || !live}
-                onRemove={() => confirmRemove("family_history", f.id)}
-              />
-            ))
-          )}
           {canEdit ? (
-            <Card style={{ gap: space.md }}>
-              <AppText variant="bodyStrong">{t("mpass.history.add_family")}</AppText>
-              <Field label={t("healthhistory.condition_label")} value={fCondition} onChangeText={setFCondition} maxLength={120} />
-              <AppText variant="label" tone="textMuted">
-                {t("healthhistory.relationship_label")}
+            <>
+            <AppText variant="title" heading>
+              {t("healthhistory.family_title")}
+            </AppText>
+            {state.data.family.length === 0 ? (
+              <AppText tone="textMuted">{t("healthhistory.none")}</AppText>
+            ) : (
+              state.data.family.map((f) => (
+                <ItemRow
+                  key={f.id}
+                  title={f.condition_name}
+                  detail={familyDetail(f)}
+                  removeLabel={canEdit ? t("mpass.history.remove_aria", "en", { name: f.condition_name }) : null}
+                  disabled={busy || !live}
+                  onRemove={() => confirmRemove("family_history", f.id)}
+                />
+              ))
+            )}
+            {canEdit ? (
+              <Card style={{ gap: space.md }}>
+                <AppText variant="bodyStrong">{t("mpass.history.add_family")}</AppText>
+                <Field label={t("healthhistory.condition_label")} value={fCondition} onChangeText={setFCondition} maxLength={120} />
+                <AppText variant="label" tone="textMuted">
+                  {t("healthhistory.relationship_label")}
+                </AppText>
+                <View accessibilityRole="radiogroup" style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+                  {FAMILY_RELATIONSHIPS.map((r) => (
+                    <Chip key={r} label={t(`mpass.relative.${r}` as MessageKey)} selected={fRelative === r} onPress={() => setFRelative(r)} />
+                  ))}
+                </View>
+                <Field label={t("healthhistory.onset_label")} value={fOnset} onChangeText={(v) => setFOnset(v.replace(/\D/g, ""))} maxLength={3} keyboardType="number-pad" />
+                <Button
+                  title={t("healthhistory.add")}
+                  loading={busy}
+                  disabled={!live || !fCondition.trim()}
+                  onPress={() =>
+                    void run(
+                      () => addFamilyHistory({ condition: fCondition, relationship: fRelative, onsetAge: fOnset }, { userId, organisationId }),
+                      "mpass.history.added",
+                      () => {
+                        setFCondition("");
+                        setFOnset("");
+                      }
+                    )
+                  }
+                />
+              </Card>
+            ) : null}
+            </>
+          ) : (
+            <>
+              <AppText variant="title" heading>
+                {t("healthhistory.family_title")}
               </AppText>
-              <View accessibilityRole="radiogroup" style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
-                {FAMILY_RELATIONSHIPS.map((r) => (
-                  <Chip key={r} label={t(`mpass.relative.${r}` as MessageKey)} selected={fRelative === r} onPress={() => setFRelative(r)} />
-                ))}
-              </View>
-              <Field label={t("healthhistory.onset_label")} value={fOnset} onChangeText={(v) => setFOnset(v.replace(/\D/g, ""))} maxLength={3} keyboardType="number-pad" />
-              <Button
-                title={t("healthhistory.add")}
-                loading={busy}
-                disabled={!live || !fCondition.trim()}
-                onPress={() =>
-                  void run(
-                    () => addFamilyHistory({ condition: fCondition, relationship: fRelative, onsetAge: fOnset }, { userId, organisationId }),
-                    () => {
-                      setFCondition("");
-                      setFOnset("");
-                    }
-                  )
-                }
-              />
-            </Card>
-          ) : null}
+              <AppText tone="textMuted">{t("mpass.history.family_private")}</AppText>
+            </>
+          )}
           {canEdit && !live ? <InlineAlert tone="info" message={t("mpass.needs_connection")} /> : null}
         </>
       ) : null}

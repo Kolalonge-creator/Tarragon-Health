@@ -32,7 +32,12 @@ export interface HistoryData {
 
 export const historyCacheKey = (subjectId: string) => `history:${subjectId}`;
 
-export function loadHistory(subjectId: string): Promise<ReadResult<HistoryData>> {
+/**
+ * `own` is true when the signed-in person is reading their own record. Only then is a copy kept on the phone: a supporter reads live and keeps
+ * nothing, because the person can withdraw access and a saved copy would outlive it. Family history is readable by its owner alone (the database
+ * policy), so for a supporter it is not asked for and the screen says it is private rather than showing an empty list.
+ */
+export function loadHistory(subjectId: string, own: boolean): Promise<ReadResult<HistoryData>> {
   return readThrough(historyCacheKey(subjectId), async () => {
     const [procedures, family] = await Promise.all([
       supabase
@@ -41,17 +46,19 @@ export function loadHistory(subjectId: string): Promise<ReadResult<HistoryData>>
         .eq("patient_id", subjectId)
         .order("created_at", { ascending: false })
         .limit(100),
-      supabase
-        .from("family_history")
-        .select("id, condition_name, relationship, age_of_onset_years, verified_by_clinician")
-        .eq("patient_id", subjectId)
-        .order("created_at", { ascending: false })
-        .limit(100),
+      own
+        ? supabase
+            .from("family_history")
+            .select("id, condition_name, relationship, age_of_onset_years, verified_by_clinician")
+            .eq("patient_id", subjectId)
+            .order("created_at", { ascending: false })
+            .limit(100)
+        : Promise.resolve({ data: [] as FamilyItem[], error: null }),
     ]);
     if (procedures.error) return { ok: false, error: procedures.error };
     if (family.error) return { ok: false, error: family.error };
     return { ok: true, data: { procedures: (procedures.data ?? []) as ProcedureItem[], family: (family.data ?? []) as FamilyItem[] } };
-  });
+  }, { keep: own });
 }
 
 /** A rough year is shown as the year only, because many people remember nothing more. */

@@ -9,6 +9,7 @@ import { symptomLabel, type SymptomLog, type SymptomType } from "./symptoms";
  * that check gave. The read is `public.patient_symptom_journal()`, the same function the web page uses, which is keyed on who is signed in,
  * so it is not offered while acting for someone else.
  *
+ * Entries the server refused stay listed as not sent (the sync notice on this screen is where they are retried or removed).
  * Offline order of fallbacks: the last good copy of the journal, then the S06 read mirror of symptoms (no grade, because the mirror does not
  * hold triage), plus entries still waiting in the outbox, shown as waiting. Nothing is dropped and nothing waiting is shown as sent.
  */
@@ -23,6 +24,8 @@ export interface JournalRow {
   triageGrade: "red" | "amber" | "green" | null;
   /** Saved on this phone and not yet sent. Never has a grade. */
   waiting: boolean;
+  /** The server refused it. It is kept on the phone (see the sync notice) and never counted as sent. */
+  rejected: boolean;
 }
 
 interface RpcRow {
@@ -50,6 +53,7 @@ export function parseJournal(data: unknown): JournalRow[] {
       fromCheck: raw.assessment_id !== null && raw.assessment_id !== undefined,
       triageGrade: grade,
       waiting: false,
+      rejected: false,
     });
   }
   return rows;
@@ -70,7 +74,7 @@ async function waitingRows(subjectId: string): Promise<JournalRow[]> {
   try {
     const items = await listOutbox("symptom");
     return items
-      .filter((i) => i.state === "pending" && i.subjectId === subjectId)
+      .filter((i) => i.subjectId === subjectId)
       .map((i) => {
         const p = i.payload as SymptomPayload;
         return {
@@ -81,7 +85,8 @@ async function waitingRows(subjectId: string): Promise<JournalRow[]> {
           severity: typeof p.severity === "number" ? p.severity : null,
           fromCheck: false,
           triageGrade: null,
-          waiting: true,
+          waiting: i.state === "pending",
+          rejected: i.state === "rejected",
         };
       });
   } catch {
@@ -124,6 +129,7 @@ export async function loadJournal(subjectId: string): Promise<JournalLoad> {
     fromCheck: s.assessment_id !== null && s.assessment_id !== undefined,
     triageGrade: null,
     waiting: false,
+    rejected: false,
   }));
   return { ok: true, rows: [...waiting, ...fromMirror].sort(newestFirst), stale: true, offline: live.offline, savedAt: null };
 }

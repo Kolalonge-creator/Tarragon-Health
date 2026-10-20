@@ -48,17 +48,31 @@ const ctx = { userId: "user-1", organisationId: "org-1" };
 
 describe("health history on the phone (S43m)", () => {
   it("reads, and keeps the copy for offline", async () => {
-    const live = await loadHistory("user-1");
+    const live = await loadHistory("user-1", true);
     expect(live.ok && !live.stale && live.data.procedures).toHaveLength(1);
     mockFail = { message: "Network request failed" };
-    const offline = await loadHistory("user-1");
+    const offline = await loadHistory("user-1", true);
     expect(offline.ok && offline.stale && offline.offline && offline.data.procedures[0].name).toBe("Appendectomy");
   });
 
   it("with nothing saved, a failed read is a failure and not an empty history", async () => {
     mockUser = "user-9";
     mockFail = { message: "Network request failed" };
-    expect(await loadHistory("user-9")).toEqual({ ok: false, offline: true });
+    expect(await loadHistory("user-9", true)).toEqual({ ok: false, offline: true });
+  });
+
+  it("a supporter reads live, without family history (owner only) and without keeping a copy", async () => {
+    const live = await loadHistory("someone-else", false);
+    expect(live.ok && !live.stale && live.data.family).toEqual([]);
+    expect(live.ok && live.data.procedures).toHaveLength(1);
+    mockFail = { message: "Network request failed" };
+    expect(await loadHistory("someone-else", false)).toEqual({ ok: false, offline: true });
+  });
+
+  it("withdrawn access is not served from a saved copy", async () => {
+    await loadHistory("user-1", true);
+    mockFail = { code: "42501", message: "permission denied" };
+    expect(await loadHistory("user-1", true)).toEqual({ ok: false, offline: false });
   });
 
   it("adds a procedure with the person's own id and organisation, and only what was typed", async () => {

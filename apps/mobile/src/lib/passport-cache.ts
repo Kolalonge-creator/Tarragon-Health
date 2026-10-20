@@ -43,11 +43,32 @@ export interface CachedCopy<T> {
   savedAt: string;
 }
 
-/** Best effort: a store that will not open never stops a screen from showing what it just read. */
-export async function cacheWrite(key: string, value: unknown): Promise<void> {
+let prunedFor: string | null = null;
+
+/**
+ * Rows of any other account are removed the first time an account opens the cache. The sign-out wipe is the main guard, but it can fail
+ * (a busy store) or never run (a session revoked while the app was closed), and a phone is often shared.
+ */
+async function pruneOtherOwners(owner: string): Promise<void> {
+  if (prunedFor === owner) return;
+  await (await db()).runAsync("delete from passport_cache where owner_user_id <> ?", [owner]);
+  prunedFor = owner;
+}
+
+/** Test hook. */
+export function __resetPassportCacheForTests(): void {
+  prunedFor = null;
+}
+
+/**
+ * Best effort: a store that will not open never stops a screen from showing what it just read. `expectedOwner` is who was signed in when the
+ * read began: if the account changed while it was in flight the copy is dropped, never stored under the next account.
+ */
+export async function cacheWrite(key: string, value: unknown, expectedOwner?: string): Promise<void> {
   try {
     const owner = await currentUserId();
-    if (!owner) return;
+    if (!owner || (expectedOwner !== undefined && expectedOwner !== owner)) return;
+    await pruneOtherOwners(owner);
     await (await db()).runAsync("insert or replace into passport_cache (owner_user_id, key, body, saved_at) values (?, ?, ?, ?)", [
       owner,
       key,
@@ -63,6 +84,7 @@ export async function cacheRead<T>(key: string): Promise<CachedCopy<T> | null> {
   try {
     const owner = await currentUserId();
     if (!owner) return null;
+    await pruneOtherOwners(owner);
     const row = await (await db()).getFirstAsync<{ body: string; saved_at: string }>(
       "select body, saved_at from passport_cache where owner_user_id = ? and key = ?",
       [owner, key]
@@ -71,6 +93,16 @@ export async function cacheRead<T>(key: string): Promise<CachedCopy<T> | null> {
     return { value: JSON.parse(row.body) as T, savedAt: row.saved_at };
   } catch {
     return null;
+  }
+}
+
+export async function cacheDelete(key: string): Promise<void> {
+  try {
+    const owner = await currentUserId();
+    if (!owner) return;
+    await (await db()).runAsync("delete from passport_cache where owner_user_id = ? and key = ?", [owner, key]);
+  } catch (error) {
+    recordSyncError("offline_outbox", "passportCacheDelete", error);
   }
 }
 
@@ -91,11 +123,23 @@ export function isOffline(error: { code?: string; message?: string }): boolean {
   return classifyFailure({ code: error.code, message: error.message }) === "network";
 }
 
+export interface ReadOptions {
+  /**
+   * False for anything that is not the signed-in person's own record (a supporter looking at someone they support): it is read live and
+   * never kept on this phone, because the other person can withdraw access and a saved copy would outlive that.
+   */
+  keep?: boolean;
+}
+
 /**
- * Live read first. On success the copy is refreshed; on failure the last copy is shown and marked stale, so the screen can say so.
- * With no copy the failure is reported as it is (offline or another error), never as an empty list that would read as "nothing here".
+ * Live read first. On success the copy is refreshed; on a lost connection or a server error the last copy is shown and marked stale, so the
+ * screen can say so. A REFUSAL (the database said no, or the session is no longer valid) never falls back: the copy is deleted and the failure
+ * reported, so access that was withdrawn does not keep showing the old record. With no copy the failure is reported as it is (offline or another
+ * error), never as an empty list that would read as "nothing here".
  */
-export async function readThrough<T>(key: string, fetcher: () => Promise<FetchOutcome<T>>): Promise<ReadResult<T>> {
+export async function readThrough<T>(key: string, fetcher: () => Promise<FetchOutcome<T>>, options: ReadOptions = {}): Promise<ReadResult<T>> {
+  const keep = options.keep !== false;
+  const owner = keep ? await currentUserId() : null;
   let outcome: FetchOutcome<T>;
   try {
     outcome = await fetcher();
@@ -103,11 +147,16 @@ export async function readThrough<T>(key: string, fetcher: () => Promise<FetchOu
     outcome = { ok: false, error: { message: e instanceof Error ? e.message : String(e) } };
   }
   if (outcome.ok) {
-    await cacheWrite(key, outcome.data);
+    if (keep && owner) await cacheWrite(key, outcome.data, owner);
     return { ok: true, data: outcome.data, stale: false };
   }
-  const offline = isOffline(outcome.error);
-  const copy = await cacheRead<T>(key);
+  const failure = classifyFailure({ code: outcome.error.code, message: outcome.error.message });
+  const offline = failure === "network";
+  if (failure === "rejected" || failure === "auth") {
+    if (keep) await cacheDelete(key);
+    return { ok: false, offline: false };
+  }
+  const copy = keep ? await cacheRead<T>(key) : null;
   if (copy) return { ok: true, data: copy.value, stale: true, savedAt: copy.savedAt, offline };
   return { ok: false, offline };
 }
