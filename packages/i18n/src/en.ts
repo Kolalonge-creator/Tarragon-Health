@@ -1451,7 +1451,7 @@ export const en = {
   "avs.review.problem.dash": "Use a full stop or a comma instead of a dash.",
   "avs.review.problem.warning": "Do not use the word warning.",
   "avs.review.problem.your_doctor": "Say \"your care team\" instead of naming one doctor.",
-  "avs.review.problem.cure": "Do not promise that something will be fixed for good.",
+  "avs.review.problem.cure_claim": "Do not promise that something will be fixed for good.",
   "avs.review.problem.instant_doctor": "Do not promise instant care.",
   "avs.review.problem.free_healthcare": "Do not describe the care as free.",
   "avs.review.error.generic": "That did not save. Check your connection and try again.",

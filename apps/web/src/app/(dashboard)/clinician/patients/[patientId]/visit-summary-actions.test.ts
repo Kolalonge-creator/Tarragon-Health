@@ -80,7 +80,7 @@ describe("approveVisitSummary", () => {
   it("checks the copy rules first and does not call the database when they fail", async () => {
     const r = await approveVisitSummary({ summaryId: id, text: "Ask your doctor — it will cure this." });
     expect(r.error).toMatch(/plain-language rules/);
-    expect(r.problems).toEqual(expect.arrayContaining(["dash", "your_doctor", "cure"]));
+    expect(r.problems).toEqual(expect.arrayContaining(["dash", "your_doctor", "cure_claim"]));
     expect(rpc).not.toHaveBeenCalled();
   });
 

@@ -105,8 +105,9 @@ alter table public.visit_summaries enable row level security;
 alter table public.visit_summary_items enable row level security;
 alter table public.visit_summary_item_progress enable row level security;
 alter table public.visit_summary_revisions enable row level security;
-revoke all on public.visit_summaries, public.visit_summary_items, public.visit_summary_item_progress, public.visit_summary_revisions from public, anon;
-revoke all on public.visit_summary_revisions from authenticated;
+-- authenticated is revoked too: the project's default privileges (alter default privileges ... to authenticated) hand every new table
+-- full DML, and only a revoke here leaves the select grant below as the whole surface. Writes go through the definer functions only.
+revoke all on public.visit_summaries, public.visit_summary_items, public.visit_summary_item_progress, public.visit_summary_revisions from public, anon, authenticated;
 grant select on public.visit_summaries, public.visit_summary_items, public.visit_summary_item_progress to authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -218,7 +219,7 @@ as $$
     case when p_text ~ '[—–]' then 'dash' end,
     case when p_text ~* '\mwarning\M' then 'warning' end,
     case when p_text ~* '\myour doctor\M' then 'your_doctor' end,
-    case when p_text ~* '\mcures?d?\M' then 'cure' end,
+    case when p_text ~* '\mcures?d?\M' then 'cure_claim' end,
     case when p_text ~* 'instant doctor' then 'instant_doctor' end,
     case when p_text ~* 'free healthcare' then 'free_healthcare' end
   ], null);

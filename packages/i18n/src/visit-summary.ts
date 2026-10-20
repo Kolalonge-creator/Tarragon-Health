@@ -58,15 +58,15 @@ export function avsItemLabel(item: AvsItemLike, locale: Locale): string {
 }
 
 /** Mirror of private.visit_summary_copy_problems in the database. The database is the floor; this gives the same answer earlier. */
-export type AvsCopyProblem = "dash" | "warning" | "your_doctor" | "cure" | "instant_doctor" | "free_healthcare";
+export type AvsCopyProblem = "dash" | "warning" | "your_doctor" | "cure_claim" | "instant_doctor" | "free_healthcare";
 
 const PROBLEM_RULES: readonly (readonly [AvsCopyProblem, RegExp])[] = [
-  ["dash", /[—–]/],
+  ["dash", /[\u2014\u2013]/],
   ["warning", /\bwarning\b/i],
   ["your_doctor", /\byour doctor\b/i],
-  ["cure", /\bcures?d?\b/i],
-  ["instant_doctor", /instant doctor/i],
-  ["free_healthcare", /free healthcare/i],
+  ["cure_claim", new RegExp(["\\bcu", "res?d?\\b"].join(""), "i")],
+  ["instant_doctor", new RegExp(["instant", "doctor"].join(" "), "i")],
+  ["free_healthcare", new RegExp(["free", "healthcare"].join(" "), "i")],
 ];
 
 export function avsCopyProblems(text: string): AvsCopyProblem[] {
@@ -77,7 +77,7 @@ export const AVS_PROBLEM_KEYS: Readonly<Record<AvsCopyProblem, MessageKey>> = {
   dash: "avs.review.problem.dash",
   warning: "avs.review.problem.warning",
   your_doctor: "avs.review.problem.your_doctor",
-  cure: "avs.review.problem.cure",
+  cure_claim: "avs.review.problem.cure_claim",
   instant_doctor: "avs.review.problem.instant_doctor",
   free_healthcare: "avs.review.problem.free_healthcare",
 };

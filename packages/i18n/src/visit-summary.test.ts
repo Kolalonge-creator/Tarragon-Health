@@ -46,7 +46,7 @@ describe("AVS copy rules", () => {
     expect(avsCopyProblems("Take it — twice a day")).toEqual(["dash"]);
     expect(avsCopyProblems("WARNING: rest")).toEqual(["warning"]);
     expect(avsCopyProblems("Ask your doctor")).toEqual(["your_doctor"]);
-    expect(avsCopyProblems("This will cure it")).toEqual(["cure"]);
+    expect(avsCopyProblems("This will cure it")).toEqual(["cure_claim"]);
     expect(avsCopyProblems("an instant doctor")).toEqual(["instant_doctor"]);
     expect(avsCopyProblems("free healthcare for all")).toEqual(["free_healthcare"]);
   });
