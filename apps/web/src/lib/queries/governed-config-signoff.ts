@@ -54,6 +54,7 @@ export const GOVERNED_CONFIG_TABLES = [
     title: "Nutrition targets and meal summary",
     slug: "nutrition-targets-config",
   },
+  { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
   { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
 ] as const;
 

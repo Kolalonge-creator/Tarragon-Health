@@ -57,6 +57,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/settings/my-health-config", "lock screen pass wallet card fields read only signed my health emergency basics"],
   ["/clinician/nutrition-targets-config", "nutrition targets daily calories energy floor safe minimum salt sugar fibre meal summary light balanced heavy words sign cmo food diary"],
   ["/admin/settings/nutrition-targets-config", "nutrition targets daily calories safe minimum salt sugar fibre meal summary read only signed"],
+  ["/clinician/observation-limits", "limits typed numbers plausibility water sleep mood inhaler puffs implausible typo sign cmo glucose weight pulse extended observations"],
+  ["/admin/settings/observation-limits", "limits typed numbers plausibility water sleep mood inhaler puffs read only signed"],
   ["/clinician/activity-safety-config", "activity safety rules exercise workout rest gentle red amber pregnancy arthritis back pain hypertension sign cmo gate s48a"],
   ["/admin/settings/activity-safety-config", "activity safety rules exercise workout rest gentle read only signed gate"],
   ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo s06 s07 s08 s09 s10 c1 c2 c3 c4 c5 c6 c7 c8 cuff wording low blood pressure adherence as needed prn limits lock screen pass"],
@@ -168,6 +170,7 @@ export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Home blood pressure programme", href: "/clinician/home-bp-programme", group: "Clinical sign-off", hint: "Sign the seven-day home check protocol, the bands and the white-coat or masked pattern rule (C1 to C3)." },
   { label: "My Health lock-screen pass fields", href: "/clinician/my-health-config", group: "Clinical sign-off", hint: "Sign what a lock-screen or wallet pass may show (C8)." },
   { label: "Nutrition targets", href: "/clinician/nutrition-targets-config", group: "Clinical sign-off", hint: "Confirm and sign the daily calorie minimums, salt, sugar and fibre numbers and the word summary lines (S49a)." },
+  { label: "Limits for typed numbers", href: "/clinician/observation-limits", group: "Clinical sign-off", hint: "Sign the typo limits for water, sleep, mood and inhaler logs, and restate the limits for glucose, weight, pulse and blood pressure (S47a)." },
   { label: "Activity safety rules", href: "/clinician/activity-safety-config", group: "Clinical sign-off", hint: "Sign when a patient is told to rest or kept to gentle activity, and the kinds blocked for pregnancy, arthritis and back pain." },
 ];
 
