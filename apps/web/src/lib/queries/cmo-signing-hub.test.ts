@@ -47,12 +47,18 @@ jest.mock("@/lib/queries/pending-quality-config-signoff", () => ({
   readPendingQualityConfigSignoff: (...args: unknown[]) => readPendingQualityConfigSignoff(...args),
 }));
 const noQualityConfig: QualityPending = { qualityVersion: null, credentialingVersion: null, failed: false };
-type CapacityPending = { capacityVersion: number | null; capacityRules: unknown; leadVersion: number | null; leadCapDraft: number | null; leadCapInForce: number | null; failed: boolean };
+type CapacityPending = { opsDeskVersion?: number | null; capacityVersion: number | null; capacityRules: unknown; leadVersion: number | null; leadCapDraft: number | null; leadCapInForce: number | null; failed: boolean };
 const readPendingCapacityConfigSignoff = jest.fn<(...args: unknown[]) => Promise<CapacityPending>>();
 jest.mock("@/lib/queries/pending-capacity-config-signoff", () => ({
   readPendingCapacityConfigSignoff: (...args: unknown[]) => readPendingCapacityConfigSignoff(...args),
 }));
 const noCapacityConfig: CapacityPending = { capacityVersion: null, capacityRules: null, leadVersion: null, leadCapDraft: null, leadCapInForce: null, failed: false };
+type QueuePagingPending = { taskLayer: { kind: "accept_in_force" | "sign_new"; version: number } | null; taskLayerRules: unknown; pagingVersion: number | null; pagingRules: unknown; pagingInForceRules: unknown; failed: boolean };
+const readPendingQueuePagingConfigSignoff = jest.fn<(...args: unknown[]) => Promise<QueuePagingPending>>();
+jest.mock("@/lib/queries/pending-queue-paging-config-signoff", () => ({
+  readPendingQueuePagingConfigSignoff: (...args: unknown[]) => readPendingQueuePagingConfigSignoff(...args),
+}));
+const noQueuePaging: QueuePagingPending = { taskLayer: null, taskLayerRules: null, pagingVersion: null, pagingRules: null, pagingInForceRules: null, failed: false };
 const readPendingSoleCmoException = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
 const readUnifiedRedPagingState = jest.fn<(...args: unknown[]) => Promise<{ waitingVersion: number | null; liveVersion: number | null; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-unified-red-paging-signoff", () => ({
@@ -66,7 +72,7 @@ jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
 }));
 
-import { CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub, SOLE_CMO_EXCEPTION_ITEM_KEY } from "./cmo-signing-hub";
+import { OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub, SOLE_CMO_EXCEPTION_ITEM_KEY } from "./cmo-signing-hub";
 
 const supabase = {} as SupabaseClient<Database>;
 
@@ -105,6 +111,52 @@ beforeEach(() => {
   readPendingQualityConfigSignoff.mockResolvedValue(noQualityConfig);
   readPendingCapacityConfigSignoff.mockReset();
   readPendingCapacityConfigSignoff.mockResolvedValue(noCapacityConfig);
+  readPendingQueuePagingConfigSignoff.mockReset();
+  readPendingQueuePagingConfigSignoff.mockResolvedValue(noQueuePaging);
+});
+
+describe("readCmoSigningHub: task layer and paging delivery configurations (OQ-451)", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("lists a line for each, under /clinician, so the banner counts both", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingQueuePagingConfigSignoff.mockResolvedValue({ ...noQueuePaging, taskLayer: { kind: "accept_in_force", version: 1 }, pagingVersion: 2 });
+    const hub = await readCmoSigningHub(supabase);
+    const task = hub.items.find((i) => i.key === TASK_LAYER_CONFIG_ITEM_KEY);
+    const paging = hub.items.find((i) => i.key === PAGING_DELIVERY_CONFIG_ITEM_KEY);
+    expect(task?.count).toBe(1);
+    expect(task?.detail).toMatch(/never been signed/);
+    expect(paging?.count).toBe(1);
+    expect(paging?.detail).toMatch(/cannot be activated until every on-call clinician/);
+    expect(task?.href.startsWith("/clinician/") && paging?.href.startsWith("/clinician/")).toBe(true);
+  });
+  it("words a newer draft differently from the version in force", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingQueuePagingConfigSignoff.mockResolvedValue({ ...noQueuePaging, taskLayer: { kind: "sign_new", version: 2 } });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === TASK_LAYER_CONFIG_ITEM_KEY);
+    expect(line?.title).toMatch(/sign a new version/);
+  });
+  it("adds no line when nothing waits, and names a failed read rather than reading as all clear", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    const clear = await readCmoSigningHub(supabase);
+    expect(clear.items.some((i) => i.key === TASK_LAYER_CONFIG_ITEM_KEY || i.key === PAGING_DELIVERY_CONFIG_ITEM_KEY)).toBe(false);
+    readPendingQueuePagingConfigSignoff.mockResolvedValue({ ...noQueuePaging, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the task layer and paging delivery configurations");
+  });
+});
+
+describe("readCmoSigningHub: ops desk checklist gate", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds a line under /clinician only when a draft waits, and signs nothing", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === OPS_DESK_CONFIG_ITEM_KEY)).toBeUndefined();
+    readPendingCapacityConfigSignoff.mockResolvedValue({ ...noCapacityConfig, opsDeskVersion: 2 });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === OPS_DESK_CONFIG_ITEM_KEY);
+    expect(line?.count).toBe(1);
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/stays off until you sign/);
+  });
 });
 
 describe("readCmoSigningHub: capacity, rest and fire drills", () => {

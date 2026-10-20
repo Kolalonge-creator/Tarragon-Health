@@ -31,19 +31,24 @@ describe("readPendingCapacityConfigSignoff", () => {
     { version: 2, is_active: false, approved_at: null, rules: { max_lead_patients: 40 } },
   ];
 
+  const ops = [
+    { version: 1, is_active: true, approved_at: null },
+    { version: 2, is_active: false, approved_at: null },
+  ];
+
   it("finds the unsigned drafts and shows the cap in force beside the cap proposed", async () => {
-    const r = await readPendingCapacityConfigSignoff(client({ capacity_cover_config: { data: capacity, error: null }, lead_config: { data: lead, error: null } }));
-    expect(r).toMatchObject({ capacityVersion: 2, leadVersion: 2, leadCapDraft: 40, leadCapInForce: 60, failed: false });
+    const r = await readPendingCapacityConfigSignoff(client({ capacity_cover_config: { data: capacity, error: null }, lead_config: { data: lead, error: null }, ops_desk_config: { data: ops, error: null } }));
+    expect(r).toMatchObject({ capacityVersion: 2, leadVersion: 2, leadCapDraft: 40, leadCapInForce: 60, opsDeskVersion: 2, failed: false });
     expect(r.capacityRules?.restHours).toBe(10);
   });
 
   it("finds nothing when everything is signed or live", async () => {
-    const r = await readPendingCapacityConfigSignoff(client({ capacity_cover_config: { data: [capacity[0]], error: null }, lead_config: { data: [lead[0]], error: null } }));
-    expect(r).toMatchObject({ capacityVersion: null, leadVersion: null, capacityRules: null, leadCapDraft: null, failed: false });
+    const r = await readPendingCapacityConfigSignoff(client({ capacity_cover_config: { data: [capacity[0]], error: null }, lead_config: { data: [lead[0]], error: null }, ops_desk_config: { data: [ops[0]], error: null } }));
+    expect(r).toMatchObject({ capacityVersion: null, leadVersion: null, capacityRules: null, leadCapDraft: null, opsDeskVersion: null, failed: false });
   });
 
   it("says it failed, and never reads as all clear, when a table cannot be read", async () => {
-    const r = await readPendingCapacityConfigSignoff(client({ capacity_cover_config: { data: null, error: new Error("denied") }, lead_config: { data: lead, error: null } }));
+    const r = await readPendingCapacityConfigSignoff(client({ capacity_cover_config: { data: null, error: new Error("denied") }, lead_config: { data: lead, error: null }, ops_desk_config: { data: ops, error: null } }));
     expect(r.failed).toBe(true);
     expect(r.capacityVersion).toBeNull();
   });

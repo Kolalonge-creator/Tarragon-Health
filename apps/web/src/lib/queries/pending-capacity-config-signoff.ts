@@ -23,6 +23,8 @@ export type PendingCapacityConfigSignoff = {
   /** The per-lead patient cap in that draft and in the version now in force. */
   leadCapDraft: number | null;
   leadCapInForce: number | null;
+  /** An unsigned, inactive ops_desk_config version newer than the one in force (the resilience checklist gate). */
+  opsDeskVersion: number | null;
   /** The read failed: never render this as an all-clear. */
   failed: boolean;
 };
@@ -30,7 +32,7 @@ export type PendingCapacityConfigSignoff = {
 type Row = { version: number; is_active: boolean; approved_at: string | null; rules?: Record<string, unknown> };
 type Loose = { from(table: string): { select(columns: string): PromiseLike<{ data: Row[] | null; error: unknown }> } };
 
-const FAILED: PendingCapacityConfigSignoff = { capacityVersion: null, capacityRules: null, leadVersion: null, leadCapDraft: null, leadCapInForce: null, failed: true };
+const FAILED: PendingCapacityConfigSignoff = { capacityVersion: null, capacityRules: null, leadVersion: null, leadCapDraft: null, leadCapInForce: null, opsDeskVersion: null, failed: true };
 
 const num = (rules: Record<string, unknown> | undefined, key: string): number | null => {
   const v = rules?.[key];
@@ -63,11 +65,12 @@ export function capacityRulesView(rules: Record<string, unknown> | undefined): C
 export async function readPendingCapacityConfigSignoff(supabase: SupabaseClient<Database>): Promise<PendingCapacityConfigSignoff> {
   try {
     const loose = supabase as unknown as Loose;
-    const [c, l] = await Promise.all([
+    const [c, l, o] = await Promise.all([
       loose.from("capacity_cover_config").select("version, is_active, approved_at, rules"),
       loose.from("lead_config").select("version, is_active, approved_at, rules"),
+      loose.from("ops_desk_config").select("version, is_active, approved_at"),
     ]);
-    if (c.error || l.error || !c.data || !l.data) return FAILED;
+    if (c.error || l.error || o.error || !c.data || !l.data || !o.data) return FAILED;
     const capacityVersion = newestWaiting(c.data);
     const leadVersion = newestWaiting(l.data);
     const leadLive = l.data.filter((r) => r.is_active).sort((a, b) => b.version - a.version)[0];
@@ -77,6 +80,7 @@ export async function readPendingCapacityConfigSignoff(supabase: SupabaseClient<
       leadVersion,
       leadCapDraft: leadVersion === null ? null : num(l.data.find((r) => r.version === leadVersion)?.rules, "max_lead_patients"),
       leadCapInForce: num(leadLive?.rules, "max_lead_patients"),
+      opsDeskVersion: newestWaiting(o.data),
       failed: false,
     };
   } catch {
