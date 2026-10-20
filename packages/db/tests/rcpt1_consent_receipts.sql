@@ -153,10 +153,15 @@ begin
   if v_cv is null then
     insert into public.consent_versions (consent_type, version, title, body, is_current) values ('data_processing', 'rcpt-v1', 'Data processing', 'RCPT exact words', true) returning id into v_cv;
   end if;
+  -- written as the patient; who made the choice is derived by the table's own trigger ('self' on a fresh database, null on the older live one),
+  -- so the check below compares the receipt with the stored row instead of assuming a value
+  perform pg_temp.act(v_a);
   insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, channel)
-  select v_org, v_a, cv.consent_type, cv.id, cv.version, 'accepted', 'web' from public.consent_versions cv where cv.id = v_cv returning id into v_doc;
+  select v_org, v_a, cv.consent_type, cv.id, cv.version, 'accepted', 'web' from public.consent_versions cv where cv.id = v_cv;
+  perform pg_temp.back();
+  select id into v_doc from public.patient_consents where patient_id = v_a and consent_version_id = v_cv order by created_at desc limit 1;
   v_j := pg_temp.q_as(v_a, format($q$select public.consent_receipt_data('document_event', %L)::text$q$, v_doc))::jsonb;
-  perform pg_temp.ck('5a the receipt carries the exact words, version and who/where', 'true:true:web:legacy',
+  perform pg_temp.ck('5a the receipt carries the exact words, version and who/where', 'true:true:web:' || coalesce((select consented_by_relation from public.patient_consents where id = v_doc), 'legacy'),
     ((v_j -> 'change' ->> 'body') is not null)::text || ':' || ((v_j -> 'change' ->> 'version') is not null)::text || ':' || (v_j -> 'change' ->> 'channel') || ':' || (v_j -> 'change' ->> 'consented_by_relation'));
   perform pg_temp.ck('5b another patient cannot open it', 'true',
     (pg_temp.try_as(v_b, format($q$select public.consent_receipt_data('document_event', %L)$q$, v_doc)) like '%consent_receipt_not_found%')::text);
