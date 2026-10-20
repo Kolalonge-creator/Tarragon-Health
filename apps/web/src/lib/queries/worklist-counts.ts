@@ -75,12 +75,11 @@ async function countAsyncConsults(supabase: Client) {
 }
 
 async function countSecondOpinionRequests(supabase: Client) {
-  const { count, error } = await supabase
-    .from("second_opinion_requests")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["submitted", "in_review"]);
+  // The same function the worklist page reads: a direct count is hidden by the S39b tie for a doctor who has not met the patient,
+  // so the badge would disagree with the list.
+  const { data, error } = await supabase.rpc("list_second_opinion_worklist");
   if (error) throw error;
-  return count ?? 0;
+  return Array.isArray(data) ? data.length : 0;
 }
 
 async function countPrescriptionRenewalRequests(supabase: Client) {

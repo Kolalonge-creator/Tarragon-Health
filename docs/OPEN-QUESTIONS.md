@@ -4340,3 +4340,19 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - Related and accepted: the low-power and low-data deferral is applied by the reconnect flush and the background task only. The Devices screen Sync now button and a foreground health sync are the patient asking, so they still send queued health pages. A foreground and a background JS context could both move a leftover plaintext queue once; the server dedupes on device_id + external_reading_id, client_reading_id and the per-row health-sample key, so the worst case is a repeated upload, not a duplicate record.
 - Decision: open (founder).
 - Kept on purpose, not cheap to split: when bulk work waits (low power, or low-data mode off Wi-Fi) the background task skips the whole health-store sync, the read as well as the upload. A read without an upload cannot advance the server cursor (it moves only past uploaded pages), so the next run would read the same samples again and queue them again, growing the queue toward its 500 cap with duplicates. The server cursor means nothing is lost; the samples are read on the next run that is allowed to upload. Splitting read from upload needs a change to health-sync.ts (queue de-duplication by sample key) and is a separate piece of work.
+
+### OQ-IPS-1 Validate the IPS export before anyone relies on it (raised by the IPS build, 2026-10-20)
+- The file is IPS-shaped (structure) but no HL7 validator was run and no IPS or Nigeria Core profile is claimed. Run the HAPI validator against a real export and against the IPS implementation guide, record the result, and only then decide whether a later `fhir.ips_mapping` version may list a profile URL. Do not state conformance in product or marketing copy until then.
+- Decision: open (founder / health-informatics advisor).
+
+### OQ-IPS-2 Section titles and the author wording in the file (raised by the IPS build, 2026-10-20)
+- Section titles, the Composition narrative and the preliminary status live in the PROPOSED config (founder-owned, not confirmed). "Preliminary" says the summary is not clinician-attested. Confirm the wording and status with the CMO before a facility is told to rely on it.
+- Decision: open (CMO).
+
+### OQ-IPS-3 `fhir_export_log` has no format column (raised by the IPS build, 2026-10-20)
+- An IPS download is logged exactly like a collection export; it is recognisable only because its section list has no `documents`. Opening the "what is inside" preview is logged the same way (it uses the same audited call), so the "who made a copy" list counts previews; the preview text says so. If audit review needs to tell exports, IPS copies and previews apart, add a nullable `format` or `purpose` column in a separate additive migration.
+- Decision: open (product / DPO).
+
+### OQ-IPS-4 Items inside general sections are not sorted by purpose, for supporters too (raised by the IPS build, 2026-10-20)
+- `fhir_export_snapshot` (S47b) hides reproductive and mental-health-named conditions, medicines and allergies only for a guardian of a 10 to 17 year old without a waiver. A supporter who holds only the medications or conditions category, and the person themselves, still get such items inside Problems and Medicines, as in the existing collection export. The summary says so in words (file narrative and page copy) but a sentence is not a control. Decide whether the snapshot should withhold those items for every non-self reader, and whether a stopped medicine should be left out of the Medicines section. Do not weaken the existing exclusion; this build adds no new way to read them.
+- Decision: open (CMO / DPO).
