@@ -7,31 +7,41 @@
 -- labs_results category, so the legacy rows would have shown on the trend screen.
 --
 -- Live exposure on 2026-10-20: lab_analyte_readings had 0 rows, so nothing was shown. This closes it before there is data.
--- The body below is the live pg_get_functiondef (verified 2026-10-20) plus one predicate. Same signature, security definer,
--- search_path '' and ACL (no execute for public, anon or authenticated).
+--
+-- Two states exist: live reads public.lab_analyte_readings in this function, while a fresh replay has it moved to the
+-- private.lab_analyte_readings_current view by 20261014173212 (and packages/db/tests/s05b_c_read_filters_and_guards.sql fails any definer function
+-- that reads the base table again). So this migration (1) appends sensitive_positive to that view, so both forms can filter on it, and
+-- (2) patches the function in place from its definition at apply time, by anchor, instead of re-creating it from the live text.
+-- Same signature, security definer, search_path '' and ACL (no execute for public, anon or authenticated).
 
-create or replace function private.biomarker_points(p_patient uuid, p_code text)
-returns table (taken_at timestamptz, value numeric, unit text, ref_low numeric, ref_high numeric, ref_text text, flag text, source text, laboratory text)
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select r.released_at, i.value_numeric, i.unit, i.ref_low, i.ref_high,
-         case when i.ref_low is not null or i.ref_high is not null then concat_ws(' to ', i.ref_low::text, i.ref_high::text) end,
-         i.flag, 'lab_result'::text, null::text
-    from public.lab_result_items i
-    join public.lab_results r on r.id = i.lab_result_id
-   where i.patient_id = p_patient and lower(i.analyte_code) = lower(p_code) and i.value_numeric is not null
-     and r.release_state = 'released' and r.withdrawn_at is null and r.superseded_by is null
-     and not i.sensitive_positive
-  union all
-  select l.taken_at, l.value, l.unit, l.reference_range_low, l.reference_range_high, l.reference_range_text, l.abnormal_flag::text, 'legacy_report'::text, l.laboratory
-    from public.lab_analyte_readings l
-   where l.patient_id = p_patient and lower(l.code) = lower(p_code) and l.value is not null
-     and l.report_status in ('final', 'corrected', 'amended')
-     and not l.sensitive_positive
-$$;
+do $v$
+declare v_def text; v_new text;
+begin
+  v_def := pg_get_viewdef('private.lab_analyte_readings_current'::regclass);
+  if v_def !~* 'sensitive_positive' then
+    v_new := regexp_replace(v_def, '\s+FROM\s+', E',\n    sensitive_positive\n   FROM ', 'i');
+    if v_new = v_def then raise exception 'lab_analyte_readings_current: could not append sensitive_positive'; end if;
+    execute 'create or replace view private.lab_analyte_readings_current as ' || v_new;
+  end if;
+end $v$;
+
+do $p$
+declare
+  v_anchor constant text := $a$and l.report_status in ('final', 'corrected', 'amended')$a$;
+  v_add constant text := $b$ and not l.sensitive_positive$b$;
+  v_oid oid; v_def text; v_n integer := 0;
+begin
+  for v_oid in select p.oid from pg_proc p where p.proname = 'biomarker_points' and p.pronamespace = 'private'::regnamespace loop
+    v_def := pg_get_functiondef(v_oid);
+    if position(v_anchor || v_add in v_def) > 0 then v_n := v_n + 1; continue; end if;
+    if (length(v_def) - length(replace(v_def, v_anchor, ''))) <> length(v_anchor) then
+      raise exception 'biomarker_points (%): the anchor is missing or repeated, refusing to guess', v_oid::regprocedure;
+    end if;
+    execute replace(v_def, v_anchor, v_anchor || v_add);
+    v_n := v_n + 1;
+  end loop;
+  if v_n = 0 then raise exception 'biomarker_points not found'; end if;
+end $p$;
 revoke all on function private.biomarker_points(uuid, text) from public, anon, authenticated;
 
 do $$
@@ -46,5 +56,8 @@ begin
   if has_function_privilege('anon', 'private.biomarker_points(uuid,text)', 'EXECUTE')
      or has_function_privilege('authenticated', 'private.biomarker_points(uuid,text)', 'EXECUTE') then
     raise exception 'biomarker_points is executable by anon or authenticated';
+  end if;
+  if not exists (select 1 from information_schema.columns where table_schema = 'private' and table_name = 'lab_analyte_readings_current' and column_name = 'sensitive_positive') then
+    raise exception 'lab_analyte_readings_current lacks sensitive_positive';
   end if;
 end $$;

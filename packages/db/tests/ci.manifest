@@ -1318,3 +1318,6 @@ oq436_deadman_status.sql
 
 # OQ-S43m-5: private.biomarker_points omits a sensitive_positive lab_analyte_readings row (legacy_report branch): patient_biomarker_trend shows the patient and a labs_results caregiver the ordinary reading but never the positive HIV/HBsAg/HCV row. Sabotage: the filter is reverted and the sensitive row must appear.
 oq_s43m_5_biomarker_points_sensitive_legacy.sql
+
+# OQ-S43m-5 follow-up: every other reader of lab_analyte_readings respects sensitive_positive. Direct reads (patient, caregiver, other patient) never see a sensitive row and the care-team doctor does (restrictive policy); share link, health-report series, clinical_value_history and my_corrected_record_entries filter too. Sabotage: the policy is dropped and each function loses its filter; all six sabotaged checks must flip.
+oq_s43m_5_followup_sensitive_lab_readers.sql
