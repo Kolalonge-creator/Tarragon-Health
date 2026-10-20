@@ -10,7 +10,30 @@ const pt = (over: Partial<TrendPoint> = {}): TrendPoint => ({
   flag: null,
   source: "lab_result",
   laboratory: null,
+  alsoFrom: null,
+  disagrees: false,
   ...over,
+});
+
+describe("parseTrend duplicate and disagreement fields (DUP-1)", () => {
+  it("carries the second source of a collapsed duplicate and a disagreement flag", () => {
+    const s = parseTrend({
+      code: "ldl",
+      disputed: true,
+      points: [
+        { taken_at: "2025-06-01T00:00:00Z", value: 3.1, unit: "mmol/L", source: "lab_result", also_from: "legacy_report", disagrees: false },
+        { taken_at: "2025-06-01T00:00:00Z", value: 4.4, unit: "mmol/L", source: "legacy_report", disagrees: true },
+      ],
+    });
+    expect(s?.disputed).toBe(true);
+    expect(s?.points.find((p) => p.value === 3.1)?.alsoFrom).toBe("legacy_report");
+    expect(s?.points.find((p) => p.value === 4.4)?.disagrees).toBe(true);
+  });
+
+  it("a point that disagrees marks the series disputed even if the flag is missing", () => {
+    expect(parseTrend({ code: "x", points: [{ taken_at: "2025-01-01T00:00:00Z", value: 2, disagrees: true }] })?.disputed).toBe(true);
+    expect(parseTrend({ code: "x", points: [{ taken_at: "2025-01-01T00:00:00Z", value: 2 }] })?.disputed).toBe(false);
+  });
 });
 
 describe("parseTrend", () => {

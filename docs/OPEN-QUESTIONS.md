@@ -4321,3 +4321,23 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-NAFDAC-SCAN-4 The number is used for lookup and pre-fill only; it is not stored on the medication (raised by the pack-scan build, 2026-10-16)
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
+
+### OQ-DUP-1-1 Duplicate lab value match numbers are PROPOSED (raised by DUP-1, 2026-10-20)
+- `lab_value_match_config` v1: 2 day window, 0.5 percent value tolerance, same unit required. Engineering defaults, no published standard. The CMO or lab liaison confirms or changes them (a new config version, never an edit).
+- Decision: open (CMO).
+
+### OQ-DUP-1-2 A disputed analyte is left out of the Health Report facts (raised by DUP-1, 2026-10-20)
+- When a structured result and a paper report disagree, the report omits that analyte entirely (no older reading is promoted either) instead of printing one value, and the trend shows both. Alternative: print both with a "two reports differ" line. Needs the report wording owner.
+- Decision: open (product, CMO).
+
+### OQ-DUP-1-3 Record exports still list both rows (raised by DUP-1, 2026-10-20)
+- The FHIR snapshot and the record export list the structured and the filed reading with an `origin` label (evidence). Collapsing a duplicate there is not done (the AI explainer's two lab readers are also separate and not de-duplicated); a receiving system may see two Observations.
+- Decision: open (product).
+
+### OQ-DUP-1-4 No way to dismiss a disagreement that is only a unit label (raised by DUP-1, 2026-10-20)
+- U/L against IU/L, or % against % HbA1c, is a disagreement by design (units are never converted). There is no unit alias table and no resolve action; it clears when a clinician withdraws or corrects one source. A confirmed alias list in config would remove the noise.
+- Decision: open (CMO, lab liaison).
+
+### OQ-DUP-1-5 The case-file note writes an audit row per open (raised by DUP-1, 2026-10-20)
+- Each case-file open reads the note through the audited function (one row, 5 minute cache). Lazy loading or folding it into the existing audited read would cut the volume.
+- Decision: open (engineering).

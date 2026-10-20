@@ -2023,3 +2023,11 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - Tests: Jest for the route (no secret, wrong secret, right secret, bearer, down, degraded, rpc error) and the threshold function; `packages/db/tests/oq436_deadman_status.sql` registered in `ci.manifest`; the bash script was exercised with stubbed `curl` and `gh` for ok, degraded, down (new and existing issue), 401, unreachable, recovery and missing secrets.
 - Not exercised: the migration dry run on production timed out at the connection (database unresponsive at the time), so it relied on CI replay; the workflow has never run on GitHub and the endpoint never against production; the Resend call was not sent; actionlint was not available.
 - Needs the founder: the secrets in OQ-436. Paging logic untouched.
+
+## DUP-1 duplicate lab value safety (2026-10-20), branch `feat/dup-result-safety`
+
+- **Found**: the S43 trend reader and the S46/S47 Health Report reader both `UNION ALL` structured results (`lab_result_items`) with filed paper readings (`lab_analyte_readings`) with no match, so one value arriving by both routes counted twice. S43 photo capture (`patient_documents.extracted`) is not a path in (suggestions only). Live counts 0 in all three lab tables.
+- **Built**: migration `20261020214837` (versioned PROPOSED match config, append-only `lab_value_links`, triggers on both sources, both readers rewritten to collapse a duplicate and expose a disagreement, audited tied clinician note `lab_value_disagreements`, data-registry row); web trend screen (both sources labelled, disagreement note), case-file "Results that disagree"; registry key `lab_value.duplicate_match`; `biomarkers.*` strings.
+- **Tests**: DB proof `dup1_duplicate_lab_value_safety.sql` 33 checks plus 3 sabotage flips (run against live in a rolled-back transaction with the migration spliced in; no Docker); Jest trend, disagreement parser, registry mirror; i18n 215, shared proposed-config 321 pass; `tsc` clean.
+- **Not run**: not applied to production; not exercised in a browser against data (no lab rows exist); no local Supabase replay (Docker unavailable here), CI replay is the first full-chain run.
+- **Open**: OQ-DUP-1-1 to OQ-DUP-1-3.

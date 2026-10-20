@@ -50711,6 +50711,7 @@ export type Database = {
         Returns: Json
       }
       patient_biomarker_list: { Args: { p_patient?: string }; Returns: Json }
+      lab_value_disagreements: { Args: { p_patient?: string; p_reason?: string }; Returns: Json }
       record_share_open: {
         Args: { p_commit?: boolean; p_pin?: string; p_token: string }
         Returns: Json

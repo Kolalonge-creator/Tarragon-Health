@@ -79,6 +79,11 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
                   {t("biomarkers.unit_mixed", uiLanguage)}
                 </p>
               )}
+              {series.disputed && (
+                <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                  {t("biomarkers.disputed", uiLanguage)}
+                </p>
+              )}
               {series.target && (
                 <p className="text-sm font-medium text-deep-forest dark:text-brand-green-bright">
                   {t("biomarkers.care_target", uiLanguage, { range: targetLabel(series.target) })}
@@ -116,7 +121,15 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
                                 )}
                               </td>
                               <td className="py-1 pr-3">{labRangeLabel(p) ?? ""}</td>
-                              <td className="py-1">{p.laboratory ?? t(`biomarkers.source.${p.source}` as MessageKey, uiLanguage)}</td>
+                              <td className="py-1">
+                                {p.laboratory ?? t(`biomarkers.source.${p.source}` as MessageKey, uiLanguage)}
+                                {p.alsoFrom && (
+                                  <span className="block text-xs text-charcoal-ink/60">
+                                    {t("biomarkers.also_from", uiLanguage, { source: t(`biomarkers.source.${p.alsoFrom}` as MessageKey, uiLanguage) })}
+                                  </span>
+                                )}
+                                {p.disagrees && <span className="block text-xs text-amber-900">{t("biomarkers.disagrees", uiLanguage)}</span>}
+                              </td>
                             </tr>
                           ))}
                         </tbody>

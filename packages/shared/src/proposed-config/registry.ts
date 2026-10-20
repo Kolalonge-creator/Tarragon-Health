@@ -5944,4 +5944,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-16",
     source: "docs/design/S53-pack-scan.md; NAFDAC Greenbook public examples",
   },
+  {
+    key: "lab_value.duplicate_match",
+    // DUP-1: when the same lab value reaches a record by two routes (a partner lab's structured result and a filed paper report), a pair is a
+    // DUPLICATE when the code matches, the dates are within window_days, the unit is the same and the values are within value_tolerance_pct of
+    // each other. Same test and window but a different value or unit is a DISAGREEMENT: both are shown and a clinician is told, none is picked.
+    // Live values are the active row of `lab_value_match_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // PROPOSED: the CMO or the lab liaison confirms the window and the tolerance.
+    value: { window_days: 2, value_tolerance_pct: 0.5, require_same_unit: true },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/DUP-1.md",
+  },
 ];
