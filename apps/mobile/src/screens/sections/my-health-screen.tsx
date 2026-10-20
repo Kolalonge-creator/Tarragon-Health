@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, ScrollView, Switch, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, Switch, Text, View } from "react-native";
 import { getProposedConfig } from "@tarragon/shared";
 import { t } from "@tarragon/i18n";
 import {
@@ -10,7 +10,6 @@ import {
   type AccessLogEntry,
   type PassState,
 } from "@/lib/my-health";
-import { PLATFORM_URL } from "@/lib/platform-url";
 import type { SectionId } from "@/lib/sections";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
@@ -105,12 +104,7 @@ export function MyHealthScreen({ userId, acting, onNavigate }: MyHealthScreenPro
         <GroupedListRow title={t("my_health.card.passport")} subtitle={t("my_health.card.passport_body")} trailing="chevron" onPress={() => onNavigate("passport")} />
         <GroupedListRow title={t("passport.nav.history")} subtitle={t("mpass.hub.history_body")} trailing="chevron" onPress={() => onNavigate("healthHistory")} />
         <GroupedListRow title={t("passport.nav.journal")} subtitle={t("mpass.hub.journal_body")} trailing="chevron" onPress={() => onNavigate("symptomJournal")} />
-        <GroupedListRow
-          title={t("my_health.card.shares")}
-          subtitle={t("my_health.card.shares_body")}
-          trailing="chevron"
-          onPress={() => void Linking.openURL(`${PLATFORM_URL}/patient/share-records`)}
-        />
+        <GroupedListRow title={t("passport.nav.share")} subtitle={t("mpass.hub.share_body")} trailing="chevron" onPress={() => onNavigate("shareRecords")} />
       </GroupedList>
 
       {acting ? (

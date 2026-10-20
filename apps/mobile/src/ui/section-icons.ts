@@ -68,6 +68,7 @@ export const SECTION_ICONS: Record<SectionId, LucideIcon> = {
   healthSummary: FileText,
   timeline: Clock,
   myHealth: FileText,
+  shareRecords: Share2,
   biomarkers: TrendingUp,
   healthHistory: ClipboardList,
   symptomJournal: Activity,

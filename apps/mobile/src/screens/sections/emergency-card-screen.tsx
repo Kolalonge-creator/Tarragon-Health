@@ -11,13 +11,15 @@ import {
 import { spacing } from "@/ui/theme";
 import { lightPalette, useLegacyColors } from "@/ui/design";
 import { EmergencyPackView } from "@/screens/emergency-pack-view";
+import { EmergencyCardFieldsCard } from "@/screens/sections/emergency-card-fields-card";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
 interface EmergencyCardScreenProps {
   patientId: string;
+  organisationId: string;
 }
 
-export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
+export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCardScreenProps) {
   const colors = useLegacyColors();
   const [facts, setFacts] = useState<EmergencyFacts | null>(null);
   const [offline, setOffline] = useState(false);
@@ -37,16 +39,23 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
       .catch(() => setShareLinkError(true));
   }, [patientId]);
 
-  useEffect(() => {
+  const reloadFacts = useCallback(() => {
     loadEmergencyFacts(patientId)
-      .then(setFacts)
+      .then((f) => {
+        setOffline(false);
+        setFacts(f);
+      })
       .catch(() => {
         setOffline(true);
         return loadCachedEmergencyFacts().then(setFacts);
       })
       .catch(() => {});
+  }, [patientId]);
+
+  useEffect(() => {
+    reloadFacts();
     refreshShareLink();
-  }, [patientId, refreshShareLink]);
+  }, [reloadFacts, refreshShareLink]);
 
   async function handleCreateLink() {
     setCreating(true);
@@ -151,6 +160,9 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
           </>
         )}
       </Card>
+
+      {/* The person chooses what the card shows. After a save the facts are read again, so the saved copy on this phone holds only what they chose. */}
+      <EmergencyCardFieldsCard patientId={patientId} organisationId={organisationId} onSaved={reloadFacts} />
 
       <EmergencyPackView />
     </ScrollView>
