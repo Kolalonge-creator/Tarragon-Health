@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { buildPhoneViews, cleanPhoneName, defaultPhoneName, parsePhoneRows, phoneStatus, type PhoneRow } from "./my-phones";
+import { buildPhoneViews, cleanPhoneName, phoneUpdateArgs, defaultPhoneName, parsePhoneRows, phoneStatus, type PhoneRow } from "./my-phones";
 
 const NOW = new Date("2026-10-20T10:00:00Z");
 const row = (o: Partial<PhoneRow> & { device_id: string }): PhoneRow => ({
@@ -55,5 +55,16 @@ describe("my phones", () => {
     expect(cleanPhoneName("  my\nphone \t ")).toBe("my phone");
     expect(cleanPhoneName("   ")).toBeNull();
     expect(cleanPhoneName("a".repeat(60))).toHaveLength(40);
+    expect(cleanPhoneName("ab\u0085cd")).toBe("ab cd");
+    // an emoji at the boundary is kept whole or dropped, never split
+    const cut = cleanPhoneName("a".repeat(39) + "😀😀") ?? "";
+    expect(Array.from(cut).length).toBeLessThanOrEqual(40);
+    expect(cut.endsWith("😀")).toBe(true);
+  });
+
+  it("builds update arguments with only what changed", () => {
+    expect(phoneUpdateArgs("d", { shared: false })).toEqual({ p_device: "d", p_shared: false });
+    expect(phoneUpdateArgs("d", { label: null })).toEqual({ p_device: "d", p_clear_label: true });
+    expect(phoneUpdateArgs("d", { label: "Mum" })).toEqual({ p_device: "d", p_label: "Mum" });
   });
 });

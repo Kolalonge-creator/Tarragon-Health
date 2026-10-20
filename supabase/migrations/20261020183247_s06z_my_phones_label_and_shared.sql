@@ -18,7 +18,7 @@ begin
   if v_me is null then raise exception 'sign in required' using errcode = '28000'; end if;
   select * into v_row from public.offline_device_leases where device_id = p_device and account_id = v_me;
   if not found then raise exception 'device not found' using errcode = 'P0002'; end if;
-  if v_row.revoked_at is not null then raise exception 'this phone has been removed' using errcode = '42501'; end if;
+  if v_row.revoked_at is not null or v_row.wipe_confirmed_at is not null then raise exception 'this phone has been removed' using errcode = '42501'; end if;
   v_label := nullif(btrim(coalesce(p_label, '')), '');
   if v_label is not null and (char_length(v_label) > 40 or v_label ~ '[[:cntrl:]]') then
     raise exception 'bad name' using errcode = '22023';

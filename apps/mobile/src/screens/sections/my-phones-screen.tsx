@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import { cleanPhoneName, PHONE_NAME_MAX, type PhoneView } from "@tarragon/shared";
 import { t } from "@tarragon/i18n";
@@ -27,12 +27,27 @@ export function MyPhonesScreen({ userId, acting }: Props) {
   const [draft, setDraft] = useState("");
   const [removing, setRemoving] = useState<{ id: string; counts: ThisPhoneUnsent | null; isThis: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const load = useCallback(async () => {
     if (acting) return;
     const r = await loadPhones(userId);
-    if (r.ok) setLoaded({ state: "ready", phones: r.phones, dropped: r.dropped });
-    else setLoaded({ state: "failed", offline: !(await probeReachable(4000)) });
+    if (!mounted.current) return;
+    if (r.ok) {
+      setLoaded({ state: "ready", phones: r.phones, dropped: r.dropped });
+      return;
+    }
+    const offline = !(await probeReachable(4000));
+    if (!mounted.current) return;
+    // A failed refresh after a change keeps the list the patient already has and says the refresh failed; it never replaces it with an error.
+    setLoaded((prev) => (prev.state === "ready" ? prev : { state: "failed", offline }));
+    setNotice({ error: true, text: offline ? t("my_phones.offline") : t("my_phones.failed") });
   }, [acting, userId]);
 
   useEffect(() => {
@@ -40,22 +55,21 @@ export function MyPhonesScreen({ userId, acting }: Props) {
   }, [load]);
 
   const afterChange = async (ok: boolean, okText: string, failText: string) => {
+    if (!mounted.current) return;
     setNotice({ error: !ok, text: ok ? okText : failText });
     if (ok) await load();
   };
 
   const saveName = async (id: string) => {
     setBusy(true);
-    const ok = await savePhoneDetails(id, { label: cleanPhoneName(draft) });
-    setBusy(false);
-    if (ok) setEditing(null);
+    const ok = await savePhoneDetails(id, { label: cleanPhoneName(draft) }).finally(() => mounted.current && setBusy(false));
+    if (ok && mounted.current) setEditing(null);
     await afterChange(ok, t("my_phones.saved"), t("my_phones.save_failed"));
   };
 
   const setShared = async (id: string, next: boolean) => {
     setBusy(true);
-    const ok = await savePhoneDetails(id, { shared: next });
-    setBusy(false);
+    const ok = await savePhoneDetails(id, { shared: next }).finally(() => mounted.current && setBusy(false));
     await afterChange(ok, t("my_phones.saved"), t("my_phones.save_failed"));
   };
 
@@ -63,6 +77,7 @@ export function MyPhonesScreen({ userId, acting }: Props) {
     // For THIS phone: one last upload attempt first, then the real counts, before the patient confirms.
     setBusy(true);
     const counts = p.isThisPhone ? await lastTryAndCount(userId) : null;
+    if (!mounted.current) return;
     setBusy(false);
     setRemoving({ id: p.deviceId, counts, isThis: p.isThisPhone });
   };
@@ -70,10 +85,18 @@ export function MyPhonesScreen({ userId, acting }: Props) {
   const confirmRemove = async () => {
     if (!removing) return;
     setBusy(true);
-    const ok = await removePhone(removing.id, removing.isThis);
+    const outcome = await removePhone(removing.id, removing.isThis);
+    // "cleared": this phone has wiped and signed out, so there is nothing left to reload or to say here.
+    if (outcome === "cleared" || !mounted.current) return;
     setBusy(false);
-    if (ok) setRemoving(null);
-    await afterChange(ok, t("my_phones.remove_sent"), t("my_phones.remove_failed"));
+    if (outcome === "failed") return afterChange(false, "", t("my_phones.remove_failed"));
+    setRemoving(null);
+    if (outcome === "filed_not_cleared") {
+      setNotice({ error: true, text: t("my_phones.remove_this_waiting") });
+      await load();
+      return;
+    }
+    await afterChange(true, t("my_phones.remove_sent"), "");
   };
 
   const ink = { color: colors.ink };
@@ -168,16 +191,25 @@ export function MyPhonesScreen({ userId, acting }: Props) {
                           <Text style={ink}>{t("my_phones.remove_body")}</Text>
                           <Text style={ink}>{t("my_phones.remove_last_try")}</Text>
                           <Text style={ink}>{t("my_phones.remove_urgent")}</Text>
-                          {removing.counts ? (
+                          {removing.isThis ? (
                             <>
-                              <Text style={{ ...ink, fontWeight: "600" }}>
-                                {removing.counts.unsent === 0
-                                  ? t("my_phones.remove_this_unsent_none")
-                                  : t("my_phones.remove_this_unsent", "en", { n: String(removing.counts.unsent) })}
-                              </Text>
-                              {removing.counts.urgent > 0 ? (
-                                <Text style={ink}>{t("my_phones.remove_this_urgent", "en", { u: String(removing.counts.urgent) })}</Text>
-                              ) : null}
+                              {removing.counts ? (
+                                <>
+                                  <Text style={{ ...ink, fontWeight: "600" }}>
+                                    {removing.counts.unsent === 0
+                                      ? t("my_phones.remove_this_unsent_none")
+                                      : t("my_phones.remove_this_unsent", "en", { n: String(removing.counts.unsent) })}
+                                  </Text>
+                                  {removing.counts.urgent > 0 ? (
+                                    <Text style={ink}>{t("my_phones.remove_this_urgent", "en", { u: String(removing.counts.urgent) })}</Text>
+                                  ) : null}
+                                  {removing.counts.others > 0 ? (
+                                    <Text style={ink}>{t("my_phones.remove_this_others", "en", { n: String(removing.counts.others) })}</Text>
+                                  ) : null}
+                                </>
+                              ) : (
+                                <Text style={{ ...ink, fontWeight: "600" }}>{t("my_phones.remove_this_unknown")}</Text>
+                              )}
                               <Text style={ink}>{t("my_phones.remove_this_signout")}</Text>
                             </>
                           ) : null}

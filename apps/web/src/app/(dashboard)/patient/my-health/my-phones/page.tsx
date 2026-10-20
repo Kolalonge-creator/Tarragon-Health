@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchMyPhones } from "@/lib/my-health/my-phones";
 import { buildPhoneViews } from "@tarragon/shared";
 import { t } from "@tarragon/i18n";
-import { PhonesList } from "./phones-list";
+import { PhonesList, ReloadButton } from "./phones-list";
 
 /**
  * My phones (S06z). The phones that keep a copy of the patient's information offline, with a way to name one, mark it shared, or remove it.
@@ -27,9 +27,12 @@ export default async function MyPhonesPage() {
       {acting ? (
         <p className="text-sm text-charcoal-ink/70">{t("my_phones.acting")}</p>
       ) : !result || !result.ok ? (
-        <p role="alert" className="text-sm text-red-700">
-          {t("my_phones.failed")}
-        </p>
+        <div className="space-y-3">
+          <p role="alert" className="text-sm text-red-700">
+            {t("my_phones.failed")}
+          </p>
+          <ReloadButton />
+        </div>
       ) : (
         <PhonesList initial={phones} dropped={result.dropped} />
       )}

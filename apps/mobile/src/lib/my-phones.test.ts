@@ -61,14 +61,16 @@ describe("savePhoneDetails", () => {
     await savePhoneDetails("d", { label: null });
     expect(rpc).toHaveBeenLastCalledWith("update_my_offline_device", { p_device: "d", p_clear_label: true });
   });
-  it("reports a refusal", async () => {
+  it("reports a refusal, and a throw", async () => {
     rpc.mockResolvedValue({ error: { message: "no" } });
+    expect(await savePhoneDetails("d", { label: "x" })).toBe(false);
+    rpc.mockRejectedValue(new Error("net"));
     expect(await savePhoneDetails("d", { label: "x" })).toBe(false);
   });
 });
 
 describe("removing a phone", () => {
-  it("tries one last upload before it counts what is left for the signed-in account only", async () => {
+  it("tries one last upload before it counts, and separates the signed-in account from others on the phone", async () => {
     const order: string[] = [];
     (flushOutbox as jest.Mock).mockImplementation(async () => void order.push("flush"));
     (countUnsentByOwner as jest.Mock).mockImplementation(async () => {
@@ -78,31 +80,47 @@ describe("removing a phone", () => {
         { owner: "u1", total: 3, danger: 1 },
       ];
     });
-    expect(await lastTryAndCount("u1")).toEqual({ unsent: 3, urgent: 1 });
+    expect(await lastTryAndCount("u1")).toEqual({ unsent: 3, urgent: 1, others: 9 });
     expect(order).toEqual(["flush", "count"]);
   });
 
   it("still counts when the last upload throws", async () => {
     (flushOutbox as jest.Mock).mockRejectedValue(new Error("offline"));
     (countUnsentByOwner as jest.Mock).mockResolvedValue([{ owner: "u1", total: 2, danger: 0 }]);
-    expect(await lastTryAndCount("u1")).toEqual({ unsent: 2, urgent: 0 });
+    expect(await lastTryAndCount("u1")).toEqual({ unsent: 2, urgent: 0, others: 0 });
   });
 
-  it("this phone checks in at once so it clears now", async () => {
+  it("an unreadable count is unknown (null), never zero", async () => {
+    (flushOutbox as jest.Mock).mockResolvedValue({});
+    (countUnsentByOwner as jest.Mock).mockRejectedValue(new Error("locked"));
+    expect(await lastTryAndCount("u1")).toBeNull();
+  });
+
+  it("this phone is cleared only when its own check-in wiped it", async () => {
     (reportPhoneLost as jest.Mock).mockResolvedValue(true);
-    expect(await removePhone("dev-this", true)).toBe(true);
-    expect(runDeviceCheck).toHaveBeenCalled();
+    (runDeviceCheck as jest.Mock).mockResolvedValue("wiped");
+    expect(await removePhone("dev-this", true)).toBe("cleared");
+  });
+
+  it("this phone that could not check in is filed but NOT cleared", async () => {
+    (reportPhoneLost as jest.Mock).mockResolvedValue(true);
+    for (const o of ["offline", "skipped", "held"]) {
+      (runDeviceCheck as jest.Mock).mockResolvedValue(o);
+      expect(await removePhone("dev-this", true)).toBe("filed_not_cleared");
+    }
   });
 
   it("another phone only files the request", async () => {
     (reportPhoneLost as jest.Mock).mockResolvedValue(true);
-    expect(await removePhone("dev-other", false)).toBe(true);
+    expect(await removePhone("dev-other", false)).toBe("filed");
     expect(runDeviceCheck).not.toHaveBeenCalled();
   });
 
-  it("a refused request changes nothing", async () => {
+  it("a refused or thrown request changes nothing", async () => {
     (reportPhoneLost as jest.Mock).mockResolvedValue(false);
-    expect(await removePhone("dev-this", true)).toBe(false);
+    expect(await removePhone("dev-this", true)).toBe("failed");
+    (reportPhoneLost as jest.Mock).mockRejectedValue(new Error("x"));
+    expect(await removePhone("dev-this", true)).toBe("failed");
     expect(runDeviceCheck).not.toHaveBeenCalled();
   });
 });

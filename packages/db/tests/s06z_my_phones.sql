@@ -88,7 +88,14 @@ select pg_temp.ck('real','C14 no direct write to the table','ERR 42501',pg_temp.
 select pg_temp.ck('real','C15 another patient cannot ask to remove it (control)','ERR 42501',pg_temp.as_user(pg_temp.f('p2'), format($q$ select public.request_offline_device_wipe(%L,'lost_phone')::text $q$, pg_temp.f('dev2'))));
 select pg_temp.ck('real','C16 the owner can ask to remove their own phone','true',pg_temp.as_user(pg_temp.f('p1'), format($q$ select public.request_offline_device_wipe(%L,'lost_phone')::text $q$, pg_temp.f('dev2'))));
 select pg_temp.ck('real','C17 a removed phone can no longer be edited','ERR 42501',pg_temp.as_user(pg_temp.f('p1'), format($q$ select public.update_my_offline_device(%L,'x')::text $q$, pg_temp.f('dev2'))));
-select pg_temp.ck('real','C18 owner sees two phones, another patient sees none','2/0',
+do $$ begin
+  -- a phone cleared by an expired lease or a shared-phone clear has wipe_confirmed_at but no revoked_at
+  insert into public.offline_device_leases (device_id, account_id, organisation_id, platform, lease_expires_at, wipe_confirmed_at, wipe_reason)
+  values (gen_random_uuid(), pg_temp.f('p1'), pg_temp.f('org'), 'android', now() - interval '1 day', now(), 'lease_expired');
+end $$;
+select pg_temp.ck('real','C18 a phone already cleared by an expired lease cannot be edited either','ERR 42501',
+  pg_temp.as_user(pg_temp.f('p1'), format($q$ select public.update_my_offline_device((select device_id from public.offline_device_leases where wipe_reason='lease_expired' and account_id=%L limit 1),'x')::text $q$, pg_temp.f('p1'))));
+select pg_temp.ck('real','C19 owner sees three phones, another patient sees none','3/0',
   pg_temp.as_user(pg_temp.f('p1'),'select count(*)::text from public.offline_device_leases')||'/'||pg_temp.as_user(pg_temp.f('p2'),'select count(*)::text from public.offline_device_leases'));
 
 -- SABOTAGE
@@ -102,7 +109,7 @@ begin
   execute v_def;
   insert into results values ('sabotaged','SABOTAGE 1: owner check removed lets another patient rename','ERR P0002',
     pg_temp.as_user(pg_temp.f('p2'), format($q$ select public.update_my_offline_device(%L,'Mine now')::text $q$, pg_temp.f('dev1'))));
-  v_def := replace(v_orig, 'if v_row.revoked_at is not null then', 'if false then');
+  v_def := replace(v_orig, 'if v_row.revoked_at is not null or v_row.wipe_confirmed_at is not null then', 'if false then');
   execute v_def;
   insert into results values ('sabotaged','SABOTAGE 2: revoked guard removed lets a removed phone be edited','ERR 42501',
     pg_temp.as_user(pg_temp.f('p1'), format($q$ select public.update_my_offline_device(%L,'x')::text $q$, pg_temp.f('dev2'))));
@@ -110,6 +117,16 @@ begin
   execute v_def;
   insert into results values ('sabotaged','SABOTAGE 3: control check removed accepts a control character','ERR 22023',
     pg_temp.as_user(pg_temp.f('p1'), format($q$ select public.update_my_offline_device(%L,E'bad\nname')::text $q$, pg_temp.f('dev1'))));
+end $$;
+do $$
+declare v_def text;
+begin
+  -- 4. only the revoked flag guarded: a phone cleared by an expired lease can still be edited
+  select pg_get_functiondef('public.update_my_offline_device(uuid, text, boolean, boolean)'::regprocedure) into v_def;
+  v_def := replace(v_def, ' or v_row.wipe_confirmed_at is not null then', ' then');
+  execute v_def;
+  insert into results values ('sabotaged','SABOTAGE 4: guard on revoked only lets a lease-cleared phone be edited','ERR 42501',
+    pg_temp.as_user(pg_temp.f('p1'), format($q$ select public.update_my_offline_device((select device_id from public.offline_device_leases where wipe_reason='lease_expired' and account_id=%L limit 1),'x')::text $q$, pg_temp.f('p1'))));
 end $$;
 
 do $$
@@ -120,7 +137,7 @@ begin
     raise exception 'S06z proof FAILED: %', (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and check_name like 'SABOTAGE%' and expected <> actual;
-  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results where phase = 'real' order by check_name;

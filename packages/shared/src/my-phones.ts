@@ -67,11 +67,33 @@ export function defaultPhoneName(platform: string): string {
   return platform === "ios" ? "iPhone" : "Android phone";
 }
 
-/** Cleans a typed name the way the database will: trimmed, no control characters, at most PHONE_NAME_MAX. Null means "no usable name". */
+/**
+ * Cleans a typed name the way the database will: control characters (C0, DEL and C1, the class Postgres refuses) become spaces, trimmed, at
+ * most PHONE_NAME_MAX characters counted by code point so an emoji is never cut in half. Null means "no usable name".
+ */
 export function cleanPhoneName(input: string): string | null {
-  const trimmed = input.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+  const trimmed = input.replace(/[\u0000-\u001f\u007f-\u009f]/g, " ").replace(/\s+/g, " ").trim();
   if (!trimmed) return null;
-  return trimmed.slice(0, PHONE_NAME_MAX);
+  return Array.from(trimmed).slice(0, PHONE_NAME_MAX).join("").trim();
+}
+
+/** The columns both screens read, in one place so web and phone cannot drift. */
+export const PHONE_COLUMNS =
+  "device_id, platform, device_label, shared_phone, last_checkin_at, lease_expires_at, revoked_at, wipe_confirmed_at, unsent_at_wipe, danger_at_wipe, retired_at";
+
+/** Arguments for `update_my_offline_device`: only what changed. `label: null` clears the name. */
+export function phoneUpdateArgs(deviceId: string, change: { label?: string | null; shared?: boolean }): {
+  p_device: string;
+  p_label?: string;
+  p_clear_label?: boolean;
+  p_shared?: boolean;
+} {
+  return {
+    p_device: deviceId,
+    ...(change.label ? { p_label: change.label } : {}),
+    ...(change.label === null ? { p_clear_label: true } : {}),
+    ...(change.shared !== undefined ? { p_shared: change.shared } : {}),
+  };
 }
 
 /**

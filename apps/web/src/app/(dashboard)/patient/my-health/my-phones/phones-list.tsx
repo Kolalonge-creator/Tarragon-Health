@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
@@ -32,7 +33,18 @@ export function PhonesList({ initial, dropped }: { initial: PhoneView[]; dropped
     setPartial(r.dropped > 0);
   };
 
-  const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  // Read after mount and kept current, so the markup matches on the server and the banner follows the connection.
+  const [offline, setOffline] = useState(false);
+  useEffect(() => {
+    const update = () => setOffline(navigator.onLine === false);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
 
   const saveName = (id: string) =>
     start(async () => {
@@ -187,5 +199,15 @@ export function PhonesList({ initial, dropped }: { initial: PhoneView[]; dropped
         })
       )}
     </div>
+  );
+}
+
+/** Shown with the "could not load" line so a patient can try again without leaving the page. */
+export function ReloadButton() {
+  const router = useRouter();
+  return (
+    <Button type="button" size="lg" variant="outline" onClick={() => router.refresh()}>
+      {t("my_phones.retry")}
+    </Button>
   );
 }
