@@ -1357,5 +1357,5 @@ oq192_profile_access_permission_tightening.sql
 # --- Added 2026-10-16 (S30b) -----------------------------------------------
 # Earnings completeness: a dispute holds only its own line out of the payout and resolves into an append-only adjustment; withholding is
 # stored never computed and blocks a send; per-line pay status follows the S31 payout (with retry); the pilot-minimum activity check holds
-# a suspicious top-up for a person; a late line is netted once. Five sabotage steps (dispute guard, ledger guard, withholding guard, activity check).
+# a suspicious top-up for a person; a late line is netted once. Eight sabotage steps (dispute guard, ledger guard, withholding guard, activity check, withholding period filter, back-dating rule, raced-duplicate handler).
 s30b_earnings_disputes_withholding_pilot.sql

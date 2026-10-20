@@ -433,6 +433,42 @@ begin
   perform pg_temp.ck('the internal helpers are not callable by clients', 'permission denied for function refresh_payout_draft', pg_temp.try_as(v_admin, format('select private.refresh_payout_draft(%L)', v_a)));
 end $$;
 
+-- 6b. Withholding is carried only within the SAME period; a correction to an already-paid line is dated now; double-tap handling ----------
+do $$
+declare
+  v_org uuid := pg_temp.f('org'); v_admin uuid := pg_temp.f('admin'); v_a uuid := pg_temp.f('a'); l1 uuid := pg_temp.f('l1');
+  v_y uuid; v_pid uuid; x date := private.payout_last_period_end(); d_paid uuid; v_adj uuid;
+begin
+  v_y := pg_temp.mkdoc(v_org, 'docY', 'contracted', v_admin); perform pg_temp.go_real(v_y, 'Yetunde Ife Bakare'); perform pg_temp.setf('y', v_y);
+  perform pg_temp.line(v_org, v_y, v_admin, 100000, '10 days'); perform pg_temp.line(v_org, v_y, v_admin, 100000, '9 days');
+  perform pg_temp.line(v_org, v_y, v_admin, 100000, '8 days'); perform pg_temp.line(v_org, v_y, v_admin, 100000, '7 days');
+  perform private.build_payout_drafts(v_org, x, false, v_y);
+  select id into v_pid from public.payouts where clinician_id = v_y and state = 'draft';
+  perform pg_temp.act(v_admin); perform public.set_payout_withholding(v_pid, 5000, 'Entered by finance for the proof'); perform pg_temp.back();
+  perform pg_temp.ck('setup: Y has a draft with a typed withholding', '400000/5000', (select amount_kobo || '/' || withholding_kobo from public.payouts where id = v_pid));
+  perform private.build_payout_drafts(v_org, x + 7, false, v_y);
+  perform pg_temp.ck('a replacement draft for a DIFFERENT period does not inherit the withholding', '400000/0',
+    (select amount_kobo || '/' || withholding_kobo from public.payouts where clinician_id = v_y and state = 'draft'));
+  select id into v_pid from public.payouts where clinician_id = v_y and state = 'draft';
+  perform pg_temp.act(v_admin); perform public.set_payout_withholding(v_pid, 5000, 'Entered by finance for the proof'); perform pg_temp.back();
+  perform private.build_payout_drafts(v_org, x + 7, true, v_y);
+  perform pg_temp.ck('a forced rebuild of the SAME period keeps the withholding', '400000/5000',
+    (select amount_kobo || '/' || withholding_kobo from public.payouts where clinician_id = v_y and state = 'draft'));
+
+  -- 7: a correction to a line already in a SUCCEEDED payout is dated now; one to an unpaid line keeps the line's date (checked in section 2)
+  select id into d_paid from public.earnings_disputes where ledger_id = l1 and state = 'open';
+  perform pg_temp.act(v_admin); v_adj := (public.resolve_earnings_dispute(d_paid, 'adjusted', 1000, 'Agreed: a small shortfall on a paid line')) ->> 'adjustment_ledger_id'; perform pg_temp.back();
+  perform pg_temp.ck('a correction to an already-paid line is dated now, not back into a closed period', 'now/true',
+    (select case when a.earned_at = now() then 'now' else 'backdated' end || '/' || (a.earned_at <> l.earned_at)::text
+       from public.earnings_ledger a, public.earnings_ledger l where a.id = v_adj and l.id = l1));
+
+  -- 4: the double-tap handling is in the function (a true race needs two connections, so this checks the code is there;
+  -- the sequential double tap is proved in section 1)
+  perform pg_temp.ck('the open function re-checks the request id after the lock and survives a raced duplicate', 'handled',
+    case when pg_get_functiondef('public.open_earnings_dispute(uuid,text,text,uuid)'::regprocedure) like '%when unique_violation%'
+          and pg_get_functiondef('public.open_earnings_dispute(uuid,text,text,uuid)'::regprocedure) like '%a second tap that waited on the lock%' then 'handled' else 'missing' end);
+end $$;
+
 -- 7. SABOTAGE -------------------------------------------------------------------------------------------------------------------
 -- Z has three free lines and opens a dispute on the third; the real behaviour is a draft of the other two.
 do $$
@@ -486,6 +522,48 @@ begin
     case when exists (select 1 from public.earnings_ledger where clinician_id = v_h and kind = 'minimum_topup') then 'paid' else 'held' end);
 end $$;
 
+-- 7e. the period filter removed from the withholding carry: a draft for another period inherits it
+do $$
+declare
+  v_org uuid := pg_temp.f('org'); v_y uuid := pg_temp.f('y'); x date := private.payout_last_period_end(); d text; n text;
+begin
+  d := pg_get_functiondef('private.build_payout_drafts(uuid,date,boolean,uuid)'::regprocedure);
+  n := replace(d, 'state = ''draft'' and period_end = p_period_end;', 'state = ''draft'';');
+  if n = d then raise exception 'sabotage 7e did not change the function'; end if;
+  execute n;
+  perform private.build_payout_drafts(v_org, x + 14, false, v_y);
+  insert into results values ('sabotaged', 'a replacement draft for a DIFFERENT period does not inherit the withholding', '400000/0',
+    (select amount_kobo || '/' || withholding_kobo from public.payouts where clinician_id = v_y and state = 'draft'));
+end $$;
+
+-- 7f. the back-dating rule removed: a correction to a paid line is dated into the closed period
+do $$
+declare
+  v_admin uuid := pg_temp.f('admin'); v_a uuid := pg_temp.f('a'); l3 uuid := pg_temp.f('l3'); d text; n text; dd uuid; v_adj uuid;
+begin
+  d := pg_get_functiondef('public.resolve_earnings_dispute(uuid,text,bigint,text)'::regprocedure);
+  n := replace(d, 'case when l.payout_id is null then l.earned_at else now() end', 'l.earned_at');
+  if n = d then raise exception 'sabotage 7f did not change the function'; end if;
+  execute n;
+  perform pg_temp.act(v_a); dd := public.open_earnings_dispute(l3, 'wrong_amount', null); perform pg_temp.back();
+  perform pg_temp.act(v_admin); v_adj := (public.resolve_earnings_dispute(dd, 'adjusted', 500, 'Agreed: another small shortfall'))->> 'adjustment_ledger_id'; perform pg_temp.back();
+  insert into results values ('sabotaged', 'a correction to an already-paid line is dated now, not back into a closed period', 'now/true',
+    (select case when a.earned_at = now() then 'now' else 'backdated' end || '/' || (a.earned_at <> l.earned_at)::text
+       from public.earnings_ledger a, public.earnings_ledger l where a.id = v_adj and l.id = l3));
+end $$;
+
+-- 7g. the raced-duplicate handler removed
+do $$
+declare d text; n text;
+begin
+  d := pg_get_functiondef('public.open_earnings_dispute(uuid,text,text,uuid)'::regprocedure);
+  n := replace(d, 'exception when unique_violation then', 'exception when no_data_found then');
+  if n = d then raise exception 'sabotage 7g did not change the function'; end if;
+  execute n;
+  insert into results values ('sabotaged', 'the open function re-checks the request id after the lock and survives a raced duplicate', 'handled',
+    case when pg_get_functiondef('public.open_earnings_dispute(uuid,text,text,uuid)'::regprocedure) like '%when unique_violation%' then 'handled' else 'missing' end);
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -496,7 +574,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 5 then raise exception 'VACUOUS TEST: the sabotage flipped % of 5 checks', v_caught; end if;
+  if v_caught < 8 then raise exception 'VACUOUS TEST: the sabotage flipped % of 8 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

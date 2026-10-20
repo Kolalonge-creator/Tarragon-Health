@@ -29,7 +29,7 @@ export async function openEarningsDispute(_prev: EarningsDisputeState, formData:
   if (error) return { error: describeDisputeError(error) };
   revalidatePath(PATH);
   revalidatePath("/clinician/payouts");
-  return { message: "Sent. Finance will answer within about three days. If this line has not been paid yet it is held back until then; the rest of your earnings are paid as usual." };
+  return { message: "Sent. Finance will answer soon; the date we aim for shows on the line. If this line has not been paid yet it is held back until then; the rest of your earnings are paid as usual." };
 }
 
 export async function withdrawEarningsDispute(_prev: EarningsDisputeState, formData: FormData): Promise<EarningsDisputeState> {

@@ -16,10 +16,9 @@
 --
 -- Live counts when written: 0 ledger lines, 0 payouts (payouts_enabled off), so no data conversion step exists. Payouts stay behind
 -- `payouts_enabled`; no fee schedule is seeded.
--- NOTE: live list_migrations was read at 2026-10-16 21:4x UTC (latest live version 20261016194828; nothing live redefines the payout or
--- earnings functions after S31x). Live function DEFINITIONS were not re-read (the connection timed out earlier in the session), so the
--- bodies copied below (approve_payout, payout_prepare_send, my_payout_overview, post_minimum_topups) come from the latest migration in the
--- repository that defines each one; check pg_get_functiondef for those four before applying.
+-- NOTE: live was read on 2026-10-20. The live bodies (pg_proc.prosrc, whitespace-normalised) of approve_payout, payout_prepare_send,
+-- my_payout_overview and post_minimum_topups are IDENTICAL (same md5) to the latest repository definitions that this file copies, so
+-- nothing live is overwritten. build_payout_drafts differs from the repository only by one comment.
 
 -- ---------------------------------------------------------------------------
 -- 1. A system-posted adjustment (late-line netting) has no human author. Allow it only when the line says why.
@@ -239,7 +238,7 @@ begin
       if exists (select 1 from public.payouts where clinician_id = r.clinician_id and period_end = p_period_end and state <> 'draft' and state <> 'cancelled') then continue; end if;
     end if;
     select coalesce(max(withholding_kobo), 0), max(withholding_note) into v_old_wh, v_old_note
-      from public.payouts where clinician_id = r.clinician_id and state = 'draft';
+      from public.payouts where clinician_id = r.clinician_id and state = 'draft' and period_end = p_period_end;
     update public.payouts set state = 'cancelled', failure_reason = 'replaced by a newer draft'
      where clinician_id = r.clinician_id and state = 'draft';
     insert into public.payouts (organisation_id, clinician_id, period_start, period_end, amount_kobo, line_count, state, payouts_config_id,
@@ -407,6 +406,9 @@ begin
   -- Lock this clinician's draft first. approve_payout locks the same row, so a dispute and an approval for the same clinician run one
   -- after the other, and the line is read below after any approval in progress has committed.
   perform 1 from public.payouts where clinician_id = v_uid and state = 'draft' for update;
+  -- a second tap that waited on the lock finds the first one's dispute here
+  select id into v_id from public.earnings_disputes where clinician_id = v_uid and request_id = p_request_id;
+  if found then return v_id; end if;
   select * into l from public.earnings_ledger where id = p_ledger and clinician_id = v_uid and organisation_id = v_org;
   if not found then raise exception 'dispute_unknown_line' using errcode = '22023'; end if;
   if l.earned_at < now() - make_interval(days => v_window) then raise exception 'dispute_window_closed' using errcode = '23514'; end if;
@@ -420,9 +422,17 @@ begin
   end if;
   if exists (select 1 from public.earnings_disputes where ledger_id = l.id and state = 'open') then raise exception 'dispute_already_open' using errcode = '23505'; end if;
   perform set_config('tarragon.dispute_write', 'on', true);
-  insert into public.earnings_disputes (organisation_id, ledger_id, clinician_id, reason_code, note, request_id, response_due_at, is_test)
-  values (v_org, l.id, v_uid, p_reason_code, nullif(btrim(p_note), ''), p_request_id, now() + make_interval(hours => v_sla), l.is_test)
-  returning id into v_id;
+  begin
+    insert into public.earnings_disputes (organisation_id, ledger_id, clinician_id, reason_code, note, request_id, response_due_at, is_test)
+    values (v_org, l.id, v_uid, p_reason_code, nullif(btrim(p_note), ''), p_request_id, now() + make_interval(hours => v_sla), l.is_test)
+    returning id into v_id;
+  exception when unique_violation then
+    -- the same request raced in from another connection: return the dispute that won
+    perform set_config('tarragon.dispute_write', 'off', true);
+    select id into v_id from public.earnings_disputes where clinician_id = v_uid and request_id = p_request_id;
+    if v_id is null then raise exception 'dispute_already_open' using errcode = '23505'; end if;
+    return v_id;
+  end;
   perform set_config('tarragon.dispute_write', 'off', true);
   perform private.refresh_payout_draft(v_uid);
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
@@ -432,7 +442,9 @@ begin
     perform private.credential_notify_reviewers(v_org, 'A clinician asked about an earnings line',
       'A contracted clinician asked about one line on their earnings statement. The line is on hold. Please answer it under Earnings questions.',
       jsonb_build_object('dispute_id', v_id), 'finance');
-  exception when others then null;
+  exception when others then
+    insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+    values (v_org, 'earnings.sweep_error', 'earnings_dispute', v_id, jsonb_build_object('step', 'dispute_opened_notice', 'error', sqlerrm));
   end;
   return v_id;
 end;
@@ -604,8 +616,9 @@ begin
     -- the dispute id is the reference, so a retry returns the same adjustment line (the shared adjustment pattern of the ledger)
     v_adj := private.ledger_insert(d.organisation_id, d.clinician_id, 'adjustment', 'dispute', d.id, p_amount_kobo, null,
       jsonb_build_object('reason', btrim(p_note), 'corrects', d.ledger_id, 'dispute_id', d.id, 'reason_code', d.reason_code, 'posted_at', now()),
-      -- dated like the line it corrects, so it falls in the same payout period as that line and never waits a week behind it
-      l.earned_at, d.is_test, btrim(p_note), v_uid);
+      -- dated like the line it corrects when that line is still unpaid, so it falls in the same payout period and never waits a week behind
+      -- it; a line already in a succeeded payout is corrected as of now (a back-dated line would sit inside a closed period)
+      case when l.payout_id is null then l.earned_at else now() end, d.is_test, btrim(p_note), v_uid);
   elsif p_amount_kobo is not null then
     raise exception 'dispute_rejection_has_no_amount' using errcode = '22023';
   end if;
@@ -620,7 +633,9 @@ begin
     perform private.credential_notify(d.clinician_id, d.organisation_id, 'Your earnings question was answered',
       'Finance has answered your question about a line on your earnings statement. You can read the answer under Earnings in your console.',
       jsonb_build_object('dispute_id', d.id), false);
-  exception when others then null;
+  exception when others then
+    insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+    values (d.organisation_id, 'earnings.sweep_error', 'earnings_dispute', d.id, jsonb_build_object('step', 'dispute_resolved_notice', 'error', sqlerrm));
   end;
   return jsonb_build_object('dispute_id', d.id, 'resolution', p_resolution, 'adjustment_ledger_id', v_adj);
 end;
@@ -805,7 +820,8 @@ begin
                  and (v_act ->> 'claims')::integer = 0 and (v_act ->> 'tasks_waiting')::integer > 0
                  and (c ->> 'earned')::bigint = 0 then 'no_claims_while_work_waited'
             when coalesce((v_cfg ->> 'hold_when_expired_claims_and_no_completed')::boolean, false)
-                 and (v_act ->> 'expired_claims')::integer > 0 and (v_act ->> 'completed_claims')::integer = 0 then 'expired_claims_and_no_completed'
+                 and (v_act ->> 'expired_claims')::integer > 0 and (v_act ->> 'completed_claims')::integer = 0
+                 and (c ->> 'earned')::bigint = 0 then 'expired_claims_and_no_completed'
             else null end;
           if v_reason is not null then
             perform set_config('tarragon.dispute_write', 'on', true);
@@ -821,7 +837,9 @@ begin
                 perform private.credential_notify_reviewers(r.organisation_id, 'A pilot minimum top-up is held for a check',
                   'A pilot minimum top-up was held because the declared hours show no sign of work. Please release or deny it under Earnings questions.',
                   jsonb_build_object('clinician_id', r.clinician_id), 'finance');
-              exception when others then null;
+              exception when others then
+                insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+                values (r.organisation_id, 'earnings.sweep_error', 'profile', r.clinician_id, jsonb_build_object('step', 'topup_held_notice', 'error', sqlerrm));
               end;
             end if;
             continue;
