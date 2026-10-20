@@ -15,6 +15,7 @@ import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exce
 import { GLUCOSE_WORDING_SIGNED } from "@tarragon/i18n";
 import { FAST_SUGAR_ITEM_KEY, readPendingFastSugarWordingSignoff } from "@/lib/queries/pending-fast-sugar-wording-signoff";
 import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
+import { readLegacyNoticeRetirementState } from "@/lib/queries/pending-legacy-notice-retirement-signoff";
 import { readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
 
 export type CmoSigningHub = {
@@ -55,6 +56,8 @@ export const OPS_DESK_CONFIG_ITEM_KEY = "ops_desk_config";
 export const SOLE_CMO_EXCEPTION_ITEM_KEY = "sole_cmo_on_call_exception";
 /** The line for unified red-event paging (S19d): switch the one governed ladder on for SpO2, pulse, temperature, red-flag symptoms and emergency events, or off again. */
 export const UNIFIED_RED_PAGING_ITEM_KEY = "unified_red_paging";
+/** The line for retiring the older notify-everyone message for blood pressure and glucose once the on-call page is proven, and the Care Circle notice for unified pages (S19f). */
+export const LEGACY_NOTICE_RETIREMENT_ITEM_KEY = "legacy_notice_retirement";
 /** OQ-451: the task layer configuration (accept the version in force, or sign a newer one). */
 export const TASK_LAYER_CONFIG_ITEM_KEY = "queue_task_layer_config";
 /** OQ-451: activate the paging delivery configuration v2 (objective on-call readiness), refused until the test-page checklist is met. */
@@ -81,7 +84,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -100,6 +103,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingCapacityConfigSignoff(supabase),
     readPendingFastSugarWordingSignoff(supabase),
     readPendingQueuePagingConfigSignoff(supabase),
+    readLegacyNoticeRetirementState(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -270,6 +274,20 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (legacyRetire.liveVersion !== null || legacyRetire.waiting.length > 0) {
+    const on = legacyRetire.liveVersion !== null;
+    items.push({
+      key: LEGACY_NOTICE_RETIREMENT_ITEM_KEY,
+      title: on ? "Older clinician-message retirement is ON (switch off here)" : "Older clinician-message retirement (off)",
+      detail: on
+        ? `Version ${legacyRetire.liveVersion?.version} is live. You can switch it off at any time; any held message with no confirmed page is sent at once.`
+        : "Several versions are ready and OFF. Start with the parallel run (it changes nothing and measures how often the on-call page arrives), then look at the evidence here before retiring any older message.",
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   if (capacityConfigs.capacityVersion !== null || capacityConfigs.leadVersion !== null) {
     const parts = [
       capacityConfigs.capacityVersion !== null && `capacity configuration version ${capacityConfigs.capacityVersion} (intake gate, rest rule, fire drills)`,
@@ -334,6 +352,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(qualityConfigs.failed ? ["the quality and credentialing configurations"] : []),
     ...(soleCmo.failed ? ["the sole-CMO on-call exception"] : []),
     ...(unifiedRed.failed ? ["unified red-event paging"] : []),
+    ...(legacyRetire.failed ? ["the older clinician-message retirement"] : []),
     ...(capacityConfigs.failed ? ["the capacity and lead configurations"] : []),
     ...(fastSugar.failed ? ["the fast-sugar wording signature"] : []),
     ...(queuePaging.failed ? ["the task layer and paging delivery configurations"] : []),

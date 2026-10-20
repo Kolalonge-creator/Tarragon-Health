@@ -583,8 +583,9 @@ begin
 
   -- S8: the Care Circle guard removed. A unified page must then wrongly tell the Care Circle.
   v_orig_circle := pg_get_functiondef('private.notify_circle_red_alert()'::regprocedure);
-  if replace(v_orig_circle, 'ut.rule_set_code = ''unified_red_paging''', 'false') = v_orig_circle then raise exception 'VACUOUS TEST: circle guard text not found'; end if;
-  execute replace(v_orig_circle, 'ut.rule_set_code = ''unified_red_paging''', 'false');
+  -- (S19f: the S19d inline test became the shared predicate private.page_circle_may_know; the guard line is the one to remove)
+  if replace(v_orig_circle, 'if not private.page_circle_may_know(new.id) then return new; end if;', 'if false then return new; end if;') = v_orig_circle then raise exception 'VACUOUS TEST: circle guard text not found'; end if;
+  execute replace(v_orig_circle, 'if not private.page_circle_may_know(new.id) then return new; end if;', 'if false then return new; end if;');
   declare m_s8 uuid := pg_temp.member(v_org, v_admin, 'sab8');
   begin
     insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at)
