@@ -388,6 +388,7 @@ export function getNavSections(
                 { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
                 { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
                 { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
+                { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
                 { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
                 { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
                 { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
@@ -662,6 +663,7 @@ export function getNavSections(
                 // Intake gate, surge mode, pause, rest-rule override and cover offers; and the monthly fire drills (S16-S20 Stage 5). CMO only; the pages redirect others.
                 { label: "Capacity and cover", href: "/clinician/capacity", icon: "caseload" },
                 { label: "Fire drills", href: "/clinician/fire-drills", icon: "siren" },
+                { label: "Ops desk", href: "/clinician/ops-desk", icon: "siren" },
                 // The go-live guards and the proposed values the CMO owns (S37). CMO only; the page redirects anyone below that tier.
                 { label: "Go-live guards", href: "/clinician/go-live", icon: "governance" },
                 // The symptom checker's regulatory position, accuracy audit and safety settings (S60). CMO only; the page redirects others.
@@ -738,6 +740,7 @@ export function getNavSections(
                 { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
                 { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
                 { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
+                { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
                 { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
                 { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
                 { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
@@ -815,6 +818,7 @@ export function getNavSections(
             { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
             { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
             { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
+            { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
             { label: "Automations", href: "/admin/ops/automations", icon: "settings" },
             { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
@@ -919,6 +923,7 @@ export function getNavSections(
             { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
             { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
             { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
+            { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
             { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
             { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
@@ -971,6 +976,7 @@ export function getNavSections(
             { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
             { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
             { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
+            { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
             { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
             { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
