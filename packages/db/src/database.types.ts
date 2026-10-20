@@ -37121,6 +37121,8 @@ export type Database = {
           correction_status: Database["public"]["Enums"]["correction_status"] | null
           created_at: string
           device_id: string | null
+          entry_origin: string | null
+          place_label: string | null
           diastolic: number | null
           external_reading_id: string | null
           glucose_events: string[]
@@ -37166,6 +37168,8 @@ export type Database = {
           correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           device_id?: string | null
+          entry_origin?: string | null
+          place_label?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
           glucose_events?: string[]
@@ -37213,6 +37217,8 @@ export type Database = {
           correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           device_id?: string | null
+          entry_origin?: string | null
+          place_label?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
           glucose_events?: string[]

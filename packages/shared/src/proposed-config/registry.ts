@@ -3238,6 +3238,27 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["lease\\w*days?\\s*[=:]\\s*30\\b", "probe\\w*(interval|seconds)\\w*\\s*[=:]\\s*60\\b"],
   },
   {
+    key: "vitals.diary_import",
+    // S07y. PROPOSED: how far back a reading copied from the person's own paper diary may be dated (the server column offline_sync_config.diary_window_days
+    // mirrors it and diary-import-mirror.test.ts fails if they drift; outside the window the reading is REFUSED, never stamped as now), the future skew the
+    // clock may have (the same value as offline_sync_config.future_skew_minutes), how many rows one confirmation may carry, and the largest photo of a diary page
+    // the reading assistant (AI-021, off) will accept, and how many photos one person may send for reading in an hour. It adds NO clinical threshold: what counts as impossible or dangerous is the existing devices.plausibility
+    // and the triage rules, unchanged. The Chief Medical Officer confirms the window (OQ-S07Y-5).
+    value: {
+      window_days: 30,
+      future_skew_minutes: 5,
+      max_rows_per_save: 20,
+      max_photo_bytes: 8000000,
+      max_reads_per_hour: 20,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/S07y.md; supabase/migrations/20261020181520_s07y_reading_provenance_pharmacy_and_paper_diary.sql",
+    guardPatterns: ["diary\\w*days?\\s*[=:]\\s*30\\b"],
+  },
+  {
     key: "my_health.sharing_and_access_log",
     // My Health completion (S09x). Live values are the active row of `my_health_config`.config (sharing, access_log); my-health-mirror.test.ts fails if the
     // migration seed and this value drift. PROPOSED: the default share expiry (12 hours, shorter than the 24 the first share screen used; the 30 day cap is

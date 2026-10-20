@@ -1,6 +1,8 @@
 "use client";
 import { vitalSavedMessage } from "@/lib/vitals/bp-ack-message";
 import { useGlucoseUnit } from "@/components/glucose-unit-provider";
+import { t } from "@tarragon/i18n";
+import { PLACE_LABEL_MAX } from "@tarragon/shared";
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,8 +36,11 @@ export function VitalsForm({
   patientId,
   lockedType,
   title,
+  pharmacyOpen = false,
 }: {
   patientId: string;
+  /** S07y: whether the "taken at a pharmacy or clinic machine" box is offered (the pharmacy_bp_readings guard is open for this person). Closed: no box. */
+  pharmacyOpen?: boolean;
   /** When set, hides the reading-type selector and locks the form to this
    * type — powers the /patient/quick-log/[type] deep-link pages so a
    * reminder can link straight to "log glucose" with no extra
@@ -50,7 +55,15 @@ export function VitalsForm({
   const preferredUnit = useGlucoseUnit();
   const [glucoseUnit, setGlucoseUnit] = useState<GlucoseUnit>(preferredUnit);
   const [ketoneKind, setKetoneKind] = useState<KetoneKind>("blood");
+  const [atPharmacy, setAtPharmacy] = useState(false);
   const [state, formAction, pending] = useActionState(logVital, undefined);
+  // S07y: the tick belongs to ONE reading. React clears the form's own inputs after a saved reading, but this tick is controlled state, so it is cleared here
+  // (the supported "adjust state when a value changes" pattern, not an effect): otherwise the next home reading could go out labelled as a pharmacy one.
+  const [seenState, setSeenState] = useState(state);
+  if (state !== seenState) {
+    setSeenState(state);
+    if (state?.success) setAtPharmacy(false);
+  }
   const queryClient = useQueryClient();
 
   // Blocks a submission the browser already knows is doomed instead of
@@ -200,6 +213,37 @@ export function VitalsForm({
                 <Label htmlFor="diastolic">Diastolic (mmHg)</Label>
                 <Input id="diastolic" name="diastolic" type="number" required {...readingErrorProps} />
               </div>
+              {pharmacyOpen && (
+                <div className="col-span-2 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <input
+                      id="entry_origin"
+                      name="entry_origin"
+                      type="checkbox"
+                      value="pharmacy_machine"
+                      checked={atPharmacy}
+                      onChange={(event) => setAtPharmacy(event.target.checked)}
+                      aria-describedby="pharmacy-tick-hint"
+                      className="mt-1 h-4 w-4"
+                    />
+                    <div>
+                      <Label htmlFor="entry_origin">{t("pharm.tick")}</Label>
+                      <p id="pharmacy-tick-hint" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                        {t("pharm.tick_hint")}
+                      </p>
+                    </div>
+                  </div>
+                  {atPharmacy && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="place_label">{t("pharm.place")}</Label>
+                      <Input id="place_label" name="place_label" type="text" maxLength={PLACE_LABEL_MAX} aria-describedby="place-label-hint" />
+                      <p id="place-label-hint" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                        {t("pharm.place_hint")}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -430,6 +474,11 @@ export function VitalsForm({
 
           <FormError id={errorId} message={displayedError} />
           <FormSuccess message={state?.success && !ackStale && !offlineBlocked && !crosscheck && vitalSavedMessage(state.bpAckLevel)} />
+          {state?.success && state.notice && !ackStale && !offlineBlocked && !crosscheck ? (
+            <p data-testid="label-dropped-notice" className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+              {state.notice}
+            </p>
+          ) : null}
 
           {!crosscheck && (
             <Button type="submit" disabled={pending}>

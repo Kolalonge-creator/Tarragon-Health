@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cleanPlaceLabel } from "@tarragon/shared";
 
 const noteField = z.string().trim().max(500).optional();
 
@@ -40,6 +41,17 @@ export const bloodPressureSchema = z
     note: noteField,
     taken_at: takenAtField,
     cuff_type: z.enum(["upper_arm", "wrist", "not_sure"]).optional(),
+    /**
+     * S07y: "taken at a pharmacy or clinic machine". The reading is stored and checked like any other (source stays manual, so every safety trigger
+     * fires); the label only keeps it out of the home average. Closed unless the pharmacy_bp_readings guard is open: the database refuses it otherwise.
+     */
+    entry_origin: z.literal("pharmacy_machine").optional(),
+    /** The place the person named, only meaningful with the label. Blank becomes absent (the database refuses a blank place). */
+    place_label: z
+      .string()
+      .max(200)
+      .transform((value) => cleanPlaceLabel(value) ?? undefined)
+      .optional(),
   })
   .refine((data) => data.systolic > data.diastolic, {
     path: ["systolic"],

@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { GLUCOSE_UNIT_LABEL, bpAckDelivery, diagnosticBpReadings, type BpAckDelivery } from "@tarragon/shared";
+import { GLUCOSE_UNIT_LABEL, bpAckDelivery, cleanPlaceLabel, diagnosticBpReadings, entryOriginLabelKey, type BpAckDelivery } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
 import { BP_THRESHOLDS, classifyBpLevel, type BpLevel, type BpThresholds } from "@/lib/bp-classification";
@@ -10,6 +10,7 @@ import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-t
 import { loadActiveThresholds } from "@/lib/threshold-sync";
 import { BP_CHECKLIST_SYMPTOMS, CUFF_TYPES, planBpLog, redFlagsAmong, type BpChecklistSymptom, type CuffType } from "@/lib/bp-checklist";
 import { logBpWithExtras } from "@/lib/bp-log";
+import { NO_PROVENANCE_GUARDS, loadProvenanceGuards, type ProvenanceGuards } from "@/lib/provenance-guards";
 import { bpAckMessage, bpRowState } from "@/lib/bp-ack-view";
 import { listOutbox } from "@/lib/outbox";
 import { refreshApprovedGlucoseRuleSet, refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
@@ -69,6 +70,7 @@ import { FreeFollowUpCard } from "@/screens/sections/free-follow-up-card";
 import { SymptomScreen } from "@/screens/sections/symptom-screen";
 import { MonitoringCoverCard } from "@/screens/sections/monitoring-cover-card";
 import { SymptomChecklist, TechniqueGuide } from "@/screens/sections/bp-extras";
+import { PharmacyTick } from "@/screens/sections/provenance-extras";
 
 // Versioned S07 values (rest time, gap between readings, severity recorded for a ticked symptom).
 const HOME_PROTOCOL = loadHomeProtocol();
@@ -161,6 +163,10 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [rulesStale, setRulesStale] = useState(false);
   const [obstetric, setObstetric] = useState(false);
   const [symptomOpen, setSymptomOpen] = useState(false);
+  // S07y: the pharmacy label is born off on the server; the box appears only while its guard is open for this person.
+  const [guards, setGuards] = useState<ProvenanceGuards>(NO_PROVENANCE_GUARDS);
+  const [atPharmacy, setAtPharmacy] = useState(false);
+  const [pharmacyPlace, setPharmacyPlace] = useState("");
   const [guidance, setGuidance] = useState<GuidanceState | null>(null);
   // Two-tier: whether a red event reaches a doctor for this patient (null until known, or when it cannot be worked out).
   const [doctorReview, setDoctorReview] = useState<boolean | null>(null);
@@ -348,7 +354,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         setQuestionFailed(false);
         setQuestion({ systolic: plan.systolic, diastolic: plan.diastolic, gradedAtMs: outcome.device.gradedAtMs });
       }
-    });
+    }, atPharmacy && guards.pharmacyOpen ? { entryOrigin: "pharmacy_machine", placeLabel: cleanPlaceLabel(pharmacyPlace) } : undefined);
     setSaving(false);
     if (result.error) {
       setSaveError(result.error);
@@ -371,6 +377,8 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     setDia("");
     setPulse("");
     setTicked([]);
+    setAtPharmacy(false);
+    setPharmacyPlace("");
     await load();
   }
 
@@ -405,6 +413,16 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     }
   }
 
+  useEffect(() => {
+    let alive = true;
+    void loadProvenanceGuards(patientId).then((g) => {
+      if (alive) setGuards(g);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [patientId]);
+
   const latest = readings[0] ?? null;
   const average = computeSevenDayAverage(readings);
   const windowed = useMemo(() => windowReadings(readings, windowDays, nowMs), [readings, windowDays, nowMs]);
@@ -423,6 +441,11 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     : "";
   const levelLabel = (level: BpLevel) => tr(`vitals.level.${level}` as MessageKey);
   const ackText = bpAckMessage(ack, locale);
+  // S07y: "Taken at a pharmacy or clinic machine" or "From your paper diary", or nothing for an ordinary reading.
+  const originLabel = (origin: string | null | undefined): string | null => {
+    const key = entryOriginLabelKey(origin);
+    return key ? tr(key) : null;
+  };
 
   return (
     <Screen>
@@ -459,6 +482,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
               </AppText>
             </View>
             <Badge label={levelLabel(latest.level)} tone={LEVEL_TONE[latest.level]} />
+            {originLabel(latest.entryOrigin) ? <Badge label={originLabel(latest.entryOrigin) as string} tone="neutral" /> : null}
             <AppText variant="caption" tone="textSubtle">
               {formatWhen(latest.takenAt)}
               {latest.pending ? ` · ${t("outbox.row_waiting", locale)}` : ""}
@@ -591,6 +615,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           ]}
         />
         {cuffType === "wrist" ? <InlineAlert tone="info" message={tr("vitals.cuff.wrist_hint")} /> : null}
+        {guards.pharmacyOpen ? <PharmacyTick tr={tr} checked={atPharmacy} onChange={setAtPharmacy} place={pharmacyPlace} onPlace={setPharmacyPlace} /> : null}
         <SymptomChecklist
           tr={tr}
           selected={ticked}
@@ -645,7 +670,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
               <View key={r.id} style={i > 0 ? { borderTopWidth: 1, borderTopColor: colors.border } : undefined}>
                 <ListItem
                   title={`${r.systolic}/${r.diastolic} mmHg`}
-                  subtitle={`${formatWhen(r.takenAt)}${r.pending ? ` · ${t("outbox.row_waiting", locale)}` : ""}`}
+                  subtitle={`${formatWhen(r.takenAt)}${r.pending ? ` · ${t("outbox.row_waiting", locale)}` : ""}${originLabel(r.entryOrigin) ? ` · ${originLabel(r.entryOrigin)}` : ""}`}
                   trailing={<Badge label={levelLabel(r.level)} tone={LEVEL_TONE[r.level]} />}
                 />
               </View>

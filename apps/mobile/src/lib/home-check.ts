@@ -79,9 +79,14 @@ export async function readGuardOpen(patientId: string): Promise<boolean | null> 
   }
 }
 
-/** A wearable (cuffless) estimate is never counted in a home check, matching the server, which counts cuff readings only (docs/design/BP-wearable-estimates.md). */
-export function toHomeReadings(list: readonly { systolic: number; diastolic: number; takenAt: string; source?: string | null }[]): HomeBpReading[] {
+/**
+ * A wearable (cuffless) estimate is never counted in a home check, matching the server, which counts cuff readings only (docs/design/BP-wearable-estimates.md).
+ * Neither is a reading labelled as taken at a pharmacy or clinic machine, or copied from a paper diary (S07y): the signed protocol counts the person's own
+ * home sessions only, and the server (private.home_bp_assess) leaves both out.
+ */
+export function toHomeReadings(list: readonly { systolic: number; diastolic: number; takenAt: string; source?: string | null; entryOrigin?: string | null }[]): HomeBpReading[] {
   return diagnosticBpReadings(list)
+    .filter((r) => !r.entryOrigin)
     .map((r) => ({ systolic: r.systolic, diastolic: r.diastolic, atMs: Date.parse(r.takenAt) }))
     .filter((r) => Number.isFinite(r.atMs));
 }

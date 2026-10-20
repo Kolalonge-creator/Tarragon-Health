@@ -5234,6 +5234,18 @@ export const en = {
   "points.admin.summary_title": "Last 30 days",
   "points.admin.summary_points": "Points earned (real accounts only)",
   "points.admin.redemption_off": "Redemption at checkout is off. The founder sets the per-order cap in kobo to switch it on.",
+  // S07y: the two reading labels (pharmacy or clinic machine, paper diary) and the pharmacy box.
+  "reading.origin.pharmacy_machine": "Taken at a pharmacy or clinic machine",
+  "reading.origin.paper_diary": "From your paper diary",
+  "pharm.tick": "This was taken at a pharmacy or clinic machine",
+  "pharm.tick_hint": "It is saved and checked like any other reading. It is not counted in your home average, because a machine in a pharmacy is not your home reading.",
+  "pharm.place": "Which pharmacy or clinic? (optional)",
+  "pharm.place_hint": "Only to help you remember. Up to 80 characters.",
+  "pharm.note_prefix": "Taken at a pharmacy or clinic machine.",
+  "pharm.label_dropped": "Saved. The label for a pharmacy or clinic machine is not switched on yet, so your care team sees this as an ordinary reading with a note.",
+  "pharm.trend_note": "{count} points on this chart were taken at a pharmacy or clinic machine. They are shown but not counted in your home average.",
+  "diary.trend_note": "{count} points on this chart are from your paper diary.",
+  "pharm.history_note": "Shown with its label. Not counted in your home average.",
 } as const;
 
 export type MessageKey = keyof typeof en;
