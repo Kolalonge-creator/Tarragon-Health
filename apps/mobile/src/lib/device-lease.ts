@@ -32,6 +32,8 @@ import { loadOfflineTrustConfig } from "./offline-trust-config";
 const STATE_KEY = "@tarragon/device-lease/v1";
 const PENDING_CONFIRM_KEY = "@tarragon/device-wipe-confirm/v1";
 /** Local keys that must outlive a wipe: the patient-facing notices, the data-use meter, and the lease and confirmation records (no health content). */
+/** Longest the wipe waits for the queued readings' last upload attempt. */
+const QUEUE_FLUSH_BUDGET_MS = 15_000;
 const KEEP_PREFIXES = ["@tarragon/store-notices/", "@tarragon/data-usage/", STATE_KEY, PENDING_CONFIRM_KEY];
 const PENDING_MAX_AGE_MS = 90 * 86_400_000;
 
@@ -106,7 +108,16 @@ export async function wipeThisPhone(
     recordSyncError("offline_outbox", "wipe:lastFlush", error);
   }
   try {
-    await flushOfflineQueues();
+    // One last try for the queued readings too, but bounded: a lost phone must not stay readable through a slow network.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const bound = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, QUEUE_FLUSH_BUDGET_MS);
+    });
+    try {
+      await Promise.race([flushOfflineQueues().then(() => undefined), bound]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   } catch (error) {
     recordSyncError("offline_outbox", "wipe:lastFlushQueues", error);
   }
@@ -147,8 +158,11 @@ export async function wipeThisPhone(
   }
   await AsyncStorage.setItem(PENDING_CONFIRM_KEY, JSON.stringify(pending)).catch(() => {});
   // 4. The store, its key, and every earlier generation. A failure leaves the revoked flag in place, so it is retried.
-  await destroyStore();
-  await clearQueueOwner();
+  try {
+    await destroyStore();
+  } finally {
+    await clearQueueOwner();
+  }
   // 5. Fresh ids for EVERY account known on this phone (signed in or not), so each registers as a new device next time.
   //    Before the sweep below, which would otherwise remove the list of accounts first.
   await forgetAllDeviceIds();

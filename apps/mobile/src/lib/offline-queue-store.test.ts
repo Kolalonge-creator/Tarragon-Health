@@ -13,6 +13,7 @@ import {
   __resetQueueOwnerForTests,
   appendQueue,
   checksumRows,
+  countQueue,
   countQueuedByOwner,
   listQueue,
   planLegacyRows,
@@ -24,9 +25,13 @@ import * as rules from "./store-rules";
 
 let mockUser: string | null = "user-1";
 let mockSessionError: { name: string; message: string } | null = null;
+let mockSessionThrows = false;
 jest.mock("./supabase", () => ({
   supabase: {
-    auth: { getSession: async () => ({ data: { session: mockUser ? { user: { id: mockUser } } : null }, error: mockUser ? null : mockSessionError }) },
+    auth: { getSession: async () => {
+      if (mockSessionThrows) throw new Error("lock lost");
+      return ({ data: { session: mockUser ? { user: { id: mockUser } } : null }, error: mockUser ? null : mockSessionError });
+    } },
   },
 }));
 
@@ -55,6 +60,7 @@ function restart(): void {
 beforeEach(() => {
   mockUser = "user-1";
   mockSessionError = null;
+  mockSessionThrows = false;
   __resetQueueOwnerForTests();
 });
 afterEach(() => {
@@ -262,6 +268,54 @@ describe("more edges", () => {
     expect(await listQueue("device_readings", "ble")).toHaveLength(7);
     expect(await AsyncStorage.getItem(DEVICE)).toBeNull();
     expect(await rowCount()).toBe(7);
+  });
+});
+
+describe("review round three", () => {
+  it("a held copy retried later keeps oldest-first order and never trims the newest readings", async () => {
+    await AsyncStorage.setItem(DEVICE, legacyList(MAX_QUEUE_SIZE));
+    const real = rules.rowsChecksum;
+    let calls = 0;
+    const spy = jest.spyOn(rules, "rowsChecksum").mockImplementation((rows, seed) => (++calls === 2 ? "deadbeef" : real(rows, seed)));
+    await listQueue("device_readings", "ble");
+    for (let i = 0; i < 10; i++) await appendQueue("device_readings", { fresh: i }, "ble");
+    spy.mockRestore();
+    jest.spyOn(Date, "now").mockReturnValue(Date.now() + 120_000);
+    const list = await listQueue<{ n?: number; fresh?: number }>("device_readings", "ble");
+    expect(list[0].item.n).toBe(0);
+    expect(list[list.length - 1].item.fresh).toBe(9);
+    // 510 queued, cap 500: the next append drops the OLDEST ten, not the new readings.
+    await appendQueue("device_readings", { fresh: 10 }, "ble");
+    const after = await listQueue<{ n?: number; fresh?: number }>("device_readings", "ble");
+    expect(after).toHaveLength(MAX_QUEUE_SIZE);
+    expect(after[after.length - 1].item.fresh).toBe(10);
+    expect(after.filter((e) => e.item.fresh !== undefined)).toHaveLength(11);
+  });
+
+  it("a removal racing the migration cannot recreate the clear-text list", async () => {
+    await AsyncStorage.setItem(DEVICE, legacyList(3));
+    const [entries] = await Promise.all([listQueue("device_readings", "ble"), removeFromQueueStore("device_readings", "e-00001", "ble")]);
+    expect(entries.length).toBeGreaterThanOrEqual(2);
+    expect(await AsyncStorage.getItem(DEVICE)).toBeNull();
+  });
+
+  it("a session lookup that throws still queues under the last account", async () => {
+    await appendQueue("device_readings", { n: 1 }, "ble");
+    mockSessionThrows = true;
+    expect(await appendQueue("device_readings", { n: 2 }, "ble")).toBe(true);
+    mockSessionThrows = false;
+    expect(await listQueue("device_readings", "ble")).toHaveLength(2);
+  });
+
+  it("counts with one query, and an old list whose copy is verified is not counted twice", async () => {
+    await AsyncStorage.setItem(DEVICE, legacyList(4));
+    const realRemove = AsyncStorage.removeItem.bind(AsyncStorage);
+    jest.spyOn(AsyncStorage, "removeItem").mockImplementation(async (k: string) => {
+      if (k === DEVICE) throw new Error("disk busy");
+      return realRemove(k);
+    });
+    expect(await countQueue("device_readings", "ble")).toBe(4);
+    expect(await countQueuedByOwner()).toEqual([{ owner: "user-1", total: 4 }]);
   });
 });
 

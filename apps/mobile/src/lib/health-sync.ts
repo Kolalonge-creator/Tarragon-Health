@@ -191,9 +191,8 @@ async function syncHealthReadings(
     wearable += result.data.wearable_inserted;
   }
 
-  // Not uploaded and not saved on the phone either. The server-held cursor did not move past them, so the next sync
-  // reads them again; say so rather than reporting a clean sync.
-  if (notSaved) return { status: "error", message: "Couldn't save your readings on this phone to send later. We will try again at the next sync." };
+  // Not uploaded and not saved on the phone either: say so rather than reporting a clean sync.
+  if (notSaved) return { status: "error", message: "Couldn't save some of your readings on this phone to send later. Please sync again when you are online." };
 
   return {
     status: "synced",

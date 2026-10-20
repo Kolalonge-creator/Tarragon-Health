@@ -102,8 +102,8 @@ function isReadable(value: unknown): value is StoredEntry<unknown> {
     value !== null &&
     typeof (value as { id?: unknown }).id === "string" &&
     typeof (value as { enqueuedAt?: unknown }).enqueuedAt === "string" &&
-    typeof (value as { item?: unknown }).item === "object" &&
-    (value as { item?: unknown }).item !== null
+    (value as { item?: unknown }).item !== null &&
+    (value as { item?: unknown }).item !== undefined
   );
 }
 
@@ -166,7 +166,8 @@ async function sessionUserId(): Promise<string | null> {
     await clearQueueOwner();
     return null;
   } catch {
-    return null;
+    // The auth client itself threw (storage adapter, lock): same as an error answer, never a reason to refuse a reading.
+    return lastOwner ?? (await AsyncStorage.getItem(LAST_OWNER_KEY).catch(() => null)) ?? null;
   }
 }
 
@@ -182,7 +183,19 @@ export function __resetQueueOwnerForTests(): void {
   lastRetry.clear();
 }
 
-async function migrateQueue(db: SQLite.SQLiteDatabase, queue: QueueName): Promise<void> {
+/** Serialises everything that reads or writes an old AsyncStorage list, so a removal can never recreate a list the migration just deleted. */
+let legacyChain: Promise<unknown> = Promise.resolve();
+function withLegacyLock<T>(task: () => Promise<T>): Promise<T> {
+  const run = legacyChain.then(task, task);
+  legacyChain = run.catch(() => {});
+  return run;
+}
+
+function migrateQueue(db: SQLite.SQLiteDatabase, queue: QueueName): Promise<void> {
+  return withLegacyLock(() => migrateQueueLocked(db, queue));
+}
+
+async function migrateQueueLocked(db: SQLite.SQLiteDatabase, queue: QueueName): Promise<void> {
   const key = LEGACY_QUEUE_KEYS[queue];
   try {
     const state = await db.getFirstAsync<{ state: string }>("select state from offline_queue_migration where queue = ?", [queue]);
@@ -203,11 +216,15 @@ async function migrateQueue(db: SQLite.SQLiteDatabase, queue: QueueName): Promis
     // back with it. Instead: clear any half copy from a crashed earlier attempt, insert in single statements, read back
     // and compare, and only a match writes the marker (the commit point). A mismatch deletes the copy again.
     await db.runAsync("delete from offline_queue_v1 where queue = ? and legacy = 1", [queue]);
+    // The old entries are older than anything already in the table (a held copy retried later), so they take seq numbers
+    // BELOW the current minimum: flush order and drop-oldest trimming both follow seq and stay oldest first.
+    const min = await db.getFirstAsync<{ m: number | null }>("select min(seq) as m from offline_queue_v1");
+    const firstSeq = Math.min(min?.m ?? 1, 1) - planned.length;
     for (let i = 0; i < planned.length; i += INSERT_CHUNK) {
       const chunk = planned.slice(i, i + INSERT_CHUNK);
       await db.runAsync(
-        `insert into offline_queue_v1 (queue, owner_user_id, id, enqueued_at, payload, readable, legacy) values ${chunk.map(() => "(?, ?, ?, ?, ?, ?, 1)").join(", ")}`,
-        chunk.flatMap((r) => [queue, owner, r.id, r.enqueuedAt, r.payload, r.readable])
+        `insert into offline_queue_v1 (seq, queue, owner_user_id, id, enqueued_at, payload, readable, legacy) values ${chunk.map(() => "(?, ?, ?, ?, ?, ?, ?, 1)").join(", ")}`,
+        chunk.flatMap((r, j) => [firstSeq + i + j, queue, owner, r.id, r.enqueuedAt, r.payload, r.readable])
       );
     }
     const back = await db.getAllAsync<{ id: string; enqueued_at: string; payload: string; readable: number }>(
@@ -281,13 +298,15 @@ async function legacyEntries<T>(queue: QueueName): Promise<StoredEntry<T>[]> {
   }
 }
 
-async function removeLegacyEntry(queue: QueueName, id: string): Promise<void> {
-  const key = LEGACY_QUEUE_KEYS[queue];
-  const raw = await AsyncStorage.getItem(key);
-  if (!raw) return;
-  const parsed: unknown = JSON.parse(raw);
-  if (!Array.isArray(parsed)) return;
-  await AsyncStorage.setItem(key, JSON.stringify(parsed.filter((e) => !(isReadable(e) && e.id === id))));
+function removeLegacyEntry(queue: QueueName, id: string): Promise<void> {
+  return withLegacyLock(async () => {
+    const key = LEGACY_QUEUE_KEYS[queue];
+    const raw = await AsyncStorage.getItem(key);
+    if (!raw) return; // already moved and removed: never write the list back
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    await AsyncStorage.setItem(key, JSON.stringify(parsed.filter((e) => !(isReadable(e) && e.id === id))));
+  });
 }
 
 export const MAX_QUEUE_SIZE = 500;
@@ -382,8 +401,12 @@ export interface QueuedByOwner {
  */
 export async function countQueuedByOwner(): Promise<QueuedByOwner[]> {
   const out = new Map<string, number>();
+  let storeUsable = false;
+  let heldQueues: QueueName[] = [];
   try {
     const db = await getDb();
+    storeUsable = true;
+    heldQueues = [...heldFor(db)];
     const rows = await db.getAllAsync<{ owner_user_id: string; n: number }>(
       "select owner_user_id, count(*) as n from offline_queue_v1 where readable = 1 group by owner_user_id"
     );
@@ -391,8 +414,29 @@ export async function countQueuedByOwner(): Promise<QueuedByOwner[]> {
   } catch (error) {
     recordSyncError("offline_outbox", "offline_queue:count", error);
   }
+  // An old list counts only when its entries are NOT already in the table (held, or the store is unusable): a verified
+  // copy whose old key could not be removed yet would otherwise be counted twice.
   let unmoved = 0;
-  for (const queue of Object.keys(LEGACY_QUEUE_KEYS) as QueueName[]) unmoved += (await legacyEntries(queue)).length;
+  for (const queue of storeUsable ? heldQueues : (Object.keys(LEGACY_QUEUE_KEYS) as QueueName[])) unmoved += (await legacyEntries(queue)).length;
   if (unmoved > 0) out.set(UNCLAIMED, (out.get(UNCLAIMED) ?? 0) + unmoved);
   return [...out].map(([owner, total]) => ({ owner, total }));
+}
+
+/** Entries waiting in one queue for the signed-in account: one indexed count, no payload parsing (the pending-count UI polls this). */
+export async function countQueue(queue: QueueName, source: SyncSource): Promise<number> {
+  const owner = await sessionUserId();
+  if (!owner) return 0;
+  try {
+    const db = await getDb();
+    await claimUnclaimed(db, owner);
+    const row = await db.getFirstAsync<{ n: number }>(
+      "select count(*) as n from offline_queue_v1 where owner_user_id = ? and queue = ? and readable = 1",
+      [owner, queue]
+    );
+    const held = heldFor(db).has(queue) ? (await legacyEntries(queue)).length : 0;
+    return (row?.n ?? 0) + held;
+  } catch (error) {
+    recordSyncError(source, "offline_queue:read", error);
+    return (await legacyEntries(queue)).length;
+  }
 }

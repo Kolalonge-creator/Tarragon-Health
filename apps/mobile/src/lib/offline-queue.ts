@@ -1,7 +1,7 @@
 import { postDeviceReading, postHealthSamples, postPhotoReading, type PhotoReadingRequest } from "./api";
 import type { HealthProvider } from "./health-sync";
 import type { HealthReadingType, HealthSample } from "./healthkit";
-import { appendQueue, listQueue, removeFromQueueStore, type QueueName } from "./offline-queue-store";
+import { appendQueue, countQueue, listQueue, removeFromQueueStore, type QueueName } from "./offline-queue-store";
 import { recordSyncError, type SyncSource } from "./sync-diagnostics";
 
 /**
@@ -117,7 +117,7 @@ export async function removeHealthSamplesPage(id: string): Promise<void> {
 }
 
 export async function getHealthSamplesQueueCount(): Promise<number> {
-  return (await listPendingHealthSamplesPages()).length;
+  return countQueue(HEALTH_SAMPLES_QUEUE, "apple_health");
 }
 
 export interface HealthSamplesFlushResult {
@@ -202,7 +202,7 @@ export async function removeDeviceReading(id: string): Promise<void> {
 }
 
 export async function getDeviceReadingsQueueCount(): Promise<number> {
-  return (await listPendingDeviceReadings()).length;
+  return countQueue(DEVICE_READINGS_QUEUE, BLE_SOURCE);
 }
 
 /** Same stop-on-first-failure reasoning as flushHealthSamplesQueue above —
@@ -246,7 +246,7 @@ export async function listPendingPhotoReadings(): Promise<QueuedEntry<PhotoReadi
 }
 
 export async function getPhotoReadingsQueueCount(): Promise<number> {
-  return (await listPendingPhotoReadings()).length;
+  return countQueue(PHOTO_READINGS_QUEUE, PHOTO_SOURCE);
 }
 
 /**
