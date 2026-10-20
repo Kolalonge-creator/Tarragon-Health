@@ -1225,6 +1225,36 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S16-S20-unified-red-paging.md; docs/plans/S16-S20-review-and-build-plan.md section 5, decision 11",
   },
   {
+    key: "paging.legacy_notice_retirement_rules",
+    // Retiring the older "notify every clinician" message for blood pressure and glucose, and the Care Circle notice for unified red-event
+    // pages (S19f). Live values are the active row of `legacy_notice_retirement_config`; this entry mirrors the four seeded versions and a test
+    // fails if the migration seed and this value drift. All four versions ship INACTIVE and UNSIGNED: no active signed row means every key reads
+    // OFF and the older paths run exactly as before. The CMO switches ONE version on from the sign-off hub after the test pack.
+    // observe: 1 = record, for every event, whether and when its page arrived (nothing changes for anyone). suppress_legacy_bp_notice and
+    // suppress_legacy_glucose_notice: 1 = the older message for the RED level of that pathway is held until the page of that same event is
+    // confirmed with a reachable paged clinician, then dropped; otherwise it is sent. suppress_legacy_emergency_notice: the SEPARATE key that
+    // also covers emergency-level events (blood pressure crisis, glucose emergency). circle_notice_unified_page: 1 = a neutral check-in
+    // notice also goes to Care Circle members who allowed red alerts when the page is a unified page (never for a symptom event when the patient
+    // has a pregnancy or reproductive-health record). hold_seconds: how long a held message waits for its page before it is sent.
+    // emergency_hold_seconds: the much shorter wait for an EMERGENCY-level message; emergency_engine_fresh_seconds: how recent the event-bus
+    // heartbeat must be to hold an emergency message at all (older: sent at once). min_parallel_days / min_parallel_events: the evidence a
+    // retiring version needs from the parallel run (days switched on, real events measured) before it can be signed.
+    // Version 1 = parallel run. 2 = retire red-level BP and glucose. 3 = 2 plus emergency-level. 4 = Care Circle notice only.
+    value: {
+      versions: {
+        "1": { observe: 1, suppress_legacy_bp_notice: 0, suppress_legacy_glucose_notice: 0, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+        "2": { observe: 1, suppress_legacy_bp_notice: 1, suppress_legacy_glucose_notice: 1, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+        "3": { observe: 1, suppress_legacy_bp_notice: 1, suppress_legacy_glucose_notice: 1, suppress_legacy_emergency_notice: 1, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+        "4": { observe: 1, suppress_legacy_bp_notice: 0, suppress_legacy_glucose_notice: 0, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 1, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/S19f-legacy-notice-retirement-and-circle-notice.md; docs/design/S16-S20-unified-red-paging.md sections C and D",
+  },
+  {
     key: "free_red_event.rules",
     // Two-tier (CMO decision 2026-10-08, C2): the Free red-event path. Live values are the active row of `free_red_config`; this
     // entry mirrors it and a test fails if the migration seed and this value drift. recheck_minutes: when the Free patient is
