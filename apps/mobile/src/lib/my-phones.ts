@@ -1,4 +1,4 @@
-import { buildPhoneViews, parsePhoneRows, PHONE_COLUMNS, phoneUpdateArgs, type PhoneView } from "@tarragon/shared";
+import { buildPhoneViews, parsePhoneRows, PHONE_COLUMNS, PHONE_FETCH_LIMIT, phoneUpdateArgs, type PhoneView } from "@tarragon/shared";
 import { supabase } from "./supabase";
 import { recordSyncError } from "./sync-diagnostics";
 import { countUnsentByOwner, flushOutbox } from "./outbox";
@@ -15,7 +15,7 @@ export type PhonesResult = { ok: true; phones: PhoneView[]; dropped: number; thi
 export async function loadPhones(userId: string, now: Date = new Date()): Promise<PhonesResult> {
   try {
     const thisPhoneId = await getOrCreateDeviceId(userId);
-    const { data, error } = await supabase.from("offline_device_leases").select(PHONE_COLUMNS).order("last_checkin_at", { ascending: false }).limit(100);
+    const { data, error } = await supabase.from("offline_device_leases").select(PHONE_COLUMNS).order("last_checkin_at", { ascending: false }).limit(PHONE_FETCH_LIMIT);
     if (error || !Array.isArray(data)) return { ok: false };
     const { rows, dropped } = parsePhoneRows(data);
     return { ok: true, phones: buildPhoneViews(rows, now, thisPhoneId), dropped, thisPhoneId };

@@ -1,10 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { parsePhoneRows, PHONE_COLUMNS, phoneUpdateArgs, type Database, type PhoneRow } from "@tarragon/shared";
+import { parsePhoneRows, PHONE_COLUMNS, PHONE_FETCH_LIMIT, phoneUpdateArgs, type Database, type PhoneRow } from "@tarragon/shared";
 
 export type MyPhonesResult = { ok: true; rows: PhoneRow[]; dropped: number } | { ok: false };
 
 async function readMyPhones(supabase: SupabaseClient<Database>): Promise<MyPhonesResult> {
-  const { data, error } = await supabase.from("offline_device_leases").select(PHONE_COLUMNS).order("last_checkin_at", { ascending: false }).limit(100);
+  const { data, error } = await supabase.from("offline_device_leases").select(PHONE_COLUMNS).order("last_checkin_at", { ascending: false }).limit(PHONE_FETCH_LIMIT);
   if (error || !Array.isArray(data)) return { ok: false };
   const { rows, dropped } = parsePhoneRows(data);
   return { ok: true, rows, dropped };

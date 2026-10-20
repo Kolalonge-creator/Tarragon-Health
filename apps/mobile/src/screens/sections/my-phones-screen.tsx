@@ -27,6 +27,7 @@ export function MyPhonesScreen({ userId, acting }: Props) {
   const [draft, setDraft] = useState("");
   const [removing, setRemoving] = useState<{ id: string; counts: ThisPhoneUnsent | null; isThis: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [stale, setStale] = useState(false);
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -41,13 +42,14 @@ export function MyPhonesScreen({ userId, acting }: Props) {
     if (!mounted.current) return;
     if (r.ok) {
       setLoaded({ state: "ready", phones: r.phones, dropped: r.dropped });
+      setStale(false);
       return;
     }
     const offline = !(await probeReachable(4000));
     if (!mounted.current) return;
     // A failed refresh after a change keeps the list the patient already has and says the refresh failed; it never replaces it with an error.
     setLoaded((prev) => (prev.state === "ready" ? prev : { state: "failed", offline }));
-    setNotice({ error: true, text: offline ? t("my_phones.offline") : t("my_phones.failed") });
+    setStale(true);
   }, [acting, userId]);
 
   useEffect(() => {
@@ -122,6 +124,7 @@ export function MyPhonesScreen({ userId, acting }: Props) {
       ) : (
         <>
           {loaded.dropped > 0 ? <MutedText>{t("my_phones.partial")}</MutedText> : null}
+          {stale ? <ErrorText>{t("my_phones.stale")}</ErrorText> : null}
           {notice ? (
             <View accessibilityLiveRegion="polite">{notice.error ? <ErrorText>{notice.text}</ErrorText> : <MutedText>{notice.text}</MutedText>}</View>
           ) : null}
@@ -191,6 +194,7 @@ export function MyPhonesScreen({ userId, acting }: Props) {
                           <Text style={ink}>{t("my_phones.remove_body")}</Text>
                           <Text style={ink}>{t("my_phones.remove_last_try")}</Text>
                           <Text style={ink}>{t("my_phones.remove_urgent")}</Text>
+                          {p.shared ? <Text style={ink}>{t("my_phones.remove_shared_warning")}</Text> : null}
                           {removing.isThis ? (
                             <>
                               {removing.counts ? (

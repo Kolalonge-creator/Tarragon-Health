@@ -28,7 +28,7 @@ describe("my phones", () => {
     expect(buildPhoneViews([row({ device_id: "a" })], NOW, null)[0]?.isThisPhone).toBe(false);
   });
 
-  it("orders pending removal first, wiped last, hides retired silent phones", () => {
+  it("orders pending removal first, wiped last, keeps retired silent phones listed as lapsed", () => {
     const v = buildPhoneViews(
       [
         row({ device_id: "wiped", revoked_at: "x", wipe_confirmed_at: "y", unsent_at_wipe: 3, danger_at_wipe: 1 }),
@@ -40,8 +40,9 @@ describe("my phones", () => {
       NOW,
       null
     );
-    expect(v.map((p) => p.deviceId)).toEqual(["pending", "new", "old", "wiped"]);
-    expect(v[3]).toMatchObject({ unsentAtWipe: 3, urgentAtWipe: 1 });
+    expect(v.map((p) => p.deviceId)).toEqual(["pending", "new", "old", "retired", "wiped"]);
+    expect(v.find((p) => p.deviceId === "retired")?.status).toBe("lapsed");
+    expect(v[4]).toMatchObject({ unsentAtWipe: 3, urgentAtWipe: 1 });
   });
 
   it("drops malformed rows and says how many", () => {
@@ -49,6 +50,10 @@ describe("my phones", () => {
     expect(r.rows).toHaveLength(1);
     expect(r.dropped).toBe(2);
     expect(parsePhoneRows(undefined)).toEqual({ rows: [], dropped: 0 });
+    // one more than the list limit means the list was cut
+    const many = Array.from({ length: 101 }, (_, i) => row({ device_id: `d${i}` }));
+    expect(parsePhoneRows(many)).toMatchObject({ dropped: 1 });
+    expect(parsePhoneRows(many).rows).toHaveLength(100);
   });
 
   it("cleans a typed name", () => {

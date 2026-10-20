@@ -44,11 +44,16 @@ export interface PhoneView {
 }
 
 /** Rows that fail the shape are dropped, never guessed at. `dropped` lets the screen say so instead of showing a shorter list as if complete. */
+export const PHONE_LIST_LIMIT = 100;
+
+/** Ask for one more than the limit; the extra row counts as "not shown" so a cut list is never presented as complete. */
+export const PHONE_FETCH_LIMIT = PHONE_LIST_LIMIT + 1;
+
 export function parsePhoneRows(data: unknown): { rows: PhoneRow[]; dropped: number } {
   if (!Array.isArray(data)) return { rows: [], dropped: 0 };
   const rows: PhoneRow[] = [];
-  let dropped = 0;
-  for (const item of data) {
+  let dropped = Math.max(0, data.length - PHONE_LIST_LIMIT);
+  for (const item of data.slice(0, PHONE_LIST_LIMIT)) {
     const r = phoneRowSchema.safeParse(item);
     if (r.success) rows.push(r.data);
     else dropped += 1;
@@ -59,6 +64,8 @@ export function parsePhoneRows(data: unknown): { rows: PhoneRow[]; dropped: numb
 export function phoneStatus(row: PhoneRow, now: Date): PhoneStatus {
   if (row.wipe_confirmed_at) return "wiped";
   if (row.revoked_at) return "removal_pending";
+  // A phone retired for long silence is "has not connected for a while": it may still hold a copy, so it stays listed and removable.
+  if (row.retired_at) return "lapsed";
   return Date.parse(row.lease_expires_at) < now.getTime() ? "lapsed" : "active";
 }
 
@@ -103,7 +110,6 @@ export function phoneUpdateArgs(deviceId: string, change: { label?: string | nul
 export function buildPhoneViews(rows: readonly PhoneRow[], now: Date, thisPhoneId: string | null): PhoneView[] {
   const order: Record<PhoneStatus, number> = { removal_pending: 0, active: 1, lapsed: 2, wiped: 3 };
   return rows
-    .filter((r) => !r.retired_at || r.revoked_at)
     .map((r): PhoneView => {
       const label = r.device_label?.trim();
       return {

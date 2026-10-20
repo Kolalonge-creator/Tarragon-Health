@@ -17,6 +17,7 @@ type Notice = { kind: "ok" | "error"; text: string } | null;
 export function PhonesList({ initial, dropped }: { initial: PhoneView[]; dropped: number }) {
   const [phones, setPhones] = useState(initial);
   const [partial, setPartial] = useState(dropped > 0);
+  const [stale, setStale] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -26,9 +27,10 @@ export function PhonesList({ initial, dropped }: { initial: PhoneView[]; dropped
   const reload = async () => {
     const r = await fetchMyPhones(createClient());
     if (!r.ok) {
-      setNotice({ kind: "error", text: t("my_phones.failed") });
+      setStale(true);
       return;
     }
+    setStale(false);
     setPhones(buildPhoneViews(r.rows, new Date(), null));
     setPartial(r.dropped > 0);
   };
@@ -83,6 +85,11 @@ export function PhonesList({ initial, dropped }: { initial: PhoneView[]; dropped
       {partial && (
         <p role="status" className="text-sm text-charcoal-ink/70">
           {t("my_phones.partial")}
+        </p>
+      )}
+      {stale && (
+        <p role="alert" className="text-sm text-red-700">
+          {t("my_phones.stale")}
         </p>
       )}
       {notice && (
@@ -177,6 +184,7 @@ export function PhonesList({ initial, dropped }: { initial: PhoneView[]; dropped
                         <p>{t("my_phones.remove_body")}</p>
                         <p>{t("my_phones.remove_last_try")}</p>
                         <p>{t("my_phones.remove_urgent")}</p>
+                        {p.shared && <p>{t("my_phones.remove_shared_warning")}</p>}
                         <div className="flex flex-wrap gap-2">
                           <Button type="button" size="lg" disabled={pending} onClick={() => remove(p.deviceId)}>
                             {t("my_phones.remove_confirm")}
