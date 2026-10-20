@@ -296,13 +296,13 @@ end $$;
 do $patch$
 declare
   v_def text := pg_get_functiondef('public.attest_go_live_condition(text,text,boolean,text)'::regprocedure);
-  v_anchor constant text := $a$('bp_pattern_flag', 'pattern_is_clinician_only'),$a$;
+  v_anchor constant text := $a$('bp_pattern_flag', 'pattern_is_clinician_only')$a$;  -- no trailing comma: the S07x rewrite ends the list here, later rewrites continue it
 begin
   if position('visit_prompt_wording_signed' in v_def) > 0 then return; end if;
   if position(v_anchor in v_def) = 0 then
     raise exception 'attest_go_live_condition: anchor not found, refusing to rewrite' using errcode = '55000';
   end if;
-  execute replace(v_def, v_anchor, v_anchor || $b$ ('cuff_check_flag', 'flag_is_clinician_only'), ('cuff_visit_prompt', 'visit_prompt_wording_signed'),$b$);
+  execute replace(v_def, v_anchor, v_anchor || $b$, ('cuff_check_flag', 'flag_is_clinician_only'), ('cuff_visit_prompt', 'visit_prompt_wording_signed')$b$);
 end $patch$;
 revoke all on function public.attest_go_live_condition(text, text, boolean, text) from public, anon;
 grant execute on function public.attest_go_live_condition(text, text, boolean, text) to authenticated;
