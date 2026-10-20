@@ -71,3 +71,6 @@ tags:
 - extendedWaitUntil:
     notVisible: ".*waiting to send.*"
     timeout: ${FLUSH_TIMEOUT_MS}
+# A cleared notice only counts if the app is still there, on its list, and reports no failure.
+- assertNotVisible: ".*(could not be saved|not sent yet).*"
+- assertVisible: "Save reading"

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { type Exec, type ExecResult } from "./android";
 import { parseCliArgs } from "./args";
 import { loadDeviceLabBudgets } from "./budgets";
@@ -13,6 +14,19 @@ import { collectManualOnly } from "./manual";
 const budgets = loadDeviceLabBudgets("2026-10-20");
 const ok = (stdout: string, elapsedMs = 5): ExecResult => ({ ok: true, stdout, stderr: "", elapsedMs });
 const bad: ExecResult = { ok: false, stdout: "", stderr: "nope", elapsedMs: 1 };
+
+describe("Maestro flow defaults mirror the budget config", () => {
+  const flowsDir = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "apps", "mobile", ".maestro", "flows");
+  it.each(["airplane-offline-logging-reconnect-flush.yaml", "power-cut-restart-mid-queue.yaml"])("%s FLUSH_TIMEOUT_MS equals the reconnect budget", (file) => {
+    const m = /FLUSH_TIMEOUT_MS: "(\d+)"/.exec(readFileSync(join(flowsDir, file), "utf8"));
+    expect(Number(m?.[1])).toBe(budgets.reconnectFlushSecondsMax * 1000);
+  });
+  it("the harness ceiling default sits above the budget", () => {
+    const dir = join(flowsDir, "..", "device-lab");
+    const m = /FLUSH_CEILING_MS: "(\d+)"/.exec(readFileSync(join(dir, "assert-flushed.yaml"), "utf8"));
+    expect(Number(m?.[1])).toBeGreaterThan(budgets.reconnectFlushSecondsMax * 1000);
+  });
+});
 
 describe("arguments", () => {
   it("parses manual numbers and defaults", () => {
@@ -101,6 +115,35 @@ describe("run() end to end with a fake phone", () => {
     const json = JSON.parse(readFileSync(join(out, "2026-10-20-tecno-tecno-kg5k.json"), "utf8")) as { mode: string; completeness: string; measuredCount: number };
     expect(json).toMatchObject({ mode: "REPORT ONLY", completeness: "INCOMPLETE", measuredCount: 2 });
     expect(readFileSync(join(out, "2026-10-20-tecno-tecno-kg5k.md"), "utf8")).toContain("2 of 9 metrics measured (INCOMPLETE)");
+  });
+
+  it("cuts the full serial out of the committed files even when adb printed it in an error", () => {
+    const out = mkdtempSync(join(tmpdir(), "device-lab-"));
+    dirs.push(out);
+    const leaky: Exec = (cmd, args, o) => {
+      if (cmd === "adb" && (args[args.indexOf("shell") + 1] ?? "").startsWith("pm path")) return { ok: false, stdout: "", stderr: "error: device 'R58M12ABCDE' not found", elapsedMs: 1 };
+      return exec(cmd, args, o);
+    };
+    const spy = jest.spyOn(console, "log").mockImplementation(() => undefined);
+    run(["--platform", "android", "--skip-flows", "--out-dir", out], leaky, new Date("2026-10-20T10:00:00Z"));
+    spy.mockRestore();
+    for (const f of readdirSync(out)) expect(readFileSync(join(out, f), "utf8")).not.toContain("R58M12ABCDE");
+  });
+
+  it("refuses to fall back to a simulator when an adb phone is attached but not ready", () => {
+    const out = mkdtempSync(join(tmpdir(), "device-lab-"));
+    dirs.push(out);
+    const unauth: Exec = (cmd) => (cmd === "adb" ? ok("List of devices attached\nR58M12ABCDE\tunauthorized\n") : ok("{\"devices\":{}}"));
+    const err = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const before = process.exitCode;
+    const result = run(["--out-dir", out], unauth);
+    const code = process.exitCode;
+    process.exitCode = before;
+    const msg = err.mock.calls.map((c) => String(c[0])).join(" ");
+    err.mockRestore();
+    expect(result).toBeNull();
+    expect(code).toBe(2);
+    expect(msg).toMatch(/not ready/);
   });
 
   it("never overwrites an earlier report from the same day", () => {

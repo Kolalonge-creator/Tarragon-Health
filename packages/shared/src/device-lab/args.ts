@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
 import type { BuildKind } from "./parse";
-import { MANUAL_IDS } from "./android";
+import { MANUAL_IDS } from "./metrics";
 
 export type Platform = "android" | "ios" | "ios-device" | "auto";
 

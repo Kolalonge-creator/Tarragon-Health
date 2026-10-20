@@ -8,7 +8,7 @@ import { loadDeviceLabBudgets } from "./budgets";
 import { collectIos } from "./ios";
 import { collectManualOnly } from "./manual";
 import { parseAdbDevices, parseSimctlBooted } from "./parse";
-import { buildReport, renderMarkdown, reportBaseName, type DeviceLabReport } from "./report";
+import { buildReport, redactId, renderMarkdown, reportBaseName, type DeviceLabReport } from "./report";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
 
@@ -36,6 +36,15 @@ const sleepMs = (ms: number): void => {
 /** Today in Africa/Lagos (UTC+1, no daylight saving), as YYYY-MM-DD. */
 const lagosDate = (now: Date): string => new Date(now.getTime() + 3_600_000).toISOString().slice(0, 10);
 
+/** The report is committed to a public repository: no full phone serial or simulator UDID may reach it, whatever adb printed in an error. */
+function scrub(report: DeviceLabReport, secrets: readonly string[]): DeviceLabReport {
+  let text = JSON.stringify(report);
+  for (const s of secrets) {
+    if (s.length >= 6) text = text.split(s).join(redactId(s));
+  }
+  return JSON.parse(text) as DeviceLabReport;
+}
+
 /** Never overwrite an earlier report: a second run the same day gets -2, -3, ... */
 function freeBaseName(dir: string, base: string): string {
   for (let n = 1; n < 100; n += 1) {
@@ -53,11 +62,16 @@ function gitSha(exec: Exec): string | null {
 function pickAndroidSerial(exec: Exec, wanted: string | null): string | null {
   const r = exec("adb", ["devices"], { timeoutMs: 20_000 });
   if (!r.ok) return null;
-  const ready = parseAdbDevices(r.stdout).filter((d) => d.state === "device");
+  const all = parseAdbDevices(r.stdout);
+  const ready = all.filter((d) => d.state === "device");
+  const notReady = all.filter((d) => d.state !== "device");
   if (wanted) {
     if (ready.some((d) => d.serial === wanted)) return wanted;
     const seen = parseAdbDevices(r.stdout).find((d) => d.serial === wanted);
     throw new Error(`--serial ${wanted}: ${seen ? `the phone is "${seen.state}" (accept the USB debugging prompt, or reconnect it)` : "no such adb device"}. Not falling back to another device.`);
+  }
+  if (notReady.length > 0 && ready.length === 0) {
+    throw new Error(`an adb device is attached but not ready (${notReady.map((d) => `${d.serial}: ${d.state}`).join(", ")}). Accept the USB debugging prompt on the phone, or reconnect it. Not falling back to a simulator.`);
   }
   if (ready.length > 1) throw new Error(`more than one adb device is attached (${ready.map((d) => d.serial).join(", ")}); pass --serial`);
   return ready[0]?.serial ?? null;
@@ -142,8 +156,9 @@ export function run(argv: readonly string[], exec: Exec = realExec, now: Date = 
   }
 
   const notes = [...collected.notes];
+  if (platform === "ios" && Object.keys(args.manual).length > 0) notes.push("--manual values were IGNORED: this is a simulator run. Use --platform ios-device for a real iPhone.");
   if (args.note) notes.push(`Run note: ${args.note}`);
-  const report = buildReport({
+  const report = scrub(buildReport({
     generatedAt: now.toISOString(),
     gitSha: gitSha(exec),
     budgets,
@@ -151,7 +166,7 @@ export function run(argv: readonly string[], exec: Exec = realExec, now: Date = 
     app: collected.app,
     metrics: collected.metrics,
     notes,
-  });
+  }), [serial ?? "", sim?.udid ?? ""]);
   const markdown = renderMarkdown(report);
   const outDir = args.outDir ?? join(REPO_ROOT, "docs/device-lab");
   mkdirSync(outDir, { recursive: true });

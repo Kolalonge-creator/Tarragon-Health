@@ -1,4 +1,4 @@
-import { METRIC_IDS } from "./android";
+import { METRIC_IDS } from "./metrics";
 import type { DeviceLabBudgets } from "./budgets";
 import type { BuildKind } from "./parse";
 import { measured, notMeasured, type AppInfo, type DeviceInfo, type MetricResult } from "./report";

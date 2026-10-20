@@ -27,6 +27,7 @@ interface Plan {
   focusAfter?: string;
   /** What `settings get global airplane_mode_on` says after the final restore attempts. */
   stuckOffline?: boolean;
+  noNetwork?: boolean;
 }
 
 function fakeExec(plan: Plan = {}): { exec: Exec; calls: string[]; envs: Array<Record<string, string> | undefined> } {
@@ -67,7 +68,8 @@ function fakeExec(plan: Plan = {}): { exec: Exec; calls: string[]; envs: Array<R
         if (plan.stuckOffline) return ok("1");
         return ok(disabled ? (plan.airplaneAfterDisable ?? "0") : (plan.airplaneAfterPrep ?? "1"));
       }
-      if (sh === "uiautomator dump /dev/tty") return ok(disabled ? (plan.uiAfter ?? fx.UI_DUMP_CLEAR) : (plan.uiBefore ?? fx.UI_DUMP_WAITING));
+      if (sh === "uiautomator dump /dev/tty") return ok(disabled ? (plan.uiAfter ?? fx.UI_DUMP_DELIVERED) : (plan.uiBefore ?? fx.UI_DUMP_WAITING));
+      if (sh.startsWith("ping ")) return plan.noNetwork ? bad("ping: unknown host") : ok("1 packets transmitted, 1 received");
       if (sh === "dumpsys window | grep mCurrentFocus") return ok(disabled ? (plan.focusAfter ?? fx.FOCUS_APP) : (plan.focusBefore ?? fx.FOCUS_APP));
       if (sh.startsWith("settings put global airplane_mode_on") || sh.startsWith("am broadcast")) return ok("");
     }
@@ -117,12 +119,14 @@ describe("collectAndroid on a real phone with a release build", () => {
     expect(byId(r, "installed_size_mb").value).toBeCloseTo(37.748736, 5);
   });
   it("records memory with no budget as NO BUDGET", () => {
-    expect(byId(r, "memory_after_offline_flow_mb")).toMatchObject({ status: "measured", value: 141.024, verdict: "NO BUDGET" });
+    expect(byId(r, "memory_after_offline_flow_mb")).toMatchObject({ status: "measured", verdict: "NO BUDGET" });
+    // 141024 KiB is 144.4086 decimal MB, not 141.024.
+    expect(byId(r, "memory_after_offline_flow_mb").value).toBeCloseTo(144.408576, 5);
   });
   it("bounds the reconnect flush by Maestro start-up and passes only on the upper bound", () => {
     const m = byId(r, "reconnect_flush_seconds");
     expect(m.status).toBe("measured");
-    expect(m.value).toBeCloseTo(12.01, 2); // flush 12000 ms plus the 10 ms settings read
+    expect(m.value).toBeCloseTo(12.02, 2); // flush 12000 ms plus the 10 ms settings read and the 10 ms ping
     expect(m.verdict).toBe("PASS");
     expect(m.notes.join(" ")).toMatch(/UPPER BOUND/);
   });
@@ -198,6 +202,27 @@ describe("fail-silent guards", () => {
     const m = byId(r, "reconnect_flush_seconds");
     expect(m).toMatchObject({ status: "measured", verdict: "FAIL" });
     expect(m.notes.join(" ")).toMatch(/STILL waiting/);
+  });
+  it("the notice clearing without any delivery confirmation on screen is capped at INCONCLUSIVE", () => {
+    const r = collectAndroid(fakeExec({ uiAfter: fx.UI_DUMP_CLEAR }).exec, opts(), budgets);
+    expect(byId(r, "reconnect_flush_seconds")).toMatchObject({ status: "measured", verdict: "INCONCLUSIVE" });
+    expect(byId(r, "reconnect_flush_seconds").reason).toMatch(/delivery is unconfirmed/);
+  });
+  it("a send failure on screen after reconnecting is not a timing result", () => {
+    const r = collectAndroid(fakeExec({ uiAfter: fx.UI_DUMP_REJECTED }).exec, opts(), budgets);
+    expect(byId(r, "reconnect_flush_seconds")).toMatchObject({ status: "not measured", verdict: "N/A" });
+    expect(byId(r, "reconnect_flush_seconds").reason).toMatch(/REVIEW/);
+  });
+  it("no working network after airplane mode is off means a stuck queue proves nothing about the app", () => {
+    const r = collectAndroid(fakeExec({ noNetwork: true, flushOk: false, flushMs: 90_000, uiAfter: fx.UI_DUMP_WAITING }).exec, opts(), budgets);
+    expect(byId(r, "reconnect_flush_seconds")).toMatchObject({ status: "not measured", verdict: "N/A" });
+    expect(byId(r, "reconnect_flush_seconds").reason).toMatch(/no working network/);
+  });
+  it("the Maestro ceiling is derived from the budget, not typed", () => {
+    const { exec, calls } = fakeExec();
+    collectAndroid(exec, opts(), budgets);
+    const flush = calls.find((c) => c.includes("assert-flushed.yaml"));
+    expect(flush).toContain(`FLUSH_CEILING_MS=${(budgets.reconnectFlushSecondsMax + 30) * 1000}`);
   });
   it("a Maestro failure with the notice gone is a selector problem: not measured", () => {
     const r = collectAndroid(fakeExec({ flushOk: false, uiAfter: fx.UI_DUMP_CLEAR }).exec, opts(), budgets);

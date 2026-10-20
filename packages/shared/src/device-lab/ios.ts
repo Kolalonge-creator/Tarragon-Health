@@ -1,5 +1,6 @@
 import { bytesToMb, type DeviceLabBudgets } from "./budgets";
-import { METRIC_IDS, type Exec } from "./android";
+import type { Exec } from "./android";
+import { METRIC_IDS, METRIC_ORDER } from "./metrics";
 import { parseDuKb, parsePsRssKb, parseSimctlLaunchPid } from "./parse";
 import { measured, notMeasured, redactId, type AppInfo, type DeviceInfo, type MetricResult } from "./report";
 import { median } from "./stats";
@@ -97,7 +98,7 @@ export function collectIos(exec: Exec, opts: IosOptions, budgets: DeviceLabBudge
     const ps = exec("ps", ["-o", "rss=", "-p", String(pid)], { timeoutMs: 15_000 });
     if (!ps.ok) throw new Error("ps could not read the app process");
     metrics.push(measured({
-      id: METRIC_IDS.memory, label: L.memory, unit: "MB", source: "simctl", value: parsePsRssKb(ps.stdout) / 1000,
+      id: METRIC_IDS.memory, label: L.memory, unit: "MB", source: "simctl", value: bytesToMb(parsePsRssKb(ps.stdout) * 1024),
       budget: budgets.memoryMbMax, context: ctx,
       notes: ["Read right after launch, not after the offline-logging flow."],
     }));
@@ -113,8 +114,7 @@ export function collectIos(exec: Exec, opts: IosOptions, budgets: DeviceLabBudge
   miss(METRIC_IDS.reconnect, L.reconnect, "s", budgets.reconnectFlushSecondsMax, manualOnly);
   miss(METRIC_IDS.probe, L.probe, "requests/min", budgets.probeRequestsPerMinuteMax, manualOnly);
 
-  const order = [METRIC_IDS.coldStart, METRIC_IDS.coldStartUsable, METRIC_IDS.size, METRIC_IDS.sizeSettings, METRIC_IDS.memory, METRIC_IDS.logWrite, METRIC_IDS.logVisible, METRIC_IDS.reconnect, METRIC_IDS.probe];
-  const sorted = order.map((id) => metrics.find((m) => m.id === id) as MetricResult);
+  const sorted = METRIC_ORDER.map((id) => metrics.find((m) => m.id === id) as MetricResult);
   const device: DeviceInfo = {
     platform: "ios", realDevice: false, id: redactId(opts.udid), manufacturer: "Apple", model: `Simulator ${opts.simulatorName}`,
     osVersion: null, sdk: null, ramMb: null,

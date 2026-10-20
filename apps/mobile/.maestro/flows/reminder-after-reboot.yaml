@@ -74,6 +74,8 @@ tags:
       - tapOn:
           text: "Clear all"
           optional: true
+      # Fails loudly when the clear did not work (a different button label on this maker's shade), so a stale entry cannot pass the check later.
+      - assertNotVisible: "Tarragon Health"
       - back
       # Stop here. Now reboot by hand (step 2 above).
 

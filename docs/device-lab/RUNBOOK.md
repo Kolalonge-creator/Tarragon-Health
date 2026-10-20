@@ -48,6 +48,8 @@ MOBILE_E2E_EMAIL=... MOBILE_E2E_PASSWORD=... \
   scripts/device-lab/run.sh --label "eas build <id>" --note "fresh install, signed out then in by the flow"
 ```
 
+Name an iPhone by model, not by owner (`--device-name "iPhone 12"`): the name goes into the committed file name. The full phone serial and simulator UDID are cut to their last four characters everywhere in the report.
+
 Useful options: `--serial <id>` when more than one phone is attached, `--runs 5` (cold start runs; default comes from the budget config),
 `--skip-flows` (no Maestro; only cold start and size), `--dry-run` (prints the plan and the budgets, touches nothing). `scripts/device-lab/run.sh --help`.
 
@@ -62,7 +64,7 @@ What it measures, and what each tag means:
 | Installed size, APK files | Sum of the installed APK files (base plus splits), decimal MB | A *lower bound* on installed size (extracted libraries, compiled code and data are not in it): FAIL if over, INCONCLUSIVE if under. |
 | Installed size, Settings | Hand-read | The only size that can PASS. Step 6. |
 | Memory | `dumpsys meminfo` total PSS after the flow logs 3 readings offline | Not the 1000-row case in the checklist; see manual step 7. No budget is set (`memory_mb_max` is null), so the verdict is NO BUDGET. |
-| Reconnect flush | Maestro flows `prepare-offline-log.yaml` and `assert-flushed.yaml`; adb turns airplane mode off; `uiautomator dump` and `dumpsys window` check the screen before and after | Before reconnecting it must see the app in front with "waiting to send: 3"; afterwards the notice must be gone with the app still in front. Reported as an **upper bound** (it includes Maestro start-up, which the harness times on a do-nothing flow). PASS only when the upper bound is within budget; FAIL when even the estimate after removing start-up is over, or when the rows are still waiting after the harness waited past the budget; otherwise INCONCLUSIVE. It does **not** check that the server received the rows: confirm that on the dashboard. |
+| Reconnect flush | Maestro flows `prepare-offline-log.yaml` and `assert-flushed.yaml`; adb turns airplane mode off; `uiautomator dump` and `dumpsys window` check the screen before and after | Before reconnecting it must see the app in front with "waiting to send: 3"; after airplane mode goes off a ping must succeed (else "not measured", because a stuck queue on a phone with no network says nothing about the app); afterwards the notice must be gone with the app still in front. PASS also needs "Received by TarragonHealth." on screen; without it the verdict is capped at INCONCLUSIVE. A send failure on screen ("could not be saved", "not sent yet") is reported as REVIEW, not a timing result. Reported as an **upper bound** (it includes Maestro start-up, which the harness times on a do-nothing flow). PASS only when the upper bound is within budget; FAIL when even the estimate after removing start-up is over, or when the rows are still waiting after the harness waited past the budget; otherwise INCONCLUSIVE. It does **not** check that the server received the rows: confirm that on the dashboard. |
 | Log a reading, probe cost | Not automatable here | Always "not measured" until you enter them (manual steps 6 and 7). |
 
 The honesty rules, enforced in code and unit tests (`packages/shared/src/device-lab/`):

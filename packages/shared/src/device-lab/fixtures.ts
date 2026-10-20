@@ -159,3 +159,11 @@ UI hierarchy dumped to: /dev/tty`;
 export const FOCUS_APP = "  mCurrentFocus=Window{4f2a1c u0 com.tarragonhealth.app/com.tarragonhealth.app.MainActivity}\n";
 export const FOCUS_LAUNCHER = "  mCurrentFocus=Window{9a8b7c u0 com.android.launcher3/com.android.launcher3.Launcher}\n";
 export const FOCUS_NONE = "  mCurrentFocus=null\n";
+
+export const UI_DUMP_DELIVERED = `<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<hierarchy rotation="0"><node index="0" text="" class="android.widget.FrameLayout" package="com.tarragonhealth.app"><node text="Received by TarragonHealth." class="android.widget.TextView" /><node text="Save reading" class="android.widget.Button" /></node></hierarchy>
+UI hierarchy dumped to: /dev/tty`;
+
+export const UI_DUMP_REJECTED = `<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<hierarchy rotation="0"><node index="0" text="" class="android.widget.FrameLayout" package="com.tarragonhealth.app"><node text="3 could not be saved. Your care team has not received it. Tell support this code: X1" class="android.widget.TextView" /></node></hierarchy>
+UI hierarchy dumped to: /dev/tty`;
