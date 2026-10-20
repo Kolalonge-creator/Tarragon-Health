@@ -60,8 +60,8 @@ export function AddMedicationForm({
   const interactionCheckOpen = useInteractionCheckOpen();
   // S08y: the same-ingredient warning and the governed interaction rules each have their own go-live switch (both born off). The rules
   // arrive only while their switch is open and a signed set exists; the brand mapping and catalogue only help name the ingredients.
-  const duplicateCheckOpen = useDuplicateIngredientCheckOpen();
-  const interactionRules = useInteractionRules();
+  const duplicateCheckOpen = useDuplicateIngredientCheckOpen(source === "patient");
+  const interactionRules = useInteractionRules(source === "patient");
   const ingredientChecksOn = duplicateCheckOpen.data === true || (interactionRules.data?.length ?? 0) > 0;
   // Fetched only for a patient's add, and only when a check is open (the name search loads it for itself).
   const brandMap = useBrandMap(source === "patient" && ingredientChecksOn);
@@ -73,8 +73,8 @@ export function AddMedicationForm({
   const checkStillLoading =
     source === "patient" &&
     (interactionCheckOpen.isPending ||
-      duplicateCheckOpen.isPending ||
-      interactionRules.isPending ||
+      (duplicateCheckOpen.fetchStatus !== "idle" && duplicateCheckOpen.isPending) ||
+      (interactionRules.fetchStatus !== "idle" && interactionRules.isPending) ||
       (ingredientChecksOn && (brandMap.isPending || catalogue.isPending)) ||
       (anyCheckOpen && existingMedications.isPending));
   // "could not find out" is different from "closed": say so rather than letting a failure read as a pass

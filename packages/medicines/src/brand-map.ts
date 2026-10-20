@@ -98,6 +98,8 @@ export const BRAND_MAP_CSV_HEADER = ["brand_name", "ingredients", "source_citati
 export const BRAND_MAP_CSV_MAX_ROWS = 500;
 const MAX_BRAND = 80;
 const MAX_INGREDIENT = 80;
+const MIN_INGREDIENT = 2;
+const MAX_INGREDIENTS = 10;
 const MAX_CITATION = 400;
 
 export interface BrandMapDraft {
@@ -115,6 +117,8 @@ export type BrandMapCsvError =
   | "brand_too_long"
   | "ingredients_missing"
   | "ingredient_too_long"
+  | "ingredient_too_short"
+  | "too_many_ingredients"
   | "citation_missing"
   | "citation_not_a_link"
   | "citation_too_long"
@@ -189,7 +193,9 @@ export function parseBrandMapCsv(text: string): BrandMapCsvResult {
     if (brandName.length === 0) return fail("brand_missing");
     if (brandName.length > MAX_BRAND) return fail("brand_too_long");
     if (ingredients.length === 0) return fail("ingredients_missing");
+    if (ingredients.length > MAX_INGREDIENTS) return fail("too_many_ingredients");
     if (ingredients.some((i) => i.length > MAX_INGREDIENT)) return fail("ingredient_too_long");
+    if (ingredients.some((i) => i.length < MIN_INGREDIENT)) return fail("ingredient_too_short");
     if (sourceCitation.length === 0) return fail("citation_missing");
     if (sourceCitation.length > MAX_CITATION) return fail("citation_too_long");
     if (!/https:\/\/\S+/i.test(sourceCitation)) return fail("citation_not_a_link");

@@ -62,7 +62,7 @@ language sql immutable set search_path = '' as $$
      and (r ->> 'ingredientB') <> '' and (r ->> 'ingredientB') = coalesce(private.normalise_term(r ->> 'ingredientB'), '')
      and (r ->> 'ingredientA') <> (r ->> 'ingredientB')
      and jsonb_typeof(r -> 'severity') = 'string' and (r ->> 'severity') in ('contraindicated', 'caution', 'info')
-     and jsonb_typeof(r -> 'source') = 'string' and char_length(btrim(r ->> 'source')) >= 5, false)
+     and jsonb_typeof(r -> 'source') = 'string' and char_length(btrim(r ->> 'source')) >= 5 and (r ->> 'source') ~* 'https://\S+', false)
 $$;
 
 create or replace function private.interaction_rules_valid(config jsonb) returns boolean
@@ -182,6 +182,7 @@ create table if not exists public.medicine_brand_generic_map (
   source_citation text not null check (char_length(btrim(source_citation)) between 5 and 400 and source_citation ~* 'https://\S+'),
   created_by      uuid references public.profiles (id) on delete restrict,
   edited_by       uuid references public.profiles (id) on delete restrict,
+  edited_at       timestamptz not null default now(),
   created_at      timestamptz not null default now(),
   reviewed_by     uuid references public.profiles (id) on delete restrict,
   reviewer_name   text,
@@ -211,8 +212,9 @@ $$;
 
 alter table public.medicine_brand_generic_map enable row level security;
 drop policy if exists medicine_brand_generic_map_select on public.medicine_brand_generic_map;
+-- Staff read the table. A patient reads published rows only through public.published_medicine_brands(), which hides who entered and reviewed them.
 create policy medicine_brand_generic_map_select on public.medicine_brand_generic_map for select to authenticated
-  using ((is_active and reviewed_by is not null) or private.can_edit_brand_map());
+  using (private.can_edit_brand_map());
 revoke all on public.medicine_brand_generic_map from public, anon, authenticated;
 grant select on public.medicine_brand_generic_map to authenticated;
 
@@ -245,7 +247,7 @@ begin
   else
     -- edited_by is the LAST person to change what the row says: they may not review it either.
     update public.medicine_brand_generic_map
-       set brand_name = btrim(p_brand), ingredients = p_ingredients, source_citation = btrim(p_citation), edited_by = (select auth.uid())
+       set brand_name = btrim(p_brand), ingredients = p_ingredients, source_citation = btrim(p_citation), edited_by = (select auth.uid()), edited_at = clock_timestamp()
      where id = p_id returning id into v_id;
     if v_id is null then raise exception 'brand map row not found' using errcode = '22023'; end if;
   end if;
@@ -281,7 +283,9 @@ revoke all on function public.import_medicine_brand_map(jsonb) from public, anon
 grant execute on function public.import_medicine_brand_map(jsonb) to authenticated;
 
 -- The publish gate. Approve: a named reviewer who did not enter the row. Withdraw: back to a draft.
-create or replace function public.review_medicine_brand_map(p_id uuid, p_approve boolean)
+-- p_seen_edited_at is the row's edited_at as the reviewer saw it. An approval of content that changed since is refused, so a stale page
+-- can never put unseen content live under the reviewer's name.
+create or replace function public.review_medicine_brand_map(p_id uuid, p_approve boolean, p_seen_edited_at timestamptz default null)
 returns void language plpgsql security definer set search_path = '' as $$
 declare
   v_name text;
@@ -290,9 +294,12 @@ begin
   if (select auth.uid()) is null or not private.can_review_brand_map() then
     raise exception 'only an active doctor may review a brand mapping' using errcode = '42501';
   end if;
-  select * into m from public.medicine_brand_generic_map where id = p_id;
+  select * into m from public.medicine_brand_generic_map where id = p_id for update;
   if not found then raise exception 'brand map row not found' using errcode = '22023'; end if;
   if p_approve then
+    if p_seen_edited_at is distinct from m.edited_at then
+      raise exception 'this row changed since you opened it; open it again and review what it says now' using errcode = '40001';
+    end if;
     if m.created_by is not distinct from (select auth.uid()) or m.edited_by is not distinct from (select auth.uid()) then
       raise exception 'a row cannot be reviewed by the person who entered or last changed it' using errcode = '42501';
     end if;
@@ -309,8 +316,19 @@ begin
   perform private.log_audit('medicine_brand_generic_map.' || case when p_approve then 'approved' else 'withdrawn' end,
     'medicine_brand_generic_map', p_id, '{}'::jsonb);
 end $$;
-revoke all on function public.review_medicine_brand_map(uuid, boolean) from public, anon;
-grant execute on function public.review_medicine_brand_map(uuid, boolean) to authenticated;
+revoke all on function public.review_medicine_brand_map(uuid, boolean, timestamptz) from public, anon;
+grant execute on function public.review_medicine_brand_map(uuid, boolean, timestamptz) to authenticated;
+
+create or replace function public.published_medicine_brands()
+returns table (id uuid, brand_name text, ingredients text[], source_citation text, reviewer_name text, reviewed_at timestamptz)
+language sql stable security definer set search_path = '' as $$
+  select m.id, m.brand_name, m.ingredients, m.source_citation, m.reviewer_name, m.reviewed_at
+    from public.medicine_brand_generic_map m
+   where m.is_active and m.reviewed_by is not null and (select auth.uid()) is not null
+   order by m.brand_key
+$$;
+revoke all on function public.published_medicine_brands() from public, anon;
+grant execute on function public.published_medicine_brands() to authenticated;
 
 -- 4. The NAFDAC number a person noted from a pack -----------------------------------------------------------------------------------
 create table if not exists public.medication_pack_numbers (
@@ -426,9 +444,10 @@ begin
 
   -- Every read is audited; a repeat by the same supporter inside ten minutes adds no second row. An audit failure fails the read (no swallow).
   if not exists (select 1 from public.audit_log a
-                  where a.actor_id = (select auth.uid()) and a.action = 'supporter.todays_doses_viewed' and a.entity_id = p_patient
+                  where a.actor_id = (select auth.uid()) and a.action = 'supporter.todays_doses_viewed' and a.subject_patient_id = p_patient
                     and a.created_at > now() - interval '10 minutes') then
-    perform private.log_audit('supporter.todays_doses_viewed', 'profile', p_patient, jsonb_build_object('date', v_today));
+    -- the standard audited-read helper (INV-10): it records the subject person, so their own access log shows it
+    perform private.audit_patient_read(p_patient, 'supporter_todays_doses', null, 'A supporter read today''s doses you shared', 'supporter.todays_doses_viewed');
   end if;
   -- active_medicines lets the screen say honestly when nothing is SCHEDULED, instead of looking like "all clear".
   return jsonb_build_object('status', 'ok', 'date', v_today, 'active_medicines', v_active, 'doses', v_doses);
@@ -515,7 +534,7 @@ begin
   foreach f in array array[
     'public.sign_medicine_interaction_rule_sets(uuid)', 'public.active_medicine_interaction_rules()',
     'public.save_medicine_brand_map(uuid,text,text[],text)', 'public.import_medicine_brand_map(jsonb)',
-    'public.review_medicine_brand_map(uuid,boolean)', 'public.set_medication_nafdac_number(uuid,text)',
+    'public.review_medicine_brand_map(uuid,boolean,timestamptz)', 'public.published_medicine_brands()', 'public.set_medication_nafdac_number(uuid,text)',
     'public.supporter_todays_doses(uuid)', 'private.split_ingredients(text)', 'private.duplicate_ingredient_pairs(jsonb)',
     'private.interaction_rules_valid(jsonb)', 'private.can_edit_brand_map()', 'private.can_review_brand_map()',
     'private.medicine_safety_go_live_conditions(text)']

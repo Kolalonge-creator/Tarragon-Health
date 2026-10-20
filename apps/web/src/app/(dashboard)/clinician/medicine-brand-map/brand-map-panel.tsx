@@ -8,13 +8,17 @@ export async function BrandMapPanel({ canReview }: { canReview: boolean }) {
   const [{ data: rows, error }, { data: auth }] = await Promise.all([
     supabase
       .from("medicine_brand_generic_map")
-      .select("id, brand_name, ingredients, source_citation, created_by, reviewer_name, reviewed_at, is_active")
+      .select("id, brand_name, ingredients, source_citation, created_by, edited_at, reviewer_name, reviewed_at, is_active")
       .order("brand_name")
-      .limit(1000),
+      .limit(1001),
     supabase.auth.getUser(),
   ]);
   if (error) {
     return <LoadFailure>The brand list could not be loaded. Do not review anything from here until it loads.</LoadFailure>;
+  }
+  // More rows than the page can hold would silently hide some from review: say so instead.
+  if ((rows ?? []).length > 1000) {
+    return <LoadFailure>There are more than 1,000 brand rows, more than this page can list. Do not review from here until the list is paged.</LoadFailure>;
   }
   return <BrandMapManager rows={(rows ?? []) as BrandMapRow[]} canReview={canReview} viewerId={auth.user?.id ?? ""} />;
 }

@@ -14,6 +14,7 @@ export type BrandMapRow = {
   ingredients: string[];
   source_citation: string;
   created_by: string | null;
+  edited_at: string;
   reviewer_name: string | null;
   reviewed_at: string | null;
   is_active: boolean;
@@ -90,7 +91,7 @@ function ImportCsv() {
 
 function ReviewButtons({ row }: { row: BrandMapRow }) {
   const [state, action, pending] = useActionState<BrandMapActionState, FormData>(
-    async (_prev, formData) => reviewBrandMapAction(row.id, formData.get("approve") === "yes"),
+    async (_prev, formData) => reviewBrandMapAction(row.id, formData.get("approve") === "yes", row.edited_at),
     undefined,
   );
   return (

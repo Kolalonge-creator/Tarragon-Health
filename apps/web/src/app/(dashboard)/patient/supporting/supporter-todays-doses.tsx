@@ -14,14 +14,16 @@ const STATE_KEY: Record<SupporterDoseState, "supporter.doses.taken" | "supporter
 
 /**
  * "Was today's dose taken", read only, for someone who shared their medicines with you (S08y). The database answers only when the
- * person granted the medicines category and the supporter view is switched on; otherwise this renders nothing at all, so a supporter
- * without the category sees no hint that a list exists. A failed read says so; it never shows an empty list that could read as "all done".
+ * person granted the medicines category (or is their guardian) and the supporter view is switched on; otherwise this renders nothing
+ * at all, so a supporter without the category sees no hint that a list exists. A failed read says so; it never shows an empty list that could read as "all done".
  */
-export function SupporterTodaysDoses({ patientId, name, hasMedicinesCategory }: { patientId: string; name: string; hasMedicinesCategory: boolean }) {
-  const { data, isLoading, isError } = useSupporterTodaysDoses(patientId, hasMedicinesCategory);
+export function SupporterTodaysDoses({ patientId, name }: { patientId: string; name: string }) {
+  // No client-side category test: the database decides (a guardian of a child has access without a category row, and a supporter
+  // without the category gets "not shared"), so the web and the phone cannot disagree about who may see this.
+  const { data, isLoading, isError } = useSupporterTodaysDoses(patientId, true);
   // Read once per mount: the state of a dose is judged against this moment, and a re-render must not flip it.
   const [now] = useState(() => Date.now());
-  if (!hasMedicinesCategory || isLoading) return null;
+  if (isLoading) return null;
   if (isError || data?.status === "unreadable") {
     return <p role="alert" className="text-sm text-amber-700 dark:text-amber-300">{t("supporter.doses.unreadable")}</p>;
   }

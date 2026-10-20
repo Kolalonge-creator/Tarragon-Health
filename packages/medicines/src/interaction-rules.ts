@@ -27,7 +27,7 @@ export interface IngredientRule {
   ingredientA: string;
   ingredientB: string;
   severity: RuleSeverity;
-  /** A public source the reviewer can check. Required: a rule nobody can trace does not go live. */
+  /** A public source the reviewer can check: it must contain an https link. Required: a rule nobody can trace does not go live. */
   source: string;
 }
 
@@ -82,7 +82,7 @@ export function validateRuleSet(config: unknown): RuleSetCheck {
     if (!aOk || !bOk) errors.add("ingredient_not_normalised");
     else if (a === b) errors.add("same_ingredient");
     if (typeof severity !== "string" || !(RULE_SEVERITIES as readonly string[]).includes(severity)) errors.add("bad_severity");
-    if (typeof source !== "string" || source.trim().length < 5) errors.add("source_missing");
+    if (typeof source !== "string" || source.trim().length < 5 || !/https:\/\/\S+/i.test(source)) errors.add("source_missing");
     if (errors.size === 0) {
       rules.push({ code: code as string, ingredientA: a as string, ingredientB: b as string, severity: severity as RuleSeverity, source: (source as string).trim() });
     }

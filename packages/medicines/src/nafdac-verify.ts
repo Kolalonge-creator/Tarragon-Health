@@ -26,10 +26,12 @@ export type NafdacStoreResult =
 /**
  * The value to store for what a person typed. Blank clears it. Anything that is not shaped like a NAFDAC number is refused here
  * (the database refuses it too), so a note cannot hold free text. A look-alike letter fixed on the way is flagged by
- * `normaliseNafdacNumber`; the form shows the canonical number back for the person to confirm before saving.
+ * `normaliseNafdacNumber` and is refused rather than stored guessed.
  */
 export function nafdacNumberToStore(typed: string): NafdacStoreResult {
   if (typed.trim().length === 0) return { ok: true, value: null };
   const n = normaliseNafdacNumber(typed);
-  return n ? { ok: true, value: n.value } : { ok: false, reason: "not_a_nafdac_number" };
+  // A look-alike letter that had to be swapped (O for 0, I or L for 1) would store a number that may not be the one on the pack:
+  // such a value is not stored and the person is told, so they can retype it.
+  return n && !n.ocrCorrected ? { ok: true, value: n.value } : { ok: false, reason: "not_a_nafdac_number" };
 }

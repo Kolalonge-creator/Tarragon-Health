@@ -20,6 +20,8 @@ const CSV_TEXT: Record<BrandMapCsvError, string> = {
   brand_too_long: "has a brand name longer than 80 characters",
   ingredients_missing: "has no ingredients",
   ingredient_too_long: "has an ingredient name longer than 80 characters",
+  ingredient_too_short: "has an ingredient name shorter than 2 characters",
+  too_many_ingredients: "has more than 10 ingredients",
   citation_missing: "has no source",
   citation_not_a_link: "has a source without an https link a reviewer can open",
   citation_too_long: "has a source longer than 400 characters",
@@ -66,10 +68,11 @@ export async function importBrandMapAction(_prev: BrandMapActionState, formData:
   return { success: `${data ?? 0} added as drafts${skipped > 0 ? `, ${skipped} skipped because the brand was already on the list` : ""}. A clinician must review them before they are used.` };
 }
 
-export async function reviewBrandMapAction(id: string, approve: boolean): Promise<BrandMapActionState> {
+export async function reviewBrandMapAction(id: string, approve: boolean, seenEditedAt: string): Promise<BrandMapActionState> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("review_medicine_brand_map", { p_id: id, p_approve: approve });
-  if (error) return { error: error.message };
+  // seenEditedAt is the stamp of the content the reviewer was looking at; the database refuses an approval of anything changed since.
+  const { error } = await supabase.rpc("review_medicine_brand_map", { p_id: id, p_approve: approve, p_seen_edited_at: seenEditedAt });
+  if (error) return { error: error.code === "40001" ? "This row changed since you opened it. Refresh the page and read what it says now." : error.message };
   refresh();
   return { success: approve ? "Approved. This mapping is now used in search and the same-ingredient warning." : "Withdrawn. This mapping is no longer used." };
 }

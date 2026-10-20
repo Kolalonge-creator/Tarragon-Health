@@ -808,7 +808,7 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
             </div>
           )}
 
-          <SupporterTodaysDoses patientId={person.profileId} name={name} hasMedicinesCategory={person.categories.includes("medications")} />
+          <SupporterTodaysDoses patientId={person.profileId} name={name} />
 
           {data.medications.length > 0 && (
             <div>

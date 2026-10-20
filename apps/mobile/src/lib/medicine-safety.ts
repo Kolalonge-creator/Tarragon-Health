@@ -46,22 +46,18 @@ export async function loadInteractionRules(): Promise<IngredientRule[] | null> {
 /** Published (reviewed, active) brand mappings, or null when they could not be read (so the form can say the check was weaker). */
 export async function loadBrandMap(): Promise<BrandMapEntry[] | null> {
   try {
-    const { data, error } = await supabase
-      .from("medicine_brand_generic_map")
-      .select("id, brand_name, ingredients, source_citation, reviewed_by, reviewer_name, reviewed_at, is_active")
-      .eq("is_active", true)
-      .not("reviewed_by", "is", null)
-      .limit(1000);
-    if (error) return null;
+    // Published rows only, without who entered or reviewed them. A full page may be a cut one: that is "could not read", not a short list.
+    const { data, error } = await supabase.rpc("published_medicine_brands");
+    if (error || (data ?? []).length >= 1000) return null;
     return (data ?? []).map((r) => ({
       id: r.id,
       brandName: r.brand_name,
       ingredients: r.ingredients,
       sourceCitation: r.source_citation,
-      reviewedBy: r.reviewed_by,
+      reviewedBy: r.reviewer_name,
       reviewerName: r.reviewer_name,
       reviewedAt: r.reviewed_at,
-      isActive: r.is_active,
+      isActive: true,
     }));
   } catch {
     return null;

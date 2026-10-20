@@ -19,6 +19,7 @@ export const RULE_SET_CASES: RuleSetCase[] = [
   { name: "rules is not a list", config: { rules: "none" }, valid: false },
   { name: "no rules key", config: {}, valid: false },
   { name: "a rule without a source", config: { rules: [{ ...good, source: "" }] }, valid: false },
+  { name: "a source that is not a link", config: { rules: [{ ...good, source: "the pharmacist said so" }] }, valid: false },
   { name: "an unknown severity", config: { rules: [{ ...good, severity: "severe" }] }, valid: false },
   { name: "an ingredient that is not normalised", config: { rules: [{ ...good, ingredientA: "Example One" }] }, valid: false },
   { name: "the same ingredient on both sides", config: { rules: [{ ...good, ingredientB: "exampleone" }] }, valid: false },

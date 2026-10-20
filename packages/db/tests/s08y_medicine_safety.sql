@@ -121,6 +121,7 @@ begin
     ('rules is not a list', '{"rules":"none"}', 'false'),
     ('no rules key', '{}', 'false'),
     ('a rule without a source', '{"rules":[{"code":"example_rule","ingredientA":"exampleone","ingredientB":"exampletwo","severity":"caution","source":""}]}', 'false'),
+    ('a source that is not a link', '{"rules":[{"code":"example_rule","ingredientA":"exampleone","ingredientB":"exampletwo","severity":"caution","source":"the pharmacist said so"}]}', 'false'),
     ('an unknown severity', '{"rules":[{"code":"example_rule","ingredientA":"exampleone","ingredientB":"exampletwo","severity":"severe","source":"https://example.org/source"}]}', 'false'),
     ('an ingredient that is not normalised', '{"rules":[{"code":"example_rule","ingredientA":"Example One","ingredientB":"exampletwo","severity":"caution","source":"https://example.org/source"}]}', 'false'),
     ('the same ingredient on both sides', '{"rules":[{"code":"example_rule","ingredientA":"exampleone","ingredientB":"exampleone","severity":"caution","source":"https://example.org/source"}]}', 'false'),
@@ -231,30 +232,35 @@ begin
     (select (bool_and(not is_active) and bool_and(reviewed_by is null))::text from public.medicine_brand_generic_map)));
 
   perform pg_temp.as_user(v_pat);
-  v_res := v_res || jsonb_build_array(jsonb_build_array('a patient sees no draft brand row', '0', (select count(*)::text from public.medicine_brand_generic_map)));
+  v_res := v_res || jsonb_build_array(jsonb_build_array('a patient sees no draft brand row', '0', (select count(*)::text from public.published_medicine_brands())));
+  v_res := v_res || jsonb_build_array(jsonb_build_array('a patient cannot read the brand table itself (who entered and reviewed stays staff-only)', '0', (select count(*)::text from public.medicine_brand_generic_map)));
   execute 'reset role';
   perform pg_temp.as_user(v_smo);
   v_res := v_res || jsonb_build_array(jsonb_build_array('the person who entered a row cannot review it', '42501',
-    pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true)', v_row))));
+    pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true, %L)', v_row, (select edited_at from public.medicine_brand_generic_map where id = v_row)))));
   execute 'reset role';
   perform pg_temp.as_user(v_admin);
-  v_res := v_res || jsonb_build_array(jsonb_build_array('an admin cannot review', '42501', pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true)', v_row))));
+  v_res := v_res || jsonb_build_array(jsonb_build_array('an admin cannot review', '42501', pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true, %L)', v_row, (select edited_at from public.medicine_brand_generic_map where id = v_row)))));
   v_res := v_res || jsonb_build_array(jsonb_build_array('an admin can enter a draft row', 'ok',
     pg_temp.attempt($$select public.save_medicine_brand_map(null, 'Adminbrand', array['examplefour'], 'https://example.org/greenbook/4')$$)));
   execute 'reset role';
   perform pg_temp.as_user(v_pharm);
-  v_res := v_res || jsonb_build_array(jsonb_build_array('a pharmacist account cannot review', '42501', pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true)', v_row))));
+  v_res := v_res || jsonb_build_array(jsonb_build_array('a pharmacist account cannot review', '42501', pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true, %L)', v_row, (select edited_at from public.medicine_brand_generic_map where id = v_row)))));
   v_res := v_res || jsonb_build_array(jsonb_build_array('a pharmacist account cannot enter a row', '42501',
     pg_temp.attempt($$select public.save_medicine_brand_map(null, 'Pharmbrand', array['examplefive'], 'https://example.org/greenbook/5')$$)));
   execute 'reset role';
   perform pg_temp.as_user(v_smo2);
-  v_res := v_res || jsonb_build_array(jsonb_build_array('a second clinician reviews it', 'ok', pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true)', v_row))));
+  v_res := v_res || jsonb_build_array(jsonb_build_array('a second clinician reviews it', 'ok', pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true, %L)', v_row, (select edited_at from public.medicine_brand_generic_map where id = v_row)))));
   execute 'reset role';
   v_res := v_res || jsonb_build_array(jsonb_build_array('the row is in use with a named reviewer', 'true:S08y Clinician Two',
     (select (is_active and reviewed_at is not null)::text || ':' || reviewer_name from public.medicine_brand_generic_map where id = v_row)));
   perform pg_temp.as_user(v_pat);
-  v_res := v_res || jsonb_build_array(jsonb_build_array('a patient sees only the reviewed row', 'examplebrand',
-    coalesce((select string_agg(brand_key, ',') from public.medicine_brand_generic_map), '')));
+  v_res := v_res || jsonb_build_array(jsonb_build_array('a patient sees only the reviewed row', 'Examplebrand',
+    coalesce((select string_agg(brand_name, ',') from public.published_medicine_brands()), '')));
+  v_res := v_res || jsonb_build_array(jsonb_build_array('the published door carries no author or reviewer id', 'false',
+    (exists (select 1 from information_schema.routines r, information_schema.parameters q
+              where r.routine_schema = 'public' and r.routine_name = 'published_medicine_brands' and q.specific_name = r.specific_name
+                and q.parameter_name in ('created_by', 'edited_by', 'reviewed_by')))::text));
   execute 'reset role';
   perform pg_temp.as_user(v_smo);
   perform public.save_medicine_brand_map(v_row, 'Examplebrand', array['exampleone'], 'https://example.org/greenbook/1-corrected');
@@ -264,16 +270,18 @@ begin
   execute 'reset role';
   perform pg_temp.as_user(v_smo2);
   perform public.save_medicine_brand_map(v_row, 'Examplebrand', array['exampleone', 'exampletwo'], 'https://example.org/greenbook/1-second-edit');
+  v_res := v_res || jsonb_build_array(jsonb_build_array('approving content that changed since it was opened is refused', '40001',
+    pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true, %L)', v_row, now() - interval '1 day'))));
   v_res := v_res || jsonb_build_array(jsonb_build_array('the last person to change a row cannot review it, even if someone else entered it', '42501',
-    pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true)', v_row))));
+    pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true, %L)', v_row, (select edited_at from public.medicine_brand_generic_map where id = v_row)))));
   execute 'reset role';
   perform pg_temp.as_user(v_coord);
   v_res := v_res || jsonb_build_array(jsonb_build_array('a care coordinator can enter a draft row', 'ok',
     pg_temp.attempt($$select public.save_medicine_brand_map(null, 'Coordbrand', array['examplesix'], 'https://example.org/greenbook/6')$$)));
-  v_res := v_res || jsonb_build_array(jsonb_build_array('a care coordinator cannot review', '42501', pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true)', v_row))));
+  v_res := v_res || jsonb_build_array(jsonb_build_array('a care coordinator cannot review', '42501', pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true, %L)', v_row, (select edited_at from public.medicine_brand_generic_map where id = v_row)))));
   execute 'reset role';
   perform pg_temp.as_user(v_cmo);
-  v_res := v_res || jsonb_build_array(jsonb_build_array('another doctor reviews the edited row', 'ok', pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true)', v_row))));
+  v_res := v_res || jsonb_build_array(jsonb_build_array('another doctor reviews the edited row', 'ok', pg_temp.attempt(format('select public.review_medicine_brand_map(%L, true, %L)', v_row, (select edited_at from public.medicine_brand_generic_map where id = v_row)))));
   execute 'reset role';
   v_res := v_res || jsonb_build_array(jsonb_build_array('a row cannot be active without a reviewer', '23514',
     pg_temp.attempt(format('update public.medicine_brand_generic_map set is_active = true where id = %L', v_row2))));
@@ -334,17 +342,17 @@ begin
     values (v_org, v_pat, v_med, 'taken', '00:01', v_today, 'patient', gen_random_uuid(), now());
 
   perform pg_temp.as_user(v_sup);
-  v_audits_before := (select count(*) from public.audit_log where action = 'supporter.todays_doses_viewed' and entity_id = v_pat);
+  v_audits_before := (select count(*) from public.audit_log where action = 'supporter.todays_doses_viewed' and subject_patient_id = v_pat);
   v_doc := public.supporter_todays_doses(v_pat);
   v_res := v_res || jsonb_build_array(jsonb_build_array('a supporter with the medicines category reads today''s doses', 'ok:1:2:taken,none',
     (v_doc ->> 'status') || ':' || (v_doc ->> 'active_medicines') || ':' || jsonb_array_length(v_doc -> 'doses')::text || ':' ||
     coalesce((select string_agg(d ->> 'answer', ',' order by d ->> 'time') from jsonb_array_elements(v_doc -> 'doses') d), '')));
   v_res := v_res || jsonb_build_array(jsonb_build_array('the supporter''s read is audited', 'true',
-    ((select count(*) from public.audit_log where action = 'supporter.todays_doses_viewed' and entity_id = v_pat) > v_audits_before)::text));
-  v_audits_before := (select count(*) from public.audit_log where action = 'supporter.todays_doses_viewed' and entity_id = v_pat);
+    ((select count(*) from public.audit_log where action = 'supporter.todays_doses_viewed' and subject_patient_id = v_pat) > v_audits_before)::text));
+  v_audits_before := (select count(*) from public.audit_log where action = 'supporter.todays_doses_viewed' and subject_patient_id = v_pat);
   perform public.supporter_todays_doses(v_pat);
   v_res := v_res || jsonb_build_array(jsonb_build_array('a repeat read within ten minutes adds no second audit row', 'true',
-    ((select count(*) from public.audit_log where action = 'supporter.todays_doses_viewed' and entity_id = v_pat) = v_audits_before)::text));
+    ((select count(*) from public.audit_log where action = 'supporter.todays_doses_viewed' and subject_patient_id = v_pat) = v_audits_before)::text));
   execute 'reset role';
 
   perform pg_temp.as_user(v_sup_nocat);

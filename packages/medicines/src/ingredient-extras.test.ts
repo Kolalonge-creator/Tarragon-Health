@@ -9,6 +9,8 @@ describe("nafdacNumberToStore", () => {
     expect(nafdacNumberToStore("NAFDAC Reg. No. 04-1234")).toEqual({ ok: true, value: "04-1234" });
     expect(nafdacNumberToStore("   ")).toEqual({ ok: true, value: null });
     expect(nafdacNumberToStore("it is genuine")).toEqual({ ok: false, reason: "not_a_nafdac_number" });
+    // a swapped look-alike letter is never stored as if it were what is printed on the pack
+    expect(nafdacNumberToStore("O4-1234")).toEqual({ ok: false, reason: "not_a_nafdac_number" });
   });
   it("points only at NAFDAC's own channels", () => {
     expect(NAFDAC_GREENBOOK_URL).toBe("https://greenbook.nafdac.gov.ng");

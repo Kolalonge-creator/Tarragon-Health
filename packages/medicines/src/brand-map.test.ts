@@ -66,16 +66,16 @@ describe("parseBrandMapCsv", () => {
   const head = "brand_name,ingredients,source_citation\n";
   it("accepts good rows, quotes, CRLF, a BOM and repeated ingredients", () => {
     const r = parseBrandMapCsv(
-      `﻿Brand_Name, Ingredients ,source_citation\r\nAlpha,one;two;one,"NAFDAC, see https://example.org/a"\r\n\r\n"Be""ta","x",https://example.org/b`,
+      `﻿Brand_Name, Ingredients ,source_citation\r\nAlpha,one;two;one,"NAFDAC, see https://example.org/a"\r\n\r\n"Be""ta","xx",https://example.org/b`,
     );
     expect(r.errors).toEqual([]);
     expect(r.rows).toEqual([
       { brandName: "Alpha", ingredients: ["one", "two"], sourceCitation: "NAFDAC, see https://example.org/a" },
-      { brandName: 'Be"ta', ingredients: ["x"], sourceCitation: "https://example.org/b" },
+      { brandName: 'Be"ta', ingredients: ["xx"], sourceCitation: "https://example.org/b" },
     ]);
   });
   it("handles a newline inside quotes", () => {
-    const r = parseBrandMapCsv(`${head}A,"x",https://example.org/a\nB,"y\nz",https://example.org/b`);
+    const r = parseBrandMapCsv(`${head}A,"xx",https://example.org/a\nB,"y\nz",https://example.org/b`);
     expect(r.rows[1].ingredients).toEqual(["y\nz"]);
   });
   it("refuses whole-file problems", () => {
@@ -84,7 +84,7 @@ describe("parseBrandMapCsv", () => {
     expect(parseBrandMapCsv("a,b,c\n1,2,3").errors).toEqual([{ line: 1, error: "bad_header" }]);
     expect(parseBrandMapCsv("brand_name,ingredients\n").errors).toEqual([{ line: 1, error: "bad_header" }]);
     expect(parseBrandMapCsv(`${head}A,"x,https://example.org`).errors).toEqual([{ line: 0, error: "unterminated_quote" }]);
-    const many = head + Array.from({ length: BRAND_MAP_CSV_MAX_ROWS + 1 }, (_, i) => `B${i},x,https://e.org`).join("\n");
+    const many = head + Array.from({ length: BRAND_MAP_CSV_MAX_ROWS + 1 }, (_, i) => `B${i},xx,https://e.org`).join("\n");
     expect(parseBrandMapCsv(many).errors).toEqual([{ line: 0, error: "too_many_rows" }]);
   });
   it("refuses single lines without blocking the rest", () => {
@@ -93,15 +93,17 @@ describe("parseBrandMapCsv", () => {
       [
         "brand_name,ingredients,source_citation",
         "A,x",
-        ",x,https://e.org",
-        `${long},x,https://e.org`,
+        ",xx,https://e.org",
+        `${long},xx,https://e.org`,
         "C,,https://e.org",
         `D,${long},https://e.org`,
-        "E,x,",
-        "F,x,no link here",
-        `G,x,https://e.org/${"y".repeat(400)}`,
-        "H,x,https://e.org",
-        "h,y,https://e.org",
+        "D2,x,https://e.org",
+        `D3,${["a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "b1", "b2"].join(";")},https://e.org`,
+        "E,xx,",
+        "F,xx,no link here",
+        `G,xx,https://e.org/${"y".repeat(400)}`,
+        "H,xx,https://e.org",
+        "h,yy,https://e.org",
       ].join("\n"),
     );
     expect(r.errors.map((e) => `${e.line}:${e.error}`)).toEqual([
@@ -110,10 +112,12 @@ describe("parseBrandMapCsv", () => {
       "4:brand_too_long",
       "5:ingredients_missing",
       "6:ingredient_too_long",
-      "7:citation_missing",
-      "8:citation_not_a_link",
-      "9:citation_too_long",
-      "11:duplicate_brand",
+      "7:ingredient_too_short",
+      "8:too_many_ingredients",
+      "9:citation_missing",
+      "10:citation_not_a_link",
+      "11:citation_too_long",
+      "13:duplicate_brand",
     ]);
     expect(r.rows.map((x) => x.brandName)).toEqual(["H"]);
   });

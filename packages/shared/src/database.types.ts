@@ -8421,6 +8421,8 @@ export type Database = {
           brand_name: string
           created_at: string
           created_by: string | null
+          edited_at: string
+          edited_by: string | null
           id: string
           ingredients: string[]
           is_active: boolean
@@ -8433,6 +8435,8 @@ export type Database = {
           brand_name: string
           created_at?: string
           created_by?: string | null
+          edited_at?: string
+          edited_by?: string | null
           id?: string
           ingredients: string[]
           is_active?: boolean
@@ -8445,6 +8449,8 @@ export type Database = {
           brand_name?: string
           created_at?: string
           created_by?: string | null
+          edited_at?: string
+          edited_by?: string | null
           id?: string
           ingredients?: string[]
           is_active?: boolean
@@ -53680,7 +53686,11 @@ export type Database = {
       }
       active_medicine_interaction_rules: { Args: Record<PropertyKey, never>; Returns: Json }
       import_medicine_brand_map: { Args: { p_rows: Json }; Returns: number }
-      review_medicine_brand_map: { Args: { p_approve: boolean; p_id: string }; Returns: undefined }
+      review_medicine_brand_map: { Args: { p_approve: boolean; p_id: string; p_seen_edited_at?: string }; Returns: undefined }
+      published_medicine_brands: {
+        Args: Record<PropertyKey, never>
+        Returns: { id: string; brand_name: string; ingredients: string[]; source_citation: string; reviewer_name: string; reviewed_at: string }[]
+      }
       save_medicine_brand_map: {
         Args: { p_brand: string; p_citation: string; p_id: string | null; p_ingredients: string[] }
         Returns: string

@@ -66,20 +66,19 @@ describe("interaction rules", () => {
 });
 
 describe("brand map", () => {
-  it("asks only for active reviewed rows and maps them; a failure is null, never an empty list that reads as no brands", async () => {
-    const c = chain({
-      data: [{ id: "b1", brand_name: "Examplebrand", ingredients: ["exampleone"], source_citation: "https://e.org", reviewed_by: "u", reviewer_name: "A", reviewed_at: "2026-10-20T00:00:00Z", is_active: true }],
+  it("reads only the published door and maps it; a failure or a full page is null, never a short list that reads as no brands", async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: [{ id: "b1", brand_name: "Examplebrand", ingredients: ["exampleone"], source_citation: "https://e.org", reviewer_name: "A", reviewed_at: "2026-10-20T00:00:00Z" }],
       error: null,
     });
-    mockFrom.mockReturnValue(c);
     const rows = await loadBrandMap();
-    expect(rows).toEqual([{ id: "b1", brandName: "Examplebrand", ingredients: ["exampleone"], sourceCitation: "https://e.org", reviewedBy: "u", reviewerName: "A", reviewedAt: "2026-10-20T00:00:00Z", isActive: true }]);
-    expect(c.eq).toHaveBeenCalledWith("is_active", true);
-    mockFrom.mockReturnValue(chain({ data: null, error: { message: "x" } }));
+    expect(rows).toEqual([{ id: "b1", brandName: "Examplebrand", ingredients: ["exampleone"], sourceCitation: "https://e.org", reviewedBy: "A", reviewerName: "A", reviewedAt: "2026-10-20T00:00:00Z", isActive: true }]);
+    expect(mockRpc).toHaveBeenCalledWith("published_medicine_brands");
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: "x" } });
     expect(await loadBrandMap()).toBeNull();
-    mockFrom.mockImplementation(() => {
-      throw new Error("boom");
-    });
+    mockRpc.mockResolvedValueOnce({ data: new Array(1000).fill({}), error: null });
+    expect(await loadBrandMap()).toBeNull();
+    mockRpc.mockRejectedValueOnce(new Error("boom"));
     expect(await loadBrandMap()).toBeNull();
   });
 });

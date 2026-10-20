@@ -22,31 +22,31 @@ export function useBrandMap(enabled = true) {
     refetchOnWindowFocus: false,
     retry: false,
     queryFn: async (): Promise<BrandMapEntry[]> => {
-      const { data, error } = await createClient()
-        .from("medicine_brand_generic_map")
-        .select("id, brand_name, ingredients, source_citation, reviewed_by, reviewer_name, reviewed_at, is_active")
-        .eq("is_active", true)
-        .not("reviewed_by", "is", null)
-        .limit(1000);
+      // The database door sends published rows only, without who entered or reviewed them (staff ids are not a patient's business).
+      const { data, error } = await createClient().rpc("published_medicine_brands");
       if (error) throw error;
+      // The API returns at most 1000 rows. A full page may be a cut one, which would silently drop brands: fail loudly instead.
+      if ((data ?? []).length >= 1000) throw new Error("the brand list reached the page limit");
       return (data ?? []).map((r) => ({
         id: r.id,
         brandName: r.brand_name,
         ingredients: r.ingredients,
         sourceCitation: r.source_citation,
-        reviewedBy: r.reviewed_by,
+        // A named reviewer exists for every published row; the name stands in for the id the patient is not shown.
+        reviewedBy: r.reviewer_name,
         reviewerName: r.reviewer_name,
         reviewedAt: r.reviewed_at,
-        isActive: r.is_active,
+        isActive: true,
       }));
     },
   });
 }
 
 /** Is the same-ingredient warning switched on for the signed-in person? */
-export function useDuplicateIngredientCheckOpen() {
+export function useDuplicateIngredientCheckOpen(enabled = true) {
   return useQuery({
     queryKey: ["go-live-guard", "medicine_duplicate_ingredient_check"],
+    enabled,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     retry: false,
@@ -62,9 +62,10 @@ export function useDuplicateIngredientCheckOpen() {
  * The active SIGNED interaction rules, or an empty list when the guard is closed or no signed non-empty set exists. A malformed
  * answer THROWS (it is never read as "no rules"), so the form can say the check could not run.
  */
-export function useInteractionRules() {
+export function useInteractionRules(enabled = true) {
   return useQuery({
     queryKey: ["medicine-interaction-rules"],
+    enabled,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     retry: false,

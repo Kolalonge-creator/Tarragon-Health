@@ -719,7 +719,8 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
   }, [open]);
   const [pickedName, setPickedName] = useState<string | null>(null);
   // S08y: reviewed brand mappings help search and name the ingredients; the NAFDAC number noted from the pack is kept as a note.
-  const [brandMap, setBrandMap] = useState<BrandMapEntry[] | null>([]);
+  // null until read (or when it could not be read): the same-ingredient check then says it was weaker instead of passing quietly.
+  const [brandMap, setBrandMap] = useState<BrandMapEntry[] | null>(null);
   const [nafdacSaved, setNafdacSaved] = useState<"none" | "saved" | "failed" | "invalid">("none");
   useEffect(() => {
     if (!open) return;
