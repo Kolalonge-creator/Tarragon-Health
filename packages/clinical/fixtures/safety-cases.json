@@ -2128,7 +2128,7 @@
    "input": {
     "trigger": {
      "type": "adherence",
-     "percent7d": 70
+     "percentWindow": 70
     },
     "history": [],
     "target": {
@@ -2160,7 +2160,7 @@
    "input": {
     "trigger": {
      "type": "adherence",
-     "percent7d": 80
+     "percentWindow": 80
     },
     "history": [],
     "target": {
@@ -2188,7 +2188,7 @@
    "input": {
     "trigger": {
      "type": "adherence",
-     "percent7d": null
+     "percentWindow": null
     },
     "history": [],
     "target": {
@@ -2216,7 +2216,7 @@
    "input": {
     "trigger": {
      "type": "adherence",
-     "percent7d": 10
+     "percentWindow": 10
     },
     "history": [],
     "target": {

@@ -39657,6 +39657,7 @@ export type Database = {
           id: string
           organisation_id: string
           patient_id: string
+          referral_id: string | null
           sla_due_at: string
           source_description: string | null
           specific_question: string | null
@@ -39672,6 +39673,7 @@ export type Database = {
           id?: string
           organisation_id: string
           patient_id: string
+          referral_id?: string | null
           sla_due_at?: string
           source_description?: string | null
           specific_question?: string | null
@@ -39687,6 +39689,7 @@ export type Database = {
           id?: string
           organisation_id?: string
           patient_id?: string
+          referral_id?: string | null
           sla_due_at?: string
           source_description?: string | null
           specific_question?: string | null
@@ -39713,6 +39716,50 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      second_opinion_documents: {
+        Row: {
+          created_at: string
+          id: string
+          is_test: boolean
+          mime_type: string
+          organisation_id: string
+          patient_id: string
+          request_id: string
+          size_bytes: number
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          mime_type: string
+          organisation_id: string
+          patient_id: string
+          request_id: string
+          size_bytes: number
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          mime_type?: string
+          organisation_id?: string
+          patient_id?: string
+          request_id?: string
+          size_bytes?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "second_opinion_documents_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "second_opinion_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -50374,6 +50421,42 @@ export type Database = {
           subscriber_key: string
         }[]
       }
+      admin_reenable_partner_webhook_endpoint: { Args: { p_endpoint_id: string; p_reason: string }; Returns: undefined }
+      partner_event_map_admin_overview: {
+        Args: never
+        Returns: {
+          bus_event_type: string
+          id_keys: string[]
+          integration_event_type: string
+          is_mapped: boolean
+          ordered: boolean
+          subscriber_active: boolean
+          subscriber_key: string
+        }[]
+      }
+      partner_webhook_admin_overview: {
+        Args: never
+        Returns: {
+          auto_disabled_at: string
+          consecutive_failures: number
+          dead: number
+          delivered_24h: number
+          disabled_reason: string
+          endpoint_id: string
+          environment: string
+          event_types: string[]
+          is_active: boolean
+          last_failure_at: string
+          last_success_at: string
+          name: string
+          partner_name: string
+          previous_key_expires_at: string
+          queued: number
+          signing_key_version: number
+          url: string
+        }[]
+      }
+      remove_partner_event_mapping: { Args: { p_bus_event_type: string }; Returns: undefined }
       partner_webhook_enqueue_for_delivery: { Args: { p_delivery_id: string }; Returns: number }
       reenable_partner_webhook_endpoint: { Args: { p_endpoint_id: string }; Returns: undefined }
       rotate_partner_webhook_secret: { Args: { p_endpoint_id: string; p_grace_hours?: number }; Returns: string }
@@ -50898,6 +50981,29 @@ export type Database = {
       decide_purchase_guarantee_refund: {
         Args: { p_approve: boolean; p_claim_id: string; p_note?: string }
         Returns: Json
+      }
+      accept_second_opinion_referral: { Args: { p_request: string }; Returns: string }
+      attach_second_opinion_document: {
+        Args: { p_bytes: number; p_mime: string; p_path: string; p_request: string }
+        Returns: string
+      }
+      list_second_opinion_worklist: { Args: never; Returns: Json }
+      start_second_opinion_review: { Args: { p_request: string }; Returns: undefined }
+      answer_second_opinion_request: {
+        Args: {
+          p_answer: string
+          p_reason?: string
+          p_request: string
+          p_requested_service?: string
+          p_specialist_type?: Database["public"]["Enums"]["specialist_type"]
+          p_urgency?: Database["public"]["Enums"]["referral_urgency"]
+        }
+        Returns: string
+      }
+      read_second_opinion_audited: { Args: { p_request: string }; Returns: Json }
+      share_results_with_second_opinion: {
+        Args: { p_lab_results: string[]; p_request: string }
+        Returns: number
       }
       confirm_care_plan_change: { Args: { p_change: string }; Returns: Json };
       decline_care_plan_change: {
