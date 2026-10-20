@@ -131,11 +131,13 @@ begin
     (public.triage_context_for_glucose_observation(v_g3) #>> '{input,pregnant}') || '|' || coalesce(public.triage_context_for_glucose_observation(v_g3) #>> '{input,diabetesType}', 'null'));
 
 
-  -- Which readings, ketone regrade and retractions (code review): streaming sources are not graded; a ketone arriving after the glucose regrades it; a retracted ketone or
+  -- Which readings, ketone regrade and retractions (code review): a fresh streaming reading is graded under its own guards (OQ-320); a ketone arriving after the glucose regrades it; a retracted ketone or
   -- glucose is never used.
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, glucose_mmol_l, glucose_context, source, taken_at)
     values (v_org, v_p3, 'glucose', 2.5, 'random', 'wearable', now()) returning id into v_g8;
-  perform pg_temp.res('real', 'a wearable or monitor glucose reading is not graded by this engine (no event)', '0',
+  -- OQ-320 (founder answer 2026-10-15): a FRESH wearable or monitor reading IS graded now (guards: fresh within 30 minutes, latest of a batch, deduped per level; see
+  -- fu_engine_followups.sql for the full proof of those). It used to be ignored here.
+  perform pg_temp.res('real', 'a fresh wearable or monitor glucose reading is graded by this engine (one event)', '1',
     (select count(*)::text from public.domain_events where idempotency_key = 'glu:' || v_g8));
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, glucose_mmol_l, glucose_context, source, taken_at)
     values (v_org, v_p3, 'glucose', 15.0, 'random', 'device', now()) returning id into v_g9;

@@ -20,6 +20,8 @@ export const CONTEXT_FIELDS = [
   "avg.count",
   "avg.systolicOver",
   "avg.diastolicOver",
+  "adherence.percentWindow",
+  // Legacy name, kept so a stored rule set that still says it (an approved row is never edited) keeps grading. New rule sets use percentWindow.
   "adherence.percent7d",
   "silence.days",
   "pathway.carePack",
@@ -64,6 +66,12 @@ function windowReadings(input: TriageInput, ruleSet: RuleSet, nowMs: number): Re
   });
 }
 
+/** The adherence percentage a trigger carries: `percentWindow`, else the deprecated `percent7d`, else null (a present `percentWindow`, even null, wins). Null for any other trigger. */
+export function adherencePercentOf(trigger: TriageInput["trigger"]): number | null {
+  if (trigger.type !== "adherence") return null;
+  return trigger.percentWindow !== undefined ? trigger.percentWindow : (trigger.percent7d ?? null);
+}
+
 export function buildContext(input: TriageInput, ruleSet: RuleSet): Context {
   const nowMs = toMs(input.now);
   const trigger = input.trigger;
@@ -72,6 +80,7 @@ export function buildContext(input: TriageInput, ruleSet: RuleSet): Context {
   const used = windowReadings(input, ruleSet, nowMs);
   const avgSys = used.length > 0 ? mean(used.map((r) => r.systolic)) : null;
   const avgDia = used.length > 0 ? mean(used.map((r) => r.diastolic)) : null;
+  const adherencePercent = adherencePercentOf(trigger);
   const silenceFrom = trigger.type === "silence" ? (trigger.lastReadingAt ?? trigger.sinceAt) : null;
 
   return {
@@ -89,7 +98,8 @@ export function buildContext(input: TriageInput, ruleSet: RuleSet): Context {
     "avg.count": used.length,
     "avg.systolicOver": avgSys === null ? null : avgSys - input.target.systolic,
     "avg.diastolicOver": avgDia === null ? null : avgDia - input.target.diastolic,
-    "adherence.percent7d": trigger.type === "adherence" ? trigger.percent7d : null,
+    "adherence.percentWindow": adherencePercent,
+    "adherence.percent7d": adherencePercent,
     "silence.days": silenceFrom === null ? null : lagosDaysBetween(toMs(silenceFrom), nowMs),
     "pathway.carePack": input.pathway.state === "care_pack_active",
     "symptoms.answered": observation ? observation.symptomsAnswered === true || observation.symptoms.length > 0 : null,
