@@ -175,12 +175,14 @@ async function syncHealthReadings(
         // The queued page keeps its truncated_types so the eventual replay
         // (offline-queue.ts's flush) makes the same cursor declaration this
         // live upload would have — see the comment on postHealthSamples above.
-        await enqueueHealthSamplesPage({
+        const kept = await enqueueHealthSamplesPage({
           provider,
           samples: remaining,
           ...(truncatedTypes.length > 0 ? { truncated_types: truncatedTypes } : {}),
         });
-        queued += remaining.length;
+        // A page that could not be kept is not counted as queued. The server cursor only moves past uploaded pages, so
+        // the next sync reads those samples again.
+        if (kept) queued += remaining.length;
       }
       break;
     }

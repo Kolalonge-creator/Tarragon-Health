@@ -27,12 +27,12 @@ import { recordSyncError } from "./sync-diagnostics";
  *      the connection is not known to be Wi-Fi. Those stay saved on the phone and the sync banner says so.
  *
  * Rules: one run at a time (a second caller gets the run already in flight, never a parallel one); at most one
- * run per offline.reconnect_power.reconnect_flush_min_gap_seconds; a step that fails is recorded and the next
+ * run per offline.reconnect_power.reconnect_flush_min_gap_seconds (a call inside the gap leaves one trailing run, so it is
+ * delayed, never lost); a step that fails is recorded and the next
  * step still runs. Nothing here deletes an entry: a failing row stays where it is (the outbox marks a refused
  * row `rejected` and shows it with a support code; a queue keeps an entry until the server takes it).
  */
 export interface ReconnectFlushDeps {
-  /** May answer { stoppedOffline: true } (the outbox does): the run then does not count against the debounce. */
   flushOutbox: () => Promise<unknown>;
   flushDeviceReadings: () => Promise<unknown>;
   flushPhotoReadings: () => Promise<unknown>;
@@ -42,6 +42,8 @@ export interface ReconnectFlushDeps {
   /** Async because the saved choice must be loaded first: a cold background start has not read it yet. */
   isLowData: () => boolean | Promise<boolean>;
   now: () => number;
+  /** Runs `fn` once after `ms`. Used for the one trailing run that a debounced call leaves behind. */
+  schedule: (fn: () => void, ms: number) => void;
   minGapMs: number;
   lowBatteryPercent: number;
 }
@@ -55,8 +57,6 @@ export interface ReconnectFlushResult {
   bulk?: BulkOutcome;
   /** Steps that threw. Their entries are still on the phone. */
   failedSteps: string[];
-  /** The outbox stopped part-way because the connection or the session was lost. */
-  incomplete?: boolean;
 }
 
 export function defaultReconnectFlushDeps(): ReconnectFlushDeps {
@@ -73,6 +73,9 @@ export function defaultReconnectFlushDeps(): ReconnectFlushDeps {
       return isLowDataActive();
     },
     now: () => Date.now(),
+    schedule: (fn, ms) => {
+      setTimeout(fn, ms);
+    },
     minGapMs: config.reconnectFlushMinGapMs,
     lowBatteryPercent: config.lowBatteryPercent,
   };
@@ -80,38 +83,38 @@ export function defaultReconnectFlushDeps(): ReconnectFlushDeps {
 
 let inFlight: Promise<ReconnectFlushResult> | null = null;
 let lastStartedAt: number | null = null;
+let trailingScheduled = false;
 
 /** Test seam. */
 export function resetReconnectFlushForTests(): void {
   inFlight = null;
   lastStartedAt = null;
+  trailingScheduled = false;
 }
 
+/**
+ * Starts a flush, or does the next best thing. A call while one is running shares it. A call inside the minimum gap
+ * does not start a second run, but it is NOT dropped: one trailing run is scheduled for when the gap ends, so an entry
+ * saved during the gap still gets a reconnect flush (the watcher counts a good probe as handled and would not retry).
+ */
 export function reconnectFlush(deps: ReconnectFlushDeps = defaultReconnectFlushDeps()): Promise<ReconnectFlushResult> {
   if (inFlight) return inFlight;
   const now = deps.now();
   if (lastStartedAt !== null && now - lastStartedAt < deps.minGapMs) {
+    if (!trailingScheduled) {
+      trailingScheduled = true;
+      deps.schedule(() => {
+        trailingScheduled = false;
+        void reconnectFlush(deps).catch(() => undefined);
+      }, deps.minGapMs - (now - lastStartedAt));
+    }
     return Promise.resolve({ ran: false, skipped: "debounced", failedSteps: [] });
   }
   lastStartedAt = now;
-  inFlight = run(deps)
-    .then((result) => {
-      // A run that did not get through (a step threw, or the outbox lost the connection part-way) must not hold off the next
-      // attempt: the watcher counts a good probe as done and would not try again for the full gap.
-      if (result.failedSteps.length > 0 || result.incomplete) lastStartedAt = null;
-      return result;
-    })
-    .finally(() => {
-      inFlight = null;
-    });
+  inFlight = run(deps).finally(() => {
+    inFlight = null;
+  });
   return inFlight;
-}
-
-/** A flush that returns (rather than throws) with entries left and none sent: the server or the network said no. */
-function madeNoProgress(outcome: unknown): boolean {
-  const o = outcome as { remaining?: number; flushed?: number; flushedPages?: number } | null | undefined;
-  if (!o || typeof o.remaining !== "number" || o.remaining <= 0) return false;
-  return (o.flushed ?? o.flushedPages ?? 0) === 0;
 }
 
 async function run(deps: ReconnectFlushDeps): Promise<ReconnectFlushResult> {
@@ -125,50 +128,47 @@ async function run(deps: ReconnectFlushDeps): Promise<ReconnectFlushResult> {
     }
   };
 
-  let incomplete = false;
-  await step("outbox", async () => {
-    const outcome = await deps.flushOutbox();
-    if ((outcome as { stoppedOffline?: boolean } | null)?.stoppedOffline === true) incomplete = true;
-  });
-  await step("device_readings", async () => {
-    if (madeNoProgress(await deps.flushDeviceReadings())) incomplete = true;
-  });
-  await step("photo_readings", async () => {
-    if (madeNoProgress(await deps.flushPhotoReadings())) incomplete = true;
-  });
+  await step("outbox", deps.flushOutbox);
+  await step("device_readings", deps.flushDeviceReadings);
+  await step("photo_readings", deps.flushPhotoReadings);
 
-  const [power, connection, lowData] = await Promise.all([deps.readPower(), deps.readConnection(), deps.isLowData()]);
-  const decision = workDecision({ work: "upload_bulk", power, lowBatteryPercent: deps.lowBatteryPercent, lowData, connection });
-  if (decision.action === "defer") {
-    return { ran: true, bulk: decision.reason === "low_power" ? "deferred_low_power" : "deferred_low_data", failedSteps, incomplete };
+  const reason = await currentBulkDeferral(deps);
+  if (reason !== null) {
+    return { ran: true, bulk: reason === "low_power" ? "deferred_low_power" : "deferred_low_data", failedSteps };
   }
-  await step("health_samples", async () => {
-    if (madeNoProgress(await deps.flushHealthSamples())) incomplete = true;
-  });
-  return { ran: true, bulk: "sent", failedSteps, incomplete };
+  await step("health_samples", deps.flushHealthSamples);
+  return { ran: true, bulk: "sent", failedSteps };
 }
 
 /**
  * Whether bulk uploads (queued health-store sample pages) would wait right now, and why. Computed live from the phone's
  * state, not remembered from an earlier run, so it is right in a background task's own JS context and goes away the
- * moment the cause does (plugged in, low-data mode off, back on Wi-Fi).
+ * moment the cause does (plugged in, low-data mode off, back on Wi-Fi). Never throws: if the state cannot be read the
+ * answer is "do not wait".
  */
 export async function currentBulkDeferral(
-  deps: Pick<ReconnectFlushDeps, "readPower" | "readConnection" | "isLowData" | "lowBatteryPercent"> = defaultReconnectFlushDeps()
+  deps: Pick<ReconnectFlushDeps, "readPower" | "readConnection" | "isLowData" | "lowBatteryPercent"> | null = null
 ): Promise<DeferReason | null> {
-  const [power, connection, lowData] = await Promise.all([deps.readPower(), deps.readConnection(), deps.isLowData()]);
-  const decision = workDecision({ work: "upload_bulk", power, lowBatteryPercent: deps.lowBatteryPercent, lowData, connection });
-  return decision.action === "defer" ? decision.reason : null;
+  try {
+    const d = deps ?? defaultReconnectFlushDeps();
+    const [power, connection, lowData] = await Promise.all([d.readPower(), d.readConnection(), d.isLowData()]);
+    const decision = workDecision({ work: "upload_bulk", power, lowBatteryPercent: d.lowBatteryPercent, lowData, connection });
+    return decision.action === "defer" ? decision.reason : null;
+  } catch (error) {
+    recordSyncError("offline_outbox", "reconnect:deferralState", error);
+    return null;
+  }
 }
 
 /** Entries waiting anywhere on the phone: the outbox plus the encrypted device, photo and health-sample queues. */
 export async function getAllWaitingCount(): Promise<number> {
-  const [outbox, small, healthPages, deferral] = await Promise.all([
+  const [outbox, devices, photos, healthPages] = await Promise.all([
     getOutboxPendingCount(),
-    getDeviceReadingsQueueCount().then(async (devices) => devices + (await getPhotoReadingsQueueCount())),
+    getDeviceReadingsQueueCount(),
+    getPhotoReadingsQueueCount(),
     getHealthSamplesQueueCount(),
-    currentBulkDeferral(),
   ]);
   // Health pages that are deliberately waiting (low power, low data off Wi-Fi) are not a reason to probe the network again.
-  return outbox + small + (deferral === null ? healthPages : 0);
+  const healthCounted = healthPages > 0 && (await currentBulkDeferral()) === null ? healthPages : 0;
+  return outbox + devices + photos + healthCounted;
 }

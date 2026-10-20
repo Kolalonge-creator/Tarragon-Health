@@ -64,10 +64,10 @@ describe("moving an older build's plaintext copy", () => {
     expect(await plaintextKeys()).toEqual([]);
   });
 
-  it("keeps the good entries and drops only the malformed one", async () => {
+  it("moves the good entries and leaves the malformed ones in place (not ours to destroy)", async () => {
     await AsyncStorage.setItem(DEVICE_KEY, JSON.stringify([entry("a", 1), { broken: true }, entry("c", 3)]));
     expect((await listPendingDeviceReadings()).map((e) => e.id)).toEqual(["a", "c"]);
-    expect(await plaintextKeys()).toEqual([]);
+    expect(JSON.parse((await AsyncStorage.getItem(DEVICE_KEY)) ?? "null")).toEqual([{ broken: true }]);
   });
 
   it("is safe to run twice: the same entries are not duplicated", async () => {

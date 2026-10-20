@@ -158,8 +158,9 @@ async function migrateLegacy(db: SQLite.SQLiteDatabase, key: string, source: Syn
   }
   // One bad entry must not cost every other item (the same rule healthkit.ts applies per reading type).
   const good = parsed.filter(isQueuedEntry) as QueuedEntry<unknown>[];
-  if (good.length !== parsed.length) {
-    recordSyncError(source, "offline_queue:migrate", `${parsed.length - good.length} malformed queue entr${parsed.length - good.length === 1 ? "y" : "ies"} could not be moved and were left behind`);
+  const malformed = parsed.filter((entry) => !isQueuedEntry(entry));
+  if (malformed.length > 0) {
+    recordSyncError(source, "offline_queue:migrate", `${malformed.length} malformed queue entr${malformed.length === 1 ? "y" : "ies"} could not be moved and were left in place`);
   }
   await atomically(db, "migrate", source, async (conn) => {
     for (const entry of good) {
@@ -171,8 +172,10 @@ async function migrateLegacy(db: SQLite.SQLiteDatabase, key: string, source: Syn
       ]);
     }
   });
-  // Only after every good entry is in the encrypted table is the plaintext copy removed.
-  await AsyncStorage.removeItem(key);
+  // Only after every good entry is in the encrypted table does the plaintext copy shrink. What could not be read as an entry is
+  // not ours to destroy: it stays in place (the remote wipe still removes it).
+  if (malformed.length > 0) await AsyncStorage.setItem(key, JSON.stringify(malformed));
+  else await AsyncStorage.removeItem(key);
 }
 
 async function queueDb(key: string, source: SyncSource): Promise<SQLite.SQLiteDatabase> {

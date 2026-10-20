@@ -10,6 +10,7 @@ jest.mock("./api", () => ({ postDeviceReading: jest.fn(), postHealthSamples: jes
 
 let calls: string[];
 let clock: number;
+let scheduled: { fn: () => void; ms: number }[];
 
 function deps(over: Partial<ReconnectFlushDeps> = {}): ReconnectFlushDeps {
   const rec = (name: string) => async () => {
@@ -24,6 +25,9 @@ function deps(over: Partial<ReconnectFlushDeps> = {}): ReconnectFlushDeps {
     readConnection: async () => "wifi",
     isLowData: () => false,
     now: () => clock,
+    schedule: (fn, ms) => {
+      scheduled.push({ fn, ms });
+    },
     minGapMs: 20_000,
     lowBatteryPercent: 15,
     ...over,
@@ -32,6 +36,7 @@ function deps(over: Partial<ReconnectFlushDeps> = {}): ReconnectFlushDeps {
 
 beforeEach(() => {
   calls = [];
+  scheduled = [];
   clock = 1_000_000;
   resetReconnectFlushForTests();
   resetPowerPortForTests();
@@ -41,7 +46,7 @@ describe("reconnectFlush", () => {
   it("sends the outbox first, then the small queues, then the bulk health pages", async () => {
     const r = await reconnectFlush(deps());
     expect(calls).toEqual(["outbox", "device", "photo", "health"]);
-    expect(r).toMatchObject({ ran: true, bulk: "sent", failedSteps: [], incomplete: false });
+    expect(r).toEqual({ ran: true, bulk: "sent", failedSteps: [] });
   });
 
   it("never runs two flushes at once: a second caller gets the run already in flight", async () => {
@@ -65,6 +70,20 @@ describe("reconnectFlush", () => {
     expect(calls).toHaveLength(4);
     clock += 1;
     await expect(reconnectFlush(deps())).resolves.toMatchObject({ ran: true });
+    expect(calls).toHaveLength(8);
+  });
+
+  it("a debounced call is delayed, not lost: one trailing run is scheduled for when the gap ends", async () => {
+    await reconnectFlush(deps());
+    clock += 12_000; // the signal came back 12 seconds after the last run, with a reading saved in between
+    await reconnectFlush(deps());
+    await reconnectFlush(deps()); // a third call in the same gap does not stack another timer
+    expect(scheduled).toHaveLength(1);
+    expect(scheduled[0]?.ms).toBe(8_000);
+    expect(calls).toHaveLength(4);
+    clock += 8_000;
+    scheduled[0]?.fn();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(calls).toHaveLength(8);
   });
 
@@ -105,21 +124,6 @@ describe("reconnectFlush", () => {
     expect(r.failedSteps).toEqual(["outbox"]);
     expect(getRecentSyncDiagnostics().some((e) => e.detail === "reconnect:outbox")).toBe(true);
   });
-
-  it("a run that did not get through does not hold off the next attempt (the watcher would not retry a good probe)", async () => {
-    await reconnectFlush(deps({ flushOutbox: async () => ({ stoppedOffline: true }) }));
-    clock += 1_000; // well inside the 20 second gap
-    await expect(reconnectFlush(deps())).resolves.toMatchObject({ ran: true });
-    clock += 1_000;
-    // ...but a clean run does debounce.
-    await expect(reconnectFlush(deps())).resolves.toMatchObject({ ran: false, skipped: "debounced" });
-  });
-
-  it("a step that threw does not hold off the next attempt either", async () => {
-    await reconnectFlush(deps({ flushDeviceReadings: async () => { throw new Error("x"); } }));
-    clock += 1_000;
-    await expect(reconnectFlush(deps())).resolves.toMatchObject({ ran: true });
-  });
 });
 
 describe("currentBulkDeferral", () => {
@@ -131,14 +135,6 @@ describe("currentBulkDeferral", () => {
     expect(await currentBulkDeferral({ ...lowPower, readPower: async () => ({ batteryPercent: 5, batterySaver: null, charging: true }) })).toBeNull();
     expect(await currentBulkDeferral({ ...base, isLowData: () => true, readConnection: async () => "cellular" })).toBe("low_data");
     expect(await currentBulkDeferral({ ...base, isLowData: () => false, readConnection: async () => "cellular" })).toBeNull();
-  });
-});
-
-describe("a flush that returns with nothing sent", () => {
-  it("does not hold off the next attempt (the server or the network said no)", async () => {
-    await reconnectFlush(deps({ flushDeviceReadings: async () => ({ flushed: 0, remaining: 3 }) }));
-    clock += 1_000;
-    await expect(reconnectFlush(deps())).resolves.toMatchObject({ ran: true });
   });
 });
 

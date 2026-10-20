@@ -10,7 +10,8 @@ export async function readConnectionType(): Promise<Connection> {
   try {
     const mod = await import("@react-native-community/netinfo");
     const state = await mod.default.fetch();
-    if (state.type === "wifi") return "wifi";
+    // Ethernet is a fixed line, not a mobile bundle: treated like Wi-Fi.
+    if (state.type === "wifi" || state.type === "ethernet") return "wifi";
     if (state.type === "cellular") return "cellular";
     return "unknown";
   } catch (error) {
