@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { OPS_DESK_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -32,6 +32,8 @@ import { readPendingQualityConfigSignoff } from "@/lib/queries/pending-quality-c
 import { CapacityConfigPanel } from "../_signoff-panels/capacity-config-panel";
 import { OpsDeskConfigPanel } from "../_signoff-panels/ops-desk-config-panel";
 import { readPendingCapacityConfigSignoff } from "@/lib/queries/pending-capacity-config-signoff";
+import { PagingDeliveryConfigPanel, TaskLayerConfigPanel } from "../_signoff-panels/queue-paging-config-panel";
+import { readPagingActivationCheck, readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
 import { UnifiedRedPagingPanel } from "../_signoff-panels/unified-red-paging-panel";
 import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
 import { GlucoseTaskTypePanel } from "../_signoff-panels/glucose-task-type-panel";
@@ -218,6 +220,14 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has(OPS_DESK_CONFIG_ITEM_KEY)) {
     const pendingOps = await readPendingCapacityConfigSignoff(supabase);
     inlinePanels[OPS_DESK_CONFIG_ITEM_KEY] = <OpsDeskConfigPanel version={pendingOps.opsDeskVersion} />;
+  }
+  if (keys.has(TASK_LAYER_CONFIG_ITEM_KEY) || keys.has(PAGING_DELIVERY_CONFIG_ITEM_KEY)) {
+    const pending = await readPendingQueuePagingConfigSignoff(supabase);
+    if (keys.has(TASK_LAYER_CONFIG_ITEM_KEY)) inlinePanels[TASK_LAYER_CONFIG_ITEM_KEY] = <TaskLayerConfigPanel ask={pending.taskLayer} rules={pending.taskLayerRules} />;
+    if (keys.has(PAGING_DELIVERY_CONFIG_ITEM_KEY)) {
+      const check = pending.pagingVersion === null ? null : await readPagingActivationCheck(supabase, pending.pagingVersion);
+      inlinePanels[PAGING_DELIVERY_CONFIG_ITEM_KEY] = <PagingDeliveryConfigPanel version={pending.pagingVersion} rules={pending.pagingRules} inForce={pending.pagingInForceRules} check={check} />;
+    }
   }
   if (keys.has(RED_OUTREACH_ITEM_KEY)) inlinePanels[RED_OUTREACH_ITEM_KEY] = <RedOutreachPanel />;
   if (keys.has(SOLE_CMO_EXCEPTION_ITEM_KEY)) inlinePanels[SOLE_CMO_EXCEPTION_ITEM_KEY] = <SoleCmoExceptionPanel />;
