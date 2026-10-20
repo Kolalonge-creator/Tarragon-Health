@@ -806,6 +806,8 @@ export function getNavSections(
             { label: "Partner quality", href: "/admin/partner-quality", icon: "governance" },
             // Samples in flight, delays, rejected samples and re-collections per laboratory (S27h).
             { label: "Lab turnaround", href: "/admin/lab-turnaround", icon: "operations" },
+            // Turnaround to supply, flags, complaints and licence expiry for each partner pharmacy; a flag is a suggestion to review, never an automatic removal (S28e).
+            { label: "Pharmacy scorecard", href: "/admin/pharmacy-scorecard", icon: "governance" },
             // What Tarragon owes a pharmacy or clinic from money it collected; labs are never on it (S74).
             { label: "Partner settlements", href: "/admin/partner-settlements", icon: "billing" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },

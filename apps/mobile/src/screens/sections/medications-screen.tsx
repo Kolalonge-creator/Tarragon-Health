@@ -30,6 +30,7 @@ import { SyncBanner } from "@/screens/sync-banner";
 import { MedicineCabinetScreen } from "@/screens/sections/medicine-cabinet-screen";
 import { CareChangeCard } from "@/screens/sections/care-change-card";
 import { RenewalReviewCard } from "@/screens/sections/renewal-review-card";
+import { PharmacyCollectCard } from "@/screens/sections/pharmacy-collect-card";
 
 interface MedicationsScreenProps {
   patientId: string;
@@ -324,6 +325,9 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
       {ownsReminders ? <CareChangeCard /> : null}
 
       {ownsReminders ? <RenewalReviewCard tr={tr} /> : null}
+
+      {/* Choose a pharmacy for prescribed medicines and show the collection code (S28e). Shows nothing while collection is not open or nothing is waiting. */}
+      {ownsReminders ? <PharmacyCollectCard tr={tr} /> : null}
 
       {ownsReminders && issues.length > 0 ? (
         <Card style={{ gap: space.sm }}>
