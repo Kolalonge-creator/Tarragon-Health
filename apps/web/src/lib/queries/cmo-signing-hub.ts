@@ -50,6 +50,8 @@ export const QUALITY_CONFIG_ITEM_KEY = "quality_configs";
 export const CAPACITY_CONFIG_ITEM_KEY = "capacity_configs";
 /** The line for the post-consultation check-in configuration (the questions, what each answer does, the 48 hour and 7 day timing). */
 export const POST_CHECKIN_ITEM_KEY = "post_checkin_config";
+/** The line for the ops desk resilience configuration draft (the checklist gate on the on-call cover guard, OQ-441). */
+export const OPS_DESK_CONFIG_ITEM_KEY = "ops_desk_config";
 /** The key the sole-CMO on-call exception line carries, so the page can attach the signing panel. */
 export const SOLE_CMO_EXCEPTION_ITEM_KEY = "sole_cmo_on_call_exception";
 /** The line for unified red-event paging (S19d): switch the one governed ladder on for SpO2, pulse, temperature, red-flag symptoms and emergency events, or off again. */
@@ -260,6 +262,17 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
       href: "/clinician/clinical-signoff",
       severity: "draft_pending",
       count: (capacityConfigs.capacityVersion !== null ? 1 : 0) + (capacityConfigs.leadVersion !== null ? 1 : 0),
+    });
+  }
+
+  if ((capacityConfigs.opsDeskVersion ?? null) !== null) {
+    items.push({
+      key: OPS_DESK_CONFIG_ITEM_KEY,
+      title: "Ops desk checklist gate",
+      detail: `ops desk configuration version ${capacityConfigs.opsDeskVersion} waiting for your signature. It stays off until you sign: signing it stops the on-call cover guard being switched on until the resilience checklist is attested and a primary and deputy ops contact are active.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
     });
   }
 
