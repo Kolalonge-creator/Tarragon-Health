@@ -10,6 +10,7 @@
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
+grant all on results to public;
 
 create or replace function pg_temp.mkuser(p_org uuid, p_label text, p_role text) returns uuid
 language plpgsql as $f$
