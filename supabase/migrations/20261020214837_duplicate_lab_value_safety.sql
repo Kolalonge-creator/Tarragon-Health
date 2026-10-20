@@ -98,11 +98,11 @@ create function private.link_lab_value_pairs(p_patient uuid, p_code text) return
 language plpgsql security definer set search_path = '' as
 $$
 declare
-  v_cfg jsonb := (private.lab_value_match_active()).config;
-  v_ver integer := (private.lab_value_match_active()).version;
-  v_window integer := (v_cfg ->> 'window_days')::integer;
-  v_tol numeric := (v_cfg ->> 'value_tolerance_pct')::numeric;
-  v_same boolean := coalesce((v_cfg ->> 'require_same_unit')::boolean, true);
+  v_m public.lab_value_match_config := private.lab_value_match_active();
+  v_ver integer := v_m.version;
+  v_window integer := (v_m.config ->> 'window_days')::integer;
+  v_tol numeric := (v_m.config ->> 'value_tolerance_pct')::numeric;
+  v_same boolean := coalesce((v_m.config ->> 'require_same_unit')::boolean, true);
   v_test boolean := coalesce((select pr.is_test from public.profiles pr where pr.id = p_patient), false);
   v_n integer := 0;
   rw record;
@@ -116,7 +116,8 @@ begin
   -- closest values first, so a reading that already has a same-value partner is never also called a disagreement with a different, genuine repeat test
   for rw in
     select i.id as item_id, l.id as legacy_id, i.organisation_id, i.analyte_code, i.value_numeric as sv, i.unit as su, l.value as lv, l.unit as lu,
-           (regexp_replace(lower(coalesce(i.unit, '')), '\s+', '', 'g') = regexp_replace(lower(coalesce(l.unit, '')), '\s+', '', 'g')) as same_unit,
+           (regexp_replace(lower(coalesce(i.unit, '')), '\s+', '', 'g') = regexp_replace(lower(coalesce(l.unit, '')), '\s+', '', 'g')
+            or btrim(coalesce(i.unit, '')) = '' or btrim(coalesce(l.unit, '')) = '') as same_unit,   -- a missing unit is unknown, not different
            (abs(i.value_numeric - l.value) <= greatest(abs(i.value_numeric), abs(l.value)) * v_tol / 100.0) as near
       from public.lab_result_items i
       join public.lab_results r on r.id = i.lab_result_id
@@ -162,7 +163,7 @@ create table public.lab_value_link_failures (
 );
 alter table public.lab_value_link_failures enable row level security;
 revoke all on public.lab_value_link_failures from public, anon, authenticated;
-comment on table public.lab_value_link_failures is 'DUP-1: a duplicate-link attempt that failed. Ids and an error text only. Nothing reads it yet (OQ-DUP-1-6); re-link by calling private.link_lab_value_pairs(patient, code).';
+comment on table public.lab_value_link_failures is 'DUP-1: a duplicate-link attempt that failed. Ids and the SQLSTATE only (an error text can echo a failing row, which would carry patient data). Nothing reads it yet (OQ-DUP-1-6); re-link by calling private.link_lab_value_pairs(patient, code).';
 
 create function private.lab_value_link_trigger_item() returns trigger
 language plpgsql security definer set search_path = '' as
@@ -170,8 +171,8 @@ $$ begin
   begin
     perform private.link_lab_value_pairs(new.patient_id, new.analyte_code);
   exception when others then
-    insert into public.lab_value_link_failures (source_table, source_id, error) values ('lab_result_items', new.id, left(sqlerrm, 500));
-    raise warning 'DUP-1 link failed for lab_result_items %: %', new.id, sqlerrm;
+    insert into public.lab_value_link_failures (source_table, source_id, error) values ('lab_result_items', new.id, 'sqlstate ' || sqlstate);
+    raise warning 'DUP-1 link failed for lab_result_items %: sqlstate %', new.id, sqlstate;
   end;
   return null;
 end $$;
@@ -181,8 +182,8 @@ $$ begin
   begin
     if not coalesce(new.sensitive_positive, false) and new.correction_status is null then perform private.link_lab_value_pairs(new.patient_id, new.code); end if;
   exception when others then
-    insert into public.lab_value_link_failures (source_table, source_id, error) values ('lab_analyte_readings', new.id, left(sqlerrm, 500));
-    raise warning 'DUP-1 link failed for lab_analyte_readings %: %', new.id, sqlerrm;
+    insert into public.lab_value_link_failures (source_table, source_id, error) values ('lab_analyte_readings', new.id, 'sqlstate ' || sqlstate);
+    raise warning 'DUP-1 link failed for lab_analyte_readings %: sqlstate %', new.id, sqlstate;
   end;
   return null;
 end $$;
@@ -205,6 +206,23 @@ $$
 $$;
 revoke all on function private.lab_item_visible(uuid) from public, anon, authenticated;
 
+-- A disagreement link counts only while BOTH its readings are still shown and neither has since been found to have a same-value partner (a later
+-- duplicate link retires an older disagreement involving the same reading, whatever order the rows arrived in).
+create function private.live_disagreement(p_link uuid) returns boolean
+language sql stable security definer set search_path = '' as
+$$
+  select exists (
+    select 1 from public.lab_value_links k
+      join private.lab_analyte_readings_current c on c.id = k.legacy_reading_id
+     where k.id = p_link and k.relation = 'disagreement'
+       and c.report_status in ('final', 'corrected', 'amended')
+       and private.lab_item_visible(k.structured_item_id)
+       and not exists (select 1 from public.lab_value_links d
+                        where d.relation = 'duplicate' and (d.structured_item_id = k.structured_item_id or d.legacy_reading_id = k.legacy_reading_id)
+                          and private.lab_item_visible(d.structured_item_id)))
+$$;
+revoke all on function private.live_disagreement(uuid) from public, anon, authenticated;
+
 -- Trend points: two new columns (also_from: the second source behind a collapsed duplicate; disagrees: a link of relation 'disagreement' exists
 -- with the other side currently visible). The legacy side reads the _current view (a superseded row is not a reading).
 drop function private.biomarker_points(uuid, text);
@@ -219,8 +237,7 @@ $$
          case when exists (select 1 from public.lab_value_links k join private.lab_analyte_readings_current c on c.id = k.legacy_reading_id
                             where k.structured_item_id = i.id and k.relation = 'duplicate' and c.report_status in ('final', 'corrected', 'amended'))
               then 'legacy_report' end,
-         exists (select 1 from public.lab_value_links k join private.lab_analyte_readings_current c on c.id = k.legacy_reading_id
-                  where k.structured_item_id = i.id and k.relation = 'disagreement' and c.report_status in ('final', 'corrected', 'amended'))
+         exists (select 1 from public.lab_value_links k where k.structured_item_id = i.id and k.relation = 'disagreement' and private.live_disagreement(k.id))
     from public.lab_result_items i
     join public.lab_results r on r.id = i.lab_result_id
    where i.patient_id = p_patient and lower(i.analyte_code) = lower(p_code) and i.value_numeric is not null
@@ -229,7 +246,7 @@ $$
   union all
   select l.taken_at, l.value, l.unit, l.reference_range_low, l.reference_range_high, l.reference_range_text, l.abnormal_flag::text, 'legacy_report'::text, l.laboratory,
          null::text,
-         exists (select 1 from public.lab_value_links k where k.legacy_reading_id = l.id and k.relation = 'disagreement' and private.lab_item_visible(k.structured_item_id))
+         exists (select 1 from public.lab_value_links k where k.legacy_reading_id = l.id and k.relation = 'disagreement' and private.live_disagreement(k.id))
     from private.lab_analyte_readings_current l
    where l.patient_id = p_patient and lower(l.code) = lower(p_code) and l.value is not null
      and l.report_status in ('final', 'corrected', 'amended')
@@ -241,9 +258,8 @@ revoke all on function private.biomarker_points(uuid, text) from public, anon, a
 create function private.lab_code_disputed(p_patient uuid, p_code text) returns boolean
 language sql stable security definer set search_path = '' as
 $$
-  select exists (select 1 from public.lab_value_links k join private.lab_analyte_readings_current c on c.id = k.legacy_reading_id
-                  where k.patient_id = p_patient and lower(k.analyte_code) = lower(p_code) and k.relation = 'disagreement'
-                    and c.report_status in ('final', 'corrected', 'amended') and private.lab_item_visible(k.structured_item_id))
+  select exists (select 1 from public.lab_value_links k
+                  where k.patient_id = p_patient and lower(k.analyte_code) = lower(p_code) and k.relation = 'disagreement' and private.live_disagreement(k.id))
 $$;
 revoke all on function private.lab_code_disputed(uuid, text) from public, anon, authenticated;
 
@@ -385,7 +401,7 @@ begin
     join public.lab_result_items i on i.id = k.structured_item_id
     join public.lab_results r on r.id = i.lab_result_id
     join private.lab_analyte_readings_current l on l.id = k.legacy_reading_id
-   where k.patient_id = v_patient and k.relation = 'disagreement' and private.lab_item_visible(k.structured_item_id)
+   where k.patient_id = v_patient and k.relation = 'disagreement' and private.live_disagreement(k.id)
      and l.report_status in ('final', 'corrected', 'amended')
      -- staff never see a reproductive or mental health analyte through this note (the person does, it is their own record)
      and (v_patient = v_uid or (private.confidential_domain_of_text(k.analyte_code) is null
@@ -414,7 +430,7 @@ begin
     if has_function_privilege('anon', v_fn, 'EXECUTE') then raise exception 'anon can execute %', v_fn; end if;
     if not has_function_privilege('authenticated', v_fn, 'EXECUTE') then raise exception 'authenticated cannot execute %', v_fn; end if;
   end loop;
-  foreach v_fn in array array['private.link_lab_value_pairs(uuid, text)', 'private.biomarker_points(uuid, text)', 'private.hr_biomarker_points(uuid, text)', 'private.lab_item_visible(uuid)', 'private.lab_code_disputed(uuid, text)', 'private.lab_value_match_active()'] loop
+  foreach v_fn in array array['private.link_lab_value_pairs(uuid, text)', 'private.biomarker_points(uuid, text)', 'private.hr_biomarker_points(uuid, text)', 'private.lab_item_visible(uuid)', 'private.live_disagreement(uuid)', 'private.lab_code_disputed(uuid, text)', 'private.lab_value_match_active()'] loop
     if has_function_privilege('anon', v_fn, 'EXECUTE') or has_function_privilege('authenticated', v_fn, 'EXECUTE') then raise exception 'a client can execute %', v_fn; end if;
   end loop;
   if has_table_privilege('authenticated', 'public.lab_value_match_config', 'SELECT') or has_table_privilege('authenticated', 'public.lab_value_links', 'INSERT')

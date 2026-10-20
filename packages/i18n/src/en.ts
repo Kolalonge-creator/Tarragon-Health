@@ -3463,6 +3463,7 @@ export const en = {
   "biomarkers.col.from": "Reported by",
   "biomarkers.source.lab_result": "Laboratory",
   "biomarkers.source.legacy_report": "Uploaded report",
+  "biomarkers.list_disputed": "Two reports differ",
   "biomarkers.also_from": "Also reported on your {source}. Shown once.",
   "biomarkers.disagrees": "Another report gives a different value for this test. Both are shown. Your care team can check them with you.",
   "biomarkers.disputed": "Two reports for the same test and date do not agree, so both are listed below. Nothing has been chosen for you. Your care team can look at them with you.",

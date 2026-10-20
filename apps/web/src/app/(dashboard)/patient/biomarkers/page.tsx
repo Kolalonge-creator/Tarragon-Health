@@ -14,6 +14,7 @@ interface ListItem {
   last_at: string;
   latest_value: number | null;
   latest_unit: string | null;
+  disputed?: boolean;
 }
 
 function fmt(value: string): string {
@@ -68,6 +69,7 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
               >
                 {displayCode(item.code)}
                 <span className="ml-2 text-xs text-charcoal-ink/60">{t("biomarkers.readings", uiLanguage, { count: String(item.readings) })}</span>
+                {item.disputed === true && <span className="ml-2 text-xs text-amber-900">{t("biomarkers.list_disputed", uiLanguage)}</span>}
               </Link>
             ))}
           </nav>

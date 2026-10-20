@@ -19,7 +19,7 @@ Can the same lab value, arriving once as a structured result (S27 writer, S44 pa
 - Red-flag logic is NOT de-duplicated: a critical value arriving twice may page twice. Two pages are safe, a suppressed one is not.
 
 ## 4. Proof
-`packages/db/tests/dup1_duplicate_lab_value_safety.sql` (45 checks, 3 sabotage steps: links removed, triggers dropped, visibility check bypassed; each flips a check). Run against live inside a rolled-back transaction with the migration spliced in (no local Docker was available). Jest: trend parser, disagreement parser, registry mirror.
+`packages/db/tests/dup1_duplicate_lab_value_safety.sql` (48 checks, 3 sabotage steps: links removed, triggers dropped, visibility check bypassed; each flips a check). Run against live inside a rolled-back transaction with the migration spliced in (no local Docker was available). Jest: trend parser, disagreement parser, registry mirror.
 
 ## 5. Not built
 A staff screen to confirm or edit the match config; merging disputed pairs (a clinician files a correction through the existing correction path); export de-duplication.

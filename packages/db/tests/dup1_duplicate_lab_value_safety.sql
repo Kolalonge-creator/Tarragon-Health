@@ -175,6 +175,28 @@ begin
     pg_temp.q_as(v_pat, $q$select (select (e ->> 'latest_value') is null from jsonb_array_elements(public.patient_biomarker_list()) e where e ->> 'code' = 'ldl')::text
                          || ':' || (select (e ->> 'latest_value') is null from jsonb_array_elements(public.patient_biomarker_list()) e where e ->> 'code' = 'cholesterol')::text$q$));
 
+  insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_numeric, unit, flag, sensitive_positive, is_test)
+  values (v_res2, v_org, v_pat, 'chloride', 100, '', 'normal', false, true);
+  insert into public.lab_analyte_readings (organisation_id, patient_id, code, value, unit, taken_at, report_status)
+  values (v_org, v_pat, 'chloride', 100, 'mmol/L', now(), 'final');
+  perform pg_temp.ck('3l a missing unit on the lab side is unknown, not a disagreement', 'duplicate',
+    (select relation from public.lab_value_links where patient_id = v_pat and analyte_code = 'chloride'));
+  -- arrival order: a disagreement that a LATER same-value partner resolves stops counting
+  insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_numeric, unit, flag, sensitive_positive, is_test)
+  values (v_res2, v_org, v_pat, 'alt', 20, 'U/L', 'normal', false, true);
+  insert into public.lab_analyte_readings (organisation_id, patient_id, code, value, unit, taken_at, report_status)
+  values (v_org, v_pat, 'alt', 31, 'U/L', now(), 'final');
+  perform pg_temp.ck('3m first the pair disagrees and the series is disputed', 'true',
+    (private.lab_code_disputed(v_pat, 'alt'))::text);
+  insert into public.lab_results (id, organisation_id, patient_id, source, submitted_by_kind, release_state, received_at, is_test)
+  values (gen_random_uuid(), v_org, v_pat, 'api', 'partner', 'awaiting_review', now(), true) returning id into v_res4;
+  insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_numeric, unit, flag, sensitive_positive, is_test)
+  values (v_res4, v_org, v_pat, 'alt', 31, 'U/L', 'normal', false, true);
+  update public.lab_results set release_state = 'released', reviewed_by = v_doc, reviewed_at = now() where id = v_res4;
+  perform pg_temp.ck('3n a later same-value partner retires that disagreement (not disputed, no false flag)', 'false:2:false',
+    (private.lab_code_disputed(v_pat, 'alt'))::text || ':' || (select count(*)::text from private.biomarker_points(v_pat, 'alt')) || ':' ||
+    (select bool_or(disagrees)::text from private.biomarker_points(v_pat, 'alt')));
+
   -- ===== 4. nothing is lost by collapsing ========================================================================================
   update public.lab_results set withdrawn_at = now(), withdrawn_by = v_admin, withdrawn_reason = 'DUP1 proof withdrawal' where id = v_res;
   perform pg_temp.ck('4a withdrawing the structured result brings the paper value back (one point, legacy source)', '1:legacy_report',
@@ -252,7 +274,7 @@ begin
   values (v_res3, v_org, v_pat, 'potassium', 6.9, 'mmol/L', 'high', false, true);
   perform pg_temp.ck('7m the result is stored even though the matcher failed, and the failure is recorded', '1:1',
     (select count(*)::text from public.lab_result_items where patient_id = v_pat and analyte_code = 'potassium') || ':' ||
-    (select count(*)::text from public.lab_value_link_failures where error like '%matcher broken on purpose%'));
+    (select count(*)::text from public.lab_value_link_failures where error = 'sqlstate P0001'));
   perform pg_temp.ck('7n no client can read the failures table', 'true',
     (pg_temp.q_as(v_pat, 'select count(*) from public.lab_value_link_failures') like '%permission denied%')::text);
 
