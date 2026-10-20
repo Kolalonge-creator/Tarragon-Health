@@ -6,6 +6,9 @@ import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { runLabReportExtraction } from "@/lib/lab-reports/extraction-actions";
 import { replaceResultDocumentSchema, validateResultDocFile } from "@/lib/validation/lab-result-documents";
 
+/** SQLSTATEs public.replace_my_result_document raises before it writes anything. */
+const REPLACE_REFUSAL_CODES: ReadonlySet<string> = new Set(["28000", "42501", "55000", "22023"]);
+
 const EXT_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -18,11 +21,10 @@ const EXT_BY_MIME: Record<string, string> = {
  * Native mirror of replaceResultDocumentAsPatient
  * (apps/web/src/lib/lab-results/actions.ts) for the Expo mobile app, same
  * reasoning as lab-result-upload/route.ts: a Server Action can't be invoked
- * from a bare fetch. "I photographed the wrong result" — swaps the file on
- * the same lab_result_documents row, in place, while it's still unreviewed.
- * DB-enforced (20260912220345_lab_result_documents_patient_self_replace.sql)
- * via the bearer-authenticated client's own RLS session; the checks below
- * exist for a clear error message, not as the real gate.
+ * from a bare fetch. "I photographed the wrong result" — supersedes the
+ * document (a new row linked to the old one, the old row and file kept) while
+ * it's still unreviewed, through public.replace_my_result_document. The DB
+ * function is the real gate; the checks below exist for a clear error message.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   const authHeader = request.headers.get("authorization");
@@ -83,7 +85,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const oldPath = doc.file_path;
   const ext = EXT_BY_MIME[file.type] ?? "bin";
   const path = `${user.id}/${randomUUID()}.${ext}`;
 
@@ -94,27 +95,27 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
-  const { error: updateError } = await supabase
-    .from("lab_result_documents")
-    .update({
-      file_path: path,
-      original_filename: file.name,
-      mime_type: file.type,
-      file_size_bytes: file.size,
-      ...(note ? { note } : {}),
-      ai_summary_status: "pending",
-      ai_summary_generated_at: null,
-    })
-    .eq("id", documentId);
-  if (updateError) {
-    await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  // Supersede, never edit (see replaceResultDocumentAsPatient): the database function inserts the new document, links both ways,
+  // keeps the old row and file, and hands the open review alert to the new document in one transaction.
+  const { data: newDocumentId, error: replaceError } = await supabase.rpc("replace_my_result_document", {
+    p_document_id: documentId,
+    p_file_path: path,
+    p_original_filename: file.name,
+    p_mime_type: file.type,
+    p_file_size_bytes: file.size,
+    ...(note ? { p_note: note } : {}),
+  });
+  if (replaceError || !newDocumentId) {
+    // Delete the new object only on a clear database refusal; after a timeout the replace may have committed (see
+    // replaceResultDocumentAsPatient), and an orphaned object is the harmless side to err on.
+    if (replaceError && REPLACE_REFUSAL_CODES.has(replaceError.code)) {
+      await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
+    }
+    return NextResponse.json({ error: replaceError?.message ?? "Could not replace that upload." }, { status: 500 });
   }
 
-  await supabase.storage.from(RESULT_DOC_BUCKET).remove([oldPath]);
-
   await runLabReportExtraction(createServiceRoleClient(), {
-    documentId,
+    documentId: newDocumentId,
     organisationId: doc.organisation_id,
     patientId: user.id,
     filePath: path,
