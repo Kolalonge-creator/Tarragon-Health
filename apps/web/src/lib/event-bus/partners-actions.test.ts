@@ -3,12 +3,13 @@ import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 type RpcResult = { data: unknown; error: { code?: string; message?: string } | null };
 const rpc = jest.fn<(name: string, args: Record<string, unknown>) => Promise<RpcResult>>();
 let role: string | null = "admin";
+const loadMappings = jest.fn<() => Promise<{ rows: { event_type: string; mapped: boolean }[]; failed: boolean }>>();
 const loadEndpoints = jest.fn<() => Promise<{ rows: { id: string; previous_secret_expires_at: string | null }[]; failed: boolean }>>();
 
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 jest.mock("@/lib/auth/current-profile", () => ({ getCurrentProfile: async () => (role ? { role } : null) }));
 jest.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ rpc }) }));
-jest.mock("./partners-load", () => ({ loadPartnerEndpoints: () => loadEndpoints() }));
+jest.mock("./partners-load", () => ({ loadPartnerEndpoints: () => loadEndpoints(), loadPartnerMappings: () => loadMappings() }));
 
 import { reenablePartnerEndpointAction, removeMappingAction, rotatePartnerSecretAction, saveMappingAction } from "./partners-actions";
 import { IDLE } from "./partners-model";
@@ -24,6 +25,8 @@ function form(entries: Record<string, string>): FormData {
 beforeEach(() => {
   rpc.mockReset();
   loadEndpoints.mockReset();
+  loadMappings.mockReset();
+  loadMappings.mockResolvedValue({ rows: [{ event_type: "lab_result.released", mapped: false }], failed: false });
   loadEndpoints.mockResolvedValue({ rows: [{ id: ID, previous_secret_expires_at: "2026-10-21T10:00:00Z" }], failed: false });
   role = "admin";
 });
@@ -78,6 +81,15 @@ describe("rotatePartnerSecretAction", () => {
     expect(state.secret).toBeUndefined();
   });
 
+  it("still returns the secret, with the requested window, if the follow-up list read throws", async () => {
+    rpc.mockResolvedValue({ data: SECRET, error: null });
+    loadEndpoints.mockRejectedValue(new Error("down"));
+    const state = await rotatePartnerSecretAction(IDLE, form({ endpoint_id: ID, grace_hours: "24", confirm: "on" }));
+    expect(state.status).toBe("ok");
+    expect(state.secret).toBe(SECRET);
+    expect(state.graceEndsAt).toBeTruthy();
+  });
+
   it("fails closed on a malformed database answer", async () => {
     rpc.mockResolvedValue({ data: "short", error: null });
     const state = await rotatePartnerSecretAction(IDLE, form({ endpoint_id: ID, grace_hours: "24", confirm: "on" }));
@@ -111,6 +123,11 @@ describe("reenablePartnerEndpointAction", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("says so when the endpoint is already on", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "55000" } });
+    expect((await reenablePartnerEndpointAction(IDLE, form({ endpoint_id: ID, reason: "partner fixed their server" }))).message).toBe("busops.partners.enable.already_on");
+  });
+
   it("reports a database failure instead of success", async () => {
     rpc.mockResolvedValue({ data: null, error: { code: "55000" } });
     expect((await reenablePartnerEndpointAction(IDLE, form({ endpoint_id: ID, reason: "partner fixed their server" }))).status).toBe("error");
@@ -140,6 +157,12 @@ describe("mapping actions", () => {
     ]) {
       expect((await saveMappingAction(IDLE, form(bad))).status).toBe("error");
     }
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("will not overwrite an existing mapping", async () => {
+    loadMappings.mockResolvedValue({ rows: [{ event_type: "lab_result.released", mapped: true }], failed: false });
+    expect((await saveMappingAction(IDLE, form(good))).message).toBe("busops.partners.mappings.already_mapped");
     expect(rpc).not.toHaveBeenCalled();
   });
 

@@ -26,7 +26,7 @@ end $f$;
 do $$
 declare
   v_org uuid; v_admin uuid; v_clin uuid; v_partner uuid; v_ep uuid; v_new text; v_err text; v_cols text; v_n integer;
-  v_key text;
+  v_key text; v_org2 uuid; v_ep2 uuid; v_partner2 uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -35,9 +35,15 @@ begin
   insert into public.partner_integrations (organisation_id, name, base_url) values (v_org, 's10y partner', 'https://example.invalid') returning id into v_partner;
   insert into public.partner_webhook_endpoints (organisation_id, partner_integration_id, name, url, secret, event_types, environment,
                                                 is_active, consecutive_failures, auto_disabled_at, disabled_reason)
-    values (v_org, v_partner, 's10y ep', 'https://hooks.example.invalid/path/x', repeat('a', 40), array['result.available']::public.integration_event_type[], 'live',
+    values (v_org, v_partner, 's10y ep', 'https://svc:pw@hooks.example.invalid:8443/path/x', repeat('a', 40), array['result.available']::public.integration_event_type[], 'live',
             false, 20, now(), 'Switched off automatically')
     returning id into v_ep;
+
+  insert into public.organisations (name, type) values ('s10y other org', (select type from public.organisations where id = v_org)) returning id into v_org2;
+  insert into public.partner_integrations (organisation_id, name, base_url) values (v_org2, 's10y other partner', 'https://example.invalid') returning id into v_partner2;
+  insert into public.partner_webhook_endpoints (organisation_id, partner_integration_id, name, url, secret, event_types, environment, is_active)
+    values (v_org2, v_partner2, 's10y other ep', 'https://other.example.invalid/x', repeat('c', 40), array['result.available']::public.integration_event_type[], 'live', false)
+    returning id into v_ep2;
 
   -- 1. List ----------------------------------------------------------------------------------
   perform set_config('request.jwt.claims', json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
@@ -48,14 +54,22 @@ begin
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  select count(*) into v_n from public.admin_list_partner_webhook_endpoints() where id = v_ep and url_host = 'hooks.example.invalid' and not is_active and consecutive_failures = 20;
+  select count(*) into v_n from public.admin_list_partner_webhook_endpoints() where id = v_ep and url_host = 'hooks.example.invalid:8443' and not is_active and consecutive_failures = 20;
   insert into results values ('real', 'admin sees the endpoint with host, status and failures', '1', v_n::text);
   reset role;
   select string_agg(n, ',') into v_cols
     from (select unnest(p.proargnames) n from pg_proc p
            where p.proname = 'admin_list_partner_webhook_endpoints' and p.pronamespace = 'public'::regnamespace) q
-   where n like '%secret%';
+   where n in ('secret', 'previous_secret');
   insert into results values ('real', 'list output has no secret column', 'null', coalesce(v_cols, 'null'));
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_n from public.admin_list_partner_webhook_endpoints() where id = v_ep2;
+  insert into results values ('real', 'another organisation endpoint is not listed', '0', v_n::text);
+  begin perform public.admin_reenable_partner_webhook_endpoint(v_ep2, 'trying another organisation'); v_err := 'accepted'; exception when others then v_err := sqlstate; end;
+  reset role;
+  insert into results values ('real', 'another organisation endpoint cannot be re-enabled', 'P0001|false', v_err || '|' || (select is_active::text from public.partner_webhook_endpoints where id = v_ep2));
 
   -- 2. Re-enable -------------------------------------------------------------------------------
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
@@ -103,6 +117,8 @@ begin
   begin perform public.admin_disable_partner_event_mapping('lab_result.released'); v_err := 'accepted'; exception when others then v_err := sqlstate; end;
   reset role;
   insert into results values ('real', 'a clinician cannot remove a mapping', '42501', v_err);
+  -- the event type is switched off after it was mapped: the mapping must still be removable
+  update public.event_types set is_active = false where event_type = 'lab_result.released';
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
   set local role authenticated;
   perform public.admin_disable_partner_event_mapping('lab_result.released');

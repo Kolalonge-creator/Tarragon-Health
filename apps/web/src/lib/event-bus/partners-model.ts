@@ -57,6 +57,8 @@ export type PartnerMessageKey =
   | "busops.partners.error.failed"
   | "busops.partners.rotate.in_grace"
   | "busops.partners.enable.done"
+  | "busops.partners.enable.already_on"
+  | "busops.partners.mappings.already_mapped"
   | "busops.partners.mappings.saved"
   | "busops.partners.mappings.removed";
 

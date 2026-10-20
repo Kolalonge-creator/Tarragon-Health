@@ -39,7 +39,7 @@ export default async function PartnerEndpointsPage() {
 
   const [endpoints, mappings] = await Promise.all([loadPartnerEndpoints(), loadPartnerMappings()]);
   const mapped = mappings.rows.filter((m) => m.mapped);
-  const eventOptions = mappings.rows.map((m) => ({ value: m.event_type, label: m.event_type }));
+  const eventOptions = mappings.rows.filter((m) => !m.mapped).map((m) => ({ value: m.event_type, label: m.event_type }));
 
   return (
     <div className="space-y-6">

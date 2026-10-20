@@ -1,9 +1,11 @@
 -- S10y: admin screen support for partner webhook endpoints (additive; no table or existing function is changed).
---   1. admin_list_partner_webhook_endpoints(): admin only, current organisation. Projects status columns and the host of the URL,
+--   1. admin_list_partner_webhook_endpoints(): admin only, current organisation. Projects status columns and the host and port of the URL
+--      (any user:password@ part removed),
 --      NEVER secret or previous_secret (the table holds both; this is the only read the screen uses).
 --   2. admin_reenable_partner_webhook_endpoint(id, reason): admin only, a typed reason of 10 to 300 characters is required and is
 --      written to the audit log with the failure count it cleared. Resets through the existing on-enable trigger.
---      The older reenable_partner_webhook_endpoint(uuid) is left in place untouched.
+--      The older reenable_partner_webhook_endpoint(uuid) (no reason) is left in place untouched because the S10x proof calls it; no
+--      screen uses it. Revoking it is a follow-up once that proof is moved.
 --   3. admin_disable_partner_event_mapping(event_type): admin only, wraps set_partner_event_mapping(.., null) so the app does not have
 --      to pass a null enum. Creating a mapping still goes through set_partner_event_mapping.
 --   4. admin_list_partner_event_mappings(): admin only, active event types with their mapping (if any), for the picklist.
@@ -28,7 +30,7 @@ begin
     raise exception 'only an admin may list partner endpoints' using errcode = '42501';
   end if;
   return query
-  select w.id, w.name, split_part(substr(w.url, 9), '/', 1), w.environment, w.is_active, w.event_types,
+  select w.id, w.name, regexp_replace((regexp_match(substr(w.url, 9), '^([^/?#]*)'))[1], '^.*@', ''), w.environment, w.is_active, w.event_types,
          w.last_success_at, w.last_failure_at, w.consecutive_failures, w.auto_disabled_at, w.disabled_reason,
          w.signing_key_version,
          case when w.previous_secret_expires_at > now() then w.previous_secret_expires_at end,
@@ -36,8 +38,7 @@ begin
            where e.webhook_endpoint_id = w.id and e.status in ('pending', 'failed'))
     from public.partner_webhook_endpoints w
    where w.organisation_id = private.current_org_id()
-   order by w.created_at desc
-   limit 200;
+   order by w.created_at desc;
 end;
 $$;
 
@@ -114,7 +115,13 @@ begin
   if not exists (select 1 from public.partner_event_map where bus_event_type = p_bus_event_type) then
     raise exception 'no such mapping' using errcode = '22023';
   end if;
-  perform public.set_partner_event_mapping(p_bus_event_type, null, '{}');
+  -- Done directly, not through set_partner_event_mapping, which refuses an event type that has since been deactivated: a mapping
+  -- whose event type was switched off must still be removable.
+  delete from public.partner_event_map where bus_event_type = p_bus_event_type;
+  update public.event_subscribers set is_active = false
+   where subscriber_key = 'partner.webhook.' || replace(p_bus_event_type, '.', '_');
+  perform private.log_audit('event_bus.partner_mapping', 'event_subscribers', null,
+    jsonb_build_object('bus_event_type', p_bus_event_type, 'integration_event_type', null, 'removed', true));
 end;
 $$;
 
