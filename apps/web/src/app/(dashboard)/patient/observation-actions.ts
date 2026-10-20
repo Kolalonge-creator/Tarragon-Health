@@ -73,9 +73,12 @@ export async function logObservation(_prev: ObservationActionState, formData: Fo
     const ctx = await whoAndWhere();
     if ("error" in ctx) return { error: ctx.error };
     if (!(await readExtendedObservationsEnabled(ctx.supabase))) return { error: NOT_SWITCHED_ON_MESSAGE };
-    const row = lifestyleRow(reading, { patientId: ctx.subjectId, organisationId: ctx.organisationId });
+    // The form carries a key made once per form, so a double click or a resubmit of the same entry is one row, not two.
+    const clientKey = z.string().uuid().safeParse(formData.get("client_reading_id"));
+    const row = lifestyleRow(reading, { patientId: ctx.subjectId, organisationId: ctx.organisationId, clientReadingId: clientKey.success ? clientKey.data : undefined });
     const { error } = await ctx.supabase.from("vitals_readings").insert(row);
     if (error) {
+      if (clientKey.success && error.code === "23505") return { success: true };
       // 23514: the database's own plausibility CHECK answered; say the same plain sentence
       if (error.code === "23514") return { error: en[observationRangeMessageKey(limitKey)] };
       if (error.code === "55000") return { error: NOT_SWITCHED_ON_MESSAGE };
@@ -103,9 +106,11 @@ export async function logInhalerUse(_prev: ObservationActionState, formData: For
     const ctx = await whoAndWhere();
     if ("error" in ctx) return { error: ctx.error };
     if (!(await readExtendedObservationsEnabled(ctx.supabase))) return { error: NOT_SWITCHED_ON_MESSAGE };
+    const clientKey = z.string().uuid().safeParse(formData.get("client_reading_id"));
     const { error } = await ctx.supabase.rpc("log_inhaler_use", {
       p_puffs: parsed.data.puffs,
       p_reason: parsed.data.reason,
+      ...(clientKey.success ? { p_client_log_id: clientKey.data } : {}),
       ...(ctx.subjectId !== ctx.userId ? { p_beneficiary: ctx.subjectId } : {}),
     });
     if (error) return { error: error.code === "55000" ? NOT_SWITCHED_ON_MESSAGE : "Couldn't save that. Check your connection and try again." };
@@ -174,6 +179,8 @@ export async function correctOwnReading(_prev: ObservationActionState, formData:
     if (error) {
       if (error.code === "42501") return { error: "A care team member has already reviewed or recorded this one. Ask them to correct it." };
       if (error.code === "22023") return { error: "This entry was already changed." };
+      if (error.code === "55000") return { error: NOT_SWITCHED_ON_MESSAGE };
+      if (error.code === "23514") return { error: en[observationRangeMessageKey(limitKey)] };
       return { error: "Couldn't change that. Check your connection and try again." };
     }
     revalidatePath("/patient/vitals");

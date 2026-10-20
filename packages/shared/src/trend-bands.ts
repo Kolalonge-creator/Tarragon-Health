@@ -53,6 +53,30 @@ export function weightTrendBand(heightCm: number | null | undefined): TrendBand 
   return { low: round1(low * m * m), high: round1(high * m * m), origin: "standard" };
 }
 
+/**
+ * Whether the standard bands may be drawn for this person at all. All of these must hold, and an unknown is a no: the platform module `trend_target_bands`
+ * is on (born off while the bands are unconfirmed), the person is an adult with a known date of birth (the BMI band is an adult band; children have the
+ * growth chart), and she is not recorded as pregnant (pregnancy has its own, tighter glucose and weight guidance). Fail closed on everything else.
+ */
+export function trendBandsEligible(input: {
+  moduleEnabled: boolean | null | undefined;
+  dateOfBirth: string | null | undefined;
+  isPregnant: boolean | null | undefined;
+  now?: Date;
+}): boolean {
+  if (input.moduleEnabled !== true) return false;
+  // profiles.is_pregnant is null for someone never recorded as pregnant (the rest of the platform reads null as not pregnant)
+  if (input.isPregnant === true) return false;
+  if (!input.dateOfBirth) return false;
+  const dob = new Date(input.dateOfBirth);
+  if (Number.isNaN(dob.getTime())) return false;
+  const now = input.now ?? new Date();
+  let age = now.getUTCFullYear() - dob.getUTCFullYear();
+  const beforeBirthday = now.getUTCMonth() < dob.getUTCMonth() || (now.getUTCMonth() === dob.getUTCMonth() && now.getUTCDate() < dob.getUTCDate());
+  if (beforeBirthday) age -= 1;
+  return age >= 18;
+}
+
 /** The sentence under the chart that names the band, so the colour is never the only signal. */
 export function bandCaption(kind: "glucose" | "weight", band: TrendBand, unitLabel: string): string {
   const who = band.origin === "care_team" ? "your care team's target range" : "the usual target range";

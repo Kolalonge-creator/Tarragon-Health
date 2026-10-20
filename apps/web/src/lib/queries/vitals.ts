@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { computeBmi } from "@/lib/obesity/classify";
 import { fetchHeightStatus, type HeightStatus } from "@/lib/health-metrics/height";
 import { readPatientVitalsOrThrow } from "@/lib/clinical/vitals-audited";
+import { trendBandsEligible } from "@tarragon/shared";
 
 export function useVitalsReadings(patientId: string) {
   return useQuery({
@@ -72,6 +73,33 @@ export function useVitalsTrend(
       }));
     },
     staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+    enabled: !!patientId,
+  });
+}
+
+/**
+ * S47a: whether the standard target bands may be drawn on this person's glucose and weight charts: the `trend_target_bands` module is on, she is an adult,
+ * and she is not recorded as pregnant (see trendBandsEligible). Any read that fails means no band, never a guessed one.
+ */
+export function useTrendBandsEligible(patientId: string) {
+  return useQuery({
+    queryKey: ["trend-bands-eligible", patientId],
+    queryFn: async (): Promise<boolean> => {
+      const supabase = createClient();
+      const [mod, prof] = await Promise.all([
+        supabase.from("platform_modules").select("is_enabled").eq("key", "trend_target_bands").maybeSingle(),
+        supabase.from("profiles").select("date_of_birth, is_pregnant").eq("id", patientId).maybeSingle(),
+      ]);
+      if (mod.error || prof.error || !prof.data) return false;
+      return trendBandsEligible({
+        moduleEnabled: mod.data?.is_enabled ?? null,
+        dateOfBirth: prof.data.date_of_birth,
+        isPregnant: prof.data.is_pregnant,
+      });
+    },
+    staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     retry: false,
     enabled: !!patientId,

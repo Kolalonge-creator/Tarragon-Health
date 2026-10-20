@@ -69,8 +69,9 @@ export function ObservationLimitsView({ row, canSign }: { row: ObservationLimits
             </tbody>
           </table>
           <p className="mt-3 text-charcoal-ink/70">
-            The rows marked new need your view. The first nine restate limits already enforced on the phone, the web and the API. Signing does not switch the
-            water, sleep, mood or inhaler logs on, and no alert rule exists for them.
+            The rows marked new need your view. The first nine restate limits already enforced on the phone, the web and the API. Signing records that you
+            reviewed these numbers as shipped; it does not change any number, because the numbers in force are built into the apps and the database. Changing one is
+            an engineering change. Signing does not switch the water, sleep, mood or inhaler logs on, and no alert rule exists for them.
           </p>
         </CardContent>
       </Card>

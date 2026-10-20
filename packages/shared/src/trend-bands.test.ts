@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GLUCOSE_MMOL_TO_MGDL } from "./index";
-import { BAND_MMOL_TO_MGDL, bandCaption, glucoseTrendBand, weightTrendBand } from "./trend-bands";
+import { BAND_MMOL_TO_MGDL, bandCaption, glucoseTrendBand, trendBandsEligible, weightTrendBand } from "./trend-bands";
 
 describe("trend bands (S47a 4.6)", () => {
   it("uses the same mmol/L to mg/dL factor as the rest of the platform", () => {
@@ -40,5 +40,27 @@ describe("trend bands (S47a 4.6)", () => {
     expect(text).toContain("not a diagnosis");
     expect(bandCaption("weight", { low: 1, high: 2, origin: "care_team" }, "kg")).toContain("your care team's target range");
     expect(text).not.toContain("—");
+  });
+
+  describe("trendBandsEligible", () => {
+    const now = new Date("2026-10-20T10:00:00Z");
+    const ok = { moduleEnabled: true, dateOfBirth: "1980-05-01", isPregnant: false, now };
+    it("is true for an adult who is not pregnant with the module on", () => {
+      expect(trendBandsEligible(ok)).toBe(true);
+      expect(trendBandsEligible({ ...ok, isPregnant: null })).toBe(true);
+    });
+    it("is false when the module is off or unknown", () => {
+      expect(trendBandsEligible({ ...ok, moduleEnabled: false })).toBe(false);
+      expect(trendBandsEligible({ ...ok, moduleEnabled: null })).toBe(false);
+      expect(trendBandsEligible({ ...ok, moduleEnabled: undefined })).toBe(false);
+    });
+    it("is false for a child, for someone turning 18 later this year, for no or a bad date of birth, and for a pregnant person", () => {
+      expect(trendBandsEligible({ ...ok, dateOfBirth: "2012-01-01" })).toBe(false);
+      expect(trendBandsEligible({ ...ok, dateOfBirth: "2008-12-01" })).toBe(false);
+      expect(trendBandsEligible({ ...ok, dateOfBirth: "2008-10-20" })).toBe(true);
+      expect(trendBandsEligible({ ...ok, dateOfBirth: null })).toBe(false);
+      expect(trendBandsEligible({ ...ok, dateOfBirth: "not a date" })).toBe(false);
+      expect(trendBandsEligible({ ...ok, isPregnant: true })).toBe(false);
+    });
   });
 });

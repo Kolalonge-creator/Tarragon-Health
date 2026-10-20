@@ -36,10 +36,18 @@ export function LifestyleLogCard({ types, title }: { types: readonly LifestyleKi
   const pending = kind === "inhaler_use" ? inhalerPending : observationPending;
   const action = kind === "inhaler_use" ? inhalerAction : observationAction;
   const [confirmed, setConfirmed] = useState(false);
+  const [lastSavedKey, setLastSavedKey] = useState<string | null>(null);
+  // one key per entry, so a double click or a resubmit of the same entry is saved once (the action treats a repeat as done)
+  const [entryKey, setEntryKey] = useState(() => crypto.randomUUID());
 
   const afterSubmit = () => {
     void queryClient.invalidateQueries({ queryKey: ["vitals-readings-page"] });
   };
+  // a saved entry is done: the next one gets a fresh key
+  if (state?.success && lastSavedKey !== entryKey) {
+    setLastSavedKey(entryKey);
+    setEntryKey(crypto.randomUUID());
+  }
 
   return (
     <Card>
@@ -68,6 +76,7 @@ export function LifestyleLogCard({ types, title }: { types: readonly LifestyleKi
             </div>
           )}
 
+          <input type="hidden" name="client_reading_id" value={entryKey} />
           {kind !== "inhaler_use" && <input type="hidden" name="vital_type" value={kind} />}
           {state?.confirm || confirmed ? <input type="hidden" name="confirm_unusual" value={confirmed ? "yes" : "no"} /> : null}
 

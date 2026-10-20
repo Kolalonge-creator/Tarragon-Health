@@ -38,6 +38,11 @@ insert into public.platform_modules (key, label, description) values
    'Lets a person log water, sleep, mood and inhaler use from the phone and the web. Off: the options are not offered and the database refuses the rows. Turning it on needs the plausibility limits signed (observation_limit_signoffs) and the founder decision on points (OQ-S47A-3).')
 on conflict (key) do nothing;
 
+insert into public.platform_modules (key, label, description) values
+  ('trend_target_bands', 'Target bands on glucose and weight charts',
+   'Shades the usual target range on the glucose and weight trend charts for adults who are not pregnant, with a sentence that names it. Off: no band is drawn. Turning it on needs observations.target_bands confirmed by the CMO (OQ-S47A-4).')
+on conflict (key) do nothing;
+
 -- 2. Plausibility: the database mirrors the hard limits in packages/shared proposed-config observations.plausibility v1 ---------------------
 alter table public.vitals_readings
   add constraint vitals_readings_s47a_lifestyle_plausible check (
@@ -158,7 +163,8 @@ language plpgsql security definer set search_path = ''
 as $$
 declare v_kind text;
 begin
-  if new.vital_type::text not in ('water_ml', 'sleep_hours', 'mood') or new.correction_status is not null then return null; end if;
+  -- a correction's replacement row (supersedes_id set) is not a new log: it must not count twice
+  if new.vital_type::text not in ('water_ml', 'sleep_hours', 'mood') or new.correction_status is not null or new.supersedes_id is not null then return null; end if;
   v_kind := case new.vital_type::text when 'water_ml' then 'water' when 'sleep_hours' then 'sleep' else 'mood' end;
   begin
     perform private.emit_domain_event('observation.recorded', new.organisation_id, jsonb_build_object('observation_id', new.id, 'kind', v_kind),
@@ -213,11 +219,12 @@ create trigger inhaler_use_logs_no_truncate before truncate on public.inhaler_us
 alter table public.inhaler_use_logs enable row level security;
 revoke all on public.inhaler_use_logs from public, anon, authenticated;
 grant select on public.inhaler_use_logs to authenticated;
+-- The SAME shape as the vitals_readings select policy (an explicit cast: see the can_read_clinical overload lesson in CLAUDE.md). There is deliberately NO
+-- staff arm: staff reach vitals-category data through the audited, tie-gated path (INV-10, S05f / S39c), and this table is not in staff_read_scope because no
+-- staff policy reads it. A clinician view of inhaler use is a later piece and must go through that audited path (OQ-S47A-2).
 create policy inhaler_use_logs_read on public.inhaler_use_logs for select to authenticated
   using (patient_id = (select auth.uid())
-         -- the same category-scoped read the vitals table uses (an explicit cast: see the can_read_clinical overload lesson in CLAUDE.md)
-         or private.can_read_clinical(patient_id, 'vitals_readings'::public.care_access_category)
-         or private.staff_may_read(patient_id, organisation_id, 'vitals_readings'::public.care_access_category));
+         or private.can_read_clinical(patient_id, 'vitals_readings'::public.care_access_category));
 
 -- the chart and the care team read the CURRENT use only: a row some later row supersedes, and an entry marked in error, are history
 create view public.inhaler_use_current with (security_invoker = true) as
@@ -229,9 +236,6 @@ select l.id, l.organisation_id, l.patient_id, l.puffs, l.reason, l.taken_at, l.s
 revoke all on public.inhaler_use_current from public, anon, authenticated;
 grant select on public.inhaler_use_current to authenticated;
 
-insert into public.staff_read_scope (table_name, mode, patient_expr, category, reason) values
-  ('inhaler_use_logs', 'tied', 'patient_id', 'vitals_readings', null)
-on conflict (table_name) do nothing;
 insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes) values
   ('inhaler_use_logs', 'patient_id', 'clinical_record', 'review', true, 'S47a. PROPOSED class, to be confirmed by the CMO and DPO.')
 on conflict (table_name) do nothing;
@@ -286,7 +290,8 @@ begin
   if p_why is null or length(btrim(p_why)) < 5 then raise exception 'say what was wrong and why (at least 5 characters)' using errcode = '22023'; end if;
   select * into v_old from public.inhaler_use_logs where id = p_id for update;
   -- one answer for "missing" and "not yours"
-  if not found or (v_old.patient_id <> v_me and not private.can_act_for(v_old.patient_id)) then raise exception 'you cannot correct this record' using errcode = '42501'; end if;
+  -- only the person herself revises her own entries: a supporter may add a log for her (log_inhaler_use) but never change or remove one
+  if not found or v_old.patient_id <> v_me then raise exception 'you cannot correct this record' using errcode = '42501'; end if;
   if exists (select 1 from public.inhaler_use_logs n where n.supersedes_id = p_id) or v_old.entered_in_error then
     raise exception 'this entry was already changed' using errcode = '22023';
   end if;
@@ -305,6 +310,9 @@ revoke all on function public.correct_inhaler_use(uuid, integer, text, text, boo
 grant execute on function public.correct_inhaler_use(uuid, integer, text, text, boolean) to authenticated;
 
 -- 6. The signed home of the limits (CMO) -------------------------------------------------------------------------------------------------
+-- This row is the CMO's RECORD that the shipped numbers were reviewed (same pattern as home_bp_programme_signoffs). Nothing reads it at run time: the numbers in force
+-- are the bundled registry value and the CHECK above, so changing a number is an engineering change (registry version + a migration for the CHECK + a new row here),
+-- never a setting. The hub text says so (OQ-S47A-1).
 create table public.observation_limit_signoffs (
   id          uuid primary key default gen_random_uuid(),
   version     integer not null unique check (version >= 1),
@@ -365,8 +373,8 @@ grant execute on function public.sign_observation_limits(uuid) to authenticated;
 -- 7. Self-check ---------------------------------------------------------------------------------------------------------------------------
 do $$
 begin
-  if (select is_enabled from public.platform_modules where key = 'extended_observations') is distinct from false then
-    raise exception 'S47a self-check: extended_observations must be born off';
+  if exists (select 1 from public.platform_modules where key in ('extended_observations', 'trend_target_bands') and is_enabled) then
+    raise exception 'S47a self-check: extended_observations and trend_target_bands must be born off';
   end if;
   if has_function_privilege('anon', 'public.log_inhaler_use(integer, text, timestamptz, uuid, uuid)', 'EXECUTE')
      or has_function_privilege('anon', 'public.correct_inhaler_use(uuid, integer, text, text, boolean)', 'EXECUTE')
@@ -381,7 +389,7 @@ begin
     raise exception 'S47a self-check: the limits must ship unsigned and inactive';
   end if;
   if not exists (select 1 from public.event_types where event_type = 'water.logged') then raise exception 'S47a self-check: water.logged is not registered'; end if;
-  if not exists (select 1 from public.data_registry where table_name = 'inhaler_use_logs') or not exists (select 1 from public.staff_read_scope where table_name = 'inhaler_use_logs') then
-    raise exception 'S47a self-check: inhaler_use_logs is not in both registries';
+  if not exists (select 1 from public.data_registry where table_name = 'inhaler_use_logs') then
+    raise exception 'S47a self-check: inhaler_use_logs is not in the data registry';
   end if;
 end $$;

@@ -10,7 +10,7 @@
 --   E. Edit history: the patient corrects her own water entry through correct_clinical_value; the replacement carries supersedes_id, the chart
 --      view (public.observations) shows only the replacement, and the original is still in the table.
 --   F. Inhaler log: the patient logs (2 puffs), a retry with the same client id is one row, 25 puffs is refused, the table cannot be written or
---      updated directly, a stranger can neither read nor correct it, a correction supersedes (current view shows the replacement, marked changed).
+--      updated directly, a stranger can neither read nor correct it, a clinician cannot read it straight from the table (audited path only), a correction supersedes (current view shows the replacement, marked changed).
 --   G. Grants: anon cannot execute any S47a function; only the Chief Medical Officer signs the limits; the seed ships unsigned and inactive.
 --   H. SABOTAGE (each must flip): the plausibility CHECK dropped (water 5000 now saves); the lifestyle guard trigger dropped (a row saves while
 --      the module is off); the glucose backstop trigger disabled (the dangerous glucose raises nothing, so check C is not vacuous).
@@ -257,6 +257,13 @@ begin
     raise exception 'F FAIL: a stranger corrected a row';
   exception when sqlstate '42501' then null;
   end;
+  execute 'reset role';
+
+  -- staff reach this data only through the audited path: a clinician (not the patient) reads no inhaler row straight from the table
+  perform set_config('request.jwt.claims', json_build_object('sub', (select v from s47a_fx where k = 'cmo'), 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  select count(*) into v_n from public.inhaler_use_logs where patient_id = v_p;
+  if v_n <> 0 then raise exception 'F FAIL: a clinician reads % inhaler rows directly', v_n; end if;
   execute 'reset role';
   perform set_config('request.jwt.claims', '', true);
 

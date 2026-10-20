@@ -177,7 +177,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       ...(beneficiaryId ? { p_beneficiary: beneficiaryId } : {}),
     });
     if (inhalerError) {
-      return NextResponse.json({ error: inhalerError.code === "22023" ? inhalerError.message : "Could not save that. Please try again." }, { status: inhalerError.code === "22023" ? 400 : 500 });
+      // A refusal that retrying cannot fix is a 4xx, so the phone's outbox shows it as rejected instead of retrying forever (a 5xx is read as transient).
+      if (inhalerError.code === "22023") return NextResponse.json({ error: inhalerError.message }, { status: 400 });
+      if (inhalerError.code === "55000") return NextResponse.json({ error: NOT_SWITCHED_ON_MESSAGE }, { status: 403 });
+      if (inhalerError.code === "42501") return NextResponse.json({ error: "You cannot log this for that person." }, { status: 403 });
+      return NextResponse.json({ error: "Could not save that. Please try again." }, { status: 500 });
     }
     return NextResponse.json({ success: true });
   }

@@ -26,6 +26,7 @@ jest.mock("@/components/glucose-unit-provider", () => ({ useGlucoseUnit: () => "
 jest.mock("@/components/height-discrepancy-banner", () => ({ HeightDiscrepancyBanner: () => null }));
 
 const mockHeight = jest.fn();
+const mockEligible = jest.fn();
 jest.mock("@/lib/queries/vitals", () => ({
   useVitalsTrend: (_p: string, type: string) => ({
     data:
@@ -47,9 +48,12 @@ jest.mock("@/lib/queries/vitals", () => ({
   useHba1cTrend: () => ({ data: [], isLoading: false, isError: false, error: null }),
   useBmiTrend: () => ({ data: [], isLoading: false, isError: false, error: null }),
   useHeightStatus: () => mockHeight(),
+  useTrendBandsEligible: () => mockEligible(),
 }));
 
 describe("VitalsTrendChart target bands", () => {
+  beforeEach(() => mockEligible.mockReturnValue({ data: true }));
+
   it("shades the glucose band 3.9 to 10 and names it in words", () => {
     mockHeight.mockReturnValue({ isLoading: false, data: { heightCm: 170 } });
     render(<VitalsTrendChart patientId="p1" />);
@@ -79,5 +83,21 @@ describe("VitalsTrendChart target bands", () => {
     fireEvent.click(screen.getByRole("button", { name: "Weight" }));
     expect(screen.queryByTestId("reference-area")).toBeNull();
     expect(screen.getByTestId("weight-band-missing").textContent).toContain("Add your height");
+  });
+
+  it("draws no band and no caption when the person is not eligible (module off, child, pregnant or unknown)", () => {
+    mockHeight.mockReturnValue({ isLoading: false, data: { heightCm: 170 } });
+    for (const eligible of [{ data: false }, { data: undefined }]) {
+      mockEligible.mockReturnValue(eligible);
+      const { unmount } = render(<VitalsTrendChart patientId="p1" />);
+      fireEvent.click(screen.getByRole("button", { name: "Glucose" }));
+      expect(screen.queryByTestId("reference-area")).toBeNull();
+      expect(screen.queryByTestId("glucose-band-caption")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Weight" }));
+      expect(screen.queryByTestId("reference-area")).toBeNull();
+      expect(screen.queryByTestId("weight-band-caption")).toBeNull();
+      expect(screen.queryByTestId("weight-band-missing")).toBeNull();
+      unmount();
+    }
   });
 });

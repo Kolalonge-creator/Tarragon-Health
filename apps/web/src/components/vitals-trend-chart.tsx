@@ -11,7 +11,7 @@ import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 
 import { useState, type Key as ReactKey } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceArea, XAxis, YAxis } from "recharts";
-import { useVitalsTrend, useHba1cTrend, useBmiTrend, useHeightStatus } from "@/lib/queries/vitals";
+import { useVitalsTrend, useHba1cTrend, useBmiTrend, useHeightStatus, useTrendBandsEligible } from "@/lib/queries/vitals";
 import { getHba1cBracket } from "@/lib/rules/hba1c-bracket";
 import { bmiCategory, type BmiCategory } from "@/lib/obesity/classify";
 import { HeightDiscrepancyBanner } from "@/components/height-discrepancy-banner";
@@ -165,8 +165,11 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
         : null,
   }));
   const lastIndex = points.length - 1;
-  const glucoseBand = glucoseTrendBand(glucoseUnit);
-  const weightBand = weightTrendBand(heightStatus.data?.heightCm);
+  // S47a 4.6: the standard bands are drawn only for an adult who is not pregnant, and only while the trend_target_bands module is on (the bands are
+  // PROPOSED until the CMO confirms them). Anything unknown means no band.
+  const bandsEligible = useTrendBandsEligible(patientId).data === true;
+  const glucoseBand = bandsEligible ? glucoseTrendBand(glucoseUnit) : null;
+  const weightBand = bandsEligible ? weightTrendBand(heightStatus.data?.heightCm) : null;
   const noHeightOnFile =
     mode === "bmi" && !heightStatus.isLoading && heightStatus.data?.heightCm == null;
   const heightDiscrepancy = mode === "bmi" ? heightStatus.data?.discrepancy : null;
@@ -299,7 +302,9 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
             <LineChart data={points}>
               <CartesianGrid {...GRID_PROPS} />
               {/* S47a 4.6: the target band, shaded and also named in the caption below (colour is never the only signal). */}
-              <ReferenceArea y1={glucoseBand.low} y2={glucoseBand.high} fill="var(--chart-glucose)" fillOpacity={0.12} ifOverflow="hidden" />
+              {glucoseBand ? (
+                <ReferenceArea y1={glucoseBand.low} y2={glucoseBand.high} fill="var(--chart-glucose)" fillOpacity={0.12} ifOverflow="hidden" />
+              ) : null}
               <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} axisLine={false} />
               <YAxis
                 tick={AXIS_TICK}
@@ -323,9 +328,11 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
               />
             </LineChart>
           </ChartContainer>
-          <p data-testid="glucose-band-caption" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-            {bandCaption("glucose", glucoseBand, GLUCOSE_UNIT_LABEL[glucoseUnit])}
-          </p>
+          {glucoseBand ? (
+            <p data-testid="glucose-band-caption" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              {bandCaption("glucose", glucoseBand, GLUCOSE_UNIT_LABEL[glucoseUnit])}
+            </p>
+          ) : null}
           </div>
         )}
         {points.length >= 2 && mode === "weight" && (
@@ -357,11 +364,11 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
             <p data-testid="weight-band-caption" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               {bandCaption("weight", weightBand, "kg")}
             </p>
-          ) : (
+          ) : bandsEligible ? (
             <p data-testid="weight-band-missing" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               Add your height in your profile settings to see the usual target range for your weight on this chart.
             </p>
-          )}
+          ) : null}
           </div>
         )}
         {points.length >= 2 && mode === "pulse" && (
