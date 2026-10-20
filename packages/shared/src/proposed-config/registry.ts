@@ -3214,6 +3214,33 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["lease\\w*days?\\s*[=:]\\s*30\\b", "probe\\w*(interval|seconds)\\w*\\s*[=:]\\s*60\\b"],
   },
   {
+    key: "device_lab.budgets",
+    // S06x-c / S08x-3 device lab run. PROPOSED: the performance budgets the device lab harness (scripts/device-lab, packages/shared/src/device-lab)
+    // reports against. They come from docs/S06X_DEVICE_CHECKLIST.md and docs/plans/S06-S10-competitor-gap-and-build-plan.md (S06x-c).
+    // Sizes are decimal megabytes (1 MB = 1,000,000 bytes, as Android Settings shows them). memory_mb_max is null on purpose: no memory budget is
+    // set, so the harness records the number and says "no budget". enforcement is "report_only": the harness NEVER fails a build or a release on
+    // these numbers, it reports them. cold_start is the median of cold_start_runs; reconnect_flush is measured from the network returning to the
+    // waiting-to-send notice clearing.
+    value: {
+      cold_start_ms_max: 3000,
+      cold_start_runs: 5,
+      installed_size_mb_max: 40,
+      memory_mb_max: null,
+      log_store_write_ms_max: 50,
+      log_visible_ms_max: 300,
+      log_latency_runs: 10,
+      reconnect_flush_seconds_max: 60,
+      probe_requests_per_minute_max: 1,
+      enforcement: "report_only",
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/S06X_DEVICE_CHECKLIST.md; docs/plans/S06-S10-competitor-gap-and-build-plan.md S06x-c; docs/device-lab/RUNBOOK.md",
+    guardPatterns: ["cold\\w*start\\w*(ms)?\\s*[=:]\\s*3_?000\\b", "installed\\w*size\\w*(mb)?\\s*[=:]\\s*40\\b"],
+  },
+  {
     key: "my_health.sharing_and_access_log",
     // My Health completion (S09x). Live values are the active row of `my_health_config`.config (sharing, access_log); my-health-mirror.test.ts fails if the
     // migration seed and this value drift. PROPOSED: the default share expiry (12 hours, shorter than the 24 the first share screen used; the 30 day cap is
