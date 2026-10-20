@@ -52,7 +52,6 @@ const RULE_SET_DIRS = ["packages/clinical/src/rules/"];
 export const LEGACY_ALLOWLIST: Record<string, { count: number; reason: string }> = {
   "apps/mobile/src/lib/bp-classification.ts": { count: 3, reason: "Legacy on-device BP bands (synced thresholds). Runs beside bp_care_triage until parity is shown (CMO Q1); retired with the legacy BP triggers." },
   "apps/web/src/lib/rules/bp-classification.ts": { count: 3, reason: "Legacy server BP bands, the web twin of the file above. Same retirement (CMO Q1)." },
-  "apps/web/src/lib/cds/engine.ts": { count: 3, reason: "Clinical decision support BP bands (200/120, 160/100, 135/85) used by the clinician console. A third BP list that can disagree with the engine; follow-up in the R2 closeout to move it onto bp_care_triage." },
   "apps/web/src/lib/vitals/plausibility.ts": { count: 4, reason: "Plausibility gates for typed values (is this number humanly possible), not clinical bands." },
   "apps/web/src/lib/testing-days/model.ts": { count: 1, reason: "Plausibility gate for a point-of-care BP entry at a testing day, not a band." },
   "apps/mobile/src/lib/triage-device.ts": { count: 1, reason: "FALLBACK_TARGET: the standard home target used only when the phone has no cached personal target. A target, not a band; the bands read it." },
