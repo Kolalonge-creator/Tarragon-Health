@@ -66,7 +66,7 @@ begin
   v_cmo := pg_temp.mkdoc(v_org, v_admin, 'cmo', 'chief_medical_officer');
 
   -- 1. Shape
-  perform pg_temp.rec('sixteen earlier tables carry the guard (quality_config joined in S20 v2; capacity_cover_config and lead_config in S16-S20 Stage 5; queue_task_layer_config and paging_delivery_config in OQ-451)', '16', (select count(*)::text from pg_trigger where tgname = 'refuse_superseded_activation' and not tgisinternal
+  perform pg_temp.rec('eighteen earlier tables carry the guard (quality_config joined in S20 v2; capacity_cover_config and lead_config in S16-S20 Stage 5; queue_task_layer_config and paging_delivery_config in OQ-451; activity_safety_config in S48a; observation_limit_signoffs in S47a)', '18', (select count(*)::text from pg_trigger where tgname = 'refuse_superseded_activation' and not tgisinternal
     -- the twelfth governed table (S07x) carries the guard too; it is counted by its own check in s07x_home_bp_programme.sql. ops_desk_config is counted in ops_desk_expired_page.sql.
     and tgrelid not in ('public.home_bp_programme_signoffs'::regclass, 'public.prn_limit_rules'::regclass, 'public.ops_desk_config'::regclass)));
   perform pg_temp.rec('prn_limit_rules (S08x) carries the guard too', '1', (select count(*)::text from pg_trigger where tgname = 'refuse_superseded_activation' and not tgisinternal and tgrelid = 'public.prn_limit_rules'::regclass));
