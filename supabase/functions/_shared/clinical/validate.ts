@@ -44,7 +44,12 @@ export function validateInput(input: TriageInput, ruleSet: RuleSet): RejectReaso
     return checkReading(recheck.previous, ruleSet.params.validation) === "ok" ? null : "invalid_input";
   }
   if (t.type === "adherence") {
-    return t.percent7d === null || (isNum(t.percent7d) && t.percent7d >= 0 && t.percent7d <= 100) ? null : "invalid_input";
+    // `percentWindow` is the name; `percent7d` is the deprecated one an older caller may still send. A value under the wrong type is invalid either way.
+    const pct = t.percentWindow !== undefined ? t.percentWindow : t.percent7d;
+    return pct === null || (isNum(pct) && pct >= 0 && pct <= 100) ? null : "invalid_input";
+  }
+  if (t.type === "symptom") {
+    return Array.isArray(t.symptoms) && t.symptoms.length > 0 && t.symptoms.every((s) => typeof s === "string") ? null : "invalid_input";
   }
   if (t.type === "silence") {
     const lastOk = t.lastReadingAt === null || isValidTimestamp(t.lastReadingAt);
@@ -54,7 +59,7 @@ export function validateInput(input: TriageInput, ruleSet: RuleSet): RejectReaso
 }
 
 const CMP_OPS = ["gte", "gt", "lte", "lt", "eq", "neq"];
-const TRIGGERS = ["observation", "adherence", "silence"];
+const TRIGGERS = ["observation", "adherence", "silence", "symptom"];
 const ANCHORS = ["reading", "week", "lastReadingDate"];
 const ACTION_KINDS = ["show_emergency_guidance", "page_on_call", "show_message", "prompt_recheck", "ask_symptoms", "route_referral", "create_task"];
 
@@ -143,7 +148,7 @@ export function validateRuleSet(value: unknown): string[] {
     else if (seen.has(rule.id)) errors.push(`${at}: duplicate id ${rule.id}`);
     else seen.add(rule.id);
     if (!Array.isArray(rule.triggers) || rule.triggers.length === 0 || !rule.triggers.every((t) => TRIGGERS.includes(t))) {
-      errors.push(`${at}: triggers must list observation, adherence or silence`);
+      errors.push(`${at}: triggers must list observation, adherence, silence or symptom`);
     }
     if (typeof rule.explanationKey !== "string" || rule.explanationKey === "") errors.push(`${at}: explanationKey is required`);
     const isGrade = rule.result === "grade";

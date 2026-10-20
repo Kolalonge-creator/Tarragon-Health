@@ -2042,3 +2042,13 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **Tests**: DB proof `s47a_observation_types.sql` registered in `ci.manifest` (sabotage: CHECK dropped, guard trigger dropped, glucose backstop disabled; each must flip). Jest: shared mirror, trend-band and limit tests; clinical observation-handler; web route, actions, edit marker, chart bands; mobile entry and config tests. Web full suite 812 suites, shared 121, mobile 178, i18n 215 all pass; tsc and eslint clean on web, mobile, shared, clinical.
 - **Not run**: the two migrations and the DB proof were NOT run against the real schema (no Docker). They were run against a minimal stand-in schema in a scratch Postgres 16 to catch syntax errors and to check the CHECK, the guard trigger and the inhaler functions behave as written; CI migration replay is the first real run. No device, no browser walk-through, no mobile band chart and no mobile inhaler history or edit list (the phone logs inhaler use but only the web lists and corrects it; OQ-S47A-4).
 - **Open**: OQ-S47A-1 to OQ-S47A-6.
+
+## International Patient Summary (IPS) export (spec 2.10) (2026-10-20), branch `feat/ips-export`
+
+- **Built**: `fhir.ips_mapping` v1 (PROPOSED, founder-owned, mirror test); `apps/web/src/lib/fhir/ips-bundle.ts` (pure, IPS-shaped document Bundle: Composition 60591-5 with problems, allergies, medicines, immunizations, results, vital signs, plus Patient and an author Organization); `exportIpsBundle`; `GET /api/patient/ips-export`; a "Download my summary (IPS)" card and a one-page "what is inside" preview under `/patient/data-exchange`. Reuses the S44 snapshot, so exclusions (no reproductive or mental health, released labs only, no private notes), consent categories and the `fhir_export_log` audit are unchanged. Documents are left out. No migration.
+- **Safety**: required empty sections are `unavailable`, never `nilknown`; wearable values stay tagged as estimates; no profile or conformance claim; copy says the file is unvalidated.
+- **Tests**: web `src/lib/fhir` 77 pass (structure, reference resolution, excluded categories, empty sections, escaping, units round trip through our own import parser, service); shared 1,055 pass; i18n 215 pass; web `tsc` clean; eslint clean.
+- **Not run**: no HAPI or other FHIR validator; the screens were not opened in a browser or on a device.
+- **Open**: OQ-IPS-1 to OQ-IPS-3.
+
+- **Open**: OQ-IPS-1 to OQ-IPS-4.
