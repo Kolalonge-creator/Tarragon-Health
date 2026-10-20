@@ -14,6 +14,7 @@ export type VersionedGovernedTable =
   | "lab_panel_signoffs"
   | "prn_limit_rules"
   | "my_health_config"
+  | "nutrition_target_config"
   | "home_bp_programme_signoffs";
 
 /**

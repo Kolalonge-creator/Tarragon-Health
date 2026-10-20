@@ -1,5 +1,6 @@
-import { parseFoodText } from "./food-parser";
-import { analyseNutrition } from "./nutrition-analysis";
+import { describe, expect, it } from "@jest/globals";
+import { parseFoodText } from "./parser";
+import { analyseNutrition } from "./analysis";
 import { FIXTURE_CATALOGUE } from "./test-fixtures";
 
 describe("analyseNutrition", () => {

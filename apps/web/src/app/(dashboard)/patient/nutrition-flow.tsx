@@ -6,6 +6,15 @@ import { createClient } from "@/lib/supabase/client";
 import { logMealAction, confirmMealAction, getBudgetAlternativeAction } from "./nutrition-actions";
 import type { BudgetAlternativeState } from "./nutrition-actions";
 import { NutritionSupportCard } from "./nutrition-support-card";
+import {
+  BarcodeEntry,
+  DailyTargetsCard,
+  FoodPicker,
+  MealSummaryLine,
+  RepeatAndFavourites,
+  showsWordsOnly,
+  useNutritionGuidance,
+} from "./nutrition-foundation";
 import { MealPlanSection } from "./meal-plan-section";
 import { useNutritionEntries, type NutritionEntry } from "@/lib/queries/nutrition";
 import { useFoodCatalogue } from "@/lib/queries/food-catalogue";
@@ -63,6 +72,8 @@ export function NutritionFlow({
   return (
     <div className="space-y-6">
       <LogMealSection patientId={patientId} visionConfigured={visionConfigured} />
+      <DailyTargetsCard />
+      <RepeatSection patientId={patientId} />
       <MealHistorySection patientId={patientId} activeConditions={activeConditions} />
       <NutritionSupportCard patientId={patientId} activeConditions={activeConditions} />
       <MealPlanSection
@@ -73,6 +84,12 @@ export function NutritionFlow({
       <BudgetHelperSection />
     </div>
   );
+}
+
+/** Recent meals and favourites, each logged again in one tap (S49a). */
+function RepeatSection({ patientId }: { patientId: string }) {
+  const { data: entries } = useNutritionEntries(patientId);
+  return <RepeatAndFavourites patientId={patientId} entries={entries} />;
 }
 
 function LogMealSection({
@@ -88,6 +105,8 @@ function LogMealSection({
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [mealType, setMealType] = useState<(typeof MEAL_TYPES)[number]>("lunch");
+  const [description, setDescription] = useState("");
+  const addPhrase = (phrase: string) => setDescription((d) => (d.trim() ? `${d.trim()}, ${phrase}` : phrase).slice(0, 500));
 
   const mutation = useMutation({
     mutationFn: async (formData: FormData) => {
@@ -113,7 +132,9 @@ function LogMealSection({
     },
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: [ENTRIES_KEY, patientId] });
+      queryClient.invalidateQueries({ queryKey: ["nutrition-guidance"] });
       formRef.current?.reset();
+      setDescription("");
       setFile(null);
       setMealType("lunch");
       if (res?.aiStatus === "estimated") {
@@ -182,15 +203,20 @@ function LogMealSection({
             <Textarea
               id="description"
               name="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. 2 spoons of jollof rice, a piece of chicken and a bit of dodo"
               maxLength={500}
             />
             <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               {t(
-                "We'll match this against our Nigerian food list to estimate calories, carbs, protein, fat, fibre and sodium. You can describe portions in everyday terms like a plate, cup, spoon, handful, piece or serving."
+                "We'll match this against our Nigerian food list to estimate calories, carbs, protein, fat, fibre and sodium. You can describe portions in everyday terms like a plate, cup, spoon, handful, piece, serving, wrap, ladle or bowl."
               )}
             </p>
           </div>
+
+          <FoodPicker onAdd={addPhrase} />
+          <BarcodeEntry onAdd={addPhrase} />
 
           <div className="grid gap-2">
             <Label htmlFor="photo">{t("Photo (optional)")}</Label>
@@ -249,6 +275,8 @@ function NutritionAnalysisBlock({
         <span>{Math.round(analysis.fatG)}g fat</span>
         <span>{Math.round(analysis.fibreG)}g fibre</span>
         <span>{Math.round(analysis.sodiumMg)}mg sodium</span>
+        {analysis.saltG != null && <span>{analysis.saltG.toFixed(1)}g salt</span>}
+        {analysis.sugarG != null && <span>{Math.round(analysis.sugarG)}g sugar</span>}
       </div>
       {items && items.length > 0 && (
         <ul className="mt-2 list-disc pl-5 text-charcoal-ink/70 dark:text-night-ink/70">
@@ -341,6 +369,7 @@ function EntryCard({
   const queryClient = useQueryClient();
   const [carbs, setCarbs] = useState<string>("");
   const [saved, setSaved] = useState(false);
+  const { data: guidance } = useNutritionGuidance();
   const estimate = (entry.ai_estimate ?? null) as MealEstimateShape | null;
   const analysis = (entry.nutrition_analysis ?? null) as unknown as NutritionAnalysisResult | null;
   const parsedItems = (entry.parsed_items ?? null) as unknown as ParsedFoodItem[] | null;
@@ -402,7 +431,8 @@ function EntryCard({
         </div>
       )}
 
-      {analysis && <NutritionAnalysisBlock analysis={analysis} items={parsedItems} />}
+      {analysis && !showsWordsOnly(guidance) && <NutritionAnalysisBlock analysis={analysis} items={parsedItems} />}
+      {analysis && <MealSummaryLine analysis={analysis} guidance={guidance} />}
 
       {analysis?.reliable && (
         <GuidanceBlock

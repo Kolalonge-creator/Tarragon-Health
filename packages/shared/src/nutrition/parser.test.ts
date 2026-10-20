@@ -1,4 +1,5 @@
-import { matchFood, parseFoodText } from "./food-parser";
+import { describe, expect, it } from "@jest/globals";
+import { matchFood, parseFoodText } from "./parser";
 import { FIXTURE_CATALOGUE } from "./test-fixtures";
 
 describe("matchFood", () => {

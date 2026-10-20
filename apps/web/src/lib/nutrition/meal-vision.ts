@@ -2,7 +2,7 @@ import "server-only";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { z } from "zod";
-import { summariseFoodReference } from "./nigerian-foods";
+import { foodGroundingText, type CatalogueReferenceFood } from "./nigerian-foods";
 
 /**
  * Meal-photo vision boundary — estimates portions/carbs from a food photo,
@@ -39,17 +39,23 @@ export type MealVisionResult =
 
 const REQUEST_TIMEOUT_MS = 5000;
 
-const SYSTEM_PROMPT = [
-  "You are a nutrition-coaching assistant for a Nigerian digital health platform.",
-  "You estimate the food in a meal photo and its rough carbohydrate and calorie content.",
-  "This is COACHING GUIDANCE ONLY, not a medical or diagnostic measurement — never phrase it as clinical advice.",
-  "Prefer Nigerian dishes and portion norms. Use this reference for local staples' typical carbohydrate loads:",
-  summariseFoodReference(),
-  "Rules: identify each distinct food item you can see; give a plain-language portion (e.g. '1 medium plate', '2 wraps').",
-  "Estimate total carbohydrate grams and total calories for the whole plate.",
-  "Set confidence to 'low' when the photo is unclear, partial, or the food is unfamiliar.",
-  "Do not invent foods you cannot see. If the image is not food, return an empty items list, zeros, and confidence 'low'.",
-].join("\n");
+/**
+ * The system prompt, grounded on the food table when a catalogue is supplied (S49a) and on the hand-kept reference otherwise.
+ * Exported for the AI-008 eval and tests; the wording of every rule is unchanged from before S49a.
+ */
+export function buildMealVisionSystemPrompt(catalogue?: readonly CatalogueReferenceFood[] | null): string {
+  return [
+    "You are a nutrition-coaching assistant for a Nigerian digital health platform.",
+    "You estimate the food in a meal photo and its rough carbohydrate and calorie content.",
+    "This is COACHING GUIDANCE ONLY, not a medical or diagnostic measurement — never phrase it as clinical advice.",
+    "Prefer Nigerian dishes and portion norms. Use this reference for local staples' typical carbohydrate loads:",
+    foodGroundingText(catalogue),
+    "Rules: identify each distinct food item you can see; give a plain-language portion (e.g. '1 medium plate', '2 wraps').",
+    "Estimate total carbohydrate grams and total calories for the whole plate.",
+    "Set confidence to 'low' when the photo is unclear, partial, or the food is unfamiliar.",
+    "Do not invent foods you cannot see. If the image is not food, return an empty items list, zeros, and confidence 'low'.",
+  ].join("\n");
+}
 
 function buildUserText(description?: string | null): string {
   const base =
@@ -73,6 +79,8 @@ export async function analyzeMealPhoto(input: {
   imageBase64: string;
   mediaType: string;
   description?: string | null;
+  /** The food table, when the caller could read it; omitted means the hand-kept reference list. */
+  catalogue?: readonly CatalogueReferenceFood[] | null;
 }): Promise<MealVisionResult> {
   if (!isMealVisionConfigured()) {
     return { ok: false, reason: "unavailable" };
@@ -93,7 +101,7 @@ export async function analyzeMealPhoto(input: {
       name: "meal_estimate",
     });
     const messages = [
-      new SystemMessage(SYSTEM_PROMPT),
+      new SystemMessage(buildMealVisionSystemPrompt(input.catalogue)),
       new HumanMessage({
         content: [
           { type: "text", text: buildUserText(input.description) },

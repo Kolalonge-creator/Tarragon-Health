@@ -5998,4 +5998,30 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-16",
     source: "docs/design/S53-pack-scan.md; NAFDAC Greenbook public examples",
   },
+  {
+    key: "nutrition.daily_targets",
+    // Daily nutrition targets and the word-summary lines (S49a, v5 6.5 and 6.7). Live value is `nutrition_target_config`.config, seeded INACTIVE and
+    // unsigned; the CMO signs it through sign_nutrition_target_config. Maintenance estimates only (Mifflin-St Jeor); `floor_kcal` are the SAFE MINIMUMS and
+    // the plan never shows a calorie target below them. WHO anchors: salt under 5 g (2000 mg sodium), free sugars under 10 percent of energy.
+    // Targets are never shown for pregnancy, the postnatal year, a clinician hold, a positive eating-disorder screen or anyone under 18 (database gate).
+    // packages/shared/src/nutrition/targets.test.ts fails if this drifts from the migration seed.
+    value: {
+      min_age_years: 18,
+      energy: {
+        activity_factors: { low: 1.2, light: 1.375, moderate: 1.55, high: 1.725 },
+        default_activity: "light",
+        floor_kcal: { female: 1200, male: 1500 },
+        ceiling_kcal: 3500,
+        round_to_kcal: 10,
+      },
+      macros_pct_of_energy: { carbs: 50, protein: 20, fat: 30 },
+      salt_sugar_fibre: { sodium_mg_max: 2000, sugar_pct_of_energy_max: 10, fibre_g_per_1000_kcal: 14 },
+      meal_summary: { light_below_kcal: 400, heavy_above_kcal: 750, salty_above_sodium_mg: 800, sugary_above_sugar_g: 25 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/S49a.md; supabase/migrations/20261020181309_s49a_food_logging_foundation.sql",
+  },
 ];

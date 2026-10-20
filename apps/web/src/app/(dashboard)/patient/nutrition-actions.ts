@@ -8,16 +8,21 @@ import {
   nutritionReferralRequestSchema,
   budgetAlternativeQuerySchema,
   mealPlanRequestSchema,
+  favouriteMealSchema,
+  mealSummaryModeSchema,
+  entryIdSchema,
+  barcodeCodeSchema,
 } from "@/lib/validation/nutrition";
 import { analyzeMealPhoto, isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
 import { AI_SYSTEMS, runGovernedAi } from "@/lib/ai-governance";
 import { fetchFoodCatalogue } from "@/lib/nutrition/food-catalogue-fetch";
-import { parseFoodText } from "@/lib/nutrition/food-parser";
-import { analyseNutrition, type NutritionAnalysisResult } from "@/lib/nutrition/nutrition-analysis";
+import type { NutritionAnalysisResult } from "@/lib/nutrition/nutrition-analysis";
 import { detectNutritionRisk, RISK_REASON_LABELS } from "@/lib/nutrition/referral-risk";
 import { suggestBudgetAlternative } from "@/lib/nutrition/substitutions";
 import { generateMealPlan, type MealPlanGenerationResult } from "@/lib/nutrition/meal-plan-generate";
-import { recordWeeklyPlanProgress } from "@/lib/lifestyle/weekly-plan-progress";
+import { insertMeal, analyseDescriptionWith } from "@/lib/nutrition/meal-log";
+import { loadNutritionGuidance, type NutritionGuidance } from "@/lib/nutrition/guidance";
+import { parseBarcodeLookup, isValidGtin, normaliseBarcode, type BarcodeLookup } from "@tarragon/shared";
 
 const MEAL_PHOTO_BUCKET = "meal-photos";
 
@@ -91,6 +96,10 @@ export async function logMealAction(
   let aiEstimate: Json | null = null;
   let aiStatus: "none" | "estimated" | "unavailable" = "none";
 
+  // One read of the food table serves both the photo grounding (AI-008) and the text analysis below. Best effort: an empty list
+  // means the photo prompt falls back to its hand-kept reference and the text is simply not analysed.
+  const catalogue = await fetchFoodCatalogue(ctx.supabase);
+
   if (photo_path) {
     if (!isMealVisionConfigured()) {
       aiStatus = "unavailable";
@@ -116,6 +125,7 @@ export async function logMealAction(
               imageBase64: base64,
               mediaType: mediaTypeForPath(photo_path, blob.type),
               description,
+              catalogue,
             });
             return {
               value: result.ok ? ({ ...result.estimate, model } as unknown as Json) : null,
@@ -139,48 +149,17 @@ export async function logMealAction(
     }
   }
 
-  // Text-based food logging + full nutrition analysis (spec 19.4/19.5) —
-  // independent of the photo/AI-vision path above, and recomputed here from
-  // the food catalogue every time rather than trusted from the client.
-  let parsedItems: Json | null = null;
-  let nutritionAnalysis: Json | null = null;
-  if (description && description.trim().length > 0) {
-    const catalogue = await fetchFoodCatalogue(ctx.supabase);
-    if (catalogue.length > 0) {
-      const items = parseFoodText(description, catalogue);
-      if (items.length > 0) {
-        parsedItems = items as unknown as Json;
-        const analysis = analyseNutrition(items, catalogue);
-        if (analysis) nutritionAnalysis = analysis as unknown as Json;
-      }
-    }
-  }
-
-  const row: TablesInsert<"nutrition_log_entries"> = {
-    organisation_id: ctx.organisationId,
-    patient_id: ctx.userId,
-    meal_type,
+  // Text-based food logging + full nutrition analysis (spec 19.4/19.5): independent of the photo path above, recomputed here from the
+  // food table every time rather than trusted from the client.
+  const inserted = await insertMeal(ctx.supabase, ctx, {
+    mealType: meal_type,
     description: description ?? null,
-    photo_path: photo_path ?? null,
-    ai_estimate: aiEstimate,
-    ai_status: aiStatus,
-    parsed_items: parsedItems,
-    nutrition_analysis: nutritionAnalysis,
-  };
-
-  const { error } = await ctx.supabase.from("nutrition_log_entries").insert(row);
-  if (error) return { error: error.message };
-
-  // Bridges into the Weekly Plan card's own completion tracking — a no-op
-  // for a patient with no active diet goal. See the helper's own comment
-  // for why this doesn't go through ingestMeasurement().
-  await recordWeeklyPlanProgress(ctx.supabase, {
-    patientId: ctx.userId,
-    organisationId: ctx.organisationId,
-    metric: "food_log",
-    valueJson: { meal_type },
-    unit: "check",
+    photoPath: photo_path ?? null,
+    aiEstimate,
+    aiStatus,
+    analysis: analyseDescriptionWith(description, catalogue),
   });
+  if (!inserted.ok) return { error: inserted.error };
 
   return { success: true, aiStatus };
 }
@@ -410,4 +389,167 @@ export async function generateMealPlanAction(
   });
   if (error) return { status: "error", error: error.message };
   return { status: "generated" };
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// S49a: one-tap repeat, favourites, summary mode, targets, barcode
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+/** Which meal a one-tap log counts as when the saved meal has no type of its own: by the Lagos clock. */
+function mealTypeForLagosHour(now: Date): "breakfast" | "lunch" | "dinner" | "snack" {
+  const hour = new Date(now.getTime() + 60 * 60 * 1000).getUTCHours();
+  if (hour < 11) return "breakfast";
+  if (hour < 16) return "lunch";
+  if (hour < 21) return "dinner";
+  return "snack";
+}
+
+/**
+ * Log a recent meal again, in one action: no form, no second screen. The description is re-read from the patient's OWN entry under RLS
+ * and the numbers are recomputed from the food table, so a repeated meal is never a stale copy of old maths. A photo is not copied
+ * (it belonged to that meal); a photo-only meal repeats its estimate, unconfirmed.
+ */
+export async function repeatMealAction(entryId: string): Promise<NutritionActionState> {
+  const parsed = entryIdSchema.safeParse({ entry_id: entryId });
+  if (!parsed.success) return { error: "That meal could not be found." };
+  const ctx = await currentPatient();
+  if ("error" in ctx) return { error: ctx.error };
+
+  const { data: entry, error: readError } = await ctx.supabase
+    .from("nutrition_log_entries")
+    .select("meal_type, description, ai_estimate")
+    .eq("id", parsed.data.entry_id)
+    .eq("patient_id", ctx.userId)
+    .maybeSingle();
+  if (readError) return { error: "We could not read that meal. Please try again." };
+  if (!entry) return { error: "That meal could not be found." };
+  const hasText = Boolean(entry.description && entry.description.trim().length > 0);
+  if (!hasText && !entry.ai_estimate) return { error: "There is nothing in that meal to repeat." };
+
+  const inserted = await insertMeal(ctx.supabase, ctx, {
+    mealType: entry.meal_type,
+    description: entry.description,
+    aiEstimate: hasText ? null : (entry.ai_estimate as Json),
+    aiStatus: hasText ? "none" : "estimated",
+  });
+  if (!inserted.ok) return { error: inserted.error };
+  return { success: true };
+}
+
+export type FavouriteActionState = { error?: string; success?: boolean } | undefined;
+
+/** Save a meal under a name. Either typed fresh, or taken from a logged entry (entry_id) so "save this" is one tap and a name. */
+export async function saveFavouriteAction(_prev: FavouriteActionState, formData: FormData): Promise<FavouriteActionState> {
+  const raw = Object.fromEntries(formData.entries());
+  const entryId = typeof raw.entry_id === "string" && raw.entry_id !== "" ? raw.entry_id : null;
+  const ctx = await currentPatient();
+  if ("error" in ctx) return { error: ctx.error };
+
+  let description = typeof raw.description === "string" ? raw.description : "";
+  let mealType = typeof raw.meal_type === "string" && raw.meal_type !== "" ? raw.meal_type : undefined;
+  if (entryId) {
+    const { data: entry } = await ctx.supabase
+      .from("nutrition_log_entries")
+      .select("meal_type, description")
+      .eq("id", entryId)
+      .eq("patient_id", ctx.userId)
+      .maybeSingle();
+    if (!entry?.description || entry.description.trim().length === 0) {
+      return { error: "Only a meal you described in words can be saved as a favourite." };
+    }
+    description = entry.description;
+    mealType = mealType ?? entry.meal_type;
+  }
+  const parsed = favouriteMealSchema.safeParse({ name: raw.name, description, meal_type: mealType });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const { error } = await ctx.supabase.from("favourite_meals").insert({
+    organisation_id: ctx.organisationId,
+    patient_id: ctx.userId,
+    name: parsed.data.name,
+    description: parsed.data.description,
+    meal_type: parsed.data.meal_type ?? null,
+  });
+  if (error) {
+    if (error.code === "23505") return { error: "You already have a favourite with that name." };
+    return { error: error.message };
+  }
+  return { success: true };
+}
+
+/** Log a favourite in one action. Bumps its use count so the ones used most come first (best effort, never blocks the log). */
+export async function logFavouriteAction(favouriteId: string): Promise<NutritionActionState> {
+  const parsed = entryIdSchema.safeParse({ entry_id: favouriteId });
+  if (!parsed.success) return { error: "That favourite could not be found." };
+  const ctx = await currentPatient();
+  if ("error" in ctx) return { error: ctx.error };
+
+  const { data: fav, error: readError } = await ctx.supabase
+    .from("favourite_meals")
+    .select("id, description, meal_type, use_count")
+    .eq("id", parsed.data.entry_id)
+    .eq("patient_id", ctx.userId)
+    .maybeSingle();
+  if (readError) return { error: "We could not read that favourite. Please try again." };
+  if (!fav) return { error: "That favourite could not be found." };
+
+  const inserted = await insertMeal(ctx.supabase, ctx, {
+    mealType: fav.meal_type ?? mealTypeForLagosHour(new Date()),
+    description: fav.description,
+  });
+  if (!inserted.ok) return { error: inserted.error };
+
+  const { error: bumpError } = await ctx.supabase
+    .from("favourite_meals")
+    .update({ use_count: fav.use_count + 1, last_used_at: new Date().toISOString() })
+    .eq("id", fav.id)
+    .eq("patient_id", ctx.userId);
+  if (bumpError) console.error("nutrition: favourite use count not updated", bumpError.message);
+  return { success: true };
+}
+
+export async function deleteFavouriteAction(favouriteId: string): Promise<FavouriteActionState> {
+  const parsed = entryIdSchema.safeParse({ entry_id: favouriteId });
+  if (!parsed.success) return { error: "That favourite could not be found." };
+  const ctx = await currentPatient();
+  if ("error" in ctx) return { error: ctx.error };
+  const { error } = await ctx.supabase.from("favourite_meals").delete().eq("id", parsed.data.entry_id).eq("patient_id", ctx.userId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+/** How the patient wants a meal summarised (numbers, or a plain word). Whether the word is SHOWN is the database gate's decision, not this. */
+export async function setMealSummaryModeAction(mode: string): Promise<FavouriteActionState> {
+  const parsed = mealSummaryModeSchema.safeParse({ mode });
+  if (!parsed.success) return { error: "Choose numbers or words." };
+  const ctx = await currentPatient();
+  if ("error" in ctx) return { error: ctx.error };
+  const { error } = await ctx.supabase.from("nutrition_preferences").upsert(
+    { patient_id: ctx.userId, organisation_id: ctx.organisationId, meal_summary_mode: parsed.data.mode },
+    { onConflict: "patient_id" },
+  );
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+/** Today's targets and totals, or `hidden` (which the interface renders as nothing at all). See lib/nutrition/guidance.ts. */
+export async function loadNutritionGuidanceAction(): Promise<NutritionGuidance> {
+  const ctx = await currentPatient();
+  if ("error" in ctx) return { state: "hidden" };
+  return loadNutritionGuidance(ctx.supabase, ctx.userId);
+}
+
+export type BarcodeActionState = (BarcodeLookup & { ok: true }) | { ok: false; error: string };
+
+/** Look a typed (or scanned) product code up in the team-curated Nigerian packaged-food list. */
+export async function lookupBarcodeAction(code: string): Promise<BarcodeActionState> {
+  const parsed = barcodeCodeSchema.safeParse({ code });
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Enter the whole code." };
+  const normalised = normaliseBarcode(parsed.data.code);
+  if (!isValidGtin(normalised)) return { ok: true, status: "invalid" };
+  const ctx = await currentPatient();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  const { data, error } = await ctx.supabase.rpc("lookup_barcode", { p_code: normalised });
+  if (error) return { ok: false, error: "We could not look that up right now. You can still type what you ate." };
+  return { ok: true, ...parseBarcodeLookup(data) };
 }
