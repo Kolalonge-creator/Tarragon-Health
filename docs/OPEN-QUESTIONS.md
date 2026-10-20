@@ -3878,6 +3878,20 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 
 ### OQ-BPW-5 Latent fault found: the blood pressure handler cannot resolve a severity-2 "Missing expected blood-pressure readings" alert
 - The first statement of `private.handle_bp_reading_red_flag` resolves that alert with a bare `status = 'resolved'`. The check `clinician_alerts_resolution_requires_documentation` (20260828204033) refuses a resolved severity-2 alert without `resolution_action` and `resolution_outcome`, and the generator (`20260720015541`) inserts the alert at level `clinician_review`, which classifies as severity 2. If such an alert is ever open, the next blood pressure insert for that patient would error and roll back. **None exists today** (live count 0, checked 2026-10-16), so nothing is failing; found because the PR 1 proof tried to close one. Fix is small (set the two columns when resolving, using the values the taxonomy allows) but changes a live safety path, so it is left for its own PR with the CMO's wording for the outcome.
+### OQ-S19F-01 How long a held older clinician message waits for its page (raised by S19f)
+- `hold_seconds = 60` in `legacy_notice_retirement_config` (PROPOSED). It is the longest the older notify-everyone message for a blood pressure red event, a blood pressure crisis or a glucose emergency waits for its on-call page before it is sent anyway (plus up to 15 seconds for the sweep). Too short sends needless duplicates; too long slows the fallback when no page comes.
+- Recommended: switch version 1 (parallel run) on first and set the number from the measured page lag shown on the sign-off hub (the slowest 5 percent, plus a margin).
+- Decision: open (CMO).
+
+### OQ-S19F-02 Should a vitals page for a pregnant patient tell her Care Circle (raised by S19f)
+- Version 4 of the retirement config lets a unified page tell the Care Circle with the neutral check-in notice. A symptom event for a patient with a pregnancy or reproductive-health footprint, and a reproductive symptom type, are withheld. A vitals event (oxygen, pulse, temperature) for a pregnant patient is NOT withheld: the notice carries no content and the event is not reproductive.
+- Option A (as built): tell the circle for vitals events. Option B: withhold every unified page for a patient with a footprint.
+- Decision: open (CMO and DPO).
+
+### OQ-S19F-03 When to retire the older emergency messages (raised by S19f)
+- Version 3 retires the notify-everyone message for a blood pressure crisis and a glucose emergency as well as the red level, through the separate `suppress_legacy_emergency_notice` key. Nothing about it can be proved on real patients until the parallel run has produced real events and the glucose rules are signed.
+- Recommended: leave version 3 until version 2 has run on real traffic.
+- Decision: open (CMO).
 
 ## Blood pressure acknowledgement (raised 2026-10-16, branch pr2/bp-immediate-acknowledgement)
 
@@ -3889,6 +3903,20 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 
 ### OQ-BPA-3 Free members and "Your care team will look at this" (TRI-002)
 - The acknowledgement never adds a care-team promise of its own. TRI-002 (signed without a review promise, OQ-251) is the engine's wording and is unchanged. Whether it should be hidden for a Free patient whose red reading does not reach a doctor (two-tier decision 2026-10-08) is for the CMO; the acknowledgement does not depend on it.
+
+## Guided home blood pressure session (raised 2026-10-16, branch pr3/home-bp-guided-session)
+
+### OQ-HBP-1 Drop day 1 from the seven-day average? (for the CMO; not built)
+- The founder brief proposed discarding day 1 (ESH-2023). The CMO pack C1 listed it as option (b) and recommended (a) "average every reading", which is also the S11 decision. Building (b) changes the counting rule in three places that must stay identical (`assessHomeCheck`, `private.home_bp_assess_readings`, the 35-case parity block) and is a clinical choice, so it waits for the CMO. The configuration row is still unsigned, so choosing (b) at signing is open; this is a follow-up build of about a day once chosen.
+
+### OQ-HBP-2 "Measure before you take your medicines" is not shipped (for the CMO)
+- ESH-2023 recommends measuring before medicines. The approved C1 text (NG-2023 5.4.5: morning on waking, evening before bed) does not say it, and a medicine-timing sentence shown to patients is a clinical instruction, so the guided session leaves it out. If the CMO wants it, add one sentence to `hc.session.rest` at signing; the morning window runs to 12:00 and the evening session is "before bed", so the wording needs care for each.
+
+### OQ-HBP-3 The panel names no band for a session mean (OQ-67 context)
+- The guided panel shows a session's mean as two numbers and says nothing about whether it is high or low. The C2 words for a complete seven-day average stay in the existing card behind the signed row. The draft `bp_care_triage` bands are not used anywhere in this feature. Classification of an average (and what to say about a single session mean) still awaits the CMO under OQ-67.
+
+### OQ-HBP-4 A second governed config was not created (decision recorded)
+- The brief named a new `home_bp_protocol` config. S07x already ships it as `home_bp_programme_signoffs` with the guard `home_bp_programme` and its CMO hub panel (see `docs/design/BP-home-guided-session.md`). A second one would give the CMO two sign-offs for one protocol, so it was not built. If the founder wants a differently named row anyway, say so.
 
 ## Renumbering map (2026-10-16)
 
@@ -4322,6 +4350,35 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
 
+### OQ-S47A-1 Plausibility limits for water, sleep, mood and inhaler puffs are PROPOSED (raised by S47a, 2026-10-20)
+- Registry key `observations.plausibility` v1, mirrored by `observation_limit_signoffs` v1 (born unsigned and inactive) and, for the new types, by a database CHECK (`vitals_readings_s47a_lifestyle_plausible`, `inhaler_use_logs.puffs`). Hard limits: water 10 to 3000 ml in one log, sleep 0.5 to 24 hours, mood whole 1 to 5, puffs whole 1 to 20. Soft (ask to confirm, never refuse): water over 1500 ml, sleep under 2 or over 14 hours, puffs over 8. The first nine rows only restate limits already enforced on the phone, web and API.
+- Needed: the CMO reads the table at `/clinician/observation-limits` (also a line on the sign-off hub) and signs `sign_observation_limits`. Signing is the CMO's record that the shipped numbers were reviewed (the same pattern as the home blood pressure programme); it does NOT change any number, because nothing reads the signed row at run time. The numbers in force are the bundled registry value and the CHECK. A later change of a limit is an engineering change (registry version, a migration for the CHECK, a new signed row); the mirror test fails until the registry and the seed agree. Signing does not switch the logs on.
+- Decision: open (CMO).
+
+### OQ-S47A-2 Inhaler use has no alert rule and no advice wording (raised by S47a, 2026-10-20)
+- `inhaler_use_logs` records puffs and a reason and nothing else. The patient reads her own rows; staff have no direct read policy on purpose (the audited, tie-gated path is the only staff door, as for vitals), so a clinician view is a later piece. No frequency line (for example repeated reliever use in a week), no task, no page, no notice exists, and none was invented: that is a clinical rule set and the CMO's. The phone and web show no inhaler advice for the same reason; any wording in the `vitals.*` namespace needs a real reviewer entry in the reviewed-strings ledger.
+- Needed: the CMO decides what repeated reliever use means, who is told and how fast, and supplies the wording; then a rule set is built on the S16 task layer.
+- Decision: open (CMO).
+
+### OQ-S47A-3 Do water, sleep and mood logs earn points? (raised by S47a, 2026-10-20)
+- The rewards trigger `private.wellness_points_on_vitals_logged` is changed so the three new lifestyle types never earn (a water tap is easy to game, and rewards already exclude weight and waist for a similar reason). Streaks and "small daily goals" (spec 4.5) are the S47b work and are not built here.
+- Needed: the founder decides whether any lifestyle log should earn, with what daily cap.
+- Decision: open (founder). Default stays: no points.
+
+### OQ-S47A-4 The trend-chart target bands are PROPOSED (raised by S47a, 2026-10-20)
+- `observations.target_bands` v1: glucose 3.9 to 10.0 mmol/L (the time-in-range band the diabetes view already uses; a test fails if they drift) and the WHO healthy BMI band 18.5 to 24.9 turned into kilograms at the person's own height. No band is drawn for weight without a usable height. A care-team glucose target for the person is not yet read (the function accepts one); only the standard band shows today.
+- The bands are behind the platform module `trend_target_bands` (born off) and are drawn only for an adult with a known date of birth who is not recorded as pregnant (`patient_pregnancy`) and has no delivery in the last 12 months (`postnatal_profiles`). A child has the growth chart; pregnancy and the postnatal period have their own guidance. Any failed read means no band.
+- Needed: the CMO confirms both bands, and says whether a per-person glucose target should replace the standard one on the chart (the function accepts a care-team band but no code passes one yet, so the `care_team` caption is not reachable today). The phone has no single-series chart yet, so the bands are web-only in this change.
+- Decision: open (CMO).
+
+### OQ-S47A-5 New strings sit outside the reviewed-strings ledger namespaces (raised by S47a, 2026-10-20)
+- The water, sleep, mood, inhaler and "Changed" wording lives under `observation.*`, outside the gated clinical namespaces, because the ledger takes no new baseline entries and no reviewer exists to name. That is a route around the gate, not a review (same as OQ-NAFDAC-SCAN-3). The typo sentences make no clinical claim.
+- Needed: the CMO or a clinical lead reads the `observation.*` keys, then they move into a gated namespace with a real reviewer entry.
+- Decision: open (CMO).
+
+### OQ-S47A-6 Switching the logs and the chart bands on (raised by S47a, 2026-10-20)
+- Platform modules `extended_observations` (the four logs) and `trend_target_bands` (the chart bands) are born off and the database refuses the rows while it is off. It needs: OQ-S47A-1 signed, an answer to OQ-S47A-3, and the edge function `process-events` redeployed with the S47a change to `observation-handler.ts` (it returns at once for kinds water, sleep and mood; an older deployed handler also finds nothing to grade because the context loader answers "not a blood pressure reading", but redeploy first all the same).
+- Decision: open (founder).
 ### OQ-S48A-1 The activity safety rules are PROPOSED and unsigned (raised by S48a, 2026-10-20)
 - Every figure (48 hour red and amber windows, 7 day unsettled blood pressure window), every maximum level and every blocked kind for pregnancy, high-risk pregnancy, unsettled hypertension, arthritis and back pain is a starting proposal in `activity_safety_config` v1. The CMO reads and signs it on the sign-off hub ("Activity safety rules"). The gate already enforces these rows because it only ever restricts; if the CMO changes a row, that is a new version.
 - Also needed from the CMO: the ICD-10 prefixes and name patterns that count as arthritis, back pain and hypertension; whether a diabetes rule is wanted (v1 has none); and whether `shadow` triage rows (graded by a rule set nobody has approved) should count towards rest. v1 counts them, which is the safe direction.
