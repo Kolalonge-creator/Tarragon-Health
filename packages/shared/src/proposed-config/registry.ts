@@ -3347,6 +3347,22 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/OPEN-QUESTIONS.md OQ-89; docs/design/S11-S15-p6-coverage.md",
   },
   {
+    key: "triage.glucose_monitor",
+    // Follow-up OQ-320 (founder answer 2026-10-15): glucose from continuous monitors and wearables is graded by glucose_care_triage, behind the same unsigned
+    // rule set (so nothing pages or opens a task until the CMO signs it). Three guards protect the production connection budget and stop a stale value paging;
+    // live values are the active row of `triage_glucose_monitor_config`, this mirrors the v1 seed and a test fails on drift.
+    //  enabled: the producer and the dedupe are active (grading is still shadow while the rule set is a draft).
+    //  freshMinutes: a monitor reading older than this when it reaches the server is not graded (a bulk sync of old values must not page a stale low).
+    //  dedupeMinutes: the same level (grade and rule) for the same patient is not graded again within this long, for monitor readings only.
+    //  sources: the reading sources these guards apply to (the vital_source values for a monitor and a wearable). A bulk sync grades only its latest reading.
+    value: { enabled: true, freshMinutes: 30, dedupeMinutes: 60, sources: ["wearable", "cgm"] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-15",
+    source: "docs/OPEN-QUESTIONS.md OQ-320; docs/design/FU-engine-closeout.md",
+  },
+  {
     key: "chain.canary_and_health",
     // P1 (S11 to S15 end to end): the clinical-chain canary and the chain health page. Live values are the active row of
     // `chain_canary_config`; this entry mirrors the v1 seed and a test fails on drift.
