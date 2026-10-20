@@ -4290,3 +4290,21 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - Open 2: `authenticated` can still INSERT audit rows about itself (S02 follow-up 5). Moving every writer to a definer function would let that insert policy be dropped.
 - Decision: open.
 
+### OQ-NAFDAC-SCAN-1 NAFDAC number format is PROPOSED from public examples (raised by the pack-scan build, 2026-10-16)
+- The accepted shape is an optional letter (never I or O), one or two digits, a hyphen, three to six digits, an optional letter (registry key `medicines.nafdac_number_format`, mirrored by `NAFDAC_NUMBER_CONFIG`, a test fails on drift). Examples seen in public sources: A4-1234, 04-1234, B4-xxxx, and a six-digit tail such as A11-101363 in the Greenbook database. What each prefix means was not found in a public NAFDAC page and is not used.
+- Needed: a pharmacist or the CMO to check a sample of real Greenbook numbers against the pattern, then publish a confirmed version. The pattern only says whether text is shaped like a number; it never says a pack is real.
+- Decision: open (CMO or pharmacist).
+
+### OQ-NAFDAC-SCAN-2 "Scan the pack" needs an on-device text reader, which is a native module (raised by the pack-scan build, 2026-10-16)
+- Checked `apps/mobile/package.json`: `expo-image-picker` and `expo-image-manipulator` are present; no text-recognition module (ML Kit or Vision) is. Reading printed text on the phone needs one, so it is a new native dependency: a new EAS build and a `runtimeVersion` bump, and the OTA auto-publisher will skip the push (as OQ-73). Nothing was added and `runtimeVersion` was not touched.
+- Built and shipping now: the number parser, the catalogue lookup, the confirm-each-field UI, the typed NAFDAC number (offline too), and the camera path behind capability detection (`packScanAvailable()` is false until a native build calls `registerPackTextReader`). The Scan button is hidden until then. Nothing has run on a device.
+- Options: (a) add a maintained Expo text-recognition module in the next native build and register it (recommended; photo stays on the phone, no AI system involved); (b) a server vision read through the existing governed pack reader (AI-007, `runGovernedAi`); needs a bearer-authenticated mobile route, a go-live guard that starts OFF, and a decision that a pack photo may leave the phone; (c) typed entry only.
+- Decision: open (founder).
+
+### OQ-NAFDAC-SCAN-3 New pack-scan wording sits outside the reviewed-strings ledger (raised by the pack-scan build, 2026-10-16)
+- The ledger (S-15) gives clinical namespaces no room for new baseline entries and no reviewer exists to name, so the new strings live under `packscan.*`, outside the gated namespaces. That is a way round the gate, not a review. Needed: the CMO or a pharmacist reads the `packscan.*` keys (especially `packscan.nafdac.not_a_check` and `.in_catalogue`), then they move into a gated namespace with a real reviewer entry.
+- Decision: open (CMO).
+
+### OQ-NAFDAC-SCAN-4 The number is used for lookup and pre-fill only; it is not stored on the medication (raised by the pack-scan build, 2026-10-16)
+- `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
+- Decision: open (product).
