@@ -401,8 +401,9 @@ begin
     (select count(*)::text from public.prescription_pharmacy_flags where prescription_id = rxK) || '|' ||
     (select count(*)::text from public.clinical_tasks where patient_id = v_pat and type = 'pharmacy_flag_review'));
   perform pg_temp.ck('real', '4g a null answer is refused', 'ERR:22023', pg_temp.q_as(phA, format($q$select public.pharmacist_confirm_stock(%L, null)$q$, rxT)));
+  v_yes := pg_temp.q_as(phA, format($q$select public.pharmacist_confirm_stock(%L, false)$q$, rxT));
   perform pg_temp.ck('real', '4h a no is the existing out-of-stock report: the patient is told and needs another pharmacy', 'out_of_stock|1|true|false',
-    pg_temp.q_as(phA, format($q$select public.pharmacist_confirm_stock(%L, false)$q$, rxT)) || '|' ||
+    v_yes || '|' ||
     (select count(*)::text from public.prescription_pharmacy_flags where prescription_id = rxT and kind = 'out_of_stock') || '|' ||
     pg_temp.q_as(v_pat, format($q$select other_pharmacy_needed::text from public.patient_collection_overview() where prescription_id = %L$q$, rxT)) || '|' ||
     (select (stock_confirmed_at is not null)::text from public.prescription_collection_codes where prescription_id = rxT));
