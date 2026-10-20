@@ -70,6 +70,16 @@ describe("sign-off hub inline panels", () => {
     expect(actions).toContain("canAssignCases");
   });
 
+  it("opens the legacy notice retirement panel inline on the hub, with the test-pack confirmation, the evidence and a switch-off (S19f)", () => {
+    expect(source).toContain("inlinePanels[LEGACY_NOTICE_RETIREMENT_ITEM_KEY] = <LegacyNoticeRetirementPanel");
+    const panel = readFileSync(join(__dirname, "../_signoff-panels/legacy-notice-retirement-panel.tsx"), "utf8");
+    expect(panel).toContain("switchOnLegacyNoticeRetirementAction");
+    expect(panel).toContain("switchOffLegacyNoticeRetirementAction");
+    expect(panel).toContain('name="test_pack_run"');
+    const actions = readFileSync(join(__dirname, "legacy-notice-retirement-actions.ts"), "utf8");
+    expect(actions).toContain("canAssignCases");
+  });
+
   it("shows the S06 to S10 banner and opens the line a link points at", () => {
     expect(source).toContain("<S06S10Banner");
     expect(source).toContain("<OpenOnHash");
