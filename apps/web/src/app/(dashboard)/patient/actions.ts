@@ -59,9 +59,14 @@ import {
   computePreventiveProgrammeRecommendations,
   toRiskTier,
 } from "@/lib/rules/preventive-programme-recommendations";
-import { ageFromDateOfBirth, mgDlToMmolL, type Json } from "@tarragon/shared";
+import { classifyBpLevel } from "@/lib/rules/bp-classification";
+import { ageFromDateOfBirth, mgDlToMmolL, type BpAckLevel, type Json } from "@tarragon/shared";
 
-export type LogVitalActionState = { error?: string; success?: boolean } | undefined;
+/**
+ * `bpAckLevel` is set only for a saved blood pressure reading: the display band (never an escalation, the trigger does that) the form uses to pick
+ * the signed wording beside "Received by TarragonHealth." (docs/design/BP-immediate-acknowledgement.md).
+ */
+export type LogVitalActionState = { error?: string; success?: boolean; bpAckLevel?: BpAckLevel } | undefined;
 
 export async function logVital(
   _prevState: LogVitalActionState,
@@ -281,14 +286,24 @@ async function logVitalInner(data: VitalsReadingInput): Promise<LogVitalActionSt
     });
   }
 
+  // "Received" is said only for a reading known to be stored: with the plausibility hold or cross-source de-duplication on, the insert can return no row
+  // (held, or already there), and then the form keeps the plain line it always had. When the safety check did not finish, no band wording is shown at all.
+  const confirmedStored = !watching || (Array.isArray(storedRows) && storedRows.length > 0);
+  const bpAckLevel: BpAckLevel | undefined =
+    row.vital_type === "blood_pressure" && confirmedStored
+      ? safetyAssessmentFailed
+        ? "unknown"
+        : classifyBpLevel(row.systolic, row.diastolic)
+      : undefined;
   if (safetyAssessmentFailed) {
     return {
       success: true,
+      ...(bpAckLevel ? { bpAckLevel } : {}),
       error:
         "Your reading was saved, but we could not finish checking it against your care protocols. If this reading concerns you, contact your care team or log it again.",
     };
   }
-  return { success: true };
+  return { success: true, ...(bpAckLevel ? { bpAckLevel } : {}) };
 }
 
 export type UpdateLocationActionState = { error?: string; success?: boolean } | undefined;
