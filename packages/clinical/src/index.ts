@@ -23,9 +23,15 @@ export {
   assessHomeCheck, bandHomeMean, dedupeReadings, detectBpPattern, homeCheckSchedule, pairSessions, parseHomeBpConfig, sessionPartOf, statusAgainstTarget, addLocalDays,
   type HomeBand, type HomeBpConfig, type HomeBpReading, type HomeCheckAssessment, type HomeCheckInput, type PatternInput, type PatternKind, type PersonalTarget, type ScheduledSession, type SessionPart, type SessionProgress, type TargetStatus,
 } from "./home-bp";
+export { planSession, type SessionInput, type SessionStep } from "./home-bp-session";
 export { GLUCOSE_CARE_V1 } from "./rules";
 export {
   gradeGlucose, validateGlucoseInput, validateGlucoseRuleSet, buildGlucoseContext, GLUCOSE_RULE_SET_CODE, GLUCOSE_CONTEXTS, GLUCOSE_SYMPTOMS, KETONE_URINE_BANDS, GLUCOSE_CONTEXT_FIELDS,
   type GlucoseInput, type GlucoseRuleSet, type GlucoseObservationTrigger, type GlucoseContextCode, type GlucoseSymptomCode, type GlucoseDiabetesType, type KetoneUrine,
 } from "./glucose-engine";
 export { GLUCOSE_SIGN_SYMPTOM_TYPE, TICKED_ON_GLUCOSE_FORM_NOTE, type GlucoseSignSymptomType } from "./glucose-signs";
+export {
+  activityGate, activityGateMessageKey, parseActivityGate, unavailableActivityGate, conditionPresent, intensityAllowed, kindAllowed, lowerIntensity, INTENSITY_ORDER,
+  type ActivityConditionRecord, type ActivityGateDecision, type ActivityGateInput, type ActivityGateReason, type ActivityGateResult, type ActivityIntensity,
+  type ActivityKindConfig, type ActivityRuleConfig, type ActivitySafetyConfig, type ActivityTriageEvent, type ConditionMatchConfig,
+} from "./activity-gate";

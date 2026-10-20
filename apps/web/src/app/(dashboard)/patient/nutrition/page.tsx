@@ -6,6 +6,8 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
 import { isMealPlanGenerationConfigured } from "@/lib/nutrition/meal-plan-generate";
 import { NutritionFlow } from "../nutrition-flow";
+import { LifestyleLogCard } from "../lifestyle-log-card";
+import { readExtendedObservationsEnabled } from "@/lib/vitals/extended-observations";
 
 export default async function NutritionPage() {
   const profile = await getCurrentProfile();
@@ -28,6 +30,9 @@ export default async function NutritionPage() {
     .eq("status", "active");
   const activeConditions = Array.from(new Set((carePlans ?? []).map((p) => p.condition)));
 
+  // S47a (6.6): a water log in the nutrition area, shown only while the extended_observations module is on.
+  const waterLogOn = await readExtendedObservationsEnabled(supabase);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -36,6 +41,7 @@ export default async function NutritionPage() {
         backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
         description="Log what you eat, with a photo if you like. We'll estimate the portions and carbs to help you and your care team spot patterns. It's a coaching guide, not a medical measurement."
       />
+      {waterLogOn ? <LifestyleLogCard types={["water_ml"]} title="Log water" /> : null}
       <NutritionFlow
         patientId={profile.id}
         visionConfigured={isMealVisionConfigured()}

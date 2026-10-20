@@ -153,6 +153,7 @@ async function syncHealthReadings(
   let vitals = 0;
   let wearable = 0;
   let queued = 0;
+  let notSaved = false;
   const pages = paginate(samples, UPLOAD_PAGE_SIZE);
   for (let index = 0; index < pages.length; index++) {
     const page = pages[index];
@@ -175,18 +176,23 @@ async function syncHealthReadings(
         // The queued page keeps its truncated_types so the eventual replay
         // (offline-queue.ts's flush) makes the same cursor declaration this
         // live upload would have — see the comment on postHealthSamples above.
-        await enqueueHealthSamplesPage({
+        const stored = await enqueueHealthSamplesPage({
           provider,
           samples: remaining,
           ...(truncatedTypes.length > 0 ? { truncated_types: truncatedTypes } : {}),
         });
-        queued += remaining.length;
+        // Only count what really landed (S06y: a missing session or an unopenable store now fails the write).
+        if (stored) queued += remaining.length;
+        else notSaved = true;
       }
       break;
     }
     vitals += result.data.vitals_inserted;
     wearable += result.data.wearable_inserted;
   }
+
+  // Not uploaded and not saved on the phone either: say so rather than reporting a clean sync.
+  if (notSaved) return { status: "error", message: "Couldn't save some of your readings on this phone to send later. Please sync again when you are online." };
 
   return {
     status: "synced",
