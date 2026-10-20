@@ -14,6 +14,123 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_safety_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      activity_routes: {
+        Row: {
+          activity_log_entry_id: string | null
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          recorded_by: string | null
+          route_geojson: Json
+          source: Database["public"]["Enums"]["record_source"]
+        }
+        Insert: {
+          activity_log_entry_id?: string | null
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          recorded_by?: string | null
+          route_geojson: Json
+          source?: Database["public"]["Enums"]["record_source"]
+        }
+        Update: {
+          activity_log_entry_id?: string | null
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          recorded_by?: string | null
+          route_geojson?: Json
+          source?: Database["public"]["Enums"]["record_source"]
+        }
+        Relationships: []
+      }
+      workout_plans: {
+        Row: {
+          audio_clip_ids: string[]
+          clinician_reviewed: boolean
+          code: string
+          conditions_safe_for: string[]
+          created_at: string
+          format: string
+          id: string
+          is_active: boolean
+          level: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sessions: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audio_clip_ids?: string[]
+          clinician_reviewed?: boolean
+          code: string
+          conditions_safe_for?: string[]
+          created_at?: string
+          format: string
+          id?: string
+          is_active?: boolean
+          level: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sessions?: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audio_clip_ids?: string[]
+          clinician_reviewed?: boolean
+          code?: string
+          conditions_safe_for?: string[]
+          created_at?: string
+          format?: string
+          id?: string
+          is_active?: boolean
+          level?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sessions?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       breastfeeding_feed_log: {
         Row: {
           amount_ml: number | null
@@ -1935,8 +2052,10 @@ export type Database = {
       }
       activity_log_entries: {
         Row: {
+          activity_kind: Database["public"]["Enums"]["activity_kind"] | null
           activity_name: string | null
           created_at: string
+          distance_m: number | null
           duration_minutes: number | null
           entry_type: Database["public"]["Enums"]["activity_entry_type"]
           id: string
@@ -1950,8 +2069,10 @@ export type Database = {
           step_count: number | null
         }
         Insert: {
+          activity_kind?: Database["public"]["Enums"]["activity_kind"] | null
           activity_name?: string | null
           created_at?: string
+          distance_m?: number | null
           duration_minutes?: number | null
           entry_type: Database["public"]["Enums"]["activity_entry_type"]
           id?: string
@@ -1965,8 +2086,10 @@ export type Database = {
           step_count?: number | null
         }
         Update: {
+          activity_kind?: Database["public"]["Enums"]["activity_kind"] | null
           activity_name?: string | null
           created_at?: string
+          distance_m?: number | null
           duration_minutes?: number | null
           entry_type?: Database["public"]["Enums"]["activity_entry_type"]
           id?: string
@@ -29275,7 +29398,9 @@ export type Database = {
           id: string
           organisation_id: string
           patient_id: string
+          route_recording_enabled: boolean
           updated_at: string
+          weekly_active_minutes_goal: number
         }
         Insert: {
           created_at?: string
@@ -29283,7 +29408,9 @@ export type Database = {
           id?: string
           organisation_id: string
           patient_id: string
+          route_recording_enabled?: boolean
           updated_at?: string
+          weekly_active_minutes_goal?: number
         }
         Update: {
           created_at?: string
@@ -29291,7 +29418,9 @@ export type Database = {
           id?: string
           organisation_id?: string
           patient_id?: string
+          route_recording_enabled?: boolean
           updated_at?: string
+          weekly_active_minutes_goal?: number
         }
         Relationships: [
           {
@@ -47415,6 +47544,31 @@ export type Database = {
       }
     }
     Views: {
+      activity_sessions: {
+        Row: {
+          distance_m: number | null
+          duration_s: number | null
+          id: string | null
+          kind: string | null
+          logged_on: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          source: string | null
+          started_at: string | null
+          steps: number | null
+        }
+        Relationships: []
+      }
+      activity_goals: {
+        Row: {
+          metric: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          set_by: string | null
+          target: number | null
+        }
+        Relationships: []
+      }
       ai_readable_lab_readings: {
         Row: {
           abnormal_flag: Database["public"]["Enums"]["lab_analyte_flag"] | null
@@ -48239,6 +48393,10 @@ export type Database = {
       }
     }
     Functions: {
+      activity_gate: { Args: Record<PropertyKey, never>; Returns: Json };
+      activity_week_progress: { Args: { p_week_start?: string }; Returns: Json };
+      my_workout_plans: { Args: Record<PropertyKey, never>; Returns: Json };
+      sign_activity_safety_config: { Args: { p_id: string }; Returns: string };
       medication_refill_pharmacy: { Args: { p_medication: string }; Returns: { partner_id: string; partner_name: string | null; location_name: string | null; address: string | null }[] };
       attest_pharmacy_nafdac_source: { Args: { p_partner: string; p_note: string }; Returns: Json };
       sign_interaction_dataset: { Args: { p_version: number; p_content_hash: string; p_note: string }; Returns: Json };
@@ -54356,6 +54514,7 @@ export type Database = {
         | "single_test"
         | "other"
       activity_entry_type: "steps" | "workout"
+      activity_kind: "walking" | "running" | "cycling" | "dancing" | "football" | "farm_manual_work" | "chair_based"
       ageing_assessment_domain:
         | "mobility"
         | "falls"
@@ -56622,6 +56781,7 @@ export const Constants = {
     Enums: {
       correction_status: ["corrected", "amended", "entered_in_error", "cancelled"],
       activity_entry_type: ["steps", "workout"],
+      activity_kind: ["walking", "running", "cycling", "dancing", "football", "farm_manual_work", "chair_based"],
       ageing_assessment_domain: [
         "mobility",
         "falls",

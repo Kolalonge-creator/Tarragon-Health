@@ -1,7 +1,7 @@
 import { postDeviceReading, postHealthSamples, postPhotoReading, type PhotoReadingRequest } from "./api";
 import type { HealthProvider } from "./health-sync";
 import type { HealthReadingType, HealthSample } from "./healthkit";
-import { mergeQueueJson, secureKvGet, secureKvUpdate } from "./secure-kv";
+import { appendQueue, countQueue, listQueue, removeFromQueueStore, type QueueName } from "./offline-queue-store";
 import { recordSyncError, type SyncSource } from "./sync-diagnostics";
 
 /**
@@ -14,8 +14,8 @@ import { recordSyncError, type SyncSource } from "./sync-diagnostics";
  * Integration section for why none of this has ever run against real
  * hardware yet.
  *
- * Independent queues (S06x follow-up: kept in the ENCRYPTED on-device store through secure-kv.ts, not plaintext AsyncStorage;
- * a queue an older build left in AsyncStorage is moved across with a verified copy first and a union by id, never dropped), not one combined queue: the
+ * S06y: the queues live in the encrypted on-device store (offline-queue-store.ts), scoped to the
+ * signed-in account, no longer in AsyncStorage. Independent queues, not one combined queue: the
  * two call sites retry against different endpoints with structurally
  * different payloads (a whole page of samples vs. one device reading), and
  * giving each its own storage key and its own MAX_QUEUE_SIZE keeps a burst
@@ -32,8 +32,8 @@ import { recordSyncError, type SyncSource } from "./sync-diagnostics";
  * resolution logic added here. See health-sync.ts / api.ts for the routes.
  */
 
-const HEALTH_SAMPLES_QUEUE_KEY = "@tarragon/offline-queue/health-samples/v1";
-const DEVICE_READINGS_QUEUE_KEY = "@tarragon/offline-queue/device-readings/v1";
+const HEALTH_SAMPLES_QUEUE: QueueName = "health_samples";
+const DEVICE_READINGS_QUEUE: QueueName = "device_readings";
 
 /**
  * Cap per queue (not a combined budget — see file doc comment above).
@@ -52,7 +52,7 @@ const DEVICE_READINGS_QUEUE_KEY = "@tarragon/offline-queue/device-readings/v1";
  * something feels wrong) is silently the one dropped, which is the worse
  * failure mode of the two.
  */
-const MAX_QUEUE_SIZE = 500;
+// (The cap itself, MAX_QUEUE_SIZE = 500 per account and queue, is enforced in offline-queue-store.ts.)
 
 export interface QueuedEntry<T> {
   id: string;
@@ -82,96 +82,16 @@ export interface FlushResult {
   remaining: number;
 }
 
-function newId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+async function readQueue<T>(queue: QueueName, source: SyncSource): Promise<QueuedEntry<T>[]> {
+  return listQueue<T>(queue, source);
 }
 
-function isQueuedEntry(value: unknown): value is QueuedEntry<unknown> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { id?: unknown }).id === "string" &&
-    typeof (value as { enqueuedAt?: unknown }).enqueuedAt === "string" &&
-    "item" in value
-  );
+async function appendToQueue<T>(queue: QueueName, item: T, source: SyncSource): Promise<boolean> {
+  return appendQueue<T>(queue, item, source);
 }
 
-/** Parses a stored queue. Filters rather than rejects the whole queue on one bad entry (the "one broken thing must not cost every other item"
- * principle healthkit.ts/health-connect.ts apply per reading type). A value that is not a list is read as empty and recorded. */
-function parseEntries<T>(raw: string | null, source: SyncSource): QueuedEntry<T>[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isQueuedEntry) as QueuedEntry<T>[];
-  } catch (error) {
-    recordSyncError(source, "offline_queue:read", error);
-    return [];
-  }
-}
-
-/**
- * Generic persisted-list plumbing shared by the queues below. Not exported
- * — every caller outside this file goes through the health-samples- or
- * device-reading-specific functions further down, so the queues can
- * never be pointed at each other's storage key by mistake.
- *
- * The queues live in the ENCRYPTED on-device store (secure-kv.ts). Reads merge any copy an older build left in plaintext AsyncStorage; an
- * append or a removal is ONE locked read-and-write, so two callers (a BLE reading and a background flush, say) cannot lose each other's entry.
- */
-async function readQueue<T>(key: string, source: SyncSource): Promise<QueuedEntry<T>[]> {
-  try {
-    return parseEntries<T>(await secureKvGet(key, mergeQueueJson), source);
-  } catch (error) {
-    recordSyncError(source, "offline_queue:read", error);
-    return [];
-  }
-}
-
-/** Returns whether the write actually landed — callers that need to tell a
- * patient their reading is safely stored somewhere (sync-screen.tsx) check
- * this rather than assuming; callers doing a best-effort background flush
- * (everywhere else) can ignore it, since the failure is already recorded
- * here regardless. */
-async function appendToQueue<T>(key: string, item: T, source: SyncSource): Promise<boolean> {
-  try {
-    const landed = await secureKvUpdate(key, mergeQueueJson, (raw) => {
-      const next = [...parseEntries<T>(raw, source), { id: newId(), enqueuedAt: new Date().toISOString(), item }];
-      if (next.length > MAX_QUEUE_SIZE) {
-        // Drop-oldest — see MAX_QUEUE_SIZE's doc comment for why the NEWEST
-        // reading is the one a full queue must never refuse. The discard itself
-        // is recorded rather than silent: losing a queued clinical reading is
-        // exactly the kind of event that must be visible to whoever is holding
-        // the device when this path first runs for real. The policy is
-        // unchanged; only its visibility is.
-        const dropped = next.splice(0, next.length - MAX_QUEUE_SIZE);
-        recordSyncError(
-          source,
-          "offline_queue:overflow",
-          `Queue full (${MAX_QUEUE_SIZE}); discarded ${dropped.length} oldest entr${dropped.length === 1 ? "y" : "ies"} (oldest enqueued ${dropped[0]?.enqueuedAt}).`
-        );
-      }
-      return JSON.stringify(next);
-    });
-    if (!landed) recordSyncError(source, "offline_queue:write", "The queue could not be stored");
-    return landed;
-  } catch (error) {
-    recordSyncError(source, "offline_queue:write", error);
-    return false;
-  }
-}
-
-async function removeFromQueue<T>(key: string, id: string, source: SyncSource): Promise<void> {
-  try {
-    const landed = await secureKvUpdate(key, mergeQueueJson, (raw) => {
-      const entries = parseEntries<T>(raw, source);
-      const next = entries.filter((entry) => entry.id !== id);
-      return next.length === entries.length ? null : JSON.stringify(next);
-    });
-    if (!landed) recordSyncError(source, "offline_queue:write", "The queue could not be stored");
-  } catch (error) {
-    recordSyncError(source, "offline_queue:write", error);
-  }
+async function removeFromQueue(queue: QueueName, id: string, source: SyncSource): Promise<void> {
+  await removeFromQueueStore(queue, id, source);
 }
 
 // ---------------------------------------------------------------------------
@@ -183,21 +103,21 @@ async function removeFromQueue<T>(key: string, id: string, source: SyncSource): 
  * recorded internally either way); nothing more useful for it to do once a
  * fresh read has already happened and the live upload has already failed. */
 export async function enqueueHealthSamplesPage(page: QueuedHealthSamplesPage): Promise<boolean> {
-  return appendToQueue(HEALTH_SAMPLES_QUEUE_KEY, page, page.provider);
+  return appendToQueue(HEALTH_SAMPLES_QUEUE, page, page.provider);
 }
 
 export async function listPendingHealthSamplesPages(): Promise<QueuedEntry<QueuedHealthSamplesPage>[]> {
   // "apple_health" here is just an attribution label for a read failure —
   // a corrupted queue file isn't specific to either provider.
-  return readQueue<QueuedHealthSamplesPage>(HEALTH_SAMPLES_QUEUE_KEY, "apple_health");
+  return readQueue<QueuedHealthSamplesPage>(HEALTH_SAMPLES_QUEUE, "apple_health");
 }
 
 export async function removeHealthSamplesPage(id: string): Promise<void> {
-  await removeFromQueue<QueuedHealthSamplesPage>(HEALTH_SAMPLES_QUEUE_KEY, id, "apple_health");
+  await removeFromQueue(HEALTH_SAMPLES_QUEUE, id, "apple_health");
 }
 
 export async function getHealthSamplesQueueCount(): Promise<number> {
-  return (await listPendingHealthSamplesPages()).length;
+  return countQueue(HEALTH_SAMPLES_QUEUE, "apple_health");
 }
 
 export interface HealthSamplesFlushResult {
@@ -270,19 +190,19 @@ const BLE_SOURCE: SyncSource = "ble";
  * device storage genuinely full), which is worth being honest with the
  * patient about rather than showing a false "queued". */
 export async function enqueueDeviceReading(payload: QueuedDeviceReading): Promise<boolean> {
-  return appendToQueue(DEVICE_READINGS_QUEUE_KEY, payload, BLE_SOURCE);
+  return appendToQueue(DEVICE_READINGS_QUEUE, payload, BLE_SOURCE);
 }
 
 export async function listPendingDeviceReadings(): Promise<QueuedEntry<QueuedDeviceReading>[]> {
-  return readQueue<QueuedDeviceReading>(DEVICE_READINGS_QUEUE_KEY, BLE_SOURCE);
+  return readQueue<QueuedDeviceReading>(DEVICE_READINGS_QUEUE, BLE_SOURCE);
 }
 
 export async function removeDeviceReading(id: string): Promise<void> {
-  await removeFromQueue<QueuedDeviceReading>(DEVICE_READINGS_QUEUE_KEY, id, BLE_SOURCE);
+  await removeFromQueue(DEVICE_READINGS_QUEUE, id, BLE_SOURCE);
 }
 
 export async function getDeviceReadingsQueueCount(): Promise<number> {
-  return (await listPendingDeviceReadings()).length;
+  return countQueue(DEVICE_READINGS_QUEUE, BLE_SOURCE);
 }
 
 /** Same stop-on-first-failure reasoning as flushHealthSamplesQueue above —
@@ -310,7 +230,7 @@ export async function flushDeviceReadingsQueue(): Promise<FlushResult> {
 // Photo-readings queue (S70a, 18.3)
 // ---------------------------------------------------------------------------
 
-const PHOTO_READINGS_QUEUE_KEY = "@tarragon/offline-queue/photo-readings/v1";
+const PHOTO_READINGS_QUEUE: QueueName = "photo_readings";
 const PHOTO_SOURCE: SyncSource = "ble";
 
 /**
@@ -318,15 +238,15 @@ const PHOTO_SOURCE: SyncSource = "ble";
  * the photo. Replaying is safe: the server dedupes on `client_reading_id` (an already-saved reading answers {deduped:true}).
  */
 export async function enqueuePhotoReading(payload: PhotoReadingRequest): Promise<boolean> {
-  return appendToQueue(PHOTO_READINGS_QUEUE_KEY, payload, PHOTO_SOURCE);
+  return appendToQueue(PHOTO_READINGS_QUEUE, payload, PHOTO_SOURCE);
 }
 
 export async function listPendingPhotoReadings(): Promise<QueuedEntry<PhotoReadingRequest>[]> {
-  return readQueue<PhotoReadingRequest>(PHOTO_READINGS_QUEUE_KEY, PHOTO_SOURCE);
+  return readQueue<PhotoReadingRequest>(PHOTO_READINGS_QUEUE, PHOTO_SOURCE);
 }
 
 export async function getPhotoReadingsQueueCount(): Promise<number> {
-  return (await listPendingPhotoReadings()).length;
+  return countQueue(PHOTO_READINGS_QUEUE, PHOTO_SOURCE);
 }
 
 /**
@@ -343,12 +263,12 @@ export async function flushPhotoReadingsQueue(): Promise<FlushResult> {
     if (!result.ok) {
       recordSyncError(PHOTO_SOURCE, "offline_queue:flush", result.error);
       if (result.status === 400 || result.status === 422) {
-        await removeFromQueue<PhotoReadingRequest>(PHOTO_READINGS_QUEUE_KEY, entry.id, PHOTO_SOURCE);
+        await removeFromQueue(PHOTO_READINGS_QUEUE, entry.id, PHOTO_SOURCE);
         continue;
       }
       break;
     }
-    await removeFromQueue<PhotoReadingRequest>(PHOTO_READINGS_QUEUE_KEY, entry.id, PHOTO_SOURCE);
+    await removeFromQueue(PHOTO_READINGS_QUEUE, entry.id, PHOTO_SOURCE);
     flushed++;
   }
 

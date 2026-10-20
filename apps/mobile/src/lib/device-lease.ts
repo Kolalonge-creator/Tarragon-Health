@@ -1,17 +1,17 @@
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "./supabase";
+import { PHONE_ROW_COLUMNS, type PhoneLeaseRow } from "@tarragon/shared";
 import { recordSyncError } from "./sync-diagnostics";
 import { classifyFailure } from "./outbox-rules";
 import { countDangerUnsent, countUnsentByOwner, flushOutbox } from "./outbox";
+import { flushOfflineQueues } from "./offline-queue";
+import { clearQueueOwner, countQueuedByOwner } from "./offline-queue-store";
 import { destroyStore } from "./secure-db";
-import { flushOfflineQueues, getPendingCount } from "./offline-queue";
-import { sealKvForWipe, unsealKv } from "./secure-kv";
 import { forgetAllDeviceIds, getOrCreateDeviceId, listDeviceAccounts } from "./store-key";
 import { addStoreNotice } from "./store-notices";
 import { leaseVerdict, type WipeReason } from "./store-rules";
 import { loadOfflineTrustConfig } from "./offline-trust-config";
-import { PHONE_ROW_COLUMNS, type PhoneLeaseRow } from "@tarragon/shared";
 
 /**
  * Remote wipe and key lease (S06x, decision D3, refined for urgent entries). The phone checks in whenever it syncs.
@@ -33,6 +33,8 @@ import { PHONE_ROW_COLUMNS, type PhoneLeaseRow } from "@tarragon/shared";
 const STATE_KEY = "@tarragon/device-lease/v1";
 const PENDING_CONFIRM_KEY = "@tarragon/device-wipe-confirm/v1";
 /** Local keys that must outlive a wipe: the patient-facing notices, the data-use meter, and the lease and confirmation records (no health content). */
+/** Longest the wipe waits for the queued readings' last upload attempt. */
+const QUEUE_FLUSH_BUDGET_MS = 15_000;
 const KEEP_PREFIXES = ["@tarragon/store-notices/", "@tarragon/data-usage/", STATE_KEY, PENDING_CONFIRM_KEY];
 const PENDING_MAX_AGE_MS = 90 * 86_400_000;
 
@@ -55,22 +57,6 @@ interface PendingConfirm {
   danger: number;
   reason: ConfirmReason;
   at: string;
-}
-
-const QUEUE_FLUSH_BUDGET_MS = 20_000;
-const QUEUE_COUNT_BUDGET_MS = 5_000;
-
-/** The promise's value, or `fallback` once `ms` has passed; the timer is cleared as soon as the promise settles. */
-async function withDeadline<T, F>(promise: Promise<T>, ms: number, fallback: F): Promise<T | F> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const late = new Promise<F>((resolve) => {
-    timer = setTimeout(() => resolve(fallback), ms);
-  });
-  try {
-    return await Promise.race([promise, late]);
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 export type DeviceCheckOutcome = "ok" | "offline" | "wiped" | "held" | "skipped";
@@ -122,6 +108,20 @@ export async function wipeThisPhone(
   } catch (error) {
     recordSyncError("offline_outbox", "wipe:lastFlush", error);
   }
+  try {
+    // One last try for the queued readings too, but bounded: a lost phone must not stay readable through a slow network.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const bound = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, QUEUE_FLUSH_BUDGET_MS);
+    });
+    try {
+      await Promise.race([flushOfflineQueues().then(() => undefined), bound]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  } catch (error) {
+    recordSyncError("offline_outbox", "wipe:lastFlushQueues", error);
+  }
   // 2. Count what did not go, per account on the phone. Counts are all anyone ever hears about it.
   let owners: Awaited<ReturnType<typeof countUnsentByOwner>> = [];
   try {
@@ -129,40 +129,23 @@ export async function wipeThisPhone(
   } catch (error) {
     recordSyncError("offline_outbox", "wipe:count", error);
   }
+  // Queued device and health-store readings (S06y) are unsent entries too: count them per account, never urgent-flagged.
+  try {
+    for (const q of await countQueuedByOwner()) {
+      // Entries nobody has claimed yet (from before the change) would be claimed by the account that wakes the queue first: the triggering one.
+      const owner = q.owner || triggerUserId || owners[0]?.owner || "";
+      if (!owner) continue;
+      const mine = owners.find((o) => o.owner === owner);
+      if (mine) mine.total += q.total;
+      else owners.push({ owner, total: q.total, danger: 0 });
+    }
+  } catch (error) {
+    recordSyncError("offline_outbox", "wipe:countQueues", error);
+  }
   const accounts = await listDeviceAccounts();
   const everyone = new Set<string>([...Object.keys(accounts), ...owners.map((o) => o.owner)]);
   if (triggerUserId) everyone.add(triggerUserId);
-  // The device-reading, health-sample and photo-reading queues now live in the same encrypted store (secure-kv.ts) and go with it,
-  // so they get the same last attempt and are counted too, never wiped uncounted. They belong to whoever was signed in (the trigger
-  // account, or the only account on the phone) and are never urgent entries.
-  // Bounded: a wipe must finish even on a captive network, so the queues get QUEUE_FLUSH_BUDGET_MS in all, then the wipe goes on.
-  // The count is its own step (a failed flush must not skip it), and the queues belong to whoever is signed in: the trigger account, else the
-  // signed-in one, else the only account known on the phone.
-  try {
-    const flushed = await withDeadline(flushOfflineQueues().then(() => true), QUEUE_FLUSH_BUDGET_MS, false);
-    if (!flushed) recordSyncError("offline_outbox", "wipe:queues", "The last upload attempt for the reading queues did not finish in time");
-  } catch (error) {
-    recordSyncError("offline_outbox", "wipe:queues", error);
-  }
-  let queued = 0;
-  try {
-    const counted = await withDeadline(getPendingCount(), QUEUE_COUNT_BUDGET_MS, null);
-    if (counted === null) recordSyncError("offline_outbox", "wipe:queues", "The reading queues could not be counted in time");
-    else queued = counted;
-  } catch (error) {
-    recordSyncError("offline_outbox", "wipe:queues", error);
-  }
-  let sessionUser: string | null = null;
-  try {
-    sessionUser = (await supabase.auth.getSession()).data.session?.user?.id ?? null;
-  } catch {
-    // no session to read: fall back to the other rules
-  }
-  const queueOwner = triggerUserId ?? sessionUser ?? (everyone.size === 1 ? [...everyone][0] : ([...everyone][0] ?? null));
-  const counts = (userId: string) => {
-    const base = owners.find((o) => o.owner === userId) ?? { owner: userId, total: 0, danger: 0 };
-    return userId === queueOwner ? { ...base, total: base.total + queued } : base;
-  };
+  const counts = (userId: string) => owners.find((o) => o.owner === userId) ?? { owner: userId, total: 0, danger: 0 };
 
   // 3. Tell each account BEFORE anything is removed, so a crash half way still leaves the notices.
   const pending: PendingConfirm[] = [...(await readPending())];
@@ -176,9 +159,11 @@ export async function wipeThisPhone(
   }
   await AsyncStorage.setItem(PENDING_CONFIRM_KEY, JSON.stringify(pending)).catch(() => {});
   // 4. The store, its key, and every earlier generation. A failure leaves the revoked flag in place, so it is retried.
-  // Sealed first: a reading-queue flush that outlived its budget must not write anything back once this has started.
-  sealKvForWipe();
-  await destroyStore();
+  try {
+    await destroyStore();
+  } finally {
+    await clearQueueOwner();
+  }
   // 5. Fresh ids for EVERY account known on this phone (signed in or not), so each registers as a new device next time.
   //    Before the sweep below, which would otherwise remove the list of accounts first.
   await forgetAllDeviceIds();
@@ -321,7 +306,6 @@ export async function runDeviceCheck(now: Date = new Date()): Promise<DeviceChec
       return "wiped";
     }
 
-    unsealKv(); // not revoked: the reading queues may be written again (a wipe seals them)
     const leaseDays = typeof answer.lease_days === "number" ? answer.lease_days : loadOfflineTrustConfig().deviceLeaseDays;
     const renewed: LeaseState | null =
       typeof answer.lease_expires_at === "string"
@@ -367,15 +351,47 @@ export function __resetDeviceCheckThrottle(): void {
 
 /** Patient report from a signed-in phone or the web: "this phone is lost". The phone wipes the next time it syncs. */
 export async function reportPhoneLost(deviceId: string, reason: "lost_phone" | "stolen" = "lost_phone"): Promise<boolean> {
+  const { error } = await supabase.rpc("request_offline_device_wipe", { p_device: deviceId, p_reason: reason });
+  return !error;
+}
+
+/** The phones registered to the signed-in account, for a "my phones" list. */
+export async function listMyPhones(): Promise<{ deviceId: string; platform: string; lastSeenAt: string; revoked: boolean }[]> {
+  const { data, error } = await supabase
+    .from("offline_device_leases")
+    .select("device_id, platform, last_checkin_at, revoked_at")
+    .is("retired_at", null)
+    .order("last_checkin_at", { ascending: false });
+  if (error || !data) return [];
+  return data.map((d) => ({ deviceId: d.device_id, platform: d.platform, lastSeenAt: d.last_checkin_at, revoked: d.revoked_at !== null }));
+}
+
+/** The id this phone registered under for the signed-in account, or null (never registered or nobody signed in). */
+export async function thisPhoneDeviceId(userId: string): Promise<string | null> {
+  const accounts = await listDeviceAccounts();
+  return accounts[userId] ?? null;
+}
+
+/** The server answers `true` only when it recorded a wipe request; an error or `false` means nothing was requested (so the screen must not say "reported"). */
+export async function requestPhoneWipe(deviceId: string, reason: "lost_phone" | "stolen" = "lost_phone"): Promise<boolean> {
   const { data, error } = await supabase.rpc("request_offline_device_wipe", { p_device: deviceId, p_reason: reason });
-  // The function answers true when it recorded the request; anything else (an error, or false) means nothing was requested.
   return !error && data === true;
+}
+
+/**
+ * The patient says THIS phone is lost (they still have it, e.g. it was found, or they want it cleared now): the report is made on the
+ * server, then a check-in runs straight away so the phone makes its one last upload attempt and clears itself without waiting.
+ */
+export async function reportThisPhoneLostNow(deviceId: string): Promise<boolean> {
+  const accepted = await requestPhoneWipe(deviceId);
+  if (accepted) await runDeviceCheck();
+  return accepted;
 }
 
 export type MyPhonesResult = { ok: true; phones: PhoneLeaseRow[] } | { ok: false };
 
 /** The phones registered to the signed-in account (row policy: own rows only). A failed read is `{ ok: false }`, never an empty list. */
-export async function listMyPhones(): Promise<MyPhonesResult> {
+export async function listMyPhoneLeases(): Promise<MyPhonesResult> {
   const { data, error } = await supabase.from("offline_device_leases").select(PHONE_ROW_COLUMNS).order("last_checkin_at", { ascending: false }).limit(50);
   if (error || !Array.isArray(data)) return { ok: false };
   const phones = (data as unknown[]).filter(
@@ -388,20 +404,4 @@ export async function listMyPhones(): Promise<MyPhonesResult> {
       typeof (r as PhoneLeaseRow).lease_expires_at === "string",
   );
   return { ok: true, phones };
-}
-
-/** The id this phone registered under for the signed-in account, or null (never registered or nobody signed in). */
-export async function thisPhoneDeviceId(userId: string): Promise<string | null> {
-  const accounts = await listDeviceAccounts();
-  return accounts[userId] ?? null;
-}
-
-/**
- * The patient says THIS phone is lost (they still have it, e.g. it was found, or they want it cleared now): the report is made on the
- * server, then a check-in runs straight away so the phone makes its one last upload attempt and clears itself without waiting.
- */
-export async function reportThisPhoneLostNow(deviceId: string): Promise<boolean> {
-  const accepted = await reportPhoneLost(deviceId);
-  if (accepted) await runDeviceCheck();
-  return accepted;
 }

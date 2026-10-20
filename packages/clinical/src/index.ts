@@ -30,3 +30,8 @@ export {
 } from "./glucose-engine";
 export { GLUCOSE_SIGN_SYMPTOM_TYPE, TICKED_ON_GLUCOSE_FORM_NOTE, type GlucoseSignSymptomType } from "./glucose-signs";
 export { computeBpControlRate, type BpControlRate, type ControlReading, type ControlTarget, type ControlGateRule } from "./bp-control-rate";
+export {
+  activityGate, activityGateMessageKey, parseActivityGate, unavailableActivityGate, conditionPresent, intensityAllowed, kindAllowed, lowerIntensity, INTENSITY_ORDER,
+  type ActivityConditionRecord, type ActivityGateDecision, type ActivityGateInput, type ActivityGateReason, type ActivityGateResult, type ActivityIntensity,
+  type ActivityKindConfig, type ActivityRuleConfig, type ActivitySafetyConfig, type ActivityTriageEvent, type ConditionMatchConfig,
+} from "./activity-gate";

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Text, View } from "react-native";
 import { canReportLost, phoneState, sortPhones, type PhoneLeaseRow } from "@tarragon/shared";
 import { describePhone, t } from "@tarragon/i18n";
-import { listMyPhones, reportPhoneLost, reportThisPhoneLostNow, thisPhoneDeviceId } from "@/lib/device-lease";
+import { listMyPhoneLeases, requestPhoneWipe, reportThisPhoneLostNow, thisPhoneDeviceId } from "@/lib/device-lease";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
 
@@ -20,7 +20,7 @@ export function MyPhonesCard({ userId }: { userId: string }) {
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const [list, mine] = await Promise.all([listMyPhones(), thisPhoneDeviceId(userId)]);
+    const [list, mine] = await Promise.all([listMyPhoneLeases(), thisPhoneDeviceId(userId)]);
     setThisPhone(mine);
     if (list.ok) {
       setPhones(list.phones);
@@ -44,7 +44,7 @@ export function MyPhonesCard({ userId }: { userId: string }) {
         onPress: () => {
           void (async () => {
             setBusy(true);
-            const accepted = mine ? await reportThisPhoneLostNow(deviceId) : await reportPhoneLost(deviceId);
+            const accepted = mine ? await reportThisPhoneLostNow(deviceId) : await requestPhoneWipe(deviceId);
             setBusy(false);
             setNotice(accepted ? t("phones.lost.done") : t("phones.lost.failed"));
             if (accepted) await load();
