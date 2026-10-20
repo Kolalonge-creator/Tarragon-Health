@@ -69,6 +69,7 @@ import { FreeFollowUpCard } from "@/screens/sections/free-follow-up-card";
 import { SymptomScreen } from "@/screens/sections/symptom-screen";
 import { MonitoringCoverCard } from "@/screens/sections/monitoring-cover-card";
 import { SymptomChecklist, TechniqueGuide } from "@/screens/sections/bp-extras";
+import { LifestyleLogCard } from "@/screens/sections/lifestyle-log-card";
 
 // Versioned S07 values (rest time, gap between readings, severity recorded for a ticked symptom).
 const HOME_PROTOCOL = loadHomeProtocol();
@@ -616,6 +617,9 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         beneficiaryProfileId={beneficiaryProfileId}
         onEmergency={(detail, synced, wordingCode) => setGuidance({ detail, synced, wordingCode: wordingCode ?? null })}
       />
+
+      {/* S47a: water, sleep, mood and inhaler use; renders nothing until the extended_observations module is on */}
+      <LifestyleLogCard beneficiaryProfileId={beneficiaryProfileId} signedInUserId={patientId} />
 
       {/* Recent readings */}
       <View style={{ gap: space.sm }}>
