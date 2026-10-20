@@ -1,10 +1,14 @@
-import Link from "next/link";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { NAV_ICON } from "@/lib/icons";
 import { createClient } from "@/lib/supabase/server";
 import { t, type MessageKey } from "@tarragon/i18n";
+import { getProposedConfig, type BiomarkerBand } from "@tarragon/shared";
+import { BiomarkerResultCard } from "@/components/biomarker/biomarker-result-card";
+import { LifestyleGuide, type LifestyleItem } from "@/components/biomarker/lifestyle-guide";
+import { ResultExplainer } from "@/components/result-explainer";
+import { activeBiomarkerBands, gradeResult } from "@/lib/biomarkers/grade";
 import { displayCode, groupByUnit, labRangeLabel, parseTrend, targetLabel } from "@/lib/biomarkers/trend";
 import { TrendChart } from "./trend-chart";
 
@@ -43,6 +47,19 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
   }
   const groups = series ? groupByUnit(series.points) : [];
 
+  // One latest-result card per test. The Tarragon grade and range bar appear only once the CMO has confirmed the bands.
+  const bands = activeBiomarkerBands();
+  const cards = (
+    await Promise.all(
+      list.map(async (item) => {
+        const { data } = await supabase.rpc("patient_biomarker_trend", { p_code: item.code, p_patient: subjectId });
+        const latest = parseTrend(data)?.points.at(-1);
+        return latest ? { code: item.code, latest } : null;
+      }),
+    )
+  ).filter((c): c is NonNullable<typeof c> => c !== null);
+  const guide = getProposedConfig("biomarkers.lifestyle_guide").value as unknown as { items: LifestyleItem[] };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -56,21 +73,26 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("biomarkers.none", uiLanguage)}</p>
       ) : (
         <>
-          <nav aria-label={t("biomarkers.pick", uiLanguage)} className="flex flex-wrap gap-2">
-            {list.map((item) => (
-              <Link
-                key={item.code}
-                href={`/patient/biomarkers?code=${encodeURIComponent(item.code)}`}
-                aria-current={item.code === selected ? "page" : undefined}
-                className={`rounded-full border px-3 py-1 text-sm ${
-                  item.code === selected ? "border-brand-green bg-soft-sage font-medium text-deep-forest" : "border-charcoal-ink/15 hover:bg-charcoal-ink/5"
-                }`}
-              >
-                {displayCode(item.code)}
-                <span className="ml-2 text-xs text-charcoal-ink/60">{t("biomarkers.readings", uiLanguage, { count: String(item.readings) })}</span>
-              </Link>
-            ))}
-          </nav>
+          <section aria-label={t("biomarkers.pick", uiLanguage)} className="grid gap-3 sm:grid-cols-2">
+            {cards.map(({ code: c, latest }) => {
+              const grade = gradeResult(c, latest, bands);
+              const band: BiomarkerBand | null = grade ? (bands?.analytes[c] ?? null) : null;
+              return (
+                <BiomarkerResultCard
+                  key={c}
+                  code={c}
+                  point={latest}
+                  grade={grade}
+                  band={band}
+                  selected={c === selected}
+                  href={`/patient/biomarkers?code=${encodeURIComponent(c)}`}
+                  uiLanguage={uiLanguage}
+                >
+                  <ResultExplainer kind="lab_analyte" subjectKey={c} label={displayCode(c)} />
+                </BiomarkerResultCard>
+              );
+            })}
+          </section>
 
           {series && (
             <>
@@ -128,6 +150,7 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
               <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t("biomarkers.note", uiLanguage)}</p>
             </>
           )}
+          <LifestyleGuide items={guide.items} uiLanguage={uiLanguage} />
         </>
       )}
     </div>
