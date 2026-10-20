@@ -244,6 +244,16 @@ describe("the event bus explorer (S10x)", () => {
   });
 });
 
+describe("the partner endpoint admin screen (S10y)", () => {
+  const adminReal = buildAdminSearchIndex(getNavSections("admin", null), []);
+
+  it("is in the admin menu and found by the words an admin would type", () => {
+    for (const q of ["partner endpoints", "signing key", "rotate", "webhook", "switch back on", "mapping"]) {
+      expect(searchAdminEntries(adminReal, q, 8).map((e) => e.href)).toContain("/admin/ops/event-bus/partners");
+    }
+  });
+});
+
 describe("the symptom checker safety pages are searchable (S60)", () => {
   const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
   const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);

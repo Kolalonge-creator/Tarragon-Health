@@ -805,6 +805,7 @@ export function getNavSections(
             { label: "Partner settlements", href: "/admin/partner-settlements", icon: "billing" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Event bus", href: "/admin/ops/event-bus", icon: "operations" },
+            { label: "Partner endpoints", href: "/admin/ops/event-bus/partners", icon: "operations" },
             // Is the chain from a reading to a grade, task, page and notice working, and how fast (P1).
             { label: "Chain health", href: "/admin/ops/chain-health", icon: "operations" },
             { label: "Providers", href: "/admin/ops/providers", icon: "operations" },

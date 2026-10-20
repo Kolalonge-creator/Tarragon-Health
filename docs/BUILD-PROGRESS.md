@@ -2011,3 +2011,11 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **Tests**: medicines 358 pass at 100 percent coverage; mobile `pack-scan` and mirror tests pass; i18n 215 and shared 1,029 pass; mobile `tsc` clean; eslint 0 errors.
 - **Not run**: nothing on a device or simulator; the camera path cannot run until a text reader exists.
 - **Open**: OQ-NAFDAC-SCAN-1 to OQ-NAFDAC-SCAN-4.
+
+## S10y: Partner endpoint admin screen (2026-10-20)
+
+- **Built**: `/admin/ops/event-bus/partners` (admin only; linked from the event bus page, in the admin menu and admin search). Endpoint status (last success, failures in a row, switched-off time and reason, key version, queued events, grace end); rotate signing key with a copy-once secret panel; switch a disabled endpoint back on with a typed reason; add, change or remove event-to-partner mappings (event picklist from `event_types`, id keys only). Design: `docs/design/S10y.md`.
+- **Migration** `20261020180412_s10y_partner_endpoint_admin.sql` (additive, no rows touched): `admin_list_partner_webhook_endpoints`, `admin_list_partner_event_mappings`, `admin_reenable_partner_webhook_endpoint(id, reason)` (audited with the reason), `admin_disable_partner_event_mapping`. Rotation and mapping creation reuse the S10x functions. Proof: `packages/db/tests/s10y_partner_endpoint_admin.sql` (registered in `ci.manifest`, includes a sabotage of the reason check). Merging the PR applies it to production.
+- **Behaviour note**: re-enabling resets the failure counter to 0, so an endpoint that is still broken is switched off again after the configured number of failures in a row, not on the first one. The screen says so.
+- **Not created**: no mapping, endpoint or event type; `event_types.ordered` untouched; 0 mappings stays the launch state.
+- **Not verified**: the SQL proof has not run (local Docker unresponsive, live project not written to); CI replay is its first run. The page has not been viewed in a browser. The older `reenable_partner_webhook_endpoint(uuid)` (no reason) still exists and is callable by admins and `integrations.manage` holders.
