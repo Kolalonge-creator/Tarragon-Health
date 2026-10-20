@@ -2913,6 +2913,213 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (C1, C6); docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md; WHO haemoglobin thresholds 2024; Royal College of Pathologists critical results",
   },
   {
+    key: "lab.panels",
+    // v4 (S46d, 2026-10-20): v3 plus anti-HBs as a clinician-set add-on (founder decision S46-1): optional, never chosen by the patient, no price, every result held for a clinician. Mirrors
+    // lab_panel_versions v3, made by 20261020183958_s46d_health_report_completion.sql; a test fails if the two drift. Stays `proposed` until the CMO signs.
+    value: {
+      "panels": {
+        "membership_annual": {
+          "analytes": [
+            {
+              "code": "fasting_glucose",
+              "label": "Fasting glucose",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 70,
+              "refHigh": 99,
+              "criticalLow": 45,
+              "criticalHigh": 360
+            },
+            {
+              "code": "hba1c",
+              "label": "HbA1c",
+              "kind": "numeric",
+              "unit": "%",
+              "refLow": 4,
+              "refHigh": 5.6,
+              "criticalHigh": 14
+            },
+            {
+              "code": "creatinine",
+              "label": "Creatinine",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 0.6,
+              "refHigh": 1.3,
+              "criticalHigh": 4,
+              "bySex": {
+                "male": {
+                  "refLow": 0.7,
+                  "refHigh": 1.3
+                },
+                "female": {
+                  "refLow": 0.6,
+                  "refHigh": 1.1
+                }
+              }
+            },
+            {
+              "code": "potassium",
+              "label": "Potassium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 3.5,
+              "refHigh": 5.1,
+              "criticalLow": 3,
+              "criticalHigh": 6
+            },
+            {
+              "code": "sodium",
+              "label": "Sodium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 135,
+              "refHigh": 145,
+              "criticalLow": 121,
+              "criticalHigh": 150
+            },
+            {
+              "code": "total_cholesterol",
+              "label": "Total cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 200
+            },
+            {
+              "code": "ldl_cholesterol",
+              "label": "LDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 130
+            },
+            {
+              "code": "hdl_cholesterol",
+              "label": "HDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 40,
+              "bySex": {
+                "male": {
+                  "refLow": 40
+                },
+                "female": {
+                  "refLow": 50
+                }
+              }
+            },
+            {
+              "code": "triglycerides",
+              "label": "Triglycerides",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 150
+            },
+            {
+              "code": "alt",
+              "label": "ALT",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 7,
+              "refHigh": 40
+            },
+            {
+              "code": "ast",
+              "label": "AST",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 10,
+              "refHigh": 40
+            },
+            {
+              "code": "haemoglobin",
+              "label": "Haemoglobin",
+              "kind": "numeric",
+              "unit": "g/dL",
+              "refLow": 12,
+              "refHigh": 17.5,
+              "criticalLow": 7,
+              "criticalHigh": 20,
+              "bySex": {
+                "male": {
+                  "refLow": 13,
+                  "refHigh": 17.5
+                },
+                "female": {
+                  "refLow": 12,
+                  "refHigh": 15.5
+                }
+              }
+            },
+            {
+              "code": "wbc",
+              "label": "White cell count",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 3,
+              "refHigh": 11,
+              "criticalLow": 1,
+              "criticalHigh": 30
+            },
+            {
+              "code": "platelets",
+              "label": "Platelets",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 150,
+              "refHigh": 450,
+              "criticalLow": 20,
+              "criticalHigh": 1000
+            },
+            {
+              "code": "tsh",
+              "label": "TSH",
+              "kind": "numeric",
+              "unit": "mIU/L",
+              "refLow": 0.4,
+              "refHigh": 4
+            },
+            {
+              "code": "hiv_screen",
+              "label": "HIV screen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true
+            },
+            {
+              "code": "hbsag",
+              "label": "Hepatitis B surface antigen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true
+            },
+            {
+              "code": "hcv_ab",
+              "label": "Hepatitis C antibody",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true
+            },
+            {
+              "code": "anti_hbs",
+              "label": "Hepatitis B surface antibody (anti-HBs)",
+              "kind": "qualitative",
+              "unit": "",
+              "optional": true,
+              "addOn": true,
+              "orderedBy": "clinician",
+                  "holdForReview": true
+            }
+          ]
+        }
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 4,
+    effectiveFrom: "2026-10-20",
+    source: "docs/DECISIONS.md S46-1; docs/design/S46d.md",
+  },
+  {
     key: "triage.silence_rule_days",
     // v2 (decision S11-1, 2026-10-07): 7 days, not 5. Takes effect when the CMO approves bp_care_triage v3 in the database; the live rule set
     // carries its own copy of this number and stays at the earlier line until then. The rule set, not this entry, is what the engine reads.
@@ -5647,6 +5854,130 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 2,
     effectiveFrom: "2026-10-07",
     source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md decisions 1 to 6; docs/research/health-report-study.md; docs/design/S46.md; docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "report.settings",
+    // v3 (S46d, 2026-10-20): v2 plus a suggested-recheck block. Live value is the `config` of `health_report_config_versions` v3, UNSIGNED. The weeks are placeholders
+    // for the CMO (a laboratory value outside its range: 12 weeks; blood pressure above target: 4 weeks; a mid-year line at 6 months, shown only when something
+    // was off), not clinical decisions made by an agent. A test fails if the migration seed and this value drift.
+    value: {
+      "maxPriorities": 3,
+      "minBpReadings": 12,
+      "minBpDays": 3,
+      "bpTarget": {
+        "systolicBelow": 140,
+        "diastolicBelow": 90
+      },
+      "bpTargetHigherRisk": {
+        "systolicBelow": 130,
+        "diastolicBelow": 80
+      },
+      "bpHighNormalBand": {
+        "systolicFrom": 130,
+        "systolicBelow": 140,
+        "diastolicFrom": 80,
+        "diastolicBelow": 90
+      },
+      "higherRiskCriteria": {
+        "icd10Prefixes": {
+          "diabetes": [
+            "E10",
+            "E11",
+            "E12",
+            "E13",
+            "E14"
+          ],
+          "ckd": [
+            "N18"
+          ],
+          "cvd": [
+            "I20",
+            "I21",
+            "I22",
+            "I23",
+            "I24",
+            "I25",
+            "I50",
+            "I63",
+            "I64",
+            "I65",
+            "I66",
+            "I69",
+            "I70",
+            "I73"
+          ]
+        },
+        "namePatterns": {
+          "diabetes": [
+            "^(type [12] )?diabetes( mellitus)?( type [12])?$"
+          ],
+          "ckd": [
+            "^(chronic kidney disease|ckd)( stage [1-5][ab]?)?$"
+          ],
+          "cvd": [
+            "^(coronary (artery|heart) disease|ischaemic heart disease|ischemic heart disease|myocardial infarction|angina( pectoris)?|stroke|heart failure|peripheral arter(y|ial) disease)$"
+          ]
+        },
+        "excludePatterns": [
+          "pre.?diabet",
+          "family history",
+          "gestational",
+          "history of family",
+          "risk of",
+          "heat.?stroke",
+          "sunstroke",
+          "suspected"
+        ],
+        "elevatedRiskTiers": [
+          "high",
+          "very_high"
+        ]
+      },
+      "changeTolerancePct": 3,
+      "recheckWeeks": 4,
+      "priorityWindows": {
+        "bp": "within 4 weeks",
+        "lab": "within 4 weeks",
+        "screening": "within 3 months",
+        "risk": "within 4 weeks"
+      },
+      "trendMinPoints": 2,
+      "trendYears": 3,
+      "productRules": [
+        "maxPriorities",
+        "changeTolerancePct",
+        "recheckWeeks",
+        "priorityWindows",
+        "trendMinPoints",
+        "trendYears",
+        "retest"
+      ],
+      "guidelineBasis": [
+        "bpTarget",
+        "bpTargetHigherRisk",
+        "bpHighNormalBand",
+        "minBpReadings",
+        "minBpDays"
+      ],
+      "statementKey": "report.statement.not_rule_out",
+      "statementApprovedByCmo": false,
+      "shareExcludedSections": [
+        "screening_reproductive",
+        "risk",
+        "questionnaires"
+      ],
+      "retest": {
+        "offValueWeeks": 12,
+        "bpWeeks": 4,
+        "byAnalyte": {},
+        "midYearMonths": 6
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/S46d.md; docs/research/health-report-study.md",
   },
   {
     key: "screening.serology_rules",

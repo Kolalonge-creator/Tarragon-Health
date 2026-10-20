@@ -27,6 +27,7 @@ const SECTION_LABELS: Record<RecordShareSection, string> = {
   lab_results: "share.sections.lab_results",
   vaccinations: "share.sections.vaccinations",
   emergency_info: "share.sections.emergency_info",
+  health_report: "report.share.section_label",
 };
 
 const SHARING = getSharingConfig();
@@ -46,9 +47,12 @@ function formatDate(value: string): string {
 export function ShareControls({
   patientId,
   locale = "en",
+  hasSignedReport = false,
 }: {
   patientId: string;
   locale?: Locale;
+  /** The yearly report can be shared only once a clinician has signed it; the database enforces this too. */
+  hasSignedReport?: boolean;
 }) {
   const { data: shares, isLoading } = useRecordShares(patientId);
   const createShare = useCreateRecordShare();
@@ -138,7 +142,7 @@ export function ShareControls({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            {SHARE_SECTIONS.map((section) => (
+            {SHARE_SECTIONS.filter((section) => section !== "health_report" || hasSignedReport).map((section) => (
               <label
                 key={section}
                 className="flex items-center gap-2 rounded-lg border border-charcoal-ink/10 px-3 py-2 text-sm cursor-pointer hover:bg-charcoal-ink/5 transition-colors"

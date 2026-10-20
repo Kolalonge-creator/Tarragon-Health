@@ -1,6 +1,8 @@
 import { t } from "@tarragon/i18n";
 import { rangeMayBeShownAsClinical, rangeSourceLabel } from "@tarragon/shared";
 import { PrintButton } from "./print-button";
+import { HealthReportView } from "@/components/health-report-view";
+import { buildSharedReportModel, type SharedReportBody } from "@/lib/health-report/render-model";
 
 /** What `record_share_by_token` returns on success. No directive: rendered by the server page and by the PIN gate on the client. */
 export type SharedData = {
@@ -59,6 +61,8 @@ export type SharedData = {
     dose_number: number | null;
     batch_number: string | null;
   }>;
+  /** S46d: the latest signed yearly report in shared-copy form, built and filtered in the database. Null when no signed report exists. */
+  health_report?: SharedReportBody | null;
   emergency_info?: {
     blood: {
       blood_group: string | null;
@@ -324,6 +328,15 @@ export function SharedRecordView({ record }: { record: SharedData }) {
           </ul>
         </>
       )}
+
+      {record.sections.includes("health_report") &&
+        (record.health_report ? (
+          <section aria-label="Yearly health report">
+            <HealthReportView model={buildSharedReportModel(record.health_report)} />
+          </section>
+        ) : (
+          <p role="status" className="text-sm">{t("report.share.link_unavailable", "en")}</p>
+        ))}
 
       {record.emergency_info && (
         <>

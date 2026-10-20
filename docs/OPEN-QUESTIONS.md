@@ -4321,3 +4321,35 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-NAFDAC-SCAN-4 The number is used for lookup and pre-fill only; it is not stored on the medication (raised by the pack-scan build, 2026-10-16)
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
+
+### OQ-S46d-1 The suggested recheck weeks are placeholders (raised by S46d, 2026-10-20)
+- Report settings v3 (unsigned) carries `retest`: 12 weeks for a lab value outside its range, 4 weeks for a blood pressure average above target, no per-analyte overrides, a mid-year line at 6 months shown only when something was off. None of these is a clinical decision. The CMO should set them (a lipid panel and a glucose are not repeated on the same schedule) and sign through `/clinician/health-report-config`. Until then v3 stays a draft and no report uses it.
+- Decision: open (CMO).
+
+### OQ-S46d-2 The anti-HBs threshold has no signer until the CMO uses the new door (raised by S46d)
+- Nothing could set `serology_rule_versions.threshold_approved_by` before; `sign_serology_rule_threshold` (CMO only) now can, from `/clinician/serology-rules` or the sign-off hub. The threshold (10 mIU/mL) is the proposed value; a titre alone never records immunity until it is confirmed.
+- Decision: open (CMO).
+
+### OQ-S46d-3 A positive anti-HBs is held for review, not auto-released (raised by S46d)
+- `anti_hbs` is a non-sensitive qualitative analyte with `holdForReview`, so EVERY value (negative and positive) waits for a clinician and is never explained by the generic result text. It is positive/negative only; a numeric titre cannot be entered through the panel, so the titre-versus-threshold path of the immunity trigger is not reachable until the CMO decides whether the add-on should be numeric (mIU/mL).
+- Decision: open (CMO).
+
+### OQ-S46d-4 Panel v3 is active while the lab sign-off still names an older panel (raised by S46d)
+- Same situation as v2 in 20261013005133: the live lab sign-off row names panel v1. A draft `lab_panel_signoffs` row (same release policy) is created for the CMO to sign with panel v3 in view. anti_hbs is optional, so nothing becomes incomplete.
+- Decision: open (CMO).
+
+### OQ-S46d-5 The shared link is the latest signed report, not a fixed version (raised by S46d)
+- A link opened after a correction shows the corrected version. The date window of a share (30 to 180 days) does not apply to the report. The heart risk band, questionnaires and reproductive screening are always left out of a link (the patient's own PDF `?variant=shared` still lets them include those in their own file).
+- Decision: open (product).
+
+### OQ-S46d-6 Audio slots exist only in code (raised by S46d)
+- RPT-001 to RPT-007 (sections) and RPT-101 to RPT-103 (normal, low, high) are draft unrecorded slots in `packages/audio/src/report-audio.ts`. They are not in `audio/manifest.json` because the importer needs the production-list document. When wording is signed and recordings commissioned, add them with the production list. HIV, hepatitis B and C get no slot by design.
+- Decision: open (CMO, content).
+
+### OQ-S46d-7 Trend function duplication (OQ-S46-6 follow-up)
+- The report charts reuse S43's TypeScript `chartGeometry`; the collector still reads points through `private.hr_biomarker_points`, not S43's `private.biomarker_points`. Swap the SQL when convenient so there is one definition.
+- Decision: open (engineering).
+
+### OQ-S46d-8 The DB proof and the migration were not executed (raised by S46d)
+- Docker was unavailable. Run `scripts/run-db-proofs.sh` (or CI's migration replay) before merging; expect to adjust fixture details in `s46d_health_report_completion.sql` if a helper column differs. The merge auto-applies the migration.
+- Decision: open (engineering, before merge).

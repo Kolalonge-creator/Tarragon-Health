@@ -53676,6 +53676,10 @@ export type Database = {
         Args: { p_id: string }
         Returns: string
       }
+      sign_serology_rule_threshold: {
+        Args: { p_id: string }
+        Returns: string
+      }
       sign_health_report: {
         Args: { p_id: string; p_summary: string; p_summary_source: string }
         Returns: string

@@ -14,7 +14,8 @@ export type VersionedGovernedTable =
   | "lab_panel_signoffs"
   | "prn_limit_rules"
   | "my_health_config"
-  | "home_bp_programme_signoffs";
+  | "home_bp_programme_signoffs"
+  | "health_report_config_versions";
 
 /**
  * Tables whose versions are numbered per partition, not globally: one live row per
