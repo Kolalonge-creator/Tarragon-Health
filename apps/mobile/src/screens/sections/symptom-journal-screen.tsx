@@ -78,7 +78,7 @@ export function SymptomJournalScreen({ subjectId, acting, onNavigate }: Props) {
           <Button title={t("mpass.journal.log")} variant="secondary" onPress={() => onNavigate("vitals")} />
           <SyncBanner />
           {state === "loading" ? <ActivityIndicator color={colors.brand} accessibilityLabel={t("mpass.loading")} /> : null}
-          {state !== "loading" && !state.ok ? <LoadFailed offline={state.offline} onRetry={() => void load()} /> : null}
+          {state !== "loading" && !state.ok ? <LoadFailed offline={state.offline} refused={state.refused} onRetry={() => void load()} /> : null}
           {state !== "loading" && state.ok ? (
             <>
               {state.stale ? <StaleNotice offline={state.offline} savedAt={state.savedAt} /> : null}

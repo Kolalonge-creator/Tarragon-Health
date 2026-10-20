@@ -5242,6 +5242,8 @@ export const en = {
   "mpass.stale_error": "We could not refresh this just now, so this is the copy saved on {when}.",
   "mpass.stale_error_unknown": "We could not refresh this just now, so this is the last copy saved on this phone.",
   "mpass.offline_empty": "You are offline and nothing has been saved on this phone yet. Open this again when you have a connection.",
+  "mpass.refused": "You do not have access to this. If that is not what you expected, ask the person who shares it with you.",
+  "mpass.bio.show_earlier": "Show earlier results",
   "mpass.load_failed": "We could not load this just now. Please try again.",
   "mpass.needs_connection": "This needs a connection. Please try again when you are back online.",
   "mpass.save_failed": "That could not be saved. Please try again.",

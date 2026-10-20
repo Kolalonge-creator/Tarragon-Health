@@ -63,7 +63,7 @@ export const journalLabel = (type: string): string => symptomLabel(type as Sympt
 
 export type JournalLoad =
   | { ok: true; rows: JournalRow[]; stale: boolean; offline: boolean; savedAt: string | null }
-  | { ok: false; offline: boolean };
+  | { ok: false; offline: boolean; refused: boolean };
 
 function newestFirst(a: JournalRow, b: JournalRow): number {
   return b.reportedAt.localeCompare(a.reportedAt);
@@ -114,7 +114,7 @@ export async function loadJournal(subjectId: string): Promise<JournalLoad> {
   }
 
   // The database refused the read: nothing else on the phone is shown in its place (access that was withdrawn stays withdrawn).
-  if (live.refused) return { ok: false, offline: false };
+  if (live.refused) return { ok: false, offline: false, refused: true };
 
   // No live read and no saved copy: the S06 mirror still holds the symptoms this phone has seen.
   let mirror: SymptomLog[] = [];
@@ -123,7 +123,7 @@ export async function loadJournal(subjectId: string): Promise<JournalLoad> {
   } catch {
     mirror = [];
   }
-  if (mirror.length === 0 && waiting.length === 0) return { ok: false, offline: live.offline };
+  if (mirror.length === 0 && waiting.length === 0) return { ok: false, offline: live.offline, refused: false };
   const fromMirror: JournalRow[] = mirror.map((s) => ({
     id: s.id,
     reportedAt: s.reported_at,

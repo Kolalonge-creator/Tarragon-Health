@@ -5,6 +5,7 @@ import { chartGeometry, displayCode, groupByUnit, labRangeLabel, targetLabel, ty
 import { t, type MessageKey } from "@tarragon/i18n";
 import {
   flagLabel,
+  formatResultValue,
   latestLabel,
   loadBiomarkerList,
   loadBiomarkerTrend,
@@ -14,7 +15,7 @@ import {
 } from "@/lib/biomarkers";
 import { formatPassportDate } from "@/lib/passport-format";
 import { space, useTheme } from "@/ui/design";
-import { AppText, Card, Chip, EmptyState, InlineAlert, Screen } from "@/ui/kit";
+import { AppText, Button, Card, Chip, EmptyState, InlineAlert, Screen } from "@/ui/kit";
 import { LoadFailed, PassportHeader, StaleNotice } from "@/screens/sections/passport-parts";
 
 interface Props {
@@ -25,11 +26,11 @@ interface Props {
 
 const CHART_HEIGHT = 160;
 
-type Load<T> = { kind: "loading" } | { kind: "failed"; offline: boolean } | { kind: "ready"; data: T; stale: { offline: boolean; savedAt: string } | null };
+type Load<T> = { kind: "loading" } | { kind: "failed"; offline: boolean; refused: boolean } | { kind: "ready"; data: T; stale: { offline: boolean; savedAt: string } | null };
 
 /**
- * One single-unit line. The shaded band is the laboratory's own range (drawn only when every point shares one); the dashed band is the care
- * team's target. Both are said in words under the chart, and every point is in the list under it, so the chart is never the only way to read a
+ * One single-unit line. The shaded band is the laboratory's own range (drawn only when every point shares one). The care team's target is NEVER
+ * drawn here (it has no unit, OQ-S43m-4): do not pass one to chartGeometry until a unit travels with it. The range is said in words under the chart, and every point is in the list under it, so the chart is never the only way to read a
  * result. The drawing is hidden from the screen reader behind a one-sentence summary.
  */
 function Chart({ code, unit, points }: { code: string; unit: string | null; points: TrendPoint[] }) {
@@ -73,7 +74,7 @@ function ReadingRow({ p }: { p: TrendPoint }) {
   return (
     <View style={{ gap: 2, paddingVertical: space.sm }} accessible>
       <AppText variant="bodyStrong">
-        {formatPassportDate(p.takenAt)}: {p.value}
+        {formatPassportDate(p.takenAt)}: {formatResultValue(p.value)}
         {p.unit ? ` ${p.unit}` : ""}
         {flag ? `, ${flag}` : ""}
       </AppText>
@@ -81,6 +82,29 @@ function ReadingRow({ p }: { p: TrendPoint }) {
         {[range ? `${t("biomarkers.col.range")}: ${range}` : null, `${t("biomarkers.col.from")}: ${from}`].filter(Boolean).join(" · ")}
       </AppText>
     </View>
+  );
+}
+
+const ROWS_AT_A_TIME = 40;
+
+/** One unit's chart and readings. Newest first, forty at a time: a test measured often over years can have hundreds, and a low-end phone should not draw them all at once. */
+function UnitCard({ code, unit, points }: { code: string; unit: string | null; points: TrendPoint[] }) {
+  const [shown, setShown] = useState(ROWS_AT_A_TIME);
+  const newestFirst = [...points].reverse();
+  return (
+    <Card style={{ gap: space.md }}>
+      <AppText variant="title" heading>
+        {displayCode(code)}
+        {unit ? ` (${unit})` : ""}
+      </AppText>
+      <Chart code={code} unit={unit} points={points} />
+      <View>
+        {newestFirst.slice(0, shown).map((p, i) => (
+          <ReadingRow key={`${p.takenAt}-${i}`} p={p} />
+        ))}
+      </View>
+      {newestFirst.length > shown ? <Button title={t("mpass.bio.show_earlier")} variant="secondary" onPress={() => setShown((n) => n + ROWS_AT_A_TIME)} /> : null}
+    </Card>
   );
 }
 
@@ -100,18 +124,7 @@ function SeriesView({ series }: { series: TrendSeries }) {
         </View>
       ) : null}
       {groups.map((g) => (
-        <Card key={g.unit ?? "none"} style={{ gap: space.md }}>
-          <AppText variant="title" heading>
-            {displayCode(series.code)}
-            {g.unit ? ` (${g.unit})` : ""}
-          </AppText>
-          <Chart code={series.code} unit={g.unit} points={g.points} />
-          <View>
-            {[...g.points].reverse().map((p, i) => (
-              <ReadingRow key={`${p.takenAt}-${i}`} p={p} />
-            ))}
-          </View>
-        </Card>
+        <UnitCard key={g.unit ?? "none"} code={series.code} unit={g.unit} points={g.points} />
       ))}
       <AppText variant="caption" tone="textMuted">
         {t("biomarkers.note")}
@@ -125,7 +138,7 @@ export function BiomarkersScreen({ subjectId, userId }: Props) {
   const own = subjectId === userId;
   const [list, setList] = useState<Load<BiomarkerListItem[]>>({ kind: "loading" });
   const [code, setCode] = useState<string | null>(null);
-  const [trend, setTrend] = useState<Load<TrendSeries | null>>({ kind: "loading" });
+  const [trend, setTrend] = useState<Load<TrendSeries>>({ kind: "loading" });
 
   // A slower answer for an earlier person or an earlier visit must never replace the current one (it would show one person's tests under another's name).
   const listRequest = useRef(0);
@@ -136,11 +149,11 @@ export function BiomarkersScreen({ subjectId, userId }: Props) {
     const r = await loadBiomarkerList(subjectId, own);
     if (mine !== listRequest.current) return;
     if (!r.ok) {
-      setList({ kind: "failed", offline: r.offline });
+      setList({ kind: "failed", offline: r.offline, refused: r.refused });
       return;
     }
     setList({ kind: "ready", data: r.data, stale: r.stale ? { offline: r.offline, savedAt: r.savedAt } : null });
-    setCode((current) => (current && r.data.some((i) => i.code === current) ? current : (r.data[0]?.code ?? null)));
+    setCode(r.data[0]?.code ?? null);
   }, [subjectId, own]);
 
   useEffect(() => {
@@ -155,7 +168,7 @@ export function BiomarkersScreen({ subjectId, userId }: Props) {
       setTrend({ kind: "loading" });
       const r = await loadBiomarkerTrend(subjectId, c, own);
       if (mine !== latestRequest.current) return;
-      if (!r.ok) setTrend({ kind: "failed", offline: r.offline });
+      if (!r.ok) setTrend({ kind: "failed", offline: r.offline, refused: r.refused });
       else {
         setTrend({ kind: "ready", data: r.data, stale: r.stale ? { offline: r.offline, savedAt: r.savedAt } : null });
         // A change of test is otherwise only visible on screen.
@@ -174,7 +187,7 @@ export function BiomarkersScreen({ subjectId, userId }: Props) {
       <PassportHeader title={t("biomarkers.title")} description={t("biomarkers.description")} />
 
       {list.kind === "loading" ? <ActivityIndicator color={colors.brand} accessibilityLabel={t("mpass.loading")} /> : null}
-      {list.kind === "failed" ? <LoadFailed offline={list.offline} onRetry={() => void loadList()} /> : null}
+      {list.kind === "failed" ? <LoadFailed offline={list.offline} refused={list.refused} onRetry={() => void loadList()} /> : null}
 
       {list.kind === "ready" ? (
         <>
@@ -202,11 +215,11 @@ export function BiomarkersScreen({ subjectId, userId }: Props) {
               </View>
 
               {trend.kind === "loading" ? <ActivityIndicator color={colors.brand} accessibilityLabel={t("mpass.loading")} /> : null}
-              {trend.kind === "failed" && code ? <LoadFailed offline={trend.offline} onRetry={() => void loadTrend(code)} /> : null}
+              {trend.kind === "failed" && code ? <LoadFailed offline={trend.offline} refused={trend.refused} onRetry={() => void loadTrend(code)} /> : null}
               {trend.kind === "ready" ? (
                 <>
                   {trend.stale ? <StaleNotice offline={trend.stale.offline} savedAt={trend.stale.savedAt} /> : null}
-                  {trend.data ? <SeriesView series={trend.data} /> : <EmptyState icon="vitals" title={t("biomarkers.none")} />}
+                  {trend.data.points.length > 0 ? <SeriesView series={trend.data} /> : <EmptyState icon="vitals" title={t("biomarkers.none")} />}
                 </>
               ) : null}
             </>

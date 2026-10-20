@@ -2,6 +2,7 @@ import { displayCode, parseTrend, type TrendSeries } from "@tarragon/shared";
 import { en, t, type MessageKey } from "@tarragon/i18n";
 import { supabase } from "./supabase";
 import { readThrough, type ReadResult } from "./passport-cache";
+import { formatPassportYear } from "./passport-format";
 
 /**
  * Results over time (S43, spec 2.5) on the phone. The database returns only results the person may see (released, not withdrawn, never a
@@ -28,7 +29,9 @@ export function parseBiomarkerList(data: unknown): BiomarkerListItem[] {
     if (!raw || typeof raw.code !== "string" || typeof raw.last_at !== "string") continue;
     const readings = typeof raw.readings === "number" ? raw.readings : Number(raw.readings);
     if (!Number.isInteger(readings) || readings < 1 || Number.isNaN(Date.parse(raw.last_at))) continue;
-    const latest = raw.latest_value === null || raw.latest_value === undefined ? null : Number(raw.latest_value);
+    // A blank or a boolean is not a number (Number("") is 0 and would show as a real result).
+    const lv = raw.latest_value;
+    const latest = typeof lv === "number" || (typeof lv === "string" && lv.trim() !== "") ? Number(lv) : null;
     out.push({
       code: raw.code,
       readings,
@@ -46,30 +49,27 @@ export function loadBiomarkerList(subjectId: string, own: boolean): Promise<Read
     async () => {
       const { data, error } = await supabase.rpc("patient_biomarker_list", { p_patient: subjectId });
       if (error) return { ok: false, error };
+      // An answer of the wrong shape is a failed read (the saved copy is kept and shown), not "no results".
+      if (!Array.isArray(data)) return { ok: false, error: { message: "unexpected answer" } };
       return { ok: true, data: parseBiomarkerList(data) };
     },
     { keep: own }
   );
 }
 
-/** One test across the years, parsed by the shared rules. A malformed answer parses to null and is shown as no results, never as a made-up line. */
-export function loadBiomarkerTrend(subjectId: string, code: string, own: boolean): Promise<ReadResult<TrendSeries | null>> {
+/** One test across the years, parsed by the shared rules. A malformed answer is a failed read, never a made-up line and never "no results". */
+export function loadBiomarkerTrend(subjectId: string, code: string, own: boolean): Promise<ReadResult<TrendSeries>> {
   return readThrough(
     biomarkerTrendKey(subjectId, code),
     async () => {
       const { data, error } = await supabase.rpc("patient_biomarker_trend", { p_code: code, p_patient: subjectId });
       if (error) return { ok: false, error };
-      return { ok: true, data: parseTrend(data) };
+      const series = parseTrend(data);
+      if (!series) return { ok: false, error: { message: "unexpected answer" } };
+      return { ok: true, data: series };
     },
     { keep: own }
   );
-}
-
-/** The year in Lagos time, so a result at 23:30 UTC on 31 December reads as the next year, as it does on the web. */
-function lagosYear(iso: string | undefined): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", year: "numeric" });
 }
 
 /** The one sentence a screen reader gets in place of the drawing. The list under the chart carries every value. */
@@ -80,8 +80,8 @@ export function trendSummary(code: string, unit: string | null, points: readonly
     name: displayCode(code),
     count: String(count),
     unit: unit ?? "",
-    from: lagosYear(points[0]?.takenAt),
-    to: lagosYear(points[count - 1]?.takenAt),
+    from: formatPassportYear(points[0]?.takenAt),
+    to: formatPassportYear(points[count - 1]?.takenAt),
   });
 }
 
@@ -101,7 +101,13 @@ export function flagLabel(flag: string | null | undefined): string | null {
 /** "5.4 mmol/L" for the chip under a test name. Null when the lab sent no number. */
 export function latestLabel(item: Pick<BiomarkerListItem, "latestValue" | "latestUnit">): string | null {
   if (item.latestValue === null) return null;
-  return `${item.latestValue}${item.latestUnit ? ` ${item.latestUnit}` : ""}`;
+  return `${formatResultValue(item.latestValue)}${item.latestUnit ? ` ${item.latestUnit}` : ""}`;
+}
+
+/** A result as plain digits: a very small or very large value never prints in exponent form (1e-7). */
+export function formatResultValue(value: number): string {
+  if (!Number.isFinite(value)) return "";
+  return value.toLocaleString("en-GB", { useGrouping: false, maximumFractionDigits: 12 });
 }
 
 export function readingsLabel(count: number): string {

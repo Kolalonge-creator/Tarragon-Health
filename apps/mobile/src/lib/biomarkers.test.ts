@@ -1,8 +1,9 @@
 import { en } from "@tarragon/i18n";
-import { flagLabel, latestLabel, loadBiomarkerList, loadBiomarkerTrend, parseBiomarkerList, readingsLabel, trendSummary } from "./biomarkers";
+import { flagLabel, formatResultValue, latestLabel, loadBiomarkerList, loadBiomarkerTrend, parseBiomarkerList, readingsLabel, trendSummary } from "./biomarkers";
 
 let mockUser: string | null = "user-1";
 let mockError: { code?: string; message: string } | null = null;
+let mockBadShape = false;
 const mockCalls: { fn: string; args: unknown }[] = [];
 
 jest.mock("./supabase", () => ({
@@ -11,6 +12,7 @@ jest.mock("./supabase", () => ({
     rpc: async (fn: string, args: unknown) => {
       mockCalls.push({ fn, args });
       if (mockError) return { data: null, error: mockError };
+      if (mockBadShape) return { data: null, error: null };
       if (fn === "patient_biomarker_list") return { data: [{ code: "hba1c", readings: 3, last_at: "2026-09-01T10:00:00Z", latest_value: 6.1, latest_unit: "%" }], error: null };
       return {
         data: {
@@ -31,6 +33,7 @@ jest.mock("./supabase", () => ({
 beforeEach(() => {
   mockUser = "user-1";
   mockError = null;
+  mockBadShape = false;
   mockCalls.length = 0;
 });
 
@@ -85,6 +88,24 @@ describe("results over time on the phone (S43m)", () => {
     expect(latestLabel({ latestValue: null, latestUnit: "%" })).toBeNull();
     expect(readingsLabel(1)).toBe("1 result");
     expect(readingsLabel(4)).toBe("4 results");
+  });
+
+  it("treats an answer of the wrong shape as a failed read that keeps the saved copy", async () => {
+    await loadBiomarkerList("user-1", true);
+    mockBadShape = true;
+    const list = await loadBiomarkerList("user-1", true);
+    expect(list.ok && list.stale).toBe(true);
+    expect(await loadBiomarkerTrend("user-1", "never-opened", true)).toEqual({ ok: false, offline: false, refused: false });
+  });
+
+  it("a blank or boolean latest value is no value, not zero", () => {
+    expect(parseBiomarkerList([{ code: "a", readings: 1, last_at: "2026-01-01T00:00:00Z", latest_value: "" }, { code: "b", readings: 1, last_at: "2026-01-01T00:00:00Z", latest_value: true }]).map((r) => r.latestValue)).toEqual([null, null]);
+  });
+
+  it("prints a result as plain digits, never in exponent form", () => {
+    expect(formatResultValue(0.0000001)).toBe("0.0000001");
+    expect(formatResultValue(6.1)).toBe("6.1");
+    expect(formatResultValue(1200000)).toBe("1200000");
   });
 
   it("reads the year in Lagos time", () => {

@@ -10,7 +10,9 @@ export function StaleNotice({ offline, savedAt }: { offline: boolean; savedAt: s
 }
 
 /** A read that failed with nothing saved to fall back on. It says it failed (a lost connection or an error), never "nothing here". */
-export function LoadFailed({ offline, onRetry }: { offline: boolean; onRetry: () => void }) {
+export function LoadFailed({ offline, refused = false, onRetry }: { offline: boolean; refused?: boolean; onRetry: () => void }) {
+  // A refusal is not a glitch: asking again will not help, so the screen says access is not there instead of offering a retry loop.
+  if (refused) return <InlineAlert tone="info" message={t("mpass.refused")} />;
   return (
     <View style={{ gap: space.md }}>
       <InlineAlert tone={offline ? "info" : "danger"} message={failedLoadMessage(offline)} />

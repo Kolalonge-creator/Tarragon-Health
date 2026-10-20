@@ -145,3 +145,14 @@ describe("chartGeometry", () => {
     expect(g.dots[1].y).toBeLessThan(g.dots[0].y);
   });
 });
+
+describe("labRangeLabel one-sided text built by the database", () => {
+  it("describes a bare bound as up to or or more, never as a target", () => {
+    expect(labRangeLabel({ refLow: null, refHigh: 5.6, refText: "5.6" })).toBe("up to 5.6");
+    expect(labRangeLabel({ refLow: 4, refHigh: null, refText: "4" })).toBe("4 or more");
+    expect(labRangeLabel({ refLow: 4, refHigh: 5.6, refText: "4 to 5.6" })).toBe("4 to 5.6");
+  });
+  it("keeps the laboratory's own wording when it sent any", () => {
+    expect(labRangeLabel({ refLow: null, refHigh: 5.6, refText: "Less than 5.6 (non-diabetic)" })).toBe("Less than 5.6 (non-diabetic)");
+  });
+});

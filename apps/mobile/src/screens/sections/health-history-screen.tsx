@@ -49,7 +49,7 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
   const { colors } = useTheme();
   const canEdit = subjectId === userId;
   const [state, setState] = useState<
-    { kind: "loading" } | { kind: "failed"; offline: boolean } | { kind: "ready"; data: HistoryData; stale: { offline: boolean; savedAt: string } | null }
+    { kind: "loading" } | { kind: "failed"; offline: boolean; refused: boolean } | { kind: "ready"; data: HistoryData; stale: { offline: boolean; savedAt: string } | null }
   >({ kind: "loading" });
   const [message, setMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -75,7 +75,7 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
       const r = await loadHistory(subjectId, canEdit);
       // After a write a failed or stale refresh must not replace the list with an older one that lacks (or still has) the entry just changed.
       if (quiet && (!r.ok || r.stale)) return false;
-      if (!r.ok) setState({ kind: "failed", offline: r.offline });
+      if (!r.ok) setState({ kind: "failed", offline: r.offline, refused: r.refused });
       else setState({ kind: "ready", data: r.data, stale: r.stale ? { offline: r.offline, savedAt: r.savedAt } : null });
       return r.ok && !r.stale;
     },
@@ -127,7 +127,7 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
       <PassportHeader title={t("healthhistory.title")} description={t("healthhistory.description")} />
 
       {state.kind === "loading" ? <ActivityIndicator color={colors.brand} accessibilityLabel={t("mpass.loading")} /> : null}
-      {state.kind === "failed" ? <LoadFailed offline={state.offline} onRetry={() => void load()} /> : null}
+      {state.kind === "failed" ? <LoadFailed offline={state.offline} refused={state.refused} onRetry={() => void load()} /> : null}
 
       {state.kind === "ready" ? (
         <>

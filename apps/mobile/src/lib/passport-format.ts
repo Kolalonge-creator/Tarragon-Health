@@ -30,3 +30,11 @@ export function staleNotice(offline: boolean, savedAt: string | null): string {
 export function failedLoadMessage(offline: boolean): string {
   return offline ? t("mpass.offline_empty") : t("mpass.load_failed");
 }
+
+/** The year in Lagos time ("2026"), so a date near New Year reads as it does on the web. */
+export function formatPassportYear(value: string | null | undefined): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", year: "numeric" });
+}
