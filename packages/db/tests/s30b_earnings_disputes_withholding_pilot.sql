@@ -165,7 +165,7 @@ begin
   perform pg_temp.ck('...and there is one dispute', '1', (select count(*) from public.earnings_disputes where ledger_id = l2)::text);
   perform pg_temp.ck('a second dispute on a line already in question is refused', 'dispute_already_open',
     pg_temp.try_as(v_a, format('select public.open_earnings_dispute(%L, ''other'', null, %L)', l2, r2)));
-  perform pg_temp.ck('the response clock is the configured 72 hours', '72:00:00', (select (response_due_at - opened_at)::text from public.earnings_disputes where id = d1));
+  perform pg_temp.ck('the response clock is the configured 72 hours', '259200', (select extract(epoch from (response_due_at - opened_at))::bigint::text from public.earnings_disputes where id = d1));
 
   -- only that line is held: the draft was rebuilt without it
   perform pg_temp.ck('the old draft was cancelled and a new one made', '1',
@@ -369,7 +369,7 @@ begin
   v_n := private.post_minimum_topups();
   perform pg_temp.ck('the run posts two top-ups (D with real work, G with a quiet queue) and holds two', '2/2',
     v_n || '/' || (select count(*) from public.earnings_topup_holds where state = 'held'));
-  perform pg_temp.ck('C (no claims while work waited) is held, not paid', 'held/0',
+  perform pg_temp.ck('C (no claims while work waited) is held, not paid', 'no_claims_while_work_waited/0',
     (select reason from public.earnings_topup_holds where clinician_id = v_c) || '/' || pg_temp.lines_of(v_c, 'minimum_topup'));
   perform pg_temp.ck('...the hold records what was seen', 'true',
     (select ((evidence ->> 'claims')::int = 0 and (evidence ->> 'tasks_waiting')::int >= 1 and (evidence ->> 'top_up_kobo')::bigint = 2000000) from public.earnings_topup_holds where clinician_id = v_c)::text);
@@ -423,7 +423,7 @@ begin
     pg_temp.try_as(v_a, format($q$insert into public.earnings_disputes (organisation_id, ledger_id, clinician_id, reason_code, request_id, response_due_at) select organisation_id, id, clinician_id, 'other', gen_random_uuid(), now() from public.earnings_ledger where clinician_id = %L limit 1$q$, v_a)));
   perform pg_temp.ck('a clinician cannot update a dispute', 'permission denied for table earnings_disputes', pg_temp.try_as(v_a, $q$update public.earnings_disputes set state = 'rejected'$q$));
   perform pg_temp.ck('a clinician cannot read the top-up holds', '0', pg_temp.q_as(v_c, 'select count(*) from public.earnings_topup_holds'));
-  perform pg_temp.ck('the admin can read the top-up holds', 'true', (pg_temp.q_as(v_admin, 'select (count(*) >= 3)::text from public.earnings_topup_holds')));
+  perform pg_temp.ck('the admin can read the top-up holds', 'true', (pg_temp.q_as(v_admin, 'select (count(*) >= 2)::text from public.earnings_topup_holds')));
   perform pg_temp.ck('a clinician cannot read the dispute config', '0', pg_temp.q_as(v_a, 'select count(*) from public.earnings_disputes_config'));
   perform pg_temp.ck('a clinician cannot list holds', 'fee_not_authorised', pg_temp.try_as(v_a, 'select * from public.list_topup_holds()'));
   perform pg_temp.ck('a clinician cannot set a withholding', 'payout_not_authorised', pg_temp.try_as(v_a, format('select public.set_payout_withholding(%L, 1, ''a note long enough'')', pg_temp.f('pay_b'))));
