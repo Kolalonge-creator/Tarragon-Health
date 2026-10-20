@@ -79,12 +79,12 @@ describe("the coverage handler", () => {
   });
 
   it("adherence under the line is an amber adherence_review task keyed on the ISO week; at the line it is nothing", async () => {
-    const low = ports({ found: true, input: input({ type: "adherence", percent7d: 62 }) });
+    const low = ports({ found: true, input: input({ type: "adherence", percentWindow: 62 }) });
     await makeCoverageHandler(low.p)(event("adherence.below_line"), ctx);
     expect(low.p.loadContext).toHaveBeenCalledWith("p1", "adherence", "2026-10-20");
     expect(low.recorded[0]?.result).toMatchObject({ grade: "amber", ruleId: "BP-A4", taskKey: "BP-A4:2026-W43" });
     expect(low.recorded[0]?.result.actions).toContainEqual(expect.objectContaining({ kind: "create_task", task: "adherence_review" }));
-    const ok = ports({ found: true, input: input({ type: "adherence", percent7d: 80 }) });
+    const ok = ports({ found: true, input: input({ type: "adherence", percentWindow: 80 }) });
     await makeCoverageHandler(ok.p)(event("adherence.below_line"), ctx);
     expect((ok.recorded[0]?.result.actions ?? []).some((a) => a.kind === "create_task")).toBe(false);
   });
@@ -112,12 +112,12 @@ describe("the coverage handler", () => {
   });
 
   it("an input the engine rejects is not recorded; an invalid rule set throws so the delivery retries and dead-letters visibly", async () => {
-    const bad = ports({ found: true, input: input({ type: "adherence", percent7d: 500 }) });
+    const bad = ports({ found: true, input: input({ type: "adherence", percentWindow: 500 }) });
     await makeCoverageHandler(bad.p)(event("adherence.below_line"), ctx);
     expect(bad.recorded).toHaveLength(0);
-    const broken = ports({ found: true, input: input({ type: "adherence", percent7d: 10 }) }, { loadRuleSet: async () => ({ ...approved, rules: { ...BP_CARE_V3, params: undefined } as never }) });
+    const broken = ports({ found: true, input: input({ type: "adherence", percentWindow: 10 }) }, { loadRuleSet: async () => ({ ...approved, rules: { ...BP_CARE_V3, params: undefined } as never }) });
     await expect(makeCoverageHandler(broken.p)(event("adherence.below_line"), ctx)).rejects.toThrow(/not valid/);
-    const none = ports({ found: true, input: input({ type: "adherence", percent7d: 10 }) }, { loadRuleSet: async () => null });
+    const none = ports({ found: true, input: input({ type: "adherence", percentWindow: 10 }) }, { loadRuleSet: async () => null });
     await expect(makeCoverageHandler(none.p)(event("adherence.below_line"), ctx)).rejects.toThrow(/no bp_care_triage/);
   });
 
@@ -145,7 +145,7 @@ describe("the coverage database ports", () => {
 
   it("asks for the context, the rule set and records with the names the migration defines", async () => {
     const { c, calls } = client({
-      triage_context_for_coverage: { found: true, input: { trigger: { type: "adherence", percent7d: 10 } } },
+      triage_context_for_coverage: { found: true, input: { trigger: { type: "adherence", percentWindow: 10 } } },
       triage_rule_set_for_grading: { id: "rs3", status: "approved", rules: BP_CARE_V3 },
     });
     const ports = coveragePorts(c);
