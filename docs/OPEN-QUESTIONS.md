@@ -4311,3 +4311,16 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-NAFDAC-SCAN-4 The number is used for lookup and pre-fill only; it is not stored on the medication (raised by the pack-scan build, 2026-10-16)
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
+
+### OQ-S06Y-1 The battery and battery saver cannot be read yet: a native module is needed (raised by S06y, 2026-10-20)
+- Checked `apps/mobile/package.json` and the native6 build: `expo-battery` (and `expo-device`) are not installed, and nothing else exposes the battery level or Android battery saver / iOS Low Power Mode. S06y therefore ships the pure decision (`power-rules.ts`, tested) and a port (`power-port.ts`, `registerPowerReader`) whose default answer is "unknown", and unknown defers nothing. The rules are wired (reconnect flush, background task, sync banner) but inert on a real phone until a reader is registered.
+- Needed: add `expo-battery` in the next native build (new EAS build and `runtimeVersion` bump, not done here because this change had to stay JS-only), then one `registerPowerReader` call at start-up. Also decide whether `low_battery_percent` (15, PROPOSED, `offline.reconnect_power`) is right.
+- Decision: open (founder).
+
+### OQ-S06Y-2 A photo-read number the server refuses is dropped from its queue with only a diagnostics record (raised by S06y, 2026-10-20)
+- `flushPhotoReadingsQueue` removes an entry the server answers 400 or 422 to, so it cannot block those behind it. Unlike the outbox, no `rejected` row stays visible with a support code. Not changed here (it is existing S70a behaviour and needs a UI decision). Option: route photo reads through the outbox, or keep a refused entry with a state and show it in the sync banner.
+- Decision: open (product).
+
+### OQ-S06Y-3 Small AsyncStorage preferences and caches are still plaintext (raised by S06y, 2026-10-20)
+- Still in AsyncStorage and removed by the remote wipe: dose-reminders, bp-target, triage-device, catch-up, reminder-prefs, health-connect-consent, the offline sync configuration (docs/design/S06x.md section 4). None holds a queued reading. Moving them is a separate, larger change (several are read synchronously at start-up). Decide which, if any, count as health data needing encryption at rest.
+- Decision: open (founder / DPO).

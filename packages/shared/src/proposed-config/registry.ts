@@ -3214,6 +3214,22 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["lease\\w*days?\\s*[=:]\\s*30\\b", "probe\\w*(interval|seconds)\\w*\\s*[=:]\\s*60\\b"],
   },
   {
+    key: "offline.reconnect_power",
+    // S06y. PROPOSED: the least gap between two reconnect-triggered flushes of everything waiting on the phone (a flapping signal must not
+    // start a flush every few seconds), and the battery level at or below which the phone counts as low on power. At low power or in the
+    // phone's battery saver the app skips non-essential pulls and the bulk health-sample upload; saving a reading and sending an urgent
+    // entry are never delayed. Nobody has judged these two numbers clinically or on a real handset.
+    value: {
+      reconnect_flush_min_gap_seconds: 20,
+      low_battery_percent: 15,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/S06.md, docs/design/S06x.md section 5, branch s06y/offline-hardening",
+  },
+  {
     key: "my_health.sharing_and_access_log",
     // My Health completion (S09x). Live values are the active row of `my_health_config`.config (sharing, access_log); my-health-mirror.test.ts fails if the
     // migration seed and this value drift. PROPOSED: the default share expiry (12 hours, shorter than the 24 the first share screen used; the 30 day cap is

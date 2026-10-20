@@ -5,6 +5,7 @@
  * (CLAUDE.md, Device & Wearable Integration), so these tests are the only
  * thing standing between a wiring mistake and a silently lost reading.
  */
+import * as SQLite from "expo-sqlite";
 import { postDeviceReading, postHealthSamples } from "./api";
 import * as storage from "../test/mocks/async-storage";
 import { getRecentSyncDiagnostics } from "./sync-diagnostics";
@@ -61,8 +62,13 @@ describe("enqueue", () => {
   it("reports false when the reading could not be sent AND could not be stored", async () => {
     // sync-screen.tsx relies on this to avoid telling a patient their
     // reading is safely queued when it is in fact gone.
-    storage.__failNextSet();
-    await expect(enqueueDeviceReading({ systolic: 150 })).resolves.toBe(false);
+    // The queue now lives in the encrypted store, so "cannot be stored" means the store cannot open.
+    const spy = jest.spyOn(SQLite, "openDatabaseAsync").mockRejectedValue(new Error("disk full"));
+    try {
+      await expect(enqueueDeviceReading({ systolic: 150 })).resolves.toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   /**

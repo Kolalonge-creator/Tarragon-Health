@@ -1,4 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import type * as SQLite from "expo-sqlite";
+import { getStoreWithSchema } from "./secure-db";
 import { postDeviceReading, postHealthSamples, postPhotoReading, type PhotoReadingRequest } from "./api";
 import type { HealthProvider } from "./health-sync";
 import type { HealthReadingType, HealthSample } from "./healthkit";
@@ -14,7 +16,7 @@ import { recordSyncError, type SyncSource } from "./sync-diagnostics";
  * Integration section for why none of this has ever run against real
  * hardware yet.
  *
- * Two independent AsyncStorage-backed queues, not one combined queue: the
+ * Independent queues (encrypted store since S06y), not one combined queue: the
  * two call sites retry against different endpoints with structurally
  * different payloads (a whole page of samples vs. one device reading), and
  * giving each its own storage key and its own MAX_QUEUE_SIZE keeps a burst
@@ -96,23 +98,135 @@ function isQueuedEntry(value: unknown): value is QueuedEntry<unknown> {
 }
 
 /**
- * Generic persisted-list plumbing shared by both queues below. Not exported
- * — every caller outside this file goes through the health-samples- or
- * device-reading-specific functions further down, so the two queues can
- * never be pointed at each other's storage key by mistake.
+ * Generic persisted-list plumbing shared by the three queues below. Not exported
+ * — every caller outside this file goes through the health-samples-, device-reading-
+ * and photo-reading-specific functions further down, so the queues can never be
+ * pointed at each other's storage key by mistake.
+ *
+ * S06y: the entries live in the ENCRYPTED on-device store (SQLCipher, secure-db.ts), table
+ * `offline_queue`, not in AsyncStorage. The AsyncStorage key of each queue is kept as the queue's
+ * NAME in that table, and as the place an older build left its plaintext copy: the first time a
+ * queue is touched on a given store handle, any such copy is moved across (oldest first, ahead of
+ * anything new) and the plaintext key is removed. The remote wipe deletes the whole store file, so
+ * it covers these queues with no extra step.
  */
+async function setupQueueTable(db: SQLite.SQLiteDatabase): Promise<void> {
+  await db.execAsync(
+    `create table if not exists offline_queue (
+       seq integer primary key,
+       queue text not null,
+       id text not null,
+       enqueued_at text not null,
+       item text not null,
+       unique (queue, id)
+     );
+     create index if not exists offline_queue_by_queue on offline_queue (queue, seq);`
+  );
+}
+
+/**
+ * All-or-nothing writes. Same pattern as outbox.ts: an exclusive transaction first (a plain transaction on the shared
+ * connection would pull a concurrent outbox write into this one, and roll it back with it on failure), and on a lock
+ * conflict one retry on the main connection. A real failure fails both and is thrown.
+ */
+async function atomically(db: SQLite.SQLiteDatabase, label: string, source: SyncSource, work: (conn: SQLite.SQLiteDatabase) => Promise<void>): Promise<void> {
+  try {
+    await db.withExclusiveTransactionAsync(work);
+  } catch (error) {
+    recordSyncError(source, `offline_queue:${label}:exclusiveTransaction`, error);
+    await db.withTransactionAsync(() => work(db));
+  }
+}
+
+const migrated = new WeakMap<object, Map<string, Promise<void>>>();
+
+/** Moves the plaintext copy an older build left in AsyncStorage into the encrypted table. Throws only when the copy itself failed (it is retried). */
+async function migrateLegacy(db: SQLite.SQLiteDatabase, key: string, source: SyncSource): Promise<void> {
+  const raw = await AsyncStorage.getItem(key);
+  if (raw === null) return;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    // Unreadable: left where it is (it is not ours to destroy) and recorded. The remote wipe still removes it.
+    recordSyncError(source, "offline_queue:read", error);
+    return;
+  }
+  if (!Array.isArray(parsed)) {
+    recordSyncError(source, "offline_queue:read", "queue was not a list");
+    return;
+  }
+  // One bad entry must not cost every other item (the same rule healthkit.ts applies per reading type).
+  const good = parsed.filter(isQueuedEntry) as QueuedEntry<unknown>[];
+  if (good.length !== parsed.length) {
+    recordSyncError(source, "offline_queue:migrate", `${parsed.length - good.length} malformed queue entr${parsed.length - good.length === 1 ? "y" : "ies"} could not be moved and were left behind`);
+  }
+  await atomically(db, "migrate", source, async (conn) => {
+    for (const entry of good) {
+      await conn.runAsync("insert or ignore into offline_queue (queue, id, enqueued_at, item) values (?, ?, ?, ?)", [
+        key,
+        entry.id,
+        entry.enqueuedAt,
+        JSON.stringify(entry.item),
+      ]);
+    }
+  });
+  // Only after every good entry is in the encrypted table is the plaintext copy removed.
+  await AsyncStorage.removeItem(key);
+}
+
+async function queueDb(key: string, source: SyncSource): Promise<SQLite.SQLiteDatabase> {
+  const db = await getStoreWithSchema("offline_queue", setupQueueTable);
+  let perDb = migrated.get(db);
+  if (!perDb) {
+    perDb = new Map();
+    migrated.set(db, perDb);
+  }
+  let done = perDb.get(key);
+  if (!done) {
+    done = migrateLegacy(db, key, source).catch((error) => {
+      perDb?.delete(key); // try again on the next call; the plaintext copy stays where it is until the move succeeds
+      recordSyncError(source, "offline_queue:migrate", error);
+      throw error;
+    });
+    perDb.set(key, done);
+  }
+  await done;
+  return db;
+}
+
 async function readQueue<T>(key: string, source: SyncSource): Promise<QueuedEntry<T>[]> {
+  try {
+    const db = await queueDb(key, source);
+    const rows = await db.getAllAsync<{ id: string; enqueued_at: string; item: string }>(
+      "select id, enqueued_at, item from offline_queue where queue = ? order by seq",
+      [key]
+    );
+    const out: QueuedEntry<T>[] = [];
+    for (const row of rows) {
+      try {
+        out.push({ id: row.id, enqueuedAt: row.enqueued_at, item: JSON.parse(row.item) as T });
+      } catch (error) {
+        recordSyncError(source, "offline_queue:read", error);
+      }
+    }
+    return out;
+  } catch (error) {
+    recordSyncError(source, "offline_queue:read", error);
+    // The encrypted store cannot be opened right now. An older build's plaintext copy (if any) is still the truth for
+    // those entries: show it, so counts, the reconnect trigger and the flush keep working. New entries are not written
+    // there (appendToQueue reports false instead).
+    return readLegacyEntries<T>(key);
+  }
+}
+
+async function readLegacyEntries<T>(key: string): Promise<QueuedEntry<T>[]> {
   try {
     const raw = await AsyncStorage.getItem(key);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    // Filter rather than reject the whole queue on one bad entry — the same
-    // "one broken thing must not cost every other item" principle
-    // healthkit.ts/health-connect.ts already apply per reading type.
-    return parsed.filter(isQueuedEntry) as QueuedEntry<T>[];
-  } catch (error) {
-    recordSyncError(source, "offline_queue:read", error);
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed.filter(isQueuedEntry) as QueuedEntry<T>[]) : [];
+  } catch {
     return [];
   }
 }
@@ -122,9 +236,42 @@ async function readQueue<T>(key: string, source: SyncSource): Promise<QueuedEntr
  * this rather than assuming; callers doing a best-effort background flush
  * (everywhere else) can ignore it, since the failure is already recorded
  * here regardless. */
-async function writeQueue<T>(key: string, entries: QueuedEntry<T>[], source: SyncSource): Promise<boolean> {
+async function appendToQueue<T>(key: string, item: T, source: SyncSource): Promise<boolean> {
   try {
-    await AsyncStorage.setItem(key, JSON.stringify(entries));
+    const db = await queueDb(key, source);
+    let dropped: { enqueued_at: string }[] = [];
+    const id = newId();
+    const enqueuedAt = new Date().toISOString();
+    await atomically(db, "append", source, async (conn) => {
+      dropped = [];
+      await conn.runAsync("insert into offline_queue (queue, id, enqueued_at, item) values (?, ?, ?, ?)", [
+        key,
+        id,
+        enqueuedAt,
+        JSON.stringify(item),
+      ]);
+      const count = (await conn.getFirstAsync<{ n: number }>("select count(*) as n from offline_queue where queue = ?", [key]))?.n ?? 0;
+      if (count > MAX_QUEUE_SIZE) {
+        // Drop-oldest — see MAX_QUEUE_SIZE's doc comment for why the NEWEST reading is the one a full queue must never refuse.
+        dropped = await conn.getAllAsync<{ enqueued_at: string }>(
+          "select enqueued_at from offline_queue where queue = ? order by seq limit ?",
+          [key, count - MAX_QUEUE_SIZE]
+        );
+        await conn.runAsync(
+          "delete from offline_queue where seq in (select seq from offline_queue where queue = ? order by seq limit ?)",
+          [key, count - MAX_QUEUE_SIZE]
+        );
+      }
+    });
+    if (dropped.length > 0) {
+      // The discard itself is recorded rather than silent: losing a queued clinical reading is exactly the kind of event that
+      // must be visible to whoever is holding the device when this path first runs for real. The policy is unchanged; only its visibility is.
+      recordSyncError(
+        source,
+        "offline_queue:overflow",
+        `Queue full (${MAX_QUEUE_SIZE}); discarded ${dropped.length} oldest entr${dropped.length === 1 ? "y" : "ies"} (oldest enqueued ${dropped[0]?.enqueued_at}).`
+      );
+    }
     return true;
   } catch (error) {
     recordSyncError(source, "offline_queue:write", error);
@@ -132,32 +279,35 @@ async function writeQueue<T>(key: string, entries: QueuedEntry<T>[], source: Syn
   }
 }
 
-async function appendToQueue<T>(key: string, item: T, source: SyncSource): Promise<boolean> {
-  const entries = await readQueue<T>(key, source);
-  const next = [...entries, { id: newId(), enqueuedAt: new Date().toISOString(), item }];
-  if (next.length > MAX_QUEUE_SIZE) {
-    // Drop-oldest — see MAX_QUEUE_SIZE's doc comment for why the NEWEST
-    // reading is the one a full queue must never refuse. The discard itself
-    // is recorded rather than silent: losing a queued clinical reading is
-    // exactly the kind of event that must be visible to whoever is holding
-    // the device when this path first runs for real. The policy is
-    // unchanged; only its visibility is.
-    const dropped = next.splice(0, next.length - MAX_QUEUE_SIZE);
-    recordSyncError(
-      source,
-      "offline_queue:overflow",
-      `Queue full (${MAX_QUEUE_SIZE}); discarded ${dropped.length} oldest entr${dropped.length === 1 ? "y" : "ies"} (oldest enqueued ${dropped[0]?.enqueuedAt}).`
-    );
+async function removeFromQueue(key: string, id: string, source: SyncSource): Promise<void> {
+  try {
+    const db = await queueDb(key, source);
+    await db.runAsync("delete from offline_queue where queue = ? and id = ?", [key, id]);
+  } catch (error) {
+    recordSyncError(source, "offline_queue:write", error);
+    // Store unavailable: take the entry out of a leftover plaintext copy so it is not sent again.
+    try {
+      if ((await AsyncStorage.getItem(key)) !== null) {
+        const left = (await readLegacyEntries<unknown>(key)).filter((entry) => entry.id !== id);
+        await AsyncStorage.setItem(key, JSON.stringify(left));
+      }
+    } catch {
+      // nothing more to do: the entry stays and the server dedupes a repeat
+    }
   }
-  return writeQueue(key, next, source);
 }
 
-async function removeFromQueue<T>(key: string, id: string, source: SyncSource): Promise<void> {
-  const entries = await readQueue<T>(key, source);
-  const next = entries.filter((entry) => entry.id !== id);
-  if (next.length !== entries.length) {
-    await writeQueue(key, next, source);
-  }
+/**
+ * One flush of a given queue at a time. The reconnect trigger, the background task, a screen and the manual Sync button can
+ * all ask at once; two runs listing the same entries would send them twice. A later caller waits for the earlier one, then
+ * lists what is still there.
+ */
+const flushChains = new Map<string, Promise<unknown>>();
+function serialised<T>(name: string, run: () => Promise<T>): Promise<T> {
+  const previous = flushChains.get(name) ?? Promise.resolve();
+  const next = previous.then(run, run);
+  flushChains.set(name, next.catch(() => undefined));
+  return next;
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +329,7 @@ export async function listPendingHealthSamplesPages(): Promise<QueuedEntry<Queue
 }
 
 export async function removeHealthSamplesPage(id: string): Promise<void> {
-  await removeFromQueue<QueuedHealthSamplesPage>(HEALTH_SAMPLES_QUEUE_KEY, id, "apple_health");
+  await removeFromQueue(HEALTH_SAMPLES_QUEUE_KEY, id, "apple_health");
 }
 
 export async function getHealthSamplesQueueCount(): Promise<number> {
@@ -215,7 +365,11 @@ export interface HealthSamplesFlushResult {
  * vice versa. Omit it to flush everything, as background-sync.ts's periodic
  * task does via flushOfflineQueues.
  */
-export async function flushHealthSamplesQueue(onlyProvider?: HealthProvider): Promise<HealthSamplesFlushResult> {
+export function flushHealthSamplesQueue(onlyProvider?: HealthProvider): Promise<HealthSamplesFlushResult> {
+  return serialised("health_samples", () => runHealthSamplesFlush(onlyProvider));
+}
+
+async function runHealthSamplesFlush(onlyProvider?: HealthProvider): Promise<HealthSamplesFlushResult> {
   const entries = await listPendingHealthSamplesPages();
   let flushedPages = 0;
   let flushedSamples = 0;
@@ -264,7 +418,7 @@ export async function listPendingDeviceReadings(): Promise<QueuedEntry<QueuedDev
 }
 
 export async function removeDeviceReading(id: string): Promise<void> {
-  await removeFromQueue<QueuedDeviceReading>(DEVICE_READINGS_QUEUE_KEY, id, BLE_SOURCE);
+  await removeFromQueue(DEVICE_READINGS_QUEUE_KEY, id, BLE_SOURCE);
 }
 
 export async function getDeviceReadingsQueueCount(): Promise<number> {
@@ -274,7 +428,11 @@ export async function getDeviceReadingsQueueCount(): Promise<number> {
 /** Same stop-on-first-failure reasoning as flushHealthSamplesQueue above —
  * one reading per entry here, so `flushed` already counts readings, not a
  * separate page/item distinction. */
-export async function flushDeviceReadingsQueue(): Promise<FlushResult> {
+export function flushDeviceReadingsQueue(): Promise<FlushResult> {
+  return serialised("device_readings", runDeviceReadingsFlush);
+}
+
+async function runDeviceReadingsFlush(): Promise<FlushResult> {
   const entries = await listPendingDeviceReadings();
   let flushed = 0;
 
@@ -320,7 +478,11 @@ export async function getPhotoReadingsQueueCount(): Promise<number> {
  * from the queue and recorded, because retrying a refusal forever would block every reading behind it; every other failure keeps the entry,
  * including 404 (the switch is off for now and may be switched on) and 5xx.
  */
-export async function flushPhotoReadingsQueue(): Promise<FlushResult> {
+export function flushPhotoReadingsQueue(): Promise<FlushResult> {
+  return serialised("photo_readings", runPhotoReadingsFlush);
+}
+
+async function runPhotoReadingsFlush(): Promise<FlushResult> {
   const entries = await listPendingPhotoReadings();
   let flushed = 0;
 
@@ -329,12 +491,12 @@ export async function flushPhotoReadingsQueue(): Promise<FlushResult> {
     if (!result.ok) {
       recordSyncError(PHOTO_SOURCE, "offline_queue:flush", result.error);
       if (result.status === 400 || result.status === 422) {
-        await removeFromQueue<PhotoReadingRequest>(PHOTO_READINGS_QUEUE_KEY, entry.id, PHOTO_SOURCE);
+        await removeFromQueue(PHOTO_READINGS_QUEUE_KEY, entry.id, PHOTO_SOURCE);
         continue;
       }
       break;
     }
-    await removeFromQueue<PhotoReadingRequest>(PHOTO_READINGS_QUEUE_KEY, entry.id, PHOTO_SOURCE);
+    await removeFromQueue(PHOTO_READINGS_QUEUE_KEY, entry.id, PHOTO_SOURCE);
     flushed++;
   }
 
