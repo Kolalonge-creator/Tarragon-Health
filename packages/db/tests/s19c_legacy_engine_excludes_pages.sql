@@ -33,9 +33,13 @@ begin
   insert into results values ('control: a failed ordinary critical notification does get one', '1', v_n_other::text);
 
   -- SABOTAGE: strip the exclusion from a copy of the live engine; the same page notification must now be escalated
-  v_stripped := regexp_replace(v_def, E'\\n\\s*-- S19c[^\\n]*\\n\\s*and coalesce\\(n\\.source_table, ''''\\) not in \\(''pages'', ''page_tests''\\)', '', 'n');
+  v_stripped := regexp_replace(v_def, E'\\n\\s*-- S19c[^\\n]*\\n\\s*and coalesce\\(n\\.source_table, ''''\\) not in \\(''pages'', ''page_tests''(, ''[a-z_]+'')*\\)', '', 'n');
   if v_stripped = v_def then
     v_stripped := replace(v_def, 'and coalesce(n.source_table, '''') not in (''pages'', ''page_tests'')', 'and true');
+    -- S27h widened the exclusion with the lab call tables
+    if v_stripped = v_def then
+      v_stripped := replace(v_def, 'and coalesce(n.source_table, '''') not in (''pages'', ''page_tests'', ''lab_critical_calls'', ''lab_results'')', 'and true');
+    end if;
   end if;
   if v_stripped = v_def then raise exception 'VACUOUS TEST: could not strip the exclusion to sabotage the engine'; end if;
   delete from public.notifications where escalated_from_id in (v_page, v_other);

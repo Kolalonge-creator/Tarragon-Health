@@ -683,7 +683,7 @@ do $$
 declare v_def text; rid uuid;
 begin
   select pg_get_functiondef(p.oid) into v_def from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'private' and p.proname = 'clinician_has_patient_access' and p.pronargs = 1;
-  execute replace(v_def, 'lc.acknowledged_by = (select auth.uid())', 'true');
+  execute replace(replace(v_def, 'lc.acknowledged_by = (select auth.uid())', 'true'), 'lc.acknowledged_at > now()', 'true or lc.acknowledged_at > now()');
   rid := pg_temp.submit('pat6', 5.6);
   insert into results values ('sabotaged', 'a clinician who merely works in the organisation is not tied by someone else''s call', 'not_permitted',
     coalesce(pg_temp.q_as(pg_temp.f('stranger'), format('select public.lab_result_for_review(%L, %L)::jsonb ->> %L', rid, 'proof', 'error')), 'null'));
