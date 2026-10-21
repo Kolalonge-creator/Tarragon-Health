@@ -638,6 +638,25 @@ export function useUpdateLabProviderLicense() {
   });
 }
 
+/**
+ * S27h: the accreditation a laboratory holds (for example "ISO 15189, MLSCN licensed"). A laboratory cannot be switched on until this, a
+ * licence number, a verified date and a future expiry are recorded, so there has to be a place to record it.
+ */
+export function useUpdateLabProviderAccreditation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, accreditation }: { id: string; accreditation: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("lab_providers")
+        .update({ accreditation: accreditation.trim() === "" ? null : accreditation.trim() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-providers"] }),
+  });
+}
+
 export type LabProviderCostBasis = "published_list" | "contracted_invoice";
 
 // Mirrors lab_providers_contracted_basis_needs_evidence
