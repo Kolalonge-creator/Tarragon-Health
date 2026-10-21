@@ -14,6 +14,7 @@
  * thresholds 6.2, task due windows 7.3, lead windows and claim timeouts 7.4)
  * are deliberately absent: the sessions that build them add them here.
  */
+import { BIOMARKER_GRADE_BANDS } from "./biomarker-grade-bands";
 import { DEVICE_RED_RULES, EMERGENCY_PACK } from "./emergency-pack";
 import { OBSERVATION_LIMITS_V1 } from "./observation-limits-data";
 import { THERAPY_EXCLUSION_LISTS, THERAPY_PROGRAMME_CONFIG } from "./therapy-config-data";
@@ -6454,6 +6455,39 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "biomarkers.grade_bands",
+    // Tarragon's Good / Acceptable / Needs-attention bands for the patient results cards (/patient/biomarkers). The data lives in
+    // ./biomarker-grade-bands.ts. PROPOSED: until the CMO publishes a confirmed version no patient sees a Tarragon grade and the cards
+    // show only the laboratory's own flag. Bands are population-level adult starting points, not individual targets.
+    value: BIOMARKER_GRADE_BANDS,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "Founder decision 2026-10-20; public guidance: NICE lipid and diabetes guidance, WHO glucose criteria, KDIGO eGFR staging. CMO to confirm every band.",
+  },
+  {
+    key: "biomarkers.lifestyle_guide",
+    // General "helps / go easy on" habits shown under a person's results on /patient/biomarkers. Identical for everyone, labelled as general
+    // guidance on screen, never personalised and never generated. No health claim about a specific food or drink is made here. PROPOSED:
+    // the CMO edits or approves the wording by publishing a new version.
+    value: {
+      items: [
+        { kind: "do", title: "Plan alcohol-free days", detail: "Regular breaks from alcohol ease the load on your liver." },
+        { kind: "do", title: "Eat leafy greens often", detail: "Spinach, kale, ugu and other dark leafy greens are a good everyday choice." },
+        { kind: "do", title: "Keep moving", detail: "A brisk walk most days supports your heart, blood sugar and blood pressure." },
+        { kind: "do", title: "Drink enough water", detail: "Staying hydrated helps your kidneys and keeps blood tests more reliable." },
+        { kind: "limit", title: "Go easy on ultra-processed foods", detail: "Sweets, biscuits, chocolate and crisps." },
+        { kind: "limit", title: "Go easy on sugary drinks and snacks", detail: "Soft drinks, sweetened juices and sugary tea or pap." },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "Founder decision 2026-10-20; general public-health healthy-eating guidance. CMO to approve the wording.",
   },
   {
     key: "medicines.nafdac_number_format",
