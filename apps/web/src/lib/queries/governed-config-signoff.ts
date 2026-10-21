@@ -66,6 +66,7 @@ export const GOVERNED_CONFIG_TABLES = [
   },
   { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
   { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
+  { table: "fasting_safety_config", title: "Fasting safety rules (Ramadan and Lent)", slug: "fasting-safety-config" },
 ] as const;
 
 /** Tables that hold one live row per kind rather than one live row in total. */

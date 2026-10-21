@@ -33,6 +33,7 @@ import { HealthReportConfigPanel } from "../_signoff-panels/health-report-config
 import { SerologyRulesPanel } from "../_signoff-panels/serology-rules-panel";
 import { ObservationLimitsPanel } from "../_signoff-panels/observation-limits-panel";
 import { ActivitySafetyConfigPanel } from "../_signoff-panels/activity-safety-config-panel";
+import { FastingSafetyConfigPanel } from "../_signoff-panels/fasting-safety-config-panel";
 import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
 import { TriageRulesPanel } from "../_signoff-panels/triage-rules-panel";
 import { QualityConfigPanel } from "../_signoff-panels/quality-config-panel";
@@ -102,6 +103,7 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   serology_rule_versions: () => <SerologyRulesPanel />,
   observation_limit_signoffs: () => <ObservationLimitsPanel />,
   activity_safety_config: () => <ActivitySafetyConfigPanel />,
+  fasting_safety_config: () => <FastingSafetyConfigPanel />,
 };
 
 /**
