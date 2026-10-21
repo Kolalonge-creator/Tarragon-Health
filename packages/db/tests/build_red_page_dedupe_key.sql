@@ -149,6 +149,8 @@ begin
   perform set_config('tarragon.paging_write', 'on', true);
   update public.pages set acknowledged_at = now(), acknowledged_by = v_cmo, delivered_at = now() where id = v_page;
   update public.red_page_dedupe_claims set claimed_at = now() - interval '5 hours' where dedupe_key = 'vitals:' || v_p || ':pulse:red';
+  -- every other page of this patient is acknowledged too: an OPEN UNACKNOWLEDGED family would legitimately absorb the event (P6 merge), which is not what this step tests
+  update public.pages set acknowledged_at = coalesce(acknowledged_at, now()), acknowledged_by = coalesce(acknowledged_by, v_cmo), delivered_at = coalesce(delivered_at, now()) where patient_id = v_p and acknowledged_at is null;
   perform set_config('tarragon.paging_write', 'off', true);
   v_u := pg_temp.unified(v_org, v_p, v_r4, 'pulse_red');
   v_n := (select count(*) from public.pages where patient_id = v_p and parent_page_id is null);
