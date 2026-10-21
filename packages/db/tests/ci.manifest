@@ -1300,6 +1300,10 @@ s63_therapy_programmes.sql
 # append-only ledger, aggregate-only employer seam, roles) with three sabotage steps.
 s58_rewards_engine.sql
 
+# --- Added 2026-10-16 (N-overrides) -----------------------------------------
+# Clinician-signed personal triage thresholds: CMO-signed policy and kill switch, senior-doctor-plus-tie authority, the clamps in the database, typed SIGN,
+# draft never served, expiry returns to default, supersede and review, provenance (refuses a relaxed red), append only, daily sweep, reads. Four sabotage steps.
+patient_threshold_overrides.sql
 # Ops desk resilience for an expired red page (OQ-441, decision S16-S20-10): named ops contacts need a confirmed real number and hours (a placeholder is never live); an expired page or a nobody-reachable incident is assigned to the primary on duty (push, in-app and email only, never sms or voice), moves to the deputy after the configured time once, and a silent deputy raises one closing sev1; nobody on duty opens a sev1 and tells the leadership; the uncovered-roster sev1 needs a real rota and the config switch; the call log and the checklist attestations are append only; the call sheet never shows a patient; the checklist gate on the on-call cover guard ships OFF and holds back only switching it ON when the CMO config says so; RLS for admin, CMO, plain clinician, patient, anon and another organisation. Sabotage: the assignment trigger, the append-only trigger, the confirmation rule and the gate function; each flips.
 ops_desk_expired_page.sql
 # Task queue gaps OQ-432/433/435: a Member's symptom-check review is ONE symptom_review task (Free keeps the alert, a task that cannot be made falls back to the alert with an audit row and incident); pharmacy_flag_review requires prescribing, admin_clinical only for the prescription subtype; a lead or pushed doctor who lacks a required competency is skipped with the reason on the transition. Sabotage: the lead check, the pushed-doctor check, the prescribing rule and the task producer each removed; each must flip.
@@ -1319,6 +1323,8 @@ bp_cuffless_estimates_never_diagnostic.sql
 second_opinion_shared_results_and_referral.sql
 # Record share extras: recipient label, view cap (1 to 50, the fourth open of a three-view link is refused like any dead link, peek too), date window (30/90/180 days drops older readings), options door refuses bad input and anon; pin_hash stays unreadable; the original create door still works. Sabotage: the cap and the window each removed; both must flip.
 record_share_recipient_views_window.sql
+# S08y: same-ingredient SQL twin (shared cases with packages/medicines), governed interaction rule sets (born empty and unsigned; CMO-only signing; empty set unsignable; older version cannot return; rules reach a client only through an open guard), brand map publish gate (reviewer is not the author; edit withdraws review; no direct writes), NAFDAC number note (store only, follows an amended medicine), supporter's today's doses (medicines category only: clinical_access plus view_medication without it is refused). Sabotage: the category check removed and the twin made blind; both must flip.
+s08y_medicine_safety.sql
 # S06z: My phones. update_my_offline_device (owner only, not an admin or another patient; trimmed name; control and over-long names refused; removed phone locked; audit never holds the name; anon refused; no direct write) and the patient own wipe request (own phone yes, another patient no). Sabotage: owner check, revoked guard, control check each removed; each must flip.
 s06z_my_phones.sql
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted; only open sev1/sev2 incidents counted. Sabotage: without the status filter the done delivery would count.
@@ -1328,6 +1334,8 @@ oq436_deadman_status.sql
 
 # Records request letters (2026-10-20): guard off, own rows only, state machine, append-only history, ids-only events; three sabotages.
 records_request_letters.sql
+# Emergency card lock-screen picture (LSI-1): record_emergency_card_image is the audit door the picture routes call first. The option is off by default; the door refuses while it is off (no card row included), for another person's switch, and for clinician, admin, signed-out and anon; opted in it writes one audit row holding only the two choices. Sabotage: the opt-in check, the audit call and the role gate each removed; each must flip.
+lsi1_emergency_card_image_audit.sql
 # S46d health report completion: CMO-only anti-HBs threshold signing, panel v3 anti_hbs clinician add-on (optional, unpriced, not sensitive), report settings v3 unsigned, share link carries only the latest SIGNED report with risk band / questionnaires / reproductive screening / doctor text / blood-borne codes removed, PIN, revoke, no supporter read. Sabotage: unfiltered body, code filter off, signer check off; all must flip.
 s46d_health_report_completion.sql
 # --- Added 2026-10-20 (S47a observation types and safety) ---

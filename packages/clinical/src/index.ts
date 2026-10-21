@@ -35,6 +35,10 @@ export {
 } from "./glucose-engine";
 export { GLUCOSE_SIGN_SYMPTOM_TYPE, TICKED_ON_GLUCOSE_FORM_NOTE, type GlucoseSignSymptomType } from "./glucose-signs";
 export {
+  applyBpOverride, applyGlucoseOverride, validateOverrideParams, OVERRIDE_LIMITS,
+  type ActiveOverride, type BpOverrideParams, type GlucoseOverrideParams, type OverrideDomain, type OverrideOutcome, type IgnoredReason,
+} from "./threshold-override";
+export {
   activityGate, activityGateMessageKey, parseActivityGate, unavailableActivityGate, conditionPresent, intensityAllowed, kindAllowed, lowerIntensity, INTENSITY_ORDER,
   type ActivityConditionRecord, type ActivityGateDecision, type ActivityGateInput, type ActivityGateReason, type ActivityGateResult, type ActivityIntensity,
   type ActivityKindConfig, type ActivityRuleConfig, type ActivitySafetyConfig, type ActivityTriageEvent, type ConditionMatchConfig,
