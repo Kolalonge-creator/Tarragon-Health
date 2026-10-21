@@ -4167,6 +4167,34 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/DECISIONS.md S70-2 (branch docs/s70-s75-decisions), OQ-310; docs/plans/S66-S70-cmo-signoff-pack.md A12",
   },
   {
+    key: "devices.cgm_agp",
+    // Display-only continuous glucose profile (ambulatory glucose profile layout) for the patient and the clinician. It never creates a task or a
+    // page: the sustained-event rules above stay the only CGM safety path. The five range bands follow the International Consensus on Time in
+    // Range (secondary source, primary text not read). The pattern numbers are product choices, PROPOSED, for the CMO to confirm or change:
+    // a window is only named when enough days of that time of day were recorded, and the words it produces describe readings, never a cause
+    // and never a dose. percentiles 15 and 75 copy the example report the founder shared (its legend names the 15th and 75th); the usual AGP uses
+    // 25 and 75 with 5 and 95 as an outer band, so the CMO should confirm which one clinicians expect. dedupe_minutes drops a reading that follows
+    // another by less than that, so one sensor reaching us by two routes is not counted twice.
+    value: {
+      window_days: 14,
+      timezone: "Africa/Lagos",
+      bin_minutes: 30,
+      slot_minutes: 15,
+      min_active_pct: 70,
+      min_days_with_data: 10,
+      min_readings_per_bin: 20,
+      dedupe_minutes: 2,
+      band_edges_mmol_l: { very_low: 3.0, low: 3.9, high: 10.0, very_high: 13.9 },
+      percentiles: { lower: 15, upper: 75 },
+      pattern: { min_run_minutes: 120, low_share_pct: 10, high_share_pct: 50 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "Founder request 2026-10-21 (glucose profile for the diabetes chat); International Consensus on Time in Range; docs/DECISIONS.md S70-2 for the sustained-event path it sits beside",
+  },
+  {
     key: "devices.ecg_alert",
     // S70a (18.6, decision S70-3, OQ-311). A personal ECG device's OWN result label is stored verbatim. An irregular, inconclusive or
     // unrecognised label creates a routine clinician task due within one working day (1440 minutes is the proposed stand-in for it).
