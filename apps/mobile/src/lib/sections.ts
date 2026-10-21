@@ -21,6 +21,7 @@ export type SectionId =
   | "healthSummary"
   | "timeline"
   | "myHealth"
+  | "myPhones"
   | "womensHealth"
   | "sexualHealth"
   | "wellbeing"
@@ -334,6 +335,7 @@ export const SECTIONS: SectionDef[] = [
     icon: "lock-closed-outline",
     group: "Your account",
   },
+  { id: "myPhones", label: "My phones", icon: "phone-portrait-outline", group: "Your account" },
   { id: "emergency", label: "Emergency card", icon: "alert-circle-outline", group: "Your account" },
   { id: "settings", label: "Settings", icon: "settings-outline", group: "Your account" },
 ];

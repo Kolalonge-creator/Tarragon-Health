@@ -1317,6 +1317,8 @@ bp_cuffless_estimates_never_diagnostic.sql
 second_opinion_shared_results_and_referral.sql
 # Record share extras: recipient label, view cap (1 to 50, the fourth open of a three-view link is refused like any dead link, peek too), date window (30/90/180 days drops older readings), options door refuses bad input and anon; pin_hash stays unreadable; the original create door still works. Sabotage: the cap and the window each removed; both must flip.
 record_share_recipient_views_window.sql
+# S06z: My phones. update_my_offline_device (owner only, not an admin or another patient; trimmed name; control and over-long names refused; removed phone locked; audit never holds the name; anon refused; no direct write) and the patient own wipe request (own phone yes, another patient no). Sabotage: owner check, revoked guard, control check each removed; each must flip.
+s06z_my_phones.sql
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted; only open sev1/sev2 incidents counted. Sabotage: without the status filter the done delivery would count.
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted only from the last 24 hours; only open sev1/sev2 incidents counted. Sabotage: the function is replaced by one without the pending filter and the window; the checks must flip.
 oq436_deadman_status.sql
