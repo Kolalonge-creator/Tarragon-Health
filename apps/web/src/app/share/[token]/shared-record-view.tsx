@@ -1,6 +1,7 @@
 import { t } from "@tarragon/i18n";
 import { rangeMayBeShownAsClinical, rangeSourceLabel } from "@tarragon/shared";
 import { PrintButton } from "./print-button";
+import { FhirDownloadButton } from "./fhir-download-button";
 import dynamic from "next/dynamic";
 import type { SharedReportBody } from "@/lib/health-report/render-model";
 
@@ -168,6 +169,7 @@ export function SharedRecordView({ record }: { record: SharedData }) {
           </p>
         ) : null}
         <PrintButton />
+        <FhirDownloadButton record={record} />
       </header>
 
       {record.vitals && record.vitals.length > 0 && (
