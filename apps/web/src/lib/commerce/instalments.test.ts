@@ -79,6 +79,22 @@ describe("collapseRefundGroups (S25b)", () => {
     expect(g(["completed", "failed", "processing"])).toBe("failed");
     expect(g(["approved", "completed"])).toBe("approved");
     expect(g(["pending", "pending"])).toBe("pending");
+    expect(g(["pending", "approved"])).toBe("pending");
+    expect(g(["rejected", "rejected"])).toBe("rejected");
+    // a state this build does not know can never mask a finished one
+    expect(g(["completed", "somethingnew"])).toBe("somethingnew");
+  });
+  it("does not let the first part's completion date stand in for a group that is not finished", () => {
+    const done = collapseRefundGroups([
+      { id: "g", amount_kobo: 1, refund_group: "g", state: "completed", completed_at: "2026-10-01" },
+      { id: "x", amount_kobo: 1, refund_group: "g", state: "processing", completed_at: null },
+    ]);
+    expect(done[0]).toMatchObject({ state: "processing", completed_at: null });
+    const all = collapseRefundGroups([
+      { id: "g", amount_kobo: 1, refund_group: "g", state: "completed", completed_at: "2026-10-01" },
+      { id: "x", amount_kobo: 1, refund_group: "g", state: "completed", completed_at: "2026-10-02" },
+    ]);
+    expect(all[0]).toMatchObject({ state: "completed", completed_at: "2026-10-01" });
   });
   it("leaves a lone group row alone", () => {
     expect(collapseRefundGroups([{ id: "g", amount_kobo: 10, refund_group: "g" }])).toEqual([{ id: "g", amount_kobo: 10, refund_group: "g" }]);

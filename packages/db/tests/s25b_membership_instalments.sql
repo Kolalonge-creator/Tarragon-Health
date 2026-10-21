@@ -175,6 +175,7 @@ begin
   perform pg_temp.setf('pat14', pg_temp.mkuser(v_org, 'patient14', 'patient'));
   perform pg_temp.setf('pat15', pg_temp.mkuser(v_org, 'patient15', 'patient'));
   perform pg_temp.setf('pat16', pg_temp.mkuser(v_org, 'patient16', 'patient'));
+  perform pg_temp.setf('pat17', pg_temp.mkuser(v_org, 'patient17', 'patient'));
   perform pg_temp.setf('other', pg_temp.mkuser(v_org, 'other', 'patient'));
   -- a Membership priced so that the price does not divide by three (10,000,000 kobo = 3 x 3,333,333 + 1)
   insert into public.catalog_items (id, organisation_id, code, kind, name_key, description_key, duration_days, uses, grants_lead, active)
@@ -612,6 +613,13 @@ begin
     pg_temp.res(pg_temp.pay(ordref, 10000000)) || '/' || (select state from public.orders where id = o) || '/' || (select count(*)::text from public.entitlements where order_id = o));
   perform pg_temp.ck('and a person is told', 'true', (select (count(*) >= 1)::text from public.ops_incidents where external_reference = 'order-mismatch:' || o));
 
+  -- the order's own reference cannot close a plan order (that would leave its plan and parts payable), and another patient cannot cancel it
+  perform pg_temp.ck('closing a plan order by its own reference does nothing', 'false/created/awaiting_first',
+    pg_temp.svc(format($q$select public.close_unpaid_order(%L, 'expired')::text$q$, ordref)) || '/' || (select state from public.orders where id = o) || '/' ||
+    (select state from public.order_instalment_plans where order_id = o));
+  perform pg_temp.ck('another patient cannot cancel it', 'false/created',
+    pg_temp.q_as(pg_temp.f('other'), format($q$select public.cancel_order(%L)::text$q$, o)) || '/' || (select state from public.orders where id = o));
+
   -- cancelling an unpaid plan order closes the plan, its parts and its attempts, and nothing can then be paid
   k := (select client_key from public.orders where id = o);
   perform pg_temp.ck('the patient cancels the unpaid plan order', 'true', pg_temp.q_as(v_pat, format($q$select public.cancel_order(%L)::text$q$, o)));
@@ -662,6 +670,7 @@ begin
   a := pg_temp.pay(r, pg_temp.amt(o, 2));
   perform pg_temp.ck('paying the overdue part does not reopen an entitlement the lapse did not close', 'paid/revoked/false',
     pg_temp.res(a) || '/' || (select state from public.entitlements where order_id = o) || '/' || private.patient_is_member(v_pat)::text);
+  perform pg_temp.ck('and that is told to a person, never silent', '1', (select count(*)::text from public.ops_incidents where external_reference = 'instalment-restore-skipped:' || (select id from public.order_instalment_plans where order_id = o)));
   perform pg_temp.ck('a plan whose entitlement the lapse closed remembers it', 'true',
     (select lapse_revoked::text from public.order_instalment_plans where order_id = pg_temp.f('plan_order')));
 end $$;
@@ -699,6 +708,31 @@ begin
   perform pg_temp.svc(format($q$select public.record_refund_provider_result(%L, true, 'rf-b')::text$q$, ids[2]));
   perform pg_temp.ck('the whole refund is told complete once, when the last part is sent, for the whole amount', '1/NGN ' || to_char((pg_temp.amt(o, 1) + pg_temp.amt(o, 2)) / 100.0, 'FM999,999,999,990.00'),
     (select count(*)::text || '/' || max(payload ->> 'amount') from public.notifications where recipient_id = v_pat and template = 'order_refund_completed'));
+end $$;
+
+-- several failing parts are one problem to the patient, not one message each
+do $$
+declare
+  v_pat uuid := pg_temp.f('pat17'); v_admin uuid := pg_temp.f('admin'); o uuid; r text; g uuid; ids uuid[]; i integer;
+begin
+  o := pg_temp.mkplan(v_pat);
+  perform pg_temp.pay(pg_temp.ref_of(o, 1), pg_temp.amt(o, 1));
+  r := pg_temp.q_as(v_pat, format($q$select (public.prepare_instalment_payment(%L))->>'reference'$q$, pg_temp.part(o, 2)));
+  perform pg_temp.pay(r, pg_temp.amt(o, 2));
+  perform pg_temp.q_as(v_pat, format($q$select (public.request_order_refund(%L, 'I changed my mind about the plan'))->>'result'$q$, o));
+  g := (select refund_group from public.refunds where order_id = o limit 1);
+  perform pg_temp.q_as(v_admin, format($q$select (public.decide_order_refund(%L, true))->>'result'$q$, g));
+  select array_agg(id order by (id = g) desc, id) into ids from public.refunds where order_id = o;
+  for i in 1 .. 2 loop
+    perform pg_temp.svc(format($q$select public.claim_refund_for_provider(%L)::text$q$, ids[i]));
+    perform pg_temp.svc(format($q$select public.record_refund_provider_result(%L, false, '', '{"error_code":"insufficient_balance"}'::jsonb)::text$q$, ids[i]));
+  end loop;
+  perform pg_temp.ck('two failed parts are one problem message and one timeline step', '1/1',
+    (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'order_refund_problem') || '/' ||
+    (select count(*)::text from public.refund_status_events where refund_id = g and step = 'problem'));
+  perform pg_temp.q_as(v_admin, format($q$select public.retry_failed_refund(%L)->>'result'$q$, ids[1]));
+  perform pg_temp.q_as(v_admin, format($q$select public.retry_failed_refund(%L)->>'result'$q$, ids[2]));
+  perform pg_temp.ck('and two retries are one "retrying" step', '1', (select count(*)::text from public.refund_status_events where refund_id = g and step = 'retrying'));
 end $$;
 
 -- the hourly order catch-up leaves plan orders to their parts
