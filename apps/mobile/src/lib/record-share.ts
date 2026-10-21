@@ -138,9 +138,12 @@ export async function createShare(input: CreateShareInput): Promise<ShareResult<
 
 export async function revokeShare(shareId: string): Promise<ShareResult<null>> {
   const { error } = await supabase.rpc("revoke_record_share", { p_share_id: shareId });
-  // Already stopped (on the web, or by a second tap) is the outcome the person asked for.
-  if (error && !/already revoked/i.test(error.message ?? "")) return { ok: false };
-  return { ok: true, data: null };
+  if (!error) return { ok: true, data: null };
+  // The database raises the same sentence for "already stopped" and for "no such link of yours", so the message alone proves nothing. Count it as
+  // stopped only when the person's own row can be read and really is stopped.
+  if (!/already revoked/i.test(error.message ?? "")) return { ok: false };
+  const { data } = await supabase.from("record_shares").select("is_active, revoked_at").eq("id", shareId).maybeSingle();
+  return data && (data.is_active === false || data.revoked_at) ? { ok: true, data: null } : { ok: false };
 }
 
 /** A listed link that has no views left. It still shows (so it can be stopped) but cannot be sent again: a clinic would be given a link that no longer opens. */

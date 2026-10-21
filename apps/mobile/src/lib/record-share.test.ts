@@ -1,7 +1,7 @@
 import { createShare, fetchShl, loadMyShares, openShares, revokeShare, shareUrl, viewsLeft, isUsedUp, SHARE_MAX_VIEWS_CHOICES, SHARE_WINDOW_DAYS_CHOICES, getSharingOffer, expiryText, type RecordShareRow } from "./record-share";
 import { supabase } from "./supabase";
 
-const chain = { select: jest.fn(), eq: jest.fn(), order: jest.fn(), limit: jest.fn() };
+const chain = { select: jest.fn(), eq: jest.fn(), order: jest.fn(), limit: jest.fn(), maybeSingle: jest.fn() };
 jest.mock("./supabase", () => ({ supabase: { rpc: jest.fn(), from: jest.fn() } }));
 const rpc = supabase.rpc as unknown as jest.Mock;
 const from = supabase.from as unknown as jest.Mock;
@@ -98,9 +98,16 @@ describe("revokeShare", () => {
     rpc.mockResolvedValueOnce({ error: { message: "x" } });
     expect(await revokeShare("s1")).toEqual({ ok: false });
   });
-  it("counts a link that is already stopped as stopped", async () => {
-    rpc.mockResolvedValueOnce({ error: { message: "share not found or already revoked" } });
+  it("counts a link as already stopped only when the row really is stopped", async () => {
+    rpc.mockResolvedValue({ error: { message: "share not found or already revoked" } });
+    chain.maybeSingle.mockResolvedValueOnce({ data: { is_active: false, revoked_at: "2026-10-01T00:00:00Z" } });
     expect(await revokeShare("s1")).toEqual({ ok: true, data: null });
+    // still active (the id was not the person's, or the update matched nothing): it is NOT stopped
+    chain.maybeSingle.mockResolvedValueOnce({ data: { is_active: true, revoked_at: null } });
+    expect(await revokeShare("s1")).toEqual({ ok: false });
+    // no row visible at all
+    chain.maybeSingle.mockResolvedValueOnce({ data: null });
+    expect(await revokeShare("s1")).toEqual({ ok: false });
   });
 });
 

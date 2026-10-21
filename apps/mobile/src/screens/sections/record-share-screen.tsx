@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Share, Switch, Text, TextInput, View } from "react-native";
 import { t } from "@tarragon/i18n";
 import {
@@ -83,9 +83,13 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
   const [cardNote, setCardNote] = useState<{ id: string; text: string } | null>(null);
 
   // `quiet`: after a change, a refresh that cannot reach the server leaves the list as it is (never an error in place of the list, never an older list).
+  const latestRefresh = useRef(0);
   const refresh = useCallback(
     async (quiet = false) => {
+      const mine = ++latestRefresh.current;
       const out = await loadMyShares(userId);
+      // Reads can finish out of order: only the newest counts, so an older list (read before a link was stopped) never puts it back.
+      if (mine !== latestRefresh.current) return;
       if (out.ok) {
         setShares(out.data);
         setLoadFailed(false);
@@ -136,6 +140,8 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
   }
 
   async function sendLink(token: string) {
+    setCardNote(null);
+    setShlNote(null);
     try {
       await Share.share({ message: shareUrl(token) });
     } catch {
@@ -144,6 +150,7 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
   }
 
   async function sendShl(id: string) {
+    setCardNote(null);
     const { data } = await supabase.auth.getSession();
     const out = await fetchShl(data.session?.access_token ?? null, id, fetch as unknown as FetchArg, API_BASE_URL);
     if (out.kind === "ok") {
@@ -188,7 +195,7 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
             <Chip key={s.id} label={s.label} active={sections.includes(s.id)} onPress={() => toggleSection(s.id)} />
           ))}
         </ChipRow>
-        <MutedText>{t("sharelink.sections_note")}</MutedText>
+        {sections.includes("medications") || sections.includes("conditions") ? <MutedText>{t("sharelink.sections_note")}</MutedText> : null}
 
         <Text style={{ color: colors.ink, fontWeight: "600" }}>{t("share.expiry.label")}</Text>
         <ChipRow>
@@ -297,7 +304,7 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
               {share.recipientLabel ? <MutedText>{share.recipientLabel}</MutedText> : null}
               {badges.length > 0 ? <MutedText>{badges.join(" · ")}</MutedText> : null}
               <MutedText>
-                {t("share.expires", "en", { date: when(share.expiresAt) })} · {t("share.views", "en", { count: String(share.viewCount) })}
+                {t("share.expires", "en", { date: when(share.expiresAt) })} · {share.viewCount === 1 ? t("sharelink.views_one") : t("share.views", "en", { count: String(share.viewCount) })}
               </MutedText>
               {usedUp ? <ErrorText>{t("sharelink.used_up")}</ErrorText> : null}
               <SecondaryButton title={t("sharelink.send")} disabled={usedUp} onPress={() => void sendLink(share.token)} />
@@ -307,7 +314,15 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
               {armed === share.id ? (
                 <PrimaryButton title={t("share.revoke")} loading={busy} onPress={() => void revoke(share.id)} />
               ) : (
-                <SecondaryButton title={t("share.revoke")} disabled={busy} onPress={() => setArmed(share.id)} />
+                <SecondaryButton
+                  title={t("share.revoke")}
+                  disabled={busy}
+                  onPress={() => {
+                    setCardNote(null);
+                    setShlNote(null);
+                    setArmed(share.id);
+                  }}
+                />
               )}
             </Card>
           );
