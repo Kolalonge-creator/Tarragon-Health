@@ -33,6 +33,13 @@ export function GrantMembershipForm({ patientId, base }: { patientId: string; ba
       <input type="hidden" name="base" value={base} />
       <p className="text-sm font-medium text-charcoal-ink">Grant membership</p>
       <div>
+        <Label htmlFor={`grant-tier-${patientId}`}>Plan</Label>
+        <select id={`grant-tier-${patientId}`} name="tier" defaultValue="plus" className="min-h-11 w-full rounded-md border border-input bg-background px-3 py-2">
+          <option value="plus">Evergreen Plus (with the yearly blood panel)</option>
+          <option value="evergreen">Evergreen (without the yearly blood panel)</option>
+        </select>
+      </div>
+      <div>
         <Label htmlFor={`grant-end-${patientId}`}>Ends on (optional, leave empty for no end date)</Label>
         <Input id={`grant-end-${patientId}`} name="ends_on" type="date" />
       </div>

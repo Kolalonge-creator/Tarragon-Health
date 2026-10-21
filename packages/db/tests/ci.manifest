@@ -1369,3 +1369,6 @@ membership_evergreen_ladder_foundation.sql
 
 # Evergreen to Evergreen Plus upgrade (2026-10-21): module starts OFF, create_order rules, payment flips tier with no entitlement and no end-date change, ledger over remaining days, refund restores evergreen. Sabotage: refund restore reversed must flip.
 membership_upgrade_order.sql
+
+# Evergreen ladder follow-ups (2026-10-21): extension keeps the larger tier, no instalments for paid tiers, a care voucher can never be a Membership, reminders carry the tier, org prices only for codes with limits, admin tier grant. Sabotage: extension patch reversed must flip.
+membership_ladder_followups.sql
