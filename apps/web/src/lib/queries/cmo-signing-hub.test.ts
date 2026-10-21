@@ -59,6 +59,10 @@ jest.mock("@/lib/queries/pending-queue-paging-config-signoff", () => ({
   readPendingQueuePagingConfigSignoff: (...args: unknown[]) => readPendingQueuePagingConfigSignoff(...args),
 }));
 const noQueuePaging: QueuePagingPending = { taskLayer: null, taskLayerRules: null, pagingVersion: null, pagingRules: null, pagingInForceRules: null, failed: false };
+const readPendingBpDeviceReview = jest.fn<(...args: unknown[]) => Promise<{ waiting: number; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-bp-device-review", () => ({
+  readPendingBpDeviceReview: (...args: unknown[]) => readPendingBpDeviceReview(...args),
+}));
 type PostCheckinPending = { version: number | null; rules: unknown; failed: boolean };
 const readPendingPostCheckinSignoff = jest.fn<(...args: unknown[]) => Promise<PostCheckinPending>>();
 jest.mock("@/lib/queries/pending-post-checkin-signoff", () => ({
@@ -77,6 +81,8 @@ jest.mock("@/lib/queries/pending-unified-red-paging-signoff", () => ({
 jest.mock("@/lib/queries/pending-sole-cmo-exception", () => ({
   readPendingSoleCmoException: (...args: unknown[]) => readPendingSoleCmoException(...args),
 }));
+const readThresholdHubState = jest.fn<(...args: unknown[]) => Promise<{ policyWaiting: boolean; policyVersion: number | null; policyId: string | null; policyActive: boolean; active: number; reviewsOverdue: number; reviewTaskFailures: number; failed: boolean }>>();
+jest.mock("@/lib/queries/threshold-overrides", () => ({ readThresholdHubState: (...args: unknown[]) => readThresholdHubState(...args) }));
 const readPendingFastSugarWordingSignoff = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; signed: boolean; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-fast-sugar-wording-signoff", () => ({
   FAST_SUGAR_ITEM_KEY: "glucose_fast_sugar_wording",
@@ -87,7 +93,7 @@ jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
 }));
 
-import { POST_CHECKIN_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub, SOLE_CMO_EXCEPTION_ITEM_KEY } from "./cmo-signing-hub";
+import { POST_CHECKIN_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub, SOLE_CMO_EXCEPTION_ITEM_KEY } from "./cmo-signing-hub";
 
 const supabase = {} as SupabaseClient<Database>;
 
@@ -103,6 +109,8 @@ function item(key: string, severity: SignoffQueueItem["severity"], count?: numbe
 }
 
 beforeEach(() => {
+  readPendingBpDeviceReview.mockReset();
+  readPendingBpDeviceReview.mockResolvedValue({ waiting: 0, failed: false });
   readSignoffQueue.mockReset();
   readPendingAiGovernanceSignoff.mockReset();
   readPendingAiGovernanceSignoff.mockResolvedValue(noAi);
@@ -128,6 +136,8 @@ beforeEach(() => {
   readPendingQualityConfigSignoff.mockResolvedValue(noQualityConfig);
   readPendingCapacityConfigSignoff.mockReset();
   readPendingCapacityConfigSignoff.mockResolvedValue(noCapacityConfig);
+  readThresholdHubState.mockReset();
+  readThresholdHubState.mockResolvedValue({ policyWaiting: false, policyVersion: null, policyId: null, policyActive: true, active: 0, reviewsOverdue: 0, reviewTaskFailures: 0, failed: false });
   readPendingFastSugarWordingSignoff.mockReset();
   readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: false, signed: false, failed: false });
   readPendingQueuePagingConfigSignoff.mockReset();
@@ -195,6 +205,34 @@ describe("readCmoSigningHub: task layer and paging delivery configurations (OQ-4
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the task layer and paging delivery configurations");
+  });
+});
+
+describe("readCmoSigningHub: personal alert thresholds (N-overrides)", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("lists a signature line under /clinician while the policy waits, and nothing once it is signed", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readThresholdHubState.mockResolvedValue({ policyWaiting: true, policyVersion: 1, policyId: "p", policyActive: false, active: 0, reviewsOverdue: 0, reviewTaskFailures: 0, failed: false });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === THRESHOLD_POLICY_ITEM_KEY);
+    expect(line).toMatchObject({ severity: "draft_pending", count: 1 });
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/never lower a red/);
+    readThresholdHubState.mockResolvedValue({ policyWaiting: false, policyVersion: null, policyId: null, policyActive: true, active: 2, reviewsOverdue: 0, reviewTaskFailures: 0, failed: false });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === THRESHOLD_POLICY_ITEM_KEY)).toBeUndefined();
+  });
+  it("an overdue monthly review is an attention line, never counted as a signature", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readThresholdHubState.mockResolvedValue({ policyWaiting: false, policyVersion: null, policyId: null, policyActive: true, active: 3, reviewsOverdue: 2, reviewTaskFailures: 0, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.attention.find((i) => i.key === "threshold_override_reviews")).toMatchObject({ count: 2, href: "/clinician/threshold-overrides" });
+    expect(hub.items.find((i) => i.key === "threshold_override_reviews")).toBeUndefined();
+    readThresholdHubState.mockResolvedValue({ policyWaiting: false, policyVersion: null, policyId: null, policyActive: true, active: 1, reviewsOverdue: 1, reviewTaskFailures: 0, failed: false });
+    expect((await readCmoSigningHub(supabase)).attention[0]?.detail).toMatch(/1 personal alert threshold is past/);
+  });
+  it("names an unreadable source instead of looking like an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readThresholdHubState.mockResolvedValue({ policyWaiting: false, policyVersion: null, policyId: null, policyActive: false, active: 0, reviewsOverdue: 0, reviewTaskFailures: 0, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["personal alert thresholds"] });
   });
 });
 
@@ -568,5 +606,21 @@ describe("legacy notice retirement line (S19f)", () => {
     expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "legacy_notice_retirement")).toBeUndefined();
     readLegacyNoticeRetirementState.mockResolvedValue({ liveVersion: null, waiting: [], measurement: [], failed: true });
     expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the older clinician-message retirement"] });
+  });
+});
+
+describe("readCmoSigningHub: recommended blood pressure monitors (S07y)", () => {
+  it("adds one line, linking into /clinician, only when a monitor waits for review", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingBpDeviceReview.mockResolvedValue({ waiting: 2, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items).toHaveLength(1);
+    expect(hub.items[0]).toMatchObject({ key: "bp_device_review", count: 2, href: "/clinician/recommended-devices" });
+  });
+  it("says nothing when none waits, and names the source when it cannot be read", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    expect((await readCmoSigningHub(supabase)).items).toHaveLength(0);
+    readPendingBpDeviceReview.mockResolvedValue({ waiting: 0, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the recommended blood pressure monitors"] });
   });
 });

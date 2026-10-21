@@ -13,11 +13,13 @@ import { readPendingPostCheckinSignoff } from "@/lib/queries/pending-post-checki
 import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose-task-type-signoff";
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
+import { readThresholdHubState } from "@/lib/queries/threshold-overrides";
 import { GLUCOSE_WORDING_SIGNED } from "@tarragon/i18n";
 import { FAST_SUGAR_ITEM_KEY, readPendingFastSugarWordingSignoff } from "@/lib/queries/pending-fast-sugar-wording-signoff";
 import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
 import { readLegacyNoticeRetirementState } from "@/lib/queries/pending-legacy-notice-retirement-signoff";
 import { readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
+import { readPendingBpDeviceReview } from "@/lib/queries/pending-bp-device-review";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -59,12 +61,16 @@ export const OPS_DESK_CONFIG_ITEM_KEY = "ops_desk_config";
 export const SOLE_CMO_EXCEPTION_ITEM_KEY = "sole_cmo_on_call_exception";
 /** The line for unified red-event paging (S19d): switch the one governed ladder on for SpO2, pulse, temperature, red-flag symptoms and emergency events, or off again. */
 export const UNIFIED_RED_PAGING_ITEM_KEY = "unified_red_paging";
+/** The line for the personal-threshold policy (N-overrides): nothing can be proposed until the CMO signs it. */
+export const THRESHOLD_POLICY_ITEM_KEY = "threshold_override_policy";
 /** The line for retiring the older notify-everyone message for blood pressure and glucose once the on-call page is proven, and the Care Circle notice for unified pages (S19f). */
 export const LEGACY_NOTICE_RETIREMENT_ITEM_KEY = "legacy_notice_retirement";
 /** OQ-451: the task layer configuration (accept the version in force, or sign a newer one). */
 export const TASK_LAYER_CONFIG_ITEM_KEY = "queue_task_layer_config";
 /** OQ-451: activate the paging delivery configuration v2 (objective on-call readiness), refused until the test-page checklist is met. */
 export const PAGING_DELIVERY_CONFIG_ITEM_KEY = "paging_delivery_config";
+/** S07y: recommended blood pressure monitors an admin entered that wait for the CMO to review them against a public validation registry. */
+export const BP_DEVICE_REVIEW_ITEM_KEY = "bp_device_review";
 export { GLUCOSE_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY };
 
 /**
@@ -87,7 +93,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, postCheckin] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -107,6 +113,8 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingFastSugarWordingSignoff(supabase),
     readPendingQueuePagingConfigSignoff(supabase),
     readLegacyNoticeRetirementState(supabase),
+    readThresholdHubState(supabase),
+    readPendingBpDeviceReview(supabase),
     readPendingPostCheckinSignoff(supabase),
   ]);
 
@@ -183,6 +191,27 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
 
   const credentialItem = credentialAttentionItem(credentials);
   const attention = credentialItem ? [credentialItem] : [];
+  if (thresholds.reviewsOverdue > 0) {
+    // Not a signature: the monthly review of a personal threshold is overdue. Kept out of `items` so the banner still counts only signatures.
+    attention.push({
+      key: "threshold_override_reviews",
+      title: "Personal thresholds: monthly review overdue",
+      detail: `${thresholds.reviewsOverdue} personal alert threshold${thresholds.reviewsOverdue === 1 ? " is" : "s are"} past the monthly review date. Keep or end each one.`,
+      href: "/clinician/threshold-overrides",
+      severity: "draft_pending",
+      count: thresholds.reviewsOverdue,
+    });
+  }
+  if (thresholds.policyWaiting) {
+    items.push({
+      key: THRESHOLD_POLICY_ITEM_KEY,
+      title: "Personal alert thresholds: sign the policy to switch the feature on",
+      detail: "Senior doctors can set a signed, time-limited personal threshold for a patient whose usual readings sit outside the standard lines. It can never lower a red, relax a reading with a symptom or apply in pregnancy or under 18. Nothing can be proposed until you sign.",
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
   // Signed on the hub but not yet in the app: the proposed fast-sugar text reaches patients only when the build marks the wording signed (a code change).
   if (fastSugar.signed && GLUCOSE_WORDING_SIGNED === null) {
     attention.push({
@@ -344,6 +373,17 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (bpDevices.waiting > 0) {
+    items.push({
+      key: BP_DEVICE_REVIEW_ITEM_KEY,
+      title: "Recommended blood pressure monitors to review",
+      detail: `${bpDevices.waiting} monitor${bpDevices.waiting === 1 ? "" : "s"} entered with a validation source, waiting for your review. Nothing is shown to patients as checked until you review it against the public registry.`,
+      href: "/clinician/recommended-devices",
+      severity: "draft_pending",
+      count: bpDevices.waiting,
+    });
+  }
+
   if (postCheckin.version !== null) {
     items.push({
       key: POST_CHECKIN_ITEM_KEY,
@@ -369,8 +409,10 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(unifiedRed.failed ? ["unified red-event paging"] : []),
     ...(legacyRetire.failed ? ["the older clinician-message retirement"] : []),
     ...(capacityConfigs.failed ? ["the capacity and lead configurations"] : []),
+    ...(thresholds.failed ? ["personal alert thresholds"] : []),
     ...(fastSugar.failed ? ["the fast-sugar wording signature"] : []),
     ...(queuePaging.failed ? ["the task layer and paging delivery configurations"] : []),
+    ...(bpDevices.failed ? ["the recommended blood pressure monitors"] : []),
     ...(postCheckin.failed ? ["the check-in configuration"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
