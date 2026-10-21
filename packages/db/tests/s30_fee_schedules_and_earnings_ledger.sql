@@ -966,7 +966,7 @@ declare v_line uuid := (select id from public.earnings_ledger where kind = 'cons
 begin
   perform pg_temp.ck('a line cannot be updated (even by the table owner)', '23514', pg_temp.try_sql(format($q$update public.earnings_ledger set amount_kobo = amount_kobo + 1 where id = %L$q$, v_line)));
   perform pg_temp.ck('a line cannot be deleted', '23514', pg_temp.try_sql(format($q$delete from public.earnings_ledger where id = %L$q$, v_line)));
-  perform -- S30b: earnings_disputes now references the ledger, so Postgres refuses the truncate itself (0A000) before the append-only trigger (23514)
+  -- S30b: earnings_disputes now references the ledger, so Postgres refuses the truncate itself (0A000) before the append-only trigger (23514)
   -- can run. Either way the truncate is refused.
   perform pg_temp.ck('the ledger cannot be truncated', '23514', (select case when c in ('23514', '0A000') then '23514' else c end from (select pg_temp.try_sql('truncate public.earnings_ledger') as c) t));
   perform pg_temp.ck('payout_id cannot be set without the payout door', '23514', pg_temp.try_sql(format($q$update public.earnings_ledger set payout_id = gen_random_uuid() where id = %L$q$, v_line)));
