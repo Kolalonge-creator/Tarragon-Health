@@ -99,10 +99,10 @@ declare v_item uuid := pg_temp.f('item'); v_p1 uuid := pg_temp.f('p1'); r_new pu
 begin
   select * into r_new from public.prices where catalog_item_id = v_item and amount_kobo = 12000000;
   select * into r_old from public.prices where catalog_item_id = v_item and amount_kobo = 10000000;
-  perform pg_temp.ck('the price in force today is 120,000 naira (12,000,000 kobo)', '12000000', (select amount_kobo::text from private.current_price(v_item)));
+  perform pg_temp.ck('the price in force today is 129,000 naira (12,900,000 kobo): the ladder migration replaced the 120,000 row', '12900000', (select amount_kobo::text from private.current_price(v_item)));
   perform pg_temp.ck('the 100,000 row is closed, not edited, and still reads 10,000,000', 'closed', case when r_old.valid_to is not null then 'closed' else 'open' end);
   perform pg_temp.ck('the 120,000 row starts the instant the 100,000 row stops (no gap, no overlap)', 'true', (r_old.valid_to = r_new.valid_from)::text);
-  perform pg_temp.ck('the 120,000 row is open-ended and starts in the past, not parked', 'true', (r_new.valid_to is null and r_new.valid_from <= now())::text);
+  perform pg_temp.ck('the 120,000 row started in the past and was CLOSED, not edited, by the ladder migration (its amount is unchanged)', 'true', (r_new.valid_to is not null and r_new.valid_from <= now() and r_new.amount_kobo = 12000000)::text);
   perform pg_temp.ck('the 100,000 price is in force at no moment from now on', '0',
     (select count(*)::text from public.prices where catalog_item_id = v_item and amount_kobo = 10000000 and (valid_to is null or valid_to > now())));
   perform pg_temp.ck('an effective price cannot be deleted', 'price_immutable', pg_temp.owner_try(format('delete from public.prices where catalog_item_id = %L and valid_from <= now()', v_item)));

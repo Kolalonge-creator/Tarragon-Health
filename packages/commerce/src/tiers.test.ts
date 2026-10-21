@@ -1,4 +1,4 @@
-import { arrangeItems, EVERGREEN_CODE, EVERGREEN_PLUS_CODE, ladderActive, monthlyFramingKobo, panelIncluded, UPGRADE_CODE } from "../../../supabase/functions/_shared/commerce/tiers.ts";
+import { arrangeItems, EVERGREEN_CODE, EVERGREEN_PLUS_CODE, isTier, ladderActive, monthlyFramingKobo, panelIncluded, UPGRADE_CODE } from "../../../supabase/functions/_shared/commerce/tiers.ts";
 
 interface CatalogueItem { code: string; amount_kobo: number }
 const item = (code: string, amount: number): CatalogueItem => ({ code, amount_kobo: amount });
@@ -44,6 +44,20 @@ describe("the Membership ladder on the Membership screen", () => {
     const a = arrangeItems([PLUS, UP, EG], { tier: "evergreen", isMember: true, inGrace: false, forSomeoneElse: true });
     expect(a.tierCards.map((i) => i.code)).toEqual([EVERGREEN_CODE, EVERGREEN_PLUS_CODE]);
     expect(a.upgrade).toBeNull();
+  });
+
+  it("isTier accepts exactly the two stored tiers", () => {
+    expect(isTier("evergreen")).toBe(true);
+    expect(isTier("plus")).toBe(true);
+    expect(isTier("gold")).toBe(false);
+    expect(isTier(null)).toBe(false);
+    expect(isTier(undefined)).toBe(false);
+  });
+
+  it("an Evergreen member sees no upgrade when the catalogue does not carry it", () => {
+    const a = arrangeItems([PLUS, EG], { tier: "evergreen", isMember: true, inGrace: false, forSomeoneElse: false });
+    expect(a.upgrade).toBeNull();
+    expect(a.tierCards).toEqual([]);
   });
 
   it("the annual blood panel is stated per card: no for Membership, yes for Membership Plus, nothing for other items", () => {
