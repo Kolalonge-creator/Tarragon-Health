@@ -27,6 +27,8 @@ import { PrnLimitRulesPanel } from "../_signoff-panels/prn-limit-rules-panel";
 import { HomeBpProgrammePanel } from "../_signoff-panels/home-bp-programme-panel";
 import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
 import { NutritionTargetsConfigPanel } from "../_signoff-panels/nutrition-targets-config-panel";
+import { HealthReportConfigPanel } from "../_signoff-panels/health-report-config-panel";
+import { SerologyRulesPanel } from "../_signoff-panels/serology-rules-panel";
 import { ObservationLimitsPanel } from "../_signoff-panels/observation-limits-panel";
 import { ActivitySafetyConfigPanel } from "../_signoff-panels/activity-safety-config-panel";
 import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
@@ -90,6 +92,8 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   home_bp_programme_signoffs: () => <HomeBpProgrammePanel />,
   my_health_config: () => <MyHealthConfigPanel />,
   nutrition_target_config: () => <NutritionTargetsConfigPanel />,
+  health_report_config_versions: () => <HealthReportConfigPanel />,
+  serology_rule_versions: () => <SerologyRulesPanel />,
   observation_limit_signoffs: () => <ObservationLimitsPanel />,
   activity_safety_config: () => <ActivitySafetyConfigPanel />,
 };

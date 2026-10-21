@@ -12,6 +12,7 @@ export type SectionId =
   | "vitals"
   | "bpHistory"
   | "monthlySummary"
+  | "healthReport"
   | "programmes"
   | "medications"
   | "labs"
@@ -145,6 +146,12 @@ export const SECTIONS: SectionDef[] = [
     id: "monthlySummary",
     label: "Your month",
     icon: "calendar-outline",
+    group: "Your health",
+  },
+  {
+    id: "healthReport",
+    label: "Your yearly report",
+    icon: "document-text-outline",
     group: "Your health",
   },
   {

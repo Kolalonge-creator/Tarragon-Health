@@ -48,7 +48,8 @@ type VersionedTableName =
   | "nutrition_target_config"
   | "activity_safety_config"
   | "observation_limit_signoffs"
-  | "home_bp_programme_signoffs";
+  | "home_bp_programme_signoffs"
+  | "health_report_config_versions";
 
 const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string }[] = [
   { table: "alert_rules", title: "Alert rules", slug: "alert-rules" },
@@ -73,6 +74,7 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
   { table: "nutrition_target_config", title: "Nutrition targets and meal summary", slug: "nutrition-targets-config" },
+  { table: "health_report_config_versions", title: "Yearly Health Report settings", slug: "health-report-config" },
   { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
   { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
 ];
@@ -196,6 +198,35 @@ export async function readSignoffQueue(
       },
     });
   }
+
+  // S46d: the anti-HBs threshold on the active serology rule. Not a single-active-row table (rules are 'legacy' / 'active' / 'proposed'), so it has its own
+  // source. The threshold waits for the CMO until threshold_approved_by is set; a read failure is reported, never an all-clear.
+  sources.push({
+    name: "serology_rule_versions",
+    run: async () => {
+      const { data, error } = await supabase.from("serology_rule_versions").select("version, threshold_approved_by, created_at").eq("status", "active");
+      if (error) fail("serology_rule_versions", error.message);
+      const rows = (data ?? []) as { version: number; threshold_approved_by: string | null; created_at: string }[];
+      if (rows.length > 1) fail("serology_rule_versions", `${rows.length} rules are active at once`);
+      const active = rows[0];
+      const title = "Hepatitis and HIV repeat rules (anti-HBs threshold)";
+      const href = `${basePath}/serology-rules`;
+      if (!active) return [];
+      if (active.threshold_approved_by) {
+        settledConfigs.push({ table: "serology_rule_versions", title, href, version: active.version });
+        return [];
+      }
+      return [
+        {
+          key: "versioned_draft:serology_rule_versions",
+          title,
+          detail: `Version ${active.version} is in force with the anti-HBs threshold not yet confirmed by the Chief Medical Officer. Until it is, a titre alone never records hepatitis B immunity.`,
+          href,
+          severity: "draft_pending" as const,
+        },
+      ];
+    },
+  });
 
   // S88 clinical config drafts: one ledger, one live row PER KIND, so it is not in VERSIONED_TABLES
   // (singleLiveRow would call six live rows corruption). One line for all outstanding drafts.

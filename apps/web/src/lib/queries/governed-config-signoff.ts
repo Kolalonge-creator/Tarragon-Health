@@ -55,6 +55,13 @@ export const GOVERNED_CONFIG_TABLES = [
     title: "Nutrition targets and meal summary",
     slug: "nutrition-targets-config",
   },
+  { table: "health_report_config_versions", title: "Yearly Health Report settings", slug: "health-report-config" },
+  {
+    // S46d: not a single-active-row table. The signable thing is the anti-HBs threshold on the one ACTIVE rule (status = 'active'), read through its own branch below.
+    table: "serology_rule_versions",
+    title: "Hepatitis and HIV repeat rules (anti-HBs threshold)",
+    slug: "serology-rules",
+  },
   { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
   { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
 ] as const;
@@ -117,6 +124,12 @@ export async function readGovernedConfigSignoff(
           version: live.length > 0 ? Math.max(...live.map((r) => r.version)) : null,
           signed: kinds.size > 0 && signedKinds.size === kinds.size,
         };
+      }
+
+      if (def.table === "serology_rule_versions") {
+        const res = await supabase.from("serology_rule_versions").select("version, threshold_approved_by").eq("status", "active").maybeSingle();
+        if (res.error) return { table: def.table, title: def.title, href, version: null, signed: false };
+        return { table: def.table, title: def.title, href, version: res.data?.version ?? null, signed: Boolean(res.data?.threshold_approved_by) };
       }
 
       const { data, error } = await supabase

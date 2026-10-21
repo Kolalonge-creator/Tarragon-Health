@@ -1320,6 +1320,8 @@ record_share_recipient_views_window.sql
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted; only open sev1/sev2 incidents counted. Sabotage: without the status filter the done delivery would count.
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted only from the last 24 hours; only open sev1/sev2 incidents counted. Sabotage: the function is replaced by one without the pending filter and the window; the checks must flip.
 oq436_deadman_status.sql
+# S46d health report completion: CMO-only anti-HBs threshold signing, panel v3 anti_hbs clinician add-on (optional, unpriced, not sensitive), report settings v3 unsigned, share link carries only the latest SIGNED report with risk band / questionnaires / reproductive screening / doctor text / blood-borne codes removed, PIN, revoke, no supporter read. Sabotage: unfiltered body, code filter off, signer check off; all must flip.
+s46d_health_report_completion.sql
 # --- Added 2026-10-20 (S47a observation types and safety) ---
 # Water/sleep/mood vital types + inhaler log + plausibility CHECK + events + signed limits. Born off; existing glucose red-flag engine untouched. Sabotage: CHECK dropped, guard trigger dropped, glucose backstop disabled; each must flip.
 s47a_observation_types.sql
