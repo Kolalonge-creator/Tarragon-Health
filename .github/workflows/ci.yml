@@ -24,7 +24,7 @@ jobs:
       # A runaway worker fails with a clear out-of-memory message instead of a silent runner kill.
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -86,7 +86,7 @@ jobs:
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -163,7 +163,7 @@ jobs:
     name: TypeScript (mobile)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # What can affect mobile TS: the app itself, the one workspace package it
       # imports (@tarragon/shared resolves straight from src/, no build step),
@@ -235,7 +235,7 @@ jobs:
       run:
         working-directory: services/ml
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -299,7 +299,7 @@ jobs:
     # duration is known.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Detect E2E-relevant changes
         id: changes
@@ -492,7 +492,7 @@ jobs:
     name: Edge functions (Deno)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Detect edge-function changes
         id: changes
@@ -578,7 +578,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: supabase/setup-cli@v3
         with:
