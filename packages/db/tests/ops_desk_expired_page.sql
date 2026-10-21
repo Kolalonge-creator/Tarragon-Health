@@ -398,6 +398,11 @@ begin
 
   -- a nobody-reachable incident (the health job's) is assigned the same way
   update public.ops_desk_contacts set is_active = true, activated_by = v_admin, activated_at = now() where id = v_c2;
+  -- Start from a clean slate. private.page_incident only REFRESHES an open incident of the same reference, and the assignment runs from the
+  -- insert trigger, so a committed leftover (the real 'paging-health' cron job, every minute, commits one for any real rota whose clinicians have
+  -- no push subscription, and s18_lead_capacity_race.sh used to leave one behind) means no insert, no assignment and no notice. That made this
+  -- check pass or fail by whether a minute boundary fell inside that other script's run, not by the build. This proof's own transaction rolls back.
+  delete from public.ops_incidents where external_reference like 'page\_nobody\_reachable:%';
   perform pg_temp.set_world(false);
   perform private.page_incident(v_org, 'page_nobody_reachable:' || v_org, 'Nobody reachable is on call', 'proof');
   perform pg_temp.set_world(true);
@@ -416,6 +421,22 @@ begin
     pg_temp.try($q$insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
       select id, organisation_id, 'voice', 'on_call_ops_desk', '{}'::jsonb, 'pending', 'non_clinical', 'routine', 'ops_incidents', gen_random_uuid() from public.profiles where id = pg_temp.f('ops2')$q$));
   perform pg_temp.rec('nobody reachable: the same assignment happens', '1',
+    (select count(*)::text from public.ops_desk_assignments a join public.ops_incidents i on i.id = a.incident_id where i.external_reference = 'page_nobody_reachable:' || v_org and a.profile_id = v_ops2));
+  -- SABOTAGE of the clean slate: the same condition arriving while an open incident of that reference is already on the stack (as the
+  -- background health job leaves it) is only refreshed, so nobody is assigned. Real (clean slate): 1; the leftover: 0. Then put the real state back.
+  perform pg_temp.set_world(false);
+  delete from public.ops_incidents where external_reference = 'page_nobody_reachable:' || v_org;
+  alter table public.ops_incidents disable trigger ops_incidents_assign_ops_desk;
+  insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
+    values (v_org, 'clinical', 'sev1', 'Nobody reachable is on call', 'leftover', 'page_nobody_reachable:' || v_org, now(), now());
+  alter table public.ops_incidents enable trigger ops_incidents_assign_ops_desk;
+  perform private.page_incident(v_org, 'page_nobody_reachable:' || v_org, 'Nobody reachable is on call', 'proof');
+  perform pg_temp.sab('sabotage: with a leftover open incident of the same reference nobody is assigned (real, clean slate: 1)', '1',
+    (select count(*)::text from public.ops_desk_assignments a join public.ops_incidents i on i.id = a.incident_id where i.external_reference = 'page_nobody_reachable:' || v_org));
+  delete from public.ops_incidents where external_reference = 'page_nobody_reachable:' || v_org;
+  perform private.page_incident(v_org, 'page_nobody_reachable:' || v_org, 'Nobody reachable is on call', 'proof');
+  perform pg_temp.set_world(true);
+  perform pg_temp.rec('nobody reachable: after the control the clean slate assigns again', '1',
     (select count(*)::text from public.ops_desk_assignments a join public.ops_incidents i on i.id = a.incident_id where i.external_reference = 'page_nobody_reachable:' || v_org and a.profile_id = v_ops2));
   perform private.page_incident(v_org, 'page_notifications_stuck', 'x', 'y');
   perform pg_temp.rec('an unrelated incident is not assigned', '0',
