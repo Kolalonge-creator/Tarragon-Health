@@ -1204,6 +1204,8 @@ amend_medication_carries_schedule_spec.sql
 s04b3_quiet_hours_default_off.sql
 # S07x: the seven-day home BP programme (unsigned config, guards off, completeness gate, one routine task), clinic readings (own table, fire nothing a home reading fires, tied clinician only), the C3 white-coat/masked rule (clinician-only, never for a treated white-coat, pregnancy or under 18, nothing while its guard is off), parity of the SQL and TypeScript rules on 33 cases, and the bp_care_triage v4 draft (differs from v3 only in BP-A7; v3 still approved; server context carries onBpMedicines). Sabotage: completeness gate lowered; white-coat allowed for a treated patient.
 s07x_home_bp_programme.sql
+# S07y: home cuff vs clinic cuff (unsigned rule that must pass type and range checks before it can be signed, staff-only config read, guards off, same-visit pairs by a tied clinician only, home-log pairs from a clinic reading, one clinician-only flag per direction, nothing a home reading fires, no patient policy, the prompt answer identical for flagged and unflagged patients, failure never loses data and opens an incident, 31 parity cases shared with TypeScript). Sabotage: share gate removed; tie check removed; boundary made exclusive; one-visit-one-pair exclusion removed. All four must flip.
+s07y_cuff_check.sql
 # S06x: offline_sync_rejections (patient inserts and reads own, one row per entry, no health value column, admin reads only through the audited function) and offline_device_leases (check-in, owner or same-organisation admin revokes, revoked check-in does not extend the lease, wipe confirmation stores a count only, anon refused). Sabotage: the insert policy loosened to any account; a check-in that extends a revoked lease. Both must flip.
 s06x_offline_trust.sql
 # S09x: My Health completion. The patient's access log (one function, caller only, newest first, no reasons or clinical values, routine staff openings shown as name and role only (S09x2: no basis, window, id, contact; generic label and no name for non-clinical staff; blank-name role-only; kill switch show_staff_identity), reproductive_health nowhere); sharing: PIN stored as a salted bcrypt hash and shown once, 5 misses lock the share (audited), 3 misses from one client blocks that client, one-session window, revoke and expiry fail, expired and revoked and unknown and locked links all answer null, no client can write record_shares or read pin_hash, staff no longer read share credentials; lock-screen pass off by default, facts carry no allergen/condition/medicine name, the CMO signs the field list, an older draft cannot be signed over a newer one, the wallet_pass guard is born off and cannot be switched on. Sabotage: lockout removed, PIN check removed, leaky payload, staff row leaking the basis; each check must flip.
@@ -1317,14 +1319,49 @@ bp_cuffless_estimates_never_diagnostic.sql
 second_opinion_shared_results_and_referral.sql
 # Record share extras: recipient label, view cap (1 to 50, the fourth open of a three-view link is refused like any dead link, peek too), date window (30/90/180 days drops older readings), options door refuses bad input and anon; pin_hash stays unreadable; the original create door still works. Sabotage: the cap and the window each removed; both must flip.
 record_share_recipient_views_window.sql
+# S06z: My phones. update_my_offline_device (owner only, not an admin or another patient; trimmed name; control and over-long names refused; removed phone locked; audit never holds the name; anon refused; no direct write) and the patient own wipe request (own phone yes, another patient no). Sabotage: owner check, revoked guard, control check each removed; each must flip.
+s06z_my_phones.sql
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted; only open sev1/sev2 incidents counted. Sabotage: without the status filter the done delivery would count.
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted only from the last 24 hours; only open sev1/sev2 incidents counted. Sabotage: the function is replaced by one without the pending filter and the window; the checks must flip.
 oq436_deadman_status.sql
 # Consent receipts (RCPT-1): consent_receipt_data returns only the caller's own facts, only for an active patient, writes one audit row (scope and ref only) in the same call, never carries a clinical value, says when the wording version has moved on; refuses clinician, admin, signed-out, anon and inactive patient with no audit row; someone else's id is the same not-found as a made-up one. Sabotage: the own-rows filter, the audit call and the role gate each removed; each must flip.
 rcpt1_consent_receipts.sql
+# S46d health report completion: CMO-only anti-HBs threshold signing, panel v3 anti_hbs clinician add-on (optional, unpriced, not sensitive), report settings v3 unsigned, share link carries only the latest SIGNED report with risk band / questionnaires / reproductive screening / doctor text / blood-borne codes removed, PIN, revoke, no supporter read. Sabotage: unfiltered body, code filter off, signer check off; all must flip.
+s46d_health_report_completion.sql
 # --- Added 2026-10-20 (S47a observation types and safety) ---
 # Water/sleep/mood vital types + inhaler log + plausibility CHECK + events + signed limits. Born off; existing glucose red-flag engine untouched. Sabotage: CHECK dropped, guard trigger dropped, glucose backstop disabled; each must flip.
 s47a_observation_types.sql
 
+# S49a: food logging foundation. 100+ estimated foods flagged for review, wrap/ladle portions, food_logs view + food.logged event, favourites private, targets config born unsigned and gated (pregnancy in each place it is held, postnatal year, clinician hold, eating-disorder screen, under 18 all withheld with no reason), barcodes. Sabotage: the withheld rule removed and the diary trigger removed; both must flip.
+s49a_food_logging_foundation.sql
 # S48a: activity safety gate (red event in 48h = rest, enforced on enrolment incl. re-activation), kinds/goals/events, unreviewed workout plans hidden, owner-only private routes. Sabotage: trigger dropped, gate ignoring red, staff route policy; each must flip.
 s48a_activity_safety_gate.sql
+s27h_lab_lifecycle_and_quality.sql
+
+
+
+
+
+# --- Added 2026-10-16 (S28e) ------------------------------------------------
+# Pharmacy readiness and reach: one visit and one code for several prescriptions (all or nothing, the lock belongs to the visit, each medicine is its own
+# supply with its own controlled-medicine check and the shared supply count), stock confirmation as a plain yes or no, and the pharmacy scorecard
+# (turnaround to supply, flags, licence days; a pharmacy breach is a suggestion and never suspends by itself, a laboratory still does).
+# Sabotage: the visit-aware lock (two checks), the suggest-only rule and the stock reset removed; all four must flip.
+s28e_pharmacy_visits_stock_scorecard.sql
+# --- Added 2026-10-16 (S26b) ---------------------------------------------------
+# S26b: entitlement and refund hardening and the refund reversal hook (closes OQ-184). Reminders at 30, 7, 1 (one row per step, a missed run sends one message, short packs and Memberships skipped, the patient's own channel, nothing renews), the 7 day read-only grace (no doctor time), the cooling-off window, a decline needs a reason shown to the patient but kept out of the notification, a message and an event at every refund step, claim before send, a failed provider call lands in failed and an admin retry works, approved can no longer jump to completed, a replayed result changes nothing, ONE negative earnings adjustment per linked consultation share (pro rata on a part refund, old lines untouched, append only), the unrecognised deferred revenue released once (a closed period raises an incident and the catch-up fixes it), the weekly Paystack reconcile verdict and incidents, delays flagged, service functions refused to patients and anon. Sabotage: the reminder step rows removed, the verdict made to say matched, the refund state machine emptied; all three checks must flip.
+s26b_entitlement_and_refund_hardening.sql
+# --- Added 2026-10-21 (OQ-192) ---
+# OQ-192 live audit fix: vaccination writes need manage + unexpired + vaccinations category, buying needs manage_payments, expired grants open nothing, plus a scan that fails on any new bare profile_access policy. Sabotage: the old vaccination_records_insert policy and the old can_purchase_voucher_for put back; both holes reappear (2 sabotage rows must read as the old behaviour).
+oq192_profile_access_permission_tightening.sql
+
+
+# --- Added 2026-10-16 (S30b) -----------------------------------------------
+# Earnings completeness: a dispute holds only its own line out of the payout and resolves into an append-only adjustment; withholding is
+# stored never computed and blocks a send; per-line pay status follows the S31 payout (with retry); the pilot-minimum activity check holds
+# a suspicious top-up for a person; a late line is netted once. Eight sabotage steps (dispute guard, ledger guard, withholding guard, activity check, withholding period filter, back-dating rule, raced-duplicate handler).
+s30b_earnings_disputes_withholding_pilot.sql
+# --- Added 2026-10-21 (S25b) ---------------------------------------------------
+# S25b: pay the annual Membership in parts, behind the platform module membership_instalments (OFF). The parts add up to the price exactly, the first part unlocks access and the 365 days run from it, a replayed webhook credits nothing twice, a wrong amount or a part paid twice is a visible mismatch plus an incident, a missed part past its grace lapses access and paying it restores access, reminders 3 days before and on the day, each part posts its own ledger entry and schedule, a refund of a partly paid order is one refund per paid part against its own charge (a part paid between request and decision included), flag-off behaviour unchanged. Sabotage: the part routing removed, the replay guards removed, the lapse sweep emptied, the sum trigger switched off, the refund claim made to ignore the part; all five must flip.
+s25b_membership_instalments.sql
+money_reconciliation_screen.sql

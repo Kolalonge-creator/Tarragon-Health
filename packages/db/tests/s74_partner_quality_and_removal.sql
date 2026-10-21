@@ -118,9 +118,9 @@ begin
   -- a REAL patient (turnaround counts) and a test patient (turnaround must ignore)
   v_pat := pg_temp.mkuser(v_org, 'pat', 'patient', false); perform pg_temp.setf('pat', v_pat);
   v_testpat := pg_temp.mkuser(v_org, 'testpat', 'patient', true); perform pg_temp.setf('testpat', v_testpat);
-  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at) values ('S74 Lab A', true, now() + interval '200 days', now()) returning id into v_lab;
-  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at) values ('S74 Lab B', true, now() + interval '200 days', now()) returning id into v_lab2;
-  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at) values ('S74 Lab D', true, now() + interval '200 days', now()) returning id into v_labd;
+  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at, license_number, accreditation) values ('S74 Lab A', true, now() + interval '200 days', now(), 'S27H-PROOF-1', 'ISO 15189') returning id into v_lab;
+  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at, license_number, accreditation) values ('S74 Lab B', true, now() + interval '200 days', now(), 'S27H-PROOF-1', 'ISO 15189') returning id into v_lab2;
+  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at, license_number, accreditation) values ('S74 Lab D', true, now() + interval '200 days', now(), 'S27H-PROOF-1', 'ISO 15189') returning id into v_labd;
   perform pg_temp.setf('labAopen', v_labd);
   perform pg_temp.setf('labA', v_lab); perform pg_temp.setf('labB', v_lab2);
   perform pg_temp.setf('labAu', pg_temp.mkuser(v_org, 'labAu', 'lab_partner'));
@@ -150,7 +150,7 @@ begin
   perform pg_temp.r('A4 anon cannot execute any new public function', '0',
     (select count(*)::text from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in ('record_partner_complaint', 'resolve_partner_complaint', 'suspend_partner_from_new_work', 'reinstate_partner', 'partner_quality_overview', 'partner_my_quality')
         and has_function_privilege('anon', p.oid, 'EXECUTE')));
-  perform pg_temp.r('A5 one active configuration, version 1', '1|1', (select count(*)::text || '|' || max(version)::text from public.partner_quality_config where is_active));
+  perform pg_temp.r('A5 one active configuration, version 2 (S28e added the pharmacy figures)', '1|2', (select count(*)::text || '|' || max(version)::text from public.partner_quality_config where is_active));
   perform pg_temp.r('A6 both events are registered with their required keys', 'partner.quality_breach:4|partner.reinstated:2',
     (select string_agg(event_type || ':' || cardinality(required_keys), '|' order by event_type) from public.event_type_versions where event_type in ('partner.quality_breach', 'partner.reinstated')));
   perform pg_temp.r('A7 the nightly job is scheduled', '1', (select count(*)::text from cron.job where jobname = 'partner-quality-sweep'));
@@ -188,7 +188,7 @@ begin
   perform private.compute_partner_quality('lab', v_lab);
   perform pg_temp.r('B8 ten orders: 50 percent within 72 hours, breach turnaround_below_target', '10|50.0|true',
     pg_temp.quality_of('lab', v_lab, 'orders_measured') || '|' || pg_temp.quality_of('lab', v_lab, 'pct_within_target') || '|' || (exists (select 1 from (select breaches from public.partner_quality where partner_id = v_lab order by period_month desc limit 1) q where 'turnaround_below_target' = any (q.breaches)))::text);
-  perform pg_temp.r('B9 the configuration version used is stored (INV-16)', '1', pg_temp.quality_of('lab', v_lab, 'config_version'));
+  perform pg_temp.r('B9 the configuration version used is stored (INV-16)', '2', pg_temp.quality_of('lab', v_lab, 'config_version'));
 end $$;
 
 -- C. Complaints ----------------------------------------------------------------------------------------------------------------------
@@ -235,7 +235,7 @@ begin
   -- Lab B has breached the complaint limit: the rule pauses it
   v := pg_temp.apply('lab', v_labB);
   perform pg_temp.r('D1 the complaint limit pauses the laboratory by rule', 'suspended|true', pg_temp.status_of('lab', v_labB) || '|' || (v ->> 'suspended_now'));
-  perform pg_temp.r('D2 the log names the rule, the reasons and the configuration version, no person', 'rule|{complaints_upheld_limit}|1|null',
+  perform pg_temp.r('D2 the log names the rule, the reasons and the configuration version, no person', 'rule|{complaints_upheld_limit}|2|null',
     (select source || '|' || reason_codes::text || '|' || config_version || '|' || coalesce(actor_id::text, 'null') from public.partner_work_status_log where partner_id = v_labB order by id desc limit 1));
   perform pg_temp.r('D3 the event is registered, carries the breach codes and no patient or result', 'true|true|null',
     (select (payload ->> 'suspended')::text || '|' || (payload ? 'breaches')::text || '|' || coalesce(patient_id::text, 'null') from public.domain_events where event_type = 'partner.quality_breach' and aggregate_id = v_labB order by created_at desc limit 1));
@@ -266,7 +266,7 @@ begin
     perform pg_temp.r('E1 an order cannot be given to a paused laboratory', '55000', sqlstate);
   end;
   -- lab orders go to a third laboratory that is open
-  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at) values ('S74 Lab C', true, now() + interval '200 days', now()) returning id into v_open_lab;
+  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at, license_number, accreditation) values ('S74 Lab C', true, now() + interval '200 days', now(), 'S27H-PROOF-1', 'ISO 15189') returning id into v_open_lab;
   insert into public.lab_orders (organisation_id, patient_id, provider_id, fulfilment, status, origin, ordered_by, clinical_indication, transmission)
   values (v_org, v_pat, v_open_lab, 'partner', 'pending_payment', 'clinically_triggered', v_staff, 'S74 proof order', 'awaiting_payment') returning id into v_order;
   perform pg_temp.r('E2 an open laboratory still receives an order', 'true', (v_order is not null)::text);
@@ -281,7 +281,13 @@ begin
   perform pg_temp.r('E5 an open pharmacy can be sent a prescription', 'true', (private.pharmacy_location_choosable(v_phA, v_locA))::text);
   update public.pharmacy_partners set license_expires_at = now() - interval '1 day' where id = v_phA;
   perform pg_temp.apply('pharmacy', v_phA);
-  perform pg_temp.r('E6 the pharmacy''s expired licence pauses it by rule', 'suspended|{licence_expired}', pg_temp.status_of('pharmacy', v_phA) || '|' || (select reason_codes::text from public.partner_work_status where partner_id = v_phA));
+  -- S28e: a pharmacy breach is a SUGGESTION for staff (removal.suggest_only_kinds), never an automatic removal. An expired licence is recorded as a breach and
+  -- already hides the pharmacy from patients (E8); a person then pauses it from new work, which is what makes the send refusal below apply.
+  perform pg_temp.r('E6 the pharmacy''s expired licence is flagged but not paused by rule (S28e suggest-only)', 'open|true|false',
+    pg_temp.status_of('pharmacy', v_phA) || '|' || (select ('licence_expired' = any (breaches))::text from public.partner_quality where partner_kind = 'pharmacy' and partner_id = v_phA order by period_month desc limit 1) || '|' ||
+    (private.pharmacy_location_choosable(v_phA, v_locA))::text);
+  perform pg_temp.q_as(pg_temp.f('admin'), format($q$select public.suspend_partner_from_new_work('pharmacy', %L, 'Licence expired, paused until the renewal is on file')::text$q$, v_phA));
+  perform pg_temp.r('E6b a person pauses the pharmacy from new work, recorded as a person', 'suspended|person', pg_temp.status_of('pharmacy', v_phA) || '|' || (select source from public.partner_work_status_log where partner_id = v_phA order by id desc limit 1));
   begin
     insert into public.prescription_collection_codes (prescription_id, organisation_id, patient_id, pharmacy_partner_id, pharmacy_location_id, code, code_expires_at, is_test)
     values (v_rx, v_org, v_pat, v_phA, v_locA, 'ABCD2345', now() + interval '14 days', true);

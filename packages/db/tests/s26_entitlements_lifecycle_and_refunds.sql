@@ -82,7 +82,7 @@ begin
   insert into public.entitlements (id, organisation_id, patient_id, order_id, kind, starts_at, ends_at, remaining_uses, state, is_test)
   values
     (v_ent,  v_org, v_patient, v_order,  'care_pack', now() - interval '2 hours', now() - interval '1 hour', 3, 'active', true),
-    (v_ent2, v_org, v_patient, v_order2, 'care_pack', now(), now() + interval '5 days', 2, 'active', true);
+    (v_ent2, v_org, v_patient, v_order2, 'care_pack', now() - interval '85 days', now() + interval '5 days', 2, 'active', true);  -- S26b: a pack shorter than its reminder step is not reminded at purchase, so this one is 90 days long
 
   insert into s26_fixture values
     ('org', v_org), ('patient', v_patient), ('other', v_other), ('admin', v_admin),

@@ -101,3 +101,7 @@ verify_jwt = false
 # Supabase Auth calls this hook with a Standard Webhooks signature, not a JWT (handler.ts verifies it).
 [functions.auth-send-sms-hook]
 verify_jwt = false
+
+# S26b: pg_cron calls this weekly with a shared secret header (handler.ts checks it), not a Supabase JWT.
+[functions.refund-reconcile]
+verify_jwt = false
