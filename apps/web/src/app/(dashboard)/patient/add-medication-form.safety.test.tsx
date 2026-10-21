@@ -17,6 +17,12 @@ jest.mock("@/lib/queries/medicine-catalogue", () => ({
   useInteractionCheckOpen: () => ({ data: false, isPending: false, isError: false }),
   useMedicineCatalogue: () => ({ data: [], isPending: false, isError: false }),
 }));
+jest.mock("@/lib/queries/medicine-safety", () => ({
+  useBrandMap: () => ({ data: [], isPending: false, isError: false }),
+  useDuplicateIngredientCheckOpen: () => ({ data: false, isPending: false, isError: false }),
+  useInteractionRules: () => ({ data: [], isPending: false, isError: false }),
+  useSetNafdacNumber: () => ({ mutate: jest.fn() }),
+}));
 jest.mock("@/lib/medications/pack-actions", () => ({ checkMedicationPack: jest.fn() }));
 jest.mock("./actions", () => ({ checkMedicationSafetyAfterAdd: jest.fn().mockResolvedValue({ allergyCheckSkipped: false }) }));
 

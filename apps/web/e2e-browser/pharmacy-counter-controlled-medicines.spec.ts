@@ -91,9 +91,11 @@ test.describe("pharmacy counter: controlled medicines (OQ-276)", () => {
   test.beforeAll(async () => {
     test.setTimeout(180_000);
     patient = await createTestPatient(runId);
+    // S54 (8.11): a pharmacy is routable only once a NAFDAC source attestation is on file (private.pharmacy_partner_listable), so the
+    // fixture carries one. The service role may set it on insert; the real path is the attest_pharmacy_nafdac_source admin RPC.
     const { data: partner, error } = await adminClient
       .from("pharmacy_partners")
-      .insert({ name: `[e2e-test] Counter Pharmacy ${runId}`, is_active: true, approved_at: new Date().toISOString(), license_verified_at: new Date().toISOString(), onboarding_status: "activated", regions: ["Lagos"] })
+      .insert({ name: `[e2e-test] Counter Pharmacy ${runId}`, is_active: true, approved_at: new Date().toISOString(), license_verified_at: new Date().toISOString(), nafdac_source_attested_at: new Date().toISOString(), nafdac_source_note: "[e2e-test] fixture attestation", onboarding_status: "activated", regions: ["Lagos"] })
       .select("id")
       .single();
     if (error || !partner) throw error ?? new Error("partner insert failed");

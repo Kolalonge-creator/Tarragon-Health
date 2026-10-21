@@ -80,7 +80,7 @@ describe("logging a dose", () => {
     expect(await getPendingCount()).toBe(1);
 
     const doses = await loadTodaysDoses("p1");
-    expect(doses).toEqual({ ok: true, data: [expect.objectContaining({ medicationId: "m1", status: "taken" })] });
+    expect(doses).toEqual({ ok: true, data: [expect.objectContaining({ medicationId: "m1", status: "taken" })], fromPhone: true });
 
     mockOnline = true;
     await flushOutbox();

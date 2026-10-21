@@ -27,6 +27,7 @@ const SECTION_LABELS: Record<RecordShareSection, string> = {
   lab_results: "share.sections.lab_results",
   vaccinations: "share.sections.vaccinations",
   emergency_info: "share.sections.emergency_info",
+  health_report: "report.share.section_label",
 };
 
 const SHARING = getSharingConfig();
@@ -46,9 +47,12 @@ function formatDate(value: string): string {
 export function ShareControls({
   patientId,
   locale = "en",
+  hasSignedReport = false,
 }: {
   patientId: string;
   locale?: Locale;
+  /** The yearly report can be shared only once a clinician has signed it; the database enforces this too. */
+  hasSignedReport?: boolean;
 }) {
   const { data: shares, isLoading } = useRecordShares(patientId);
   const createShare = useCreateRecordShare();
@@ -65,6 +69,7 @@ export function ShareControls({
   const [createFailed, setCreateFailed] = useState(false);
   const [pinCopied, setPinCopied] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [shlState, setShlState] = useState<{ id: string; state: "copied" | "unavailable" } | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
   const toggleSection = useCallback((section: RecordShareSection) => {
@@ -115,6 +120,19 @@ export function ShareControls({
     }
   }, []);
 
+  const handleCopyShl = useCallback(async (shareId: string) => {
+    try {
+      const res = await fetch(`/api/patient/share-shl?id=${encodeURIComponent(shareId)}`, { cache: "no-store" });
+      const body = (await res.json()) as { link?: string };
+      if (!res.ok || !body.link) throw new Error("unavailable");
+      await navigator.clipboard.writeText(body.link);
+      setShlState({ id: shareId, state: "copied" });
+    } catch {
+      setShlState({ id: shareId, state: "unavailable" });
+    }
+    setTimeout(() => setShlState(null), 3000);
+  }, []);
+
   const handleCopyPin = useCallback(async (pin: string) => {
     try {
       await navigator.clipboard.writeText(pin);
@@ -138,7 +156,7 @@ export function ShareControls({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            {SHARE_SECTIONS.map((section) => (
+            {SHARE_SECTIONS.filter((section) => section !== "health_report" || hasSignedReport).map((section) => (
               <label
                 key={section}
                 className="flex items-center gap-2 rounded-lg border border-charcoal-ink/10 px-3 py-2 text-sm cursor-pointer hover:bg-charcoal-ink/5 transition-colors"
@@ -146,6 +164,7 @@ export function ShareControls({
                 <input
                   type="checkbox"
                   checked={selectedSections.has(section)}
+                  disabled={section === "health_report" && windowDays !== ""}
                   onChange={() => toggleSection(section)}
                   className="h-4 w-4 accent-brand-green"
                 />
@@ -155,6 +174,9 @@ export function ShareControls({
               </label>
             ))}
           </div>
+          {hasSignedReport && windowDays !== "" && (
+            <p className="text-xs text-charcoal-ink/60">{t("report.share.window_note", locale)}</p>
+          )}
 
           <div className="flex items-center gap-3">
             <Label htmlFor="expiry" className="text-sm whitespace-nowrap">
@@ -203,7 +225,17 @@ export function ShareControls({
             <Label htmlFor="window" className="text-sm whitespace-nowrap">
               {t("sharelink.window.label", locale)}
             </Label>
-            <Select id="window" className="w-40" value={windowDays} onChange={(e) => setWindowDays(e.target.value)}>
+            <Select id="window" className="w-40" value={windowDays} onChange={(e) => {
+                setWindowDays(e.target.value);
+                // a yearly report cannot be trimmed to a date window, so choosing a window removes it from this link
+                if (e.target.value !== "") {
+                  setSelectedSections((prev) => {
+                    const next = new Set(prev);
+                    next.delete("health_report");
+                    return next;
+                  });
+                }
+              }}>
               <option value="">{t("sharelink.window.latest", locale)}</option>
               {SHARE_WINDOW_DAYS_CHOICES.map((d) => (
                 <option key={d} value={String(d)}>
@@ -331,6 +363,11 @@ export function ShareControls({
                           {t("share.locked", locale)}
                         </p>
                       ) : null}
+                      {shlState?.id === share.id && shlState.state === "unavailable" ? (
+                        <p role="status" className="text-xs text-red-700">
+                          {t("sharelink.shl.unavailable", locale)}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -341,6 +378,9 @@ export function ShareControls({
                         {copiedId === share.id
                           ? t("share.link_copied", locale)
                           : t("share.copy_link", locale)}
+                      </Button>
+                      <Button variant="outline" size="sm" title={t("sharelink.shl.hint", locale)} onClick={() => void handleCopyShl(share.id)}>
+                        {shlState?.id === share.id && shlState.state === "copied" ? t("sharelink.shl.copied", locale) : t("sharelink.shl.copy", locale)}
                       </Button>
                       <Button
                         variant="outline"

@@ -91,6 +91,8 @@ describe("the real admin menus", () => {
     expect(top("payout")).toContain("/admin/earnings");
     expect(top("adjustment")).toContain("/admin/earnings");
     expect(top("weekly payout")).toContain("/admin/payouts");
+    expect(top("earnings dispute")).toContain("/admin/earnings/disputes");
+    expect(top("held top up")).toContain("/admin/earnings/disputes");
   });
 
   it("finds the testing days and employer visits page (every console page needs a search entry)", () => {
@@ -240,6 +242,16 @@ describe("the event bus explorer (S10x)", () => {
   it("is in the admin menu and found by the words an admin would type", () => {
     for (const q of ["event bus", "dead letter", "replay", "stuck", "outbox"]) {
       expect(searchAdminEntries(adminReal, q).map((e) => e.href)).toContain("/admin/ops/event-bus");
+    }
+  });
+});
+
+describe("the partner webhook admin screen (S10y)", () => {
+  const adminReal = buildAdminSearchIndex(getNavSections("admin", null), []);
+
+  it("is in the admin menu and found by the words an admin would type", () => {
+    for (const q of ["partner webhook", "signing key", "rotate", "event map", "auto-disabled"]) {
+      expect(searchAdminEntries(adminReal, q).map((e) => e.href)).toContain("/admin/ops/partner-webhooks");
     }
   });
 });

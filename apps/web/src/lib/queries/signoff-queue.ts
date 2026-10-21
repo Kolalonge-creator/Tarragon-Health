@@ -42,9 +42,16 @@ type VersionedTableName =
   | "risk_questionnaire_configs"
   | "vaccination_schedule_signoffs"
   | "lab_panel_signoffs"
+  | "lab_fallback_wording_signoffs"
   | "prn_limit_rules"
+  | "medicine_interaction_rule_sets"
   | "my_health_config"
-  | "home_bp_programme_signoffs";
+  | "nutrition_target_config"
+  | "activity_safety_config"
+  | "observation_limit_signoffs"
+  | "home_bp_programme_signoffs"
+  | "health_report_config_versions"
+  | "cuff_check_rules";
 
 const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string }[] = [
   { table: "alert_rules", title: "Alert rules", slug: "alert-rules" },
@@ -64,9 +71,16 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   },
   { table: "vaccination_schedule_signoffs", title: "Vaccination schedule", slug: "vaccination-schedule" },
   { table: "lab_panel_signoffs", title: "Lab ranges and release policy", slug: "lab-panels" },
+  { table: "lab_fallback_wording_signoffs", title: "Lab result fallback message", slug: "lab-fallback" },
   { table: "prn_limit_rules", title: "As-needed medicine limits", slug: "prn-limit-rules" },
+  { table: "medicine_interaction_rule_sets", title: "Medicine interaction rules", slug: "medicine-interaction-rules" },
   { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
+  { table: "cuff_check_rules", title: "Home cuff vs clinic cuff check", slug: "cuff-check-rules" },
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
+  { table: "nutrition_target_config", title: "Nutrition targets and meal summary", slug: "nutrition-targets-config" },
+  { table: "health_report_config_versions", title: "Yearly Health Report settings", slug: "health-report-config" },
+  { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
+  { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
 ];
 
 export type SettledConfig = { table: string; title: string; href: string; version: number };
@@ -87,7 +101,13 @@ type VersionRow = {
   approved_at?: string | null;
   created_at?: string;
   notes?: string | null;
+  /** Only read for tables whose draft can be empty (medicine_interaction_rule_sets). */
+  config?: { rules?: unknown[] } | null;
 };
+
+/** The interaction rule set is born empty and an empty set cannot be signed, so an empty draft is not outstanding work. */
+const EMPTY_DRAFT_TABLES: readonly string[] = ["medicine_interaction_rule_sets"];
+const isEmptyDraft = (r: VersionRow) => !r.is_active && (r.config?.rules?.length ?? 0) === 0;
 
 const isSigned = (r: VersionRow) => Boolean(r.approved_by ?? r.approved_at);
 
@@ -153,10 +173,11 @@ export async function readSignoffQueue(
         // The live row and any unsigned drafts; signed history is never outstanding.
         const { data, error } = await supabase
           .from(def.table)
-          .select("id, version, is_active, approved_by, approved_at, created_at, notes")
+          .select(EMPTY_DRAFT_TABLES.includes(def.table) ? "id, version, is_active, approved_by, approved_at, created_at, notes, config" : "id, version, is_active, approved_by, approved_at, created_at, notes")
           .or("is_active.eq.true,approved_by.is.null");
         if (error) fail(def.table, error.message);
-        const rows = (data ?? []) as unknown as VersionRow[];
+        const all = (data ?? []) as unknown as VersionRow[];
+        const rows = EMPTY_DRAFT_TABLES.includes(def.table) ? all.filter((r) => !isEmptyDraft(r)) : all;
         const live = singleLiveRow(rows, def.table);
         const href = `${basePath}/${def.slug}`;
         if (live && isSigned(live)) settledConfigs.push({ table: def.table, title: def.title, href, version: live.version });
@@ -188,6 +209,35 @@ export async function readSignoffQueue(
       },
     });
   }
+
+  // S46d: the anti-HBs threshold on the active serology rule. Not a single-active-row table (rules are 'legacy' / 'active' / 'proposed'), so it has its own
+  // source. The threshold waits for the CMO until threshold_approved_by is set; a read failure is reported, never an all-clear.
+  sources.push({
+    name: "serology_rule_versions",
+    run: async () => {
+      const { data, error } = await supabase.from("serology_rule_versions").select("version, threshold_approved_by, created_at").eq("status", "active");
+      if (error) fail("serology_rule_versions", error.message);
+      const rows = (data ?? []) as { version: number; threshold_approved_by: string | null; created_at: string }[];
+      if (rows.length > 1) fail("serology_rule_versions", `${rows.length} rules are active at once`);
+      const active = rows[0];
+      const title = "Hepatitis and HIV repeat rules (anti-HBs threshold)";
+      const href = `${basePath}/serology-rules`;
+      if (!active) return [];
+      if (active.threshold_approved_by) {
+        settledConfigs.push({ table: "serology_rule_versions", title, href, version: active.version });
+        return [];
+      }
+      return [
+        {
+          key: "versioned_draft:serology_rule_versions",
+          title,
+          detail: `Version ${active.version} is in force with the anti-HBs threshold not yet confirmed by the Chief Medical Officer. Until it is, a titre alone never records hepatitis B immunity.`,
+          href,
+          severity: "draft_pending" as const,
+        },
+      ];
+    },
+  });
 
   // S88 clinical config drafts: one ledger, one live row PER KIND, so it is not in VERSIONED_TABLES
   // (singleLiveRow would call six live rows corruption). One line for all outstanding drafts.

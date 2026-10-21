@@ -12,7 +12,11 @@ import { readPendingCapacityConfigSignoff } from "@/lib/queries/pending-capacity
 import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose-task-type-signoff";
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
+import { readThresholdHubState } from "@/lib/queries/threshold-overrides";
+import { GLUCOSE_WORDING_SIGNED } from "@tarragon/i18n";
+import { FAST_SUGAR_ITEM_KEY, readPendingFastSugarWordingSignoff } from "@/lib/queries/pending-fast-sugar-wording-signoff";
 import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
+import { readLegacyNoticeRetirementState } from "@/lib/queries/pending-legacy-notice-retirement-signoff";
 import { readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
 
 export type CmoSigningHub = {
@@ -47,15 +51,21 @@ export const GLUCOSE_TASK_TYPE_ITEM_KEY = "glucose_task_type";
 export const QUALITY_CONFIG_ITEM_KEY = "quality_configs";
 /** The line for the capacity and cover configuration drafts (intake gate, hard rest rule, fire drills) and the pilot lead cap. */
 export const CAPACITY_CONFIG_ITEM_KEY = "capacity_configs";
+/** The line for the ops desk resilience configuration draft (the checklist gate on the on-call cover guard, OQ-441). */
+export const OPS_DESK_CONFIG_ITEM_KEY = "ops_desk_config";
 /** The key the sole-CMO on-call exception line carries, so the page can attach the signing panel. */
 export const SOLE_CMO_EXCEPTION_ITEM_KEY = "sole_cmo_on_call_exception";
 /** The line for unified red-event paging (S19d): switch the one governed ladder on for SpO2, pulse, temperature, red-flag symptoms and emergency events, or off again. */
 export const UNIFIED_RED_PAGING_ITEM_KEY = "unified_red_paging";
+/** The line for the personal-threshold policy (N-overrides): nothing can be proposed until the CMO signs it. */
+export const THRESHOLD_POLICY_ITEM_KEY = "threshold_override_policy";
+/** The line for retiring the older notify-everyone message for blood pressure and glucose once the on-call page is proven, and the Care Circle notice for unified pages (S19f). */
+export const LEGACY_NOTICE_RETIREMENT_ITEM_KEY = "legacy_notice_retirement";
 /** OQ-451: the task layer configuration (accept the version in force, or sign a newer one). */
 export const TASK_LAYER_CONFIG_ITEM_KEY = "queue_task_layer_config";
 /** OQ-451: activate the paging delivery configuration v2 (objective on-call readiness), refused until the test-page checklist is met. */
 export const PAGING_DELIVERY_CONFIG_ITEM_KEY = "paging_delivery_config";
-export { GLUCOSE_TRIAGE_ITEM_KEY };
+export { GLUCOSE_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY };
 
 /**
  * Everything that needs the Chief Medical Officer's signature, in one list.
@@ -77,7 +87,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, queuePaging] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -94,7 +104,10 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingSoleCmoException(supabase),
     readUnifiedRedPagingState(supabase),
     readPendingCapacityConfigSignoff(supabase),
+    readPendingFastSugarWordingSignoff(supabase),
     readPendingQueuePagingConfigSignoff(supabase),
+    readLegacyNoticeRetirementState(supabase),
+    readThresholdHubState(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -170,6 +183,37 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
 
   const credentialItem = credentialAttentionItem(credentials);
   const attention = credentialItem ? [credentialItem] : [];
+  if (thresholds.reviewsOverdue > 0) {
+    // Not a signature: the monthly review of a personal threshold is overdue. Kept out of `items` so the banner still counts only signatures.
+    attention.push({
+      key: "threshold_override_reviews",
+      title: "Personal thresholds: monthly review overdue",
+      detail: `${thresholds.reviewsOverdue} personal alert threshold${thresholds.reviewsOverdue === 1 ? " is" : "s are"} past the monthly review date. Keep or end each one.`,
+      href: "/clinician/threshold-overrides",
+      severity: "draft_pending",
+      count: thresholds.reviewsOverdue,
+    });
+  }
+  if (thresholds.policyWaiting) {
+    items.push({
+      key: THRESHOLD_POLICY_ITEM_KEY,
+      title: "Personal alert thresholds: sign the policy to switch the feature on",
+      detail: "Senior doctors can set a signed, time-limited personal threshold for a patient whose usual readings sit outside the standard lines. It can never lower a red, relax a reading with a symptom or apply in pregnancy or under 18. Nothing can be proposed until you sign.",
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+  // Signed on the hub but not yet in the app: the proposed fast-sugar text reaches patients only when the build marks the wording signed (a code change).
+  if (fastSugar.signed && GLUCOSE_WORDING_SIGNED === null) {
+    attention.push({
+      key: `${FAST_SUGAR_ITEM_KEY}_not_shipped`,
+      title: "Fast-sugar wording is signed but not yet in the app",
+      detail: "Your signature is recorded. Patients still see the plain text until the app build marks the wording signed (a code change). Ask the build owner to ship it.",
+      href: "/clinician/go-live#glucose_fast_sugar_wording",
+      severity: "draft_pending",
+    });
+  }
   if (redOutreach.waiting) {
     items.push({
       key: RED_OUTREACH_ITEM_KEY,
@@ -215,6 +259,17 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (fastSugar.waiting) {
+    items.push({
+      key: FAST_SUGAR_ITEM_KEY,
+      title: "Fast-sugar treatment wording (separate from the glucose rules)",
+      detail: "The message that tells a patient with a low sugar to take fast sugar (a sweet drink, sugar or honey, about 15 grams, and to check again in 15 minutes) needs its own signature. It stays unsigned, and the plain text stays in use, until you sign.",
+      href: "/clinician/go-live#glucose_fast_sugar_wording",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   if (qualityConfigs.qualityVersion !== null || qualityConfigs.credentialingVersion !== null) {
     const parts = [
       qualityConfigs.qualityVersion !== null && `quality configuration version ${qualityConfigs.qualityVersion} (audit sampling, second review, speak-up check-ins)`,
@@ -244,6 +299,20 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (legacyRetire.liveVersion !== null || legacyRetire.waiting.length > 0) {
+    const on = legacyRetire.liveVersion !== null;
+    items.push({
+      key: LEGACY_NOTICE_RETIREMENT_ITEM_KEY,
+      title: on ? "Older clinician-message retirement is ON (switch off here)" : "Older clinician-message retirement (off)",
+      detail: on
+        ? `Version ${legacyRetire.liveVersion?.version} is live. You can switch it off at any time; any held message with no confirmed page is sent at once.`
+        : "Several versions are ready and OFF. Start with the parallel run (it changes nothing and measures how often the on-call page arrives), then look at the evidence here before retiring any older message.",
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   if (capacityConfigs.capacityVersion !== null || capacityConfigs.leadVersion !== null) {
     const parts = [
       capacityConfigs.capacityVersion !== null && `capacity configuration version ${capacityConfigs.capacityVersion} (intake gate, rest rule, fire drills)`,
@@ -256,6 +325,17 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
       href: "/clinician/clinical-signoff",
       severity: "draft_pending",
       count: (capacityConfigs.capacityVersion !== null ? 1 : 0) + (capacityConfigs.leadVersion !== null ? 1 : 0),
+    });
+  }
+
+  if ((capacityConfigs.opsDeskVersion ?? null) !== null) {
+    items.push({
+      key: OPS_DESK_CONFIG_ITEM_KEY,
+      title: "Ops desk checklist gate",
+      detail: `ops desk configuration version ${capacityConfigs.opsDeskVersion} waiting for your signature. It stays off until you sign: signing it stops the on-call cover guard being switched on until the resilience checklist is attested and a primary and deputy ops contact are active.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
     });
   }
 
@@ -297,7 +377,10 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(qualityConfigs.failed ? ["the quality and credentialing configurations"] : []),
     ...(soleCmo.failed ? ["the sole-CMO on-call exception"] : []),
     ...(unifiedRed.failed ? ["unified red-event paging"] : []),
+    ...(legacyRetire.failed ? ["the older clinician-message retirement"] : []),
     ...(capacityConfigs.failed ? ["the capacity and lead configurations"] : []),
+    ...(thresholds.failed ? ["personal alert thresholds"] : []),
+    ...(fastSugar.failed ? ["the fast-sugar wording signature"] : []),
     ...(queuePaging.failed ? ["the task layer and paging delivery configurations"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);

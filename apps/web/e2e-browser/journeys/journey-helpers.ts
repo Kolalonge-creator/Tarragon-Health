@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { adminClient, createTestPatient, pollUntil, type TestPatient } from "../helpers/supabase-admin";
+import { completeOnboardingFixture, grantMembershipFixture } from "./harness/sessions";
 
 /**
  * Shared helpers for the four D.7.3 journey specs (S85).
@@ -12,11 +13,13 @@ import { adminClient, createTestPatient, pollUntil, type TestPatient } from "../
 /** A patient the journeys can log in as: a real confirmed account, flagged is_test, onboarding already done. */
 export async function createJourneyPatient(runId: string): Promise<TestPatient> {
   const patient = await createTestPatient(runId);
-  const { error } = await adminClient
-    .from("profiles")
-    .update({ is_test: true, onboarding_completed_at: new Date().toISOString(), date_of_birth: "1971-05-04" })
-    .eq("id", patient.userId);
+  const { error } = await adminClient.from("profiles").update({ is_test: true, date_of_birth: "1971-05-04" }).eq("id", patient.userId);
   if (error) throw error;
+  // The database refuses to complete onboarding without date of birth, sex and an accepted row for every current required consent
+  // (private.enforce_onboarding_prereqs), so a bare onboarding_completed_at update is rejected. The shared fixture does it properly.
+  completeOnboardingFixture(patient.userId, patient.organisationId, { receivesCare: true });
+  // Journey patients are Members: a red event pages a doctor only for a Member (two-tier model), and the journeys are about that path.
+  grantMembershipFixture(patient.userId, patient.organisationId);
   return patient;
 }
 

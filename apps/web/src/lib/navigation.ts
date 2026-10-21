@@ -388,6 +388,7 @@ export function getNavSections(
                 { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
                 { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
                 { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
+                { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
                 { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
                 { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
                 { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
@@ -662,6 +663,7 @@ export function getNavSections(
                 // Intake gate, surge mode, pause, rest-rule override and cover offers; and the monthly fire drills (S16-S20 Stage 5). CMO only; the pages redirect others.
                 { label: "Capacity and cover", href: "/clinician/capacity", icon: "caseload" },
                 { label: "Fire drills", href: "/clinician/fire-drills", icon: "siren" },
+                { label: "Ops desk", href: "/clinician/ops-desk", icon: "siren" },
                 // The go-live guards and the proposed values the CMO owns (S37). CMO only; the page redirects anyone below that tier.
                 { label: "Go-live guards", href: "/clinician/go-live", icon: "governance" },
                 // The symptom checker's regulatory position, accuracy audit and safety settings (S60). CMO only; the page redirects others.
@@ -695,6 +697,8 @@ export function getNavSections(
                 { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
                 { label: "Blood pressure triage rules", href: "/clinician/triage-rules", icon: "bp" },
                 { label: "Glucose triage rules", href: "/clinician/glucose-triage-rules", icon: "bp" },
+                // N-overrides: the CMO's roster of personal alert thresholds, the monthly review and the kill switch.
+                { label: "Personal alert thresholds", href: "/clinician/threshold-overrides", icon: "bp" },
                 { label: "Task types and priorities", href: "/clinician/task-types", icon: "review" },
                 { label: "Clinical rules engine", href: "/clinician/clinical-rules", icon: "governance" },
                 { label: "Alert rules", href: "/clinician/alert-rules", icon: "siren" },
@@ -717,6 +721,8 @@ export function getNavSections(
                 },
                 { label: "Vaccination schedule", href: "/clinician/vaccination-schedule", icon: "vaccination" },
                 { label: "As-needed medicine limits", href: "/clinician/prn-limit-rules", icon: "review" },
+                { label: "Medicine interaction rules", href: "/clinician/medicine-interaction-rules", icon: "review" },
+                { label: "Medicine brand names", href: "/clinician/medicine-brand-map", icon: "review" },
                 { label: "Provider quality", href: "/clinician/provider-quality", icon: "analytics" },
               ],
             },
@@ -738,6 +744,7 @@ export function getNavSections(
                 { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
                 { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
                 { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
+                { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
                 { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
                 { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
                 { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
@@ -798,13 +805,20 @@ export function getNavSections(
             { label: "Triage agreement", href: "/admin/triage-agreement", icon: "analytics" },
             // Fee schedules, what contracted clinicians have earned, adjustments (S30).
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
+            { label: "Earnings questions", href: "/admin/earnings/disputes", icon: "analytics" },
             { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
+            { label: "Money reconciliation", href: "/finance/money-reconciliation", icon: "analytics" },
             // How each laboratory, pharmacy and clinic is doing; pause or reinstate from new work (S74).
             { label: "Partner quality", href: "/admin/partner-quality", icon: "governance" },
+            // Samples in flight, delays, rejected samples and re-collections per laboratory (S27h).
+            { label: "Lab turnaround", href: "/admin/lab-turnaround", icon: "operations" },
+            // Turnaround to supply, flags, complaints and licence expiry for each partner pharmacy; a flag is a suggestion to review, never an automatic removal (S28e).
+            { label: "Pharmacy scorecard", href: "/admin/pharmacy-scorecard", icon: "governance" },
             // What Tarragon owes a pharmacy or clinic from money it collected; labs are never on it (S74).
             { label: "Partner settlements", href: "/admin/partner-settlements", icon: "billing" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Event bus", href: "/admin/ops/event-bus", icon: "operations" },
+            { label: "Partner webhooks", href: "/admin/ops/partner-webhooks", icon: "operations" },
             // Is the chain from a reading to a grade, task, page and notice working, and how fast (P1).
             { label: "Chain health", href: "/admin/ops/chain-health", icon: "operations" },
             { label: "Providers", href: "/admin/ops/providers", icon: "operations" },
@@ -814,6 +828,7 @@ export function getNavSections(
             { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
             { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
             { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
+            { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
             { label: "Automations", href: "/admin/ops/automations", icon: "settings" },
             { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
@@ -918,6 +933,7 @@ export function getNavSections(
             { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
             { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
             { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
+            { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
             { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
             { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
@@ -939,6 +955,7 @@ export function getNavSections(
             { label: "Employer billing", href: "/finance/employer-billing", icon: "billing" },
             { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
             { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile" },
+            { label: "Money reconciliation", href: "/finance/money-reconciliation", icon: "reconcile" },
             { label: "Fraud signals", href: "/finance/fraud", icon: "warning" },
             { label: "Laboratory settlements", href: "/finance/partner-settlements", icon: "payables" },
             { label: "Tax", href: "/finance/tax", icon: "tax" },
@@ -970,6 +987,7 @@ export function getNavSections(
             { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
             { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
             { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
+            { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
             { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
             { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },

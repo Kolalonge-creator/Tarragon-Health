@@ -1,0 +1,63 @@
+# Device lab harness, part 1 (scripts/device-lab/run.sh runs this, then times part 2).
+# Signs in, goes to Vitals, turns airplane mode ON, logs three ordinary (non-red) blood pressure readings and checks they show as waiting to send.
+# It deliberately leaves the phone OFFLINE: the harness measures memory now, then turns the network back on from adb and times assert-flushed.yaml.
+# Android only (Maestro's setAirplaneMode is Android-only). Use a TEST account (is_test = true), never a real patient.
+#
+# STATUS: written, NOT run on a device. Selectors are the visible texts used by journey-2-red-reading-offline-guidance.yaml
+# ("Systolic", "Diastolic", "Save reading") and the outbox line "Saved on this phone, waiting to send: {count}". Fix any that differ on the
+# first real run; the harness reports "not measured" (never a pass) while this flow fails.
+#   maestro test -e MOBILE_E2E_EMAIL=... -e MOBILE_E2E_PASSWORD=... <this file>
+appId: com.tarragonhealth.app
+name: Device lab part 1, log three readings offline
+tags:
+  - device-lab
+  - offline
+  - android
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Email"
+    timeout: 30000
+- tapOn: "Use email"
+- tapOn: "Email"
+- inputText: ${MOBILE_E2E_EMAIL}
+- tapOn: "Password"
+- inputText: ${MOBILE_E2E_PASSWORD}
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Today at a glance: your numbers, your care team, and recent activity."
+    timeout: 30000
+
+- tapOn: "Vitals"
+- extendedWaitUntil:
+    visible: "Save reading"
+    timeout: 15000
+- setAirplaneMode: enabled
+
+- tapOn: "Systolic"
+- inputText: "118"
+- tapOn: "Diastolic"
+- inputText: "76"
+- hideKeyboard
+- tapOn: "Save reading"
+- extendedWaitUntil:
+    visible: ".*waiting to send.*"
+    timeout: 10000
+
+- tapOn: "Systolic"
+- inputText: "122"
+- tapOn: "Diastolic"
+- inputText: "78"
+- hideKeyboard
+- tapOn: "Save reading"
+
+- tapOn: "Systolic"
+- inputText: "120"
+- tapOn: "Diastolic"
+- inputText: "80"
+- hideKeyboard
+- tapOn: "Save reading"
+
+# Rows must be queued and the phone must still be offline when this flow ends.
+- assertVisible: ".*waiting to send.*"

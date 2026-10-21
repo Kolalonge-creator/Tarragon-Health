@@ -61,6 +61,12 @@ export const PATTERN_GUARD = "bp_pattern_flag";
 export const C4_CODE = "c4_cuff_wording_signed";
 export const PATTERN_CODE = "pattern_is_clinician_only";
 
+/** S07y: the cuff check flag's clinician-only attestation and the neutral patient line's wording attestation. Both guards are born off. */
+export const CUFF_FLAG_GUARD = "cuff_check_flag";
+export const CUFF_FLAG_CODE = "flag_is_clinician_only";
+export const CUFF_PROMPT_GUARD = "cuff_visit_prompt";
+export const CUFF_PROMPT_CODE = "visit_prompt_wording_signed";
+
 export const ATTEST_ITEM_PREFIX = "attest:";
 export const attestItemKey = (guard: string, code: string) => `${ATTEST_ITEM_PREFIX}${guard}:${code}`;
 export const TRIAGE_DRAFT_ITEM_KEY = "triage_rule_set_draft";

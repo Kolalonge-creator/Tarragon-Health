@@ -47,7 +47,7 @@ jest.mock("@/lib/queries/pending-quality-config-signoff", () => ({
   readPendingQualityConfigSignoff: (...args: unknown[]) => readPendingQualityConfigSignoff(...args),
 }));
 const noQualityConfig: QualityPending = { qualityVersion: null, credentialingVersion: null, failed: false };
-type CapacityPending = { capacityVersion: number | null; capacityRules: unknown; leadVersion: number | null; leadCapDraft: number | null; leadCapInForce: number | null; failed: boolean };
+type CapacityPending = { opsDeskVersion?: number | null; capacityVersion: number | null; capacityRules: unknown; leadVersion: number | null; leadCapDraft: number | null; leadCapInForce: number | null; failed: boolean };
 const readPendingCapacityConfigSignoff = jest.fn<(...args: unknown[]) => Promise<CapacityPending>>();
 jest.mock("@/lib/queries/pending-capacity-config-signoff", () => ({
   readPendingCapacityConfigSignoff: (...args: unknown[]) => readPendingCapacityConfigSignoff(...args),
@@ -60,6 +60,10 @@ jest.mock("@/lib/queries/pending-queue-paging-config-signoff", () => ({
 }));
 const noQueuePaging: QueuePagingPending = { taskLayer: null, taskLayerRules: null, pagingVersion: null, pagingRules: null, pagingInForceRules: null, failed: false };
 const readPendingSoleCmoException = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
+const readLegacyNoticeRetirementState = jest.fn<(...args: unknown[]) => Promise<{ liveVersion: { version: number } | null; waiting: unknown[]; measurement: unknown[]; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-legacy-notice-retirement-signoff", () => ({
+  readLegacyNoticeRetirementState: (...args: unknown[]) => readLegacyNoticeRetirementState(...args),
+}));
 const readUnifiedRedPagingState = jest.fn<(...args: unknown[]) => Promise<{ waitingVersion: number | null; liveVersion: number | null; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-unified-red-paging-signoff", () => ({
   readUnifiedRedPagingState: (...args: unknown[]) => readUnifiedRedPagingState(...args),
@@ -67,12 +71,19 @@ jest.mock("@/lib/queries/pending-unified-red-paging-signoff", () => ({
 jest.mock("@/lib/queries/pending-sole-cmo-exception", () => ({
   readPendingSoleCmoException: (...args: unknown[]) => readPendingSoleCmoException(...args),
 }));
+const readThresholdHubState = jest.fn<(...args: unknown[]) => Promise<{ policyWaiting: boolean; policyVersion: number | null; policyId: string | null; policyActive: boolean; active: number; reviewsOverdue: number; reviewTaskFailures: number; failed: boolean }>>();
+jest.mock("@/lib/queries/threshold-overrides", () => ({ readThresholdHubState: (...args: unknown[]) => readThresholdHubState(...args) }));
+const readPendingFastSugarWordingSignoff = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; signed: boolean; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-fast-sugar-wording-signoff", () => ({
+  FAST_SUGAR_ITEM_KEY: "glucose_fast_sugar_wording",
+  readPendingFastSugarWordingSignoff: (...args: unknown[]) => readPendingFastSugarWordingSignoff(...args),
+}));
 const noCommunity = { rulesUnsigned: false, groupsWaiting: 0, statementsWaiting: 0, attentionCount: 0, failed: false };
 jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
 }));
 
-import { PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub, SOLE_CMO_EXCEPTION_ITEM_KEY } from "./cmo-signing-hub";
+import { OPS_DESK_CONFIG_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub, SOLE_CMO_EXCEPTION_ITEM_KEY } from "./cmo-signing-hub";
 
 const supabase = {} as SupabaseClient<Database>;
 
@@ -101,6 +112,8 @@ beforeEach(() => {
   readPendingRedOutreachSignoff.mockResolvedValue({ waiting: false, failed: false });
   readPendingSoleCmoException.mockReset();
   readPendingSoleCmoException.mockResolvedValue({ waiting: false, failed: false });
+  readLegacyNoticeRetirementState.mockReset();
+  readLegacyNoticeRetirementState.mockResolvedValue({ liveVersion: null, waiting: [], measurement: [], failed: false });
   readUnifiedRedPagingState.mockReset();
   readUnifiedRedPagingState.mockResolvedValue({ waitingVersion: null, liveVersion: null, failed: false });
   readPendingGlucoseTaskTypeSignoff.mockReset();
@@ -111,8 +124,43 @@ beforeEach(() => {
   readPendingQualityConfigSignoff.mockResolvedValue(noQualityConfig);
   readPendingCapacityConfigSignoff.mockReset();
   readPendingCapacityConfigSignoff.mockResolvedValue(noCapacityConfig);
+  readThresholdHubState.mockReset();
+  readThresholdHubState.mockResolvedValue({ policyWaiting: false, policyVersion: null, policyId: null, policyActive: true, active: 0, reviewsOverdue: 0, reviewTaskFailures: 0, failed: false });
+  readPendingFastSugarWordingSignoff.mockReset();
+  readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: false, signed: false, failed: false });
   readPendingQueuePagingConfigSignoff.mockReset();
   readPendingQueuePagingConfigSignoff.mockResolvedValue(noQueuePaging);
+});
+
+describe("readCmoSigningHub: fast-sugar wording (OQ-326)", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("is its own line, separate from the glucose rules, under /clinician, and says it stays unsigned until signed", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingGlucoseTriageSignoff.mockResolvedValue({ pending: true, version: 1, approvedVersion: null, note: null, failed: false });
+    readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: true, signed: false, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    const keys = hub.items.map((i) => i.key).sort();
+    expect(keys).toEqual(["glucose_fast_sugar_wording", "glucose_triage_rule_set"]);
+    const line = hub.items.find((i) => i.key === "glucose_fast_sugar_wording");
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/own signature/);
+    expect(line?.detail).toMatch(/stays unsigned/);
+    expect(hub.failed).toBe(false);
+  });
+  it("once signed the signing line goes, and an attention line says it is not yet in the app build", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: false, signed: true, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items.find((i) => i.key === "glucose_fast_sugar_wording")).toBeUndefined();
+    expect(hub.attention.map((i) => i.key)).toContain("glucose_fast_sugar_wording_not_shipped");
+    expect(hub.attention.find((i) => i.key === "glucose_fast_sugar_wording_not_shipped")?.href.startsWith("/clinician/")).toBe(true);
+  });
+  it("is absent once signed, and a failed read is named instead of going quiet", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "glucose_fast_sugar_wording")).toBeUndefined();
+    readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: false, signed: false, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the fast-sugar wording signature"] });
+  });
 });
 
 describe("readCmoSigningHub: task layer and paging delivery configurations (OQ-451)", () => {
@@ -143,6 +191,47 @@ describe("readCmoSigningHub: task layer and paging delivery configurations (OQ-4
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the task layer and paging delivery configurations");
+  });
+});
+
+describe("readCmoSigningHub: personal alert thresholds (N-overrides)", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("lists a signature line under /clinician while the policy waits, and nothing once it is signed", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readThresholdHubState.mockResolvedValue({ policyWaiting: true, policyVersion: 1, policyId: "p", policyActive: false, active: 0, reviewsOverdue: 0, reviewTaskFailures: 0, failed: false });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === THRESHOLD_POLICY_ITEM_KEY);
+    expect(line).toMatchObject({ severity: "draft_pending", count: 1 });
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/never lower a red/);
+    readThresholdHubState.mockResolvedValue({ policyWaiting: false, policyVersion: null, policyId: null, policyActive: true, active: 2, reviewsOverdue: 0, reviewTaskFailures: 0, failed: false });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === THRESHOLD_POLICY_ITEM_KEY)).toBeUndefined();
+  });
+  it("an overdue monthly review is an attention line, never counted as a signature", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readThresholdHubState.mockResolvedValue({ policyWaiting: false, policyVersion: null, policyId: null, policyActive: true, active: 3, reviewsOverdue: 2, reviewTaskFailures: 0, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.attention.find((i) => i.key === "threshold_override_reviews")).toMatchObject({ count: 2, href: "/clinician/threshold-overrides" });
+    expect(hub.items.find((i) => i.key === "threshold_override_reviews")).toBeUndefined();
+    readThresholdHubState.mockResolvedValue({ policyWaiting: false, policyVersion: null, policyId: null, policyActive: true, active: 1, reviewsOverdue: 1, reviewTaskFailures: 0, failed: false });
+    expect((await readCmoSigningHub(supabase)).attention[0]?.detail).toMatch(/1 personal alert threshold is past/);
+  });
+  it("names an unreadable source instead of looking like an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readThresholdHubState.mockResolvedValue({ policyWaiting: false, policyVersion: null, policyId: null, policyActive: false, active: 0, reviewsOverdue: 0, reviewTaskFailures: 0, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["personal alert thresholds"] });
+  });
+});
+
+describe("readCmoSigningHub: ops desk checklist gate", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds a line under /clinician only when a draft waits, and signs nothing", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === OPS_DESK_CONFIG_ITEM_KEY)).toBeUndefined();
+    readPendingCapacityConfigSignoff.mockResolvedValue({ ...noCapacityConfig, opsDeskVersion: 2 });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === OPS_DESK_CONFIG_ITEM_KEY);
+    expect(line?.count).toBe(1);
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/stays off until you sign/);
   });
 });
 
@@ -462,5 +551,26 @@ describe("unified red-event paging line (S19d)", () => {
     expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "unified_red_paging")).toBeUndefined();
     readUnifiedRedPagingState.mockResolvedValue({ waitingVersion: null, liveVersion: null, failed: true });
     expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["unified red-event paging"] });
+  });
+});
+
+describe("legacy notice retirement line (S19f)", () => {
+  it("lists a line while versions wait, says it is off and points at the parallel run first", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readLegacyNoticeRetirementState.mockResolvedValue({ liveVersion: null, waiting: [{ version: 1 }], measurement: [], failed: false });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === "legacy_notice_retirement");
+    expect(line?.title).toMatch(/off/i);
+    expect(line?.detail).toMatch(/parallel run/i);
+  });
+  it("keeps a switch-off line while a version is live", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readLegacyNoticeRetirementState.mockResolvedValue({ liveVersion: { version: 2 }, waiting: [], measurement: [], failed: false });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "legacy_notice_retirement")?.title).toMatch(/ON/);
+  });
+  it("shows no line when there is nothing, and reports a failed read instead of an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "legacy_notice_retirement")).toBeUndefined();
+    readLegacyNoticeRetirementState.mockResolvedValue({ liveVersion: null, waiting: [], measurement: [], failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the older clinician-message retirement"] });
   });
 });
