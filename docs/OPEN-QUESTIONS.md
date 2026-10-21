@@ -3890,7 +3890,6 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - Decision: informational.
 
 
-<<<<<<< HEAD
 ### OQ-AVS-1 The older consultation summary table is left in place
 - `consultation_patient_summaries` (2026-08-29, publish-once, patient reads by policy, staff read by policy) already gives a patient a short recap of a video visit. It has no draft, no approval stamp, no checklist, no amendment or protected-note handling and no event. The after-visit summary (AVS) is built as its successor on `visit_summaries`, and the Care tab shows the new card above the notes card. The old table, its publish function and the `consultation_summary_ready` notification are not touched or removed, so a patient can still see both for a visit published the old way.
 - Conservative default: do nothing to the old path in this PR. Decision needed (product): retire `publish_consultation_summary` once AVS is live, and whether to migrate the old rows (they would need a doctor to approve them again).
@@ -3934,7 +3933,6 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 
 ### OQ-AVS-9 Audit rows for a patient opening a summary
 - Opening a summary writes one `visit_summary.patient_read` audit row and one `visit_summary.viewed` event per summary, viewer and day (`record_visit_summary_opened`); reading the list writes nothing, so a refresh or a tick adds no rows. The count is a daily-open count, not a view count.
-=======
 ## PCC: post-consultation check-ins at 48 hours and 7 days (docs/design/PCC.md)
 
 The CMO must sign the question wording, what each answer does and the offsets (check-in configuration version 1, on the CMO sign-off hub) before anything is sent, and an admin must then switch the `post_consult_checkins_enabled` guard on. Both start off. Nothing below was decided by an agent; each item states the conservative default that shipped.
@@ -3988,7 +3986,6 @@ The CMO must sign the question wording, what each answer does and the offsets (c
 
 ### OQ-PCC-13 A late answer is taken
 - An answer that arrives after the sweep expired the check-in is still accepted (a red flag is never refused because the clock got there first); it cancels the care team's "not answered" task. A cancelled check-in is refused.
->>>>>>> origin/main-dev
 - Decision: informational.
 ### OQ-700 Patient-first window for non-emergency check-in requests (raised by S29e) - CMO decision
 - Built, OFF: platform module `care_circle_checkin_window` (`public.set_platform_module`, superadmin only). A supporter holding `red_alerts` can ask a person to check in (`request_circle_check_in`). The patient alone is told first (in-app plus their own reminder channel) and has `checkin_window_minutes` (PROPOSED 5, config `care_circle.rules` v4) to tap "I am fine"; if they do not, the circle members holding `red_alerts` get a neutral notice (`circle_check_in_unanswered`, critical, no reading and no cause; it names the person so the supporter knows whom to call, as a red alert does). At most 3 requests a day from one supporter about one person (`checkin_max_per_day`).

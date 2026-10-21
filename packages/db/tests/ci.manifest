@@ -682,13 +682,10 @@ ai_system_version_approval_retires_superseded_drafts.sql
 # proving a service-role caller (no auth.uid() at all -- cron jobs, internal
 # notification routes) still sees the view's rows, per
 # 20260925021440_fix_clinical_staff_directory_service_role_and_replay_guard.sql
-<<<<<<< HEAD
 # AVS after-visit summary: signature stamp and CHECKs, deterministic assembly, the one visibility rule (draft, withdrawn, unsigned note, amendment pending or signed, entered in error, unreleased protected note all hidden), caregiver permission, checklist tick-off and care task link, events with ids only, anon denied, with two sabotage steps.
 avs_visit_summaries.sql
-=======
 # PCC: post-consultation check-ins at 48 hours and 7 days (gates, scheduling, idempotency, Lagos due times, red-flag path, one alert, expiry, access, audit) with six sabotage steps.
 pcc_post_consult_checkins.sql
->>>>>>> origin/main-dev
 # -- the original view's predicate resolved entirely through auth.uid()-
 # dependent helpers, so a service-role caller silently got zero rows, not an
 # error, breaking the quarterly-report cron's and the lab-order-request-pdf
