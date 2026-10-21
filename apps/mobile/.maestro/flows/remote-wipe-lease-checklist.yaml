@@ -1,0 +1,84 @@
+# S06x-c / D8 device lab: remote wipe and the 30 day key lease (D1 to D3 in docs/plans/S06-S10-cmo-decisions-2026-10-07.md).
+#
+# Maestro can only see the phone. The wipe request and the clock change happen outside it, so this is a CHECKLIST with three phases selected
+# by -e PHASE. Run them in order on a test account (is_test = true) that has the offline_device_leases migration live:
+#
+#   PHASE=prepare       signs in, waits for one sync, logs one reading OFFLINE (so a row is unsent), and stops. Note the phone's row in
+#                       offline_device_leases.
+#   --- manual A (admin wipe) ---  as the account, call request_offline_device_wipe for that device. Turn the network ON.
+#   PHASE=verify_admin  asserts the "care team asked for this phone to be cleared" notice with a count, and that no health entries remain.
+#   --- manual B (lease expiry) --- on a second prepared phone: airplane mode ON, set the phone clock 31 days forward (Settings, Date and time,
+#                       switch off automatic), open the app. Put the clock back after.
+#   PHASE=verify_lease  asserts the "did not connect for N days" notice.
+#
+# Also record by hand (cannot be asserted from the screen): one last upload happened before the wipe (the reading from `prepare` is on the
+# server), `confirm_offline_device_wipe` was recorded, and the encrypted database file is gone from the app data.
+# The notice strings are store.wiped.admin and store.wiped.lease_expired in packages/i18n/src/en.ts.
+#
+# WARNING: PHASE=prepare leaves the phone in airplane mode on purpose (the row must stay unsent). Turn the network back on yourself in manual A,
+# or turn airplane mode off when you are done. This flow cannot do it for you without undoing the point of the test.
+#
+# STATUS: written, NOT run on a device. Selectors are unconfirmed.
+#   maestro test -e PHASE=prepare -e MOBILE_E2E_EMAIL=... -e MOBILE_E2E_PASSWORD=... <this file>
+appId: com.tarragonhealth.app
+name: Remote wipe and lease checklist
+env:
+  PHASE: "prepare"
+tags:
+  - offline
+  - device-lab
+  - privacy
+  - android
+  - manual-step
+---
+- runFlow:
+    when:
+      true: ${PHASE == 'prepare'}
+    commands:
+      - launchApp:
+          clearState: true
+      - extendedWaitUntil:
+          visible: "Email"
+          timeout: 30000
+      - tapOn: "Use email"
+      - tapOn: "Email"
+      - inputText: ${MOBILE_E2E_EMAIL}
+      - tapOn: "Password"
+      - inputText: ${MOBILE_E2E_PASSWORD}
+      - tapOn: "Sign in"
+      - extendedWaitUntil:
+          visible: "Today at a glance: your numbers, your care team, and recent activity."
+          timeout: 30000
+      - tapOn: "Vitals"
+      - extendedWaitUntil:
+          visible: "Save reading"
+          timeout: 15000
+      - setAirplaneMode: enabled
+      - tapOn: "Systolic"
+      - inputText: "119"
+      - tapOn: "Diastolic"
+      - inputText: "78"
+      - hideKeyboard
+      - tapOn: "Save reading"
+      - extendedWaitUntil:
+          visible: ".*waiting to send.*"
+          timeout: 10000
+      # Now follow manual A or manual B above.
+
+- runFlow:
+    when:
+      true: ${PHASE == 'verify_admin'}
+    commands:
+      - extendedWaitUntil:
+          visible: ".*care team asked for this phone to be cleared.*"
+          timeout: 120000
+      - assertNotVisible: ".*waiting to send.*"
+
+- runFlow:
+    when:
+      true: ${PHASE == 'verify_lease'}
+    commands:
+      - extendedWaitUntil:
+          visible: ".*did not connect for.*days.*"
+          timeout: 60000
+      - assertNotVisible: ".*waiting to send: [1-9].*"

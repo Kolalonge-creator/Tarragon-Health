@@ -72,11 +72,11 @@ begin
   insert into public.lab_providers
     (name, home_collection, regions, is_active, integration_status, accreditation,
      cost_basis, cost_basis_verified_at, cost_basis_verified_by, cost_basis_note,
-     compliance_owner_profile_id, status_notes, license_type, license_number)
+     compliance_owner_profile_id, status_notes, license_type, license_number, license_verified_at, license_expires_at)
   values
     ('Scoping Test Lab', true, array['Lagos'], true, 'manual', 'ISO 15189',
      'contracted_invoice', now(), v_admin, 'SCOPE_TEST_NEGOTIATED_RATE_EVIDENCE',
-     v_admin, 'SCOPE_TEST_INTERNAL_NOTE', 'NAFDAC', 'SCOPE-LAB-0001')
+     v_admin, 'SCOPE_TEST_INTERNAL_NOTE', 'NAFDAC', 'SCOPE-LAB-0001', now(), now() + interval '1 year')
   returning id into v_lab_id;
 
   insert into public.pharmacy_partners

@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatKobo } from "@/lib/format-money";
 import { STATE_LABEL, adminPayoutRowsSchema, stateVariant } from "@/lib/payouts/payouts";
+import { WithholdingForm } from "@/components/earnings/dispute-forms";
 import { BuildDraftsForm, PayoutRowActions } from "./payout-forms";
 
 /**
@@ -11,8 +12,14 @@ import { BuildDraftsForm, PayoutRowActions } from "./payout-forms";
  */
 export async function AdminPayoutsView() {
   const supabase = await createClient();
-  const [list, guard] = await Promise.all([supabase.rpc("list_payouts"), supabase.rpc("go_live_guard_is_open", { p_key: "payouts_enabled" })]);
+  const [list, guard, withholdings] = await Promise.all([
+    supabase.rpc("list_payouts"),
+    supabase.rpc("go_live_guard_is_open", { p_key: "payouts_enabled" }),
+    supabase.from("payouts").select("id, withholding_kobo, withholding_note").gt("withholding_kobo", 0),
+  ]);
   const rows = list.error ? null : adminPayoutRowsSchema.safeParse(list.data);
+  // Withholding is typed in by a person (S30b) and stored; a failed read is shown, never treated as "none".
+  const held = new Map((withholdings.data ?? []).map((w) => [w.id, w.withholding_kobo]));
   const open = guard.error ? false : guard.data === true;
 
   return (
@@ -53,6 +60,11 @@ export async function AdminPayoutsView() {
                   {r.failure_reason && <span className="text-red-600">{r.failure_reason}</span>}
                   {r.reference && <span>Ref {r.reference}</span>}
                 </div>
+                {withholdings.error && <p role="alert" className="text-xs text-red-600">Withholding amounts could not be loaded.</p>}
+                {(held.get(r.id) ?? 0) > 0 && r.state !== "draft" && (
+                  <p className="text-xs text-red-600">Withholding {formatKobo(held.get(r.id) ?? 0)} is entered on this payout. It cannot be sent until the withholding rules are decided.</p>
+                )}
+                {r.state === "draft" && <WithholdingForm payoutId={r.id} current={held.has(r.id) ? String((held.get(r.id) ?? 0) / 100) : ""} />}
                 <PayoutRowActions row={r} />
               </div>
             ))

@@ -143,7 +143,7 @@ function EntryForm({ order, panels, correctsId }: { order: PortalOrder; panels: 
             <Label htmlFor={`kind-${order.order_id}`}>What kind of change is this?</Label>
             <Select id={`kind-${order.order_id}`} name="kind" defaultValue="corrected" className={TOUCH}>
               {CORRECTION_KINDS.map((k) => (
-                <option key={k} value={k}>{k === "corrected" ? "A value was wrong (corrected)" : k === "amended" ? "A value or note changed (amended)" : "More results added (appended)"}</option>
+                <option key={k} value={k}>{k === "corrected" ? "A value was wrong (corrected)" : k === "amended" ? "A value or note changed (amended)" : k === "finalised" ? "The final result for an earlier preliminary one (final)" : "More results added (appended)"}</option>
               ))}
             </Select>
           </div>
@@ -217,6 +217,13 @@ function EntryForm({ order, panels, correctsId }: { order: PortalOrder; panels: 
         <Label htmlFor={`file-${order.order_id}`}>Lab report (PDF or photo, optional)</Label>
         <Input id={`file-${order.order_id}`} type="file" name="file" accept={LAB_RESULT_FILE_ACCEPT} className={TOUCH} />
       </div>
+
+      {correctsId ? null : (
+        <label className="flex items-start gap-2 text-sm">
+          <Input type="checkbox" name="preliminary" className="mt-1 h-5 w-5" />
+          <span>This is a preliminary result. It is held for the care team and is not shown to the patient. Send the final result as a correction of kind final when it is ready.</span>
+        </label>
+      )}
 
       {state?.error ? <p role="alert" className="text-sm text-red-700">{state.error}</p> : null}
       <Button type="submit" className={TOUCH} disabled={pending}>

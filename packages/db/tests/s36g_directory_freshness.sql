@@ -72,7 +72,7 @@ begin
   v_pat := pg_temp.mkuser(v_org, 'pat', 'patient');
   insert into public.user_permission_grants (profile_id, permission_key, granted_by) values
     (v_ops, 'ops.console.view', v_admin), (v_lab, 'partners.labs.manage', v_admin), (v_pharm, 'partners.pharmacies.manage', v_admin);
-  insert into public.lab_providers (name, is_active) values ('S36g Test Lab', true) returning id into v_lp;
+  insert into public.lab_providers (name, is_active, license_number, license_verified_at, license_expires_at, accreditation) values ('S36g Test Lab', true, 'S27H-PROOF-1', now(), now() + interval '1 year', 'ISO 15189') returning id into v_lp;
   insert into public.pharmacy_partners (name, is_active, onboarding_status) values ('S36g Test Pharmacy', true, 'activated') returning id into v_pp;
   perform pg_temp.setf('admin', v_admin); perform pg_temp.setf('ops', v_ops); perform pg_temp.setf('labmgr', v_lab);
   perform pg_temp.setf('pharmmgr', v_pharm); perform pg_temp.setf('doc', v_doc); perform pg_temp.setf('pat', v_pat);

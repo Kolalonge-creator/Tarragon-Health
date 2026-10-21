@@ -140,7 +140,7 @@ begin
     (v_patient_a, v_caregiver_ok,      'manage', v_patient_a, array['book_appointments']::public.caregiver_permission[]),
     (v_patient_a, v_caregiver_no_perm, 'manage', v_patient_a, array['view_results']::public.caregiver_permission[]);
 
-  insert into public.lab_providers (name, is_active) values ('LLR Fixture Lab', true)
+  insert into public.lab_providers (name, is_active, license_number, license_verified_at, license_expires_at, accreditation) values ('LLR Fixture Lab', true, 'S27H-PROOF-1', now(), now() + interval '1 year', 'ISO 15189')
   returning id into v_provider;
 
   insert into public.lab_provider_locations (lab_provider_id, name, state, address, is_active)
