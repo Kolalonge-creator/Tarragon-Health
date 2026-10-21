@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { rpcParsed } from "@/lib/rota/rpc";
-import { activePagesSchema, myReadinessSchema, pagingCountsSchema, pagingHealthSchema, pagingOverviewSchema, readinessOverviewSchema, redPatientResponseSchema, type ActivePage, type MyReadiness, type PagingCounts, type PagingHealth, type PagingOverviewRow, type ReadinessOverviewRow, type RedPatientResponse } from "./schemas";
+import { activePagesSchema, myReadinessSchema, myShiftStartTestsSchema, shiftStartOverviewSchema, type MyShiftStartTests, type ShiftStartOverviewRow, pagingCountsSchema, pagingHealthSchema, pagingOverviewSchema, readinessOverviewSchema, redPatientResponseSchema, type ActivePage, type MyReadiness, type PagingCounts, type PagingHealth, type PagingOverviewRow, type ReadinessOverviewRow, type RedPatientResponse } from "./schemas";
 
 export async function getMyActivePages(): Promise<ActivePage[]> {
   return rpcParsed(await createClient(), "my_active_pages", {}, activePagesSchema);
@@ -40,6 +40,24 @@ export async function getRedPatientResponse(source: { page: string } | { task: s
       "page" in source ? { p_page: source.page } : { p_task: source.task },
       redPatientResponseSchema,
     );
+  } catch {
+    return null;
+  }
+}
+
+/** Never throws: if the database change is not live yet the screen simply omits the shift-start section. */
+export async function getMyShiftStartTests(): Promise<MyShiftStartTests | null> {
+  try {
+    return await rpcParsed(await createClient(), "my_shift_start_tests", {}, myShiftStartTestsSchema);
+  } catch {
+    return null;
+  }
+}
+
+/** Reviewers only; null for anyone else or when the read fails. */
+export async function getShiftStartOverview(): Promise<ShiftStartOverviewRow[] | null> {
+  try {
+    return await rpcParsed(await createClient(), "shift_start_tests_overview", {}, shiftStartOverviewSchema);
   } catch {
     return null;
   }

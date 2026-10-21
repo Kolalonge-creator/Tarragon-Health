@@ -1193,6 +1193,30 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S16-S20-pager-delivery.md; docs/plans/S16-S20-review-and-build-plan.md section 5, decisions 9, 10, 11, 15",
   },
   {
+    key: "shift_start.test_rules",
+    // Shift-start test page (migration 20261016190204). Live values are the active row of `shift_start_test_config`; this entry mirrors it
+    // and a test fails if the migration seed and this value drift. lead_minutes: the test page goes to the primary and the backup this long
+    // before the shift starts. grace_minutes: the shift is counted as not covered if a test page is still unacknowledged this long after
+    // the shift starts (the deadline). undelivered_after_minutes: a test page with no receipt on any device or screen after this long is
+    // shown to the clinician as "not reached you" with instructions. late_send_minutes: a shift that started less than this long ago, with
+    // no test yet (a tick was missed), still gets one; an older shift never does, so switching the guard on does not disturb a running shift.
+    // max_per_run: test pages sent per one-minute tick. proof_lookback_days: the go-live guard wants a test page acknowledged this recently.
+    // The feature itself is OFF until the CMO switches the go-live guard `shift_start_test` on.
+    value: {
+      lead_minutes: 10,
+      grace_minutes: 15,
+      undelivered_after_minutes: 5,
+      late_send_minutes: 3,
+      max_per_run: 20,
+      proof_lookback_days: 30,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/build-shift-start-test.md; docs/research/build-shift-start-test.md",
+  },
+  {
     key: "paging.delivery_rules_v2",
     // The same delivery rules with objective on-call readiness SWITCHED ON (a working push subscription, a verified email and a recent
     // acknowledged test page to be put on the rota; swaps are never blocked). Shipped as an INACTIVE, unsigned row (paging_delivery_config
@@ -3638,6 +3662,28 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S07y.md; supabase/migrations/20261020184217_s07y_home_cuff_vs_clinic_check.sql. No guideline fixes these numbers: the 5 mmHg diastolic figure echoes common device-validation mean-difference limits, the rest are engineering proposals.",
   },
   {
+    key: "bp.cuff_sizing",
+    // S07y. PROPOSED, unsigned. Arm circumference (whole cm, rounded half up) to cuff size, from the published AHA 2019 and ESH 2023 cuff-size tables (docs/research/S07y.md).
+    // Live value is the active, signed row of `bp_cuff_guidance_signoffs`.config; cuff-sizing-mirror.test.ts fails if the migration seed and this value drift.
+    // The CMO checks the ranges against the Nigerian guideline (NG-2023 section 3.1.1) before signing. The wording lives in packages/i18n (hc.cuff.*); wordingSha256 pins it (cuff-wording-pin.test.ts), so changing a word needs a new version and a new signature.
+    value: {
+      "sizes": [
+        { "key": "small_adult", "minCm": 22, "maxCm": 26 },
+        { "key": "adult", "minCm": 27, "maxCm": 34 },
+        { "key": "large_adult", "minCm": 35, "maxCm": 44 },
+        { "key": "extra_large", "minCm": 45, "maxCm": 52 }
+      ],
+      "measureMinCm": 15,
+      "measureMaxCm": 60,
+      "wordingSha256": "1179c39d263814d87b9563886afd9fc18f2764d58368f29f0bb53318033162cf"
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/research/S07y.md; AHA 2019 (Muntner) and ESH 2023 (Mancia) cuff-size tables; supabase/migrations/20261021113725_s07y_cuff_guidance_and_bp_band_report.sql",
+  },
+  {
     key: "offline.trust",
     // S06x. PROPOSED: how long a phone may go without checking in before its encrypted-store key lease expires and it does its last upload
     // attempt and wipes (D3 in docs/plans/S06-S10-cmo-decisions-2026-10-07.md says 30 days; the server column
@@ -3699,6 +3745,22 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-20",
     source: "docs/design/S06y-freshness.md; docs/plans/S06-S10-competitor-gap-and-build-plan.md section 5 (S06x offline trust)",
     guardPatterns: ["stale\\w*hours?\\s*[=:]\\s*24\\b"],
+  },
+  {
+    key: "offline.reconnect_power",
+    // S06z. PROPOSED: the least gap between two reconnect-triggered flushes of everything waiting on the phone (a flapping signal must not
+    // start a flush every few seconds), and the battery level at or below which the phone counts as low on power. At low power or in the
+    // phone's battery saver the app skips non-essential pulls and the bulk health-sample upload; saving a reading and sending an urgent
+    // entry are never delayed. Nobody has judged these two numbers clinically or on a real handset.
+    value: {
+      reconnect_flush_min_gap_seconds: 20,
+      low_battery_percent: 15,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/design/S06.md, docs/design/S06x.md section 5, branch s06z/reconnect-flush-and-power",
   },
   {
     key: "my_health.sharing_and_access_log",
@@ -3835,6 +3897,21 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-13",
     source: "docs/OPEN-QUESTIONS.md OQ-89; docs/design/S11-S15-p6-coverage.md",
+  },
+  {
+    key: "triage.threshold_override_policy",
+    // N-overrides: clinician-signed personal thresholds. Live value is the active row of `threshold_override_policies` (born unsigned: nothing can be proposed until the CMO
+    // signs it); this entry mirrors the v1 seed and a test fails on drift. The safety CLAMPS (how far a line may move) are code, not config: OVERRIDE_LIMITS in
+    // supabase/functions/_shared/clinical/threshold-override.ts, mirrored by private.threshold_override_limits().
+    //  maxDays: the longest an override may run before it returns to the signed default by itself.
+    //  reviewDays: the monthly review cadence (the review date, never the expiry, moves at review).
+    //  reviewTaskDueMinutes: how long the routine review task has to be done.
+    value: { maxDays: 90, reviewDays: 30, reviewTaskDueMinutes: 4320 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/build-threshold-overrides.md",
   },
   {
     key: "triage.glucose_monitor",
@@ -4110,6 +4187,34 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S70-2 (branch docs/s70-s75-decisions), OQ-310; docs/plans/S66-S70-cmo-signoff-pack.md A12",
+  },
+  {
+    key: "devices.cgm_agp",
+    // Display-only continuous glucose profile (ambulatory glucose profile layout) for the patient and the clinician. It never creates a task or a
+    // page: the sustained-event rules above stay the only CGM safety path. The five range bands follow the International Consensus on Time in
+    // Range (secondary source, primary text not read). The pattern numbers are product choices, PROPOSED, for the CMO to confirm or change:
+    // a window is only named when enough days of that time of day were recorded, and the words it produces describe readings, never a cause
+    // and never a dose. percentiles 15 and 75 copy the example report the founder shared (its legend names the 15th and 75th); the usual AGP uses
+    // 25 and 75 with 5 and 95 as an outer band, so the CMO should confirm which one clinicians expect. dedupe_minutes drops a reading that follows
+    // another by less than that, so one sensor reaching us by two routes is not counted twice.
+    value: {
+      window_days: 14,
+      timezone: "Africa/Lagos",
+      bin_minutes: 30,
+      slot_minutes: 15,
+      min_active_pct: 70,
+      min_days_with_data: 10,
+      min_readings_per_bin: 20,
+      dedupe_minutes: 2,
+      band_edges_mmol_l: { very_low: 3.0, low: 3.9, high: 10.0, very_high: 13.9 },
+      percentiles: { lower: 15, upper: 75 },
+      pattern: { min_run_minutes: 120, low_share_pct: 10, high_share_pct: 50 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "Founder request 2026-10-21 (glucose profile for the diabetes chat); International Consensus on Time in Range; docs/DECISIONS.md S70-2 for the sustained-event path it sits beside",
   },
   {
     key: "devices.ecg_alert",

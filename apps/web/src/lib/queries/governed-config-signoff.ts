@@ -48,6 +48,7 @@ export const GOVERNED_CONFIG_TABLES = [
     slug: "clinical-config-versions",
   },
   { table: "prn_limit_rules", title: "As-needed medicine limits", slug: "prn-limit-rules" },
+  { table: "medicine_interaction_rule_sets", title: "Medicine interaction rules", slug: "medicine-interaction-rules" },
   { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
   { table: "cuff_check_rules", title: "Home cuff vs clinic cuff check", slug: "cuff-check-rules" },
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
@@ -65,6 +66,7 @@ export const GOVERNED_CONFIG_TABLES = [
   },
   { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
   { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
+  { table: "bp_cuff_guidance_signoffs", title: "Home blood pressure cuff sizes", slug: "cuff-guidance" },
 ] as const;
 
 /** Tables that hold one live row per kind rather than one live row in total. */
