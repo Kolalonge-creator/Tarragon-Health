@@ -1324,6 +1324,8 @@ s06z_my_phones.sql
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted; only open sev1/sev2 incidents counted. Sabotage: without the status filter the done delivery would count.
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted only from the last 24 hours; only open sev1/sev2 incidents counted. Sabotage: the function is replaced by one without the pending filter and the window; the checks must flip.
 oq436_deadman_status.sql
+# Emergency card lock-screen picture (LSI-1): record_emergency_card_image is the audit door the picture routes call first. The option is off by default; the door refuses while it is off (no card row included), for another person's switch, and for clinician, admin, signed-out and anon; opted in it writes one audit row holding only the two choices. Sabotage: the opt-in check, the audit call and the role gate each removed; each must flip.
+lsi1_emergency_card_image_audit.sql
 # S46d health report completion: CMO-only anti-HBs threshold signing, panel v3 anti_hbs clinician add-on (optional, unpriced, not sensitive), report settings v3 unsigned, share link carries only the latest SIGNED report with risk band / questionnaires / reproductive screening / doctor text / blood-borne codes removed, PIN, revoke, no supporter read. Sabotage: unfiltered body, code filter off, signer check off; all must flip.
 s46d_health_report_completion.sql
 # --- Added 2026-10-20 (S47a observation types and safety) ---
