@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Switch, Text, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
 import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
-import { estimatedBreakdown, formatNaira, type FeeEstimateSchedule, type Quote } from "@tarragon/commerce";
+import { arrangeItems, estimatedBreakdown, formatNaira, isTier, ladderActive, monthlyFramingKobo, panelIncluded, UPGRADE_CODE, type FeeEstimateSchedule, type Quote } from "@tarragon/commerce";
 import { getProposedConfig, type ConfigValue } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { loadCatalogue, loadMembership, loadMyOrders, loadQuote, startCheckout, verifyOrder } from "@/lib/commerce/api";
@@ -129,26 +129,44 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   }
 
   if (!loaded) return <ActivityIndicator />;
+  // The Evergreen ladder (founder decision 2026-10-21): two equal cards that state the annual blood panel first. A current Evergreen
+  // member sees only the upgrade. Before the database serves the Evergreen item this is exactly the single-Membership screen.
+  const ladder = ladderActive(items);
+  const tierNow = !beneficiary && isTier(membership.tier) ? membership.tier : null;
+  const arranged = arrangeItems(items, { tier: tierNow, isMember: !beneficiary && membership.isMember, inGrace: false, forSomeoneElse: beneficiary !== undefined });
+  const visible = [...arranged.tierCards, ...(arranged.upgrade ? [arranged.upgrade] : []), ...arranged.others];
   return (
     <View style={{ gap: 12 }}>
       {beneficiary ? null : <EntitlementsSection refreshKey={entKey} />}
       <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{beneficiary ? tr("circle.pay.who", { name: beneficiary.name }) : tr("shop.title")}</Text>
       {beneficiary ? <MutedText>{tr("circle.pay.note", { name: beneficiary.name })}</MutedText> : null}
       {beneficiary ? <MutedText>{tr("circle.pay.only_year")}</MutedText> : null}
-      {!beneficiary && membership.isMember && membership.endsAt ? <MutedText>{tr("shop.member_until", { date: lagos(membership.endsAt) })}</MutedText> : null}
+      {!beneficiary && membership.isMember && membership.endsAt ? (
+        <MutedText>{ladder && tierNow === "plus" ? tr("shop.tier.you_have_plus", { date: lagos(membership.endsAt) }) : ladder && tierNow === "evergreen" ? tr("shop.tier.you_have_evergreen", { date: lagos(membership.endsAt) }) : tr("shop.member_until", { date: lagos(membership.endsAt) })}</MutedText>
+      ) : null}
+      {ladder && !(membership.isMember && !beneficiary) ? (
+        <View style={{ gap: 4 }}>
+          <Text style={{ color: colors.ink }}>{tr("shop.tier.same_care")}</Text>
+          <MutedText>{tr("shop.tier.urgent_same")}</MutedText>
+        </View>
+      ) : null}
       {!beneficiary && membership.graceEndsAt ? <MutedText>{tr("shop.in_grace", { date: lagos(membership.graceEndsAt) })}</MutedText> : null}
       {items.length === 0 ? <MutedText>{tr("shop.not_open")}</MutedText> : null}
-      {items.filter((item) => !beneficiary || item.kind === "membership").map((item) => {
+      {visible.filter((item) => !beneficiary || item.kind === "membership").map((item) => {
         const q = quotes[item.code];
         const pointsLine = q?.points?.lines.find((l) => l.rule === "points" && l.applied) ?? null;
         const pointsOn = usePoints[item.code] === true && pointsLine !== null;
         const quote = (pointsOn ? q?.points : q?.plain) ?? null;
         const b = estimatedBreakdown(quote?.amountDueKobo ?? item.amountKobo, fee);
-        const blocked = !beneficiary && item.kind === "membership" && membership.isMember;
+        // The upgrade is bought BY a current member, so being one never blocks it.
+        const blocked = !beneficiary && item.kind === "membership" && membership.isMember && item.code !== UPGRADE_CODE;
+        const tierCard = ladder && panelIncluded(item.code) !== null;
         return (
           <Card key={item.code}>
-            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{copy(item.nameKey)}</Text>
+            {tierCard ? <MutedText>{tr(panelIncluded(item.code) ? "shop.tier.panel_yes" : "shop.tier.panel_no")}</MutedText> : null}
+            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{tierCard ? tr(panelIncluded(item.code) ? "shop.tier.evergreen_plus.name" : "shop.tier.evergreen.name") : copy(item.nameKey)}</Text>
             <MutedText>{copy(item.descriptionKey)}</MutedText>
+            {tierCard ? <MutedText>{tr("shop.tier.monthly", { amount: naira(monthlyFramingKobo(quote?.amountDueKobo ?? item.amountKobo)) })}</MutedText> : null}
             <Text style={{ fontWeight: "600", color: colors.ink, marginTop: 8 }}>{tr("shop.included")}</Text>
             {item.includedKeys.map((k) => (
               <Text key={k} style={{ color: colors.ink }}>{`• ${copy(k)}`}</Text>
@@ -172,7 +190,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
               </View>
             ) : null}
             <MutedText>{tr("shop.no_renew")}</MutedText>
-            {blocked ? null : <PrimaryButton title={busy === item.code ? tr("shop.paying") : tr("shop.pay")} onPress={() => confirmGift(item)} disabled={busy !== null} />}
+            {blocked ? null : <PrimaryButton title={busy === item.code ? tr("shop.paying") : item.code === UPGRADE_CODE ? tr("shop.tier.upgrade.pay") : tr("shop.pay")} onPress={() => confirmGift(item)} disabled={busy !== null} />}
           </Card>
         );
       })}

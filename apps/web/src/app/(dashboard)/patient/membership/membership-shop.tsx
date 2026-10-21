@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-error";
 import { formatPatientDate } from "@/lib/format-date";
+import { arrangeItems, isTier, ladderActive, monthlyFramingKobo, panelIncluded, UPGRADE_CODE } from "@/lib/commerce/tiers";
 import { checkoutErrorKey, isCoveredReply, isMessageKey, orderStateKey, type CatalogueItem, type OrderRow } from "@/lib/commerce/model";
 import { CheckoutError, useCatalogue, useInstalmentPolicy, useMyInstalmentPlans, useMyMembership, useMyOrders, useQuote, useStartCheckout } from "@/lib/queries/commerce";
 import { InstalmentChoice, InstalmentSummary, type PayMode } from "./instalment-choice";
@@ -43,7 +44,7 @@ const goTo: Go = (url) => window.location.assign(url);
 /** Set when a supporter pays for someone in their Care Circle (S29): the order is for them, the card is the payer's own. */
 export interface Beneficiary { readonly id: string; readonly name: string }
 
-function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiaryName }: { item: CatalogueItem; locale: Locale; fee: FeeEstimateSchedule; memberUntil: string | null; go: Go; beneficiary: string | undefined; beneficiaryName: string | undefined }) {
+function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiaryName, ladder }: { item: CatalogueItem; locale: Locale; fee: FeeEstimateSchedule; memberUntil: string | null; go: Go; beneficiary: string | undefined; beneficiaryName: string | undefined; ladder: boolean }) {
   const start = useStartCheckout();
   // One key per card, made on first use and kept, so a double tap or a retry after a dropped connection is the SAME order.
   const clientKey = useRef<string | null>(null);
@@ -64,7 +65,9 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
   const quote = (pointsOn ? pointsQuote : (quoteQuery.data ?? null)) ?? null;
   const shownKobo = quote?.amountDueKobo ?? item.amount_kobo;
   const b = estimatedBreakdown(shownKobo, fee);
-  const blocked = item.kind === "membership" && memberUntil !== null;
+  // The upgrade is bought BY a current member, so being one never blocks it.
+  const blocked = item.kind === "membership" && memberUntil !== null && item.code !== UPGRADE_CODE;
+  const tierCard = ladder && panelIncluded(item.code) !== null;
   const codeFailed = appliedCode !== null && quote !== null && quote.discountCodeOk === false;
   // S71 (19.5): a sponsor pays the whole price. There is then no payment step at all: no fee, no code box, no card, and the button says what it does.
   const covered = quote?.coveredInFull === true && !codeFailed;
@@ -79,7 +82,8 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
   // price (no code, no points, no sponsor share). The database refuses anything else, so this only keeps the screen honest.
   const instalmentPolicy = useInstalmentPolicy().data ?? null;
   const [payMode, setPayMode] = useState<PayMode>("full");
-  const partsOffered = instalmentPolicy !== null && instalmentPolicy.open && item.kind === "membership" && beneficiary === undefined && !blocked && !covered
+  // The two paid tiers are one yearly payment only: no instalments, no monthly payment (founder decision 2026-10-21).
+  const partsOffered = !ladder && instalmentPolicy !== null && instalmentPolicy.open && item.kind === "membership" && beneficiary === undefined && !blocked && !covered
     && appliedCode === null && !pointsOn && (quote === null || (quote.sponsorShareKobo === 0 && quote.amountDueKobo === item.amount_kobo));
   const partsMode = partsOffered && payMode === "parts";
 
@@ -118,18 +122,22 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{copy(item.name_key, locale)}</CardTitle>
+        {tierCard ? (
+          <p className="text-xs font-semibold uppercase tracking-wide">{t(panelIncluded(item.code) ? "shop.tier.panel_yes" : "shop.tier.panel_no", locale)}</p>
+        ) : null}
+        <CardTitle>{tierCard ? t(panelIncluded(item.code) ? "shop.tier.evergreen_plus.name" : "shop.tier.evergreen.name", locale) : copy(item.name_key, locale)}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p>{copy(item.description_key, locale)}</p>
-        <section aria-labelledby={`incl-${item.code}`}>
+        {tierCard ? <p className={MUTED}>{t("shop.tier.monthly", locale, { amount: `\u20A6${formatNaira(monthlyFramingKobo(shownKobo))}` })}</p> : null}
+        <div role="group" aria-labelledby={`incl-${item.code}`}>
           <h3 id={`incl-${item.code}`} className="font-medium">{t("shop.included", locale)}</h3>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             {item.included_keys.map((k) => (
               <li key={k}>{copy(k, locale)}</li>
             ))}
           </ul>
-        </section>
+        </div>
         <p><Link href={`/patient/membership/${item.code}`} className="underline">{t("shop.see_included", locale)}</Link></p>
         {coveredDone ? (
           <section aria-labelledby={`covered-done-${item.code}`} className="space-y-1" role="status">
@@ -168,7 +176,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
             ) : null}
             {quote?.sponsorBudgetShort ? <p role="status">{t("sponsor.budget_short", locale)}</p> : null}
             {itemised ? (
-              <section aria-labelledby={`itemised-${item.code}`} className="space-y-2">
+              <section role={ladder ? "group" : undefined} aria-labelledby={`itemised-${item.code}`} className="space-y-2">
                 <h3 id={`itemised-${item.code}`} className="font-medium">{t("checkout.itemised.title", locale)}</h3>
                 <ul className="space-y-1">
                   {itemised.lines.map((l, i) => {
@@ -250,7 +258,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
               <p role="status">{t("shop.member_until", locale, { date: formatPatientDate(memberUntil) })}</p>
             ) : (
               <Button type="button" className={TOUCH} onClick={pay} disabled={start.isPending}>
-                {start.isPending ? t("shop.paying", locale) : t("shop.pay", locale)}
+                {start.isPending ? t("shop.paying", locale) : item.code === UPGRADE_CODE ? t("shop.tier.upgrade.pay", locale) : t("shop.pay", locale)}
               </Button>
             )}
           </>
@@ -336,6 +344,12 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary }: { locale
   const graceEnds = inGrace ? membership.data?.grace_ends_at ?? null : null;
   const items = catalogue.data ?? [];
   const profiles = lovedOnes.data ?? [];
+  const ladder = ladderActive(items);
+  const rawTier = membership.data?.tier;
+  const tierNow = !chosenId && isTier(rawTier) ? rawTier : null;
+  const arranged = arrangeItems(items, { tier: tierNow, isMember: !chosenId && membership.data?.is_member === true, inGrace, forSomeoneElse: chosenId !== undefined });
+  const visible = [...arranged.tierCards, ...(arranged.upgrade ? [arranged.upgrade] : []), ...arranged.others].filter((item) => !chosenId || item.kind === "membership");
+  const memberDate = memberUntil ? formatPatientDate(memberUntil) : "";
 
   return (
     <div className="space-y-6">
@@ -346,7 +360,15 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary }: { locale
           <p className={MUTED}>{t("circle.pay.only_year", locale)}</p>
         </section>
       ) : null}
-      {memberUntil ? <p role="status">{t("shop.member_until", locale, { date: formatPatientDate(memberUntil) })}</p> : null}
+      {memberUntil ? (
+        <p role="status">{ladder && tierNow === "plus" ? t("shop.tier.you_have_plus", locale, { date: memberDate }) : ladder && tierNow === "evergreen" ? t("shop.tier.you_have_evergreen", locale, { date: memberDate }) : t("shop.member_until", locale, { date: memberDate })}</p>
+      ) : null}
+      {ladder && !memberUntil ? (
+        <div className="space-y-1">
+          <p>{t("shop.tier.same_care", locale)}</p>
+          <p className={MUTED}>{t("shop.tier.urgent_same", locale)}</p>
+        </div>
+      ) : null}
       {graceEnds ? <p role="status">{t("shop.in_grace", locale, { date: formatPatientDate(graceEnds) })}</p> : null}
       {!beneficiary && profiles.length > 0 ? (
         <fieldset>
@@ -365,9 +387,11 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary }: { locale
         </fieldset>
       ) : null}
       {catalogue.isSuccess && items.length === 0 ? <p>{t("shop.not_open", locale)}</p> : null}
-      {items.filter((item) => !chosenId || item.kind === "membership").map((item) => (
-        <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} beneficiary={chosenId} beneficiaryName={beneficiary?.name ?? profiles.find((p) => p.id === chosenId)?.full_name ?? undefined} />
-      ))}
+      <div className={ladder && arranged.tierCards.length > 1 ? "grid gap-6 md:grid-cols-2" : "space-y-6"} data-testid="shop-cards">
+        {visible.map((item) => (
+          <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} beneficiary={chosenId} ladder={ladder} beneficiaryName={beneficiary?.name ?? profiles.find((p) => p.id === chosenId)?.full_name ?? undefined} />
+        ))}
+      </div>
       <History rows={orders.data ?? []} locale={locale} kindByCode={new Map(items.map((i) => [i.code, i.kind]))} />
     </div>
   );
