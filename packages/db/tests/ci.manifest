@@ -682,8 +682,13 @@ ai_system_version_approval_retires_superseded_drafts.sql
 # proving a service-role caller (no auth.uid() at all -- cron jobs, internal
 # notification routes) still sees the view's rows, per
 # 20260925021440_fix_clinical_staff_directory_service_role_and_replay_guard.sql
+<<<<<<< HEAD
 # AVS after-visit summary: signature stamp and CHECKs, deterministic assembly, the one visibility rule (draft, withdrawn, unsigned note, amendment pending or signed, entered in error, unreleased protected note all hidden), caregiver permission, checklist tick-off and care task link, events with ids only, anon denied, with two sabotage steps.
 avs_visit_summaries.sql
+=======
+# PCC: post-consultation check-ins at 48 hours and 7 days (gates, scheduling, idempotency, Lagos due times, red-flag path, one alert, expiry, access, audit) with six sabotage steps.
+pcc_post_consult_checkins.sql
+>>>>>>> origin/main-dev
 # -- the original view's predicate resolved entirely through auth.uid()-
 # dependent helpers, so a service-role caller silently got zero rows, not an
 # error, breaking the quarterly-report cron's and the lab-order-request-pdf
@@ -1389,3 +1394,7 @@ s25b_membership_instalments.sql
 money_reconciliation_screen.sql
 # OQ-714: the patient price comparison is gone: no patient_price_compare function in any schema, a signed-in or anon call is 42883; the chooser function (authenticated yes, anon no), the care-team suggestion read, the shared matcher, the listable rule, the routing and verified-batch triggers and the catalogue columns all stay and work. Sabotage: a function by the retired name is planted and the first check's own query finds it.
 oq714_remove_patient_price_compare.sql
+# Money reconciliation daily alert (2026-10-21): a real mismatch opens ONE ops incident (deduplicated, refreshed not duplicated, kind and screen named), a test-order mismatch opens nothing, the scan writes no money, clients cannot run it or read its config, the job is scheduled, and the two settled-by-hand refund messages give the refund:<id> reference. Sabotage: de-duplication removed and the scan emptied; both must flip.
+money_reconciliation_daily_alert.sql
+# Money reconciliation menu badge (2026-10-21): an hourly snapshot of the mismatch count, read through a finance-only function that refuses a snapshot older than three hours or missing (never an old number), clients cannot read the table. Sabotage: staleness check and finance gate removed; the checks must flip.
+money_reconciliation_badge.sql

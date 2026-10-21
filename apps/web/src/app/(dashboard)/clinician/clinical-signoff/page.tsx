@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { POST_CHECKIN_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -44,6 +44,8 @@ import { OpsDeskConfigPanel } from "../_signoff-panels/ops-desk-config-panel";
 import { readPendingCapacityConfigSignoff } from "@/lib/queries/pending-capacity-config-signoff";
 import { PagingDeliveryConfigPanel, TaskLayerConfigPanel } from "../_signoff-panels/queue-paging-config-panel";
 import { readPagingActivationCheck, readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
+import { PostCheckinPanel } from "../_signoff-panels/post-checkin-panel";
+import { readPendingPostCheckinSignoff } from "@/lib/queries/pending-post-checkin-signoff";
 import { UnifiedRedPagingPanel } from "../_signoff-panels/unified-red-paging-panel";
 import { LegacyNoticeRetirementPanel } from "../_signoff-panels/legacy-notice-retirement-panel";
 import { readLegacyNoticeRetirementState } from "@/lib/queries/pending-legacy-notice-retirement-signoff";
@@ -249,6 +251,10 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has(CAPACITY_CONFIG_ITEM_KEY)) {
     const pendingCapacity = await readPendingCapacityConfigSignoff(supabase);
     inlinePanels[CAPACITY_CONFIG_ITEM_KEY] = <CapacityConfigPanel capacityVersion={pendingCapacity.capacityVersion} capacityRules={pendingCapacity.capacityRules} leadVersion={pendingCapacity.leadVersion} leadCapDraft={pendingCapacity.leadCapDraft} leadCapInForce={pendingCapacity.leadCapInForce} />;
+  }
+  if (keys.has(POST_CHECKIN_ITEM_KEY)) {
+    const pendingCheckin = await readPendingPostCheckinSignoff(supabase);
+    inlinePanels[POST_CHECKIN_ITEM_KEY] = <PostCheckinPanel version={pendingCheckin.version} rules={pendingCheckin.rules} />;
   }
   if (keys.has(THRESHOLD_POLICY_ITEM_KEY)) {
     const thresholds = await readThresholdHubState(supabase);

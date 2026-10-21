@@ -3890,6 +3890,7 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - Decision: informational.
 
 
+<<<<<<< HEAD
 ### OQ-AVS-1 The older consultation summary table is left in place
 - `consultation_patient_summaries` (2026-08-29, publish-once, patient reads by policy, staff read by policy) already gives a patient a short recap of a video visit. It has no draft, no approval stamp, no checklist, no amendment or protected-note handling and no event. The after-visit summary (AVS) is built as its successor on `visit_summaries`, and the Care tab shows the new card above the notes card. The old table, its publish function and the `consultation_summary_ready` notification are not touched or removed, so a patient can still see both for a visit published the old way.
 - Conservative default: do nothing to the old path in this PR. Decision needed (product): retire `publish_consultation_summary` once AVS is live, and whether to migrate the old rows (they would need a doctor to approve them again).
@@ -3933,6 +3934,61 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 
 ### OQ-AVS-9 Audit rows for a patient opening a summary
 - Opening a summary writes one `visit_summary.patient_read` audit row and one `visit_summary.viewed` event per summary, viewer and day (`record_visit_summary_opened`); reading the list writes nothing, so a refresh or a tick adds no rows. The count is a daily-open count, not a view count.
+=======
+## PCC: post-consultation check-ins at 48 hours and 7 days (docs/design/PCC.md)
+
+The CMO must sign the question wording, what each answer does and the offsets (check-in configuration version 1, on the CMO sign-off hub) before anything is sent, and an admin must then switch the `post_consult_checkins_enabled` guard on. Both start off. Nothing below was decided by an agent; each item states the conservative default that shipped.
+
+### OQ-PCC-1 Question wording, offsets and timing are PROPOSED
+- Four questions (how are you feeling, new or worsening symptoms, medicines as agreed, anything unclear), 48 hours and 7 days after the consultation ended, one reminder 24 hours after it opens, closed as not answered 48 hours after it opens, reminders only between 07:00 and 21:00 Africa/Lagos. Value: `consultations.post_checkin` (mirrored by `post_consult_checkin_config` version 1).
+- Decision: the CMO signs or asks for a new version.
+
+### OQ-PCC-2 What counts as a concern
+- Default: "worse", "new or worsening symptoms" and "I cannot take my medicines" each raise a clinician alert (one per check-in, level `clinician_review`); "missed some doses" and "something was unclear" make a task for the clinician on the visit; a danger phrase in the note opens the existing emergency path. The level can be raised to `urgent_escalation` in a new config version.
+- Decision: CMO.
+
+### OQ-PCC-3 No new alert type
+- Every alert reuses `symptom_escalation`, so it rides the existing `alert_rules` routing. (`medication_access_barrier` has no `alert_rules` entry and would sit unassigned, so "cannot take my medicines" is raised as `symptom_escalation` with its own title text.) `alert_raised` in the patient's result means an alert row was created; if routing marks it a duplicate of an open one the care team already has that alert. A dedicated `post_consult_checkin` type would need its own enum migration and a governed `alert_rules` entry.
+- Decision: open (CMO, only if the alerts should be filtered apart).
+
+### OQ-PCC-4 Clinician tasks are `care_tasks`, not `clinical_tasks`
+- A new `task_types` row would carry `needs_confirmation` and, as `crisis_follow_up` did (S57b), block approving any triage rule set until the CMO confirms it. The low-priority "not answered" task and the "help" task therefore use `care_tasks` owned by the consultation's clinician. They are not part of the S16 queue, claim or paging machinery.
+- Decision: open (CMO: should these become S16 task types?).
+
+### OQ-PCC-5 Only video, audio and phone consultations
+- Written (async) consultations are excluded; they have their own answer thread (S22). Confirmed by `encounter_types` in the config.
+- Decision: open.
+
+### OQ-PCC-6 Mobile has no native answer screen
+- The Today list knows the `consult_checkin` kind and opens Care, where the web link lives; the patient answers on the web page `/patient/consult-checkin/[id]` (also reachable from the notification). A native screen over `my_post_consult_checkin` and `answer_post_consult_checkin` is not built and was not run on a device.
+- Decision: product.
+
+### OQ-PCC-7 Patient who has already written to the care team
+- A pending (not yet opened) check-in is skipped when the patient sent a care message after the consultation within 24 hours before it falls due. A message from day 1 does not remove the day 7 check-in. An already-open check-in is never cancelled by a message. The cancel is not silent: the visit clinician gets a low-priority task saying the questions were not asked and why. The 24 hour window is `skip_if_patient_wrote_within_minutes` in the config.
+- Decision: CMO (should any message about the visit end the loop?).
+
+### OQ-PCC-8 The emergency event only alerts when its own entitlement check passes
+- `emergency_events` raises its clinician alert for patients with the doctor-escalation entitlement. A consultation is a paid Member item, but the check-in does not rely on that: if the event raised no alert, the answer function raises one itself. Reading `clinician_alert_id` back, rather than assuming, is why. LIMITATION: that fallback alert is created but NOT paged (the emergency trigger's own paging only runs on its entitlement path); it waits on the alert ladder's acknowledge timeout. Page the owner, or every admin if none, the way the care-message screen does, once a check-in-specific template exists.
+- Decision: informational.
+
+### OQ-PCC-9 Post-merge steps (not done by the author)
+- Apply the migration (merging auto-applies it); redeploy `send-pending-notifications` so `consult_checkin_due` and `consult_checkin_nudge` render (until then the in-app notice and the patient task still work); the CMO signs; an admin switches the guard on. Nothing is sent before the last two.
+
+### OQ-PCC-10 Who may read the answers
+- The consultation's clinician, and the clinician a flagged check-in's alert was routed to. Nobody else, including the CMO and admin (a break-glass read is the existing audited path). If the consultation's clinician has left and nothing was flagged, nobody can read a routine check-in; say if the lead clinician should.
+- Decision: CMO.
+
+### OQ-PCC-11 Old visits when the guard is first switched on
+- An offset whose whole window (due time plus the open window) has already passed is skipped, so switching the guard on never sends a burst of check-ins about old visits. A visit 3 days old still gets its 7 day check-in, and its 48 hour check-in if that window has not passed.
+- Decision: informational.
+
+### OQ-PCC-12 The danger-phrase list can over-trigger on a free-text note
+- The note is screened with the same list the care-message screen uses (`private.screen_care_message_for_emergency`), as the founder asked (reuse the existing deterministic check). A reflective note ("fitting back into my routine", "I swallowed the tablets fine") can match, which shows the hospital guidance and, if the patient does not acknowledge it, can message their emergency contact. Over-triggering is the accepted posture everywhere else this list is used. A note-specific list, or a confirm-first step before the emergency event, would need a CMO-signed phrase list.
+- Decision: CMO.
+
+### OQ-PCC-13 A late answer is taken
+- An answer that arrives after the sweep expired the check-in is still accepted (a red flag is never refused because the clock got there first); it cancels the care team's "not answered" task. A cancelled check-in is refused.
+>>>>>>> origin/main-dev
 - Decision: informational.
 ### OQ-700 Patient-first window for non-emergency check-in requests (raised by S29e) - CMO decision
 - Built, OFF: platform module `care_circle_checkin_window` (`public.set_platform_module`, superadmin only). A supporter holding `red_alerts` can ask a person to check in (`request_circle_check_in`). The patient alone is told first (in-app plus their own reminder channel) and has `checkin_window_minutes` (PROPOSED 5, config `care_circle.rules` v4) to tap "I am fine"; if they do not, the circle members holding `red_alerts` get a neutral notice (`circle_check_in_unanswered`, critical, no reading and no cause; it names the person so the supporter knows whom to call, as a red alert does). At most 3 requests a day from one supporter about one person (`checkin_max_per_day`).

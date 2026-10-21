@@ -242,9 +242,10 @@ begin
     (select count(*)::text from public.visit_summary_items where summary_id = s and source_table = 'prescriptions'));
   select id into v_item from public.visit_summary_items where summary_id = s and kind = 'medicine';
   perform pg_temp.setf('item_med', v_item);
-  perform pg_temp.ck('a good plain-language text saves', 'ok',
-    pg_temp.try_as(v_doc, format($q$select public.update_visit_summary_draft(%L, 'Your blood pressure was a little high today. Your care team asked you to take your tablet each morning and to check again next week.',
-       (select jsonb_agg(jsonb_build_object('id', id, 'kind', kind, 'params', params, 'custom_text', case when kind = 'custom' then 'Rest, then recheck' end)) from public.visit_summary_items where summary_id = %L) || jsonb_build_array(jsonb_build_object('kind','recheck','custom_text','Check your blood pressure at home again.','due_on','2026-11-03')))$q$, s, s)));
+  v_diag := pg_temp.try_as(v_doc, format($q$select public.update_visit_summary_draft(%L, 'Your blood pressure was a little high today. Your care team asked you to take your tablet each morning and to check again next week.',
+       (select jsonb_agg(jsonb_build_object('id', id, 'kind', kind, 'params', params, 'custom_text', case when kind = 'custom' then 'Rest, then recheck' end)) from public.visit_summary_items where summary_id = %L) || jsonb_build_array(jsonb_build_object('kind','recheck','custom_text','Check your blood pressure at home again.','due_on','2026-11-03')))$q$, s, s));
+  raise notice 'AVSDIAG4 good_text_save=%', v_diag;
+  perform pg_temp.ck('a good plain-language text saves', 'ok', v_diag);
 
   -- a client cannot write the table or forge the signature
   perform pg_temp.ck('a doctor cannot update the table directly', 'true',
