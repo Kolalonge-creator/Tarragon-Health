@@ -693,6 +693,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "circle_joined") {
     return { text: "Someone has joined your Care Circle", href: "/patient/care-circle" };
   }
+  if (n.template === "circle_consultation_invite") {
+    // CGJ: a patient invited this supporter to join one call. Fixed neutral line, no name, no time, no reason (INV-07).
+    return { text: "You have been invited to join a call", href: "/patient/supporting" };
+  }
   if (n.template === "circle_left") {
     return { text: "Someone has left your Care Circle", href: "/patient/care-circle" };
   }

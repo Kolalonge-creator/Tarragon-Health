@@ -1491,6 +1491,22 @@ export const TEMPLATE_MAP: Record<
       text: "Someone has joined your Care Circle.\n\nYou can change what they see, or remove them, at any time in Tarragon Health.\n\nTarragon Health",
     },
   }),
+  // CGJ: a Care Circle member was invited by the patient to join one call. Neutral by design (INV-07): no name, no time, no reason.
+  // The invite itself is on the person's own supporter page; nothing depends on this message being sent.
+  circle_consultation_invite: () => ({
+    smsText: "You have been invited to join a call. Tarragon Health",
+    pushUrl: "/patient/supporting",
+    email: {
+      subject: "You have been invited to join a call",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone in your Care Circle has invited you to join a call.</p>` +
+        `<p>Open Tarragon Health to see the invite and answer it.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone in your Care Circle has invited you to join a call.\n\nOpen Tarragon Health to see the invite and answer it.\n\nTarragon Health",
+    },
+  }),
   circle_left: () => ({
     smsText: "Someone has left your Care Circle. Tarragon Health",
     pushUrl: "/patient",

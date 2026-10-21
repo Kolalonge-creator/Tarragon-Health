@@ -4398,6 +4398,33 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 | OQ-366 | 2831, The go-live guard patches two shared functions (raised by S69) |
 | OQ-370 | 2737, Device capabilities need the CMO and an admin before anything switches on (raised by S70a) |
 | OQ-371 | 2741, Go-live uses `platform_modules`, not `go_live_guards` (raised by S70a) |
+### OQ-CGJ-1 A caregiver can join only inside the app's call, never by link or phone (raised by CGJ)
+- A Zoom link or a phone dial-in carries no participant key, so a person who joined that way could not be tied to the patient's invite, seen by the clinician as "Caregiver present", or revoked. The caregiver's join therefore uses the same in-app Meeting SDK path as the patient and clinician, with its own server-minted join credential and a key bound to the one invite. There is no link fallback and no dial-in for a caregiver.
+- Consequence: the feature is dead until the in-app call is live (`ZOOM_SDK_KEY`/`ZOOM_SDK_SECRET`, which today do not exist; OQ-136). The caregiver's page says so plainly instead of offering a way that cannot be attributed. The Expo app has no SDK, so a caregiver joins from the web browser (the supporter's invite card opens the web room).
+- The room passcode is a room-level secret that the SDK needs, so the caregiver is handed the same passcode as the patient. The waiting room stays on, so the clinician admits the guest. Decision needed: whether to make the caregiver wait in the waiting room explicitly (it already does, the host admits) or to require a per-participant passcode (Zoom offers none).
+- Conservative default: SDK only, no link, no phone. Decision: open (founder).
+
+### OQ-CGJ-2 Removing a caregiver who is already inside the video cannot be done from our server (raised by CGJ)
+- Zoom's REST API has no remove-participant call we could add to `VideoProvider` (the web SDK has none for a client that is not the host either; the clinician is the host in the embedded call). So "remove" does everything the platform controls: the pass is revoked for good, `service_get_caregiver_pass` and `service_record_caregiver_event` refuse it, the caregiver's page stops being available and their client leaves the call within its 10 second refresh, the person cannot be re-invited to that call, and an `encounter_events` row records it. A caregiver already inside the Zoom room is removed by the clinician in Zoom's own participant list, and the clinician panel tells them to.
+- A caregiver who keeps their client open and ignores the page refresh stays connected until the clinician expels them. A re-entry presenting the removed key is logged by `/api/zoom/webhook` (once `ZOOM_PRESENCE_WEBHOOK=1`).
+- To confirm on a live account: whether the Component View participants panel is shown to the host with a "Remove" action, and whether Zoom now offers an in-meeting-control REST call for removal.
+- Decision: open (engineering, after the first live call).
+
+### OQ-CGJ-3 The AI note-taker and a third person on the call (raised by CGJ)
+- Scribe consent stays the patient's own in-app answer; a caregiver can neither give nor withdraw it (proved). But when the patient allowed the AI note-taker, a guest's voice is on the same call. The caregiver's page says an AI note-taker may be on if the patient allowed it; there is no per-guest consent.
+- Conservative option not built: pause the scribe while a caregiver is present, or ask the guest. Decision needed from the CMO and the DPO before go-live.
+- Decision: open (CMO, DPO).
+
+### OQ-CGJ-4 Caregiver age (raised by CGJ)
+- The brief says caregivers are adults. A supporter-only account is never asked for a date of birth (so a fail-closed rule would exclude exactly the daughter or son abroad who supports a parent). Built: a KNOWN age under `minAgeYears` (18) is refused, a dependant's account is always refused, and an UNKNOWN age is allowed because config `requireDateOfBirth` is false (versioned, PROPOSED, `consultations.caregiver_join`). Flipping it to true is a new config row, not code.
+- The 18+ telemedicine gate for the PATIENT is untouched (`encounters_adult_gate`), and a minor patient's guardian flow stays S42's.
+- Decision: open (founder; confirm the unknown-age default).
+
+### OQ-CGJ-5 Wording of the new Care Circle permission is not in the reviewed-strings ledger (raised by CGJ)
+- The permission label (`consult.cg.perm`: "Joining a call with my care team, only when I invite them to that call") sits OUTSIDE the `circle.*` namespace on purpose. The reviewed-strings ledger covers `circle.*` and its backlog may not grow; a new `circle.perm.attend_consultation` would need a real reviewer and date that no agent can supply. So the label is unreviewed, not hidden: it is a consent-adjacent string.
+- Needs: the DPO or CMO to review the label and the invite copy (`consult.cg.*`); then either move the key under `circle.*` with a ledger entry or extend the ledger's namespaces.
+- Also: `circle_consultation_invite` is a new template in `send-pending-notifications/templates.ts`; the deployed edge function must be redeployed (it drifts) before the push/email text goes out. The in-app text and the page work without it.
+- Decision: open (CMO/DPO for the wording; ops for the deploy).
 
 ### OQ-705 Yearly proxy-access review: the proposed numbers and the silent-person rule (raised by the yearly review build, 2026-10-16)
 - PROPOSED in `proxy_review_config` v1 (mirrored as `proxy.annual_review`): a proxy or caregiver grant is due for review 12 months after it was given or last kept or narrowed; the reminder repeats every 30 days, at most 4 times in a cycle. Nothing is signed.
