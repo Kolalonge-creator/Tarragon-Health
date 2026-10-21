@@ -123,7 +123,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/payouts", "payout payouts weekly draft approve send paystack transfer bank account verified retry failed reversed clinician pay finance"],
   ["/clinician/payouts", "my payouts weekly statement bank account verify name tax tin withholding contractor paid transfer"],
   ["/clinician/earnings", "my earnings earned pay paid pending approved failed dispute question line statement pdf gross net withholding ledger fee schedule per task consultation on call shift lead month minimum top up correction"],
-  ["/clinician/on-call", "on call page paged priority case red event acknowledge alarm escalation"],
+  ["/clinician/on-call", "on call page paged priority case red event acknowledge alarm escalation shift start test page I received the test page"],
   ["/admin/settings/media-library", "meditation sleep story soundscape breathing exercise journal prompt library calm audio review date expired publish placeholder wellbeing content"],
   ["/admin/settings/crisis-helplines", "crisis helpline suicide self harm emergency 112 verify phone surpin mani she writes woman card mental wellbeing distress callback"],
   ["/admin/settings/clinical-staff", "doctor clinician staff mdcn roster verify"],

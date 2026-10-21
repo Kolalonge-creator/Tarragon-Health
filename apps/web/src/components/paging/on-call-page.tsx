@@ -2,11 +2,12 @@ import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Field, fieldClass, Flash, Hidden, Muted, Section, SubmitButton } from "@/components/credentialing/shared";
-import { acknowledgePage, acknowledgeTestPage, closePage, confirmReadiness, sendTestPage } from "@/lib/paging/actions";
+import { acknowledgePage, acknowledgeShiftStartTest, acknowledgeTestPage, closePage, confirmReadiness, sendTestPage } from "@/lib/paging/actions";
 import { TestPageReceipt } from "./test-page-receipt";
 import { GAP_LABELS, READINESS_ITEMS, type ReadinessKey } from "@/lib/paging/schemas";
 import { formatWaiting, pageHeadline } from "@/lib/paging/alarm";
-import { getMyActivePages, getMyReadiness, getRedPatientResponse } from "@/lib/paging/queries";
+import { getMyActivePages, getMyReadiness, getMyShiftStartTests, getRedPatientResponse, getShiftStartOverview } from "@/lib/paging/queries";
+import { CHANNEL_LABEL, describeShiftTest, formatLatency } from "@/lib/paging/shift-start";
 import { RedPatientAnswer } from "./red-patient-answer";
 import { formatLagos } from "@/lib/rota/time";
 import { firstParam, type SearchParams } from "@/lib/credentialing/params";
@@ -16,7 +17,7 @@ const RETURN_TO = "/clinician/on-call";
 /** The clinician's open red event pages. Acknowledging stops the escalation; closing needs a note and ends the chart access the page gave. */
 export async function OnCallPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const [pages, readiness] = await Promise.all([getMyActivePages(), getMyReadiness()]);
+  const [pages, readiness, shiftTests, shiftOverview] = await Promise.all([getMyActivePages(), getMyReadiness(), getMyShiftStartTests(), getShiftStartOverview()]);
   // one card per event: the family of pages (primary, backup, escalation) is one case
   const roots = [...new Map(pages.map((p) => [p.root_id, p])).values()];
   // CMO Q13: what each patient said about seeking care, no identity attached
@@ -77,6 +78,64 @@ export async function OnCallPage({ searchParams }: { searchParams: SearchParams 
           </form>
         )}
       </Section>
+      {shiftTests && shiftTests.guard_on && shiftTests.tests.length > 0 ? (
+        <Section
+          title="Shift-start test page"
+          hint={`Shortly before an on-call shift, a test page is sent the same way a real one would be. Tap the button when it reaches you. Until you do, within ${shiftTests.grace_minutes ?? 15} minutes of the start, the shift is not counted as covered. The test page never contains patient information.`}
+        >
+          {shiftTests.tests.map((t) => {
+            const v = describeShiftTest(t);
+            return (
+              <div key={t.id} className="space-y-2 rounded-md border p-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={v.badge}>{t.state === "acknowledged" ? "Confirmed" : t.state === "missed" ? "Not confirmed in time" : "Waiting for you"}</Badge>
+                  <span>
+                    {t.role === "primary" ? "Primary" : "Backup"}, shift starts {formatLagos(t.shift_starts_at)}
+                  </span>
+                </div>
+                <p>{v.headline}</p>
+                {t.state === "acknowledged" ? (
+                  <p className="text-xs text-muted-foreground">
+                    Received by {CHANNEL_LABEL[t.ack_channel ?? ""] ?? "an unrecorded route"}. Shown after {formatLatency(t.shown_latency_seconds)}, acknowledged after {formatLatency(t.ack_latency_seconds)}.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Acknowledge by {formatLagos(t.deadline_at)}.</p>
+                )}
+                {v.instructions.length > 0 ? (
+                  <ul className="list-disc space-y-1 pl-5">
+                    {v.instructions.map((i) => (
+                      <li key={i}>{i}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                {v.canAcknowledge && t.state !== "acknowledged" ? (
+                  <form action={acknowledgeShiftStartTest}>
+                    <TestPageReceipt testId={t.page_test_id} />
+                    <Hidden name="returnTo" value={RETURN_TO} />
+                    <Hidden name="testId" value={t.page_test_id} />
+                    <SubmitButton>I received the test page</SubmitButton>
+                  </form>
+                ) : null}
+              </div>
+            );
+          })}
+        </Section>
+      ) : null}
+      {shiftOverview && shiftOverview.length > 0 ? (
+        <Section title="Start-of-shift tests, whole team" hint="For the clinical lead: who has confirmed the test page for recent and coming shifts. An unconfirmed shift is reported on the rota gap alert.">
+          <ul className="space-y-1 text-sm">
+            {shiftOverview.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center gap-2">
+                <Badge variant={r.state === "acknowledged" ? "green" : r.state === "missed" ? "red" : "amber"}>{r.state === "acknowledged" ? "Confirmed" : r.state === "missed" ? "Missed" : "Waiting"}</Badge>
+                <span>
+                  {r.name} ({r.role}), {formatLagos(r.shift_starts_at)}
+                  {r.state === "acknowledged" ? `, ${formatLatency(r.ack_latency_seconds)}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
       {roots.length === 0 ? (
         <Section title="Nothing waiting">
           <Muted>No priority case is waiting for you. This page checks again every few seconds.</Muted>
