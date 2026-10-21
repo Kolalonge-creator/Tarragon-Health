@@ -1384,6 +1384,15 @@ revoke all on function private.instalments_hourly() from public, anon, authentic
 
 select cron.schedule('instalments-hourly', '41 * * * *', $$ select private.instalments_hourly(); $$);
 
+-- The one new table that carries a patient_id is registered in the S39d data registry. It is a money record, so it is class 'financial' and kept
+-- for review, never purged by default, like the order and payment records it belongs to; it goes into a patient's export. Awaiting CMO and DPO review
+-- like every other default classification (docs/design/S39d-class-review.md). The other new tables hold no patient_id of their own (they reach a patient
+-- through their plan and order).
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes)
+values ('order_instalment_plans', 'patient_id', 'financial', 'review', true,
+        'S25b: a pay-in-parts plan for the Membership. A money record: kept for review, never purged by default, included in the patient export. Awaiting CMO and DPO review.')
+on conflict (table_name) do nothing;
+
 -- ---------------------------------------------------------------------------
 -- 12. Self-check: the module is OFF, the grants are shut, the schedule is what the config says
 -- ---------------------------------------------------------------------------
