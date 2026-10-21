@@ -120,6 +120,9 @@ export const overviewSchema = z.object({
       period_end: z.string(),
       amount_kobo: kobo,
       line_count: z.number().int(),
+      /** S30b: withholding is typed in by finance and stored, never calculated; net is gross less that. Absent on an older reply. */
+      withholding_kobo: kobo.optional(),
+      net_kobo: kobo.optional(),
       state: z.string(),
       approved_at: z.string().nullable(),
       /** S31x: when the bank last returned this payout, and whether it had been paid before that. Absent on an older reply. */
@@ -130,6 +133,8 @@ export const overviewSchema = z.object({
     }),
   ),
   next_payout_kobo: kobo,
+  /** S30b: earnings on lines under an open question, held out of the next payout. Absent on an older reply. */
+  held_kobo: kobo.optional(),
   minimum_payout_kobo: kobo.nullable(),
 });
 export type PayoutOverview = z.infer<typeof overviewSchema>;

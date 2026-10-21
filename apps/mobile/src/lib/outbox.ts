@@ -1,6 +1,6 @@
 import type * as SQLite from "expo-sqlite";
 import * as Crypto from "expo-crypto";
-import { NETWORK_ERROR_MESSAGE, postVitalReading, type VitalReadingPayload } from "./api";
+import { NETWORK_ERROR_MESSAGE, postMealLog, postVitalReading, type VitalReadingPayload } from "./api";
 import { supabase } from "./supabase";
 import type { ContractionSessionPayload, KickSessionPayload } from "./pregnancy-payloads";
 import { getStoreWithSchema } from "./secure-db";
@@ -75,11 +75,22 @@ export interface DayShiftEndPayload {
   cancelled_from: string;
 }
 
+/**
+ * S49a: a meal written in words (logged, repeated in one tap, or picked from a favourite). Only the words travel: the server recomputes the
+ * nutrition from its food table, so a phone can never write its own calories. Idempotent by the outbox client id, so a retry after a lost
+ * reply is a duplicate, not a second meal. A meal photo is NOT queued here (the photo upload needs a connection; see lifestyle-trackers).
+ */
+export interface MealPayload {
+  meal_type: "breakfast" | "lunch" | "dinner" | "snack";
+  description: string;
+}
+
 export type OutboxPayload =
   | AnchorTimesPayload
   | DayShiftPayload
   | DayShiftEndPayload
   | VitalReadingPayload
+  | MealPayload
   | SymptomPayload
   | DosePayload
   | RedCarePayload
@@ -577,6 +588,12 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
         client_recorded_at: item.clientRecordedAt,
       });
       return error ? asFailure(error) : { ok: true };
+    }
+
+    if (item.kind === "meal") {
+      const result = await postMealLog(item.payload as MealPayload, item.clientId, item.clientRecordedAt);
+      if (result.success) return { ok: true };
+      return { ok: false, message: result.error, status: result.status };
     }
 
     if (item.kind === "red_care") {

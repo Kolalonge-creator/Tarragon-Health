@@ -23,6 +23,20 @@ export interface HealthReportConfig {
   readonly statementKey: string;
   readonly statementApprovedByCmo: boolean;
   readonly shareExcludedSections: readonly string[];
+  /**
+   * S46d: the clinician-signed "suggested recheck" timing. PROPOSED and unsigned until the CMO signs the report settings; absent from older settings
+   * versions, in which case no retest line is made at all. Deterministic: a number of weeks from the settings, never a model's judgement.
+   */
+  readonly retest?: {
+    /** Weeks until a recheck is suggested when a laboratory value was outside its own range. */
+    readonly offValueWeeks: number;
+    /** Weeks until a recheck is suggested when the home blood pressure average was above target. */
+    readonly bpWeeks?: number;
+    /** Analyte-specific weeks that replace `offValueWeeks` (for example a lipid panel is not repeated as soon as a glucose). */
+    readonly byAnalyte?: Readonly<Record<string, number>>;
+    /** A mid-year retest line ("about N months after this report") shown only when something was off. */
+    readonly midYearMonths?: number;
+  };
 }
 
 export interface LabPoint {
@@ -78,6 +92,8 @@ export interface ReportItem {
   readonly target: { readonly low: number | null; readonly high: number | null; readonly high2: number | null; readonly source: "lab_reference" | "care_team" | "report_settings" | "higher_risk" } | null;
   readonly change: ReportChange;
   readonly previousValue: number | null;
+  /** S46d: suggested recheck in about this many weeks, from the signed settings, only when the value was off. Absent in a report composed before S46d. */
+  readonly retestWeeks?: number | null;
   readonly dateFrom: string | null;
   readonly dateTo: string | null;
   readonly reason: string | null;
@@ -109,6 +125,8 @@ export interface ComposedReport {
   readonly questionnaires: HealthReportFacts["questionnaires"];
   readonly devices: HealthReportFacts["devices"];
   readonly weight: HealthReportFacts["weight"];
+  /** S46d: a mid-year retest suggestion, in months, present only when the settings carry one AND at least one value was off. */
+  readonly midYearRetestMonths?: number | null;
   readonly statementKey: string;
   readonly statementApprovedByCmo: boolean;
   readonly minBpReadings: number;
