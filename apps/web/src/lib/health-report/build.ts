@@ -29,6 +29,15 @@ const configSchema = z.object({
   statementKey: z.string(),
   statementApprovedByCmo: z.boolean(),
   shareExcludedSections: z.array(z.string()),
+  // S46d: the suggested recheck block. Absent in settings v1 and v2, so older signed settings parse exactly as before.
+  retest: z
+    .object({
+      offValueWeeks: z.number().int().min(1),
+      bpWeeks: z.number().int().min(1).optional(),
+      byAnalyte: z.record(z.string(), z.number().int().min(1)).optional(),
+      midYearMonths: z.number().int().min(1).optional(),
+    })
+    .optional(),
 });
 
 export function parseReportConfig(value: unknown): HealthReportConfig {

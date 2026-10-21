@@ -11,6 +11,10 @@ import {
   type VersionRow,
   attestItemKey,
   C4_CODE,
+  CUFF_FLAG_CODE,
+  CUFF_FLAG_GUARD,
+  CUFF_PROMPT_CODE,
+  CUFF_PROMPT_GUARD,
   HOME_BP_GUARD,
   PATTERN_CODE,
   PATTERN_GUARD,
@@ -156,6 +160,25 @@ export async function readS06S10Signoffs(supabase: SupabaseClient<Database>): Pr
       title: "White-coat and masked flag is clinician-only (C3)",
       detail: "Record that no patient screen, notification or export shows the pattern flag.",
       href: "/clinician/go-live#bp_pattern_flag",
+      severity: "draft_pending",
+    });
+  }
+  // S07y: two more attestation lines. A condition that cannot be read yet (an older database without the S07y migration) adds nothing and is not a failed source.
+  if (met(CUFF_FLAG_GUARD, CUFF_FLAG_CODE) === false) {
+    items.push({
+      key: attestItemKey(CUFF_FLAG_GUARD, CUFF_FLAG_CODE),
+      title: "Cuff check flag is clinician-only (S07y)",
+      detail: "Record that no patient screen, notification or export shows the cuff check flag.",
+      href: "/clinician/go-live#cuff_check_flag",
+      severity: "draft_pending",
+    });
+  }
+  if (met(CUFF_PROMPT_GUARD, CUFF_PROMPT_CODE) === false) {
+    items.push({
+      key: attestItemKey(CUFF_PROMPT_GUARD, CUFF_PROMPT_CODE),
+      title: "Neutral line: bring your cuff to a visit (S07y)",
+      detail: "The one sentence every patient would read about bringing their blood pressure monitor to a visit. Unsigned wording: read it in full first. Nothing is switched on by recording this.",
+      href: "/clinician/go-live#cuff_visit_prompt",
       severity: "draft_pending",
     });
   }

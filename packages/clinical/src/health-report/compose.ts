@@ -41,6 +41,7 @@ function item(partial: Partial<ReportItem> & Pick<ReportItem, "id" | "kind" | "c
     target: null,
     change: "no_comparison",
     previousValue: null,
+    retestWeeks: null,
     dateFrom: null,
     dateTo: null,
     reason: null,
@@ -159,6 +160,18 @@ function composeLab(l: HealthReportFacts["labs"][number], cfg: HealthReportConfi
   });
 }
 
+/**
+ * S46d: the suggested recheck. Only a value that was OFF gets one (never an on-target value, never a value nobody could judge), and the number of
+ * weeks comes from the settings alone. With no `retest` in the settings nothing is added, so older signed settings behave exactly as before.
+ */
+function withRetest(it: ReportItem, cfg: HealthReportConfig): ReportItem {
+  const r = cfg.retest;
+  if (!r || it.state !== "needs_attention") return it;
+  if (it.kind === "lab") return { ...it, retestWeeks: r.byAnalyte?.[it.code] ?? r.offValueWeeks };
+  if (it.kind === "bp") return { ...it, retestWeeks: r.bpWeeks ?? null };
+  return it;
+}
+
 function daysBetween(a: string, b: Date): number {
   return Math.floor((b.getTime() - new Date(a).getTime()) / 86_400_000);
 }
@@ -166,10 +179,10 @@ function daysBetween(a: string, b: Date): number {
 export function composeHealthReport(facts: HealthReportFacts, config: HealthReportConfig, today: Date = new Date()): ComposedReport {
   const cap = Math.min(config.maxPriorities, HARD_PRIORITY_CAP);
   const items: ReportItem[] = [];
-  items.push(composeBp(facts, config));
+  items.push(withRetest(composeBp(facts, config), config));
   for (const l of facts.labs) {
     const it = composeLab(l, config);
-    if (it) items.push(it);
+    if (it) items.push(withRetest(it, config));
   }
   // overdue screening is "not checked": nothing is claimed about the result
   const overdue = facts.screening.due.filter((d) => d.status === "overdue" || new Date(d.dueOn) < today);
@@ -214,6 +227,8 @@ export function composeHealthReport(facts: HealthReportFacts, config: HealthRepo
       ? { key: "report.summary.nothing_measured", params: { notMeasured } }
       : { key: "report.summary.default", params: { onTarget, needsAttention: needs, notMeasured } };
 
+  const midYearRetestMonths = config.retest?.midYearMonths && items.some((i) => i.state === "needs_attention") ? config.retest.midYearMonths : null;
+
   return {
     schema: 1,
     year: facts.year,
@@ -227,6 +242,7 @@ export function composeHealthReport(facts: HealthReportFacts, config: HealthRepo
     questionnaires: facts.questionnaires,
     devices: facts.devices,
     weight: facts.weight,
+    midYearRetestMonths,
     statementKey: config.statementKey,
     statementApprovedByCmo: config.statementApprovedByCmo,
     minBpReadings: config.minBpReadings,
@@ -238,7 +254,7 @@ export function composeHealthReport(facts: HealthReportFacts, config: HealthRepo
  * A copy for sharing (principle 12, consent-led sharing): the sections the settings list are dropped by default. Reproductive screening, the risk
  * band and questionnaire results are excluded unless the patient explicitly includes them.
  */
-export function shareableView(report: ComposedReport, config: HealthReportConfig, include: readonly string[] = []): ComposedReport {
+export function shareableView(report: ComposedReport, config: Pick<HealthReportConfig, "shareExcludedSections">, include: readonly string[] = []): ComposedReport {
   const drop = (s: string) => config.shareExcludedSections.includes(s) && !include.includes(s);
   const keep = (p: ReportPriority): boolean =>
     !(drop("risk") && p.category === "risk") &&

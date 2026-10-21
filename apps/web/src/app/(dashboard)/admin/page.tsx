@@ -368,6 +368,13 @@ export default async function AdminPage() {
           visible: isSuperAdmin,
         },
         {
+          href: "/admin/instalments",
+          label: "Pay in parts",
+          blurb: "Memberships paid in parts: plans, who is behind, money still to come",
+          icon: SEMANTIC_ICON.billing,
+          visible: isSuperAdmin,
+        },
+        {
           href: "/admin/refund-requests",
           label: "Refund requests",
           blurb: "First-purchase money-back guarantee claims awaiting a decision",

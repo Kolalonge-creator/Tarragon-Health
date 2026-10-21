@@ -133,12 +133,14 @@ update public.vaccination_catalog
 -- ---------------------------------------------------------------------------
 -- lab_providers
 -- ---------------------------------------------------------------------------
-insert into public.lab_providers (name, home_collection, regions)
+-- is_active is explicit (false): S27h's activation-proof trigger fires BEFORE INSERT even for a row that ON CONFLICT then skips, and a laboratory
+-- may not be inserted live without recorded licence and accreditation proof. Synlab already exists live from its own migration.
+insert into public.lab_providers (name, home_collection, regions, is_active)
 values
-  ('Synlab Nigeria',     true,  array['Lagos', 'Abuja']),
-  ('Cerba Lancet',       true,  array['Lagos', 'Abuja']),
-  ('Healthtracka',       true,  array['Lagos', 'Abuja']),
-  ('Afriglobal Medicare',true,  array['Lagos'])
+  ('Synlab Nigeria',     true,  array['Lagos', 'Abuja'], false),
+  ('Cerba Lancet',       true,  array['Lagos', 'Abuja'], false),
+  ('Healthtracka',       true,  array['Lagos', 'Abuja'], false),
+  ('Afriglobal Medicare',true,  array['Lagos'], false)
 on conflict (name) do nothing;
 
 -- Lab-facing notification contacts (migration 20260724020744) — .example
