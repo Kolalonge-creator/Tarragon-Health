@@ -534,7 +534,9 @@ begin
     pg_temp.quality_of(pW, 'orders_measured') || '|' || pg_temp.quality_of(pW, 'pct_within_target') || '|' || pg_temp.quality_of(pW, 'turnaround_actual_median_hours') || '|' ||
     (select ('dispense_turnaround_slow' = any (breaches))::text from public.partner_quality where partner_kind = 'pharmacy' and partner_id = pW order by period_month desc limit 1));
   -- a laboratory is unchanged: an expired licence still pauses it by rule
-  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at) values ('S28e Lab', true, now() - interval '1 day', now() - interval '300 days') returning id into v_lab;
+  -- (S27h refuses to switch a laboratory on without a current licence, so it goes live valid and the licence then runs out)
+  insert into public.lab_providers (name, is_active, license_number, accreditation, license_expires_at, license_verified_at) values ('S28e Lab', true, 'S28E-LIC-1', 'S28e accreditation', now() + interval '30 days', now() - interval '300 days') returning id into v_lab;
+  update public.lab_providers set license_expires_at = now() - interval '1 day' where id = v_lab;
   v := private.apply_partner_quality('lab', v_lab);
   perform pg_temp.ck('real', '5k a laboratory with an expired licence is still paused by rule (S74 unchanged)', 'true|suspended',
     (v ->> 'suspended_now') || '|' || pg_temp.status_of('lab', v_lab));
