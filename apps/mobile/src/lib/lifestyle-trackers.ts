@@ -260,6 +260,8 @@ export async function logSmoking(
 
 export interface ActivityState {
   dailyStepGoal: number | null;
+  /** This week against the person's own goal (S48a, 5.1). Null when the week could not be loaded. */
+  week: { activeMinutes: number; goalMinutes: number; daysStepGoalMet: number } | null;
   entries: {
     loggedOn: string;
     activityName: string | null;
@@ -269,7 +271,7 @@ export interface ActivityState {
 }
 
 export async function loadActivityState(patientId: string): Promise<QueryResult<ActivityState>> {
-  const [goalRes, logRes] = await Promise.all([
+  const [goalRes, logRes, weekRes] = await Promise.all([
     supabase
       .from("patient_activity_goals")
       .select("daily_step_goal")
@@ -281,13 +283,21 @@ export async function loadActivityState(patientId: string): Promise<QueryResult<
       .eq("patient_id", patientId)
       .gte("logged_on", sinceDate())
       .order("logged_on", { ascending: false }),
+    supabase.rpc("activity_week_progress"),
   ]);
   if (logRes.error) return { ok: false, error: logRes.error.message };
 
+  const w = weekRes.error || weekRes.data === null || typeof weekRes.data !== "object" || Array.isArray(weekRes.data)
+    ? null
+    : (weekRes.data as { active_minutes?: number; weekly_active_minutes_goal?: number; days_step_goal_met?: number });
   return {
     ok: true,
     data: {
       dailyStepGoal: goalRes.data?.daily_step_goal ?? null,
+      week:
+        w && typeof w.active_minutes === "number" && typeof w.weekly_active_minutes_goal === "number"
+          ? { activeMinutes: w.active_minutes, goalMinutes: w.weekly_active_minutes_goal, daysStepGoalMet: w.days_step_goal_met ?? 0 }
+          : null,
       entries: (logRes.data ?? []).map((r) => ({
         loggedOn: r.logged_on,
         activityName: r.activity_name,

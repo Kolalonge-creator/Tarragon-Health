@@ -59,3 +59,20 @@ before signing C1 to C4 (they rest on search summaries).
 - Edge function drift: green after #1119, #1127 and the redeploys.
 - Database jobs (anon execute, migration drift, under-18 guard): failing on a login-role race; fix is PR #1128, waiting
   on its checks.
+
+## 7. State on 2026-10-20
+
+Checked with `gh pr view` on 2026-10-20 before writing; everything else in this file is still as of 2026-10-14 and not re-verified.
+
+- **Dead-man switch is PR #1170** (`feat/oq436-external-deadman`), still OPEN and not merged, and its merge state was DIRTY (conflicts with
+  `main-dev` to resolve). Its own description says the founder must add the repository secrets `DEADMAN_STATUS_URL` and `HEALTH_CHECK_SECRET`
+  (optional `RESEND_API_KEY`, `DEADMAN_EMAIL_TO`, `DEADMAN_EMAIL_FROM`) and that until then the scheduled workflow fails red each run. I did not check
+  whether those secrets exist; the PR body is the source.
+- **#1190 is merged** (2026-10-20 17:56 UTC): "OQ-451/OQ-452: CMO hub lines for task layer and pager configs; deep health covers pager/queue heartbeats".
+- **#1202 is merged** (2026-10-20 17:36 UTC): "Cut cron log Disk IO: bounded failure scan, 1-day purge, hourly".
+- **D8 (phones) is still open.** The device lab harness is now in place so the first real run is one command: `scripts/device-lab/run.sh`, steps in
+  `docs/device-lab/RUNBOOK.md`, new Maestro flows listed in `apps/mobile/.maestro/README.md`. It has not run on any device. Section 4 of this file
+  (needs a real device) is unchanged: the `eas build` for `0.1.0-native7`, the migration and wipe checks, and background sync still wait on phones.
+- Correction to a premise: a budget "report only" decision is not recorded under OQ-227 (that entry is about who sees a clinician's reliability
+  score). The harness treats the performance budgets as REPORT ONLY by instruction; if a written decision exists elsewhere, link it from
+  `device_lab.budgets` in the proposed-config registry.

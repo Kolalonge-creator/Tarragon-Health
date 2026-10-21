@@ -53,8 +53,19 @@ export interface ObservationTrigger {
 
 export interface AdherenceTrigger {
   readonly type: "adherence";
-  /** Taken over due doses in the last 7 days, 0 to 100; null when no doses were due. */
-  readonly percent7d: number | null;
+  /** Taken over due doses in the adherence window (`medicine_config.adherence_window_days`, 7 today), 0 to 100; null when no doses were due. */
+  readonly percentWindow: number | null;
+  /** Deprecated name of `percentWindow` (follow-up OQ-356): still accepted so an older caller keeps working, never written by new code. */
+  readonly percent7d?: number | null;
+}
+
+/**
+ * A symptom report with no blood pressure reading (follow-up OQ-355). Only rule sets that carry a rule for the `symptom` trigger can grade it;
+ * every earlier version has none, so such a report grades green (no rule) under them and the live danger-sign path stays the only thing that pages.
+ */
+export interface SymptomTrigger {
+  readonly type: "symptom";
+  readonly symptoms: readonly SymptomCode[];
 }
 
 export interface SilenceTrigger {
@@ -65,7 +76,7 @@ export interface SilenceTrigger {
   readonly sinceAt: string;
 }
 
-export type TriageTrigger = ObservationTrigger | AdherenceTrigger | SilenceTrigger;
+export type TriageTrigger = ObservationTrigger | AdherenceTrigger | SilenceTrigger | SymptomTrigger;
 
 export interface BpTarget {
   readonly systolic: number;

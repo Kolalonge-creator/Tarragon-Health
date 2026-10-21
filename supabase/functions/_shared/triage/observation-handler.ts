@@ -16,6 +16,8 @@ import { PermanentHandlerError, type BusEvent, type Handler, type HandlerContext
 
 export const TRIAGE_HANDLER_KEY = "triage.grade_observation";
 export const BP_RULE_SET_CODE = "bp_care_triage";
+/** Observation kinds that are recorded but never graded (S47a). */
+export const NON_TRIAGE_KINDS: readonly string[] = ["water", "sleep", "mood"];
 
 export interface TriageContext {
   found: boolean;
@@ -153,6 +155,9 @@ export function makeObservationHandler(ports: TriagePorts): Handler {
   return async (event: BusEvent, _ctx: HandlerContext): Promise<void> => {
     const observationId = observationIdOf(event);
     if (event.payload["kind"] === "glucose") return handleGlucose(ports, observationId, event);
+    // S47a: water, sleep and mood logs also emit observation.recorded (for the record and the summaries). They have no rule set and nothing to grade,
+    // so they never reach the blood pressure path below (INV-01: no triage rule is invented for a type that has none).
+    if (typeof event.payload["kind"] === "string" && NON_TRIAGE_KINDS.includes(event.payload["kind"])) return;
     const recheck = event.payload["recheck"] === "timed_out" ? "timed_out" : null;
 
     const context = await ports.loadContext(observationId, recheck);

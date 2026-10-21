@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
-import { collectionRowsSchema, pharmacyOptionsSchema, priceRowsSchema, suggestionRowsSchema, type Collection, type PharmacyOption, type PriceRow, type Suggestion } from "./model";
+import {
+  collectionRowsSchema, overviewItemsSchema, pharmacyOptionsSchema, priceRowsSchema, suggestionRowsSchema, visitMembersSchema,
+  type Collection, type OverviewItem, type PharmacyOption, type PriceRow, type Suggestion, type VisitMember,
+} from "./model";
 
 /** `off` means the go-live guard is closed (S37): a calm "not open yet" rather than a failure. */
 export type Loaded<T> = { ok: true; data: T } | { ok: false; denied: boolean; off?: boolean };
@@ -41,6 +44,22 @@ export async function loadSuggestion(prescription: string): Promise<Loaded<Sugge
   if (error) return { ok: false, denied: error.code === "42501" };
   const parsed = suggestionRowsSchema.safeParse(data);
   return parsed.success ? { ok: true, data: parsed.data[0] ?? null } : { ok: false, denied: false };
+}
+
+/** S28e: her other waiting prescriptions, for the "send these together" tick boxes. A failed read just hides the ticks: she can still send this one. */
+export async function loadOverview(forWhom?: string): Promise<Loaded<OverviewItem[]>> {
+  const { data, error } = await loose(await createClient()).rpc("patient_collection_overview", { ...beneficiary(forWhom) });
+  if (error) return failure(error);
+  const parsed = overviewItemsSchema.safeParse(data);
+  return parsed.success ? { ok: true, data: parsed.data } : { ok: false, denied: false };
+}
+
+/** S28e: the prescriptions sent in the same visit as this one (empty when it was sent on its own). A failure is returned, never shown as "only this one". */
+export async function loadVisit(prescription: string, forWhom?: string): Promise<Loaded<VisitMember[]>> {
+  const { data, error } = await loose(await createClient()).rpc("patient_collection_visit", { p_prescription: prescription, ...beneficiary(forWhom) });
+  if (error) return failure(error);
+  const parsed = visitMembersSchema.safeParse(data);
+  return parsed.success ? { ok: true, data: parsed.data } : { ok: false, denied: false };
 }
 
 /**

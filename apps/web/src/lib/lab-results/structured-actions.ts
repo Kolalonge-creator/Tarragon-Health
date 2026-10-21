@@ -90,6 +90,7 @@ export async function submitPartnerResult(_prev: LabActionState, formData: FormD
     panel: parsed.data.panel,
     items: converted.items,
     file: stored,
+    preliminary: formData.get("preliminary") === "on",
   });
   if (!outcome.ok) {
     if (stored) await removeFile(stored.file_path);

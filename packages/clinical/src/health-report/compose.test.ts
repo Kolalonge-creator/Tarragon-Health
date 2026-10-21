@@ -226,3 +226,39 @@ describe("trends and sharing", () => {
     expect(withAll.risk.state).toBe("assessed");
   });
 });
+
+describe("suggested recheck (S46d, settings-driven, deterministic)", () => {
+  const WITH_RETEST: HealthReportConfig = { ...CONFIG, retest: { offValueWeeks: 12, bpWeeks: 4, byAnalyte: { ldl_cholesterol: 8 }, midYearMonths: 6 } };
+  const off = { ...EMPTY, labs: [lab("fasting_glucose", 130, 70, 99, "high"), lab("ldl_cholesterol", 190, 0, 130, "high"), lab("creatinine", 0.9, 0.6, 1.3)] };
+
+  it("gives a recheck only to a value that was off, in the weeks the settings say", () => {
+    const r = composeHealthReport(off, WITH_RETEST, TODAY);
+    const by = (id: string) => r.items.find((i) => i.id === id)!;
+    expect(by("lab:fasting_glucose").retestWeeks).toBe(12);
+    expect(by("lab:ldl_cholesterol").retestWeeks).toBe(8);
+    expect(by("lab:creatinine").state).toBe("on_target");
+    expect(by("lab:creatinine").retestWeeks).toBeNull();
+    expect(r.midYearRetestMonths).toBe(6);
+  });
+
+  it("blood pressure above target gets the blood pressure weeks; an on-target average gets none", () => {
+    const high = composeHealthReport({ ...EMPTY, bp: { count: 14, days: 5, firstAt: "a", lastAt: "b", avgSystolic: 152, avgDiastolic: 96 } }, WITH_RETEST, TODAY);
+    expect(high.items.find((i) => i.id === "bp")!.retestWeeks).toBe(4);
+    const fine = composeHealthReport({ ...EMPTY, bp: { count: 14, days: 5, firstAt: "a", lastAt: "b", avgSystolic: 118, avgDiastolic: 74 } }, WITH_RETEST, TODAY);
+    expect(fine.items.find((i) => i.id === "bp")!.retestWeeks).toBeNull();
+    expect(fine.midYearRetestMonths).toBeNull();
+  });
+
+  it("makes no recheck and no mid-year line when the settings carry none (older settings behave as before)", () => {
+    const r = composeHealthReport(off, CONFIG, TODAY);
+    expect(r.items.every((i) => (i.retestWeeks ?? null) === null)).toBe(true);
+    expect(r.midYearRetestMonths).toBeNull();
+  });
+
+  it("a value nobody could judge (no range) gets no recheck", () => {
+    const r = composeHealthReport({ ...EMPTY, labs: [lab("mystery", 5, null, null, null)] }, WITH_RETEST, TODAY);
+    expect(r.items.find((i) => i.id === "lab:mystery")!.state).toBe("no_target");
+    expect(r.items.every((i) => (i.retestWeeks ?? null) === null)).toBe(true);
+    expect(r.midYearRetestMonths).toBeNull();
+  });
+});
