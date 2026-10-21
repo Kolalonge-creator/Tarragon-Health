@@ -41,6 +41,7 @@ jest.mock("./today", () => ({
     partial: false,
     fromPhone: false,
     bpLoggedToday: false,
+    bpHistory: true,
   }),
 }));
 jest.mock("./lifestyle-trackers", () => ({ loadActivityState: async () => ({ ok: true, data: { week: { activeMinutes: 10, goalMinutes: 150, daysStepGoalMet: 0 } } }) }));
@@ -63,8 +64,14 @@ describe("loadHomePlan", () => {
     expect(await loadHomePlan("a", "a")).toBeNull();
   });
 
-  it("keeps the ordinary list when the signed configuration cannot be read", async () => {
+  it("asks the server when this build cannot read the signed configuration, and keeps the ordinary list if that fails too", async () => {
     mockRpc = { data: { version: 1, config: { max_primary_actions: 9 } }, error: null };
+    expect(await loadHomePlan("a", "a")).toBeNull();
+    const plan = { configVersion: 2, primary: [{ code: "readings", state: "action", urgent: false }], secondary: [], hidden: [] };
+    mockServerAnswer = { state: "ready", plan };
+    const viaServer = await loadHomePlan("a", "a");
+    expect(viaServer?.plan).toEqual(plan);
+    mockServerAnswer = { state: "hidden" };
     expect(await loadHomePlan("a", "a")).toBeNull();
   });
 

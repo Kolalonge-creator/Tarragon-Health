@@ -48,6 +48,12 @@ describe("loadWeeklyCards", () => {
     expect(await loadWeeklyCards(client({ config: fail }), "p", NOW)).toEqual({ state: "hidden" });
   });
 
+  it("is hidden when the signed configuration leaves the weekly summary card out", async () => {
+    const value = getProposedConfig("today.home_cards").value as { cards: { code: string }[] };
+    const without = { ...value, cards: value.cards.filter((c) => c.code !== "weekly_summary") };
+    expect(await loadWeeklyCards(client({ config: ok({ version: 1, config: without }) }), "p", NOW)).toEqual({ state: "hidden" });
+  });
+
   it("is hidden when the signed configuration cannot be read", async () => {
     expect(await loadWeeklyCards(client({ config: ok({ version: 1, config: { weekly: { min_bp_readings: 0, window_days: 7 } } }) }), "p", NOW)).toEqual({ state: "hidden" });
   });

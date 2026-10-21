@@ -67,9 +67,10 @@ export async function loadSeries(subjectId: string, kind: SeriesKind, unit: Gluc
     .eq("vital_type", kind)
     .is("correction_status", null)
     .gte("taken_at", since)
-    .order("taken_at", { ascending: true })
+    .order("taken_at", { ascending: false })
     .limit(2000);
   if (error || !data) return null;
+  // Newest first, so a person with thousands of device readings keeps the latest ones; the chart sorts them left to right itself.
   const rows = data as unknown as Record<string, string | number | null>[];
   const readings: SeriesReading[] = rows.flatMap((r) => {
     const raw = r[column];

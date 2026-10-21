@@ -78,7 +78,7 @@ async function readFreezes(patientId: string): Promise<string[]> {
 async function loadLoggedDates(patientId: string, nowMs: number): Promise<string[]> {
   try {
     const since = new Date(nowMs - 120 * DAY_MS).toISOString();
-    const { data, error } = await supabase.from("vitals_readings").select("taken_at").eq("patient_id", patientId).is("correction_status", null).gte("taken_at", since).limit(2000);
+    const { data, error } = await supabase.from("vitals_readings").select("taken_at").eq("patient_id", patientId).is("correction_status", null).gte("taken_at", since).order("taken_at", { ascending: false }).limit(2000);
     if (!error && data) return doneDatesFrom(data.map((r) => r.taken_at));
   } catch {
     // fall through to the blood pressure copy kept on the phone
@@ -114,8 +114,8 @@ async function loadReadiness(patientId: string, nowMs: number, raw: unknown, has
   const since = new Date(nowMs - (cfg.baselineDays + 2) * DAY_MS).toISOString();
   try {
     const [wearable, pulse] = await Promise.all([
-      supabase.from("wearable_readings").select("reading_type, value, recorded_at").in("reading_type", ["sleep_minutes", "hrv_ms"]).gte("recorded_at", since).limit(500),
-      supabase.from("vitals_readings").select("pulse_bpm, taken_at").eq("patient_id", patientId).eq("vital_type", "pulse").eq("source", "wearable").is("correction_status", null).gte("taken_at", since).limit(500),
+      supabase.from("wearable_readings").select("reading_type, value, recorded_at").in("reading_type", ["sleep_minutes", "hrv_ms"]).gte("recorded_at", since).order("recorded_at", { ascending: false }).limit(500),
+      supabase.from("vitals_readings").select("pulse_bpm, taken_at").eq("patient_id", patientId).eq("vital_type", "pulse").eq("source", "wearable").is("correction_status", null).gte("taken_at", since).order("taken_at", { ascending: false }).limit(500),
     ]);
     if (wearable.error || pulse.error) return { kind: "none", reason: "no_recent_data" };
     const series = (type: string): TimedValue[] =>
@@ -147,11 +147,13 @@ export async function loadHomePlan(userId: string, patientId: string, nowMs: num
   if (userId !== patientId) return null;
   const stored = await loadHomeCardConfig(userId);
   if (!stored) return null;
-  let config;
+  // A configuration this build cannot read (for example a card this app version does not know yet, signed after the app was released) is not an
+  // error: the server runs the same function over the same signed row, so the phone asks it instead of showing a wrong or empty plan.
+  let config: ReturnType<typeof parseHomeCardConfig> | null = null;
   try {
     config = parseHomeCardConfig(stored.version, stored.config);
   } catch {
-    return null;
+    config = null;
   }
 
   const [today, hasDevice, activity, lesson, weeklyRaw] = await Promise.all([
@@ -162,7 +164,7 @@ export async function loadHomePlan(userId: string, patientId: string, nowMs: num
     getWeeklyCards().catch(() => null),
   ]);
   const weekly = asWeekly(weeklyRaw);
-  const streak = config.streakEnabled ? await loadStreak(patientId, nowMs).catch(() => null) : null;
+  const streak = !config || config.streakEnabled ? await loadStreak(patientId, nowMs).catch(() => null) : null;
   const readiness = await loadReadiness(patientId, nowMs, stored.config["readiness"], hasDevice);
 
   const facts: TodayFacts = buildFacts({
@@ -176,10 +178,9 @@ export async function loadHomePlan(userId: string, patientId: string, nowMs: num
   });
 
   let plan: TodayPlan | null = null;
-  try {
+  if (config) {
     plan = buildToday(config, facts);
-  } catch {
-    // The phone could not compute it: ask the server, which runs the same function over the same signed configuration.
+  } else {
     const answer = (await postTodayBuild(facts).catch(() => null)) as { state?: string; plan?: TodayPlan } | null;
     plan = answer?.state === "ready" && answer.plan ? answer.plan : null;
   }

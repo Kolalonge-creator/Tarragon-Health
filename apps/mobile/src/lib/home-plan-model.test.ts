@@ -20,8 +20,8 @@ const item = (over: Partial<TodayItem>): TodayItem => ({
   ...over,
 });
 const list = (open: TodayItem[], done: TodayItem[] = []): TodayList => ({ open, shownOpen: open, moreCount: 0, done, total: open.length + done.length });
-const src = (over: Partial<PlanSources> & { open?: TodayItem[]; done?: TodayItem[]; bp?: boolean }): PlanSources => ({
-  today: { list: list(over.open ?? [], over.done ?? []), bpLoggedToday: over.bp ?? false },
+const src = (over: Partial<PlanSources> & { open?: TodayItem[]; done?: TodayItem[]; bp?: boolean; hist?: boolean }): PlanSources => ({
+  today: { list: list(over.open ?? [], over.done ?? []), bpLoggedToday: over.bp ?? false, bpHistory: over.hist ?? true },
   hasDevice: false,
   activityWeek: null,
   lessonAvailable: false,
@@ -50,6 +50,12 @@ describe("buildFacts", () => {
     expect(f.task).toBeNull();
     expect(f.medicines).toBeNull();
     expect(f.readings).toEqual({ loggedToday: false });
+  });
+
+  it("shows the readings card only to someone who logs blood pressure or has a task to", () => {
+    expect(buildFacts(src({ hist: false })).readings).toBeNull();
+    expect(buildFacts(src({ hist: true })).readings).toEqual({ loggedToday: false });
+    expect(buildFacts(src({ hist: false, open: [item({ kind: "log_bp" })] })).readings).toEqual({ loggedToday: false });
   });
 
   it("keeps a task card when only a finished task exists, with nothing open", () => {

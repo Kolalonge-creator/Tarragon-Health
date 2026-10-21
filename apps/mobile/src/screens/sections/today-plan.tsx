@@ -8,7 +8,7 @@ import { loadHomePlan, type HomePlan } from "@/lib/home-plan";
 import { CARD_TARGET, cardAction, cardDone, cardTitle, dayStateKey, readinessView, streakLines } from "@/lib/home-plan-model";
 import type { SectionId } from "@/lib/sections";
 import { space, radii } from "@/ui/design";
-import { AppText, Badge, Button, Card, Skeleton, SkeletonGroup } from "@/ui/kit";
+import { AppText, Badge, Button, Card, InlineAlert, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { TodayCard } from "@/screens/sections/today-card";
 
 /**
@@ -59,7 +59,7 @@ export function TodayPlan({
   }
   if (state.status === "ordinary") return <TodayCard patientId={patientId} onNavigate={onNavigate} reloadToken={reloadToken} />;
 
-  const { plan, streak, readiness, weekly } = state.data;
+  const { plan, streak, readiness, weekly, today } = state.data;
   const ready = readinessView(readiness);
 
   const actionCard = (p: HomeCardPick) => {
@@ -166,7 +166,9 @@ export function TodayPlan({
       <AppText variant="title" heading>
         {tr("today.plan.title")}
       </AppText>
-      {plan.primary.length === 0 && plan.secondary.length === 0 ? <AppText variant="body">{tr("today.plan.nothing")}</AppText> : null}
+      {/* A source that failed or a copy kept on the phone is said so, as on the ordinary list; an empty day is never claimed on a failed read. */}
+      {today.partial ? <InlineAlert tone="info" message={tr("today.partial")} /> : null}
+      {plan.primary.length === 0 && plan.secondary.length === 0 && !today.partial ? <AppText variant="body">{tr("today.plan.nothing")}</AppText> : null}
       {plan.primary.map(actionCard)}
       {plan.secondary.length > 0 ? (
         <>

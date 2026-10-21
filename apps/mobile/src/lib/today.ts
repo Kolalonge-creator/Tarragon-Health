@@ -28,6 +28,8 @@ export interface TodayLoad {
   fromPhone: boolean;
   /** Whether a reading was logged today (this phone's unsent ones included). S47b reads it for the readings card. */
   bpLoggedToday: boolean;
+  /** Whether this person has ever logged blood pressure on this account (among the recent readings read). Used so the readings card is for people who log it. */
+  bpHistory: boolean;
 }
 
 /** PostgREST and Postgres codes for "that table or view is not there". */
@@ -78,5 +80,6 @@ export async function loadToday(patientId: string, nowMs: number = Date.now()): 
     partial: tasks.partial || !dosesOk,
     fromPhone: tasks.fromPhone || dosesFromPhone,
     bpLoggedToday,
+    bpHistory: bpRes.status === "fulfilled" && bpRes.value.length > 0,
   };
 }

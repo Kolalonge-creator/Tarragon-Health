@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { diagnosticBpReadings, type Database } from "@tarragon/shared";
-import { buildWeeklySummary, parseWeeklyConfig, type WeeklyInput, type WeeklySummary } from "@tarragon/clinical/today";
+import { buildWeeklySummary, parseHomeCardConfig, parseWeeklyConfig, type WeeklyInput, type WeeklySummary } from "@tarragon/clinical/today";
 import { addDays, lagosLocalDate } from "@tarragon/medicines";
 import { loadAdherenceReport } from "@/lib/medicines/adherence-report-data";
 
@@ -24,11 +24,13 @@ interface TargetRow {
 
 export async function loadWeeklyCards(supabase: Client, patientId: string, nowMs: number = Date.now()): Promise<WeeklyCardsResult> {
   const cfgRes = await supabase.rpc("my_home_card_config");
-  const raw = cfgRes.data as { config?: { weekly?: unknown } } | null;
-  if (cfgRes.error || !raw?.config) return { state: "hidden" };
+  const raw = cfgRes.data as { version?: number; config?: { weekly?: unknown } } | null;
+  if (cfgRes.error || !raw?.config || typeof raw.version !== "number") return { state: "hidden" };
   let weekly;
   try {
     weekly = parseWeeklyConfig(raw.config.weekly);
+    // Only when the signed configuration includes the weekly summary card, so the web and the phone show what was signed.
+    if (!parseHomeCardConfig(raw.version, raw.config).cards.some((c) => c.code === "weekly_summary")) return { state: "hidden" };
   } catch {
     return { state: "hidden" };
   }

@@ -10,24 +10,30 @@ declare v_card jsonb; v_code text; v_seen text[] := '{}';
   v_codes constant text[] := array['task_due','medicines','readings','goal','lesson','assistant_nudge','streak','weekly_summary','readiness'];
   v_action constant text[] := array['task_due','medicines','readings','goal','lesson','assistant_nudge'];
 begin
-  if jsonb_typeof(p_config) <> 'object' then return false; end if;
+  -- Every comparison is written so that a MISSING key is false, never NULL (a NULL inside an IF counts as false and would let the config through).
+  if coalesce(jsonb_typeof(p_config), '') <> 'object' then return false; end if;
   -- the hard ceiling: never more than two primary actions on the Today screen, whatever is signed
-  if jsonb_typeof(p_config -> 'max_primary_actions') <> 'number' or (p_config ->> 'max_primary_actions')::numeric not in (1, 2) then return false; end if;
-  if jsonb_typeof(p_config -> 'cards') <> 'array' or jsonb_array_length(p_config -> 'cards') = 0 then return false; end if;
+  if coalesce(jsonb_typeof(p_config -> 'max_primary_actions'), '') <> 'number' or (p_config ->> 'max_primary_actions')::numeric not in (1, 2) then return false; end if;
+  if coalesce(jsonb_typeof(p_config -> 'cards'), '') <> 'array' or jsonb_array_length(p_config -> 'cards') = 0 then return false; end if;
   for v_card in select * from jsonb_array_elements(p_config -> 'cards') loop
+    if coalesce(jsonb_typeof(v_card), '') <> 'object' then return false; end if;
     v_code := v_card ->> 'code';
     if v_code is null or not (v_code = any (v_codes)) or v_code = any (v_seen) then return false; end if;
     v_seen := v_seen || v_code;
-    if jsonb_typeof(v_card -> 'priority') <> 'number' or (v_card ->> 'priority')::numeric < 0 or (v_card ->> 'priority')::numeric <> trunc((v_card ->> 'priority')::numeric) then return false; end if;
-    if jsonb_typeof(v_card -> 'primary_eligible') <> 'boolean' then return false; end if;
+    if coalesce(jsonb_typeof(v_card -> 'priority'), '') <> 'number' or (v_card ->> 'priority')::numeric < 0 or (v_card ->> 'priority')::numeric <> trunc((v_card ->> 'priority')::numeric) then return false; end if;
+    if coalesce(jsonb_typeof(v_card -> 'primary_eligible'), '') <> 'boolean' then return false; end if;
     if (v_card ->> 'primary_eligible')::boolean and not (v_code = any (v_action)) then return false; end if;
-    if jsonb_typeof(v_card #> '{rules,goals_any}') <> 'array' or jsonb_typeof(v_card #> '{rules,pathways_any}') <> 'array'
-       or jsonb_typeof(v_card #> '{rules,requires_device}') <> 'boolean' then return false; end if;
+    if coalesce(jsonb_typeof(v_card #> '{rules,goals_any}'), '') <> 'array' or coalesce(jsonb_typeof(v_card #> '{rules,pathways_any}'), '') <> 'array'
+       or coalesce(jsonb_typeof(v_card #> '{rules,requires_device}'), '') <> 'boolean' then return false; end if;
+    -- the lists hold non-empty words only, as the app's parser requires
+    if exists (select 1 from jsonb_array_elements(v_card #> '{rules,goals_any}') e where jsonb_typeof(e) <> 'string' or (e #>> '{}') = '')
+       or exists (select 1 from jsonb_array_elements(v_card #> '{rules,pathways_any}') e where jsonb_typeof(e) <> 'string' or (e #>> '{}') = '') then return false; end if;
   end loop;
-  if jsonb_typeof(p_config #> '{streak,enabled}') <> 'boolean' then return false; end if;
-  if jsonb_typeof(p_config #> '{weekly,min_bp_readings}') <> 'number' or (p_config #>> '{weekly,min_bp_readings}')::numeric < 1 then return false; end if;
+  if coalesce(jsonb_typeof(p_config #> '{streak,enabled}'), '') <> 'boolean' then return false; end if;
+  if coalesce(jsonb_typeof(p_config #> '{weekly,min_bp_readings}'), '') <> 'number' or (p_config #>> '{weekly,min_bp_readings}')::numeric < 1
+     or (p_config #>> '{weekly,min_bp_readings}')::numeric <> trunc((p_config #>> '{weekly,min_bp_readings}')::numeric) then return false; end if;
   if (p_config #>> '{weekly,window_days}') is distinct from '7' then return false; end if;
-  if jsonb_typeof(p_config #> '{readiness,enabled}') <> 'boolean' then return false; end if;
+  if coalesce(jsonb_typeof(p_config #> '{readiness,enabled}'), '') <> 'boolean' then return false; end if;
   if coalesce((p_config #>> '{readiness,min_signals}')::numeric, 0) not between 1 and 3 then return false; end if;
   if coalesce((p_config #>> '{readiness,min_baseline_days}')::numeric, 0) < 1
      or coalesce((p_config #>> '{readiness,min_baseline_days}')::numeric, 0) > coalesce((p_config #>> '{readiness,baseline_days}')::numeric, 0) then return false; end if;

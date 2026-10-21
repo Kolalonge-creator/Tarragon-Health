@@ -66,6 +66,9 @@ export function HomeCardConfigView({ row, canSign }: { row: HomeCardConfigRow | 
                   </li>
                 ))}
               </ul>
+              {cfg.cards.cards.some((c) => c.rules.pathwaysAny.length > 0 || c.rules.goalsAny.length > 0) ? (
+                <p role="note" className="font-medium">Warning: the phone does not read a person&apos;s goals or pathways yet, so a card limited to a goal or pathway stays hidden on the phone until that is built (OQ-S47B-2).</p>
+              ) : null}
               <p>Days-logged card: {cfg.cards.streakEnabled ? "on. A high reading counts like any other, a saved rest day covers a missed day, and there is never a shame line." : "off."}</p>
             </CardContent>
           </Card>

@@ -12,7 +12,7 @@ import type { TodayList } from "./today-model";
  */
 
 export interface PlanSources {
-  today: { list: TodayList; bpLoggedToday: boolean };
+  today: { list: TodayList; bpLoggedToday: boolean; bpHistory: boolean };
   hasDevice: boolean;
   /** The week's active-minutes goal against what was done, or null when the person has no goal or it could not be read. */
   activityWeek: { activeMinutes: number; goalMinutes: number } | null;
@@ -35,7 +35,8 @@ export function buildFacts(src: PlanSources): TodayFacts {
     hasDevice: src.hasDevice,
     task: tasks.length > 0 || openTasks.length > 0 ? { openCount: openTasks.length, overdueCount: openTasks.filter((i) => i.status === "overdue").length } : null,
     medicines: doses.length > 0 ? { pendingCount: pendingDoses.length } : null,
-    readings: { loggedToday: bpLoggedToday },
+    // Only for a person who logs blood pressure (or has a task to): otherwise a glucose-only person would be asked to log a reading every day.
+    readings: src.today.bpHistory || tasks.some((i) => i.kind === "log_bp") ? { loggedToday: bpLoggedToday } : null,
     goal: src.activityWeek && src.activityWeek.goalMinutes > 0 ? { metToday: src.activityWeek.activeMinutes >= src.activityWeek.goalMinutes } : null,
     lesson: src.lessonAvailable ? { available: true } : null,
     assistantNudge: { available: true },

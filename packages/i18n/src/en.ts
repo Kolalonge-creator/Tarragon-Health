@@ -914,7 +914,7 @@ export const en = {
   "readiness.band.rested": "Rested",
   "readiness.line.steady": "Your sleep and heart signals look close to your usual.",
   "readiness.line.take_it_easier": "Your sleep and heart signals are a little off your usual. A gentler day may suit you.",
-  "readiness.line.rested": "Your sleep and heart signals look a little better than your usual.",
+  "readiness.line.rested": "Your heart rate variability looks a little better than your usual.",
   "readiness.move.sleep.unhelpful": "Your sleep was shorter than your usual.",
   "readiness.move.hrv.unhelpful": "Your heart rate variability was lower than your usual.",
   "readiness.move.hrv.helpful": "Your heart rate variability was higher than your usual.",

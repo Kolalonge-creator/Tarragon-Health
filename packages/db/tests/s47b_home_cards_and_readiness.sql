@@ -108,6 +108,15 @@ begin
   perform pg_temp.ck('an information card cannot be a primary action', 'false', private.home_card_config_valid(jsonb_set((select config from public.home_card_config where id = v_cfg), '{cards,6,primary_eligible}', 'true'))::text);
   perform pg_temp.ck('a weekly window that is not 7 is refused', 'false', private.home_card_config_valid(jsonb_set((select config from public.home_card_config where id = v_cfg), '{weekly,window_days}', '30'))::text);
   perform pg_temp.ck('a baseline shorter than its minimum is refused', 'false', private.home_card_config_valid(jsonb_set((select config from public.home_card_config where id = v_cfg), '{readiness,min_baseline_days}', '30'))::text);
+  perform pg_temp.ck('a config with no ceiling is refused (a missing key is false, not NULL)', 'false', private.home_card_config_valid((select config from public.home_card_config where id = v_cfg) - 'max_primary_actions')::text);
+  perform pg_temp.ck('a config with no cards is refused', 'false', private.home_card_config_valid((select config from public.home_card_config where id = v_cfg) - 'cards')::text);
+  perform pg_temp.ck('a config with no streak switch is refused', 'false', private.home_card_config_valid((select config from public.home_card_config where id = v_cfg) - 'streak')::text);
+  perform pg_temp.ck('a config with no weekly part is refused', 'false', private.home_card_config_valid((select config from public.home_card_config where id = v_cfg) - 'weekly')::text);
+  perform pg_temp.ck('a card with no priority is refused', 'false', private.home_card_config_valid(jsonb_set((select config from public.home_card_config where id = v_cfg), '{cards,0}', ((select config from public.home_card_config where id = v_cfg) #> '{cards,0}') - 'priority'))::text);
+  perform pg_temp.ck('a card with no rules is refused', 'false', private.home_card_config_valid(jsonb_set((select config from public.home_card_config where id = v_cfg), '{cards,0}', ((select config from public.home_card_config where id = v_cfg) #> '{cards,0}') - 'rules'))::text);
+  perform pg_temp.ck('a goals list holding a number is refused', 'false', private.home_card_config_valid(jsonb_set((select config from public.home_card_config where id = v_cfg), '{cards,0,rules,goals_any}', '[1]'))::text);
+  perform pg_temp.ck('a pathways list holding an empty word is refused', 'false', private.home_card_config_valid(jsonb_set((select config from public.home_card_config where id = v_cfg), '{cards,0,rules,pathways_any}', '[""]'))::text);
+  perform pg_temp.ck('a fractional weekly minimum is refused', 'false', private.home_card_config_valid(jsonb_set((select config from public.home_card_config where id = v_cfg), '{weekly,min_bp_readings}', '1.5'))::text);
   perform pg_temp.ck('a non-object is refused', 'false', private.home_card_config_valid('[]'::jsonb)::text);
   begin
     insert into public.home_card_config (version, config) values (99, jsonb_set((select config from public.home_card_config where id = v_cfg), '{max_primary_actions}', '5'));
