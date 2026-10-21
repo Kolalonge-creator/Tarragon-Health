@@ -37,4 +37,7 @@ paths = [
   '''apps/mobile/src/.*\.(ts|tsx)$''',
   '''.*\.test\.(ts|tsx)$''',
   '''packages/shared/src/proposed-config/registry\.ts$''',
+  # Zoom webhook fixtures: payloads copied from Zoom's published documentation (placeholder plainToken / customer_key values, not credentials).
+  # They live in history on build/provider-layer-completion, which CI scans, so they cannot be reworded away. Generic rule only.
+  '''packages/integrations/src/fixtures/zoom/.*\.json$''',
 ]

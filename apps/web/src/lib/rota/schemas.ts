@@ -72,4 +72,8 @@ export const GAP_LABEL: Record<string, string> = {
   no_backup: "No backup",
   primary_ineligible: "Primary's licence or cover ends in the shift",
   backup_ineligible: "Backup's licence or cover ends in the shift",
+  // shift-start test page (migration 20261016190204)
+  primary_unconfirmed: "Primary has not confirmed the start-of-shift test page",
+  backup_unconfirmed: "Backup has not confirmed the start-of-shift test page",
+  start_test_failed: "Neither primary nor backup has confirmed the start-of-shift test page",
 };

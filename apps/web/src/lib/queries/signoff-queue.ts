@@ -51,7 +51,8 @@ type VersionedTableName =
   | "observation_limit_signoffs"
   | "home_bp_programme_signoffs"
   | "health_report_config_versions"
-  | "cuff_check_rules";
+  | "cuff_check_rules"
+  | "bp_cuff_guidance_signoffs";
 
 const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string }[] = [
   { table: "alert_rules", title: "Alert rules", slug: "alert-rules" },
@@ -81,6 +82,7 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   { table: "health_report_config_versions", title: "Yearly Health Report settings", slug: "health-report-config" },
   { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
   { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
+  { table: "bp_cuff_guidance_signoffs", title: "Home blood pressure cuff sizes", slug: "cuff-guidance" },
 ];
 
 export type SettledConfig = { table: string; title: string; href: string; version: number };
