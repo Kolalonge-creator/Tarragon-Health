@@ -23,6 +23,7 @@ export {
   assessHomeCheck, bandHomeMean, dedupeReadings, detectBpPattern, homeCheckSchedule, pairSessions, parseHomeBpConfig, sessionPartOf, statusAgainstTarget, addLocalDays,
   type HomeBand, type HomeBpConfig, type HomeBpReading, type HomeCheckAssessment, type HomeCheckInput, type PatternInput, type PatternKind, type PersonalTarget, type ScheduledSession, type SessionPart, type SessionProgress, type TargetStatus,
 } from "./home-bp";
+export { cuffSizeKey, isPlausibleArmCm, parseCuffSizingConfig, type CuffSizeBand, type CuffSizeKey, type CuffSizingConfig } from "./cuff-size";
 export { planSession, type SessionInput, type SessionStep } from "./home-bp-session";
 export {
   classifyPair, evaluateCuffCheck, homeMeanAround, pairDifference, parseCuffCheckConfig,

@@ -59,6 +59,10 @@ jest.mock("@/lib/queries/pending-queue-paging-config-signoff", () => ({
   readPendingQueuePagingConfigSignoff: (...args: unknown[]) => readPendingQueuePagingConfigSignoff(...args),
 }));
 const noQueuePaging: QueuePagingPending = { taskLayer: null, taskLayerRules: null, pagingVersion: null, pagingRules: null, pagingInForceRules: null, failed: false };
+const readPendingBpDeviceReview = jest.fn<(...args: unknown[]) => Promise<{ waiting: number; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-bp-device-review", () => ({
+  readPendingBpDeviceReview: (...args: unknown[]) => readPendingBpDeviceReview(...args),
+}));
 const readPendingSoleCmoException = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
 const readLegacyNoticeRetirementState = jest.fn<(...args: unknown[]) => Promise<{ liveVersion: { version: number } | null; waiting: unknown[]; measurement: unknown[]; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-legacy-notice-retirement-signoff", () => ({
@@ -99,6 +103,8 @@ function item(key: string, severity: SignoffQueueItem["severity"], count?: numbe
 }
 
 beforeEach(() => {
+  readPendingBpDeviceReview.mockReset();
+  readPendingBpDeviceReview.mockResolvedValue({ waiting: 0, failed: false });
   readSignoffQueue.mockReset();
   readPendingAiGovernanceSignoff.mockReset();
   readPendingAiGovernanceSignoff.mockResolvedValue(noAi);
@@ -572,5 +578,21 @@ describe("legacy notice retirement line (S19f)", () => {
     expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "legacy_notice_retirement")).toBeUndefined();
     readLegacyNoticeRetirementState.mockResolvedValue({ liveVersion: null, waiting: [], measurement: [], failed: true });
     expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the older clinician-message retirement"] });
+  });
+});
+
+describe("readCmoSigningHub: recommended blood pressure monitors (S07y)", () => {
+  it("adds one line, linking into /clinician, only when a monitor waits for review", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingBpDeviceReview.mockResolvedValue({ waiting: 2, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items).toHaveLength(1);
+    expect(hub.items[0]).toMatchObject({ key: "bp_device_review", count: 2, href: "/clinician/recommended-devices" });
+  });
+  it("says nothing when none waits, and names the source when it cannot be read", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    expect((await readCmoSigningHub(supabase)).items).toHaveLength(0);
+    readPendingBpDeviceReview.mockResolvedValue({ waiting: 0, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the recommended blood pressure monitors"] });
   });
 });
