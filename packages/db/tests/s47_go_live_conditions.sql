@@ -149,7 +149,7 @@ begin
   update public.screening_rule_sets set approved_by = v_cmo_staff, approved_at = now(), is_active = true where version = 3;
   perform pg_temp.rec('a signed active rule set: met', 'true', pg_temp.cond_met('screening_scheduler_enabled', 'screening_rules_signed'));
 
-  insert into public.lab_providers (name, is_active) values ('S47 Lab', false) returning id into v_lab;
+  insert into public.lab_providers (name, is_active, license_number, license_verified_at, license_expires_at, accreditation) values ('S47 Lab', false, 'S27H-PROOF-1', now(), now() + interval '1 year', 'ISO 15189') returning id into v_lab;
   insert into public.lab_tests (provider_id, code, name, price_kobo, is_active) values (v_lab, 'hpv_dna', 'HPV DNA', 100, true);
   perform pg_temp.rec('a lab that offers HPV DNA but is inactive: not met', 'false', pg_temp.cond_met('hpv_dna_enabled', 'hpv_dna_lab_active'));
   update public.lab_providers set is_active = true where id = v_lab;

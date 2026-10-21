@@ -102,7 +102,7 @@ begin
   perform pg_temp.setf('plainstaff', pg_temp.mkuser(v_org, 'plainstaff', 'care_coordinator'));
   perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'doc', 'senior_medical_officer', v_admin));
   perform pg_temp.setf('stranger', pg_temp.mkdoc(v_org, 'stranger', 'senior_medical_officer', v_admin));
-  insert into public.lab_providers (name, is_active) values ('TD Lab', true) returning id into v_lab;
+  insert into public.lab_providers (name, is_active, license_number, license_verified_at, license_expires_at, accreditation) values ('TD Lab', true, 'S27H-PROOF-1', now(), now() + interval '1 year', 'ISO 15189') returning id into v_lab;
   perform pg_temp.setf('lab', v_lab);
   perform pg_temp.setf('m1', pg_temp.mkmember(v_org, 'm1'));
   perform pg_temp.setf('m2', pg_temp.mkmember(v_org, 'm2'));

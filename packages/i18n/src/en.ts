@@ -2799,6 +2799,17 @@ export const en = {
   "labres.expected": "Expected by {date}",
   "labres.replaced": "Replaced by a newer result",
   "labres.correction": "This is a corrected result. It replaces an earlier one.",
+  // S27h patient trend. Own namespace on purpose: facts only (two values, a direction word and a person's note), no range, flag or advice.
+  // Not in the reviewed-strings ledger scope; the CMO should bring "labtrend" into scope before launch (see docs/OPEN-QUESTIONS.md).
+  "labtrend.title": "Changes since last time",
+  "labtrend.intro": "Your released blood test values next to the previous time. This compares two numbers. It is not a diagnosis.",
+  "labtrend.last": "Last time",
+  "labtrend.now": "This time",
+  "labtrend.higher": "Higher than last time",
+  "labtrend.lower": "Lower than last time",
+  "labtrend.same": "The same as last time",
+  "labtrend.note": "From your care team",
+  "labtrend.error": "We could not load your changes. This is not the same as there being none.",
   "labres.screening": "This is a screening result. It is not a diagnosis, and your care team will tell you what happens next.",
   "learn.weekly.title": "This week's lesson",
   "learn.weekly.minutes": "About {minutes} min",
