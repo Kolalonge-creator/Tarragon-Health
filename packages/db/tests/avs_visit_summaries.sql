@@ -257,6 +257,8 @@ begin
     (pg_temp.try_as(v_np, format('select public.approve_visit_summary(%L)', s)) <> 'ok')::text);
   perform pg_temp.ck('a stranger patient sees nothing of the draft', '0', pg_temp.sees(v_sp, s));
 
+  raise notice 'AVSDIAG3 text=% items=%', private.visit_summary_copy_problems((select summary_text from public.visit_summaries where id = s)),
+    (select jsonb_agg(jsonb_build_object('c', custom_text, 'p', params, 'probs', private.visit_summary_copy_problems(coalesce(custom_text, '') || ' ' || params::text))) from public.visit_summary_items where summary_id = s);
   v_diag := pg_temp.try_as(v_doc, format('select public.approve_visit_summary(%L)', s));
   raise notice 'AVSDIAG2 approve=%', v_diag;
   perform pg_temp.ck('the doctor approves', 'ok', v_diag);
