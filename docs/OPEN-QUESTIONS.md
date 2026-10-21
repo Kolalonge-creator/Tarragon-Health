@@ -4459,3 +4459,13 @@ Named OQ-S27h-NN (not a plain number) so they cannot collide with the repeated n
 ### OQ-S27h-07 The rejected-specimen staff notice may address the wrong id
 - `lab_partner_reject_specimen` (20260829123304) inserts its staff notice with `recipient_id = clinical_staff.id`, but `notifications.recipient_id` references `profiles(id)`. Whether this raises on a real rejection depends on whether a CMO row exists; see the S27h BUILD-PROGRESS entry for what was verified and fixed.
 - Decision: see the BUILD-PROGRESS entry.
+
+## OQ-ADULT-LAGOS-1: other places still compare a birth date with the server date (2026-10-21)
+
+Founder decision 2026-10-21: the 18th birthday counts in Lagos time. `private.adult_cutoff_date()` is now the one definition, and the two registration gates (`private.enforce_adult_registration`, `private.handle_new_user`) use it. These places still use `current_date` (UTC) for an 18-year cutoff and are NOT changed here, because they are not registration gates and each needs its own review. For one hour a day (23:00 to 24:00 UTC) they treat someone whose 18th birthday is "today" in Lagos as still 17:
+- `private.is_minor_dependant` (20261013183512), used by the under-18 scope and guard;
+- the majority-review sweep (20260829082711, 20260902222941) and the hand-over sweep (20261007231450, `current_date + 30`);
+- the caregiver read of a signed report (20261007233100) and the yearly proxy review (20261016190147);
+- written questions (20261006101058) and the community age check (20261009193219);
+- the self-check in `public.revoke_proxy_access` (20261013183512, line 702).
+Decision needed: move all of them onto `private.adult_cutoff_date()` in one reviewed change, or leave them. Until then the registration gate and these checks can disagree for that one hour.

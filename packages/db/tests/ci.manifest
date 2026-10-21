@@ -1327,3 +1327,6 @@ s47a_observation_types.sql
 # S48a: activity safety gate (red event in 48h = rest, enforced on enrolment incl. re-activation), kinds/goals/events, unreviewed workout plans hidden, owner-only private routes. Sabotage: trigger dropped, gate ignoring red, staff route policy; each must flip.
 s48a_activity_safety_gate.sql
 s27h_lab_lifecycle_and_quality.sql
+
+# Adult-only registration counts the 18th birthday in Lagos time: helper = Lagos date minus 18 years, both gates use it, a person turning 18 today in Lagos signs up and one a day younger is refused (relative to the cutoff, so hour-independent). Sabotage: the boundary moved a day earlier; the turns-18-today sign-up must flip.
+adult_registration_lagos_date.sql
