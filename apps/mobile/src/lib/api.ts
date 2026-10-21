@@ -123,6 +123,12 @@ export async function getNutritionGuidance(): Promise<unknown | null> {
   return result.ok ? result.data : null;
 }
 
+/** S50a: swaps and eating plans, or `{ state: "unavailable" }` (show nothing at all). Null when the request failed (offline, auth, server error). */
+export async function getEatingPlans(): Promise<unknown | null> {
+  const result = await request<unknown>("/api/mobile/nutrition/eating-plans", "GET");
+  return result.ok ? result.data : null;
+}
+
 export interface MobileThresholds {
   version: string;
   glucose: Record<string, number>;
