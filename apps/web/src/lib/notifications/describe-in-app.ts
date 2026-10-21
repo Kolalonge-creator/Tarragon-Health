@@ -462,6 +462,12 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "note_release_requested") {
     return { text: "A patient asked about a note. Open your messages to answer", href: "/clinician/messages" };
   }
+  if (n.template === "visit_summary_ready") {
+    return { text: "Your care team has written a summary of your visit", href: "/patient/care#after-visit-summary" };
+  }
+  if (n.template === "visit_summary_withdrawn") {
+    return { text: "Your care team took back a summary", href: "/patient/care#after-visit-summary" };
+  }
   if (n.template === "note_released") {
     return { text: "Your care team has made a note available", href: "/patient/care" };
   }

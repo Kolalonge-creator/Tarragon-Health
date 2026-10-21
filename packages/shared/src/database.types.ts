@@ -45746,6 +45746,186 @@ export type Database = {
           },
         ]
       }
+      visit_summaries: {
+        Row: {
+          amendment_count_at_approval: number | null
+          approved_at: string | null
+          approved_by: string | null
+          approved_by_staff: string | null
+          assembled_at: string
+          assembled_by: string | null
+          clinical_encounter_id: string | null
+          created_at: string
+          draft_source: Json
+          edited_at: string | null
+          id: string
+          is_test: boolean
+          note_id: string
+          organisation_id: string
+          patient_id: string
+          revision: number
+          state: string
+          summary_text: string
+          updated_at: string
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+          withdrawn_reason: string | null
+        }
+        Insert: {
+          amendment_count_at_approval?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_staff?: string | null
+          assembled_at?: string
+          assembled_by?: string | null
+          clinical_encounter_id?: string | null
+          created_at?: string
+          draft_source?: Json
+          edited_at?: string | null
+          id?: string
+          is_test?: boolean
+          note_id: string
+          organisation_id: string
+          patient_id: string
+          revision?: number
+          state?: string
+          summary_text?: string
+          updated_at?: string
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdrawn_reason?: string | null
+        }
+        Update: {
+          amendment_count_at_approval?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_staff?: string | null
+          assembled_at?: string
+          assembled_by?: string | null
+          clinical_encounter_id?: string | null
+          created_at?: string
+          draft_source?: Json
+          edited_at?: string | null
+          id?: string
+          is_test?: boolean
+          note_id?: string
+          organisation_id?: string
+          patient_id?: string
+          revision?: number
+          state?: string
+          summary_text?: string
+          updated_at?: string
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdrawn_reason?: string | null
+        }
+        Relationships: []
+      }
+      visit_summary_item_progress: {
+        Row: {
+          done_at: string | null
+          item_id: string
+          patient_id: string
+          summary_id: string
+          task_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          done_at?: string | null
+          item_id: string
+          patient_id: string
+          summary_id: string
+          task_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          done_at?: string | null
+          item_id?: string
+          patient_id?: string
+          summary_id?: string
+          task_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      visit_summary_items: {
+        Row: {
+          created_at: string
+          custom_text: string | null
+          due_on: string | null
+          id: string
+          kind: string
+          params: Json
+          position: number
+          source_ref: string | null
+          source_table: string | null
+          summary_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_text?: string | null
+          due_on?: string | null
+          id?: string
+          kind: string
+          params?: Json
+          position?: number
+          source_ref?: string | null
+          source_table?: string | null
+          summary_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_text?: string | null
+          due_on?: string | null
+          id?: string
+          kind?: string
+          params?: Json
+          position?: number
+          source_ref?: string | null
+          source_table?: string | null
+          summary_id?: string
+        }
+        Relationships: []
+      }
+      visit_summary_revisions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          id: string
+          items_snapshot: Json
+          patient_id: string
+          revision: number
+          state_at_reset: string
+          summary_id: string
+          summary_text: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          items_snapshot?: Json
+          patient_id: string
+          revision: number
+          state_at_reset: string
+          summary_id: string
+          summary_text: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          items_snapshot?: Json
+          patient_id?: string
+          revision?: number
+          state_at_reset?: string
+          summary_id?: string
+          summary_text?: string
+        }
+        Relationships: []
+      }
       vitals_reading_links: {
         Row: {
           canonical_class: string
@@ -49437,6 +49617,13 @@ export type Database = {
       }
     }
     Functions: {
+      add_visit_summary_item_to_tasks: { Args: { p_item: string }; Returns: string }
+      approve_visit_summary: { Args: { p_summary: string }; Returns: undefined }
+      assemble_visit_summary: { Args: { p_note: string }; Returns: string }
+      my_visit_summaries: { Args: { p_patient?: string }; Returns: Json }
+      read_visit_summary_for_review: { Args: { p_note: string }; Returns: Json }
+      record_visit_summary_opened: { Args: { p_summary: string }; Returns: undefined }
+      set_visit_summary_item_done: { Args: { p_done: boolean; p_item: string }; Returns: undefined }
       lookup_barcode: { Args: { p_code: string }; Returns: Json }
       activity_gate: { Args: Record<PropertyKey, never>; Returns: Json };
       activity_week_progress: { Args: { p_week_start?: string }; Returns: Json };
@@ -49469,6 +49656,7 @@ export type Database = {
       reject_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
       replace_my_result_document: { Args: { p_document_id: string; p_file_path: string; p_original_filename: string; p_mime_type: string; p_file_size_bytes: number; p_note?: string }; Returns: string }
       my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }
+      update_visit_summary_draft: { Args: { p_items?: Json; p_summary: string; p_text: string }; Returns: undefined }
       sign_nutrition_target_config: { Args: { p_id: string }; Returns: string }
       withdraw_patient_allergy_correction: { Args: { p_request_id: string }; Returns: Json }
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
@@ -49910,6 +50098,7 @@ export type Database = {
       record_lab_disclosure: { Args: { p_attested: boolean; p_method: string; p_note?: string; p_result: string }; Returns: Json };
       release_lab_result: { Args: { p_note?: string; p_result: string }; Returns: Json };
       team_submit_lab_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string; p_patient: string }; Returns: Json };
+      withdraw_visit_summary: { Args: { p_reason: string; p_summary: string }; Returns: undefined }
       withhold_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
       // Testing days, employer visits and point-of-care results (20261013004659_testing_days_employer_visits_point_of_care.sql)
       create_testing_event: {

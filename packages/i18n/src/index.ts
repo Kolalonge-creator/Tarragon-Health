@@ -5,6 +5,7 @@ import { DEFAULT_LOCALE, LOCALES, type Locale } from "./translate";
 export { LOCALES, DEFAULT_LOCALE, catalogues, t, type Locale, type MessageParams } from "./translate";
 export type { MessageKey };
 export { en };
+export * from "./visit-summary";
 export { activeWording, speakable, WORDING_CODES, WORDING_KEYS, WORDING_SIGNED, type WordingCode } from "./clinical-wording";
 export {
   activeFertileWindowWording,
