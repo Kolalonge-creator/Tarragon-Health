@@ -57,7 +57,7 @@ export function FastingSafetyConfigView({ row, canSign }: { row: FastingSafetyCo
         <p className="text-sm text-charcoal-ink/70">
           {signed
             ? "These rules apply. The fasting screen still stays hidden until the fasting_safety go-live switch is turned on."
-            : "Until this is signed no patient is told anything about fasting except that they should talk to their care team. This is a safety answer for Ramadan and Lent only; there are no fasting timers or programmes."}
+            : "Until this is signed no patient is told anything about fasting except that they should talk to their care team. This is a safety answer for Ramadan and Lent only. It does not start, time or coach a fast."}
         </p>
       </div>
 
