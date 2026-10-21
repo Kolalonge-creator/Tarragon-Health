@@ -3501,6 +3501,22 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["lease\\w*days?\\s*[=:]\\s*30\\b", "probe\\w*(interval|seconds)\\w*\\s*[=:]\\s*60\\b"],
   },
   {
+    key: "offline.freshness",
+    // S06y. PROPOSED: how many hours old the copy of the record kept on the phone (the emergency card, the medicines list, today's doses) may be before
+    // the app adds a calm "this may be out of date, connect to refresh" notice. Below it the app only says when the copy was last updated. 24 hours is a
+    // starting point for the CMO to confirm or change; nothing is signed and no clinical rule depends on it. Read through loadFreshnessConfig() in
+    // apps/mobile/src/lib/freshness.ts, never as a literal.
+    value: {
+      stale_after_hours: 24,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/S06y-freshness.md; docs/plans/S06-S10-competitor-gap-and-build-plan.md section 5 (S06x offline trust)",
+    guardPatterns: ["stale\\w*hours?\\s*[=:]\\s*24\\b"],
+  },
+  {
     key: "my_health.sharing_and_access_log",
     // My Health completion (S09x). Live values are the active row of `my_health_config`.config (sharing, access_log); my-health-mirror.test.ts fails if the
     // migration seed and this value drift. PROPOSED: the default share expiry (12 hours, shorter than the 24 the first share screen used; the 30 day cap is
