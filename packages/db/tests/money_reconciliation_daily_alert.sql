@@ -5,6 +5,7 @@
 --   3. A mismatch on a TEST order opens nothing (checked only when no other real mismatch exists in the database).
 --   4. The scan changes no money: no order, payment, refund, journal or ledger row is written or altered by running it.
 --   5. Clients cannot run it or read its config; the cron job exists.
+--   5b. A cleared incident is rewritten to say the screen is empty and stays open.
 --   6. The two "settled by hand" refund messages tell a person to use the reference refund:<id>.
 --   7. SABOTAGE: the incident de-duplication removed (two open incidents appear) and the scan emptied (no incident appears). Each must flip.
 begin;
@@ -63,8 +64,13 @@ begin
   -- test-only: the same order marked as a test order opens nothing (only when no OTHER real mismatch exists)
   update public.orders set is_test = true where id = pg_temp.f('order');
   update public.payments set is_test = true where order_id = pg_temp.f('order');
-  delete from public.ops_incidents where external_reference = 'money-reconciliation-daily:' || v_org;
   select count(*) into v_other from private.money_mismatches(false, 1440, 15) m where m.organisation_id is not distinct from v_org;
+  -- the open incident from above must say the screen is now empty (not keep claiming items), and must stay open
+  perform private.money_reconciliation_daily_check();
+  insert into results values (p_phase, 'a cleared incident says so and stays open', case when v_other = 0 then 'true|1' else 'n/a' end,
+    case when v_other = 0 then (select (summary like '%shows no open items%')::text from public.ops_incidents
+      where external_reference = 'money-reconciliation-daily:' || v_org and status not in ('resolved', 'closed') limit 1) || '|' || pg_temp.open_incidents(v_org) else 'n/a' end);
+  delete from public.ops_incidents where external_reference = 'money-reconciliation-daily:' || v_org;
   perform private.money_reconciliation_daily_check();
   insert into results values (p_phase, 'a test-order mismatch opens nothing', case when v_other = 0 then '0' else 'n/a' end,
     case when v_other = 0 then pg_temp.open_incidents(v_org) else 'n/a' end);
@@ -79,9 +85,9 @@ insert into results values ('real', 'authenticated cannot run the scan', 'false'
 insert into results values ('real', 'authenticated cannot read the config', 'false', has_table_privilege('authenticated', 'public.money_reconciliation_alert_config', 'SELECT')::text);
 insert into results values ('real', 'the daily job is scheduled', '1', (select count(*)::text from cron.job where jobname = 'money-reconciliation-daily-check'));
 insert into results values ('real', 'settle-by-hand text gives the refund reference', 'true',
-  (pg_get_functiondef('public.admin_settle_processing_refund(uuid,boolean,text)'::regprocedure) like '%reference refund:%')::text);
+  (pg_get_functiondef('public.admin_settle_processing_refund(uuid,boolean,text)'::regprocedure) like '%reference refund:%' and pg_get_functiondef('public.admin_settle_processing_refund(uuid,boolean,text)'::regprocedure) like '%journal source manual%')::text);
 insert into results values ('real', 'cash-post-failed text gives the refund reference', 'true',
-  (pg_get_functiondef('public.service_refund_incident(uuid,text)'::regprocedure) like '%reference refund:%')::text);
+  (pg_get_functiondef('public.service_refund_incident(uuid,text)'::regprocedure) like '%reference refund:%' and pg_get_functiondef('public.service_refund_incident(uuid,text)'::regprocedure) like '%journal source manual%')::text);
 
 -- SABOTAGE
 do $$
