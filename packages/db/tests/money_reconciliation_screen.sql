@@ -1,6 +1,6 @@
 -- Money reconciliation screen proof (migration *_money_reconciliation_screen.sql).
 -- One rolled-back transaction. Proves:
---   1. Every mismatch kind is REPORTED for a row seeded to have exactly that fault (22 kinds, orders/payments/entitlements,
+--   1. Every mismatch kind is REPORTED for a row seeded to have exactly that fault (24 kinds, orders/payments/entitlements,
 --      the general ledger, refunds, consultation-share reversals, payouts).
 --   2. A CLEAN control set (an order paid, entitled, journalled; a refund completed with its cash entry, release and reversal; a payout
 --      whose lines, transfer and ledger entry agree) is reported under NO kind.
@@ -49,13 +49,13 @@ begin
   return v;
 end $f$;
 
--- Does the detector report this kind for this subject? (Thresholds: 120 minute stuck window, 15 minute grace.)
+-- Does the detector report this kind for this subject? (Windows: the live refund policy for stuck-while-sending, 1440 minutes for decided-not-sent, 15 minute grace.)
 create function pg_temp.seen(p_kind text, p_subject uuid, p_test boolean default true) returns text language sql as
-$$ select case when exists (select 1 from private.money_mismatches(p_test, 120, 15) m where m.kind = p_kind and m.subject_id = p_subject) then 'reported' else 'absent' end $$;
+$$ select case when exists (select 1 from private.money_mismatches(p_test, 1440, 15) m where m.kind = p_kind and m.subject_id = p_subject) then 'reported' else 'absent' end $$;
 create function pg_temp.seen_any(p_subject uuid) returns text language sql as
-$$ select coalesce((select string_agg(distinct m.kind, ',') from private.money_mismatches(true, 120, 15) m where m.subject_id = p_subject or m.related_id = p_subject), 'none') $$;
+$$ select coalesce((select string_agg(distinct m.kind, ',') from private.money_mismatches(true, 1440, 15) m where m.subject_id = p_subject or m.related_id = p_subject), 'none') $$;
 create function pg_temp.delta(p_kind text, p_subject uuid) returns text language sql as
-$$ select coalesce((select m.delta_kobo::text from private.money_mismatches(true, 120, 15) m where m.kind = p_kind and m.subject_id = p_subject limit 1), 'none') $$;
+$$ select coalesce((select m.delta_kobo::text from private.money_mismatches(true, 1440, 15) m where m.kind = p_kind and m.subject_id = p_subject limit 1), 'none') $$;
 
 -- ---------------------------------------------------------------------------------------------------------------------------------
 -- Fixtures (triggers off)
@@ -208,6 +208,7 @@ begin
       insert into public.orders (id, organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, fee_kobo, total_kobo, state, paid_at, paystack_reference, is_test)
       values (o, v_org, v_pat, v_pat, v_item, v_price, 500000, 0, 500000, 'refunded', now() - interval '4 days', v_ref, false);
       insert into public.payments (organisation_id, order_id, provider, provider_reference, amount_kobo, fee_kobo, total_kobo, status, source, is_test) values (v_org, o, 'paystack', v_ref, 500000, 0, 500000, 'success', 'return', false);
+      insert into public.finance_journal_entries (entry_date, period_month, source, source_ref, memo) values (current_date, date_trunc('month', current_date)::date, 'payment', 'order:' || o, 'kpay');
       r := gen_random_uuid();
       v_stamp := case k when 'k3' then null else now() - interval '1 day' end;
       v_prov := case k when 'k2' then 'mismatch' else 'matched' end;
@@ -265,6 +266,7 @@ begin
       values (pt, 'paystack', 'refund:' || v_ref || ':' || v_ref_amt, 'refund.processed', v_ref_amt, 'NGN', now(), '{}');
       insert into public.payments (organisation_id, order_id, provider, provider_reference, amount_kobo, fee_kobo, total_kobo, status, source, is_test) values (v_org, o, 'paystack', v_ref, 500000, 0, 500000, 'success', 'return', false);
       insert into public.finance_journal_entries (entry_date, period_month, source, source_ref, memo) values (current_date, date_trunc('month', current_date)::date, 'refund', pt::text, 'cash back ' || k);
+      insert into public.finance_journal_entries (entry_date, period_month, source, source_ref, memo) values (current_date, date_trunc('month', current_date)::date, 'payment', 'order:' || o, 'lpay');
       insert into public.order_encounter_links (encounter_id, order_id) values (enc, o);
       insert into public.earnings_ledger (id, organisation_id, clinician_id, kind, reference_type, reference_id, amount_kobo, fee_schedule_version_id, calculation, earned_at, employment_type, is_test, created_at)
       values (l, v_org, v_doc, 'consultation', 'encounter', enc, 100000, v_fee, '{}', now() - interval '2 days', 'contracted', false, now() - interval '2 days');
@@ -310,6 +312,81 @@ begin
     end loop;
   end;
 
+  -- ===== M. extra controls and kinds added after review =====
+  -- M1 fully sponsor-covered order: amount 0, sponsor share 500000, no Paystack payment row by design, journalled, entitled (clean)
+  o := gen_random_uuid(); v_ref := 'tho_mrs_' || replace(o::text, '-', '');
+  insert into public.orders (id, organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, sponsor_share_kobo, fee_kobo, total_kobo, state, paid_at, paystack_reference, is_test)
+  values (o, v_org, v_pat, v_pat, v_item, v_price, 0, 500000, 0, 0, 'paid', now() - interval '2 days', v_ref, false);
+  insert into public.entitlements (organisation_id, patient_id, order_id, kind, starts_at, ends_at, remaining_uses, state, is_test) values (v_org, v_pat, o, 'care_pack', now() - interval '2 days', now() + interval '80 days', 3, 'active', false);
+  insert into public.finance_journal_entries (entry_date, period_month, source, source_ref, memo) values (current_date, date_trunc('month', current_date)::date, 'payment', 'order:' || o, 'sponsor');
+  perform pg_temp.setf('m1_sponsor_order', o);
+  -- M1b the same sponsor order with NO ledger entry: reported, and the missing amount is the sponsor share
+  o := gen_random_uuid(); v_ref := 'tho_mrs_' || replace(o::text, '-', '');
+  insert into public.orders (id, organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, sponsor_share_kobo, fee_kobo, total_kobo, state, paid_at, paystack_reference, is_test)
+  values (o, v_org, v_pat, v_pat, v_item, v_price, 0, 500000, 0, 0, 'paid', now() - interval '2 days', v_ref, false);
+  insert into public.entitlements (organisation_id, patient_id, order_id, kind, starts_at, ends_at, remaining_uses, state, is_test) values (v_org, v_pat, o, 'care_pack', now() - interval '2 days', now() + interval '80 days', 3, 'active', false);
+  perform pg_temp.setf('m1b_sponsor_order', o);
+  -- M2 completed refund on an order that never reached the ledger as a payment (cash entry exists)
+  o := gen_random_uuid(); v_ref := 'tho_mrs_' || replace(o::text, '-', '');
+  insert into public.orders (id, organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, state, paid_at, paystack_reference, is_test)
+  values (o, v_org, v_pat, v_pat, v_item, v_price, 500000, 'refunded', now() - interval '4 days', v_ref, false);
+  insert into public.payments (organisation_id, order_id, provider, provider_reference, amount_kobo, fee_kobo, total_kobo, status, source, is_test) values (v_org, o, 'paystack', v_ref, 500000, 0, 500000, 'success', 'return', false);
+  r := gen_random_uuid(); pt := gen_random_uuid();
+  insert into public.refunds (id, organisation_id, order_id, amount_kobo, reason, state, provider, completed_at, gl_released_at, provider_status, provider_checked_at, is_test)
+  values (r, v_org, o, 500000, 'Never journalled fixture', 'completed', 'paystack', now() - interval '1 day', now() - interval '1 day', 'matched', now(), false);
+  insert into public.payment_transactions (id, provider, provider_event_id, event_type, amount_minor, currency, processed_at, raw_payload) values (pt, 'paystack', 'refund:' || v_ref || ':500000', 'refund.processed', 500000, 'NGN', now(), '{}');
+  insert into public.finance_journal_entries (entry_date, period_month, source, source_ref, memo) values (current_date, date_trunc('month', current_date)::date, 'refund', pt::text, 'cash back m2');
+  perform pg_temp.setf('m2_refund', r);
+  -- M3 approved refund, order already refunded, three days with no money back
+  o := gen_random_uuid(); v_ref := 'tho_mrs_' || replace(o::text, '-', '');
+  insert into public.orders (id, organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, state, paid_at, paystack_reference, is_test, updated_at)
+  values (o, v_org, v_pat, v_pat, v_item, v_price, 500000, 'refunded', now() - interval '5 days', v_ref, false, now() - interval '3 days');
+  r := gen_random_uuid();
+  insert into public.refunds (id, organisation_id, order_id, amount_kobo, reason, state, provider, decided_by, decided_at, is_test, created_at, updated_at)
+  values (r, v_org, o, 500000, 'Approved and unsent fixture', 'approved', 'paystack', v_adm, now() - interval '3 days', false, now() - interval '4 days', now() - interval '3 days');
+  perform pg_temp.setf('m3_refund', r);
+  -- M4 completed refund, cash posted BY HAND under the documented reference (clean for the cash-posting kind)
+  o := gen_random_uuid(); v_ref := 'tho_mrs_' || replace(o::text, '-', '');
+  insert into public.orders (id, organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, state, paid_at, paystack_reference, is_test)
+  values (o, v_org, v_pat, v_pat, v_item, v_price, 500000, 'refunded', now() - interval '4 days', v_ref, false);
+  insert into public.payments (organisation_id, order_id, provider, provider_reference, amount_kobo, fee_kobo, total_kobo, status, source, is_test) values (v_org, o, 'paystack', v_ref, 500000, 0, 500000, 'success', 'return', false);
+  insert into public.finance_journal_entries (entry_date, period_month, source, source_ref, memo) values (current_date, date_trunc('month', current_date)::date, 'payment', 'order:' || o, 'm4 pay');
+  r := gen_random_uuid();
+  insert into public.refunds (id, organisation_id, order_id, amount_kobo, reason, state, provider, completed_at, gl_released_at, provider_status, provider_checked_at, is_test)
+  values (r, v_org, o, 500000, 'Hand posted fixture', 'completed', 'paystack', now() - interval '1 day', now() - interval '1 day', 'matched', now(), false);
+  insert into public.finance_journal_entries (entry_date, period_month, source, source_ref, memo) values (current_date, date_trunc('month', current_date)::date, 'manual', 'refund:' || r, 'by hand');
+  perform pg_temp.setf('m4_refund', r);
+  -- M5 completed refund of 500000 whose deferred revenue release was 600000
+  o := gen_random_uuid(); v_ref := 'tho_mrs_' || replace(o::text, '-', '');
+  insert into public.orders (id, organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, state, paid_at, paystack_reference, is_test)
+  values (o, v_org, v_pat, v_pat, v_item, v_price, 500000, 'refunded', now() - interval '4 days', v_ref, false);
+  insert into public.payments (organisation_id, order_id, provider, provider_reference, amount_kobo, fee_kobo, total_kobo, status, source, is_test) values (v_org, o, 'paystack', v_ref, 500000, 0, 500000, 'success', 'return', false);
+  insert into public.finance_journal_entries (entry_date, period_month, source, source_ref, memo) values (current_date, date_trunc('month', current_date)::date, 'payment', 'order:' || o, 'm5 pay');
+  r := gen_random_uuid(); pt := gen_random_uuid();
+  insert into public.refunds (id, organisation_id, order_id, amount_kobo, reason, state, provider, completed_at, gl_released_at, provider_status, provider_checked_at, is_test)
+  values (r, v_org, o, 500000, 'Over released fixture', 'completed', 'paystack', now() - interval '1 day', now() - interval '1 day', 'matched', now(), false);
+  insert into public.payment_transactions (id, provider, provider_event_id, event_type, amount_minor, currency, processed_at, raw_payload) values (pt, 'paystack', 'refund:' || v_ref || ':500000', 'refund.processed', 500000, 'NGN', now(), '{}');
+  insert into public.finance_journal_entries (entry_date, period_month, source, source_ref, memo) values (current_date, date_trunc('month', current_date)::date, 'refund', pt::text, 'cash back m5');
+  je := gen_random_uuid();
+  insert into public.finance_journal_entries (id, entry_date, period_month, source, source_ref, memo) values (je, current_date, date_trunc('month', current_date)::date, 'adjustment', 'refund_deferred_release:' || r, 'over release');
+  insert into public.finance_journal_lines (entry_id, line_no, account_code, debit_minor, credit_minor, organisation_id) values (je, 1, '2000', 600000, 0, v_org), (je, 2, '4900', 0, 600000, v_org);
+  perform pg_temp.setf('m5_refund', r);
+  -- M6 a share of 100000 reversed twice (-100000 and -50000)
+  l := gen_random_uuid(); r := gen_random_uuid();
+  insert into public.earnings_ledger (id, organisation_id, clinician_id, kind, reference_type, reference_id, amount_kobo, fee_schedule_version_id, calculation, earned_at, employment_type, is_test)
+  values (l, v_org, v_doc, 'consultation', 'encounter', gen_random_uuid(), 100000, v_fee, '{}', now() - interval '2 days', 'contracted', false);
+  insert into public.earnings_ledger (organisation_id, clinician_id, kind, reference_type, reference_id, amount_kobo, calculation, earned_at, employment_type, note, created_by, is_test) values
+    (v_org, v_doc, 'adjustment', 'refund_reversal', gen_random_uuid(), -100000, jsonb_build_object('refund_id', r, 'corrects', l), now(), 'contracted', 'First reversal fixture', v_adm, false),
+    (v_org, v_doc, 'adjustment', 'refund_reversal', gen_random_uuid(), -50000, jsonb_build_object('refund_id', gen_random_uuid(), 'corrects', l), now(), 'contracted', 'Second reversal fixture', v_adm, false);
+  perform pg_temp.setf('m6_line', l);
+  -- M7 a recorded payment mismatch whose reason is the FEE, not the amount: no kobo difference is claimed
+  o := gen_random_uuid(); v_ref := 'tho_mrs_' || replace(o::text, '-', '');
+  insert into public.orders (id, organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, state, paystack_reference, is_test)
+  values (o, v_org, v_pat, v_pat, v_item, v_price, 500000, 'created', v_ref, false);
+  p := gen_random_uuid();
+  insert into public.payments (id, organisation_id, order_id, provider, provider_reference, amount_kobo, fee_kobo, total_kobo, status, mismatch_reason, source, is_test) values (p, v_org, o, 'paystack', v_ref, 500000, 9000, 509000, 'mismatch', 'fee', 'webhook', false);
+  perform pg_temp.setf('m7_pay', p);
+
   set local session_replication_role = origin;
 end $$;
 
@@ -336,8 +413,8 @@ begin
    (p_phase, 'kind: refund the weekly Paystack check disagrees with', 'reported', pg_temp.seen('refund_paystack_mismatch', pg_temp.f('k2_refund'))),
    (p_phase, 'kind: completed refund with no cash entry', 'reported', pg_temp.seen('refund_completed_no_cash_posting', pg_temp.f('k3_refund'))),
    (p_phase, 'kind: completed refund, deferred revenue release pending', 'reported', pg_temp.seen('refund_gl_release_pending', pg_temp.f('k3_refund'))),
-   (p_phase, 'kind: release posted for a refund that is not completed', 'reported', pg_temp.seen('refund_gl_release_without_completed_refund', pg_temp.f('k5_refund'))),
-   (p_phase, 'kind: earnings reversal for a refund that is not completed', 'reported', pg_temp.seen('earnings_reversal_without_completed_refund', pg_temp.f('k6_line'))),
+   (p_phase, 'kind: release posted for a refund that is not completed', 'reported', pg_temp.seen('refund_gl_release_irregular', pg_temp.f('k5_refund'))),
+   (p_phase, 'kind: earnings reversal for a refund that is not completed', 'reported', pg_temp.seen('earnings_reversal_irregular', pg_temp.f('k6_line'))),
    (p_phase, 'kind: share not reversed after a full refund', 'reported', pg_temp.seen('consultation_share_not_reversed', pg_temp.f('l1_line'))),
    (p_phase, 'kind: share under-reversed after a part refund', 'reported', pg_temp.seen('consultation_share_not_reversed', pg_temp.f('l4_line'))),
    (p_phase, 'kind: payout total differs from its lines', 'reported', pg_temp.seen('payout_total_differs_from_lines', pg_temp.f('p2'))),
@@ -355,8 +432,8 @@ begin
    (p_phase, 'delta: part refund expected 50000, reversed 20000', '30000', pg_temp.delta('consultation_share_not_reversed', pg_temp.f('l4_line'))),
    (p_phase, 'delta: payout lines 50000 short', '-50000', pg_temp.delta('payout_total_differs_from_lines', pg_temp.f('p2'))),
    (p_phase, 'delta: payout ledger entry 100000 short', '-100000', pg_temp.delta('payout_gl_amount_differs', pg_temp.f('p5'))),
-   (p_phase, 'delta: release posted early is the 2000 debit', '120000', pg_temp.delta('refund_gl_release_without_completed_refund', pg_temp.f('k5_refund'))),
-   (p_phase, 'delta: the Paystack-side amount is not stored, so the delta is empty', null, (select m.delta_kobo::text from private.money_mismatches(true, 120, 15) m where m.kind = 'refund_paystack_mismatch' and m.subject_id = pg_temp.f('k2_refund')));
+   (p_phase, 'delta: release posted early is the 2000 debit', '120000', pg_temp.delta('refund_gl_release_irregular', pg_temp.f('k5_refund'))),
+   (p_phase, 'delta: the Paystack-side amount is not stored, so the delta is empty', null, (select m.delta_kobo::text from private.money_mismatches(true, 1440, 15) m where m.kind = 'refund_paystack_mismatch' and m.subject_id = pg_temp.f('k2_refund')));
 
   -- 2. the clean controls appear under no kind at all
   insert into results values
@@ -371,6 +448,22 @@ begin
    (p_phase, 'threshold: an order paid 5 minutes ago is inside the grace window', 'none', pg_temp.seen_any(pg_temp.f('grace_order'))),
    (p_phase, 'threshold: a refund sending for 30 minutes is inside the stuck window', 'none', pg_temp.seen_any(pg_temp.f('k1b_refund')));
 
+  -- review additions
+  insert into results values
+   (p_phase, 'kind: refund cash out with no payment entry in the ledger', 'reported', pg_temp.seen('refund_cash_out_without_payment_entry', pg_temp.f('m2_refund'))),
+   (p_phase, 'kind: refund decided, order refunded, money not sent', 'reported', pg_temp.seen('refund_decided_not_sent', pg_temp.f('m3_refund'))),
+   (p_phase, 'kind: release larger than the refund', 'reported', pg_temp.seen('refund_gl_release_irregular', pg_temp.f('m5_refund'))),
+   (p_phase, 'kind: share reversed by more than it was worth', 'reported', pg_temp.seen('earnings_reversal_irregular', pg_temp.f('m6_line'))),
+   (p_phase, 'kind: sponsor-covered order with no ledger entry', 'reported', pg_temp.seen('paid_order_no_journal', pg_temp.f('m1b_sponsor_order'))),
+   (p_phase, 'delta: sponsor share is the missing ledger amount', '500000', pg_temp.delta('paid_order_no_journal', pg_temp.f('m1b_sponsor_order'))),
+   (p_phase, 'delta: share reversed 50000 too much', '50000', pg_temp.delta('earnings_reversal_irregular', pg_temp.f('m6_line'))),
+   (p_phase, 'delta: the release over the refund reports the full release', '600000', pg_temp.delta('refund_gl_release_irregular', pg_temp.f('m5_refund'))),
+   (p_phase, 'delta: an amount mismatch reports the difference', '-50000', pg_temp.delta('payment_mismatch_recorded', pg_temp.f('i_pay'))),
+   (p_phase, 'delta: a fee mismatch claims no kobo difference', null, (select m.delta_kobo::text from private.money_mismatches(true, 1440, 15) m where m.kind = 'payment_mismatch_recorded' and m.subject_id = pg_temp.f('m7_pay'))),
+   (p_phase, 'clean: a fully sponsor-covered order has no payment row by design', 'none', pg_temp.seen_any(pg_temp.f('m1_sponsor_order'))),
+   (p_phase, 'clean: a refund cash entry posted by hand under refund:<id> clears the kind', 'absent', pg_temp.seen('refund_completed_no_cash_posting', pg_temp.f('m4_refund'))),
+   (p_phase, 'control: an approved refund decided just now is not yet late', 'absent', pg_temp.seen('refund_decided_not_sent', pg_temp.f('k5_refund')));
+
   -- 4. test rows
   insert into results values
    (p_phase, 'test rows: a test order is never expected in the ledger, even when test rows are included', 'absent', pg_temp.seen('paid_order_no_journal', pg_temp.f('j2_test_order'), true));
@@ -384,23 +477,23 @@ declare
   v_fin uuid := pg_temp.f('fin'); v_adm uuid := pg_temp.f('adm'); v_pat uuid := pg_temp.f('pat');
   n_all bigint; n_page bigint; v_total bigint; v_sum_total bigint; v_cnt1 bigint; v_cnt2 bigint;
 begin
-  insert into results values ('real', 'access: finance may read the list', 'ok', pg_temp.try_as(v_fin, 'select * from public.money_reconciliation_list(true, null, 10, 0, 120, 15)'));
-  insert into results values ('real', 'access: admin may read the list', 'ok', pg_temp.try_as(v_adm, 'select * from public.money_reconciliation_list(true, null, 10, 0, 120, 15)'));
-  insert into results values ('real', 'access: finance may read the summary', 'ok', pg_temp.try_as(v_fin, 'select * from public.money_reconciliation_summary(true, 120, 15)'));
-  insert into results values ('real', 'access: a patient is refused with an error, not an empty list', '42501', pg_temp.try_as(v_pat, 'select * from public.money_reconciliation_list(true, null, 10, 0, 120, 15)'));
-  insert into results values ('real', 'access: a patient is refused the summary', '42501', pg_temp.try_as(v_pat, 'select * from public.money_reconciliation_summary(true, 120, 15)'));
-  insert into results values ('real', 'access: the private detector is not callable by a client', '42501', pg_temp.try_as(v_fin, 'select * from private.money_mismatches(true, 120, 15)'));
+  insert into results values ('real', 'access: finance may read the list', 'ok', pg_temp.try_as(v_fin, 'select * from public.money_reconciliation_list(true, null, 10, 0, 1440, 15)'));
+  insert into results values ('real', 'access: admin may read the list', 'ok', pg_temp.try_as(v_adm, 'select * from public.money_reconciliation_list(true, null, 10, 0, 1440, 15)'));
+  insert into results values ('real', 'access: finance may read the summary', 'ok', pg_temp.try_as(v_fin, 'select * from public.money_reconciliation_summary(true, 1440, 15)'));
+  insert into results values ('real', 'access: a patient is refused with an error, not an empty list', '42501', pg_temp.try_as(v_pat, 'select * from public.money_reconciliation_list(true, null, 10, 0, 1440, 15)'));
+  insert into results values ('real', 'access: a patient is refused the summary', '42501', pg_temp.try_as(v_pat, 'select * from public.money_reconciliation_summary(true, 1440, 15)'));
+  insert into results values ('real', 'access: the private detector is not callable by a client', '42501', pg_temp.try_as(v_fin, 'select * from private.money_mismatches(true, 1440, 15)'));
   insert into results values ('real', 'access: anon cannot execute the list', 'false', has_function_privilege('anon', 'public.money_reconciliation_list(boolean,text,integer,integer,integer,integer)', 'EXECUTE')::text);
   insert into results values ('real', 'access: anon cannot execute the summary', 'false', has_function_privilege('anon', 'public.money_reconciliation_summary(boolean,integer,integer)', 'EXECUTE')::text);
   insert into results values ('real', 'input: a zero stuck window is refused, not treated as no limit', '22023', pg_temp.try_as(v_fin, 'select * from public.money_reconciliation_list(true, null, 10, 0, 0, 15)'));
 
   -- pagination: pages add up to the total and total_count is the same on every page
   perform pg_temp.act(v_fin);
-  select count(*), max(total_count) into n_page, v_total from public.money_reconciliation_list(true, null, 5, 0, 120, 15);
-  select count(*) into n_all from public.money_reconciliation_list(true, null, 200, 0, 120, 15);
-  select count(*) into v_cnt1 from public.money_reconciliation_list(true, 'consultation_share_not_reversed', 50, 0, 120, 15) where kind = 'consultation_share_not_reversed';
-  select coalesce(sum(n), 0) into v_sum_total from public.money_reconciliation_summary(true, 120, 15);
-  select n into v_cnt2 from public.money_reconciliation_summary(true, 120, 15) where kind = 'consultation_share_not_reversed';
+  select count(*), max(total_count) into n_page, v_total from public.money_reconciliation_list(true, null, 5, 0, 1440, 15);
+  select count(*) into n_all from public.money_reconciliation_list(true, null, 200, 0, 1440, 15);
+  select count(*) into v_cnt1 from public.money_reconciliation_list(true, 'consultation_share_not_reversed', 50, 0, 1440, 15) where kind = 'consultation_share_not_reversed';
+  select coalesce(sum(n), 0) into v_sum_total from public.money_reconciliation_summary(true, 1440, 15);
+  select n into v_cnt2 from public.money_reconciliation_summary(true, 1440, 15) where kind = 'consultation_share_not_reversed';
   perform pg_temp.back();
   insert into results values ('real', 'paging: the first page of 5 is full', '5', n_page::text);
   insert into results values ('real', 'paging: total_count equals the whole list', n_all::text, v_total::text);
@@ -423,8 +516,8 @@ begin
        + (select count(*) from public.earnings_ledger) + (select count(*) from public.payouts) + (select count(*) from public.finance_journal_entries)
     into n_all;
   perform pg_temp.act(v_fin);
-  perform count(*) from public.money_reconciliation_list(true, null, 200, 0, 120, 15);
-  perform count(*) from public.money_reconciliation_summary(true, 120, 15);
+  perform count(*) from public.money_reconciliation_list(true, null, 200, 0, 1440, 15);
+  perform count(*) from public.money_reconciliation_summary(true, 1440, 15);
   perform pg_temp.back();
   select (select count(*) from public.orders) + (select count(*) from public.payments) + (select count(*) from public.refunds)
        + (select count(*) from public.earnings_ledger) + (select count(*) from public.payouts) + (select count(*) from public.finance_journal_entries)
@@ -442,16 +535,16 @@ do $$
 declare v_pat uuid := pg_temp.f('pat'); v_flipped integer;
 begin
   -- (a) the detector emptied: every "reported" must flip to "absent"
-  create or replace function private.money_mismatches(p_include_test boolean, p_stuck_minutes integer, p_grace_minutes integer)
+  create or replace function private.money_mismatches(p_include_test boolean, p_unsent_minutes integer, p_grace_minutes integer)
   returns table (kind text, severity text, organisation_id uuid, subject_type text, subject_id uuid, related_type text, related_id uuid,
                  delta_kobo bigint, since timestamptz, owner_hint text, detail text)
   language sql stable security definer set search_path = '' as $f$ select null::text, null::text, null::uuid, null::text, null::uuid, null::text, null::uuid, null::bigint, null::timestamptz, null::text, null::text where false $f$;
   perform pg_temp.run_checks('sabotaged');
   -- (b) the finance gate removed: a patient is let in
-  create or replace function public.money_reconciliation_summary(p_include_test boolean, p_stuck_minutes integer, p_grace_minutes integer)
+  create or replace function public.money_reconciliation_summary(p_include_test boolean, p_unsent_minutes integer, p_grace_minutes integer)
   returns table (kind text, severity text, n bigint, delta_abs_kobo bigint, oldest timestamptz)
   language plpgsql stable security definer set search_path = '' as $f$ begin return query select 'x'::text, 'x'::text, 1::bigint, 1::bigint, now(); end $f$;
-  insert into results values ('sabotaged', 'access: a patient is refused the summary', '42501', pg_temp.try_as(v_pat, 'select * from public.money_reconciliation_summary(true, 120, 15)'));
+  insert into results values ('sabotaged', 'access: a patient is refused the summary', '42501', pg_temp.try_as(v_pat, 'select * from public.money_reconciliation_summary(true, 1440, 15)'));
   select count(*) into v_flipped from results r
    where phase = 'sabotaged' and exists (select 1 from results x where x.phase = 'real' and x.check_name = r.check_name and x.expected = r.expected) and r.expected is distinct from r.actual and r.expected <> 'none' and r.expected is not null;
   if v_flipped < 20 then raise exception 'VACUOUS TEST: the sabotage flipped only % checks', v_flipped; end if;

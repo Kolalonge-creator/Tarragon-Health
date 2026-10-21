@@ -17,8 +17,8 @@ describe("every kind the migration can report has a label and a known owner", ()
   const kinds = [...sql.matchAll(/select '([a-z_]+)'(?:::text)?, '(?:high|medium)'/g)].map((m) => m[1]);
   const owners = [...new Set([...sql.matchAll(/'(finance|engineering|support)'(?:::text)?, /g)].map((m) => m[1]))];
 
-  it("finds the 22 kinds in the migration", () => {
-    expect(new Set(kinds).size).toBe(22);
+  it("finds the 24 kinds in the migration", () => {
+    expect(new Set(kinds).size).toBe(24);
   });
   it("labels each one", () => {
     for (const k of kinds) expect(KIND_LABEL[k]).toBeTruthy();

@@ -22,7 +22,7 @@ export const metadata = { title: "Money reconciliation" };
 export const dynamic = "force-dynamic";
 
 const configSchema = z.object({
-  stuck_refund_minutes: z.number().int().positive(),
+  unsent_refund_minutes: z.number().int().positive(),
   grace_minutes: z.number().int().nonnegative(),
   page_size: z.number().int().positive().max(200),
 });
@@ -86,7 +86,7 @@ export default async function MoneyReconciliationPage({
   const config = configSchema.parse(getProposedConfig("finance.reconciliation").value);
   const supabase = await createClient();
 
-  const args = { p_include_test: params.includeTest, p_stuck_minutes: config.stuck_refund_minutes, p_grace_minutes: config.grace_minutes };
+  const args = { p_include_test: params.includeTest, p_unsent_minutes: config.unsent_refund_minutes, p_grace_minutes: config.grace_minutes };
   const [list, summary] = await Promise.all([
     supabase.rpc("money_reconciliation_list", {
       ...args,
@@ -111,9 +111,9 @@ export default async function MoneyReconciliationPage({
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Money reconciliation</h1>
         <p className="text-sm text-charcoal-ink/60">
           Only the places where Paystack payments, orders, entitlements, refunds, clinician earnings, payouts and the general ledger
-          disagree. Nothing here changes any money: fix each item where it belongs, then reload. Windows used: a refund counts as stuck
-          after {config.stuck_refund_minutes} minutes, and records that are normally made within moments of each other are checked after{" "}
-          {config.grace_minutes} minutes.
+          disagree. Nothing here changes any money: fix each item where it belongs, then reload. A refund counts as stuck while sending
+          after the refund policy window, an approved refund that has not gone back is flagged after {config.unsent_refund_minutes} minutes,
+          and records that are normally made within moments of each other are checked after {config.grace_minutes} minutes.
         </p>
       </div>
 
@@ -171,7 +171,7 @@ export default async function MoneyReconciliationPage({
               ) : rows.data.length === 0 ? (
                 <p className="text-sm text-charcoal-ink/60">Nothing disagrees in this view.</p>
               ) : (
-                rows.data.map((r) => <Row key={`${r.kind}:${r.subject_id}:${r.related_id ?? ""}`} r={r} />)
+                rows.data.map((r) => <Row key={`${r.kind}:${r.subject_id}:${r.related_id ?? ""}:${r.detail}`} r={r} />)
               )}
               {(() => {
                 const total = rows.data[0]?.total_count ?? 0;

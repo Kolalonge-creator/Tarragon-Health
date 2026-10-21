@@ -1810,8 +1810,10 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // refunds, earnings reversals, payouts and the general ledger disagree. Passed to the database as arguments, so no policy number lives
     // in SQL. Holds no money. Finance may tighten the windows; a looser window only hides a mismatch for longer.
     value: {
-      // a refund still "sending" past this is flagged (Paystack can be slow, but the refund machine never retries by itself)
-      stuck_refund_minutes: 120,
+      // an approved or failed refund on an already-refunded order that has still not gone back is flagged after this long. It mirrors the
+      // existing one-day rule in private.flag_refund_delays. (The stuck-while-sending window is NOT here: it is the one existing policy,
+      // refund_rules.stuck_processing_hours, so the incident, the settle button and this screen cannot disagree.)
+      unsent_refund_minutes: 1440,
       // a record that is normally created within seconds of another is only flagged after this long
       grace_minutes: 15,
       page_size: 50,

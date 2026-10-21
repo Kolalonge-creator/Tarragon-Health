@@ -10,8 +10,13 @@
 -- (null where the other side's amount is not stored anywhere, for example the Paystack-side refund amount, which the weekly reconcile
 -- compares and keeps only as a verdict), how long it has been wrong, and who is likely to own the fix.
 --
--- Thresholds are arguments, not constants: the page passes the PROPOSED values from packages/shared/src/proposed-config
--- (key finance.reconciliation), so no policy number lives in SQL.
+-- Thresholds are not constants in SQL. The stuck-refund window is the ONE existing policy (refund_rules.stuck_processing_hours, the same
+-- value flag_refund_delays and admin_settle_processing_refund use), so the incident, the settle button and this screen cannot disagree.
+-- The other two windows are arguments the page takes from the PROPOSED config key finance.reconciliation.
+--
+-- Scope: the v5 order path (orders, payments, entitlements, refunds, consultation shares, payouts, ledger entries for those). The legacy
+-- per-domain purchases (service_purchases, vouchers, pharmacy, partner billing) are not covered. The functions are platform-wide, like
+-- every finance console RPC (private.is_finance() is global); they are not scoped to one organisation.
 --
 -- Access: private.is_finance() (finance role, super admin, or the delegated finance.view), the same gate as the finance console RPCs.
 -- Test rows (is_test) are left out unless the caller asks. Order payment journals are never expected for a test order
@@ -19,7 +24,7 @@
 --
 -- Live row counts when written (2026-10-21): orders 0, payments 0, refunds 0, payouts 0, earnings_ledger 0. The proof seeds each kind.
 
-create function private.money_mismatches(p_include_test boolean, p_stuck_minutes integer, p_grace_minutes integer)
+create function private.money_mismatches(p_include_test boolean, p_unsent_minutes integer, p_grace_minutes integer)
 returns table (
   kind text, severity text, organisation_id uuid, subject_type text, subject_id uuid, related_type text, related_id uuid,
   delta_kobo bigint, since timestamptz, owner_hint text, detail text
@@ -28,10 +33,10 @@ language sql stable security definer set search_path = ''
 as $$
   -- 1. Paid, but no entitlement: the patient paid and got nothing.
   select 'paid_order_no_entitlement'::text, 'high'::text, o.organisation_id, 'order'::text, o.id, null::text, null::uuid,
-         o.amount_kobo, o.paid_at, 'engineering'::text, 'The order is paid but no entitlement exists for it.'::text
+         o.amount_kobo, coalesce(o.paid_at, o.updated_at), 'engineering'::text, 'The order is paid but no entitlement exists for it.'::text
     from public.orders o
    where o.state = 'paid' and (p_include_test or not o.is_test)
-     and o.paid_at < now() - make_interval(mins => p_grace_minutes)
+     and coalesce(o.paid_at, o.updated_at) < now() - make_interval(mins => p_grace_minutes)
      and not exists (select 1 from public.entitlements e where e.order_id = o.id)
   union all
   -- 2. An entitlement whose order never reached paid.
@@ -47,12 +52,13 @@ as $$
    where o.state = 'refunded' and e.state = 'active' and (p_include_test or not e.is_test)
      and o.updated_at < now() - make_interval(mins => p_grace_minutes)
   union all
-  -- 4. Paid order with no successful payment row.
+  -- 4. Paid order with no successful payment row. A fully sponsor-covered order (amount 0, sponsor share above 0) has no Paystack charge by
+  -- design (private.settle_sponsor_order), so it is not expected to have one.
   select 'paid_order_no_payment', 'high', o.organisation_id, 'order', o.id, null, null,
-         o.amount_kobo, o.paid_at, 'engineering', 'The order is ' || o.state || ' but no successful payment row exists.'
+         o.amount_kobo, coalesce(o.paid_at, o.updated_at), 'engineering', 'The order is ' || o.state || ' but no successful payment row exists.'
     from public.orders o
-   where o.state in ('paid', 'refunded') and (p_include_test or not o.is_test)
-     and o.paid_at < now() - make_interval(mins => p_grace_minutes)
+   where o.state in ('paid', 'refunded') and o.amount_kobo > 0 and (p_include_test or not o.is_test)
+     and coalesce(o.paid_at, o.updated_at) < now() - make_interval(mins => p_grace_minutes)
      and not exists (select 1 from public.payments p where p.order_id = o.id and p.status = 'success')
   union all
   -- 5. Payment amount differs from the order price.
@@ -79,17 +85,18 @@ as $$
   union all
   -- 8. A payment the checkout refused as a mismatch (amount, currency or fee), still waiting for a person.
   select 'payment_mismatch_recorded', 'medium', p.organisation_id, 'payment', p.id, 'order', o.id,
-         p.amount_kobo - o.amount_kobo, p.created_at, 'finance',
+         case when p.mismatch_reason = 'amount' then p.amount_kobo - o.amount_kobo end, p.created_at, 'finance',
          'Checkout refused this payment: ' || coalesce(p.mismatch_reason, 'mismatch') || '. The order is ' || o.state || '.'
     from public.payments p join public.orders o on o.id = p.order_id
    where p.status = 'mismatch' and o.state not in ('paid', 'refunded') and (p_include_test or not p.is_test)
   union all
   -- 9. Paid order never reached the general ledger. Test orders are never posted, so they are never expected to be.
+  -- The ledger entry is for the buyer part plus any sponsor share (private.post_order_to_ledger), so that is the amount missing.
   select 'paid_order_no_journal', 'high', o.organisation_id, 'order', o.id, null, null,
-         o.amount_kobo, o.paid_at, 'finance', 'The order is paid but has no payment journal entry in the general ledger.'
+         o.amount_kobo + o.sponsor_share_kobo, coalesce(o.paid_at, o.updated_at), 'finance', 'The order is paid but has no payment journal entry in the general ledger.'
     from public.orders o
-   where o.state = 'paid' and not o.is_test
-     and o.paid_at < now() - make_interval(mins => p_grace_minutes)
+   where o.state = 'paid' and not o.is_test and o.amount_kobo + o.sponsor_share_kobo > 0
+     and coalesce(o.paid_at, o.updated_at) < now() - make_interval(mins => p_grace_minutes)
      and not exists (select 1 from public.finance_journal_entries je where je.source = 'payment' and je.source_ref = 'order:' || o.id)
   union all
   -- 10. Refund stuck mid-send. Never retried by machine: a person checks the Paystack dashboard.
@@ -97,7 +104,7 @@ as $$
          r.amount_kobo, r.processing_started_at, 'finance', 'The refund has been sending for longer than the stuck window. Check the Paystack dashboard before anything is retried.'
     from public.refunds r
    where r.state = 'processing' and (p_include_test or not r.is_test)
-     and r.processing_started_at < now() - make_interval(mins => p_stuck_minutes)
+     and r.processing_started_at < now() - make_interval(hours => (private.entitlement_policy('refund_rules') ->> 'stuck_processing_hours')::integer)
   union all
   -- 11. The weekly Paystack reconcile (refund-reconcile) disagrees with our record. Only the verdict is stored, not their amount.
   select 'refund_paystack_mismatch', 'high', r.organisation_id, 'refund', r.id, 'order', r.order_id,
@@ -107,11 +114,14 @@ as $$
    where r.provider_status in ('mismatch', 'not_found') and r.state in ('processing', 'completed', 'failed') and (p_include_test or not r.is_test)
   union all
   -- 12. Refund completed, cash side never posted (Dr 4900 / Cr 1020 through the refund.processed row).
+  -- Cleared by the automatic refund.processed entry, or by a hand-posted Dr 4900 / Cr 1020 entry (source refund or manual) whose reference is
+  -- exactly refund:<refund id>, which is what an admin who settles a stuck refund by hand is asked to use.
   select 'refund_completed_no_cash_posting', 'high', r.organisation_id, 'refund', r.id, 'order', r.order_id,
-         r.amount_kobo, r.completed_at, 'finance', 'The refund is completed but no refund journal entry exists for the cash going back.'
+         r.amount_kobo, r.completed_at, 'finance', 'The refund is completed but no refund journal entry exists for the cash going back. If you post it by hand, use the reference refund:' || r.id || '.'
     from public.refunds r
    where r.state = 'completed' and (p_include_test or not r.is_test)
      and r.completed_at < now() - make_interval(mins => p_grace_minutes)
+     and not exists (select 1 from public.finance_journal_entries hj where hj.source in ('refund', 'manual') and hj.source_ref = 'refund:' || r.id)
      and not exists (
        select 1 from public.payment_transactions pt
          join public.finance_journal_entries je on je.source = 'refund' and je.source_ref = pt.id::text
@@ -125,21 +135,49 @@ as $$
    where r.state = 'completed' and r.gl_released_at is null and (p_include_test or not r.is_test)
      and r.completed_at < now() - make_interval(mins => p_grace_minutes)
   union all
-  -- 14. A deferred revenue release exists for a refund that is not completed (the reverse of 13).
-  select 'refund_gl_release_without_completed_refund', 'high', r.organisation_id, 'refund', r.id, 'journal_entry', je.id,
-         coalesce((select sum(jl.debit_minor) from public.finance_journal_lines jl where jl.entry_id = je.id and jl.account_code = '2000'), 0),
-         je.created_at, 'finance', 'A deferred revenue release was posted but the refund is ' || r.state || '.'
+  -- 13b. Refund completed for an order that never reached the ledger as a payment: the books show cash going out that never came in
+  -- (private.post_order_to_ledger deliberately never posts a refunded order that has no entry; this is the known gap, now visible).
+  select 'refund_cash_out_without_payment_entry', 'high', r.organisation_id, 'refund', r.id, 'order', r.order_id,
+         r.amount_kobo, r.completed_at, 'finance', 'The refund is completed but the order has no payment journal entry, so the ledger shows cash out with no cash in.'
+    from public.refunds r join public.orders o on o.id = r.order_id
+   where r.state = 'completed' and not o.is_test and o.amount_kobo > 0 and (p_include_test or not r.is_test)
+     and r.completed_at < now() - make_interval(mins => p_grace_minutes)
+     and not exists (select 1 from public.finance_journal_entries je where je.source = 'payment' and je.source_ref = 'order:' || o.id)
+  union all
+  -- 13c. The order is marked refunded (and the entitlement revoked) but the refund was approved or failed and the money has not gone back.
+  select 'refund_decided_not_sent', 'high', r.organisation_id, 'refund', r.id, 'order', r.order_id,
+         r.amount_kobo, coalesce(r.decided_at, r.updated_at), 'finance',
+         'The refund is ' || r.state || ' and the order is already refunded, but nothing has gone back to the card.'
+    from public.refunds r join public.orders o on o.id = r.order_id
+   where r.state in ('approved', 'failed') and o.state = 'refunded' and (p_include_test or not r.is_test)
+     and greatest(coalesce(r.decided_at, r.updated_at), r.updated_at) < now() - make_interval(mins => p_unsent_minutes)
+  union all
+  -- 14. A deferred revenue release that should not exist: the refund is not completed, or the release is larger than the refund.
+  select 'refund_gl_release_irregular', 'high', r.organisation_id, 'refund', r.id, 'journal_entry', je.id,
+         x.dr, je.created_at, 'finance',
+         case when r.state <> 'completed' then 'A deferred revenue release was posted but the refund is ' || r.state || '.'
+              else 'The deferred revenue release is ' || x.dr || ' kobo but the refund is only ' || r.amount_kobo || ' kobo.' end
     from public.finance_journal_entries je
     join public.refunds r on r.id::text = substring(je.source_ref from length('refund_deferred_release:') + 1)
-   where je.source = 'adjustment' and je.source_ref like 'refund\_deferred\_release:%' and r.state <> 'completed'
+   cross join lateral (select coalesce(sum(jl.debit_minor), 0)::bigint as dr from public.finance_journal_lines jl where jl.entry_id = je.id and jl.account_code = '2000') x
+   where je.source = 'adjustment' and je.source_ref like 'refund\_deferred\_release:%' and (r.state <> 'completed' or x.dr > r.amount_kobo)
      and (p_include_test or not r.is_test)
   union all
-  -- 15. An earnings reversal exists for a refund that is not completed.
-  select 'earnings_reversal_without_completed_refund', 'high', a.organisation_id, 'earnings_line', a.id, 'refund', r.id,
-         a.amount_kobo, a.created_at, 'finance', 'A consultation share was reversed but the refund is ' || r.state || '.'
+  -- 15. An earnings reversal that should not exist: its refund is not completed.
+  select 'earnings_reversal_irregular', 'high', a.organisation_id, 'earnings_line', a.id, 'refund', r.id,
+         abs(a.amount_kobo), a.created_at, 'finance', 'A consultation share was reversed but the refund is ' || r.state || '.'
     from public.earnings_ledger a
     join public.refunds r on r.id::text = a.calculation ->> 'refund_id'
    where a.kind = 'adjustment' and r.state <> 'completed' and (p_include_test or not a.is_test)
+  union all
+  -- 15b. A consultation share reversed by more than it was worth.
+  select 'earnings_reversal_irregular', 'high', l.organisation_id, 'earnings_line', l.id, null, null,
+         x.rev - l.amount_kobo, l.created_at, 'finance', 'This consultation share is ' || l.amount_kobo || ' kobo but ' || x.rev || ' kobo of it has been reversed.'
+    from public.earnings_ledger l
+   cross join lateral (
+     select coalesce(sum(-a.amount_kobo), 0)::bigint as rev from public.earnings_ledger a
+      where a.clinician_id = l.clinician_id and a.kind = 'adjustment' and a.calculation ->> 'corrects' = l.id::text and a.calculation ? 'refund_id') x
+   where l.kind = 'consultation' and l.amount_kobo > 0 and x.rev > l.amount_kobo and (p_include_test or not l.is_test)
   union all
   -- 16. Completed refund, consultation share still standing (fully or in part).
   select 'consultation_share_not_reversed', 'high', l.organisation_id, 'earnings_line', l.id, 'refund', r.id,
@@ -210,7 +248,7 @@ revoke all on function private.money_mismatches(boolean, integer, integer) from 
 
 -- The list: one page of mismatches, newest-damage-first by age. Raises (never returns an empty list) when the caller is not finance.
 create function public.money_reconciliation_list(
-  p_include_test boolean, p_kind text, p_limit integer, p_offset integer, p_stuck_minutes integer, p_grace_minutes integer)
+  p_include_test boolean, p_kind text, p_limit integer, p_offset integer, p_unsent_minutes integer, p_grace_minutes integer)
 returns table (
   kind text, severity text, organisation_id uuid, subject_type text, subject_id uuid, related_type text, related_id uuid,
   delta_kobo bigint, since timestamptz, owner_hint text, detail text, total_count bigint
@@ -221,22 +259,22 @@ begin
   if (select auth.uid()) is null or not private.is_finance() then
     raise exception 'money_reconciliation_not_authorised' using errcode = '42501';
   end if;
-  if p_stuck_minutes is null or p_stuck_minutes <= 0 or p_grace_minutes is null or p_grace_minutes < 0 then
+  if p_unsent_minutes is null or p_unsent_minutes <= 0 or p_grace_minutes is null or p_grace_minutes < 0 then
     raise exception 'money_reconciliation_bad_threshold' using errcode = '22023';
   end if;
   return query
     select m.kind, m.severity, m.organisation_id, m.subject_type, m.subject_id, m.related_type, m.related_id,
            m.delta_kobo, m.since, m.owner_hint, m.detail, count(*) over ()
-      from private.money_mismatches(coalesce(p_include_test, false), p_stuck_minutes, p_grace_minutes) m
+      from private.money_mismatches(coalesce(p_include_test, false), p_unsent_minutes, p_grace_minutes) m
      where p_kind is null or m.kind = p_kind
-     order by case m.severity when 'high' then 0 else 1 end, m.since nulls last, m.subject_id, m.kind
+     order by case m.severity when 'high' then 0 else 1 end, m.since nulls last, m.kind, m.subject_id, m.related_id nulls first, m.detail
      limit greatest(least(coalesce(p_limit, 50), 200), 1) offset greatest(coalesce(p_offset, 0), 0);
 end $$;
 revoke all on function public.money_reconciliation_list(boolean, text, integer, integer, integer, integer) from public, anon;
 grant execute on function public.money_reconciliation_list(boolean, text, integer, integer, integer, integer) to authenticated;
 
 -- The summary: how many of each kind, so the screen can show counts (and a badge) without paging.
-create function public.money_reconciliation_summary(p_include_test boolean, p_stuck_minutes integer, p_grace_minutes integer)
+create function public.money_reconciliation_summary(p_include_test boolean, p_unsent_minutes integer, p_grace_minutes integer)
 returns table (kind text, severity text, n bigint, delta_abs_kobo bigint, oldest timestamptz)
 language plpgsql stable security definer set search_path = ''
 as $$
@@ -244,12 +282,12 @@ begin
   if (select auth.uid()) is null or not private.is_finance() then
     raise exception 'money_reconciliation_not_authorised' using errcode = '42501';
   end if;
-  if p_stuck_minutes is null or p_stuck_minutes <= 0 or p_grace_minutes is null or p_grace_minutes < 0 then
+  if p_unsent_minutes is null or p_unsent_minutes <= 0 or p_grace_minutes is null or p_grace_minutes < 0 then
     raise exception 'money_reconciliation_bad_threshold' using errcode = '22023';
   end if;
   return query
     select m.kind, m.severity, count(*), coalesce(sum(abs(m.delta_kobo)), 0)::bigint, min(m.since)
-      from private.money_mismatches(coalesce(p_include_test, false), p_stuck_minutes, p_grace_minutes) m
+      from private.money_mismatches(coalesce(p_include_test, false), p_unsent_minutes, p_grace_minutes) m
      group by m.kind, m.severity
      order by m.severity, m.kind;
 end $$;

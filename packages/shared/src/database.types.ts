@@ -55111,7 +55111,7 @@ export type Database = {
           p_kind: string | null
           p_limit: number
           p_offset: number
-          p_stuck_minutes: number
+          p_unsent_minutes: number
         }
         Returns: {
           delta_kobo: number | null
@@ -55129,7 +55129,7 @@ export type Database = {
         }[]
       }
       money_reconciliation_summary: {
-        Args: { p_grace_minutes: number; p_include_test: boolean; p_stuck_minutes: number }
+        Args: { p_grace_minutes: number; p_include_test: boolean; p_unsent_minutes: number }
         Returns: {
           delta_abs_kobo: number
           kind: string
