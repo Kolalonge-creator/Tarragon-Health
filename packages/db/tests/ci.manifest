@@ -682,6 +682,8 @@ ai_system_version_approval_retires_superseded_drafts.sql
 # proving a service-role caller (no auth.uid() at all -- cron jobs, internal
 # notification routes) still sees the view's rows, per
 # 20260925021440_fix_clinical_staff_directory_service_role_and_replay_guard.sql
+# PCC: post-consultation check-ins at 48 hours and 7 days (gates, scheduling, idempotency, Lagos due times, red-flag path, one alert, expiry, access, audit) with six sabotage steps.
+pcc_post_consult_checkins.sql
 # -- the original view's predicate resolved entirely through auth.uid()-
 # dependent helpers, so a service-role caller silently got zero rows, not an
 # error, breaking the quarterly-report cron's and the lab-order-request-pdf
@@ -1325,6 +1327,8 @@ bp_cuffless_estimates_never_diagnostic.sql
 second_opinion_shared_results_and_referral.sql
 # Record share extras: recipient label, view cap (1 to 50, the fourth open of a three-view link is refused like any dead link, peek too), date window (30/90/180 days drops older readings), options door refuses bad input and anon; pin_hash stays unreadable; the original create door still works. Sabotage: the cap and the window each removed; both must flip.
 record_share_recipient_views_window.sql
+# S07y: cuff size guidance (unsigned, hidden until signed), the patient's cuff record (S12b cuff_type vocabulary, append-only, tied reads), the validated-device read (list_empty when nothing is reviewed), and the OQ-67 band comparison report (admin or clinical director only, aggregates). Sabotage: the size lookup's rounding and the report's pregnancy step; both must flip.
+s07y_cuff_guidance_and_band_report.sql
 # S08y: same-ingredient SQL twin (shared cases with packages/medicines), governed interaction rule sets (born empty and unsigned; CMO-only signing; empty set unsignable; older version cannot return; rules reach a client only through an open guard), brand map publish gate (reviewer is not the author; edit withdraws review; no direct writes), NAFDAC number note (store only, follows an amended medicine), supporter's today's doses (medicines category only: clinical_access plus view_medication without it is refused). Sabotage: the category check removed and the twin made blind; both must flip.
 s08y_medicine_safety.sql
 # S06z: My phones. update_my_offline_device (owner only, not an admin or another patient; trimmed name; control and over-long names refused; removed phone locked; audit never holds the name; anon refused; no direct write) and the patient own wipe request (own phone yes, another patient no). Sabotage: owner check, revoked guard, control check each removed; each must flip.
@@ -1333,6 +1337,9 @@ s06z_my_phones.sql
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted only from the last 24 hours; only open sev1/sev2 incidents counted. Sabotage: the function is replaced by one without the pending filter and the window; the checks must flip.
 oq436_deadman_status.sql
 
+
+# Records request letters (2026-10-20): guard off, own rows only, state machine, append-only history, ids-only events; three sabotages.
+records_request_letters.sql
 # OQ-S43m-5: private.biomarker_points omits a sensitive_positive lab_analyte_readings row (legacy_report branch): patient_biomarker_trend shows the patient and a labs_results caregiver the ordinary reading but never the positive HIV/HBsAg/HCV row. Sabotage: the filter is reverted and the sensitive row must appear.
 oq_s43m_5_biomarker_points_sensitive_legacy.sql
 
@@ -1385,3 +1392,7 @@ oq714_remove_patient_price_compare.sql
 # --- Added 2026-10-21 (S50b) ---------------------------------------------------------------------------
 # S50b: religious-fasting safety gate (6.13) and the glucose series (6.11), both behind guards that are OFF. An insulin or sulfonylurea user cannot start a fasting plan without a confirmed clinician-signed S24 timing plan (through the function and a direct insert), every sensitive reason returns the same single unavailable answer, a red event pauses the plan, the config is CMO-signed and a red event can never be softened. Sabotage: the plan trigger dropped, the gate made permissive, the series' withheld check removed; all three must flip.
 s50b_fasting_safety.sql
+# Money reconciliation daily alert (2026-10-21): a real mismatch opens ONE ops incident (deduplicated, refreshed not duplicated, kind and screen named), a test-order mismatch opens nothing, the scan writes no money, clients cannot run it or read its config, the job is scheduled, and the two settled-by-hand refund messages give the refund:<id> reference. Sabotage: de-duplication removed and the scan emptied; both must flip.
+money_reconciliation_daily_alert.sql
+# Money reconciliation menu badge (2026-10-21): an hourly snapshot of the mismatch count, read through a finance-only function that refuses a snapshot older than three hours or missing (never an old number), clients cannot read the table. Sabotage: staleness check and finance gate removed; the checks must flip.
+money_reconciliation_badge.sql

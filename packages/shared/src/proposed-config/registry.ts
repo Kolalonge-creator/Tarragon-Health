@@ -3662,6 +3662,28 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S07y.md; supabase/migrations/20261020184217_s07y_home_cuff_vs_clinic_check.sql. No guideline fixes these numbers: the 5 mmHg diastolic figure echoes common device-validation mean-difference limits, the rest are engineering proposals.",
   },
   {
+    key: "bp.cuff_sizing",
+    // S07y. PROPOSED, unsigned. Arm circumference (whole cm, rounded half up) to cuff size, from the published AHA 2019 and ESH 2023 cuff-size tables (docs/research/S07y.md).
+    // Live value is the active, signed row of `bp_cuff_guidance_signoffs`.config; cuff-sizing-mirror.test.ts fails if the migration seed and this value drift.
+    // The CMO checks the ranges against the Nigerian guideline (NG-2023 section 3.1.1) before signing. The wording lives in packages/i18n (hc.cuff.*); wordingSha256 pins it (cuff-wording-pin.test.ts), so changing a word needs a new version and a new signature.
+    value: {
+      "sizes": [
+        { "key": "small_adult", "minCm": 22, "maxCm": 26 },
+        { "key": "adult", "minCm": 27, "maxCm": 34 },
+        { "key": "large_adult", "minCm": 35, "maxCm": 44 },
+        { "key": "extra_large", "minCm": 45, "maxCm": 52 }
+      ],
+      "measureMinCm": 15,
+      "measureMaxCm": 60,
+      "wordingSha256": "1179c39d263814d87b9563886afd9fc18f2764d58368f29f0bb53318033162cf"
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/research/S07y.md; AHA 2019 (Muntner) and ESH 2023 (Mancia) cuff-size tables; supabase/migrations/20261021113725_s07y_cuff_guidance_and_bp_band_report.sql",
+  },
+  {
     key: "offline.trust",
     // S06x. PROPOSED: how long a phone may go without checking in before its encrypted-store key lease expires and it does its last upload
     // attempt and wipes (D3 in docs/plans/S06-S10-cmo-decisions-2026-10-07.md says 30 days; the server column
@@ -4005,7 +4027,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-21",
-    source: "docs/BUILD-SPEC-v5.md Module 6 (6.13); docs/DECISIONS.md S50-2; supabase/migrations/20261021182643_s50b_fasting_safety_and_glucose_response.sql",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.13); docs/DECISIONS.md S50-2; supabase/migrations/20261021210826_s50b_fasting_safety_and_glucose_response.sql",
   },
   {
     key: "fasting.calendar",
@@ -4041,7 +4063,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-21",
-    source: "docs/BUILD-SPEC-v5.md Module 6 (6.13); supabase/migrations/20261021182643_s50b_fasting_safety_and_glucose_response.sql",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.13); supabase/migrations/20261021210826_s50b_fasting_safety_and_glucose_response.sql",
   },
   {
     key: "glucose_response.rules",
@@ -4099,6 +4121,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-13",
     source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C6; docs/design/S08x.md",
+  },
+  {
+    key: "record.doctor_summary_pdf",
+    // The patient-generated visit summary PDF (blood pressure, medicines, adherence, symptoms): the period choices and the row caps.
+    // Display only: it changes no treatment, raises no task and classifies no reading. Wearable readings are listed but never averaged
+    // or charted (`averageSources`); the list is the reading sources a home cuff, a typed entry or a confirmed photo of a cuff display can have.
+    value: { periodDays: [30, 60, 90], defaultDays: 30, maxBpRows: 30, maxSymptoms: 30, maxSkippedDoses: 30, averageSources: ["manual", "device", "photo_confirmed"] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/BUILD-SPEC-v5.md 2.9; docs/design/S43.md; docs/design/doctor-summary-pdf.md",
   },
   {
     key: "triage.coverage",
@@ -6200,6 +6234,52 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/S41-S45-cmo-signoff-pack.md section B; founder decisions 2026-10-07",
   },
   {
+    key: "records_request.letter",
+    // Records request letter (docs/design/RRL.md). UNSIGNED PLACEHOLDER WORDING: written by an engineer, not by counsel, and nothing here has been
+    // reviewed as legal text. It asks a facility for the person's own records and names the Nigeria Data Protection Act 2023 right of access only
+    // because the person asked for that framing; it states no section number, no deadline as law and no penalty. Counsel replaces it by publishing
+    // a higher version (OQ-RRL-1). The letter is printed or handed over by the person; the platform never sends it.
+    value: {
+      wording_status: "unsigned_placeholder_pending_counsel",
+      title: "Request for a copy of my health records",
+      greeting: "To the Medical Records Officer, {facility}",
+      intro:
+        "I am the person these records are about. I am asking for a copy of the health records you hold about me, and I am making this request under my right of access to my own personal data under the Nigeria Data Protection Act 2023.",
+      identity_heading: "Details that identify me",
+      identity_labels: { name: "Name", date_of_birth: "Date of birth", phone: "Phone" },
+      fill_in: ["Hospital or patient number, if you know it:", "Address or email to send the records to:"],
+      scope_heading: "What I am asking for",
+      scopes: {
+        discharge_summary: "My discharge summary or summaries",
+        lab_results: "My laboratory results",
+        imaging_report: "The written reports of my scans and X-rays",
+        whole_record: "My whole record, as far as it can be given to me",
+      },
+      format: "Either a paper copy or an electronic copy will do. Please tell me if there is a form to fill in or a charge, and what you need from me to prove who I am.",
+      timing: "I would be grateful for a reply as soon as you can, and I will follow up with you after {days} days. If you need more time or more information from me, please tell me.",
+      closing: "Thank you for your help.",
+      sign_off: "Yours faithfully,",
+      footer: "Prepared at my request with TarragonHealth.",
+      draft_notice: "Draft wording, not yet checked by a lawyer.",
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/RRL.md; spec 2.3 and 2.11 (records fill the Passport); wording pending counsel",
+  },
+  {
+    key: "records_request.response_days",
+    // How long after the person hands the letter over the app treats a request as overdue. A PLACEHOLDER pending counsel and not a statement of what
+    // the law requires: the app only says "you asked on <date>, you hoped for a reply by <date>". It sets a reminder, never a legal claim.
+    value: { days: 30, label: "placeholder_pending_counsel" },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/RRL.md; OQ-RRL-1",
+  },
+  {
     key: "fhir.mapping",
     // FHIR export mapping (S44, spec 2.10). Identifiers, not thresholds, but they decide what an outside system believes a value means, so they
     // are versioned data a human reviews, not code. The Nigeria Core and NPHCDA implementation guides are both still under development
@@ -6933,6 +7013,132 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "consultations.post_checkin",
+    // Post-consultation check-ins (PCC, founder decision: a fixed short check-in at 48 hours and 7 days, red flags escalate, no model).
+    // Mirrored by post_consult_checkin_config version 1 (a drift test compares the two). Born INACTIVE and unsigned: the sweep schedules nothing
+    // until the CMO signs it on the sign-off hub AND an admin switches the post_consult_checkins_enabled guard on. The wording and each
+    // option's route are what the CMO signs. Quiet hours: the sender defers for a person's own quiet window; notification_window here only holds
+    // the reminder inside 07:00 to 21:00 Africa/Lagos. The task exists whatever the time.
+    value: {
+      "offsets": [
+        {
+          "code": "h48",
+          "after_minutes": 2880
+        },
+        {
+          "code": "d7",
+          "after_minutes": 10080
+        }
+      ],
+      "encounter_types": [
+        "video",
+        "audio",
+        "phone"
+      ],
+      "nudge_after_minutes": 1440,
+      "max_nudges": 1,
+      "expire_after_minutes": 2880,
+      "skip_if_patient_wrote_within_minutes": 1440,
+      "notification_window": {
+        "start_hour": 7,
+        "end_hour": 21
+      },
+      "concern_alert_level": "clinician_review",
+      "free_text_max_chars": 500,
+      "task_title": "A quick check-in after your visit",
+      "task_description": "A few short questions so your care team knows how you are getting on.",
+      "questions": [
+        {
+          "id": "feeling",
+          "text": "How are you feeling since your visit?",
+          "options": [
+            {
+              "code": "better",
+              "label": "Better",
+              "route": "ok"
+            },
+            {
+              "code": "same",
+              "label": "About the same",
+              "route": "ok"
+            },
+            {
+              "code": "worse",
+              "label": "Worse",
+              "route": "concern_alert",
+              "alert_type": "symptom_escalation"
+            }
+          ]
+        },
+        {
+          "id": "new_symptoms",
+          "text": "Have you noticed any new or worsening symptoms?",
+          "options": [
+            {
+              "code": "no",
+              "label": "No",
+              "route": "ok"
+            },
+            {
+              "code": "yes",
+              "label": "Yes",
+              "route": "concern_alert",
+              "alert_type": "symptom_escalation"
+            }
+          ]
+        },
+        {
+          "id": "medicines",
+          "text": "Are you taking your medicines as agreed with your care team?",
+          "options": [
+            {
+              "code": "yes",
+              "label": "Yes",
+              "route": "ok"
+            },
+            {
+              "code": "none_prescribed",
+              "label": "I was not given any medicines",
+              "route": "ok"
+            },
+            {
+              "code": "some_missed",
+              "label": "I have missed some doses",
+              "route": "clinician_task"
+            },
+            {
+              "code": "cannot_take",
+              "label": "I cannot take them",
+              "route": "concern_alert",
+              "alert_type": "symptom_escalation"
+            }
+          ]
+        },
+        {
+          "id": "unclear",
+          "text": "Is anything from your visit unclear?",
+          "options": [
+            {
+              "code": "no",
+              "label": "No, it is all clear",
+              "route": "ok"
+            },
+            {
+              "code": "yes",
+              "label": "Yes, I would like some help",
+              "route": "clarify_task"
+            }
+          ]
+        }
+      ]
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/PCC.md; supabase/migrations/20261016183857_pcc_post_consult_checkins.sql",
   },
   {
     key: "biomarkers.grade_bands",
