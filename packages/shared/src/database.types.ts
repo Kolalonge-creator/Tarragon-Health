@@ -55489,6 +55489,10 @@ export type Database = {
           total_count: number
         }[]
       }
+      money_reconciliation_badge: {
+        Args: never
+        Returns: number
+      }
       money_reconciliation_summary: {
         Args: { p_grace_minutes: number; p_include_test: boolean; p_unsent_minutes: number }
         Returns: {
