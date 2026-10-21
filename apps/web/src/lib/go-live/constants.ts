@@ -24,6 +24,8 @@ export const GUARD_KEYS = [
   "cuff_visit_prompt",
   "symptom_checker_enabled",
   "research_export_enabled",
+  // Shift-start test page (migration 20261016190204). Born off; the Chief Medical Officer switches it on from the go-live page.
+  "shift_start_test",
   // S48a: private GPS route recording (5.7). Born off; no UI records a route yet, so this only gates the database insert policy.
   "private_route_recording",
 ] as const;

@@ -2088,6 +2088,31 @@ export const TEMPLATE_MAP: Record<
     smsText: "Your consultation room is open. Open the app to join. Tarragon Health",
     pushUrl: `/patient/consultation/${String(payload.encounter_id ?? "")}`,
   }),
+  // PCC: neutral by design (INV-07). Nothing names a visit, a reason or a person; the questions are in the app after sign-in.
+  consult_checkin_due: (payload) => ({
+    smsText: "Your care team has a quick check-in for you. Open the app to answer. Tarragon Health",
+    pushUrl: `/patient/consult-checkin/${String(payload.checkin_id ?? "")}`,
+    email: {
+      subject: "A quick check-in from your care team",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your care team has a quick check-in for you. Open the Tarragon Health app to answer.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p></div>`,
+      text: "Your care team has a quick check-in for you. Open the Tarragon Health app to answer.",
+    },
+  }),
+  consult_checkin_nudge: (payload) => ({
+    smsText: "Your quick check-in is still waiting whenever you are ready. Tarragon Health",
+    pushUrl: `/patient/consult-checkin/${String(payload.checkin_id ?? "")}`,
+    email: {
+      subject: "Your quick check-in is still waiting",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your quick check-in is still waiting in the Tarragon Health app, whenever you are ready.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p></div>`,
+      text: "Your quick check-in is still waiting in the Tarragon Health app, whenever you are ready.",
+    },
+  }),
   consult_missed: (payload) => ({
     smsText:
       payload.credit_returned === true
