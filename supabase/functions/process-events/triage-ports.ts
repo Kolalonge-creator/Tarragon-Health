@@ -1,6 +1,7 @@
 // S12: the database side of the triage handler, over the service-role client. Kept free of any
 // import so the same file can be exercised with a fake client in packages/clinical.
 import type { GlucoseRuleSetForGrading, GlucoseTriageContext, RuleSetForGrading, TriageContext, TriagePorts } from "../_shared/triage/observation-handler.ts";
+import type { ActiveOverride, OverrideDomain } from "../_shared/clinical/threshold-override.ts";
 import type { CoverageContext, CoveragePorts } from "../_shared/triage/coverage-handler.ts";
 
 export interface RpcClient {
@@ -47,6 +48,19 @@ export function triagePorts(client: RpcClient): TriagePorts {
         p_result: result,
         p_rule_set_id: ruleSetId,
         p_causation_id: causationId,
+        p_basis: basis,
+      });
+    },
+    async loadThresholdOverride(observationId: string, domain: OverrideDomain) {
+      const raw = await call<ActiveOverride | null>(client, "triage_active_override_for_observation", { p_observation_id: observationId, p_domain: domain });
+      return raw ?? null;
+    },
+    async recordOverrideApplication({ observationId, domain, result, ruleSetId, basis }) {
+      await call(client, "record_triage_override_application", {
+        p_observation_id: observationId,
+        p_domain: domain,
+        p_result: result,
+        p_rule_set_id: ruleSetId,
         p_basis: basis,
       });
     },

@@ -254,3 +254,31 @@ describe("flushHealthSamplesQueue", () => {
     });
   });
 });
+
+describe("overlapping flushes", () => {
+  it("two flushes of one queue at once send each entry once; the second waits and finds it empty", async () => {
+    await enqueueDeviceReading({ seq: 1 });
+    await enqueueDeviceReading({ seq: 2 });
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    mockDevice.mockImplementation(async () => {
+      await gate;
+      return { success: true };
+    });
+    const a = flushDeviceReadingsQueue();
+    const b = flushDeviceReadingsQueue();
+    release();
+    await Promise.all([a, b]);
+    expect(mockDevice).toHaveBeenCalledTimes(2);
+  });
+
+  it("a failure in the first flush does not wedge the chain", async () => {
+    await enqueueDeviceReading({ seq: 1 });
+    mockDevice.mockRejectedValueOnce(new Error("boom"));
+    await expect(flushDeviceReadingsQueue()).rejects.toThrow("boom");
+    mockDevice.mockResolvedValue({ success: true });
+    await expect(flushDeviceReadingsQueue()).resolves.toEqual({ flushed: 1, remaining: 0 });
+  });
+});
