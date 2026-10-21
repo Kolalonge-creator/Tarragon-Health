@@ -34,6 +34,11 @@ describe("itemLine", () => {
     expect(itemLine({ drug: "Drug", dose: "5 mg", frequency: "daily" })).toBe("Drug - 5 mg, daily");
     expect(itemLine({ other: 1 })).toBe("Item");
   });
+  it("names the medicine of a signed item, which the signing path writes as drug_name (S28e: it used to show only the dose)", () => {
+    expect(itemLine({ drug_name: "Amlodipine", dose: "5 mg", quantity: "30 tablets" })).toBe("Amlodipine - 5 mg, 30 tablets");
+    // the older keys still work, and drug_name wins when both exist
+    expect(itemLine({ drug_name: "Amlodipine", drug: "Old" })).toBe("Amlodipine");
+  });
 });
 
 describe("asNotice", () => {

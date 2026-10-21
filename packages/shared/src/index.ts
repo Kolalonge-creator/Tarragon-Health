@@ -268,6 +268,7 @@ export * from "./notification-settings";
 export * from "./notification-diagnosis";
 export * from "./directory-links";
 export * from "./proposed-config/emergency-pack";
+export * from "./proposed-config/biomarker-grade-bands";
 
 // S66: the single cycle prediction engine, thermal shift, pattern report and planning copy (web and mobile both read it from here).
 export * from "./cycle";
@@ -289,6 +290,8 @@ export * from "./therapy-content/wave-a-drafts";
 export * from "./therapy-queue";
 export * from "./therapy-results";
 export * from "./device-guides";
+export * from "./my-phones";
+export * from "./nutrition";
 
 // S43m: health history entry rules shared by web and phone.
 export * from "./health-history";

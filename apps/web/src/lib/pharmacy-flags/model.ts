@@ -54,7 +54,8 @@ export const prescriberFlagRowsSchema = z.array(prescriberFlagRowSchema);
 /** A short, readable line for one prescription item. The item shape is the prescriber's; show the common keys, never guess at others. */
 export function itemLine(item: Record<string, unknown>): string {
   const pick = (k: string) => (typeof item[k] === "string" ? (item[k] as string).trim() : "");
-  const name = pick("drug") || pick("name") || pick("medication");
+  // Signing writes the name under drug_name (S24); older rows used drug, name or medication. Without drug_name the counter showed a signed item with no medicine.
+  const name = pick("drug_name") || pick("drug") || pick("name") || pick("medication");
   const rest = [pick("dose"), pick("frequency"), pick("quantity")].filter(Boolean).join(", ");
   return [name, rest].filter(Boolean).join(" - ") || "Item";
 }

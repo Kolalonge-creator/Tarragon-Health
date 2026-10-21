@@ -1,7 +1,8 @@
+import { createHash } from "node:crypto";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { attestConditionAction } from "@/lib/go-live/actions";
-import { C4_CODE, HOME_BP_GUARD, PATTERN_CODE, PATTERN_GUARD } from "@/lib/clinical/s06-s10-signoff-model";
+import { C4_CODE, CUFF_FLAG_CODE, CUFF_FLAG_GUARD, CUFF_PROMPT_CODE, CUFF_PROMPT_GUARD, HOME_BP_GUARD, PATTERN_CODE, PATTERN_GUARD } from "@/lib/clinical/s06-s10-signoff-model";
 
 const locale = DEFAULT_UI_LANGUAGE;
 const field = "mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink dark:border-night-ink/25";
@@ -46,16 +47,25 @@ function Lines({ keys }: { keys: readonly MessageKey[] }) {
  * then one form that calls attest_go_live_condition through the same server action the go-live page uses, returning to the sign-off hub.
  * The database refuses anyone but an admin or the active CMO, and records the name and time. It switches nothing on.
  */
-export function WordingAttestationPanel({ kind }: { kind: "c4" | "pattern" }) {
-  const guard = kind === "c4" ? HOME_BP_GUARD : PATTERN_GUARD;
-  const code = kind === "c4" ? C4_CODE : PATTERN_CODE;
+const ATTEST: Record<"c4" | "pattern" | "cuff_flag" | "cuff_prompt", { guard: string; code: string; title: MessageKey; intro: MessageKey }> = {
+  c4: { guard: HOME_BP_GUARD, code: C4_CODE, title: "s06s10.attest.c4.title", intro: "s06s10.attest.c4.intro" },
+  pattern: { guard: PATTERN_GUARD, code: PATTERN_CODE, title: "s06s10.attest.pattern.title", intro: "s06s10.attest.pattern.intro" },
+  cuff_flag: { guard: CUFF_FLAG_GUARD, code: CUFF_FLAG_CODE, title: "s06s10.attest.cuff_flag.title", intro: "s06s10.attest.cuff_flag.intro" },
+  cuff_prompt: { guard: CUFF_PROMPT_GUARD, code: CUFF_PROMPT_CODE, title: "s06s10.attest.cuff_prompt.title", intro: "s06s10.attest.cuff_prompt.intro" },
+};
+
+/** First 12 hex characters of the SHA-256 of a sentence: the database holds the same value for cuff.visit_prompt and opens the prompt only for an attestation that carries it. */
+const fingerprintOf = (text: string) => createHash("sha256").update(text).digest("hex").slice(0, 12);
+
+export function WordingAttestationPanel({ kind }: { kind: "c4" | "pattern" | "cuff_flag" | "cuff_prompt" }) {
+  const { guard, code, title, intro } = ATTEST[kind];
   return (
     <div className="space-y-4">
       <div>
         <h3 className="font-heading text-base font-semibold text-charcoal-ink">
-          {t(kind === "c4" ? "s06s10.attest.c4.title" : "s06s10.attest.pattern.title", locale)}
+          {t(title, locale)}
         </h3>
-        <p className="mt-1 text-sm text-charcoal-ink/70">{t(kind === "c4" ? "s06s10.attest.c4.intro" : "s06s10.attest.pattern.intro", locale)}</p>
+        <p className="mt-1 text-sm text-charcoal-ink/70">{t(intro, locale)}</p>
       </div>
       {kind === "c4" ? (
         <>
@@ -73,6 +83,9 @@ export function WordingAttestationPanel({ kind }: { kind: "c4" | "pattern" }) {
           </div>
         </>
       ) : null}
+      {kind === "cuff_prompt" ? (
+        <blockquote className="rounded-lg border border-charcoal-ink/10 p-3 text-sm text-charcoal-ink">{t("cuff.visit_prompt", locale)}</blockquote>
+      ) : null}
       <p className="text-xs text-charcoal-ink/60">{t("s06s10.attest.nothing_on", locale)}</p>
       <form action={attestConditionAction} className="space-y-3 rounded-lg border border-charcoal-ink/10 p-4">
         <input type="hidden" name="viewer" value="cmo" />
@@ -86,7 +99,15 @@ export function WordingAttestationPanel({ kind }: { kind: "c4" | "pattern" }) {
         </label>
         <label className="block text-xs text-charcoal-ink">
           {t("s06s10.attest.note", locale)}
-          <input name="note" required minLength={10} maxLength={1000} placeholder={t("s06s10.attest.note_placeholder", locale)} className={field} />
+          <input
+            name="note"
+            required
+            minLength={10}
+            maxLength={1000}
+            placeholder={t("s06s10.attest.note_placeholder", locale)}
+            defaultValue={kind === "cuff_prompt" ? `Text fingerprint ${fingerprintOf(t("cuff.visit_prompt", locale))}. Read in full.` : undefined}
+            className={field}
+          />
         </label>
         <button
           type="submit"

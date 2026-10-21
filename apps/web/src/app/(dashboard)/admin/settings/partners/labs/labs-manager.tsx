@@ -23,6 +23,7 @@ import {
   useLinkLabPartner,
   useSetPartnerAdmin,
   useUpdateLabProviderLicense,
+  useUpdateLabProviderAccreditation,
   useAllPanelBundles,
   useUpdatePanelBundleCommission,
   type LabPartnerLoginRow,
@@ -322,6 +323,35 @@ function LabCommissionRates() {
   );
 }
 
+/** S27h: the accreditation that must be on record before a laboratory can be switched on. */
+function AccreditationEditor({ lab }: { lab: { id: string; accreditation?: string | null } }) {
+  const update = useUpdateLabProviderAccreditation();
+  const [value, setValue] = useState(lab.accreditation ?? "");
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={`accreditation-${lab.id}`}>Accreditation (required before the laboratory goes live)</Label>
+      <div className="flex gap-2">
+        <Input id={`accreditation-${lab.id}`} value={value} onChange={(e) => setValue(e.target.value)} placeholder="For example ISO 15189, MLSCN licensed" />
+        <Button variant="outline" disabled={update.isPending} onClick={() => update.mutate({ id: lab.id, accreditation: value })}>
+          Save
+        </Button>
+      </div>
+      {update.error ? <p role="alert" className="text-xs text-red-600">{(update.error as Error).message}</p> : null}
+    </div>
+  );
+}
+
+/** S27h: a laboratory cannot be switched on without recorded proof. Say what is missing instead of failing silently. */
+function describeActivationError(error: Error): string {
+  const m = error.message ?? "";
+  if (m.includes("lab_provider_needs_onboarding_proof")) {
+    const missing = /missing ([a-z_, ]+)/.exec(m)?.[1] ?? "licence and accreditation details";
+    return `This laboratory cannot go live yet. Record it first in Manage (${missing.replace(/_/g, " ")}).`;
+  }
+  if (m.includes("lab_providers_active_needs_real_contacts")) return "This laboratory still has a placeholder contact. Replace it before switching it on.";
+  return "That did not work. Please try again.";
+}
+
 export function LabsManager({
   labPartnerLogins,
   isSuperAdmin,
@@ -503,6 +533,11 @@ export function LabsManager({
                           </Button>
                         </div>
                       </div>
+                      {toggle.error && toggle.variables?.id === lab.id ? (
+                        <p role="alert" className="mt-1 text-xs text-red-600">
+                          {describeActivationError(toggle.error as Error)}
+                        </p>
+                      ) : null}
                       <div className="mt-1">
                         <TurnaroundBadge providerId={lab.id} />
                       </div>
@@ -522,6 +557,7 @@ export function LabsManager({
                               updateLicense.mutate({ id: lab.id, ...next })
                             }
                           />
+                          <AccreditationEditor lab={lab} />
                           <CostBasisEditor lab={lab} isSuperAdmin={isSuperAdmin} />
                           <AdminLabProviderLocations labProviderId={lab.id} />
                           <AdminLabFacilities labProviderId={lab.id} />

@@ -13,6 +13,9 @@ export const BREACH_LABEL: Record<string, string> = {
   licence_expired: "Licence expired",
   complaints_upheld_limit: "Too many upheld complaints",
   turnaround_below_target: "Results are too often later than the target",
+  // S28e: a pharmacy's two own codes. For a pharmacy these are suggestions for staff to look at, never an automatic removal.
+  dispense_turnaround_slow: "Too many prescriptions took longer than the target to be supplied after the patient chose you",
+  out_of_stock_often: "You often report that you cannot supply what was sent to you",
   score_below_floor: "Overall score is below the floor",
 };
 export const breachLabel = (code: string): string => BREACH_LABEL[code] ?? code.replace(/_/g, " ");

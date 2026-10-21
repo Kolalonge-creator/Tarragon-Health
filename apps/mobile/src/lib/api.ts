@@ -96,6 +96,33 @@ export async function postVitalReading(
   return result.ok ? { success: true } : { success: false, error: result.error, status: result.status };
 }
 
+export interface PostMealLogResult {
+  success: boolean;
+  error?: string;
+  /** HTTP status of a failed call, so the outbox can tell a refusal from an outage. */
+  status?: number;
+}
+
+/** S49a: a meal in words, replayed from the outbox. A `duplicate` reply comes back as success (the meal is already there). */
+export async function postMealLog(
+  payload: { meal_type: string; description: string },
+  clientId: string,
+  clientRecordedAt: string
+): Promise<PostMealLogResult> {
+  const result = await request<{ duplicate?: boolean }>("/api/mobile/nutrition/meal-log", "POST", {
+    ...payload,
+    client_id: clientId,
+    client_recorded_at: clientRecordedAt,
+  });
+  return result.ok ? { success: true } : { success: false, error: result.error, status: result.status };
+}
+
+/** S49a: today's targets and totals, or `{ state: "hidden" }` (show nothing at all). Null when the request failed. */
+export async function getNutritionGuidance(): Promise<unknown | null> {
+  const result = await request<unknown>("/api/mobile/nutrition/guidance", "GET");
+  return result.ok ? result.data : null;
+}
+
 export interface MobileThresholds {
   version: string;
   glucose: Record<string, number>;
