@@ -9,6 +9,7 @@
  * for display is the caller's job.
  */
 import { GLUCOSE_MMOL_TO_MGDL, getProposedConfig } from "@tarragon/shared";
+import { isAboveLine, isBelowLine } from "@/lib/glucose/bands";
 
 export interface AgpConfig {
   window_days: number;
@@ -153,17 +154,12 @@ function localParts(ms: number, timeZone: string): { day: number; minuteOfDay: n
   };
 }
 
-/**
- * Which band a reading is in, judged in whole mg/dL against the consensus edges (54, 70, 180, 250). Sensors report whole mg/dL (or tenths of a
- * mmol/L, which land on the same whole numbers), and a person in mg/dL sees "180", so 181 is high and 180 is not, whichever unit they read in.
- * The edges are the configured mmol/L edges converted the same way.
- */
+/** Which band a reading is in, judged in whole mg/dL against the configured edges (see lib/glucose/bands.ts). */
 function bandOf(mmolL: number, e: AgpConfig["band_edges_mmol_l"]): BandKey {
-  const mg = Math.round(mmolL * GLUCOSE_MMOL_TO_MGDL);
-  if (mg < Math.round(e.very_low * GLUCOSE_MMOL_TO_MGDL)) return "veryLowPct";
-  if (mg < Math.round(e.low * GLUCOSE_MMOL_TO_MGDL)) return "lowPct";
-  if (mg > Math.round(e.very_high * GLUCOSE_MMOL_TO_MGDL)) return "veryHighPct";
-  if (mg > Math.round(e.high * GLUCOSE_MMOL_TO_MGDL)) return "highPct";
+  if (isBelowLine(mmolL, e.very_low)) return "veryLowPct";
+  if (isBelowLine(mmolL, e.low)) return "lowPct";
+  if (isAboveLine(mmolL, e.very_high)) return "veryHighPct";
+  if (isAboveLine(mmolL, e.high)) return "highPct";
   return "inRangePct";
 }
 
