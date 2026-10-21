@@ -109,8 +109,8 @@ as $$ select 'plus'::text $$;
 do $$
 declare a uuid := (select v from fx where k = 'a');
 begin
-  if private.patient_membership_tier(a) is distinct from 'plus' then raise exception 'FAIL sabotage did not take effect'; end if;
-  -- the real assertion (evergreen member reports evergreen) would now fail: that is the flip this test depends on
+  -- the real assertion (an Evergreen member reports evergreen) must now be false: that is the flip this test depends on
+  if not (private.patient_membership_tier(a) is distinct from 'evergreen') then raise exception 'FAIL the Evergreen check did not flip under sabotage'; end if;
 end $$;
 
 select 'PASS membership_evergreen_ladder_foundation' as result;
