@@ -26,6 +26,7 @@ import { getSymptomCheckerEligibility, getSymptomReviewEntitled, getSymptomRevie
 import { degradedModeConfig } from "@/lib/symptom-triage/safe-run";
 import { ComplicationStatus } from "@/app/(dashboard)/patient/complication-status";
 import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
+import { ThresholdOverrideNotice } from "@/app/(dashboard)/patient/threshold-override-notice";
 import { WeeklySummaryCard } from "@/app/(dashboard)/patient/weekly-summary-card";
 import { VisitReportCard } from "@/app/(dashboard)/patient/visit-report-card";
 
@@ -48,6 +49,7 @@ export default async function PatientVitalsPage() {
       description="Log readings and symptoms, and see how they trend over time."
       icon={SEMANTIC_ICON.bp}
     >
+      {subjectId === profile.id ? <ThresholdOverrideNotice /> : null}
       <VitalsTrendChart patientId={subjectId} />
       <WeeklySummaryCard patientId={subjectId} glucoseUnit={glucoseUnit} />
 

@@ -1300,6 +1300,10 @@ s63_therapy_programmes.sql
 # append-only ledger, aggregate-only employer seam, roles) with three sabotage steps.
 s58_rewards_engine.sql
 
+# --- Added 2026-10-16 (N-overrides) -----------------------------------------
+# Clinician-signed personal triage thresholds: CMO-signed policy and kill switch, senior-doctor-plus-tie authority, the clamps in the database, typed SIGN,
+# draft never served, expiry returns to default, supersede and review, provenance (refuses a relaxed red), append only, daily sweep, reads. Four sabotage steps.
+patient_threshold_overrides.sql
 # Ops desk resilience for an expired red page (OQ-441, decision S16-S20-10): named ops contacts need a confirmed real number and hours (a placeholder is never live); an expired page or a nobody-reachable incident is assigned to the primary on duty (push, in-app and email only, never sms or voice), moves to the deputy after the configured time once, and a silent deputy raises one closing sev1; nobody on duty opens a sev1 and tells the leadership; the uncovered-roster sev1 needs a real rota and the config switch; the call log and the checklist attestations are append only; the call sheet never shows a patient; the checklist gate on the on-call cover guard ships OFF and holds back only switching it ON when the CMO config says so; RLS for admin, CMO, plain clinician, patient, anon and another organisation. Sabotage: the assignment trigger, the append-only trigger, the confirmation rule and the gate function; each flips.
 ops_desk_expired_page.sql
 # Task queue gaps OQ-432/433/435: a Member's symptom-check review is ONE symptom_review task (Free keeps the alert, a task that cannot be made falls back to the alert with an audit row and incident); pharmacy_flag_review requires prescribing, admin_clinical only for the prescription subtype; a lead or pushed doctor who lacks a required competency is skipped with the reason on the transition. Sabotage: the lead check, the pushed-doctor check, the prescribing rule and the task producer each removed; each must flip.

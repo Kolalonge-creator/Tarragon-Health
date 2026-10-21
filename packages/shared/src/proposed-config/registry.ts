@@ -3853,6 +3853,21 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/OPEN-QUESTIONS.md OQ-89; docs/design/S11-S15-p6-coverage.md",
   },
   {
+    key: "triage.threshold_override_policy",
+    // N-overrides: clinician-signed personal thresholds. Live value is the active row of `threshold_override_policies` (born unsigned: nothing can be proposed until the CMO
+    // signs it); this entry mirrors the v1 seed and a test fails on drift. The safety CLAMPS (how far a line may move) are code, not config: OVERRIDE_LIMITS in
+    // supabase/functions/_shared/clinical/threshold-override.ts, mirrored by private.threshold_override_limits().
+    //  maxDays: the longest an override may run before it returns to the signed default by itself.
+    //  reviewDays: the monthly review cadence (the review date, never the expiry, moves at review).
+    //  reviewTaskDueMinutes: how long the routine review task has to be done.
+    value: { maxDays: 90, reviewDays: 30, reviewTaskDueMinutes: 4320 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/build-threshold-overrides.md",
+  },
+  {
     key: "triage.glucose_monitor",
     // Follow-up OQ-320 (founder answer 2026-10-15): glucose from continuous monitors and wearables is graded by glucose_care_triage, behind the same unsigned
     // rule set (so nothing pages or opens a task until the CMO signs it). Three guards protect the production connection budget and stop a stale value paging;
