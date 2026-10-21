@@ -112,9 +112,6 @@ begin
   perform pg_temp.setf('adm', pg_temp.mkuser(v_org, 'adm', 'admin', 'S54 Admin'));
   perform pg_temp.setf('rx1', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine","dose":"5 mg","quantity":"30 tablets"}]'::jsonb, 'signed'));
   perform pg_temp.setf('rx2', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine","dose":"5 mg","quantity":"30 tablets"},{"drug":"Metformin","dose":"500 mg","quantity":"60 tablets"}]'::jsonb, 'signed'));
-  perform pg_temp.setf('rx4', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Insulin glargine","dose":"100 units/ml","quantity":"5 pens"}]'::jsonb, 'signed'));
-  perform pg_temp.setf('rx5', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Paracetamol","dose":"500 mg","quantity":"20 tablets"}]'::jsonb, 'signed'));
-  perform pg_temp.setf('rx6', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine 5 mg tablets","dose":"5 mg","quantity":"30"}]'::jsonb, 'signed'));
   perform pg_temp.setf('rx3', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine","dose":"2.5 mg","quantity":"30 tablets"}]'::jsonb, 'signed'));
 end $$;
 
@@ -187,8 +184,8 @@ select pg_temp.ck('B', 'B2b ...and it is stamped with who and when', 'true',
   (select (verified_batch_at is not null and verified_batch_by = pg_temp.f('adm'))::text from public.pharmacy_medications where pharmacy_partner_id = pg_temp.f('pA') and strength = '5 mg'));
 select pg_temp.ck('B', 'B3 a batch cannot be verified for an unlisted pharmacy (B has no attestation)', 'ERR:22023',
   pg_temp.q_as(pg_temp.f('adm'), format($q$update public.pharmacy_medications set verified_batch = true where pharmacy_partner_id = %L returning 'x'$q$, pg_temp.f('pB'))));
-select pg_temp.ck('B', 'B4 the patient reads the flag and when, never who', 'true|ERR:42501',
-  (pg_temp.q_as(pg_temp.f('pat'), format($q$select verified_batch::text from public.pharmacy_medications where pharmacy_partner_id = %L and strength = '5 mg'$q$, pg_temp.f('pA'))) = 'true')::text || '|' ||
+select pg_temp.ck('B', 'B4 a patient reads neither the flag nor who set it (the patient read was dropped with the price comparison, OQ-714)', 'ERR:42501|ERR:42501',
+  pg_temp.q_as(pg_temp.f('pat'), format($q$select verified_batch::text from public.pharmacy_medications where pharmacy_partner_id = %L and strength = '5 mg'$q$, pg_temp.f('pA'))) || '|' ||
   pg_temp.q_as(pg_temp.f('pat'), format($q$select verified_batch_by::text from public.pharmacy_medications where pharmacy_partner_id = %L and strength = '5 mg'$q$, pg_temp.f('pA'))));
 
 -- an unrelated edit on a verified line of a pharmacy that has since stopped being listable is never blocked...

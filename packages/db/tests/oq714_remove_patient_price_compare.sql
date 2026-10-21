@@ -8,6 +8,7 @@
 --      function (executable by authenticated, never anon), the care-team suggestion read, the shared matcher (an empty prescription
 --      matches nothing, no error), the listable-pharmacy rule (an unknown pharmacy is not listable), the routing and verified-batch
 --      triggers, and the catalogue columns the pharmacy portal and the older order path use (price_kobo, stock_status, verified_batch);
+--      and patients no longer have a SELECT grant on verified_batch / verified_batch_at (the gate closes), while price_kobo stays readable;
 --   3. SABOTAGE: planting a function with the retired name makes check 1's own query find it, so check 1 is not vacuous.
 --
 -- Wrapped in BEGIN/ROLLBACK; creates no fixture rows.
@@ -61,6 +62,13 @@ begin
   if not exists (select 1 from pg_trigger where tgname = 'prescriptions_listable_pharmacy' and not tgisinternal)
      or not exists (select 1 from pg_trigger where tgname = 'pharmacy_medications_verified_batch_guard' and not tgisinternal) then
     raise exception 'FAIL 2: a quality trigger (listable routing or verified batch) is missing';
+  end if;
+  if has_column_privilege('authenticated', 'public.pharmacy_medications', 'verified_batch', 'SELECT')
+     or has_column_privilege('authenticated', 'public.pharmacy_medications', 'verified_batch_at', 'SELECT') then
+    raise exception 'FAIL 2: a signed-in user can still read the verified-batch columns from the table (the comparison that needed them is gone)';
+  end if;
+  if not has_column_privilege('authenticated', 'public.pharmacy_medications', 'price_kobo', 'SELECT') then
+    raise exception 'FAIL 2: the older order path lost its read of price_kobo';
   end if;
   select count(*) into v_n from information_schema.columns
    where table_schema = 'public' and table_name = 'pharmacy_medications' and column_name in ('price_kobo', 'stock_status', 'verified_batch');

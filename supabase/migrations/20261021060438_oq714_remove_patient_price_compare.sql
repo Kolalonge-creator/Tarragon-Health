@@ -10,13 +10,14 @@
 -- test (packages/db/tests/oq714_remove_patient_price_compare.sql) fails if one by that name returns.
 --
 -- REMOVED
+--   patient SELECT grant on pharmacy_medications.verified_batch and verified_batch_at (S54 granted it only for the comparison)
 --   function public.patient_price_compare(uuid) (S54 20261007210010, last redefined in S54c 20261007210012 to read the shared matcher)
 -- (The web page, loader, row schema and the pharmprice.* strings were removed in the same pull request, shipped first.)
 --
 -- DELIBERATELY KEPT, each used by something that stays:
 --   pharmacy_medications.price_kobo, stock_status, stock_updated_at: the pharmacy portal catalogue and the older pay-through order path
 --     (pharmacy_orders.total_kobo), and the clinician-side stock flag (S54c). Spec C.2 removes the patient-facing comparison, not the catalogue.
---   pharmacy_medications.verified_batch (+ _at, _by) and the NAFDAC-source attestation: partner quality (S54 8.11 / S74), enforced by
+--   pharmacy_medications.verified_batch (+ _at, _by) and the NAFDAC-source attestation (only the patient SELECT grant on the flag is revoked, above): partner quality (S54 8.11 / S74), enforced by
 --     private.pharmacy_partner_listable on every prescription routing. It is unrelated to showing a price.
 --   private.pharmacy_item_matches and private.pharmacy_name_key: the shared matcher the clinician's stock flag and suggestion still use.
 --   S28e stock confirmation (a plain yes or no, no price), the pharmacy visit and scorecard, pharmacist chat, dependants: untouched.
@@ -25,6 +26,12 @@
 -- shows "could not load prices" and the chooser below it, so this migration is applied second.
 
 drop function public.patient_price_compare(uuid);
+
+-- The patient read grant on the verified-batch flag existed only so the comparison could say "checked by Tarragon staff". Nothing a patient
+-- sees reads it now (admin and partner managers read it through public.pharmacy_medications_admin, which runs as its owner; writes use the
+-- separate INSERT/UPDATE column grants and the staff-only guard trigger). Verified live 2026-10-21: no web query selects either column from
+-- the table.
+revoke select (verified_batch, verified_batch_at) on public.pharmacy_medications from authenticated;
 
 do $$
 begin
@@ -42,6 +49,10 @@ begin
   if (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'pharmacy_medications'
         and column_name in ('price_kobo', 'stock_status', 'verified_batch')) <> 3 then
     raise exception 'FAIL: a catalogue column that stays was dropped';
+  end if;
+  if has_column_privilege('authenticated', 'public.pharmacy_medications', 'verified_batch', 'SELECT')
+     or has_column_privilege('authenticated', 'public.pharmacy_medications', 'verified_batch_at', 'SELECT') then
+    raise exception 'FAIL: a signed-in user can still read the verified-batch columns from the table';
   end if;
   raise notice 'PASS: patient price comparison removed, collection, stock, quality and matcher intact';
 end $$;
