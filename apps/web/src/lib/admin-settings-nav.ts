@@ -247,6 +247,20 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         icon: NAV_ICON.review,
         visible: adminOnly,
       },
+      {
+        href: "/admin/settings/medicine-interaction-rules",
+        label: "Medicine interaction rules",
+        blurb: "Draft the ingredient-pair rules (each with a public source). Born empty. The CMO signs; nothing is shown to patients until then.",
+        icon: NAV_ICON.review,
+        visible: adminOnly,
+      },
+      {
+        href: "/admin/settings/medicine-brand-map",
+        label: "Medicine brand names",
+        blurb: "Brand name to active ingredient, each with a public source. Add or import rows; a clinician reviews them before they are used.",
+        icon: NAV_ICON.review,
+        visible: adminOnly,
+      },
     ],
   },
   {

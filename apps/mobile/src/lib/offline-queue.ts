@@ -54,6 +54,19 @@ const DEVICE_READINGS_QUEUE: QueueName = "device_readings";
  */
 // (The cap itself, MAX_QUEUE_SIZE = 500 per account and queue, is enforced in offline-queue-store.ts.)
 
+/**
+ * One flush of a given queue at a time. The reconnect trigger, the background task, a screen and the manual Sync button can
+ * all ask at once; two runs listing the same entries would send them twice (the server dedupes, but the data and the race are
+ * wasted). A later caller waits for the earlier one, then lists what is still there. A failed run does not block the chain.
+ */
+const flushChains = new Map<string, Promise<unknown>>();
+function serialised<T>(name: string, run: () => Promise<T>): Promise<T> {
+  const previous = flushChains.get(name) ?? Promise.resolve();
+  const next = previous.then(run, run);
+  flushChains.set(name, next.catch(() => undefined));
+  return next;
+}
+
 export interface QueuedEntry<T> {
   id: string;
   enqueuedAt: string;
@@ -149,7 +162,11 @@ export interface HealthSamplesFlushResult {
  * vice versa. Omit it to flush everything, as background-sync.ts's periodic
  * task does via flushOfflineQueues.
  */
-export async function flushHealthSamplesQueue(onlyProvider?: HealthProvider): Promise<HealthSamplesFlushResult> {
+export function flushHealthSamplesQueue(onlyProvider?: HealthProvider): Promise<HealthSamplesFlushResult> {
+  return serialised("health_samples", () => runHealthSamplesFlush(onlyProvider));
+}
+
+async function runHealthSamplesFlush(onlyProvider?: HealthProvider): Promise<HealthSamplesFlushResult> {
   const entries = await listPendingHealthSamplesPages();
   let flushedPages = 0;
   let flushedSamples = 0;
@@ -208,7 +225,11 @@ export async function getDeviceReadingsQueueCount(): Promise<number> {
 /** Same stop-on-first-failure reasoning as flushHealthSamplesQueue above —
  * one reading per entry here, so `flushed` already counts readings, not a
  * separate page/item distinction. */
-export async function flushDeviceReadingsQueue(): Promise<FlushResult> {
+export function flushDeviceReadingsQueue(): Promise<FlushResult> {
+  return serialised("device_readings", runDeviceReadingsFlush);
+}
+
+async function runDeviceReadingsFlush(): Promise<FlushResult> {
   const entries = await listPendingDeviceReadings();
   let flushed = 0;
 
@@ -254,7 +275,11 @@ export async function getPhotoReadingsQueueCount(): Promise<number> {
  * from the queue and recorded, because retrying a refusal forever would block every reading behind it; every other failure keeps the entry,
  * including 404 (the switch is off for now and may be switched on) and 5xx.
  */
-export async function flushPhotoReadingsQueue(): Promise<FlushResult> {
+export function flushPhotoReadingsQueue(): Promise<FlushResult> {
+  return serialised("photo_readings", runPhotoReadingsFlush);
+}
+
+async function runPhotoReadingsFlush(): Promise<FlushResult> {
   const entries = await listPendingPhotoReadings();
   let flushed = 0;
 

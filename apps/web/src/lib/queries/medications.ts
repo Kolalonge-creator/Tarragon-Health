@@ -198,7 +198,11 @@ export function useAddMedication() {
       } = input;
       // The signing answers belong to a clinician prescription only; a patient's own insert never carries them.
       void safety;
+      // The id is made here so the form can attach the NAFDAC number a patient noted from the pack (S08y) without reading the row back:
+      // RETURNING would need a SELECT policy, and someone acting for the patient can insert without being able to select.
+      const id = crypto.randomUUID();
       const { error } = await supabase.from("medications").insert({
+        id,
         ...rest,
         patient_id: patientId,
         organisation_id: profile.organisation_id,
@@ -211,6 +215,7 @@ export function useAddMedication() {
           source === "specialist" ? prescriber_document_url || null : null,
       });
       if (error) throw error;
+      return { id };
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: medicationsKey(variables.patientId) });
