@@ -45,6 +45,7 @@ type VersionedTableName =
   | "lab_fallback_wording_signoffs"
   | "prn_limit_rules"
   | "my_health_config"
+  | "nutrition_target_config"
   | "activity_safety_config"
   | "observation_limit_signoffs"
   | "home_bp_programme_signoffs"
@@ -72,6 +73,7 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   { table: "prn_limit_rules", title: "As-needed medicine limits", slug: "prn-limit-rules" },
   { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
+  { table: "nutrition_target_config", title: "Nutrition targets and meal summary", slug: "nutrition-targets-config" },
   { table: "health_report_config_versions", title: "Yearly Health Report settings", slug: "health-report-config" },
   { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
   { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
