@@ -181,7 +181,7 @@ export function computeAgp(samples: readonly AgpSample[], nowMs: number, loaded 
   for (const s of samples) {
     const t = Date.parse(s.takenAt);
     if (!Number.isFinite(t) || t < startMs || t > nowMs) continue;
-    if (!Number.isFinite(s.mmolL) || s.mmolL <= 0) continue;
+    if (!Number.isFinite(s.mmolL) || s.mmolL <= 0) continue; // band-ok: rejects a non-positive reading as invalid, not a glucose band
     inWindow.push({ t, v: s.mmolL });
   }
   inWindow.sort((a, b) => a.t - b.t);
