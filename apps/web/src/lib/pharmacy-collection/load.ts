@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
 import {
-  collectionRowsSchema, overviewItemsSchema, pharmacyOptionsSchema, priceRowsSchema, suggestionRowsSchema, visitMembersSchema,
-  type Collection, type OverviewItem, type PharmacyOption, type PriceRow, type Suggestion, type VisitMember,
+  collectionRowsSchema, overviewItemsSchema, pharmacyOptionsSchema, suggestionRowsSchema, visitMembersSchema,
+  type Collection, type OverviewItem, type PharmacyOption, type Suggestion, type VisitMember,
 } from "./model";
 
 /** `off` means the go-live guard is closed (S37): a calm "not open yet" rather than a failure. */
@@ -27,14 +27,6 @@ export async function loadPharmacies(prescription: string, forWhom?: string): Pr
   const { data, error } = await loose(await createClient()).rpc("patient_collection_pharmacies", { p_prescription: prescription, ...beneficiary(forWhom) });
   if (error) return failure(error);
   const parsed = pharmacyOptionsSchema.safeParse(data);
-  return parsed.success ? { ok: true, data: parsed.data } : { ok: false, denied: false };
-}
-
-/** The comparison is a courtesy: if it fails the patient can still choose, so a failure is returned, never an empty table. */
-export async function loadPriceCompare(prescription: string): Promise<Loaded<PriceRow[]>> {
-  const { data, error } = await loose(await createClient()).rpc("patient_price_compare", { p_prescription: prescription });
-  if (error) return { ok: false, denied: error.code === "42501" };
-  const parsed = priceRowsSchema.safeParse(data);
   return parsed.success ? { ok: true, data: parsed.data } : { ok: false, denied: false };
 }
 
