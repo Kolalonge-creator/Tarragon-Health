@@ -1,13 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { formatGlucose } from "@tarragon/shared";
 import { getGlucoseDisplayUnit } from "@/lib/patient/glucose-unit";
-import { computeTimeInRange, windowStartIso } from "@/lib/vitals/time-in-range";
+import { computeTimeInRange, sensorReadingCount, windowStartIso } from "@/lib/vitals/time-in-range";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const WINDOW_DAYS = 14;
 
 /**
- * Patient-facing glucose insights: time-in-range over the last 14 days (§10.3)
+ * Patient-facing glucose insights: time-in-range over the last 14 days (§10.3), for people logging by hand; with a sensor the glucose profile card owns it,
  * and their individual target if a clinician has set one (§9). Null-gated —
  * renders nothing until there's data, and never states control (§22): it shows
  * the numbers, not a verdict.
@@ -20,7 +20,7 @@ export async function GlucoseInsights({ patientId }: { patientId: string }) {
   const [{ data: readings }, { data: target }] = await Promise.all([
     supabase
       .from("vitals_readings")
-      .select("glucose_mmol_l")
+      .select("glucose_mmol_l, source")
       .eq("patient_id", patientId)
       .eq("vital_type", "glucose")
       .gte("taken_at", since),
@@ -32,9 +32,13 @@ export async function GlucoseInsights({ patientId }: { patientId: string }) {
   ]);
 
   const values = (readings ?? []).map((r) => r.glucose_mmol_l).filter((v): v is number => v !== null);
-  const tir = computeTimeInRange(values, { high: target?.upper_target ?? undefined });
+  // With a sensor connected, the 24 hour glucose profile above is the time-in-range view. Showing a second, differently-based figure beside it
+  // (finger-pricks included, a personal upper line) would give one person two answers to "how often was I in range".
+  const hasSensor = sensorReadingCount(readings ?? []) > 0;
+  const tir = hasSensor ? null : computeTimeInRange(values, { high: target?.upper_target ?? undefined });
 
   if (!tir && !target) return null;
+  const showLogPrompt = !hasSensor;
 
   return (
     <Card>
@@ -70,9 +74,9 @@ export async function GlucoseInsights({ patientId }: { patientId: string }) {
               reviews the pattern; a single reading isn&apos;t the whole picture.
             </p>
           </div>
-        ) : (
+        ) : showLogPrompt ? (
           <p className="text-charcoal-ink/60 dark:text-night-ink/60">Log a few glucose readings to see your time-in-range.</p>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );
