@@ -407,6 +407,7 @@ begin
     pg_temp.try_as(v_doc, format('select public.approve_visit_summary(%L)', s)));
 
   -- a note withdrawn as entered in error takes its summary with it
+  perform pg_temp.clear_queue();   -- one active claim per doctor: release the earlier fixture claim before the next tie
   perform pg_temp.tie(v_doc, v_np);
   n2 := pg_temp.signed_note(v_doc, v_np);
   perform pg_temp.act(v_doc); perform public.assemble_visit_summary(n2); perform pg_temp.back();
@@ -436,6 +437,7 @@ begin
   perform pg_temp.ck('...nor through the function', 'false', pg_temp.cg_has(v_cg, v_np, s3));
 
   -- an amendment of an amendment also hides the summary (the chain is walked, not only the first level)
+  perform pg_temp.clear_queue();   -- one active claim per doctor: release the earlier fixture claim before the next tie
   perform pg_temp.tie(v_doc, v_np);
   n6 := pg_temp.signed_note(v_doc, v_np);
   perform pg_temp.act(v_doc); perform public.assemble_visit_summary(n6); perform pg_temp.back();
