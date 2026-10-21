@@ -44112,6 +44112,78 @@ export type Database = {
         }
         Relationships: []
       }
+      bp_cuff_guidance_signoffs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      patient_bp_cuffs: {
+        Row: {
+          arm_circumference_cm: number | null
+          created_at: string
+          cuff_type: string
+          guidance_version: number
+          id: string
+          is_test: boolean
+          model_text: string | null
+          organisation_id: string
+          patient_id: string
+          size_key: string | null
+        }
+        Insert: {
+          arm_circumference_cm?: number | null
+          created_at?: string
+          cuff_type: string
+          guidance_version: number
+          id?: string
+          is_test?: boolean
+          model_text?: string | null
+          organisation_id: string
+          patient_id: string
+          size_key?: string | null
+        }
+        Update: {
+          arm_circumference_cm?: number | null
+          created_at?: string
+          cuff_type?: string
+          guidance_version?: number
+          id?: string
+          is_test?: boolean
+          model_text?: string | null
+          organisation_id?: string
+          patient_id?: string
+          size_key?: string | null
+        }
+        Relationships: []
+      }
       home_bp_checks: {
         Row: {
           band: string
@@ -49644,6 +49716,10 @@ export type Database = {
       sign_lab_panels: { Args: { p_id: string }; Returns: string };
       sign_lab_fallback_wording: { Args: { p_id: string }; Returns: string };
       sign_home_bp_programme: { Args: { p_id: string }; Returns: string };
+      sign_bp_cuff_guidance: { Args: { p_id: string }; Returns: string };
+      record_my_bp_cuff: { Args: { p_arm_cm?: number; p_cuff_type: string; p_model?: string }; Returns: Json };
+      my_bp_cuff_guidance: { Args: never; Returns: Json };
+      bp_band_divergence_report: { Args: { p_days?: number }; Returns: { app_band: string; pipeline_level: string; cause: string; readings: number; rule_set_approved: boolean }[] };
       complete_home_bp_check: { Args: { p_window_start: string }; Returns: Json };
       record_clinic_bp_reading: { Args: { p_diastolic: number; p_measured_at: string; p_note?: string; p_patient: string; p_systolic: number }; Returns: string };
       sign_cuff_check_rules: { Args: { p_id: string }; Returns: string };

@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -26,6 +26,8 @@ import { ClinicalConfigVersionsPanel } from "../_signoff-panels/clinical-config-
 import { PrnLimitRulesPanel } from "../_signoff-panels/prn-limit-rules-panel";
 import { MedicineInteractionRulesPanel } from "../_signoff-panels/medicine-interaction-rules-panel";
 import { HomeBpProgrammePanel } from "../_signoff-panels/home-bp-programme-panel";
+import { CuffGuidancePanel } from "../_signoff-panels/cuff-guidance-panel";
+import { BpDevicesList } from "../recommended-devices/devices-list";
 import { CuffCheckRulesPanel } from "../_signoff-panels/cuff-check-rules-panel";
 import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
 import { NutritionTargetsConfigPanel } from "../_signoff-panels/nutrition-targets-config-panel";
@@ -97,6 +99,7 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   prn_limit_rules: () => <PrnLimitRulesPanel />,
   medicine_interaction_rule_sets: () => <MedicineInteractionRulesPanel />,
   home_bp_programme_signoffs: () => <HomeBpProgrammePanel />,
+  bp_cuff_guidance_signoffs: () => <CuffGuidancePanel />,
   cuff_check_rules: () => <CuffCheckRulesPanel />,
   my_health_config: () => <MyHealthConfigPanel />,
   nutrition_target_config: () => <NutritionTargetsConfigPanel />,
@@ -228,6 +231,9 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has("ai_governance")) inlinePanels.ai_governance = <AiGovernancePanel />;
 
   if (keys.has(COMMUNITY_ITEM_KEY)) inlinePanels[COMMUNITY_ITEM_KEY] = <CommunitySignoffPanel />;
+
+  // S07y: the recommended blood pressure monitors waiting for review, reviewed inline against the registry link shown with each.
+  if (keys.has(BP_DEVICE_REVIEW_ITEM_KEY)) inlinePanels[BP_DEVICE_REVIEW_ITEM_KEY] = <BpDevicesList mode="cmo" />;
 
   if (keys.has(GLUCOSE_TASK_TYPE_ITEM_KEY)) inlinePanels[GLUCOSE_TASK_TYPE_ITEM_KEY] = <GlucoseTaskTypePanel />;
   if (keys.has(VITALS_TASK_TYPE_ITEM_KEY)) inlinePanels[VITALS_TASK_TYPE_ITEM_KEY] = <VitalsTaskTypePanel />;
