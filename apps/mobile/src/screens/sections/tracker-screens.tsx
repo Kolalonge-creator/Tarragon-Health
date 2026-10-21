@@ -220,7 +220,7 @@ export function ActivityScreen({ patientId, organisationId }: { patientId: strin
           <>
             <MovementGate />
             <WeeklyGoalEditor patientId={patientId} current={state?.week?.goalMinutes ?? null} onSaved={reload} />
-            <ReadinessCard />
+            <ReadinessCard patientId={patientId} />
             <RouteRecorderCard patientId={patientId} organisationId={organisationId} />
           </>
         ),

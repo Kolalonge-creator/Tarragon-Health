@@ -1,7 +1,7 @@
 /**
  * Training load, recovery and sleep bands from stored wearable readings (S48b, spec 5.6).
  *
- * PURE and deterministic (INV-01): no language model, no clock read (the caller passes `now`), no I/O. Every number is in the versioned PROPOSED
+ * PURE and deterministic (INV-01): no language model, no clock read (the caller passes `now`), no I/O. The windows end yesterday (Lagos), so a day that is still filling up is never counted. Every number is in the versioned PROPOSED
  * config `activity.readiness_bands` (owner: CMO), so nothing here is a hard-coded threshold.
  *
  * What it is: a plain comparison of the last few days of a person's OWN device data against their OWN usual. It never ranks one person against
@@ -92,8 +92,10 @@ function compare(days: Map<number, number>, today: number, cfg: ReadinessBandsCo
 }
 
 export function assessReadiness(readings: readonly WearableReadingPoint[], now: Date, cfg: ReadinessBandsConfig): ReadinessResult {
-  const today = lagosDay(now.toISOString());
-  if (today === null || readings.length === 0) return NONE;
+  const nowDay = lagosDay(now.toISOString());
+  if (nowDay === null || readings.length === 0) return NONE;
+  // Windows end at the last COMPLETE Lagos day: today is still filling up (steps so far, sleep not yet synced) and would drag every band down.
+  const today = nowDay - 1;
 
   let recovery: ReadinessBand<ReadinessLevel> | null = null;
   for (const metric of ["recovery_score", "hrv_ms"] as const) {

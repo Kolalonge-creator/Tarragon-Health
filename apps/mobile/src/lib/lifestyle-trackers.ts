@@ -310,24 +310,6 @@ export async function loadActivityState(patientId: string): Promise<QueryResult<
   };
 }
 
-export async function logActivity(
-  patientId: string,
-  input: { activityName: string; durationMinutes: number }
-): Promise<{ error?: string }> {
-  const orgId = await organisationId(patientId);
-  if (!orgId) return { error: "No organisation on file" };
-  const { error } = await supabase.from("activity_log_entries").insert({
-    organisation_id: orgId,
-    patient_id: patientId,
-    logged_on: lagosToday(),
-    entry_type: "workout",
-    activity_name: input.activityName,
-    duration_minutes: input.durationMinutes,
-    source: "manual",
-  });
-  return error ? { error: error.message } : {};
-}
-
 // ── Meals ──────────────────────────────────────────────────────────────────
 
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack";

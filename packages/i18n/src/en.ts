@@ -5696,8 +5696,10 @@ export const en = {
   "activity.routes.discard": "Discard",
   "activity.routes.unavailable": "Route recording needs a newer version of the app. Nothing has been recorded.",
   "activity.routes.saved": "Route saved. Only you can see it.",
-  "activity.routes.save_failed": "We could not save the route just now. It has not been kept. You can try again.",
+  "activity.routes.save_failed": "We could not save the route just now. It has not been saved yet, and you can try again.",
   "activity.routes.delete": "Delete this route",
+  "activity.routes.retry": "Try saving again",
+  "activity.routes.capped": "The route reached its length limit, so the end of it was not recorded.",
 } as const;
 
 export type MessageKey = keyof typeof en;

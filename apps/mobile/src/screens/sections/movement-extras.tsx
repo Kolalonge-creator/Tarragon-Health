@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { readinessMessageKeys, type ReadinessResult } from "@tarragon/clinical/activity-readiness";
@@ -8,7 +8,7 @@ import { loadReadiness, saveWeeklyGoal } from "@/lib/activity-movement";
 import { loadRouteRecordingStatus, saveRoute, listMyRoutes, deleteMyRoute, type MyRoute } from "@/lib/routes/route-store";
 import { getLocationSource } from "@/lib/routes/location-source";
 import { startRouteSession, type RouteSession } from "@/lib/routes/route-session";
-import { summarise } from "@/lib/routes/route-recorder";
+import { summarise, type RouteState } from "@/lib/routes/route-recorder";
 import { radius } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
@@ -91,11 +91,12 @@ export function WeeklyGoalEditor({ patientId, current, onSaved }: { patientId: s
 }
 
 /** Device bands (5.6). Says nothing at all when there is no device data: dormant until a provider is connected. Always labelled an estimate. */
-export function ReadinessCard() {
+export function ReadinessCard({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
   const [result, setResult] = useState<ReadinessResult | null>(null);
   useEffect(() => {
     let alive = true;
-    void loadReadiness(Date.now()).then((r) => alive && setResult(r)).catch(() => undefined);
+    void loadReadiness(patientId, Date.now()).then((r) => alive && setResult(r)).catch(() => undefined);
     return () => {
       alive = false;
     };
@@ -107,7 +108,7 @@ export function ReadinessCard() {
     <Card style={{ gap: 6 }}>
       <SectionLabel>{t("activity.readiness.title")}</SectionLabel>
       {lines.map((k) => (
-        <Text key={k} style={{ fontSize: 14 }}>
+        <Text key={k} style={{ fontSize: 14, color: colors.ink }}>
           {t(k as MessageKey)}
         </Text>
       ))}
@@ -123,7 +124,19 @@ export function ReadinessCard() {
 export function RouteRecorderCard({ patientId, organisationId }: { patientId: string; organisationId: string }) {
   const [open, setOpen] = useState(false);
   const [session, setSession] = useState<RouteSession | null>(null);
+  // A finished route whose save failed stays here so "Try again" has something to save; it is dropped when saved, discarded or the screen closes.
+  const [unsaved, setUnsaved] = useState<RouteState | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const sessionRef = useRef<RouteSession | null>(null);
+  sessionRef.current = session;
+
+  // Closing the screen mid-recording stops the location source and forgets the route: nothing keeps listening in the background.
+  useEffect(
+    () => () => {
+      void sessionRef.current?.discard();
+    },
+    [],
+  );
   const [routes, setRoutes] = useState<MyRoute[]>([]);
 
   useEffect(() => {
@@ -150,18 +163,24 @@ export function RouteRecorderCard({ patientId, organisationId }: { patientId: st
     setSession(res.session);
   }
 
+  async function persist(state: RouteState) {
+    const saved = await saveRoute(patientId, organisationId, state, null);
+    if (saved.error) {
+      setUnsaved(state);
+      setMessage(t("activity.routes.save_failed"));
+      return;
+    }
+    setUnsaved(null);
+    const sum = summarise(state);
+    setMessage(`${t("activity.routes.saved")} ${(sum.distanceM / 1000).toFixed(2)} km.${state.capped ? ` ${t("activity.routes.capped")}` : ""}`);
+    setRoutes(await listMyRoutes());
+  }
+
   async function stop() {
     if (!session) return;
     const state = await session.stop();
     setSession(null);
-    const saved = await saveRoute(patientId, organisationId, state, null);
-    if (saved.error) {
-      setMessage(t("activity.routes.save_failed"));
-      return;
-    }
-    const sum = summarise(state);
-    setMessage(`${t("activity.routes.saved")} ${(sum.distanceM / 1000).toFixed(2)} km.`);
-    setRoutes(await listMyRoutes());
+    await persist(state);
   }
 
   async function discard() {
@@ -181,6 +200,12 @@ export function RouteRecorderCard({ patientId, organisationId }: { patientId: st
       ) : (
         <PrimaryButton title={t("activity.routes.start")} onPress={() => void start()} />
       )}
+      {unsaved ? (
+        <View style={{ gap: 8 }}>
+          <PrimaryButton title={t("activity.routes.retry")} onPress={() => void persist(unsaved)} />
+          <SecondaryButton title={t("activity.routes.discard")} onPress={() => { setUnsaved(null); setMessage(null); }} />
+        </View>
+      ) : null}
       {message ? <MutedText>{message}</MutedText> : null}
       {routes.map((r) => (
         <View key={r.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>

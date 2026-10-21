@@ -42,6 +42,13 @@ describe("assessReadiness", () => {
     expect(assessReadiness(series("recovery_score", 30, (d) => (d < 3 ? 90 : 70)), NOW, cfg).recovery?.level).toBe("higher");
   });
 
+  it("ignores today, which is still filling up: a half-finished day never makes a usual week look light", () => {
+    const readings = [...series("steps", 30, () => 8000).filter((r) => r.recordedAt !== dayIso(0)), { readingType: "steps", value: 400, recordedAt: dayIso(0) }];
+    expect(assessReadiness(readings, NOW, cfg).load?.level).toBe("usual");
+    const sleepToday = [...series("sleep_minutes", 30, () => 420).filter((r) => r.recordedAt !== dayIso(0)), { readingType: "sleep_minutes", value: 30, recordedAt: dayIso(0) }];
+    expect(assessReadiness(sleepToday, NOW, cfg).sleep?.level).toBe("usual");
+  });
+
   it("falls back to HRV when there is no recovery score", () => {
     const r = assessReadiness(series("hrv_ms", 30, (d) => (d < 3 ? 30 : 60)), NOW, cfg);
     expect(r.recovery).toEqual({ metric: "hrv_ms", level: "lower" });

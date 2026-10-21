@@ -41,6 +41,12 @@ describe("route recorder (pure)", () => {
     let s = EMPTY_ROUTE;
     for (let i = 0; i < ROUTE_MAX_POINTS + 50; i += 1) s = addFix(s, fix(6 + i * 0.001, 3.3, i));
     expect(s.points).toHaveLength(ROUTE_MAX_POINTS);
+    expect(s.capped).toBe(true);
+    expect(addFix(s, fix(40, 3.3, 99_999))).toBe(s);
+  });
+
+  it("a route that never reaches the cap is not marked capped", () => {
+    expect(addFix(addFix(EMPTY_ROUTE, fix(6.5, 3.3, 0)), fix(6.51, 3.3, 1000)).capped).toBe(false);
   });
 
   it("needs two points to be a route, and the stored shape is a plain LineString", () => {

@@ -99,6 +99,7 @@ begin
   perform pg_temp.ck('a 21 minute session is refused', 'ERR:23514', pg_temp.try(pg_temp.plan_sql('s48b_tw1', 'gentle', 'home', '[{"minutes":21,"steps":["a"]}]')));
   perform pg_temp.ck('one good and one long session in a plan is refused', 'ERR:23514', pg_temp.try(pg_temp.plan_sql('s48b_mix', 'gentle', 'home', '[{"minutes":15,"steps":["a"]},{"minutes":45,"steps":["b"]}]')));
   perform pg_temp.ck('a session with no minutes is refused', 'ERR:23514', pg_temp.try(pg_temp.plan_sql('s48b_nomin', 'gentle', 'home', '[{"steps":["a"]}]')));
+  perform pg_temp.ck('minutes written as text are refused', 'ERR:23514', pg_temp.try(pg_temp.plan_sql('s48b_text', 'gentle', 'home', '[{"minutes":"15","steps":["a"]}]')));
   perform pg_temp.ck('a chair-based class at gentle level is accepted', 'ok', pg_temp.try(pg_temp.plan_sql('s48b_chair', 'gentle', 'chair_class', '[{"minutes":15,"steps":["a"]}]')));
   perform pg_temp.ck('a chair-based class above gentle is refused', 'ERR:23514', pg_temp.try(pg_temp.plan_sql('s48b_chair_mod', 'moderate', 'chair_class', '[{"minutes":15,"steps":["a"]}]')));
   perform pg_temp.ck('an audio clip id on an unreviewed plan is refused', 'ERR:23514', pg_temp.try(pg_temp.plan_sql('s48b_audio', 'gentle', 'home', '[{"minutes":15,"steps":["a"]}]', '{WKO-001}')));

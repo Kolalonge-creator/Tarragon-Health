@@ -29,9 +29,11 @@ export interface RouteState {
   readonly distanceM: number;
   readonly startedAtMs: number | null;
   readonly lastAtMs: number | null;
+  /** True once the point cap was reached: later fixes are ignored, and the person is told the route was cut short. */
+  readonly capped: boolean;
 }
 
-export const EMPTY_ROUTE: RouteState = { points: [], distanceM: 0, startedAtMs: null, lastAtMs: null };
+export const EMPTY_ROUTE: RouteState = { points: [], distanceM: 0, startedAtMs: null, lastAtMs: null, capped: false };
 
 const EARTH_RADIUS_M = 6_371_000;
 
@@ -55,11 +57,11 @@ export function addFix(state: RouteState, fix: LocationFix): RouteState {
   if (!validFix(fix)) return state;
   const point: readonly [number, number] = [fix.longitude, fix.latitude];
   const last = state.points[state.points.length - 1];
-  if (!last) return { points: [point], distanceM: 0, startedAtMs: fix.atMs, lastAtMs: fix.atMs };
-  if (state.points.length >= ROUTE_MAX_POINTS) return state;
+  if (!last) return { points: [point], distanceM: 0, startedAtMs: fix.atMs, lastAtMs: fix.atMs, capped: false };
+  if (state.points.length >= ROUTE_MAX_POINTS) return state.capped ? state : { ...state, capped: true };
   const step = haversineM(last, point);
   if (step < ROUTE_MIN_STEP_M) return state;
-  return { points: [...state.points, point], distanceM: state.distanceM + step, startedAtMs: state.startedAtMs, lastAtMs: fix.atMs };
+  return { points: [...state.points, point], distanceM: state.distanceM + step, startedAtMs: state.startedAtMs, lastAtMs: fix.atMs, capped: false };
 }
 
 export interface RouteSummary {

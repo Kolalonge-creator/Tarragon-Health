@@ -11,7 +11,10 @@ import { parseWeeklyGoal } from "./activity-movement-model";
  */
 export async function queueActivity(subjectId: string, payload: ActivityPayload): Promise<{ queued: true }> {
   await enqueue({ kind: "activity", subjectId, payload });
-  void flushOutbox().catch((error) => recordSyncError("offline_outbox", "flushAfterActivity", error));
+  // Give the send a short chance to land so the list and the weekly total are fresh when the screen reloads; a slow or missing signal never holds
+  // the person up (the workout is already safe on the phone and goes later).
+  const flush = flushOutbox().catch((error) => recordSyncError("offline_outbox", "flushAfterActivity", error));
+  await Promise.race([flush, new Promise<void>((resolve) => setTimeout(resolve, 3000))]);
   return { queued: true };
 }
 
@@ -31,14 +34,21 @@ export async function saveWeeklyGoal(patientId: string, raw: string): Promise<{ 
  * Training load, recovery and sleep bands from the person's own stored device readings (spec 5.6). Returns null (say nothing) when there is no
  * device data, too little to compare, or the read fails. Deterministic, an estimate, never compared with other people.
  */
-export async function loadReadiness(nowMs: number): Promise<ReadinessResult | null> {
+export async function loadReadiness(patientId: string, nowMs: number): Promise<ReadinessResult | null> {
   const since = new Date(nowMs - 36 * 86_400_000).toISOString();
-  const { data, error } = await supabase
+  const db = supabase;
+  // Only this person's own devices: wearable_readings has no patient column, and staff or a caregiver can read more rows than the person shown.
+  const conns = await db.from("wearable_connections").select("id").eq("patient_id", patientId);
+  const ids = (conns.data ?? []).map((c) => c.id);
+  if (conns.error || ids.length === 0) return null;
+  const { data, error } = await db
     .from("wearable_readings")
     .select("reading_type, value, recorded_at")
+    .in("connection_id", ids)
     .in("reading_type", ["recovery_score", "hrv_ms", "sleep_minutes", "strain", "steps"])
     .gte("recorded_at", since)
-    .limit(2000);
+    .order("recorded_at", { ascending: false })
+    .limit(3000);
   if (error || !data) return null;
   const points: WearableReadingPoint[] = data.flatMap((r) =>
     r.value === null ? [] : [{ readingType: r.reading_type, value: Number(r.value), recordedAt: r.recorded_at }],
