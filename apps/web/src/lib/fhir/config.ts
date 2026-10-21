@@ -45,6 +45,48 @@ export interface LoadedFhirMapping {
   status: "proposed" | "confirmed";
 }
 
+/**
+ * The International Patient Summary shape (`fhir.ips_mapping`). Versioned PROPOSED data: section codes, the document type, the empty-section
+ * reason. It claims no implementation-guide profile (see the registry comment).
+ */
+const ipsSectionSchema = z.object({
+  key: z.enum(["problems", "allergies", "medications", "immunizations", "results", "vital_signs"]),
+  loinc: z.string(),
+  display: z.string(),
+  title: z.string(),
+  required: z.boolean(),
+});
+
+const ipsMappingSchema = z.object({
+  ig_status: z.string(),
+  profiles: z.record(z.string(), z.array(z.string())),
+  composition_type: z.object({ system: z.string(), code: z.string(), display: z.string() }),
+  title: z.string(),
+  author_name: z.string(),
+  composition_status: z.enum(["preliminary", "final", "amended"]),
+  document_identifier_system: z.string(),
+  empty_reason_system: z.string(),
+  empty_reason_code: z.string(),
+  withheld_reason_code: z.string(),
+  vitals_per_type: z.number().int().positive(),
+  results_per_analyte: z.number().int().positive(),
+  sections: z.array(ipsSectionSchema),
+});
+
+export type IpsMapping = z.infer<typeof ipsMappingSchema>;
+export type IpsSectionKey = z.infer<typeof ipsSectionSchema>["key"];
+
+export interface LoadedIpsMapping {
+  ips: IpsMapping;
+  version: number;
+  status: "proposed" | "confirmed";
+}
+
+export function loadIpsMapping(asOf?: string): LoadedIpsMapping {
+  const entry = getProposedConfig("fhir.ips_mapping", asOf);
+  return { ips: ipsMappingSchema.parse(entry.value), version: entry.version, status: entry.status };
+}
+
 export function loadFhirMapping(asOf?: string): LoadedFhirMapping {
   const entry = getProposedConfig("fhir.mapping", asOf);
   return { mapping: mappingSchema.parse(entry.value), version: entry.version, status: entry.status };

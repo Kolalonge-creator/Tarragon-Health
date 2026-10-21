@@ -50,6 +50,23 @@ function ports(over: Partial<TriagePorts> = {}) {
   return { p, recorded };
 }
 
+describe("the observation handler: kinds with nothing to grade (S47a)", () => {
+  it.each(["water", "sleep", "mood"])("returns at once for a %s log and never loads a blood pressure context or rule set", async (kind) => {
+    const { p, recorded } = ports();
+    await makeObservationHandler(p)(event({ observation_id: "obs1", kind }), ctx);
+    expect(p.loadContext).not.toHaveBeenCalled();
+    expect(p.loadRuleSet).not.toHaveBeenCalled();
+    expect(p.loadGlucoseContext).not.toHaveBeenCalled();
+    expect(recorded).toHaveLength(0);
+  });
+
+  it("control: a blood pressure event with no kind is still graded", async () => {
+    const { p, recorded } = ports();
+    await makeObservationHandler(p)(event({ observation_id: "obs1" }), ctx);
+    expect(recorded).toHaveLength(1);
+  });
+});
+
 describe("the observation handler", () => {
   it("grades a reading within target green and records it with the rule set it used and the event as cause", async () => {
     const { p, recorded } = ports();

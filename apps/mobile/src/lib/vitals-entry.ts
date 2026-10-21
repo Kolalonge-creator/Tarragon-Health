@@ -12,6 +12,8 @@
  * (vitals-entry.test.ts) checks the server accepts every bound below, so the
  * direction to fix a mismatch stays: widen the server first, then follow it here.
  */
+import { observationLimit } from "@tarragon/shared";
+
 export type OtherVitalType = "glucose" | "weight" | "temperature" | "spo2" | "pulse";
 export type GlucoseUnit = "mmol_l" | "mg_dl";
 
@@ -25,23 +27,32 @@ export function parseStrictNumber(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * S47a: every bound below is read from the versioned config (observations.plausibility in packages/shared), the one value the web form, the API route
+ * and the database CHECK also follow, instead of being typed in here. The phone bundles the config, so a limit still works with no signal.
+ */
+const bound = (key: Parameters<typeof observationLimit>[0]) => {
+  const l = observationLimit(key);
+  return { min: l.min, max: l.max };
+};
+
 export const BP_BOUNDS = {
-  systolic: { min: 60, max: 260 },
-  diastolic: { min: 30, max: 160 },
+  systolic: bound("systolic_mmhg"),
+  diastolic: bound("diastolic_mmhg"),
 } as const;
 
 export const OTHER_VITAL_BOUNDS: Record<Exclude<OtherVitalType, "glucose">, { min: number; max: number }> = {
-  weight: { min: 20, max: 300 },
-  temperature: { min: 30, max: 45 },
-  spo2: { min: 50, max: 100 },
-  pulse: { min: 20, max: 300 },
+  weight: bound("weight_kg"),
+  temperature: bound("temperature_c"),
+  spo2: bound("spo2_pct"),
+  pulse: bound("pulse_bpm"),
 };
 
 /** A glucose value out of range for one unit is very often a correct value in the
  * other (mg/dL is 18 times mmol/L), so the range error points at the unit toggle. */
 export const GLUCOSE_BOUNDS: Record<GlucoseUnit, { min: number; max: number }> = {
-  mmol_l: { min: 1, max: 40 },
-  mg_dl: { min: 18, max: 720 },
+  mmol_l: bound("glucose_mmol_l"),
+  mg_dl: bound("glucose_mg_dl"),
 };
 
 /** A ketone value typed on the glucose quick-log: a typo gate, far wider than any band (the bands live only in the glucose_care_triage rule set). Mirrors params.validation.ketoneMaxMmol and the server (vitals_readings_ketones_mmol_l_check: 0 to 20). */

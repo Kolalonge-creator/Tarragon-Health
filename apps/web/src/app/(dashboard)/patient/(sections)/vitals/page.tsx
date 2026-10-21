@@ -3,6 +3,10 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { VitalsForm } from "@/app/(dashboard)/patient/vitals-form";
+import { LifestyleLogCard } from "@/app/(dashboard)/patient/lifestyle-log-card";
+import { InhalerHistory } from "@/app/(dashboard)/patient/inhaler-history";
+import { createClient } from "@/lib/supabase/server";
+import { readExtendedObservationsEnabled } from "@/lib/vitals/extended-observations";
 import { MonitoringCoverCard } from "@/components/monitoring-cover-card";
 import { HbpmSummaryCard } from "@/app/(dashboard)/patient/hbpm-summary-card";
 import { GlucoseInsights } from "@/app/(dashboard)/patient/glucose-insights";
@@ -22,12 +26,15 @@ import { getSymptomCheckerEligibility, getSymptomReviewEntitled, getSymptomRevie
 import { degradedModeConfig } from "@/lib/symptom-triage/safe-run";
 import { ComplicationStatus } from "@/app/(dashboard)/patient/complication-status";
 import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
+import { ThresholdOverrideNotice } from "@/app/(dashboard)/patient/threshold-override-notice";
 import { WeeklySummaryCard } from "@/app/(dashboard)/patient/weekly-summary-card";
 import { VisitReportCard } from "@/app/(dashboard)/patient/visit-report-card";
 
 export default async function PatientVitalsPage() {
   const { profile, subjectId, subjectDateOfBirth, glucoseUnit } = await getPatientDashboardContext();
   const ageYears = ageFromDateOfBirth(subjectDateOfBirth);
+  // S47a: water, sleep, mood and inhaler logs show only while the extended_observations module is on (born off).
+  const extendedObservationsOn = await readExtendedObservationsEnabled(await createClient());
   const presentingComplaints = await listAvailablePresentingComplaints();
   // The stated review time is read from the signed SLA only when the checker is open (nothing to promise otherwise).
   const reviewTime = presentingComplaints.length > 0 ? await getSymptomReviewTime() : ({ stated: false } as const);
@@ -42,6 +49,7 @@ export default async function PatientVitalsPage() {
       description="Log readings and symptoms, and see how they trend over time."
       icon={SEMANTIC_ICON.bp}
     >
+      {subjectId === profile.id ? <ThresholdOverrideNotice /> : null}
       <VitalsTrendChart patientId={subjectId} />
       <WeeklySummaryCard patientId={subjectId} glucoseUnit={glucoseUnit} />
 
@@ -56,6 +64,9 @@ export default async function PatientVitalsPage() {
           <GlucoseInsights patientId={subjectId} />
         </div>
       </div>
+
+      {extendedObservationsOn ? <LifestyleLogCard types={["water_ml", "sleep_hours", "mood", "inhaler_use"]} /> : null}
+      {extendedObservationsOn ? <InhalerHistory patientId={subjectId} /> : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SymptomLogForm patientId={subjectId} ageYears={ageYears} />

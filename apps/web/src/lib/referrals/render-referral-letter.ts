@@ -1,0 +1,130 @@
+import { renderToBuffer } from "@react-pdf/renderer";
+import { DocumentFolioRefusedError, fetchDocumentFolios } from "@/lib/clinical/document-folio";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@tarragon/shared";
+import {
+  ReferralLetterDocument,
+  type ReferralLetterData,
+  type ReferralVital,
+} from "@/lib/referrals/referral-letter-document";
+
+/** Any Supabase client acting as the signed-in caller (cookie session on the web, bearer token from the native app). */
+type CallerClient = SupabaseClient<Database>;
+
+/**
+ * The take-anywhere specialist referral letter, shared by the cookie route (web) and the bearer route (native app).
+ *
+ * Every read goes through the caller's own RLS-scoped session: specialist_referrals_select admits the patient themselves, so a
+ * foreign referralId returns nothing and this 404s rather than confirming the referral exists. The caller has already been
+ * authenticated; this does not check that.
+ *
+ * Never gated by plan. A patient holding a referral must always be able to print it, whatever they pay.
+ */
+export async function renderReferralLetter(
+  supabase: CallerClient,
+  referralId: string,
+  disposition: "attachment" | "inline" = "attachment",
+): Promise<Response> {
+  const { data: referral } = await supabase
+    .from("specialist_referrals")
+    .select(
+      "id, referral_number, created_at, patient_id, specialist_type, urgency, referral_reason, requested_service, interim_management_plan, clinical_summary, set_by",
+    )
+    .eq("id", referralId)
+    .maybeSingle();
+  if (!referral) return new Response("Not found", { status: 404 });
+
+  // S64 (15.6): a directory entry is preferred; the typed name is the fallback. Both come from the caller's own RLS-scoped session.
+  const { data: facilityRaw } = await supabase
+    .from("specialist_referrals" as never)
+    .select("facility_id, facility_name_text")
+    .eq("id" as never, referralId as never)
+    .maybeSingle();
+  const facilityRow = (facilityRaw ?? {}) as unknown as { facility_id?: string | null; facility_name_text?: string | null };
+  let facilityName: string | null = facilityRow.facility_name_text ?? null;
+  if (facilityRow.facility_id) {
+    const { data: facility } = await supabase.from("facilities").select("name").eq("id", facilityRow.facility_id).maybeSingle();
+    facilityName = facility?.name ?? facilityName;
+  }
+
+  const { data: patient } = await supabase
+    .from("profiles")
+    .select("full_name, patient_number, date_of_birth, sex")
+    .eq("id", referral.patient_id)
+    .maybeSingle();
+  if (!patient) return new Response("Not found", { status: 404 });
+
+  // clinical_summary is assembled by the clinician's own "assemble" action
+  // (clinician/referrals/[referralId]/actions.ts). A referral with none yet
+  // still prints: the letter degrades to reason + patient rather than refusing,
+  // because a patient who needs to be seen should not be blocked by a step
+  // their care team has not got to.
+  const summary = (referral.clinical_summary ?? {}) as {
+    vitals?: ReferralVital[];
+    medications?: { drug_name: string; dose: string | null; frequency: string | null }[];
+    triggering_result?: {
+      result_status?: string | null;
+      result_summary?: string | null;
+      created_at?: string | null;
+    } | null;
+    clinical_question?: string | null;
+  };
+
+  // Null-gated attribution, same rule as ReviewedByDoctor: a name appears only
+  // when a real clinical_staff row backs it.
+  let referrerName: string | null = null;
+  let referrerCredentialType: string | null = null;
+  let referrerCredential: string | null = null;
+  if (referral.set_by) {
+    // Folio via the document-scoped function, never the directory view (CMO Q17, OQ-358).
+    let folio;
+    try {
+      folio = (
+        await fetchDocumentFolios(supabase, "referral_letter", [referral.id])
+      ).get(referral.id);
+    } catch (e) {
+      if (e instanceof DocumentFolioRefusedError) {
+        return new Response("You are not permitted to produce this document", { status: 403 });
+      }
+      throw e;
+    }
+    if (folio?.fullName) {
+      referrerName = folio.fullName;
+      referrerCredentialType = folio.credentialType;
+      referrerCredential = folio.credentialNumber;
+    }
+  }
+
+  const data: ReferralLetterData = {
+    patientName: patient.full_name ?? "Patient",
+    patientNumber: patient.patient_number,
+    dateOfBirth: patient.date_of_birth,
+    sex: patient.sex,
+    referralNumber: referral.referral_number,
+    createdAt: referral.created_at,
+    specialistType: referral.specialist_type,
+    urgency: referral.urgency,
+    facilityName,
+    reason: referral.referral_reason ?? summary.clinical_question ?? null,
+    requestedService: referral.requested_service,
+    interimPlan: referral.interim_management_plan,
+    vitals: summary.vitals ?? [],
+    medications: summary.medications ?? [],
+    triggeringResult: summary.triggering_result ?? null,
+    referrerName,
+    referrerCredentialType,
+    referrerCredential,
+  };
+
+  const buffer = await renderToBuffer(ReferralLetterDocument({ data }));
+  const filename = referral.referral_number
+    ? `tarragon-referral-${referral.referral_number}.pdf`
+    : "tarragon-referral.pdf";
+
+  return new Response(new Uint8Array(buffer), {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `${disposition}; filename="${filename}"`,
+    },
+  });
+}

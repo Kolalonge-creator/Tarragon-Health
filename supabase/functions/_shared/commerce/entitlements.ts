@@ -20,6 +20,12 @@ export interface EntitlementView {
   /** The sponsor's name, only for a sponsor source ("Covered by ..."). Never set for the Community Access Fund. */
   readonly sponsorName: string | null;
   readonly partCovered: boolean;
+  /** S26b: 'grace' is an ended entitlement still inside the short read-only window (records visible, no doctor time, one tap to renew). Otherwise the state. */
+  readonly phase: "active" | "grace" | "expired" | "used" | "revoked";
+  /** Whole days of grace left, only in the grace phase. */
+  readonly graceDaysLeft: number | null;
+  /** The catalogue code, so the renew button can start the same purchase. Null when the database did not send one. */
+  readonly itemCode: string | null;
 }
 
 const STATES = ["active", "expired", "used", "revoked"] as const;
@@ -42,6 +48,10 @@ export function parseEntitlements(raw: unknown): EntitlementView[] {
       daysLeft: isInt(x["days_left"]) && x["days_left"] >= 0 ? x["days_left"] : null,
       source: src, sponsorName: typeof x["sponsor_name"] === "string" && src === "sponsor" ? x["sponsor_name"] : null,
       partCovered: x["part_covered"] === true,
+      // a phase of 'grace' is only believed for an expired entitlement; anything else falls back to the state
+      phase: x["phase"] === "grace" && state === "expired" ? "grace" : (state as EntitlementView["state"]),
+      graceDaysLeft: x["phase"] === "grace" && state === "expired" && isInt(x["grace_days_left"]) && x["grace_days_left"] >= 0 ? x["grace_days_left"] : null,
+      itemCode: typeof x["item_code"] === "string" && x["item_code"].length > 0 ? x["item_code"] : null,
     });
   }
   return out;
@@ -62,6 +72,13 @@ const REMAINING_KEYS: Readonly<Record<string, readonly [string, string]>> = {
 /** The plain lines under an entitlement's name, in the order they should be read. Expired, used and revoked entitlements say only their state. */
 export function entitlementLines(e: EntitlementView): WordingLine[] {
   const lines: WordingLine[] = [];
+  if (e.phase === "grace") {
+    // ended, still readable: say so, say nothing renews by itself, and say it holds no doctor time
+    const left = e.graceDaysLeft ?? 0;
+    lines.push({ key: left === 1 ? "entitlement.grace.note_one" : "entitlement.grace.note_other", params: { count: left } });
+    lines.push({ key: "entitlement.grace.no_doctor_time", params: {} });
+    return lines;
+  }
   if (e.state !== "active") {
     lines.push({ key: `entitlement.state.${e.state}`, params: {} });
     return lines;

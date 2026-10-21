@@ -15,13 +15,15 @@ import {
   type SleepState,
   type SmokingState,
   loadMealsState,
-  logMeal,
   logMealWithPhoto,
   type MealsState,
   type MealType,
   type MealPhotoEstimate,
 } from "@/lib/lifestyle-trackers";
 import { LifestyleTrackerScreen } from "@/screens/sections/lifestyle-tracker-screen";
+import { BarcodeBlock, FoodPickerBlock, RepeatAndFavouritesCard, TargetsCard } from "@/screens/sections/meal-diary-extras";
+import { loadGuidance, queueMeal } from "@/lib/food-diary";
+import { appendPhrase, type Guidance } from "@/lib/food-diary-model";
 import {
   Badge,
   Card,
@@ -212,7 +214,11 @@ export function ActivityScreen({ patientId }: { patientId: string }) {
           return logActivity(patientId, { activityName: name, durationMinutes: minutes });
         },
         summary: (s) =>
-          s.dailyStepGoal != null ? { label: "Daily step goal", value: `${s.dailyStepGoal}` } : null,
+          s.week
+            ? { label: "This week", value: `${s.week.activeMinutes} of ${s.week.goalMinutes} minutes` }
+            : s.dailyStepGoal != null
+              ? { label: "Daily step goal", value: `${s.dailyStepGoal}` }
+              : null,
         history: (s) =>
           s.entries.map((e, i) => ({
             id: `${e.loggedOn}:${i}`,
@@ -277,8 +283,15 @@ export function MealsScreen({ patientId }: { patientId: string }) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [lastEstimate, setLastEstimate] = useState<MealPhotoEstimate | null>(null);
+  // S49a: daily targets. "hidden" (withheld for this person, not signed off yet, or no signal) renders nothing at all.
+  const [guidance, setGuidance] = useState<Guidance>({ state: "hidden" });
+
+  const loadTargets = useCallback(async () => {
+    setGuidance(await loadGuidance());
+  }, []);
 
   const load = useCallback(async () => {
+    void loadTargets();
     const result = await loadMealsState(patientId);
     if (result.ok) {
       setState(result.data);
@@ -288,7 +301,7 @@ export function MealsScreen({ patientId }: { patientId: string }) {
     }
     setLoading(false);
     setRefreshing(false);
-  }, [patientId]);
+  }, [patientId, loadTargets]);
 
   useEffect(() => {
     void load();
@@ -365,12 +378,15 @@ export function MealsScreen({ patientId }: { patientId: string }) {
       setSaveError("Write what you ate.");
       return;
     }
-    const result = await logMeal(patientId, { mealType, description: trimmedDescription });
-    setSaving(false);
-    if (result.error) {
-      setSaveError(result.error);
+    // S49a: a meal in words goes through the offline outbox, so it is saved on the phone first and sent when there is signal.
+    try {
+      await queueMeal(patientId, { mealType, description: trimmedDescription });
+    } catch {
+      setSaving(false);
+      setSaveError("We could not save that on your phone. Please try again.");
       return;
     }
+    setSaving(false);
     setDescription("");
     setMealType(undefined);
     setSavedMessage(t("Saved."));
@@ -405,6 +421,8 @@ export function MealsScreen({ patientId }: { patientId: string }) {
       </View>
 
       {loadError ? <ErrorText>{loadError}</ErrorText> : null}
+
+      <TargetsCard guidance={guidance} />
 
       <Card style={{ gap: 12 }}>
         <View style={{ gap: 6 }}>
@@ -463,6 +481,9 @@ export function MealsScreen({ patientId }: { patientId: string }) {
           />
         </View>
 
+        <FoodPickerBlock onAdd={(phrase) => setDescription((d) => appendPhrase(d, phrase))} />
+        <BarcodeBlock onAdd={(phrase) => setDescription((d) => appendPhrase(d, phrase))} />
+
         {!photo ? (
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1 }}>
@@ -498,6 +519,8 @@ export function MealsScreen({ patientId }: { patientId: string }) {
           </Card>
         ) : null}
       </Card>
+
+      <RepeatAndFavouritesCard patientId={patientId} entries={entries} onLogged={() => void load()} />
 
       <View style={{ gap: 10 }}>
         <SectionLabel>{t("Last 30 days")}</SectionLabel>

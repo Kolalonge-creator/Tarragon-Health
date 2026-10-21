@@ -621,6 +621,15 @@ export const TEMPLATE_MAP: Record<
     smsText: "Your care team has added something to your health record. Open the Tarragon Health app to see it.",
     pushUrl: "/patient/labs",
   }),
+  // S27h: fixed neutral wording (INV-07). Nothing from the payload is echoed; the fallback line is sent only after the CMO signs it.
+  lab_result_still_reviewing: () => ({
+    smsText: "Your care team is still reviewing something in your health record. Open the Tarragon Health app to see when to expect it.",
+    pushUrl: "/patient/labs",
+  }),
+  lab_result_contact_us: () => ({
+    smsText: "Your care team would like to speak with you. Please open the Tarragon Health app and send them a message when you can.",
+    pushUrl: "/patient/messages",
+  }),
   written_question_answered: () => ({
     smsText: "Your care team has replied. Open the Tarragon Health app to read it.",
     pushUrl: "/patient/care",
@@ -1816,6 +1825,49 @@ export const TEMPLATE_MAP: Record<
       text: "A priority case needs you now.\n\nOpen Tarragon Health and acknowledge it on the On call page.\n\nTarragon Health",
     },
   }),
+  // S27h: a critical lab value (call) and its escalations. Clinician and lead only, fixed neutral wording (INV-07): no patient, analyte or value.
+  lab_critical_call: () => ({
+    smsText: "A priority review needs you now. Open Tarragon Health and acknowledge it. Tarragon Health",
+    pushUrl: "/clinician/lab-results",
+    email: {
+      subject: "A priority review needs you now",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A priority review needs you now.</p>` +
+        `<p>Open Tarragon Health and acknowledge it on the review page.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A priority review needs you now.\n\nOpen Tarragon Health and acknowledge it on the review page.\n\nTarragon Health",
+    },
+  }),
+  lab_critical_escalation: () => ({
+    smsText: "A priority review has not been acknowledged. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/clinician/lab-results",
+    email: {
+      subject: "A priority review has not been acknowledged",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A priority review has not been acknowledged by the clinicians on call.</p>` +
+        `<p>Open Tarragon Health to see where it stands.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A priority review has not been acknowledged by the clinicians on call.\n\nOpen Tarragon Health to see where it stands.\n\nTarragon Health",
+    },
+  }),
+  lab_hold_aging: () => ({
+    smsText: "A review has been waiting longer than planned. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/clinician/lab-results",
+    email: {
+      subject: "A review has been waiting longer than planned",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A review has been waiting longer than planned.</p>` +
+        `<p>Open Tarragon Health to see it on the review page.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A review has been waiting longer than planned.\n\nOpen Tarragon Health to see it on the review page.\n\nTarragon Health",
+    },
+  }),
   on_call_escalation: () => ({
     smsText: "A priority case has not been picked up. Open Tarragon Health. Tarragon Health",
     pushUrl: "/rota",
@@ -1845,6 +1897,49 @@ export const TEMPLATE_MAP: Record<
         `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
       text: "This is a test page. Nothing is wrong.\n\nOpen Tarragon Health and acknowledge it on the On call page.\n\nTarragon Health",
+    },
+  }),
+  // Ops desk (OQ-441): the named ops contact is told to phone. Fixed, neutral wording (INV-07); never sent by sms (the on_call_ prefix is refused for sms and voice).
+  on_call_ops_desk: () => ({
+    smsText: "You are the ops contact for a priority case nobody has answered. Phone the clinician on call now. Tarragon Health",
+    pushUrl: "/admin/ops/desk",
+    email: {
+      subject: "You are the ops contact: phone the clinician on call now",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A priority case has not been answered and you are the ops contact on duty.</p>` +
+        `<p>Phone the clinician on call now, then the chief medical officer if nobody answers, and record each call on the Ops desk page.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A priority case has not been answered and you are the ops contact on duty.\n\nPhone the clinician on call now, then the chief medical officer if nobody answers, and record each call on the Ops desk page.\n\nTarragon Health",
+    },
+  }),
+  on_call_ops_desk_uncovered: () => ({
+    smsText: "A priority case is unanswered and no ops contact is on duty. Phone the clinician on call now. Tarragon Health",
+    pushUrl: "/rota",
+    email: {
+      subject: "No ops contact is on duty: phone the clinician on call now",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A priority case has not been answered and no ops contact is on duty.</p>` +
+        `<p>Phone the clinician on call and the chief medical officer yourself, and open the Ops desk page to record the calls.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A priority case has not been answered and no ops contact is on duty.\n\nPhone the clinician on call and the chief medical officer yourself, and open the Ops desk page to record the calls.\n\nTarragon Health",
+    },
+  }),
+  on_call_ops_desk_roster: () => ({
+    smsText: "Nobody reachable may be on call. Open the ops desk and phone the people on the call sheet. Tarragon Health",
+    pushUrl: "/admin/ops/desk",
+    email: {
+      subject: "Nobody reachable may be on call: please check",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>The system cannot find anyone reachable who is on call right now. No case is waiting on this alone.</p>` +
+        `<p>Open the Ops desk page, phone the people on the call sheet, and check the rota.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "The system cannot find anyone reachable who is on call right now. No case is waiting on this alone.\n\nOpen the Ops desk page, phone the people on the call sheet, and check the rota.\n\nTarragon Health",
     },
   }),
   on_call_expired: () => ({

@@ -52,3 +52,12 @@ export async function acknowledgeTestPage(fd: FormData): Promise<void> {
     return "Test page acknowledged. It counts towards your on-call readiness.";
   });
 }
+
+/** The clinician taps "I received the test page" for a start-of-shift test. Same acknowledgement as any test page: the database requires the page to have
+ * been shown on a device or on this screen first, then records channel, device and latency. */
+export async function acknowledgeShiftStartTest(fd: FormData): Promise<void> {
+  await runAndRedirect(fd, "/clinician/on-call", async () => {
+    await rpcVoid(await createClient(), "acknowledge_test_page", { p_test: z.uuid().parse(text(fd, "testId")) });
+    return "Thank you. The test page is recorded and your shift counts as covered.";
+  });
+}

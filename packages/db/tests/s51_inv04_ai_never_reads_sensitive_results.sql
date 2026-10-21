@@ -133,6 +133,8 @@ select pg_temp.ck('real', 'the other patient sees no items', '0',
   pg_temp.q_as(pg_temp.f('other'), 'select count(*)::text from public.ai_readable_lab_result_items'));
 
 -- 6. SABOTAGE: unfiltered views ---------------------------------------------------------------------------------------------
+-- (also the table's own restrictive policy, which since OQ-S43m-5 hides sensitive rows from the patient even through an unfiltered view)
+drop policy if exists lab_analyte_readings_hide_sensitive on public.lab_analyte_readings;
 create or replace view public.ai_readable_lab_readings with (security_invoker = true) as
   select r.id, r.patient_id, r.organisation_id, r.code, r.value, r.value_text, r.unit, r.taken_at,
          r.reference_range_low, r.reference_range_high, r.abnormal_flag, r.report_status from public.lab_analyte_readings r;

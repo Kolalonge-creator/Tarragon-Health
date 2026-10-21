@@ -115,6 +115,16 @@ describe("the vitals branch of the observation handler", () => {
     expect(recorded[0]?.result).toMatchObject({ status: "rejected", grade: null, explanationKey: "VIT-T04" });
   });
 
+  it("personal threshold overrides never touch a vitals grade: the override ports are not consulted", async () => {
+    const loadThresholdOverride = jest.fn(async () => null);
+    const recordOverrideApplication = jest.fn(async () => undefined);
+    const { p, recorded } = ports({ loadThresholdOverride, recordOverrideApplication, loadVitalsContext: async () => ({ found: true, input: vitalsInput("spo2", 91) }) });
+    await makeObservationHandler(p)(vitalsEvent(), ctx);
+    expect(recorded[0]?.result.grade).toBe("red");
+    expect(loadThresholdOverride).not.toHaveBeenCalled();
+    expect(recordOverrideApplication).not.toHaveBeenCalled();
+  });
+
   it("an event without kind vitals still goes to the blood pressure path", async () => {
     const { p } = ports();
     await makeObservationHandler(p)(event({ observation_id: "obs1" }), ctx);

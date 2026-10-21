@@ -155,9 +155,12 @@ test.describe("collection-only pharmacy screens", () => {
 
   test("the patient medications page renders with no delivery wording", async ({ page }) => {
     await login(page, patient);
-    // A fresh patient lands on onboarding; finish it through the real UI, as b2c-signup-to-entitlement.spec.ts does.
+    // A fresh patient lands on onboarding; finish it through the real UI.
     await page.waitForURL(/\/onboarding/, { timeout: 60_000 });
-    await page.getByRole("button", { name: /not sure yet/i }).click();
+    // Step 1 (S41, "What brings you here?") is a set of checkboxes with a Continue button, not a row of buttons. The answers gate
+    // nothing, so the honest minimal choice is "I am not sure yet". The exact name keeps this off the consent step's "I agree, continue".
+    await page.getByRole("checkbox", { name: /not sure yet/i }).check();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page.getByRole("checkbox", { name: /accept|agree/i }).check();
     await page.getByRole("button", { name: /i agree, continue/i }).click();
     await page.locator("#dateOfBirth").fill("1990-01-01");

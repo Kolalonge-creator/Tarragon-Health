@@ -31,6 +31,14 @@ export function PartnerQualityCard({ q }: { q: PartnerQuality }) {
                 : "Not enough orders yet to measure"}
             </p>
           )}
+          {q.partner_kind === "pharmacy" && (
+            <p>
+              <span className="text-charcoal-ink/60">Prescriptions supplied within the {q.turnaround_target_hours ?? "target"} hour target (from when the patient chose you)</span><br />
+              {q.orders_measured && q.orders_measured > 0 && q.pct_within_target !== null
+                ? `${q.pct_within_target}% of ${q.orders_measured} supplies (middle time ${q.turnaround_median_hours} hours)`
+                : "Not enough supplies yet to measure"}
+            </p>
+          )}
           <p><span className="text-charcoal-ink/60">Complaints upheld in the last 90 days</span><br />{q.complaints_upheld ?? 0} ({q.complaints_open ?? 0} open)</p>
           <p><span className="text-charcoal-ink/60">Last worked out</span><br />{dateOf(q.computed_at)}</p>
         </CardContent>
