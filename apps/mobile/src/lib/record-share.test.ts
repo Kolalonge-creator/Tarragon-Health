@@ -1,4 +1,4 @@
-import { createShare, fetchShl, loadMyShares, openShares, revokeShare, shareUrl, viewsLeft, isUsedUp, SHARE_MAX_VIEWS_CHOICES, SHARE_WINDOW_DAYS_CHOICES, getSharingOffer, expiryText, type RecordShareRow } from "./record-share";
+import { createShare, fetchShl, loadMyShares, openShares, revokeShare, shareUrl, viewsLeft, isUsedUp, sessionEnded, deadReason, SHARE_MAX_VIEWS_CHOICES, SHARE_WINDOW_DAYS_CHOICES, getSharingOffer, expiryText, type RecordShareRow } from "./record-share";
 import { supabase } from "./supabase";
 
 const chain = { select: jest.fn(), eq: jest.fn(), order: jest.fn(), limit: jest.fn(), maybeSingle: jest.fn() };
@@ -8,7 +8,7 @@ const from = supabase.from as unknown as jest.Mock;
 
 const row = (over: Partial<RecordShareRow> = {}): RecordShareRow => ({
   id: "s1", token: "t".repeat(64), sections: ["vitals"], expiresAt: "2099-01-01T00:00:00Z", isActive: true, viewCount: 0,
-  pinProtected: false, oneSession: false, lockedAt: null, revokedAt: null, recipientLabel: null, maxViews: null, windowDays: null, ...over,
+  pinProtected: false, oneSession: false, lockedAt: null, revokedAt: null, recipientLabel: null, maxViews: null, windowDays: null, firstOpenedAt: null, ...over,
 });
 
 beforeEach(() => {
@@ -102,12 +102,32 @@ describe("revokeShare", () => {
     rpc.mockResolvedValue({ error: { message: "share not found or already revoked" } });
     chain.maybeSingle.mockResolvedValueOnce({ data: { is_active: false, revoked_at: "2026-10-01T00:00:00Z" } });
     expect(await revokeShare("s1")).toEqual({ ok: true, data: null });
+    // read back for the person's own row only
+    chain.maybeSingle.mockResolvedValueOnce({ data: { is_active: false, revoked_at: "2026-10-01T00:00:00Z" } });
+    expect(await revokeShare("s1", "user-1")).toEqual({ ok: true, data: null });
+    expect(chain.eq).toHaveBeenCalledWith("patient_id", "user-1");
     // still active (the id was not the person's, or the update matched nothing): it is NOT stopped
     chain.maybeSingle.mockResolvedValueOnce({ data: { is_active: true, revoked_at: null } });
     expect(await revokeShare("s1")).toEqual({ ok: false });
     // no row visible at all
     chain.maybeSingle.mockResolvedValueOnce({ data: null });
     expect(await revokeShare("s1")).toEqual({ ok: false });
+  });
+});
+
+describe("deadReason", () => {
+  const now = new Date("2026-10-21T12:00:00Z").getTime();
+  it("a one-session link is dead once its window since the first opening has passed, and not before", () => {
+    expect(sessionEnded({ oneSession: true, firstOpenedAt: "2026-10-21T11:00:00Z" }, 30, now)).toBe(true);
+    expect(sessionEnded({ oneSession: true, firstOpenedAt: "2026-10-21T11:45:00Z" }, 30, now)).toBe(false);
+    expect(sessionEnded({ oneSession: true, firstOpenedAt: null }, 30, now)).toBe(false);
+    expect(sessionEnded({ oneSession: false, firstOpenedAt: "2020-01-01T00:00:00Z" }, 30, now)).toBe(false);
+    expect(sessionEnded({ oneSession: true, firstOpenedAt: "garbage" }, 30, now)).toBe(false);
+  });
+  it("names the reason, views first", () => {
+    expect(deadReason({ maxViews: 1, viewCount: 1, oneSession: true, firstOpenedAt: "2020-01-01T00:00:00Z" }, 30, now)).toBe("used_up");
+    expect(deadReason({ maxViews: null, viewCount: 0, oneSession: true, firstOpenedAt: "2020-01-01T00:00:00Z" }, 30, now)).toBe("session_ended");
+    expect(deadReason({ maxViews: null, viewCount: 0, oneSession: false, firstOpenedAt: null }, 30, now)).toBeNull();
   });
 });
 
