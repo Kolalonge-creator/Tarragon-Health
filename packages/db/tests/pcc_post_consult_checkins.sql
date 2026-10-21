@@ -94,7 +94,7 @@ declare
   p1 uuid; p2 uuid; p3 uuid; p4 uuid; p5 uuid; p6 uuid; p7 uuid; p8 uuid; p9 uuid; stranger uuid;
   e1 uuid; e2 uuid; e3 uuid; e4 uuid; e5 uuid; e6 uuid; e7 uuid; e8 uuid; e9 uuid; e10 uuid; e11 uuid; e12 uuid;
   c uuid; c2 uuid; v_ended timestamptz := date_trunc('minute', now()) - interval '1 hour';
-  v_lagos_eve timestamptz := '2026-10-17 22:30:00+01';
+  v_lagos_eve timestamptz := ((date_trunc('day', now() at time zone 'Africa/Lagos') - interval '1 day') + time '22:30') at time zone 'Africa/Lagos';
   v_out jsonb; v_thread uuid; v_task uuid; v_res text;
 begin
   select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
@@ -137,7 +137,7 @@ begin
   e4 := pg_temp.mkenc(v_org, p2, v_docA, 'video', v_lagos_eve);
   perform pg_temp.complete(e4, v_lagos_eve);
   perform pg_temp.rec('a completed video consultation schedules two check-ins', '2', pg_temp.n_rows(e4));
-  perform pg_temp.rec('due at exactly +48h and +7d, an evening Lagos completion is not moved', '2026-10-19 22:30/2026-10-24 22:30',
+  perform pg_temp.rec('due at exactly +48h and +7d, an evening Lagos completion is not moved', to_char((v_lagos_eve + interval '48 hours') at time zone 'Africa/Lagos', 'YYYY-MM-DD HH24:MI') || '/' || to_char((v_lagos_eve + interval '7 days') at time zone 'Africa/Lagos', 'YYYY-MM-DD HH24:MI'),
     (select string_agg(to_char(due_at at time zone 'Africa/Lagos', 'YYYY-MM-DD HH24:MI'), '/' order by due_at) from public.post_consult_checkins where encounter_id = e4));
   perform pg_temp.rec('each row records the config version and the consultation clinician', '1/true',
     (select min(config_version)::text || '/' || bool_and(clinician_id = v_docA)::text from public.post_consult_checkins where encounter_id = e4));
