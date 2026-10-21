@@ -3605,20 +3605,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md Part B C1 to C3; Nigeria hypertension guideline 2023-2028 sections 3.1.1, 3.2, 5.4.5, 6.2, 6.3; supabase/migrations/20261013182514_s07x_home_bp_programme.sql",
   },
   {
-    key: "bp.cuff_sizing",
-    // S07y. PROPOSED, unsigned. Arm circumference (whole cm, rounded half up) to cuff size, from the published AHA 2019 and ESH 2023 cuff-size tables (docs/research/S07y.md).
-    // Live value is the active, signed row of `bp_cuff_guidance_signoffs`.config; cuff-sizing-mirror.test.ts fails if the migration seed and this value drift.
-    // The CMO checks the ranges against the Nigerian guideline (NG-2023 section 3.1.1) before signing. The wording lives in packages/i18n (hc.cuff.*); wordingSha256 pins it (cuff-wording-pin.test.ts), so changing a word needs a new version and a new signature.
-    value: {
-      "sizes": [
-        { "key": "small_adult", "minCm": 22, "maxCm": 26 },
-        { "key": "adult", "minCm": 27, "maxCm": 34 },
-        { "key": "large_adult", "minCm": 35, "maxCm": 44 },
-        { "key": "extra_large", "minCm": 45, "maxCm": 52 }
-      ],
-      "measureMinCm": 15,
-      "measureMaxCm": 60,
-      "wordingSha256": "1179c39d263814d87b9563886afd9fc18f2764d58368f29f0bb53318033162cf"
     key: "bp.cuff_check",
     // S07y: "home cuff vs clinic cuff". EVERY number here is a proposal (the CMO has not seen it; nothing is signed). Live value is the active, signed row of
     // `cuff_check_rules`.config; cuff-check-mirror.test.ts fails if the migration seed and this value drift. The server alone applies it (the phone does not bundle it).
@@ -3649,8 +3635,29 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-20",
-    source: "docs/research/S07y.md; AHA 2019 (Muntner) and ESH 2023 (Mancia) cuff-size tables; supabase/migrations/20261021113725_s07y_cuff_guidance_and_bp_band_report.sql",
     source: "docs/design/S07y.md; supabase/migrations/20261020184217_s07y_home_cuff_vs_clinic_check.sql. No guideline fixes these numbers: the 5 mmHg diastolic figure echoes common device-validation mean-difference limits, the rest are engineering proposals.",
+  },
+  {
+    key: "bp.cuff_sizing",
+    // S07y. PROPOSED, unsigned. Arm circumference (whole cm, rounded half up) to cuff size, from the published AHA 2019 and ESH 2023 cuff-size tables (docs/research/S07y.md).
+    // Live value is the active, signed row of `bp_cuff_guidance_signoffs`.config; cuff-sizing-mirror.test.ts fails if the migration seed and this value drift.
+    // The CMO checks the ranges against the Nigerian guideline (NG-2023 section 3.1.1) before signing. The wording lives in packages/i18n (hc.cuff.*); wordingSha256 pins it (cuff-wording-pin.test.ts), so changing a word needs a new version and a new signature.
+    value: {
+      "sizes": [
+        { "key": "small_adult", "minCm": 22, "maxCm": 26 },
+        { "key": "adult", "minCm": 27, "maxCm": 34 },
+        { "key": "large_adult", "minCm": 35, "maxCm": 44 },
+        { "key": "extra_large", "minCm": 45, "maxCm": 52 }
+      ],
+      "measureMinCm": 15,
+      "measureMaxCm": 60,
+      "wordingSha256": "1179c39d263814d87b9563886afd9fc18f2764d58368f29f0bb53318033162cf"
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/research/S07y.md; AHA 2019 (Muntner) and ESH 2023 (Mancia) cuff-size tables; supabase/migrations/20261021113725_s07y_cuff_guidance_and_bp_band_report.sql",
   },
   {
     key: "offline.trust",

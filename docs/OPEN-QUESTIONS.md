@@ -4384,17 +4384,17 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
 
-### OQ-S07Y-1 The cuff arm-circumference table is unsigned and written from published tables not re-read in this build (raised by S07y, 2026-10-20)
+### OQ-S07Y-G1 The cuff arm-circumference table is unsigned and written from published tables not re-read in this build (raised by S07y, 2026-10-20)
 - `bp_cuff_guidance_signoffs` v1 (22-26 small adult, 27-34 adult, 35-44 large adult, 45-52 extra large; accepted 15-60 cm) is on the CMO hub, unsigned and inactive, so the phone shows no cuff-size step. The ranges come from the AHA 2019 and ESH 2023 tables as remembered by the author; nobody has compared them with the documents or with NG-2023 section 3.1.1.
 - Options: (a) the CMO compares them with the sources, edits the seed if any differs (a new version), then signs (recommended); (b) sign as written; (c) do not offer a size step and keep the six-line C4 guide only.
 - Decision: open (CMO).
 
-### OQ-S07Y-2 Who enters recommended blood pressure monitors, and from which registry (raised by S07y, 2026-10-20)
+### OQ-S07Y-G2 Who enters recommended blood pressure monitors, and from which registry (raised by S07y, 2026-10-20)
 - The editor at `/admin/settings/recommended-devices` lets an admin enter a model with its validation link and a NAFDAC number or distributor; the CMO reviews each at `/clinician/recommended-devices` (a hub line shows the count). The list is empty of reviewed rows, so every patient is told "no checked list yet, look it up at stridebp.org". `device_recommended_list` (the module that makes `recommended_devices()` return rows) is still off; the cuff step reads reviewed rows regardless of that module only through `bp_cuff_model_listing`, which also requires the module on, so a reviewed list does nothing until the module is switched on.
 - Needed: who sources the first few models (the CMO from ValidateBP or STRIDE BP, or an admin), and when the module goes on. Tarragon sells nothing (2026-08-02).
 - Decision: open (CMO and founder).
 
-### OQ-S07Y-3 The pre-visit sheet uses the programme gate, not the looser trend-card gate (raised by S07y, 2026-10-20)
+### OQ-S07Y-G3 The pre-visit sheet uses the programme gate, not the looser trend-card gate (raised by S07y, 2026-10-20)
 - "Bring this to your visit" shows a 7-day average only with a SIGNED home programme and 12 readings over 3 days (with none signed it says "a 7-day average is not shown yet"). The in-app trend card shows an average at 3 readings over 3 days. A patient can therefore see an average in the app and "not enough readings yet" on the sheet. This is deliberate (never a thinner average on paper than the programme allows), not a bug.
 - Options: (a) keep the stricter gate on the sheet (recommended until the CMO signs the programme); (b) use the trend card's gate so both agree; (c) raise the trend card to the programme gate.
 - Decision: open (CMO).
