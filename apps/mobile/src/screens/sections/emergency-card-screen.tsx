@@ -16,6 +16,7 @@ import {
 import { spacing } from "@/ui/theme";
 import { lightPalette, useLegacyColors } from "@/ui/design";
 import { EmergencyPackView } from "@/screens/emergency-pack-view";
+import { FreshnessNote } from "@/ui/freshness-note";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
 interface EmergencyCardScreenProps {
@@ -105,6 +106,8 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
       <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Emergency card</Text>
       {offline ? <MutedText>You&apos;re offline, so this is your last saved copy.</MutedText> : null}
+      {/* The card keeps its own saved copy (not the read mirror), stamped when it was last fetched. */}
+      {offline ? <FreshnessNote lastUpdatedAt={facts.cachedAt} /> : null}
 
       {/* Fixed red with white text in both schemes: a first responder must recognise this card at a glance. */}
       <View style={{ backgroundColor: lightPalette.dangerText, borderRadius: 14, padding: 16, gap: 10 }}>

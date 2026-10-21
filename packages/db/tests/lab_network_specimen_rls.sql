@@ -75,10 +75,10 @@ begin
   -- ------------------------------------------------------------------------
   -- Fixtures (as the connecting superuser, RLS bypassed)
   -- ------------------------------------------------------------------------
-  insert into public.lab_providers (name, is_active, contact_email, contact_phone)
-    values ('VERIFY Lab Network A', true, 'ops@verify-lab-a.ng', '+2348030000201') returning id into v_lab_a;
-  insert into public.lab_providers (name, is_active, contact_email, contact_phone)
-    values ('VERIFY Lab Network B', true, 'ops@verify-lab-b.ng', '+2348030000202') returning id into v_lab_b;
+  insert into public.lab_providers (name, is_active, contact_email, contact_phone, license_number, license_verified_at, license_expires_at, accreditation)
+    values ('VERIFY Lab Network A', true, 'ops@verify-lab-a.ng', '+2348030000201', 'S27H-PROOF-1', now(), now() + interval '1 year', 'ISO 15189') returning id into v_lab_a;
+  insert into public.lab_providers (name, is_active, contact_email, contact_phone, license_number, license_verified_at, license_expires_at, accreditation)
+    values ('VERIFY Lab Network B', true, 'ops@verify-lab-b.ng', '+2348030000202', 'S27H-PROOF-1', now(), now() + interval '1 year', 'ISO 15189') returning id into v_lab_b;
 
   select id into v_patient from public.profiles
     where role = 'patient' and organisation_id = v_org order by id limit 1;

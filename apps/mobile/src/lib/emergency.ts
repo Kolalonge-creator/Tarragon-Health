@@ -40,8 +40,7 @@ const CACHE_KEY = "emergency-card-cache-v1";
  * the anon share-link RPC) — every table here already has RLS admitting the
  * patient's own row, so this is a plain client read. */
 export async function loadEmergencyFacts(patientId: string): Promise<EmergencyFacts> {
-  const [{ data: profile }, { data: allergies }, { data: carePlans }, { data: blood }, { data: meds }, { data: choices }] =
-    await Promise.all([
+  const results = await Promise.all([
       supabase
         .from("profiles")
         .select("full_name, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship")
@@ -72,6 +71,12 @@ export async function loadEmergencyFacts(patientId: string): Promise<EmergencyFa
         .eq("patient_id", patientId)
         .maybeSingle(),
     ]);
+  // Any failed query means this is not the person's card: an empty answer from a dropped connection must never replace the
+  // saved copy (or be stamped as freshly updated), and a failed choices query must not fall back to defaults that could show
+  // what the person chose to hide. Throw so the screen shows the saved copy, labelled with when it was really saved.
+  const failed = results.find((r) => (r as { error?: { message?: string } | null }).error);
+  if (failed) throw new Error((failed as { error: { message?: string } }).error.message ?? "Could not load the emergency card");
+  const [{ data: profile }, { data: allergies }, { data: carePlans }, { data: blood }, { data: meds }, { data: choices }] = results;
 
   const facts: EmergencyFacts = {
     fullName: profile?.full_name ?? null,

@@ -19,12 +19,20 @@ function s47Migration(): string {
 }
 
 describe("S46 proposed config mirrors the migration seeds", () => {
-  it("report.settings is identical to health_report_config_versions v2 (S47) and stays proposed", () => {
+  it("report.settings is health_report_config_versions v2 (S47) plus the S46d suggested-recheck block (v3), and stays proposed", () => {
     const m = /health-report-config-v2-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(s47Migration());
     if (!m?.[1]) throw new Error("report settings v2 seed not found");
-    expect(JSON.parse(m[1])).toEqual(getProposedConfig("report.settings").value);
+    const v2 = JSON.parse(m[1]) as Record<string, unknown> & { productRules: string[] };
+    const v3 = getProposedConfig("report.settings").value as Record<string, unknown> & { productRules: string[] };
+    const { retest, ...rest } = v3;
+    expect({ ...rest, productRules: v2.productRules }).toEqual(v2);
+    expect(v3.productRules).toEqual([...v2.productRules, "retest"]);
+    expect(retest).toEqual({ offValueWeeks: 12, bpWeeks: 4, byAnalyte: {}, midYearMonths: 6 });
+    // the migration derives v3 from v2 in SQL with exactly these values
+    const sql = readFileSync(join(MIGRATIONS, readdirSync(MIGRATIONS).find((f) => f.endsWith("_s46d_health_report_completion.sql")) as string), "utf8");
+    expect(sql).toContain("'offValueWeeks', 12, 'bpWeeks', 4, 'byAnalyte', '{}'::jsonb, 'midYearMonths', 6");
     expect(getProposedConfig("report.settings").status).toBe("proposed");
-    expect(getProposedConfig("report.settings").version).toBe(2);
+    expect(getProposedConfig("report.settings").version).toBe(3);
   });
 
   it("report.settings v2 has no borderline margin, a 12-reading 3-day minimum, a comorbidity-aware target and says which numbers are product rules", () => {
@@ -36,7 +44,7 @@ describe("S46 proposed config mirrors the migration seeds", () => {
     expect(v.bpTarget).toEqual({ systolicBelow: 140, diastolicBelow: 90 });
     expect(v.bpTargetHigherRisk).toEqual({ systolicBelow: 130, diastolicBelow: 80 });
     expect(v.bpHighNormalBand).toEqual({ systolicFrom: 130, systolicBelow: 140, diastolicFrom: 80, diastolicBelow: 90 });
-    expect(v.productRules).toEqual(["maxPriorities", "changeTolerancePct", "recheckWeeks", "priorityWindows", "trendMinPoints", "trendYears"]);
+    expect(v.productRules).toEqual(["maxPriorities", "changeTolerancePct", "recheckWeeks", "priorityWindows", "trendMinPoints", "trendYears", "retest"]);
     expect(v.statementApprovedByCmo).toBe(false);
   });
 
