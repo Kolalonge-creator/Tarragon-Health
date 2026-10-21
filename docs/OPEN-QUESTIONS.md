@@ -4563,6 +4563,21 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-IPS-4 Items inside general sections are not sorted by purpose, for supporters too (raised by the IPS build, 2026-10-20)
 - `fhir_export_snapshot` (S47b) hides reproductive and mental-health-named conditions, medicines and allergies only for a guardian of a 10 to 17 year old without a waiver. A supporter who holds only the medications or conditions category, and the person themselves, still get such items inside Problems and Medicines, as in the existing collection export. The summary says so in words (file narrative and page copy) but a sentence is not a control. Decide whether the snapshot should withhold those items for every non-self reader, and whether a stopped medicine should be left out of the Medicines section. Do not weaken the existing exclusion; this build adds no new way to read them.
 - Decision: open (CMO / DPO).
+### OQ-RRL-1 Counsel must review the letter wording and the reply period (raised by the records request build, 2026-10-20)
+- `records_request.letter` v1 is engineer-written, UNSIGNED placeholder wording. It names the Nigeria Data Protection Act 2023 right of access as the person's own request and states no section, deadline or penalty. `records_request.response_days` (30) is a placeholder reminder period, not a statement of what the law requires. Counsel supplies approved wording and the period as a higher config version; until then the UI says the wording is a draft. Do not show anything as legal advice.
+- Decision: open (counsel / founder).
+
+### OQ-RRL-2 The guard `records_request_letters` cannot be switched on yet (raised by the records request build, 2026-10-20)
+- It is born OFF and, like S43 and S44, has no entry in `private.go_live_conditions` (that function is changed by several branches), so it reports "no defined condition". Add conditions (counsel signed the wording; the founder confirms) in a separate change before anyone flips it.
+- Decision: open (founder).
+
+### OQ-RRL-3 No push or inbox reminder when a request is overdue (raised by the records request build, 2026-10-20)
+- Overdue is derived and shown in the app (Passport banner, list, detail, phone list). No notification row is created because notification templates are reviewed for INV-07 and nothing may depend on a send. If the founder wants a nudge, it needs a reviewed template that names no facility, and the in-app list stays the source of truth.
+- Decision: open (founder).
+
+### OQ-RRL-4 Dependants and mobile creation (raised by the records request build, 2026-10-20)
+- The tables are guarded for under-18 dependants (no rows), so a guardian cannot ask on a child's behalf yet; decide whether a guardian flow is wanted. The phone lists and tracks requests but the letter is made and printed on the web; a phone create flow and share sheet is a later decision.
+- Decision: open (product).
 ### OQ-S49A-1 The 108 food rows are estimates and none is dietitian reviewed (raised by the S49a build, 2026-10-20)
 - Every new row, and every old one, is `data_quality = 'estimated'` with `needs_dietitian_review = true`; a database CHECK stops anyone marking a row "no review needed" while it is still estimated. Values are from published West African and general composition ranges (street food, stews and drinks vary widely with oil and seasoning). The grams for wrap, ladle and bowl, and the small / medium / large figures (0.6x, 1x, 1.5x of the default), are household estimates, not measured.
 - Needed: a registered dietitian reviews the table (a data change per row, setting `data_quality = 'dietitian_reviewed'` and `needs_dietitian_review = false` together), and measures the common portions. Until then the app says "an estimate to guide you" everywhere it shows a number, and the targets stay behind the CMO signature anyway.

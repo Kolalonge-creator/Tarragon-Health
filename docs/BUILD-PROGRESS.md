@@ -2149,6 +2149,13 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **Open**: OQ-IPS-1 to OQ-IPS-3.
 
 - **Open**: OQ-IPS-1 to OQ-IPS-4.
+## Records request letter, NDPA right of access (spec 2.3, 2.11) (2026-10-20), branch `feat/records-request-letter`
+
+- **Built**: migration `20261020221547_records_request_letters.sql` (tables `records_requests`, `records_request_events`, six patient functions, three ids-only events, go-live guard `records_request_letters` OFF, data registry and dependant-policy rows); config `records_request.letter` (UNSIGNED placeholder wording) and `records_request.response_days` (placeholder 30), mirror test; web `/patient/records-requests` and `/patient/records-requests/[id]`, A4 black-and-white PDF route, Passport nav link and overdue banner; mobile list and detail screen with drawer entry. No outbound sending, no notification row.
+- **Proof**: `packages/db/tests/records_request_letters.sql` registered in `ci.manifest`, three sabotages flip; run against live in one rolled-back transaction with the migration text (nothing persisted). Not applied.
+- **Tests**: web full suite 6,760 pass (new: actions, letter and PDF layout, route); shared 1,054; i18n 215; mobile 2,285 (new: `records-requests`); `tsc` clean for web and mobile; eslint 0 errors.
+- **Not run**: no browser, device or PDF viewer; the local Docker stack was not running so the CI replay is the first true replay.
+- **Open**: OQ-RRL-1 to OQ-RRL-4.
 ## S49a: food logging foundation (6.1 to 6.5 and 6.7) (2026-10-20), branch `s49a/food-logging-foundation`, draft PR, nothing applied
 
 - **Built**: two migrations (`*_s49a_food_enum_values.sql`, `*_s49a_food_logging_foundation.sql`): catalogue grown from 41 to 108 estimated, dietitian-review-flagged foods with sugar and generated high-salt / high-sugar flags; wrap / ladle / bowl portions and photo-slot size rows (no photos); `food_logs` view over `nutrition_log_entries`; `food.logged` event; `favourite_meals`, `nutrition_preferences`, `nutrition_target_holds`; `nutrition_target_config` (UNSIGNED, INACTIVE) with `my_nutrition_target_gate()`; `barcodes` and `lookup_barcode()` (empty). Shared `@tarragon/shared` nutrition module (catalogue, parser, analysis, targets, word summary, GTIN, compressed food list). Web: pick from list, barcode number, recent / favourites one-tap, targets card, numbers-or-words preference, sign-off hub panel and pages, search entries, AI-008 grounded on the table. Phone: same, with meals queued in the offline outbox and the food list kept on the device. Design `docs/design/S49a.md`.
