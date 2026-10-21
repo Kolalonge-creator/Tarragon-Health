@@ -244,8 +244,8 @@ begin
   perform pg_temp.setf('item_med', v_item);
   -- the items list is built as the table owner: the doctor has no read policy on checklist items (doctors read through the audited
   -- function), so a sub-select inside the doctor's own statement sees nothing and the function would leave the items untouched
-  v_items := (select coalesce(jsonb_agg(jsonb_build_object('id', id, 'kind', kind, 'params', params, 'custom_text', case when kind = 'custom' then 'Rest, then recheck' end)), '[]'::jsonb)
-                from public.visit_summary_items where summary_id = s)
+  v_items := (select coalesce(jsonb_agg(jsonb_build_object('id', id, 'kind', kind, 'params', params)), '[]'::jsonb)
+                from public.visit_summary_items where summary_id = s and kind <> 'custom')
              || jsonb_build_array(jsonb_build_object('kind', 'recheck', 'custom_text', 'Check your blood pressure at home again.', 'due_on', '2026-11-03'));
   v_diag := pg_temp.try_as(v_doc, format($q$select public.update_visit_summary_draft(%L, 'Your blood pressure was a little high today. Your care team asked you to take your tablet each morning and to check again next week.', %L::jsonb)$q$, s, v_items::text));
   raise notice 'AVSDIAG4 good_text_save=%', v_diag;
@@ -301,6 +301,10 @@ begin
   perform pg_temp.ck('a stranger patient sees nothing (table)', '0', pg_temp.sees(v_sp, s));
   perform pg_temp.ck('a stranger patient sees nothing (function)', 'false', pg_temp.rpc_has(v_sp, s));
   perform pg_temp.ck('staff have no direct read of the table', '0', pg_temp.sees(v_doc2, s));
+  perform pg_temp.act(v_cg);
+  raise notice 'AVSDIAG5 cg may=% ok=% state_ok=% can_read=%', private.visit_summary_caregiver_may(v_np), private.visit_summary_caregiver_ok(s), private.visit_summary_state_ok(s), private.can_read_clinical(v_np, 'view_care_plan'::public.caregiver_permission);
+  perform pg_temp.back();
+  raise notice 'AVSDIAG5b access=%', (select jsonb_agg(row_to_json(pa)) from public.profile_access pa where pa.profile_id = v_np);
   perform pg_temp.ck('a caregiver with care plan, medication and results permissions sees it (table)', '1', pg_temp.sees(v_cg, s));
   perform pg_temp.ck('...and through the function', 'true', pg_temp.cg_has(v_cg, v_np, s));
   perform pg_temp.ck('a caregiver with the care plan permission only sees nothing (table)', '0', pg_temp.sees(v_cg2, s));
@@ -345,6 +349,7 @@ begin
   perform pg_temp.ck('...adding it again returns the same task', v_task::text, pg_temp.q_as(v_np, format('select public.add_visit_summary_item_to_tasks(%L)::text', v_item)));
   perform pg_temp.ck('...a stranger cannot add it', 'true', (pg_temp.try_as(v_sp, format('select public.add_visit_summary_item_to_tasks(%L)', v_item)) like 'not found%')::text);
   perform pg_temp.ck('...the step was already ticked, so the task is completed at once', 'completed', (select status::text from public.care_tasks where id = v_task));
+  raise notice 'AVSDIAG6 before untick: task=% progress=%', (select to_jsonb(c) - 'description' from public.care_tasks c where c.id = v_task), (select to_jsonb(p) from public.visit_summary_item_progress p where p.item_id = v_item);
   perform pg_temp.ck('...unticking reopens it', 'not_started',
     (select case when pg_temp.try_as(v_np, format('select public.set_visit_summary_item_done(%L, false)', v_item)) = 'ok' then (select status::text from public.care_tasks where id = v_task) end));
   perform pg_temp.ck('the recheck step carries its date', '2026-11-03',
@@ -359,7 +364,7 @@ do $$
 declare
   v_doc uuid := pg_temp.f('doc'); v_cmo uuid := pg_temp.f('cmo'); v_np uuid := pg_temp.f('np'); v_cg uuid := pg_temp.f('cg');
   n uuid := pg_temp.f('n'); s uuid := pg_temp.f('s');
-  a uuid; n2 uuid; s2 uuid; n3 uuid; s3 uuid; n4 uuid; s4 uuid; v_rev integer;
+  a uuid; n2 uuid; s2 uuid; n3 uuid; s3 uuid; n4 uuid; s4 uuid; v_rev integer; v_items jsonb; v_items2 jsonb; v_told integer;
   n6 uuid; s6 uuid; a1 uuid; a2 uuid; n7 uuid; s7 uuid; v_rx7 uuid;
 begin
   -- an amendment still being written hides the summary
@@ -385,13 +390,14 @@ begin
   perform pg_temp.ck('...the tick-off survived the reopening', 'true',
     (exists (select 1 from public.visit_summary_item_progress where summary_id = s))::text);
   -- a step whose wording changes starts unticked; an unchanged step keeps its tick
+  -- the items lists are built as the table owner: the doctor has no read policy on checklist items, so a sub-select inside the doctor's own statement is empty
+  v_items := (select jsonb_agg(jsonb_build_object('id', id, 'kind', kind, 'params', params, 'custom_text', custom_text, 'due_on', due_on)) from public.visit_summary_items where summary_id = s);
+  v_items2 := (select jsonb_agg(jsonb_build_object('id', id, 'kind', kind, 'params', params, 'custom_text', 'Take the tablet at night instead.', 'due_on', due_on)) from public.visit_summary_items where summary_id = s);
   perform pg_temp.ck('(reopened draft) an unchanged save keeps the tick', 'true',
-    (pg_temp.try_as(v_doc, format($q$select public.update_visit_summary_draft(%L, null,
-        (select jsonb_agg(jsonb_build_object('id', id, 'kind', kind, 'params', params, 'custom_text', custom_text, 'due_on', due_on)) from public.visit_summary_items where summary_id = %L))$q$, s, s)) = 'ok'
+    (pg_temp.try_as(v_doc, format($q$select public.update_visit_summary_draft(%L, null, %L::jsonb)$q$, s, v_items::text)) = 'ok'
      and exists (select 1 from public.visit_summary_item_progress where summary_id = s))::text);
   perform pg_temp.ck('...a changed wording clears the old tick', '0',
-    (select case when pg_temp.try_as(v_doc, format($q$select public.update_visit_summary_draft(%L, null,
-        (select jsonb_agg(jsonb_build_object('id', id, 'kind', kind, 'params', params, 'custom_text', 'Take the tablet at night instead.', 'due_on', due_on)) from public.visit_summary_items where summary_id = %L))$q$, s, s)) = 'ok'
+    (select case when pg_temp.try_as(v_doc, format($q$select public.update_visit_summary_draft(%L, null, %L::jsonb)$q$, s, v_items2::text)) = 'ok'
       then (select count(*)::text from public.visit_summary_item_progress where summary_id = s) end));
   perform pg_temp.ck('approved again', 'ok', pg_temp.try_as(v_doc, format('select public.approve_visit_summary(%L)', s)));
   perform pg_temp.ck('...visible again, with the new count stamped', '1:1',
@@ -423,14 +429,16 @@ begin
   n3 := pg_temp.signed_note(v_doc, v_np, true);
   perform pg_temp.act(v_doc); perform public.assemble_visit_summary(n3); perform pg_temp.back();
   s3 := pg_temp.summary_of(n3);
+  v_told := (select count(*) from public.notifications where recipient_id = v_np and template = 'visit_summary_ready');
   perform pg_temp.ck('a protected note summary is approved by the doctor', 'ok', pg_temp.try_as(v_doc, format('select public.approve_visit_summary(%L)', s3)));
   perform pg_temp.ck('...but the patient cannot see it before the note is released', '0', pg_temp.sees(v_np, s3));
   perform pg_temp.ck('...nor through the function', 'false', pg_temp.rpc_has(v_np, s3));
-  perform pg_temp.ck('...the patient was not told', '1', (select count(*)::text from public.notifications where recipient_id = v_np and template = 'visit_summary_ready'));
+  perform pg_temp.ck('...the patient was not told', v_told::text, (select count(*)::text from public.notifications where recipient_id = v_np and template = 'visit_summary_ready'));
   perform pg_temp.ck('...the review read says so', 'true',
     (pg_temp.q_as(v_doc, format('select public.read_visit_summary_for_review(%L)::text', n3)) like '%"patient_can_see": false%')::text);
   perform pg_temp.ck('only the CMO can release a protected note', 'note_release_cmo_only',
     pg_temp.try_as(v_doc, format('select public.decide_note_release(%L, true, null)', n3)));
+  perform pg_temp.tie(v_cmo, v_np);   -- the real release function checks the CMO's tie to the patient
   perform pg_temp.ck('the CMO releases it', 'ok', pg_temp.try_as(v_cmo, format('select public.decide_note_release(%L, true, null)', n3)));
   perform pg_temp.ck('...now the patient sees the summary', '1', pg_temp.sees(v_np, s3));
   perform pg_temp.ck('...but a caregiver still never does (table)', '0', pg_temp.sees(v_cg, s3));
