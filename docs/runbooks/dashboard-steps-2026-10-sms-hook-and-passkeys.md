@@ -25,6 +25,13 @@ Nothing here can be done from code: they need your Supabase login. Each step say
 4. Test on a real phone and a laptop with a test patient account that has a password. The database refuses to store a passkey while the switch is off, so turn it on for the test window: `select public.set_platform_switch('passkeys', true, 'passkey test');` under an admin session (audited).
 5. Only if the test passes, leave the switch on. To turn it off again: `select public.set_platform_switch('passkeys', false, 'reason');`.
 
+## E. Hospital-system links (SMART Health Link) for a shared record
+
+1. Vercel, project settings, Environment Variables: add `SHARE_LINK_KEY_SECRET` (Production, and Preview if you test there). Any random string of 32 or more characters, for example the output of `openssl rand -base64 48`. Server only; do not prefix it with `NEXT_PUBLIC_`. Redeploy.
+2. Keep a copy in your password manager. If it changes, every SMART Health Link already handed out stops opening (ordinary share links are unaffected).
+3. Check: make a share on the web, press "Copy hospital-system link". Without the secret it says "not available".
+4. The phone Share records screen and the phone yearly review card ship over the air (EAS Update from `main-dev`); no store build.
+
 ## D. Checks after everything is live
 
 - `select has_function_privilege('anon', 'public.answer_proxy_review(uuid,text,public.care_access_category[],boolean)', 'EXECUTE');` must be false.

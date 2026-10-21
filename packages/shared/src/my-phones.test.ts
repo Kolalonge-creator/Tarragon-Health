@@ -1,55 +1,75 @@
 import { describe, expect, it } from "@jest/globals";
-import { canReportLost, clearedCounts, phoneState, sortPhones, type PhoneLeaseRow } from "./my-phones";
+import { buildPhoneViews, cleanPhoneName, phoneUpdateArgs, defaultPhoneName, parsePhoneRows, phoneStatus, type PhoneRow } from "./my-phones";
 
-const NOW = Date.parse("2026-10-20T10:00:00Z");
-const DAY = 86_400_000;
-const row = (over: Partial<PhoneLeaseRow> = {}): PhoneLeaseRow => ({
-  device_id: "d1",
+const NOW = new Date("2026-10-20T10:00:00Z");
+const row = (o: Partial<PhoneRow> & { device_id: string }): PhoneRow => ({
   platform: "android",
-  registered_at: "2026-09-01T00:00:00Z",
-  last_checkin_at: "2026-10-19T00:00:00Z",
-  lease_expires_at: new Date(NOW + 20 * DAY).toISOString(),
-  revoked_at: null,
-  revoke_reason: null,
-  wipe_confirmed_at: null,
-  wipe_reason: null,
-  unsent_at_wipe: null,
-  danger_at_wipe: null,
-  retired_at: null,
-  ...over,
+  last_checkin_at: "2026-10-19T10:00:00Z",
+  lease_expires_at: "2026-11-18T10:00:00Z",
+  ...o,
 });
 
-describe("phoneState", () => {
-  it("is active well inside the lease", () => expect(phoneState(row(), NOW)).toBe("active"));
-  it("says the lease is ending in its last week, without alarm", () =>
-    expect(phoneState(row({ lease_expires_at: new Date(NOW + 3 * DAY).toISOString() }), NOW)).toBe("lease_ending"));
-  it("lapsed once the lease date has passed", () =>
-    expect(phoneState(row({ lease_expires_at: new Date(NOW - DAY).toISOString() }), NOW)).toBe("lease_lapsed"));
-  it("a reported phone waits to be cleared", () => expect(phoneState(row({ revoked_at: "2026-10-20T09:00:00Z" }), NOW)).toBe("lost_reported"));
-  it("a cleared phone is cleared even though it was also reported", () =>
-    expect(phoneState(row({ revoked_at: "2026-10-19T09:00:00Z", wipe_confirmed_at: "2026-10-19T10:00:00Z" }), NOW)).toBe("cleared"));
-  it("a long-silent retired phone is quiet", () => expect(phoneState(row({ retired_at: "2026-10-01T00:00:00Z" }), NOW)).toBe("quiet"));
-  it("an unreadable lease date is treated as active, never as lost", () => expect(phoneState(row({ lease_expires_at: "nonsense" }), NOW)).toBe("active"));
-});
-
-describe("canReportLost", () => {
-  it("is offered for live and quiet phones, not once reported or cleared", () => {
-    expect(canReportLost("active")).toBe(true);
-    expect(canReportLost("lease_lapsed")).toBe(true);
-    expect(canReportLost("quiet")).toBe(true);
-    expect(canReportLost("lost_reported")).toBe(false);
-    expect(canReportLost("cleared")).toBe(false);
+describe("my phones", () => {
+  it("reads status from the row", () => {
+    expect(phoneStatus(row({ device_id: "a" }), NOW)).toBe("active");
+    expect(phoneStatus(row({ device_id: "a", lease_expires_at: "2026-10-01T00:00:00Z" }), NOW)).toBe("lapsed");
+    expect(phoneStatus(row({ device_id: "a", revoked_at: "2026-10-19T00:00:00Z" }), NOW)).toBe("removal_pending");
+    expect(phoneStatus(row({ device_id: "a", revoked_at: "x", wipe_confirmed_at: "y" }), NOW)).toBe("wiped");
   });
-});
 
-describe("sortPhones and clearedCounts", () => {
-  it("lists live phones first, newest check-in first, cleared last", () => {
-    const rows = [row({ device_id: "cleared", wipe_confirmed_at: "x" }), row({ device_id: "old", last_checkin_at: "2026-10-01T00:00:00Z" }), row({ device_id: "new" })];
-    expect(sortPhones(rows, NOW).map((r) => r.device_id)).toEqual(["new", "old", "cleared"]);
+  it("falls back to a plain name and marks this phone", () => {
+    const v = buildPhoneViews([row({ device_id: "a", platform: "ios" }), row({ device_id: "b", device_label: "  Mum's Tecno " })], NOW, "b");
+    expect(v.find((p) => p.deviceId === "a")).toMatchObject({ name: "iPhone", nameIsDefault: true, isThisPhone: false });
+    expect(v.find((p) => p.deviceId === "b")).toMatchObject({ name: "Mum's Tecno", nameIsDefault: false, isThisPhone: true });
+    expect(defaultPhoneName("android")).toBe("Android phone");
   });
-  it("never reports more urgent entries than unsent ones, nor a negative or fractional count", () => {
-    expect(clearedCounts(row({ unsent_at_wipe: 3, danger_at_wipe: 9 }))).toEqual({ unsent: 3, urgent: 3 });
-    expect(clearedCounts(row({ unsent_at_wipe: -2, danger_at_wipe: null }))).toEqual({ unsent: 0, urgent: 0 });
-    expect(clearedCounts(row({ unsent_at_wipe: 2.7, danger_at_wipe: 1 }))).toEqual({ unsent: 2, urgent: 1 });
+
+  it("web passes no phone id, so nothing is called this phone", () => {
+    expect(buildPhoneViews([row({ device_id: "a" })], NOW, null)[0]?.isThisPhone).toBe(false);
+  });
+
+  it("orders pending removal first, wiped last, keeps retired silent phones listed as lapsed", () => {
+    const v = buildPhoneViews(
+      [
+        row({ device_id: "wiped", revoked_at: "x", wipe_confirmed_at: "y", unsent_at_wipe: 3, danger_at_wipe: 1 }),
+        row({ device_id: "old", last_checkin_at: "2026-10-01T00:00:00Z" }),
+        row({ device_id: "new" }),
+        row({ device_id: "pending", revoked_at: "x" }),
+        row({ device_id: "retired", retired_at: "2026-09-01T00:00:00Z" }),
+      ],
+      NOW,
+      null
+    );
+    expect(v.map((p) => p.deviceId)).toEqual(["pending", "new", "old", "retired", "wiped"]);
+    expect(v.find((p) => p.deviceId === "retired")?.status).toBe("lapsed");
+    expect(v[4]).toMatchObject({ unsentAtWipe: 3, urgentAtWipe: 1 });
+  });
+
+  it("drops malformed rows and says how many", () => {
+    const r = parsePhoneRows([row({ device_id: "a" }), { device_id: 5 }, null]);
+    expect(r.rows).toHaveLength(1);
+    expect(r.dropped).toBe(2);
+    expect(parsePhoneRows(undefined)).toEqual({ rows: [], dropped: 0 });
+    // one more than the list limit means the list was cut
+    const many = Array.from({ length: 101 }, (_, i) => row({ device_id: `d${i}` }));
+    expect(parsePhoneRows(many)).toMatchObject({ dropped: 1 });
+    expect(parsePhoneRows(many).rows).toHaveLength(100);
+  });
+
+  it("cleans a typed name", () => {
+    expect(cleanPhoneName("  my\nphone \t ")).toBe("my phone");
+    expect(cleanPhoneName("   ")).toBeNull();
+    expect(cleanPhoneName("a".repeat(60))).toHaveLength(40);
+    expect(cleanPhoneName("ab\u0085cd")).toBe("ab cd");
+    // an emoji at the boundary is kept whole or dropped, never split
+    const cut = cleanPhoneName("a".repeat(39) + "😀😀") ?? "";
+    expect(Array.from(cut).length).toBeLessThanOrEqual(40);
+    expect(cut.endsWith("😀")).toBe(true);
+  });
+
+  it("builds update arguments with only what changed", () => {
+    expect(phoneUpdateArgs("d", { shared: false })).toEqual({ p_device: "d", p_shared: false });
+    expect(phoneUpdateArgs("d", { label: null })).toEqual({ p_device: "d", p_clear_label: true });
+    expect(phoneUpdateArgs("d", { label: "Mum" })).toEqual({ p_device: "d", p_label: "Mum" });
   });
 });

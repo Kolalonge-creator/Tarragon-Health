@@ -1,7 +1,6 @@
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "./supabase";
-import { PHONE_ROW_COLUMNS, type PhoneLeaseRow } from "@tarragon/shared";
 import { recordSyncError } from "./sync-diagnostics";
 import { classifyFailure } from "./outbox-rules";
 import { countDangerUnsent, countUnsentByOwner, flushOutbox } from "./outbox";
@@ -364,44 +363,4 @@ export async function listMyPhones(): Promise<{ deviceId: string; platform: stri
     .order("last_checkin_at", { ascending: false });
   if (error || !data) return [];
   return data.map((d) => ({ deviceId: d.device_id, platform: d.platform, lastSeenAt: d.last_checkin_at, revoked: d.revoked_at !== null }));
-}
-
-/** The id this phone registered under for the signed-in account, or null (never registered or nobody signed in). */
-export async function thisPhoneDeviceId(userId: string): Promise<string | null> {
-  const accounts = await listDeviceAccounts();
-  return accounts[userId] ?? null;
-}
-
-/** The server answers `true` only when it recorded a wipe request; an error or `false` means nothing was requested (so the screen must not say "reported"). */
-export async function requestPhoneWipe(deviceId: string, reason: "lost_phone" | "stolen" = "lost_phone"): Promise<boolean> {
-  const { data, error } = await supabase.rpc("request_offline_device_wipe", { p_device: deviceId, p_reason: reason });
-  return !error && data === true;
-}
-
-/**
- * The patient says THIS phone is lost (they still have it, e.g. it was found, or they want it cleared now): the report is made on the
- * server, then a check-in runs straight away so the phone makes its one last upload attempt and clears itself without waiting.
- */
-export async function reportThisPhoneLostNow(deviceId: string): Promise<boolean> {
-  const accepted = await requestPhoneWipe(deviceId);
-  if (accepted) await runDeviceCheck();
-  return accepted;
-}
-
-export type MyPhonesResult = { ok: true; phones: PhoneLeaseRow[] } | { ok: false };
-
-/** The phones registered to the signed-in account (row policy: own rows only). A failed read is `{ ok: false }`, never an empty list. */
-export async function listMyPhoneLeases(): Promise<MyPhonesResult> {
-  const { data, error } = await supabase.from("offline_device_leases").select(PHONE_ROW_COLUMNS).order("last_checkin_at", { ascending: false }).limit(50);
-  if (error || !Array.isArray(data)) return { ok: false };
-  const phones = (data as unknown[]).filter(
-    (r): r is PhoneLeaseRow =>
-      typeof r === "object" &&
-      r !== null &&
-      typeof (r as PhoneLeaseRow).device_id === "string" &&
-      typeof (r as PhoneLeaseRow).platform === "string" &&
-      typeof (r as PhoneLeaseRow).last_checkin_at === "string" &&
-      typeof (r as PhoneLeaseRow).lease_expires_at === "string",
-  );
-  return { ok: true, phones };
 }

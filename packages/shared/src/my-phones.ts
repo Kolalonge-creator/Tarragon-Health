@@ -1,68 +1,130 @@
 /**
- * "My phones" (S06x follow-up): the patient's own list of phones that keep a saved, encrypted copy of their entries, built over
- * `public.offline_device_leases` (S06x). Pure and shared by the web page and the phone screen, so both say the same thing.
+ * "My phones" (S06z): the patient's own list of phones that hold their Tarragon data offline. Pure and dependency light so the web page and
+ * the phone app read a lease row exactly the same way.
  *
- * Calm on purpose: a state is a plain sentence plus whether "this phone was lost" is still offered. It never names a health value,
- * medicine or condition, and a phone's id is never shown (a platform and a last-seen time are enough to recognise your own phone).
+ * Privacy: the list is only ever the signed-in person's own rows (the table's select policy is `account_id = auth.uid()`); nothing here names
+ * another person, and a supporter acting for someone else is shown nothing (the screens refuse before they ask).
  */
+import { z } from "zod";
 
-export interface PhoneLeaseRow {
-  device_id: string;
-  platform: string;
-  registered_at: string | null;
-  last_checkin_at: string;
-  lease_expires_at: string;
-  revoked_at: string | null;
-  revoke_reason: string | null;
-  wipe_confirmed_at: string | null;
-  wipe_reason: string | null;
-  unsent_at_wipe: number | null;
-  danger_at_wipe: number | null;
-  retired_at: string | null;
+export const PHONE_NAME_MAX = 40;
+
+/** The columns the screen reads from `offline_device_leases`. Unknown keys are ignored. */
+export const phoneRowSchema = z.object({
+  device_id: z.string().min(1),
+  platform: z.string(),
+  device_label: z.string().nullable().optional(),
+  shared_phone: z.boolean().optional(),
+  last_checkin_at: z.string(),
+  lease_expires_at: z.string(),
+  revoked_at: z.string().nullable().optional(),
+  wipe_confirmed_at: z.string().nullable().optional(),
+  unsent_at_wipe: z.number().nullable().optional(),
+  danger_at_wipe: z.number().nullable().optional(),
+  retired_at: z.string().nullable().optional(),
+});
+export type PhoneRow = z.infer<typeof phoneRowSchema>;
+
+export type PhoneStatus = "active" | "lapsed" | "removal_pending" | "wiped";
+
+export interface PhoneView {
+  deviceId: string;
+  name: string;
+  /** True when the patient never named it, so the screen can offer "give it a name". */
+  nameIsDefault: boolean;
+  platform: "ios" | "android";
+  shared: boolean;
+  status: PhoneStatus;
+  lastSeenAt: string;
+  leaseExpiresAt: string;
+  isThisPhone: boolean;
+  /** Only for a wiped phone: counts the phone reported, never content. */
+  unsentAtWipe: number | null;
+  urgentAtWipe: number | null;
 }
 
-/** `lease_ending` is informational only (inside the last 7 days of the lease); nothing is wrong yet. */
-export type PhoneState = "active" | "lease_ending" | "lease_lapsed" | "lost_reported" | "cleared" | "quiet";
+/** Rows that fail the shape are dropped, never guessed at. `dropped` lets the screen say so instead of showing a shorter list as if complete. */
+export const PHONE_LIST_LIMIT = 100;
 
-export const PHONE_LEASE_ENDING_DAYS = 7;
-const DAY_MS = 86_400_000;
+/** Ask for one more than the limit; the extra row counts as "not shown" so a cut list is never presented as complete. */
+export const PHONE_FETCH_LIMIT = PHONE_LIST_LIMIT + 1;
 
-export const PHONE_ROW_COLUMNS =
-  "device_id, platform, registered_at, last_checkin_at, lease_expires_at, revoked_at, revoke_reason, wipe_confirmed_at, wipe_reason, unsent_at_wipe, danger_at_wipe, retired_at";
-
-export function phoneState(row: PhoneLeaseRow, nowMs: number): PhoneState {
-  if (row.wipe_confirmed_at) return "cleared";
-  if (row.revoked_at) return "lost_reported";
-  if (row.retired_at) return "quiet";
-  const expires = Date.parse(row.lease_expires_at);
-  if (Number.isFinite(expires)) {
-    if (expires <= nowMs) return "lease_lapsed";
-    if (expires - nowMs <= PHONE_LEASE_ENDING_DAYS * DAY_MS) return "lease_ending";
+export function parsePhoneRows(data: unknown): { rows: PhoneRow[]; dropped: number } {
+  if (!Array.isArray(data)) return { rows: [], dropped: 0 };
+  const rows: PhoneRow[] = [];
+  let dropped = Math.max(0, data.length - PHONE_LIST_LIMIT);
+  for (const item of data.slice(0, PHONE_LIST_LIMIT)) {
+    const r = phoneRowSchema.safeParse(item);
+    if (r.success) rows.push(r.data);
+    else dropped += 1;
   }
-  return "active";
+  return { rows, dropped };
 }
 
-/** Whether "this phone was lost" is offered. Once reported (or already cleared) there is nothing more to ask for. */
-export function canReportLost(state: PhoneState): boolean {
-  return state !== "lost_reported" && state !== "cleared";
+export function phoneStatus(row: PhoneRow, now: Date): PhoneStatus {
+  if (row.wipe_confirmed_at) return "wiped";
+  if (row.revoked_at) return "removal_pending";
+  // A phone retired for long silence is "has not connected for a while": it may still hold a copy, so it stays listed and removable.
+  if (row.retired_at) return "lapsed";
+  return Date.parse(row.lease_expires_at) < now.getTime() ? "lapsed" : "active";
 }
 
-export function phoneKind(platform: string): "ios" | "android" | "other" {
-  return platform === "ios" ? "ios" : platform === "android" ? "android" : "other";
+/** What the patient sees when they have not named a phone. */
+export function defaultPhoneName(platform: string): string {
+  return platform === "ios" ? "iPhone" : "Android phone";
 }
 
-/** Phones that still hold data first (newest check-in first), quiet ones next, cleared ones last. */
-export function sortPhones(rows: readonly PhoneLeaseRow[], nowMs: number): PhoneLeaseRow[] {
-  const rank = (r: PhoneLeaseRow) => {
-    const s = phoneState(r, nowMs);
-    return s === "cleared" ? 2 : s === "quiet" ? 1 : 0;
+/**
+ * Cleans a typed name the way the database will: control characters (C0, DEL and C1, the class Postgres refuses) become spaces, trimmed, at
+ * most PHONE_NAME_MAX characters counted by code point so an emoji is never cut in half. Null means "no usable name".
+ */
+export function cleanPhoneName(input: string): string | null {
+  const trimmed = input.replace(/[\u0000-\u001f\u007f-\u009f]/g, " ").replace(/\s+/g, " ").trim();
+  if (!trimmed) return null;
+  return Array.from(trimmed).slice(0, PHONE_NAME_MAX).join("").trim();
+}
+
+/** The columns both screens read, in one place so web and phone cannot drift. */
+export const PHONE_COLUMNS =
+  "device_id, platform, device_label, shared_phone, last_checkin_at, lease_expires_at, revoked_at, wipe_confirmed_at, unsent_at_wipe, danger_at_wipe, retired_at";
+
+/** Arguments for `update_my_offline_device`: only what changed. `label: null` clears the name. */
+export function phoneUpdateArgs(deviceId: string, change: { label?: string | null; shared?: boolean }): {
+  p_device: string;
+  p_label?: string;
+  p_clear_label?: boolean;
+  p_shared?: boolean;
+} {
+  return {
+    p_device: deviceId,
+    ...(change.label ? { p_label: change.label } : {}),
+    ...(change.label === null ? { p_clear_label: true } : {}),
+    ...(change.shared !== undefined ? { p_shared: change.shared } : {}),
   };
-  return [...rows].sort((a, b) => rank(a) - rank(b) || Date.parse(b.last_checkin_at) - Date.parse(a.last_checkin_at));
 }
 
-/** Counts shown after a phone was cleared: entries that had not reached us (counts only, never content). */
-export function clearedCounts(row: PhoneLeaseRow): { unsent: number; urgent: number } {
-  const clamp = (n: number | null) => (typeof n === "number" && Number.isFinite(n) && n > 0 ? Math.floor(n) : 0);
-  const unsent = clamp(row.unsent_at_wipe);
-  return { unsent, urgent: Math.min(clamp(row.danger_at_wipe), unsent) };
+/**
+ * Newest activity first, with a phone waiting to be cleared kept near the top (the patient asked for that one), wiped phones last.
+ * `thisPhoneId` is known only on the phone app; the web page cannot tell which one the browser is on and passes null.
+ */
+export function buildPhoneViews(rows: readonly PhoneRow[], now: Date, thisPhoneId: string | null): PhoneView[] {
+  const order: Record<PhoneStatus, number> = { removal_pending: 0, active: 1, lapsed: 2, wiped: 3 };
+  return rows
+    .map((r): PhoneView => {
+      const label = r.device_label?.trim();
+      return {
+        deviceId: r.device_id,
+        name: label ? label : defaultPhoneName(r.platform),
+        nameIsDefault: !label,
+        platform: r.platform === "ios" ? "ios" : "android",
+        shared: r.shared_phone === true,
+        status: phoneStatus(r, now),
+        lastSeenAt: r.last_checkin_at,
+        leaseExpiresAt: r.lease_expires_at,
+        isThisPhone: thisPhoneId !== null && r.device_id === thisPhoneId,
+        unsentAtWipe: typeof r.unsent_at_wipe === "number" ? r.unsent_at_wipe : null,
+        urgentAtWipe: typeof r.danger_at_wipe === "number" ? r.danger_at_wipe : null,
+      };
+    })
+    .sort((a, b) => order[a.status] - order[b.status] || Date.parse(b.lastSeenAt) - Date.parse(a.lastSeenAt));
 }

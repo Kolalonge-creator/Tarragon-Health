@@ -1,43 +1,41 @@
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardContent } from "@/components/ui/card";
 import { NAV_ICON } from "@/lib/icons";
 import { createClient } from "@/lib/supabase/server";
-import { fetchMyPhones } from "@/lib/my-phones/phones";
+import { fetchMyPhones } from "@/lib/my-health/my-phones";
+import { buildPhoneViews } from "@tarragon/shared";
 import { t } from "@tarragon/i18n";
-import { PhonesList } from "./phones-list";
+import { PhonesList, ReloadButton } from "./phones-list";
 
 /**
- * "My phones" (S06x follow-up): the phones that keep a saved, encrypted copy of this person's entries, and a way to say one was lost.
- * The list is the signed-in person's OWN account only (the table's row policy returns nothing else), so while acting for someone else
- * the page says so instead of showing the supporter's phones under the dependant's name.
+ * My phones (S06z). The phones that keep a copy of the patient's information offline, with a way to name one, mark it shared, or remove it.
+ * Own account only: while acting for someone else the page says so and asks for nothing.
  */
 export default async function MyPhonesPage() {
   const { acting } = await getPatientDashboardContext();
-  const supabase = await createClient();
-  const result = acting ? null : await fetchMyPhones(supabase);
+  const result = acting ? null : await fetchMyPhones(await createClient());
+  const phones = result && result.ok ? buildPhoneViews(result.rows, new Date(), null) : [];
 
   return (
     <div className="space-y-6">
       <PageHeader
         backTo={{ href: "/patient/my-health", label: t("my_health.title") }}
-        title={t("phones.title")}
+        title={t("my_phones.title")}
         icon={NAV_ICON.passport}
-        description={t("phones.description")}
+        description={t("my_phones.description")}
       />
-      <Card>
-        <CardContent className="pt-6">
-          {acting ? (
-            <p className="text-sm text-charcoal-ink/70">{t("phones.acting")}</p>
-          ) : result && result.ok ? (
-            <PhonesList initial={result.phones} />
-          ) : (
-            <p role="alert" className="text-sm text-red-700">
-              {t("phones.load_failed")}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      {acting ? (
+        <p className="text-sm text-charcoal-ink/70">{t("my_phones.acting")}</p>
+      ) : !result || !result.ok ? (
+        <div className="space-y-3">
+          <p role="alert" className="text-sm text-red-700">
+            {t("my_phones.failed")}
+          </p>
+          <ReloadButton />
+        </div>
+      ) : (
+        <PhonesList initial={phones} dropped={result.dropped} />
+      )}
     </div>
   );
 }

@@ -49,6 +49,7 @@ import { ComplicationCheckForm } from "./complication-check-form";
 import { GlucoseTargetForm } from "./glucose-target-form";
 import { ClinicBpForm } from "./clinic-bp-form";
 import { BpControlRatePanel } from "./bp-control-rate-panel";
+import { CuffCheckPanel } from "./cuff-check-panel";
 import { DiabetesTypeForm } from "./diabetes-type-form";
 import { TreatmentLadder } from "./treatment-ladder";
 import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
@@ -379,6 +380,7 @@ export default async function ClinicianPatientPage({
                 {isClinicalTier(callerStaff) && <GlucoseTargetForm patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && <BpControlRatePanel patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && <ClinicBpForm patientId={patient.id} />}
+                {isClinicalTier(callerStaff) && <CuffCheckPanel patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && (
                   <DiabetesTypeForm
                     patientId={patient.id}

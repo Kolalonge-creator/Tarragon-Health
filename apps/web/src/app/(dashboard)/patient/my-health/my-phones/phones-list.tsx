@@ -1,101 +1,221 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
-import { fetchMyPhones, reportPhoneLost } from "@/lib/my-phones/phones";
-import { canReportLost, phoneState, sortPhones, type PhoneLeaseRow, type PhoneState } from "@tarragon/shared";
-import { describePhone, t } from "@tarragon/i18n";
+import { fetchMyPhones, requestPhoneRemoval, updateMyPhone } from "@/lib/my-health/my-phones";
+import { buildPhoneViews, cleanPhoneName, PHONE_NAME_MAX, type PhoneView } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
 
-/** Colour is never the only signal: every state has its own words, and the dot is decoration (aria-hidden). */
-const DOT: Record<PhoneState, string> = {
-  active: "bg-green-600",
-  lease_ending: "bg-amber-500",
-  lease_lapsed: "bg-amber-500",
-  lost_reported: "bg-amber-500",
-  cleared: "bg-charcoal-ink/40",
-  quiet: "bg-charcoal-ink/40",
-};
+const when = (value: string) =>
+  new Date(value).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
-export function PhonesList({ initial }: { initial: PhoneLeaseRow[] }) {
+type Notice = { kind: "ok" | "error"; text: string } | null;
+
+export function PhonesList({ initial, dropped }: { initial: PhoneView[]; dropped: number }) {
   const [phones, setPhones] = useState(initial);
-  const [confirming, setConfirming] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [partial, setPartial] = useState(dropped > 0);
+  const [stale, setStale] = useState(false);
+  const [notice, setNotice] = useState<Notice>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [removing, setRemoving] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  // The clock at the time the list was shown (a lazy initialiser, so it is not read again on every render).
-  const [now] = useState(() => Date.now());
 
-  if (phones.length === 0) return <p className="text-sm text-charcoal-ink/60">{t("phones.empty")}</p>;
+  const reload = async () => {
+    const r = await fetchMyPhones(createClient());
+    if (!r.ok) {
+      setStale(true);
+      return;
+    }
+    setStale(false);
+    setPhones(buildPhoneViews(r.rows, new Date(), null));
+    setPartial(r.dropped > 0);
+  };
 
-  const report = (deviceId: string) =>
+  // Read after mount and kept current, so the markup matches on the server and the banner follows the connection.
+  const [offline, setOffline] = useState(false);
+  useEffect(() => {
+    const update = () => setOffline(navigator.onLine === false);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+
+  const saveName = (id: string) =>
     start(async () => {
-      const supabase = createClient();
-      const accepted = await reportPhoneLost(supabase, deviceId);
-      setConfirming(null);
-      if (!accepted) {
-        setMessage({ kind: "error", text: t("phones.lost.failed") });
-        return;
-      }
-      setMessage({ kind: "ok", text: t("phones.lost.done") });
-      const fresh = await fetchMyPhones(supabase);
-      if (fresh.ok) setPhones(fresh.phones);
+      const name = cleanPhoneName(draft);
+      const ok = await updateMyPhone(createClient(), id, { label: name });
+      if (!ok) return setNotice({ kind: "error", text: t("my_phones.save_failed") });
+      setEditing(null);
+      setNotice({ kind: "ok", text: t("my_phones.saved") });
+      await reload();
+    });
+
+  const toggleShared = (p: PhoneView, next: boolean) =>
+    start(async () => {
+      const ok = await updateMyPhone(createClient(), p.deviceId, { shared: next });
+      if (!ok) return setNotice({ kind: "error", text: t("my_phones.save_failed") });
+      setNotice({ kind: "ok", text: t("my_phones.saved") });
+      await reload();
+    });
+
+  const remove = (id: string) =>
+    start(async () => {
+      const ok = await requestPhoneRemoval(createClient(), id);
+      if (!ok) return setNotice({ kind: "error", text: t("my_phones.remove_failed") });
+      setRemoving(null);
+      setNotice({ kind: "ok", text: t("my_phones.remove_sent") });
+      await reload();
     });
 
   return (
-    <div className="space-y-3">
-      <ul className="space-y-2">
-        {sortPhones(phones, now).map((p) => {
-          const state = phoneState(p, now);
-          const copy = describePhone({
-            state,
-            platform: p.platform,
-            lastCheckinAt: p.last_checkin_at,
-            leaseExpiresAt: p.lease_expires_at,
-            wipeConfirmedAt: p.wipe_confirmed_at,
-            unsentAtWipe: p.unsent_at_wipe,
-            dangerAtWipe: p.danger_at_wipe,
-          });
-          return (
-            <li key={p.device_id} className="rounded-lg border border-charcoal-ink/10 px-3 py-3 text-sm">
-              <div className="flex items-center gap-2">
-                <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 rounded-full ${DOT[state]}`} />
-                <p className="font-medium text-charcoal-ink">{copy.name}</p>
-              </div>
-              <p className="mt-1 text-charcoal-ink/70">{copy.stateLine}</p>
-              {copy.clearedLines.map((line) => (
-                <p key={line} className="text-charcoal-ink/70">
-                  {line}
-                </p>
-              ))}
-              <p className="text-xs text-charcoal-ink/60">{copy.lastSeen}</p>
-              {canReportLost(state) &&
-                (confirming === p.device_id ? (
-                  <div className="mt-3 space-y-2 rounded-md bg-charcoal-ink/5 p-3" role="group" aria-label={t("phones.lost.title")}>
-                    <p className="font-medium text-charcoal-ink">{t("phones.lost.title")}</p>
-                    <p className="text-charcoal-ink/80">{t("phones.lost.body")}</p>
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={() => report(p.device_id)} disabled={pending}>
-                        {t("phones.lost.confirm")}
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setConfirming(null)} disabled={pending}>
-                        {t("phones.lost.cancel")}
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button className="mt-3" size="sm" variant="outline" onClick={() => setConfirming(p.device_id)}>
-                    {t("phones.lost.button")}
-                  </Button>
-                ))}
-            </li>
-          );
-        })}
-      </ul>
-      {message && (
-        <p role={message.kind === "error" ? "alert" : "status"} className={message.kind === "error" ? "text-sm text-red-700" : "text-sm text-charcoal-ink/80"}>
-          {message.text}
+    <div className="space-y-4">
+      {offline && (
+        <p role="status" className="text-sm text-charcoal-ink/70">
+          {t("my_phones.offline")}
         </p>
       )}
+      {partial && (
+        <p role="status" className="text-sm text-charcoal-ink/70">
+          {t("my_phones.partial")}
+        </p>
+      )}
+      {stale && (
+        <p role="alert" className="text-sm text-red-700">
+          {t("my_phones.stale")}
+        </p>
+      )}
+      {notice && (
+        <p role={notice.kind === "error" ? "alert" : "status"} className={notice.kind === "error" ? "text-sm text-red-700" : "text-sm text-green-800"}>
+          {notice.text}
+        </p>
+      )}
+
+      {phones.length === 0 ? (
+        <p className="text-sm text-charcoal-ink/70">{t("my_phones.empty_web")}</p>
+      ) : (
+        phones.map((p) => {
+          const manageable = p.status === "active" || p.status === "lapsed";
+          return (
+            <Card key={p.deviceId}>
+              <CardHeader>
+                <CardTitle>
+                  {p.name}
+                  {p.shared && <span className="ml-2 text-xs font-normal text-charcoal-ink/70">{t("my_phones.shared_badge")}</span>}
+                </CardTitle>
+                <CardDescription>{t(`my_phones.status.${p.status}`)}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <p>{t("my_phones.last_seen", "en", { when: when(p.lastSeenAt) })}</p>
+                {p.status === "active" && <p className="text-charcoal-ink/70">{t("my_phones.lease", "en", { when: when(p.leaseExpiresAt) })}</p>}
+                {p.status === "wiped" && p.unsentAtWipe !== null && (
+                  <p>
+                    {p.unsentAtWipe === 0
+                      ? t("my_phones.wiped_count_none")
+                      : t("my_phones.wiped_count", "en", { n: String(p.unsentAtWipe) })}
+                    {p.urgentAtWipe ? ` ${t("my_phones.wiped_count_urgent", "en", { u: String(p.urgentAtWipe) })}` : ""}
+                  </p>
+                )}
+
+                {manageable && (
+                  <>
+                    {editing === p.deviceId ? (
+                      <form
+                        className="flex flex-wrap items-end gap-2"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          saveName(p.deviceId);
+                        }}
+                      >
+                        <label className="block">
+                          <span className="block text-xs text-charcoal-ink/70">{t("my_phones.rename_label")}</span>
+                          <input
+                            value={draft}
+                            maxLength={PHONE_NAME_MAX}
+                            onChange={(e) => setDraft(e.target.value)}
+                            className="mt-1 h-11 w-64 max-w-full rounded-md border border-charcoal-ink/30 px-3"
+                          />
+                        </label>
+                        <Button type="submit" size="lg" disabled={pending}>
+                          {t("my_phones.save")}
+                        </Button>
+                        <Button type="button" size="lg" variant="outline" onClick={() => setEditing(null)}>
+                          {t("my_phones.cancel")}
+                        </Button>
+                      </form>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="lg"
+                        variant="outline"
+                        onClick={() => {
+                          setEditing(p.deviceId);
+                          setDraft(p.nameIsDefault ? "" : p.name);
+                        }}
+                      >
+                        {t("my_phones.rename")}
+                      </Button>
+                    )}
+
+                    <label className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={p.shared}
+                        disabled={pending}
+                        onChange={(e) => toggleShared(p, e.target.checked)}
+                        className="mt-0.5 h-5 w-5 accent-brand-green"
+                      />
+                      <span>
+                        <span className="font-medium">{t("my_phones.shared_toggle")}</span>
+                        <span className="block text-xs text-charcoal-ink/70">{t("my_phones.shared_hint")}</span>
+                      </span>
+                    </label>
+
+                    {removing === p.deviceId ? (
+                      <div role="alertdialog" aria-label={t("my_phones.remove_title")} className="space-y-2 rounded-md border border-charcoal-ink/20 p-3">
+                        <p className="font-medium">{t("my_phones.remove_title")}</p>
+                        <p>{t("my_phones.remove_body")}</p>
+                        <p>{t("my_phones.remove_last_try")}</p>
+                        <p>{t("my_phones.remove_urgent")}</p>
+                        {p.shared && <p>{t("my_phones.remove_shared_warning")}</p>}
+                        <div className="flex flex-wrap gap-2">
+                          <Button type="button" size="lg" disabled={pending} onClick={() => remove(p.deviceId)}>
+                            {t("my_phones.remove_confirm")}
+                          </Button>
+                          <Button type="button" size="lg" variant="outline" onClick={() => setRemoving(null)}>
+                            {t("my_phones.cancel")}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button type="button" size="lg" variant="outline" onClick={() => setRemoving(p.deviceId)}>
+                        {t("my_phones.remove")}
+                      </Button>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })
+      )}
     </div>
+  );
+}
+
+/** Shown with the "could not load" line so a patient can try again without leaving the page. */
+export function ReloadButton() {
+  const router = useRouter();
+  return (
+    <Button type="button" size="lg" variant="outline" onClick={() => router.refresh()}>
+      {t("my_phones.retry")}
+    </Button>
   );
 }

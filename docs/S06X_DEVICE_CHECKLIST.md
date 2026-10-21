@@ -29,3 +29,5 @@ Remote wipe (needs the migration live and a test account):
 Android reminder reliability (shares the S08x-3 matrix): exact-alarm permission asked in context, boot reschedule, Transsion and Samsung battery-saver steps. Record per phone.
 
 Record results in `docs/BUILD-PROGRESS.md` under S06x and fix what misses.
+
+**Harness (2026-10-20):** `scripts/device-lab/run.sh` now measures row 1 (to the first drawn frame only, not a usable screen), row 2 (APK files only), row 3 (3 queued rows, not 1000) and row 5 (as an upper bound) on an attached Android phone and writes a report to `docs/device-lab/`; rows 4, 6 and 7 are timed by hand. The steps are in `docs/device-lab/RUNBOOK.md`. The harness has not been run on a device either, and budgets are report only.

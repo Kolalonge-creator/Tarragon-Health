@@ -23,6 +23,11 @@ export {
   assessHomeCheck, bandHomeMean, dedupeReadings, detectBpPattern, homeCheckSchedule, pairSessions, parseHomeBpConfig, sessionPartOf, statusAgainstTarget, addLocalDays,
   type HomeBand, type HomeBpConfig, type HomeBpReading, type HomeCheckAssessment, type HomeCheckInput, type PatternInput, type PatternKind, type PersonalTarget, type ScheduledSession, type SessionPart, type SessionProgress, type TargetStatus,
 } from "./home-bp";
+export { planSession, type SessionInput, type SessionStep } from "./home-bp-session";
+export {
+  classifyPair, evaluateCuffCheck, homeMeanAround, pairDifference, parseCuffCheckConfig,
+  type BpValue, type CuffCheckConfig, type CuffCheckResult, type CuffFlagKind, type PairClass, type PairDifference, type TimedBp,
+} from "./cuff-check";
 export { GLUCOSE_CARE_V1 } from "./rules";
 export {
   gradeGlucose, validateGlucoseInput, validateGlucoseRuleSet, buildGlucoseContext, GLUCOSE_RULE_SET_CODE, GLUCOSE_CONTEXTS, GLUCOSE_SYMPTOMS, KETONE_URINE_BANDS, GLUCOSE_CONTEXT_FIELDS,

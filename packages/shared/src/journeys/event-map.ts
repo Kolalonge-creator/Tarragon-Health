@@ -40,7 +40,7 @@ export const EVENT_MAP: readonly EventMapRow[] = [
     spec: "D.7.2 blood pressure or glucose reading logged (blood pressure half)",
     eventType: "observation.recorded",
     effectRpc: "record_triage_result",
-    note: "emitted by the vitals_readings trigger for a blood pressure row; the triage handler grades it and writes triage_events",
+    note: "emitted by the vitals_readings trigger for a blood pressure row; the triage handler grades it and writes triage_events. S47a also emits it with kind water, sleep or mood for lifestyle logs; the handler returns at once for those kinds (nothing to grade)",
   },
   {
     id: "glucose-reading-logged",
