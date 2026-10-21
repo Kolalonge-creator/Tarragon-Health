@@ -51,6 +51,8 @@ export const membershipSchema = z.object({
   /** The year has ended but the 14 day grace has not: still a Member, and may renew. */
   in_grace: z.boolean().optional(),
   grace_ends_at: z.string().nullable().optional(),
+  /** Evergreen (no annual blood panel) or plus (with it); null when Free. */
+  tier: z.enum(["evergreen", "plus"]).nullable().optional(),
 });
 export type MembershipState = z.infer<typeof membershipSchema>;
 
@@ -118,6 +120,7 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   order_beneficiary_not_allowed: "shop.error.order_beneficiary_not_allowed",
   gift_item_not_allowed: "shop.error.gift_item_not_allowed",
   membership_not_open: "shop.error.membership_not_open",
+  upgrade_not_available: "shop.error.upgrade_not_available",
   quote_changed: "shop.error.quote_changed",
   sponsor_billing_not_open: "shop.error.sponsor_billing_not_open",
   order_fully_covered: "shop.error.order_fully_covered",
