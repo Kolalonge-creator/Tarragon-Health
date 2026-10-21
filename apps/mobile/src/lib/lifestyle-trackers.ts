@@ -267,6 +267,7 @@ export interface ActivityState {
     activityName: string | null;
     durationMinutes: number | null;
     stepCount: number | null;
+    distanceM: number | null;
   }[];
 }
 
@@ -279,7 +280,7 @@ export async function loadActivityState(patientId: string): Promise<QueryResult<
       .maybeSingle(),
     supabase
       .from("activity_log_entries")
-      .select("logged_on, activity_name, duration_minutes, step_count")
+      .select("logged_on, activity_name, duration_minutes, step_count, distance_m")
       .eq("patient_id", patientId)
       .gte("logged_on", sinceDate())
       .order("logged_on", { ascending: false }),
@@ -303,6 +304,7 @@ export async function loadActivityState(patientId: string): Promise<QueryResult<
         activityName: r.activity_name,
         durationMinutes: r.duration_minutes,
         stepCount: r.step_count,
+        distanceM: r.distance_m,
       })),
     },
   };

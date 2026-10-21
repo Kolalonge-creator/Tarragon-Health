@@ -43,3 +43,8 @@ export {
   type ActivityConditionRecord, type ActivityGateDecision, type ActivityGateInput, type ActivityGateReason, type ActivityGateResult, type ActivityIntensity,
   type ActivityKindConfig, type ActivityRuleConfig, type ActivitySafetyConfig, type ActivityTriageEvent, type ConditionMatchConfig,
 } from "./activity-gate";
+export {
+  assessReadiness, readinessMessageKeys,
+  type LoadLevel, type ReadinessBand, type ReadinessBandsConfig, type ReadinessLevel, type ReadinessMetric, type ReadinessResult, type WearableReadingPoint,
+} from "./activity-readiness";
+export { orderPlans, planHasAudioSlot, sessionsWithinRange, type WorkoutPlanDisplayConfig, type WorkoutPlanLike } from "./workout-plans";

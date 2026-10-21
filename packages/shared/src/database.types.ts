@@ -2456,6 +2456,7 @@ export type Database = {
         Row: {
           activity_kind: Database["public"]["Enums"]["activity_kind"] | null
           activity_name: string | null
+          client_id: string | null
           created_at: string
           distance_m: number | null
           duration_minutes: number | null
@@ -2473,6 +2474,7 @@ export type Database = {
         Insert: {
           activity_kind?: Database["public"]["Enums"]["activity_kind"] | null
           activity_name?: string | null
+          client_id?: string | null
           created_at?: string
           distance_m?: number | null
           duration_minutes?: number | null
@@ -2490,6 +2492,7 @@ export type Database = {
         Update: {
           activity_kind?: Database["public"]["Enums"]["activity_kind"] | null
           activity_name?: string | null
+          client_id?: string | null
           created_at?: string
           distance_m?: number | null
           duration_minutes?: number | null
@@ -49205,6 +49208,7 @@ export type Database = {
       activity_gate: { Args: Record<PropertyKey, never>; Returns: Json };
       activity_week_progress: { Args: { p_week_start?: string }; Returns: Json };
       my_workout_plans: { Args: Record<PropertyKey, never>; Returns: Json };
+      route_recording_status: { Args: Record<PropertyKey, never>; Returns: boolean };
       sign_activity_safety_config: { Args: { p_id: string }; Returns: string };
       medication_refill_pharmacy: { Args: { p_medication: string }; Returns: { partner_id: string; partner_name: string | null; location_name: string | null; address: string | null }[] };
       attest_pharmacy_nafdac_source: { Args: { p_partner: string; p_note: string }; Returns: Json };

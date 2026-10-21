@@ -1349,6 +1349,8 @@ s47a_observation_types.sql
 s49a_food_logging_foundation.sql
 # S48a: activity safety gate (red event in 48h = rest, enforced on enrolment incl. re-activation), kinds/goals/events, unreviewed workout plans hidden, owner-only private routes. Sabotage: trigger dropped, gate ignoring red, staff route policy; each must flip.
 s48a_activity_safety_gate.sql
+# S48b: activity client_id makes an offline retry a duplicate; workout sessions must be 10 to 20 minutes, chair-based classes gentle, audio ids only on reviewed plans; route_recording_status is true only with the guard AND the person's switch on, never for anon. Sabotage: minutes CHECK dropped, client_id index dropped, always-yes status; each must flip.
+s48b_activity_offline_plans_route_status.sql
 s27h_lab_lifecycle_and_quality.sql
 
 

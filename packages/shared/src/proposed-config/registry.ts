@@ -3807,6 +3807,38 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/BUILD-SPEC-v5.md Module 5 (5.1); supabase/migrations/20261020180745_s48a_activity_safety_gate.sql",
   },
   {
+    key: "activity.readiness_bands",
+    // Training load, recovery and sleep bands from stored device readings (S48b, spec 5.6). PROPOSED, unsigned, owner CMO. Compared with the person's
+    // OWN usual only, never with other people. recent_days against the baseline before it; a band needs at least min_recent_days and
+    // min_baseline_days days with data. usual_band_pct: within this percent either way is "about your usual". load: the last acute_days average
+    // against the chronic_days average (needs min_chronic_days days with data); below light_ratio is lighter, above heavy_ratio is heavier.
+    // Pinned by activity-readiness.test.ts. Dormant until real provider data exists (no provider credentials today).
+    value: {
+      recent_days: 3,
+      baseline_days: 28,
+      min_recent_days: 2,
+      min_baseline_days: 7,
+      usual_band_pct: 10,
+      load: { acute_days: 7, chronic_days: 28, min_chronic_days: 14, light_ratio: 0.8, heavy_ratio: 1.3 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 5 (5.6); docs/design/S48b.md",
+  },
+  {
+    key: "activity.workout_plans",
+    // Workout plan display rules (S48b, spec 5.3 / 5.4). session_minutes mirrors the database CHECK workout_plans_session_minutes_chk (a mirror test
+    // fails on drift). older_adult_age: from this age a chair-based class is listed first (a display order only, the gate decides what is allowed).
+    value: { session_minutes: { min: 10, max: 20 }, older_adult_age: 65 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 5 (5.3, 5.4); supabase/migrations/20261021182454_s48b_activity_offline_plans_route_status.sql",
+  },
+  {
     key: "medicines.prn_limits",
     // As-needed (PRN) limits (S08x, decision C7). There are NO default limits: a clinician sets a shortest gap and/or a most doses in a
     // Lagos day per medicine, and only inside these bounds. A dose outside them is still logged; the patient is shown a notice.

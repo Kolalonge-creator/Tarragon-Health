@@ -65,7 +65,22 @@ export interface MealPayload {
   description: string;
 }
 
+/**
+ * S48b: a workout the person did, saved on the phone first. The kind is one of the seven activity kinds (the database enum); the name is derived
+ * by the database from the kind. Idempotent by the outbox client id (activity_log_entries.client_id), so a retry is a duplicate, not a second workout.
+ * Logging something that already happened is never blocked by the activity safety gate.
+ */
+export interface ActivityPayload {
+  activity_kind: "walking" | "running" | "cycling" | "dancing" | "football" | "farm_manual_work" | "chair_based";
+  duration_minutes: number;
+  /** Whole metres, or null. */
+  distance_m: number | null;
+  /** The Lagos calendar day it happened. */
+  logged_on: string;
+}
+
 export type OutboxPayload =
+  | ActivityPayload
   | VitalReadingPayload
   | MealPayload
   | SymptomPayload
@@ -571,6 +586,28 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
       const result = await postMealLog(item.payload as MealPayload, item.clientId, item.clientRecordedAt);
       if (result.success) return { ok: true };
       return { ok: false, message: result.error, status: result.status };
+    }
+
+    if (item.kind === "activity") {
+      const p = item.payload as ActivityPayload;
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", item.subjectId)
+        .single();
+      if (profileError) return asFailure(profileError);
+      if (!profile?.organisation_id) return { ok: false, status: 400, message: "No organisation on file" };
+      const { error } = await supabase.from("activity_log_entries").insert({
+        organisation_id: profile.organisation_id,
+        patient_id: item.subjectId,
+        entry_type: "workout",
+        activity_kind: p.activity_kind,
+        duration_minutes: p.duration_minutes,
+        distance_m: p.distance_m,
+        logged_on: p.logged_on,
+        client_id: item.clientId,
+      });
+      return error ? asFailure(error) : { ok: true };
     }
 
     if (item.kind === "red_care") {
