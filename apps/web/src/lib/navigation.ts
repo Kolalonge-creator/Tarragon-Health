@@ -803,6 +803,7 @@ export function getNavSections(
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
             { label: "Earnings questions", href: "/admin/earnings/disputes", icon: "analytics" },
             { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
+            { label: "Money reconciliation", href: "/finance/money-reconciliation", icon: "analytics" },
             // How each laboratory, pharmacy and clinic is doing; pause or reinstate from new work (S74).
             { label: "Partner quality", href: "/admin/partner-quality", icon: "governance" },
             // Samples in flight, delays, rejected samples and re-collections per laboratory (S27h).
@@ -950,6 +951,7 @@ export function getNavSections(
             { label: "Employer billing", href: "/finance/employer-billing", icon: "billing" },
             { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
             { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile" },
+            { label: "Money reconciliation", href: "/finance/money-reconciliation", icon: "reconcile" },
             { label: "Fraud signals", href: "/finance/fraud", icon: "warning" },
             { label: "Laboratory settlements", href: "/finance/partner-settlements", icon: "payables" },
             { label: "Tax", href: "/finance/tax", icon: "tax" },

@@ -55104,6 +55104,40 @@ export type Database = {
         Args: { p_provider_amount_kobo?: number; p_provider_status: string; p_refund: string }
         Returns: string
       }
+      money_reconciliation_list: {
+        Args: {
+          p_grace_minutes: number
+          p_include_test: boolean
+          p_kind: string | null
+          p_limit: number
+          p_offset: number
+          p_unsent_minutes: number
+        }
+        Returns: {
+          delta_kobo: number | null
+          detail: string
+          kind: string
+          organisation_id: string | null
+          owner_hint: string
+          related_id: string | null
+          related_type: string | null
+          severity: string
+          since: string | null
+          subject_id: string
+          subject_type: string
+          total_count: number
+        }[]
+      }
+      money_reconciliation_summary: {
+        Args: { p_grace_minutes: number; p_include_test: boolean; p_unsent_minutes: number }
+        Returns: {
+          delta_abs_kobo: number
+          kind: string
+          n: number
+          oldest: string | null
+          severity: string
+        }[]
+      }
       refunds_needing_reconcile: {
         Args: { p_limit?: number }
         Returns: {

@@ -116,6 +116,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/payout-approvals", "payout payouts approve approval approvals weekly draft pay clinician contracted cmo chief medical officer money"],
   ["/admin/earnings", "fee fees schedule earnings earned pay paid payout ledger contracted clinician per task consultation share on call shift lead month minimum guarantee adjustment correction statement salary kobo naira"],
   ["/admin/earnings/disputes", "earnings question dispute disputed line hold held response overdue answer correction reject pilot minimum top up activity check release deny contracted clinician finance"],
+  ["/finance/money-reconciliation", "money reconciliation mismatch mismatches disagree one money truth paystack payment order entitlement refund stuck reversal consultation share earnings payout ledger journal 2000 4900 5200 finance read only"],
   ["/admin/payouts", "payout payouts weekly draft approve send paystack transfer bank account verified retry failed reversed clinician pay finance"],
   ["/clinician/payouts", "my payouts weekly statement bank account verify name tax tin withholding contractor paid transfer"],
   ["/clinician/earnings", "my earnings earned pay paid pending approved failed dispute question line statement pdf gross net withholding ledger fee schedule per task consultation on call shift lead month minimum top up correction"],
