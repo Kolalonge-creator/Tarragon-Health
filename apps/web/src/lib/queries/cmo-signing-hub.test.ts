@@ -64,6 +64,10 @@ jest.mock("@/lib/queries/pending-bp-device-review", () => ({
   readPendingBpDeviceReview: (...args: unknown[]) => readPendingBpDeviceReview(...args),
 }));
 const readPendingSoleCmoException = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
+const readLegacyNoticeRetirementState = jest.fn<(...args: unknown[]) => Promise<{ liveVersion: { version: number } | null; waiting: unknown[]; measurement: unknown[]; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-legacy-notice-retirement-signoff", () => ({
+  readLegacyNoticeRetirementState: (...args: unknown[]) => readLegacyNoticeRetirementState(...args),
+}));
 const readUnifiedRedPagingState = jest.fn<(...args: unknown[]) => Promise<{ waitingVersion: number | null; liveVersion: number | null; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-unified-red-paging-signoff", () => ({
   readUnifiedRedPagingState: (...args: unknown[]) => readUnifiedRedPagingState(...args),
@@ -112,6 +116,8 @@ beforeEach(() => {
   readPendingRedOutreachSignoff.mockResolvedValue({ waiting: false, failed: false });
   readPendingSoleCmoException.mockReset();
   readPendingSoleCmoException.mockResolvedValue({ waiting: false, failed: false });
+  readLegacyNoticeRetirementState.mockReset();
+  readLegacyNoticeRetirementState.mockResolvedValue({ liveVersion: null, waiting: [], measurement: [], failed: false });
   readUnifiedRedPagingState.mockReset();
   readUnifiedRedPagingState.mockResolvedValue({ waitingVersion: null, liveVersion: null, failed: false });
   readPendingGlucoseTaskTypeSignoff.mockReset();
@@ -519,6 +525,27 @@ describe("unified red-event paging line (S19d)", () => {
     expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "unified_red_paging")).toBeUndefined();
     readUnifiedRedPagingState.mockResolvedValue({ waitingVersion: null, liveVersion: null, failed: true });
     expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["unified red-event paging"] });
+  });
+});
+
+describe("legacy notice retirement line (S19f)", () => {
+  it("lists a line while versions wait, says it is off and points at the parallel run first", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readLegacyNoticeRetirementState.mockResolvedValue({ liveVersion: null, waiting: [{ version: 1 }], measurement: [], failed: false });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === "legacy_notice_retirement");
+    expect(line?.title).toMatch(/off/i);
+    expect(line?.detail).toMatch(/parallel run/i);
+  });
+  it("keeps a switch-off line while a version is live", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readLegacyNoticeRetirementState.mockResolvedValue({ liveVersion: { version: 2 }, waiting: [], measurement: [], failed: false });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "legacy_notice_retirement")?.title).toMatch(/ON/);
+  });
+  it("shows no line when there is nothing, and reports a failed read instead of an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "legacy_notice_retirement")).toBeUndefined();
+    readLegacyNoticeRetirementState.mockResolvedValue({ liveVersion: null, waiting: [], measurement: [], failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the older clinician-message retirement"] });
   });
 });
 

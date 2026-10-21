@@ -36,9 +36,12 @@ jest.mock("@/lib/queries/commerce", () => {
     useMyOrders: () => ({ data: [] }),
     useStartCheckout: () => ({ mutateAsync, isPending: false }),
     useQuote: () => quote,
+    useInstalmentPolicy: () => ({ data: null }),
+    useMyInstalmentPlans: () => ({ data: [] }),
   };
 });
 jest.mock("@/lib/queries/care-access", () => ({ useSponsorableProfiles: () => ({ data: [] }) }));
+jest.mock("@/lib/queries/order-refunds", () => ({ useRefundPolicy: () => ({ data: undefined }), useRequestOrderRefund: () => ({ mutateAsync: jest.fn(), isPending: false }) }));
 
 const go = jest.fn();
 beforeEach(() => {

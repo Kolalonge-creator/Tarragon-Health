@@ -55,6 +55,8 @@ test.describe("Journey 1: a new user's first month", () => {
       await page.locator("#firstName").fill("Adebayo");
       await page.locator("#lastName").fill("Journey");
       await page.locator("#phone").fill(PHONE_LOCAL);
+      // Registration is adults only (S04b-1): the date of birth is a required field on the form, and without it the browser blocks submit.
+      await page.locator("#phone-signup-dateOfBirth").fill("1972-03-14");
       await page.locator("#password").fill(PASSWORD);
       await page.getByRole("button", { name: /create account/i }).click();
       await page.locator("#token").waitFor({ timeout: 60_000 });

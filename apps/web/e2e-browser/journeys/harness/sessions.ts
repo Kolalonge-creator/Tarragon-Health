@@ -81,6 +81,15 @@ export function completeOnboardingFixture(patientId: string, organisationId: str
   `);
 }
 
+/**
+ * Makes a TEST patient an active Member. Under the two-tier model a red event on a Free patient is guidance only and never pages
+ * a doctor (migration two_tier_free_red_event_path), so a journey about a paged clinician needs a Member. Fixture data on an is_test account.
+ */
+export function grantMembershipFixture(patientId: string, organisationId: string): void {
+  sql(`insert into public.patient_memberships (organisation_id, patient_id, source, is_test)
+         values (${lit(organisationId)}, ${lit(patientId)}, 'purchase', true);`);
+}
+
 export function newOrganisation(runId: string, name: string, type: string = "clinic"): string {
   const id = sql(
     `insert into public.organisations (name, type, metadata) values (${lit(`[s85] ${name} ${runId}`)}, ${lit(type)}, '{"s85_test": true}'::jsonb) returning id;`,
