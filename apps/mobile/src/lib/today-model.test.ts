@@ -85,6 +85,7 @@ describe("where an item goes", () => {
     ["book_test", "labs"],
     ["join_consultation", "appointments"],
     ["read_lesson", "learn"],
+    ["consult_checkin", "care"],
   ])("a %s task opens %s", (kind, target) => {
     expect(build({ tasks: [task({ kind })] }).open[0]?.target).toBe(target);
   });
