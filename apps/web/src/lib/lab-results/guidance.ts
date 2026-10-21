@@ -53,6 +53,8 @@ export function guidanceForItem(item: { analyte_code: string; flag: ResultFlag; 
     return { explanationKey: null, nextStepKey: "labres.next.sensitive" };
   }
   if (!explainAllowed) return { explanationKey: null, nextStepKey: "labres.next.ask_care_team" };
+  // the hepatitis B antibody add-on (S46d): the generic "nothing you need to do" text would be wrong for a negative, so the care team explains every one
+  if (item.analyte_code.trim().toLowerCase() === "anti_hbs") return { explanationKey: null, nextStepKey: "labres.next.ask_care_team" };
   return { explanationKey: EXPLANATION[item.flag], nextStepKey: NEXT_STEP[item.flag] };
 }
 

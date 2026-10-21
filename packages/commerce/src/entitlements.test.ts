@@ -44,6 +44,31 @@ describe("entitlementLines (19.12 wording)", () => {
   });
 });
 
+describe("the read-only grace after the end (S26b)", () => {
+  const view = (o: Record<string, unknown>) => parseEntitlements([{ ...base, kind: "care_pack", item_code: "care_pack_90", ...o }])[0]!;
+  it("an expired entitlement inside the window is in grace, with the days left and the code to renew", () => {
+    const v = view({ state: "expired", phase: "grace", grace_days_left: 4 });
+    expect([v.phase, v.graceDaysLeft, v.itemCode]).toEqual(["grace", 4, "care_pack_90"]);
+    expect(entitlementLines(v)).toEqual([
+      { key: "entitlement.grace.note_other", params: { count: 4 } },
+      { key: "entitlement.grace.no_doctor_time", params: {} },
+    ]);
+  });
+  it("uses the singular for one day left", () => {
+    expect(entitlementLines(view({ state: "expired", phase: "grace", grace_days_left: 1 }))[0]!.key).toBe("entitlement.grace.note_one");
+  });
+  it("a phase of grace is not believed for an entitlement that is active, used or revoked", () => {
+    expect(view({ state: "active", phase: "grace", grace_days_left: 3 }).phase).toBe("active");
+    expect(view({ state: "revoked", phase: "grace", grace_days_left: 3 }).phase).toBe("revoked");
+    expect(view({ state: "revoked", phase: "grace", grace_days_left: 3 }).graceDaysLeft).toBeNull();
+  });
+  it("an expired entitlement with no phase is plainly expired (older database answer)", () => {
+    const v = view({ state: "expired" });
+    expect(v.phase).toBe("expired");
+    expect(entitlementLines(v)).toEqual([{ key: "entitlement.state.expired", params: {} }]);
+  });
+});
+
 describe("entitlementSource", () => {
   const view = (o: Record<string, unknown>) => parseEntitlements([{ ...base, ...o }])[0]!;
   it("names where it came from in plain words", () => {

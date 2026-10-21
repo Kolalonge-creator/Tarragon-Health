@@ -84,7 +84,7 @@ describe("costFigures", () => {
   });
 });
 
-const KINDS: OutboxKind[] = ["vital", "dose", "symptom", "red_care", "kick_session", "contraction_session"];
+const KINDS: OutboxKind[] = ["vital", "dose", "symptom", "red_care", "kick_session", "contraction_session", "meal"];
 const NOW = Date.UTC(2026, 9, 20, 12, 0, 0);
 const HOLD = 6 * 3_600_000;
 const HOUR = 3_600_000;
@@ -120,9 +120,9 @@ const hold = (o: HoldOver = {}) =>
   });
 
 describe("the urgent override: Wi-Fi only never delays an urgent entry", () => {
-  it("only a dose log and a weight reading are ever ordinary", () => {
+  it("only a dose log, a meal log and a weight reading are ever ordinary", () => {
     const ordinary = KINDS.filter((k) => !isUrgentEntry({ kind: k, danger: false, vitalType: "weight" }));
-    expect(ordinary.sort()).toEqual(["dose", "vital"]);
+    expect(ordinary.sort()).toEqual(["dose", "meal", "vital"]);
     expect(isUrgentEntry({ kind: "vital", danger: false, vitalType: "weight" })).toBe(false);
   });
 

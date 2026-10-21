@@ -44,7 +44,7 @@ export function formatNaira(kobo: number): string {
  * Which kinds of entry are urgent by nature. This is a safety rule, not a setting, and it is a Record
  * over every outbox kind so adding a new kind fails to compile until someone decides which side it is on.
  *
- * Only a dose log and a WEIGHT reading are ever held. A symptom, a patient's answer after a red alert and the pregnancy safety logs
+ * Only a dose log, a meal log and a WEIGHT reading are ever held. A symptom, a patient's answer after a red alert and the pregnancy safety logs
  * (kick counts and contractions, where a change in pattern can be the signal) always go straight away. Every other reading
  * (blood pressure, glucose, pulse, temperature, oxygen) is treated as urgent too: the phone's danger flag is only as good as its
  * classifier (a pulse that is logged with a blood pressure is never flagged, and a classifier error leaves a reading unflagged),
@@ -57,6 +57,8 @@ const URGENT_BY_KIND: Record<OutboxKind, boolean> = {
   red_care: true,
   kick_session: true,
   contraction_session: true,
+  // A meal written in words carries no red-flag rule on the server, so it may wait for Wi-Fi like a dose log or a weight (S49a, decided in the S06z merge).
+  meal: false,
 };
 
 /** The one vital type that is safe to hold: nothing on the server raises an alert for it. */

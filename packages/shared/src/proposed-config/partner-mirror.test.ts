@@ -15,8 +15,24 @@ function seed(suffix: string, marker: string): unknown {
 }
 
 describe("partner.quality mirrors the migration seed", () => {
-  it("v1 is identical to the partner_quality_config v1 seed", () => {
-    expect(seed("_s74_partner_quality_and_removal.sql", "partner-quality")).toEqual(getProposedConfig("partner.quality").value);
+  it("the registry value is identical to the active partner_quality_config seed (v2, S28e)", () => {
+    expect(seed("_s28e_pharmacy_visits_stock_scorecard.sql", "partner-quality-v2")).toEqual(getProposedConfig("partner.quality").value);
+  });
+  it("v2 keeps every S74 value unchanged and only adds the pharmacy figures and the suggest-only kinds", () => {
+    const v1 = seed("_s74_partner_quality_and_removal.sql", "partner-quality") as Record<string, unknown> & { removal: Record<string, unknown> };
+    const v2 = seed("_s28e_pharmacy_visits_stock_scorecard.sql", "partner-quality-v2") as Record<string, unknown> & { removal: Record<string, unknown> };
+    for (const [k, v] of Object.entries(v1)) {
+      if (k === "removal") continue;
+      expect(v2[k]).toEqual(v);
+    }
+    for (const [k, v] of Object.entries(v1.removal)) expect(v2.removal[k]).toEqual(v);
+    expect(v2.pharmacy).toBeDefined();
+    expect(v2.removal.suggest_only_kinds).toEqual(["pharmacy"]);
+  });
+  it("a pharmacy is only ever flagged for staff, never removed by the rule (spec 21.7), while a laboratory is not changed", () => {
+    const v = getProposedConfig("partner.quality").value as { removal: { suggest_only_kinds: string[] } };
+    expect(v.removal.suggest_only_kinds).toContain("pharmacy");
+    expect(v.removal.suggest_only_kinds).not.toContain("lab");
   });
   it("the weights add up to 100 and the suspend floor is below the warning floor", () => {
     const v = getProposedConfig("partner.quality").value as { weights: Record<string, number>; score: { warn_below: number; suspend_below: number } };
