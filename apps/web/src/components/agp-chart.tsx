@@ -1,5 +1,7 @@
+import { useId } from "react";
 import { GLUCOSE_UNIT_LABEL, formatGlucose, glucoseInDisplayUnit, type GlucoseDisplayUnit } from "@tarragon/shared";
 import { clockLabel, type AgpBin, type AgpConfig, type AgpResult } from "@/lib/cgm/agp";
+import { zoneLabel } from "@/lib/cgm/agp-copy";
 
 /**
  * The 24 hour glucose profile as plain SVG: for each half hour of the day a bar from the lower to the upper percentile of fourteen days of
@@ -35,6 +37,9 @@ const ZONE_CLASS = {
 } as const;
 
 export function AgpChart({ result, unit, config }: { result: AgpResult; unit: GlucoseDisplayUnit; config: AgpConfig }) {
+  const uid = useId();
+  const titleId = `${uid}-title`;
+  const descId = `${uid}-desc`;
   const { low, high, very_high: veryHigh } = config.band_edges_mmol_l;
   const maxUpper = Math.max(0, ...result.bins.map((b) => b.upper ?? 0));
   const yMax = Math.max(veryHigh + 3, Math.ceil(maxUpper + 1));
@@ -46,13 +51,13 @@ export function AgpChart({ result, unit, config }: { result: AgpResult; unit: Gl
   const withData = result.bins.filter((b): b is AgpBin & { lower: number; upper: number } => b.lower !== null && b.upper !== null);
   const meanPath = averagePath(result.bins, x, y, config.bin_minutes);
   const label = unit === "mg_dl" ? "mg/dL" : GLUCOSE_UNIT_LABEL[unit];
-  const desc = `Fourteen days of sensor readings by time of day, in ${label}. Target range ${formatGlucose(low, unit)} to ${formatGlucose(high, unit)}.`;
+  const desc = `${config.window_days} days of sensor readings by time of day, in ${label}. Target range ${formatGlucose(low, unit)} to ${formatGlucose(high, unit)}.`;
 
   return (
     <figure className="m-0">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby="agp-title agp-desc" className="h-auto w-full text-charcoal-ink dark:text-night-ink">
-        <title id="agp-title">Glucose profile over a day</title>
-        <desc id="agp-desc">{desc}</desc>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby={`${titleId} ${descId}`} className="h-auto w-full text-charcoal-ink dark:text-night-ink">
+        <title id={titleId}>Glucose profile over a day</title>
+        <desc id={descId}>{desc}</desc>
 
         {ticks.map((t) => (
           <g key={t}>
@@ -97,7 +102,7 @@ export function AgpChart({ result, unit, config }: { result: AgpResult; unit: Gl
         <Key className="fill-amber-400" text="Above range" />
         <Key className="fill-charcoal-ink/25 dark:fill-night-ink/30" text="In range" />
         <Key className="fill-red-400" text="Below range" />
-        <span>Bars: the middle of the readings ({config.percentiles.lower}th to {config.percentiles.upper}th percentile). Dotted line: average. Lagos time.</span>
+        <span>Bars: {config.percentiles.lower}th to {config.percentiles.upper}th percentile of readings at that time of day. Dotted line: average. {zoneLabel(config.timezone)}.</span>
       </figcaption>
     </figure>
   );

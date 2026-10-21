@@ -6,14 +6,17 @@ import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 import { AgpChart } from "@/components/agp-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAgpReadings } from "@/lib/queries/cgm";
-import { computeAgp, loadAgpConfig, type AgpConfig, type AgpResult, type TimeInBands } from "@/lib/cgm/agp";
+import { computeAgp, loadAgpConfig, type AgpConfig, type AgpResult, type BandKey, type TimeInBands } from "@/lib/cgm/agp";
 import {
-  CLINICIAN_FOOTNOTE,
   PATIENT_FOOTNOTE,
+  clinicianFootnote,
   clinicianPatternSentence,
   insufficientSentence,
   patientPatternSentence,
+  pctLabel,
+  truncatedSentence,
 } from "@/lib/cgm/agp-copy";
+import { AGP_READ_LIMIT, AgpReadError } from "@/lib/cgm/agp-read";
 
 type Audience = "patient" | "clinician";
 
@@ -25,28 +28,43 @@ type Audience = "patient" | "clinician";
  * Renders nothing until the person has sensor readings (the card is dormant for everyone without a connected sensor). Display only: it never
  * creates a task or a page, and it never suggests a dose or a medicine.
  */
-export function AgpCard({ patientId, audience }: { patientId: string; audience: Audience }) {
+export function AgpCard({ patientId, audience, showWhenEmpty = false }: { patientId: string; audience: Audience; showWhenEmpty?: boolean }) {
   const unit = useGlucoseUnit();
-  const { data, isLoading, isError } = useAgpReadings(patientId);
+  const { data, isLoading, isError, error } = useAgpReadings(patientId);
   const loaded = useMemo(() => loadAgpConfig(), []);
   const result = useMemo(() => (data ? computeAgp(data.samples, data.fetchedAt, loaded) : null), [data, loaded]);
 
-  if (isLoading) return null;
+  // Opened on purpose (the clinician's disclosure beside a message thread): say what is happening instead of showing a blank.
+  const note = (text: string) => (
+    <Card>
+      <CardContent className="pt-4">
+        <p role="status" className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{text}</p>
+      </CardContent>
+    </Card>
+  );
+  if (isLoading) return showWhenEmpty ? note("Loading sensor glucose.") : null;
   if (isError) {
+    const denied = error instanceof AgpReadError && error.kind === "denied";
+    const message =
+      audience === "patient"
+        ? "Your glucose profile is not available right now. Please try again later."
+        : denied
+          ? "Sensor glucose is not available to you for this patient."
+          : "Sensor glucose could not be loaded just now. Please try again.";
     return (
       <Card>
         <CardHeader>
           <CardTitle>{audience === "patient" ? "Your glucose profile" : "Sensor glucose profile"}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p role="status" className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-            {audience === "patient" ? "Your glucose profile is not available right now. Please try again later." : "Sensor glucose is not available to you for this patient."}
-          </p>
+          <p role="status" className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{message}</p>
         </CardContent>
       </Card>
     );
   }
-  if (!result || result.metrics.count === 0) return null;
+  if (!result || result.metrics.count === 0) {
+    return showWhenEmpty ? note(`No sensor glucose in the last ${loaded.config.window_days} days.`) : null;
+  }
 
   const { config } = loaded;
   const days = config.window_days;
@@ -60,7 +78,11 @@ export function AgpCard({ patientId, audience }: { patientId: string; audience: 
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        {result.metrics.tir ? <RangeBar tir={result.metrics.tir} detailed={audience === "clinician"} partial={!result.sufficient} /> : null}
+        {result.metrics.tir ? <RangeBar tir={result.metrics.tir} exact={result.metrics.tirExactPct} detailed={audience === "clinician"} partial={!result.sufficient} /> : null}
+
+        {result.sufficient && data?.truncated ? (
+          <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{truncatedSentence(audience, AGP_READ_LIMIT)}</p>
+        ) : null}
 
         {result.sufficient ? (
           <>
@@ -69,11 +91,11 @@ export function AgpCard({ patientId, audience }: { patientId: string; audience: 
           </>
         ) : (
           <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
-            {insufficientSentence(result.metrics.daysWithData, config.min_days_with_data)}
+            {data?.truncated ? truncatedSentence(audience, AGP_READ_LIMIT) : insufficientSentence(result.insufficientReason, result.metrics, config)}
           </p>
         )}
 
-        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{audience === "patient" ? PATIENT_FOOTNOTE : CLINICIAN_FOOTNOTE}</p>
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{audience === "patient" ? PATIENT_FOOTNOTE : clinicianFootnote(config)}</p>
       </CardContent>
     </Card>
   );
@@ -129,10 +151,10 @@ function ClinicianNumbers({ result, unit, config }: PanelProps) {
         </thead>
         <tbody>
           {m.tir
-            ? bandRows(m.tir, edges, unit).map(([name, pct]) => (
+            ? bandRows(m.tir, edges, unit).map(([name, key, pct]) => (
                 <tr key={name} className="border-t border-charcoal-ink/10 dark:border-night-ink/15">
                   <th scope="row" className="py-1 font-normal">{name}</th>
-                  <td className="py-1 text-right font-medium">{pct}%</td>
+                  <td className="py-1 text-right font-medium">{pctLabel(pct, m.tirExactPct?.[key] ?? pct)}</td>
                 </tr>
               ))
             : null}
@@ -155,31 +177,32 @@ function bandRows(
   t: TimeInBands,
   e: { very_low: number; low: number; high: number; very_high: number },
   unit: GlucoseDisplayUnit,
-): [string, number][] {
+): [string, BandKey, number][] {
   const f = (v: number) => formatGlucose(v, unit) ?? "";
   return [
-    [`Very high, above ${f(e.very_high)}`, t.veryHighPct],
-    [`High, ${f(e.high)} to ${f(e.very_high)}`, t.highPct],
-    [`In range, ${f(e.low)} to ${f(e.high)}`, t.inRangePct],
-    [`Low, ${f(e.very_low)} to ${f(e.low)}`, t.lowPct],
-    [`Very low, below ${f(e.very_low)}`, t.veryLowPct],
+    [`Very high, above ${f(e.very_high)}`, "veryHighPct", t.veryHighPct],
+    [`High, ${f(e.high)} to ${f(e.very_high)}`, "highPct", t.highPct],
+    [`In range, ${f(e.low)} to ${f(e.high)}`, "inRangePct", t.inRangePct],
+    [`Low, ${f(e.very_low)} to ${f(e.low)}`, "lowPct", t.lowPct],
+    [`Very low, below ${f(e.very_low)}`, "veryLowPct", t.veryLowPct],
   ];
 }
 
 /** A stacked bar of time in range. The patient sees three groups, the clinician all five; every segment is also named in words below the bar. */
-function RangeBar({ tir, detailed, partial }: { tir: TimeInBands; detailed: boolean; partial: boolean }) {
+function RangeBar({ tir, exact, detailed, partial }: { tir: TimeInBands; exact: TimeInBands | null; detailed: boolean; partial: boolean }) {
+  const ex = (...keys: BandKey[]) => keys.reduce((s, k) => s + (exact?.[k] ?? tir[k]), 0);
   const segments = detailed
     ? [
-        { key: "vl", pct: tir.veryLowPct, cls: "bg-red-600", name: "very low" },
-        { key: "l", pct: tir.lowPct, cls: "bg-red-400", name: "low" },
-        { key: "in", pct: tir.inRangePct, cls: "bg-brand-green", name: "in range" },
-        { key: "h", pct: tir.highPct, cls: "bg-amber-400", name: "high" },
-        { key: "vh", pct: tir.veryHighPct, cls: "bg-amber-600", name: "very high" },
+        { key: "vl", pct: tir.veryLowPct, exact: ex("veryLowPct"), cls: "bg-red-600", name: "very low" },
+        { key: "l", pct: tir.lowPct, exact: ex("lowPct"), cls: "bg-red-400", name: "low" },
+        { key: "in", pct: tir.inRangePct, exact: ex("inRangePct"), cls: "bg-brand-green", name: "in range" },
+        { key: "h", pct: tir.highPct, exact: ex("highPct"), cls: "bg-amber-400", name: "high" },
+        { key: "vh", pct: tir.veryHighPct, exact: ex("veryHighPct"), cls: "bg-amber-600", name: "very high" },
       ]
     : [
-        { key: "l", pct: tir.veryLowPct + tir.lowPct, cls: "bg-red-400", name: "low" },
-        { key: "in", pct: tir.inRangePct, cls: "bg-brand-green", name: "in range" },
-        { key: "h", pct: tir.highPct + tir.veryHighPct, cls: "bg-amber-400", name: "high" },
+        { key: "l", pct: tir.veryLowPct + tir.lowPct, exact: ex("veryLowPct", "lowPct"), cls: "bg-red-400", name: "low" },
+        { key: "in", pct: tir.inRangePct, exact: ex("inRangePct"), cls: "bg-brand-green", name: "in range" },
+        { key: "h", pct: tir.highPct + tir.veryHighPct, exact: ex("highPct", "veryHighPct"), cls: "bg-amber-400", name: "high" },
       ];
   return (
     <div className="space-y-1.5">
@@ -187,7 +210,7 @@ function RangeBar({ tir, detailed, partial }: { tir: TimeInBands; detailed: bool
         {segments.map((s) => (s.pct > 0 ? <div key={s.key} className={s.cls} style={{ width: `${s.pct}%` }} /> : null))}
       </div>
       <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
-        {segments.map((s) => `${s.pct}% ${s.name}`).join(" · ")}
+        {segments.map((s) => `${pctLabel(s.pct, s.exact)} ${s.name}`).join(" · ")}
         {partial ? " (so far)" : ""}
       </p>
     </div>

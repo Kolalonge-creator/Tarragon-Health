@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { GLUCOSE_MMOL_TO_MGDL } from "@tarragon/shared";
+import { GLUCOSE_MMOL_TO_MGDL, mgDlToMmolL } from "@tarragon/shared";
 import { FIXTURE_NOW as NOW, fortnight } from "./fixtures/agp-fortnight";
 import { clockLabel, computeAgp, findPatterns, loadAgpConfig, percentile, roundShares, type AgpPattern } from "./agp";
 
@@ -119,15 +119,72 @@ describe("input hygiene", () => {
     expect(r.bins[47]?.n).toBe(0);
   });
 
-  it("classifies at meter precision: 3.88 is in range, 3.84 is low, 2.96 is still low (3.0), 2.94 is very low, 10.04 is in, 10.06 is high", () => {
+  it("classifies in whole mg/dL against 54, 70, 180 and 250, whatever unit the person reads", () => {
+    const band = (mg: number) => computeAgp([{ takenAt: iso(NOW - DAY), mmolL: mgDlToMmolL(mg) }], NOW).metrics.tir;
+    expect(band(180)?.inRangePct).toBe(100);
+    expect(band(181)?.highPct).toBe(100);
+    expect(band(70)?.inRangePct).toBe(100);
+    expect(band(69)?.lowPct).toBe(100);
+    expect(band(54)?.lowPct).toBe(100);
+    expect(band(53)?.veryLowPct).toBe(100);
+    expect(band(250)?.highPct).toBe(100);
+    expect(band(251)?.veryHighPct).toBe(100);
+  });
+
+  it("classifies a mmol/L sensor's tenths the same way: 3.9 and 10.0 are in range, 3.8 low, 10.1 high, 2.9 very low, 14.0 very high", () => {
     const one = (v: number) => computeAgp([{ takenAt: iso(NOW - DAY), mmolL: v }], NOW).metrics.tir;
-    expect(one(3.88)?.inRangePct).toBe(100);
-    expect(one(3.84)?.lowPct).toBe(100);
-    expect(one(2.96)?.lowPct).toBe(100);
-    expect(one(2.94)?.veryLowPct).toBe(100);
-    expect(one(10.04)?.inRangePct).toBe(100);
-    expect(one(10.06)?.highPct).toBe(100);
-    expect(one(14.06)?.veryHighPct).toBe(100);
+    expect(one(3.9)?.inRangePct).toBe(100);
+    expect(one(10.0)?.inRangePct).toBe(100);
+    expect(one(3.8)?.lowPct).toBe(100);
+    expect(one(10.1)?.highPct).toBe(100);
+    expect(one(3.0)?.lowPct).toBe(100);
+    expect(one(2.9)?.veryLowPct).toBe(100);
+    expect(one(13.9)?.highPct).toBe(100);
+    expect(one(14.0)?.veryHighPct).toBe(100);
+  });
+
+  it("counts a sensor that reaches us by two routes a few seconds apart once, and keeps readings five minutes apart", () => {
+    const base = fortnight();
+    const doubled = base.flatMap((x) => [x, { takenAt: iso(Date.parse(x.takenAt) + 20_000), mmolL: x.mmolL }]);
+    expect(computeAgp(doubled, NOW).metrics.count).toBe(computeAgp(base, NOW).metrics.count);
+    expect(computeAgp(base, NOW).metrics.count).toBeGreaterThan(4000);
+  });
+
+  it("takes the time zone from the configuration, not from the code", () => {
+    const loaded = loadAgpConfig();
+    const utc = { ...loaded, config: { ...loaded.config, timezone: "UTC" } };
+    const sample = [{ takenAt: "2026-10-20T23:30:00.000Z", mmolL: 6 }];
+    expect(computeAgp(sample, NOW, utc).bins[47]?.n).toBe(1);
+    expect(computeAgp(sample, NOW).bins[1]?.n).toBe(1);
+  });
+});
+
+describe("a small but real share is never shown as nothing", () => {
+  it("twelve very low readings in four thousand still show, as under one percent and at least one point", () => {
+    const samples = fortnight({ everyMin: 5 }).map((x) => ({ ...x, mmolL: 8 }));
+    for (let i = 0; i < 12; i++) samples[i * 300] = { ...(samples[i * 300] as { takenAt: string }), mmolL: 2.5 };
+    const m = computeAgp(samples, NOW).metrics;
+    expect(m.tir?.veryLowPct).toBeGreaterThanOrEqual(1);
+    expect(m.tirExactPct?.veryLowPct).toBeLessThan(1);
+    expect(m.tirExactPct?.veryLowPct).toBeGreaterThan(0);
+    const t = m.tir as Record<string, number>;
+    expect(Object.values(t).reduce((s, n) => s + n, 0)).toBe(100);
+  });
+
+  it("roundShares gives a non-zero count at least one point and still adds to 100", () => {
+    const r = roundShares([1, 0, 9999]);
+    expect(r[0]).toBeGreaterThanOrEqual(1);
+    expect(r[1]).toBe(0);
+    expect(r.reduce((s, n) => s + n, 0)).toBe(100);
+  });
+});
+
+describe("why the profile is not drawn", () => {
+  it("names too few days when the days are short, too little coverage when the days are there but the sensor was off, and nothing when it is fine", () => {
+    expect(computeAgp(fortnight({ days: 3 }), NOW).insufficientReason).toBe("days");
+    expect(computeAgp(fortnight({ drop: 0.85 }), NOW).insufficientReason).toBe("coverage");
+    expect(computeAgp(fortnight(), NOW).insufficientReason).toBeNull();
+    expect(computeAgp([], NOW).insufficientReason).toBeNull();
   });
 });
 
@@ -148,6 +205,8 @@ describe("findPatterns", () => {
   const bin = (i: number, shareHigh: number, n = 100) => ({
     startMinute: i * config.bin_minutes,
     n,
+    nLow: 0,
+    nHigh: Math.round(shareHigh * n),
     lower: 5,
     upper: 9,
     mean: 7,
@@ -167,6 +226,13 @@ describe("findPatterns", () => {
 
   it("ignores bins with too few readings", () => {
     expect(findPatterns(day((i) => i < 8, config.min_readings_per_bin - 1), config)).toEqual([]);
+  });
+
+  it("counts a bin exactly at the threshold (57 of 100 at 57 percent), which a float ratio would miss", () => {
+    expect(0.57 * 100).toBeLessThan(57);
+    const cfg = { ...config, pattern: { ...config.pattern, high_share_pct: 57 } };
+    const bins = Array.from({ length: 48 }, (_, i) => ({ ...bin(i, i < 8 ? 0.57 : 0.1), nHigh: i < 8 ? 57 : 10 }));
+    expect(findPatterns(bins, cfg)).toEqual([expect.objectContaining({ kind: "high", startMinute: 0, endMinute: 240 })]);
   });
 
   it("a whole day above range is one window, not a crash", () => {

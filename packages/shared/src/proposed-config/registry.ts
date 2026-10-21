@@ -4148,7 +4148,9 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // page: the sustained-event rules above stay the only CGM safety path. The five range bands follow the International Consensus on Time in
     // Range (secondary source, primary text not read). The pattern numbers are product choices, PROPOSED, for the CMO to confirm or change:
     // a window is only named when enough days of that time of day were recorded, and the words it produces describe readings, never a cause
-    // and never a dose.
+    // and never a dose. percentiles 15 and 75 copy the example report the founder shared (its legend names the 15th and 75th); the usual AGP uses
+    // 25 and 75 with 5 and 95 as an outer band, so the CMO should confirm which one clinicians expect. dedupe_minutes drops a reading that follows
+    // another by less than that, so one sensor reaching us by two routes is not counted twice.
     value: {
       window_days: 14,
       timezone: "Africa/Lagos",
@@ -4157,6 +4159,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       min_active_pct: 70,
       min_days_with_data: 10,
       min_readings_per_bin: 20,
+      dedupe_minutes: 2,
       band_edges_mmol_l: { very_low: 3.0, low: 3.9, high: 10.0, very_high: 13.9 },
       percentiles: { lower: 15, upper: 75 },
       pattern: { min_run_minutes: 120, low_share_pct: 10, high_share_pct: 50 },
