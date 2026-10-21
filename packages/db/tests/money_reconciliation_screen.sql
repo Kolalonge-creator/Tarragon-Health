@@ -1,6 +1,6 @@
 -- Money reconciliation screen proof (migration *_money_reconciliation_screen.sql).
 -- One rolled-back transaction. Proves:
---   1. Every mismatch kind is REPORTED for a row seeded to have exactly that fault (24 kinds, orders/payments/entitlements,
+--   1. Every mismatch kind is REPORTED for a row seeded to have exactly that fault (29 kinds, orders/payments/entitlements,
 --      the general ledger, refunds, consultation-share reversals, payouts).
 --   2. A CLEAN control set (an order paid, entitled, journalled; a refund completed with its cash entry, release and reversal; a payout
 --      whose lines, transfer and ledger entry agree) is reported under NO kind.
@@ -387,6 +387,66 @@ begin
   insert into public.payments (id, organisation_id, order_id, provider, provider_reference, amount_kobo, fee_kobo, total_kobo, status, mismatch_reason, source, is_test) values (p, v_org, o, 'paystack', v_ref, 500000, 9000, 509000, 'mismatch', 'fee', 'webhook', false);
   perform pg_temp.setf('m7_pay', p);
 
+  -- ===== N. instalment plan orders (a part at a time) =====
+  -- N1 CLEAN: 500000 in two parts of 250000; part 1 paid and journalled as orderpart:<payment id>; entitled
+  o := gen_random_uuid(); v_ref := 'tho_mrs_' || replace(o::text, '-', ''); e := gen_random_uuid(); p := gen_random_uuid();
+  insert into public.orders (id, organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, fee_kobo, total_kobo, state, paid_at, paystack_reference, is_test)
+  values (o, v_org, v_pat, v_pat, v_item, v_price, 500000, 0, 500000, 'paid', now() - interval '2 days', v_ref, false);
+  insert into public.order_instalment_plans (id, organisation_id, order_id, patient_id, parts, price_kobo, schedule, schedule_version) values (e, v_org, o, v_pat, 2, 500000, '{}', 1);
+  insert into public.payments (id, organisation_id, order_id, provider, provider_reference, amount_kobo, fee_kobo, total_kobo, status, source, is_test) values (p, v_org, o, 'paystack', v_ref || '_p1', 250000, 0, 250000, 'success', 'return', false);
+  insert into public.order_instalments (organisation_id, plan_id, order_id, seq, amount_kobo, due_at, state, paid_at, payment_id) values (v_org, e, o, 1, 250000, now() - interval '2 days', 'paid', now() - interval '2 days', p);
+  insert into public.entitlements (organisation_id, patient_id, order_id, kind, starts_at, ends_at, remaining_uses, state, is_test) values (v_org, v_pat, o, 'membership', now() - interval '2 days', now() + interval '360 days', null, 'active', false);
+  insert into public.finance_journal_entries (entry_date, period_month, source, source_ref, memo) values (current_date, date_trunc('month', current_date)::date, 'payment', 'orderpart:' || p, 'n1 part');
+  perform pg_temp.setf('n1_order', o); perform pg_temp.setf('n1_pay', p);
+  -- N2 the payment recorded for a part is 200000 against a part of 250000; N3 a paid part with no ledger entry
+  o := gen_random_uuid(); v_ref := 'tho_mrs_' || replace(o::text, '-', ''); e := gen_random_uuid(); p := gen_random_uuid();
+  insert into public.orders (id, organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, fee_kobo, total_kobo, state, paid_at, paystack_reference, is_test)
+  values (o, v_org, v_pat, v_pat, v_item, v_price, 500000, 0, 500000, 'paid', now() - interval '2 days', v_ref, false);
+  insert into public.order_instalment_plans (id, organisation_id, order_id, patient_id, parts, price_kobo, schedule, schedule_version) values (e, v_org, o, v_pat, 2, 500000, '{}', 1);
+  insert into public.payments (id, organisation_id, order_id, provider, provider_reference, amount_kobo, fee_kobo, total_kobo, status, source, is_test, created_at) values (p, v_org, o, 'paystack', v_ref || '_p1', 200000, 0, 200000, 'success', 'return', false, now() - interval '2 days');
+  insert into public.order_instalments (organisation_id, plan_id, order_id, seq, amount_kobo, due_at, state, paid_at, payment_id) values (v_org, e, o, 1, 250000, now() - interval '2 days', 'paid', now() - interval '2 days', p);
+  insert into public.entitlements (organisation_id, patient_id, order_id, kind, starts_at, ends_at, remaining_uses, state, is_test) values (v_org, v_pat, o, 'membership', now() - interval '2 days', now() + interval '360 days', null, 'active', false);
+  perform pg_temp.setf('n2_pay', p);
+  -- N4 CLEAN: a per-part refund (refunds.payment_id) of 250000 whose cash entry is keyed on the PART's own charge reference
+  o := gen_random_uuid(); v_ref := 'tho_mrs_' || replace(o::text, '-', ''); e := gen_random_uuid(); p := gen_random_uuid();
+  insert into public.orders (id, organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, fee_kobo, total_kobo, state, paid_at, paystack_reference, is_test)
+  values (o, v_org, v_pat, v_pat, v_item, v_price, 500000, 0, 500000, 'refunded', now() - interval '4 days', v_ref, false);
+  insert into public.order_instalment_plans (id, organisation_id, order_id, patient_id, parts, price_kobo, schedule, schedule_version) values (e, v_org, o, v_pat, 2, 500000, '{}', 1);
+  insert into public.payments (id, organisation_id, order_id, provider, provider_reference, amount_kobo, fee_kobo, total_kobo, status, source, is_test) values (p, v_org, o, 'paystack', v_ref || '_p1', 250000, 0, 250000, 'success', 'return', false);
+  insert into public.order_instalments (organisation_id, plan_id, order_id, seq, amount_kobo, due_at, state, paid_at, payment_id) values (v_org, e, o, 1, 250000, now() - interval '4 days', 'paid', now() - interval '4 days', p);
+  insert into public.finance_journal_entries (entry_date, period_month, source, source_ref, memo) values (current_date, date_trunc('month', current_date)::date, 'payment', 'orderpart:' || p, 'n4 part');
+  r := gen_random_uuid(); pt := gen_random_uuid();
+  insert into public.refunds (id, organisation_id, order_id, payment_id, refund_group, amount_kobo, reason, state, provider, completed_at, gl_released_at, provider_status, provider_checked_at, is_test)
+  values (r, v_org, o, p, gen_random_uuid(), 250000, 'Per part refund fixture', 'completed', 'paystack', now() - interval '1 day', now() - interval '1 day', 'matched', now(), false);
+  insert into public.payment_transactions (id, provider, provider_event_id, event_type, amount_minor, currency, processed_at, raw_payload) values (pt, 'paystack', 'refund:' || v_ref || '_p1:250000', 'refund.processed', 250000, 'NGN', now(), '{}');
+  insert into public.finance_journal_entries (entry_date, period_month, source, source_ref, memo) values (current_date, date_trunc('month', current_date)::date, 'refund', pt::text, 'cash back n4');
+  perform pg_temp.setf('n4_refund', r); perform pg_temp.setf('n4_order', o);
+
+  -- ===== O. earnings holds and withholding =====
+  -- O1 an open dispute past its answer date on a line that is not in any payout
+  l := gen_random_uuid();
+  insert into public.earnings_ledger (id, organisation_id, clinician_id, kind, reference_type, reference_id, amount_kobo, fee_schedule_version_id, calculation, earned_at, employment_type, is_test)
+  values (l, v_org, v_doc, 'task', 'task', gen_random_uuid(), 70000, v_fee, '{}', now() - interval '9 days', 'contracted', false);
+  insert into public.earnings_disputes (organisation_id, ledger_id, clinician_id, reason_code, request_id, response_due_at, opened_at) values (v_org, l, v_doc, 'wrong_amount', gen_random_uuid(), now() - interval '2 days', now() - interval '5 days');
+  perform pg_temp.setf('o1_line', l);
+  -- O2 a payout (approved) that includes a line under an open dispute
+  declare v_pay2 uuid := gen_random_uuid(); v_pay3 uuid := gen_random_uuid(); v_doc2 uuid := gen_random_uuid();
+  begin
+    insert into public.payouts (id, organisation_id, clinician_id, period_start, period_end, amount_kobo, line_count, state, approved_by, approved_at, recipient_code, payouts_config_id, is_test)
+    values (v_pay2, v_org, v_doc2, current_date - 7, current_date - 1, 100000, 1, 'approved', v_adm, now() - interval '1 day', 'RCP_fixture', v_cfg, false);
+    l := gen_random_uuid();
+    insert into public.earnings_ledger (id, organisation_id, clinician_id, kind, reference_type, reference_id, amount_kobo, fee_schedule_version_id, calculation, earned_at, employment_type, payout_id, is_test)
+    values (l, v_org, v_doc2, 'task', 'task', gen_random_uuid(), 100000, v_fee, '{}', now() - interval '9 days', 'contracted', v_pay2, false);
+    insert into public.earnings_disputes (organisation_id, ledger_id, clinician_id, reason_code, request_id, response_due_at, opened_at) values (v_org, l, v_doc2, 'wrong_amount', gen_random_uuid(), now() + interval '2 days', now());
+    perform pg_temp.setf('o2_payout', v_pay2);
+    -- O3 a payout that was sent while carrying a withholding amount
+    insert into public.payouts (id, organisation_id, clinician_id, period_start, period_end, amount_kobo, line_count, state, approved_by, approved_at, recipient_code, payouts_config_id, is_test, withholding_kobo)
+    values (v_pay3, v_org, gen_random_uuid(), current_date - 7, current_date - 1, 100000, 1, 'sent', v_adm, now() - interval '1 day', 'RCP_fixture', v_cfg, false, 10000);
+    insert into public.earnings_ledger (organisation_id, clinician_id, kind, reference_type, reference_id, amount_kobo, fee_schedule_version_id, calculation, earned_at, employment_type, payout_id, is_test)
+    select v_org, clinician_id, 'task', 'task', gen_random_uuid(), 100000, v_fee, '{}', now() - interval '9 days', 'contracted', v_pay3, false from public.payouts where id = v_pay3;
+    perform pg_temp.setf('o3_payout', v_pay3);
+  end;
+
   set local session_replication_role = origin;
 end $$;
 
@@ -463,6 +523,21 @@ begin
    (p_phase, 'clean: a fully sponsor-covered order has no payment row by design', 'none', pg_temp.seen_any(pg_temp.f('m1_sponsor_order'))),
    (p_phase, 'clean: a refund cash entry posted by hand under refund:<id> clears the kind', 'absent', pg_temp.seen('refund_completed_no_cash_posting', pg_temp.f('m4_refund'))),
    (p_phase, 'control: an approved refund decided just now is not yet late', 'absent', pg_temp.seen('refund_decided_not_sent', pg_temp.f('k5_refund')));
+
+  -- newer objects: instalment plans, per-part refunds, earnings holds, withholding
+  insert into results values
+   (p_phase, 'kind: instalment part paid with a different amount', 'reported', pg_temp.seen('instalment_payment_differs_from_part', pg_temp.f('n2_pay'))),
+   (p_phase, 'delta: instalment payment 50000 short of its part', '-50000', pg_temp.delta('instalment_payment_differs_from_part', pg_temp.f('n2_pay'))),
+   (p_phase, 'kind: instalment part paid with no ledger entry', 'reported', pg_temp.seen('instalment_paid_no_journal', pg_temp.f('n2_pay'))),
+   (p_phase, 'control: a part payment is not compared with the whole order price', 'absent', pg_temp.seen('payment_amount_differs_from_order', pg_temp.f('n2_pay'))),
+   (p_phase, 'clean: a plan order with its part paid, journalled by part and entitled', 'none', pg_temp.seen_any(pg_temp.f('n1_order'))),
+   (p_phase, 'clean: a part payment journalled as orderpart', 'none', pg_temp.seen_any(pg_temp.f('n1_pay'))),
+   (p_phase, 'clean: a per-part refund keyed on the part charge, order posted by part', 'none', pg_temp.seen_any(pg_temp.f('n4_refund'))),
+   (p_phase, 'kind: dispute answer overdue', 'reported', pg_temp.seen('earnings_dispute_overdue', pg_temp.f('o1_line'))),
+   (p_phase, 'kind: payout includes a line under open dispute', 'reported', pg_temp.seen('payout_includes_disputed_line', pg_temp.f('o2_payout'))),
+   (p_phase, 'kind: payout sent with a withholding', 'reported', pg_temp.seen('payout_sent_with_withholding', pg_temp.f('o3_payout'))),
+   (p_phase, 'delta: withholding amount', '10000', pg_temp.delta('payout_sent_with_withholding', pg_temp.f('o3_payout'))),
+   (p_phase, 'control: an open dispute not yet due is not overdue', 'absent', pg_temp.seen('earnings_dispute_overdue', pg_temp.f('o2_payout')));
 
   -- 4. test rows
   insert into results values

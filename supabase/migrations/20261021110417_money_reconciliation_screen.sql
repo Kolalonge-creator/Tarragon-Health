@@ -67,6 +67,7 @@ as $$
          'The payment is ' || p.amount_kobo || ' kobo but the order price is ' || o.amount_kobo || ' kobo.'
     from public.payments p join public.orders o on o.id = p.order_id
    where p.status = 'success' and p.amount_kobo <> o.amount_kobo and (p_include_test or not p.is_test)
+     and not exists (select 1 from public.order_instalments ip where ip.payment_id = p.id)   -- a part is compared with its own part amount (kind below)
   union all
   -- 6. Payment total is not amount plus fee.
   select 'payment_total_inconsistent', 'medium', p.organisation_id, 'payment', p.id, 'order', p.order_id,
@@ -96,6 +97,7 @@ as $$
          o.amount_kobo + o.sponsor_share_kobo, coalesce(o.paid_at, o.updated_at), 'finance', 'The order is paid but has no payment journal entry in the general ledger.'
     from public.orders o
    where o.state = 'paid' and not o.is_test and o.amount_kobo + o.sponsor_share_kobo > 0
+     and not exists (select 1 from public.order_instalment_plans pl where pl.order_id = o.id)   -- a plan order is posted per part (kind below)
      and coalesce(o.paid_at, o.updated_at) < now() - make_interval(mins => p_grace_minutes)
      and not exists (select 1 from public.finance_journal_entries je where je.source = 'payment' and je.source_ref = 'order:' || o.id)
   union all
@@ -126,7 +128,8 @@ as $$
        select 1 from public.payment_transactions pt
          join public.finance_journal_entries je on je.source = 'refund' and je.source_ref = pt.id::text
         where pt.event_type::text = 'refund.processed'
-          and pt.provider_event_id = 'refund:' || (select p.provider_reference from public.payments p where p.order_id = r.order_id and p.status = 'success' limit 1) || ':' || r.amount_kobo)
+          and pt.provider_event_id = 'refund:' || coalesce((select p.provider_reference from public.payments p where p.id = r.payment_id),
+                                       (select p.provider_reference from public.payments p where p.order_id = r.order_id and p.status = 'success' limit 1)) || ':' || r.amount_kobo)
   union all
   -- 13. Refund completed, deferred revenue release not yet stamped (the hourly catch-up has not finished it).
   select 'refund_gl_release_pending', 'medium', r.organisation_id, 'refund', r.id, 'order', r.order_id,
@@ -142,7 +145,8 @@ as $$
     from public.refunds r join public.orders o on o.id = r.order_id
    where r.state = 'completed' and not o.is_test and o.amount_kobo > 0 and (p_include_test or not r.is_test)
      and r.completed_at < now() - make_interval(mins => p_grace_minutes)
-     and not exists (select 1 from public.finance_journal_entries je where je.source = 'payment' and je.source_ref = 'order:' || o.id)
+     and not exists (select 1 from public.finance_journal_entries je where je.source = 'payment'
+                      and je.source_ref in ('order:' || o.id, 'orderpart:' || coalesce(r.payment_id::text, '')))
   union all
   -- 13c. The order is marked refunded (and the entitlement revoked) but the refund was approved or failed and the money has not gone back.
   select 'refund_decided_not_sent', 'high', r.organisation_id, 'refund', r.id, 'order', r.order_id,
@@ -242,7 +246,44 @@ as $$
     join public.payout_gl_postings s on s.payout_id = p.id and s.attempt = t.attempt and s.kind = 'sent' and s.status = 'posted'
    where t.state = 'reversed' and (p_include_test or not p.is_test)
      and t.updated_at < now() - make_interval(mins => p_grace_minutes)
-     and not exists (select 1 from public.payout_gl_postings g where g.payout_id = p.id and g.attempt = t.attempt and g.kind = 'reversal' and g.status in ('posted', 'skipped'));
+     and not exists (select 1 from public.payout_gl_postings g where g.payout_id = p.id and g.attempt = t.attempt and g.kind = 'reversal' and g.status in ('posted', 'skipped'))
+  union all
+  -- 23. A paid instalment part whose payment is not the amount of that part.
+  select 'instalment_payment_differs_from_part', 'high', i.organisation_id, 'payment', p.id, 'order', i.order_id,
+         p.amount_kobo - i.amount_kobo, p.created_at, 'finance',
+         'Part ' || i.seq || ' is ' || i.amount_kobo || ' kobo but the payment recorded for it is ' || p.amount_kobo || ' kobo.'
+    from public.order_instalments i join public.payments p on p.id = i.payment_id
+   where i.state = 'paid' and p.amount_kobo <> i.amount_kobo and (p_include_test or not i.is_test)
+  union all
+  -- 24. A paid instalment part that never reached the ledger (journal reference orderpart:<payment id>).
+  select 'instalment_paid_no_journal', 'high', i.organisation_id, 'payment', p.id, 'order', i.order_id,
+         i.amount_kobo, p.created_at, 'finance', 'Part ' || i.seq || ' is paid but has no part payment journal entry in the general ledger.'
+    from public.order_instalments i join public.payments p on p.id = i.payment_id
+   where i.state = 'paid' and not i.is_test
+     and p.created_at < now() - make_interval(mins => p_grace_minutes)
+     and not exists (select 1 from public.finance_journal_entries je where je.source = 'payment' and je.source_ref = 'orderpart:' || i.payment_id)
+  union all
+  -- 25. A payout that carries an earnings line with an open dispute. A disputed line is held out of the draft and cannot be disputed once
+  -- its payout is approved, so this means the hold did not work.
+  select 'payout_includes_disputed_line', 'high', p.organisation_id, 'payout', p.id, 'earnings_line', l.id,
+         l.amount_kobo, d.opened_at, 'finance', 'This payout includes an earnings line that is under an open dispute.'
+    from public.earnings_disputes d
+    join public.earnings_ledger l on l.id = d.ledger_id
+    join public.payouts p on p.id = l.payout_id
+   where d.state = 'open' and p.state in ('approved', 'sent', 'succeeded') and (p_include_test or not p.is_test)
+  union all
+  -- 26. A held (disputed) earnings line whose answer is overdue. Not wrong money, but a clinician is waiting and the line is not paying.
+  select 'earnings_dispute_overdue', 'medium', l.organisation_id, 'earnings_line', l.id, null, null,
+         l.amount_kobo, d.response_due_at, 'finance', 'The clinician questioned this earnings line and the answer is overdue. The line is held out of payouts until it is answered.'
+    from public.earnings_disputes d join public.earnings_ledger l on l.id = d.ledger_id
+   where d.state = 'open' and d.response_due_at < now() and (p_include_test or not d.is_test)
+  union all
+  -- 27. A payout with a withholding amount that has been sent. Sending is refused while a withholding is undecided (OQ-193), so this means
+  -- it got through.
+  select 'payout_sent_with_withholding', 'high', p.organisation_id, 'payout', p.id, null, null,
+         p.withholding_kobo, p.updated_at, 'finance', 'The payout was sent although it carries a withholding amount, which must be decided before sending.'
+    from public.payouts p
+   where p.state in ('sent', 'succeeded') and p.withholding_kobo > 0 and (p_include_test or not p.is_test);
 $$;
 revoke all on function private.money_mismatches(boolean, integer, integer) from public, anon, authenticated;
 
