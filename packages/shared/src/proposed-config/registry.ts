@@ -2342,6 +2342,21 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/research/S26-S30-competitor-review-and-build-plan.md (S26b); supabase/migrations/20261021091357_s26b_entitlement_and_refund_hardening.sql",
   },
   {
+    key: "instalments.membership_schedule",
+    // S25b: how the annual Membership can be paid in parts (founder decision 2026-10-20, against INV-09). `parts` payments; part n is due
+    // `due_offsets_days[n-1]` days after the FIRST part is paid (the first offset is always 0); access unlocks after the first part and its 365 days run
+    // from it. A part still unpaid `grace_days` after its due date lapses access until it is paid. Reminders go `reminder_days_before` days before a
+    // due date (0 = on the day). Behind the platform module membership_instalments (OFF). PROPOSED, founder and counsel decisions pending
+    // (OQ-715 to OQ-718). Mirrored by instalment_policy_config in the migration seed, with a drift test. The last due date plus the grace must fall
+    // inside the access window; the database refuses a schedule that does not.
+    value: { parts: 3, due_offsets_days: [0, 30, 60], grace_days: 5, reminder_days_before: [3, 0] },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/S25b.md; docs/OPEN-QUESTIONS.md OQ-715; supabase/migrations/20261021104312_s25b_membership_instalments.sql",
+  },
+  {
     key: "refunds.order_rules",
     // S26b: the plain-words refund rule shown at checkout and on the receipt. cooling_off_days applies to every order that is not a Membership
     // (a Membership uses membership.refund). decision_sla_days is how long the care team has to answer; bank_days_min/max is the usual time for
