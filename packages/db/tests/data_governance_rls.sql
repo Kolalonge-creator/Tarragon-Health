@@ -406,8 +406,8 @@ declare
   v_threshold_recorded integer;
   v_owner_notification_count bigint;
 begin
-  insert into public.lab_providers (name, is_active, license_expires_at, compliance_owner_profile_id, regions)
-  values ('DG Test Lab Provider', true, now() + interval '20 days', v_admin, array['Lagos'])
+  insert into public.lab_providers (name, is_active, license_expires_at, compliance_owner_profile_id, regions, license_number, license_verified_at, accreditation)
+  values ('DG Test Lab Provider', true, now() + interval '20 days', v_admin, array['Lagos'], 'S27H-PROOF-1', now(), 'ISO 15189')
   returning id into v_lab_id;
 
   perform private.queue_partner_license_expiry_alerts();

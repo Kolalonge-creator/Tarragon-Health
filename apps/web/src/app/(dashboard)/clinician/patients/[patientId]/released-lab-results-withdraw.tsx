@@ -1,12 +1,15 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { listReleasedLabResults, withdrawResult } from "@/lib/lab-results/structured-actions";
-import type { ReleasedResultRow } from "@/lib/lab-results/structured";
+import { listReleasedLabResults, openLabResult, withdrawResult } from "@/lib/lab-results/structured-actions";
+import { writeTrendNote } from "@/lib/lab-results/lifecycle-actions";
+import { analyteLabel } from "@/lib/lab-results/lifecycle";
+import type { ReleasedResultRow, ReviewResult } from "@/lib/lab-results/structured";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 const TOUCH = "min-h-11";
@@ -29,6 +32,57 @@ function WithdrawForm({ id }: { id: string }) {
       <Textarea id={`wd-${id}`} name="reason" rows={2} maxLength={500} required />
       {state?.error ? <p role="alert" className="text-sm text-red-700">{state.error}</p> : null}
       <Button type="submit" className={TOUCH} disabled={pending}>Withdraw this result</Button>
+    </form>
+  );
+}
+
+/**
+ * A short note the patient sees beside one released numeric value in their trend. Written by a person, 300 characters at most. A
+ * screening analyte or a value that is not a number cannot carry one (the database refuses it too). Opening the values is the audited read.
+ */
+function TrendNoteForm({ id }: { id: string }) {
+  const [result, setResult] = useState<ReviewResult | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const [state, action, saving] = useActionState(writeTrendNote, undefined);
+  if (!result) {
+    return (
+      <div className="w-full">
+        <Button
+          type="button"
+          variant="outline"
+          className={TOUCH}
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const r = await openLabResult(id);
+              setResult(r.result ?? null);
+              setLoadError(r.error ?? null);
+            })
+          }
+        >
+          Add a note for the patient
+        </Button>
+        {loadError ? <p role="alert" className="mt-1 text-sm text-red-700">{loadError}</p> : null}
+      </div>
+    );
+  }
+  const options = result.items.filter((i) => i.value_numeric !== null && !i.sensitive_positive);
+  if (options.length === 0) return <p className="text-sm text-charcoal-ink/70">There is no numeric value on this result that can carry a note.</p>;
+  return (
+    <form action={action} className="w-full space-y-2">
+      <input type="hidden" name="result_id" value={id} />
+      <Label htmlFor={`tn-a-${id}`}>Which value?</Label>
+      <Select id={`tn-a-${id}`} name="analyte" defaultValue={options[0]?.analyte_code} className={TOUCH}>
+        {options.map((i) => (
+          <option key={i.analyte_code} value={i.analyte_code}>{analyteLabel(i.analyte_code)}</option>
+        ))}
+      </Select>
+      <Label htmlFor={`tn-n-${id}`}>Note for the patient (plain words, up to 300 characters)</Label>
+      <Textarea id={`tn-n-${id}`} name="note" rows={2} maxLength={300} required />
+      {state?.error ? <p role="alert" className="text-sm text-red-700">{state.error}</p> : null}
+      {state?.success ? <p role="status" className="text-sm text-green-800">Saved. The patient sees it beside this value once they have two results to compare.</p> : null}
+      <Button type="submit" className={TOUCH} disabled={saving}>Save the note</Button>
     </form>
   );
 }
@@ -84,7 +138,12 @@ export function ReleasedLabResultsWithdraw({ patientId }: { patientId: string })
                     Released {r.released_at ? new Date(r.released_at).toLocaleDateString("en-NG", { timeZone: "Africa/Lagos" }) : "earlier"} · {r.item_count} values, {r.abnormal_count} outside range
                   </p>
                 </div>
-                {r.withdrawn ? <Badge variant="grey">Withdrawn</Badge> : r.replaced ? <Badge variant="grey">Replaced</Badge> : <WithdrawForm id={r.lab_result_id} />}
+                {r.withdrawn ? <Badge variant="grey">Withdrawn</Badge> : r.replaced ? <Badge variant="grey">Replaced</Badge> : (
+                  <div className="flex w-full flex-col gap-2">
+                    <TrendNoteForm id={r.lab_result_id} />
+                    <WithdrawForm id={r.lab_result_id} />
+                  </div>
+                )}
               </li>
             ))}
           </ul>

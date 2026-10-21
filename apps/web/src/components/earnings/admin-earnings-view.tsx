@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
@@ -60,7 +61,8 @@ export async function AdminEarningsView() {
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Fees and earnings</h1>
         <p className="text-sm text-charcoal-ink/60">
           Set what contracted clinicians earn per piece of work, approve it, and see what is owed. Employed doctors are paid by salary and never appear here.
-          Money is paid out in a later step; nothing on this page moves money.
+          Money is paid out in a later step; nothing on this page moves money. Clinicians&apos; questions about a line, and pilot-minimum top-ups held for a check, are on the{" "}
+          <Link href="/admin/earnings/disputes" className="underline">earnings questions page</Link>.
         </p>
       </div>
 

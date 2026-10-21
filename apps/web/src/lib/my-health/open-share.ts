@@ -10,6 +10,12 @@ export type OpenShareResult =
 
 const PIN_FORMAT = /^[0-9]{4,12}$/;
 
+/** The viewer's address as the platform proxy reports it (first x-forwarded-for entry, else x-real-ip). Only ever hashed by the database, only used to slow wrong PINs. */
+export function clientKeyFromHeaders(headers: { get(name: string): string | null | undefined }): string | null {
+  const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwarded || headers.get("x-real-ip") || null;
+}
+
 export function isWellFormedPin(pin: string): boolean {
   return PIN_FORMAT.test(pin);
 }
