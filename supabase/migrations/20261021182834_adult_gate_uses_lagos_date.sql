@@ -21,6 +21,10 @@
 --   private.proxy_review_state(uuid, uuid)   proxy yearly review applies to adults
 --   private.sweep_dependent_majority_review()  flags a dependant who has turned 18
 --   private.report_caregiver_scope(uuid, uuid) hand-over at 18 for a guardian's read
+--   private.compute_dependent_transition_state(date), private.adolescent_age_band(uuid)
+--                                              the child / independent switch at 18 (age(current_date, dob))
+-- Other age(current_date, dob) uses (screening schedules, vitals plausibility, patient_age_years, clinical context) are a
+-- display or eligibility age, not the 18 boundary, and are left for a separate pass.
 -- Not changed on purpose: private.sweep_dependant_handovers, private.threshold_override_ineligible and private.cohort_patient
 -- already use the Lagos date; other uses of current_date that are not an age check are left alone.
 --
@@ -58,7 +62,9 @@ begin
       ('private.nutrition_targets_withheld(uuid)',                          'age'),
       ('private.proxy_review_state(uuid,uuid)',                             'age'),
       ('private.sweep_dependent_majority_review()',                         'age'),
-      ('private.report_caregiver_scope(uuid,uuid)',                         'turned18')
+      ('private.report_caregiver_scope(uuid,uuid)',                         'turned18'),
+      ('private.compute_dependent_transition_state(date)',                  'agefn'),
+      ('private.adolescent_age_band(uuid)',                                 'agefn')
     ) as t(sig, kind)
   loop
     v_oid := to_regprocedure(r.sig);
@@ -74,6 +80,10 @@ begin
     if r.kind = 'age' then
       v_pattern := 'current_date(\s*-\s*interval\s*''18 years'')';
       v_new := regexp_replace(v_def, v_pattern, 'private.lagos_today()\1', 'g');
+    elsif r.kind = 'agefn' then
+      -- age(current_date, dob): the child / adolescent / independent bands switch at 18 on the same day as the gate
+      v_pattern := 'age\(\s*current_date\s*,';
+      v_new := regexp_replace(v_def, v_pattern, 'age(private.lagos_today(),', 'g');
     else
       -- (p.date_of_birth + interval '18 years')::date <= current_date
       v_pattern := '(interval\s*''18 years''\)::date\s*<=\s*)current_date';
@@ -102,15 +112,17 @@ begin
     end if;
   end loop;
 
-  if v_changed <> 9 then
-    raise exception 'lagos date fix: expected 9 functions, changed %', v_changed;
+  if v_changed <> 11 then
+    raise exception 'lagos date fix: expected 11 functions, changed %', v_changed;
   end if;
 
   -- final assertions: no 18-year rule in private/public still reads the UTC date, and nothing is reachable by anon
   if exists (
     select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname in ('public', 'private')
-       and p.prosrc ~ 'current_date\s*-\s*interval\s*''18 years'''
+       and (p.prosrc ~ 'current_date\s*-\s*interval\s*''18 years'''
+            or p.oid in ('private.compute_dependent_transition_state(date)'::regprocedure,
+                         'private.adolescent_age_band(uuid)'::regprocedure) and p.prosrc ~ 'age\(\s*current_date')
   ) then
     raise exception 'lagos date fix: a function still compares an 18 year age with current_date';
   end if;

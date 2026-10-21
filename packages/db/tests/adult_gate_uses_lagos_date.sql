@@ -42,6 +42,11 @@ begin
   ) then
     raise exception 'FAIL 4d: a gate function does not use private.lagos_today()';
   end if;
+  if exists (select 1 from pg_proc p where p.oid in ('private.compute_dependent_transition_state(date)'::regprocedure,
+                                                    'private.adolescent_age_band(uuid)'::regprocedure)
+                and p.prosrc ~ 'age\(\s*current_date') then
+    raise exception 'FAIL 4f: the 18 year age bands still use the UTC date';
+  end if;
   if has_function_privilege('anon', 'private.enforce_adult_registration()', 'EXECUTE')
      or has_function_privilege('anon', 'private.is_minor_dependant(uuid)', 'EXECUTE') then
     raise exception 'FAIL 4e: anon can execute a gate function';
@@ -113,6 +118,10 @@ begin
   if private.is_minor_dependant(kid18) then
     raise exception 'FAIL 1c [%]: a child who turns 18 today in Lagos is still counted as a minor dependant', p_tag;
   end if;
+  if private.compute_dependent_transition_state((d - interval '18 years')::date)::text <> 'independent'
+     or private.adolescent_age_band(kid18) <> 'adult' then
+    raise exception 'FAIL 1d [%]: the transition state / age band does not treat 18 today in Lagos as an adult', p_tag;
+  end if;
 
   -- 2. 18th birthday tomorrow in Lagos: refused, still a minor
   m := pg_temp.reg(((d - interval '18 years')::date + 1), p_tag || '-tomorrow@example.invalid');
@@ -127,6 +136,10 @@ begin
   kid_tomorrow := pg_temp.mkkid(((d - interval '18 years')::date + 1), guardian, v_org);
   if not private.is_minor_dependant(kid_tomorrow) then
     raise exception 'FAIL 2c [%]: a child whose 18th birthday is tomorrow in Lagos is not counted as a minor dependant', p_tag;
+  end if;
+  if private.compute_dependent_transition_state(((d - interval '18 years')::date + 1)) = 'independent'
+     or private.adolescent_age_band(kid_tomorrow) = 'adult' then
+    raise exception 'FAIL 2d [%]: the transition state / age band calls 18th birthday tomorrow in Lagos an adult', p_tag;
   end if;
 
   -- 3. under-18 stays refused / minor; an adult stays accepted
@@ -206,6 +219,24 @@ do $$
 declare src text := pg_get_functiondef('private.is_minor_dependant(uuid)'::regprocedure);
 begin
   execute replace(src, 'current_date', 'private.lagos_today()');
+end $$;
+
+-- 5e. the transition state and age band back on the UTC date
+do $$
+declare a text := pg_get_functiondef('private.compute_dependent_transition_state(date)'::regprocedure);
+        b text := pg_get_functiondef('private.adolescent_age_band(uuid)'::regprocedure);
+begin
+  if a !~ 'lagos_today' or b !~ 'lagos_today' then raise exception 'sabotage 5e: functions do not use the helper'; end if;
+  execute replace(a, 'private.lagos_today()', 'current_date');
+  execute replace(b, 'private.lagos_today()', 'current_date');
+  perform pg_temp.expect_fail('s5e', 'FAIL 1d');
+end $$;
+do $$
+declare a text := pg_get_functiondef('private.compute_dependent_transition_state(date)'::regprocedure);
+        b text := pg_get_functiondef('private.adolescent_age_band(uuid)'::regprocedure);
+begin
+  execute replace(a, 'current_date', 'private.lagos_today()');
+  execute replace(b, 'current_date', 'private.lagos_today()');
 end $$;
 
 -- 5d. the helper a day too far behind (a wrong date): the tomorrow case must be accepted wrongly, so check 2 would fail
