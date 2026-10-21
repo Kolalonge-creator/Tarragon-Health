@@ -24,6 +24,7 @@ import { LabPanelsPanel } from "../_signoff-panels/lab-panels-panel";
 import { LabFallbackPanel } from "../_signoff-panels/lab-fallback-panel";
 import { ClinicalConfigVersionsPanel } from "../_signoff-panels/clinical-config-versions-panel";
 import { PrnLimitRulesPanel } from "../_signoff-panels/prn-limit-rules-panel";
+import { MedicineInteractionRulesPanel } from "../_signoff-panels/medicine-interaction-rules-panel";
 import { HomeBpProgrammePanel } from "../_signoff-panels/home-bp-programme-panel";
 import { CuffCheckRulesPanel } from "../_signoff-panels/cuff-check-rules-panel";
 import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
@@ -92,6 +93,7 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   lab_fallback_wording_signoffs: () => <LabFallbackPanel />,
   clinical_config_versions: () => <ClinicalConfigVersionsPanel />,
   prn_limit_rules: () => <PrnLimitRulesPanel />,
+  medicine_interaction_rule_sets: () => <MedicineInteractionRulesPanel />,
   home_bp_programme_signoffs: () => <HomeBpProgrammePanel />,
   cuff_check_rules: () => <CuffCheckRulesPanel />,
   my_health_config: () => <MyHealthConfigPanel />,

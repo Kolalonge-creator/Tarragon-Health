@@ -14,6 +14,7 @@ export type VersionedGovernedTable =
   | "lab_panel_signoffs"
   | "lab_fallback_wording_signoffs"
   | "prn_limit_rules"
+  | "medicine_interaction_rule_sets"
   | "my_health_config"
   | "nutrition_target_config"
   | "activity_safety_config"

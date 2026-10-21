@@ -721,6 +721,8 @@ export function getNavSections(
                 },
                 { label: "Vaccination schedule", href: "/clinician/vaccination-schedule", icon: "vaccination" },
                 { label: "As-needed medicine limits", href: "/clinician/prn-limit-rules", icon: "review" },
+                { label: "Medicine interaction rules", href: "/clinician/medicine-interaction-rules", icon: "review" },
+                { label: "Medicine brand names", href: "/clinician/medicine-brand-map", icon: "review" },
                 { label: "Provider quality", href: "/clinician/provider-quality", icon: "analytics" },
               ],
             },
