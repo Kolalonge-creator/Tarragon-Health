@@ -39,8 +39,11 @@ begin
      or coalesce(jsonb_typeof(p_config -> 'safety'), '') <> 'object' or coalesce(jsonb_typeof(p_config -> 'medicine_review'), '') <> 'object' then
     return false;
   end if;
+  -- the fields the safety code casts to integer must be whole numbers, or a runtime cast would fail inside a trigger
   if coalesce((p_config #>> '{eligibility,min_age_years}')::numeric, 0) < 18
+     or (p_config #>> '{eligibility,min_age_years}')::numeric <> trunc((p_config #>> '{eligibility,min_age_years}')::numeric)
      or coalesce((p_config #>> '{eligibility,postnatal_months}')::numeric, 0) <= 0
+     or (p_config #>> '{eligibility,postnatal_months}')::numeric <> trunc((p_config #>> '{eligibility,postnatal_months}')::numeric)
      or coalesce((p_config #>> '{eligibility,severe_hypo_below_mmol}')::numeric, 0) <= 0
      or coalesce((p_config #>> '{eligibility,hypo_lookback_days}')::numeric, 0) <= 0
      or coalesce((p_config #>> '{eligibility,triage_lookback_hours}')::numeric, 0) <= 0
@@ -64,11 +67,13 @@ begin
   if coalesce((p_config #>> '{safety,pause_glucose_below_mmol}')::numeric, 0) <= 0
      or coalesce((p_config #>> '{safety,pause_ketones_at_or_above_mmol}')::numeric, 0) <= 0
      or coalesce((p_config #>> '{safety,stop_after_pauses_in_30_days}')::numeric, 0) <= 0
+     or (p_config #>> '{safety,stop_after_pauses_in_30_days}')::numeric <> trunc((p_config #>> '{safety,stop_after_pauses_in_30_days}')::numeric)
      or coalesce((p_config #>> '{safety,stop_if_checkins_missed_days}')::numeric, 0) <= 0 then
     return false;
   end if;
   if coalesce((p_config #>> '{medicine_review,window_days}')::numeric, 0) <= 0
      or coalesce((p_config #>> '{medicine_review,min_readings}')::numeric, 0) <= 0
+     or (p_config #>> '{medicine_review,min_readings}')::numeric <> trunc((p_config #>> '{medicine_review,min_readings}')::numeric)
      or coalesce((p_config #>> '{medicine_review,avg_glucose_below_mmol}')::numeric, 0) <= 0
      or coalesce((p_config #>> '{medicine_review,any_glucose_below_mmol}')::numeric, 0) <= 0
      or coalesce((p_config #>> '{medicine_review,standing_review_days}')::numeric, 0) <= 0 then
@@ -124,9 +129,9 @@ values (1, false, $json${
    "ketoacidosis_history": {"name_patterns": ["ketoacidosis", "dka"], "icd10_prefixes": []}
   },
   "medicine_groups": {
-   "insulin": {"name_patterns": ["insulin", "lantus", "humulin", "novorapid", "mixtard"], "handling": "supervision"},
+   "insulin": {"name_patterns": ["insulin", "lantus", "humulin", "novorapid", "mixtard", "tresiba", "levemir", "toujeo", "humalog", "lyumjev", "apidra", "fiasp", "basaglar"], "handling": "supervision"},
    "sulfonylurea": {"name_patterns": ["glibenclamide", "gliclazide", "glimepiride", "glipizide", "daonil", "diamicron", "amaryl"], "handling": "supervision"},
-   "sglt2_inhibitor": {"name_patterns": ["gliflozin", "jardiance", "forxiga", "invokana"], "handling": "exclude"}
+   "sglt2_inhibitor": {"name_patterns": ["gliflozin", "jardiance", "forxiga", "invokana", "synjardy", "xigduo", "glyxambi", "steglatro"], "handling": "exclude"}
   }
  },
  "check_ins": {
@@ -324,6 +329,7 @@ create table public.lowcarb_programme_events (
   patient_id      uuid not null references public.profiles (id) on delete cascade,
   kind            text not null check (kind in ('offered', 'accepted', 'declined', 'paused', 'resumed', 'stopped', 'review_raised', 'review_completed', 'expired')),
   code            text,
+  note            text check (note is null or length(note) <= 2000),
   actor_id        uuid references public.profiles (id) on delete set null,
   is_test         boolean not null default false,
   created_at      timestamptz not null default clock_timestamp()
@@ -377,13 +383,13 @@ create trigger lowcarb_programme_events_append_only before update or delete on p
   for each row execute function private.lowcarb_events_append_only();
 revoke all on function private.lowcarb_events_append_only() from public, anon, authenticated;
 
-create function private.lowcarb_event(p_enrol uuid, p_kind text, p_code text, p_actor uuid) returns void
+create function private.lowcarb_event(p_enrol uuid, p_kind text, p_code text, p_actor uuid, p_note text default null) returns void
 language sql security definer set search_path = ''
 as $$
-  insert into public.lowcarb_programme_events (organisation_id, enrolment_id, patient_id, kind, code, actor_id, is_test)
-  select e.organisation_id, e.id, e.patient_id, p_kind, p_code, p_actor, e.is_test from public.lowcarb_enrolments e where e.id = p_enrol;
+  insert into public.lowcarb_programme_events (organisation_id, enrolment_id, patient_id, kind, code, note, actor_id, is_test)
+  select e.organisation_id, e.id, e.patient_id, p_kind, p_code, p_note, p_actor, e.is_test from public.lowcarb_enrolments e where e.id = p_enrol;
 $$;
-revoke all on function private.lowcarb_event(uuid, text, text, uuid) from public, anon, authenticated;
+revoke all on function private.lowcarb_event(uuid, text, text, uuid, text) from public, anon, authenticated;
 
 -- A neutral notice (INV-07): it names no condition, reading or medicine.
 insert into public.notification_templates (key, category, business_priority, audience, default_channels, timing, description) values
@@ -415,11 +421,11 @@ as $$
 begin
   raise warning 'low-carbohydrate programme safety action failed for a patient: % %', p_state, p_msg;
   begin
-    if not exists (select 1 from public.ops_incidents where external_reference = 'lowcarb_programme_safety' and status not in ('resolved', 'closed')) then
+    if not exists (select 1 from public.ops_incidents where external_reference = 'lowcarb_programme_safety:' || p_patient and status not in ('resolved', 'closed')) then
       insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
       values ((select organisation_id from public.profiles where id = p_patient), 'technical', 'sev2', 'A low-carbohydrate programme safety action failed',
               format('The programme safety action raised %s (%s). The reading or triage event was saved; only the programme pause or review task was skipped. List the people with an active enrolment and check each by hand. Check task type lowcarb_medicine_review and the signed configuration.', p_state, p_msg),
-              'lowcarb_programme_safety', now(), now());
+              'lowcarb_programme_safety:' || p_patient, now(), now());
     end if;
   exception when others then
     raise warning 'could not open an incident for the low-carbohydrate programme: %', sqlerrm;
@@ -449,7 +455,11 @@ begin
   v_was_running := e.status in ('active', 'paused');
   update public.lowcarb_enrolments set status = 'stopped', stopped_at = now(), stop_code = p_code where id = p_enrol;
   perform private.lowcarb_event(p_enrol, 'stopped', p_code, p_actor);
-  perform private.written_care_notify(e.patient_id, e.organisation_id, 'lowcarb_programme_update', '{}'::jsonb);
+  begin
+    perform private.written_care_notify(e.patient_id, e.organisation_id, 'lowcarb_programme_update', '{}'::jsonb);
+  exception when others then
+    perform private.lowcarb_open_incident(e.patient_id, sqlstate, sqlerrm);
+  end;
   -- Stopping the diet can change what the medicines need, so a doctor looks at them. Never silent: a failure opens an incident.
   if v_was_running then
     begin
@@ -468,9 +478,14 @@ declare e public.lowcarb_enrolments%rowtype; v_cfg jsonb := private.lowcarb_cfg(
 begin
   select * into e from public.lowcarb_enrolments where id = p_enrol for update;
   if not found or e.status <> 'active' then return; end if;
-  update public.lowcarb_enrolments set status = 'paused', paused_at = now(), pause_code = p_code where id = p_enrol;
+  update public.lowcarb_enrolments set status = 'paused', paused_at = clock_timestamp(), pause_code = p_code where id = p_enrol;
   perform private.lowcarb_event(p_enrol, 'paused', p_code, p_actor);
-  perform private.written_care_notify(e.patient_id, e.organisation_id, 'lowcarb_programme_update', '{}'::jsonb);
+  -- The pause and its event are saved. Nothing after this line may undo them: each later step has its own block and opens an incident on failure.
+  begin
+    perform private.written_care_notify(e.patient_id, e.organisation_id, 'lowcarb_programme_update', '{}'::jsonb);
+  exception when others then
+    perform private.lowcarb_open_incident(e.patient_id, sqlstate, sqlerrm);
+  end;
   -- The pause is already saved. A failure to open the review task must not undo it, and must not pass quietly: it opens an incident.
   begin
     perform private.lowcarb_raise_review(p_enrol, 'paused_' || p_code);
@@ -478,10 +493,14 @@ begin
     perform private.lowcarb_open_incident(e.patient_id, sqlstate, sqlerrm);
   end;
   -- the stop rule: too many pauses in 30 days ends the programme safely
-  v_limit := coalesce((v_cfg #>> '{safety,stop_after_pauses_in_30_days}')::integer, 3);
-  select count(*) into v_pauses from public.lowcarb_programme_events
-   where enrolment_id = p_enrol and kind = 'paused' and created_at > now() - interval '30 days';
-  if v_pauses >= v_limit then perform private.lowcarb_stop(p_enrol, 'repeated_pauses', null); end if;
+  begin
+    v_limit := coalesce((v_cfg #>> '{safety,stop_after_pauses_in_30_days}')::integer, 3);
+    select count(*) into v_pauses from public.lowcarb_programme_events
+     where enrolment_id = p_enrol and kind = 'paused' and created_at > now() - interval '30 days';
+    if v_pauses >= v_limit then perform private.lowcarb_stop(p_enrol, 'repeated_pauses', null); end if;
+  exception when others then
+    perform private.lowcarb_open_incident(e.patient_id, sqlstate, sqlerrm);
+  end;
 end $$;
 revoke all on function private.lowcarb_pause(uuid, text, uuid) from public, anon, authenticated;
 
@@ -526,15 +545,23 @@ begin
       if v_value < (v_cfg #>> '{safety,pause_glucose_below_mmol}')::numeric then
         perform private.lowcarb_pause(r.id, 'low_glucose', null);
       elsif v_value < (v_cfg #>> '{medicine_review,any_glucose_below_mmol}')::numeric then
-        perform private.lowcarb_raise_review(r.id, 'low_normal_glucose');
+        begin
+          perform private.lowcarb_raise_review(r.id, 'low_normal_glucose');
+        exception when others then
+          perform private.lowcarb_open_incident(new.patient_id, sqlstate, sqlerrm);
+        end;
       end if;
-      -- sugars falling: the average of the window is below the line, with enough readings
-      select count(*), avg(v.glucose_mmol_l) into v_n, v_avg from private.vitals_readings_current v
-       where v.patient_id = new.patient_id and v.vital_type = 'glucose' and v.glucose_mmol_l is not null
-         and v.taken_at <= now() and v.taken_at >= now() - (v_cfg #>> '{medicine_review,window_days}')::numeric * interval '1 day';
-      if v_n >= (v_cfg #>> '{medicine_review,min_readings}')::integer and v_avg < (v_cfg #>> '{medicine_review,avg_glucose_below_mmol}')::numeric then
-        perform private.lowcarb_raise_review(r.id, 'average_glucose_low');
-      end if;
+      -- sugars falling: the average of the window is below the line, with enough readings. Its own block: a failure here can never undo the pause above.
+      begin
+        select count(*), avg(v.glucose_mmol_l) into v_n, v_avg from private.vitals_readings_current v
+         where v.patient_id = new.patient_id and v.vital_type = 'glucose' and v.glucose_mmol_l is not null
+           and v.taken_at <= now() and v.taken_at >= now() - (v_cfg #>> '{medicine_review,window_days}')::numeric * interval '1 day';
+        if v_n >= (v_cfg #>> '{medicine_review,min_readings}')::integer and v_avg < (v_cfg #>> '{medicine_review,avg_glucose_below_mmol}')::numeric then
+          perform private.lowcarb_raise_review(r.id, 'average_glucose_low');
+        end if;
+      exception when others then
+        perform private.lowcarb_open_incident(new.patient_id, sqlstate, sqlerrm);
+      end;
     elsif new.vital_type = 'ketones' and new.ketones_mmol_l is not null then
       if new.ketones_mmol_l >= (v_cfg #>> '{safety,pause_ketones_at_or_above_mmol}')::numeric then
         perform private.lowcarb_pause(r.id, 'high_ketones', null);
@@ -547,7 +574,8 @@ begin
 end $$;
 revoke all on function private.lowcarb_on_reading() from public, anon, authenticated;
 
--- The sweep (not scheduled by this migration, see the open question): pregnancy that appears after enrolment pauses it; lapsed check-ins stop it.
+-- The sweep (not scheduled by this migration; the go-live guard requires someone to attest that it is scheduled): anyone who no longer meets the screen
+-- is paused, and lapsed check-ins stop the programme.
 create function private.lowcarb_sweep() returns integer
 language plpgsql security definer set search_path = ''
 as $$
@@ -556,7 +584,10 @@ begin
   if v_cfg is null then return 0; end if;
   for r in select e.* from public.lowcarb_enrolments e where e.status in ('active', 'paused') loop
     begin
-      if r.status = 'active' and private.lowcarb_pregnancy_state(r.patient_id, (v_cfg #>> '{eligibility,postnatal_months}')::integer) = 'yes' then
+      -- Everything the screen excludes on: a new pregnancy, a condition entered since, an excluded medicine started, a type change. (A recent red or
+      -- amber result is not re-checked here: it pauses through the triage trigger the moment it happens.)
+      if r.status = 'active'
+         and private.lowcarb_eligibility_for(r.patient_id, r.supervision_accepted, r.no_recent_admission) ->> 'decision' = 'not_eligible' then
         perform private.lowcarb_pause(r.id, 'no_longer_eligible', null); v_n := v_n + 1; continue;
       end if;
       select max(v.taken_at) into v_last from private.vitals_readings_current v
@@ -598,9 +629,12 @@ begin
   perform private.audit_patient_read(p_patient, 'lowcarb_eligibility', null, 'A clinician checked programme eligibility', 'lowcarb.eligibility_viewed');
   v_repro := coalesce(private.staff_may_read(p_patient, v_org, 'reproductive_health'::public.care_access_category), false);
   v := private.lowcarb_eligibility_for(p_patient, p_supervision_accepted, p_no_recent_admission);
-  return jsonb_build_object('decision', v -> 'decision', 'supervision_for', v -> 'supervision_for',
-    'reasons', (select coalesce(jsonb_agg(distinct case when r in ('pregnancy_or_postnatal', 'pregnancy_unknown') and not v_repro then 'health_condition' else r end), '[]'::jsonb)
-                  from jsonb_array_elements_text(v -> 'reasons') r));
+  -- A clinician the category-scoped path does not entitle to reproductive health sees ONE vague reason for every "not eligible", whatever its cause, so the
+  -- answer cannot tell them whether pregnancy was involved.
+  if not v_repro and v ->> 'decision' = 'not_eligible' then
+    return jsonb_build_object('decision', 'not_eligible', 'supervision_for', '[]'::jsonb, 'reasons', jsonb_build_array('health_condition'));
+  end if;
+  return jsonb_build_object('decision', v -> 'decision', 'supervision_for', v -> 'supervision_for', 'reasons', v -> 'reasons');
 end $$;
 revoke all on function public.lowcarb_eligibility(uuid, boolean, boolean) from public, anon;
 grant execute on function public.lowcarb_eligibility(uuid, boolean, boolean) to authenticated;
@@ -622,7 +656,7 @@ begin
   if v_pr.id is null or not private.lowcarb_can_act(p_patient) then
     raise exception 'Not authorised to offer this programme' using errcode = '42501';
   end if;
-  if not private.go_live_open_patient('low_carb_t2d_programme', p_patient) then
+  if not private.go_live_open('low_carb_t2d_programme', p_patient, v_uid) then
     raise exception 'This programme is not open yet' using errcode = '55000';
   end if;
   select * into v_cfg from public.lowcarb_protocol_config where is_active and approved_by is not null;
@@ -637,8 +671,8 @@ begin
   if v ->> 'decision' <> 'eligible' then
     v_repro := coalesce(private.staff_may_read(p_patient, v_pr.organisation_id, 'reproductive_health'::public.care_access_category), false);
     raise exception 'This person cannot be offered the programme now (%)', v ->> 'decision' using errcode = '22023',
-      detail = (select coalesce(string_agg(distinct case when r in ('pregnancy_or_postnatal', 'pregnancy_unknown') and not v_repro then 'health_condition' else r end, ','), '')
-                  from jsonb_array_elements_text(v -> 'reasons') r);
+      detail = case when v ->> 'decision' = 'not_eligible' and not v_repro then 'health_condition'
+                    else (select coalesce(string_agg(distinct r, ','), '') from jsonb_array_elements_text(v -> 'reasons') r) end;
   end if;
   insert into public.lowcarb_enrolments (organisation_id, patient_id, recorded_by, no_recent_admission, supervision_accepted, supervision_note, config_version, is_test)
   values (v_pr.organisation_id, p_patient, v_uid, true, coalesce(p_supervision_accepted, false), nullif(btrim(coalesce(p_supervision_note, '')), ''), v_cfg.version, coalesce(v_pr.is_test, false))
@@ -661,6 +695,12 @@ begin
   select * into e from public.lowcarb_enrolments where id = p_enrolment and patient_id = v_uid for update;
   if not found or e.status <> 'offered' then raise exception 'There is no open offer to answer' using errcode = '22023'; end if;
   if p_accept is null then raise exception 'Say yes or no' using errcode = '22023'; end if;
+  -- The doctor's confirmations were true on the day of the offer: an offer older than 14 days lapses and is made again.
+  if e.offered_at < now() - interval '14 days' then
+    update public.lowcarb_enrolments set status = 'expired', stopped_at = now() where id = e.id;
+    perform private.lowcarb_event(e.id, 'expired', 'offer_lapsed', null);
+    return 'unavailable';
+  end if;
   if not p_accept then
     update public.lowcarb_enrolments set status = 'declined' where id = e.id;
     perform private.lowcarb_event(e.id, 'declined', null, v_uid);
@@ -702,7 +742,11 @@ begin
   select * into e from public.lowcarb_enrolments where id = p_enrolment for update;
   if e.id is null or not private.lowcarb_can_act(e.patient_id) then raise exception 'Not authorised' using errcode = '42501'; end if;
   if e.status <> 'paused' then raise exception 'Only a paused programme can be resumed' using errcode = '22023'; end if;
-  if not private.go_live_open_patient('low_carb_t2d_programme', e.patient_id) then raise exception 'This programme is not open' using errcode = '55000'; end if;
+  if not private.go_live_open('low_carb_t2d_programme', e.patient_id, (select auth.uid())) then raise exception 'This programme is not open' using errcode = '55000'; end if;
+  -- After a low sugar or high ketone pause the medicines must have been looked at since: the diet can go on only with a doctor's review on record.
+  if e.pause_code in ('low_glucose', 'high_ketones') and (e.last_medicine_review_at is null or e.last_medicine_review_at < e.paused_at) then
+    raise exception 'Record a medicine review since the pause before restarting the programme' using errcode = '22023';
+  end if;
   v := private.lowcarb_eligibility_for(e.patient_id, e.supervision_accepted, e.no_recent_admission);
   if v ->> 'decision' <> 'eligible' then raise exception 'This person cannot restart the programme now (%)', v ->> 'decision' using errcode = '22023'; end if;
   update public.lowcarb_enrolments set status = 'active', paused_at = null, pause_code = null where id = e.id;
@@ -735,8 +779,9 @@ begin
   if e.id is null or not private.lowcarb_can_act(e.patient_id) then raise exception 'Not authorised' using errcode = '42501'; end if;
   if e.status not in ('active', 'paused') then raise exception 'There is no running programme to review' using errcode = '22023'; end if;
   if length(btrim(coalesce(p_note, ''))) < 10 then raise exception 'Say what you decided about the medicines' using errcode = '22023'; end if;
-  update public.lowcarb_enrolments set last_medicine_review_at = now() where id = e.id;
-  perform private.lowcarb_event(e.id, 'review_completed', null, (select auth.uid()));
+  update public.lowcarb_enrolments set last_medicine_review_at = clock_timestamp() where id = e.id;
+  -- The doctor's words are kept on the programme history; the decision itself (a stop, a new dose) is a signed change, never this note.
+  perform private.lowcarb_event(e.id, 'review_completed', null, (select auth.uid()), btrim(p_note));
   perform private.log_audit('lowcarb.medicine_review_completed', 'lowcarb_enrolment', e.id, jsonb_build_object('patient_id', e.patient_id));
 end $$;
 revoke all on function public.complete_lowcarb_medicine_review(uuid, text) from public, anon;
@@ -754,8 +799,11 @@ begin
      or not private.staff_may_read(p_patient, v_org, 'medical_history'::public.care_access_category) then
     raise exception 'Not authorised' using errcode = '42501';
   end if;
-  perform private.audit_patient_read(p_patient, 'lowcarb_programme', null, 'A clinician read the programme record', 'lowcarb.programme_viewed');
   select * into e from public.lowcarb_enrolments where patient_id = p_patient order by created_at desc limit 1;
+  -- A dormant programme with no record is not a clinical read, so a chart view writes no audit row for it.
+  if e.id is not null or private.go_live_open_patient('low_carb_t2d_programme', p_patient) then
+    perform private.audit_patient_read(p_patient, 'lowcarb_programme', null, 'A clinician read the programme record', 'lowcarb.programme_viewed');
+  end if;
   return jsonb_build_object(
     'can_act', private.lowcarb_can_act(p_patient),
     'guard_open', private.go_live_open_patient('low_carb_t2d_programme', p_patient),
@@ -765,8 +813,8 @@ begin
       'id', e.id, 'status', e.status, 'offered_at', e.offered_at, 'accepted_at', e.accepted_at, 'paused_at', e.paused_at, 'pause_code', e.pause_code,
       'stopped_at', e.stopped_at, 'stop_code', e.stop_code, 'supervision_accepted', e.supervision_accepted,
       'last_medicine_review_at', e.last_medicine_review_at, 'config_version', e.config_version) end,
-    'events', coalesce((select jsonb_agg(jsonb_build_object('kind', x.kind, 'code', x.code, 'at', x.created_at) order by x.id desc)
-                          from (select * from public.lowcarb_programme_events where patient_id = p_patient order by id desc limit 30) x), '[]'::jsonb));
+    'events', coalesce((select jsonb_agg(jsonb_build_object('kind', x.kind, 'code', x.code, 'note', x.note, 'at', x.created_at) order by x.id desc)
+                          from (select * from public.lowcarb_programme_events where patient_id = p_patient and kind <> 'review_raised' order by id desc limit 30) x), '[]'::jsonb));
 end $$;
 revoke all on function public.lowcarb_programme_for_patient(uuid) from public, anon;
 grant execute on function public.lowcarb_programme_for_patient(uuid) to authenticated;
@@ -779,11 +827,12 @@ as $$
 declare v_uid uuid := (select auth.uid()); e public.lowcarb_enrolments%rowtype; v_cfg jsonb;
 begin
   if v_uid is null then return jsonb_build_object('state', 'unavailable'); end if;
-  if not private.go_live_open_patient('low_carb_t2d_programme', v_uid) then return jsonb_build_object('state', 'unavailable'); end if;
   v_cfg := private.lowcarb_cfg();
   if v_cfg is null then return jsonb_build_object('state', 'unavailable'); end if;
   select * into e from public.lowcarb_enrolments where patient_id = v_uid and status in ('offered', 'active', 'paused') order by created_at desc limit 1;
   if not found then return jsonb_build_object('state', 'unavailable'); end if;
+  -- Switching the guard off hides an unanswered OFFER, but never takes the low-sugar card or the Stop button away from someone already on the programme.
+  if e.status = 'offered' and not private.go_live_open_patient('low_carb_t2d_programme', v_uid) then return jsonb_build_object('state', 'unavailable'); end if;
   return jsonb_build_object('state', 'ok', 'enrolment_id', e.id, 'status', e.status, 'check_ins', v_cfg -> 'check_ins',
     'low_glucose_below_mmol', v_cfg #> '{safety,pause_glucose_below_mmol}');
 end $$;
@@ -821,10 +870,10 @@ values ('t2d_lowcarb_deprescribing', 1, 'draft', $json${
   {"id": "su_review_on_fall", "label": "Sulfonylurea: sugars falling", "match": {"name_patterns": ["glibenclamide", "gliclazide", "glimepiride", "glipizide", "daonil", "diamicron", "amaryl"]},
    "when": {"avg_glucose_below_mmol": 7.0}, "action": "review_dose",
    "rationale": "Average sugars are falling on the programme: the dose of this sulfonylurea needs a doctor's review. The doctor sets any new dose. PLACEHOLDER for the CMO."},
-  {"id": "insulin_review_on_fall", "label": "Insulin: sugars falling", "match": {"name_patterns": ["insulin", "lantus", "humulin", "novorapid", "mixtard"]},
+  {"id": "insulin_review_on_fall", "label": "Insulin: sugars falling", "match": {"name_patterns": ["insulin", "lantus", "humulin", "novorapid", "mixtard", "tresiba", "levemir", "toujeo", "humalog", "lyumjev", "apidra", "fiasp", "basaglar"]},
    "when": {"avg_glucose_below_mmol": 7.0}, "action": "review_dose",
    "rationale": "Average sugars are falling on the programme: insulin needs a doctor's review. Insulin is never stopped by a step table; the doctor sets any new dose. PLACEHOLDER for the CMO."},
-  {"id": "insulin_review_on_low", "label": "Insulin: a low reading", "match": {"name_patterns": ["insulin", "lantus", "humulin", "novorapid", "mixtard"]},
+  {"id": "insulin_review_on_low", "label": "Insulin: a low reading", "match": {"name_patterns": ["insulin", "lantus", "humulin", "novorapid", "mixtard", "tresiba", "levemir", "toujeo", "humalog", "lyumjev", "apidra", "fiasp", "basaglar"]},
    "when": {"any_glucose_below_mmol": 3.9}, "action": "review_dose",
    "rationale": "A low sugar reading while on insulin: a doctor reviews the dose today. PLACEHOLDER for the CMO."}
  ]
@@ -839,7 +888,7 @@ on conflict (code, version) do nothing;
 insert into public.go_live_guards (key, label, blocks, condition_text, switch_role, enforced_in, not_enforced_in) values
   ('low_carb_t2d_programme', 'Low-carbohydrate programme for type 2 diabetes',
    'Offering the programme, a patient accepting it, and the patient screen',
-   'The Chief Medical Officer has signed the protocol config and the diabetes step table; a doctor and dietitian rota is recorded; the cost of ketone testing is decided; Chief Medical Officer confirmation',
+   'The Chief Medical Officer has signed the protocol config and the diabetes step table; a doctor and dietitian rota is recorded; the cost of ketone testing is decided; the check-in sweep is scheduled; Chief Medical Officer confirmation',
    'cmo', array['public.offer_lowcarb_programme', 'public.respond_lowcarb_offer', 'public.resume_lowcarb_programme', 'public.my_lowcarb_gate'],
    'A test person passes (the S37 pair rule) so the flow can be rehearsed. The pause and stop safety actions are NOT behind this guard: they only make the programme more careful. Never marketed (S50-2).')
 on conflict (key) do nothing;
@@ -858,6 +907,7 @@ begin
       case when v_steps is null then 'no approved version' else 'version ' || v_steps end),
     private.go_live_cond('doctor_dietitian_rota_recorded', 'A doctor and dietitian rota for the programme is recorded', private.go_live_attested(p_key, 'doctor_dietitian_rota_recorded'), 'attestation', null),
     private.go_live_cond('ketone_testing_cost_decided', 'The cost of ketone testing is decided', private.go_live_attested(p_key, 'ketone_testing_cost_decided'), 'attestation', null),
+    private.go_live_cond('check_in_sweep_scheduled', 'The check-in sweep (private.lowcarb_sweep) is scheduled to run', private.go_live_attested(p_key, 'check_in_sweep_scheduled'), 'attestation', null),
     private.go_live_cond('cmo_switch', 'Chief Medical Officer sign-off', true, 'switch', 'Given by the Chief Medical Officer pressing the switch'));
 end $$;
 revoke all on function private.lowcarb_go_live_conditions(text) from public, anon, authenticated, service_role;
@@ -886,7 +936,7 @@ begin
   if position(v_anchor in v_def) = 0 then
     raise exception 'attest_go_live_condition: anchor not found, refusing to rewrite' using errcode = '55000';
   end if;
-  execute replace(v_def, v_anchor, v_anchor || $b$, ('low_carb_t2d_programme', 'doctor_dietitian_rota_recorded'), ('low_carb_t2d_programme', 'ketone_testing_cost_decided')$b$);
+  execute replace(v_def, v_anchor, v_anchor || $b$, ('low_carb_t2d_programme', 'doctor_dietitian_rota_recorded'), ('low_carb_t2d_programme', 'ketone_testing_cost_decided'), ('low_carb_t2d_programme', 'check_in_sweep_scheduled')$b$);
 end $patch$;
 revoke all on function public.attest_go_live_condition(text, text, boolean, text) from public, anon;
 grant execute on function public.attest_go_live_condition(text, text, boolean, text) to authenticated;

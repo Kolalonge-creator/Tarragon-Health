@@ -26,7 +26,7 @@ const enrolmentSchema = z.object({
   last_medicine_review_at: z.string().nullable(),
   config_version: z.number(),
 });
-const eventSchema = z.object({ kind: z.string(), code: z.string().nullable(), at: z.string() });
+const eventSchema = z.object({ kind: z.string(), code: z.string().nullable(), note: z.string().nullable().optional(), at: z.string() });
 const programmeSchema = z.object({
   can_act: z.boolean(),
   guard_open: z.boolean(),

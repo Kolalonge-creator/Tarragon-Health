@@ -199,6 +199,11 @@ begin
     v_err := 'accepted';
   exception when check_violation then v_err := 'refused'; end;
   perform pg_temp.ck('b an unknown medicine handling is refused', 'refused', v_err);
+  begin
+    insert into public.lowcarb_protocol_config (version, config) select 96, jsonb_set(config, '{medicine_review,min_readings}', '5.5') from public.lowcarb_protocol_config where version = 1;
+    v_err := 'accepted';
+  exception when check_violation then v_err := 'refused'; end;
+  perform pg_temp.ck('b a fractional count that a trigger would cast to an integer is refused', 'refused', v_err);
 end $$;
 select pg_temp.ck('b a senior doctor cannot sign', 'ERR:P0001', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.sign_lowcarb_protocol_config(%L)', (select id from public.lowcarb_protocol_config where version = 1)))));
 select pg_temp.ck('b the CMO signs', 'ok', pg_temp.err(pg_temp.q_as(pg_temp.f('cmo'), format('select public.sign_lowcarb_protocol_config(%L)', (select id from public.lowcarb_protocol_config where version = 1)))));
@@ -260,6 +265,12 @@ begin
   perform pg_temp.ck('c5 a care coordinator cannot even check eligibility', 'ERR:42501', pg_temp.err(pg_temp.q_as(pg_temp.f('coord'), format('select public.lowcarb_eligibility(%L, true)', q)::text)));
   perform pg_temp.ck('c6 the admission confirmation is required', 'ERR:22023', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.offer_lowcarb_programme(%L, false)', p))));
   perform pg_temp.ck('c7 a real patient is refused while the guard is off', 'ERR:55000', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.offer_lowcarb_programme(%L, true)', real_p))));
+  declare real_doc uuid := pg_temp.mkdoc(v_org, 'realdoc', 'senior_medical_officer', pg_temp.f('admin')); pair_p uuid := pg_temp.mkcase('{}');
+  begin
+    update public.profiles set is_test = false where id = real_doc;
+    perform pg_temp.tie(v_org, pair_p, real_doc);
+    perform pg_temp.ck('c7b a real clinician cannot offer to a test patient while the guard is off (the pair rule)', 'ERR:55000', pg_temp.err(pg_temp.q_as(real_doc, format('select public.offer_lowcarb_programme(%L, true)', pair_p))));
+  end;
   perform pg_temp.ck('c8 a person on a sulfonylurea needs supervision first', 'ERR:22023', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.offer_lowcarb_programme(%L, true)', t))));
   perform pg_temp.ck('c9 accepting supervision needs a note', 'ERR:22023', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.offer_lowcarb_programme(%L, true, true, %L)', t, 'ok'))));
   perform pg_temp.ck('c10 a pregnant patient cannot be offered it', 'ERR:22023', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.offer_lowcarb_programme(%L, true)', u))));
@@ -332,6 +343,9 @@ begin
   perform pg_temp.ck('d8 a new red result blocks a resume', 'ERR:22023', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.resume_lowcarb_programme(%L)', ep))));
   perform pg_temp.clear_triage(p);
   perform pg_temp.ck('d9 an untied doctor cannot resume', 'ERR:42501', pg_temp.err(pg_temp.q_as(pg_temp.f('doc2'), format('select public.resume_lowcarb_programme(%L)', ep))));
+  perform pg_temp.ck('d9b after a low sugar pause a resume needs a medicine review since the pause', 'ERR:22023', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.resume_lowcarb_programme(%L)', ep))));
+  perform pg_temp.ck('d9c the doctor records the review (the words are kept)', 'ok', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.complete_lowcarb_medicine_review(%L, %L)', ep, 'Looked at the gliclazide dose today'))));
+  perform pg_temp.ck('d9d ...on the programme history', 'Looked at the gliclazide dose today', (select note from public.lowcarb_programme_events where enrolment_id = ep and kind = 'review_completed' order by id desc limit 1));
   perform pg_temp.ck('d10 the tied doctor resumes', 'ok', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.resume_lowcarb_programme(%L)', ep))));
   perform pg_temp.ck('d11 running again with the pause cleared', 'active', pg_temp.status_of(ep));
 
@@ -341,6 +355,8 @@ begin
   perform pg_temp.reading(p, 'ketones', 3.4);
   perform pg_temp.ck('d13 high ketones pause it', 'paused/high_ketones', pg_temp.status_of(ep));
   perform pg_temp.clear_triage(p);
+  perform pg_temp.ck('d13b a high ketone pause also needs a review first', 'ERR:22023', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.resume_lowcarb_programme(%L)', ep))));
+  perform pg_temp.q_as(pg_temp.f('doc'), format('select public.complete_lowcarb_medicine_review(%L, %L)', ep, 'Ketones were high, medicines checked'));
   perform pg_temp.q_as(pg_temp.f('doc'), format('select public.resume_lowcarb_programme(%L)', ep));
 
   -- third pause: a red triage event, which is also the third pause in 30 days: it STOPS
@@ -399,6 +415,17 @@ begin
   update public.lowcarb_enrolments set accepted_at = now() - interval '20 days' where id = ez;
   perform private.lowcarb_sweep();
   perform pg_temp.ck('d30 ...and stops one with no check-ins for 14 days', 'stopped/check_ins_lapsed', pg_temp.status_of(ez));
+
+  -- an excluded condition entered after enrolment pauses it at the next sweep
+  declare k uuid; ek uuid;
+  begin
+    k := pg_temp.mkcase('{}'); perform pg_temp.tie(v_org, k, pg_temp.f('doc'));
+    ek := pg_temp.q_as(pg_temp.f('doc'), format('select public.offer_lowcarb_programme(%L, true)', k))::uuid;
+    perform pg_temp.q_as(k, format('select public.respond_lowcarb_offer(%L, true)', ek));
+    insert into public.patient_conditions (organisation_id, patient_id, condition_name, status) values (v_org, k, 'Chronic kidney disease stage 3', 'active');
+    perform private.lowcarb_sweep();
+    perform pg_temp.ck('d31 the sweep pauses someone with a newly recorded excluded condition', 'paused/no_longer_eligible', pg_temp.status_of(ek));
+  end;
 end $$;
 
 -- e. medicines (INV-02) ------------------------------------------------------------------------------------------------------------
@@ -431,13 +458,15 @@ begin
   perform pg_temp.ck('f1 the guard is born off', 'false', (select is_on::text from public.go_live_guards where key = 'low_carb_t2d_programme'));
   perform pg_temp.ck('f2 the guard names the CMO as the switch holder', 'cmo', (select switch_role from public.go_live_guards where key = 'low_carb_t2d_programme'));
   v_conds := private.go_live_conditions('low_carb_t2d_programme', null);
-  perform pg_temp.ck('f3 five conditions: config signed (met here), step table (unmet), rota (unmet), ketone cost (unmet), CMO switch', 'true|false|false|false|true',
+  perform pg_temp.ck('f3 six conditions: config signed (met here), step table, rota, ketone cost, sweep scheduled (all unmet), CMO switch', 'true|false|false|false|false|true',
     (select string_agg(c ->> 'met', '|' order by o) from jsonb_array_elements(v_conds) with ordinality t(c, o)));
   perform pg_temp.ck('f4 an admin can record the rota attestation', 'ok', pg_temp.err(pg_temp.q_as(pg_temp.f('admin'),
     $q$select public.attest_go_live_condition('low_carb_t2d_programme', 'doctor_dietitian_rota_recorded', true, 'Proof: rota recorded by the test, rolled back')::text$q$)));
   perform pg_temp.ck('f5 ...and the condition then reads as met', 'true', (select c ->> 'met' from jsonb_array_elements(private.go_live_conditions('low_carb_t2d_programme', null)) c where c ->> 'code' = 'doctor_dietitian_rota_recorded'));
   perform pg_temp.ck('f6 the ketone cost decision is attestable too', 'ok', pg_temp.err(pg_temp.q_as(pg_temp.f('admin'),
     $q$select public.attest_go_live_condition('low_carb_t2d_programme', 'ketone_testing_cost_decided', true, 'Proof: decision recorded by the test, rolled back')::text$q$)));
+  perform pg_temp.ck('f6b the sweep being scheduled is attestable too', 'ok', pg_temp.err(pg_temp.q_as(pg_temp.f('admin'),
+    $q$select public.attest_go_live_condition('low_carb_t2d_programme', 'check_in_sweep_scheduled', true, 'Proof: scheduled by the test, rolled back')::text$q$)));
   perform pg_temp.ck('f7 a condition read from the data cannot be attested', 'ERR:22023', pg_temp.err(pg_temp.q_as(pg_temp.f('admin'),
     $q$select public.attest_go_live_condition('low_carb_t2d_programme', 'step_table_signed', true, 'Proof: trying to attest a data condition')::text$q$)));
   perform pg_temp.ck('f8 the proof switched nothing on', 'false', (select is_on::text from public.go_live_guards where key = 'low_carb_t2d_programme'));
@@ -457,6 +486,11 @@ begin
   perform pg_temp.ck('g8 the tied doctor gets the record', 'true',
     pg_temp.q_as(pg_temp.f('doc'), format('select ((public.lowcarb_programme_for_patient(%L) -> ''enrolment'' ->> ''status'') is not null)::text', pg_temp.f('p'))));
   perform pg_temp.ck('g8b ...and the read is audited', 'true', (exists (select 1 from public.audit_log where action = 'lowcarb.programme_viewed' and actor_id = pg_temp.f('doc')))::text);
+  -- switching the guard off hides an unanswered OFFER, never the card or the Stop button of someone already on the programme (real patients: the guard is off)
+  insert into public.lowcarb_enrolments (organisation_id, patient_id, status, no_recent_admission, config_version, accepted_at)
+  values (pg_temp.f('org'), pg_temp.f('real'), 'active', true, 1, now());
+  perform pg_temp.ck('g8c a real patient already on the programme still gets the card with the guard off', 'ok|active',
+    (select (g ->> 'state') || '|' || (g ->> 'status') from (select pg_temp.q_as(pg_temp.f('real'), 'select public.my_lowcarb_gate()::text')::jsonb g) x));
   perform pg_temp.ck('g9 anon has no table or function grants', 'false|false|false', (has_table_privilege('anon', 'public.lowcarb_enrolments', 'SELECT')::text) || '|' ||
     (has_table_privilege('anon', 'public.lowcarb_programme_events', 'SELECT')::text) || '|' || (has_function_privilege('anon', 'public.offer_lowcarb_programme(uuid,boolean,boolean,text)', 'EXECUTE')::text));
   perform pg_temp.ck('g10 a signed-in client cannot write the tables directly', 'ERR:42501', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'),

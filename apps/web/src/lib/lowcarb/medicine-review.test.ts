@@ -49,6 +49,8 @@ function setup(opts: { approved?: unknown; draft?: unknown; isTest?: boolean; se
     protocols: { data: opts.draft ?? null, error: null },
     profiles: { data: { date_of_birth: "1975-01-01", sex: opts.sex ?? "male", is_test: opts.isTest ?? true }, error: null },
     patient_pregnancy: opts.pregnancy ?? { data: null, error: null },
+    reproductive_health_profiles: { data: null, error: null },
+    postnatal_profiles: { data: null, error: null },
     clinician_alerts: { data: opts.alerts ?? [], error: null },
   };
   from.mockImplementation((t: string) => table(answers[t]));

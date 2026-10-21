@@ -105,7 +105,7 @@ export async function LowCarbProgrammePanel({ patientId }: { patientId: string }
             <ul className="mt-1 space-y-1 text-sm">
               {programme.events.slice(0, 10).map((ev, i) => (
                 <li key={`${ev.at}-${i}`}>
-                  {new Date(ev.at).toLocaleString("en-NG", { timeZone: "Africa/Lagos" })}: {describeLowCarbEvent(ev.kind, ev.code)}
+                  {new Date(ev.at).toLocaleString("en-NG", { timeZone: "Africa/Lagos" })}: {describeLowCarbEvent(ev.kind, ev.code)}{ev.note ? `. ${ev.note}` : ""}
                 </li>
               ))}
             </ul>

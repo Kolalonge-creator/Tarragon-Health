@@ -4686,7 +4686,7 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 
 ### OQ-S50B-3 Nothing runs the check-in sweep (raised by S50b, 2026-10-21)
 - `private.lowcarb_sweep()` pauses someone who has become pregnant and stops someone with no check-in for 14 days. It is proven but no cron calls it, and cron wiring was kept out of this change. Until it runs, a lapsed person stays "active" and a new pregnancy is caught only at the next resume, offer or the pause triggers.
-- Needed: schedule it (hourly is enough) before the guard can be switched on. This belongs on the go-live checklist.
+- Needed: schedule it (hourly is enough) before the guard can be switched on. The guard now has a condition for it (`check_in_sweep_scheduled`, a recorded attestation), so it cannot be forgotten at go-live. The sweep re-runs the whole screen for every running enrolment, not only pregnancy.
 - Decision: open (engineering, before go-live).
 
 ### OQ-S50B-4 Ketone testing cost, rota, and what a low-sugar reading means in this programme (raised by S50b, 2026-10-21)
@@ -4699,5 +4699,5 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Decision: open (product), build after the CMO signs.
 
 ### OQ-S50B-6 Pausing on ketones alone, and symptoms (raised by S50b, 2026-10-21)
-- The spec says "a high ketone reading with symptoms". The build pauses on the number alone (no symptom entry needed), the more careful direction. Whether symptoms should also lower the line, and whether a pause should wait for a clinician to look first, is the CMO's.
+- The spec says "a high ketone reading with symptoms". The build pauses on the number alone (no symptom entry needed), the more careful direction. Whether symptoms should also lower the line, and whether a pause should wait for a clinician to look first, is the CMO's. A urine-strip ketone result (`ketone_urine`) does not pause the programme: only a blood ketone number does. Medicine name lists (insulin, sulfonylurea, SGLT2 brands) are placeholders and will miss products; an unlisted diabetes medicine is not screened, so the CMO or a pharmacist must complete them.
 - Decision: open (CMO).

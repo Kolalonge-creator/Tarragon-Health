@@ -54,7 +54,15 @@
      "lantus",
      "humulin",
      "novorapid",
-     "mixtard"
+     "mixtard",
+     "tresiba",
+     "levemir",
+     "toujeo",
+     "humalog",
+     "lyumjev",
+     "apidra",
+     "fiasp",
+     "basaglar"
     ]
    },
    "when": {
@@ -72,7 +80,15 @@
      "lantus",
      "humulin",
      "novorapid",
-     "mixtard"
+     "mixtard",
+     "tresiba",
+     "levemir",
+     "toujeo",
+     "humalog",
+     "lyumjev",
+     "apidra",
+     "fiasp",
+     "basaglar"
     ]
    },
    "when": {

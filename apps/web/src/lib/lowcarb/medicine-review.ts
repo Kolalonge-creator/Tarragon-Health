@@ -94,11 +94,13 @@ export async function runLowCarbMedicineReview(
     if (table === null || protocolId === null) return { kind: "no_protocol" };
 
     const since = new Date(now.getTime() - config.medicine_review.window_days * MS_PER_DAY).toISOString();
-    const [profile, glucose, meds, pregnancy, alerts] = await Promise.all([
+    const [profile, glucose, meds, pregnancy, reproductive, postnatal, alerts] = await Promise.all([
       supabase.from("profiles").select("date_of_birth, sex, is_test").eq("id", patientId).maybeSingle(),
       readPatientVitalsAudited(supabase, patientId, { vitalType: "glucose", since, limit: 500 }),
       readPatientMedicationsAudited(supabase, patientId, { active: true }),
       supabase.from("patient_pregnancy").select("is_pregnant").eq("patient_id", patientId).maybeSingle(),
+      supabase.from("reproductive_health_profiles").select("life_stage").eq("patient_id", patientId).maybeSingle(),
+      supabase.from("postnatal_profiles").select("delivery_date").eq("patient_id", patientId).maybeSingle(),
       supabase.from("clinician_alerts").select("level, override_level, status").eq("patient_id", patientId).is("closed_at", null),
     ]);
     const prof = profileRow.safeParse(profile.data);
@@ -116,8 +118,13 @@ export async function runLowCarbMedicineReview(
       alertRows.push(a.data);
     }
     // Unknown is not "no": an unreadable pregnancy record, or a female patient with none, stops the proposal. The category-scoped RLS decides what this reads.
-    const pregnancyStatus: LowCarbReviewInput["pregnancy"] =
-      prof.data.sex === "male" ? "no" : pregnancy.error || !pregnancy.data ? "unknown" : pregnancy.data.is_pregnant ? "yes" : "no";
+    // Any positive source is a yes, as in the database screen (pregnant, the postpartum life stage, a delivery inside the postnatal year). All reads go through
+    // the category-scoped RLS: a clinician who may not read them gets nothing back and the answer is unknown, which refuses.
+    const postnatalYear = postnatal.data?.delivery_date ? now.getTime() - Date.parse(postnatal.data.delivery_date) < config.eligibility.postnatal_months * 30.5 * MS_PER_DAY : false;
+    const stage = reproductive.data?.life_stage;
+    const anyYes = pregnancy.data?.is_pregnant === true || stage === "pregnant" || stage === "postpartum" || postnatalYear;
+    const anyRead = Boolean(pregnancy.data) && !pregnancy.error && !reproductive.error && !postnatal.error;
+    const pregnancyStatus: LowCarbReviewInput["pregnancy"] = anyYes ? "yes" : prof.data.sex === "male" ? "no" : anyRead ? "no" : "unknown";
 
     const medicines: LowCarbMedicine[] = meds.rows
       .filter((m) => m.is_active && m.stopped_at === null && !m.superseded_at)

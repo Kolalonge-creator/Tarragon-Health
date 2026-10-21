@@ -172,14 +172,14 @@ export function lowCarbEligibility(input: LowCarbEligibilityInput, config: LowCa
   return { decision: "eligible", reasons: ["none"], supervisionFor: supervision };
 }
 
-/** What a clinician who is NOT entitled to reproductive health data (category-scoped path) is shown instead of a pregnancy reason. */
-export function coarsenLowCarbReasons(reasons: readonly string[], mayReadReproductive: boolean): string[] {
-  const out: string[] = [];
-  for (const r of reasons) {
-    const mapped = !mayReadReproductive && LOWCARB_REPRODUCTIVE_REASONS.includes(r) ? "health_condition" : r;
-    if (!out.includes(mapped)) out.push(mapped);
-  }
-  return out;
+/**
+ * What a clinician who is NOT entitled to reproductive health data (the category-scoped path) is shown. Every "not eligible" collapses to ONE vague
+ * reason, whatever its cause, so the answer cannot reveal whether pregnancy was among the causes (a lone vague reason would otherwise mean pregnancy).
+ * Other decisions never involve pregnancy (a pregnant person is always "not eligible"), so they are shown as they are.
+ */
+export function coarsenLowCarbReasons(result: { readonly decision: string; readonly reasons: readonly string[] }, mayReadReproductive: boolean): string[] {
+  if (!mayReadReproductive && result.decision === "not_eligible") return ["health_condition"];
+  return [...result.reasons];
 }
 
 export type LowCarbPatientGate = { readonly state: "ok" | "unavailable" };

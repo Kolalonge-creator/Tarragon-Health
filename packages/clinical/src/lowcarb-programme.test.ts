@@ -125,11 +125,17 @@ describe("low-carbohydrate eligibility", () => {
 });
 
 describe("what a clinician without reproductive-health access is shown", () => {
-  it("replaces a pregnancy reason with a coarse one and keeps the rest, once", () => {
-    expect(coarsenLowCarbReasons(["pregnancy_or_postnatal", "pregnancy_unknown", "under_age"], false)).toEqual(["health_condition", "under_age"]);
+  it("every not-eligible answer collapses to one vague reason, with or without a pregnancy among the causes", () => {
+    const withPregnancy = coarsenLowCarbReasons({ decision: "not_eligible", reasons: ["pregnancy_or_postnatal", "under_age"] }, false);
+    const without = coarsenLowCarbReasons({ decision: "not_eligible", reasons: ["under_age", "condition_kidney_disease"] }, false);
+    expect(withPregnancy).toEqual(["health_condition"]);
+    expect(without).toEqual(withPregnancy);
   });
-  it("shows it to a clinician the category-scoped path entitles", () => {
-    expect(coarsenLowCarbReasons(["pregnancy_or_postnatal", "under_age"], true)).toEqual(["pregnancy_or_postnatal", "under_age"]);
+  it("shows the real reasons to a clinician the category-scoped path entitles", () => {
+    expect(coarsenLowCarbReasons({ decision: "not_eligible", reasons: ["pregnancy_or_postnatal", "under_age"] }, true)).toEqual(["pregnancy_or_postnatal", "under_age"]);
+  });
+  it("other decisions are shown as they are (a pregnant person is always not eligible)", () => {
+    expect(coarsenLowCarbReasons({ decision: "needs_supervision", reasons: ["supervision_insulin"] }, false)).toEqual(["supervision_insulin"]);
   });
 });
 

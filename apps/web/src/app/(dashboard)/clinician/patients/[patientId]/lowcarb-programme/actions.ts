@@ -5,7 +5,6 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { describeLowCarbReasons, loadLowCarbProgramme, configFrom } from "@/lib/lowcarb/programme";
 import { REVIEW_STOP_WORDS, REVIEW_TRIGGER_WORDS, runLowCarbMedicineReview } from "@/lib/lowcarb/medicine-review";
-import { coarsenLowCarbReasons } from "@tarragon/clinical/lowcarb-programme";
 
 /**
  * S50b: server actions for the low-carbohydrate programme panel on the clinician chart. Each validates its input with Zod and runs the matching
@@ -56,8 +55,8 @@ export async function checkLowCarbEligibility(_prev: LowCarbActionState, formDat
   if (error) return { error: readableError(error) };
   const result = z.object({ decision: z.string(), reasons: z.array(z.string()) }).safeParse(data);
   if (!result.success) return { error: GENERIC };
-  const reasons = coarsenLowCarbReasons(result.data.reasons, true);
-  const lines = describeLowCarbReasons(reasons);
+  // The database has already collapsed a not-eligible answer to one vague reason for a clinician without reproductive-health access.
+  const lines = describeLowCarbReasons(result.data.reasons);
   if (result.data.decision === "eligible") return { message: "This person meets the programme screen today.", lines: [] };
   if (result.data.decision === "needs_supervision") return { message: "A doctor must accept supervision of the medicines first.", lines };
   if (result.data.decision === "not_now") return { message: "Not today.", lines };
