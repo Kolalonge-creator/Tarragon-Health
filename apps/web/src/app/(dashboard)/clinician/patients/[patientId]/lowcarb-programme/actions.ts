@@ -106,6 +106,18 @@ export async function stopLowCarb(_prev: LowCarbActionState, formData: FormData)
   return transition(formData, "stop_lowcarb_programme", "Stopped.");
 }
 
+const supervisionSchema = enrolmentSchema.extend({ note: z.string().trim().min(10, "Say how you will supervise these medicines.").max(2000) });
+
+/** A medicine the doctor never accepted supervision of has appeared: the prescriber accepts supervision of the current ones, with a note. */
+export async function acceptLowCarbSupervision(_prev: LowCarbActionState, formData: FormData): Promise<LowCarbActionState> {
+  const parsed = supervisionSchema.safeParse({ patientId: text(formData, "patientId"), enrolmentId: text(formData, "enrolmentId"), note: text(formData, "note") });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("accept_lowcarb_supervision", { p_enrolment: parsed.data.enrolmentId, p_note: parsed.data.note });
+  if (error) return { error: readableError(error) };
+  return done(parsed.data.patientId, "Supervision of the current medicines is recorded. You can resume the programme.");
+}
+
 export async function completeLowCarbReview(_prev: LowCarbActionState, formData: FormData): Promise<LowCarbActionState> {
   const parsed = reviewNoteSchema.safeParse({ patientId: text(formData, "patientId"), enrolmentId: text(formData, "enrolmentId"), note: text(formData, "note") });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form." };

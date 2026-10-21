@@ -43,21 +43,23 @@ describe("parseLowCarbOk", () => {
     ["a string", "ok"],
     ["no enrolment id", { ...ok("active"), enrolment_id: undefined }],
     ["an unknown status", ok("stopped")],
-    ["a low line that is a string", { ...ok("active"), low_glucose_below_mmol: "3.9" }],
   ])("%s is not a programme", (_name, data) => {
     expect(parseLowCarbOk(data)).toBeNull();
   });
 });
 
 describe("an ok answer with missing numbers", () => {
+  it("malformed numbers degrade, they do not hide the programme", () => {
+    expect(parseLowCarbOk({ ...ok("active"), low_glucose_below_mmol: "3.9", check_ins: { glucose: 1 } })).toMatchObject({ status: "active", lowLine: null, rules: null });
+  });
   it("is still a programme (no number, no check-in lines) when the rules are not live", () => {
     expect(parseLowCarbOk({ ...ok("paused"), low_glucose_below_mmol: null, check_ins: null })).toMatchObject({ status: "paused", lowLine: null, rules: null });
   });
 });
 
 describe("loadLowCarb", () => {
-  it("an ok answer that cannot be read is an ERROR to retry, not unavailable", async () => {
-    rpc.mockResolvedValueOnce({ data: { state: "ok", status: "active", enrolment_id: "e1", low_glucose_below_mmol: "3.9", check_ins: {} }, error: null });
+  it("an ok answer without an id or status is an ERROR to retry, not unavailable", async () => {
+    rpc.mockResolvedValueOnce({ data: { state: "ok", status: "active" }, error: null });
     await expect(loadLowCarb("p1", NOW)).resolves.toEqual({ kind: "error", offline: false });
   });
 

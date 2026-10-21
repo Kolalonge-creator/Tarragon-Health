@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import {
+  acceptLowCarbSupervision,
   checkLowCarbEligibility,
   completeLowCarbReview,
   offerLowCarb,
@@ -92,6 +93,24 @@ export function ResumeButton(props: { patientId: string; enrolmentId: string }) 
 }
 export function StopButton(props: { patientId: string; enrolmentId: string; label?: string }) {
   return <IdForm patientId={props.patientId} enrolmentId={props.enrolmentId} action={stopLowCarb} label={props.label ?? "Stop the programme"} variant="outline" />;
+}
+
+export function SupervisionForm({ patientId, enrolmentId }: { patientId: string; enrolmentId: string }) {
+  const [state, act, pending] = useActionState(acceptLowCarbSupervision, undefined);
+  return (
+    <form action={act} className="space-y-2">
+      <input type="hidden" name="patientId" value={patientId} />
+      <input type="hidden" name="enrolmentId" value={enrolmentId} />
+      <label className="block text-sm">
+        If a medicine appeared that you have not accepted supervision of, say how you will supervise the current medicines
+        <textarea name="note" rows={2} minLength={10} maxLength={2000} required className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" />
+      </label>
+      <Button type="submit" variant="outline" className={TOUCH} disabled={pending}>
+        Accept supervision of the current medicines
+      </Button>
+      <Result state={state} />
+    </form>
+  );
 }
 
 export function ReviewForm({ patientId, enrolmentId }: { patientId: string; enrolmentId: string }) {

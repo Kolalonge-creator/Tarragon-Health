@@ -15,9 +15,10 @@ const okSchema = z.object({
   state: z.literal("ok"),
   enrolment_id: z.string(),
   status: z.enum(["offered", "active", "paused"]),
-  check_ins: z.object({ glucose: rule, ketones: rule, weight: rule }).nullable(),
+  // numbers that are missing or malformed degrade to 'no number / no lines'; only the id and status are essential (Stop must always be reachable)
+  check_ins: z.object({ glucose: rule, ketones: rule, weight: rule }).nullable().catch(null),
   // null when no signed rules are live: someone already on the programme still gets the card and Stop, without the number
-  low_glucose_below_mmol: z.number().nullable(),
+  low_glucose_below_mmol: z.number().nullable().catch(null),
 });
 
 export type PatientLowCarb =

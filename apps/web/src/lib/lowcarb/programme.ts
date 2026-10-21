@@ -111,6 +111,8 @@ export function describeLowCarbEvent(kind: string, code: string | null): string 
       return "Offer lapsed";
     case "review_completed":
       return "Medicine review recorded";
+    case "supervision_updated":
+      return "Supervision of the current medicines accepted";
     case "paused":
       return `Paused: ${PAUSE_WORDS[code ?? ""] ?? "see the record"}`;
     case "stopped":

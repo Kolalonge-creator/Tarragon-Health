@@ -11,7 +11,7 @@ jest.mock("next/cache", () => ({ revalidatePath: (...args: unknown[]) => revalid
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { checkLowCarbEligibility, completeLowCarbReview, offerLowCarb, pauseLowCarb, resumeLowCarb, stopLowCarb } from "./actions";
+import { acceptLowCarbSupervision, checkLowCarbEligibility, completeLowCarbReview, offerLowCarb, pauseLowCarb, resumeLowCarb, stopLowCarb } from "./actions";
 
 const PATIENT = "0b8f6d0e-3c1a-4f3e-9a52-1d6f6a9f7c11";
 const ENROLMENT = "7a1c2e3d-4b5a-4c6d-8e7f-9a0b1c2d3e4f";
@@ -136,6 +136,20 @@ describe("completeLowCarbReview", () => {
   });
 });
 
+describe("acceptLowCarbSupervision", () => {
+  it("needs a real note and never reaches the database without one", async () => {
+    const r = await acceptLowCarbSupervision(undefined, form({ patientId: PATIENT, enrolmentId: ENROLMENT, note: "ok" }));
+    expect(r?.error).toMatch(/how you will supervise/);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("records it through the one database function", async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    const r = await acceptLowCarbSupervision(undefined, form({ patientId: PATIENT, enrolmentId: ENROLMENT, note: "I will review the insulin weekly" }));
+    expect(r?.message).toMatch(/Supervision of the current medicines is recorded/);
+    expect(rpc).toHaveBeenCalledWith("accept_lowcarb_supervision", { p_enrolment: ENROLMENT, p_note: "I will review the insulin weekly" });
+  });
+});
+
 describe("INV-02 and INV-01: this folder can propose nothing it can also sign, and calls no model", () => {
   const dir = join(process.cwd(), "src", "app", "(dashboard)", "clinician", "patients", "[patientId]", "lowcarb-programme");
   const libDir = join(process.cwd(), "src", "lib", "lowcarb");
@@ -155,7 +169,7 @@ describe("INV-02 and INV-01: this folder can propose nothing it can also sign, a
   it("only ever writes through the allowed database functions", () => {
     const allowed = new Set([
       "lowcarb_eligibility", "offer_lowcarb_programme", "pause_lowcarb_programme", "resume_lowcarb_programme", "stop_lowcarb_programme",
-      "complete_lowcarb_medicine_review", "lowcarb_programme_for_patient", "get_approved_protocol", "propose_care_plan_change",
+      "complete_lowcarb_medicine_review", "accept_lowcarb_supervision", "lowcarb_programme_for_patient", "get_approved_protocol", "propose_care_plan_change",
     ]);
     for (const s of sources) {
       for (const m of s.matchAll(/\.rpc\(\s*(?:"([a-z_]+)"|fn\b)/g)) if (m[1]) expect(allowed.has(m[1])).toBe(true);

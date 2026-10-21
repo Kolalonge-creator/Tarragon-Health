@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { describeLowCarbEvent, loadLowCarbProgramme } from "@/lib/lowcarb/programme";
-import { OfferForm, PauseButton, ResumeButton, ReviewForm, StopButton } from "./lowcarb-controls";
+import { OfferForm, PauseButton, ResumeButton, ReviewForm, StopButton, SupervisionForm } from "./lowcarb-controls";
 
 const STATUS_LABEL: Record<string, string> = {
   offered: "Offered, waiting for the patient",
@@ -91,6 +91,7 @@ export async function LowCarbProgrammePanel({ patientId }: { patientId: string }
           <div className="space-y-4">
             {!open ? <OfferForm patientId={patientId} /> : null}
             {e && e.status === "active" ? <PauseButton patientId={patientId} enrolmentId={e.id} /> : null}
+            {e && e.status === "paused" ? <SupervisionForm patientId={patientId} enrolmentId={e.id} /> : null}
             {e && e.status === "paused" ? <ResumeButton patientId={patientId} enrolmentId={e.id} /> : null}
             {e && (e.status === "active" || e.status === "paused") ? <ReviewForm patientId={patientId} enrolmentId={e.id} /> : null}
             {e && open ? <StopButton patientId={patientId} enrolmentId={e.id} label={e.status === "offered" ? "Withdraw the offer" : "Stop the programme"} /> : null}

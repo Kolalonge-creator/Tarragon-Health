@@ -218,12 +218,12 @@ revoke all on function private.lowcarb_pregnancy_state(uuid, integer, timestampt
 -- THE LISTS ARE A STARTING POINT FOR A PHARMACIST AND THE CMO TO CONFIRM. A false match only asks for a doctor's supervision; a miss is the dangerous direction.
 create function private.lowcarb_fold(p_text text) returns text
 language sql immutable set search_path = ''
-as $$ select translate(regexp_replace(coalesce(p_text, ''), '[­​-‏⁠﻿]', '', 'g'), 'àáâãäåāăąçćčďèéêëēėęěìíîïīįłñńňòóôõöøōőřśšşťùúûüūůűųýÿźżžđÀÁÂÃÄÅĀĂĄÇĆČĎÈÉÊËĒĖĘĚÌÍÎÏĪĮŁÑŃŇÒÓÔÕÖØŌŐŘŚŠŞŤÙÚÛÜŪŮŰŲÝŸŹŻŽĐ', 'aaaaaaaaacccdeeeeeeeeiiiiiilnnnoooooooorssstuuuuuuuuyyzzzdAAAAAAAAACCCDEEEEEEEEIIIIIILNNNOOOOOOOORSSSTUUUUUUUUYYZZZD') $$;
+as $$ select regexp_replace(translate(regexp_replace(coalesce(p_text, ''), '[­​-‏⁠﻿]', '', 'g'), 'àáâãäåāăąçćčďèéêëēėęěìíîïīįłñńňòóôõöøōőřśšşťùúûüūůűųýÿźżžđÀÁÂÃÄÅĀĂĄÇĆČĎÈÉÊËĒĖĘĚÌÍÎÏĪĮŁÑŃŇÒÓÔÕÖØŌŐŘŚŠŞŤÙÚÛÜŪŮŰŲÝŸŹŻŽĐ', 'aaaaaaaaacccdeeeeeeeeiiiiiilnnnoooooooorssstuuuuuuuuyyzzzdAAAAAAAAACCCDEEEEEEEEIIIIIILNNNOOOOOOOORSSSTUUUUUUUUYYZZZD'), '[  -⁯°µ®™·μ]', ' ', 'g') $$;
 revoke all on function private.lowcarb_fold(text) from public, anon, authenticated;
 
 create function private.lowcarb_norm(p_text text) returns text
 language sql immutable set search_path = ''
-as $$ select btrim(regexp_replace(lower(private.lowcarb_fold(p_text)), '[^a-z0-9]+', ' ', 'g')) $$;
+as $$ select btrim(regexp_replace(regexp_replace(regexp_replace(lower(private.lowcarb_fold(p_text)), '[^a-z0-9]+', ' ', 'g'), '([a-z])([0-9])', '\1 \2', 'g'), '([0-9])([a-z])', '\1 \2', 'g')) $$;
 revoke all on function private.lowcarb_norm(text) from public, anon, authenticated;
 
 -- A name that still holds a letter this code cannot read after folding (full-width or non-Latin letters) FAILS SAFE to supervision.
@@ -261,18 +261,20 @@ create function private.lowcarb_name_matches(p_name text, p_patterns jsonb) retu
 language plpgsql immutable set search_path = ''
 as $$
 declare
-  n text := private.lowcarb_norm(p_name); sq text; w text; p text; raw text; v_allowed integer; words text[];
+  n text := private.lowcarb_norm(p_name); sq text; w text; p text; raw text; v_allowed integer; words text[]; cand text[]; v_i integer;
 begin
   if n = '' then return false; end if;
   sq := replace(n, ' ', '');
   words := string_to_array(n, ' ');
+  cand := words;
+  for v_i in 2 .. coalesce(cardinality(words), 0) loop cand := cand || (words[v_i - 1] || words[v_i]); end loop;
   for raw in select jsonb_array_elements_text(coalesce(p_patterns, '[]'::jsonb)) loop
     p := private.lowcarb_norm(raw);
     if p = '' then continue; end if;
     if position(p in n) > 0 or position(replace(p, ' ', '') in sq) > 0 then return true; end if;
     if position(' ' in p) > 0 or length(p) < 5 then continue; end if;
     v_allowed := case when length(p) >= 10 then 2 else 1 end;
-    foreach w in array words loop
+    foreach w in array cand loop
       if abs(length(w) - length(p)) <= v_allowed and private.lowcarb_edit_distance(w, p) <= v_allowed then return true; end if;
     end loop;
   end loop;
@@ -308,6 +310,8 @@ declare
   m          record;
   v_risk     boolean;
   v_known    boolean;
+  v_need     boolean;
+  v_supmeds  text[] := '{}';
   v_decision text;
   v_reasons  text[];
 begin
@@ -350,7 +354,7 @@ begin
   -- anything else that looks diabetes-related, or has no usable name, FAILS SAFE to "needs a doctor to accept supervision".
   for m in select drug_name, indication from public.medications
             where patient_id = p_patient and is_active and superseded_at is null loop
-    v_risk := false; v_known := false;
+    v_risk := false; v_known := false; v_need := false;
     for v_key, v_val in select key, value from jsonb_each(v_el -> 'medicine_groups') loop
       if private.lowcarb_name_matches(m.drug_name, v_val -> 'name_patterns') then
         if v_val ->> 'handling' = 'allow' then v_known := true;
@@ -358,7 +362,9 @@ begin
           v_risk := true;
           if v_val ->> 'handling' = 'exclude' then
             if not ('medicine_' || v_key) = any (v_hard) then v_hard := array_append(v_hard, 'medicine_' || v_key); end if;
-          elsif not v_key = any (v_sup) then v_sup := array_append(v_sup, v_key);
+          else
+            v_need := true;
+            if not v_key = any (v_sup) then v_sup := array_append(v_sup, v_key); end if;
           end if;
         end if;
       end if;
@@ -369,8 +375,11 @@ begin
                 and (private.lowcarb_norm(m.drug_name) = ''
                      or private.lowcarb_name_matches(m.drug_name, v_el #> '{diabetes_markers,name_patterns}')
                      or private.lowcarb_text_has(m.indication, v_el #> '{diabetes_markers,indication_patterns}')))) then
+      v_need := true;
       if not 'unclassified' = any (v_sup) then v_sup := array_append(v_sup, 'unclassified'); end if;
     end if;
+    -- the doctor accepts supervision of THESE medicines by name, so a later, different one is never covered by an earlier acceptance
+    if v_need and not private.lowcarb_norm(m.drug_name) = any (v_supmeds) then v_supmeds := array_append(v_supmeds, private.lowcarb_norm(m.drug_name)); end if;
   end loop;
 
   if exists (select 1 from private.vitals_readings_current v
@@ -393,7 +402,7 @@ begin
   end if;
   return jsonb_build_object('decision', v_decision,
     'reasons', (select coalesce(to_jsonb(array_agg(distinct r order by r)), '[]'::jsonb) from unnest(v_reasons) r),
-    'supervision_for', to_jsonb(v_sup));
+    'supervision_for', to_jsonb(v_sup), 'supervision_medicines', to_jsonb(v_supmeds));
 end;
 $$;
 revoke all on function private.lowcarb_eligibility_for(uuid, boolean, boolean, timestamptz) from public, anon, authenticated;
@@ -412,8 +421,8 @@ create table public.lowcarb_enrolments (
   no_recent_admission         boolean not null check (no_recent_admission),
   supervision_accepted        boolean not null default false,
   supervision_note            text,
-  -- the medicine groups the offering doctor accepted supervision of; a new group appearing later is re-screened by the sweep
-  supervision_groups          text[] not null default '{}',
+  -- the medicines (normalised names) a doctor accepted supervision of; a different one appearing later is re-screened by the sweep and needs accept_lowcarb_supervision()
+  supervision_medicines       text[] not null default '{}',
   config_version              integer not null,
   accepted_at                 timestamptz,
   paused_at                   timestamptz,
@@ -438,7 +447,7 @@ create table public.lowcarb_programme_events (
   organisation_id uuid not null references public.organisations (id) on delete restrict,
   enrolment_id    uuid not null references public.lowcarb_enrolments (id) on delete cascade,
   patient_id      uuid not null references public.profiles (id) on delete cascade,
-  kind            text not null check (kind in ('offered', 'accepted', 'declined', 'paused', 'resumed', 'stopped', 'review_raised', 'review_completed', 'expired')),
+  kind            text not null check (kind in ('offered', 'accepted', 'declined', 'paused', 'resumed', 'stopped', 'review_raised', 'review_completed', 'supervision_updated', 'expired')),
   code            text,
   note            text check (note is null or length(note) <= 2000),
   actor_id        uuid references public.profiles (id) on delete set null,
@@ -468,9 +477,8 @@ begin
   if new.patient_id is distinct from old.patient_id or new.organisation_id is distinct from old.organisation_id
      or new.recorded_by is distinct from old.recorded_by or new.config_version is distinct from old.config_version
      or new.offered_at is distinct from old.offered_at or new.no_recent_admission is distinct from old.no_recent_admission
-     or new.supervision_accepted is distinct from old.supervision_accepted or new.supervision_note is distinct from old.supervision_note
-     or new.supervision_groups is distinct from old.supervision_groups then
-    raise exception 'an enrolment''s patient, offer and supervision record never change' using errcode = '42501';
+     then
+    raise exception 'an enrolment''s patient and offer never change' using errcode = '42501';
   end if;
   if old.status in ('stopped', 'declined', 'expired') and new.status is distinct from old.status then
     raise exception 'a % enrolment cannot be reopened; offer the programme again', old.status using errcode = '42501';
@@ -702,9 +710,9 @@ begin
       -- amber result is not re-checked here: it pauses through the triage trigger the moment it happens.)
       if r.status = 'active' then
         v_screen := private.lowcarb_eligibility_for(r.patient_id, true, r.no_recent_admission);
-        -- not eligible any more, OR a medicine group the doctor never accepted supervision of has appeared (insulin, a sulfonylurea, an unrecognised diabetes medicine)
+        -- not eligible any more, OR a medicine the doctor never accepted supervision of has appeared (insulin, a sulfonylurea, an unrecognised diabetes medicine)
         if v_screen ->> 'decision' = 'not_eligible'
-           or exists (select 1 from jsonb_array_elements_text(v_screen -> 'supervision_for') g where not g = any (r.supervision_groups)) then
+           or exists (select 1 from jsonb_array_elements_text(v_screen -> 'supervision_medicines') g where not g = any (r.supervision_medicines)) then
           perform private.lowcarb_pause(r.id, 'no_longer_eligible', null); v_n := v_n + 1; continue;
         end if;
       end if;
@@ -797,9 +805,9 @@ begin
       detail = case when v ->> 'decision' = 'not_eligible' and not v_repro then 'health_condition'
                     else (select coalesce(string_agg(distinct r, ','), '') from jsonb_array_elements_text(v -> 'reasons') r) end;
   end if;
-  insert into public.lowcarb_enrolments (organisation_id, patient_id, recorded_by, no_recent_admission, supervision_accepted, supervision_note, supervision_groups, config_version, is_test)
+  insert into public.lowcarb_enrolments (organisation_id, patient_id, recorded_by, no_recent_admission, supervision_accepted, supervision_note, supervision_medicines, config_version, is_test)
   values (v_pr.organisation_id, p_patient, v_uid, true, coalesce(p_supervision_accepted, false), nullif(btrim(coalesce(p_supervision_note, '')), ''),
-          case when coalesce(p_supervision_accepted, false) then array(select jsonb_array_elements_text(v -> 'supervision_for')) else '{}'::text[] end, v_cfg.version, coalesce(v_pr.is_test, false))
+          case when coalesce(p_supervision_accepted, false) then array(select jsonb_array_elements_text(v -> 'supervision_medicines')) else '{}'::text[] end, v_cfg.version, coalesce(v_pr.is_test, false))
   returning id into v_id;
   perform private.lowcarb_event(v_id, 'offered', null, v_uid);
   perform private.written_care_notify(p_patient, v_pr.organisation_id, 'lowcarb_programme_update', '{}'::jsonb);
@@ -832,7 +840,8 @@ begin
   end if;
   -- Accepting re-checks everything that could have changed since the offer. The guard is re-read too: a programme switched off cannot be started.
   v := private.lowcarb_eligibility_for(v_uid, e.supervision_accepted, e.no_recent_admission);
-  if not private.go_live_open_patient('low_carb_t2d_programme', v_uid) or v ->> 'decision' <> 'eligible' then
+  if not private.go_live_open_patient('low_carb_t2d_programme', v_uid) or v ->> 'decision' <> 'eligible'
+     or exists (select 1 from jsonb_array_elements_text(v -> 'supervision_medicines') g where not g = any (e.supervision_medicines)) then
     update public.lowcarb_enrolments set status = 'expired', stopped_at = now() where id = e.id;
     perform private.lowcarb_event(e.id, 'expired', 'no_longer_available', null);
     return 'unavailable';
@@ -873,11 +882,36 @@ begin
   end if;
   v := private.lowcarb_eligibility_for(e.patient_id, e.supervision_accepted, e.no_recent_admission);
   if v ->> 'decision' <> 'eligible' then raise exception 'This person cannot restart the programme now (%)', v ->> 'decision' using errcode = '22023'; end if;
+  if exists (select 1 from jsonb_array_elements_text(v -> 'supervision_medicines') g where not g = any (e.supervision_medicines)) then
+    raise exception 'A medicine you have not accepted supervision of has appeared: accept supervision of the current medicines first' using errcode = '22023';
+  end if;
   update public.lowcarb_enrolments set status = 'active', paused_at = null, pause_code = null where id = e.id;
   perform private.lowcarb_event(e.id, 'resumed', null, (select auth.uid()));
 end $$;
 revoke all on function public.resume_lowcarb_programme(uuid) from public, anon;
 grant execute on function public.resume_lowcarb_programme(uuid) to authenticated;
+
+-- A prescriber tied to the patient accepts supervision of the CURRENT medicines (one that appeared after enrolment paused the programme). Needs a note.
+create function public.accept_lowcarb_supervision(p_enrolment uuid, p_note text) returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare e public.lowcarb_enrolments%rowtype; v jsonb;
+begin
+  select * into e from public.lowcarb_enrolments where id = p_enrolment for update;
+  if e.id is null or not private.lowcarb_can_act(e.patient_id) then raise exception 'Not authorised' using errcode = '42501'; end if;
+  if e.status not in ('active', 'paused') then raise exception 'There is no running programme' using errcode = '22023'; end if;
+  if length(btrim(coalesce(p_note, ''))) < 10 then raise exception 'Say how you will supervise these medicines' using errcode = '22023'; end if;
+  v := private.lowcarb_eligibility_for(e.patient_id, true, e.no_recent_admission);
+  if v ->> 'decision' = 'not_eligible' then raise exception 'This person no longer meets the programme screen (%)', v ->> 'decision' using errcode = '22023'; end if;
+  update public.lowcarb_enrolments
+     set supervision_accepted = true, supervision_medicines = array(select jsonb_array_elements_text(v -> 'supervision_medicines')),
+         supervision_note = btrim(p_note)
+   where id = e.id;
+  perform private.lowcarb_event(e.id, 'supervision_updated', null, (select auth.uid()), btrim(p_note));
+  perform private.log_audit('lowcarb.supervision_accepted', 'lowcarb_enrolment', e.id, jsonb_build_object('patient_id', e.patient_id));
+end $$;
+revoke all on function public.accept_lowcarb_supervision(uuid, text) from public, anon;
+grant execute on function public.accept_lowcarb_supervision(uuid, text) to authenticated;
 
 -- The patient can always stop; a prescribing clinician tied to them can too (also withdrawing an unanswered offer).
 create function public.stop_lowcarb_programme(p_enrolment uuid) returns void
@@ -1079,7 +1113,7 @@ begin
   foreach f in array array[
     'public.sign_lowcarb_protocol_config(uuid)', 'public.lowcarb_eligibility(uuid,boolean,boolean)', 'public.offer_lowcarb_programme(uuid,boolean,boolean,text)',
     'public.respond_lowcarb_offer(uuid,boolean)', 'public.pause_lowcarb_programme(uuid)', 'public.resume_lowcarb_programme(uuid)',
-    'public.stop_lowcarb_programme(uuid)', 'public.complete_lowcarb_medicine_review(uuid,text)', 'public.lowcarb_programme_for_patient(uuid)',
+    'public.stop_lowcarb_programme(uuid)', 'public.accept_lowcarb_supervision(uuid,text)', 'public.complete_lowcarb_medicine_review(uuid,text)', 'public.lowcarb_programme_for_patient(uuid)',
     'public.my_lowcarb_gate()', 'private.lowcarb_eligibility_for(uuid,boolean,boolean,timestamptz)', 'private.lowcarb_sweep()', 'private.lowcarb_pause(uuid,text,uuid)',
     'private.lowcarb_go_live_conditions(text)']
   loop

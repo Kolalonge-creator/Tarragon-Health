@@ -34,7 +34,6 @@ export function parseLowCarbOk(data: unknown): { enrolmentId: string; status: Lo
   // With no signed rules live the numbers are null; someone already on the programme still gets the screen (without the number or the check-in lines).
   const lowLine = typeof o.low_glucose_below_mmol === "number" ? o.low_glucose_below_mmol : null;
   const rules = ci && isRule(ci.glucose) && isRule(ci.ketones) && isRule(ci.weight) ? { glucose: ci.glucose, ketones: ci.ketones, weight: ci.weight } : null;
-  if (o.low_glucose_below_mmol !== null && lowLine === null) return null;
   return { enrolmentId: o.enrolment_id, status: o.status, lowLine, rules };
 }
 

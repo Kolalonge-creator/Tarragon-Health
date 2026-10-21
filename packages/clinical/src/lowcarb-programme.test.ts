@@ -162,6 +162,11 @@ const MED_CASES: { id: string; meds: { name: string; indication: string | null }
   { id: "M28", meds: meds("Xultophy 100/3.6"), expected: "needs_supervision|supervision_insulin" },
   { id: "M29", meds: meds("in\u00adsulin"), expected: "needs_supervision|supervision_insulin" },
   { id: "M30", meds: meds("Metform\u00edn 500mg"), expected: "eligible|none" },
+  { id: "M31", meds: meds("Mixtrad30/70"), expected: "needs_supervision|supervision_insulin" },
+  { id: "M32", meds: meds("Daonli5mg"), expected: "needs_supervision|supervision_sulfonylurea" },
+  { id: "M33", meds: meds("Novo Rapd"), expected: "needs_supervision|supervision_insulin" },
+  { id: "M34", meds: meds("Paracetamol 500mg \u2013 PRN"), expected: "eligible|none" },
+  { id: "M35", meds: meds("Vitamin\u00a0D3 1000\u00a0IU"), expected: "eligible|none" },
 ];
 
 describe("medicine classification (the fail-safe)", () => {
@@ -226,7 +231,7 @@ describe("medicine classification (the fail-safe)", () => {
   });
 
   it("normalising and distance helpers", () => {
-    expect(lowCarbNormalise("  GLIBENCLAMIDE-5mg / Tabs ")).toBe("glibenclamide 5mg tabs");
+    expect(lowCarbNormalise("  GLIBENCLAMIDE-5mg / Tabs ")).toBe("glibenclamide 5 mg tabs");
     expect(lowCarbEditDistance("kitten", "sitting")).toBe(3);
     expect(lowCarbEditDistance("", "ab")).toBe(2);
     expect(lowCarbTextHas(null, ["diabet"])).toBe(false);
@@ -359,10 +364,9 @@ describe("medicine review: the platform only proposes", () => {
     expect(patientAdded.kind === "review" && patientAdded.proposals.find((p) => p.stepId === "su_stop_on_low")?.proposable).toBe(false);
   });
 
-  it("the standing review alone raises a review; sugars fine, so the two sugar-lowering medicines are listed for a hand review", () => {
+  it("the standing review alone raises a review; sugars are fine so the steps that cover those medicines do not fire and nothing is listed", () => {
     const r = proposeLowCarbMedicineReview(input({ glucose: [reading(9, 1), reading(9, 2), reading(9, 3), reading(9, 4), reading(9, 5)], lastMedicineReviewAt: daysAgo(20) }), table, config);
-    expect(r).toMatchObject({ kind: "review", triggers: ["standing_review_due"] });
-    expect(r.kind === "review" && r.proposals.map((p) => `${p.stepId}:${p.drugName}`)).toEqual(["no_step_for_group:Gliclazide", "no_step_for_group:Lantus insulin"]);
+    expect(r).toMatchObject({ kind: "review", triggers: ["standing_review_due"], proposals: [] });
   });
 
   it("never having reviewed counts as due", () => {

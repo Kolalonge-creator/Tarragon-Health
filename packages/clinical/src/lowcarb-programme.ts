@@ -132,23 +132,29 @@ export function lowCarbConditionMatches(records: readonly LowCarbConditionRecord
 
 const ACCENT_FROM = "àáâãäåāăąçćčďèéêëēėęěìíîïīįłñńňòóôõöøōőřśšşťùúûüūůűųýÿźżžđÀÁÂÃÄÅĀĂĄÇĆČĎÈÉÊËĒĖĘĚÌÍÎÏĪĮŁÑŃŇÒÓÔÕÖØŌŐŘŚŠŞŤÙÚÛÜŪŮŰŲÝŸŹŻŽĐ";
 const ACCENT_TO = "aaaaaaaaacccdeeeeeeeeiiiiiilnnnoooooooorssstuuuuuuuuyyzzzdAAAAAAAAACCCDEEEEEEEEIIIIIILNNNOOOOOOOORSSSTUUUUUUUUYYZZZD";
+const PUNCTUATION = /[\u00a0\u2000-\u206f\u00b0\u00b5\u00ae\u2122\u00b7\u03bc]/g;
 const INVISIBLE = /[\u00ad\u200b-\u200f\u2060\ufeff]/g;
 
 /** Drops invisible characters and maps accented letters to plain ones. Mirrored by the start of private.lowcarb_norm. */
 function foldText(text: string): string {
-  let out = text.replace(INVISIBLE, "");
+  const out = text.replace(INVISIBLE, "");
   let mapped = "";
   for (const ch of out) {
     const k = ACCENT_FROM.indexOf(ch);
     mapped += k >= 0 ? ACCENT_TO[k] : ch;
   }
-  out = mapped;
-  return out;
+  // spaces, dashes, quotes, bullets, degree, micro, registered and trade-mark signs are separators, not letters
+  return mapped.replace(PUNCTUATION, " ");
 }
 
 /** Lower case; every run of anything but a to z and 0 to 9 becomes one space; trimmed. Accents are folded first. Mirrored by private.lowcarb_norm. */
 export function lowCarbNormalise(text: string): string {
-  return foldText(text).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return foldText(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/([a-z])([0-9])/g, "$1 $2")
+    .replace(/([0-9])([a-z])/g, "$1 $2")
+    .trim();
 }
 
 /** True when, after folding, a name still holds a letter this code cannot read (for example full-width or non-Latin letters). Such a name FAILS SAFE to supervision. Mirrored by private.lowcarb_unreadable. */
@@ -184,13 +190,15 @@ export function lowCarbNameMatches(name: string, patterns: readonly string[]): b
   if (n === "") return false;
   const squeezed = n.replace(/ /g, "");
   const words = n.split(" ");
+  // a brand split in two ("Novo Rapd") is compared joined as well
+  const candidates = [...words, ...words.slice(1).map((w, i) => (words[i] as string) + w)];
   return patterns.some((raw) => {
     const p = lowCarbNormalise(raw);
     if (p === "") return false;
     if (n.includes(p) || squeezed.includes(p.replace(/ /g, ""))) return true;
     if (p.includes(" ") || p.length < 5) return false;
     const allowed = p.length >= 10 ? 2 : 1;
-    return words.some((w) => Math.abs(w.length - p.length) <= allowed && lowCarbEditDistance(w, p) <= allowed);
+    return candidates.some((w) => Math.abs(w.length - p.length) <= allowed && lowCarbEditDistance(w, p) <= allowed);
   });
 }
 
@@ -496,10 +504,12 @@ export function proposeLowCarbMedicineReview(input: LowCarbReviewInput, table: L
   }
   // A medicine that needs supervision (a risk group) with no step of its own, or one the config does not recognise, is never skipped silently:
   // the doctor is told to look at it by hand.
+  const coveredGroups = new Set(table.steps.flatMap((st) => st.match.groups));
   for (const med of input.medicines) {
     if (proposals.some((p) => p.medicationId === med.id)) continue;
     const c = classifyLowCarbMedicine({ name: med.drugName, indication: med.indication ?? null }, config);
-    if (c.unclassified || c.risk.length > 0) {
+    // A risk-group medicine whose group has a step that simply did not fire is fine; only a group with NO step at all is flagged for a hand review.
+    if (c.unclassified || c.risk.some((g) => !coveredGroups.has(g))) {
       proposals.push({
         stepId: c.unclassified ? "unclassified_diabetes_medicine" : "no_step_for_group",
         action: "review_dose",

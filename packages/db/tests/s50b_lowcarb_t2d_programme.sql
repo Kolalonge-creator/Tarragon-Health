@@ -154,6 +154,12 @@ begin
   return (g ->> 'decision') || '|' || coalesce((select string_agg(x, ',' order by x) from jsonb_array_elements_text(g -> 'reasons') x), '');
 end $f$;
 
+create function pg_temp.late_med_then_sweep(p_patient uuid, p_enrol uuid) returns text language plpgsql as $f$
+begin
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source) values (pg_temp.f('org'), p_patient, 'Zorglibex', '1', 'daily', true, 'clinician');
+  perform private.lowcarb_sweep();
+  return pg_temp.status_of(p_enrol);
+end $f$;
 create function pg_temp.run_case_ind(p_name text, p_ind text) returns text language plpgsql as $f$
 declare v uuid := pg_temp.mkcase('{}'); g jsonb;
 begin
@@ -288,6 +294,11 @@ begin
   perform pg_temp.ck('M28 an insulin plus GLP-1 combination', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Xultophy 100/3.6"]}'));
   perform pg_temp.ck('M29 a soft hyphen inside the name', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["in' || chr(173) || 'sulin"]}'));
   perform pg_temp.ck('M30 an accented metformin is still recognised', 'eligible|none', pg_temp.run_case('{"meds":["Metform' || chr(237) || 'n 500mg"]}'));
+  perform pg_temp.ck('M31 a slip with the strength attached', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Mixtrad30/70"]}'));
+  perform pg_temp.ck('M32 a slip with the dose attached', 'needs_supervision|supervision_sulfonylurea', pg_temp.run_case('{"meds":["Daonli5mg"]}'));
+  perform pg_temp.ck('M33 a slip in a brand typed as two words', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Novo Rapd"]}'));
+  perform pg_temp.ck('M34 an ordinary medicine with a smart dash is not flagged', 'eligible|none', pg_temp.run_case('{"meds":["Paracetamol 500mg ' || chr(8211) || ' PRN"]}'));
+  perform pg_temp.ck('M35 non-breaking spaces are separators', 'eligible|none', pg_temp.run_case('{"meds":["Vitamin' || chr(160) || 'D3 1000' || chr(160) || 'IU"]}'));
 end $$;
 
 -- c. enrolment ---------------------------------------------------------------------------------------------------------------------
@@ -489,6 +500,14 @@ begin
     insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source) values (v_org, k2, 'Lantus', '10 units', 'daily', true, 'clinician');
     perform private.lowcarb_sweep();
     perform pg_temp.ck('d33 ...and pauses it when insulin appears that nobody accepted supervision of', 'paused/no_longer_eligible', pg_temp.status_of(ek2));
+    perform pg_temp.ck('d34 a resume is refused until supervision of the new medicine is accepted', 'ERR:22023', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.resume_lowcarb_programme(%L)', ek2))));
+    perform pg_temp.ck('d35 an untied doctor cannot accept supervision', 'ERR:42501', pg_temp.err(pg_temp.q_as(pg_temp.f('doc2'), format('select public.accept_lowcarb_supervision(%L, %L)', ek2, 'I will review the insulin weekly'))));
+    perform pg_temp.ck('d36 accepting supervision needs a real note', 'ERR:22023', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.accept_lowcarb_supervision(%L, %L)', ek2, 'ok'))));
+    perform pg_temp.ck('d37 the tied prescriber accepts supervision of the current medicines', 'ok', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.accept_lowcarb_supervision(%L, %L)', ek2, 'I will review the insulin weekly'))));
+    perform pg_temp.ck('d38 ...then the resume works', 'ok', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.resume_lowcarb_programme(%L)', ek2))));
+    perform private.lowcarb_sweep();
+    perform pg_temp.ck('d38b ...and the sweep leaves it running', 'active', pg_temp.status_of(ek2));
+    perform pg_temp.ck('d39 a different unrecognised medicine added later is not covered by that acceptance', 'paused/no_longer_eligible', pg_temp.late_med_then_sweep(k2, ek2));
   end;
 end $$;
 

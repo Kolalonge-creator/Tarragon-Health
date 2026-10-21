@@ -49452,6 +49452,7 @@ export type Database = {
       pause_lowcarb_programme: { Args: { p_enrolment: string }; Returns: undefined }
       resume_lowcarb_programme: { Args: { p_enrolment: string }; Returns: undefined }
       stop_lowcarb_programme: { Args: { p_enrolment: string }; Returns: undefined }
+      accept_lowcarb_supervision: { Args: { p_enrolment: string; p_note: string }; Returns: undefined }
       complete_lowcarb_medicine_review: { Args: { p_enrolment: string; p_note: string }; Returns: undefined }
       lowcarb_programme_for_patient: { Args: { p_patient: string }; Returns: Json }
       my_lowcarb_gate: { Args: Record<PropertyKey, never>; Returns: Json }

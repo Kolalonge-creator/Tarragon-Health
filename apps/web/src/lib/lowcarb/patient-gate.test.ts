@@ -35,6 +35,11 @@ describe("loadPatientLowCarb", () => {
     await expect(loadPatientLowCarb(client({ data: { ...ok("active"), status: "stopped" }, error: null }), "p1", NOW)).resolves.toEqual({ state: "error" });
   });
 
+  it("malformed numbers degrade, they do not hide the screen: only a missing id or status is an error", async () => {
+    const r = await loadPatientLowCarb(client({ data: { ...ok("active"), low_glucose_below_mmol: "3.9", check_ins: { glucose: 1 } }, error: null }), "p1", NOW);
+    expect(r).toEqual({ state: "ok", enrolmentId: "e1", status: "active", lowLine: null, checkins: null });
+  });
+
   it("with no signed rules someone on the programme still gets a screen, without the number", async () => {
     const ok2 = await loadPatientLowCarb(client({ data: { ...ok("paused"), low_glucose_below_mmol: null, check_ins: null }, error: null }), "p1", NOW);
     expect(ok2).toEqual({ state: "ok", enrolmentId: "e1", status: "paused", lowLine: null, checkins: null });
