@@ -2,6 +2,11 @@ import { t } from "@tarragon/i18n";
 import { rangeMayBeShownAsClinical, rangeSourceLabel } from "@tarragon/shared";
 import { PrintButton } from "./print-button";
 import { FhirDownloadButton } from "./fhir-download-button";
+import dynamic from "next/dynamic";
+import type { SharedReportBody } from "@/lib/health-report/render-model";
+
+// loaded only when a link actually carries a report, so the report renderer and the rule registry stay out of every other shared link's bundle
+const SharedReportSection = dynamic(() => import("./shared-report-section").then((m) => m.SharedReportSection));
 
 /** What `record_share_by_token` returns on success. No directive: rendered by the server page and by the PIN gate on the client. */
 export type SharedData = {
@@ -60,6 +65,8 @@ export type SharedData = {
     dose_number: number | null;
     batch_number: string | null;
   }>;
+  /** S46d: the latest signed yearly report in shared-copy form, built and filtered in the database. Null when no signed report exists. */
+  health_report?: SharedReportBody | null;
   emergency_info?: {
     blood: {
       blood_group: string | null;
@@ -326,6 +333,15 @@ export function SharedRecordView({ record }: { record: SharedData }) {
           </ul>
         </>
       )}
+
+      {record.sections.includes("health_report") &&
+        (record.health_report ? (
+          <section aria-label="Yearly health report">
+            <SharedReportSection body={record.health_report} />
+          </section>
+        ) : (
+          <p role="status" className="text-sm">{t("report.share.link_unavailable", "en")}</p>
+        ))}
 
       {record.emergency_info && (
         <>

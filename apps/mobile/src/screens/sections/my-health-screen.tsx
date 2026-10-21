@@ -107,6 +107,7 @@ export function MyHealthScreen({ userId, acting, onNavigate }: MyHealthScreenPro
           trailing="chevron"
           onPress={() => onNavigate("shareRecords")}
         />
+        <GroupedListRow title={t("my_phones.card")} subtitle={t("my_phones.card_body")} trailing="chevron" onPress={() => onNavigate("myPhones")} />
       </GroupedList>
 
       {acting ? (

@@ -8,7 +8,9 @@ export type RecordShareSection =
   | "allergies"
   | "lab_results"
   | "vaccinations"
-  | "emergency_info";
+  | "emergency_info"
+  /** S46d: the latest SIGNED yearly Health Report, in its shared-copy form. Offered only when a signed report exists (the database refuses otherwise). */
+  | "health_report";
 
 export const SHARE_SECTIONS: RecordShareSection[] = [
   "vitals",
@@ -18,6 +20,7 @@ export const SHARE_SECTIONS: RecordShareSection[] = [
   "lab_results",
   "vaccinations",
   "emergency_info",
+  "health_report",
 ];
 
 export type RecordShare = {

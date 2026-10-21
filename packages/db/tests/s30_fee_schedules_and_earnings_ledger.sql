@@ -900,6 +900,9 @@ begin
 end $$;
 
 -- 4d. The pilot minimum -----------------------------------------------------------------------------------------------------
+-- S30b added an activity check that HOLDS a top-up when the declared hours show no sign of work. This S30 proof tests the S30 arithmetic
+-- (guarantee less what was earned), so the check is switched off here; s30b_earnings_disputes_withholding_pilot.sql proves the check itself.
+update public.earnings_disputes_config set rules = jsonb_set(rules, '{pilot_minimum,activity_check}', 'false') where is_active;
 do $$
 declare v_org uuid := pg_temp.f('org'); v_doc2 uuid := pg_temp.f('doc2'); v_cmo uuid := pg_temp.f('cmo'); v_d1 uuid := pg_temp.f('d1');
 begin
@@ -963,7 +966,9 @@ declare v_line uuid := (select id from public.earnings_ledger where kind = 'cons
 begin
   perform pg_temp.ck('a line cannot be updated (even by the table owner)', '23514', pg_temp.try_sql(format($q$update public.earnings_ledger set amount_kobo = amount_kobo + 1 where id = %L$q$, v_line)));
   perform pg_temp.ck('a line cannot be deleted', '23514', pg_temp.try_sql(format($q$delete from public.earnings_ledger where id = %L$q$, v_line)));
-  perform pg_temp.ck('the ledger cannot be truncated', '23514', pg_temp.try_sql('truncate public.earnings_ledger'));
+  -- S30b: earnings_disputes now references the ledger, so Postgres refuses the truncate itself (0A000) before the append-only trigger (23514)
+  -- can run. Either way the truncate is refused.
+  perform pg_temp.ck('the ledger cannot be truncated', '23514', (select case when c in ('23514', '0A000') then '23514' else c end from (select pg_temp.try_sql('truncate public.earnings_ledger') as c) t));
   perform pg_temp.ck('payout_id cannot be set without the payout door', '23514', pg_temp.try_sql(format($q$update public.earnings_ledger set payout_id = gen_random_uuid() where id = %L$q$, v_line)));
   perform pg_temp.ck('payout_id and another column cannot change together, even through the door', '23514',
     pg_temp.try_sql(format($q$select set_config('tarragon.earnings_payout_link', 'on', true); update public.earnings_ledger set payout_id = gen_random_uuid(), amount_kobo = 1 where id = %L$q$, v_line)));
