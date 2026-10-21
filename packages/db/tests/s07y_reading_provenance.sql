@@ -266,7 +266,7 @@ begin
   v_b := pg_temp.mkuser(v_org, 'diary average', true);
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, client_recorded_at, source, entry_origin, position, arm)
   values (v_org, v_b, 'blood_pressure', 140, 90, now() - interval '30 minutes', 'manual', 'paper_diary', 'seated', 'left');
-  perform pg_temp.ck('real', 'F5 a diary reading IS part of the general 7-day average (it is labelled, not hidden); OQ-S07Y-3 asks whether it should be', '1|140.0',
+  perform pg_temp.ck('real', 'F5 a diary reading IS part of the general 7-day average (it is labelled, not hidden); OQ-S07YL-3 asks whether it should be', '1|140.0',
     (select n_readings || '|' || avg_systolic from private.hbpm_average(v_b)));
 
   -- G. a dangerous value fires what an ordinary one fires -----------------------------------------------------------------------------

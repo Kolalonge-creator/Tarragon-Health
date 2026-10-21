@@ -12,6 +12,7 @@ import { syncReminders } from "./reminder-notifications";
 import { replanDoseReminders } from "./dose-reminders";
 import { refreshOfflineSyncConfig } from "./offline-sync-config";
 import { syncThresholdsIfOnline } from "./threshold-sync";
+import { currentBulkDeferral } from "./reconnect-flush";
 
 /**
  * The reliable background-sync backbone for both platforms.
@@ -94,12 +95,19 @@ TaskManager.defineTask(TASK_NAME, async () => {
     const replanned = await replanDoseReminders(session.user.id);
     if (!replanned.ok) recordSyncError("background_sync", `${Platform.OS}:backgroundReplan`, "reminder plan not refreshed");
 
+    // S06y: a health-store sync reads from the store and uploads its queued pages. Nobody is waiting on it, so on a phone that is
+    // low on power (or in low-data mode off Wi-Fi) it waits for a later run; every entry already saved stays saved, and the sync
+    // banner says so. Saving and sending above is never held back.
+    const bulkDeferral = await currentBulkDeferral();
+
     const result =
-      Platform.OS === "ios"
-        ? await syncAppleHealth({ promptForPermission: false })
-        : Platform.OS === "android"
-          ? await syncHealthConnect({ promptForPermission: false })
-          : null;
+      bulkDeferral !== null
+        ? null
+        : Platform.OS === "ios"
+          ? await syncAppleHealth({ promptForPermission: false })
+          : Platform.OS === "android"
+            ? await syncHealthConnect({ promptForPermission: false })
+            : null;
 
     // A HealthSyncResult of "error", or a device-readings flush that made no
     // progress despite having a backlog, is a real failure even though

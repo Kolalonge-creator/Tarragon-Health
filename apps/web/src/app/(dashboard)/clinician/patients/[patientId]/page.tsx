@@ -48,6 +48,9 @@ import { FootAssessmentForm } from "./foot-assessment-form";
 import { ComplicationCheckForm } from "./complication-check-form";
 import { GlucoseTargetForm } from "./glucose-target-form";
 import { ClinicBpForm } from "./clinic-bp-form";
+import { ThresholdOverrideCard } from "./threshold-override-card";
+import { readPatientOverrides } from "@/lib/queries/threshold-overrides";
+import { CuffCheckPanel } from "./cuff-check-panel";
 import { DiabetesTypeForm } from "./diabetes-type-form";
 import { TreatmentLadder } from "./treatment-ladder";
 import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
@@ -154,6 +157,7 @@ export default async function ClinicianPatientPage({
 
   const callerStaff = await getCurrentClinicalStaff();
   const canPrescribe = hasPrescribingAuthority(callerStaff);
+  const thresholdOverrides = canPrescribe ? await readPatientOverrides(supabase, patient.id) : { rows: [], failed: false };
   const currentUser = await getCurrentUser();
   // Pregnancy context for the drug-safety advisory (§20.2).
   const { data: pregnancy } = await supabase
@@ -377,6 +381,8 @@ export default async function ClinicianPatientPage({
                     no longer excludes them. */}
                 {isClinicalTier(callerStaff) && <GlucoseTargetForm patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && <ClinicBpForm patientId={patient.id} />}
+                {canPrescribe && <ThresholdOverrideCard patientId={patient.id} rows={thresholdOverrides.rows} readFailed={thresholdOverrides.failed} />}
+                {isClinicalTier(callerStaff) && <CuffCheckPanel patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && (
                   <DiabetesTypeForm
                     patientId={patient.id}

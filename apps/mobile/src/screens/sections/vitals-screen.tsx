@@ -13,6 +13,7 @@ import { logBpWithExtras } from "@/lib/bp-log";
 import { NO_PROVENANCE_GUARDS, loadProvenanceGuards, type ProvenanceGuards } from "@/lib/provenance-guards";
 import { bpAckMessage, bpRowState } from "@/lib/bp-ack-view";
 import { listOutbox } from "@/lib/outbox";
+import { toHomeReadings } from "@/lib/home-check";
 import { refreshApprovedGlucoseRuleSet, refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
 import { answerSymptomQuestion, type QuestionSymptom } from "@/lib/symptom-question";
 import { readObstetricStatus, refreshObstetricStatus } from "@/lib/obstetric-status";
@@ -158,6 +159,8 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [ack, setAck] = useState<BpAckDelivery | null>(null);
   // The saved blood pressure row the acknowledgement is about, so a saved-on-this-phone line can turn into received when the outbox sends it.
   const [ackRowId, setAckRowId] = useState<string | null>(null);
+  // Bumped after every saved reading so the seven-day home check card and its guided session step forward.
+  const [homeReload, setHomeReload] = useState(0);
   const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
   const [triageCard, setTriageCard] = useState<{ message: string; tone: "warn" | "info"; audioId: string | null } | null>(null);
   const [cuffType, setCuffType] = useState<CuffType | null>(null);
@@ -381,6 +384,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     setAtPharmacy(false);
     setPharmacyPlace("");
     await load();
+    setHomeReload((n) => n + 1);
   }
 
   async function handleQuestionAnswer(symptoms: QuestionSymptom[]) {
@@ -447,6 +451,10 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     const key = entryOriginLabelKey(origin);
     return key ? tr(key) : null;
   };
+  // The guided home-check panel works from the readings this screen already holds (cuff and manual only), and gives way while guidance for the reading just saved is showing.
+  const homeSessionReadings = useMemo(() => toHomeReadings(rawReadings), [rawReadings]);
+  // Emergency guidance or the emergency-symptom question is open: the steps give way until it is dealt with. A repeat prompt does not hold them, since measuring again is what it asks.
+  const holdSession = guidance !== null || question !== null;
 
   return (
     <Screen>
@@ -587,7 +595,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       ) : null}
 
       {/* The seven-day home check (S07x): appears only when the server guard is open, and not while acting for someone else. */}
-      {!beneficiaryProfileId ? <HomeCheckCard patientId={patientId} /> : null}
+      {!beneficiaryProfileId ? <HomeCheckCard patientId={patientId} reloadToken={homeReload} session={{ readings: homeSessionReadings, hold: holdSession }} /> : null}
 
       {/* Log a reading */}
       <Card style={{ gap: space.md }}>

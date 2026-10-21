@@ -23,14 +23,14 @@
 --      re-stamped as now).
 --   3. The 7-day home protocol (private.home_bp_assess) counts neither label. The home average and the window statistics (private.hbpm_average,
 --      private.bp_window_stats) do not count a pharmacy reading. The white-coat / masked comparison reads home_bp_checks, which is built from home_bp_assess, so it
---      follows. The protocol (C1 to C3) is unsigned; whether a diary may ever count toward it is a CMO question (OQ-S07Y-3).
+--      follows. The protocol (C1 to C3) is unsigned; whether a diary may ever count toward it is a CMO question (OQ-S07YL-3).
 --   4. Both reading views gain the two columns at the END (nothing is renamed or reordered, security_invoker stays false as it was).
 --   5. Guards pharmacy_bp_readings, paper_diary_entry, paper_diary_ai_reader: all OFF, CMO's switch. No conditions are defined, so none can be switched on until
 --      conditions exist (the S43 reasoning: private.go_live_conditions is patched by many branches and is not restated here).
 --   6. AI-021 "Paper diary reader" registered in ai_systems, disabled, not runtime-governed. It suggests values; the person confirms; no evaluation or approval is seeded.
 --
 -- NOT CHANGED, ON PURPOSE: every red-flag trigger (BP, pulse, glucose, SpO2, temperature) and the observation.recorded event. A dangerous diary or pharmacy
--- value fires them exactly as a live entry does (proof section R). Whether an OLD dangerous value should page is OQ-S07Y-4.
+-- value fires them exactly as a live entry does (proof section R). Whether an OLD dangerous value should page is OQ-S07YL-4.
 
 -- 1. the two columns ------------------------------------------------------------------------------------------------------------------
 alter table public.vitals_readings
@@ -72,12 +72,12 @@ comment on column public.offline_sync_config.diary_window_days is 'S07y PROPOSED
 insert into public.go_live_guards (key, label, blocks, condition_text, switch_role, enforced_in, not_enforced_in) values
   ('pharmacy_bp_readings', 'Blood pressure taken at a pharmacy or clinic machine',
    'Saving a reading labelled "taken at a pharmacy or clinic machine" (the label itself; the reading is stored as an ordinary one)',
-   'The Chief Medical Officer has confirmed the label wording and that such a reading is shown but never counted in the home average or the home check (OQ-S07Y-1, OQ-S07Y-2)',
+   'The Chief Medical Officer has confirmed the label wording and that such a reading is shown but never counted in the home average or the home check (OQ-S07YL-1, OQ-S07YL-2)',
    'cmo', array['stamp_manual_vitals_timestamp (insert trigger on vitals_readings)'],
    'Logging an ordinary reading is never behind this guard. A dangerous value is triaged exactly as an ordinary reading whether or not the label is open. Test accounts pass it. No conditions are defined yet, so it cannot be switched on from the dashboard until they are.'),
   ('paper_diary_entry', 'Readings copied from a paper diary (typed by the person)',
    'Saving readings the person typed in from their own paper diary, with the label "from your paper diary"',
-   'The Chief Medical Officer has confirmed the label, the days a diary reading may go back, and whether a diary reading may count in the home average (OQ-S07Y-3, OQ-S07Y-5)',
+   'The Chief Medical Officer has confirmed the label, the days a diary reading may go back, and whether a diary reading may count in the home average (OQ-S07YL-3, OQ-S07YL-5)',
    'cmo', array['stamp_manual_vitals_timestamp (insert trigger on vitals_readings)'],
    'Not behind this guard: ordinary logging, and every red-flag check (a diary value is triaged like any other). Test accounts pass it. No conditions are defined yet.'),
   ('paper_diary_ai_reader', 'Reading a photo of a paper diary into suggestions (AI-021)',

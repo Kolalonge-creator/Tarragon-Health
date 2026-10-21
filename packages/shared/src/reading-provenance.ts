@@ -3,9 +3,9 @@
  *
  * `vitals_readings.entry_origin` is null for an ordinary reading. The two labels:
  *  - `pharmacy_machine`: taken at a pharmacy or clinic machine. A real cuff reading, shown and triaged like any other, but NOT a home reading: it is left out
- *    of the 7-day home average, the home-check protocol and the white-coat / masked comparison (docs/design/S07y.md, OQ-S07Y-1 and 2).
+ *    of the 7-day home average, the home-check protocol and the white-coat / masked comparison (docs/design/S07y-reading-labels-and-diary.md, OQ-S07YL-1 and 2).
  *  - `paper_diary`: copied from the person's own handwritten diary and confirmed by them. Shown and triaged like any other; never part of the signed 7-day
- *    protocol (OQ-S07Y-3).
+ *    protocol (OQ-S07YL-3).
  *
  * Both labels ride on `source = 'manual'`, so every safety trigger that keys on source still fires. This file is the TypeScript twin of the database rule
  * (private.hbpm_average, private.bp_window_stats, private.home_bp_assess) for code that computes an average itself, as `bp-estimate.ts` is for estimates.
