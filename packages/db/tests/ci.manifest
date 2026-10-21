@@ -1333,3 +1333,13 @@ s49a_food_logging_foundation.sql
 # S48a: activity safety gate (red event in 48h = rest, enforced on enrolment incl. re-activation), kinds/goals/events, unreviewed workout plans hidden, owner-only private routes. Sabotage: trigger dropped, gate ignoring red, staff route policy; each must flip.
 s48a_activity_safety_gate.sql
 s27h_lab_lifecycle_and_quality.sql
+
+
+
+
+# --- Added 2026-10-16 (S28e) ------------------------------------------------
+# Pharmacy readiness and reach: one visit and one code for several prescriptions (all or nothing, the lock belongs to the visit, each medicine is its own
+# supply with its own controlled-medicine check and the shared supply count), stock confirmation as a plain yes or no, and the pharmacy scorecard
+# (turnaround to supply, flags, licence days; a pharmacy breach is a suggestion and never suspends by itself, a laboratory still does).
+# Sabotage: the visit-aware lock (two checks), the suggest-only rule and the stock reset removed; all four must flip.
+s28e_pharmacy_visits_stock_scorecard.sql
