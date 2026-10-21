@@ -1,6 +1,7 @@
-import { flushOutbox, getPendingCount } from "@/lib/outbox";
+import { flushOutbox } from "@/lib/outbox";
 import { runDeviceCheckThrottled } from "@/lib/device-lease";
 import { startReconnectWatcher } from "@/lib/reachability";
+import { getAllWaitingCount, reconnectFlush } from "@/lib/reconnect-flush";
 import { syncReminders } from "@/lib/reminder-notifications";
 import { refreshPackIfEnabled } from "@/lib/learning-pack";
 import { clearLocalMirror } from "@/lib/offline-store";
@@ -170,8 +171,8 @@ function AppContent() {
     // Honest reconnect trigger (S06x): when the radio says it is back and entries wait, one tiny HEAD proves the
     // server is reachable before the flush. The foreground flush and the one-minute loop below stay as the fallback.
     const stopWatcher = startReconnectWatcher({
-      rowsWaiting: getPendingCount,
-      onReachable: () => flushOutbox().then(() => runDeviceCheckThrottled()),
+      rowsWaiting: getAllWaitingCount,
+      onReachable: () => reconnectFlush().then(() => runDeviceCheckThrottled()),
     });
     // Reminders are a rolling window of notifications, so they are topped up whenever the app
     // opens or returns to the foreground (and never ask for permission here: only the patient's

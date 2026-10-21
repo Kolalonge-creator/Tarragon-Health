@@ -2,11 +2,14 @@
 
 import { useState, type FormEvent } from "react";
 import { useAddMedication, useMedications } from "@/lib/queries/medications";
-import { useInteractionCheckOpen } from "@/lib/queries/medicine-catalogue";
+import { useInteractionCheckOpen, useMedicineCatalogue } from "@/lib/queries/medicine-catalogue";
+import { useBrandMap, useDuplicateIngredientCheckOpen, useInteractionRules, useSetNafdacNumber } from "@/lib/queries/medicine-safety";
 import { t } from "@tarragon/i18n";
 import {
   canSubmitAddForm,
+  checkIngredientsOnAdd,
   checkMedicineOnAdd,
+  nafdacNumberToStore,
   prefillFromCatalogue,
   type AddCheckFinding,
   type AddFormPrefill,
@@ -15,6 +18,7 @@ import {
 import { MedicineNameSuggestions } from "./medicine-name-suggestions";
 import { PackPhotoPrefill } from "./pack-photo-prefill";
 import { AddCheckPanel } from "./add-check-panel";
+import { NafdacVerifyCard } from "./nafdac-verify-card";
 import { checkMedicationSafetyAfterAdd } from "./actions";
 import { prescriptionDetailSchema, medicationSchema, type MedicationInput } from "@/lib/validation/medications";
 import { diabetesDrugSafety, type DrugSafetySeverity } from "@/lib/rules/diabetes-drug-safety";
@@ -54,12 +58,37 @@ export function AddMedicationForm({
   // S53 (8.7): the interaction and duplication check runs on a patient's own add, only when its go-live guard is open. The list read is
   // switched off for clinicians (their panel does its own audited read), so this adds no audit row on the clinician chart.
   const interactionCheckOpen = useInteractionCheckOpen();
-  const existingMedications = useMedications(source === "patient" && interactionCheckOpen.data === true ? patientId : "");
-  // Do not let the add race the check: wait until the guard and (when it is open) the medicine list have answered, or failed.
+  // S08y: the same-ingredient warning and the governed interaction rules each have their own go-live switch (both born off). The rules
+  // arrive only while their switch is open and a signed set exists; the brand mapping and catalogue only help name the ingredients.
+  const duplicateCheckOpen = useDuplicateIngredientCheckOpen(source === "patient");
+  const interactionRules = useInteractionRules(source === "patient");
+  const ingredientChecksOn = duplicateCheckOpen.data === true || (interactionRules.data?.length ?? 0) > 0;
+  // Fetched only for a patient's add, and only when a check is open (the name search loads it for itself).
+  const brandMap = useBrandMap(source === "patient" && ingredientChecksOn);
+  const catalogue = useMedicineCatalogue();
+  const setNafdac = useSetNafdacNumber(patientId);
+  const anyCheckOpen = interactionCheckOpen.data === true || ingredientChecksOn;
+  const existingMedications = useMedications(source === "patient" && anyCheckOpen ? patientId : "");
+  // Do not let the add race the check: wait until the guards and (when one is open) the medicine list have answered, or failed.
   const checkStillLoading =
-    source === "patient" && (interactionCheckOpen.isPending || (interactionCheckOpen.data === true && existingMedications.isPending));
+    source === "patient" &&
+    (interactionCheckOpen.isPending ||
+      (duplicateCheckOpen.fetchStatus !== "idle" && duplicateCheckOpen.isPending) ||
+      (interactionRules.fetchStatus !== "idle" && interactionRules.isPending) ||
+      (ingredientChecksOn && (brandMap.isPending || catalogue.isPending)) ||
+      (anyCheckOpen && existingMedications.isPending));
   // "could not find out" is different from "closed": say so rather than letting a failure read as a pass
-  const checkCouldNotRun = source === "patient" && (interactionCheckOpen.isError || (interactionCheckOpen.data === true && existingMedications.isError));
+  const checkCouldNotRun =
+    source === "patient" &&
+    (interactionCheckOpen.isError ||
+      duplicateCheckOpen.isError ||
+      interactionRules.isError ||
+      // Without the brand mapping or the catalogue a brand name cannot be resolved, so the same-ingredient answer would be weaker: say so.
+      (ingredientChecksOn && (brandMap.isError || catalogue.isError)) ||
+      (anyCheckOpen && existingMedications.isError));
+  // S08y (item 4): the NAFDAC number noted from the pack. Store only; adding the medicine never depends on it.
+  const [nafdacTyped, setNafdacTyped] = useState("");
+  const [nafdacSaved, setNafdacSaved] = useState<"none" | "saved" | "failed" | "invalid">("none");
   const [addFindings, setAddFindings] = useState<AddCheckFinding[] | null>(null);
   const [pickedName, setPickedName] = useState<string | null>(null);
   // S53 (8.1): a photo or catalogue prefill never saves on its own. A photo prefill needs the patient's "I checked it" tick.
@@ -145,6 +174,7 @@ export function AddMedicationForm({
     setPhotoLowConfidence(false);
     setConfirmedAgainstPack(false);
     setDrugName("");
+    setNafdacTyped("");
     setDose("");
     setFrequency("");
     setRefillDate("");
@@ -168,6 +198,10 @@ export function AddMedicationForm({
 
   function submitMedication(data: MedicationInput) {
     const effectiveSource = specialistFieldsShown ? "specialist" : source;
+    // Read before resetForm clears the box; "" means nothing to store.
+    const nafdac = source === "patient" ? nafdacNumberToStore(nafdacTyped) : null;
+    const nafdacValue = nafdac?.ok ? nafdac.value : null;
+    const nafdacInvalid = nafdac !== null && !nafdac.ok;
     addMedication.mutate(
       {
         ...data,
@@ -176,9 +210,16 @@ export function AddMedicationForm({
         safety: source === "clinician" ? { allergiesConfirmed, overrideReason } : undefined,
       },
       {
-        onSuccess: () => {
+        onSuccess: (created) => {
           setSuccess(true);
+          setNafdacSaved(nafdacInvalid ? "invalid" : "none");
           resetForm();
+          if (nafdacValue && created?.id) {
+            setNafdac.mutate(
+              { medicationId: created.id, number: nafdacValue },
+              { onSuccess: () => setNafdacSaved("saved"), onError: () => setNafdacSaved("failed") },
+            );
+          }
           // Medication safety pathway 64.16-64.18: only a clinician actually
           // driving this form satisfies the underlying RPC's org-staff check
           // (see checkMedicationSafetyAfterAdd) — never fired for a patient's
@@ -232,25 +273,44 @@ export function AddMedicationForm({
     setSuccess(false);
 
     if (source === "patient") {
+      // The NAFDAC number is an optional note: a value that is not shaped like one never holds the medicine back (it is simply not saved).
       // Nothing is saved from a photo prefill until the patient has checked every field against the pack.
       if (!canSubmitAddForm({ hasName: true, prefilledFromPhoto, confirmedAgainstPack })) {
         setValidationError(t("medicines.pack.confirm"));
         return;
       }
-      // The interaction and duplication check (8.7). Advice only: it can pause the add to show a warning, never refuse it.
-      if (!skipCheck && interactionCheckOpen.data === true && existingMedications.data) {
-        const result = checkMedicineOnAdd(
-          parsed.data.drug_name,
-          existingMedications.data.map((m) => ({
-            id: m.id,
-            drugName: m.drug_name,
-            dose: m.dose,
-            prescriberName: m.prescriber_name,
-            source: m.source,
-          })),
-        );
-        if (result.findings.length > 0) {
-          setAddFindings(result.findings);
+      // The interaction and duplication check (8.7), then the S08y same-ingredient and governed-rule checks. All advice only: they
+      // can pause the add to show one warning panel, never refuse it, and every way of getting past the panel is "Add it anyway".
+      if (!skipCheck && existingMedications.data) {
+        const found: AddCheckFinding[] = [];
+        if (interactionCheckOpen.data === true) {
+          found.push(
+            ...checkMedicineOnAdd(
+              parsed.data.drug_name,
+              existingMedications.data.map((m) => ({
+                id: m.id,
+                drugName: m.drug_name,
+                dose: m.dose,
+                prescriberName: m.prescriber_name,
+                source: m.source,
+              })),
+            ).findings,
+          );
+        }
+        if (ingredientChecksOn) {
+          found.push(
+            ...checkIngredientsOnAdd({
+              candidateName: parsed.data.drug_name,
+              existing: existingMedications.data.map((m) => ({ id: m.id, drugName: m.drug_name })),
+              brandMap: brandMap.data ?? [],
+              catalogue: catalogue.data ?? [],
+              duplicateCheck: duplicateCheckOpen.data === true,
+              rules: interactionRules.data ?? [],
+            }).findings,
+          );
+        }
+        if (found.length > 0) {
+          setAddFindings(found);
           return;
         }
       }
@@ -485,6 +545,22 @@ export function AddMedicationForm({
               />
             </div>
           </div>
+          {source === "patient" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="nafdac_number">{t("medicines.nafdac.field_label")}</Label>
+              <Input
+                id="nafdac_number"
+                value={nafdacTyped}
+                onChange={(event) => setNafdacTyped(event.target.value)}
+                autoCapitalize="characters"
+                autoComplete="off"
+                aria-describedby="nafdac_number_hint"
+              />
+              <p id="nafdac_number_hint" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                {t("medicines.nafdac.field_hint")}
+              </p>
+            </div>
+          )}
           {source === "clinician" && (
             <div className="space-y-3 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
               <p className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">Prescription detail</p>
@@ -664,6 +740,18 @@ export function AddMedicationForm({
             <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
               {t("medicines.mas.add_prompt")} {t("medicines.mas.caveat")}
             </p>
+          ) : null}
+          {source === "patient" && nafdacSaved === "saved" ? (
+            <div className="space-y-2">
+              <p role="status" className="text-sm text-charcoal-ink dark:text-night-ink">{t("medicines.nafdac.saved")}</p>
+              <NafdacVerifyCard />
+            </div>
+          ) : null}
+          {source === "patient" && nafdacSaved === "invalid" ? (
+            <p role="status" className="text-sm text-amber-700 dark:text-amber-300">{t("medicines.nafdac.invalid")}</p>
+          ) : null}
+          {source === "patient" && nafdacSaved === "failed" ? (
+            <p role="alert" className="text-sm text-amber-700 dark:text-amber-300">{t("medicines.nafdac.save_failed")}</p>
           ) : null}
           {success && allergyCheckSkipped ? (
             <p role="alert" className="text-sm text-amber-700">
