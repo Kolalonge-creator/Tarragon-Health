@@ -6,6 +6,8 @@ import { AI_SYSTEMS, runGovernedAi } from "@/lib/ai-governance";
 import { analyzeMealPhoto, isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
 import { nutritionLogSchema } from "@/lib/validation/nutrition";
 import { recordWeeklyPlanProgress } from "@/lib/lifestyle/weekly-plan-progress";
+import { fetchFoodCatalogue } from "@/lib/nutrition/food-catalogue-fetch";
+import { analyseDescriptionWith } from "@/lib/nutrition/meal-log";
 
 const MEAL_PHOTO_BUCKET = "meal-photos";
 
@@ -112,6 +114,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   let aiEstimate: Json | null = null;
   let aiStatus: "estimated" | "unavailable" = "unavailable";
 
+  // One read of the food table grounds the photo prompt (AI-008) and analyses the typed text, as the web action does (S49a).
+  const catalogue = await fetchFoodCatalogue(supabase);
+
   if (isMealVisionConfigured()) {
     const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
     const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5";
@@ -129,6 +134,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           imageBase64: base64,
           mediaType: file.type,
           description,
+          catalogue,
         });
         return {
           value: result.ok ? ({ ...result.estimate, model } as unknown as Json) : null,
@@ -154,6 +160,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     photo_path: path,
     ai_estimate: aiEstimate,
     ai_status: aiStatus,
+    ...(() => {
+      const a = analyseDescriptionWith(description, catalogue);
+      return { parsed_items: a.parsedItems, nutrition_analysis: a.nutritionAnalysis };
+    })(),
   };
 
   const { data: inserted, error: insertError } = await supabase

@@ -100,6 +100,10 @@ begin
   insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
       license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
     values (v_org, v_other, 'S16 Other', 'MDCN', 'S16-OTH-1', true, 'active', now(), v_admin, 'senior_medical_officer', 'contracted', 2, true, v_admin, true);
+  -- OQ-435: a task is pushed only to an employed doctor who holds the competencies it requires (amber_bp_review: hypertension;
+  -- symptom_review: adult_general). Before that change this fixture doctor held none and was pushed everything.
+  insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test)
+  select v_org, cs.id, c, v_admin, true from public.clinical_staff cs, unnest(array['hypertension', 'adult_general']) c where cs.profile_id = v_emp;
 
   insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
       license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, is_test)
@@ -112,7 +116,7 @@ begin
 
   -- 1. Seed -----------------------------------------------------------------------------------------------
   -- two-tier added membership_handoff (pricing) and ecg_interpretation (testing days); S22 added written_question_call, S27 sensitive_result_disclosure and S36h pharmacy_flag_review, S70a added cgm_glucose_review and device_rhythm_review, S07x added home_bp_check_review and bp_pattern_review, S13 R4 added red_patient_outreach, so S16's own ten are counted by excluding later sections' types
-  perform pg_temp.rec('ten task types seeded', '10', (select count(*)::text from public.task_types where is_active and code not in ('written_question_call', 'sensitive_result_disclosure', 'pharmacy_flag_review', 'membership_handoff', 'ecg_interpretation', 'home_bp_check_review', 'bp_pattern_review', 'red_patient_outreach', 'amber_glucose_review', 'cgm_glucose_review', 'device_rhythm_review', 'follow_up_overdue', 'follow_up_overdue_abnormal', 'crisis_follow_up', 'hypo_follow_up', 'amber_pathway_review', 'health_report_signoff')));
+  perform pg_temp.rec('ten task types seeded', '10', (select count(*)::text from public.task_types where is_active and code not in ('written_question_call', 'sensitive_result_disclosure', 'pharmacy_flag_review', 'membership_handoff', 'ecg_interpretation', 'home_bp_check_review', 'bp_pattern_review', 'red_patient_outreach', 'amber_glucose_review', 'cgm_glucose_review', 'device_rhythm_review', 'follow_up_overdue', 'follow_up_overdue_abnormal', 'crisis_follow_up', 'hypo_follow_up', 'amber_pathway_review', 'health_report_signoff', 'cuff_check_review', 'threshold_override_review')));
 
   perform pg_temp.rec('one active version per code', '0', (select count(*)::text from (select code from public.task_types where is_active group by code having count(*) > 1) x));
   perform pg_temp.rec('a red-class type has no lead window', '0', (select lead_window_minutes::text from public.task_types where code = 'red_event_unacknowledged'));

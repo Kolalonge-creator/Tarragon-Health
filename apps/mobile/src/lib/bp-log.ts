@@ -1,6 +1,8 @@
 import type { VitalReadingPayload } from "./api";
 import type { BpChecklistSymptom, BpLogPlan } from "./bp-checklist";
 import type { SymptomCode } from "@tarragon/clinical";
+import type { BpRowState } from "@tarragon/shared";
+import { bpRowState } from "./bp-ack-view";
 import { t } from "@tarragon/i18n";
 import { enqueueGroup, flushOutbox, listOutbox, type EnqueueInput } from "./outbox";
 import { gradeOnDevice, type DeviceTriage } from "./triage-device";
@@ -117,6 +119,9 @@ export interface LogBpResult {
   remaining?: number;
   /** Support codes of rows the server refused; they stay on the phone, never dropped. */
   rejectedSupportCodes?: string[];
+  /** The blood pressure row's own state, so the acknowledgement is about that row and not about a slower pulse or symptom row saved with it. */
+  bpState?: BpRowState;
+  bpSupportCode?: string | null;
 }
 
 type OkPlan = Extract<BpLogPlan, { ok: true }>;
@@ -210,8 +215,10 @@ export async function logBpWithExtras(
   await flushOutbox();
   const ids = new Set(items.map((i) => i.clientId));
   const left = (await listOutbox()).filter((r) => ids.has(r.clientId));
+  const bpRow = bp ? bpRowState(bp.clientId, left) : null;
   return {
     outcome,
+    ...(bpRow ? { bpState: bpRow.state, bpSupportCode: bpRow.supportCode } : {}),
     clientReadingId: bp?.clientId,
     saved: items.length,
     syncedAll: left.length === 0,

@@ -2,14 +2,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { GLUCOSE_UNIT_LABEL } from "@tarragon/shared";
+import { GLUCOSE_UNIT_LABEL, bpAckDelivery, diagnosticBpReadings, type BpAckDelivery } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
 import { BP_THRESHOLDS, classifyBpLevel, type BpLevel, type BpThresholds } from "@/lib/bp-classification";
 import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-trend";
 import { loadActiveThresholds } from "@/lib/threshold-sync";
+import { loadCuffGuidance } from "@/lib/cuff-guidance";
 import { BP_CHECKLIST_SYMPTOMS, CUFF_TYPES, planBpLog, redFlagsAmong, type BpChecklistSymptom, type CuffType } from "@/lib/bp-checklist";
 import { logBpWithExtras } from "@/lib/bp-log";
+import { bpAckMessage, bpRowState } from "@/lib/bp-ack-view";
+import { listOutbox } from "@/lib/outbox";
+import { toHomeReadings } from "@/lib/home-check";
 import { refreshApprovedGlucoseRuleSet, refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
 import { answerSymptomQuestion, type QuestionSymptom } from "@/lib/symptom-question";
 import { readObstetricStatus, refreshObstetricStatus } from "@/lib/obstetric-status";
@@ -27,6 +31,7 @@ import { GLUCOSE_SYMPTOMS, KETONE_URINE_BANDS, type GlucoseSymptomCode, type Ket
 import {
   classifyVitalOffline,
   computeSevenDayAverage,
+  loadNewestBpEstimate,
   loadRecentBpReadings,
   logOtherVital,
   type BpReading,
@@ -66,6 +71,7 @@ import { FreeFollowUpCard } from "@/screens/sections/free-follow-up-card";
 import { SymptomScreen } from "@/screens/sections/symptom-screen";
 import { MonitoringCoverCard } from "@/screens/sections/monitoring-cover-card";
 import { SymptomChecklist, TechniqueGuide } from "@/screens/sections/bp-extras";
+import { LifestyleLogCard } from "@/screens/sections/lifestyle-log-card";
 
 // Versioned S07 values (rest time, gap between readings, severity recorded for a ticked symptom).
 const HOME_PROTOCOL = loadHomeProtocol();
@@ -133,6 +139,8 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const toast = useToast();
 
   const [rawReadings, setRawReadings] = useState<BpReading[]>([]);
+  // The newest wearable estimate: shown on its own labelled line, never graded, averaged or charted (docs/design/BP-wearable-estimates.md).
+  const [newestEstimate, setNewestEstimate] = useState<{ systolic: number; diastolic: number; takenAt: string } | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [thresholds, setThresholds] = useState<BpThresholds>(BP_THRESHOLDS);
@@ -146,6 +154,12 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [saving, setSaving] = useState(false);
   const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // What is true right after a save (received / saved on this phone and waiting); cleared when the next save starts.
+  const [ack, setAck] = useState<BpAckDelivery | null>(null);
+  // The saved blood pressure row the acknowledgement is about, so a saved-on-this-phone line can turn into received when the outbox sends it.
+  const [ackRowId, setAckRowId] = useState<string | null>(null);
+  // Bumped after every saved reading so the seven-day home check card and its guided session step forward.
+  const [homeReload, setHomeReload] = useState(0);
   const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
   const [triageCard, setTriageCard] = useState<{ message: string; tone: "warn" | "info"; audioId: string | null } | null>(null);
   const [cuffType, setCuffType] = useState<CuffType | null>(null);
@@ -203,15 +217,29 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     // Enough for a 30 day chart even for someone who logs several times a day.
     const list = await loadRecentBpReadings(patientId, HISTORY_LIMIT);
     setRawReadings(list);
+    setNewestEstimate(await loadNewestBpEstimate(patientId));
     setNowMs(Date.now());
   }, [patientId]);
 
   const cuffKey = `@tarragon/cuff-type/v1:${patientId}`;
   useEffect(() => {
+    let live = true;
+    // The choice remembered on this phone wins. S07y: with none remembered, the cuff the person recorded in the home check's cuff guide is the starting choice
+    // (one S12b vocabulary), but only for her own readings, never for someone she is logging for. She can still change it per reading.
     AsyncStorage.getItem(cuffKey)
-      .then((v) => setCuffType(CUFF_TYPES.find((c) => c === v) ?? null))
+      .then(async (v) => {
+        const remembered = CUFF_TYPES.find((c) => c === v) ?? null;
+        if (remembered || beneficiaryProfileId) return remembered;
+        return (await loadCuffGuidance())?.cuff?.cuffType ?? null;
+      })
+      .then((next) => {
+        if (live) setCuffType(next);
+      })
       .catch(() => {});
-  }, [cuffKey]);
+    return () => {
+      live = false;
+    };
+  }, [cuffKey, beneficiaryProfileId]);
   const chooseCuff = (c: CuffType | "none") => {
     const next = c === "none" ? null : c;
     setCuffType(next);
@@ -256,16 +284,42 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
 
   // The status badge and the chart's reference lines must agree, so every reading is
   // rated against the same (server-synced) thresholds the chart draws.
+  // A wearable (cuffless) estimate stays visible, labelled, but never feeds the latest grade, the average, the chart or the insights.
   const readings = useMemo(
-    () => rawReadings.map((r) => ({ ...r, level: classifyBpLevel(r.systolic, r.diastolic, thresholds) })),
+    () => diagnosticBpReadings(rawReadings).map((r) => ({ ...r, level: classifyBpLevel(r.systolic, r.diastolic, thresholds) })),
     [rawReadings, thresholds]
   );
+
   const amber = thresholds.amber;
 
   // The chart clears its own highlight when the data or window changes; clear the readout too.
   useEffect(() => setSelected(null), [windowDays, readings]);
 
+  // A different person (or account) is a different screen: nothing said about the last save carries over.
+  useEffect(() => {
+    setAck(null);
+    setAckRowId(null);
+  }, [patientId, beneficiaryProfileId]);
+
+  // Saved-on-this-phone must not stay on screen after the outbox has sent the row (or the server refused it): look at that one row every few seconds.
+  const ackWaiting = ack?.kind === "waiting" && ackRowId !== null;
+  useEffect(() => {
+    if (!ackWaiting || ackRowId === null) return;
+    const id = setInterval(() => {
+      void listOutbox("vital")
+        .then((rows) => {
+          const row = bpRowState(ackRowId, rows);
+          if (row.state === "sent") setAck({ kind: "received" });
+          else if (row.state === "rejected") setAck({ kind: "refused", supportCode: row.supportCode });
+        })
+        .catch(() => {});
+    }, 4000);
+    return () => clearInterval(id);
+  }, [ackWaiting, ackRowId]);
+
   async function handleSave() {
+    setAck(null);
+    setAckRowId(null);
     const plan = planBpLog({ systolic: sys, diastolic: dia, pulse, symptoms: ticked, cuffType }, SYMPTOM_CHECKLIST.severity);
     const symptomList = (list: readonly BpChecklistSymptom[]) => list.map((s) => tr(`vitals.symptom.${s}` as MessageKey)).join(", ");
     if (!plan.ok) {
@@ -328,12 +382,15 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     if (result.rejectedSupportCodes && result.rejectedSupportCodes.length > 0) {
       setSaveError(t("outbox.rejected", locale, { count: result.rejectedSupportCodes.length, code: result.rejectedSupportCodes[0] ?? "" }));
     }
+    setAck(bpAckDelivery(result));
+    setAckRowId(result.clientReadingId ?? null);
     toast.show(result.syncedAll ? { message: tr("vitals.log.saved"), tone: "success" } : { message: t("outbox.saved_on_phone", locale), tone: "info" });
     setSys("");
     setDia("");
     setPulse("");
     setTicked([]);
     await load();
+    setHomeReload((n) => n + 1);
   }
 
   async function handleQuestionAnswer(symptoms: QuestionSymptom[]) {
@@ -384,6 +441,11 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       })
     : "";
   const levelLabel = (level: BpLevel) => tr(`vitals.level.${level}` as MessageKey);
+  const ackText = bpAckMessage(ack, locale);
+  // The guided home-check panel works from the readings this screen already holds (cuff and manual only), and gives way while guidance for the reading just saved is showing.
+  const homeSessionReadings = useMemo(() => toHomeReadings(rawReadings), [rawReadings]);
+  // Emergency guidance or the emergency-symptom question is open: the steps give way until it is dealt with. A repeat prompt does not hold them, since measuring again is what it asks.
+  const holdSession = guidance !== null || question !== null;
 
   return (
     <Screen>
@@ -439,6 +501,20 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           <EmptyState icon="vitals" title={tr("vitals.latest.empty_title")} body={tr("vitals.latest.empty_body")} />
         )}
       </Card>
+
+      {newestEstimate ? (
+        <Card style={{ gap: space.xs }}>
+          <AppText variant="bodyStrong">
+            {tr("bpe.estimate_label")}: {newestEstimate.systolic}/{newestEstimate.diastolic}
+          </AppText>
+          <AppText variant="caption" tone="textSubtle">
+            {formatWhen(newestEstimate.takenAt)}
+          </AppText>
+          <AppText variant="caption" tone="textMuted">
+            {tr("bpe.estimate_note")}
+          </AppText>
+        </Card>
+      ) : null}
 
       {/* Trend */}
       <Card style={{ gap: space.md }}>
@@ -509,7 +585,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       ) : null}
 
       {/* The seven-day home check (S07x): appears only when the server guard is open, and not while acting for someone else. */}
-      {!beneficiaryProfileId ? <HomeCheckCard patientId={patientId} /> : null}
+      {!beneficiaryProfileId ? <HomeCheckCard patientId={patientId} reloadToken={homeReload} session={{ readings: homeSessionReadings, hold: holdSession }} /> : null}
 
       {/* Log a reading */}
       <Card style={{ gap: space.md }}>
@@ -554,6 +630,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
             {triageCard.audioId ? <ListenButton clipIds={[triageCard.audioId]} lang={locale} /> : null}
           </>
         ) : null}
+        {ackText ? <InlineAlert tone="info" message={ackText} /> : null}
         <Button title={tr("vitals.log.save")} onPress={handleSave} loading={saving} />
       </Card>
 
@@ -562,6 +639,9 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         beneficiaryProfileId={beneficiaryProfileId}
         onEmergency={(detail, synced, wordingCode) => setGuidance({ detail, synced, wordingCode: wordingCode ?? null })}
       />
+
+      {/* S47a: water, sleep, mood and inhaler use; renders nothing until the extended_observations module is on */}
+      <LifestyleLogCard beneficiaryProfileId={beneficiaryProfileId} signedInUserId={patientId} />
 
       {/* Recent readings */}
       <View style={{ gap: space.sm }}>

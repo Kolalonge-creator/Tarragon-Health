@@ -52,6 +52,8 @@ import { isPolypharmacy, POLYPHARMACY_THRESHOLD } from "@/lib/healthy-ageing/typ
 import { checkMedicineList } from "@tarragon/medicines";
 import { SideEffectNote } from "./side-effect-note";
 import { useRefillPharmacy } from "@/lib/queries/medicine-catalogue";
+import { usePackNumbers } from "@/lib/queries/medicine-safety";
+import { NafdacNote } from "./nafdac-verify-card";
 import { t } from "@tarragon/i18n";
 
 import { formatPatientDate } from "@/lib/format-date";
@@ -309,6 +311,7 @@ export function MedicationsList({
                     />
                   )}
                   {!isClinicianView && <RefillPharmacyNote medicationId={medication.id} />}
+                  {!isClinicianView && <PackNumberNote patientId={patientId} medicationId={medication.id} />}
                   {!isClinicianView && <SideEffectNote patientId={patientId} medicationId={medication.id} />}
                   {!isClinicianView && (
                     <AccessBarrierButton medicationId={medication.id} drugName={medication.drug_name} />
@@ -332,6 +335,13 @@ export function MedicationsList({
  * nothing) when there's no day-supply on file or no gap worth surfacing —
  * see computeRefillGapSignal for the exact rule and its 5-day noise floor.
  */
+/** S08y: the NAFDAC number the person noted from the pack, with how to check it with NAFDAC. Silent when none was noted or it could not be read. */
+function PackNumberNote({ patientId, medicationId }: { patientId: string; medicationId: string }) {
+  const { data } = usePackNumbers(patientId);
+  const number = data?.[medicationId];
+  return number ? <NafdacNote number={number} /> : null;
+}
+
 /** S54 8.10: where the next supply is collected, when the patient chose a pharmacy for this prescription. */
 function RefillPharmacyNote({ medicationId }: { medicationId: string }) {
   const { data } = useRefillPharmacy(medicationId);

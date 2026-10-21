@@ -7,6 +7,7 @@
  */
 import { postDeviceReading, postHealthSamples } from "./api";
 import * as storage from "../test/mocks/async-storage";
+import { getStore } from "./secure-db";
 import { getRecentSyncDiagnostics } from "./sync-diagnostics";
 import {
   enqueueDeviceReading,
@@ -19,6 +20,15 @@ import {
   listPendingDeviceReadings,
   listPendingHealthSamplesPages,
 } from "./offline-queue";
+
+let mockUser: string | null = "user-1";
+jest.mock("./supabase", () => ({
+  supabase: { auth: { getSession: async () => ({ data: { session: mockUser ? { user: { id: mockUser } } : null } }) } },
+}));
+
+beforeEach(() => {
+  mockUser = "user-1";
+});
 
 jest.mock("./api", () => ({
   postDeviceReading: jest.fn(),
@@ -61,8 +71,9 @@ describe("enqueue", () => {
   it("reports false when the reading could not be sent AND could not be stored", async () => {
     // sync-screen.tsx relies on this to avoid telling a patient their
     // reading is safely queued when it is in fact gone.
-    storage.__failNextSet();
+    mockUser = null; // nobody to queue it under: the store refuses rather than writing a reading in clear anywhere
     await expect(enqueueDeviceReading({ systolic: 150 })).resolves.toBe(false);
+    expect(await storage.getItem(DEVICE_READINGS_QUEUE_KEY)).toBeNull();
   });
 
   /**
@@ -100,13 +111,18 @@ describe("enqueue", () => {
   });
 });
 
-describe("reading a damaged queue", () => {
+describe("reading a damaged old queue", () => {
   it.each([
     ["a non-array value", '{"not":"an array"}'],
     ["unparseable JSON", "[[[["],
-  ])("returns empty and records why for %s, rather than throwing on a sync", async (_label, raw) => {
+  ])("returns empty for %s, and keeps the bytes (encrypted) instead of dropping them", async (_label, raw) => {
     storage.__seedRaw(DEVICE_READINGS_QUEUE_KEY, raw);
     await expect(listPendingDeviceReadings()).resolves.toEqual([]);
+    // Moved out of AsyncStorage into the encrypted store as an opaque row; never silently discarded, never in clear.
+    expect(await storage.getItem(DEVICE_READINGS_QUEUE_KEY)).toBeNull();
+    const db = await getStore();
+    const rows = await db.getAllAsync<{ payload: string; readable: number }>("select payload, readable from offline_queue_v1");
+    expect(rows).toEqual([{ payload: raw, readable: 0 }]);
   });
 
   it("keeps the good entries when one entry in the file is malformed", async () => {
@@ -236,5 +252,33 @@ describe("flushHealthSamplesQueue", () => {
       flushedSamples: 0,
       remaining: 1,
     });
+  });
+});
+
+describe("overlapping flushes", () => {
+  it("two flushes of one queue at once send each entry once; the second waits and finds it empty", async () => {
+    await enqueueDeviceReading({ seq: 1 });
+    await enqueueDeviceReading({ seq: 2 });
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    mockDevice.mockImplementation(async () => {
+      await gate;
+      return { success: true };
+    });
+    const a = flushDeviceReadingsQueue();
+    const b = flushDeviceReadingsQueue();
+    release();
+    await Promise.all([a, b]);
+    expect(mockDevice).toHaveBeenCalledTimes(2);
+  });
+
+  it("a failure in the first flush does not wedge the chain", async () => {
+    await enqueueDeviceReading({ seq: 1 });
+    mockDevice.mockRejectedValueOnce(new Error("boom"));
+    await expect(flushDeviceReadingsQueue()).rejects.toThrow("boom");
+    mockDevice.mockResolvedValue({ success: true });
+    await expect(flushDeviceReadingsQueue()).resolves.toEqual({ flushed: 1, remaining: 0 });
   });
 });

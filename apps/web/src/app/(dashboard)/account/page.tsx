@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
 import { ChangePhoneCard } from "@/components/account/change-phone-card";
 import { MfaSettingsCard } from "@/components/account/mfa-settings-card";
+import { PasskeysCard } from "@/components/account/passkeys-card";
 import { SignOutOtherDevicesCard } from "@/components/account/sign-out-other-devices-card";
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
 import { JoinEmployerCodeForm } from "./join-employer-code-form";
@@ -170,6 +171,7 @@ export default async function AccountPage() {
       <ChangePasswordForm />
       <ChangePhoneCard />
       <MfaSettingsCard verifiedFactorId={verifiedFactorId} />
+      {isPatient && <PasskeysCard />}
       <SignOutOtherDevicesCard />
     </div>
   );

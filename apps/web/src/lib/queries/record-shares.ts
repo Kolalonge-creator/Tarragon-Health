@@ -8,7 +8,9 @@ export type RecordShareSection =
   | "allergies"
   | "lab_results"
   | "vaccinations"
-  | "emergency_info";
+  | "emergency_info"
+  /** S46d: the latest SIGNED yearly Health Report, in its shared-copy form. Offered only when a signed report exists (the database refuses otherwise). */
+  | "health_report";
 
 export const SHARE_SECTIONS: RecordShareSection[] = [
   "vitals",
@@ -18,6 +20,7 @@ export const SHARE_SECTIONS: RecordShareSection[] = [
   "lab_results",
   "vaccinations",
   "emergency_info",
+  "health_report",
 ];
 
 export type RecordShare = {
@@ -36,6 +39,10 @@ export type RecordShare = {
   /** Set when too many wrong PINs locked the share. */
   locked_at: string | null;
   first_opened_at: string | null;
+  /** Who the patient said the link is for. A label only. */
+  recipient_label: string | null;
+  max_views: number | null;
+  window_days: number | null;
 };
 
 export type CreatedRecordShare = {
@@ -48,6 +55,9 @@ export type CreatedRecordShare = {
   one_session: boolean;
   /** Present once, only when a PIN was asked for. Never stored in clear. */
   pin: string | null;
+  recipient_label: string | null;
+  max_views: number | null;
+  window_days: number | null;
 };
 
 export function useRecordShares(patientId: string) {
@@ -58,7 +68,7 @@ export function useRecordShares(patientId: string) {
       const { data, error } = await supabase
         .from("record_shares")
         .select(
-          "id, token, sections, expires_at, is_active, view_count, last_viewed_at, created_at, revoked_at, pin_protected, one_session, locked_at, first_opened_at",
+          "id, token, sections, expires_at, is_active, view_count, last_viewed_at, created_at, revoked_at, pin_protected, one_session, locked_at, first_opened_at, recipient_label, max_views, window_days",
         )
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false })
@@ -78,18 +88,27 @@ export function useCreateRecordShare() {
       expiresInHours,
       usePin,
       oneSession,
+      recipientLabel,
+      maxViews,
+      windowDays,
     }: {
       sections: RecordShareSection[];
       expiresInHours: number;
       usePin: boolean;
       oneSession: boolean;
+      recipientLabel?: string | null;
+      maxViews?: number | null;
+      windowDays?: number | null;
     }) => {
       const supabase = createClient();
-      const { data, error } = await supabase.rpc("create_record_share", {
+      const { data, error } = await supabase.rpc("create_record_share_with_options", {
         p_sections: sections,
         p_expires_in_hours: expiresInHours,
         p_use_pin: usePin,
         p_one_session: oneSession,
+        p_recipient_label: recipientLabel?.trim() ? recipientLabel.trim() : null,
+        p_max_views: maxViews ?? null,
+        p_window_days: windowDays ?? null,
       });
       if (error) throw error;
       return data as unknown as CreatedRecordShare;

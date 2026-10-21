@@ -9,7 +9,7 @@ import { newRunId } from "./harness/env";
 import { seedOnCallTeam } from "./harness/oncall";
 import { finishJourney } from "./harness/report";
 import { currentRuleSet, fixtureApprovalEnabled, fixtureApproveNewestDraft, hasRealApproval, type RuleSetRow } from "./harness/ruleset";
-import { completeOnboardingFixture, createUser, newOrganisation, signIn } from "./harness/sessions";
+import { completeOnboardingFixture, createUser, grantMembershipFixture, newOrganisation, signIn } from "./harness/sessions";
 import { lit, sql, sqlRows, sqlValue } from "./harness/sql";
 
 /**
@@ -49,6 +49,8 @@ test.describe("Journey 2: a red reading at night", () => {
     const patient = await createUser(runId, "patient", { role: "patient", organisationId: org, phone: `+23480${runId.replace(/\D/g, "0").slice(-8).padStart(8, "0")}`, fullName: "[s85] Night Patient" });
     const supporter = await createUser(runId, "supporter", { role: "patient", organisationId: org, fullName: "[s85] Night Supporter" });
     completeOnboardingFixture(patient.id, org, { receivesCare: true });
+    // The scenario is a Member's red reading: on a Free patient a red event never pages a doctor, by design.
+    grantMembershipFixture(patient.id, org);
     sql(`insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action)
            select ${lit(org)}, ${lit(supporter.id)}, cv.consent_type, cv.id, cv.version, 'accepted'
              from public.consent_versions cv where cv.is_current and cv.consent_type = 'terms_of_service';
@@ -131,7 +133,7 @@ test.describe("Journey 2: a red reading at night", () => {
       const confirm = page.getByRole("button", { name: /yes, this reading is correct/i });
       if (await confirm.isVisible({ timeout: 4000 }).catch(() => false)) await confirm.click();
       // The first server action call compiles on demand in `next dev`, which is slow on a busy machine.
-      await expect(page.getByText("Reading logged.")).toBeVisible({ timeout: 150_000 });
+      await expect(page.getByText("Received by TarragonHealth.")).toBeVisible({ timeout: 150_000 });
       readingId = sqlValue<string>(
         `select id from public.vitals_readings where patient_id = ${lit(patient.id)} and vital_type::text = 'blood_pressure' order by created_at desc limit 1`,
       );
@@ -178,7 +180,7 @@ test.describe("Journey 2: a red reading at night", () => {
         const confirm = page.getByRole("button", { name: /yes, this reading is correct/i });
         if (await confirm.isVisible({ timeout: 2000 }).catch(() => false)) await confirm.click();
         await expect(page.locator("#vitals-form-error")).toContainText(/you're offline/i, { timeout: 10_000 });
-        await expect(page.getByText("Reading logged.")).toHaveCount(0);
+        await expect(page.getByText("Received by TarragonHealth.")).toHaveCount(0);
       } finally {
         await context.setOffline(false);
       }

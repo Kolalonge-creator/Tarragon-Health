@@ -1,0 +1,8 @@
+# Device lab harness baseline (scripts/device-lab). Does nothing. The harness times it to learn how long Maestro itself takes to start and
+# finish, so the reconnect flush time can be bounded honestly. Not a test; do not add steps.
+appId: com.tarragonhealth.app
+name: Device lab baseline, does nothing
+tags:
+  - device-lab
+---
+- evalScript: ${output.baseline = 1 + 1}

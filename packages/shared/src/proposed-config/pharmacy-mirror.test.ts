@@ -15,8 +15,14 @@ function seed(suffix: string, marker: string): unknown {
 }
 
 describe("pharmacy.collection_rules mirrors the migration seed", () => {
-  it("the registry value is identical to the active pharmacy_config seed (v2, S54c)", () => {
-    expect(seed("_s54c_clinician_suggests_pharmacy_patient_confirms.sql", "pharmacy-rules-v2")).toEqual(getProposedConfig("pharmacy.collection_rules").value);
+  it("the registry value is identical to the active pharmacy_config seed (v3, S28e)", () => {
+    expect(seed("_s28e_pharmacy_visits_stock_scorecard.sql", "pharmacy-rules-v3")).toEqual(getProposedConfig("pharmacy.collection_rules").value);
+  });
+  it("v3 keeps every v2 value unchanged and only adds the visit size", () => {
+    const v2 = seed("_s54c_clinician_suggests_pharmacy_patient_confirms.sql", "pharmacy-rules-v2") as Record<string, number>;
+    const v3 = seed("_s28e_pharmacy_visits_stock_scorecard.sql", "pharmacy-rules-v3") as Record<string, number>;
+    for (const [k, v] of Object.entries(v2)) expect(v3[k]).toBe(v);
+    expect(v3.max_items_per_visit).toBeGreaterThanOrEqual(2);
   });
   it("v2 keeps every S28 value unchanged and only adds the suggestion window", () => {
     const v1 = seed("_s28_pharmacy_collection_and_dispensing.sql", "pharmacy-rules") as Record<string, number>;

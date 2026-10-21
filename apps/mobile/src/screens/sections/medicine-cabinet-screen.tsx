@@ -1,13 +1,22 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import {
+  brandEntriesAsCatalogue,
   catalogueLabel,
+  checkIngredientsOnAdd,
   checkMedicineOnAdd,
+  nafdacNumberToStore,
+  NAFDAC_GREENBOOK_URL,
+  NAFDAC_VERIFY_STEP_KEYS,
+  refillHandoff,
+  type BrandMapEntry,
   parseScheduleSpec,
+  lookupNafdacNumber,
+  normaliseNafdacNumber,
   prefillFromCatalogue,
   searchCatalogue,
   validatePillCount,
@@ -16,7 +25,26 @@ import {
   type FoodNote,
   type ScheduleSpec,
 } from "@tarragon/medicines";
+import {
+  loadBrandMap,
+  loadDuplicateIngredientCheckState,
+  loadInteractionRules,
+  loadPackNumber,
+  loadPharmacyCollectionOpen,
+  setNafdacNumber,
+} from "@/lib/medicine-safety";
+import { PLATFORM_URL } from "@/lib/platform-url";
 import { addSideEffectNote, loadInteractionCheckState, loadMedicineCatalogue, loadRefillPharmacy, type RefillPharmacy } from "@/lib/medicine-catalogue";
+import {
+  applyCatalogueLookup,
+  applyPackSuggestion,
+  nafdacLineKey,
+  packScanAvailable,
+  scanPackPhoto,
+  type NafdacLineKey,
+  type PackSuggestionChoice,
+  type PackSuggestions,
+} from "@/lib/pack-scan";
 import { useUiLanguage } from "@/lib/ui-language";
 import {
   addMedication,
@@ -270,6 +298,51 @@ export function MedicineCabinetScreen({ patientId, organisationId }: MedicineCab
   );
 }
 
+// --- NAFDAC number note (S08y) ------------------------------------------------
+
+/** How to check a NAFDAC number with NAFDAC itself. Plain steps and a link; nothing here says a pack is genuine. */
+function NafdacVerifyBlock() {
+  const colors = useLegacyColors();
+  const locale = asLocale(useUiLanguage());
+  const tr = (key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params);
+  return (
+    <View style={{ gap: 4, padding: 10, borderRadius: radius.control, backgroundColor: colors.groupBg }}>
+      <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>{tr("medicines.nafdac.verify.title")}</Text>
+      <MutedText>{tr("medicines.nafdac.verify.not_a_check")}</MutedText>
+      {NAFDAC_VERIFY_STEP_KEYS.map((key, i) => (
+        <MutedText key={key}>{`${i + 1}. ${tr(key)}`}</MutedText>
+      ))}
+      <SmallGhostButton title={tr("medicines.nafdac.verify.open_greenbook")} onPress={() => void WebBrowser.openBrowserAsync(NAFDAC_GREENBOOK_URL)} />
+    </View>
+  );
+}
+
+/** The number the person noted for this medicine, with the how-to folded away until asked for. Silent when none was noted. */
+function PackNumberLine({ medicationId }: { medicationId: string }) {
+  const colors = useLegacyColors();
+  const locale = asLocale(useUiLanguage());
+  const [number, setNumber] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void loadPackNumber(medicationId).then((n) => {
+      if (alive) setNumber(n);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [medicationId]);
+  if (!number) return null;
+  return (
+    <View style={{ gap: 4 }}>
+      <Pressable accessibilityRole="button" onPress={() => setOpen((v) => !v)} style={{ minHeight: 44, justifyContent: "center" }}>
+        <Text style={{ fontSize: 14, color: colors.ink }}>{t("medicines.nafdac.shown", locale, { number })}</Text>
+      </Pressable>
+      {open ? <NafdacVerifyBlock /> : null}
+    </View>
+  );
+}
+
 // --- Active medication card --------------------------------------------------
 
 function MedicationCard({
@@ -434,6 +507,7 @@ function MedicationCard({
       {refillPharmacy ? (
         <MutedText>{tr("refill.collect_at", { pharmacy: [refillPharmacy.partnerName, refillPharmacy.locationName].filter(Boolean).join(", ") })}</MutedText>
       ) : null}
+      <PackNumberLine medicationId={medication.id} />
       <SideEffectNoteSection medicationId={medication.id} />
 
       {collectOpen ? (
@@ -526,6 +600,22 @@ function SupplySection({
     await onSaved();
   }
 
+  // S08y: when the supply is low and the medicine came from a prescription, offer the EXISTING pharmacy page (S28) in the browser.
+  // Offered only while that flow is switched on; if that cannot be read, nothing is offered rather than a dead link.
+  const [collectionOpen, setCollectionOpen] = useState<boolean | null>(null);
+  const isLow = supply?.low === true;
+  useEffect(() => {
+    if (!isLow) return;
+    let alive = true;
+    void loadPharmacyCollectionOpen().then((open) => {
+      if (alive) setCollectionOpen(open);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [isLow]);
+  const handoff = refillHandoff({ low: isLow, prescriptionId: medication.prescription_id ?? null, patientId, collectionOpen });
+
   const est = supply?.estimate;
   return (
     <View style={{ gap: 6, marginTop: 4 }}>
@@ -542,6 +632,9 @@ function SupplySection({
         <MutedText>{tr("meds.supply.unknown")}</MutedText>
       )}
       {message ? <MutedText>{message}</MutedText> : null}
+      {handoff.offer ? (
+        <SmallGhostButton title={tr("meds.supply.collect_link")} onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}${handoff.path}`)} />
+      ) : null}
       {!open ? <SmallGhostButton title={tr("meds.supply.title")} onPress={() => setOpen(true)} /> : null}
       {open ? (
         <View style={{ gap: 6 }}>
@@ -625,7 +718,29 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
     };
   }, [open]);
   const [pickedName, setPickedName] = useState<string | null>(null);
-  const suggestions = searchCatalogue(catalogue, drugName === pickedName ? "" : drugName, 5);
+  // S08y: reviewed brand mappings help search and name the ingredients; the NAFDAC number noted from the pack is kept as a note.
+  // null until read (or when it could not be read): the same-ingredient check then says it was weaker instead of passing quietly.
+  const [brandMap, setBrandMap] = useState<BrandMapEntry[] | null>(null);
+  const [nafdacSaved, setNafdacSaved] = useState<"none" | "saved" | "failed" | "invalid">("none");
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    void loadBrandMap().then((rows) => {
+      if (alive) setBrandMap(rows);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open]);
+  // Pack NAFDAC number: typed (always works, offline too) or suggested from a photo (only where a text reader exists).
+  const [nafdacTyped, setNafdacTyped] = useState("");
+  const [nafdacLine, setNafdacLine] = useState<NafdacLineKey>(null);
+  const [scanSuggestions, setScanSuggestions] = useState<PackSuggestions | null>(null);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [scanBusy, setScanBusy] = useState(false);
+  // Bumped when the form is reset, so a scan that finishes afterwards cannot put suggestions on the next medicine's form.
+  const scanRun = useRef(0);
+  const suggestions = searchCatalogue([...catalogue, ...brandEntriesAsCatalogue(brandMap ?? [])], drugName === pickedName ? "" : drugName, 5);
   const [kind, setKind] = useState<ScheduleKind>("daily");
   const [intervalDays, setIntervalDays] = useState("2");
   const [weekdays, setWeekdays] = useState<number[]>([]);
@@ -642,6 +757,56 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
     setScheduleTimes((prev) => prev.filter((t) => t !== time));
   }
 
+  function lookUpNafdac(value: string) {
+    setNafdacLine(nafdacLineKey(value, catalogue));
+  }
+
+  /** One tap, one field: the only way a pack suggestion reaches the form. */
+  function useChoice(choice: PackSuggestionChoice) {
+    const next = applyPackSuggestion({ drugName, dose, nafdacNumber: nafdacTyped }, choice);
+    setDrugName(next.drugName);
+    if (choice.field === "drugName") setPickedName(next.drugName);
+    setDose(next.dose);
+    setNafdacTyped(next.nafdacNumber);
+    setFindings(null);
+    if (choice.field === "nafdacNumber") lookUpNafdac(next.nafdacNumber);
+  }
+
+  function useCatalogueDetails() {
+    const lookup = lookupNafdacNumber(nafdacTyped, catalogue);
+    const next = applyCatalogueLookup({ drugName, dose, nafdacNumber: nafdacTyped }, lookup);
+    setDrugName(next.drugName);
+    if (next.drugName !== drugName) setPickedName(next.drugName);
+    setDose(next.dose);
+    setFindings(null);
+  }
+
+  async function scanPack() {
+    if (scanBusy) return;
+    const run = scanRun.current;
+    setScanMessage(null);
+    setScanSuggestions(null);
+    setScanBusy(true);
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        setScanMessage(tr("packscan.scan.camera_off"));
+        return;
+      }
+      // No location data is wanted from a pack photo.
+      const picked = await ImagePicker.launchCameraAsync({ quality: 0.8, exif: false });
+      if (picked.canceled || !picked.assets[0]) return;
+      const outcome = await scanPackPhoto(picked.assets[0].uri, catalogue);
+      if (run !== scanRun.current) return;
+      if (outcome.kind === "suggestions") setScanSuggestions(outcome.suggestions);
+      else setScanMessage(tr(outcome.kind === "nothing_read" ? "packscan.scan.nothing" : "packscan.scan.failed"));
+    } catch {
+      if (run === scanRun.current) setScanMessage(tr("packscan.scan.failed"));
+    } finally {
+      if (run === scanRun.current) setScanBusy(false);
+    }
+  }
+
   function pickSuggestion(entry: CatalogueEntry) {
     const pre = prefillFromCatalogue(entry);
     setDrugName(pre.drugName);
@@ -651,7 +816,13 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
   }
 
   function resetForm() {
+    scanRun.current += 1;
+    setScanBusy(false);
     setFindings(null);
+    setNafdacTyped("");
+    setNafdacLine(null);
+    setScanSuggestions(null);
+    setScanMessage(null);
     setDrugName("");
     setDose("");
     setFrequency("");
@@ -708,20 +879,41 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
       setError(built.error);
       return;
     }
+    // The NAFDAC number is an optional note: a value that is not shaped like one never holds the medicine back (it is simply not saved).
+    const nafdac = nafdacNumberToStore(nafdacTyped);
     setPending(true);
-    // The check only advises: it can pause the add to show a warning, never refuse it (spec 8.7).
-    const guard = skipCheck ? "closed" : await loadInteractionCheckState();
-    setCheckSkipped(guard === "unknown");
+    // The checks only advise: they can pause the add to show one warning, never refuse it (spec 8.7, S08y).
+    const [guard, dupState, rules] = skipCheck
+      ? (["closed", "closed", []] as const)
+      : await Promise.all([loadInteractionCheckState(), loadDuplicateIngredientCheckState(), loadInteractionRules()]);
+    const ingredientChecksOn = dupState === "open" || (rules?.length ?? 0) > 0;
+    // Without the brand mapping a brand name cannot be resolved, so the same-ingredient answer would be weaker: say so.
+    setCheckSkipped(guard === "unknown" || dupState === "unknown" || rules === null || (ingredientChecksOn && brandMap === null));
+    const found: AddCheckFinding[] = [];
     if (guard === "open") {
-      const check = checkMedicineOnAdd(
-        name,
-        existing.map((m) => ({ id: m.id, drugName: m.drug_name, dose: m.dose, prescriberName: m.prescriber_name, source: m.source })),
+      found.push(
+        ...checkMedicineOnAdd(
+          name,
+          existing.map((m) => ({ id: m.id, drugName: m.drug_name, dose: m.dose, prescriberName: m.prescriber_name, source: m.source })),
+        ).findings,
       );
-      if (check.findings.length > 0) {
-        setFindings(check.findings);
-        setPending(false);
-        return;
-      }
+    }
+    if (ingredientChecksOn) {
+      found.push(
+        ...checkIngredientsOnAdd({
+          candidateName: name,
+          existing: existing.map((m) => ({ id: m.id, drugName: m.drug_name })),
+          brandMap: brandMap ?? [],
+          catalogue,
+          duplicateCheck: dupState === "open",
+          rules: rules ?? [],
+        }).findings,
+      );
+    }
+    if (found.length > 0) {
+      setFindings(found);
+      setPending(false);
+      return;
     }
     setFindings(null);
     const result = await addMedication(patientId, {
@@ -734,11 +926,18 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
       startedBySpecialist,
       prescriberName: startedBySpecialist ? prescriberName.trim() || undefined : undefined,
     });
-    setPending(false);
     if (result.error) {
+      setPending(false);
       setError("We could not save this medication just then. Please try again.");
       return;
     }
+    // The medicine is saved either way; the NAFDAC number is a note beside it and its failure is said out loud, not hidden.
+    setNafdacSaved(nafdac.ok ? "none" : "invalid");
+    if (nafdac.ok && nafdac.value && result.id) {
+      const saved = await setNafdacNumber(result.id, nafdac.value);
+      setNafdacSaved(saved.error ? "failed" : "saved");
+    }
+    setPending(false);
     resetForm();
     setSuccess(true);
     setOpen(false);
@@ -754,6 +953,14 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
       {success && !open ? <MutedText>Medication added.</MutedText> : null}
       {success && !open ? <MutedText>{`${tr("medicines.mas.add_prompt")} ${tr("medicines.mas.caveat")}`}</MutedText> : null}
       {success && !open && checkSkipped ? <MutedText>{tr("medicines.addcheck.not_checked")}</MutedText> : null}
+      {success && !open && nafdacSaved === "saved" ? (
+        <View style={{ gap: 6 }}>
+          <MutedText>{tr("medicines.nafdac.saved")}</MutedText>
+          <NafdacVerifyBlock />
+        </View>
+      ) : null}
+      {success && !open && nafdacSaved === "invalid" ? <MutedText>{tr("medicines.nafdac.invalid")}</MutedText> : null}
+      {success && !open && nafdacSaved === "failed" ? <ErrorText>{tr("medicines.nafdac.save_failed")}</ErrorText> : null}
       {open ? (
         <Card style={{ gap: 10 }}>
           <View>
@@ -776,6 +983,66 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
               </View>
             ) : drugName.trim().length >= 2 && catalogue.length > 0 ? (
               <MutedText>{tr("medicines.search.none")}</MutedText>
+            ) : null}
+          </View>
+          <View style={{ gap: 6 }}>
+            <MutedText>{tr("packscan.nafdac.label")}</MutedText>
+            <TextInput
+              keyboardAppearance={scheme}
+              value={nafdacTyped}
+              onChangeText={(v) => { setNafdacTyped(v); setNafdacLine(null); }}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              style={inputStyle(colors)}
+              placeholder="A4-1234"
+              placeholderTextColor={colors.subtle}
+              accessibilityLabel={tr("packscan.nafdac.label")}
+            />
+            <MutedText>{tr("packscan.nafdac.hint")}</MutedText>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              <SmallGhostButton title={tr("packscan.nafdac.look_up")} onPress={() => lookUpNafdac(nafdacTyped)} />
+              {packScanAvailable() ? <SmallGhostButton title={scanBusy ? "..." : tr("packscan.scan.button")} onPress={() => void scanPack()} /> : null}
+            </View>
+            {packScanAvailable() ? <MutedText>{tr("packscan.scan.intro")}</MutedText> : null}
+            {scanMessage ? <MutedText>{scanMessage}</MutedText> : null}
+            {scanSuggestions ? (
+              <View style={{ gap: 6 }}>
+                {scanSuggestions.nafdacNumbers.slice(0, 2).map((c) => (
+                  <View key={c.value} style={{ gap: 4 }}>
+                    <Text style={{ fontSize: 14, color: colors.ink }}>{tr("packscan.scan.found_number", { value: c.value })}</Text>
+                    {c.ocrCorrected ? <MutedText>{tr("packscan.scan.look_closely")}</MutedText> : null}
+                    <SmallGhostButton title={tr("packscan.scan.use")} onPress={() => useChoice({ field: "nafdacNumber", value: c.value })} />
+                  </View>
+                ))}
+                {scanSuggestions.strength ? (
+                  <View style={{ gap: 4 }}>
+                    <Text style={{ fontSize: 14, color: colors.ink }}>{tr("packscan.scan.found_strength", { value: scanSuggestions.strength })}</Text>
+                    <SmallGhostButton title={tr("packscan.scan.use")} onPress={() => useChoice({ field: "dose", value: scanSuggestions.strength as string })} />
+                  </View>
+                ) : null}
+                {scanSuggestions.names.slice(0, 2).map((e) => (
+                  <View key={e.id} style={{ gap: 4 }}>
+                    <Text style={{ fontSize: 14, color: colors.ink }}>{tr("packscan.scan.found_name", { value: e.genericName })}</Text>
+                    <SmallGhostButton title={tr("packscan.scan.use")} onPress={() => useChoice({ field: "drugName", value: e.genericName })} />
+                  </View>
+                ))}
+                <SmallGhostButton title={tr("packscan.scan.dismiss")} onPress={() => setScanSuggestions(null)} />
+              </View>
+            ) : null}
+            {nafdacLine ? (
+              <View style={{ gap: 4 }}>
+                <Text style={{ fontSize: 14, color: colors.ink }}>{tr(nafdacLine)}</Text>
+                {nafdacLine === "packscan.nafdac.in_catalogue" ? (
+                  <>
+                    <MutedText>{tr("packscan.nafdac.not_a_check")}</MutedText>
+                    <SmallGhostButton title={tr("packscan.nafdac.use_details")} onPress={useCatalogueDetails} />
+                  </>
+                ) : null}
+                {normaliseNafdacNumber(nafdacTyped)?.ocrCorrected ? <MutedText>{tr("packscan.scan.look_closely")}</MutedText> : null}
+                <Text style={{ fontSize: 12, fontWeight: "700", color: colors.ink }}>{tr("packscan.nafdac.next_step")}</Text>
+                <MutedText>{NAFDAC_MAS.howTo}</MutedText>
+                <MutedText>{NAFDAC_MAS.caveat}</MutedText>
+              </View>
             ) : null}
           </View>
           <View style={{ flexDirection: "row", gap: 8 }}>

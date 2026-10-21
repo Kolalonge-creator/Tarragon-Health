@@ -82,7 +82,8 @@ describe("the folio prints on letters and prescriptions only (OQ-358b)", () => {
     }
   });
   it("referral letters and prescriptions still carry it", () => {
-    expect(read("app/api/patient/referral/[referralId]/letter/route.ts")).toContain("folio.credentialNumber");
+    // The letter's body lives in one shared renderer used by both the cookie route and the native bearer route.
+    expect(read("lib/referrals/render-referral-letter.ts")).toContain("folio.credentialNumber");
     expect(read("lib/prescriptions/load-prescription-pdf-data.ts")).toContain("credentialNumber");
   });
   it("patient-facing licence copy states a date, never a number", () => {

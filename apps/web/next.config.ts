@@ -123,6 +123,11 @@ const nextConfig: NextConfig = {
   // In a monorepo, trace files from the repo root so shared workspace
   // packages are correctly included in the production output.
   outputFileTracingRoot: path.join(__dirname, "../../"),
+  // Default is 60s per page. The build prerenders ~570 pages on a 2-core
+  // machine with one worker, and a busy worker pushed otherwise healthy public
+  // pages past 60s three production builds running (2026-10-17/18), failing the
+  // whole deploy. Slow here means a late deploy, never a broken page.
+  staticPageGenerationTimeout: 180,
   // Server Actions default to a 1MB request-body cap. Every form that
   // uploads a file straight through a Server Action (patient avatar, up to
   // 5MB per validatePatientAvatarFile; medicine-pack photos, up to 8MB) was

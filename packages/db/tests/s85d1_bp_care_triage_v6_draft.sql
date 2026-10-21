@@ -84,7 +84,8 @@ begin
   end if;
 
   -- with nothing approved (a fresh local replay) the newest draft is the shadow set; that is the documented hazard of an unapproved newer draft
-  if (public.triage_rule_set_for_grading('bp_care_triage') ->> 'version')::int <> 6 then
+  -- (the NEWEST draft, whatever its number: later drafts such as v7 are newer than v6 and are the shadow set)
+  if (public.triage_rule_set_for_grading('bp_care_triage') ->> 'version')::int is distinct from (select max(version) from public.triage_rule_sets where code = 'bp_care_triage' and status = 'draft') then
     raise exception 'FAIL 7: with nothing approved, grading is expected to use the newest draft (shadow)';
   end if;
 

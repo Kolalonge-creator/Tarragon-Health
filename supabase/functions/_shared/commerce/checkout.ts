@@ -15,6 +15,9 @@ export const ORDER_ERROR_CODES = [
   "sponsor_budget_exhausted", "sponsor_payment_not_open",
   // S72: payment requests (the supporter's link)
   "request_not_found", "request_expired", "request_cancelled", "request_used", "request_in_use", "request_own", "request_not_payable", "request_order_mismatch",
+  // S25b: paying the annual Membership in parts
+  "instalments_not_open", "instalment_schedule_invalid", "instalment_not_available", "instalment_order_mismatch",
+  "pay_earlier_part_first", "instalment_closed", "instalment_not_found", "instalment_plan_ended",
 ] as const;
 
 /**
@@ -45,6 +48,8 @@ export interface OrderExtras {
   readonly discountCode?: string;
   readonly usePoints?: boolean;
   readonly expectedAmountKobo?: number;
+  /** S25b: pay in this many parts. The database creates a plan order (module-gated); what is paid NOW is the first part, under the part's own reference. */
+  readonly instalmentParts?: number;
 }
 export interface OrderCreator {
   create(code: string, clientKey: string, beneficiary?: string, extras?: OrderExtras): Promise<{ readonly ok: true; readonly order: CreatedOrder } | { readonly ok: false; readonly code: OrderErrorCode | "unknown" }>;
@@ -65,6 +70,7 @@ export async function startCheckout(
     ...(args.discountCode ? { discountCode: args.discountCode } : {}),
     ...(args.usePoints ? { usePoints: true } : {}),
     ...(args.expectedAmountKobo !== undefined ? { expectedAmountKobo: args.expectedAmountKobo } : {}),
+    ...(args.instalmentParts !== undefined ? { instalmentParts: args.instalmentParts } : {}),
   };
   const created = await deps.orders.create(args.code, args.clientKey, args.beneficiary, extras);
   if (!created.ok) return { ok: false, code: created.code };
@@ -88,4 +94,46 @@ export async function startCheckout(
   // Best effort: if keeping the link fails the patient still pays; only a retry of this exact tap loses the link.
   await deps.store.setCheckoutUrl(o.reference, init.data.authorizationUrl);
   return { ok: true, orderId: o.orderId, reference: o.reference, amountKobo: o.amountKobo, checkoutUrl: init.data.authorizationUrl };
+}
+
+/**
+ * S25b: pay the NEXT part of a pay-in-parts plan. The database (prepare_instalment_payment, run as the signed-in buyer) decides whether this
+ * part may be paid now (it is pending, no earlier part is pending, the plan is open) and hands back a Paystack reference for it; a still-fresh
+ * hosted page is reopened, otherwise a transaction is initialised for exactly that part's amount. The client sends the part id and nothing
+ * else: never an amount. Paystack metadata is the order id only (INV-07), the same shape as any order so the webhook needs no new branch.
+ */
+export interface PreparedInstalment {
+  readonly instalmentId: string;
+  readonly orderId: string;
+  readonly reference: string;
+  readonly amountKobo: number;
+  readonly checkoutUrl: string | null;
+}
+export interface InstalmentPreparer {
+  prepare(instalmentId: string): Promise<{ readonly ok: true; readonly part: PreparedInstalment } | { readonly ok: false; readonly code: OrderErrorCode | "unknown" }>;
+}
+export type StartInstalmentResult =
+  | { readonly ok: true; readonly instalmentId: string; readonly orderId: string; readonly reference: string; readonly amountKobo: number; readonly checkoutUrl: string }
+  | { readonly ok: false; readonly code: OrderErrorCode | "unknown" | "email_needed" | "payment_unavailable" | "checkout_link_lost" };
+
+export async function startInstalmentPayment(
+  deps: { readonly payments: PaymentProvider; readonly store: OrderStore; readonly parts: InstalmentPreparer },
+  args: { readonly instalmentId: string; readonly email: string | null; readonly callbackUrl: string; readonly channels?: readonly PaymentChannel[] },
+): Promise<StartInstalmentResult> {
+  const prepared = await deps.parts.prepare(args.instalmentId);
+  if (!prepared.ok) return { ok: false, code: prepared.code };
+  const p = prepared.part;
+  if (p.checkoutUrl) return { ok: true, instalmentId: p.instalmentId, orderId: p.orderId, reference: p.reference, amountKobo: p.amountKobo, checkoutUrl: p.checkoutUrl };
+  if (!args.email) return { ok: false, code: "email_needed" };
+  const init = await deps.payments.initializeTransaction({
+    reference: p.reference,
+    email: args.email,
+    amountKobo: p.amountKobo,
+    callbackUrl: args.callbackUrl,
+    channels: args.channels ?? DEFAULT_CHECKOUT_CHANNELS,
+    metadata: { kind: "order", order_id: p.orderId },
+  });
+  if (!init.ok) return { ok: false, code: init.error.code === "conflict" ? "checkout_link_lost" : "payment_unavailable" };
+  await deps.store.setCheckoutUrl(p.reference, init.data.authorizationUrl);
+  return { ok: true, instalmentId: p.instalmentId, orderId: p.orderId, reference: p.reference, amountKobo: p.amountKobo, checkoutUrl: init.data.authorizationUrl };
 }

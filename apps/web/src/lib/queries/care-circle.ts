@@ -8,6 +8,7 @@ import {
   parseMyCircle,
   parseGiftResult,
   attentionCount,
+  isMissingFunction,
   parseOpenAlerts,
   parseUnanswered,
   parsePendingGifts,
@@ -390,6 +391,7 @@ export function useUnansweredCheckIns() {
     refetchInterval: 60_000,
     queryFn: async () => {
       const { data, error } = await createClient().rpc("circle_unanswered_check_ins");
+      if (isMissingFunction(error)) return [];
       if (error) throw new CircleError(error.message);
       return parseUnanswered(data);
     },
@@ -421,8 +423,9 @@ export function useSupportingAttention(enabled: boolean) {
     queryFn: async () => {
       const client = createClient();
       const [alerts, unanswered] = await Promise.all([client.rpc("circle_open_alerts"), client.rpc("circle_unanswered_check_ins")]);
-      if (alerts.error || unanswered.error) throw new CircleError((alerts.error ?? unanswered.error)?.message ?? "unknown");
-      return attentionCount(parseOpenAlerts(alerts.data), parseUnanswered(unanswered.data));
+      const unansweredError = isMissingFunction(unanswered.error) ? null : unanswered.error;
+      if (alerts.error || unansweredError) throw new CircleError((alerts.error ?? unansweredError)?.message ?? "unknown");
+      return attentionCount(parseOpenAlerts(alerts.data), unanswered.error ? [] : parseUnanswered(unanswered.data));
     },
   });
 }
