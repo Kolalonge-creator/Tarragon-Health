@@ -2354,7 +2354,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-20",
-    source: "docs/design/S25b.md; docs/OPEN-QUESTIONS.md OQ-715; supabase/migrations/20261021102845_s25b_membership_instalments.sql",
+    source: "docs/design/S25b.md; docs/OPEN-QUESTIONS.md OQ-715; supabase/migrations/20261021104312_s25b_membership_instalments.sql",
   },
   {
     key: "refunds.order_rules",
