@@ -23,9 +23,9 @@ export interface TrendPoint {
   source: "lab_result" | "legacy_report" | string;
   laboratory: string | null;
   /** The second source behind a collapsed duplicate (DUP-1): the same value reached the record by two routes and is shown once. */
-  alsoFrom: string | null;
+  alsoFrom?: string | null;
   /** True when another source reports the same test for the same time with a DIFFERENT value or unit. Both values are listed; none is chosen. */
-  disagrees: boolean;
+  disagrees?: boolean;
 }
 
 export interface TrendTarget {

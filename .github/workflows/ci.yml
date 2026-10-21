@@ -217,7 +217,7 @@ jobs:
           pip install --quiet pyyaml
           python3 -c "
           import glob, sys, yaml
-          files = glob.glob('apps/mobile/.maestro/flows/*.yaml')
+          files = glob.glob('apps/mobile/.maestro/flows/*.yaml') + glob.glob('apps/mobile/.maestro/device-lab/*.yaml')
           if not files:
               sys.exit('no Maestro flow files found under apps/mobile/.maestro/flows/')
           for path in files:
@@ -542,7 +542,7 @@ jobs:
       - name: Test order functions
         if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
         run: |
-          for d in order-checkout order-verify order-reconcile price-quote; do
+          for d in order-checkout order-verify order-reconcile refund-reconcile price-quote; do
             (cd supabase/functions/$d && deno test --no-config . && deno lint --no-config .)
           done
 

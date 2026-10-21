@@ -4,7 +4,7 @@
 // capacity), then a Paystack transaction is initialised for exactly that order's price. The client sends an item code and a
 // retry key and nothing else: never an amount, never a return URL (the return URL comes from configuration, so a hostile client
 // cannot send a patient to another site after payment). The reply carries ids and the hosted checkout link only.
-import { mapOrderError, startCheckout, type CreatedOrder, type OrderCreator, type OrderStore } from "../_shared/commerce/index.ts";
+import { mapOrderError, startCheckout, startInstalmentPayment, type CreatedOrder, type InstalmentPreparer, type OrderCreator, type OrderStore } from "../_shared/commerce/index.ts";
 import type { PaymentProvider } from "../_shared/integrations/index.ts";
 
 export interface CheckoutDeps {
@@ -27,6 +27,8 @@ const STATUS: Record<string, number> = {
   email_needed: 422, checkout_not_open: 409, item_not_available: 409, already_member: 409, no_capacity: 409, too_many_open_orders: 429,
   request_not_found: 404, request_expired: 410, request_cancelled: 410, request_used: 410, request_in_use: 409, request_own: 403, request_not_payable: 409, request_order_mismatch: 409,
   order_beneficiary_not_allowed: 403, gift_item_not_allowed: 403, order_not_authorised: 403,
+  instalments_not_open: 409, instalment_schedule_invalid: 409, instalment_not_available: 409, instalment_order_mismatch: 409,
+  pay_earlier_part_first: 409, instalment_closed: 409, instalment_not_found: 404, instalment_plan_ended: 409,
   membership_not_open: 409, quote_changed: 409, sponsor_billing_not_open: 409, order_fully_covered: 409, discount_code_invalid: 422, discount_code_rate_limited: 429, sponsor_budget_exhausted: 409, sponsor_payment_not_open: 409, already_paid: 409, order_closed: 409, payment_unavailable: 502, checkout_link_lost: 409, unknown: 500,
 };
 
@@ -45,6 +47,27 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
     return Response.json({ error: "invalid_input" }, { status: 400 });
   }
   const b = (typeof body === "object" && body !== null ? body : {}) as Record<string, unknown>;
+
+  // S25b: the next part of a pay-in-parts plan. The client sends the part id and nothing else; the database says whether it may be paid now.
+  if (b["instalment_id"] !== undefined && b["instalment_id"] !== null) {
+    const partId = b["instalment_id"];
+    if (typeof partId !== "string" || !UUID.test(partId)) return Response.json({ error: "invalid_input" }, { status: 400 });
+    const parts: InstalmentPreparer = {
+      async prepare(instalmentId) {
+        const { data, error } = await deps.rpcAsUser(auth, "prepare_instalment_payment", { p_instalment: instalmentId });
+        if (error) return { ok: false, code: mapOrderError(error.message) };
+        const d = data as Record<string, unknown> | null;
+        if (!d || typeof d["instalment_id"] !== "string" || typeof d["order_id"] !== "string" || typeof d["reference"] !== "string" || typeof d["amount_kobo"] !== "number") {
+          return { ok: false, code: "unknown" };
+        }
+        return { ok: true, part: { instalmentId: d["instalment_id"], orderId: d["order_id"], reference: d["reference"], amountKobo: d["amount_kobo"], checkoutUrl: typeof d["checkout_url"] === "string" ? d["checkout_url"] : null } };
+      },
+    };
+    const paid = await startInstalmentPayment({ payments: deps.payments, store: deps.store, parts }, { instalmentId: partId, email: me.email, callbackUrl: deps.returnUrl });
+    if (!paid.ok) return Response.json({ error: paid.code }, { status: STATUS[paid.code] ?? 500 });
+    return Response.json({ order_id: paid.orderId, instalment_id: paid.instalmentId, reference: paid.reference, amount_kobo: paid.amountKobo, checkout_url: paid.checkoutUrl });
+  }
+
   // S72 (19.13): a supporter paying from a payment request sends the request's code INSTEAD of an item code. The item, the person and the price all come
   // from the request in the database; nothing the client sends can change what is bought or for whom.
   const requestCode = b["payment_request"];
@@ -76,8 +99,32 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
     return Response.json({ error: "invalid_input" }, { status: 400 });
   }
 
+  // S25b: pay the annual Membership in parts. Only for the buyer's own order at the list price, so it cannot be combined with anything that
+  // changes who the order is for or what it costs (the database refuses those too; this keeps the shape honest).
+  const instalmentParts = b["instalment_parts"];
+  if (instalmentParts !== undefined && instalmentParts !== null) {
+    if (typeof instalmentParts !== "number" || !Number.isInteger(instalmentParts) || instalmentParts < 2 || instalmentParts > 12) return Response.json({ error: "invalid_input" }, { status: 400 });
+    if (viaRequest || (beneficiary ?? null) !== null || (discount ?? null) !== null || (usePoints ?? null) !== null || (expected ?? null) !== null) {
+      return Response.json({ error: "invalid_input" }, { status: 400 });
+    }
+  }
+
   const orders: OrderCreator = {
     async create(code, clientKey, ben, extras) {
+      if (extras?.instalmentParts !== undefined) {
+        const { data, error } = await deps.rpcAsUser(auth, "create_instalment_order", { p_code: code, p_client_key: clientKey, p_parts: extras.instalmentParts });
+        if (error) return { ok: false, code: mapOrderError(error.message) };
+        const d = data as Record<string, unknown> | null;
+        if (!d || typeof d["order_id"] !== "string" || typeof d["reference"] !== "string" || typeof d["amount_kobo"] !== "number") return { ok: false, code: "unknown" };
+        return {
+          ok: true,
+          order: {
+            orderId: d["order_id"], reference: d["reference"], amountKobo: d["amount_kobo"],
+            state: typeof d["state"] === "string" ? d["state"] : "created",
+            checkoutUrl: typeof d["checkout_url"] === "string" ? d["checkout_url"] : null,
+          },
+        };
+      }
       const args: Record<string, unknown> = { p_code: viaRequest ? requestCode : code, p_client_key: clientKey };
       if (ben) args["p_beneficiary"] = ben;
       if (extras?.discountCode) args["p_discount_code"] = extras.discountCode;
@@ -106,6 +153,7 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
     ...(typeof discount === "string" ? { discountCode: discount.trim() } : {}),
     ...(usePoints === true ? { usePoints: true } : {}),
     ...(typeof expected === "number" ? { expectedAmountKobo: expected } : {}),
+    ...(typeof instalmentParts === "number" ? { instalmentParts } : {}),
   });
   if (!r.ok) return Response.json({ error: r.code }, { status: STATUS[r.code] ?? 500 });
   // Fully covered: no checkout link exists and none is asked for. The reply says so, with the sponsor's name for "Covered by ...".

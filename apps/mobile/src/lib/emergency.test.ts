@@ -72,6 +72,17 @@ describe("loadEmergencyFacts", () => {
     await expect(loadCachedEmergencyFacts()).resolves.toEqual(facts);
   });
 
+  it("a failed query (no signal) throws and never replaces the saved card with an empty one", async () => {
+    seed();
+    const good = await loadEmergencyFacts("patient-1");
+    await Promise.resolve();
+    const failing = { select: () => failing, eq: () => failing, order: () => failing, maybeSingle: () => Promise.resolve({ data: null, error: { message: "Network request failed" } }), then: (r: (v: unknown) => unknown) => Promise.resolve({ data: null, error: { message: "Network request failed" } }).then(r) };
+    mockFrom.mockImplementation(() => failing);
+    await expect(loadEmergencyFacts("patient-1")).rejects.toThrow("Network request failed");
+    await Promise.resolve();
+    await expect(loadCachedEmergencyFacts()).resolves.toEqual(good);
+  });
+
   it("returns a null contact rather than a half-filled one when no name is on file", async () => {
     seed({ profiles: { full_name: "Ada Obi", emergency_contact_phone: "+2348012345678" } });
     await expect(loadEmergencyFacts("patient-1")).resolves.toMatchObject({ emergencyContact: null });
