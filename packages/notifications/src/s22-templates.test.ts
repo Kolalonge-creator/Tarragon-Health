@@ -23,6 +23,11 @@ const KEYS = [
   "note_unsigned_reminder",
   "lab_result_ready",
   "lab_result_corrected",
+  "lab_result_still_reviewing",
+  "lab_result_contact_us",
+  "lab_critical_call",
+  "lab_critical_escalation",
+  "lab_hold_aging",
 ] as const;
 
 const ctx = { notificationId: "n", recipientId: "r" };
