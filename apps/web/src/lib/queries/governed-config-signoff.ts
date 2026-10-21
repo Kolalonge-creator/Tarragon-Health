@@ -50,6 +50,11 @@ export const GOVERNED_CONFIG_TABLES = [
   { table: "prn_limit_rules", title: "As-needed medicine limits", slug: "prn-limit-rules" },
   { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
+  {
+    table: "nutrition_target_config",
+    title: "Nutrition targets and meal summary",
+    slug: "nutrition-targets-config",
+  },
   { table: "health_report_config_versions", title: "Yearly Health Report settings", slug: "health-report-config" },
   {
     // S46d: not a single-active-row table. The signable thing is the anti-HBs threshold on the one ACTIVE rule (status = 'active'), read through its own branch below.

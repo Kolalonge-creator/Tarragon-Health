@@ -217,7 +217,7 @@ jobs:
           pip install --quiet pyyaml
           python3 -c "
           import glob, sys, yaml
-          files = glob.glob('apps/mobile/.maestro/flows/*.yaml')
+          files = glob.glob('apps/mobile/.maestro/flows/*.yaml') + glob.glob('apps/mobile/.maestro/device-lab/*.yaml')
           if not files:
               sys.exit('no Maestro flow files found under apps/mobile/.maestro/flows/')
           for path in files:

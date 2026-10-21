@@ -1326,6 +1326,8 @@ s46d_health_report_completion.sql
 # Water/sleep/mood vital types + inhaler log + plausibility CHECK + events + signed limits. Born off; existing glucose red-flag engine untouched. Sabotage: CHECK dropped, guard trigger dropped, glucose backstop disabled; each must flip.
 s47a_observation_types.sql
 
+# S49a: food logging foundation. 100+ estimated foods flagged for review, wrap/ladle portions, food_logs view + food.logged event, favourites private, targets config born unsigned and gated (pregnancy in each place it is held, postnatal year, clinician hold, eating-disorder screen, under 18 all withheld with no reason), barcodes. Sabotage: the withheld rule removed and the diary trigger removed; both must flip.
+s49a_food_logging_foundation.sql
 # S48a: activity safety gate (red event in 48h = rest, enforced on enrolment incl. re-activation), kinds/goals/events, unreviewed workout plans hidden, owner-only private routes. Sabotage: trigger dropped, gate ignoring red, staff route policy; each must flip.
 s48a_activity_safety_gate.sql
 s27h_lab_lifecycle_and_quality.sql

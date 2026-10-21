@@ -169,10 +169,11 @@ test.describe("Journey 4: an employer programme (privacy)", () => {
     });
 
     // KNOWN GAP (shrink only). On this branch a clinician in the same organisation, with no task, lead assignment or page, can
-    // read these three tables for every patient in the organisation. S39b ("tied staff reads", PR 997, 128 tables) closes it and is
+    // read these tables for every patient in the organisation. S56 (PR 1004, per-patient access for mental wellbeing) closed
+    // mental_health_screens and wellbeing_checkins, so the list shrank to the one table still open. S39b ("tied staff reads", PR 997, 128 tables) closes it and is
     // not on main-dev yet. The step is pending(S39b) exactly while the leak equals this list; any NEW leaked table fails the journey;
     // a table that stops leaking fails it too until it is removed from this list (the list only shrinks). See OQ-341.
-    const KNOWN_UNTIED_CLINICIAN_READS = ["menstrual_cycles", "mental_health_screens", "wellbeing_checkins"];
+    const KNOWN_UNTIED_CLINICIAN_READS = ["menstrual_cycles"];
     const untiedTables = ["vitals_readings", "symptoms", "lab_results", "menstrual_cycles", "menstrual_daily_logs", "mental_health_screens", "wellbeing_checkins", "reproductive_health_profiles", "patient_pregnancy", "contraception_plans"];
     const untied: string[] = [];
     {

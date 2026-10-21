@@ -4456,6 +4456,29 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-IPS-4 Items inside general sections are not sorted by purpose, for supporters too (raised by the IPS build, 2026-10-20)
 - `fhir_export_snapshot` (S47b) hides reproductive and mental-health-named conditions, medicines and allergies only for a guardian of a 10 to 17 year old without a waiver. A supporter who holds only the medications or conditions category, and the person themselves, still get such items inside Problems and Medicines, as in the existing collection export. The summary says so in words (file narrative and page copy) but a sentence is not a control. Decide whether the snapshot should withhold those items for every non-self reader, and whether a stopped medicine should be left out of the Medicines section. Do not weaken the existing exclusion; this build adds no new way to read them.
 - Decision: open (CMO / DPO).
+### OQ-S49A-1 The 108 food rows are estimates and none is dietitian reviewed (raised by the S49a build, 2026-10-20)
+- Every new row, and every old one, is `data_quality = 'estimated'` with `needs_dietitian_review = true`; a database CHECK stops anyone marking a row "no review needed" while it is still estimated. Values are from published West African and general composition ranges (street food, stews and drinks vary widely with oil and seasoning). The grams for wrap, ladle and bowl, and the small / medium / large figures (0.6x, 1x, 1.5x of the default), are household estimates, not measured.
+- Needed: a registered dietitian reviews the table (a data change per row, setting `data_quality = 'dietitian_reviewed'` and `needs_dietitian_review = false` together), and measures the common portions. Until then the app says "an estimate to guide you" everywhere it shows a number, and the targets stay behind the CMO signature anyway.
+- Decision: open (CMO or the dietitian the CMO names).
+
+### OQ-S49A-2 Camera barcode scanning needs a new native module (raised by the S49a build, 2026-10-20)
+- Typing the number printed under a barcode works on web and phone today (`lookup_barcode`, check digit verified). Scanning with the camera needs a barcode-scanner native module (for example `expo-camera`'s scanner); `apps/mobile` has only `expo-image-picker` and `expo-image-manipulator`. Adding one is a new EAS build and a `runtimeVersion` bump, and the OTA auto-publisher will skip that push. Nothing was added.
+- Also open: the `barcodes` table is empty. The team must enter NAFDAC-numbered Nigerian packaged foods (code, which food row it maps to, product name, NAFDAC number). No overseas database is used. A packaged food with no matching food row first needs a food row.
+- Decision: open (founder: approve the native build; ops: who curates barcodes).
+
+### OQ-S49A-3 No clinician screen sets the nutrition-target hold yet (raised by the S49a build, 2026-10-20)
+- `set_nutrition_target_hold(patient, hold, reason)` exists, is clinician-only and tie-checked, and the gate honours it (proved by a database test), but nothing in the clinician console calls it. Until a screen exists a hold can only be set by calling the function. Also decide who may set `eating_disorder_concern` and whether the patient is ever told (today: never; targets and the word summary simply do not appear).
+- Decision: open (CMO for who may set it; product for the screen).
+
+### OQ-S49A-4 The targets numbers are PROPOSED and unsigned (raised by the S49a build, 2026-10-20)
+- `nutrition_target_config` v1 is seeded inactive: floors 1,200 kcal (women) and 1,500 kcal (men), maintenance estimate only, macros 50 / 20 / 30 percent, salt under 5 g (2,000 mg sodium), total sugars under 10 percent of energy, fibre 14 g per 1,000 kcal, word summary at 400 and 750 kcal. The CMO confirms or changes every number and signs it in the sign-off hub (line "Nutrition targets and meal summary"). Note the food list holds total sugars, not free sugars, so the sugar limit is stricter in effect than the WHO free-sugar line. Until it is signed no patient sees any target or word summary.
+- Also for the CMO: whether pregnancy, the postnatal year, a positive eating-disorder screen and under 18 are the right groups to withhold (they are fixed in the database, not part of the signature), and whether kidney disease, heart failure or insulin use should join them.
+- Decision: open (CMO).
+
+### OQ-S49A-5 AI-008 prompt now lists 108 dishes; live re-evaluation not run (raised by the S49a build, 2026-10-20)
+- The photo prompt's grounding line is built from the food table, with the hand-kept list as the fallback; every rule in the prompt is unchanged (proved by a deterministic test that the two prompts differ only on that line). `scripts/eval-ai008-meal-photo.ts` now runs each case twice (fallback and table). It needs `ANTHROPIC_API_KEY` and a Supabase service key and was NOT run in this build (no keys in the build environment). There is still no real Nigerian-dish photo in the suite, so dish-recognition accuracy is untested. The AI-008 governance record (prompt approval, evaluation run) was not touched or seeded: whether a changed prompt needs a fresh human approval is for the AI governance owner.
+- The grounding can be switched back to the hand-kept list with no deploy: set `MEAL_VISION_TABLE_GROUNDING=off`.
+- Decision: open (AI governance owner: run the eval and decide on re-approval).
 ## S27h: lab lifecycle and partner quality (2026-10-16)
 
 Named OQ-S27h-NN (not a plain number) so they cannot collide with the repeated numbers elsewhere in this file.

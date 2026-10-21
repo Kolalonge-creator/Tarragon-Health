@@ -3502,6 +3502,33 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["lease\\w*days?\\s*[=:]\\s*30\\b", "probe\\w*(interval|seconds)\\w*\\s*[=:]\\s*60\\b"],
   },
   {
+    key: "device_lab.budgets",
+    // S06x-c / S08x-3 device lab run. PROPOSED: the performance budgets the device lab harness (scripts/device-lab, packages/shared/src/device-lab)
+    // reports against. They come from docs/S06X_DEVICE_CHECKLIST.md and docs/plans/S06-S10-competitor-gap-and-build-plan.md (S06x-c).
+    // Sizes are decimal megabytes (1 MB = 1,000,000 bytes, as Android Settings shows them). memory_mb_max is null on purpose: no memory budget is
+    // set, so the harness records the number and says "no budget". enforcement is "report_only": the harness NEVER fails a build or a release on
+    // these numbers, it reports them. cold_start is the median of cold_start_runs; reconnect_flush is measured from the network returning to the
+    // waiting-to-send notice clearing.
+    value: {
+      cold_start_ms_max: 3000,
+      cold_start_runs: 5,
+      installed_size_mb_max: 40,
+      memory_mb_max: null,
+      log_store_write_ms_max: 50,
+      log_visible_ms_max: 300,
+      log_latency_runs: 10,
+      reconnect_flush_seconds_max: 60,
+      probe_requests_per_minute_max: 1,
+      enforcement: "report_only",
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/S06X_DEVICE_CHECKLIST.md; docs/plans/S06-S10-competitor-gap-and-build-plan.md S06x-c; docs/device-lab/RUNBOOK.md",
+    guardPatterns: ["cold\\w*start\\w*(ms)?\\s*[=:]\\s*3_?000\\b", "installed\\w*size\\w*(mb)?\\s*[=:]\\s*40\\b"],
+  },
+  {
     key: "offline.freshness",
     // S06y. PROPOSED: how many hours old the copy of the record kept on the phone (the emergency card, the medicines list, today's doses) may be before
     // the app adds a calm "this may be out of date, connect to refresh" notice. Below it the app only says when the copy was last updated. 24 hours is a
@@ -6430,6 +6457,39 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S47-decisions-applied.md",
   },
   {
+    key: "biomarkers.grade_bands",
+    // Tarragon's Good / Acceptable / Needs-attention bands for the patient results cards (/patient/biomarkers). The data lives in
+    // ./biomarker-grade-bands.ts. PROPOSED: until the CMO publishes a confirmed version no patient sees a Tarragon grade and the cards
+    // show only the laboratory's own flag. Bands are population-level adult starting points, not individual targets.
+    value: BIOMARKER_GRADE_BANDS,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "Founder decision 2026-10-20; public guidance: NICE lipid and diabetes guidance, WHO glucose criteria, KDIGO eGFR staging. CMO to confirm every band.",
+  },
+  {
+    key: "biomarkers.lifestyle_guide",
+    // General "helps / go easy on" habits shown under a person's results on /patient/biomarkers. Identical for everyone, labelled as general
+    // guidance on screen, never personalised and never generated. No health claim about a specific food or drink is made here. PROPOSED:
+    // the CMO edits or approves the wording by publishing a new version.
+    value: {
+      items: [
+        { kind: "do", title: "Plan alcohol-free days", detail: "Regular breaks from alcohol ease the load on your liver." },
+        { kind: "do", title: "Eat leafy greens often", detail: "Spinach, kale, ugu and other dark leafy greens are a good everyday choice." },
+        { kind: "do", title: "Keep moving", detail: "A brisk walk most days supports your heart, blood sugar and blood pressure." },
+        { kind: "do", title: "Drink enough water", detail: "Staying hydrated helps your kidneys and keeps blood tests more reliable." },
+        { kind: "limit", title: "Go easy on ultra-processed foods", detail: "Sweets, biscuits, chocolate and crisps." },
+        { kind: "limit", title: "Go easy on sugary drinks and snacks", detail: "Soft drinks, sweetened juices and sugary tea or pap." },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "Founder decision 2026-10-20; general public-health healthy-eating guidance. CMO to approve the wording.",
+  },
+  {
     key: "medicines.nafdac_number_format",
     // Reading a NAFDAC registration number off a medicine pack (typed, or read from a photo). `pattern` is the anchored regex
     // source of a canonical number: an optional letter (never I or O), one or two digits, a hyphen, three to six digits, an
@@ -6480,36 +6540,29 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "apps/web/src/lib/vitals/time-in-range.ts; WHO BMI bands (apps/web/src/lib/obesity/classify.ts bmiCategory)",
   },
   {
-    key: "biomarkers.grade_bands",
-    // Tarragon's Good / Acceptable / Needs-attention bands for the patient results cards (/patient/biomarkers). The data lives in
-    // ./biomarker-grade-bands.ts. PROPOSED: until the CMO publishes a confirmed version no patient sees a Tarragon grade and the cards
-    // show only the laboratory's own flag. Bands are population-level adult starting points, not individual targets.
-    value: BIOMARKER_GRADE_BANDS,
-    owner: "CMO",
-    status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-20",
-    source: "Founder decision 2026-10-20; public guidance: NICE lipid and diabetes guidance, WHO glucose criteria, KDIGO eGFR staging. CMO to confirm every band.",
-  },
-  {
-    key: "biomarkers.lifestyle_guide",
-    // General "helps / go easy on" habits shown under a person's results on /patient/biomarkers. Identical for everyone, labelled as general
-    // guidance on screen, never personalised and never generated. No health claim about a specific food or drink is made here. PROPOSED:
-    // the CMO edits or approves the wording by publishing a new version.
+    key: "nutrition.daily_targets",
+    // Daily nutrition targets and the word-summary lines (S49a, v5 6.5 and 6.7). Live value is `nutrition_target_config`.config, seeded INACTIVE and
+    // unsigned; the CMO signs it through sign_nutrition_target_config. Maintenance estimates only (Mifflin-St Jeor); `floor_kcal` are the SAFE MINIMUMS and
+    // the plan never shows a calorie target below them. WHO anchors: salt under 5 g (2000 mg sodium), free sugars under 10 percent of energy.
+    // Targets are never shown for pregnancy, the postnatal year, a clinician hold, a positive eating-disorder screen or anyone under 18 (database gate).
+    // packages/shared/src/nutrition/targets.test.ts fails if this drifts from the migration seed.
     value: {
-      items: [
-        { kind: "do", title: "Plan alcohol-free days", detail: "Regular breaks from alcohol ease the load on your liver." },
-        { kind: "do", title: "Eat leafy greens often", detail: "Spinach, kale, ugu and other dark leafy greens are a good everyday choice." },
-        { kind: "do", title: "Keep moving", detail: "A brisk walk most days supports your heart, blood sugar and blood pressure." },
-        { kind: "do", title: "Drink enough water", detail: "Staying hydrated helps your kidneys and keeps blood tests more reliable." },
-        { kind: "limit", title: "Go easy on ultra-processed foods", detail: "Sweets, biscuits, chocolate and crisps." },
-        { kind: "limit", title: "Go easy on sugary drinks and snacks", detail: "Soft drinks, sweetened juices and sugary tea or pap." },
-      ],
+      min_age_years: 18,
+      energy: {
+        activity_factors: { low: 1.2, light: 1.375, moderate: 1.55, high: 1.725 },
+        default_activity: "light",
+        floor_kcal: { female: 1200, male: 1500 },
+        ceiling_kcal: 3500,
+        round_to_kcal: 10,
+      },
+      macros_pct_of_energy: { carbs: 50, protein: 20, fat: 30 },
+      salt_sugar_fibre: { sodium_mg_max: 2000, sugar_pct_of_energy_max: 10, fibre_g_per_1000_kcal: 14 },
+      meal_summary: { light_below_kcal: 400, heavy_above_kcal: 750, salty_above_sodium_mg: 800, sugary_above_sugar_g: 25 },
     },
     owner: "CMO",
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-20",
-    source: "Founder decision 2026-10-20; general public-health healthy-eating guidance. CMO to approve the wording.",
+    source: "docs/design/S49a.md; supabase/migrations/20261020181309_s49a_food_logging_foundation.sql",
   },
 ];
