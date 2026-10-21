@@ -1326,3 +1326,4 @@ s47a_observation_types.sql
 
 # S48a: activity safety gate (red event in 48h = rest, enforced on enrolment incl. re-activation), kinds/goals/events, unreviewed workout plans hidden, owner-only private routes. Sabotage: trigger dropped, gate ignoring red, staff route policy; each must flip.
 s48a_activity_safety_gate.sql
+s27h_lab_lifecycle_and_quality.sql

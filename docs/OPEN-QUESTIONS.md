@@ -4425,3 +4425,37 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-IPS-4 Items inside general sections are not sorted by purpose, for supporters too (raised by the IPS build, 2026-10-20)
 - `fhir_export_snapshot` (S47b) hides reproductive and mental-health-named conditions, medicines and allergies only for a guardian of a 10 to 17 year old without a waiver. A supporter who holds only the medications or conditions category, and the person themselves, still get such items inside Problems and Medicines, as in the existing collection export. The summary says so in words (file narrative and page copy) but a sentence is not a control. Decide whether the snapshot should withhold those items for every non-self reader, and whether a stopped medicine should be left out of the Medicines section. Do not weaken the existing exclusion; this build adds no new way to read them.
 - Decision: open (CMO / DPO).
+## S27h: lab lifecycle and partner quality (2026-10-16)
+
+Named OQ-S27h-NN (not a plain number) so they cannot collide with the repeated numbers elsewhere in this file.
+
+### OQ-S27h-01 Hold-aging, delta and fallback thresholds are PROPOSED
+- `lab.lifecycle` (registry) / `lab_lifecycle_config` (table): lead escalation after 720 minutes for a critical value and 1,440 for any other held result, repeated every 720 minutes up to 3 times; a delta flag at 50 percent change (creatinine 30, potassium 20, sodium 5, HbA1c 20, haemoglobin 20) against a released value up to 365 days old; the fallback message 1,440 minutes after the CMO was told. Every use is an alert or a flag; none can release a result. The CMO owns the numbers.
+- Decision: open (CMO).
+
+### OQ-S27h-02 The disclosure fallback wording needs the CMO's signature
+- The mechanism is built and OFF. Wording v1 is "Your care team would like to speak with you. Please open the app and send them a message when you can." Until the CMO signs it on `/clinician/lab-fallback` (or the sign-off hub) nothing is sent; the sweep says so (an audit row per result and one open incident) instead of staying silent. The signature binds the exact words (md5 of the template body): editing the template afterwards makes it read as unsigned again. It never releases a result and needs the 3 failed attempts, not only the 72 hours.
+- Known trade-off for the CMO: this message goes only to patients with a held sensitive result whose attempts are used up, so its existence lets someone who sees the patient's notices infer a class of result. The alternative is to send nothing and rely on the CMO incident and a person reaching the patient. If escalation happened on hours with fewer than 3 attempts, no fallback is sent (the S27d CMO incident is the signal).
+- Decision: open (CMO). A build never signs it.
+
+### OQ-S27h-03 The critical value call rides the S19 rota and times, not the `pages` table; acknowledging ties the clinician
+- `pages` is bound to a triage event (`triage_event_id not null`). Making it generic would touch the paging ladder that protects red events, so the lab call has its own table (`lab_critical_calls`) and reuses the S19 rota (`on_call_now`, `page_recipient` 3 argument, conflict aware), the escalation times (`paging_rule`, 5 and 10 minutes, repeat interval and cap), the incident helper and the push, in-app and email channels.
+- INV-12 decision made in this build, for the founder and CMO to confirm: a paged clinician is NOT tied to the patient by being paged. As for an acknowledged red event page, ACKNOWLEDGING an open critical value call ties that clinician to the patient until the call closes (one extra branch in `private.clinician_has_patient_access`, never for the patient, a conflicted clinician or one who is not eligible). Without it the called clinician could not open the value they were called about.
+- Not covered: the S19c delivery watchdog reads `source_table = 'pages'`, so a critical call notification that never arrives is not reported by it. The mitigation is the repeat to the clinical lead and ops until someone acknowledges.
+- Decision: open (founder, CMO).
+
+### OQ-S27h-04 Preliminary results are never shown to the patient
+- A preliminary result is held and cannot be released by anyone; the final arrives as a correction of kind "finalised". Some labs release a preliminary (for example a culture) to the clinician only. If the CMO wants a clinician-visible-and-releasable preliminary, that is a policy change.
+- Decision: open (CMO).
+
+### OQ-S27h-05 Partner onboarding proof is checked on switch-on only
+- A laboratory cannot go live without a licence number, a verified date, a future expiry and an accreditation. A laboratory already live (Synlab) is not re-checked by this rule; the S74 quality job already suspends on an expired licence. Confirm Synlab's licence and accreditation are recorded so the desk can see them.
+- Decision: open (ops).
+
+### OQ-S27h-06 The `labtrend` strings are outside the reviewed-strings ledger
+- The patient trend uses its own namespace (`labtrend`) so it does not add unreviewed strings to the clinical ledger (its ceiling can only shrink). They state facts only (two numbers, a direction word, a person's note). The CMO should decide whether `labtrend` joins the clinical namespaces and review the nine strings.
+- Decision: open (CMO).
+
+### OQ-S27h-07 The rejected-specimen staff notice may address the wrong id
+- `lab_partner_reject_specimen` (20260829123304) inserts its staff notice with `recipient_id = clinical_staff.id`, but `notifications.recipient_id` references `profiles(id)`. Whether this raises on a real rejection depends on whether a CMO row exists; see the S27h BUILD-PROGRESS entry for what was verified and fixed.
+- Decision: see the BUILD-PROGRESS entry.
