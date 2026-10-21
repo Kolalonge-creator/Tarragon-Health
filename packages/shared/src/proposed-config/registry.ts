@@ -3701,6 +3701,22 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["stale\\w*hours?\\s*[=:]\\s*24\\b"],
   },
   {
+    key: "offline.reconnect_power",
+    // S06z. PROPOSED: the least gap between two reconnect-triggered flushes of everything waiting on the phone (a flapping signal must not
+    // start a flush every few seconds), and the battery level at or below which the phone counts as low on power. At low power or in the
+    // phone's battery saver the app skips non-essential pulls and the bulk health-sample upload; saving a reading and sending an urgent
+    // entry are never delayed. Nobody has judged these two numbers clinically or on a real handset.
+    value: {
+      reconnect_flush_min_gap_seconds: 20,
+      low_battery_percent: 15,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/design/S06.md, docs/design/S06x.md section 5, branch s06z/reconnect-flush-and-power",
+  },
+  {
     key: "my_health.sharing_and_access_log",
     // My Health completion (S09x). Live values are the active row of `my_health_config`.config (sharing, access_log); my-health-mirror.test.ts fails if the
     // migration seed and this value drift. PROPOSED: the default share expiry (12 hours, shorter than the 24 the first share screen used; the 30 day cap is
@@ -3835,6 +3851,21 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-13",
     source: "docs/OPEN-QUESTIONS.md OQ-89; docs/design/S11-S15-p6-coverage.md",
+  },
+  {
+    key: "triage.threshold_override_policy",
+    // N-overrides: clinician-signed personal thresholds. Live value is the active row of `threshold_override_policies` (born unsigned: nothing can be proposed until the CMO
+    // signs it); this entry mirrors the v1 seed and a test fails on drift. The safety CLAMPS (how far a line may move) are code, not config: OVERRIDE_LIMITS in
+    // supabase/functions/_shared/clinical/threshold-override.ts, mirrored by private.threshold_override_limits().
+    //  maxDays: the longest an override may run before it returns to the signed default by itself.
+    //  reviewDays: the monthly review cadence (the review date, never the expiry, moves at review).
+    //  reviewTaskDueMinutes: how long the routine review task has to be done.
+    value: { maxDays: 90, reviewDays: 30, reviewTaskDueMinutes: 4320 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/build-threshold-overrides.md",
   },
   {
     key: "triage.glucose_monitor",

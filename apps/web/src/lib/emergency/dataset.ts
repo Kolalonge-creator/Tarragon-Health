@@ -23,8 +23,19 @@ import type { EmergencyClinicalFacts } from "./card";
 export async function loadEmergencyDatasetForPatient(
   supabase: SupabaseClient<Database>,
   patientId: string,
+  /**
+   * `strict` throws if any read fails, instead of treating it as empty. A picture that is kept for months (the lock-screen picture) must never
+   * say "None recorded" because a read failed; the printed page reads live and keeps the lenient behaviour.
+   */
+  options: { strict?: boolean } = {},
 ): Promise<EmergencyClinicalFacts> {
-  const [{ data: profile }, { data: allergies }, { data: medications }, { data: carePlans }, { data: blood }] =
+  const [
+    { data: profile, error: profileError },
+    { data: allergies, error: allergiesError },
+    { data: medications, error: medicationsError },
+    { data: carePlans, error: carePlansError },
+    { data: blood, error: bloodError },
+  ] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -53,6 +64,10 @@ export async function loadEmergencyDatasetForPatient(
         .eq("patient_id", patientId)
         .maybeSingle(),
     ]);
+
+  if (options.strict && (profileError || allergiesError || medicationsError || carePlansError || bloodError)) {
+    throw new Error("emergency dataset read failed");
+  }
 
   return {
     full_name: profile?.full_name ?? null,
