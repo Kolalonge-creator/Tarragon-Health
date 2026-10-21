@@ -7,6 +7,7 @@ import { EntitlementsCard } from "./entitlements-card";
 import { HmoEligibilityCard } from "./hmo-eligibility-card";
 import { FundSupportCard } from "./fund-support-card";
 import { MembershipShop } from "./membership-shop";
+import { RefundStatusCard } from "./refund-status-card";
 
 export const metadata = { title: "Membership" };
 
@@ -19,6 +20,7 @@ export default async function MembershipPage() {
     <div className="space-y-6">
       <PageHeader title="Membership" icon={SEMANTIC_ICON.billing} backTo={{ href: "/patient", label: "Dashboard" }} />
       <EntitlementsCard locale={uiLanguage} />
+      <RefundStatusCard locale={uiLanguage} />
       <FundSupportCard locale={uiLanguage} />
       <MembershipShop locale={uiLanguage} fee={fee} />
       <HmoEligibilityCard locale={uiLanguage} />

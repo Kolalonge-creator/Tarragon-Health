@@ -39,6 +39,7 @@ jest.mock("@/lib/queries/commerce", () => {
   };
 });
 jest.mock("@/lib/queries/care-access", () => ({ useSponsorableProfiles: () => ({ data: [] }) }));
+jest.mock("@/lib/queries/order-refunds", () => ({ useRefundPolicy: () => ({ data: undefined }), useRequestOrderRefund: () => ({ mutateAsync: jest.fn(), isPending: false }) }));
 
 const go = jest.fn();
 beforeEach(() => {

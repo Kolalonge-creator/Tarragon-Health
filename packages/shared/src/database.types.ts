@@ -47185,6 +47185,38 @@ export type Database = {
           },
         ]
       }
+      refund_status_events: {
+        Row: {
+          created_at: string
+          id: string
+          organisation_id: string
+          refund_id: string
+          step: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organisation_id: string
+          refund_id: string
+          step: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          refund_id?: string
+          step?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "refund_status_events_refund_id_fkey"
+            columns: ["refund_id"]
+            isOneToOne: false
+            referencedRelation: "refunds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       refunds: {
         Row: {
           amount_kobo: number
@@ -47203,6 +47235,14 @@ export type Database = {
           requested_by: string | null
           state: string
           updated_at: string
+          attempts: number
+          completed_at: string | null
+          earnings_reversed_at: string | null
+          gl_released_at: string | null
+          last_error_code: string | null
+          processing_started_at: string | null
+          provider_checked_at: string | null
+          provider_status: string | null
         }
         Insert: {
           amount_kobo: number
@@ -47221,6 +47261,14 @@ export type Database = {
           requested_by?: string | null
           state?: string
           updated_at?: string
+          attempts?: number
+          completed_at?: string | null
+          earnings_reversed_at?: string | null
+          gl_released_at?: string | null
+          last_error_code?: string | null
+          processing_started_at?: string | null
+          provider_checked_at?: string | null
+          provider_status?: string | null
         }
         Update: {
           amount_kobo?: number
@@ -47239,6 +47287,14 @@ export type Database = {
           requested_by?: string | null
           state?: string
           updated_at?: string
+          attempts?: number
+          completed_at?: string | null
+          earnings_reversed_at?: string | null
+          gl_released_at?: string | null
+          last_error_code?: string | null
+          processing_started_at?: string | null
+          provider_checked_at?: string | null
+          provider_status?: string | null
         }
         Relationships: [
           {
@@ -54819,6 +54875,33 @@ export type Database = {
         Args: { p_patient_id: string }
         Returns: Json
       }
+      admin_refund_ops: { Args: never; Returns: Json }
+      admin_settle_processing_refund: {
+        Args: { p_paid: boolean; p_reference?: string; p_refund: string }
+        Returns: Json
+      }
+      claim_refund_for_provider: { Args: { p_refund: string }; Returns: Json }
+      entitlement_policy_public: { Args: never; Returns: Json }
+      link_order_encounter: { Args: { p_encounter: string; p_order: string }; Returns: boolean }
+      record_refund_reconcile: {
+        Args: { p_provider_amount_kobo?: number; p_provider_status: string; p_refund: string }
+        Returns: string
+      }
+      refunds_needing_reconcile: {
+        Args: { p_limit?: number }
+        Returns: {
+          amount_kobo: number
+          charge_reference: string
+          id: string
+          provider_reference: string
+          state: string
+        }[]
+      }
+      retry_failed_refund: { Args: { p_refund: string }; Returns: Json }
+      service_flag_refund_delays: { Args: never; Returns: number }
+      service_refund_incident: { Args: { p_refund: string; p_what: string }; Returns: undefined }
+      service_run_entitlement_reminders: { Args: never; Returns: number }
+      service_run_refund_catch_up: { Args: never; Returns: number }
       consume_entitlement: { Args: { p_entitlement: string }; Returns: Json }
       decide_order_refund: {
         Args: { p_approved: boolean; p_note?: string; p_refund: string }

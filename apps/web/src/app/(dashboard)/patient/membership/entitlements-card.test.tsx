@@ -41,6 +41,23 @@ describe("EntitlementsCard", () => {
     expect(screen.getByText("Expired")).toBeTruthy();
     expect(screen.queryByText(/remaining/)).toBeNull();
   });
+  it("an ended pack inside its grace says so, says it holds no doctor time, and offers one tap to renew", async () => {
+    rows = [row({ kind: "care_pack", state: "expired", phase: "grace", grace_days_left: 4, item_code: "care_pack_90", name_key: "catalog.care_pack.name" })];
+    const { container } = render(<EntitlementsCard locale="en" />);
+    expect(screen.getByText("Ended recently")).toBeTruthy();
+    expect(screen.getByText(/For 4 more days you can still see your records/)).toBeTruthy();
+    expect(screen.getByText("While it is ended it does not include any doctor time.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Renew in one tap" }).getAttribute("href")).toBe("/patient/membership/care_pack_90");
+    await expectNoA11yViolations(<EntitlementsCard locale="en" />);
+    expect(container.textContent).not.toMatch(/\u2014/);
+  });
+  it("an ended pack past its grace is only expired, with no renew link and no grace words", () => {
+    rows = [row({ kind: "care_pack", state: "expired", item_code: "care_pack_90" })];
+    render(<EntitlementsCard locale="en" />);
+    expect(screen.getByText("Expired")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Renew in one tap" })).toBeNull();
+    expect(screen.queryByText(/still see your records/)).toBeNull();
+  });
   it("says there is nothing yet when there is nothing", () => {
     rows = [];
     render(<EntitlementsCard locale="en" />);

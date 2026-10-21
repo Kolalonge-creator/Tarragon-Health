@@ -35,6 +35,7 @@ jest.mock("@/lib/queries/commerce", () => {
 
 let lovedOnes: { data: { id: string; full_name: string | null }[] };
 jest.mock("@/lib/queries/care-access", () => ({ useSponsorableProfiles: () => lovedOnes }));
+jest.mock("@/lib/queries/order-refunds", () => ({ useRefundPolicy: () => ({ data: undefined }), useRequestOrderRefund: () => ({ mutateAsync: jest.fn(), isPending: false }) }));
 
 const assign = jest.fn();
 beforeEach(() => {
