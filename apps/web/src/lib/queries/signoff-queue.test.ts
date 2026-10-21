@@ -289,3 +289,21 @@ describe("readSignoffQueue S88 clinical config drafts", () => {
     expect(res.failedSources).toContain("clinical_config_versions");
   });
 });
+
+describe("getSignoffQueue interaction rule sets (S08y)", () => {
+  const empty = { id: "i1", version: 1, is_active: false, approved_by: null, approved_at: null, created_at: "2026-10-20T00:00:00Z", notes: null, config: { rules: [] } };
+  const full = { ...empty, id: "i2", version: 2, notes: "Reviewed by the pharmacist.", config: { rules: [{ code: "x" }] } };
+
+  it("an empty draft (how the table is born) is not outstanding work, since an empty set cannot be signed", async () => {
+    const items = await getSignoffQueue(client({ medicine_interaction_rule_sets: { data: [empty] } }), "/clinician");
+    expect(items.find((i) => i.key === "versioned_draft:medicine_interaction_rule_sets")).toBeUndefined();
+  });
+
+  it("a drafted non-empty set is listed for the Chief Medical Officer, inside their own console", async () => {
+    const items = await getSignoffQueue(client({ medicine_interaction_rule_sets: { data: [empty, full] } }), "/clinician");
+    const line = items.find((i) => i.key === "versioned_draft:medicine_interaction_rule_sets");
+    expect(line?.severity).toBe("draft_pending");
+    expect(line?.href).toBe("/clinician/medicine-interaction-rules");
+    expect(line?.detail).toContain("Version 2");
+  });
+});

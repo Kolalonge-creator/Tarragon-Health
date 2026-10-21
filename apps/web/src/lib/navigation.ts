@@ -697,6 +697,8 @@ export function getNavSections(
                 { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
                 { label: "Blood pressure triage rules", href: "/clinician/triage-rules", icon: "bp" },
                 { label: "Glucose triage rules", href: "/clinician/glucose-triage-rules", icon: "bp" },
+                // N-overrides: the CMO's roster of personal alert thresholds, the monthly review and the kill switch.
+                { label: "Personal alert thresholds", href: "/clinician/threshold-overrides", icon: "bp" },
                 { label: "Task types and priorities", href: "/clinician/task-types", icon: "review" },
                 { label: "Clinical rules engine", href: "/clinician/clinical-rules", icon: "governance" },
                 { label: "Alert rules", href: "/clinician/alert-rules", icon: "siren" },
@@ -719,6 +721,8 @@ export function getNavSections(
                 },
                 { label: "Vaccination schedule", href: "/clinician/vaccination-schedule", icon: "vaccination" },
                 { label: "As-needed medicine limits", href: "/clinician/prn-limit-rules", icon: "review" },
+                { label: "Medicine interaction rules", href: "/clinician/medicine-interaction-rules", icon: "review" },
+                { label: "Medicine brand names", href: "/clinician/medicine-brand-map", icon: "review" },
                 { label: "Provider quality", href: "/clinician/provider-quality", icon: "analytics" },
               ],
             },

@@ -10,6 +10,7 @@ import { emergencyCardQrSvg, emergencyCardUrl } from "@/lib/emergency/card";
 import { EmergencyCardControls } from "./emergency-card-controls";
 import { BloodAttestationForm } from "./blood-attestation-form";
 import { CardFieldsForm } from "./card-fields-form";
+import { LockScreenImageCard } from "./lock-screen-image-card";
 import { applyCardFieldChoices, choicesFromRow, hiddenFields } from "@/lib/emergency/field-choices";
 import { loadEmergencyDatasetForPatient } from "@/lib/emergency/dataset";
 import { EmergencyCardPreview } from "@/components/emergency/emergency-card-preview";
@@ -143,6 +144,7 @@ export default async function EmergencyCardPage() {
 
       {/* S43: the person chooses which details a stranger can see, on the printed card and the live link alike. */}
       {acting ? null : <CardFieldsForm initial={choicesFromRow(fields)} />}
+      {acting || !choicesFromRow(fields).lock_screen_opt_in ? null : <LockScreenImageCard />}
       {previewFacts ? <EmergencyCardPreview facts={previewFacts} hidden={hiddenFields(previewChoices)} /> : null}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">

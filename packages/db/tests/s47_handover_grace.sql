@@ -74,8 +74,12 @@ $$ insert into fx values (p, p_v) on conflict (k) do update set v = excluded.v $
 create function pg_temp.mkchild(p_label text, p_org uuid, p_birthday_days_ago integer) returns uuid language plpgsql as
 $f$ declare v uuid; g1 uuid; g2 uuid;
 begin
-  v := pg_temp.mkuser(p_org, p_label, 'patient', ((now() at time zone 'Africa/Lagos')::date - interval '18 years' - make_interval(days => p_birthday_days_ago))::date);
-  update public.profiles set is_dependent_account = true, dependent_kind = 'minor_child' where id = v;
+  -- Born on the Lagos calendar, but private.enforce_adult_registration compares against the UTC current_date, which is a day behind
+  -- Lagos from 23:00 to 24:00 UTC. So the row is created as an adult, marked as a minor-child dependant (the trigger's own exemption),
+  -- and only then given the Lagos-derived date of birth: the proof no longer depends on the time of day it runs.
+  v := pg_temp.mkuser(p_org, p_label, 'patient');
+  update public.profiles set is_dependent_account = true, dependent_kind = 'minor_child',
+    date_of_birth = ((now() at time zone 'Africa/Lagos')::date - interval '18 years' - make_interval(days => p_birthday_days_ago))::date where id = v;
   g1 := pg_temp.mkuser(p_org, p_label || '-g1', 'patient'); g2 := pg_temp.mkuser(p_org, p_label || '-g2', 'patient');
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, created_at) values (v, g1, 'manage', g1, now() - interval '400 days'), (v, g2, 'manage', g2, now() - interval '400 days');   -- the guardians' era, long before the birthday
   -- an adult's record is read through a category grant, so the guardians hold the vitals category (the S42 proof grants it the same way)

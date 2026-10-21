@@ -44,6 +44,7 @@ type VersionedTableName =
   | "lab_panel_signoffs"
   | "lab_fallback_wording_signoffs"
   | "prn_limit_rules"
+  | "medicine_interaction_rule_sets"
   | "my_health_config"
   | "nutrition_target_config"
   | "activity_safety_config"
@@ -73,6 +74,7 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   { table: "lab_panel_signoffs", title: "Lab ranges and release policy", slug: "lab-panels" },
   { table: "lab_fallback_wording_signoffs", title: "Lab result fallback message", slug: "lab-fallback" },
   { table: "prn_limit_rules", title: "As-needed medicine limits", slug: "prn-limit-rules" },
+  { table: "medicine_interaction_rule_sets", title: "Medicine interaction rules", slug: "medicine-interaction-rules" },
   { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
   { table: "cuff_check_rules", title: "Home cuff vs clinic cuff check", slug: "cuff-check-rules" },
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
@@ -101,7 +103,13 @@ type VersionRow = {
   approved_at?: string | null;
   created_at?: string;
   notes?: string | null;
+  /** Only read for tables whose draft can be empty (medicine_interaction_rule_sets). */
+  config?: { rules?: unknown[] } | null;
 };
+
+/** The interaction rule set is born empty and an empty set cannot be signed, so an empty draft is not outstanding work. */
+const EMPTY_DRAFT_TABLES: readonly string[] = ["medicine_interaction_rule_sets"];
+const isEmptyDraft = (r: VersionRow) => !r.is_active && (r.config?.rules?.length ?? 0) === 0;
 
 const isSigned = (r: VersionRow) => Boolean(r.approved_by ?? r.approved_at);
 
@@ -167,10 +175,11 @@ export async function readSignoffQueue(
         // The live row and any unsigned drafts; signed history is never outstanding.
         const { data, error } = await supabase
           .from(def.table)
-          .select("id, version, is_active, approved_by, approved_at, created_at, notes")
+          .select(EMPTY_DRAFT_TABLES.includes(def.table) ? "id, version, is_active, approved_by, approved_at, created_at, notes, config" : "id, version, is_active, approved_by, approved_at, created_at, notes")
           .or("is_active.eq.true,approved_by.is.null");
         if (error) fail(def.table, error.message);
-        const rows = (data ?? []) as unknown as VersionRow[];
+        const all = (data ?? []) as unknown as VersionRow[];
+        const rows = EMPTY_DRAFT_TABLES.includes(def.table) ? all.filter((r) => !isEmptyDraft(r)) : all;
         const live = singleLiveRow(rows, def.table);
         const href = `${basePath}/${def.slug}`;
         if (live && isSigned(live)) settledConfigs.push({ table: def.table, title: def.title, href, version: live.version });
