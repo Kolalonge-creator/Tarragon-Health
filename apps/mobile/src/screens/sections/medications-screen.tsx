@@ -3,6 +3,8 @@ import { AppState, Linking, Platform, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { resolveTakenTime, isDoubleTap, lagosLocalDate, slotKey, windowEndTime, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
 import { useUiLanguage } from "@/lib/ui-language";
+import { readMirrorLastPulledAt } from "@/lib/offline-store";
+import { FreshnessNote } from "@/ui/freshness-note";
 import {
   dosesOn,
   loadTodaysDoses,
@@ -101,6 +103,8 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
   // A failed dose fetch must never render as "No scheduled doses today": that
   // reads as a clinical fact. loadError renders an explicit retry state.
   const [loadError, setLoadError] = useState(false);
+  // Set only when the list on screen is the copy kept on the phone (S06y); holds when that copy last completed a pull.
+  const [phoneCopy, setPhoneCopy] = useState<{ pulledAt: string | null } | null>(null);
   const [cabinetOpen, setCabinetOpen] = useState(false);
   // medication_logs is append-only: each tap is its own permanent row, so a
   // rapid double-tap must not log twice. The guard ignores a second tap that
@@ -137,7 +141,9 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
       setLoadError(true);
       return;
     }
+    const copyAt = result.fromPhone ? await readMirrorLastPulledAt(patientId) : null;
     setLoadError(false);
+    setPhoneCopy(result.fromPhone ? { pulledAt: copyAt } : null);
     setDoses(result.data);
     setAsNeeded(await loadAsNeededMedicines(patientId).catch(() => []));
     // The screen is something the patient opened, so it may ask for notification permission.
@@ -341,6 +347,8 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
         <AppText variant="title" heading>
           {tr("meds.doses.heading")}
         </AppText>
+
+        {!loading && !loadError && phoneCopy ? <FreshnessNote lastUpdatedAt={phoneCopy.pulledAt} /> : null}
 
         {loading ? (
           <SkeletonGroup label={tr("meds.loading")}>

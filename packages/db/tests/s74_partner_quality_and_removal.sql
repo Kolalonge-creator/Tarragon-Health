@@ -118,9 +118,9 @@ begin
   -- a REAL patient (turnaround counts) and a test patient (turnaround must ignore)
   v_pat := pg_temp.mkuser(v_org, 'pat', 'patient', false); perform pg_temp.setf('pat', v_pat);
   v_testpat := pg_temp.mkuser(v_org, 'testpat', 'patient', true); perform pg_temp.setf('testpat', v_testpat);
-  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at) values ('S74 Lab A', true, now() + interval '200 days', now()) returning id into v_lab;
-  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at) values ('S74 Lab B', true, now() + interval '200 days', now()) returning id into v_lab2;
-  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at) values ('S74 Lab D', true, now() + interval '200 days', now()) returning id into v_labd;
+  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at, license_number, accreditation) values ('S74 Lab A', true, now() + interval '200 days', now(), 'S27H-PROOF-1', 'ISO 15189') returning id into v_lab;
+  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at, license_number, accreditation) values ('S74 Lab B', true, now() + interval '200 days', now(), 'S27H-PROOF-1', 'ISO 15189') returning id into v_lab2;
+  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at, license_number, accreditation) values ('S74 Lab D', true, now() + interval '200 days', now(), 'S27H-PROOF-1', 'ISO 15189') returning id into v_labd;
   perform pg_temp.setf('labAopen', v_labd);
   perform pg_temp.setf('labA', v_lab); perform pg_temp.setf('labB', v_lab2);
   perform pg_temp.setf('labAu', pg_temp.mkuser(v_org, 'labAu', 'lab_partner'));
@@ -266,7 +266,7 @@ begin
     perform pg_temp.r('E1 an order cannot be given to a paused laboratory', '55000', sqlstate);
   end;
   -- lab orders go to a third laboratory that is open
-  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at) values ('S74 Lab C', true, now() + interval '200 days', now()) returning id into v_open_lab;
+  insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at, license_number, accreditation) values ('S74 Lab C', true, now() + interval '200 days', now(), 'S27H-PROOF-1', 'ISO 15189') returning id into v_open_lab;
   insert into public.lab_orders (organisation_id, patient_id, provider_id, fulfilment, status, origin, ordered_by, clinical_indication, transmission)
   values (v_org, v_pat, v_open_lab, 'partner', 'pending_payment', 'clinically_triggered', v_staff, 'S74 proof order', 'awaiting_payment') returning id into v_order;
   perform pg_temp.r('E2 an open laboratory still receives an order', 'true', (v_order is not null)::text);
