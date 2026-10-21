@@ -23,6 +23,8 @@ export type SectionId =
   | "myHealth"
   | "shareRecords"
   | "myPhones"
+  // S50b: the supported eating programme. NOT in the drawer: it is reached only by the link on the Medicines screen, shown only to someone who was offered it.
+  | "lowCarb"
   | "womensHealth"
   | "sexualHealth"
   | "wellbeing"

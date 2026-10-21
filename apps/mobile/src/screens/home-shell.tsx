@@ -49,6 +49,7 @@ import { MyHealthScreen } from "@/screens/sections/my-health-screen";
 import { RecordShareScreen } from "@/screens/sections/record-share-screen";
 import { MyPhonesScreen } from "@/screens/sections/my-phones-screen";
 import { ExerciseScreen } from "@/screens/sections/exercise-screen";
+import { LowCarbScreen } from "@/screens/sections/lowcarb-screen";
 import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
 import { ConsultationRoomScreen } from "@/screens/sections/consultation-room-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
@@ -306,6 +307,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         patientId={subjectId}
         organisationId={organisationId}
         subjectName={acting?.fullName ?? undefined}
+        onNavigate={handleSelect}
       />
     ),
     labs: () => <LabsScreen />,
@@ -331,6 +333,8 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     myHealth: () => <MyHealthScreen userId={userId} acting={acting != null} onNavigate={handleSelect} />,
     myPhones: () => <MyPhonesScreen userId={userId} acting={acting != null} />,
     exercise: () => <ExerciseScreen patientId={subjectId} organisationId={organisationId} />,
+    // The programme is the person's own (their own yes), so nothing is shown while acting for someone else.
+    lowCarb: () => <LowCarbScreen patientId={userId} acting={acting != null} onNavigate={handleSelect} />,
     devices: () =>
       openDevice ? (
         <SyncScreen device={openDevice} onBack={() => setOpenDevice(null)} />

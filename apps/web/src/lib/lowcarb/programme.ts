@@ -147,6 +147,8 @@ export function describeLowCarbReasons(reasons: readonly string[]): string[] {
     medicine_sglt2_inhibitor: "Takes an SGLT2 inhibitor.",
     supervision_insulin: "Takes insulin: a doctor must accept supervision.",
     supervision_sulfonylurea: "Takes a sulfonylurea: a doctor must accept supervision.",
+    supervision_meglitinide: "Takes a meglitinide: a doctor must accept supervision.",
+    supervision_unclassified: "Takes a medicine that looks diabetes-related but is not on the platform's list: a doctor must accept supervision.",
     none: "",
   };
   return reasons.map((r) => words[r] ?? "This person does not meet the programme screen.").filter((w) => w !== "");

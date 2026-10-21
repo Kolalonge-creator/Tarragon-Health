@@ -9,14 +9,8 @@
    "id": "su_stop_on_low",
    "label": "Sulfonylurea: a low reading",
    "match": {
-    "name_patterns": [
-     "glibenclamide",
-     "gliclazide",
-     "glimepiride",
-     "glipizide",
-     "daonil",
-     "diamicron",
-     "amaryl"
+    "groups": [
+     "sulfonylurea"
     ]
    },
    "when": {
@@ -29,14 +23,8 @@
    "id": "su_review_on_fall",
    "label": "Sulfonylurea: sugars falling",
    "match": {
-    "name_patterns": [
-     "glibenclamide",
-     "gliclazide",
-     "glimepiride",
-     "glipizide",
-     "daonil",
-     "diamicron",
-     "amaryl"
+    "groups": [
+     "sulfonylurea"
     ]
    },
    "when": {
@@ -49,20 +37,8 @@
    "id": "insulin_review_on_fall",
    "label": "Insulin: sugars falling",
    "match": {
-    "name_patterns": [
-     "insulin",
-     "lantus",
-     "humulin",
-     "novorapid",
-     "mixtard",
-     "tresiba",
-     "levemir",
-     "toujeo",
-     "humalog",
-     "lyumjev",
-     "apidra",
-     "fiasp",
-     "basaglar"
+    "groups": [
+     "insulin"
     ]
    },
    "when": {
@@ -75,20 +51,8 @@
    "id": "insulin_review_on_low",
    "label": "Insulin: a low reading",
    "match": {
-    "name_patterns": [
-     "insulin",
-     "lantus",
-     "humulin",
-     "novorapid",
-     "mixtard",
-     "tresiba",
-     "levemir",
-     "toujeo",
-     "humalog",
-     "lyumjev",
-     "apidra",
-     "fiasp",
-     "basaglar"
+    "groups": [
+     "insulin"
     ]
    },
    "when": {

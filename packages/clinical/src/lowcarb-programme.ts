@@ -21,8 +21,17 @@ export interface LowCarbMatch {
 
 export interface LowCarbMedicineGroup {
   readonly name_patterns: readonly string[];
-  /** supervision: a doctor must accept supervision first. exclude: the programme is not offered. */
-  readonly handling: "supervision" | "exclude";
+  /**
+   * supervision: a doctor must accept supervision first. exclude: the programme is not offered. allow: a RECOGNISED diabetes medicine that does not
+   * lower sugar on its own (it exists so it is not mistaken for an unrecognised one). A combination that matches any other group follows that group.
+   */
+  readonly handling: "supervision" | "exclude" | "allow";
+}
+
+/** Words that mark a medicine as diabetes-related even when no group names it. An unrecognised diabetes medicine fails SAFE, to "needs supervision". */
+export interface LowCarbDiabetesMarkers {
+  readonly name_patterns: readonly string[];
+  readonly indication_patterns: readonly string[];
 }
 
 export interface LowCarbCheckinRule {
@@ -40,6 +49,7 @@ export interface LowCarbConfig {
     readonly triage_lookback_hours: number;
     readonly condition_exclusions: Readonly<Record<string, LowCarbMatch>>;
     readonly medicine_groups: Readonly<Record<string, LowCarbMedicineGroup>>;
+    readonly diabetes_markers: LowCarbDiabetesMarkers;
   };
   readonly check_ins: {
     readonly glucose: LowCarbCheckinRule;
@@ -79,6 +89,11 @@ export interface LowCarbConditionRecord {
   readonly status: string;
 }
 
+export interface LowCarbMedicineRecord {
+  readonly name: string;
+  readonly indication: string | null;
+}
+
 export interface LowCarbEligibilityInput {
   readonly now: string;
   readonly ageYears: number | null;
@@ -87,8 +102,8 @@ export interface LowCarbEligibilityInput {
   readonly pregnancy: "yes" | "no" | "unknown";
   readonly eatingDisorderScreenPositive: boolean;
   readonly conditions: readonly LowCarbConditionRecord[];
-  /** Names of the patient's active medicines. */
-  readonly medicines: readonly string[];
+  /** The patient's active medicines: the name as recorded and the recorded reason (indication), if any. */
+  readonly medicines: readonly LowCarbMedicineRecord[];
   readonly glucoseReadings: readonly { readonly mmol: number; readonly at: string }[];
   readonly triageEvents: readonly { readonly grade: "green" | "amber" | "red"; readonly at: string }[];
   readonly confirmations: { readonly noRecentAdmission: boolean; readonly supervisionAccepted: boolean };
@@ -115,8 +130,74 @@ export function lowCarbConditionMatches(records: readonly LowCarbConditionRecord
   });
 }
 
-export function lowCarbMedicineMatches(medicines: readonly string[], patterns: readonly string[]): boolean {
-  return medicines.some((m) => patterns.some((p) => p !== "" && m.toLowerCase().includes(p.toLowerCase())));
+/** Lower case; every run of anything but a to z and 0 to 9 becomes one space; trimmed. ASCII only, so SQL (private.lowcarb_norm) matches exactly. */
+export function lowCarbNormalise(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/** Plain Levenshtein distance. Mirrored by private.lowcarb_edit_distance. */
+export function lowCarbEditDistance(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur.push(Math.min((prev[j] as number) + 1, (cur[j - 1] as number) + 1, (prev[j - 1] as number) + (a[i - 1] === b[j - 1] ? 0 : 1)));
+    }
+    prev = cur;
+  }
+  return prev[b.length] as number;
+}
+
+/**
+ * Whether a recorded medicine name matches any pattern. A pattern matches when it appears inside the normalised name (so "Mixtard 30/70 100IU/ml",
+ * "GLIBENCLAMIDE 5mg" and a combination such as "metformin + glibenclamide" all match), or, for a one-word pattern of six letters or more, when
+ * any word of the name is within one typing slip of it (two for ten letters or more), so "gliclazid" and "glimepirid" still match. A false match only
+ * ever asks for a doctor's supervision; a miss is the dangerous direction, which is why this errs towards matching. Mirrored by private.lowcarb_name_matches.
+ */
+export function lowCarbNameMatches(name: string, patterns: readonly string[]): boolean {
+  const n = lowCarbNormalise(name);
+  if (n === "") return false;
+  const words = n.split(" ");
+  return patterns.some((raw) => {
+    const p = lowCarbNormalise(raw);
+    if (p === "") return false;
+    if (n.includes(p)) return true;
+    if (p.includes(" ") || p.length < 6) return false;
+    const allowed = p.length >= 10 ? 2 : 1;
+    return words.some((w) => Math.abs(w.length - p.length) <= allowed && lowCarbEditDistance(w, p) <= allowed);
+  });
+}
+
+/** Whether free text (a recorded reason) contains any pattern, after normalising both. */
+export function lowCarbTextHas(text: string | null, patterns: readonly string[]): boolean {
+  const n = lowCarbNormalise(text ?? "");
+  return n !== "" && patterns.some((raw) => {
+    const p = lowCarbNormalise(raw);
+    return p !== "" && n.includes(p);
+  });
+}
+
+export interface LowCarbMedicineClass {
+  /** Groups with handling supervision or exclude that the medicine matched. */
+  readonly risk: readonly string[];
+  /** Groups with handling allow that it matched. */
+  readonly allowed: readonly string[];
+  /** Diabetes-related (by name marker or recorded reason) but in no group at all, or with no usable name: treated as needing supervision. */
+  readonly unclassified: boolean;
+}
+
+export function classifyLowCarbMedicine(med: LowCarbMedicineRecord, config: LowCarbConfig): LowCarbMedicineClass {
+  const risk: string[] = [];
+  const allowed: string[] = [];
+  for (const [key, group] of Object.entries(config.eligibility.medicine_groups)) {
+    if (!lowCarbNameMatches(med.name, group.name_patterns)) continue;
+    (group.handling === "allow" ? allowed : risk).push(key);
+  }
+  const m = config.eligibility.diabetes_markers;
+  const related = lowCarbNameMatches(med.name, m.name_patterns) || lowCarbTextHas(med.indication, m.indication_patterns);
+  // FAIL SAFE: a medicine with no usable name, or one that looks diabetes-related and is not positively recognised, needs a doctor to accept supervision.
+  const unclassified = risk.length === 0 && allowed.length === 0 && (lowCarbNormalise(med.name) === "" || related);
+  return { risk, allowed, unclassified };
 }
 
 export function lowCarbEligibility(input: LowCarbEligibilityInput, config: LowCarbConfig | null): LowCarbEligibilityResult {
@@ -148,10 +229,17 @@ export function lowCarbEligibility(input: LowCarbEligibilityInput, config: LowCa
   }
 
   const supervision: string[] = [];
-  for (const [key, group] of Object.entries(el.medicine_groups)) {
-    if (!lowCarbMedicineMatches(input.medicines, group.name_patterns)) continue;
-    if (group.handling === "exclude") hard.push(`medicine_${key}`);
-    else supervision.push(key);
+  const addSupervision = (key: string): void => {
+    if (!supervision.includes(key)) supervision.push(key);
+  };
+  for (const med of input.medicines) {
+    const c = classifyLowCarbMedicine(med, config);
+    for (const key of c.risk) {
+      if (el.medicine_groups[key]?.handling === "exclude") {
+        if (!hard.includes(`medicine_${key}`)) hard.push(`medicine_${key}`);
+      } else addSupervision(key);
+    }
+    if (c.unclassified) addSupervision("unclassified");
   }
 
   const hypoSince = nowMs - el.hypo_lookback_days * DAY_MS;
@@ -263,7 +351,8 @@ export function lowCarbCheckins(
 export interface LowCarbStep {
   readonly id: string;
   readonly label?: string;
-  readonly match: { readonly name_patterns: readonly string[] };
+  /** Medicine groups of the programme config (for example sulfonylurea) this step applies to, so the lists are written once. */
+  readonly match: { readonly groups: readonly string[] };
   readonly when: { readonly avg_glucose_below_mmol?: number; readonly any_glucose_below_mmol?: number };
   /** stop: a care_plan_changes proposal to stop the medicine. review_dose: a note only, the doctor decides the new dose. */
   readonly action: "stop" | "review_dose";
@@ -360,7 +449,8 @@ export function proposeLowCarbMedicineReview(input: LowCarbReviewInput, table: L
       (anyLimit !== undefined && inWindow.some((g) => g.mmol < anyLimit));
     if (!fired) continue;
     for (const med of input.medicines) {
-      if (!lowCarbMedicineMatches([med.drugName], step.match.name_patterns)) continue;
+      const patterns = step.match.groups.flatMap((g) => config.eligibility.medicine_groups[g]?.name_patterns ?? []);
+      if (!lowCarbNameMatches(med.drugName, patterns)) continue;
       proposals.push({
         stepId: step.id,
         action: step.action,
@@ -369,6 +459,20 @@ export function proposeLowCarbMedicineReview(input: LowCarbReviewInput, table: L
         currentDose: med.dose,
         rationale: step.rationale,
         proposable: step.action === "stop" && med.clinicianIssued,
+      });
+    }
+  }
+  // A diabetes-related medicine the config does not recognise is never skipped silently: the doctor is told to look at it by hand.
+  for (const med of input.medicines) {
+    if (classifyLowCarbMedicine({ name: med.drugName, indication: null }, config).unclassified && !proposals.some((p) => p.medicationId === med.id)) {
+      proposals.push({
+        stepId: "unclassified_diabetes_medicine",
+        action: "review_dose",
+        medicationId: med.id,
+        drugName: med.drugName,
+        currentDose: med.dose,
+        rationale: "The platform does not recognise this medicine as safe on this programme. A doctor reviews it by hand.",
+        proposable: false,
       });
     }
   }

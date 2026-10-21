@@ -154,6 +154,15 @@ begin
   return (g ->> 'decision') || '|' || coalesce((select string_agg(x, ',' order by x) from jsonb_array_elements_text(g -> 'reasons') x), '');
 end $f$;
 
+create function pg_temp.run_case_ind(p_name text, p_ind text) returns text language plpgsql as $f$
+declare v uuid := pg_temp.mkcase('{}'); g jsonb;
+begin
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, indication, is_active, source)
+  values (pg_temp.f('org'), v, p_name, '1', 'daily', p_ind, true, 'clinician');
+  g := private.lowcarb_eligibility_for(v, false, true, now());
+  return (g ->> 'decision') || '|' || coalesce((select string_agg(x, ',' order by x) from jsonb_array_elements_text(g -> 'reasons') x), '');
+end $f$;
+
 -- Fixtures ---------------------------------------------------------------------------------------------------------------------
 do $$
 declare v_org uuid; v_admin uuid;
@@ -204,6 +213,12 @@ begin
     v_err := 'accepted';
   exception when check_violation then v_err := 'refused'; end;
   perform pg_temp.ck('b a fractional count that a trigger would cast to an integer is refused', 'refused', v_err);
+  perform pg_temp.ck('b a config without the fail-safe diabetes markers is invalid', 'false',
+    private.lowcarb_config_valid((select config #- '{eligibility,diabetes_markers}' from public.lowcarb_protocol_config where version = 1))::text);
+  perform pg_temp.ck('b a config whose medicine groups are all "allow" is invalid', 'false',
+    private.lowcarb_config_valid((select jsonb_set(jsonb_set(jsonb_set(jsonb_set(config, '{eligibility,medicine_groups,insulin,handling}', '"allow"'),
+      '{eligibility,medicine_groups,sulfonylurea,handling}', '"allow"'), '{eligibility,medicine_groups,meglitinide,handling}', '"allow"'),
+      '{eligibility,medicine_groups,sglt2_inhibitor,handling}', '"allow"') from public.lowcarb_protocol_config where version = 1))::text);
 end $$;
 select pg_temp.ck('b a senior doctor cannot sign', 'ERR:P0001', pg_temp.err(pg_temp.q_as(pg_temp.f('doc'), format('select public.sign_lowcarb_protocol_config(%L)', (select id from public.lowcarb_protocol_config where version = 1)))));
 select pg_temp.ck('b the CMO signs', 'ok', pg_temp.err(pg_temp.q_as(pg_temp.f('cmo'), format('select public.sign_lowcarb_protocol_config(%L)', (select id from public.lowcarb_protocol_config where version = 1)))));
@@ -237,6 +252,32 @@ begin
   perform pg_temp.ck('L24 a green event is not a reason', 'eligible|none', pg_temp.run_case('{"triage":[{"grade":"green","hours":2}]}'));
   perform pg_temp.ck('L25 postnatal 6 months ago', 'not_eligible|pregnancy_or_postnatal', pg_temp.run_case('{"preg":"postnatal6"}'));
   perform pg_temp.ck('L26 postnatal 13 months ago', 'eligible|none', pg_temp.run_case('{"preg":"postnatal13"}'));
+end $$;
+
+-- a2. medicine classification (cases M01..M20, same ids as the TypeScript test): an unrecognised diabetes medicine FAILS SAFE to "needs supervision"
+do $$
+begin
+  perform pg_temp.ck('M01 a premixed insulin with a strength', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Mixtard 30/70 100IU/ml"]}'));
+  perform pg_temp.ck('M02 glibenclamide in capitals', 'needs_supervision|supervision_sulfonylurea', pg_temp.run_case('{"meds":["GLIBENCLAMIDE 5mg"]}'));
+  perform pg_temp.ck('M03 metformin with glibenclamide follows the riskier ingredient', 'needs_supervision|supervision_sulfonylurea', pg_temp.run_case('{"meds":["metformin + glibenclamide"]}'));
+  perform pg_temp.ck('M04 a metformin and SGLT2 combination is excluded', 'not_eligible|medicine_sglt2_inhibitor', pg_temp.run_case('{"meds":["Synjardy 5/1000"]}'));
+  perform pg_temp.ck('M05 metformin alone is recognised and fine', 'eligible|none', pg_temp.run_case('{"meds":["Metformin 500mg"]}'));
+  perform pg_temp.ck('M06 a DPP-4 brand is recognised and fine', 'eligible|none', pg_temp.run_case('{"meds":["Januvia 100mg"]}'));
+  perform pg_temp.ck('M07 a misspelt gliclazide still matches', 'needs_supervision|supervision_sulfonylurea', pg_temp.run_case('{"meds":["gliclazid MR 60"]}'));
+  perform pg_temp.ck('M08 an unlisted name that looks like a diabetes drug fails safe', 'needs_supervision|supervision_unclassified', pg_temp.run_case('{"meds":["Zorglibex 10mg"]}'));
+  perform pg_temp.ck('M09 an unknown name recorded for diabetes fails safe', 'needs_supervision|supervision_unclassified',
+    (select pg_temp.run_case_ind('SomeNewTablet', 'for diabetes')));
+  perform pg_temp.ck('M10 an ordinary medicine is not flagged', 'eligible|none', (select pg_temp.run_case_ind('Amlodipine 5mg', 'blood pressure')));
+  perform pg_temp.ck('M11 a blank name has no usable text, which the screen treats as unclassified (a medication row cannot be blank, so the matcher is checked directly)', '|false', private.lowcarb_norm('  ') || '|' || private.lowcarb_name_matches('  ', '["insulin"]'::jsonb)::text);
+  perform pg_temp.ck('M12 Tresiba', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Tresiba FlexTouch"]}'));
+  perform pg_temp.ck('M13 a misspelt Daonil', 'needs_supervision|supervision_sulfonylurea', pg_temp.run_case('{"meds":["Daonyl 5"]}'));
+  perform pg_temp.ck('M14 Glyvenol is not a sulfonylurea', 'eligible|none', pg_temp.run_case('{"meds":["Glyvenol 400mg"]}'));
+  perform pg_temp.ck('M15 Glucophage XR is metformin', 'eligible|none', pg_temp.run_case('{"meds":["Glucophage XR 1000"]}'));
+  perform pg_temp.ck('M16 repaglinide', 'needs_supervision|supervision_meglitinide', pg_temp.run_case('{"meds":["Repaglinide 1mg"]}'));
+  perform pg_temp.ck('M17 a GLP-1 brand is recognised', 'eligible|none', pg_temp.run_case('{"meds":["Ozempic 0.5"]}'));
+  perform pg_temp.ck('M18 Humalog Mix', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Humalog Mix 25"]}'));
+  perform pg_temp.ck('M19 insulin plus an SGLT2 inhibitor: the exclusion wins', 'not_eligible|medicine_sglt2_inhibitor', pg_temp.run_case('{"meds":["Lantus","Jardiance 10mg"]}'));
+  perform pg_temp.ck('M20 unrelated medicines are not flagged', 'eligible|none', pg_temp.run_case('{"meds":["Paracetamol 500mg","Vitamin D"]}'));
 end $$;
 
 -- c. enrolment ---------------------------------------------------------------------------------------------------------------------
@@ -469,6 +510,10 @@ begin
     $q$select public.attest_go_live_condition('low_carb_t2d_programme', 'check_in_sweep_scheduled', true, 'Proof: scheduled by the test, rolled back')::text$q$)));
   perform pg_temp.ck('f7 a condition read from the data cannot be attested', 'ERR:22023', pg_temp.err(pg_temp.q_as(pg_temp.f('admin'),
     $q$select public.attest_go_live_condition('low_carb_t2d_programme', 'step_table_signed', true, 'Proof: trying to attest a data condition')::text$q$)));
+  -- the sweep is scheduled (checked only where pg_cron exists, so a database without it does not fail)
+  if to_regclass('cron.job') is not null then
+    perform pg_temp.ck('f9 the check-in sweep is scheduled every 15 minutes', '1|*/15 * * * *', (select count(*)::text || '|' || min(schedule) from cron.job where jobname = 'lowcarb-checkin-sweep'));
+  end if;
   perform pg_temp.ck('f8 the proof switched nothing on', 'false', (select is_on::text from public.go_live_guards where key = 'low_carb_t2d_programme'));
 end $$;
 

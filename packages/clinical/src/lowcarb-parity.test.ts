@@ -9,7 +9,7 @@ import { getProposedConfig } from "@tarragon/shared";
  * against the same numbered cases (L01..); this pins the two case lists together, and pins the config and the draft step table to the migration seed.
  */
 const HERE = fileURLToPath(new URL(".", import.meta.url));
-const ids = (text: string): string[] => [...new Set([...text.matchAll(/\b(L\d{2})\b/g)].map((m) => m[1] as string))].sort();
+const ids = (text: string): string[] => [...new Set([...text.matchAll(/\b([LM]\d{2})\b/g)].map((m) => m[1] as string))].sort();
 const MIGRATIONS = join(HERE, "..", "..", "..", "supabase", "migrations");
 
 function migration(): string {
@@ -24,7 +24,7 @@ describe("low-carbohydrate parity with the SQL proof", () => {
 
   it("the same case ids appear in both", () => {
     const tsIds = ids(ts);
-    expect(tsIds.length).toBeGreaterThanOrEqual(24);
+    expect(tsIds.length).toBeGreaterThanOrEqual(44);
     expect(ids(sql)).toEqual(tsIds);
   });
 

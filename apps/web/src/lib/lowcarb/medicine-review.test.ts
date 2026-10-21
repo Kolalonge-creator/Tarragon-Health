@@ -21,8 +21,8 @@ const day = (d: number) => new Date(NOW.getTime() - d * 86_400_000).toISOString(
 
 const definition = {
   steps: [
-    { id: "su_stop_on_low", match: { name_patterns: ["gliclazide"] }, when: { any_glucose_below_mmol: 3.9 }, action: "stop", rationale: "Low reading on a sulfonylurea." },
-    { id: "su_review", match: { name_patterns: ["gliclazide"] }, when: { avg_glucose_below_mmol: 7 }, action: "review_dose", rationale: "Sugars are falling." },
+    { id: "su_stop_on_low", match: { groups: ["sulfonylurea"] }, when: { any_glucose_below_mmol: 3.9 }, action: "stop", rationale: "Low reading on a sulfonylurea." },
+    { id: "su_review", match: { groups: ["sulfonylurea"] }, when: { avg_glucose_below_mmol: 7 }, action: "review_dose", rationale: "Sugars are falling." },
   ],
 };
 

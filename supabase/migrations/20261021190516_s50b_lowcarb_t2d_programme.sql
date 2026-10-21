@@ -56,8 +56,16 @@ begin
   end loop;
   if coalesce(jsonb_typeof(p_config #> '{eligibility,medicine_groups}'), '') <> 'object' then return false; end if;
   for v_key, v_val in select key, value from jsonb_each(p_config #> '{eligibility,medicine_groups}') loop
-    if coalesce(jsonb_typeof(v_val -> 'name_patterns'), '') <> 'array' or not coalesce((v_val ->> 'handling') = any (array['supervision', 'exclude']), false) then return false; end if;
+    if coalesce(jsonb_typeof(v_val -> 'name_patterns'), '') <> 'array' or not coalesce((v_val ->> 'handling') = any (array['supervision', 'exclude', 'allow']), false) then return false; end if;
+    if exists (select 1 from jsonb_array_elements(v_val -> 'name_patterns') x where jsonb_typeof(x) <> 'string' or btrim(x #>> '{}') = '') then return false; end if;
   end loop;
+  -- the fail-safe markers must exist: without them an unrecognised diabetes medicine could pass as "no medicine of concern"
+  if coalesce(jsonb_typeof(p_config #> '{eligibility,diabetes_markers,name_patterns}'), '') <> 'array'
+     or coalesce(jsonb_typeof(p_config #> '{eligibility,diabetes_markers,indication_patterns}'), '') <> 'array'
+     or jsonb_array_length(p_config #> '{eligibility,diabetes_markers,name_patterns}') = 0
+     or not exists (select 1 from jsonb_each(p_config #> '{eligibility,medicine_groups}') g where g.value ->> 'handling' in ('supervision', 'exclude')) then
+    return false;
+  end if;
   foreach v_key in array array['glucose', 'ketones', 'weight'] loop
     if coalesce((p_config #>> array['check_ins', v_key, 'per_week'])::numeric, 0) <= 0
        or coalesce((p_config #>> array['check_ins', v_key, 'max_gap_days'])::numeric, 0) <= 0 then
@@ -129,10 +137,17 @@ values (1, false, $json${
    "ketoacidosis_history": {"name_patterns": ["ketoacidosis", "dka"], "icd10_prefixes": []}
   },
   "medicine_groups": {
-   "insulin": {"name_patterns": ["insulin", "lantus", "humulin", "novorapid", "mixtard", "tresiba", "levemir", "toujeo", "humalog", "lyumjev", "apidra", "fiasp", "basaglar"], "handling": "supervision"},
-   "sulfonylurea": {"name_patterns": ["glibenclamide", "gliclazide", "glimepiride", "glipizide", "daonil", "diamicron", "amaryl"], "handling": "supervision"},
-   "sglt2_inhibitor": {"name_patterns": ["gliflozin", "jardiance", "forxiga", "invokana", "synjardy", "xigduo", "glyxambi", "steglatro"], "handling": "exclude"}
-  }
+   "insulin": {"handling": "supervision", "name_patterns": ["insulin", "actrapid", "insulatard", "mixtard", "insuman", "humulin", "humalog", "novorapid", "novomix", "lantus", "abasaglar", "basaglar", "semglee", "levemir", "tresiba", "toujeo", "apidra", "fiasp", "lyumjev", "ryzodeg", "glargine", "detemir", "degludec", "aspart", "lispro", "glulisine", "isophane"]},
+   "sulfonylurea": {"handling": "supervision", "name_patterns": ["glibenclamide", "glyburide", "gliclazide", "glimepiride", "glipizide", "gliquidone", "tolbutamide", "chlorpropamide", "tolazamide", "daonil", "euglucon", "diamicron", "amaryl", "glucotrol", "minidiab", "glurenorm", "glucovance", "glibomet", "sulfonylurea", "sulphonylurea"]},
+   "meglitinide": {"handling": "supervision", "name_patterns": ["repaglinide", "nateglinide", "mitiglinide", "novonorm", "starlix"]},
+   "sglt2_inhibitor": {"handling": "exclude", "name_patterns": ["gliflozin", "dapagliflozin", "empagliflozin", "canagliflozin", "ertugliflozin", "sotagliflozin", "forxiga", "jardiance", "invokana", "steglatro", "synjardy", "xigduo", "glyxambi", "segluromet", "invokamet", "qtern", "inpefa"]},
+   "metformin": {"handling": "allow", "name_patterns": ["metformin", "glucophage", "glycomet", "diaformin"]},
+   "dpp4_inhibitor": {"handling": "allow", "name_patterns": ["gliptin", "sitagliptin", "vildagliptin", "linagliptin", "saxagliptin", "alogliptin", "januvia", "janumet", "galvus", "galvusmet", "trajenta", "jentadueto", "onglyza"]},
+   "glitazone": {"handling": "allow", "name_patterns": ["glitazone", "pioglitazone", "rosiglitazone", "actos"]},
+   "glp1_agonist": {"handling": "allow", "name_patterns": ["glutide", "liraglutide", "semaglutide", "dulaglutide", "exenatide", "lixisenatide", "tirzepatide", "victoza", "ozempic", "wegovy", "trulicity", "byetta", "saxenda", "mounjaro", "rybelsus"]},
+   "alpha_glucosidase_inhibitor": {"handling": "allow", "name_patterns": ["acarbose", "miglitol", "glucobay"]}
+  },
+  "diabetes_markers": {"name_patterns": ["gli", "insulin", "diabet", "metformin", "formin", "glutide", "tirzepatide", "sulfonyl", "sulphonyl", "glucose", "sugar"], "indication_patterns": ["diabet", "sugar", "glucose", "dm2", "t2dm", "hyperglyc"]}
  },
  "check_ins": {
   "glucose": {"per_week": 14, "max_gap_days": 2},
@@ -199,6 +214,64 @@ as $$
 $$;
 revoke all on function private.lowcarb_pregnancy_state(uuid, integer, timestamptz) from public, anon, authenticated;
 
+-- Medicine name matching. The enforcing twin of lowCarbNameMatches in packages/clinical: same normalising, same rule, same typing-slip tolerance.
+-- THE LISTS ARE A STARTING POINT FOR A PHARMACIST AND THE CMO TO CONFIRM. A false match only asks for a doctor's supervision; a miss is the dangerous direction.
+create function private.lowcarb_norm(p_text text) returns text
+language sql immutable set search_path = ''
+as $$ select btrim(regexp_replace(lower(coalesce(p_text, '')), '[^a-z0-9]+', ' ', 'g')) $$;
+revoke all on function private.lowcarb_norm(text) from public, anon, authenticated;
+
+create function private.lowcarb_edit_distance(a text, b text) returns integer
+language plpgsql immutable set search_path = ''
+as $$
+declare
+  la integer := length(a); lb integer := length(b);
+  prev integer[]; cur integer[]; i integer; j integer; v_cost integer;
+begin
+  prev := array(select generate_series(0, lb));
+  for i in 1 .. la loop
+    cur := array[i];
+    for j in 1 .. lb loop
+      v_cost := case when substr(a, i, 1) = substr(b, j, 1) then 0 else 1 end;
+      cur := cur || least(prev[j + 1] + 1, cur[j] + 1, prev[j] + v_cost);
+    end loop;
+    prev := cur;
+  end loop;
+  return prev[lb + 1];
+end $$;
+revoke all on function private.lowcarb_edit_distance(text, text) from public, anon, authenticated;
+
+create function private.lowcarb_name_matches(p_name text, p_patterns jsonb) returns boolean
+language plpgsql immutable set search_path = ''
+as $$
+declare
+  n text := private.lowcarb_norm(p_name); w text; p text; raw text; v_allowed integer; words text[];
+begin
+  if n = '' then return false; end if;
+  words := string_to_array(n, ' ');
+  for raw in select jsonb_array_elements_text(coalesce(p_patterns, '[]'::jsonb)) loop
+    p := private.lowcarb_norm(raw);
+    if p = '' then continue; end if;
+    if position(p in n) > 0 then return true; end if;
+    if position(' ' in p) > 0 or length(p) < 6 then continue; end if;
+    v_allowed := case when length(p) >= 10 then 2 else 1 end;
+    foreach w in array words loop
+      if abs(length(w) - length(p)) <= v_allowed and private.lowcarb_edit_distance(w, p) <= v_allowed then return true; end if;
+    end loop;
+  end loop;
+  return false;
+end $$;
+revoke all on function private.lowcarb_name_matches(text, jsonb) from public, anon, authenticated;
+
+create function private.lowcarb_text_has(p_text text, p_patterns jsonb) returns boolean
+language sql immutable set search_path = ''
+as $$
+  select private.lowcarb_norm(p_text) <> '' and exists (
+    select 1 from jsonb_array_elements_text(coalesce(p_patterns, '[]'::jsonb)) raw
+     where private.lowcarb_norm(raw) <> '' and position(private.lowcarb_norm(raw) in private.lowcarb_norm(p_text)) > 0)
+$$;
+revoke all on function private.lowcarb_text_has(text, jsonb) from public, anon, authenticated;
+
 create function private.lowcarb_eligibility_for(
   p_patient uuid, p_supervision_accepted boolean default false, p_no_admission boolean default false, p_now timestamptz default now())
 returns jsonb
@@ -215,6 +288,9 @@ declare
   v_rep      text;
   v_key      text;
   v_val      jsonb;
+  m          record;
+  v_risk     boolean;
+  v_known    boolean;
   v_decision text;
   v_reasons  text[];
 begin
@@ -253,14 +329,28 @@ begin
     end if;
   end loop;
 
-  for v_key, v_val in select key, value from jsonb_each(v_el -> 'medicine_groups') loop
-    if exists (select 1 from public.medications m
-                where m.patient_id = p_patient and m.is_active and m.superseded_at is null
-                  and exists (select 1 from jsonb_array_elements_text(v_val -> 'name_patterns') pat
-                               where pat <> '' and position(lower(pat) in lower(m.drug_name)) > 0)) then
-      if v_val ->> 'handling' = 'exclude' then v_hard := array_append(v_hard, 'medicine_' || v_key);
-      else v_sup := array_append(v_sup, v_key);
+  -- Every active medicine is classified. Matching a risk group (supervision or exclude) decides; matching only an "allow" group is recognised and fine;
+  -- anything else that looks diabetes-related, or has no usable name, FAILS SAFE to "needs a doctor to accept supervision".
+  for m in select drug_name, indication from public.medications
+            where patient_id = p_patient and is_active and superseded_at is null loop
+    v_risk := false; v_known := false;
+    for v_key, v_val in select key, value from jsonb_each(v_el -> 'medicine_groups') loop
+      if private.lowcarb_name_matches(m.drug_name, v_val -> 'name_patterns') then
+        if v_val ->> 'handling' = 'allow' then v_known := true;
+        else
+          v_risk := true;
+          if v_val ->> 'handling' = 'exclude' then
+            if not ('medicine_' || v_key) = any (v_hard) then v_hard := array_append(v_hard, 'medicine_' || v_key); end if;
+          elsif not v_key = any (v_sup) then v_sup := array_append(v_sup, v_key);
+          end if;
+        end if;
       end if;
+    end loop;
+    if not v_risk and not v_known
+       and (private.lowcarb_norm(m.drug_name) = ''
+            or private.lowcarb_name_matches(m.drug_name, v_el #> '{diabetes_markers,name_patterns}')
+            or private.lowcarb_text_has(m.indication, v_el #> '{diabetes_markers,indication_patterns}')) then
+      if not 'unclassified' = any (v_sup) then v_sup := array_append(v_sup, 'unclassified'); end if;
     end if;
   end loop;
 
@@ -582,6 +672,8 @@ as $$
 declare r record; v_cfg jsonb := private.lowcarb_cfg(); v_n integer := 0; v_last timestamptz;
 begin
   if v_cfg is null then return 0; end if;
+  -- cheap when nobody is on the programme (which is every run until it goes live): one indexed existence check, then out
+  if not exists (select 1 from public.lowcarb_enrolments where status in ('active', 'paused')) then return 0; end if;
   for r in select e.* from public.lowcarb_enrolments e where e.status in ('active', 'paused') loop
     begin
       -- Everything the screen excludes on: a new pregnancy, a condition entered since, an excluded medicine started, a type change. (A recent red or
@@ -602,6 +694,11 @@ begin
   return v_n;
 end $$;
 revoke all on function private.lowcarb_sweep() from public, anon, authenticated;
+
+-- Scheduled every 15 minutes (daily check-ins need no tighter). Same precedent as instalments-hourly and care-circle-checkin-sweep: a plain
+-- cron.schedule by job name, which replaces a job of the same name, so a re-run is idempotent. It turns nothing on: until an enrolment exists it returns at once.
+-- A person still attests the schedule is healthy (go-live condition check_in_sweep_scheduled).
+select cron.schedule('lowcarb-checkin-sweep', '*/15 * * * *', $$ select private.lowcarb_sweep(); $$);
 
 -- ---------------------------------------------------------------------------
 -- 6. The doors
@@ -864,18 +961,10 @@ values ('t2d_lowcarb_deprescribing', 1, 'draft', $json${
  "placeholder": true,
  "params": {},
  "steps": [
-  {"id": "su_stop_on_low", "label": "Sulfonylurea: a low reading", "match": {"name_patterns": ["glibenclamide", "gliclazide", "glimepiride", "glipizide", "daonil", "diamicron", "amaryl"]},
-   "when": {"any_glucose_below_mmol": 3.9}, "action": "stop",
-   "rationale": "A low sugar reading while on a sulfonylurea: the step table proposes stopping it for the doctor to decide. PLACEHOLDER for the CMO."},
-  {"id": "su_review_on_fall", "label": "Sulfonylurea: sugars falling", "match": {"name_patterns": ["glibenclamide", "gliclazide", "glimepiride", "glipizide", "daonil", "diamicron", "amaryl"]},
-   "when": {"avg_glucose_below_mmol": 7.0}, "action": "review_dose",
-   "rationale": "Average sugars are falling on the programme: the dose of this sulfonylurea needs a doctor's review. The doctor sets any new dose. PLACEHOLDER for the CMO."},
-  {"id": "insulin_review_on_fall", "label": "Insulin: sugars falling", "match": {"name_patterns": ["insulin", "lantus", "humulin", "novorapid", "mixtard", "tresiba", "levemir", "toujeo", "humalog", "lyumjev", "apidra", "fiasp", "basaglar"]},
-   "when": {"avg_glucose_below_mmol": 7.0}, "action": "review_dose",
-   "rationale": "Average sugars are falling on the programme: insulin needs a doctor's review. Insulin is never stopped by a step table; the doctor sets any new dose. PLACEHOLDER for the CMO."},
-  {"id": "insulin_review_on_low", "label": "Insulin: a low reading", "match": {"name_patterns": ["insulin", "lantus", "humulin", "novorapid", "mixtard", "tresiba", "levemir", "toujeo", "humalog", "lyumjev", "apidra", "fiasp", "basaglar"]},
-   "when": {"any_glucose_below_mmol": 3.9}, "action": "review_dose",
-   "rationale": "A low sugar reading while on insulin: a doctor reviews the dose today. PLACEHOLDER for the CMO."}
+  {"id": "su_stop_on_low", "label": "Sulfonylurea: a low reading", "match": {"groups": ["sulfonylurea"]}, "when": {"any_glucose_below_mmol": 3.9}, "action": "stop", "rationale": "A low sugar reading while on a sulfonylurea: the step table proposes stopping it for the doctor to decide. PLACEHOLDER for the CMO."},
+  {"id": "su_review_on_fall", "label": "Sulfonylurea: sugars falling", "match": {"groups": ["sulfonylurea"]}, "when": {"avg_glucose_below_mmol": 7.0}, "action": "review_dose", "rationale": "Average sugars are falling on the programme: the dose of this sulfonylurea needs a doctor's review. The doctor sets any new dose. PLACEHOLDER for the CMO."},
+  {"id": "insulin_review_on_fall", "label": "Insulin: sugars falling", "match": {"groups": ["insulin"]}, "when": {"avg_glucose_below_mmol": 7.0}, "action": "review_dose", "rationale": "Average sugars are falling on the programme: insulin needs a doctor's review. Insulin is never stopped by a step table; the doctor sets any new dose. PLACEHOLDER for the CMO."},
+  {"id": "insulin_review_on_low", "label": "Insulin: a low reading", "match": {"groups": ["insulin"]}, "when": {"any_glucose_below_mmol": 3.9}, "action": "review_dose", "rationale": "A low sugar reading while on insulin: a doctor reviews the dose today. PLACEHOLDER for the CMO."}
  ]
 }$json$::jsonb,
         'S50b DRAFT, UNSIGNED. PLACEHOLDER steps (drug groups, lines and wording) for the Chief Medical Officer to rewrite and approve in the titration protocols page. A draft table drives a proposal for a test patient only.')
@@ -983,5 +1072,13 @@ begin
   if (select is_on from public.go_live_guards where key = 'low_carb_t2d_programme') is distinct from false then raise exception 'S50b: the guard must be born off'; end if;
   if exists (select 1 from public.protocols where code = 't2d_lowcarb_deprescribing' and status <> 'draft') then raise exception 'S50b: the step table must be a draft'; end if;
   if private.go_live_conditions('low_carb_t2d_programme', null) is null then raise exception 'S50b: go_live_conditions has no low-carbohydrate branch'; end if;
+  if not exists (select 1 from cron.job where jobname = 'lowcarb-checkin-sweep' and schedule = '*/15 * * * *' and active) then
+    raise exception 'S50b: the check-in sweep is not scheduled';
+  end if;
+  -- the matcher fails safe: an unrecognised diabetes medicine needs supervision, a misspelt known one still matches, a plain one is not flagged
+  if not private.lowcarb_name_matches('GLIBENCLAMIDE 5mg', '["glibenclamide"]'::jsonb) or not private.lowcarb_name_matches('Mixtard 30/70 100IU/ml', '["mixtard"]'::jsonb)
+     or not private.lowcarb_name_matches('gliclazid', '["gliclazide"]'::jsonb) or private.lowcarb_name_matches('Paracetamol 500mg', '["glibenclamide", "gliclazide"]'::jsonb) then
+    raise exception 'S50b: the medicine name matcher is wrong';
+  end if;
   if not exists (select 1 from public.task_types where code = 'lowcarb_medicine_review' and is_active and not needs_confirmation) then raise exception 'S50b: the review task type is missing'; end if;
 end $$;

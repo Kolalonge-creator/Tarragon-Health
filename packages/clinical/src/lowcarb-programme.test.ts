@@ -4,12 +4,16 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getProposedConfig } from "@tarragon/shared";
 import {
+  classifyLowCarbMedicine,
   classifyLowCarbReading,
   coarsenLowCarbReasons,
   lowCarbCheckins,
   lowCarbConditionMatches,
+  lowCarbEditDistance,
   lowCarbEligibility,
-  lowCarbMedicineMatches,
+  lowCarbNameMatches,
+  lowCarbNormalise,
+  lowCarbTextHas,
   lowCarbProposalToChangeArgs,
   lowCarbStopCheck,
   parseLowCarbGate,
@@ -41,6 +45,7 @@ const base: LowCarbEligibilityInput = {
   triageEvents: [],
   confirmations: { noRecentAdmission: true, supervisionAccepted: false },
 };
+const meds = (...names: string[]) => names.map((name) => ({ name, indication: null }));
 const elig = (p: Partial<LowCarbEligibilityInput> = {}): string => {
   const r = lowCarbEligibility({ ...base, ...p }, config);
   return `${r.decision}|${[...r.reasons].sort().join(",")}`;
@@ -58,10 +63,10 @@ const CASES: { id: string; input: Partial<LowCarbEligibilityInput>; expected: st
   { id: "L08", input: { conditions: [{ name: "Chronic kidney disease stage 3", icd10: null, status: "active" }] }, expected: "not_eligible|condition_kidney_disease" },
   { id: "L09", input: { conditions: [{ name: "Chronic kidney disease", icd10: null, status: "resolved" }] }, expected: "eligible|none" },
   { id: "L10", input: { conditions: [{ name: "Reduced function", icd10: "N18.3", status: "active" }] }, expected: "not_eligible|condition_kidney_disease" },
-  { id: "L11", input: { medicines: ["Jardiance 10mg"] }, expected: "not_eligible|medicine_sglt2_inhibitor" },
-  { id: "L12", input: { medicines: ["Insulin glargine"] }, expected: "needs_supervision|supervision_insulin" },
-  { id: "L13", input: { medicines: ["Insulin glargine"], confirmations: { noRecentAdmission: true, supervisionAccepted: true } }, expected: "eligible|none" },
-  { id: "L14", input: { medicines: ["Gliclazide 80mg"] }, expected: "needs_supervision|supervision_sulfonylurea" },
+  { id: "L11", input: { medicines: meds("Jardiance 10mg") }, expected: "not_eligible|medicine_sglt2_inhibitor" },
+  { id: "L12", input: { medicines: meds("Insulin glargine") }, expected: "needs_supervision|supervision_insulin" },
+  { id: "L13", input: { medicines: meds("Insulin glargine"), confirmations: { noRecentAdmission: true, supervisionAccepted: true } }, expected: "eligible|none" },
+  { id: "L14", input: { medicines: meds("Gliclazide 80mg") }, expected: "needs_supervision|supervision_sulfonylurea" },
   { id: "L15", input: { glucoseReadings: [{ mmol: 2.5, at: daysAgo(10) }] }, expected: "not_eligible|recent_severe_low_sugar" },
   { id: "L16", input: { glucoseReadings: [{ mmol: 2.5, at: daysAgo(100) }] }, expected: "eligible|none" },
   { id: "L17", input: { glucoseReadings: [{ mmol: 3.5, at: daysAgo(10) }] }, expected: "eligible|none" },
@@ -69,7 +74,7 @@ const CASES: { id: string; input: Partial<LowCarbEligibilityInput>; expected: st
   { id: "L19", input: { triageEvents: [{ grade: "red", at: hoursAgo(24) }] }, expected: "not_now|recent_triage_event" },
   { id: "L20", input: { triageEvents: [{ grade: "amber", at: hoursAgo(100) }] }, expected: "eligible|none" },
   { id: "L21", input: { diabetesType: { confirmed: "type_1", reported: null }, pregnancy: "yes" }, expected: "not_eligible|not_type_2,pregnancy_or_postnatal" },
-  { id: "L22", input: { pregnancy: "yes", medicines: ["Insulin glargine"] }, expected: "not_eligible|pregnancy_or_postnatal" },
+  { id: "L22", input: { pregnancy: "yes", medicines: meds("Insulin glargine") }, expected: "not_eligible|pregnancy_or_postnatal" },
   { id: "L24", input: { triageEvents: [{ grade: "green", at: hoursAgo(2) }] }, expected: "eligible|none" },
   { id: "L25", input: { pregnancy: "yes" }, expected: "not_eligible|pregnancy_or_postnatal" },
   { id: "L26", input: { pregnancy: "no" }, expected: "eligible|none" },
@@ -109,18 +114,101 @@ describe("low-carbohydrate eligibility", () => {
 
   it("an empty pattern never matches everything", () => {
     expect(lowCarbConditionMatches([{ name: "anything", icd10: null, status: "active" }], { name_patterns: [""], icd10_prefixes: [] })).toBe(false);
-    expect(lowCarbMedicineMatches(["anything"], [""])).toBe(false);
+    expect(lowCarbNameMatches("anything", [""])).toBe(false);
   });
 
   it("every exclusion in the config is a real list, and every medicine group has a known handling", () => {
     for (const m of Object.values(config.eligibility.condition_exclusions)) expect(Array.isArray(m.name_patterns)).toBe(true);
-    for (const g of Object.values(config.eligibility.medicine_groups)) expect(["supervision", "exclude"]).toContain(g.handling);
+    for (const g of Object.values(config.eligibility.medicine_groups)) expect(["supervision", "exclude", "allow"]).toContain(g.handling);
   });
 
   it("insulin and a sulfonylurea both need supervision, and an SGLT2 inhibitor is excluded (CMO to confirm)", () => {
     expect(config.eligibility.medicine_groups.insulin?.handling).toBe("supervision");
     expect(config.eligibility.medicine_groups.sulfonylurea?.handling).toBe("supervision");
     expect(config.eligibility.medicine_groups.sglt2_inhibitor?.handling).toBe("exclude");
+  });
+});
+
+/** Medicine cases M01..M20 are shared with packages/db/tests/s50b_lowcarb_t2d_programme.sql (lowcarb-parity.test.ts pins them). */
+const MED_CASES: { id: string; meds: { name: string; indication: string | null }[]; expected: string }[] = [
+  { id: "M01", meds: meds("Mixtard 30/70 100IU/ml"), expected: "needs_supervision|supervision_insulin" },
+  { id: "M02", meds: meds("GLIBENCLAMIDE 5mg"), expected: "needs_supervision|supervision_sulfonylurea" },
+  { id: "M03", meds: meds("metformin + glibenclamide"), expected: "needs_supervision|supervision_sulfonylurea" },
+  { id: "M04", meds: meds("Synjardy 5/1000"), expected: "not_eligible|medicine_sglt2_inhibitor" },
+  { id: "M05", meds: meds("Metformin 500mg"), expected: "eligible|none" },
+  { id: "M06", meds: meds("Januvia 100mg"), expected: "eligible|none" },
+  { id: "M07", meds: meds("gliclazid MR 60"), expected: "needs_supervision|supervision_sulfonylurea" },
+  { id: "M08", meds: meds("Zorglibex 10mg"), expected: "needs_supervision|supervision_unclassified" },
+  { id: "M09", meds: [{ name: "SomeNewTablet", indication: "for diabetes" }], expected: "needs_supervision|supervision_unclassified" },
+  { id: "M10", meds: [{ name: "Amlodipine 5mg", indication: "blood pressure" }], expected: "eligible|none" },
+  { id: "M11", meds: meds(""), expected: "needs_supervision|supervision_unclassified" },
+  { id: "M12", meds: meds("Tresiba FlexTouch"), expected: "needs_supervision|supervision_insulin" },
+  { id: "M13", meds: meds("Daonyl 5"), expected: "needs_supervision|supervision_sulfonylurea" },
+  { id: "M14", meds: meds("Glyvenol 400mg"), expected: "eligible|none" },
+  { id: "M15", meds: meds("Glucophage XR 1000"), expected: "eligible|none" },
+  { id: "M16", meds: meds("Repaglinide 1mg"), expected: "needs_supervision|supervision_meglitinide" },
+  { id: "M17", meds: meds("Ozempic 0.5"), expected: "eligible|none" },
+  { id: "M18", meds: meds("Humalog Mix 25"), expected: "needs_supervision|supervision_insulin" },
+  { id: "M19", meds: meds("Lantus", "Jardiance 10mg"), expected: "not_eligible|medicine_sglt2_inhibitor" },
+  { id: "M20", meds: meds("Paracetamol 500mg", "Vitamin D"), expected: "eligible|none" },
+];
+
+describe("medicine classification (the fail-safe)", () => {
+  it.each(MED_CASES)("$id", ({ meds: m, expected }) => {
+    expect(elig({ medicines: m })).toBe(expected);
+  });
+
+  it("an unrecognised diabetes medicine is never read as 'no medicine of concern'", () => {
+    for (const name of ["Zorglibex", "Diabetamax", "Sugarstop 10mg"]) {
+      expect(elig({ medicines: meds(name) }).startsWith("needs_supervision")).toBe(true);
+    }
+  });
+
+  it("an accepted supervision lets an unrecognised diabetes medicine through, and only then", () => {
+    const r = lowCarbEligibility({ ...base, medicines: meds("Zorglibex"), confirmations: { noRecentAdmission: true, supervisionAccepted: true } }, config);
+    expect(r.decision).toBe("eligible");
+    expect(r.supervisionFor).toEqual(["unclassified"]);
+  });
+
+  it("two medicines of the same risk group are reported once", () => {
+    expect(elig({ medicines: meds("Lantus", "Mixtard") })).toBe("needs_supervision|supervision_insulin");
+    expect(elig({ medicines: meds("Jardiance", "Forxiga") })).toBe("not_eligible|medicine_sglt2_inhibitor");
+  });
+
+  it("classifies each class and a combination", () => {
+    expect(classifyLowCarbMedicine({ name: "Metformin/glibenclamide", indication: null }, config)).toEqual({ risk: ["sulfonylurea"], allowed: ["metformin"], unclassified: false });
+    expect(classifyLowCarbMedicine({ name: "Xigduo XR", indication: null }, config).risk).toEqual(["sglt2_inhibitor"]);
+    expect(classifyLowCarbMedicine({ name: "Insulin glargine", indication: null }, config).risk).toEqual(["insulin"]);
+  });
+
+  it("a misspelling within one slip (two for long names) still matches; a different word does not", () => {
+    expect(lowCarbNameMatches("glimepirid", ["glimepiride"])).toBe(true);
+    expect(lowCarbNameMatches("empagliflozn 10", ["empagliflozin"])).toBe(true);
+    expect(lowCarbNameMatches("glimeperide", ["glimepiride"])).toBe(true);
+    expect(lowCarbNameMatches("gliclazide", ["glimepiride"])).toBe(false);
+    expect(lowCarbNameMatches("lisinopril", ["insulin"])).toBe(false);
+  });
+
+  it("short patterns match only as a plain substring, and a multi-word pattern only as written", () => {
+    expect(lowCarbNameMatches("Amaryl", ["amaryl"])).toBe(true);
+    expect(lowCarbNameMatches("Amarl", ["amaryl"])).toBe(true);
+    expect(lowCarbNameMatches("xyz", ["xyzq"])).toBe(false);
+    expect(lowCarbNameMatches("novo mix 30", ["novo mix"])).toBe(true);
+    expect(lowCarbNameMatches("novo mx 30", ["novo mix"])).toBe(false);
+  });
+
+  it("normalising and distance helpers", () => {
+    expect(lowCarbNormalise("  GLIBENCLAMIDE-5mg / Tabs ")).toBe("glibenclamide 5mg tabs");
+    expect(lowCarbEditDistance("kitten", "sitting")).toBe(3);
+    expect(lowCarbEditDistance("", "ab")).toBe(2);
+    expect(lowCarbTextHas(null, ["diabet"])).toBe(false);
+    expect(lowCarbTextHas("For Type 2 Diabetes", ["diabet"])).toBe(true);
+    expect(lowCarbTextHas("blood pressure", ["diabet", ""])).toBe(false);
+  });
+
+  it("the shipped config always carries the markers and at least one risk group", () => {
+    expect(config.eligibility.diabetes_markers.name_patterns.length).toBeGreaterThan(0);
+    expect(Object.values(config.eligibility.medicine_groups).some((g) => g.handling !== "allow")).toBe(true);
   });
 });
 
@@ -285,12 +373,22 @@ describe("medicine review: the platform only proposes", () => {
     const t: LowCarbStepTable = {
       ...table,
       steps: [
-        { id: "a", match: { name_patterns: ["metformin"] }, when: { any_glucose_below_mmol: 3.0 }, action: "review_dose", rationale: "x" },
-        { id: "b", match: { name_patterns: ["metformin"] }, when: {}, action: "review_dose", rationale: "y" },
+        { id: "a", match: { groups: ["metformin"] }, when: { any_glucose_below_mmol: 3.0 }, action: "review_dose", rationale: "x" },
+        { id: "b", match: { groups: ["nonexistent_group"] }, when: { any_glucose_below_mmol: 9 }, action: "review_dose", rationale: "y" },
       ],
     };
     const r = proposeLowCarbMedicineReview(input(), t, config);
     expect(r).toMatchObject({ kind: "review", proposals: [] });
+  });
+
+  it("a diabetes medicine the config does not recognise is listed for the doctor, never skipped", () => {
+    const r = proposeLowCarbMedicineReview(input({ medicines: [med("m7", "Zorglibex 10mg")] }), table, config);
+    expect(r.kind === "review" && r.proposals.map((p) => `${p.stepId}:${p.proposable}`)).toEqual(["unclassified_diabetes_medicine:false"]);
+  });
+
+  it("an unrecognised medicine is listed even beside a recognised one that has its own suggestion", () => {
+    const r = proposeLowCarbMedicineReview(input({ medicines: [med("m1", "Gliclazide"), med("m7", "Zorglibex 10mg")] }), table, config);
+    expect(r.kind === "review" && r.proposals.map((p) => p.stepId)).toEqual(["su_review_on_fall", "unclassified_diabetes_medicine"]);
   });
 
   it("builds the exact arguments for a signed-later stop proposal, and nothing else", () => {

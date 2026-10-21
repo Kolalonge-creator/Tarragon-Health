@@ -20,6 +20,7 @@ type Cfg = {
     triage_lookback_hours?: number;
     condition_exclusions?: Record<string, Match>;
     medicine_groups?: Record<string, { name_patterns: string[]; handling: string }>;
+    diabetes_markers?: { name_patterns: string[]; indication_patterns: string[] };
   };
   check_ins?: Record<string, { per_week: number; max_gap_days: number }>;
   safety?: { pause_glucose_below_mmol?: number; pause_ketones_at_or_above_mmol?: number; stop_after_pauses_in_30_days?: number; stop_if_checkins_missed_days?: number };
@@ -33,7 +34,18 @@ const EXCLUSION_LABEL: Record<string, string> = {
   liver_disease: "Liver disease",
   ketoacidosis_history: "A history of ketoacidosis",
 };
-const GROUP_LABEL: Record<string, string> = { insulin: "Insulin", sulfonylurea: "Sulfonylureas", sglt2_inhibitor: "SGLT2 inhibitors" };
+const GROUP_LABEL: Record<string, string> = {
+  insulin: "Insulin",
+  sulfonylurea: "Sulfonylureas",
+  meglitinide: "Meglitinides",
+  sglt2_inhibitor: "SGLT2 inhibitors",
+  metformin: "Metformin",
+  dpp4_inhibitor: "DPP-4 inhibitors",
+  glitazone: "Glitazones",
+  glp1_agonist: "GLP-1 medicines",
+  alpha_glucosidase_inhibitor: "Acarbose",
+};
+const HANDLING_WORDS: Record<string, string> = { exclude: "not offered", supervision: "a doctor must accept supervision first", allow: "recognised, no extra step" };
 const METRIC_LABEL: Record<string, string> = { glucose: "Sugar", ketones: "Ketones", weight: "Weight" };
 const TOUCH = "min-h-11";
 
@@ -77,10 +89,18 @@ export function LowCarbProtocolConfigView({ row, canSign }: { row: LowCarbProtoc
           <ul className="list-disc space-y-1 pl-5">
             {Object.entries(el.medicine_groups ?? {}).map(([k, g]) => (
               <li key={k}>
-                {GROUP_LABEL[k] ?? k}: {g.handling === "exclude" ? "not offered" : "a doctor must accept supervision first"} (matches {g.name_patterns.join(", ")})
+                {GROUP_LABEL[k] ?? k}: {HANDLING_WORDS[g.handling] ?? g.handling} (matches {g.name_patterns.join(", ")})
               </li>
             ))}
           </ul>
+          <p>
+            Any other medicine that looks diabetes-related (its name contains {(el.diabetes_markers?.name_patterns ?? []).join(", ")}, or its recorded reason contains {(el.diabetes_markers?.indication_patterns ?? []).join(", ")})
+            and is on none of the lists above, or a medicine with no usable name, needs a doctor to accept supervision. It is never treated as "no medicine of concern".
+          </p>
+          <p className="text-charcoal-ink/70">
+            These name lists are a starting point written without a pharmacist. Spelling slips of one letter (two for long names), capitals, strengths and combination products are matched.
+            A pharmacist and you must confirm every name before signing. Add any Nigerian brand that is missing.
+          </p>
         </CardContent>
       </Card>
 

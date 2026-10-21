@@ -5688,6 +5688,18 @@ export const en = {
   "lowcarb.food.body": "Many everyday foods here are rich in starch, such as rice, yam, garri and bread. Your care team can help you find choices that work for your meals and your budget.",
   "lowcarb.stop.button": "Stop the programme",
   "lowcarb.stop.confirm": "Stopping is always your choice. Your care team will check your medicines with you.",
+  "lowcarb.loading": "Loading.",
+  "lowcarb.retry": "Try again",
+  "lowcarb.error.load": "We could not load this just now. Please try again in a moment.",
+  "lowcarb.error.action": "Something went wrong and nothing was changed. Please try again, or message your care team.",
+  "lowcarb.offline": "You need a connection to answer this. Nothing was changed.",
+  "lowcarb.offline.load": "You are offline. Connect and try again. Your programme has not changed.",
+  "lowcarb.log": "Log a reading",
+  "lowcarb.link.open": "Open",
+  "lowcarb.paused.badge": "Paused",
+  "lowcarb.emergency.button": "Emergency guidance",
+  "lowcarb.emergency.detail": "You asked for emergency guidance.",
+  "lowcarb.contact.button": "Message your care team",
   "lowcarb.stopped": "The programme has stopped. Your care team will check your medicines with you.",
 } as const;
 

@@ -38,7 +38,7 @@ const protocolRow = z.object({ id: z.string(), code: z.string(), version: z.numb
 const stepSchema = z.object({
   id: z.string(),
   label: z.string().optional(),
-  match: z.object({ name_patterns: z.array(z.string()) }),
+  match: z.object({ groups: z.array(z.string()) }),
   when: z.object({ avg_glucose_below_mmol: z.number().optional(), any_glucose_below_mmol: z.number().optional() }),
   action: z.enum(["stop", "review_dose"]),
   rationale: z.string(),
