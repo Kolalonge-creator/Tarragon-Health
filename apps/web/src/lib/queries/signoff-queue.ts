@@ -47,6 +47,7 @@ type VersionedTableName =
   | "medicine_interaction_rule_sets"
   | "my_health_config"
   | "nutrition_target_config"
+  | "lowcarb_protocol_config"
   | "activity_safety_config"
   | "observation_limit_signoffs"
   | "home_bp_programme_signoffs"
@@ -78,6 +79,7 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   { table: "cuff_check_rules", title: "Home cuff vs clinic cuff check", slug: "cuff-check-rules" },
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
   { table: "nutrition_target_config", title: "Nutrition targets and meal summary", slug: "nutrition-targets-config" },
+  { table: "lowcarb_protocol_config", title: "Low-carbohydrate programme rules", slug: "lowcarb-protocol-config" },
   { table: "health_report_config_versions", title: "Yearly Health Report settings", slug: "health-report-config" },
   { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
   { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },

@@ -1,0 +1,85 @@
+{
+ "code": "t2d_lowcarb_deprescribing",
+ "version": 1,
+ "status": "draft",
+ "placeholder": true,
+ "params": {},
+ "steps": [
+  {
+   "id": "su_stop_on_low",
+   "label": "Sulfonylurea: a low reading",
+   "match": {
+    "name_patterns": [
+     "glibenclamide",
+     "gliclazide",
+     "glimepiride",
+     "glipizide",
+     "daonil",
+     "diamicron",
+     "amaryl"
+    ]
+   },
+   "when": {
+    "any_glucose_below_mmol": 3.9
+   },
+   "action": "stop",
+   "rationale": "A low sugar reading while on a sulfonylurea: the step table proposes stopping it for the doctor to decide. PLACEHOLDER for the CMO."
+  },
+  {
+   "id": "su_review_on_fall",
+   "label": "Sulfonylurea: sugars falling",
+   "match": {
+    "name_patterns": [
+     "glibenclamide",
+     "gliclazide",
+     "glimepiride",
+     "glipizide",
+     "daonil",
+     "diamicron",
+     "amaryl"
+    ]
+   },
+   "when": {
+    "avg_glucose_below_mmol": 7.0
+   },
+   "action": "review_dose",
+   "rationale": "Average sugars are falling on the programme: the dose of this sulfonylurea needs a doctor's review. The doctor sets any new dose. PLACEHOLDER for the CMO."
+  },
+  {
+   "id": "insulin_review_on_fall",
+   "label": "Insulin: sugars falling",
+   "match": {
+    "name_patterns": [
+     "insulin",
+     "lantus",
+     "humulin",
+     "novorapid",
+     "mixtard"
+    ]
+   },
+   "when": {
+    "avg_glucose_below_mmol": 7.0
+   },
+   "action": "review_dose",
+   "rationale": "Average sugars are falling on the programme: insulin needs a doctor's review. Insulin is never stopped by a step table; the doctor sets any new dose. PLACEHOLDER for the CMO."
+  },
+  {
+   "id": "insulin_review_on_low",
+   "label": "Insulin: a low reading",
+   "match": {
+    "name_patterns": [
+     "insulin",
+     "lantus",
+     "humulin",
+     "novorapid",
+     "mixtard"
+    ]
+   },
+   "when": {
+    "any_glucose_below_mmol": 3.9
+   },
+   "action": "review_dose",
+   "rationale": "A low sugar reading while on insulin: a doctor reviews the dose today. PLACEHOLDER for the CMO."
+  }
+ ]
+}

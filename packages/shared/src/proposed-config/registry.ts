@@ -6752,4 +6752,17 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-20",
     source: "docs/design/S49a.md; supabase/migrations/20261020181309_s49a_food_logging_foundation.sql",
   },
+  {
+    key: "lowcarb.protocol_rules",
+    // Low-carbohydrate type 2 diabetes programme (S50b part 2, spec 6.10, founder decision S50-2). PROPOSED, UNSIGNED, and the programme is dormant
+    // behind the go-live guard `low_carb_t2d_programme`. EVERY number below is a placeholder for the CMO: who is excluded, how often the patient
+    // checks in, the glucose and ketone lines that pause the programme, and when a doctor must look at medicines. Live values are the active, SIGNED
+    // row of `lowcarb_protocol_config`.config; lowcarb-mirror.test.ts fails if the migration seed and this value drift.
+    value: {"eligibility": {"min_age_years": 18, "postnatal_months": 12, "require_confirmed_type_2": true, "severe_hypo_below_mmol": 3.0, "hypo_lookback_days": 90, "triage_lookback_hours": 72, "condition_exclusions": {"type_1_diabetes": {"name_patterns": ["type 1", "type i diabetes", "lada"], "icd10_prefixes": ["E10"]}, "kidney_disease": {"name_patterns": ["kidney", "renal", "ckd", "nephr"], "icd10_prefixes": ["N17", "N18", "N19"]}, "pancreatitis": {"name_patterns": ["pancreatit"], "icd10_prefixes": ["K85", "K86"]}, "liver_disease": {"name_patterns": ["cirrho", "liver failure"], "icd10_prefixes": ["K70", "K72", "K74"]}, "ketoacidosis_history": {"name_patterns": ["ketoacidosis", "dka"], "icd10_prefixes": []}}, "medicine_groups": {"insulin": {"name_patterns": ["insulin", "lantus", "humulin", "novorapid", "mixtard"], "handling": "supervision"}, "sulfonylurea": {"name_patterns": ["glibenclamide", "gliclazide", "glimepiride", "glipizide", "daonil", "diamicron", "amaryl"], "handling": "supervision"}, "sglt2_inhibitor": {"name_patterns": ["gliflozin", "jardiance", "forxiga", "invokana"], "handling": "exclude"}}}, "check_ins": {"glucose": {"per_week": 14, "max_gap_days": 2}, "ketones": {"per_week": 3, "max_gap_days": 4}, "weight": {"per_week": 1, "max_gap_days": 9}}, "safety": {"pause_glucose_below_mmol": 3.9, "pause_ketones_at_or_above_mmol": 3.0, "stop_after_pauses_in_30_days": 3, "stop_if_checkins_missed_days": 14}, "medicine_review": {"window_days": 7, "min_readings": 5, "avg_glucose_below_mmol": 7.0, "any_glucose_below_mmol": 4.4, "standing_review_days": 14}},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.10) and invariants INV-01, INV-02, INV-14; docs/design/S50b-lowcarb.md; supabase/migrations/*_s50b_lowcarb_t2d_programme.sql",
+  },
 ];

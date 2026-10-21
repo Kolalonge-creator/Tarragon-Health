@@ -4673,3 +4673,31 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-S06Z-2 When bulk work waits, the background task skips the whole health-store sync (raised by S06z, 2026-10-21)
 - On low power, or in low-data mode off Wi-Fi, the background task skips the health-store read as well as the upload. A read without an upload cannot advance the server cursor (it moves only past uploaded pages), so the next run would read and queue the same samples again, growing the queue toward its cap with duplicates. Nothing is lost; the samples are read on the next run that may upload. Splitting read from upload needs de-duplication in health-sync.ts. The Devices Sync now button and a foreground sync are the patient asking and still upload.
 - Decision: open (product).
+
+### OQ-S50B-1 Every number in the low-carbohydrate programme is a placeholder (raised by S50b, 2026-10-21)
+- Eligibility exclusions (type 1, kidney disease, pancreatitis, liver disease, ketoacidosis history, a positive eating-disorder screen, pregnancy and 12 months postnatal, SGLT2 inhibitors), the 90-day look-back for a severe low (3.0 mmol/L), the 72-hour red or amber wait, the check-in cadence (sugar 14 a week, ketones 3, weight 1), the pause lines (sugar below 3.9, ketones 3.0 or more), the stop rules (3 pauses in 30 days, 14 days silent) and the review lines (average below 7.0 over 7 days with 5 readings, any reading below 4.4, a standing review every 14 days) are all the build agent's placeholders in `lowcarb.protocol_rules`.
+- Needed: the CMO reviews each in the sign-off hub line "Low-carbohydrate programme rules" and signs. Also whether insulin and sulfonylurea users are ever in scope (the build lets a doctor accept supervision with a note) and whether SGLT2 inhibitors are excluded outright (euglycaemic ketoacidosis).
+- Decision: open (CMO).
+
+### OQ-S50B-2 The diabetes step table has to be written, and the editor cannot yet (raised by S50b, 2026-10-21)
+- The shipped `t2d_lowcarb_deprescribing` v1 is a DRAFT marked `placeholder`; `approve_protocol` refuses a placeholder, so it can never go live unchanged. The existing titration protocol page validates the blood pressure shape (`validateProtocolDefinition`), so the CMO cannot author a glucose step table there. `save_protocol_draft` itself only needs `params` and `steps`.
+- Needed: a diabetes step-table editor (or a second validator keyed by code) and the CMO's real steps. The platform proposes a stop only; a dose change is a note and the doctor sets the dose.
+- Decision: open (CMO, then a small build).
+
+### OQ-S50B-3 Nothing runs the check-in sweep (raised by S50b, 2026-10-21)
+- `private.lowcarb_sweep()` pauses someone who has become pregnant and stops someone with no check-in for 14 days. It is proven but no cron calls it, and cron wiring was kept out of this change. Until it runs, a lapsed person stays "active" and a new pregnancy is caught only at the next resume, offer or the pause triggers.
+- Needed: schedule it (hourly is enough) before the guard can be switched on. This belongs on the go-live checklist.
+- Decision: open (engineering, before go-live).
+
+### OQ-S50B-4 Ketone testing cost, rota, and what a low-sugar reading means in this programme (raised by S50b, 2026-10-21)
+- The guard needs a recorded doctor and dietitian rota and a recorded decision on the cost of ketone testing (who pays for strips, how many a week, whether a Member gets them). Neither exists and neither was attested.
+- The patient screen says only: follow the low sugar advice your care team gave you, and go to the nearest hospital if very unwell. It gives no fast-sugar instruction on purpose (that wording is the CMO's, see the `glucose_fast_sugar_wording` guard).
+- Decision: open (founder, CMO).
+
+### OQ-S50B-5 No mobile screen yet (raised by S50b, 2026-10-21)
+- The patient screen is web only. The programme is dormant, and a phone screen needs the gate, the check-in lines and the offer buttons, plus offline behaviour for the low-sugar card (INV-06 covers emergency content; this card is not emergency content).
+- Decision: open (product), build after the CMO signs.
+
+### OQ-S50B-6 Pausing on ketones alone, and symptoms (raised by S50b, 2026-10-21)
+- The spec says "a high ketone reading with symptoms". The build pauses on the number alone (no symptom entry needed), the more careful direction. Whether symptoms should also lower the line, and whether a pause should wait for a clinician to look first, is the CMO's.
+- Decision: open (CMO).

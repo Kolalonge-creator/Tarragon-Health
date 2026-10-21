@@ -26,6 +26,7 @@ export default {
     "<rootDir>/packages/clinical/src/live-redflag.ts",
     "<rootDir>/packages/clinical/src/home-bp.ts",
     "<rootDir>/packages/clinical/src/activity-gate.ts",
+    "<rootDir>/packages/clinical/src/lowcarb-programme.ts",
     "<rootDir>/packages/clinical/src/home-bp-session.ts",
     "<rootDir>/packages/clinical/src/cuff-check.ts",
   ],
