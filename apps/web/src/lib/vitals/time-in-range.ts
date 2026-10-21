@@ -5,6 +5,8 @@
  * agreed range, so it needs no model — a doctor sees it at a glance.
  */
 
+import { isAboveLine, isBelowLine } from "@/lib/glucose/bands";
+
 /** Standard glucose target band for TIR (mmol/L), overridable per patient. */
 export const DEFAULT_TIR_LOW = 3.9;
 export const DEFAULT_TIR_HIGH = 10.0;
@@ -40,8 +42,9 @@ export function computeTimeInRange(
   let above = 0;
   let inRange = 0;
   for (const v of values) {
-    if (v < low) below += 1;
-    else if (v > high) above += 1;
+    // Whole mg/dL against the line, the same definition the 24 hour glucose profile uses, so the two never disagree about the same readings.
+    if (isBelowLine(v, low)) below += 1;
+    else if (isAboveLine(v, high)) above += 1;
     else inRange += 1;
   }
   const pct = (n: number) => Math.round((n / total) * 100);
@@ -56,4 +59,9 @@ export function computeTimeInRange(
     low,
     high,
   };
+}
+
+/** How many of the readings came from a sensor (a continuous monitor or a connected wearable) rather than a finger-prick or typed entry. */
+export function sensorReadingCount(rows: { source: string | null }[]): number {
+  return rows.filter((r) => r.source === "cgm" || r.source === "wearable").length;
 }

@@ -13,6 +13,7 @@ import { GlucoseInsights } from "@/app/(dashboard)/patient/glucose-insights";
 import { VitalsHistory } from "@/app/(dashboard)/patient/vitals-history";
 import { HeldReadingsCard } from "@/app/(dashboard)/patient/held-readings-card";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
+import { AgpCard } from "@/components/agp-card";
 import { SymptomLogForm } from "@/app/(dashboard)/patient/symptom-log-form";
 import { SymptomLogHistory } from "@/app/(dashboard)/patient/symptom-log-history";
 import { FeatureConsentGate } from "@/components/consent/feature-consent-gate";
@@ -51,6 +52,8 @@ export default async function PatientVitalsPage() {
     >
       {subjectId === profile.id ? <ThresholdOverrideNotice /> : null}
       <VitalsTrendChart patientId={subjectId} />
+      {/* Renders nothing until there is sensor glucose to show. */}
+      <AgpCard patientId={subjectId} audience="patient" />
       <WeeklySummaryCard patientId={subjectId} glucoseUnit={glucoseUnit} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
