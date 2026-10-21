@@ -154,9 +154,12 @@ begin
   perform pg_temp.setf('cg', pg_temp.mkuser(v_org, 'caregiver', 'patient'));
   perform pg_temp.setf('cg2', pg_temp.mkuser(v_org, 'caregiver-narrow', 'patient'));
   -- two caregivers: one with care plan, medication and results permissions; one with the care plan permission only
+  -- written as an owner-run fixture (triggers off): the real route is the patient's own session, and the consent triggers reset clinical_access otherwise
+  set local session_replication_role = replica;
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, clinical_access, permissions)
   values (pg_temp.f('np'), pg_temp.f('cg'), 'view', pg_temp.f('np'), true, array['view_care_plan','view_medication','view_results']::public.caregiver_permission[]),
          (pg_temp.f('np'), pg_temp.f('cg2'), 'view', pg_temp.f('np'), true, array['view_care_plan']::public.caregiver_permission[]);
+  set local session_replication_role = origin;
 end $$;
 
 -- 1 and 2. Assembly, signature, approval -------------------------------------------------------------------------------
@@ -350,8 +353,9 @@ begin
   perform pg_temp.ck('...a stranger cannot add it', 'true', (pg_temp.try_as(v_sp, format('select public.add_visit_summary_item_to_tasks(%L)', v_item)) like 'not found%')::text);
   perform pg_temp.ck('...the step was already ticked, so the task is completed at once', 'completed', (select status::text from public.care_tasks where id = v_task));
   raise notice 'AVSDIAG6 before untick: task=% progress=%', (select to_jsonb(c) - 'description' from public.care_tasks c where c.id = v_task), (select to_jsonb(p) from public.visit_summary_item_progress p where p.item_id = v_item);
+  v_diag := pg_temp.try_as(v_np, format('select public.set_visit_summary_item_done(%L, false)', v_item));
   perform pg_temp.ck('...unticking reopens it', 'not_started',
-    (select case when pg_temp.try_as(v_np, format('select public.set_visit_summary_item_done(%L, false)', v_item)) = 'ok' then (select status::text from public.care_tasks where id = v_task) end));
+    (select case when v_diag = 'ok' then (select status::text from public.care_tasks where id = v_task) else v_diag end));
   perform pg_temp.ck('the recheck step carries its date', '2026-11-03',
     (select due_on::text from public.visit_summary_items where summary_id = s and kind = 'recheck'));
 
@@ -364,7 +368,7 @@ do $$
 declare
   v_doc uuid := pg_temp.f('doc'); v_cmo uuid := pg_temp.f('cmo'); v_np uuid := pg_temp.f('np'); v_cg uuid := pg_temp.f('cg');
   n uuid := pg_temp.f('n'); s uuid := pg_temp.f('s');
-  a uuid; n2 uuid; s2 uuid; n3 uuid; s3 uuid; n4 uuid; s4 uuid; v_rev integer; v_items jsonb; v_items2 jsonb; v_told integer;
+  a uuid; n2 uuid; s2 uuid; n3 uuid; s3 uuid; n4 uuid; s4 uuid; v_rev integer; v_items jsonb; v_items2 jsonb; v_told integer; v_diag text;
   n6 uuid; s6 uuid; a1 uuid; a2 uuid; n7 uuid; s7 uuid; v_rx7 uuid;
 begin
   -- an amendment still being written hides the summary
@@ -396,9 +400,9 @@ begin
   perform pg_temp.ck('(reopened draft) an unchanged save keeps the tick', 'true',
     (pg_temp.try_as(v_doc, format($q$select public.update_visit_summary_draft(%L, null, %L::jsonb)$q$, s, v_items::text)) = 'ok'
      and exists (select 1 from public.visit_summary_item_progress where summary_id = s))::text);
+  v_diag := pg_temp.try_as(v_doc, format($q$select public.update_visit_summary_draft(%L, null, %L::jsonb)$q$, s, v_items2::text));
   perform pg_temp.ck('...a changed wording clears the old tick', '0',
-    (select case when pg_temp.try_as(v_doc, format($q$select public.update_visit_summary_draft(%L, null, %L::jsonb)$q$, s, v_items2::text)) = 'ok'
-      then (select count(*)::text from public.visit_summary_item_progress where summary_id = s) end));
+    (select case when v_diag = 'ok' then (select count(*)::text from public.visit_summary_item_progress where summary_id = s) else v_diag end));
   perform pg_temp.ck('approved again', 'ok', pg_temp.try_as(v_doc, format('select public.approve_visit_summary(%L)', s)));
   perform pg_temp.ck('...visible again, with the new count stamped', '1:1',
     pg_temp.sees(v_np, s) || ':' || (select amendment_count_at_approval::text from public.visit_summaries where id = s));
