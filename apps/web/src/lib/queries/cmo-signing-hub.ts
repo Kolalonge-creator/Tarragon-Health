@@ -9,6 +9,7 @@ import { GLUCOSE_TRIAGE_ITEM_KEY, readPendingGlucoseTriageSignoff } from "@/lib/
 import { readS06S10Signoffs, EMPTY_S06S10, type S06S10Snapshot } from "@/lib/queries/s06-s10-signoffs";
 import { readPendingQualityConfigSignoff } from "@/lib/queries/pending-quality-config-signoff";
 import { readPendingCapacityConfigSignoff } from "@/lib/queries/pending-capacity-config-signoff";
+import { readPendingPostCheckinSignoff } from "@/lib/queries/pending-post-checkin-signoff";
 import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose-task-type-signoff";
 import { VITALS_TRIAGE_ITEM_KEY, readPendingVitalsTriageSignoff } from "@/lib/queries/pending-vitals-triage-signoff";
 import { readPendingVitalsTaskTypeSignoff } from "@/lib/queries/pending-vitals-task-type-signoff";
@@ -56,6 +57,8 @@ export const VITALS_TASK_TYPE_ITEM_KEY = "vitals_task_type";
 export const QUALITY_CONFIG_ITEM_KEY = "quality_configs";
 /** The line for the capacity and cover configuration drafts (intake gate, hard rest rule, fire drills) and the pilot lead cap. */
 export const CAPACITY_CONFIG_ITEM_KEY = "capacity_configs";
+/** The line for the post-consultation check-in configuration (the questions, what each answer does, the 48 hour and 7 day timing). */
+export const POST_CHECKIN_ITEM_KEY = "post_checkin_config";
 /** The line for the ops desk resilience configuration draft (the checklist gate on the on-call cover guard, OQ-441). */
 export const OPS_DESK_CONFIG_ITEM_KEY = "ops_desk_config";
 /** The key the sole-CMO on-call exception line carries, so the page can attach the signing panel. */
@@ -94,7 +97,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -118,6 +121,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readLegacyNoticeRetirementState(supabase),
     readThresholdHubState(supabase),
     readPendingBpDeviceReview(supabase),
+    readPendingPostCheckinSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -407,6 +411,17 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (postCheckin.version !== null) {
+    items.push({
+      key: POST_CHECKIN_ITEM_KEY,
+      title: "Check-ins after a consultation",
+      detail: `Check-in configuration version ${postCheckin.version} (the questions, what each answer does, and the 48 hour and 7 day timing) is waiting for your signature. No check-in is sent until you sign and an admin switches the guard on.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   const failedSources = [
     ...queue.failedSources,
     ...s06s10.failedSources,
@@ -427,6 +442,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(fastSugar.failed ? ["the fast-sugar wording signature"] : []),
     ...(queuePaging.failed ? ["the task layer and paging delivery configurations"] : []),
     ...(bpDevices.failed ? ["the recommended blood pressure monitors"] : []),
+    ...(postCheckin.failed ? ["the check-in configuration"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it
