@@ -249,6 +249,8 @@ export * from "./ui-language";
 export * from "./clinical-tier";
 export * from "./specialist-type-options";
 export * from "./proposed-config";
+export * from "./observation-limits";
+export * from "./trend-bands";
 export * from "./learning";
 export * from "./assistant-safety";
 export * from "./assistant-emergency";
@@ -266,6 +268,7 @@ export * from "./notification-settings";
 export * from "./notification-diagnosis";
 export * from "./directory-links";
 export * from "./proposed-config/emergency-pack";
+export * from "./proposed-config/biomarker-grade-bands";
 
 // S66: the single cycle prediction engine, thermal shift, pattern report and planning copy (web and mobile both read it from here).
 export * from "./cycle";
@@ -290,3 +293,5 @@ export * from "./device-guides";
 export * from "./emergency-coverage";
 export * from "./immunisation-card";
 export * from "./outside-record";
+export * from "./my-phones";
+export * from "./nutrition";

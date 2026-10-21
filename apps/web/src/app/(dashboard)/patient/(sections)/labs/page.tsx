@@ -6,6 +6,7 @@ import { LabOrdersList } from "@/app/(dashboard)/patient/lab-orders-list";
 import { LabLocationDirectory } from "@/app/(dashboard)/patient/lab-location-directory";
 import { ResultsTrendsCard } from "@/app/(dashboard)/patient/results-trends-card";
 import { ReleasedLabResults } from "@/app/(dashboard)/patient/released-lab-results";
+import { LabTrendCard } from "@/app/(dashboard)/patient/lab-trend-card";
 import { LabResults } from "@/app/(dashboard)/patient/lab-results";
 import { ResultDocuments } from "@/app/(dashboard)/patient/result-documents";
 import { EcgReportDocuments } from "@/app/(dashboard)/patient/ecg-report-documents";
@@ -31,6 +32,7 @@ export default async function PatientLabsPage() {
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-4">
           <ReleasedLabResults patientId={subjectId} locale={uiLanguage} />
+          <LabTrendCard patientId={subjectId} locale={uiLanguage} />
           <LabResults patientId={subjectId} />
           <ResultDocuments patientId={subjectId} />
           <EcgReportDocuments patientId={subjectId} />

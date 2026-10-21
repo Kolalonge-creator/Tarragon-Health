@@ -50,14 +50,14 @@ describe("cover on the card", () => {
 });
 
 describe("a failed cover read", () => {
-  it("is unknown (undefined), never 'none saved' (null), so the form is not offered over real cover", async () => {
+  it("fails the whole load (the screen then shows the saved copy), never 'none saved', so the form is not offered over real cover", async () => {
     const tables: Record<string, unknown> = { profiles: { full_name: "Ada Obi" }, patient_allergies: [], care_plans: [], patient_blood_profile: null, medications: [] };
     mockFrom.mockImplementation((name: string) => {
       const b = table(tables[name]);
       if (name !== "emergency_card_coverage") return b;
       return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: { message: "boom" } }) }) }) };
     });
-    expect((await loadEmergencyFacts("p1")).coverage).toBeUndefined();
+    await expect(loadEmergencyFacts("p1")).rejects.toThrow("boom");
   });
 });
 

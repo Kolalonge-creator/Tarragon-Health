@@ -12,6 +12,8 @@ const MAX_MISSES = 5;
 const door = { misses: 0, locked: false, calls: [] as (string | null)[] };
 
 jest.mock("@/lib/my-health/open-share", () => ({
+  // everything else in the module (for example clientKeyFromHeaders) is the real code; only the database door and the PIN shape check are replaced
+  ...jest.requireActual("@/lib/my-health/open-share"),
   isWellFormedPin: (p: string) => /^[0-9]{4,12}$/.test(p),
   openShare: async (_token: string, pin: string | null) => {
     door.calls.push(pin);

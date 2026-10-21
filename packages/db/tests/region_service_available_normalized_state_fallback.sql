@@ -34,8 +34,8 @@ begin
     ('Testland', 'Testland', true, now()),
     ('Testlandoff', 'Testlandoff', false, null);
 
-  insert into public.lab_providers (name, is_active, regions)
-  values ('RSA Test Lab Partner', true, array['Testland']);
+  insert into public.lab_providers (name, is_active, regions, license_number, license_verified_at, license_expires_at, accreditation)
+  values ('RSA Test Lab Partner', true, array['Testland'], 'S27H-PROOF-1', now(), now() + interval '1 year', 'ISO 15189');
 
   -- onboarding_status = 'activated' satisfies pharmacy_partners_active_requires_activated_onboarding.
   insert into public.pharmacy_partners (name, is_active, state, onboarding_status)

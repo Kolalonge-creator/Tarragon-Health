@@ -367,7 +367,7 @@ do $$
 declare d text; late uuid := pg_temp.f('refund_late'); o uuid; r text;
 begin
   d := replace(pg_get_functiondef('public.request_order_refund(uuid,text)'::regprocedure),
-    $s$(o.paid_at is null or now() > o.paid_at + make_interval(days => v_days))$s$, 'false');
+    $s$o.paid_at is null or now() > o.paid_at + make_interval(days => v_days)$s$, 'false');
   if d = pg_get_functiondef('public.request_order_refund(uuid,text)'::regprocedure) then raise exception 'VACUOUS TEST: window text not found'; end if;
   execute d;
   select id into o from public.orders where beneficiary_patient_id = late;

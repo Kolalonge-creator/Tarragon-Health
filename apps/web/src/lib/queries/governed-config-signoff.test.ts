@@ -24,7 +24,14 @@ function client(
           error: list.error,
         };
         return Object.assign(Promise.resolve(asList), {
-          eq: () => ({ maybeSingle: async () => answer(table) }),
+          eq: () => ({
+            maybeSingle: async () => {
+              const a = answer(table);
+              // the serology rules carry their signature in threshold_approved_by (S46d)
+              const r = a.data as { version: number; approved_by: string | null } | null;
+              return table === "serology_rule_versions" && r ? { data: { version: r.version, threshold_approved_by: r.approved_by }, error: a.error } : a;
+            },
+          }),
         });
       },
     })),
@@ -98,5 +105,21 @@ describe("readGovernedConfigSignoff", () => {
 
     expect(rows.every((r) => !r.signed)).toBe(true);
     expect(rows.every((r) => r.version === null)).toBe(true);
+  });
+});
+
+describe("readGovernedConfigSignoff, S46d report settings and serology threshold", () => {
+  it("lists both, and the serology line is signed only when the active rule's threshold is approved", async () => {
+    expect(GOVERNED_CONFIG_TABLES.map((t) => t.table)).toEqual(expect.arrayContaining(["health_report_config_versions", "serology_rule_versions"]));
+    const unsigned = await readGovernedConfigSignoff(client(() => ({ data: { version: 2, approved_by: null }, error: null })));
+    expect(unsigned.find((r) => r.table === "serology_rule_versions")).toMatchObject({ signed: false, version: 2, href: "/admin/settings/serology-rules" });
+    const signed = await readGovernedConfigSignoff(client(() => ({ data: { version: 2, approved_by: "cmo" }, error: null })), "/clinician");
+    expect(signed.find((r) => r.table === "serology_rule_versions")).toMatchObject({ signed: true, href: "/clinician/serology-rules" });
+    expect(signed.find((r) => r.table === "health_report_config_versions")).toMatchObject({ signed: true, href: "/clinician/health-report-config" });
+  });
+
+  it("a failed read of either is never green", async () => {
+    const rows = await readGovernedConfigSignoff(client(() => ({ data: null, error: { message: "denied" } })));
+    for (const t of ["health_report_config_versions", "serology_rule_versions"]) expect(rows.find((r) => r.table === t)).toMatchObject({ signed: false, version: null });
   });
 });
