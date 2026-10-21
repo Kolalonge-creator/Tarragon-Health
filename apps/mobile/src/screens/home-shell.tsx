@@ -42,9 +42,11 @@ import { TechnicalSupportScreen } from "@/screens/sections/technical-support-scr
 import { HealthSummaryScreen } from "@/screens/sections/health-summary-screen";
 import { BpHistoryScreen } from "@/screens/sections/bp-history-screen";
 import { MonthlyReportScreen } from "@/screens/sections/monthly-report-screen";
+import { HealthReportScreen } from "@/screens/sections/health-report-screen";
 import { ProgrammesScreen } from "@/screens/sections/programmes-screen";
 import { TimelineScreen } from "@/screens/sections/timeline-screen";
 import { MyHealthScreen } from "@/screens/sections/my-health-screen";
+import { MyPhonesScreen } from "@/screens/sections/my-phones-screen";
 import { ExerciseScreen } from "@/screens/sections/exercise-screen";
 import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
 import { ConsultationRoomScreen } from "@/screens/sections/consultation-room-screen";
@@ -295,6 +297,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     bpHistory: () => <BpHistoryScreen patientId={subjectId} userId={userId} organisationId={organisationId} />,
     // A summary belongs to the person it is about: while acting for someone else the screen says so and reads nothing.
     monthlySummary: () => <MonthlyReportScreen acting={!!acting} />,
+    healthReport: () => <HealthReportScreen acting={!!acting} />,
     // Joining a programme is the person's own choice: nothing changes while acting for someone else.
     programmes: () => <ProgrammesScreen acting={!!acting} />,
     medications: () => (
@@ -324,6 +327,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     healthSummary: () => <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />,
     timeline: () => <TimelineScreen patientId={subjectId} onNavigate={handleSelect} />,
     myHealth: () => <MyHealthScreen userId={userId} acting={acting != null} onNavigate={handleSelect} />,
+    myPhones: () => <MyPhonesScreen userId={userId} acting={acting != null} />,
     exercise: () => <ExerciseScreen patientId={subjectId} organisationId={organisationId} />,
     devices: () =>
       openDevice ? (

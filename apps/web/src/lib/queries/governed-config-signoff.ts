@@ -39,6 +39,7 @@ export const GOVERNED_CONFIG_TABLES = [
     slug: "vaccination-schedule",
   },
   { table: "lab_panel_signoffs", title: "Lab ranges and release policy", slug: "lab-panels" },
+  { table: "lab_fallback_wording_signoffs", title: "Lab result fallback message", slug: "lab-fallback" },
   {
     // S88: six kinds in one ledger, one live row PER KIND, so it does not follow the single-live-row
     // shape of the rest. Read through its own branch below; its page is the sign-off hub itself.
@@ -50,6 +51,20 @@ export const GOVERNED_CONFIG_TABLES = [
   { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
   { table: "cuff_check_rules", title: "Home cuff vs clinic cuff check", slug: "cuff-check-rules" },
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
+  {
+    table: "nutrition_target_config",
+    title: "Nutrition targets and meal summary",
+    slug: "nutrition-targets-config",
+  },
+  { table: "health_report_config_versions", title: "Yearly Health Report settings", slug: "health-report-config" },
+  {
+    // S46d: not a single-active-row table. The signable thing is the anti-HBs threshold on the one ACTIVE rule (status = 'active'), read through its own branch below.
+    table: "serology_rule_versions",
+    title: "Hepatitis and HIV repeat rules (anti-HBs threshold)",
+    slug: "serology-rules",
+  },
+  { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
+  { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
 ] as const;
 
 /** Tables that hold one live row per kind rather than one live row in total. */
@@ -110,6 +125,12 @@ export async function readGovernedConfigSignoff(
           version: live.length > 0 ? Math.max(...live.map((r) => r.version)) : null,
           signed: kinds.size > 0 && signedKinds.size === kinds.size,
         };
+      }
+
+      if (def.table === "serology_rule_versions") {
+        const res = await supabase.from("serology_rule_versions").select("version, threshold_approved_by").eq("status", "active").maybeSingle();
+        if (res.error) return { table: def.table, title: def.title, href, version: null, signed: false };
+        return { table: def.table, title: def.title, href, version: res.data?.version ?? null, signed: Boolean(res.data?.threshold_approved_by) };
       }
 
       const { data, error } = await supabase
