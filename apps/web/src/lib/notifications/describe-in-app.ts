@@ -144,6 +144,13 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "consult_join_ready") {
     return { text: "Your consultation room is open. Open the app to join.", href: `/patient/consultation/${String(payload.encounter_id ?? "")}` };
   }
+  // PCC: neutral previews (INV-07).
+  if (n.template === "consult_checkin_due") {
+    return { text: "Your care team has a quick check-in for you. Open the app to answer", href: `/patient/consult-checkin/${String(payload.checkin_id ?? "")}` };
+  }
+  if (n.template === "consult_checkin_nudge") {
+    return { text: "Your quick check-in is still waiting whenever you are ready", href: `/patient/consult-checkin/${String(payload.checkin_id ?? "")}` };
+  }
   if (n.template === "consult_missed") {
     return {
       text: payload.credit_returned === true ? "Your consultation did not go ahead. Your credit is back in the app." : "Your consultation did not go ahead. Open the app to rebook.",

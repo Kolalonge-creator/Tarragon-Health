@@ -1703,6 +1703,130 @@ export type Database = {
           },
         ]
       }
+      records_requests: {
+        Row: {
+          created_at: string
+          due_at: string | null
+          facility_contact: string | null
+          facility_name: string
+          id: string
+          is_test: boolean
+          letter_version: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          received_at: string | null
+          requested_at: string | null
+          scope_codes: string[]
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          due_at?: string | null
+          facility_contact?: string | null
+          facility_name: string
+          id?: string
+          is_test?: boolean
+          letter_version: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          received_at?: string | null
+          requested_at?: string | null
+          scope_codes: string[]
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          due_at?: string | null
+          facility_contact?: string | null
+          facility_name?: string
+          id?: string
+          is_test?: boolean
+          letter_version?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          received_at?: string | null
+          requested_at?: string | null
+          scope_codes?: string[]
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "records_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "records_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      records_request_events: {
+        Row: {
+          created_at: string
+          detail: Json
+          event: string
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          request_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json
+          event: string
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          request_id: string
+        }
+        Update: {
+          created_at?: string
+          detail?: Json
+          event?: string
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "records_request_events_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "records_request_events_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "records_request_events_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "records_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payout_events: {
         Row: {
           actor_id: string | null
@@ -44259,6 +44383,78 @@ export type Database = {
         }
         Relationships: []
       }
+      bp_cuff_guidance_signoffs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      patient_bp_cuffs: {
+        Row: {
+          arm_circumference_cm: number | null
+          created_at: string
+          cuff_type: string
+          guidance_version: number
+          id: string
+          is_test: boolean
+          model_text: string | null
+          organisation_id: string
+          patient_id: string
+          size_key: string | null
+        }
+        Insert: {
+          arm_circumference_cm?: number | null
+          created_at?: string
+          cuff_type: string
+          guidance_version: number
+          id?: string
+          is_test?: boolean
+          model_text?: string | null
+          organisation_id: string
+          patient_id: string
+          size_key?: string | null
+        }
+        Update: {
+          arm_circumference_cm?: number | null
+          created_at?: string
+          cuff_type?: string
+          guidance_version?: number
+          id?: string
+          is_test?: boolean
+          model_text?: string | null
+          organisation_id?: string
+          patient_id?: string
+          size_key?: string | null
+        }
+        Relationships: []
+      }
       home_bp_checks: {
         Row: {
           band: string
@@ -49807,6 +50003,10 @@ export type Database = {
       sign_lab_panels: { Args: { p_id: string }; Returns: string };
       sign_lab_fallback_wording: { Args: { p_id: string }; Returns: string };
       sign_home_bp_programme: { Args: { p_id: string }; Returns: string };
+      sign_bp_cuff_guidance: { Args: { p_id: string }; Returns: string };
+      record_my_bp_cuff: { Args: { p_arm_cm?: number; p_cuff_type: string; p_model?: string }; Returns: Json };
+      my_bp_cuff_guidance: { Args: never; Returns: Json };
+      bp_band_divergence_report: { Args: { p_days?: number }; Returns: { app_band: string; pipeline_level: string; cause: string; readings: number; rule_set_approved: boolean }[] };
       complete_home_bp_check: { Args: { p_window_start: string }; Returns: Json };
       record_clinic_bp_reading: { Args: { p_diastolic: number; p_measured_at: string; p_note?: string; p_patient: string; p_systolic: number }; Returns: string };
       sign_cuff_check_rules: { Args: { p_id: string }; Returns: string };
@@ -52120,6 +52320,43 @@ export type Database = {
           id: string
           source_system: string
           withdrawn_at: string
+        }[]
+      }
+      create_records_request: {
+        Args: { p_contact: string | null; p_facility: string; p_letter_version: string; p_note?: string | null; p_scope: string[] }
+        Returns: Json
+      }
+      mark_records_request_sent: {
+        Args: { p_id: string; p_response_days: number }
+        Returns: Json
+      }
+      mark_records_request_received: {
+        Args: { p_id: string }
+        Returns: Json
+      }
+      withdraw_records_request: {
+        Args: { p_id: string }
+        Returns: Json
+      }
+      set_records_request_note: {
+        Args: { p_id: string; p_note: string | null }
+        Returns: Json
+      }
+      my_records_requests: {
+        Args: never
+        Returns: {
+          created_at: string
+          due_at: string
+          facility_contact: string
+          facility_name: string
+          id: string
+          is_overdue: boolean
+          letter_version: string
+          note: string
+          received_at: string
+          requested_at: string
+          scope_codes: string[]
+          state: string
         }[]
       }
       lab_partner_push_result: {
@@ -55414,6 +55651,10 @@ export type Database = {
           subject_type: string
           total_count: number
         }[]
+      }
+      money_reconciliation_badge: {
+        Args: never
+        Returns: number
       }
       money_reconciliation_summary: {
         Args: { p_grace_minutes: number; p_include_test: boolean; p_unsent_minutes: number }
