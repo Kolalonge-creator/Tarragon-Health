@@ -3410,6 +3410,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/DECISIONS.md (2026-10-21); supabase/migrations/20261021110528_membership_evergreen_ladder_foundation.sql",
   },
   {
+    key: "marketing.membership_ladder_public",
+    // Whether the public pricing page shows the three-card Evergreen ladder (true) or the single Membership price (false). It stays false
+    // until the launch conditions in docs/DECISIONS.md (2026-10-21) are met: CMO baseline-labs rule, independent CMO, one live Paystack
+    // payment and refund. Switching it is a reviewed code change on purpose, so the public price can never run ahead of what can be bought.
+    value: { enabled: false },
+    owner: "Founder",
+    status: "confirmed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/DECISIONS.md (2026-10-21)",
+  },
+  {
     key: "membership.lapse",
     // Founder decision 2026-10-12: when a Membership year ENDS NATURALLY the person keeps Member status for a 14 day grace, then is
     // Free again (state lapsed). A refund is different: it ends Member access at once (membership.refund, decision 2026-10-12). Renewal reminders go 30, 14 and 7 days before the end (in-app, push or email; never SMS). Mirrored by
