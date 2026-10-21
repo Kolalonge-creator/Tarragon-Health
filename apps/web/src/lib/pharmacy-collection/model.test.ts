@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { ANSWER_TEXT, answerText, asNotice, chooseFormSchema, dispenseProblem, noticeForError, parseOverview, QUESTION_REASONS, questionText, viewFor, type Collection } from "./model";
+import { alsoSendable, ANSWER_TEXT, answerText, asNotice, chooseFormSchema, dispenseProblem, groupByVisit, MAX_VISIT_ITEMS, noticeForError, parseOverview, QUESTION_REASONS, questionText, viewFor, visitChoice, type Collection } from "./model";
 
 const base: Collection = { state: "signed", pharmacy_name: null, location_name: null, address: null, code: null, code_expires_at: null, locked: null, expired: null, collected: null, can_repeat: null, other_pharmacy_needed: null };
 
@@ -52,5 +52,44 @@ describe("pharmacy collection model", () => {
     expect(parseOverview(null)).toBeNull();
     expect(parseOverview({ questions: "none" })).toBeNull();
     expect(parseOverview({ questions: [], collection: [], earlier: [] })).toEqual({ questions: [], collection: [], earlier: [] });
+  });
+});
+
+describe("visit helpers (S28e)", () => {
+  const A = "11111111-1111-4111-8111-111111111111";
+  const B = "22222222-2222-4222-8222-222222222222";
+  const C = "33333333-3333-4333-8333-333333333333";
+  it("visitChoice needs real ids and counts the page's own prescription once", () => {
+    expect(visitChoice({ prescription: A, choice: `${B}:${C}`, also: [A, B, B] })).toEqual({ prescription: A, partner: B, location: C, also: [B] });
+    expect(visitChoice({ prescription: A, choice: `${B}:${C}:${A}`, also: [] })).toBeNull();
+    expect(visitChoice({ prescription: A, choice: "x:y", also: [] })).toBeNull();
+    expect(visitChoice({ prescription: "x", choice: `${B}:${C}`, also: [] })).toBeNull();
+    expect(visitChoice({ prescription: A, choice: `${B}:${C}`, also: [42] })).toBeNull();
+  });
+  it("a visit holds at most the configured number of medicines", () => {
+    const ids = Array.from({ length: MAX_VISIT_ITEMS }, (_, i) => `44444444-4444-4444-8444-${String(i).padStart(12, "0")}`);
+    expect(visitChoice({ prescription: A, choice: `${B}:${C}`, also: ids.slice(0, MAX_VISIT_ITEMS - 1) })).not.toBeNull();
+    expect(visitChoice({ prescription: A, choice: `${B}:${C}`, also: ids })).toBe("too_many");
+  });
+  it("only prescriptions still waiting to be sent can be added to this one", () => {
+    const base = { medicine: "X", visit_id: null, pharmacy_name: null, location_name: null, address: null, code: null, code_expires_at: null, locked: false, expired: false, stock_confirmed_at: null, other_pharmacy_needed: false, controlled: false };
+    const items = [
+      { ...base, prescription_id: A, state: "signed" },
+      { ...base, prescription_id: B, state: "signed" },
+      { ...base, prescription_id: C, state: "sent" },
+    ];
+    expect(alsoSendable(items, A).map((i) => i.prescription_id)).toEqual([B]);
+  });
+  it("groups the pharmacy's waiting prescriptions by the visit they were sent in, and leaves single ones out", () => {
+    const g = groupByVisit([
+      { prescription_id: A, visit_id: B, stock_confirmed_at: null },
+      { prescription_id: C, visit_id: B, stock_confirmed_at: "2026-10-16T10:00:00Z" },
+      { prescription_id: B, visit_id: null, stock_confirmed_at: null },
+    ]);
+    expect([...g.entries()]).toEqual([[B, [A, C]]]);
+  });
+  it("a visit refusal is a notice the patient can read", () => {
+    expect(noticeForError("visit_size_invalid")).toBe("visit_size_invalid");
+    expect(asNotice("chosen_many")).toBe("chosen_many");
   });
 });

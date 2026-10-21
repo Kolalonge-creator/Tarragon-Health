@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      barcodes: {
+        Row: {
+          brand: string | null
+          code: string
+          created_at: string
+          curated_by: string | null
+          food_id: string
+          id: string
+          nafdac_number: string | null
+          pack_size_g: number | null
+          product_name: string
+          source: string
+        }
+        Insert: {
+          brand?: string | null
+          code: string
+          created_at?: string
+          curated_by?: string | null
+          food_id: string
+          id?: string
+          nafdac_number?: string | null
+          pack_size_g?: number | null
+          product_name: string
+          source?: string
+        }
+        Update: {
+          brand?: string | null
+          code?: string
+          created_at?: string
+          curated_by?: string | null
+          food_id?: string
+          id?: string
+          nafdac_number?: string | null
+          pack_size_g?: number | null
+          product_name?: string
+          source?: string
+        }
+        Relationships: []
+      }
       activity_safety_config: {
         Row: {
           approved_at: string | null
@@ -362,6 +401,54 @@ export type Database = {
           status?: string
           value?: Json
           version?: number
+        }
+        Relationships: []
+      }
+      favourite_meals: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          description: string
+          id: string
+          last_used_at: string | null
+          meal_type: Database["public"]["Enums"]["meal_type"] | null
+          name: string
+          organisation_id: string
+          patient_id: string
+          recorded_by: string | null
+          source: Database["public"]["Enums"]["record_source"]
+          updated_at: string
+          use_count: number
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          last_used_at?: string | null
+          meal_type?: Database["public"]["Enums"]["meal_type"] | null
+          name: string
+          organisation_id: string
+          patient_id: string
+          recorded_by?: string | null
+          source?: Database["public"]["Enums"]["record_source"]
+          updated_at?: string
+          use_count?: number
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          last_used_at?: string | null
+          meal_type?: Database["public"]["Enums"]["meal_type"] | null
+          name?: string
+          organisation_id?: string
+          patient_id?: string
+          recorded_by?: string | null
+          source?: Database["public"]["Enums"]["record_source"]
+          updated_at?: string
+          use_count?: number
         }
         Relationships: []
       }
@@ -724,6 +811,129 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      nigerian_food_portion_sizes: {
+        Row: {
+          created_at: string
+          food_id: string
+          grams: number
+          grams_basis: string
+          id: string
+          photo_alt: string | null
+          photo_path: string | null
+          size: string
+          unit: Database["public"]["Enums"]["food_portion_unit"]
+        }
+        Insert: {
+          created_at?: string
+          food_id: string
+          grams: number
+          grams_basis?: string
+          id?: string
+          photo_alt?: string | null
+          photo_path?: string | null
+          size: string
+          unit: Database["public"]["Enums"]["food_portion_unit"]
+        }
+        Update: {
+          created_at?: string
+          food_id?: string
+          grams?: number
+          grams_basis?: string
+          id?: string
+          photo_alt?: string | null
+          photo_path?: string | null
+          size?: string
+          unit?: Database["public"]["Enums"]["food_portion_unit"]
+        }
+        Relationships: []
+      }
+      nutrition_preferences: {
+        Row: {
+          meal_summary_mode: string
+          organisation_id: string
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          meal_summary_mode?: string
+          organisation_id: string
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          meal_summary_mode?: string
+          organisation_id?: string
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      nutrition_target_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      nutrition_target_holds: {
+        Row: {
+          cleared_at: string | null
+          cleared_by: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          reason: string
+          set_at: string
+          set_by: string
+        }
+        Insert: {
+          cleared_at?: string | null
+          cleared_by?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          reason: string
+          set_at?: string
+          set_by: string
+        }
+        Update: {
+          cleared_at?: string | null
+          cleared_by?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          reason?: string
+          set_at?: string
+          set_by?: string
+        }
+        Relationships: []
       }
       patient_lock_screen_pass: {
         Row: {
@@ -1451,6 +1661,8 @@ export type Database = {
           recipient_code: string | null
           state: string
           updated_at: string
+          withholding_kobo: number
+          withholding_note: string | null
         }
         Insert: {
           amount_kobo: number
@@ -1471,6 +1683,8 @@ export type Database = {
           recipient_code?: string | null
           state?: string
           updated_at?: string
+          withholding_kobo?: number
+          withholding_note?: string | null
         }
         Update: {
           amount_kobo?: number
@@ -1491,6 +1705,8 @@ export type Database = {
           recipient_code?: string | null
           state?: string
           updated_at?: string
+          withholding_kobo?: number
+          withholding_note?: string | null
         }
         Relationships: [
           {
@@ -1919,6 +2135,135 @@ export type Database = {
           is_active?: boolean
           rules?: Json
           version?: number
+        }
+        Relationships: []
+      }
+      earnings_disputes: {
+        Row: {
+          adjustment_ledger_id: string | null
+          clinician_id: string
+          id: string
+          is_test: boolean
+          ledger_id: string
+          note: string | null
+          opened_at: string
+          organisation_id: string
+          reason_code: string
+          request_id: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          response_due_at: string
+          state: string
+        }
+        Insert: {
+          adjustment_ledger_id?: string | null
+          clinician_id: string
+          id?: string
+          is_test?: boolean
+          ledger_id: string
+          note?: string | null
+          opened_at?: string
+          organisation_id: string
+          reason_code: string
+          request_id: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          response_due_at: string
+          state?: string
+        }
+        Update: {
+          adjustment_ledger_id?: string | null
+          clinician_id?: string
+          id?: string
+          is_test?: boolean
+          ledger_id?: string
+          note?: string | null
+          opened_at?: string
+          organisation_id?: string
+          reason_code?: string
+          request_id?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          response_due_at?: string
+          state?: string
+        }
+        Relationships: []
+      }
+      earnings_disputes_config: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          rules: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          rules: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          rules?: Json
+          version?: number
+        }
+        Relationships: []
+      }
+      earnings_topup_holds: {
+        Row: {
+          clinician_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          evidence: Json
+          id: string
+          is_test: boolean
+          organisation_id: string
+          reason: string
+          run_end: string
+          run_start: string
+          state: string
+        }
+        Insert: {
+          clinician_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          evidence: Json
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          reason: string
+          run_end: string
+          run_start: string
+          state?: string
+        }
+        Update: {
+          clinician_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          evidence?: Json
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          reason?: string
+          run_end?: string
+          run_start?: string
+          state?: string
         }
         Relationships: []
       }
@@ -27265,11 +27610,16 @@ export type Database = {
           data_quality: string
           fat_g_100g: number
           fibre_g_100g: number
+          high_salt: boolean
+          high_sugar: boolean
           id: string
+          is_drink: boolean
           name: string
+          needs_dietitian_review: boolean
           protein_g_100g: number
           sodium_mg_100g: number
           source_note: string | null
+          sugar_g_100g: number | null
           updated_at: string
         }
         Insert: {
@@ -27284,10 +27634,13 @@ export type Database = {
           fat_g_100g: number
           fibre_g_100g: number
           id?: string
+          is_drink?: boolean
           name: string
+          needs_dietitian_review?: boolean
           protein_g_100g: number
           sodium_mg_100g: number
           source_note?: string | null
+          sugar_g_100g?: number | null
           updated_at?: string
         }
         Update: {
@@ -27302,10 +27655,13 @@ export type Database = {
           fat_g_100g?: number
           fibre_g_100g?: number
           id?: string
+          is_drink?: boolean
           name?: string
+          needs_dietitian_review?: boolean
           protein_g_100g?: number
           sodium_mg_100g?: number
           source_note?: string | null
+          sugar_g_100g?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -27522,6 +27878,7 @@ export type Database = {
         Row: {
           account_id: string
           danger_at_wipe: number | null
+          device_label: string | null
           device_id: string
           last_checkin_at: string
           lease_expires_at: string
@@ -27532,6 +27889,7 @@ export type Database = {
           revoke_reason: string | null
           revoked_at: string | null
           revoked_by: string | null
+          shared_phone: boolean
           unsent_at_wipe: number | null
           wipe_confirmed_at: string | null
           wipe_reason: string | null
@@ -27539,6 +27897,7 @@ export type Database = {
         Insert: {
           account_id: string
           danger_at_wipe?: number | null
+          device_label?: string | null
           device_id: string
           last_checkin_at?: string
           lease_expires_at: string
@@ -27549,6 +27908,7 @@ export type Database = {
           revoke_reason?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
+          shared_phone?: boolean
           unsent_at_wipe?: number | null
           wipe_confirmed_at?: string | null
           wipe_reason?: string | null
@@ -27556,6 +27916,7 @@ export type Database = {
         Update: {
           account_id?: string
           danger_at_wipe?: number | null
+          device_label?: string | null
           device_id?: string
           last_checkin_at?: string
           lease_expires_at?: string
@@ -27566,6 +27927,7 @@ export type Database = {
           revoke_reason?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
+          shared_phone?: boolean
           unsent_at_wipe?: number | null
           wipe_confirmed_at?: string | null
           wipe_reason?: string | null
@@ -27834,6 +28196,8 @@ export type Database = {
         Row: {
           ai_estimate: Json | null
           ai_status: string
+          client_id: string | null
+          client_recorded_at: string | null
           confirmed_carbs_g: number | null
           confirmed_sodium_mg: number | null
           created_at: string
@@ -27847,11 +28211,17 @@ export type Database = {
           patient_confirmed: boolean
           patient_id: string
           photo_path: string | null
+          received_at: string | null
+          recorded_by: string | null
+          source: Database["public"]["Enums"]["record_source"]
+          time_basis: string | null
           updated_at: string
         }
         Insert: {
           ai_estimate?: Json | null
           ai_status?: string
+          client_id?: string | null
+          client_recorded_at?: string | null
           confirmed_carbs_g?: number | null
           confirmed_sodium_mg?: number | null
           created_at?: string
@@ -27865,11 +28235,17 @@ export type Database = {
           patient_confirmed?: boolean
           patient_id: string
           photo_path?: string | null
+          received_at?: string | null
+          recorded_by?: string | null
+          source?: Database["public"]["Enums"]["record_source"]
+          time_basis?: string | null
           updated_at?: string
         }
         Update: {
           ai_estimate?: Json | null
           ai_status?: string
+          client_id?: string | null
+          client_recorded_at?: string | null
           confirmed_carbs_g?: number | null
           confirmed_sodium_mg?: number | null
           created_at?: string
@@ -27883,6 +28259,10 @@ export type Database = {
           patient_confirmed?: boolean
           patient_id?: string
           photo_path?: string | null
+          received_at?: string | null
+          recorded_by?: string | null
+          source?: Database["public"]["Enums"]["record_source"]
+          time_basis?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -43758,6 +44138,144 @@ export type Database = {
         }
         Relationships: []
       }
+      cuff_check_rules: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      cuff_check_pairs: {
+        Row: {
+          clinic_diastolic: number
+          clinic_reading_id: string | null
+          clinic_systolic: number
+          config_version: number | null
+          created_at: string
+          d_diastolic: number
+          d_systolic: number
+          device_label: string | null
+          id: string
+          is_test: boolean
+          measured_at: string
+          organisation_id: string
+          own_diastolic: number
+          own_readings: number
+          own_systolic: number
+          patient_id: string
+          recorded_by: string | null
+          source: string
+        }
+        Insert: {
+          clinic_diastolic: number
+          clinic_reading_id?: string | null
+          clinic_systolic: number
+          config_version?: number | null
+          created_at?: string
+          d_diastolic: number
+          d_systolic: number
+          device_label?: string | null
+          id?: string
+          is_test?: boolean
+          measured_at: string
+          organisation_id: string
+          own_diastolic: number
+          own_readings?: number
+          own_systolic: number
+          patient_id: string
+          recorded_by?: string | null
+          source: string
+        }
+        Update: {
+          clinic_diastolic?: number
+          clinic_reading_id?: string | null
+          clinic_systolic?: number
+          config_version?: number | null
+          created_at?: string
+          d_diastolic?: number
+          d_systolic?: number
+          device_label?: string | null
+          id?: string
+          is_test?: boolean
+          measured_at?: string
+          organisation_id?: string
+          own_diastolic?: number
+          own_readings?: number
+          own_systolic?: number
+          patient_id?: string
+          recorded_by?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
+      cuff_check_flags: {
+        Row: {
+          config_version: number
+          created_at: string
+          id: string
+          is_test: boolean
+          kind: string
+          latest_pair_id: string
+          matching: number
+          organisation_id: string
+          pairs_used: number
+          patient_id: string
+          task_id: string | null
+        }
+        Insert: {
+          config_version: number
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          kind: string
+          latest_pair_id: string
+          matching: number
+          organisation_id: string
+          pairs_used: number
+          patient_id: string
+          task_id?: string | null
+        }
+        Update: {
+          config_version?: number
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          kind?: string
+          latest_pair_id?: string
+          matching?: number
+          organisation_id?: string
+          pairs_used?: number
+          patient_id?: string
+          task_id?: string | null
+        }
+        Relationships: []
+      }
       triage_protocols: {
         Row: {
           approved_at: string | null
@@ -46802,6 +47320,38 @@ export type Database = {
           },
         ]
       }
+      refund_status_events: {
+        Row: {
+          created_at: string
+          id: string
+          organisation_id: string
+          refund_id: string
+          step: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organisation_id: string
+          refund_id: string
+          step: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          refund_id?: string
+          step?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "refund_status_events_refund_id_fkey"
+            columns: ["refund_id"]
+            isOneToOne: false
+            referencedRelation: "refunds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       refunds: {
         Row: {
           amount_kobo: number
@@ -46820,6 +47370,16 @@ export type Database = {
           requested_by: string | null
           state: string
           updated_at: string
+          attempts: number
+          completed_at: string | null
+          earnings_reversed_at: string | null
+          gl_released_at: string | null
+          last_error_code: string | null
+          processing_started_at: string | null
+          provider_checked_at: string | null
+          provider_status: string | null
+          payment_id: string | null
+          refund_group: string | null
         }
         Insert: {
           amount_kobo: number
@@ -46838,6 +47398,16 @@ export type Database = {
           requested_by?: string | null
           state?: string
           updated_at?: string
+          attempts?: number
+          completed_at?: string | null
+          earnings_reversed_at?: string | null
+          gl_released_at?: string | null
+          last_error_code?: string | null
+          processing_started_at?: string | null
+          provider_checked_at?: string | null
+          provider_status?: string | null
+          payment_id?: string | null
+          refund_group?: string | null
         }
         Update: {
           amount_kobo?: number
@@ -46856,6 +47426,16 @@ export type Database = {
           requested_by?: string | null
           state?: string
           updated_at?: string
+          attempts?: number
+          completed_at?: string | null
+          earnings_reversed_at?: string | null
+          gl_released_at?: string | null
+          last_error_code?: string | null
+          processing_started_at?: string | null
+          provider_checked_at?: string | null
+          provider_status?: string | null
+          payment_id?: string | null
+          refund_group?: string | null
         }
         Relationships: [
           {
@@ -47885,6 +48465,23 @@ export type Database = {
           },
         ]
       }
+      food_logs: {
+        Row: {
+          energy_basis: string | null
+          energy_kcal: number | null
+          client_id: string | null
+          id: string | null
+          items: Json | null
+          logged_at: string | null
+          meal: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          photo_document_id: string | null
+          photo_path: string | null
+          source: Database["public"]["Enums"]["record_source"] | null
+        }
+        Relationships: []
+      }
       hypertension_quality_metrics: {
         Row: {
           at_target: number | null
@@ -48498,12 +49095,15 @@ export type Database = {
       }
     }
     Functions: {
+      lookup_barcode: { Args: { p_code: string }; Returns: Json }
       activity_gate: { Args: Record<PropertyKey, never>; Returns: Json };
       activity_week_progress: { Args: { p_week_start?: string }; Returns: Json };
       my_workout_plans: { Args: Record<PropertyKey, never>; Returns: Json };
       sign_activity_safety_config: { Args: { p_id: string }; Returns: string };
       medication_refill_pharmacy: { Args: { p_medication: string }; Returns: { partner_id: string; partner_name: string | null; location_name: string | null; address: string | null }[] };
       attest_pharmacy_nafdac_source: { Args: { p_partner: string; p_note: string }; Returns: Json };
+      my_nutrition_target_gate: { Args: Record<PropertyKey, never>; Returns: Json }
+      set_nutrition_target_hold: { Args: { p_hold: boolean; p_patient: string; p_reason?: string }; Returns: string }
       sign_interaction_dataset: { Args: { p_version: number; p_content_hash: string; p_note: string }; Returns: Json };
       care_team_side_effect_notes: {
         Args: { p_patient: string; p_reason: string };
@@ -48527,6 +49127,7 @@ export type Database = {
       reject_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
       replace_my_result_document: { Args: { p_document_id: string; p_file_path: string; p_original_filename: string; p_mime_type: string; p_file_size_bytes: number; p_note?: string }; Returns: string }
       my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }
+      sign_nutrition_target_config: { Args: { p_id: string }; Returns: string }
       withdraw_patient_allergy_correction: { Args: { p_request_id: string }; Returns: Json }
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
@@ -48939,6 +49540,9 @@ export type Database = {
       sign_home_bp_programme: { Args: { p_id: string }; Returns: string };
       complete_home_bp_check: { Args: { p_window_start: string }; Returns: Json };
       record_clinic_bp_reading: { Args: { p_diastolic: number; p_measured_at: string; p_note?: string; p_patient: string; p_systolic: number }; Returns: string };
+      sign_cuff_check_rules: { Args: { p_id: string }; Returns: string };
+      record_cuff_check_pair: { Args: { p_clinic_diastolic: number; p_clinic_systolic: number; p_device_label?: string; p_measured_at: string; p_own_diastolic: number; p_own_systolic: number; p_patient: string }; Returns: string };
+      cuff_visit_prompt_open: { Args: Record<PropertyKey, never>; Returns: boolean };
       sign_my_health_config: { Args: { p_id: string }; Returns: string };
       sign_observation_limits: { Args: { p_id: string }; Returns: string };
       log_inhaler_use: { Args: { p_puffs: number; p_reason: string; p_client_recorded_at?: string; p_client_log_id?: string; p_beneficiary?: string }; Returns: string };
@@ -49144,6 +49748,76 @@ export type Database = {
           state: string
         }[]
       }
+      decide_topup_hold: {
+        Args: { p_decision: string; p_id: string; p_note: string }
+        Returns: undefined
+      }
+      list_earnings_disputes: {
+        Args: { p_include_test?: boolean; p_state?: string }
+        Returns: {
+          adjustment_ledger_id: string
+          clinician_id: string
+          clinician_name: string
+          id: string
+          ledger_id: string
+          line_amount_kobo: number
+          line_earned_at: string
+          line_kind: string
+          note: string
+          opened_at: string
+          overdue: boolean
+          reason_code: string
+          resolution_note: string
+          resolved_at: string
+          response_due_at: string
+          state: string
+          task_type: string
+        }[]
+      }
+      list_topup_holds: {
+        Args: { p_include_test?: boolean; p_state?: string }
+        Returns: {
+          clinician_id: string
+          clinician_name: string
+          decided_at: string
+          decision_note: string
+          evidence: Json
+          id: string
+          reason: string
+          run_end: string
+          run_start: string
+          state: string
+        }[]
+      }
+      my_earnings_lines: {
+        Args: { p_from?: string; p_limit?: number; p_to?: string }
+        Returns: {
+          amount_kobo: number
+          calculation: Json
+          dispute_due_at: string
+          dispute_id: string
+          dispute_state: string
+          earned_at: string
+          id: string
+          kind: string
+          pay_status: string
+          payout_id: string
+        }[]
+      }
+      my_payout_statement: { Args: { p_payout: string }; Returns: Json }
+      open_earnings_dispute: {
+        Args: { p_ledger: string; p_note?: string; p_reason_code: string; p_request_id?: string }
+        Returns: string
+      }
+      resolve_earnings_dispute: {
+        Args: { p_amount_kobo?: number; p_id: string; p_note?: string; p_resolution: string }
+        Returns: Json
+      }
+      set_payout_withholding: {
+        Args: { p_id: string; p_note?: string; p_withholding_kobo: number }
+        Returns: undefined
+      }
+      withdraw_earnings_dispute: { Args: { p_id: string }; Returns: undefined }
       my_earnings_summary: { Args: { p_from?: string; p_to?: string }; Returns: Json }
       my_fee_schedule: { Args: Record<PropertyKey, never>; Returns: Json }
       my_payout_overview: { Args: never; Returns: Json }
@@ -49825,6 +50499,10 @@ export type Database = {
         }[]
       }
       request_offline_device_wipe: { Args: { p_device: string; p_reason?: string }; Returns: boolean }
+      update_my_offline_device: {
+        Args: { p_clear_label?: boolean; p_device: string; p_label?: string; p_shared?: boolean }
+        Returns: boolean
+      }
       read_medication_dose_log_audited: {
         Args: { p_patient: string; p_reason: string }
         Returns: Json
@@ -53973,6 +54651,10 @@ export type Database = {
         Args: { p_id: string }
         Returns: string
       }
+      sign_serology_rule_threshold: {
+        Args: { p_id: string }
+        Returns: string
+      }
       sign_health_report: {
         Args: { p_id: string; p_summary: string; p_summary_source: string }
         Returns: string
@@ -54404,6 +55086,73 @@ export type Database = {
         Args: { p_patient_id: string }
         Returns: Json
       }
+      admin_refund_ops: { Args: never; Returns: Json }
+      // S25b: pay the annual Membership in parts
+      create_instalment_order: { Args: { p_client_key?: string; p_code: string; p_parts?: number }; Returns: Json }
+      prepare_instalment_payment: { Args: { p_instalment: string }; Returns: Json }
+      my_instalment_plans: { Args: never; Returns: Json }
+      admin_instalment_overview: { Args: never; Returns: Json }
+      instalment_policy_public: { Args: never; Returns: Json }
+      admin_settle_processing_refund: {
+        Args: { p_paid: boolean; p_reference?: string; p_refund: string }
+        Returns: Json
+      }
+      claim_refund_for_provider: { Args: { p_refund: string }; Returns: Json }
+      entitlement_policy_public: { Args: never; Returns: Json }
+      link_order_encounter: { Args: { p_encounter: string; p_order: string }; Returns: boolean }
+      record_refund_reconcile: {
+        Args: { p_provider_amount_kobo?: number; p_provider_status: string; p_refund: string }
+        Returns: string
+      }
+      money_reconciliation_list: {
+        Args: {
+          p_grace_minutes: number
+          p_include_test: boolean
+          p_kind: string | null
+          p_limit: number
+          p_offset: number
+          p_unsent_minutes: number
+        }
+        Returns: {
+          delta_kobo: number | null
+          detail: string
+          kind: string
+          organisation_id: string | null
+          owner_hint: string
+          related_id: string | null
+          related_type: string | null
+          severity: string
+          since: string | null
+          subject_id: string
+          subject_type: string
+          total_count: number
+        }[]
+      }
+      money_reconciliation_summary: {
+        Args: { p_grace_minutes: number; p_include_test: boolean; p_unsent_minutes: number }
+        Returns: {
+          delta_abs_kobo: number
+          kind: string
+          n: number
+          oldest: string | null
+          severity: string
+        }[]
+      }
+      refunds_needing_reconcile: {
+        Args: { p_limit?: number }
+        Returns: {
+          amount_kobo: number
+          charge_reference: string
+          id: string
+          provider_reference: string
+          state: string
+        }[]
+      }
+      retry_failed_refund: { Args: { p_refund: string }; Returns: Json }
+      service_flag_refund_delays: { Args: never; Returns: number }
+      service_refund_incident: { Args: { p_refund: string; p_what: string }; Returns: undefined }
+      service_run_entitlement_reminders: { Args: never; Returns: number }
+      service_run_refund_catch_up: { Args: never; Returns: number }
       consume_entitlement: { Args: { p_entitlement: string }; Returns: Json }
       decide_order_refund: {
         Args: { p_approved: boolean; p_note?: string; p_refund: string }
@@ -55461,7 +56210,16 @@ export type Database = {
         | "MedicationRequest"
         | "Immunization"
       food_cost_tier: "budget" | "mid" | "premium"
-      food_portion_unit: "plate" | "cup" | "spoon" | "handful" | "piece" | "serving"
+      food_portion_unit:
+        | "plate"
+        | "cup"
+        | "spoon"
+        | "handful"
+        | "piece"
+        | "serving"
+        | "wrap"
+        | "ladle"
+        | "bowl"
       foot_risk_class: "low" | "increased" | "high" | "active"
       foot_sensation: "normal" | "reduced" | "absent"
       fulfilment_mode: "partner" | "self_arranged"
@@ -55918,6 +56676,7 @@ export type Database = {
         | "soup"
         | "protein"
         | "snack_drink"
+        | "fruit_veg"
       notification_business_priority:
         | "critical"
         | "urgent"
@@ -57845,6 +58604,9 @@ export const Constants = {
         "handful",
         "piece",
         "serving",
+        "wrap",
+        "ladle",
+        "bowl",
       ],
       foot_risk_class: ["low", "increased", "high", "active"],
       foot_sensation: ["normal", "reduced", "absent"],
@@ -58349,6 +59111,7 @@ export const Constants = {
         "soup",
         "protein",
         "snack_drink",
+        "fruit_veg",
       ],
       notification_business_priority: [
         "critical",

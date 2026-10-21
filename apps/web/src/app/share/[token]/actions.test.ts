@@ -2,6 +2,7 @@ const openShare = jest.fn();
 jest.mock("@/lib/my-health/open-share", () => ({
   openShare: (...a: unknown[]) => openShare(...a),
   isWellFormedPin: (p: string) => /^[0-9]{4,12}$/.test(p),
+  clientKeyFromHeaders: (h: { get(n: string): string | null | undefined }) => h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || null,
 }));
 jest.mock("next/headers", () => ({
   headers: async () => new Map([["x-forwarded-for", "203.0.113.7, 10.0.0.1"]]),

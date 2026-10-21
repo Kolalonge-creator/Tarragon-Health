@@ -1,9 +1,40 @@
-import type { RenderModel, Block } from "@/lib/health-report/render-model";
+import type { RenderModel, Block, ChartGeo, GaugeGeo } from "@/lib/health-report/render-model";
 
 /**
  * Text-first rendering of a signed yearly report (S46, principles 3, 11). No images, no scripts, no colour-only meaning: every state is a word plus a symbol,
  * and the `print:` styles give plain black on white for an A4 sheet. The same RenderModel feeds the PDF.
  */
+/**
+ * Greyscale-safe graphics (S46d): black line and markers, a light grey band with a dashed outline, no colour carries any meaning. Every chart and bar is
+ * followed by a sentence that says the same thing in words, and the data is also listed as text in the same section.
+ */
+function Chart({ geo, alt }: { geo: ChartGeo; alt: string }) {
+  return (
+    <svg viewBox={`0 0 ${geo.width} ${geo.height}`} role="img" aria-label={alt} className="h-auto w-full max-w-md text-black dark:text-white print:text-black">
+      <title>{alt}</title>
+      {geo.band ? <rect x={0} y={geo.band.y} width={geo.width} height={geo.band.height} fill="currentColor" fillOpacity={0.12} stroke="currentColor" strokeDasharray="4 3" strokeWidth={0.75} /> : null}
+      <path d={geo.path} fill="none" stroke="currentColor" strokeWidth={2} />
+      {geo.dots.map((d, i) => (
+        <circle key={i} cx={d.x} cy={d.y} r={i === geo.dots.length - 1 ? 5 : 3} fill="currentColor" />
+      ))}
+    </svg>
+  );
+}
+
+function Gauge({ g }: { g: GaugeGeo }) {
+  return (
+    <div className="mt-1 max-w-xs text-black dark:text-white print:text-black">
+      <svg viewBox="0 0 100 12" role="img" aria-label={g.caption} className="h-3 w-full">
+        <title>{g.caption}</title>
+        <rect x={0} y={4} width={100} height={4} fill="none" stroke="currentColor" strokeWidth={0.5} />
+        <rect x={g.bandFrom} y={4} width={Math.max(0, g.bandTo - g.bandFrom)} height={4} fill="currentColor" fillOpacity={0.25} />
+        <path d={`M${g.marker} 0 L${g.marker + 2} 6 L${g.marker} 12 L${g.marker - 2} 6 Z`} fill="currentColor" />
+      </svg>
+      <p className="text-xs opacity-80">{g.caption}</p>
+    </div>
+  );
+}
+
 function BlockView({ b }: { b: Block }) {
   switch (b.kind) {
     case "p":
@@ -18,6 +49,18 @@ function BlockView({ b }: { b: Block }) {
           <p><span className="font-medium">Who helps: </span>{b.who}. <span className="font-medium">When: </span>{b.when}.</p>
         </div>
       );
+    case "chart":
+      return (
+        <figure className="print:break-inside-avoid">
+          <Chart geo={b.geo} alt={b.alt} />
+          <figcaption className="mt-1 space-y-0.5 text-xs">
+            <p className="font-medium">{b.caption}</p>
+            {b.notes.map((n) => (
+              <p key={n} className="opacity-80">{n}</p>
+            ))}
+          </figcaption>
+        </figure>
+      );
     case "item":
       return (
         <div className="text-sm print:break-inside-avoid">
@@ -29,6 +72,7 @@ function BlockView({ b }: { b: Block }) {
           {b.notes.map((n) => (
             <p key={n} className="text-xs opacity-80">{n}</p>
           ))}
+          {b.gauge ? <Gauge g={b.gauge} /> : null}
         </div>
       );
   }
