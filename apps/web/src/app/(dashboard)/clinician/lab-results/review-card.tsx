@@ -9,6 +9,8 @@ import {
   releaseResult,
   withholdResult,
 } from "@/lib/lab-results/structured-actions";
+import { openReviewContext } from "@/lib/lab-results/lifecycle-actions";
+import { analyteLabel, formatWaiting, type HoldClockRow, type ReviewContext } from "@/lib/lab-results/lifecycle";
 import { RangeCell } from "@/components/lab/range-cell";
 import { ATTEMPT_OUTCOME_LABEL, DISCLOSURE_ATTEMPT_OUTCOMES, SCREENING_ANALYTES, type ReviewResult } from "@/lib/lab-results/structured";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,8 +27,10 @@ const FLAG_VARIANT = { normal: "green", low: "amber", high: "amber", critical: "
 export type ReviewSummary = { id: string; state: string; reason: string | null; receivedAt: string };
 
 /** A queued result, closed. Opening it is the audited read; nothing about the patient is shown until then. */
-export function ReviewCard({ summary }: { summary: ReviewSummary }) {
+export function ReviewCard({ summary, clock }: { summary: ReviewSummary; clock?: HoldClockRow | null }) {
   const [result, setResult] = useState<ReviewResult | null>(null);
+  const [context, setContext] = useState<ReviewContext | null>(null);
+  const [contextError, setContextError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const disclosure = summary.state === "clinician_disclosure_required";
@@ -36,11 +40,25 @@ export function ReviewCard({ summary }: { summary: ReviewSummary }) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle className="text-base">Received {new Date(summary.receivedAt).toLocaleString("en-NG", { timeZone: "Africa/Lagos" })}</CardTitle>
-        <Badge variant={disclosure || summary.reason === "critical" ? "red" : "amber"}>{label}</Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          {clock?.report_status === "preliminary" ? <Badge variant="amber">Preliminary</Badge> : null}
+          <Badge variant={disclosure || summary.reason === "critical" ? "red" : "amber"}>{label}</Badge>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {clock ? (
+          <p className={`text-sm ${clock.past_expected ? "font-medium text-red-700" : "text-charcoal-ink/70"}`}>
+            Waiting {formatWaiting(clock.minutes_waiting)}.{" "}
+            {clock.past_expected ? "Past the time the patient was told to expect. " : ""}
+            {clock.lead_escalated
+              ? "The clinical lead has been told."
+              : clock.lead_escalation_at
+                ? `The clinical lead is told at ${new Date(clock.lead_escalation_at).toLocaleString("en-NG", { timeZone: "Africa/Lagos" })}.`
+                : ""}
+          </p>
+        ) : null}
         {result ? (
-          <ReviewBody result={result} />
+          <ReviewBody result={result} context={context} contextError={contextError} />
         ) : (
           <>
             <Button
@@ -49,9 +67,14 @@ export function ReviewCard({ summary }: { summary: ReviewSummary }) {
               disabled={pending}
               onClick={() =>
                 start(async () => {
-                  const r = await openLabResult(summary.id);
+                  // two audited reads of the same result, issued together so the screen has the status and the flags with the values
+                  const [r, c] = await Promise.all([openLabResult(summary.id), openReviewContext(summary.id)]);
                   if (r.result) setResult(r.result);
                   setError(r.error ?? null);
+                  if (r.result) {
+                    setContext(c.context ?? null);
+                    setContextError(c.error ?? null);
+                  }
                 })
               }
             >
@@ -65,13 +88,47 @@ export function ReviewCard({ summary }: { summary: ReviewSummary }) {
   );
 }
 
-function ReviewBody({ result }: { result: ReviewResult }) {
+function ContextBlock({ context, error }: { context: ReviewContext | null; error: string | null }) {
+  if (error) return <p role="alert" className="text-sm text-red-700">The status and the change since the last value could not be loaded: {error}</p>;
+  if (!context) return null;
+  return (
+    <div className="space-y-2 text-sm">
+      {context.report_status === "preliminary" ? (
+        <p className="rounded-md bg-amber-50 p-3 text-amber-900">
+          This is a preliminary result. It cannot be released. Wait for the lab to send the final one; you can hold it back if it is wrong.
+        </p>
+      ) : null}
+      {context.corrects_preliminary ? <p className="text-charcoal-ink/70">This is the final result for an earlier preliminary one.</p> : null}
+      {context.critical_call ? (
+        <p className={context.critical_call.overdue ? "font-medium text-red-700" : "text-charcoal-ink/70"}>
+          Critical value call: {context.critical_call.closed_at ? "closed" : context.critical_call.acknowledged_at ? "acknowledged" : context.critical_call.overdue ? "overdue, not acknowledged" : "waiting to be acknowledged"}.
+        </p>
+      ) : null}
+      {context.delta_flags.length > 0 ? (
+        <div className="rounded-md border border-amber-300 p-3">
+          <p className="font-medium">Changed a lot since the last released value (a flag for you, not a rule)</p>
+          <ul className="mt-1 list-disc pl-5">
+            {context.delta_flags.map((d) => (
+              <li key={d.analyte_code}>
+                {analyteLabel(d.analyte_code)}: {d.previous} before, {d.current} now
+                {d.percent_change !== null ? ` (${d.percent_change}% change, flagged from ${d.threshold_percent}%)` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ReviewBody({ result, context, contextError }: { result: ReviewResult; context: ReviewContext | null; contextError: string | null }) {
   const disclosure = result.release_state === "clinician_disclosure_required";
   const [fileError, setFileError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   return (
     <div className="space-y-4">
+        <ContextBlock context={context} error={contextError} />
 
         {result.items.length > 0 ? (
           <table className="w-full text-sm">
@@ -132,7 +189,7 @@ function ReviewBody({ result }: { result: ReviewResult }) {
             <AttemptForm id={result.lab_result_id} />
             <DisclosureForm id={result.lab_result_id} />
           </>
-        ) : (
+        ) : context?.report_status === "preliminary" ? null : (
           <ReleaseForm id={result.lab_result_id} critical={result.release_reason === "critical"} />
         )}
         <WithholdForm id={result.lab_result_id} />

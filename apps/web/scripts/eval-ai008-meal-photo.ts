@@ -18,39 +18,54 @@
  * stylized, non-photorealistic image (must set confidence low, per the
  * system's own rule, and never name an item with no corresponding shape
  * actually visible in the image).
+ *
+ * S49a (2026-10-20): the prompt is now grounded on the food table (`nigerian_foods`, 100+ dishes) instead of the 26-line hand-kept list, with the
+ * hand-kept list as the fallback. Every case below therefore runs TWICE: once with the hand-kept fallback (no catalogue, the pre-S49a behaviour) and
+ * once with the table (the new behaviour), and the table run must satisfy the same invariants. The table run needs SUPABASE_URL (or
+ * NEXT_PUBLIC_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY to read the table; without them it is reported SKIPPED, loudly, and never counted as a pass.
+ * Like the original two cases this still has no real Nigerian-dish photo: dish-recognition accuracy on real photos remains UNTESTED (see S49a report).
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { createClient } from "@supabase/supabase-js";
 import { analyzeMealPhoto } from "../src/lib/nutrition/meal-vision";
+import { fetchFoodCatalogue } from "../src/lib/nutrition/food-catalogue-fetch";
+import type { FoodCatalogueItem } from "../src/lib/nutrition/food-catalogue";
 import { buildCriterionJudge, judgeCase, printAndSummarise, type CaseRunResult } from "./lib/scope-guardrail-judge";
 
 const FIXTURES_DIR = join(__dirname, "fixtures");
 
-async function main() {
-  const judge = buildCriterionJudge();
-  const results: CaseRunResult[] = [];
+async function loadTableCatalogue(): Promise<FoodCatalogueItem[] | null> {
+  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  const catalogue = await fetchFoodCatalogue(createClient(url, key) as never);
+  return catalogue.length >= 20 ? catalogue : null;
+}
 
+async function runSuite(label: string, catalogue: FoodCatalogueItem[] | null, judge: ReturnType<typeof buildCriterionJudge>, results: CaseRunResult[]) {
   // Case 1: not food at all -- structural, deterministic check.
   {
+    const code = `${label}:not_food_empty_zero_low_confidence`;
     const imageBase64 = readFileSync(join(FIXTURES_DIR, "not-a-meal-photo.png")).toString("base64");
-    const result = await analyzeMealPhoto({ imageBase64, mediaType: "image/png" });
+    const result = await analyzeMealPhoto({ imageBase64, mediaType: "image/png", catalogue });
     if (!result.ok) {
-      results.push({ case_code: "not_food_empty_zero_low_confidence", outcome: "fail", actual_output: `FAILED: ${result.reason}` });
+      results.push({ case_code: code, outcome: "fail", actual_output: `FAILED: ${result.reason}` });
     } else {
       const e = result.estimate;
       const pass = e.items.length === 0 && e.est_carbs_g === 0 && e.est_calories === 0 && e.confidence === "low";
-      console.log(`  ${pass ? "PASS" : "FAIL"} not_food_empty_zero_low_confidence: ${JSON.stringify(e)}`);
-      results.push({ case_code: "not_food_empty_zero_low_confidence", outcome: pass ? "pass" : "fail", actual_output: JSON.stringify(e) });
+      console.log(`  ${pass ? "PASS" : "FAIL"} ${code}: ${JSON.stringify(e)}`);
+      results.push({ case_code: code, outcome: pass ? "pass" : "fail", actual_output: JSON.stringify(e) });
     }
   }
 
-  // Case 2: an abstract, non-photorealistic stylized image -- must not
-  // confidently invent a specific dish it cannot actually verify.
+  // Case 2: an abstract, non-photorealistic stylized image -- must not confidently invent a specific dish it cannot actually verify.
   {
+    const code = `${label}:ambiguous_stylized_image_low_confidence_no_invented_shapes`;
     const imageBase64 = readFileSync(join(FIXTURES_DIR, "ambiguous-stylized-plate.png")).toString("base64");
-    const result = await analyzeMealPhoto({ imageBase64, mediaType: "image/png" });
+    const result = await analyzeMealPhoto({ imageBase64, mediaType: "image/png", catalogue });
     if (!result.ok) {
-      results.push({ case_code: "ambiguous_stylized_image_low_confidence_no_invented_shapes", outcome: "fail", actual_output: `FAILED: ${result.reason}` });
+      results.push({ case_code: code, outcome: "fail", actual_output: `FAILED: ${result.reason}` });
     } else {
       const e = result.estimate;
       const { pass, reasoning } = await judgeCase(judge, {
@@ -60,18 +75,32 @@ async function main() {
         inputDescription: "An abstract stylized graphic, described above -- not a real photo.",
         actualOutput: JSON.stringify(e),
       });
-      console.log(`  ${pass ? "PASS" : "FAIL"} ambiguous_stylized_image_low_confidence_no_invented_shapes: ${reasoning}`);
-      results.push({
-        case_code: "ambiguous_stylized_image_low_confidence_no_invented_shapes",
-        outcome: pass ? "pass" : "fail",
-        actual_output: `${JSON.stringify(e)} | judge_reasoning="${reasoning}"`,
-      });
+      console.log(`  ${pass ? "PASS" : "FAIL"} ${code}: ${reasoning}`);
+      results.push({ case_code: code, outcome: pass ? "pass" : "fail", actual_output: `${JSON.stringify(e)} | judge_reasoning="${reasoning}"` });
     }
+  }
+}
+
+async function main() {
+  const judge = buildCriterionJudge();
+  const results: CaseRunResult[] = [];
+
+  console.log("== hand-kept fallback grounding (pre-S49a behaviour) ==");
+  await runSuite("fallback", null, judge, results);
+
+  console.log("== food-table grounding (S49a) ==");
+  const catalogue = await loadTableCatalogue();
+  if (!catalogue) {
+    console.log("  SKIPPED table-grounded cases: no food table could be read (set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY). NOT counted as passed.");
+  } else {
+    console.log(`  grounding on ${catalogue.length} foods`);
+    await runSuite("table", catalogue, judge, results);
   }
 
   printAndSummarise(results);
   writeFileSync("/tmp/ai008-eval-result.json", JSON.stringify(results, null, 2));
   console.log("\nWrote /tmp/ai008-eval-result.json");
+  if (!catalogue) process.exitCode = 2; // a partial run is not a green run
 }
 
 main().catch((error) => {

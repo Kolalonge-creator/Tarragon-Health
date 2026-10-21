@@ -12,6 +12,7 @@ export type SectionId =
   | "vitals"
   | "bpHistory"
   | "monthlySummary"
+  | "healthReport"
   | "programmes"
   | "medications"
   | "labs"
@@ -22,6 +23,8 @@ export type SectionId =
   | "myHealth"
   | "healthHistory"
   | "symptomJournal"
+  | "shareRecords"
+  | "myPhones"
   | "womensHealth"
   | "sexualHealth"
   | "wellbeing"
@@ -144,6 +147,12 @@ export const SECTIONS: SectionDef[] = [
     group: "Your health",
   },
   {
+    id: "shareRecords",
+    label: "Share records",
+    icon: "share-outline",
+    group: "Your health",
+  },
+  {
     id: "healthSummary",
     label: "Health summary",
     icon: "document-text-outline",
@@ -159,6 +168,12 @@ export const SECTIONS: SectionDef[] = [
     id: "monthlySummary",
     label: "Your month",
     icon: "calendar-outline",
+    group: "Your health",
+  },
+  {
+    id: "healthReport",
+    label: "Your yearly report",
+    icon: "document-text-outline",
     group: "Your health",
   },
   {
@@ -341,6 +356,7 @@ export const SECTIONS: SectionDef[] = [
     icon: "lock-closed-outline",
     group: "Your account",
   },
+  { id: "myPhones", label: "My phones", icon: "phone-portrait-outline", group: "Your account" },
   { id: "emergency", label: "Emergency card", icon: "alert-circle-outline", group: "Your account" },
   { id: "settings", label: "Settings", icon: "settings-outline", group: "Your account" },
 ];

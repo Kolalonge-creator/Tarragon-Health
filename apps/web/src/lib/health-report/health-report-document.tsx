@@ -1,5 +1,5 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import type { RenderModel, Block } from "./render-model";
+import { Document, Page, Text, View, StyleSheet, Svg, Path, Rect, Circle, Polygon } from "@react-pdf/renderer";
+import type { RenderModel, Block, GaugeGeo } from "./render-model";
 
 /**
  * Printable A4, black and white only (S46, principle 11): no logo image, no colour, no fonts to download. States are a word plus a symbol. Text first, so
@@ -17,6 +17,20 @@ const s = StyleSheet.create({
   footer: { position: "absolute", bottom: 18, left: 40, right: 40, fontSize: 8, textAlign: "center" },
 });
 
+/** Greyscale-safe: black and grey only, always followed by a sentence in words (S46d). */
+function GaugePdf({ g }: { g: GaugeGeo }) {
+  return (
+    <View style={{ marginTop: 2 }}>
+      <Svg width={160} height={12} viewBox="0 0 100 12">
+        <Rect x={0} y={4} width={100} height={4} fill="none" stroke="#000000" strokeWidth={0.5} />
+        <Rect x={g.bandFrom} y={4} width={Math.max(0, g.bandTo - g.bandFrom)} height={4} fill="#BBBBBB" />
+        <Polygon points={`${g.marker},0 ${g.marker + 2},6 ${g.marker},12 ${g.marker - 2},6`} fill="#000000" />
+      </Svg>
+      <Text style={s.small}>{g.caption}</Text>
+    </View>
+  );
+}
+
 function BlockPdf({ b }: { b: Block }) {
   switch (b.kind) {
     case "p":
@@ -30,6 +44,22 @@ function BlockPdf({ b }: { b: Block }) {
           <Text>Who helps: {b.who}. When: {b.when}.</Text>
         </View>
       );
+    case "chart":
+      return (
+        <View style={{ marginBottom: 6 }} wrap={false}>
+          <Svg width={240} height={(240 * b.geo.height) / b.geo.width} viewBox={`0 0 ${b.geo.width} ${b.geo.height}`}>
+            {b.geo.band ? <Rect x={0} y={b.geo.band.y} width={b.geo.width} height={b.geo.band.height} fill="#DDDDDD" stroke="#000000" strokeWidth={0.75} strokeDasharray="4 3" /> : null}
+            <Path d={b.geo.path} fill="none" stroke="#000000" strokeWidth={2} />
+            {b.geo.dots.map((d, i) => (
+              <Circle key={i} cx={d.x} cy={d.y} r={i === b.geo.dots.length - 1 ? 5 : 3} fill="#000000" />
+            ))}
+          </Svg>
+          <Text style={s.bold}>{b.caption}</Text>
+          {b.notes.map((n) => (
+            <Text key={n} style={s.small}>{n}</Text>
+          ))}
+        </View>
+      );
     case "item":
       return (
         <View style={{ marginBottom: 4 }} wrap={false}>
@@ -40,6 +70,7 @@ function BlockPdf({ b }: { b: Block }) {
           {b.notes.map((n) => (
             <Text key={n} style={s.small}>{n}</Text>
           ))}
+          {b.gauge ? <GaugePdf g={b.gauge} /> : null}
         </View>
       );
   }

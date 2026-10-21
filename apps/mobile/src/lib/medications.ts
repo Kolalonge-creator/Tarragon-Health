@@ -36,7 +36,8 @@ import type { Json, Tables } from "@tarragon/shared";
  * error made an RLS denial or a network drop render as "Active meds 0" /
  * "No scheduled doses today", which is a false clinical claim, not a UI nit.
  */
-export type QueryResult<T> = { ok: true; data: T } | { ok: false; error: string };
+/** `fromPhone` is set only when the data is the copy kept on the phone because the server could not be reached (S06y). */
+export type QueryResult<T> = { ok: true; data: T; fromPhone?: true } | { ok: false; error: string };
 
 export type DoseStatus = "pending" | "taken" | "missed" | "skipped";
 
@@ -235,7 +236,7 @@ async function localDoses(
   ))
     .filter((r) => r.scheduled_for_date >= yesterday)
     .map((r) => ({ medication_id: r.medication_id, scheduled_time: r.scheduled_time, status: r.status as never, scheduled_for_date: r.scheduled_for_date }));
-  return { ok: true, data: buildTodaysDoseChecklist(meds, [...pending, ...mirrored]) };
+  return { ok: true, data: buildTodaysDoseChecklist(meds, [...pending, ...mirrored]), fromPhone: true };
 }
 
 export interface LogDoseOptions {
