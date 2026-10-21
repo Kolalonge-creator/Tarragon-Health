@@ -1,4 +1,4 @@
-import { createShare, fetchShl, loadMyShares, openShares, revokeShare, shareUrl, viewsLeft, SHARE_MAX_VIEWS_CHOICES, SHARE_WINDOW_DAYS_CHOICES, getSharingOffer, expiryText, type RecordShareRow } from "./record-share";
+import { createShare, fetchShl, loadMyShares, openShares, revokeShare, shareUrl, viewsLeft, isUsedUp, SHARE_MAX_VIEWS_CHOICES, SHARE_WINDOW_DAYS_CHOICES, getSharingOffer, expiryText, type RecordShareRow } from "./record-share";
 import { supabase } from "./supabase";
 
 const chain = { select: jest.fn(), eq: jest.fn(), order: jest.fn(), limit: jest.fn() };
@@ -97,6 +97,19 @@ describe("revokeShare", () => {
     expect(rpc).toHaveBeenCalledWith("revoke_record_share", { p_share_id: "s1" });
     rpc.mockResolvedValueOnce({ error: { message: "x" } });
     expect(await revokeShare("s1")).toEqual({ ok: false });
+  });
+  it("counts a link that is already stopped as stopped", async () => {
+    rpc.mockResolvedValueOnce({ error: { message: "share not found or already revoked" } });
+    expect(await revokeShare("s1")).toEqual({ ok: true, data: null });
+  });
+});
+
+describe("isUsedUp", () => {
+  it("is true only for a capped link with no views left", () => {
+    expect(isUsedUp({ maxViews: 3, viewCount: 3 })).toBe(true);
+    expect(isUsedUp({ maxViews: 3, viewCount: 5 })).toBe(true);
+    expect(isUsedUp({ maxViews: 3, viewCount: 2 })).toBe(false);
+    expect(isUsedUp({ maxViews: null, viewCount: 99 })).toBe(false);
   });
 });
 

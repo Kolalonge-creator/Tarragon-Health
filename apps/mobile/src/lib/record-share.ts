@@ -138,7 +138,14 @@ export async function createShare(input: CreateShareInput): Promise<ShareResult<
 
 export async function revokeShare(shareId: string): Promise<ShareResult<null>> {
   const { error } = await supabase.rpc("revoke_record_share", { p_share_id: shareId });
-  return error ? { ok: false } : { ok: true, data: null };
+  // Already stopped (on the web, or by a second tap) is the outcome the person asked for.
+  if (error && !/already revoked/i.test(error.message ?? "")) return { ok: false };
+  return { ok: true, data: null };
+}
+
+/** A listed link that has no views left. It still shows (so it can be stopped) but cannot be sent again: a clinic would be given a link that no longer opens. */
+export function isUsedUp(share: Pick<RecordShareRow, "maxViews" | "viewCount">): boolean {
+  return viewsLeft(share.maxViews, share.viewCount) === 0;
 }
 
 type FetchLike = (url: string, init: { method: "GET"; headers: Record<string, string>; signal?: AbortSignal }) => Promise<{ status: number; json(): Promise<unknown> }>;

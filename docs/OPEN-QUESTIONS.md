@@ -4673,3 +4673,10 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-S06Z-2 When bulk work waits, the background task skips the whole health-store sync (raised by S06z, 2026-10-21)
 - On low power, or in low-data mode off Wi-Fi, the background task skips the health-store read as well as the upload. A read without an upload cannot advance the server cursor (it moves only past uploaded pages), so the next run would read and queue the same samples again, growing the queue toward its cap with duplicates. Nothing is lost; the samples are read on the next run that may upload. Splitting read from upload needs de-duplication in health-sync.ts. The Devices Sync now button and a foreground sync are the patient asking and still upload.
 - Decision: open (product).
+
+### OQ-S43m-13 Two phone share screens were built; #1209's is kept (raised by the S43m merge, 2026-10-21; resolved 2026-10-21)
+- #1209 and S43m PR 3 each built "Share my record" on the phone against the same functions. Founder decision: #1209's screen (`record-share-screen.tsx`, `lib/record-share.ts`, section `shareRecords`) is the one share path; S43m's own screen is removed from the S43m stack.
+- **Resolved** by the S43m share-safeguards follow-up PR. Checked against #1209's code, these were missing and are now added: a lost answer to Create re-reads the list and says a link may already exist; a link with no views left cannot be sent again; a failed stop is shown on the link's own card (it was silent) and a link already stopped counts as stopped; a stopped link leaves the list at once; a note beside Medicines and Conditions says they include everything on those lists (OQ-S43m-7). The "link not kept in a saved copy" point needed no change: #1209 keeps no saved copy of the list.
+- If the S43m stack branches are merged after this PR, their own copy of this entry must be dropped (one heading per id).
+- Decision: closed.
+

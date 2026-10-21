@@ -9,6 +9,7 @@ import {
   expiryText,
   fetchShl,
   getSharingOffer,
+  isUsedUp,
   loadMyShares,
   openShares,
   revokeShare,
@@ -78,16 +79,22 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
   const [created, setCreated] = useState<CreatedShare | null>(null);
   const [armed, setArmed] = useState<string | null>(null);
   const [shlNote, setShlNote] = useState<{ id: string; text: string } | null>(null);
+  // An error from a button on one link's card shows on that card, where the person is looking.
+  const [cardNote, setCardNote] = useState<{ id: string; text: string } | null>(null);
 
-  const refresh = useCallback(async () => {
-    const out = await loadMyShares(userId);
-    if (out.ok) {
-      setShares(out.data);
-      setLoadFailed(false);
-    } else {
-      setLoadFailed(true);
-    }
-  }, [userId]);
+  // `quiet`: after a change, a refresh that cannot reach the server leaves the list as it is (never an error in place of the list, never an older list).
+  const refresh = useCallback(
+    async (quiet = false) => {
+      const out = await loadMyShares(userId);
+      if (out.ok) {
+        setShares(out.data);
+        setLoadFailed(false);
+      } else if (!quiet) {
+        setLoadFailed(true);
+      }
+    },
+    [userId]
+  );
 
   useEffect(() => {
     if (!acting) void refresh();
@@ -113,7 +120,9 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
     const out = await createShare({ sections, expiresInHours: expiry, usePin, oneSession, recipientLabel: label, maxViews, windowDays });
     setBusy(false);
     if (!out.ok) {
+      // A lost answer is not proof nothing was made: the list is read again, and the person is told a link may already exist before they make another.
       setCreateFailed(true);
+      void refresh(true);
       return;
     }
     setCreated(out.data);
@@ -151,10 +160,17 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
 
   async function revoke(id: string) {
     setBusy(true);
-    await revokeShare(id);
+    setCardNote(null);
+    const out = await revokeShare(id);
     setBusy(false);
     setArmed(null);
-    void refresh();
+    if (!out.ok) {
+      setCardNote({ id, text: t("sharelink.revoke_failed") });
+      return;
+    }
+    // Gone from the list at once, whatever the refresh does next.
+    setShares((cur) => (cur ? cur.filter((x) => x.id !== id) : cur));
+    void refresh(true);
   }
 
   const active = shares ? openShares(shares) : [];
@@ -172,6 +188,7 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
             <Chip key={s.id} label={s.label} active={sections.includes(s.id)} onPress={() => toggleSection(s.id)} />
           ))}
         </ChipRow>
+        <MutedText>{t("sharelink.sections_note")}</MutedText>
 
         <Text style={{ color: colors.ink, fontWeight: "600" }}>{t("share.expiry.label")}</Text>
         <ChipRow>
@@ -229,7 +246,7 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
         </View>
 
         <MutedText>{t("share.consent_notice")}</MutedText>
-        {createFailed ? <ErrorText>{t("share.create_failed")}</ErrorText> : null}
+        {createFailed ? <ErrorText>{`${t("share.create_failed")} ${t("sharelink.maybe_made")}`}</ErrorText> : null}
         <PrimaryButton title={busy ? t("share.creating") : t("share.create")} disabled={sections.length === 0} loading={busy} onPress={() => void create()} />
       </Card>
 
@@ -270,9 +287,10 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
           const badges = [
             share.pinProtected ? t("share.badge.pin") : null,
             share.oneSession ? t("share.badge.session") : null,
-            left !== null ? t("sharelink.badge.views_left", "en", { count: String(left) }) : null,
+            left !== null ? (left === 1 ? t("sharelink.badge.views_left_one") : t("sharelink.badge.views_left", "en", { count: String(left) })) : null,
             share.windowDays !== null ? t("sharelink.badge.window", "en", { days: String(share.windowDays) }) : null,
           ].filter(Boolean);
+          const usedUp = isUsedUp(share);
           return (
             <Card key={share.id} style={{ gap: 6 }}>
               <Text style={{ color: colors.ink, fontWeight: "600" }}>{share.sections.join(", ")}</Text>
@@ -281,9 +299,11 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
               <MutedText>
                 {t("share.expires", "en", { date: when(share.expiresAt) })} · {t("share.views", "en", { count: String(share.viewCount) })}
               </MutedText>
-              <SecondaryButton title={t("sharelink.send")} onPress={() => void sendLink(share.token)} />
-              <SecondaryButton title={t("sharelink.shl.copy")} onPress={() => void sendShl(share.id)} />
+              {usedUp ? <ErrorText>{t("sharelink.used_up")}</ErrorText> : null}
+              <SecondaryButton title={t("sharelink.send")} disabled={usedUp} onPress={() => void sendLink(share.token)} />
+              <SecondaryButton title={t("sharelink.shl.copy")} disabled={usedUp} onPress={() => void sendShl(share.id)} />
               {shlNote?.id === share.id ? <ErrorText>{shlNote.text}</ErrorText> : null}
+              {cardNote?.id === share.id ? <ErrorText>{cardNote.text}</ErrorText> : null}
               {armed === share.id ? (
                 <PrimaryButton title={t("share.revoke")} loading={busy} onPress={() => void revoke(share.id)} />
               ) : (
