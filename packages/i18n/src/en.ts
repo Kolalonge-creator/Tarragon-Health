@@ -164,6 +164,8 @@ export const en = {
   "outbox.remove": "Remove from this phone",
   "outbox.remove_confirm": "Remove this entry from this phone? It will not be sent to your care team.",
   "outbox.saved_on_phone": "Saved on this phone. It will send when you are back online.",
+  "outbox.saved_later_power": "Your phone is low on battery or in battery saver. Your health readings from other apps are saved on your phone and will send later.",
+  "outbox.saved_later_data": "Low-data mode is on. Your health readings from other apps are saved on your phone and will send when you are on Wi-Fi.",
   "outbox.row_waiting": "Waiting to send",
   "bpack.received": "Received by TarragonHealth.",
   "bpack.received_note": "Your reading is saved in your record.",
