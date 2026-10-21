@@ -44,6 +44,7 @@ export type SectionId =
   | "appointments"
   | "screeningDays"
   | "testingDays"
+  | "recordsRequests"
   | "passport"
   | "financialProfile"
   | "services"
@@ -308,6 +309,7 @@ export const SECTIONS: SectionDef[] = [
   { id: "testingDays", label: "Testing days", icon: "calendar-outline", group: "Support" },
 
   { id: "passport", label: "Health Passport", icon: "id-card-outline", group: "Your account" },
+  { id: "recordsRequests", label: "Ask for your records", icon: "document-text-outline", group: "Your account" },
   {
     id: "financialProfile",
     label: "Your finances",
