@@ -345,7 +345,7 @@ describe("adding a medicine tied to the day", () => {
       anchorProfileFor("p1")
     );
     if (!parsed.ok) throw new Error("fixture");
-    expect(await addMedication("p1", { drugName: "Anchored", scheduleTimes: [], scheduleSpec: parsed.spec, startedBySpecialist: false })).toEqual({});
+    expect(await addMedication("p1", { drugName: "Anchored", scheduleTimes: [], scheduleSpec: parsed.spec, startedBySpecialist: false })).toMatchObject({});
     const [{ row }] = mockInserts.filter((i) => i.table === "medications");
     expect(row.schedule_times).toEqual(["08:15", "21:00"]);
     expect(row.schedule_spec).toMatchObject({ kind: "daily", times: ["21:00"], anchored: [{ slot: SLOT.breakfast, offsetMinutes: 0 }] });

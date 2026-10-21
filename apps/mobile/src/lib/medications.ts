@@ -1,3 +1,4 @@
+import * as Crypto from "expo-crypto";
 import {
   computeWeeklyAdherence,
   estimateSupply,
@@ -640,10 +641,11 @@ export type MedicationCabinetItem = Pick<
   | "rx_number"
   | "verification_code"
   | "superseded_at"
+  | "prescription_id"
 > & { care_plan_condition: string | null };
 
 const MEDICATION_CABINET_SELECT =
-  "id, drug_name, dose, frequency, schedule_times, source, prescriber_name, prescriber_document_url, refill_date, last_confirmed_at, expires_at, repeats_allowed, organisation_id, created_at, rx_number, verification_code, superseded_at, care_plan:care_plans(condition)";
+  "id, drug_name, dose, frequency, schedule_times, source, prescriber_name, prescriber_document_url, refill_date, last_confirmed_at, expires_at, repeats_allowed, organisation_id, created_at, rx_number, verification_code, superseded_at, prescription_id, care_plan:care_plans(condition)";
 
 type MedicationCabinetRow = Omit<MedicationCabinetItem, "care_plan_condition"> & {
   care_plan: { condition: string } | { condition: string }[] | null;
@@ -691,7 +693,7 @@ export interface AddMedicationInput {
  * sign, safety notes, controlled-substance ack) is web-only — a patient's own
  * cabinet never reaches that flow on either platform.
  */
-export async function addMedication(patientId: string, input: AddMedicationInput): Promise<{ error?: string }> {
+export async function addMedication(patientId: string, input: AddMedicationInput): Promise<{ error?: string; id?: string }> {
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("organisation_id")
@@ -701,7 +703,10 @@ export async function addMedication(patientId: string, input: AddMedicationInput
   if (!profile?.organisation_id) return { error: "This patient has no organisation on file" };
 
   const source: MedicationSource = input.startedBySpecialist ? "specialist" : "patient";
+  // The id is made here (not read back with RETURNING, which would need a SELECT policy someone acting for the patient may not have).
+  const id = Crypto.randomUUID();
   const { error } = await supabase.from("medications").insert({
+    id,
     drug_name: input.drugName,
     dose: input.dose || null,
     frequency: input.frequency || null,
@@ -715,7 +720,8 @@ export async function addMedication(patientId: string, input: AddMedicationInput
     prescriber_name: source === "specialist" ? input.prescriberName || null : null,
     prescriber_document_url: source === "specialist" ? input.prescriberDocumentUrl || null : null,
   });
-  return error ? { error: error.message } : {};
+  // The id lets the form attach the NAFDAC number noted from the pack (S08y).
+  return error ? { error: error.message } : { id };
 }
 
 // --- Adherence check-ins ----------------------------------------------------
