@@ -50992,6 +50992,10 @@ export type Database = {
         Args: { p_ends_at?: string; p_patient: string; p_reason: string };
         Returns: string;
       };
+      grant_membership_tier: {
+        Args: { p_ends_at?: string; p_patient: string; p_reason: string; p_tier: string };
+        Returns: string;
+      };
       list_assisted_recovery_requests: {
         Args: { p_state?: string }
         Returns: {

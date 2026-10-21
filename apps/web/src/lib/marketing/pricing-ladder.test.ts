@@ -60,6 +60,13 @@ describe("the Evergreen ladder pricing content", () => {
     expect(PAGE).toContain('getProposedConfig("marketing.membership_ladder_public")');
   });
 
+  it("the gift page switches on the same config and quotes the two gift prices from it, typing none", () => {
+    const gift = readFileSync(join(__dirname, "..", "..", "app", "(marketing)", "gift", "page.tsx"), "utf8");
+    expect(gift).toContain('getProposedConfig("marketing.membership_ladder_public")');
+    expect(gift).toContain('getProposedConfig("commerce.membership_ladder")');
+    expect(gift).toContain("commerce.membership_prices");
+  });
+
   it("there are exactly two member prices and no volume tier in the ladder config", () => {
     const v = getProposedConfig("commerce.membership_ladder").value as Record<string, unknown>;
     const priceKeys = Object.keys(v).filter((k) => k.endsWith("_kobo") && k !== "upgrade_kobo");
