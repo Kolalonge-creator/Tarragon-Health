@@ -40,6 +40,9 @@ function ports(over: Partial<TriagePorts> = {}) {
     loadGlucoseContext: jest.fn(async () => ({ found: true, input: glucoseInput(6) }) as GlucoseTriageContext),
     loadGlucoseRuleSet: jest.fn(async () => draft),
     recordGlucose: jest.fn(async (a: (typeof recorded)[number]) => void recorded.push(a)),
+    loadVitalsContext: jest.fn(async () => ({ found: false })),
+    loadVitalsRuleSet: jest.fn(async () => null),
+    recordVitals: jest.fn(async () => undefined),
     ...over,
   };
   return { p, recorded };
