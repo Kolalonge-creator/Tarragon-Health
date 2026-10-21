@@ -21,7 +21,8 @@ export type VersionedGovernedTable =
   | "observation_limit_signoffs"
   | "home_bp_programme_signoffs"
   | "health_report_config_versions"
-  | "cuff_check_rules";
+  | "cuff_check_rules"
+  | "bp_cuff_guidance_signoffs";
 
 /**
  * Tables whose versions are numbered per partition, not globally: one live row per
