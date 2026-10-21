@@ -49,7 +49,8 @@ type VersionedTableName =
   | "activity_safety_config"
   | "observation_limit_signoffs"
   | "home_bp_programme_signoffs"
-  | "health_report_config_versions";
+  | "health_report_config_versions"
+  | "cuff_check_rules";
 
 const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string }[] = [
   { table: "alert_rules", title: "Alert rules", slug: "alert-rules" },
@@ -72,6 +73,7 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   { table: "lab_fallback_wording_signoffs", title: "Lab result fallback message", slug: "lab-fallback" },
   { table: "prn_limit_rules", title: "As-needed medicine limits", slug: "prn-limit-rules" },
   { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
+  { table: "cuff_check_rules", title: "Home cuff vs clinic cuff check", slug: "cuff-check-rules" },
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
   { table: "nutrition_target_config", title: "Nutrition targets and meal summary", slug: "nutrition-targets-config" },
   { table: "health_report_config_versions", title: "Yearly Health Report settings", slug: "health-report-config" },

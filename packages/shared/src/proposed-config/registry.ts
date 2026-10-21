@@ -3520,6 +3520,39 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md Part B C1 to C3; Nigeria hypertension guideline 2023-2028 sections 3.1.1, 3.2, 5.4.5, 6.2, 6.3; supabase/migrations/20261013182514_s07x_home_bp_programme.sql",
   },
   {
+    key: "bp.cuff_check",
+    // S07y: "home cuff vs clinic cuff". EVERY number here is a proposal (the CMO has not seen it; nothing is signed). Live value is the active, signed row of
+    // `cuff_check_rules`.config; cuff-check-mirror.test.ts fails if the migration seed and this value drift. The server alone applies it (the phone does not bundle it).
+    // pairing: a home-log pair uses the patient's own manual or device readings within windowHours either side of a clinic reading, at least minHomeReadings of them.
+    // difference: the own cuff reads differently when own minus clinic reaches 10 systolic or 5 diastolic (mmHg), in either direction.
+    // consistency: at least minPairs of the newest maxPairs pairs inside lookbackDays, at least minSharePercent of them off in the SAME direction.
+    // tasks: a routine review task, due in 7 days. The result is for the care team only: never a diagnosis, never in a notification (INV-07).
+    value: {
+      "pairing": {
+        "windowHours": 24,
+        "minHomeReadings": 2
+      },
+      "difference": {
+        "systolic": 10,
+        "diastolic": 5
+      },
+      "consistency": {
+        "minPairs": 3,
+        "maxPairs": 5,
+        "lookbackDays": 365,
+        "minSharePercent": 75
+      },
+      "tasks": {
+        "reviewDueMinutes": 10080
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/S07y.md; supabase/migrations/20261020184217_s07y_home_cuff_vs_clinic_check.sql. No guideline fixes these numbers: the 5 mmHg diastolic figure echoes common device-validation mean-difference limits, the rest are engineering proposals.",
+  },
+  {
     key: "offline.trust",
     // S06x. PROPOSED: how long a phone may go without checking in before its encrypted-store key lease expires and it does its last upload
     // attempt and wipes (D3 in docs/plans/S06-S10-cmo-decisions-2026-10-07.md says 30 days; the server column

@@ -4368,6 +4368,23 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
 
+### OQ-S07Y-1 A home-log pair only sees home readings from before the clinic reading was saved (raised by S07y, 2026-10-20)
+- The pair is made when the clinic reading is saved, from the patient's own manual or device readings within the window either side. A home reading logged after that moment (inside the window) is not picked up. The same-visit pair has no such limit. Fixing it means a daily sweep that re-pairs recent clinic readings; not built.
+- Decision: open (product, CMO).
+
+### OQ-S07Y-2 Do pairs and flags belong in a subject-access request? (raised by S07y, 2026-10-20)
+- `cuff_check_pairs` and `cuff_check_flags` are registered `clinical_record`, `in_export = false`, clinician-only working data. Whether the patient's right of access covers them is the DPO's decision.
+- Decision: open (DPO).
+
+### OQ-S07Y-3 The neutral "bring your cuff to a visit" line has no patient screen yet (raised by S07y, 2026-10-20)
+- `cuff_visit_prompt_open()` and the unsigned string `cuff.visit_prompt` exist; the guard `cuff_visit_prompt` is off and needs the CMO's wording attestation. A web and phone placement (on the cuff guidance card) is not built.
+- Decision: open (product, CMO).
+
+### OQ-S07Y-4 Switching the cuff rule on does not look back, and a wrong pair cannot be removed (raised by S07y review, 2026-10-20)
+- Pairs are stored while the guard is off, but nothing is flagged until the guard is on, the rule is signed and a NEW pair or clinic reading arrives (the rule then judges all the patient's pairs together). There is no sweep at switch-on, and home-log pairs for clinic readings saved while the guard was off were never made. The tables are append-only, so a mistyped same-visit pair cannot be corrected; it leaves the judgement after five newer pairs, and an identical double submit is already merged. A correction path (a void row) and a switch-on sweep are not built.
+- Decision: open (product, CMO).
+
+
 ### OQ-S46d-1 The suggested recheck weeks are placeholders (raised by S46d, 2026-10-20)
 - Report settings v3 (unsigned) carries `retest`: 12 weeks for a lab value outside its range, 4 weeks for a blood pressure average above target, no per-analyte overrides, a mid-year line at 6 months shown only when something was off. None of these is a clinical decision. The CMO should set them (a lipid panel and a glucose are not repeated on the same schedule) and sign through `/clinician/health-report-config`. Until then v3 stays a draft and no report uses it.
 - Decision: open (CMO).

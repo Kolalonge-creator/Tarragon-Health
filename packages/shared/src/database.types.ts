@@ -44003,6 +44003,144 @@ export type Database = {
         }
         Relationships: []
       }
+      cuff_check_rules: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      cuff_check_pairs: {
+        Row: {
+          clinic_diastolic: number
+          clinic_reading_id: string | null
+          clinic_systolic: number
+          config_version: number | null
+          created_at: string
+          d_diastolic: number
+          d_systolic: number
+          device_label: string | null
+          id: string
+          is_test: boolean
+          measured_at: string
+          organisation_id: string
+          own_diastolic: number
+          own_readings: number
+          own_systolic: number
+          patient_id: string
+          recorded_by: string | null
+          source: string
+        }
+        Insert: {
+          clinic_diastolic: number
+          clinic_reading_id?: string | null
+          clinic_systolic: number
+          config_version?: number | null
+          created_at?: string
+          d_diastolic: number
+          d_systolic: number
+          device_label?: string | null
+          id?: string
+          is_test?: boolean
+          measured_at: string
+          organisation_id: string
+          own_diastolic: number
+          own_readings?: number
+          own_systolic: number
+          patient_id: string
+          recorded_by?: string | null
+          source: string
+        }
+        Update: {
+          clinic_diastolic?: number
+          clinic_reading_id?: string | null
+          clinic_systolic?: number
+          config_version?: number | null
+          created_at?: string
+          d_diastolic?: number
+          d_systolic?: number
+          device_label?: string | null
+          id?: string
+          is_test?: boolean
+          measured_at?: string
+          organisation_id?: string
+          own_diastolic?: number
+          own_readings?: number
+          own_systolic?: number
+          patient_id?: string
+          recorded_by?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
+      cuff_check_flags: {
+        Row: {
+          config_version: number
+          created_at: string
+          id: string
+          is_test: boolean
+          kind: string
+          latest_pair_id: string
+          matching: number
+          organisation_id: string
+          pairs_used: number
+          patient_id: string
+          task_id: string | null
+        }
+        Insert: {
+          config_version: number
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          kind: string
+          latest_pair_id: string
+          matching: number
+          organisation_id: string
+          pairs_used: number
+          patient_id: string
+          task_id?: string | null
+        }
+        Update: {
+          config_version?: number
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          kind?: string
+          latest_pair_id?: string
+          matching?: number
+          organisation_id?: string
+          pairs_used?: number
+          patient_id?: string
+          task_id?: string | null
+        }
+        Relationships: []
+      }
       triage_protocols: {
         Row: {
           approved_at: string | null
@@ -49205,6 +49343,9 @@ export type Database = {
       sign_home_bp_programme: { Args: { p_id: string }; Returns: string };
       complete_home_bp_check: { Args: { p_window_start: string }; Returns: Json };
       record_clinic_bp_reading: { Args: { p_diastolic: number; p_measured_at: string; p_note?: string; p_patient: string; p_systolic: number }; Returns: string };
+      sign_cuff_check_rules: { Args: { p_id: string }; Returns: string };
+      record_cuff_check_pair: { Args: { p_clinic_diastolic: number; p_clinic_systolic: number; p_device_label?: string; p_measured_at: string; p_own_diastolic: number; p_own_systolic: number; p_patient: string }; Returns: string };
+      cuff_visit_prompt_open: { Args: Record<PropertyKey, never>; Returns: boolean };
       sign_my_health_config: { Args: { p_id: string }; Returns: string };
       sign_observation_limits: { Args: { p_id: string }; Returns: string };
       log_inhaler_use: { Args: { p_puffs: number; p_reason: string; p_client_recorded_at?: string; p_client_log_id?: string; p_beneficiary?: string }; Returns: string };
