@@ -16,6 +16,7 @@
  */
 import { BIOMARKER_GRADE_BANDS } from "./biomarker-grade-bands";
 import { DEVICE_RED_RULES, EMERGENCY_PACK } from "./emergency-pack";
+import { OBSERVATION_LIMITS_V1 } from "./observation-limits-data";
 import { THERAPY_EXCLUSION_LISTS, THERAPY_PROGRAMME_CONFIG } from "./therapy-config-data";
 
 export type ConfigOwner = "CMO" | "Founder" | "Founder and counsel";
@@ -667,6 +668,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/research/S27-competitors.md; docs/design/S27.md",
   },
   {
+    key: "lab.lifecycle",
+    // Lab lifecycle (S27h). Live value is the active row of `lab_lifecycle_config`.rules; a test fails if the migration seed and this value
+    // drift. Every use is an alert or a flag: hold-aging tells the clinical lead (never releases), the delta percent flags a change to the
+    // reviewer (never releases), the fallback wait only times a neutral message that the CMO must have signed (never releases). The critical
+    // value call reuses paging.rules (escalation_minutes). The CMO still owes the thresholds and the fallback wording.
+    value: {
+      "holdAging": {
+        "leadEscalateMinutes": { "critical": 720, "default": 1440 },
+        "repeatMinutes": 720,
+        "repeatMax": 3
+      },
+      "delta": {
+        "percent": 50,
+        "windowDays": 365,
+        "perAnalytePercent": { "creatinine": 30, "potassium": 20, "sodium": 5, "hba1c": 20, "haemoglobin": 20 }
+      },
+      "disclosureFallback": { "afterEscalatedMinutes": 1440 }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/research/S26-S30-competitor-review-and-build-plan.md section S27h; escalation_slas v7 (12h critical, 24h non-critical)",
+  },
+  {
     key: "lab.panels",
     // Lab panels and release thresholds (S27). Live values are the active row of `lab_panel_versions`; a test fails if the
     // migration seed and this value drift. Adult reference and critical limits only, NOT signed: the CMO sets them (OQ-176).
@@ -1224,6 +1250,36 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-15",
     source: "docs/design/S16-S20-unified-red-paging.md; docs/plans/S16-S20-review-and-build-plan.md section 5, decision 11",
+  },
+  {
+    key: "paging.legacy_notice_retirement_rules",
+    // Retiring the older "notify every clinician" message for blood pressure and glucose, and the Care Circle notice for unified red-event
+    // pages (S19f). Live values are the active row of `legacy_notice_retirement_config`; this entry mirrors the four seeded versions and a test
+    // fails if the migration seed and this value drift. All four versions ship INACTIVE and UNSIGNED: no active signed row means every key reads
+    // OFF and the older paths run exactly as before. The CMO switches ONE version on from the sign-off hub after the test pack.
+    // observe: 1 = record, for every event, whether and when its page arrived (nothing changes for anyone). suppress_legacy_bp_notice and
+    // suppress_legacy_glucose_notice: 1 = the older message for the RED level of that pathway is held until the page of that same event is
+    // confirmed with a reachable paged clinician, then dropped; otherwise it is sent. suppress_legacy_emergency_notice: the SEPARATE key that
+    // also covers emergency-level events (blood pressure crisis, glucose emergency). circle_notice_unified_page: 1 = a neutral check-in
+    // notice also goes to Care Circle members who allowed red alerts when the page is a unified page (never for a symptom event when the patient
+    // has a pregnancy or reproductive-health record). hold_seconds: how long a held message waits for its page before it is sent.
+    // emergency_hold_seconds: the much shorter wait for an EMERGENCY-level message; emergency_engine_fresh_seconds: how recent the event-bus
+    // heartbeat must be to hold an emergency message at all (older: sent at once). min_parallel_days / min_parallel_events: the evidence a
+    // retiring version needs from the parallel run (days switched on, real events measured) before it can be signed.
+    // Version 1 = parallel run. 2 = retire red-level BP and glucose. 3 = 2 plus emergency-level. 4 = Care Circle notice only.
+    value: {
+      versions: {
+        "1": { observe: 1, suppress_legacy_bp_notice: 0, suppress_legacy_glucose_notice: 0, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+        "2": { observe: 1, suppress_legacy_bp_notice: 1, suppress_legacy_glucose_notice: 1, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+        "3": { observe: 1, suppress_legacy_bp_notice: 1, suppress_legacy_glucose_notice: 1, suppress_legacy_emergency_notice: 1, circle_notice_unified_page: 0, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+        "4": { observe: 1, suppress_legacy_bp_notice: 0, suppress_legacy_glucose_notice: 0, suppress_legacy_emergency_notice: 0, circle_notice_unified_page: 1, hold_seconds: 60, emergency_hold_seconds: 15, emergency_engine_fresh_seconds: 30, min_parallel_days: 7, min_parallel_events: 20 },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/S19f-legacy-notice-retirement-and-circle-notice.md; docs/design/S16-S20-unified-red-paging.md sections C and D",
   },
   {
     key: "free_red_event.rules",
@@ -2914,6 +2970,213 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (C1, C6); docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md; WHO haemoglobin thresholds 2024; Royal College of Pathologists critical results",
   },
   {
+    key: "lab.panels",
+    // v4 (S46d, 2026-10-20): v3 plus anti-HBs as a clinician-set add-on (founder decision S46-1): optional, never chosen by the patient, no price, every result held for a clinician. Mirrors
+    // lab_panel_versions v3, made by 20261020183958_s46d_health_report_completion.sql; a test fails if the two drift. Stays `proposed` until the CMO signs.
+    value: {
+      "panels": {
+        "membership_annual": {
+          "analytes": [
+            {
+              "code": "fasting_glucose",
+              "label": "Fasting glucose",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 70,
+              "refHigh": 99,
+              "criticalLow": 45,
+              "criticalHigh": 360
+            },
+            {
+              "code": "hba1c",
+              "label": "HbA1c",
+              "kind": "numeric",
+              "unit": "%",
+              "refLow": 4,
+              "refHigh": 5.6,
+              "criticalHigh": 14
+            },
+            {
+              "code": "creatinine",
+              "label": "Creatinine",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 0.6,
+              "refHigh": 1.3,
+              "criticalHigh": 4,
+              "bySex": {
+                "male": {
+                  "refLow": 0.7,
+                  "refHigh": 1.3
+                },
+                "female": {
+                  "refLow": 0.6,
+                  "refHigh": 1.1
+                }
+              }
+            },
+            {
+              "code": "potassium",
+              "label": "Potassium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 3.5,
+              "refHigh": 5.1,
+              "criticalLow": 3,
+              "criticalHigh": 6
+            },
+            {
+              "code": "sodium",
+              "label": "Sodium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 135,
+              "refHigh": 145,
+              "criticalLow": 121,
+              "criticalHigh": 150
+            },
+            {
+              "code": "total_cholesterol",
+              "label": "Total cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 200
+            },
+            {
+              "code": "ldl_cholesterol",
+              "label": "LDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 130
+            },
+            {
+              "code": "hdl_cholesterol",
+              "label": "HDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 40,
+              "bySex": {
+                "male": {
+                  "refLow": 40
+                },
+                "female": {
+                  "refLow": 50
+                }
+              }
+            },
+            {
+              "code": "triglycerides",
+              "label": "Triglycerides",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 150
+            },
+            {
+              "code": "alt",
+              "label": "ALT",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 7,
+              "refHigh": 40
+            },
+            {
+              "code": "ast",
+              "label": "AST",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 10,
+              "refHigh": 40
+            },
+            {
+              "code": "haemoglobin",
+              "label": "Haemoglobin",
+              "kind": "numeric",
+              "unit": "g/dL",
+              "refLow": 12,
+              "refHigh": 17.5,
+              "criticalLow": 7,
+              "criticalHigh": 20,
+              "bySex": {
+                "male": {
+                  "refLow": 13,
+                  "refHigh": 17.5
+                },
+                "female": {
+                  "refLow": 12,
+                  "refHigh": 15.5
+                }
+              }
+            },
+            {
+              "code": "wbc",
+              "label": "White cell count",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 3,
+              "refHigh": 11,
+              "criticalLow": 1,
+              "criticalHigh": 30
+            },
+            {
+              "code": "platelets",
+              "label": "Platelets",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 150,
+              "refHigh": 450,
+              "criticalLow": 20,
+              "criticalHigh": 1000
+            },
+            {
+              "code": "tsh",
+              "label": "TSH",
+              "kind": "numeric",
+              "unit": "mIU/L",
+              "refLow": 0.4,
+              "refHigh": 4
+            },
+            {
+              "code": "hiv_screen",
+              "label": "HIV screen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true
+            },
+            {
+              "code": "hbsag",
+              "label": "Hepatitis B surface antigen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true
+            },
+            {
+              "code": "hcv_ab",
+              "label": "Hepatitis C antibody",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true
+            },
+            {
+              "code": "anti_hbs",
+              "label": "Hepatitis B surface antibody (anti-HBs)",
+              "kind": "qualitative",
+              "unit": "",
+              "optional": true,
+              "addOn": true,
+              "orderedBy": "clinician",
+                  "holdForReview": true
+            }
+          ]
+        }
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 4,
+    effectiveFrom: "2026-10-20",
+    source: "docs/DECISIONS.md S46-1; docs/design/S46d.md",
+  },
+  {
     key: "triage.silence_rule_days",
     // v2 (decision S11-1, 2026-10-07): 7 days, not 5. Takes effect when the CMO approves bp_care_triage v3 in the database; the live rule set
     // carries its own copy of this number and stays at the earlier line until then. The rule set, not this entry, is what the engine reads.
@@ -3239,6 +3502,22 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["lease\\w*days?\\s*[=:]\\s*30\\b", "probe\\w*(interval|seconds)\\w*\\s*[=:]\\s*60\\b"],
   },
   {
+    key: "offline.freshness",
+    // S06y. PROPOSED: how many hours old the copy of the record kept on the phone (the emergency card, the medicines list, today's doses) may be before
+    // the app adds a calm "this may be out of date, connect to refresh" notice. Below it the app only says when the copy was last updated. 24 hours is a
+    // starting point for the CMO to confirm or change; nothing is signed and no clinical rule depends on it. Read through loadFreshnessConfig() in
+    // apps/mobile/src/lib/freshness.ts, never as a literal.
+    value: {
+      stale_after_hours: 24,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/S06y-freshness.md; docs/plans/S06-S10-competitor-gap-and-build-plan.md section 5 (S06x offline trust)",
+    guardPatterns: ["stale\\w*hours?\\s*[=:]\\s*24\\b"],
+  },
+  {
     key: "my_health.sharing_and_access_log",
     // My Health completion (S09x). Live values are the active row of `my_health_config`.config (sharing, access_log); my-health-mirror.test.ts fails if the
     // migration seed and this value drift. PROPOSED: the default share expiry (12 hours, shorter than the 24 the first share screen used; the 30 day cap is
@@ -3278,6 +3557,55 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-13",
     source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C8 and D4; supabase/migrations/20261013181946_s09x_my_health_completion.sql",
+  },
+  {
+    key: "activity.safety_rules",
+    // Activity safety gate (S48a, spec 5.2 / 5.5). PROPOSED, UNSIGNED: the CMO owns every number and every blocked kind below. Live values are the
+    // active row of `activity_safety_config`.config; activity-gate-parity.test.ts fails if the migration seed and this value drift. The gate only
+    // ever restricts, so enforcing unsigned rules errs toward rest; signing records the CMO's review, it does not switch the gate on.
+    //  lookback: a red triage event inside red_hours is rest; an amber one inside amber_hours is gentle-only; unsettled_bp_days is how far back a
+    //            BP-observation amber or red marks hypertension as not settled.
+    //  kinds:    effort_met is for display and weekly load; intensity is what the gate compares to a rule's max_intensity.
+    value: {
+      lookback: { red_hours: 48, amber_hours: 48, unsettled_bp_days: 7 },
+      kinds: {
+        walking: { effort_met: 3.5, intensity: "gentle" },
+        chair_based: { effort_met: 2.5, intensity: "gentle" },
+        cycling: { effort_met: 6, intensity: "moderate" },
+        dancing: { effort_met: 5, intensity: "moderate" },
+        farm_manual_work: { effort_met: 5, intensity: "moderate" },
+        running: { effort_met: 8, intensity: "vigorous" },
+        football: { effort_met: 8, intensity: "vigorous" },
+      },
+      condition_match: {
+        hypertension: { name_patterns: ["hypertens", "high blood pressure"], icd10_prefixes: ["I10", "I11", "I12", "I13", "I15"] },
+        arthritis: { name_patterns: ["arthrit"], icd10_prefixes: ["M05", "M06", "M15", "M16", "M17", "M18", "M19"] },
+        back_pain: { name_patterns: ["back pain", "lumbago", "sciatica", "slipped disc"], icd10_prefixes: ["M54"] },
+      },
+      rules: {
+        amber: { max_intensity: "gentle", blocked_kinds: [] },
+        pregnancy: { max_intensity: "moderate", blocked_kinds: ["football"] },
+        pregnancy_high_risk: { max_intensity: "gentle", blocked_kinds: ["football", "running"] },
+        hypertension_unsettled: { max_intensity: "gentle", blocked_kinds: [] },
+        arthritis: { max_intensity: "moderate", blocked_kinds: ["running", "football"] },
+        back_pain: { max_intensity: "moderate", blocked_kinds: ["football", "farm_manual_work"] },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/BUILD-SPEC-v5.md Module 5 (5.2, 5.5) and invariants INV-01, INV-14; docs/design/S48a.md; supabase/migrations/20261020180745_s48a_activity_safety_gate.sql",
+  },
+  {
+    key: "activity.goals",
+    // Weekly activity goal (S48a, spec 5.1). 150 minutes a week of moderate activity is the commonly cited adult guideline figure; a person can set their own.
+    value: { weekly_active_minutes_default: 150, daily_steps_default: 7500 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/BUILD-SPEC-v5.md Module 5 (5.1); supabase/migrations/20261020180745_s48a_activity_safety_gate.sql",
   },
   {
     key: "medicines.prn_limits",
@@ -5704,6 +6032,130 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md decisions 1 to 6; docs/research/health-report-study.md; docs/design/S46.md; docs/design/S47-decisions-applied.md",
   },
   {
+    key: "report.settings",
+    // v3 (S46d, 2026-10-20): v2 plus a suggested-recheck block. Live value is the `config` of `health_report_config_versions` v3, UNSIGNED. The weeks are placeholders
+    // for the CMO (a laboratory value outside its range: 12 weeks; blood pressure above target: 4 weeks; a mid-year line at 6 months, shown only when something
+    // was off), not clinical decisions made by an agent. A test fails if the migration seed and this value drift.
+    value: {
+      "maxPriorities": 3,
+      "minBpReadings": 12,
+      "minBpDays": 3,
+      "bpTarget": {
+        "systolicBelow": 140,
+        "diastolicBelow": 90
+      },
+      "bpTargetHigherRisk": {
+        "systolicBelow": 130,
+        "diastolicBelow": 80
+      },
+      "bpHighNormalBand": {
+        "systolicFrom": 130,
+        "systolicBelow": 140,
+        "diastolicFrom": 80,
+        "diastolicBelow": 90
+      },
+      "higherRiskCriteria": {
+        "icd10Prefixes": {
+          "diabetes": [
+            "E10",
+            "E11",
+            "E12",
+            "E13",
+            "E14"
+          ],
+          "ckd": [
+            "N18"
+          ],
+          "cvd": [
+            "I20",
+            "I21",
+            "I22",
+            "I23",
+            "I24",
+            "I25",
+            "I50",
+            "I63",
+            "I64",
+            "I65",
+            "I66",
+            "I69",
+            "I70",
+            "I73"
+          ]
+        },
+        "namePatterns": {
+          "diabetes": [
+            "^(type [12] )?diabetes( mellitus)?( type [12])?$"
+          ],
+          "ckd": [
+            "^(chronic kidney disease|ckd)( stage [1-5][ab]?)?$"
+          ],
+          "cvd": [
+            "^(coronary (artery|heart) disease|ischaemic heart disease|ischemic heart disease|myocardial infarction|angina( pectoris)?|stroke|heart failure|peripheral arter(y|ial) disease)$"
+          ]
+        },
+        "excludePatterns": [
+          "pre.?diabet",
+          "family history",
+          "gestational",
+          "history of family",
+          "risk of",
+          "heat.?stroke",
+          "sunstroke",
+          "suspected"
+        ],
+        "elevatedRiskTiers": [
+          "high",
+          "very_high"
+        ]
+      },
+      "changeTolerancePct": 3,
+      "recheckWeeks": 4,
+      "priorityWindows": {
+        "bp": "within 4 weeks",
+        "lab": "within 4 weeks",
+        "screening": "within 3 months",
+        "risk": "within 4 weeks"
+      },
+      "trendMinPoints": 2,
+      "trendYears": 3,
+      "productRules": [
+        "maxPriorities",
+        "changeTolerancePct",
+        "recheckWeeks",
+        "priorityWindows",
+        "trendMinPoints",
+        "trendYears",
+        "retest"
+      ],
+      "guidelineBasis": [
+        "bpTarget",
+        "bpTargetHigherRisk",
+        "bpHighNormalBand",
+        "minBpReadings",
+        "minBpDays"
+      ],
+      "statementKey": "report.statement.not_rule_out",
+      "statementApprovedByCmo": false,
+      "shareExcludedSections": [
+        "screening_reproductive",
+        "risk",
+        "questionnaires"
+      ],
+      "retest": {
+        "offValueWeeks": 12,
+        "bpWeeks": 4,
+        "byAnalyte": {},
+        "midYearMonths": 6
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/S46d.md; docs/research/health-report-study.md",
+  },
+  {
     key: "screening.serology_rules",
     // Hepatitis and HIV repeat rules (S46, function 3.12; founder decision 2026-10-07, the spec rule wins). Live value is `serology_rule_versions` v2 (registry version 1 is this entry's own).
     // The anti-HBs threshold is PROPOSED and unconfirmed (OQ-S46-2). Version 1 (legacy once-ever) is documented in the migration header.
@@ -5998,6 +6450,34 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-16",
     source: "docs/design/S53-pack-scan.md; NAFDAC Greenbook public examples",
+  },
+  {
+    key: "observations.plausibility",
+    // S47a (BUILD-SPEC-v5 4.3, 4.7): the typo gate for every hand-typed number. Hard limits refuse with a plain message; soft limits (water, sleep,
+    // inhaler puffs) only ask the person to confirm. Mirrored in the database CHECK for the lifestyle types and the inhaler log; a test fails on drift.
+    // PROPOSED: the Chief Medical Officer confirms the lifestyle-type limits (OQ-S47A-1).
+    value: OBSERVATION_LIMITS_V1,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-09-30",
+    source: "docs/BUILD-SPEC-v5.md Module 4 (4.3, 4.7); docs/research/S46-S50-competitor-gap-and-build-plan.md S47a",
+  },
+  {
+    key: "observations.target_bands",
+    // S47a (BUILD-SPEC-v5 4.6): the shaded band on the glucose and weight trend charts. Glucose is the usual time-in-range band that
+    // apps/web/src/lib/vitals/time-in-range.ts already uses (DEFAULT_TIR_LOW / DEFAULT_TIR_HIGH; a test fails if they drift). Weight is the WHO healthy BMI
+    // band, turned into kilograms at the person's own height. A care-team target for the person replaces the standard band.
+    // PROPOSED: the Chief Medical Officer confirms (OQ-S47A-4).
+    value: {
+      glucose_mmol_l: { low: 3.9, high: 10.0 },
+      healthy_bmi: { low: 18.5, high: 24.9 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-09-30",
+    source: "apps/web/src/lib/vitals/time-in-range.ts; WHO BMI bands (apps/web/src/lib/obesity/classify.ts bmiCategory)",
   },
   {
     key: "biomarkers.grade_bands",

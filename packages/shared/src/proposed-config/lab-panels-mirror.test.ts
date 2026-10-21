@@ -27,8 +27,10 @@ describe("lab.panels mirrors the migration seed", () => {
       const { optional: _optional, ...rest } = a;
       return rest;
     });
-    expect(required).toEqual(panels().membership_annual!.analytes);
-    expect(getProposedConfig("lab.panels").version).toBe(3);
+    // v4 (S46d, lab_panel_versions v3) is that plus the one anti-HBs add-on, appended last
+    const withoutAddOn = panels().membership_annual!.analytes.filter((a) => a.code !== "anti_hbs");
+    expect(required).toEqual(withoutAddOn);
+    expect(getProposedConfig("lab.panels").version).toBe(4);
     expect(migration("_membership_annual_screening_required.sql")).toContain("a - 'optional'");
   });
 
@@ -70,11 +72,20 @@ describe("lab.panels mirrors the migration seed", () => {
     }
   });
 
-  it("no analyte is optional, and HIV screen, HBsAg and anti-HCV are among the required ones", () => {
+  it("only the anti-HBs add-on is optional, and HIV screen, HBsAg and anti-HCV are among the required ones", () => {
     const list = panels().membership_annual!.analytes;
-    expect(list.filter((x) => x.optional)).toEqual([]);
-    expect(list.filter((x) => x.kind === "qualitative").map((x) => x.code).sort()).toEqual(["hbsag", "hcv_ab", "hiv_screen"]);
-    expect(list).toHaveLength(18);
+    expect(list.filter((x) => x.optional).map((x) => x.code)).toEqual(["anti_hbs"]);
+    expect(list.filter((x) => x.kind === "qualitative" && !x.optional).map((x) => x.code).sort()).toEqual(["hbsag", "hcv_ab", "hiv_screen"]);
+    expect(list).toHaveLength(19);
+  });
+
+  it("anti-HBs is a clinician-set add-on: optional, ordered by the clinician, not sensitive, and has no price anywhere in the migration (S46-1)", () => {
+    const a = panels().membership_annual!.analytes.find((x) => x.code === "anti_hbs") as Analyte & { addOn?: boolean; orderedBy?: string };
+    expect(a).toMatchObject({ kind: "qualitative", optional: true, addOn: true, orderedBy: "clinician", holdForReview: true });
+    expect(a.sensitive).toBeUndefined();
+    const sql = migration("_s46d_health_report_completion.sql");
+    expect(sql).not.toMatch(/insert into public\.(lab_test_prices|service_products|panel_bundles)/i);
+    expect(getProposedConfig("lab.panels").status).toBe("proposed");
   });
 
   it("the units are the ones Nigerian laboratories most often print", () => {
