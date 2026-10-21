@@ -9,6 +9,7 @@ import { activeBudget } from "./offline-budget";
 import { ensureLowDataLoaded } from "./low-data";
 import { classifyFailure, pullFloor, type OfflineSyncConfig } from "./outbox-rules";
 import { fetchPatientTasks } from "./task-source";
+import { clearAllHealthReportCache } from "./health-report";
 
 /**
  * Read mirror of the patient's own records on the phone (S06), so logging
@@ -395,6 +396,8 @@ export async function readLocalTasks<T>(subjectId: string): Promise<T[]> {
 export async function clearLocalMirror(): Promise<void> {
   const db = await getDb();
   await db.execAsync("delete from local_records; delete from local_medications; delete from local_tasks; delete from sync_state;");
+  // saved yearly reports are part of the same sign-out wipe; a failure here must not leave the rest of the wipe undone
+  await clearAllHealthReportCache().catch(() => undefined);
 }
 
 const lastPullAt = new Map<string, number>();
