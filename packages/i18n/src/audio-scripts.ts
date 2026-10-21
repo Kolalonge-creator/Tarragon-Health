@@ -68,7 +68,7 @@ export const AUDIO_SCRIPTS: Readonly<Record<string, AudioScript>> = {
   "HLP-014": { en: "Once a year we bring your results and readings together into one report: what has changed, what is on target, and your priorities for the year ahead." },
   "HLP-015": { en: "These are your medicines and when to take them. Tap a medicine to see how to take it, or to mark a dose as taken." },
   "HLP-016": { en: "This shows how many of your doses you took this week. Taking medicines every day is one of the most powerful things you can do for your health." },
-  "HLP-017": { en: "Compare prices at partner pharmacies, then choose where to collect your medicine. You pay the pharmacy when you collect." },
+  "HLP-017": { en: "Choose a verified pharmacy to collect your medicine from. You pay the pharmacy when you collect." },
   "HLP-018": { en: "Answer a few questions about how you feel. We will suggest what might be causing it, how urgent it is, and what to do next. This is not a diagnosis." },
   "HLP-019": { en: "Choose a video, audio or written consultation. You will see the price before you pay." },
   "HLP-020": { en: "Write your question and add a photo if it helps. A clinician will reply within the time shown." },
