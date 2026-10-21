@@ -3884,6 +3884,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C6; docs/design/S08x.md",
   },
   {
+    key: "record.doctor_summary_pdf",
+    // The patient-generated visit summary PDF (blood pressure, medicines, adherence, symptoms): the period choices and the row caps.
+    // Display only: it changes no treatment, raises no task and classifies no reading. Wearable readings are listed but never averaged
+    // or charted (`averageSources`); the list is the reading sources a home cuff, a typed entry or a confirmed photo of a cuff display can have.
+    value: { periodDays: [30, 60, 90], defaultDays: 30, maxBpRows: 30, maxSymptoms: 30, maxSkippedDoses: 30, averageSources: ["manual", "device", "photo_confirmed"] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/BUILD-SPEC-v5.md 2.9; docs/design/S43.md; docs/design/doctor-summary-pdf.md",
+  },
+  {
     key: "triage.coverage",
     // The daily silence (BP-A5) and adherence (BP-A4) sweep (P6, plan item R3). The LINES themselves (7 days of silence, 80 percent) are
     // in the signed bp_care_triage rule set and are read from it; this entry holds only the switch and who counts as having a blood
@@ -5981,6 +5993,52 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/plans/S41-S45-cmo-signoff-pack.md section B; founder decisions 2026-10-07",
+  },
+  {
+    key: "records_request.letter",
+    // Records request letter (docs/design/RRL.md). UNSIGNED PLACEHOLDER WORDING: written by an engineer, not by counsel, and nothing here has been
+    // reviewed as legal text. It asks a facility for the person's own records and names the Nigeria Data Protection Act 2023 right of access only
+    // because the person asked for that framing; it states no section number, no deadline as law and no penalty. Counsel replaces it by publishing
+    // a higher version (OQ-RRL-1). The letter is printed or handed over by the person; the platform never sends it.
+    value: {
+      wording_status: "unsigned_placeholder_pending_counsel",
+      title: "Request for a copy of my health records",
+      greeting: "To the Medical Records Officer, {facility}",
+      intro:
+        "I am the person these records are about. I am asking for a copy of the health records you hold about me, and I am making this request under my right of access to my own personal data under the Nigeria Data Protection Act 2023.",
+      identity_heading: "Details that identify me",
+      identity_labels: { name: "Name", date_of_birth: "Date of birth", phone: "Phone" },
+      fill_in: ["Hospital or patient number, if you know it:", "Address or email to send the records to:"],
+      scope_heading: "What I am asking for",
+      scopes: {
+        discharge_summary: "My discharge summary or summaries",
+        lab_results: "My laboratory results",
+        imaging_report: "The written reports of my scans and X-rays",
+        whole_record: "My whole record, as far as it can be given to me",
+      },
+      format: "Either a paper copy or an electronic copy will do. Please tell me if there is a form to fill in or a charge, and what you need from me to prove who I am.",
+      timing: "I would be grateful for a reply as soon as you can, and I will follow up with you after {days} days. If you need more time or more information from me, please tell me.",
+      closing: "Thank you for your help.",
+      sign_off: "Yours faithfully,",
+      footer: "Prepared at my request with TarragonHealth.",
+      draft_notice: "Draft wording, not yet checked by a lawyer.",
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/RRL.md; spec 2.3 and 2.11 (records fill the Passport); wording pending counsel",
+  },
+  {
+    key: "records_request.response_days",
+    // How long after the person hands the letter over the app treats a request as overdue. A PLACEHOLDER pending counsel and not a statement of what
+    // the law requires: the app only says "you asked on <date>, you hoped for a reply by <date>". It sets a reminder, never a legal claim.
+    value: { days: 30, label: "placeholder_pending_counsel" },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/RRL.md; OQ-RRL-1",
   },
   {
     key: "fhir.mapping",

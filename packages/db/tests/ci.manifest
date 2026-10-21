@@ -1337,6 +1337,9 @@ s06z_my_phones.sql
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted only from the last 24 hours; only open sev1/sev2 incidents counted. Sabotage: the function is replaced by one without the pending filter and the window; the checks must flip.
 oq436_deadman_status.sql
 
+
+# Records request letters (2026-10-20): guard off, own rows only, state machine, append-only history, ids-only events; three sabotages.
+records_request_letters.sql
 # OQ-S43m-5: private.biomarker_points omits a sensitive_positive lab_analyte_readings row (legacy_report branch): patient_biomarker_trend shows the patient and a labs_results caregiver the ordinary reading but never the positive HIV/HBsAg/HCV row. Sabotage: the filter is reverted and the sensitive row must appear.
 oq_s43m_5_biomarker_points_sensitive_legacy.sql
 

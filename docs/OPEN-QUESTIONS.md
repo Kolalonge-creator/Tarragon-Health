@@ -3805,6 +3805,18 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - The symptom handler (`private.handle_symptom_triage_assessment`) raises its `clinician_review` alert for every plan, Free included. The 2026-10-12 Free rule (guidance only, no doctor page, no doctor task) covered amber triage tasks, heart-failure alerts and crisis follow-up but not this alert, and OQ-432 deliberately left it unchanged: a Member's review is now one task, a Free patient's is still the alert.
 - Options: (a) leave it (the symptom checker is off behind `symptom_checker_enabled` and has no live assessments); (b) give a Free patient the calm in-app guidance record (`private.open_free_notice`, kind `amber`) instead of the alert, like amber triage; (c) keep the alert but mark it as Free so it does not count against doctor time.
 - Recommendation: (b) before `symptom_checker_enabled` is switched on, so the Free rule holds on every doctor-facing path. Owner: CMO and founder.
+### OQ-720 The visit summary cannot be built on the phone yet (raised by the doctor summary PDF)
+- The spec asks for a summary that works offline on the phone when the data is in the mirror. The summary is built on the web and the PDF route needs a connection; the phone has no PDF library at all (`apps/mobile/package.json` has `expo-file-system` but no `expo-print` or `expo-sharing`). Adding either is a native dependency, which means a new EAS build and a `runtimeVersion` bump before an over-the-air update can carry it (the standing rule for this app), so it was not done inside a web-only change.
+- What the phone does today: the patient opens the web page (`/patient/doctor-summary`) in the browser, online. The page says a connection is needed.
+- Options: (a) add `expo-print` and `expo-sharing`, build the same sections from the S06 mirror on the phone (the model in `apps/web/src/lib/doctor-summary-pdf/model.ts` is pure and would move into a package), accept the native rebuild; (b) leave it online only and decide later; (c) generate on the server and cache the last PDF on the phone for offline viewing (this is not the same: it is a snapshot, not a summary built from what is on the phone now).
+- Recommendation: (a), together with the next planned native build, so the rebuild is paid once. Owner: founder and engineering.
+- Decision: open.
+
+### OQ-679 What the summary can and cannot keep out (raised by the doctor summary PDF)
+- Same limit as OQ-S43-4. There is no reproductive-health or mental-health section, and the symptom journal drops entries of the two reproductive symptom types (`testicular_pain`, `testicular_lump`) whole. That list is a code constant in `model.ts`, not a CMO-signed tag list. A free-text symptom note, a skip reason, or a contraceptive in the medicines list is printed whatever it is for, because nothing classifies it. The page says so and the PDF footer says a listed medicine or note is listed whatever it is for.
+- The spec says these categories may be included if the existing category rules allow and the patient explicitly selects them. Not built: it needs the CMO-signed tag list and the access-category check, the same dependency as OQ-S43-4 and the S44 export.
+- Audit: the summary writes one `audit_log` row per generation through the patient's own session (insert policy `audit_log_insert`, actor must be the caller). The audited-read helpers (`private.audit_patient_read`) are for staff reading someone else's record and are not callable by a patient, so they were not reused. The row holds the sections ticked and the period only, never a value.
+- Options: (a) leave as built; (b) CMO signs the tag list, then add an explicit opt-in section behind the category checks. Owner: CMO and counsel.
 - Decision: open.
 
 ### OQ-452 An external dead-man check for the pager and cron (raised by the 2026-10-15 pg_cron outage)
@@ -4607,6 +4619,21 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 ### OQ-IPS-4 Items inside general sections are not sorted by purpose, for supporters too (raised by the IPS build, 2026-10-20)
 - `fhir_export_snapshot` (S47b) hides reproductive and mental-health-named conditions, medicines and allergies only for a guardian of a 10 to 17 year old without a waiver. A supporter who holds only the medications or conditions category, and the person themselves, still get such items inside Problems and Medicines, as in the existing collection export. The summary says so in words (file narrative and page copy) but a sentence is not a control. Decide whether the snapshot should withhold those items for every non-self reader, and whether a stopped medicine should be left out of the Medicines section. Do not weaken the existing exclusion; this build adds no new way to read them.
 - Decision: open (CMO / DPO).
+### OQ-RRL-1 Counsel must review the letter wording and the reply period (raised by the records request build, 2026-10-20)
+- `records_request.letter` v1 is engineer-written, UNSIGNED placeholder wording. It names the Nigeria Data Protection Act 2023 right of access as the person's own request and states no section, deadline or penalty. `records_request.response_days` (30) is a placeholder reminder period, not a statement of what the law requires. Counsel supplies approved wording and the period as a higher config version; until then the UI says the wording is a draft. Do not show anything as legal advice.
+- Decision: open (counsel / founder).
+
+### OQ-RRL-2 The guard `records_request_letters` cannot be switched on yet (raised by the records request build, 2026-10-20)
+- It is born OFF and, like S43 and S44, has no entry in `private.go_live_conditions` (that function is changed by several branches), so it reports "no defined condition". Add conditions (counsel signed the wording; the founder confirms) in a separate change before anyone flips it.
+- Decision: open (founder).
+
+### OQ-RRL-3 No push or inbox reminder when a request is overdue (raised by the records request build, 2026-10-20)
+- Overdue is derived and shown in the app (Passport banner, list, detail, phone list). No notification row is created because notification templates are reviewed for INV-07 and nothing may depend on a send. If the founder wants a nudge, it needs a reviewed template that names no facility, and the in-app list stays the source of truth.
+- Decision: open (founder).
+
+### OQ-RRL-4 Dependants and mobile creation (raised by the records request build, 2026-10-20)
+- The tables are guarded for under-18 dependants (no rows), so a guardian cannot ask on a child's behalf yet; decide whether a guardian flow is wanted. The phone lists and tracks requests but the letter is made and printed on the web; a phone create flow and share sheet is a later decision.
+- Decision: open (product).
 ### OQ-S49A-1 The 108 food rows are estimates and none is dietitian reviewed (raised by the S49a build, 2026-10-20)
 - Every new row, and every old one, is `data_quality = 'estimated'` with `needs_dietitian_review = true`; a database CHECK stops anyone marking a row "no review needed" while it is still estimated. Values are from published West African and general composition ranges (street food, stews and drinks vary widely with oil and seasoning). The grams for wrap, ladle and bowl, and the small / medium / large figures (0.6x, 1x, 1.5x of the default), are household estimates, not measured.
 - Needed: a registered dietitian reviews the table (a data change per row, setting `data_quality = 'dietitian_reviewed'` and `needs_dietitian_review = false` together), and measures the common portions. Until then the app says "an estimate to guide you" everywhere it shows a number, and the targets stay behind the CMO signature anyway.
