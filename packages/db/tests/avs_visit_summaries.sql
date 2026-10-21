@@ -164,7 +164,7 @@ do $$
 declare
   v_doc uuid := pg_temp.f('doc'); v_doc2 uuid := pg_temp.f('doc2'); v_coord uuid := pg_temp.f('coord'); v_np uuid := pg_temp.f('np');
   v_sp uuid := pg_temp.f('sp'); v_cg uuid := pg_temp.f('cg'); v_cg2 uuid := pg_temp.f('cg2'); v_org uuid := pg_temp.f('org');
-  n uuid; nd uuid; s uuid; v_rx uuid; v_item uuid; v_task uuid; v_before integer;
+  n uuid; nd uuid; s uuid; v_rx uuid; v_item uuid; v_task uuid; v_before integer; v_diag text;
 begin
   perform pg_temp.clear_queue();
   perform pg_temp.tie(v_doc, v_np);
@@ -257,7 +257,9 @@ begin
     (pg_temp.try_as(v_np, format('select public.approve_visit_summary(%L)', s)) <> 'ok')::text);
   perform pg_temp.ck('a stranger patient sees nothing of the draft', '0', pg_temp.sees(v_sp, s));
 
-  perform pg_temp.ck('the doctor approves', 'ok', pg_temp.try_as(v_doc, format('select public.approve_visit_summary(%L)', s)));
+  v_diag := pg_temp.try_as(v_doc, format('select public.approve_visit_summary(%L)', s));
+  raise notice 'AVSDIAG2 approve=%', v_diag;
+  perform pg_temp.ck('the doctor approves', 'ok', v_diag);
   perform pg_temp.ck('...the signature is the acting doctor and a time, stamped by the database', 'true',
     (select (approved_by = v_doc and approved_at is not null and approved_by_staff = (select id from public.clinical_staff where profile_id = v_doc)
              and amendment_count_at_approval = 0 and state = 'approved')::text from public.visit_summaries where id = s));
