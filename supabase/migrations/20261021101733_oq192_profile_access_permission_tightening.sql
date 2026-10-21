@@ -13,8 +13,10 @@
 --         reproductive_health_profiles insert/update: manage (and category) but no expiry check. Expiry added only; the
 --         reproductive category requirement is unchanged and is NOT relaxed to the dependent bypass.
 --       - dependant_handovers_read: any grantee, even expired or with an empty permission list. Now private.profile_access_active().
---       - private.can_purchase_voucher_for and public.price_review_for_patient: ANY grantee (view level too) could buy or price.
---         Now needs manage_payments (the rule S71 put on create_order).
+--       - private.can_purchase_voucher_for and public.price_review_for_patient: an EXPIRED grantee could still buy or price.
+--         Expiry added only. A view-level grantee may still buy a voucher or see a price: the client picker
+--         (profilesGrantedTo) documents 'money may flow in from anyone the record owner has consented to', and a price quote
+--         reveals nothing clinical. Requiring manage_payments there is a product call, left to the founder (OQ-192).
 --       - public.redeem_promo_code and public.create_transaction_subsidy: manage level but not manage_payments, no expiry.
 --       - public.report_exposure and public.sponsor_set_dependent_basics: manage level, no expiry.
 --   * Left alone on purpose: profiles_select (OQ-404, founder decision); care_receipt / resolve_patient_service_access /
@@ -35,9 +37,7 @@ as $function$
       or exists (
         select 1 from public.profile_access pa
         where pa.profile_id = p_beneficiary and pa.grantee_user_id = p_purchaser
-          and pa.permission_level = 'manage'
           and (pa.expires_at is null or pa.expires_at > now())
-          and (pa.permissions is null or 'manage_payments'::public.caregiver_permission = any(pa.permissions))
       );
 $function$;
 
@@ -52,7 +52,7 @@ begin
   for r in select * from (values
     ('public.price_review_for_patient(uuid,text)',
      $p$exists\s*\(\s*select 1 from public\.profile_access pa\s+where pa\.profile_id = p_patient_id\s+and pa\.grantee_user_id = v_caller\s*\)$p$,
-     $p$private.can_act_for(p_patient_id, 'manage_payments'::public.caregiver_permission)$p$, 'manage_payments'),
+     $p$exists (select 1 from public.profile_access pa where pa.profile_id = p_patient_id and pa.grantee_user_id = v_caller and (pa.expires_at is null or pa.expires_at > now()))$p$, 'expires_at'),
     ('public.redeem_promo_code(text,text,uuid)',
      $p$not exists\s*\(\s*select 1 from public\.profile_access pa\s+where pa\.profile_id = v_patient and pa\.grantee_user_id = v_caller and pa\.permission_level = 'manage'\s*\)$p$,
      $p$not private.can_act_for(v_patient, 'manage_payments'::public.caregiver_permission)$p$, 'manage_payments'),
@@ -118,7 +118,8 @@ begin
         $p$private.profile_access_active(dependant_handovers.patient_id)$p$, 'g');
     end if;
 
-    if v_nq is not distinct from v_q and v_nw is not distinct from v_w then
+    if (nullif(v_q, '') is not null and v_nq is not distinct from v_q)
+       or (nullif(v_w, '') is not null and v_nw is not distinct from v_w) then
       raise exception 'OQ-192 patch: policy %.% unchanged', r.tbl, r.pol;
     end if;
 

@@ -104,7 +104,7 @@ begin
     values ((select v from ids where k = 'org'), (select v from ids where k = 'pat'), (select v from ids where k = 'cat'), current_date, 2);
     insert into results values ('manage without vaccinations category is refused', 'denied', 'ok');
   exception when others then
-    insert into results values ('manage without vaccinations category is refused', 'denied', 'denied');
+    insert into results values ('manage without vaccinations category is refused', 'denied', case when sqlstate = '42501' then 'denied' else 'error ' || sqlstate end);
   end;
 end $$;
 reset role;
@@ -118,7 +118,7 @@ begin
     values ((select v from ids where k = 'org'), (select v from ids where k = 'pat'), (select v from ids where k = 'cat'), current_date, 3);
     insert into results values ('expired manage grant is refused', 'denied', 'ok');
   exception when others then
-    insert into results values ('expired manage grant is refused', 'denied', 'denied');
+    insert into results values ('expired manage grant is refused', 'denied', case when sqlstate = '42501' then 'denied' else 'error ' || sqlstate end);
   end;
 end $$;
 reset role;
@@ -132,7 +132,7 @@ begin
     values ((select v from ids where k = 'org'), (select v from ids where k = 'pat'), (select v from ids where k = 'cat'), current_date, 4);
     insert into results values ('view-level grant is refused', 'denied', 'ok');
   exception when others then
-    insert into results values ('view-level grant is refused', 'denied', 'denied');
+    insert into results values ('view-level grant is refused', 'denied', case when sqlstate = '42501' then 'denied' else 'error ' || sqlstate end);
   end;
 end $$;
 reset role;
@@ -149,12 +149,10 @@ insert into results select 'expired grantee does not read the handover', '0',
   (select count(*)::text from public.dependant_handovers);
 reset role;
 
--- ---- buying: manage_payments needed -----------------------------------------
-insert into results select 'control: manage_payments grantee may buy for the patient', 'true',
+-- ---- buying: an expired grant buys nothing -----------------------------------------
+insert into results select 'control: unexpired grantee may still buy for the patient', 'true',
   private.can_purchase_voucher_for((select v from ids where k = 'pat'), (select v from ids where k = 'gF'))::text;
-insert into results select 'manage grantee without manage_payments may not buy', 'false',
-  private.can_purchase_voucher_for((select v from ids where k = 'pat'), (select v from ids where k = 'gE'))::text;
-insert into results select 'view-level grantee may not buy', 'false',
+insert into results select 'control: view-level grantee may still buy (documented picker rule)', 'true',
   private.can_purchase_voucher_for((select v from ids where k = 'pat'), (select v from ids where k = 'gD'))::text;
 insert into results select 'expired grantee may not buy', 'false',
   private.can_purchase_voucher_for((select v from ids where k = 'pat'), (select v from ids where k = 'gC'))::text;
@@ -168,7 +166,9 @@ select 'policy reads profile_access without an expiry/permission/category check:
 from pg_policies
 where schemaname = 'public'
   and coalesce(qual,'') || coalesce(with_check,'') ilike '%profile_access%'
-  and coalesce(qual,'') || coalesce(with_check,'') not ilike '%expires_at%'
+  and not (coalesce(qual,'') || coalesce(with_check,'') ilike '%expires_at%'
+           and (coalesce(qual,'') || coalesce(with_check,'') ilike '%permission_level%'
+                or coalesce(qual,'') || coalesce(with_check,'') ilike '%profile_access_categories%'))
   and coalesce(qual,'') || coalesce(with_check,'') not ilike '%can_act_for%'
   and coalesce(qual,'') || coalesce(with_check,'') not ilike '%can_read_clinical%'
   and coalesce(qual,'') || coalesce(with_check,'') not ilike '%profile_access_active%'
@@ -179,14 +179,47 @@ where schemaname = 'public'
     'adolescent_confidentiality_waivers_insert'  -- the patient (not a grantee) writes; grantee must already exist
   );
 
+-- both halves of every patched policy carry the new rule (no read/write asymmetry)
+insert into results
+select 'policy half not tightened: ' || tablename || '.' || policyname || ' ' || h.half, 'ok', 'old'
+from pg_policies p
+cross join lateral (values ('using', p.qual), ('check', p.with_check)) h(half, txt)
+where p.schemaname = 'public'
+  and p.policyname in ('vaccination_records_insert','vaccination_records_update','vaccination_schedules_update',
+        'vaccination_adverse_events_insert','vaccination_card_extractions_insert','vaccination_card_extractions_update',
+        'booking_requests_insert','menstrual_cycles_insert','menstrual_cycles_update','menstrual_cycles_delete',
+        'menstrual_daily_logs_insert','menstrual_daily_logs_update','menstrual_daily_logs_delete',
+        'reproductive_health_profiles_insert','reproductive_health_profiles_update')
+  and nullif(h.txt, '') is not null
+  and h.txt not ilike '%expires_at%' and h.txt not ilike '%can_act_for%';
+
+-- the vaccination UPDATE policy: categoryless manage grantee and an expired one are refused, the right one passes
+insert into public.vaccination_records (organisation_id, profile_id, vaccination_catalog_id, date_administered, dose_number)
+values ((select v from ids where k = 'org'), (select v from ids where k = 'pat'), (select v from ids where k = 'cat'), current_date, 9);
+select set_config('request.jwt.claim.sub', (select v::text from ids where k = 'gA'), true);
+set local role authenticated;
+with u as (update public.vaccination_records set site = 'left arm' where dose_number = 9 returning 1)
+insert into results select 'control: update by manage + category grantee', '1', (select count(*)::text from u);
+reset role;
+select set_config('request.jwt.claim.sub', (select v::text from ids where k = 'gB'), true);
+set local role authenticated;
+with u as (update public.vaccination_records set site = 'right arm' where dose_number = 9 returning 1)
+insert into results select 'update by categoryless manage grantee touches nothing', '0', (select count(*)::text from u);
+reset role;
+select set_config('request.jwt.claim.sub', (select v::text from ids where k = 'gC'), true);
+set local role authenticated;
+with u as (update public.vaccination_records set site = 'right arm' where dose_number = 9 returning 1)
+insert into results select 'update by expired grantee touches nothing', '0', (select count(*)::text from u);
+reset role;
+
 -- ---- sabotage: put the old behaviour back, the refusals must flip -----------
 create or replace function private.can_purchase_voucher_for(p_beneficiary uuid, p_purchaser uuid)
 returns boolean language sql stable security definer set search_path to '' as $f$
   select p_beneficiary = p_purchaser
       or exists (select 1 from public.profile_access pa where pa.profile_id = p_beneficiary and pa.grantee_user_id = p_purchaser);
 $f$;
-insert into results select 'SABOTAGE: old voucher check lets a view-level grantee buy (this must flip)', 'true',
-  private.can_purchase_voucher_for((select v from ids where k = 'pat'), (select v from ids where k = 'gD'))::text;
+insert into results select 'SABOTAGE: old voucher check lets an expired grantee buy (this must flip)', 'true',
+  private.can_purchase_voucher_for((select v from ids where k = 'pat'), (select v from ids where k = 'gC'))::text;
 
 alter policy vaccination_records_insert on public.vaccination_records with check (
   (profile_id = (select auth.uid()))
