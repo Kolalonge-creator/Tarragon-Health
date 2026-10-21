@@ -25,7 +25,7 @@ import type { SectionId } from "./sections";
  *   finish "three times a week". Display only; nothing is written here.
  * - Nothing is ranked by how the patient is doing, only by when it is due.
  */
-export type TodayTaskKind = "log_bp" | "take_medicine" | "book_test" | "join_consultation" | "read_lesson";
+export type TodayTaskKind = "log_bp" | "take_medicine" | "book_test" | "join_consultation" | "read_lesson" | "consult_checkin";
 
 export interface TodayTask {
   id: string;
@@ -76,7 +76,7 @@ export interface TodayInput {
   maxOpen?: number;
 }
 
-const KNOWN_KINDS: readonly TodayTaskKind[] = ["log_bp", "take_medicine", "book_test", "join_consultation", "read_lesson"];
+const KNOWN_KINDS: readonly TodayTaskKind[] = ["log_bp", "take_medicine", "book_test", "join_consultation", "read_lesson", "consult_checkin"];
 
 const TARGET_FOR_KIND: Record<TodayTaskKind | "other", SectionId> = {
   log_bp: "vitals",
@@ -84,6 +84,8 @@ const TARGET_FOR_KIND: Record<TodayTaskKind | "other", SectionId> = {
   book_test: "labs",
   join_consultation: "appointments",
   read_lesson: "learn",
+  // PCC: the check-in after a consultation. A native answer screen is not built yet (OQ-PCC-6): the item opens Care, where the web check-in link lives.
+  consult_checkin: "care",
   other: "care",
 };
 
