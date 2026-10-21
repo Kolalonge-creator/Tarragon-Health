@@ -25,11 +25,19 @@ describe("loadPatientLowCarb", () => {
     ["an rpc error", { data: null, error: { message: "x" } }],
     ["the unavailable answer", { data: { state: "unavailable" }, error: null }],
     ["no answer", { data: null, error: null }],
-    ["a payload without the numbers", { data: { state: "ok", status: "active" }, error: null }],
-    ["an unknown status", { data: { ...ok("active"), status: "stopped" }, error: null }],
   ])("%s is unavailable", async (_name, answer) => {
     await expect(loadPatientLowCarb(client(answer), "p1", NOW)).resolves.toEqual({ state: "unavailable" });
     expect(vitals).not.toHaveBeenCalled();
+  });
+
+  it("an ok answer that cannot be read is an ERROR to retry, not unavailable", async () => {
+    await expect(loadPatientLowCarb(client({ data: { state: "ok", status: "active" }, error: null }), "p1", NOW)).resolves.toEqual({ state: "error" });
+    await expect(loadPatientLowCarb(client({ data: { ...ok("active"), status: "stopped" }, error: null }), "p1", NOW)).resolves.toEqual({ state: "error" });
+  });
+
+  it("with no signed rules someone on the programme still gets a screen, without the number", async () => {
+    const ok2 = await loadPatientLowCarb(client({ data: { ...ok("paused"), low_glucose_below_mmol: null, check_ins: null }, error: null }), "p1", NOW);
+    expect(ok2).toEqual({ state: "ok", enrolmentId: "e1", status: "paused", lowLine: null, checkins: null });
   });
 
   it("an offer needs no reading", async () => {

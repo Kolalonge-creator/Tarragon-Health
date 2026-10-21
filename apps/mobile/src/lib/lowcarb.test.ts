@@ -23,7 +23,7 @@ const ok = (status: string) => ({
 
 function readings(rows: unknown, error: unknown = null) {
   const q: Record<string, unknown> = {};
-  for (const m of ["select", "eq", "in", "gte"]) q[m] = () => q;
+  for (const m of ["select", "eq", "in", "gte", "order"]) q[m] = () => q;
   q.limit = async () => ({ data: rows, error });
   from.mockReturnValue(q);
 }
@@ -43,14 +43,24 @@ describe("parseLowCarbOk", () => {
     ["a string", "ok"],
     ["no enrolment id", { ...ok("active"), enrolment_id: undefined }],
     ["an unknown status", ok("stopped")],
-    ["no low line", { ...ok("active"), low_glucose_below_mmol: undefined }],
-    ["a missing rule", { ...ok("active"), check_ins: { glucose: rule } }],
+    ["a low line that is a string", { ...ok("active"), low_glucose_below_mmol: "3.9" }],
   ])("%s is not a programme", (_name, data) => {
     expect(parseLowCarbOk(data)).toBeNull();
   });
 });
 
+describe("an ok answer with missing numbers", () => {
+  it("is still a programme (no number, no check-in lines) when the rules are not live", () => {
+    expect(parseLowCarbOk({ ...ok("paused"), low_glucose_below_mmol: null, check_ins: null })).toMatchObject({ status: "paused", lowLine: null, rules: null });
+  });
+});
+
 describe("loadLowCarb", () => {
+  it("an ok answer that cannot be read is an ERROR to retry, not unavailable", async () => {
+    rpc.mockResolvedValueOnce({ data: { state: "ok", status: "active", enrolment_id: "e1", low_glucose_below_mmol: "3.9", check_ins: {} }, error: null });
+    await expect(loadLowCarb("p1", NOW)).resolves.toEqual({ kind: "error", offline: false });
+  });
+
   it("every closed case is the same unavailable answer", async () => {
     for (const data of [{ state: "unavailable" }, null, {}, "x"]) {
       rpc.mockResolvedValueOnce({ data, error: null });
@@ -101,6 +111,10 @@ describe("loadLowCarb", () => {
 describe("hasLowCarbProgramme (the quiet link)", () => {
   it("is true only for an ok answer", async () => {
     rpc.mockResolvedValueOnce({ data: ok("offered"), error: null });
+    await expect(hasLowCarbProgramme()).resolves.toBe(true);
+  });
+  it("is true for a half-readable ok (the screen then says it could not load)", async () => {
+    rpc.mockResolvedValueOnce({ data: { state: "ok", status: "active" }, error: null });
     await expect(hasLowCarbProgramme()).resolves.toBe(true);
   });
   it("is false for a closed gate and for an error, so nothing is advertised", async () => {

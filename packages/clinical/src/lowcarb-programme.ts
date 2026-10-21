@@ -130,39 +130,65 @@ export function lowCarbConditionMatches(records: readonly LowCarbConditionRecord
   });
 }
 
-/** Lower case; every run of anything but a to z and 0 to 9 becomes one space; trimmed. ASCII only, so SQL (private.lowcarb_norm) matches exactly. */
-export function lowCarbNormalise(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const ACCENT_FROM = "àáâãäåāăąçćčďèéêëēėęěìíîïīįłñńňòóôõöøōőřśšşťùúûüūůűųýÿźżžđÀÁÂÃÄÅĀĂĄÇĆČĎÈÉÊËĒĖĘĚÌÍÎÏĪĮŁÑŃŇÒÓÔÕÖØŌŐŘŚŠŞŤÙÚÛÜŪŮŰŲÝŸŹŻŽĐ";
+const ACCENT_TO = "aaaaaaaaacccdeeeeeeeeiiiiiilnnnoooooooorssstuuuuuuuuyyzzzdAAAAAAAAACCCDEEEEEEEEIIIIIILNNNOOOOOOOORSSSTUUUUUUUUYYZZZD";
+const INVISIBLE = /[\u00ad\u200b-\u200f\u2060\ufeff]/g;
+
+/** Drops invisible characters and maps accented letters to plain ones. Mirrored by the start of private.lowcarb_norm. */
+function foldText(text: string): string {
+  let out = text.replace(INVISIBLE, "");
+  let mapped = "";
+  for (const ch of out) {
+    const k = ACCENT_FROM.indexOf(ch);
+    mapped += k >= 0 ? ACCENT_TO[k] : ch;
+  }
+  out = mapped;
+  return out;
 }
 
-/** Plain Levenshtein distance. Mirrored by private.lowcarb_edit_distance. */
+/** Lower case; every run of anything but a to z and 0 to 9 becomes one space; trimmed. Accents are folded first. Mirrored by private.lowcarb_norm. */
+export function lowCarbNormalise(text: string): string {
+  return foldText(text).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/** True when, after folding, a name still holds a letter this code cannot read (for example full-width or non-Latin letters). Such a name FAILS SAFE to supervision. Mirrored by private.lowcarb_unreadable. */
+export function lowCarbUnreadable(text: string): boolean {
+  for (const ch of foldText(text)) if ((ch.codePointAt(0) as number) > 127) return true;
+  return false;
+}
+
+/** Optimal string alignment distance: insert, delete, substitute, or swap two neighbouring letters, each cost 1 (so "Mixtrad" is one slip from "Mixtard"). Mirrored by private.lowcarb_edit_distance. */
 export function lowCarbEditDistance(a: string, b: string): number {
-  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array<number>(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) (d[0] as number[])[j] = j;
   for (let i = 1; i <= a.length; i++) {
-    const cur = [i];
     for (let j = 1; j <= b.length; j++) {
-      cur.push(Math.min((prev[j] as number) + 1, (cur[j - 1] as number) + 1, (prev[j - 1] as number) + (a[i - 1] === b[j - 1] ? 0 : 1)));
+      const row = d[i] as number[];
+      const up = d[i - 1] as number[];
+      let best = Math.min((up[j] as number) + 1, (row[j - 1] as number) + 1, (up[j - 1] as number) + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) best = Math.min(best, ((d[i - 2] as number[])[j - 2] as number) + 1);
+      row[j] = best;
     }
-    prev = cur;
   }
-  return prev[b.length] as number;
+  return (d[a.length] as number[])[b.length] as number;
 }
 
 /**
- * Whether a recorded medicine name matches any pattern. A pattern matches when it appears inside the normalised name (so "Mixtard 30/70 100IU/ml",
- * "GLIBENCLAMIDE 5mg" and a combination such as "metformin + glibenclamide" all match), or, for a one-word pattern of six letters or more, when
- * any word of the name is within one typing slip of it (two for ten letters or more), so "gliclazid" and "glimepirid" still match. A false match only
- * ever asks for a doctor's supervision; a miss is the dangerous direction, which is why this errs towards matching. Mirrored by private.lowcarb_name_matches.
+ * Whether a recorded medicine name matches any pattern. A pattern matches when it appears inside the normalised name with or without spaces (so "Mixtard 30/70
+ * 100IU/ml", "GLIBENCLAMIDE 5mg", "Novo Rapid" and a combination such as "metformin + glibenclamide" all match), or, for a one-word pattern of five letters or more,
+ * when any word of the name is within one typing slip of it (two for ten letters or more; a swap of two neighbouring letters is one slip). A false match only ever
+ * asks for a doctor's supervision; a miss is the dangerous direction, which is why this errs towards matching. Mirrored by private.lowcarb_name_matches.
  */
 export function lowCarbNameMatches(name: string, patterns: readonly string[]): boolean {
   const n = lowCarbNormalise(name);
   if (n === "") return false;
+  const squeezed = n.replace(/ /g, "");
   const words = n.split(" ");
   return patterns.some((raw) => {
     const p = lowCarbNormalise(raw);
     if (p === "") return false;
-    if (n.includes(p)) return true;
-    if (p.includes(" ") || p.length < 6) return false;
+    if (n.includes(p) || squeezed.includes(p.replace(/ /g, ""))) return true;
+    if (p.includes(" ") || p.length < 5) return false;
     const allowed = p.length >= 10 ? 2 : 1;
     return words.some((w) => Math.abs(w.length - p.length) <= allowed && lowCarbEditDistance(w, p) <= allowed);
   });
@@ -195,8 +221,9 @@ export function classifyLowCarbMedicine(med: LowCarbMedicineRecord, config: LowC
   }
   const m = config.eligibility.diabetes_markers;
   const related = lowCarbNameMatches(med.name, m.name_patterns) || lowCarbTextHas(med.indication, m.indication_patterns);
+  const unreadable = lowCarbUnreadable(med.name);
   // FAIL SAFE: a medicine with no usable name, or one that looks diabetes-related and is not positively recognised, needs a doctor to accept supervision.
-  const unclassified = risk.length === 0 && allowed.length === 0 && (lowCarbNormalise(med.name) === "" || related);
+  const unclassified = risk.length === 0 && (unreadable || (allowed.length === 0 && (lowCarbNormalise(med.name) === "" || related)));
   return { risk, allowed, unclassified };
 }
 
@@ -374,7 +401,8 @@ export type LowCarbReviewStopCode =
   | "open_red_triage"
   | "open_amber_triage"
   | "too_few_readings"
-  | "no_trigger";
+  | "no_trigger"
+  | "step_table_invalid";
 
 export interface LowCarbMedicine {
   readonly id: string;
@@ -382,6 +410,8 @@ export interface LowCarbMedicine {
   readonly dose: string;
   readonly frequency: string;
   readonly clinicianIssued: boolean;
+  /** The recorded reason, if any; used only to recognise a diabetes medicine the config does not list. */
+  readonly indication?: string | null;
 }
 
 export interface LowCarbReviewInput {
@@ -420,6 +450,8 @@ export function proposeLowCarbMedicineReview(input: LowCarbReviewInput, table: L
   const stops: LowCarbReviewStopCode[] = [];
   // A draft step table drives a proposal for a test patient only; a real patient needs the approved table.
   if (!(table.status === "approved" || (table.status === "draft" && input.isTest))) stops.push("protocol_not_approved_for_real_patient");
+  // A step that names a group the config does not have would silently never fire: the whole table is refused and the doctor is told.
+  if (table.steps.some((st) => st.match.groups.length === 0 || st.match.groups.some((g) => config.eligibility.medicine_groups[g] === undefined))) stops.push("step_table_invalid");
   if (!input.programmeActive) stops.push("programme_not_active");
   if (input.pregnancy !== "no") stops.push("pregnancy_or_unknown");
   if (input.openTriage === "red") stops.push("open_red_triage");
@@ -449,7 +481,7 @@ export function proposeLowCarbMedicineReview(input: LowCarbReviewInput, table: L
       (anyLimit !== undefined && inWindow.some((g) => g.mmol < anyLimit));
     if (!fired) continue;
     for (const med of input.medicines) {
-      const patterns = step.match.groups.flatMap((g) => config.eligibility.medicine_groups[g]?.name_patterns ?? []);
+      const patterns = step.match.groups.flatMap((g) => (config.eligibility.medicine_groups[g] as LowCarbMedicineGroup).name_patterns);
       if (!lowCarbNameMatches(med.drugName, patterns)) continue;
       proposals.push({
         stepId: step.id,
@@ -462,16 +494,21 @@ export function proposeLowCarbMedicineReview(input: LowCarbReviewInput, table: L
       });
     }
   }
-  // A diabetes-related medicine the config does not recognise is never skipped silently: the doctor is told to look at it by hand.
+  // A medicine that needs supervision (a risk group) with no step of its own, or one the config does not recognise, is never skipped silently:
+  // the doctor is told to look at it by hand.
   for (const med of input.medicines) {
-    if (classifyLowCarbMedicine({ name: med.drugName, indication: null }, config).unclassified && !proposals.some((p) => p.medicationId === med.id)) {
+    if (proposals.some((p) => p.medicationId === med.id)) continue;
+    const c = classifyLowCarbMedicine({ name: med.drugName, indication: med.indication ?? null }, config);
+    if (c.unclassified || c.risk.length > 0) {
       proposals.push({
-        stepId: "unclassified_diabetes_medicine",
+        stepId: c.unclassified ? "unclassified_diabetes_medicine" : "no_step_for_group",
         action: "review_dose",
         medicationId: med.id,
         drugName: med.drugName,
         currentDose: med.dose,
-        rationale: "The platform does not recognise this medicine as safe on this programme. A doctor reviews it by hand.",
+        rationale: c.unclassified
+          ? "The platform does not recognise this medicine as safe on this programme. A doctor reviews it by hand."
+          : "This medicine can lower sugar and the step table has no step for it. A doctor reviews it by hand.",
         proposable: false,
       });
     }

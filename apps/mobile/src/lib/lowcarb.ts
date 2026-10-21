@@ -19,30 +19,35 @@ export type LowCarbStatus = "offered" | "active" | "paused";
 export type LowCarbView =
   | { kind: "unavailable" }
   | { kind: "error"; offline: boolean }
-  | { kind: "ok"; enrolmentId: string; status: LowCarbStatus; lowLine: number; checkins: LowCarbCheckinLine[] | null };
+  | { kind: "ok"; enrolmentId: string; status: LowCarbStatus; lowLine: number | null; checkins: LowCarbCheckinLine[] | null };
 
 type Rule = { per_week: number; max_gap_days: number };
 const isRule = (v: unknown): v is Rule =>
   typeof v === "object" && v !== null && typeof (v as Rule).per_week === "number" && typeof (v as Rule).max_gap_days === "number";
 
 /** Reads the `ok` payload. Anything that does not have every field is "unavailable": a half-readable answer is never shown as a programme. */
-export function parseLowCarbOk(data: unknown): { enrolmentId: string; status: LowCarbStatus; lowLine: number; rules: { glucose: Rule; ketones: Rule; weight: Rule } } | null {
+export function parseLowCarbOk(data: unknown): { enrolmentId: string; status: LowCarbStatus; lowLine: number | null; rules: { glucose: Rule; ketones: Rule; weight: Rule } | null } | null {
   if (parseLowCarbGate(data).state !== "ok") return null;
   const o = data as Record<string, unknown>;
   const ci = o.check_ins as Record<string, unknown> | undefined;
   if (typeof o.enrolment_id !== "string" || (o.status !== "offered" && o.status !== "active" && o.status !== "paused")) return null;
-  if (typeof o.low_glucose_below_mmol !== "number" || !ci || !isRule(ci.glucose) || !isRule(ci.ketones) || !isRule(ci.weight)) return null;
-  return { enrolmentId: o.enrolment_id, status: o.status, lowLine: o.low_glucose_below_mmol, rules: { glucose: ci.glucose, ketones: ci.ketones, weight: ci.weight } };
+  // With no signed rules live the numbers are null; someone already on the programme still gets the screen (without the number or the check-in lines).
+  const lowLine = typeof o.low_glucose_below_mmol === "number" ? o.low_glucose_below_mmol : null;
+  const rules = ci && isRule(ci.glucose) && isRule(ci.ketones) && isRule(ci.weight) ? { glucose: ci.glucose, ketones: ci.ketones, weight: ci.weight } : null;
+  if (o.low_glucose_below_mmol !== null && lowLine === null) return null;
+  return { enrolmentId: o.enrolment_id, status: o.status, lowLine, rules };
 }
 
 export async function loadLowCarb(patientId: string, now: Date = new Date()): Promise<LowCarbView> {
   const gate = await supabase.rpc("my_lowcarb_gate");
   if (gate.error) return { kind: "error", offline: isOfflineError(gate.error) };
+  // Not an ok answer: the one closed answer. An ok answer we cannot read is an ERROR, never "nothing here".
+  if (parseLowCarbGate(gate.data).state !== "ok") return { kind: "unavailable" };
   const ok = parseLowCarbOk(gate.data);
-  if (!ok) return { kind: "unavailable" };
+  if (!ok) return { kind: "error", offline: false };
 
   let checkins: LowCarbCheckinLine[] | null = null;
-  if (ok.status === "active") {
+  if (ok.status === "active" && ok.rules) {
     const since = new Date(now.getTime() - 14 * 86_400_000).toISOString();
     const rows = await supabase
       .from("vitals_readings")
@@ -50,6 +55,7 @@ export async function loadLowCarb(patientId: string, now: Date = new Date()): Pr
       .eq("patient_id", patientId)
       .in("vital_type", ["glucose", "ketones", "weight"])
       .gte("taken_at", since)
+      .order("taken_at", { ascending: false })
       .limit(600);
     // An unreadable reading list is not "no check-ins": show no lines rather than a wall of "overdue".
     if (!rows.error && Array.isArray(rows.data)) {
@@ -65,7 +71,8 @@ export async function loadLowCarb(patientId: string, now: Date = new Date()): Pr
 /** For the quiet link on the medicines screen: true only when the database says ok. An error shows no link (the screen itself asks again). */
 export async function hasLowCarbProgramme(): Promise<boolean> {
   const { data, error } = await supabase.rpc("my_lowcarb_gate");
-  return !error && parseLowCarbOk(data) !== null;
+  // Only the database's own ok decides the link, so a half-readable ok still shows it (the screen then says it could not load).
+  return !error && parseLowCarbGate(data).state === "ok";
 }
 
 export type LowCarbAnswer = { ok: true; outcome: "active" | "declined" | "unavailable" | "stopped" } | { ok: false; key: MessageKey };

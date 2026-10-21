@@ -95,7 +95,7 @@ export function LowCarbProtocolConfigView({ row, canSign }: { row: LowCarbProtoc
           </ul>
           <p>
             Any other medicine that looks diabetes-related (its name contains {(el.diabetes_markers?.name_patterns ?? []).join(", ")}, or its recorded reason contains {(el.diabetes_markers?.indication_patterns ?? []).join(", ")})
-            and is on none of the lists above, or a medicine with no usable name, needs a doctor to accept supervision. It is never treated as "no medicine of concern".
+            and is on none of the lists above, or a medicine with no usable name, needs a doctor to accept supervision. It is never treated as &quot;no medicine of concern&quot;.
           </p>
           <p className="text-charcoal-ink/70">
             These name lists are a starting point written without a pharmacist. Spelling slips of one letter (two for long names), capitals, strengths and combination products are matched.

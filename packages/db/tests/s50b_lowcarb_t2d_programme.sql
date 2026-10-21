@@ -278,6 +278,16 @@ begin
   perform pg_temp.ck('M18 Humalog Mix', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Humalog Mix 25"]}'));
   perform pg_temp.ck('M19 insulin plus an SGLT2 inhibitor: the exclusion wins', 'not_eligible|medicine_sglt2_inhibitor', pg_temp.run_case('{"meds":["Lantus","Jardiance 10mg"]}'));
   perform pg_temp.ck('M20 unrelated medicines are not flagged', 'eligible|none', pg_temp.run_case('{"meds":["Paracetamol 500mg","Vitamin D"]}'));
+  perform pg_temp.ck('M21 a brand typed as two words', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Novo Rapid FlexPen"]}'));
+  perform pg_temp.ck('M22 two letters swapped', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Mixtrad 30/70"]}'));
+  perform pg_temp.ck('M23 a short brand with a slip', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Fiasb"]}'));
+  perform pg_temp.ck('M24 an accented letter is folded', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Insul' || chr(237) || 'n glargine"]}'));
+  perform pg_temp.ck('M25 full-width letters cannot be read, so the screen fails safe', 'needs_supervision|supervision_unclassified', pg_temp.run_case('{"meds":["' || chr(65321) || chr(65326) || chr(65331) || chr(65333) || chr(65324) || chr(65321) || chr(65326) || '"]}'));
+  perform pg_temp.ck('M26 an SGLT2 combination brand not in the old list', 'not_eligible|medicine_sglt2_inhibitor', pg_temp.run_case('{"meds":["Steglujan"]}'));
+  perform pg_temp.ck('M27 a misspelt sulfonylurea brand', 'needs_supervision|supervision_sulfonylurea', pg_temp.run_case('{"meds":["Daonli 5mg"]}'));
+  perform pg_temp.ck('M28 an insulin plus GLP-1 combination', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Xultophy 100/3.6"]}'));
+  perform pg_temp.ck('M29 a soft hyphen inside the name', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["in' || chr(173) || 'sulin"]}'));
+  perform pg_temp.ck('M30 an accented metformin is still recognised', 'eligible|none', pg_temp.run_case('{"meds":["Metform' || chr(237) || 'n 500mg"]}'));
 end $$;
 
 -- c. enrolment ---------------------------------------------------------------------------------------------------------------------
@@ -466,6 +476,19 @@ begin
     insert into public.patient_conditions (organisation_id, patient_id, condition_name, status) values (v_org, k, 'Chronic kidney disease stage 3', 'active');
     perform private.lowcarb_sweep();
     perform pg_temp.ck('d31 the sweep pauses someone with a newly recorded excluded condition', 'paused/no_longer_eligible', pg_temp.status_of(ek));
+  end;
+
+  -- a hypoglycaemia-risk medicine the doctor never accepted supervision of appears after enrolment: the sweep pauses it (needs_supervision is not "healthy")
+  declare k2 uuid; ek2 uuid;
+  begin
+    k2 := pg_temp.mkcase('{"meds":["Metformin 500mg"]}'); perform pg_temp.tie(v_org, k2, pg_temp.f('doc'));
+    ek2 := pg_temp.q_as(pg_temp.f('doc'), format('select public.offer_lowcarb_programme(%L, true)', k2))::uuid;
+    perform pg_temp.q_as(k2, format('select public.respond_lowcarb_offer(%L, true)', ek2));
+    perform private.lowcarb_sweep();
+    perform pg_temp.ck('d32 the sweep leaves a person on metformin alone running', 'active', pg_temp.status_of(ek2));
+    insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source) values (v_org, k2, 'Lantus', '10 units', 'daily', true, 'clinician');
+    perform private.lowcarb_sweep();
+    perform pg_temp.ck('d33 ...and pauses it when insulin appears that nobody accepted supervision of', 'paused/no_longer_eligible', pg_temp.status_of(ek2));
   end;
 end $$;
 

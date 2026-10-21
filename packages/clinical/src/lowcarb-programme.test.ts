@@ -14,6 +14,7 @@ import {
   lowCarbNameMatches,
   lowCarbNormalise,
   lowCarbTextHas,
+  lowCarbUnreadable,
   lowCarbStopDraftArgs,
   lowCarbStopCheck,
   parseLowCarbGate,
@@ -151,6 +152,16 @@ const MED_CASES: { id: string; meds: { name: string; indication: string | null }
   { id: "M18", meds: meds("Humalog Mix 25"), expected: "needs_supervision|supervision_insulin" },
   { id: "M19", meds: meds("Lantus", "Jardiance 10mg"), expected: "not_eligible|medicine_sglt2_inhibitor" },
   { id: "M20", meds: meds("Paracetamol 500mg", "Vitamin D"), expected: "eligible|none" },
+  { id: "M21", meds: meds("Novo Rapid FlexPen"), expected: "needs_supervision|supervision_insulin" },
+  { id: "M22", meds: meds("Mixtrad 30/70"), expected: "needs_supervision|supervision_insulin" },
+  { id: "M23", meds: meds("Fiasb"), expected: "needs_supervision|supervision_insulin" },
+  { id: "M24", meds: meds("Insul\u00edn glargine"), expected: "needs_supervision|supervision_insulin" },
+  { id: "M25", meds: meds("\uff29\uff2e\uff33\uff35\uff2c\uff29\uff2e"), expected: "needs_supervision|supervision_unclassified" },
+  { id: "M26", meds: meds("Steglujan"), expected: "not_eligible|medicine_sglt2_inhibitor" },
+  { id: "M27", meds: meds("Daonli 5mg"), expected: "needs_supervision|supervision_sulfonylurea" },
+  { id: "M28", meds: meds("Xultophy 100/3.6"), expected: "needs_supervision|supervision_insulin" },
+  { id: "M29", meds: meds("in\u00adsulin"), expected: "needs_supervision|supervision_insulin" },
+  { id: "M30", meds: meds("Metform\u00edn 500mg"), expected: "eligible|none" },
 ];
 
 describe("medicine classification (the fail-safe)", () => {
@@ -195,6 +206,23 @@ describe("medicine classification (the fail-safe)", () => {
     expect(lowCarbNameMatches("xyz", ["xyzq"])).toBe(false);
     expect(lowCarbNameMatches("novo mix 30", ["novo mix"])).toBe(true);
     expect(lowCarbNameMatches("novo mx 30", ["novo mix"])).toBe(false);
+  });
+
+  it("a swap of two neighbouring letters is one slip; short brand names are matched fuzzily too", () => {
+    expect(lowCarbEditDistance("mixtard", "mixtrad")).toBe(1);
+    expect(lowCarbNameMatches("Lantsu", ["lantus"])).toBe(true);
+    expect(lowCarbNameMatches("Qtern", ["qtern"])).toBe(true);
+    expect(lowCarbNameMatches("Qtren", ["qtern"])).toBe(true);
+    expect(lowCarbNameMatches("Novo Rapid", ["novorapid"])).toBe(true);
+  });
+
+  it("accents and invisible characters are folded, and a name with a letter we cannot read fails safe", () => {
+    expect(lowCarbNormalise("Insul\u00edn")).toBe("insulin");
+    expect(lowCarbNormalise("in\u00adsulin")).toBe("insulin");
+    expect(lowCarbUnreadable("Insul\u00edn")).toBe(false);
+    expect(lowCarbUnreadable("\uff29\uff2e\uff33")).toBe(true);
+    expect(classifyLowCarbMedicine({ name: "\u0438\u043d\u0441\u0443\u043b\u0438\u043d", indication: null }, config).unclassified).toBe(true);
+    expect(classifyLowCarbMedicine({ name: "\uff2d\uff45\uff54\uff46\uff4f\uff52\uff4d\uff49\uff4e Metformin", indication: null }, config).unclassified).toBe(true);
   });
 
   it("normalising and distance helpers", () => {
@@ -331,9 +359,10 @@ describe("medicine review: the platform only proposes", () => {
     expect(patientAdded.kind === "review" && patientAdded.proposals.find((p) => p.stepId === "su_stop_on_low")?.proposable).toBe(false);
   });
 
-  it("the standing review alone raises a review with no proposal when sugars are fine", () => {
+  it("the standing review alone raises a review; sugars fine, so the two sugar-lowering medicines are listed for a hand review", () => {
     const r = proposeLowCarbMedicineReview(input({ glucose: [reading(9, 1), reading(9, 2), reading(9, 3), reading(9, 4), reading(9, 5)], lastMedicineReviewAt: daysAgo(20) }), table, config);
-    expect(r).toMatchObject({ kind: "review", triggers: ["standing_review_due"], proposals: [] });
+    expect(r).toMatchObject({ kind: "review", triggers: ["standing_review_due"] });
+    expect(r.kind === "review" && r.proposals.map((p) => `${p.stepId}:${p.drugName}`)).toEqual(["no_step_for_group:Gliclazide", "no_step_for_group:Lantus insulin"]);
   });
 
   it("never having reviewed counts as due", () => {
@@ -374,11 +403,11 @@ describe("medicine review: the platform only proposes", () => {
       ...table,
       steps: [
         { id: "a", match: { groups: ["metformin"] }, when: { any_glucose_below_mmol: 3.0 }, action: "review_dose", rationale: "x" },
-        { id: "b", match: { groups: ["nonexistent_group"] }, when: { any_glucose_below_mmol: 9 }, action: "review_dose", rationale: "y" },
+        { id: "b", match: { groups: ["dpp4_inhibitor"] }, when: { any_glucose_below_mmol: 9 }, action: "review_dose", rationale: "y" },
       ],
     };
     const r = proposeLowCarbMedicineReview(input(), t, config);
-    expect(r).toMatchObject({ kind: "review", proposals: [] });
+    expect(r.kind === "review" && r.proposals.map((p) => p.stepId)).toEqual(["no_step_for_group", "no_step_for_group"]);
   });
 
   it("a diabetes medicine the config does not recognise is listed for the doctor, never skipped", () => {
@@ -389,6 +418,23 @@ describe("medicine review: the platform only proposes", () => {
   it("an unrecognised medicine is listed even beside a recognised one that has its own suggestion", () => {
     const r = proposeLowCarbMedicineReview(input({ medicines: [med("m1", "Gliclazide"), med("m7", "Zorglibex 10mg")] }), table, config);
     expect(r.kind === "review" && r.proposals.map((p) => p.stepId)).toEqual(["su_review_on_fall", "unclassified_diabetes_medicine"]);
+  });
+
+  it("a medicine that can lower sugar and has no step of its own is listed for the doctor, never skipped", () => {
+    const r = proposeLowCarbMedicineReview(input({ medicines: [med("m8", "Repaglinide 1mg")] }), table, config);
+    expect(r.kind === "review" && r.proposals.map((p) => `${p.stepId}:${p.proposable}`)).toEqual(["no_step_for_group:false"]);
+  });
+
+  it("a medicine the config does not list but whose recorded reason says diabetes is listed too", () => {
+    const r = proposeLowCarbMedicineReview(input({ medicines: [{ ...med("m9", "SomeNewTablet"), indication: "for diabetes" }] }), table, config);
+    expect(r.kind === "review" && r.proposals.map((p) => p.stepId)).toEqual(["unclassified_diabetes_medicine"]);
+  });
+
+  it("a step table naming a group the config does not have is refused whole, and says so", () => {
+    const bad: LowCarbStepTable = { ...table, steps: [{ id: "x", match: { groups: ["sulfonylureas"] }, when: { any_glucose_below_mmol: 9 }, action: "stop", rationale: "typo" }] };
+    expect(proposeLowCarbMedicineReview(input(), bad, config)).toEqual({ kind: "no_proposal", reasons: ["step_table_invalid"] });
+    const empty: LowCarbStepTable = { ...table, steps: [{ id: "y", match: { groups: [] }, when: { any_glucose_below_mmol: 9 }, action: "stop", rationale: "none" }] };
+    expect(proposeLowCarbMedicineReview(input(), empty, config).kind).toBe("no_proposal");
   });
 
   it("builds the exact arguments for a signed-later stop proposal, and nothing else", () => {

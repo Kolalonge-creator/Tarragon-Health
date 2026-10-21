@@ -145,7 +145,7 @@ export function LowCarbScreen({ patientId, acting = false, onNavigate }: LowCarb
             <AppText variant="title" heading>
               {tr("lowcarb.low.title")}
             </AppText>
-            <AppText variant="body">{tr("lowcarb.low.body", { line: view.lowLine })}</AppText>
+            <AppText variant="body">{view.lowLine === null ? tr("lowcarb.low.body.noline") : tr("lowcarb.low.body", { line: view.lowLine })}</AppText>
             <Button title={tr("lowcarb.emergency.button")} variant="secondary" onPress={() => setGuidance(true)} />
           </Card>
           <Card style={{ gap: space.sm }}>

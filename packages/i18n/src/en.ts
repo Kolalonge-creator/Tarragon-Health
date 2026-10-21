@@ -5722,6 +5722,7 @@ export const en = {
   "lowcarb.checkin.count": "{{done}} of {{expected}}",
   "lowcarb.low.title": "If your sugar is low",
   "lowcarb.low.body": "If a reading is below {{line}}, or you feel unwell, tell your care team in the app now and follow the low sugar advice they gave you. If you feel very unwell, go to the nearest hospital.",
+  "lowcarb.low.body.noline": "If a reading is low, or you feel unwell, tell your care team in the app now and follow the low sugar advice they gave you. If you feel very unwell, go to the nearest hospital.",
   "lowcarb.paused.title": "Your programme is paused",
   "lowcarb.paused.body": "Your care team will contact you in the app. Please do not change your medicines yourself.",
   "lowcarb.contact.title": "Reach your care team",

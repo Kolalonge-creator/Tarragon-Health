@@ -128,7 +128,7 @@ export async function runLowCarbMedicineReview(
 
     const medicines: LowCarbMedicine[] = meds.rows
       .filter((m) => m.is_active && m.stopped_at === null && !m.superseded_at)
-      .map((m) => ({ id: m.id, drugName: m.drug_name, dose: m.dose ?? "", frequency: m.frequency ?? "", clinicianIssued: m.source === "clinician" }));
+      .map((m) => ({ id: m.id, drugName: m.drug_name, dose: m.dose ?? "", frequency: m.frequency ?? "", clinicianIssued: m.source === "clinician", indication: m.indication ?? null }));
     const readings = glucose.rows.flatMap((r) => (r.glucose_mmol_l === null ? [] : [{ mmol: Number(r.glucose_mmol_l), at: r.taken_at }]));
 
     const input: LowCarbReviewInput = {
@@ -187,6 +187,7 @@ export const REVIEW_STOP_WORDS: Record<string, string> = {
   open_red_triage: "There is an open red alert. Deal with that first.",
   open_amber_triage: "There is an open amber alert. Deal with that first.",
   too_few_readings: "Too few sugar readings in the last week to suggest anything.",
+  step_table_invalid: "The diabetes step table names a medicine group that does not exist, so no suggestion is made. Fix the table and review the medicines by hand.",
   no_trigger: "Sugars are not low enough for a medicine suggestion. The standing review is not due yet.",
 };
 

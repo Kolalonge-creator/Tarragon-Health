@@ -15,13 +15,15 @@ const okSchema = z.object({
   state: z.literal("ok"),
   enrolment_id: z.string(),
   status: z.enum(["offered", "active", "paused"]),
-  check_ins: z.object({ glucose: rule, ketones: rule, weight: rule }),
-  low_glucose_below_mmol: z.number(),
+  check_ins: z.object({ glucose: rule, ketones: rule, weight: rule }).nullable(),
+  // null when no signed rules are live: someone already on the programme still gets the card and Stop, without the number
+  low_glucose_below_mmol: z.number().nullable(),
 });
 
 export type PatientLowCarb =
   | { state: "unavailable" }
-  | { state: "ok"; enrolmentId: string; status: "offered" | "active" | "paused"; lowLine: number; checkins: LowCarbCheckinLine[] | null };
+  | { state: "error" }
+  | { state: "ok"; enrolmentId: string; status: "offered" | "active" | "paused"; lowLine: number | null; checkins: LowCarbCheckinLine[] | null };
 
 const UNAVAILABLE: PatientLowCarb = { state: "unavailable" };
 
@@ -30,10 +32,11 @@ export async function loadPatientLowCarb(supabase: SupabaseClient<Database>, pat
   if (error) return UNAVAILABLE;
   if (parseLowCarbGate(data).state !== "ok") return UNAVAILABLE;
   const parsed = okSchema.safeParse(data);
-  if (!parsed.success) return UNAVAILABLE;
+  // The database said ok but the answer cannot be read: that is an error to retry, never "nothing here" (which would hide Stop and the low-sugar card).
+  if (!parsed.success) return { state: "error" };
   const g = parsed.data;
   let checkins: LowCarbCheckinLine[] | null = null;
-  if (g.status === "active") {
+  if (g.status === "active" && g.check_ins) {
     const since = new Date(now.getTime() - 14 * 86_400_000).toISOString();
     const [glucose, ketones, weight] = await Promise.all([
       readPatientVitalsAudited(supabase, patientId, { vitalType: "glucose", since, limit: 500 }),

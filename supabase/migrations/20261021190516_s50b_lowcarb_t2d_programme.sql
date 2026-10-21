@@ -20,8 +20,8 @@
 --      PROPOSES: a proposal is a draft care_plan_changes row that a tied prescriber signs (INV-02). A draft table can drive a proposal for a test patient only.
 --   6. Go-live guard low_carb_t2d_programme (born OFF) with its conditions branch, and the two attestation conditions a person may record.
 --
--- Deliberately NOT here: any model call (INV-01), any message naming a reading or a condition (INV-07), any dose written by the platform, any cron job
--- (see OQ), any approval, signature, rota attestation or ketone cost decision.
+-- Deliberately NOT here: any model call (INV-01), any message naming a reading or a condition (INV-07), any dose written by the platform, any
+-- approval, signature, rota attestation or ketone cost decision.
 
 -- ---------------------------------------------------------------------------
 -- 1. Governed configuration
@@ -137,17 +137,17 @@ values (1, false, $json${
    "ketoacidosis_history": {"name_patterns": ["ketoacidosis", "dka"], "icd10_prefixes": []}
   },
   "medicine_groups": {
-   "insulin": {"handling": "supervision", "name_patterns": ["insulin", "actrapid", "insulatard", "mixtard", "insuman", "humulin", "humalog", "novorapid", "novomix", "lantus", "abasaglar", "basaglar", "semglee", "levemir", "tresiba", "toujeo", "apidra", "fiasp", "lyumjev", "ryzodeg", "glargine", "detemir", "degludec", "aspart", "lispro", "glulisine", "isophane"]},
+   "insulin": {"handling": "supervision", "name_patterns": ["insulin", "actrapid", "insulatard", "mixtard", "insuman", "insugen", "wosulin", "basalog", "glaritus", "xultophy", "soliqua", "lixilan", "humulin", "humalog", "novorapid", "novomix", "lantus", "abasaglar", "basaglar", "semglee", "levemir", "tresiba", "toujeo", "apidra", "fiasp", "lyumjev", "ryzodeg", "glargine", "detemir", "degludec", "aspart", "lispro", "glulisine", "isophane"]},
    "sulfonylurea": {"handling": "supervision", "name_patterns": ["glibenclamide", "glyburide", "gliclazide", "glimepiride", "glipizide", "gliquidone", "tolbutamide", "chlorpropamide", "tolazamide", "daonil", "euglucon", "diamicron", "amaryl", "glucotrol", "minidiab", "glurenorm", "glucovance", "glibomet", "sulfonylurea", "sulphonylurea"]},
    "meglitinide": {"handling": "supervision", "name_patterns": ["repaglinide", "nateglinide", "mitiglinide", "novonorm", "starlix"]},
-   "sglt2_inhibitor": {"handling": "exclude", "name_patterns": ["gliflozin", "dapagliflozin", "empagliflozin", "canagliflozin", "ertugliflozin", "sotagliflozin", "forxiga", "jardiance", "invokana", "steglatro", "synjardy", "xigduo", "glyxambi", "segluromet", "invokamet", "qtern", "inpefa"]},
+   "sglt2_inhibitor": {"handling": "exclude", "name_patterns": ["gliflozin", "dapagliflozin", "empagliflozin", "canagliflozin", "ertugliflozin", "sotagliflozin", "forxiga", "jardiance", "invokana", "steglatro", "steglujan", "trijardy", "synjardy", "xigduo", "glyxambi", "segluromet", "invokamet", "qtern", "inpefa"]},
    "metformin": {"handling": "allow", "name_patterns": ["metformin", "glucophage", "glycomet", "diaformin"]},
    "dpp4_inhibitor": {"handling": "allow", "name_patterns": ["gliptin", "sitagliptin", "vildagliptin", "linagliptin", "saxagliptin", "alogliptin", "januvia", "janumet", "galvus", "galvusmet", "trajenta", "jentadueto", "onglyza"]},
    "glitazone": {"handling": "allow", "name_patterns": ["glitazone", "pioglitazone", "rosiglitazone", "actos"]},
    "glp1_agonist": {"handling": "allow", "name_patterns": ["glutide", "liraglutide", "semaglutide", "dulaglutide", "exenatide", "lixisenatide", "tirzepatide", "victoza", "ozempic", "wegovy", "trulicity", "byetta", "saxenda", "mounjaro", "rybelsus"]},
    "alpha_glucosidase_inhibitor": {"handling": "allow", "name_patterns": ["acarbose", "miglitol", "glucobay"]}
   },
-  "diabetes_markers": {"name_patterns": ["gli", "insulin", "diabet", "metformin", "formin", "glutide", "tirzepatide", "sulfonyl", "sulphonyl", "glucose", "sugar"], "indication_patterns": ["diabet", "sugar", "glucose", "dm2", "t2dm", "hyperglyc"]}
+  "diabetes_markers": {"name_patterns": ["gli", "glu", "sulin", "tophy", "insulin", "diabet", "metformin", "formin", "glutide", "tirzepatide", "sulfonyl", "sulphonyl", "glucose", "sugar"], "indication_patterns": ["diabet", "sugar", "glucose", "dm2", "t2dm", "hyperglyc"]}
  },
  "check_ins": {
   "glucose": {"per_week": 14, "max_gap_days": 2},
@@ -216,28 +216,44 @@ revoke all on function private.lowcarb_pregnancy_state(uuid, integer, timestampt
 
 -- Medicine name matching. The enforcing twin of lowCarbNameMatches in packages/clinical: same normalising, same rule, same typing-slip tolerance.
 -- THE LISTS ARE A STARTING POINT FOR A PHARMACIST AND THE CMO TO CONFIRM. A false match only asks for a doctor's supervision; a miss is the dangerous direction.
+create function private.lowcarb_fold(p_text text) returns text
+language sql immutable set search_path = ''
+as $$ select translate(regexp_replace(coalesce(p_text, ''), '[­​-‏⁠﻿]', '', 'g'), 'àáâãäåāăąçćčďèéêëēėęěìíîïīįłñńňòóôõöøōőřśšşťùúûüūůűųýÿźżžđÀÁÂÃÄÅĀĂĄÇĆČĎÈÉÊËĒĖĘĚÌÍÎÏĪĮŁÑŃŇÒÓÔÕÖØŌŐŘŚŠŞŤÙÚÛÜŪŮŰŲÝŸŹŻŽĐ', 'aaaaaaaaacccdeeeeeeeeiiiiiilnnnoooooooorssstuuuuuuuuyyzzzdAAAAAAAAACCCDEEEEEEEEIIIIIILNNNOOOOOOOORSSSTUUUUUUUUYYZZZD') $$;
+revoke all on function private.lowcarb_fold(text) from public, anon, authenticated;
+
 create function private.lowcarb_norm(p_text text) returns text
 language sql immutable set search_path = ''
-as $$ select btrim(regexp_replace(lower(coalesce(p_text, '')), '[^a-z0-9]+', ' ', 'g')) $$;
+as $$ select btrim(regexp_replace(lower(private.lowcarb_fold(p_text)), '[^a-z0-9]+', ' ', 'g')) $$;
 revoke all on function private.lowcarb_norm(text) from public, anon, authenticated;
 
+-- A name that still holds a letter this code cannot read after folding (full-width or non-Latin letters) FAILS SAFE to supervision.
+create function private.lowcarb_unreadable(p_text text) returns boolean
+language sql immutable set search_path = ''
+as $$ select private.lowcarb_fold(p_text) ~ '[^\x01-\x7f]' $$;
+revoke all on function private.lowcarb_unreadable(text) from public, anon, authenticated;
+
+-- Optimal string alignment distance (a swap of two neighbouring letters costs one). Twin of lowCarbEditDistance.
 create function private.lowcarb_edit_distance(a text, b text) returns integer
 language plpgsql immutable set search_path = ''
 as $$
 declare
   la integer := length(a); lb integer := length(b);
-  prev integer[]; cur integer[]; i integer; j integer; v_cost integer;
+  d integer[]; i integer; j integer; v_best integer; v_w integer := length(b) + 1;
 begin
-  prev := array(select generate_series(0, lb));
+  d := array_fill(0, array[(la + 1) * v_w]);
+  for i in 0 .. la loop d[i * v_w + 1] := i; end loop;
+  for j in 0 .. lb loop d[j + 1] := j; end loop;
   for i in 1 .. la loop
-    cur := array[i];
     for j in 1 .. lb loop
-      v_cost := case when substr(a, i, 1) = substr(b, j, 1) then 0 else 1 end;
-      cur := cur || least(prev[j + 1] + 1, cur[j] + 1, prev[j] + v_cost);
+      v_best := least(d[(i - 1) * v_w + j + 1] + 1, d[i * v_w + j] + 1,
+                      d[(i - 1) * v_w + j] + case when substr(a, i, 1) = substr(b, j, 1) then 0 else 1 end);
+      if i > 1 and j > 1 and substr(a, i, 1) = substr(b, j - 1, 1) and substr(a, i - 1, 1) = substr(b, j, 1) then
+        v_best := least(v_best, d[(i - 2) * v_w + j - 1] + 1);
+      end if;
+      d[i * v_w + j + 1] := v_best;
     end loop;
-    prev := cur;
   end loop;
-  return prev[lb + 1];
+  return d[la * v_w + lb + 1];
 end $$;
 revoke all on function private.lowcarb_edit_distance(text, text) from public, anon, authenticated;
 
@@ -245,15 +261,16 @@ create function private.lowcarb_name_matches(p_name text, p_patterns jsonb) retu
 language plpgsql immutable set search_path = ''
 as $$
 declare
-  n text := private.lowcarb_norm(p_name); w text; p text; raw text; v_allowed integer; words text[];
+  n text := private.lowcarb_norm(p_name); sq text; w text; p text; raw text; v_allowed integer; words text[];
 begin
   if n = '' then return false; end if;
+  sq := replace(n, ' ', '');
   words := string_to_array(n, ' ');
   for raw in select jsonb_array_elements_text(coalesce(p_patterns, '[]'::jsonb)) loop
     p := private.lowcarb_norm(raw);
     if p = '' then continue; end if;
-    if position(p in n) > 0 then return true; end if;
-    if position(' ' in p) > 0 or length(p) < 6 then continue; end if;
+    if position(p in n) > 0 or position(replace(p, ' ', '') in sq) > 0 then return true; end if;
+    if position(' ' in p) > 0 or length(p) < 5 then continue; end if;
     v_allowed := case when length(p) >= 10 then 2 else 1 end;
     foreach w in array words loop
       if abs(length(w) - length(p)) <= v_allowed and private.lowcarb_edit_distance(w, p) <= v_allowed then return true; end if;
@@ -346,10 +363,12 @@ begin
         end if;
       end if;
     end loop;
-    if not v_risk and not v_known
-       and (private.lowcarb_norm(m.drug_name) = ''
-            or private.lowcarb_name_matches(m.drug_name, v_el #> '{diabetes_markers,name_patterns}')
-            or private.lowcarb_text_has(m.indication, v_el #> '{diabetes_markers,indication_patterns}')) then
+    if not v_risk
+       and (private.lowcarb_unreadable(m.drug_name)
+            or (not v_known
+                and (private.lowcarb_norm(m.drug_name) = ''
+                     or private.lowcarb_name_matches(m.drug_name, v_el #> '{diabetes_markers,name_patterns}')
+                     or private.lowcarb_text_has(m.indication, v_el #> '{diabetes_markers,indication_patterns}')))) then
       if not 'unclassified' = any (v_sup) then v_sup := array_append(v_sup, 'unclassified'); end if;
     end if;
   end loop;
@@ -393,6 +412,8 @@ create table public.lowcarb_enrolments (
   no_recent_admission         boolean not null check (no_recent_admission),
   supervision_accepted        boolean not null default false,
   supervision_note            text,
+  -- the medicine groups the offering doctor accepted supervision of; a new group appearing later is re-screened by the sweep
+  supervision_groups          text[] not null default '{}',
   config_version              integer not null,
   accepted_at                 timestamptz,
   paused_at                   timestamptz,
@@ -447,7 +468,8 @@ begin
   if new.patient_id is distinct from old.patient_id or new.organisation_id is distinct from old.organisation_id
      or new.recorded_by is distinct from old.recorded_by or new.config_version is distinct from old.config_version
      or new.offered_at is distinct from old.offered_at or new.no_recent_admission is distinct from old.no_recent_admission
-     or new.supervision_accepted is distinct from old.supervision_accepted or new.supervision_note is distinct from old.supervision_note then
+     or new.supervision_accepted is distinct from old.supervision_accepted or new.supervision_note is distinct from old.supervision_note
+     or new.supervision_groups is distinct from old.supervision_groups then
     raise exception 'an enrolment''s patient, offer and supervision record never change' using errcode = '42501';
   end if;
   if old.status in ('stopped', 'declined', 'expired') and new.status is distinct from old.status then
@@ -664,12 +686,12 @@ begin
 end $$;
 revoke all on function private.lowcarb_on_reading() from public, anon, authenticated;
 
--- The sweep (not scheduled by this migration; the go-live guard requires someone to attest that it is scheduled): anyone who no longer meets the screen
+-- The sweep (scheduled below; the go-live guard also requires a person to attest that the job is healthy): anyone who no longer meets the screen
 -- is paused, and lapsed check-ins stop the programme.
 create function private.lowcarb_sweep() returns integer
 language plpgsql security definer set search_path = ''
 as $$
-declare r record; v_cfg jsonb := private.lowcarb_cfg(); v_n integer := 0; v_last timestamptz;
+declare r record; v_cfg jsonb := private.lowcarb_cfg(); v_n integer := 0; v_last timestamptz; v_screen jsonb;
 begin
   if v_cfg is null then return 0; end if;
   -- cheap when nobody is on the programme (which is every run until it goes live): one indexed existence check, then out
@@ -678,9 +700,13 @@ begin
     begin
       -- Everything the screen excludes on: a new pregnancy, a condition entered since, an excluded medicine started, a type change. (A recent red or
       -- amber result is not re-checked here: it pauses through the triage trigger the moment it happens.)
-      if r.status = 'active'
-         and private.lowcarb_eligibility_for(r.patient_id, r.supervision_accepted, r.no_recent_admission) ->> 'decision' = 'not_eligible' then
-        perform private.lowcarb_pause(r.id, 'no_longer_eligible', null); v_n := v_n + 1; continue;
+      if r.status = 'active' then
+        v_screen := private.lowcarb_eligibility_for(r.patient_id, true, r.no_recent_admission);
+        -- not eligible any more, OR a medicine group the doctor never accepted supervision of has appeared (insulin, a sulfonylurea, an unrecognised diabetes medicine)
+        if v_screen ->> 'decision' = 'not_eligible'
+           or exists (select 1 from jsonb_array_elements_text(v_screen -> 'supervision_for') g where not g = any (r.supervision_groups)) then
+          perform private.lowcarb_pause(r.id, 'no_longer_eligible', null); v_n := v_n + 1; continue;
+        end if;
       end if;
       select max(v.taken_at) into v_last from private.vitals_readings_current v
        where v.patient_id = r.patient_id and v.vital_type in ('glucose', 'ketones', 'weight') and v.taken_at >= coalesce(r.accepted_at, r.offered_at);
@@ -771,8 +797,9 @@ begin
       detail = case when v ->> 'decision' = 'not_eligible' and not v_repro then 'health_condition'
                     else (select coalesce(string_agg(distinct r, ','), '') from jsonb_array_elements_text(v -> 'reasons') r) end;
   end if;
-  insert into public.lowcarb_enrolments (organisation_id, patient_id, recorded_by, no_recent_admission, supervision_accepted, supervision_note, config_version, is_test)
-  values (v_pr.organisation_id, p_patient, v_uid, true, coalesce(p_supervision_accepted, false), nullif(btrim(coalesce(p_supervision_note, '')), ''), v_cfg.version, coalesce(v_pr.is_test, false))
+  insert into public.lowcarb_enrolments (organisation_id, patient_id, recorded_by, no_recent_admission, supervision_accepted, supervision_note, supervision_groups, config_version, is_test)
+  values (v_pr.organisation_id, p_patient, v_uid, true, coalesce(p_supervision_accepted, false), nullif(btrim(coalesce(p_supervision_note, '')), ''),
+          case when coalesce(p_supervision_accepted, false) then array(select jsonb_array_elements_text(v -> 'supervision_for')) else '{}'::text[] end, v_cfg.version, coalesce(v_pr.is_test, false))
   returning id into v_id;
   perform private.lowcarb_event(v_id, 'offered', null, v_uid);
   perform private.written_care_notify(p_patient, v_pr.organisation_id, 'lowcarb_programme_update', '{}'::jsonb);
@@ -925,9 +952,10 @@ declare v_uid uuid := (select auth.uid()); e public.lowcarb_enrolments%rowtype; 
 begin
   if v_uid is null then return jsonb_build_object('state', 'unavailable'); end if;
   v_cfg := private.lowcarb_cfg();
-  if v_cfg is null then return jsonb_build_object('state', 'unavailable'); end if;
   select * into e from public.lowcarb_enrolments where patient_id = v_uid and status in ('offered', 'active', 'paused') order by created_at desc limit 1;
   if not found then return jsonb_build_object('state', 'unavailable'); end if;
+  -- No signed rules hides an unanswered offer, but never the card or the Stop button of someone already on the programme (the numbers are then null).
+  if v_cfg is null and e.status = 'offered' then return jsonb_build_object('state', 'unavailable'); end if;
   -- Switching the guard off hides an unanswered OFFER, but never takes the low-sugar card or the Stop button away from someone already on the programme.
   if e.status = 'offered' and not private.go_live_open_patient('low_carb_t2d_programme', v_uid) then return jsonb_build_object('state', 'unavailable'); end if;
   return jsonb_build_object('state', 'ok', 'enrolment_id', e.id, 'status', e.status, 'check_ins', v_cfg -> 'check_ins',

@@ -23,11 +23,16 @@ export default async function LowCarbPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t("lowcarb.title")} description="" />
+      {view.state === "error" ? (
+        <p role="alert" className="text-sm">
+          {t("lowcarb.error.load")}
+        </p>
+      ) : null}
       {view.state === "unavailable" ? (
         <p role="status" className="text-sm">
           {t("lowcarb.offer.unavailable")}
         </p>
-      ) : (
+      ) : view.state === "ok" ? (
         <>
           {view.status === "offered" ? <OfferCard enrolmentId={view.enrolmentId} /> : null}
           {view.status === "active" ? <CheckinCard checkins={view.checkins} /> : null}
@@ -49,7 +54,7 @@ export default async function LowCarbPage() {
                   <CardTitle>{t("lowcarb.low.title")}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm">{t("lowcarb.low.body", undefined, { line: String(view.lowLine) })}</p>
+                  <p className="text-sm">{view.lowLine === null ? t("lowcarb.low.body.noline") : t("lowcarb.low.body", undefined, { line: String(view.lowLine) })}</p>
                 </CardContent>
               </Card>
               <Card>
@@ -65,7 +70,7 @@ export default async function LowCarbPage() {
             </>
           ) : null}
         </>
-      )}
+      ) : null}
     </div>
   );
 }
