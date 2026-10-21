@@ -172,6 +172,9 @@ begin
   perform pg_temp.setf('pat11', pg_temp.mkuser(v_org, 'patient11', 'patient'));
   perform pg_temp.setf('pat12', pg_temp.mkuser(v_org, 'patient12', 'patient'));
   perform pg_temp.setf('pat13', pg_temp.mkuser(v_org, 'patient13', 'patient'));
+  perform pg_temp.setf('pat14', pg_temp.mkuser(v_org, 'patient14', 'patient'));
+  perform pg_temp.setf('pat15', pg_temp.mkuser(v_org, 'patient15', 'patient'));
+  perform pg_temp.setf('pat16', pg_temp.mkuser(v_org, 'patient16', 'patient'));
   perform pg_temp.setf('other', pg_temp.mkuser(v_org, 'other', 'patient'));
   -- a Membership priced so that the price does not divide by three (10,000,000 kobo = 3 x 3,333,333 + 1)
   insert into public.catalog_items (id, organisation_id, code, kind, name_key, description_key, duration_days, uses, grants_lead, active)
@@ -593,6 +596,128 @@ begin
     has_function_privilege('anon', 'public.my_instalment_plans()', 'EXECUTE')::text || '/' ||
     has_function_privilege('anon', 'public.admin_instalment_overview()', 'EXECUTE')::text || '/' ||
     has_function_privilege('authenticated', 'private.sweep_instalment_lapses()', 'EXECUTE')::text);
+end $$;
+
+-- ---------------------------------------------------------------------------------------------------------------------------------
+-- 9b. Found in review: the order's own reference, closing paths, a lapse that did not end the entitlement, group notices, reconcile, catch-up
+-- ---------------------------------------------------------------------------------------------------------------------------------
+do $$
+declare
+  v_pat uuid := pg_temp.f('pat14'); o uuid; o2 uuid; ordref text; r text; k uuid; ref1 text;
+begin
+  -- a charge on the plan order's own reference (it was never offered to Paystack) is never a paid order
+  o := pg_temp.mkplan(v_pat);
+  ordref := (select paystack_reference from public.orders where id = o);
+  perform pg_temp.ck('a charge on a plan order''s own reference is a mismatch, never a paid order', 'mismatch/created/0',
+    pg_temp.res(pg_temp.pay(ordref, 10000000)) || '/' || (select state from public.orders where id = o) || '/' || (select count(*)::text from public.entitlements where order_id = o));
+  perform pg_temp.ck('and a person is told', 'true', (select (count(*) >= 1)::text from public.ops_incidents where external_reference = 'order-mismatch:' || o));
+
+  -- cancelling an unpaid plan order closes the plan, its parts and its attempts, and nothing can then be paid
+  k := (select client_key from public.orders where id = o);
+  perform pg_temp.ck('the patient cancels the unpaid plan order', 'true', pg_temp.q_as(v_pat, format($q$select public.cancel_order(%L)::text$q$, o)));
+  perform pg_temp.ck('which cancels the plan, every part and every open attempt', 'cancelled/cancelled/cancelled/0',
+    (select state from public.order_instalment_plans where order_id = o) || '/' || (select min(state) from public.order_instalments where order_id = o) || '/' ||
+    (select max(state) from public.order_instalments where order_id = o) || '/' ||
+    (select count(*)::text from public.order_instalment_attempts a join public.order_instalments i on i.id = a.instalment_id where i.order_id = o and a.state = 'open'));
+  perform pg_temp.ck('a part of a cancelled order cannot be prepared', 'ERR:instalment_closed', pg_temp.q_as(v_pat, format($q$select public.prepare_instalment_payment(%L)::text$q$, pg_temp.part(o, 1))));
+  r := pg_temp.q_as(v_pat, format($q$select public.create_instalment_order('s25b_member', %L, 3)::text$q$, k));
+  perform pg_temp.ck('a retry of a closed plan answers with a reference and the order''s state, not an error', 'true/cancelled',
+    ((r::jsonb ->> 'reference') like 'thi_%')::text || '/' || (r::jsonb ->> 'state'));
+
+  -- a failed first part closes the plan too (the patient starts again with a new one); a late verified payment still revives it
+  o2 := pg_temp.mkplan(v_pat);
+  ref1 := pg_temp.ref_of(o2, 1);
+  perform pg_temp.svc(format($q$select public.close_unpaid_order(%L, 'abandoned')::text$q$, ref1));
+  perform pg_temp.ck('an abandoned first part closes the order and the plan together', 'failed/cancelled/cancelled',
+    (select state from public.orders where id = o2) || '/' || (select state from public.order_instalment_plans where order_id = o2) || '/' || (select min(state) from public.order_instalments where order_id = o2));
+  r := pg_temp.res(pg_temp.pay(ref1, pg_temp.amt(o2, 1)));
+  perform pg_temp.ck('and a verified late payment on it is still honoured', 'paid/active',
+    r || '/' || (select state from public.order_instalment_plans where order_id = o2));
+end $$;
+
+-- a reference already recorded as paid is a replay for the sweeper's mismatch call, not a new problem
+do $$
+declare o uuid := pg_temp.f('plan_order'); ref1 text; before_n bigint;
+begin
+  select a.reference into ref1 from public.order_instalment_attempts a join public.order_instalments i on i.id = a.instalment_id where i.order_id = o and i.seq = 1;
+  select count(*) into before_n from public.payments where order_id = o and status = 'mismatch';
+  perform pg_temp.ck('a mismatch call for a part that is already paid is a replay', 'replay/true',
+    pg_temp.res(pg_temp.svc(format($q$select public.flag_order_payment_mismatch(%L, 'fee', 1, 1, 'sweep')::text$q$, ref1))::jsonb) || '/' ||
+    ((select count(*) from public.payments where order_id = o and status = 'mismatch') = before_n)::text);
+end $$;
+
+-- a restore reopens only what the lapse closed
+do $$
+declare
+  v_pat uuid := pg_temp.f('pat15'); o uuid; r text; a jsonb; n integer;
+begin
+  o := pg_temp.mkplan(v_pat);
+  perform pg_temp.pay(pg_temp.ref_of(o, 1), pg_temp.amt(o, 1));
+  update public.entitlements set state = 'revoked' where order_id = o;   -- closed for some other reason before the lapse
+  perform pg_temp.age_part_due(o, 2, -7);
+  n := private.sweep_instalment_lapses();
+  perform pg_temp.ck('a plan whose entitlement was already closed lapses without claiming it', 'lapsed/false',
+    (select state || '/' || lapse_revoked::text from public.order_instalment_plans where order_id = o));
+  r := pg_temp.q_as(v_pat, format($q$select (public.prepare_instalment_payment(%L))->>'reference'$q$, pg_temp.part(o, 2)));
+  a := pg_temp.pay(r, pg_temp.amt(o, 2));
+  perform pg_temp.ck('paying the overdue part does not reopen an entitlement the lapse did not close', 'paid/revoked/false',
+    pg_temp.res(a) || '/' || (select state from public.entitlements where order_id = o) || '/' || private.patient_is_member(v_pat)::text);
+  perform pg_temp.ck('a plan whose entitlement the lapse closed remembers it', 'true',
+    (select lapse_revoked::text from public.order_instalment_plans where order_id = pg_temp.f('plan_order')));
+end $$;
+
+-- a refund of several parts is one refund to the patient: told complete only when every part is, told at once when one fails; reconcile uses each part's own charge
+do $$
+declare
+  v_pat uuid := pg_temp.f('pat16'); v_admin uuid := pg_temp.f('admin'); o uuid; r text; g uuid; ids uuid[]; v_pay1 text; v_pay2 text; rid2 uuid;
+begin
+  o := pg_temp.mkplan(v_pat);
+  perform pg_temp.pay(pg_temp.ref_of(o, 1), pg_temp.amt(o, 1));
+  r := pg_temp.q_as(v_pat, format($q$select (public.prepare_instalment_payment(%L))->>'reference'$q$, pg_temp.part(o, 2)));
+  perform pg_temp.pay(r, pg_temp.amt(o, 2));
+  perform pg_temp.q_as(v_pat, format($q$select (public.request_order_refund(%L, 'I changed my mind about the plan'))->>'result'$q$, o));
+  g := (select refund_group from public.refunds where order_id = o limit 1);
+  perform pg_temp.q_as(v_admin, format($q$select (public.decide_order_refund(%L, true))->>'result'$q$, g));
+  update public.refunds set is_test = false where order_id = o;
+  select array_agg(id order by (id = g) desc, id) into ids from public.refunds where order_id = o;
+  rid2 := ids[2];
+  select p.provider_reference into v_pay2 from public.refunds rf join public.payments p on p.id = rf.payment_id where rf.id = rid2;
+  perform pg_temp.svc(format($q$select public.claim_refund_for_provider(%L)::text$q$, ids[1]));
+  perform pg_temp.svc(format($q$select public.claim_refund_for_provider(%L)::text$q$, ids[2]));
+  perform pg_temp.ck('the reconcile list checks each part against its own charge', v_pay2,
+    pg_temp.svc(format($q$select charge_reference from public.refunds_needing_reconcile(500) where id = %L$q$, rid2)));
+  perform pg_temp.svc(format($q$select public.record_refund_provider_result(%L, true, 'rf-a')::text$q$, ids[1]));
+  perform pg_temp.ck('one part sent is not "your refund has been sent"', '0', (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'order_refund_completed'));
+  perform pg_temp.svc(format($q$select public.record_refund_provider_result(%L, false, '', '{"error_code":"insufficient_balance"}'::jsonb)::text$q$, ids[2]));
+  perform pg_temp.ck('a part that fails is told from its own row, under the group', '1/true',
+    (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'order_refund_problem') || '/' ||
+    (select exists (select 1 from public.refund_status_events where refund_id = g and step = 'problem')::text));
+  perform pg_temp.ck('the failed part is back in the queue after an admin retries it', 'requeued',
+    (pg_temp.q_as(v_admin, format($q$select public.retry_failed_refund(%L)->>'result'$q$, ids[2]))));
+  perform pg_temp.ck('and the patient is told it is being retried', 'true', (select exists (select 1 from public.refund_status_events where refund_id = g and step = 'retrying')::text));
+  perform pg_temp.svc(format($q$select public.claim_refund_for_provider(%L)::text$q$, ids[2]));
+  perform pg_temp.svc(format($q$select public.record_refund_provider_result(%L, true, 'rf-b')::text$q$, ids[2]));
+  perform pg_temp.ck('the whole refund is told complete once, when the last part is sent, for the whole amount', '1/NGN ' || to_char((pg_temp.amt(o, 1) + pg_temp.amt(o, 2)) / 100.0, 'FM999,999,999,990.00'),
+    (select count(*)::text || '/' || max(payload ->> 'amount') from public.notifications where recipient_id = v_pat and template = 'order_refund_completed'));
+end $$;
+
+-- the hourly order catch-up leaves plan orders to their parts
+do $$
+declare n integer; n_expected integer;
+begin
+  select count(*) into n_expected from (
+    select o.id from public.orders o
+     where o.state in ('paid', 'refunded')
+       and not exists (select 1 from public.order_instalment_plans pl where pl.order_id = o.id)
+       and not exists (select 1 from public.finance_journal_entries e where e.source = 'payment' and e.source_ref = 'order:' || o.id)
+     order by o.paid_at limit 200) x;
+  perform pg_temp.ck('plan orders exist that have no full-price entry', 'true',
+    (exists (select 1 from public.orders o join public.order_instalment_plans pl on pl.order_id = o.id where o.state = 'paid'))::text);
+  n := private.post_unposted_orders(true);
+  perform pg_temp.ck('the hourly catch-up counts only ordinary orders, never plan orders', n_expected::text, n::text);
+  perform pg_temp.ck('a part that cannot be posted is not counted as done', 'null',
+    coalesce(private.post_instalment_to_ledger(gen_random_uuid(), true)::text, 'null'));
+  perform pg_temp.ck('the safe wrapper says false for it', 'false', private.post_instalment_safely(gen_random_uuid())::text);
 end $$;
 
 -- ---------------------------------------------------------------------------------------------------------------------------------

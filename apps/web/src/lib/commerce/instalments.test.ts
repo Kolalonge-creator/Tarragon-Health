@@ -72,6 +72,14 @@ describe("collapseRefundGroups (S25b)", () => {
     const out = collapseRefundGroups(rows);
     expect(out.map((r) => [r.id, r.amount_kobo])).toEqual([["g", 10_000_000], ["solo", 500], ["old", 700]]);
   });
+  it("shows the group as completed only when every part is, and never hides a failed or still-sending part behind one that succeeded", () => {
+    const g = (states: string[]) => collapseRefundGroups(states.map((state, i) => ({ id: i === 0 ? "g" : `x${i}`, amount_kobo: 100, refund_group: "g", state })))[0]!.state;
+    expect(g(["completed", "completed"])).toBe("completed");
+    expect(g(["completed", "processing"])).toBe("processing");
+    expect(g(["completed", "failed", "processing"])).toBe("failed");
+    expect(g(["approved", "completed"])).toBe("approved");
+    expect(g(["pending", "pending"])).toBe("pending");
+  });
   it("leaves a lone group row alone", () => {
     expect(collapseRefundGroups([{ id: "g", amount_kobo: 10, refund_group: "g" }])).toEqual([{ id: "g", amount_kobo: 10, refund_group: "g" }]);
   });

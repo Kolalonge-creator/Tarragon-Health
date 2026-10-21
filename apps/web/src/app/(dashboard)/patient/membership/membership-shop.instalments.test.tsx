@@ -95,6 +95,23 @@ describe("pay in parts at checkout (S25b)", () => {
     expect(go).toHaveBeenCalledWith("https://checkout.paystack.com/first");
   });
 
+  it("never uses one retry key for both ways of paying, and keeps each one across a dropped connection", async () => {
+    const { CheckoutError } = jest.requireActual("@/lib/queries/commerce") as typeof import("@/lib/queries/commerce");
+    mutateAsync.mockRejectedValue(new CheckoutError("payment_unavailable"));
+    render(<MembershipShop locale="en" fee={FEE} go={go} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
+    fireEvent.click(screen.getByRole("radio", { name: "Pay in 3 parts" }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay the first part with Paystack" })));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay the first part with Paystack" })));
+    fireEvent.click(screen.getByRole("radio", { name: /Pay in full/ }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
+    const keys = mutateAsync.mock.calls.map((c) => (c[0] as { clientKey: string }).clientKey);
+    expect(keys).toHaveLength(4);
+    expect(keys[1]).toBe(keys[2]);          // the plan keeps its own key across a dropped connection
+    expect(keys[0]).toBe(keys[3]);          // and so does paying in full
+    expect(keys[0]).not.toBe(keys[1]);      // but they are never the same key
+  });
+
   it("is not offered for someone else, or to a person who is already a Member", () => {
     lovedOnes = { data: [{ id: "p-mum", full_name: "Mum" }] };
     render(<MembershipShop locale="en" fee={FEE} go={go} />);

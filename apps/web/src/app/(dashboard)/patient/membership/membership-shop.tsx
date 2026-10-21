@@ -47,6 +47,9 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
   const start = useStartCheckout();
   // One key per card, made on first use and kept, so a double tap or a retry after a dropped connection is the SAME order.
   const clientKey = useRef<string | null>(null);
+  // S25b: a plan has its OWN key. One key must never serve both ways of paying: a retry of a plan under a key that was used for paying in full (or the
+  // other way round) would answer with the wrong kind of order.
+  const partsKey = useRef<string | null>(null);
   const [errorKey, setErrorKey] = useState<ReturnType<typeof checkoutErrorKey> | null>(null);
   // S73: the database prices every order. What is shown is its quote; the catalogue price is only the fallback when no quote could be had.
   const [codeInput, setCodeInput] = useState("");
@@ -87,10 +90,11 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
       if (!window.confirm(`${t("circle.pay.confirm_title", locale, { name: who })}\n\n${t("circle.pay.confirm_body", locale, { name: who })}`)) return;
     }
     setErrorKey(null);
-    clientKey.current ??= crypto.randomUUID();
+    const keyRef = partsMode ? partsKey : clientKey;
+    keyRef.current ??= crypto.randomUUID();
     try {
-      const r = await start.mutateAsync(partsMode && instalmentPolicy !== null ? { code: item.code, clientKey: clientKey.current, instalmentParts: instalmentPolicy.parts } : {
-        code: item.code, clientKey: clientKey.current, ...(beneficiary ? { beneficiary } : {}),
+      const r = await start.mutateAsync(partsMode && instalmentPolicy !== null ? { code: item.code, clientKey: keyRef.current, instalmentParts: instalmentPolicy.parts } : {
+        code: item.code, clientKey: keyRef.current, ...(beneficiary ? { beneficiary } : {}),
         // the code the person applied, and the total they were shown: if the database now computes a different one it refuses instead of charging it
         ...(appliedCode && !codeFailed ? { discountCode: appliedCode } : {}),
         ...(pointsOn ? { usePoints: true } : {}),
@@ -104,7 +108,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
       go(r.checkout_url);
     } catch (e) {
       // A refusal is final for this tap; a fresh key is made next time. A network failure keeps the key so a retry is the same order.
-      if (e instanceof CheckoutError && e.code !== "unknown" && e.code !== "payment_unavailable") clientKey.current = null;
+      if (e instanceof CheckoutError && e.code !== "unknown" && e.code !== "payment_unavailable") keyRef.current = null;
       setErrorKey(checkoutErrorKey(e instanceof CheckoutError ? e.code : "unknown"));
       // "You are already a member" would be wrong when the order was for somebody else.
       if (beneficiary !== undefined && e instanceof CheckoutError && e.code === "already_member") setErrorKey("circle.pay.already_member");

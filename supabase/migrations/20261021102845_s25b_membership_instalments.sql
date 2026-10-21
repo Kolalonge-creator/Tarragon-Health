@@ -98,6 +98,8 @@ create table public.order_instalment_plans (
   first_paid_at   timestamptz,
   lapsed_at       timestamptz,
   restored_at     timestamptz,
+  -- true when the lapse itself ended the entitlement; a restore reopens only an entitlement the lapse closed, never one closed for another reason
+  lapse_revoked   boolean not null default false,
   is_test         boolean not null default false,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
@@ -237,19 +239,28 @@ declare
   v_rules jsonb := private.entitlement_policy('refund_rules');
   v_bank text := (v_rules ->> 'bank_days_min') || ' to ' || (v_rules ->> 'bank_days_max');
   v_amount bigint;
+  v_target uuid := new.id;
 begin
-  if new.refund_group is not null and new.refund_group <> new.id then return null; end if;
   if tg_op = 'INSERT' then
+    if new.refund_group is not null and new.refund_group <> new.id then return null; end if;
     v_step := 'requested';
   elsif new.state is distinct from old.state then
     v_step := case
       when old.state = 'failed' and new.state = 'approved' then 'retrying'
       else case new.state when 'approved' then 'approved' when 'rejected' then 'declined' when 'processing' then 'sending'
                           when 'completed' then 'completed' when 'failed' then 'problem' end end;
+    if new.refund_group is not null then
+      -- a group is one refund to the patient, told under the first row's id. The first row speaks for the decision and the sending; the group is
+      -- COMPLETE only when every row is; and a part that failed or is being retried is told from whichever row it happened on, so a failure is never
+      -- hidden behind a row that succeeded.
+      v_target := new.refund_group;
+      if v_step in ('approved', 'declined', 'sending') and new.refund_group <> new.id then return null; end if;
+      if v_step = 'completed' and exists (select 1 from public.refunds x where x.refund_group = new.refund_group and x.state <> 'completed') then return null; end if;
+    end if;
   end if;
   if v_step is null then return null; end if;
 
-  insert into public.refund_status_events (refund_id, organisation_id, step) values (new.id, new.organisation_id, v_step);
+  insert into public.refund_status_events (refund_id, organisation_id, step) values (v_target, new.organisation_id, v_step);
 
   v_template := case v_step when 'requested' then 'order_refund_requested' when 'approved' then 'order_refund_approved'
                             when 'declined' then 'order_refund_declined' when 'completed' then 'order_refund_completed'
@@ -259,16 +270,34 @@ begin
       select * into o from public.orders where id = new.order_id;
       v_amount := case when new.refund_group is null then new.amount_kobo
                        else (select sum(amount_kobo) from public.refunds where refund_group = new.refund_group) end;
-      v_payload := jsonb_build_object('refund_id', new.id, 'order_id', new.order_id, 'sla_days', (v_rules ->> 'decision_sla_days'), 'bank_days', v_bank,
+      v_payload := jsonb_build_object('refund_id', v_target, 'order_id', new.order_id, 'sla_days', (v_rules ->> 'decision_sla_days'), 'bank_days', v_bank,
                                       'amount', 'NGN ' || to_char(v_amount / 100.0, 'FM999,999,999,990.00'));
       insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
       values (new.organisation_id, o.buyer_profile_id, private.patient_reminder_channel(o.buyer_profile_id), 'pending', v_template, v_payload);
     exception when others then
       insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
-      values (new.organisation_id, 'refund.notify_error', 'refund', new.id, jsonb_build_object('step', v_step, 'error', sqlerrm));
+      values (new.organisation_id, 'refund.notify_error', 'refund', v_target, jsonb_build_object('step', v_step, 'error', sqlerrm));
     end;
   end if;
   return null;
+end $$;
+
+-- A reconcile row for a refund of one part is checked against that part's own charge.
+create or replace function public.refunds_needing_reconcile(p_limit integer default 100)
+returns table(id uuid, state text, amount_kobo bigint, provider_reference text, charge_reference text)
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if (select auth.role()) is distinct from 'service_role' then raise exception 'not_authorised' using errcode = '42501'; end if;
+  return query
+    select rf.id, rf.state, rf.amount_kobo, rf.provider_reference,
+           (select p.provider_reference from public.payments p
+             where p.order_id = rf.order_id and p.status = 'success' and (rf.payment_id is null or p.id = rf.payment_id) limit 1)
+      from public.refunds rf
+     where rf.is_test = false and rf.state in ('processing', 'completed', 'failed')
+       and (rf.provider_status is distinct from 'matched' or rf.provider_checked_at < now() - interval '60 days')
+     order by rf.provider_checked_at nulls first, rf.created_at
+     limit greatest(least(coalesce(p_limit, 100), 500), 1);
 end $$;
 
 -- Claim: a refund of one part is sent against that part's own charge.
@@ -378,13 +407,14 @@ begin
 end $$;
 revoke all on function private.post_instalment_to_ledger(uuid, boolean) from public, anon, authenticated;
 
+-- True only when an entry exists for the part after the call (a part that could not be posted, or is not to be posted, is not "done").
 create function private.post_instalment_safely(p_payment uuid) returns boolean
 language plpgsql security definer set search_path = ''
 as $$
-declare v_org uuid;
+declare v_org uuid; v_entry uuid;
 begin
-  perform private.post_instalment_to_ledger(p_payment);
-  return true;
+  v_entry := private.post_instalment_to_ledger(p_payment);
+  return v_entry is not null;
 exception when others then
   select organisation_id into v_org from public.payments where id = p_payment;
   perform private.order_incident(v_org, 'orderpart-ledger:' || p_payment, 'A part payment could not be posted to the ledger',
@@ -392,6 +422,25 @@ exception when others then
   return false;
 end $$;
 revoke all on function private.post_instalment_safely(uuid) from public, anon, authenticated;
+
+-- The hourly order catch-up (order-ledger-retry) looks for paid orders with no 'order:<id>' entry. A plan order is posted part by part under
+-- 'orderpart:<payment id>', so it would be picked again every hour and, with enough of them, crowd out the ordinary orders that really need a retry.
+create or replace function private.post_unposted_orders(p_include_test boolean default false)
+returns integer language plpgsql security definer set search_path = ''
+as $$
+declare r record; n integer := 0;
+begin
+  for r in
+    select o.id from public.orders o
+     where o.state in ('paid', 'refunded') and (p_include_test or not o.is_test)
+       and not exists (select 1 from public.order_instalment_plans pl where pl.order_id = o.id)
+       and not exists (select 1 from public.finance_journal_entries e where e.source = 'payment' and e.source_ref = 'order:' || o.id)
+     order by o.paid_at limit 200
+  loop
+    if private.post_order_safely(r.id, p_include_test) then n := n + 1; end if;
+  end loop;
+  return n;
+end $$;
 
 -- A refunded part releases ITS OWN unrecognised deferred revenue. A refund with no payment_id is the old whole-order case, unchanged.
 create or replace function private.post_refund_reversal(p_refund uuid) returns uuid
@@ -444,12 +493,14 @@ end $$;
 create function private.instalment_reply(o public.orders, p_replay boolean) returns jsonb
 language sql stable security definer set search_path = ''
 as $$
+  -- always a reference (the open attempt's, else the latest one), so a retry of a plan that has closed answers "this order has closed" and not a
+  -- strange error; the hosted page is offered only while the attempt is still open
   select jsonb_build_object('order_id', o.id, 'reference', a.reference, 'amount_kobo', i.amount_kobo, 'state', o.state,
-                            'checkout_url', a.checkout_url, 'replay', p_replay, 'instalments', true, 'parts', pl.parts, 'price_kobo', pl.price_kobo)
+                            'checkout_url', case when a.state = 'open' then a.checkout_url end, 'replay', p_replay, 'instalments', true, 'parts', pl.parts, 'price_kobo', pl.price_kobo)
     from public.order_instalment_plans pl
     join public.order_instalments i on i.plan_id = pl.id and i.seq = 1
-    left join lateral (select reference, checkout_url from public.order_instalment_attempts where instalment_id = i.id and state = 'open'
-                        order by created_at desc limit 1) a on true
+    left join lateral (select reference, checkout_url, state from public.order_instalment_attempts where instalment_id = i.id
+                        order by (state = 'open') desc, created_at desc limit 1) a on true
    where pl.order_id = o.id
 $$;
 revoke all on function private.instalment_reply(public.orders, boolean) from public, anon, authenticated;
@@ -556,7 +607,8 @@ begin
   select * into o from public.orders where id = i.order_id and buyer_profile_id = v_uid;
   if not found then raise exception 'instalment_not_found' using errcode = 'P0001'; end if;
   select * into pl from public.order_instalment_plans where id = i.plan_id;
-  if i.state <> 'pending' or pl.state in ('cancelled', 'completed') then raise exception 'instalment_closed' using errcode = 'P0001'; end if;
+  -- a closed order (cancelled, failed, refunded) has no part left to pay; a failed first part starts again as a new plan
+  if i.state <> 'pending' or pl.state in ('cancelled', 'completed') or o.state not in ('created', 'paid') then raise exception 'instalment_closed' using errcode = 'P0001'; end if;
   if exists (select 1 from public.order_instalments x where x.plan_id = i.plan_id and x.state = 'pending' and x.seq < i.seq) then
     raise exception 'pay_earlier_part_first' using errcode = 'P0001';
   end if;
@@ -710,7 +762,7 @@ begin
       -- paying the overdue part restores access, once nothing is left overdue beyond its grace
       if not exists (select 1 from public.order_instalments x where x.plan_id = pl.id and x.state = 'pending' and x.due_at + make_interval(days => v_grace) < now()) then
         select * into ent from public.entitlements where order_id = o.id for update;
-        if ent.id is not null and ent.state = 'revoked' and ent.ends_at > now() then
+        if ent.id is not null and ent.state = 'revoked' and ent.ends_at > now() and pl.lapse_revoked then
           if exists (select 1 from public.patient_memberships where patient_id = o.beneficiary_patient_id and state = 'active') then
             perform private.order_incident(o.organisation_id, 'instalment-restore-conflict:' || pl.id, 'A lapsed plan was paid while a newer membership is active',
               'Plan ' || pl.id || ' was paid to date but the patient already has another active membership, so access was not restored twice. Decide whether to refund the parts paid.');
@@ -768,6 +820,11 @@ begin
   if not found then return jsonb_build_object('result', 'not_found'); end if;
 
   if p_status is distinct from 'success' then return jsonb_build_object('result', 'not_paid', 'order_id', o.id); end if;
+  -- S25b: a plan order is paid only through its parts. A charge on the order's own reference (it was never offered to Paystack) is money to give
+  -- back, never a full-price payment: it is a visible mismatch plus an incident, not a paid order with no ledger entry.
+  if exists (select 1 from public.order_instalment_plans where order_id = o.id) then
+    return private.record_instalment_mismatch(o, p_reference, 'plan_order_reference', p_amount_kobo, p_fee_kobo, p_total_kobo, p_source, p_event_key, p_raw);
+  end if;
   if o.state in ('paid', 'refunded') and exists (select 1 from public.payments where provider = 'paystack' and provider_reference = p_reference and status = 'success') then
     return jsonb_build_object('result', 'replay', 'order_id', o.id);
   end if;
@@ -839,12 +896,14 @@ create or replace function public.flag_order_payment_mismatch(p_reference text, 
                                                               p_event_key text default null, p_fee_kobo bigint default 0, p_raw jsonb default '{}'::jsonb)
 returns jsonb language plpgsql security definer set search_path = ''
 as $$
-declare o public.orders%rowtype; v_inst uuid;
+declare o public.orders%rowtype; v_inst uuid; v_att text;
 begin
   if (select auth.role()) is distinct from 'service_role' then raise exception 'order_not_authorised' using errcode = '42501'; end if;
-  select instalment_id into v_inst from public.order_instalment_attempts where reference = p_reference;
+  select instalment_id, state into v_inst, v_att from public.order_instalment_attempts where reference = p_reference;
   if found then
     select o2.* into o from public.orders o2 join public.order_instalments i on i.order_id = o2.id where i.id = v_inst for update of o2;
+    -- a reference already recorded as paid is a replay, not a new problem (the same rule the ordinary path applies to a paid order)
+    if v_att = 'paid' then return jsonb_build_object('result', 'replay', 'order_id', o.id); end if;
     return private.record_instalment_mismatch(o, p_reference, left(coalesce(p_reason, 'unknown'), 40), p_amount_kobo, greatest(coalesce(p_fee_kobo, 0), 0), p_total_kobo, p_source, p_event_key, coalesce(p_raw, '{}'::jsonb));
   end if;
   select * into o from public.orders where paystack_reference = p_reference for update;
@@ -927,8 +986,8 @@ begin
     update public.order_instalment_attempts set state = 'closed' where reference = p_reference and state = 'open';
     get diagnostics n = row_count;
     select * into i from public.order_instalments where id = a.instalment_id;
-    -- an abandoned FIRST part closes the order as an ordinary order is closed (a later verified payment still revives it); a later part
-    -- only loses the attempt, because the plan itself is still running
+    -- an abandoned or failed FIRST part closes the order AND its plan as an ordinary order is closed (the patient starts again with a new
+    -- plan; a later verified payment on this one still revives it); a later part only loses the attempt, because the plan itself is still running
     if i.seq = 1 and i.state = 'pending' and not exists (select 1 from public.order_instalment_attempts x where x.instalment_id = i.id and x.state = 'open') then
       -- the same lock order as a part payment: plan first, then the order
       perform 1 from public.order_instalment_plans where order_id = i.order_id for update;
@@ -936,10 +995,8 @@ begin
       if o.state = 'created' then
         update public.orders set state = case when p_reason = 'expired' then 'cancelled' else 'failed' end,
                cancelled_at = case when p_reason = 'expired' then now() end, failure_reason = left(p_reason, 200) where id = o.id;
-        if p_reason = 'expired' then
-          update public.order_instalment_plans set state = 'cancelled' where order_id = o.id and state = 'awaiting_first';
-          update public.order_instalments set state = 'cancelled' where order_id = o.id and state = 'pending';
-        end if;
+        update public.order_instalment_plans set state = 'cancelled' where order_id = o.id and state = 'awaiting_first';
+        update public.order_instalments set state = 'cancelled' where order_id = o.id and state = 'pending';
       end if;
     end if;
     return n = 1;
@@ -948,6 +1005,26 @@ begin
          cancelled_at = case when p_reason = 'expired' then now() end, failure_reason = left(p_reason, 200)
    where paystack_reference = p_reference and state = 'created';
   get diagnostics n = row_count;
+  return n = 1;
+end $$;
+
+-- A patient who cancels an unpaid plan order cancels the plan and its parts too (otherwise the plan would still show a pay button).
+create or replace function public.cancel_order(p_order uuid) returns boolean
+language plpgsql security definer set search_path = ''
+as $$
+declare n integer;
+begin
+  -- the same lock order as a part payment: plan first, then the order
+  perform 1 from public.order_instalment_plans where order_id = p_order for update;
+  update public.orders set state = 'cancelled', cancelled_at = now()
+   where id = p_order and buyer_profile_id = (select auth.uid()) and state = 'created';
+  get diagnostics n = row_count;
+  if n = 1 then
+    update public.order_instalment_plans set state = 'cancelled' where order_id = p_order and state = 'awaiting_first';
+    update public.order_instalments set state = 'cancelled' where order_id = p_order and state = 'pending';
+    update public.order_instalment_attempts set state = 'closed'
+     where state = 'open' and instalment_id in (select id from public.order_instalments where order_id = p_order);
+  end if;
   return n = 1;
 end $$;
 
@@ -1167,6 +1244,7 @@ declare
   o public.orders%rowtype;
   m record;
   v_grace integer;
+  v_closed integer;
   n integer := 0;
 begin
   for x in
@@ -1182,8 +1260,10 @@ begin
       if not exists (select 1 from public.order_instalments i where i.plan_id = pl.id and i.state = 'pending' and i.seq > 1
                         and i.due_at + make_interval(days => v_grace) < now()) then continue; end if;
       select * into o from public.orders where id = pl.order_id for update;
-      update public.order_instalment_plans set state = 'lapsed', lapsed_at = now() where id = pl.id;
       update public.entitlements set state = 'revoked' where order_id = pl.order_id and state = 'active';
+      get diagnostics v_closed = row_count;
+      -- remember whether the lapse itself ended the entitlement: a restore reopens only that, never one ended for another reason
+      update public.order_instalment_plans set state = 'lapsed', lapsed_at = now(), lapse_revoked = v_closed > 0 where id = pl.id;
       for m in select id from public.patient_memberships
                 where patient_id = pl.patient_id and state = 'active' and source = 'purchase' loop
         perform private.end_membership_now(m.id, null, 'Membership paused: an instalment was not paid in time (plan ' || pl.id || ')');
@@ -1265,6 +1345,7 @@ begin
     select i.payment_id from public.order_instalments i join public.payments p on p.id = i.payment_id
      where i.state = 'paid' and p.is_test = false and p.created_at > now() - interval '90 days'
        and not exists (select 1 from public.finance_journal_entries j where j.source = 'payment' and j.source_ref = 'orderpart:' || i.payment_id)
+     order by p.created_at desc   -- the newest first, so a few parts that keep failing (an incident is open for each) cannot crowd out new ones
      limit 200
   loop
     if private.post_instalment_safely(x.payment_id) then n := n + 1; end if;
