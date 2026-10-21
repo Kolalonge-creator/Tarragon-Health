@@ -19,6 +19,9 @@ export const GUARD_KEYS = [
   "home_bp_programme",
   "bp_pattern_flag",
   "prn_limits",
+  // S07y: the clinician-only cuff flag and the neutral patient line. Both born off.
+  "cuff_check_flag",
+  "cuff_visit_prompt",
   "symptom_checker_enabled",
   "research_export_enabled",
   // S48a: private GPS route recording (5.7). Born off; no UI records a route yet, so this only gates the database insert policy.
