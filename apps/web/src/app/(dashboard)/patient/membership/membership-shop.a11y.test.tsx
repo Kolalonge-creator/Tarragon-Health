@@ -30,6 +30,8 @@ jest.mock("@/lib/queries/commerce", () => {
     useMyOrders: () => orders,
     useStartCheckout: () => ({ mutateAsync, isPending: false }),
     useQuote: (input: unknown) => { useQuoteSpy(input); return quote; },
+    useInstalmentPolicy: () => ({ data: null }),
+    useMyInstalmentPlans: () => ({ data: [] }),
   };
 });
 

@@ -36,6 +36,8 @@ jest.mock("@/lib/queries/commerce", () => {
     useMyOrders: () => ({ data: [] }),
     useStartCheckout: () => ({ mutateAsync, isPending: false }),
     useQuote: () => quote,
+    useInstalmentPolicy: () => ({ data: null }),
+    useMyInstalmentPlans: () => ({ data: [] }),
   };
 });
 jest.mock("@/lib/queries/care-access", () => ({ useSponsorableProfiles: () => ({ data: [] }) }));

@@ -226,3 +226,96 @@ Deno.test("the request refusals map to stable codes and statuses", async () => {
     assertEquals([res.status, (await res.json()).error], [status, code]);
   }
 });
+
+// S25b: pay the annual Membership in parts
+const PART_REF = "thi_0123456789abcdef0123456789abcdef";
+const PART_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+
+Deno.test("S25b: instalment_parts calls create_instalment_order (never create_order) and pays the FIRST PART, not the price", async () => {
+  const calls: Array<[string, Record<string, unknown>]> = [];
+  const { d, payments } = deps({
+    rpc: (fn, args) => {
+      calls.push([fn, args]);
+      return { data: { order_id: "o1", reference: PART_REF, amount_kobo: 3_333_334, state: "created", checkout_url: null, instalments: true }, error: null };
+    },
+  });
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, instalment_parts: 3 }), d);
+  assertEquals(res.status, 200);
+  const j = await res.json();
+  assertEquals([j.order_id, j.amount_kobo, j.reference], ["o1", 3_333_334, PART_REF]);
+  assertEquals(calls, [["create_instalment_order", { p_code: "membership_annual", p_client_key: KEY, p_parts: 3 }]]);
+  const v = await payments.verifyTransaction(PART_REF);
+  assertEquals(v.ok && v.data.requestedAmountKobo, 3_333_334);
+});
+
+Deno.test("S25b: a plan cannot be combined with anything that changes who it is for or what it costs", async () => {
+  const { d, seen } = deps();
+  for (const extra of [{ beneficiary: PATIENT }, { discount_code: "welcome-26" }, { use_points: true }, { expected_amount_kobo: 9_000_000 }, { payment_request: "pr_" + "a".repeat(24) }]) {
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, instalment_parts: 3, ...extra }), d);
+    assertEquals(res.status, 400);
+  }
+  assertEquals(seen.args, undefined);
+});
+
+Deno.test("S25b: a malformed part count is refused before anything is created", async () => {
+  const { d, seen } = deps();
+  for (const bad of ["3", 1, 13, 2.5, {}, true]) {
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, instalment_parts: bad }), d);
+    assertEquals(res.status, 400);
+  }
+  assertEquals(seen.args, undefined);
+});
+
+Deno.test("S25b: the database's pay-in-parts refusals come back with stable codes and statuses", async () => {
+  for (const [msg, status] of [["instalments_not_open", 409], ["instalment_schedule_invalid", 409], ["instalment_not_available", 409], ["instalment_order_mismatch", 409]] as const) {
+    const { d } = deps({ rpc: () => ({ data: null, error: { message: msg } }) });
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, instalment_parts: 3 }), d);
+    assertEquals([res.status, (await res.json()).error], [status, msg]);
+  }
+});
+
+Deno.test("S25b: a strange reply from create_instalment_order is an error, not a payment", async () => {
+  const { d } = deps({ rpc: () => ({ data: { nope: 1 }, error: null }) });
+  assertEquals((await handleCheckout(req({ code: "membership_annual", client_key: KEY, instalment_parts: 3 }), d)).status, 500);
+});
+
+Deno.test("S25b: instalment_id prepares the next part as the patient and initialises Paystack for exactly that part", async () => {
+  const calls: Array<[string, Record<string, unknown>]> = [];
+  const { d, payments } = deps({
+    rpc: (fn, args) => {
+      calls.push([fn, args]);
+      return { data: { instalment_id: PART_ID, order_id: "o1", reference: PART_REF, amount_kobo: 3_333_333, checkout_url: null, seq: 2 }, error: null };
+    },
+  });
+  const res = await handleCheckout(req({ instalment_id: PART_ID, amount_kobo: 1 }), d);
+  assertEquals(res.status, 200);
+  const j = await res.json();
+  assertEquals([j.instalment_id, j.amount_kobo, j.reference], [PART_ID, 3_333_333, PART_REF]);
+  assertEquals(calls, [["prepare_instalment_payment", { p_instalment: PART_ID }]]);
+  const v = await payments.verifyTransaction(PART_REF);
+  assertEquals(v.ok && v.data.requestedAmountKobo, 3_333_333);
+});
+
+Deno.test("S25b: a part with a fresh hosted page is reopened", async () => {
+  const { d, payments } = deps({
+    rpc: () => ({ data: { instalment_id: PART_ID, order_id: "o1", reference: PART_REF, amount_kobo: 3_333_333, checkout_url: "https://checkout.example/p" }, error: null }),
+  });
+  const res = await handleCheckout(req({ instalment_id: PART_ID }), d);
+  assertEquals((await res.json()).checkout_url, "https://checkout.example/p");
+  assertEquals((await payments.verifyTransaction(PART_REF)).ok, false);
+});
+
+Deno.test("S25b: a malformed part id is refused, and the database's refusals map to stable codes", async () => {
+  const { d, seen } = deps();
+  for (const bad of ["nope", 5, {}, "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee"]) {
+    assertEquals((await handleCheckout(req({ instalment_id: bad }), d)).status, 400);
+  }
+  assertEquals(seen.args, undefined);
+  for (const [msg, status] of [["pay_earlier_part_first", 409], ["instalment_closed", 409], ["instalment_not_found", 404], ["instalment_plan_ended", 409], ["boom", 500]] as const) {
+    const { d: dd } = deps({ rpc: () => ({ data: null, error: { message: msg } }) });
+    const res = await handleCheckout(req({ instalment_id: PART_ID }), dd);
+    assertEquals([res.status, (await res.json()).error], [status, msg === "boom" ? "unknown" : msg]);
+  }
+  const { d: odd } = deps({ rpc: () => ({ data: { nope: 1 }, error: null }) });
+  assertEquals((await handleCheckout(req({ instalment_id: PART_ID }), odd)).status, 500);
+});
