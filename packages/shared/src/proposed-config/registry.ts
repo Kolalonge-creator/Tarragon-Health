@@ -3390,6 +3390,26 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/EMP.md; supabase/migrations/20261022002100_employer_seat_pilot_kit.sql",
   },
   {
+    key: "commerce.membership_ladder",
+    // Founder decision 2026-10-21 (docs/DECISIONS.md, three-tier annual-only membership): two paid tiers, billed once a year in
+    // integer kobo (INV-15). Evergreen (membership_annual_no_panel) has no annual blood panel; Evergreen Plus (membership_annual) has
+    // it. The upgrade is the flat difference, one named order, no stored balance. The database holds the live rows (prices); this is the
+    // code-side mirror and the mirror test pins the migration's numbers to it. commerce.membership_prices stays the PUBLIC marketing
+    // price until the pricing page is rewritten and the tier flag is on; nothing can be bought before then (items inactive).
+    value: {
+      evergreen_code: "membership_annual_no_panel",
+      evergreen_kobo: 8_400_000,
+      evergreen_plus_code: "membership_annual",
+      evergreen_plus_kobo: 12_900_000,
+      upgrade_kobo: 4_500_000,
+    },
+    owner: "Founder",
+    status: "confirmed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/DECISIONS.md (2026-10-21); supabase/migrations/20261021110528_membership_evergreen_ladder_foundation.sql",
+  },
+  {
     key: "membership.lapse",
     // Founder decision 2026-10-12: when a Membership year ENDS NATURALLY the person keeps Member status for a 14 day grace, then is
     // Free again (state lapsed). A refund is different: it ends Member access at once (membership.refund, decision 2026-10-12). Renewal reminders go 30, 14 and 7 days before the end (in-app, push or email; never SMS). Mirrored by
