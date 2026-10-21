@@ -5,6 +5,8 @@ import { useUiLanguage } from "@/lib/ui-language";
 import type { Line } from "@/lib/home-model";
 import type { SectionId } from "@/lib/sections";
 import { loadToday, type TodayLoad } from "@/lib/today";
+import { readMirrorLastPulledAt } from "@/lib/offline-store";
+import { FreshnessNote } from "@/ui/freshness-note";
 import type { TodayItem } from "@/lib/today-model";
 import { space, radii } from "@/ui/design";
 import { AppText, Badge, Button, Card, InlineAlert, ListItem, Skeleton, SkeletonGroup, type IconName } from "@/ui/kit";
@@ -40,11 +42,19 @@ export function TodayCard({
   const line = (l: Line) => tr(l.key, l.params);
   const [state, setState] = useState<TodayLoad | null>(null);
   const [loading, setLoading] = useState(true);
+  // undefined while the time is being read: the note waits for it instead of flashing "cannot tell".
+  const [pulledAt, setPulledAt] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     let alive = true;
     loadToday(patientId)
-      .then((res) => alive && setState(res))
+      .then((res) => {
+        if (!alive) return;
+        setPulledAt(undefined);
+        setState(res);
+        // Only the saved copy needs a "last updated" time (a live answer is current by definition), and it never delays the first paint.
+        if (res.fromPhone) void readMirrorLastPulledAt(patientId).then((at) => alive && setPulledAt(at));
+      })
       .catch(() => alive && setState(null))
       .finally(() => alive && setLoading(false));
     return () => {
@@ -107,6 +117,7 @@ export function TodayCard({
           onPress={() => onNavigate("care")}
         />
       ) : null}
+      {state.fromPhone && pulledAt !== undefined ? <FreshnessNote lastUpdatedAt={pulledAt} /> : null}
       {state.partial ? <InlineAlert tone="info" message={tr("today.partial")} /> : null}
     </Card>
   );

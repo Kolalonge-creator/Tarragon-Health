@@ -39,42 +39,43 @@ const CACHE_KEY = "emergency-card-cache-v1";
  * the anon share-link RPC) — every table here already has RLS admitting the
  * patient's own row, so this is a plain client read. */
 export async function loadEmergencyFacts(patientId: string): Promise<EmergencyFacts> {
-  const reads = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("full_name, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship")
-      .eq("id", patientId)
-      .maybeSingle(),
-    supabase
-      .from("patient_allergies")
-      .select("allergen, reaction, severity")
-      .eq("patient_id", patientId)
-      .order("severity", { ascending: false, nullsFirst: false })
-      .order("allergen"),
-    supabase.from("care_plans").select("condition").eq("patient_id", patientId).eq("status", "active"),
-    supabase
-      .from("patient_blood_profile")
-      .select("blood_group, genotype")
-      .eq("patient_id", patientId)
-      .maybeSingle(),
-    supabase
-      .from("medications")
-      .select("drug_name, dose, frequency")
-      .eq("patient_id", patientId)
-      .eq("is_active", true)
-      .order("drug_name"),
-    // S43/S47: the details the person chose to put on their card. No row means nothing was chosen, so the DEFAULTS apply (conditions, reproductive and mental health off).
-    supabase
-      .from("emergency_card_fields")
-      .select("show_allergies, show_medications, show_conditions, show_blood, show_emergency_contact, show_reproductive, show_mental_health")
-      .eq("patient_id", patientId)
-      .maybeSingle(),
-  ]);
-  // A read that failed is not a card with nothing on it: it would blank the saved copy (or, for the choices, show details the person hid). Throw, so the
-  // screen falls back to the last saved copy and says so.
-  const failed = reads.find((r) => r.error);
-  if (failed?.error) throw new Error(failed.error.message || "emergency card read failed");
-  const [{ data: profile }, { data: allergies }, { data: carePlans }, { data: blood }, { data: meds }, { data: choices }] = reads;
+  const results = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("full_name, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship")
+        .eq("id", patientId)
+        .maybeSingle(),
+      supabase
+        .from("patient_allergies")
+        .select("allergen, reaction, severity")
+        .eq("patient_id", patientId)
+        .order("severity", { ascending: false, nullsFirst: false })
+        .order("allergen"),
+      supabase.from("care_plans").select("condition").eq("patient_id", patientId).eq("status", "active"),
+      supabase
+        .from("patient_blood_profile")
+        .select("blood_group, genotype")
+        .eq("patient_id", patientId)
+        .maybeSingle(),
+      supabase
+        .from("medications")
+        .select("drug_name, dose, frequency")
+        .eq("patient_id", patientId)
+        .eq("is_active", true)
+        .order("drug_name"),
+      // S43/S47: the details the person chose to put on their card. No row means nothing was chosen, so the DEFAULTS apply (conditions, reproductive and mental health off).
+      supabase
+        .from("emergency_card_fields")
+        .select("show_allergies, show_medications, show_conditions, show_blood, show_emergency_contact, show_reproductive, show_mental_health")
+        .eq("patient_id", patientId)
+        .maybeSingle(),
+    ]);
+  // Any failed query means this is not the person's card: an empty answer from a dropped connection must never replace the
+  // saved copy (or be stamped as freshly updated), and a failed choices query must not fall back to defaults that could show
+  // what the person chose to hide. Throw so the screen shows the saved copy, labelled with when it was really saved.
+  const failed = results.find((r) => (r as { error?: { message?: string } | null }).error);
+  if (failed) throw new Error((failed as { error: { message?: string } }).error.message ?? "Could not load the emergency card");
+  const [{ data: profile }, { data: allergies }, { data: carePlans }, { data: blood }, { data: meds }, { data: choices }] = results;
 
   const facts: EmergencyFacts = {
     fullName: profile?.full_name ?? null,
