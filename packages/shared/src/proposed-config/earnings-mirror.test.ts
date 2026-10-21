@@ -28,3 +28,17 @@ describe("earnings.rules mirrors the migration seed", () => {
     expect(JSON.parse(match[1])).toEqual(shared);
   });
 });
+
+describe("earnings.disputes mirrors the migration seed", () => {
+  it("is identical to the earnings_disputes_config seed", () => {
+    const file = readdirSync(MIGRATIONS).find((f) => f.endsWith("_s30b_earnings_disputes_withholding_pilot_inactivity.sql"));
+    if (!file) throw new Error("S30b migration not found");
+    const match = /earnings-disputes-rules-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(readFileSync(join(MIGRATIONS, file), "utf8"));
+    if (!match?.[1]) throw new Error("earnings disputes seed not found in the migration");
+    expect(JSON.parse(match[1])).toEqual(getProposedConfig("earnings.disputes").value);
+  });
+
+  it("holds no money", () => {
+    expect(JSON.stringify(getProposedConfig("earnings.disputes").value)).not.toMatch(/kobo|pct/);
+  });
+});
