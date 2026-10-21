@@ -402,7 +402,7 @@ begin
   perform pg_temp.ck('7d the third point is in its own unit with its own range', 'mmol/mol:20', (v_j -> 'points' -> 2 ->> 'unit') || ':' || ((v_j -> 'points' -> 2 ->> 'ref_low')::numeric)::integer);
   perform pg_temp.ck('7e mixed units are flagged, not converted', 'true', (v_j ->> 'unit_mixed'));
   perform pg_temp.ck('7f the care team''s target is carried and labelled as the care team''s', 'care_team:7', (v_j -> 'target' ->> 'set_by') || ':' || (v_j -> 'target' ->> 'max'));
-  perform pg_temp.ck('7h the other patient''s reading is not in the series', 'false', (v_j::text like '%7.7%')::text);
+  perform pg_temp.ck('7h the other patient''s reading is not in the series', 'false', (exists (select 1 from jsonb_array_elements(v_j -> 'points') pt where (pt ->> 'value')::numeric = 7.7))::text);  -- compare the VALUES: a substring match also hit timestamps such as 07.712 and failed at random
   perform pg_temp.ck('7i a stranger is refused', 'true', (pg_temp.try_as(v_pat2, format($q$select public.patient_biomarker_trend('hba1c', %L)$q$, v_pat)) like '%not authorised%')::text);
   perform pg_temp.ck('7j anon is refused', 'true', (pg_temp.q_anon($q$select public.patient_biomarker_trend('hba1c')$q$) like '%permission denied%')::text);
   perform pg_temp.ck('7k a released result item joins the series; held, withdrawn and sensitive items do not', '1',

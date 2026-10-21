@@ -331,7 +331,7 @@ begin
   if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
-select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result
+select phase, check_name, expected, actual, case when phase = 'sabotaged' then case when expected <> actual then 'FLIPPED' else 'NOT-FLIPPED' end when expected = actual then 'PASS' else 'FAIL' end as result
 from results order by phase desc, check_name;
 
 rollback;

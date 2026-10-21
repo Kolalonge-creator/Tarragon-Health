@@ -3924,6 +3924,32 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 ### OQ-BPA-3 Free members and "Your care team will look at this" (TRI-002)
 - The acknowledgement never adds a care-team promise of its own. TRI-002 (signed without a review promise, OQ-251) is the engine's wording and is unchanged. Whether it should be hidden for a Free patient whose red reading does not reach a doctor (two-tier decision 2026-10-08) is for the CMO; the acknowledgement does not depend on it.
 
+## Medicine safety gaps S08y (raised 2026-10-20, branch s08y/medicines-safety)
+
+### OQ-S08Y-1 Who writes, reviews and signs the interaction rules and the brand mappings (raised by S08y)
+- Both tables are born empty; the build wrote no rule and no mapping. Needed from the CMO: who is the pharmacist who writes and checks ingredient-pair rules (and which public sources count), and the order of work (pharmacist review, then the CMO signs `medicine_interaction_rule_sets`, then the CMO presses `medicine_interaction_rules`). The existing S53 class dataset (85 rules, unsigned draft) is a separate mechanism; decide whether to keep both or retire one once the ingredient layer has content.
+- Reviewers of a brand mapping are active clinical staff who did not enter the row. A partner-pharmacy `pharmacist` account may not review. Decide whether Tarragon wants a staff pharmacist role that can.
+- Decision: open (CMO).
+
+### OQ-S08Y-2 The supporter's "today's doses" reads the `profile_access` model, not Care Circle (S29) (raised by S08y)
+- Care Circle members live in `care_circle_members` with their own per-block permissions (`adherence_summary` etc.) and deliberately do not use `profile_access` (S29 design). The new door follows the instruction to use `profile_access_categories` (category `medications`), so it reaches "People you support" on the web and the phone's supporting screen, and does not reach a Care Circle supporter. Decide whether a daily-dose block should also be added to `circle_supporter_view` under a new permission, which is a separate consent decision.
+- Decision: open (founder).
+
+### OQ-S08Y-3 New clinical-namespace strings were recorded as unreviewed baseline entries, and the ledger ceiling was raised by 17 (raised by S08y)
+- `medicines.addcheck.advice.same_ingredient`, `medicines.rules.advice.*`, `medicines.nafdac.*` and `meds.supply.collect_link` are in a gated namespace. No reviewer can be named by a build, so they were added as `unreviewed (baseline)` entries and `baselineCeiling` went from 1143 to 1160, as earlier builds did. This is an honest record, not an approval. Needed: the CMO or a pharmacist reads those 17 strings (especially `medicines.rules.advice.high` and `medicines.nafdac.verify.*`) and replaces the baseline entries with a real reviewer and date. Compare OQ-NAFDAC-SCAN-3 (which chose a non-gated namespace instead).
+- Decision: open (CMO).
+
+### OQ-S08Y-4 The older S53 text still names the short code 38353 (raised by S08y)
+- `medicines.mas.add_prompt` and `.collect_prompt` and the phone's `NAFDAC_MAS` constant tell people to text a code to 38353. The only public source found for that short code is the 2018 MAS guideline; the current nafdac.gov.ng page names the service without a code. The new how-to card does not repeat the code. Needed: someone confirms the code with NAFDAC (or removes it from the older text) before launch.
+- Decision: open (CMO or pharmacist).
+
+### OQ-S08Y-5 Should tied staff see the NAFDAC number a patient noted (raised by S08y)
+- `medication_pack_numbers` has no staff read policy (like `medication_supply`), so only the person, someone acting for them and a supporter with the medicines category can read it. If the care team should see it at a medication review, that is an audited, tied read and a `staff_read_scope` row. Not built. This also answers OQ-NAFDAC-SCAN-4 for the storing half: the number is now kept as a note.
+- Decision: open (product).
+
+### OQ-S08Y-6 Low-supply link on the phone only; the web already has the link (raised by S08y)
+- The web prescription card already offers "Choose where to collect"; the web has no pill count, so no low-supply trigger was added there. The phone opens the web page in the browser (no native S28 screen, OQ-277). If a native screen is wanted that is S28 work.
+- Decision: open (product).
 ## Guided home blood pressure session (raised 2026-10-16, branch pr3/home-bp-guided-session)
 
 ### OQ-HBP-1 Drop day 1 from the seven-day average? (for the CMO; not built)
@@ -4406,6 +4432,17 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - No document-picker package is installed, so the phone adds photos from the camera or library; a PDF is added on the web. Adding a picker is a native module and needs an EAS build and a runtimeVersion bump.
 - Decision: open (product).
 
+### OQ-LSI-1-1 Mobile saves the picture through the in-app browser, not the photo library (raised by LSI-1, 2026-10-20)
+- Saving straight to Photos needs a native media-library module and a permission, which would need a new build and runtime version. Press and hold in the in-app browser works with no new permission. Decide whether the extra step is acceptable.
+- Decision: open (product).
+
+### OQ-LSI-1-2 No platform kill switch for the lock-screen picture (raised by LSI-1, 2026-10-20)
+- The per-person option (off by default, a tick every time, audited) is the only gate. A go-live guard would be one key plus a check in `lockScreenImageResponse` if the founder wants one.
+- Decision: open (founder).
+
+### OQ-LSI-1-3 The mobile picture URL carries the access token as a query parameter (raised by LSI-1, 2026-10-20)
+- Same pattern as the verified-document PDF route. The token is short-lived and the picture is the person's own, but the URL may appear in browser history. A one-time signed link would remove it.
+- Decision: open (engineering).
 ### OQ-S07Y-1 A home-log pair only sees home readings from before the clinic reading was saved (raised by S07y, 2026-10-20)
 - The pair is made when the clinic reading is saved, from the patient's own manual or device readings within the window either side. A home reading logged after that moment (inside the window) is not picked up. The same-visit pair has no such limit. Fixing it means a daily sweep that re-pairs recent clinic readings; not built.
 - Decision: open (product, CMO).
@@ -4651,3 +4688,12 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Open: a patient who pays the second part after day 21 can no longer ask for it back under this rule even though they paid it later. Whether the window should restart for each part, or the whole plan be refundable until the last part, is a consumer-law and founder question. Not built.
 - Also open: the processing fee of each part is the customer's and is not refunded (OQ-97, price only).
 - Decision: open (counsel, founder).
+
+### OQ-S06Z-1 The battery and battery saver cannot be read yet: a native module is needed (raised by S06z, 2026-10-21)
+- Checked apps/mobile/package.json: expo-battery and expo-device are not installed, and nothing else exposes the battery level or Android battery saver / iOS Low Power Mode. S06z ships the pure decision (power-rules.ts, tested) and a port (power-port.ts, registerPowerReader) whose default answer is "unknown", and unknown defers nothing. The rules are wired (reconnect flush, background task, sync banner) but inert on a real phone until a reader is registered.
+- Needed: add expo-battery in the next native build (new EAS build and runtimeVersion bump; not done because this change had to stay JS-only), then one registerPowerReader call at start-up. Also decide whether low_battery_percent (15, PROPOSED, offline.reconnect_power) is right.
+- Decision: open (founder).
+
+### OQ-S06Z-2 When bulk work waits, the background task skips the whole health-store sync (raised by S06z, 2026-10-21)
+- On low power, or in low-data mode off Wi-Fi, the background task skips the health-store read as well as the upload. A read without an upload cannot advance the server cursor (it moves only past uploaded pages), so the next run would read and queue the same samples again, growing the queue toward its cap with duplicates. Nothing is lost; the samples are read on the next run that may upload. Splitting read from upload needs de-duplication in health-sync.ts. The Devices Sync now button and a foreground sync are the patient asking and still upload.
+- Decision: open (product).

@@ -8970,6 +8970,112 @@ export type Database = {
           },
         ]
       }
+      medicine_brand_generic_map: {
+        Row: {
+          brand_key: string | null
+          brand_name: string
+          created_at: string
+          created_by: string | null
+          edited_at: string
+          edited_by: string | null
+          id: string
+          ingredients: string[]
+          is_active: boolean
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_name: string | null
+          source_citation: string
+        }
+        Insert: {
+          brand_name: string
+          created_at?: string
+          created_by?: string | null
+          edited_at?: string
+          edited_by?: string | null
+          id?: string
+          ingredients: string[]
+          is_active?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_name?: string | null
+          source_citation: string
+        }
+        Update: {
+          brand_name?: string
+          created_at?: string
+          created_by?: string | null
+          edited_at?: string
+          edited_by?: string | null
+          id?: string
+          ingredients?: string[]
+          is_active?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_name?: string | null
+          source_citation?: string
+        }
+        Relationships: []
+      }
+      medicine_interaction_rule_sets: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      medication_pack_numbers: {
+        Row: {
+          medication_id: string
+          nafdac_number: string
+          organisation_id: string
+          patient_id: string
+          recorded_at: string
+          recorded_by: string | null
+        }
+        Insert: {
+          medication_id: string
+          nafdac_number: string
+          organisation_id: string
+          patient_id: string
+          recorded_at?: string
+          recorded_by?: string | null
+        }
+        Update: {
+          medication_id?: string
+          nafdac_number?: string
+          organisation_id?: string
+          patient_id?: string
+          recorded_at?: string
+          recorded_by?: string | null
+        }
+        Relationships: []
+      }
       medication_prn_limits: {
         Row: {
           daily_max: number | null
@@ -49922,6 +50028,7 @@ export type Database = {
       device_data_consent_in_force: { Args: { p_patient: string }; Returns: boolean }
       my_handover: { Args: never; Returns: Json }
       my_consent_matrix_history: { Args: { p_limit?: number }; Returns: Json }
+      record_emergency_card_image: { Args: { p_include_qr?: boolean; p_minimum?: boolean }; Returns: Json }
       my_consent_matrix: { Args: never; Returns: Json }
       complete_dependant_handover: { Args: { p_date_of_birth?: string; p_keep?: string[] }; Returns: Json }
       complete_account_deletion: { Args: { p_request: string }; Returns: Json }
@@ -54706,6 +54813,23 @@ export type Database = {
         Args: { p_id: string }
         Returns: string
       }
+      active_medicine_interaction_rules: { Args: Record<PropertyKey, never>; Returns: Json }
+      import_medicine_brand_map: { Args: { p_rows: Json }; Returns: number }
+      review_medicine_brand_map: { Args: { p_approve: boolean; p_id: string; p_seen_edited_at?: string }; Returns: undefined }
+      published_medicine_brands: {
+        Args: Record<PropertyKey, never>
+        Returns: { id: string; brand_name: string; ingredients: string[]; source_citation: string; reviewer_name: string; reviewed_at: string }[]
+      }
+      save_medicine_brand_map: {
+        Args: { p_brand: string; p_citation: string; p_id: string | null; p_ingredients: string[] }
+        Returns: string
+      }
+      set_medication_nafdac_number: { Args: { p_medication: string; p_number: string }; Returns: undefined }
+      sign_medicine_interaction_rule_sets: {
+        Args: { p_rules_id: string }
+        Returns: Database["public"]["Tables"]["medicine_interaction_rule_sets"]["Row"]
+      }
+      supporter_todays_doses: { Args: { p_patient: string }; Returns: Json }
       set_medication_prn_limits: {
         Args: {
           p_daily_max: number

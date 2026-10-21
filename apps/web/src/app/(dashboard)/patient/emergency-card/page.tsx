@@ -12,6 +12,7 @@ import { BloodAttestationForm } from "./blood-attestation-form";
 import { CardFieldsForm } from "./card-fields-form";
 import { CoverageForm } from "./coverage-form";
 import { t } from "@tarragon/i18n";
+import { LockScreenImageCard } from "./lock-screen-image-card";
 import { applyCardFieldChoices, choicesFromRow, hiddenFields } from "@/lib/emergency/field-choices";
 import { loadEmergencyDatasetForPatient } from "@/lib/emergency/dataset";
 import { EmergencyCardPreview } from "@/components/emergency/emergency-card-preview";
@@ -78,7 +79,7 @@ export default async function EmergencyCardPage() {
 
   // S47d: the preview is built from the same facts and the same choices as the printed card and the live link
   const previewChoices = choicesFromRow(fields);
-  const previewFacts = acting ? null : applyCardFieldChoices(await loadEmergencyDatasetForPatient(supabase, user.id), previewChoices);
+  const previewFacts = acting ? null : applyCardFieldChoices(await loadEmergencyDatasetForPatient(supabase, user.id, { includeCoverage: true }), previewChoices);
 
   const { data: lookups, error: lookupsError } = active
     ? await supabase
@@ -168,6 +169,7 @@ export default async function EmergencyCardPage() {
           initial={coverageRow ? { scheme: coverageRow.scheme === "nhia" ? "nhia" : "hmo", memberNumber: coverageRow.member_number, planName: coverageRow.plan_name } : null}
         />
       )}
+      {acting || !choicesFromRow(fields).lock_screen_opt_in ? null : <LockScreenImageCard />}
       {previewFacts ? <EmergencyCardPreview facts={previewFacts} hidden={hiddenFields(previewChoices)} /> : null}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
