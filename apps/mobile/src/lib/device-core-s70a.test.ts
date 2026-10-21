@@ -39,7 +39,7 @@ const sb = supabase as unknown as { auth: { getSession: jest.Mock }; from: jest.
 const mockFetch = jest.fn();
 
 function signedIn() {
-  sb.auth.getSession.mockResolvedValue({ data: { session: { access_token: "jwt" } }, error: null });
+  sb.auth.getSession.mockResolvedValue({ data: { session: { access_token: "jwt", user: { id: "user-1" } } }, error: null });
 }
 function res(status: number, body: unknown): Response {
   return { ok: status >= 200 && status < 300, status, json: async () => body } as unknown as Response;

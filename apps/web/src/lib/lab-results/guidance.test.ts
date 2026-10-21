@@ -65,3 +65,11 @@ describe("the AI-003 explainer refuses a sensitive result before any model call 
     expect(service).not.toHaveBeenCalled();
   });
 });
+
+describe("the hepatitis B antibody add-on (S46d)", () => {
+  it("is never explained by the generic text, negative or positive: the care team explains it", () => {
+    for (const flag of ["negative", "positive", "normal"] as const) {
+      expect(guidanceForItem({ analyte_code: "anti_hbs", flag }, true)).toEqual({ explanationKey: null, nextStepKey: "labres.next.ask_care_team" });
+    }
+  });
+});

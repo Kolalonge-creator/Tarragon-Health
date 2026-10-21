@@ -8,7 +8,7 @@ const at = (date: string, time = "15:00") => new Date(lagosTimeToUtcMs(date, tim
 
 let mockRemote: { data: unknown[] | null; error: { code?: string; message: string } | null } | "throw" = { data: [], error: null };
 let mockMirror: unknown[] | "throw" = [];
-let mockDoses: { ok: true; data: DoseChecklistItem[] } | { ok: false; error: string } | "throw" = { ok: true, data: [] };
+let mockDoses: { ok: true; data: DoseChecklistItem[]; fromPhone?: true } | { ok: false; error: string } | "throw" = { ok: true, data: [] };
 let mockBp: { takenAt: string }[] | "throw" = [];
 const pulls: string[] = [];
 
@@ -145,5 +145,32 @@ describe("loadToday", () => {
     expect((await loadToday("p1", NOW)).list.done.map((i) => i.id)).toEqual(["task:t2"]);
     mockBp = [{ takenAt: "2026-10-03T22:30:00.000Z" }]; // 23:30 on the 3rd in Lagos
     expect((await loadToday("p1", NOW)).list.open.map((i) => i.id)).toEqual(["task:t2"]);
+  });
+});
+
+describe("fromPhone (S06y)", () => {
+  it("is false when both sources are live", async () => {
+    mockRemote = { data: [row("a")], error: null };
+    mockDoses = { ok: true, data: [] };
+    expect((await loadToday("p1", NOW)).fromPhone).toBe(false);
+  });
+
+  it("is true when the doses are the copy kept on the phone", async () => {
+    mockRemote = { data: [row("a")], error: null };
+    mockDoses = { ok: true, data: [], fromPhone: true };
+    expect((await loadToday("p1", NOW)).fromPhone).toBe(true);
+  });
+
+  it("is true when the tasks came from the mirror", async () => {
+    mockRemote = "throw";
+    mockMirror = [row("a")];
+    expect((await loadToday("p1", NOW)).fromPhone).toBe(true);
+  });
+
+  it("is false when nothing was available at all (an error state, not a saved copy)", async () => {
+    mockRemote = "throw";
+    mockMirror = [];
+    mockDoses = { ok: false, error: "offline" };
+    expect((await loadToday("p1", NOW)).fromPhone).toBe(false);
   });
 });
