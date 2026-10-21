@@ -1805,6 +1805,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/research/S26-S30-competitor-review-and-build-plan.md (S30b); OQ-180, OQ-185",
   },
   {
+    key: "finance.reconciliation",
+    // The money reconciliation screen (/finance/money-reconciliation). Read-only: it lists places where payments, orders, entitlements,
+    // refunds, earnings reversals, payouts and the general ledger disagree. Passed to the database as arguments, so no policy number lives
+    // in SQL. Holds no money. Finance may tighten the windows; a looser window only hides a mismatch for longer.
+    value: {
+      // a refund still "sending" past this is flagged (Paystack can be slow, but the refund machine never retries by itself)
+      stuck_refund_minutes: 120,
+      // a record that is normally created within seconds of another is only flagged after this long
+      grace_minutes: 15,
+      page_size: 50,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/design/S26.md section 9 (stuck refund, reversal hook); S25 (one writer for a paid order); S30 and S31",
+  },
+  {
     key: "payouts.rules",
     // The rules of the weekly payout run (S31, spec 7.7). Live value is the active row of `payouts_config`; a test fails if the
     // migration seed and this value drift. The minimum is a floor below which earnings carry over to the next week.
