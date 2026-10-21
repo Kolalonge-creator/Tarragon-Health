@@ -14,7 +14,7 @@ import {
   lowCarbNameMatches,
   lowCarbNormalise,
   lowCarbTextHas,
-  lowCarbProposalToChangeArgs,
+  lowCarbStopDraftArgs,
   lowCarbStopCheck,
   parseLowCarbGate,
   proposeLowCarbMedicineReview,
@@ -396,7 +396,7 @@ describe("medicine review: the platform only proposes", () => {
     if (r.kind !== "review") throw new Error("expected a review");
     const stop = r.proposals.find((p) => p.proposable);
     if (!stop) throw new Error("expected a proposable stop");
-    expect(lowCarbProposalToChangeArgs(stop, "patient-1", "protocol-1", { a: 1 })).toEqual({
+    expect(lowCarbStopDraftArgs(stop, "patient-1", "protocol-1", { a: 1 })).toEqual({
       p_patient: "patient-1",
       p_kind: "medication",
       p_proposal: { action: "stop", medication_id: "m1" },

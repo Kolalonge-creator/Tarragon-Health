@@ -38,4 +38,5 @@ Built end to end, **live for nobody**. The go-live guard `low_carb_t2d_programme
 - Clinician: `LowCarbProgrammePanel` on the patient chart (renders nothing until the guard is on or an enrolment exists), with offer, pause, resume, stop, "Check the medicines", and "Record the review". Drafts appear in the existing Care plan changes panel.
 - Patient: `/patient/lowcarb` (offer with equal yes and no buttons, today's check-in, what to do if low, reach your care team, stop). Reachable through a link on the medicines page that exists only for someone who has been offered it.
 - CMO: `/clinician/lowcarb-protocol-config` and the sign-off hub line. Admin read-only copy at `/admin/settings/lowcarb-protocol-config`.
-- Not built: mobile screen (OQ-S50B-5).
+- Phone: `LowCarbScreen` (not in the drawer; a quiet link on Medicines for someone who was offered it). Logging goes to the existing Vitals screen and its offline outbox. See OQ-S50B-5.
+- Medicine classification: groups in the config, fuzzy match, and a fail-safe (an unrecognised diabetes-looking medicine needs supervision). See OQ-S50B-6.

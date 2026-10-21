@@ -4705,19 +4705,22 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Needed: a diabetes step-table editor (or a second validator keyed by code) and the CMO's real steps. The platform proposes a stop only; a dose change is a note and the doctor sets the dose.
 - Decision: open (CMO, then a small build).
 
-### OQ-S50B-3 Nothing runs the check-in sweep (raised by S50b, 2026-10-21)
-- `private.lowcarb_sweep()` pauses someone who has become pregnant and stops someone with no check-in for 14 days. It is proven but no cron calls it, and cron wiring was kept out of this change. Until it runs, a lapsed person stays "active" and a new pregnancy is caught only at the next resume, offer or the pause triggers.
-- Needed: schedule it (hourly is enough) before the guard can be switched on. The guard now has a condition for it (`check_in_sweep_scheduled`, a recorded attestation), so it cannot be forgotten at go-live. The sweep re-runs the whole screen for every running enrolment, not only pregnancy.
-- Decision: open (engineering, before go-live).
+### OQ-S50B-3 The check-in sweep is now scheduled (raised by S50b, 2026-10-21; scheduled in the follow-up the same day)
+- `private.lowcarb_sweep()` is registered with pg_cron as `lowcarb-checkin-sweep`, every 15 minutes, by name (re-running the migration replaces the job). It returns at once while nobody is enrolled, so it costs one existence check. It turns nothing on. The migration fails if the job is not registered.
+- Still open: the go-live condition `check_in_sweep_scheduled` stays as an attestation, so a person confirms the job is actually running healthily (cron.job_run_details) before the guard is switched on.
+- Not verified here: nothing was run against a database in this round (no production access by instruction, no Docker). CI's migration replay is the first real run of the `cron.schedule` statement and the self-check.
+- Decision: open (ops, at go-live).
 
 ### OQ-S50B-4 Ketone testing cost, rota, and what a low-sugar reading means in this programme (raised by S50b, 2026-10-21)
 - The guard needs a recorded doctor and dietitian rota and a recorded decision on the cost of ketone testing (who pays for strips, how many a week, whether a Member gets them). Neither exists and neither was attested.
 - The patient screen says only: follow the low sugar advice your care team gave you, and go to the nearest hospital if very unwell. It gives no fast-sugar instruction on purpose (that wording is the CMO's, see the `glucose_fast_sugar_wording` guard).
 - Decision: open (founder, CMO).
 
-### OQ-S50B-5 No mobile screen yet (raised by S50b, 2026-10-21)
-- The patient screen is web only. The programme is dormant, and a phone screen needs the gate, the check-in lines and the offer buttons, plus offline behaviour for the low-sugar card (INV-06 covers emergency content; this card is not emergency content).
-- Decision: open (product), build after the CMO signs.
+### OQ-S50B-5 Phone screen built; device and offline behaviour not tried (raised by S50b, 2026-10-21; built in the follow-up)
+- Built: `LowCarbScreen` (hidden from the drawer; reached by a quiet link on the Medicines screen shown only to someone who has been offered the programme), using the same doors as the web. A closed gate shows nothing; a failed load is its own error state; the Stop button and the low-sugar card stay for anyone on the programme; the low-sugar card has no fast-sugar instruction and opens the existing emergency guidance. Readings are logged on the existing Vitals screen (the offline outbox). Answering and stopping are never queued and nothing clinical is cached.
+- Not verified: the mobile Jest suite is logic only (no rendering), so the screen was type-checked and its decisions unit-tested (`lowCarbPanels`), never run on a device or simulator. The medicines link shows only once the network answers.
+- Open: whether the offer should also reach the phone as a push (the notice is neutral and exists; there is no deep link into the screen).
+- Decision: open (product), device test before go-live.
 
 ### OQ-S50B-6 Pausing on ketones alone, and symptoms (raised by S50b, 2026-10-21)
 - The spec says "a high ketone reading with symptoms". The build pauses on the number alone (no symptom entry needed), the more careful direction. Whether symptoms should also lower the line, and whether a pause should wait for a clinician to look first, is the CMO's. A urine-strip ketone result (`ketone_urine`) does not pause the programme: only a blood ketone number does. Medicine name lists (insulin, sulfonylurea, SGLT2 brands) are placeholders and will miss products; an unlisted diabetes medicine is not screened, so the CMO or a pharmacist must complete them.

@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@tarragon/shared";
 import {
-  lowCarbProposalToChangeArgs,
+  lowCarbStopDraftArgs,
   proposeLowCarbMedicineReview,
   type LowCarbConfig,
   type LowCarbMedicine,
@@ -155,7 +155,7 @@ export async function runLowCarbMedicineReview(
         medicines,
       };
       for (const p of result.proposals.filter((x: LowCarbReviewProposal) => x.proposable)) {
-        const a = lowCarbProposalToChangeArgs(p, patientId, protocolId, snapshot);
+        const a = lowCarbStopDraftArgs(p, patientId, protocolId, snapshot);
         const saved = await supabase.rpc("propose_care_plan_change", {
           p_patient: a.p_patient,
           p_kind: a.p_kind,

@@ -45,7 +45,7 @@ export {
   type ActivityKindConfig, type ActivityRuleConfig, type ActivitySafetyConfig, type ActivityTriageEvent, type ConditionMatchConfig,
 } from "./activity-gate";
 export {
-  classifyLowCarbReading, coarsenLowCarbReasons, lowCarbCheckins, lowCarbConditionMatches, lowCarbEligibility, lowCarbNameMatches, lowCarbNormalise, lowCarbEditDistance, lowCarbTextHas, classifyLowCarbMedicine, lowCarbProposalToChangeArgs,
+  classifyLowCarbReading, coarsenLowCarbReasons, lowCarbCheckins, lowCarbConditionMatches, lowCarbEligibility, lowCarbNameMatches, lowCarbNormalise, lowCarbEditDistance, lowCarbTextHas, classifyLowCarbMedicine, lowCarbStopDraftArgs,
   lowCarbStopCheck, parseLowCarbGate, proposeLowCarbMedicineReview, unavailableLowCarbGate, LOWCARB_REPRODUCTIVE_REASONS,
   type LowCarbCheckinLine, type LowCarbCheckinStatus, type LowCarbConditionRecord, type LowCarbConfig, type LowCarbEligibilityDecision, type LowCarbEligibilityInput,
   type LowCarbEligibilityResult, type LowCarbMedicine, type LowCarbMedicineClass, type LowCarbMedicineRecord, type LowCarbPatientGate, type LowCarbReadingClass, type LowCarbReviewInput, type LowCarbReviewProposal,

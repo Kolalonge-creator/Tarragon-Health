@@ -480,7 +480,7 @@ export function proposeLowCarbMedicineReview(input: LowCarbReviewInput, table: L
 }
 
 /** Exact arguments of public.propose_care_plan_change for a "stop" proposal from the step table (INV-02: a draft row only; a clinician signs). */
-export function lowCarbProposalToChangeArgs(
+export function lowCarbStopDraftArgs(
   proposal: LowCarbReviewProposal,
   patientId: string,
   protocolId: string,
