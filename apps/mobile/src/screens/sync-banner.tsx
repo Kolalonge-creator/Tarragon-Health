@@ -15,6 +15,9 @@ import { dismissStoreNotice, listStoreNotices, noticesFor, type StoreNotice } fr
 import { supabase } from "@/lib/supabase";
 import { formatBytes, getMonthlyDataUsage } from "@/lib/data-usage";
 import { loadOfflineTrustConfig } from "@/lib/offline-trust-config";
+import { getHealthSamplesQueueCount } from "@/lib/offline-queue";
+import { currentBulkDeferral } from "@/lib/reconnect-flush";
+import type { DeferReason } from "@/lib/power-rules";
 import { space } from "@/ui/design";
 import { AppText, Button, Card, Icon } from "@/ui/kit";
 
@@ -33,6 +36,8 @@ export function SyncBanner() {
   const [rejected, setRejected] = useState<OutboxItem[]>([]);
   const [notices, setNotices] = useState<StoreNotice[]>([]);
   const [usage, setUsage] = useState(0);
+  // S06y: bulk uploads waiting for power or Wi-Fi. Said plainly; the entries themselves are already saved.
+  const [deferral, setDeferral] = useState<DeferReason | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -42,6 +47,8 @@ export function SyncBanner() {
       const { data: auth } = await supabase.auth.getSession();
       setNotices(noticesFor(await listStoreNotices(), auth.session?.user.id ?? null));
       setUsage(await getMonthlyDataUsage());
+      // Only the bulk health-sample pages ever wait; worked out from the phone as it is now, not remembered.
+      setDeferral((await getHealthSamplesQueueCount()) > 0 ? await currentBulkDeferral() : null);
     } catch {
       // A failed read of the local queue must not blank the screen.
     }
@@ -53,11 +60,11 @@ export function SyncBanner() {
     return () => clearInterval(timer);
   }, [refresh]);
 
-  if (!summary && notices.length === 0) return null;
+  if (!summary && notices.length === 0 && !deferral) return null;
   const stuckWaiting = summary ? Math.max(0, summary.stuck - summary.rejected) : 0;
   const quietlyWaiting = summary ? Math.max(0, summary.waiting - stuckWaiting) : 0;
   const nothingHeld = !summary || summary.waiting + summary.rejected + summary.heldForOtherAccount === 0;
-  if (nothingHeld && notices.length === 0) return null;
+  if (nothingHeld && notices.length === 0 && !deferral) return null;
 
   async function retryOne(item: OutboxItem) {
     await retryRow(item.clientId);
@@ -102,6 +109,14 @@ export function SyncBanner() {
           <Button title={t("store.dismiss", locale)} variant="ghost" onPress={() => void dismissStoreNotice(n.id).then(refresh)} />
         </Card>
       ))}
+      {deferral ? (
+        <Card level={0} style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+          <Icon name="sending" size={18} tone="textMuted" />
+          <AppText variant="caption" tone="textMuted" style={{ flex: 1 }}>
+            {t(deferral === "low_power" ? "outbox.saved_later_power" : "outbox.saved_later_data", locale)}
+          </AppText>
+        </Card>
+      ) : null}
       {summary && quietlyWaiting > 0 ? (
         <Card level={0} style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
           <Icon name="sending" size={18} tone="textMuted" />
