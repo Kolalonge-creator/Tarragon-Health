@@ -38,8 +38,6 @@ export const KIND_LABEL: Record<string, string> = {
   payout_gl_posting_failed: "Payout ledger posting failed",
   payout_gl_amount_differs: "Payout ledger entry differs from the payout",
   payout_reversed_no_gl_reversal: "Payout returned by the bank, no reversing entry",
-  instalment_payment_differs_from_part: "Instalment payment differs from its part",
-  instalment_paid_no_journal: "Instalment part paid, no ledger entry",
   payout_includes_disputed_line: "Payout includes an earnings line under dispute",
   earnings_dispute_overdue: "Earnings question overdue, line held",
   payout_sent_with_withholding: "Payout sent while a withholding is undecided",

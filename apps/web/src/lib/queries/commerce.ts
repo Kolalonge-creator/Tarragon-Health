@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { parseCreatedPaymentRequest, parseDonations, parseEntitlements, parseFundSupport, parsePaymentRequests, parseQuote, type Quote } from "@tarragon/commerce";
-import { parseInstalmentPlans, parseInstalmentPolicy, payInstalmentReplySchema } from "@/lib/commerce/instalments";
 import { checkoutReplySchema, hmoReplySchema, parseCatalogue, parseHmoChecks, parseHmoPlans, parseMembership, parseOrders, verifyReplySchema } from "@/lib/commerce/model";
 
 export const commerceKeys = {
@@ -201,57 +200,16 @@ export class CheckoutError extends Error {
  */
 export function useStartCheckout() {
   return useMutation({
-    mutationFn: async (input: { code: string; clientKey: string; beneficiary?: string; discountCode?: string; usePoints?: boolean; expectedAmountKobo?: number; paymentRequest?: string; instalmentParts?: number }) => {
+    mutationFn: async (input: { code: string; clientKey: string; beneficiary?: string; discountCode?: string; usePoints?: boolean; expectedAmountKobo?: number; paymentRequest?: string }) => {
       // S72 (19.13): paying from a supporter's link sends the link's code INSTEAD of an item code; the database decides the item, the person and the price
-      // S25b: a plan carries the number of parts the screen showed and nothing that changes the price (the database refuses a stale count)
-      const body = input.paymentRequest !== undefined ? { payment_request: input.paymentRequest, client_key: input.clientKey }
-        : input.instalmentParts !== undefined ? { code: input.code, client_key: input.clientKey, instalment_parts: input.instalmentParts }
-        : {
-          code: input.code, client_key: input.clientKey, beneficiary: input.beneficiary,
-          // S73: the total the person was shown; the database refuses the order if it now computes a different one
-          discount_code: input.discountCode, use_points: input.usePoints, expected_amount_kobo: input.expectedAmountKobo,
-        };
+      const body = input.paymentRequest !== undefined ? { payment_request: input.paymentRequest, client_key: input.clientKey } : {
+        code: input.code, client_key: input.clientKey, beneficiary: input.beneficiary,
+        // S73: the total the person was shown; the database refuses the order if it now computes a different one
+        discount_code: input.discountCode, use_points: input.usePoints, expected_amount_kobo: input.expectedAmountKobo,
+      };
       const { data, error } = await createClient().functions.invoke("order-checkout", { body });
       if (error) throw new CheckoutError(await errorCodeOf(error));
       const parsed = checkoutReplySchema.safeParse(data);
-      if (!parsed.success) throw new CheckoutError("unknown");
-      return parsed.data;
-    },
-  });
-}
-
-/** Whether paying the Membership in parts is offered (the platform module is on) and how: parts, due days, grace. Null means not offered. */
-export function useInstalmentPolicy() {
-  return useQuery({
-    queryKey: ["commerce", "instalment-policy"] as const,
-    staleTime: 5 * 60_000,
-    queryFn: async () => {
-      const { data, error } = await createClient().rpc("instalment_policy_public");
-      if (error) return null;
-      return parseInstalmentPolicy(data);
-    },
-  });
-}
-
-/** The person's pay-in-parts plans, each with its parts and the next one to pay. Empty while the feature has never been used. */
-export function useMyInstalmentPlans() {
-  return useQuery({
-    queryKey: ["commerce", "instalment-plans"] as const,
-    queryFn: async () => {
-      const { data, error } = await createClient().rpc("my_instalment_plans");
-      if (error) throw error;
-      return parseInstalmentPlans(data);
-    },
-  });
-}
-
-/** Pays the next part of a plan: sends the part id and nothing else (never an amount) and returns the hosted page to open. */
-export function usePayInstalment() {
-  return useMutation({
-    mutationFn: async (instalmentId: string) => {
-      const { data, error } = await createClient().functions.invoke("order-checkout", { body: { instalment_id: instalmentId } });
-      if (error) throw new CheckoutError(await errorCodeOf(error));
-      const parsed = payInstalmentReplySchema.safeParse(data);
       if (!parsed.success) throw new CheckoutError("unknown");
       return parsed.data;
     },
