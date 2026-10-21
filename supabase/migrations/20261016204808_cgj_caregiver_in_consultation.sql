@@ -537,6 +537,15 @@ revoke all on function public.service_record_caregiver_event(uuid, text, text) f
 grant execute on function public.service_record_caregiver_event(uuid, text, text) to service_role;
 
 -- ---------------------------------------------------------------------------
+-- 8b. Data registry (S39d): the pass is the patient's own permission record for one call (who they let in, and when). Consent class, export
+-- included, reviewed stays false until the CMO and DPO confirm the class.
+-- ---------------------------------------------------------------------------
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes) values
+  ('encounter_caregiver_passes', 'patient_id', 'consent', 'review', true,
+   'CGJ. A patient''s invite of a Care Circle member into one consultation call. PROPOSED class, to be confirmed by the CMO and DPO.')
+on conflict (table_name) do nothing;
+
+-- ---------------------------------------------------------------------------
 -- 9. Self-check: this migration proves what it promised
 -- ---------------------------------------------------------------------------
 do $$
