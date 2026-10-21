@@ -1661,6 +1661,8 @@ export type Database = {
           recipient_code: string | null
           state: string
           updated_at: string
+          withholding_kobo: number
+          withholding_note: string | null
         }
         Insert: {
           amount_kobo: number
@@ -1681,6 +1683,8 @@ export type Database = {
           recipient_code?: string | null
           state?: string
           updated_at?: string
+          withholding_kobo?: number
+          withholding_note?: string | null
         }
         Update: {
           amount_kobo?: number
@@ -1701,6 +1705,8 @@ export type Database = {
           recipient_code?: string | null
           state?: string
           updated_at?: string
+          withholding_kobo?: number
+          withholding_note?: string | null
         }
         Relationships: [
           {
@@ -2129,6 +2135,135 @@ export type Database = {
           is_active?: boolean
           rules?: Json
           version?: number
+        }
+        Relationships: []
+      }
+      earnings_disputes: {
+        Row: {
+          adjustment_ledger_id: string | null
+          clinician_id: string
+          id: string
+          is_test: boolean
+          ledger_id: string
+          note: string | null
+          opened_at: string
+          organisation_id: string
+          reason_code: string
+          request_id: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          response_due_at: string
+          state: string
+        }
+        Insert: {
+          adjustment_ledger_id?: string | null
+          clinician_id: string
+          id?: string
+          is_test?: boolean
+          ledger_id: string
+          note?: string | null
+          opened_at?: string
+          organisation_id: string
+          reason_code: string
+          request_id: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          response_due_at: string
+          state?: string
+        }
+        Update: {
+          adjustment_ledger_id?: string | null
+          clinician_id?: string
+          id?: string
+          is_test?: boolean
+          ledger_id?: string
+          note?: string | null
+          opened_at?: string
+          organisation_id?: string
+          reason_code?: string
+          request_id?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          response_due_at?: string
+          state?: string
+        }
+        Relationships: []
+      }
+      earnings_disputes_config: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          rules: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          rules: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          rules?: Json
+          version?: number
+        }
+        Relationships: []
+      }
+      earnings_topup_holds: {
+        Row: {
+          clinician_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          evidence: Json
+          id: string
+          is_test: boolean
+          organisation_id: string
+          reason: string
+          run_end: string
+          run_start: string
+          state: string
+        }
+        Insert: {
+          clinician_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          evidence: Json
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          reason: string
+          run_end: string
+          run_start: string
+          state?: string
+        }
+        Update: {
+          clinician_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          evidence?: Json
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          reason?: string
+          run_end?: string
+          run_start?: string
+          state?: string
         }
         Relationships: []
       }
@@ -49607,6 +49742,76 @@ export type Database = {
           state: string
         }[]
       }
+      decide_topup_hold: {
+        Args: { p_decision: string; p_id: string; p_note: string }
+        Returns: undefined
+      }
+      list_earnings_disputes: {
+        Args: { p_include_test?: boolean; p_state?: string }
+        Returns: {
+          adjustment_ledger_id: string
+          clinician_id: string
+          clinician_name: string
+          id: string
+          ledger_id: string
+          line_amount_kobo: number
+          line_earned_at: string
+          line_kind: string
+          note: string
+          opened_at: string
+          overdue: boolean
+          reason_code: string
+          resolution_note: string
+          resolved_at: string
+          response_due_at: string
+          state: string
+          task_type: string
+        }[]
+      }
+      list_topup_holds: {
+        Args: { p_include_test?: boolean; p_state?: string }
+        Returns: {
+          clinician_id: string
+          clinician_name: string
+          decided_at: string
+          decision_note: string
+          evidence: Json
+          id: string
+          reason: string
+          run_end: string
+          run_start: string
+          state: string
+        }[]
+      }
+      my_earnings_lines: {
+        Args: { p_from?: string; p_limit?: number; p_to?: string }
+        Returns: {
+          amount_kobo: number
+          calculation: Json
+          dispute_due_at: string
+          dispute_id: string
+          dispute_state: string
+          earned_at: string
+          id: string
+          kind: string
+          pay_status: string
+          payout_id: string
+        }[]
+      }
+      my_payout_statement: { Args: { p_payout: string }; Returns: Json }
+      open_earnings_dispute: {
+        Args: { p_ledger: string; p_note?: string; p_reason_code: string; p_request_id?: string }
+        Returns: string
+      }
+      resolve_earnings_dispute: {
+        Args: { p_amount_kobo?: number; p_id: string; p_note?: string; p_resolution: string }
+        Returns: Json
+      }
+      set_payout_withholding: {
+        Args: { p_id: string; p_note?: string; p_withholding_kobo: number }
+        Returns: undefined
+      }
+      withdraw_earnings_dispute: { Args: { p_id: string }; Returns: undefined }
       my_earnings_summary: { Args: { p_from?: string; p_to?: string }; Returns: Json }
       my_fee_schedule: { Args: Record<PropertyKey, never>; Returns: Json }
       my_payout_overview: { Args: never; Returns: Json }
