@@ -133,6 +133,9 @@ begin
   -- 4 (set up before the guard is on). e2 and e3 were completed while closed: the sweep will backfill them
   perform pg_temp.guard(true);
 
+  perform pg_temp.rec('post_consult_checkin_config carries the superseded-version guard (counted here, not in governed_config_supersede_guard.sql)', '1',
+    (select count(*)::text from pg_trigger where tgname = 'refuse_superseded_activation' and not tgisinternal and tgrelid = 'public.post_consult_checkin_config'::regclass));
+
   -- 3. Scheduling -----------------------------------------------------------------------------------------------
   e4 := pg_temp.mkenc(v_org, p2, v_docA, 'video', v_lagos_eve);
   perform pg_temp.complete(e4, v_lagos_eve);
