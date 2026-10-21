@@ -1,9 +1,9 @@
--- Proof: Evergreen to Evergreen Plus upgrade (migration *_membership_upgrade_order_and_tier_flag.sql). Raises on any failed check.
+-- Proof: Membership to Membership Plus upgrade (migration *_membership_upgrade_order_and_tier_flag.sql). Raises on any failed check.
 -- Proves in one rolled-back transaction:
 --   * the module membership_two_member_tiers starts OFF; the upgrade item exists, is inactive and costs exactly 4,500,000 kobo, which is
 --     the difference between the two tier prices
 --   * create_order: refused while the module is off (even with the item switched on); with it on, refused for a Free person, for an
---     Evergreen Plus holder and for a gift; allowed for the Evergreen holder, charging exactly 4,500,000 kobo
+--     Membership Plus holder and for a gift; allowed for the Membership holder, charging exactly 4,500,000 kobo
 --   * paying it flips the tier to plus, leaves the end date untouched, makes no entitlement and no second membership row, stores no
 --     balance, and a replayed payment changes nothing
 --   * the ledger recognises the amount over the days left in the membership, not 365
@@ -93,7 +93,7 @@ begin
   if r not like 'ERR:%' then raise exception 'FAIL a gift of the upgrade was accepted: %', r; end if;
 
   r := pg_temp.q_as(ev, $q$select public.create_order('membership_upgrade_plus', gen_random_uuid())::text$q$);
-  if r like 'ERR:%' then raise exception 'FAIL the Evergreen holder could not create the upgrade order: %', r; end if;
+  if r like 'ERR:%' then raise exception 'FAIL the Membership holder could not create the upgrade order: %', r; end if;
   o := r::jsonb;
   if (o ->> 'amount_kobo')::bigint <> 4500000 then raise exception 'FAIL upgrade charged %', o ->> 'amount_kobo'; end if;
   insert into fx values ('order', o ->> 'order_id'), ('ref', o ->> 'reference');

@@ -234,9 +234,9 @@ begin
   update public.patient_memberships set state = 'ended', ended_at = now(), end_reason = 'proof lapse for check-in', ends_at = null where patient_id = v_m4;
   perform pg_temp.ck('a lapsed Member is refused at the desk', 'membership_required', pg_temp.err(pg_temp.rpc(pg_temp.f('runner'), format('public.check_in_testing_booking(%L)', bk))));
   update public.patient_memberships set state = 'active', ended_at = null, end_reason = null where patient_id = v_m4;
-  -- Evergreen (no annual panel) is a Member but is not checked in for the panel; Evergreen Plus is
+  -- Membership (no annual panel) is a Member but is not checked in for the panel; Membership Plus is
   update public.patient_memberships set tier = 'evergreen' where patient_id = v_m4;
-  perform pg_temp.ck('an Evergreen Member is not checked in for the annual panel', 'annual_panel_requires_plus', pg_temp.err(pg_temp.rpc(pg_temp.f('runner'), format('public.check_in_testing_booking(%L)', bk))));
+  perform pg_temp.ck('an Membership Member is not checked in for the annual panel', 'annual_panel_requires_plus', pg_temp.err(pg_temp.rpc(pg_temp.f('runner'), format('public.check_in_testing_booking(%L)', bk))));
   update public.patient_memberships set tier = 'plus' where patient_id = v_m4;
   r :=pg_temp.rpc(pg_temp.f('runner'), format('public.check_in_testing_booking(%L)', bk))::jsonb;
   perform pg_temp.ck('check-in returns a labelled specimen number', 'true', ((r ->> 'specimen_number') like 'SPX-%')::text);

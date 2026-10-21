@@ -13,7 +13,7 @@ function migration(suffix: string): string {
   return readFileSync(join(MIGRATIONS, file), "utf8");
 }
 
-describe("the Evergreen ladder prices mirror the migration", () => {
+describe("the Membership ladder prices mirror the migration", () => {
   const ladder = getProposedConfig("commerce.membership_ladder").value as {
     evergreen_code: string;
     evergreen_kobo: number;
@@ -43,7 +43,7 @@ describe("the Evergreen ladder prices mirror the migration", () => {
     expect(sql).not.toMatch(/2099|park/i);
   });
 
-  it("leaves the Evergreen item inactive and does not teach patient_is_member about tiers", () => {
+  it("leaves the Membership item inactive and does not teach patient_is_member about tiers", () => {
     expect(sql).toMatch(/c\.grants_lead, false,/);
     expect(sql).toMatch(/patient_is_member must not read the tier/);
   });

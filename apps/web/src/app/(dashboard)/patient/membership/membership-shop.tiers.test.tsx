@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 /**
- * The Membership screen with the Evergreen ladder on (founder decision 2026-10-21): two equal tier cards that state the annual blood
- * panel first, no instalment choice, a current Evergreen member sees only the upgrade, and the upgrade sends just its item code.
+ * The Membership screen with the Membership ladder on (founder decision 2026-10-21): two equal tier cards that state the annual blood
+ * panel first, no instalment choice, a current Membership member sees only the upgrade, and the upgrade sends just its item code.
  */
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { expectNoA11yViolations } from "@/test/a11y";
@@ -40,20 +40,20 @@ beforeEach(() => {
   assign.mockReset();
 });
 
-describe("MembershipShop with the Evergreen ladder", () => {
-  it("shows Evergreen then Evergreen Plus as equal cards, each stating the annual blood panel first, in naira", async () => {
+describe("MembershipShop with the Membership ladder", () => {
+  it("shows Membership then Membership Plus as equal cards, each stating the annual blood panel first, in naira", async () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
-    const cards = within(screen.getByTestId("shop-cards")).getAllByRole("heading", { level: 3, name: /^(Evergreen|Evergreen Plus)$/ }).length;
+    const cards = within(screen.getByTestId("shop-cards")).getAllByRole("heading", { level: 3, name: /^(Membership|Membership Plus)$/ }).length;
     expect(cards).toBeGreaterThanOrEqual(0);
     expect(screen.getByText("Annual blood panel: no")).toBeTruthy();
     expect(screen.getByText("Annual blood panel: yes")).toBeTruthy();
-    expect(screen.getAllByText(/^Evergreen$/).length).toBe(1);
-    expect(screen.getAllByText(/^Evergreen Plus$/).length).toBe(1);
+    expect(screen.getAllByText(/^Membership$/).length).toBe(1);
+    expect(screen.getAllByText(/^Membership Plus$/).length).toBe(1);
     expect(screen.getByText("₦84,000")).toBeTruthy();
     expect(screen.getByText("₦129,000")).toBeTruthy();
     expect(screen.getByText(/same care/)).toBeTruthy();
     expect(screen.getByText(/same on every plan, including Free/)).toBeTruthy();
-    expect(screen.queryByText("Move up to Evergreen Plus")).toBeNull();
+    expect(screen.queryByText("Move up to Membership Plus")).toBeNull();
     cleanup();
     await expectNoA11yViolations(<MembershipShop locale="en" fee={FEE} go={assign} />);
   });
@@ -82,24 +82,24 @@ describe("MembershipShop with the Evergreen ladder", () => {
     expect(Object.keys(arg).filter((k) => arg[k] !== undefined).sort()).toEqual(["clientKey", "code"]);
   });
 
-  it("an Evergreen member sees the upgrade and nothing else to buy, and it sends the upgrade code", async () => {
+  it("an Membership member sees the upgrade and nothing else to buy, and it sends the upgrade code", async () => {
     membership = { data: { is_member: true, ends_at: "2027-08-01T00:00:00Z", source: "purchase", tier: "evergreen" } };
     mutateAsync.mockResolvedValue({ order_id: "o2", reference: "tho_y", amount_kobo: 4_500_000, checkout_url: "https://checkout.paystack.com/up" });
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
-    expect(screen.getByText(/You have Evergreen until/)).toBeTruthy();
+    expect(screen.getByText(/Your Membership runs until/)).toBeTruthy();
     expect(screen.queryByText("Annual blood panel: no")).toBeNull();
     expect(screen.getByText("₦45,000")).toBeTruthy();
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Move up to Evergreen Plus" })));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Move up to Membership Plus" })));
     const arg = mutateAsync.mock.calls[0]![0] as Record<string, unknown>;
     expect(arg.code).toBe("membership_upgrade_plus");
     expect(assign).toHaveBeenCalledWith("https://checkout.paystack.com/up");
   });
 
-  it("an Evergreen Plus member sees no purchase and no upgrade", () => {
+  it("an Membership Plus member sees no purchase and no upgrade", () => {
     membership = { data: { is_member: true, ends_at: "2027-08-01T00:00:00Z", source: "purchase", tier: "plus" } };
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
-    expect(screen.getByText(/You have Evergreen Plus until/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Move up to Evergreen Plus" })).toBeNull();
+    expect(screen.getByText(/You have Membership Plus until/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Move up to Membership Plus" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Pay with Paystack" })).toBeNull();
   });
 
@@ -108,6 +108,6 @@ describe("MembershipShop with the Evergreen ladder", () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     expect(screen.getByText("Tarragon Membership")).toBeTruthy();
     expect(screen.queryByText("Annual blood panel: no")).toBeNull();
-    expect(screen.queryByText("Move up to Evergreen Plus")).toBeNull();
+    expect(screen.queryByText("Move up to Membership Plus")).toBeNull();
   });
 });

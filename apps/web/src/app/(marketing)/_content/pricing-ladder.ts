@@ -1,6 +1,6 @@
 /**
- * The three equal cards on the pricing page once the Evergreen ladder is public (founder decision 2026-10-21,
- * docs/DECISIONS.md). Free, Evergreen and Evergreen Plus. Prices are never typed here: the page formats them from the versioned
+ * The three equal cards on the pricing page once the Membership ladder is public (founder decision 2026-10-21,
+ * docs/DECISIONS.md). Free, Membership and Membership Plus. Prices are never typed here: the page formats them from the versioned
  * config (commerce.membership_ladder) and passes the labels in. The one difference between the two paid cards is the annual blood
  * panel, and it is stated in the first line of every card. Both paid cards are a Member for every safety purpose, so the page also says
  * that the care itself is the same.
@@ -26,7 +26,7 @@ export interface LadderPriceLabels {
 }
 
 export const LADDER_SAME_CARE_STATEMENT =
-  "Evergreen and Evergreen Plus are the same care: the same care team, the same monthly video call, the same urgent-care guidance. The only difference is the yearly blood panel.";
+  "Membership and Membership Plus are the same care: the same care team, the same monthly video call, the same urgent-care guidance. The only difference is the yearly blood panel.";
 
 export const LADDER_SAFETY_STATEMENT =
   "If a reading or a symptom looks urgent, the guidance you see is the same on every plan, including Free.";
@@ -60,7 +60,7 @@ export function ladderCards(price: LadderPriceLabels): LadderCard[] {
     },
     {
       id: "evergreen_plus",
-      name: "Evergreen Plus",
+      name: "Membership Plus",
       difference: "Annual blood panel: yes",
       priceLine: `${price.evergreenPlus} a year, paid once`,
       summary: t("catalog.membership_annual.description", "en"),
@@ -77,12 +77,12 @@ export function ladderCards(price: LadderPriceLabels): LadderCard[] {
 export function ladderFaq(refundDays: number): { question: string; answer: string }[] {
   return [
     {
-      question: "What is the difference between Evergreen and Evergreen Plus?",
+      question: "What is the difference between Membership and Membership Plus?",
       answer:
-        "One thing: the yearly blood panel. Both are a year of care with your care team, a video call every month and prescriptions your care team signs. Evergreen Plus adds the yearly blood panel.",
+        "One thing: the yearly blood panel. Both are a year of care with your care team, a video call every month and prescriptions your care team signs. Membership Plus adds the yearly blood panel.",
     },
     {
-      question: "Can I move from Evergreen to Evergreen Plus later?",
+      question: "Can I move from Membership to Membership Plus later?",
       answer:
         "Yes, at any time in the year. You pay only the difference, once, and your year does not change. Moving the other way happens when your year ends, at renewal.",
     },

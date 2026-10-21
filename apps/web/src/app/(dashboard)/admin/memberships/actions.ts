@@ -26,7 +26,7 @@ export async function grantMembership(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
 
   const supabase = await createClient();
-  // Plus is the original grant and stays on the original function; only Evergreen uses the tier-aware one (code ships before the schema).
+  // Plus is the original grant and stays on the original function; only Membership uses the tier-aware one (code ships before the schema).
   const args = {
     p_patient: parsed.data.patientId,
     p_reason: parsed.data.reason,

@@ -32,7 +32,7 @@ export interface MembershipState {
   endsAt: string | null;
   /** Set only in the 14 day grace after the year ended: the person keeps Member access but may renew, so the screen does not block a purchase. */
   graceEndsAt?: string;
-  /** Evergreen (no annual blood panel) or plus (with it), only while the year is running. */
+  /** Membership (no annual blood panel) or plus (with it), only while the year is running. */
   tier?: "evergreen" | "plus";
 }
 

@@ -32,7 +32,7 @@ describe("grantMembership", () => {
     await grantMembership(undefined, form({ base: "/clinician/memberships", patient_id: id, reason: "Staff trial run", ends_on: "2027-01-31" }));
     expect(rpc).toHaveBeenCalledWith("grant_membership", { p_patient: id, p_ends_at: "2027-01-31T22:59:59.000Z", p_reason: "Staff trial run" });
   });
-  it("grants Evergreen through the tier-aware function and Plus through the original one", async () => {
+  it("grants Membership through the tier-aware function and Plus through the original one", async () => {
     rpc.mockResolvedValue({ data: id, error: null });
     await grantMembership(undefined, form({ base: "/admin/memberships", patient_id: id, reason: "Staff trial run", tier: "evergreen" }));
     expect(rpc).toHaveBeenCalledWith("grant_membership_tier", { p_patient: id, p_reason: "Staff trial run", p_tier: "evergreen" });

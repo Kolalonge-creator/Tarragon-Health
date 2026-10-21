@@ -1,12 +1,12 @@
 -- NOTE on the version: it sorts after 20261021110417 on purpose. s25b and money_reconciliation carry versions ahead of the database clock,
 -- and s25b redefines record_order_payment, so this patch must replay after it or it would be overwritten.
--- Evergreen ladder, foundation (founder decision 2026-10-21, docs/DECISIONS.md "Three-tier annual-only membership"; build brief
+-- Membership ladder, foundation (founder decision 2026-10-21, docs/DECISIONS.md "Three-tier annual-only membership"; build brief
 -- docs/plans/three-tier-membership-build-brief.md steps 1, 2, 3 and 11).
 --
 -- Two paid tiers, both a "Member" for every safety purpose, billed once a year:
---   Evergreen       membership_annual_no_panel   NGN  84,000 (8,400,000 kobo)   everything in the Membership EXCEPT the annual blood panel
---   Evergreen Plus  membership_annual            NGN 129,000 (12,900,000 kobo)  the Membership INCLUDING the annual blood panel
--- The existing code membership_annual stays Evergreen Plus (it already includes the panel), so nothing existing is renamed.
+--   Membership       membership_annual_no_panel   NGN  84,000 (8,400,000 kobo)   everything in the Membership EXCEPT the annual blood panel
+--   Membership Plus  membership_annual            NGN 129,000 (12,900,000 kobo)  the Membership INCLUDING the annual blood panel
+-- The existing code membership_annual stays Membership Plus (it already includes the panel), so nothing existing is renamed.
 --
 -- What this migration does, and what it deliberately leaves for the next slices:
 --   1. patient_memberships.tier ('evergreen' | 'plus'), default 'plus'. Every existing row is therefore grandfathered as Plus at the price
@@ -15,22 +15,22 @@
 --      code never hands out the panel).
 --   3. private.patient_membership_tier(patient): the tier of the person's current Membership (year plus grace), null for Free.
 --      private.patient_is_member is NOT touched: it stays true for BOTH tiers, so the Free red path and every Member safety gate treat
---      Evergreen and Evergreen Plus identically (TT-5, TT-1).
---   4. The Evergreen catalogue item (inactive, like every item while v5_checkout is off) and the two new price rows. Prices are
+--      Membership and Membership Plus identically (TT-5, TT-1).
+--   4. The Membership catalogue item (inactive, like every item while v5_checkout is off) and the two new price rows. Prices are
 --      versioned: the 12,000,000 kobo row of membership_annual is closed, never edited. The public marketing price stays the registry's
 --      commerce.membership_prices until the pricing page is rewritten and the tier flag is switched on (nothing can be bought: the
 --      item is inactive and v5_checkout is off).
 --   5. Every path that creates a Membership row now stamps the tier from the item that was bought: record_order_payment (purchase),
 --      record_instalment_payment (the instalment path, both inserts; being retired, brief step 9), settle_sponsor_order, respond_to_gifted_pack (gift accepted), grant_org_seat (employer seat). Each is patched from its LIVE
 --      definition (pg_get_functiondef), with a check that the patched fragment was found exactly once.
---   6. The annual panel is only checked in for Evergreen Plus: check_in_testing_booking refuses an Evergreen member with
+--   6. The annual panel is only checked in for Membership Plus: check_in_testing_booking refuses an Membership member with
 --      annual_panel_requires_plus. A clinically required test is never tier-gated (this guards the Membership panel only).
 --   7. my_membership() also returns the tier.
 -- NOT here: the checkout picker, the upgrade order, gift/sponsor tier choice, employer per-code prices, voucher layaway rejection and
 -- renewal wording (later slices); the feature flag membership_two_member_tiers is added with the checkout slice. grant_membership
 -- (admin grant) keeps creating Plus; a tier choice is added with the admin slice.
 -- ROLLBACK: restore the function bodies from migrations 20261013012331 / s71 / s29b (see git), drop the two private functions,
---   drop column patient_memberships.tier, close the new price rows, delete the Evergreen catalogue item (it has no orders).
+--   drop column patient_memberships.tier, close the new price rows, delete the Membership catalogue item (it has no orders).
 
 -- ---------------------------------------------------------------------------
 -- 1. The tier on a Membership
@@ -61,13 +61,13 @@ $$;
 revoke all on function private.patient_membership_tier(uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- 4. Evergreen catalogue item and the two prices
+-- 4. Membership catalogue item and the two prices
 -- ---------------------------------------------------------------------------
 insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, included_keys, duration_days, uses, grants_lead, active, note, audience)
 select c.organisation_id, 'membership_annual_no_panel', c.kind, 'catalog.membership_annual_no_panel.name', 'catalog.membership_annual_no_panel.description',
        array['catalog.membership_annual_no_panel.incl.1', 'catalog.membership_annual_no_panel.incl.2', 'catalog.membership_annual_no_panel.incl.3'],
        c.duration_days, c.uses, c.grants_lead, false,
-       'Evergreen (founder decision 2026-10-21): the Membership without the annual blood panel. Inactive until the tier flag and v5_checkout are switched on.', c.audience
+       'Membership (founder decision 2026-10-21): the Membership without the annual blood panel. Inactive until the tier flag and v5_checkout are switched on.', c.audience
   from public.catalog_items c
  where c.code = 'membership_annual'
    and not exists (select 1 from public.catalog_items x where x.organisation_id = c.organisation_id and x.code = 'membership_annual_no_panel');
@@ -88,13 +88,13 @@ begin
     end if;
     insert into public.prices (organisation_id, catalog_item_id, amount_kobo, valid_from, reason)
     values (v_plus.organisation_id, v_plus.id, 12900000, v_now,
-            'Founder decision 2026-10-21: Evergreen Plus, 129,000 naira a year, with the annual blood panel. Replaces the 120,000 naira single-tier price.');
+            'Founder decision 2026-10-21: Membership Plus, 129,000 naira a year, with the annual blood panel. Replaces the 120,000 naira single-tier price.');
   end if;
 
   if not exists (select 1 from public.prices where catalog_item_id = v_eg.id and valid_to is null) then
     insert into public.prices (organisation_id, catalog_item_id, amount_kobo, valid_from, reason)
     values (v_eg.organisation_id, v_eg.id, 8400000, v_now,
-            'Founder decision 2026-10-21: Evergreen, 84,000 naira a year, without the annual blood panel.');
+            'Founder decision 2026-10-21: Membership, 84,000 naira a year, without the annual blood panel.');
   end if;
 end $$;
 
@@ -149,7 +149,7 @@ select pg_temp.patch_fn('private.grant_org_seat(uuid)'::regprocedure, array[
 select pg_temp.patch_fn('public.check_in_testing_booking(uuid)'::regprocedure, array[
   'if not private.patient_is_member(b.patient_id) then raise exception ''membership_required'' using errcode = ''42501''; end if;',
   'if not private.patient_is_member(b.patient_id) then raise exception ''membership_required'' using errcode = ''42501''; end if;
-  -- Evergreen has no annual blood panel; only Evergreen Plus is checked in for it (a clinically required test is never gated by tier)
+  -- Membership has no annual blood panel; only Membership Plus is checked in for it (a clinically required test is never gated by tier)
   if private.patient_membership_tier(b.patient_id) is distinct from ''plus'' then raise exception ''annual_panel_requires_plus'' using errcode = ''42501''; end if;']);
 
 select pg_temp.patch_fn('public.my_membership()'::regprocedure, array[
@@ -175,8 +175,8 @@ begin
   select id into v_eg from public.catalog_items where code = 'membership_annual_no_panel' order by created_at limit 1;
   if v_plus is not null then
     if (select amount_kobo from public.prices where catalog_item_id = v_plus and valid_to is null) <> 12900000 then raise exception 'evergreen: Plus price is not 12,900,000 kobo'; end if;
-    if v_eg is null or (select amount_kobo from public.prices where catalog_item_id = v_eg and valid_to is null) <> 8400000 then raise exception 'evergreen: Evergreen price is not 8,400,000 kobo'; end if;
-    if (select active from public.catalog_items where id = v_eg) then raise exception 'evergreen: the Evergreen item must be inactive until the flag is on'; end if;
+    if v_eg is null or (select amount_kobo from public.prices where catalog_item_id = v_eg and valid_to is null) <> 8400000 then raise exception 'evergreen: Membership price is not 8,400,000 kobo'; end if;
+    if (select active from public.catalog_items where id = v_eg) then raise exception 'evergreen: the Membership item must be inactive until the flag is on'; end if;
   end if;
   if pg_get_functiondef('public.record_order_payment(text,bigint,bigint,bigint,text,text,text,text,timestamptz,jsonb,bigint)'::regprocedure) not ilike '%membership_tier_for_item%'
      or pg_get_functiondef('private.record_instalment_payment(text,bigint,bigint,bigint,text,text,text,text,timestamptz,jsonb,bigint)'::regprocedure) not ilike '%membership_tier_for_item%'

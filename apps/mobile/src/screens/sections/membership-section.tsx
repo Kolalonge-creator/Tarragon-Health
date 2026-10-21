@@ -129,8 +129,8 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   }
 
   if (!loaded) return <ActivityIndicator />;
-  // The Evergreen ladder (founder decision 2026-10-21): two equal cards that state the annual blood panel first. A current Evergreen
-  // member sees only the upgrade. Before the database serves the Evergreen item this is exactly the single-Membership screen.
+  // The Membership ladder (founder decision 2026-10-21): two equal cards that state the annual blood panel first. A current Membership
+  // member sees only the upgrade. Before the database serves the Membership item this is exactly the single-Membership screen.
   const ladder = ladderActive(items);
   const tierNow = !beneficiary && isTier(membership.tier) ? membership.tier : null;
   const arranged = arrangeItems(items, { tier: tierNow, isMember: !beneficiary && membership.isMember, inGrace: false, forSomeoneElse: beneficiary !== undefined });

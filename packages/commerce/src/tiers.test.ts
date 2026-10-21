@@ -7,7 +7,7 @@ const EG = item(EVERGREEN_CODE, 8_400_000);
 const UP = item(UPGRADE_CODE, 4_500_000);
 const FREE = { tier: null, isMember: false, inGrace: false, forSomeoneElse: false } as const;
 
-describe("the Evergreen ladder on the Membership screen", () => {
+describe("the Membership ladder on the Membership screen", () => {
   it("before the ladder is on, the screen is the single-Membership screen and the upgrade never shows", () => {
     const a = arrangeItems([PLUS, UP], FREE);
     expect(ladderActive([PLUS, UP])).toBe(false);
@@ -16,19 +16,19 @@ describe("the Evergreen ladder on the Membership screen", () => {
     expect(a.others.map((i) => i.code)).toEqual([EVERGREEN_PLUS_CODE]);
   });
 
-  it("a Free person sees the two tier cards, Evergreen first, and no upgrade", () => {
+  it("a Free person sees the two tier cards, Membership first, and no upgrade", () => {
     const a = arrangeItems([PLUS, UP, EG], FREE);
     expect(a.tierCards.map((i) => i.code)).toEqual([EVERGREEN_CODE, EVERGREEN_PLUS_CODE]);
     expect(a.upgrade).toBeNull();
   });
 
-  it("an Evergreen member sees the upgrade only: no second Membership to buy", () => {
+  it("an Membership member sees the upgrade only: no second Membership to buy", () => {
     const a = arrangeItems([PLUS, UP, EG], { tier: "evergreen", isMember: true, inGrace: false, forSomeoneElse: false });
     expect(a.tierCards).toEqual([]);
     expect(a.upgrade?.code).toBe(UPGRADE_CODE);
   });
 
-  it("an Evergreen Plus member sees neither a purchase nor an upgrade", () => {
+  it("an Membership Plus member sees neither a purchase nor an upgrade", () => {
     const a = arrangeItems([PLUS, UP, EG], { tier: "plus", isMember: true, inGrace: false, forSomeoneElse: false });
     expect(a.tierCards).toEqual([]);
     expect(a.upgrade).toBeNull();
@@ -46,7 +46,7 @@ describe("the Evergreen ladder on the Membership screen", () => {
     expect(a.upgrade).toBeNull();
   });
 
-  it("the annual blood panel is stated per card: no for Evergreen, yes for Evergreen Plus, nothing for other items", () => {
+  it("the annual blood panel is stated per card: no for Membership, yes for Membership Plus, nothing for other items", () => {
     expect(panelIncluded(EVERGREEN_CODE)).toBe(false);
     expect(panelIncluded(EVERGREEN_PLUS_CODE)).toBe(true);
     expect(panelIncluded(UPGRADE_CODE)).toBeNull();

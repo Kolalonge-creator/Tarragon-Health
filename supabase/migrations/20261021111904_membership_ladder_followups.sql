@@ -1,9 +1,9 @@
--- Evergreen ladder follow-ups (founder decision 2026-10-21; build brief steps 6, 7, 9, 10 and the review follow-ups of the foundation PR).
+-- Membership ladder follow-ups (founder decision 2026-10-21; build brief steps 6, 7, 9, 10 and the review follow-ups of the foundation PR).
 -- Applies after 20261021111211_membership_upgrade_order_and_tier_flag.sql.
 --
 --   1. Extension paths keep the larger tier. When a paid or accepted Membership extends an existing dated one (record_order_payment,
 --      record_instalment_payment, respond_to_gifted_pack), the tier becomes plus if the item bought is plus, and is otherwise left alone.
---      Before this, an Evergreen holder who was gifted or bought Evergreen Plus kept the Evergreen tier and never got the panel.
+--      Before this, an Membership holder who was gifted or bought Membership Plus kept the Membership tier and never got the panel.
 --   2. No instalments for the two paid tiers. While the module membership_two_member_tiers is on, create_instalment_order refuses every
 --      Membership code with instalment_not_available (one yearly payment only, no monthly payment, no instalments).
 --   3. Care vouchers can never be a Membership. A care voucher is a prepaid service; layaway toward it is an instalment path, so a voucher
@@ -11,7 +11,7 @@
 --   4. Renewal reminders carry the tier in their payload so the wording can differ by tier; the schedule (30, 14, 7 days, then the 14 day
 --      grace) is unchanged and identical for both tiers.
 --   5. Employer seats price per item code: the organisation price guard now refuses a price for any code that has no active limits row.
---      Only membership_annual (Evergreen Plus) has limits, so there are no Evergreen-only seats until the doctor-minutes are measured and
+--      Only membership_annual (Membership Plus) has limits, so there are no Membership-only seats until the doctor-minutes are measured and
 --      the CMO signs (build brief step 7). The employer sees counts and money only, never a tier (I9; unchanged).
 --   6. public.grant_membership_tier(patient, tier, reason, ends_at): the admin grant with a tier choice. grant_membership itself is
 --      untouched (it still grants Plus), so no overload is added to a function with existing callers.

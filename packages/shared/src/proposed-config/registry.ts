@@ -3392,7 +3392,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   {
     key: "commerce.membership_ladder",
     // Founder decision 2026-10-21 (docs/DECISIONS.md, three-tier annual-only membership): two paid tiers, billed once a year in
-    // integer kobo (INV-15). Evergreen (membership_annual_no_panel) has no annual blood panel; Evergreen Plus (membership_annual) has
+    // integer kobo (INV-15). Membership (membership_annual_no_panel) has no annual blood panel; Membership Plus (membership_annual) has
     // it. The upgrade is the flat difference, one named order, no stored balance. The database holds the live rows (prices); this is the
     // code-side mirror and the mirror test pins the migration's numbers to it. commerce.membership_prices stays the PUBLIC marketing
     // price until the pricing page is rewritten and the tier flag is on; nothing can be bought before then (items inactive).
@@ -3411,7 +3411,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "marketing.membership_ladder_public",
-    // Whether the public pricing page shows the three-card Evergreen ladder (true) or the single Membership price (false). It stays false
+    // Whether the public pricing page shows the three-card Membership ladder (true) or the single Membership price (false). It stays false
     // until the launch conditions in docs/DECISIONS.md (2026-10-21) are met: CMO baseline-labs rule, independent CMO, one live Paystack
     // payment and refund. Switching it is a reviewed code change on purpose, so the public price can never run ahead of what can be bought.
     value: { enabled: false },

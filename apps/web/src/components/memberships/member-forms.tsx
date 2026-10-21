@@ -35,8 +35,8 @@ export function GrantMembershipForm({ patientId, base }: { patientId: string; ba
       <div>
         <Label htmlFor={`grant-tier-${patientId}`}>Plan</Label>
         <select id={`grant-tier-${patientId}`} name="tier" defaultValue="plus" className="min-h-11 w-full rounded-md border border-input bg-background px-3 py-2">
-          <option value="plus">Evergreen Plus (with the yearly blood panel)</option>
-          <option value="evergreen">Evergreen (without the yearly blood panel)</option>
+          <option value="plus">Membership Plus (with the yearly blood panel)</option>
+          <option value="evergreen">Membership (without the yearly blood panel)</option>
         </select>
       </div>
       <div>

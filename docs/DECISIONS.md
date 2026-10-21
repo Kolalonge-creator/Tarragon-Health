@@ -467,3 +467,9 @@ Recorded from the founder/CMO's selections. Items marked BUILD are being built i
 **Open, do not guess:** actual Synlab panel cost and the member price of the baseline-lab set; refund after the panel is delivered inside the 21 days (TT-6 has no carve-out); counsel on voucher and gift stored-value classification, insurance and managed-care rules, FCCPA on two-tier annual prepay, and Free-user duty of care. Investor dissent on record: launch a single NGN 120,000 price and test tiers after 100 paid Members; the founder chose the ladder and the kill gates are the safety valve.
 
 Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six migrations.
+
+## Tier names: Membership and Membership Plus (2026-10-21, supersedes the Evergreen names)
+
+| Decision | Chosen |
+|---|---|
+| Customer-facing names of the two paid tiers | **Membership** (NGN 84,000, no annual blood panel) and **Membership Plus** (NGN 129,000, with the annual blood panel). Chosen by the founder in chat after "Membership Standard" was considered and set aside: "Standard" can read as a lesser grade of care, against the same-care rule (both paid tiers are "Member" for every safety purpose). The earlier "Evergreen / Evergreen Plus" names are retired before launch. Never Basic, Lite, Standard, Premium or Gold. Internal catalogue codes and the stored tier values (`evergreen`, `plus`) are unchanged: `membership_annual` is Membership Plus, `membership_annual_no_panel` is Membership. |

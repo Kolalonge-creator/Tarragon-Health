@@ -1,17 +1,17 @@
--- Evergreen to Evergreen Plus upgrade, and the platform switch for the two paid tiers (founder decision 2026-10-21,
+-- Membership to Membership Plus upgrade, and the platform switch for the two paid tiers (founder decision 2026-10-21,
 -- docs/DECISIONS.md; build brief steps 2 and 5). Applies after 20261021110528_membership_evergreen_ladder_foundation.sql.
 --
---   * platform module membership_two_member_tiers (OFF). create_order refuses the Evergreen item and the upgrade while it is off, on top
+--   * platform module membership_two_member_tiers (OFF). create_order refuses the Membership item and the upgrade while it is off, on top
 --     of those items being inactive.
 --   * catalogue item membership_upgrade_plus (kind membership, inactive, 4,500,000 kobo = 45,000 naira): the flat difference between the
 --     two prices, one named order, one Paystack payment. It is NOT a second Membership: paying it flips the buyer's existing active
---     Evergreen membership to Plus and changes nothing else (the end date is untouched), makes NO entitlement row (so outcome and
+--     Membership membership to Plus and changes nothing else (the end date is untouched), makes NO entitlement row (so outcome and
 --     retention readers, which anchor on membership entitlements, never see a second membership) and stores NO balance (INV-09).
 --     duration_days is 365 only because catalog_items_check demands a duration for kind membership; it is not used for the upgrade.
---   * who can buy it: the beneficiary themselves (never a gift), and only with a dated, current Evergreen membership. There is no
+--   * who can buy it: the beneficiary themselves (never a gift), and only with a dated, current Membership membership. There is no
 --     mid-year downgrade; a downgrade only happens at renewal.
 --   * refund: the 21 day window already runs from the order's own paid_at (request_order_refund reads the item kind), so it runs from
---     the top-up date. Approving the refund puts the tier back to Evergreen and does NOT end the membership (decide_order_refund
+--     the top-up date. Approving the refund puts the tier back to Membership and does NOT end the membership (decide_order_refund
 --     only ends a membership when an entitlement exists, and the upgrade makes none).
 --   * ledger: the amount is deferred revenue (2000) like any Membership, but recognised over the days left in the membership, not 365.
 -- Functions are patched from their LIVE definitions (pg_get_functiondef), each fragment checked to match the stated number of times.
@@ -20,22 +20,22 @@
 -- ROLLBACK: restore the four function bodies from the previous migrations, delete the module row and the upgrade item (no orders yet).
 
 insert into public.platform_modules (key, label, description, is_enabled)
-values ('membership_two_member_tiers', 'Two paid Membership tiers (Evergreen, Evergreen Plus)',
-        'When on, the Evergreen item and the Evergreen to Evergreen Plus upgrade can be bought. Off until the launch conditions in docs/DECISIONS.md (2026-10-21) are met: the CMO baseline-labs rule, an independent CMO, one live Paystack payment and refund.',
+values ('membership_two_member_tiers', 'Two paid Membership tiers (Membership, Membership Plus)',
+        'When on, the Membership item and the Membership to Membership Plus upgrade can be bought. Off until the launch conditions in docs/DECISIONS.md (2026-10-21) are met: the CMO baseline-labs rule, an independent CMO, one live Paystack payment and refund.',
         false)
 on conflict (key) do nothing;
 
 insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, included_keys, duration_days, uses, grants_lead, active, note, audience)
 select c.organisation_id, 'membership_upgrade_plus', 'membership', 'catalog.membership_upgrade_plus.name', 'catalog.membership_upgrade_plus.description',
        array['catalog.membership_upgrade_plus.incl.1'], 365, null, false, false,
-       'Evergreen to Evergreen Plus (founder decision 2026-10-21): the flat difference, one order, end date unchanged, no stored balance. Inactive until the tier module is on.', 'patient'
+       'Membership to Membership Plus (founder decision 2026-10-21): the flat difference, one order, end date unchanged, no stored balance. Inactive until the tier module is on.', 'patient'
   from public.catalog_items c
  where c.code = 'membership_annual'
    and not exists (select 1 from public.catalog_items x where x.organisation_id = c.organisation_id and x.code = 'membership_upgrade_plus');
 
 insert into public.prices (organisation_id, catalog_item_id, amount_kobo, valid_from, reason)
 select i.organisation_id, i.id, 4500000, now(),
-       'Founder decision 2026-10-21: the upgrade from Evergreen to Evergreen Plus is the flat difference, 45,000 naira.'
+       'Founder decision 2026-10-21: the upgrade from Membership to Membership Plus is the flat difference, 45,000 naira.'
   from public.catalog_items i
  where i.code = 'membership_upgrade_plus'
    and not exists (select 1 from public.prices p where p.catalog_item_id = i.id and p.valid_to is null);
@@ -57,13 +57,13 @@ end $f$;
 select pg_temp.patch_fn('public.record_order_payment(text,bigint,bigint,bigint,text,text,text,text,timestamptz,jsonb,bigint)'::regprocedure, array[
   $p$select * into it from public.catalog_items where id = o.catalog_item_id;$p$,
   $p$select * into it from public.catalog_items where id = o.catalog_item_id;
-  -- Evergreen to Evergreen Plus: flip the tier of the current Evergreen membership, nothing else. No entitlement, no new membership row.
+  -- Membership to Membership Plus: flip the tier of the current Membership membership, nothing else. No entitlement, no new membership row.
   if it.code = 'membership_upgrade_plus' then
     update public.patient_memberships set tier = 'plus'
      where patient_id = o.beneficiary_patient_id and state = 'active' and tier = 'evergreen' and (ends_at is null or ends_at > now());
     if not found then
-      perform private.order_incident(o.organisation_id, 'order-upgrade-no-evergreen:' || o.id, 'An upgrade was paid with no Evergreen membership to upgrade',
-        'Order ' || o.id || ' was paid but the patient has no current Evergreen membership, so nothing was upgraded. Refund the payment.');
+      perform private.order_incident(o.organisation_id, 'order-upgrade-no-evergreen:' || o.id, 'An upgrade was paid with no Membership membership to upgrade',
+        'Order ' || o.id || ' was paid but the patient has no current Membership membership, so nothing was upgraded. Refund the payment.');
     end if;
     perform private.emit_domain_event('order.paid', o.organisation_id,
       jsonb_build_object('order_id', o.id, 'kind', 'membership_upgrade', 'code', it.code),
@@ -81,7 +81,7 @@ select pg_temp.patch_fn('private.post_order_to_ledger(uuid,boolean)'::regprocedu
                                                   order by m.starts_at desc limit 1), it.duration_days))
                       else it.duration_days end);$p$]);
 
--- Refund: an approved upgrade refund puts the tier back to Evergreen; the membership itself keeps running
+-- Refund: an approved upgrade refund puts the tier back to Membership; the membership itself keeps running
 select pg_temp.patch_fn('public.decide_order_refund(uuid,boolean,text)'::regprocedure, array[
   $p$select * into e from public.entitlements where order_id = r.order_id and state = 'active';$p$,
   $p$select * into e from public.entitlements where order_id = r.order_id and state = 'active';

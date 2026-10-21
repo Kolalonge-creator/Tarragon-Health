@@ -1,5 +1,5 @@
 /**
- * The public Evergreen ladder (founder decision 2026-10-21). Successor to the old "one Membership price" premise of
+ * The public Membership ladder (founder decision 2026-10-21). Successor to the old "one Membership price" premise of
  * no-public-prices.test.ts: there are now exactly TWO member prices, both read from versioned config, nothing typed, no volume words.
  */
 import { readFileSync } from "node:fs";
@@ -20,10 +20,10 @@ function allCopy(): string {
   ].join("\n");
 }
 
-describe("the Evergreen ladder pricing content", () => {
-  it("is three cards: Free, Evergreen, Evergreen Plus, with the annual blood panel stated first on each", () => {
+describe("the Membership ladder pricing content", () => {
+  it("is three cards: Free, Membership, Membership Plus, with the annual blood panel stated first on each", () => {
     const cards = ladderCards(labels);
-    expect(cards.map((c) => c.name)).toEqual(["Free", "Evergreen", "Evergreen Plus"]);
+    expect(cards.map((c) => c.name)).toEqual(["Free", "Membership", "Membership Plus"]);
     expect(cards.map((c) => c.difference)).toEqual(["Annual blood panel: no", "Annual blood panel: no", "Annual blood panel: yes"]);
   });
 
@@ -32,7 +32,7 @@ describe("the Evergreen ladder pricing content", () => {
     expect(LADDER_SAFETY_STATEMENT).toMatch(/same on every plan, including Free/);
   });
 
-  it("only the Plus card lists the yearly blood test; Evergreen's description says it is not included", () => {
+  it("only the Plus card lists the yearly blood test; Membership's description says it is not included", () => {
     const [, evergreen, plus] = ladderCards(labels);
     expect(evergreen!.includes.join(" ").toLowerCase()).not.toContain("blood test");
     expect(evergreen!.summary).toMatch(/blood test is not included/);

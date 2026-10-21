@@ -27,7 +27,7 @@ function membershipPrice(): string {
   return formatNaira(v.individual_kobo);
 }
 
-/** Whether the Evergreen ladder is public (marketing.membership_ladder_public). False until the launch conditions are met. */
+/** Whether the Membership ladder is public (marketing.membership_ladder_public). False until the launch conditions are met. */
 function ladderIsPublic(): boolean {
   return (getProposedConfig("marketing.membership_ladder_public").value as { enabled: boolean }).enabled === true;
 }
@@ -36,7 +36,7 @@ function ladderIsPublic(): boolean {
 function givingSummary(price: string): string {
   if (!ladderIsPublic()) return `A year of Membership, \u20A6${price}`;
   const v = getProposedConfig("commerce.membership_ladder").value as { evergreen_kobo: number; evergreen_plus_kobo: number };
-  return `A year of Evergreen (\u20A6${formatNaira(v.evergreen_kobo)}) or Evergreen Plus (\u20A6${formatNaira(v.evergreen_plus_kobo)}, with the yearly blood panel)`;
+  return `A year of Membership (\u20A6${formatNaira(v.evergreen_kobo)}) or Membership Plus (\u20A6${formatNaira(v.evergreen_plus_kobo)}, with the yearly blood panel)`;
 }
 
 const WAYS_TO_GIVE = [

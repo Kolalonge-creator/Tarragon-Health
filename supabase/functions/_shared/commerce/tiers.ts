@@ -1,5 +1,5 @@
 /**
- * The Evergreen ladder on the Membership screen, web and mobile (founder decision 2026-10-21, docs/DECISIONS.md). Pure logic, no
+ * The Membership ladder on the Membership screen, web and mobile (founder decision 2026-10-21, docs/DECISIONS.md). Pure logic, no
  * framework: which cards a person sees. Both paid tiers are a Member for every safety purpose; the one difference is the annual blood
  * panel. Prices are never decided here: they come from the catalogue the database serves, and the database prices every order.
  */
@@ -14,7 +14,7 @@ interface HasCode {
   readonly code: string;
 }
 
-/** True once the database serves the Evergreen item (it does so only while the tier module is on and the item is active). */
+/** True once the database serves the Membership item (it does so only while the tier module is on and the item is active). */
 export function ladderActive(items: readonly HasCode[]): boolean {
   return items.some((i) => i.code === EVERGREEN_CODE);
 }

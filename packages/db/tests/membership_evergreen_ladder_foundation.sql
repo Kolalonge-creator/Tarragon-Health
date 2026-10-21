@@ -1,15 +1,15 @@
--- Proof: Evergreen ladder foundation (migration *_membership_evergreen_ladder_foundation.sql).
+-- Proof: Membership ladder foundation (migration *_membership_evergreen_ladder_foundation.sql).
 -- Proves, in one rolled-back transaction that raises on any failed check:
 --   * tier column: default 'plus', CHECK refuses any other value
---   * private.membership_tier_for_item: membership_annual -> plus; the Evergreen code and anything unknown -> evergreen
+--   * private.membership_tier_for_item: membership_annual -> plus; the Membership code and anything unknown -> evergreen
 --   * private.patient_membership_tier: evergreen / plus for a current Member, null for Free and for a lapsed or ended Membership,
 --     plus wins if a person somehow holds both
---   * private.patient_is_member is true for BOTH tiers (Evergreen is a Member for every safety purpose) and does not read the tier
---   * prices: Evergreen 8,400,000 and Evergreen Plus 12,900,000 kobo in force, the old 12,000,000 row closed not edited; the
---     Evergreen item exists and is inactive
+--   * private.patient_is_member is true for BOTH tiers (Membership is a Member for every safety purpose) and does not read the tier
+--   * prices: Membership 8,400,000 and Membership Plus 12,900,000 kobo in force, the old 12,000,000 row closed not edited; the
+--     Membership item exists and is inactive
 --   * the tier helpers are not callable by anon or authenticated
 --   * every Membership-creating function carries the tier stamp and the testing-day check-in carries the panel gate
--- SABOTAGE: patient_membership_tier is replaced by a version that always answers 'plus'; the Evergreen check must flip.
+-- SABOTAGE: patient_membership_tier is replaced by a version that always answers 'plus'; the Membership check must flip.
 begin;
 
 create function pg_temp.mk(p_label text) returns uuid language plpgsql as $f$
@@ -80,10 +80,10 @@ declare v_plus uuid; v_eg uuid; v_old_closed boolean;
 begin
   select id into v_plus from public.catalog_items where code = 'membership_annual' order by created_at limit 1;
   select id into v_eg from public.catalog_items where code = 'membership_annual_no_panel' order by created_at limit 1;
-  if v_eg is null then raise exception 'FAIL the Evergreen item does not exist'; end if;
-  if (select active from public.catalog_items where id = v_eg) then raise exception 'FAIL the Evergreen item is active'; end if;
-  if (select amount_kobo from public.prices where catalog_item_id = v_eg and valid_to is null) <> 8400000 then raise exception 'FAIL Evergreen price'; end if;
-  if (select amount_kobo from public.prices where catalog_item_id = v_plus and valid_to is null) <> 12900000 then raise exception 'FAIL Evergreen Plus price'; end if;
+  if v_eg is null then raise exception 'FAIL the Membership item does not exist'; end if;
+  if (select active from public.catalog_items where id = v_eg) then raise exception 'FAIL the Membership item is active'; end if;
+  if (select amount_kobo from public.prices where catalog_item_id = v_eg and valid_to is null) <> 8400000 then raise exception 'FAIL Membership price'; end if;
+  if (select amount_kobo from public.prices where catalog_item_id = v_plus and valid_to is null) <> 12900000 then raise exception 'FAIL Membership Plus price'; end if;
   select exists (select 1 from public.prices where catalog_item_id = v_plus and amount_kobo = 12000000 and valid_to is not null) into v_old_closed;
   if not v_old_closed then raise exception 'FAIL the 12,000,000 row was not closed (or was edited)'; end if;
   if (select count(*) from public.prices where catalog_item_id = v_plus and valid_to is null) <> 1 then raise exception 'FAIL more than one open Plus price'; end if;
@@ -103,14 +103,14 @@ begin
   if pg_get_functiondef('public.check_in_testing_booking(uuid)'::regprocedure) not ilike '%annual_panel_requires_plus%' then raise exception 'FAIL the panel gate is missing'; end if;
 end $$;
 
--- SABOTAGE: a tier function that always says plus must make the Evergreen check flip
+-- SABOTAGE: a tier function that always says plus must make the Membership check flip
 create or replace function private.patient_membership_tier(p_patient uuid) returns text language sql stable security definer set search_path = ''
 as $$ select 'plus'::text $$;
 do $$
 declare a uuid := (select v from fx where k = 'a');
 begin
-  -- the real assertion (an Evergreen member reports evergreen) must now be false: that is the flip this test depends on
-  if not (private.patient_membership_tier(a) is distinct from 'evergreen') then raise exception 'FAIL the Evergreen check did not flip under sabotage'; end if;
+  -- the real assertion (an Membership member reports evergreen) must now be false: that is the flip this test depends on
+  if not (private.patient_membership_tier(a) is distinct from 'evergreen') then raise exception 'FAIL the Membership check did not flip under sabotage'; end if;
 end $$;
 
 select 'PASS membership_evergreen_ladder_foundation' as result;

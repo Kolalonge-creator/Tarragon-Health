@@ -98,8 +98,8 @@ function LadderPricing({ refundDays }: { refundDays: number }) {
         <SectionHeading
           as="h1"
           eyebrow="Pricing"
-          title="Free, Evergreen or Evergreen Plus"
-          description="Everything you can do yourself costs nothing. Evergreen and Evergreen Plus are a year of care with your care team. The one difference is the yearly blood panel."
+          title="Free, Membership or Membership Plus"
+          description="Everything you can do yourself costs nothing. Membership and Membership Plus are a year of care with your care team. The one difference is the yearly blood panel."
         />
         <p className="mx-auto mb-4 max-w-2xl text-center text-sm font-medium text-deep-forest">{NAIRA_ONLY_STATEMENT}</p>
         <p className="mx-auto mb-10 max-w-2xl text-center text-sm text-charcoal-ink/70">{LADDER_SAME_CARE_STATEMENT}</p>
