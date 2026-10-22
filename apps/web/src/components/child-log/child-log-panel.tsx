@@ -12,6 +12,7 @@ import {
   crisisToShow,
   cleanCaregiverLabel,
   isAsleepNow,
+  latestBand,
   sortByAttention,
   type ChartPointInput,
   type ChildEventKind,
@@ -138,7 +139,17 @@ export function ChildLogPanel({ accountId, child, emergencyNumber }: { accountId
     [vaccines.data, child.dateOfBirth, child.sex],
   );
   const counts = checklistCounts(doses);
-  const computedCrisis = growthRows.length > 0 && childCrisisLead(growthRows[growthRows.length - 1]!.result);
+  const latestResult = useMemo(
+    () =>
+      latestBand(
+        (growth.data ?? []).map((r) => ({
+          weightForAgeZ: r.weight_for_age_z, heightForAgeZ: r.height_for_age_z, weightForHeightZ: r.weight_for_height_z,
+          nutritionClass: r.nutrition_class, implausible: r.plausibility_flags.length > 0, measuredAt: r.measured_at, muacMm: r.muac_mm, bilateralOedema: r.bilateral_oedema === true,
+        })),
+      ),
+    [growth.data],
+  );
+  const computedCrisis = childCrisisLead(latestResult);
   // A known crisis is never hidden by a failed or slow read: a successful read decides and is remembered; otherwise the last known state shows.
   const crisisKey = `tarragon.childlog.crisis.v1.${accountId}.${child.id}`;
   const [lastKnown, setLastKnown] = useState(false);
@@ -202,7 +213,7 @@ export function ChildLogPanel({ accountId, child, emergencyNumber }: { accountId
       <section aria-labelledby="cdl-growth" className="space-y-2">
         <h2 id="cdl-growth" className="text-lg font-bold">{t("cdl.growth.title")}</h2>
         {growth.isError && <p role="alert" className="text-sm">{t("cdl.log.failed")}</p>}
-        <GrowthBandsView rows={growthRows} weightPoints={points((r) => r.weight_kg)} heightPoints={points((r) => r.height_cm)} />
+        <GrowthBandsView rows={growthRows} latest={latestResult} weightPoints={points((r) => r.weight_kg)} heightPoints={points((r) => r.height_cm)} />
         {child.canLog && (
           <form onSubmit={(e) => void saveGrowth(e)} className="space-y-2">
             <h3 className="font-bold">{t("cdl.growth.log_title")}</h3>

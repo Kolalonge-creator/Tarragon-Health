@@ -51,8 +51,9 @@ create table public.child_daily_events (
   created_at         timestamptz not null default now(),
   constraint child_daily_events_unique_client unique (patient_id, client_id),
   constraint child_daily_events_not_self_correcting check (corrects_id is distinct from id),
-  constraint child_daily_events_feed_type_only_on_feed check (kind = 'feed' or feed_type is null),
-  constraint child_daily_events_not_in_future check (occurred_at <= now() + interval '5 minutes')
+  constraint child_daily_events_feed_type_only_on_feed check (kind = 'feed' or feed_type is null)
+  -- No "not in the future" CHECK on purpose: a phone clock that runs fast would fail it with 23514, which the phone's outbox treats as final, and the
+  -- tap would be lost. The trigger below CLAMPS occurred_at to the server's now() instead and client_recorded_at keeps what the phone said.
 );
 create index child_daily_events_child_idx on public.child_daily_events (patient_id, occurred_at desc);
 create index child_daily_events_org_idx on public.child_daily_events (organisation_id);
@@ -92,6 +93,8 @@ begin
   select organisation_id into v_org from public.profiles where id = new.patient_id;
   if v_org is null then raise exception 'unknown child' using errcode = '22023'; end if;
   new.organisation_id := v_org;
+  -- A future time (a fast phone clock) is clamped, never refused. The phone's own claim stays in client_recorded_at.
+  if new.occurred_at > now() then new.occurred_at := now(); end if;
   if v_uid is not null then
     new.recorded_by := v_uid;
     new.source := case when v_uid <> new.patient_id
@@ -131,6 +134,10 @@ create table public.child_card_photos (
   content_type    text not null default 'image/jpeg' check (content_type in ('image/jpeg')),
   size_bytes      integer not null check (size_bytes between 1 and 5242880),
   status          text not null default 'waiting_for_care_team' check (status in ('waiting_for_care_team', 'seen_by_care_team', 'not_readable')),
+  -- The row is written BEFORE the file is uploaded (so a failed insert never leaves an orphan file in the bucket). 'pending_upload' means the row exists
+  -- and the file may not; the phone retries the upload and then calls confirm_child_card_photo_uploaded. Anything that shows or fetches a photo must
+  -- only use rows that are 'uploaded'.
+  file_state      text not null default 'pending_upload' check (file_state in ('pending_upload', 'uploaded')),
   logged_by_label text check (logged_by_label is null or (length(logged_by_label) between 1 and 24)),
   uploaded_by     uuid references public.profiles (id) on delete restrict,
   reviewed_by     uuid references public.profiles (id) on delete set null,
@@ -142,7 +149,7 @@ create table public.child_card_photos (
 create index child_card_photos_child_idx on public.child_card_photos (patient_id, created_at desc);
 create index child_card_photos_org_idx on public.child_card_photos (organisation_id);
 comment on table public.child_card_photos is
-  'S68b: a photo of the paper immunisation card, an attachment record only (no OCR, no QR, no model). status waiting_for_care_team until a care team member looks; reviewed_by and reviewed_at are null until a real review exists (no review screen is built yet, see OQ-S68B-4).';
+  'S68b: a photo of the paper immunisation card (row first, file second: see file_state), an attachment record only (no OCR, no QR, no model). status waiting_for_care_team until a care team member looks; reviewed_by and reviewed_at are null until a real review exists (no review screen is built yet, see OQ-S68B-4).';
 alter table public.child_card_photos enable row level security;
 revoke all on public.child_card_photos from public, anon, authenticated;
 grant select, insert on public.child_card_photos to authenticated;           -- staff review is a later, separate function
@@ -173,7 +180,7 @@ begin
   new.organisation_id := v_org;
   new.uploaded_by := v_uid;
   -- A new photo always starts waiting; nobody can insert one as already reviewed.
-  new.status := 'waiting_for_care_team'; new.reviewed_by := null; new.reviewed_at := null;
+  new.status := 'waiting_for_care_team'; new.reviewed_by := null; new.reviewed_at := null; new.file_state := 'pending_upload';
   -- The file must sit exactly where the storage policy lets this account put it: <uploader>/<child>/<client id>.jpg
   if new.storage_path is distinct from (v_uid::text || '/' || new.patient_id::text || '/' || new.client_id::text || '.jpg') then
     raise exception 'The photo path does not match the account, the child and the entry' using errcode = '22023';
@@ -187,6 +194,24 @@ revoke all on function private.stamp_child_card_photo() from public, anon, authe
 create trigger child_card_photos_stamp before insert on public.child_card_photos for each row execute function private.stamp_child_card_photo();
 
 select private.classify_minor_dependant_table('child_card_photos', 'allowed', 'immunisation: a photo of the paper immunisation card (S68b)');
+
+-- The uploader says the file is there. The function checks storage.objects itself (the caller cannot just claim it) and that the caller is the one who
+-- wrote the row. Idempotent. Nothing else about the row can be changed through it.
+create function public.confirm_child_card_photo_uploaded(p_child uuid, p_client_id uuid)
+returns boolean language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := (select auth.uid()); v_path text;
+begin
+  if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
+  select storage_path into v_path from public.child_card_photos where patient_id = p_child and client_id = p_client_id and uploaded_by = v_uid;
+  if v_path is null then raise exception 'no such photo record' using errcode = 'P0002'; end if;
+  if not exists (select 1 from storage.objects o where o.bucket_id = 'child-card-photos' and o.name = v_path) then
+    raise exception 'the file has not been uploaded yet' using errcode = '55000';
+  end if;
+  update public.child_card_photos set file_state = 'uploaded' where patient_id = p_child and client_id = p_client_id and file_state <> 'uploaded';
+  return true;
+end $$;
+revoke all on function public.confirm_child_card_photo_uploaded(uuid, uuid) from public, anon;
+grant execute on function public.confirm_child_card_photo_uploaded(uuid, uuid) to authenticated;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('child-card-photos', 'child-card-photos', false, 5242880, array['image/jpeg'])
@@ -212,6 +237,32 @@ create policy "child card photo uploader select" on storage.objects for select t
 -- ---------------------------------------------------------------------------
 -- 3. Idempotency keys for the S68 writes the phone could not queue before
 -- ---------------------------------------------------------------------------
+-- The mother's feed log is now queued from the phone too, so it has the same fast-clock hazard: its CHECK (feed_log_not_in_future, S68e) would
+-- refuse a tap from a phone running more than 5 minutes ahead, as a final rejection. Same fix: clamp fed_at in the stamping trigger (S68e body
+-- reproduced unchanged, plus the clamp) and drop the CHECK.
+alter table public.breastfeeding_feed_log drop constraint if exists feed_log_not_in_future;
+create or replace function private.stamp_feed_log()
+returns trigger language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := (select auth.uid());
+begin
+  if tg_op = 'INSERT' and not private.go_live_open_patient('maternal_enabled', new.patient_id) then
+    raise exception 'The feed log is not open yet' using errcode = '55000', hint = 'maternal_enabled';
+  end if;
+  if new.fed_at > now() then new.fed_at := now(); end if;
+  if tg_op = 'INSERT' and v_uid is not null then
+    new.recorded_by := v_uid;
+    new.source := case when v_uid = new.patient_id then 'patient_entered' else 'clinician_recorded' end;
+  elsif tg_op = 'UPDATE' then
+    new.recorded_by := old.recorded_by; new.source := old.source;
+  end if;
+  if new.child_profile_id is not null and v_uid is not null and not private.is_org_staff(new.organisation_id) and not exists (
+       select 1 from public.profile_access pa where pa.profile_id = new.child_profile_id and pa.grantee_user_id = new.patient_id and pa.permission_level = 'manage') then
+    raise exception 'The child profile is not one you manage' using errcode = '42501';
+  end if;
+  return new;
+end $$;
+revoke all on function private.stamp_feed_log() from public, anon, authenticated;
+
 alter table public.breastfeeding_feed_log
   add column client_id uuid,
   add column logged_by_label text check (logged_by_label is null or (length(logged_by_label) between 1 and 24));
@@ -262,6 +313,9 @@ begin
   end if;
   if exists (select 1 from pg_policies where schemaname = 'public' and tablename in ('child_daily_events', 'child_card_photos') and coalesce(qual, '') || coalesce(with_check, '') like '%private.is_org_staff(%') then
     raise exception 'S68b self-check: staff access to the child tables must use the tied helpers, not is_org_staff';
+  end if;
+  if has_function_privilege('anon', 'public.confirm_child_card_photo_uploaded(uuid,uuid)', 'EXECUTE') then
+    raise exception 'S68b self-check: confirm_child_card_photo_uploaded must not be executable by anon';
   end if;
   if has_function_privilege('anon', 'private.can_act_for_minor(uuid)', 'EXECUTE') then
     raise exception 'S68b self-check: can_act_for_minor must not be executable by anon';

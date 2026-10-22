@@ -110,11 +110,9 @@ export async function sendCardPhoto(
   // The file is gone (cleared by the phone): this entry can never succeed. 22023 is a refusal the outbox shows as rejected, not a silent drop.
   if (!bytes) return { ok: false, code: "22023", message: "The photo is no longer on this phone" };
   const path = cardPhotoPath(ownerUserId, subjectId, clientId);
-  const up = await db().storage.from("child-card-photos").upload(path, bytes, { contentType: "image/jpeg", upsert: false });
-  if (up.error) {
-    const exists = /already exists|duplicate/i.test(up.error.message ?? "") || String(up.error.statusCode) === "409";
-    if (!exists) return failure({ code: undefined, message: up.error.message, status: typeof up.error.statusCode === "number" ? up.error.statusCode : undefined });
-  }
+  // ROW FIRST, FILE SECOND. The first version uploaded and then inserted, so a failed insert left a file in the private bucket that no row points at.
+  // Now the row (file_state 'pending_upload') comes first; an upload that fails leaves a row that says the file is not there yet, never an orphan file,
+  // and the outbox retries the whole entry: the insert is a duplicate (23505, fine), the upload runs again, then the server confirms the file exists.
   const { error } = await db().from("child_card_photos").insert({
     organisation_id: p.organisation_id,
     patient_id: subjectId,
@@ -124,6 +122,14 @@ export async function sendCardPhoto(
     logged_by_label: p.logged_by_label,
   });
   if (error && error.code !== "23505") return failure(error);
+  const up = await db().storage.from("child-card-photos").upload(path, bytes, { contentType: "image/jpeg", upsert: false });
+  if (up.error) {
+    const exists = /already exists|duplicate/i.test(up.error.message ?? "") || String(up.error.statusCode) === "409";
+    if (!exists) return failure({ code: undefined, message: up.error.message, status: Number.isFinite(Number(up.error.statusCode)) ? Number(up.error.statusCode) : undefined });
+  }
+  // The server checks the object is really there before it marks the row uploaded (55000 = not yet: the outbox retries).
+  const confirmed = await db().rpc("confirm_child_card_photo_uploaded", { p_child: subjectId, p_client_id: clientId });
+  if (confirmed.error) return failure(confirmed.error);
   await store.remove(p.file_uri);
   return { ok: true };
 }

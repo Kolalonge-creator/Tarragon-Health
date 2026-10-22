@@ -31,7 +31,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pat
   if (user.id !== patientId) {
     const { data: grant, error: grantError } = await supabase
       .from("profile_access")
-      .select("permission_level, categories:profile_access_categories(category)")
+      .select("permission_level, expires_at, categories:profile_access_categories(category)")
       .eq("profile_id", patientId)
       .eq("grantee_user_id", user.id)
       .maybeSingle();
@@ -40,6 +40,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pat
     const allowed = mayPrintChildRecord(user.id, patientId, grant
       ? {
           permissionLevel: grant.permission_level,
+          expiresAt: grant.expires_at,
           categories: (grant.categories ?? []).map((c) => c.category),
           childIsMinorDependant: child.is_dependent_account === true && child.dependent_kind === "minor_child" && age !== null && age < 18,
         }
@@ -50,7 +51,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pat
   const [growth, catalog, records] = await Promise.all([
     supabase
       .from("child_growth_measurements")
-      .select("id, measured_at, weight_kg, height_cm, weight_for_age_z, height_for_age_z, weight_for_height_z, nutrition_class, plausibility_flags")
+      .select("id, measured_at, weight_kg, height_cm, weight_for_age_z, height_for_age_z, weight_for_height_z, muac_mm, bilateral_oedema, nutrition_class, plausibility_flags")
       .eq("patient_id", patientId)
       .order("measured_at", { ascending: true }),
     supabase.from("vaccination_catalog").select("id, code, name, recommended_age").eq("is_active", true).like("code", "child_%"),

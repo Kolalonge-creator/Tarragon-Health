@@ -125,7 +125,7 @@ end $f$;
 do $$
 declare
   v_org uuid; v_mum uuid; v_dad uuid; v_cg uuid; v_stranger uuid; v_clin uuid; v_clin2 uuid; v_co uuid; v_adult uuid; v_child uuid; v_child2 uuid; v_real uuid; g uuid;
-  r text; e1 uuid := gen_random_uuid(); e2 uuid := gen_random_uuid(); v_self uuid := gen_random_uuid(); cid uuid := gen_random_uuid();
+  r text; e1 uuid := gen_random_uuid(); e2 uuid := gen_random_uuid(); v_self uuid := gen_random_uuid(); v_fast uuid := gen_random_uuid(); cid uuid := gen_random_uuid();
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_mum := pg_temp.mkuser(v_org, 'mum', 'patient', (current_date - interval '28 years')::date, 'female');
@@ -164,8 +164,10 @@ begin
   perform pg_temp.ck('...still exactly one row for that client id', '1', (select count(*)::text from public.child_daily_events where client_id = cid));
   perform pg_temp.ck('the log is append-only: no update', 'permission denied for table child_daily_events', pg_temp.try_as(v_mum, 'update public.child_daily_events set kind = ''nappy_wet'''));
   perform pg_temp.ck('...and no delete', 'permission denied for table child_daily_events', pg_temp.try_as(v_mum, 'delete from public.child_daily_events'));
-  perform pg_temp.ck('a time in the future is refused', 'true',
-    (pg_temp.try_as(v_mum, format($q$insert into public.child_daily_events (organisation_id, patient_id, client_id, kind, occurred_at) values (%L, %L, gen_random_uuid(), 'nappy_wet', now() + interval '2 days')$q$, v_org, v_child)) like '%child_daily_events_not_in_future%')::text);
+  r := pg_temp.try_as(v_mum, format($q$insert into public.child_daily_events (id, organisation_id, patient_id, client_id, kind, occurred_at, client_recorded_at) values (%L, %L, %L, gen_random_uuid(), 'nappy_wet', now() + interval '2 days', now() + interval '2 days')$q$, v_fast, v_org, v_child));
+  perform pg_temp.ck('a phone clock two days fast is accepted, not lost: occurred_at is clamped to now and the phone claim is kept', 'ok|true|true', r
+    || '|' || (select (occurred_at <= now())::text from public.child_daily_events where id = v_fast)
+    || '|' || (select (client_recorded_at > now() + interval '1 day')::text from public.child_daily_events where id = v_fast));
   perform pg_temp.ck('a feed type on a non-feed event is refused', 'true',
     (pg_temp.try_as(v_mum, format($q$insert into public.child_daily_events (organisation_id, patient_id, client_id, kind, feed_type, occurred_at) values (%L, %L, gen_random_uuid(), 'nappy_wet', 'breast', now())$q$, v_org, v_child)) like '%child_daily_events_feed_type_only_on_feed%')::text);
   perform pg_temp.ck('a correction pointing at the same child is accepted', 'ok',
@@ -175,11 +177,11 @@ begin
     pg_temp.try_as(v_mum, format($q$insert into public.child_daily_events (organisation_id, patient_id, client_id, kind, occurred_at, corrects_id) values (%L, %L, gen_random_uuid(), 'feed', now(), %L)$q$, v_org, v_child, e2)));
 
   -- 3. who can read and write
-  perform pg_temp.ck('the parent reads the child''s log', '6', pg_temp.q_as(v_mum, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
-  perform pg_temp.ck('the read-only partner (view grant + medical_history on the child) reads it', '6', pg_temp.q_as(v_dad, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
+  perform pg_temp.ck('the parent reads the child''s log', '7', pg_temp.q_as(v_mum, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
+  perform pg_temp.ck('the read-only partner (view grant + medical_history on the child) reads it', '7', pg_temp.q_as(v_dad, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
   perform pg_temp.ck('a view grant with no category reads nothing', '0', pg_temp.q_as(v_cg, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
   perform pg_temp.ck('a stranger reads nothing', '0', pg_temp.q_as(v_stranger, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
-  perform pg_temp.ck('a clinician WITH a care tie reads it', '6', pg_temp.q_as(v_clin, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
+  perform pg_temp.ck('a clinician WITH a care tie reads it', '7', pg_temp.q_as(v_clin, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
   perform pg_temp.ck('a clinician of the same organisation WITHOUT a tie is refused (reads 0)', '0', pg_temp.q_as(v_clin2, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
   perform pg_temp.ck('the tied clinician may record for the child, the untied one may not', 'ok|true',
     pg_temp.try_as(v_clin, format($q$insert into public.child_daily_events (organisation_id, patient_id, client_id, kind, occurred_at) values (%L, %L, gen_random_uuid(), 'nappy_wet', now())$q$, v_org, v_child))
@@ -217,6 +219,7 @@ begin
   -- 2. the guard: a REAL child is refused while maternal_enabled is off; reads are never gated
   v_real := pg_temp.mkchild(v_org, v_mum, 'real_baby', current_date - 30, 'male', false);
   perform pg_temp.setf('real', v_real);
+  perform pg_temp.setf('fastsab', gen_random_uuid());
   perform pg_temp.ck('a REAL child is refused while maternal_enabled is off', 'The daily log is not open yet',
     pg_temp.try_as(v_mum, format($q$insert into public.child_daily_events (organisation_id, patient_id, client_id, kind, occurred_at) values (%L, %L, gen_random_uuid(), 'nappy_wet', now())$q$, v_org, v_real)));
   perform pg_temp.guard_state(true);
@@ -232,6 +235,12 @@ begin
         values (%L, %L, %L, %L, 120000, 'seen_by_care_team', %L, now(), 'Mum')$q$, v_org, v_child, cid, v_mum::text || '/' || v_child::text || '/' || cid::text || '.jpg', v_clin));
   perform pg_temp.ck('the parent saves a card photo record', 'ok', r);
   perform pg_temp.ck('...it always starts waiting for the care team, with no reviewer', 'waiting_for_care_team|null', (select status || '|' || coalesce(reviewed_by::text, 'null') from public.child_card_photos where client_id = cid));
+  perform pg_temp.ck('the row is written first: it starts pending_upload, and confirming without a file is refused, confirming by someone else is refused', 'pending_upload|ERR:the file has not been uploaded yet|ERR:no such photo record',
+    (select file_state from public.child_card_photos where client_id = cid) || '|' || pg_temp.q_as(v_mum, format('select public.confirm_child_card_photo_uploaded(%L, %L)', v_child, cid))
+    || '|' || pg_temp.q_as(v_dad, format('select public.confirm_child_card_photo_uploaded(%L, %L)', v_child, cid)));
+  insert into storage.objects (bucket_id, name) values ('child-card-photos', v_mum::text || '/' || v_child::text || '/' || cid::text || '.jpg');
+  perform pg_temp.ck('once the file exists the uploader can confirm it, and only then the row is uploaded', 'true|uploaded', pg_temp.q_as(v_mum, format('select public.confirm_child_card_photo_uploaded(%L, %L)::text', v_child, cid)) || '|' || (select file_state from public.child_card_photos where client_id = cid));
+  perform pg_temp.ck('anon cannot call the confirm function', 'false', has_function_privilege('anon', 'public.confirm_child_card_photo_uploaded(uuid,uuid)', 'EXECUTE')::text);
   perform pg_temp.ck('a path that is not <uploader>/<child>/<client id>.jpg is refused', 'The photo path does not match the account, the child and the entry',
     pg_temp.try_as(v_mum, format($q$insert into public.child_card_photos (organisation_id, patient_id, client_id, storage_path, size_bytes) values (%L, %L, gen_random_uuid(), 'someone/else.jpg', 1000)$q$, v_org, v_child)));
   perform pg_temp.ck('the partner with the vaccinations category reads the record', '1', pg_temp.q_as(v_dad, format('select count(*)::text from public.child_card_photos where patient_id = %L', v_child)));
@@ -264,7 +273,7 @@ do $$
 declare v_def text;
 begin
   v_def := pg_get_functiondef('private.stamp_child_daily_event()'::regprocedure);
-  execute replace(v_def, 'if not private.go_live_open_patient(''maternal_enabled'', new.patient_id) then', 'if false then');
+  execute replace(replace(v_def, 'if not private.go_live_open_patient(''maternal_enabled'', new.patient_id) then', 'if false then'), 'new.occurred_at := now();', 'null;');
 end $$;
 drop policy child_daily_events_select on public.child_daily_events;
 create policy child_daily_events_select on public.child_daily_events for select to authenticated using (true);
@@ -277,6 +286,8 @@ begin
   insert into results values ('sabotaged', 'a REAL child is refused while maternal_enabled is off', 'The daily log is not open yet',
     pg_temp.try_as(v_mum, format($q$insert into public.child_daily_events (organisation_id, patient_id, client_id, kind, occurred_at) values (%L, %L, gen_random_uuid(), 'nappy_wet', now())$q$, v_org, v_real)));
   insert into results values ('sabotaged', 'a clinician of the same organisation WITHOUT a tie is refused (reads 0)', '0', pg_temp.q_as(pg_temp.f('clin2'), format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
+  perform pg_temp.try_as(v_mum, format($q$insert into public.child_daily_events (id, organisation_id, patient_id, client_id, kind, occurred_at) values (%L, %L, %L, gen_random_uuid(), 'nappy_wet', now() + interval '2 days')$q$, pg_temp.f('fastsab'), v_org, v_child));
+  insert into results values ('sabotaged', 'a phone clock two days fast is clamped to now', 'true', coalesce((select (occurred_at <= now())::text from public.child_daily_events where id = pg_temp.f('fastsab')), 'missing'));
   insert into results values ('sabotaged', 'a stranger reads nothing', '0', pg_temp.q_as(v_stranger, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
   ins := format($q$insert into public.child_daily_events (organisation_id, patient_id, client_id, kind, occurred_at) values (%L, %L, %L, 'nappy_wet', now())$q$, v_org, v_child, c);
   perform pg_temp.try_as(v_mum, ins);

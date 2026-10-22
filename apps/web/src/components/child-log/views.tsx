@@ -132,8 +132,7 @@ function Chart({ points, label, axis }: { points: readonly ChartPointInput[]; la
 }
 
 /** Plain-language band for the latest measurement, the chart (kg, cm), the shape legend and the full table as the text alternative. */
-export function GrowthBandsView({ rows, weightPoints, heightPoints }: { rows: readonly GrowthTableRow[]; weightPoints: readonly ChartPointInput[]; heightPoints: readonly ChartPointInput[] }) {
-  const latest = rows.length > 0 ? rows[rows.length - 1]!.result : null;
+export function GrowthBandsView({ rows, latest, weightPoints, heightPoints }: { rows: readonly GrowthTableRow[]; /** The headline: the latest row with the acute-nutrition class carried forward (latestBand). */ latest: GrowthBandResult | null; weightPoints: readonly ChartPointInput[]; heightPoints: readonly ChartPointInput[] }) {
   return (
     <div className="space-y-3">
       <p className="text-sm">{t("cdl.growth.intro")}</p>
@@ -142,6 +141,7 @@ export function GrowthBandsView({ rows, weightPoints, heightPoints }: { rows: re
         <div>
           <p className="text-lg font-extrabold">{t(BAND_KEY[latest.band])}</p>
           <p className="text-sm">{t(HELP_KEY[latest.band])}</p>
+          {latest.recheck && <p className="text-sm">{t("mch.growth.check_measurement")}</p>}
         </div>
       )}
       {latest?.kind === "check_measurement" && <p className="text-sm">{t("mch.growth.check_measurement")}</p>}

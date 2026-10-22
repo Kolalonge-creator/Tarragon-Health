@@ -41,11 +41,26 @@ export function displayFirstName(fullName: string | null | undefined): string {
 
 /** Builds the choices from the people this account supports: only minor children (never an adult dependant), and a view grant stays view. */
 export function childChoices(
-  supported: readonly { profileId: string; fullName: string | null; permissionLevel: "view" | "manage"; isDependentAccount: boolean; dependentKind: string | null }[],
+  supported: readonly { profileId: string; fullName: string | null; permissionLevel: "view" | "manage"; isDependentAccount: boolean; dependentKind: string | null; dateOfBirth: string | null }[],
+  today: string = new Date().toISOString().slice(0, 10),
 ): ChildChoice[] {
   return supported
     .filter((p) => p.isDependentAccount && p.dependentKind === "minor_child")
-    .map((p) => ({ profileId: p.profileId, firstName: displayFirstName(p.fullName), access: p.permissionLevel }));
+    .flatMap((p) => {
+      const age = ageYearsOn(p.dateOfBirth, today);
+      // 18 or over: no longer a child's record (a guardian's blanket ended at 18, S04b-1). Never offered, so no log buttons can be reached.
+      if (age !== null && age >= 18) return [];
+      // No date of birth on file: still offered so the child is not lost, but look-only (nothing can be logged against an age we cannot check).
+      return [{ profileId: p.profileId, firstName: displayFirstName(p.fullName), access: age === null ? ("view" as const) : p.permissionLevel }];
+    });
+}
+
+/** Whole years on `today` (YYYY-MM-DD), or null with no usable date of birth. */
+export function ageYearsOn(dateOfBirth: string | null | undefined, today: string): number | null {
+  if (!dateOfBirth || !/^\d{4}-\d{2}-\d{2}/.test(dateOfBirth)) return null;
+  const [by, bm, bd] = dateOfBirth.slice(0, 10).split("-").map(Number) as [number, number, number];
+  const [ty, tm, td] = today.slice(0, 10).split("-").map(Number) as [number, number, number];
+  return ty - by - (tm < bm || (tm === bm && td < bd) ? 1 : 0);
 }
 
 /** May this person add a record for the child? Only a manager. A view grant sees the child's timeline, growth chart and vaccine list and nothing else. */

@@ -18,6 +18,9 @@ const mockUploads: { bucket: string; path: string; bytes: number }[] = [];
 let mockInsertError: { code?: string; message?: string } | null = null;
 let mockRpcError: { code?: string; message?: string } | null = null;
 let mockRpcData: unknown = null;
+let mockOnInsert: ((t: string) => void) | null = null;
+let mockOnUpload: (() => void) | null = null;
+let mockOnRpc: ((fn: string) => void) | null = null;
 let mockUploadError: { message?: string; statusCode?: string } | null = null;
 
 jest.mock("./supabase", () => ({
@@ -26,11 +29,13 @@ jest.mock("./supabase", () => ({
     from: (table: string) => ({
       insert: async (row: Record<string, unknown>) => {
         mockInserts.push({ table, row });
+        mockOnInsert?.(table);
         return { error: mockInsertError };
       },
     }),
     rpc: async (fn: string, args?: Record<string, unknown>) => {
       mockRpcs.push({ fn, args });
+      mockOnRpc?.(fn);
       // my_lifecycle is the read the sender makes to recognise a replay; only record_lifecycle_event fails in these tests.
       return fn === "my_lifecycle" ? { data: mockRpcData, error: null } : { data: null, error: mockRpcError };
     },
@@ -38,6 +43,7 @@ jest.mock("./supabase", () => ({
       from: (bucket: string) => ({
         upload: async (path: string, body: Uint8Array) => {
           mockUploads.push({ bucket, path, bytes: body.length });
+          mockOnUpload?.();
           return { error: mockUploadError };
         },
       }),
@@ -58,6 +64,9 @@ beforeEach(() => {
   mockRpcError = null;
   mockRpcData = null;
   mockUploadError = null;
+  mockOnInsert = null;
+  mockOnUpload = null;
+  mockOnRpc = null;
 });
 
 describe("one tap on the daily log", () => {
@@ -208,6 +217,40 @@ describe("the paper card photo", () => {
     expect(Array.from(saved.subarray(0, 2))).toEqual([0xff, 0xd8]);
     expect(Array.from(saved)).not.toContain(0x47); // the comment segment (GPS-like text) is gone
     expect(item?.subjectId).toBe("child-1");
+  });
+
+  it("the record is written BEFORE the file is uploaded, and the server confirms the file, then the local copy is removed", async () => {
+    const order: string[] = [];
+    const store = fakeStore();
+    mockOnInsert = (t) => order.push(`insert:${t}`);
+    mockOnUpload = () => order.push("upload");
+    mockOnRpc = (fn) => order.push(`rpc:${fn}`);
+    expect(await takeCardPhoto(CHILD, "Mum", deps(store))).toBe("sent");
+    expect(order).toEqual(["insert:child_card_photos", "upload", "rpc:confirm_child_card_photo_uploaded"]);
+    expect(mockRpcs.find((r) => r.fn === "confirm_child_card_photo_uploaded")?.args).toMatchObject({ p_child: "child-1" });
+    expect(store.files.size).toBe(0);
+  });
+
+  it("a failed row insert uploads NOTHING (no orphan file in the bucket)", async () => {
+    mockInsertError = { code: "42501", message: "row-level security" };
+    const store = fakeStore();
+    await takeCardPhoto(CHILD, "", deps(store));
+    expect(mockUploads).toHaveLength(0);
+    expect((await listOutbox("card_photo"))[0]?.state).toBe("rejected");
+  });
+
+  it("a failed upload keeps the entry queued with the file still on the phone; the retry is a duplicate row, a fresh upload and a confirm", async () => {
+    const store = fakeStore();
+    mockUploadError = { message: "network request failed" };
+    expect(await takeCardPhoto(CHILD, "", deps(store))).toBe("on_phone");
+    expect(store.files.size).toBe(1);
+    expect(mockRpcs.some((r) => r.fn === "confirm_child_card_photo_uploaded")).toBe(false);
+    mockUploadError = null;
+    mockInsertError = { code: "23505", message: "duplicate key" };
+    const r = await flushOutbox();
+    expect(r.synced).toBe(1);
+    expect(mockRpcs.some((r2) => r2.fn === "confirm_child_card_photo_uploaded")).toBe(true);
+    expect(store.files.size).toBe(0);
   });
 
   it("uploads to <uploader>/<child>/<client id>.jpg, then writes the record, then removes the file", async () => {

@@ -8,6 +8,7 @@ import {
   bandForPoint,
   CRISIS_CARD_OFFLINE,
   crisisCallHref,
+  latestBand,
   layoutGrowthChart,
   markerPath,
   mayLog,
@@ -39,6 +40,15 @@ const OUTCOME_KEY: Record<TapOutcome, Parameters<typeof t>[0]> = {
   view_only: "cdl.log.view_only",
 };
 const CRISIS_CACHE_KEY = "tarragon.crisisCard.v1";
+
+/** The headline result for a series: the latest row, with the acute-nutrition class carried forward from the latest row that had a reading. */
+export function latestResultOf(rows: readonly GrowthRow[]): GrowthBandResult | null {
+  return latestBand(rows.map((r) => ({ ...rowInput(r), measuredAt: r.measuredAt, muacMm: r.muacMm, bilateralOedema: r.bilateralOedema })));
+}
+
+function rowInput(r: GrowthRow) {
+  return { weightForAgeZ: r.weightForAgeZ, heightForAgeZ: r.heightForAgeZ, weightForHeightZ: r.weightForHeightZ, nutritionClass: r.nutritionClass, implausible: r.implausible };
+}
 
 export function resultOf(r: GrowthRow): GrowthBandResult {
   return bandForPoint({
@@ -112,8 +122,7 @@ export function ChildGrowth({ child, rows, failed, onChanged }: { child: ChildDe
   const [height, setHeight] = useState("");
   const [status, setStatus] = useState<TapOutcome | null>(null);
 
-  const latest = rows && rows.length > 0 ? rows[rows.length - 1]! : null;
-  const latestResult = latest ? resultOf(latest) : null;
+  const latestResult = rows ? latestResultOf(rows) : null;
   const dob = child.dateOfBirth;
   const toPoints = (pick: (r: GrowthRow) => number | null): ChartPointInput[] =>
     (rows ?? []).flatMap((r) => {
@@ -143,6 +152,7 @@ export function ChildGrowth({ child, rows, failed, onChanged }: { child: ChildDe
           <View style={{ gap: 4 }}>
             <Text style={{ fontSize: 18, fontWeight: "800", color: colors.ink }}>{t(BAND_KEY[latestResult.band])}</Text>
             <Text style={{ fontSize: 14, color: colors.ink }}>{t(HELP_KEY[latestResult.band])}</Text>
+            {latestResult.recheck && <Text style={{ fontSize: 14, color: colors.ink }}>{t("mch.growth.check_measurement")}</Text>}
           </View>
         )}
         {latestResult?.kind === "check_measurement" && <Text style={{ fontSize: 14, color: colors.ink }}>{t("mch.growth.check_measurement")}</Text>}
