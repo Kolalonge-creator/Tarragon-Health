@@ -17,8 +17,6 @@ export type MyCohorts = { open: boolean; off: boolean; cohorts: Cohort[] };
 export type Total = { state: "pending" } | { state: "hidden" } | { state: "shown"; total: number; progressPct: number; goalReached: boolean; groupSize: string; asOf: string };
 export type Challenge = { challengeId: string; label: string; unit: Unit; startsOn: string; endsOn: string; phase: "scheduled" | "active" | "ended" | "cancelled"; available: boolean; total: Total };
 export type RosterRow = { memberId: string; firstName: string; role: "member" | "moderator"; isYou: boolean };
-export type BoardRow = { label: string; rank: number; progressPct: number; isYours: boolean };
-export type Board = { state: "hidden" } | { state: "not_ready" } | { state: "shown"; rows: BoardRow[] };
 export type Template = { code: string; label: string; unit: Unit; defaultDays: number };
 
 const obj = (v: unknown): Record<string, unknown> | null => (typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
@@ -72,20 +70,6 @@ export function parseRoster(data: unknown): RosterRow[] {
     const id = str(r.member_id), name = str(r.first_name), role = oneOf(r.role, ["member", "moderator"] as const), you = bool(r.is_you);
     return id && name && role && you !== null ? [{ memberId: id, firstName: name, role, isYou: you }] : [];
   });
-}
-
-export function parseBoard(data: unknown): Board {
-  const o = obj(data);
-  if (o?.state === "not_ready") return { state: "not_ready" };
-  if (o?.state === "shown" && Array.isArray(o.rows)) {
-    const rows = o.rows.flatMap((row): BoardRow[] => {
-      const r = obj(row);
-      const label = r ? str(r.label) : null, rank = r ? num(r.rank) : null, pct = r ? num(r.progress_pct) : null, yours = r ? bool(r.is_yours) : null;
-      return label && rank !== null && pct !== null && yours !== null ? [{ label, rank, progressPct: pct, isYours: yours }] : [];
-    });
-    return { state: "shown", rows };
-  }
-  return { state: "hidden" };
 }
 
 export function parseTemplates(data: unknown): Template[] {

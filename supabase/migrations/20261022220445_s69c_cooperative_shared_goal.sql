@@ -9,8 +9,14 @@
 --   (d) skip this week: a private row, no notice, no group-facing field
 --   (e) per-person per-day cap on a counted contribution (cohort_coop_config, PROPOSED)
 --   (f) day-level only: challenge_participation.created_at becomes a DATE and challenge_skips holds dates only
+--   (h) the cohort-against-cohort board is dropped (founder decision 2026-10-22, chat). Counted first: public.cohort_board(uuid) is a STABLE read function with no
+--       table of its own (it ranks the already-published challenge_totals rows at call time), so no data is stored by it and there is no conversion step. No
+--       helper is dropped with it: private.cohort_open, private.cohort_member and the totals table are used by other cohort functions. The only mention left
+--       is descriptive text in the s69b go-live guard row, which is not code.
 --   (g) the retention purge is removed from the scheduled run: a member's own effort history stays after a challenge ends
 --       (leaving the group or withdrawing totals consent still erases it, as before)
+
+drop function public.cohort_board(uuid);
 
 -- ---------------------------------------------------------------------------
 -- 1. Versioned cooperative rules (PROPOSED, Founder owner). Mirrored as cohorts.cooperative in packages/shared/src/proposed-config.
@@ -429,6 +435,7 @@ begin
                 and data_type like 'timestamp%') then
     raise exception 'a member effort table still holds a time of day';
   end if;
+  if to_regprocedure('public.cohort_board(uuid)') is not null then raise exception 'the cohort board still exists'; end if;
   if exists (select 1 from public.challenge_templates where status <> 'proposed') then raise exception 'a template was born approved'; end if;
   if (select count(*) from public.platform_modules where key in ('cohorts', 'group_sessions') and not is_enabled) <> 2 then raise exception 'a community module is not off'; end if;
 end $$;

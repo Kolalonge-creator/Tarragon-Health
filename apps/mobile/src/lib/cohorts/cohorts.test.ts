@@ -1,7 +1,7 @@
 import { findShameCopy } from "@tarragon/shared";
 import { en } from "@tarragon/i18n";
 import {
-  COHORT_KINDS, KIND_KEYS, UNIT_KEYS, communityErrorKey, communityJoinPath, parseBoard, parseChallenges, parseHistory, parseSummary, parseInviteMade, parseMyCohorts, parseOk, parsePreview, parseRoster, tokenFromInput,
+  COHORT_KINDS, KIND_KEYS, UNIT_KEYS, communityErrorKey, communityJoinPath, parseChallenges, parseHistory, parseSummary, parseInviteMade, parseMyCohorts, parseOk, parsePreview, parseRoster, tokenFromInput,
 } from "./parse";
 
 const mockRpc = jest.fn();
@@ -30,16 +30,10 @@ describe("community parsing", () => {
   it("treats garbage as nothing to show", () => {
     expect(parseChallenges("x")).toEqual([]);
     expect(parseMyCohorts(undefined)).toEqual({ open: false, off: false, cohorts: [] });
-    expect(parseBoard({ state: "boom" })).toEqual({ state: "hidden" });
     expect(parseRoster([{ member_id: 1 }])).toEqual([]);
     expect(parsePreview({ ok: true, name: "x", kind: "club" })).toEqual({ ok: false });
     expect(parseInviteMade({ token: "short", expires_at: "x" })).toBeNull();
     expect(parseOk(null).ok).toBe(false);
-  });
-
-  it("a board row carries a label, a rank and a percentage, never a cohort name", () => {
-    const b = parseBoard({ state: "shown", rows: [{ label: "Group 2", rank: 2, progress_pct: 50, is_yours: false, cohort_name: "Grace Fellowship" }] });
-    expect(JSON.stringify(b)).not.toContain("Grace");
   });
 
   it("reads the token from a pasted link or a bare token, and nothing else", () => {

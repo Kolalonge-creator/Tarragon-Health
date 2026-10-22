@@ -11,7 +11,7 @@
 --   6.  The effort-only rule (insulin, pregnancy, kidney disease, eating disorder): a neutral "not available", identical to a non-member's answer.
 --   7.  Totals: floor of 10 contributors, leave-one-out (a dominant contributor hides the total), rounding, publish delay, no member id anywhere.
 --   8.  Individual values never appear in any challenge view (closed key set; a distinctive value and every member id are searched for).
---   9.  The board compares cohorts only (anonymous labels, needs 3 cohorts, no member rank).
+--   9.  There is no cohort-against-cohort board: the function is dropped (founder decision 2026-10-22).
 --   10. One generic notice ("community_update", empty payload), once, never to a muted member or someone with community off; events carry ids only.
 --   11. Moderation: report-and-remove, moderator close, admin freeze, global switch; group sessions are dormant and cannot record or scribe.
 --   12. The solo wellness challenge nudge no longer carries a title or progress figure.
@@ -359,7 +359,6 @@ begin
   v_all := '';
   foreach v_u in array array[v_ma, v_first, v_a_members[5], v_out, v_ins] loop
     v_all := v_all || pg_temp.q_as(v_u, format('select public.cohort_challenges(%L::uuid)::text', v_ca))
-                   || pg_temp.q_as(v_u, format('select public.cohort_board(%L::uuid)::text', v_chA))
                    || pg_temp.q_as(v_u, format('select public.cohort_my_cohorts()::text'))
                    || pg_temp.q_as(v_u, format('select public.cohort_roster(%L::uuid)::text', v_ca))
                    || pg_temp.q_as(v_u, format('select public.my_challenge_status(%L::uuid)::text', v_chA));
@@ -370,23 +369,15 @@ begin
   perform pg_temp.ck('10 my_challenge_status is booleans only', 'available,contributing,did_today',
     (select string_agg(k, ',' order by k) from jsonb_object_keys(pg_temp.j(v_first, format('select public.my_challenge_status(%L::uuid)::text', v_chA))) k));
 
-  ---------------------------------------------------------------------------------------------------------------- 11. the board compares cohorts only
-  r := pg_temp.j(v_first, format('select public.cohort_board(%L::uuid)::text', v_chA));
-  perform pg_temp.ck('11 the board is shown with three or more cohorts', 'shown', r ->> 'state');
-  perform pg_temp.ck('11 the board rows carry only label, rank, progress and whether it is yours', 'is_yours,label,progress_pct,rank',
-    (select string_agg(k, ',' order by k) from (select distinct jsonb_object_keys(e) k from jsonb_array_elements(r -> 'rows') e) z));
-  perform pg_temp.ck('11 exactly one row is "Your group"', '1', (select count(*)::text from jsonb_array_elements(r -> 'rows') e where e ->> 'label' = 'Your group'));
-  perform pg_temp.ck('11 the board names no cohort and no member', 'false', (r::text ~* 'Grace|Peace|Unity|Harmony|Fellowship|Estate|Union|Mosque|Surname')::text);
-  perform pg_temp.ck('11 A (goal reached) ranks first', '1', (select e ->> 'rank' from jsonb_array_elements(r -> 'rows') e where e ->> 'label' = 'Your group'));
-  perform pg_temp.ck('11 a non-member sees nothing', 'hidden', pg_temp.q_as(v_out, format('select (public.cohort_board(%L::uuid) ->> %L)', v_chA, 'state')));
-  -- a cohort that is hidden is not on the board: with C hidden again the board still has A, B, D (3)
-  perform pg_temp.ck('11 three shown cohorts: A, B, C, D = 4 rows', '4', jsonb_array_length(r -> 'rows')::text);
+  ---------------------------------------------------------------------------------------------------------------- 11. there is no cohort-against-cohort board (founder decision 2026-10-22)
+  perform pg_temp.ck('11 the board function no longer exists', '0', (select count(*)::text from pg_proc where pronamespace = 'public'::regnamespace and proname = 'cohort_board'));
+  perform pg_temp.ck('11 no function in public or private ranks cohorts against each other', '0',
+    (select count(*)::text from pg_proc where pronamespace in ('public'::regnamespace, 'private'::regnamespace) and proname ~* 'board|leaderboard|cohort_rank'));
+  -- the cohorts are still pushed below the floor and back so the later checks keep their state
   delete from public.challenge_participation where challenge_id = v_chB and patient_id in (select patient_id from public.challenge_participation where challenge_id = v_chB limit 3);
   perform private.challenge_aggregate(v_chB, false); perform pg_temp.publish_all();
-  perform pg_temp.ck('11 with B now below the floor the board has 3 cohorts and still shows', '3', jsonb_array_length(pg_temp.j(v_first, format('select public.cohort_board(%L::uuid)::text', v_chA)) -> 'rows')::text);
   delete from public.challenge_participation where challenge_id = v_chC and patient_id in (select patient_id from public.challenge_participation where challenge_id = v_chC limit 3);
   perform private.challenge_aggregate(v_chC, false); perform pg_temp.publish_all();
-  perform pg_temp.ck('11 with only two cohorts shown the board is not ready', 'not_ready', pg_temp.j(v_first, format('select public.cohort_board(%L::uuid)::text', v_chA)) ->> 'state');
   -- put B and C back
   insert into public.challenge_participation (organisation_id, challenge_id, patient_id, day, value, source)
   select v_org, v_chB, p, (now() at time zone 'Africa/Lagos')::date, 75, 'self_report' from unnest(v_b_members) p on conflict do nothing;
@@ -832,6 +823,14 @@ begin
   perform pg_temp.sab('S10 closing without clearing skip rows', '0', (select count(*)::text from public.challenge_skips where challenge_id = v_ch));
 end $$;
 
+
+-- (S11) a board function brought back: the "no board function" check must catch it
+do $$
+begin
+  create function public.cohort_board(p_challenge uuid) returns jsonb language sql as $f$ select '{}'::jsonb $f$;
+  perform pg_temp.sab('S11 a cohort_board function exists again', '0', (select count(*)::text from pg_proc where pronamespace = 'public'::regnamespace and proname = 'cohort_board'));
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -841,7 +840,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 10 then raise exception 'VACUOUS TEST: the sabotage flipped % of 10 checks (%)', v_caught,
+  if v_caught < 11 then raise exception 'VACUOUS TEST: the sabotage flipped % of 11 checks (%)', v_caught,
     (select string_agg(check_name || ' => ' || expected || ' vs ' || coalesce(actual, 'null'), '; ') from results where phase = 'sabotaged'); end if;
 end $$;
 

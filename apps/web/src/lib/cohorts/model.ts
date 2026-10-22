@@ -72,20 +72,6 @@ export function parseRoster(data: unknown): RosterRow[] {
   });
 }
 
-export const boardSchema = z.discriminatedUnion("state", [
-  z.object({ state: z.literal("hidden") }),
-  z.object({ state: z.literal("not_ready") }),
-  z.object({
-    state: z.literal("shown"),
-    rows: z.array(z.object({ label: z.string(), rank: z.number(), progress_pct: z.number(), is_yours: z.boolean() })),
-  }),
-]);
-export type Board = z.infer<typeof boardSchema>;
-export function parseBoard(data: unknown): Board {
-  const r = boardSchema.safeParse(data);
-  return r.success ? r.data : { state: "hidden" };
-}
-
 export const templateSchema = z.object({
   code: z.string(),
   label: z.string(),
