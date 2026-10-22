@@ -173,7 +173,10 @@ begin
     insert into public.health_education_content (code, title, body, category) values ('s33_control_published', 'control', 'control body', 'getting_started') returning id into v_other;
     perform pg_temp.pub(v_other, v_today + 30);
   end if;
+  -- the control row may be a seeded published lesson that reads above the reading-grade maximum; that gate is proved in reading_grade_gate.sql
+  alter table public.health_education_content disable trigger health_education_reading_grade_gate;
   update public.health_education_content set body = body || ' control edit' where id = v_other;
+  alter table public.health_education_content enable trigger health_education_reading_grade_gate;
   perform pg_temp.rec('control: editing a non-course row leaves it published', 'published', (select content_status::text from public.health_education_content where id = v_other));
 
   -- 5. Sweep ----------------------------------------------------------------------------------------------------
@@ -234,6 +237,8 @@ begin
   insert into results values ('sabotaged', 'finishing the teach-back emits lesson.completed', '1', pg_temp.events('lesson.completed', v_pat2));
   -- (b) the edit trigger dropped: an edited lesson stays published, so the matching check flips
   drop trigger health_education_content_requeue_on_edit on public.health_education_content;
+  -- the seeded lesson reads above the reading-grade maximum; that gate is proved in reading_grade_gate.sql, so it is switched off here
+  alter table public.health_education_content disable trigger health_education_reading_grade_gate;
   perform pg_temp.pub(v_l4, v_today + 30);
   update public.health_education_content set body = body || ' sabotage edit' where id = v_l4;
   insert into results values ('sabotaged', 'editing a lesson sends it back to clinical review', 'clinical_review', (select content_status::text from public.health_education_content where id = v_l4));

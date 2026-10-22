@@ -19,73 +19,16 @@ import {
 import { useMeasurementUnits } from "@/components/measurement-units-provider";
 import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 import { SEMANTIC_ICON } from "@/lib/icons";
-import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
-import { classifySpo2Level, SPO2_LEVEL_LABEL, type Spo2Level } from "@/lib/rules/spo2-classification";
-import { classifyPulseLevel, PULSE_LEVEL_LABEL, type PulseLevel } from "@/lib/rules/pulse-classification";
-import {
-  classifyTemperatureLevel,
-  TEMPERATURE_LEVEL_LABEL,
-  type TemperatureLevel,
-} from "@/lib/rules/temperature-classification";
-import { VITAL_LEVEL_BADGE_CLASSNAME as LEVEL_STYLE } from "@/lib/rules/vital-level-style";
-
+import { ReadingStatus } from "@/components/reading-status";
+import { readingStatus } from "@/lib/vitals/reading-status";
 import { formatPatientDateTime } from "@/lib/format-date";
 import { ChangedMarker, EditReading } from "./reading-edit";
 import { SourceBadge, WristSpo2Note } from "@/components/source-badge";
-const BP_LEVEL_STYLE: Record<Exclude<BpLevel, "unknown">, string> = LEVEL_STYLE;
-
-function BpLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
-  const level = classifyBpLevel(reading.systolic, reading.diastolic);
-  if (level === "unknown") return null;
-  return (
-    <span
-      className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${BP_LEVEL_STYLE[level]}`}
-    >
-      {BP_LEVEL_LABEL[level]}
-    </span>
-  );
-}
-
-const SPO2_LEVEL_STYLE: Record<Exclude<Spo2Level, "unknown">, string> = LEVEL_STYLE;
-
-function Spo2LevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
-  const level = classifySpo2Level(reading.spo2_pct);
-  if (level === "unknown") return null;
-  return (
-    <span
-      className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${SPO2_LEVEL_STYLE[level]}`}
-    >
-      {SPO2_LEVEL_LABEL[level]}
-    </span>
-  );
-}
-
-const PULSE_LEVEL_STYLE: Record<Exclude<PulseLevel, "unknown">, string> = LEVEL_STYLE;
-
-function PulseLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
-  const level = classifyPulseLevel(reading.pulse_bpm);
-  if (level === "unknown") return null;
-  return (
-    <span
-      className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${PULSE_LEVEL_STYLE[level]}`}
-    >
-      {PULSE_LEVEL_LABEL[level]}
-    </span>
-  );
-}
-
-const TEMPERATURE_LEVEL_STYLE: Record<Exclude<TemperatureLevel, "unknown">, string> = LEVEL_STYLE;
-
-function TemperatureLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
-  const level = classifyTemperatureLevel(reading.temperature_c);
-  if (level === "unknown") return null;
-  return (
-    <span
-      className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${TEMPERATURE_LEVEL_STYLE[level]}`}
-    >
-      {TEMPERATURE_LEVEL_LABEL[level]}
-    </span>
-  );
+/** Design principle 2: the status chip (icon + plain word + colour) for a reading, from the existing deterministic classifiers. */
+function StatusChip({ reading }: { reading: Tables<"vitals_readings"> }) {
+  const status = readingStatus(reading);
+  if (!status) return null;
+  return <ReadingStatus level={status.level} word={status.word} className="ml-2" />;
 }
 
 function formatReading(
@@ -185,14 +128,7 @@ export function VitalsHistory({ patientId, viewerId }: { patientId: string; view
                 <div>
                   <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                     {formatReading(reading, glucoseUnit, measurementUnits)}
-                    {reading.vital_type === "blood_pressure" && (
-                      <BpLevelBadge reading={reading} />
-                    )}
-                    {reading.vital_type === "spo2" && <Spo2LevelBadge reading={reading} />}
-                    {reading.vital_type === "temperature" && (
-                      <TemperatureLevelBadge reading={reading} />
-                    )}
-                    {reading.vital_type === "pulse" && <PulseLevelBadge reading={reading} />}
+                    <StatusChip reading={reading} />
                     {reading.assisted_entry ? (
                       <AssistedEntryNote
                         name={attribution?.get(reading.id)?.actorName ?? null}

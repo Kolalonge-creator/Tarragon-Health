@@ -4603,6 +4603,44 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
 
+### OQ-DUP-1-1 Duplicate lab value match numbers are PROPOSED (raised by DUP-1, 2026-10-20)
+- `lab_value_match_config` v1: 2 day window, 0.5 percent value tolerance, same unit required. Engineering defaults, no published standard. The CMO or lab liaison confirms or changes them (a new config version, never an edit).
+- Decision: open (CMO).
+
+### OQ-DUP-1-2 A disputed analyte is left out of the Health Report facts (raised by DUP-1, 2026-10-20)
+- When a structured result and a paper report disagree, the report omits that analyte entirely (no older reading is promoted either) instead of printing one value, and the trend shows both. Alternative: print both with a "two reports differ" line. Needs the report wording owner.
+- Decision: open (product, CMO).
+
+### OQ-DUP-1-3 Record exports still list both rows (raised by DUP-1, 2026-10-20)
+- The FHIR snapshot and the record export list the structured and the filed reading with an `origin` label (evidence). Collapsing a duplicate there is not done (the AI explainer's two lab readers are also separate and not de-duplicated); a receiving system may see two Observations.
+- Decision: open (product).
+
+### OQ-DUP-1-4 No way to dismiss a disagreement that is only a unit label (raised by DUP-1, 2026-10-20)
+- U/L against IU/L, or % against % HbA1c, is a disagreement by design (units are never converted). There is no unit alias table and no resolve action; it clears when a clinician withdraws or corrects one source. A confirmed alias list in config would remove the noise.
+- Decision: open (CMO, lab liaison).
+
+### OQ-DUP-1-5 The case-file note writes an audit row per open (raised by DUP-1, 2026-10-20)
+- Each case-file open reads the note through the audited function (one row, 5 minute cache). Lazy loading or folding it into the existing audited read would cut the volume.
+- Decision: open (engineering).
+
+### OQ-DUP-1-6 Nothing reads or alerts on lab_value_link_failures yet (raised by DUP-1, 2026-10-20)
+- A failed link is recorded and the value shows twice until re-linked. A sweep or an alert is not built.
+- Decision: open (engineering).
+
+### OQ-DUP-1-7 No central lab-code classifier for reproductive or mental health analytes (raised by DUP-1, 2026-10-20)
+- The staff disagreement note withholds analytes by a keyword list plus `confidential_domain_of_text`, which classifies conditions and medicines, not lab codes. A reviewed central list would replace it.
+- Decision: open (CMO, DPO).
+### OQ-RCPT-1-1 Consent receipt download is web only (raised by RCPT-1, 2026-10-20)
+- The mobile privacy screen has no session-authenticated way to fetch the web PDF route, and the mobile document flows use their own bearer routes. A bearer route (or an in-app render) would add it. Not built.
+- Decision: open (product).
+
+### OQ-RCPT-1-2 Receipt wording is placeholder until counsel approves it (raised by RCPT-1, 2026-10-20)
+- The matrix wording is `draft_pending_counsel` (OQ-330), so a receipt says so on the page. The strings in `consent.receipt.*` are plain-language engineering text, not legal text. Counsel reviews them with the matrix wording.
+- Decision: open (counsel).
+
+### OQ-RCPT-1-3 A guardian cannot download a dependant's receipts (raised by RCPT-1, 2026-10-20)
+- By design for this change (own rows only). If a guardian needs them, it is a new access rule on the audited function, with the category checks the dependant model already has.
+- Decision: open (product, DPO).
 ### OQ-S08z-1 The starting time of each anchor is PROPOSED (raised by S08z, 2026-10-20)
 - `medicines.dose_anchors.anchors` (and the seeded `dose_anchor_defaults`) hold a plausible starting time for each of ten parts of the day (waking, the five daily prayers, three meals, bedtime). They are placeholders: nothing is computed from location or a calendar, and the patient confirms the time of each anchor they use. Needed: the founder or CMO confirms or replaces them (a new registry version and a new migration row, never an edit in place).
 - Decision: open (founder).
@@ -5011,6 +5049,142 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - This conflicts with the earlier two-tier decisions: `docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md`, and in `docs/DECISIONS.md` the 2026-10-08 "Two-tier answers" and T-1 ("there are two tiers only"; one Member plan). The "Three-tier annual-only membership: Free, Membership, Membership Plus (2026-10-21)" entry in `docs/DECISIONS.md` and `docs/plans/three-tier-membership-build-brief.md` already propose an answer (a lower and a higher paid tier, an annual panel as the difference, a flat upgrade difference) and the build for it sits dark behind `membership_two_member_tiers`. It is not clear whether that proposal is the founder's final word.
 - **Please state, for Membership Plus:** the yearly price in naira; what it includes that Membership does not (the annual blood test panel? doctor time? anything else); whether Membership keeps the panel; the mid-year upgrade price, if any; the refund window for each; and whether the 2026-10-08 two-tier wording (T-1, the 120,000 price, the T-numbered amendments) is formally superseded. Until answered, nothing about Membership Plus is built, switched on or shown to patients beyond what is already dark.
 - Decision: **CLOSED 2026-10-21 (founder, answered in chat): the proposal already recorded in `docs/DECISIONS.md`, "Three-tier annual-only membership: Free, Membership, Membership Plus (2026-10-21)", and `docs/plans/three-tier-membership-build-brief.md` stands as the final scope, price and entitlements** (Membership NGN 84,000 a year; Membership Plus NGN 129,000 with the annual panel; flat NGN 45,000 mid-year upgrade; annual payment only, no instalments). That entry supersedes the 2026-10-08 two-tier decisions (T-1) as it already states. The Evergreen name is retired: customer-facing names are Membership and Membership Plus only. Nothing is switched on by this: the build stays dark behind `membership_two_member_tiers` until its listed conditions are met.
+### OQ-S55-QG-01 Reading-grade gate: the maximum, and what the formula can and cannot tell (raised by the learning quality gates build, 2026-10-22)
+- Built: patient content cannot move to `published` above a maximum Flesch-Kincaid grade unless the active Chief Medical Officer records a written override reason bound to the exact wording (`set_reading_grade_override`; editing the text voids it). The database computes the grade (`private.reading_grade`, the same formula as `packages/shared/src/learning/reading-grade.ts`, pinned by golden vectors in both).
+- PROPOSED and unsigned: `learning.reading_grade` = `{max_grade: 8, min_override_reason_chars: 15}`. Needed: the CMO sets the maximum and the reason length. Clinician-level content (`reading_level = 'clinician'`) is exempt by design.
+- Known limits: the syllable count is a vowel-group estimate (it can be a little off for drug names and Nigerian names), numbers are not words, a text of fewer than six words is not gated at all (the formula over one or two words is noise: the single word "Teaser" scores 8.4), and a grade says nothing about whether the content is clear or true. It is a screen, not a replacement for the understandability test (`learning.understandability_pass_rule`).
+- Existing items: the 235 items already published are not re-checked or edited. `learning_reading_grade_report()` (admin or CMO, read-only) lists every item's grade so the CMO can see how many are above the maximum before deciding whether to rewrite them.
+- Decision: open (CMO).
+
+### OQ-S55-QG-02 Record-triggered lessons cannot be switched on yet, and the bands are applied by the app (raised by the learning quality gates build, 2026-10-22)
+- Built, all OFF: guard `record_triggered_lessons_enabled` (created off, no defined condition, so `set_go_live_guard` cannot switch it on until conditions are added to `private.go_live_conditions`); versioned config `learning.record_lessons` (band-to-lesson mapping, the pattern size and window, a 72 hour suppression window after a red or emergency reading); six DRAFT lessons (`record-bp-in-target`, `record-bp-above-target`, `record-glucose-in-target`, `record-glucose-above-target`, `record-lab-hba1c-normal`, `record-lab-hba1c-high`) that cannot be published until a named clinical author, a named reviewer, a source, a future review date and a self-care step exist.
+- Rules enforced: only the lowest band (green, or a normal lab value) can show a lesson from one reading; amber needs at least 3 amber readings inside 14 days and a high or low lab value needs 2 successive results (all PROPOSED); a red or emergency reading, or a critical lab value, shows the urgent-help box and never a lesson; a lab result is used only when released (INV-03) and a result that holds a sensitive positive is dropped whole (INV-04); the event carries ids only (INV-07); the lesson is logged once per person per lesson per Lagos day; a caregiver or a dependant's screen never logs one (the function acts only for the signed-in person's own rows).
+- Where the bands come from: BP uses `private.classify_bp_level` (re-run in the database before anything is logged) and its web and phone mirrors. Glucose has no SQL classifier (`lib/vitals/glucose-red-flags.ts` and the phone's offline copy are the engines), so the glucose band is applied by the app and the database can only check that the readings are the person's own, recent, and that no red BP reading or emergency event sits inside the suppression window. Labs use the stored flag.
+- Needed: (1) the CMO chooses the lessons, writes them, publishes them and signs the mapping and pattern sizes (nothing is signed); (2) the guard's conditions are defined (for example: all six lessons published and reviewed against NG-2023, the mapping signed); (3) the CMO confirms whether a single red reading should suppress lessons for 72 hours, or longer.
+- Decision: open (CMO, founder).
+
+### OQ-S55-QG-03 The food portion guide needs a clinician or dietitian to author and sign it (raised by the learning quality gates build, 2026-10-22)
+- Built: the content model (an ordinary Learning Centre article whose body uses `[portion <ref> <hand>] Food name` lines, so it reuses the publish gate, review date, offline pack and search), a light renderer on web and phone (text first, hand outlines drawn from shared shapes, no images, works offline from a downloaded lesson), and two DRAFT items (`portion-guide-diabetes`, `portion-guide-bp`) covering swallows (pounded yam, eba or garri, amala, fufu), rice and jollof, beans, soups, plantain, yam, bread, drinks, fruit and protein, plus seasoning cubes, salt and fried food for blood pressure.
+- Every item is `draft`, `is_placeholder`, no reviewer, no source, no review date, so the existing publish gate refuses it. A second trigger refuses any portion guide while the `portion_guide` configuration row is still `proposed`, so the placeholder amounts cannot go live by mistake.
+- Every amount (for example "1 fist each meal", "1 seasoning cube for each pot") is a PROPOSED PLACEHOLDER in `learning.portion_guide` and is not clinical advice. The text of the draft items is mine, written in plain Nigerian English for a clinician or dietitian to rewrite.
+- Needed: a clinician or dietitian authors and signs the food list, the wording and the amounts (including whether "best to leave out" is right for sweet drinks and which fruits to name), a new `confirmed` version of the config replaces the placeholder, and the CMO approves the two items through the normal flow. Hand sizes vary between people; whether the guide needs a sentence about that is for the author.
+- Decision: open (clinician or dietitian, CMO).
+
+### OQ-S55-QG-04 Teach-back: authoring screen, limits and sharing (raised by the learning quality gates build, 2026-10-22)
+- Built: `health_education_content.teachback` (1 to 3 authored questions, 2 to 4 options, a right answer and a kind explanation, validated by trigger against the PROPOSED `learning.teachback` limits; not editable once the lesson is live), `lesson_teachback` (the questions without the answer key), `record_teachback_result` (marked in the database), `share_teachback_with_care_team` (reuses the "ask your care team" save), `consultation_shared_teachbacks` (tied clinician, audited, counts only, only while the lesson is still saved). The quiz never touches `health_education_progress`, so it never gates a lesson or a course.
+- Private by construction: the result is one row per person and lesson (a retake replaces it and makes it private again), has no public score, streak or ranking, and a clinician sees it only if the person shared it. The clinician surface is the saved-lessons card on the video visit screen (the same single surface as OQ-S55-08).
+- Not built: an authoring screen. `set_lesson_teachback(content_id, jsonb)` (admin or CMO, on a lesson that is not live) is the only writer. No lesson has a teach-back yet. Existing lessons keep their one `knowledge_check`; the two are deliberately separate.
+- Needed: the CMO confirms the limits; clinical authors write the questions; the DPO and CMO confirm the retention class proposed in `data_registry` for `learning_teachback_results` and `learning_record_lesson_shows`; the team decides whether an authoring form belongs in the admin health-education manager (it fits the S80 CMS work).
+- Decision: open.
+
+### OQ-S55-QG-05 Glossary: drafts only, no admin screen, online only (raised by the learning quality gates build, 2026-10-22)
+- Built: `learning_glossary_terms` (global catalogue; owner, reviewer, source and review date like content; a published term cannot be edited in place and new wording sends it back to draft), `learning_glossary()` (published, in-date, named-reviewer terms only), eight DRAFT terms (hypertension, systolic, diastolic, HbA1c, blood glucose, hypoglycaemia, cholesterol, creatinine) with no owner or reviewer, and tap-to-define on web and phone (first use of a term in a lesson only; a lesson with no terms is plain text). The reviewer's name is taken from the signed-in account.
+- Not built: an admin screen for glossary terms (the writers are `save_glossary_draft`, `publish_glossary_term` and `retire_glossary_term`); offline glossary (the phone fetches it with the lesson and shows plain text without signal).
+- Needed: the CMO reads and publishes the terms, names an owner and a source for each, and sets the review dates.
+- Decision: open (CMO).
+
+### OQ-S55-QG-06 Verification gaps of this build (raised by the learning quality gates build, 2026-10-22)
+- The three SQL proofs (`reading_grade_gate.sql`, `learning_glossary_and_teachback.sql`, `record_lessons_and_portion_guide.sql`) were run only against a scratch PostgreSQL 16 with stand-in tables and functions for the platform objects they touch (Docker was not available, so no `supabase db reset`). The migrations and all proofs passed there, including every sabotage step. They have not been replayed on the full migration history, and they should run in the required `Supabase migration replay` job before anyone relies on them. In particular an existing trigger on `health_education_content` that is not in the stand-in could refuse a fixture.
+- Neither migration has been applied to the live project and no live write was made. The types for the new tables and functions were spliced into `packages/shared/src/database.types.ts` by hand (not regenerated, per the standing rule), and not into the older copy in `packages/db`.
+- Nothing was run in a browser or on a phone.
+- Decision: open (CI).
+
+### OQ-S55-QG-07 Low blood pressure floor and glucose bands for "what this reading means" lessons
+- Review of the quality-gates branch found that the platform's blood pressure "green" includes a very low reading and the single-reading glucose classifier cannot tell "in range" from "high". A lesson saying "your reading is in a good range" would then reassure falsely.
+- Built conservatively and PROPOSED: a low blood pressure floor of 90/60 (no in-range lesson below it; `LOW_BP_FLOOR` in packages/shared learning/record-lesson.ts and the same numbers in `record_lesson_shown`), and every glucose lesson is refused by the database and never offered by the app until a clinician-signed glucose band exists.
+- Needs the CMO: confirm or replace the 90/60 floor, and sign a glucose in-range / above-range band so glucose lessons can be switched on.
+
+### OQ-NAFDAC-HELPER-1 A patient-sent text to NAFDAC against INV-08 (raised by S54d, item 14)
+- INV-08 says SMS is used only for phone verification codes. The NAFDAC helper (`nafdac_verify_helper_enabled`, born OFF) sends no SMS from Tarragon: it opens the person's OWN messages app with the 12 digit scratch code typed in (`sms:<number>?&body=<code>`), and the person presses send. Tarragon sends nothing and receives nothing. Whether that is acceptable is the founder's call.
+- The number to text is UNVERIFIED. 38353 comes from 2010-era sources (a Mondaq article, a safemedicines.org post of 2010); a later press item says many over-the-counter and syrup packs no longer carry the PIN. It sits in versioned config `medicines.nafdac_verify_helper` marked `verified: false`, and the screen says so. NAFDAC must confirm the number, coverage and cost in writing before the guard is switched on. The Greenbook address (greenbook.nafdac.gov.ng, "Nigeria's Registered Product Database") was read on 2026-10-22.
+- Related, not changed: the web pack-check text (`apps/web/src/lib/medications/pack-check.ts`, `NAFDAC_MAS`) and the collect page still print 38353 as fixed text (OQ-S08Y-4).
+- Options: (a) founder confirms the patient-sent text fits INV-08, NAFDAC confirms the number, then the guard is switched on (recommended); (b) keep only the Greenbook link and drop the message button; (c) remove the helper.
+- Decision: **RESOLVED 2026-10-22 (founder): Greenbook link only.** The `sms:` link, the pre-filled scratch-code text and the 38353 short-code config entry were removed from code, config, i18n, tests and the guard text; the block keeps the link to NAFDAC's public registered-product check and the wording "A registration match is not proof that a pack is genuine." INV-08 is no longer in play for this helper. The guard stays OFF. Not touched: the older `NAFDAC_MAS` text on the web pack-check and the mobile `medications.ts`, and the `medicines.mas.*` strings, which belong to main-dev and tell the person to text 38353 themselves; the founder may want those reviewed separately.
+
+### OQ-S54D-1 Price and stock "as of" in the pharmacy chooser conflicts with OQ-714 (raised by S54d, item 9b)
+- The request asked for "price and stock as of <time>" per partner pharmacy in the chooser. The founder removed the patient price comparison on 2026-10-21 (OQ-714, OQ-283, Part C.2: no price anywhere on the collection flow), and the chooser lists pharmacies BEFORE any is chosen, when no per-pharmacy stock exists (S28e holds one yes-or-no stock answer per prescription, after a pharmacy is chosen).
+- Built instead, consistent with OQ-714: the stock answer on the collect page is dated and is NOT shown as available once older than `maxStockAgeHours` (48, PROPOSED, `medicines.runway_and_stock_freshness`); it then reads "Ask the pharmacy to confirm". No price, no commission data, no location collection.
+- Not built: any price, and any per-pharmacy stock before choosing. Options: (a) leave as built (recommended); (b) a per-pharmacy stock flag a pharmacy sets for its own catalogue, with the same age limit, shown without a price (needs its own decision and proof); (c) reverse OQ-714.
+- Decision: **RESOLVED 2026-10-22 (founder): option (a), as built.** Price and per-pharmacy stock stay removed from the chooser (OQ-714 stands). The 48-hour stale-stock rule and the runway bar stay.
+
+### OQ-S54D-2 Who can read a "ran out or cannot afford" reason (raised by S54d, item 5)
+- Built: a private reason is moved off the dose row (which a supporter holding the medicines category can read) into `medication_dose_reasons`. Readers: the person; someone acting for them (`private.can_act_for`, which includes a guardian and a manage-level supporter); a view-level supporter only after the person opts in for that exact reason (`dose_reason_sharing`, off by default, withdrawable); the tied care team through `read_dose_reasons_audited` (audited, INV-10). The supporter missed-dose notice (S53) fires only for status `missed` and never carries a reason. The reason raises no clinician alert, no outreach task and no notification by itself.
+- Open: (1) a manage-level supporter acting for the person can read the reason even without the opt-in, because they can already log doses for them; option: narrow that to guardians of dependants only. (2) Reasons already stored in `medication_logs.reason` before this change stay readable by a supporter; live rows were not counted (no live access was used). (3) The care-coordinator access-barrier path (`medication_access_barriers`, which does raise a clinician alert) is untouched and separate.
+- Decision: **RESOLVED 2026-10-22 (founder): tighten fully.** No supporter, a manage-level one included, reads a ran-out or cannot-afford reason unless the person opted in for that exact reason (policy `medication_dose_reasons_select`). Old values already stored on `medication_logs.reason` are copied to `medication_dose_reasons` and blanked by the same migration (`private.backfill_private_dose_reasons`), so a supporter no longer sees them on the dose row either. Proof groups B2b, B7b, B8b, G and sabotage F3 in `packages/db/tests/s54d_private_dose_reasons.sql`.
+
+### OQ-S54D-3 Reminder reliability needs a real-device check on Android and iPhone (raised by S54d, item 4)
+- Nothing here has been run on a Tecno, Infinix, Samsung or iPhone, or in a simulator. Built: a "Make reminders reliable" card (first run, Medications screen, Settings) with notification-permission guidance (including iPhone provisional), a one minute self-test whose answer is kept on the phone, one gentle follow-up 30 minutes after a dose with no answer (never more than one per dose, generic wording), the iPhone pending-notification cap held at 56 of the 64 allowed, and `interruptionLevel: timeSensitive` on dose reminders.
+- Time Sensitive only takes effect in a build made with `IOS_TIME_SENSITIVE=1` (native: needs an EAS build and a `runtimeVersion` bump). Critical Alerts are NOT used and not requested. A later request to Apple for the Critical Alerts entitlement could be considered for emergency pages only, never for dose reminders; that is a founder decision.
+- Battery-optimisation exemption is guided (opens the system screen) but not detected: detecting it needs a new native function (`PowerManager.isIgnoringBatteryOptimizations`) in the exact-alarms module, a native change. The self-test is the real check instead. Option: add the native function in the next planned EAS build.
+- Decision: open (needs a device run).
+### OQ-CUFF-1 A server-side vision step for the cuff display conflicts with OQ-598 (raised by the cuff camera and result passport build, 2026-10-22)
+- OQ-598 (S70-4) decided on-device text recognition only and recorded "server vision not approved". This build was asked for explicitly to add a governed vision-model call as the alternative, because most Nigerian cuffs are not Bluetooth and no on-device recogniser ships (it needs a native module and a fresh EAS build, which cannot be exercised here).
+- Built, dormant, as a courtesy step in front of the existing S70a photo screen: `POST /api/mobile/cuff-display-proposal`, AI-022 registered DISABLED (AI-021 is held by the unmerged S07y diary reader), `runGovernedAi()` with fail-closed governance, the `cuff_camera_enabled` go-live guard (OFF) AND the existing `device_photo_capture` module. The save route, source `photo_confirmed` and triage are unchanged.
+- The guard has no branch in `private.go_live_conditions` (that function is edited by many open branches), so it reports "no defined condition" and cannot be switched on from the dashboard until conditions are added. Suggested conditions: AI-022 evaluation passed and approved by the Clinical Director, the vision provider data agreement in place, founder confirmation. A test account passes the guard, so the flow can be exercised today.
+- Needs a written founder decision that overrides the OQ-598 line, plus a human evaluation of AI-022 (nothing was seeded: no evaluation run, prompt version, knowledge source or approval).
+- Decision: open.
+
+### OQ-CUFF-2 The cuff photo is never stored; where it does sit (raised by the cuff camera and result passport build, 2026-10-22)
+- Followed the AI-007 pack reader pattern: the photo is read into memory for the one call and dropped. It is not written to storage, a queue, a row or a log, and the audit row holds "proposal_made" or "refused:<reason>", never a number or the image. Nothing persists until the person ticks every number, and then only the numbers are sent to the existing photo-readings route.
+- On the phone the photo lives in the camera picker's cache until the operating system clears it, exactly as the S70a screen already did; this build does not add a longer copy.
+- Open: a DPO decision on whether a transient image sent to the vision provider needs a line in `docs/PROCESSORS.md` and the data registry (no table was added, so no registry row was). The consent text tells the person the photo is sent, read and deleted.
+- Decision: open (DPO).
+
+### OQ-CUFF-3 Accuracy of the reader on real cuffs is unknown (raised by the cuff camera and result passport build, 2026-10-22)
+- No clearly synthetic seven-segment image fixture could be made honestly, so the harness unit-tests the deterministic half with mocked model output (refusals, plausibility ranges from `devices.plausibility`, the hand-off to the confirm gate). Real-photo accuracy (glare, 1 versus 7, 5 versus 6, wrist cuffs, memory numbers) is untested.
+- The prompt makes low confidence a retake, never a guess; an implausible pair is refused with a retake request; an impossible pulse is dropped rather than sinking a good pair. A human evaluation set of real cuff photos is needed before AI-022 can be enabled.
+- No web upload fallback was built (the pack reader has one on the web); the phone is where the cuff is.
+- Decision: open (CMO to own the evaluation set).
+
+### OQ-PASSPORT-1 The result passport already existed in pieces; what was added (raised by the cuff camera and result passport build, 2026-10-22)
+- Reconciled first: share links with time limit, PIN, view cap, window, revoke and a patient-visible access log (S09, S09x, share extras, `record_shares`, `record_share_lookups`, `my_access_log()`), a closed section list with no reproductive health, sensitive-positive filtering (`record_share_by_token`, restrictive policy on `lab_analyte_readings`), the printable shared view, and the patient-built visit summary PDF (`/api/patient/doctor-summary/pdf`, section choice, audit row, "prepared by the patient" line). None of it was rebuilt.
+- Added: blood sugar and latest-lab sections on the same PDF builder, a "Result passport" title and "generated by the patient on <date>" line when those sections are ticked, the `result_passport_enabled` guard (OFF) checked by the page and both PDF routes, a calm page `/patient/result-passport` that builds the PDF and points to the existing share controls, a bearer route `POST /api/mobile/result-passport/pdf`, and a phone card that keeps a copy in the app's document folder for use offline. Share links stay live and ungated.
+- Decision: open (founder confirms this reading of "build on the existing machinery").
+
+### OQ-PASSPORT-2 Sensitive-positive and reproductive results are never offered, not offered as opt-in (raised by the cuff camera and result passport build, 2026-10-22)
+- The brief allowed these only on explicit patient selection when category consent allows. INV-04 says a positive HIV, hepatitis B surface antigen or hepatitis C antibody result is disclosed by a clinician personally and never auto-released, and row level security already hides those rows from the patient. So the passport has no opt-in for them at all, and the lab section is an allow-list of common analytes (a code on neither list is left out and counted as "not shown"). Reproductive health records have no section.
+- A per-category opt-in would need the category-scoped consent model written fresh (never copied from a sibling table) and a clinician disclosure path; not built.
+- Decision: open (CMO).
+
+### OQ-PASSPORT-3 No "reviewed by" line on the passport (raised by the cuff camera and result passport build, 2026-10-22)
+- `lab_analyte_readings` carries no `reviewed_by` or `reviewed_at`, so there is nothing real to show; a null-gated `ReviewedByDoctor` line was therefore not rendered, and the PDF says it was generated by the patient and has not been checked by a clinician as a document. If release data that holds a real reviewer exists elsewhere (INV-03), a null-gated line can be added per result.
+- Decision: open.
+
+### OQ-PASSPORT-4 The phone copy needs a native build and has not run on a device (raised by the cuff camera and result passport build, 2026-10-22)
+- `expo-file-system`'s native module must be in the installed binary (see `lib/offline-downloads/index.ts`), so the "Save a copy on this phone" button needs the same fresh EAS build and `runtimeVersion` bump as other native additions; where it is missing the button reports a calm failure. "Open or send" uses the built-in share sheet (a file URL works on iOS; Android needs a document provider and was not tested). Nothing was run on a physical phone or simulator.
+- The lab allow-list codes (`PASSPORT_LAB_CODES`) are taken from codes seen in the repository; the CMO should confirm the list against what laboratories actually send.
+- Decision: open.
+
+- Update 2026-10-22 (OQ-CUFF-1, OQ-598): the founder decided "approve for evaluation only" (see docs/DECISIONS.md, 2026-10-22). The server vision call stays dormant; go-live still needs a human AI-022 evaluation, a DPO view, defined guard conditions, rate limiting and a further written decision.
+### OQ-DP-01 Glucose readings have no status word on the patient history (raised by the design-principles pass, 2026-10-22)
+- A single-reading classifier exists (`classifyLatestGlucoseLevel`) but no patient-facing word set is signed (`glucose-wording.json` is unsigned). Principle 2 (number + word + colour + icon) therefore cannot be met for glucose without new clinical wording.
+- Options: (a) CMO signs a short word set per level, then glucose joins `readingStatus()`; (b) leave glucose as a number only. Recommend (a).
+- Decision: open (CMO).
+
+### OQ-DP-02 Home "safety message is waiting" line (raised by the design-principles pass, 2026-10-22)
+- New plain, non-clinical Home copy (`dp.next.red_alert.*`): "A safety message is waiting for you". It names nothing clinical and does not claim a clinician was told. It sits below the emergency dialog. CMO to confirm the line, or reword.
+- Also for the CMO to confirm (same item): the dose card (`dp.next.dose.*`: "A dose is due" / "Open your list and mark what you have taken today", no medicine name) and the safety-check card shown when the emergency read fails (`dp.next.safety_check.*`: "Check for safety messages"). Neither claims a clinician was told.
+- Decision: open (CMO). Build order of the card is the founder's; items that were on the card before (screening, video times, check-in, review) now sit after refill, before the lesson. Confirm that placement.
+
+### OQ-DP-03 Home has about 40 cards (raised by the design-principles pass, 2026-10-22)
+- One next action is now correct at the top, but `(sections)/page.tsx` still stacks about 40 cards below it, each with its own query. No bundle measurement was run. Options: (a) founder picks a short list of cards to keep on Home and moves the rest behind "More"; (b) measure first with a bundle analysis and a low-end Android profile. Recommend (b) then (a).
+- Decision: open (founder).
+
+### OQ-DP-04 Doctor trust cue is not on every clinical item (raised by the design-principles pass, 2026-10-22)
+- `ReviewedByDoctor` is keyed by escalation only. Medication changes, care-plan cards and AI-assisted summaries need an inventory of which carry `reviewed_by`/`signed_by`; add the cue only where a real record exists.
+- Decision: open (product, then a build session).
+
+### OQ-DP-05 Web has no offline write queue (raised by the design-principles pass, 2026-10-22)
+- Mobile queues and shows a pending state. Web blocks the save offline and says so. A web queue needs ordering and conflict rules and a clinical-safety review (a queued red reading must never read as "sent"). Not built.
+- Decision: open (founder).
+
+### OQ-DP-06 Shared-phone mode only covers mental-health screens; non-discreet push body is template text (raised by the design-principles pass, 2026-10-22)
+- No app-wide quick profile switch or "hide now". With `discreet_mode` off, a push body is the template text (up to 160 characters), protected by the INV-07 template lint only. Options: default discreet on for new accounts, or an app-wide hide. Recommend discussing with the S56 owner.
+- Decision: open (founder).
+
+### OQ-DP-07 Competitor patterns not built (raised by the design-principles pass, 2026-10-22)
+- Range gauge on results, one insight card on Home, tappable suggested questions for the assistant, shareable doctor report from readings. The assistant and learning files are being edited by other sessions, so none was started.
+- Decision: open (founder).
 
 ### Follow-up to OQ-S64-4: the older video-visit "full refund" line is accurate for its mechanism (2026-10-22)
 - Checked while reconciling S61 to S65 against current `main-dev`. `book-video-visit.tsx` says "If nobody can take it, you get a full refund". That path (`video_visit_requests`) takes a real Paystack payment, holds it, and `/api/cron/video-visit-refunds` refunds it in cash through the Paystack Refunds API when no doctor accepts within 48 hours. So the sentence describes what happens; it is not a credit-versus-cash mix-up.

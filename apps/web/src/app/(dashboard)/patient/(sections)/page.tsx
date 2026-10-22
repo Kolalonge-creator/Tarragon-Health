@@ -27,6 +27,7 @@ import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { YourFocusCard } from "@/app/(dashboard)/patient/your-focus-card";
 import { AskTarragonCard } from "@/app/(dashboard)/patient/ask-tarragon-card";
 import { WeeklyLessonCard } from "@/components/learning/weekly-lesson-card";
+import { RecordLessonCard } from "@/components/learning/record-lesson-card";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { HealthResetCard } from "@/app/(dashboard)/patient/health-reset-card";
 import { WeeklyPlanCard } from "@/app/(dashboard)/patient/weekly-plan-card";
@@ -211,6 +212,9 @@ export default async function PatientOverviewPage() {
       {profile.organisation_id && !acting && (
         <WeeklyLessonCard patientId={subjectId} organisationId={profile.organisation_id} />
       )}
+
+      {/* Item 7: "what this reading means" after a banded reading. Behind a go-live guard that is OFF, so it renders nothing by default; the urgent-help box always outranks it. */}
+      {profile.organisation_id && !acting && <RecordLessonCard patientId={subjectId} />}
 
       {/* On a genuinely empty account everything below this point can only
           report an absence, so it is not rendered at all until there is
