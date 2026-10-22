@@ -84,7 +84,7 @@ create function pg_temp.run(p_phase text) returns void language plpgsql as
 $f$
 declare
   v_org uuid; v_partner uuid; v_partner2 uuid; v_pat uuid; v_pat2 uuid; v_pat3 uuid; v_ph uuid; v_ph2 uuid; v_ph3 uuid; v_partner3 uuid;
-  v_code text; v_n integer; v_i integer; v_last text; v_ledger integer;
+  v_code text; v_n integer; v_i integer; v_last text; v_hashdef text; v_ledger integer;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, nafdac_source_attested_at) values ('S70B Pharmacy A ' || p_phase, true, now(), now(), 'activated', now()) returning id into v_partner;
@@ -113,10 +113,12 @@ begin
   perform pg_temp.ck(p_phase, 'a patient cannot read the code table', 'ERR:42501', pg_temp.q_as(v_pat, 'select count(*)::text from public.pharmacy_reading_codes'));
   perform pg_temp.ck(p_phase, 'a patient cannot call the counter function', 'ERR:42501', pg_temp.open_as(v_pat, v_code));
 
-  -- the pepper is required: without it a code can be neither made nor tested
-  update vault.secrets set name = 'pharmacy_reading_pepper_aside' where name = 'pharmacy_reading_pepper';
+  -- the pepper is required: without it a code can be neither made nor tested. The proof role cannot read the vault schema, so instead of renaming the secret it replaces the
+  -- hash function's secret lookup with "no secret found" (inside this rolled-back transaction), proves the code creation raises P0001, and restores the real definition.
+  select pg_get_functiondef(p.oid) into v_hashdef from pg_proc p where p.proname = 'pharmacy_code_hash' and p.pronamespace = 'private'::regnamespace;
+  perform pg_temp.sab('private', 'pharmacy_code_hash', 'select decrypted_secret into k from vault.decrypted_secrets where name = ''pharmacy_reading_pepper'';', 'k := null;');
   perform pg_temp.ck(p_phase, 'no pepper: making a code fails closed', 'ERR:P0001', pg_temp.make_code(v_pat2));
-  update vault.secrets set name = 'pharmacy_reading_pepper' where name = 'pharmacy_reading_pepper_aside';
+  execute v_hashdef;
 
   -- rate limit on making codes (pat3 may make 5 in an hour, not a 6th)
   for v_i in 1..5 loop
