@@ -31,6 +31,7 @@ import { SyncScreen } from "@/screens/sync-screen";
 import { startWrittenQuestionFlushing } from "@/lib/written-questions/queue-flush";
 import { MessagesScreen } from "@/screens/sections/messages-screen";
 import { HealthPassportScreen } from "@/screens/sections/health-passport-screen";
+import { RecordsRequestsScreen } from "@/screens/sections/records-requests-screen";
 import { EmergencyCardScreen } from "@/screens/sections/emergency-card-screen";
 import { SettingsScreen } from "@/screens/sections/settings-screen";
 import { SupportingScreen } from "@/screens/sections/supporting-screen";
@@ -364,6 +365,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         subjectName={acting?.fullName ?? undefined}
       />
     ),
+    recordsRequests: () => <RecordsRequestsScreen actingForOther={subjectId !== userId} />,
     receipts: () => <ReceiptsScreen />,
     paymentRequests: () => <PaymentRequestsScreen />,
     reminders: () => <RemindersScreen userId={userId} />,

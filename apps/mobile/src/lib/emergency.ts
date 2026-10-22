@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { supabase } from "./supabase";
 import { PLATFORM_URL } from "./platform-url";
+import { coverageInputSchema, toEmergencyCoverage, type EmergencyCoverage } from "@tarragon/shared";
 import { API_BASE_URL } from "./api";
 
 export const EMERGENCY_REPRODUCTIVE_MEDICINE_PATTERN = /(contracept|levonorgestrel|norethisterone|ethinylestradiol|medroxyprogesterone|depo.?provera|mifepristone|clomiphene)/i;
@@ -28,6 +29,8 @@ export interface EmergencyFacts {
   /** S47d: how many reproductive or mental health medicines were left off because that switch is off. A count only, never a name. */
   medicinesNotShown?: number;
   emergencyContact: EmergencyContact | null;
+  /** S09y: HMO / NHIA cover the person typed in. Absent unless they filled it; patient entered, never checked. Not part of the lock-screen payload. */
+  coverage?: EmergencyCoverage | null;
   /** Details the person chose not to put on the card (S43). Shown as "not shared", never as "none". Absent in an older cache. */
   hidden?: ("allergies" | "medications" | "conditions" | "blood" | "emergency_contact" | "reproductive" | "mental_health")[];
   cachedAt: string;
@@ -70,13 +73,15 @@ export async function loadEmergencyFacts(patientId: string): Promise<EmergencyFa
         .select("show_allergies, show_medications, show_conditions, show_blood, show_emergency_contact, show_reproductive, show_mental_health")
         .eq("patient_id", patientId)
         .maybeSingle(),
+      // S09y: cover the person typed in. Own-row read; shown only when filled.
+      supabase.from("emergency_card_coverage").select("scheme, member_number, plan_name").eq("patient_id", patientId).maybeSingle(),
     ]);
   // Any failed query means this is not the person's card: an empty answer from a dropped connection must never replace the
   // saved copy (or be stamped as freshly updated), and a failed choices query must not fall back to defaults that could show
   // what the person chose to hide. Throw so the screen shows the saved copy, labelled with when it was really saved.
   const failed = results.find((r) => (r as { error?: { message?: string } | null }).error);
   if (failed) throw new Error((failed as { error: { message?: string } }).error.message ?? "Could not load the emergency card");
-  const [{ data: profile }, { data: allergies }, { data: carePlans }, { data: blood }, { data: meds }, { data: choices }] = results;
+  const [{ data: profile }, { data: allergies }, { data: carePlans }, { data: blood }, { data: meds }, { data: choices }, { data: coverage }] = results;
 
   const facts: EmergencyFacts = {
     fullName: profile?.full_name ?? null,
@@ -96,6 +101,8 @@ export async function loadEmergencyFacts(patientId: string): Promise<EmergencyFa
           relationship: profile.emergency_contact_relationship,
         }
       : null,
+    // (a failed cover read throws above with every other failed read, so null here really means none saved)
+    coverage: toEmergencyCoverage(coverage),
     cachedAt: new Date().toISOString(),
   };
 
@@ -179,6 +186,27 @@ export async function narrowCachedEmergencyFacts(chosen: EmergencyFieldChoicesRo
   } catch {
     // Best effort: the reload that follows rewrites the copy from the database.
   }
+}
+
+export type SaveCoverageResult = { ok: true; removed: boolean } | { ok: false; field: "member_number" | "plan_name" | "scheme" | "save" };
+
+/**
+ * Saves (or, with both fields blank, removes) the person's own HMO / NHIA cover through the one database function (S09y). Validated here with the
+ * same rules as the function so a bad value never leaves the phone; the function refuses it again regardless.
+ */
+export async function saveEmergencyCoverage(input: { scheme: string; memberNumber: string; planName: string }): Promise<SaveCoverageResult> {
+  const parsed = coverageInputSchema.safeParse({ scheme: input.scheme, member_number: input.memberNumber, plan_name: input.planName });
+  if (!parsed.success) {
+    const field = parsed.error.issues[0]?.path[0];
+    return { ok: false, field: field === "member_number" || field === "plan_name" ? field : "scheme" };
+  }
+  const { error } = await supabase.rpc("set_emergency_card_coverage", {
+    p_scheme: parsed.data.scheme,
+    p_member_number: parsed.data.member_number,
+    p_plan_name: parsed.data.plan_name,
+  });
+  if (error) return { ok: false, field: "save" };
+  return { ok: true, removed: parsed.data.member_number === "" && parsed.data.plan_name === "" };
 }
 
 export async function loadCachedEmergencyFacts(): Promise<EmergencyFacts | null> {

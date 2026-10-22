@@ -42,6 +42,16 @@ describe("sign-off hub inline panels", () => {
     expect(panel).toContain('code="glucose_care_triage"');
   });
 
+  it("opens the pulse, oxygen and temperature triage rules inline on the hub, with the guideline basis and the amber task type confirm", () => {
+    expect(source).toContain("inlinePanels[VITALS_TRIAGE_ITEM_KEY] = <VitalsTriageRulesPanel");
+    expect(source).toContain("inlinePanels[VITALS_TASK_TYPE_ITEM_KEY] = <VitalsTaskTypePanel");
+    const panel = readFileSync(join(__dirname, "../_signoff-panels/vitals-triage-rules-panel.tsx"), "utf8");
+    expect(panel).toContain("VITALS_RULE_BASIS");
+    expect(panel).toContain("VITALS_CITATIONS");
+    expect(panel).toContain("VITALS_WORDING_DATA");
+    expect(panel).toContain('code="vitals_care_triage"');
+  });
+
   it("renders an inline confirm panel for each task type that needs the CMO (call the patient, urgent glucose review), integration of P2 and P3", () => {
     expect(source).toContain("inlinePanels[RED_OUTREACH_ITEM_KEY] = <RedOutreachPanel");
     expect(source).toContain("inlinePanels[GLUCOSE_TASK_TYPE_ITEM_KEY] = <GlucoseTaskTypePanel");

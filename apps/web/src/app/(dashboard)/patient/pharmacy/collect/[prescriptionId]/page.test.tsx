@@ -1,7 +1,6 @@
 const loaders = {
   loadCollection: jest.fn(),
   loadPharmacies: jest.fn(),
-  loadPriceCompare: jest.fn(),
   loadSuggestion: jest.fn(),
   loadHasControlledItem: jest.fn(),
   loadOverview: jest.fn(),
@@ -37,7 +36,6 @@ const render = async (query: { n?: string; for?: string } = {}) =>
 beforeEach(() => {
   Object.values(loaders).forEach((m) => m.mockReset());
   loaders.loadPharmacies.mockResolvedValue({ ok: true, data: [{ partner_id: P, partner_name: "A Pharmacy", location_id: L, location_name: "Lekki", state: "Lagos", address: "1 Test Road" }] });
-  loaders.loadPriceCompare.mockResolvedValue({ ok: true, data: [] });
   loaders.loadSuggestion.mockResolvedValue({ ok: true, data: null });
   loaders.loadHasControlledItem.mockResolvedValue(false);
 });
@@ -56,6 +54,14 @@ describe("patient collect page (S28e)", () => {
     // Enter on a tick box must not press the first pharmacy for her: the form's first (default) submit button is a disabled one
     expect(html).toMatch(/<form[^>]*><button type="submit" disabled=""[^>]*class="hidden"/);
     expect(html).toContain("Losartan");
+  });
+  it("shows no price, price comparison or stock level while she chooses (OQ-714, Part C.2, OQ-283), and still says she can take it anywhere", async () => {
+    loaders.loadCollection.mockResolvedValue({ ok: true, data: collection("signed") });
+    loaders.loadOverview.mockResolvedValue({ ok: true, data: [item(RX)] });
+    const html = await render();
+    expect(html).not.toMatch(/compare prices|₦|in stock|running low|prices last updated/i);
+    expect(html).toContain("take it to any pharmacy you like");
+    expect(html).toContain(`value="${P}:${L}"`);
   });
   it("with no other medicine waiting there are no tick boxes", async () => {
     loaders.loadCollection.mockResolvedValue({ ok: true, data: collection("signed") });
