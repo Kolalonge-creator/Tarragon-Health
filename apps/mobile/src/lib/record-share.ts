@@ -24,6 +24,7 @@ export const SHARE_MAX_VIEWS_CHOICES = [1, 3, 5, 10] as const;
 export const SHARE_WINDOW_DAYS_CHOICES = [30, 90, 180] as const;
 
 export interface SharingOffer {
+  oneSessionWindowMinutes: number;
   defaultExpiryHours: number;
   expiryOptionsHours: readonly number[];
   pinDigits: number;
@@ -31,9 +32,9 @@ export interface SharingOffer {
 
 export function getSharingOffer(): SharingOffer {
   const v = (getProposedConfig("my_health.sharing_and_access_log").value as unknown as {
-    sharing: { default_expiry_hours: number; expiry_options_hours: number[]; pin_digits: number };
+    sharing: { default_expiry_hours: number; expiry_options_hours: number[]; pin_digits: number; one_session_window_minutes: number };
   }).sharing;
-  return { defaultExpiryHours: v.default_expiry_hours, expiryOptionsHours: v.expiry_options_hours, pinDigits: v.pin_digits };
+  return { oneSessionWindowMinutes: v.one_session_window_minutes, defaultExpiryHours: v.default_expiry_hours, expiryOptionsHours: v.expiry_options_hours, pinDigits: v.pin_digits };
 }
 
 export function expiryText(hours: number): string {
@@ -58,6 +59,7 @@ export interface RecordShareRow {
   recipientLabel: string | null;
   maxViews: number | null;
   windowDays: number | null;
+  firstOpenedAt: string | null;
 }
 
 export interface CreatedShare {
@@ -85,7 +87,7 @@ export function openShares(rows: readonly RecordShareRow[], now: number = Date.n
 export async function loadMyShares(patientId: string): Promise<ShareResult<RecordShareRow[]>> {
   const { data, error } = await supabase
     .from("record_shares")
-    .select("id, token, sections, expires_at, is_active, view_count, pin_protected, one_session, locked_at, revoked_at, recipient_label, max_views, window_days, created_at")
+    .select("id, token, sections, expires_at, is_active, view_count, pin_protected, one_session, locked_at, revoked_at, recipient_label, max_views, window_days, first_opened_at, created_at")
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false })
     .limit(20);
@@ -106,6 +108,7 @@ export async function loadMyShares(patientId: string): Promise<ShareResult<Recor
       recipientLabel: r.recipient_label ?? null,
       maxViews: r.max_views ?? null,
       windowDays: r.window_days ?? null,
+      firstOpenedAt: r.first_opened_at ?? null,
     })),
   };
 }
@@ -136,9 +139,35 @@ export async function createShare(input: CreateShareInput): Promise<ShareResult<
   return { ok: true, data: { id: body.id, token: body.token, pin: typeof body.pin === "string" ? body.pin : null } };
 }
 
-export async function revokeShare(shareId: string): Promise<ShareResult<null>> {
+export async function revokeShare(shareId: string, patientId?: string): Promise<ShareResult<null>> {
   const { error } = await supabase.rpc("revoke_record_share", { p_share_id: shareId });
-  return error ? { ok: false } : { ok: true, data: null };
+  if (!error) return { ok: true, data: null };
+  // The database raises the same sentence for "already stopped" and for "no such link of yours", so the message alone proves nothing. Count it as
+  // stopped only when the person's own row can be read and really is stopped.
+  if (!/already revoked/i.test(error.message ?? "")) return { ok: false };
+  // Scoped to the person's own rows when their id is known, so this never depends on what a broader read policy would let them see.
+  const base = supabase.from("record_shares").select("is_active, revoked_at").eq("id", shareId);
+  const { data } = await (patientId ? base.eq("patient_id", patientId) : base).maybeSingle();
+  return data && (data.is_active === false || data.revoked_at) ? { ok: true, data: null } : { ok: false };
+}
+
+/** A listed link that has no views left. It still shows (so it can be stopped) but cannot be sent again: a clinic would be given a link that no longer opens. */
+export function isUsedUp(share: Pick<RecordShareRow, "maxViews" | "viewCount">): boolean {
+  return viewsLeft(share.maxViews, share.viewCount) === 0;
+}
+
+/** A one-session link stops opening once its window since the first opening has passed. */
+export function sessionEnded(share: Pick<RecordShareRow, "oneSession" | "firstOpenedAt">, windowMinutes: number, now: number = Date.now()): boolean {
+  if (!share.oneSession || !share.firstOpenedAt) return false;
+  const opened = new Date(share.firstOpenedAt).getTime();
+  return !Number.isNaN(opened) && now > opened + windowMinutes * 60_000;
+}
+
+/** Why a listed link no longer opens, or null when it does: a spent view cap or a one-session window that has passed. */
+export function deadReason(share: Pick<RecordShareRow, "maxViews" | "viewCount" | "oneSession" | "firstOpenedAt">, windowMinutes: number, now: number = Date.now()): "used_up" | "session_ended" | null {
+  if (isUsedUp(share)) return "used_up";
+  if (sessionEnded(share, windowMinutes, now)) return "session_ended";
+  return null;
 }
 
 type FetchLike = (url: string, init: { method: "GET"; headers: Record<string, string>; signal?: AbortSignal }) => Promise<{ status: number; json(): Promise<unknown> }>;
