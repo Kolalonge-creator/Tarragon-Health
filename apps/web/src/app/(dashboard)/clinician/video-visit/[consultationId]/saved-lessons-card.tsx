@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { t } from "@tarragon/i18n";
 
 /**
  * Lessons the patient saved with "Ask your care team about this" (S55, spec 9.4). Read through consultation_saved_lessons(),
@@ -22,6 +23,9 @@ export async function SavedLessonsCard({ patientId, consultationId }: { patientI
     );
   }
   if (!data || data.length === 0) return null;
+  // Teach-back answers the patient chose to share (counts only). The same tie check and an audit row apply; a failed read just omits the list.
+  const sharedRes = await supabase.rpc("consultation_shared_teachbacks", { p_patient: patientId });
+  const teachbacks = sharedRes.error ? [] : (sharedRes.data ?? []);
   const waiting = data.filter((l) => !l.discussed_at);
 
   async function markDiscussed() {
@@ -45,6 +49,16 @@ export async function SavedLessonsCard({ patientId, consultationId }: { patientI
             </li>
           ))}
         </ul>
+        {teachbacks.length > 0 && (
+          <div className="space-y-1 border-t border-charcoal-ink/10 pt-2" data-testid="shared-teachbacks">
+            <p className="font-medium">{t("learn.teachback.staff_title")}</p>
+            <ul className="list-disc space-y-0.5 pl-5">
+              {teachbacks.map((r) => (
+                <li key={r.code}>{t("learn.teachback.staff_row", "en", { title: r.title, correct: r.correct_count, total: r.total })}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {waiting.length > 0 && (
           <form action={markDiscussed}>
             <Button type="submit" size="sm" variant="outline">
