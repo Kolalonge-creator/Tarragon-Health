@@ -777,6 +777,15 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // S51: generic by design (INV-07): no condition, reading or medicine is ever named.
     return { text: "Your check-in for today is ready", href: "/patient/care" };
   }
+  if (n.template === "learning_expiry_owner" || n.template === "learning_expiry_cmo_digest") {
+    // Generic by design (INV-07): a count is never shown, no item title or topic is named. The link depends on which console the recipient
+    // uses, which the job stamped into the payload from their role; anything else falls back to the clinician page (the safer default).
+    const area = (n.payload as Record<string, unknown> | null)?.area;
+    return {
+      text: n.template === "learning_expiry_owner" ? "Some learning content you look after is due for review soon" : "Learning content is coming up for review",
+      href: area === "admin" ? "/admin/settings/health-education/expiry" : "/clinician/learning-review",
+    };
+  }
   if (n.template === "assistant_weekly_reflection") {
     return { text: "Your look back at this week is ready", href: "/patient/care" };
   }

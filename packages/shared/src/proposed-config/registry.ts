@@ -3731,6 +3731,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["lease\\w*days?\\s*[=:]\\s*30\\b", "probe\\w*(interval|seconds)\\w*\\s*[=:]\\s*60\\b"],
   },
   {
+    key: "offline.data_cost",
+    // S06z. PROPOSED: the price of one megabyte of mobile data in kobo (80 kobo = N0.80 a MB, about N800 a GB, a typical Nigerian prepaid
+    // bundle rate) used ONLY to show the patient an estimate of what syncing cost them on mobile data (it is labelled an estimate wherever shown;
+    // a patient's real plan will differ). max_hold_hours is the longest an ordinary reading or dose log waits for Wi-Fi when the patient has chosen
+    // "sync on Wi-Fi only"; it is held well inside the 12 hours after which the server's missed-dose job marks an unanswered dose missed, so the
+    // care team never sees a false miss because a phone stayed on mobile data. Urgent and danger-flagged entries never wait (urgent kinds are a safety rule in code, not config).
+    value: {
+      price_per_mb_kobo: 80,
+      max_hold_hours: 6,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-09-30",
+    source: "docs/design/S06z.md (data-cost meter in naira); builds on S06x data-use meter (docs/design/S06x.md section 5)",
+    guardPatterns: ["pricePerMb\\w*\\s*[=:]\\s*80\\b", "maxHold\\w*\\s*[=:]\\s*6\\b"],
+  },
+  {
     key: "medicines.dose_anchors",
     // S08z. PROPOSED: dose times anchored to daily events. `anchors` are the STARTING times shown for each anchor (waking, meals, the five daily prayers,
     // bedtime) before a patient sets their own; a patient confirms each one they use, and it is never presented as a prayer calendar or as clinical guidance. They
@@ -4223,6 +4241,33 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S51.md; docs/BUILD-SPEC-v5.md B.7 (nudges)",
+  },
+  {
+    key: "assistant.triage_floor_eval",
+    // Clinician-style emergency test set for the assistant's deterministic red-flag floor (INV-01). The runner is
+    // packages/clinical/src/triage-floor-eval.ts; the vignette file is packages/clinical/fixtures/triage-floor-vignettes.v1.json.
+    // Under-triage (an emergency vignette the floor misses) is never acceptable, so its ceiling is 0. Over-triage (a non-urgent vignette
+    // that trips the floor) is the accepted failure, but it is measured: the ceiling is a PROPOSED number the CMO confirms after reading
+    // the report. The two minimums stop the set being thinned out to pass. No database mirror: this is a test-time setting only.
+    value: { max_under_triage_rate: 0, max_over_triage_rate: 0.1, min_emergency_vignettes: 60, min_non_urgent_vignettes: 60 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S51.md; docs/research/S51-S55-review-and-build-plan.md; BUILD-SPEC-v5 INV-01",
+  },
+  {
+    key: "learning.expiry_alerts",
+    // Learning content that is close to its review date (the S55 expiry rule hides it ON that date and this setting never changes that rule).
+    // `thresholds_days` are the days-before-the-review-date at which the owner of an item gets one generic in-app notice and the CMO gets a
+    // digest.
+    // Mirrored by the active `expiry_alerts` row of `learning_config` (migration *_learning_expiry_backlog.sql); a test pins the two. UNSIGNED.
+    value: { thresholds_days: [30, 14, 7] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/research/S51-S55-review-and-build-plan.md; docs/design/S55.md",
   },
   {
     key: "devices.plausibility",
