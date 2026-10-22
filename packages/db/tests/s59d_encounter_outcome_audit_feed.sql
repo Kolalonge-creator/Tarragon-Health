@@ -187,7 +187,8 @@ begin
   perform pg_temp.back();
   -- an override recorded BEFORE the link is the category the patient was given
   f := pg_temp.flow(v_org, v_p, v_c1, 'routine', 'I21.9');
-  update public.symptom_triage_assessments set override_category = 'urgent' where id = (f ->> 'a')::uuid;
+  update public.symptom_triage_assessments set override_category = 'urgent', override_reason = 'S59d proof override', overridden_by = (select id from public.clinical_staff where profile_id = v_c1), overridden_at = now()
+   where id = (f ->> 'a')::uuid; -- symptom_triage_assessments_override_requires_reason: a reason, the clinical_staff id and the time
   perform pg_temp.sign(v_c1, (f ->> 'note')::uuid); perform pg_temp.complete(v_c1, (f ->> 'enc')::uuid);
   perform pg_temp.act(v_cmo);
   v_j := public.confirm_symptom_diagnosis_urgency_map(1);
