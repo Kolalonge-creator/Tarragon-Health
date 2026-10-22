@@ -1,6 +1,7 @@
 import { activeWording } from "./clinical-wording";
 import { cycleCopy } from "./cycle-copy";
 import { maternalChild } from "./maternal-child";
+import { designPrinciplesCopy } from "./design-principles-copy";
 import { pregnancyTools } from "./pregnancy-tools";
 import { activeGlucoseWording } from "./glucose-wording";
 
@@ -23,6 +24,7 @@ export const en = {
   "common.try_again": "Try again",
   "common.back": "Back",
   ...maternalChild,
+  ...designPrinciplesCopy,
   ...pregnancyTools,
   "console.login.title": "Staff sign-in",
   "console.login.subtitle": "Sign in to the TarragonHealth console.",

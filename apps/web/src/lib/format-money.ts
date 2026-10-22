@@ -20,6 +20,21 @@ export function formatKobo(kobo: number): string {
 }
 
 /**
+ * A kobo amount as naira for a PATIENT-facing price line (design principle 4: the naira price shows before commitment).
+ * Whole naira print without decimals ("₦12,500"); any kobo part prints both decimals ("₦12,500.50") so nothing rounds away. Staff
+ * screens that reconcile payments keep using `formatKobo` (always two decimals). Throws on a non-integer or negative amount rather than
+ * showing a wrong price.
+ */
+export function formatNairaForPatient(kobo: number): string {
+  if (!Number.isInteger(kobo) || kobo < 0) throw new RangeError(`price must be a non-negative whole number of kobo, got ${kobo}`);
+  const whole = kobo % 100 === 0;
+  return `₦${koboToNaira(kobo).toLocaleString("en-NG", {
+    minimumFractionDigits: whole ? 0 : 2,
+    maximumFractionDigits: whole ? 0 : 2,
+  })}`;
+}
+
+/**
  * Parse what an operator typed into a naira money field, returning kobo.
  *
  * Returns null when the field is blank or is not a finite number, so a caller
