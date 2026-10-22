@@ -28,6 +28,8 @@ export const GUARD_KEYS = [
   "shift_start_test",
   // S48a: private GPS route recording (5.7). Born off; no UI records a route yet, so this only gates the database insert policy.
   "private_route_recording",
+  // S50b: the supervised low-carbohydrate programme for type 2 diabetes. Born off; never marketed (S50-2).
+  "low_carb_t2d_programme",
 ] as const;
 export type GuardKey = (typeof GUARD_KEYS)[number];
 

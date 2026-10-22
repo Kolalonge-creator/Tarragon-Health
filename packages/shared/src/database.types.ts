@@ -119,6 +119,144 @@ export type Database = {
         }
         Relationships: []
       }
+      lowcarb_enrolments: {
+        Row: {
+          accepted_at: string | null
+          config_version: number
+          created_at: string
+          id: string
+          is_test: boolean
+          last_medicine_review_at: string | null
+          no_recent_admission: boolean
+          offered_at: string
+          organisation_id: string
+          patient_id: string
+          pause_code: string | null
+          paused_at: string | null
+          recorded_by: string | null
+          source: Database["public"]["Enums"]["record_source"]
+          status: string
+          stop_code: string | null
+          stopped_at: string | null
+          supervision_accepted: boolean
+          supervision_note: string | null
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          config_version: number
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          last_medicine_review_at?: string | null
+          no_recent_admission: boolean
+          offered_at?: string
+          organisation_id: string
+          patient_id: string
+          pause_code?: string | null
+          paused_at?: string | null
+          recorded_by?: string | null
+          source?: Database["public"]["Enums"]["record_source"]
+          status?: string
+          stop_code?: string | null
+          stopped_at?: string | null
+          supervision_accepted?: boolean
+          supervision_note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          config_version?: number
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          last_medicine_review_at?: string | null
+          no_recent_admission?: boolean
+          offered_at?: string
+          organisation_id?: string
+          patient_id?: string
+          pause_code?: string | null
+          paused_at?: string | null
+          recorded_by?: string | null
+          source?: Database["public"]["Enums"]["record_source"]
+          status?: string
+          stop_code?: string | null
+          stopped_at?: string | null
+          supervision_accepted?: boolean
+          supervision_note?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lowcarb_programme_events: {
+        Row: {
+          actor_id: string | null
+          code: string | null
+          created_at: string
+          enrolment_id: string
+          id: number
+          is_test: boolean
+          kind: string
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          code?: string | null
+          created_at?: string
+          enrolment_id: string
+          id?: number
+          is_test?: boolean
+          kind: string
+          organisation_id: string
+          patient_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          code?: string | null
+          created_at?: string
+          enrolment_id?: string
+          id?: number
+          is_test?: boolean
+          kind?: string
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: []
+      }
+      lowcarb_protocol_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       workout_plans: {
         Row: {
           audio_clip_ids: string[]
@@ -49658,6 +49796,18 @@ export type Database = {
       my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }
       update_visit_summary_draft: { Args: { p_items?: Json; p_summary: string; p_text: string }; Returns: undefined }
       sign_nutrition_target_config: { Args: { p_id: string }; Returns: string }
+      // S50b (low-carbohydrate programme): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      sign_lowcarb_protocol_config: { Args: { p_id: string }; Returns: string }
+      lowcarb_eligibility: { Args: { p_patient: string; p_no_recent_admission?: boolean; p_supervision_accepted?: boolean }; Returns: Json }
+      offer_lowcarb_programme: { Args: { p_patient: string; p_no_recent_admission: boolean; p_supervision_accepted?: boolean; p_supervision_note?: string }; Returns: string }
+      respond_lowcarb_offer: { Args: { p_enrolment: string; p_accept: boolean }; Returns: string }
+      pause_lowcarb_programme: { Args: { p_enrolment: string }; Returns: undefined }
+      resume_lowcarb_programme: { Args: { p_enrolment: string }; Returns: undefined }
+      stop_lowcarb_programme: { Args: { p_enrolment: string }; Returns: undefined }
+      accept_lowcarb_supervision: { Args: { p_enrolment: string; p_note: string }; Returns: undefined }
+      complete_lowcarb_medicine_review: { Args: { p_enrolment: string; p_note: string }; Returns: undefined }
+      lowcarb_programme_for_patient: { Args: { p_patient: string }; Returns: Json }
+      my_lowcarb_gate: { Args: Record<PropertyKey, never>; Returns: Json }
       withdraw_patient_allergy_correction: { Args: { p_request_id: string }; Returns: Json }
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };

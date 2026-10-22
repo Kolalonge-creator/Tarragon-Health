@@ -29,6 +29,8 @@ import { AppText, Badge, Button, Card, EmptyState, InlineAlert, LegacySheet, Lis
 import { SyncBanner } from "@/screens/sync-banner";
 import { MedicineCabinetScreen } from "@/screens/sections/medicine-cabinet-screen";
 import { CareChangeCard } from "@/screens/sections/care-change-card";
+import { LowCarbLinkCard } from "@/screens/sections/lowcarb-link-card";
+import type { SectionId } from "@/lib/sections";
 import { RenewalReviewCard } from "@/screens/sections/renewal-review-card";
 import { PharmacyCollectCard } from "@/screens/sections/pharmacy-collect-card";
 
@@ -39,6 +41,8 @@ interface MedicationsScreenProps {
    * (home-shell.tsx), so the heading never implies these are the device
    * owner's own doses while marking somebody else's. */
   subjectName?: string;
+  /** Opens another section; used only for the quiet link to the supported eating programme (S50b). */
+  onNavigate?: (id: SectionId) => void;
 }
 
 /** Matches the slot key the reminder plan uses (medication, Lagos date, time), so snoozes and replans agree and yesterday's open dose never collides with today's. */
@@ -90,7 +94,7 @@ function badgeTone(state: SlotState): "neutral" | "positive" | "warn" {
   return "neutral";
 }
 
-export function MedicationsScreen({ patientId, organisationId, subjectName }: MedicationsScreenProps) {
+export function MedicationsScreen({ patientId, organisationId, subjectName, onNavigate }: MedicationsScreenProps) {
   const { colors } = useTheme();
   const toast = useToast();
   const locale = asLocale(useUiLanguage());
@@ -323,6 +327,9 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
 
       {/* A change is the patient's own yes, so it is not shown while acting for someone else. */}
       {ownsReminders ? <CareChangeCard /> : null}
+
+      {/* Only for someone a clinician has offered the supported eating programme; nothing for anyone else. */}
+      {ownsReminders ? <LowCarbLinkCard onNavigate={onNavigate} /> : null}
 
       {ownsReminders ? <RenewalReviewCard tr={tr} /> : null}
 
