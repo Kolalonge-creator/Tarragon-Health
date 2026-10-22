@@ -1367,6 +1367,14 @@ s06z_my_phones.sql
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted; only open sev1/sev2 incidents counted. Sabotage: without the status filter the done delivery would count.
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted only from the last 24 hours; only open sev1/sev2 incidents counted. Sabotage: the function is replaced by one without the pending filter and the window; the checks must flip.
 oq436_deadman_status.sql
+dup1_duplicate_lab_value_safety.sql
+# Consent receipts (RCPT-1): consent_receipt_data returns only the caller's own facts, only for an active patient, writes one audit row (scope and ref only) in the same call, never carries a clinical value, says when the wording version has moved on; refuses clinician, admin, signed-out, anon and inactive patient with no audit row; someone else's id is the same not-found as a made-up one. Sabotage: the own-rows filter, the audit call and the role gate each removed; each must flip.
+rcpt1_consent_receipts.sql
+# --- Added 2026-10-21 (S08z: dose times anchored to daily events) ---
+# Anchored dose times: 17 shared resolution cases carried by name from packages/medicines anchors.fixtures.ts (midnight crossing both ways, shifts, versioned anchor times, ended shifts), validator parity, missed job/adherence/refill read the resolved time, RPC effective-date rules, stranger/anon refusals, window overlap guards. Privacy: no policy lets a tied clinician or caregiver read the anchor tables, the stored schedule carries only opaque slots (the validator refuses a prayer name), and a tied clinician and a caregiver read no prayer name from medications. Sabotage: the date rule, the shift, the today-has-answers rule and the slot-only rule each removed; all must flip.
+s08z_dose_anchors.sql
+
+
 
 
 # Records request letters (2026-10-20): guard off, own rows only, state machine, append-only history, ids-only events; three sabotages.
@@ -1432,6 +1440,15 @@ patient_home_layout.sql
 # The Membership is one yearly payment again: the instalment tables, functions, columns, module row, templates and cron job are gone, no function body names them, refunds_one_live is one live refund per order, and the one-payment flow (pay, replay, mismatch, cancel, refund once for the whole amount, provider claim) works. Sabotage: nine removed things put back one at a time; all nine structural checks must flip.
 membership_instalments_removed.sql
 
+# Learning quality gate 12a (2026-10-22): the reading grade is computed in the database with the shared formula (golden vectors), a client grade is overwritten, patient content above the PROPOSED maximum cannot be published, only the active CMO records an override (reason length, audited, bound to the exact body so an edit voids it), the override columns have one writer even for the table owner, clinician-level content is exempt, a missing limit fails closed, patient/admin/anon are refused. Sabotage: gate trigger dropped; dense content must publish.
+reading_grade_gate.sql
+# Learning quality gates 12b and 12c (2026-10-22): the glossary shows only published, named-reviewer, in-date terms (reviewer name from the account, owner and source required, reading-grade limit, no in-place edit of a published term, patient/anon refused); the teach-back questions are validated against the configured limits, marked in the database with the kind explanation, private to the person, never touch lesson progress, shared only through save-for-care-team and read only by a tied clinician with an audit row. Sabotage: glossary gate dropped and the shared-only predicate removed; both must flip.
+learning_glossary_and_teachback.sql
+# Record-triggered lessons and the food portion guide (2026-10-22): guard off and not switchable, quiet false for a real person while off, test account allowed, the lesson must be the configured, published, reviewed one, cited readings are the person's own and the BP band is re-classified, no lesson from one amber reading or one high lab value, a red reading in the window and an unreleased or sensitive-positive lab block it, one show per day, ids-only event, no client write, anon refused; the portion guides are unreviewed drafts that cannot publish while their amounts are proposed. Sabotage: portion gate dropped, guard forced on, classifier neutered; each must flip.
+record_lessons_and_portion_guide.sql
+# Cuff display camera reader and result passport (2026-10-22): both go-live guards born OFF (a real patient refused, a test patient let through), anon and other patients refused, AI-022 registered disabled with no invented evaluation, prompt or knowledge source, and a sensitive positive lab row invisible to its owner. Sabotage: the guard lookup made always-open and the restrictive sensitive policy dropped; both must flip.
+cuff_camera_and_result_passport_guards.sql
+
 # S62 follow-up: the review and scheduled-test sweeps are scheduled daily (06:08 and 06:18 UTC), call the right function, run cleanly as the job owner and add nothing while no real patient is enrolled, and still refuse a signed-in user. Sabotage: each job unscheduled and the matching check flips.
 s62_pathway_sweeps_scheduled.sql
 
@@ -1440,3 +1457,6 @@ s70b_cuffless_cuff_check_task.sql
 
 # S70b: pharmacy counter reading. One-time patient code, wrong-code lockout, visit for one pharmacist and one person up to the reading limit, blood pressure and typed source only, triaged like a typed reading, ledger says pharmacy/counter consent. Sabotage: reading limit and person check removed from the seam and a check flips.
 s70b_pharmacy_reading_point.sql
+
+# CMO OQ-358 / OQ-358b (folio base-table lock, step 2): the MDCN folio is refused on the clinical_staff base table to a colleague, a patient and anon (named, select *, filtered) while every other column, joins and a security_invoker view over the table still work; clinical_staff_folio returns the clinician their own folio, the CMO and an admin a colleague's, a colleague and a patient nothing, anon cannot execute it; the directory view still serves names; admin writes untouched; every non-folio column is granted; clinician_licence_public and the slot list carry no folio; lab and verified-document kinds return a null folio. Sabotage: the table grant put back and the function without its entitlement check must each flip.
+clinical_staff_folio_base_table_lock.sql

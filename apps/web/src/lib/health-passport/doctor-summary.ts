@@ -211,6 +211,7 @@ export async function getDoctorSummary(supabase: SupabaseClient<Database>, patie
   type LabListItem = {
     code: string;
     last_at: string;
+    disputed?: boolean;
     latest_value: number | null;
     latest_unit: string | null;
     latest_flag: string | null;
@@ -220,11 +221,11 @@ export async function getDoctorSummary(supabase: SupabaseClient<Database>, patie
   };
   const labList = (Array.isArray(labsRes.data) ? labsRes.data : []) as unknown as LabListItem[];
   const labs: DoctorSummaryInput["labs"] = labList
-    .filter((l) => l.latest_value !== null)
+    .filter((l) => l.latest_value !== null || l.disputed === true)
     .slice(0, MAX_PER_SECTION.labs)
     .map((l) => ({
       code: l.code,
-      text: `${l.latest_value}${l.latest_unit ? ` ${l.latest_unit}` : ""}`,
+      text: l.disputed === true ? "Two reports differ, no value chosen" : `${l.latest_value}${l.latest_unit ? ` ${l.latest_unit}` : ""}`,
       takenAt: l.last_at,
       range: l.latest_ref_text ?? (l.latest_ref_low !== null || l.latest_ref_high !== null ? [l.latest_ref_low, l.latest_ref_high].filter((x) => x !== null).join(" to ") : null),
       flag: l.latest_flag,

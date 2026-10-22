@@ -12,8 +12,19 @@ import type { ScheduleSpec } from "@tarragon/medicines";
  * module, and a wearable reading is listed but never averaged or charted.
  */
 
-export const SECTION_KEYS = ["bp", "bp_chart", "medicines", "adherence", "skipped", "symptoms", "allergies_conditions"] as const;
+export const VISIT_SECTION_KEYS = ["bp", "bp_chart", "medicines", "adherence", "skipped", "symptoms", "allergies_conditions"] as const;
+/**
+ * The two sections that exist for the result passport (item 10): blood sugar readings and the latest released lab results. They are in the
+ * same builder so the passport is one document, but they are only produced while the `result_passport_enabled` go-live guard is open for
+ * the person (checked by both PDF routes), so the visit summary that is live today does not change.
+ */
+export const PASSPORT_SECTION_KEYS = ["glucose", "lab_results"] as const;
+export const SECTION_KEYS = [...VISIT_SECTION_KEYS, ...PASSPORT_SECTION_KEYS] as const;
 export type SectionKey = (typeof SECTION_KEYS)[number];
+
+export function usesPassportSections(sections: readonly string[]): boolean {
+  return sections.some((s) => (PASSPORT_SECTION_KEYS as readonly string[]).includes(s));
+}
 
 export interface SummaryConfig {
   periodDays: number[];
