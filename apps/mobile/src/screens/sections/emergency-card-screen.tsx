@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Share, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, Share, Switch, Text, View } from "react-native";
+import * as WebBrowser from "expo-web-browser";
+import { asLocale, t } from "@tarragon/i18n";
+import { useUiLanguage } from "@/lib/ui-language";
 import {
   createShareLink,
+  getLockScreenImageUrl,
+  loadLockScreenOptIn,
   loadActiveShareLink,
   loadCachedEmergencyFacts,
   loadEmergencyFacts,
@@ -11,6 +16,8 @@ import {
 import { spacing } from "@/ui/theme";
 import { lightPalette, useLegacyColors } from "@/ui/design";
 import { EmergencyPackView } from "@/screens/emergency-pack-view";
+import { COVERAGE_SCHEME_LABEL } from "@tarragon/shared";
+import { EmergencyCoverageCard } from "./emergency-coverage-card";
 import { FreshnessNote } from "@/ui/freshness-note";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
@@ -29,6 +36,13 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
   const [shareLinkError, setShareLinkError] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(false);
+  const locale = asLocale(useUiLanguage());
+  // LSI-1: the lock-screen picture controls appear only when the person's own switch is on (off by default; a failed read counts as off)
+  const [lockOptIn, setLockOptIn] = useState(false);
+  const [lockConfirmed, setLockConfirmed] = useState(false);
+  const [lockMinimum, setLockMinimum] = useState(true);
+  const [lockQr, setLockQr] = useState(true);
+  const [lockError, setLockError] = useState(false);
 
   const refreshShareLink = useCallback(() => {
     setShareLinkError(false);
@@ -38,16 +52,39 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
       .catch(() => setShareLinkError(true));
   }, [patientId]);
 
-  useEffect(() => {
+  const reloadFacts = useCallback(() => {
     loadEmergencyFacts(patientId)
-      .then(setFacts)
+      .then((fresh) => {
+        setOffline(false);
+        setFacts(fresh);
+      })
       .catch(() => {
         setOffline(true);
         return loadCachedEmergencyFacts().then(setFacts);
       })
       .catch(() => {});
+  }, [patientId]);
+
+  useEffect(() => {
+    reloadFacts();
     refreshShareLink();
-  }, [patientId, refreshShareLink]);
+    void loadLockScreenOptIn(patientId).then(setLockOptIn);
+  }, [reloadFacts, patientId, refreshShareLink]);
+
+  async function openLockScreenPicture() {
+    setLockError(false);
+    // the switch may have been turned off since this screen opened: check again before opening anything
+    if (!(await loadLockScreenOptIn(patientId))) {
+      setLockOptIn(false);
+      return;
+    }
+    const r = await getLockScreenImageUrl({ minimum: lockMinimum, qr: lockQr });
+    if (!r.ok) {
+      setLockError(true);
+      return;
+    }
+    await WebBrowser.openBrowserAsync(r.url).catch(() => setLockError(true));
+  }
 
   async function handleCreateLink() {
     setCreating(true);
@@ -120,7 +157,25 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
               : "Not on file")
           }
         />
+        {/* S09y: shown only when the person filled it in. Absent otherwise, never "none". Patient entered, not checked with the scheme. */}
+        {facts.coverage ? (
+          <FactRow
+            label={`${COVERAGE_SCHEME_LABEL[facts.coverage.scheme]} cover`}
+            value={[facts.coverage.plan_name, facts.coverage.member_number ? `no. ${facts.coverage.member_number}` : null].filter(Boolean).join(" · ") + " (patient entered)"}
+          />
+        ) : null}
       </View>
+
+      {/* undefined means the cover could not be read (not that none is saved): saving then could overwrite real cover, so the form is not offered. */}
+      {!offline ? (
+        facts.coverage === undefined ? (
+          <Card>
+            <ErrorText>{t("ecf.coverage.load_failed")}</ErrorText>
+          </Card>
+        ) : (
+          <EmergencyCoverageCard key={facts.coverage ? "filled" : "empty"} initial={facts.coverage} onChanged={reloadFacts} />
+        )
+      ) : null}
 
       <Card style={{ alignItems: "center", gap: 8 }}>
         {shareLinkError ? (
@@ -154,6 +209,30 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
           </>
         )}
       </Card>
+
+      {lockOptIn ? (
+        <Card style={{ gap: 10 }}>
+          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{t("lsi.title", locale)}</Text>
+          <MutedText>{t("lsi.intro", locale)}</MutedText>
+          <ErrorText>{t("lsi.warning", locale)}</ErrorText>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Switch value={lockConfirmed} onValueChange={setLockConfirmed} accessibilityLabel={t("lsi.confirm", locale)} />
+            <Text style={{ flex: 1, fontSize: 13, color: colors.ink }}>{t("lsi.confirm", locale)}</Text>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Switch value={lockMinimum} onValueChange={setLockMinimum} accessibilityLabel={t("lsi.minimum", locale)} />
+            <Text style={{ flex: 1, fontSize: 13, color: colors.ink }}>{t("lsi.minimum", locale)}</Text>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Switch value={lockQr} onValueChange={setLockQr} accessibilityLabel={t("lsi.qr", locale)} />
+            <Text style={{ flex: 1, fontSize: 13, color: colors.ink }}>{t("lsi.qr", locale)}</Text>
+          </View>
+          {lockConfirmed ? <PrimaryButton title={t("lsi.download", locale)} onPress={() => void openLockScreenPicture()} /> : <MutedText>{t("lsi.needs_confirm", locale)}</MutedText>}
+          {lockError ? <ErrorText>{t("lsi.error", locale)}</ErrorText> : null}
+          <MutedText>{t("lsi.mobile_how_to", locale)}</MutedText>
+          <MutedText>{t("lsi.how_to", locale)}</MutedText>
+        </Card>
+      ) : null}
 
       <EmergencyPackView />
     </ScrollView>

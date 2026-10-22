@@ -198,7 +198,8 @@ export function OrderRefundsAdmin() {
             <h3 id="stuck-refunds" className="text-sm font-semibold text-charcoal-ink">Refunds stuck mid-send</h3>
             <p className="text-xs text-charcoal-ink/60">
               Paystack gave no clear answer, or its answer could not be written. Look at the Paystack dashboard, then say what happened. Marking one as sent
-              also raises a reminder to post its cash entry.
+              also raises a reminder to post its cash entry: post Dr 4900 / Cr 1020 as a manual (or refund) journal entry with the reference refund:&lt;refund id&gt;, and the Money reconciliation
+              screen then clears it.
             </p>
             <ul className="divide-y divide-charcoal-ink/10">
               {ops.data.stuck.map((f) => (

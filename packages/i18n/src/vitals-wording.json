@@ -1,0 +1,72 @@
+{
+  "signed": null,
+  "note": "Single-reading vitals triage wording (pulse, SpO2, temperature). UNSIGNED: until the Chief Medical Officer fills in `signed` as {\"by\": \"name\", \"on\": \"YYYY-MM-DD\", \"version\": n}, the app shows and says `current`, which gives no instruction beyond going for help. `proposed` is the draft the CMO is asked to read in full. Nobody but the CMO sets `signed`; a build never does. The words hold no reading, band or condition name (INV-07) and promise no review.",
+  "codes": {
+    "VIT-E01": {
+      "key": "vit_e01",
+      "current": {
+        "title": "Get help now",
+        "body": "Your reading, or how you feel, means you may need care now. Go to the nearest hospital, or ask someone to take you. Do not drive yourself."
+      },
+      "proposed": {
+        "title": "Get help now",
+        "body": "Your reading, or how you feel, means you may need care now. Go to the nearest hospital, or ask someone to take you. Do not drive yourself. Sit down and stay as calm as you can. Take your device with you, and tell them how you feel."
+      }
+    },
+    "VIT-E02": {
+      "key": "vit_e02",
+      "current": {
+        "title": "Get care today",
+        "body": "This reading is outside the safe range. Get care today: go to a hospital or clinic. If you feel worse at any time, go to the nearest hospital now."
+      },
+      "proposed": {
+        "title": "Get care today",
+        "body": "This reading is outside the safe range. Rest, check again once, and get care today at a hospital or clinic. If the second reading is the same, or you feel worse at any time, go to the nearest hospital now."
+      }
+    },
+    "VIT-T01": {
+      "key": "vit_t01",
+      "current": {
+        "title": "Worth a closer look",
+        "body": "This reading is a little outside the usual range. Rest, then check again soon. If you feel unwell, go to the nearest hospital."
+      },
+      "proposed": {
+        "title": "Worth a closer look",
+        "body": "This reading is a little outside the usual range. Rest for a few minutes, then check again. Keep a note of how you feel. If you feel unwell, go to the nearest hospital."
+      }
+    },
+    "VIT-T02": {
+      "key": "vit_t02",
+      "current": {
+        "title": "Reading saved",
+        "body": "This reading is saved. Keep checking at the times you planned."
+      },
+      "proposed": {
+        "title": "Reading saved",
+        "body": "This reading is saved. Keep checking at the times you planned. If you feel unwell at any time, go to the nearest hospital."
+      }
+    },
+    "VIT-T03": {
+      "key": "vit_t03",
+      "current": {
+        "title": "This needs a clinician's view",
+        "body": "Normal ranges are different for children and young people. A clinician should look at this reading. If you feel unwell, go to the nearest hospital."
+      },
+      "proposed": {
+        "title": "This needs a clinician's view",
+        "body": "Heart rate ranges are different for children and young people, so the adult ranges do not apply. A clinician should look at this reading. If you feel unwell, go to the nearest hospital."
+      }
+    },
+    "VIT-T04": {
+      "key": "vit_t04",
+      "current": {
+        "title": "Please check this reading",
+        "body": "This number does not look right. Check your device and try again. If you feel unwell, get help."
+      },
+      "proposed": {
+        "title": "Please check this reading",
+        "body": "This number does not look right. Check that the device is on correctly and still, then try again. If you feel unwell, get help."
+      }
+    }
+  }
+}

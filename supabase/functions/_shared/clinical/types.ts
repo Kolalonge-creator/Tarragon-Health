@@ -121,6 +121,26 @@ export type TriageAction =
       readonly notifyKey: string;
     };
 
+/** Which personal setting moved the grade (threshold overrides). */
+export type OverrideParameter = "target" | "lowAmberSystolic" | "hypoAlertMmol" | "hypoSevereMmol";
+
+/**
+ * Provenance of a grade that a clinician-signed personal threshold changed. Present on a result ONLY when the override really
+ * changed the grade; it carries no reading or target value (INV-07), only which override, which setting and what the grade was
+ * without it. The server stores it next to the triage event.
+ */
+export interface AppliedOverride {
+  readonly overrideId: string;
+  readonly domain: "bp" | "glucose";
+  /** `relaxed` = a less urgent grade than the signed rule set gives; `tightened` = a more urgent one. */
+  readonly direction: "relaxed" | "tightened";
+  readonly parameters: readonly OverrideParameter[];
+  readonly defaultGrade: Grade;
+  readonly defaultRuleId: string | null;
+  readonly finalGrade: Grade;
+  readonly finalRuleId: string | null;
+}
+
 export type RejectReason = "implausible_reading" | "invalid_input" | "invalid_rule_set";
 
 export interface TriageResult {
@@ -140,6 +160,8 @@ export interface TriageResult {
   readonly redFlagSymptomPresent: boolean;
   readonly reason: RejectReason | null;
   readonly ruleSet: { readonly code: string; readonly version: number };
+  /** Set only when a signed personal threshold override changed the grade. */
+  readonly override?: AppliedOverride;
 }
 
 export type CmpOp = "gte" | "gt" | "lte" | "lt" | "eq" | "neq";
@@ -157,7 +179,7 @@ export type TaskAnchor = "reading" | "week" | "lastReadingDate";
 export interface Rule {
   readonly id: string;
   readonly description: string;
-  readonly triggers: readonly (TriageTrigger["type"] | "glucose")[];
+  readonly triggers: readonly (TriageTrigger["type"] | "glucose" | "pulse" | "spo2" | "temperature")[];
   /** `grade` rules grade; a `recheck` rule only asks for a repeat reading. */
   /** `grade` rules grade; `recheck` asks for a repeat reading; `ask` asks the symptom question. The last two never grade. */
   readonly result: "grade" | "recheck" | "ask";

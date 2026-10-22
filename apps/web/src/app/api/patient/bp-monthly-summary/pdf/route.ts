@@ -3,11 +3,16 @@ import { createClient } from "@/lib/supabase/server";
 import { buildBpMonthlySummary, resolveSummaryMonth } from "@/lib/reports/bp-monthly-summary";
 import { averageGateRules, minGapMinutes } from "@/lib/clinical/bp-control-rate-data";
 import { BpMonthlySummaryDocument } from "@/lib/reports/bp-monthly-summary-document";
+import { visitSummaryResponse } from "@/lib/reports/bp-visit-summary-response";
 
 /**
  * Streams the caller's own monthly blood pressure and medicines summary as a PDF (S07x), for the patient to keep or hand to any clinic.
  * `?month=YYYY-MM-01` picks a month; without it the newest report is used. Everything is read as the caller (their stored monthly report and
  * their own completed home checks), so it can only ever hold what the patient could already see. It reads no laboratory table.
+ *
+ * `?kind=visit` (S07y) is the "Bring this to your visit" summary of the last 7 days instead: the 7-day home average (only when the home programme's
+ * gate is met, otherwise "not enough readings yet"), doses the patient marked taken, and the symptoms she ticked. Same sign-in rule, same patient-only
+ * reads, and the download is written to the patient's access log like the other patient exports.
  */
 export async function GET(request: Request): Promise<Response> {
   const supabase = await createClient();
@@ -19,7 +24,12 @@ export async function GET(request: Request): Promise<Response> {
   const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).single();
   if (!profile || profile.role !== "patient") return new Response("Not found", { status: 404 });
 
-  const monthParam = new URL(request.url).searchParams.get("month");
+  const params = new URL(request.url).searchParams;
+  const kind = params.get("kind");
+  if (kind !== null && kind !== "visit") return new Response("Invalid kind", { status: 400 });
+  if (kind === "visit") return visitSummaryResponse(supabase, user.id, profile.full_name ?? "Patient");
+
+  const monthParam = params.get("month");
   const month = monthParam && /^\d{4}-\d{2}-01$/.test(monthParam) ? monthParam : null;
   if (monthParam && !month) return new Response("Invalid month", { status: 400 });
 

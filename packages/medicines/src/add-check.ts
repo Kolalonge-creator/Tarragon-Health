@@ -1,4 +1,5 @@
 import { assessMedicationSafety, type DrugSafetySeverity, type MedicationInput } from "./safety/drug-safety";
+import type { RuleAdviceKey } from "./interaction-rules";
 
 /**
  * The check that runs when a medicine is added (spec 8.7, S53): interactions and duplicate therapy against what the person
@@ -18,13 +19,16 @@ import { assessMedicationSafety, type DrugSafetySeverity, type MedicationInput }
  *     exists (D6). The caller asks the guard; this function does not.
  */
 
-export type AddCheckKind = "interaction" | "duplicate";
+/** `same_ingredient` and `rule` come from the S08y ingredient checks (add-check-ingredients.ts); the first two from the S53 class rules. */
+export type AddCheckKind = "interaction" | "duplicate" | "same_ingredient" | "rule";
 
 export type AddCheckAdviceKey =
   | "medicines.addcheck.advice.high"
   | "medicines.addcheck.advice.review"
   | "medicines.addcheck.advice.note"
-  | "medicines.addcheck.advice.duplicate";
+  | "medicines.addcheck.advice.duplicate"
+  | "medicines.addcheck.advice.same_ingredient"
+  | RuleAdviceKey;
 
 export interface AddCheckFinding {
   kind: AddCheckKind;

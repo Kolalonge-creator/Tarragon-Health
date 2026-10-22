@@ -5,6 +5,7 @@ import type { EmergencyCardPayload } from "@/lib/emergency/card";
 import { EmergencyCardBody } from "@/components/emergency/emergency-card-body";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { knownHiddenFields } from "@/lib/emergency/field-choices";
+import { toEmergencyCoverage } from "@/lib/emergency/coverage";
 
 /**
  * The card a stranger doctor reads at 2am, when a patient has explicitly opted
@@ -94,6 +95,8 @@ export default async function EmergencyCardPage({
     allergies: card.allergies ?? [],
     medications: card.medications ?? [],
     conditions: card.conditions ?? [],
+    // S09y: cover is in the payload only when the patient filled it in; narrowed here so nothing unexpected is ever rendered.
+    coverage: toEmergencyCoverage(card.coverage),
   };
   const hiddenKeys = knownHiddenFields(card.hidden_fields);
   const hidden = hiddenKeys.map((f) => t(`ecf.field.${f}` as MessageKey));

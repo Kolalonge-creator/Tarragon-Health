@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { catalogueLabel, searchCatalogue, type CatalogueEntry } from "@tarragon/medicines";
+import { brandEntriesAsCatalogue, catalogueLabel, searchCatalogue, type CatalogueEntry } from "@tarragon/medicines";
 import { t } from "@tarragon/i18n";
 import { useMedicineCatalogue } from "@/lib/queries/medicine-catalogue";
+import { useBrandMap } from "@/lib/queries/medicine-safety";
 
 /**
  * Search-as-you-type suggestions under the medicine name box (spec 8.1, 8.2).
@@ -13,7 +14,10 @@ import { useMedicineCatalogue } from "@/lib/queries/medicine-catalogue";
  */
 export function MedicineNameSuggestions({ query, onPick }: { query: string; onPick: (entry: CatalogueEntry) => void }) {
   const catalogue = useMedicineCatalogue();
-  const matches = useMemo(() => searchCatalogue(catalogue.data ?? [], query, 6), [catalogue.data, query]);
+  // S08y: published, reviewed brand mappings are searched too. A failed brand read only leaves them out; typing a name always works.
+  const brandMap = useBrandMap();
+  const entries = useMemo(() => [...(catalogue.data ?? []), ...brandEntriesAsCatalogue(brandMap.data ?? [])], [catalogue.data, brandMap.data]);
+  const matches = useMemo(() => searchCatalogue(entries, query, 6), [entries, query]);
   const trimmed = query.trim();
 
   if (trimmed.length < 2 || catalogue.isError) return null;
