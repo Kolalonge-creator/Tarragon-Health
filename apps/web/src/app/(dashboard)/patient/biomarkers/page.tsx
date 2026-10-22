@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -18,6 +19,7 @@ interface ListItem {
   last_at: string;
   latest_value: number | null;
   latest_unit: string | null;
+  disputed?: boolean;
   latest_flag: string | null;
   latest_ref_low: number | null;
   latest_ref_high: number | null;
@@ -107,12 +109,36 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
               );
             })}
           </section>
+          {list.some((i) => i.disputed === true) && (
+            <nav aria-label={t("biomarkers.pick", uiLanguage)} className="flex flex-wrap gap-2">
+              {list
+                .filter((i) => i.disputed === true)
+                .map((item) => (
+                  <Link
+                    key={item.code}
+                    href={`/patient/biomarkers?code=${encodeURIComponent(item.code)}`}
+                    aria-current={item.code === selected ? "page" : undefined}
+                    className={`rounded-full border px-3 py-1 text-sm ${
+                      item.code === selected ? "border-brand-green bg-soft-sage font-medium text-deep-forest" : "border-charcoal-ink/15 hover:bg-charcoal-ink/5"
+                    }`}
+                  >
+                    {displayCode(item.code)}
+                    <span className="ml-2 text-xs text-amber-900">{t("biomarkers.list_disputed", uiLanguage)}</span>
+                  </Link>
+                ))}
+            </nav>
+          )}
 
           {series && (
             <>
               {series.unitMixed && (
                 <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                   {t("biomarkers.unit_mixed", uiLanguage)}
+                </p>
+              )}
+              {series.disputed && (
+                <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                  {t("biomarkers.disputed", uiLanguage)}
                 </p>
               )}
               {series.target && (
@@ -152,7 +178,15 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
                                 )}
                               </td>
                               <td className="py-1 pr-3">{labRangeLabel(p) ?? ""}</td>
-                              <td className="py-1">{p.laboratory ?? t(`biomarkers.source.${p.source}` as MessageKey, uiLanguage)}</td>
+                              <td className="py-1">
+                                {p.laboratory ?? t(`biomarkers.source.${p.source}` as MessageKey, uiLanguage)}
+                                {p.alsoFrom && (
+                                  <span className="block text-xs text-charcoal-ink/60">
+                                    {t("biomarkers.also_from", uiLanguage, { source: t(`biomarkers.source.${p.alsoFrom}` as MessageKey, uiLanguage) })}
+                                  </span>
+                                )}
+                                {p.disagrees && <span className="block text-xs text-amber-900">{t("biomarkers.disagrees", uiLanguage)}</span>}
+                              </td>
                             </tr>
                           ))}
                         </tbody>

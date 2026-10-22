@@ -1173,6 +1173,182 @@ export type Database = {
           },
         ]
       }
+      learning_glossary_terms: {
+        Row: {
+          aliases: string[]
+          clinical_owner_name: string | null
+          created_at: string
+          created_by: string | null
+          definition: string
+          id: string
+          next_review_due: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewed_by_name: string | null
+          source_reference: string | null
+          status: string
+          term: string
+          updated_at: string
+        }
+        Insert: {
+          aliases?: string[]
+          clinical_owner_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          definition: string
+          id?: string
+          next_review_due?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          source_reference?: string | null
+          status?: string
+          term: string
+          updated_at?: string
+        }
+        Update: {
+          aliases?: string[]
+          clinical_owner_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          definition?: string
+          id?: string
+          next_review_due?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          source_reference?: string | null
+          status?: string
+          term?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      learning_teachback_results: {
+        Row: {
+          content_id: string
+          correct_count: number
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          per_question: boolean[]
+          shared_at: string | null
+          shared_with_care_team: boolean
+          taken_at: string
+          total: number
+        }
+        Insert: {
+          content_id: string
+          correct_count: number
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          per_question: boolean[]
+          shared_at?: string | null
+          shared_with_care_team?: boolean
+          taken_at?: string
+          total: number
+        }
+        Update: {
+          content_id?: string
+          correct_count?: number
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          per_question?: boolean[]
+          shared_at?: string | null
+          shared_with_care_team?: boolean
+          taken_at?: string
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_teachback_results_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "health_education_content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_teachback_results_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_teachback_results_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learning_record_lesson_shows: {
+        Row: {
+          band: string
+          content_id: string
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          shown_at: string
+          shown_on: string
+          source_ids: string[]
+          source_kind: string
+        }
+        Insert: {
+          band: string
+          content_id: string
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          shown_at?: string
+          shown_on?: string
+          source_ids: string[]
+          source_kind: string
+        }
+        Update: {
+          band?: string
+          content_id?: string
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          shown_at?: string
+          shown_on?: string
+          source_ids?: string[]
+          source_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_record_lesson_shows_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "health_education_content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_record_lesson_shows_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_record_lesson_shows_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_creators: {
         Row: {
           created_at: string
@@ -19959,6 +20135,13 @@ export type Database = {
       }
       health_education_content: {
         Row: {
+          reading_grade: number | null
+          reading_grade_checked_at: string | null
+          reading_grade_override_at: string | null
+          reading_grade_override_body_md5: string | null
+          reading_grade_override_by: string | null
+          reading_grade_override_reason: string | null
+          teachback: Json | null
           approved_at: string | null
           audio_clip_id: string | null
           audio_url: string | null
@@ -20007,6 +20190,13 @@ export type Database = {
           next_action: string | null
         }
         Insert: {
+          reading_grade?: number | null
+          reading_grade_checked_at?: string | null
+          reading_grade_override_at?: string | null
+          reading_grade_override_body_md5?: string | null
+          reading_grade_override_by?: string | null
+          reading_grade_override_reason?: string | null
+          teachback?: Json | null
           approved_at?: string | null
           audio_clip_id?: string | null
           audio_url?: string | null
@@ -20055,6 +20245,13 @@ export type Database = {
           next_action?: string | null
         }
         Update: {
+          reading_grade?: number | null
+          reading_grade_checked_at?: string | null
+          reading_grade_override_at?: string | null
+          reading_grade_override_body_md5?: string | null
+          reading_grade_override_by?: string | null
+          reading_grade_override_reason?: string | null
+          teachback?: Json | null
           approved_at?: string | null
           audio_clip_id?: string | null
           audio_url?: string | null
@@ -52798,6 +52995,7 @@ export type Database = {
         Returns: Json
       }
       patient_biomarker_list: { Args: { p_patient?: string }; Returns: Json }
+      lab_value_disagreements: { Args: { p_patient?: string; p_reason?: string }; Returns: Json }
       record_share_open: {
         Args: { p_commit?: boolean; p_pin?: string; p_token: string }
         Returns: Json
@@ -56124,6 +56322,63 @@ export type Database = {
         Args: { p_interim_management_plan: string; p_referral: string }
         Returns: undefined
       }
+      consultation_shared_teachbacks: {
+        Args: { p_patient: string }
+        Returns: {
+          code: string
+          correct_count: number
+          per_question: boolean[]
+          taken_at: string
+          title: string
+          total: number
+        }[]
+      }
+      learning_glossary: {
+        Args: never
+        Returns: {
+          aliases: string[]
+          definition: string
+          term: string
+        }[]
+      }
+      learning_reading_grade_report: {
+        Args: never
+        Returns: {
+          code: string
+          content_status: Database["public"]["Enums"]["health_education_content_status"]
+          grade: number
+          has_valid_override: boolean
+          over_maximum: boolean
+          title: string
+        }[]
+      }
+      lesson_teachback: { Args: { p_code: string }; Returns: Json }
+      record_lesson_lab_items: {
+        Args: never
+        Returns: {
+          analyte_code: string
+          flag: string
+          id: string
+          received_at: string
+          release_state: string
+          result_id: string
+          sensitive_positive: boolean
+        }[]
+      }
+      publish_glossary_term: { Args: { p_id: string; p_next_review_due: string }; Returns: boolean }
+      record_lesson_shown: {
+        Args: { p_band: string; p_lesson_code: string; p_source: string; p_source_ids: string[] }
+        Returns: string
+      }
+      record_teachback_result: { Args: { p_code: string; p_picks: number[] }; Returns: Json }
+      retire_glossary_term: { Args: { p_id: string }; Returns: boolean }
+      save_glossary_draft: {
+        Args: { p_aliases?: string[]; p_definition: string; p_owner?: string; p_source?: string; p_term: string }
+        Returns: string
+      }
+      set_lesson_teachback: { Args: { p_content_id: string; p_teachback: Json }; Returns: boolean }
+      set_reading_grade_override: { Args: { p_content_id: string; p_reason: string }; Returns: number }
+      share_teachback_with_care_team: { Args: { p_code: string; p_share: boolean }; Returns: boolean }
       weekly_micro_lesson: {
         Args: never
         Returns: {

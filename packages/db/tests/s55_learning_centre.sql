@@ -167,7 +167,7 @@ begin
 
   -- ================= 3. search and the zero-result log =================
   v_id := pg_temp.mkitem('s55-search-htn');
-  update public.health_education_content set title = 'Living well with hypertension', body = 'Hypertension is a long-term condition.' where id = v_id;
+  update public.health_education_content set title = 'Living well with hypertension', body = 'Hypertension means blood pressure that is too high. It can be treated.' where id = v_id;
   perform pg_temp.publish(v_id);
   v_id2 := pg_temp.mkitem('s55-search-belle');
   update public.health_education_content set title = 'Your first antenatal visit', body = 'What to expect during pregnancy.' where id = v_id2;

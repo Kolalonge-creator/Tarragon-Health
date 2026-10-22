@@ -4410,6 +4410,80 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S55.md section 8; founder decision 2026-10-07",
   },
   {
+    key: "learning.reading_grade",
+    // S55 quality gates (item 12a): the highest Flesch-Kincaid grade patient content may have when published, and the shortest written reason a
+    // reviewer must give to override it. Live value is the active `reading_grade` row of `learning_config`; the database computes the grade itself
+    // (private.reading_grade, the same formula as packages/shared learning/reading-grade.ts) and refuses to publish above it. UNSIGNED: the CMO sets it.
+    value: { max_grade: 8, min_override_reason_chars: 15 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/BUILD-PROGRESS.md (learning quality gates, 2026-10-22); spec 9.6; OQ-S55-QG-01",
+  },
+  {
+    key: "learning.teachback",
+    // S55 quality gates (item 12c): one to three authored questions per lesson, two to four options each. The database enforces the same limits.
+    // Live value is the active `teachback` row of `learning_config`. UNSIGNED.
+    value: { min_questions: 1, max_questions: 3, min_options: 2, max_options: 4 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/BUILD-PROGRESS.md (learning quality gates, 2026-10-22); OQ-S55-QG-04",
+  },
+  {
+    key: "learning.record_lessons",
+    // S55 quality gates (item 7): which published lesson goes with which band of a blood pressure, glucose or lab result, and how much of a pattern
+    // is needed before a lesson above the lowest band may show. No threshold lives here: the bands come from the platform's own classifiers. The
+    // lesson codes name DRAFT rows that cannot be served until a clinician publishes them. Behind the `record_triggered_lessons_enabled` guard (OFF).
+    // Live value is the active `record_lessons` row of `learning_config`. UNSIGNED: the CMO chooses the lessons, the pattern sizes and the window.
+    value: {
+      suppress_hours_after_urgent: 72,
+      vitals: { sustained_readings: 3, window_days: 14 },
+      lab: { sustained_results: 2 },
+      lessons: {
+        blood_pressure: { in_target: "record-bp-in-target", above_target: "record-bp-above-target" },
+        glucose: { in_target: "record-glucose-in-target", above_target: "record-glucose-above-target" },
+        lab: { hba1c: { normal: "record-lab-hba1c-normal", high: "record-lab-hba1c-high" } },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/BUILD-PROGRESS.md (learning quality gates, 2026-10-22); OQ-S55-QG-02",
+  },
+  {
+    key: "learning.portion_guide",
+    // S55 quality gates (item 8): the hand-measure amounts shown in the local food portion guide for diabetes and for blood pressure. EVERY NUMBER
+    // is a placeholder, written so the screens can be built and checked, not clinical advice. A guide that uses these numbers cannot be published
+    // until a clinician or dietitian has set them and the row is marked confirmed (the database refuses while it is proposed). Live value is the
+    // active `portion_guide` row of `learning_config`; the phone bundles this value for offline use. UNSIGNED.
+    value: {
+      portions: {
+        swallow: { diabetes: { amount: 1, unit: "fist", per: "meal" }, blood_pressure: { amount: 1, unit: "fist", per: "meal" } },
+        rice_jollof: { diabetes: { amount: 1, unit: "fist", per: "meal" }, blood_pressure: { amount: 1, unit: "fist", per: "meal" } },
+        beans: { diabetes: { amount: 1, unit: "cupped_hand", per: "meal" }, blood_pressure: { amount: 1, unit: "cupped_hand", per: "meal" } },
+        soup: { diabetes: { amount: 2, unit: "cupped_hand", per: "meal" }, blood_pressure: { amount: 1, unit: "cupped_hand", per: "meal" } },
+        plantain: { diabetes: { amount: 1, unit: "palm", per: "meal" }, blood_pressure: { amount: 1, unit: "palm", per: "meal" } },
+        yam: { diabetes: { amount: 1, unit: "fist", per: "meal" }, blood_pressure: { amount: 1, unit: "fist", per: "meal" } },
+        bread: { diabetes: { amount: 2, unit: "slice", per: "meal" }, blood_pressure: { amount: 2, unit: "slice", per: "meal" } },
+        drinks: { diabetes: { amount: 0, unit: "cupped_hand", per: "day" } },
+        fruit: { diabetes: { amount: 1, unit: "fist", per: "meal" }, blood_pressure: { amount: 2, unit: "fist", per: "day" } },
+        protein: { diabetes: { amount: 1, unit: "palm", per: "meal" }, blood_pressure: { amount: 1, unit: "palm", per: "meal" } },
+        fried_food: { diabetes: { amount: 1, unit: "fist", per: "week" }, blood_pressure: { amount: 1, unit: "fist", per: "week" } },
+        seasoning_cube: { blood_pressure: { amount: 1, unit: "cube", per: "pot" } },
+        table_salt: { blood_pressure: { amount: 1, unit: "pinch", per: "pot" } },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/BUILD-PROGRESS.md (learning quality gates, 2026-10-22); OQ-S55-QG-03",
+  },
+  {
     key: "learning.search_gap_log",
     // S55 (spec 9.3): rules for the zero-result search log (no patient reference): longest phrase kept, most words, how many searches
     // before an admin sees a phrase, and retention. Live value is the `search_gap_log` row of `learning_config`. UNSIGNED.
@@ -7035,6 +7109,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-16",
     source: "docs/design/S53-pack-scan.md; NAFDAC Greenbook public examples",
+  },
+  {
+    key: "lab_value.duplicate_match",
+    // DUP-1: when the same lab value reaches a record by two routes (a partner lab's structured result and a filed paper report), a pair is a
+    // DUPLICATE when the code matches, the dates are within window_days, the unit is the same and the values are within value_tolerance_pct of
+    // each other. Same test and window but a different value or unit is a DISAGREEMENT: both are shown and a clinician is told, none is picked.
+    // Live values are the active row of `lab_value_match_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // PROPOSED: the CMO or the lab liaison confirms the window and the tolerance.
+    value: { window_days: 2, value_tolerance_pct: 0.5, require_same_unit: true },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/DUP-1.md",
   },
   {
     key: "observations.plausibility",
