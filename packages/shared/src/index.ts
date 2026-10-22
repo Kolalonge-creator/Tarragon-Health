@@ -304,3 +304,6 @@ export * from "./biomarker-trend";
 
 // S43m: the emergency card field choices (fields, defaults, minimum, row mapping), shared by web and phone.
 export * from "./emergency-card-fields";
+
+// S43m: the pure half of photo capture (suggestions, per-field decisions), shared by the web screen and the phone.
+export * from "./document-suggestions";
