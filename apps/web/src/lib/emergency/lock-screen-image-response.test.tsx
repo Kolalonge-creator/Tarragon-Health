@@ -14,7 +14,8 @@ jest.mock("next/og", () => ({
 }));
 const loadDataset = jest.fn();
 jest.mock("./dataset", () => ({ loadEmergencyDatasetForPatient: (...a: unknown[]) => loadDataset(...a) }));
-jest.mock("./qr-render", () => ({ emergencyTextQrSvg: async () => "<svg></svg>" }));
+const mockQr = jest.fn(async (_text: string) => "<svg></svg>");
+jest.mock("./qr-render", () => ({ emergencyTextQrSvg: (text: string) => mockQr(text) }));
 
 import { lockScreenImageResponse, lockScreenOptionsFromUrl } from "./lock-screen-image-response";
 
@@ -127,6 +128,21 @@ describe("lockScreenImageResponse", () => {
     expect((imageCtor.mock.calls[0]![0] as { props: { qrDataUri: string | null } }).props.qrDataUri).toMatch(/^data:image\/svg\+xml;base64,/);
     await lockScreenImageResponse({ supabase, userId: "u1", options: { includeQr: false, minimum: true } });
     expect((imageCtor.mock.calls[1]![0] as { props: { qrDataUri: string | null } }).props.qrDataUri).toBeNull();
+  });
+});
+
+describe("HMO / NHIA cover (S09y) is never on the lock-screen picture", () => {
+  const cover = { scheme: "hmo", member_number: "REL/99887", plan_name: "Reliance Gold", provenance: "patient_entered" };
+
+  it("is not requested from the dataset, and is stripped even if a dataset ever returned it: not on the picture and not in its QR text", async () => {
+    loadDataset.mockImplementation(async () => ({ ...facts, coverage: cover }));
+    await lockScreenImageResponse({ supabase, userId: "u1", options: { includeQr: true, minimum: false } });
+    expect(loadDataset).toHaveBeenCalledWith(supabase, "u1", { strict: true });
+    const props = JSON.stringify((imageCtor.mock.calls[0]![0] as { props: unknown }).props);
+    expect(props).not.toContain("REL/99887");
+    expect(props).not.toContain("Reliance");
+    expect(mockQr).toHaveBeenCalledTimes(1);
+    expect(mockQr.mock.calls[0]![0]).not.toMatch(/REL\/99887|Reliance|Cover:/);
   });
 });
 

@@ -290,5 +290,8 @@ export * from "./therapy-content/wave-a-drafts";
 export * from "./therapy-queue";
 export * from "./therapy-results";
 export * from "./device-guides";
+export * from "./emergency-coverage";
+export * from "./immunisation-card";
+export * from "./outside-record";
 export * from "./my-phones";
 export * from "./nutrition";

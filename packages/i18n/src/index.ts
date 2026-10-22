@@ -5,6 +5,7 @@ import { DEFAULT_LOCALE, LOCALES, type Locale } from "./translate";
 export { LOCALES, DEFAULT_LOCALE, catalogues, t, type Locale, type MessageParams } from "./translate";
 export type { MessageKey };
 export { en };
+export * from "./visit-summary";
 export { activeWording, speakable, WORDING_CODES, WORDING_KEYS, WORDING_SIGNED, type WordingCode } from "./clinical-wording";
 export {
   activeFertileWindowWording,
@@ -25,5 +26,6 @@ export * from "./monthly-report";
 export * from "./cycle-copy";
 export * from "./maternal-child";
 export { activeGlucoseWording, GLUCOSE_WORDING_CODES, GLUCOSE_WORDING_DATA, GLUCOSE_WORDING_KEYS, GLUCOSE_WORDING_SIGNED, type GlucoseWordingCode } from "./glucose-wording";
+export { activeVitalsWording, VITALS_WORDING_CODES, VITALS_WORDING_DATA, VITALS_WORDING_KEYS, VITALS_WORDING_SIGNED, type VitalsWordingCode } from "./vitals-wording";
 export * from "./points";
 export * from "./anchor-phrase";

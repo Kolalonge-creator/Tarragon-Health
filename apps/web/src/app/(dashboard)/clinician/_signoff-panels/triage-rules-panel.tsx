@@ -34,7 +34,7 @@ function dueText(minutes: number | null): string {
  * show the same thing. Access is gated by the page that renders it (both require canAssignCases); the database refuses anyone but the active
  * Chief Medical Officer at the sign step. back="hub" makes the form return to the sign-off hub instead of this rule set's own page.
  */
-export async function TriageRulesPanel({ back, code = "bp_care_triage", page }: { back?: "hub"; code?: "bp_care_triage" | "glucose_care_triage"; page?: "glucose" }) {
+export async function TriageRulesPanel({ back, code = "bp_care_triage", page }: { back?: "hub"; code?: "bp_care_triage" | "glucose_care_triage" | "vitals_care_triage"; page?: "glucose" | "vitals" }) {
   const supabase = (await createClient()) as unknown as Reader;
 
   const sets = await supabase.from("triage_rule_sets").select("id, code, version, status, approved_by, approved_at, note, rules").eq("code", code).order("version", { ascending: false });
