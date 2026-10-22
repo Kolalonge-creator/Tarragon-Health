@@ -58,6 +58,8 @@ type Stage =
       /** The six-level wording, only from a signed urgency map; null shows the four-category result alone. */
       urgencyLevel: string | null;
       forDependant: boolean;
+      /** A pregnancy answer was ticked for another person: it raised the result and is not stored. */
+      proxyPregnancy?: boolean;
     }
   | { step: "unavailable" }
   | { step: "blocked"; reason: "under_18" | "dob_required" | "pregnancy_self_only" }
@@ -111,6 +113,7 @@ function handleStepResult(result: SymptomTriageStepResult): Stage {
     onDevice: false,
     urgencyLevel: result.urgencyLevel,
     forDependant: result.forDependant,
+    proxyPregnancy: result.proxyPregnancyNote,
   };
 }
 
@@ -360,6 +363,9 @@ export function SymptomTriageCheck({
               <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
                 A member of our care team will also take a look at this one directly.
               </p>
+            )}
+            {stage.proxyPregnancy && (
+              <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">{t("symptom.proxy_pregnancy.note")}</p>
             )}
             <NotADiagnosis />
             {stage.assessmentId && reviewEntitled && <ReviewRequest assessmentId={stage.assessmentId} reviewTime={reviewTime} />}

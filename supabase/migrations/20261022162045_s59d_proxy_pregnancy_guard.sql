@@ -1,9 +1,10 @@
 -- S59d part 4 of 4: pregnancy answers are the person's own (founder decision on OQ-S59d-05, 2026-10-22).
 --
 -- A symptom check run by someone else for the person (logged_by_profile_id is set and differs from patient_id: the acting-for or
--- dependant flow) can neither be the pregnancy pathway nor carry the "pregnant" history answer. The app already refuses both before the
--- engine runs (run-step.ts, getActivePathway) and the pickers do not offer the pathway; this puts the same rule in the database so a
--- direct write cannot bypass it:
+-- dependant flow) can neither be the pregnancy pathway nor carry the "pregnant" history answer. The app already refuses the pathway before the
+-- engine runs (run-step.ts, getActivePathway) and the pickers do not offer it; it keeps the pregnancy answer out of the RECORD but still
+-- uses it in memory for the decision (it raises the result to at least urgent, never lowers it). This puts the storage rule in the
+-- database so a direct write cannot bypass it:
 --   * presenting_complaint_key = 'pregnancy_danger_signs' with a different logger: refused (42501);
 --   * a "pregnant" entry in initial_capture.relevantHistory with a different logger: removed from the stored capture (the check is
 --     recorded, the pregnancy answer is not).

@@ -9,6 +9,7 @@ import { SEED_PATHWAYS, S59D_DRAFT_PATHWAYS } from "@tarragon/symptom-triage-eng
 let subjectOf = (id: string) => id;
 const rpc = jest.fn<(fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: null }>>();
 const assessmentInsert = jest.fn<(row: Record<string, unknown>) => unknown>();
+const serviceRpc = jest.fn<(fn: string, args?: Record<string, unknown>) => void>();
 const getActivePathway = jest.fn<(key: string, client?: unknown, options?: { forProxy?: boolean }) => Promise<unknown>>();
 
 jest.mock("@sentry/nextjs", () => ({ captureException: () => undefined }));
@@ -21,6 +22,10 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 jest.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({
+    rpc: async (fn: string, args?: Record<string, unknown>) => {
+      serviceRpc(fn, args);
+      return { data: { ok: true }, error: null };
+    },
     from: () => ({
       select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { organisation_id: "o1" } }) }) }),
       insert: (row: Record<string, unknown>) => {
@@ -51,6 +56,7 @@ const input = (key: string, history: string[], symptoms: string[] = []) =>
 beforeEach(() => {
   rpc.mockReset();
   assessmentInsert.mockReset();
+  serviceRpc.mockReset();
   getActivePathway.mockReset();
   subjectOf = (id) => id;
   rpc.mockImplementation(async (fn) => (fn === "symptom_checker_eligibility" ? { data: { status: "ok" }, error: null } : { data: true, error: null }));
@@ -64,17 +70,34 @@ describe("pregnancy answers are the person's own", () => {
     expect(r).toEqual({ status: "blocked", reason: "pregnancy_self_only" });
     expect(getActivePathway).not.toHaveBeenCalled();
     expect(assessmentInsert).not.toHaveBeenCalled();
+    // the care team is still told through the durable path (incident plus follow-up), with no condition named
+    expect(serviceRpc).toHaveBeenCalledWith("report_unrecorded_symptom_check", { p_patient: "p1", p_category: "urgent" });
   });
 
-  it("a proxy's other check never passes or records a 'pregnant' answer, and the loader is told it is a proxy", async () => {
+  it("a proxy ticking 'pregnant' on another check is NOT stored, but still raises the result to at least urgent (review fix)", async () => {
     subjectOf = () => "p1";
     getActivePathway.mockResolvedValue({ pathway: headache, protocolVersion: 1 });
-    const r = await stepSymptomTriage(input("headache", ["pregnant", "hypertension"], ["confusion"]));
+    // a headache at severity 6 with pregnancy fires headache.pregnancy_severe (urgent): the proxy must get what the person would
+    const r = await stepSymptomTriage({ ...input("headache", ["pregnant", "hypertension"]), capture: { ...input("headache", ["pregnant", "hypertension"]).capture, severity: 6 } });
     expect(r.status).toBe("complete");
+    if (r.status !== "complete") return;
+    expect(r.category).toBe("urgent");
+    expect(r.proxyPregnancyNote).toBe(true);
     expect(getActivePathway.mock.calls[0]?.[2]).toEqual({ forProxy: true });
-    const row = assessmentInsert.mock.calls[0]?.[0] as { initial_capture: { relevantHistory: string[] }; logged_by_profile_id: string };
+    const row = assessmentInsert.mock.calls[0]?.[0] as { initial_capture: { relevantHistory: string[] }; logged_by_profile_id: string; category: string };
     expect(row.logged_by_profile_id).toBe("u1");
+    expect(row.category).toBe("urgent");
     expect(row.initial_capture.relevantHistory).toEqual(["hypertension"]);
+  });
+
+  it("a calm check with pregnancy ticked by a proxy is floored at urgent; without the tick it is not", async () => {
+    subjectOf = () => "p1";
+    getActivePathway.mockResolvedValue({ pathway: headache, protocolVersion: 1 });
+    const calm = { ...input("headache", []), answers: { duration_check: false, frequency_check: false, severity_check: "mild" } };
+    const without = await stepSymptomTriage(calm as never);
+    expect(without.status === "complete" && without.category).toBe("self_management");
+    const ticked = await stepSymptomTriage({ ...calm, capture: { ...calm.capture, relevantHistory: ["pregnant"] } } as never);
+    expect(ticked.status === "complete" && ticked.category).toBe("urgent");
   });
 
   it("the person themselves can still run the pregnancy pathway and answer 'pregnant'", async () => {
