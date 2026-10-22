@@ -1,4 +1,4 @@
--- Record-triggered lessons (item 7) and the local food portion guide (item 8). Part 2 of 2; part 1 is 20261022093519_learning_quality_gates.sql.
+-- Record-triggered lessons (item 7) and the local food portion guide (item 8). Part 2 of 2; part 1 is 20261022112101_learning_quality_gates.sql.
 --
 -- NOTHING IS SWITCHED ON AND NOTHING IS APPROVED.
 --   * Item 7. A guard, record_triggered_lessons_enabled, is created OFF and with no defined condition (so it cannot be switched on until the CMO's
