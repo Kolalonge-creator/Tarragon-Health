@@ -4,13 +4,15 @@ import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
-  answerCheckIn, answerGift, cancelInvite, checkInWindowOpen, createInvite, loadCheckInPending, loadMyCircle, loadPendingGifts, loadPreviewMember, loadPreviewPermissions, loadViewLog, pauseCircle, renewMember, resumeCircle, revokeMember, setMonthlyReportShare, updateMember,
+  answerCheckIn, answerGift, cancelInvite, checkInWindowOpen, createInvite, loadCheckInPending, loadMyCircle, loadPendingGifts, loadPreviewMember, loadPreviewPermissions, loadViewLog, pauseCircle, renewMember, resumeCircle, revokeMember, setMonthlyReportShare, updateMember, setMissedDoseAlert,
 } from "@/lib/care-circle/api";
 import {
   CIRCLE_PERMISSIONS, GRANT_DAY_CHOICES, endsSoon, inviteLinkPath, permissionKey,
   type CircleMember, type CirclePause, type CirclePermission, type MyCircle, type PendingGift, type PreviewView, type ViewLogRow,
 } from "@/lib/care-circle/parse";
 import { HelpAlertCard } from "./care-circle-help-card";
+import { PermissionSummary, PresetPicker, TasksCard, useToolsStatus } from "./circle-tools";
+import { supabase } from "@/lib/supabase";
 import { SupporterBlocks } from "./supporter-blocks";
 import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
@@ -250,6 +252,7 @@ function PermissionSwitches({ value, onChange }: { value: readonly CirclePermiss
 function MemberCard({ member, onChanged }: { member: CircleMember; onChanged: () => void }) {
   const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
+  const tools = useToolsStatus();
   const [draft, setDraft] = useState<CirclePermission[]>(member.permissions);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -271,6 +274,14 @@ function MemberCard({ member, onChanged }: { member: CircleMember; onChanged: ()
     setBusy(true);
     setFailed(false);
     const ok = await setMonthlyReportShare(member.memberId, on);
+    setBusy(false);
+    if (ok) onChanged();
+    else setFailed(true);
+  }
+  async function toggleNudge(on: boolean) {
+    setBusy(true);
+    setFailed(false);
+    const ok = await setMissedDoseAlert(member.memberId, on);
     setBusy(false);
     if (ok) onChanged();
     else setFailed(true);
@@ -301,7 +312,17 @@ function MemberCard({ member, onChanged }: { member: CircleMember; onChanged: ()
       <Text style={{ fontWeight: "700", color: colors.ink }}>{`${member.name} (${member.relationship})`}</Text>
       <MutedText>{t("circle.member.until", locale, { date: lagosDate(member.expiresAt) })}</MutedText>
       {endsSoon(member.expiresAt, Date.now()) ? <Text style={{ fontWeight: "600", color: colors.ink }}>{t("circle.member.ends_soon", locale)}</Text> : null}
+      <PresetPicker value={draft} onChange={(n) => { setDraft(n); setSaved(false); }} />
       <PermissionSwitches value={draft} onChange={(n) => { setDraft(n); setSaved(false); }} />
+      {tools.missedDose ? (
+        <View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}>
+            <Switch accessibilityLabel={t("cctools.nudge.label", locale, { name: member.name })} value={member.missedDoseAlert} disabled={busy || !member.permissions.includes("adherence_summary")} onValueChange={(on) => void toggleNudge(on)} />
+            <Text style={{ flex: 1, color: colors.ink }}>{t("cctools.nudge.label", locale, { name: member.name })}</Text>
+          </View>
+          <MutedText>{member.permissions.includes("adherence_summary") ? t("cctools.nudge.help", locale, { name: member.name, minutes: tools.graceMinutes ?? "" }) : t("cctools.nudge.needs_adherence", locale, { name: member.name })}</MutedText>
+        </View>
+      ) : null}
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}>
         <Switch accessibilityLabel={t("circle.monthly.label", locale, { name: member.name })} value={member.monthlyReportShared} disabled={busy} onValueChange={(on) => void toggleMonthly(on)} />
         <Text style={{ flex: 1, color: colors.ink }}>{t("circle.monthly.label", locale, { name: member.name })}</Text>
@@ -400,7 +421,9 @@ function InviteForm({ onMade }: { onMade: () => void }) {
       <Text style={{ color: colors.ink }}>{t("circle.invite.relationship", locale)}</Text>
       <TextInput accessibilityLabel={t("circle.invite.relationship", locale)} keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={relationship} onChangeText={setRelationship} maxLength={40} style={inputStyle} />
       <Text style={{ fontWeight: "600", color: colors.ink }}>{t("circle.invite.permissions", locale)}</Text>
+      <PresetPicker value={perms} onChange={(n) => { setPerms(n); setShowPreview(false); }} />
       <PermissionSwitches value={perms} onChange={(n) => { setPerms(n); setShowPreview(false); }} />
+      <PermissionSummary permissions={perms} audience="sender" />
       <SecondaryButton title={showPreview ? t("circle.preview.hide", locale) : t("circle.preview.invite_button", locale)} onPress={togglePreview} />
       {showPreview ? (perms.length === 0 ? <MutedText>{t("circle.preview.empty", locale)}</MutedText> : <PreviewPanel view={preview} failed={previewFailed} />) : null}
       <Text style={{ color: colors.ink }}>{t("circle.invite.days", locale)}</Text>
@@ -426,6 +449,17 @@ export function CareCircleSection() {
   const [log, setLog] = useState<ViewLogRow[]>([]);
   const [gifts, setGifts] = useState<PendingGift[]>([]);
   const [loadFailed, setLoadFailed] = useState(false);
+  const tools = useToolsStatus();
+  const [myId, setMyId] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void supabase.auth.getUser().then(({ data }) => {
+      if (alive) setMyId(data.user?.id ?? null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
     const [c, l, g] = await Promise.all([loadMyCircle(), loadViewLog(), loadPendingGifts()]);
@@ -454,10 +488,12 @@ export function CareCircleSection() {
       {circle.invites.map((i) => (
         <Card key={i.inviteId} style={{ gap: 6 }}>
           <Text style={{ color: colors.ink }}>{`${i.hint} (${i.relationship})`}</Text>
-          <MutedText>{t("circle.invite.expires", locale, { date: lagosDateTime(i.expiresAt) })}</MutedText>
+          <Text style={{ fontWeight: "600", color: colors.ink }}>{t("cctools.invite.waiting", locale)}</Text>
+          <MutedText>{t("cctools.invite.waiting_help", locale, { date: lagosDateTime(i.expiresAt) })}</MutedText>
           <SecondaryButton title={t("circle.invite.cancel", locale)} onPress={() => { void cancelInvite(i.inviteId).then(refresh); }} />
         </Card>
       ))}
+      {myId ? <TasksCard patientId={myId} tools={tools} /> : null}
       <InviteForm onMade={() => void refresh()} />
       <Card style={{ gap: 4 }}>
         <Text style={{ fontWeight: "700", color: colors.ink }}>{t("circle.log.title", locale)}</Text>

@@ -696,6 +696,18 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // S69 (INV-07): one generic line for every community milestone; never a cohort name, metric, figure or condition.
     return { text: "Your group has an update", href: "/patient/cohorts" };
   }
+  if (n.template === "circle_digest") {
+    // S69b: the weekly note for a supporter. The content is built when they open it, from the permissions the patient gave (INV-07).
+    return { text: "Your Care Circle weekly update is ready", href: "/patient/supporting" };
+  }
+  if (n.template === "circle_gentle_nudge") {
+    // S69b: the gentle nudge. Says nothing about doses, medicines or readings; the screen shows only a first name.
+    return { text: "Someone in your Care Circle may like a friendly call", href: "/patient/supporting" };
+  }
+  if (n.template === "circle_task_update") {
+    // S69b: a shared job changed. No name, no kind of job, nothing medical.
+    return { text: "Your circle has an update", href: "/patient/care-circle" };
+  }
   if (n.template === "circle_joined") {
     return { text: "Someone has joined your Care Circle", href: "/patient/care-circle" };
   }
