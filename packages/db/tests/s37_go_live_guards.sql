@@ -189,6 +189,8 @@ begin
   perform pg_temp.rec('nothing was attested yet', '0', (select count(*)::text from public.go_live_attestations));
   perform pg_temp.rec('the guard is still off', 'false', private.go_live_open('payouts_enabled')::text);
 
+  -- P4y: the payout guard cannot be switched on while the maker-checker flag is off, so the flag goes on first (as the owner, before the admin session)
+  update public.feature_flags set status = 'on' where key = 'payout_batch_maker_checker';
   perform pg_temp.act(v_admin);
   perform public.attest_go_live_condition('payouts_enabled', 'fee_schedule_approved', true, 'Fee schedule v1 approved by the founder in the console.');
   perform pg_temp.rec('one of two conditions met still blocks the switch', '22023', pg_temp.try('select public.set_go_live_guard(''payouts_enabled'', true, ''ready'')'));

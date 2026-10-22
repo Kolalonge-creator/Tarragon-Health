@@ -9,6 +9,7 @@
 // directly, exactly as before: a missing inbox must never stop delivery outcomes being recorded.
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { mapResendEvent, verifySvix, type ResendEvent } from "../_shared/notifications/resend.ts";
+import { readCappedBody } from "../_shared/integrations/webhook-body.ts";
 import { receiveProviderEvent, resendEventKey, type Dispatch, type DispatchOutcome, type InboxStore } from "../_shared/integrations/webhook-inbox.ts";
 
 /** The service-role client. Typed as the real client (as paystack-webhook does); tests pass a small fake cast to it. */
@@ -51,7 +52,9 @@ export function resendDispatcher(db: ResendDb): Dispatch {
 export async function handleResendWebhook(req: Request, deps: ResendDeps): Promise<Response> {
   if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
   if (!deps.secret) return Response.json({ error: "not configured" }, { status: 503 });
-  const body = await req.text();
+  const capped = await readCappedBody(req);
+  if (!capped.ok) return Response.json({ error: "payload too large" }, { status: 413 });
+  const body = capped.body;
   const svixId = req.headers.get("svix-id");
   const verified = await verifySvix(
     deps.secret,

@@ -13,6 +13,8 @@
 // cannot be reached the event is handled directly, as before. The state updates are written so that running them twice, or running a
 // late "started" after "ended", can never move a consultation backwards.
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { readCappedBody } from "../_shared/integrations/webhook-body.ts";
+import { constantTimeEqual } from "../_shared/integrations/crypto.ts";
 import { isSafeWebhookChallenge } from "../_shared/integrations/webhook-challenge.ts";
 import { forwardPresenceEvent, isPresenceEvent, type ForwardOutcome } from "../_shared/integrations/webhook-forward.ts";
 import { receiveProviderEvent, zoomEventKey, type Dispatch, type DispatchOutcome, type InboxStore } from "../_shared/integrations/webhook-inbox.ts";
@@ -44,7 +46,7 @@ export async function verifyZoomSignature(secret: string | null, rawBody: string
   }
   if (!timestampHeader || !signatureHeader) return false;
   const expected = `v0=${await hmacHex(secret, `v0:${timestampHeader}:${rawBody}`)}`;
-  return signatureHeader === expected;
+  return constantTimeEqual(signatureHeader, expected);
 }
 
 export interface ZoomDeps {
@@ -130,7 +132,9 @@ export function zoomDispatcher(db: SupabaseClient): Dispatch {
 export async function handleZoomWebhook(req: Request, deps: ZoomDeps): Promise<Response> {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
-  const rawBody = await req.text();
+  const capped = await readCappedBody(req);
+  if (!capped.ok) return Response.json({ ok: false, error: "payload_too_large" }, { status: 413 });
+  const rawBody = capped.body;
 
   let event: ZoomWebhookEvent;
   try {
@@ -161,6 +165,10 @@ export async function handleZoomWebhook(req: Request, deps: ZoomDeps): Promise<R
     return Response.json({ ok: false, error: "invalid_signature" }, { status: 200 });
   }
 
+  // No age limit is applied here, on purpose. Replay protection is the inbox: the idempotency key (event, meeting uuid, event_ts) makes a
+  // replayed request a duplicate that runs nothing, and the state updates below never move a consultation backwards. An age limit would
+  // also drop an honest late retry of an event this function itself asked Zoom to resend (a 500 or 502 answer), which is worse than a
+  // replay. Presence events go to the web route, whose adapter applies its own 5 minute window.
   // Zoom allows ONE event-subscription URL per app, and this is it. The consultation presence route (apps/web /api/zoom/webhook) needs the
   // participant events, so they are handed to it unchanged (it verifies the signature again itself) and not recorded here: the idempotency
   // key is built from the meeting, so two people joining the same meeting would collide and the second would be dropped as a replay.

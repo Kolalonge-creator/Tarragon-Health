@@ -299,3 +299,9 @@ export * from "./immunisation-card";
 export * from "./outside-record";
 export * from "./my-phones";
 export * from "./nutrition";
+
+// S43m: health history entry rules shared by web and phone.
+export * from "./health-history";
+
+// S43m: multi-year biomarker trend parsing and chart geometry, shared by the web page and the phone screen.
+export * from "./biomarker-trend";
