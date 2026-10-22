@@ -19,6 +19,8 @@ export * from "./record-integrity";
 export * from "./adult-registration";
 export * from "./wellbeing-library";
 export * from "./therapy-programmes";
+export * from "./home-pins";
+export * from "./measurement-units";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,
 // Enums, Constants, Json. Single source of truth for the DB schema.
@@ -281,6 +283,7 @@ export { sponsorMinimumGroupSize } from "./sponsor-min-group";
 // S70a (Module 18): device plausibility, cross-source de-duplication, photo capture, CGM sustained events, DeviceSource interface.
 export * from "./device-plausibility";
 export * from "./device-dedupe";
+export * from "./assisted-entry";
 export * from "./photo-reading";
 export * from "./cgm-events";
 export * from "./device-source";

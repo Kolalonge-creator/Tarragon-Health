@@ -19,6 +19,10 @@ import { READINESS_QUESTIONS } from "@/lib/validation/exercise";
 import { intensityAllowed, type ActivityGateResult } from "@tarragon/clinical/activity-gate";
 import { useActivityGate, useWorkoutPlans, type WorkoutPlan } from "@/lib/queries/activity-gate";
 import { ActivityGateBanner } from "@/components/activity/activity-gate-banner";
+import { t } from "@tarragon/i18n";
+import { getProposedConfig } from "@tarragon/shared";
+import { orderPlans, type WorkoutPlanDisplayConfig } from "@tarragon/clinical/workout-plans";
+import { usePatientChronologicalAge } from "@/lib/queries/patient-demographics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -68,7 +72,7 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
         </Card>
       )}
 
-      {(plans.data?.length ?? 0) > 0 && !resting && <WorkoutPlansCard plans={plans.data ?? []} />}
+      {(plans.data?.length ?? 0) > 0 && !resting && <WorkoutPlansCard plans={plans.data ?? []} patientId={patientId} />}
 
       {!resting && (
         <Card>
@@ -208,23 +212,26 @@ function ProgrammeRow({
 }
 
 /** Reviewed home workouts and chair-based classes the gate allows. Shown only when a clinician has reviewed at least one; never an empty "coming soon". */
-function WorkoutPlansCard({ plans }: { plans: WorkoutPlan[] }) {
+function WorkoutPlansCard({ plans, patientId }: { plans: WorkoutPlan[]; patientId: string }) {
+  const age = usePatientChronologicalAge(patientId);
+  // Older adults see chair-based classes first. This is only the order; the database gate decides which plans are shown at all.
+  const ordered = orderPlans(plans, age.data ?? null, getProposedConfig("activity.workout_plans").value as unknown as WorkoutPlanDisplayConfig);
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Home workouts</CardTitle>
+        <CardTitle>{t("activity.plans.title")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {plans.map((p) => (
+        {ordered.map((p) => (
           <div key={p.code} className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4">
             <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{p.title}</p>
             <div className="mt-1 flex flex-wrap gap-1.5">
-              <Badge variant="grey">{p.format === "chair_class" ? "Chair-based" : "At home"}</Badge>
+              <Badge variant="grey">{p.format === "chair_class" ? t("activity.plans.chair") : t("activity.plans.home")}</Badge>
               <Badge variant="grey">{INTENSITY_LABEL[p.level === "gentle" ? "beginner" : p.level]}</Badge>
             </div>
             {p.sessions.map((s, i) => (
               <div key={i} className="mt-2">
-                <p className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">{s.minutes} minutes</p>
+                <p className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">{s.minutes} {t("activity.plans.minutes")}</p>
                 <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-sm text-charcoal-ink dark:text-night-ink">
                   {s.steps.map((step) => (
                     <li key={step}>{step}</li>

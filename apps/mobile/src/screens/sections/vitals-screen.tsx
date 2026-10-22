@@ -2,9 +2,17 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { GLUCOSE_UNIT_LABEL, bpAckDelivery, diagnosticBpReadings, type BpAckDelivery } from "@tarragon/shared";
+import {
+  GLUCOSE_UNIT_LABEL,
+  TEMPERATURE_UNIT_LABEL,
+  WEIGHT_UNIT_LABEL,
+  bpAckDelivery,
+  diagnosticBpReadings,
+  type BpAckDelivery,
+} from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
+import { useMeasurementUnits } from "@/lib/measurement-units";
 import { BP_THRESHOLDS, classifyBpLevel, type BpLevel, type BpThresholds } from "@/lib/bp-classification";
 import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-trend";
 import { loadActiveThresholds } from "@/lib/threshold-sync";
@@ -22,6 +30,8 @@ import {
   KETONE_ENTRY_BOUNDS,
   parseStrictNumber,
   validateOtherEntry,
+  typedToStoredEntry,
+  rangeHintInPatientUnit,
   type GlucoseUnit,
   type OtherVitalType,
 } from "@/lib/vitals-entry";
@@ -742,6 +752,7 @@ function OtherVitalCard({
   // already touched the toggle themselves; otherwise the preference landing a moment
   // later would yank the unit out from under a deliberate choice mid-entry.
   const preferredUnit = useGlucoseDisplayUnit();
+  const measurementUnits = useMeasurementUnits();
   const [glucoseUnit, setGlucoseUnit] = useState<GlucoseUnit>(preferredUnit);
   const [unitTouched, setUnitTouched] = useState(false);
   useEffect(() => {
@@ -759,7 +770,14 @@ function OtherVitalCard({
   const [urine, setUrine] = useState<KetoneUrine | null>(null);
   const [glucoseCard, setGlucoseCard] = useState<{ message: string; tone: "warn" | "info"; audioId: string | null } | null>(null);
 
-  const unit = type === "glucose" ? GLUCOSE_UNIT_LABEL[glucoseUnit] : OTHER_VITAL_TYPES.find((v) => v.id === type)!.unit;
+  const unit =
+    type === "glucose"
+      ? GLUCOSE_UNIT_LABEL[glucoseUnit]
+      : type === "weight"
+        ? WEIGHT_UNIT_LABEL[measurementUnits.weight]
+        : type === "temperature"
+          ? TEMPERATURE_UNIT_LABEL[measurementUnits.temperature]
+          : OTHER_VITAL_TYPES.find((v) => v.id === type)!.unit;
 
   function resetForNewType(next: OtherVitalType) {
     setType(next);
@@ -771,7 +789,8 @@ function OtherVitalCard({
   }
 
   async function handleSave() {
-    const entry = validateOtherEntry(type, value, glucoseUnit);
+    // Typed in the patient's own unit; checked and saved in the stored one (kg, degrees C).
+    const entry = validateOtherEntry(type, typedToStoredEntry(type, value, measurementUnits), glucoseUnit);
     if (!entry.ok) {
       // Guidance for a ticked level 3 sign never waits for a valid number (a meter that says LO, a mistyped value, a carer who has no number): nothing was saved, so it says so.
       const level3 = signs.filter((x) => LEVEL_3_SIGNS.includes(x));
@@ -958,7 +977,16 @@ function OtherVitalCard({
         </>
       ) : null}
 
-      {errorKey ? <InlineAlert tone="danger" message={tr(errorKey)} /> : null}
+      {errorKey ? (
+        <InlineAlert
+          tone="danger"
+          message={(() => {
+            // The range message names kg or degrees C; add the same range in the unit they typed in.
+            const hint = errorKey.endsWith("range_weight") || errorKey.endsWith("range_temperature") ? rangeHintInPatientUnit(type, measurementUnits) : null;
+            return hint ? `${tr(errorKey)} (${hint})` : tr(errorKey);
+          })()}
+        />
+      ) : null}
       {saveError ? <InlineAlert tone="danger" message={saveError} /> : null}
       {urgentBanner ? <InlineAlert tone="warn" message={urgentBanner} /> : null}
       {glucoseCard ? (
