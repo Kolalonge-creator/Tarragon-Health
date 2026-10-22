@@ -5046,6 +5046,35 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Time Sensitive only takes effect in a build made with `IOS_TIME_SENSITIVE=1` (native: needs an EAS build and a `runtimeVersion` bump). Critical Alerts are NOT used and not requested. A later request to Apple for the Critical Alerts entitlement could be considered for emergency pages only, never for dose reminders; that is a founder decision.
 - Battery-optimisation exemption is guided (opens the system screen) but not detected: detecting it needs a new native function (`PowerManager.isIgnoringBatteryOptimizations`) in the exact-alarms module, a native change. The self-test is the real check instead. Option: add the native function in the next planned EAS build.
 - Decision: open (needs a device run).
+### OQ-DP-01 Glucose readings have no status word on the patient history (raised by the design-principles pass, 2026-10-22)
+- A single-reading classifier exists (`classifyLatestGlucoseLevel`) but no patient-facing word set is signed (`glucose-wording.json` is unsigned). Principle 2 (number + word + colour + icon) therefore cannot be met for glucose without new clinical wording.
+- Options: (a) CMO signs a short word set per level, then glucose joins `readingStatus()`; (b) leave glucose as a number only. Recommend (a).
+- Decision: open (CMO).
+
+### OQ-DP-02 Home "safety message is waiting" line (raised by the design-principles pass, 2026-10-22)
+- New plain, non-clinical Home copy (`dp.next.red_alert.*`): "A safety message is waiting for you". It names nothing clinical and does not claim a clinician was told. It sits below the emergency dialog. CMO to confirm the line, or reword.
+- Also for the CMO to confirm (same item): the dose card (`dp.next.dose.*`: "A dose is due" / "Open your list and mark what you have taken today", no medicine name) and the safety-check card shown when the emergency read fails (`dp.next.safety_check.*`: "Check for safety messages"). Neither claims a clinician was told.
+- Decision: open (CMO). Build order of the card is the founder's; items that were on the card before (screening, video times, check-in, review) now sit after refill, before the lesson. Confirm that placement.
+
+### OQ-DP-03 Home has about 40 cards (raised by the design-principles pass, 2026-10-22)
+- One next action is now correct at the top, but `(sections)/page.tsx` still stacks about 40 cards below it, each with its own query. No bundle measurement was run. Options: (a) founder picks a short list of cards to keep on Home and moves the rest behind "More"; (b) measure first with a bundle analysis and a low-end Android profile. Recommend (b) then (a).
+- Decision: open (founder).
+
+### OQ-DP-04 Doctor trust cue is not on every clinical item (raised by the design-principles pass, 2026-10-22)
+- `ReviewedByDoctor` is keyed by escalation only. Medication changes, care-plan cards and AI-assisted summaries need an inventory of which carry `reviewed_by`/`signed_by`; add the cue only where a real record exists.
+- Decision: open (product, then a build session).
+
+### OQ-DP-05 Web has no offline write queue (raised by the design-principles pass, 2026-10-22)
+- Mobile queues and shows a pending state. Web blocks the save offline and says so. A web queue needs ordering and conflict rules and a clinical-safety review (a queued red reading must never read as "sent"). Not built.
+- Decision: open (founder).
+
+### OQ-DP-06 Shared-phone mode only covers mental-health screens; non-discreet push body is template text (raised by the design-principles pass, 2026-10-22)
+- No app-wide quick profile switch or "hide now". With `discreet_mode` off, a push body is the template text (up to 160 characters), protected by the INV-07 template lint only. Options: default discreet on for new accounts, or an app-wide hide. Recommend discussing with the S56 owner.
+- Decision: open (founder).
+
+### OQ-DP-07 Competitor patterns not built (raised by the design-principles pass, 2026-10-22)
+- Range gauge on results, one insight card on Home, tappable suggested questions for the assistant, shareable doctor report from readings. The assistant and learning files are being edited by other sessions, so none was started.
+- Decision: open (founder).
 
 ### Follow-up to OQ-S64-4: the older video-visit "full refund" line is accurate for its mechanism (2026-10-22)
 - Checked while reconciling S61 to S65 against current `main-dev`. `book-video-visit.tsx` says "If nobody can take it, you get a full refund". That path (`video_visit_requests`) takes a real Paystack payment, holds it, and `/api/cron/video-visit-refunds` refunds it in cash through the Paystack Refunds API when no doctor accepts within 48 hours. So the sentence describes what happens; it is not a credit-versus-cash mix-up.
