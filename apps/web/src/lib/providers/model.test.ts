@@ -47,3 +47,23 @@ describe("provider board model", () => {
     expect(closeStatusSchema.safeParse("deleted").success).toBe(false);
   });
 });
+
+describe("provider layer health reply", () => {
+  const good = {
+    generated_at: "2026-10-20T10:00:00Z", status: "attention", reasons: ["1 webhook event(s) gave up after every retry"],
+    inbox: { open: 2, oldest_open_seconds: 5000, dead: 1, waiting_too_long: 1, rejected_24h: 0, stale_after_seconds: 3720, by_provider: [{ provider: "zoom", open: 2, oldest_open_seconds: 5000, dead: 1, rejected_24h: 0, verified_24h: 3, last_received_at: "2026-10-20T09:00:00Z" }] },
+    breakers: { open: 0, half_open: 0 }, reconciliation: { open_breaks: 0, older_than_limit: 0, limit_hours: 72, oldest_hours: 0 }, payout_postings: { failed: 0, skipped: 0 },
+  };
+  it("parses a good reply and shows a reply it cannot read as unreadable, never as healthy", async () => {
+    const { parseProviderLayerHealth } = await import("./model");
+    expect(parseProviderLayerHealth(good)?.status).toBe("attention");
+    expect(parseProviderLayerHealth({ ...good, status: "fine" })).toBeNull();
+    expect(parseProviderLayerHealth({ ...good, inbox: { ...good.inbox, dead: -1 } })).toBeNull();
+    expect(parseProviderLayerHealth(null)).toBeNull();
+    expect(parseProviderLayerHealth({})).toBeNull();
+  });
+  it("carries no field that could hold a body, an email or a patient", async () => {
+    const { providerLayerHealthSchema } = await import("./model");
+    expect(Object.keys(providerLayerHealthSchema.shape.inbox.shape).some((k) => /body|email|patient|name/.test(k))).toBe(false);
+  });
+});

@@ -174,3 +174,22 @@ Deno.test("with the inbox unreachable the event is handled directly, as before",
   // a signed body whose JSON is valid but not an object with an event still parses safely
   assertEquals((await post(JSON.stringify({ payload: {} }), { ...deps, store: createMemoryInbox() })).json, { ok: true });
 });
+
+Deno.test("a signed event with any timestamp is still recorded and handled once, and the same request again is a replay that runs nothing", async () => {
+  const { deps, f, store } = mk();
+  const hoursLater = { ...deps };
+  const first = await post(ended, hoursLater);
+  assertEquals(first.json["ok"], true);
+  assertEquals(f.consultation?.["status"], "completed");
+  assertEquals(store.rows.length, 1);
+  const again = await post(ended, hoursLater);
+  assertEquals(again.json["replay"], true);
+  assertEquals(f.updates.length, 1);
+});
+
+Deno.test("a body over the size cap is refused with 413 before any signature work or storage", async () => {
+  const { deps, store } = mk();
+  const res = await handleZoomWebhook(new Request("https://x.test/zoom", { method: "POST", body: "x".repeat(262_145) }), deps);
+  assertEquals(res.status, 413);
+  assertEquals(store.rows.length, 0);
+});
