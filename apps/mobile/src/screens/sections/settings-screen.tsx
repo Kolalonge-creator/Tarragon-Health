@@ -14,6 +14,7 @@ import { ProfileScreen } from "@/screens/sections/profile-screen";
 import { AppearanceSetting } from "@/screens/sections/appearance-setting";
 import { ReminderReliabilityCard } from "@/screens/sections/reminder-reliability-card";
 import { BackupCodesSection } from "@/screens/sections/backup-codes-section";
+import { DataUseSection } from "@/screens/sections/data-use-section";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { authenticate, readAppLockEnabled, writeAppLockEnabled } from "@/lib/app-lock";
 import { readLowDataEnabled, writeLowDataEnabled } from "@/lib/low-data";
@@ -234,6 +235,10 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
           />
         </GroupedList>
       </View>
+
+      <SectionDivider />
+
+      <DataUseSection />
 
       <SectionDivider />
 

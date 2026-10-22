@@ -3718,6 +3718,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["lease\\w*days?\\s*[=:]\\s*30\\b", "probe\\w*(interval|seconds)\\w*\\s*[=:]\\s*60\\b"],
   },
   {
+    key: "offline.data_cost",
+    // S06z. PROPOSED: the price of one megabyte of mobile data in kobo (80 kobo = N0.80 a MB, about N800 a GB, a typical Nigerian prepaid
+    // bundle rate) used ONLY to show the patient an estimate of what syncing cost them on mobile data (it is labelled an estimate wherever shown;
+    // a patient's real plan will differ). max_hold_hours is the longest an ordinary reading or dose log waits for Wi-Fi when the patient has chosen
+    // "sync on Wi-Fi only"; it is held well inside the 12 hours after which the server's missed-dose job marks an unanswered dose missed, so the
+    // care team never sees a false miss because a phone stayed on mobile data. Urgent and danger-flagged entries never wait (urgent kinds are a safety rule in code, not config).
+    value: {
+      price_per_mb_kobo: 80,
+      max_hold_hours: 6,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-09-30",
+    source: "docs/design/S06z.md (data-cost meter in naira); builds on S06x data-use meter (docs/design/S06x.md section 5)",
+    guardPatterns: ["pricePerMb\\w*\\s*[=:]\\s*80\\b", "maxHold\\w*\\s*[=:]\\s*6\\b"],
+  },
+  {
     key: "medicines.dose_anchors",
     // S08z. PROPOSED: dose times anchored to daily events. `anchors` are the STARTING times shown for each anchor (waking, meals, the five daily prayers,
     // bedtime) before a patient sets their own; a patient confirms each one they use, and it is never presented as a prayer calendar or as clinical guidance. They
