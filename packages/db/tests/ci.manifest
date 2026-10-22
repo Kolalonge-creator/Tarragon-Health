@@ -1352,6 +1352,9 @@ bp_cuffless_estimates_never_diagnostic.sql
 second_opinion_shared_results_and_referral.sql
 # Record share extras: recipient label, view cap (1 to 50, the fourth open of a three-view link is refused like any dead link, peek too), date window (30/90/180 days drops older readings), options door refuses bad input and anon; pin_hash stays unreadable; the original create door still works. Sabotage: the cap and the window each removed; both must flip.
 record_share_recipient_views_window.sql
+# --- Added 2026-10-20 (provider layer completion: payout CMO pair and guard/flag coupling) ---
+p4y_payout_controls_reaudit.sql
+p4z_provider_layer_health_read.sql
 # S09y: My Health gaps. Emergency card cover (HMO / NHIA number and plan: patient-typed, fixed provenance, RPC-only writes, own-row read, live card shows it only when filled, never in the lock-screen payload, audited without the number) and outside records (patient files start unchecked; only a tied clinical-tier doctor can verify, once; reviewed_by/at are the server's; denied attempts audited; worklist carries the queue). Sabotage: care-tie check, clinical-tier check and the status guard each removed; each must flip.
 s09y_my_health_gaps.sql
 
@@ -1431,3 +1434,6 @@ membership_instalments_removed.sql
 
 # Cuff display camera reader and result passport (2026-10-22): both go-live guards born OFF (a real patient refused, a test patient let through), anon and other patients refused, AI-022 registered disabled with no invented evaluation, prompt or knowledge source, and a sensitive positive lab row invisible to its owner. Sabotage: the guard lookup made always-open and the restrictive sensitive policy dropped; both must flip.
 cuff_camera_and_result_passport_guards.sql
+
+# S62 follow-up: the review and scheduled-test sweeps are scheduled daily (06:08 and 06:18 UTC), call the right function, run cleanly as the job owner and add nothing while no real patient is enrolled, and still refuse a signed-in user. Sabotage: each job unscheduled and the matching check flips.
+s62_pathway_sweeps_scheduled.sql
