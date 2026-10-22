@@ -3890,6 +3890,59 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - Decision: informational.
 
 
+## EMP: employer seat pilot kit (2026-10-16). Conservative defaults taken; nothing needs a decision to merge, several need one before the pilot is switched on.
+
+### OQ-EMP-1 Paystack payment link: finance records receipt, no new webhook kind
+- Chosen: the pilot invoice is paid by bank transfer or a Paystack payment link created by hand in the Paystack dashboard; finance SEES the money and records the method and reference (`confirm_employer_seat_pilot_payment`, idempotent, unique reference). Why: a new `metadata.kind` in the deployed `paystack-webhook` function touches the highest-risk deployed edge function and the S25 order path for a B2B one-off. Alternative: add a signed webhook kind that activates the pilot on a verified `charge.success`. Not built.
+- Decision: open (founder). Counsel: none.
+
+### OQ-EMP-2 No general ledger posting for a pilot invoice
+- The invoice is an `employer_invoices` row; its paid status is finance's record. No journal entry is posted, no account was invented (S25 posting design not read for B2B revenue). Finance decides the accounts for employer seat revenue and deferral over the 12 month term.
+- Decision: open (finance).
+
+### OQ-EMP-3 No condition or programme uptake count in the employer report
+- The report counts members with a completed consultation, consultations completed, and members who logged any check-in. A chronic-programme or screening-result count would let an employer infer a condition in a small workforce (the Ovia risk, spec 2180). A general "annual health check started" count is also left out until the CMO and DPO approve its definition.
+- Decision: open (CMO, DPO).
+
+### OQ-EMP-4 A departed employee's seat is not reusable
+- Pilot seats are counted by seats ever made (any state). A leaver's seat is not given to a replacement. Alternative: free the seat if the leaver departs within N days of joining.
+- Decision: open (founder).
+
+### OQ-EMP-5 Re-identification by differencing across weekly reports
+- Defences: the one platform minimum cell (`private.min_cell_floor`, S75a: 20 today, or the organisation's own number if higher), complementary suppression (`private.suppress_cell`), figures only through the last completed Lagos week, counts rounded to the nearest 5. Residual: two reports weeks apart can still be subtracted for a small group. Option: freeze a stored snapshot per week and never re-serve a changed past week. Counsel and DPO to say whether this is enough for a first pilot; with a platform floor of 20, an employer with fewer than about 40 members will see usage withheld until it grows.
+- Decision: open (DPO).
+
+### OQ-EMP-6 VAT, withholding tax and invoice wording
+- The invoice carries the naira total only. Whether VAT applies to a health-service seat, withholding tax, and a purchase order field are counsel/finance points. Flagged NEEDS COUNSEL in the terms draft.
+- Decision: open (counsel, finance).
+
+### OQ-EMP-7 Legal drafts need counsel
+- `docs/legal/employer-pilot-terms-DRAFT.md` and `docs/legal/employee-pilot-notice-DRAFT.md`: roles of controller and processor for the roster (employer to Tarragon), lawful basis for the work-email match, voluntariness inside an employment relationship, the DPA attachment, refund position, governing law, liability.
+- Decision: open (counsel). Not for sending.
+
+### OQ-EMP-9 Employee activity in the employer report: lawful basis, and the report ships OFF
+- The usage block counts members with a consultation or a check-in from `encounters` and `vitals_readings`. No record shows the employee saw the notice or agreed, and the notice is a draft. Conservative default taken: `employer.seat_pilot.usage_report_enabled = false`, so a pilot reports seat counts only until counsel and the DPO sign the employee notice and the founder switches it on (an update of the active `employer_seat_pilot_config` row; the registry value must change with it). Alternative: record an in-app acknowledgement per seat and count only members who gave it.
+- Decision: open (counsel, DPO).
+
+### OQ-EMP-10 An ended or expired pilot: claims wait, one incident per pilot (decided default 2026-10-22)
+- After a pilot ends or its claim window closes, new roster claims get no seat (`pilot_closed`) and wait. Ordinary arrears billing does NOT resume on its own, because that would bill an employer who only agreed to a block. Only ONE open incident per pilot is raised (reference `pilot-closed:<pilot id>`), not one per person. A new paid pilot re-offers seats to everyone who was refused. Alternative: hand the employer back to arrears billing after the pilot.
+- Decision: open (founder), default implemented.
+
+### OQ-EMP-11 The per-head overlap guard raises; it is not a batch operation
+- `employer_generate_invoice` creates one invoice for one organisation per call and nothing in the repository calls it in a loop or from a schedule, so the guard `pilot_covers_this_period` can only refuse the single call finance made, with a plain message. A silent skip would hide a real double billing, so it raises. If a batch run is ever added it must catch this error per organisation.
+- Decision: informational.
+
+### OQ-EMP-12 A seat claimed on the last day runs the full twelve months
+- The seat term is the catalogue duration from the claim day, not capped at the claim window. Documented in the employer terms draft (3.2). Alternative: cap the seat at a fixed end date.
+- Decision: informational (founder).
+
+### OQ-EMP-13 The live project is ahead of main-dev on the Membership ladder
+- Live `private.grant_org_seat` writes `patient_memberships.tier` (migration `20261021110528 membership_evergreen_ladder_foundation`, live, not on main-dev). The pilot migration detects the column at run time and sorts after it, so it works on a main-dev replay and on live. When the ladder merges, its `grant_org_seat` body must carry the pilot block; the pilot proof fails if it does not.
+- Decision: informational.
+
+### OQ-EMP-8 starts_on is the offer date, not a gate
+- Seats can be claimed from the day payment is confirmed until ends_on. A "not before" date would leave a paid employee waiting with no sweep to release them. Alternative: a daily sweep that grants seats when the window opens.
+- Decision: informational (founder).
 ### OQ-AVS-1 The older consultation summary table is left in place
 - `consultation_patient_summaries` (2026-08-29, publish-once, patient reads by policy, staff read by policy) already gives a patient a short recap of a video visit. It has no draft, no approval stamp, no checklist, no amendment or protected-note handling and no event. The after-visit summary (AVS) is built as its successor on `visit_summaries`, and the Care tab shows the new card above the notes card. The old table, its publish function and the `consultation_summary_ready` notification are not touched or removed, so a patient can still see both for a visit published the old way.
 - Conservative default: do nothing to the old path in this PR. Decision needed (product): retire `publish_consultation_summary` once AVS is live, and whether to migrate the old rows (they would need a doctor to approve them again).
