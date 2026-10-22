@@ -160,6 +160,9 @@ test.describe("collection-only pharmacy screens", () => {
     // Step 1 (S41, "What brings you here?") is a set of checkboxes with a Continue button, not a row of buttons. The answers gate
     // nothing, so the honest minimal choice is "I am not sure yet". The exact name keeps this off the consent step's "I agree, continue".
     await page.getByRole("checkbox", { name: /not sure yet/i }).check();
+    // The step needs an answer in EACH list ("Choose at least one answer in each list"): without a condition answer Continue is refused and the
+    // consent step below never appears, which timed this test out. "None of these" is the matching honest minimal choice.
+    await page.getByRole("checkbox", { name: /none of these/i }).check();
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page.getByRole("checkbox", { name: /accept|agree/i }).check();
     await page.getByRole("button", { name: /i agree, continue/i }).click();
