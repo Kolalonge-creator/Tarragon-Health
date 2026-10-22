@@ -408,9 +408,10 @@ begin
   insert into public.emergency_events (organisation_id, patient_id, source, trigger_detail, status)
     values (v_org, v_pat, 'mental_health_screen', 'A check-in needs urgent follow-up', 'active');
   perform pg_temp.ck('a clinician was paged for the mental-health emergency (the safety net still fires)', '1',
-    (select count(*)::text from public.notifications where recipient_id = v_doc and template = 'emergency_event_clinician_alert' and payload ->> 'source_label' = 'a check-in'));
+    (select count(*)::text from public.notifications where recipient_id = v_doc and template = 'emergency_event_clinician_alert'));
+  -- INV-07 (2026-10-22): no clinician alert carries a source label at all, so the wellbeing source cannot appear under any name.
   perform pg_temp.ck('...no page carries the source name', '0',
-    (select count(*)::text from public.notifications where recipient_id = v_doc and template = 'emergency_event_clinician_alert' and payload ->> 'source_label' in ('mental_health_screen', 'intake_screen')));
+    (select count(*)::text from public.notifications where recipient_id = v_doc and template = 'emergency_event_clinician_alert' and payload::text ~ '(source_label|mental_health_screen|intake_screen)'));
   perform pg_temp.ck('...nor the patient name', '0',
     (select count(*)::text from public.notifications where recipient_id = v_doc and template = 'emergency_event_clinician_alert' and payload ->> 'patient_name' like 'Probe Name%'));
   -- control, on a second entitled patient (the first already owns an open alert, which a second event would be attached to)
@@ -419,8 +420,8 @@ begin
   insert into public.patient_memberships (organisation_id, patient_id, source, state, is_test) values (v_org, v_ctl, 'purchase', 'active', true);
   insert into public.emergency_events (organisation_id, patient_id, source, trigger_detail, status)
     values (v_org, v_ctl, 'bp_reading', 'proof control', 'active');
-  perform pg_temp.ck('control: a blood pressure emergency page still names its source and the patient', '1',
-    (select count(*)::text from public.notifications where recipient_id = v_doc and template = 'emergency_event_clinician_alert' and payload ->> 'source_label' = 'bp_reading' and payload ->> 'patient_name' = 'Probe Name Ctl'));
+  perform pg_temp.ck('control: a blood pressure emergency page still names the patient and still carries no source label', '1',
+    (select count(*)::text from public.notifications where recipient_id = v_doc and template = 'emergency_event_clinician_alert' and not (payload ? 'source_label') and payload ->> 'patient_name' = 'Probe Name Ctl'));
 end $$;
 
 -- 7. SABOTAGE: each protection removed must flip its checks ---------------------------------------------------------------------
@@ -434,7 +435,9 @@ do $$
 declare v_def text;
 begin
   v_def := pg_get_functiondef('private.handle_emergency_event()'::regprocedure);
-  execute replace(replace(v_def, E'case when new.source::text in (\'mental_health_screen\', \'intake_screen\') then \'a check-in\' else new.source::text end', 'new.source::text'),
+  -- the handler no longer writes a source label (INV-07), so the sabotage puts the raw source name back into the payload
+  v_def := regexp_replace(v_def, '''patient_name'', case when new\.source::text in', '''source_label'', new.source::text, ''patient_name'', case when new.source::text in');
+  execute replace(v_def,
     E'case when new.source::text in (\'mental_health_screen\', \'intake_screen\') then \'A patient\' else coalesce((select full_name from public.profiles where id = new.patient_id), \'A patient\') end',
     E'coalesce((select full_name from public.profiles where id = new.patient_id), \'A patient\')');
 end $$;
