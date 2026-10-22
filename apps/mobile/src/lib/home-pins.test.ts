@@ -18,7 +18,7 @@ function query(result: { data?: unknown; error?: { message: string } | null }, c
     then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => settled.then(resolve, reject),
     maybeSingle: () => settled,
   };
-  for (const method of ["select", "eq", "neq", "not", "order", "limit", "upsert"]) {
+  for (const method of ["select", "eq", "neq", "not", "is", "order", "limit", "upsert"]) {
     builder[method] = (...args: unknown[]) => {
       calls.push({ method, args });
       return builder;
@@ -88,6 +88,13 @@ describe("loadPinnedVitalValues", () => {
     // weight has data, waist's column is absent from the row so it has no usable number
     const result = await loadPinnedVitalValues("p1", ["weight", "waist"]);
     expect(result).toEqual({ ok: true, data: { weight: { value: "71.8", unit: "kg" } } });
+  });
+
+  it("skips a superseded or entered-in-error reading", async () => {
+    const calls: Call[] = [];
+    mockFrom.mockImplementation(() => query({ data: [] }, calls));
+    await loadPinnedVitalValues("p1", ["weight"]);
+    expect(calls.some((c) => c.method === "is" && c.args[0] === "correction_status" && c.args[1] === null)).toBe(true);
   });
 
   it("never takes a wearable reading for pulse, but does for weight", async () => {

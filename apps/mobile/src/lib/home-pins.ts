@@ -51,6 +51,8 @@ export async function loadPinnedVitalValues(
           .select(column)
           .eq("patient_id", patientId)
           .eq("vital_type", HOME_PIN_VITAL_TYPE[key])
+          // A superseded or entered-in-error reading is never "the latest".
+          .is("correction_status", null)
           .not(column, "is", null);
         if (HOME_PIN_NEVER_FROM_WEARABLE.includes(key)) query = query.neq("source", "wearable");
         const { data, error } = await query.order("taken_at", { ascending: false }).limit(1);
