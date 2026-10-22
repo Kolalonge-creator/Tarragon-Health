@@ -51075,6 +51075,7 @@ export type Database = {
       feature_consent_state: { Args: { p_data_type: string }; Returns: Json }
       device_data_consent_in_force: { Args: { p_patient: string }; Returns: boolean }
       my_handover: { Args: never; Returns: Json }
+      consent_receipt_data: { Args: { p_ref?: string; p_scope: string }; Returns: Json }
       my_consent_matrix_history: { Args: { p_limit?: number }; Returns: Json }
       record_emergency_card_image: { Args: { p_include_qr?: boolean; p_minimum?: boolean }; Returns: Json }
       my_consent_matrix: { Args: never; Returns: Json }

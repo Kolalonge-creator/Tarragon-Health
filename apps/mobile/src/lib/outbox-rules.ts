@@ -12,6 +12,7 @@ export type OutboxKind =
   | "red_care"
   | "kick_session"
   | "contraction_session"
+  | "birth_plan"
   | "meal"
   | "activity"
   // S08z: the patient's anchor times and "my day has shifted" entries. Settings, not records: they queue so they work offline.
