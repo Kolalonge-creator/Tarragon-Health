@@ -347,7 +347,8 @@ begin
     res := pg_temp.bp(v_org, pb, 218, 132);
     perform pg_temp.back();
     perform pg_temp.rec('A7h with no active limits config a crisis reading is still stored and reaches the triggers', 'ok,true', res || ',' || (pg_temp.red_count(pb) > v_before)::text);
-    update public.assisted_entry_config set is_active = true where rules = v_rules;
+    update public.assisted_entry_config set is_active = true where id = (select id from public.assisted_entry_config order by version desc limit 1);
+    if private.assisted_entry_rules() is null then raise exception 'proof setup: the limits config was not reactivated'; end if;
         -- the patient's own entries are never limited.
     perform pg_temp.act(pb);
     res := '';
@@ -435,7 +436,7 @@ begin
   if position('if v_n >= v_hour then' in v_def) = 0 then raise exception 'VACUOUS TEST: rate limit anchor not found'; end if;
   execute replace(v_def, 'if v_n >= v_hour then', 'if false then');
   -- (with the limit removed nothing is ever flagged, so the flag check below changes)
-  lim_h := (private.assisted_entry_rules() ->> 'max_per_helper_per_person_per_hour')::int;
+  lim_h := coalesce((private.assisted_entry_rules() ->> 'max_per_helper_per_person_per_hour')::int, 6);
   perform pg_temp.act(cg_rate);
   for i in 1..lim_h loop perform pg_temp.bp(v_org, pr, 120 + i, 80); end loop;
   perform pg_temp.bp(v_org, pr, 150, 90);
