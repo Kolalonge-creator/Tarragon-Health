@@ -431,7 +431,7 @@ end $$;
 do $$
 declare adm uuid := pg_temp.f('admin'); a uuid := pg_temp.f('orgA'); t date := pg_temp.today(); v_p2 uuid; r jsonb;
 begin
-  v_p2 := pg_temp.q_as(adm, format($q$select public.create_employer_seat_pilot(%L, %L, 6, %L, %L, 'terms-v2', true)::text$q$, a, pg_temp.f('pkgA'), t, t + 30))::uuid;
+  v_p2 := pg_temp.q_as(adm, format($q$select public.create_employer_seat_pilot(%L, %L, 6, %L, %L, 'terms-v2', true)::text$q$, a, pg_temp.f('pkgA'), t + 1, t + 31))::uuid;
   perform pg_temp.setf('pilotA2', v_p2);
   perform pg_temp.q_as(adm, format($q$select public.issue_employer_seat_pilot_invoice(%L)::text$q$, v_p2));
   r := pg_temp.q_as(adm, format($q$select public.confirm_employer_seat_pilot_payment(%L, 'bank_transfer', 'BANK-REF-4004')::text$q$, v_p2))::jsonb;
