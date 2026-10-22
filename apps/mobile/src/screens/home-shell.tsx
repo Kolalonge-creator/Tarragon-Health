@@ -50,6 +50,7 @@ import { MyHealthScreen } from "@/screens/sections/my-health-screen";
 import { RecordShareScreen } from "@/screens/sections/record-share-screen";
 import { MyPhonesScreen } from "@/screens/sections/my-phones-screen";
 import { ExerciseScreen } from "@/screens/sections/exercise-screen";
+import { FastingScreen } from "@/screens/sections/fasting-screen";
 import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
 import { ConsultationRoomScreen } from "@/screens/sections/consultation-room-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
@@ -332,6 +333,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     myHealth: () => <MyHealthScreen userId={userId} acting={acting != null} onNavigate={handleSelect} />,
     myPhones: () => <MyPhonesScreen userId={userId} acting={acting != null} />,
     exercise: () => <ExerciseScreen patientId={subjectId} organisationId={organisationId} />,
+    fasting: () => <FastingScreen acting={acting != null} onNavigate={handleSelect} />,
     devices: () =>
       openDevice ? (
         <SyncScreen device={openDevice} onBack={() => setOpenDevice(null)} />
@@ -384,7 +386,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       <HealthyAgeingScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
     ),
     lifestyle: () => <LifestyleScreen patientId={userId} onNavigate={handleSelect} />,
-    meals: () => <MealsScreen patientId={subjectId} />,
+    meals: () => <MealsScreen patientId={subjectId} acting={acting != null} />,
     sleep: () => <SleepScreen patientId={subjectId} />,
     activity: () => <ActivityScreen patientId={subjectId} />,
     smoking: () => <SmokingScreen patientId={subjectId} />,
