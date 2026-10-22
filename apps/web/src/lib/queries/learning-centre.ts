@@ -157,6 +157,63 @@ export function useLearningReadiness() {
   });
 }
 
+export type LearningExpiryRow = Fn["learning_expiry_backlog"]["Returns"][number];
+export type LearningExpirySummaryRow = Fn["learning_expiry_summary"]["Returns"][number];
+export type LearningOwnerCandidate = Fn["learning_expiry_owner_candidates"]["Returns"][number];
+const expiryBacklogKey = ["learning-expiry-backlog"] as const;
+
+/** The review list for the admin team and the Chief Medical Officer. The server refuses everyone else, so a refusal surfaces as an error. */
+export function useLearningExpiryBacklog() {
+  return useQuery({
+    queryKey: expiryBacklogKey,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("learning_expiry_backlog");
+      if (error) throw error;
+      return (data ?? []) as LearningExpiryRow[];
+    },
+  });
+}
+
+export function useLearningExpirySummary() {
+  return useQuery({
+    queryKey: ["learning-expiry-summary"] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("learning_expiry_summary");
+      if (error) throw error;
+      return (data ?? []) as LearningExpirySummaryRow[];
+    },
+  });
+}
+
+export function useLearningOwnerCandidates() {
+  return useQuery({
+    queryKey: ["learning-expiry-owner-candidates"] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("learning_expiry_owner_candidates");
+      if (error) throw error;
+      return (data ?? []) as LearningOwnerCandidate[];
+    },
+  });
+}
+
+export function useSetLearningContentOwner() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ contentId, ownerId }: { contentId: string; ownerId: string | null }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("set_learning_content_owner", { p_content_id: contentId, p_owner: ownerId as string });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: expiryBacklogKey });
+      void qc.invalidateQueries({ queryKey: ["learning-expiry-summary"] });
+    },
+  });
+}
+
 export function useReinstateLearningCreator() {
   const qc = useQueryClient();
   return useMutation({

@@ -152,6 +152,9 @@ begin
     return p_new_status;
   end $f$;
   update public.health_education_content set content_status='clinical_review' where id = v_c;
+  -- The real admin flow writes the "what changed" note in the editor while the new version is in review (the learning-expiry change-note gate
+  -- requires it before a previously published item can be published again). The sabotaged status function carries no note, so supply it here.
+  update public.health_education_content set review_change_note = 'Proof: wording refreshed for the new version.' where id = v_c;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role','authenticated')::text, true);
   set local role authenticated;
   perform public.set_health_education_content_status(v_c,'approved');
