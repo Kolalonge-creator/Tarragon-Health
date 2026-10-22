@@ -41,6 +41,13 @@ describe("cohorts.cooperative mirrors the migration seed", () => {
     expect(skipFn).not.toMatch(/cohort_notify|emit_domain_event|insert into public\.notifications|log_audit\(/);
   });
 
+  it("review fixes: the rules check rejects missing keys, the cap has safe defaults, close clears skips, an overwrite resets the source", () => {
+    expect(sql).toMatch(/check \(coalesce\(/);
+    expect(/create function private\.challenge_participation_daily_cap[\s\S]*?end \$\$;/.exec(sql)?.[0]).toMatch(/coalesce\(\(v_rules ->> 'daily_cap_minutes'\)::integer, 180\)/);
+    expect(/create or replace function public\.cohort_close[\s\S]*?end \$\$;/.exec(sql)?.[0]).toMatch(/delete from public\.challenge_skips/);
+    expect((sql.match(/do update set value = excluded\.value, source = excluded\.source/g) ?? []).length).toBe(2);
+  });
+
   it("the daily cap is read from configuration, not hard-coded in the trigger", () => {
     const trig = /create function private\.challenge_participation_daily_cap[\s\S]*?end \$\$;/.exec(sql)?.[0] ?? "";
     expect(trig).toMatch(/cohort_coop_rules\(\)/);

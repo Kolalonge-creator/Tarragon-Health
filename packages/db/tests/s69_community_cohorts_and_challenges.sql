@@ -632,6 +632,65 @@ begin
 end $$;
 
 ---------------------------------------------------------------------------------------------------------------------------------------------------
+-- S69c review fixes: closing a cohort, source on overwrite, fail-closed cap, lessons cap and the UPDATE path.
+---------------------------------------------------------------------------------------------------------------------------------------------------
+do $$
+declare
+  v_org uuid := pg_temp.f('org'); v_today date := (now() at time zone 'Africa/Lagos')::date;
+  v_mod uuid; v_co uuid; v_ch uuid; v_u uuid; v_u2 uuid; v_mod2 uuid; v_co2 uuid; v_chl uuid; v_err text;
+  v_ch0 uuid := pg_temp.f('coopCh'); v_co0 uuid := pg_temp.f('coopCo'); v_m7 uuid;
+begin
+  -- C11 closing a cohort removes the members' skip rows together with their effort rows (and weeks active with them)
+  v_mod := pg_temp.mkuser(v_org, 'closeMod', 'patient');
+  v_co := (pg_temp.j(v_mod, $q$select public.cohort_create('Closing Proof Group', 'estate', true)::text$q$) ->> 'cohort_id')::uuid;
+  v_ch := (pg_temp.j(v_mod, format('select public.cohort_start_challenge(%L::uuid, %L, (now() at time zone %L)::date, 14)::text', v_co, 'move_together', 'Africa/Lagos')) ->> 'challenge_id')::uuid;
+  v_u := pg_temp.enrol(v_org, v_co, v_mod, 'closeMember');
+  perform pg_temp.q_as(v_u, format('select public.rest_checkin_for_challenge(%L::uuid)::text', v_ch));
+  perform pg_temp.q_as(v_u, format('select public.skip_challenge_week(%L::uuid)::text', v_ch));
+  perform pg_temp.ck('C11 before closing: one effort row and one skip row', '1/1',
+    (select count(*)::text from public.challenge_participation where challenge_id = v_ch) || '/' || (select count(*)::text from public.challenge_skips where challenge_id = v_ch));
+  perform pg_temp.q_as(v_mod, format('select public.cohort_close(%L::uuid)::text', v_co));
+  perform pg_temp.ck('C11 closing removes effort and skip rows alike', '0/0',
+    (select count(*)::text from public.challenge_participation where challenge_id = v_ch) || '/' || (select count(*)::text from public.challenge_skips where challenge_id = v_ch));
+
+  -- C12 a real self-report over a rest check-in takes over the source (rest_days and the weekly cap stay honest)
+  select patient_id into v_m7 from public.cohort_members where cohort_id = v_co0 and state = 'active' and role = 'member' order by patient_id offset 6 limit 1;
+  delete from public.challenge_participation where challenge_id = v_ch0 and patient_id = v_m7;
+  perform pg_temp.q_as(v_m7, format('select public.rest_checkin_for_challenge(%L::uuid)::text', v_ch0));
+  perform pg_temp.ck('C12 the rest check-in row is a rest check-in', 'rest_checkin', (select source from public.challenge_participation where challenge_id = v_ch0 and patient_id = v_m7 and day = v_today));
+  perform pg_temp.q_as(v_m7, format('select public.contribute_to_challenge(%L::uuid, null, 45)::text', v_ch0));
+  perform pg_temp.ck('C12 a real report over it becomes a self-report with its own value', 'self_report/45',
+    (select source || '/' || value from public.challenge_participation where challenge_id = v_ch0 and patient_id = v_m7 and day = v_today));
+
+  -- C13 the cap fails closed: no active rules row, or a rules row missing a key, never means "no cap"
+  create or replace function private.cohort_coop_rules() returns jsonb language sql stable security definer set search_path = '' as $f$ select null::jsonb $f$;
+  delete from public.challenge_participation where challenge_id = v_ch0 and patient_id = v_m7;
+  insert into public.challenge_participation (organisation_id, challenge_id, patient_id, day, value, source) values (v_org, v_ch0, v_m7, v_today, 500, 'self_report');
+  perform pg_temp.ck('C13 with no rules row a minutes day is still capped (safe default 180)', '180', (select value::text from public.challenge_participation where challenge_id = v_ch0 and patient_id = v_m7 and day = v_today));
+  create or replace function private.cohort_coop_rules() returns jsonb language sql stable security definer set search_path = '' as $f$ select rules from public.cohort_coop_config where is_active $f$;
+  begin
+    insert into public.cohort_coop_config (version, is_active, effective_from, rules) values (99, false, current_date, '{"daily_cap_days": 1}'::jsonb);
+    v_err := 'accepted';
+  exception when check_violation then v_err := 'rejected'; end;
+  perform pg_temp.ck('C13 a rules row missing keys is rejected by the table', 'rejected', v_err);
+
+  -- C14 lessons above the cap, and the UPDATE path, are clamped
+  -- the proof signs the lessons template as the same simulated approver as the others (rolled back, never a real signature)
+  update public.challenge_templates set status = 'approved', approved_by = (select approved_by from public.challenge_templates where code = 'log_days'), approved_at = now(), approval_note = 'proof only' where code = 'lessons';
+  v_mod2 := pg_temp.mkuser(v_org, 'lessonMod', 'patient');
+  v_co2 := (pg_temp.j(v_mod2, $q$select public.cohort_create('Lessons Proof Group', 'union', true)::text$q$) ->> 'cohort_id')::uuid;
+  v_chl := (pg_temp.j(v_mod2, format('select public.cohort_start_challenge(%L::uuid, %L, (now() at time zone %L)::date, 14)::text', v_co2, 'lessons', 'Africa/Lagos')) ->> 'challenge_id')::uuid;
+  v_u2 := pg_temp.enrol(v_org, v_co2, v_mod2, 'lessonMember');
+  insert into public.challenge_participation (organisation_id, challenge_id, patient_id, day, value, source) values (v_org, v_chl, v_u2, v_today, 5, 'computed');
+  perform pg_temp.ck('C14 lessons above the daily cap are clamped to 3', '3', (select value::text from public.challenge_participation where challenge_id = v_chl and patient_id = v_u2 and day = v_today));
+  update public.challenge_participation set value = 9 where challenge_id = v_chl and patient_id = v_u2 and day = v_today;
+  perform pg_temp.ck('C14 an UPDATE above the cap is clamped too', '3', (select value::text from public.challenge_participation where challenge_id = v_chl and patient_id = v_u2 and day = v_today));
+  update public.challenge_participation set value = 179 where challenge_id = v_ch0 and patient_id = v_m7 and day = v_today;
+  update public.challenge_participation set value = 400 where challenge_id = v_ch0 and patient_id = v_m7 and day = v_today;
+  perform pg_temp.ck('C14 an UPDATE of a minutes day above 180 is clamped to 180', '180', (select value::text from public.challenge_participation where challenge_id = v_ch0 and patient_id = v_m7 and day = v_today));
+end $$;
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
 -- SABOTAGE: break each protection in turn; the matching check must flip
 ---------------------------------------------------------------------------------------------------------------------------------------------------
 -- (S1) the floor lowered to 2: a 9-contributor cohort (C, after taking one out) would show a total
@@ -753,6 +812,26 @@ begin
     (select data_type from information_schema.columns where table_schema = 'public' and table_name = 'challenge_participation' and column_name = 'created_at'));
 end $$;
 
+
+-- (S10) cohort_close as it was before S69c (leaves skip rows behind): the close check must catch it
+do $$
+declare v_org uuid := pg_temp.f('org'); v_mod uuid; v_co uuid; v_ch uuid; v_u uuid;
+begin
+  v_mod := pg_temp.mkuser(v_org, 'closeMod2', 'patient');
+  v_co := (pg_temp.j(v_mod, $q$select public.cohort_create('Closing Sabotage Group', 'estate', true)::text$q$) ->> 'cohort_id')::uuid;
+  v_ch := (pg_temp.j(v_mod, format('select public.cohort_start_challenge(%L::uuid, %L, (now() at time zone %L)::date, 14)::text', v_co, 'move_together', 'Africa/Lagos')) ->> 'challenge_id')::uuid;
+  v_u := pg_temp.enrol(v_org, v_co, v_mod, 'closeMember2');
+  perform pg_temp.q_as(v_u, format('select public.skip_challenge_week(%L::uuid)::text', v_ch));
+  create or replace function public.cohort_close(p_cohort uuid) returns jsonb language plpgsql security definer set search_path = '' as $f$
+  begin
+    update public.cohorts set state = 'closed', closed_at = now() where id = p_cohort;
+    delete from public.challenge_participation cp using public.challenges ch where cp.challenge_id = ch.id and ch.cohort_id = p_cohort;
+    return jsonb_build_object('ok', true);
+  end $f$;
+  perform pg_temp.q_as(v_mod, format('select public.cohort_close(%L::uuid)::text', v_co));
+  perform pg_temp.sab('S10 closing without clearing skip rows', '0', (select count(*)::text from public.challenge_skips where challenge_id = v_ch));
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -762,7 +841,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 9 then raise exception 'VACUOUS TEST: the sabotage flipped % of 9 checks (%)', v_caught,
+  if v_caught < 10 then raise exception 'VACUOUS TEST: the sabotage flipped % of 10 checks (%)', v_caught,
     (select string_agg(check_name || ' => ' || expected || ' vs ' || coalesce(actual, 'null'), '; ') from results where phase = 'sabotaged'); end if;
 end $$;
 

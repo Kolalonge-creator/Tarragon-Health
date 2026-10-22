@@ -1,8 +1,8 @@
 import type { QueryResult } from "../medications";
 import { supabase } from "../supabase";
 import {
-  communityErrorKey, parseBoard, parseChallenges, parseHistory, parseSummary, parseInviteMade, parseMyCohorts, parseOk, parsePreview, parseRoster, parseTemplates,
-  type Board, type Challenge, type ChallengeSummary, type EffortHistory, type MyCohorts, type RosterRow, type Template,
+  communityErrorKey, parseChallenges, parseHistory, parseSummary, parseInviteMade, parseMyCohorts, parseOk, parsePreview, parseRoster, parseTemplates,
+  type Challenge, type ChallengeSummary, type EffortHistory, type MyCohorts, type RosterRow, type Template,
 } from "./parse";
 import type { MessageKey } from "@tarragon/i18n";
 
@@ -26,10 +26,6 @@ export async function loadChallenges(cohort: string): Promise<QueryResult<Challe
 export async function loadRoster(cohort: string): Promise<QueryResult<RosterRow[]>> {
   const { data, error } = await supabase.rpc("cohort_roster", { p_cohort: cohort });
   return error ? { ok: false, error: error.message } : { ok: true, data: parseRoster(data) };
-}
-export async function loadBoard(challenge: string): Promise<QueryResult<Board>> {
-  const { data, error } = await supabase.rpc("cohort_board", { p_challenge: challenge });
-  return error ? { ok: false, error: error.message } : { ok: true, data: parseBoard(data) };
 }
 export async function loadTemplates(): Promise<QueryResult<Template[]>> {
   const { data, error } = await supabase.rpc("list_challenge_templates");

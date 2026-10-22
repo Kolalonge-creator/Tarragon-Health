@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import {
   inviteMadeSchema,
-  parseBoard,
   parseHistory,
   parseSummary,
   parseChallenges,
@@ -20,7 +19,6 @@ export const communityKeys = {
   group: (id: string) => ["community", "group", id] as const,
   roster: (id: string) => ["community", "roster", id] as const,
   reports: (id: string) => ["community", "reports", id] as const,
-  board: (challengeId: string) => ["community", "board", challengeId] as const,
   templates: ["community", "templates"] as const,
 };
 
@@ -60,17 +58,6 @@ export function useRoster(cohortId: string) {
       const { data, error } = await createClient().rpc("cohort_roster", { p_cohort: cohortId });
       if (error) throw new CommunityError(error.message);
       return parseRoster(data);
-    },
-  });
-}
-
-export function useBoard(challengeId: string) {
-  return useQuery({
-    queryKey: communityKeys.board(challengeId),
-    queryFn: async () => {
-      const { data, error } = await createClient().rpc("cohort_board", { p_challenge: challengeId });
-      if (error) throw new CommunityError(error.message);
-      return parseBoard(data);
     },
   });
 }
@@ -188,6 +175,7 @@ export function useStartChallenge() {
 export function useChallengeSummary(challengeId: string) {
   return useQuery({
     queryKey: ["community", "summary", challengeId] as const,
+    gcTime: 0, // private to the signed-in member: nothing stays cached once the screen is gone (a keyed-by-user cache is not available client side)
     queryFn: async () => {
       const { data, error } = await createClient().rpc("my_challenge_summary", { p_challenge: challengeId });
       if (error) throw new CommunityError(error.message);
@@ -200,6 +188,7 @@ export function useChallengeSummary(challengeId: string) {
 export function useEffortHistory() {
   return useQuery({
     queryKey: ["community", "history"] as const,
+    gcTime: 0,
     queryFn: async () => {
       const { data, error } = await createClient().rpc("my_effort_history");
       if (error) throw new CommunityError(error.message);

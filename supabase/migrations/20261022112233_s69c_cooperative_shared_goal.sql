@@ -22,13 +22,13 @@ create table public.cohort_coop_config (
   effective_from date not null,
   rules          jsonb not null,
   created_at     timestamptz not null default now(),
-  constraint cohort_coop_rules_valid check (
+  constraint cohort_coop_rules_valid check (coalesce(
     (rules ->> 'daily_cap_days') ~ '^[0-9]{1,3}$' and (rules ->> 'daily_cap_lessons') ~ '^[0-9]{1,3}$'
     and (rules ->> 'daily_cap_minutes') ~ '^[0-9]{1,3}$' and (rules ->> 'rest_checkin_minutes') ~ '^[0-9]{1,3}$'
     and (rules ->> 'path_milestones') ~ '^[0-9]{1,2}$'
     and (rules ->> 'daily_cap_days')::integer >= 1 and (rules ->> 'daily_cap_lessons')::integer >= 1
     and (rules ->> 'daily_cap_minutes')::integer between 1 and 180 and (rules ->> 'rest_checkin_minutes')::integer between 1 and 180
-    and (rules ->> 'path_milestones')::integer between 2 and 20)
+    and (rules ->> 'path_milestones')::integer between 2 and 20, false))
 );
 create unique index cohort_coop_config_one_active on public.cohort_coop_config (is_active) where is_active;
 
@@ -73,12 +73,13 @@ alter table public.challenge_templates add column rest_alternative boolean not n
 create function private.challenge_participation_daily_cap() returns trigger
 language plpgsql security definer set search_path = ''
 as $$
-declare v_metric text; v_rules jsonb := private.cohort_coop_rules(); v_cap integer;
+declare v_metric text; v_rules jsonb := coalesce(private.cohort_coop_rules(), '{}'::jsonb); v_cap integer;
 begin
   select metric into v_metric from public.challenges where id = new.challenge_id;
-  v_cap := case v_metric when 'lessons_completed' then (v_rules ->> 'daily_cap_lessons')::integer
-                         when 'activity_minutes' then (v_rules ->> 'daily_cap_minutes')::integer
-                         else (v_rules ->> 'daily_cap_days')::integer end;
+  -- a missing key or no active row never means "no cap": fall back to the safe defaults (1 day, 3 lessons, 180 minutes)
+  v_cap := case v_metric when 'lessons_completed' then coalesce((v_rules ->> 'daily_cap_lessons')::integer, 3)
+                         when 'activity_minutes' then coalesce((v_rules ->> 'daily_cap_minutes')::integer, 180)
+                         else coalesce((v_rules ->> 'daily_cap_days')::integer, 1) end;
   if new.value > v_cap then new.value := v_cap; end if;
   return new;
 end $$;
@@ -166,7 +167,7 @@ create function public.rest_checkin_for_challenge(p_challenge uuid, p_day date d
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  pr public.profiles; g record; v_day date; v_val integer; v_rules jsonb := private.cohort_coop_rules(); v_tpl boolean; v_unit text;
+  pr public.profiles; g record; v_day date; v_val integer; v_rules jsonb := coalesce(private.cohort_coop_rules(), '{}'::jsonb); v_tpl boolean; v_unit text;
 begin
   pr := private.cohort_patient();
   select * into g from private.cohort_member_gate(p_challenge, pr.id);
@@ -180,7 +181,7 @@ begin
   if v_day < private.cohort_today() - 1 or v_day > private.cohort_today() or v_day < (g.o_ch).starts_on or v_day > (g.o_ch).ends_on then
     return jsonb_build_object('ok', false, 'reason', 'not_available');
   end if;
-  v_val := case v_unit when 'minutes' then (v_rules ->> 'rest_checkin_minutes')::integer else 1 end;
+  v_val := case v_unit when 'minutes' then coalesce((v_rules ->> 'rest_checkin_minutes')::integer, 20) else 1 end;
   -- never overwrites a day that already carries effort: a day counts once
   insert into public.challenge_participation (organisation_id, challenge_id, patient_id, day, value, source)
   values (pr.organisation_id, p_challenge, pr.id, v_day, v_val, 'rest_checkin') on conflict (challenge_id, patient_id, day) do nothing;
@@ -232,6 +233,88 @@ begin
                              (count(*) filter (where cp.source = 'rest_checkin'))::integer rest_days
                         from public.challenge_participation cp where cp.challenge_id = ch.id and cp.patient_id = pr.id) x on x.days > 0
        where private.cohort_open(pr.id)), '[]'::jsonb));
+end $$;
+
+-- (S69c) closing a cohort erases the members' skip rows together with their effort rows, as leaving does (the original left challenge_skips behind)
+create or replace function public.cohort_close(p_cohort uuid) returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare pr public.profiles;
+begin
+  pr := private.cohort_patient();
+  if not private.cohort_is_moderator(p_cohort, pr.id) then raise exception 'community_not_authorised' using errcode = '42501'; end if;
+  update public.cohorts set state = 'closed', closed_at = now() where id = p_cohort and state <> 'closed';
+  update public.challenges set cancelled_at = now() where cohort_id = p_cohort and cancelled_at is null;
+  delete from public.challenge_participation cp using public.challenges ch where cp.challenge_id = ch.id and ch.cohort_id = p_cohort;
+  delete from public.challenge_skips s using public.challenges ch where s.challenge_id = ch.id and ch.cohort_id = p_cohort;
+  update public.cohort_invites set state = 'cancelled' where cohort_id = p_cohort and state = 'pending';
+  perform private.log_audit('community.cohort_closed', 'community_cohort', p_cohort, '{}'::jsonb);
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- (S69c) a real self-report or computed count that overwrites a rest check-in on the same day now takes over its source too, so rest_days and the weekly cap stay honest
+create or replace function public.contribute_to_challenge(p_challenge uuid, p_day date default null, p_minutes integer default null) returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  pr public.profiles; ch public.challenges%rowtype; co public.cohorts%rowtype; m public.cohort_members%rowtype; cfg jsonb := private.cohort_rules();
+  v_from date; v_to date; v_day date; v_val integer; v_week_used integer;
+begin
+  pr := private.cohort_patient();
+  select * into ch from public.challenges where id = p_challenge and cancelled_at is null;
+  if not found or not private.cohort_open(pr.id) then return jsonb_build_object('ok', false, 'reason', 'not_available'); end if;
+  select * into co from public.cohorts where id = ch.cohort_id;
+  m := private.cohort_member(ch.cohort_id, pr.id);
+  -- one neutral answer for: not in the cohort, frozen or closed, challenge not running, or the effort-only rule (never says which)
+  if m.id is null or co.state <> 'active' or private.cohort_phase(ch.starts_on, ch.ends_on, ch.cancelled_at) <> 'active'
+     or not private.cohort_metric_allowed(pr.id, ch.metric) or private.cohort_is_off(pr.id) then
+    return jsonb_build_object('ok', false, 'reason', 'not_available');
+  end if;
+  if m.consent_totals_at is null then return jsonb_build_object('ok', false, 'reason', 'consent_needed'); end if;
+  v_from := ch.starts_on; v_to := least(ch.ends_on, private.cohort_today());
+
+  if ch.metric = 'log_days' then
+    insert into public.challenge_participation (organisation_id, challenge_id, patient_id, day, value, source)
+    select pr.organisation_id, ch.id, pr.id, d, 1, 'computed' from (
+      select (v.taken_at at time zone 'Africa/Lagos')::date d from public.vitals_readings v where v.patient_id = pr.id
+        and (v.taken_at at time zone 'Africa/Lagos')::date between v_from and v_to
+      union select (n.logged_at at time zone 'Africa/Lagos')::date from public.nutrition_log_entries n where n.patient_id = pr.id
+        and (n.logged_at at time zone 'Africa/Lagos')::date between v_from and v_to) x
+    on conflict (challenge_id, patient_id, day) do nothing;
+  elsif ch.metric = 'medicine_checkin_days' then
+    insert into public.challenge_participation (organisation_id, challenge_id, patient_id, day, value, source)
+    select pr.organisation_id, ch.id, pr.id, d, 1, 'computed' from (
+      select distinct (a.responded_at at time zone 'Africa/Lagos')::date d from public.medication_adherence_checkins a
+       where a.patient_id = pr.id and a.status = 'responded' and (a.responded_at at time zone 'Africa/Lagos')::date between v_from and v_to) x
+    on conflict (challenge_id, patient_id, day) do nothing;
+  elsif ch.metric = 'lessons_completed' then
+    insert into public.challenge_participation (organisation_id, challenge_id, patient_id, day, value, source)
+    select pr.organisation_id, ch.id, pr.id, (e.updated_at at time zone 'Africa/Lagos')::date, least(count(*), 5)::integer, 'computed'
+      from public.health_education_progress e
+     where e.patient_id = pr.id and e.status = 'understood' and (e.updated_at at time zone 'Africa/Lagos')::date between v_from and v_to
+     group by (e.updated_at at time zone 'Africa/Lagos')::date
+    on conflict (challenge_id, patient_id, day) do update set value = excluded.value, source = excluded.source;
+  else
+    -- self-reported: today or yesterday only, one row a day
+    v_day := coalesce(p_day, private.cohort_today());
+    if v_day < private.cohort_today() - 1 or v_day > private.cohort_today() or v_day < ch.starts_on or v_day > ch.ends_on then
+      return jsonb_build_object('ok', false, 'reason', 'not_available');
+    end if;
+    if ch.metric = 'activity_minutes' then
+      if p_minutes is null or p_minutes < 1 or p_minutes > (cfg ->> 'activity_minutes_day_max')::integer then raise exception 'minutes_invalid' using errcode = '22023'; end if;
+      select coalesce(sum(value), 0) into v_week_used from public.challenge_participation
+       where challenge_id = ch.id and patient_id = pr.id and day <> v_day and date_trunc('week', day::timestamp) = date_trunc('week', v_day::timestamp);
+      v_val := least(p_minutes, greatest((cfg ->> 'activity_minutes_week_cap')::integer - v_week_used, 0));
+      if v_val < 1 then return jsonb_build_object('ok', true, 'capped', true); end if;
+    else
+      v_val := 1;
+    end if;
+    insert into public.challenge_participation (organisation_id, challenge_id, patient_id, day, value, source)
+    values (pr.organisation_id, ch.id, pr.id, v_day, v_val, 'self_report')
+    on conflict (challenge_id, patient_id, day) do update set value = excluded.value, source = excluded.source;
+  end if;
+  -- "counted" is a yes or no about the caller's own effort so a logged metric with nothing to count is never reported as counted
+  return jsonb_build_object('ok', true, 'counted', exists (select 1 from public.challenge_participation where challenge_id = ch.id and patient_id = pr.id));
 end $$;
 
 -- ---------------------------------------------------------------------------
