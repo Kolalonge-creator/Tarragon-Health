@@ -1429,3 +1429,5 @@ patient_home_layout.sql
 # The Membership is one yearly payment again: the instalment tables, functions, columns, module row, templates and cron job are gone, no function body names them, refunds_one_live is one live refund per order, and the one-payment flow (pay, replay, mismatch, cancel, refund once for the whole amount, provider claim) works. Sabotage: nine removed things put back one at a time; all nine structural checks must flip.
 membership_instalments_removed.sql
 
+# Cuff display camera reader and result passport (2026-10-22): both go-live guards born OFF (a real patient refused, a test patient let through), anon and other patients refused, AI-022 registered disabled with no invented evaluation, prompt or knowledge source, and a sensitive positive lab row invisible to its owner. Sabotage: the guard lookup made always-open and the restrictive sensitive policy dropped; both must flip.
+cuff_camera_and_result_passport_guards.sql

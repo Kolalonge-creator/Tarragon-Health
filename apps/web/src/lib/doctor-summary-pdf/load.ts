@@ -20,6 +20,8 @@ import {
   type SummaryConfig,
   type SymptomLine,
 } from "./model";
+import { buildGlucoseSection, buildLabSection, type GlucoseSection, type LabSection } from "./passport-model";
+import { rangeMayBeShownAsClinical, rangeSourceLabel } from "@tarragon/shared";
 
 /**
  * Gathers what the patient ticked, through the patient's OWN session (row level security keeps every read to her own rows), and
@@ -45,12 +47,15 @@ export interface DoctorSummaryData {
   skipped: { lines: SkippedLine[]; total: number; capped: boolean } | null;
   symptoms: { lines: SymptomLine[]; total: number; leftOut: number; capped: boolean } | null;
   allergiesConditions: { allergies: AllergyLine[]; conditions: string[] } | null;
+  /** Result passport sections (item 10). Null unless ticked. */
+  glucose: GlucoseSection | null;
+  labs: LabSection | null;
 }
 
 export type DoctorSummaryResult = { ok: true; data: DoctorSummaryData } | { ok: false; error: string };
 
 /** Row limits for one read. Hitting one is shown on the page (BpSection.capped, symptoms.capped). */
-export const READ_LIMITS = { bpCounted: 2000, bpOther: 500, symptoms: 500, skipped: 500 } as const;
+export const READ_LIMITS = { bpCounted: 2000, bpOther: 500, symptoms: 500, skipped: 500, glucose: 500, labs: 400 } as const;
 
 export async function loadDoctorSummary(
   supabase: SupabaseClient<Database>,
@@ -227,9 +232,66 @@ export async function loadDoctorSummary(
     };
   }
 
+  let glucose: GlucoseSection | null = null;
+  if (want.has("glucose")) {
+    const { data, error } = await supabase
+      .from("vitals_readings")
+      .select("taken_at, glucose_mmol_l, glucose_context, source, validation_status")
+      .eq("patient_id", patientId)
+      .eq("vital_type", "glucose")
+      .is("correction_status", null)
+      .gte("taken_at", sinceIso)
+      .order("taken_at", { ascending: false })
+      .limit(READ_LIMITS.glucose);
+    if (error) return fail("your blood sugar readings");
+    const rows = data ?? [];
+    glucose = buildGlucoseSection(
+      rows.map((r) => ({ takenAt: r.taken_at, mmolL: r.glucose_mmol_l, context: r.glucose_context ? String(r.glucose_context) : null, source: String(r.source), validationStatus: String(r.validation_status) })),
+      undefined,
+      rows.length >= READ_LIMITS.glucose,
+    );
+  }
+
+  let labs: LabSection | null = null;
+  if (want.has("lab_results")) {
+    // The same filters the shared link applies (final, corrected or amended reports only; nothing superseded or withdrawn), plus
+    // sensitive_positive = false stated here on purpose. Row level security already hides a sensitive row from the patient (INV-04), but
+    // a filter that lives only in a policy would disappear silently if the policy were ever changed.
+    const { data, error } = await supabase
+      .from("lab_analyte_readings")
+      .select("code, value, value_text, unit, reference_range_text, range_source, range_source_ref, abnormal_flag, taken_at, laboratory, sensitive_positive")
+      .eq("patient_id", patientId)
+      .in("report_status", ["final", "corrected", "amended"])
+      .is("correction_status", null)
+      .is("superseded_by_id", null)
+      .eq("sensitive_positive", false)
+      .order("taken_at", { ascending: false })
+      .limit(READ_LIMITS.labs);
+    if (error) return fail("your lab results");
+    const rows = data ?? [];
+    labs = buildLabSection(
+      rows.map((r) => ({
+        code: r.code,
+        value: r.value,
+        valueText: r.value_text,
+        unit: r.unit,
+        referenceRangeText: r.reference_range_text,
+        rangeSource: r.range_source,
+        rangeSourceRef: r.range_source_ref,
+        abnormalFlag: r.abnormal_flag ? String(r.abnormal_flag) : null,
+        takenAt: r.taken_at,
+        laboratory: r.laboratory,
+        sensitivePositive: r.sensitive_positive === true,
+      })),
+      { showRange: rangeMayBeShownAsClinical, describe: (s, ref) => rangeSourceLabel(s, ref) },
+      undefined,
+      rows.length >= READ_LIMITS.labs,
+    );
+  }
+
   return {
     ok: true,
-    data: { generatedAtMs: nowMs, days: request.days, sinceDate, sections: [...want], patient, bp, chart, medicines, adherence, skipped, symptoms, allergiesConditions },
+    data: { generatedAtMs: nowMs, days: request.days, sinceDate, sections: [...want], patient, bp, chart, medicines, adherence, skipped, symptoms, allergiesConditions, glucose, labs },
   };
 }
 

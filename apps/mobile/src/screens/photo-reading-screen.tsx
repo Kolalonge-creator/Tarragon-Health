@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { HELD_READING_COPY, type PhotoDeviceKind, type PhotoDraft, type PhotoField } from "@tarragon/shared";
+import { draftFromRecognisedText, HELD_READING_COPY, type PhotoDeviceKind, type PhotoDraft, type PhotoField } from "@tarragon/shared";
 import { postPhotoReading } from "@/lib/api";
 import { enqueuePhotoReading } from "@/lib/offline-queue";
 import { buildPhotoRequest, draftFromPhoto, finalisePhotoReading, hasTextRecogniser, takeDevicePhoto } from "@/lib/photo-capture";
+import { CUFF_READER_COPY, isCuffReaderOpen, requestCuffProposal } from "@/lib/cuff-reader";
 import { loadReadingSubjects, type ReadingSubject } from "@/lib/reading-subject";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
@@ -82,10 +83,41 @@ export function PhotoReadingScreen({ userId, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState<string[]>([]);
   const [heldReasons, setHeldReasons] = useState(false);
+  // AI-022 "Read the numbers for me": shown only when the server says the guard is open. It sends the photo once, to be read and dropped.
+  const [cuffOpen, setCuffOpen] = useState(false);
+  const [cuffBusy, setCuffBusy] = useState(false);
+  const [cuffNote, setCuffNote] = useState<string | null>(null);
 
   useEffect(() => {
     void loadReadingSubjects(userId).then(setSubjects);
   }, [userId]);
+
+  useEffect(() => {
+    let live = true;
+    void isCuffReaderOpen().then((o) => live && setCuffOpen(o));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  async function readForMe() {
+    if (!photoUri || cuffBusy) return;
+    setCuffBusy(true);
+    setCuffNote(null);
+    setError(null);
+    const out = await requestCuffProposal(photoUri);
+    setCuffBusy(false);
+    if (!out.ok) {
+      setCuffNote(out.message);
+      return;
+    }
+    // A proposal only fills the boxes. Every number is un-ticked, so the person must look at the photo and tick each one before it can be saved.
+    const next = draftFromRecognisedText("blood_pressure", out.lines);
+    setDraft(next);
+    setEdits({});
+    setTicked(new Set());
+    setCuffNote(out.pulseDropped ? CUFF_READER_COPY.pulseDropped : null);
+  }
 
   const allTicked = useMemo(() => (draft ? draft.fields.every((f) => ticked.has(f.field) || (f.field === "pulse_bpm" && (edits.pulse_bpm ?? f.value).trim() === "")) : false), [draft, ticked, edits]);
 
@@ -191,6 +223,20 @@ export function PhotoReadingScreen({ userId, onClose }: Props) {
         <>
           {photoUri ? <Image source={{ uri: photoUri }} accessibilityLabel="Your photo of the device screen" style={{ width: "100%", height: 200, borderRadius: radius.control, backgroundColor: colors.groupBg }} resizeMode="contain" /> : null}
           <MutedText>Check each number against your device, then tick it.</MutedText>
+          {kind === "blood_pressure" && cuffOpen && !hasTextRecogniser() && photoUri ? (
+            <Card style={{ gap: 8 }}>
+              <MutedText>{CUFF_READER_COPY.consent}</MutedText>
+              {cuffBusy ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <ActivityIndicator color={colors.brand} />
+                  <Text style={{ color: colors.ink }}>{CUFF_READER_COPY.working}</Text>
+                </View>
+              ) : (
+                <SecondaryButton title={CUFF_READER_COPY.button} onPress={() => void readForMe()} disabled={phase === "saving"} />
+              )}
+              {cuffNote ? <MutedText>{cuffNote}</MutedText> : null}
+            </Card>
+          ) : null}
           {draft.warnings.map((w) => (
             <ErrorText key={w}>{w}</ErrorText>
           ))}

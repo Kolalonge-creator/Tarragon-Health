@@ -19,6 +19,7 @@ import {
   type RecordShareRow,
   type RecordShareSection,
 } from "@/lib/record-share";
+import { ResultPassportCard } from "./result-passport-card";
 import { supabase } from "@/lib/supabase";
 import { API_BASE_URL } from "@/lib/api";
 import { spacing, radius } from "@/ui/theme";
@@ -194,6 +195,8 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
         <ScreenTitle>{t("share.title")}</ScreenTitle>
         <MutedText>{t("share.description")}</MutedText>
       </View>
+
+      <ResultPassportCard />
 
       <Card style={{ gap: 12 }}>
         <ChipRow>
