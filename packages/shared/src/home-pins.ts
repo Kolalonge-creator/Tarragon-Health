@@ -11,6 +11,17 @@
  * something the patient chooses to add.
  */
 
+import {
+  DEFAULT_MEASUREMENT_UNITS,
+  LENGTH_UNIT_LABEL,
+  TEMPERATURE_UNIT_LABEL,
+  WEIGHT_UNIT_LABEL,
+  lengthFromCm,
+  temperatureFromC,
+  weightFromKg,
+  type MeasurementUnits,
+} from "./measurement-units";
+
 export const HOME_PIN_KEYS = [
   // Vitals: a tile with the latest reading.
   "bp",
@@ -218,14 +229,12 @@ export function isHomeValuePin(key: HomePinKey): key is HomeValuePinKey {
   return key in HOME_PIN_VITAL_COLUMN;
 }
 
-const HOME_PIN_VITAL_UNIT: Record<HomeValuePinKey, string> = {
-  weight: "kg",
+/** Units for the vitals that have only one (the rest follow the patient's chosen units, see measurement-units.ts). */
+const HOME_PIN_VITAL_UNIT = {
   pulse: "bpm",
   spo2: "%",
-  temperature: "\u00b0C",
-  waist: "cm",
   peak_flow: "L/min",
-};
+} as const;
 
 /** A wearable's pulse, oxygen or temperature is an estimate, never "the latest reading" (the same rule as blood pressure). */
 export const HOME_PIN_NEVER_FROM_WEARABLE: readonly HomePinKey[] = ["pulse", "spo2", "temperature"];
@@ -235,11 +244,26 @@ export interface HomePinVitalValue {
   unit: string;
 }
 
-/** What a vitals tile shows for a raw column value, or null when there is no usable number (the tile then says "no reading yet"). */
-export function homePinVitalDisplay(key: HomeValuePinKey, raw: unknown): HomePinVitalValue | null {
+/**
+ * What a vitals tile shows for a raw stored value (kg, degrees C, cm, ...), or null when there is no usable
+ * number (the tile then says "no reading yet"). `units` is the patient's display preference; stored values
+ * are never converted, only shown.
+ */
+export function homePinVitalDisplay(
+  key: HomeValuePinKey,
+  raw: unknown,
+  units: MeasurementUnits = DEFAULT_MEASUREMENT_UNITS,
+): HomePinVitalValue | null {
   if (typeof raw !== "number" || !Number.isFinite(raw)) return null;
-  // One decimal for the figures people read that way; whole numbers for the rest.
-  const oneDecimal = key === "weight" || key === "temperature";
-  const value = oneDecimal ? (Math.round(raw * 10) / 10).toFixed(1) : String(Math.round(raw));
-  return { value, unit: HOME_PIN_VITAL_UNIT[key] };
+  const oneDecimal = (n: number) => (Math.round(n * 10) / 10).toFixed(1);
+  switch (key) {
+    case "weight":
+      return { value: oneDecimal(weightFromKg(raw, units.weight)), unit: WEIGHT_UNIT_LABEL[units.weight] };
+    case "temperature":
+      return { value: oneDecimal(temperatureFromC(raw, units.temperature)), unit: TEMPERATURE_UNIT_LABEL[units.temperature] };
+    case "waist":
+      return { value: String(Math.round(lengthFromCm(raw, units.length))), unit: LENGTH_UNIT_LABEL[units.length] };
+    default:
+      return { value: String(Math.round(raw)), unit: HOME_PIN_VITAL_UNIT[key] };
+  }
 }

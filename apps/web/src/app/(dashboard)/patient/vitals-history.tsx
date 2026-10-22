@@ -5,7 +5,18 @@ import { useOwnTriageResults } from "@/lib/queries/triage-results";
 import { ReadingTriageNote } from "./reading-triage-note";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { assistedEntryLabel, formatGlucose, type GlucoseDisplayUnit, type Tables } from "@tarragon/shared";
+import {
+  assistedEntryLabel,
+  DEFAULT_MEASUREMENT_UNITS,
+  formatGlucose,
+  formatLength,
+  formatTemperature,
+  formatWeight,
+  type GlucoseDisplayUnit,
+  type MeasurementUnits,
+  type Tables,
+} from "@tarragon/shared";
+import { useMeasurementUnits } from "@/components/measurement-units-provider";
 import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
@@ -77,7 +88,11 @@ function TemperatureLevelBadge({ reading }: { reading: Tables<"vitals_readings">
   );
 }
 
-function formatReading(reading: Tables<"vitals_readings">, unit: GlucoseDisplayUnit): string {
+function formatReading(
+  reading: Tables<"vitals_readings">,
+  unit: GlucoseDisplayUnit,
+  units: MeasurementUnits = DEFAULT_MEASUREMENT_UNITS,
+): string {
   switch (reading.vital_type) {
     case "blood_pressure":
       return `${reading.systolic}/${reading.diastolic} mmHg`;
@@ -90,14 +105,22 @@ function formatReading(reading: Tables<"vitals_readings">, unit: GlucoseDisplayU
       if (primary === null) return `—, ${reading.glucose_context ?? "—"}`;
       return `${primary} (${secondary}), ${reading.glucose_context ?? "—"}`;
     }
-    case "weight":
-      return `${reading.weight_kg} kg`;
-    case "waist_circumference":
-      return `${reading.waist_cm} cm (waist)`;
+    // In the reader's own unit; when that is not the stored one, the stored figure follows in brackets so a
+    // doctor or pharmacist looking over the shoulder can read it too.
+    case "weight": {
+      const primary = formatWeight(reading.weight_kg, units.weight);
+      return units.weight === "kg" || primary === null ? `${reading.weight_kg} kg` : `${primary} (${reading.weight_kg} kg)`;
+    }
+    case "waist_circumference": {
+      const primary = formatLength(reading.waist_cm, units.length);
+      return units.length === "cm" || primary === null ? `${reading.waist_cm} cm (waist)` : `${primary} (${reading.waist_cm} cm) waist`;
+    }
     case "pulse":
       return `${reading.pulse_bpm} bpm`;
-    case "temperature":
-      return `${reading.temperature_c}°C`;
+    case "temperature": {
+      const primary = formatTemperature(reading.temperature_c, units.temperature);
+      return units.temperature === "c" || primary === null ? `${reading.temperature_c}°C` : `${primary} (${reading.temperature_c}°C)`;
+    }
     case "spo2":
       return `${reading.spo2_pct}%`;
     case "ketones":
@@ -130,6 +153,7 @@ function AssistedEntryNote({ name, kind, viewerIsHelper }: { name: string | null
 
 export function VitalsHistory({ patientId, viewerId }: { patientId: string; viewerId?: string }) {
   const glucoseUnit = useGlucoseUnit();
+  const measurementUnits = useMeasurementUnits();
   const { data, isLoading, isError, hasNextPage, isFetchingNextPage, fetchNextPage } =
     useVitalsReadingsPage(patientId);
   const readings = data?.pages.flatMap((p) => p.rows) ?? [];
@@ -160,7 +184,7 @@ export function VitalsHistory({ patientId, viewerId }: { patientId: string; view
               <li key={reading.id} className="flex items-center justify-between py-2">
                 <div>
                   <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
-                    {formatReading(reading, glucoseUnit)}
+                    {formatReading(reading, glucoseUnit, measurementUnits)}
                     {reading.vital_type === "blood_pressure" && (
                       <BpLevelBadge reading={reading} />
                     )}

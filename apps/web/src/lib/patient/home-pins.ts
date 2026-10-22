@@ -3,9 +3,11 @@ import {
   HOME_PIN_NEVER_FROM_WEARABLE,
   HOME_PIN_VITAL_COLUMN,
   HOME_PIN_VITAL_TYPE,
+  DEFAULT_MEASUREMENT_UNITS,
   homePinVitalDisplay,
   isHomeValuePin,
   type HomePinKey,
+  type MeasurementUnits,
   type HomePinVitalValue,
   type HomeValuePinKey,
 } from "@tarragon/shared";
@@ -74,6 +76,7 @@ export interface PinnedVitalValues {
 export async function getPinnedVitalValues(
   patientId: string,
   pins: readonly HomePinKey[],
+  units: MeasurementUnits = DEFAULT_MEASUREMENT_UNITS,
 ): Promise<PinnedVitalValues> {
   const wanted = pins.filter((key): key is HomeValuePinKey => isHomeValuePin(key) && !FROM_SUMMARY_STATS.includes(key));
   if (wanted.length === 0) return { values: {}, failed: [] };
@@ -94,7 +97,7 @@ export async function getPinnedVitalValues(
       const { data, error } = await query.order("taken_at", { ascending: false }).limit(1);
       if (error) return [key, "failed"] as const;
       const row = data?.[0] as Record<string, unknown> | undefined;
-      return [key, homePinVitalDisplay(key, row?.[column])] as const;
+      return [key, homePinVitalDisplay(key, row?.[column], units)] as const;
     }),
   );
 

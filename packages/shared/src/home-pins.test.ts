@@ -168,6 +168,15 @@ describe("homePinVitalDisplay", () => {
     expect(homePinVitalDisplay("peak_flow", 410)).toEqual({ value: "410", unit: "L/min" });
   });
 
+  it("shows weight, temperature and waist in the patient's chosen unit without touching the stored value", () => {
+    const units = { weight: "lb", temperature: "f", length: "in" } as const;
+    expect(homePinVitalDisplay("weight", 70, units)).toEqual({ value: "154.3", unit: "lb" });
+    expect(homePinVitalDisplay("temperature", 37, units)).toEqual({ value: "98.6", unit: "\u00b0F" });
+    expect(homePinVitalDisplay("waist", 88.9, units)).toEqual({ value: "35", unit: "in" });
+    // pulse, oxygen and peak flow have no alternative unit
+    expect(homePinVitalDisplay("pulse", 72, units)).toEqual({ value: "72", unit: "bpm" });
+  });
+
   it("returns null rather than inventing a number", () => {
     expect(homePinVitalDisplay("weight", null)).toBeNull();
     expect(homePinVitalDisplay("weight", undefined)).toBeNull();

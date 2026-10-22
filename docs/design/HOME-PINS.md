@@ -41,3 +41,10 @@ A key added here needs a destination on both surfaces (typed `Record`s force tha
 - Mobile weight opens the Vitals section; web opens the Weight page.
 - The migration has not been replayed against a fresh database or applied live; the SQL proof has not been run. Do both before merging, and check `list_migrations` on the live project for anything recent first.
 - Not built: Track/Trends template for every vital, units beyond glucose, app-lock and settings regrouping (see the Samsung/Apple audit).
+
+## Follow-ups built after the first release
+
+- **Units beyond glucose.** `profiles.weight_display_unit` (kg/lb), `temperature_display_unit` (c/f) and `length_display_unit` (cm/in, used for waist), with the same rule as the glucose unit: display and entry only, stored values stay kg / degrees C / cm, nothing clinical reads them. Shared logic is `packages/shared/src/measurement-units.ts`. Web entry fields type in the chosen unit and submit the stored one (`unit-converted-input.tsx`); mobile converts at the entry boundary (`typedToStoredEntry`). History lists show the stored figure in brackets when the chosen unit differs. Height in the profile form and the "held readings" text on mobile are still cm and kg.
+- **Trends.** The existing Trends card gained a 7/30/90 day range and a lowest/average/highest strip for the single-number charts (glucose, weight, heart rate). Weight plots in the chosen unit, band included.
+- **Settings.** The web profile page and the mobile profile screen are grouped (About you, How things are shown, Notifications and Sign-in & security on web; Privacy on mobile), with a jump list on web.
+- Not done: a Track/Trends page for every vital (blood pressure, glucose and weight, heart rate, HbA1c and BMI have charts; temperature, oxygen, waist and peak flow do not).

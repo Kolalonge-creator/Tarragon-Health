@@ -81,7 +81,7 @@ function CardSkeleton({ className = "h-40" }: { className?: string }) {
 }
 
 export default async function PatientOverviewPage() {
-  const { subjectId, acting, subjectSex, glucoseUnit, profile } =
+  const { subjectId, acting, subjectSex, glucoseUnit, measurementUnits, profile } =
     await getPatientDashboardContext();
   // Independent reads: run them together, not one after another.
   const supabase = await createClient();
@@ -284,6 +284,7 @@ export default async function PatientOverviewPage() {
           pins={pins}
           stats={stats}
           glucoseUnit={glucoseUnit}
+          units={measurementUnits}
           screeningsDue={{ hasRiskAssessment: prevention.hasRiskAssessment, count: prevention.screeningsDueCount }}
           bpTileProps={bpTileProps}
         />

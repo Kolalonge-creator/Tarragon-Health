@@ -2,11 +2,13 @@ import {
   HOME_PIN_NEVER_FROM_WEARABLE,
   HOME_PIN_VITAL_COLUMN,
   HOME_PIN_VITAL_TYPE,
+  DEFAULT_MEASUREMENT_UNITS,
   homePinVitalDisplay,
   isHomeValuePin,
   resolveHomePins,
   sanitizeHomePins,
   type HomePinKey,
+  type MeasurementUnits,
   type HomePinLockContext,
   type HomePinVitalValue,
   type HomeValuePinKey,
@@ -62,6 +64,7 @@ export async function loadMonitoredVitals(patientId: string): Promise<QueryResul
 export async function loadPinnedVitalValues(
   patientId: string,
   pins: readonly HomePinKey[],
+  units: MeasurementUnits = DEFAULT_MEASUREMENT_UNITS,
 ): Promise<QueryResult<Partial<Record<HomeValuePinKey, HomePinVitalValue>>>> {
   const wanted = pins.filter((key): key is HomeValuePinKey => isHomeValuePin(key) && !FROM_SUMMARY_STATS.includes(key));
   if (wanted.length === 0) return { ok: true, data: {} };
@@ -81,7 +84,7 @@ export async function loadPinnedVitalValues(
         const { data, error } = await query.order("taken_at", { ascending: false }).limit(1);
         if (error) throw new Error(error.message);
         const row = data?.[0] as Record<string, unknown> | undefined;
-        return [key, homePinVitalDisplay(key, row?.[column])] as const;
+        return [key, homePinVitalDisplay(key, row?.[column], units)] as const;
       }),
     );
     const out: Partial<Record<HomeValuePinKey, HomePinVitalValue>> = {};
