@@ -90,7 +90,8 @@ export async function lockScreenImageResponse({ supabase, userId, options, dispo
     // never a picture that says "None recorded" because a read failed
     return new Response("Could not prepare the picture", { status: 503, headers: NO_STORE });
   }
-  const facts = applyCardFieldChoices(full, choices);
+  // S09y: cover is never on the lock-screen picture or in its QR text (its field list awaits CMO sign-off); stripped here even if a caller ever supplied it
+  const facts = applyCardFieldChoices({ ...full, coverage: null }, choices);
   const hidden = hiddenFields(choices);
 
   const savedOn = new Date().toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });

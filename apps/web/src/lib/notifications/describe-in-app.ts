@@ -462,6 +462,12 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "note_release_requested") {
     return { text: "A patient asked about a note. Open your messages to answer", href: "/clinician/messages" };
   }
+  if (n.template === "visit_summary_ready") {
+    return { text: "Your care team has written a summary of your visit", href: "/patient/care#after-visit-summary" };
+  }
+  if (n.template === "visit_summary_withdrawn") {
+    return { text: "Your care team took back a summary", href: "/patient/care#after-visit-summary" };
+  }
   if (n.template === "note_released") {
     return { text: "Your care team has made a note available", href: "/patient/care" };
   }
@@ -692,6 +698,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "circle_joined") {
     return { text: "Someone has joined your Care Circle", href: "/patient/care-circle" };
+  }
+  if (n.template === "circle_consultation_invite") {
+    // CGJ: a patient invited this supporter to join one call. Fixed neutral line, no name, no time, no reason (INV-07).
+    return { text: "You have been invited to join a call", href: "/patient/supporting" };
   }
   if (n.template === "circle_left") {
     return { text: "Someone has left your Care Circle", href: "/patient/care-circle" };

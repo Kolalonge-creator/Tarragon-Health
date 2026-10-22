@@ -2114,6 +2114,22 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S21.md; docs/research/S21.md",
   },
   {
+    key: "consultations.caregiver_join",
+    // A Care Circle member invited by the patient into ONE consultation call (CGJ, founder decision: per call, no standing access).
+    // Mirrored by `consultation_caregiver_config` version 1 (a drift test compares the two).
+    //  inviteExpiryMinutes: how long an invite lasts at most; it also ends when the call's join window closes or the call ends.
+    //  maxCaregiversPerCall: how many invited people one call may hold at once.
+    //  minAgeYears: a caregiver is an adult; a KNOWN age under this is refused.
+    //  requireDateOfBirth: false because a supporter-only account is never asked for a date of birth, so true would exclude exactly the
+    //  daughter or son who supports a parent from another city. A dependant's account is refused either way (OQ-CGJ-4).
+    value: { inviteExpiryMinutes: 240, maxCaregiversPerCall: 1, minAgeYears: 18, requireDateOfBirth: false },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/CGJ.md; docs/OPEN-QUESTIONS.md OQ-CGJ-1 to OQ-CGJ-5",
+  },
+  {
     key: "consultations.host_key",
     // The clinician's Zoom host key (S21 follow-up, OQ-136, founder decision 2026-10-06). A host key lets its holder start meetings as the
     // dedicated consultation host user, and it cannot be tied to one meeting, so it is kept short: minted fresh each time a clinician joins,
@@ -7027,5 +7043,30 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-20",
     source: "docs/design/S49a.md; supabase/migrations/20261020181309_s49a_food_logging_foundation.sql",
+  },
+  {
+    key: "triage.single_reading_vitals_bands",
+    // The combined registry of single-reading dangerous vitals bands (pulse, SpO2, temperature) and the typo gates around them. These are the starting
+    // values of the DRAFT rule set `vitals_care_triage` v1, taken over unchanged from the live older classifiers (private.classify_pulse_level,
+    // classify_spo2_level, classify_temperature_level, read 2026-10-16) so that the shadow divergence report compares like with like. Four places hold
+    // these numbers and a drift test (packages/clinical/src/vitals-drift.test.ts) fails when any two disagree: this entry, the rule set params in
+    // packages/clinical/src/rules/vitals-care-v1.ts (which the migration seeds), the phone's `vitals.device_red_rules`, and the older SQL classifiers.
+    // The CMO signs the RULE SET; this entry is how a reviewer sees the numbers, with their owner and version, in one place.
+    // Pulse and the others use "at or below" / "at or above" (inclusive) and "below" (exclusive) exactly as the rule set reads them.
+    // amberReviewDueMinutes is the due time of the amber review task (72 hours, the older amber alert's review time); minAdultAgeYears is the age under which
+    // a fast heart rate (101 to 149) is routed to a clinician instead of paged.
+    value: {
+      validation: { pulseMin: 10, pulseMax: 300, spo2Min: 30, spo2Max: 100, temperatureMin: 20, temperatureMax: 46 },
+      minAdultAgeYears: 18,
+      amberReviewDueMinutes: 4320,
+      pulse: { emergencyAtOrBelow: 35, emergencyAtOrAbove: 150, redAtOrBelow: 39, redAtOrAbove: 121, amberAtOrBelow: 49, amberAtOrAbove: 101 },
+      spo2: { emergencyBelow: 90, redAtOrBelow: 92, amberAtOrBelow: 94 },
+      temperature: { emergencyAtOrAbove: 40, emergencyBelow: 35, redAtOrAbove: 39, amberAtOrAbove: 38 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/build-vitals-rule-sets.md; triage_rule_sets vitals_care_triage version 1 (draft)",
   },
 ];
