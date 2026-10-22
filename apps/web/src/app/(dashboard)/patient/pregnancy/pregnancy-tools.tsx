@@ -43,9 +43,9 @@ export function PregnancyTools({
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("preg.ui.section_intro")}</p>
       </div>
       <WeekCard week={week} />
-      <AntenatalSchedule patientId={patientId} currentWeek={week} />
+      <AntenatalSchedule patientId={patientId} />
       <KickCounter patientId={patientId} organisationId={organisationId} week={week} />
-      <ContractionTimer patientId={patientId} organisationId={organisationId} week={week} flags={birthPlanFlags(plan.data)} />
+      <ContractionTimer patientId={patientId} organisationId={organisationId} week={week} flags={birthPlanFlags(plan.data)} planUnavailable={plan.isError} />
       <BirthPlanForm patientId={patientId} organisationId={organisationId} pregnancyId={pregnancyId} />
     </section>
   );

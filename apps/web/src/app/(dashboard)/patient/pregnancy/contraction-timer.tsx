@@ -8,6 +8,7 @@ import {
   INSTANT_GO_SIGNS,
   type BirthPlanFlags,
   type Contraction,
+  type ContractionEvaluation,
   type InstantGoSign,
 } from "@tarragon/clinical";
 import { t } from "@tarragon/i18n";
@@ -35,12 +36,15 @@ export function ContractionTimer({
   organisationId,
   week,
   flags,
+  planUnavailable = false,
   now = Date.now,
 }: {
   patientId: string;
   organisationId: string;
   week: number | null;
   flags: BirthPlanFlags | null;
+  /** The birth plan could not be read, so the standard pattern is in use instead of the plan's earlier one. */
+  planUnavailable?: boolean;
   now?: () => number;
 }) {
   const { config, version } = useMemo(() => loadMaternalConfig(), []);
@@ -50,7 +54,14 @@ export function ContractionTimer({
   const [signs, setSigns] = useState<InstantGoSign[]>([]);
   const [tick, setTick] = useState(() => now());
   const [finished, setFinished] = useState(false);
+  // Set only after a save really succeeded; a failed save is retried. One client id per session, so a retry is idempotent on the server.
   const savedRef = useRef(false);
+  const inFlightRef = useRef(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const clientIdRef = useRef<string | null>(null);
+  // The first "go now" of a session is kept for the rest of it. The rule only counts a run when the NEWEST contraction is long enough, so
+  // the moment the next one starts (zero seconds long) the live answer would flip back to "keep timing" and the card would vanish.
+  const [latched, setLatched] = useState<ContractionEvaluation | null>(null);
 
   useEffect(() => {
     if (startedAtMs === null || finished) return;
@@ -58,19 +69,24 @@ export function ContractionTimer({
     return () => clearInterval(id);
   }, [startedAtMs, finished, now]);
 
-  const evaluation = evaluateContractions(contractions, { week, signs, flags }, tick, config);
+  const live = evaluateContractions(contractions, { week, signs, flags }, tick, config);
+  if (live.state === "go_now" && latched === null) setLatched(live);
+  const evaluation = latched ?? live;
   const card = contractionCard(evaluation);
   const rule = evaluation.pattern === "earlier" ? config.contractions.earlier : config.contractions.standard;
   const running = contractions.length > 0 && contractions[contractions.length - 1]!.endMs === null;
 
-  function persist(at: number) {
-    if (savedRef.current || startedAtMs === null) return;
-    savedRef.current = true;
-    const final = evaluateContractions(contractions, { week, signs, flags }, at, config);
-    save.mutate({
+  function persist(at: number, known?: ContractionEvaluation) {
+    if (savedRef.current || inFlightRef.current || startedAtMs === null) return;
+    inFlightRef.current = true;
+    setSaveFailed(false);
+    clientIdRef.current ??= crypto.randomUUID();
+    const final = known ?? latched ?? evaluateContractions(contractions, { week, signs, flags }, at, config);
+    save.mutate(
+      {
       organisation_id: organisationId,
       patient_id: patientId,
-      client_id: crypto.randomUUID(),
+      client_id: clientIdRef.current,
       started_at: new Date(startedAtMs).toISOString(),
       timings: contractionTimings(contractions, startedAtMs, at),
       instant_signs: [...signs],
@@ -80,14 +96,26 @@ export function ContractionTimer({
       week_at_start: week,
       config_version: version,
       source: "patient",
-    });
+      },
+      {
+        onSuccess: () => {
+          savedRef.current = true;
+          inFlightRef.current = false;
+          setSaveFailed(false);
+        },
+        onError: () => {
+          inFlightRef.current = false;
+          setSaveFailed(true);
+        },
+      },
+    );
   }
 
   // The first time the answer is "go now", save the session so the care team hears about it.
   useEffect(() => {
-    if (evaluation.state === "go_now" && !finished) persist(tick);
+    if (live.state === "go_now" && !finished) persist(tick, latched ?? live);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [evaluation.state]);
+  }, [live.state]);
 
   function toggle() {
     const at = now();
@@ -113,6 +141,10 @@ export function ContractionTimer({
 
   function reset() {
     savedRef.current = false;
+    inFlightRef.current = false;
+    clientIdRef.current = null;
+    setSaveFailed(false);
+    setLatched(null);
     setStartedAtMs(null);
     setContractions([]);
     setSigns([]);
@@ -128,6 +160,7 @@ export function ContractionTimer({
         {card === "go_now_sign" && <PregnancyActionCard variant="go_now" />}
         {card === "go_now_pattern" && <PregnancyActionCard variant="go_now" extra={t("preg.ui.contractions.pattern_body")} />}
         {card === "none" && contractions.length > 0 && !finished && <p role="status" className="text-sm">{t("preg.contractions.keep")}</p>}
+        {planUnavailable && <p role="status" className="text-sm">{t("preg.ui.contractions.plan_unavailable")}</p>}
         {evaluation.needsGestation && <p className="text-sm">{t("preg.contractions.needs_due_date")}</p>}
 
         <fieldset className="space-y-2">
@@ -167,7 +200,12 @@ export function ContractionTimer({
           {finished && <Button type="button" onClick={reset}>{t("preg.ui.contractions.new")}</Button>}
         </div>
         {save.isSuccess && <p role="status" className="text-sm">{t("preg.ui.contractions.saved")}</p>}
-        {save.isError && <p role="status" className="text-sm">{t("preg.ui.contractions.not_saved")}</p>}
+        {saveFailed && (
+          <div className="space-y-2">
+            <p role="status" className="text-sm">{t("preg.ui.contractions.not_saved")}</p>
+            <Button type="button" variant="outline" onClick={() => persist(now())}>{t("preg.ui.kick.retry_save")}</Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

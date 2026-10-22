@@ -6,7 +6,7 @@ import { t } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { loadMaternalConfig } from "@/lib/pregnancy/maternal-config";
-import { useKickHistory, useSaveKickSession } from "@/lib/queries/pregnancy-tools";
+import { useKickHistory, useSaveKickSession, type KickSessionRow } from "@/lib/queries/pregnancy-tools";
 import { PregnancyActionCard } from "./pregnancy-action-card";
 
 interface Session {
@@ -37,10 +37,19 @@ export function KickCounter({
   const [session, setSession] = useState<Session | null>(null);
   const [tick, setTick] = useState(() => now());
   const [final, setFinal] = useState<KickEvaluation | null>(null);
+  // Set only once a save has succeeded, so a failed save can be tried again. One client id per session keeps a retry idempotent on the server.
   const savedRef = useRef(false);
+  const finishedRef = useRef(false);
+  const clientIdRef = useRef<string | null>(null);
+  const [pendingRow, setPendingRow] = useState<KickSessionRow | null>(null);
 
+  // A stopped session says nothing about her normal, so it takes no slot in the latest-sessions window (same as the phone).
   const normal = useMemo(
-    () => personalNormalMinutes([...(history.data ?? [])].reverse().map((h) => ({ minutesToTarget: h.result === "stopped" ? null : h.minutes_to_target })), config),
+    () =>
+      personalNormalMinutes(
+        [...(history.data ?? [])].reverse().filter((h) => h.result !== "stopped").map((h) => ({ minutesToTarget: h.minutes_to_target })),
+        config,
+      ),
     [history.data, config],
   );
 
@@ -55,15 +64,26 @@ export function KickCounter({
       ? evaluateKickSession({ startedAtMs: session.startedAtMs, movementMs: session.movementMs, reportedLess: session.reportedLess }, tick, normal, config)
       : null;
 
+  function send(row: KickSessionRow) {
+    save.mutate(row, {
+      onSuccess: () => {
+        savedRef.current = true;
+        setPendingRow(null);
+      },
+      onError: () => setPendingRow(row),
+    });
+  }
+
   function finish(s: Session, at: number, evaluation: KickEvaluation) {
-    if (savedRef.current) return;
-    savedRef.current = true;
+    if (finishedRef.current) return;
+    finishedRef.current = true;
     setFinal(evaluation);
     const result = kickResultForStorage(evaluation);
-    save.mutate({
+    clientIdRef.current = crypto.randomUUID();
+    send({
       organisation_id: organisationId,
       patient_id: patientId,
-      client_id: crypto.randomUUID(),
+      client_id: clientIdRef.current,
       started_at: new Date(s.startedAtMs).toISOString(),
       ended_at: new Date(at).toISOString(),
       movement_offsets_s: s.movementMs.map((m) => Math.max(0, Math.round((m - s.startedAtMs) / 1000))).slice(0, 200),
@@ -96,6 +116,8 @@ export function KickCounter({
 
   function start() {
     savedRef.current = false;
+    finishedRef.current = false;
+    setPendingRow(null);
     const at = now();
     setFinal(null);
     setTick(at);
@@ -149,7 +171,12 @@ export function KickCounter({
           </div>
         )}
 
-        {final && save.isError && <p role="status" className="text-sm">{t("preg.ui.kick.not_saved")}</p>}
+        {final && pendingRow && (
+          <div className="space-y-2">
+            <p role="status" className="text-sm">{t("preg.ui.kick.not_saved")}</p>
+            <Button type="button" variant="outline" onClick={() => send(pendingRow)}>{t("preg.ui.kick.retry_save")}</Button>
+          </div>
+        )}
         {final && save.isSuccess && <p role="status" className="text-sm">{t("preg.ui.kick.saved")}</p>}
 
         <div className="flex flex-wrap gap-2">

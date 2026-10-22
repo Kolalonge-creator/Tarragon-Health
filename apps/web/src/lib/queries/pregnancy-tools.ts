@@ -177,7 +177,7 @@ export function useAntenatalVisits(patientId: string) {
     queryFn: async (): Promise<AntenatalVisitRow[]> => {
       const { data, error } = await untyped()
         .from("antenatal_visits")
-        .select("id, visit_number, target_week, gestational_week_at_visit, status")
+        .select("id, visit_number, target_week, gestational_week_at_visit, status, appointment_id")
         .eq("patient_id", patientId)
         .order("visit_number", { ascending: true });
       if (error) throw new Error(error.message ?? "antenatal visits");

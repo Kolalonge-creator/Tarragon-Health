@@ -58,17 +58,16 @@ describe("week card shows only reviewed content", () => {
 });
 
 describe("antenatal schedule view", () => {
-  it("orders by visit number and marks a past, still-planned visit overdue", () => {
-    const entries = scheduleEntries(
-      [
-        { id: "b", visit_number: 2, target_week: 20, gestational_week_at_visit: null, status: "scheduled" },
-        { id: "a", visit_number: 1, target_week: 12, gestational_week_at_visit: null, status: "completed" },
-        { id: "c", visit_number: 3, target_week: 26, gestational_week_at_visit: null, status: "scheduled" },
-      ],
-      22,
-    );
+  it("orders by visit number, marks a booked visit, and invents no lateness", () => {
+    const entries = scheduleEntries([
+      { id: "b", visit_number: 2, target_week: 20, gestational_week_at_visit: null, status: "scheduled", appointment_id: "appt-1" },
+      { id: "a", visit_number: 1, target_week: 12, gestational_week_at_visit: null, status: "completed" },
+      { id: "c", visit_number: 3, target_week: 26, gestational_week_at_visit: null, status: "scheduled" },
+    ]);
     expect(entries.map((e) => e.id)).toEqual(["a", "b", "c"]);
-    expect(entries.map((e) => e.overdue)).toEqual([false, true, false]);
+    expect(entries.map((e) => e.booked)).toEqual([false, true, false]);
+    expect(entries.every((e) => !("overdue" in e))).toBe(true);
+    expect(entries[1]!.status).toBe("scheduled");
   });
 });
 
@@ -85,6 +84,10 @@ describe("birth plan form to row", () => {
     const r = buildBirthPlanFields({ ...form, previousBirths: "99" });
     expect(r.ok && r.plan.previous_births).toBe(20);
     if (r.ok) expect(birthPlanToForm(r.plan).money).toBe("20000");
+  });
+  it("keeps an existing money note instead of writing null over it", () => {
+    const r = buildBirthPlanFields(form, { money_plan_note: "from the clinic" });
+    expect(r.ok && r.plan.money_plan_note).toBe("from the clinic");
   });
   it("has no balance or wallet column", () => {
     const r = buildBirthPlanFields(form);

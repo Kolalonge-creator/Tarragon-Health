@@ -17,9 +17,9 @@ const STATUS_KEY: Record<VisitStatus, Parameters<typeof t>[0]> = {
  * guide; an earlier visit is a decision for the care team and never changes this list by itself. Reminders for these visits use the one
  * generic string (`preg.reminder.visit`), which names no condition (INV-07).
  */
-export function AntenatalSchedule({ patientId, currentWeek }: { patientId: string; currentWeek: number | null }) {
+export function AntenatalSchedule({ patientId }: { patientId: string }) {
   const visits = useAntenatalVisits(patientId);
-  const entries = scheduleEntries(visits.data ?? [], currentWeek);
+  const entries = scheduleEntries(visits.data ?? []);
   return (
     <Card>
       <CardHeader>
@@ -35,7 +35,7 @@ export function AntenatalSchedule({ patientId, currentWeek }: { patientId: strin
               <li key={e.id} className="rounded-md border border-charcoal-ink/10 p-3 text-sm dark:border-night-ink/20">
                 <p className="font-medium">{t("preg.ui.schedule.visit", "en", { number: e.visitNumber })}</p>
                 {e.week !== null && <p>{t("preg.ui.schedule.around_week", "en", { week: e.week })}</p>}
-                <p>{e.overdue ? t("preg.ui.schedule.status_missed") : t(STATUS_KEY[e.status])}</p>
+                <p>{e.status === "scheduled" && e.booked ? t("preg.ui.schedule.booked") : t(STATUS_KEY[e.status])}</p>
               </li>
             ))}
           </ol>

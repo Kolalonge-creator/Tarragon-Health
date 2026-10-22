@@ -26,14 +26,23 @@ export function BirthPlanForm({ patientId, organisationId, pregnancyId }: { pati
       </Card>
     );
   }
-  // The inner form takes its starting values from the saved plan; the key remounts it once when the saved plan arrives.
+  // The form is not shown until the saved plan has been read (or the read has failed), so what is typed is never replaced afterwards.
+  if (plan.isPending) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("preg.plan.title")}</CardTitle>
+        </CardHeader>
+      </Card>
+    );
+  }
   return (
     <BirthPlanFields
-      key={plan.data ? "saved" : "empty"}
       patientId={patientId}
       organisationId={organisationId}
       pregnancyId={pregnancyId}
       initial={birthPlanToForm(plan.data)}
+      existingNote={plan.data?.money_plan_note ?? null}
     />
   );
 }
@@ -43,11 +52,13 @@ function BirthPlanFields({
   organisationId,
   pregnancyId,
   initial,
+  existingNote,
 }: {
   patientId: string;
   organisationId: string;
   pregnancyId: string;
   initial: BirthPlanForm;
+  existingNote: string | null;
 }) {
   const save = useSaveBirthPlan();
   const [form, setForm] = useState<BirthPlanForm>(initial);
@@ -55,7 +66,7 @@ function BirthPlanFields({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const built = buildBirthPlanFields(form);
+    const built = buildBirthPlanFields(form, { money_plan_note: existingNote });
     if (!built.ok) {
       setErrors(built.errors);
       return;

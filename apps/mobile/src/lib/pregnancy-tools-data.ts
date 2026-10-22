@@ -1,7 +1,7 @@
 import { weekCardState, scheduleEntries, type AntenatalVisitRow, type PregnancyContentRow, type ScheduleEntry, type WeekCardState } from "@tarragon/clinical";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import type * as SQLite from "expo-sqlite";
 import { enqueue } from "./outbox";
+import { localGet, localSet } from "./pregnancy-local";
 import type { BirthPlanFields, BirthPlanPayload } from "./pregnancy-payloads";
 import { getStoreWithSchema } from "./secure-db";
 import { supabase } from "./supabase";
@@ -26,7 +26,9 @@ interface Untyped {
 }
 const db = (): Untyped => supabase as unknown as Untyped;
 
-const GUARD_KEY = (subjectId: string) => `@tarragon/maternal-guard/v1:${subjectId}`;
+// Kept in the encrypted store (pregnancy-local), not plain AsyncStorage; the old key is read once and moved across.
+const LEGACY_GUARD_KEY = (subjectId: string) => `@tarragon/maternal-guard/v1:${subjectId}`;
+const GUARD_KEY = (subjectId: string) => `maternal-guard:${subjectId}`;
 
 /**
  * The courtesy check for the `maternal_enabled` go-live guard (INV-14, client side; the database functions refuse regardless).
@@ -38,11 +40,11 @@ export async function maternalGuardOpen(subjectId: string): Promise<boolean> {
     const { data, error } = await (supabase as unknown as { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: QueryError | null }> }).rpc("go_live_guard_is_open", { p_key: "maternal_enabled" });
     if (error) throw new Error(error.message ?? "guard");
     const open = data === true;
-    await AsyncStorage.setItem(GUARD_KEY(subjectId), open ? "1" : "0").catch(() => {});
+    await localSet(GUARD_KEY(subjectId), open ? "1" : "0").catch(() => {});
     return open;
   } catch {
     try {
-      return (await AsyncStorage.getItem(GUARD_KEY(subjectId))) === "1";
+      return (await localGet(GUARD_KEY(subjectId), LEGACY_GUARD_KEY(subjectId))) === "1";
     } catch {
       return false;
     }
@@ -81,6 +83,11 @@ export async function readCachedBirthPlan(subjectId: string): Promise<CachedBirt
   }
 }
 
+async function clearCachedBirthPlan(subjectId: string): Promise<void> {
+  const store = await getStoreWithSchema("birth_plan", setupPlanStore);
+  await store.runAsync("delete from local_birth_plan where subject_id = ?", [subjectId]);
+}
+
 async function writeCachedBirthPlan(subjectId: string, value: CachedBirthPlan): Promise<void> {
   const store = await getStoreWithSchema("birth_plan", setupPlanStore);
   await store.runAsync("insert or replace into local_birth_plan (subject_id, value) values (?, ?)", [subjectId, JSON.stringify(value)]);
@@ -92,6 +99,8 @@ export interface BirthPlanState {
   plan: BirthPlanFields | null;
   /** True when this came from the phone because the server could not be reached. */
   fromCache: boolean;
+  /** True when the plan could not be read at all (no signal and nothing on the phone): the standard contraction pattern is in use. */
+  loadFailed?: boolean;
 }
 
 const PLAN_COLUMNS =
@@ -107,7 +116,11 @@ export async function loadBirthPlanState(subjectId: string, organisationId: stri
     const preg = await db().from("pregnancies").select("id").eq("patient_id", subjectId).eq("state", "active").maybeSingle();
     if (preg.error) throw new Error(preg.error.message ?? "pregnancy");
     const pregnancyId = (preg.data as { id?: string } | null)?.id ?? null;
-    if (!pregnancyId) return { pregnancyId: cached?.pregnancyId ?? null, plan: cached?.plan ?? null, fromCache: cached !== null };
+    if (!pregnancyId) {
+      // The server says there is no active pregnancy: the phone's copy is no longer live (the pregnancy ended or moved on), so clear it.
+      if (cached) await clearCachedBirthPlan(subjectId).catch(() => {});
+      return { pregnancyId: null, plan: null, fromCache: false };
+    }
     if (pendingOnPhone && cached && cached.pregnancyId === pregnancyId) return { pregnancyId, plan: cached.plan, fromCache: true };
     const planRes = await db().from("birth_plans").select(PLAN_COLUMNS).eq("pregnancy_id", pregnancyId).maybeSingle();
     if (planRes.error) throw new Error(planRes.error.message ?? "birth plan");
@@ -115,7 +128,7 @@ export async function loadBirthPlanState(subjectId: string, organisationId: stri
     await writeCachedBirthPlan(subjectId, { pregnancyId, organisationId, plan, savedAtMs: nowMs }).catch(() => {});
     return { pregnancyId, plan, fromCache: false };
   } catch {
-    return { pregnancyId: cached?.pregnancyId ?? null, plan: cached?.plan ?? null, fromCache: cached !== null };
+    return { pregnancyId: cached?.pregnancyId ?? null, plan: cached?.plan ?? null, fromCache: cached !== null, loadFailed: cached === null };
   }
 }
 
@@ -137,14 +150,14 @@ export async function loadWeekCard(week: number | null): Promise<WeekCardState> 
   }
 }
 
-export async function loadSchedule(subjectId: string, currentWeek: number | null): Promise<ScheduleEntry[]> {
+export async function loadSchedule(subjectId: string): Promise<ScheduleEntry[]> {
   try {
     const res = await db()
       .from("antenatal_visits")
-      .select("id, visit_number, target_week, gestational_week_at_visit, status")
+      .select("id, visit_number, target_week, gestational_week_at_visit, status, appointment_id")
       .eq("patient_id", subjectId)
       .order("visit_number", { ascending: true });
-    return res.error ? [] : scheduleEntries((res.data ?? []) as AntenatalVisitRow[], currentWeek);
+    return res.error ? [] : scheduleEntries((res.data ?? []) as AntenatalVisitRow[]);
   } catch {
     return [];
   }

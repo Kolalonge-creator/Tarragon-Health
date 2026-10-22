@@ -1,4 +1,5 @@
 /** S67 follow-up (OQ-346): the phone's guard check, birth plan, week card and schedule. Logic only; screens are not rendered here. */
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { loadBirthPlanState, loadSchedule, loadWeekCard, maternalGuardOpen, saveBirthPlan, readCachedBirthPlan } from "./pregnancy-tools-data";
 import type { BirthPlanFields } from "./pregnancy-payloads";
 
@@ -12,8 +13,11 @@ const mockStore = new Map<string, string>();
 jest.mock("./secure-db", () => ({
   __resetStoreForTests: () => {},
   getStoreWithSchema: async () => ({
-    getFirstAsync: async (_sql: string, params: string[]) => (mockStore.has(params[0]!) ? { value: mockStore.get(params[0]!) } : null),
-    runAsync: async (_sql: string, params: string[]) => { mockStore.set(params[0]!, params[1]!); },
+    getFirstAsync: async (_sql: string, params: string[]) => (mockStore.has(params[0]!) ? { value: mockStore.get(params[0]!), v: mockStore.get(params[0]!) } : null),
+    runAsync: async (sql: string, params: string[]) => {
+      if (/^\s*delete/i.test(sql)) mockStore.delete(params[0]!);
+      else mockStore.set(params[0]!, params[1]!);
+    },
   }),
 }));
 
@@ -69,6 +73,18 @@ describe("maternal_enabled guard on the phone", () => {
     mockRpc = "throw";
     expect(await maternalGuardOpen("p1")).toBe(false);
   });
+  it("keeps the remembered answer in the encrypted store, never in plain AsyncStorage, and moves an old plain copy across", async () => {
+    await maternalGuardOpen("p1");
+    expect(await AsyncStorage.getItem("@tarragon/maternal-guard/v1:p1")).toBeNull();
+    expect(mockStore.get("maternal-guard:p1")).toBe("1");
+    mockStore.clear();
+    await AsyncStorage.setItem("@tarragon/maternal-guard/v1:legacy", "1");
+    mockRpc = "throw";
+    expect(await maternalGuardOpen("legacy")).toBe(true);
+    expect(await AsyncStorage.getItem("@tarragon/maternal-guard/v1:legacy")).toBeNull();
+    expect(mockStore.get("maternal-guard:legacy")).toBe("1");
+  });
+
   it("fails closed with no earlier answer and no signal", async () => {
     mockRpc = "throw";
     expect(await maternalGuardOpen("never-seen")).toBe(false);
@@ -97,7 +113,7 @@ describe("birth plan on the phone", () => {
   it("opens from the phone's copy with no signal", async () => {
     await saveBirthPlan({ subjectId: "p1", organisationId: "o1", pregnancyId: "preg-1", plan: PLAN, nowMs: 1 });
     mockTables = {}; // every table now errors
-    expect(await loadBirthPlanState("p1", "o1", 9, false)).toEqual({ pregnancyId: "preg-1", plan: PLAN, fromCache: true });
+    expect(await loadBirthPlanState("p1", "o1", 9, false)).toEqual({ pregnancyId: "preg-1", plan: PLAN, fromCache: true, loadFailed: false });
   });
 
   it("keeps the newer plan saved offline while the outbox still holds it", async () => {
@@ -110,6 +126,18 @@ describe("birth plan on the phone", () => {
   it("has no plan and no pregnancy id when nothing is recorded and nothing is cached", async () => {
     mockTables = { pregnancies: { data: null, error: null } };
     expect(await loadBirthPlanState("p1", "o1", 9, false)).toEqual({ pregnancyId: null, plan: null, fromCache: false });
+  });
+
+  it("does not return the cached pregnancy or plan as live when the server says there is no active pregnancy, and clears them", async () => {
+    await saveBirthPlan({ subjectId: "p1", organisationId: "o1", pregnancyId: "preg-1", plan: PLAN, nowMs: 1 });
+    mockTables = { pregnancies: { data: null, error: null } };
+    expect(await loadBirthPlanState("p1", "o1", 9, false)).toEqual({ pregnancyId: null, plan: null, fromCache: false });
+    expect(await readCachedBirthPlan("p1")).toBeNull();
+  });
+
+  it("says the plan could not be loaded when there is no signal and nothing on the phone (the standard guide is in use)", async () => {
+    mockTables = {};
+    expect(await loadBirthPlanState("p1", "o1", 9, false)).toEqual({ pregnancyId: null, plan: null, fromCache: false, loadFailed: true });
   });
 });
 
@@ -125,8 +153,10 @@ describe("week card and schedule", () => {
     expect(await loadWeekCard(null)).toEqual({ kind: "unknown_week" });
   });
   it("lists the generated visits, empty with no signal", async () => {
-    expect(await loadSchedule("p1", 22)).toEqual([]);
-    mockTables = { antenatal_visits: { data: [{ id: "a", visit_number: 1, target_week: 12, gestational_week_at_visit: null, status: "scheduled" }], error: null } };
-    expect((await loadSchedule("p1", 22))[0]).toMatchObject({ id: "a", overdue: true });
+    expect(await loadSchedule("p1")).toEqual([]);
+    mockTables = { antenatal_visits: { data: [{ id: "a", visit_number: 1, target_week: 12, gestational_week_at_visit: null, status: "scheduled", appointment_id: "appt-1" }], error: null } };
+    const entry = (await loadSchedule("p1"))[0]!;
+    expect(entry).toMatchObject({ id: "a", status: "scheduled", booked: true });
+    expect("overdue" in entry).toBe(false); // no invented lateness rule
   });
 });

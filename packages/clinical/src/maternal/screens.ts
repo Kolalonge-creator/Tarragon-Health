@@ -74,18 +74,24 @@ export interface AntenatalVisitRow {
   target_week: number | null;
   gestational_week_at_visit: number | null;
   status: VisitStatus;
+  /** Set when the visit is booked as an appointment. */
+  appointment_id?: string | null;
 }
 export interface ScheduleEntry {
   id: string;
   visitNumber: number;
   week: number | null;
   status: VisitStatus;
-  /** A planned visit whose week has passed and that was not done: the screen says "book again" in plain words. */
-  overdue: boolean;
+  /** A booked appointment exists for this visit. */
+  booked: boolean;
 }
 
-/** Visits in order, from the generated rows. A planned visit before the current week that is still `scheduled` reads as overdue. */
-export function scheduleEntries(rows: readonly AntenatalVisitRow[], currentWeek: number | null): ScheduleEntry[] {
+/**
+ * Visits in order, from the generated rows. This invents no rule about lateness: "missed" is shown only when the server's own status
+ * says so, and a planned visit is shown as "due around week N" or "booked". Any lateness threshold would have to come from the
+ * PROPOSED config, so there is none here.
+ */
+export function scheduleEntries(rows: readonly AntenatalVisitRow[]): ScheduleEntry[] {
   return rows
     .map((r, index): ScheduleEntry => {
       const week = r.target_week ?? r.gestational_week_at_visit;
@@ -94,7 +100,7 @@ export function scheduleEntries(rows: readonly AntenatalVisitRow[], currentWeek:
         visitNumber: r.visit_number ?? index + 1,
         week,
         status: r.status,
-        overdue: r.status === "scheduled" && week !== null && currentWeek !== null && week < currentWeek,
+        booked: typeof r.appointment_id === "string" && r.appointment_id.length > 0,
       };
     })
     .sort((a, b) => a.visitNumber - b.visitNumber);
@@ -152,6 +158,8 @@ export interface BirthPlanFields {
 /** Form text to the stored plan row. The money is a plan note in kobo (never a balance); phones must be E.164 or empty. */
 export function buildBirthPlanFields(
   form: BirthPlanForm,
+  /** The plan already saved, so a save from this form keeps the note it holds instead of writing null over it. */
+  existing?: Pick<BirthPlanFields, "money_plan_note"> | null,
 ): { ok: true; plan: BirthPlanFields } | { ok: false; errors: { money: boolean; donorPhone: boolean; escortPhone: boolean } } {
   const money = nairaTextToKobo(form.money);
   const donor = phoneToE164(form.donorPhone);
@@ -165,7 +173,7 @@ export function buildBirthPlanFields(
       place_of_birth: clean(form.place),
       transport_plan: clean(form.transport),
       money_plan_kobo: money.kobo,
-      money_plan_note: null,
+      money_plan_note: existing?.money_plan_note ?? null,
       blood_donor_name: clean(form.donorName),
       blood_donor_phone: donor.phone,
       escort_name: clean(form.escortName),

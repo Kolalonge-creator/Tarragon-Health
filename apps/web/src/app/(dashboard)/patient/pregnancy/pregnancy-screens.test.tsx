@@ -21,15 +21,17 @@ let guardOpen = true;
 let weekRows: unknown[] = [];
 let visitRows: unknown[] = [];
 let planRow: unknown = null;
+let kickHistory: unknown[] = [];
+let planError = false;
 
 jest.mock("@/lib/queries/growth", () => ({ useMaternalFollowUpOpen: () => ({ data: guardOpen }) }));
 jest.mock("@/lib/queries/medications", () => ({ todayIsoDate: () => "2026-10-22" }));
 jest.mock("@/lib/queries/pregnancy-tools", () => ({
-  useKickHistory: () => ({ data: [] }),
+  useKickHistory: () => ({ data: kickHistory }),
   useSaveKickSession: () => ({ mutate: saveKick, isSuccess: false, isError: false }),
   useSaveContractionSession: () => ({ mutate: saveContraction, isSuccess: false, isError: false }),
   useActivePregnancy: () => ({ data: { id: "preg-1" } }),
-  useBirthPlan: () => ({ data: planRow }),
+  useBirthPlan: () => ({ data: planRow, isPending: false, isError: planError }),
   useSaveBirthPlan: () => ({ mutate: savePlan, isPending: false, isSuccess: false, isError: false }),
   usePregnancyWeekContent: () => ({ data: weekRows }),
   useAntenatalVisits: () => ({ data: visitRows }),
@@ -47,6 +49,10 @@ beforeEach(() => {
   weekRows = [];
   visitRows = [];
   planRow = null;
+  kickHistory = [];
+  planError = false;
+  saveKick.mockReset();
+  saveContraction.mockReset();
 });
 afterEach(() => jest.useRealTimers());
 
@@ -104,6 +110,29 @@ describe("baby movement counter", () => {
     expect(saveKick.mock.calls[0]![0]).toMatchObject({ result: "stopped", result_reason: null });
   });
 
+  it("a failed save still shows the contact-today card, says it was not saved, and a retry sends the same session", () => {
+    saveKick.mockImplementation((_row: unknown, opts: { onError: () => void }) => opts.onError());
+    setup();
+    fireEvent.click(screen.getByText(en["preg.kick.less"]));
+    expect(screen.getByTestId("preg-card-contact_today")).toBeTruthy();
+    expect(screen.getByText(en["preg.ui.kick.not_saved"])).toBeTruthy();
+    fireEvent.click(screen.getByText(en["preg.ui.kick.retry_save"]));
+    expect(saveKick).toHaveBeenCalledTimes(2);
+    expect(saveKick.mock.calls[1]![0]).toEqual(saveKick.mock.calls[0]![0]);
+  });
+
+  it("stopped sessions take no slot in her personal normal (same as the phone)", () => {
+    const reached = { result: "target_reached", minutes_to_target: 10, started_at: "2026-10-01T08:00:00Z" };
+    const stopped = { result: "stopped", minutes_to_target: null, started_at: "2026-10-02T08:00:00Z" };
+    // newest first: four stopped sessions after three that reached the target. If stopped ones took slots she would have no normal.
+    kickHistory = [stopped, stopped, stopped, stopped, reached, reached, reached];
+    const { tick } = setup();
+    fireEvent.click(screen.getByText(en["preg.kick.start"]));
+    tick(21 * MIN);
+    expect(screen.getByTestId("preg-card-contact_today")).toBeTruthy();
+    expect(saveKick.mock.calls[0]![0]).toMatchObject({ result: "contact_today", result_reason: "clear_drop" });
+  });
+
   it("has no accessibility violations while counting and on the card", async () => {
     jest.useRealTimers();
     const { container } = render(<KickCounter patientId="p1" organisationId="o1" week={30} now={() => 1} />);
@@ -135,6 +164,31 @@ describe("contraction timer", () => {
     expect(screen.getByTestId("preg-card-go_now")).toBeTruthy();
     expect(saveContraction).toHaveBeenCalledTimes(1);
     expect(saveContraction.mock.calls[0]![0]).toMatchObject({ result: "go_now", result_reason: "pattern", pattern: "standard" });
+  });
+
+  it("the go-now card stays when the next contraction starts, and the session is saved once", () => {
+    const { contraction } = setup(38);
+    for (let i = 0; i < 13; i += 1) contraction(i * 5 * MIN, 60);
+    expect(screen.getByTestId("preg-card-go_now")).toBeTruthy();
+    fireEvent.click(screen.getByText(en["preg.contractions.start"]));
+    expect(screen.getByTestId("preg-card-go_now")).toBeTruthy();
+    expect(screen.queryByText(en["preg.contractions.keep"])).toBeNull();
+    expect(saveContraction).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed save of a go-now session offers a retry with the same session id", () => {
+    saveContraction.mockImplementation((_row: unknown, opts: { onError: () => void }) => opts.onError());
+    setup(38);
+    fireEvent.click(screen.getByLabelText(en["preg.contractions.sign.fit"]));
+    expect(screen.getByTestId("preg-card-go_now")).toBeTruthy();
+    fireEvent.click(screen.getByText(en["preg.ui.kick.retry_save"]));
+    expect(saveContraction).toHaveBeenCalledTimes(2);
+    expect((saveContraction.mock.calls[1]![0] as { client_id: string }).client_id).toBe((saveContraction.mock.calls[0]![0] as { client_id: string }).client_id);
+  });
+
+  it("says so when the birth plan could not be read (the standard guide is in use)", () => {
+    render(<ContractionTimer patientId="p1" organisationId="o1" week={38} flags={null} planUnavailable now={() => 1} />);
+    expect(screen.getByText(en["preg.ui.contractions.plan_unavailable"])).toBeTruthy();
   });
 
   it("just short of the hour keeps timing, and says keep timing", () => {
@@ -199,6 +253,13 @@ describe("birth plan", () => {
     expect(Object.keys(arg.plan).some((k) => /balance|wallet|topup/i.test(k))).toBe(false);
   });
 
+  it("keeps the money note already saved instead of writing null over it", () => {
+    planRow = { place_of_birth: "A", transport_plan: null, money_plan_kobo: null, money_plan_note: "from the clinic", blood_donor_name: null, blood_donor_phone: null, escort_name: null, escort_phone: null, long_journey: false, previous_fast_labour: false, previous_births: 0 };
+    render(<BirthPlanForm patientId="p1" organisationId="o1" pregnancyId="preg-1" />);
+    fireEvent.click(screen.getByText(en["preg.ui.plan.save"]));
+    expect((savePlan.mock.calls[0]![0] as { plan: { money_plan_note: string | null } }).plan.money_plan_note).toBe("from the clinic");
+  });
+
   it("refuses a local phone number and a non-numeric amount, and saves nothing", () => {
     render(<BirthPlanForm patientId="p1" organisationId="o1" pregnancyId="preg-1" />);
     fill(en["preg.plan.money"], "ten thousand");
@@ -237,15 +298,18 @@ describe("week card", () => {
 });
 
 describe("antenatal schedule", () => {
-  it("lists generated visits with plain status words and passes axe", async () => {
+  it("lists generated visits with plain words, invents no 'missed', and passes axe", async () => {
     visitRows = [
-      { id: "a", visit_number: 1, target_week: 12, gestational_week_at_visit: null, status: "completed" },
-      { id: "b", visit_number: 2, target_week: 20, gestational_week_at_visit: null, status: "scheduled" },
+      { id: "a", visit_number: 1, target_week: 12, gestational_week_at_visit: null, status: "completed", appointment_id: null },
+      { id: "b", visit_number: 2, target_week: 20, gestational_week_at_visit: null, status: "scheduled", appointment_id: null },
+      { id: "c", visit_number: 3, target_week: 26, gestational_week_at_visit: null, status: "scheduled", appointment_id: "appt-1" },
     ];
     jest.useRealTimers();
-    await expectNoA11yViolations(<AntenatalSchedule patientId="p1" currentWeek={24} />);
+    await expectNoA11yViolations(<AntenatalSchedule patientId="p1" />);
     expect(screen.getByText(en["preg.ui.schedule.status_completed"])).toBeTruthy();
-    expect(screen.getByText(en["preg.ui.schedule.status_missed"])).toBeTruthy();
+    expect(screen.getByText(en["preg.ui.schedule.status_scheduled"])).toBeTruthy();
+    expect(screen.getByText(en["preg.ui.schedule.booked"])).toBeTruthy();
+    expect(screen.queryByText(en["preg.ui.schedule.status_missed"])).toBeNull();
   });
 });
 

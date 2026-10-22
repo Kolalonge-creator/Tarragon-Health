@@ -5,6 +5,7 @@ import {
   birthPlanToForm,
   buildBirthPlanFields,
   contractionCard,
+  evaluateKickSession,
   gestationalAge,
   INSTANT_GO_SIGNS,
   type BirthPlanForm,
@@ -89,37 +90,46 @@ function KickCounterPanel({ subjectId, organisationId, week }: { subjectId: stri
   const doneRef = useRef(false);
 
   useEffect(() => {
-    void kickCounterOffered(subjectId, Date.now()).then(setOffered);
-  }, [subjectId]);
+    // The screen's own week is passed, so the offer and the cards never disagree with it; an unknown week still offers the counter.
+    void kickCounterOffered(subjectId, Date.now(), week).then(setOffered);
+  }, [subjectId, week]);
 
   const end = useCallback(
     async (start: number, taps: number[], reportedLess: boolean) => {
       if (doneRef.current) return;
       doneRef.current = true;
       try {
-        const result = await finishKickSession({ subjectId, organisationId, startedAtMs: start, movementMs: taps, reportedLess, nowMs: Date.now() });
+        const result = await finishKickSession({ subjectId, organisationId, startedAtMs: start, movementMs: taps, reportedLess, nowMs: Date.now(), week });
         setFinal(result);
       } catch {
         // The result is decided on the phone; if the phone cannot even queue it the card still shows.
         setSaveError(true);
-        setFinal(await evaluateKickNow({ subjectId, startedAtMs: start, movementMs: taps, reportedLess, nowMs: Date.now() }));
+        const at = Date.now();
+        try {
+          setFinal(await evaluateKickNow({ subjectId, startedAtMs: start, movementMs: taps, reportedLess, nowMs: at }));
+        } catch {
+          // Last resort, pure and cannot fail: the same rule with no personal normal. Something is always shown.
+          setFinal(evaluateKickSession({ startedAtMs: start, movementMs: taps, reportedLess }, at, null, config));
+        }
       }
     },
-    [subjectId, organisationId],
+    [subjectId, organisationId, week, config],
   );
 
   useEffect(() => {
     if (startedAt === null || final) return;
     const id = setInterval(() => {
-      void evaluateKickNow({ subjectId, startedAtMs: startedAt, movementMs: movements, nowMs: Date.now() }).then((e) => {
-        setLive(e);
-        if (e.state !== "counting") void end(startedAt, movements, false);
-      });
+      void evaluateKickNow({ subjectId, startedAtMs: startedAt, movementMs: movements, nowMs: Date.now() })
+        .then((e) => {
+          setLive(e);
+          if (e.state !== "counting") void end(startedAt, movements, false);
+        })
+        .catch(() => {});
     }, 1000);
     return () => clearInterval(id);
   }, [startedAt, movements, final, subjectId, end]);
 
-  if (offered === false || week === null || week < config.kicks.startWeek) {
+  if (offered === false) {
     return (
       <Card style={{ gap: 6 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("preg.kick.title")}</Text>
@@ -171,7 +181,7 @@ function KickCounterPanel({ subjectId, organisationId, week }: { subjectId: stri
   );
 }
 
-function ContractionTimerPanel({ subjectId, organisationId, plan }: { subjectId: string; organisationId: string; plan: BirthPlanState["plan"] }) {
+function ContractionTimerPanel({ subjectId, organisationId, week, plan, planUnavailable }: { subjectId: string; organisationId: string; week: number | null; plan: BirthPlanState["plan"]; planUnavailable: boolean }) {
   const colors = useLegacyColors();
   const { config } = useMemo(() => loadMaternalConfig(), []);
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -179,41 +189,53 @@ function ContractionTimerPanel({ subjectId, organisationId, plan }: { subjectId:
   const [signs, setSigns] = useState<InstantGoSign[]>([]);
   const [evaluation, setEvaluation] = useState<ContractionEvaluation | null>(null);
   const [finished, setFinished] = useState(false);
+  // The first "go now" of a session is kept for the rest of it: the live rule counts a run only while the NEWEST contraction is long enough,
+  // so the moment the next one starts the live answer would flip back to "keep timing" and the card would vanish.
+  const [latched, setLatched] = useState<ContractionEvaluation | null>(null);
   const savedRef = useRef(false);
   const flags = birthPlanFlags(plan);
+  // The flags object is new on every render; the effect below depends on its three values so a plan that loads late is picked up.
+  const longJourney = flags?.longJourney ?? null;
+  const previousFastLabour = flags?.previousFastLabour ?? null;
+  const previousBirths = flags?.previousBirths ?? null;
   const running = contractions.length > 0 && contractions[contractions.length - 1]!.endMs === null;
 
   const persist = useCallback(
-    async (start: number, list: Contraction[], chosen: InstantGoSign[]) => {
+    async (start: number, list: Contraction[], chosen: InstantGoSign[], known?: ContractionEvaluation | null) => {
       if (savedRef.current) return;
       savedRef.current = true;
       try {
-        await finishContractionSession({ subjectId, organisationId, startedAtMs: start, contractions: list, signs: chosen, flags, nowMs: Date.now() });
+        await finishContractionSession({ subjectId, organisationId, startedAtMs: start, contractions: list, signs: chosen, flags, nowMs: Date.now(), week, known: known ?? undefined });
       } catch {
         savedRef.current = false;
       }
     },
-    [subjectId, organisationId, flags],
+    [subjectId, organisationId, flags, week],
   );
 
   useEffect(() => {
     if (startedAt === null) return;
     let alive = true;
     const run = () =>
-      void evaluateContractionsNow({ subjectId, contractions, signs, flags, nowMs: Date.now() }).then((e) => {
-        if (!alive) return;
-        setEvaluation(e);
-        if (e.state === "go_now") void persist(startedAt, contractions, signs);
-      });
+      void evaluateContractionsNow({ subjectId, contractions, signs, flags, nowMs: Date.now(), week })
+        .then((e) => {
+          if (!alive) return;
+          setEvaluation(e);
+          const kept = latched ?? (e.state === "go_now" ? e : null);
+          if (e.state === "go_now") setLatched((prev) => prev ?? e);
+          if (kept) void persist(startedAt, contractions, signs, kept);
+        })
+        .catch(() => {});
     run();
     if (finished) return () => { alive = false; };
     const id = setInterval(run, 1000);
     return () => { alive = false; clearInterval(id); };
-    // `flags` and `persist` are derived from the plan and ids, which do not change while a session runs.
-  }, [startedAt, contractions, signs, finished]);
+    // `flags` and `persist` follow from the values below, so they are listed by their parts.
+  }, [startedAt, contractions, signs, finished, week, latched, longJourney, previousFastLabour, previousBirths]);
 
-  const card = evaluation ? contractionCard(evaluation) : "none";
-  const rule = evaluation?.pattern === "earlier" ? config.contractions.earlier : config.contractions.standard;
+  const shown = latched ?? evaluation;
+  const card = shown ? contractionCard(shown) : "none";
+  const rule = shown?.pattern === "earlier" ? config.contractions.earlier : config.contractions.standard;
 
   function toggle() {
     const at = Date.now();
@@ -227,6 +249,7 @@ function ContractionTimerPanel({ subjectId, organisationId, plan }: { subjectId:
       {card === "go_now_sign" && <ActionCard variant="go_now" />}
       {card === "go_now_pattern" && <ActionCard variant="go_now" extra={t("preg.ui.contractions.pattern_body")} />}
       {card === "none" && contractions.length > 0 && !finished && <MutedText>{t("preg.contractions.keep")}</MutedText>}
+      {planUnavailable && <MutedText>{t("preg.ui.contractions.plan_unavailable")}</MutedText>}
       {evaluation?.needsGestation && <MutedText>{t("preg.contractions.needs_due_date")}</MutedText>}
       <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{t("preg.ui.contractions.signs_title")}</Text>
       <MutedText>{t("preg.ui.contractions.signs_hint")}</MutedText>
@@ -271,7 +294,7 @@ function ContractionTimerPanel({ subjectId, organisationId, plan }: { subjectId:
             title={t("preg.ui.contractions.finish")}
             onPress={() => {
               setFinished(true);
-              void persist(startedAt, contractions, signs);
+              void persist(startedAt, contractions, signs, latched);
             }}
           />
         )}
@@ -284,6 +307,7 @@ function ContractionTimerPanel({ subjectId, organisationId, plan }: { subjectId:
               setContractions([]);
               setSigns([]);
               setEvaluation(null);
+              setLatched(null);
               setFinished(false);
             }}
           />
@@ -336,7 +360,7 @@ function BirthPlanPanel({ subjectId, organisationId, state, onSaved }: { subject
   const pregnancyId = state.pregnancyId;
 
   async function submit() {
-    const built = buildBirthPlanFields(form);
+    const built = buildBirthPlanFields(form, state?.plan ?? null);
     if (!built.ok) {
       setErrors(built.errors);
       return;
@@ -409,15 +433,15 @@ function WeekCardPanel({ week }: { week: number | null }) {
   );
 }
 
-function SchedulePanel({ subjectId, week }: { subjectId: string; week: number | null }) {
+function SchedulePanel({ subjectId }: { subjectId: string }) {
   const colors = useLegacyColors();
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   useEffect(() => {
-    void loadSchedule(subjectId, week).then(setEntries);
-  }, [subjectId, week]);
+    void loadSchedule(subjectId).then(setEntries);
+  }, [subjectId]);
   const status = (e: ScheduleEntry): string =>
-    e.overdue
-      ? t("preg.ui.schedule.status_missed")
+    e.status === "scheduled" && e.booked
+      ? t("preg.ui.schedule.booked")
       : e.status === "completed"
         ? t("preg.ui.schedule.status_completed")
         : e.status === "missed"
@@ -481,9 +505,9 @@ export function PregnancyTools({ subjectId, organisationId, lmp, edd }: { subjec
           <MutedText>{t("preg.ui.section_intro")}</MutedText>
         </View>
         <WeekCardPanel week={week} />
-        <SchedulePanel subjectId={subjectId} week={week} />
+        <SchedulePanel subjectId={subjectId} />
         <KickCounterPanel subjectId={subjectId} organisationId={organisationId} week={week} />
-        <ContractionTimerPanel subjectId={subjectId} organisationId={organisationId} plan={plan?.plan ?? null} />
+        <ContractionTimerPanel subjectId={subjectId} organisationId={organisationId} week={week} plan={plan?.plan ?? null} planUnavailable={plan?.loadFailed === true} />
         <BirthPlanPanel subjectId={subjectId} organisationId={organisationId} state={plan} onSaved={() => void refreshPlan()} />
       </View>
     </PregnancyPrivateSection>
