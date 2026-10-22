@@ -191,7 +191,8 @@ begin
   select organisation_id into v_org from public.employer_roster_members where id = p_roster;
   if v_org is null then return 'skipped'; end if;
   select * into v_pilot from public.employer_seat_pilots
-   where organisation_id = v_org and state <> 'cancelled' order by created_at desc limit 1 for update;
+   where organisation_id = v_org and state <> 'cancelled'
+   order by (state in ('draft', 'invoiced', 'active')) desc, created_at desc limit 1 for update;
   select * into r from public.employer_roster_members where id = p_roster for update;
   if not found or r.status <> 'claimed' or r.claimed_profile_id is null or r.benefit_package_id is null then return 'skipped'; end if;
   select * into v_package from public.employer_benefit_packages where id = r.benefit_package_id and is_active;

@@ -254,7 +254,7 @@ begin
 
   perform pg_temp.ck('the arrears generator finds nothing to bill: a pilot seat is never billed twice', 'true',
     (pg_temp.q_as(adm, format($q$select public.generate_organisation_membership_invoice(%L, %L, %L)::text$q$, a, pg_temp.today() - 30, pg_temp.today())) like '%no_uninvoiced_seats%')::text);
-  perform pg_temp.ck('the organisation summary shows 12 active seats and nothing uninvoiced', '12/0',
+  perform pg_temp.ck('the organisation summary leaves out test-account seats (INV-13) and shows nothing uninvoiced', '0/0',
     pg_temp.q_as(pg_temp.f('corpA'), format($q$select (s ->> 'active_seats') || '/' || (s ->> 'uninvoiced_kobo') from (select public.organisation_seat_summary(%L) s) x$q$, a)));
 
   update public.employer_roster_members set status = 'departed', departed_at = now() where id = pg_temp.f('roster1');
@@ -340,7 +340,7 @@ begin
   perform pg_temp.ck('seats made this week give no usage figures yet (too few reportable members)', 'true/too_few_members',
     ((r -> 'usage' ->> 'suppressed') = 'true')::text || '/' || (r -> 'usage' ->> 'reason'));
   perform pg_temp.ck('the suppressed usage block carries no figure keys at all', 'reason,suppressed', pg_temp.all_keys(r -> 'usage'));
-  perform pg_temp.ck('seat counts are exact: 12 purchased, 12 claimed, 11 active (one departed), 0 unclaimed, 2 claims without a seat', '12/12/11/0/2',
+  perform pg_temp.ck('seat counts are exact: 12 purchased, 12 claimed, 11 active (one departed), 0 unclaimed, 3 claims without a seat (no seat left, two after the end)', '12/12/11/0/3',
     (r -> 'seats' ->> 'purchased') || '/' || (r -> 'seats' ->> 'claimed') || '/' || (r -> 'seats' ->> 'active') || '/' || (r -> 'seats' ->> 'unclaimed') || '/' || (r -> 'seats' ->> 'claims_without_seat'));
 
   -- move the seats two weeks back and plant activity two weeks old
@@ -387,7 +387,7 @@ begin
   perform pg_temp.ck('no member id appears anywhere in the output', 'false',
     (select bool_or(v_json like '%' || v::text || '%') from fx where k ~ '^p[0-9]+$')::text);
   perform pg_temp.ck('no member name or phone appears anywhere in the output', 'false',
-    (select bool_or(v_json like '%' || pr.full_name || '%' or v_json like '%' || pr.phone || '%') from public.profiles pr where pr.id in (select v from fx where k ~ '^p[0-9]+$'))::text);
+    (select coalesce(bool_or(coalesce(v_json like '%' || pr.full_name || '%', false) or coalesce(v_json like '%' || pr.phone || '%', false)), false) from public.profiles pr where pr.id in (select v from fx where k ~ '^p[0-9]+$'))::text);
 
   -- who may read it
   perform pg_temp.ck('another employer''s admin cannot read this report', 'true',
@@ -404,7 +404,7 @@ begin
   -- the individual rows stay out of reach of an employer admin, with a control that they exist and a platform admin can see them
   perform pg_temp.ck('CONTROL: a platform admin can see the encounters', 'true', (pg_temp.q_as(adm, 'select count(*)::text from public.encounters')::int >= 9)::text);
   perform pg_temp.ck('an employer admin reads zero encounters', '0', pg_temp.q_as(pg_temp.f('corpA'), 'select count(*)::text from public.encounters'));
-  perform pg_temp.ck('CONTROL: a platform admin can see the readings', 'true', (pg_temp.q_as(adm, 'select count(*)::text from public.vitals_readings')::int >= 10)::text);
+  perform pg_temp.ck('CONTROL: a member can read their own reading, so the rows exist', '1', pg_temp.q_as(pg_temp.f('p1'), 'select count(*)::text from public.vitals_readings'));
   perform pg_temp.ck('an employer admin reads zero readings', '0', pg_temp.q_as(pg_temp.f('corpA'), 'select count(*)::text from public.vitals_readings'));
   perform pg_temp.ck('an employer admin reads zero entitlement rows', '0', pg_temp.q_as(pg_temp.f('corpA'), 'select count(*)::text from public.entitlements'));
   perform pg_temp.ck('an employer admin reads zero membership rows', 'true',
@@ -435,8 +435,8 @@ begin
   perform pg_temp.setf('pilotA2', v_p2);
   perform pg_temp.q_as(adm, format($q$select public.issue_employer_seat_pilot_invoice(%L)::text$q$, v_p2));
   r := pg_temp.q_as(adm, format($q$select public.confirm_employer_seat_pilot_payment(%L, 'bank_transfer', 'BANK-REF-4004')::text$q$, v_p2))::jsonb;
-  perform pg_temp.ck('a new paid pilot gives the two people who were refused (no seat left, pilot closed) their seats', '2/seat/seat',
-    (r ->> 'granted') || '/' || (select string_agg(seat_state, '/' order by seat_state) from public.employer_roster_members where claimed_profile_id in (pg_temp.f('p13'), pg_temp.f('p14'))));
+  perform pg_temp.ck('a new paid pilot gives the three people who were refused (no seat left, pilot closed) their seats', '3/seat/seat/seat',
+    (r ->> 'granted') || '/' || (select string_agg(seat_state, '/' order by seat_state) from public.employer_roster_members where claimed_profile_id in (pg_temp.f('p13'), pg_temp.f('p14'), pg_temp.f('p20'))));
   perform pg_temp.ck('and no claim is left waiting on the report', '0',
     (pg_temp.q_as(adm, format($q$select public.employer_seat_pilot_report(%L) -> 'seats' ->> 'claims_without_seat'$q$, v_p2))));
 end $$;
