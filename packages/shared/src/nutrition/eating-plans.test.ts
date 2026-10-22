@@ -69,10 +69,10 @@ describe("parseEatingGuidance is cautious", () => {
   });
 
   it("refuses the whole answer when one plan or swap is malformed", () => {
-    const a = answer(["weight"]) as { plans: { tips: unknown[] }[]; swaps: unknown[] };
+    const a = answer(["weight"]) as unknown as { plans: { tips: unknown[] }[]; swaps: unknown[] };
     a.plans[0]!.tips = [];
     expect(parseEatingGuidance(a)).toEqual({ state: "unavailable" });
-    const b = answer(["weight"]) as { swaps: Record<string, unknown>[] };
+    const b = answer(["weight"]) as unknown as { swaps: Record<string, unknown>[] };
     b.swaps[0]!.reason_kind = "bad_food";
     expect(parseEatingGuidance(b)).toEqual({ state: "unavailable" });
   });
