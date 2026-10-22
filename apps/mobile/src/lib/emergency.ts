@@ -38,11 +38,15 @@ export interface EmergencyFacts {
 
 const CACHE_KEY = "emergency-card-cache-v1";
 
+/** Bumped by every load and every narrowing. A load only writes the saved copy if no newer one started since, so an older read never lands last. */
+let cacheEpoch = 0;
+
 /** Mirrors loadEmergencyDatasetForPatient in
  * apps/web/src/lib/emergency/dataset.ts (the printed/offline-card query, not
  * the anon share-link RPC) — every table here already has RLS admitting the
  * patient's own row, so this is a plain client read. */
 export async function loadEmergencyFacts(patientId: string): Promise<EmergencyFacts> {
+  const epoch = ++cacheEpoch;
   const results = await Promise.all([
       supabase
         .from("profiles")
@@ -111,7 +115,7 @@ export async function loadEmergencyFacts(patientId: string): Promise<EmergencyFa
   // Best-effort cache for offline use — this is the one screen in the app
   // that must render with zero signal, per docs/MOBILE_APP_SPEC.md §6.
   // The cache holds what the person chose to show, never more: a hidden field must not sit on the phone either.
-  SecureStore.setItemAsync(CACHE_KEY, JSON.stringify(chosen)).catch(() => {});
+  if (epoch === cacheEpoch) SecureStore.setItemAsync(CACHE_KEY, JSON.stringify(chosen)).catch(() => {});
   return chosen;
 }
 
@@ -178,11 +182,14 @@ export function applyEmergencyFieldChoices(facts: EmergencyFacts, chosen: Emerge
  */
 export async function narrowCachedEmergencyFacts(chosen: EmergencyFieldChoicesRow): Promise<void> {
   try {
+    cacheEpoch += 1; // any load already in flight (built from the old choices) no longer writes the saved copy
     const cached = await loadCachedEmergencyFacts();
     if (!cached) return;
     const narrowed = applyEmergencyFieldChoices(cached, chosen);
     const withheld = (cached.medicinesNotShown ?? 0) + (narrowed.medicinesNotShown ?? 0);
-    await SecureStore.setItemAsync(CACHE_KEY, JSON.stringify({ ...narrowed, medicinesNotShown: chosen.show_medications && withheld > 0 ? withheld : undefined }));
+    // A detail that was hidden stays marked "not shared" until a real read brings it back: the copy holds nothing for it, and "none on file" would be false.
+    const hidden = [...new Set([...(cached.hidden ?? []), ...(narrowed.hidden ?? [])])];
+    await SecureStore.setItemAsync(CACHE_KEY, JSON.stringify({ ...narrowed, hidden, medicinesNotShown: chosen.show_medications && withheld > 0 ? withheld : undefined }));
   } catch {
     // Best effort: the reload that follows rewrites the copy from the database.
   }

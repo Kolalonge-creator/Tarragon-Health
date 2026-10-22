@@ -12,6 +12,9 @@ import { requestReadingFor } from "@/lib/document-capture/request-reading";
  * The answer carries a status and a plain sentence only. It never carries what was read: the phone reads suggestions back through its own
  * RLS-scoped read when the person opens the confirm screen, and nothing read here is part of the record until the person confirms it.
  */
+/** A reading can run while the request is open (a vision-model call); the phone waits up to 75 seconds. */
+export const maxDuration = 90;
+
 const bodySchema = z.object({ document_id: z.string().uuid() });
 
 export async function POST(request: Request): Promise<NextResponse> {

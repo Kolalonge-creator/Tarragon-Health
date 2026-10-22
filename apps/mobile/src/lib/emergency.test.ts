@@ -95,7 +95,10 @@ describe("loadEmergencyFacts", () => {
     expect(cached?.medications.map((m) => m.drugName)).toEqual(["Lisinopril"]);
     // widening needs a read: the copy does not invent details it never held
     await narrowCachedEmergencyFacts({ ...row, show_allergies: true });
-    expect((await loadCachedEmergencyFacts())?.allergies).toEqual([]);
+    const widened = await loadCachedEmergencyFacts();
+    expect(widened?.allergies).toEqual([]);
+    // still marked "not shared", never left to read as "none on file"
+    expect(widened?.hidden).toContain("allergies");
   });
 
   it("returns a null contact rather than a half-filled one when no name is on file", async () => {

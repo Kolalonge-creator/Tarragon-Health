@@ -28,7 +28,7 @@ const EDGES: Edge[] = ["top", "bottom", "left", "right"];
 
 /**
  * Add a document: what it is, then a photo or a PDF, then turn and trim, then save. Every step can be left. The picture is only changed when the
- * person presses Use this photo, and only the prepared copy (turned, trimmed, at most 1600 pixels, location data removed) is ever uploaded.
+ * person presses Use this photo, and only the prepared copy (turned, trimmed, at most 2400 pixels, location data removed) is ever uploaded.
  *
  * Saving needs a connection and says so; the prepared picture stays on this screen for a retry. Nothing is queued in the background, because a
  * document that looks saved but is not is worse than one the person knows still has to be sent.

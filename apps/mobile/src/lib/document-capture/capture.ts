@@ -5,14 +5,15 @@ import { cacheWrite, isOffline, readThrough, type ReadResult } from "../passport
 
 /**
  * Photo capture of a paper health document (S43, spec 2.3) on the phone: the ONLY module in the app that reads or writes `patient_documents`
- * (a repo scan test, document-capture-readers.test.ts, fails if any other file names the table).
+ * (a repo scan test, readers-scan.test.ts, fails if any other file names the table).
  *
  * Rules kept here, each with a test:
  *  - A reading is only ever a SUGGESTION. Nothing here treats `extracted` as a value of the person's record; the screen shows it for confirming
  *    and the database keeps only what the person accepted. A rejected reading leaves the photo and nothing else.
  *  - Reading is requested only when the go-live guard `document_capture_enabled` is open (it is OFF). The phone checks the guard itself so it
  *    never even marks a photo as waiting for a reading when it is closed, and the server checks it again (the route never trusts the phone).
- *    If the guard cannot be read, it counts as closed: the photo is saved and no reading is asked for.
+ *    If the guard cannot be read, the phone does not guess closed: the photo is marked waiting and the server decides (it checks the guard before any
+ *    model, and answers closed if it is off), so a flaky connection can never leave a photo with no way to ever be read.
  *  - Suggestions and extracted text are NEVER kept in the offline copy. The saved list holds what kind of document it is, when it was added and
  *    where it is in the process, nothing read from it.
  *  - The upload and the row use one id per attempt, so a retry after a lost answer cannot make a second document.

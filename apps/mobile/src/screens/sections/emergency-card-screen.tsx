@@ -242,7 +242,10 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
       </Card>
 
       {/* The person chooses what the card shows. After a save the facts are read again, so the saved copy on this phone holds only what they chose. */}
-      <EmergencyCardFieldsCard patientId={patientId} organisationId={organisationId} onSaved={reloadFacts} />
+      <EmergencyCardFieldsCard patientId={patientId} organisationId={organisationId} onSaved={async () => {
+          void loadLockScreenOptIn(patientId).then(setLockOptIn);
+          return reloadFacts();
+        }} />
 
       {lockOptIn ? (
         <Card style={{ gap: 10 }}>
