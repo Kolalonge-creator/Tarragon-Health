@@ -1445,6 +1445,8 @@ patient_home_layout.sql
 # The Membership is one yearly payment again: the instalment tables, functions, columns, module row, templates and cron job are gone, no function body names them, refunds_one_live is one live refund per order, and the one-payment flow (pay, replay, mismatch, cancel, refund once for the whole amount, provider claim) works. Sabotage: nine removed things put back one at a time; all nine structural checks must flip.
 membership_instalments_removed.sql
 
+# Learning content expiry backlog (2026-10-22): admin and the active CMO read the 30/14/7 list, summary and owner list and assign owners while a patient, an ordinary clinician and a visitor are refused; hidden items listed with days; the daily job sends one generic count-only notice per active owner and one CMO digest, once a day; republishing a previously published item needs a new change note. Sabotage: access check neutered, note gate dropped, once-a-day index dropped; each must flip.
+learning_expiry_backlog.sql
 
 # S54d (2026-10-22): a private missed-dose reason (ran out or cannot afford) is moved off the supporter-readable dose row into its own table; the person, someone acting for them and the tied care team (audited) read it, a supporter only after a per-reason opt-in, nobody writes it directly; it raises no alert; the NAFDAC helper guard is born off. Sabotage: diverting trigger dropped and the opt-in predicate made permissive; both must flip. NOT RUN by the author (Docker down): first run is CI.
 s54d_private_dose_reasons.sql
@@ -1459,5 +1461,6 @@ cuff_camera_and_result_passport_guards.sql
 
 # S62 follow-up: the review and scheduled-test sweeps are scheduled daily (06:08 and 06:18 UTC), call the right function, run cleanly as the job owner and add nothing while no real patient is enrolled, and still refuse a signed-in user. Sabotage: each job unscheduled and the matching check flips.
 s62_pathway_sweeps_scheduled.sql
+s62_tests_sweep_guard.sql
 # CMO OQ-358 / OQ-358b (folio base-table lock, step 2): the MDCN folio is refused on the clinical_staff base table to a colleague, a patient and anon (named, select *, filtered) while every other column, joins and a security_invoker view over the table still work; clinical_staff_folio returns the clinician their own folio, the CMO and an admin a colleague's, a colleague and a patient nothing, anon cannot execute it; the directory view still serves names; admin writes untouched; every non-folio column is granted; clinician_licence_public and the slot list carry no folio; lab and verified-document kinds return a null folio. Sabotage: the table grant put back and the function without its entitlement check must each flip.
 clinical_staff_folio_base_table_lock.sql

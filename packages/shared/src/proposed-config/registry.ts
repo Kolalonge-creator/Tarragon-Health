@@ -4230,6 +4230,33 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S51.md; docs/BUILD-SPEC-v5.md B.7 (nudges)",
   },
   {
+    key: "assistant.triage_floor_eval",
+    // Clinician-style emergency test set for the assistant's deterministic red-flag floor (INV-01). The runner is
+    // packages/clinical/src/triage-floor-eval.ts; the vignette file is packages/clinical/fixtures/triage-floor-vignettes.v1.json.
+    // Under-triage (an emergency vignette the floor misses) is never acceptable, so its ceiling is 0. Over-triage (a non-urgent vignette
+    // that trips the floor) is the accepted failure, but it is measured: the ceiling is a PROPOSED number the CMO confirms after reading
+    // the report. The two minimums stop the set being thinned out to pass. No database mirror: this is a test-time setting only.
+    value: { max_under_triage_rate: 0, max_over_triage_rate: 0.1, min_emergency_vignettes: 60, min_non_urgent_vignettes: 60 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S51.md; docs/research/S51-S55-review-and-build-plan.md; BUILD-SPEC-v5 INV-01",
+  },
+  {
+    key: "learning.expiry_alerts",
+    // Learning content that is close to its review date (the S55 expiry rule hides it ON that date and this setting never changes that rule).
+    // `thresholds_days` are the days-before-the-review-date at which the owner of an item gets one generic in-app notice and the CMO gets a
+    // digest.
+    // Mirrored by the active `expiry_alerts` row of `learning_config` (migration *_learning_expiry_backlog.sql); a test pins the two. UNSIGNED.
+    value: { thresholds_days: [30, 14, 7] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/research/S51-S55-review-and-build-plan.md; docs/design/S55.md",
+  },
+  {
     key: "devices.plausibility",
     // S70a (18.9). Two classes. IMPOSSIBLE values are held as "please confirm" and never triaged or saved to the record until the
     // person re-checks. EXTREME BUT POSSIBLE values are saved and triaged as normal (a real crisis is never blocked). The typed-entry
