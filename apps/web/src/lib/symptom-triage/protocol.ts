@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/server";
 import {
-  parseTriageProtocolConfig,
+  liveProtocolConfig,
   type PresentingComplaintProtocol,
   type TriageProtocolConfig,
 } from "@tarragon/symptom-triage-engine";
@@ -26,16 +26,14 @@ export async function getActiveTriageProtocolConfig(client?: SupabaseClient<Data
   const supabase = client ?? (await createClient());
   const { data, error } = await supabase
     .from("triage_protocols")
-    .select("config, version")
+    .select("config, version, is_active, approved_at, approved_by")
     .eq("is_active", true)
     .maybeSingle();
 
   if (error || !data) return null;
 
-  const config = parseTriageProtocolConfig(data.config);
-  if (!config) return null;
-
-  return { config, protocolVersion: data.version };
+  // S59d: only an ACTIVE and SIGNED row is ever live. A draft pathway (S59 paediatric, S59d) can never come back from here.
+  return liveProtocolConfig(data);
 }
 
 /**

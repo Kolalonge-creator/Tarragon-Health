@@ -9,4 +9,7 @@ export * from "./urgency/levels";
 export * from "./adapter/symptom-engine";
 export * from "./adapter/in-house-engine";
 export * from "./protocols/paediatric-drafts";
+export * from "./protocols/s59d-drafts";
+export * from "./protocols/live-guard";
+export * from "./protocols/s59d-review-notes";
 export { bundledFloorDrift } from "./safety/floor-drift";
