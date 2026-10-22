@@ -23,7 +23,7 @@ begin;
 -- S62: the ten pathway guards (seeded off) are proved in s61_s62_pathway_engine.sql; this proof is about the seven it was written for.
 delete from public.pathway_definitions;
 alter table public.go_live_guards disable trigger go_live_guards_guard;
-delete from public.go_live_guards where key like 'pathway\_%';
+delete from public.go_live_guards where key like 'pathway\_%' or key = 'record_triggered_lessons_enabled'; -- the learning record-lessons guard is proved in record_lessons_and_portion_guide.sql
 alter table public.go_live_guards enable trigger go_live_guards_guard;
 
 -- Two-tier: the paid per-item products are not sellable (service_products_doctor_time_not_sellable). The consultation machinery under test
