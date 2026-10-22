@@ -27,6 +27,7 @@ import {
   type HealthEducationReadingLevel,
   type KnowledgeCheckQuestion,
 } from "@/lib/health-education";
+import { RecordLessonCardNative } from "@/screens/sections/learning-quality-sections";
 import { WeeklyLessonCard, DownloadsCard, LearnSearchCard, LessonFooter, LessonViewer, useMembersOnly } from "@/screens/sections/learning-sections";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
@@ -162,6 +163,7 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
       )}
 
       <WeeklyLessonCard patientId={userId} organisationId={organisationId} />
+      <RecordLessonCardNative patientId={userId} renderFooter={(code, title) => <LessonFooter code={code} title={title} />} />
       <LearnSearchCard userId={userId} onOpen={setOpenCode} />
       {openCode ? <LessonViewer code={openCode} userId={userId} onClose={() => setOpenCode(null)} /> : null}
       <DownloadsCard userId={userId} onOpen={setOpenCode} />

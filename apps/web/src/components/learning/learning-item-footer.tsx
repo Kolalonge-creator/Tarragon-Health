@@ -9,6 +9,7 @@ import { useHealthEducationItemTrust, useSaveLessonForConsultation } from "@/lib
 import { absoluteUrl } from "@/lib/marketing/site";
 import { MembersOnlyPrompt } from "./members-only-prompt";
 import { ShareLessonButtons } from "./share-lesson-buttons";
+import { UrgentHelpBox } from "./urgent-help-box";
 
 /**
  * The fixed template under every learning item (spec 9.4, 9.6, 9.8): who reviewed it and when, the sources, the required
@@ -102,15 +103,7 @@ export function LearningItemFooter({
         </section>
       )}
 
-      <aside
-        role="note"
-        aria-label={t("learn.urgent.title")}
-        className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100"
-        data-testid="urgent-help-box"
-      >
-        <p className="font-semibold">{t("learn.urgent.title")}</p>
-        <p className="mt-1">{t("learn.urgent.body")}</p>
-      </aside>
+      <UrgentHelpBox />
 
       {canShare && <ShareLessonButtons title={title} url={absoluteUrl(`/learn/${code}`)} />}
     </div>

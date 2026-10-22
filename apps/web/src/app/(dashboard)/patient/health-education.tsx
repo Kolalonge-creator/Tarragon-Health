@@ -47,6 +47,11 @@ import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
 import { LearningItemFooter } from "@/components/learning/learning-item-footer";
 import { useHealthEducationItemTrust } from "@/lib/queries/learning-centre";
 import { WeeklyLessonCard } from "@/components/learning/weekly-lesson-card";
+import { RecordLessonCard } from "@/components/learning/record-lesson-card";
+import { GlossaryText } from "@/components/learning/glossary-text";
+import { PortionGuideView } from "@/components/learning/portion-guide-view";
+import { TeachbackQuiz } from "@/components/learning/teachback-quiz";
+import { isPortionGuideBody, portionAudienceFor } from "@tarragon/shared";
 import { LearningSearch } from "@/components/learning/learning-search";
 
 const CONDITION_LABEL: Record<string, string> = {
@@ -339,9 +344,17 @@ function ContentDetailBody({
           Your browser does not support inline audio.
         </audio>
       )}
-      <div className="whitespace-pre-line text-sm leading-relaxed text-charcoal-ink/90 dark:text-night-ink/90">
-        {item.body}
-      </div>
+      {isPortionGuideBody(item.body) ? (
+        <PortionGuideView
+          body={item.body}
+          audience={portionAudienceFor("category" in item ? item.category : null, "condition" in item ? item.condition : null)}
+        />
+      ) : (
+        <GlossaryText
+          text={item.body}
+          className="whitespace-pre-line text-sm leading-relaxed text-charcoal-ink/90 dark:text-night-ink/90"
+        />
+      )}
 
       {questions ? (
         <KnowledgeCheck
@@ -372,6 +385,8 @@ function ContentDetailBody({
       {mark.isError && (
         <p className="text-xs text-red-600 dark:text-red-300">Could not save your progress. Try again.</p>
       )}
+
+      <TeachbackQuiz code={item.code} />
 
       <SetGoalFromLesson item={item} patientId={patientId} organisationId={organisationId} />
       <ContentFeedback contentId={item.content_id} patientId={patientId} organisationId={organisationId} />
@@ -886,6 +901,7 @@ export function HealthEducationLibrary({
   return (
     <div className={cn("space-y-6")}>
       <WeeklyLessonCard patientId={patientId} organisationId={organisationId} />
+      <RecordLessonCard patientId={patientId} />
       <LearningSearch />
       <RecommendationsBanner patientId={patientId} />
 
