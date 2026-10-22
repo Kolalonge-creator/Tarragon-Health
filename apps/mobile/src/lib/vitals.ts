@@ -134,7 +134,8 @@ export async function loadLastCuffCheck(patientId: string): Promise<string | nul
     return data?.[0]?.taken_at ?? null;
   } catch {
     const local = await readLocalRecords<BpRow & { vital_type: string }>("vital", patientId, 200).catch(() => null);
-    if (!local) return undefined;
+    // The server could not be asked and the phone holds nothing: that is "could not check", never "no cuff reading".
+    if (!local || local.length === 0) return undefined;
     return latestCuffCheckAt(local.filter((x) => x.vital_type === "blood_pressure").map((x) => ({ source: x.source, takenAt: x.taken_at })));
   }
 }

@@ -52,7 +52,13 @@ describe("CufflessCalibrationNote (S70b)", () => {
     expect(never.container.textContent).toMatch(/Not checked against a cuff yet/);
     never.unmount();
     const unknown = render(<CufflessCalibrationNote source="wearable" vitalType="blood_pressure" lastCuffCheckAt={undefined} now={now} />);
-    expect(unknown.container.textContent).not.toMatch(/checked against a cuff/i);
+    expect(unknown.container.textContent).toMatch(/could not check when this was last compared/);
+    expect(unknown.container.textContent).not.toMatch(/Last checked against a cuff on|Not checked against/);
+  });
+  it("a raised estimate keeps only the factual line: no rough-guide wording and no general cuff-check line", () => {
+    const { container } = render(<CufflessCalibrationNote source="wearable" vitalType="blood_pressure" lastCuffCheckAt={ago(40)} level="red" now={now} />);
+    expect(container.textContent).toMatch(/Last checked against a cuff on/);
+    expect(container.textContent).not.toMatch(/rough guide|worth a cuff check/);
   });
   it("shows nothing for a cuff reading or another vital", () => {
     expect(render(<CufflessCalibrationNote source="manual" vitalType="blood_pressure" lastCuffCheckAt={null} />).container.textContent).toBe("");

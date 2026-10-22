@@ -237,6 +237,8 @@ export function buildConnectionRows(input: HubInput, cfg: HubHealthConfig): Conn
       continue;
     }
     const status = connectionStatusOf(conn, kind, now, cfg);
+    // A switched-off service cannot be reconnected, so its hint must not say "Reconnect it".
+    const hintKey = unavailable && (status === "reconnect_needed" || status === "no_recent_data") ? "hub.hint.unavailable_existing" : HINT_KEY[status] ?? null;
     rows.push({
       key: `wc:${provider}`,
       kind,
@@ -245,7 +247,7 @@ export function buildConnectionRows(input: HubInput, cfg: HubHealthConfig): Conn
       nickname: null,
       status,
       statusKey: STATUS_KEY[status],
-      hintKey: HINT_KEY[status] ?? null,
+      hintKey,
       lastSyncAt: conn.lastSyncedAt,
       daysSinceSync: daysSince(conn.lastSyncedAt, now),
       connectionId: conn.id,

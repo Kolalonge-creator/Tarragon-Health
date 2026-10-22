@@ -208,7 +208,7 @@ export function VitalsHistory({ patientId, viewerId }: { patientId: string; view
                     <ChangedMarker reading={reading} />
                   </p>
                   <WristSpo2Note source={reading.source} vitalType={reading.vital_type} />
-                  <CufflessCalibrationNote source={reading.source} vitalType={reading.vital_type} lastCuffCheckAt={lastCuffCheckAt} />
+                  <CufflessCalibrationNote source={reading.source} vitalType={reading.vital_type} lastCuffCheckAt={lastCuffCheckAt} level={classifyBpLevel(reading.systolic, reading.diastolic)} />
                   {reading.note && (
                     <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{reading.note}</p>
                   )}

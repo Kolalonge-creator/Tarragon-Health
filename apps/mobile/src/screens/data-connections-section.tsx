@@ -3,6 +3,7 @@ import { Switch, Text, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { buildConnectionRows, getProposedConfig, type ConnectionRow, type ConsentCategory, type HubHealthConfig } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
+import { fetchUnavailableWearableProviders } from "@/lib/api";
 import { useUiLanguage } from "@/lib/ui-language";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
@@ -29,6 +30,7 @@ export function DataConnectionsSection({ patientId }: { patientId: string }) {
 
   const load = useCallback(async () => {
     try {
+      const unavailable = await fetchUnavailableWearableProviders().catch(() => null);
       const [conns, devices, manual] = await Promise.all([
         supabase
           .from("wearable_connections")
@@ -54,8 +56,8 @@ export function DataConnectionsSection({ patientId }: { patientId: string }) {
             })),
             bleDevices: (devices.data ?? []).map((d) => ({ id: d.id, deviceType: d.device_type, nickname: d.nickname, lastSyncedAt: d.last_synced_at })),
             lastManualReadingAt: manual.data?.[0]?.taken_at ?? null,
-            // Fitbit's legacy interface is ending; the phone cannot start a cloud connection anyway, so it only reports the state.
-            unavailableProviders: ["fitbit"],
+            // The server's one list. If it cannot be read the phone assumes nothing is unavailable (it cannot start a cloud connection anyway).
+            unavailableProviders: unavailable ?? [],
             now: new Date(),
           },
           cfg,

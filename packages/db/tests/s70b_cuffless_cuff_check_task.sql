@@ -28,11 +28,11 @@ $$ select count(*)::text from public.care_tasks where patient_id = p_patient and
 
 create function pg_temp.run(p_phase text) returns void language plpgsql as
 $f$
-declare v_org uuid; a uuid; b uuid; c uuid; d uuid; e uuid; g uuid; t record;
+declare v_org uuid; a uuid; b uuid; c uuid; d uuid; e uuid; g uuid; h uuid; t record; n_off integer; n_on integer; n_all_before integer; n_em integer;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   a := pg_temp.mkuser(v_org, p_phase || '-a'); b := pg_temp.mkuser(v_org, p_phase || '-b'); c := pg_temp.mkuser(v_org, p_phase || '-c');
-  d := pg_temp.mkuser(v_org, p_phase || '-d'); e := pg_temp.mkuser(v_org, p_phase || '-e'); g := pg_temp.mkuser(v_org, p_phase || '-g');
+  d := pg_temp.mkuser(v_org, p_phase || '-d'); e := pg_temp.mkuser(v_org, p_phase || '-e'); g := pg_temp.mkuser(v_org, p_phase || '-g'); h := pg_temp.mkuser(v_org, p_phase || '-h');
 
   perform pg_temp.ck(p_phase, 'the module is born off', 'false', (select is_enabled::text from public.platform_modules where key = 'device_cuffless_cuff_check_task'));
   perform pg_temp.ck(p_phase, 'the days are the proposed 7', '7', private.cuffless_cuff_check_days()::text);
@@ -58,8 +58,13 @@ begin
   perform pg_temp.ck(p_phase, 'an emergency-level estimate makes none (the emergency path owns it)', '0', pg_temp.tasks(e));
   perform pg_temp.vit(g, v_org, 'manual', 150, 95);
   perform pg_temp.ck(p_phase, 'a cuff (manual) reading makes none', '0', pg_temp.tasks(g));
-  perform pg_temp.ck(p_phase, 'the task itself raised no clinician alert for the person with an amber estimate', '0',
-    (select count(*)::text from public.clinician_alerts where patient_id = b and title ilike '%cuff%'));
+  perform pg_temp.vit(h, v_org, 'wearable', 150, 95);   -- same single amber estimate as patient a, module on
+  -- "no clinician alert of its own": the same amber reading, with the task module off (patient a, above) and on (patient h), leaves the SAME number of clinician alerts of any kind
+  perform pg_temp.ck(p_phase, 'the task adds no clinician alert: all alerts for the patient are the same with the module on as with it off', 'true',
+    ((select count(*) from public.clinician_alerts where patient_id = a) = (select count(*) from public.clinician_alerts where patient_id = h))::text);
+  -- an emergency-level estimate with the task module ON still takes its existing emergency path (the BP handler's emergency record), untouched by the task
+  perform pg_temp.ck(p_phase, 'an emergency-level wearable estimate with the module on still opens the existing emergency record', 'true',
+    (exists (select 1 from public.emergency_events where patient_id = e and source = 'bp_reading' and vital_reading_id is not null))::text);
 end $f$;
 
 do $$ begin perform pg_temp.run('real'); end $$;

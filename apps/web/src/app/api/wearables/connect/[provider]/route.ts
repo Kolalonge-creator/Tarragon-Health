@@ -74,7 +74,7 @@ export async function GET(
 
   if (isWearableProviderUnavailable(provider)) {
     return NextResponse.redirect(
-      new URL(`/patient?wearable_error=unavailable&provider=${provider}`, request.url)
+      new URL(`/patient/data-connections?wearable_error=unavailable&provider=${provider}`, request.url)
     );
   }
 

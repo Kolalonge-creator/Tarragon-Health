@@ -68,6 +68,9 @@ describe("buildConnectionRows", () => {
     expect(fitbit.controls.canReconnect).toBe(false);
     expect(fitbit.controls.canDisconnect).toBe(true);
     expect(fitbit.controls.canDeleteData).toBe(true);
+    // the hint must not tell the person to reconnect a service that cannot be reconnected
+    expect(fitbit.hintKey).toBe("hub.hint.unavailable_existing");
+    expect(fitbit.hintKey).not.toBe("hub.hint.reconnect_needed");
   });
 
   it("a disconnected row is shown as not connected, and an unknown provider still gets a row", () => {

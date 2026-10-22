@@ -8,6 +8,7 @@ import {
   WEIGHT_UNIT_LABEL,
   bpAckDelivery,
   cufflessCalibration,
+  cufflessNoteIsQuiet,
   diagnosticBpReadings,
   getProposedConfig,
   type BpAckDelivery,
@@ -443,11 +444,14 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   }
 
   // S70b: "last checked against a cuff on [date]", stale after the PROPOSED number of days. A label only; it never changes a number or an alert.
+  // A raised estimate keeps only the factual line: the usual recheck guidance is shown instead of any "rough guide" wording.
+  const estimateQuiet = newestEstimate ? cufflessNoteIsQuiet(classifyBpLevel(newestEstimate.systolic, newestEstimate.diastolic, thresholds)) : false;
   const estimateCalibrationLine = (() => {
-    if (!newestEstimate || lastCuffCheckAt === undefined) return null;
+    if (!newestEstimate) return null;
+    if (lastCuffCheckAt === undefined) return tr("cle.unknown");
     const state = cufflessCalibration(lastCuffCheckAt, new Date(nowMs), getProposedConfig("bp.cuffless_calibration").value as unknown as CufflessCalibrationConfig);
     if (state.kind === "never") return tr("cle.never");
-    return tr(state.kind === "stale" ? "cle.stale" : "cle.checked", { date: new Date(state.lastCheckedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" }) });
+    return tr(state.kind === "stale" && !estimateQuiet ? "cle.stale" : "cle.checked", { date: new Date(state.lastCheckedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" }) });
   })();
   const latest = readings[0] ?? null;
   const average = computeSevenDayAverage(readings);
@@ -543,9 +547,11 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
               {estimateCalibrationLine}
             </AppText>
           ) : null}
-          <AppText variant="caption" tone="textMuted">
-            {tr("cle.note")}
-          </AppText>
+          {estimateQuiet ? null : (
+            <AppText variant="caption" tone="textMuted">
+              {tr("cle.note")}
+            </AppText>
+          )}
         </Card>
       ) : null}
 

@@ -41,6 +41,14 @@ export type CufflessCalibrationState =
 
 const DAY_MS = 86_400_000;
 
+/**
+ * When the estimate itself looks raised (the live amber, red or emergency band) the screen already gives the usual recheck or emergency guidance. The "rough guide"
+ * wording and the general cuff-check line are left out then, so a person is never given two different messages about the same reading.
+ */
+export function cufflessNoteIsQuiet(level: string | null | undefined): boolean {
+  return level === "amber" || level === "red" || level === "emergency";
+}
+
 /** The newest reading that is NOT an estimate (so a real cuff reading: manual, device, photo-confirmed, pharmacy, clinic). Returns an ISO instant or null. */
 export function latestCuffCheckAt(readings: readonly { source?: string | null; takenAt: string }[]): string | null {
   let best: number | null = null;

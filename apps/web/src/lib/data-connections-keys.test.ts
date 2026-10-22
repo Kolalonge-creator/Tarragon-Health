@@ -21,7 +21,7 @@ describe("Data connections wording", () => {
   );
 
   it("every label, status and hint key the screen can show exists in the English catalogue", () => {
-    const keys = new Set<string>(["hub.hint.phone_setup", "hub.last_sync", "hub.last_sync_today", "hub.last_sync_never"]);
+    const keys = new Set<string>(["hub.hint.phone_setup", "hub.hint.unavailable_existing", "hub.notice.unavailable", "hub.last_sync", "hub.last_sync_today", "hub.last_sync_never"]);
     for (const c of ["activity", "heart_rate", "sleep", "weight"]) keys.add(`hub.consent.${c}`);
     for (const r of rows) for (const k of [r.labelKey, r.statusKey, r.hintKey]) if (k) keys.add(k);
     expect([...keys].filter((k) => !(k in en))).toEqual([]);

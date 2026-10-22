@@ -9,12 +9,16 @@ import { DataConnectionsHub } from "./data-connections-hub";
  * Data connections (S70b item 9): every way a reading can reach the record, with plain status and the existing controls. Only the person themselves
  * sees it; it is not shown while acting for someone else (their phone and devices are theirs to manage).
  */
-export default async function DataConnectionsPage() {
+export default async function DataConnectionsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const sp = await searchParams;
   const { subjectId, profile, uiLanguage } = await getPatientDashboardContext();
   const isOwn = subjectId === profile.id;
   return (
     <div className="space-y-6">
       <PageHeader title={t("hub.title", uiLanguage)} icon={NAV_ICON.upload} description={t("hub.intro", uiLanguage)} />
+      {sp.wearable_error === "unavailable" ? (
+        <p role="status" className="rounded-lg border border-charcoal-ink/10 p-3 text-sm dark:border-night-ink/15">{t("hub.notice.unavailable", uiLanguage)}</p>
+      ) : null}
       {isOwn ? (
         <DataConnectionsHub patientId={subjectId} unavailableProviders={unavailableWearableProviders()} />
       ) : (

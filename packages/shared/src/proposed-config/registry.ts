@@ -7120,8 +7120,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // S70b: a reading taken at a partner pharmacy, through the assisted-entry seam (source stays 'manual', so it is triaged exactly like a typed reading).
     // The person makes a one-time code; the pharmacist enters it, which opens a counter visit for authorisationMinutes and up to maxReadings readings.
     // The code has codeLength digits and is valid for codeValidMinutes; a pharmacy that enters maxFailedAttempts wrong codes inside lockoutMinutes is locked
-    // out of trying more for that long. PROPOSED, Founder owned. Plausible-value limits are NOT here: the existing hold-an-impossible-value trigger applies.
-    value: { codeLength: 8, codeValidMinutes: 15, authorisationMinutes: 10, maxReadings: 3, maxFailedAttempts: 5, lockoutMinutes: 15 },
+    // out of trying more for that long; a person can make at most maxCodesPerHour codes an hour. PROPOSED, Founder owned. Plausible-value limits are NOT here: the existing hold-an-impossible-value trigger applies.
+    value: { codeLength: 8, codeValidMinutes: 15, authorisationMinutes: 10, maxReadings: 3, maxFailedAttempts: 5, lockoutMinutes: 15, maxCodesPerHour: 5 },
     owner: "Founder",
     status: "proposed",
     version: 1,

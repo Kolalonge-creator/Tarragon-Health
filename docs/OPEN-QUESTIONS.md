@@ -5016,3 +5016,8 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-S70B-6 Data connections: day limits and the Omron question (raised 2026-10-22, S70b)
 - "Reconnect needed" and "no recent data" use PROPOSED day limits (`devices.connection_health`: 3 days for cloud and phone health stores, 30 for Bluetooth and typed readings). Display only. Whether Omron Connect writes to Health Connect or Apple Health is unknown until the hardware test (`docs/runbooks/device-hardware-test.md`, cases O1 to O3). No in-app connection test was built: it would need real hardware to be trustworthy.
 - Decision: OPEN.
+
+### OQ-S70B-7 Pharmacy counter reading: pepper handling and live-pharmacy rule (raised 2026-10-22, S70b review fixes)
+- The code hash uses a Vault secret `pharmacy_reading_pepper`, created by the migration if missing (same pattern as `hmo_member_pepper`). Rotating it invalidates unused codes (they last 15 minutes). **Please confirm** the Vault is available in every environment that replays migrations, and who may rotate it.
+- A pharmacy is "live" when `is_active`, `onboarding_status = 'activated'`, `approved_at` and `license_verified_at` are set. I did not check a licence EXPIRY date because no such column was found; **please say** whether an expired licence should also stop counter readings.
+- Not run: the updated database proofs (`s70b_pharmacy_reading_point.sql`, `s70b_cuffless_cuff_check_task.sql`) have still not been executed.
