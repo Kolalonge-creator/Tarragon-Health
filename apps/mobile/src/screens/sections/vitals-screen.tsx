@@ -9,6 +9,7 @@ import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
 import { BP_THRESHOLDS, classifyBpLevel, type BpLevel, type BpThresholds } from "@/lib/bp-classification";
 import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-trend";
 import { loadActiveThresholds } from "@/lib/threshold-sync";
+import { loadCuffGuidance } from "@/lib/cuff-guidance";
 import { BP_CHECKLIST_SYMPTOMS, CUFF_TYPES, planBpLog, redFlagsAmong, type BpChecklistSymptom, type CuffType } from "@/lib/bp-checklist";
 import { logBpWithExtras } from "@/lib/bp-log";
 import { bpAckMessage, bpRowState } from "@/lib/bp-ack-view";
@@ -223,10 +224,23 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
 
   const cuffKey = `@tarragon/cuff-type/v1:${patientId}`;
   useEffect(() => {
+    let live = true;
+    // The choice remembered on this phone wins. S07y: with none remembered, the cuff the person recorded in the home check's cuff guide is the starting choice
+    // (one S12b vocabulary), but only for her own readings, never for someone she is logging for. She can still change it per reading.
     AsyncStorage.getItem(cuffKey)
-      .then((v) => setCuffType(CUFF_TYPES.find((c) => c === v) ?? null))
+      .then(async (v) => {
+        const remembered = CUFF_TYPES.find((c) => c === v) ?? null;
+        if (remembered || beneficiaryProfileId) return remembered;
+        return (await loadCuffGuidance())?.cuff?.cuffType ?? null;
+      })
+      .then((next) => {
+        if (live) setCuffType(next);
+      })
       .catch(() => {});
-  }, [cuffKey]);
+    return () => {
+      live = false;
+    };
+  }, [cuffKey, beneficiaryProfileId]);
   const chooseCuff = (c: CuffType | "none") => {
     const next = c === "none" ? null : c;
     setCuffType(next);

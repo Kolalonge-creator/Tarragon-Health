@@ -9,7 +9,10 @@ import { GLUCOSE_TRIAGE_ITEM_KEY, readPendingGlucoseTriageSignoff } from "@/lib/
 import { readS06S10Signoffs, EMPTY_S06S10, type S06S10Snapshot } from "@/lib/queries/s06-s10-signoffs";
 import { readPendingQualityConfigSignoff } from "@/lib/queries/pending-quality-config-signoff";
 import { readPendingCapacityConfigSignoff } from "@/lib/queries/pending-capacity-config-signoff";
+import { readPendingPostCheckinSignoff } from "@/lib/queries/pending-post-checkin-signoff";
 import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose-task-type-signoff";
+import { VITALS_TRIAGE_ITEM_KEY, readPendingVitalsTriageSignoff } from "@/lib/queries/pending-vitals-triage-signoff";
+import { readPendingVitalsTaskTypeSignoff } from "@/lib/queries/pending-vitals-task-type-signoff";
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
 import { readThresholdHubState } from "@/lib/queries/threshold-overrides";
@@ -18,6 +21,7 @@ import { FAST_SUGAR_ITEM_KEY, readPendingFastSugarWordingSignoff } from "@/lib/q
 import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
 import { readLegacyNoticeRetirementState } from "@/lib/queries/pending-legacy-notice-retirement-signoff";
 import { readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
+import { readPendingBpDeviceReview } from "@/lib/queries/pending-bp-device-review";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -47,10 +51,14 @@ export const COMMUNITY_ITEM_KEY = "community";
 export const RED_OUTREACH_ITEM_KEY = "red_outreach";
 /** The key the urgent glucose review task type line carries (R2, CMO Q7 and Q8), so the page can attach the confirm panel. */
 export const GLUCOSE_TASK_TYPE_ITEM_KEY = "glucose_task_type";
+/** The key the amber vitals review task type line carries (pulse, SpO2, temperature), so the page can attach the confirm panel. */
+export const VITALS_TASK_TYPE_ITEM_KEY = "vitals_task_type";
 /** The line for the S20 v2 quality and credentialing configuration drafts (audit sampling, second review, speak-up check-ins, licence notices). */
 export const QUALITY_CONFIG_ITEM_KEY = "quality_configs";
 /** The line for the capacity and cover configuration drafts (intake gate, hard rest rule, fire drills) and the pilot lead cap. */
 export const CAPACITY_CONFIG_ITEM_KEY = "capacity_configs";
+/** The line for the post-consultation check-in configuration (the questions, what each answer does, the 48 hour and 7 day timing). */
+export const POST_CHECKIN_ITEM_KEY = "post_checkin_config";
 /** The line for the ops desk resilience configuration draft (the checklist gate on the on-call cover guard, OQ-441). */
 export const OPS_DESK_CONFIG_ITEM_KEY = "ops_desk_config";
 /** The key the sole-CMO on-call exception line carries, so the page can attach the signing panel. */
@@ -65,7 +73,9 @@ export const LEGACY_NOTICE_RETIREMENT_ITEM_KEY = "legacy_notice_retirement";
 export const TASK_LAYER_CONFIG_ITEM_KEY = "queue_task_layer_config";
 /** OQ-451: activate the paging delivery configuration v2 (objective on-call readiness), refused until the test-page checklist is met. */
 export const PAGING_DELIVERY_CONFIG_ITEM_KEY = "paging_delivery_config";
-export { GLUCOSE_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY };
+/** S07y: recommended blood pressure monitors an admin entered that wait for the CMO to review them against a public validation registry. */
+export const BP_DEVICE_REVIEW_ITEM_KEY = "bp_device_review";
+export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY };
 
 /**
  * Everything that needs the Chief Medical Officer's signature, in one list.
@@ -87,7 +97,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -100,6 +110,8 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingRedOutreachSignoff(supabase),
     readPendingGlucoseTriageSignoff(supabase),
     readPendingGlucoseTaskTypeSignoff(supabase),
+    readPendingVitalsTriageSignoff(supabase),
+    readPendingVitalsTaskTypeSignoff(supabase),
     readPendingQualityConfigSignoff(supabase),
     readPendingSoleCmoException(supabase),
     readUnifiedRedPagingState(supabase),
@@ -108,6 +120,8 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingQueuePagingConfigSignoff(supabase),
     readLegacyNoticeRetirementState(supabase),
     readThresholdHubState(supabase),
+    readPendingBpDeviceReview(supabase),
+    readPendingPostCheckinSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -259,6 +273,17 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (vitalsTaskType.waiting) {
+    items.push({
+      key: VITALS_TASK_TYPE_ITEM_KEY,
+      title: "Amber vitals review (task type)",
+      detail: "The task a doctor gets for a pulse, oxygen or temperature reading that is outside the usual range but not an emergency needs your confirmation. Until you confirm it, the vitals rules cannot be signed.",
+      href: "/clinician/task-types",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   if (fastSugar.waiting) {
     items.push({
       key: FAST_SUGAR_ITEM_KEY,
@@ -267,6 +292,16 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
       href: "/clinician/go-live#glucose_fast_sugar_wording",
       severity: "draft_pending",
       count: 1,
+    });
+  }
+
+  if (vitals.pending) {
+    items.push({
+      key: VITALS_TRIAGE_ITEM_KEY,
+      title: `Pulse, oxygen and temperature triage rules, version ${vitals.version}`,
+      detail: `Version ${vitals.version} is a draft waiting for your signature, with the guideline basis of every rule (including how it compares with NEWS2) and the patient wording in full.${vitals.approvedVersion !== null ? ` Version ${vitals.approvedVersion} stays in force until you sign.` : " Until you sign, these readings are graded in shadow only and the older alerts keep running."}`,
+      href: "/clinician/vitals-triage-rules",
+      severity: "draft_pending",
     });
   }
 
@@ -365,6 +400,28 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (bpDevices.waiting > 0) {
+    items.push({
+      key: BP_DEVICE_REVIEW_ITEM_KEY,
+      title: "Recommended blood pressure monitors to review",
+      detail: `${bpDevices.waiting} monitor${bpDevices.waiting === 1 ? "" : "s"} entered with a validation source, waiting for your review. Nothing is shown to patients as checked until you review it against the public registry.`,
+      href: "/clinician/recommended-devices",
+      severity: "draft_pending",
+      count: bpDevices.waiting,
+    });
+  }
+
+  if (postCheckin.version !== null) {
+    items.push({
+      key: POST_CHECKIN_ITEM_KEY,
+      title: "Check-ins after a consultation",
+      detail: `Check-in configuration version ${postCheckin.version} (the questions, what each answer does, and the 48 hour and 7 day timing) is waiting for your signature. No check-in is sent until you sign and an admin switches the guard on.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   const failedSources = [
     ...queue.failedSources,
     ...s06s10.failedSources,
@@ -374,6 +431,8 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(redOutreach.failed ? ["Red alert outreach"] : []),
     ...(glucose.failed ? ["the glucose triage rules"] : []),
     ...(glucoseTaskType.failed ? ["the urgent glucose review task type"] : []),
+    ...(vitals.failed ? ["the pulse, oxygen and temperature triage rules"] : []),
+    ...(vitalsTaskType.failed ? ["the amber vitals review task type"] : []),
     ...(qualityConfigs.failed ? ["the quality and credentialing configurations"] : []),
     ...(soleCmo.failed ? ["the sole-CMO on-call exception"] : []),
     ...(unifiedRed.failed ? ["unified red-event paging"] : []),
@@ -382,6 +441,8 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(thresholds.failed ? ["personal alert thresholds"] : []),
     ...(fastSugar.failed ? ["the fast-sugar wording signature"] : []),
     ...(queuePaging.failed ? ["the task layer and paging delivery configurations"] : []),
+    ...(bpDevices.failed ? ["the recommended blood pressure monitors"] : []),
+    ...(postCheckin.failed ? ["the check-in configuration"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it

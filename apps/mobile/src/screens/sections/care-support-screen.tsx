@@ -38,6 +38,7 @@ import {
   type ReferralItem,
 } from "@/lib/care";
 import { PatientNotesSection } from "./patient-notes-section";
+import { VisitSummarySection } from "./visit-summary-section";
 import { WrittenQuestionsSection } from "./written-questions-section";
 import { MembershipSection } from "./membership-section";
 import { SecondOpinionSection } from "./second-opinion-section";
@@ -145,6 +146,7 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit,
       />
       <MembershipSection />
       <WrittenQuestionsSection />
+      <VisitSummarySection />
       <PatientNotesSection />
       <SecondOpinionSection patientId={patientId} organisationId={organisationId} />
       <SeniorCaseReviewSection patientId={patientId} />

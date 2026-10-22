@@ -682,6 +682,10 @@ ai_system_version_approval_retires_superseded_drafts.sql
 # proving a service-role caller (no auth.uid() at all -- cron jobs, internal
 # notification routes) still sees the view's rows, per
 # 20260925021440_fix_clinical_staff_directory_service_role_and_replay_guard.sql
+# AVS after-visit summary: signature stamp and CHECKs, deterministic assembly, the one visibility rule (draft, withdrawn, unsigned note, amendment pending or signed, entered in error, unreleased protected note all hidden), caregiver permission, checklist tick-off and care task link, events with ids only, anon denied, with two sabotage steps.
+avs_visit_summaries.sql
+# PCC: post-consultation check-ins at 48 hours and 7 days (gates, scheduling, idempotency, Lagos due times, red-flag path, one alert, expiry, access, audit) with six sabotage steps.
+pcc_post_consult_checkins.sql
 # -- the original view's predicate resolved entirely through auth.uid()-
 # dependent helpers, so a service-role caller silently got zero rows, not an
 # error, breaking the quarterly-report cron's and the lab-order-request-pdf
@@ -1299,6 +1303,14 @@ s63_therapy_programmes.sql
 # (idempotent replay, no body metrics, plausible readings only, red flow first, caps/decay, tiers, grace, capped checkout discount,
 # append-only ledger, aggregate-only employer seam, roles) with three sabotage steps.
 s58_rewards_engine.sql
+# Vitals rule set (pulse, SpO2, temperature): readings reach the triage engine in shadow. One observation.recorded (kind vitals, ids only) per manual or Bluetooth reading, urgent when the older classifier says anything but green, and none for a wearable reading, blood pressure or glucose; the context (value, age, the patient's own amber line, a blood pressure reading not found, an entered-in-error reading not graded); the vitals writer (shadow while the rule set is a draft, one row per reading, urgent event for a red, rejected stores nothing, another rule set and a recheck status refused) and that it never resolves a pending blood pressure recheck; no task and no page from a shadow event, one amber_vitals_review task and one page once approved (rolled back); the sweep re-emits a lost event once, every ten minutes; service-role-only grants. Sabotage: the blood pressure writer used on a vitals reading, and the producer trigger dropped; both must flip a check.
+build_vitals_triage_wiring.sql
+# Vitals rule set: the shadow divergence report (both_urgent, neither_urgent, shadow_only_urgent, live_only_urgent, live_urgent_no_shadow, the by-design marker for a child's heart rate, the patient's own amber line; test accounts, wearable readings, readings older than the draft and the last quarter hour left out; admin or the active clinical director only, a patient refused, anon cannot execute) and the fix that keeps the engine parity report to blood pressure results (glucose and vitals results were counted there as a legacy-none red). Sabotage: the S19d body of the parity rows, and a live-level function that never sees anything wrong; both must flip.
+build_vitals_shadow_divergence.sql
+# Vitals rule set: one page for one dangerous reading. The engine's red result and the unified legacy event for the SAME reading are one page even after the first was acknowledged; another reading, a worse level, another metric, a closed page and a claim older than the window still page; the emergency event shares the engine's emergency key; a shadow result, a Free patient and a blood pressure result carry no claim; the claim table is closed to staff writes; the S19d edit of create_red_page survives. Sabotage: the key function returning nothing (the acknowledged duplicate pages twice) and the claims wiped; both must flip.
+build_red_page_dedupe_key.sql
+# Shift-start test page: guard born off, send/ack/latency record, not-covered gap on the ONE rota gap incident, backup promotion with the old order kept when nobody is confirmed, undelivered flag, RLS, four sabotage steps.
+shift_start_test_page.sql
 
 # --- Added 2026-10-16 (N-overrides) -----------------------------------------
 # Clinician-signed personal triage thresholds: CMO-signed policy and kill switch, senior-doctor-plus-tie authority, the clamps in the database, typed SIGN,
@@ -1310,6 +1322,15 @@ ops_desk_expired_page.sql
 task_queue_gaps_oq432_433_435.sql
 # S19e native page receipts: a live native (ios/android, Expo token) push subscription with a push receipt confirms a mobile-only clinician route (90 s early window); no subscription or a disabled one does not; page_channel_ready defaults false; the function is not executable by anon or authenticated. Sabotage: the web-only definition must flip the native check.
 s19e_native_page_receipts.sql
+
+# --- Added 2026-10-16 (CGJ) -------------------------------------------------
+# A caregiver invited into ONE consultation call. Invite only a permitted Care Circle member of that patient (adult, active, unexpired,
+# unpaused, holds attend_consultation, not the doctor) by the patient or a proxy; refused for a stranger, other patient's call, ended call,
+# closed window, cap, duplicate; accept only by the invitee; the credential exists only for an accepted, unexpired pass in a live window
+# and dies with the call, a revoked member, a pause or a removal; the caregiver reads no chart row and cannot touch scribe consent or the
+# call mode; only the assigned clinician removes, final for the call; events append-only, ids only; no anon or signed-in execute on the
+# server-only functions. Sabotage: permission test, live-call test, clinician-only removal, inviter test, a stray grant; each flips.
+cgj_caregiver_in_consultation.sql
 # OQ-451 and OQ-452: signing/activation functions for the task layer and paging delivery configs (CMO only; version frozen once signed or in force; a new version is a new row; a version older than one signed is never made live; the paging activation REFUSES with a reason list until every non-test on-call clinician has a working push subscription, a verified email and a test page acknowledged inside the version window; nobody on call is itself a refusal) and platform_deep_health() (service role only; stale or missing queue and pager heartbeats, open sev1 count). Sabotage: the freeze guard, the checklist and the CMO test each removed; each must flip.
 oq451_oq452_signing_and_deep_health.sql
 proxy_yearly_access_review.sql
@@ -1323,6 +1344,11 @@ bp_cuffless_estimates_never_diagnostic.sql
 second_opinion_shared_results_and_referral.sql
 # Record share extras: recipient label, view cap (1 to 50, the fourth open of a three-view link is refused like any dead link, peek too), date window (30/90/180 days drops older readings), options door refuses bad input and anon; pin_hash stays unreadable; the original create door still works. Sabotage: the cap and the window each removed; both must flip.
 record_share_recipient_views_window.sql
+# S09y: My Health gaps. Emergency card cover (HMO / NHIA number and plan: patient-typed, fixed provenance, RPC-only writes, own-row read, live card shows it only when filled, never in the lock-screen payload, audited without the number) and outside records (patient files start unchecked; only a tied clinical-tier doctor can verify, once; reviewed_by/at are the server's; denied attempts audited; worklist carries the queue). Sabotage: care-tie check, clinical-tier check and the status guard each removed; each must flip.
+s09y_my_health_gaps.sql
+
+# S07y: cuff size guidance (unsigned, hidden until signed), the patient's cuff record (S12b cuff_type vocabulary, append-only, tied reads), the validated-device read (list_empty when nothing is reviewed), and the OQ-67 band comparison report (admin or clinical director only, aggregates). Sabotage: the size lookup's rounding and the report's pregnancy step; both must flip.
+s07y_cuff_guidance_and_band_report.sql
 # S08y: same-ingredient SQL twin (shared cases with packages/medicines), governed interaction rule sets (born empty and unsigned; CMO-only signing; empty set unsignable; older version cannot return; rules reach a client only through an open guard), brand map publish gate (reviewer is not the author; edit withdraws review; no direct writes), NAFDAC number note (store only, follows an amended medicine), supporter's today's doses (medicines category only: clinical_access plus view_medication without it is refused). Sabotage: the category check removed and the twin made blind; both must flip.
 s08y_medicine_safety.sql
 # S06z: My phones. update_my_offline_device (owner only, not an admin or another patient; trimmed name; control and over-long names refused; removed phone locked; audit never holds the name; anon refused; no direct write) and the patient own wipe request (own phone yes, another patient no). Sabotage: owner check, revoked guard, control check each removed; each must flip.
@@ -1331,6 +1357,9 @@ s06z_my_phones.sql
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted only from the last 24 hours; only open sev1/sev2 incidents counted. Sabotage: the function is replaced by one without the pending filter and the window; the checks must flip.
 oq436_deadman_status.sql
 
+
+# Records request letters (2026-10-20): guard off, own rows only, state machine, append-only history, ids-only events; three sabotages.
+records_request_letters.sql
 # OQ-S43m-5: private.biomarker_points omits a sensitive_positive lab_analyte_readings row (legacy_report branch): patient_biomarker_trend shows the patient and a labs_results caregiver the ordinary reading but never the positive HIV/HBsAg/HCV row. Sabotage: the filter is reverted and the sensitive row must appear.
 oq_s43m_5_biomarker_points_sensitive_legacy.sql
 
@@ -1381,3 +1410,9 @@ money_reconciliation_screen.sql
 # --- Added 2026-10-21 (S47b) ---------------------------------------------------
 # S47b: home_card_config (Today cards, weekly summary gates, wearable readiness). Born unsigned and inactive, nothing served until the CMO signs, only the CMO signs, a ceiling above two primary actions and malformed configs cannot be stored, anon reaches nothing, a patient reads only through my_home_card_config(). Sabotage: validator accepting everything, a reader ignoring the signature, a grant to anon; all three must flip.
 s47b_home_cards_and_readiness.sql
+# OQ-714: the patient price comparison is gone: no patient_price_compare function in any schema, a signed-in or anon call is 42883; the chooser function (authenticated yes, anon no), the care-team suggestion read, the shared matcher, the listable rule, the routing and verified-batch triggers and the catalogue columns all stay and work. Sabotage: a function by the retired name is planted and the first check's own query finds it.
+oq714_remove_patient_price_compare.sql
+# Money reconciliation daily alert (2026-10-21): a real mismatch opens ONE ops incident (deduplicated, refreshed not duplicated, kind and screen named), a test-order mismatch opens nothing, the scan writes no money, clients cannot run it or read its config, the job is scheduled, and the two settled-by-hand refund messages give the refund:<id> reference. Sabotage: de-duplication removed and the scan emptied; both must flip.
+money_reconciliation_daily_alert.sql
+# Money reconciliation menu badge (2026-10-21): an hourly snapshot of the mismatch count, read through a finance-only function that refuses a snapshot older than three hours or missing (never an old number), clients cannot read the table. Sabotage: staleness check and finance gate removed; the checks must flip.
+money_reconciliation_badge.sql

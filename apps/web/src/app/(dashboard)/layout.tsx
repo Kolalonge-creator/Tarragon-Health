@@ -116,6 +116,14 @@ export default async function DashboardLayout({
         : { count: attentionCount(parseOpenAlerts(alertData), unansweredError ? [] : parseUnanswered(unansweredData)), failed: false };
   }
 
+  // Places the money records disagree, beside Money reconciliation for the finance and admin menus. Read from an hourly snapshot (polling the
+  // detector would scan all history on every page); the database refuses a snapshot older than three hours, which shows as unknown, never zero.
+  let moneyBadge: { count: number; failed: boolean } | undefined;
+  if (profile?.role === "finance" || profile?.role === "admin") {
+    const { data: moneyCount, error: moneyError } = await supabase.rpc("money_reconciliation_badge");
+    moneyBadge = moneyError ? { count: 0, failed: true } : { count: Number(moneyCount ?? 0), failed: false };
+  }
+
   const isPatient = profile?.role === "patient" && !supporterOnly;
   const idLabel = isPatient ? "Patient ID" : staffNumber ? "Staff ID" : undefined;
   const idValue = isPatient ? profile?.patient_number : staffNumber;
@@ -196,6 +204,7 @@ export default async function DashboardLayout({
             ? { "/clinician/clinical-signoff": { count: signingHub.items.length, failed: signingHub.failed && signingHub.items.length === 0 } }
             : {}),
           ...(supportingBadge ? { "/patient/supporting": supportingBadge } : {}),
+          ...(moneyBadge ? { "/finance/money-reconciliation": moneyBadge } : {}),
         }}
         // Patient accounts (supporters included — they share the patient
         // role) get the Warm Ivory ground the mobile app already ships;
