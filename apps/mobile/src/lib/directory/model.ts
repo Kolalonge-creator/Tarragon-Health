@@ -1,6 +1,6 @@
 /**
  * Pure helpers for the phone's directory screen (S65). The same rules as apps/web/src/lib/directory/model.ts, kept in step by
- * model.test.ts, minus the two things a phone cannot do without a new native build: there is no "near me" (it needs expo-location) and
+ * the parity tests in model.test.ts, minus the two things a phone cannot do without a new native build: there is no "near me" (it needs expo-location) and
  * no browser user-agent sniffing (Platform.OS decides which maps link to build).
  */
 import type { Database } from "@tarragon/shared";

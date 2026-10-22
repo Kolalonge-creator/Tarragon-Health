@@ -1,4 +1,5 @@
 import { en } from "@tarragon/i18n";
+import * as web from "../../../../web/src/lib/directory/model";
 import { EMPTY_FILTERS, hmoKey, isNotOpen, nairaFromKobo, nhiaKey, REPORT_FIELDS, searchArgs, tierKey, TIER_KEY } from "./model";
 
 describe("searchArgs", () => {
@@ -47,5 +48,22 @@ describe("strings the screen uses exist", () => {
   it("has a message for every tier and every report field", () => {
     for (const key of Object.values(TIER_KEY)) expect(en).toHaveProperty([key]);
     for (const f of REPORT_FIELDS) expect(en).toHaveProperty([`directory.report.field.${f}`]);
+  });
+});
+
+describe("parity with the web model (apps/web/src/lib/directory/model.ts)", () => {
+  it("labels, prices and the closed-guard check agree", () => {
+    for (const tier of ["seed_only", "phone_confirmed", "licence_checked", "made_up"]) expect(tierKey(tier)).toBe(web.tierKey(tier));
+    for (const status of [null, "claimed", "confirmed", "other"]) {
+      expect(hmoKey(status)).toBe(web.hmoKey(status));
+      expect(nhiaKey(status)).toBe(web.nhiaKey(status));
+    }
+    for (const kobo of [0, 1_000_000, 123_456, -1, null]) expect(nairaFromKobo(kobo)).toBe(web.nairaFromKobo(kobo));
+    for (const e of [{ code: "55000" }, { code: "42501" }, null]) expect(isNotOpen(e)).toBe(web.isNotOpen(e));
+  });
+  it("sends the same search arguments for the filters both have", () => {
+    const f = { state: " Lagos ", service: "lab", language: "", hmo: "Avon", nhia: true, openNow: true };
+    expect(searchArgs(f, "2026-10-22T10:00:00Z")).toEqual(web.searchArgs({ ...f, near: null }, "2026-10-22T10:00:00Z"));
+    expect(searchArgs(EMPTY_FILTERS, "x")).toEqual(web.searchArgs(web.EMPTY_FILTERS, "x"));
   });
 });

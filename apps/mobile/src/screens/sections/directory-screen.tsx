@@ -165,11 +165,11 @@ export function DirectoryScreen() {
         ))}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 }}>
           <Text style={{ color: colors.ink }}>{t("directory.filter.nhia", locale)}</Text>
-          <Switch value={filters.nhia} onValueChange={(v) => set("nhia", v)} />
+          <Switch accessibilityLabel={t("directory.filter.nhia", locale)} value={filters.nhia} onValueChange={(v) => set("nhia", v)} />
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 }}>
           <Text style={{ color: colors.ink }}>{t("directory.filter.open_now", locale)}</Text>
-          <Switch value={filters.openNow} onValueChange={(v) => set("openNow", v)} />
+          <Switch accessibilityLabel={t("directory.filter.open_now", locale)} value={filters.openNow} onValueChange={(v) => set("openNow", v)} />
         </View>
         <PrimaryButton title={t("directory.search", locale)} onPress={() => void search()} loading={loading} />
       </Card>
