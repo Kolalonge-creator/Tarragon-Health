@@ -2077,6 +2077,15 @@ Design: `docs/design/CGJ.md`. Founder decision (settled): the patient invites pe
 
 ## S06z My phones: the patient screen for phones that hold their data (2026-10-20), branch `s06z/my-phones`
 
+## S43m: the Health Passport on the phone (2026-10-20)
+
+Design `docs/design/S43m.md`, research `docs/research/S43m.md`. Four PRs by screen group; this entry is appended to by each.
+
+### PR 1: health history, symptom journal, timeline links and honest states (`s43m/history-journal`)
+- **Built**: `lib/passport-cache.ts` (last good copy in the SQLCipher store, per account, cleared at sign-out, `readThrough` shows a stale copy with a notice and never an empty list for a failed read); `lib/health-history.ts` and the Health history screen (procedures and family history, add, remove through the tombstone function, read-only for a supporter, writes need a connection and say so); `lib/symptom-journal.ts` and the Symptom journal screen (the web function `patient_symptom_journal`, last copy, S06 mirror fallback, entries waiting in the outbox shown as waiting); `packages/shared/src/health-history.ts` (relatives list and entry rules, now used by the web schema too); timeline event links for symptoms and procedures; My Health hub rows; `mpass.*` strings.
+- **Not built, on purpose**: no migration, no new dependency, no native change, `runtimeVersion` untouched.
+- **Open**: OQ-S43m-1, OQ-S43m-2.
+
 ## S07y: cuff size and validated-device guidance, the pre-visit summary, the OQ-67 comparison report (2026-10-20), branch `s07y/bp-cuff-and-visit-summary`
 
 - **Built**: migration `20261021113725_s07y_cuff_guidance_and_bp_band_report.sql` (governed `bp_cuff_guidance_signoffs`, born unsigned and inactive, CMO-only `sign_bp_cuff_guidance`; append-only `patient_bp_cuffs` reusing the S12b `cuff_type` vocabulary; `my_bp_cuff_guidance()` and `record_my_bp_cuff()` which show and accept nothing until signed; `private.bp_cuff_model_listing()` reading the existing S70a `device_catalog`; `bp_band_divergence_report()` for OQ-67). `@tarragon/clinical` `cuffSizeKey`; PROPOSED config `bp.cuff_sizing` with a mirror test. Phone: cuff size step inside the home check's cuff guide, cuff type prefilled in the BP form. Web: CMO and admin pages for the cuff table, an admin editor and a CMO review page over `device_catalog` (hub line), the pre-visit PDF (`?kind=visit` on the existing route, linked from the visit report card), the two band report pages, admin search entries.
@@ -2335,6 +2344,10 @@ Founder decision 2026-10-20 (explicit; reverses S72-2; against INV-09, credit ri
 - **Still open**: the screen's own load still runs the detector twice (list and summary), which is fine at today's volume; an index plan belongs before the 25k-Member stage.
 - **Not done, on purpose**: access and legacy per-domain purchases untouched (founder decisions pending).
 
+### PR 2: results over time (`s43m/trends`, stacked on PR 1)
+- **Built**: Results over time screen (`patient_biomarker_list` and `patient_biomarker_trend`: a chip per test, one SVG line per unit drawn with `react-native-svg`, the lab's range band only when every point shares one, the care team's target shown as words only (never drawn: it carries no unit, OQ-S43m-4), every flag the database allows given words, a list of every reading under the chart, a one-sentence summary for the screen reader, a notice when units are mixed, last good copy offline for the list and every test already opened, never kept for a supporter); `lib/biomarkers.ts`; trend parsing and chart geometry moved from `apps/web/src/lib/biomarkers/trend.ts` to `packages/shared/src/biomarker-trend.ts` (the web path re-exports it, the 17 tests moved with it); My Health hub row; drawer entry.
+- **Not built, on purpose**: no range other than the lab's, no unit conversion, no meaning of a result, no pinch or scrub (the list under the chart is the exact reading), no pre-fetch of every test for offline (a test never opened says so).
+- **Tests**: mobile 182 suites / 2329, shared 121 / 1074, i18n 215; `tsc` clean for mobile and web. `/code-review high`: 11 findings, the phone-side ones fixed; the database ones (a sensitive-positive gap in the legacy branch, no analyte categories) recorded as OQ-S43m-5 with live counts (0 rows), the web flag words as OQ-S43m-6.
 
 
 ## S25b removed: pay the annual Membership in parts (2026-10-21, branch `chore/remove-membership-instalments`)

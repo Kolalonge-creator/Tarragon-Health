@@ -46,6 +46,9 @@ import { MonthlyReportScreen } from "@/screens/sections/monthly-report-screen";
 import { HealthReportScreen } from "@/screens/sections/health-report-screen";
 import { ProgrammesScreen } from "@/screens/sections/programmes-screen";
 import { TimelineScreen } from "@/screens/sections/timeline-screen";
+import { BiomarkersScreen } from "@/screens/sections/biomarkers-screen";
+import { HealthHistoryScreen } from "@/screens/sections/health-history-screen";
+import { SymptomJournalScreen } from "@/screens/sections/symptom-journal-screen";
 import { MyHealthScreen } from "@/screens/sections/my-health-screen";
 import { RecordShareScreen } from "@/screens/sections/record-share-screen";
 import { MyPhonesScreen } from "@/screens/sections/my-phones-screen";
@@ -328,9 +331,12 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       ),
     myActions: () => <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />,
     healthSummary: () => <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />,
-    timeline: () => <TimelineScreen patientId={subjectId} onNavigate={handleSelect} />,
+    timeline: () => <TimelineScreen patientId={subjectId} acting={acting != null} onNavigate={handleSelect} />,
     shareRecords: () => <RecordShareScreen userId={userId} acting={acting != null} />,
+    biomarkers: () => <BiomarkersScreen key={subjectId} subjectId={subjectId} userId={userId} />,
     myHealth: () => <MyHealthScreen userId={userId} acting={acting != null} onNavigate={handleSelect} />,
+    healthHistory: () => <HealthHistoryScreen subjectId={subjectId} userId={userId} organisationId={organisationId} />,
+    symptomJournal: () => <SymptomJournalScreen subjectId={subjectId} acting={acting != null} onNavigate={handleSelect} />,
     myPhones: () => <MyPhonesScreen userId={userId} acting={acting != null} />,
     exercise: () => <ExerciseScreen patientId={subjectId} organisationId={organisationId} />,
     devices: () =>
