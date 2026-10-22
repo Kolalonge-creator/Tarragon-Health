@@ -6,6 +6,7 @@ import {
   HOME_PIN_LABEL,
   isHomeValuePin,
   type GlucoseDisplayUnit,
+  type MeasurementUnits,
   type HomePinKey,
 } from "@tarragon/shared";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -25,6 +26,7 @@ export interface HomePinTilesProps {
   pins: readonly HomePinKey[];
   stats: PatientSummaryStats;
   glucoseUnit: GlucoseDisplayUnit;
+  units: MeasurementUnits;
   /** Only meaningful once a risk assessment exists; otherwise the tile says nothing is scheduled. */
   screeningsDue: { hasRiskAssessment: boolean; count: number };
   bpTileProps: BpTileProps;
@@ -43,8 +45,8 @@ function Tile({ pin, children }: { pin: HomePinKey; children: React.ReactNode })
 }
 
 async function PinGrid(props: HomePinTilesProps) {
-  const { patientId, pins, stats, glucoseUnit, screeningsDue, bpTileProps } = props;
-  const { values: vitalValues, failed: failedVitals } = await getPinnedVitalValues(patientId, pins);
+  const { patientId, pins, stats, glucoseUnit, units, screeningsDue, bpTileProps } = props;
+  const { values: vitalValues, failed: failedVitals } = await getPinnedVitalValues(patientId, pins, units);
 
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

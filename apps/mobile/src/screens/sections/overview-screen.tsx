@@ -4,6 +4,7 @@ import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { lockedHomePins, resolveHomePins, type HomePinKey, type HomePinVitalValue, type HomeValuePinKey } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
+import { getMeasurementUnits } from "@/lib/measurement-units";
 import { loadMonitoredVitals, loadPinnedVitalValues, loadStoredHomePins, saveHomePins } from "@/lib/home-pins";
 import { HomePinTiles } from "@/screens/sections/home-pin-tiles";
 import { ManageHomePinsSheet } from "@/screens/sections/manage-home-pins-sheet";
@@ -97,7 +98,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
     const monitored = monitoredRes.ok ? monitoredRes.data : null;
     setMonitoredVitals(monitored);
     const shown = resolveHomePins(saved, { activeMedicationCount: s.ok ? s.data.activeMedicationCount : 0, monitoredVitals: monitored ?? [] });
-    const values = await loadPinnedVitalValues(patientId, shown);
+    const values = await loadPinnedVitalValues(patientId, shown, await getMeasurementUnits());
     setVitalsFailed(!values.ok);
     if (values.ok) setVitalValues(values.data);
   }, [patientId]);
@@ -140,7 +141,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
       const result = await saveHomePins(patientId, organisationId, next, { activeMedicationCount: activeMeds, monitoredVitals: monitoredVitals ?? [] });
       if (!result.ok) return false;
       setStoredPins(result.data);
-      const values = await loadPinnedVitalValues(patientId, result.data);
+      const values = await loadPinnedVitalValues(patientId, result.data, await getMeasurementUnits());
       setVitalsFailed(!values.ok);
       if (values.ok) setVitalValues(values.data);
       return true;

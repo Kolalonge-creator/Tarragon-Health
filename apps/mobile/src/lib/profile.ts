@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { clearMeasurementUnitsCache } from "./measurement-units";
 import { type GlucoseDisplayUnit } from "@tarragon/shared";
 import { clearGlucoseUnitCache } from "./glucose-unit";
 import type { Tables } from "@tarragon/shared";
@@ -102,6 +103,16 @@ export async function updateGlucoseDisplayUnit(
   if (error) throw error;
   // The unit is cached per session for the screens that only read it.
   clearGlucoseUnitCache();
+}
+
+/** Display units for weight, temperature and waist/height. Display and entry only; stored values stay kg / C / cm. */
+export async function updateMeasurementUnits(
+  userId: string,
+  patch: Partial<{ weight_display_unit: string; temperature_display_unit: string; length_display_unit: string }>
+): Promise<void> {
+  const { error } = await supabase.from("profiles").update(patch).eq("id", userId);
+  if (error) throw error;
+  clearMeasurementUnitsCache();
 }
 
 export interface EmergencyContactInput {

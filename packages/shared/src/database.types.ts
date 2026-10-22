@@ -35895,6 +35895,9 @@ export type Database = {
           emergency_contact_relationship: string | null
           full_name: string | null
           glucose_display_unit: string
+          weight_display_unit: string
+          temperature_display_unit: string
+          length_display_unit: string
           height_cm: number | null
           height_reconciled_at: string | null
           id: string
@@ -35950,6 +35953,9 @@ export type Database = {
           emergency_contact_relationship?: string | null
           full_name?: string | null
           glucose_display_unit?: string
+          weight_display_unit?: string
+          temperature_display_unit?: string
+          length_display_unit?: string
           height_cm?: number | null
           height_reconciled_at?: string | null
           id: string
@@ -36005,6 +36011,9 @@ export type Database = {
           emergency_contact_relationship?: string | null
           full_name?: string | null
           glucose_display_unit?: string
+          weight_display_unit?: string
+          temperature_display_unit?: string
+          length_display_unit?: string
           height_cm?: number | null
           height_reconciled_at?: string | null
           id?: string
