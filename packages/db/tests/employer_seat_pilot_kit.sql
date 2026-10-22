@@ -417,10 +417,14 @@ end $$;
 do $$
 declare adm uuid := pg_temp.f('admin'); v_pilot uuid := pg_temp.f('pilotA'); r jsonb;
 begin
+  set local session_replication_role = replica;
   update public.employer_seat_pilots set is_test = false where id = v_pilot;
+  set local session_replication_role = origin;
   r := pg_temp.q_as(adm, format($q$select public.employer_seat_pilot_report(%L)::text$q$, v_pilot))::jsonb;
   perform pg_temp.ck('a real (not test) pilot counts none of the test-account seats', '0', (r -> 'seats' ->> 'claimed'));
+  set local session_replication_role = replica;
   update public.employer_seat_pilots set is_test = true where id = v_pilot;
+  set local session_replication_role = origin;
 end $$;
 
 -- 5b. A new paid pilot re-offers seats to people an earlier pilot could not serve --------------------------------------------
