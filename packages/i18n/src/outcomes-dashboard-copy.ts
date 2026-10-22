@@ -110,6 +110,7 @@ export const outcomesDashboardCopy = {
   "outcomes.dash.compare.chart": "Share under control, first week and day {day}",
 
   "outcomes.dash.founder.banner": "Founder view. Small groups. Not for sharing, not for the CMO or any partner. Individuals could be identifiable from differences between versions.",
+  "outcomes.dash.founder.differencing": "The small-group rule is applied to each view on its own. If you open this view on different days, or set it beside a stored monthly report, the differences between the figures can point at individual people. Do not compare versions, and keep what you see to yourself.",
   "outcomes.dash.founder.title": "Founder view: figures to today",
   "outcomes.dash.founder.intro": "The monthly report holds its figures back when too few people have newly become due. This view works the same figures out to today. The smallest-group rule and the protected-data exclusions still apply. Nothing is stored, nothing can be downloaded, and every time you open it your reason is written to the audit log.",
   "outcomes.dash.founder.reason": "Why are you opening this? (at least 10 characters)",

@@ -54,6 +54,12 @@ describe("the founder view page", () => {
       "Founder view. Small groups. Not for sharing, not for the CMO or any partner. Individuals could be identifiable from differences between versions.",
     );
     expect(html).toContain('role="alert"');
+    // the differencing risk is stated plainly, inside the same always-visible box
+    expect(html).toContain(outcomesDashboardCopy["outcomes.dash.founder.differencing"]);
+    expect(outcomesDashboardCopy["outcomes.dash.founder.differencing"]).toMatch(/different days/);
+    expect(outcomesDashboardCopy["outcomes.dash.founder.differencing"]).toMatch(/stored monthly report/);
+    expect(outcomesDashboardCopy["outcomes.dash.founder.differencing"]).toMatch(/point at individual people/);
+    expect(outcomesDashboardCopy["outcomes.dash.founder.differencing"]).not.toMatch(/[–—]/);
     expect(html).toMatch(/<textarea[^>]*name="reason"[^>]*required/);
   });
 

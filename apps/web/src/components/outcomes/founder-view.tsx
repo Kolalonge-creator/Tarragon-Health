@@ -23,6 +23,7 @@ export function FounderView() {
     <div className="mx-auto max-w-4xl space-y-4 p-4">
       <div role="alert" className="rounded-xl border-2 border-red-700 bg-red-50 p-4 text-base font-semibold text-red-950" data-testid="founder-banner">
         {tt("outcomes.dash.founder.banner")}
+        <p className="mt-2 text-sm font-normal" data-testid="founder-differencing">{tt("outcomes.dash.founder.differencing")}</p>
       </div>
       <header className="space-y-1">
         <h1 className="font-heading text-xl font-semibold text-charcoal-ink">{tt("outcomes.dash.founder.title")}</h1>

@@ -775,7 +775,8 @@ begin
   end loop;
   if v_failed > 0 then
     perform private.open_job_incident('outcomes-dashboard-failing', 'The monthly outcomes dashboard failed',
-      v_failed || ' organisation(s) could not be reported for ' || v_month || ' (' || left(coalesce(v_last, ''), 200) || '). See audit_log action outcomes_dashboard.error.');
+      v_failed || ' organisation(s) could not be reported for ' || v_month || ' (' || left(coalesce(v_last, ''), 200) || '). See audit_log action outcomes_dashboard.error. '
+      || 'Fix the cause and re-run the job BEFORE the next scheduled run (3rd of next month): once a later report exists this month cannot be made, by design, because filling the gap afterwards would let two reports be subtracted. Otherwise the gap is permanent.');
   end if;
   return v_n;
 end $$;
@@ -869,13 +870,17 @@ begin
     raise exception 'say why you are opening the founder view (10 to 500 characters)' using errcode = '22023';
   end if;
   if v_org is null then raise exception 'no organisation' using errcode = '22023'; end if;
-  -- the access is written BEFORE the figures are built, so a read that cannot be logged is not given
-  perform private.log_audit('outcomes_dashboard.founder_unfrozen_read', 'outcomes_dashboard_report', null, jsonb_build_object('reason', v_reason, 'as_of', v_today));
   v_out := jsonb_build_object(
     'founder_view', true, 'stored', false, 'as_of', v_today, 'config_version', (select version from public.outcomes_dashboard_config where is_active),
     'outcomes', private.outcomes_dash_outcomes(v_org, v_today, v_cfg),
     'comparison', private.outcomes_dash_comparison(v_org, v_today, v_cfg),
     'not_a_causal_claim', true, 'internal_only', true);
+  -- The access is written before anything is returned, so a read that cannot be logged is not given. The row records WHAT was returned in aggregate (the data cutoff and how many
+  -- cells were shown and how many held back), never the figures: the log must not become a second copy of small-group numbers.
+  perform private.log_audit('outcomes_dashboard.founder_unfrozen_read', 'outcomes_dashboard_report', null, jsonb_build_object(
+    'reason', v_reason, 'as_of', v_today, 'data_cutoff', v_today,
+    'cells_shown', (select count(*) from jsonb_path_query(v_out, '$.** ? (@.suppressed == false)')),
+    'cells_withheld', (select count(*) from jsonb_path_query(v_out, '$.** ? (@.suppressed == true)'))));
   return v_out;
 end $$;
 revoke all on function public.read_outcomes_founder_unfrozen(text) from public, anon;

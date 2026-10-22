@@ -320,8 +320,8 @@ begin
   if private.run_outcomes_dashboard_monthly() <> 0 then raise exception 'FAIL 7a: the monthly job reported success with no active config'; end if;
   select count(*) into v_cnt from public.audit_log where action = 'outcomes_dashboard.error' and organisation_id in (v_orgA, v_orgB, v_orgE);
   if v_cnt < 3 then raise exception 'FAIL 7b: only % failures were written to audit_log (expected one per organisation with data)', v_cnt; end if;
-  if not exists (select 1 from public.ops_incidents where external_reference = 'outcomes-dashboard-failing' and status not in ('resolved', 'closed')) then
-    raise exception 'FAIL 7c: a failing monthly job opened no incident';
+  if not exists (select 1 from public.ops_incidents where external_reference = 'outcomes-dashboard-failing' and status not in ('resolved', 'closed') and summary ilike '%BEFORE the next scheduled run%' and summary ilike '%permanent%') then
+    raise exception 'FAIL 7c: a failing monthly job opened no incident, or it does not say the gap becomes permanent once the next run happens';
   end if;
   if exists (select 1 from public.outcomes_dashboard_reports where organisation_id in (v_orgA, v_orgB, v_orgE)) then raise exception 'FAIL 7d: a failed run left a report behind'; end if;
   update public.outcomes_dashboard_config set is_active = true where version = 1;
@@ -580,6 +580,13 @@ begin
   -- audited with the reason; nothing stored; says what it is
   if not exists (select 1 from public.audit_log where action = 'outcomes_dashboard.founder_unfrozen_read' and actor_id = v_adminF and event ->> 'reason' = 'checking the pilot after the freeze') then raise exception 'FAIL 10e: the founder read was not audited with its reason'; end if;
   if (select count(*) from public.outcomes_dashboard_reports) <> v_nrep then raise exception 'FAIL 10f: the founder view wrote a report'; end if;
+  -- the audit row says what came back in aggregate (cutoff, cells shown and withheld) and carries no figure
+  select event into v_x from public.audit_log where action = 'outcomes_dashboard.founder_unfrozen_read' and actor_id = v_adminF order by created_at desc limit 1;
+  if (v_x ->> 'data_cutoff')::date <> (now() at time zone 'Africa/Lagos')::date or (v_x ->> 'cells_shown')::integer <= 0 or (v_x ->> 'cells_withheld')::integer < 0
+     or (v_x ->> 'cells_shown')::integer <> (select count(*) from jsonb_path_query(v_fv, '$.** ? (@.suppressed == false)')) then
+    raise exception 'FAIL 10o: the founder audit row does not record the aggregate of what was returned: %', v_x;
+  end if;
+  if exists (select 1 from jsonb_object_keys(v_x) k where k not in ('reason', 'as_of', 'data_cutoff', 'cells_shown', 'cells_withheld')) then raise exception 'FAIL 10p: the founder audit row carries more than the aggregate: %', v_x; end if;
   if not (v_fv ->> 'founder_view')::boolean or (v_fv ->> 'stored')::boolean or not (v_fv ->> 'not_a_causal_claim')::boolean then raise exception 'FAIL 10g: the founder view does not describe itself'; end if;
   -- it lifts the freeze: F's stored report is held at the last cutoff; the founder view counts the 40 newly due people (when they are due by today)
   if (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '3 days')::date <= (now() at time zone 'Africa/Lagos')::date then
