@@ -262,7 +262,7 @@ begin
 
   -- ================= E. review findings: a lesson held back for a passed review date, and the two note bypasses =================
   -- E1/E2: a course lesson the S33 job took out of service (is_active = false, clinical_review, date passed) is still listed, as hidden, and counted.
-  select m.content_id into v_cl from public.health_education_programme_modules m order by m.content_id limit 1;
+  select m.content_id into v_cl from public.health_education_programme_modules m join public.health_education_content c on c.id = m.content_id where not c.is_placeholder order by m.content_id limit 1; -- a seeded placeholder must stay draft (health_education_content_placeholder_stays_draft), so never pick one
   v_before := pg_temp.sm(v_admin, 'hidden');
   update public.health_education_content set content_status = 'draft', is_active = false, review_change_note = 'The note that described the previous version.' where id = v_cl;
   update public.health_education_content set content_status = 'clinical_review', next_review_due = pg_temp.today() - 1 where id = v_cl;
