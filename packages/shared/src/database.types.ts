@@ -48063,8 +48063,6 @@ export type Database = {
           processing_started_at: string | null
           provider_checked_at: string | null
           provider_status: string | null
-          payment_id: string | null
-          refund_group: string | null
         }
         Insert: {
           amount_kobo: number
@@ -48091,8 +48089,6 @@ export type Database = {
           processing_started_at?: string | null
           provider_checked_at?: string | null
           provider_status?: string | null
-          payment_id?: string | null
-          refund_group?: string | null
         }
         Update: {
           amount_kobo?: number
@@ -48119,8 +48115,6 @@ export type Database = {
           processing_started_at?: string | null
           provider_checked_at?: string | null
           provider_status?: string | null
-          payment_id?: string | null
-          refund_group?: string | null
         }
         Relationships: [
           {
@@ -55867,12 +55861,6 @@ export type Database = {
         Returns: Json
       }
       admin_refund_ops: { Args: never; Returns: Json }
-      // S25b: pay the annual Membership in parts
-      create_instalment_order: { Args: { p_client_key?: string; p_code: string; p_parts?: number }; Returns: Json }
-      prepare_instalment_payment: { Args: { p_instalment: string }; Returns: Json }
-      my_instalment_plans: { Args: never; Returns: Json }
-      admin_instalment_overview: { Args: never; Returns: Json }
-      instalment_policy_public: { Args: never; Returns: Json }
       admin_settle_processing_refund: {
         Args: { p_paid: boolean; p_reference?: string; p_refund: string }
         Returns: Json
