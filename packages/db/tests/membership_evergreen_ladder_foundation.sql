@@ -94,7 +94,6 @@ begin
   end if;
 
   if pg_get_functiondef('public.record_order_payment(text,bigint,bigint,bigint,text,text,text,text,timestamptz,jsonb,bigint)'::regprocedure) not ilike '%membership_tier_for_item%'
-     or pg_get_functiondef('private.record_instalment_payment(text,bigint,bigint,bigint,text,text,text,text,timestamptz,jsonb,bigint)'::regprocedure) not ilike '%membership_tier_for_item%'
      or pg_get_functiondef('private.settle_sponsor_order(uuid)'::regprocedure) not ilike '%membership_tier_for_item%'
      or pg_get_functiondef('public.respond_to_gifted_pack(uuid,boolean)'::regprocedure) not ilike '%membership_tier_for_item%'
      or pg_get_functiondef('private.grant_org_seat(uuid)'::regprocedure) not ilike '%membership_tier_for_item%' then

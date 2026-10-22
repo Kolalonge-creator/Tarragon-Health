@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 /**
  * The Membership screen with the Membership ladder on (founder decision 2026-10-21): two equal tier cards that state the annual blood
- * panel first, no instalment choice, a current Membership member sees only the upgrade, and the upgrade sends just its item code.
+ * panel first, no instalment choice (there is none), a current Membership member sees only the upgrade, and the upgrade sends just its item code.
  */
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { expectNoA11yViolations } from "@/test/a11y";
@@ -25,8 +25,6 @@ jest.mock("@/lib/queries/commerce", () => {
     useMyOrders: () => ({ data: [] }),
     useStartCheckout: () => ({ mutateAsync, isPending: false }),
     useQuote: () => ({ data: null }),
-    useInstalmentPolicy: () => ({ data: { open: true, parts: 3 } }),
-    useMyInstalmentPlans: () => ({ data: [] }),
   };
 });
 jest.mock("@/lib/queries/care-access", () => ({ useSponsorableProfiles: () => ({ data: [] }) }));
@@ -58,7 +56,7 @@ describe("MembershipShop with the Membership ladder", () => {
     await expectNoA11yViolations(<MembershipShop locale="en" fee={FEE} go={assign} />);
   });
 
-  it("offers no instalment or monthly payment on either tier, even when the instalment module is open", () => {
+  it("offers no instalment or monthly payment on either tier", () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     expect(screen.queryByText(/parts|instalment/i)).toBeNull();
     expect(screen.queryByRole("radio")).toBeNull();

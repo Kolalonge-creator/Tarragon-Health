@@ -1,7 +1,6 @@
 -- Proof: Membership ladder follow-ups (migration *_membership_ladder_followups.sql). Raises on any failed check. One rolled-back transaction.
 --   * extension keeps the larger tier: an Membership holder who pays for Membership Plus is Plus with the end date extended; paying for
 --     Membership never lowers a Plus holder
---   * no instalments for the paid tiers while the tier module is on
 --   * a care voucher can never be a Membership
 --   * renewal reminders carry the tier
 --   * an organisation price cannot be set for Membership (no limits row for its code), only for Membership Plus, inside the floor/ceiling
@@ -92,16 +91,12 @@ begin
   if r not like '22023:%' then raise exception 'FAIL an organisation price for Membership was accepted: %', r; end if;
 end $$;
 
--- 2. no instalments while the tier module is on; 4. reminders carry the tier; 6. the admin grant
+-- 4. reminders carry the tier; 6. the admin grant (pay-in-parts was removed by founder decision 2026-10-21, so there is nothing to refuse any more)
 do $$
 declare v_org uuid := '00000000-0000-0000-0000-000000000001'; ad uuid := (select v::uuid from fx where k = 'ad'); c uuid := pg_temp.mkuser('reminded', 'patient');
         g uuid := pg_temp.mkuser('granted', 'patient'); r text; n integer;
 begin
-  update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = ad, activation_note = 'proof' where key in ('membership_two_member_tiers', 'membership_instalments');
-  r := pg_temp.q_as(c, $q$select public.create_instalment_order('membership_annual', gen_random_uuid(), 3)::text$q$);
-  if r not like 'ERR:%instalment_not_available%' then raise exception 'FAIL instalments were not refused for a paid tier: %', r; end if;
-  r := pg_temp.q_as(c, $q$select public.create_instalment_order('membership_annual_no_panel', gen_random_uuid(), 3)::text$q$);
-  if r not like 'ERR:%instalment_not_available%' then raise exception 'FAIL instalments were not refused for Membership: %', r; end if;
+  update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = ad, activation_note = 'proof' where key = 'membership_two_member_tiers';
 
   insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, ends_at, is_test, tier)
   values (v_org, c, 'purchase', 'active', now() - interval '336 days', now() + interval '29 days', true, 'evergreen');

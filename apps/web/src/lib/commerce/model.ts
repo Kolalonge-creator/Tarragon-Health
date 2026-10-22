@@ -128,15 +128,6 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   discount_code_rate_limited: "shop.error.discount_code_rate_limited",
   sponsor_budget_exhausted: "shop.error.sponsor_budget_exhausted",
   sponsor_payment_not_open: "shop.error.sponsor_payment_not_open",
-  // S25b: paying the yearly Membership in parts
-  instalments_not_open: "shop.error.instalments_not_open",
-  instalment_schedule_invalid: "shop.error.instalment_schedule_invalid",
-  instalment_not_available: "shop.error.instalment_not_available",
-  instalment_order_mismatch: "shop.error.instalment_not_available",
-  pay_earlier_part_first: "shop.error.pay_earlier_part_first",
-  instalment_closed: "shop.error.instalment_closed",
-  instalment_not_found: "shop.error.instalment_closed",
-  instalment_plan_ended: "shop.error.instalment_plan_ended",
   // S72: paying from a supporter's link
   request_not_found: "request.error.unknown",
   request_expired: "request.error.expired",
