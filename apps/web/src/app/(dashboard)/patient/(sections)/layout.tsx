@@ -7,6 +7,7 @@ import { FreeRedCheckin } from "@/app/(dashboard)/patient/free-red-checkin";
 import { DangerSymptomCheck } from "@/app/(dashboard)/patient/danger-symptom-check";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { GlucoseUnitProvider } from "@/components/glucose-unit-provider";
+import { MeasurementUnitsProvider } from "@/components/measurement-units-provider";
 import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
@@ -43,7 +44,7 @@ export default async function PatientSectionsLayout({
   // unreported error here means a parent with a pending request simply never sees it.
   const supabase = await createClient();
   const [
-    { profile, acting, subjectId, subjectDateOfBirth, subjectHasEmergencyContact, glucoseUnit },
+    { profile, acting, subjectId, subjectDateOfBirth, subjectHasEmergencyContact, glucoseUnit, measurementUnits },
     { data: pendingProxySetups, error: proxySetupsError },
     { data: handover, error: handoverError },
     locale,
@@ -96,7 +97,9 @@ export default async function PatientSectionsLayout({
           are reached from several parents, and one parent forgetting a prop
           is a card silently back on mmol/L. */}
       <GlucoseUnitProvider unit={glucoseUnit}>
-        <div className="space-y-6">{children}</div>
+        <MeasurementUnitsProvider units={measurementUnits}>
+          <div className="space-y-6">{children}</div>
+        </MeasurementUnitsProvider>
       </GlucoseUnitProvider>
     </DashboardPlaceholder>
   );

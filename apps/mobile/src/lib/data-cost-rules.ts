@@ -59,6 +59,8 @@ const URGENT_BY_KIND: Record<OutboxKind, boolean> = {
   contraction_session: true,
   // A meal written in words carries no red-flag rule on the server, so it may wait for Wi-Fi like a dose log or a weight (S49a, decided in the S06z merge).
   meal: false,
+  // An activity log (S48b) is not on the short list of things that may wait, so it sends at once. Revisit only with a decision that it carries no red-flag rule.
+  activity: true,
 };
 
 /** The one vital type that is safe to hold: nothing on the server raises an alert for it. */

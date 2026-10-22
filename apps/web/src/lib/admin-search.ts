@@ -152,7 +152,6 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/poc-results", "point of care poc ecg trace interpret interpretation read urine urinalysis dipstick hba1c testing day employer visit release withhold held"],
   ["/admin/settings/reward-rules", "health points rewards rules earn earning points caps limits daily decay badges levels tiers redemption checkout discount engagement gamification wellness"],
   ["/admin/refund-requests", "refund refunds money back guarantee claim order payment paystack reverse"],
-  ["/admin/instalments", "instalment instalments installment installments pay in parts payment plan membership part payment lapse lapsed overdue missed behind credit"],
 ];
 
 /** Pages inside an area that are not menu items of their own, but people look for them by name. */
