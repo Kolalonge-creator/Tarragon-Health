@@ -4894,11 +4894,6 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Options: (a) change the HLP-017 line in the Production List to "Choose a verified pharmacy to collect your medicine from. You pay the pharmacy when you collect." and re-run the importer before the clip is recorded (recommended); (b) record it as is and re-record later (not recommended).
 - Decision (founder, 2026-10-21): wording chosen: "Choose a verified pharmacy to collect your medicine from, or take your prescription to any pharmacy you like. You pay the pharmacy when you collect." The repo carries it (`audio-scripts.ts`, manifest hash). DONE 2026-10-21: the Production List .docx (v1.0, in the company folder; original kept as `...v1.0.before-OQ-719.docx`) carries the same words, and the importer run against it leaves HLP-017's script and hash unchanged. CLOSED.
 
-### OQ-714 The patient page still shows a price comparison (raised by S28e, found not changed)
-- OQ-283 and Part C.2 say the collection flow shows no price. S54 (`patient_price_compare`, `PriceCompare` on `/patient/pharmacy/collect/[id]`) is in the repository and shows prices and stock when a verified pharmacy has entered them. S28e did not add to it, and its own stock answer is a plain yes or no with no price. It shows the empty line today because no pharmacy has price data.
-- Options: (a) hide the comparison behind a switch until prices are reliable (recommended, OQ-283's own wording); (b) leave it.
-- Decision: open (founder).
-
 ### OQ-S43m-4 A care team target has no unit, so a trend can be drawn against a target in another unit (raised by the S43m build, 2026-10-20)
 - `care_plans.target_ranges` holds numbers with no unit, and `patient_biomarker_trend` returns the target without one. If a plan says HbA1c 7 or less (per cent) and the lab reported mmol/mol, a band drawn on the chart would sit far from every point. The web page draws it; the phone does not draw a target at all, shows it as words under the test, and says "this target is written without a unit, ask your care team which unit it uses". Needed: carry a unit on each target (additive column or key) and compare it with the result's unit before anything is drawn. Web has the same exposure.
 - Decision: open (product, CMO for wording).
