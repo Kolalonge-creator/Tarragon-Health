@@ -67,11 +67,15 @@ begin
   return v;
 end $f$;
 
+-- every appointment gets its own hour: appointments_no_provider_overlap refuses two live appointments for one clinician at overlapping times
+create temp sequence s59d_slot;
+
 -- the full chain up to a DRAFT note carrying a code, written by the clinician through the real functions
 create function pg_temp.flow(p_org uuid, p_patient uuid, p_clin uuid, p_cat text, p_code text, p_tied boolean default true) returns jsonb
 language plpgsql as $f$
-declare v_a uuid; v_vc uuid; v_appt uuid; v_enc uuid; v_note uuid;
+declare v_a uuid; v_vc uuid; v_appt uuid; v_enc uuid; v_note uuid; v_slot integer;
 begin
+  v_slot := nextval('pg_temp.s59d_slot')::integer + 1;
   insert into public.symptom_triage_assessments
     (organisation_id, patient_id, presenting_complaint_key, protocol_version, initial_capture, questions_asked, red_flag_screen,
      category, clinician_review_required, safety_net_message_key, rationale)
@@ -80,7 +84,7 @@ begin
   insert into public.video_consultations (organisation_id, patient_id, context, initiated_by, status, scheduled_at)
   values (p_org, p_patient, 'general_checkin', p_patient, 'scheduled', now() + interval '1 hour') returning id into v_vc;
   insert into public.appointments (organisation_id, patient_id, clinician_id, scheduled_for, ends_at, status, appointment_type, consultation_method, video_consultation_id)
-  values (p_org, p_patient, p_clin, now() + interval '1 hour', now() + interval '90 minutes', 'booked', 'telemedicine', 'telemedicine', v_vc) returning id into v_appt;
+  values (p_org, p_patient, p_clin, now() + make_interval(hours => v_slot), now() + make_interval(hours => v_slot, mins => 30), 'booked', 'telemedicine', 'telemedicine', v_vc) returning id into v_appt;
   insert into public.symptom_session_summaries (organisation_id, assessment_id, patient_id, recorded_by, payload, appointment_id, linked_at)
   values (p_org, v_a, p_patient, p_patient, '{"proof": true}', case when p_tied then v_appt end, case when p_tied then now() end);
   insert into public.encounters (organisation_id, patient_id, clinician_id, type, status, scheduled_at, started_at, appointment_id, video_consultation_id, policy_version, is_test)
@@ -272,6 +276,9 @@ begin
   if not ((v_cell ->> 'match_low')::numeric <= (v_cell ->> 'match_rate')::numeric and (v_cell ->> 'match_rate')::numeric <= (v_cell ->> 'match_high')::numeric) then raise exception 'FAIL 5d: interval does not bracket the rate'; end if;
   if v_j::text ~* (v_p::text || '|' || v_q::text || '|' || v_c1::text) then raise exception 'FAIL 5e: a person id is in a report'; end if;
   if (select not publishable from public.symptom_accuracy_reports where id = v_rep) is not true then raise exception 'FAIL 5f: publishable'; end if;
+  -- a completed encounter has an append-only 'completed' event that cascades with it, so the append-only trigger is switched off for this
+  -- rolled-back proof only (a real delete of a completed encounter is blocked by design; the foreign key is what is being proven here)
+  alter table public.encounter_events disable trigger encounter_events_append_only;
   -- 5b (review fix, MEDIUM 4): deleting an encounter or an appointment behind an outcome succeeds (the foreign keys set the link to NULL); the
   -- row and its code stay; a link can be cleared but never re-pointed. (A sent summary cannot be deleted directly by design; it goes only with its patient.)
   f := pg_temp.flow(v_org, v_q, v_c1, 'urgent', 'B50.9'); perform pg_temp.sign(v_c1, (f ->> 'note')::uuid); perform pg_temp.complete(v_c1, (f ->> 'enc')::uuid);
