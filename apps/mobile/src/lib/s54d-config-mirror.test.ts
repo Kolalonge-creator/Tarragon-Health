@@ -26,7 +26,7 @@ describe("S54d versioned config mirrors", () => {
     expect(JSON.stringify(getProposedConfig("medicines.nafdac_verify_helper").value)).not.toMatch(/38353|shortCode|sms:/);
   });
   it("the reason policy gives no supporter (a manage-level one included) a read without the opt-in, and old rows are moved", () => {
-    const sql = readFileSync(join(__dirname, "../../../../supabase/migrations/20261022093825_s54d_private_dose_reasons_and_nafdac_helper_guard.sql"), "utf8");
+    const sql = readFileSync(join(__dirname, "../../../../supabase/migrations/20261022111347_s54d_private_dose_reasons_and_nafdac_helper_guard.sql"), "utf8");
     const policy = /create policy medication_dose_reasons_select[\s\S]*?\n\);/.exec(sql)?.[0] ?? "";
     expect(policy).toContain("supporter_may_see_dose_reason");
     // every non-owner branch sits inside the opt-in conjunction: can_act_for may not appear as its own OR branch
@@ -35,7 +35,7 @@ describe("S54d versioned config mirrors", () => {
     expect(sql).toMatch(/lower\(btrim\(p_code\)\)/);
   });
   it("the SQL function that decides which dose reasons are private covers every private reason in the config", () => {
-    const sql = readFileSync(join(__dirname, "../../../../supabase/migrations/20261022093825_s54d_private_dose_reasons_and_nafdac_helper_guard.sql"), "utf8");
+    const sql = readFileSync(join(__dirname, "../../../../supabase/migrations/20261022111347_s54d_private_dose_reasons_and_nafdac_helper_guard.sql"), "utf8");
     const m = /select lower\(btrim\(p_code\)\) in \(([^)]*)\)/.exec(sql);
     expect(m).not.toBeNull();
     const sqlCodes = (m?.[1] ?? "").split(",").map((s) => s.trim().replace(/'/g, ""));
