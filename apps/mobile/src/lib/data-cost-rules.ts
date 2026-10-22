@@ -41,31 +41,20 @@ export function formatNaira(kobo: number): string {
 }
 
 /**
- * Which kinds of entry are urgent by nature. This is a safety rule, not a setting, and it is a Record
- * over every outbox kind so adding a new kind fails to compile until someone decides which side it is on.
+ * Which kinds of entry may EVER wait for Wi-Fi. This is a safety rule, not a setting, and it is an allow-list on purpose:
+ * a kind that is not named here is urgent and always goes straight away, so a new outbox kind added by any other change is safe by
+ * default and cannot break this file or quietly start waiting.
  *
- * Only a dose log, a meal log and a WEIGHT reading are ever held. A symptom, a patient's answer after a red alert and the pregnancy safety logs
- * (kick counts and contractions, where a change in pattern can be the signal) always go straight away. Every other reading
+ * Only a dose log, a meal log and a WEIGHT reading (see HOLDABLE_VITAL_TYPE) are ever held. A symptom, a patient's answer after a red alert and the
+ * pregnancy safety logs (kick counts and contractions, where a change in pattern can be the signal) always go straight away. Every other reading
  * (blood pressure, glucose, pulse, temperature, oxygen) is treated as urgent too: the phone's danger flag is only as good as its
  * classifier (a pulse that is logged with a blood pressure is never flagged, and a classifier error leaves a reading unflagged),
  * and the server's red-flag engine judges all of them. Weight is the one reading with no red-flag rule.
+ *
+ * A meal written in words carries no red-flag rule on the server, so it may wait like a dose log or a weight (S49a, decided in the S06z merge).
+ * Activity logs, anchor times, day shifts and every other kind are not on this list, so they send at once.
  */
-const URGENT_BY_KIND: Record<OutboxKind, boolean> = {
-  vital: true,
-  dose: false,
-  symptom: true,
-  red_care: true,
-  kick_session: true,
-  contraction_session: true,
-  // A meal written in words carries no red-flag rule on the server, so it may wait for Wi-Fi like a dose log or a weight (S49a, decided in the S06z merge).
-  meal: false,
-  // An activity log (S48b) is not on the short list of things that may wait, so it sends at once. Revisit only with a decision that it carries no red-flag rule.
-  activity: true,
-  // S08z: anchor times and day shifts are scheduling settings the patient is waiting to see applied, and are tiny, so they never wait for Wi-Fi.
-  anchor_times: true,
-  day_shift: true,
-  day_shift_end: true,
-};
+const MAY_WAIT_FOR_WIFI: ReadonlySet<OutboxKind> = new Set<OutboxKind>(["dose", "meal"]);
 
 /** The one vital type that is safe to hold: nothing on the server raises an alert for it. */
 const HOLDABLE_VITAL_TYPE = "weight";
@@ -81,7 +70,7 @@ export interface EntryFacts {
 export function isUrgentEntry(entry: EntryFacts): boolean {
   if (entry.danger) return true;
   if (entry.kind === "vital") return entry.vitalType !== HOLDABLE_VITAL_TYPE;
-  return URGENT_BY_KIND[entry.kind];
+  return !MAY_WAIT_FOR_WIFI.has(entry.kind);
 }
 
 /**

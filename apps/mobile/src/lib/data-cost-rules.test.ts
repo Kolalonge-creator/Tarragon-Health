@@ -119,6 +119,19 @@ const hold = (o: HoldOver = {}) =>
     forced: o.forced,
   });
 
+describe("a kind this file has never heard of is urgent (allow-list, safe by default)", () => {
+  it("never waits for Wi-Fi, so a new outbox kind added elsewhere cannot start waiting", () => {
+    const unknownKind = "some_future_kind" as OutboxKind;
+    expect(isUrgentEntry({ kind: unknownKind, danger: false })).toBe(true);
+  });
+  it("only a dose log and a meal log may wait", () => {
+    const waits = (["vital", "dose", "symptom", "red_care", "kick_session", "contraction_session", "meal", "activity", "anchor_times", "day_shift", "day_shift_end", "birth_plan"] as OutboxKind[]).filter(
+      (kind) => kind !== "vital" && !isUrgentEntry({ kind, danger: false }),
+    );
+    expect(waits.sort()).toEqual(["dose", "meal"]);
+  });
+});
+
 describe("the urgent override: Wi-Fi only never delays an urgent entry", () => {
   it("only a dose log, a meal log and a weight reading are ever ordinary", () => {
     const ordinary = KINDS.filter((k) => !isUrgentEntry({ kind: k, danger: false, vitalType: "weight" }));
