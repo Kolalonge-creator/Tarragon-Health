@@ -1367,6 +1367,7 @@ s06z_my_phones.sql
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted; only open sev1/sev2 incidents counted. Sabotage: without the status filter the done delivery would count.
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted only from the last 24 hours; only open sev1/sev2 incidents counted. Sabotage: the function is replaced by one without the pending filter and the window; the checks must flip.
 oq436_deadman_status.sql
+dup1_duplicate_lab_value_safety.sql
 # Consent receipts (RCPT-1): consent_receipt_data returns only the caller's own facts, only for an active patient, writes one audit row (scope and ref only) in the same call, never carries a clinical value, says when the wording version has moved on; refuses clinician, admin, signed-out, anon and inactive patient with no audit row; someone else's id is the same not-found as a made-up one. Sabotage: the own-rows filter, the audit call and the role gate each removed; each must flip.
 rcpt1_consent_receipts.sql
 # --- Added 2026-10-21 (S08z: dose times anchored to daily events) ---
