@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { t, type Locale } from "@tarragon/i18n";
 import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
+import { stockLine } from "@tarragon/medicines";
+import { loadRunwayConfig } from "@/lib/medicines/runway-config";
 import { loadCollection, loadHasControlledItem, loadOverview, loadPharmacies, loadSuggestion, loadVisit } from "@/lib/pharmacy-collection/load";
 import { acceptSuggestionAction, choosePharmacyAction, declineSuggestionAction, newCodeAction, newVisitCodeAction, withdrawAction } from "@/lib/pharmacy-collection/actions";
 import { alsoSendable, asNotice, viewFor, type OverviewItem, type PharmacyOption, type Suggestion, type VisitMember } from "@/lib/pharmacy-collection/model";
@@ -9,6 +11,11 @@ import { PharmacyChatCard } from "@/components/partner-portal/pharmacy-chat-card
 
 export const metadata = { title: "Collect your medicine" };
 export const dynamic = "force-dynamic";
+
+/** The clock is read outside the component body (react-hooks/purity); the page is dynamic, so it is read on every request. */
+function clockMs(): number {
+  return Date.now();
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const lagos = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" }) : "");
@@ -62,7 +69,13 @@ function Chooser({ id, options, locale, forWhom, others }: { id: string; options
  * S28e: what the pharmacy has said about stock, as a plain yes. There is no "no" here: a no is the "your pharmacy could not supply this" notice
  * below, which sends her to another pharmacy. No price is shown (OQ-283).
  */
-function StockLine({ at, locale }: { at: string | null; locale: Locale }) {
+function StockLine({ at, locale, nowMs }: { at: string | null; locale: Locale; nowMs: number }) {
+  // Item 9: an answer older than the versioned limit (medicines.runway_and_stock_freshness) is never shown as available.
+  const limits = loadRunwayConfig();
+  const line = stockLine(at ? Date.parse(at) : null, nowMs, limits);
+  if (line.kind === "ask_pharmacy") {
+    return <p className="text-xs text-charcoal-ink/70">{t("pharmvisit.stock_ask", locale, { hours: limits.maxStockAgeHours })}</p>;
+  }
   return (
     <p className="text-xs text-charcoal-ink/70">
       {at ? t("pharmvisit.stock_confirmed", locale, { date: lagos(at) }) : t("pharmvisit.stock_unknown", locale)} {at ? t("pharmvisit.stock_caveat", locale) : ""}
@@ -71,7 +84,7 @@ function StockLine({ at, locale }: { at: string | null; locale: Locale }) {
 }
 
 /** The medicines that share this visit's code, each with its own state. Shown only when the prescription was sent together with others. */
-function VisitMembers({ members, thisId, locale }: { members: VisitMember[]; thisId: string; locale: Locale }) {
+function VisitMembers({ members, thisId, locale, nowMs }: { members: VisitMember[]; thisId: string; locale: Locale; nowMs: number }) {
   if (members.length < 2) return null;
   return (
     <section aria-labelledby="visit-title" className="space-y-2 rounded-xl border border-charcoal-ink/15 bg-white p-4 dark:border-night-ink/25">
@@ -81,7 +94,7 @@ function VisitMembers({ members, thisId, locale }: { members: VisitMember[]; thi
           <li key={m.prescription_id}>
             <span className={m.prescription_id === thisId ? "font-semibold" : ""}>{m.medicine ?? "-"}</span>
             {" "}<span className="text-charcoal-ink/70">{m.collected || m.state === "dispensed" ? t("pharmvisit.collected", locale) : m.other_pharmacy_needed ? t("pharmvisit.other_needed", locale) : t("pharmvisit.waiting", locale)}</span>
-            {!m.collected && m.state === "sent" && !m.other_pharmacy_needed && <StockLine at={m.stock_confirmed_at} locale={locale} />}
+            {!m.collected && m.state === "sent" && !m.other_pharmacy_needed && <StockLine at={m.stock_confirmed_at} locale={locale} nowMs={nowMs} />}
           </li>
         ))}
       </ul>
@@ -125,6 +138,7 @@ export default async function CollectPage({ params, searchParams }: { params: Pr
   const { prescriptionId } = await params;
   if (!UUID.test(prescriptionId)) notFound();
   const locale = DEFAULT_UI_LANGUAGE;
+  const nowMs = clockMs();
   const query = await searchParams;
   const notice = asNotice(query.n);
   // `for` is the person a caregiver acts for; anything that is not an id is ignored, and the database checks the permission on every call
@@ -204,9 +218,9 @@ export default async function CollectPage({ params, searchParams }: { params: Pr
           {collection.data?.other_pharmacy_needed ? (
             <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{t("pharmcollect.other_needed", locale)}</p>
           ) : (
-            visitMembers.length < 2 && own && <StockLine at={own.stock_confirmed_at} locale={locale} />
+            visitMembers.length < 2 && own && <StockLine at={own.stock_confirmed_at} locale={locale} nowMs={nowMs} />
           )}
-          <VisitMembers members={visitMembers} thisId={prescriptionId} locale={locale} />
+          <VisitMembers members={visitMembers} thisId={prescriptionId} locale={locale} nowMs={nowMs} />
           {/* the visit's lock is the authority for every medicine sent together, so her overview (which reads it) wins over the single-prescription flag */}
           {(own?.locked || collection.data?.locked || collection.data?.expired) && (
             <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{own?.locked || collection.data?.locked ? t("pharmcollect.locked", locale) : t("pharmcollect.expired", locale)}</p>

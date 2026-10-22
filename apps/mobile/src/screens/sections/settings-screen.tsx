@@ -12,6 +12,7 @@ import { useUiLanguage } from "@/lib/ui-language";
 import { LegacySheet } from "@/ui/kit";
 import { ProfileScreen } from "@/screens/sections/profile-screen";
 import { AppearanceSetting } from "@/screens/sections/appearance-setting";
+import { ReminderReliabilityCard } from "@/screens/sections/reminder-reliability-card";
 import { BackupCodesSection } from "@/screens/sections/backup-codes-section";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { authenticate, readAppLockEnabled, writeAppLockEnabled } from "@/lib/app-lock";
@@ -160,6 +161,10 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
       <SectionDivider />
 
       <AppearanceSetting />
+
+      <SectionDivider />
+
+      <ReminderReliabilityCard />
 
       <SectionDivider />
 

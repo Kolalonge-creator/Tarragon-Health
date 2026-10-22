@@ -254,8 +254,9 @@ begin
   perform pg_temp.rec('OFF: glucose emergency notifies every clinician profile through the emergency event, no hold row', v_n_clin || '|0', pg_temp.legacy_n(o3) || '|' || pg_temp.holds(o3));
   perform pg_temp.rec('OFF: BP amber keeps its review notice', v_n_clin || '|0', pg_temp.legacy_n(o4) || '|' || pg_temp.holds(o4));
   v_shape_off_bp := pg_temp.shape(o1); v_shape_off_em := pg_temp.shape(o2); v_shape_off_gl := pg_temp.shape(o3);
-  perform pg_temp.rec('OFF: the reference shapes are the known templates and payload keys', 'true',
-    ((v_shape_off_bp like 'vitals_red_flag_clinician_alert|%level_label%vital_label%' and v_shape_off_em like 'emergency_event_clinician_alert|%source_label%'))::text);
+  perform pg_temp.rec('OFF: the reference shapes are the known templates, with no clinical label in the payload (INV-07)', 'true',
+    ((v_shape_off_bp like 'vitals_red_flag_clinician_alert|%' and v_shape_off_em like 'emergency_event_clinician_alert|%'
+      and (v_shape_off_bp || v_shape_off_em) !~ '(vital_label|level_label|source_label)'))::text);
   -- an unreadable config table reads OFF and never stops the reading
   alter table public.legacy_notice_retirement_config rename to legacy_notice_retirement_config_x;
   v_r := pg_temp.try(format('select pg_temp.bp(%L, 170, 95)', pg_temp.member(v_org, v_admin, 'off-unreadable')));

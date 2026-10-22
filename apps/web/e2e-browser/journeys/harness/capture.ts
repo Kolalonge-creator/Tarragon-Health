@@ -39,7 +39,10 @@ const FORBIDDEN =
 export function neutralityViolations(rows: readonly CapturedNotification[], knownReadings: readonly string[] = []): string[] {
   const out: string[] = [];
   for (const n of rows) {
-    const text = JSON.stringify({ template: n.template, payload: n.payload });
+    // The payload is what a template can read and a sender can carry. The template KEY (for example emergency_event_clinician_alert) is an
+    // internal identifier that is never shown to anyone, so it is not linted here: the words people read come from the rendered template,
+    // which the production lint covers, and a key that merely contains a word like "emergency" is not a notification naming one.
+    const text = JSON.stringify(n.payload);
     const hit = text.match(FORBIDDEN);
     if (hit) out.push(`${n.template ?? "?"} (${n.channel}) contains "${hit[0]}"`);
     for (const r of knownReadings) if (text.includes(r)) out.push(`${n.template ?? "?"} (${n.channel}) contains the reading ${r}`);
