@@ -1,4 +1,4 @@
-import { BP_ESTIMATE_SOURCE, diagnosticBpReadings, getProposedConfig, isEstimateBpSource, mgDlToMmolL } from "@tarragon/shared";
+import { BP_ESTIMATE_SOURCE, diagnosticBpReadings, getProposedConfig, isEstimateBpSource, latestCuffCheckAt, mgDlToMmolL } from "@tarragon/shared";
 import { deviceRedFlags, type DeviceRedRules } from "@tarragon/clinical";
 import { supabase } from "./supabase";
 import type { VitalReadingPayload } from "./api";
@@ -113,6 +113,29 @@ export async function loadNewestBpEstimate(patientId: string): Promise<{ systoli
       .filter((x) => x.vital_type === "blood_pressure" && isEstimateBpSource(x.source) && x.systolic !== null && x.diastolic !== null)
       .sort((a, b) => b.taken_at.localeCompare(a.taken_at))[0];
     return r && r.systolic !== null && r.diastolic !== null ? { systolic: r.systolic, diastolic: r.diastolic, takenAt: r.taken_at } : null;
+  }
+}
+
+/**
+ * When the person last took a real cuff reading (any blood pressure that is not a wearable estimate), for the "last checked against a cuff" label under
+ * the wearable estimate (S70b). `null`: no cuff reading at all. `undefined`: it could not be worked out (the label then says nothing about a date).
+ */
+export async function loadLastCuffCheck(patientId: string): Promise<string | null | undefined> {
+  try {
+    const { data, error } = await supabase
+      .from("vitals_readings")
+      .select("taken_at")
+      .eq("patient_id", patientId)
+      .eq("vital_type", "blood_pressure")
+      .neq("source", BP_ESTIMATE_SOURCE)
+      .order("taken_at", { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    return data?.[0]?.taken_at ?? null;
+  } catch {
+    const local = await readLocalRecords<BpRow & { vital_type: string }>("vital", patientId, 200).catch(() => null);
+    if (!local) return undefined;
+    return latestCuffCheckAt(local.filter((x) => x.vital_type === "blood_pressure").map((x) => ({ source: x.source, takenAt: x.taken_at })));
   }
 }
 

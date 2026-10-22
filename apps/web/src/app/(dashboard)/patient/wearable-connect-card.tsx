@@ -104,9 +104,12 @@ function buildConnectHref(provider: CloudOAuthWearableProvider, consent: Consent
 export function WearableConnectCard({
   patientId,
   configuredProviders,
+  unavailableProviders = [],
 }: {
   patientId: string;
   configuredProviders: CloudOAuthWearableProvider[];
+  /** Switched off for new connections (see oauth-providers.ts). Existing connections and their data are untouched. */
+  unavailableProviders?: CloudOAuthWearableProvider[];
 }) {
   const connections = useWearableConnections(patientId);
   const setStatus = useSetWearableConnectionStatus(patientId);
@@ -198,6 +201,8 @@ export function WearableConnectCard({
                         Disconnect
                       </Button>
                     </div>
+                  ) : unavailableProviders.includes(provider) ? (
+                    <Badge variant="grey">Not available right now</Badge>
                   ) : isConfigured ? (
                     <Button size="sm" onClick={() => setConsentOpenFor(provider)}>
                       Connect
@@ -211,6 +216,12 @@ export function WearableConnectCard({
                     (why it stopped syncing) rather than silently looking
                     identical to a healthy one — see queries/wearable-
                     connections.ts's 55.12 comment for the query-side half. */}
+                {!connection && unavailableProviders.includes(provider) && (
+                  <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                    {PROVIDER_LABEL[provider]} is changing how it shares data, so we cannot start a new connection for now. Anything already saved from it stays in your history. You can log readings by hand or with another device.
+                  </p>
+                )}
+
                 {connection?.status === "error" && connection.last_sync_error && (
                   <p className="mt-1 text-xs text-charcoal-ink/50 dark:text-night-ink/55">{connection.last_sync_error}</p>
                 )}
@@ -242,6 +253,9 @@ export function WearableConnectCard({
           </li>
         </ul>
         </details>
+        <p className="mt-3 text-xs">
+          <a className="underline" href="/patient/data-connections">See all your data connections</a>
+        </p>
       </CardContent>
     </Card>
   );

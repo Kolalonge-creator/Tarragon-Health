@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { AppleHealthCard } from "@/screens/apple-health-card";
 import { AndroidHealthConnectCard } from "@/screens/android-health-connect-card";
 import { CgmSafetySection, EcgResultsSection, HeldReadingsSection, RecommendedDevicesSection } from "@/screens/device-s70a-sections";
+import { DataConnectionsSection } from "@/screens/data-connections-section";
 import { PhotoReadingScreen } from "@/screens/photo-reading-screen";
 import { loadDeviceFlags, NO_DEVICE_FLAGS, type DeviceFlags } from "@/lib/device-flags";
 import { loadReadingSubjects, type ManagedDevice, type ReadingSubject } from "@/lib/reading-subject";
@@ -374,6 +375,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
 
       {Platform.OS === "ios" && flags.device_ecg_rhythm_alerts ? <EcgResultsSection patientId={patientId} /> : null}
       {flags.device_recommended_list ? <RecommendedDevicesSection /> : null}
+      <DataConnectionsSection patientId={patientId} />
 
       <Modal visible={pairing} animationType="slide" onRequestClose={() => setPairing(false)}>
         <View style={{ flex: 1, padding: spacing.screen, gap: 14, backgroundColor: colors.background }}>

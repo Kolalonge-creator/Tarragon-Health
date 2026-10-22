@@ -7,8 +7,11 @@ import {
   TEMPERATURE_UNIT_LABEL,
   WEIGHT_UNIT_LABEL,
   bpAckDelivery,
+  cufflessCalibration,
   diagnosticBpReadings,
+  getProposedConfig,
   type BpAckDelivery,
+  type CufflessCalibrationConfig,
 } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
@@ -42,6 +45,7 @@ import {
   classifyVitalOffline,
   computeSevenDayAverage,
   loadNewestBpEstimate,
+  loadLastCuffCheck,
   loadRecentBpReadings,
   logOtherVital,
   type BpReading,
@@ -151,6 +155,8 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [rawReadings, setRawReadings] = useState<BpReading[]>([]);
   // The newest wearable estimate: shown on its own labelled line, never graded, averaged or charted (docs/design/BP-wearable-estimates.md).
   const [newestEstimate, setNewestEstimate] = useState<{ systolic: number; diastolic: number; takenAt: string } | null>(null);
+  // S70b: when the person last took a real cuff reading. undefined: unknown (say nothing about the date).
+  const [lastCuffCheckAt, setLastCuffCheckAt] = useState<string | null | undefined>(undefined);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [thresholds, setThresholds] = useState<BpThresholds>(BP_THRESHOLDS);
@@ -227,7 +233,9 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     // Enough for a 30 day chart even for someone who logs several times a day.
     const list = await loadRecentBpReadings(patientId, HISTORY_LIMIT);
     setRawReadings(list);
-    setNewestEstimate(await loadNewestBpEstimate(patientId));
+    const estimate = await loadNewestBpEstimate(patientId);
+    setNewestEstimate(estimate);
+    setLastCuffCheckAt(estimate ? await loadLastCuffCheck(patientId) : undefined);
     setNowMs(Date.now());
   }, [patientId]);
 
@@ -434,6 +442,13 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     }
   }
 
+  // S70b: "last checked against a cuff on [date]", stale after the PROPOSED number of days. A label only; it never changes a number or an alert.
+  const estimateCalibrationLine = (() => {
+    if (!newestEstimate || lastCuffCheckAt === undefined) return null;
+    const state = cufflessCalibration(lastCuffCheckAt, new Date(nowMs), getProposedConfig("bp.cuffless_calibration").value as unknown as CufflessCalibrationConfig);
+    if (state.kind === "never") return tr("cle.never");
+    return tr(state.kind === "stale" ? "cle.stale" : "cle.checked", { date: new Date(state.lastCheckedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" }) });
+  })();
   const latest = readings[0] ?? null;
   const average = computeSevenDayAverage(readings);
   const windowed = useMemo(() => windowReadings(readings, windowDays, nowMs), [readings, windowDays, nowMs]);
@@ -522,6 +537,14 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           </AppText>
           <AppText variant="caption" tone="textMuted">
             {tr("bpe.estimate_note")}
+          </AppText>
+          {estimateCalibrationLine ? (
+            <AppText variant="caption" tone="textMuted">
+              {estimateCalibrationLine}
+            </AppText>
+          ) : null}
+          <AppText variant="caption" tone="textMuted">
+            {tr("cle.note")}
           </AppText>
         </Card>
       ) : null}

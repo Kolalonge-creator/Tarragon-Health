@@ -1434,3 +1434,9 @@ membership_instalments_removed.sql
 
 # S62 follow-up: the review and scheduled-test sweeps are scheduled daily (06:08 and 06:18 UTC), call the right function, run cleanly as the job owner and add nothing while no real patient is enrolled, and still refuse a signed-in user. Sabotage: each job unscheduled and the matching check flips.
 s62_pathway_sweeps_scheduled.sql
+
+# S70b: a high wearable blood pressure estimate gives the person one calm cuff-check task when its module is on, and nothing else (no clinician alert, none for green, emergency or cuff readings, one open at a time). Sabotage: module check and estimate check each removed and a check flips.
+s70b_cuffless_cuff_check_task.sql
+
+# S70b: pharmacy counter reading. One-time patient code, wrong-code lockout, visit for one pharmacist and one person up to the reading limit, blood pressure and typed source only, triaged like a typed reading, ledger says pharmacy/counter consent. Sabotage: reading limit and person check removed from the seam and a check flips.
+s70b_pharmacy_reading_point.sql

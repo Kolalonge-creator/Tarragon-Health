@@ -1,4 +1,4 @@
-import { isWearableProviderConfigured, type CloudOAuthWearableProvider } from "@/lib/wearables/oauth-providers";
+import { isWearableProviderConnectable, isWearableProviderUnavailable, type CloudOAuthWearableProvider } from "@/lib/wearables/oauth-providers";
 import { WearableConnectCard } from "./wearable-connect-card";
 
 const PROVIDERS: CloudOAuthWearableProvider[] = [
@@ -18,6 +18,7 @@ const PROVIDERS: CloudOAuthWearableProvider[] = [
  * didn't exist before now.
  */
 export function WearableConnectSection({ patientId }: { patientId: string }) {
-  const configured = PROVIDERS.filter((provider) => isWearableProviderConfigured(provider));
-  return <WearableConnectCard patientId={patientId} configuredProviders={configured} />;
+  const configured = PROVIDERS.filter((provider) => isWearableProviderConnectable(provider));
+  const unavailable = PROVIDERS.filter((provider) => isWearableProviderUnavailable(provider));
+  return <WearableConnectCard patientId={patientId} configuredProviders={configured} unavailableProviders={unavailable} />;
 }

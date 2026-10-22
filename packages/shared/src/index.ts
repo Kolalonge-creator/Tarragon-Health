@@ -304,3 +304,4 @@ export * from "./health-history";
 
 // S43m: multi-year biomarker trend parsing and chart geometry, shared by the web page and the phone screen.
 export * from "./biomarker-trend";
+export * from "./data-connections";

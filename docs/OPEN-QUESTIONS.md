@@ -4991,3 +4991,28 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Checked while reconciling S61 to S65 against current `main-dev`. `book-video-visit.tsx` says "If nobody can take it, you get a full refund". That path (`video_visit_requests`) takes a real Paystack payment, holds it, and `/api/cron/video-visit-refunds` refunds it in cash through the Paystack Refunds API when no doctor accepts within 48 hours. So the sentence describes what happens; it is not a credit-versus-cash mix-up.
 - No code was changed. The open question is still the founder one in OQ-S64-4 and OQ-133: whether this older path should stay as cash or move to the credit basis used elsewhere. Nigeria's FCCPC digital-markets guidance expects cancellation and refund terms to be clear and not misleading (U, from a law-firm summary), so whichever is chosen, the screen should state it plainly before payment.
 - Also noted: `docs/design/htn-hearts-alignment-note.md` lists where the draft hypertension step table may differ from the national HEARTS-based protocol, for the CMO. Nothing in it is decided.
+
+### OQ-S70B-1 Google Health API for Fitbit users: start the review, and who owns it (raised 2026-10-22, S70b)
+- Google ends the legacy Fitbit Web API (support ends 30 Sep 2026, off 30 Oct 2026). Fitbit is now switched off for NEW connections by configuration (`WEARABLE_UNAVAILABLE_PROVIDERS`, default `fitbit`); existing rows and data are untouched. `packages/shared/src/google-health-device-source.ts` is a documented stub behind `DeviceSource`, not wired, not exported.
+- The Google Health API scopes that read health data are described as Restricted and need Google's verification and a security assessment before production use. The lead time is Google's, not ours; plan for weeks to months and confirm on Google's pages. **Please decide:** whether Fitbit support is worth that review at all, and who owns the Google Cloud project and the privacy-policy text it needs.
+- Not decided: nothing is claimed to work. Decision: OPEN.
+
+### OQ-S70B-2 Which on-device text recogniser for photo readings (raised 2026-10-22, S70b)
+- The photo reading screen has a seam (`registerTextRecogniser`) and no recogniser. Any package is a native change: new EAS build and a `runtimeVersion` bump (now `0.1.0-native8`). I did not choose a package or bump the version. `docs/runbooks/device-hardware-test.md` section 6 lists the steps and the test. **Please decide** whether to add one, and accept that a person still confirms every digit.
+- Decision: OPEN.
+
+### OQ-S70B-3 Pharmacy counter reading: is the proposed consent answer acceptable? (raised 2026-10-22, S70b; follows OQ-ASSIST-1)
+- Built dormant (module `device_pharmacy_readings` OFF, and the existing guard `assisted_entry_pharmacy_enabled` still cannot be switched on). PROPOSED answers: the pharmacist is a `pharmacist` login tied to a partner; the person consents by making a one-time 8 digit code in the app, valid 15 minutes; the code opens a 10 minute visit for up to 3 blood pressure readings; the reading is the person's own record, source `manual`, labelled through the existing assisted-entry ledger. **Please decide:** (a) is a code enough proof of consent, or must the pharmacy branch be verified too; (b) is blood pressure only right (glucose, weight?); (c) may the pharmacy see the person's name and patient number after the code (it does now, for identity); (d) the DPO's view on the visit record. To open it, someone must also define the guard's go-live conditions, which I did not touch.
+- Not built: the pharmacist screen in the partner portal and the person's "make a code" screen on web and phone. Only the database, the functions and the label that already existed. Decision: OPEN.
+
+### OQ-S70B-4 Cuffless estimate: the cuff-check task and the 28 day label (raised 2026-10-22, S70b)
+- Born OFF: module `device_cuffless_cuff_check_task`. When on, an amber or red wearable estimate (by the live classifier) makes one calm "cuff reading this week" task for the person, never a clinician alert. The label "last checked against a cuff" goes stale after 28 days and the task is due in 7 days; both are PROPOSED (`bp.cuffless_calibration`, CMO owned, unsigned). Related to OQ-BPW-1 (should a wearable red page at all). **Please decide:** the two numbers, and whether the prompt should also appear for a green-band estimate that is far from the last cuff reading (not built).
+- Decision: OPEN.
+
+### OQ-S70B-5 Home blood pressure guide: what exists and what is left (raised 2026-10-22, S70b)
+- The programme (S07x) and the guided session already existed, so nothing was rebuilt. Added: a pre-measure checklist on the phone (numbers from the signed configuration), a pure seven day session tracker (`sessionTracker`, not yet drawn on any screen), and the one-page clinician summary on the clinician patient page, read only through the audited vitals read. All of it depends on the programme configuration being signed (still unsigned, OQ-HBP-1 to 3). The summary shows no average below the configured minimum, as the programme says. **Please decide** whether the tracker grid should be drawn on the phone card and web.
+- Decision: OPEN.
+
+### OQ-S70B-6 Data connections: day limits and the Omron question (raised 2026-10-22, S70b)
+- "Reconnect needed" and "no recent data" use PROPOSED day limits (`devices.connection_health`: 3 days for cloud and phone health stores, 30 for Bluetooth and typed readings). Display only. Whether Omron Connect writes to Health Connect or Apple Health is unknown until the hardware test (`docs/runbooks/device-hardware-test.md`, cases O1 to O3). No in-app connection test was built: it would need real hardware to be trustworthy.
+- Decision: OPEN.
