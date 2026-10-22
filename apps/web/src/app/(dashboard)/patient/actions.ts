@@ -23,6 +23,7 @@ import { medicationAccessBarrierSchema } from "@/lib/validation/medication-acces
 import { patientLocationSchema } from "@/lib/validation/patient-location";
 import { emergencyContactSchema } from "@/lib/validation/emergency-contact";
 import { heightSchema } from "@/lib/validation/height";
+import { assistedRefusalResponse } from "@/lib/vitals/assisted-refusal";
 import { dangerReportSchema, dangerSignsSummary, type DangerSign } from "@/lib/validation/emergency";
 import {
   paediatricDangerReportSchema,
@@ -202,6 +203,9 @@ async function logVitalInner(data: VitalsReadingInput): Promise<LogVitalActionSt
     labelDropped = error === null;
   }
   if (error) {
+    // A reading a helper entered for the person, refused by the assisted-entry guard: plain words, never the database text.
+    const refused = assistedRefusalResponse(error);
+    if (refused) return { error: refused.message };
     return { error: error.message };
   }
   if (watching && Array.isArray(storedRows) && storedRows.length === 0 && holdFlags.device_plausibility_hold) {

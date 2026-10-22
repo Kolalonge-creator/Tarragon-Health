@@ -25,6 +25,7 @@ import {
 } from "@/lib/validation/vitals";
 import { lifestyleRow, NOT_SWITCHED_ON_MESSAGE, readExtendedObservationsEnabled } from "@/lib/vitals/extended-observations";
 import { mgDlToMmolL, type TablesInsert } from "@tarragon/shared";
+import { assistedRefusalResponse } from "@/lib/vitals/assisted-refusal";
 import { z } from "zod";
 
 /**
@@ -252,6 +253,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     const { error: ketoneError } = await supabase.from("vitals_readings").insert(ketoneRow);
     if (ketoneError && !(clientReadingId && ketoneError.code === "23505")) {
       // Nothing is saved yet, so a retry from the phone's queue is safe and nothing is lost.
+      const refusedKetone = assistedRefusalResponse(ketoneError);
+      if (refusedKetone) return NextResponse.json({ error: refusedKetone.message }, { status: refusedKetone.status });
       return NextResponse.json({ error: ketoneError.message }, { status: 500 });
     }
   }
@@ -277,6 +280,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (clientReadingId && insertError.code === "23505") {
       return NextResponse.json({ success: true });
     }
+    // A helper's entry refused by the assisted-entry guard: say why in plain words, with a status the phone's queue understands.
+    const refused = assistedRefusalResponse(insertError);
+    if (refused) return NextResponse.json({ error: refused.message }, { status: refused.status });
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 

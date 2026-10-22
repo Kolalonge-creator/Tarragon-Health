@@ -2,7 +2,18 @@
 import { vitalSavedMessage } from "@/lib/vitals/bp-ack-message";
 import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 import { t } from "@tarragon/i18n";
-import { PLACE_LABEL_MAX } from "@tarragon/shared";
+import { useMeasurementUnits } from "@/components/measurement-units-provider";
+import { UnitConvertedInput } from "./unit-converted-input";
+import {
+  LENGTH_UNIT_LABEL,
+  PLACE_LABEL_MAX,
+  formatLength,
+  TEMPERATURE_UNIT_LABEL,
+  WEIGHT_UNIT_LABEL,
+  lengthToCm,
+  temperatureToC,
+  weightToKg,
+} from "@tarragon/shared";
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -53,6 +64,7 @@ export function VitalsForm({
   // everyone. Before this, a patient on a mg/dL meter had to re-pick the unit
   // on every single entry, and forgetting once stored a reading 18x wrong.
   const preferredUnit = useGlucoseUnit();
+  const units = useMeasurementUnits();
   const [glucoseUnit, setGlucoseUnit] = useState<GlucoseUnit>(preferredUnit);
   const [ketoneKind, setKetoneKind] = useState<KetoneKind>("blood");
   const [atPharmacy, setAtPharmacy] = useState(false);
@@ -369,10 +381,14 @@ export function VitalsForm({
 
           {vitalType === "weight" && (
             <div className="space-y-1.5">
-              <Label htmlFor="weight_kg">Weight (kg)</Label>
-              <Input
+              <Label htmlFor="weight_kg">Weight ({WEIGHT_UNIT_LABEL[units.weight]})</Label>
+              <UnitConvertedInput
+                key={units.weight}
                 id="weight_kg"
                 name="weight_kg"
+                typedIsStored={units.weight === "kg"}
+                toStored={(v) => weightToKg(v, units.weight)}
+                decimals={1}
                 type="number"
                 step="0.1"
                 required
@@ -390,10 +406,14 @@ export function VitalsForm({
 
           {vitalType === "temperature" && (
             <div className="space-y-1.5">
-              <Label htmlFor="temperature_c">Temperature (°C)</Label>
-              <Input
+              <Label htmlFor="temperature_c">Temperature ({TEMPERATURE_UNIT_LABEL[units.temperature]})</Label>
+              <UnitConvertedInput
+                key={units.temperature}
                 id="temperature_c"
                 name="temperature_c"
+                typedIsStored={units.temperature === "c"}
+                toStored={(v) => temperatureToC(v, units.temperature)}
+                decimals={1}
                 type="number"
                 step="0.1"
                 required
@@ -411,10 +431,14 @@ export function VitalsForm({
 
           {vitalType === "waist_circumference" && (
             <div className="space-y-1.5">
-              <Label htmlFor="waist_cm">Waist circumference (cm)</Label>
-              <Input
+              <Label htmlFor="waist_cm">Waist circumference ({LENGTH_UNIT_LABEL[units.length]})</Label>
+              <UnitConvertedInput
+                key={units.length}
                 id="waist_cm"
                 name="waist_cm"
+                typedIsStored={units.length === "cm"}
+                toStored={(v) => lengthToCm(v, units.length)}
+                decimals={1}
                 type="number"
                 step="0.5"
                 required
@@ -425,7 +449,7 @@ export function VitalsForm({
                 className="text-xs text-charcoal-ink/60 dark:text-night-ink/60"
               >
                 Measure around your middle, just above the hip bones, after breathing out.
-                A raised measurement is 94 cm or more for men, 80 cm or more for women.
+                A raised measurement is {formatLength(94, units.length)} or more for men, {formatLength(80, units.length)} or more for women.
               </p>
             </div>
           )}

@@ -19,6 +19,8 @@ const row = {
   glucose_context: null,
   weight_kg: null,
   pulse_bpm: null,
+  assisted_entry: false,
+  assisted_rate_exceeded: false,
 };
 
 describe("toTrendPoint", () => {
@@ -28,6 +30,9 @@ describe("toTrendPoint", () => {
   });
   it("an ordinary reading has none", () => {
     expect(toTrendPoint({ ...row, entry_origin: null }).entry_origin).toBeNull();
+  });
+  it("carries the assisted-entry flags", () => {
+    expect(toTrendPoint({ ...row, entry_origin: null, assisted_entry: true, assisted_rate_exceeded: true })).toMatchObject({ assisted: true, assistedOverLimit: true });
   });
   it("keeps what the chart plots", () => {
     expect(toTrendPoint({ ...row, entry_origin: null })).toMatchObject({ taken_at: row.taken_at, systolic: 132, diastolic: 84 });

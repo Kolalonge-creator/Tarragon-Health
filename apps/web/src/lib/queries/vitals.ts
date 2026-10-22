@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { computeBmi } from "@/lib/obesity/classify";
 import { fetchHeightStatus, type HeightStatus } from "@/lib/health-metrics/height";
 import { readPatientVitalsOrThrow } from "@/lib/clinical/vitals-audited";
-import { trendBandsEligible, type Tables } from "@tarragon/shared";
+import { parseAssistedAttribution, trendBandsEligible, type AssistedAttribution, type Tables } from "@tarragon/shared";
 import { readModuleEnabled } from "@/lib/vitals/extended-observations";
 
 export function useVitalsReadings(patientId: string) {
@@ -18,6 +18,29 @@ export function useVitalsReadings(patientId: string) {
     refetchOnWindowFocus: false,
     retry: false,
     enabled: !!patientId,
+  });
+}
+
+/**
+ * Who entered the readings that a helper entered for the person (assisted entry). The database decides who may ask: the person, the helper for
+ * their own entries, and a clinician on the care team. A failed lookup only leaves the name out, so the note falls back to "someone who helps
+ * you"; it never hides that a helper entered the reading, because that fact is on the reading itself (logged_by_profile_id).
+ */
+export function useAssistedEntryAttribution(patientId: string, readingIds: string[]) {
+  const key = [...readingIds].sort().join(",");
+  return useQuery({
+    queryKey: ["assisted-entry-attribution", patientId, key],
+    queryFn: async (): Promise<Map<string, AssistedAttribution>> => {
+      const { data, error } = await (createClient() as unknown as {
+        rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }>;
+      }).rpc("assisted_entry_attribution", { p_patient: patientId, p_reading_ids: readingIds });
+      if (error) return new Map();
+      return new Map(parseAssistedAttribution(data).map((a) => [a.readingId, a]));
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+    enabled: !!patientId && readingIds.length > 0,
   });
 }
 
@@ -51,7 +74,7 @@ const TREND_WINDOW_DAYS = 90;
  * The fields a trend chart plots, from one stored reading. `entry_origin` is carried (S07y) so the chart can say how many of its points were taken at a
  * pharmacy or clinic machine or copied from a paper diary: a point whose label is dropped here would look like an ordinary home reading.
  */
-export function toTrendPoint(r: Pick<Tables<"vitals_readings">, "taken_at" | "systolic" | "diastolic" | "glucose_mmol_l" | "glucose_context" | "weight_kg" | "pulse_bpm" | "entry_origin">) {
+export function toTrendPoint(r: Pick<Tables<"vitals_readings">, "taken_at" | "systolic" | "diastolic" | "glucose_mmol_l" | "glucose_context" | "weight_kg" | "pulse_bpm" | "entry_origin" | "assisted_entry" | "assisted_rate_exceeded">) {
   return {
     taken_at: r.taken_at,
     systolic: r.systolic,
@@ -61,6 +84,9 @@ export function toTrendPoint(r: Pick<Tables<"vitals_readings">, "taken_at" | "sy
     weight_kg: r.weight_kg,
     pulse_bpm: r.pulse_bpm,
     entry_origin: r.entry_origin,
+    // A helper entered it for the person (the database sets this flag, never the client; staff-measured rows are not flagged).
+    assisted: r.assisted_entry === true,
+    assistedOverLimit: r.assisted_rate_exceeded === true,
   };
 }
 

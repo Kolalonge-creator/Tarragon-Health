@@ -99,7 +99,7 @@ export default async function PatientVitalsPage() {
 
       {/* Renders nothing unless a value that cannot be real is waiting for the person to check it (S70a). */}
       <HeldReadingsCard patientId={subjectId} />
-      <VitalsHistory patientId={subjectId} />
+      <VitalsHistory patientId={subjectId} viewerId={profile.id} />
       <VisitReportCard />
       {/* Renders nothing unless the patient has an active diabetes care
           plan — see diabetes-daily-log.tsx for the gate. */}
