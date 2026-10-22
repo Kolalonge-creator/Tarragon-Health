@@ -5,7 +5,10 @@
  * is only the bundled fallback for a phone that has never synced.
  */
 
-export type OutboxKind = "vital" | "symptom" | "dose" | "red_care" | "kick_session" | "contraction_session" | "meal" | "activity";
+export type OutboxKind =
+  | "vital" | "symptom" | "dose" | "red_care" | "kick_session" | "contraction_session" | "meal" | "activity"
+  // S68b: the daily child log and the S68 writes that used to be online-only.
+  | "child_event" | "feed_log" | "growth" | "lifecycle" | "card_photo";
 export type OutboxState = "pending" | "rejected";
 
 export interface OfflineSyncConfig {

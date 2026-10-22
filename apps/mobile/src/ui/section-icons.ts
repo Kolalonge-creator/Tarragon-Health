@@ -1,6 +1,7 @@
 import {
   CalendarDays,
   Accessibility,
+  Baby,
   AlertCircle,
   Activity,
   Bell,
@@ -77,6 +78,7 @@ export const SECTION_ICONS: Record<SectionId, LucideIcon> = {
   shareRecords: Share2,
   myPhones: Smartphone,
   womensHealth: User,
+  childLog: Baby,
   sexualHealth: Heart,
   wellbeing: Smile,
   healthCheck: ClipboardList,

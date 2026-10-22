@@ -3,6 +3,8 @@ import * as Crypto from "expo-crypto";
 import { NETWORK_ERROR_MESSAGE, postMealLog, postVitalReading, type VitalReadingPayload } from "./api";
 import { supabase } from "./supabase";
 import type { ContractionSessionPayload, KickSessionPayload } from "./pregnancy-payloads";
+import type { CardPhotoPayload, ChildEventPayload, FeedLogPayload, GrowthPayload, LifecyclePayload } from "./child-log-payloads";
+import { sendCardPhoto, sendChildEvent, sendFeedLog, sendGrowth, sendLifecycle } from "./child-log-send";
 import { getStoreWithSchema } from "./secure-db";
 import { applyReportOutcome, reportOnHold, reportRejection } from "./rejection-report";
 import { addDataUsage } from "./data-usage";
@@ -87,7 +89,12 @@ export type OutboxPayload =
   | DosePayload
   | RedCarePayload
   | KickSessionPayload
-  | ContractionSessionPayload;
+  | ContractionSessionPayload
+  | ChildEventPayload
+  | FeedLogPayload
+  | GrowthPayload
+  | LifecyclePayload
+  | CardPhotoPayload;
 
 interface OutboxRow {
   client_id: string;
@@ -634,6 +641,12 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
       // S67: a finished session is one idempotent row (unique per person and client id), so a replay after a lost reply is a duplicate, not a second card.
       return sendPregnancySession(item);
     }
+
+    if (item.kind === "child_event") return sendChildEvent(item.subjectId, item.clientId, item.clientRecordedAt, item.payload as ChildEventPayload);
+    if (item.kind === "feed_log") return sendFeedLog(item.subjectId, item.clientId, item.payload as FeedLogPayload);
+    if (item.kind === "growth") return sendGrowth(item.subjectId, item.clientId, item.payload as GrowthPayload);
+    if (item.kind === "lifecycle") return sendLifecycle(item.payload as LifecyclePayload);
+    if (item.kind === "card_photo") return sendCardPhoto(item.ownerUserId, item.subjectId, item.clientId, item.payload as CardPhotoPayload);
 
     const p = item.payload as DosePayload;
     const { error } = await supabase.from("medication_logs").insert({

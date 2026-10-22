@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { t } from "@tarragon/i18n";
 import { availableLifecycleKinds, type LifecycleKind } from "@tarragon/shared";
-import { confirmLifecycleEvent, loadFeedLog, loadMyLifecycle, logFeed, requestTrackerDeletion, type FeedLogRow, type MyLifecycle } from "@/lib/maternal-child";
+import { confirmLifecycleEvent, loadFeedLog, loadMyLifecycle, requestTrackerDeletion, type FeedLogRow, type MyLifecycle } from "@/lib/maternal-child";
+import { queueLifecycle, queueMotherFeed } from "@/lib/child-log";
+import { isQueueableLifecycleKind, type FeedLogPayload } from "@/lib/child-log-payloads";
 import { radius } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
@@ -16,11 +18,12 @@ const KIND_KEY: Record<LifecycleKind, Parameters<typeof t>[0]> = {
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 /** Where you are now: each button is a person confirming something that has happened, dated today. A different date is set on the web. */
-export function LifecycleCardMobile() {
+export function LifecycleCardMobile({ userId }: { userId?: string }) {
   const colors = useLegacyColors();
   const [life, setLife] = useState<MyLifecycle | null>(null);
   const [pending, setPending] = useState<LifecycleKind | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [savedOnPhone, setSavedOnPhone] = useState(false);
   const refresh = useCallback(() => { loadMyLifecycle().then(setLife).catch(() => {}); }, []);
   useEffect(() => refresh(), [refresh]);
   if (!life) return null;
@@ -29,6 +32,7 @@ export function LifecycleCardMobile() {
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("mch.life.title")}</Text>
       <MutedText>{t("mch.life.intro")}</MutedText>
       <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{t(STAGE_KEY[life.stage])}</Text>
+      {savedOnPhone && <MutedText>{t("cdl.log.saved_on_phone")}</MutedText>}
       {life.baby_content_hidden && <MutedText>{t("mch.life.loss_note")}</MutedText>}
       {pending === null ? (
         availableLifecycleKinds(life.stage).map((k) => <SecondaryButton key={k} title={t(KIND_KEY[k])} onPress={() => { setError(null); setPending(k); }} />)
@@ -39,6 +43,14 @@ export function LifecycleCardMobile() {
           <PrimaryButton
             title={t("mch.life.confirm")}
             onPress={async () => {
+              // S68b: a confirmed event is written to the phone first. A pregnancy LOSS is never queued: it stays an online-only call.
+              if (userId && isQueueableLifecycleKind(pending)) {
+                const o = await queueLifecycle(userId, pending, todayIso());
+                if (o === "not_open") { setError(t("mch.life.not_open")); return; }
+                if (o === "failed") { setError(t("mch.life.unavailable")); return; }
+                setPending(null); setSavedOnPhone(o === "on_phone"); refresh();
+                return;
+              }
               const r = await confirmLifecycleEvent(pending, todayIso());
               if (!r.ok) { setError(r.error === "not_open" ? t("mch.life.not_open") : t("mch.life.unavailable")); return; }
               setPending(null); refresh();
@@ -62,6 +74,7 @@ export function FeedLogCardMobile({ patientId, organisationId }: { patientId: st
   const [rows, setRows] = useState<FeedLogRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [deleted, setDeleted] = useState(false);
+  const [savedPhone, setSavedPhone] = useState(false);
   const refresh = useCallback(() => { loadFeedLog(patientId).then(setRows).catch(() => {}); }, [patientId]);
   useEffect(() => refresh(), [refresh]);
   return (
@@ -75,14 +88,18 @@ export function FeedLogCardMobile({ patientId, organisationId }: { patientId: st
             title={t(c.key)}
             onPress={async () => {
               setError(null);
-              const r = await logFeed(patientId, organisationId, { feed_type: c.value, duration_minutes: null, amount_ml: null });
-              if (!r.ok) { setError(r.error === "not_open" ? t("mch.feed.not_open") : t("mch.life.unavailable")); return; }
+              // S68b: written to the phone first, so a feed is never lost to a bad signal.
+              const o = await queueMotherFeed(patientId, organisationId, { feed_type: c.value as FeedLogPayload["feed_type"], duration_minutes: null, amount_ml: null });
+              if (o === "not_open") { setError(t("mch.feed.not_open")); return; }
+              if (o === "failed") { setError(t("mch.life.unavailable")); return; }
+              setSavedPhone(o === "on_phone");
               refresh();
             }}
           />
         ))}
       </View>
       {error && <ErrorText>{error}</ErrorText>}
+      {savedPhone && <MutedText>{t("cdl.log.saved_on_phone")}</MutedText>}
       {rows.length === 0 ? <MutedText>{t("mch.feed.empty")}</MutedText> : rows.slice(0, 5).map((r) => (
         <Text key={r.id} style={{ fontSize: 13, color: colors.ink }}>{new Date(r.fed_at).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</Text>
       ))}
