@@ -5266,3 +5266,27 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-726 S67-screens: nothing was rendered in a browser or simulator; the screens are checked by tests and type checks only (raised by the S67 screens build)
 - Web: React Testing Library plus axe, 23 tests. Phone: pure logic and outbox tests only (the mobile jest config renders no components), so `pregnancy-tools.tsx` has not been run on a device. Needs a look on web, an Android phone and an iPhone once `maternal_enabled` is on for a test account.
 - Decision: open (needs a test session).
+
+## UI-A cycle redesign (docs/research/S66-S70-design-ui-comparison.md, changes 1 to 4, 7, 8, 10, 11, 12, 14)
+
+### OQ-727 UI-A: a cycle day log cannot be queued on the phone, so "Saved on this phone. It will send when you are online." is never shown for it (raised by the UI-A cycle build)
+- The offline outbox (`apps/mobile/src/lib/outbox.ts`) has no cycle day-log kind, and its `send` switch is shared with the vitals, pregnancy and growth work. The message, the "n waiting to send" badge (`CycleSaveNote`) and `saveFeedback` are built and tested, but `heldOnPhone` is always false and `countPendingCycleLogs()` always returns 0. Offline, the screen says the day was NOT sent and keeps the choices on screen; it never claims a save that did not happen.
+- A real queue needs a `cycle_day_log` outbox kind with an idempotent upsert (the table is unique on patient and date), and a decision that reproductive data may sit in the encrypted on-device store (S06y rules).
+- Options: (a) add the outbox kind in the vitals/outbox workstream, then flip `heldOnPhone` (recommended); (b) leave as built.
+- Decision: open.
+
+### OQ-728 UI-A: no recorded, signed-off clip exists for any cycle card, so no Listen button shows yet (raised by the UI-A cycle build)
+- `CycleListen` renders the existing `ListenButton` only when `listenClipsFor(card)` returns clip ids; `CYCLE_LISTEN_CLIPS` is empty on purpose (no clip id invented). The words carry every card. Needs recorded and CMO-signed clips for: where you are now, what to expect, danger signs, marks legend. The web has no `ListenButton`, so the web cycle page has no Listen at all.
+- Decision: open (needs recordings and sign-off).
+
+### OQ-729 UI-A: new cycle strings are proposed copy awaiting CMO review (raised by the UI-A cycle build)
+- All new `cycle.*` keys in `packages/i18n/src/cycle-copy.ts` (status sentences, confidence words, the "Early estimate. It gets better after 3 cycles." line, the danger-signs template headings and the one-line "What it may mean": "These can be signs that you need to be seen quickly.") sit under the existing `CYCLE_COPY_REVIEW` prefix and are unsigned. Nothing in code marks them reviewed.
+- Decision: open (CMO).
+
+### OQ-730 UI-A: only the calendar legend covers shapes on web; the phone has a date sheet, not a full calendar (raised by the UI-A cycle build)
+- The phone cycle screen has no month calendar with predicted or fertile marks (still deliberately not ported). Its "What do these marks mean?" sheet explains the three marks it does draw (logged period, notes dot, today). The fertile bar and ovulation diamond exist on web only, and only in planning mode.
+- Decision: open (accept, or port the calendar).
+
+### OQ-731 UI-A: nothing was rendered on a phone or in a browser (raised by the UI-A cycle build)
+- Web: React Testing Library plus axe on the new parts (status, confidence, week strip, legend, danger signs). Phone: type check, pure-logic tests and source scans only (the mobile Jest config renders no components). The bottom sheet with pinned save, the month sheet, the 16 point actions and text scaling at 200 percent have not been seen. Needs a look on an Android phone and an iPhone with a test account.
+- Decision: open (needs a test session).

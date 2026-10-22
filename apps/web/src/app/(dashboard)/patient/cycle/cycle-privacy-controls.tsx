@@ -62,12 +62,23 @@ export function CyclePrivacyControls() {
           <CardDescription>{t("cycle.access.intro")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
+          {/* A failed load is its own state with a retry: it is never shown as "nobody has looked". */}
           {access === "failed" && (
-            <p role="alert" className="text-sm text-red-700 dark:text-red-300">
-              {t("cycle.access.load_failed")}
-            </p>
+            <div role="alert" className="space-y-2">
+              <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">{t("cycle.access.load_failed")}</p>
+              <Button type="button" size="sm" variant="outline" onClick={() => void load()}>
+                {t("cycle.access.retry")}
+              </Button>
+            </div>
           )}
-          {Array.isArray(access) && access.length === 0 && <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("cycle.access.empty")}</p>}
+          {Array.isArray(access) && access.length === 0 && (
+            <div data-testid="cycle-access-empty" className="space-y-3 py-2 text-center">
+              <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">{t("cycle.access.empty")}</p>
+              <Button type="button" size="sm" onClick={() => void load()}>
+                {t("cycle.access.empty_button")}
+              </Button>
+            </div>
+          )}
           {Array.isArray(access) &&
             access.map((row, i) => (
               <p key={`${row.at}-${i}`} className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">

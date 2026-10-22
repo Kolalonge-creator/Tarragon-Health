@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { parseAccessLog, parseDeletionStatus, type AccessRow, type DeletionStatus } from "@/lib/cycle-privacy";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
+import { EmptyState } from "@/ui/kit";
 
 /**
  * Who has looked at the cycle summary, and deleting what the person entered (S66, decision C). Same RPCs and same rules as the web card:
@@ -45,8 +46,16 @@ export function CyclePrivacyControls() {
       <Card style={{ gap: 8 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("cycle.access.title")}</Text>
         <MutedText>{t("cycle.access.intro")}</MutedText>
-        {access === "failed" && <ErrorText>{t("cycle.access.load_failed")}</ErrorText>}
-        {Array.isArray(access) && access.length === 0 && <MutedText>{t("cycle.access.empty")}</MutedText>}
+        {/* A failed load is its own state with a retry: it is never shown as "nobody has looked". */}
+        {access === "failed" && (
+          <View style={{ gap: 8 }}>
+            <ErrorText>{t("cycle.access.load_failed")}</ErrorText>
+            <SecondaryButton title={t("cycle.access.retry")} onPress={() => void load()} />
+          </View>
+        )}
+        {Array.isArray(access) && access.length === 0 && (
+          <EmptyState icon="safe" title={t("cycle.access.empty")} actionLabel={t("cycle.access.empty_button")} onAction={() => void load()} />
+        )}
         {Array.isArray(access) &&
           access.map((row, i) => (
             <Text key={`${row.at}-${i}`} style={{ fontSize: 13, color: colors.ink }}>

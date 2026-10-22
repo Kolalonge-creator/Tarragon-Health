@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import {
   useCycleTracker,
@@ -17,7 +16,6 @@ import { setPlanningPregnancyMode } from "@/app/(dashboard)/patient/womens-healt
 import {
   FERTILE_WINDOW_DISCLAIMER,
   type CycleClinicalFlag,
-  type CyclePrediction,
   type ReproductiveLifeStage,
 } from "@/lib/rules/cycle-prediction";
 import { FormError, fieldErrorId } from "@/components/ui/form-error";
@@ -27,6 +25,8 @@ import { CycleInsightsCard } from "./cycle-insights-card";
 import { CycleLengthChart } from "./cycle-length-chart";
 import { CycleDayLog } from "./cycle-day-log";
 import { CycleLegend, CycleRing } from "./cycle-ring";
+import { ConfidenceLine, CycleStatusLine } from "./cycle-status";
+import { CycleWeekStrip } from "./cycle-week-strip";
 import { FertileWindowNotice, PlanningModeSwitch } from "./fertile-window-notice";
 
 import { formatPatientDate } from "@/lib/format-date";
@@ -54,16 +54,6 @@ function shortDate(iso: string | null): string {
     month: "short",
   });
 }
-
-const CONFIDENCE_BADGE: Record<
-  CyclePrediction["confidence"],
-  { variant: "grey" | "amber" | "blue" | "green"; label: string }
-> = {
-  none: { variant: "grey", label: "No estimate yet" },
-  low: { variant: "amber", label: "Rough estimate" },
-  medium: { variant: "blue", label: "Fairly confident" },
-  high: { variant: "green", label: "Confident" },
-};
 
 function FlagCard({ flags }: { flags: CycleClinicalFlag[] }) {
   if (flags.length === 0) return null;
@@ -184,8 +174,12 @@ export function CycleTracker({
 
   const selectedLog = dailyLogs.find((log) => log.log_date === selectedDate) ?? null;
   const { stats } = prediction;
-  const confidence = CONFIDENCE_BADGE[prediction.confidence];
   const hasHistory = cycles.length > 0;
+  const loggedDays = new Set(
+    dailyLogs
+      .filter((log) => log.flow || log.symptoms.length > 0 || log.moods.length > 0 || log.notes)
+      .map((log) => log.log_date)
+  );
   const reading = suggestCycleReading({
     phase: prediction.currentPhase,
     lifeStage,
@@ -225,11 +219,12 @@ export function CycleTracker({
               <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
               Your cycle
             </CardTitle>
-            <Badge variant={confidence.variant}>{confidence.label}</Badge>
           </div>
           <CardDescription>{prediction.confidenceReason}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
+          <CycleStatusLine prediction={prediction} />
+          <ConfidenceLine confidence={prediction.confidence} />
           <CycleRing prediction={prediction} planningMode={planningMode} />
           <CycleLegend planningMode={planningMode} />
 
@@ -368,6 +363,7 @@ export function CycleTracker({
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6 lg:grid-cols-2">
+          <div id="cycle-calendar" tabIndex={-1}>
           <CycleCalendar
             cycles={cycles}
             dailyLogs={dailyLogs}
@@ -377,7 +373,14 @@ export function CycleTracker({
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
           />
-          <div className="border-t pt-6 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+          </div>
+          <div className="space-y-4 border-t pt-6 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+            <CycleWeekStrip
+              today={today}
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+              loggedDays={loggedDays}
+            />
             <CycleDayLog
               // Remount per day so the form re-seeds from that day's log.
               key={selectedDate}
@@ -443,6 +446,7 @@ export function CycleTracker({
         thermalShift={thermalShift}
         hasAnyLogs={dailyLogs.length > 0}
         planningMode={planningMode}
+        confidence={prediction.confidence}
       />
 
       <CycleLengthChart stats={stats} />

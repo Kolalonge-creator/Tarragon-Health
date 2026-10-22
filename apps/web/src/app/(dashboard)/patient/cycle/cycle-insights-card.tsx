@@ -8,7 +8,9 @@ import {
   type ThermalShiftResult,
 } from "@/lib/rules/cycle-thermal-shift";
 import { insightPhasePhrase } from "@/lib/rules/cycle-fertile-mode";
+import type { CycleConfidence } from "@tarragon/shared";
 import { FertileWindowNotice } from "./fertile-window-notice";
+import { ConfidenceLine } from "./cycle-status";
 
 /**
  * What the logging was for: the app finally saying something back.
@@ -56,12 +58,15 @@ export function CycleInsightsCard({
   thermalShift,
   hasAnyLogs,
   planningMode,
+  confidence,
 }: {
   insights: CycleInsight[];
   thermalShift: ThermalShiftResult;
   hasAnyLogs: boolean;
   /** "Planning a pregnancy" (S85 D2). Off hides the temperature-based ovulation confirmation; there is no default. */
   planningMode: boolean;
+  /** UI-A: how sure the cycle estimate is, in words and three dots (from the prediction; nothing is invented). */
+  confidence?: CycleConfidence;
 }) {
   const showThermal = planningMode && (thermalShift.reason !== "not_enough_readings" || hasAnyLogs);
 
@@ -77,6 +82,7 @@ export function CycleInsightsCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {confidence && <ConfidenceLine confidence={confidence} />}
         {insights.length > 0 ? (
           <ul className="space-y-2">
             {insights.slice(0, 8).map((insight) => (

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { addDays, type CyclePrediction } from "@/lib/rules/cycle-prediction";
 import type { MenstrualCycle, MenstrualDailyLog } from "@/lib/queries/menstrual-cycle";
 import { applyPlanningMode } from "@/lib/rules/cycle-fertile-mode";
+import { t } from "@tarragon/i18n";
 import { FertileWindowNotice } from "./fertile-window-notice";
 
 import { formatPatientDate } from "@/lib/format-date";
@@ -226,6 +227,15 @@ export function CycleCalendar({
               }}
             >
               {cell.dayOfMonth}
+              {/* UI-A: shape as well as colour. A diamond marks the estimated ovulation day, a bar under the number the fertile window. */}
+              {cell.inMonth && isOvulation && (
+                <span aria-hidden className="absolute top-0.5 text-[8px] leading-none">
+                  &#9670;
+                </span>
+              )}
+              {cell.inMonth && isFertile && !isOvulation && (
+                <span aria-hidden className="absolute bottom-0 h-0.5 w-3/5 rounded bg-current opacity-70" />
+              )}
               {hasLog && (
                 <span
                   aria-hidden
@@ -249,7 +259,70 @@ export function CycleCalendar({
           ? "Solid days are what you logged. The dashed outline is when your next period is expected, and the shaded band is your estimated fertile window. A dot means you added notes or symptoms that day."
           : "Solid days are what you logged. The dashed outline is when your next period is expected. A dot means you added notes or symptoms that day."}
       </p>
+      <CalendarMarksLegend planningMode={planningMode} />
       {planningMode && <FertileWindowNotice className="mt-3" />}
     </div>
+  );
+}
+
+/**
+ * "What do these marks mean?" (UI-A): each mark by shape and word, so nothing depends on colour alone. The fertile and ovulation rows
+ * appear only while "Planning a pregnancy" is on, and carry the not-contraception words.
+ */
+export function CalendarMarksLegend({ planningMode }: { planningMode: boolean }) {
+  const rows: { key: string; text: string; mark: React.ReactNode }[] = [
+    {
+      key: "period",
+      text: t("cycle.legend.period"),
+      mark: <span aria-hidden className="inline-block h-5 w-5 rounded-full" style={{ backgroundColor: "var(--cycle-period)" }} />,
+    },
+    {
+      key: "expected",
+      text: t("cycle.legend.expected"),
+      mark: <span aria-hidden className="inline-block h-5 w-5 rounded-full border-2 border-dashed" style={{ borderColor: "var(--cycle-predicted)" }} />,
+    },
+    {
+      key: "note",
+      text: t("cycle.legend.note"),
+      mark: <span aria-hidden className="inline-block h-1 w-1 rounded-full bg-charcoal-ink dark:bg-night-ink" />,
+    },
+    {
+      key: "today",
+      text: t("cycle.legend.today"),
+      mark: (
+        <span aria-hidden className="text-xs font-bold underline underline-offset-2">
+          5
+        </span>
+      ),
+    },
+    ...(planningMode
+      ? [
+          {
+            key: "fertile",
+            text: t("cycle.legend.fertile"),
+            mark: (
+              <span aria-hidden className="relative inline-block h-5 w-5 text-center text-[10px] leading-5">
+                5<span className="absolute bottom-0 left-1 h-0.5 w-3 rounded bg-current opacity-70" />
+              </span>
+            ),
+          },
+          { key: "ovulation", text: t("cycle.legend.ovulation"), mark: <span aria-hidden className="text-xs">&#9670;</span> },
+        ]
+      : []),
+  ];
+  return (
+    <details className="mt-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+      <summary className="cursor-pointer font-medium text-brand-green underline-offset-2 hover:underline dark:text-brand-green-bright">
+        {t("cycle.legend.link")}
+      </summary>
+      <ul className="mt-2 space-y-2">
+        {rows.map((row) => (
+          <li key={row.key} className="flex items-center gap-3">
+            <span className="flex w-6 justify-center">{row.mark}</span>
+            <span>{row.text}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
