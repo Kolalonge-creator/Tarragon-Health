@@ -15,6 +15,9 @@
 --   release_legacy_notice: the same keys, rebuilt from a held notice (the hold's payload_extra is now stored empty, and ignored on release).
 -- 'patient_name' stays: it is an identity the template does not render and the console needs.
 --
+-- Existing rows: counted on the live project on 2026-10-22, public.notifications holds 0 rows whose payload carries any of the three keys, so
+-- there is nothing to scrub and no backfill step. (A backfill would also be an UPDATE on an outbox table.)
+--
 -- Not touched: private.raise_dangerous_reading_ai_suggestion (a patient's own in-app self-care card, a different template), the pathway,
 -- template, priority and source columns, and every threshold, recipient and escalation rule. No behaviour changes except what the payload
 -- contains.
@@ -92,7 +95,10 @@ begin
   -- ACLs are untouched by create or replace, but the security-relevant ones are re-asserted: no client can run a private handler.
   if exists (
     select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-     where n.nspname = 'private' and p.proname in ('handle_bp_reading_red_flag', 'handle_emergency_event', 'release_legacy_notice')
+     where n.nspname = 'private'
+       and p.proname in ('handle_bp_reading_red_flag', 'handle_pulse_reading_red_flag', 'handle_spo2_reading_red_flag',
+                         'handle_temperature_reading_red_flag', 'handle_symptom_red_flag', 'route_child_nutrition',
+                         'handle_emergency_event', 'release_legacy_notice')
        and has_function_privilege('anon', p.oid, 'EXECUTE')
   ) then
     raise exception 'INV-07 payload patch: anon can execute a private handler';
