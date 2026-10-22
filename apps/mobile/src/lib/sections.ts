@@ -21,6 +21,9 @@ export type SectionId =
   | "healthSummary"
   | "timeline"
   | "myHealth"
+  | "biomarkers"
+  | "healthHistory"
+  | "symptomJournal"
   | "shareRecords"
   | "myPhones"
   | "womensHealth"
@@ -135,9 +138,27 @@ export const SECTIONS: SectionDef[] = [
     group: "Your health",
   },
   {
+    id: "healthHistory",
+    label: "Health history",
+    icon: "clipboard-outline",
+    group: "Your health",
+  },
+  {
+    id: "symptomJournal",
+    label: "Symptom journal",
+    icon: "pulse-outline",
+    group: "Your health",
+  },
+  {
     id: "shareRecords",
     label: "Share records",
     icon: "share-outline",
+    group: "Your health",
+  },
+  {
+    id: "biomarkers",
+    label: "Results over time",
+    icon: "stats-chart-outline",
     group: "Your health",
   },
   {
