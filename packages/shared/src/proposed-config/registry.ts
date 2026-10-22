@@ -5239,6 +5239,58 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/research/S59d-pathway-coverage.md sections B to D; docs/OPEN-QUESTIONS.md OQ-S59d-03",
   },
   {
+    key: "symptom.diagnosis_urgency_map",
+    // S59d (accuracy audit feed): which urgency category a clinician's signed ICD-10 diagnosis maps to, by code prefix (the longest prefix
+    // wins, dots ignored). Used ONLY to decide whether the checker's category agreed with the clinician's diagnosis. Every entry is a
+    // PLACEHOLDER for the CMO to confirm, replace or delete: which urgency a diagnosis "deserved" at presentation is a clinical judgement.
+    // The live value is the row of `symptom_diagnosis_urgency_maps` the CMO confirms through confirm_symptom_diagnosis_urgency_map; version 1
+    // in the database is unsigned and inactive, so until then no auto-fed outcome is counted. A Jest test fails if the migration seed and
+    // this value drift.
+    value: {
+      entries: [
+          { prefix: "I21", category: "emergency", label: "Acute myocardial infarction" },
+          { prefix: "I20", category: "urgent", label: "Angina" },
+          { prefix: "I16", category: "emergency", label: "Hypertensive crisis" },
+          { prefix: "I10", category: "routine", label: "Essential hypertension" },
+          { prefix: "I60", category: "emergency", label: "Subarachnoid haemorrhage" },
+          { prefix: "I61", category: "emergency", label: "Intracerebral haemorrhage" },
+          { prefix: "I63", category: "emergency", label: "Cerebral infarction" },
+          { prefix: "I64", category: "emergency", label: "Stroke, not specified" },
+          { prefix: "G00", category: "emergency", label: "Bacterial meningitis" },
+          { prefix: "G03", category: "emergency", label: "Meningitis of other causes" },
+          { prefix: "G43", category: "routine", label: "Migraine" },
+          { prefix: "R51", category: "routine", label: "Headache" },
+          { prefix: "B50", category: "urgent", label: "Plasmodium falciparum malaria" },
+          { prefix: "B51", category: "urgent", label: "Plasmodium vivax malaria" },
+          { prefix: "B54", category: "urgent", label: "Malaria, unspecified" },
+          { prefix: "A01", category: "urgent", label: "Typhoid and paratyphoid fevers" },
+          { prefix: "A09", category: "routine", label: "Gastroenteritis and colitis" },
+          { prefix: "R50", category: "routine", label: "Fever of other and unknown origin" },
+          { prefix: "K35", category: "emergency", label: "Acute appendicitis" },
+          { prefix: "J45", category: "urgent", label: "Asthma" },
+          { prefix: "J18", category: "urgent", label: "Pneumonia, organism unspecified" },
+          { prefix: "J06", category: "self_management", label: "Acute upper respiratory infection" },
+          { prefix: "J00", category: "self_management", label: "Acute nasopharyngitis (common cold)" },
+          { prefix: "N39", category: "routine", label: "Urinary tract infection" },
+          { prefix: "E10", category: "routine", label: "Type 1 diabetes" },
+          { prefix: "E11", category: "routine", label: "Type 2 diabetes" },
+          { prefix: "E101", category: "emergency", label: "Type 1 diabetes with ketoacidosis" },
+          { prefix: "E111", category: "emergency", label: "Type 2 diabetes with ketoacidosis" },
+          { prefix: "E16", category: "urgent", label: "Other disorders of pancreatic internal secretion (includes hypoglycaemia)" },
+          { prefix: "O14", category: "emergency", label: "Pre-eclampsia" },
+          { prefix: "O15", category: "emergency", label: "Eclampsia" },
+          { prefix: "O20", category: "urgent", label: "Haemorrhage in early pregnancy" },
+          { prefix: "O46", category: "emergency", label: "Antepartum haemorrhage" },
+          { prefix: "M54", category: "routine", label: "Dorsalgia (back pain)" },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S59d.md section 3; docs/OPEN-QUESTIONS.md OQ-S59d-04",
+  },
+  {
     key: "i18n.language_registry",
     // Language readiness (S86, decision D-14). DORMANT: English is the only language and the only entry. A language can appear
     // here only after a forward translation, an independent back translation, a reconciliation and a native clinical review, with
