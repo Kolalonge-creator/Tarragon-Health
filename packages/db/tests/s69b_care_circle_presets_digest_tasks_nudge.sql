@@ -92,6 +92,20 @@ $$ select count(*)::text from public.notifications where recipient_id = p_uid an
 create function pg_temp.module(p_key text, p_on boolean, p_admin uuid) returns void language sql as
 $$ update public.platform_modules set is_enabled = p_on, enabled_at = case when p_on then now() end, enabled_by = case when p_on then p_admin end,
           activation_note = case when p_on then 'S69b proof run' end where key = p_key $$;
+-- public.medications has a write guard (private.enforce_medication_confirm_only): only the patient or someone with prescribing authority may
+-- change a row, and a proof session with no signed-in user is neither. Switching a fixture medicine on or off is done as the patient, with
+-- the claims set for the one statement and cleared straight after (no role switch, so nothing else changes).
+create function pg_temp.med_active(p_id uuid, p_on boolean) returns void language plpgsql as
+$f$ declare v_pat uuid;
+begin
+  select patient_id into v_pat from public.medications where id = p_id;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', v_pat::text, true);
+  update public.medications set is_active = p_on where id = p_id;
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.jwt.claim.sub', '', true);
+end $f$;
+
 create function pg_temp.newte(p_patient uuid) returns uuid language plpgsql as
 $f$ declare v_id uuid; v_rs record;
 begin
@@ -327,44 +341,45 @@ begin
   -- slots come from the structured schedule: nothing is nudged for a medicine that is not due today
   delete from public.care_circle_missed_dose_alerts;
   delete from public.notifications where template = 'circle_gentle_nudge';
-  update public.medications set is_active = false where id = v_med;
+  perform pg_temp.med_active(v_med, false);
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, schedule_times, schedule_spec, created_at)
   values (v_org, v_pat, 'S69b Weekday Drug', '5mg', 'weekdays', true, 'clinician', '[]'::jsonb,
           jsonb_build_object('kind', 'weekdays', 'days', jsonb_build_array(((extract(dow from v_lagos)::integer + 1) % 7)), 'times', jsonb_build_array('10:00')), now() - interval '5 days')
   returning id into v_med2;
   perform pg_temp.ck('a weekday-only medicine on an off day: no nudge', '0', private.sweep_circle_missed_doses((v_lagos + time '10:35'))::text);
-  update public.medications set is_active = false where id = v_med2;
+  perform pg_temp.med_active(v_med2, false);
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, schedule_times, schedule_spec, created_at)
   values (v_org, v_pat, 'S69b Ended Drug', '5mg', 'daily', true, 'clinician', '[]'::jsonb,
           jsonb_build_object('kind', 'daily', 'times', jsonb_build_array('10:00'), 'startDate', (v_lagos - 30)::text, 'endDate', (v_lagos - 1)::text), now() - interval '40 days')
   returning id into v_med2;
   perform pg_temp.ck('a medicine whose end date has passed: no nudge', '0', private.sweep_circle_missed_doses((v_lagos + time '10:35'))::text);
-  update public.medications set is_active = false where id = v_med2;
+  perform pg_temp.med_active(v_med2, false);
+  -- (a taper step must have at least one time, so "tapered to zero" is a taper whose steps have all run out)
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, schedule_times, schedule_spec, created_at)
   values (v_org, v_pat, 'S69b Tapered Drug', '5mg', 'taper', true, 'clinician', '[]'::jsonb,
-          jsonb_build_object('kind', 'taper', 'startDate', v_lagos::text, 'steps', jsonb_build_array(jsonb_build_object('days', 5, 'times', jsonb_build_array(), 'doseText', '0 mg'))), now() - interval '5 days')
+          jsonb_build_object('kind', 'taper', 'startDate', (v_lagos - 10)::text, 'steps', jsonb_build_array(jsonb_build_object('days', 5, 'times', jsonb_build_array('10:00'), 'doseText', '1 tablet'))), now() - interval '12 days')
   returning id into v_med2;
-  perform pg_temp.ck('a medicine tapered to zero today: no nudge', '0', private.sweep_circle_missed_doses((v_lagos + time '10:35'))::text);
-  update public.medications set is_active = false where id = v_med2;
+  perform pg_temp.ck('a taper whose steps have all run out: no nudge', '0', private.sweep_circle_missed_doses((v_lagos + time '10:35'))::text);
+  perform pg_temp.med_active(v_med2, false);
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, schedule_times, created_at)
   values (v_org, v_pat, 'S69b New Drug', '5mg', 'daily', true, 'clinician', '["10:00"]'::jsonb, now() + interval '2 days')
   returning id into v_med2;
   perform pg_temp.ck('a schedule that has not taken effect yet: no nudge for an earlier slot', '0', private.sweep_circle_missed_doses((v_lagos + time '10:35'))::text);
-  update public.medications set is_active = false where id = v_med2;
+  perform pg_temp.med_active(v_med2, false);
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, schedule_times, created_at)
   values (v_org, v_pat, 'S69b Broken Drug', '5mg', 'daily', true, 'clinician', '["banana", "25:99"]'::jsonb, now() - interval '5 days')
   returning id into v_med2;
   perform pg_temp.ck('a malformed time text is ignored and does not abort the sweep', '0', private.sweep_circle_missed_doses((v_lagos + time '10:35'))::text);
-  update public.medications set is_active = false where id = v_med2;
+  perform pg_temp.med_active(v_med2, false);
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, schedule_times, schedule_spec, created_at)
   values (v_org, v_pat, 'S69b Spec Drug', '5mg', 'daily', true, 'clinician', '[]'::jsonb,
           jsonb_build_object('kind', 'daily', 'times', jsonb_build_array('10:00'), 'startDate', (v_lagos - 10)::text), now() - interval '12 days')
   returning id into v_med2;
   perform pg_temp.ck('control: a structured daily schedule that is due does nudge', '1', private.sweep_circle_missed_doses((v_lagos + time '10:35'))::text);
-  update public.medications set is_active = false where id = v_med2;
+  perform pg_temp.med_active(v_med2, false);
   delete from public.care_circle_missed_dose_alerts;
   delete from public.notifications where template = 'circle_gentle_nudge';
-  update public.medications set is_active = true where id = v_med;
+  perform pg_temp.med_active(v_med, true);
   -- an old slot is not nudged (stale), an answered slot is silent
   delete from public.care_circle_missed_dose_alerts;
   perform pg_temp.ck('long after the window: a stale nudge is not sent', '0', private.sweep_circle_missed_doses((v_lagos + time '12:30'))::text);
@@ -434,13 +449,13 @@ begin
   insert into results values ('sabotaged', 'a Can-see supporter cannot claim a job', 'ERR:circle_not_found', pg_temp.q_as(v_see, format($q$select public.claim_circle_task(%L)::text$q$, v_task2)));
   -- (d) the sweep reads the raw time list instead of the structured schedule: a structured daily schedule that is due sends nothing
   select pg_get_functiondef('private.sweep_circle_missed_doses(timestamp)'::regprocedure) into d;
-  d := replace(d, 'cross join lateral private.medication_slots_on(med.schedule_spec, med.schedule_times, v_today) sl', 'cross join lateral (select jsonb_array_elements_text(med.schedule_times) as slot_time) sl');
+  d := replace(d, 'cross join lateral private.medication_slots_on(med.schedule_spec, med.schedule_times, v_today, med.patient_id) sl', 'cross join lateral (select jsonb_array_elements_text(med.schedule_times) as slot_time) sl');
   if d = pg_get_functiondef('private.sweep_circle_missed_doses(timestamp)'::regprocedure) then raise exception 'sabotage (d) did not change the function'; end if;
   execute d;
   delete from public.care_circle_missed_dose_alerts;
   delete from public.notifications where template = 'circle_gentle_nudge';
-  update public.medications set is_active = false where id = v_med;
-  update public.medications set is_active = true where id = v_med2;
+  perform pg_temp.med_active(v_med, false);
+  perform pg_temp.med_active(v_med2, true);
   insert into results values ('sabotaged', 'a due structured schedule is nudged', '1', private.sweep_circle_missed_doses((v_lagos + time '10:35'))::text);
   -- (e) the view-permission gate removed from the task role: a red_alerts-only member reads the jobs
   select pg_get_functiondef('private.circle_task_role(uuid)'::regprocedure) into d;

@@ -591,8 +591,8 @@ begin
   if private.module_enabled('care_circle_checkin_window') then v_hold := (private.circle_rules() ->> 'checkin_window_minutes')::integer; end if;
   -- nothing here reads a triage event, a page or an emergency event: a red event reaches supporters at once through
   -- private.notify_circle_red_alert, which this migration does not touch.
-  -- The slots come from private.medication_slots_on, exactly as queue_medication_dose_reminders reads them, so start and end dates,
-  -- every-n-days, weekdays and tapers are respected, and a malformed schedule has no slots instead of aborting the sweep. A slot that
+  -- The slots come from private.medication_slots_on (the 4-argument form S08z moved the reminders to, so a dose anchored to a meal time
+  -- resolves for this patient), so start and end dates, every-n-days, weekdays, tapers and anchored doses are respected, and a malformed schedule has no slots instead of aborting the sweep. A slot that
   -- falls before the schedule took effect (a medicine just added or just edited) is never nudged. The time text is checked before it is
   -- cast, inside a CASE, so a bad string can never abort the sweep outside the per-row handler below.
   for r in
@@ -605,7 +605,7 @@ begin
           join public.profiles sp on sp.id = m.supporter_id and sp.is_active and sp.is_test = m.is_test
           join public.profiles pp on pp.id = m.patient_id and pp.is_active
           join public.medications med on med.patient_id = m.patient_id and med.is_active
-          cross join lateral private.medication_slots_on(med.schedule_spec, med.schedule_times, v_today) sl
+          cross join lateral private.medication_slots_on(med.schedule_spec, med.schedule_times, v_today, med.patient_id) sl
          where m.state = 'active' and m.expires_at > now() and m.missed_dose_alert and 'adherence_summary' = any (m.permissions)
            and not private.circle_paused(m.patient_id)
       ) s
