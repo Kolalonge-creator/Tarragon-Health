@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, View } from "react-native";
-import { asLocale, t, type MessageKey } from "@tarragon/i18n";
+import { anchorPhrase, asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { lagosLocalDate } from "@tarragon/medicines";
 import { useUiLanguage } from "@/lib/ui-language";
 import { answerCatchUp, catchUpKey, retryDelayMs, runCatchUpCheck, saveDismissed, saveLastOffered, type CatchUpChoice, type CatchUpItem } from "@/lib/catch-up";
@@ -121,7 +121,7 @@ export function CatchUpSheet({ patientId, organisationId, enabled }: CatchUpShee
                 </AppText>
               ) : null}
               <AppText variant="caption" tone="textMuted">
-                {[item.drugName, item.doseText ?? item.doseLabel ?? null].filter(Boolean).join(" · ")}
+                {[item.drugName, item.doseText ?? item.doseLabel ?? null, item.anchored ? anchorPhrase(item.anchored.anchor, item.anchored.offsetMinutes, locale) : null].filter(Boolean).join(" · ")}
               </AppText>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
                 <Button title={tr("meds.catchup.took")} fullWidth={false} disabled={busy !== null} onPress={() => void answer(item, "took")} />

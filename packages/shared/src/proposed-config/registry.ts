@@ -3718,25 +3718,38 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["lease\\w*days?\\s*[=:]\\s*30\\b", "probe\\w*(interval|seconds)\\w*\\s*[=:]\\s*60\\b"],
   },
   {
-    key: "vitals.diary_import",
-    // S07y. PROPOSED: how far back a reading copied from the person's own paper diary may be dated (the server column offline_sync_config.diary_window_days
-    // mirrors it and diary-import-mirror.test.ts fails if they drift; outside the window the reading is REFUSED, never stamped as now), the future skew the
-    // clock may have (the same value as offline_sync_config.future_skew_minutes), how many rows one confirmation may carry, and the largest photo of a diary page
-    // the reading assistant (AI-021, off) will accept, and how many photos one person may send for reading in an hour. It adds NO clinical threshold: what counts as impossible or dangerous is the existing devices.plausibility
-    // and the triage rules, unchanged. The Chief Medical Officer confirms the window (OQ-S07YL-5).
+    key: "medicines.dose_anchors",
+    // S08z. PROPOSED: dose times anchored to daily events. `anchors` are the STARTING times shown for each anchor (waking, meals, the five daily prayers,
+    // bedtime) before a patient sets their own; a patient confirms each one they use, and it is never presented as a prayer calendar or as clinical guidance. They
+    // are placeholders chosen to be plausible for Lagos, nothing is computed from location or a calendar, and the patient's own time always wins. The database seeds
+    // the same ten rows into `dose_anchor_defaults` (medicines-anchors-mirror.test.ts fails if they drift). `offset_choices_minutes` is what the phone offers beside
+    // an anchor (0 is "with it"; the database accepts any whole minute from -120 to 180), and `shift_offset_choices_minutes` what it offers for "move this part of my day by" (the
+    // database accepts up to 360 either way). `max_shift_days` is the longest a "my day has shifted" entry may run
+    // (a month of fasting fits; the table constraint mirrors it) and `max_shift_offset_minutes` the furthest it may move one anchor.
     value: {
-      window_days: 30,
-      future_skew_minutes: 5,
-      max_rows_per_save: 20,
-      max_photo_bytes: 8000000,
-      max_reads_per_hour: 20,
+      anchors: {
+        waking: "06:30",
+        morning_prayer: "05:45",
+        breakfast: "07:30",
+        midday_prayer: "13:15",
+        lunch: "13:30",
+        afternoon_prayer: "16:30",
+        evening_prayer: "19:00",
+        dinner: "20:00",
+        night_prayer: "20:15",
+        bedtime: "22:30",
+      },
+      offset_choices_minutes: [-30, 0, 15, 30, 60],
+      shift_offset_choices_minutes: [-120, -60, -30, 0, 30, 60, 90, 120],
+      max_shift_days: 45,
+      max_shift_offset_minutes: 360,
     },
-    owner: "CMO",
+    owner: "Founder",
     status: "proposed",
     version: 1,
-    effectiveFrom: "2026-10-20",
-    source: "docs/design/S07y-reading-labels-and-diary.md; supabase/migrations/20261020181520_s07y_reading_provenance_pharmacy_and_paper_diary.sql",
-    guardPatterns: ["diary\\w*days?\\s*[=:]\\s*30\\b"],
+    effectiveFrom: "2026-09-30",
+    source: "docs/design/S08z.md (dose times anchored to daily events); supabase/migrations/20261021011847_s08z_dose_time_anchors.sql",
+    guardPatterns: ["max_?[sS]hift_?[dD]ays\\s*[=:]\\s*45\\b"],
   },
   {
     key: "device_lab.budgets",
@@ -5460,6 +5473,27 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S65.md; CMO decisions Q17 and Q18",
+  },
+  {
+    key: "vitals.diary_import",
+    // S07y. PROPOSED: how far back a reading copied from the person's own paper diary may be dated (the server column offline_sync_config.diary_window_days
+    // mirrors it and diary-import-mirror.test.ts fails if they drift; outside the window the reading is REFUSED, never stamped as now), the future skew the
+    // clock may have (the same value as offline_sync_config.future_skew_minutes), how many rows one confirmation may carry, and the largest photo of a diary page
+    // the reading assistant (AI-021, off) will accept, and how many photos one person may send for reading in an hour. It adds NO clinical threshold: what counts as impossible or dangerous is the existing devices.plausibility
+    // and the triage rules, unchanged. The Chief Medical Officer confirms the window (OQ-S07YL-5).
+    value: {
+      window_days: 30,
+      future_skew_minutes: 5,
+      max_rows_per_save: 20,
+      max_photo_bytes: 8000000,
+      max_reads_per_hour: 20,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/S07y-reading-labels-and-diary.md; supabase/migrations/20261020181520_s07y_reading_provenance_pharmacy_and_paper_diary.sql",
+    guardPatterns: ["diary\\w*days?\\s*[=:]\\s*30\\b"],
   },
   {
     key: "vitals.device_red_rules",
