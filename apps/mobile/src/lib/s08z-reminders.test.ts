@@ -120,7 +120,8 @@ describe("reminders for anchored doses", () => {
     );
     mockTables.medications = [breakfast];
     await replanDoseReminders("p1", NOW);
-    const times = scheduled.slice(0, 2).map((s) => `${s.trigger.date.toISOString().slice(0, 10)} ${hhmm(s.trigger.date)}`);
+    // The dose-due reminders only: the unconfirmed follow-up (id carries "|u", item 4) is a separate, later reminder for the same dose.
+    const times = scheduled.filter((s) => !s.identifier.includes("|u")).slice(0, 2).map((s) => `${s.trigger.date.toISOString().slice(0, 10)} ${hhmm(s.trigger.date)}`);
     expect(times).toEqual(["2026-10-05 10:00", "2026-10-06 08:00"]);
   });
 

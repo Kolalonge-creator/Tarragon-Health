@@ -1,4 +1,5 @@
 import { getProposedConfig } from "@tarragon/shared";
+import type { NafdacHelperConfig, ReminderReliabilityConfig, RunwayConfig } from "@tarragon/medicines";
 
 /**
  * Typed loaders for the medicines values in the versioned registry
@@ -84,4 +85,44 @@ export function loadAdherenceBand(asOf?: string): AdherenceBandConfig {
   const key = "adherence.threshold";
   const { raw, version } = obj(key, asOf);
   return { version, percent: num(raw, "percent", key, 1), windowDays: num(raw, "windowDays", key, 1) };
+}
+
+/** Item 4: reminder reliability (unconfirmed-dose follow-up, self-test timing, iPhone limits). Registry key medicines.reminder_reliability. */
+export function loadReminderReliability(asOf?: string): ReminderReliabilityConfig {
+  const key = "medicines.reminder_reliability";
+  const { raw } = obj(key, asOf);
+  const flag = raw["iosTimeSensitive"];
+  if (typeof flag !== "boolean") throw new Error(`Config ${key}.iosTimeSensitive must be true or false`);
+  return {
+    unconfirmedFollowUpMinutes: num(raw, "unconfirmedFollowUpMinutes", key),
+    maxUnconfirmedFollowUpsPerDose: num(raw, "maxUnconfirmedFollowUpsPerDose", key),
+    selfTestDelaySeconds: num(raw, "selfTestDelaySeconds", key, 1),
+    selfTestAnswerWindowSeconds: num(raw, "selfTestAnswerWindowSeconds", key),
+    selfTestStaleDays: num(raw, "selfTestStaleDays", key, 1),
+    iosPendingLimit: num(raw, "iosPendingLimit", key, 1),
+    iosTimeSensitive: flag,
+  };
+}
+
+/** Item 9: the runway bar and the stock answer's maximum age. Registry key medicines.runway_and_stock_freshness. */
+export function loadRunwayConfig(asOf?: string): RunwayConfig {
+  const key = "medicines.runway_and_stock_freshness";
+  const { raw } = obj(key, asOf);
+  return {
+    barFullDays: num(raw, "barFullDays", key, 1),
+    offerCollectBelowDays: num(raw, "offerCollectBelowDays", key),
+    lowSupplyDays: num(raw, "lowSupplyDays", key, 1),
+    maxStockAgeHours: num(raw, "maxStockAgeHours", key, 1),
+  };
+}
+
+/** Item 14: the NAFDAC helper value (the public registration check address). Registry key medicines.nafdac_verify_helper. */
+export function loadNafdacHelperConfig(asOf?: string): NafdacHelperConfig {
+  const key = "medicines.nafdac_verify_helper";
+  const { raw } = obj(key, asOf);
+  const reg = raw["registrationCheck"] as Raw | undefined;
+  if (!reg || typeof reg["url"] !== "string" || typeof reg["name"] !== "string") {
+    throw new Error(`Config ${key} is malformed`);
+  }
+  return { registrationCheck: { name: reg["name"], url: reg["url"], readOn: String(reg["readOn"] ?? "") } };
 }
