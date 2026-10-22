@@ -2077,6 +2077,14 @@ Design: `docs/design/CGJ.md`. Founder decision (settled): the patient invites pe
 
 ## S06z My phones: the patient screen for phones that hold their data (2026-10-20), branch `s06z/my-phones`
 
+## S06z: data cost in naira and sync on Wi-Fi only (2026-10-20, branch `feat/s06z-data-cost-meter`)
+
+- **Gap checked first**: S06x's meter showed MB only, only while something was waiting, and counted Wi-Fi and mobile data together, so it could not say anything honest about cost. No Wi-Fi-only option existed. Low-data mode (read side only) is unchanged.
+- **Built**: `offline.data_cost` PROPOSED config (80 kobo a MB, 6 hour hold cap; guard patterns against hard-coding); pure rules `apps/mobile/src/lib/data-cost-rules.ts` (integer-kobo estimate, naira formatting, the urgent override, the hold rule); `connection-kind.ts` (NetInfo type, lazy, unknown on any failure); `data-usage.ts` now splits use by connection and keeps a "last sync"; `wifi-only.ts` (per-phone switch, off on any read failure); the outbox holds only ordinary readings and dose logs on KNOWN mobile data, capped, with `flushOutboxIncludingHeld` for "Send now"; `pullChanges` leaves the history read for Wi-Fi (never the first read; medicines and tasks always read); Settings "Mobile data" group; sync banner cost line and waiting-for-Wi-Fi card; web Help and support FAQ built from the same config; `datacost.*` strings (English only).
+- **Safety** (tightened after `/code-review high`, 9 findings, all fixed): only a dose log and a weight reading can be held; every other reading, every symptom, red-care answer, kick and contraction log, and anything flagged danger never is (the phone's flag is not proof a reading is ordinary: a pulse logged with a BP is never flagged, and a classifier error leaves a reading unflagged). A held dose log's deadline is the earlier of the 6 hour cap and one hour before the server writes "missed" for that dose, so a late dose log cannot become a false miss. The last upload before a wipe ignores the hold. Arriving on Wi-Fi from mobile data triggers a flush. "Send now" is a per-run parameter, not a global. The banner and the flush share one rule (`wifi-hold.ts`). BLE and health-sample queues are never touched.
+- **Tests**: mobile 2,336 + new (rules 24+, split meter, real-outbox flush, pull, view and copy), shared 1,050, i18n 215, web FAQ test; mobile `tsc` clean; eslint 0 errors.
+- **Not run**: nothing on a device or simulator (NetInfo's real type values, the Settings layout and the 44 point row are unexercised); the browser walk-through of the web FAQ.
+- **Open**: OQ-S06z-1 (the price), OQ-S06z-2 (cap and urgent kinds for the CMO), OQ-S06z-3 (BLE and health queues not covered).
 ## S43m: the Health Passport on the phone (2026-10-20)
 
 Design `docs/design/S43m.md`, research `docs/research/S43m.md`. Four PRs by screen group; this entry is appended to by each.

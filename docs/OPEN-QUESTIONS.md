@@ -4643,6 +4643,18 @@ Design: `docs/design/S07y-reading-labels-and-diary.md`. All three guards (`pharm
 
 ### OQ-S07YL-9 Export, FHIR and the data registry (raised by S07y; DPO)
 - `entry_origin` and `place_label` are columns on `vitals_readings`, so they are already part of the patient's own data export and the S39d registry row for that table. The place is a name the person typed; it is never used for any decision. The `observations` view (and so S44's FHIR export) does not carry the label; a pharmacy reading therefore exports as an ordinary patient-recorded observation. Options: carry the label into `observations.context` (a small change to a public view) so a receiving clinician sees the setting. Decision: open (DPO, interoperability).
+### OQ-S06z-1 Price per megabyte behind the data-cost estimate is PROPOSED (raised by S06z, 2026-10-20)
+- `offline.data_cost.price_per_mb_kobo` is 80 (N0.80 a MB, about N800 a GB), a guess at a mid-range prepaid bundle. It only feeds a figure labelled "estimate". Needed: the founder confirms or replaces it against current Nigerian prepaid prices, by publishing a new registry version (never an edit in place).
+- Decision: open (founder).
+
+### OQ-S06z-2 The Wi-Fi-only hold cap and the list of urgent kinds need the CMO's eyes (raised by S06z, 2026-10-20)
+- Held: only a dose log (deadline: the earlier of `max_hold_hours`, 6, and one hour before the server would write "missed" for that dose) and a weight reading. Never held: danger-flagged entries, symptoms, red-alert answers, kick and contraction logs, and every reading other than weight (the phone's flag is not proof a reading is ordinary). This is a patient-safety trade (data saved against a delay), so the CMO should confirm the cap, the one-hour slack, and that weight and dose logs may wait at all. Setting the cap to 0 disables holding. Holding a normal blood pressure needs a stored "classified, normal" result per row; not built.
+- Decision: open (CMO).
+
+### OQ-S06z-3 Wi-Fi only does not cover the device-reading and health-sample queues (raised by S06z, 2026-10-20)
+- A BLE reading or a wearable sample can carry an extreme value the phone cannot classify and the server's red-flag engine judges, so those queues are never held. They are a real share of data for a patient with a connected device; the meter counts them but the switch does not touch them. If the founder wants a "bulk only" hold (steps, sleep, HRV) it needs the server's red-flag-relevant types split out first.
+- Decision: open (product, CMO).
+
 ### OQ-DUP-1-1 Duplicate lab value match numbers are PROPOSED (raised by DUP-1, 2026-10-20)
 - `lab_value_match_config` v1: 2 day window, 0.5 percent value tolerance, same unit required. Engineering defaults, no published standard. The CMO or lab liaison confirms or changes them (a new config version, never an edit).
 - Decision: open (CMO).
