@@ -5,7 +5,7 @@ import { isAssistantOffered } from "@/lib/ai-coach/offered";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashboard)/patient/summary";
-import { formatGlucose, GLUCOSE_UNIT_LABEL } from "@tarragon/shared";
+import { lockedHomePins, resolveHomePins } from "@tarragon/shared";
 import {
   GetStartedCard,
   isFirstRun,
@@ -13,6 +13,9 @@ import {
 } from "@/app/(dashboard)/patient/get-started-card";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
+import { HomePinTiles } from "@/app/(dashboard)/patient/home-pin-tiles";
+import { ManageHomePins } from "@/app/(dashboard)/patient/manage-home-pins";
+import { getMonitoredVitals, getStoredHomePins } from "@/lib/patient/home-pins";
 import { statTileValue } from "@/components/ui/stat-tile-value";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
 import { getLagosGreetingWord } from "@/lib/greeting";
@@ -82,9 +85,14 @@ export default async function PatientOverviewPage() {
     await getPatientDashboardContext();
   // Independent reads: run them together, not one after another.
   const supabase = await createClient();
-  const [stats, prevention, coachAccess] = await Promise.all([
+  const [stats, prevention, storedPins, monitored, coachAccess] = await Promise.all([
     getPatientSummaryStats(subjectId),
     getPatientPreventionStats(subjectId),
+    // The patient's own pinned tiles. A supporter acting for someone else cannot
+    // read (or change) that person's layout, so they see the defaults.
+    acting ? Promise.resolve({ pins: null, readFailed: false }) : getStoredHomePins(subjectId),
+    // The vitals this patient's programme monitors: their pins cannot be switched off.
+    getMonitoredVitals(subjectId),
     // Same gate ai-coach-chat.tsx's own mount point (care/page.tsx) applies —
     // runCoachTurn's own entitlement check would otherwise return a canned
     // decline reply that AskTarragonCard has no way to distinguish from a real
@@ -126,6 +134,17 @@ export default async function PatientOverviewPage() {
           status: { text: BP_LEVEL_LABEL[bpLevel], tone: BP_STATUS_TONE[bpLevel] },
         }
       : {};
+
+  // Chronic-programme patients lead with all four numbers; a preventive-care
+  // patient already has three screening tiles above, so only BP by default.
+  const pinContext = { activeMedicationCount: stats.activeMedicationCount, monitoredVitals: monitored.vitals };
+  // A preventive-care patient already has "Screenings due" in the fixed row above, so that pin is not drawn twice.
+  const allPins = resolveHomePins(
+    storedPins.pins,
+    pinContext,
+    prevention.hasActiveCarePlan ? undefined : ["bp"],
+  );
+  const pins = prevention.hasActiveCarePlan ? allPins : allPins.filter((pin) => pin !== "screenings");
 
   return (
     <div id="overview" className="space-y-6">
@@ -203,52 +222,8 @@ export default async function PatientOverviewPage() {
           monitoring numbers; a healthy patient leads with prevention. Both
           states read the same shared record — nothing is hidden, only led
           with differently. */}
-      {prevention.hasActiveCarePlan ? (
+      {prevention.hasActiveCarePlan ? null : (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <StatTile
-            icon={SEMANTIC_ICON.bp}
-            label="Latest BP"
-            {...statTileValue(
-              stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : null,
-              "No reading yet",
-              "mmHg"
-            )}
-            {...bpTileProps}
-          />
-          <StatTile
-            icon={SEMANTIC_ICON.diabetes}
-            label="Latest glucose"
-            // In the reader's own unit, so the tile matches the number on
-            // their meter rather than a converted one they cannot check.
-            {...statTileValue(
-              formatGlucose(stats.latestGlucoseMmolL, glucoseUnit, { withUnit: false }),
-              "No reading yet",
-              GLUCOSE_UNIT_LABEL[glucoseUnit]
-            )}
-          />
-          <StatTile
-            icon={SEMANTIC_ICON.medication}
-            label="Active meds"
-            {...statTileValue(
-              stats.activeMedicationCount === 0 ? null : stats.activeMedicationCount,
-              "None on your list yet"
-            )}
-          />
-          <StatTile
-            icon={SEMANTIC_ICON.preventive}
-            label="Doses today"
-            // dosesTotal counts scheduled slots, so 0 means "nothing is due
-            // today", not "you have taken none of them" — a bare "0/0" reads
-            // like a missed day.
-            {...statTileValue(
-              stats.dosesTotal === 0 ? null : `${stats.dosesTaken}/${stats.dosesTotal}`,
-              "Nothing due today"
-            )}
-          />
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             {/* Without a risk assessment there's no calendar to count against —
                 a friendly hint, never a bare display-scale dash. */}
             {prevention.hasRiskAssessment ? (
@@ -290,19 +265,29 @@ export default async function PatientOverviewPage() {
                 empty={{ hint: "None scheduled yet" }}
               />
             )}
-            <StatTile
-              icon={SEMANTIC_ICON.bp}
-              label="Latest BP"
-              {...statTileValue(
-                stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : null,
-                "No reading yet",
-                "mmHg"
-              )}
-              {...bpTileProps}
-            />
-          </div>
-        </>
+        </div>
       )}
+
+      {/* The tiles the patient keeps in view. Vitals and medications to start
+          with; anything else is their own choice (Customise). A patient who
+          has never customised sees what the Overview has always led with. */}
+      <section aria-label="Pinned tiles" className="space-y-3">
+        {!acting && (
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-charcoal-ink/70 dark:text-night-ink/70">Pinned</h2>
+            {/* Hidden when the saved layout could not be read: saving from the defaults would overwrite it. */}
+            {!storedPins.readFailed && <ManageHomePins initialPins={allPins} lockedPins={lockedHomePins(pinContext)} />}
+          </div>
+        )}
+        <HomePinTiles
+          patientId={subjectId}
+          pins={pins}
+          stats={stats}
+          glucoseUnit={glucoseUnit}
+          screeningsDue={{ hasRiskAssessment: prevention.hasRiskAssessment, count: prevention.screeningsDueCount }}
+          bpTileProps={bpTileProps}
+        />
+      </section>
 
       {/* The catalogue's cheapest currently-buyable services, directly on the
           page every patient lands on — this is where the paid-per-service
