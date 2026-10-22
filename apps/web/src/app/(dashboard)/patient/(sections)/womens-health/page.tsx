@@ -18,6 +18,8 @@ import { BreastSymptomCard } from "@/app/(dashboard)/patient/breast-symptom-card
 import { MenopauseSymptomCard } from "@/app/(dashboard)/patient/menopause-symptom-card";
 import { PrivateSection } from "@/components/private-section/private-section";
 import { CycleDangerSigns } from "@/app/(dashboard)/patient/cycle/cycle-danger-signs";
+import { PregnancyDangerCard } from "@/app/(dashboard)/patient/pregnancy/pregnancy-danger-card";
+import { PregnancyTools } from "@/app/(dashboard)/patient/pregnancy/pregnancy-tools";
 import { FertilityRequestCard } from "@/app/(dashboard)/patient/fertility-request-card";
 import { formatPatientDate } from "@/lib/format-date";
 import { todayIsoDate } from "@/lib/queries/medications";
@@ -184,6 +186,7 @@ export default async function WomensHealthPage() {
           <>
             <CycleDangerSigns />
             {activePregnancy && <PregnancyRedFlagCheck patientId={subjectId} />}
+            {activePregnancy && <PregnancyDangerCard />}
           {pregnancyUnknown && (
             <Card variant="soft">
               <CardContent className="space-y-2 py-4 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
@@ -264,6 +267,13 @@ export default async function WomensHealthPage() {
               lastMenstrualPeriodDate={activePregnancy.last_menstrual_period_date}
               estimatedDueDate={activePregnancy.estimated_due_date}
               highRisk={activePregnancy.high_risk}
+            />
+            {/* S67 (OQ-346): inside the private lock, and shown only once the maternal_enabled guard is open for this person. */}
+            <PregnancyTools
+              patientId={subjectId}
+              organisationId={profile.organisation_id ?? null}
+              lmp={activePregnancy.last_menstrual_period_date}
+              edd={activePregnancy.estimated_due_date}
             />
           </>
         )}
