@@ -146,7 +146,8 @@ declare
   l1 uuid; l2 uuid; l3 uuid; lb uuid; lb_old uuid; lb2 uuid; d1 uuid; d1b uuid; r1 uuid := gen_random_uuid(); r2 uuid := gen_random_uuid(); v_n integer; v_pay uuid; r jsonb;
 begin
   l1 := pg_temp.line(v_org, v_a, v_admin, 60000, '20 days'); l2 := pg_temp.line(v_org, v_a, v_admin, 70000, '15 days'); l3 := pg_temp.line(v_org, v_a, v_admin, 50000, '12 days');
-  lb := pg_temp.line(v_org, v_b, v_admin, 200000, '14 days'); lb_old := pg_temp.line(v_org, v_b, v_admin, 1000, '90 days'); lb2 := pg_temp.line(v_org, v_b, v_admin, 20000, '5 days');
+  -- every line must sit before the last completed Lagos Sunday's cutoff, which on a Saturday or Sunday is only 5 to 6 days back, so nothing here is younger than 7 days
+  lb := pg_temp.line(v_org, v_b, v_admin, 200000, '14 days'); lb_old := pg_temp.line(v_org, v_b, v_admin, 1000, '90 days'); lb2 := pg_temp.line(v_org, v_b, v_admin, 20000, '8 days');
   perform pg_temp.setf('l1', l1); perform pg_temp.setf('l2', l2); perform pg_temp.setf('l3', l3); perform pg_temp.setf('lb', lb); perform pg_temp.setf('lb2', lb2);
   perform pg_temp.act(v_admin); v_n := public.build_payout_drafts_now(); perform pg_temp.back();
   perform pg_temp.ck('setup: drafts for A (180000/3) and B (221000/3)', '180000/3,221000/3',
