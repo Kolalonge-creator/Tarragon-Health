@@ -22,7 +22,7 @@ create function pg_temp.vit(p_patient uuid, p_org uuid, p_source text, p_sys int
 $$ insert into public.vitals_readings (organisation_id, patient_id, vital_type, source, taken_at, systolic, diastolic)
    values (p_org, p_patient, 'blood_pressure', p_source::public.vital_source, now(), p_sys, p_dia) $$;
 create function pg_temp.module(p_on boolean) returns void language sql as
-$$ update public.platform_modules set is_enabled = p_on, enabled_at = case when p_on then now() end where key = 'device_cuffless_cuff_check_task' $$;
+$$ update public.platform_modules set is_enabled = p_on, enabled_at = case when p_on then now() end, enabled_by = case when p_on then (select id from public.profiles order by created_at limit 1) end where key = 'device_cuffless_cuff_check_task' $$;
 create function pg_temp.tasks(p_patient uuid) returns text language sql as
 $$ select count(*)::text from public.care_tasks where patient_id = p_patient and source = 'cuffless_estimate' $$;
 
@@ -82,8 +82,8 @@ do $$ declare v text; begin
   select pg_get_functiondef(p.oid) into v from pg_proc p where p.proname = 'cuffless_cuff_check_task' and p.pronamespace = 'private'::regnamespace;
   v := replace(v, ' or not private.bp_reading_is_estimate(new.source::text)', '');
   execute v;
-  drop trigger vitals_readings_z_cuffless_cuff_check_task on public.vitals_readings;
-  create trigger vitals_readings_z_cuffless_cuff_check_task after insert on public.vitals_readings for each row when (new.vital_type = 'blood_pressure') execute function private.cuffless_cuff_check_task();
+  drop trigger vitals_readings_v_cuffless_cuff_check_task on public.vitals_readings;
+  create trigger vitals_readings_v_cuffless_cuff_check_task after insert on public.vitals_readings for each row when (new.vital_type = 'blood_pressure') execute function private.cuffless_cuff_check_task();
 end $$;
 do $$ begin perform pg_temp.run('sab_estimate'); end $$;
 

@@ -53,7 +53,7 @@ begin
   return v;
 end $f$;
 create function pg_temp.module(p_on boolean) returns void language sql as
-$$ update public.platform_modules set is_enabled = p_on, enabled_at = case when p_on then now() end where key = 'device_pharmacy_readings' $$;
+$$ update public.platform_modules set is_enabled = p_on, enabled_at = case when p_on then now() end, enabled_by = case when p_on then (select id from public.profiles order by created_at limit 1) end where key = 'device_pharmacy_readings' $$;
 create function pg_temp.make_code(p_patient uuid) returns text language plpgsql as
 $f$ declare r text;
 begin

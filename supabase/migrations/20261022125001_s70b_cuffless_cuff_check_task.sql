@@ -63,8 +63,8 @@ begin
 end $$;
 revoke all on function private.cuffless_cuff_check_task() from public, anon, authenticated;
 
-drop trigger if exists vitals_readings_z_cuffless_cuff_check_task on public.vitals_readings;
-create trigger vitals_readings_z_cuffless_cuff_check_task
+drop trigger if exists vitals_readings_v_cuffless_cuff_check_task on public.vitals_readings;
+create trigger vitals_readings_v_cuffless_cuff_check_task
   after insert on public.vitals_readings
   for each row
   when (new.vital_type = 'blood_pressure' and new.source = 'wearable')
