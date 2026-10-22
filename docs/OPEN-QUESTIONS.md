@@ -4918,7 +4918,3 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - `loadEmergencyFacts` ignored every query error, so a dropped connection mid-load wrote an empty card (or the defaults over a hidden choice) over the saved copy that has to work with no signal. It now throws on any failed read, so the screen keeps the last saved copy and says so. A regression test covers each of the six reads. Recorded because the old behaviour was live in the shipped app.
 - Decision: closed in this PR; no action unless the founder wants the same check on the other offline caches.
 
-### OQ-S43m-13 Two phone share screens were built; #1209's is kept (raised by the S43m merge, 2026-10-21)
-- #1209 and S43m PR 3 each built "Share my record" on the phone against the same functions. Only #1209's is on main-dev now (S43m's was removed in PR 3 to avoid two screens and a duplicate `shareRecords` section). Things S43m's screen did that are worth checking in #1209's, as a follow-up and not as a new screen: the saved list never holds the link (it fetches it only when asked); a lost answer to Create says a link may already exist; a locked or used-up link cannot be "sent again"; errors appear on the link's own card; a stopped link is removed from the saved copy at once; a note beside Medicines and Conditions that they include everything on those lists (OQ-S43m-7); a link already stopped counts as stopped. The founder (or product) should confirm #1209's screen is the one to keep.
-- Decision: open (product).
-
