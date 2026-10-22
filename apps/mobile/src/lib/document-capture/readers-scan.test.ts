@@ -12,6 +12,10 @@ import { DOCUMENT_CAPTURE_TYPES } from "@tarragon/shared";
  */
 const SRC = join(__dirname, "..", "..");
 const ALLOWED_FOLDERS = [join("lib", "document-capture") + "/", join("screens", "sections", "documents") + "/"];
+// One file is allowed by name, with its reason: "records from other hospitals" (lib/outside-records.ts) lists the person's own uploaded records and
+// inserts plain uploads with ocr_state null (so nothing is ever waiting for a reading). It must never read what a reading produced: the last test
+// below fails if it selects `extracted` or `ocr_text`.
+const ALLOWED_FILES = [join("lib", "outside-records.ts"), join("lib", "outside-records.test.ts")];
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -25,6 +29,7 @@ function walk(dir: string, out: string[] = []): string[] {
 const files = walk(SRC)
   .map((f) => ({ f, rel: relative(SRC, f) }))
   .filter(({ rel }) => !ALLOWED_FOLDERS.some((a) => rel.startsWith(a)))
+  .filter(({ rel }) => !ALLOWED_FILES.includes(rel))
   // This scan names the table in its own text.
   .filter(({ rel }) => !rel.endsWith("readers-scan.test.ts"));
 
@@ -48,5 +53,11 @@ describe("who may read photo-capture data on the phone", () => {
     for (const t of DOCUMENT_CAPTURE_TYPES) expect(Object.hasOwn(en, `passport.documents.type.${t}`)).toBe(true);
     for (const s of ["confirmed", "failed", "rejected"]) expect(Object.hasOwn(en, `passport.documents.state.${s}`)).toBe(true);
     for (const c of ["low", "medium", "high"]) expect(Object.hasOwn(en, `passport.documents.confidence.${c}`)).toBe(true);
+  });
+
+  it("the one named exception never reads the extracted details or the raw text of a document", () => {
+    const src = readFileSync(join(SRC, "lib", "outside-records.ts"), "utf8");
+    expect(/\bextracted\b|\bocr_text\b/.test(src)).toBe(false);
+    expect(ALLOWED_FILES).toHaveLength(2);
   });
 });
