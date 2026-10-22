@@ -4991,3 +4991,29 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Checked while reconciling S61 to S65 against current `main-dev`. `book-video-visit.tsx` says "If nobody can take it, you get a full refund". That path (`video_visit_requests`) takes a real Paystack payment, holds it, and `/api/cron/video-visit-refunds` refunds it in cash through the Paystack Refunds API when no doctor accepts within 48 hours. So the sentence describes what happens; it is not a credit-versus-cash mix-up.
 - No code was changed. The open question is still the founder one in OQ-S64-4 and OQ-133: whether this older path should stay as cash or move to the credit basis used elsewhere. Nigeria's FCCPC digital-markets guidance expects cancellation and refund terms to be clear and not misleading (U, from a law-firm summary), so whichever is chosen, the screen should state it plainly before payment.
 - Also noted: `docs/design/htn-hearts-alignment-note.md` lists where the draft hypertension step table may differ from the national HEARTS-based protocol, for the CMO. Nothing in it is decided.
+
+## S67 pregnancy screens (OQ-346 follow-up): questions from OQ-722
+
+### OQ-722 S67-screens: the care team has no audited read of kick sessions, contraction sessions or the birth plan (raised by the S67 screens build)
+- Checked: no function reads `kick_counts`, `contractions` or `birth_plans` for staff (only `antenatal_schedule_review_prompt` exists, and it reads neither). RLS lets org staff read the rows (`private.pregnancy_staff_may_read`), but a console tab that selected them directly would not write the audit entry INV-10 wants for an individual patient read. Nothing was added to the clinician Women's Health tab.
+- Options: (a) a SECURITY INVOKER function `clinician_pregnancy_tools_summary(p_pregnancy_id)` that calls `private.log_audit('read', ...)` then returns the last sessions and the plan (recommended, same pattern as `antenatal_schedule_review_prompt`); (b) show only the emergency event the session already raises.
+- Decision: open.
+
+### OQ-723 S67-screens: the phone keeps the last "guard open" answer so the tools open with no signal (raised by the S67 screens build)
+- `maternalGuardOpen` fails closed with no earlier answer, but after one successful check it remembers "open" on the phone and uses it offline (INV-06). A guard switched off while the phone is offline keeps showing the tools until the next successful check. The database does not read the guard for these tables (RLS only), so the guard is a courtesy gate on the screens, as for the other maternal cards.
+- Options: (a) keep as built (recommended); (b) always fail closed offline (the tools vanish with no signal, which defeats the offline counter).
+- Decision: open.
+
+### OQ-724 S67-screens: web has no offline queue, so a web kick or contraction session that cannot be saved is not retried (raised by the S67 screens build)
+- The fixed card still shows and says "could not be saved"; the phone path (outbox) retries. A web session that fails to save never raises the server-side care-team alert for a sign or before-37-weeks result.
+- Options: (a) accept, the web screens are a secondary path (recommended for the test period); (b) keep a small local retry queue on web.
+- Decision: open.
+
+### OQ-725 S67-screens: the web danger-sign card is behind the guard, the red-flag check is not (raised by the S67 screens build)
+- `PregnancyDangerCard` (web) follows the brief and shows only when `maternal_enabled` is open. The older `PregnancyRedFlagCheck` and the phone's bundled danger guide (opens only for an active pregnancy, but the phone copy of the guard answer also gates the new tools) are not gated. A real patient therefore sees danger-sign content on the red-flag check even while the new tools are off.
+- Options: (a) as built (recommended; the safety content is never hidden); (b) gate the web card the same as the phone card.
+- Decision: open.
+
+### OQ-726 S67-screens: nothing was rendered in a browser or simulator; the screens are checked by tests and type checks only (raised by the S67 screens build)
+- Web: React Testing Library plus axe, 23 tests. Phone: pure logic and outbox tests only (the mobile jest config renders no components), so `pregnancy-tools.tsx` has not been run on a device. Needs a look on web, an Android phone and an iPhone once `maternal_enabled` is on for a test account.
+- Decision: open (needs a test session).
