@@ -2172,9 +2172,15 @@ Design `docs/design/S43m.md`, research `docs/research/S43m.md`. Four PRs by scre
 
 - **Found**: the S43 trend reader and the S46/S47 Health Report reader both `UNION ALL` structured results (`lab_result_items`) with filed paper readings (`lab_analyte_readings`) with no match, so one value arriving by both routes counted twice. S43 photo capture (`patient_documents.extracted`) is not a path in (suggestions only). Live counts 0 in all three lab tables.
 - **Built**: migration `20261020214837` (versioned PROPOSED match config, append-only `lab_value_links`, triggers on both sources, both readers rewritten to collapse a duplicate and expose a disagreement, audited tied clinician note `lab_value_disagreements`, data-registry row); web trend screen (both sources labelled, disagreement note), case-file "Results that disagree"; registry key `lab_value.duplicate_match`; `biomarkers.*` strings.
-- **Tests**: DB proof `dup1_duplicate_lab_value_safety.sql` 48 checks plus 3 sabotage flips (run against live in a rolled-back transaction with the migration spliced in; no Docker); Jest trend, disagreement parser, registry mirror; i18n 215, shared proposed-config 321 pass; `tsc` clean.
+- **Tests**: DB proof `dup1_duplicate_lab_value_safety.sql` 52 checks plus 4 sabotage flips (run against live in a rolled-back transaction with the migration spliced in; no Docker); Jest trend, disagreement parser, registry mirror; i18n 215, shared proposed-config 321 pass; `tsc` clean.
 - **Not run**: not applied to production; not exercised in a browser against data (no lab rows exist); no local Supabase replay (Docker unavailable here), CI replay is the first full-chain run.
 - **Open**: OQ-DUP-1-1 to OQ-DUP-1-3.
+## RCPT-1 consent receipts as a one-page PDF (2026-10-20), branch `feat/consent-receipts`
+
+- **Built**: migration `20261020232611` (`public.consent_receipt_data(scope, ref)`: own rows only, patient role only, one audit row per call in the same function; `my_consent_matrix_history` now carries entry ids); `GET /api/patient/consent-receipt/pdf`; `lib/consent/consent-receipt.ts` and an A4 black and white react-pdf document; download links in the privacy matrix history, a "current choices" link and a per-agreement link; `consent.receipt.*` strings.
+- **Tests**: DB proof `rcpt1_consent_receipts.sql` 30 checks plus 3 sabotage flips (own-rows filter, audit call, role gate), run against live in a rolled-back transaction with the migration spliced in (no Docker); Jest lib 13, route 9, panel 1 added (privacy dir 56 pass); i18n 215; tsc clean; PDF rendered and viewed (whole picture fits one A4 page, single change one page).
+- **Not run**: not applied to production; the privacy page links were not clicked in a browser signed in as a patient; mobile not built (OQ-RCPT-1-1).
+- **Open**: OQ-RCPT-1-1 to OQ-RCPT-1-3.
 ## S08z: dose times anchored to daily events (2026-10-20, branch `feat/s08z-anchored-dose-times`)
 
 - **Gap checked first**: no way to tie a dose to waking, a meal, a prayer or bedtime, and no way to shift a day. `amend_medication` not copying `schedule_spec` was already fixed upstream (20261013185145, live definition checked), so no change was needed there.

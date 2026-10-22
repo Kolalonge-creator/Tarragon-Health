@@ -16,12 +16,15 @@
 --      Nothing is deleted or edited; both source rows stay as they were.
 --   3. Triggers on both source tables write the links. A link failure never blocks a result insert (a critical value must reach the record); it is
 --      written to lab_value_link_failures and raised as a warning, and the safe consequence is that the value shows twice until re-linked.
---   4. The two readers show a duplicate ONCE (the structured result, labelled with both sources). A legacy reading is hidden only while the
+--   4. The two readers show a duplicate ONCE (biomarker_points keeps its nine-column return type; the labels come from biomarker_point_labels) (the structured result, labelled with both sources). A legacy reading is hidden only while the
 --      structured result it duplicates is itself visible (released, not withdrawn, not replaced), so withdrawing the structured one brings the
 --      paper value back. A disagreement shows BOTH values, each marked as disagreeing, in the trend; the Health Report leaves a disputed analyte
 --      out of its facts (it never picks one) until a clinician settles it.
 --   5. lab_value_disagreements(): the clinician-visible note. Self, or staff through the tie with a reason and an audit row (INV-10, INV-12).
 --   Sensitive results (INV-04) are never linked: no code or flag on them is touched here.
+-- INV-04 / OQ-S43m-5: main-dev (20261020184127, 20261020201833) added `not l.sensitive_positive` to the legacy branch of both readers. This migration
+-- sorts AFTER them and re-creates the two functions, so the bodies below are built FROM those patched definitions and keep the filter on the
+-- exact text the OQ-S43m-5 proofs search for; a body written from the older text would have silently reverted the exclusion.
 -- Red-flag logic is deliberately NOT de-duplicated: a critical value arriving twice may page twice. Two pages are safe, a suppressed one is not.
 
 -- ---------------------------------------------------------------------------
@@ -125,7 +128,7 @@ begin
       join private.lab_analyte_readings_current l on l.patient_id = i.patient_id and lower(l.code) = lower(i.analyte_code)
      where i.patient_id = p_patient and lower(i.analyte_code) = lower(p_code)
        and i.value_numeric is not null and l.value is not null
-       and not i.sensitive_positive
+       and not i.sensitive_positive and not l.sensitive_positive
        and abs((timezone('Africa/Lagos', coalesce(lo.sample_collected_at, r.received_at, r.created_at)))::date
              - (timezone('Africa/Lagos', coalesce(l.specimen_collected_at, l.taken_at)))::date) <= v_window
        and not exists (select 1 from public.lab_value_links k where k.structured_item_id = i.id and k.legacy_reading_id = l.id)
@@ -223,36 +226,52 @@ $$
 $$;
 revoke all on function private.live_disagreement(uuid) from public, anon, authenticated;
 
--- Trend points: two new columns (also_from: the second source behind a collapsed duplicate; disagrees: a link of relation 'disagreement' exists
--- with the other side currently visible). The legacy side reads the _current view (a superseded row is not a reading).
-drop function private.biomarker_points(uuid, text);
-create function private.biomarker_points(p_patient uuid, p_code text)
-returns table (taken_at timestamptz, value numeric, unit text, ref_low numeric, ref_high numeric, ref_text text, flag text, source text, laboratory text,
-               also_from text, disagrees boolean)
+-- Trend points. The RETURN TYPE IS UNCHANGED (nine columns): the OQ-S43m-5 proofs re-create this function with that exact signature as their
+-- sabotage step, and a changed return type would make that CREATE OR REPLACE fail. A duplicate is collapsed here (the paper row is hidden while the
+-- structured result it duplicates is visible); the two labels the screen shows (also_from, disagrees) come from private.biomarker_point_labels below.
+-- The legacy side reads the _current view (a superseded row is not a reading) and keeps main-dev's sensitive_positive filter (INV-04, OQ-S43m-5).
+create or replace function private.biomarker_points(p_patient uuid, p_code text)
+returns table (taken_at timestamptz, value numeric, unit text, ref_low numeric, ref_high numeric, ref_text text, flag text, source text, laboratory text)
 language sql stable security definer set search_path = '' as
 $$
   select r.released_at, i.value_numeric, i.unit, i.ref_low, i.ref_high,
          case when i.ref_low is not null or i.ref_high is not null then concat_ws(' to ', i.ref_low::text, i.ref_high::text) end,
-         i.flag, 'lab_result'::text, null::text,
-         case when exists (select 1 from public.lab_value_links k join private.lab_analyte_readings_current c on c.id = k.legacy_reading_id
-                            where k.structured_item_id = i.id and k.relation = 'duplicate' and c.report_status in ('final', 'corrected', 'amended'))
-              then 'legacy_report' end,
-         exists (select 1 from public.lab_value_links k where k.structured_item_id = i.id and k.relation = 'disagreement' and private.live_disagreement(k.id))
+         i.flag, 'lab_result'::text, null::text
     from public.lab_result_items i
     join public.lab_results r on r.id = i.lab_result_id
    where i.patient_id = p_patient and lower(i.analyte_code) = lower(p_code) and i.value_numeric is not null
      and r.release_state = 'released' and r.withdrawn_at is null and r.superseded_by is null
      and not i.sensitive_positive
   union all
-  select l.taken_at, l.value, l.unit, l.reference_range_low, l.reference_range_high, l.reference_range_text, l.abnormal_flag::text, 'legacy_report'::text, l.laboratory,
-         null::text,
-         exists (select 1 from public.lab_value_links k where k.legacy_reading_id = l.id and k.relation = 'disagreement' and private.live_disagreement(k.id))
+  select l.taken_at, l.value, l.unit, l.reference_range_low, l.reference_range_high, l.reference_range_text, l.abnormal_flag::text, 'legacy_report'::text, l.laboratory
     from private.lab_analyte_readings_current l
    where l.patient_id = p_patient and lower(l.code) = lower(p_code) and l.value is not null
-     and l.report_status in ('final', 'corrected', 'amended')
+     and l.report_status in ('final', 'corrected', 'amended') and not l.sensitive_positive
      and not exists (select 1 from public.lab_value_links k where k.legacy_reading_id = l.id and k.relation = 'duplicate' and private.lab_item_visible(k.structured_item_id))
 $$;
 revoke all on function private.biomarker_points(uuid, text) from public, anon, authenticated;
+
+-- The two labels for a trend point, keyed by (taken_at, value, source): also_from = the second source behind a collapsed duplicate; disagrees = a
+-- disagreement link with both sides still shown. A left join from the points, so a point with no label row simply has none.
+create function private.biomarker_point_labels(p_patient uuid, p_code text)
+returns table (taken_at timestamptz, value numeric, source text, also_from text, disagrees boolean)
+language sql stable security definer set search_path = '' as
+$$
+  select r.released_at, i.value_numeric, 'lab_result'::text,
+         case when exists (select 1 from public.lab_value_links k join private.lab_analyte_readings_current c on c.id = k.legacy_reading_id
+                            where k.structured_item_id = i.id and k.relation = 'duplicate' and c.report_status in ('final', 'corrected', 'amended') and not c.sensitive_positive)
+              then 'legacy_report' end,
+         exists (select 1 from public.lab_value_links k where k.structured_item_id = i.id and k.relation = 'disagreement' and private.live_disagreement(k.id))
+    from public.lab_result_items i
+    join public.lab_results r on r.id = i.lab_result_id
+   where i.patient_id = p_patient and lower(i.analyte_code) = lower(p_code) and i.value_numeric is not null and not i.sensitive_positive
+  union all
+  select l.taken_at, l.value, 'legacy_report'::text, null::text,
+         exists (select 1 from public.lab_value_links k where k.legacy_reading_id = l.id and k.relation = 'disagreement' and private.live_disagreement(k.id))
+    from private.lab_analyte_readings_current l
+   where l.patient_id = p_patient and lower(l.code) = lower(p_code) and l.value is not null and not l.sensitive_positive
+$$;
+revoke all on function private.biomarker_point_labels(uuid, text) from public, anon, authenticated;
 
 -- Is any reading of this analyte currently disputed (a disagreement link whose two sides are both visible)?
 create function private.lab_code_disputed(p_patient uuid, p_code text) returns boolean
@@ -280,7 +299,7 @@ $$
   select l.taken_at, l.value, l.unit, l.reference_range_low, l.reference_range_high, l.abnormal_flag::text
     from private.lab_analyte_readings_current l
    where l.patient_id = p_patient and lower(l.code) = lower(p_code) and l.value is not null
-     and l.report_status in ('final', 'corrected', 'amended') and not private.report_excluded_code(l.code)
+     and l.report_status in ('final', 'corrected', 'amended') and not private.report_excluded_code(l.code) and not l.sensitive_positive
      and not (select private.lab_code_disputed(p_patient, p_code))
      and not exists (select 1 from public.lab_value_links k where k.legacy_reading_id = l.id and k.relation = 'duplicate' and private.lab_item_visible(k.structured_item_id))
 $$;
@@ -310,7 +329,10 @@ begin
          count(distinct nullif(lower(btrim(x.unit)), '')),
          coalesce(bool_or(x.disagrees), false)
     into v_points, v_units, v_disputed
-    from (select * from private.biomarker_points(v_patient, p_code) q
+    from (select q.*, lb.also_from, coalesce(lb.disagrees, false) as disagrees
+            from private.biomarker_points(v_patient, p_code) q
+            left join lateral (select l2.also_from, l2.disagrees from private.biomarker_point_labels(v_patient, p_code) l2
+                                where l2.taken_at = q.taken_at and l2.value = q.value and l2.source = q.source limit 1) lb on true
            where p_since is null or q.taken_at >= p_since::timestamptz order by q.taken_at desc limit c_max_points) x;
 
   select jsonb_build_object('min', (cp.target_ranges -> k.key ->> 'min')::numeric, 'max', (cp.target_ranges -> k.key ->> 'max')::numeric,
@@ -346,7 +368,7 @@ begin
              'latest_flag', case when c.disputed then null else c.latest_flag end,
              'latest_ref_low', c.latest_ref_low, 'latest_ref_high', c.latest_ref_high, 'latest_ref_text', c.latest_ref_text) order by c.last_at desc)
       from (
-        select codes.code, count(*) n, min(p.taken_at) first_at, max(p.taken_at) last_at, coalesce(bool_or(p.disagrees), false) disputed,
+        select codes.code, count(*) n, min(p.taken_at) first_at, max(p.taken_at) last_at, coalesce(bool_or(private.lab_code_disputed(v_patient, codes.code)), false) disputed,
                (array_agg(p.value order by p.taken_at desc))[1] latest_value,
                (array_agg(p.unit order by p.taken_at desc))[1] latest_unit,
                (array_agg(p.flag order by p.taken_at desc))[1] latest_flag,
@@ -402,7 +424,7 @@ begin
     join public.lab_results r on r.id = i.lab_result_id
     join private.lab_analyte_readings_current l on l.id = k.legacy_reading_id
    where k.patient_id = v_patient and k.relation = 'disagreement' and private.live_disagreement(k.id)
-     and l.report_status in ('final', 'corrected', 'amended')
+     and l.report_status in ('final', 'corrected', 'amended') and not l.sensitive_positive
      -- staff never see a reproductive or mental health analyte through this note (the person does, it is their own record)
      and (v_patient = v_uid or (private.confidential_domain_of_text(k.analyte_code) is null
                               and k.analyte_code !~* '(^|[^a-z])(hcg|amh|fsh|lh|estradiol|estrogen|oestr|progesterone|prolactin|testosterone|shbg|dhea|inhibin|semen|sperm|pregnan|ovar|cervic|hpv)'));
@@ -430,7 +452,7 @@ begin
     if has_function_privilege('anon', v_fn, 'EXECUTE') then raise exception 'anon can execute %', v_fn; end if;
     if not has_function_privilege('authenticated', v_fn, 'EXECUTE') then raise exception 'authenticated cannot execute %', v_fn; end if;
   end loop;
-  foreach v_fn in array array['private.link_lab_value_pairs(uuid, text)', 'private.biomarker_points(uuid, text)', 'private.hr_biomarker_points(uuid, text)', 'private.lab_item_visible(uuid)', 'private.live_disagreement(uuid)', 'private.lab_code_disputed(uuid, text)', 'private.lab_value_match_active()'] loop
+  foreach v_fn in array array['private.link_lab_value_pairs(uuid, text)', 'private.biomarker_points(uuid, text)', 'private.biomarker_point_labels(uuid, text)', 'private.hr_biomarker_points(uuid, text)', 'private.lab_item_visible(uuid)', 'private.live_disagreement(uuid)', 'private.lab_code_disputed(uuid, text)', 'private.lab_value_match_active()'] loop
     if has_function_privilege('anon', v_fn, 'EXECUTE') or has_function_privilege('authenticated', v_fn, 'EXECUTE') then raise exception 'a client can execute %', v_fn; end if;
   end loop;
   if has_table_privilege('authenticated', 'public.lab_value_match_config', 'SELECT') or has_table_privilege('authenticated', 'public.lab_value_links', 'INSERT')
@@ -439,4 +461,11 @@ begin
     raise exception 'a client can reach the match config or write links';
   end if;
   if (select count(*) from public.lab_value_match_config) < 1 then raise exception 'no match config seeded'; end if;
+  if (select prosrc from pg_proc where oid = 'private.biomarker_points(uuid,text)'::regprocedure) not like '%and not l.sensitive_positive%'
+     or (select prosrc from pg_proc where oid = 'private.biomarker_points(uuid,text)'::regprocedure) not like '%not i.sensitive_positive%' then
+    raise exception 'biomarker_points lost its sensitive_positive filter (OQ-S43m-5)';
+  end if;
+  if (select prosrc from pg_proc where oid = 'private.hr_biomarker_points(uuid,text)'::regprocedure) not like '%and not l.sensitive_positive%' then
+    raise exception 'hr_biomarker_points lost its sensitive_positive filter (OQ-S43m-5)';
+  end if;
 end $$;

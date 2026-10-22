@@ -115,7 +115,7 @@ begin
   perform pg_temp.ck('1a one duplicate link is written', '1:duplicate:same_value',
     (select count(*)::text || ':' || min(relation) || ':' || min(reason) from public.lab_value_links where patient_id = v_pat and lower(analyte_code) = 'hba1c'));
   perform pg_temp.ck('1b the trend shows the value ONCE, labelled with both sources', '1:lab_result:legacy_report:false',
-    (select count(*)::text || ':' || min(source) || ':' || coalesce(min(also_from), 'none') || ':' || bool_or(disagrees)::text from private.biomarker_points(v_pat, 'hba1c')));
+    (select count(*)::text || ':' || min(source) from private.biomarker_points(v_pat, 'hba1c')) || ':' || (select coalesce(min(also_from), 'none') || ':' || bool_or(disagrees)::text from private.biomarker_point_labels(v_pat, 'hba1c') where (taken_at, value, source) in (select taken_at, value, source from private.biomarker_points(v_pat, 'hba1c'))));
   perform pg_temp.ck('1c the Health Report series counts it once', '1', (select count(*)::text from private.hr_biomarker_points(v_pat, 'hba1c')));
   perform pg_temp.ck('1d both source rows are kept (linked, not deleted)', '1:1',
     (select count(*)::text from public.lab_result_items where patient_id = v_pat and lower(analyte_code) = 'hba1c') || ':' ||
@@ -146,7 +146,7 @@ begin
   perform pg_temp.ck('3b a different unit is a disagreement (never converted)', 'disagreement:unit_differs',
     (select relation || ':' || reason from public.lab_value_links where patient_id = v_pat and analyte_code = 'creatinine'));
   perform pg_temp.ck('3c the trend shows BOTH values, each marked as disagreeing', '2:true',
-    (select count(*)::text || ':' || bool_and(disagrees)::text from private.biomarker_points(v_pat, 'ldl')));
+    (select count(*)::text from private.biomarker_points(v_pat, 'ldl')) || ':' || (select bool_and(disagrees)::text from private.biomarker_point_labels(v_pat, 'ldl')));
   perform pg_temp.ck('3d the trend function flags the series as disputed', 'true',
     pg_temp.q_as(v_pat, $q$select (public.patient_biomarker_trend('ldl') ->> 'disputed')$q$));
   perform pg_temp.ck('3e the Health Report series leaves a disputed analyte out rather than pick one', '0',
@@ -195,7 +195,24 @@ begin
   update public.lab_results set release_state = 'released', reviewed_by = v_doc, reviewed_at = now() where id = v_res4;
   perform pg_temp.ck('3n a later same-value partner retires that disagreement (not disputed, no false flag)', 'false:2:false',
     (private.lab_code_disputed(v_pat, 'alt'))::text || ':' || (select count(*)::text from private.biomarker_points(v_pat, 'alt')) || ':' ||
-    (select bool_or(disagrees)::text from private.biomarker_points(v_pat, 'alt')));
+    (select bool_or(disagrees)::text from private.biomarker_point_labels(v_pat, 'alt')));
+
+  -- ===== 3o. INV-04 / OQ-S43m-5: a sensitive_positive legacy reading never reaches the trend or the report input, and is never linked ===========
+  insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_numeric, unit, flag, sensitive_positive, is_test)
+  values (v_res2, v_org, v_pat, 'wbc', 4.0, '10^9/L', 'normal', false, true);
+  insert into public.lab_analyte_readings (organisation_id, patient_id, code, value, unit, taken_at, report_status, sensitive_positive)
+  values (v_org, v_pat, 'wbc', 4.0, '10^9/L', now(), 'final', true),
+         (v_org, v_pat, 'wbc', 6.5, '10^9/L', now() - interval '30 days', 'final', false);
+  perform pg_temp.ck('3o the sensitive legacy reading is not in the trend (the ordinary one still is)', '1:6.5',
+    (select count(*)::text || ':' || trim_scale(min(value))::text from private.biomarker_points(v_pat, 'wbc') where source = 'legacy_report'));
+  perform pg_temp.ck('3p ...nor in the Health Report input', '1:6.5',
+    (select count(*)::text || ':' || trim_scale(min(value))::text from private.hr_biomarker_points(v_pat, 'wbc') where value <> 4.0 or taken_at < now() - interval '1 day'));
+  perform pg_temp.ck('3q ...and it is never linked to a structured result (no copy of its value anywhere)', '0',
+    (select count(*)::text from public.lab_value_links where patient_id = v_pat and analyte_code = 'wbc'));
+  perform pg_temp.ck('3r both readers keep the exact filter text main-dev patched in', 'true:true:true',
+    ((select prosrc from pg_proc where oid = 'private.biomarker_points(uuid,text)'::regprocedure) like '%and l.report_status in (''final'', ''corrected'', ''amended'') and not l.sensitive_positive%')::text || ':' ||
+    ((select prosrc from pg_proc where oid = 'private.hr_biomarker_points(uuid,text)'::regprocedure) like '%and not private.report_excluded_code(l.code) and not l.sensitive_positive%')::text || ':' ||
+    ((select prosrc from pg_proc where oid = 'private.biomarker_points(uuid,text)'::regprocedure) like '%not i.sensitive_positive%')::text);
 
   -- ===== 4. nothing is lost by collapsing ========================================================================================
   update public.lab_results set withdrawn_at = now(), withdrawn_by = v_admin, withdrawn_reason = 'DUP1 proof withdrawal' where id = v_res;
@@ -283,7 +300,7 @@ begin
   alter table public.lab_value_links disable trigger lab_value_links_no_update;
   delete from public.lab_value_links where patient_id = v_pat and lower(analyte_code) = 'hba1c';
   insert into results values ('sabotaged', '1b the trend shows the value ONCE, labelled with both sources', '1:lab_result:legacy_report:false',
-    (select count(*)::text || ':' || min(source) || ':' || coalesce(min(also_from), 'none') || ':' || bool_or(disagrees)::text from private.biomarker_points(v_pat, 'hba1c')));
+    (select count(*)::text || ':' || min(source) from private.biomarker_points(v_pat, 'hba1c')) || ':' || (select coalesce(min(also_from), 'none') || ':' || bool_or(disagrees)::text from private.biomarker_point_labels(v_pat, 'hba1c') where (taken_at, value, source) in (select taken_at, value, source from private.biomarker_points(v_pat, 'hba1c'))));
   -- B. both triggers dropped: a new matching pair is no longer linked, so it counts twice
   drop trigger lab_value_link_after_legacy on public.lab_analyte_readings;
   drop trigger lab_value_link_after_item on public.lab_result_items;
@@ -302,6 +319,11 @@ begin
     from public.lab_result_items i, public.lab_analyte_readings l where i.patient_id = v_pat and lower(i.analyte_code) = 'hba1c' and l.patient_id = v_pat and l.code = 'hba1c';
   insert into results values ('sabotaged', '4a withdrawing the structured result brings the paper value back (one point, legacy source)', '1:legacy_report',
     (select count(*)::text || ':' || coalesce(min(source), 'nothing') from private.biomarker_points(v_pat, 'hba1c')));
+  -- D. the sensitive filter reverted in both readers (what a body written from the pre-OQ-S43m-5 text would do): 3o and 3p must flip
+  execute replace(pg_get_functiondef('private.biomarker_points(uuid,text)'::regprocedure), ' and not l.sensitive_positive', '');
+  execute replace(pg_get_functiondef('private.hr_biomarker_points(uuid,text)'::regprocedure), ' and not l.sensitive_positive', '');
+  insert into results values ('sabotaged', '3o the sensitive legacy reading is not in the trend (the ordinary one still is)', '1:6.5',
+    (select count(*)::text || ':' || trim_scale(min(value))::text from private.biomarker_points(v_pat, 'wbc') where source = 'legacy_report'));
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FLIPPED' end as result
@@ -318,7 +340,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), E'\n  ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
 rollback;
