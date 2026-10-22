@@ -181,6 +181,18 @@ describe("portion guide format", () => {
   it("an unknown hand is not a food line, so the body still reads as text", () => {
     expect(isPortionGuideBody("[portion swallow elbow] Yam")).toBe(false);
   });
+  it("a long hostile line finishes fast and is not a food line", () => {
+    const hostile = ["[portion 0 _]" + " ".repeat(200000) + "x", "[portion " + " ".repeat(200000), "[portion a" + "_".repeat(200000), "[portion " + "0 ".repeat(100000)].join("\n");
+    const start = Date.now();
+    expect(isPortionGuideBody(hostile)).toBe(false);
+    const parsed = parsePortionGuide(hostile);
+    expect(parsed.foods).toEqual([]);
+    expect(Date.now() - start).toBeLessThan(1000);
+  });
+  it("accepts extra spacing and tabs around the marker parts", () => {
+    const p = parsePortionGuide("[portion   a1\tfist]    Rice  ");
+    expect(p.foods).toEqual([{ ref: "a1", hand: "fist", name: "Rice", tip: "" }]);
+  });
   it("amounts come only from the config", () => {
     const c = { portions: { swallow: { diabetes: { amount: 1, unit: "fist", per: "meal" as const } } } };
     expect(portionFor(c, "swallow", "diabetes")).toEqual({ amount: 1, unit: "fist", per: "meal" });

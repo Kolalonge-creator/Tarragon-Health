@@ -48,7 +48,47 @@ export interface ParsedPortionGuide {
   readonly notes: readonly string[];
 }
 
-const MARKER = /^\[portion\s+([a-z0-9_]+)\s+([a-z_]+)\]\s*(.+)$/;
+const MARKER_PREFIX = "[portion";
+
+function isBlank(ch: string | undefined): boolean {
+  return ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\f" || ch === "\v";
+}
+
+/**
+ * Parses one `[portion <ref> <hand>] <food name>` line with a single left-to-right scan (no regular expression, so no backtracking: a long
+ * hostile line costs time linear in its length). Returns null when the line is not a marker line.
+ */
+function parseMarker(line: string): { ref: string; hand: string; name: string } | null {
+  if (!line.startsWith(MARKER_PREFIX)) return null;
+  const n = line.length;
+  let i = MARKER_PREFIX.length;
+  const skipBlanks = (): boolean => {
+    const start = i;
+    while (i < n && isBlank(line[i])) i++;
+    return i > start;
+  };
+  const takeWord = (allowDigits: boolean): string => {
+    const start = i;
+    while (i < n) {
+      const c = line.charCodeAt(i);
+      const lower = c >= 97 && c <= 122;
+      const digit = c >= 48 && c <= 57;
+      if (lower || c === 95 || (allowDigits && digit)) i++;
+      else break;
+    }
+    return line.slice(start, i);
+  };
+  if (!skipBlanks()) return null;
+  const ref = takeWord(true);
+  if (ref === "" || !skipBlanks()) return null;
+  const hand = takeWord(false);
+  if (hand === "" || line[i] !== "]") return null;
+  i++;
+  while (i < n && isBlank(line[i])) i++;
+  const name = line.slice(i);
+  if (name === "") return null;
+  return { ref, hand, name };
+}
 
 export function isPortionHand(v: string): v is PortionHand {
   return (PORTION_HANDS as readonly string[]).includes(v);
@@ -57,8 +97,8 @@ export function isPortionHand(v: string): v is PortionHand {
 /** True when a body uses the portion-guide format (at least one valid food line). */
 export function isPortionGuideBody(body: string): boolean {
   return body.split("\n").some((l) => {
-    const m = MARKER.exec(l.trim());
-    return m !== null && isPortionHand(m[2] ?? "");
+    const m = parseMarker(l.trim());
+    return m !== null && isPortionHand(m.hand);
   });
 }
 
@@ -70,9 +110,9 @@ export function parsePortionGuide(body: string): ParsedPortionGuide {
   let afterBlank = false;
   for (const raw of body.split("\n")) {
     const line = raw.trim();
-    const m = MARKER.exec(line);
-    if (m && isPortionHand(m[2] ?? "")) {
-      current = { ref: m[1] ?? "", hand: m[2] as PortionHand, name: (m[3] ?? "").trim(), tip: [] };
+    const m = parseMarker(line);
+    if (m && isPortionHand(m.hand)) {
+      current = { ref: m.ref, hand: m.hand, name: m.name.trim(), tip: [] };
       foods.push(current);
       afterBlank = false;
       continue;

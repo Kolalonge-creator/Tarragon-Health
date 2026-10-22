@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { breakRowSchema, glAttentionRowSchema, type GlAttentionRow, healthRowSchema, inboxRowSchema, type BreakRow, type HealthRow, type InboxRow } from "./model";
+import { breakRowSchema, glAttentionRowSchema, type GlAttentionRow, healthRowSchema, inboxRowSchema, parseProviderLayerHealth, type BreakRow, type HealthRow, type InboxRow, type ProviderLayerHealth } from "./model";
 
 /**
  * Loaders for the provider board. Every read is an admin-only database function or an admin-only view (RLS), so a non-admin gets an
@@ -35,4 +35,10 @@ export async function loadGlAttention(): Promise<{ rows: GlAttentionRow[]; faile
   const { data, error } = await (await client()).rpc("list_payout_gl_attention");
   const parsed = glAttentionRowSchema.array().safeParse(data);
   return error || !parsed.success ? { rows: [], failed: true } : { rows: parsed.data, failed: false };
+}
+
+/** One read for the chain-health page: webhook inbox lag, dead events, breakers, reconciliation and payout postings. Admin or the CMO. */
+export async function loadProviderLayerHealth(): Promise<ProviderLayerHealth | null> {
+  const { data, error } = await (await client()).rpc("provider_layer_health");
+  return error ? null : parseProviderLayerHealth(data);
 }

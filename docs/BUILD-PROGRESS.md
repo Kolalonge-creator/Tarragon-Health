@@ -2077,6 +2077,15 @@ Design: `docs/design/CGJ.md`. Founder decision (settled): the patient invites pe
 
 ## S06z My phones: the patient screen for phones that hold their data (2026-10-20), branch `s06z/my-phones`
 
+## S43m: the Health Passport on the phone (2026-10-20)
+
+Design `docs/design/S43m.md`, research `docs/research/S43m.md`. Four PRs by screen group; this entry is appended to by each.
+
+### PR 1: health history, symptom journal, timeline links and honest states (`s43m/history-journal`)
+- **Built**: `lib/passport-cache.ts` (last good copy in the SQLCipher store, per account, cleared at sign-out, `readThrough` shows a stale copy with a notice and never an empty list for a failed read); `lib/health-history.ts` and the Health history screen (procedures and family history, add, remove through the tombstone function, read-only for a supporter, writes need a connection and say so); `lib/symptom-journal.ts` and the Symptom journal screen (the web function `patient_symptom_journal`, last copy, S06 mirror fallback, entries waiting in the outbox shown as waiting); `packages/shared/src/health-history.ts` (relatives list and entry rules, now used by the web schema too); timeline event links for symptoms and procedures; My Health hub rows; `mpass.*` strings.
+- **Not built, on purpose**: no migration, no new dependency, no native change, `runtimeVersion` untouched.
+- **Open**: OQ-S43m-1, OQ-S43m-2.
+
 ## S07y: cuff size and validated-device guidance, the pre-visit summary, the OQ-67 comparison report (2026-10-20), branch `s07y/bp-cuff-and-visit-summary`
 
 - **Built**: migration `20261021113725_s07y_cuff_guidance_and_bp_band_report.sql` (governed `bp_cuff_guidance_signoffs`, born unsigned and inactive, CMO-only `sign_bp_cuff_guidance`; append-only `patient_bp_cuffs` reusing the S12b `cuff_type` vocabulary; `my_bp_cuff_guidance()` and `record_my_bp_cuff()` which show and accept nothing until signed; `private.bp_cuff_model_listing()` reading the existing S70a `device_catalog`; `bp_band_divergence_report()` for OQ-67). `@tarragon/clinical` `cuffSizeKey`; PROPOSED config `bp.cuff_sizing` with a mirror test. Phone: cuff size step inside the home check's cuff guide, cuff type prefilled in the BP form. Web: CMO and admin pages for the cuff table, an admin editor and a CMO review page over `device_catalog` (hub line), the pre-visit PDF (`?kind=visit` on the existing route, linked from the visit report card), the two band report pages, admin search entries.
@@ -2335,6 +2344,10 @@ Founder decision 2026-10-20 (explicit; reverses S72-2; against INV-09, credit ri
 - **Still open**: the screen's own load still runs the detector twice (list and summary), which is fine at today's volume; an index plan belongs before the 25k-Member stage.
 - **Not done, on purpose**: access and legacy per-domain purchases untouched (founder decisions pending).
 
+### PR 2: results over time (`s43m/trends`, stacked on PR 1)
+- **Built**: Results over time screen (`patient_biomarker_list` and `patient_biomarker_trend`: a chip per test, one SVG line per unit drawn with `react-native-svg`, the lab's range band only when every point shares one, the care team's target shown as words only (never drawn: it carries no unit, OQ-S43m-4), every flag the database allows given words, a list of every reading under the chart, a one-sentence summary for the screen reader, a notice when units are mixed, last good copy offline for the list and every test already opened, never kept for a supporter); `lib/biomarkers.ts`; trend parsing and chart geometry moved from `apps/web/src/lib/biomarkers/trend.ts` to `packages/shared/src/biomarker-trend.ts` (the web path re-exports it, the 17 tests moved with it); My Health hub row; drawer entry.
+- **Not built, on purpose**: no range other than the lab's, no unit conversion, no meaning of a result, no pinch or scrub (the list under the chart is the exact reading), no pre-fetch of every test for offline (a test never opened says so).
+- **Tests**: mobile 182 suites / 2329, shared 121 / 1074, i18n 215; `tsc` clean for mobile and web. `/code-review high`: 11 findings, the phone-side ones fixed; the database ones (a sensitive-positive gap in the legacy branch, no analyte categories) recorded as OQ-S43m-5 with live counts (0 rows), the web flag words as OQ-S43m-6.
 
 
 ## S25b removed: pay the annual Membership in parts (2026-10-21, branch `chore/remove-membership-instalments`)
@@ -2346,7 +2359,7 @@ Founder decision 2026-10-20 (explicit; reverses S72-2; against INV-09, credit ri
 
 ## Learning: record-triggered lessons, food portion guide, quality gates (2026-10-22, branch `build/s51-55-b-learning`)
 - **Source**: items 7, 8 and 12 of `docs/research/S51-S55-review-and-build-plan.md`, on top of S55 (Module 9). Open questions OQ-S55-QG-01 to OQ-S55-QG-06. Nothing is switched on, nothing is signed, nothing applied live, not pushed.
-- **Built (migrations `20261022112101_learning_quality_gates.sql` and `20261022112102_learning_record_lessons_and_portion_guide.sql`)**:
+- **Built (migrations `20261022120001_learning_quality_gates.sql` and `20261022120002_learning_record_lessons_and_portion_guide.sql`)**:
   - Item 12a reading-grade gate: `private.reading_grade` (Flesch-Kincaid, same formula as `packages/shared/src/learning/reading-grade.ts`, shared golden vectors), a separate trigger that refuses to publish patient content above the PROPOSED maximum (8) unless the CMO records an override reason bound to the exact body, `learning_reading_grade_report()`, the grade and override control on the admin health-education manager.
   - Item 12b glossary: `learning_glossary_terms` with owner, reviewer (name from the account), source and review date; `learning_glossary()` serves only published, in-date terms; eight DRAFT terms; tap-to-define on web (`GlossaryText`) and phone (`GlossaryTextNative`).
   - Item 12c teach-back: `teachback` on content (1 to 3 questions), `lesson_teachback`, `record_teachback_result`, `share_teachback_with_care_team`, `consultation_shared_teachbacks`, `learning_teachback_results` (private, counts only); quiz components on web and phone; shared answers shown on the clinician saved-lessons card. Never gates a lesson or a course.
@@ -2356,4 +2369,4 @@ Founder decision 2026-10-20 (explicit; reverses S72-2; against INV-09, credit ri
 - **Tests**: DB proofs `reading_grade_gate.sql` (32 checks), `learning_glossary_and_teachback.sql` (49) and `record_lessons_and_portion_guide.sql` (42), all registered in `ci.manifest` with sabotage steps that flip and refused-role checks, run on a stand-in schema only (OQ-S55-QG-06). Jest: shared 1369 pass, i18n 246 pass, mobile 2526 pass, web learning/rules/patient suites pass; tsc clean on shared, i18n, web and mobile; eslint 0 errors on the touched files.
 - **Reused, not rebuilt**: the S55 publish gate, review-date serving rule, offline pack, footer and urgent-help box, `save_lesson_for_consultation`, `go_live_open_patient`, `emit_domain_event`, the platform's BP and glucose classifiers, `private.classify_bp_level`.
 - **Not done, and why**: no authoring screens for glossary terms or teach-back questions (the writers are functions; S80 CMS); no offline glossary; no real content (clinical authors, OQ-S55-QG-02 to 05); the guard's conditions are not defined, so the record lessons cannot be switched on; nothing run in a browser or on a phone; nothing replayed on the full migration history.
-- **Apply to production checklist (when approved)**: `list_migrations` first; version pinned to the filename, never bare `apply_migration`; explicit transaction with a dry run in `begin; ...; rollback;`; apply `20261022112101` then `20261022112102`; ship web and phone code with them (the phone needs an OTA, no native change).
+- **Apply to production checklist (when approved)**: `list_migrations` first; version pinned to the filename, never bare `apply_migration`; explicit transaction with a dry run in `begin; ...; rollback;`; apply `20261022120001` then `20261022120002`; ship web and phone code with them (the phone needs an OTA, no native change).

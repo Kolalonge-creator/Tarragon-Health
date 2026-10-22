@@ -23,6 +23,9 @@ describe("verifySvix", () => {
     expect(await verifySvix(SECRET, { id: null, timestamp: TS, signature: good }, "{}", NOW)).toBe(false);
     expect(await verifySvix(SECRET, { id: "m1", timestamp: String(NOW / 1000 - 3600), signature: sign("m1", String(NOW / 1000 - 3600), "{}") }, "{}", NOW)).toBe(false);
     expect(await verifySvix(SECRET, { id: "m1", timestamp: "abc", signature: good }, "{}", NOW)).toBe(false);
+    // Svix sends whole seconds: scientific notation or padding is not a timestamp, even when Number() would read it
+    expect(await verifySvix(SECRET, { id: "m1", timestamp: "1.7e9", signature: good }, "{}", NOW)).toBe(false);
+    expect(await verifySvix(SECRET, { id: "m1", timestamp: ` ${TS}`, signature: sign("m1", ` ${TS}`, "{}") }, "{}", NOW)).toBe(false);
     expect(await verifySvix(SECRET, { id: "m1", timestamp: TS, signature: good.replace("v1,", "v2,") }, "{}", NOW)).toBe(false);
     expect(await verifySvix(SECRET, { id: "m1", timestamp: TS, signature: "v1," }, "{}", NOW)).toBe(false);
     expect(await verifySvix(SECRET, { id: "m1", timestamp: TS, signature: "v1,short" }, "{}", NOW)).toBe(false);

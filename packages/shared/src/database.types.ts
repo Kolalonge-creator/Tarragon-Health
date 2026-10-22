@@ -30401,6 +30401,144 @@ export type Database = {
           },
         ]
       }
+      pathway_baselines: {
+        Row: {
+          captured_at: string
+          cycle: number
+          enrolment_id: string
+          id: string
+          is_test: boolean
+          organisation_id: string
+          pathway_code: string
+          patient_id: string
+          recorded_by: string | null
+          snapshot: Json
+          source: string
+        }
+        Insert: {
+          captured_at?: string
+          cycle?: number
+          enrolment_id: string
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          pathway_code: string
+          patient_id: string
+          recorded_by?: string | null
+          snapshot: Json
+          source?: string
+        }
+        Update: {
+          captured_at?: string
+          cycle?: number
+          enrolment_id?: string
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          pathway_code?: string
+          patient_id?: string
+          recorded_by?: string | null
+          snapshot?: Json
+          source?: string
+        }
+        Relationships: []
+      }
+      pathway_lifecycle_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          enrolment_id: string
+          from_clinician: string | null
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          reason: string | null
+          recorded_by: string | null
+          source: string
+          to_clinician: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          enrolment_id: string
+          from_clinician?: string | null
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          reason?: string | null
+          recorded_by?: string | null
+          source?: string
+          to_clinician?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          enrolment_id?: string
+          from_clinician?: string | null
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          reason?: string | null
+          recorded_by?: string | null
+          source?: string
+          to_clinician?: string | null
+        }
+        Relationships: []
+      }
+      pathway_milestones: {
+        Row: {
+          code: string
+          created_at: string
+          cycle: number
+          due_at: string
+          enrolment_id: string
+          id: string
+          is_test: boolean
+          met_at: string | null
+          met_via: string | null
+          organisation_id: string
+          patient_id: string
+          recorded_by: string | null
+          source: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          cycle?: number
+          due_at: string
+          enrolment_id: string
+          id?: string
+          is_test?: boolean
+          met_at?: string | null
+          met_via?: string | null
+          organisation_id: string
+          patient_id: string
+          recorded_by?: string | null
+          source?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          cycle?: number
+          due_at?: string
+          enrolment_id?: string
+          id?: string
+          is_test?: boolean
+          met_at?: string | null
+          met_via?: string | null
+          organisation_id?: string
+          patient_id?: string
+          recorded_by?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
       patient_activity_goals: {
         Row: {
           created_at: string

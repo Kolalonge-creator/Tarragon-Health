@@ -23,7 +23,7 @@ begin;
 -- S62: the ten pathway guards (seeded off) are proved in s61_s62_pathway_engine.sql; this proof is about the seven it was written for.
 delete from public.pathway_definitions;
 alter table public.go_live_guards disable trigger go_live_guards_guard;
-delete from public.go_live_guards where key like 'pathway\_%';
+delete from public.go_live_guards where key like 'pathway\_%' or key = 'record_triggered_lessons_enabled'; -- the learning record-lessons guard is proved in record_lessons_and_portion_guide.sql
 alter table public.go_live_guards enable trigger go_live_guards_guard;
 
 -- Two-tier: the paid per-item products are not sellable (service_products_doctor_time_not_sellable). The consultation machinery under test
@@ -189,6 +189,8 @@ begin
   perform pg_temp.rec('nothing was attested yet', '0', (select count(*)::text from public.go_live_attestations));
   perform pg_temp.rec('the guard is still off', 'false', private.go_live_open('payouts_enabled')::text);
 
+  -- P4y: the payout guard cannot be switched on while the maker-checker flag is off, so the flag goes on first (as the owner, before the admin session)
+  update public.feature_flags set status = 'on' where key = 'payout_batch_maker_checker';
   perform pg_temp.act(v_admin);
   perform public.attest_go_live_condition('payouts_enabled', 'fee_schedule_approved', true, 'Fee schedule v1 approved by the founder in the console.');
   perform pg_temp.rec('one of two conditions met still blocks the switch', '22023', pg_temp.try('select public.set_go_live_guard(''payouts_enabled'', true, ''ready'')'));

@@ -1,4 +1,4 @@
--- Record-triggered lessons (item 7) and the local food portion guide (item 8). Part 2 of 2; part 1 is 20261022112101_learning_quality_gates.sql.
+-- Record-triggered lessons (item 7) and the local food portion guide (item 8). Part 2 of 2; part 1 is 20261022120001_learning_quality_gates.sql.
 --
 -- NOTHING IS SWITCHED ON AND NOTHING IS APPROVED.
 --   * Item 7. A guard, record_triggered_lessons_enabled, is created OFF and with no defined condition (so it cannot be switched on until the CMO's
@@ -184,11 +184,11 @@ begin
       select count(*) filter (where v.patient_id = v_me and v.correction_status is null and v.vital_type = 'blood_pressure'
                                 and private.classify_bp_level(v.systolic, v.diastolic) = case when p_band = 'in_target' then 'green' else 'amber' end
                                 and (p_band <> 'in_target' or (v.systolic >= 90 and v.diastolic >= 60
-                                     and not exists (select 1 from public.vitals_readings w
+                                     and not exists (select 1 from private.vitals_readings_current w
                                                       where w.patient_id = v_me and w.vital_type = 'blood_pressure' and w.correction_status is null
                                                         and w.taken_at > v.taken_at)))
                                 and (p_band = 'in_target' or v.taken_at >= now() - make_interval(days => v_window)))
-        into v_ok from public.vitals_readings v where v.id = any(v_ids);
+        into v_ok from private.vitals_readings_current v where v.id = any(v_ids);
     else
       -- No database glucose classifier exists, and the single-reading classifier cannot tell "in range" from "high but not yet an alert", so the
       -- database refuses every glucose lesson until a clinician-signed glucose band exists in private.* (the app mirrors this and never offers one).
@@ -205,7 +205,7 @@ begin
   if v_expected is null or v_expected <> p_lesson_code then return 'refused'; end if;
 
   -- 3. Urgent-help outranks a lesson: a red or emergency blood pressure, or an emergency event, inside the window blocks it (a critical released lab is checked above; glucose lessons are refused outright).
-  if exists (select 1 from public.vitals_readings v
+  if exists (select 1 from private.vitals_readings_current v
               where v.patient_id = v_me and v.correction_status is null and v.vital_type = 'blood_pressure'
                 and v.taken_at >= now() - make_interval(hours => v_suppress)
                 and private.classify_bp_level(v.systolic, v.diastolic) in ('red', 'emergency'))

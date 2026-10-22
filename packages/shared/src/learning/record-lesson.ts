@@ -111,7 +111,7 @@ const DAY_MS = 86_400_000;
  * the floor in public.record_lesson_shown. Glucose has no database classifier at all, so the database refuses every glucose lesson and this
  * mapper never offers one as in range.
  */
-export const LOW_BP_FLOOR = { systolic: 90, diastolic: 60 } as const;
+export const LOW_BP_FLOOR = { systolic: 90, diastolic: 60 } as const; // band-ok: PROPOSED conservative no-reassurance floor for lesson wording (OQ-S55-QG-07), not triage; mirrors public.record_lesson_shown
 
 export function bpLessonLevel(level: RecordLevel, systolic: number | null | undefined, diastolic: number | null | undefined): RecordLevel {
   if (level !== "green") return level;

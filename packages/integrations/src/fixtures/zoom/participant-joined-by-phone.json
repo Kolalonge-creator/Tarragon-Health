@@ -1,0 +1,1 @@
+{"event":"meeting.participant_joined","event_ts":1800000002000,"payload":{"account_id":"AAAAAABBBB","object":{"id":"81000000001","uuid":"4444AAAiAAAAAAAiAiiiiA==","participant":{"user_id":"16778242","user_name":"+234 80* *** **12","id":"","participant_uuid":"77777AAAiAAAAAAAiAiiiiA","date_time":"2027-01-15T08:02:00Z","phone_number":"234800000012"}}}}
