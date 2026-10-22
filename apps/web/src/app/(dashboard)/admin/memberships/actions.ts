@@ -21,16 +21,22 @@ export async function grantMembership(
     patientId: String(formData.get("patient_id") ?? ""),
     endsOn: String(formData.get("ends_on") ?? "").trim() || undefined,
     reason: String(formData.get("reason") ?? ""),
+    tier: String(formData.get("tier") ?? "") || undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc("grant_membership", {
+  // Plus is the original grant and stays on the original function; only Membership uses the tier-aware one (code ships before the schema).
+  const args = {
     p_patient: parsed.data.patientId,
     p_reason: parsed.data.reason,
     // Omitted when there is no end date: the argument is optional in the database.
     ...(parsed.data.endsOn ? { p_ends_at: endOfDayLagos(parsed.data.endsOn) } : {}),
-  });
+  };
+  const { error } =
+    parsed.data.tier === "evergreen"
+      ? await supabase.rpc("grant_membership_tier", { ...args, p_tier: "evergreen" })
+      : await supabase.rpc("grant_membership", args);
   if (error) return { error: describeMembershipError(error) };
   revalidatePath(parsed.data.base);
   return { message: "Membership granted." };

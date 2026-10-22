@@ -12,6 +12,7 @@ import { FaqAccordion } from "../_components/marketing-faq-accordion";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { ladderCards, ladderFaq, LADDER_SAFETY_STATEMENT, LADDER_SAME_CARE_STATEMENT } from "../_content/pricing-ladder";
 import { ALWAYS_FREE, ALWAYS_FREE_NOTE, EMPLOYER_HMO_NOTE, NAIRA_ONLY_STATEMENT } from "../_content/pricing";
 
 export const metadata: Metadata = pageMetadata({
@@ -33,6 +34,17 @@ function membershipPriceKobo(): number {
 function refundWindowDays(): number {
   const v = getProposedConfig("membership.refund").value as { window_days: number };
   return v.window_days;
+}
+
+/** Whether the three-card ladder is public (marketing.membership_ladder_public). False until the launch conditions are met. */
+function ladderIsPublic(): boolean {
+  return (getProposedConfig("marketing.membership_ladder_public").value as { enabled: boolean }).enabled === true;
+}
+
+/** The two paid prices, read from the versioned config (commerce.membership_ladder, integer kobo), never typed into a page. */
+function ladderPriceKobo(): { evergreen: number; evergreenPlus: number } {
+  const v = getProposedConfig("commerce.membership_ladder").value as { evergreen_kobo: number; evergreen_plus_kobo: number };
+  return { evergreen: v.evergreen_kobo, evergreenPlus: v.evergreen_plus_kobo };
 }
 
 const MEMBERSHIP_INCLUDES = [
@@ -70,7 +82,91 @@ function pricingFaq(price: string, refundDays: number) {
   ];
 }
 
+function LadderPricing({ refundDays }: { refundDays: number }) {
+  const kobo = ladderPriceKobo();
+  const cards = ladderCards({ evergreen: `₦${formatNaira(kobo.evergreen)}`, evergreenPlus: `₦${formatNaira(kobo.evergreenPlus)}` });
+  const faq = ladderFaq(refundDays);
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faq.map((f) => ({ "@type": "Question", name: f.question, acceptedAnswer: { "@type": "Answer", text: f.answer } })),
+  };
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      <Section className="pt-20">
+        <SectionHeading
+          as="h1"
+          eyebrow="Pricing"
+          title="Free, Membership or Membership Plus"
+          description="Everything you can do yourself costs nothing. Membership and Membership Plus are a year of care with your care team. The one difference is the yearly blood panel."
+        />
+        <p className="mx-auto mb-4 max-w-2xl text-center text-sm font-medium text-deep-forest">{NAIRA_ONLY_STATEMENT}</p>
+        <p className="mx-auto mb-10 max-w-2xl text-center text-sm text-charcoal-ink/70">{LADDER_SAME_CARE_STATEMENT}</p>
+        <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3" data-testid="ladder-cards">
+          {cards.map((card) => (
+            <section key={card.id} aria-labelledby={`tier-${card.id}`} className="rounded-xl border border-brand-green/20 bg-white p-6">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-green">{card.difference}</p>
+              <h2 id={`tier-${card.id}`} className="mt-2 font-heading text-xl font-semibold text-charcoal-ink">
+                {card.name}
+              </h2>
+              <p className="mt-1 text-lg font-semibold text-charcoal-ink">{card.priceLine}</p>
+              <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">{card.summary}</p>
+              <ul className="mt-4 space-y-2 text-sm leading-relaxed text-charcoal-ink/80">
+                {card.includes.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+        <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-charcoal-ink/70">{LADDER_SAFETY_STATEMENT}</p>
+        <p className="mx-auto mt-2 max-w-2xl text-center text-sm text-charcoal-ink/70">
+          Each paid plan lasts a year and does not renew by itself. Refunds: within {refundDays} days of buying.
+        </p>
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <Button asChild size="lg">
+            <Link href="/signup">Get started</Link>
+          </Button>
+          <Button asChild variant="outline" size="lg">
+            <Link href={MARKETING_ROUTES.contact}>Talk to us first</Link>
+          </Button>
+        </div>
+      </Section>
+      <Section variant="sage">
+        <SectionHeading eyebrow="Questions" title="Frequently asked questions" />
+        <FaqAccordion items={faq} variant="minimal" />
+      </Section>
+      <Section>
+        <SectionHeading eyebrow="Employers, HMOs & institutions" title="Covering a workforce or member population?" />
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-charcoal-ink/70">{EMPLOYER_HMO_NOTE}</p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Button asChild size="lg">
+              <Link href={`${MARKETING_ROUTES.contact}?source=corporate`}>Request employer health plan</Link>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <Link href={`${MARKETING_ROUTES.contact}?source=hmo`}>Talk to us about HMO partnerships</Link>
+            </Button>
+          </div>
+        </div>
+      </Section>
+      <Section variant="sage" className="pb-24">
+        <EmergencyNotice className="mb-10" />
+        <CtaBand
+          variant="gradient"
+          title="Ready to get started?"
+          description="Join TarragonHealth today, for yourself or someone you love."
+          secondaryHref={MARKETING_ROUTES.contact}
+          secondaryLabel="Talk to us first"
+        />
+      </Section>
+    </>
+  );
+}
+
 export default async function PricingPage() {
+  if (ladderIsPublic()) return <LadderPricing refundDays={refundWindowDays()} />;
   const price = formatNaira(membershipPriceKobo());
   const refundDays = refundWindowDays();
   const faq = pricingFaq(price, refundDays);

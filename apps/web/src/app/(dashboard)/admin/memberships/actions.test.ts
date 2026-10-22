@@ -32,6 +32,19 @@ describe("grantMembership", () => {
     await grantMembership(undefined, form({ base: "/clinician/memberships", patient_id: id, reason: "Staff trial run", ends_on: "2027-01-31" }));
     expect(rpc).toHaveBeenCalledWith("grant_membership", { p_patient: id, p_ends_at: "2027-01-31T22:59:59.000Z", p_reason: "Staff trial run" });
   });
+  it("grants Membership through the tier-aware function and Plus through the original one", async () => {
+    rpc.mockResolvedValue({ data: id, error: null });
+    await grantMembership(undefined, form({ base: "/admin/memberships", patient_id: id, reason: "Staff trial run", tier: "evergreen" }));
+    expect(rpc).toHaveBeenCalledWith("grant_membership_tier", { p_patient: id, p_reason: "Staff trial run", p_tier: "evergreen" });
+    rpc.mockClear();
+    await grantMembership(undefined, form({ base: "/admin/memberships", patient_id: id, reason: "Staff trial run", tier: "plus" }));
+    expect(rpc).toHaveBeenCalledWith("grant_membership", { p_patient: id, p_reason: "Staff trial run" });
+  });
+  it("refuses a tier that is not one of the two", async () => {
+    const r = await grantMembership(undefined, form({ base: "/admin/memberships", patient_id: id, reason: "Staff trial run", tier: "gold" }));
+    expect(r?.error).toBeDefined();
+    expect(rpc).not.toHaveBeenCalled();
+  });
   it("maps an already-active membership to a sentence", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "membership_already_active", code: "P0001" } });
     const r = await grantMembership(undefined, form({ base: "/admin/memberships", patient_id: id, reason: "Staff trial run" }));

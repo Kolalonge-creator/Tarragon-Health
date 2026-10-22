@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { parseRefundPolicy, type RefundPolicy } from "@/lib/commerce/refund-rule";
-import { collapseRefundGroups } from "@/lib/commerce/refund-groups";
 
 /* ------------------------------------------------------------------ */
 /*  Types — manually defined; the refunds/orders tables may not be in */
@@ -25,8 +24,6 @@ export type AdminOrderRefund = {
   is_test: boolean;
   created_at: string;
   updated_at: string;
-  /** Set when the refund is one of several (a partly paid order, S25b); the group's first row has its own id here. */
-  refund_group?: string | null;
   order: {
     amount_kobo: number;
     state: string;
@@ -56,7 +53,6 @@ export type MyOrderRefund = {
   is_test: boolean;
   created_at: string;
   updated_at: string;
-  refund_group?: string | null;
   order: {
     amount_kobo: number;
     catalog_item: { code: string; name_key: string } | null;
@@ -87,7 +83,7 @@ export type RefundOps = { failed: OpsRefund[]; stuck: OpsRefund[] };
 
 const ADMIN_REFUNDS_KEY = ["admin-order-refunds"];
 /** The columns of `refunds` a signed-in person may read (the S26b migration grants exactly these; `select *` is refused on purpose). */
-const REFUND_COLUMNS = "id, organisation_id, order_id, amount_kobo, reason, state, provider, requested_by, decided_by, decided_at, decision_note, is_test, created_at, updated_at, completed_at, refund_group";
+const REFUND_COLUMNS = "id, organisation_id, order_id, amount_kobo, reason, state, provider, requested_by, decided_by, decided_at, decision_note, is_test, created_at, updated_at, completed_at";
 const MY_REFUNDS_KEY = ["my-order-refunds"];
 const FAILED_REFUNDS_KEY = ["admin-failed-order-refunds"];
 
@@ -115,8 +111,7 @@ export function useAdminOrderRefunds() {
         .eq("state", "pending")
         .order("created_at", { ascending: true });
       if (error) throw error;
-      // S25b: a refund of a partly paid order is one row per paid part; the admin decides it once, on the group's first row, for the whole amount
-      return collapseRefundGroups(data as unknown as AdminOrderRefund[]);
+      return data as unknown as AdminOrderRefund[];
     },
   });
 }
@@ -163,7 +158,7 @@ export function useMyOrderRefunds() {
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return collapseRefundGroups(data as unknown as MyOrderRefund[]).map((r) => ({
+      return (data as unknown as MyOrderRefund[]).map((r) => ({
         ...r,
         steps: [...(r.steps ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at)),
       }));
