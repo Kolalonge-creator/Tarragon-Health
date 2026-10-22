@@ -104,7 +104,7 @@ create function pg_temp.bal(p uuid) returns integer language sql as $$ select co
 do $$
 declare
   v_org uuid; v_a uuid; v_b uuid; v_c uuid; v_d uuid; v_g uuid; v_h uuid; v_p uuid; v_r uuid; v_r2 uuid; v_r3 uuid;
-  v_vid uuid; v_ev uuid; v_t1 timestamptz; v_iso_award integer; v_iso_audit boolean; v_i integer; v_j jsonb; v_m uuid; v_o uuid; v_life integer;
+  v_vid uuid; v_ev uuid; v_t1 timestamptz; v_iso_award integer; v_iso_audit boolean; v_iso_inc boolean; v_minor uuid; v_i integer; v_j jsonb; v_m uuid; v_o uuid; v_life integer;
 begin
   select organisation_id into v_org from public.profiles where role = 'admin' limit 1;
   v_a := pg_temp.mkuser(v_org, 'a', 'patient'); v_b := pg_temp.mkuser(v_org, 'b', 'patient');
@@ -231,6 +231,22 @@ begin
   perform pg_temp.ck('6g the pending list carries only ids, codes and times',
     (select array_agg(k order by k) from jsonb_object_keys(v_j -> 0) k) = array['ask_support', 'event_id', 'expected_by', 'rule_codes', 'since']);
 
+  -- pending credit ignores anything older than the rollout date in config (a new proposed version, rolled back with the transaction)
+  insert into public.reward_config (key, version, value) values ('pending_credit', 2, jsonb_build_object('expected_within_minutes', 15, 'ask_after_minutes', 120, 'look_back_hours', 72, 'ignore_before', (current_date + 1)::text));
+  perform pg_temp.fire(v_p, 'meal.logged', 'pend-pre-rollout');
+  perform pg_temp.ck('6h an undecided event from before the rollout date is not listed as pending', jsonb_array_length(pg_temp.as_json(v_p, $q$select public.my_points_pending()$q$)) = 0);
+  update public.reward_config set is_active = false where key = 'pending_credit' and version = 2;
+
+  -- ================= 6b. age gate: not shown to under 18 by default =================
+  v_minor := pg_temp.mkuser(v_org, 'minor', 'patient');
+  update public.profiles set date_of_birth = current_date - interval '12 years' where id = v_minor;
+  perform public.points_award(pg_temp.fire(v_minor, 'lab_result.released', 'ms-minor-lab'));
+  perform pg_temp.ck('6b1 a minor''s milestone is still recorded', pg_temp.has_ms(v_minor, 'first_lab_done'));
+  perform pg_temp.ck('6b2 but no card is shown to a minor by default', pg_temp.as_json(v_minor, $q$select public.my_pending_milestone()$q$) is null);
+  insert into public.reward_config (key, version, value) values ('milestone_display', 2, '{"show_for_hours":72,"show_to_minors":true}');
+  perform pg_temp.ck('6b3 turning the versioned switch on shows it', pg_temp.as_json(v_minor, $q$select public.my_pending_milestone()$q$) ->> 'code' = 'first_lab_done');
+  update public.reward_config set is_active = false where key = 'milestone_display' and version = 2;
+
   -- ================= 7. refund returns spent points =================
   insert into public.wellness_points_balances (patient_id, organisation_id, balance, lifetime_earned) values (v_r, v_org, 700, 700)
   on conflict (patient_id) do update set balance = 700, lifetime_earned = 700;
@@ -267,10 +283,12 @@ begin
     v_ev := pg_temp.fire(v_p, 'lesson.completed', 'iso-1');
     v_iso_award := public.points_award(v_ev);
     v_iso_audit := exists (select 1 from public.audit_log where action = 'milestone_event.error' and entity_id = v_ev);
+    v_iso_inc := exists (select 1 from public.ops_incidents where external_reference = 'milestone_event_failed' and status not in ('resolved', 'closed'));
     raise exception 'rollback_iso';
   exception when others then if sqlerrm <> 'rollback_iso' then raise; end if; end;
   perform pg_temp.ck('8a the award is returned although milestones fail', v_iso_award = 20);
   perform pg_temp.ck('8b the failure is audited, not silent', v_iso_audit);
+  perform pg_temp.ck('8c and loud: one open sev3 incident is raised', v_iso_inc);
 
   -- ================= 9. no second redemption path =================
   perform pg_temp.ck('9a no reward_redemptions table, no apply_points_discount function',
@@ -333,6 +351,22 @@ begin
   exception when others then if sqlerrm <> 'rollback_sab' then v_flip := false; end if; end;
   insert into results(check_name, ok) values ('SABOTAGE C: without the guard a card appears during an open emergency (so check 4b really guards it)', v_flip);
   if not v_flip then raise exception 'VACUOUS: emergency suppression test'; end if;
+
+  -- E. age gate removed => a minor is shown a card
+  begin
+    update public.profiles set date_of_birth = current_date - interval '12 years' where id = v_p;
+    v_e := private.emit_domain_event('lab_result.released', v_org, '{"lab_result_id":"x"}', 'sab-lab-4', v_p);
+    perform private.milestones_evaluate_event(v_e);
+    v_def := pg_get_functiondef('public.my_pending_milestone()'::regprocedure);
+    v_def := replace(v_def, 'if not coalesce((v_cfg ->> ''show_to_minors'')::boolean, false)', 'if false');
+    execute v_def;
+    perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+    v_flip := public.my_pending_milestone() is not null;
+    perform set_config('request.jwt.claims', '', true);
+    raise exception 'rollback_sab';
+  exception when others then if sqlerrm <> 'rollback_sab' then v_flip := false; end if; end;
+  insert into results(check_name, ok) values ('SABOTAGE E: without the age gate a minor is shown a card (so check 6b2 really guards it)', v_flip);
+  if not v_flip then raise exception 'VACUOUS: age gate test'; end if;
 
   -- D. refund branch removed => points are not returned
   begin

@@ -5092,7 +5092,7 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Decision: open (founder).
 
 ### OQ-S58b-04 Milestones are shown to minors too (raised by S58b)
-- A milestone is a fixed card with no points and no chance, so it is not hidden from a minor's own account. A guardian view is not built (the card is read only by the person). If the founder wants none for under 18s, add an age gate in `my_pending_milestone`.
+- DECIDED SAFER DEFAULT (review follow-up): the versioned switch `milestone_display.show_to_minors` is false, so no card is shown under 18; the milestone is still recorded. A milestone is a fixed card with no points and no chance, so turning it on is safe if the founder wants it. A guardian view is not built (the card is read only by the person). If the founder wants none for under 18s, add an age gate in `my_pending_milestone`.
 - Decision: open (founder).
 
 ### OQ-S58b-05 Milestone list and the four-week rule are PROPOSED (raised by S58b)
@@ -5100,5 +5100,5 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Decision: open (founder). The CMO is informed that a dangerous but plausible first reading still celebrates the step.
 
 ### OQ-S58b-06 The DB proof has not run on the real schema (raised by S58b)
-- Docker was down. The proof `s58b_pending_credit_milestones_refund.sql` passed (53 checks including 4 sabotage flips) only against a stubbed scratch Postgres 16 that stands in for upstream objects. Run it with `run-db-proofs.sh` on a local stack before merging; merging auto-applies migrations.
+- Docker was down. The proof `s58b_pending_credit_milestones_refund.sql` passed (59 rows including 5 sabotage flips) only against a stubbed scratch Postgres 16 that stands in for upstream objects. Run it with `run-db-proofs.sh` on a local stack before merging; merging auto-applies migrations.
 - Decision: open (engineering).

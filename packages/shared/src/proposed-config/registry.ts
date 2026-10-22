@@ -2676,7 +2676,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     key: "rewards.pending_credit",
     // S58b. Live value is the `pending_credit` row of `reward_config`; milestones-mirror.test.ts fails if the two drift. UNSIGNED, not clinical.
     // How long an undecided point-earning action is shown as "on its way", when the screen offers the support route, and how far back it looks.
-    value: {"expected_within_minutes": 15, "ask_after_minutes": 120, "look_back_hours": 72},
+    value: {"expected_within_minutes": 15, "ask_after_minutes": 120, "look_back_hours": 72, "ignore_before": "2026-10-07"},
     owner: "Founder",
     status: "proposed",
     version: 1,
@@ -2686,7 +2686,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   {
     key: "rewards.milestone_display",
     // S58b. Live value is the `milestone_display` row of `reward_config`. A milestone card is shown until dismissed, at most this long after first shown.
-    value: {"show_for_hours": 72},
+    value: {"show_for_hours": 72, "show_to_minors": false},
     owner: "Founder",
     status: "proposed",
     version: 1,

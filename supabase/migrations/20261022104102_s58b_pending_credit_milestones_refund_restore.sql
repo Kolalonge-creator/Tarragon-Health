@@ -24,10 +24,10 @@
 -- ---------------------------------------------------------------------------
 -- rewards-s58b-seeds-begin
 insert into public.reward_config (key, version, value, status, note) values
-('pending_credit', 1, $json${"expected_within_minutes":15,"ask_after_minutes":120,"look_back_hours":72}$json$::jsonb, 'proposed',
- 'Pending credit: an action whose points have not been decided yet is shown as on its way until expected_within_minutes, then still pending; after ask_after_minutes the screen offers the support route. look_back_hours bounds how old an undecided action can be and still be listed.'),
-('milestone_display', 1, $json${"show_for_hours":72}$json$::jsonb, 'proposed',
- 'A milestone card is shown until it is dismissed, and at most this long after it was first shown. It never blocks anything and is never shown while an emergency is open.')
+('pending_credit', 1, $json${"expected_within_minutes":15,"ask_after_minutes":120,"look_back_hours":72,"ignore_before":"2026-10-07"}$json$::jsonb, 'proposed',
+ 'Pending credit: an action whose points have not been decided yet is shown as on its way until expected_within_minutes, then still pending; after ask_after_minutes the screen offers the support route. look_back_hours bounds how old an undecided action can be and still be listed; ignore_before drops events older than the rewards rollout (they were never going to be decided).'),
+('milestone_display', 1, $json${"show_for_hours":72,"show_to_minors":false}$json$::jsonb, 'proposed',
+ 'A milestone card is shown until it is dismissed, and at most this long after it was first shown. It never blocks anything and is never shown while an emergency is open. show_to_minors false (the safer default while OQ-S58b-04 is undecided): a person under minor_age_years is never shown a card; the milestone is still recorded.')
 on conflict (key, version) do nothing;
 -- rewards-s58b-seeds-end
 
@@ -273,6 +273,14 @@ begin
     exception when others then
       raise warning 'milestone evaluation failed for % and could not be audited: %', p_event_id, sqlerrm;
     end;
+    -- Loud, not quiet: one open incident covers every failure (page_incident_sev updates an open one instead of opening more, which is the rate limit).
+    begin
+      perform private.page_incident_sev(ev.organisation_id, 'milestone_event_failed', 'sev3', 'Milestone celebrations are failing',
+        'A milestone could not be evaluated; see audit_log action milestone_event.error. Points were still awarded. One open incident covers all of them.')
+        from public.domain_events ev where ev.id = p_event_id;
+    exception when others then
+      raise warning 'milestone failure incident could not be opened for %: %', p_event_id, sqlerrm;
+    end;
   end;
   return v_points;
 end;
@@ -297,8 +305,16 @@ declare
   v_uid uuid := auth.uid();
   v_hours integer := coalesce((private.reward_config('milestone_display') ->> 'show_for_hours')::integer, 72);
   m public.milestones_achieved%rowtype;
+  v_cfg jsonb := private.reward_config('milestone_display');
+  v_minor_years integer := coalesce((private.reward_config('minor_age_years') ->> 'years')::integer, 18);
 begin
   if v_uid is null then return null; end if;
+  -- Versioned switch (default off): a person under the minor age is not shown a card unless the founder turns it on. The milestone is still recorded.
+  if not coalesce((v_cfg ->> 'show_to_minors')::boolean, false)
+     and exists (select 1 from public.profiles p where p.id = v_uid and p.date_of_birth is not null
+                  and p.date_of_birth > (now() at time zone 'Africa/Lagos')::date - make_interval(years => v_minor_years)) then
+    return null;
+  end if;
   if exists (select 1 from public.emergency_events x where x.patient_id = v_uid and x.status in ('active', 'acknowledged')) then
     return null;
   end if;
@@ -352,6 +368,8 @@ declare
   v_within integer := coalesce((v_cfg ->> 'expected_within_minutes')::integer, 15);
   v_ask integer := coalesce((v_cfg ->> 'ask_after_minutes')::integer, 120);
   v_back integer := coalesce((v_cfg ->> 'look_back_hours')::integer, 72);
+  -- Nothing recorded before the rewards rollout can ever be decided: the configured date (PROPOSED, set to the real rollout date at apply).
+  v_start timestamptz := coalesce((v_cfg ->> 'ignore_before')::date::timestamptz, '-infinity'::timestamptz);
 begin
   if v_uid is null then return '[]'::jsonb; end if;
   return coalesce((
@@ -367,6 +385,7 @@ begin
           from public.domain_events e
          where e.patient_id = v_uid
            and e.occurred_at > now() - make_interval(hours => v_back)
+           and e.occurred_at >= v_start
            and exists (select 1 from public.reward_rules r where r.is_active and r.trigger_event = e.event_type)
            and not exists (select 1 from public.points_award_decisions d where d.event_id = e.id)
          order by e.occurred_at desc limit 5
