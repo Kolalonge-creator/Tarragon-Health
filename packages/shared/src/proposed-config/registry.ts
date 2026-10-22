@@ -7215,6 +7215,76 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/build-assisted-entry.md; supabase/migrations/*_assisted_entry_and_caregiver_red_care.sql",
   },
   {
+    key: "medicines.reminder_reliability",
+    // Reminder reliability on a phone that may stop background apps (Android makers such as Tecno and Infinix, and iPhone Focus or notification limits). PROPOSED, CMO owned.
+    //  unconfirmedFollowUpMinutes: one gentle follow-up this long after a dose time with no answer. maxUnconfirmedFollowUpsPerDose is the cap per dose (1).
+    //  selfTestDelaySeconds: the reliability test notification arrives this long after the person starts it. selfTestAnswerWindowSeconds: how long after it
+    //  is due the app waits before asking "did you see it?". selfTestStaleDays: a result older than this is asked for again.
+    //  iosPendingLimit: iOS keeps at most 64 pending local notifications; the rolling plan (reminders.behaviour maxPending) stays under it.
+    //  iosTimeSensitive: mark dose reminders time sensitive on iPhone. It only has an effect in a build made with IOS_TIME_SENSITIVE=1 (see app.config.js). Critical Alerts are NOT used.
+    value: {
+      unconfirmedFollowUpMinutes: 30,
+      maxUnconfirmedFollowUpsPerDose: 1,
+      selfTestDelaySeconds: 60,
+      selfTestAnswerWindowSeconds: 120,
+      selfTestStaleDays: 30,
+      iosPendingLimit: 64,
+      iosTimeSensitive: true,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/research/S08.md section 3; Founder request 2026-10-22 (item 4, reminder reliability)",
+  },
+  {
+    key: "medicines.dose_reasons",
+    // Why a dose was not taken, one tap alongside taken. `code` is stored against the dose event. `private` reasons are kept apart from the
+    // dose log (medication_dose_reasons): only the person, someone acting for them and the tied care team read them; a supporter reads one only after
+    // the person opted in for that reason (dose_reason_sharing). `status` is the dose status the tap records. `opensPharmacy`: a gentle in-app
+    // prompt to open the pharmacy page; it never raises a clinician alert by itself. The SQL function private.is_private_dose_reason mirrors the
+    // private codes; a test fails on drift.
+    value: [
+      { code: "side_effect", status: "skipped", private: false, opensPharmacy: false },
+      { code: "felt_well", status: "skipped", private: false, opensPharmacy: false },
+      { code: "ran_out", status: "not_available", private: true, opensPharmacy: true },
+      { code: "other", status: "skipped", private: false, opensPharmacy: false },
+    ],
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "Founder request 2026-10-22 (item 5); existing phone skip reasons in medications-screen.tsx",
+  },
+  {
+    key: "medicines.runway_and_stock_freshness",
+    // The "days of medicine left" bar and how old a pharmacy's stock answer may be. PROPOSED, CMO owned.
+    //  barFullDays: the bar is full at this many days or more. offerCollectBelowDays: the one-tap "choose where to collect" shows at or under this many days.
+    //  lowSupplyDays: the bar reads low at or under this many days (equals medicines.dose_rules lowSupplyDays).
+    //  maxStockAgeHours: a pharmacy stock confirmation older than this is NOT shown as available; the page says "ask the pharmacy to confirm".
+    // No price is shown (OQ-714, founder 2026-10-21).
+    value: { barFullDays: 30, offerCollectBelowDays: 14, lowSupplyDays: 7, maxStockAgeHours: 48 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "Founder request 2026-10-22 (item 9); OQ-714",
+  },
+  {
+    key: "medicines.nafdac_verify_helper",
+    // The NAFDAC check helper, behind the go-live guard nafdac_verify_helper_enabled (OFF). Founder decision 2026-10-22: a link to NAFDAC's public
+    // registered-product check only (no text message, no short code). The address was read on 2026-10-22 (the site calls itself Nigeria's Registered
+    // Product Database). A registration match is not proof that a pack is genuine.
+    value: {
+      registrationCheck: { name: "NAFDAC Greenbook", url: "https://greenbook.nafdac.gov.ng", readOn: "2026-10-22" },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "Founder request 2026-10-22 (item 14); docs/OPEN-QUESTIONS.md OQ-NAFDAC-HELPER-1",
+  },
+  {
     key: "child_log.growth_bands",
     // S68b: the three plain-language bands on the child growth chart, read from the z-score the database already computed (WHO 2006 / 2007).
     // A point is "growing well" when its worst absolute z-score is at or under growing_well_max_abs_z, "keep an eye on" up to keep_an_eye_max_abs_z,
