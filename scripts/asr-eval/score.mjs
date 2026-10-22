@@ -6,7 +6,7 @@
 //     models with a low overall WER still err more on clinical entities [P]);
 //   * per speaker and per accent tag;
 //   * every drug-name and number mismatch, with its context, so a person can read the exact words that went wrong.
-// There is NO pass mark here. A threshold for choosing a vendor is the CMO's decision (Q19); this only measures.
+// This file only measures. The 95 percent pass mark (Q19) is applied in gate.mjs; choosing a vendor is the CMO's decision.
 //
 // Transcript shape (reference and hypothesis alike; "speaker" is optional and defaults to "unknown"):
 //   { "clipId": "c01", "accent": "yoruba", "segments": [ { "speaker": "clinician" | "patient" | "unknown", "text": "..." } ] }
@@ -262,6 +262,6 @@ export function renderReport(result) {
     for (const f of result.falseEntities) lines.push(`${f.clip} | ${f.kind.toUpperCase()} | [[${f.heard}]]`);
   }
   for (const w of result.warnings) lines.push(`\nWARNING: ${w}`);
-  lines.push("\nThere is no pass mark here. Choosing a vendor from these numbers is the CMO's decision (Q19).");
+  lines.push("\nThis section only measures. The pass mark (gate.mjs) is applied by run.mjs; choosing a vendor stays the CMO's decision (Q19).");
   return lines.join("\n");
 }
