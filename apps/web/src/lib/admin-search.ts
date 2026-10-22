@@ -37,6 +37,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/device-check", "device check phone battery tecno infinix samsung xiaomi notifications auto-start service worker test page on call alerts"],
   ["/clinician/rest-and-cover", "rest cover offer fatigue overnight pages 11 hours fit to work next shift"],
   ["/clinician/risk-worklist", "risk worklist who to call first outreach deterioration dropout priority tier override patients ordered"],
+  ["/clinician/mental-health-worklist", "mental health follow ups worklist phq9 gad7 anxiety depression mood rising score overdue screen sleep trouble missed check ins hand off shared summary tied patients follow up task wellbeing silence is not safety"],
   ["/admin/outcomes/measures", "outcomes hba1c weight phq9 gad7 mental health retention engagement completion response times escalation follow-up data quality missing data sync lag pathways"],
   ["/admin/outcomes/export", "export outcomes csv download pilot report renewal sponsor file blood pressure control aggregate"],
   ["/admin/outcomes/response-times", "response times care team claim time complete overdue pages acknowledge follow up median slowest tasks priority class data quality"],

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, Modal, ScrollView, Text, TextInput, View } from "react-native";
 import { postMentalHealthScreen } from "@/lib/api";
-import { WELLBEING_TAGS, cleanWellbeingTags, type WellbeingTag } from "@tarragon/shared";
+import { NO_WELLBEING_FEATURES, WELLBEING_TAGS, cleanWellbeingTags, type WellbeingFeatures, type WellbeingTag } from "@tarragon/shared";
 import { t } from "@tarragon/i18n";
 import { CrisisCard } from "@/components/mental-health/crisis-card";
 import { MentalHealthHandoffCard } from "@/components/mental-health/handoff-card";
@@ -9,6 +9,10 @@ import { MoodBesideReadings } from "@/components/mental-health/mood-beside-readi
 import { CalmLibraryCard } from "@/components/wellbeing/calm-library-card";
 import { JournalCard } from "@/components/wellbeing/journal-card";
 import { SleepToolsCard } from "@/components/wellbeing/sleep-tools-card";
+import { CalmToolButton } from "@/components/wellbeing/calm-tool";
+import { ShareSummaryCard } from "@/components/wellbeing/share-summary-card";
+import { MoodPatternsCard } from "@/components/wellbeing/mood-patterns-card";
+import { loadWellbeingFeatures } from "@/lib/wellbeing-features";
 import { HiddenCard, SharedPhoneSettings } from "@/components/mental-health/shared-phone-controls";
 import { useSharedPhone } from "@/lib/shared-phone";
 import { TherapyNetworkScreen } from "@/screens/sections/therapy-network-screen";
@@ -134,14 +138,18 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
   const [trendReloadToken, setTrendReloadToken] = useState(0);
   const { hidden: hiddenOnThisPhone, ready: sharedPhoneReady } = useSharedPhone();
   const [crisisOpen, setCrisisOpen] = useState(false);
+  // Which S56b features are open for this person (each behind a CMO-switched guard; closed until then; the last answer is kept for offline).
+  const [features, setFeatures] = useState<WellbeingFeatures>(NO_WELLBEING_FEATURES);
 
   const refresh = useCallback(async () => {
-    const [c, f, r, s] = await Promise.all([
+    const [c, f, r, s, feat] = await Promise.all([
       loadLatestWellbeingCheckin(patientId),
       loadWellbeingCheckinFrequencyDays(patientId),
       loadNextReviewDue(patientId),
       loadLatestMentalHealthScreens(patientId),
+      loadWellbeingFeatures(patientId),
     ]);
+    setFeatures(feat);
     setCheckin(c);
     setFrequencyDays(f);
     setNextReviewDue(r);
@@ -176,7 +184,8 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
         <MutedText>Track how you&apos;re doing, take a mental health check-in, and learn ways to support yourself.</MutedText>
       </View>
 
-      {/* The crisis card is outside the shared-phone gate on purpose: help is never hidden. */}
+      {/* The calm tool and the crisis card are outside the shared-phone gate on purpose: help is never hidden. */}
+      <CalmToolButton enabled={features.panic} />
       {crisisOpen ? (
         <CrisisCard />
       ) : (
@@ -207,16 +216,21 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
 
         <MoodBesideReadings patientId={patientId} reloadToken={trendReloadToken} />
 
+        <MoodPatternsCard patientId={patientId} enabled={features.insights} initiallyHidden={features.insightsHidden} reloadToken={trendReloadToken} />
+
         <CheckinForm
           patientId={patientId}
           organisationId={organisationId}
           frequencyDays={frequencyDays}
           onSaved={refresh}
+          calmToolEnabled={features.panic}
         />
 
         <MentalHealthSummaryCard screens={screens} />
 
         <MentalHealthHandoffCard screens={screens} />
+
+        <ShareSummaryCard enabled={features.share} />
 
         {showScreenForm ? (
           <FeatureConsentGate dataType="mental_health">
@@ -276,11 +290,13 @@ function CheckinForm({
   organisationId,
   frequencyDays,
   onSaved,
+  calmToolEnabled,
 }: {
   patientId: string;
   organisationId: string;
   frequencyDays: number;
   onSaved: () => void;
+  calmToolEnabled: boolean;
 }) {
   const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
@@ -334,6 +350,8 @@ function CheckinForm({
   return (
     <Card style={{ gap: 12 }}>
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>How are you doing today?</Text>
+      {/* One tap from the check-in too (S56b). */}
+      <CalmToolButton enabled={calmToolEnabled} />
       {WELLBEING_SCALE_QUESTIONS.map((q) => (
         <View key={q.name} style={{ gap: 6 }}>
           <Text style={{ fontSize: 13, color: colors.ink }}>{q.prompt}</Text>

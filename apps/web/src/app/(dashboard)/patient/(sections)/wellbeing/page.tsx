@@ -18,6 +18,10 @@ import { MentalHealthHandoffCard } from "@/components/mental-health/handoff-card
 import { SharedPhoneGate } from "@/components/mental-health/shared-phone-gate";
 import { SharedPhoneSettings } from "@/components/mental-health/shared-phone-settings";
 import { MoodBesideReadings } from "@/app/(dashboard)/patient/mood-beside-readings";
+import { CalmToolButton } from "@/components/mental-health/calm-tool";
+import { ShareSummaryCard } from "@/components/mental-health/share-summary-card";
+import { MoodPatterns } from "@/components/mental-health/mood-patterns";
+import { getWellbeingFeatures } from "@/lib/wellbeing/features-server";
 
 export default async function PatientWellbeingPage() {
   const { profile, subjectId } = await getPatientDashboardContext();
@@ -25,6 +29,10 @@ export default async function PatientWellbeingPage() {
     return null;
   }
   const organisationId = profile.organisation_id;
+  // Which S56b features are open for this person (each behind a CMO-switched guard; all closed until then). Fails closed.
+  const features = await getWellbeingFeatures();
+  // The patterns view is private to the person: never shown when someone is acting for another profile.
+  const ownProfile = subjectId === profile.id;
 
   return (
     <DashboardSection
@@ -33,7 +41,9 @@ export default async function PatientWellbeingPage() {
       description="Track how you're doing, take a mental health check-in, and learn ways to support yourself."
       icon={SEMANTIC_ICON.mood}
     >
-      {/* The crisis card is outside the shared-phone gate on purpose: help is never hidden. */}
+      {/* The calm tool and the crisis card are outside the shared-phone gate on purpose: help is never hidden. */}
+      <CalmToolButton enabled={features.panic} />
+
       <details className="rounded-lg border border-red-200 dark:border-red-500/30 p-3">
         <summary className="cursor-pointer text-sm font-medium">{t("crisis.open_card")}</summary>
         <div className="mt-3">
@@ -47,6 +57,7 @@ export default async function PatientWellbeingPage() {
         <WellbeingTiles patientId={subjectId} />
         <WellbeingTrendChart patientId={subjectId} />
         <MoodBesideReadings patientId={subjectId} />
+        {ownProfile && features.insights && <MoodPatterns patientId={subjectId} hidden={features.insightsHidden} />}
 
         <Card>
           <CardHeader>
@@ -64,13 +75,14 @@ export default async function PatientWellbeingPage() {
         </Card>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <WellbeingCheckinForm patientId={subjectId} />
+          <WellbeingCheckinForm patientId={subjectId} calmToolEnabled={features.panic} />
           <div className="space-y-4">
             <MentalHealthSummary patientId={subjectId} />
             <FeatureConsentGate dataType="mental_health" onBehalfOf={subjectId !== profile.id}>
               <MentalHealthScreenForm patientId={subjectId} />
             </FeatureConsentGate>
             <MentalHealthHandoffCard patientId={subjectId} />
+            {ownProfile && <ShareSummaryCard enabled={features.share} />}
           </div>
         </div>
       </SharedPhoneGate>

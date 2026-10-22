@@ -78,6 +78,12 @@ jest.mock("@/lib/queries/pending-post-checkin-signoff", () => ({
   readPendingPostCheckinSignoff: (...args: unknown[]) => readPendingPostCheckinSignoff(...args),
 }));
 const noPostCheckin: PostCheckinPending = { version: null, rules: null, failed: false };
+type MentalWellbeingPending = { worklistVersion: number | null; worklistRules: unknown; attestations: unknown[]; failed: boolean };
+const readPendingMentalWellbeingSignoff = jest.fn<(...args: unknown[]) => Promise<MentalWellbeingPending>>();
+jest.mock("@/lib/queries/pending-mental-wellbeing-signoff", () => ({
+  readPendingMentalWellbeingSignoff: (...args: unknown[]) => readPendingMentalWellbeingSignoff(...args),
+}));
+const noMentalWellbeing: MentalWellbeingPending = { worklistVersion: null, worklistRules: null, attestations: [], failed: false };
 const readPendingSoleCmoException = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
 const readLegacyNoticeRetirementState = jest.fn<(...args: unknown[]) => Promise<{ liveVersion: { version: number } | null; waiting: unknown[]; measurement: unknown[]; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-legacy-notice-retirement-signoff", () => ({
@@ -102,7 +108,7 @@ jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
 }));
 
-import { POST_CHECKIN_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub, SOLE_CMO_EXCEPTION_ITEM_KEY } from "./cmo-signing-hub";
+import { MENTAL_WELLBEING_ITEM_KEY, POST_CHECKIN_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub, SOLE_CMO_EXCEPTION_ITEM_KEY } from "./cmo-signing-hub";
 
 const supabase = {} as SupabaseClient<Database>;
 
@@ -157,6 +163,8 @@ beforeEach(() => {
   readPendingQueuePagingConfigSignoff.mockResolvedValue(noQueuePaging);
   readPendingPostCheckinSignoff.mockReset();
   readPendingPostCheckinSignoff.mockResolvedValue(noPostCheckin);
+  readPendingMentalWellbeingSignoff.mockReset();
+  readPendingMentalWellbeingSignoff.mockResolvedValue(noMentalWellbeing);
 });
 
 describe("readCmoSigningHub: fast-sugar wording (OQ-326)", () => {
@@ -279,6 +287,26 @@ describe("readCmoSigningHub: check-ins after a consultation", () => {
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the check-in configuration");
+  });
+});
+
+describe("readCmoSigningHub: mental wellbeing (S56b)", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds one line, under /clinician, counting the rules draft and every unmet attestation, and signs nothing", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingMentalWellbeingSignoff.mockResolvedValue({ worklistVersion: 1, worklistRules: null, attestations: [{}, {}, {}], failed: false });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === MENTAL_WELLBEING_ITEM_KEY);
+    expect(line?.count).toBe(4);
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/Nothing is shown to a patient or a clinician until you/);
+  });
+  it("adds no line when nothing waits, and a failed read is named, never an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === MENTAL_WELLBEING_ITEM_KEY)).toBeUndefined();
+    readPendingMentalWellbeingSignoff.mockResolvedValue({ worklistVersion: null, worklistRules: null, attestations: [], failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the mental wellbeing sign-offs");
   });
 });
 

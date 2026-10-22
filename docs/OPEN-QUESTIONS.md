@@ -5266,3 +5266,40 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-726 S67-screens: nothing was rendered in a browser or simulator; the screens are checked by tests and type checks only (raised by the S67 screens build)
 - Web: React Testing Library plus axe, 23 tests. Phone: pure logic and outbox tests only (the mobile jest config renders no components), so `pregnancy-tools.tsx` has not been run on a device. Needs a look on web, an Android phone and an iPhone once `maternal_enabled` is on for a test account.
 - Decision: open (needs a test session).
+### OQ-S56b-01 Who the mental health worklist shows (S56b, 2026-10-22)
+- A clinician sees a patient only when they are TIED to them (`clinician_has_patient_access`: assignment, task, acknowledged page, appointment, referral). Break-glass grants are deliberately NOT a route onto a worklist (they are for an emergency read, not a standing list). A patient who never screened, checked in, logged sleep or sent a hand-off is invisible, and a care coordinator is refused (no scores). The CMO is a clinician like any other: no tie, no rows.
+- The rules run set-based over the organisation on every open and every count; fine for the pilot, too heavy for the 25,000-Member tier. A nightly snapshot table (with the same tie filter at read time) is the follow-up (scale plan SR1).
+- Decision: open (founder/CMO confirm the tie-only scope; engineering owns the snapshot).
+
+### OQ-S56b-02 Every worklist number is a placeholder until the CMO signs (S56b)
+- v1 (born unsigned and inactive): PHQ-9 rise 5 or more, GAD-7 rise 4 or more within 120 days; overdue 14 days after the date the signed schedule set; at least 5 short (under 5.5 hours) or poor (rated 2 or lower) nights out of at least 7 logged in 14 days; 8 or more check-ins in the 28 days before then 10 silent days; a hand-off unseen for 48 hours; follow-up task due in 72 hours; list capped at 100. None is a validated change threshold. The CMO can amend by signing a new version (the old one is never edited).
+- Decision: open (CMO).
+
+### OQ-S56b-03 Is "check-ins stopped" a fair thing to watch? (S56b)
+- Module 46.13 and the S56 research say check-ins are a habit the patient controls and are never used to score risk. The worklist rule reads their silence for the tied clinician only (audited, not a score, not an alert). It is the rule most likely to feel like surveillance. Recommendation: switch it off in the first signed version unless the CMO wants it; it is one `enabled` flag in the rules.
+- Decision: open (CMO and founder).
+
+### OQ-S56b-04 What goes into the summary a patient sends (S56b)
+- Included: the latest PHQ-9 and GAD-7 totals (three of each), the band the signed instrument already stored, the raw change since the one before, weekly mood and stress means for four weeks, sleep diary highlights for fourteen days, the patient's own note. Excluded on purpose: the private journal, questionnaire item answers (so item 9 never travels this way; the F1 crisis path owns that), check-in notes and tags, wearable data. The hand-off creates an `admin_clinical` task, so the clinician who claims it becomes tied; until someone claims it, no one is tied and it also shows on the worklist as unseen after 48 hours.
+- Decision: open (CMO confirms the contents and the windows; `wellbeing.share_summary`).
+
+### OQ-S56b-05 The calm tool's wording and pace need the CMO, and a real phone (S56b)
+- The `panic.*` strings (including "You are safe right now. This feeling is strong, and it will pass.") and the pace (in 4 seconds, out 6, 60 seconds, then 5-4-3-2-1) are a PROPOSED draft. The CMO attests the exact words in the hub (bound to a fingerprint) and someone must try it with TalkBack or VoiceOver and with reduced motion on a real phone: the build ran only jsdom and source scans, not a device. The crisis wording is unchanged and 112 remains awaiting CMO approval (OQ-S56-03).
+- On the web the exercise is offline only after the page has loaded (there is no service worker); on the phone it is fully bundled and the "is it open" answer is kept per person.
+- Decision: open (CMO; whoever tests on a phone).
+
+### OQ-S56b-06 Patterns are co-occurrence counts, and some may sting (S56b)
+- The view compares the days on which mood was below the patient's own middle mood, split by their own middle sleep, their own middle blood pressure, a chosen tag and the day of the week, only after 21 days of check-ins in 90 and only when each group has 5 days and the shares differ by 25 points. It never says why. Tags such as grief or loneliness can produce a sentence a person may not want to see; the card can be hidden, is shown only on the person's own profile (never a caregiver acting for them) and sends nothing anywhere. The four sentence templates are pinned by fingerprint for the CMO's attestation.
+- Decision: open (CMO reads the four sentences; founder may want tags left out).
+
+### OQ-S56b-07 Hand-offs of kind `talk_request` and the worklist (S56b)
+- "Tell my care team" after the calm tool sends a fixed, patient-visible sentence as the note, creates an `admin_clinical` task like every hand-off, and is a worklist reason after 48 hours unseen. It is not the urgent path: an emergency still goes through the crisis card and the F1 page. The sentence is part of the attested wording.
+- Decision: open (CMO confirms 48 hours is the right wait for a request to talk).
+
+### OQ-S56b-08 Test accounts bypass the wording attestation (S56b)
+- `wellbeing_features_open()` lets a test account (and a test clinician with a test patient) through before the guard is on, and for the two wording guards also before the attestation, so the flows can be walked end to end. A real person is only reachable once the guard is on and, for the calm tool and patterns, an attestation carries the current fingerprint (proved with a non-test patient).
+- Decision: open (founder confirms this is the intended test rule).
+
+### OQ-S56b-09 What the build could not run (S56b)
+- Docker was unavailable. The two migrations and the proof were run on a throwaway Postgres 16 with a hand-made stand-in for the platform tables (197 checks passed, six sabotages flipped); the real stack replay, the full `scripts/run-db-proofs.sh` and every older proof have NOT been run. Jest (shared, i18n, web, mobile), typecheck and lint were run for real. Nothing was run in a browser or on a phone.
+- Decision: open (CI replay must pass before merge).
