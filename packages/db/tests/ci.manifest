@@ -1441,6 +1441,8 @@ membership_instalments_removed.sql
 
 # Learning content expiry backlog (2026-10-22): admin and the active CMO read the 30/14/7 list, summary and owner list and assign owners while a patient, an ordinary clinician and a visitor are refused; hidden items listed with days; the daily job sends one generic count-only notice per active owner and one CMO digest, once a day; republishing a previously published item needs a new change note. Sabotage: access check neutered, note gate dropped, once-a-day index dropped; each must flip.
 learning_expiry_backlog.sql
+# Cuff display camera reader and result passport (2026-10-22): both go-live guards born OFF (a real patient refused, a test patient let through), anon and other patients refused, AI-022 registered disabled with no invented evaluation, prompt or knowledge source, and a sensitive positive lab row invisible to its owner. Sabotage: the guard lookup made always-open and the restrictive sensitive policy dropped; both must flip.
+cuff_camera_and_result_passport_guards.sql
 
 # S62 follow-up: the review and scheduled-test sweeps are scheduled daily (06:08 and 06:18 UTC), call the right function, run cleanly as the job owner and add nothing while no real patient is enrolled, and still refuse a signed-in user. Sabotage: each job unscheduled and the matching check flips.
 s62_pathway_sweeps_scheduled.sql
