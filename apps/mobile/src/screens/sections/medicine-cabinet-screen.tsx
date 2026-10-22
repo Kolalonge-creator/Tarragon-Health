@@ -13,6 +13,7 @@ import {
   NAFDAC_GREENBOOK_URL,
   NAFDAC_VERIFY_STEP_KEYS,
   refillHandoff,
+  runwayBar,
   type BrandMapEntry,
   parseScheduleSpec,
   anchorBaseTime,
@@ -36,11 +37,13 @@ import {
   loadBrandMap,
   loadDuplicateIngredientCheckState,
   loadInteractionRules,
+  loadNafdacHelperState,
   loadPackNumber,
   loadPharmacyCollectionOpen,
   setNafdacNumber,
 } from "@/lib/medicine-safety";
 import { PLATFORM_URL } from "@/lib/platform-url";
+import { loadNafdacHelperConfig, loadRunwayConfig } from "@/lib/medicines-config";
 import { addSideEffectNote, loadInteractionCheckState, loadMedicineCatalogue, loadRefillPharmacy, type RefillPharmacy } from "@/lib/medicine-catalogue";
 import {
   applyCatalogueLookup,
@@ -321,6 +324,36 @@ function NafdacVerifyBlock() {
         <MutedText key={key}>{`${i + 1}. ${tr(key)}`}</MutedText>
       ))}
       <SmallGhostButton title={tr("medicines.nafdac.verify.open_greenbook")} onPress={() => void WebBrowser.openBrowserAsync(NAFDAC_GREENBOOK_URL)} />
+      <NafdacHelper />
+    </View>
+  );
+}
+
+/**
+ * Item 14: behind the go-live guard `nafdac_verify_helper_enabled` (OFF). Founder decision 2026-10-22: a link to NAFDAC's public registered-product
+ * check only. Nothing is typed, sent or received. A registration match is not proof that a pack is genuine.
+ */
+function NafdacHelper() {
+  const colors = useLegacyColors();
+  const locale = asLocale(useUiLanguage());
+  const tr = (key: MessageKey) => t(key, locale);
+  const [state, setState] = useState<"open" | "closed" | "unknown">("closed");
+  useEffect(() => {
+    let alive = true;
+    void loadNafdacHelperState().then((s) => {
+      if (alive) setState(s);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (state !== "open") return null;
+  const cfg = loadNafdacHelperConfig();
+  return (
+    <View style={{ gap: 6, marginTop: 6 }}>
+      <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>{tr("medicines.nafdac.helper.title")}</Text>
+      <SmallGhostButton title={tr("medicines.nafdac.helper.registration")} onPress={() => void WebBrowser.openBrowserAsync(cfg.registrationCheck.url)} />
+      <MutedText>{tr("medicines.nafdac.helper.not_proof")}</MutedText>
     </View>
   );
 }
@@ -611,7 +644,10 @@ function SupplySection({
   // S08y: when the supply is low and the medicine came from a prescription, offer the EXISTING pharmacy page (S28) in the browser.
   // Offered only while that flow is switched on; if that cannot be read, nothing is offered rather than a dead link.
   const [collectionOpen, setCollectionOpen] = useState<boolean | null>(null);
-  const isLow = supply?.low === true;
+  // Item 9: the bar is drawn from the same estimate the line below reads (estimateSupply); nothing is recomputed here. The one-tap
+  // "choose where to collect" is offered when the supply is low or within the config's window.
+  const bar = supply ? runwayBar(supply.estimate.daysLeft, loadRunwayConfig()) : null;
+  const isLow = supply?.low === true || bar?.offerCollect === true;
   useEffect(() => {
     if (!isLow) return;
     let alive = true;
@@ -639,6 +675,14 @@ function SupplySection({
       ) : (
         <MutedText>{tr("meds.supply.unknown")}</MutedText>
       )}
+      {bar ? (
+        <View accessible accessibilityRole="progressbar" accessibilityLabel={tr("meds.runway.days_left", { days: bar.daysLeft })} accessibilityValue={{ min: 0, max: 100, now: Math.round(bar.fraction * 100) }} style={{ gap: 4 }}>
+          <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.border, overflow: "hidden" }}>
+            <View style={{ height: 8, width: `${Math.max(4, Math.round(bar.fraction * 100))}%`, backgroundColor: bar.tone === "low" ? colors.danger : bar.tone === "soon" ? colors.status.warn : colors.brandPressed }} />
+          </View>
+          <MutedText>{tr("meds.runway.days_left", { days: bar.daysLeft })}</MutedText>
+        </View>
+      ) : null}
       {message ? <MutedText>{message}</MutedText> : null}
       {handoff.offer ? (
         <SmallGhostButton title={tr("meds.supply.collect_link")} onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}${handoff.path}`)} />
