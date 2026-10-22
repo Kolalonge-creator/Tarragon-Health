@@ -537,7 +537,7 @@ begin
   v_co := (pg_temp.j(v_mod, $q$select public.cohort_create('Cooperative Proof Group', 'workplace', true)::text$q$) ->> 'cohort_id')::uuid;
   v_ch := (pg_temp.j(v_mod, format('select public.cohort_start_challenge(%L::uuid, %L, (now() at time zone %L)::date, 14)::text', v_co, 'move_together', 'Africa/Lagos')) ->> 'challenge_id')::uuid;
   v_chlog := (pg_temp.j(v_mod, format('select public.cohort_start_challenge(%L::uuid, %L, (now() at time zone %L)::date, 14)::text', v_co, 'log_days', 'Africa/Lagos')) ->> 'challenge_id')::uuid;
-  pg_temp.setf('coopCh', v_ch); pg_temp.setf('coopChLog', v_chlog); pg_temp.setf('coopCo', v_co);
+  perform pg_temp.setf('coopCh', v_ch); perform pg_temp.setf('coopChLog', v_chlog); perform pg_temp.setf('coopCo', v_co);
 
   -- a cohort of 9 shows nothing
   for v_i in 1..9 loop

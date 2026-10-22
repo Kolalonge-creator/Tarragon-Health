@@ -102,4 +102,22 @@ describe("ConsentMatrixPanel", () => {
     );
     expect(screen.getByText(/turned off/i)).toBeTruthy();
   });
+
+  it("offers a one page receipt for the whole picture and for each history entry that has an id (RCPT-1)", () => {
+    render(
+      <ConsentMatrixPanel
+        matrix={matrix()}
+        history={[
+          { id: "5f3b0c2e-8a41-4d6e-9d3a-1b2c3d4e5f60", data_type: "vitals", purpose: "research", action: "granted", at: "2026-10-06T10:00:00Z" },
+          { data_type: "vitals", purpose: "research", action: "withdrawn", at: "2026-10-05T10:00:00Z" },
+        ]}
+      />,
+    );
+    const links = screen.getAllByRole("link") as HTMLAnchorElement[];
+    expect(links.map((l) => l.getAttribute("href"))).toEqual([
+      "/api/patient/consent-receipt/pdf?scope=all",
+      "/api/patient/consent-receipt/pdf?scope=matrix_event&id=5f3b0c2e-8a41-4d6e-9d3a-1b2c3d4e5f60",
+    ]);
+    expect(screen.getByText(/holds no health readings/i)).toBeTruthy();
+  });
 });

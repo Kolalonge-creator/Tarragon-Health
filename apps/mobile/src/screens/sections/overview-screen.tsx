@@ -26,7 +26,8 @@ import { PaymentIssueCard } from "@/screens/sections/payment-issue-card";
 import { AccountNotices } from "@/screens/sections/account-notices";
 import { HowYoureDoingCard } from "@/screens/sections/how-youre-doing-card";
 import { TodayCard } from "@/screens/sections/today-card";
-import { WeeklyLessonCard } from "@/screens/sections/learning-sections";
+import { LessonFooter, WeeklyLessonCard } from "@/screens/sections/learning-sections";
+import { RecordLessonCardNative } from "@/screens/sections/learning-quality-sections";
 import { HomeCheckCard } from "@/screens/sections/home-check-card";
 import { todayIsoDate } from "@/lib/medications";
 import { agoLine, dueLine, formatVisitTime, heroMetric, nextBestStep, type Line } from "@/lib/home-model";
@@ -301,6 +302,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
 
       {/* S55: this week's micro-lesson (spec 9.2); draws nothing when there is no in-date lesson. */}
       {organisationId ? <WeeklyLessonCard patientId={patientId} organisationId={organisationId} /> : null}
+      {organisationId ? <RecordLessonCardNative patientId={patientId} renderFooter={(code, title) => <LessonFooter code={code} title={title} />} /> : null}
 
       {showGetStarted ? <GetStartedCard progress={progress} onNavigate={onNavigate} /> : null}
 

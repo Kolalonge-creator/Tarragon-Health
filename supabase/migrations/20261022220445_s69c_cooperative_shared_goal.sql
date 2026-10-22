@@ -276,7 +276,7 @@ begin
   if ch.metric = 'log_days' then
     insert into public.challenge_participation (organisation_id, challenge_id, patient_id, day, value, source)
     select pr.organisation_id, ch.id, pr.id, d, 1, 'computed' from (
-      select (v.taken_at at time zone 'Africa/Lagos')::date d from public.vitals_readings v where v.patient_id = pr.id
+      select (v.taken_at at time zone 'Africa/Lagos')::date d from private.vitals_readings_current v where v.patient_id = pr.id
         and (v.taken_at at time zone 'Africa/Lagos')::date between v_from and v_to
       union select (n.logged_at at time zone 'Africa/Lagos')::date from public.nutrition_log_entries n where n.patient_id = pr.id
         and (n.logged_at at time zone 'Africa/Lagos')::date between v_from and v_to) x

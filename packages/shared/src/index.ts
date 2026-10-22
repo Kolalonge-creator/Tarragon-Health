@@ -307,3 +307,7 @@ export * from "./biomarker-trend";
 
 // S69c: cooperative framing of cohort challenges (shared goal path, weeks active, daily cap, shame-copy lint), shared by web and phone.
 export * from "./community-cooperative";
+
+// S43m: the emergency card field choices and the pure half of photo capture, shared by web and phone.
+export * from "./emergency-card-fields";
+export * from "./document-suggestions";
