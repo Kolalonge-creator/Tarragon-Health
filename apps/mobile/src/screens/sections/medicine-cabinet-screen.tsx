@@ -16,6 +16,10 @@ import {
   runwayBar,
   type BrandMapEntry,
   parseScheduleSpec,
+  anchorBaseTime,
+  type ResolvedAnchor,
+  type AnchorId,
+  type AnchorProfile,
   lookupNafdacNumber,
   normaliseNafdacNumber,
   prefillFromCatalogue,
@@ -26,6 +30,9 @@ import {
   type FoodNote,
   type ScheduleSpec,
 } from "@tarragon/medicines";
+import { AnchorPicker, MyDaySection, normaliseClock } from "@/screens/sections/anchor-ui";
+import { anchorProfileFor } from "@/lib/anchor-profile";
+import { ensureAnchorSlots, saveAnchorTimes } from "@/lib/anchor-actions";
 import {
   loadBrandMap,
   loadDuplicateIngredientCheckState,
@@ -261,6 +268,7 @@ export function MedicineCabinetScreen({ patientId, organisationId }: MedicineCab
       <PharmacyOrdersSection patientId={patientId} />
 
       <AddMedicationSection patientId={patientId} existing={medications} onAdded={load} />
+      <MyDaySection patientId={patientId} />
 
       {checkinsError || checkins.length > 0 ? (
         <View style={{ gap: 10 }}>
@@ -740,6 +748,9 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
   const [refillDate, setRefillDate] = useState("");
   const [scheduleTimes, setScheduleTimes] = useState<string[]>([]);
   const [newTime, setNewTime] = useState("");
+  // S08z: doses tied to the patient's day (a meal, waking, a prayer, bedtime) instead of a clock time.
+  const [anchored, setAnchored] = useState<ResolvedAnchor[]>([]);
+  const [anchorDrafts, setAnchorDrafts] = useState<Partial<Record<AnchorId, string>>>({});
   const [startedBySpecialist, setStartedBySpecialist] = useState(false);
   const [prescriberName, setPrescriberName] = useState("");
   const [pending, setPending] = useState(false);
@@ -872,6 +883,8 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
     setFrequency("");
     setRefillDate("");
     setScheduleTimes([]);
+    setAnchored([]);
+    setAnchorDrafts({});
     setStartedBySpecialist(false);
     setPrescriberName("");
     setKind("daily");
@@ -885,11 +898,19 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
   }
 
   /** The structured schedule the form describes, or null for the plain "every day at these times" case. */
-  function buildSpec(): { spec: ScheduleSpec | null } | { error: string } {
-    const plainDaily = kind === "daily" && !startDate.trim() && !endDate.trim() && foodNote === null && windowMinutes === 0;
+  function buildSpec(slotOf: Record<string, string>): { spec: ScheduleSpec | null } | { error: string } {
+    const plainDaily = kind === "daily" && anchored.length === 0 && !startDate.trim() && !endDate.trim() && foodNote === null && windowMinutes === 0;
     if (plainDaily) return { spec: null };
     const today = todayIsoDate();
-    const common = { startDate: startDate.trim() || null, endDate: endDate.trim() || null, foodNote, windowMinutes: kind === "as_needed" ? 0 : windowMinutes };
+    const canAnchor = kind === "daily" || kind === "every_n_days" || kind === "weekdays";
+    const common = {
+      startDate: startDate.trim() || null,
+      endDate: endDate.trim() || null,
+      foodNote,
+      windowMinutes: kind === "as_needed" ? 0 : windowMinutes,
+      // The schedule stores the opaque slot, never the anchor's name (religious belief): see packages/medicines anchors.ts.
+      ...(canAnchor && anchored.length > 0 ? { anchored: anchored.map((a) => ({ slot: slotOf[a.anchor], offsetMinutes: a.offsetMinutes })) } : {}),
+    };
     let raw: Record<string, unknown>;
     if (kind === "daily") raw = { ...common, kind, times: scheduleTimes };
     else if (kind === "every_n_days") raw = { ...common, startDate: common.startDate ?? today, kind, times: scheduleTimes, intervalDays: Number(intervalDays), anchorDate: common.startDate ?? today };
@@ -906,8 +927,18 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
           doseText: st.doseText,
         })),
       };
-    const parsed = parseScheduleSpec(raw);
-    return parsed.ok ? { spec: parsed.spec } : { error: tr("meds.schedule.invalid") };
+    // The window check counts anchored doses at the times the patient has set (or is setting in this form).
+    const base = anchorProfileFor(patientId);
+    const times: AnchorProfile["times"] = { ...base.times };
+    for (const [k, v] of Object.entries(anchorDrafts) as [AnchorId, string][]) {
+      const norm = normaliseClock(v);
+      if (norm !== null) times[k] = [{ effectiveFrom: "9999-12-31", time: norm }];
+    }
+    const slots: Record<string, AnchorId> = { ...base.slots };
+    for (const [anchor, slot] of Object.entries(slotOf)) slots[slot] = anchor as AnchorId;
+    const parsed = parseScheduleSpec(raw, { ...base, slots, times });
+    if (parsed.ok) return { spec: parsed.spec };
+    return { error: parsed.errors.includes("windowMinutes:overlap") && anchored.length > 0 ? tr("doseanchor.window_overlap") : tr("meds.schedule.invalid") };
   }
 
   async function submit(skipCheck = false) {
@@ -918,7 +949,17 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
       setError("Drug name is required");
       return;
     }
-    const built = buildSpec();
+    // A medicine tied to the day needs the patient's opaque slot for each anchor, made by the server (so it needs a connection, as adding any medicine does).
+    let slotOf: Record<string, string> = {};
+    if (anchored.length > 0) {
+      const ensured = await ensureAnchorSlots(patientId, anchored.map((a) => a.anchor));
+      if (ensured === null) {
+        setError(tr("doseanchor.myday.error"));
+        return;
+      }
+      slotOf = ensured;
+    }
+    const built = buildSpec(slotOf);
     if ("error" in built) {
       setError(built.error);
       return;
@@ -960,6 +1001,31 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
       return;
     }
     setFindings(null);
+    // The times the patient set for the anchors they chose are saved first (they confirm the starting times). A medicine is never
+    // added tied to a time that did not save.
+    if (anchored.length > 0) {
+      const profile = anchorProfileFor(patientId);
+      const toSave: Partial<Record<AnchorId, string>> = {};
+      for (const a of anchored) {
+        const typed = anchorDrafts[a.anchor];
+        const norm = typed === undefined ? null : normaliseClock(typed);
+        if (typed !== undefined && norm === null) {
+          setPending(false);
+          setError(tr("doseanchor.myday.error"));
+          return;
+        }
+        const wanted = norm ?? anchorBaseTime(profile, a.anchor);
+        if (norm !== null || (profile.times[a.anchor] ?? []).length === 0) toSave[a.anchor] = wanted;
+      }
+      if (Object.keys(toSave).length > 0) {
+        const saved = await saveAnchorTimes(patientId, toSave);
+        if (!saved.ok) {
+          setPending(false);
+          setError(saved.error === "window_overlap" ? tr("doseanchor.window_overlap") : tr("doseanchor.myday.error"));
+          return;
+        }
+      }
+    }
     const result = await addMedication(patientId, {
       scheduleSpec: built.spec ?? undefined,
       drugName: name,
@@ -1176,6 +1242,9 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
                 <SmallGhostButton key={f} title={(foodNote === f ? "✓ " : "") + tr(`meds.food.${f}` as MessageKey)} onPress={() => setFoodNote(foodNote === f ? null : f)} />
               ))}
             </View>
+          </View>
+          <View style={{ gap: 10, display: kind === "daily" || kind === "every_n_days" || kind === "weekdays" ? "flex" : "none" }}>
+            <AnchorPicker patientId={patientId} value={anchored} onChange={setAnchored} drafts={anchorDrafts} onDrafts={setAnchorDrafts} />
           </View>
           <View style={{ gap: 6, display: kind === "taper" || kind === "as_needed" ? "none" : "flex" }}>
             <MutedText>Dose times</MutedText>

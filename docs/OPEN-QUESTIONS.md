@@ -4603,6 +4603,31 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
 
+### OQ-S08z-1 The starting time of each anchor is PROPOSED (raised by S08z, 2026-10-20)
+- `medicines.dose_anchors.anchors` (and the seeded `dose_anchor_defaults`) hold a plausible starting time for each of ten parts of the day (waking, the five daily prayers, three meals, bedtime). They are placeholders: nothing is computed from location or a calendar, and the patient confirms the time of each anchor they use. Needed: the founder or CMO confirms or replaces them (a new registry version and a new migration row, never an edit in place).
+- Decision: open (founder).
+
+### OQ-S08z-2 A patient who shifts their day for a fast: care-team visibility and counselling (raised by S08z, 2026-10-20)
+- Shifting reminders for a month of fasting can matter clinically (for example for diabetes or blood pressure medicines). The app gives no advice. The anchor, shift and slot-mapping tables are readable only by the patient and an acting guardian (see OQ-S08z-5), and the medicine record the care team reads holds only an opaque slot and the resolved clock time, so a care team does not see a shift and nothing prompts a conversation. Needed from the CMO: whether a shift should create a care-team signal or task (a privacy-preserving one, without naming a prayer), and what a fasting conversation looks like. Nothing was built that decides this.
+- Decision: open (CMO).
+
+### OQ-S08z-3 Clinician-prescribed schedules cannot be tied to the day yet (raised by S08z, 2026-10-20)
+- Anchors are offered on patient-added medicines only (a prescribed schedule is fixed by the care team and the existing allow-list refuses a patient edit). A prescriber cannot choose "with dinner", and a patient cannot tie a prescribed medicine to their day. If wanted, it is a prescribing-flow change (INV-02: the prescriber signs the anchor) and a separate piece of work.
+- Decision: open (product, CMO).
+
+### OQ-S08z-4 The new `doseanchor.*` strings sit outside the reviewed-strings ledger (raised by S08z, 2026-10-20)
+- The ledger gives the clinical namespaces (`medicines.*` among them) no room for new baseline entries and no reviewer exists to name, so the anchor and My day copy lives under `doseanchor.*`, outside the gated namespaces. That is a way round the gate, not a review. Needed: the CMO or a pharmacist reads the keys (especially `doseanchor.pick_help` and `doseanchor.myday.shift_help`), then they move into a gated namespace with a real reviewer entry.
+- Decision: open (CMO).
+
+### OQ-S08z-5 Which prayers a patient ties a medicine to is special-category data (raised by S08z, 2026-10-21)
+- `patient_dose_anchors`, `patient_day_shifts` and `patient_dose_anchor_slots` name the prayers a person uses, which discloses religious belief (special-category data). They are readable by the person and an acting guardian only; tied clinicians and caregivers are deliberately NOT given read access. PROTECTED NOW (2026-10-21 fix): the anchor name no longer travels in `medications.schedule_spec`, which clinicians, caregivers, exports, the share link and printed reports read; it stores an opaque per-patient slot and the mapping lives only in the patient-private table. The validator refuses a prayer name in any stored schedule, and the migration's closing check and the DB proof fail if a policy names a clinical reader or any stored schedule names a prayer (proof reads as a tied clinician and as a caregiver, with a sabotage step). RESIDUAL: the resolved clock times and offsets, which medicines share a slot and how many distinct slots a person uses, remain visible to the care team; the patient's own export holds the mapping; an acting guardian reads it by design. They are listed in the S39d data registry as unreviewed, in the patient export. Needed: the DPO and CMO class review (retention, export wording, whether a guardian should see prayer names at all), and a decision on what a care team should see (a resolved time is already visible; a "day shifted" signal without the anchor names is the likely answer).
+- Decision: open (DPO, CMO).
+
+### OQ-S08z-6 A day shift is not checked against dose windows (raised by S08z, 2026-10-21)
+- A flexible window may not overlap the next dose at the person's normal times, and that is enforced. During a shift two anchors can end up closer than a window for those dates (a shift moves each anchor independently), which only makes a dose read "due" a little longer. If it should be refused instead, the shift RPC and the phone need to check the shifted times of every active medicine with a window.
+- Decision: open (product).
+
+
 ### OQ-S43m-1 The web symptom journal says severity is "of 5"; the database and the phone use 1 to 10 (raised by the S43m build, 2026-10-20)
 - `i18n` key `journal.severity` reads "How bad: {value} of 5" and `/patient/symptom-journal` uses it, but `symptoms.severity` is entered on a 1 to 10 scale (phone `symptom-screen.tsx`, red-flag trigger at 8 and above). A person who logged 8 sees "8 of 5" on the web. The phone uses a new key, `mpass.journal.severity` ("out of 10"). Needed: change the web page to the same wording. Not changed here to keep the PR to the phone; the key `journal.severity` also collides in name with the private-journal keys and should be renamed when it is.
 - Decision: open (product, small).

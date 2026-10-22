@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import { asLocale, t } from "@tarragon/i18n";
+import { anchorPhrase, asLocale, t } from "@tarragon/i18n";
 import {
   DOSE_NOTIFICATION_PREFIX,
   diffNotifications,
@@ -23,6 +23,7 @@ import { loadMedicineRules, loadReminderReliability } from "./medicines-config";
 import { readLocalMedications, readLocalRecords } from "./offline-store";
 import { listOutbox, type DosePayload } from "./outbox";
 import { loadReminderBehaviour } from "./s07-config";
+import { refreshAnchorProfile } from "./anchor-profile";
 import { scheduleOf } from "./medications";
 import { supabase } from "./supabase";
 import { getUiLanguage } from "./ui-language";
@@ -58,7 +59,7 @@ Notifications.setNotificationHandler({
 });
 
 async function text(
-  key: "medicines.notify.title" | "medicines.notify.body" | "medicines.notify.follow_up_title" | "medicines.notify.follow_up_body" | "medicines.notify.channel" | "medicines.notify.test_title" | "medicines.notify.test_body" | "medicines.notify.title_for" | "medicines.notify.body_for",
+  key: "doseanchor.notify.body" | "doseanchor.notify.body_for" | "medicines.notify.title" | "medicines.notify.body" | "medicines.notify.follow_up_title" | "medicines.notify.follow_up_body" | "medicines.notify.channel" | "medicines.notify.test_title" | "medicines.notify.test_body" | "medicines.notify.title_for" | "medicines.notify.body_for",
   params?: Record<string, string | number>,
 ) {
   return t(key, asLocale(await getUiLanguage()), params);
@@ -185,7 +186,8 @@ export async function replanDoseReminders(
 
     const meds = await loadMedicines(patientId);
     const closed = await loadClosedSlots(patientId, nowMs);
-    const reminderMeds: ReminderMedicine[] = meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) }));
+    await refreshAnchorProfile(patientId);
+    const reminderMeds: ReminderMedicine[] = meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m, patientId) }));
     // The dependants this person manages are reminded about too (OQ-70): one plan, one cap, their first name in the text.
     const loadedDependants = await loadManagedDependants(patientId);
     // Could not find out who is managed (offline, a failed read): leave the plan exactly as it is. Replanning from the person's own doses
@@ -196,9 +198,10 @@ export async function replanDoseReminders(
     for (const dep of dependants) {
       try {
         const depMeds = await loadMedicines(dep.profileId);
+        await refreshAnchorProfile(dep.profileId);
         for (const slot of await loadClosedSlots(dep.profileId, nowMs)) closed.add(slot);
         for (const m of depMeds) {
-          reminderMeds.push({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) });
+          reminderMeds.push({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m, dep.profileId) });
           dependantOfMedicine.set(m.id, dep.firstName);
         }
       } catch {
@@ -219,7 +222,18 @@ export async function replanDoseReminders(
       const followUp = item.kind !== "due";
       const forName = ownerOfNotification(item.slotKeys, dependantOfMedicine);
       const title = forName && !followUp ? await text("medicines.notify.title_for", { name: forName }) : followUp ? followTitle : dueTitle;
-      const body = forName && !followUp ? await text("medicines.notify.body_for", { name: forName }) : followUp ? followBody : dueBody;
+      // S08z: when every dose in this notification is tied to the same part of the person's day, say which, in plain words and nothing else.
+      const when = item.anchor && !followUp ? anchorPhrase(item.anchor.anchor, item.anchor.offsetMinutes, asLocale(await getUiLanguage())) : "";
+      const body =
+        forName && !followUp
+          ? when
+            ? await text("doseanchor.notify.body_for", { name: forName, when })
+            : await text("medicines.notify.body_for", { name: forName })
+          : followUp
+            ? followBody
+            : when
+              ? await text("doseanchor.notify.body", { when })
+              : dueBody;
       await Notifications.scheduleNotificationAsync({
         identifier: item.id,
         content: { title, body, data: { slotKeys: item.slotKeys }, ...iosInterruption() },
@@ -338,9 +352,10 @@ export async function checkReminderHealth(patientId: string, nowMs: number = Dat
       pending = known.pending;
     } else {
       const meds = await loadMedicines(patientId);
+      await refreshAnchorProfile(patientId);
       const closed = await loadClosedSlots(patientId, nowMs);
       plannedCount = planDoseNotifications(
-        meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) })),
+        meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m, patientId) })),
         closed,
         nowMs,
         planConfig()

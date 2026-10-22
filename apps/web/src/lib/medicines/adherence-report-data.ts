@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getProposedConfig, type Database } from "@tarragon/shared";
+import { defaultsProfile, loadAnchors } from "@/lib/medication-schedule/anchor-profile";
 import {
   addDays,
   buildAdherenceReport,
@@ -8,6 +9,7 @@ import {
   parseScheduleSpec,
   specFromLegacyTimes,
   type AdherenceMedicine,
+  type AnchorProfile,
   type AdherenceReportWeek,
   type DoseLog,
   type LogSource,
@@ -55,9 +57,9 @@ export function reportWeeksConfig(): number {
 }
 
 /** Turns the rows into the shapes the package reads. Exported for the drift test. */
-export function toAdherenceMedicines(meds: readonly MedRow[], logs: readonly LogRow[]): AdherenceMedicine[] {
+export function toAdherenceMedicines(meds: readonly MedRow[], logs: readonly LogRow[], profile?: AnchorProfile): AdherenceMedicine[] {
   return meds.map((m) => {
-    const parsed = m.schedule_spec != null ? parseScheduleSpec(m.schedule_spec) : null;
+    const parsed = m.schedule_spec != null ? parseScheduleSpec(m.schedule_spec, profile ?? defaultsProfile()) : null;
     const spec = parsed?.ok ? parsed.spec : specFromLegacyTimes(m.schedule_times);
     const mine = logs
       .filter((l) => l.medication_id === m.id && l.scheduled_for_date && l.scheduled_time && l.status && l.logged_at)
@@ -115,7 +117,7 @@ export async function loadAdherenceReport(
   if (!Number.isInteger(weeksCount) || weeksCount < 1 || weeksCount > 26) return { ok: false, error: "The report period is not valid." };
   const since = addDays(lagosLocalDate(nowMs), -(weeksCount * 7 + 1));
 
-  const [cfgRes, medsRes, logsRes] = await Promise.all([
+  const [cfgRes, medsRes, logsRes, anchors] = await Promise.all([
     supabase
       .from("medicine_config")
       .select("missed_after_minutes, adherence_min_doses, adherence_threshold_percent")
@@ -128,13 +130,23 @@ export async function loadAdherenceReport(
       .eq("is_active", true)
       .is("superseded_at", null),
     fetchAllLogs(supabase, patientId, since),
+    // S08z: doses tied to the patient's day are worked out from their own anchor times and day shifts, as they were on each date.
+    loadAnchors(supabase, patientId),
   ]);
   const failure = cfgRes.error ?? medsRes.error ?? logsRes.error;
   if (failure) return { ok: false, error: failure.message };
   const cfg = cfgRes.data;
   if (!cfg) return { ok: false, error: "The medicine rules are not available right now." };
 
-  const medicines = toAdherenceMedicines((medsRes.data ?? []) as MedRow[], (logsRes.data ?? []) as LogRow[]);
+  const meds = (medsRes.data ?? []) as MedRow[];
+  // A report on doses tied to the day, worked out from the proposed starting times because the person's own could not be read, would
+  // put the wrong times on a document handed to a clinic. Refuse rather than print it.
+  const hasAnchored = meds.some((m) => {
+    const spec = m.schedule_spec as { anchored?: unknown } | null;
+    return Array.isArray(spec?.anchored) && spec.anchored.length > 0;
+  });
+  if (hasAnchored && !anchors.loaded) return { ok: false, error: "Your daily times could not be read just now." };
+  const medicines = toAdherenceMedicines(meds, (logsRes.data ?? []) as LogRow[], anchors.profile);
   const weeks = buildAdherenceReport(
     medicines,
     nowMs,

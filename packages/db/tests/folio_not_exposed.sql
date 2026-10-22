@@ -10,8 +10,8 @@
 --   (The document function's entitlement is proved in clinician_folio_for_document.sql.)
 -- SABOTAGE (last block): the view is redefined to expose credential_number again and assertion 1 is run
 -- again; it MUST fail, proving the check can fail.
--- Not asserted (documented open follow-up, docs/design/folio-exposure-fix.md): a clinician colleague can
--- still read the folio from the base table clinical_staff, because org staff are admitted by its policy.
+-- The base table itself is locked by clinical_staff_folio_base_table_lock.sql (OQ-358, step 2 of the follow-up):
+-- here the clinician reads their own folio through public.clinical_staff_folio().
 -- Wrapped in BEGIN/ROLLBACK; mints its own fixtures.
 -- ===========================================================================
 
@@ -103,7 +103,7 @@ begin
   if v_n <> 0 then raise exception 'FAIL: a patient read % clinical_staff rows', v_n; end if;
   perform set_config('request.jwt.claims', json_build_object('sub', v_docA, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  select credential_number into v_f from public.clinical_staff where profile_id = v_docA;
+  select credential_number into v_f from public.clinical_staff_folio(array[v_staffA]);
   execute 'reset role';
   if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: the clinician could not read their own folio (%)', v_f; end if;
 
