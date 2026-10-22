@@ -9499,6 +9499,60 @@ export type Database = {
         }
         Relationships: []
       }
+      medication_dose_reasons: {
+        Row: {
+          created_at: string
+          medication_log_id: string
+          organisation_id: string
+          patient_id: string
+          reason_code: string
+          recorded_by: string | null
+          source: Database["public"]["Enums"]["record_source"]
+        }
+        Insert: {
+          created_at?: string
+          medication_log_id: string
+          organisation_id: string
+          patient_id: string
+          reason_code: string
+          recorded_by?: string | null
+          source?: Database["public"]["Enums"]["record_source"]
+        }
+        Update: {
+          created_at?: string
+          medication_log_id?: string
+          organisation_id?: string
+          patient_id?: string
+          reason_code?: string
+          recorded_by?: string | null
+          source?: Database["public"]["Enums"]["record_source"]
+        }
+        Relationships: []
+      }
+      dose_reason_sharing: {
+        Row: {
+          organisation_id: string
+          patient_id: string
+          reason_code: string
+          share_with_supporters: boolean
+          updated_at: string
+        }
+        Insert: {
+          organisation_id: string
+          patient_id: string
+          reason_code: string
+          share_with_supporters?: boolean
+          updated_at?: string
+        }
+        Update: {
+          organisation_id?: string
+          patient_id?: string
+          reason_code?: string
+          share_with_supporters?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       medication_pack_numbers: {
         Row: {
           medication_id: string
@@ -55943,6 +55997,8 @@ export type Database = {
         Returns: string
       }
       set_medication_nafdac_number: { Args: { p_medication: string; p_number: string }; Returns: undefined }
+      set_dose_reason_sharing: { Args: { p_code: string; p_share: boolean; p_patient?: string }; Returns: undefined }
+      read_dose_reasons_audited: { Args: { p_patient: string; p_reason: string; p_before?: string; p_limit?: number }; Returns: Json }
       sign_medicine_interaction_rule_sets: {
         Args: { p_rules_id: string }
         Returns: Database["public"]["Tables"]["medicine_interaction_rule_sets"]["Row"]

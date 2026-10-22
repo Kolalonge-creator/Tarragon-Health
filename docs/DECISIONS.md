@@ -479,6 +479,13 @@ Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six 
 | **Money reconciliation screen access stays: finance, admin and the `finance.view` permission**, with a daily alert. | No widening and no narrowing. The daily alert is a separate task (the `money_reconciliation_daily_alert` and `money_reconciliation_badge_snapshot` work), not part of the instalment removal. |
 | **OQ-519 (earlier numbered OQ-275, "One medicine per prescription"): several medicines in one signed prescription = YES.** | To be PLANNED as a separate build. It needs S24 signing, the prescription PDF and the QR verification to change together (they all assume one medicine per prescription today) and a CMO review before anything is built. S28e's one-code-per-pharmacy-visit stays as the interim. Nothing is built by this entry. |
 
+## Founder decisions, 2026-10-22 (S54d: chooser, NAFDAC helper, private ran-out reason)
+
+| Decision | Chosen |
+|---|---|
+| **OQ-S54D-1: price and per-pharmacy stock in the pharmacy chooser stay removed.** | OQ-714 stands. The 48-hour stale-stock rule and the medicine runway bar stay as built. |
+| **OQ-NAFDAC-HELPER-1: the NAFDAC helper is a Greenbook link only.** | The `sms:` link, the pre-filled scratch-code text and the 38353 short-code config entry are removed entirely. The block keeps the link to NAFDAC's public registered-product check and the wording "A registration match is not proof that a pack is genuine." The guard `nafdac_verify_helper_enabled` stays OFF. INV-08 is no longer in play. |
+| **OQ-S54D-2: tighten fully.** | No supporter, including a manage-level supporter, may read a ran-out or cannot-afford reason unless the person opted in for that exact reason. Old reason values already stored on dose rows are moved to the private table and blanked, so a supporter no longer sees them. |
 ## Founder decision, 2026-10-22 (cuff display photo reader: approved for evaluation only)
 
 | Decision | Chosen |
