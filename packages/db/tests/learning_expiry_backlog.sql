@@ -163,11 +163,13 @@ begin
   perform pg_temp.ck('A5 a patient and an ordinary clinician cannot assign an owner',
     pg_temp.as_try(v_pat, format('select public.set_learning_content_owner(%L, %L)', v_i, v_own)) = '42501'
     and pg_temp.as_try(v_doc, format('select public.set_learning_content_owner(%L, %L)', v_i, v_own)) = '42501');
-  perform pg_temp.ck('A6 the admin assigns an owner and the CMO clears it',
-    pg_temp.as_try(v_admin, format('select public.set_learning_content_owner(%L, %L)', v_i, v_own)) = 'ok'
-    and (select owner_profile_id = v_own from public.health_education_content where id = v_i)
-    and pg_temp.as_try(v_cmo, format('select public.set_learning_content_owner(%L, null)', v_i)) = 'ok'
-    and (select owner_profile_id is null from public.health_education_content where id = v_i));
+  -- Steps run one statement at a time: a volatile call and a table read inside one AND expression can be evaluated in any order.
+  v_t := pg_temp.as_try(v_admin, format('select public.set_learning_content_owner(%L, %L)', v_i, v_own));
+  v_before := (select count(*) from public.health_education_content where id = v_i and owner_profile_id = v_own);
+  perform pg_temp.ck('A6a the admin assigns an owner', v_t = 'ok' and v_before = 1);
+  v_t := pg_temp.as_try(v_cmo, format('select public.set_learning_content_owner(%L, null)', v_i));
+  v_before := (select count(*) from public.health_education_content where id = v_i and owner_profile_id is null);
+  perform pg_temp.ck('A6b the CMO clears the owner', v_t = 'ok' and v_before = 1);
   perform pg_temp.ck('A7 a patient cannot be made an owner, and the owner list leaves patients out',
     pg_temp.as_try(v_admin, format('select public.set_learning_content_owner(%L, %L)', v_i, v_pat)) = '23514'
     and pg_temp.as_count(v_admin, format('select count(*) from public.learning_expiry_owner_candidates() where profile_id = %L', v_pat)) = 0
@@ -282,6 +284,12 @@ begin
   perform pg_temp.ck('S1 sabotage: with the access check neutered a patient reads the backlog',
     pg_temp.as_count(v_pat, $q$select count(*) from public.learning_expiry_backlog() where code like 'lx-%'$q$) = 6);
   -- (ii) the note gate dropped: a new version then publishes with no note (the trigger is what refuses it)
+  -- (the item must be a genuine new version first: previously published, now in editing, and the gate must refuse it before it is dropped)
+  insert into public.health_education_content_status_history (content_id, from_status, to_status) values (v_i, 'draft', 'published');
+  update public.health_education_content set content_status = 'updated' where id = v_i;
+  v_t := 'ok';
+  begin update public.health_education_content set content_status = 'published' where id = v_i; exception when others then v_t := sqlstate; end;
+  perform pg_temp.ck('S2a control: with the gate in place that same re-publish is refused', v_t = '23514');
   drop trigger health_education_content_z_change_note_gate on public.health_education_content;
   update public.health_education_content set content_status = 'published' where id = v_i;
   perform pg_temp.ck('S2 sabotage: with the note gate dropped a new version publishes with no note',
