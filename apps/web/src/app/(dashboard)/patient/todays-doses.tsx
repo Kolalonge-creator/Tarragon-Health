@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMedications, useTodaysDoseLogs, useLogDose, todayIsoDate } from "@/lib/queries/medications";
 import { useAnchors } from "@/lib/queries/dose-anchors";
-import { anchorPhrase, t } from "@tarragon/i18n";
+import { anchorPhrase } from "@tarragon/i18n";
 import { buildTodaysDoseChecklist, hasAnchoredDoses, type DoseStatus } from "@/lib/medication-schedule/checklist";
 import { MISSED_REASONS } from "@/lib/validation/medication-logs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
