@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Linking, Platform, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { resolveTakenTime, isDoubleTap, lagosLocalDate, slotKey, windowEndTime, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
+import { DOSE_REASONS, shouldOfferPharmacy, resolveTakenTime, isDoubleTap, lagosLocalDate, slotKey, windowEndTime, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
 import { useUiLanguage } from "@/lib/ui-language";
 import { readMirrorLastPulledAt } from "@/lib/offline-store";
 import { FreshnessNote } from "@/ui/freshness-note";
@@ -31,6 +31,8 @@ import { MedicineCabinetScreen } from "@/screens/sections/medicine-cabinet-scree
 import { CareChangeCard } from "@/screens/sections/care-change-card";
 import { RenewalReviewCard } from "@/screens/sections/renewal-review-card";
 import { PharmacyCollectCard } from "@/screens/sections/pharmacy-collect-card";
+import { ReminderReliabilityCard } from "@/screens/sections/reminder-reliability-card";
+import { loadReasonSharing, setReasonSharing } from "@/lib/dose-reasons";
 
 interface MedicationsScreenProps {
   patientId: string;
@@ -58,12 +60,14 @@ const ANSWERED: readonly SlotState[] = ["taken", "late", "skipped", "unavailable
 
 const EARLIER_MINUTES = [10, 30, 60, 120, 240] as const;
 
-const SKIP_REASONS: { key: MessageKey; status: LoggableStatus; reason: string }[] = [
-  { key: "meds.skip.side_effect", status: "skipped", reason: "side_effect" },
-  { key: "meds.skip.felt_well", status: "skipped", reason: "felt_well" },
-  { key: "meds.skip.ran_out", status: "not_available", reason: "ran_out" },
-  { key: "meds.skip.other", status: "skipped", reason: "other" },
-];
+// Item 5: the reasons come from the versioned config (packages/medicines mirrors `medicines.dose_reasons`). "Ran out" has its own one-tap
+// button beside Taken and Skip, so the skip sheet lists the others.
+const RAN_OUT_REASON = DOSE_REASONS.find((r) => r.opensPharmacy) ?? DOSE_REASONS[0]!;
+const SKIP_REASONS: { key: MessageKey; status: LoggableStatus; reason: string }[] = DOSE_REASONS.filter((r) => r !== RAN_OUT_REASON).map((r) => ({
+  key: `meds.skip.${r.code}` as MessageKey,
+  status: r.status,
+  reason: r.code,
+}));
 
 const ISSUE_TEXT: Record<ReminderIssue, MessageKey> = {
   notifications_off: "meds.reminder_health.notifications_off",
@@ -124,6 +128,9 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
   // The notice stays on screen after "I took one" until the next tap: a toast would be gone before it is read.
   const [prnNotice, setPrnNotice] = useState<string | null>(null);
   const [prnBusy, setPrnBusy] = useState<string | null>(null);
+  // Item 5: after "I ran out, or cannot afford it", a gentle offer to choose where to collect. An offer only: no alert goes to anyone.
+  const [ranOutPrompt, setRanOutPrompt] = useState(false);
+  const [shareRanOut, setShareRanOut] = useState<boolean | null>(null);
 
   const ownsReminders = !subjectName;
 
@@ -238,6 +245,21 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
     }
   }
 
+  /** One tap: "I ran out, or cannot afford it this month". The code and status come from the versioned dose-reason config. */
+  async function ranOut(item: DoseChecklistItem) {
+    const def = RAN_OUT_REASON;
+    await record(item, def.status, { reason: def.code });
+    if (shouldOfferPharmacy(def.code)) {
+      setRanOutPrompt(true);
+      if (ownsReminders) setShareRanOut(await loadReasonSharing(patientId, def.code));
+    }
+  }
+
+  async function toggleRanOutSharing() {
+    const next = shareRanOut !== true;
+    if (await setReasonSharing(RAN_OUT_REASON.code, next)) setShareRanOut(next);
+  }
+
   async function takeNow(item: DoseChecklistItem) {
     const at = Date.now();
     await record(item, item.dueAtMs ? statusForTakenAt(item.dueAtMs, at, item.closeMinutes) : "taken");
@@ -343,6 +365,8 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
         </Card>
       ) : null}
 
+      {ownsReminders ? <ReminderReliabilityCard /> : null}
+
       {Platform.OS === "android" && ownsReminders ? (
         <AndroidReminderHelp issues={issues} tr={tr} onGranted={() => void rescheduleAllDoseReminders(patientId).then((r) => refreshSide(r))} />
       ) : null}
@@ -443,6 +467,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
                         <Button title={tr("meds.action.taken")} fullWidth={false} disabled={pendingKeys.has(key)} onPress={() => void takeNow(item)} />
                         <Button title={tr("meds.action.earlier")} variant="secondary" fullWidth={false} onPress={() => setPanel({ key, kind: "earlier" })} />
                         <Button title={tr("meds.action.skip")} variant="secondary" fullWidth={false} onPress={() => setPanel({ key, kind: "skip" })} />
+                        <Button title={tr("meds.skip.ran_out_afford")} variant="secondary" fullWidth={false} disabled={pendingKeys.has(key)} onPress={() => void ranOut(item)} />
                         {state === "due" || state === "upcoming" ? (
                           <Button title={tr("meds.action.later")} variant="ghost" fullWidth={false} onPress={() => void remindLater(item)} />
                         ) : null}
@@ -498,6 +523,34 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
           </>
         )}
       </View>
+
+      {ranOutPrompt ? (
+        <Card style={{ gap: space.sm }}>
+          <AppText variant="body">{tr("meds.ran_out.prompt")}</AppText>
+          <AppText variant="caption" tone="textMuted">
+            {tr("meds.ran_out.private_note")}
+          </AppText>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+            <Button
+              title={tr("meds.ran_out.open")}
+              fullWidth={false}
+              onPress={() => {
+                setRanOutPrompt(false);
+                setCabinetOpen(true);
+              }}
+            />
+            <Button title={tr("meds.ran_out.later")} variant="ghost" fullWidth={false} onPress={() => setRanOutPrompt(false)} />
+          </View>
+          {ownsReminders && shareRanOut !== null ? (
+            <Button
+              title={shareRanOut ? tr("meds.ran_out.share_on") : tr("meds.ran_out.share_label")}
+              variant="ghost"
+              fullWidth={false}
+              onPress={() => void toggleRanOutSharing()}
+            />
+          ) : null}
+        </Card>
+      ) : null}
 
       {asNeeded.length > 0 ? (
         <Card style={{ gap: space.sm }}>

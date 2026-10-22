@@ -25,7 +25,7 @@
       "care_category"
     ]
   },
-  "baselineCeiling": 1160,
+  "baselineCeiling": 1178,
   "entries": {
     "breathing.a11y_phase": {
       "hash": "72354cf0a6f4aa9e",
@@ -6983,6 +6983,114 @@
     },
     "meds.supply.collect_link": {
       "hash": "6ba406318e982b88",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.skip.ran_out_afford": {
+      "hash": "1b0b79a6c78fd8aa",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.ran_out.prompt": {
+      "hash": "2fc5398f8de85401",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.ran_out.open": {
+      "hash": "6ba406318e982b88",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.ran_out.later": {
+      "hash": "a0e63d7c7125d29a",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.ran_out.private_note": {
+      "hash": "b68d36c6fc99e6b8",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.ran_out.share_label": {
+      "hash": "eba6349358d60da9",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.runway.days_left": {
+      "hash": "9eecbc0b32385b30",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.runway.choose": {
+      "hash": "6ba406318e982b88",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.nafdac.helper.title": {
+      "hash": "1d317f14b819a02e",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.nafdac.helper.registration": {
+      "hash": "56af77d9e5c4b5b4",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.nafdac.helper.not_proof": {
+      "hash": "e309e3c77ef7fbc5",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.nafdac.helper.code_label": {
+      "hash": "b739f2db6041f9d9",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.nafdac.helper.messages": {
+      "hash": "0c5bd7c213519649",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.nafdac.helper.messages_hint": {
+      "hash": "54712eaad9e01cd7",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.nafdac.helper.bad_code": {
+      "hash": "c4d63a7996b2f89f",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.nafdac.helper.unverified": {
+      "hash": "42df9bceb367565f",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.nafdac.helper.open_failed": {
+      "hash": "40bb2741a7abcb86",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.ran_out.share_on": {
+      "hash": "78ed2506dc46424d",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true

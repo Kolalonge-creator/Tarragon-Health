@@ -26,7 +26,8 @@ export interface ReminderMedicine {
   spec: ScheduleSpec;
 }
 
-export type NotificationKind = "due" | "follow_up";
+/** "unconfirmed": the one follow-up a set number of minutes after a dose time that has no answer (item 4). Never planned for a dose that already has the window-middle follow-up, so a dose gets at most one. */
+export type NotificationKind = "due" | "follow_up" | "unconfirmed";
 
 export interface PlannedNotification {
   /** Stable id: the same dose minute always gets the same id, so planning twice never duplicates. */
@@ -49,6 +50,8 @@ export interface PlanConfig {
    * phone holds by at most this many.
    */
   maxFollowUps: number;
+  /** Minutes after the dose time for the unconfirmed-dose follow-up. Absent or 0 turns it off. */
+  unconfirmedFollowUpMinutes?: number;
 }
 
 export function planDoseNotifications(
@@ -60,6 +63,7 @@ export function planDoseNotifications(
   const today = lagosLocalDate(nowMs);
   const last = addDays(today, cfg.horizonDays);
   const horizonMs = nowMs + cfg.horizonDays * DAY_MS;
+  const unconfirmedMs = (cfg.unconfirmedFollowUpMinutes ?? 0) * MINUTE_MS;
   const byFire = new Map<number, { keys: string[]; kind: NotificationKind }>();
   const add = (fireAt: number, key: string, kind: NotificationKind) => {
     const existing = byFire.get(fireAt);
@@ -82,6 +86,9 @@ export function planDoseNotifications(
       if (windowMinutes >= cfg.followUpMinWindowMinutes) {
         const middle = start + Math.floor(windowMinutes / 2) * MINUTE_MS;
         if (middle > nowMs && middle <= horizonMs) add(middle, key, "follow_up");
+      } else if (unconfirmedMs > 0) {
+        const later = start + unconfirmedMs;
+        if (later > nowMs && later <= horizonMs) add(later, key, "unconfirmed");
       }
     }
   }
@@ -92,7 +99,7 @@ export function planDoseNotifications(
   let followUps = 0;
   for (const entry of [...byFire.entries()].sort((a, b) => a[0] - b[0])) {
     if (chosen.length >= cfg.maxPending) break;
-    if (entry[1].kind === "follow_up") {
+    if (entry[1].kind !== "due") {
       if (followUps >= cfg.maxFollowUps) continue;
       followUps += 1;
     }
@@ -103,7 +110,7 @@ export function planDoseNotifications(
     // The kind is part of the id: if a minute turns from a follow-up into a due dose, the old
     // notification (with the follow-up wording) is cancelled and a new one is scheduled.
     .map(([fireAtMs, v]) => ({
-      id: `${DOSE_NOTIFICATION_PREFIX}${fireAtMs}${v.kind === "follow_up" ? "|f" : ""}`,
+      id: `${DOSE_NOTIFICATION_PREFIX}${fireAtMs}${v.kind === "follow_up" ? "|f" : v.kind === "unconfirmed" ? "|u" : ""}`,
       fireAtMs,
       kind: v.kind,
       slotKeys: v.keys.sort(),
