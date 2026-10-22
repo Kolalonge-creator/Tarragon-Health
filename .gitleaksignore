@@ -65,3 +65,8 @@ e3e886808493c59871ca8099be0ffc2fa29f9a0f:supabase/migrations/20261008030051_s47_
 41c9c1595c39277280445d7492022edbec57c31f:packages/integrations/src/fixtures/zoom/participant-left.json:generic-api-key:1
 41c9c1595c39277280445d7492022edbec57c31f:scripts/provider-sandbox-check/checks.test.mjs:generic-api-key:26
 41c9c1595c39277280445d7492022edbec57c31f:scripts/provider-sandbox-check/checks.test.mjs:stripe-access-token:15
+
+# 2026-10-22: the same two provider-sandbox-check fixtures, re-fingerprinted after #1218 was squash-merged (commit eb10ccdc4). Content unchanged from the
+# reviewed 41c9c15 lines above: deliberately fake sk_live/pk_test strings for the refuse-a-live-key test, and re_supersecretvalue / zoomsecret12345 for the redactor test.
+eb10ccdc4ac378d00d775970ec611d981221ba23:scripts/provider-sandbox-check/checks.test.mjs:generic-api-key:26
+eb10ccdc4ac378d00d775970ec611d981221ba23:scripts/provider-sandbox-check/checks.test.mjs:stripe-access-token:15
