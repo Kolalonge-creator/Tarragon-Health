@@ -75,7 +75,8 @@ begin
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
   values (v, p_org, p_role::public.user_role, 'OUTD ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'),
           coalesce(p_dob, (current_date - interval '50 years')::date), p_test)
-  on conflict (id) do update set role = excluded.role, is_test = excluded.is_test, is_active = true, phone = excluded.phone, full_name = excluded.full_name,
+  -- the auth trigger (handle_new_user) has already made this profile in the default consumer organisation, so the organisation must be set on conflict too
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, is_test = excluded.is_test, is_active = true, phone = excluded.phone, full_name = excluded.full_name,
                                  date_of_birth = excluded.date_of_birth;
   return v;
 end $f$;
@@ -276,12 +277,10 @@ begin
   select v_orgA, patient, 'abnormal', 'zz_outd_ok', (((v_m + 9)::timestamp + time '09:00') at time zone 'Africa/Lagos') from fxg where org = v_orgA and grp <> 'test' order by patient limit 25;
   insert into public.screening_results (organisation_id, patient_id, result_status, screen_type_code, created_at)
   select v_orgA, patient, 'abnormal', 'zz_outd_sens', (((v_m + 9)::timestamp + time '09:00') at time zone 'Africa/Lagos') from fxg where org = v_orgA and grp <> 'test' order by patient desc limit 25;
-  -- escalations: 25 on the alert of an ordinary abnormal result (counted), 25 on the alerts of sensitive results (half of those alerts are symptom escalations),
+  -- escalations: 25 on the alert of an ordinary abnormal result (counted), 25 on the alerts of sensitive results (excluded because the screening is sensitive),
   -- and 30 with no alert at all (no known topic). Only the first 25 may be counted.
-  update public.clinician_alerts set type_code = 'abnormal_result' where screening_result_id in (select id from public.screening_results where organisation_id = v_orgA and screen_type_code in ('zz_outd_ok', 'zz_outd_sens') and result_status = 'abnormal');
-  update public.clinician_alerts set type_code = 'symptom_escalation'
-   where id in (select a.id from public.clinician_alerts a join public.screening_results sr on sr.id = a.screening_result_id
-                 where sr.organisation_id = v_orgA and sr.screen_type_code = 'zz_outd_sens' order by a.id limit 13);
+  -- the abnormal-result trigger may already classify its alert; only fill a missing type
+  update public.clinician_alerts set type_code = 'abnormal_result' where type_code is null and screening_result_id in (select id from public.screening_results where organisation_id = v_orgA and screen_type_code in ('zz_outd_ok', 'zz_outd_sens') and result_status = 'abnormal');
   insert into public.escalations (organisation_id, patient_id, reason, clinician_alert_id, created_at)
   select v_orgA, sr.patient_id, 'outcomes proof ok', a.id, (((v_m + 12)::timestamp + time '09:00') at time zone 'Africa/Lagos') from public.screening_results sr join public.clinician_alerts a on a.screening_result_id = sr.id
    where sr.organisation_id = v_orgA and sr.screen_type_code = 'zz_outd_ok' and sr.result_status = 'abnormal';
