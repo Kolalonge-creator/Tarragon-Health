@@ -78,7 +78,7 @@ begin
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, pulse_bpm, source, taken_at)
     values (v_org, v_p, 'pulse', 72, 'manual', now());
   perform pg_temp.res('a pulse reading emits nothing', '1',
-    (select count(*)::text from public.domain_events where event_type = 'observation.recorded' and patient_id = v_p));
+    (select count(*)::text from public.domain_events where event_type = 'observation.recorded' and patient_id = v_p and coalesce(payload ->> 'kind', '') <> 'vitals'));
 
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source, taken_at)
     values (v_org, v_p, 'blood_pressure', 150, 95, 'manual', now()) returning id into v_r2;

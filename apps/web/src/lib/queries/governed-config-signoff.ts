@@ -67,6 +67,7 @@ export const GOVERNED_CONFIG_TABLES = [
   },
   { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
   { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
+  { table: "bp_cuff_guidance_signoffs", title: "Home blood pressure cuff sizes", slug: "cuff-guidance" },
 ] as const;
 
 /** Tables that hold one live row per kind rather than one live row in total. */

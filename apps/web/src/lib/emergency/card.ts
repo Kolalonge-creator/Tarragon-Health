@@ -1,6 +1,7 @@
 import "server-only";
 import QRCode from "qrcode";
 import { BLOOD_VERIFICATION_LABEL } from "@tarragon/shared";
+import type { EmergencyCoverage } from "./coverage";
 
 /**
  * The emergency card's shared shape and its QR rendering.
@@ -44,6 +45,11 @@ export interface EmergencyClinicalFacts {
     provenance: string | null;
     recorded_at: string | null;
   } | null;
+  /**
+   * S09y: HMO / NHIA cover the patient typed in. Absent unless they filled it. Always patient entered (no scheme has confirmed it), and the card says so.
+   * Deliberately NOT part of the lock-screen payload, whose field list awaits CMO sign-off.
+   */
+  coverage?: EmergencyCoverage | null;
 }
 
 /**

@@ -8,6 +8,7 @@ import { todayLine, type SentResult } from "@/lib/home-check-model";
 import { useBpTarget } from "@/lib/use-bp-target";
 import { radii, space, useTheme } from "@/ui/design";
 import { AppText, Badge, Button, Card, InlineAlert } from "@/ui/kit";
+import { CuffSizeStep } from "./cuff-size-step";
 import { HomeCheckSession } from "@/screens/sections/home-check-session";
 
 type Tr = (key: MessageKey, params?: Record<string, string | number>) => string;
@@ -97,6 +98,8 @@ export function HomeCheckCard({
               </View>
             </View>
           ))}
+          {/* S07y: shown only once the server has a signed cuff size table; renders nothing before that. */}
+          <CuffSizeStep />
         </View>
       ) : null}
     </View>
