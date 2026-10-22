@@ -20172,6 +20172,8 @@ export type Database = {
           min_risk_level: Database["public"]["Enums"]["risk_level"] | null
           next_review_due: string | null
           review_flag_reason: string | null
+          owner_profile_id: string | null
+          review_change_note: string | null
           review_flagged_at: string | null
           reading_level: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at: string | null
@@ -20227,6 +20229,8 @@ export type Database = {
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
           next_review_due?: string | null
           review_flag_reason?: string | null
+          owner_profile_id?: string | null
+          review_change_note?: string | null
           review_flagged_at?: string | null
           reading_level?: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at?: string | null
@@ -20282,6 +20286,8 @@ export type Database = {
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
           next_review_due?: string | null
           review_flag_reason?: string | null
+          owner_profile_id?: string | null
+          review_change_note?: string | null
           review_flagged_at?: string | null
           reading_level?: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at?: string | null
@@ -50710,6 +50716,46 @@ export type Database = {
         Args: { p_display_name: string; p_profile: string }
         Returns: string
       }
+      learning_expiry_backlog: {
+        Args: never
+        Returns: {
+          bucket: string
+          category: string
+          code: string
+          content_id: string
+          content_status: string
+          days_until_due: number
+          hidden: boolean
+          next_review_due: string
+          owner_name: string
+          owner_profile_id: string
+          review_flagged: boolean
+          title: string
+        }[]
+      }
+      learning_expiry_owner_candidates: {
+        Args: never
+        Returns: {
+          full_name: string
+          profile_id: string
+          role: string
+        }[]
+      }
+      learning_expiry_run_alerts: {
+        Args: { p_now?: string }
+        Returns: Json
+      }
+      learning_expiry_summary: {
+        Args: never
+        Returns: {
+          metric: string
+          n: number
+        }[]
+      }
+      set_learning_content_owner: {
+        Args: { p_content_id: string; p_owner: string }
+        Returns: undefined
+      }
       health_education_item_trust: {
         Args: { p_codes: string[] }
         Returns: {
@@ -50724,6 +50770,7 @@ export type Database = {
           lesson_action: string
           members_only: boolean
           next_review_due: string
+          review_change_note: string
           reviewed_at: string
           reviewed_by_name: string
           self_care_action: string

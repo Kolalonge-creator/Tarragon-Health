@@ -4,6 +4,8 @@
  * keyset or, order, limit) so the cursor rules are exercised for real.
  */
 import { OFFLINE_BUDGET } from "./offline-budget";
+import { __resetWifiOnlyForTests, writeWifiOnly } from "./wifi-only";
+import type { ConnectionKind } from "./data-cost-rules";
 import { clearLocalMirror, pullChanges, purgeMirror, readLocalMedications, readLocalRecords, readLocalTasks, readMirrorLastPulledAt } from "./offline-store";
 
 type Row = { id: string; created_at: string; patient_id: string; [k: string]: unknown };
@@ -12,6 +14,11 @@ const mockTables: Record<string, Row[]> = {};
 let mockUser: string | null = "user-1";
 let mockFail: { message: string; code?: string } | null = null;
 const mockCalls: { table: string; gte?: string }[] = [];
+let mockConnection: ConnectionKind = "cellular";
+jest.mock("./connection-kind", () => ({
+  ...(jest.requireActual("./connection-kind") as object),
+  getConnectionKind: async () => mockConnection,
+}));
 
 jest.mock("./supabase", () => {
   function builder(table: string) {
@@ -366,6 +373,49 @@ describe("post-pull count check (S06x)", () => {
     const result = await pullChanges("p1");
     expect(result.pulled).toBeGreaterThan(0);
     expect(result.drifted).toEqual([]);
+  });
+});
+
+describe("pullChanges on Wi-Fi only (S06z)", () => {
+  beforeEach(() => {
+    __resetWifiOnlyForTests();
+    mockConnection = "cellular";
+  });
+
+  it("never skips the very first read, so a new phone is not left empty", async () => {
+    await writeWifiOnly(true);
+    mockTables.vitals_readings = [row("v1", 30)];
+    const result = await pullChanges("p1");
+    expect(result.historyHeldForWifi).toBe(false);
+    expect(await readLocalRecords<Row>("vital", "p1")).toHaveLength(1);
+  });
+
+  it("leaves the history read for Wi-Fi once the phone has read before, but still reads medicines", async () => {
+    mockTables.vitals_readings = [row("v1", 30)];
+    await pullChanges("p1");
+    await writeWifiOnly(true);
+    mockTables.vitals_readings.push(row("v2", 1));
+    mockTables.medications = [row("m1", 5, { is_active: true, drug_name: "x", dose: "1", frequency: "daily", schedule_times: ["08:00"], source: "patient", superseded_at: null })];
+    const result = await pullChanges("p1");
+    expect(result.historyHeldForWifi).toBe(true);
+    expect((await readLocalRecords<Row>("vital", "p1")).map((r) => r.id)).toEqual(["v1"]);
+    expect(await readLocalMedications("p1")).toHaveLength(1);
+  });
+
+  it("reads everything on Wi-Fi, on an unknown connection, and with the choice off", async () => {
+    mockTables.vitals_readings = [row("v1", 30)];
+    await pullChanges("p1");
+    mockTables.vitals_readings.push(row("v2", 1));
+    await writeWifiOnly(true);
+    mockConnection = "wifi";
+    expect((await pullChanges("p1")).historyHeldForWifi).toBe(false);
+    mockTables.vitals_readings.push(row("v3", 0));
+    mockConnection = "unknown";
+    expect((await pullChanges("p1")).historyHeldForWifi).toBe(false);
+    expect((await readLocalRecords<Row>("vital", "p1")).map((r) => r.id).sort()).toEqual(["v1", "v2", "v3"]);
+    await writeWifiOnly(false);
+    mockConnection = "cellular";
+    expect((await pullChanges("p1")).historyHeldForWifi).toBe(false);
   });
 });
 
