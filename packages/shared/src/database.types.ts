@@ -30204,6 +30204,144 @@ export type Database = {
           },
         ]
       }
+      pathway_baselines: {
+        Row: {
+          captured_at: string
+          cycle: number
+          enrolment_id: string
+          id: string
+          is_test: boolean
+          organisation_id: string
+          pathway_code: string
+          patient_id: string
+          recorded_by: string | null
+          snapshot: Json
+          source: string
+        }
+        Insert: {
+          captured_at?: string
+          cycle?: number
+          enrolment_id: string
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          pathway_code: string
+          patient_id: string
+          recorded_by?: string | null
+          snapshot: Json
+          source?: string
+        }
+        Update: {
+          captured_at?: string
+          cycle?: number
+          enrolment_id?: string
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          pathway_code?: string
+          patient_id?: string
+          recorded_by?: string | null
+          snapshot?: Json
+          source?: string
+        }
+        Relationships: []
+      }
+      pathway_lifecycle_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          enrolment_id: string
+          from_clinician: string | null
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          reason: string | null
+          recorded_by: string | null
+          source: string
+          to_clinician: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          enrolment_id: string
+          from_clinician?: string | null
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          reason?: string | null
+          recorded_by?: string | null
+          source?: string
+          to_clinician?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          enrolment_id?: string
+          from_clinician?: string | null
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          reason?: string | null
+          recorded_by?: string | null
+          source?: string
+          to_clinician?: string | null
+        }
+        Relationships: []
+      }
+      pathway_milestones: {
+        Row: {
+          code: string
+          created_at: string
+          cycle: number
+          due_at: string
+          enrolment_id: string
+          id: string
+          is_test: boolean
+          met_at: string | null
+          met_via: string | null
+          organisation_id: string
+          patient_id: string
+          recorded_by: string | null
+          source: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          cycle?: number
+          due_at: string
+          enrolment_id: string
+          id?: string
+          is_test?: boolean
+          met_at?: string | null
+          met_via?: string | null
+          organisation_id: string
+          patient_id: string
+          recorded_by?: string | null
+          source?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          cycle?: number
+          due_at?: string
+          enrolment_id?: string
+          id?: string
+          is_test?: boolean
+          met_at?: string | null
+          met_via?: string | null
+          organisation_id?: string
+          patient_id?: string
+          recorded_by?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
       patient_activity_goals: {
         Row: {
           created_at: string
@@ -49838,6 +49976,8 @@ export type Database = {
           credential_number: string
         }[]
       }
+      // CMO OQ-358 (folio base-table lock): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      clinical_staff_folio: { Args: { p_staff_ids: string[] }; Returns: { clinical_staff_id: string; credential_number: string }[] }
       cancel_reproductive_tracker_deletion: { Args: never; Returns: Json }
       clinician_risk_worklist: { Args: { p_limit?: number }; Returns: Json };
       clinical_response_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
@@ -55974,7 +56114,7 @@ export type Database = {
       my_care_circle: { Args: never; Returns: Json };
       // S65 (spliced by hand from migrations s65a, s65b and s65c; never a wholesale regeneration)
       circle_help_alert_view: { Args: { p_patient: string }; Returns: Json };
-      clinician_licence_public: { Args: { p_profile: string }; Returns: { checked_on: string; credential_number: string; credential_type: string }[] };
+      clinician_licence_public: { Args: { p_profile: string }; Returns: { checked_on: string; credential_type: string }[] };
       complete_facility_booking: { Args: { p_attended: boolean; p_booking: string }; Returns: undefined };
       confirm_facility_booking: { Args: { p_booking: string; p_source: string }; Returns: undefined };
       confirm_facility_hmo: { Args: { p_facility: string; p_hmo: string; p_source_note: string }; Returns: undefined };
