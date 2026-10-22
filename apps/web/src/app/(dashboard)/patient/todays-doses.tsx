@@ -44,6 +44,8 @@ const LOG_ACTIONS: { status: "taken" | "missed" | "skipped" | "delayed" | "not_a
   { status: "taken", label: "Taken" },
   { status: "skipped", label: "Skipped" },
   { status: "delayed", label: "Delayed" },
+  // Review fix: plain "Not available" stays (the medicine or device was not to hand); the ran-out tap is a separate, private choice.
+  { status: "not_available", label: "Not available" },
   // Item 5: one tap "I ran out, or cannot afford it this month". The reason code is stored apart from the dose row (medication_dose_reasons),
   // private to the person and the tied care team; it raises no alert by itself.
   { status: "not_available", label: t("meds.skip.ran_out_afford", EN), reason: "ran_out" },
@@ -71,18 +73,22 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
     missedReason?: MissedReason,
     reason?: string
   ) {
-    logDose.mutate({
-      medication_id: medicationId,
-      status,
-      missed_reason: missedReason,
-      ...(reason ? { reason } : {}),
-      scheduled_time: time,
-      scheduled_for_date: todayIsoDate(),
-      patientId,
-      organisationId,
-    });
+    logDose.mutate(
+      {
+        medication_id: medicationId,
+        status,
+        missed_reason: missedReason,
+        ...(reason ? { reason } : {}),
+        scheduled_time: time,
+        scheduled_for_date: todayIsoDate(),
+        patientId,
+        organisationId,
+      },
+      // Review fix: the thank-you appears only once the dose was really saved, never over a failed write.
+      { onSuccess: () => setRanOutFor(reason === "ran_out" ? medicationId : null) },
+    );
     setReasonPromptFor(null);
-    setRanOutFor(reason === "ran_out" ? medicationId : null);
+    setRanOutFor(null);
   }
 
   return (
@@ -129,7 +135,7 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
                       <div className="flex flex-wrap gap-2">
                         {LOG_ACTIONS.map((action) => (
                           <Button
-                            key={action.status}
+                            key={action.label}
                             size="sm"
                             variant="outline"
                             disabled={logDose.isPending}

@@ -6069,12 +6069,6 @@ export const en = {
   "medicines.nafdac.helper.title": "Check this pack with NAFDAC",
   "medicines.nafdac.helper.registration": "Look up the registration number",
   "medicines.nafdac.helper.not_proof": "A registration match is not proof that a pack is genuine.",
-  "medicines.nafdac.helper.code_label": "Scratch code on the pack (12 digits)",
-  "medicines.nafdac.helper.messages": "Open my messages app",
-  "medicines.nafdac.helper.messages_hint": "Your phone opens your own messages app with the code filled in. You press send from your own phone. TarragonHealth sends nothing and does not see the reply.",
-  "medicines.nafdac.helper.bad_code": "That did not look like a 12 digit code. Check the digits under the scratch panel.",
-  "medicines.nafdac.helper.unverified": "We have not confirmed the number to text with NAFDAC. Use the number printed on your pack.",
-  "medicines.nafdac.helper.open_failed": "We could not open your messages app. You can type the code into a new message yourself.",
 } as const;
 
 export type MessageKey = keyof typeof en;

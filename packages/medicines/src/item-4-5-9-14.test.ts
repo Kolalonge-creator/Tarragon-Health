@@ -13,7 +13,7 @@ import {
 } from "./reminder-reliability";
 import { DOSE_REASONS, doseReason, isPrivateDoseReason, shouldOfferPharmacy, supporterMaySeeReason } from "./dose-reasons";
 import { RUNWAY_CONFIG, runwayBar, stockLine } from "./runway";
-import { NAFDAC_HELPER_CONFIG, nafdacHelperVisible, normaliseScratchCode, scratchCodeMessageLink } from "./nafdac-helper";
+import { NAFDAC_HELPER_CONFIG, nafdacHelperVisible } from "./nafdac-helper";
 
 const base = { startDate: null, endDate: null, foodNote: null } as const;
 const now = Date.parse("2026-10-05T05:00:00Z"); // 06:00 Lagos
@@ -157,17 +157,10 @@ describe("runway bar and stock freshness", () => {
 });
 
 describe("NAFDAC helper", () => {
-  it("accepts a 12 digit scratch code with spaces or dashes and nothing else", () => {
-    expect(normaliseScratchCode("1234 5678-9012")).toBe("123456789012");
-    expect(normaliseScratchCode("12345")).toBeNull();
-    expect(normaliseScratchCode("12345678901a")).toBeNull();
-  });
-  it("builds a message link for the person to send, flagged unverified while the short code is", () => {
-    const link = scratchCodeMessageLink("1234 5678 9012");
-    expect(link).toEqual({ ok: true, uri: "sms:38353?&body=123456789012", unverified: true });
-    expect(scratchCodeMessageLink("abc")).toEqual({ ok: false, reason: "bad_code" });
-    const verified = { ...NAFDAC_HELPER_CONFIG, mas: { ...NAFDAC_HELPER_CONFIG.mas, verified: true } };
-    expect(scratchCodeMessageLink("123456789012", verified)).toMatchObject({ unverified: false });
+  it("holds only the public check address: no short code, no message link", () => {
+    expect(Object.keys(NAFDAC_HELPER_CONFIG)).toEqual(["registrationCheck"]);
+    expect(JSON.stringify(NAFDAC_HELPER_CONFIG)).not.toMatch(/38353|sms:|shortCode/);
+    expect(NAFDAC_HELPER_CONFIG.registrationCheck.url).toBe("https://greenbook.nafdac.gov.ng");
   });
   it("is hidden unless the guard is open", () => {
     expect(nafdacHelperVisible("open")).toBe(true);

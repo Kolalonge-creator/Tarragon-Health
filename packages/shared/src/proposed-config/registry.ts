@@ -7150,13 +7150,11 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "medicines.nafdac_verify_helper",
-    // The NAFDAC verification helper, behind the go-live guard nafdac_verify_helper_enabled (OFF). Tarragon sends and receives no message: the phone's own
-    // messaging app opens with the scratch code typed in, and the person sends it. The Greenbook address was read on 2026-10-22 (the site calls itself
-    // Nigeria's Registered Product Database). The short code is UNVERIFIED: 38353 comes from 2010-era sources and must be re-verified with NAFDAC
-    // before the guard is switched on. A registration match is not proof that a pack is genuine.
+    // The NAFDAC check helper, behind the go-live guard nafdac_verify_helper_enabled (OFF). Founder decision 2026-10-22: a link to NAFDAC's public
+    // registered-product check only (no text message, no short code). The address was read on 2026-10-22 (the site calls itself Nigeria's Registered
+    // Product Database). A registration match is not proof that a pack is genuine.
     value: {
       registrationCheck: { name: "NAFDAC Greenbook", url: "https://greenbook.nafdac.gov.ng", readOn: "2026-10-22" },
-      mas: { shortCode: "38353", verified: false, source: "2010-era press and Mondaq; not confirmed with NAFDAC", codeDigits: 12 },
     },
     owner: "Founder",
     status: "proposed",

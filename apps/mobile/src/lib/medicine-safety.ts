@@ -95,5 +95,5 @@ export async function loadSupporterTodaysDoses(patientId: string): Promise<Suppo
   }
 }
 
-/** Item 14: the NAFDAC check helper is shown only while its go-live guard is open (OFF until the founder confirms INV-08 fit and NAFDAC confirms the number). */
+/** Item 14: the NAFDAC check helper is shown only while its go-live guard is open (OFF; founder decision 2026-10-22: a link to NAFDAC's public check only). */
 export const loadNafdacHelperState = (): Promise<SwitchState> => guard("nafdac_verify_helper_enabled");

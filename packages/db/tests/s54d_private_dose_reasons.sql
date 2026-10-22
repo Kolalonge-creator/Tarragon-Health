@@ -8,6 +8,7 @@
 --  C. Nobody can write the new tables directly; sharing can be set only for a private reason, only by the person.
 --  D. A ran-out reason raises no clinician alert and no outreach task by itself.
 --  E. The NAFDAC helper guard exists and is OFF.
+--  G. Review fixes: a mixed-case private code is diverted; a legacy private code already on a dose row is copied across and blanked, attribution kept.
 --  F. SABOTAGE: with the diverting trigger dropped the reason sits on the supporter-readable dose row (check A1 would FAIL); with the opt-in
 --     predicate made permissive a supporter reads without opting in (check B2 would FAIL).
 begin;
@@ -62,12 +63,13 @@ end $f$;
 -- Fixtures ----------------------------------------------------------------------------------------------------------------------------
 \o /dev/null
 do $$
-declare v_org uuid; v_pat uuid; v_pat2 uuid; v_sup uuid; v_tied uuid; v_untied uuid; v_pa uuid; v_med uuid;
+declare v_org uuid; v_pat uuid; v_pat2 uuid; v_sup uuid; v_tied uuid; v_untied uuid; v_pa uuid; v_pa2 uuid; v_mgr uuid; v_med uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_pat := pg_temp.mkuser(v_org, 'pat', 'patient', 'S54d Patient');
   v_pat2 := pg_temp.mkuser(v_org, 'pat2', 'patient', 'S54d Patient Two');
   v_sup := pg_temp.mkuser(v_org, 'sup', 'patient', 'S54d Supporter');
+  v_mgr := pg_temp.mkuser(v_org, 'mgr', 'patient', 'S54d Manager');
   v_tied := pg_temp.mkuser(v_org, 'tied', 'clinician', 'S54d Tied Doctor');
   v_untied := pg_temp.mkuser(v_org, 'untied', 'clinician', 'S54d Untied Doctor');
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier) values
@@ -77,11 +79,13 @@ begin
   values (v_org, v_pat, v_tied, now()) on conflict (patient_id) do update set clinician_id = v_tied;
   -- the supporter holds the medicines category (view level); only the record's owner may set a category grant
   insert into public.profile_access (profile_id, grantee_user_id, granted_by) values (v_pat, v_sup, v_pat) returning id into v_pa;
+  -- a manage-level supporter acting for the person (no category rows needed for can_act_for)
+  insert into public.profile_access (profile_id, grantee_user_id, granted_by, permission_level) values (v_pat, v_mgr, v_pat, 'manage') returning id into v_pa2;
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
   insert into public.profile_access_categories (profile_access_id, category) values (v_pa, 'medications');
   perform set_config('request.jwt.claims', null, true);
   insert into public.medications (organisation_id, patient_id, drug_name) values (v_org, v_pat, 'S54d Fixture Tablet') returning id into v_med;
-  perform pg_temp.setf('org', v_org); perform pg_temp.setf('pat', v_pat); perform pg_temp.setf('pat2', v_pat2); perform pg_temp.setf('sup', v_sup);
+  perform pg_temp.setf('org', v_org); perform pg_temp.setf('pat', v_pat); perform pg_temp.setf('pat2', v_pat2); perform pg_temp.setf('sup', v_sup); perform pg_temp.setf('mgr', v_mgr);
   perform pg_temp.setf('tied', v_tied); perform pg_temp.setf('untied', v_untied); perform pg_temp.setf('med', v_med);
 end $$;
 \o
@@ -106,13 +110,16 @@ select pg_temp.ck('A', 'A4 control: the supporter still reads both dose rows, an
 -- B. Who reads the reason --------------------------------------------------------------------------------------------------------------
 select pg_temp.ck('B', 'B1 the person reads it', '1', pg_temp.q_as(pg_temp.f('pat'), 'select count(*)::text from public.medication_dose_reasons'));
 select pg_temp.ck('B', 'B2 a supporter with the medicines category does not, before an opt-in', '0', pg_temp.q_as(pg_temp.f('sup'), 'select count(*)::text from public.medication_dose_reasons'));
+select pg_temp.ck('B', 'B2b a MANAGE-level supporter does not read it either, before an opt-in (founder decision 2026-10-22)', '0', pg_temp.q_as(pg_temp.f('mgr'), 'select count(*)::text from public.medication_dose_reasons'));
 select pg_temp.ck('B', 'B3 another patient does not', '0', pg_temp.q_as(pg_temp.f('pat2'), 'select count(*)::text from public.medication_dose_reasons'));
 select pg_temp.ck('B', 'B4 anon is refused', 'ERR:42501', pg_temp.anon_q('select count(*)::text from public.medication_dose_reasons'));
 select pg_temp.ck('B', 'B5 a tied clinician reads nothing directly', '0', pg_temp.q_as(pg_temp.f('tied'), 'select count(*)::text from public.medication_dose_reasons'));
 select pg_temp.ck('B', 'B6 an opt-in for a NON-private code is refused', 'ERR:22023', pg_temp.q_as(pg_temp.f('pat'), $q$select public.set_dose_reason_sharing('felt_well', true)::text$q$));
 select pg_temp.q_as(pg_temp.f('pat'), $q$select public.set_dose_reason_sharing('ran_out', true)::text$q$);
 select pg_temp.ck('B', 'B7 after the person opts in for ran_out, the supporter reads it', '1', pg_temp.q_as(pg_temp.f('sup'), 'select count(*)::text from public.medication_dose_reasons'));
+select pg_temp.ck('B', 'B7b ... and so does the manage-level supporter, after the same opt-in', '1', pg_temp.q_as(pg_temp.f('mgr'), 'select count(*)::text from public.medication_dose_reasons'));
 select pg_temp.q_as(pg_temp.f('pat'), $q$select public.set_dose_reason_sharing('ran_out', false)::text$q$);
+select pg_temp.ck('B', 'B8b after withdrawal the manage-level supporter reads nothing again', '0', pg_temp.q_as(pg_temp.f('mgr'), 'select count(*)::text from public.medication_dose_reasons'));
 select pg_temp.ck('B', 'B8 after withdrawal the supporter reads nothing again', '0', pg_temp.q_as(pg_temp.f('sup'), 'select count(*)::text from public.medication_dose_reasons'));
 select pg_temp.ck('B', 'B9 the supporter cannot read the person''s sharing choice', '0', pg_temp.q_as(pg_temp.f('sup'), 'select count(*)::text from public.dose_reason_sharing'));
 select pg_temp.ck('B', 'B10 the tied clinician reads it through the audited read', 'ok/1',
@@ -148,6 +155,41 @@ select pg_temp.ck('D', 'D1 a ran-out tap raised no clinician alert and no outrea
 select pg_temp.ck('E', 'E1 the NAFDAC helper guard exists and is off', 'false',
   (select is_on::text from public.go_live_guards where key = 'nafdac_verify_helper_enabled'));
 
+-- G. Review fixes: legacy rows and case ------------------------------------------------------------------------------------------------
+select pg_temp.q_as(pg_temp.f('pat'), format($q$insert into public.medication_logs (organisation_id, patient_id, medication_id, status, reason, scheduled_for_date, scheduled_time)
+  values (%L, %L, %L, 'not_available', 'RAN_OUT ', current_date, '15:00') returning 1$q$, pg_temp.f('org'), pg_temp.f('pat'), pg_temp.f('med')));
+select pg_temp.ck('G', 'G1 a mixed-case private code is diverted too', 'null/ran_out',
+  coalesce((select reason from public.medication_logs where patient_id = pg_temp.f('pat') and scheduled_time = '15:00'), 'null') || '/' ||
+  coalesce((select r.reason_code from public.medication_dose_reasons r join public.medication_logs l on l.id = r.medication_log_id where l.scheduled_time = '15:00' and l.patient_id = pg_temp.f('pat')), 'none'));
+-- a legacy row: a private code already sitting on the dose row, attributed to the supporter who logged it
+\o /dev/null
+alter table public.medication_logs disable trigger medication_logs_divert_private_reason;
+alter table public.medication_logs disable trigger stamp_acting_supporter;
+insert into public.medication_logs (organisation_id, patient_id, medication_id, status, reason, scheduled_for_date, scheduled_time, logged_by_profile_id)
+  values (pg_temp.f('org'), pg_temp.f('pat'), pg_temp.f('med'), 'not_available', 'ran_out', current_date, '16:00', pg_temp.f('sup'));
+alter table public.medication_logs enable trigger stamp_acting_supporter;
+alter table public.medication_logs enable trigger medication_logs_divert_private_reason;
+\o
+select pg_temp.ck('G', 'G2 before the backfill the supporter can read the legacy ran_out on the dose row', '1',
+  pg_temp.q_as(pg_temp.f('sup'), $q$select count(*)::text from public.medication_logs where reason = 'ran_out'$q$));
+select pg_temp.ck('G', 'G3 the backfill moves exactly that row', '1', private.backfill_private_dose_reasons()::text);
+select pg_temp.ck('G', 'G4 after the backfill the supporter reads no ran_out on any dose row', '0',
+  pg_temp.q_as(pg_temp.f('sup'), $q$select count(*)::text from public.medication_logs where reason ilike '%ran_out%'$q$));
+select pg_temp.ck('G', 'G4b ... nor does a manage-level supporter', '0',
+  pg_temp.q_as(pg_temp.f('mgr'), $q$select count(*)::text from public.medication_logs where reason ilike '%ran_out%'$q$));
+select pg_temp.ck('G', 'G5 the reason, source and recorder were copied; the attribution on the dose row was not rewritten', 'ran_out/patient/true/true',
+  (select r.reason_code || '/' || r.source::text || '/' || (r.recorded_by = pg_temp.f('sup'))::text || '/' || (l.logged_by_profile_id = pg_temp.f('sup'))::text
+     from public.medication_dose_reasons r join public.medication_logs l on l.id = r.medication_log_id where l.scheduled_time = '16:00' and l.patient_id = pg_temp.f('pat')));
+select pg_temp.ck('G', 'G5b the backfill left no copy of the reason in record_corrections', '0',
+  (select count(*)::text from public.record_corrections where table_name = 'medication_logs' and old_values::text ilike '%ran_out%'));
+select pg_temp.ck('G', 'G5c a stranger asking whether the person opted in gets false, not the answer', 'false',
+  pg_temp.q_as(pg_temp.f('pat2'), format($q$select private.supporter_may_see_dose_reason(%L, 'ran_out')::text$q$, pg_temp.f('pat'))));
+select pg_temp.ck('G', 'G6 the attribution trigger is enabled again', 'O',
+  (select tgenabled::text from pg_trigger where tgrelid = 'public.medication_logs'::regclass and tgname = 'stamp_acting_supporter'));
+select pg_temp.ck('G', 'G7 the backfill is not callable by a client', 'ERR:42501',
+  pg_temp.q_as(pg_temp.f('pat'), 'select private.backfill_private_dose_reasons()::text'));
+select pg_temp.ck('G', 'G8 running the backfill twice moves nothing', '0', private.backfill_private_dose_reasons()::text);
+
 -- F. SABOTAGE ------------------------------------------------------------------------------------------------------------------------------
 drop trigger medication_logs_divert_private_reason on public.medication_logs;
 select pg_temp.q_as(pg_temp.f('pat'), format($q$insert into public.medication_logs (organisation_id, patient_id, medication_id, status, reason, scheduled_for_date, scheduled_time)
@@ -155,8 +197,14 @@ select pg_temp.q_as(pg_temp.f('pat'), format($q$insert into public.medication_lo
 select pg_temp.ck('F', 'F1 SABOTAGE: without the diverting trigger the supporter reads ran_out on the dose row (so A1 and A4 would FAIL)', '1',
   pg_temp.q_as(pg_temp.f('sup'), $q$select count(*)::text from public.medication_logs where reason = 'ran_out'$q$));
 create or replace function private.supporter_may_see_dose_reason(p_patient uuid, p_code text) returns boolean language sql stable security definer set search_path = '' as $$ select true $$;
-select pg_temp.ck('F', 'F2 SABOTAGE: with the opt-in predicate permissive a supporter reads without opting in (so B2 would FAIL)', '1',
+select pg_temp.ck('F', 'F2 SABOTAGE: with the opt-in predicate permissive a supporter reads without opting in (so B2 would FAIL)', '3',
   pg_temp.q_as(pg_temp.f('sup'), 'select count(*)::text from public.medication_dose_reasons'));
+
+drop policy medication_dose_reasons_select on public.medication_dose_reasons;
+create policy medication_dose_reasons_select on public.medication_dose_reasons for select to authenticated using (
+  patient_id = (select auth.uid()) or private.can_act_for(patient_id));
+select pg_temp.ck('F', 'F3 SABOTAGE: with the old can_act_for branch back a manage-level supporter reads without opting in (so B2b would FAIL)', '3',
+  pg_temp.q_as(pg_temp.f('mgr'), 'select count(*)::text from public.medication_dose_reasons'));
 
 select phase, check_name, expected, actual from results where expected is distinct from actual order by phase, check_name;
 do $$ declare v_bad text; begin

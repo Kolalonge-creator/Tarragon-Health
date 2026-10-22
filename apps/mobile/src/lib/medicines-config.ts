@@ -116,17 +116,13 @@ export function loadRunwayConfig(asOf?: string): RunwayConfig {
   };
 }
 
-/** Item 14: the NAFDAC helper values (registration check address, message number marked unverified). Registry key medicines.nafdac_verify_helper. */
+/** Item 14: the NAFDAC helper value (the public registration check address). Registry key medicines.nafdac_verify_helper. */
 export function loadNafdacHelperConfig(asOf?: string): NafdacHelperConfig {
   const key = "medicines.nafdac_verify_helper";
   const { raw } = obj(key, asOf);
   const reg = raw["registrationCheck"] as Raw | undefined;
-  const mas = raw["mas"] as Raw | undefined;
-  if (!reg || !mas || typeof reg["url"] !== "string" || typeof reg["name"] !== "string" || typeof mas["shortCode"] !== "string" || typeof mas["verified"] !== "boolean") {
+  if (!reg || typeof reg["url"] !== "string" || typeof reg["name"] !== "string") {
     throw new Error(`Config ${key} is malformed`);
   }
-  return {
-    registrationCheck: { name: reg["name"], url: reg["url"], readOn: String(reg["readOn"] ?? "") },
-    mas: { shortCode: mas["shortCode"], verified: mas["verified"], source: String(mas["source"] ?? ""), codeDigits: num(mas, "codeDigits", key, 1) },
-  };
+  return { registrationCheck: { name: reg["name"], url: reg["url"], readOn: String(reg["readOn"] ?? "") } };
 }

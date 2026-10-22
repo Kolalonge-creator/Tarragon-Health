@@ -19,14 +19,24 @@ describe("S54d versioned config mirrors", () => {
     expect(loadRunwayConfig()).toEqual(RUNWAY_CONFIG);
     expect(RUNWAY_CONFIG.lowSupplyDays).toBe(loadMedicineRules().lowSupplyDays);
   });
-  it("medicines.nafdac_verify_helper equals the compiled-in values, and the short code is still marked unverified", () => {
+  it("medicines.nafdac_verify_helper equals the compiled-in values and holds only the public check address (no short code)", () => {
     expect(getProposedConfig("medicines.nafdac_verify_helper").value).toEqual(NAFDAC_HELPER_CONFIG);
     expect(loadNafdacHelperConfig()).toEqual(NAFDAC_HELPER_CONFIG);
-    expect(NAFDAC_HELPER_CONFIG.mas.verified).toBe(false);
+    expect(Object.keys(NAFDAC_HELPER_CONFIG)).toEqual(["registrationCheck"]);
+    expect(JSON.stringify(getProposedConfig("medicines.nafdac_verify_helper").value)).not.toMatch(/38353|shortCode|sms:/);
+  });
+  it("the reason policy gives no supporter (a manage-level one included) a read without the opt-in, and old rows are moved", () => {
+    const sql = readFileSync(join(__dirname, "../../../../supabase/migrations/20261022093825_s54d_private_dose_reasons_and_nafdac_helper_guard.sql"), "utf8");
+    const policy = /create policy medication_dose_reasons_select[\s\S]*?\n\);/.exec(sql)?.[0] ?? "";
+    expect(policy).toContain("supporter_may_see_dose_reason");
+    // every non-owner branch sits inside the opt-in conjunction: can_act_for may not appear as its own OR branch
+    expect(policy).not.toMatch(/or private\.can_act_for\(patient_id\)\s*\n/);
+    expect(sql).toContain("private.backfill_private_dose_reasons()");
+    expect(sql).toMatch(/lower\(btrim\(p_code\)\)/);
   });
   it("the SQL function that decides which dose reasons are private covers every private reason in the config", () => {
     const sql = readFileSync(join(__dirname, "../../../../supabase/migrations/20261022093825_s54d_private_dose_reasons_and_nafdac_helper_guard.sql"), "utf8");
-    const m = /select p_code in \(([^)]*)\)/.exec(sql);
+    const m = /select lower\(btrim\(p_code\)\) in \(([^)]*)\)/.exec(sql);
     expect(m).not.toBeNull();
     const sqlCodes = (m?.[1] ?? "").split(",").map((s) => s.trim().replace(/'/g, ""));
     for (const r of DOSE_REASONS.filter((x) => x.private)) expect(sqlCodes).toContain(r.code);

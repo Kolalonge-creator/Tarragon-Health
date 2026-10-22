@@ -196,10 +196,10 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
     setDoses((prev) => prev.map((d) => (doseKey(d) === key ? { ...d, status, state } : d)));
   }
 
-  async function record(item: DoseChecklistItem, status: LoggableStatus, opts: { atMs?: number; reason?: string } = {}) {
+  async function record(item: DoseChecklistItem, status: LoggableStatus, opts: { atMs?: number; reason?: string } = {}): Promise<boolean> {
     const key = doseKey(item);
     const t0 = Date.now();
-    if (pendingKeys.has(key) || isDoubleTap(lastTap.current.get(key) ?? null, t0, rules.doubleTapGuardMs)) return;
+    if (pendingKeys.has(key) || isDoubleTap(lastTap.current.get(key) ?? null, t0, rules.doubleTapGuardMs)) return false;
     lastTap.current.set(key, t0);
     setPendingKeys((prev) => new Set(prev).add(key));
     setPanel(null);
@@ -215,6 +215,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
       status === "delayed" ? "late" : status === "taken" ? "taken" : status === "not_available" ? "unavailable" : status === "skipped" ? "skipped" : "missed";
     // Optimistic: this is the highest-frequency native write in the app.
     setState(key, status === "delayed" ? "taken" : status === "not_available" ? "skipped" : (status as DoseChecklistItem["status"]), nextState);
+    let saved = false;
     try {
       const result = await logDose(patientId, organisationId, item, status, {
         recordedAt: opts.atMs ? new Date(opts.atMs).toISOString() : undefined,
@@ -232,6 +233,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
         await cancelSnooze(key);
         const replanned = ownsReminders ? await replanDoseReminders(patientId) : undefined;
         void refreshSide(replanned);
+        saved = true;
       }
     } catch {
       setRowErrors((prev) => new Set(prev).add(key));
@@ -243,13 +245,15 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
         return next;
       });
     }
+    return saved;
   }
 
   /** One tap: "I ran out, or cannot afford it this month". The code and status come from the versioned dose-reason config. */
   async function ranOut(item: DoseChecklistItem) {
     const def = RAN_OUT_REASON;
-    await record(item, def.status, { reason: def.code });
-    if (shouldOfferPharmacy(def.code)) {
+    // Review fix: the thank-you and the sharing choice appear only when the dose was really saved (or queued), never over a failed tap.
+    const saved = await record(item, def.status, { reason: def.code });
+    if (saved && shouldOfferPharmacy(def.code)) {
       setRanOutPrompt(true);
       if (ownsReminders) setShareRanOut(await loadReasonSharing(patientId, def.code));
     }
@@ -257,7 +261,13 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
 
   async function toggleRanOutSharing() {
     const next = shareRanOut !== true;
-    if (await setReasonSharing(RAN_OUT_REASON.code, next)) setShareRanOut(next);
+    // Review fix: a failed change must not look like it worked. Stopping a share that did not stop is the harmful case, so say so.
+    if (await setReasonSharing(RAN_OUT_REASON.code, next)) {
+      setShareRanOut(next);
+      setPanelNote(null);
+    } else {
+      setPanelNote(tr("meds.catchup.failed"));
+    }
   }
 
   async function takeNow(item: DoseChecklistItem) {
