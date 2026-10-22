@@ -44,7 +44,7 @@ const EVENT_LINK_SECTION: Partial<Record<TimelineEventType, SectionId>> = {
   care_plan_updated: "healthSummary",
   condition_recorded: "healthSummary",
   condition_status_changed: "healthSummary",
-  document_uploaded: "healthSummary",
+  document_uploaded: "documents",
   // S43m: the two things a person enters themselves open the screen that holds them.
   symptom_logged: "symptomJournal",
   procedure_recorded: "healthHistory",
@@ -131,7 +131,7 @@ export function TimelineScreen({ patientId, acting = false, onNavigate }: Timeli
           <GroupedList>
             {events.map((event) => {
               const style = TIMELINE_EVENT_STYLE[event.event_type];
-              const section = acting && event.event_type === "symptom_logged" ? undefined : EVENT_LINK_SECTION[event.event_type];
+              const section = acting && (event.event_type === "symptom_logged" || event.event_type === "document_uploaded") ? undefined : EVENT_LINK_SECTION[event.event_type];
               const subtitleParts = [
                 event.summary ? humaniseSummary(event.summary) : null,
                 formatWhen(event.occurred_at),
