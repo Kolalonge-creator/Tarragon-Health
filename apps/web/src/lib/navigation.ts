@@ -804,6 +804,8 @@ export function getNavSections(
             { label: "Response times", href: "/admin/outcomes/response-times", icon: "analytics" },
             // Do Health Points and taking part change outcomes, or do healthier people just take part more? Internal, never published (OUTCOMES).
             { label: "Engagement and outcomes", href: "/admin/outcomes/engagement", icon: "analytics" },
+            // The founder's figures to today, small groups included. Super admin only; switched off by default; a reason is audited (OUTCOMES, OQ-OUT-09/11).
+            { label: "Founder view (small groups)", href: "/admin/outcomes/engagement/founder", icon: "analytics" },
             { label: "Risk fairness", href: "/admin/risk-fairness", icon: "analytics" },
             { label: "Other outcome measures", href: "/admin/outcomes/measures", icon: "analytics" },
             { label: "Export outcomes", href: "/admin/outcomes/export", icon: "analytics" },

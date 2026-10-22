@@ -207,3 +207,19 @@ export function meanCiOf(x: MeanCell | undefined): { n: number; mean: number; lo
   if (!("mean" in x) || typeof x.mean !== "number") return null;
   return { n: x.n, mean: x.mean, low: typeof x.low === "number" ? x.low : null, high: typeof x.high === "number" ? x.high : null };
 }
+
+/** The founder's unfrozen view: the outcome and comparison figures to today. It is never stored, so it has no id, month or record flags. */
+const founderView = z.object({
+  founder_view: z.literal(true),
+  stored: z.literal(false),
+  as_of: z.string(),
+  outcomes,
+  comparison,
+  not_a_causal_claim: z.literal(true),
+  internal_only: z.literal(true),
+});
+export type FounderView = z.infer<typeof founderView>;
+export function parseFounderView(data: unknown): FounderView | null {
+  const parsed = founderView.safeParse(data);
+  return parsed.success ? parsed.data : null;
+}

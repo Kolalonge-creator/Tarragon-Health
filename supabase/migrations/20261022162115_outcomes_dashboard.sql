@@ -57,6 +57,7 @@ values (1, $json$
   "primary_day": 90,
   "min_age_years": 18,
   "confidence_level": 0.95,
+  "founder_unfrozen_view": { "enabled": false },
   "comparison": {
     "min_per_group": 30,
     "high_active_days_per_30": 12,
@@ -838,6 +839,48 @@ end $$;
 revoke all on function public.log_outcomes_dashboard_export() from public, anon;
 grant execute on function public.log_outcomes_dashboard_export() to authenticated;
 
+-- The founder-only UNFROZEN view (founder decision on OQ-OUT-09 and OQ-OUT-11). The stored reports stay frozen by the held-back rule. In a small pilot that
+-- leaves the founder blind, so this read computes the same outcome and comparison figures to TODAY. It lifts the held-back freeze and nothing else: every
+-- cell still goes through the shared minimum-cell and complementary-suppression rules and every protected-data exclusion still applies.
+--   * Only the super-admin account (profiles.role = 'admin', private.is_admin()); not the CMO, not a clinician, a sponsor, a delegated permission holder, or anon.
+--     (This platform has no separate "founder" role: the super admin account is the founder's.)
+--   * Off by default: config outcomes_dashboard_config.founder_unfrozen_view.enabled. Turning it on is a new config version.
+--   * A reason of at least 10 characters is required and is written to audit_log with every read.
+--   * It never writes a report (stored reports stay immutable) and has no export: no CSV route exists for it.
+create function public.read_outcomes_founder_unfrozen(p_reason text) returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_uid uuid := (select auth.uid());
+  v_org uuid := private.caller_org();
+  v_cfg jsonb;
+  v_today date := (now() at time zone 'Africa/Lagos')::date;
+  v_reason text := btrim(coalesce(p_reason, ''));
+  v_out jsonb;
+begin
+  if v_uid is null or not private.is_admin() then
+    raise exception 'only the super admin can open the founder view' using errcode = '42501';
+  end if;
+  v_cfg := private.outcomes_dash_cfg();
+  if not coalesce((v_cfg #>> '{founder_unfrozen_view,enabled}')::boolean, false) then
+    raise exception 'the founder view is switched off' using errcode = '55000';
+  end if;
+  if char_length(v_reason) < 10 or char_length(v_reason) > 500 then
+    raise exception 'say why you are opening the founder view (10 to 500 characters)' using errcode = '22023';
+  end if;
+  if v_org is null then raise exception 'no organisation' using errcode = '22023'; end if;
+  -- the access is written BEFORE the figures are built, so a read that cannot be logged is not given
+  perform private.log_audit('outcomes_dashboard.founder_unfrozen_read', 'outcomes_dashboard_report', null, jsonb_build_object('reason', v_reason, 'as_of', v_today));
+  v_out := jsonb_build_object(
+    'founder_view', true, 'stored', false, 'as_of', v_today, 'config_version', (select version from public.outcomes_dashboard_config where is_active),
+    'outcomes', private.outcomes_dash_outcomes(v_org, v_today, v_cfg),
+    'comparison', private.outcomes_dash_comparison(v_org, v_today, v_cfg),
+    'not_a_causal_claim', true, 'internal_only', true);
+  return v_out;
+end $$;
+revoke all on function public.read_outcomes_founder_unfrozen(text) from public, anon;
+grant execute on function public.read_outcomes_founder_unfrozen(text) to authenticated;
+
 -- ---------------------------------------------------------------------------
 -- 10. Self-check
 -- ---------------------------------------------------------------------------
@@ -845,7 +888,8 @@ do $$
 declare f text;
 begin
   if not exists (select 1 from cron.job where jobname = 'outcomes-dashboard-monthly') then raise exception 'OUTCOMES assertion: the monthly job is not scheduled'; end if;
-  foreach f in array array['public.run_outcomes_dashboard_now(date)', 'public.read_outcomes_dashboard(integer)', 'public.log_outcomes_dashboard_export()'] loop
+  if coalesce((private.outcomes_dash_cfg() #>> '{founder_unfrozen_view,enabled}')::boolean, true) then raise exception 'OUTCOMES assertion: the founder view is not off by default'; end if;
+  foreach f in array array['public.run_outcomes_dashboard_now(date)', 'public.read_outcomes_dashboard(integer)', 'public.log_outcomes_dashboard_export()', 'public.read_outcomes_founder_unfrozen(text)'] loop
     if has_function_privilege('anon', f, 'EXECUTE') then raise exception 'OUTCOMES assertion: anon can execute %', f; end if;
   end loop;
   foreach f in array array['private.run_outcomes_dashboard(uuid,date,uuid)', 'private.run_outcomes_dashboard_monthly()', 'private.outcomes_dash_people(uuid,integer,date,jsonb)',

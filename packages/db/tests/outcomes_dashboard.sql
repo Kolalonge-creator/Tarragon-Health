@@ -26,6 +26,9 @@
 --      engagement group hold the report back. (c) The points comparison does not count points that blood pressure logging earns, and a blood-pressure-only logger is
 --      neither an earner nor lifted out of the low band. (d) The strict (worst case) estimate and the not-measured share are present and right. (e) Mood readings,
 --      protected-topic lessons and badges, and escalations with no ordinary alert or on a sensitive screening are not counted. (f) has_data is not exposed.
+--  10. FOUNDER VIEW (read_outcomes_founder_unfrozen). Off by default; only the super-admin account; a reason of 10+ characters is required and audited; it computes to
+--      today what the held-back rule froze (F: more people than the frozen report); minimum cells and complementary suppression still apply (B); protected-data exclusions
+--      still apply (A: 25 escalations); it writes no report. Refused for the CMO, doctor, care coordinator, corporate, HMO and NGO admins, analyst, finance, patient, anon.
 --   SABOTAGE (each must flip its check): (a) the minimum lowered, the withheld group must show; (b) the test-account flag cleared, the count must grow;
 --   (c) blood pressure allowed into engagement, the low group must move band; (d) the held-back difference rule neutered, the report must not be held;
 --   (h) the order rule neutered; (i) the held-back rule neutered for the group counts; (j) a points rule that blood pressure earns allowed back in; (k) mood allowed as a
@@ -177,7 +180,7 @@ declare
   v_adminA uuid; v_adminB uuid; v_cmoA uuid; v_doc uuid; v_cc uuid; v_corp uuid; v_hmo uuid; v_ngo uuid; v_ana uuid; v_fin uuid; v_pat uuid; v_id uuid;
   i integer; v_p uuid; v_rep jsonb; v_cell jsonb; v_x jsonb; v_y jsonb; v_n integer; v_s text; v_def text; v_cut date; v_ok boolean;
   v_exp_ctl numeric; v_exp_sys numeric; v_exp_hb numeric; v_c integer; v_nn integer; v_w numeric[]; v_sd numeric; v_cnt integer;
-  v_ids text; r record; v_res text; v_orgF uuid; v_content_ok uuid; v_content_mood uuid; v_badge_ok uuid; v_badge_mood uuid; v_bponly uuid; v_def2 text; v_before jsonb; v_after jsonb;
+  v_adminF uuid; v_fv jsonb; v_nrep integer; v_ids text; r record; v_res text; v_orgF uuid; v_content_ok uuid; v_content_mood uuid; v_badge_ok uuid; v_badge_mood uuid; v_bponly uuid; v_def2 text; v_before jsonb; v_after jsonb;
 begin
   insert into public.organisations (name, type) values ('OUTD proof A', 'clinic') returning id into v_orgA;
   insert into public.organisations (name, type) values ('OUTD proof B', 'clinic') returning id into v_orgB;
@@ -187,6 +190,7 @@ begin
 
   v_adminA := pg_temp.mkuser(v_orgA, 'adminA', 'admin');
   v_adminB := pg_temp.mkuser(v_orgB, 'adminB', 'admin');
+  v_adminF := pg_temp.mkuser(v_orgF, 'adminF', 'admin');
   v_cmoA := pg_temp.mkstaff(v_orgA, v_adminA, 'cmoA', 'chief_medical_officer');
   v_doc := pg_temp.mkstaff(v_orgA, v_adminA, 'doctorA', 'senior_medical_officer');
   v_cc := pg_temp.mkuser(v_orgA, 'coordA', 'care_coordinator');
@@ -553,6 +557,56 @@ begin
   if not v_ok or v_cut <> (v_m1 - 1) then raise exception 'FAIL 9f: 40 newly due people, 2 of them in one group, did not hold the report back (held %, cutoff %)', v_ok, v_cut; end if;
 
   ------------------------------------------------------------------------------------------------------------------------------------
+  -- 10. THE FOUNDER'S UNFROZEN VIEW
+  ------------------------------------------------------------------------------------------------------------------------------------
+  -- off by default, even for the super admin
+  if pg_temp.try_as(v_adminF, $q$select public.read_outcomes_founder_unfrozen('checking the pilot after the freeze')$q$) <> '55000' then raise exception 'FAIL 10a: the founder view works with the switch off'; end if;
+  update public.outcomes_dashboard_config set config = jsonb_set(config, '{founder_unfrozen_view,enabled}', 'true') where is_active;
+  -- everyone except the super admin is refused, with the switch ON
+  foreach v_s in array array['cmo', 'doctor', 'care_coordinator', 'corporate_admin', 'hmo_admin', 'ngo_admin', 'analyst', 'finance', 'patient'] loop
+    v_id := case v_s when 'cmo' then v_cmoA when 'doctor' then v_doc when 'care_coordinator' then v_cc when 'corporate_admin' then v_corp
+                     when 'hmo_admin' then v_hmo when 'ngo_admin' then v_ngo when 'analyst' then v_ana when 'finance' then v_fin else v_pat end;
+    if pg_temp.try_as(v_id, $q$select public.read_outcomes_founder_unfrozen('checking the pilot after the freeze')$q$) <> '42501' then raise exception 'FAIL 10b: % can open the founder view', v_s; end if;
+  end loop;
+  if pg_temp.try_anon($q$select public.read_outcomes_founder_unfrozen('checking the pilot after the freeze')$q$) <> '42501' then raise exception 'FAIL 10c: anon can open the founder view'; end if;
+  -- a reason is required
+  if pg_temp.try_as(v_adminF, 'select public.read_outcomes_founder_unfrozen(null)') <> '22023' or pg_temp.try_as(v_adminF, $q$select public.read_outcomes_founder_unfrozen('short')$q$) <> '22023' then
+    raise exception 'FAIL 10d: the founder view opened without a real reason';
+  end if;
+  select count(*) into v_nrep from public.outcomes_dashboard_reports;
+  perform pg_temp.act(v_adminF);
+  v_fv := public.read_outcomes_founder_unfrozen('checking the pilot after the freeze');
+  perform pg_temp.back();
+  -- audited with the reason; nothing stored; says what it is
+  if not exists (select 1 from public.audit_log where action = 'outcomes_dashboard.founder_unfrozen_read' and actor_id = v_adminF and event ->> 'reason' = 'checking the pilot after the freeze') then raise exception 'FAIL 10e: the founder read was not audited with its reason'; end if;
+  if (select count(*) from public.outcomes_dashboard_reports) <> v_nrep then raise exception 'FAIL 10f: the founder view wrote a report'; end if;
+  if not (v_fv ->> 'founder_view')::boolean or (v_fv ->> 'stored')::boolean or not (v_fv ->> 'not_a_causal_claim')::boolean then raise exception 'FAIL 10g: the founder view does not describe itself'; end if;
+  -- it lifts the freeze: F's stored report is held at the last cutoff; the founder view counts the 40 newly due people (when they are due by today)
+  if (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '3 days')::date <= (now() at time zone 'Africa/Lagos')::date then
+    if (v_fv #>> '{outcomes,hypertension,0,due,n}')::integer <= (select (report #>> '{panels,outcomes,hypertension,0,due,n}')::integer from public.outcomes_dashboard_reports where organisation_id = v_orgF and period_start = v_m1) then
+      raise exception 'FAIL 10h: the founder view did not lift the held-back freeze';
+    end if;
+  end if;
+  -- ... but the minimum-cell rule still applies (organisation B: a 3-person unmeasured category and a 12-person group)
+  perform pg_temp.act(v_adminB);
+  v_x := public.read_outcomes_founder_unfrozen('checking the pilot after the freeze');
+  perform pg_temp.back();
+  if not (v_x #>> '{outcomes,hypertension,0,due,suppressed}')::boolean or (v_x #> '{outcomes,hypertension,0,due}') ? 'controlled' then raise exception 'FAIL 10i: the founder view shows a cohort with a small category: %', v_x #> '{outcomes,hypertension,0,due}'; end if;
+  select g into v_cell from jsonb_array_elements(v_x #> '{comparison,cohorts,hypertension,engagement,groups}') g where g ->> 'group' = 'middle';
+  if not (v_cell ->> 'suppressed')::boolean or v_cell ? 'people_measured_at_both_ends' then raise exception 'FAIL 10j: the founder view shows the 12-person group: %', v_cell; end if;
+  select g into v_cell from jsonb_array_elements(v_x #> '{comparison,cohorts,hypertension,engagement,groups}') g where g ->> 'group' = 'high';
+  if not (v_cell ->> 'suppressed')::boolean then raise exception 'FAIL 10k: the founder view dropped complementary suppression'; end if;
+  -- ... and the protected-data exclusions still apply (organisation A: 25 escalations on ordinary alerts, not the 80 rows)
+  perform pg_temp.act(v_adminA);
+  v_x := public.read_outcomes_founder_unfrozen('checking the pilot after the freeze');
+  perform pg_temp.back();
+  if (v_x #>> '{outcomes,escalations,0,people}')::integer <> 25 or jsonb_array_length(v_x #> '{outcomes,escalations}') <> 1 then raise exception 'FAIL 10l: the founder view counted escalations that are protected or topic-less: %', v_x #> '{outcomes,escalations}'; end if;
+  if v_x::text ~* v_ids or v_x::text ~* 'patient_id|subject_key' then raise exception 'FAIL 10m: a person id is inside the founder view'; end if;
+  -- switch it off again (the rest of the proof assumes the default)
+  update public.outcomes_dashboard_config set config = jsonb_set(config, '{founder_unfrozen_view,enabled}', 'false') where is_active;
+  if pg_temp.try_as(v_adminF, $q$select public.read_outcomes_founder_unfrozen('checking the pilot after the freeze')$q$) <> '55000' then raise exception 'FAIL 10n: switching it off did not close it'; end if;
+
+  ------------------------------------------------------------------------------------------------------------------------------------
   -- 6. HELD BACK (organisation A): ten people newly due since last month are fewer than the floor, so the cutoff does not move
   ------------------------------------------------------------------------------------------------------------------------------------
   for i in 1 .. 10 loop
@@ -685,6 +739,8 @@ begin
   -- (g) the admin gate opened for everybody: a patient must get in
   execute 'create or replace function private.is_admin() returns boolean language sql stable as ''select true''';
   if pg_temp.try_as(v_pat, 'select public.read_outcomes_dashboard(1)') <> 'ok' then raise exception 'VACUOUS TEST (g): with the admin gate opened a patient was still refused'; end if;
+  update public.outcomes_dashboard_config set config = jsonb_set(config, '{founder_unfrozen_view,enabled}', 'true') where is_active;
+  if pg_temp.try_as(v_pat, $q$select public.read_outcomes_founder_unfrozen('checking the pilot after the freeze')$q$) <> 'ok' then raise exception 'VACUOUS TEST (g2): with the admin gate opened a patient was still refused by the founder view'; end if;
 
   raise notice 'PASS: outcomes dashboard: role matrix and audited doors, three separate panels, exclusions, numbers equal the recomputation, suppression with neighbours, held-back cutoff, loud monthly job, permanent record, static scans';
 end $$;

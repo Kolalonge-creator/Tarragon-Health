@@ -5137,3 +5137,9 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Option: raise nothing and accept frozen months (built); or round the stored counts so smaller moves are not disclosive (see OQ-OUT-08).
 - The Illinois sentence was reworded to a general one (no specific trial named); OQ-OUT-07 is now only about whether the general sentence is supportable.
 - Decision: open (founder and CMO).
+
+
+### OQ-OUT-12 OQ-OUT-09 and OQ-OUT-11 are DECIDED (founder, 2026-10-22): a founder-only unfrozen view
+- Decision: keep the frozen, stored reports as they are, and add a super-admin-only read that works the held-back figures out to today (`read_outcomes_founder_unfrozen`, page `/admin/outcomes/engagement/founder`). Off by default, a reason required and audited, nothing stored, no export, not for the CMO. The minimum-cell rule and protected-data exclusions are not lifted. OQ-OUT-09 and OQ-OUT-11 are closed by this.
+- Still open: the platform has no separate founder role, so "founder" is the super-admin account (`profiles.role = 'admin'`); if more than one such account exists, each can open the view. The switch is off until the founder turns it on (a new `outcomes_dashboard_config` version).
+- Decision: closed (founder).

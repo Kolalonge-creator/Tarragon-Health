@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { DASHBOARD_PATHS, type DashboardViewer } from "./dashboard-paths";
+import { parseFounderView } from "./dashboard-report";
+import type { FounderState } from "./founder-state";
 
 /**
  * The one write on the outcomes dashboard: make last month's (or any finished month's) report now, for a super admin or the Chief Medical
@@ -31,4 +33,26 @@ export async function runDashboardAction(formData: FormData): Promise<void> {
   if (error) redirect(`${DASHBOARD_PATHS[viewer]}?r=run_error`);
   revalidatePath(DASHBOARD_PATHS[viewer]);
   redirect(`${DASHBOARD_PATHS[viewer]}?r=run_done`);
+}
+
+const reasonSchema = z.string().trim().min(10).max(500);
+
+/**
+ * The founder's unfrozen view. The database function is the gate (super admin only, switch on, a reason, audited, nothing stored); this action only
+ * turns its refusals into words and checks the shape. There is no CSV or file for this view, and it is never cached or revalidated.
+ */
+export async function readFounderViewAction(_prev: FounderState, formData: FormData): Promise<FounderState> {
+  if ((await getCurrentProfile())?.role !== "admin") return { status: "error", message: "refused" };
+  const reason = reasonSchema.safeParse(formData.get("reason"));
+  if (!reason.success) return { status: "error", message: "reason" };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("read_outcomes_founder_unfrozen", { p_reason: reason.data });
+  if (error) {
+    if (error.code === "55000") return { status: "error", message: "off" };
+    if (error.code === "42501") return { status: "error", message: "refused" };
+    if (error.code === "22023") return { status: "error", message: "reason" };
+    return { status: "error", message: "failed" };
+  }
+  const view = parseFounderView(data);
+  return view ? { status: "ok", view } : { status: "error", message: "failed" };
 }

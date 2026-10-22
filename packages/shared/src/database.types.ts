@@ -50329,6 +50329,7 @@ export type Database = {
       log_outcome_export: { Args: { p_from?: string; p_to?: string }; Returns: undefined };
       log_outcomes_dashboard_export: { Args: Record<PropertyKey, never>; Returns: undefined };
       read_outcomes_dashboard: { Args: { p_limit?: number }; Returns: Json };
+      read_outcomes_founder_unfrozen: { Args: { p_reason: string }; Returns: Json };
       run_outcomes_dashboard_now: { Args: { p_month: string }; Returns: string };
       my_monthly_reports: { Args: { p_limit?: number }; Returns: Json };
       my_reproductive_access_log: { Args: { p_limit?: number }; Returns: Json }

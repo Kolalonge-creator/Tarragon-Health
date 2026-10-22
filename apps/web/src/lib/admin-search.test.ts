@@ -336,3 +336,16 @@ describe("the engagement and outcomes dashboard is searchable", () => {
     expect(cmoIndex.filter((e) => e.href.includes("engagement")).every((e) => e.href.startsWith("/clinician"))).toBe(true);
   });
 });
+
+describe("the founder view is searchable by the admin and never by the CMO", () => {
+  const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  it("is found by the words someone would type", () => {
+    for (const q of ["founder view", "unfrozen", "held back figures", "small groups"]) {
+      expect(searchAdminEntries(adminIndex, q, 8).map((e) => e.href)).toContain("/admin/outcomes/engagement/founder");
+    }
+  });
+  it("is not in the CMO's index at all", () => {
+    expect(cmoIndex.some((e) => e.href.includes("founder"))).toBe(false);
+  });
+});

@@ -25,7 +25,15 @@ type Dashboard = {
 
 describe("outcomes.dashboard mirrors the outcomes_dashboard_config v1 seed", () => {
   it("is identical to the migration seed", () => {
-    expect(seed("_outcomes_dashboard.sql", "outcomes-dashboard-config")).toEqual(getProposedConfig("outcomes.dashboard").value);
+    const { founder_unfrozen_view: _founder, ...rest } = seed("_outcomes_dashboard.sql", "outcomes-dashboard-config") as Record<string, unknown>;
+    void _founder;
+    expect(rest).toEqual(getProposedConfig("outcomes.dashboard").value);
+  });
+
+  it("keeps the founder's unfrozen view OFF by default, identical in the migration seed and the registry", () => {
+    const seeded = (seed("_outcomes_dashboard.sql", "outcomes-dashboard-config") as { founder_unfrozen_view: unknown }).founder_unfrozen_view;
+    expect(seeded).toEqual({ enabled: false });
+    expect(getProposedConfig("outcomes.founder_unfrozen_view").value).toEqual(seeded);
   });
 
   it("is owned by the CMO and proposed, never self-confirmed", () => {

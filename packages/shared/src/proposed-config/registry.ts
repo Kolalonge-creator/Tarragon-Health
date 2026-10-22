@@ -4566,6 +4566,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/OUTCOMES.md; docs/OPEN-QUESTIONS.md OQ-OUT-01 to OQ-OUT-10",
   },
   {
+    key: "outcomes.founder_unfrozen_view",
+    // Founder decision on OQ-OUT-09 and OQ-OUT-11. Mirrors outcomes_dashboard_config version 1 `founder_unfrozen_view`. OFF by default. When on, the super-admin
+    // account (not the CMO, not anyone else) can open a read that computes to today the outcome figures the held-back rule froze. It lifts only the freeze: the
+    // minimum cell, complementary suppression and protected-data exclusions still apply; every read needs a reason and is audited; nothing is stored; no export.
+    value: { enabled: false },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/OUTCOMES.md section Founder view; docs/OPEN-QUESTIONS.md OQ-OUT-09, OQ-OUT-11",
+  },
+  {
     key: "paging.watchdog",
     // S78a (spec 23.15, CMO decision S-8). Mirrors paging_config version 2, which is PROPOSED and INACTIVE: the active row stays version 1 until the CMO signs
     // a new version. watchdog_grace_seconds: how long a red triage event may exist with no page before the database watchdog creates it itself (INV-05; the
