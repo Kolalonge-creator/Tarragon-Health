@@ -18,15 +18,20 @@ export default async function DocumentsPage() {
   const supabase = await createClient();
   const isOwn = subjectId === profile.id;
 
-  const [{ data: docs }, { data: open }] = await Promise.all([
+  const [{ data: docs, error: docsError }, { data: open }] = await Promise.all([
     supabase
       .from("patient_documents")
-      .select("id, document_type, original_filename, created_at, ocr_state, extracted, file_path")
+      .select("id, document_type, original_filename, created_at, ocr_state, extracted, file_path, source, verification_status, reviewed_by, reviewed_at, review_note")
       .eq("patient_id", subjectId)
       .order("created_at", { ascending: false })
       .limit(50),
     supabase.rpc("go_live_guard_is_open", { p_key: DOCUMENT_CAPTURE_GUARD }),
   ]);
+
+  // The name of the doctor who checked a record, from the public staff directory. A failed lookup leaves the name empty ("your care team"), never a guess.
+  const reviewerIds = [...new Set((docs ?? []).map((d) => d.reviewed_by).filter((id): id is string => !!id))];
+  const { data: reviewers } = reviewerIds.length > 0 ? await supabase.from("clinical_staff_directory").select("profile_id, full_name").in("profile_id", reviewerIds) : { data: [] };
+  const reviewerName = new Map((reviewers ?? []).map((r) => [r.profile_id, r.full_name] as const));
 
   const rows: DocumentRow[] = await Promise.all(
     (docs ?? []).map(async (d) => {
@@ -43,6 +48,13 @@ export default async function DocumentsPage() {
         ocrState: d.ocr_state,
         fields: (d.extracted as { fields?: DocumentRow["fields"] } | null)?.fields ?? [],
         photoUrl,
+        verification: {
+          status: d.source === "patient" ? d.verification_status : "not_applicable",
+          reviewerName: d.reviewed_by ? (reviewerName.get(d.reviewed_by) ?? null) : null,
+          reviewedBy: d.reviewed_by,
+          reviewedAt: d.reviewed_at,
+          note: d.review_note,
+        },
       };
     })
   );
@@ -60,7 +72,14 @@ export default async function DocumentsPage() {
       ) : (
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("passport.documents.own_only", uiLanguage)}</p>
       )}
-      <DocumentList rows={rows} canConfirm={isOwn} locale={uiLanguage} />
+      {docsError ? (
+        // A failed read is not "no documents": that would read as every upload having been lost.
+        <p role="alert" className="text-sm text-red-700">
+          {t("outside_records.failed", uiLanguage)}
+        </p>
+      ) : (
+        <DocumentList rows={rows} canConfirm={isOwn} locale={uiLanguage} />
+      )}
     </div>
   );
 }

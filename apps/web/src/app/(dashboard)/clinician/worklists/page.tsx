@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { WORKLIST_TITLES, loadWorklist } from "@/lib/security/worklists";
+import { WORKLIST_TITLES, loadWorklist, worklistItemHref } from "@/lib/security/worklists";
 
 export const metadata = { title: "Shared work queues" };
 export const dynamic = "force-dynamic";
@@ -37,7 +37,7 @@ export default async function ClinicianWorklists() {
                 <ul className="divide-y">
                   {g.items.map((i) => (
                     <li key={i.item_id} className="flex items-center justify-between py-2 text-sm">
-                      <Link href={`/clinician/patients/${i.patient_id}`} className="font-medium underline">{i.patient_name ?? "Unnamed patient"}</Link>
+                      <Link href={worklistItemHref(g.kind, i.item_id, i.patient_id)} className="font-medium underline">{i.patient_name ?? "Unnamed patient"}</Link>
                       <span className="text-xs text-charcoal-ink/60">{[i.patient_number, i.item_date ? new Date(i.item_date).toLocaleDateString("en-NG", { timeZone: "Africa/Lagos" }) : null].filter(Boolean).join(" · ")}</span>
                     </li>
                   ))}

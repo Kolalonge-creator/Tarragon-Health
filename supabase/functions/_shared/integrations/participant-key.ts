@@ -30,3 +30,25 @@ export async function roleFromParticipantKey(secret: string, encounterId: string
   }
   return found;
 }
+
+// ---- caregiver keys (CGJ) ----
+//
+// A caregiver invited into one call gets a key bound to ONE pass (the invite), not to a role: the pass id is part of the MAC, so a key
+// cannot be carried to another call, another caregiver, or a pass that was removed and replaced. It starts with "g" so the presence handler
+// can tell it from a patient or clinician key without trying every pass first. The server only ever compares against the passes of the
+// encounter the room belongs to.
+const CAREGIVER_DOMAIN = "tarragon.participant.v1.caregiver";
+
+export async function caregiverParticipantKey(secret: string, encounterId: string, passId: string): Promise<string> {
+  const mac = await hmacHex("SHA-256", secret, `${CAREGIVER_DOMAIN}:${encounterId}:${passId}`);
+  return `g${mac.slice(0, KEY_HEX_CHARS)}`;
+}
+
+/** The pass this key was minted for on this encounter, or null. Every candidate is compared, so timing does not say which one matched. */
+export async function passFromCaregiverKey(secret: string, encounterId: string, key: string, passIds: readonly string[]): Promise<string | null> {
+  let found: string | null = null;
+  for (const id of passIds) {
+    if (constantTimeEqual(key, await caregiverParticipantKey(secret, encounterId, id))) found = id;
+  }
+  return found;
+}

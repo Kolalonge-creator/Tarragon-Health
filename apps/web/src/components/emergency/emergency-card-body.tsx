@@ -1,5 +1,6 @@
 import { t } from "@tarragon/i18n";
 import { BLOOD_PROVENANCE, GENOTYPE_NOTE, type EmergencyClinicalFacts } from "@/lib/emergency/card";
+import { COVERAGE_SCHEME_LABEL } from "@/lib/emergency/coverage";
 import { NOT_SHARED_TEXT, type CardField } from "@/lib/emergency/field-choices";
 
 /**
@@ -175,6 +176,18 @@ export function EmergencyCardBody({
           <p className="text-sm text-charcoal-ink/70">None recorded.</p>
         )}
       </Section>
+
+      {/* S09y: shown ONLY when the patient filled it in. An empty cover is simply not on the card, never written as "none". */}
+      {facts.coverage && (facts.coverage.member_number || facts.coverage.plan_name) ? (
+        <Section title={t("ecf.coverage.card_title", "en", { scheme: COVERAGE_SCHEME_LABEL[facts.coverage.scheme] })}>
+          <p className="text-sm text-charcoal-ink">
+            {facts.coverage.plan_name ? <span className="font-medium">{facts.coverage.plan_name}</span> : null}
+            {facts.coverage.plan_name && facts.coverage.member_number ? " · " : ""}
+            {facts.coverage.member_number ? `${t("ecf.coverage.member_no", "en")} ${facts.coverage.member_number}` : ""}
+          </p>
+          <p className="mt-1 text-xs text-charcoal-ink/60">{t("ecf.coverage.card_note", "en")}</p>
+        </Section>
+      ) : null}
 
       {qrSlot ? (
         <section className="border-x border-t border-charcoal-ink/15 bg-white p-4">
