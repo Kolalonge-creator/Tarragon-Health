@@ -697,6 +697,7 @@ export function getNavSections(
                 { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
                 { label: "Blood pressure triage rules", href: "/clinician/triage-rules", icon: "bp" },
                 { label: "Glucose triage rules", href: "/clinician/glucose-triage-rules", icon: "bp" },
+                { label: "Pulse, oxygen and temperature triage rules", href: "/clinician/vitals-triage-rules", icon: "bp" },
                 // N-overrides: the CMO's roster of personal alert thresholds, the monthly review and the kill switch.
                 { label: "Personal alert thresholds", href: "/clinician/threshold-overrides", icon: "bp" },
                 { label: "Task types and priorities", href: "/clinician/task-types", icon: "review" },
