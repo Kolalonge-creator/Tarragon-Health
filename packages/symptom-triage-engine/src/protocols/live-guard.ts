@@ -25,12 +25,16 @@ export function isLiveProtocolRow(row: StoredTriageProtocolRow | null | undefine
   return true;
 }
 
-/** The parsed config of a live row, or null when the row is not live, malformed, or its config version differs from the row's. */
+/**
+ * The parsed config of a live row, or null when the row is not live or malformed. The ROW's version is authoritative and is stamped
+ * onto the config: the admin "re-attest" action inserts version N+1 with the config copied unchanged (its inner `version` still
+ * says N), and signing that row must keep the checker running, not switch it off.
+ */
 export function liveProtocolConfig(row: StoredTriageProtocolRow | null | undefined): { config: TriageProtocolConfig; protocolVersion: number } | null {
   if (!row || !isLiveProtocolRow(row)) return null;
   const config = parseTriageProtocolConfig(row.config);
-  if (!config || config.version !== row.version) return null;
-  return { config, protocolVersion: row.version };
+  if (!config) return null;
+  return { config: { ...config, version: row.version }, protocolVersion: row.version };
 }
 
 /** One pathway of a live row, or null. A pathway that exists only in a draft row can never be returned. */

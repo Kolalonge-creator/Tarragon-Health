@@ -21,7 +21,7 @@ import {
 import { S59D_DRAFT_PATHWAYS, S59D_DRAFT_VOCABULARY, S59D_PATHWAY_KEYS } from "./s59d-drafts";
 import { PAEDIATRIC_DRAFT_PATHWAYS } from "./paediatric-drafts";
 import { SEED_PATHWAYS } from "./index";
-import { isLiveProtocolRow, livePathways, selectLivePathway, type StoredTriageProtocolRow } from "./live-guard";
+import { isLiveProtocolRow, liveProtocolConfig, livePathways, selectLivePathway, type StoredTriageProtocolRow } from "./live-guard";
 
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
 const migration = (suffix: string): string => {
@@ -78,15 +78,22 @@ describe("S59d draft pathways: shape", () => {
     // Every walk through fever: self-care appears only when the malaria test was done and was negative.
     const fever = path("fever");
     const answerSets: AnswerMap[] = [];
-    for (const dur of [true, false]) for (const hyd of [true, false]) for (const tested of [true, false]) for (const pos of [true, false])
-      for (const sev of ["mild", "moderate", "high"]) answerSets.push({ duration_check: dur, hydration_check: hyd, malaria_test_check: tested, malaria_result_check: pos, severity_check: sev });
+    for (const dur of [true, false]) for (const hyd of [true, false]) for (const sev of ["mild", "moderate", "high"]) for (const tested of [true, false]) for (const pos of [true, false])
+      answerSets.push({ duration_check: dur, hydration_check: hyd, severity_check: sev, mild_test_check: tested, mild_result_check: pos, moderate_test_check: tested, moderate_result_check: pos });
     for (const a of answerSets) {
       const r = runTriage(fever, cap({ presentingComplaintKey: "fever" }), a);
-      if (r.category === "self_management") expect(a.malaria_test_check === true && a.malaria_result_check === false && a.duration_check === false && a.hydration_check === true).toBe(true);
+      if (r.category === "self_management") expect(a.severity_check === "mild" && a.mild_test_check === true && a.mild_result_check === false && a.duration_check === false && a.hydration_check === true).toBe(true);
     }
     // an untested fever never ends in self-care or an "all clear"
-    const untested = runTriage(fever, cap({ presentingComplaintKey: "fever" }), { duration_check: false, hydration_check: true, malaria_test_check: false });
+    const untested = runTriage(fever, cap({ presentingComplaintKey: "fever" }), { duration_check: false, hydration_check: true, severity_check: "mild", mild_test_check: false });
     expect(untested.category).toBe("routine");
+    // MEDIUM 3: a very unwell person who has not been tested, with no red flag ticked, is urgent (the v2 draft said urgent), never "get tested"
+    const unwellUntested = runTriage(fever, cap({ presentingComplaintKey: "fever" }), { duration_check: false, hydration_check: true, severity_check: "high" });
+    expect(unwellUntested.category).toBe("urgent");
+    expect(unwellUntested.clinicianReviewRequired).toBe(true);
+    // a moderate fever, tested and negative, is routine; untested is routine get-tested; tested and positive is urgent
+    expect(runTriage(fever, cap({ presentingComplaintKey: "fever" }), { duration_check: false, hydration_check: true, severity_check: "moderate", moderate_test_check: true, moderate_result_check: false }).category).toBe("routine");
+    expect(runTriage(fever, cap({ presentingComplaintKey: "fever" }), { duration_check: false, hydration_check: true, severity_check: "moderate", moderate_test_check: true, moderate_result_check: true }).category).toBe("urgent");
   });
 
   it("the fever pathway keeps every rule key of the v2 draft and every v2 node key", () => {
@@ -333,8 +340,10 @@ describe("S59d draft pathways: a draft is never live", () => {
     expect(livePathways(row())).toEqual([]);
     const live = row({ is_active: true, approved_at: "2026-10-22T10:00:00Z", approved_by: "staff-1" });
     expect(selectLivePathway(live, "diabetes_complication")?.protocolVersion).toBe(99);
-    // a live row whose config version does not match the row is refused (a hand-edited row)
-    expect(selectLivePathway({ ...live, version: 100 }, "diabetes_complication")).toBeNull();
+    // a RE-ATTESTED row (config copied unchanged from an older version, inner version stale) is served, stamped with the row's version
+    const reattested = selectLivePathway({ ...live, version: 100 }, "diabetes_complication");
+    expect(reattested?.protocolVersion).toBe(100);
+    expect(liveProtocolConfig({ ...live, version: 100 })?.config.version).toBe(100);
     // a malformed config is refused
     expect(selectLivePathway({ ...live, config: { version: 99, pathways: [] } }, "diabetes_complication")).toBeNull();
   });

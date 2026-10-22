@@ -100,14 +100,17 @@ const FEVER: PresentingComplaintProtocol = {
   startNodeKey: "duration_check",
   nodes: {
     duration_check: yesNo("duration_check", "Has the fever lasted 3 days or more, or does it keep coming back?", "outcome_urgent_prolonged", "hydration_check"),
-    hydration_check: yesNo("hydration_check", "Are you able to keep fluids down, and passing urine normally?", "malaria_test_check", "outcome_urgent_dehydration"),
-    malaria_test_check: yesNo("malaria_test_check", "Have you had a malaria test (a quick finger-prick test or a blood slide) during this illness?", "malaria_result_check", "outcome_routine_untested"),
-    malaria_result_check: yesNo("malaria_result_check", "Was the malaria test positive?", "outcome_urgent_malaria_positive", "severity_check"),
+    hydration_check: yesNo("hydration_check", "Are you able to keep fluids down, and passing urine normally?", "severity_check", "outcome_urgent_dehydration"),
+    // Severity is asked BEFORE the malaria test branch, so a very unwell person with no ticked red flag and no test yet is urgent, never "get tested".
     severity_check: choice("severity_check", "How high does the fever feel, and how are you coping?", [
-      { value: "mild", label: "Mild - I can carry on close to normal", next: "outcome_self_mild" },
-      { value: "moderate", label: "Moderate - uncomfortable, need to rest", next: "outcome_routine_moderate" },
+      { value: "mild", label: "Mild - I can carry on close to normal", next: "mild_test_check" },
+      { value: "moderate", label: "Moderate - uncomfortable, need to rest", next: "moderate_test_check" },
       { value: "high", label: "High - shivering, very unwell", next: "outcome_urgent_high" },
     ]),
+    mild_test_check: yesNo("mild_test_check", "Have you had a malaria test (a quick finger-prick test or a blood slide) during this illness?", "mild_result_check", "outcome_routine_untested"),
+    mild_result_check: yesNo("mild_result_check", "Was the malaria test positive?", "outcome_urgent_malaria_positive", "outcome_self_mild"),
+    moderate_test_check: yesNo("moderate_test_check", "Have you had a malaria test (a quick finger-prick test or a blood slide) during this illness?", "moderate_result_check", "outcome_routine_untested"),
+    moderate_result_check: yesNo("moderate_result_check", "Was the malaria test positive?", "outcome_urgent_malaria_positive", "outcome_routine_moderate"),
     outcome_urgent_prolonged: outcome("outcome_urgent_prolonged", "urgent", "fever.urgent_prolonged", true, "Fever lasting 3 days or more, or recurring - needs assessment to find a cause, including malaria and typhoid testing."),
     outcome_urgent_dehydration: outcome("outcome_urgent_dehydration", "urgent", "fever.urgent_dehydration", true, "Unable to keep fluids down or reduced urine output alongside fever - dehydration risk, needs prompt assessment."),
     outcome_routine_untested: outcome("outcome_routine_untested", "routine", "fever.routine_untested", false, "Fever with no malaria test yet - a test comes before any treatment, so the next step is to get tested."),

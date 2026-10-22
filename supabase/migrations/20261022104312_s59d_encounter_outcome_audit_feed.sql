@@ -243,6 +243,9 @@ language plpgsql security definer set search_path = ''
 as $$
 declare
   c_free constant text[] := array['status', 'retracted_at', 'retracted_reason', 'retracted_by_note_id', 'mapped_category', 'mapping_version', 'agrees', 'updated_at'];
+  -- the three link columns are plain references for navigation: the foreign keys set them to NULL (ON DELETE SET NULL) when an
+  -- encounter, appointment or summary is deleted, so that change must always be allowed (deletes, erasure and test purges rely on it)
+  c_fk constant text[] := array['summary_id', 'appointment_id', 'encounter_id'];
 begin
   if tg_op = 'DELETE' then
     -- a delete that arrives from a foreign-key cascade runs one trigger level deeper than a direct statement
@@ -251,10 +254,16 @@ begin
     end if;
     return old;
   end if;
-  if (to_jsonb(new) - c_free) is distinct from (to_jsonb(old) - c_free) then
+  if (to_jsonb(new) - c_free - c_fk) is distinct from (to_jsonb(old) - c_free - c_fk) then
     raise exception 'a symptom outcome cannot be changed except to retract it or to fill its map' using errcode = '42501';
   end if;
-  if old.status = 'retracted' then
+  -- a link column may only be cleared, never re-pointed
+  if (new.summary_id is distinct from old.summary_id and new.summary_id is not null)
+     or (new.appointment_id is distinct from old.appointment_id and new.appointment_id is not null)
+     or (new.encounter_id is distinct from old.encounter_id and new.encounter_id is not null) then
+    raise exception 'a symptom outcome cannot be re-pointed to another summary, appointment or encounter' using errcode = '42501';
+  end if;
+  if old.status = 'retracted' and (to_jsonb(new) - c_fk - 'updated_at') is distinct from (to_jsonb(old) - c_fk - 'updated_at') then
     raise exception 'a retracted symptom outcome cannot be changed' using errcode = '42501';
   end if;
   if old.mapped_category is not null
@@ -421,8 +430,12 @@ begin
       end if;
       perform private.record_symptom_outcomes_for_note(new.id);
     exception when others then
-      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
-        values (new.organisation_id, 'symptom_outcome.link_error', 'clinical_encounter_note', new.id, jsonb_build_object('error', sqlerrm));
+      -- nothing in this handler may raise: a failing audit insert or incident must never block the signature
+      begin
+        insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+          values (new.organisation_id, 'symptom_outcome.link_error', 'clinical_encounter_note', new.id, jsonb_build_object('error', sqlerrm));
+      exception when others then null;
+      end;
       begin
         perform private.page_incident(new.organisation_id, 'symptom_outcome_link_failed:' || new.id, 'A signed note could not be linked to a symptom check',
           'The note was signed normally; only the accuracy audit link failed. See audit_log action symptom_outcome.link_error.');
@@ -446,23 +459,28 @@ declare
   r record;
 begin
   if new.status = 'completed' and old.status is distinct from 'completed' and new.video_consultation_id is not null then
-    begin
-      for r in
-        select n.id from public.clinical_encounter_notes n
-         where n.patient_id = new.patient_id and n.status = 'finalized' and n.diagnosis_code is not null
-           and private.note_consultation_id(n.id) = new.video_consultation_id
-      loop
-        perform private.record_symptom_outcomes_for_note(r.id);
-      end loop;
-    exception when others then
-      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
-        values (new.organisation_id, 'symptom_outcome.link_error', 'encounter', new.id, jsonb_build_object('error', sqlerrm));
+    for r in
+      select n.id from public.clinical_encounter_notes n
+       where n.patient_id = new.patient_id and n.status = 'finalized' and n.diagnosis_code is not null
+         and private.note_consultation_id(n.id) = new.video_consultation_id
+       order by n.finalized_at, n.id
+    loop
+      -- one failing note never stops the next, and nothing here may raise: a failing audit insert must never block the completion
       begin
-        perform private.page_incident(new.organisation_id, 'symptom_outcome_link_failed:' || new.id, 'A completed consultation could not be linked to a symptom check',
-          'The consultation was completed normally; only the accuracy audit link failed. See audit_log action symptom_outcome.link_error.');
-      exception when others then null;
+        perform private.record_symptom_outcomes_for_note(r.id);
+      exception when others then
+        begin
+          insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+            values (new.organisation_id, 'symptom_outcome.link_error', 'clinical_encounter_note', r.id, jsonb_build_object('error', sqlerrm, 'encounter_id', new.id));
+        exception when others then null;
+        end;
+        begin
+          perform private.page_incident(new.organisation_id, 'symptom_outcome_link_failed:' || r.id, 'A completed consultation could not be linked to a symptom check',
+            'The consultation was completed normally; only the accuracy audit link failed. See audit_log action symptom_outcome.link_error.');
+        exception when others then null;
+        end;
       end;
-    end;
+    end loop;
   end if;
   return null;
 end $$;
@@ -526,6 +544,8 @@ language plpgsql security definer set search_path = ''
 as $$
 declare
   v_patient uuid;
+  v_complaint text;
+  v_repro boolean;
   v_rows jsonb;
 begin
   if p_reason is null or char_length(btrim(p_reason)) < 10 then
@@ -534,9 +554,18 @@ begin
   if (select auth.uid()) is null or not private.is_reviewing_clinician() then
     raise exception 'not authorised' using errcode = '42501';
   end if;
-  select patient_id into v_patient from public.symptom_triage_assessments where id = p_assessment;
-  if v_patient is null then return jsonb_build_object('status', 'not_found'); end if;
-  if not private.can_staff_read_clinical(v_patient, 'medical_history'::public.care_access_category) then
+  select patient_id, presenting_complaint_key into v_patient, v_complaint from public.symptom_triage_assessments where id = p_assessment;
+  if v_patient is null then
+    -- even "no such assessment" is audited (there is no patient to name, so the assessment id and the reason go in the event)
+    perform private.log_audit('symptom_outcome.read_not_found', 'symptom_assessment', p_assessment, jsonb_build_object('reason', p_reason));
+    return jsonb_build_object('status', 'not_found');
+  end if;
+  -- reproductive_health is never available through break-glass (private.has_emergency_access excludes it), so a pregnancy pathway
+  -- session, or any outcome with a pregnancy ICD-10 code (chapter O), is read under that category: the per-patient tie and nothing else
+  v_repro := v_complaint = 'pregnancy_danger_signs'
+             or exists (select 1 from public.symptom_encounter_outcomes o where o.assessment_id = p_assessment and o.diagnosis_code like 'O%');
+  if not private.can_staff_read_clinical(v_patient,
+       case when v_repro then 'reproductive_health'::public.care_access_category else 'medical_history'::public.care_access_category end) then
     perform private.audit_chart_read(v_patient, array['symptom_outcome'], p_reason, 'denied');
     return jsonb_build_object('status', 'denied');
   end if;
@@ -554,6 +583,13 @@ revoke all on function public.read_symptom_outcome_audited(uuid, text) from publ
 grant execute on function public.read_symptom_outcome_audited(uuid, text) to authenticated;
 
 -- ---------------------------------------------------------------------------
+-- 8a. A report says when it includes auto-fed rows, and why that is not like-for-like
+alter table public.symptom_accuracy_reports
+  add column if not exists includes_auto_outcomes boolean not null default false,
+  add column if not exists caveat text;
+comment on column public.symptom_accuracy_reports.caveat is
+  'S59d: set when the report includes auto-fed outcomes. They exist only for people who sent a summary and booked a consultation, a selected group, so the figures are not comparable with manual reviews and are not an accuracy claim.';
+
 -- 8. The monthly audit now includes the auto-fed rows, with a source breakdown (replaces the S60 function, same signature)
 -- ---------------------------------------------------------------------------
 create or replace function private.run_symptom_accuracy_audit(p_org uuid, p_month date, p_include_test boolean default false, p_by uuid default null)
@@ -572,6 +608,7 @@ declare
   v_bands jsonb;
   v_cells jsonb;
   v_total integer;
+  v_auto integer;
   v_id uuid;
 begin
   select id into v_id from public.symptom_accuracy_reports
@@ -655,19 +692,21 @@ begin
                'under_low', (private.wilson_interval(d.n_under, d.n, v_conf))[1], 'under_high', (private.wilson_interval(d.n_under, d.n, v_conf))[2],
                'over_low', (private.wilson_interval(d.n_over, d.n, v_conf))[1], 'over_high', (private.wilson_interval(d.n_over, d.n, v_conf))[2])
            end order by d.dimension, d.grp), '[]'::jsonb),
-         coalesce(max(d.n) filter (where d.dimension = 'overall'), 0)
-    into v_cells, v_total
+         coalesce(max(d.n) filter (where d.dimension = 'overall'), 0),
+         coalesce(max(d.n) filter (where d.dimension = 'source' and d.grp = 'encounter_auto'), 0)
+    into v_cells, v_total, v_auto
     from decided d;
 
   insert into public.symptom_accuracy_reports
-    (organisation_id, period_start, period_end, config_version, is_baseline, includes_test_accounts, reviewed_total, cells, generated_by)
+    (organisation_id, period_start, period_end, config_version, is_baseline, includes_test_accounts, reviewed_total, cells, generated_by, includes_auto_outcomes, caveat)
   values
     (p_org, v_start, v_end, cfg.version,
      -- the baseline is the first report that has something in it, per basis (real accounts, or test accounts deliberately included).
      -- An empty month is recorded but is never the baseline: an empty record must not read as a baseline in the go-live condition.
      v_total > 0 and not exists (select 1 from public.symptom_accuracy_reports x
                                   where x.organisation_id = p_org and x.is_baseline and x.includes_test_accounts = p_include_test),
-     p_include_test, v_total, v_cells, p_by)
+     p_include_test, v_total, v_cells, p_by, v_auto > 0,
+     case when v_auto > 0 then 'Includes outcomes fed automatically from signed consultation diagnoses. These exist only for people who sent a summary and booked a consultation, a selected group, so the figures are not comparable with manual reviews and are not an accuracy claim.' end)
   on conflict (organisation_id, period_start, includes_test_accounts) do nothing
   returning id into v_id;
   if v_id is null then

@@ -34,8 +34,13 @@ describe("the app loads only an ACTIVE and SIGNED triage protocol (S59d)", () =>
     expect(await getActiveTriageProtocolConfig(client(signed(paths, { approved_at: null, approved_by: null })))).toBeNull();
     expect(await getActiveTriageProtocolConfig(client(signed(paths, { approved_by: null })))).toBeNull();
     expect(await getActiveTriageProtocolConfig(client(signed(paths, { approved_at: null })))).toBeNull();
-    expect(await getActiveTriageProtocolConfig(client(signed(paths, { version: 8 })))).toBeNull();
     expect(await getActivePathway("diabetes_complication", client(signed(paths, { approved_by: null })))).toBeNull();
+  });
+
+  it("serves a signed, re-attested row whose copied config still carries the older inner version (HIGH 1)", async () => {
+    const got = await getActiveTriageProtocolConfig(client(signed([...SEED_PATHWAYS], { version: 8 })));
+    expect(got?.protocolVersion).toBe(8);
+    expect(got?.config.version).toBe(8);
   });
 
   it("fails closed on an error, an empty answer and a malformed config", async () => {

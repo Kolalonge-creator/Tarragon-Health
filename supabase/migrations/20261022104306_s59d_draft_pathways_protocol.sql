@@ -285,24 +285,8 @@ begin
     "kind": "boolean",
     "key": "hydration_check",
     "prompt": "Are you able to keep fluids down, and passing urine normally?",
-    "onYes": "malaria_test_check",
+    "onYes": "severity_check",
     "onNo": "outcome_urgent_dehydration"
-   },
-   "malaria_test_check": {
-    "type": "question",
-    "kind": "boolean",
-    "key": "malaria_test_check",
-    "prompt": "Have you had a malaria test (a quick finger-prick test or a blood slide) during this illness?",
-    "onYes": "malaria_result_check",
-    "onNo": "outcome_routine_untested"
-   },
-   "malaria_result_check": {
-    "type": "question",
-    "kind": "boolean",
-    "key": "malaria_result_check",
-    "prompt": "Was the malaria test positive?",
-    "onYes": "outcome_urgent_malaria_positive",
-    "onNo": "severity_check"
    },
    "severity_check": {
     "type": "question",
@@ -313,12 +297,12 @@ begin
      {
       "value": "mild",
       "label": "Mild - I can carry on close to normal",
-      "next": "outcome_self_mild"
+      "next": "mild_test_check"
      },
      {
       "value": "moderate",
       "label": "Moderate - uncomfortable, need to rest",
-      "next": "outcome_routine_moderate"
+      "next": "moderate_test_check"
      },
      {
       "value": "high",
@@ -326,6 +310,38 @@ begin
       "next": "outcome_urgent_high"
      }
     ]
+   },
+   "mild_test_check": {
+    "type": "question",
+    "kind": "boolean",
+    "key": "mild_test_check",
+    "prompt": "Have you had a malaria test (a quick finger-prick test or a blood slide) during this illness?",
+    "onYes": "mild_result_check",
+    "onNo": "outcome_routine_untested"
+   },
+   "mild_result_check": {
+    "type": "question",
+    "kind": "boolean",
+    "key": "mild_result_check",
+    "prompt": "Was the malaria test positive?",
+    "onYes": "outcome_urgent_malaria_positive",
+    "onNo": "outcome_self_mild"
+   },
+   "moderate_test_check": {
+    "type": "question",
+    "kind": "boolean",
+    "key": "moderate_test_check",
+    "prompt": "Have you had a malaria test (a quick finger-prick test or a blood slide) during this illness?",
+    "onYes": "moderate_result_check",
+    "onNo": "outcome_routine_untested"
+   },
+   "moderate_result_check": {
+    "type": "question",
+    "kind": "boolean",
+    "key": "moderate_result_check",
+    "prompt": "Was the malaria test positive?",
+    "onYes": "outcome_urgent_malaria_positive",
+    "onNo": "outcome_routine_moderate"
    },
    "outcome_urgent_prolonged": {
     "type": "outcome",

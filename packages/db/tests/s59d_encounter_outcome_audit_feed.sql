@@ -13,6 +13,9 @@
 --   5. Audit: with a confirmed map the monthly audit counts the auto rows and shows a 'source' breakdown with Wilson intervals; a manual review of
 --      the same assessment is counted once (manual wins); a one-case source cell is suppressed AND takes the other cell with it; no person id is in
 --      a report; test-account outcomes are excluded.
+--   5b-5e (review fixes): deleting an encounter or appointment behind an outcome succeeds; reproductive_health (pregnancy sessions and O-codes) is not
+--   reachable through break-glass, the tie still is, and a not_found read is audited; a report with auto rows carries a selection-bias caveat; a failing
+--      audit insert never blocks signing or completion and one failing note does not stop the next.
 --   6. The feed never blocks care: with the link function broken, signing a note and completing an encounter still succeed and the failure is audited.
 --   SABOTAGE: (a) the guard trigger dropped, a delete must succeed; (b) both feed triggers dropped, a fresh flow must write nothing; (c) the tie check
 --   made always-true, the untied clinician must get in; (d) a select policy and grant added, the patient must read the table. The unmapped-row filter
@@ -269,6 +272,80 @@ begin
   if not ((v_cell ->> 'match_low')::numeric <= (v_cell ->> 'match_rate')::numeric and (v_cell ->> 'match_rate')::numeric <= (v_cell ->> 'match_high')::numeric) then raise exception 'FAIL 5d: interval does not bracket the rate'; end if;
   if v_j::text ~* (v_p::text || '|' || v_q::text || '|' || v_c1::text) then raise exception 'FAIL 5e: a person id is in a report'; end if;
   if (select not publishable from public.symptom_accuracy_reports where id = v_rep) is not true then raise exception 'FAIL 5f: publishable'; end if;
+  -- 5b (review fix, MEDIUM 4): deleting an encounter or an appointment behind an outcome succeeds (the foreign keys set the link to NULL); the
+  -- row and its code stay; a link can be cleared but never re-pointed. (A sent summary cannot be deleted directly by design; it goes only with its patient.)
+  f := pg_temp.flow(v_org, v_q, v_c1, 'urgent', 'B50.9'); perform pg_temp.sign(v_c1, (f ->> 'note')::uuid); perform pg_temp.complete(v_c1, (f ->> 'enc')::uuid);
+  select id into v_oid from public.symptom_encounter_outcomes where assessment_id = (f ->> 'a')::uuid;
+  if v_oid is null then raise exception 'FAIL 5b0: no outcome to delete around'; end if;
+  delete from public.encounters where id = (f ->> 'enc')::uuid;
+  delete from public.appointments where id = (f ->> 'appt')::uuid;
+  select * into v_o from public.symptom_encounter_outcomes where id = v_oid;
+  if v_o.id is null or v_o.encounter_id is not null or v_o.appointment_id is not null or v_o.diagnosis_code <> 'B50.9' then raise exception 'FAIL 5b1: deleting the encounter or appointment broke the outcome: %', to_jsonb(v_o); end if;
+  if pg_temp.try(format('update public.symptom_encounter_outcomes set encounter_id = (select id from public.encounters limit 1) where id = %L', v_oid)) <> '42501' then raise exception 'FAIL 5b2: a link was re-pointed'; end if;
+  -- the same for a RETRACTED row
+  f := pg_temp.flow(v_org, v_q, v_c1, 'routine', 'R51'); perform pg_temp.sign(v_c1, (f ->> 'note')::uuid); perform pg_temp.complete(v_c1, (f ->> 'enc')::uuid);
+  perform pg_temp.act(v_c1); v_amend := public.create_note_amendment((f ->> 'note')::uuid, 'correction', 'S59d proof: retract then delete the encounter'); perform pg_temp.back();
+  perform pg_temp.sign(v_c1, v_amend);
+  delete from public.encounters where id = (f ->> 'enc')::uuid;
+  if (select encounter_id from public.symptom_encounter_outcomes where assessment_id = (f ->> 'a')::uuid and status = 'retracted') is not null then raise exception 'FAIL 5b3: a retracted row''s link was not cleared'; end if;
+
+  -- 5c (review fix, MEDIUM 5): reproductive_health is never available through break-glass. A pregnancy pathway session, or an outcome with a
+  -- pregnancy (chapter O) code, is read under that category: the tie works, an emergency-access grant does not. Other outcomes stay readable through break-glass.
+  f := pg_temp.flow(v_org, v_q, v_c1, 'urgent', 'O14.9'); perform pg_temp.sign(v_c1, (f ->> 'note')::uuid); perform pg_temp.complete(v_c1, (f ->> 'enc')::uuid);
+  v_aid := (f ->> 'a')::uuid;
+  f2 := pg_temp.flow(v_org, v_q, v_c1, 'urgent', 'B50.9'); perform pg_temp.sign(v_c1, (f2 ->> 'note')::uuid); perform pg_temp.complete(v_c1, (f2 ->> 'enc')::uuid);
+  v_aidp := (f2 ->> 'a')::uuid;
+  insert into public.emergency_record_access_grants (patient_id, patient_org_id, requester_id, requester_org_id, reason, expires_at)
+    values (v_q, v_org, v_c2, v_org, 'S59d proof break-glass', now() + interval '1 hour');
+  perform pg_temp.act(v_c2);
+  v_j := public.read_symptom_outcome_audited(v_aidp, 'break glass on a non-reproductive outcome');
+  if v_j ->> 'status' <> 'ok' then raise exception 'FAIL 5c1: break-glass should still reach a non-reproductive outcome, got %', v_j; end if;
+  v_j := public.read_symptom_outcome_audited(v_aid, 'break glass on a pregnancy-coded outcome');
+  if v_j ->> 'status' <> 'denied' then raise exception 'FAIL 5c2: break-glass reached an O-coded outcome: %', v_j; end if;
+  perform pg_temp.back();
+  if not exists (select 1 from public.audit_log where actor_id = v_c2 and subject_patient_id = v_q and result = 'denied' and reason = 'break glass on a pregnancy-coded outcome') then raise exception 'FAIL 5c3: the refusal was not audited'; end if;
+  perform pg_temp.act(v_c1);
+  v_j := public.read_symptom_outcome_audited(v_aid, 'tied clinician on a pregnancy-coded outcome');
+  if v_j ->> 'status' <> 'ok' then raise exception 'FAIL 5c4: the tie should reach it: %', v_j; end if;
+  v_j := public.read_symptom_outcome_audited(gen_random_uuid(), 'looking for something that is not there');
+  if v_j ->> 'status' <> 'not_found' then raise exception 'FAIL 5c5'; end if;
+  perform pg_temp.back();
+  if not exists (select 1 from public.audit_log where action = 'symptom_outcome.read_not_found' and actor_id = v_c1) then raise exception 'FAIL 5c6: a not_found read was not audited'; end if;
+  -- a pregnancy pathway session with no outcome yet is also reproductive
+  insert into public.symptom_triage_assessments (organisation_id, patient_id, presenting_complaint_key, protocol_version, initial_capture, questions_asked, red_flag_screen, category, clinician_review_required, safety_net_message_key, rationale)
+    values (v_org, v_q, 'pregnancy_danger_signs', (select min(version) from public.triage_protocols), '{}', '[]', '{}', 'urgent', false, 'routine', 'S59d proof') returning id into v_aid;
+  perform pg_temp.act(v_c2);
+  v_j := public.read_symptom_outcome_audited(v_aid, 'break glass on a pregnancy session');
+  perform pg_temp.back();
+  if v_j ->> 'status' <> 'denied' then raise exception 'FAIL 5c7: break-glass reached a pregnancy pathway session'; end if;
+
+  -- 5d (review fix, LOW 6): the report says it includes auto-fed rows and why that is a selected group
+  if not (select includes_auto_outcomes from public.symptom_accuracy_reports where id = v_rep) or (select caveat from public.symptom_accuracy_reports where id = v_rep) !~ 'selected group' then
+    raise exception 'FAIL 5d: a report with auto rows carries no caveat';
+  end if;
+
+  -- 5e (review fix, LOW 7): a failing audit insert never blocks signing or completion, and one failing note does not stop the next
+  alter table public.audit_log add constraint s59d_no_link_error check (action <> 'symptom_outcome.link_error');
+  alter function private.record_symptom_outcomes_for_note(uuid) rename to record_orig;
+  create function private.record_symptom_outcomes_for_note(p_note uuid) returns integer language plpgsql as $q$
+  begin
+    if current_setting('s59d.fail_first', true) = 'on' then perform set_config('s59d.fail_first', 'off', true); raise exception 'sabotaged link'; end if;
+    return private.record_orig(p_note);
+  end $q$;
+  f := pg_temp.flow(v_org, v_q, v_c1, 'urgent', 'A01');
+  perform pg_temp.act(v_c1);
+  v_amend := public.create_encounter_note(v_q, 'video_consult', 'S59d proof second note', p_video_consultation_id := (f ->> 'vc')::uuid);
+  perform public.set_encounter_note_diagnosis_code(v_amend, 'B50.9');
+  perform pg_temp.back();
+  perform pg_temp.sign(v_c1, (f ->> 'note')::uuid); perform pg_temp.sign(v_c1, v_amend);
+  perform set_config('s59d.fail_first', 'on', true);
+  perform pg_temp.complete(v_c1, (f ->> 'enc')::uuid);
+  if (select status from public.encounters where id = (f ->> 'enc')::uuid) <> 'completed' then raise exception 'FAIL 5e1: a failing link with a failing audit insert blocked the completion'; end if;
+  if not exists (select 1 from public.symptom_encounter_outcomes where assessment_id = (f ->> 'a')::uuid) then raise exception 'FAIL 5e2: the first failing note stopped the next one'; end if;
+  alter table public.audit_log drop constraint s59d_no_link_error;
+  drop function private.record_symptom_outcomes_for_note(uuid);
+  alter function private.record_orig(uuid) rename to record_symptom_outcomes_for_note;
+
   -- 6. the feed never blocks care
   create or replace function private.record_symptom_outcomes_for_note(p_note uuid) returns integer language plpgsql as $q$ begin raise exception 'sabotaged link'; end $q$;
   f := pg_temp.flow(v_org, v_p, v_c1, 'urgent', 'B50.9');
