@@ -10,6 +10,7 @@ import {
   CIRCLE_PERMISSIONS, GRANT_DAY_CHOICES, endsSoon, inviteLinkPath, permissionKey,
   type CircleMember, type CirclePause, type CirclePermission, type MyCircle, type PendingGift, type PreviewView, type ViewLogRow,
 } from "@/lib/care-circle/parse";
+import { HelpAlertCard } from "./care-circle-help-card";
 import { SupporterBlocks } from "./supporter-blocks";
 import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
@@ -445,6 +446,7 @@ export function CareCircleSection() {
       <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{t("circle.title", locale)}</Text>
       <MutedText>{t("circle.intro", locale)}</MutedText>
       <MutedText>{t("circle.monthly.notice", locale)}</MutedText>
+      <HelpAlertCard />
       <Text style={{ fontWeight: "600", color: colors.ink }}>{t("circle.stop.reminder", locale)}</Text>
       <PauseCard pause={circle.pause} days={circle.pauseDays ?? 7} onChanged={() => void refresh()} />
       {circle.members.length === 0 ? <MutedText>{t("circle.members.empty", locale)}</MutedText> : null}

@@ -14,9 +14,11 @@ interface ButtonProps {
   /** Fills the width of its container (the default for primary actions on a screen). */
   fullWidth?: boolean;
   accessibilityHint?: string;
+  /** Spoken label when the visible title alone would be ambiguous in a list ("Remove" on every row). */
+  accessibilityLabel?: string;
 }
 
-export function Button({ title, onPress, variant = "primary", disabled, loading, fullWidth = true, accessibilityHint }: ButtonProps) {
+export function Button({ title, onPress, variant = "primary", disabled, loading, fullWidth = true, accessibilityHint, accessibilityLabel }: ButtonProps) {
   const { colors } = useTheme();
   const inactive = disabled || loading;
   const fill = variant === "primary" ? colors.brand : variant === "secondary" ? colors.surface : "transparent";
@@ -26,7 +28,7 @@ export function Button({ title, onPress, variant = "primary", disabled, loading,
     <PressableScale
       onPress={inactive ? undefined : onPress}
       accessibilityRole="button"
-      accessibilityLabel={title}
+      accessibilityLabel={accessibilityLabel ?? title}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: !!inactive, busy: !!loading }}
       style={{

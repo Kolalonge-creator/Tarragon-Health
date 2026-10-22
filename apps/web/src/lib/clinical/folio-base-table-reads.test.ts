@@ -65,6 +65,48 @@ describe("no screen reads the folio from the clinical_staff base table", () => {
   });
 });
 
+/**
+ * Belt and braces for shapes the select scan above cannot see (a constant, a helper, a raw string): any source file that names
+ * credential_number must be on this reviewed list. A new reader fails here and has to be read, then either moved to
+ * fetchStaffFolios / clinician_folio_for_document or added with a reason.
+ */
+const REVIEWED_FOLIO_FILES: Record<string, string> = {
+  "../../mobile/src/lib/timeline.ts": "comment only: states the mobile timeline never selects it",
+  "lib/clinical/staff-folio.ts": "the folio reader (function, plus deploy-window fallback)",
+  "lib/clinical/staff-columns.ts": "comment only: the non-folio column list",
+  "lib/clinical/document-folio.ts": "document-scoped folio function wrapper (letters, prescriptions, lab requests, vaccination)",
+  "lib/clinical/credential-edit.ts": "admin edit form compares the current value it was given",
+  "lib/clinical/format-years-of-experience.ts": "comment only",
+  "lib/queries/clinical-staff.ts": "admin write path (insert/update) and the ClinicalStaffNoFolio type",
+  "lib/queries/protocol-versions.ts": "admin protocols screen, folio via fetchStaffFolios",
+  "lib/queries/provider-quality.ts": "provider_credential_monitor result (admin/CMO function)",
+  "app/(dashboard)/admin/settings/clinical-staff/clinical-staff-manager.tsx": "admin manager, folio via withStaffFolios",
+  "app/(dashboard)/admin/settings/protocols/protocol-versions-manager.tsx": "admin protocols screen",
+  "app/(dashboard)/doctor/[staffId]/page.tsx": "comment only: states the page never selects it",
+  "app/api/admin/search/route.ts": "comment only",
+  "lib/referrals/render-referral-letter.ts": "referral letter (letters carry the folio)",
+  "lib/prescriptions/prescription-pdf-data.ts": "prescription (carries the folio)",
+  "lib/prescriptions/load-prescription-pdf-data.ts": "prescription (carries the folio)",
+  "lib/lab-results/generate-lab-request-pdf.ts": "lab request PDF (open question OQ-358b)",
+  "lib/vaccination/get-certificate-data.ts": "vaccination certificate (open question OQ-358b)",
+  "lib/vaccination/vaccination-certificate-document.tsx": "vaccination certificate (open question OQ-358b)",
+};
+describe("every source file that names the folio has been reviewed", () => {
+  it("no new file mentions credential_number / credentialNumber without being listed", () => {
+    const unreviewed: string[] = [];
+    for (const file of files) {
+      const rel = relative(WEB_SRC, file);
+      if (rel.startsWith("..")) {
+        // mobile, console, packages and edge functions: none may name the folio unless reviewed
+        if (/credential_?[nN]umber/.test(readFileSync(file, "utf8")) && !(rel in REVIEWED_FOLIO_FILES)) unreviewed.push(rel);
+        continue;
+      }
+      if (/credential_?[nN]umber/.test(readFileSync(file, "utf8")) && !(rel in REVIEWED_FOLIO_FILES)) unreviewed.push(rel);
+    }
+    expect(unreviewed).toEqual([]);
+  });
+});
+
 describe("the folio prints on letters and prescriptions only (OQ-358b)", () => {
   const read = (p: string) => readFileSync(join(WEB_SRC, p), "utf8");
   it("lab result and verified-document PDFs carry no folio, only 'Licence verified on <date>'", () => {
