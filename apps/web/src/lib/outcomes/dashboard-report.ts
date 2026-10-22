@@ -60,6 +60,7 @@ const dmBlock = z.object({
   day: z.number(),
   cohort: z.literal("diabetes"),
   hba1c_change: meanCiOrWithheld,
+  not_measured_pct: z.number().nullable().optional(),
   hba1c_goal: z.union([withheld, z.object({ suppressed: z.literal(false), people: z.number(), reached: z.number(), reached_pct: z.number(), interval: interval })]),
 });
 const outcomes = z.object({
@@ -96,7 +97,7 @@ const htnGroup = z.union([
 ]);
 const dmGroup = z.union([
   withheld.extend({ group: z.string() }),
-  z.object({ group: z.string(), suppressed: z.literal(false), people_with_hba1c_change: z.number(), hba1c_change: meanCi }),
+  z.object({ group: z.string(), suppressed: z.literal(false), people_with_hba1c_change: z.number(), not_measured_pct: z.number().nullable().optional(), hba1c_change: meanCi }),
 ]);
 const split = <G extends z.ZodTypeAny, D extends z.ZodTypeAny>(g: G, d: D) =>
   z.object({ groups: z.array(g), high_group: z.string(), low_group: z.string(), difference_in_differences: d });
@@ -107,7 +108,7 @@ const comparison = z.object({
   pre_period: z.string(),
   engagement_excludes_blood_pressure_readings: z.boolean(),
   cohorts: z.object({
-    hypertension: z.object({ engagement: split(htnGroup, z.object({ control: did, systolic: did })), points: split(htnGroup, z.object({ control: did, systolic: did })) }),
+    hypertension: z.object({ engagement: split(htnGroup, z.object({ control: did, systolic: did, control_strict: did })), points: split(htnGroup, z.object({ control: did, systolic: did, control_strict: did })) }),
     diabetes: z.object({ engagement: split(dmGroup, z.object({ hba1c: did })), points: split(dmGroup, z.object({ hba1c: did })) }),
   }),
   association_not_proof: z.literal(true),
@@ -120,7 +121,6 @@ export const dashboardRowSchema = z.object({
   data_cutoff: z.string(),
   held_back: z.boolean(),
   config_version: z.number(),
-  has_data: z.boolean(),
   is_baseline: z.boolean(),
   publishable: z.literal(false),
   generated_at: z.string(),

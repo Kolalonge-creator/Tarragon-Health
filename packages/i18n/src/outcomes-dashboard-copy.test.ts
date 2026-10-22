@@ -38,7 +38,11 @@ describe("outcomes dashboard copy", () => {
     expect(outcomesDashboardCopy["outcomes.dash.caveat.selection"]).toMatch(/different from people who take part less/i);
     expect(outcomesDashboardCopy["outcomes.dash.caveat.selection"]).toMatch(/association/i);
     expect(outcomesDashboardCopy["outcomes.dash.caveat.association"]).toMatch(/not proof/i);
-    expect(outcomesDashboardCopy["outcomes.dash.caveat.trial"]).toMatch(/already healthier/i);
+    expect(outcomesDashboardCopy["outcomes.dash.caveat.trial"]).toMatch(/differ from those who do not/i);
+    expect(outcomesDashboardCopy["outcomes.dash.caveat.trial"]).not.toMatch(/illinois|randomised/i);
+    expect(outcomesDashboardCopy["outcomes.dash.compare.note"]).toMatch(/regression to the mean/i);
+    expect(outcomesDashboardCopy["outcomes.dash.caveat.measured"]).toMatch(/worst-case/i);
+    expect(outcomesDashboardCopy["outcomes.dash.caveat.bp_excluded"]).toMatch(/check-ins/i);
   });
 
   it("keeps engagement and clinical outcomes as two separate panels and never offers a combined score", () => {

@@ -19,8 +19,8 @@ type Dashboard = {
   primary_day: number;
   min_age_years: number;
   confidence_level: number;
-  comparison: { min_per_group: number; high_active_days_per_30: number; low_active_days_per_30: number; exclude_blood_pressure_from_engagement: boolean };
-  engagement: { points_rules_included: string[]; milestone_rules: string[]; screening_excluded_code_patterns: string[] };
+  comparison: { min_per_group: number; high_active_days_per_30: number; low_active_days_per_30: number; exclude_blood_pressure_from_engagement: boolean; exclude_checkins_from_comparison: boolean; points_rules_included: string[] };
+  engagement: { points_rules_included: string[]; milestone_rules: string[]; vital_types_allowed: string[]; screening_excluded_code_patterns: string[]; protected_topic_patterns: string[]; escalation_alert_types_allowed: string[] };
 };
 
 describe("outcomes.dashboard mirrors the outcomes_dashboard_config v1 seed", () => {
@@ -44,9 +44,22 @@ describe("outcomes.dashboard mirrors the outcomes_dashboard_config v1 seed", () 
     expect([0.9, 0.95, 0.99]).toContain(v.confidence_level);
   });
 
-  it("counts points only from rules that cannot touch protected data, and never from screening, lab or review awards", () => {
+  it("counts points only from rules that cannot touch protected data, and never from screening, lab, review, lesson or course awards", () => {
     const v = getProposedConfig("outcomes.dashboard").value as Dashboard;
-    for (const rule of ["screening_done", "lab_done", "review_attended"]) expect(v.engagement.points_rules_included).not.toContain(rule);
+    for (const rule of ["screening_done", "lab_done", "review_attended", "education_lesson_completed", "course_completed"]) {
+      expect(v.engagement.points_rules_included).not.toContain(rule);
+      expect(v.comparison.points_rules_included).not.toContain(rule);
+    }
+    // the groups are not drawn by blood pressure logging or the points it earns, nor by check-ins that overlap the adherence outcome
+    for (const rule of ["vitals_logged", "adherence_checkin_completed"]) expect(v.comparison.points_rules_included).not.toContain(rule);
+    expect(v.comparison.exclude_checkins_from_comparison).toBe(true);
+    for (const rule of v.comparison.points_rules_included) expect(v.engagement.points_rules_included).toContain(rule);
+    // an allow-list of measurement types: mood, sleep, water, weight and waist are not on it
+    for (const vt of ["mood", "sleep_hours", "water_ml", "weight", "waist_circumference"]) expect(v.engagement.vital_types_allowed).not.toContain(vt);
+    expect(v.engagement.vital_types_allowed).toContain("blood_pressure");
+    // only ordinary alert kinds count as an escalation; a symptom escalation can be about anything
+    expect(v.engagement.escalation_alert_types_allowed).not.toContain("symptom_escalation");
+    for (const word of ["mood lesson", "pregnancy", "menstrual cycle", "depression", "hiv"]) expect(v.engagement.protected_topic_patterns.some((p) => new RegExp(p, "i").test(word))).toBe(true);
     for (const m of v.engagement.milestone_rules) expect(v.engagement.points_rules_included).toContain(m);
   });
 

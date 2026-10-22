@@ -1,6 +1,6 @@
 [
     {
-        "id": "e7bbcf2e-2e21-44b8-b2a7-2266c3357cd9",
+        "id": "bdbf02b6-8c0a-4456-82e3-3ea6e7da311b",
         "report": {
             "month": "2026-08-01",
             "scope": {
@@ -36,7 +36,8 @@
                                 "low": -0.65,
                                 "high": -0.51,
                                 "mean": -0.58
-                            }
+                            },
+                            "not_measured_pct": 0.0
                         },
                         {
                             "day": 180,
@@ -50,7 +51,8 @@
                                 "reason": "under_minimum",
                                 "minimum": 20,
                                 "suppressed": true
-                            }
+                            },
+                            "not_measured_pct": null
                         }
                     ],
                     "data_cutoff": "2026-08-31",
@@ -153,6 +155,7 @@
                                             "high": -0.74,
                                             "mean": -0.80
                                         },
+                                        "not_measured_pct": 0.0,
                                         "people_with_hba1c_change": 80
                                     },
                                     {
@@ -165,6 +168,7 @@
                                             "high": -0.11,
                                             "mean": -0.15
                                         },
+                                        "not_measured_pct": 0.0,
                                         "people_with_hba1c_change": 40
                                     }
                                 ],
@@ -192,6 +196,7 @@
                                             "high": -1.01,
                                             "mean": -1.05
                                         },
+                                        "not_measured_pct": 0.0,
                                         "people_with_hba1c_change": 40
                                     },
                                     {
@@ -204,6 +209,7 @@
                                             "high": -0.11,
                                             "mean": -0.15
                                         },
+                                        "not_measured_pct": 0.0,
                                         "people_with_hba1c_change": 40
                                     },
                                     {
@@ -216,6 +222,7 @@
                                             "high": -0.51,
                                             "mean": -0.55
                                         },
+                                        "not_measured_pct": 0.0,
                                         "people_with_hba1c_change": 40
                                     }
                                 ],
@@ -312,6 +319,13 @@
                                         "available": true,
                                         "difference": -7.425,
                                         "interval_includes_zero": false
+                                    },
+                                    "control_strict": {
+                                        "low": -0.046,
+                                        "high": 0.446,
+                                        "available": true,
+                                        "difference": 0.200,
+                                        "interval_includes_zero": true
                                     }
                                 }
                             },
@@ -424,6 +438,13 @@
                                         "available": true,
                                         "difference": -9.850,
                                         "interval_includes_zero": false
+                                    },
+                                    "control_strict": {
+                                        "low": 0.024,
+                                        "high": 0.576,
+                                        "available": true,
+                                        "difference": 0.300,
+                                        "interval_includes_zero": false
                                     }
                                 }
                             }
@@ -493,12 +514,11 @@
             "internal_only": true,
             "not_a_causal_claim": true
         },
-        "has_data": true,
         "held_back": false,
         "data_cutoff": "2026-08-31",
         "is_baseline": true,
         "publishable": false,
-        "generated_at": "2026-10-22T11:08:54.000556+01:00",
+        "generated_at": "2026-10-22T11:50:38.414903+01:00",
         "period_start": "2026-08-01",
         "config_version": 1
     }

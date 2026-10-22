@@ -54,7 +54,7 @@ function htnGroup(month: string, name: string, g: HtnGroup): string[] {
 function dmGroup(month: string, name: string, g: DmGroup): string[] {
   const k = `${name}/${g.group}`;
   if (g.suppressed) return [line(month, "comparison", k, "status", "withheld"), line(month, "comparison", k, "reason", g.reason ?? "")];
-  return [line(month, "comparison", k, "people_with_hba1c_change", g.people_with_hba1c_change), line(month, "comparison", k, "mean_hba1c_change", g.hba1c_change.mean ?? "withheld")];
+  return [line(month, "comparison", k, "people_with_hba1c_change", g.people_with_hba1c_change), line(month, "comparison", k, "mean_hba1c_change", g.hba1c_change.mean ?? "withheld"), line(month, "comparison", k, "not_measured_pct", g.not_measured_pct ?? "withheld")];
 }
 
 export function dashboardToCsv(rows: DashboardRow[]): string {
@@ -84,6 +84,7 @@ export function dashboardToCsv(rows: DashboardRow[]): string {
     }
     for (const b of o.diabetes) {
       out.push(line(m, "outcomes", `diabetes_hba1c_day_${b.day}`, "mean_change", meanOf(b.hba1c_change) ?? "withheld"));
+      out.push(line(m, "outcomes", `diabetes_hba1c_day_${b.day}`, "not_measured_pct", b.not_measured_pct ?? "withheld"));
       out.push(line(m, "outcomes", `diabetes_hba1c_day_${b.day}`, "reached_goal_pct", b.hba1c_goal.suppressed ? "withheld" : b.hba1c_goal.reached_pct));
     }
     if (o.time_to_first_review.suppressed) out.push(line(m, "outcomes", "time_to_first_review", "status", "withheld"));
@@ -94,6 +95,7 @@ export function dashboardToCsv(rows: DashboardRow[]): string {
       for (const g of c.cohorts.hypertension[by].groups) out.push(...htnGroup(m, `hypertension_by_${by}`, g));
       out.push(...did(m, `hypertension_by_${by}_control_difference_in_differences`, c.cohorts.hypertension[by].difference_in_differences.control));
       out.push(...did(m, `hypertension_by_${by}_systolic_difference_in_differences`, c.cohorts.hypertension[by].difference_in_differences.systolic));
+      out.push(...did(m, `hypertension_by_${by}_control_worst_case_difference_in_differences`, c.cohorts.hypertension[by].difference_in_differences.control_strict));
       for (const g of c.cohorts.diabetes[by].groups) out.push(...dmGroup(m, `diabetes_by_${by}`, g));
       out.push(...did(m, `diabetes_by_${by}_hba1c_difference_in_differences`, c.cohorts.diabetes[by].difference_in_differences.hba1c));
     }

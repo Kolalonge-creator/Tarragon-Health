@@ -5130,3 +5130,10 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Super admin and the CMO read it; an analyst, finance user, doctor and care coordinator are refused. The CMO page is under `/clinician/engagement-outcomes` because a CMO account cannot open `/admin`. The reports are per organisation (the caller's own).
 - Needed from the founder: whether an "analyst" role should ever read it, and whether a second organisation (a payer, a provider organisation) must never see it (it cannot today: the functions return only the caller's organisation to a super admin or CMO).
 - Decision: open (founder).
+
+
+### OQ-OUT-11 After the review, reports will be held back often and some figures were narrowed (2026-10-22)
+- The held-back rule now covers every shown denominator and group, so in a small pilot almost every month some group moves by 1 to 19 people and the outcome figures stay at the previous cutoff. The first report is never held. Reports must also be made in order. Escalation status is current state, not state on the cutoff date. Points from lessons and courses are left out of all points figures because the ledger does not record their topic; mood, sleep and water readings are not counted as taking part; an escalation counts only when tied to an ordinary alert.
+- Option: raise nothing and accept frozen months (built); or round the stored counts so smaller moves are not disclosive (see OQ-OUT-08).
+- The Illinois sentence was reworded to a general one (no specific trial named); OQ-OUT-07 is now only about whether the general sentence is supportable.
+- Decision: open (founder and CMO).

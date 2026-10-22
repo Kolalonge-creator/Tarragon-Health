@@ -61,12 +61,17 @@ values (1, $json$
     "min_per_group": 30,
     "high_active_days_per_30": 12,
     "low_active_days_per_30": 4,
-    "exclude_blood_pressure_from_engagement": true
+    "exclude_blood_pressure_from_engagement": true,
+    "exclude_checkins_from_comparison": true,
+    "points_rules_included": ["meal_logged", "lpe_task_completed", "lpe_goal_achieved", "challenge_completed", "wellness_class_attended"]
   },
   "engagement": {
-    "points_rules_included": ["vitals_logged", "meal_logged", "adherence_checkin_completed", "education_lesson_completed", "lpe_task_completed", "lpe_goal_achieved", "course_completed", "challenge_completed", "wellness_class_attended"],
-    "milestone_rules": ["course_completed", "lpe_goal_achieved"],
-    "screening_excluded_code_patterns": ["cervic", "mammo", "breast", "hpv", "(^|_)pap(_|$)", "psa", "prostat", "ovar", "pregnan", "antenat", "fertil", "contracep", "menstr", "hiv", "hep", "syphil", "(^|_)sti(_|$)", "mental", "phq", "gad", "depress", "anxiet"]
+    "points_rules_included": ["vitals_logged", "meal_logged", "adherence_checkin_completed", "lpe_task_completed", "lpe_goal_achieved", "challenge_completed", "wellness_class_attended"],
+    "milestone_rules": ["lpe_goal_achieved"],
+    "vital_types_allowed": ["blood_pressure", "glucose", "pulse", "temperature", "spo2", "respiratory_rate", "peak_flow", "ketones"],
+    "screening_excluded_code_patterns": ["cervic", "mammo", "breast", "hpv", "(^|_)pap(_|$)", "psa", "prostat", "ovar", "pregnan", "antenat", "fertil", "contracep", "menstr", "hiv", "hep", "syphil", "(^|_)sti(_|$)", "mental", "phq", "gad", "depress", "anxiet"],
+    "protected_topic_patterns": ["cervic", "mammo", "breast", "hpv", "(^|_)pap(_|$)", "psa", "prostat", "ovar", "pregnan", "antenat", "postnat", "maternal", "fertil", "contracep", "menstr", "menopaus", "period", "sexual", "hiv", "hep", "syphil", "(^|_)sti(_|$)", "mental", "phq", "gad", "depress", "anxiet", "mood", "stress", "wellbeing", "trauma", "grief", "suicid", "self.harm"],
+    "escalation_alert_types_allowed": ["abnormal_result", "abnormal_monitoring", "deterioration", "medication_safety"]
   }
 }
 $json$::jsonb, 'PROPOSED, not signed by anyone. Mirrors the outcomes.dashboard entry in packages/shared/src/proposed-config. The CMO owns the thresholds.', true);
@@ -197,6 +202,32 @@ as $$
 $$;
 revoke all on function private.outcomes_dash_screening_ok(text, text[]) from public, anon, authenticated;
 
+-- A piece of text (a lesson code and title, a badge code) names a protected topic when it matches any configured pattern.
+create function private.outcomes_dash_text_protected(p_text text, p_patterns text[]) returns boolean
+language sql immutable set search_path = ''
+as $$ select exists (select 1 from unnest(p_patterns) pat where coalesce(p_text, '') ~* pat) $$;
+revoke all on function private.outcomes_dash_text_protected(text, text[]) from public, anon, authenticated;
+
+-- An escalation counts only when it is tied to an alert of an allowed kind (never a symptom escalation, which can be about anything) and, when that
+-- alert came from a screening result, the screening is of an ordinary kind. An escalation with no alert has no known topic and is left out.
+create function private.outcomes_dash_escalation_ok(p_alert uuid, p_types text[], p_patterns text[]) returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select p_alert is not null and exists (
+    select 1 from public.clinician_alerts a
+     where a.id = p_alert and a.type_code::text = any (p_types)
+       and (a.screening_result_id is null or exists (
+             select 1 from public.screening_results r where r.id = a.screening_result_id and private.outcomes_dash_screening_ok(r.screen_type_code, p_patterns))))
+$$;
+revoke all on function private.outcomes_dash_escalation_ok(uuid, text[], text[]) from public, anon, authenticated;
+
+-- Reports are generated in order. A report may not be made for a month before one that already exists: two cumulative reports made out of order
+-- could be subtracted to expose a small group that the held-back rule never saw.
+create function private.outcomes_dash_order_ok(p_org uuid, p_start date) returns boolean
+language sql stable security definer set search_path = ''
+as $$ select not exists (select 1 from public.outcomes_dashboard_reports r where r.organisation_id = p_org and r.period_start > p_start) $$;
+revoke all on function private.outcomes_dash_order_ok(uuid, date) from public, anon, authenticated;
+
 -- ---------------------------------------------------------------------------
 -- 4. Per-person working sets (private, no grant: nothing here is ever returned to a caller)
 -- ---------------------------------------------------------------------------
@@ -240,7 +271,7 @@ as $$
       select count(*)::integer as n from (
         select (v.taken_at at time zone 'Africa/Lagos')::date as day from public.vitals_readings v
          where v.patient_id = d.patient_id and v.taken_at >= w.w_from and v.taken_at < w.w_to and v.correction_status is null
-           and v.source::text in ('manual', 'device') and v.vital_type::text not in ('weight', 'waist_circumference')
+           and v.source::text in ('manual', 'device') and v.vital_type::text in (select jsonb_array_elements_text(p_cfg #> '{engagement,vital_types_allowed}'))
            and (not coalesce((p_cfg #>> '{comparison,exclude_blood_pressure_from_engagement}')::boolean, true) or v.vital_type::text <> 'blood_pressure')
         union
         select (n.logged_at at time zone 'Africa/Lagos')::date from public.nutrition_log_entries n
@@ -248,15 +279,18 @@ as $$
         union
         select (c.responded_at at time zone 'Africa/Lagos')::date from public.medication_adherence_checkins c
          where c.patient_id = d.patient_id and c.status = 'responded' and c.responded_at >= w.w_from and c.responded_at < w.w_to
+           and not coalesce((p_cfg #>> '{comparison,exclude_checkins_from_comparison}')::boolean, true)
         union
         select (e.understood_at at time zone 'Africa/Lagos')::date from public.health_education_progress e
+          join public.health_education_content hc on hc.id = e.content_id
          where e.patient_id = d.patient_id and e.status = 'understood' and e.understood_at >= w.w_from and e.understood_at < w.w_to
+           and not private.outcomes_dash_text_protected(hc.code || ' ' || hc.title, array(select jsonb_array_elements_text(p_cfg #> '{engagement,protected_topic_patterns}')))
       ) days
     ) act on true
     left join lateral (
       select coalesce(sum(l.points), 0)::integer as n from public.wellness_points_ledger l
        where l.patient_id = d.patient_id and l.kind = 'earn' and l.created_at >= w.w_from and l.created_at < w.w_to
-         and coalesce(l.rule_code, l.reason) in (select jsonb_array_elements_text(p_cfg #> '{engagement,points_rules_included}'))
+         and coalesce(l.rule_code, l.reason) in (select jsonb_array_elements_text(p_cfg #> '{comparison,points_rules_included}'))
     ) pts on true
 $$;
 revoke all on function private.outcomes_dash_people(uuid, integer, date, jsonb) from public, anon, authenticated;
@@ -275,26 +309,83 @@ as $$
 $$;
 revoke all on function private.outcomes_dash_programme(uuid, date, jsonb) from public, anon, authenticated;
 
--- How many people stand behind each cumulative outcome figure at a cutoff. Used by the held-back rule (and nothing else).
+-- The comparison groups with their sums: one row per cohort, way of drawing the groups, and group. Used by the comparison panel and by the held-back rule.
+create function private.outcomes_dash_cmp_rows(p_org uuid, p_cutoff date, p_cfg jsonb)
+returns table (cohort text, cmp_by text, grp text, n_due integer, n_pair integer, c0 integer, c1 integer, m_ctl numeric, sd_ctl numeric, m_sys numeric, sd_sys numeric,
+               m_strict numeric, sd_strict numeric, n_hb integer, m_hb numeric, sd_hb numeric)
+language sql stable security definer set search_path = ''
+as $$
+  with params as (select (p_cfg ->> 'primary_day')::integer as day, (p_cfg #>> '{comparison,high_active_days_per_30}')::numeric as hi, (p_cfg #>> '{comparison,low_active_days_per_30}')::numeric as lo),
+  base as (
+    select p.*, (p.s0 in ('controlled', 'uncontrolled') and p.s_due in ('controlled', 'uncontrolled')) as pair,
+           case when p.active_days * 30.0 / pr.day >= pr.hi then 'high' when p.active_days * 30.0 / pr.day <= pr.lo then 'low' else 'middle' end as eng_band,
+           case when p.points_earned >= 1 then 'earners' else 'non_earners' end as pts_band
+      from private.outcomes_dash_people(p_org, (p_cfg ->> 'primary_day')::integer, p_cutoff, p_cfg) p cross join params pr),
+  u as (
+    select 'hypertension'::text as cohort, 'engagement'::text as cmp_by, eng_band as grp, * from base where has_htn
+    union all select 'hypertension', 'points', pts_band, * from base where has_htn
+    union all select 'diabetes', 'engagement', eng_band, * from base where has_dm
+    union all select 'diabetes', 'points', pts_band, * from base where has_dm)
+  select cohort, cmp_by, grp,
+         count(*)::integer, (count(*) filter (where pair))::integer,
+         (count(*) filter (where pair and s0 = 'controlled'))::integer, (count(*) filter (where pair and s_due = 'controlled'))::integer,
+         avg(case when pair then (s_due = 'controlled')::integer - (s0 = 'controlled')::integer end),
+         stddev_samp(case when pair then (s_due = 'controlled')::integer - (s0 = 'controlled')::integer end),
+         avg(sys_due - sys0) filter (where pair), stddev_samp(sys_due - sys0) filter (where pair),
+         -- the strict case: everyone due counts, and a person with no usable reading at either end is NOT controlled there
+         avg((s_due = 'controlled')::integer - (s0 = 'controlled')::integer), stddev_samp((s_due = 'controlled')::integer - (s0 = 'controlled')::integer),
+         (count(*) filter (where hba1c_change is not null))::integer, avg(hba1c_change), stddev_samp(hba1c_change)
+    from u group by cohort, cmp_by, grp
+$$;
+revoke all on function private.outcomes_dash_cmp_rows(uuid, date, jsonb) from public, anon, authenticated;
+
+-- EVERY denominator and group size behind a figure the report can show, at a cutoff. Used by the held-back rule (and nothing else): if any of them
+-- has moved by a few people since the last report, the whole report is held back.
 create function private.outcomes_dash_counts(p_org uuid, p_cutoff date, p_cfg jsonb) returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
 declare
-  v jsonb := '{}'::jsonb; d integer; n_htn integer; n_dm integer; n_rev integer; n_esc integer;
+  v jsonb := '{}'::jsonb; d integer; h record; r record;
   v_pat text[] := array(select jsonb_array_elements_text(p_cfg #> '{engagement,screening_excluded_code_patterns}'));
+  v_etypes text[] := array(select jsonb_array_elements_text(p_cfg #> '{engagement,escalation_alert_types_allowed}'));
 begin
   for d in select jsonb_array_elements_text(p_cfg -> 'due_days')::integer loop
-    select count(*) filter (where has_htn), count(*) filter (where has_dm) into n_htn, n_dm from private.outcomes_dash_due(p_org, d, p_cutoff, p_cfg);
-    v := v || jsonb_build_object('htn_' || d, n_htn, 'dm_' || d, n_dm);
+    select (count(*) filter (where has_htn))::integer as htn_n,
+           (count(*) filter (where has_htn and s_due = 'controlled'))::integer as htn_c, (count(*) filter (where has_htn and s_due = 'uncontrolled'))::integer as htn_u,
+           (count(*) filter (where has_htn and s_due = 'insufficient_data'))::integer as htn_i,
+           (count(*) filter (where has_htn and s0 = 'controlled'))::integer as htn_c0, (count(*) filter (where has_htn and s0 = 'uncontrolled'))::integer as htn_u0,
+           (count(*) filter (where has_htn and s0 = 'insufficient_data'))::integer as htn_i0,
+           (count(*) filter (where has_htn and s0 in ('controlled', 'uncontrolled') and s_due in ('controlled', 'uncontrolled')))::integer as htn_pair,
+           (count(*) filter (where has_htn and adh is not null))::integer as htn_adh,
+           (count(*) filter (where has_dm))::integer as dm_n, (count(*) filter (where has_dm and hba1c_change is not null))::integer as dm_chg,
+           (count(*) filter (where has_dm and hba1c_goal in ('reached', 'not_reached')))::integer as dm_goal,
+           (count(*) filter (where has_dm and hba1c_goal = 'reached'))::integer as dm_reached
+      into h from private.outcomes_dash_people(p_org, d, p_cutoff, p_cfg);
+    v := v || jsonb_build_object('htn_n_' || d, h.htn_n, 'htn_c_' || d, h.htn_c, 'htn_u_' || d, h.htn_u, 'htn_i_' || d, h.htn_i, 'htn_c0_' || d, h.htn_c0, 'htn_u0_' || d, h.htn_u0,
+      'htn_i0_' || d, h.htn_i0, 'htn_pair_' || d, h.htn_pair, 'htn_adh_' || d, h.htn_adh, 'dm_n_' || d, h.dm_n, 'dm_chg_' || d, h.dm_chg, 'dm_goal_' || d, h.dm_goal, 'dm_reached_' || d, h.dm_reached);
   end loop;
-  select count(distinct r.patient_id) into n_rev
-    from public.screening_results r join private.outcomes_dash_programme(p_org, p_cutoff, p_cfg) g on g.patient_id = r.patient_id
-   where r.result_status in ('abnormal', 'critical') and (r.created_at at time zone 'Africa/Lagos')::date <= p_cutoff
-     and private.outcomes_dash_screening_ok(r.screen_type_code, v_pat);
-  select count(distinct e.patient_id) into n_esc
-    from public.escalations e join private.outcomes_dash_programme(p_org, p_cutoff, p_cfg) g on g.patient_id = e.patient_id
-   where (e.created_at at time zone 'Africa/Lagos')::date <= p_cutoff;
-  return v || jsonb_build_object('review_people', n_rev, 'escalation_people', n_esc);
+  for r in select * from private.outcomes_dash_cmp_rows(p_org, p_cutoff, p_cfg) loop
+    v := v || jsonb_build_object('cmp_' || r.cohort || '_' || r.cmp_by || '_' || r.grp || '_due', r.n_due, 'cmp_' || r.cohort || '_' || r.cmp_by || '_' || r.grp || '_pair', r.n_pair,
+      'cmp_' || r.cohort || '_' || r.cmp_by || '_' || r.grp || '_c0', r.c0, 'cmp_' || r.cohort || '_' || r.cmp_by || '_' || r.grp || '_c1', r.c1,
+      'cmp_' || r.cohort || '_' || r.cmp_by || '_' || r.grp || '_hb', r.n_hb);
+  end loop;
+  select count(distinct x.patient_id)::integer as people, count(*)::integer as results, (count(*) filter (where x.acked))::integer as reviewed,
+         (count(distinct x.patient_id) filter (where x.acked))::integer as reviewed_people
+    into r from (
+      select x0.id, x0.patient_id, exists (select 1 from public.clinician_alerts a where a.screening_result_id = x0.id and a.acknowledged_at is not null and a.acknowledged_at >= x0.created_at) as acked
+        from public.screening_results x0 join private.outcomes_dash_programme(p_org, p_cutoff, p_cfg) g on g.patient_id = x0.patient_id
+       where x0.result_status in ('abnormal', 'critical') and (x0.created_at at time zone 'Africa/Lagos')::date <= p_cutoff
+         and private.outcomes_dash_screening_ok(x0.screen_type_code, v_pat)) x;
+  v := v || jsonb_build_object('review_people', r.people, 'review_results', r.results, 'review_reviewed', r.reviewed, 'review_reviewed_people', r.reviewed_people);
+  for r in
+    select e.status::text as status, count(distinct e.patient_id)::integer as people
+      from public.escalations e join private.outcomes_dash_programme(p_org, p_cutoff, p_cfg) g on g.patient_id = e.patient_id
+     where (e.created_at at time zone 'Africa/Lagos')::date <= p_cutoff and private.outcomes_dash_escalation_ok(e.clinician_alert_id, v_etypes, v_pat)
+     group by e.status
+  loop
+    v := v || jsonb_build_object('escalation_' || r.status, r.people);
+  end loop;
+  return v;
 end $$;
 revoke all on function private.outcomes_dash_counts(uuid, date, jsonb) from public, anon, authenticated;
 
@@ -315,6 +406,8 @@ declare
   v_pts text[] := array(select jsonb_array_elements_text(p_cfg #> '{engagement,points_rules_included}'));
   v_mile text[] := array(select jsonb_array_elements_text(p_cfg #> '{engagement,milestone_rules}'));
   v_pat text[] := array(select jsonb_array_elements_text(p_cfg #> '{engagement,screening_excluded_code_patterns}'));
+  v_topic text[] := array(select jsonb_array_elements_text(p_cfg #> '{engagement,protected_topic_patterns}'));
+  v_vitals text[] := array(select jsonb_array_elements_text(p_cfg #> '{engagement,vital_types_allowed}'));
   a record; l record; k record; m record; s record; mm record;
   v_groups jsonb; v_cohorts jsonb;
 begin
@@ -330,7 +423,7 @@ begin
       select v.patient_id, (v.taken_at at time zone 'Africa/Lagos')::date as day
         from public.vitals_readings v join _od_pop q on q.patient_id = v.patient_id
        where v.taken_at >= v_from and v.taken_at < v_to and v.correction_status is null and v.source::text in ('manual', 'device')
-         and v.vital_type::text not in ('weight', 'waist_circumference')
+         and v.vital_type::text = any (v_vitals)
       union all
       select n.patient_id, (n.logged_at at time zone 'Africa/Lagos')::date
         from public.nutrition_log_entries n join _od_pop q on q.patient_id = n.patient_id
@@ -341,14 +434,14 @@ begin
        where c.status = 'responded' and c.responded_at >= v_from and c.responded_at < v_to
       union all
       select e.patient_id, (e.understood_at at time zone 'Africa/Lagos')::date
-        from public.health_education_progress e join _od_pop q on q.patient_id = e.patient_id
-       where e.status = 'understood' and e.understood_at >= v_from and e.understood_at < v_to
+        from public.health_education_progress e join _od_pop q on q.patient_id = e.patient_id join public.health_education_content hc on hc.id = e.content_id
+       where e.status = 'understood' and e.understood_at >= v_from and e.understood_at < v_to and not private.outcomes_dash_text_protected(hc.code || ' ' || hc.title, v_topic)
     ) x;
 
   select count(distinct patient_id) as people, count(*) as person_days into a from _od_days;
   select count(*) as n, count(distinct e.patient_id) as people into l
-    from public.health_education_progress e join _od_pop q on q.patient_id = e.patient_id
-   where e.status = 'understood' and e.understood_at >= v_from and e.understood_at < v_to;
+    from public.health_education_progress e join _od_pop q on q.patient_id = e.patient_id join public.health_education_content hc on hc.id = e.content_id
+   where e.status = 'understood' and e.understood_at >= v_from and e.understood_at < v_to and not private.outcomes_dash_text_protected(hc.code || ' ' || hc.title, v_topic);
   select count(*) as n, count(distinct c.patient_id) as people into k
     from public.medication_adherence_checkins c join _od_pop q on q.patient_id = c.patient_id
    where c.status = 'responded' and c.responded_at >= v_from and c.responded_at < v_to;
@@ -359,8 +452,8 @@ begin
     select g.patient_id from public.wellness_points_ledger g join _od_pop q on q.patient_id = g.patient_id
      where g.kind = 'earn' and g.created_at >= v_from and g.created_at < v_to and coalesce(g.rule_code, g.reason) = any (v_mile)
     union all
-    select b.patient_id from public.patient_wellness_badges b join _od_pop q on q.patient_id = b.patient_id
-     where b.awarded_at >= v_from and b.awarded_at < v_to) x;
+    select b.patient_id from public.patient_wellness_badges b join _od_pop q on q.patient_id = b.patient_id join public.wellness_badges wb on wb.id = b.badge_id
+     where b.awarded_at >= v_from and b.awarded_at < v_to and not private.outcomes_dash_text_protected(wb.code || ' ' || coalesce(wb.criteria_reason, ''), v_topic)) x;
   select coalesce(sum(g.points), 0) as points, count(distinct g.patient_id) as people into mm
     from public.wellness_points_ledger g join _od_pop q on q.patient_id = g.patient_id
    where g.kind = 'earn' and g.created_at >= v_from and g.created_at < v_to and coalesce(g.rule_code, g.reason) = any (v_pts);
@@ -397,7 +490,7 @@ begin
         then jsonb_build_object('suppressed', false, 'points', mm.points, 'earners', mm.people)
         else jsonb_build_object('suppressed', true, 'reason', private.suppress_cell(mm.people, null, v_floor), 'minimum', v_floor) end,
     'by_cohort', v_cohorts,
-    'raw_active_people_nonzero', coalesce(a.people, 0) > 0);
+    'raw_active_people_nonzero', coalesce(a.people, 0) > 0);  -- removed before storing: whether a held-back cell had anyone behind it is not for the page
 end $$;
 revoke all on function private.outcomes_dash_engagement(uuid, date, jsonb) from public, anon, authenticated;
 
@@ -447,13 +540,15 @@ begin
     v_bp := v_bp || jsonb_build_array(v_blk);
 
     -- diabetes: the change in HbA1c from the person's own baseline, and whether they reached their goal
-    select (count(*) filter (where hba1c_change is not null))::integer as n_chg, avg(hba1c_change) as m_chg, stddev_samp(hba1c_change) as sd_chg,
+    select count(*)::integer as n_dm, (count(*) filter (where hba1c_change is not null))::integer as n_chg, avg(hba1c_change) as m_chg, stddev_samp(hba1c_change) as sd_chg,
            (count(*) filter (where hba1c_goal in ('reached', 'not_reached')))::integer as n_goal,
            (count(*) filter (where hba1c_goal = 'reached'))::integer as n_reached,
            (count(*) filter (where hba1c_goal = 'not_reached'))::integer as n_not
       into g from _od_people where has_dm;
     v_reason := private.suppress_cell(g.n_goal, array[g.n_reached, g.n_not]::bigint[], v_floor);
     v_dm := v_dm || jsonb_build_array(jsonb_build_object('day', d, 'cohort', 'diabetes',
+      -- survivorship: how many people with diabetes were due, and what share of them have no HbA1c change to show
+      'not_measured_pct', case when private.suppress_cell(g.n_dm, array[g.n_chg, g.n_dm - g.n_chg]::bigint[], v_floor) is null then round(100.0 * (g.n_dm - g.n_chg) / g.n_dm, 1) end,
       'hba1c_change', case when private.suppress_cell(g.n_chg, null, v_floor) is null then private.outcomes_mean_ci(g.n_chg, g.m_chg, g.sd_chg, v_conf)
                            else jsonb_build_object('suppressed', true, 'reason', private.suppress_cell(g.n_chg, null, v_floor), 'minimum', v_floor) end,
       'hba1c_goal', case when v_reason is not null then jsonb_build_object('suppressed', true, 'reason', v_reason, 'minimum', v_floor)
@@ -484,7 +579,9 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object('key', status, 'n', people) order by status), '[]'::jsonb) into v_groups from (
     select e.status::text as status, count(distinct e.patient_id) as people
       from public.escalations e join private.outcomes_dash_programme(p_org, p_cutoff, p_cfg) pg on pg.patient_id = e.patient_id
-     where (e.created_at at time zone 'Africa/Lagos')::date <= p_cutoff group by e.status) z;
+     where (e.created_at at time zone 'Africa/Lagos')::date <= p_cutoff
+       and private.outcomes_dash_escalation_ok(e.clinician_alert_id, array(select jsonb_array_elements_text(p_cfg #> '{engagement,escalation_alert_types_allowed}')), v_pat)
+     group by e.status) z;
   select coalesce(jsonb_agg(case when (x ->> 'suppressed')::boolean then jsonb_build_object('status', x ->> 'key', 'suppressed', true, 'reason', x ->> 'reason')
                                  else jsonb_build_object('status', x ->> 'key', 'suppressed', false, 'people', (x ->> 'n')::integer) end order by x ->> 'key'), '[]'::jsonb)
     into v_esc from jsonb_array_elements(private.suppress_groups(v_groups, v_floor)) x;
@@ -504,38 +601,12 @@ as $$
 declare
   v_day integer := (p_cfg ->> 'primary_day')::integer;
   v_conf numeric := (p_cfg ->> 'confidence_level')::numeric;
-  v_hi numeric := (p_cfg #>> '{comparison,high_active_days_per_30}')::numeric;
-  v_lo numeric := (p_cfg #>> '{comparison,low_active_days_per_30}')::numeric;
   v_thr integer := greatest(private.min_cell_floor(null, 2), (p_cfg #>> '{comparison,min_per_group}')::integer);
   v_coh text; v_cmpby text; v_keys text[]; v_hi_k text; v_lo_k text;
   v_out jsonb := '{}'::jsonb; v_by jsonb; v_groups jsonb; v_shown jsonb; v_both boolean; gh record; gl record;
 begin
-  drop table if exists pg_temp._od_people;
-  create temp table _od_people on commit drop as select * from private.outcomes_dash_people(p_org, v_day, p_cutoff, p_cfg);
-
   drop table if exists pg_temp._od_cmp;
-  create temp table _od_cmp on commit drop as
-    with base as (
-      select p.*, (p.s0 in ('controlled', 'uncontrolled') and p.s_due in ('controlled', 'uncontrolled')) as pair,
-             case when p.active_days * 30.0 / v_day >= v_hi then 'high' when p.active_days * 30.0 / v_day <= v_lo then 'low' else 'middle' end as eng_band,
-             case when p.points_earned >= 1 then 'earners' else 'non_earners' end as pts_band
-        from _od_people p),
-    u as (
-      select 'hypertension'::text as cohort, 'engagement'::text as cmp_by, eng_band as grp, * from base where has_htn
-      union all select 'hypertension', 'points', pts_band, * from base where has_htn
-      union all select 'diabetes', 'engagement', eng_band, * from base where has_dm
-      union all select 'diabetes', 'points', pts_band, * from base where has_dm)
-    select cohort, cmp_by, grp,
-           count(*)::integer as n_due,
-           (count(*) filter (where pair))::integer as n_pair,
-           (count(*) filter (where pair and s0 = 'controlled'))::integer as c0,
-           (count(*) filter (where pair and s_due = 'controlled'))::integer as c1,
-           avg(case when pair then (s_due = 'controlled')::integer - (s0 = 'controlled')::integer end) as m_ctl,
-           stddev_samp(case when pair then (s_due = 'controlled')::integer - (s0 = 'controlled')::integer end) as sd_ctl,
-           avg(sys_due - sys0) filter (where pair) as m_sys, stddev_samp(sys_due - sys0) filter (where pair) as sd_sys,
-           (count(*) filter (where hba1c_change is not null))::integer as n_hb,
-           avg(hba1c_change) as m_hb, stddev_samp(hba1c_change) as sd_hb
-      from u group by cohort, cmp_by, grp;
+  create temp table _od_cmp on commit drop as select * from private.outcomes_dash_cmp_rows(p_org, p_cutoff, p_cfg);
 
   foreach v_coh in array array['hypertension', 'diabetes'] loop
     v_by := '{}'::jsonb;
@@ -568,8 +639,10 @@ begin
           'groups', v_shown, 'high_group', v_hi_k, 'low_group', v_lo_k,
           'difference_in_differences', case when v_both then jsonb_build_object(
               'control', private.outcomes_did(gh.n_pair, gh.m_ctl, gh.sd_ctl, gl.n_pair, gl.m_ctl, gl.sd_ctl, v_conf),
-              'systolic', private.outcomes_did(gh.n_pair, gh.m_sys, gh.sd_sys, gl.n_pair, gl.m_sys, gl.sd_sys, v_conf))
-            else jsonb_build_object('control', jsonb_build_object('available', false), 'systolic', jsonb_build_object('available', false)) end));
+              'systolic', private.outcomes_did(gh.n_pair, gh.m_sys, gh.sd_sys, gl.n_pair, gl.m_sys, gl.sd_sys, v_conf),
+              -- the worst case beside it: everyone due is counted, and a person with no usable reading is NOT controlled
+              'control_strict', private.outcomes_did(gh.n_due, gh.m_strict, gh.sd_strict, gl.n_due, gl.m_strict, gl.sd_strict, v_conf))
+            else jsonb_build_object('control', jsonb_build_object('available', false), 'systolic', jsonb_build_object('available', false), 'control_strict', jsonb_build_object('available', false)) end));
       else
         -- diabetes: the HbA1c change per person; a group is the people with a measured change
         select coalesce(jsonb_agg(jsonb_build_object('key', k.name, 'n', coalesce(t.n_hb, 0)) order by k.name), '[]'::jsonb) into v_groups
@@ -577,6 +650,7 @@ begin
         select coalesce(jsonb_agg(
                  case when (x ->> 'suppressed')::boolean then jsonb_build_object('group', x ->> 'key', 'suppressed', true, 'reason', x ->> 'reason')
                  else (select jsonb_build_object('group', t.grp, 'suppressed', false, 'people_with_hba1c_change', t.n_hb,
+                         'not_measured_pct', case when private.suppress_cell(t.n_due, array[t.n_hb, t.n_due - t.n_hb]::bigint[], v_thr) is null then round(100.0 * (t.n_due - t.n_hb) / t.n_due, 1) end,
                          'hba1c_change', private.outcomes_mean_ci(t.n_hb, t.m_hb, t.sd_hb, v_conf))
                        from _od_cmp t where t.cohort = v_coh and t.cmp_by = v_cmpby and t.grp = x ->> 'key') end order by x ->> 'key'), '[]'::jsonb)
           into v_shown from jsonb_array_elements(private.suppress_groups(v_groups, v_thr)) x;
@@ -622,6 +696,10 @@ begin
   select id into v_id from public.outcomes_dashboard_reports where organisation_id = p_org and period_start = v_start;
   if v_id is not null then return v_id; end if;
 
+  if not private.outcomes_dash_order_ok(p_org, v_start) then
+    raise exception 'a report for a later month already exists; reports are made in order' using errcode = '22023';
+  end if;
+
   select * into v_cfgrow from public.outcomes_dashboard_config where is_active;
   if not found then raise exception 'no active outcomes_dashboard_config' using errcode = 'P0001'; end if;
   v_cfg := v_cfgrow.config;
@@ -632,8 +710,15 @@ begin
   v_prev_cut := coalesce(v_prev.data_cutoff, date '2000-01-01');
   v_cur := private.outcomes_dash_counts(p_org, v_cutoff, v_cfg);
   v_old := private.outcomes_dash_counts(p_org, v_prev_cut, v_cfg);
-  for v_key in select jsonb_object_keys(v_cur) loop
-    if private.suppress_difference((v_cur ->> v_key)::bigint, (v_old ->> v_key)::bigint) then v_held := true; end if;
+  -- EVERY denominator and group size counts (private.outcomes_dash_counts). A figure that only grew by a few people is the disclosive case; a figure that
+  -- shrank cannot come from newly due people and would otherwise hold the report back for ever, so it does not.
+  -- The first report has nothing to be subtracted from: each of its small cells is already withheld on its own merits.
+  for v_key in select jsonb_object_keys(v_cur) union select jsonb_object_keys(v_old) loop
+    exit when v_prev.id is null;
+    if coalesce((v_cur ->> v_key)::bigint, 0) >= coalesce((v_old ->> v_key)::bigint, 0)
+       and private.suppress_difference(coalesce((v_cur ->> v_key)::bigint, 0), coalesce((v_old ->> v_key)::bigint, 0)) then
+      v_held := true;
+    end if;
   end loop;
   if v_held then v_cutoff := v_prev_cut; end if;
 
@@ -730,7 +815,7 @@ begin
     raise exception 'only a super admin or the Chief Medical Officer can read the outcomes dashboard' using errcode = '42501';
   end if;
   select coalesce(jsonb_agg(jsonb_build_object('id', r.id, 'period_start', r.period_start, 'data_cutoff', r.data_cutoff, 'held_back', r.held_back,
-           'config_version', r.config_version, 'has_data', r.has_data, 'is_baseline', r.is_baseline, 'publishable', r.publishable,
+           'config_version', r.config_version, 'is_baseline', r.is_baseline, 'publishable', r.publishable,
            'generated_at', r.generated_at, 'report', r.report) order by r.period_start desc), '[]'::jsonb)
     into v_out from (select * from public.outcomes_dashboard_reports x where x.organisation_id = v_org
                       order by x.period_start desc limit least(greatest(coalesce(p_limit, 12), 1), 36)) r;

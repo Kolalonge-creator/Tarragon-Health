@@ -110,7 +110,7 @@ function DmGroups({ groups }: { groups: DmGroup[] }) {
             <p><Withheld c={g} /></p>
           ) : (
             <>
-              <p>{tt("outcomes.dash.compare.n_hba1c", { n: g.people_with_hba1c_change })}</p>
+              <p>{tt("outcomes.dash.compare.n_hba1c", { n: g.people_with_hba1c_change })}{g.not_measured_pct != null ? `. ${tt("outcomes.dash.compare.hba1c_not_measured", { pct: pct(g.not_measured_pct) })}` : ""}</p>
               <p>{tt("outcomes.dash.compare.hba1c_change", { mean: signed(g.hba1c_change.mean, 2), low: signed(g.hba1c_change.low, 2), high: signed(g.hba1c_change.high, 2) })}</p>
             </>
           )}
@@ -307,6 +307,7 @@ function OutcomesPanel({ latest }: { latest: DashboardRow }) {
               const s = meanCiOf(b.hba1c_change);
               return s ? <p>{tt("outcomes.dash.outcomes.hba1c_change", { mean: signed(s.mean, 2), n: s.n, low: signed(s.low, 2), high: signed(s.high, 2) })}</p> : <p>{tt("outcomes.dash.not_enough")}</p>;
             })()}
+            {b.not_measured_pct != null && <p>{tt("outcomes.dash.outcomes.hba1c_not_measured", { pct: pct(b.not_measured_pct) })}</p>}
             {b.hba1c_goal.suppressed ? <p><Withheld c={b.hba1c_goal} /></p> : <p>{tt("outcomes.dash.outcomes.hba1c_goal", { pct: pct(b.hba1c_goal.reached_pct), reached: b.hba1c_goal.reached, n: b.hba1c_goal.people })}</p>}
           </div>
         ))}
@@ -368,6 +369,7 @@ function ComparisonPanel({ latest }: { latest: DashboardRow }) {
                 <ul className="list-disc space-y-1 pl-5">
                   <DidLine label={tt("outcomes.dash.compare.did_control")} d={h.difference_in_differences.control} unit="pp" />
                   <DidLine label={tt("outcomes.dash.compare.did_systolic")} d={h.difference_in_differences.systolic} unit="mmHg" />
+                  <DidLine label={tt("outcomes.dash.compare.did_control_strict")} d={h.difference_in_differences.control_strict} unit="pp" />
                 </ul>
               </div>
               <h4 className="text-sm font-semibold">{tt("outcomes.dash.compare.diabetes")}</h4>

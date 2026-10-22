@@ -79,6 +79,9 @@ describe("the outcomes dashboard page", () => {
     expect(s).toMatch(/interval includes zero|does not include zero/);
     expect(s).toContain("not proof");
     expect(s).toMatch(/Interval \d/);
+    expect(s).toContain(outcomesDashboardCopy["outcomes.dash.compare.did_control_strict"]);
+    expect(s).toContain(outcomesDashboardCopy["outcomes.dash.caveat.measured"]);
+    expect(s).toMatch(/of the people with diabetes who were due have no HbA1c change to show/);
   });
 
   it("mounts the same page under /admin and /clinician, each exporting to its own path", async () => {

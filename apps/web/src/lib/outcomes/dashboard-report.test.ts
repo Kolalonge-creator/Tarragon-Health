@@ -72,6 +72,19 @@ describe("a full report", () => {
     expect(p.comparison.engagement_excludes_blood_pressure_readings).toBe(true);
   });
 
+  it("gives a worst-case estimate beside the measured-only one, and the not-measured share for HbA1c", () => {
+    const d = p.comparison.cohorts.hypertension.engagement.difference_in_differences;
+    expect(d.control_strict.available).toBe(true);
+    expect(p.outcomes.diabetes[0]?.not_measured_pct).toBe(0);
+    const g = p.comparison.cohorts.diabetes.engagement.groups.find((x) => !x.suppressed);
+    expect(g && !g.suppressed && "not_measured_pct" in g).toBe(true);
+  });
+
+  it("does not expose whether a held-back cell had anyone behind it", () => {
+    expect(JSON.stringify(load("dashboard-rich.json"))).not.toMatch(/has_data|raw_active/);
+    expect(JSON.stringify(load("dashboard-sparse.json"))).not.toMatch(/has_data|raw_active/);
+  });
+
   it("lists what is not measured instead of inventing it", () => {
     expect(p.outcomes.not_measured).toEqual(["medicine_refill_completion", "glucose_time_in_range"]);
   });
@@ -94,6 +107,7 @@ describe("a sparse report", () => {
     expect(byName.low?.suppressed).toBe(false);
     expect(e.difference_in_differences.control.available).toBe(false);
     expect(e.difference_in_differences.systolic.available).toBe(false);
+    expect(e.difference_in_differences.control_strict.available).toBe(false);
   });
 });
 

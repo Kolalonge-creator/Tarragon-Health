@@ -21,9 +21,15 @@
 --      a failure writes audit_log and opens one incident.
 --   8. STATIC. No function in this build compares a count with the minimum by hand, and none names a mental health, reproductive health or
 --      cycle table.
+--   9. REVIEW FIXES. (a) Reports are made in order: a month before an existing report is refused (22023) and, out of order, two cumulative reports could be
+--      subtracted. (b) The held-back rule covers EVERY shown denominator and group, not only the cohort totals: 40 newly due people of whom 2 land in the low
+--      engagement group hold the report back. (c) The points comparison does not count points that blood pressure logging earns, and a blood-pressure-only logger is
+--      neither an earner nor lifted out of the low band. (d) The strict (worst case) estimate and the not-measured share are present and right. (e) Mood readings,
+--      protected-topic lessons and badges, and escalations with no ordinary alert or on a sensitive screening are not counted. (f) has_data is not exposed.
 --   SABOTAGE (each must flip its check): (a) the minimum lowered, the withheld group must show; (b) the test-account flag cleared, the count must grow;
 --   (c) blood pressure allowed into engagement, the low group must move band; (d) the held-back difference rule neutered, the report must not be held;
---   (e) the publishable CHECK dropped; (f) the immutability trigger dropped; (g) the admin gate opened for everybody, a patient must get in.
+--   (h) the order rule neutered; (i) the held-back rule neutered for the group counts; (j) a points rule that blood pressure earns allowed back in; (k) mood allowed as a
+--   measurement; (l) protected lessons counted; (m) the escalation filter neutered; (e) the publishable CHECK dropped; (f) the immutability trigger dropped; (g) the admin gate opened for everybody, a patient must get in.
 -- Wrapped in BEGIN/ROLLBACK; fails loudly with raise exception.
 begin;
 
@@ -153,6 +159,14 @@ begin
   return v;
 end $f$;
 
+create function pg_temp.mkmood(p_org uuid, p_patient uuid, p_at timestamptz) returns void language plpgsql as $f$
+begin
+  -- the mood logger is gated behind a feature and a signed limit in the real database; this proof is about what the dashboard reads, so the gate triggers are off for the insert only
+  alter table public.vitals_readings disable trigger user;
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, value_numeric, taken_at, source) values (p_org, p_patient, 'mood', 3, p_at, 'manual');
+  alter table public.vitals_readings enable trigger user;
+end $f$;
+
 do $$
 declare
   v_orgA uuid; v_orgB uuid; v_orgC uuid; v_orgE uuid;
@@ -163,12 +177,13 @@ declare
   v_adminA uuid; v_adminB uuid; v_cmoA uuid; v_doc uuid; v_cc uuid; v_corp uuid; v_hmo uuid; v_ngo uuid; v_ana uuid; v_fin uuid; v_pat uuid; v_id uuid;
   i integer; v_p uuid; v_rep jsonb; v_cell jsonb; v_x jsonb; v_y jsonb; v_n integer; v_s text; v_def text; v_cut date; v_ok boolean;
   v_exp_ctl numeric; v_exp_sys numeric; v_exp_hb numeric; v_c integer; v_nn integer; v_w numeric[]; v_sd numeric; v_cnt integer;
-  v_ids text; r record; v_res text;
+  v_ids text; r record; v_res text; v_orgF uuid; v_content_ok uuid; v_content_mood uuid; v_badge_ok uuid; v_badge_mood uuid; v_bponly uuid; v_def2 text; v_before jsonb; v_after jsonb;
 begin
   insert into public.organisations (name, type) values ('OUTD proof A', 'clinic') returning id into v_orgA;
   insert into public.organisations (name, type) values ('OUTD proof B', 'clinic') returning id into v_orgB;
   insert into public.organisations (name, type) values ('OUTD proof C (empty)', 'clinic') returning id into v_orgC;
   insert into public.organisations (name, type) values ('OUTD proof E (fails)', 'clinic') returning id into v_orgE;
+  insert into public.organisations (name, type) values ('OUTD proof F (survivorship)', 'clinic') returning id into v_orgF;
 
   v_adminA := pg_temp.mkuser(v_orgA, 'adminA', 'admin');
   v_adminB := pg_temp.mkuser(v_orgB, 'adminB', 'admin');
@@ -203,6 +218,11 @@ begin
   for i in 1 .. 40 loop perform pg_temp.mkpat(v_orgB, 'b-low-' || i, false, 'low', i, v_m); end loop;
   for i in 1 .. 12 loop perform pg_temp.mkpat(v_orgB, 'b-mid-' || i, false, 'mid', i, v_m); end loop;
 
+  -- ORG F (survivorship): 80 / 40 / 40, every group large enough to show, but 30 of the high group have no usable reading at day 90 (30 is not a small category)
+  for i in 1 .. 80 loop perform pg_temp.mkpat(v_orgF, 'f-high-' || i, false, 'high', i, v_m, 30); end loop;
+  for i in 1 .. 40 loop perform pg_temp.mkpat(v_orgF, 'f-mid-' || i, false, 'mid', i, v_m); end loop;
+  for i in 1 .. 40 loop perform pg_temp.mkpat(v_orgF, 'f-low-' || i, false, 'low', i, v_m); end loop;
+
   -- ORG E: one real person with a snapshot and no report yet (the failing-job test)
   perform pg_temp.mkpat(v_orgE, 'e-one', false, 'high', 1, v_m);
 
@@ -212,6 +232,24 @@ begin
     select v_orgA, r.patient, (((v_m + d)::timestamp + time '12:00') at time zone 'Africa/Lagos'), 'lunch', 'outcomes proof month' from generate_series(1, 3) d;
     insert into public.wellness_points_ledger (organisation_id, patient_id, points, balance_after, reason, rule_code, created_at)
     values (v_orgA, r.patient, 10, 10, 'meal_logged', 'meal_logged', (((v_m + 4)::timestamp + time '10:00') at time zone 'Africa/Lagos'));
+  end loop;
+  -- protected data in organisation A, in the report month AND inside the exposure window. Mood readings (low group, index 7 to 36), a lesson and a badge on
+  -- mood, and an ordinary lesson and badge (high group, index 1 to 25). None of the protected ones may make anyone active, nor count as a lesson or milestone.
+  for r in select patient, j from fxg where org = v_orgA and grp = 'low' and j >= 7 loop
+    perform pg_temp.mkmood(v_orgA, r.patient, (((v_m + 3)::timestamp + time '09:00') at time zone 'Africa/Lagos'));
+    for i in 20 .. 31 loop perform pg_temp.mkmood(v_orgA, r.patient, ((((v_m - 150) + i)::timestamp + time '07:00') at time zone 'Africa/Lagos')); end loop;
+  end loop;
+  insert into public.health_education_content (code, title, body) values ('zz-outd-lesson-ok', 'Eating well with high blood pressure', 'x') returning id into v_content_ok;
+  insert into public.health_education_content (code, title, body) values ('zz-outd-lesson-mood', 'Looking after your mood', 'x') returning id into v_content_mood;
+  insert into public.wellness_badges (code, name, criteria_type, criteria_threshold) values ('zz_outd_badge_ok', 'Outcomes proof ordinary badge', 'points_total', 1) returning id into v_badge_ok;
+  insert into public.wellness_badges (code, name, criteria_type, criteria_reason, criteria_threshold) values ('zz_outd_badge_mood', 'Outcomes proof mood badge', 'reason_count', 'mood_logged', 1) returning id into v_badge_mood;
+  for r in select patient, j, grp from fxg where org = v_orgA and grp in ('high', 'low') and ((grp = 'high' and j <= 25) or (grp = 'low' and j between 7 and 31)) loop
+    insert into public.health_education_progress (organisation_id, patient_id, content_id, status)
+      values (v_orgA, r.patient, case when r.grp = 'high' then v_content_ok else v_content_mood end, 'understood');
+    update public.health_education_progress set understood_at = (((v_m + 10)::timestamp + time '12:00') at time zone 'Africa/Lagos')
+     where patient_id = r.patient and content_id = case when r.grp = 'high' then v_content_ok else v_content_mood end;
+    insert into public.patient_wellness_badges (organisation_id, patient_id, badge_id, awarded_at)
+      values (v_orgA, r.patient, case when r.grp = 'high' then v_badge_ok else v_badge_mood end, (((v_m + 12)::timestamp + time '12:00') at time zone 'Africa/Lagos'));
   end loop;
   -- screening_done points in the month must not be counted in points_issued; test accounts' activity must not be counted at all
   insert into public.wellness_points_ledger (organisation_id, patient_id, points, balance_after, reason, rule_code, created_at)
@@ -234,8 +272,20 @@ begin
   select v_orgA, patient, 'abnormal', 'zz_outd_ok', (((v_m + 9)::timestamp + time '09:00') at time zone 'Africa/Lagos') from fxg where org = v_orgA and grp <> 'test' order by patient limit 25;
   insert into public.screening_results (organisation_id, patient_id, result_status, screen_type_code, created_at)
   select v_orgA, patient, 'abnormal', 'zz_outd_sens', (((v_m + 9)::timestamp + time '09:00') at time zone 'Africa/Lagos') from fxg where org = v_orgA and grp <> 'test' order by patient desc limit 25;
-  insert into public.escalations (organisation_id, patient_id, reason)
-  select v_orgA, patient, 'outcomes proof' from fxg where org = v_orgA and grp <> 'test' order by patient limit 30;
+  -- escalations: 25 on the alert of an ordinary abnormal result (counted), 25 on the alerts of sensitive results (half of those alerts are symptom escalations),
+  -- and 30 with no alert at all (no known topic). Only the first 25 may be counted.
+  update public.clinician_alerts set type_code = 'abnormal_result' where screening_result_id in (select id from public.screening_results where organisation_id = v_orgA and screen_type_code in ('zz_outd_ok', 'zz_outd_sens') and result_status = 'abnormal');
+  update public.clinician_alerts set type_code = 'symptom_escalation'
+   where id in (select a.id from public.clinician_alerts a join public.screening_results sr on sr.id = a.screening_result_id
+                 where sr.organisation_id = v_orgA and sr.screen_type_code = 'zz_outd_sens' order by a.id limit 13);
+  insert into public.escalations (organisation_id, patient_id, reason, clinician_alert_id, created_at)
+  select v_orgA, sr.patient_id, 'outcomes proof ok', a.id, (((v_m + 12)::timestamp + time '09:00') at time zone 'Africa/Lagos') from public.screening_results sr join public.clinician_alerts a on a.screening_result_id = sr.id
+   where sr.organisation_id = v_orgA and sr.screen_type_code = 'zz_outd_ok' and sr.result_status = 'abnormal';
+  insert into public.escalations (organisation_id, patient_id, reason, clinician_alert_id, created_at)
+  select v_orgA, sr.patient_id, 'outcomes proof sensitive', a.id, (((v_m + 12)::timestamp + time '09:00') at time zone 'Africa/Lagos') from public.screening_results sr join public.clinician_alerts a on a.screening_result_id = sr.id
+   where sr.organisation_id = v_orgA and sr.screen_type_code = 'zz_outd_sens' and sr.result_status = 'abnormal';
+  insert into public.escalations (organisation_id, patient_id, reason, created_at)
+  select v_orgA, patient, 'outcomes proof no alert', (((v_m + 12)::timestamp + time '09:00') at time zone 'Africa/Lagos') from fxg where org = v_orgA and grp <> 'test' order by patient limit 30;
 
   ------------------------------------------------------------------------------------------------------------------------------------
   -- 1. ACCESS (before any report exists, the refusals are about the door, not the data)
@@ -298,6 +348,7 @@ begin
   perform pg_temp.back();
   if jsonb_array_length(v_x) <> 1 or (v_x -> 0 ->> 'period_start')::date <> v_m then raise exception 'FAIL 1m: the admin did not read exactly last month''s report: %', jsonb_array_length(v_x); end if;
   if (v_x -> 0 ->> 'publishable')::boolean then raise exception 'FAIL 1n: a report is publishable'; end if;
+  if v_x -> 0 ? 'has_data' then raise exception 'FAIL 1s: the read exposes has_data (whether a held-back cell had anyone behind it)'; end if;
   perform pg_temp.act(v_cmoA);
   v_y := public.read_outcomes_dashboard(12);
   perform pg_temp.back();
@@ -322,7 +373,7 @@ begin
     raise exception 'FAIL 2b: a key in the report is a score, index or composite';
   end if;
   select string_agg(patient::text, '|') into v_ids from fxg;
-  if v_rep::text ~* v_ids or v_rep::text ~* 'patient_id|subject_key' then raise exception 'FAIL 2c: a person id is inside the report'; end if;
+  if v_rep::text ~* v_ids or v_rep::text ~* 'patient_id|subject_key|has_data|raw_active' then raise exception 'FAIL 2c: a person id is inside the report'; end if;
   if cardinality(private.causal_wording_hits(private.json_text(v_rep))) > 0 then raise exception 'FAIL 2d: the report carries causal wording: %', private.causal_wording_hits(private.json_text(v_rep)); end if;
   if not (v_rep ->> 'not_a_causal_claim')::boolean or not (v_rep ->> 'internal_only')::boolean or not (v_rep #>> '{panels,comparison,association_not_proof}')::boolean then
     raise exception 'FAIL 2e: the report does not say it is internal, not a causal claim, and an association';
@@ -335,7 +386,8 @@ begin
   if (v_cell #>> '{active_people,suppressed}')::boolean or (v_cell #>> '{active_people,people}')::integer <> 30 then
     raise exception 'FAIL 3a: active people should be 30 (the five test accounts left out), got %', v_cell -> 'active_people';
   end if;
-  if (v_cell #>> '{active_logging_days,person_days}')::integer <> 90 or (v_cell #>> '{active_logging_days,mean_per_active_person}')::numeric <> 3.0 then
+  -- 30 people x 3 meal days + 25 ordinary lessons; the mood readings and the mood lessons add no one and no day
+  if (v_cell #>> '{active_logging_days,person_days}')::integer <> 115 or (v_cell #>> '{active_logging_days,mean_per_active_person}')::numeric <> 3.8 then
     raise exception 'FAIL 3b: logging days wrong: %', v_cell -> 'active_logging_days';
   end if;
   if (v_cell #>> '{points_issued,points}')::integer <> 300 or (v_cell #>> '{points_issued,earners}')::integer <> 30 then
@@ -346,8 +398,11 @@ begin
     raise exception 'FAIL 3d: screenings done should be 50 results from 25 people (reproductive, sensitive and unknown kinds left out): %', v_cell -> 'screenings_done';
   end if;
   if (v_cell #>> '{by_cohort,0,cohort}') <> to_char(date_trunc('month', (v_m - 150)::timestamp), 'YYYY-MM') then raise exception 'FAIL 3e: the joining cohort label is wrong: %', v_cell -> 'by_cohort'; end if;
-  -- an activity cell with too few people is withheld with no count
-  if (v_cell #>> '{lessons_completed,suppressed}')::boolean is not true or v_cell #> '{lessons_completed}' ? 'count' then raise exception 'FAIL 3f: a cell with no people behind it is not withheld cleanly: %', v_cell -> 'lessons_completed'; end if;
+  -- protected topics: only the 25 ordinary lessons and the 25 ordinary badges count; the 25 mood lessons and 25 mood badges do not
+  if (v_cell #>> '{lessons_completed,suppressed}')::boolean or (v_cell #>> '{lessons_completed,count}')::integer <> 25 then raise exception 'FAIL 3f: lessons wrong (protected-topic lessons counted?): %', v_cell -> 'lessons_completed'; end if;
+  if (v_cell #>> '{milestones,suppressed}')::boolean or (v_cell #>> '{milestones,count}')::integer <> 25 then raise exception 'FAIL 3h: milestones wrong (protected-topic badges counted?): %', v_cell -> 'milestones'; end if;
+  -- a cell with too few people is withheld with no count
+  if (v_cell #>> '{medicine_checkins_answered,suppressed}')::boolean is not true or v_cell #> '{medicine_checkins_answered}' ? 'count' then raise exception 'FAIL 3i: a cell with no people behind it is not withheld cleanly: %', v_cell -> 'medicine_checkins_answered'; end if;
 
   ------------------------------------------------------------------------------------------------------------------------------------
   -- 4. NUMBERS: Panel 2 (outcomes) against an independent recomputation
@@ -376,7 +431,9 @@ begin
     raise exception 'FAIL 4f: time to first review wrong (expected 25 waiting): %', v_cell;
   end if;
   v_cell := v_rep #> '{panels,outcomes,escalations,0}';
-  if (v_cell ->> 'status') <> 'open' or (v_cell ->> 'people')::integer <> 30 then raise exception 'FAIL 4g: escalations wrong: %', v_cell; end if;
+  if (v_cell ->> 'status') <> 'open' or (v_cell ->> 'people')::integer <> 25 or jsonb_array_length(v_rep #> '{panels,outcomes,escalations}') <> 1 then
+    raise exception 'FAIL 4g: escalations wrong (expected only the 25 on ordinary alerts): %', v_rep #> '{panels,outcomes,escalations}';
+  end if;
 
   ------------------------------------------------------------------------------------------------------------------------------------
   -- 4. NUMBERS: Panel 3 (comparison): both estimates equal the recomputation from the fixture
@@ -444,6 +501,58 @@ begin
   end if;
 
   ------------------------------------------------------------------------------------------------------------------------------------
+  -- 4 (review fixes). Survivorship and the strict case (organisation F: 30 of the 80 in the high group have no usable reading at day 90)
+  ------------------------------------------------------------------------------------------------------------------------------------
+  select report into v_rep from public.outcomes_dashboard_reports where organisation_id = v_orgF and period_start = v_m;
+  v_x := v_rep #> '{panels,comparison,cohorts,hypertension,engagement,difference_in_differences}';
+  select avg(y) filter (where grp = 'high') - avg(y) filter (where grp = 'low') into v_exp_ctl from (
+      select g.grp, (d.bp_status = 'controlled')::integer - (z.bp_status = 'controlled')::integer as y
+        from fxg g join public.outcome_snapshots d on d.patient_id = g.patient and d.day = 90 and d.pathway_code = 'bp'
+                   join public.outcome_snapshots z on z.patient_id = g.patient and z.day = 0 and z.pathway_code = 'bp' where g.org = v_orgF and g.grp in ('high', 'low')) t;
+  if not (v_x #>> '{control_strict,available}')::boolean or abs((v_x #>> '{control_strict,difference}')::numeric - v_exp_ctl) > 0.0011 then
+    raise exception 'FAIL 4o: the strict (worst case) difference in differences % differs from the recomputation %', v_x -> 'control_strict', v_exp_ctl;
+  end if;
+  if abs((v_x #>> '{control_strict,difference}')::numeric - (v_x #>> '{control,difference}')::numeric) < 0.0005 then raise exception 'FAIL 4p: the strict estimate equals the measured-only one although 30 people were unmeasured'; end if;
+  select g into v_cell from jsonb_array_elements(v_rep #> '{panels,comparison,cohorts,hypertension,engagement,groups}') g where g ->> 'group' = 'high';
+  if (v_cell ->> 'people_measured_at_both_ends')::integer <> 50 or (v_cell ->> 'not_measured_at_both_ends_pct')::numeric <> 37.5 then raise exception 'FAIL 4q: the high group does not show its 37.5 percent not measured: %', v_cell; end if;
+  select g into v_cell from jsonb_array_elements(v_rep #> '{panels,comparison,cohorts,diabetes,engagement,groups}') g where g ->> 'group' = 'high';
+  if not v_cell ? 'not_measured_pct' then raise exception 'FAIL 4r: the HbA1c group does not carry its not-measured share: %', v_cell; end if;
+  if not (v_rep #> '{panels,outcomes,diabetes,0}') ? 'not_measured_pct' then raise exception 'FAIL 4s: the HbA1c outcomes block does not carry its not-measured share'; end if;
+
+  ------------------------------------------------------------------------------------------------------------------------------------
+  -- 4 (review fixes). Blood pressure logging and the points it earns do not draw the comparison groups
+  ------------------------------------------------------------------------------------------------------------------------------------
+  v_bponly := pg_temp.mkpat(v_orgA, 'a-bponly', false, 'low', 301, v_m);
+  for i in 1 .. 25 loop
+    insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, source)
+    values (v_orgA, v_bponly, 'blood_pressure', 128, 80, ((((v_m - 150) + 30 + i)::timestamp + time '09:00') at time zone 'Africa/Lagos'), 'device');
+  end loop;
+  insert into public.wellness_points_ledger (organisation_id, patient_id, points, balance_after, reason, rule_code, created_at)
+  values (v_orgA, v_bponly, 10, 10, 'vitals_logged', 'vitals_logged', ((((v_m - 150) + 31)::timestamp + time '10:00') at time zone 'Africa/Lagos'));
+  select points_earned, active_days into v_n, v_c from private.outcomes_dash_people(v_orgA, 90, v_m1 - 1, private.outcomes_dash_cfg()) where patient_id = v_bponly;
+  if v_n <> 0 then raise exception 'FAIL 4t: a blood-pressure-only logger earned comparison points (%) from the points blood pressure logging earns', v_n; end if;
+  if v_c::numeric * 30 / 90 > 4 then raise exception 'FAIL 4u: blood pressure readings lifted the blood-pressure-only logger out of the low band (% active days)', v_c; end if;
+
+  ------------------------------------------------------------------------------------------------------------------------------------
+  -- 9. REPORTS ARE MADE IN ORDER, and the held-back rule covers every group (organisation F)
+  ------------------------------------------------------------------------------------------------------------------------------------
+  if pg_temp.try(format('select private.run_outcomes_dashboard(%L, %L, null)', v_orgA, (v_m - interval '1 month')::date)) <> '22023' then raise exception 'FAIL 9a: a report before an existing report could be made'; end if;
+  if pg_temp.try_as(v_adminA, format('select public.run_outcomes_dashboard_now(%L)', (v_m - interval '1 month')::date)) <> '22023' then raise exception 'FAIL 9b: the admin could back-fill before an existing report'; end if;
+  -- ... and an existing month is still returned, not refused
+  if pg_temp.try(format('select private.run_outcomes_dashboard(%L, %L, null)', v_orgA, v_m)) <> 'ok' then raise exception 'FAIL 9c: an existing month is refused instead of returned'; end if;
+
+  -- forty newly due people (38 in the high engagement group, 2 in the low group) land after F's last report: the cohort total moves by 40 (no small change), the low group by 2
+  v_before := private.outcomes_dash_counts(v_orgF, v_m1 - 1, private.outcomes_dash_cfg());
+  for i in 1 .. 38 loop perform pg_temp.mkpat(v_orgF, 'f-new-high-' || i, false, 'high', 100 + i, v_m1 + 60); end loop;
+  for i in 1 .. 2 loop perform pg_temp.mkpat(v_orgF, 'f-new-low-' || i, false, 'low', 200 + i, v_m1 + 60); end loop;
+  v_after := private.outcomes_dash_counts(v_orgF, (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '1 month' - interval '1 day')::date, private.outcomes_dash_cfg());
+  if (v_after ->> 'htn_n_90')::integer - (v_before ->> 'htn_n_90')::integer <> 40 then raise exception 'FAIL 9d: fixture: expected 40 newly due, got %', (v_after ->> 'htn_n_90')::integer - (v_before ->> 'htn_n_90')::integer; end if;
+  if (v_after ->> 'cmp_hypertension_engagement_low_pair')::integer - (v_before ->> 'cmp_hypertension_engagement_low_pair')::integer <> 2 then raise exception 'FAIL 9e: fixture: expected the low group to grow by 2'; end if;
+  v_id := private.run_outcomes_dashboard(v_orgF, v_m1, null);
+  select held_back, data_cutoff into v_ok, v_cut from public.outcomes_dashboard_reports where id = v_id;
+  if not v_ok or v_cut <> (v_m1 - 1) then raise exception 'FAIL 9f: 40 newly due people, 2 of them in one group, did not hold the report back (held %, cutoff %)', v_ok, v_cut; end if;
+
+  ------------------------------------------------------------------------------------------------------------------------------------
   -- 6. HELD BACK (organisation A): ten people newly due since last month are fewer than the floor, so the cutoff does not move
   ------------------------------------------------------------------------------------------------------------------------------------
   for i in 1 .. 10 loop
@@ -459,7 +568,7 @@ begin
   v_id := private.run_outcomes_dashboard(v_orgA, v_m1, null);
   select held_back, data_cutoff into v_ok, v_cut from public.outcomes_dashboard_reports where id = v_id;
   if not v_ok or v_cut <> (v_m1 - 1) then raise exception 'FAIL 6a: ten newly due people did not hold the report back (held %, cutoff %)', v_ok, v_cut; end if;
-  if (select report #>> '{panels,outcomes,hypertension,0,due,n}' from public.outcomes_dashboard_reports where id = v_id)::integer <> 108 then
+  if (select report #>> '{panels,outcomes,hypertension,0,due,n}' from public.outcomes_dashboard_reports where id = v_id)::integer <> 109 then
     raise exception 'FAIL 6b: a held-back report counted the newly due people';
   end if;
 
@@ -527,6 +636,44 @@ begin
   execute v_def;
   if (select held_back from public.outcomes_dashboard_reports where id = v_id) then raise exception 'VACUOUS TEST (d): with the difference rule neutered the report was still held back'; end if;
 
+  -- (i) the held-back rule neutered: organisation F's next report (still held by the 2 in the low group) must now go through
+  v_def := pg_get_functiondef('private.suppress_difference(bigint,bigint,integer)'::regprocedure);
+  execute 'create or replace function private.suppress_difference(p_whole bigint, p_part bigint, p_min integer default null) returns boolean language sql as ''select false''';
+  v_id := private.run_outcomes_dashboard(v_orgF, v_m2, null);
+  execute v_def;
+  if (select held_back from public.outcomes_dashboard_reports where id = v_id) then raise exception 'VACUOUS TEST (i): with the difference rule neutered the group-count hold-back still held'; end if;
+  -- (h) the order rule neutered: a back-fill before an existing report must now succeed
+  v_def2 := pg_get_functiondef('private.outcomes_dash_order_ok(uuid,date)'::regprocedure);
+  execute 'create or replace function private.outcomes_dash_order_ok(p_org uuid, p_start date) returns boolean language sql as ''select true''';
+  if pg_temp.try(format('select private.run_outcomes_dashboard(%L, %L, null)', v_orgB, (v_m - interval '1 month')::date)) <> 'ok' then raise exception 'VACUOUS TEST (h): with the order rule neutered a back-fill was still refused'; end if;
+  execute v_def2;
+  -- (j) a points rule that blood pressure logging earns, allowed back in: the blood-pressure-only logger must become an earner
+  update public.outcomes_dashboard_config set config = jsonb_set(config, '{comparison,points_rules_included}', (config #> '{comparison,points_rules_included}') || '["vitals_logged"]'::jsonb) where is_active;
+  select points_earned into v_n from private.outcomes_dash_people(v_orgA, 90, v_m1 - 1, private.outcomes_dash_cfg()) where patient_id = v_bponly;
+  if v_n = 0 then raise exception 'VACUOUS TEST (j): allowing vitals_logged did not make the blood-pressure-only logger an earner'; end if;
+  update public.outcomes_dashboard_config set config = jsonb_set(config, '{comparison,points_rules_included}', (config #> '{comparison,points_rules_included}') - 'vitals_logged') where is_active;
+  -- (k) mood allowed as a measurement: the low group must lose people to the middle band
+  select count(*) into v_c from private.outcomes_dash_people(v_orgA, 90, v_m1 - 1, private.outcomes_dash_cfg()) where active_days * 30.0 / 90 <= 4;
+  select count(*) into v_cnt from private.outcomes_dash_people(v_orgA, 90, v_m1 - 1,
+    jsonb_set(private.outcomes_dash_cfg(), '{engagement,vital_types_allowed}', (private.outcomes_dash_cfg() #> '{engagement,vital_types_allowed}') || '["mood"]'::jsonb)) where active_days * 30.0 / 90 <= 4;
+  if v_cnt >= v_c then raise exception 'VACUOUS TEST (k): allowing mood did not move anyone out of the low band (% vs %)', v_cnt, v_c; end if;
+  -- (l) protected lessons counted: the engagement panel for A must show more lessons
+  select count(*) into v_c from public.health_education_progress where patient_id in (select patient from fxg where org = v_orgA) and content_id = v_content_mood;
+  if v_c = 0 or private.outcomes_dash_text_protected('zz-outd-lesson-mood Looking after your mood', array(select jsonb_array_elements_text(private.outcomes_dash_cfg() #> '{engagement,protected_topic_patterns}'))) is not true
+     or private.outcomes_dash_text_protected('zz-outd-lesson-ok Eating well with high blood pressure', array(select jsonb_array_elements_text(private.outcomes_dash_cfg() #> '{engagement,protected_topic_patterns}'))) then
+    raise exception 'VACUOUS TEST (l): the topic filter does not tell the mood lesson from the ordinary one';
+  end if;
+  v_after := private.outcomes_dash_cfg() #> '{engagement,protected_topic_patterns}';
+  update public.outcomes_dashboard_config set config = jsonb_set(config, '{engagement,protected_topic_patterns}', '[]'::jsonb) where is_active;
+  v_x := private.outcomes_dash_engagement(v_orgA, v_m, private.outcomes_dash_cfg());
+  if (v_x #>> '{lessons_completed,count}')::integer <= 25 then raise exception 'VACUOUS TEST (l): with no protected topics the mood lessons were still not counted'; end if;
+  update public.outcomes_dashboard_config set config = jsonb_set(config, '{engagement,protected_topic_patterns}', v_after) where is_active;
+  -- (m) the escalation filter neutered: more than 25 people must now be counted
+  v_def2 := pg_get_functiondef('private.outcomes_dash_escalation_ok(uuid,text[],text[])'::regprocedure);
+  execute 'create or replace function private.outcomes_dash_escalation_ok(p_alert uuid, p_types text[], p_patterns text[]) returns boolean language sql as ''select true''';
+  v_x := private.outcomes_dash_counts(v_orgA, v_m1 - 1, private.outcomes_dash_cfg());
+  if (v_x ->> 'escalation_open')::integer <= 25 then raise exception 'VACUOUS TEST (m): with the escalation filter neutered the count did not grow'; end if;
+  execute v_def2;
   -- (e) the publishable CHECK dropped
   alter table public.outcomes_dashboard_reports drop constraint outcomes_dashboard_reports_publishable_check;
   if pg_temp.try(format($q$insert into public.outcomes_dashboard_reports (organisation_id, period_start, period_end, data_cutoff, config_version, has_data, is_baseline, report, publishable)

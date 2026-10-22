@@ -16,12 +16,12 @@ export const outcomesDashboardCopy = {
   "outcomes.dash.caveat.selection":
     "People who take part more are different from people who take part less. They may be healthier to begin with, more motivated, or have more time. So a difference between the two groups below is an association. It is not evidence that Health Points or taking part change health.",
   "outcomes.dash.caveat.trial":
-    "A large randomised workplace wellness trial in Illinois found that the staff who joined in were already healthier before the programme began. That is why this page compares each person with their own first week, and not only one group with another.",
+    "Workplace wellness research has found that the people who choose to join in differ from those who do not. That is why this page also compares each person with their own first week. That helps, but it does not remove the problem.",
   "outcomes.dash.caveat.association": "Association, not proof. A difference whose interval includes zero is not a clear difference at all.",
   "outcomes.dash.caveat.bp_excluded":
-    "Blood pressure readings are not counted as taking part when the groups are drawn. A blood pressure reading is how control is measured, so counting it would build the answer into the question.",
+    "Blood pressure readings, medicine check-ins and the Health Points they earn are not counted when the groups are drawn. A blood pressure reading is how control is measured, so counting it would build the answer into the question, and check-ins overlap the adherence figure.",
   "outcomes.dash.caveat.measured":
-    "Only people measured at both ends are compared. Taking part more also makes a person more likely to be measured, so who is left in a group is itself a form of selection.",
+    "Only people measured at both ends are compared. Taking part more also makes a person more likely to be measured, so who is left in a group is itself a form of selection. Beside each estimate a worst-case estimate counts everyone due and treats a person with no usable reading as not controlled.",
   "outcomes.dash.baseline": "First report (baseline)",
   "outcomes.dash.held_back": "Held back: fewer people than the minimum became due since the last report, so the outcome figures are still cut at the last report's date.",
   "outcomes.dash.cut_at": "Outcome figures cover people due up to {date}.",
@@ -45,7 +45,7 @@ export const outcomesDashboardCopy = {
   "outcomes.dash.engagement.screenings": "Screenings done",
   "outcomes.dash.engagement.milestones": "Milestones (badges, goals, programmes finished)",
   "outcomes.dash.engagement.points": "Health Points issued",
-  "outcomes.dash.engagement.points_note": "Points for screenings, lab tests and reviews are left out of every points figure.",
+  "outcomes.dash.engagement.points_note": "Points for screenings, lab tests, reviews, lessons and courses are left out of every points figure.",
   "outcomes.dash.engagement.cohort": "By the month people joined",
   "outcomes.dash.engagement.not_a_member": "Not a member",
   "outcomes.dash.engagement.trend": "Month by month",
@@ -80,7 +80,7 @@ export const outcomesDashboardCopy = {
 
   "outcomes.dash.compare.title": "3. Comparison, with its limits",
   "outcomes.dash.compare.note":
-    "The same people are compared with their own first week, so this looks at change and not at who started healthier. Groups are drawn from activity in the first {day} days after joining.",
+    "Each person is compared with their own first week. That softens, but does not remove, the effect of who started healthier: people who start worst tend to drift back towards the average anyway (regression to the mean), and the {day} days of activity used to draw the groups overlap the time the outcome is measured.",
   "outcomes.dash.compare.by_engagement": "Taking part a lot, in between, or a little",
   "outcomes.dash.compare.by_points": "Earned Health Points, or did not",
   "outcomes.dash.compare.group.high": "Takes part a lot",
@@ -99,6 +99,9 @@ export const outcomesDashboardCopy = {
   "outcomes.dash.compare.hba1c_change": "HbA1c changed by {mean} percentage points on average (interval {low} to {high}).",
   "outcomes.dash.compare.did_title": "Difference between the two groups in how much they changed",
   "outcomes.dash.compare.did_control": "Share under control (percentage points)",
+  "outcomes.dash.compare.did_control_strict": "Share under control, worst case: everyone due, no usable reading counts as not controlled (percentage points)",
+  "outcomes.dash.compare.hba1c_not_measured": "{pct} of the people with diabetes in this group have no HbA1c change to show",
+  "outcomes.dash.outcomes.hba1c_not_measured": "{pct} of the people with diabetes who were due have no HbA1c change to show.",
   "outcomes.dash.compare.did_systolic": "Top number (mmHg)",
   "outcomes.dash.compare.did_hba1c": "HbA1c (percentage points)",
   "outcomes.dash.compare.did_includes_zero": "The interval includes zero, so there is no clear difference.",
