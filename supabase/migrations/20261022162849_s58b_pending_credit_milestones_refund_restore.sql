@@ -162,7 +162,7 @@ declare
   v_bounds jsonb;
 begin
   if p_event.event_type <> 'vitals.logged' then return false; end if;
-  select * into v from public.vitals_readings
+  select * into v from private.vitals_readings_current
    where id = (p_event.payload ->> 'vitals_id')::uuid and patient_id = p_event.patient_id;
   if not found or v_ranges is null then return false; end if;
   if v.vital_type::text in ('weight', 'waist_circumference') then return false; end if;
@@ -228,11 +228,11 @@ declare
   cur public.vitals_readings%rowtype;
 begin
   if p_event.event_type = 'vitals.logged' then
-    select * into cur from public.vitals_readings
+    select * into cur from private.vitals_readings_current
      where id = (p_event.payload ->> 'vitals_id')::uuid and patient_id = p_event.patient_id;
     if not found then return true; end if; -- cannot prove it is the first: do not celebrate
     return exists (
-      select 1 from public.vitals_readings v
+      select 1 from private.vitals_readings_current v
        where v.patient_id = p_event.patient_id and v.id <> cur.id
          and (v.created_at, v.id) < (cur.created_at, cur.id)
          and case p_requires when 'blood_pressure' then v.systolic is not null and v.diastolic is not null
@@ -511,10 +511,10 @@ revoke all on function private.orders_pricing_effects() from public, anon, authe
 insert into public.milestones_achieved (organisation_id, patient_id, milestone_code, milestone_version, event_id, backfilled, achieved_at, seen_at, dismissed_at)
 select p.organisation_id, h.patient_id, h.code, 1, null, true, now(), now(), now()
   from (
-    select distinct v.patient_id, 'first_bp_logged'::text as code from public.vitals_readings v
+    select distinct v.patient_id, 'first_bp_logged'::text as code from private.vitals_readings_current v
      where v.systolic is not null and v.diastolic is not null and v.vital_type::text not in ('weight', 'waist_circumference')
     union
-    select distinct v.patient_id, 'first_glucose_logged' from public.vitals_readings v
+    select distinct v.patient_id, 'first_glucose_logged' from private.vitals_readings_current v
      where v.glucose_mmol_l is not null and v.vital_type::text not in ('weight', 'waist_circumference')
     union
     select distinct l.patient_id, 'first_lab_done' from public.lab_results l where l.release_state = 'released'

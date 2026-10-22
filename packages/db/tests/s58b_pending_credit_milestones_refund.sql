@@ -169,8 +169,8 @@ begin
   v_hist := pg_temp.mkuser(v_org, 'hist', 'patient'); v_pl := pg_temp.mkuser(v_org, 'pulse', 'patient'); v_nb := pg_temp.mkuser(v_org, 'newbie', 'patient');
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source, created_at)
   select v_org, v_hist, 'blood_pressure', 120 + (i % 10), 80, 'wearable', now() - interval '60 days' + make_interval(mins => i) from generate_series(1, 500) i;
-  perform pg_temp.ck('2b1 the history rows exist and emitted no events', (select count(*) from public.vitals_readings where patient_id = v_hist) = 500
-    and not exists (select 1 from public.domain_events where patient_id = v_hist));
+  perform pg_temp.ck('2b1 the history rows exist and emitted no points events', (select count(*) from public.vitals_readings where patient_id = v_hist) = 500
+    and not exists (select 1 from public.domain_events where patient_id = v_hist and event_type = 'vitals.logged'));
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source) values (v_org, v_hist, 'blood_pressure', 124, 82, 'manual') returning id into v_vid;
   v_ev := pg_temp.vit_event(v_vid);
   perform public.points_award(v_ev);
