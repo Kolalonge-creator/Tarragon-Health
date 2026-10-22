@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Linking, RefreshControl, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { formatGlucose, GLUCOSE_UNIT_LABEL } from "@tarragon/shared";
+import { lockedHomePins, resolveHomePins, type HomePinKey, type HomePinVitalValue, type HomeValuePinKey } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
+import { loadPinnedVitalValues, loadStoredHomePins, saveHomePins } from "@/lib/home-pins";
+import { HomePinTiles } from "@/screens/sections/home-pin-tiles";
+import { ManageHomePinsSheet } from "@/screens/sections/manage-home-pins-sheet";
 import { GetStartedCard, isFirstRun, shouldShowGetStarted } from "@/screens/sections/get-started-card";
 import {
   getCareSchedule,
@@ -48,6 +51,10 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
   const [activity, setActivity] = useState<RecentActivityItem[]>([]);
   const [videoVisit, setVideoVisit] = useState<UpcomingVideoVisit | null>(null);
   const [paymentIssue, setPaymentIssue] = useState<PendingPaymentIssue | null>(null);
+  // The patient's saved pinned tiles (null = never customised) and the latest value behind each vitals pin.
+  const [storedPins, setStoredPins] = useState<string[] | null>(null);
+  const [vitalValues, setVitalValues] = useState<Partial<Record<HomeValuePinKey, HomePinVitalValue>>>({});
+  const [manageOpen, setManageOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [scoreReloadToken, setScoreReloadToken] = useState(0);
@@ -59,13 +66,14 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
   const [partialError, setPartialError] = useState(false);
 
   const load = useCallback(async () => {
-    const [s, ct, sc, act, vv, pi] = await Promise.all([
+    const [s, ct, sc, act, vv, pi, pinsRes] = await Promise.all([
       getSummaryStats(patientId),
       getCareTeam(patientId),
       getCareSchedule(patientId),
       getRecentActivity(patientId),
       getUpcomingVideoVisit(patientId),
       getPendingPaymentIssue(patientId),
+      loadStoredHomePins(patientId),
     ]);
     setStats(s.ok ? s.data : null);
     setStatsError(!s.ok);
@@ -75,6 +83,12 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
     if (vv.ok) setVideoVisit(vv.data);
     if (pi.ok) setPaymentIssue(pi.data);
     setPartialError(!ct.ok || !sc.ok || !act.ok || !vv.ok || !pi.ok);
+    // A failed pins read falls back to the default tiles; it is not worth an error banner.
+    const saved = pinsRes.ok ? pinsRes.data : null;
+    setStoredPins(saved);
+    const shown = resolveHomePins(saved, { activeMedicationCount: s.ok ? s.data.activeMedicationCount : 0 });
+    const values = await loadPinnedVitalValues(patientId, shown);
+    if (values.ok) setVitalValues(values.data);
   }, [patientId]);
 
   useEffect(() => {
@@ -98,6 +112,25 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
       .catch(() => setStatsError(true))
       .finally(() => setLoading(false));
   }, [load]);
+
+  const activeMeds = stats?.activeMedicationCount ?? 0;
+  const pinContext = { activeMedicationCount: activeMeds };
+  const pins = useMemo(() => resolveHomePins(storedPins, { activeMedicationCount: activeMeds }), [storedPins, activeMeds]);
+  // Only the patient's own account has a layout to change; the organisation id is omitted when acting for someone else.
+  const canCustomise = organisationId !== undefined;
+
+  const savePins = useCallback(
+    async (next: HomePinKey[]): Promise<boolean> => {
+      if (!organisationId) return false;
+      const result = await saveHomePins(patientId, organisationId, next, activeMeds);
+      if (!result.ok) return false;
+      setStoredPins(result.data);
+      const values = await loadPinnedVitalValues(patientId, result.data);
+      if (values.ok) setVitalValues(values.data);
+      return true;
+    },
+    [patientId, organisationId, activeMeds],
+  );
 
   const { colors } = useTheme();
   const tr = (key: MessageKey, params?: Record<string, string | number>) => t(key, asLocale(uiLanguage), params);
@@ -143,7 +176,6 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
 
   const step = nextBestStep(stats, todayIsoDate());
   const hero = heroMetric(stats, glucoseUnit);
-  const dash = "-";
 
   return (
     <Screen refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}>
@@ -260,20 +292,21 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
             below them stay: those are how a patient puts the first number there. */}
         {firstRun ? null : (
           <>
-            <AppText variant="title" heading>
-              {tr("home.numbers.heading")}
-            </AppText>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.md }}>
-              <StatTile icon="heart" label={tr("home.stat.bp")} value={stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : dash} unit="mmHg" />
-              <StatTile
-                icon="glucose"
-                label={tr("home.stat.glucose")}
-                value={formatGlucose(stats.latestGlucoseMmolL, glucoseUnit, { withUnit: false }) ?? dash}
-                unit={GLUCOSE_UNIT_LABEL[glucoseUnit]}
-              />
-              <StatTile icon="medication" label={tr("home.stat.meds")} value={String(stats.activeMedicationCount)} />
-              <StatTile icon="done" label={tr("home.stat.doses")} value={`${stats.dosesTaken}/${stats.dosesTotal}`} />
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <AppText variant="title" heading>
+                {tr("home.numbers.heading")}
+              </AppText>
+              {canCustomise ? (
+                <Button
+                  title={tr("home.pins.customise")}
+                  variant="ghost"
+                  fullWidth={false}
+                  onPress={() => setManageOpen(true)}
+                  accessibilityHint={tr("home.pins.customise_a11y")}
+                />
+              ) : null}
             </View>
+            <HomePinTiles pins={pins} stats={stats} glucoseUnit={glucoseUnit} vitalValues={vitalValues} onNavigate={onNavigate} />
           </>
         )}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.md }}>
@@ -371,29 +404,11 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
           </View>
         </Card>
       </View>
-    </Screen>
-  );
-}
 
-function StatTile({ icon, label, value, unit }: { icon: IconName; label: string; value: string; unit?: string }) {
-  return (
-    <View style={{ flexBasis: "47%", flexGrow: 1 }} accessible accessibilityLabel={`${label}: ${value}${unit ? ` ${unit}` : ""}`}>
-      <Card style={{ gap: space.sm }}>
-        <Icon name={icon} size={18} tone="brandText" />
-        <AppText variant="caption" tone="textMuted">
-          {label}
-        </AppText>
-        <AppText variant="stat">
-          {value}
-          {unit ? (
-            <AppText variant="caption" tone="textSubtle">
-              {" "}
-              {unit}
-            </AppText>
-          ) : null}
-        </AppText>
-      </Card>
-    </View>
+      {canCustomise ? (
+        <ManageHomePinsSheet visible={manageOpen} onClose={() => setManageOpen(false)} pins={pins} lockedPins={lockedHomePins(pinContext)} onSave={savePins} />
+      ) : null}
+    </Screen>
   );
 }
 

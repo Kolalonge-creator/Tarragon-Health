@@ -1413,3 +1413,4 @@ oq714_remove_patient_price_compare.sql
 money_reconciliation_daily_alert.sql
 # Money reconciliation menu badge (2026-10-21): an hourly snapshot of the mismatch count, read through a finance-only function that refuses a snapshot older than three hours or missing (never an old number), clients cannot read the table. Sabotage: staleness check and finance gate removed; the checks must flip.
 money_reconciliation_badge.sql
+patient_home_layout.sql

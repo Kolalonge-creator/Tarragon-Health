@@ -31817,6 +31817,42 @@ export type Database = {
           },
         ]
       }
+      patient_home_layout: {
+        Row: {
+          organisation_id: string
+          patient_id: string
+          pinned: string[]
+          updated_at: string
+        }
+        Insert: {
+          organisation_id: string
+          patient_id: string
+          pinned?: string[]
+          updated_at?: string
+        }
+        Update: {
+          organisation_id?: string
+          patient_id?: string
+          pinned?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_home_layout_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_home_layout_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_hospital_admissions: {
         Row: {
           admitted_on: string
