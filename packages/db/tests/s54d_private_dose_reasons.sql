@@ -190,6 +190,32 @@ select pg_temp.ck('G', 'G7 the backfill is not callable by a client', 'ERR:42501
   pg_temp.q_as(pg_temp.f('pat'), 'select private.backfill_private_dose_reasons()::text'));
 select pg_temp.ck('G', 'G8 running the backfill twice moves nothing', '0', private.backfill_private_dose_reasons()::text);
 
+-- H. Clinician read: tie rule only, current reason per dose, paged; guardian can manage sharing --------------------------------------
+select pg_temp.ck('H', 'H1 the audited reason read applies the tie rule and never the break-glass or view-as test', 'true/false',
+  (position('clinician_has_patient_access' in pg_get_functiondef('public.read_dose_reasons_audited(uuid,text,timestamptz,integer)'::regprocedure)) > 0)::text || '/' ||
+  (position('can_staff_read_clinical' in pg_get_functiondef('public.read_dose_reasons_audited(uuid,text,timestamptz,integer)'::regprocedure)) > 0)::text);
+-- a correction for the 08:00 slot supersedes the earlier ran-out entry
+select pg_temp.q_as(pg_temp.f('pat'), format($q$insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_for_date, scheduled_time)
+  values (%L, %L, %L, 'taken', current_date, '08:00') returning 1$q$, pg_temp.f('org'), pg_temp.f('pat'), pg_temp.f('med')));
+select pg_temp.ck('H', 'H2 the audited read returns only the current reason per dose (the corrected 08:00 slot is gone)', '2',
+  pg_temp.q_as(pg_temp.f('tied'), format($q$select jsonb_array_length(public.read_dose_reasons_audited(%L, 'checking why a dose was missed')->'rows')::text$q$, pg_temp.f('pat'))));
+select pg_temp.ck('H', 'H3 a page of one reports more, and the next page continues without a gap', 'true/1/false/1',
+  pg_temp.q_as(pg_temp.f('tied'), format($q$select (public.read_dose_reasons_audited(%L, 'checking why a dose was missed', null, 1)->>'has_more') || '/' ||
+    jsonb_array_length(public.read_dose_reasons_audited(%L, 'checking why a dose was missed', null, 1)->'rows') || '/' ||
+    (public.read_dose_reasons_audited(%L, 'checking why a dose was missed', (public.read_dose_reasons_audited(%L, 'checking why a dose was missed', null, 1)->>'next_before')::timestamptz, 1)->>'has_more') || '/' ||
+    jsonb_array_length(public.read_dose_reasons_audited(%L, 'checking why a dose was missed', (public.read_dose_reasons_audited(%L, 'checking why a dose was missed', null, 1)->>'next_before')::timestamptz, 1)->'rows')$q$,
+    pg_temp.f('pat'), pg_temp.f('pat'), pg_temp.f('pat'), pg_temp.f('pat'), pg_temp.f('pat'), pg_temp.f('pat'))));
+select pg_temp.ck('H', 'H4 a non-manage supporter cannot set the sharing choice for the person', 'ERR:42501',
+  pg_temp.q_as(pg_temp.f('sup'), format($q$select public.set_dose_reason_sharing('ran_out', true, %L)::text$q$, pg_temp.f('pat'))));
+select pg_temp.ck('H', 'H5 a guardian (manage-level) reads nothing before the choice is made', '0', pg_temp.q_as(pg_temp.f('mgr'), 'select count(*)::text from public.medication_dose_reasons'));
+select pg_temp.q_as(pg_temp.f('mgr'), format($q$select public.set_dose_reason_sharing('ran_out', true, %L)::text$q$, pg_temp.f('pat')));
+select pg_temp.ck('H', 'H6 the guardian can set the choice for the person and then reads the reasons back', '3',
+  pg_temp.q_as(pg_temp.f('mgr'), 'select count(*)::text from public.medication_dose_reasons'));
+select pg_temp.ck('H', 'H7 the guardian reads the sharing choice they set', '1',
+  pg_temp.q_as(pg_temp.f('mgr'), $q$select count(*)::text from public.dose_reason_sharing where share_with_supporters$q$));
+select pg_temp.q_as(pg_temp.f('mgr'), format($q$select public.set_dose_reason_sharing('ran_out', false, %L)::text$q$, pg_temp.f('pat')));
+select pg_temp.ck('H', 'H8 after the guardian withdraws, the guardian reads nothing again', '0', pg_temp.q_as(pg_temp.f('mgr'), 'select count(*)::text from public.medication_dose_reasons'));
+
 -- F. SABOTAGE ------------------------------------------------------------------------------------------------------------------------------
 drop trigger medication_logs_divert_private_reason on public.medication_logs;
 select pg_temp.q_as(pg_temp.f('pat'), format($q$insert into public.medication_logs (organisation_id, patient_id, medication_id, status, reason, scheduled_for_date, scheduled_time)
@@ -200,6 +226,9 @@ create or replace function private.supporter_may_see_dose_reason(p_patient uuid,
 select pg_temp.ck('F', 'F2 SABOTAGE: with the opt-in predicate permissive a supporter reads without opting in (so B2 would FAIL)', '3',
   pg_temp.q_as(pg_temp.f('sup'), 'select count(*)::text from public.medication_dose_reasons'));
 
+create or replace function public.read_dose_reasons_audited(p_patient uuid, p_reason text, p_before timestamptz default null, p_limit integer default 100) returns jsonb language sql security definer set search_path = '' as $$ select to_jsonb(private.can_staff_read_clinical(p_patient, 'medications'::public.care_access_category)) $$;
+select pg_temp.ck('F', 'F4 SABOTAGE: a function using the break-glass test instead of the tie rule makes check H1 FAIL', 'true',
+  (position('can_staff_read_clinical' in pg_get_functiondef('public.read_dose_reasons_audited(uuid,text,timestamptz,integer)'::regprocedure)) > 0)::text);
 drop policy medication_dose_reasons_select on public.medication_dose_reasons;
 create policy medication_dose_reasons_select on public.medication_dose_reasons for select to authenticated using (
   patient_id = (select auth.uid()) or private.can_act_for(patient_id));

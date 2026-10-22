@@ -14,7 +14,7 @@
 --      it) and an AFTER INSERT trigger writes it to medication_dose_reasons with source and recorded_by from the dose event. Works for the phone,
 --      the web and an acting supporter alike, and is idempotent with the client-id retry (no AFTER trigger fires for a row that was not inserted).
 --   4. public.dose_reason_sharing + public.set_dose_reason_sharing: the person's opt-in, per reason, for supporters. Off by default.
---   5. public.read_dose_reasons_audited: the tied care team's read, audited (INV-10) like read_medication_dose_log_audited.
+--   5. public.read_dose_reasons_audited: the tied care team's read, audited (INV-10), tie rule only (no break-glass or view-as), current reason per dose, paged.
 --   6. The go-live guard nafdac_verify_helper_enabled, born OFF.
 -- It raises no clinician alert and changes no notification: the supporter missed-dose notice (S53) fires only on status = 'missed' and carries
 -- no reason, and still does.
@@ -77,31 +77,34 @@ create policy medication_dose_reasons_select on public.medication_dose_reasons f
       and private.supporter_may_see_dose_reason(patient_id, reason_code))
 );
 -- No staff policy: the tied care team reads through read_dose_reasons_audited, which applies the tie and writes the audit row.
-create policy dose_reason_sharing_select on public.dose_reason_sharing for select to authenticated using (patient_id = (select auth.uid()));
+create policy dose_reason_sharing_select on public.dose_reason_sharing for select to authenticated using (patient_id = (select auth.uid()) or private.can_act_for(patient_id));
 
 revoke all on public.medication_dose_reasons from public, anon, authenticated;
 revoke all on public.dose_reason_sharing from public, anon, authenticated;
 grant select on public.medication_dose_reasons to authenticated;
 grant select on public.dose_reason_sharing to authenticated;
 
-create or replace function public.set_dose_reason_sharing(p_code text, p_share boolean)
+create or replace function public.set_dose_reason_sharing(p_code text, p_share boolean, p_patient uuid default null)
 returns void language plpgsql security definer set search_path = '' as $$
 declare
   v_uid uuid := (select auth.uid());
+  v_target uuid := coalesce(p_patient, (select auth.uid()));
   v_org uuid;
 begin
   if v_uid is null then raise exception 'not authorised' using errcode = '42501'; end if;
+  -- Review fix: someone acting for a dependant (a manage-level grant) may set the choice for them; nobody else may set it for another person.
+  if v_target is distinct from v_uid and not private.can_act_for(v_target) then raise exception 'not authorised' using errcode = '42501'; end if;
   if p_share is null then raise exception 'say yes or no' using errcode = '22023'; end if;
   if not private.is_private_dose_reason(p_code) then raise exception 'not a private reason' using errcode = '22023'; end if;
-  select organisation_id into v_org from public.profiles where id = v_uid;
+  select organisation_id into v_org from public.profiles where id = v_target;
   if v_org is null then raise exception 'not authorised' using errcode = '42501'; end if;
   insert into public.dose_reason_sharing (patient_id, reason_code, organisation_id, share_with_supporters, updated_at)
-  values (v_uid, lower(btrim(p_code)), v_org, p_share, now())
+  values (v_target, lower(btrim(p_code)), v_org, p_share, now())
   on conflict (patient_id, reason_code) do update set share_with_supporters = excluded.share_with_supporters, updated_at = now();
-  perform private.log_audit('dose_reason_sharing.set', 'profile', v_uid, jsonb_build_object('reason_code', lower(btrim(p_code)), 'share', p_share));
+  perform private.log_audit('dose_reason_sharing.set', 'profile', v_target, jsonb_build_object('reason_code', lower(btrim(p_code)), 'share', p_share));
 end $$;
-revoke all on function public.set_dose_reason_sharing(text, boolean) from public, anon;
-grant execute on function public.set_dose_reason_sharing(text, boolean) to authenticated;
+revoke all on function public.set_dose_reason_sharing(text, boolean, uuid) from public, anon;
+grant execute on function public.set_dose_reason_sharing(text, boolean, uuid) to authenticated;
 
 -- 3. Divert a private code out of the supporter-readable dose row ------------------------------------------------------------------------
 create or replace function private.divert_private_dose_reason() returns trigger
@@ -137,10 +140,13 @@ create trigger medication_logs_record_private_reason after insert on public.medi
   for each row execute function private.record_private_dose_reason();
 
 -- 5. The tied care team's audited read ----------------------------------------------------------------------------------------------------
-create or replace function public.read_dose_reasons_audited(p_patient uuid, p_reason text)
+create or replace function public.read_dose_reasons_audited(p_patient uuid, p_reason text, p_before timestamptz default null, p_limit integer default 100)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
+  v_limit integer := least(greatest(coalesce(p_limit, 100), 1), 200);
+  v_all jsonb;
   v_rows jsonb;
+  v_more boolean;
 begin
   if p_reason is null or char_length(btrim(p_reason)) < 10 then
     raise exception 'a reason of at least 10 characters is required' using errcode = '22023';
@@ -149,22 +155,28 @@ begin
      or exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'patient') then
     raise exception 'not authorised' using errcode = '42501';
   end if;
-  if not private.can_staff_read_clinical(p_patient, 'medications'::public.care_access_category) then
+  -- Review fix: the tie rule only (INV-12). Break-glass and support view-as sessions (can_staff_read_clinical) do not read a private reason.
+  if not private.clinician_has_patient_access(p_patient) then
     perform private.audit_chart_read(p_patient, array['dose_events'], p_reason, 'denied');
-    return jsonb_build_object('status', 'denied', 'rows', '[]'::jsonb);
+    return jsonb_build_object('status', 'denied', 'rows', '[]'::jsonb, 'has_more', false, 'next_before', null);
   end if;
-  select coalesce(jsonb_agg(to_jsonb(x) order by x.logged_at desc), '[]'::jsonb) into v_rows from (
+  -- Only the current reason for each dose slot: a later entry for the same slot (a correction) supersedes the earlier one. One extra row is
+  -- read so a longer history is reported (has_more, next_before) and never cut off silently.
+  select coalesce(jsonb_agg(to_jsonb(x) order by x.logged_at desc), '[]'::jsonb) into v_all from (
     select r.medication_log_id, r.reason_code, l.status, l.logged_at, l.scheduled_for_date, l.scheduled_time
       from public.medication_dose_reasons r
-      join public.medication_logs l on l.id = r.medication_log_id
-     where r.patient_id = p_patient
+      join public.medication_logs_latest_per_slot l on l.id = r.medication_log_id
+     where r.patient_id = p_patient and (p_before is null or l.logged_at < p_before)
      order by l.logged_at desc
-     limit 100) x;
+     limit v_limit + 1) x;
+  v_more := jsonb_array_length(v_all) > v_limit;
+  select coalesce(jsonb_agg(e order by ord), '[]'::jsonb) into v_rows from jsonb_array_elements(v_all) with ordinality t(e, ord) where ord <= v_limit;
   perform private.audit_chart_read(p_patient, array['dose_events'], p_reason, 'success');
-  return jsonb_build_object('status', 'ok', 'rows', v_rows);
+  return jsonb_build_object('status', 'ok', 'rows', v_rows, 'has_more', v_more,
+    'next_before', case when v_more then v_rows -> (jsonb_array_length(v_rows) - 1) ->> 'logged_at' else null end);
 end $$;
-revoke all on function public.read_dose_reasons_audited(uuid, text) from public, anon;
-grant execute on function public.read_dose_reasons_audited(uuid, text) to authenticated;
+revoke all on function public.read_dose_reasons_audited(uuid, text, timestamptz, integer) from public, anon;
+grant execute on function public.read_dose_reasons_audited(uuid, text, timestamptz, integer) to authenticated;
 
 -- 6. The NAFDAC helper's guard, born OFF (founder decision 2026-10-22: a Greenbook link only; no message of any kind) ---------------------------------------------------------------------------------------------------
 insert into public.go_live_guards (key, label, blocks, condition_text, switch_role, enforced_in, not_enforced_in) values
@@ -223,8 +235,8 @@ begin
      or has_table_privilege('authenticated', 'public.dose_reason_sharing', 'UPDATE') then
     raise exception 'S54d: a client can write a new table directly';
   end if;
-  if has_function_privilege('anon', 'public.read_dose_reasons_audited(uuid,text)', 'EXECUTE')
-     or has_function_privilege('anon', 'public.set_dose_reason_sharing(text,boolean)', 'EXECUTE') then
+  if has_function_privilege('anon', 'public.read_dose_reasons_audited(uuid,text,timestamptz,integer)', 'EXECUTE')
+     or has_function_privilege('anon', 'public.set_dose_reason_sharing(text,boolean,uuid)', 'EXECUTE') then
     raise exception 'S54d: anon can execute a new function';
   end if;
   if not exists (select 1 from pg_trigger where tgname = 'medication_logs_divert_private_reason' and tgrelid = 'public.medication_logs'::regclass and not tgisinternal)

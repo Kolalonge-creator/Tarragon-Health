@@ -20,9 +20,9 @@ export async function loadReasonSharing(patientId: string, code: string): Promis
   }
 }
 
-export async function setReasonSharing(code: string, share: boolean): Promise<boolean> {
+export async function setReasonSharing(code: string, share: boolean, patientId?: string): Promise<boolean> {
   try {
-    const { error } = await supabase.rpc("set_dose_reason_sharing", { p_code: code, p_share: share });
+    const { error } = await supabase.rpc("set_dose_reason_sharing", { p_code: code, p_share: share, ...(patientId ? { p_patient: patientId } : {}) });
     return !error;
   } catch {
     return false;

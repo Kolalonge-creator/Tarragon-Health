@@ -255,14 +255,15 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
     const saved = await record(item, def.status, { reason: def.code });
     if (saved && shouldOfferPharmacy(def.code)) {
       setRanOutPrompt(true);
-      if (ownsReminders) setShareRanOut(await loadReasonSharing(patientId, def.code));
+      // Someone acting for a dependant can read and set the choice for them too (the database allows a manage-level grant).
+      setShareRanOut(await loadReasonSharing(patientId, def.code));
     }
   }
 
   async function toggleRanOutSharing() {
     const next = shareRanOut !== true;
     // Review fix: a failed change must not look like it worked. Stopping a share that did not stop is the harmful case, so say so.
-    if (await setReasonSharing(RAN_OUT_REASON.code, next)) {
+    if (await setReasonSharing(RAN_OUT_REASON.code, next, patientId)) {
       setShareRanOut(next);
       setPanelNote(null);
     } else {
@@ -551,7 +552,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
             />
             <Button title={tr("meds.ran_out.later")} variant="ghost" fullWidth={false} onPress={() => setRanOutPrompt(false)} />
           </View>
-          {ownsReminders && shareRanOut !== null ? (
+          {shareRanOut !== null ? (
             <Button
               title={shareRanOut ? tr("meds.ran_out.share_on") : tr("meds.ran_out.share_label")}
               variant="ghost"
