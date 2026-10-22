@@ -16,12 +16,14 @@ export interface DescribedMilestone {
   params?: { check: MessageKey };
 }
 
-const FIXED: Record<string, MessageKey> = {
-  baseline: "pathway.milestone.baseline",
+/** The scheduled clinician reviews. One list drives both the label and "is this a clinician review". */
+const REVIEW_LABEL: Record<string, MessageKey> = {
   first_review: "pathway.milestone.first_review",
   three_month_review: "pathway.milestone.three_month_review",
   six_month_review: "pathway.milestone.six_month_review",
 };
+
+const FIXED: Record<string, MessageKey> = { baseline: "pathway.milestone.baseline", ...REVIEW_LABEL };
 
 const CHECK_LABEL: Record<string, MessageKey> = {
   eye: "pathway.check.eye",
@@ -34,7 +36,7 @@ export function describeMilestone(code: string): DescribedMilestone {
   const fixed = FIXED[code];
   if (fixed) return { key: fixed };
   if (code.startsWith("clinician_review_")) return { key: "pathway.milestone.clinician_review" };
-  const test = /^test_([a-z]+)_\d{8}$/.exec(code);
+  const test = TEST_CODE.exec(code);
   if (test) {
     const check = CHECK_LABEL[test[1]];
     if (check) return { key: "pathway.milestone.test", params: { check } };
@@ -115,5 +117,41 @@ export function careTeamNotes(args: { paused: boolean; nextReview: MilestoneRow 
 }
 
 export function isClinicianReview(code: string): boolean {
-  return code === "first_review" || code === "three_month_review" || code === "six_month_review" || code.startsWith("clinician_review_");
+  return code in REVIEW_LABEL || code.startsWith("clinician_review_");
+}
+
+const TEST_CODE = /^test_([a-z]+)_(\d{8})$/;
+
+/**
+ * Scheduled eye, foot and kidney checks are written as one dated row per due date (test_<type>_<YYYYMMDD>) and nothing marks an old one
+ * met when the check is later done: the sweep just adds a newer row. So only the newest row of each check type is real; an older row is
+ * superseded and must not keep showing as "due". Every other milestone is untouched.
+ */
+export function currentMilestones(rows: readonly MilestoneRow[]): MilestoneRow[] {
+  const newest = new Map<string, string>();
+  for (const r of rows) {
+    const m = TEST_CODE.exec(r.code);
+    if (m && (newest.get(m[1]) ?? "") < m[2]) newest.set(m[1], m[2]);
+  }
+  return rows.filter((r) => {
+    const m = TEST_CODE.exec(r.code);
+    return !m || newest.get(m[1]) === m[2];
+  });
+}
+
+export interface LifecycleEvent {
+  id: string;
+  action: string;
+  created_at: string;
+}
+
+/**
+ * Paused means the latest pause-or-resume event is a pause. Same rule as private.pathway_enrolment_paused in the database, including its
+ * tie-break (created_at, then id, both descending), so the banner cannot disagree with what the sweeps do.
+ */
+export function isPaused(events: readonly LifecycleEvent[]): boolean {
+  const latest = events
+    .filter((e) => e.action === "pause" || e.action === "resume")
+    .sort((a, b) => (a.created_at === b.created_at ? (a.id < b.id ? 1 : -1) : Date.parse(b.created_at) - Date.parse(a.created_at)))[0];
+  return latest?.action === "pause";
 }

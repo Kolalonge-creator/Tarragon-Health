@@ -8,10 +8,13 @@ import { t, type MessageKey } from "@tarragon/i18n";
 import {
   baselineLines,
   careTeamNotes,
+  currentMilestones,
   describeMilestone,
   isClinicianReview,
+  isPaused,
   parseGoals,
   summariseMilestones,
+  type CareTeamNote,
   type MilestoneRow,
 } from "@/lib/pathway-home/model";
 
@@ -45,7 +48,7 @@ export default async function PathwayHomePage() {
       : await Promise.all([
           supabase.from("pathway_milestones").select("enrolment_id, cycle, code, due_at, met_at").in("enrolment_id", ids),
           supabase.from("pathway_baselines").select("enrolment_id, cycle, snapshot").in("enrolment_id", ids),
-          supabase.from("pathway_lifecycle_events").select("enrolment_id, action, created_at").in("enrolment_id", ids).order("created_at", { ascending: false }),
+          supabase.from("pathway_lifecycle_events").select("id, enrolment_id, action, created_at").in("enrolment_id", ids).in("action", ["pause", "resume"]),
         ]);
   const loadFailed = error !== null || milestonesRes.error !== null || baselinesRes.error !== null || pausesRes.error !== null;
 
@@ -61,12 +64,11 @@ export default async function PathwayHomePage() {
           const programme = Array.isArray(e.programme) ? e.programme[0] : e.programme;
           const mine = (milestonesRes.data ?? []).filter((m) => m.enrolment_id === e.id);
           const cycle = mine.reduce((max, m) => Math.max(max, m.cycle), 0);
-          const milestones: MilestoneRow[] = mine.filter((m) => m.cycle === cycle).map((m) => ({ code: m.code, due_at: m.due_at, met_at: m.met_at }));
+          const milestones: MilestoneRow[] = currentMilestones(mine.filter((m) => m.cycle === cycle).map((m) => ({ code: m.code, due_at: m.due_at, met_at: m.met_at })));
           const summary = summariseMilestones(milestones, now);
           const nextReview = summarisedReview(milestones, now);
-          // The latest lifecycle event decides "paused": a pause is undone by a resume, and the log is append-only.
-          const lastLifecycle = (pausesRes.data ?? []).find((p) => p.enrolment_id === e.id && (p.action === "pause" || p.action === "resume"));
-          const paused = lastLifecycle?.action === "pause";
+          // The latest pause-or-resume decides "paused": a pause is undone by a resume, and the log is append-only.
+          const paused = isPaused((pausesRes.data ?? []).filter((p) => p.enrolment_id === e.id));
           const baseline = (baselinesRes.data ?? []).filter((b) => b.enrolment_id === e.id).sort((a, b) => b.cycle - a.cycle)[0];
           const goals = parseGoals(programme?.default_goals);
           const lines = baselineLines(baseline?.snapshot);
@@ -86,12 +88,13 @@ export default async function PathwayHomePage() {
 
                 <section aria-labelledby={`goals-${e.id}`} className="space-y-1">
                   <h2 id={`goals-${e.id}`} className="font-medium">{t("pathway.goals_title", uiLanguage)}</h2>
+                  <p className="text-sm">{t("pathway.goals_note", uiLanguage)}</p>
                   {goals.length === 0 ? (
                     <p className="text-sm">{t("pathway.goals_none", uiLanguage)}</p>
                   ) : (
                     <ul className="list-disc space-y-1 pl-5 text-sm">
-                      {goals.map((g) => (
-                        <li key={g.description}>{t("pathway.goal_line", uiLanguage, { description: g.description, value: g.target_value, unit: g.target_unit })}</li>
+                      {goals.map((g, i) => (
+                        <li key={`${i}-${g.description}`}>{t("pathway.goal_line", uiLanguage, { description: g.description, value: g.target_value, unit: g.target_unit })}</li>
                       ))}
                     </ul>
                   )}
@@ -162,7 +165,7 @@ export default async function PathwayHomePage() {
   );
 }
 
-const NOTE_KEY: Record<ReturnType<typeof careTeamNotes>[number], MessageKey> = {
+const NOTE_KEY: Record<CareTeamNote, MessageKey> = {
   readings_checked: "pathway.team.readings_checked",
   paused: "pathway.team.paused",
   review_planned: "pathway.team.review_planned",

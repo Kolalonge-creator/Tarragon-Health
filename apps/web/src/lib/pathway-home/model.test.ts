@@ -1,4 +1,4 @@
-import { baselineLines, careTeamNotes, describeMilestone, isClinicianReview, parseGoals, summariseMilestones } from "./model";
+import { baselineLines, careTeamNotes, currentMilestones, describeMilestone, isClinicianReview, isPaused, parseGoals, summariseMilestones } from "./model";
 
 const now = new Date("2026-10-22T10:00:00Z");
 
@@ -63,5 +63,33 @@ describe("careTeamNotes", () => {
   it("says a review is planned or due from the milestone date only", () => {
     expect(careTeamNotes({ paused: false, nextReview: review, now })).toEqual(["readings_checked", "review_planned"]);
     expect(careTeamNotes({ paused: false, nextReview: review, now: new Date("2026-11-05T00:00:00Z") })).toEqual(["readings_checked", "review_due"]);
+  });
+});
+
+describe("currentMilestones", () => {
+  const row = (code: string) => ({ code, due_at: "2026-10-01T00:00:00Z", met_at: null });
+  it("keeps only the newest row of each scheduled-test type", () => {
+    const out = currentMilestones([row("test_eye_20250101"), row("test_eye_20261201"), row("test_foot_20260301"), row("first_review")]);
+    expect(out.map((r) => r.code).sort()).toEqual(["first_review", "test_eye_20261201", "test_foot_20260301"]);
+  });
+  it("never touches non-test milestones", () => {
+    expect(currentMilestones([row("clinician_review_20261001"), row("clinician_review_20260901")])).toHaveLength(2);
+  });
+});
+
+describe("isPaused", () => {
+  const ev = (id: string, action: string, created_at: string) => ({ id, action, created_at });
+  it("is paused only when the latest pause-or-resume is a pause", () => {
+    expect(isPaused([ev("1", "pause", "2026-10-01T00:00:00Z")])).toBe(true);
+    expect(isPaused([ev("1", "pause", "2026-10-01T00:00:00Z"), ev("2", "resume", "2026-10-02T00:00:00Z")])).toBe(false);
+    expect(isPaused([])).toBe(false);
+  });
+  it("ignores other lifecycle actions", () => {
+    expect(isPaused([ev("1", "pause", "2026-10-01T00:00:00Z"), ev("2", "transfer", "2026-10-03T00:00:00Z")])).toBe(true);
+  });
+  it("breaks a timestamp tie by id, descending, like the database", () => {
+    const t = "2026-10-01T00:00:00Z";
+    expect(isPaused([ev("a", "pause", t), ev("b", "resume", t)])).toBe(false);
+    expect(isPaused([ev("a", "resume", t), ev("b", "pause", t)])).toBe(true);
   });
 });
