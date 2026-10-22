@@ -16,6 +16,10 @@ import {
   DEFAULT_MEASUREMENT_UNITS,
   observationLimit,
   roundForStorage,
+  temperatureFromC,
+  weightFromKg,
+  TEMPERATURE_UNIT_LABEL,
+  WEIGHT_UNIT_LABEL,
   temperatureToC,
   weightToKg,
   type MeasurementUnits,
@@ -114,4 +118,20 @@ export function typedToStoredEntry(type: OtherVitalType, raw: string, units: Mea
   if (typed === null) return raw;
   const stored = type === "weight" ? weightToKg(typed, units.weight) : temperatureToC(typed, units.temperature);
   return String(roundForStorage(stored, 1));
+}
+
+/**
+ * The accepted range in the patient's own unit, to sit after the existing (metric) range message, so someone who typed
+ * pounds or degrees F is not left with only a kilogram or Celsius figure. Null when their unit already is the stored one.
+ */
+export function rangeHintInPatientUnit(type: OtherVitalType, units: MeasurementUnits = DEFAULT_MEASUREMENT_UNITS): string | null {
+  if (type === "weight" && units.weight === "lb") {
+    const b = OTHER_VITAL_BOUNDS.weight;
+    return `${Math.round(weightFromKg(b.min, "lb"))}\u2013${Math.round(weightFromKg(b.max, "lb"))} ${WEIGHT_UNIT_LABEL.lb}`;
+  }
+  if (type === "temperature" && units.temperature === "f") {
+    const b = OTHER_VITAL_BOUNDS.temperature;
+    return `${temperatureFromC(b.min, "f").toFixed(1)}\u2013${temperatureFromC(b.max, "f").toFixed(1)} ${TEMPERATURE_UNIT_LABEL.f}`;
+  }
+  return null;
 }

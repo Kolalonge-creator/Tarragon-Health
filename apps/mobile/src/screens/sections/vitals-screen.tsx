@@ -31,6 +31,7 @@ import {
   parseStrictNumber,
   validateOtherEntry,
   typedToStoredEntry,
+  rangeHintInPatientUnit,
   type GlucoseUnit,
   type OtherVitalType,
 } from "@/lib/vitals-entry";
@@ -976,7 +977,16 @@ function OtherVitalCard({
         </>
       ) : null}
 
-      {errorKey ? <InlineAlert tone="danger" message={tr(errorKey)} /> : null}
+      {errorKey ? (
+        <InlineAlert
+          tone="danger"
+          message={(() => {
+            // The range message names kg or degrees C; add the same range in the unit they typed in.
+            const hint = errorKey.endsWith("range_weight") || errorKey.endsWith("range_temperature") ? rangeHintInPatientUnit(type, measurementUnits) : null;
+            return hint ? `${tr(errorKey)} (${hint})` : tr(errorKey);
+          })()}
+        />
+      ) : null}
       {saveError ? <InlineAlert tone="danger" message={saveError} /> : null}
       {urgentBanner ? <InlineAlert tone="warn" message={urgentBanner} /> : null}
       {glucoseCard ? (

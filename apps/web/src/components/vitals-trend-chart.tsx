@@ -197,7 +197,7 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
     mode === "glucose"
       ? summarise(points.map((p) => p.glucose_display))
       : mode === "weight"
-        ? summarise(points.map((p) => p.weight_display))
+        ? summarise(points.map((p) => ("weight_kg" in p && typeof p.weight_kg === "number" ? weightFromKg(p.weight_kg, weightUnit) : null)))
         : mode === "pulse"
           ? summarise(points.map((p) => ("pulse_bpm" in p ? p.pulse_bpm : null)))
           : null;

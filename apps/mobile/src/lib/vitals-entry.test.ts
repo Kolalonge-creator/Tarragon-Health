@@ -15,6 +15,7 @@ import {
   validateBpEntry,
   validateOtherEntry,
   typedToStoredEntry,
+  rangeHintInPatientUnit,
 } from "./vitals-entry";
 
 describe("parseStrictNumber", () => {
@@ -127,5 +128,14 @@ describe("typedToStoredEntry", () => {
     // 20 lb is 9.1 kg: below any adult weight bound, so the existing range check still catches it
     const stored = typedToStoredEntry("weight", "20", imperial);
     expect(validateOtherEntry("weight", stored, "mg_dl").ok).toBe(false);
+  });
+});
+
+describe("rangeHintInPatientUnit", () => {
+  it("gives the accepted range in pounds or degrees F, and nothing for metric or other vitals", () => {
+    expect(rangeHintInPatientUnit("weight", { weight: "lb", temperature: "c", length: "cm" })).toMatch(/ lb$/);
+    expect(rangeHintInPatientUnit("temperature", { weight: "kg", temperature: "f", length: "cm" })).toMatch(/ \u00b0F$/);
+    expect(rangeHintInPatientUnit("weight")).toBeNull();
+    expect(rangeHintInPatientUnit("pulse", { weight: "lb", temperature: "f", length: "in" })).toBeNull();
   });
 });

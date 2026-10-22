@@ -40,7 +40,7 @@ export function MeasurementUnitsForm({ initial }: { initial: MeasurementUnits })
             </fieldset>
           ))}
           <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-            This only changes how your readings are shown and typed in. Nothing you have already logged is altered, and you can switch back any time.
+            This only changes how your readings are shown and typed in. Nothing you have already logged is altered, and you can switch back any time. A few pages, such as the weight goal page and the health passport, still show kilograms.
           </p>
           <div className="flex items-center gap-3">
             <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>

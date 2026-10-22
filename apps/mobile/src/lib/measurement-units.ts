@@ -21,9 +21,16 @@ async function fetchUnits(): Promise<MeasurementUnits> {
       .maybeSingle();
     return measurementUnitsFromProfile(data);
   } catch {
+    // Do not keep a failed lookup: the next read should try again rather than stay on metric for the whole session.
+    cached = null;
     return DEFAULT_MEASUREMENT_UNITS;
   }
 }
+
+/** The cache belongs to one signed-in person; a different account must not inherit their units. */
+supabase.auth?.onAuthStateChange?.((event) => {
+  if (event === "SIGNED_OUT" || event === "SIGNED_IN") cached = null;
+});
 
 export function getMeasurementUnits(): Promise<MeasurementUnits> {
   if (!cached) cached = fetchUnits();

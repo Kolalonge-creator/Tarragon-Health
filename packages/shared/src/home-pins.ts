@@ -11,6 +11,17 @@
  * something the patient chooses to add.
  */
 
+import {
+  DEFAULT_MEASUREMENT_UNITS,
+  LENGTH_UNIT_LABEL,
+  TEMPERATURE_UNIT_LABEL,
+  WEIGHT_UNIT_LABEL,
+  lengthFromCm,
+  temperatureFromC,
+  weightFromKg,
+  type MeasurementUnits,
+} from "./measurement-units";
+
 export const HOME_PIN_KEYS = [
   // Vitals: a tile with the latest reading.
   "bp",
@@ -218,28 +229,15 @@ export function isHomeValuePin(key: HomePinKey): key is HomeValuePinKey {
   return key in HOME_PIN_VITAL_COLUMN;
 }
 
-const HOME_PIN_VITAL_UNIT: Record<HomeValuePinKey, string> = {
-  weight: "kg",
+/** Units for the vitals that have only one (the rest follow the patient's chosen units, see measurement-units.ts). */
+const HOME_PIN_VITAL_UNIT = {
   pulse: "bpm",
   spo2: "%",
-  temperature: "\u00b0C",
-  waist: "cm",
   peak_flow: "L/min",
-};
+} as const;
 
 /** A wearable's pulse, oxygen or temperature is an estimate, never "the latest reading" (the same rule as blood pressure). */
 export const HOME_PIN_NEVER_FROM_WEARABLE: readonly HomePinKey[] = ["pulse", "spo2", "temperature"];
-
-import {
-  DEFAULT_MEASUREMENT_UNITS,
-  LENGTH_UNIT_LABEL,
-  TEMPERATURE_UNIT_LABEL,
-  WEIGHT_UNIT_LABEL,
-  lengthFromCm,
-  temperatureFromC,
-  weightFromKg,
-  type MeasurementUnits,
-} from "./measurement-units";
 
 export interface HomePinVitalValue {
   value: string;

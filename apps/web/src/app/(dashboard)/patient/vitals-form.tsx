@@ -339,6 +339,7 @@ export function VitalsForm({
             <div className="space-y-1.5">
               <Label htmlFor="weight_kg">Weight ({WEIGHT_UNIT_LABEL[units.weight]})</Label>
               <UnitConvertedInput
+                key={units.weight}
                 id="weight_kg"
                 name="weight_kg"
                 typedIsStored={units.weight === "kg"}
@@ -363,6 +364,7 @@ export function VitalsForm({
             <div className="space-y-1.5">
               <Label htmlFor="temperature_c">Temperature ({TEMPERATURE_UNIT_LABEL[units.temperature]})</Label>
               <UnitConvertedInput
+                key={units.temperature}
                 id="temperature_c"
                 name="temperature_c"
                 typedIsStored={units.temperature === "c"}
@@ -387,6 +389,7 @@ export function VitalsForm({
             <div className="space-y-1.5">
               <Label htmlFor="waist_cm">Waist circumference ({LENGTH_UNIT_LABEL[units.length]})</Label>
               <UnitConvertedInput
+                key={units.length}
                 id="waist_cm"
                 name="waist_cm"
                 typedIsStored={units.length === "cm"}
