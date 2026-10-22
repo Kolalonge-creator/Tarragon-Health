@@ -60,6 +60,7 @@ export const BREADCRUMB_LABELS: Partial<Record<MarketingRouteKey, string>> = {
   telehealthConsent: "Telehealth consent",
   terms: "Terms of service",
   accessibility: "Accessibility",
+  pricingAndAccessibility: "Pricing and accessibility",
   cookies: "Cookies",
   gift: "Gift Tarragon",
 };

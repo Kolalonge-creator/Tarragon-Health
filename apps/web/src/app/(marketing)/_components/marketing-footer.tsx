@@ -62,6 +62,7 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.telehealthConsent, label: "Telehealth consent" },
     { href: MARKETING_ROUTES.terms, label: "Terms of service" },
     { href: MARKETING_ROUTES.accessibility, label: "Accessibility" },
+    { href: MARKETING_ROUTES.pricingAndAccessibility, label: "Pricing and accessibility" },
     { href: MARKETING_ROUTES.cookies, label: "Cookies" },
   ],
 };

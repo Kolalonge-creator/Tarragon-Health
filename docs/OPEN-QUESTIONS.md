@@ -5266,3 +5266,20 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-726 S67-screens: nothing was rendered in a browser or simulator; the screens are checked by tests and type checks only (raised by the S67 screens build)
 - Web: React Testing Library plus axe, 23 tests. Phone: pure logic and outbox tests only (the mobile jest config renders no components), so `pregnancy-tools.tsx` has not been run on a device. Needs a look on web, an Android phone and an iPhone once `maternal_enabled` is on for a test account.
 - Decision: open (needs a test session).
+
+### OQ-727 UI-D: the research wording "you pay only when you ask for a doctor's time" does not match the shipped model; the statement says Membership instead (raised by the UI-D pricing and accessibility statement)
+- The change-15 spec wording assumed pay-per-doctor-service. The code today is Free plus one Membership (a yearly blood test and a monthly video call with your care team, one payment, no auto-renew; `catalog.membership_annual.*`, the pricing page, `no-public-prices.test.ts`). The statement therefore says "history and data stay free; paid is Membership, which is time with your care team" and does not claim pay-per-visit.
+- Note the founder answer of 2026-10-21 (Free / Membership 84k / Membership Plus 129k, annual only, no monthly call) is not yet in DECISIONS.md or code. When it lands, `plain.pricing.paid_body` and `plain.pricing.paid_head` in `packages/i18n/src/en.ts` must change with it.
+- Decision: open.
+
+### OQ-728 UI-D: no per-doctor-service naira prices are shown (raised by the UI-D pricing and accessibility statement)
+- The spec asked for a naira price beside each doctor service. A repo test (`apps/web/src/lib/marketing/no-public-prices.test.ts`, decision 2026-10-13) forbids any public price except the one Membership price, and the per-service price machinery was removed from the marketing site. The statement shows only the Membership price, read from `commerce.membership_prices`, and says "See the price in the app before you pay" if it cannot be read. Does the founder want separately priced doctor services on this page? If yes, that reverses the 2026-10-13 decision and needs a read from the live `service_products` rows.
+- Decision: open.
+
+### OQ-729 UI-D: "no ads and no ad trackers" is verified in source only, not in a built binary (raised by the UI-D pricing and accessibility statement)
+- Checked: no advertising SDK in `apps/web` or `apps/mobile` dependencies, no `AD_ID` permission in `apps/mobile/app.json` (pinned by `plain-statement-claims.test.ts`). Not checked: the merged Android manifest of an EAS build, where a transitive library can add `AD_ID`, and the iOS tracking declaration. Someone should read both from a real build before the one-line claim is relied on. The website does run first-party anonymous analytics (see /cookies); the statement says so and does not claim "no analytics".
+- Decision: open.
+
+### OQ-730 UI-D: accessibility claims are for automated checks only; web large-text behaviour and the web Listen button are not claimed (raised by the UI-D pricing and accessibility statement)
+- The statement claims only what code and tests show: phone text scaling up to 2x and 44 point controls, the touchable role-and-name scan, the Listen button (phone only, shown only when a signed-off clip exists), reduced motion, the website skip link, and axe tests on web components. It says plainly there is no outside audit. Not verified on a device or with VoiceOver, TalkBack or NVDA. The existing /accessibility legal page says WCAG 2.1 AA is the aim. Also: the phone Settings section uses the legacy kit, and the "Pricing" link opens the public site rather than an in-app price screen.
+- Decision: open (needs a screen reader session on web and phone).
