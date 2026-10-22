@@ -1429,3 +1429,5 @@ patient_home_layout.sql
 # The Membership is one yearly payment again: the instalment tables, functions, columns, module row, templates and cron job are gone, no function body names them, refunds_one_live is one live refund per order, and the one-payment flow (pay, replay, mismatch, cancel, refund once for the whole amount, provider claim) works. Sabotage: nine removed things put back one at a time; all nine structural checks must flip.
 membership_instalments_removed.sql
 
+# S62 follow-up: the review and scheduled-test sweeps are scheduled daily (06:08 and 06:18 UTC), call the right function, run cleanly as the job owner and add nothing while no real patient is enrolled, and still refuse a signed-in user. Sabotage: each job unscheduled and the matching check flips.
+s62_pathway_sweeps_scheduled.sql
