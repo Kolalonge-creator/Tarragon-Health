@@ -373,7 +373,7 @@ do $$
 declare src text; u uuid := gen_random_uuid(); ok boolean := false;
 begin
   select adult_def into src from s04b1_orig;
-  src := replace(src, 'new.date_of_birth > (current_date', 'false and new.date_of_birth > (current_date');
+  src := replace(src, 'new.date_of_birth > (private.lagos_today()', 'false and new.date_of_birth > (private.lagos_today()');
   if src not like '%false and new.date_of_birth%' then raise exception 'sabotage 8b did not apply'; end if;
   execute src;
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, raw_app_meta_data, raw_user_meta_data)

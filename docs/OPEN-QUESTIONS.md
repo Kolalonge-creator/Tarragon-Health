@@ -1733,6 +1733,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - S24 signs one item per prescription (`issue_signed_prescription`), so a patient with three medicines chooses a pharmacy three times and gets three codes.
 - Options: (a) let the patient choose once for all her waiting prescriptions and get one code per pharmacy visit (recommended, next); (b) leave.
 - Decision: open (founder). **Built 2026-10-16 as option (a) in S28e** (`20261021090417_s28e_pharmacy_visits_stock_scorecard.sql`, not yet applied): the patient ticks several waiting prescriptions, chooses one pharmacy and gets ONE code for the visit (`patient_choose_pharmacy_for_visit`); at the counter each prescription is still its own item (own full or partial supply, own controlled check, the same shared supply count). **A single signed prescription that carries several items was NOT built**: S24 signing, the medicine row (one per prescription), the PDF and the QR verification all assume one item, so that is a change to the signing path and needs its own decision. Question for the founder: is one visit code over several single-item prescriptions what you meant by lifting the limit, or do you want the signing path changed so a doctor signs one prescription with several items?
+- **Decided 2026-10-21 (founder): several medicines in one signed prescription = YES (earlier numbered OQ-275).** To be planned as a separate build that changes S24 signing, the prescription PDF and the QR verification together, with CMO review first. Not built. See `docs/DECISIONS.md`, 2026-10-21.
 
 ### OQ-520 Controlled medicines and repeats at the counter
 - Signing hard-stops controlled medicines (an illustrative list, OQ-170). S28 adds no second check at the counter. After a full supply the prescription is `dispensed`, so an approved repeat is supplied through the existing QR and phone-desk path, not the partner list.
@@ -3890,6 +3891,59 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - Decision: informational.
 
 
+## EMP: employer seat pilot kit (2026-10-16). Conservative defaults taken; nothing needs a decision to merge, several need one before the pilot is switched on.
+
+### OQ-EMP-1 Paystack payment link: finance records receipt, no new webhook kind
+- Chosen: the pilot invoice is paid by bank transfer or a Paystack payment link created by hand in the Paystack dashboard; finance SEES the money and records the method and reference (`confirm_employer_seat_pilot_payment`, idempotent, unique reference). Why: a new `metadata.kind` in the deployed `paystack-webhook` function touches the highest-risk deployed edge function and the S25 order path for a B2B one-off. Alternative: add a signed webhook kind that activates the pilot on a verified `charge.success`. Not built.
+- Decision: open (founder). Counsel: none.
+
+### OQ-EMP-2 No general ledger posting for a pilot invoice
+- The invoice is an `employer_invoices` row; its paid status is finance's record. No journal entry is posted, no account was invented (S25 posting design not read for B2B revenue). Finance decides the accounts for employer seat revenue and deferral over the 12 month term.
+- Decision: open (finance).
+
+### OQ-EMP-3 No condition or programme uptake count in the employer report
+- The report counts members with a completed consultation, consultations completed, and members who logged any check-in. A chronic-programme or screening-result count would let an employer infer a condition in a small workforce (the Ovia risk, spec 2180). A general "annual health check started" count is also left out until the CMO and DPO approve its definition.
+- Decision: open (CMO, DPO).
+
+### OQ-EMP-4 A departed employee's seat is not reusable
+- Pilot seats are counted by seats ever made (any state). A leaver's seat is not given to a replacement. Alternative: free the seat if the leaver departs within N days of joining.
+- Decision: open (founder).
+
+### OQ-EMP-5 Re-identification by differencing across weekly reports
+- Defences: the one platform minimum cell (`private.min_cell_floor`, S75a: 20 today, or the organisation's own number if higher), complementary suppression (`private.suppress_cell`), figures only through the last completed Lagos week, counts rounded to the nearest 5. Residual: two reports weeks apart can still be subtracted for a small group. Option: freeze a stored snapshot per week and never re-serve a changed past week. Counsel and DPO to say whether this is enough for a first pilot; with a platform floor of 20, an employer with fewer than about 40 members will see usage withheld until it grows.
+- Decision: open (DPO).
+
+### OQ-EMP-6 VAT, withholding tax and invoice wording
+- The invoice carries the naira total only. Whether VAT applies to a health-service seat, withholding tax, and a purchase order field are counsel/finance points. Flagged NEEDS COUNSEL in the terms draft.
+- Decision: open (counsel, finance).
+
+### OQ-EMP-7 Legal drafts need counsel
+- `docs/legal/employer-pilot-terms-DRAFT.md` and `docs/legal/employee-pilot-notice-DRAFT.md`: roles of controller and processor for the roster (employer to Tarragon), lawful basis for the work-email match, voluntariness inside an employment relationship, the DPA attachment, refund position, governing law, liability.
+- Decision: open (counsel). Not for sending.
+
+### OQ-EMP-9 Employee activity in the employer report: lawful basis, and the report ships OFF
+- The usage block counts members with a consultation or a check-in from `encounters` and `vitals_readings`. No record shows the employee saw the notice or agreed, and the notice is a draft. Conservative default taken: `employer.seat_pilot.usage_report_enabled = false`, so a pilot reports seat counts only until counsel and the DPO sign the employee notice and the founder switches it on (an update of the active `employer_seat_pilot_config` row; the registry value must change with it). Alternative: record an in-app acknowledgement per seat and count only members who gave it.
+- Decision: open (counsel, DPO).
+
+### OQ-EMP-10 An ended or expired pilot: claims wait, one incident per pilot (decided default 2026-10-22)
+- After a pilot ends or its claim window closes, new roster claims get no seat (`pilot_closed`) and wait. Ordinary arrears billing does NOT resume on its own, because that would bill an employer who only agreed to a block. Only ONE open incident per pilot is raised (reference `pilot-closed:<pilot id>`), not one per person. A new paid pilot re-offers seats to everyone who was refused. Alternative: hand the employer back to arrears billing after the pilot.
+- Decision: open (founder), default implemented.
+
+### OQ-EMP-11 The per-head overlap guard raises; it is not a batch operation
+- `employer_generate_invoice` creates one invoice for one organisation per call and nothing in the repository calls it in a loop or from a schedule, so the guard `pilot_covers_this_period` can only refuse the single call finance made, with a plain message. A silent skip would hide a real double billing, so it raises. If a batch run is ever added it must catch this error per organisation.
+- Decision: informational.
+
+### OQ-EMP-12 A seat claimed on the last day runs the full twelve months
+- The seat term is the catalogue duration from the claim day, not capped at the claim window. Documented in the employer terms draft (3.2). Alternative: cap the seat at a fixed end date.
+- Decision: informational (founder).
+
+### OQ-EMP-13 The live project is ahead of main-dev on the Membership ladder
+- Live `private.grant_org_seat` writes `patient_memberships.tier` (migration `20261021110528 membership_evergreen_ladder_foundation`, live, not on main-dev). The pilot migration detects the column at run time and sorts after it, so it works on a main-dev replay and on live. When the ladder merges, its `grant_org_seat` body must carry the pilot block; the pilot proof fails if it does not.
+- Decision: informational.
+
+### OQ-EMP-8 starts_on is the offer date, not a gate
+- Seats can be claimed from the day payment is confirmed until ends_on. A "not before" date would leave a paid employee waiting with no sweep to release them. Alternative: a daily sweep that grants seats when the window opens.
+- Decision: informational (founder).
 ### OQ-AVS-1 The older consultation summary table is left in place
 - `consultation_patient_summaries` (2026-08-29, publish-once, patient reads by policy, staff read by policy) already gives a patient a short recap of a video visit. It has no draft, no approval stamp, no checklist, no amendment or protected-note handling and no event. The after-visit summary (AVS) is built as its successor on `visit_summaries`, and the Care tab shows the new card above the notes card. The old table, its publish function and the `consultation_summary_ready` notification are not touched or removed, so a patient can still see both for a visit published the old way.
 - Conservative default: do nothing to the old path in this PR. Decision needed (product): retire `publish_consultation_summary` once AVS is live, and whether to migrate the old rows (they would need a doctor to approve them again).
@@ -4803,7 +4857,7 @@ Named OQ-S27h-NN (not a plain number) so they cannot collide with the repeated n
 - `pages` is bound to a triage event (`triage_event_id not null`). Making it generic would touch the paging ladder that protects red events, so the lab call has its own table (`lab_critical_calls`) and reuses the S19 rota (`on_call_now`, `page_recipient` 3 argument, conflict aware), the escalation times (`paging_rule`, 5 and 10 minutes, repeat interval and cap), the incident helper and the push, in-app and email channels.
 - INV-12 decision made in this build, for the founder and CMO to confirm: a paged clinician is NOT tied to the patient by being paged. As for an acknowledged red event page, ACKNOWLEDGING an open critical value call ties that clinician to the patient until the call closes (one extra branch in `private.clinician_has_patient_access`, never for the patient, a conflicted clinician or one who is not eligible). Without it the called clinician could not open the value they were called about.
 - Not covered: the S19c delivery watchdog reads `source_table = 'pages'`, so a critical call notification that never arrives is not reported by it. The mitigation is the repeat to the clinical lead and ops until someone acknowledges.
-- Decision: open (founder, CMO).
+- Decision: open (founder, CMO). **ACCEPTED 2026-10-21 (founder): acknowledging the call ties the clinician to the patient, bounded to at most 24 hours and ending when the call closes. See `docs/DECISIONS.md`, 2026-10-21.**
 
 ### OQ-S27h-04 Preliminary results are never shown to the patient
 - A preliminary result is held and cannot be released by anyone; the final arrives as a correction of kind "finalised". Some labs release a preliminary (for example a culture) to the clinician only. If the CMO wants a clinician-visible-and-releasable preliminary, that is a policy change.
@@ -4868,23 +4922,23 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - What the design does to stay inside the spirit of INV-09: no wallet table, no stored value, no top-up; each part is its own Paystack payment against one order in integer kobo; no card is kept and nothing is debited by us; the patient pays each part. See `docs/design/S25b.md`.
 - For Nigerian counsel BEFORE the module is switched on: (1) is a plan with parts due after access begins consumer credit, a deferred-payment arrangement or an instalment sale under the FCCPC consumer protection regime, and what must be disclosed before the first payment; (2) does it need any CBN or lending licence, given that Tarragon extends access ahead of payment but holds no money and charges no interest or credit fee; (3) what may be done on a missed part (pausing access is built; any collections, reporting or charging beyond the parts is not built and should stay unbuilt unless counsel says otherwise); (4) whether the card fee per part (the customer pays Paystack's fee on each part) needs a clearer disclosure; (5) whether the 21 day Membership refund window running from the first part is acceptable when later parts fall after it (OQ-718); (6) data and consent wording for the reminders.
 - The shipped numbers are PROPOSED (`instalments.membership_schedule`: 3 parts at 0, 30 and 60 days, 5 days of grace, reminders 3 days before and on the day). The founder confirms them; changing one is a new config row, not a deploy.
-- Decision: decided to build (founder, 2026-10-20); switching it on is open (founder, counsel).
+- Decision: decided to build (founder, 2026-10-20); switching it on is open (founder, counsel). **CLOSED 2026-10-21, moot: the founder withdrew pay-in-parts ("we are not doing installment payment again"); S25b is removed by `20261021183328_remove_membership_instalments.sql`, so this question no longer applies.**
 
 ### OQ-716 What a Member can use while parts are unpaid (raised by S25b)
 - Built: Membership access is as normal while the plan is not lapsed. Doctor time is NOT pro-rated by the fraction paid. A lapsed plan ends the entitlement and `consume_entitlement` refuses it. One-off doctor-time entitlements follow their existing rules.
 - Exposure to decide: a Member can use the monthly doctor time for up to about 65 days (the last due date plus grace) having paid one third. If a Member stops paying after using doctor time, that time was given on credit. The founder accepted credit risk in principle; the open question is whether a cap (for example, no more than one consultation until the second part is paid) is wanted. Not built: it would be a clinical access rule and needs the CMO.
-- Decision: open (founder, CMO).
+- Decision: open (founder, CMO). **CLOSED 2026-10-21, moot: the founder withdrew pay-in-parts ("we are not doing installment payment again"); S25b is removed by `20261021183328_remove_membership_instalments.sql`, so this question no longer applies.**
 
 ### OQ-717 Clinician pay and the accounts for a partly paid Membership (raised by S25b)
 - Built: each part posts Dr 1020 / Cr 2000 for that part with its own recognition schedule from the day it was paid to the end of the access window, so revenue is never recognised ahead of cash. No receivable is booked for parts not yet due. The full-price posting is skipped for a plan order.
 - Not decided, so not guessed: (1) whether finance wants the unpaid parts shown as a receivable (Dr receivable / Cr deferred revenue at the start) instead; that would put a debt the patient may never pay on the books. (2) A part that stays unpaid after the plan lapses is not written off anywhere; it simply never arrives. (3) Clinician consultation pay is priced from the legacy path and is not tied to cash received; if a Member lapses after a consultation, the clinician has been paid for a visit the patient did not fully pay for. Whether pay should wait for the part covering that month is a finance and founder decision.
-- Decision: open (finance review, founder).
+- Decision: open (finance review, founder). **CLOSED 2026-10-21, moot: the founder withdrew pay-in-parts ("we are not doing installment payment again"); S25b is removed by `20261021183328_remove_membership_instalments.sql`, so this question no longer applies.**
 
 ### OQ-718 The refund window and the cooling-off for a plan paid over 60 days (raised by S25b)
 - Built: the refund rule is unchanged (21 days for a Membership) and is counted from the FIRST part. A refund of a partly paid order returns exactly what was paid, one refund per paid part against its own charge (a part paid between the request and the decision is included), and cancels the unpaid parts. The plain-words rule shown at checkout and on the receipt is the same.
 - Open: a patient who pays the second part after day 21 can no longer ask for it back under this rule even though they paid it later. Whether the window should restart for each part, or the whole plan be refundable until the last part, is a consumer-law and founder question. Not built.
 - Also open: the processing fee of each part is the customer's and is not refunded (OQ-97, price only).
-- Decision: open (counsel, founder).
+- Decision: open (counsel, founder). **CLOSED 2026-10-21, moot: the founder withdrew pay-in-parts ("we are not doing installment payment again"); S25b is removed by `20261021183328_remove_membership_instalments.sql`, so this question no longer applies.**
 
 ### OQ-S06Z-1 The battery and battery saver cannot be read yet: a native module is needed (raised by S06z, 2026-10-21)
 - Checked apps/mobile/package.json: expo-battery and expo-device are not installed, and nothing else exposes the battery level or Android battery saver / iOS Low Power Mode. S06z ships the pure decision (power-rules.ts, tested) and a port (power-port.ts, registerPowerReader) whose default answer is "unknown", and unknown defers nothing. The rules are wired (reconnect flush, background task, sync banner) but inert on a real phone until a reader is registered.
@@ -4895,6 +4949,26 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - On low power, or in low-data mode off Wi-Fi, the background task skips the health-store read as well as the upload. A read without an upload cannot advance the server cursor (it moves only past uploaded pages), so the next run would read and queue the same samples again, growing the queue toward its cap with duplicates. Nothing is lost; the samples are read on the next run that may upload. Splitting read from upload needs de-duplication in health-sync.ts. The Devices Sync now button and a foreground sync are the patient asking and still upload.
 - Decision: open (product).
 
+### OQ-S48B-1 Private route recording needs `expo-location`, a new native build and the same privacy review (raised by S48b, 2026-10-21)
+- The recorder, its owner-only store, the screen card and tests with a stubbed location source are built, and sit behind the guard `private_route_recording` (off) plus each person's own switch (off). `expo-location` is not in `apps/mobile/package.json`, so `getLocationSource()` returns null and the card (when it ever shows) says recording needs a newer app. Adding it means a new EAS build, the iOS when-in-use location text, Android foreground location permission and a `runtimeVersion` bump. `runtimeVersion` was not touched.
+- Still open from OQ-S48A-3: the privacy review (home and workplace inference), a retention period, counsel's view, and whether the owner may download their own route. Until those are answered the guard stays off. A route is held in memory until the person taps "Stop and save"; if the save fails (offline) it is not kept, and the screen says so. Whether a route should instead wait encrypted on the phone is a question for the privacy review.
+- There is still NO share, export, map or send path anywhere; a scan test fails if one appears. Emergency location (S48-1) is separate and not built.
+- Decision: open (founder, DPO, counsel).
+
+### OQ-S48B-2 Training load, recovery and sleep band numbers are PROPOSED and unsigned (raised by S48b, 2026-10-21)
+- `activity.readiness_bands` v1 (proposed-config registry, owner CMO): a recent 3 days against the person's own 28 day usual, "about your usual" within 10 percent, a 7 day load against a 28 day load with lighter below 0.8 and heavier above 1.3, minimum days of data before any band shows. They are starting numbers, not clinical findings. Needed: the CMO's view on the figures and on the wording ("lower than your usual", never "push harder", never a score against other people).
+- It stays dormant: the cards render nothing without device data, and no provider has live credentials. The first real payload may show the reading-type mapping needs correcting. No governed database table was added (the figures live in versioned config in code), so there is no sign-off hub panel; if the CMO wants one, convert it to an `activity_readiness_config` table with the supersede guard.
+- Decision: open (CMO).
+
+### OQ-S48B-3 Workout plan content, audio and low-data video are still drafts (raised by S48b, 2026-10-21)
+- The three starter plans stay unreviewed, inactive and text only. New database rules: every session 10 to 20 minutes, a chair-based class is gentle, an audio clip id is allowed only on a clinician-reviewed plan. Audio group `WKO` in `packages/audio` has three DRAFT unrecorded slots (one per starter plan); no audio and no video was recorded or generated. A low-data video slot kind does not exist yet and would be added the same way when a clip does.
+- Older adults (from `older_adult_age` 65, PROPOSED) see chair-based classes listed first; this is order only, the gate decides what is shown.
+- Needed: clinician and physiotherapist review of the text, a content owner and budget for recorded audio and video, and an administrator to activate a reviewed plan.
+- Decision: open (CMO and content owner).
+
+### OQ-S48B-4 The Movement screen on the phone no longer takes free-text activity names (raised by S48b, 2026-10-21)
+- The phone now picks one of the seven kinds (as the web does for its common names) and the database derives the name. A person who used to type "walked to the market" now chooses Walking. Web still accepts free text such as Swimming or Yoga with no kind; the phone does not offer those. Needed: product decision on whether the phone should also offer an "Other" with a typed name.
+- Decision: open (product).
 ### OQ-S43m-13 Two phone share screens were built; #1209's is kept (raised by the S43m merge, 2026-10-21; resolved 2026-10-21)
 - #1209 and S43m PR 3 each built "Share my record" on the phone against the same functions. Founder decision: #1209's screen (`record-share-screen.tsx`, `lib/record-share.ts`, section `shareRecords`) is the one share path; S43m's own screen is removed from the S43m stack.
 - **Resolved** by the S43m share-safeguards follow-up PR. Checked against #1209's code, these were missing and are now added: a lost answer to Create re-reads the list and says a link may already exist; a link with no views left cannot be sent again; a failed stop is shown on the link's own card (it was silent) and a link already stopped counts as stopped; a stopped link leaves the list at once; a note beside Medicines and Conditions says they include everything on those lists (OQ-S43m-7). The "link not kept in a saved copy" point needed no change: #1209 keeps no saved copy of the list.
@@ -4907,3 +4981,11 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Earlier note, before that update: `audio-scripts.ts` and `audio/manifest.json` are generated from the Production List .docx by `scripts/audio/import-production-list.py` ("do not hand-edit"), and the .docx is not in the repository. A hand edit would also have to move the clip's `script_hash`.
 - Options: (a) change the HLP-017 line in the Production List to "Choose a verified pharmacy to collect your medicine from. You pay the pharmacy when you collect." and re-run the importer before the clip is recorded (recommended); (b) record it as is and re-record later (not recommended).
 - Decision (founder, 2026-10-21): wording chosen: "Choose a verified pharmacy to collect your medicine from, or take your prescription to any pharmacy you like. You pay the pharmacy when you collect." The repo carries it (`audio-scripts.ts`, manifest hash). DONE 2026-10-21: the Production List .docx (v1.0, in the company folder; original kept as `...v1.0.before-OQ-719.docx`) carries the same words, and the importer run against it leaves HLP-017's script and hash unchanged. CLOSED.
+
+- Decision: open (founder or whoever owns the Production List): update the .docx line to match.
+
+### OQ-721 What is Membership Plus: scope, price and entitlements (raised 2026-10-21, with the removal of instalments)
+- On 2026-10-21 the founder said the product is now three tiers, "free, membership and membership plus", and that there will be no instalments. The instruction gave no details for Membership Plus, so none are invented here.
+- This conflicts with the earlier two-tier decisions: `docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md`, and in `docs/DECISIONS.md` the 2026-10-08 "Two-tier answers" and T-1 ("there are two tiers only"; one Member plan). The "Three-tier annual-only membership: Free, Membership, Membership Plus (2026-10-21)" entry in `docs/DECISIONS.md` and `docs/plans/three-tier-membership-build-brief.md` already propose an answer (a lower and a higher paid tier, an annual panel as the difference, a flat upgrade difference) and the build for it sits dark behind `membership_two_member_tiers`. It is not clear whether that proposal is the founder's final word.
+- **Please state, for Membership Plus:** the yearly price in naira; what it includes that Membership does not (the annual blood test panel? doctor time? anything else); whether Membership keeps the panel; the mid-year upgrade price, if any; the refund window for each; and whether the 2026-10-08 two-tier wording (T-1, the 120,000 price, the T-numbered amendments) is formally superseded. Until answered, nothing about Membership Plus is built, switched on or shown to patients beyond what is already dark.
+- Decision: **CLOSED 2026-10-21 (founder, answered in chat): the proposal already recorded in `docs/DECISIONS.md`, "Three-tier annual-only membership: Free, Membership, Membership Plus (2026-10-21)", and `docs/plans/three-tier-membership-build-brief.md` stands as the final scope, price and entitlements** (Membership NGN 84,000 a year; Membership Plus NGN 129,000 with the annual panel; flat NGN 45,000 mid-year upgrade; annual payment only, no instalments). That entry supersedes the 2026-10-08 two-tier decisions (T-1) as it already states. The Evergreen name is retired: customer-facing names are Membership and Membership Plus only. Nothing is switched on by this: the build stays dark behind `membership_two_member_tiers` until its listed conditions are met.

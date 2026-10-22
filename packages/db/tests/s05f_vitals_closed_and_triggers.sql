@@ -60,7 +60,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
   insert into public.profile_access_categories (profile_access_id, category) values (v_pa, 'vitals_readings');
   perform set_config('request.jwt.claims', null, true);
-  insert into public.profile_access (profile_id, grantee_user_id, granted_by, permission_level) values (v_pat, v_sup, v_pat, 'manage');
+  insert into public.profile_access (profile_id, grantee_user_id, granted_by, permission_level, permissions) values (v_pat, v_sup, v_pat, 'manage', array['log_readings']::public.caregiver_permission[]);
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, weight_kg, taken_at, source)
   values (v_org, v_pat, 'weight', 70.5, now() - interval '1 day', 'device');
 

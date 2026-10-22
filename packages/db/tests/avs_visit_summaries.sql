@@ -251,7 +251,6 @@ begin
                 from public.visit_summary_items where summary_id = s and kind <> 'custom')
              || jsonb_build_array(jsonb_build_object('kind', 'recheck', 'custom_text', 'Check your blood pressure at home again.', 'due_on', '2026-11-03'));
   v_diag := pg_temp.try_as(v_doc, format($q$select public.update_visit_summary_draft(%L, 'Your blood pressure was a little high today. Your care team asked you to take your tablet each morning and to check again next week.', %L::jsonb)$q$, s, v_items::text));
-  raise notice 'AVSDIAG4 good_text_save=%', v_diag;
   perform pg_temp.ck('a good plain-language text saves', 'ok', v_diag);
 
   -- a client cannot write the table or forge the signature
@@ -265,10 +264,7 @@ begin
     (pg_temp.try_as(v_np, format('select public.approve_visit_summary(%L)', s)) <> 'ok')::text);
   perform pg_temp.ck('a stranger patient sees nothing of the draft', '0', pg_temp.sees(v_sp, s));
 
-  raise notice 'AVSDIAG3 text=% items=%', private.visit_summary_copy_problems((select summary_text from public.visit_summaries where id = s)),
-    (select jsonb_agg(jsonb_build_object('c', custom_text, 'p', params, 'probs', private.visit_summary_copy_problems(coalesce(custom_text, '') || ' ' || params::text))) from public.visit_summary_items where summary_id = s);
   v_diag := pg_temp.try_as(v_doc, format('select public.approve_visit_summary(%L)', s));
-  raise notice 'AVSDIAG2 approve=%', v_diag;
   perform pg_temp.ck('the doctor approves', 'ok', v_diag);
   perform pg_temp.ck('...the signature is the acting doctor and a time, stamped by the database', 'true',
     (select (approved_by = v_doc and approved_at is not null and approved_by_staff = (select id from public.clinical_staff where profile_id = v_doc)
@@ -304,10 +300,6 @@ begin
   perform pg_temp.ck('a stranger patient sees nothing (table)', '0', pg_temp.sees(v_sp, s));
   perform pg_temp.ck('a stranger patient sees nothing (function)', 'false', pg_temp.rpc_has(v_sp, s));
   perform pg_temp.ck('staff have no direct read of the table', '0', pg_temp.sees(v_doc2, s));
-  perform pg_temp.act(v_cg);
-  raise notice 'AVSDIAG5 cg may=% ok=% state_ok=% can_read=%', private.visit_summary_caregiver_may(v_np), private.visit_summary_caregiver_ok(s), private.visit_summary_state_ok(s), private.can_read_clinical(v_np, 'view_care_plan'::public.caregiver_permission);
-  perform pg_temp.back();
-  raise notice 'AVSDIAG5b access=%', (select jsonb_agg(row_to_json(pa)) from public.profile_access pa where pa.profile_id = v_np);
   perform pg_temp.ck('a caregiver with care plan, medication and results permissions sees it (table)', '1', pg_temp.sees(v_cg, s));
   perform pg_temp.ck('...and through the function', 'true', pg_temp.cg_has(v_cg, v_np, s));
   perform pg_temp.ck('a caregiver with the care plan permission only sees nothing (table)', '0', pg_temp.sees(v_cg2, s));
@@ -341,18 +333,12 @@ begin
   perform pg_temp.ck('...it is stored', 'true', ((select done_at from public.visit_summary_item_progress where item_id = v_item) is not null)::text);
   perform pg_temp.ck('a stranger cannot tick it', 'true', (pg_temp.try_as(v_sp, format('select public.set_visit_summary_item_done(%L, true)', v_item)) like 'not found%')::text);
   perform pg_temp.ck('a caregiver cannot tick it (read only)', 'true', (pg_temp.try_as(v_cg, format('select public.set_visit_summary_item_done(%L, true)', v_item)) like 'not found%')::text);
-  raise notice 'AVSDIAG %', (select json_build_object('state_ok', private.visit_summary_state_ok(vs.id), 'state', vs.state, 'note_status', n.status,
-      'protected', n.is_protected, 'pending', (select ac.pending from private.visit_summary_amend_counts(n.id) ac),
-      'finalized', (select ac.finalized from private.visit_summary_amend_counts(n.id) ac), 'at_approval', vs.amendment_count_at_approval,
-      'flags', (select count(*) from public.note_error_flags f where f.note_id = n.id))
-    from public.visit_summaries vs join public.clinical_encounter_notes n on n.id = vs.note_id where vs.id = s);
   v_task := (pg_temp.q_as(v_np, format('select public.add_visit_summary_item_to_tasks(%L)::text', v_item)))::uuid;
   perform pg_temp.ck('the patient adds the step to their tasks', 'true',
     (select (patient_id = v_np and source = 'visit_summary' and owner_role = 'patient')::text from public.care_tasks where id = v_task));
   perform pg_temp.ck('...adding it again returns the same task', v_task::text, pg_temp.q_as(v_np, format('select public.add_visit_summary_item_to_tasks(%L)::text', v_item)));
   perform pg_temp.ck('...a stranger cannot add it', 'true', (pg_temp.try_as(v_sp, format('select public.add_visit_summary_item_to_tasks(%L)', v_item)) like 'not found%')::text);
   perform pg_temp.ck('...the step was already ticked, so the task is completed at once', 'completed', (select status::text from public.care_tasks where id = v_task));
-  raise notice 'AVSDIAG6 before untick: task=% progress=%', (select to_jsonb(c) - 'description' from public.care_tasks c where c.id = v_task), (select to_jsonb(p) from public.visit_summary_item_progress p where p.item_id = v_item);
   v_diag := pg_temp.try_as(v_np, format('select public.set_visit_summary_item_done(%L, false)', v_item));
   perform pg_temp.ck('...unticking reopens it', 'not_started',
     (select case when v_diag = 'ok' then (select status::text from public.care_tasks where id = v_task) else v_diag end));
