@@ -83,7 +83,8 @@ export function worklistRulesView(rules: unknown): WorklistRulesView | null {
   lines.push(on(rs) ? `A PHQ-9 that rose by ${num(rs, "phq9_min_rise")} or more, or a GAD-7 that rose by ${num(rs, "gad7_min_rise")} or more, between the two latest screens within ${num(rs, "look_back_days")} days.` : "Rising scores: switched off.");
   lines.push(on(os) ? `A PHQ-9 or GAD-7 that is more than ${num(os, "grace_days")} days past the date the screening schedule set. This rule works only while the screening schedule is signed.` : "Overdue screens: switched off.");
   lines.push(on(st) ? `A sleep diary with at least ${num(st, "min_entries")} nights in the last ${num(st, "window_days")} days, ${num(st, "min_trouble_nights")} or more of them under ${num(st, "short_sleep_hours")} hours or rated ${num(st, "low_quality_at_or_below")} out of 5 or lower.` : "Sleep trouble: switched off.");
-  lines.push(on(mc) ? `${num(mc, "min_prior_checkins")} or more mood check-ins in the ${num(mc, "prior_window_days")} days before, then none for ${num(mc, "silent_days")} days. You may want to switch this off: check-ins are a habit the patient controls.` : "Missed check-ins: switched off.");
+  // The check-ins-stopped rule is not in the first draft (founder decision, OQ-S56b-03), so it is not listed while it is off.
+  if (on(mc)) lines.push(`${num(mc, "min_prior_checkins")} or more mood check-ins in the ${num(mc, "prior_window_days")} days before, then none for ${num(mc, "silent_days")} days.`);
   lines.push(on(uh) ? `A hand-off, summary or request to talk that nobody has marked seen for ${num(uh, "after_hours")} hours.` : "Waiting hand-offs: switched off.");
   lines.push(`A follow-up made from the list is a task due in ${Math.round((num(fu, "task_due_minutes") as number) / 60)} hours; the patient stays on the list, marked, for ${num(fu, "snooze_days")} days. At most ${num(rules, "max_rows")} patients are shown.`);
   return { lines };

@@ -5269,7 +5269,7 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-S56b-01 Who the mental health worklist shows (S56b, 2026-10-22)
 - A clinician sees a patient only when they are TIED to them (`clinician_has_patient_access`: assignment, task, acknowledged page, appointment, referral). Break-glass grants are deliberately NOT a route onto a worklist (they are for an emergency read, not a standing list). A patient who never screened, checked in, logged sleep or sent a hand-off is invisible, and a care coordinator is refused (no scores). The CMO is a clinician like any other: no tie, no rows.
 - The rules run set-based over the organisation on every open and every count; fine for the pilot, too heavy for the 25,000-Member tier. A nightly snapshot table (with the same tie filter at read time) is the follow-up (scale plan SR1).
-- Decision: open (founder/CMO confirm the tie-only scope; engineering owns the snapshot).
+- Decision: decided reading, founder to confirm (see OQ-S56b-11): record access via break-glass unchanged, worklist list tied-only. Engineering owns the snapshot.
 
 ### OQ-S56b-02 Every worklist number is a placeholder until the CMO signs (S56b)
 - v1 (born unsigned and inactive): PHQ-9 rise 5 or more, GAD-7 rise 4 or more within 120 days; overdue 14 days after the date the signed schedule set; at least 5 short (under 5.5 hours) or poor (rated 2 or lower) nights out of at least 7 logged in 14 days; 8 or more check-ins in the 28 days before then 10 silent days; a hand-off unseen for 48 hours; follow-up task due in 72 hours; list capped at 100. None is a validated change threshold. The CMO can amend by signing a new version (the old one is never edited).
@@ -5308,3 +5308,8 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - The patient opt-out switches off only the sleep-diary and check-in-silence rules. A patient who wants nothing on the list at all is not offered that: scores they entered into a clinical questionnaire, and anything they send, are clinical record. Decision: open (CMO/DPO: is that the right line, and is the notice sentence enough for NDPA transparency).
 - Follow-ups use the existing `admin_clinical` type, which the hand-off already used. If the CMO wants a dedicated type (own competency, own due time) it should be added as a DRAFT awaiting confirmation like `crisis_follow_up`. Decision: open (CMO).
 - S56's own hand-off task key (`mh_handoff:<id>`) is still readable by wider task readers; changing it was out of scope here. Decision: open (engineering follow-up).
+
+### OQ-S56b-11 Founder decisions on OQ-S56b-01, -03 and -08 (S56b, 2026-10-22)
+- OQ-S56b-03 decided: the "check-ins stopped" rule is DISABLED in the first draft rule set (v1 ships `missed_checkins.enabled = false`, the sign-off panel does not list it). The rule code stays; a later signed version may enable it (proved with a v2).
+- OQ-S56b-08 decided: the test-account bypass stays as built (`is_test` is trigger-guarded).
+- OQ-S56b-01, decided reading: record access via break-glass unchanged (an emergency grant still opens one patient's record through the audited read, proved), worklist LIST tied-only (an emergency grant never puts a patient on a list or in the count). Founder to confirm this reading.

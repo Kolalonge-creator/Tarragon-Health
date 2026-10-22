@@ -4428,7 +4428,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       rising_screen: { enabled: true, look_back_days: 120, phq9_min_rise: 5, gad7_min_rise: 4 },
       overdue_screen: { enabled: true, grace_days: 14, instruments: ["phq9", "gad7"] },
       sleep_trouble: { enabled: true, window_days: 14, min_entries: 7, short_sleep_hours: 5.5, low_quality_at_or_below: 2, min_trouble_nights: 5 },
-      missed_checkins: { enabled: true, prior_window_days: 28, min_prior_checkins: 8, silent_days: 10 },
+      missed_checkins: { enabled: false, prior_window_days: 28, min_prior_checkins: 8, silent_days: 10 },
       unactioned_handoff: { enabled: true, after_hours: 48 },
       follow_up: { task_due_minutes: 4320, snooze_days: 7 },
       max_rows: 100,

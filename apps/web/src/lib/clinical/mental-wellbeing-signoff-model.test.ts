@@ -74,15 +74,21 @@ describe("worklist rules in words", () => {
     expect(text).toContain("within 120 days");
     expect(text).toContain("more than 14 days");
     expect(text).toContain("under 5.5 hours");
-    expect(text).toContain("none for 10 days");
+    expect(text).not.toMatch(/check-ins?/i); // the check-ins-stopped rule is off in the first draft and not listed
+    expect(text).not.toContain("none for 10 days");
     expect(text).toContain("48 hours");
     expect(text).toContain("72 hours");
-    expect(view?.lines.length).toBeGreaterThan(5);
+    expect(view?.lines.length).toBe(5); // score rise, overdue, sleep, waiting hand-off, follow-up task
     expect(text).toContain("At most 100 patients");
   });
+  it("the first draft ships the check-ins-stopped rule disabled; a later version that enables it lists it", () => {
+    expect((v1 as { missed_checkins: { enabled: boolean } }).missed_checkins.enabled).toBe(false);
+    const on = worklistRulesView({ ...(v1 as object), missed_checkins: { ...(v1 as { missed_checkins: object }).missed_checkins, enabled: true } });
+    expect(on?.lines.join("\n")).toContain("none for 10 days");
+  });
   it("says a switched-off rule is switched off, and refuses a draft with a missing number", () => {
-    const off = worklistRulesView({ ...(v1 as object), missed_checkins: { ...(v1 as { missed_checkins: object }).missed_checkins, enabled: false } });
-    expect(off?.lines.join("\n")).toContain("Missed check-ins: switched off.");
+    const off = worklistRulesView({ ...(v1 as object), sleep_trouble: { ...(v1 as { sleep_trouble: object }).sleep_trouble, enabled: false } });
+    expect(off?.lines.join("\n")).toContain("Sleep trouble: switched off.");
     expect(worklistRulesView({ ...(v1 as object), max_rows: undefined })).toBeNull();
     expect(worklistRulesView(null)).toBeNull();
   });

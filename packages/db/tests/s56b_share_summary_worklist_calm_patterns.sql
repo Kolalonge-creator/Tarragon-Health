@@ -380,6 +380,13 @@ begin
           select 2, true, current_date, rules, now(), pg_temp.f('cmo') from public.mental_health_worklist_config where version = 1;
         perform pg_temp.ck('a rule set cannot be created signed', 'refused', 'created');
   exception when others then perform pg_temp.ck('a rule set cannot be created signed', 'refused', 'refused'); end;
+  perform pg_temp.ck('the first draft ships the check-ins-stopped rule disabled', 'false', (select (rules #>> '{missed_checkins,enabled}') from public.mental_health_worklist_config where version = 1));
+  perform pg_temp.ck('with v1 signed C (check-ins stopped) is not on the list, A and B are', 'A,B', pg_temp.names(pg_temp.f('doctied')));
+  -- the rule code is still there: a later signed version may enable it (v2 = v1 with the rule on) and C appears
+  insert into public.mental_health_worklist_config (version, effective_from, rules)
+    select 2, current_date, jsonb_set(rules, '{missed_checkins,enabled}', 'true') from public.mental_health_worklist_config where version = 1;
+  perform pg_temp.ck('the CMO signs version 2 (rule enabled)', 'ok', pg_temp.try_as(pg_temp.f('cmo'), 'select public.sign_mental_health_worklist_config(2)'));
+  perform pg_temp.ck('...and now C appears', 'A,B,C', pg_temp.names(pg_temp.f('doctied')));
   begin insert into public.mental_health_worklist_config (version, effective_from, rules) values (9, current_date, '{"max_rows": 0}');
         perform pg_temp.ck('rules that are not valid are refused', 'refused', 'created');
   exception when others then perform pg_temp.ck('rules that are not valid are refused', 'refused', 'refused'); end;
@@ -393,6 +400,16 @@ begin
   perform pg_temp.ck('...the count agrees and is only a number', '3', pg_temp.q_as(pg_temp.f('doctied'), 'select public.count_mental_health_worklist()::text'));
   perform pg_temp.ck('the other clinician sees only the patient tied to them', 'E', pg_temp.names(pg_temp.f('docuntied')));
   perform pg_temp.ck('...count 1', '1', pg_temp.q_as(pg_temp.f('docuntied'), 'select public.count_mental_health_worklist()::text'));
+  -- break-glass: an emergency grant still opens ONE patient's record (2026-10-07 decision) but never puts a patient on a list
+  insert into public.emergency_record_access_grants (requester_id, requester_org_id, patient_id, patient_org_id, reason, expires_at)
+    values (pg_temp.f('docuntied'), pg_temp.f('org'), pg_temp.f('A'), pg_temp.f('org'), 'proof break-glass', now() + interval '1 hour');
+  perform pg_temp.ck('an emergency grant still opens the individual record (audited)', 'ok',
+    pg_temp.q_as(pg_temp.f('docuntied'), format($q$select (public.read_patient_mental_health_audited(%L, 'emergency access in progress', array['screens']))->>'status'$q$, pg_temp.f('A'))));
+  perform pg_temp.ck('...but the list stays tied-only: the grant does not add A to it', 'E', pg_temp.names(pg_temp.f('docuntied')));
+  perform pg_temp.ck('...and the count stays 1', '1', pg_temp.q_as(pg_temp.f('docuntied'), 'select public.count_mental_health_worklist()::text'));
+  update public.emergency_record_access_grants set ended_at = now() where requester_id = pg_temp.f('docuntied');
+  perform pg_temp.ck('an ended grant opens nothing', 'denied',
+    pg_temp.q_as(pg_temp.f('docuntied'), format($q$select (public.read_patient_mental_health_audited(%L, 'emergency access in progress', array['screens']))->>'status'$q$, pg_temp.f('A'))));
   perform pg_temp.ck('the CMO without a tie sees nobody (a clinician is not a free pass)', '', pg_temp.names(pg_temp.f('cmo')));
   perform pg_temp.ck('...count 0', '0', pg_temp.q_as(pg_temp.f('cmo'), 'select public.count_mental_health_worklist()::text'));
   perform pg_temp.ck('a care coordinator tied to A is refused the list', 'true', (pg_temp.names(pg_temp.f('coord')) like 'ERR:not authorised%')::text);
@@ -434,7 +451,7 @@ begin
   perform pg_temp.ck('...and the waiting reason clears', '0', (select count(*)::text from jsonb_array_elements(v -> 'rows') x, jsonb_array_elements(x -> 'reasons') y where y ->> 'code' = 'unactioned_handoff'));
   -- audit: one row per patient served, with the section, in the patient's own trail; the count writes none
   select count(*) into n from public.audit_log where actor_id = pg_temp.f('doctied') and action = 'staff.mental_health_read' and event -> 'sections' ? 'worklist' and result = 'success';
-  perform pg_temp.ck('every patient served is an audit row', 'true', (n >= 3 and n % 3 = 0)::text);
+  perform pg_temp.ck('every patient served is an audit row', 'true', (n >= 3)::text);
   perform pg_temp.ck('...in the patient''s own trail', '0', (select count(*)::text from public.audit_log where actor_id = pg_temp.f('doctied') and event -> 'sections' ? 'worklist' and subject_patient_id is null));
   perform pg_temp.ck('...none for the controls', '0', (select count(*)::text from public.audit_log where actor_id = pg_temp.f('doctied') and event -> 'sections' ? 'worklist' and subject_patient_id in (pg_temp.f('D'), pg_temp.f('E'))));
   perform pg_temp.ck('a refused list writes no patient audit row for the coordinator', '0', pg_temp.n_audit(pg_temp.f('coord'), 'success', 'worklist'));
@@ -482,7 +499,7 @@ begin
   perform pg_temp.ck('...with a random key that names neither the worklist nor the patient', 'true', (select (dedup_key ~ '^mhw:[0-9a-f-]{36}$' and dedup_key not like '%' || a::text || '%')::text from public.clinical_tasks where id = v_task));
   perform pg_temp.ck('...no task key anywhere carries the old readable forms', '0', (select count(*)::text from public.clinical_tasks where dedup_key like 'mh_worklist:%' or dedup_key like 'mh_summary:%'));
   perform pg_temp.ck('...with a due time in the future (the signed rules say 72 hours)', 'true', (select (due_at > now() + interval '1 hour')::text from public.clinical_tasks where id = v_task));
-  perform pg_temp.ck('...and an action row records who, which rules and the reasons', 'doctied|1',
+  perform pg_temp.ck('...and an action row records who, which rules and the reasons', 'doctied|2',
     (select case when clinician_id = pg_temp.f('doctied') then 'doctied' end || '|' || config_version from public.mental_health_worklist_actions where patient_id = a));
   perform pg_temp.ck('...the reasons are kept as codes', 'true', (select (reasons @> array['rising_screen'])::text from public.mental_health_worklist_actions where patient_id = a));
   perform pg_temp.ck('...the event was emitted (no event error was written)', '0', (select count(*)::text from public.audit_log where action = 'mh_worklist_event.error'));
