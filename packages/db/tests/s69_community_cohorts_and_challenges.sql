@@ -372,7 +372,7 @@ begin
   ---------------------------------------------------------------------------------------------------------------- 11. there is no cohort-against-cohort board (founder decision 2026-10-22)
   perform pg_temp.ck('11 the board function no longer exists', '0', (select count(*)::text from pg_proc where pronamespace = 'public'::regnamespace and proname = 'cohort_board'));
   perform pg_temp.ck('11 no function in public or private ranks cohorts against each other', '0',
-    (select count(*)::text from pg_proc where pronamespace in ('public'::regnamespace, 'private'::regnamespace) and proname ~* 'board|leaderboard|cohort_rank'));
+    (select count(*)::text from pg_proc where pronamespace in ('public'::regnamespace, 'private'::regnamespace) and proname ~* '(cohort|challenge)' and proname ~* '(board|rank|leader|standing)'));
   -- the cohorts are still pushed below the floor and back so the later checks keep their state
   delete from public.challenge_participation where challenge_id = v_chB and patient_id in (select patient_id from public.challenge_participation where challenge_id = v_chB limit 3);
   perform private.challenge_aggregate(v_chB, false); perform pg_temp.publish_all();
