@@ -239,14 +239,21 @@ begin
     (select file_state from public.child_card_photos where client_id = cid) || '|' || pg_temp.q_as(v_mum, format('select public.confirm_child_card_photo_uploaded(%L, %L)', v_child, cid))
     || '|' || pg_temp.q_as(v_dad, format('select public.confirm_child_card_photo_uploaded(%L, %L)', v_child, cid)));
   insert into storage.objects (bucket_id, name) values ('child-card-photos', v_mum::text || '/' || v_child::text || '/' || cid::text || '.jpg');
-  perform pg_temp.ck('once the file exists the uploader can confirm it, and only then the row is uploaded', 'true|uploaded', pg_temp.q_as(v_mum, format('select public.confirm_child_card_photo_uploaded(%L, %L)::text', v_child, cid)) || '|' || (select file_state from public.child_card_photos where client_id = cid));
+  -- The call goes first and its result is held, so the row is read AFTER the update (an inline subselect is evaluated before the function call).
+  r := pg_temp.q_as(v_mum, format('select public.confirm_child_card_photo_uploaded(%L, %L)::text', v_child, cid));
+  perform pg_temp.ck('once the file exists the uploader can confirm it, and only then the row is uploaded', 'true|uploaded', r || '|' || (select file_state from public.child_card_photos where client_id = cid));
   perform pg_temp.ck('anon cannot call the confirm function', 'false', has_function_privilege('anon', 'public.confirm_child_card_photo_uploaded(uuid,uuid)', 'EXECUTE')::text);
   perform pg_temp.ck('a path that is not <uploader>/<child>/<client id>.jpg is refused', 'The photo path does not match the account, the child and the entry',
     pg_temp.try_as(v_mum, format($q$insert into public.child_card_photos (organisation_id, patient_id, client_id, storage_path, size_bytes) values (%L, %L, gen_random_uuid(), 'someone/else.jpg', 1000)$q$, v_org, v_child)));
   perform pg_temp.ck('the partner with the vaccinations category reads the record', '1', pg_temp.q_as(v_dad, format('select count(*)::text from public.child_card_photos where patient_id = %L', v_child)));
   perform pg_temp.ck('a view grant with no category and a stranger read nothing', '0|0', pg_temp.q_as(v_cg, format('select count(*)::text from public.child_card_photos where patient_id = %L', v_child)) || '|' || pg_temp.q_as(v_stranger, format('select count(*)::text from public.child_card_photos where patient_id = %L', v_child)));
-  perform pg_temp.ck('the partner cannot add a card photo', 'true',
-    (pg_temp.try_as(v_dad, format($q$insert into public.child_card_photos (organisation_id, patient_id, client_id, storage_path, size_bytes) values (%L, %L, gen_random_uuid(), 'x', 1000)$q$, v_org, v_child)) like '%row-level security%')::text);
+  -- A valid path (the partner's own uid / the child / the client id) so the stamping trigger passes and it is the ROW POLICY that must refuse; with a bad
+  -- path the trigger's own error came first and the check proved nothing.
+  perform pg_temp.ck('can_act_for_minor: the manager is true, the view-only partner and a stranger are false', 'true|false|false',
+    pg_temp.q_as(v_mum, format('select private.can_act_for_minor(%L)::text', v_child)) || '|' || pg_temp.q_as(v_dad, format('select private.can_act_for_minor(%L)::text', v_child))
+    || '|' || pg_temp.q_as(v_stranger, format('select private.can_act_for_minor(%L)::text', v_child)));
+  perform pg_temp.ck('the partner (a view grant) cannot add a card photo: the row policy refuses it', 'true',
+    (pg_temp.try_as(v_dad, format($q$insert into public.child_card_photos (organisation_id, patient_id, client_id, storage_path, size_bytes) values (%L, %L, %L, %L, 1000)$q$, v_org, v_child, v_fast, v_dad::text || '/' || v_child::text || '/' || v_fast::text || '.jpg')) like '%row-level security%')::text);
   perform pg_temp.ck('nothing can be changed or removed from the phone', 'permission denied for table child_card_photos|permission denied for table child_card_photos',
     pg_temp.try_as(v_mum, 'update public.child_card_photos set status = ''seen_by_care_team''') || '|' || pg_temp.try_as(v_mum, 'delete from public.child_card_photos'));
   perform pg_temp.ck('anon is refused', 'permission denied for table child_card_photos', pg_temp.try_anon('select 1 from public.child_card_photos limit 1'));
@@ -265,7 +272,7 @@ begin
     (select string_agg(policy, '|' order by table_name) from public.minor_dependant_table_policy where table_name in ('child_card_photos', 'child_daily_events'))
     || '|' || (select count(*)::text from pg_trigger g join pg_class c on c.oid = g.tgrelid where c.relname in ('child_daily_events', 'child_card_photos') and g.tgname = '00_minor_dependant_scope'));
   perform pg_temp.ck('both new tables are in the S39d data registry', '2', (select count(*)::text from public.data_registry where table_name in ('child_daily_events', 'child_card_photos')));
-  perform pg_temp.ck('private.go_live_conditions() is untouched (still exists)', 'true', (to_regprocedure('private.go_live_conditions()') is not null)::text);
+  perform pg_temp.ck('private.go_live_conditions is untouched: still present (by name, whatever its arguments are today)', 'true', (exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'private' and p.proname = 'go_live_conditions'))::text);
 end $$;
 
 -- 6. SABOTAGE
