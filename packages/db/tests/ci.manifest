@@ -1378,6 +1378,8 @@ s47a_observation_types.sql
 s49a_food_logging_foundation.sql
 # S48a: activity safety gate (red event in 48h = rest, enforced on enrolment incl. re-activation), kinds/goals/events, unreviewed workout plans hidden, owner-only private routes. Sabotage: trigger dropped, gate ignoring red, staff route policy; each must flip.
 s48a_activity_safety_gate.sql
+# S50a: eating plans and food swaps. Guidance config born unsigned and inactive, CMO-only signing, kidney and pregnancy plans refuse any numbers block, identical bare answer for everyone before signing and for every withheld person after, pregnancy plan only from the patient's own record and never under a hold or positive eating-disorder screen. Sabotage: pregnancy reader forced true and the withheld rule removed; both must flip.
+s50a_eating_plans_swaps.sql
 s27h_lab_lifecycle_and_quality.sql
 
 

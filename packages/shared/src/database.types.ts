@@ -869,6 +869,39 @@ export type Database = {
         }
         Relationships: []
       }
+      nutrition_guidance_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       nutrition_target_config: {
         Row: {
           approved_at: string | null
@@ -49632,6 +49665,9 @@ export type Database = {
       medication_refill_pharmacy: { Args: { p_medication: string }; Returns: { partner_id: string; partner_name: string | null; location_name: string | null; address: string | null }[] };
       attest_pharmacy_nafdac_source: { Args: { p_partner: string; p_note: string }; Returns: Json };
       my_nutrition_target_gate: { Args: Record<PropertyKey, never>; Returns: Json }
+      my_nutrition_guidance: { Args: Record<PropertyKey, never>; Returns: Json }
+      nutrition_guidance_is_signed: { Args: Record<PropertyKey, never>; Returns: boolean }
+      sign_nutrition_guidance_config: { Args: { p_id: string }; Returns: string }
       set_nutrition_target_hold: { Args: { p_hold: boolean; p_patient: string; p_reason?: string }; Returns: string }
       sign_interaction_dataset: { Args: { p_version: number; p_content_hash: string; p_note: string }; Returns: Json };
       care_team_side_effect_notes: {
