@@ -119,6 +119,153 @@ export type Database = {
         }
         Relationships: []
       }
+      dose_anchor_defaults: {
+        Row: {
+          anchor: string
+          default_time: string
+        }
+        Insert: {
+          anchor: string
+          default_time: string
+        }
+        Update: {
+          anchor?: string
+          default_time?: string
+        }
+        Relationships: []
+      }
+      patient_day_shifts: {
+        Row: {
+          cancelled_from: string | null
+          client_id: string | null
+          created_at: string
+          ends_on: string
+          id: string
+          offsets: Json
+          organisation_id: string
+          patient_id: string
+          starts_on: string
+        }
+        Insert: {
+          cancelled_from?: string | null
+          client_id?: string | null
+          created_at?: string
+          ends_on: string
+          id?: string
+          offsets: Json
+          organisation_id: string
+          patient_id: string
+          starts_on: string
+        }
+        Update: {
+          cancelled_from?: string | null
+          client_id?: string | null
+          created_at?: string
+          ends_on?: string
+          id?: string
+          offsets?: Json
+          organisation_id?: string
+          patient_id?: string
+          starts_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_day_shifts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_day_shifts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_dose_anchor_slots: {
+        Row: {
+          anchor: string
+          created_at: string
+          organisation_id: string
+          patient_id: string
+          slot: string
+        }
+        Insert: {
+          anchor: string
+          created_at?: string
+          organisation_id: string
+          patient_id: string
+          slot: string
+        }
+        Update: {
+          anchor?: string
+          created_at?: string
+          organisation_id?: string
+          patient_id?: string
+          slot?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_dose_anchor_slots_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_dose_anchor_slots_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_dose_anchors: {
+        Row: {
+          anchor: string
+          created_at: string
+          effective_from: string
+          local_time: string
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          anchor: string
+          created_at?: string
+          effective_from: string
+          local_time: string
+          organisation_id: string
+          patient_id: string
+        }
+        Update: {
+          anchor?: string
+          created_at?: string
+          effective_from?: string
+          local_time?: string
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_dose_anchors_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_dose_anchors_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workout_plans: {
         Row: {
           audio_clip_ids: string[]
@@ -49916,9 +50063,25 @@ export type Database = {
       add_visit_summary_item_to_tasks: { Args: { p_item: string }; Returns: string }
       approve_visit_summary: { Args: { p_summary: string }; Returns: undefined }
       assemble_visit_summary: { Args: { p_note: string }; Returns: string }
+      cancel_day_shift: {
+        Args: { p_id: string; p_patient: string }
+        Returns: string
+      }
+      ensure_dose_anchor_slots: {
+        Args: { p_anchors: string[]; p_patient: string }
+        Returns: Json
+      }
+      create_day_shift: {
+        Args: { p_client_id: string; p_ends_on: string; p_offsets: Json; p_patient: string; p_starts_on: string }
+        Returns: string
+      }
       my_visit_summaries: { Args: { p_patient?: string }; Returns: Json }
       read_visit_summary_for_review: { Args: { p_note: string }; Returns: Json }
       record_visit_summary_opened: { Args: { p_summary: string }; Returns: undefined }
+      save_dose_anchor_times: {
+        Args: { p_effective_from?: string; p_patient: string; p_times: Json }
+        Returns: string
+      }
       set_visit_summary_item_done: { Args: { p_done: boolean; p_item: string }; Returns: undefined }
       lookup_barcode: { Args: { p_code: string }; Returns: Json }
       activity_gate: { Args: Record<PropertyKey, never>; Returns: Json };
