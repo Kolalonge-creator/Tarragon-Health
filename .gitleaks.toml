@@ -8,6 +8,9 @@ useDefault = true
 description = "reviewed non-secrets"
 paths = [
   '''pnpm-lock\.yaml$''',
+  # Provider sandbox check unit test: deliberately fake key-shaped strings (sk_live_abcdef123456, re_supersecretvalue ...) that prove the
+  # live-key refusal and the redactor. Not credentials; they live in history (#1218), so they cannot be reworded away. This one file only.
+  '''scripts/provider-sandbox-check/checks\.test\.mjs$''',
 ]
 regexes = [
   '''sk_test_[A-Za-z0-9_.]*YOURS_HERE''',
