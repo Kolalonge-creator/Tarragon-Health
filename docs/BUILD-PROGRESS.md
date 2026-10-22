@@ -2344,3 +2344,9 @@ Founder decision 2026-10-20 (explicit; reverses S72-2; against INV-09, credit ri
 - **Schema second**: `20261021183328_remove_membership_instalments.sql` restores 13 functions whole from their pre-S25b definitions and patches 4 (`record_order_payment`, `post_order_to_ledger`, `decide_order_refund`, `private.money_mismatches`) from their LIVE definitions so the Membership tier ladder work survives; drops the cron job, 13 functions, 5 tables, the 2 refunds columns, the module row, 3 templates and the registry row; ends in an assertion block. Proof `membership_instalments_removed.sql` (registered in `ci.manifest`) with a sabotage step that flips 9 structural checks.
 - **Follow-ups**: no `order-checkout` redeploy is needed: the deployed function (version 20, 2026-10-15) predates S25b and never had the instalment branch. The Membership tier ladder PR (#1253) was rebased and had its instalment code, mocks and proof assertions removed in the same way (code only; this PR owns the schema removal). Care-voucher layaway is unrelated and untouched.
 
+
+## Design principles pass, 2026-10-22 (branch `build/s51-55-e-design-principles`, not pushed, no PR)
+- **Audit**: `docs/design/design-principles-audit-2026-10.md` (8 principles, with file references; code reading only, no screenshots taken, nothing run on a device).
+- **Built (additive)**: Home next-step order from deterministic data (`lib/patient/next-action-priority.ts`, red alert, due dose, due reading, refill, older items, lesson); `STATUS_ICON` + `readingStatus()` + `ReadingStatus` used in the vitals history; `formatNairaForPatient` + `PriceBeforePay`; English copy `packages/i18n/src/design-principles-copy.ts`.
+- **Not built, on purpose**: glucose status word (unsigned wording), web offline queue, shared-phone app-wide hide, trust cue on more item types, Home card trimming. See OQ-DP-01 to OQ-DP-07.
+- No migrations, no live writes.

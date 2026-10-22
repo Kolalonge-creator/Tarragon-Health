@@ -1,41 +1,47 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { isAssistantOffered } from "@/lib/ai-coach/offered";
-import { SEMANTIC_ICON, type AppIconName, APP_ICON } from "@/lib/icons";
-
-type NextAction = {
-  icon: AppIconName;
-  title: string;
-  body: string;
-  href: string;
-  cta: string;
-};
+import { SEMANTIC_ICON, APP_ICON } from "@/lib/icons";
+import { t, type MessageKey } from "@tarragon/i18n";
+import { lagosLocalDate, LAGOS_OFFSET_MS } from "@tarragon/medicines";
+import { buildTodaysDoseChecklist } from "@/lib/medication-schedule/checklist";
+import { NEXT_ACTION_COPY_SLUG, pickNextAction, type NextAction } from "@/lib/patient/next-action-priority";
 
 /**
- * "Next best action" — one clear card at the top of the patient dashboard,
- * the single most copied engagement pattern across the digital-health leaders
- * (Teladoc care navigation, Livongo, Omada). Pure synthesis over data the
- * patient already owns under RLS — nothing new is computed or stored, and
- * safety surfaces (EmergencyAlert / DangerSymptomCheck) always render above
- * this card, so it never competes with an emergency.
- *
- * Priority order (first match wins):
- *   1. overdue/pending screening past due     → book it
- *   2. a video-consult slot offer awaiting me → pick a time
- *   3. an open medicines check-in             → answer it
- *   4. a medication review is due             → book the review
- *   5. a refill due within 7 days             → sort the refill
- *   6. no vitals reading in the last 7 days   → log today's reading
- *   7. everything current                     → gentle "you're up to date"
+ * "Next best action" -- the ONE card at the top of the patient dashboard (design principle 1: Home shows one next action). Pure synthesis
+ * over data the patient already owns under RLS; nothing new is computed or stored. The order is fixed code (see
+ * lib/patient/next-action-priority.ts), never chosen by AI, and the emergency surfaces (EmergencyAlert / DangerSymptomCheck) always render
+ * above this card, so it never competes with an emergency and never carries clinical wording of its own.
  */
 /** Data + date work lives outside the component body (react-hooks/purity). */
 async function resolveNextAction(patientId: string): Promise<NextAction> {
   const supabase = await createClient();
-  const today = new Date().toISOString().slice(0, 10);
-  const in7days = new Date(Date.now() + 7 * 86400_000).toISOString().slice(0, 10);
-  const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
+  const nowMs = Date.now();
+  const today = new Date(nowMs).toISOString().slice(0, 10);
+  const in7days = new Date(nowMs + 7 * 86400_000).toISOString().slice(0, 10);
+  const sevenDaysAgo = new Date(nowMs - 7 * 86400_000).toISOString();
+  const lagosToday = lagosLocalDate(nowMs);
+  const lagosNowHm = new Date(nowMs + LAGOS_OFFSET_MS).toISOString().slice(11, 16);
 
-  const [screening, consult, checkin, review, refill, recentVital] = await Promise.all([
+  const [redAlert, activeMeds, doseLogs, screening, consult, checkin, review, refill, recentVital, lesson] = await Promise.all([
+    supabase
+      .from("emergency_events")
+      .select("id")
+      .eq("patient_id", patientId)
+      .eq("status", "active")
+      .is("acknowledged_at", null)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("medications")
+      .select("id, drug_name, schedule_times, schedule_spec")
+      .eq("patient_id", patientId)
+      .eq("is_active", true),
+    supabase
+      .from("medication_logs_latest_per_slot")
+      .select("medication_id, scheduled_time, status")
+      .eq("patient_id", patientId)
+      .eq("scheduled_for_date", lagosToday),
     supabase
       .from("screening_schedules")
       .select("id, due_date, screen_type:screen_types(name)")
@@ -88,78 +94,25 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
       .gte("taken_at", sevenDaysAgo)
       .limit(1)
       .maybeSingle(),
+    supabase.rpc("weekly_micro_lesson"),
   ]);
 
-  let action: NextAction;
-  if (screening.data) {
-    const screenName = screening.data.screen_type?.name ?? "screening";
-    action = {
-      icon: "preventive",
-      title: `Your ${screenName} is due`,
-      body: "Booking takes about a minute, and an early catch is the whole point of screening.",
-      href: "/patient/prevention",
-      cta: "Book it now",
-    };
-  } else if (consult.data) {
-    // proposed_slots lives directly on video_consultations only for the
-    // Health Check's bundled video consult (every Screen tier since
-    // 20260829140114_health_check_video_consult_all_tiers.sql) — the other
-    // video-consult product (paid "Online Doctor Consultation") tracks its
-    // own alternate-time offers on video_visit_requests.proposed_slot_ids
-    // instead, a separate column on a separate table. So this always means
-    // the Health Check page, where the pick-a-time card actually lives.
-    action = {
-      icon: "booking",
-      title: "Your doctor offered times for a video call",
-      body: "Pick whichever works for you; it only takes a tap to confirm.",
-      href: "/patient/health-check",
-      cta: "Pick a time",
-    };
-  } else if (checkin.data) {
-    action = {
-      icon: "medication",
-      title: "A 2-minute medicines check-in is waiting",
-      body: "Tell us how the medicine is going; it helps your care team spot problems early.",
-      href: "/patient/medications",
-      cta: "Answer now",
-    };
-  } else if (review.data) {
-    action = {
-      icon: "medication",
-      title: "Your medication review is due",
-      body: "A quick review with your care team keeps your treatment on track. Book it when you're ready.",
-      href: "/patient/medications",
-      cta: "See my review",
-    };
-  } else if (refill.data) {
-    action = {
-      icon: "medication",
-      title: `${refill.data.drug_name} is due for a refill soon`,
-      body: "Sort the refill now so your supply keeps going.",
-      href: "/patient/medications",
-      cta: "Sort my refill",
-    };
-  } else if (!recentVital.data) {
-    action = {
-      icon: "bp",
-      title: "Log a reading today",
-      body: "A fresh reading keeps your care team's picture of you current; it takes under a minute.",
-      href: "/patient/vitals",
-      cta: "Log a reading",
-    };
-  } else {
-    action = {
-      // Careful to claim only that the TASK QUEUE is clear, never that the
-      // patient's health is fine — the hero band's score zone sits right
-      // beside this and can be saying "Needs attention" at the same moment.
-      icon: "preventive",
-      title: "You're all caught up",
-      body: "No tasks are waiting on you right now. Keep logging readings so your care team can keep an eye on things.",
-      href: "/patient/vitals",
-      cta: "Log another reading",
-    };
-  }
-  return action;
+  // A dose is due when a slot today has passed (Lagos clock) and is still pending. Same checklist the Today list uses.
+  const checklist = buildTodaysDoseChecklist(activeMeds.data ?? [], doseLogs.data ?? [], nowMs);
+  const hasDoseDue = checklist.some((item) => item.status === "pending" && item.time <= lagosNowHm);
+  const weeklyLesson = ((lesson.data ?? []) as { completed_this_week?: boolean | null; members_only?: boolean | null }[])[0];
+
+  return pickNextAction({
+    hasUnansweredRedAlert: !!redAlert.data,
+    hasDoseDue,
+    readingDue: !recentVital.data,
+    refillDrugName: refill.data?.drug_name ?? null,
+    screeningName: screening.data ? (screening.data.screen_type?.name ?? "screening") : null,
+    hasConsultSlotsOffered: !!consult.data,
+    hasCheckinOpen: !!checkin.data,
+    hasReviewDue: !!review.data,
+    lessonReady: !!weeklyLesson && weeklyLesson.completed_this_week !== true && weeklyLesson.members_only !== true,
+  });
 }
 
 /**
@@ -172,6 +125,8 @@ export async function NextBestAction({ patientId }: { patientId: string }) {
   const supabase = await createClient();
   const [action, coachAccess] = await Promise.all([resolveNextAction(patientId), isAssistantOffered(supabase)]);
   const Icon = APP_ICON[action.icon] ?? SEMANTIC_ICON.preventive;
+  const slug = NEXT_ACTION_COPY_SLUG[action.kind];
+  const copy = (part: "title" | "body" | "cta") => t(`dp.next.${slug}.${part}` as MessageKey, "en", action.params);
 
   return (
     <div className="flex h-full flex-col justify-center gap-4 bg-gradient-to-br from-deep-forest to-brand-green p-6 text-white sm:p-8">
@@ -179,10 +134,10 @@ export async function NextBestAction({ patientId }: { patientId: string }) {
         <Icon className="mt-0.5 h-5 w-5 shrink-0 text-white/80" aria-hidden />
         <div className="min-w-0 space-y-1">
           <p className="text-xs font-medium uppercase tracking-wide text-white/70">
-            Next best step
+            {t("dp.next.label")}
           </p>
-          <p className="font-heading text-lg font-semibold sm:text-xl">{action.title}</p>
-          <p className="max-w-xl text-sm text-white/80">{action.body}</p>
+          <p className="font-heading text-lg font-semibold sm:text-xl">{copy("title")}</p>
+          <p className="max-w-xl text-sm text-white/80">{copy("body")}</p>
           {/* §78.3 -- a conversational alternative to this deterministic card,
               for a patient who'd rather ask than click through. */}
           {coachAccess && (
@@ -196,7 +151,7 @@ export async function NextBestAction({ patientId }: { patientId: string }) {
         href={action.href}
         className="inline-flex w-fit shrink-0 items-center justify-center rounded-lg bg-white dark:bg-night-card px-5 py-2.5 text-sm font-semibold text-deep-forest dark:text-brand-green-bright transition-colors hover:bg-white/90 dark:hover:bg-night-ground/90"
       >
-        {action.cta}
+        {copy("cta")}
       </Link>
     </div>
   );
