@@ -43,8 +43,10 @@ export type GrowthBandResult =
  * it never invents "growing well".
  */
 export function bandForPoint(p: GrowthPointInput, rules: GrowthBandRules = growthBandRules().rules): GrowthBandResult {
-  if (p.implausible) return { kind: "check_measurement" };
   const crisis = p.nutritionClass === "severe_acute";
+  // The database keeps an implausible value and STILL ROUTES it (S68d). A severe class therefore leads even when the value looks like a slip:
+  // the screen asks for a re-check and tells the person to go to the clinic. The crisis is never hidden behind "check the measurement".
+  if (p.implausible) return crisis ? { kind: "band", band: "talk_to_care_team", crisis: true } : { kind: "check_measurement" };
   const zs = [p.weightForAgeZ, p.heightForAgeZ, p.weightForHeightZ].filter((z): z is number => z !== null && Number.isFinite(z));
   if (zs.length === 0 && p.nutritionClass !== "moderate_acute" && !crisis) return { kind: "no_reference" };
   const worst = zs.length === 0 ? 0 : Math.max(...zs.map(Math.abs));

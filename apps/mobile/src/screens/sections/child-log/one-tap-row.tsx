@@ -30,7 +30,7 @@ const OUTCOME_KEY: Record<TapOutcome, Parameters<typeof t>[0]> = {
  * to the phone first (the outbox), so the screen can always say "saved on this phone". Sleep is one button that flips between "Asleep" and
  * "Woke up". Nothing here edits or removes an entry: a wrong tap is corrected by tapping the right one.
  */
-export function OneTapRow({ child, events, onLogged }: { child: ChildDetail; events: readonly ChildEventRow[]; onLogged: (outcome: TapOutcome) => void }) {
+export function OneTapRow({ userId, child, events, onLogged }: { userId: string; child: ChildDetail; events: readonly ChildEventRow[]; onLogged: (outcome: TapOutcome) => void }) {
   const colors = useLegacyColors();
   const { scheme } = useTheme();
   const inputStyle = useTextInputStyle();
@@ -41,8 +41,8 @@ export function OneTapRow({ child, events, onLogged }: { child: ChildDetail; eve
   const canLog = mayLog(child);
 
   useEffect(() => {
-    void loadLastLabel().then(setLabel);
-  }, []);
+    void loadLastLabel(userId).then(setLabel);
+  }, [userId]);
 
   const taps: Tap[] = [
     { kind: "feed", feedType: "breast", label: t("cdl.log.feed_breast"), icon: "heart-outline" },
@@ -58,7 +58,7 @@ export function OneTapRow({ child, events, onLogged }: { child: ChildDetail; eve
     if (busy || !canLog) return;
     setBusy(true);
     const outcome = await tapChildEvent(child, item.kind, item.feedType, label);
-    await saveLastLabel(cleanCaregiverLabel(label) ?? "");
+    await saveLastLabel(userId, cleanCaregiverLabel(label) ?? "");
     setStatus(outcome);
     setBusy(false);
     onLogged(outcome);

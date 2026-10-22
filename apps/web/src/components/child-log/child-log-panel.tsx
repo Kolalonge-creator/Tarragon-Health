@@ -9,6 +9,7 @@ import {
   buildChildVaccineChecklist,
   checklistCounts,
   childCrisisLead,
+  crisisToShow,
   cleanCaregiverLabel,
   isAsleepNow,
   sortByAttention,
@@ -18,6 +19,7 @@ import {
 } from "@tarragon/shared";
 import { useGrowthMeasurements, useLogGrowthMeasurement, type GrowthMeasurementRow } from "@/lib/queries/growth";
 import { useChildDailyEvents, useChildVaccineData, useLogChildEvent } from "@/lib/queries/child-log";
+import { getChildSwitcher } from "./child-switch";
 import { CrisisLead, GrowthBandsView, OneTapButtons, TimelineList, VaccineChecklistView, type GrowthTableRow, type OneTapAction } from "./views";
 
 export interface ChildForPanel {
@@ -30,7 +32,8 @@ export interface ChildForPanel {
   canLog: boolean;
 }
 
-const LABEL_KEY = "tarragon.childlog.label.v1";
+/** Keyed per signed-in account so a shared computer never offers one person's name tag to the next. */
+const labelKey = (accountId: string) => `tarragon.childlog.label.v1.${accountId}`;
 const lagosToday = (): string => new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10);
 
 function resultOf(r: GrowthMeasurementRow) {
@@ -52,7 +55,7 @@ const TAPS: { id: string; kind: ChildEventKind; feedType: ChildFeedType | null }
 ];
 
 /** The whole daily-log page body for one child. Data comes from hooks; every visible piece is a tested presentational view. */
-export function ChildLogPanel({ child, emergencyNumber }: { child: ChildForPanel; emergencyNumber: string }) {
+export function ChildLogPanel({ accountId, child, emergencyNumber }: { accountId: string; child: ChildForPanel; emergencyNumber: string }) {
   const events = useChildDailyEvents(child.id);
   const growth = useGrowthMeasurements(child.id);
   const vaccines = useChildVaccineData(child.id);
@@ -67,12 +70,17 @@ export function ChildLogPanel({ child, emergencyNumber }: { child: ChildForPanel
     // Read after mount (not during render) so the server and first client render agree.
     void Promise.resolve().then(() => {
       try {
-        setLabel(window.localStorage.getItem(LABEL_KEY) ?? "");
+        setLabel(window.localStorage.getItem(labelKey(accountId)) ?? "");
       } catch {
         /* a convenience only */
       }
     });
-  }, []);
+  }, [accountId]);
+
+  // The child now on screen: a different child than before relocks the mother's section.
+  useEffect(() => {
+    getChildSwitcher(accountId).show(child.id);
+  }, [accountId, child.id]);
 
   const asleep = isAsleepNow(events.data ?? []);
   const actions: OneTapAction[] = TAPS.map((tap) => ({
@@ -91,7 +99,7 @@ export function ChildLogPanel({ child, emergencyNumber }: { child: ChildForPanel
     if (!tap || !child.canLog) return;
     const kind: ChildEventKind = tap.id === "sleep" ? (asleep ? "sleep_stop" : "sleep_start") : tap.kind;
     try {
-      window.localStorage.setItem(LABEL_KEY, cleanCaregiverLabel(label) ?? "");
+      window.localStorage.setItem(labelKey(accountId), cleanCaregiverLabel(label) ?? "");
     } catch {
       /* a convenience only */
     }
@@ -130,7 +138,29 @@ export function ChildLogPanel({ child, emergencyNumber }: { child: ChildForPanel
     [vaccines.data, child.dateOfBirth, child.sex],
   );
   const counts = checklistCounts(doses);
-  const crisis = growthRows.length > 0 && childCrisisLead(growthRows[growthRows.length - 1]!.result);
+  const computedCrisis = growthRows.length > 0 && childCrisisLead(growthRows[growthRows.length - 1]!.result);
+  // A known crisis is never hidden by a failed or slow read: a successful read decides and is remembered; otherwise the last known state shows.
+  const crisisKey = `tarragon.childlog.crisis.v1.${accountId}.${child.id}`;
+  const [lastKnown, setLastKnown] = useState(false);
+  useEffect(() => {
+    void Promise.resolve().then(() => {
+      try {
+        setLastKnown(window.localStorage.getItem(crisisKey) === "1");
+      } catch {
+        /* nothing known */
+      }
+    });
+  }, [crisisKey]);
+  const readOk = growth.isSuccess;
+  useEffect(() => {
+    if (!readOk) return;
+    try {
+      window.localStorage.setItem(crisisKey, computedCrisis ? "1" : "0");
+    } catch {
+      /* a convenience only */
+    }
+  }, [readOk, computedCrisis, crisisKey]);
+  const crisis = crisisToShow(readOk, computedCrisis, lastKnown);
 
   async function saveGrowth(e: React.FormEvent) {
     e.preventDefault();

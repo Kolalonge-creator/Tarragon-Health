@@ -52,3 +52,29 @@ export function childChoices(
 export function mayLog(child: ChildChoice): boolean {
   return child.access === "manage";
 }
+
+export interface ChildSwitcher {
+  /** The child now on screen. Relocks the private section if a DIFFERENT child was on screen before. */
+  show(id: string): void;
+  /** The person asked to switch child (before choosing): relock at once, so the private section is locked whoever is picked next. */
+  leave(): void;
+}
+
+/**
+ * The real "switch child" flow (S68b review fix). The first version compared the previous id AFTER the screen had cleared it, so a switch never
+ * relocked. This keeps the child on screen in one place: `leave()` relocks when the person starts a switch, `show()` relocks when the child
+ * changes without a `leave()` (a link, a back button). `relock` is the S66 lock's own `lock()` on the phone and on the web.
+ */
+export function createChildSwitcher(relock: () => void): ChildSwitcher {
+  let shown: string | null = null;
+  return {
+    show(id) {
+      if (shown !== null && mustRelockOnSwitch(shown, id)) relock();
+      shown = id;
+    },
+    leave() {
+      if (shown !== null) relock();
+      shown = null;
+    },
+  };
+}

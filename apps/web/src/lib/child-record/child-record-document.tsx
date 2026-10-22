@@ -16,6 +16,8 @@ export interface ChildRecordData {
   weightPoints: ChartPointInput[];
   heightPoints: ChartPointInput[];
   latestBand: GrowthBand | null;
+  /** The latest result was routed as severe: the page leads with it, whatever else is on it. */
+  crisis: boolean;
   doses: ChecklistDose[];
 }
 
@@ -63,6 +65,7 @@ export function ChildRecordDocument({ data }: { data: ChildRecordData }) {
   return (
     <Document title={t("cdl.pdf.title")}>
       <Page size="A4" style={styles.page}>
+        {data.crisis && <Text style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>{t("cdl.crisis.lead")}</Text>}
         <Text style={styles.brand}>TarragonHealth</Text>
         <Text style={styles.title}>{t("cdl.pdf.title")}</Text>
         <Text style={styles.sub}>

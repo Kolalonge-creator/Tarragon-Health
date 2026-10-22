@@ -55,6 +55,20 @@ describe("buildChildRecord", () => {
   });
 });
 
+describe("a severe result leads the record, even when the value was flagged implausible (S68d keeps and routes it)", () => {
+  const severe: GrowthSourceRow = { id: "g9", measured_at: "2026-04-01T09:00:00Z", weight_kg: 4, height_cm: 60, weight_for_age_z: null, height_for_age_z: null, weight_for_height_z: -5.4, nutrition_class: "severe_acute", plausibility_flags: ["wfh_implausible"] };
+  it("sets the crisis flag and prints go to the nearest clinic now", () => {
+    const data = buildChildRecord({ ...input, growth: [severe] });
+    expect(data.crisis).toBe(true);
+    expect(data.latestBand).toBe("talk_to_care_team");
+    expect(allText(ChildRecordDocument({ data }))).toMatch(/nearest clinic now/);
+  });
+  it("no lead when nothing severe", () => {
+    expect(buildChildRecord(input).crisis).toBe(false);
+    expect(allText(ChildRecordDocument({ data: buildChildRecord(input) }))).not.toMatch(/nearest clinic now/);
+  });
+});
+
 describe("ChildRecordDocument", () => {
   const doc = ChildRecordDocument({ data: buildChildRecord(input) });
   it("is exactly one page, with the growth chart and the vaccine record", () => {

@@ -2,6 +2,7 @@ import {
   ageInMonths,
   bandForPoint,
   buildChildVaccineChecklist,
+  childCrisisLead,
   type ChartPointInput,
   type ScheduleCatalogRow,
   type ScheduleRecordRow,
@@ -55,6 +56,7 @@ export function buildChildRecord(input: {
     weightPoints: points((r) => r.weight_kg),
     heightPoints: points((r) => r.height_cm),
     latestBand: last && last.kind === "band" ? last.band : null,
+    crisis: childCrisisLead(last ?? null),
     doses: input.dateOfBirth
       ? buildChildVaccineChecklist({ dateOfBirth: input.dateOfBirth, sex: input.sex, today: input.today, catalog: input.catalog, records: input.records })
       : [],

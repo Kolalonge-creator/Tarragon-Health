@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { PrivateSection } from "@/components/private-section/private-section";
 import { ChildLogPanel, type ChildForPanel } from "@/components/child-log/child-log-panel";
+import { ChildSwitchLink } from "@/components/child-log/child-switch";
 
 /**
  * The daily child log (S68b): one-tap feed, sleep and nappy, a per-child timeline, growth with plain-language bands, the vaccine checklist and a
@@ -59,9 +60,9 @@ export default async function ChildLogPage({ searchParams }: { searchParams: Pro
         <ul className="space-y-3">
           {state.choices.map((c) => (
             <li key={c.profileId}>
-              <Link href={`/patient/child?child=${c.profileId}`} className="block rounded-xl border-2 border-brand-green px-4 py-5 text-center text-xl font-extrabold">
+              <ChildSwitchLink accountId={profile.id} href={`/patient/child?child=${c.profileId}`} className="block rounded-xl border-2 border-brand-green px-4 py-5 text-center text-xl font-extrabold">
                 {c.firstName}
-              </Link>
+              </ChildSwitchLink>
             </li>
           ))}
         </ul>
@@ -94,11 +95,11 @@ export default async function ChildLogPage({ searchParams }: { searchParams: Pro
       {header}
       <h2 className="text-2xl font-extrabold">{child.firstName}</h2>
       {state.choices.length > 1 && (
-        <Link href="/patient/child" className="text-sm font-semibold underline">{t("cdl.whose.switch")}</Link>
+        <ChildSwitchLink accountId={profile.id} href="/patient/child" className="text-sm font-semibold underline">{t("cdl.whose.switch")}</ChildSwitchLink>
       )}
-      <ChildLogPanel child={child} emergencyNumber={emergencyNumber} />
+      <ChildLogPanel accountId={profile.id} child={child} emergencyNumber={emergencyNumber} />
       {child.canLog && (
-        <PrivateSection accountId={profile.id} title={t("cdl.mother.section")}>
+        <PrivateSection key={child.id} accountId={profile.id} title={t("cdl.mother.section")}>
           <p className="text-sm">{t("cdl.mother.help")}</p>
           <Link href="/patient/womens-health" className="font-semibold underline">{t("cdl.mother.open_mood_check")}</Link>
         </PrivateSection>

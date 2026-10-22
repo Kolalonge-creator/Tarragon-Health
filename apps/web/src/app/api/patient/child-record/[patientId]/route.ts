@@ -3,6 +3,9 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { ChildRecordDocument } from "@/lib/child-record/child-record-document";
 import { buildChildRecord } from "@/lib/child-record/build-child-record";
+import { mayPrintChildRecord } from "@/lib/child-record/access";
+import { t } from "@tarragon/i18n";
+import { ageFromDateOfBirth } from "@tarragon/shared";
 
 /**
  * One-page PDF of a child's growth chart and vaccine record (S68b). Cookie-session auth and every read through the caller's own RLS-scoped
@@ -20,8 +23,29 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pat
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Not signed in", { status: 401 });
 
-  const { data: child } = await supabase.from("profiles").select("full_name, date_of_birth, sex").eq("id", patientId).maybeSingle();
+  const { data: child } = await supabase.from("profiles").select("full_name, date_of_birth, sex, is_dependent_account, dependent_kind").eq("id", patientId).maybeSingle();
   if (!child) return new Response("Not found", { status: 404 });
+
+  // Decide access BEFORE reading the record. A read filtered by RLS looks empty, and a page that says "no measurements, every dose overdue" must
+  // never be printed for someone who simply cannot see the data. The caller's own grant is visible to them.
+  if (user.id !== patientId) {
+    const { data: grant, error: grantError } = await supabase
+      .from("profile_access")
+      .select("permission_level, categories:profile_access_categories(category)")
+      .eq("profile_id", patientId)
+      .eq("grantee_user_id", user.id)
+      .maybeSingle();
+    if (grantError) return new Response("Could not build the record", { status: 502 });
+    const age = ageFromDateOfBirth(child.date_of_birth);
+    const allowed = mayPrintChildRecord(user.id, patientId, grant
+      ? {
+          permissionLevel: grant.permission_level,
+          categories: (grant.categories ?? []).map((c) => c.category),
+          childIsMinorDependant: child.is_dependent_account === true && child.dependent_kind === "minor_child" && age !== null && age < 18,
+        }
+      : null);
+    if (!allowed) return new Response(t("cdl.export.no_access"), { status: 403 });
+  }
 
   const [growth, catalog, records] = await Promise.all([
     supabase

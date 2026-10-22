@@ -20,6 +20,19 @@
 -- the child's own grant, and org staff. Literals are cast so a later overload of can_read_clinical cannot make them ambiguous.
 
 -- ---------------------------------------------------------------------------
+-- 0. One wrapper for "may act for this child, and the child is still a minor"
+-- ---------------------------------------------------------------------------
+-- can_act_for alone says "this person holds a manage grant". For a child's daily log the grant must also still be over a MINOR: from 18 a
+-- guardian's blanket stops (S04b-1), and a log entry written for an adult by an old grant is not covered by anything. private.is_minor_dependant is
+-- not executable by the API roles (it is for SECURITY DEFINER code), so the policies call this wrapper, which is.
+create function private.can_act_for_minor(p_child uuid)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select private.can_act_for(p_child) and private.is_minor_dependant(p_child)
+$$;
+revoke all on function private.can_act_for_minor(uuid) from public, anon;
+grant execute on function private.can_act_for_minor(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
 -- 1. child_daily_events
 -- ---------------------------------------------------------------------------
 create table public.child_daily_events (
@@ -37,6 +50,7 @@ create table public.child_daily_events (
   source             text not null default 'caregiver' check (source in ('caregiver', 'clinician_recorded')),
   created_at         timestamptz not null default now(),
   constraint child_daily_events_unique_client unique (patient_id, client_id),
+  constraint child_daily_events_not_self_correcting check (corrects_id is distinct from id),
   constraint child_daily_events_feed_type_only_on_feed check (kind = 'feed' or feed_type is null),
   constraint child_daily_events_not_in_future check (occurred_at <= now() + interval '5 minutes')
 );
@@ -49,17 +63,19 @@ alter table public.child_daily_events enable row level security;
 revoke all on public.child_daily_events from public, anon, authenticated;   -- default privileges hand authenticated update/delete too
 grant select, insert on public.child_daily_events to authenticated;          -- append-only: no update, no delete
 
+-- Staff reads and writes follow the S39b/S39g tie (a care relationship or a logged opening), not the whole organisation: the table is registered in
+-- staff_read_scope below, and the proof checks a clinician WITH a tie against one WITHOUT.
 create policy child_daily_events_select on public.child_daily_events for select to authenticated
   using (
     patient_id = (select auth.uid())
-    or private.is_org_staff(organisation_id)
+    or private.staff_may_read(patient_id, organisation_id, 'medical_history'::public.care_access_category)
     or private.can_read_clinical(patient_id, 'medical_history'::public.care_access_category)
   );
 create policy child_daily_events_insert on public.child_daily_events for insert to authenticated
   with check (
     patient_id = (select auth.uid())
-    or private.can_act_for(patient_id)
-    or private.is_org_staff(organisation_id)
+    or private.can_act_for_minor(patient_id)
+    or private.staff_may_write(patient_id, organisation_id, 'medical_history'::public.care_access_category)
   );
 
 create or replace function private.stamp_child_daily_event()
@@ -78,8 +94,9 @@ begin
   new.organisation_id := v_org;
   if v_uid is not null then
     new.recorded_by := v_uid;
-    new.source := case when private.is_org_staff(v_org) and v_uid <> new.patient_id
+    new.source := case when v_uid <> new.patient_id
                         and not exists (select 1 from public.profile_access pa where pa.profile_id = new.patient_id and pa.grantee_user_id = v_uid)
+                        and private.staff_may_write(new.patient_id, v_org, 'medical_history'::public.care_access_category)
                        then 'clinician_recorded' else 'caregiver' end;
   end if;
   if new.corrects_id is not null then
@@ -133,13 +150,13 @@ grant select, insert on public.child_card_photos to authenticated;           -- 
 create policy child_card_photos_select on public.child_card_photos for select to authenticated
   using (
     patient_id = (select auth.uid())
-    or private.is_org_staff(organisation_id)
+    or private.staff_may_read(patient_id, organisation_id, 'vaccinations'::public.care_access_category)
     or private.can_read_clinical(patient_id, 'vaccinations'::public.care_access_category)
   );
 create policy child_card_photos_insert on public.child_card_photos for insert to authenticated
   with check (
     patient_id = (select auth.uid())
-    or private.can_act_for(patient_id)
+    or private.can_act_for_minor(patient_id)
   );
 
 create or replace function private.stamp_child_card_photo()
@@ -178,8 +195,16 @@ on conflict (id) do nothing;
 -- Path: '<uploader uid>/<child profile id>/<client id>.jpg'. The uploader reads and writes only their own folder; staff never read through a
 -- storage policy, a server route mints a short-lived signed URL after the table's RLS confirms the record. No update, no delete from the phone.
 drop policy if exists "child card photo uploader insert" on storage.objects;
+-- The second folder segment must be a child the uploader is the child or may act for (a minor they hold a manage grant over), so the bucket cannot
+-- be used to park files under an arbitrary profile id. A segment that is not a uuid is refused, not an error.
 create policy "child card photo uploader insert" on storage.objects for insert to authenticated
-  with check (bucket_id = 'child-card-photos' and (storage.foldername(name))[1] = (select auth.uid())::text);
+  with check (
+    bucket_id = 'child-card-photos'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+    and case when (storage.foldername(name))[2] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+             then ((storage.foldername(name))[2])::uuid = (select auth.uid()) or private.can_act_for_minor(((storage.foldername(name))[2])::uuid)
+             else false end
+  );
 drop policy if exists "child card photo uploader select" on storage.objects;
 create policy "child card photo uploader select" on storage.objects for select to authenticated
   using (bucket_id = 'child-card-photos' and (storage.foldername(name))[1] = (select auth.uid())::text);
@@ -214,6 +239,13 @@ select t.table_name,
  where to_regclass('public.' || t.table_name) is not null
 on conflict (table_name) do nothing;
 
+-- The S39b registry: both tables are TIED (staff need a care relationship or a logged opening), so the G1 check (every patient table with a staff read
+-- policy is registered) and G2 (a tied table has no plain organisation-wide staff read left) hold for them.
+insert into public.staff_read_scope (table_name, mode, patient_expr, category, reason) values
+  ('child_daily_events', 'tied', 'patient_id', 'medical_history', null),
+  ('child_card_photos', 'tied', 'patient_id', 'vaccinations', null)
+on conflict (table_name) do nothing;
+
 -- ---------------------------------------------------------------------------
 -- Self-check
 -- ---------------------------------------------------------------------------
@@ -227,6 +259,12 @@ begin
   end if;
   if has_table_privilege('authenticated', 'public.child_card_photos', 'UPDATE') or has_table_privilege('authenticated', 'public.child_card_photos', 'DELETE') then
     raise exception 'S68b self-check: card photos cannot be changed or removed from the phone';
+  end if;
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename in ('child_daily_events', 'child_card_photos') and coalesce(qual, '') || coalesce(with_check, '') like '%private.is_org_staff(%') then
+    raise exception 'S68b self-check: staff access to the child tables must use the tied helpers, not is_org_staff';
+  end if;
+  if has_function_privilege('anon', 'private.can_act_for_minor(uuid)', 'EXECUTE') then
+    raise exception 'S68b self-check: can_act_for_minor must not be executable by anon';
   end if;
   if (select count(*) from pg_policies where schemaname = 'public' and tablename = 'child_daily_events' and cmd = 'SELECT' and qual ~* 'entitle|plan|subscription|go_live') <> 0 then
     raise exception 'S68b self-check: a child''s history must not be behind a plan or a guard';
