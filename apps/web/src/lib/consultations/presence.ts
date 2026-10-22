@@ -1,4 +1,4 @@
-import { hmacHex, isSafeWebhookChallenge, roleFromParticipantKey, type VideoProvider } from "@tarragon/integrations";
+import { hmacHex, isSafeWebhookChallenge, passFromCaregiverKey, roleFromParticipantKey, type VideoProvider } from "@tarragon/integrations";
 import type { RpcClient } from "./room";
 
 /**
@@ -82,6 +82,9 @@ export async function handleVideoWebhook(deps: PresenceDeps, rawBody: string, he
   }
   if (!deps.participantKeySecret) return respond(503, { error: "not_configured" });
 
+  // CGJ: a caregiver's key starts with "g" and is bound to one invite. It is checked against the invites of THIS consultation only.
+  if (event.customerKey.startsWith("g")) return handleCaregiverPresence(deps, room.encounterId, event.kind, event.customerKey, deps.participantKeySecret);
+
   const role = await roleFromParticipantKey(deps.participantKeySecret, room.encounterId, event.customerKey);
   if (!role) {
     // Someone presented a key that is not ours for this consultation. Nothing is recorded; the id is enough to look into it.
@@ -100,6 +103,47 @@ export async function handleVideoWebhook(deps: PresenceDeps, rawBody: string, he
     return final ? respond(200, { handled: false, reason: "refused" }) : respond(500, { error: "record_failed" });
   }
   return respond(200, { handled: true, kind: event.kind, role });
+}
+
+/**
+ * A caregiver entered or left. The invite is found from the key (never from the display label), and the database records the event as
+ * the caregiver's own kind, so it can never start the call or move a no-show. A key that belongs to a REMOVED invite is logged by id
+ * (the clinician removed this person and something is still presenting their key) and nothing is recorded as a join.
+ */
+async function handleCaregiverPresence(
+  deps: PresenceDeps,
+  encounterId: string,
+  kind: "participant_joined" | "participant_left",
+  key: string,
+  secret: string,
+): Promise<PresenceResponse> {
+  const ids = await deps.serviceRpc.rpc("service_caregiver_pass_ids", { p_encounter: encounterId });
+  if (ids.error) {
+    deps.log(`zoom presence: could not list the caregiver invites for encounter ${encounterId}`);
+    return respond(500, { error: "lookup_failed" });
+  }
+  const passIds = Array.isArray(ids.data) ? ids.data.filter((x): x is string => typeof x === "string") : [];
+  const passId = await passFromCaregiverKey(secret, encounterId, key, passIds);
+  if (!passId) {
+    deps.log(`zoom presence: caregiver key did not verify for encounter ${encounterId}`);
+    return respond(200, { handled: false, reason: "key_mismatch" });
+  }
+  const res = await deps.serviceRpc.rpc("service_record_caregiver_event", {
+    p_pass: passId,
+    p_kind: kind === "participant_joined" ? "caregiver_joined" : "caregiver_left",
+    p_mode: "unknown",
+  });
+  if (res.error) {
+    const final = res.error.code !== undefined && FINAL_CODES.has(res.error.code);
+    deps.log(`zoom presence: caregiver ${kind} for encounter ${encounterId} was ${final ? "refused" : "not saved"} (${res.error.code ?? "no code"})`);
+    return final ? respond(200, { handled: false, reason: "refused" }) : respond(500, { error: "record_failed" });
+  }
+  if (res.data !== "recorded") {
+    // refused by the database on purpose (removed, ended, not accepted). Acknowledged so the vendor does not retry, and visible in the log.
+    deps.log(`zoom presence: caregiver ${kind} for encounter ${encounterId} was not recorded (${String(res.data)})`);
+    return respond(200, { handled: false, reason: "refused" });
+  }
+  return respond(200, { handled: true, kind, role: "caregiver" });
 }
 
 function plainTokenFrom(rawBody: string): string | null {

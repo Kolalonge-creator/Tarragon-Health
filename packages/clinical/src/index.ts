@@ -29,12 +29,16 @@ export {
   classifyPair, evaluateCuffCheck, homeMeanAround, pairDifference, parseCuffCheckConfig,
   type BpValue, type CuffCheckConfig, type CuffCheckResult, type CuffFlagKind, type PairClass, type PairDifference, type TimedBp,
 } from "./cuff-check";
-export { GLUCOSE_CARE_V1 } from "./rules";
+export { GLUCOSE_CARE_V1, VITALS_CARE_V1 } from "./rules";
 export {
   gradeGlucose, validateGlucoseInput, validateGlucoseRuleSet, buildGlucoseContext, GLUCOSE_RULE_SET_CODE, GLUCOSE_CONTEXTS, GLUCOSE_SYMPTOMS, KETONE_URINE_BANDS, GLUCOSE_CONTEXT_FIELDS,
   type GlucoseInput, type GlucoseRuleSet, type GlucoseObservationTrigger, type GlucoseContextCode, type GlucoseSymptomCode, type GlucoseDiabetesType, type KetoneUrine,
 } from "./glucose-engine";
 export { GLUCOSE_SIGN_SYMPTOM_TYPE, TICKED_ON_GLUCOSE_FORM_NOTE, type GlucoseSignSymptomType } from "./glucose-signs";
+export {
+  gradeVitals, validateVitalsInput, validateVitalsRuleSet, buildVitalsContext, VITALS_RULE_SET_CODE, VITALS_METRICS, VITALS_CONTEXT_FIELDS,
+  type VitalsInput, type VitalsRuleSet, type VitalsObservationTrigger, type VitalsMetric,
+} from "./vitals-engine";
 export {
   applyBpOverride, applyGlucoseOverride, validateOverrideParams, OVERRIDE_LIMITS,
   type ActiveOverride, type BpOverrideParams, type GlucoseOverrideParams, type OverrideDomain, type OverrideOutcome, type IgnoredReason,

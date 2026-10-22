@@ -166,7 +166,7 @@ select pg_temp.ck('real', 'C1 an admin gets organisation totals for every built 
   (select coalesce(string_agg(b.kind, ','), '') from built b where b.ok
      and pg_temp.as_user(pg_temp.f('ad'), format('select n from public.org_open_work_counts() where kind = %L', b.kind))::integer < 2));
 select pg_temp.ck('real', 'C2 a clinician gets the same totals', 'true',
-  (pg_temp.as_user(pg_temp.f('b'), 'select count(*) from public.org_open_work_counts()')::integer = 8)::text);
+  (pg_temp.as_user(pg_temp.f('b'), 'select count(*) from public.org_open_work_counts()')::integer = 9)::text);
 select pg_temp.ck('real', 'C3 a coordinator, a patient and anon are refused the counts', 'ERR 42501|ERR 42501|ERR 42501',
   (pg_temp.as_user(pg_temp.f('co'), 'select count(*) from public.org_open_work_counts()') || '|' || pg_temp.as_user(pg_temp.f('p1'), 'select count(*) from public.org_open_work_counts()') || '|' || pg_temp.as_anon('select count(*) from public.org_open_work_counts()')));
 select pg_temp.ck('real', 'C4 another organisation''s clinician sees only their own organisation''s totals (one lab item, one screening item)', '1|1',

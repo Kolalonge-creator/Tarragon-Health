@@ -13,6 +13,8 @@ const CARDS = [
   { href: "/patient/timeline", title: "my_health.card.timeline", body: "my_health.card.timeline_body" },
   { href: "/patient/emergency-card", title: "my_health.card.emergency", body: "my_health.card.emergency_body" },
   { href: "/patient/health-passport", title: "my_health.card.passport", body: "my_health.card.passport_body" },
+  { href: "/patient/my-health/immunisation-card", title: "my_health.card.immunisation", body: "my_health.card.immunisation_body" },
+  { href: "/patient/documents", title: "my_health.card.outside", body: "my_health.card.outside_body" },
   { href: "/patient/share-records", title: "my_health.card.shares", body: "my_health.card.shares_body" },
   { href: "/patient/my-health/lock-screen-card", title: "my_health.card.pass", body: "my_health.card.pass_body" },
   { href: "/patient/my-health/my-phones", title: "my_phones.card", body: "my_phones.card_body" },

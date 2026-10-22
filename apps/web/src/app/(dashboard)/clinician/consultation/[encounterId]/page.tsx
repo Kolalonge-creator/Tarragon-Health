@@ -5,6 +5,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { ConsultationRoom, type RoomView } from "@/components/consultation/consultation-room";
 import { callPolicyFor } from "@/lib/consultations/call-config";
+import { CaregiverCallPanel } from "@/components/consultation/caregiver-call-panel";
+import { parseCaregiverList } from "@/lib/consultations/caregivers";
 import { ConsultCheckinsCard } from "@/components/consultation/consult-checkins-card";
 import { clinicianCheckinsSchema } from "@/lib/consult-checkin/model";
 import { ClinicianIntakePanel, type ClinicianIntake } from "@/components/consultation/clinician-intake-panel";
@@ -44,6 +46,9 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
   const checkinFailed = Boolean(checkinError) || !checkinParsed.success;
   // null unless the Meeting SDK is configured; then the room joins inside the page and falls back to the link on any failure.
   const callPolicy = callPolicyFor(view.reconnect_grace_seconds);
+  // CGJ: the Care Circle member the patient invited to this call, as a relationship label and a state; never a name.
+  const { data: caregiverData } = await supabase.rpc("consultation_caregivers" as never, { p_encounter: encounterId } as never);
+  const caregivers = parseCaregiverList(caregiverData);
 
   return (
     <DashboardPlaceholder greeting="Consultation" roleLabel="Clinician" comingUp={[]}>
@@ -65,6 +70,7 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
       ) : (
         <ClinicianIntakePanel intake={intake} locale="en" />
       )}
+      {caregivers && <CaregiverCallPanel encounterId={encounterId} list={caregivers} locale="en" />}
       <ConsultCheckinsCard checkins={checkinParsed.success ? checkinParsed.data : null} failed={checkinFailed} />
       <ConsultationRoom view={view} locale="en" call={callPolicy ? { policy: callPolicy } : null} />
     </DashboardPlaceholder>

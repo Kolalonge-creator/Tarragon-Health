@@ -1,5 +1,6 @@
 import type { EmergencyClinicalFacts } from "./card";
 import type { CardField } from "./field-choices";
+import { COVERAGE_SCHEME_LABEL } from "./coverage";
 
 /**
  * The offline card's QR carries PLAIN, HUMAN-READABLE TEXT — never a URL, and
@@ -118,6 +119,17 @@ export function buildEmergencyQrText(facts: EmergencyClinicalFacts, printedOn: s
         .join(" ")}`
     : null;
 
+  // S09y: cover the patient typed in. One short line, only when filled, said to be patient entered (each part is capped). Lowest priority on the QR: see below.
+  const coverageLine =
+    facts.coverage && (facts.coverage.member_number || facts.coverage.plan_name)
+      ? `Cover: ${COVERAGE_SCHEME_LABEL[facts.coverage.scheme]} ${[
+          facts.coverage.plan_name ? truncateItem(facts.coverage.plan_name) : null,
+          facts.coverage.member_number ? `no. ${truncateItem(facts.coverage.member_number)}` : null,
+        ]
+          .filter(Boolean)
+          .join(", ")} (patient entered)`
+      : null;
+
   // S47: reproductive and mental health details are off until chosen; the card SAYS they are not shared (one short line, kept in the must-survive set)
   const sensitiveNotShared = [hidden.includes("reproductive") ? "reproductive health" : null, hidden.includes("mental_health") ? "mental health" : null].filter(Boolean);
   const footerLines = [
@@ -159,6 +171,11 @@ export function buildEmergencyQrText(facts: EmergencyClinicalFacts, printedOn: s
     : conditionItems.length > 0 && remaining > 20
       ? fitList("Conditions: ", conditionItems, remaining)
       : null;
+  if (conditionsLine && !hidden.includes("conditions")) remaining -= byteLength(conditionsLine) + 1;
+
+  // Cover ranks LAST, below allergies, medicines and conditions: insurance details never displace life-critical facts on the offline QR. It is dropped
+  // when it does not fit; the printed card above the QR always carries it in full.
+  const coverageFits = coverageLine !== null && byteLength(coverageLine) + 1 <= remaining;
 
   return [
     ...fixedLines,
@@ -166,6 +183,7 @@ export function buildEmergencyQrText(facts: EmergencyClinicalFacts, printedOn: s
     ...(medicineLine ? [medicineLine] : []),
     ...(conditionsLine ? [conditionsLine] : []),
     ...(contactLine ? [contactLine] : []),
+    ...(coverageLine && coverageFits ? [coverageLine] : []),
     ...footerLines,
   ].join("\n");
 }
