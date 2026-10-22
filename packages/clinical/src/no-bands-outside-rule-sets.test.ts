@@ -22,13 +22,17 @@ const GLUCOSE_TABLE = /\b(severeHypo|hypoAlert|highForDka|veryHigh|persistentHig
 const BP_COMPARE = /\b(systolic|diastolic|sbp|dbp)\w*\s*(<=|>=|<|>)\s*\d{2,3}\b|\b\d{2,3}\s*(<=|>=|<|>)\s*\w*(systolic|diastolic)/i;
 const BP_TABLE = /\b(systolic|diastolic|sbp|dbp|\w*Systolic|\w*Diastolic)\w*\s*:\s*\d{2,3}\s*[,}]/i;
 
+// Pulse, SpO2 and temperature (the vitals_care_triage bands). Property names with a unit-bearing word only, to keep ordinary code out.
+const VITALS_COMPARE = /\b\w*(pulse|bpm|heartrate|spo2|oxygen|temperature|tempc)\w*\s*(<=|>=|<|>)\s*\d{2,3}(\.\d)?\b|\b\d{2,3}(\.\d)?\s*(<=|>=|<|>)\s*\w*(pulse|bpm|heartrate|spo2|temperature)/i;
+const VITALS_TABLE = /\b(\w*(pulse|bpm|spo2|temperature)\w*(Below|Above|AtOrBelow|AtOrAbove|Min|Max)|emergency_(at_or_)?(below|above)|red_at_or_(below|above)|amber_at_or_(below|above))\s*:\s*\d+(\.\d+)?\s*[,}]/i;
+
 /** The lines of a source text that carry a glucose or blood pressure threshold. Comments and `band-ok` lines are not counted. */
 export function bandLines(source: string): number[] {
   const hits: number[] = [];
   source.split("\n").forEach((line, i) => {
     const t = line.trim();
     if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*") || line.includes("band-ok:")) return;
-    if (GLUCOSE_COMPARE.test(line) || GLUCOSE_TABLE.test(line) || BP_COMPARE.test(line) || BP_TABLE.test(line)) hits.push(i + 1);
+    if (GLUCOSE_COMPARE.test(line) || GLUCOSE_TABLE.test(line) || BP_COMPARE.test(line) || BP_TABLE.test(line) || VITALS_COMPARE.test(line) || VITALS_TABLE.test(line)) hits.push(i + 1);
   });
   return hits;
 }
@@ -50,20 +54,24 @@ const RULE_SET_DIRS = ["packages/clinical/src/rules/"];
  * older pipeline it belongs to and what retires it.
  */
 export const LEGACY_ALLOWLIST: Record<string, { count: number; reason: string }> = {
+  "apps/web/src/lib/rules/pulse-classification.ts": { count: 3, reason: "Legacy server pulse bands, the TypeScript twin of private.classify_pulse_level. Runs beside vitals_care_triage until parity is shown (CMO Q1 applied to vitals); retired with the older pulse trigger." },
+  "apps/web/src/lib/rules/spo2-classification.ts": { count: 3, reason: "Legacy server SpO2 bands, the TypeScript twin of private.classify_spo2_level. Same retirement as the pulse file." },
+  "apps/web/src/lib/rules/temperature-classification.ts": { count: 3, reason: "Legacy server temperature bands, the TypeScript twin of private.classify_temperature_level. Same retirement as the pulse file." },
+  "packages/shared/src/proposed-config/emergency-pack.ts": { count: 3, reason: "DEVICE_RED_RULES: the phone's offline pulse, SpO2 and temperature bands (PROPOSED config key vitals.device_red_rules). A drift test (vitals-drift.test.ts) holds them equal to vitals_care_triage v1; they move onto the rule set when the phone reads vitals_care_triage." },
   "apps/mobile/src/lib/bp-classification.ts": { count: 3, reason: "Legacy on-device BP bands (synced thresholds). Runs beside bp_care_triage until parity is shown (CMO Q1); retired with the legacy BP triggers." },
   "apps/web/src/lib/rules/bp-classification.ts": { count: 3, reason: "Legacy server BP bands, the web twin of the file above. Same retirement (CMO Q1)." },
-  "apps/web/src/lib/vitals/plausibility.ts": { count: 4, reason: "Plausibility gates for typed values (is this number humanly possible), not clinical bands." },
+  "apps/web/src/lib/vitals/plausibility.ts": { count: 9, reason: "Plausibility gates for typed values (is this number humanly possible), not clinical bands." },
   "apps/web/src/lib/testing-days/model.ts": { count: 1, reason: "Plausibility gate for a point-of-care BP entry at a testing day, not a band." },
   "apps/mobile/src/lib/triage-device.ts": { count: 1, reason: "FALLBACK_TARGET: the standard home target used only when the phone has no cached personal target. A target, not a band; the bands read it." },
   "apps/web/src/lib/rules/cvd-risk-afro.ts": { count: 4, reason: "Cardiovascular risk score points (AFRO-style), a risk calculation, not triage." },
   "apps/web/scripts/eval-ai004-case-brief.ts": { count: 3, reason: "Fixture data for an AI evaluation script, not a band." },
   "apps/web/src/app/(dashboard)/admin/settings/vitals-reminders/rules-manager.tsx": { count: 1, reason: "Default reminder days, not a band." },
   "apps/mobile/src/lib/healthkit.ts": { count: 1, reason: "A unit string for HealthKit (mmol per litre), not a band." },
-  "packages/shared/src/proposed-config/registry.ts": { count: 25, reason: "Versioned PROPOSED config values (the diabetes glucose thresholds that S61 moved out of the legacy glucose files, home BP targets, trend gaps, the S67 pregnancy BP lines that mirror bp_care_triage v5, and the S70a device plausibility and CGM / ECG alert values); governed by the registry and its CMO confirmation, not hard-coded logic." },
+  "packages/shared/src/proposed-config/registry.ts": { count: 26, reason: "Versioned PROPOSED config values (the diabetes glucose thresholds that S61 moved out of the legacy glucose files, home BP targets, trend gaps, the S67 pregnancy BP lines that mirror bp_care_triage v5, and the S70a device plausibility and CGM / ECG alert values); governed by the registry and its CMO confirmation, not hard-coded logic." },
   "packages/lifestyle-engine/src/adapters/diabetes.ts": { count: 1, reason: "SEVERE_HYPO_MMOL in the lifestyle safety adapter (spec 8.2): a stop-the-plan guard, not patient triage. Follow-up: read it from glucose_care_triage params." },
 };
 
-describe("no glucose or blood pressure band outside a rule set", () => {
+describe("no glucose, blood pressure, pulse, SpO2 or temperature band outside a rule set", () => {
   const files: string[] = [];
   for (const r of SCAN_ROOTS) walk(join(root, r), files);
   const found = new Map<string, number[]>();
@@ -106,6 +114,9 @@ describe("no glucose or blood pressure band outside a rule set", () => {
     expect(bandLines("if (systolic >= 180) urgent();")).toEqual([1]);
     expect(bandLines("if (140 <= systolic) x();")).toEqual([1]);
     expect(bandLines("  emergencySystolic: 180,")).toEqual([1]);
+    expect(bandLines("if (spo2Pct < 90) page();")).toEqual([1]);
+    expect(bandLines("if (temperatureC >= 39.0) page();")).toEqual([1]);
+    expect(bandLines("  pulseAtOrAbove: 150,")).toEqual([1]);
     expect(bandLines("// glucose < 3.0 is severe")).toEqual([]);
     expect(bandLines(" * systolic >= 180")).toEqual([]);
     expect(bandLines("if (glucose < 3.0) x(); // band-ok: typo gate")).toEqual([]);

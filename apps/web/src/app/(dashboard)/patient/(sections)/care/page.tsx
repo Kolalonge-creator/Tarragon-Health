@@ -10,6 +10,7 @@ import { ChronicProgrammeTimeline } from "@/app/(dashboard)/patient/chronic-prog
 import { PregnancyStatus } from "@/app/(dashboard)/patient/pregnancy-status";
 import { ObesitySummary } from "@/app/(dashboard)/patient/obesity-summary";
 import { WrittenQuestionCard } from "@/app/(dashboard)/patient/written-question-card";
+import { VisitSummaryCard } from "@/app/(dashboard)/patient/visit-summary-card";
 import { PatientNotesCard } from "@/app/(dashboard)/patient/patient-notes-card";
 import { SecondOpinionRequestCard } from "@/app/(dashboard)/patient/second-opinion-request";
 import { VerifiedDocumentsCard } from "@/app/(dashboard)/patient/verified-documents-card";
@@ -84,6 +85,7 @@ export default async function PatientCarePage() {
           <BookVideoVisit patientId={subjectId} />
           {/* Member benefit with a monthly allowance (S22): the card reads its own allowance, never shows a price. */}
           <WrittenQuestionCard patientId={subjectId} locale={uiLanguage} />
+          <VisitSummaryCard locale={uiLanguage} patientId={subjectId} readOnly={subjectId !== profile.id} />
           <PatientNotesCard locale={uiLanguage} />
           {/* Pure pay-per-service — no plan bypass, the card carries its own
               buy-a-credit prompt. */}

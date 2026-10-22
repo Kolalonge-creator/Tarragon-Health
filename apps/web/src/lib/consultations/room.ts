@@ -1,4 +1,4 @@
-import { participantKey, type DialIn, type RequestedMedia, type VideoProvider, type VideoRole } from "@tarragon/integrations";
+import { caregiverParticipantKey, participantKey, type DialIn, type RequestedMedia, type VideoProvider, type VideoRole } from "@tarragon/integrations";
 
 /**
  * S21: the server side of a consultation room. Pure logic over injected clients so it can be proved end to end against the
@@ -48,14 +48,24 @@ export type JoinOutcome =
 
 const DONE = new Set(["completed", "no_show_patient", "no_show_clinician", "cancelled", "failed"]);
 
-async function lookup(deps: RoomDeps, encounterId: string): Promise<{ view: RoomView; role: "patient" | "clinician" } | null> {
+type RoomRole = "patient" | "clinician" | "caregiver";
+
+/**
+ * Who the signed-in person is on this consultation. The two people on it are found from the room view; anyone else is asked once more
+ * whether they hold a live, accepted caregiver pass for THIS consultation (CGJ). A stranger gets the same answer as an unknown id, so an
+ * id cannot be used to find out whether a consultation exists. `passId` is set only for a caregiver.
+ */
+async function lookup(deps: RoomDeps, encounterId: string): Promise<{ view: RoomView; role: RoomRole; passId: string | null } | null> {
   const res = await deps.serviceRpc.rpc("service_get_encounter_room", { p_encounter: encounterId });
   const view = res.error ? null : (res.data as RoomView | null);
   if (!view) return null;
-  // The signed-in person must be one of the two people on this consultation. Anyone else gets the same answer as an
-  // unknown id, so an id cannot be used to find out whether a consultation exists.
-  const role: "patient" | "clinician" | null = deps.userId === view.patient_id ? "patient" : deps.userId === view.clinician_id ? "clinician" : null;
-  return role ? { view, role } : null;
+  if (deps.userId === view.patient_id) return { view, role: "patient", passId: null };
+  if (deps.userId === view.clinician_id) return { view, role: "clinician", passId: null };
+  // An invited caregiver: the database checks the invite, its expiry, the circle membership and the permission. A failed check (an error,
+  // not only "no") counts as no, so a failing check never lets anyone in.
+  const pass = await deps.serviceRpc.rpc("service_get_caregiver_pass", { p_encounter: encounterId, p_user: deps.userId });
+  const passId = pass.error ? null : ((pass.data as { pass_id?: string } | null)?.pass_id ?? null);
+  return passId ? { view, role: "caregiver", passId } : null;
 }
 
 /** The vendor room for this consultation, created and recorded on first use. Null when the vendor or the database refused. */
@@ -82,6 +92,8 @@ export async function joinConsultation(deps: RoomDeps, encounterId: string, requ
   const found = await lookup(deps, encounterId);
   if (!found) return { ok: false, reason: "not_found" };
   const { view, role } = found;
+  // CGJ: a caregiver has no link. A vendor link carries no participant key, so it could not be attributed to the invite or revoked.
+  if (role === "caregiver") return { ok: false, reason: "not_found" };
   if (DONE.has(view.status)) return { ok: false, reason: "closed" };
   // S37 (INV-14): with the guard off nothing is opened, no link is made and nothing is recorded. Fails closed: a view that does not
   // say the room is open (an older database, a changed shape) is treated as not open.
@@ -119,6 +131,8 @@ export async function requestDialIn(deps: RoomDeps, encounterId: string): Promis
   const found = await lookup(deps, encounterId);
   if (!found) return { ok: false, reason: "not_allowed" };
   const { view, role } = found;
+  // CGJ: no dial-in for a caregiver either: ringing in carries no key, so it could not be attributed to the invite or revoked.
+  if (role === "caregiver") return { ok: false, reason: "not_allowed" };
   if (!view.clinician_id || DONE.has(view.status)) return { ok: false, reason: "not_allowed" };
   // S37 (INV-14): paused consultations say so (not "opens at ..."), and nothing is recorded
   if (view.go_live_open !== true) return { ok: false, reason: "not_live" };
@@ -154,7 +168,7 @@ export interface SdkJoinInfo {
   readonly customerKey: string;
   /** The role word, never a name: it is all the vendor and the other person see. */
   readonly displayLabel: VideoRole;
-  readonly role: "patient" | "clinician";
+  readonly role: RoomRole;
   readonly mediaMode: RequestedMedia;
   /** True when the server recorded the join now (legacy), false when it waits for the vendor's own webhook to say they entered. */
   readonly recordedAtIssue: boolean;
@@ -162,7 +176,7 @@ export interface SdkJoinInfo {
 
 export type SdkJoinOutcome =
   | { ok: true; join: SdkJoinInfo }
-  | { ok: false; reason: "not_found" | "closed" | "provider" | "not_configured" }
+  | { ok: false; reason: "not_found" | "closed" | "provider" | "not_configured" | "not_ready" | "not_live" }
   | { ok: false; reason: "not_open"; opensAt: string };
 
 export interface SdkJoinOptions {
@@ -191,9 +205,13 @@ export async function prepareSdkJoin(deps: RoomDeps, encounterId: string, reques
   if (!options.participantKeySecret) return { ok: false, reason: "not_configured" };
   const found = await lookup(deps, encounterId);
   if (!found) return { ok: false, reason: "not_found" };
-  const { view, role } = found;
+  const { view, role, passId } = found;
   if (DONE.has(view.status)) return { ok: false, reason: "closed" };
   if (!view.joinable) return { ok: false, reason: "not_open", opensAt: view.join_opens_at };
+  if (role === "caregiver") {
+    // a caregiver without a pass id cannot happen (lookup sets both), but never fall through to the two people's path
+    return passId ? prepareCaregiverJoin(deps, view, encounterId, passId, requested, options.participantKeySecret, options.presenceFromWebhook) : { ok: false, reason: "not_found" };
+  }
 
   const roomId = await ensureRoom(deps, view, encounterId);
   if (!roomId) return { ok: false, reason: "provider" };
@@ -227,6 +245,54 @@ export async function prepareSdkJoin(deps: RoomDeps, encounterId: string, reques
       customerKey: await participantKey(options.participantKeySecret, encounterId, role),
       displayLabel: role,
       role,
+      mediaMode,
+      recordedAtIssue,
+    },
+  };
+}
+
+/**
+ * CGJ: the caregiver's way in. The same SDK path as the two people on the call, with these differences, each on purpose:
+ *  - the room must already be open: a caregiver never creates it (the patient or the care team opens it);
+ *  - go-live (INV-14) is checked here too, failing closed;
+ *  - the token is a plain participant's (no host key, ever), the key is bound to this one invite, and the label is the role word;
+ *  - the join is recorded as a caregiver event, never as the patient's or the clinician's, so it can never start the call or touch a no-show;
+ *  - the call's mode is never read from the caregiver's connection (the page runs no fallback ladder for them); audio only is the
+ *    caregiver's own choice for their own connection.
+ */
+async function prepareCaregiverJoin(
+  deps: RoomDeps,
+  view: RoomView,
+  encounterId: string,
+  passId: string,
+  requested: RequestedMedia,
+  secret: string,
+  presenceFromWebhook: boolean,
+): Promise<SdkJoinOutcome> {
+  if (view.go_live_open !== true) return { ok: false, reason: "not_live" };
+  const roomId = view.room?.provider_room_id ?? null;
+  if (!roomId) return { ok: false, reason: "not_ready" };
+  const token = await deps.video.joinToken({ roomId, role: "caregiver", identity: deps.userId, ttlSeconds: SDK_TOKEN_SECONDS });
+  if (!token.ok) return { ok: false, reason: token.error.code === "not_configured" ? "not_configured" : "provider" };
+  const mediaMode: RequestedMedia = view.final_media_mode === "audio_only" ? "audio_only" : requested;
+  // The vendor's webhook proves the caregiver entered; until it has been seen to work, being handed the way in counts. A refused record
+  // (the invite was removed or ended a moment ago) stops the credential too: nothing is handed out that was not recorded.
+  let recordedAtIssue = false;
+  if (!presenceFromWebhook) {
+    const rec = await deps.serviceRpc.rpc("service_record_caregiver_event", { p_pass: passId, p_kind: "caregiver_joined", p_mode: mediaMode });
+    if (rec.error || rec.data !== "recorded") return { ok: false, reason: "closed" };
+    recordedAtIssue = true;
+  }
+  return {
+    ok: true,
+    join: {
+      meetingNumber: roomId,
+      signature: token.data.token,
+      password: token.data.password ?? null,
+      zak: null,
+      customerKey: await caregiverParticipantKey(secret, encounterId, passId),
+      displayLabel: "caregiver",
+      role: "caregiver",
       mediaMode,
       recordedAtIssue,
     },
