@@ -9,6 +9,7 @@ import { addDataUsage } from "./data-usage";
 import { getConnectionKind } from "./connection-kind";
 import { isHeldForWifi, loadHoldContext } from "./wifi-hold";
 import type { ConnectionKind } from "./data-cost-rules";
+import { pullAnchorsFor } from "./offline-store";
 import { recordSyncError } from "./sync-diagnostics";
 import { loadOfflineSyncConfig } from "./offline-sync-config";
 import {
@@ -58,6 +59,25 @@ export interface RedCarePayload {
   response: "sought_care" | "could_not_get_care";
 }
 
+/** S08z: anchor times the patient set (anchor id to "HH:MM") and the first Lagos date they apply from. */
+export interface AnchorTimesPayload {
+  times: Record<string, string>;
+  effective_from: string;
+}
+
+/** S08z: a "my day has shifted" entry: the dates and how many minutes to move each named anchor. Sent with the row's client id, so a retry makes one shift. */
+export interface DayShiftPayload {
+  starts_on: string;
+  ends_on: string;
+  offsets: Record<string, number>;
+}
+
+/** S08z: ending a shift the server already holds, from `cancelled_from` onward. */
+export interface DayShiftEndPayload {
+  shift_id: string;
+  cancelled_from: string;
+}
+
 /**
  * S49a: a meal written in words (logged, repeated in one tap, or picked from a favourite). Only the words travel: the server recomputes the
  * nutrition from its food table, so a phone can never write its own calories. Idempotent by the outbox client id, so a retry after a lost
@@ -83,6 +103,9 @@ export interface ActivityPayload {
 }
 
 export type OutboxPayload =
+  | AnchorTimesPayload
+  | DayShiftPayload
+  | DayShiftEndPayload
   | ActivityPayload
   | VitalReadingPayload
   | MealPayload
@@ -635,6 +658,34 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
       return error ? asFailure(error) : { ok: true };
     }
 
+    if (item.kind === "anchor_times") {
+      const p = item.payload as AnchorTimesPayload;
+      const { error } = await supabase.rpc("save_dose_anchor_times", {
+        p_patient: item.subjectId,
+        p_times: p.times,
+        p_effective_from: p.effective_from,
+      });
+      return error ? asFailure(error) : { ok: true };
+    }
+
+    if (item.kind === "day_shift") {
+      const p = item.payload as DayShiftPayload;
+      const { error } = await supabase.rpc("create_day_shift", {
+        p_patient: item.subjectId,
+        p_client_id: item.clientId,
+        p_starts_on: p.starts_on,
+        p_ends_on: p.ends_on,
+        p_offsets: p.offsets,
+      });
+      return error ? asFailure(error) : { ok: true };
+    }
+
+    if (item.kind === "day_shift_end") {
+      const p = item.payload as DayShiftEndPayload;
+      const { error } = await supabase.rpc("cancel_day_shift", { p_patient: item.subjectId, p_id: p.shift_id });
+      return error ? asFailure(error) : { ok: true };
+    }
+
     if (item.kind === "kick_session" || item.kind === "contraction_session") {
       // S67: a finished session is one idempotent row (unique per person and client id), so a replay after a lost reply is a duplicate, not a second card.
       return sendPregnancySession(item);
@@ -791,16 +842,23 @@ interface RunMeter {
   connection: ConnectionKind;
 }
 
+/**
+ * Once an anchor change or a day shift has been sent, the person's anchors are read back from the server (S08z). The row leaves the
+ * outbox when it is sent, so without this the phone would drop the change from its profile until the next routine pull, and resolve
+ * anchored doses at the OLD time in between (and the server decides the effective date, which the phone should show too).
+ */
 async function runFlush(forced: boolean): Promise<FlushResult> {
   const meter: RunMeter = { bytes: 0, connection: "unknown" };
+  const sentAnchors = new Set<string>();
   try {
-    return await runFlushRows(forced, meter);
+    return await runFlushRows(forced, meter, sentAnchors);
   } finally {
     await addDataUsage(meter.bytes, new Date(), meter.connection);
+    for (const subjectId of sentAnchors) await pullAnchorsFor(subjectId);
   }
 }
 
-async function runFlushRows(forced: boolean, meter: RunMeter): Promise<FlushResult> {
+async function runFlushRows(forced: boolean, meter: RunMeter, sentAnchors: Set<string>): Promise<FlushResult> {
   const db = await getDb();
   const userId = await currentUserId();
   const now = new Date();
@@ -839,6 +897,7 @@ async function runFlushRows(forced: boolean, meter: RunMeter): Promise<FlushResu
     if (outcome.ok) {
       await db.runAsync("delete from outbox where client_id = ?", [item.clientId]);
       meter.bytes += JSON.stringify(item.payload).length + 300;
+      if (item.kind === "anchor_times" || item.kind === "day_shift" || item.kind === "day_shift_end") sentAnchors.add(item.subjectId);
       result.synced += 1;
       result.remaining -= 1;
       continue;

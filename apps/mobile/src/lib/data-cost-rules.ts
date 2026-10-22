@@ -61,6 +61,10 @@ const URGENT_BY_KIND: Record<OutboxKind, boolean> = {
   meal: false,
   // An activity log (S48b) is not on the short list of things that may wait, so it sends at once. Revisit only with a decision that it carries no red-flag rule.
   activity: true,
+  // S08z: anchor times and day shifts are scheduling settings the patient is waiting to see applied, and are tiny, so they never wait for Wi-Fi.
+  anchor_times: true,
+  day_shift: true,
+  day_shift_end: true,
 };
 
 /** The one vital type that is safe to hold: nothing on the server raises an alert for it. */

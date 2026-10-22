@@ -1,4 +1,5 @@
 import { addDays, lagosLocalDate, lagosTimeToUtcMs, DAY_MS, MINUTE_MS } from "./lagos";
+import type { ResolvedAnchor } from "./anchors";
 import { slotsBetween, slotKey } from "./schedule";
 import type { ScheduleSpec } from "./types";
 
@@ -36,6 +37,11 @@ export interface PlannedNotification {
   kind: NotificationKind;
   /** The slots this notification covers, as `${medicationId}|${date}|${time}`. Carried in the payload, never in the text. */
   slotKeys: string[];
+  /**
+   * Set when EVERY dose in this notification is tied to the same daily anchor and offset (S08z), so the text can say "with
+   * breakfast" in plain words. Absent when the notification mixes anchors or any clock-time dose: the generic wording then.
+   */
+  anchor?: ResolvedAnchor;
 }
 
 export interface PlanConfig {
@@ -60,12 +66,14 @@ export function planDoseNotifications(
   const today = lagosLocalDate(nowMs);
   const last = addDays(today, cfg.horizonDays);
   const horizonMs = nowMs + cfg.horizonDays * DAY_MS;
-  const byFire = new Map<number, { keys: string[]; kind: NotificationKind }>();
-  const add = (fireAt: number, key: string, kind: NotificationKind) => {
+  type Entry = { keys: string[]; kind: NotificationKind; anchors: (ResolvedAnchor | null)[] };
+  const byFire = new Map<number, Entry>();
+  const add = (fireAt: number, key: string, kind: NotificationKind, anchored: ResolvedAnchor | null) => {
     const existing = byFire.get(fireAt);
-    if (!existing) byFire.set(fireAt, { keys: [key], kind });
+    if (!existing) byFire.set(fireAt, { keys: [key], kind, anchors: [anchored] });
     else {
       existing.keys.push(key);
+      existing.anchors.push(anchored);
       // A dose that is due at this instant outranks a follow-up for another.
       if (kind === "due") existing.kind = "due";
     }
@@ -78,17 +86,17 @@ export function planDoseNotifications(
       const key = slotKey(med.id, slot);
       if (closedSlots.has(key)) continue;
       const start = lagosTimeToUtcMs(slot.date, slot.time);
-      if (start > nowMs && start <= horizonMs) add(start, key, "due");
+      if (start > nowMs && start <= horizonMs) add(start, key, "due", slot.anchored ?? null);
       if (windowMinutes >= cfg.followUpMinWindowMinutes) {
         const middle = start + Math.floor(windowMinutes / 2) * MINUTE_MS;
-        if (middle > nowMs && middle <= horizonMs) add(middle, key, "follow_up");
+        if (middle > nowMs && middle <= horizonMs) add(middle, key, "follow_up", slot.anchored ?? null);
       }
     }
   }
 
   // Walk in time order. A follow-up past the follow-up budget is dropped without using a place, so the
   // places it would have taken go to due reminders further out.
-  const chosen: [number, { keys: string[]; kind: NotificationKind }][] = [];
+  const chosen: [number, Entry][] = [];
   let followUps = 0;
   for (const entry of [...byFire.entries()].sort((a, b) => a[0] - b[0])) {
     if (chosen.length >= cfg.maxPending) break;
@@ -102,12 +110,19 @@ export function planDoseNotifications(
   return chosen
     // The kind is part of the id: if a minute turns from a follow-up into a due dose, the old
     // notification (with the follow-up wording) is cancelled and a new one is scheduled.
-    .map(([fireAtMs, v]) => ({
-      id: `${DOSE_NOTIFICATION_PREFIX}${fireAtMs}${v.kind === "follow_up" ? "|f" : ""}`,
-      fireAtMs,
-      kind: v.kind,
-      slotKeys: v.keys.sort(),
-    }));
+    .map(([fireAtMs, v]) => {
+      const first = v.anchors[0];
+      const sameAnchor = first !== null && first !== undefined && v.anchors.every((a) => a !== null && a.anchor === first.anchor && a.offsetMinutes === first.offsetMinutes);
+      return {
+        // The anchor is part of the id too: if the same minute turns from a clock-time dose into an anchored one (or the reverse), the old
+        // notification, with the old wording, is cancelled and a new one is scheduled.
+        id: `${DOSE_NOTIFICATION_PREFIX}${fireAtMs}${v.kind === "follow_up" ? "|f" : ""}${sameAnchor && first ? `|a:${first.anchor}:${first.offsetMinutes}` : ""}`,
+        fireAtMs,
+        kind: v.kind,
+        slotKeys: v.keys.sort(),
+        ...(sameAnchor ? { anchor: first } : {}),
+      };
+    });
 }
 
 export interface NotificationDiff {

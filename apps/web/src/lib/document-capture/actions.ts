@@ -3,21 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { DOCUMENT_CAPTURE_GUARD, runDocumentCapture } from "./run";
+import { requestReadingFor, type CaptureActionResult } from "./request-reading";
 import { fieldDecisionsSchema, type FieldDecision } from "./suggestions";
 
-export type CaptureActionResult = { error?: string; success?: boolean; message?: string; status?: string };
+export type { CaptureActionResult };
 
 const documentIdSchema = z.string().uuid();
 
-/**
- * Asks for a just-uploaded photo to be read into suggestions.
- *
- * The patient must own the document (their own RLS select is the gate) and
- * the capture guard must be open for them: a closed guard means the photo is
- * kept as a plain upload and no model is ever called.
- */
+/** Asks for a just-uploaded photo to be read into suggestions (the rules live in request-reading.ts, shared with the phone's route). */
 export async function requestDocumentReadingAction(documentId: string): Promise<CaptureActionResult> {
   const id = documentIdSchema.safeParse(documentId);
   if (!id.success) return { error: "That photo could not be found." };
@@ -25,33 +18,9 @@ export async function requestDocumentReadingAction(documentId: string): Promise<
   if (!user) return { error: "Not signed in" };
 
   const supabase = await createClient();
-  const { data: doc } = await supabase
-    .from("patient_documents")
-    .select("id, patient_id, ocr_state")
-    .eq("id", id.data)
-    .maybeSingle();
-  if (!doc || doc.patient_id !== user.id) return { error: "That photo could not be found." };
-  if (doc.ocr_state !== "pending") return { error: "That photo is not waiting to be read." };
-
-  const { data: open } = await supabase.rpc("go_live_guard_is_open", { p_key: DOCUMENT_CAPTURE_GUARD });
-  if (open !== true) {
-    // Closed: keep the photo, ask for nothing from a model. Mark the reading failed (it needs no open guard) so the photo
-    // does not wait forever; the patient types any details in by hand.
-    await createServiceRoleClient().rpc("record_document_suggestion", {
-      p_document: id.data,
-      p_ocr_text: "",
-      p_extracted: {},
-      p_model: "none",
-      p_failed: true,
-    });
-    revalidatePath("/patient/documents");
-    return { success: true, status: "closed", message: "Reading from photos is not open yet. Your photo is saved." };
-  }
-
-  const outcome = await runDocumentCapture(createServiceRoleClient(), id.data);
+  const result = await requestReadingFor(supabase, user.id, id.data);
   revalidatePath("/patient/documents");
-  if (outcome.status === "failed") return { error: outcome.message, status: outcome.status };
-  return { success: true, status: outcome.status, message: outcome.message };
+  return result;
 }
 
 /** The patient confirms, field by field. Only accepted fields are kept; the rest are dropped by the database. */

@@ -84,7 +84,7 @@ describe("costFigures", () => {
   });
 });
 
-const KINDS: OutboxKind[] = ["vital", "dose", "symptom", "red_care", "kick_session", "contraction_session", "meal"];
+const KINDS: OutboxKind[] = ["vital", "dose", "symptom", "red_care", "kick_session", "contraction_session", "meal", "activity", "anchor_times", "day_shift", "day_shift_end"];
 const NOW = Date.UTC(2026, 9, 20, 12, 0, 0);
 const HOLD = 6 * 3_600_000;
 const HOUR = 3_600_000;
