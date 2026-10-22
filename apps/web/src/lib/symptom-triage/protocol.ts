@@ -5,6 +5,7 @@ import type { Database } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/server";
 import {
   liveProtocolConfig,
+  pathwayIsSelfOnly,
   type PresentingComplaintProtocol,
   type TriageProtocolConfig,
 } from "@tarragon/symptom-triage-engine";
@@ -52,7 +53,10 @@ export async function isSymptomCheckerOpen(client?: SupabaseClient<Database>): P
 export async function getActivePathway(
   presentingComplaintKey: string,
   client?: SupabaseClient<Database>,
+  options: { forProxy?: boolean } = {},
 ): Promise<{ pathway: PresentingComplaintProtocol; protocolVersion: number } | null> {
+  // Pregnancy questions can only be answered by the person themselves: a direct call for someone else gets no pathway at all.
+  if (options.forProxy && pathwayIsSelfOnly(presentingComplaintKey)) return null;
   const active = await getActiveTriageProtocolConfig(client);
   if (!active) return null;
 

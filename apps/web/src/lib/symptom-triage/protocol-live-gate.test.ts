@@ -43,6 +43,13 @@ describe("the app loads only an ACTIVE and SIGNED triage protocol (S59d)", () =>
     expect(got?.config.version).toBe(8);
   });
 
+  it("never hands the pregnancy pathway to a proxy (OQ-S59d-05), even on a direct call, but does to the person themselves", async () => {
+    const c = client(signed([...SEED_PATHWAYS, ...S59D_DRAFT_PATHWAYS]));
+    expect(await getActivePathway("pregnancy_danger_signs", c, { forProxy: true })).toBeNull();
+    expect((await getActivePathway("pregnancy_danger_signs", c, { forProxy: false }))?.pathway.key).toBe("pregnancy_danger_signs");
+    expect((await getActivePathway("diabetes_complication", c, { forProxy: true }))?.pathway.key).toBe("diabetes_complication");
+  });
+
   it("fails closed on an error, an empty answer and a malformed config", async () => {
     expect(await getActiveTriageProtocolConfig(client(null))).toBeNull();
     expect(await getActiveTriageProtocolConfig(client(signed([]), { message: "boom" }))).toBeNull();

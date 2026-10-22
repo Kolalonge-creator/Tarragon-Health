@@ -9,7 +9,7 @@ import { getProposedConfig } from "@tarragon/shared";
 import * as Sentry from "@sentry/nextjs";
 import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import { symptomTriageStepSchema, type SymptomTriageStepInput } from "@/lib/validation/symptom-triage";
-import { bundledFloorDrift, nextTriageStep } from "@tarragon/symptom-triage-engine";
+import { applyProxyPregnancyRule, bundledFloorDrift, nextTriageStep } from "@tarragon/symptom-triage-engine";
 import type { PresentingComplaintProtocol, QuestionNode } from "@tarragon/symptom-triage-engine";
 import type { Database, Json } from "@tarragon/shared";
 
@@ -27,7 +27,7 @@ export type StepContext = {
   resolveSubjectId: (userId: string) => Promise<string>;
 };
 
-export type CheckerBlockReason = "under_18" | "dob_required";
+export type CheckerBlockReason = "under_18" | "dob_required" | "pregnancy_self_only";
 
 export type SymptomTriageStepResult =
   | { status: "unavailable" }
@@ -86,7 +86,8 @@ export async function runSymptomStep(input: SymptomTriageStepInput, ctx: StepCon
   if (!parsed.success) {
     return { status: "error", error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { capture, answers, questionLog } = parsed.data;
+  const { answers, questionLog } = parsed.data;
+  let capture = parsed.data.capture;
 
   // F1 (INV-14): closed means closed, whatever the client sent. The database refuses the insert as well.
   // The fail-safe below never reaches around this: a closed checker answers nothing and records nothing.
@@ -111,10 +112,19 @@ export async function runSymptomStep(input: SymptomTriageStepInput, ctx: StepCon
     if (eligibility !== "ok") return eligibility === "error" ? { status: "unavailable" } : { status: "blocked", reason: eligibility };
   }
 
+  // Founder decision (OQ-S59d-05): pregnancy questions can only be answered by the person themselves. When someone else runs the check
+  // (acting-for or dependant), the pregnancy pathway does not run and the pregnancy history answer is dropped before the engine or the
+  // record ever sees it. The caller still gets the emergency guidance on the blocked screen. A direct call cannot bypass this: it is here,
+  // in the loader (getActivePathway) and in the database (symptom_triage_assessments_02_proxy_pregnancy).
+  const forProxy = who.person !== null && who.person.userId !== who.person.subjectId;
+  const proxyRule = applyProxyPregnancyRule(capture, forProxy);
+  if (proxyRule.blocked) return { status: "blocked", reason: "pregnancy_self_only" };
+  capture = proxyRule.capture;
+
   // The protocol may be unreadable (a database error): that is a degraded run, not a reason to say nothing.
   let active: { pathway: PresentingComplaintProtocol; protocolVersion: number } | null = null;
   try {
-    active = await getActivePathway(capture.presentingComplaintKey, ctx.supabase);
+    active = await getActivePathway(capture.presentingComplaintKey, ctx.supabase, { forProxy });
   } catch {
     active = null;
   }
@@ -287,7 +297,7 @@ async function escalateUnrecorded(
 
 
 /** ok | under_18 | dob_required, or "error" when it could not be read (treated as closed). */
-export async function readEligibility(supabase: StepClient, subjectId: string): Promise<"ok" | CheckerBlockReason | "error"> {
+export async function readEligibility(supabase: StepClient, subjectId: string): Promise<"ok" | Exclude<CheckerBlockReason, "pregnancy_self_only"> | "error"> {
   try {
     const { data, error } = await supabase.rpc("symptom_checker_eligibility", { p_subject: subjectId });
     if (error) return "error";

@@ -3263,6 +3263,8 @@ export const en = {
   "symptom.blocked.dob.title": "We need a date of birth first",
   "symptom.blocked.dob.body": "The checker needs a date of birth so it can be safe for the person it is for. Please add it to the profile, then come back. If this is an emergency, go to the nearest hospital now.",
   "symptom.blocked.dob.cta": "Add a date of birth",
+  "symptom.blocked.pregnancy_self_only.title": "Questions about pregnancy are for the person themselves",
+  "symptom.blocked.pregnancy_self_only.body": "Questions about pregnancy can only be answered by the person themselves, so we cannot ask them here for someone else. Please ask them to open the check on their own account. If this could be an emergency, such as heavy bleeding, a fit, severe pain in the belly, struggling to breathe, or a very bad headache with changes in sight, go to the nearest emergency department now.",
   "symptom.blocked.message_cta": "Message your care team",
   "symptom.blocked.concern_label": "Tell us what is worrying you (optional). It goes on a booking you make for yourself, as a note for the doctor.",
   "symptom.blocked.book_cta": "Book a consultation for yourself and mention this",

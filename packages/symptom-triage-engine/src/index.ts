@@ -13,3 +13,4 @@ export * from "./protocols/s59d-drafts";
 export * from "./protocols/live-guard";
 export * from "./protocols/s59d-review-notes";
 export { bundledFloorDrift } from "./safety/floor-drift";
+export * from "./safety/proxy-pregnancy";

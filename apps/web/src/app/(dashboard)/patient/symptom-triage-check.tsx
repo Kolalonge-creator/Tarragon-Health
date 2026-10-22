@@ -60,7 +60,7 @@ type Stage =
       forDependant: boolean;
     }
   | { step: "unavailable" }
-  | { step: "blocked"; reason: "under_18" | "dob_required" }
+  | { step: "blocked"; reason: "under_18" | "dob_required" | "pregnancy_self_only" }
   | { step: "error"; message: string };
 
 type CaptureDraft = {
@@ -594,10 +594,10 @@ export const CARER_CONCERN_STORAGE_KEY = "tarragon.booking_reason";
  * the child's concern in as a free-text note (consultations are adults only, OQ-129). The note travels in this browser tab's session
  * storage, never in a URL, because it is health information.
  */
-function CheckerBlocked({ reason, bare = false }: { reason: "under_18" | "dob_required"; bare?: boolean }) {
+function CheckerBlocked({ reason, bare = false }: { reason: "under_18" | "dob_required" | "pregnancy_self_only"; bare?: boolean }) {
   const [concern, setConcern] = useState("");
-  const title = reason === "under_18" ? "symptom.blocked.under18.title" : "symptom.blocked.dob.title";
-  const body = reason === "under_18" ? "symptom.blocked.under18.body" : "symptom.blocked.dob.body";
+  const title = reason === "under_18" ? "symptom.blocked.under18.title" : reason === "pregnancy_self_only" ? "symptom.blocked.pregnancy_self_only.title" : "symptom.blocked.dob.title";
+  const body = reason === "under_18" ? "symptom.blocked.under18.body" : reason === "pregnancy_self_only" ? "symptom.blocked.pregnancy_self_only.body" : "symptom.blocked.dob.body";
   function rememberConcern() {
     try {
       const text = concern.trim().slice(0, 500);

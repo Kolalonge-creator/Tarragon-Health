@@ -1449,3 +1449,6 @@ s59d_encounter_outcome_audit_feed.sql
 
 # S59d: the new draft pathways can never be live unsigned. The S59d draft row is inactive and unsigned, a superset of the S59 draft carrying the four new pathways and the newest version; the database refuses an unsigned active version (triage_protocols_active_requires_signature, also a half-signed one); only the CMO signs (clinician, coordinator, admin, anon refused); the live config never carries a draft pathway. Sabotage: the constraint dropped, activating by hand must succeed. NOT RUN by its author (Docker down).
 s59d_draft_protocol_never_live.sql
+
+# S59d (OQ-S59d-05 decided): pregnancy answers are the person own. A check logged by someone else is refused for the pregnancy pathway (42501) and a pregnant history answer is removed from its stored capture; the person themselves is untouched. Sabotage: trigger dropped, the proxy pathway must be recorded. NOT RUN by its author (Docker down); trigger exercised on a stub schema.
+s59d_proxy_pregnancy_guard.sql

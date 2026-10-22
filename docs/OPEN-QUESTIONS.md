@@ -5097,10 +5097,10 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - `agrees` compares the mapped category with the category the patient was GIVEN (clinician override first) and is a snapshot at link time; a later override does not change it.
 - Decision: open (CMO).
 
-### OQ-S59d-05 The pregnancy pathway must not be run for someone else (raised by S59d, 2026-10-22)
-- `pregnancy_danger_signs` records what the person ticks in the check. The session row can be read by a current care-circle grantee (medical_history) and the S59 summary builder excludes pregnancy, but a carer running the pathway for a pregnant person would still store pregnancy answers where a grantee without a reproductive-health grant could read them. The pathway reads nothing from the reproductive_health category.
-- Needed before signing: the pathway offered only to the person themselves (a screen rule, not built here because the check screens belong to another piece of work), or a decision that pregnancy answers get the category-scoped read.
-- Decision: open (CMO and DPO).
+### OQ-S59d-05 The pregnancy pathway must not be run for someone else (raised by S59d, 2026-10-22; DECIDED 2026-10-22)
+- Founder decision (CMO/DPO question): BLOCK it. Only the person themselves answers `pregnancy_danger_signs` and pregnancy-context questions. When a carer or relative runs the check for another person, the pathway is not offered, the engine and the record never receive a pregnancy answer, and the result says plainly that pregnancy questions can only be answered by the person themselves, with the emergency guidance still shown.
+- Enforced in `applyProxyPregnancyRule` (engine package), `runSymptomStep`, the loader `getActivePathway` (`forProxy`), the web picker, and the database trigger `symptom_triage_assessments_02_proxy_pregnancy` (migration `s59d_proxy_pregnancy_guard`). Mobile answers only for the person themselves.
+- Decision: closed.
 
 ### OQ-S59d-06 Reproductive-health symptom pathways were not drafted (raised by S59d, 2026-10-22)
 - Menstrual, contraception and fertility symptoms are `reproductive_health` category data (no emergency break-glass, guardian gate for adolescents). A symptom pathway would store the answers in a session row with the weaker session-level read. Skipped on purpose; postnatal and early-pregnancy pathways are also not drafted (CMO question P4).
