@@ -1,0 +1,1 @@
+{"status":true,"message":"Transactions retrieved","data":[{"id":302961,"domain":"live","status":"success","reference":"ord_8f1c2a9e","amount":150000,"fees":2250,"paid_at":"2027-01-15T08:00:12.000Z","currency":"NGN","channel":"card"}],"meta":{"total":1,"skipped":0,"perPage":50,"page":1,"pageCount":1}}

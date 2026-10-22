@@ -4,8 +4,8 @@
 --   1. care_role: a dietitian cannot sit on a doctor tier (so auto-assignment, prescribing and signing never reach one).
 --   2. Per-item booking (Q23): a dietitian visit is refused while its product is unpriced; once priced, only a dietitian can be booked
 --      for it and a doctor visit only with a doctor; a paid dietitian visit gets its encounter; the listing is empty while unpriced.
---   3. Booking filters and the licence display (Q19): specialty, language and sex filter the listing; the MDCN number and its
---      checked-on date appear only when a credential check is on record.
+--   3. Booking filters and the licence display (Q19, Q17): specialty, language and sex filter the listing; the checked-on date
+--      appears only when a credential check is on record and the registration number never appears.
 --   4. Terms before payment: my_booking_terms gives price, cancel window and refund basis 'credit' (never cash, OQ-133); an
 --      unpriced type says so; an unknown type answers null; anon is refused.
 --   5. Manual intake (15.3): a stranger cannot write one; a draft has no summary and the clinician sees nothing of it; send writes
@@ -215,12 +215,13 @@ begin
   v_json := pg_temp.slots_for(v_pat, v_start - interval '1 hour', v_start + interval '3 hours', 'fr', null, null, 'doctor');
   perform pg_temp.rec('language filter: fr shows doctor A only', 'true/false', (pg_temp.slots_of(v_json, v_docA) > 0)::text || '/' || (pg_temp.slots_of(v_json, v_docB) > 0)::text);
   v_json := pg_temp.slots_for(v_pat, v_start - interval '1 hour', v_start + interval '3 hours', null, null, null, 'doctor');
-  select (x ->> 'mdcn_number') || '/' || ((x ->> 'licence_checked_on') is not null)::text into v_res
+  -- CMO Q17 / OQ-358: the slot list carries the DATE of a recorded check and never the registration number (no mdcn_number key at all)
+  select ((x ? 'mdcn_number')::text) || '/' || ((x ->> 'licence_checked_on') is not null)::text into v_res
     from jsonb_array_elements(v_json) x where (x ->> 'clinician_id')::uuid = v_docA limit 1;
-  perform pg_temp.rec('MDCN number shown with its checked-on date when a check is on record', 'MDCN/S64-A/true', v_res);
-  select coalesce(x ->> 'mdcn_number', 'null') || '/' || coalesce(x ->> 'licence_checked_on', 'null') into v_res
+  perform pg_temp.rec('the checked-on date is shown when a check is on record, and no MDCN number key exists', 'false/true', v_res);
+  select ((x ? 'mdcn_number')::text) || '/' || coalesce(x ->> 'licence_checked_on', 'null') into v_res
     from jsonb_array_elements(v_json) x where (x ->> 'clinician_id')::uuid = v_docB limit 1;
-  perform pg_temp.rec('no MDCN number and no date when no check is on record (null-gated)', 'null/null', v_res);
+  perform pg_temp.rec('no date when no check is on record (null-gated), and still no MDCN number key', 'false/null', v_res);
 
   -- ===== 2c. a paid dietitian visit becomes a consultation with an encounter =====
   perform pg_temp.mkcredit(v_pat, 'dietitian_consult_credit');

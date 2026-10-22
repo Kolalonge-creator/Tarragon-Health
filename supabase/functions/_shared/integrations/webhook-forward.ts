@@ -40,12 +40,10 @@ export async function forwardPresenceEvent(
   if (headers.signature) sent["x-zm-signature"] = headers.signature;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { method: "POST", headers: sent, body: rawBody, signal: controller.signal });
-    return res.status >= 500 ? "retry" : "forwarded";
-  } catch {
-    return "retry";
-  } finally {
-    clearTimeout(timer);
-  }
+  const outcome = await (async () => fetch(url, { method: "POST", headers: sent, body: rawBody, signal: controller.signal }))().then(
+    (res): ForwardOutcome => (res.status >= 500 ? "retry" : "forwarded"),
+    (): ForwardOutcome => "retry",
+  );
+  clearTimeout(timer);
+  return outcome;
 }

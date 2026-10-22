@@ -12,7 +12,18 @@
  * (vitals-entry.test.ts) checks the server accepts every bound below, so the
  * direction to fix a mismatch stays: widen the server first, then follow it here.
  */
-import { observationLimit } from "@tarragon/shared";
+import {
+  DEFAULT_MEASUREMENT_UNITS,
+  observationLimit,
+  roundForStorage,
+  temperatureFromC,
+  weightFromKg,
+  TEMPERATURE_UNIT_LABEL,
+  WEIGHT_UNIT_LABEL,
+  temperatureToC,
+  weightToKg,
+  type MeasurementUnits,
+} from "@tarragon/shared";
 
 export type OtherVitalType = "glucose" | "weight" | "temperature" | "spo2" | "pulse";
 export type GlucoseUnit = "mmol_l" | "mg_dl";
@@ -93,4 +104,34 @@ export function validateOtherEntry(type: OtherVitalType, raw: string, glucoseUni
     };
   }
   return { ok: true, value };
+}
+
+/**
+ * A weight or temperature typed in the patient's own unit (lb, degrees F), as the text of the stored unit (kg, degrees C)
+ * so the bounds check and the saved payload keep working in one unit. Anything that is not a number, or any other vital,
+ * comes back untouched for the validator to refuse.
+ */
+export function typedToStoredEntry(type: OtherVitalType, raw: string, units: MeasurementUnits = DEFAULT_MEASUREMENT_UNITS): string {
+  const needsConversion = (type === "weight" && units.weight === "lb") || (type === "temperature" && units.temperature === "f");
+  if (!needsConversion) return raw;
+  const typed = parseStrictNumber(raw);
+  if (typed === null) return raw;
+  const stored = type === "weight" ? weightToKg(typed, units.weight) : temperatureToC(typed, units.temperature);
+  return String(roundForStorage(stored, 1));
+}
+
+/**
+ * The accepted range in the patient's own unit, to sit after the existing (metric) range message, so someone who typed
+ * pounds or degrees F is not left with only a kilogram or Celsius figure. Null when their unit already is the stored one.
+ */
+export function rangeHintInPatientUnit(type: OtherVitalType, units: MeasurementUnits = DEFAULT_MEASUREMENT_UNITS): string | null {
+  if (type === "weight" && units.weight === "lb") {
+    const b = OTHER_VITAL_BOUNDS.weight;
+    return `${Math.round(weightFromKg(b.min, "lb"))}\u2013${Math.round(weightFromKg(b.max, "lb"))} ${WEIGHT_UNIT_LABEL.lb}`;
+  }
+  if (type === "temperature" && units.temperature === "f") {
+    const b = OTHER_VITAL_BOUNDS.temperature;
+    return `${temperatureFromC(b.min, "f").toFixed(1)}\u2013${temperatureFromC(b.max, "f").toFixed(1)} ${TEMPERATURE_UNIT_LABEL.f}`;
+  }
+  return null;
 }
