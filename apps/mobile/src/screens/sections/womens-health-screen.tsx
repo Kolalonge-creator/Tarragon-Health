@@ -56,6 +56,7 @@ import { CycleDangerSigns } from "@/ui/cycle-danger-signs";
 import type { SectionId } from "@/lib/sections";
 import { CycleScreen } from "@/screens/sections/cycle-screen";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+import { PregnancyDangerGuideCard, PregnancyTools } from "@/screens/sections/pregnancy-tools";
 import { FeedLogCardMobile, LifecycleCardMobile } from "@/screens/sections/maternal-child-card";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
@@ -271,6 +272,8 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
           <>
             <CycleDangerSigns />
             {activePregnancy && <PregnancyRedFlagCheck patientId={patientId} organisationId={organisationId} />}
+            {/* S67: bundled danger-sign guide, readable with no signal and no PIN (INV-06). */}
+            {activePregnancy && <PregnancyDangerGuideCard />}
           </>
         }
       >
@@ -350,6 +353,13 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
       {activePregnancy && (
         <>
           <AntenatalCard patientId={patientId} organisationId={organisationId} pregnancy={activePregnancy} onNavigate={onNavigate} />
+          {/* S67 (OQ-346): inside the section PIN lock, and shown only once the maternal_enabled guard is open for this person. */}
+          <PregnancyTools
+            subjectId={patientId}
+            organisationId={organisationId}
+            lmp={activePregnancy.last_menstrual_period_date}
+            edd={activePregnancy.estimated_due_date}
+          />
         </>
       )}
 

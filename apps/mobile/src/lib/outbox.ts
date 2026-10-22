@@ -2,7 +2,7 @@ import type * as SQLite from "expo-sqlite";
 import * as Crypto from "expo-crypto";
 import { NETWORK_ERROR_MESSAGE, postMealLog, postVitalReading, type VitalReadingPayload } from "./api";
 import { supabase } from "./supabase";
-import type { ContractionSessionPayload, KickSessionPayload } from "./pregnancy-payloads";
+import type { BirthPlanPayload, ContractionSessionPayload, KickSessionPayload } from "./pregnancy-payloads";
 import { getStoreWithSchema } from "./secure-db";
 import { applyReportOutcome, reportOnHold, reportRejection } from "./rejection-report";
 import { addDataUsage } from "./data-usage";
@@ -113,7 +113,8 @@ export type OutboxPayload =
   | DosePayload
   | RedCarePayload
   | KickSessionPayload
-  | ContractionSessionPayload;
+  | ContractionSessionPayload
+  | BirthPlanPayload;
 
 interface OutboxRow {
   client_id: string;
@@ -658,6 +659,11 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
       return error ? asFailure(error) : { ok: true };
     }
 
+    if (item.kind === "birth_plan") {
+      // S67: the plan is one row per pregnancy; a replay writes the same values, so it is idempotent (last saved wins, oldest first).
+      return sendBirthPlan(item);
+    }
+
     if (item.kind === "anchor_times") {
       const p = item.payload as AnchorTimesPayload;
       const { error } = await supabase.rpc("save_dose_anchor_times", {
@@ -715,7 +721,20 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
  * other branches' schema, see CLAUDE.md), so the insert goes through this narrow shape instead of `any`.
  */
 interface UntypedInsert {
-  from(table: string): { insert(row: Record<string, unknown>): PromiseLike<{ error: { code?: string; message?: string } | null }> };
+  from(table: string): {
+    insert(row: Record<string, unknown>): PromiseLike<{ error: { code?: string; message?: string } | null }>;
+    upsert(row: Record<string, unknown>, opts: { onConflict: string }): PromiseLike<{ error: { code?: string; message?: string } | null }>;
+  };
+}
+
+async function sendBirthPlan(item: OutboxItem): Promise<SendOutcome> {
+  const client = supabase as unknown as UntypedInsert;
+  const p = item.payload as BirthPlanPayload;
+  const { error } = await client.from("birth_plans").upsert(
+    { ...p.plan, organisation_id: p.organisation_id, patient_id: item.subjectId, pregnancy_id: p.pregnancy_id, source: "patient" },
+    { onConflict: "pregnancy_id" },
+  );
+  return error ? asFailure(error) : { ok: true };
 }
 
 async function sendPregnancySession(item: OutboxItem): Promise<SendOutcome> {

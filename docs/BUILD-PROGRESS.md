@@ -2176,6 +2176,12 @@ Design `docs/design/S43m.md`, research `docs/research/S43m.md`. Four PRs by scre
 - **Code-review fixes (S46d)**: mid-year line only while a shown item needs attention (caregiver/shared leak), priorities re-filtered for blood-borne codes in web and phone, negative anti-HBs held (classifier patched by anchor), idempotent threshold signing with no phantom audit line, v3 settings creation asserted, reproductive flag missing now fails closed in the share body, sign-out wipe clears saved reports, shared-link notice when the report is gone. Migration renamed to a real wall-clock timestamp.
 ## S47a: observation types, plausibility limits, edit history, trend bands (2026-10-20), branch `s47a/observation-types-and-safety`
 
+## RCPT-1 consent receipts as a one-page PDF (2026-10-20), branch `feat/consent-receipts`
+
+- **Built**: migration `20261020232611` (`public.consent_receipt_data(scope, ref)`: own rows only, patient role only, one audit row per call in the same function; `my_consent_matrix_history` now carries entry ids); `GET /api/patient/consent-receipt/pdf`; `lib/consent/consent-receipt.ts` and an A4 black and white react-pdf document; download links in the privacy matrix history, a "current choices" link and a per-agreement link; `consent.receipt.*` strings.
+- **Tests**: DB proof `rcpt1_consent_receipts.sql` 30 checks plus 3 sabotage flips (own-rows filter, audit call, role gate), run against live in a rolled-back transaction with the migration spliced in (no Docker); Jest lib 13, route 9, panel 1 added (privacy dir 56 pass); i18n 215; tsc clean; PDF rendered and viewed (whole picture fits one A4 page, single change one page).
+- **Not run**: not applied to production; the privacy page links were not clicked in a browser signed in as a patient; mobile not built (OQ-RCPT-1-1).
+- **Open**: OQ-RCPT-1-1 to OQ-RCPT-1-3.
 ## S08z: dose times anchored to daily events (2026-10-20, branch `feat/s08z-anchored-dose-times`)
 
 - **Gap checked first**: no way to tie a dose to waking, a meal, a prayer or bedtime, and no way to shift a day. `amend_medication` not copying `schedule_spec` was already fixed upstream (20261013185145, live definition checked), so no change was needed there.
