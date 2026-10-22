@@ -1,4 +1,5 @@
-import { chartGeometry, displayCode, groupByUnit, labRangeLabel, parseTrend, positionInLabRange, targetLabel, type TrendPoint } from "./trend";
+import { describe, expect, it } from "@jest/globals";
+import { chartGeometry, displayCode, groupByUnit, labRangeLabel, parseTrend, positionInLabRange, targetLabel, type TrendPoint } from "./biomarker-trend";
 
 const pt = (over: Partial<TrendPoint> = {}): TrendPoint => ({
   takenAt: "2025-01-01T00:00:00Z",
@@ -142,5 +143,20 @@ describe("chartGeometry", () => {
   it("a higher value is drawn higher on the page", () => {
     const g = chartGeometry(series, null)!;
     expect(g.dots[1].y).toBeLessThan(g.dots[0].y);
+  });
+});
+
+describe("labRangeLabel one-sided text built by the database", () => {
+  it("describes a bare bound as up to or or more, never as a target", () => {
+    expect(labRangeLabel({ refLow: null, refHigh: 5.6, refText: "5.6" })).toBe("up to 5.6");
+    expect(labRangeLabel({ refLow: 4, refHigh: null, refText: "4" })).toBe("4 or more");
+    expect(labRangeLabel({ refLow: 4, refHigh: 5.6, refText: "4 to 5.6" })).toBe("4 to 5.6");
+  });
+  it("sees through trailing zeros the database keeps on numeric text", () => {
+    expect(labRangeLabel({ refLow: null, refHigh: 5.6, refText: "5.6000" })).toBe("up to 5.6");
+    expect(labRangeLabel({ refLow: 4, refHigh: 5.6, refText: "4.0000 to 5.6000" })).toBe("4 to 5.6");
+  });
+  it("keeps the laboratory's own wording when it sent any", () => {
+    expect(labRangeLabel({ refLow: null, refHigh: 5.6, refText: "Less than 5.6 (non-diabetic)" })).toBe("Less than 5.6 (non-diabetic)");
   });
 });

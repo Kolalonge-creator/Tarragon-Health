@@ -102,6 +102,12 @@ describe("the real admin menus", () => {
     expect(top("waitlist")).toContain("/admin/settings/testing-days");
   });
 
+  it("finds the directory moderation and reported-listing queues (every console page needs a search entry)", () => {
+    expect(top("moderate ratings")).toContain("/admin/directory-queues");
+    expect(top("reported listing")).toContain("/admin/directory-queues");
+    expect(top("directory queues")).toContain("/admin/directory-queues");
+  });
+
   it("indexes a useful number of pages with no path twice", () => {
     expect(real.length).toBeGreaterThan(60);
     expect(new Set(real.map((e) => e.href)).size).toBe(real.length);

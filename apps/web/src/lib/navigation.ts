@@ -196,6 +196,7 @@ export function getNavSections(
             },
             { label: "Your month", href: "/patient/progress", icon: "analytics" },
             { label: "Programmes", href: "/patient/programmes", icon: "members" },
+            { label: "Your care pathway", href: "/patient/pathway", icon: "carePlan" },
             { label: "Appointments", href: "/patient/appointments", icon: "booking" },
           ],
         },
@@ -777,6 +778,7 @@ export function getNavSections(
           items: [
             { label: "Patients", href: "/admin/patients", icon: "members" },
             { label: "Facilities", href: "/admin/facilities", icon: "hmo" },
+            { label: "Directory queues", href: "/admin/directory-queues", icon: "review" },
             { label: "Bookings", href: "/admin/bookings", icon: "booking" },
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
             // New clinician applications, document and licence checks, licence and indemnity expiry (S15).
