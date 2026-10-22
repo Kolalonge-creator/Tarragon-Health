@@ -304,8 +304,9 @@ begin
     (select count(*) from public.notifications where recipient_id = v_own and template = 'learning_expiry_owner') = 2);
 
   -- (iv) the held-lesson rule dropped: the lesson held back for a passed review date then vanishes from the list
-  create or replace function private.learning_held_for_overdue_review(uuid, boolean, public.health_education_content_status, date)
-    returns boolean language sql stable as $f$ select false $f$;
+  create or replace function private.learning_held_for_overdue_review(
+    p_content_id uuid, p_is_active boolean, p_status public.health_education_content_status, p_next_review_due date)
+    returns boolean language sql stable as $f$ select false $f$; -- same parameter names as the real function (create or replace cannot rename them)
   perform pg_temp.ck('S4 sabotage: without the held-lesson rule the held lesson is missing from the list',
     pg_temp.as_count(v_admin, format($q$select count(*) from public.learning_expiry_backlog() where content_id = %L$q$, v_cl)) = 0);
 
