@@ -86,6 +86,19 @@ revoke all on function private.reading_grade(text) from public, anon;
 grant execute on function private.count_syllables(text) to authenticated, service_role;
 grant execute on function private.reading_grade(text) to authenticated, service_role;
 
+-- A very short text (a one-line teaser, a stub body) is gated only when it has enough words to be a sentence: the formula over one or two words is
+-- dominated by syllables per word (the single word "Teaser" scores 8.4), which is noise, not hard wording. Six words or more is graded in full.
+create or replace function private.reading_grade_teaser(p_text text)
+returns numeric
+language sql
+immutable
+set search_path = ''
+as $$
+  select case when (select count(*) from regexp_matches(lower(coalesce(p_text, '')), '[a-z]+', 'g')) >= 6 then private.reading_grade(p_text) else 0::numeric end;
+$$;
+revoke all on function private.reading_grade_teaser(text) from public, anon;
+grant execute on function private.reading_grade_teaser(text) to authenticated, service_role;
+
 alter table public.health_education_content
   add column if not exists reading_grade numeric(4,1),
   add column if not exists reading_grade_checked_at timestamptz,
@@ -108,7 +121,7 @@ declare
   v_max numeric;
   v_min integer;
   v_grade numeric := private.reading_grade(new.body);
-  v_sum_grade numeric := private.reading_grade(coalesce(new.summary, ''));
+  v_sum_grade numeric := private.reading_grade_teaser(new.summary);
   v_gate numeric;
 begin
   if tg_op = 'INSERT' or new.reading_grade is distinct from v_grade or new.reading_grade_checked_at is null then
@@ -132,7 +145,7 @@ begin
 
   -- The gate runs when an item becomes published AND whenever the graded text (body or summary) of an already published item changes, so an
   -- in-place edit cannot slip hard wording past it. The grade is the harder of the body and the summary.
-  v_gate := greatest(v_grade, v_sum_grade);
+  v_gate := greatest(private.reading_grade_teaser(new.body), v_sum_grade);
   if new.content_status = 'published'
      and (tg_op = 'INSERT' or old.content_status is distinct from 'published'
           or old.body is distinct from new.body or old.summary is distinct from new.summary)
@@ -200,8 +213,8 @@ begin
 
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
   values (v_org, v_actor, 'learning.reading_grade_override', 'health_education_content', p_content_id,
-          jsonb_build_object('grade', greatest(private.reading_grade(v_row.body), private.reading_grade(coalesce(v_row.summary, '')))));
-  return greatest(private.reading_grade(v_row.body), private.reading_grade(coalesce(v_row.summary, '')));
+          jsonb_build_object('grade', greatest(private.reading_grade_teaser(v_row.body), private.reading_grade_teaser(v_row.summary))));
+  return greatest(private.reading_grade_teaser(v_row.body), private.reading_grade_teaser(v_row.summary));
 end;
 $$;
 revoke execute on function public.set_reading_grade_override(uuid, text) from public, anon;
@@ -222,12 +235,12 @@ begin
     raise exception 'Admin or Chief Medical Officer only' using errcode = '42501';
   end if;
   return query
-    select c.code, c.title, c.content_status, greatest(private.reading_grade(c.body), private.reading_grade(coalesce(c.summary, ''))),
-           greatest(private.reading_grade(c.body), private.reading_grade(coalesce(c.summary, ''))) > v_max,
+    select c.code, c.title, c.content_status, greatest(private.reading_grade_teaser(c.body), private.reading_grade_teaser(c.summary)),
+           greatest(private.reading_grade_teaser(c.body), private.reading_grade_teaser(c.summary)) > v_max,
            (c.reading_grade_override_body_md5 is not distinct from md5(c.body || chr(31) || coalesce(c.summary, '')) and c.reading_grade_override_reason is not null)
       from public.health_education_content c
      where not c.is_placeholder and c.reading_level is distinct from 'clinician'
-     order by greatest(private.reading_grade(c.body), private.reading_grade(coalesce(c.summary, ''))) desc, c.code;
+     order by greatest(private.reading_grade_teaser(c.body), private.reading_grade_teaser(c.summary)) desc, c.code;
 end;
 $$;
 revoke execute on function public.learning_reading_grade_report() from public, anon;

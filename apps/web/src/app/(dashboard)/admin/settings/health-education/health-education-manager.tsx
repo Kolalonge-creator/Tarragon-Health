@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useLearningCreators } from "@/lib/queries/learning-centre";
 import { useSetReadingGradeOverride } from "@/lib/queries/learning-quality";
 import { t } from "@tarragon/i18n";
-import { getProposedConfig, readingGrade, type ReadingGradeConfig } from "@tarragon/shared";
+import { gatedReadingGrade, getProposedConfig, type ReadingGradeConfig } from "@tarragon/shared";
 import { parseKnowledgeCheck } from "@/lib/validation/health-education";
 
 const CONDITION_LABEL: Record<string, string> = {
@@ -370,7 +370,7 @@ function ContentHistory({ item }: { item: HealthEducationContent }) {
  */
 function ReadingGradeNote({ item }: { item: HealthEducationContent }) {
   // The database grades the harder of the body and the summary; show the same number.
-  const grade = Math.max(readingGrade(item.body).grade, readingGrade(item.summary ?? "").grade);
+  const grade = Math.max(gatedReadingGrade(item.body), gatedReadingGrade(item.summary ?? ""));
   const cfg = getProposedConfig("learning.reading_grade").value as unknown as ReadingGradeConfig;
   const override = useSetReadingGradeOverride();
   const [reason, setReason] = useState("");

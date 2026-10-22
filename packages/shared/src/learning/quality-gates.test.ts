@@ -5,6 +5,7 @@ import {
   glucoseLessonLevel,
   checkReadingGrade,
   countSyllables,
+  gatedReadingGrade,
   isPortionGuideBody,
   markTeachback,
   parsePortionGuide,
@@ -163,6 +164,16 @@ describe("glossary matching", () => {
   it("returns plain text when there are no terms", () => {
     expect(splitByGlossary("Hello", [])).toEqual([{ text: "Hello" }]);
     expect(splitByGlossary("", terms)).toEqual([]);
+  });
+});
+
+describe("gated reading grade", () => {
+  it("does not gate a text too short to be a sentence, and gates a longer one in full", () => {
+    expect(gatedReadingGrade("Teaser")).toBe(0);
+    expect(gatedReadingGrade("Hypertension is a long term condition")).toBe(readingGrade("Hypertension is a long term condition").grade);
+    expect(gatedReadingGrade("Hypertension is a long term condition")).toBeGreaterThan(8);
+    expect(gatedReadingGrade("Hypertension pharmacotherapy")).toBe(0);
+    expect(gatedReadingGrade("Hypertension is a chronic cardiovascular condition characterised by persistently elevated arterial pressure.")).toBe(21.5);
   });
 });
 

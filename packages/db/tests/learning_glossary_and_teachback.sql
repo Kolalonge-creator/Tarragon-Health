@@ -30,7 +30,7 @@ begin
   values (v, 'gt-' || p_label || '@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, is_test)
   values (v, p_org, p_role::public.user_role, 'GT ' || p_label, true)
-  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true;
+  on conflict (id) do update set role = excluded.role, full_name = excluded.full_name, is_test = true, is_active = true;
   return v;
 end $f$;
 create function pg_temp.as_try(p_uid uuid, p_sql text) returns text language plpgsql as $f$

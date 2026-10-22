@@ -26,7 +26,7 @@ begin
   values (v, 'rg-' || p_label || '@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, is_test)
   values (v, p_org, p_role::public.user_role, 'RG ' || p_label, true)
-  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true;
+  on conflict (id) do update set role = excluded.role, full_name = excluded.full_name, is_test = true, is_active = true;
   return v;
 end $f$;
 -- run a statement as a user (anon when null); returns 'ok' or the SQLSTATE

@@ -54,6 +54,15 @@ export function readingGrade(text: string): ReadingGradeResult {
   return { grade, words: words.length, sentences, syllables };
 }
 
+/** A text shorter than this many words is not gated: the formula over a word or two is noise (the database does the same, private.reading_grade_teaser). */
+export const MIN_GATED_WORDS = 6;
+
+/** The grade the publish gate uses: the full grade, or 0 for a text too short to be a sentence. Counts letter runs exactly as the database does. */
+export function gatedReadingGrade(text: string): number {
+  const runs = text.toLowerCase().match(/[a-z]+/g) ?? [];
+  return runs.length >= MIN_GATED_WORDS ? readingGrade(text).grade : 0;
+}
+
 export type ReadingGradeVerdict =
   | { readonly ok: true; readonly grade: number; readonly overridden: boolean }
   | { readonly ok: false; readonly grade: number; readonly reason: "too_hard" | "override_reason_too_short" };

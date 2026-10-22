@@ -267,17 +267,20 @@ begin
   v_n2 := pg_temp.bp(v_org, v_p3, 142, 90, 1);
   perform pg_temp.ck('R29 an older green reading cannot be cited while a newer reading exists',
     pg_temp.as_text(v_p3, format($q$select public.record_lesson_shown('blood_pressure', 'in_target', 'record-bp-in-target', array[%L]::uuid[])$q$, v_n1)) = 'refused');
+  -- a recorded reading is never deleted through the normal path (the guard trigger refuses it), so the proof removes the newer one with triggers off
+  set local session_replication_role = replica;
+  delete from public.vitals_readings where id = v_n2;
+  set local session_replication_role = origin;
   perform pg_temp.ck('R29a control: the same reading is accepted once nothing newer exists',
-    (select pg_temp.owner_msg(format('delete from public.vitals_readings where id = %L', v_n2))) = 'ok'
-    and pg_temp.as_text(v_p3, format($q$select public.record_lesson_shown('blood_pressure', 'in_target', 'record-bp-in-target', array[%L]::uuid[])$q$, v_n1)) = 'shown');
+    pg_temp.as_text(v_p3, format($q$select public.record_lesson_shown('blood_pressure', 'in_target', 'record-bp-in-target', array[%L]::uuid[])$q$, v_n1)) = 'shown');
   v_n2 := pg_temp.bp(v_org, v_p3, 82, 50, 0.05);
   perform pg_temp.ck('R30 a low reading (82/50) is not "in a good range"',
     pg_temp.as_text(v_p3, format($q$select public.record_lesson_shown('blood_pressure', 'in_target', 'record-bp-in-target', array[%L]::uuid[])$q$, v_n2)) = 'refused');
   -- labs: distinct, newest results only; a critical released result outranks a lesson
   v_c1 := pg_temp.lab(v_org, v_p3, 'hba1c', 'high', 'released', false, null, 40);
-  v_r1 := pg_temp.lab(v_org, v_p3, 'hba1c', 'high', 'released', false, (select lab_result_id from public.lab_result_items where id = v_c1), 40);
-  perform pg_temp.ck('R31 two items of one result are not a sustained run of two results',
-    pg_temp.as_text(v_p3, format($q$select public.record_lesson_shown('lab', 'high', 'record-lab-hba1c-high', array[%L, %L]::uuid[])$q$, v_c1, v_r1)) = 'refused');
+  -- (one result holds at most one item per analyte, so the same result can never be cited twice as a run)
+  perform pg_temp.ck('R31 one high result, cited twice, is not a sustained run of two results',
+    pg_temp.as_text(v_p3, format($q$select public.record_lesson_shown('lab', 'high', 'record-lab-hba1c-high', array[%L, %L]::uuid[])$q$, v_c1, v_c1)) = 'refused');
   v_n1 := pg_temp.lab(v_org, v_p3, 'hba1c', 'high', 'released', false, null, 20);
   v_n2 := pg_temp.lab(v_org, v_p3, 'hba1c', 'normal', 'released', false, null, 5);
   perform pg_temp.ck('R32 an older high run cannot be cited when a newer result exists',
