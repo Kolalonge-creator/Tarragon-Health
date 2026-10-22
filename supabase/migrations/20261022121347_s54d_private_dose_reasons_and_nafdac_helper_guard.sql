@@ -155,7 +155,7 @@ begin
      or exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'patient') then
     raise exception 'not authorised' using errcode = '42501';
   end if;
-  -- Review fix: the tie rule only (INV-12). Break-glass and support view-as sessions (can_staff_read_clinical) do not read a private reason.
+  -- Review fix: the tie rule only (INV-12). Break-glass and support view-as sessions do not read a private reason.
   if not private.clinician_has_patient_access(p_patient) then
     perform private.audit_chart_read(p_patient, array['dose_events'], p_reason, 'denied');
     return jsonb_build_object('status', 'denied', 'rows', '[]'::jsonb, 'has_more', false, 'next_before', null);
