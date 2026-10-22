@@ -104,7 +104,7 @@ create function pg_temp.bal(p uuid) returns integer language sql as $$ select co
 do $$
 declare
   v_org uuid; v_a uuid; v_b uuid; v_c uuid; v_d uuid; v_g uuid; v_h uuid; v_p uuid; v_r uuid; v_r2 uuid; v_r3 uuid;
-  v_vid uuid; v_ev uuid; v_t1 timestamptz; v_iso_award integer; v_iso_audit boolean; v_iso_inc boolean; v_minor uuid; v_i integer; v_j jsonb; v_m uuid; v_o uuid; v_life integer;
+  v_vid uuid; v_ev uuid; v_t1 timestamptz; v_iso_award integer; v_iso_audit boolean; v_iso_inc boolean; v_minor uuid; v_hist uuid; v_pl uuid; v_nb uuid; v_i integer; v_j jsonb; v_m uuid; v_o uuid; v_life integer;
 begin
   select organisation_id into v_org from public.profiles where role = 'admin' limit 1;
   v_a := pg_temp.mkuser(v_org, 'a', 'patient'); v_b := pg_temp.mkuser(v_org, 'b', 'patient');
@@ -127,6 +127,7 @@ begin
 
   -- ================= 2. event driven, idempotent =================
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source) values (v_org, v_a, 'blood_pressure', 118, 76, 'manual') returning id into v_vid;
+  update public.vitals_readings set created_at = now() - interval '10 days' where id = v_vid;
   v_ev := pg_temp.vit_event(v_vid);
   perform public.points_award(v_ev);
   perform pg_temp.ck('2a the first blood pressure check celebrates', pg_temp.has_ms(v_a, 'first_bp_logged'));
@@ -154,15 +155,50 @@ begin
   perform public.points_award(pg_temp.vit_event(v_vid));
   perform pg_temp.ck('2i a dangerous but plausible first reading still celebrates the step (the result is never the point)', pg_temp.has_ms(v_d, 'first_bp_logged'));
   -- other care steps
-  perform public.points_award(pg_temp.fire(v_c, 'lab_result.released', 'ms-lab'));
-  perform public.points_award(pg_temp.fire(v_c, 'encounter.completed', 'ms-enc'));
-  perform public.points_award(pg_temp.fire(v_c, 'lesson.completed', 'ms-les'));
-  perform public.points_award(pg_temp.fire(v_c, 'course.completed', 'ms-crs'));
+  perform public.points_award(pg_temp.fire(v_c, 'lab_result.released', 'ms-lab', now() - interval '5 days'));
+  perform public.points_award(pg_temp.fire(v_c, 'encounter.completed', 'ms-enc', now() - interval '5 days'));
+  perform public.points_award(pg_temp.fire(v_c, 'lesson.completed', 'ms-les', now() - interval '5 days'));
+  perform public.points_award(pg_temp.fire(v_c, 'course.completed', 'ms-crs', now() - interval '5 days'));
   perform pg_temp.ck('2j lab, review, lesson and course each celebrate once',
     pg_temp.has_ms(v_c, 'first_lab_done') and pg_temp.has_ms(v_c, 'first_review_attended')
     and pg_temp.has_ms(v_c, 'first_lesson_completed') and pg_temp.has_ms(v_c, 'first_course_completed'));
   perform public.points_award(pg_temp.fire(v_c, 'lab_result.released', 'ms-lab2'));
   perform pg_temp.ck('2k a second lab does not celebrate again', (select count(*) from public.milestones_achieved where patient_id = v_c and milestone_code = 'first_lab_done') = 1);
+
+  -- ================= 2b. an existing member is not told their next reading is a first =================
+  v_hist := pg_temp.mkuser(v_org, 'hist', 'patient'); v_pl := pg_temp.mkuser(v_org, 'pulse', 'patient'); v_nb := pg_temp.mkuser(v_org, 'newbie', 'patient');
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source, created_at)
+  select v_org, v_hist, 'blood_pressure', 120 + (i % 10), 80, 'wearable', now() - interval '60 days' + make_interval(mins => i) from generate_series(1, 500) i;
+  perform pg_temp.ck('2b1 the history rows exist and emitted no events', (select count(*) from public.vitals_readings where patient_id = v_hist) = 500
+    and not exists (select 1 from public.domain_events where patient_id = v_hist));
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source) values (v_org, v_hist, 'blood_pressure', 124, 82, 'manual') returning id into v_vid;
+  v_ev := pg_temp.vit_event(v_vid);
+  perform public.points_award(v_ev);
+  perform pg_temp.ck('2b2 a person with 500 earlier readings gets no first blood pressure card', not pg_temp.has_ms(v_hist, 'first_bp_logged'));
+  perform public.points_award(v_ev); perform public.points_award(v_ev);
+  perform pg_temp.ck('2b3 replays leave it that way', not pg_temp.has_ms(v_hist, 'first_bp_logged'));
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source) values (v_org, v_nb, 'blood_pressure', 124, 82, 'manual') returning id into v_vid;
+  perform public.points_award(pg_temp.vit_event(v_vid));
+  perform pg_temp.ck('2b4 a brand-new person still gets the card', pg_temp.has_ms(v_nb, 'first_bp_logged'));
+  -- a lab released earlier (an earlier event; the lab_results source-table branch needs the full schema fixture and is covered by the real-schema run) means the next one is not a first
+  perform pg_temp.fire(v_hist, 'lab_result.released', 'hist-lab-old', now() - interval '90 days');
+  perform public.points_award(pg_temp.fire(v_hist, 'lab_result.released', 'hist-lab'));
+  perform pg_temp.ck('2b5 an earlier released lab stops a first-lab card', not pg_temp.has_ms(v_hist, 'first_lab_done'));
+  -- the same rule as points: any implausible measured field earns nothing and is no milestone
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, pulse_bpm, source) values (v_org, v_pl, 'blood_pressure', 120, 80, 300, 'manual') returning id into v_vid;
+  perform public.points_award(pg_temp.vit_event(v_vid));
+  perform pg_temp.ck('2b6 a blood pressure reading with an implausible pulse is no milestone', not pg_temp.has_ms(v_pl, 'first_bp_logged'));
+  -- a silent backfill row: born dismissed, no event, stops a card; a non-backfilled row without an event is refused
+  insert into public.milestones_achieved (organisation_id, patient_id, milestone_code, milestone_version, event_id, backfilled, seen_at, dismissed_at)
+  values (v_org, v_pl, 'first_lesson_completed', 1, null, true, now(), now());
+  perform public.points_award(pg_temp.fire(v_pl, 'lesson.completed', 'bf-les'));
+  perform pg_temp.ck('2b7 a backfilled row stands, is dismissed and a later lesson adds nothing',
+    (select count(*) from public.milestones_achieved where patient_id = v_pl and milestone_code = 'first_lesson_completed') = 1
+    and pg_temp.as_json(v_pl, $q$select public.my_pending_milestone()$q$) is null);
+  begin
+    insert into public.milestones_achieved (organisation_id, patient_id, milestone_code, milestone_version, event_id) values (v_org, v_pl, 'first_lab_done', 1, null);
+    perform pg_temp.ck('2b8 an ordinary row must carry its event', false);
+  exception when check_violation then perform pg_temp.ck('2b8 an ordinary row must carry its event', true); end;
 
   -- ================= 3. four weeks of check-ins (24 of 28 Lagos days with the proposed grace) =================
   for v_i in 0 .. 27 loop
@@ -300,7 +336,7 @@ end $$;
 
 -- ================= SABOTAGE (each must flip a check; sub-blocks roll back) =================
 do $$
-declare v_flip boolean; v_def text; v_org uuid; v_p uuid := gen_random_uuid(); v_e uuid; v_n integer; v_o uuid; v_item uuid := gen_random_uuid(); v_price uuid := gen_random_uuid();
+declare v_flip boolean; v_def text; v_org uuid; v_p uuid := gen_random_uuid(); v_e uuid; v_n integer; v_o uuid; v_item uuid := gen_random_uuid(); v_price uuid := gen_random_uuid(); v_vid2 uuid;
 begin
   select organisation_id into v_org from public.profiles where role = 'admin' limit 1;
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
@@ -323,6 +359,7 @@ begin
     v_def := pg_get_functiondef('private.milestones_evaluate_event(uuid)'::regprocedure);
     v_def := replace(v_def, 'if exists (select 1 from public.milestones_achieved a where a.patient_id = e.patient_id and a.milestone_code = d.code) then', 'if false then');
     v_def := replace(v_def, 'on conflict (patient_id, milestone_code) do nothing', '');
+    v_def := replace(v_def, 'and not private.milestone_has_earlier(e, d.code, d.params ->> ''requires'')', '');
     execute v_def;
     alter table public.milestones_achieved drop constraint milestones_achieved_patient_id_milestone_code_key;
     v_e := private.emit_domain_event('lab_result.released', v_org, '{"lab_result_id":"x"}', 'sab-lab-1', v_p);
@@ -367,6 +404,20 @@ begin
   exception when others then if sqlerrm <> 'rollback_sab' then v_flip := false; end if; end;
   insert into results(check_name, ok) values ('SABOTAGE E: without the age gate a minor is shown a card (so check 6b2 really guards it)', v_flip);
   if not v_flip then raise exception 'VACUOUS: age gate test'; end if;
+
+  -- F. earlier-history check removed => an existing member's next reading is called a first
+  begin
+    insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source, created_at) values (v_org, v_p, 'blood_pressure', 120, 80, 'wearable', now() - interval '3 days');
+    v_def := pg_get_functiondef('private.milestones_evaluate_event(uuid)'::regprocedure);
+    v_def := replace(v_def, 'and not private.milestone_has_earlier(e, d.code, d.params ->> ''requires'')', '');
+    execute v_def;
+    insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source) values (v_org, v_p, 'blood_pressure', 124, 82, 'manual') returning id into v_vid2;
+    perform private.milestones_evaluate_event(pg_temp.vit_event(v_vid2));
+    v_flip := pg_temp.has_ms(v_p, 'first_bp_logged');
+    raise exception 'rollback_sab';
+  exception when others then if sqlerrm <> 'rollback_sab' then v_flip := false; end if; end;
+  insert into results(check_name, ok) values ('SABOTAGE F: without the earlier-history check an existing member gets a first card (so check 2b2 really guards it)', v_flip);
+  if not v_flip then raise exception 'VACUOUS: earlier history test'; end if;
 
   -- D. refund branch removed => points are not returned
   begin

@@ -84,11 +84,14 @@ create table public.milestones_achieved (
   patient_id        uuid not null references public.profiles (id) on delete cascade,
   milestone_code    text not null,
   milestone_version integer not null,
-  event_id          uuid not null references public.domain_events (id) on delete restrict,
+  -- null only for a silent backfill row (the person already had this step in their history before milestones existed)
+  event_id          uuid references public.domain_events (id) on delete restrict,
+  backfilled        boolean not null default false,
   achieved_at       timestamptz not null default now(),
   seen_at           timestamptz,
   dismissed_at      timestamptz,
-  unique (patient_id, milestone_code)
+  unique (patient_id, milestone_code),
+  check (backfilled or event_id is not null)
 );
 create index milestones_achieved_patient_idx on public.milestones_achieved (patient_id, achieved_at desc);
 alter table public.milestones_achieved enable row level security;
@@ -110,8 +113,8 @@ begin
     if pg_trigger_depth() > 1 then return old; end if;
     raise exception 'milestones_achieved is append-only' using errcode = 'P0001';
   end if;
-  if (new.id, new.organisation_id, new.patient_id, new.milestone_code, new.milestone_version, new.event_id, new.achieved_at)
-       is distinct from (old.id, old.organisation_id, old.patient_id, old.milestone_code, old.milestone_version, old.event_id, old.achieved_at)
+  if (new.id, new.organisation_id, new.patient_id, new.milestone_code, new.milestone_version, new.event_id, new.backfilled, new.achieved_at)
+       is distinct from (old.id, old.organisation_id, old.patient_id, old.milestone_code, old.milestone_version, old.event_id, old.backfilled, old.achieved_at)
      or (old.seen_at is not null and new.seen_at is distinct from old.seen_at)
      or (old.dismissed_at is not null and new.dismissed_at is distinct from old.dismissed_at) then
     raise exception 'milestones_achieved is append-only' using errcode = 'P0001';
@@ -155,12 +158,21 @@ declare
   v public.vitals_readings%rowtype;
   v_ranges jsonb := private.reward_config('plausible_ranges');
   v_ok boolean;
+  v_key text;
+  v_bounds jsonb;
 begin
   if p_event.event_type <> 'vitals.logged' then return false; end if;
   select * into v from public.vitals_readings
    where id = (p_event.payload ->> 'vitals_id')::uuid and patient_id = p_event.patient_id;
   if not found or v_ranges is null then return false; end if;
   if v.vital_type::text in ('weight', 'waist_circumference') then return false; end if;
+  -- Same rule as private.points_event_eligible: ANY implausible measured field (e.g. a pulse of 300 on a blood pressure reading) earns nothing, so it is no milestone.
+  for v_key, v_bounds in select key, value from jsonb_each(v_ranges) loop
+    if to_jsonb(v) ->> v_key is not null
+       and ((to_jsonb(v) ->> v_key)::numeric < (v_bounds ->> 0)::numeric or (to_jsonb(v) ->> v_key)::numeric > (v_bounds ->> 1)::numeric) then
+      return false;
+    end if;
+  end loop;
   if p_requires = 'blood_pressure' then
     v_ok := v.systolic is not null and v.diastolic is not null
       and v.systolic between (v_ranges -> 'systolic' ->> 0)::numeric and (v_ranges -> 'systolic' ->> 1)::numeric
@@ -202,6 +214,51 @@ end;
 $$;
 revoke all on function private.milestone_adherence_window_ok(uuid, integer) from public, anon, authenticated;
 
+-- Has this person ALREADY done this step before this event? History before the event bus counts, so source tables are read where they exist
+-- (vitals_readings, lab_results, encounters); lessons and courses only exist as S33 events, so those read domain_events. A new member's first step
+-- has no earlier row; an existing member's next reading does, and is not a "first".
+create or replace function private.milestone_has_earlier(p_event public.domain_events, p_code text, p_requires text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  cur public.vitals_readings%rowtype;
+begin
+  if p_event.event_type = 'vitals.logged' then
+    select * into cur from public.vitals_readings
+     where id = (p_event.payload ->> 'vitals_id')::uuid and patient_id = p_event.patient_id;
+    if not found then return true; end if; -- cannot prove it is the first: do not celebrate
+    return exists (
+      select 1 from public.vitals_readings v
+       where v.patient_id = p_event.patient_id and v.id <> cur.id
+         and (v.created_at, v.id) < (cur.created_at, cur.id)
+         and case p_requires when 'blood_pressure' then v.systolic is not null and v.diastolic is not null
+                             when 'glucose' then v.glucose_mmol_l is not null else true end);
+  end if;
+  if p_event.event_type = 'lab_result.released' then
+    if exists (select 1 from public.lab_results l where l.patient_id = p_event.patient_id and l.release_state = 'released'
+                 and l.id::text is distinct from (p_event.payload ->> 'lab_result_id')
+                 and l.created_at < p_event.occurred_at) then
+      return true;
+    end if;
+  elsif p_event.event_type = 'encounter.completed' then
+    if exists (select 1 from public.encounters x where x.patient_id = p_event.patient_id and x.status = 'completed'
+                 and x.id::text is distinct from (p_event.payload ->> 'encounter_id')
+                 and x.ended_at is not null and x.ended_at < p_event.occurred_at) then
+      return true;
+    end if;
+  end if;
+  return exists (
+    select 1 from public.domain_events o
+     where o.patient_id = p_event.patient_id and o.event_type = p_event.event_type and o.id <> p_event.id
+       and (o.occurred_at, o.id) < (p_event.occurred_at, p_event.id));
+end;
+$$;
+revoke all on function private.milestone_has_earlier(public.domain_events, text, text) from public, anon, authenticated;
+
 create or replace function private.milestones_evaluate_event(p_event uuid)
 returns integer
 language plpgsql
@@ -229,6 +286,7 @@ begin
     v_ok := case d.kind
       when 'first_event' then
         case when d.params ? 'requires' then private.milestone_reading_ok(e, d.params ->> 'requires') else true end
+        and not private.milestone_has_earlier(e, d.code, d.params ->> 'requires')
       when 'adherence_window' then
         private.milestone_adherence_window_ok(e.patient_id, coalesce((d.params ->> 'days')::integer, 28))
       else false end;
@@ -445,6 +503,35 @@ begin
   return new;
 end $$;
 revoke all on function private.orders_pricing_effects() from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 6b. Silent backfill: people who already have these steps in their history never get a "first" card
+-- ---------------------------------------------------------------------------
+-- Rows are born dismissed and seen, flagged backfilled, with no event. Counts for the dry run: select count(*) from milestones_achieved where backfilled.
+insert into public.milestones_achieved (organisation_id, patient_id, milestone_code, milestone_version, event_id, backfilled, achieved_at, seen_at, dismissed_at)
+select p.organisation_id, h.patient_id, h.code, 1, null, true, now(), now(), now()
+  from (
+    select distinct v.patient_id, 'first_bp_logged'::text as code from public.vitals_readings v
+     where v.systolic is not null and v.diastolic is not null and v.vital_type::text not in ('weight', 'waist_circumference')
+    union
+    select distinct v.patient_id, 'first_glucose_logged' from public.vitals_readings v
+     where v.glucose_mmol_l is not null and v.vital_type::text not in ('weight', 'waist_circumference')
+    union
+    select distinct l.patient_id, 'first_lab_done' from public.lab_results l where l.release_state = 'released'
+    union
+    select distinct x.patient_id, 'first_review_attended' from public.encounters x where x.status = 'completed'
+    union
+    select distinct e.patient_id, 'first_lab_done' from public.domain_events e where e.event_type = 'lab_result.released' and e.patient_id is not null
+    union
+    select distinct e.patient_id, 'first_review_attended' from public.domain_events e where e.event_type = 'encounter.completed' and e.patient_id is not null
+    union
+    select distinct e.patient_id, 'first_lesson_completed' from public.domain_events e where e.event_type = 'lesson.completed' and e.patient_id is not null
+    union
+    select distinct e.patient_id, 'first_course_completed' from public.domain_events e where e.event_type = 'course.completed' and e.patient_id is not null
+  ) h
+  join public.profiles p on p.id = h.patient_id
+ where p.organisation_id is not null
+on conflict (patient_id, milestone_code) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- 7. Self-checks
