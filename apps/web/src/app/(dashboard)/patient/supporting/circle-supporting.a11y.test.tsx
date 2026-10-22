@@ -9,11 +9,19 @@ let alerts: { data: unknown[] };
 jest.mock("next/link", () => ({ __esModule: true, default: ({ href, children }: { href: string; children: React.ReactNode }) => <a href={href}>{children}</a> }));
 const ack = jest.fn();
 const setMode = jest.fn();
+const requestCheckIn = jest.fn();
+const ackUnanswered = jest.fn();
+let checkInEnabled = false;
+let unanswered: { data: unknown[] } = { data: [] };
 jest.mock("@/lib/queries/care-circle", () => ({
   useSupportedPeople: () => people,
   useOpenAlerts: () => alerts,
   useAckAlert: () => ({ mutateAsync: ack, isPending: false }),
   useSetAlertMode: () => ({ mutate: setMode, isPending: false }),
+  useCheckInEnabled: () => ({ data: checkInEnabled }),
+  useUnansweredCheckIns: () => unanswered,
+  useAckUnanswered: () => ({ mutate: ackUnanswered, isPending: false, isError: false }),
+  useRequestCheckIn: () => ({ mutateAsync: requestCheckIn, isPending: false }),
 }));
 
 const PERSON = { patient_id: "p1", member_id: "m1", name: "Mama Eze", relationship: "Mother", permissions: ["red_alerts"], expires_at: "2027-06-01T00:00:00Z", alert_mode: "push_and_app" };
@@ -22,6 +30,10 @@ beforeEach(() => {
   alerts = { data: [] };
   ack.mockReset();
   setMode.mockReset();
+  requestCheckIn.mockReset();
+  ackUnanswered.mockReset();
+  checkInEnabled = false;
+  unanswered = { data: [] };
 });
 
 describe("CircleSupporting", () => {
@@ -81,5 +93,62 @@ describe("CircleSupporting", () => {
     people = { isSuccess: true, data: [] };
     const { container } = render(<CircleSupporting locale="en" />);
     expect(container.textContent).toBe("");
+  });
+
+  it("S29e: the check-in button is absent while the go-live is off, and a failed read counts as off", () => {
+    render(<CircleSupporting locale="en" />);
+    expect(screen.queryByRole("button", { name: "Ask them to check in" })).toBeNull();
+  });
+
+  it("S29e: with the go-live on, a supporter who gets check-in requests can ask, and is told what happens next", async () => {
+    checkInEnabled = true;
+    requestCheckIn.mockResolvedValue({ ok: true, window_ends_at: "2026-10-16T10:05:00Z" });
+    render(<CircleSupporting locale="en" />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ask them to check in" })));
+    expect(requestCheckIn).toHaveBeenCalledWith("p1");
+    expect(screen.getByRole("status").textContent).toMatch(/minutes/);
+  });
+
+  it("S29e: a refusal and a failure each have their own plain line, never a silent success", async () => {
+    checkInEnabled = true;
+    requestCheckIn.mockResolvedValueOnce({ ok: false, reason: "already_waiting" });
+    render(<CircleSupporting locale="en" />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ask them to check in" })));
+    expect(screen.getByRole("status").textContent).toMatch(/already been asked/);
+    requestCheckIn.mockRejectedValueOnce(new Error("x"));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ask them to check in" })));
+    expect(screen.getByRole("status").textContent).toMatch(/did not go through/);
+  });
+
+  it("S29e: a supporter who does not get check-in requests is never offered the button", () => {
+    checkInEnabled = true;
+    people = { isSuccess: true, data: [{ ...PERSON, permissions: ["adherence_summary"] }] };
+    render(<CircleSupporting locale="en" />);
+    expect(screen.queryByRole("button", { name: "Ask them to check in" })).toBeNull();
+  });
+
+  it("S29e: a person who did not answer a check-in is named, so the notice can be acted on, with nothing clinical", () => {
+    unanswered = { data: [{ patient_id: "p1", name: "Mama Eze", since: "2026-10-16T10:05:00Z" }] };
+    render(<CircleSupporting locale="en" />);
+    const a = screen.getByRole("alert");
+    expect(a.textContent).toMatch(/Mama Eze has not answered a check-in/);
+    expect(a.textContent).toMatch(/Please call Mama Eze now/);
+    expect(a.textContent).not.toMatch(/blood|pressure|reading|result|emergency|critical/i);
+  });
+
+  it("S29e: the asked line gives the minutes the database sent, not a fixed number", async () => {
+    checkInEnabled = true;
+    requestCheckIn.mockResolvedValue({ ok: true, window_ends_at: new Date(Date.now() + 10 * 60_000).toISOString() });
+    render(<CircleSupporting locale="en" />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ask them to check in" })));
+    expect(screen.getByRole("status").textContent).toMatch(/about 10 minutes/);
+  });
+
+  it("S29e: one tap on 'I called them' for a person who did not answer, with no text", () => {
+    unanswered = { data: [{ patient_id: "p1", name: "Mama Eze", since: "2026-10-16T10:05:00Z" }] };
+    render(<CircleSupporting locale="en" />);
+    fireEvent.click(screen.getByRole("button", { name: "I called them" }));
+    expect(ackUnanswered).toHaveBeenCalledWith("p1");
+    expect(ackUnanswered.mock.calls[0]).toHaveLength(1);
   });
 });

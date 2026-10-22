@@ -43,3 +43,25 @@ fdbb56df4666f5c499053c92898c6348f3544dfb:apps/mobile/ios/Podfile.lock:generic-ap
 # The first wording of the comment above quoted that identifier and tripped the same rule in two commits; reviewed, same reason.
 b6e4c1fe34c5b46a559228c6cfbee56e2b3cf736:.gitleaksignore:generic-api-key:37
 ea8e2dec61eb8efdaaad925aa4f2363d2aaf02a0:.gitleaksignore:generic-api-key:37
+
+# S47 go-live guard: more findings in the commits that introduced the guard name risk_instrument_who2019_enabled, the guard
+# description text, and the s46c proof's placeholder consent key. Reviewed: identifiers and prose, no credentials.
+22d9b2f3562f190c46e77bd8e00b20f3eb632109:apps/web/src/lib/cv-risk/assess.ts:generic-api-key:142
+22d9b2f3562f190c46e77bd8e00b20f3eb632109:packages/db/tests/s46c_caregiver_report_read.sql:generic-api-key:321
+22d9b2f3562f190c46e77bd8e00b20f3eb632109:supabase/migrations/20261008030051_s47_go_live_conditions_for_clinical_guards.sql:generic-api-key:110
+22d9b2f3562f190c46e77bd8e00b20f3eb632109:supabase/migrations/20261008030051_s47_go_live_conditions_for_clinical_guards.sql:generic-api-key:22
+e3e886808493c59871ca8099be0ffc2fa29f9a0f:supabase/migrations/20261008030051_s47_go_live_conditions_for_clinical_guards.sql:generic-api-key:22
+
+# Provider layer fixtures (PR 1218, commit 41c9c15, branch build/provider-layer-completion), reviewed 2026-10-21. All six are test values, not credentials:
+#  - scripts/provider-sandbox-check/checks.test.mjs (2): a 20 character "sk_live..." placeholder used to prove the check REFUSES live keys (a real Paystack key is
+#    far longer), and short made-up strings ("re_supersecretvalue") used to test the log redactor.
+#  - packages/integrations/src/fixtures/zoom/*.json (4): the sample webhook payload values from Zoom's public documentation (placeholder account and meeting ids,
+#    and the documentation's sample endpoint-validation token).
+# These fingerprints are tied to commit 41c9c15. If that PR is squash-merged the same content gets a new commit id and will be flagged again: rewrite the
+# fixtures to build the strings at run time (for example "sk_" + "live_x") before the squash, or add the new fingerprints after the same review.
+41c9c1595c39277280445d7492022edbec57c31f:packages/integrations/src/fixtures/zoom/endpoint-url-validation.json:generic-api-key:1
+41c9c1595c39277280445d7492022edbec57c31f:packages/integrations/src/fixtures/zoom/participant-joined-waiting-room.json:generic-api-key:1
+41c9c1595c39277280445d7492022edbec57c31f:packages/integrations/src/fixtures/zoom/participant-joined.json:generic-api-key:1
+41c9c1595c39277280445d7492022edbec57c31f:packages/integrations/src/fixtures/zoom/participant-left.json:generic-api-key:1
+41c9c1595c39277280445d7492022edbec57c31f:scripts/provider-sandbox-check/checks.test.mjs:generic-api-key:26
+41c9c1595c39277280445d7492022edbec57c31f:scripts/provider-sandbox-check/checks.test.mjs:stripe-access-token:15

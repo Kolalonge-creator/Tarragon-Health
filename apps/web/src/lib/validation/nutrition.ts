@@ -59,3 +59,21 @@ export const mealPlanRequestSchema = z.object({
   preferences_note: z.string().trim().max(300).nullish(),
 });
 export type MealPlanRequestInput = z.infer<typeof mealPlanRequestSchema>;
+
+/** S49a (6.3): save a meal by name to log again in one tap. Text only; nutrition is recomputed from the food table each time it is logged. */
+export const favouriteMealSchema = z.object({
+  name: z.string().trim().min(1, "Give this meal a short name.").max(60),
+  description: z.string().trim().min(1, "Describe what is in this meal.").max(500),
+  meal_type: z.enum(MEAL_TYPES).nullish(),
+});
+export type FavouriteMealInput = z.infer<typeof favouriteMealSchema>;
+
+/** S49a (6.7): how the patient wants a meal summarised. */
+export const mealSummaryModeSchema = z.object({ mode: z.enum(["numbers", "words"]) });
+export type MealSummaryModeInput = z.infer<typeof mealSummaryModeSchema>;
+
+/** A row id (a diary entry or a favourite). */
+export const entryIdSchema = z.object({ entry_id: z.string().uuid() });
+
+/** S49a (6.4): a typed or scanned product code. Spaces are removed before the check digit is verified. */
+export const barcodeCodeSchema = z.object({ code: z.string().trim().min(8, "Enter the whole code.").max(24) });

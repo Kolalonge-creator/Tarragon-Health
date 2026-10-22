@@ -17,6 +17,7 @@ import { ThemeToggle, type ThemePreference } from "./theme-toggle";
 import { Avatar } from "@/components/avatar";
 import { MAX_PRIMARY_NAV_ITEMS, type NavItem, type NavSection } from "@/lib/navigation";
 import { UiLanguageProvider, useT } from "@/components/ui-language-provider";
+import { useSupportingAttention } from "@/lib/queries/care-circle";
 import { DEFAULT_UI_LANGUAGE, type UiLanguage } from "@tarragon/shared";
 import { useWorklistCounts, type WorklistCountKey } from "@/lib/queries/worklist-counts";
 
@@ -625,7 +626,11 @@ export function AppShell({
     [allItems]
   );
   const { data: navCountsData, isError: navCountsFailed } = useWorklistCounts(countKeys);
-  const navCounts: NavCounts = { counts: navCountsData, failed: navCountsFailed, hrefBadges };
+  // The People you support badge is drawn by the server first, then kept live here (only when the server drew one).
+  const liveSupporting = useSupportingAttention(!!hrefBadges?.["/patient/supporting"]);
+  const mergedBadges =
+    hrefBadges && liveSupporting.data !== undefined ? { ...hrefBadges, "/patient/supporting": { count: liveSupporting.data, failed: false } } : hrefBadges;
+  const navCounts: NavCounts = { counts: navCountsData, failed: navCountsFailed, hrefBadges: mergedBadges };
   // No More button when the tabs already cover every link — a supporter's
   // four-link menu would otherwise get a button opening a drawer that shows
   // them nothing new.

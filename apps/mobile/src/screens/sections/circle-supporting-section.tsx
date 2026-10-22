@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Text, View } from "react-native";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
-import { ackAlert, loadOpenAlerts, loadSupported, loadSupporterView, revokeMember, setAlertMode } from "@/lib/care-circle/api";
-import { ALERT_MODES, type AlertMode, type OpenAlert, type SupportedPerson, type SupporterView } from "@/lib/care-circle/parse";
+import { ackAlert, ackUnanswered, checkInWindowOpen, loadOpenAlerts, loadSupported, loadUnanswered, loadSupporterView, requestCheckIn, revokeMember, setAlertMode } from "@/lib/care-circle/api";
+import { ALERT_MODES, minutesLeft, type AlertMode, type OpenAlert, type SupportedPerson, type SupporterView, type UnansweredCheckIn } from "@/lib/care-circle/parse";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { CallInvitesSection } from "./call-invites-section";
 import { MembershipSection } from "./membership-section";
 import { SupporterBlocks } from "./supporter-blocks";
 
@@ -134,30 +135,84 @@ function AlertModePicker({ person, onChanged }: { person: SupportedPerson; onCha
   );
 }
 
+/**
+ * S29e: ask a person to check in. Not an emergency path: the person is asked first and has a few minutes before the circle is told.
+ * Shown only while the Chief Medical Officer's go-live is on (a failed read means off).
+ */
+function CheckInAsk({ person, open }: { person: SupportedPerson; open: boolean }) {
+  const locale = asLocale(useUiLanguage());
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  if (!open) return null;
+  return (
+    <View style={{ gap: 6 }}>
+      <SecondaryButton
+        title={t("checkin.ask", locale)}
+        disabled={busy}
+        onPress={() => {
+          setBusy(true);
+          setMessage(null);
+          void requestCheckIn(person.patientId).then((r) => {
+            setBusy(false);
+            if (r === null) setMessage(t("checkin.error", locale));
+            else if (r.ok) {
+              const minutes = minutesLeft(r.windowEndsAt, Date.now());
+              setMessage(minutes === null ? t("checkin.asked_soon", locale) : t("checkin.asked", locale, { minutes }));
+            }
+            else setMessage(t(r.reason === "limit" ? "checkin.limit" : "checkin.already_waiting", locale));
+          });
+        }}
+      />
+      {message ? <MutedText>{message}</MutedText> : null}
+    </View>
+  );
+}
+
 /** The Care Circle half of the supporter's home (S29): an open check-in request first, then the people who have shared something. */
 export function CircleSupportingSection() {
   const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [people, setPeople] = useState<SupportedPerson[] | null>(null);
   const [alerts, setAlerts] = useState<OpenAlert[]>([]);
+  const [missed, setMissed] = useState<UnansweredCheckIn[]>([]);
+  const [checkInOpen, setCheckInOpen] = useState(false);
   const [open, setOpen] = useState<SupportedPerson | null>(null);
 
   const refresh = useCallback(async () => {
-    const [p, a] = await Promise.all([loadSupported(), loadOpenAlerts()]);
+    const [p, a, u] = await Promise.all([loadSupported(), loadOpenAlerts(), loadUnanswered()]);
     setPeople(p.ok ? p.data : []);
     if (a.ok) setAlerts(a.data);
+    if (u.ok) setMissed(u.data);
   }, []);
   useEffect(() => {
     void refresh();
   }, [refresh]);
+  // One read of the go-live for the whole section (a failed read means closed).
+  useEffect(() => {
+    let alive = true;
+    void checkInWindowOpen().then((o) => {
+      if (alive) setCheckInOpen(o === true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   if (open) return <PersonView person={open} onBack={() => setOpen(null)} onLeft={() => { setOpen(null); void refresh(); }} />;
   if (people === null) return <ActivityIndicator />;
-  if (people.length === 0 && alerts.length === 0) return null;
+  if (people.length === 0 && alerts.length === 0 && missed.length === 0) return <CallInvitesSection />;
 
   return (
     <View style={{ gap: 12 }}>
+      <CallInvitesSection />
       {alerts.map((a) => <AlertCard key={a.patientId} alert={a} onChanged={() => void refresh()} />)}
+      {missed.map((m) => (
+        <Card key={m.patientId} style={{ gap: 6 }}>
+          <Text accessibilityRole="alert" style={{ fontWeight: "700", color: colors.ink }}>{t("checkin.unanswered_title", locale, { name: m.name })}</Text>
+          <Text style={{ color: colors.ink }}>{t("checkin.unanswered_body", locale, { name: m.name })}</Text>
+          <PrimaryButton title={t("circle.alert.called", locale)} onPress={() => { void ackUnanswered(m.patientId).then((ok) => { if (ok) void refresh(); }); }} />
+        </Card>
+      ))}
       <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{t("circle.supporting.title", locale)}</Text>
       {people.map((p) => (
         <Card key={p.memberId} style={{ gap: 6 }}>
@@ -165,6 +220,7 @@ export function CircleSupportingSection() {
           <MutedText>{`${t("circle.supporting.relationship", locale, { relationship: p.relationship })} · ${t("circle.view.shared_until", locale, { date: lagosDate(p.expiresAt) })}`}</MutedText>
           <PrimaryButton title={t("circle.supporting.open", locale)} onPress={() => setOpen(p)} />
           {p.permissions.includes("red_alerts") ? <AlertModePicker person={p} onChanged={() => void refresh()} /> : null}
+          {p.permissions.includes("red_alerts") ? <CheckInAsk person={p} open={checkInOpen} /> : null}
         </Card>
       ))}
     </View>

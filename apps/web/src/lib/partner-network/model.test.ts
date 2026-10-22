@@ -29,6 +29,9 @@ describe("partner network model", () => {
   it("labels breach codes in plain words and falls back to a readable form", () => {
     expect(breachLabel("licence_expired")).toBe("Licence expired");
     expect(breachLabel("something_new")).toBe("something new");
+    // S28e: the pharmacy's own two codes read as sentences, not as raw code words
+    expect(breachLabel("dispense_turnaround_slow")).not.toBe("dispense turnaround slow");
+    expect(breachLabel("out_of_stock_often")).not.toBe("out of stock often");
     expect(monthLabel("2026-09-01")).toBe("September 2026");
   });
 

@@ -1,3 +1,5 @@
+import { attentionCount, isMissingFunction, parseOpenAlerts, parseUnanswered } from "@/lib/care-circle/model";
+import { CheckInCard } from "@/app/(dashboard)/patient/care-circle/check-in-card";
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/app-shell";
@@ -90,11 +92,36 @@ export default async function DashboardLayout({
 
   // The Community entry shows only while the database says the community is open to this member (go-live guard) and they are an
   // adult. A failed or malformed reply means "closed": nothing about the community leaks into the menu.
+  // Header/cookie reads are independent of the database, so start them now and let them overlap the round trips below.
+  const themePromise = cookies().then((c) => parseThemePreference(c.get(THEME_COOKIE)?.value));
+  const embeddedPromise = isEmbeddedInApp();
   let communityOpen = false;
   if (profile?.role === "patient" && !supporterOnly) {
     const { data: communityList, error: communityError } = await supabase.rpc("community_list_groups");
     const parsedList = communityError ? null : groupListSchema.safeParse(communityList);
     communityOpen = parsedList?.success === true && parsedList.data.open && parsedList.data.adult;
+  }
+
+  // A supporter's "needs attention" badge on People you support: the backup for the push, drawn on every page by the server. A failed
+  // read shows as unknown, never as zero. Only people with an open, un-called check-in request count; nothing about the person.
+  let supportingBadge: { count: number; failed: boolean } | undefined;
+  if (profile?.role === "patient") {
+    const [{ data: alertData, error: alertError }, { data: unansweredData, error: unansweredError }] = await Promise.all([
+      supabase.rpc("circle_open_alerts"),
+      supabase.rpc("circle_unanswered_check_ins"),
+    ]);
+    supportingBadge =
+      alertError || (unansweredError && !isMissingFunction(unansweredError))
+        ? { count: 0, failed: true }
+        : { count: attentionCount(parseOpenAlerts(alertData), unansweredError ? [] : parseUnanswered(unansweredData)), failed: false };
+  }
+
+  // Places the money records disagree, beside Money reconciliation for the finance and admin menus. Read from an hourly snapshot (polling the
+  // detector would scan all history on every page); the database refuses a snapshot older than three hours, which shows as unknown, never zero.
+  let moneyBadge: { count: number; failed: boolean } | undefined;
+  if (profile?.role === "finance" || profile?.role === "admin") {
+    const { data: moneyCount, error: moneyError } = await supabase.rpc("money_reconciliation_badge");
+    moneyBadge = moneyError ? { count: 0, failed: true } : { count: Number(moneyCount ?? 0), failed: false };
   }
 
   const isPatient = profile?.role === "patient" && !supporterOnly;
@@ -112,7 +139,7 @@ export default async function DashboardLayout({
   // bars stacked. Content only.
   // Cookie-persisted so the very first server render carries the right
   // data-theme attribute (no flash). Only the patient surface consumes it.
-  const theme = parseThemePreference((await cookies()).get(THEME_COOKIE)?.value);
+  const theme = await themePromise;
 
   // Admin only. The admin role is the super admin and holds every capability, so every settings page is visible to it
   // (no per-page check to repeat here); delegated members do not get the box.
@@ -132,7 +159,7 @@ export default async function DashboardLayout({
   const communityStaff =
     profile?.role === "clinician" || profile?.role === "care_coordinator" ? await getCommunityStaffContext() : null;
 
-  const embedded = await isEmbeddedInApp();
+  const embedded = await embeddedPromise;
   if (embedded) {
     // The native shell paints #FAF7F2 around this WebView; the patient's
     // embedded content carries the same warm ground so web pages don't sit
@@ -172,11 +199,13 @@ export default async function DashboardLayout({
         // The search box for the admin and the Chief Medical Officer: every page they can reach, built from the lists that draw the menus.
         adminSearch={adminSearchEntries}
         // The Chief Medical Officer's pending-signature count beside "Sign-off hub", from the same list the banner and the hub show.
-        hrefBadges={
-          signingHub
+        hrefBadges={{
+          ...(signingHub
             ? { "/clinician/clinical-signoff": { count: signingHub.items.length, failed: signingHub.failed && signingHub.items.length === 0 } }
-            : undefined
-        }
+            : {}),
+          ...(supportingBadge ? { "/patient/supporting": supportingBadge } : {}),
+          ...(moneyBadge ? { "/finance/money-reconciliation": moneyBadge } : {}),
+        }}
         // Patient accounts (supporters included — they share the patient
         // role) get the Warm Ivory ground the mobile app already ships;
         // staff and clinical consoles keep the white canvas.
@@ -186,6 +215,8 @@ export default async function DashboardLayout({
       >
         <OfflineBanner />
         <MfaNudgeBanner role={profile?.role ?? null} />
+        {/* S29e: a supporter asked for a check-in and the patient has a few minutes to answer. Only the patient's own account, only while a question waits. */}
+        {isPatient && <CheckInCard locale="en" />}
         {/* Reachable at /patient/privacy for any signed-in patient, supporter-only
             accounts included (they consent to terms_of_service and can go stale
             same as anyone else) — gated here on onboarding_completed_at so this

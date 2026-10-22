@@ -104,6 +104,19 @@ describe("buildFhirBundle", () => {
     expect(entries(withProfile.bundle, "Condition")[0]?.meta).not.toHaveProperty("profile");
   });
 
+  it("a record the patient supplied is 'preliminary' and says so until a clinician checked it (S09y); a checked or clinician-filed one is final", () => {
+    const doc = (over: Record<string, unknown>) => ({ id: "99999999-0000-4000-8000-000000000001", document_type: "discharge_summary", document_date: null, mime_type: "image/jpeg", source: "patient", created_at: "2026-06-02T00:00:00+00:00", ...over });
+    const ref = (d: Record<string, unknown>) => entries(buildFhirBundle(fixtureSnapshot({ documents: [doc(d)] as never }), mapping).bundle, "DocumentReference")[0] as FhirOut;
+    for (const unchecked of [{ verification_status: "unchecked" }, { verification_status: "not_verified" }, {}]) {
+      const r = ref(unchecked);
+      expect(r.docStatus).toBe("preliminary");
+      expect(r.description).toMatch(/not checked by a clinician/);
+    }
+    expect(ref({ verification_status: "verified" }).docStatus).toBe("final");
+    expect(ref({ verification_status: "verified" })).not.toHaveProperty("description");
+    expect(ref({ source: "clinician", verification_status: "not_applicable" }).docStatus).toBe("final");
+  });
+
   it("never carries a private note or a file name: the snapshot has none, and the bundle adds none", () => {
     expect(JSON.stringify(out.bundle)).not.toMatch(/PRIVATE|file_path|original_filename/);
   });

@@ -1,5 +1,12 @@
 import { t } from "@tarragon/i18n";
 import { rangeMayBeShownAsClinical, rangeSourceLabel } from "@tarragon/shared";
+import { PrintButton } from "./print-button";
+import { FhirDownloadButton } from "./fhir-download-button";
+import dynamic from "next/dynamic";
+import type { SharedReportBody } from "@/lib/health-report/render-model";
+
+// loaded only when a link actually carries a report, so the report renderer and the rule registry stay out of every other shared link's bundle
+const SharedReportSection = dynamic(() => import("./shared-report-section").then((m) => m.SharedReportSection));
 
 /** What `record_share_by_token` returns on success. No directive: rendered by the server page and by the PIN gate on the client. */
 export type SharedData = {
@@ -10,6 +17,12 @@ export type SharedData = {
   sections: string[];
   one_session?: boolean;
   session_ends_at?: string | null;
+  /** Who the patient said the link is for. A label only. */
+  recipient_label?: string | null;
+  /** Set when the patient limited readings to the last N days. */
+  window_days?: number | null;
+  /** Set when the patient capped the number of openings; the count left after this one. */
+  views_left?: number | null;
   vitals?: Array<{
     vital_type: string;
     systolic: number | null;
@@ -52,6 +65,8 @@ export type SharedData = {
     dose_number: number | null;
     batch_number: string | null;
   }>;
+  /** S46d: the latest signed yearly report in shared-copy form, built and filtered in the database. Null when no signed report exists. */
+  health_report?: SharedReportBody | null;
   emergency_info?: {
     blood: {
       blood_group: string | null;
@@ -139,11 +154,22 @@ export function SharedRecordView({ record }: { record: SharedData }) {
         <p className="text-sm text-charcoal-ink/70">
           {t("share.public.expires", "en", { date: formatDate(record.expires_at) })}
         </p>
+        {record.recipient_label ? (
+          <p className="text-sm text-charcoal-ink/70">{t("sharelink.public.for", "en", { name: record.recipient_label })}</p>
+        ) : null}
+        {record.window_days ? (
+          <p className="text-sm text-charcoal-ink/70">{t("sharelink.public.window", "en", { days: String(record.window_days) })}</p>
+        ) : null}
+        {typeof record.views_left === "number" ? (
+          <p className="text-sm text-charcoal-ink/70">{t("sharelink.public.views_left", "en", { count: String(record.views_left) })}</p>
+        ) : null}
         {record.one_session && record.session_ends_at ? (
           <p className="text-sm text-charcoal-ink/70">
             {t("share.public.session_ends", "en", { time: formatTime(record.session_ends_at) })}
           </p>
         ) : null}
+        <PrintButton />
+        <FhirDownloadButton record={record} />
       </header>
 
       {record.vitals && record.vitals.length > 0 && (
@@ -307,6 +333,15 @@ export function SharedRecordView({ record }: { record: SharedData }) {
           </ul>
         </>
       )}
+
+      {record.sections.includes("health_report") &&
+        (record.health_report ? (
+          <section aria-label="Yearly health report">
+            <SharedReportSection body={record.health_report} />
+          </section>
+        ) : (
+          <p role="status" className="text-sm">{t("report.share.link_unavailable", "en")}</p>
+        ))}
 
       {record.emergency_info && (
         <>

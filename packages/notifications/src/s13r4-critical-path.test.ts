@@ -96,7 +96,7 @@ describe("delivery reliability fields", () => {
   });
   it("the sender names the channel only for an Android phone that said it is ready, and the app says so at registration", () => {
     const src = readFileSync("../../supabase/functions/send-pending-notifications/index.ts", "utf8");
-    expect(src).toContain('sub.platform !== "android" || sub.urgent_channel_ready === true');
+    expect(src).toContain('sub.platform !== "android" || channelFor(sub, template) === PAGE_CHANNEL_ID || sub.urgent_channel_ready === true');
     expect(readFileSync("../../apps/mobile/src/lib/push-registration.ts", "utf8")).toContain("urgent_channel_ready: urgentChannelReady");
   });
   it("critical is sent only when the entitlement switch is on", () => {

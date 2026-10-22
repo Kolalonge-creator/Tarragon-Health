@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "scheme": "tarragonhealth",
     "icon": "./assets/icon.png",
-    "runtimeVersion": "0.1.0-native6",
+    "runtimeVersion": "0.1.0-native8",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -95,6 +95,7 @@
         "android.permission.BLUETOOTH_ADMIN",
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.ACCESS_NOTIFICATION_POLICY",
         "android.permission.health.READ_STEPS",
         "android.permission.health.READ_BLOOD_PRESSURE",
         "android.permission.health.READ_BLOOD_GLUCOSE",

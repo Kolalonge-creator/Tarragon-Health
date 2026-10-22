@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-error";
 import { formatPatientDate } from "@/lib/format-date";
 import { checkoutErrorKey, isCoveredReply, isMessageKey, orderStateKey, type CatalogueItem, type OrderRow } from "@/lib/commerce/model";
-import { CheckoutError, useCatalogue, useMyMembership, useMyOrders, useQuote, useStartCheckout } from "@/lib/queries/commerce";
+import { CheckoutError, useCatalogue, useInstalmentPolicy, useMyInstalmentPlans, useMyMembership, useMyOrders, useQuote, useStartCheckout } from "@/lib/queries/commerce";
+import { InstalmentChoice, InstalmentSummary, type PayMode } from "./instalment-choice";
 import { useSponsorableProfiles } from "@/lib/queries/care-access";
 import { RefundRequestDialog } from "./refund-request-dialog";
+import { RefundRule } from "./refund-rule";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 const TOUCH = "min-h-11";
@@ -45,6 +47,9 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
   const start = useStartCheckout();
   // One key per card, made on first use and kept, so a double tap or a retry after a dropped connection is the SAME order.
   const clientKey = useRef<string | null>(null);
+  // S25b: a plan has its OWN key. One key must never serve both ways of paying: a retry of a plan under a key that was used for paying in full (or the
+  // other way round) would answer with the wrong kind of order.
+  const partsKey = useRef<string | null>(null);
   const [errorKey, setErrorKey] = useState<ReturnType<typeof checkoutErrorKey> | null>(null);
   // S73: the database prices every order. What is shown is its quote; the catalogue price is only the fallback when no quote could be had.
   const [codeInput, setCodeInput] = useState("");
@@ -70,6 +75,14 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
   // a quote with only the list line has nothing to explain
   const explainLines = quote !== null && quote.lines.some((l) => l.rule !== "list") ? quote.lines : null;
 
+  // S25b: pay the yearly Membership in parts. Offered only while the platform module is on, to the buyer for themselves, at the plain list
+  // price (no code, no points, no sponsor share). The database refuses anything else, so this only keeps the screen honest.
+  const instalmentPolicy = useInstalmentPolicy().data ?? null;
+  const [payMode, setPayMode] = useState<PayMode>("full");
+  const partsOffered = instalmentPolicy !== null && instalmentPolicy.open && item.kind === "membership" && beneficiary === undefined && !blocked && !covered
+    && appliedCode === null && !pointsOn && (quote === null || (quote.sponsorShareKobo === 0 && quote.amountDueKobo === item.amount_kobo));
+  const partsMode = partsOffered && payMode === "parts";
+
   async function pay() {
     // For someone else, say their name and what happens before any card is touched (S29c): they are asked to accept, and a no is a refund.
     if (beneficiary !== undefined) {
@@ -77,10 +90,11 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
       if (!window.confirm(`${t("circle.pay.confirm_title", locale, { name: who })}\n\n${t("circle.pay.confirm_body", locale, { name: who })}`)) return;
     }
     setErrorKey(null);
-    clientKey.current ??= crypto.randomUUID();
+    const keyRef = partsMode ? partsKey : clientKey;
+    keyRef.current ??= crypto.randomUUID();
     try {
-      const r = await start.mutateAsync({
-        code: item.code, clientKey: clientKey.current, ...(beneficiary ? { beneficiary } : {}),
+      const r = await start.mutateAsync(partsMode && instalmentPolicy !== null ? { code: item.code, clientKey: keyRef.current, instalmentParts: instalmentPolicy.parts } : {
+        code: item.code, clientKey: keyRef.current, ...(beneficiary ? { beneficiary } : {}),
         // the code the person applied, and the total they were shown: if the database now computes a different one it refuses instead of charging it
         ...(appliedCode && !codeFailed ? { discountCode: appliedCode } : {}),
         ...(pointsOn ? { usePoints: true } : {}),
@@ -94,7 +108,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
       go(r.checkout_url);
     } catch (e) {
       // A refusal is final for this tap; a fresh key is made next time. A network failure keeps the key so a retry is the same order.
-      if (e instanceof CheckoutError && e.code !== "unknown" && e.code !== "payment_unavailable") clientKey.current = null;
+      if (e instanceof CheckoutError && e.code !== "unknown" && e.code !== "payment_unavailable") keyRef.current = null;
       setErrorKey(checkoutErrorKey(e instanceof CheckoutError ? e.code : "unknown"));
       // "You are already a member" would be wrong when the order was for somebody else.
       if (beneficiary !== undefined && e instanceof CheckoutError && e.code === "already_member") setErrorKey("circle.pay.already_member");
@@ -135,8 +149,20 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
               </Button>
             )}
           </section>
+        ) : partsMode && instalmentPolicy !== null ? (
+          <>
+            <InstalmentChoice locale={locale} policy={instalmentPolicy} priceKobo={item.amount_kobo} mode={payMode} onMode={setPayMode} id={item.code} />
+            <InstalmentSummary locale={locale} policy={instalmentPolicy} priceKobo={item.amount_kobo} id={item.code} />
+            <RefundRule locale={locale} membership pack={false} id={`${item.code}-parts`} />
+            <Button type="button" className={TOUCH} onClick={pay} disabled={start.isPending}>
+              {start.isPending ? t("shop.paying", locale) : t("shop.instalments.pay", locale)}
+            </Button>
+          </>
         ) : (
           <>
+            {partsOffered && instalmentPolicy !== null ? (
+              <InstalmentChoice locale={locale} policy={instalmentPolicy} priceKobo={item.amount_kobo} mode={payMode} onMode={setPayMode} id={item.code} />
+            ) : null}
             {quote !== null && quote.sponsorShareKobo > 0 ? (
               <p role="status">{t("sponsor.part", locale, { name: quote.sponsorName ?? t("sponsor.covered_generic", locale), amount: `\u20A6${formatNaira(quote.sponsorShareKobo)}` })}</p>
             ) : null}
@@ -218,6 +244,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
                 {codeFailed ? <p role="status">{t(quote?.rateLimited ? "shop.error.discount_code_rate_limited" : "shop.error.discount_code_invalid", locale)}</p> : null}
               </div>
             ) : null}
+            <RefundRule locale={locale} membership={item.kind === "membership"} pack={item.kind === "care_pack"} id={item.code} />
             <p className={`text-sm ${MUTED}`}>{t("shop.no_renew", locale)}</p>
             {blocked ? (
               <p role="status">{t("shop.member_until", locale, { date: formatPatientDate(memberUntil) })}</p>
@@ -234,8 +261,11 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
   );
 }
 
-function History({ rows, locale }: { rows: OrderRow[]; locale: Locale }) {
+function History({ rows, locale, kindByCode }: { rows: OrderRow[]; locale: Locale; kindByCode: ReadonlyMap<string, string> }) {
   const [refundTarget, setRefundTarget] = useState<OrderRow | null>(null);
+  const paidRow = rows.find((o) => o.state === "paid") ?? null;
+  // S25b: an order paid in parts has been paid only in part. What is shown, and what a refund would return, is what was actually paid.
+  const paidByOrder = new Map((useMyInstalmentPlans().data ?? []).map((p) => [p.order_id, p.paid_kobo] as const));
 
   return (
     <Card>
@@ -261,7 +291,7 @@ function History({ rows, locale }: { rows: OrderRow[]; locale: Locale }) {
                   )}
                   {o.refund_state !== null && <span className={`text-sm ${MUTED}`}>{t(refundStateKey(o.refund_state), locale)}</span>}
                   <div className="text-right">
-                    {o.amount_kobo === 0 && o.sponsor_share_kobo > 0 ? <p>{o.sponsor_name ? t("sponsor.history_covered", locale, { name: o.sponsor_name }) : t("sponsor.covered_generic", locale)}</p> : <p><Naira kobo={o.total_kobo ?? o.amount_kobo} /></p>}
+                    {o.amount_kobo === 0 && o.sponsor_share_kobo > 0 ? <p>{o.sponsor_name ? t("sponsor.history_covered", locale, { name: o.sponsor_name }) : t("sponsor.covered_generic", locale)}</p> : <p><Naira kobo={paidByOrder.get(o.order_id) ?? o.total_kobo ?? o.amount_kobo} /></p>}
                     <p className={`text-sm ${MUTED}`}>{t(orderStateKey(o.state), locale)}</p>
                   </div>
                 </div>
@@ -269,13 +299,18 @@ function History({ rows, locale }: { rows: OrderRow[]; locale: Locale }) {
             ))}
           </ul>
         )}
-        {rows.some((o) => o.state === "paid") && <p className={`mt-3 text-sm ${MUTED}`}>{t("refund.policy.cooling_off", locale)}</p>}
+        {/* The receipt carries the same plain-words rule as the checkout, for the most recent paid order (S26b). */}
+        {paidRow ? (
+          <div className="mt-3">
+            <RefundRule locale={locale} membership={kindByCode.get(paidRow.code) === "membership"} pack={kindByCode.get(paidRow.code) === "care_pack"} id="receipt" />
+          </div>
+        ) : null}
       </CardContent>
       {refundTarget && (
         <RefundRequestDialog
           orderId={refundTarget.order_id}
           itemName={copy(refundTarget.name_key, locale)}
-          amountKobo={refundTarget.total_kobo ?? refundTarget.amount_kobo}
+          amountKobo={paidByOrder.get(refundTarget.order_id) ?? refundTarget.total_kobo ?? refundTarget.amount_kobo}
           open={refundTarget !== null}
           onOpenChange={(open) => { if (!open) setRefundTarget(null); }}
           locale={locale}
@@ -333,7 +368,7 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary }: { locale
       {items.filter((item) => !chosenId || item.kind === "membership").map((item) => (
         <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} beneficiary={chosenId} beneficiaryName={beneficiary?.name ?? profiles.find((p) => p.id === chosenId)?.full_name ?? undefined} />
       ))}
-      <History rows={orders.data ?? []} locale={locale} />
+      <History rows={orders.data ?? []} locale={locale} kindByCode={new Map(items.map((i) => [i.code, i.kind]))} />
     </div>
   );
 }

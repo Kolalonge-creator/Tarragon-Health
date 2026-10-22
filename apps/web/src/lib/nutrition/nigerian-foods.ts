@@ -56,3 +56,39 @@ export function summariseFoodReference(): string {
     return `${f.name}${alias}: ~${f.typicalCarbsPerServingG}g carbs/serving`;
   }).join("; ");
 }
+
+/**
+ * S49a: the same grounding, read from the food table (`nigerian_foods`) instead of the hand-kept list above, so the photo model
+ * knows every dish the diary knows (about 108 today, not 26). The hand-kept list stays as the fallback when the table cannot be
+ * read: the photo estimate must keep working with no catalogue.
+ *
+ * Carbs for a typical serving = carbs per 100 g x the food's DEFAULT portion in grams. Estimates, like the table itself, which is
+ * flagged for dietitian review; still coaching telemetry, never a clinical measurement.
+ */
+export interface CatalogueReferenceFood {
+  name: string;
+  aliases: readonly string[];
+  carbsG100g: number;
+  portions: readonly { grams: number; isDefault: boolean }[];
+}
+
+export function summariseCatalogueReference(catalogue: readonly CatalogueReferenceFood[]): string {
+  const parts: string[] = [];
+  for (const f of catalogue) {
+    const portion = f.portions.find((p) => p.isDefault) ?? f.portions[0];
+    if (!portion) continue;
+    const carbs = Math.round((f.carbsG100g * portion.grams) / 100);
+    const alias = f.aliases.length ? ` (also: ${f.aliases.slice(0, 3).join(", ")})` : "";
+    parts.push(`${f.name}${alias}: ~${carbs}g carbs/serving`);
+  }
+  return parts.join("; ");
+}
+
+/** The grounding text for the photo prompt: the table when it gave us foods, else the hand-kept list. */
+export function foodGroundingText(catalogue?: readonly CatalogueReferenceFood[] | null): string {
+  if (catalogue && catalogue.length >= 20) {
+    const text = summariseCatalogueReference(catalogue);
+    if (text.length > 0) return text;
+  }
+  return summariseFoodReference();
+}

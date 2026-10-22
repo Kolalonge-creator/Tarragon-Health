@@ -30,6 +30,7 @@ export const TASK_TYPE_LABEL: Readonly<Record<string, string>> = {
   async_question: "Written question",
   routine_result_review: "Routine result review",
   admin_clinical: "Referral letters and repeat prescriptions",
+  pharmacy_flag_review: "Pharmacy flag on a prescription",
   crisis_follow_up: "Crisis follow-up (wellbeing check-in)",
   adherence_follow_up: "Adherence follow-up (missed doses or silence)",
   health_report_signoff: "Yearly health report sign-off",
@@ -38,6 +39,34 @@ export const TASK_TYPE_LABEL: Readonly<Record<string, string>> = {
   red_patient_outreach: "Call the patient: a red alert was not confirmed",
   amber_glucose_review: "Urgent glucose review (same day)",
 };
+
+/**
+ * Skills the database adds to a task on top of the type's own list (`private.task_extra_competencies`, OQ-433). They are not on the
+ * `task_types` row, so the page states them here. A Jest test reads the SQL function and fails if this drifts from it.
+ */
+export const ALWAYS_EXTRA_SKILLS: Readonly<Record<string, readonly string[]>> = {
+  pharmacy_flag_review: ["prescribing"],
+};
+
+/** A skill added only for part of a type's work, said in words. */
+export const SOMETIMES_EXTRA_SKILLS_NOTE: Readonly<Record<string, string>> = {
+  admin_clinical: "Prescribing, when the work is a prescription",
+};
+
+/** The skills line of a task type: its own list plus the ones the database always adds. */
+export function skillsNeeded(t: Pick<TaskTypeRow, "code" | "required_competencies">): string {
+  const all = [...new Set([...t.required_competencies, ...(ALWAYS_EXTRA_SKILLS[t.code] ?? [])])].sort();
+  return all.length > 0 ? all.join(", ").replace(/_/g, " ") : "None specific";
+}
+
+/** Work a type receives that the triage keys do not show (OQ-432): the symptom checker asks for a clinician review. */
+export const EXTRA_PRODUCER_NOTE: Readonly<Record<string, string>> = {
+  symptom_review: "A Member's symptom check that asks for a clinician review, and a Member's own request for one",
+};
+
+/** Said once on the page: a named clinician who lacks a needed skill is skipped when the work is offered (OQ-435). */
+export const LEAD_SKIP_EXPLANATION =
+  "If the named clinician does not hold every skill the work needs, they are not offered it. Work that can be offered to an employed doctor goes to one who does; everything else goes to the pool. The task history says why.";
 
 export const TIER_LABEL: Readonly<Record<TaskTypeRow["min_doctor_tier"], string>> = {
   care_coordinator: "Care coordinator and above",

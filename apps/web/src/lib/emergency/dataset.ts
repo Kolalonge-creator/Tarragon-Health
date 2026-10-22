@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import type { EmergencyClinicalFacts } from "./card";
+import { toEmergencyCoverage } from "./coverage";
 
 /**
  * Assembles the SAME clinical facts as `public.emergency_card_by_token`, but
@@ -23,8 +24,20 @@ import type { EmergencyClinicalFacts } from "./card";
 export async function loadEmergencyDatasetForPatient(
   supabase: SupabaseClient<Database>,
   patientId: string,
+  /**
+   * `strict` throws if any read fails, instead of treating it as empty. A picture that is kept for months (the lock-screen picture) must never
+   * say "None recorded" because a read failed; the printed page reads live and keeps the lenient behaviour.
+   */
+  options: { strict?: boolean; includeCoverage?: boolean } = {},
 ): Promise<EmergencyClinicalFacts> {
-  const [{ data: profile }, { data: allergies }, { data: medications }, { data: carePlans }, { data: blood }] =
+  const [
+    { data: profile, error: profileError },
+    { data: allergies, error: allergiesError },
+    { data: medications, error: medicationsError },
+    { data: carePlans, error: carePlansError },
+    { data: blood, error: bloodError },
+    { data: coverage, error: coverageError },
+  ] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -52,7 +65,16 @@ export async function loadEmergencyDatasetForPatient(
         .select("blood_group, genotype, genotype_note, provenance, recorded_at")
         .eq("patient_id", patientId)
         .maybeSingle(),
+      // S09y: cover the patient typed in. Own-row read (RLS), shown only when filled, and ONLY when the caller asks (`includeCoverage`): the
+      // lock-screen picture and every other caller leave it out, so cover can never reach a picture or a payload by default.
+      options.includeCoverage
+        ? supabase.from("emergency_card_coverage").select("scheme, member_number, plan_name").eq("patient_id", patientId).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
+
+  if (options.strict && (profileError || allergiesError || medicationsError || carePlansError || bloodError || coverageError)) {
+    throw new Error("emergency dataset read failed");
+  }
 
   return {
     full_name: profile?.full_name ?? null,
@@ -78,5 +100,6 @@ export async function loadEmergencyDatasetForPatient(
           recorded_at: blood.recorded_at,
         }
       : null,
+    coverage: options.includeCoverage ? toEmergencyCoverage(coverage) : null,
   };
 }

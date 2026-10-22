@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import {
   useRecordShares,
   useCreateRecordShare,
@@ -15,6 +16,7 @@ import {
   type RecordShareSection,
 } from "@/lib/queries/record-shares";
 import { expiryLabel, getSharingConfig } from "@/lib/my-health/share-config";
+import { SHARE_MAX_VIEWS_CHOICES, SHARE_WINDOW_DAYS_CHOICES, viewsLeft } from "@/lib/my-health/share-options";
 import { t, type Locale } from "@tarragon/i18n";
 
 const SECTION_LABELS: Record<RecordShareSection, string> = {
@@ -25,6 +27,7 @@ const SECTION_LABELS: Record<RecordShareSection, string> = {
   lab_results: "share.sections.lab_results",
   vaccinations: "share.sections.vaccinations",
   emergency_info: "share.sections.emergency_info",
+  health_report: "report.share.section_label",
 };
 
 const SHARING = getSharingConfig();
@@ -44,9 +47,12 @@ function formatDate(value: string): string {
 export function ShareControls({
   patientId,
   locale = "en",
+  hasSignedReport = false,
 }: {
   patientId: string;
   locale?: Locale;
+  /** The yearly report can be shared only once a clinician has signed it; the database enforces this too. */
+  hasSignedReport?: boolean;
 }) {
   const { data: shares, isLoading } = useRecordShares(patientId);
   const createShare = useCreateRecordShare();
@@ -56,10 +62,14 @@ export function ShareControls({
   const [expiryHours, setExpiryHours] = useState(String(SHARING.default_expiry_hours));
   const [usePin, setUsePin] = useState(false);
   const [oneSession, setOneSession] = useState(false);
+  const [recipientLabel, setRecipientLabel] = useState("");
+  const [maxViews, setMaxViews] = useState("");
+  const [windowDays, setWindowDays] = useState("");
   const [created, setCreated] = useState<CreatedRecordShare | null>(null);
   const [createFailed, setCreateFailed] = useState(false);
   const [pinCopied, setPinCopied] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [shlState, setShlState] = useState<{ id: string; state: "copied" | "unavailable" } | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
   const toggleSection = useCallback((section: RecordShareSection) => {
@@ -83,15 +93,21 @@ export function ShareControls({
         expiresInHours: Number.parseInt(expiryHours, 10),
         usePin,
         oneSession,
+        recipientLabel,
+        maxViews: maxViews ? Number.parseInt(maxViews, 10) : null,
+        windowDays: windowDays ? Number.parseInt(windowDays, 10) : null,
       });
       setCreated(result);
       setSelectedSections(new Set());
       setUsePin(false);
       setOneSession(false);
+      setRecipientLabel("");
+      setMaxViews("");
+      setWindowDays("");
     } catch {
       setCreateFailed(true);
     }
-  }, [selectedSections, expiryHours, usePin, oneSession, createShare]);
+  }, [selectedSections, expiryHours, usePin, oneSession, recipientLabel, maxViews, windowDays, createShare]);
 
   const handleCopy = useCallback(async (token: string, shareId: string) => {
     try {
@@ -102,6 +118,19 @@ export function ShareControls({
     } catch {
       // Clipboard unavailable or denied: the link is on screen to copy by hand.
     }
+  }, []);
+
+  const handleCopyShl = useCallback(async (shareId: string) => {
+    try {
+      const res = await fetch(`/api/patient/share-shl?id=${encodeURIComponent(shareId)}`, { cache: "no-store" });
+      const body = (await res.json()) as { link?: string };
+      if (!res.ok || !body.link) throw new Error("unavailable");
+      await navigator.clipboard.writeText(body.link);
+      setShlState({ id: shareId, state: "copied" });
+    } catch {
+      setShlState({ id: shareId, state: "unavailable" });
+    }
+    setTimeout(() => setShlState(null), 3000);
   }, []);
 
   const handleCopyPin = useCallback(async (pin: string) => {
@@ -127,7 +156,7 @@ export function ShareControls({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            {SHARE_SECTIONS.map((section) => (
+            {SHARE_SECTIONS.filter((section) => section !== "health_report" || hasSignedReport).map((section) => (
               <label
                 key={section}
                 className="flex items-center gap-2 rounded-lg border border-charcoal-ink/10 px-3 py-2 text-sm cursor-pointer hover:bg-charcoal-ink/5 transition-colors"
@@ -135,6 +164,7 @@ export function ShareControls({
                 <input
                   type="checkbox"
                   checked={selectedSections.has(section)}
+                  disabled={section === "health_report" && windowDays !== ""}
                   onChange={() => toggleSection(section)}
                   className="h-4 w-4 accent-brand-green"
                 />
@@ -144,6 +174,9 @@ export function ShareControls({
               </label>
             ))}
           </div>
+          {hasSignedReport && windowDays !== "" && (
+            <p className="text-xs text-charcoal-ink/60">{t("report.share.window_note", locale)}</p>
+          )}
 
           <div className="flex items-center gap-3">
             <Label htmlFor="expiry" className="text-sm whitespace-nowrap">
@@ -158,6 +191,55 @@ export function ShareControls({
               {SHARING.expiry_options_hours.map((hours) => (
                 <option key={hours} value={String(hours)}>
                   {expiryLabel(hours, locale)}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="recipient" className="text-sm">
+              {t("sharelink.recipient.label", locale)}
+            </Label>
+            <Input
+              id="recipient"
+              value={recipientLabel}
+              maxLength={80}
+              placeholder={t("sharelink.recipient.placeholder", locale)}
+              onChange={(e) => setRecipientLabel(e.target.value)}
+            />
+            <p className="text-xs text-charcoal-ink/60">{t("sharelink.recipient.hint", locale)}</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Label htmlFor="maxviews" className="text-sm whitespace-nowrap">
+              {t("sharelink.max_views.label", locale)}
+            </Label>
+            <Select id="maxviews" className="w-36" value={maxViews} onChange={(e) => setMaxViews(e.target.value)}>
+              <option value="">{t("sharelink.max_views.any", locale)}</option>
+              {SHARE_MAX_VIEWS_CHOICES.map((n) => (
+                <option key={n} value={String(n)}>
+                  {n === 1 ? t("sharelink.max_views.one", locale) : t("sharelink.max_views.n", locale, { count: String(n) })}
+                </option>
+              ))}
+            </Select>
+            <Label htmlFor="window" className="text-sm whitespace-nowrap">
+              {t("sharelink.window.label", locale)}
+            </Label>
+            <Select id="window" className="w-40" value={windowDays} onChange={(e) => {
+                setWindowDays(e.target.value);
+                // a yearly report cannot be trimmed to a date window, so choosing a window removes it from this link
+                if (e.target.value !== "") {
+                  setSelectedSections((prev) => {
+                    const next = new Set(prev);
+                    next.delete("health_report");
+                    return next;
+                  });
+                }
+              }}>
+              <option value="">{t("sharelink.window.latest", locale)}</option>
+              {SHARE_WINDOW_DAYS_CHOICES.map((d) => (
+                <option key={d} value={String(d)}>
+                  {t("sharelink.window.days", locale, { days: String(d) })}
                 </option>
               ))}
             </Select>
@@ -255,7 +337,18 @@ export function ShareControls({
                         {share.one_session ? (
                           <span className="ml-2 rounded-full bg-charcoal-ink/10 px-2 py-0.5 text-xs">{t("share.badge.session", locale)}</span>
                         ) : null}
+                        {viewsLeft(share.max_views, share.view_count) !== null ? (
+                          <span className="ml-2 rounded-full bg-charcoal-ink/10 px-2 py-0.5 text-xs">
+                            {t("sharelink.badge.views_left", locale, { count: String(viewsLeft(share.max_views, share.view_count)) })}
+                          </span>
+                        ) : null}
+                        {share.window_days !== null ? (
+                          <span className="ml-2 rounded-full bg-charcoal-ink/10 px-2 py-0.5 text-xs">
+                            {t("sharelink.badge.window", locale, { days: String(share.window_days) })}
+                          </span>
+                        ) : null}
                       </p>
+                      {share.recipient_label ? <p className="text-xs text-charcoal-ink/70">{share.recipient_label}</p> : null}
                       <p className="text-xs text-charcoal-ink/60">
                         {t("share.expires", locale, {
                           date: formatDate(share.expires_at),
@@ -270,6 +363,11 @@ export function ShareControls({
                           {t("share.locked", locale)}
                         </p>
                       ) : null}
+                      {shlState?.id === share.id && shlState.state === "unavailable" ? (
+                        <p role="status" className="text-xs text-red-700">
+                          {t("sharelink.shl.unavailable", locale)}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -280,6 +378,9 @@ export function ShareControls({
                         {copiedId === share.id
                           ? t("share.link_copied", locale)
                           : t("share.copy_link", locale)}
+                      </Button>
+                      <Button variant="outline" size="sm" title={t("sharelink.shl.hint", locale)} onClick={() => void handleCopyShl(share.id)}>
+                        {shlState?.id === share.id && shlState.state === "copied" ? t("sharelink.shl.copied", locale) : t("sharelink.shl.copy", locale)}
                       </Button>
                       <Button
                         variant="outline"

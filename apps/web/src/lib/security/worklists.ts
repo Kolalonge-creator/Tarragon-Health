@@ -14,7 +14,8 @@ export type WorklistKind =
   | "lifestyle_reviews"
   | "annual_check_reviews"
   | "therapy_approvals"
-  | "vaccination_verification";
+  | "vaccination_verification"
+  | "outside_records";
 
 export interface WorklistItem {
   kind: WorklistKind;
@@ -35,7 +36,13 @@ export const WORKLIST_TITLES: Record<WorklistKind, string> = {
   annual_check_reviews: "Annual health check reviews",
   therapy_approvals: "Therapy sessions awaiting approval",
   vaccination_verification: "Vaccination records to verify",
+  outside_records: "Records from other hospitals to check",
 };
+
+/** Where an item in a queue opens. Most open the patient's chart (logged); an outside record opens its own check page, which logs the same way. */
+export function worklistItemHref(kind: WorklistKind, itemId: string, patientId: string): string {
+  return kind === "outside_records" ? `/clinician/outside-records/${itemId}` : `/clinician/patients/${patientId}`;
+}
 export const WORKLIST_ORDER = Object.keys(WORKLIST_TITLES) as WorklistKind[];
 
 export type WorklistResult = { ok: true; groups: { kind: WorklistKind; items: WorklistItem[]; total: number }[] } | { ok: false; message: string };

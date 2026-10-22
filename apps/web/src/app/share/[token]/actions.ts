@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { openShare, isWellFormedPin } from "@/lib/my-health/open-share";
+import { clientKeyFromHeaders, openShare, isWellFormedPin } from "@/lib/my-health/open-share";
 import type { SharedData } from "./shared-record-view";
 
 export type UnlockState =
@@ -10,11 +10,8 @@ export type UnlockState =
   | { status: "unavailable" }
   | { status: "ok"; record: SharedData };
 
-/** The viewer's address as the platform proxy reports it. Only ever hashed by the database, only ever used to slow down wrong PINs. */
 async function clientKey(): Promise<string | null> {
-  const h = await headers();
-  const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwarded || h.get("x-real-ip") || null;
+  return clientKeyFromHeaders(await headers());
 }
 
 /**

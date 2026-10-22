@@ -123,6 +123,11 @@ const nextConfig: NextConfig = {
   // In a monorepo, trace files from the repo root so shared workspace
   // packages are correctly included in the production output.
   outputFileTracingRoot: path.join(__dirname, "../../"),
+  // Default is 60s per page. The build prerenders ~570 pages on a 2-core
+  // machine with one worker, and a busy worker pushed otherwise healthy public
+  // pages past 60s three production builds running (2026-10-17/18), failing the
+  // whole deploy. Slow here means a late deploy, never a broken page.
+  staticPageGenerationTimeout: 180,
   // Server Actions default to a 1MB request-body cap. Every form that
   // uploads a file straight through a Server Action (patient avatar, up to
   // 5MB per validatePatientAvatarFile; medicine-pack photos, up to 8MB) was
@@ -250,6 +255,11 @@ const nextConfig: NextConfig = {
         // last one wins (Next's "Header Overriding Behavior"), so these two routes get the wider policy and everything else keeps the
         // strict one.
         source: "/(patient|clinician)/consultation/:encounterId",
+        headers: [{ key: "Content-Security-Policy", value: consultationCspDirectives }],
+      },
+      {
+        // CGJ: the room an invited caregiver joins from. Same policy, one more path; the caregiver's room runs the same Zoom SDK.
+        source: "/patient/supporting/consultation/:encounterId",
         headers: [{ key: "Content-Security-Policy", value: consultationCspDirectives }],
       },
     ];

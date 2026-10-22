@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { PatientIdentityConfirm } from "@/components/patient-identity-confirm";
 import { ConsultationFollowUpsPanel } from "./consultation-follow-ups-panel";
+import { VisitSummaryPanel } from "./visit-summary-panel";
 import { ScribePanel, type ScribeDraftResult } from "@/components/scribe";
 import { attachScribeDraftToNote, confirmScribeSafetyLines, recordScribeReview } from "@/lib/scribe/actions";
 import { SafetyLinesPanel } from "@/components/scribe/safety-lines-panel";
@@ -771,6 +772,7 @@ function FinalizedNoteCard({
             <WithdrawNote note={note} patientId={patientId} />
           </div>
         )}
+        {canAmend && note.status === "finalized" && !note.entered_in_error && <VisitSummaryPanel noteId={note.id} />}
         <ConsultationFollowUpsPanel
           encounterNoteId={note.id}
           organisationId={organisationId}

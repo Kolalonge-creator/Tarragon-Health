@@ -1,3 +1,4 @@
+import { isEstimateBpSource } from "@tarragon/shared";
 import { stripDoctorTitle } from "@/lib/prescriptions/doctor-name";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -84,7 +85,7 @@ export default async function HealthCheckPage() {
       .gte("created_at", yearStart),
     supabase
       .from("vitals_readings")
-      .select("vital_type")
+      .select("vital_type, source")
       .eq("patient_id", profile.id)
       .gte("taken_at", vitalsWindowStart),
     supabase
@@ -105,6 +106,8 @@ export default async function HealthCheckPage() {
   ]);
 
   const vitalTypeCounts = (vitalsRows ?? []).reduce<Record<string, number>>((acc, row) => {
+    // A wearable (cuffless) blood pressure estimate does not count toward the readings the annual check needs.
+    if (row.vital_type === "blood_pressure" && isEstimateBpSource(row.source)) return acc;
     acc[row.vital_type] = (acc[row.vital_type] ?? 0) + 1;
     return acc;
   }, {});

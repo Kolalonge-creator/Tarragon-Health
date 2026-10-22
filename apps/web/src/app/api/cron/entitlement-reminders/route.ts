@@ -1,15 +1,14 @@
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 /**
- * Send expiry-reminder notifications for entitlements ending within 7 days.
+ * Queue entitlement expiry reminders at 30, 7 and 1 day before the end (S26b).
  *
- * Runs on a schedule (e.g. daily). Finds active entitlements where `ends_at`
- * is within 7 days and `reminded_at` is still null, inserts an in-app
- * notification for each, and stamps `reminded_at` so the same entitlement
- * is never reminded twice.
+ * The work is one database call, `service_run_entitlement_reminders`, because the step list, the claim (one row per entitlement and
+ * step, so a step sends once however often this runs) and the channel choice (`private.patient_reminder_channel()`: email if preferred,
+ * else push if subscribed, else the in-app inbox) all live in the database. This route used to claim and notify itself with a hard-coded
+ * in-app channel; that path is gone. A reminder only notifies, it never renews or charges (safety case 25).
  *
- * Verifies the Vercel-attached CRON_SECRET bearer, same as the other cron
- * routes.
+ * Verifies the Vercel-attached CRON_SECRET bearer, same as the other cron routes.
  */
 export async function GET(request: Request): Promise<Response> {
   const authHeader = request.headers.get("authorization");
@@ -18,48 +17,10 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const supabase = createServiceRoleClient();
-
-  const sevenDaysFromNow = new Date();
-  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
-
-  // Claim first, notify second, in that order: the claim (reminded_at) is one atomic UPDATE ... RETURNING, so two overlapping runs can
-  // never both remind the same entitlement, and a failed notification puts the claim back so the next run tries again.
-  const { data: claimed } = await supabase
-    .from("entitlements")
-    .update({ reminded_at: new Date().toISOString() })
-    .eq("state", "active")
-    .is("reminded_at", null)
-    // An employer-paid seat is renewed by the employer, and a Membership has its own 30, 14 and 7 day reminders in the database.
-    .is("roster_member_id", null)
-    .neq("kind", "membership")
-    .lte("ends_at", sevenDaysFromNow.toISOString())
-    .gt("ends_at", new Date().toISOString())
-    .select("id, patient_id, organisation_id, ends_at, kind");
-
-  let reminded = 0;
-
-  for (const ent of claimed ?? []) {
-    // The payload carries the kind and the date only, never an item name (INV-07 keeps notification text neutral).
-    const { error: notifErr } = await supabase.from("notifications").insert({
-      organisation_id: ent.organisation_id,
-      recipient_id: ent.patient_id,
-      channel: "in_app",
-      status: "pending",
-      template: "entitlement_expiring_soon",
-      payload: {
-        entitlement_id: ent.id,
-        kind: ent.kind,
-        ends_at: ent.ends_at,
-      },
-    });
-
-    if (notifErr) {
-      await supabase.from("entitlements").update({ reminded_at: null }).eq("id", ent.id);
-      continue;
-    }
-
-    reminded += 1;
+  const { data, error } = await supabase.rpc("service_run_entitlement_reminders");
+  if (error) {
+    // 500 so the run shows as failed in Vercel; the next run retries every step that has no row yet.
+    return Response.json({ error: "reminders_failed" }, { status: 500 });
   }
-
-  return Response.json({ reminded });
+  return Response.json({ reminded: typeof data === "number" ? data : 0 });
 }

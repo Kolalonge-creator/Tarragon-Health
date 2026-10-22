@@ -66,10 +66,12 @@ begin
   v_cmo := pg_temp.mkdoc(v_org, v_admin, 'cmo', 'chief_medical_officer');
 
   -- 1. Shape
-  perform pg_temp.rec('fourteen earlier tables carry the guard (quality_config joined in S20 v2; capacity_cover_config and lead_config in S16-S20 Stage 5)', '14', (select count(*)::text from pg_trigger where tgname = 'refuse_superseded_activation' and not tgisinternal
-    -- the twelfth governed table (S07x) carries the guard too; it is counted by its own check in s07x_home_bp_programme.sql
-    and tgrelid not in ('public.home_bp_programme_signoffs'::regclass, 'public.prn_limit_rules'::regclass)));
+  perform pg_temp.rec('nineteen earlier tables carry the guard (quality_config joined in S20 v2; capacity_cover_config and lead_config in S16-S20 Stage 5; queue_task_layer_config and paging_delivery_config in OQ-451; activity_safety_config in S48a; observation_limit_signoffs in S47a; nutrition_target_config in S49a)', '19', (select count(*)::text from pg_trigger where tgname = 'refuse_superseded_activation' and not tgisinternal
+    -- the twelfth governed table (S07x) and the S07y cuff size table (counted by s07y_cuff_guidance_and_band_report.sql) carry the guard too; it is counted by its own check in s07x_home_bp_programme.sql. ops_desk_config is counted in ops_desk_expired_page.sql. post_consult_checkin_config is counted in pcc_post_consult_checkins.sql.
+    and tgrelid not in ('public.home_bp_programme_signoffs'::regclass, 'public.prn_limit_rules'::regclass, 'public.ops_desk_config'::regclass, 'public.cuff_check_rules'::regclass, 'public.medicine_interaction_rule_sets'::regclass, 'public.bp_cuff_guidance_signoffs'::regclass, 'public.post_consult_checkin_config'::regclass)));
+  perform pg_temp.rec('cuff_check_rules (S07y) carries the guard too', '1', (select count(*)::text from pg_trigger where tgname = 'refuse_superseded_activation' and not tgisinternal and tgrelid = 'public.cuff_check_rules'::regclass));
   perform pg_temp.rec('prn_limit_rules (S08x) carries the guard too', '1', (select count(*)::text from pg_trigger where tgname = 'refuse_superseded_activation' and not tgisinternal and tgrelid = 'public.prn_limit_rules'::regclass));
+  perform pg_temp.rec('medicine_interaction_rule_sets (S08y) carries the guard too', '1', (select count(*)::text from pg_trigger where tgname = 'refuse_superseded_activation' and not tgisinternal and tgrelid = 'public.medicine_interaction_rule_sets'::regclass));
   perform pg_temp.rec('cv_risk_config is partitioned by organisation', 'true',
     (select (pg_get_triggerdef(oid) like '%organisation_id%')::text from pg_trigger where tgname = 'refuse_superseded_activation' and tgrelid = 'public.cv_risk_config'::regclass));
   perform pg_temp.rec('risk questionnaires are partitioned by organisation and code', 'true',

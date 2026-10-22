@@ -4,6 +4,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { readFlash } from "@/lib/go-live/flash";
 import { GoLivePage } from "@/components/go-live/go-live-page";
 import { EventBusTile } from "@/components/event-bus/event-bus-tile";
+import { OpsDeskReadinessLine } from "@/components/ops-desk/ops-desk-readiness-line";
 
 export const metadata = { title: "Go-live guards" };
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export default async function AdminGoLive({ searchParams }: { searchParams: Prom
   return (
     <div className="space-y-6">
       <EventBusTile locale={locale} />
+      <OpsDeskReadinessLine href="/admin/ops/desk" />
       <GoLivePage viewer="admin" locale={locale} notice={flash?.notice} detail={flash?.detail} ok={flash?.ok} />
     </div>
   );
