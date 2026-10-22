@@ -8,7 +8,8 @@ import { formatNairaForPatient } from "@/lib/format-money";
  * guessed price is worse than none: the caller should keep the commit button disabled in that case.
  */
 export function PriceBeforePay({ kobo, className = "" }: { kobo: number | null | undefined; className?: string }) {
-  if (kobo == null) return null;
+  // An unknown or invalid amount (null, NaN, negative, fractional kobo) renders nothing rather than throwing or guessing a price.
+  if (kobo == null || !Number.isInteger(kobo) || kobo < 0) return null;
   const text = kobo === 0 ? t("dp.price.no_charge") : t("dp.price.you_pay", "en", { amount: formatNairaForPatient(kobo) });
   return (
     <p className={`text-sm font-semibold text-charcoal-ink dark:text-night-ink ${className}`} data-testid="price-before-pay">

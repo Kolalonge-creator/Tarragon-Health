@@ -40,6 +40,8 @@ export interface NextActionFacts {
   hasCheckinOpen: boolean;
   hasReviewDue: boolean;
   lessonReady: boolean;
+  /** True when any query behind these facts failed. A failure must never read as "all caught up" (silent failure). */
+  dataUnavailable?: boolean;
 }
 
 export interface NextAction {
@@ -87,5 +89,7 @@ export function pickNextAction(f: NextActionFacts): NextAction {
   if (f.hasCheckinOpen) return { kind: "checkin_open", icon: "medication", href: "/patient/medications" };
   if (f.hasReviewDue) return { kind: "review_due", icon: "medication", href: "/patient/medications" };
   if (f.lessonReady) return { kind: "lesson_ready", icon: "learn", href: "/patient/learn" };
+  // A failed read is not evidence that nothing is waiting: fall back to the always-safe reading prompt, never the all-clear.
+  if (f.dataUnavailable) return { kind: "reading_due", icon: "bp", href: "/patient/vitals" };
   return { kind: "caught_up", icon: "preventive", href: "/patient/vitals" };
 }

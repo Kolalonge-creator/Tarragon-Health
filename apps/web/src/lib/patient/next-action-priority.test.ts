@@ -81,3 +81,12 @@ describe("pickNextAction (design principle 1: Home shows one next action)", () =
     }
   });
 });
+
+describe("failed reads never read as all clear", () => {
+  it("falls back to the reading prompt, not caught_up, when a query failed", () => {
+    expect(pickNextAction({ ...NONE, dataUnavailable: true }).kind).toBe("reading_due");
+  });
+  it("still lets a red alert win over a failed read", () => {
+    expect(pickNextAction({ ...NONE, hasUnansweredRedAlert: true, dataUnavailable: true }).kind).toBe("red_alert");
+  });
+});

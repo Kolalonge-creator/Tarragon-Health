@@ -13,4 +13,9 @@ describe("PriceBeforePay", () => {
     expect(renderToStaticMarkup(<PriceBeforePay kobo={null} />)).toBe("");
     expect(renderToStaticMarkup(<PriceBeforePay kobo={undefined} />)).toBe("");
   });
+  it("renders nothing, and does not throw, for NaN, negative or fractional kobo", () => {
+    for (const bad of [Number.NaN, -100, 12.5, Infinity]) {
+      expect(renderToStaticMarkup(<PriceBeforePay kobo={bad} />)).toBe("");
+    }
+  });
 });
