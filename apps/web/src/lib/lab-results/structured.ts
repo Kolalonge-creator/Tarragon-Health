@@ -91,7 +91,7 @@ export const attemptSchema = z.object({
   outcome: z.enum(DISCLOSURE_ATTEMPT_OUTCOMES),
   note: z.string().trim().max(500).optional(),
 });
-export const CORRECTION_KINDS = ["corrected", "amended", "appended"] as const;
+export const CORRECTION_KINDS = ["corrected", "amended", "appended", "finalised"] as const;
 export const correctionSchema = resultEntrySchema.extend({
   correctsResultId: z.string().uuid(),
   kind: z.enum(CORRECTION_KINDS),
@@ -208,6 +208,9 @@ const MESSAGES: Record<string, string> = {
   lab_result_not_withdrawable: "This result cannot be withdrawn.",
   lab_result_replaced: "This result was replaced by a corrected one, so it cannot be changed.",
   lab_result_final: "This result is final and cannot be changed.",
+  lab_finalise_needs_a_preliminary_result: "A final result can only replace a preliminary one.",
+  lab_result_preliminary_not_releasable: "A preliminary result cannot be released. Wait for the final one.",
+  lab_provider_needs_onboarding_proof: "A laboratory cannot be switched on until its licence and accreditation are recorded.",
 };
 
 export function describeLabError(error: { message?: string } | null | undefined, fallback = "That did not work. Please try again."): string {

@@ -109,7 +109,7 @@ export async function GlucoseTriageRulesPanel({ back }: { back?: "hub" }) {
         <p className="text-sm text-charcoal-ink/70">
           {GLUCOSE_WORDING_SIGNED
             ? `Wording signed by ${GLUCOSE_WORDING_SIGNED.by} on ${GLUCOSE_WORDING_SIGNED.on}.`
-            : "The wording is NOT signed. Today the plain text is shown; the proposed text, including the fast-sugar treatment message, is not in force until you sign it. Signing the wording is a separate act from signing the rules."}
+            : "The wording is NOT signed. Today the plain text is shown; the proposed text, including the fast-sugar treatment message, is not in force until you sign it. The fast-sugar messages have their own signing line on this hub, separate from the rules."}
         </p>
         <ul className="grid gap-2">
           {GLUCOSE_WORDING_CODES.map((code) => {

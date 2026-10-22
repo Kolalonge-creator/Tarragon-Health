@@ -14,6 +14,7 @@ import {
   shouldAskScribe,
   telUrl,
 } from "@/lib/consultation-room-model";
+import { CaregiverCallCard } from "./caregiver-call-card";
 import { space, useTheme } from "@/ui/design";
 import { AppText, Button, Card, InlineAlert, Skeleton, SkeletonGroup } from "@/ui/kit";
 
@@ -214,6 +215,8 @@ export function ConsultationRoomScreen({ encounterId, onBack }: ConsultationRoom
           </View>
         ) : null}
       </Card>
+
+      <CaregiverCallCard encounterId={encounterId} />
 
       {canTellNobodyCame(view) ? (
         <Card style={{ gap: space.md }}>

@@ -124,3 +124,47 @@ export const redPatientResponseSchema = z
   .object({ response: z.enum(["sought_care", "could_not_get_care"]), responded_at: z.string(), answered_by_caregiver: z.boolean().optional() })
   .nullable();
 export type RedPatientResponse = z.infer<typeof redPatientResponseSchema>;
+
+/** public.my_shift_start_tests(): the caller's own start-of-shift test pages (migration 20261016190204). */
+export const myShiftStartTestsSchema = z.object({
+  guard_on: z.boolean(),
+  grace_minutes: z.number().int().nullable().default(null),
+  tests: z.array(
+    z.object({
+      id: z.uuid(),
+      page_test_id: z.uuid(),
+      role: z.enum(["primary", "backup"]),
+      shift_starts_at: iso,
+      shift_ends_at: iso,
+      sent_at: iso,
+      deadline_at: iso,
+      acknowledged_at: iso.nullable(),
+      ack_channel: z.enum(["push", "in_app", "alarm"]).nullable(),
+      shown_latency_seconds: z.number().int().nullable(),
+      ack_latency_seconds: z.number().int().nullable(),
+      shown: z.boolean(),
+      undelivered: z.boolean(),
+      state: z.enum(["awaiting", "acknowledged", "missed"]),
+    }),
+  ),
+});
+export type MyShiftStartTests = z.infer<typeof myShiftStartTestsSchema>;
+export type ShiftStartTest = MyShiftStartTests["tests"][number];
+
+/** public.shift_start_tests_overview(): reviewers only. */
+export const shiftStartOverviewSchema = z.array(
+  z.object({
+    id: z.uuid(),
+    rota_id: z.uuid(),
+    name: z.string(),
+    role: z.enum(["primary", "backup"]),
+    shift_starts_at: iso,
+    sent_at: iso,
+    deadline_at: iso,
+    acknowledged_at: iso.nullable(),
+    ack_channel: z.string().nullable(),
+    ack_latency_seconds: z.number().int().nullable(),
+    state: z.enum(["awaiting", "acknowledged", "missed"]),
+  }),
+);
+export type ShiftStartOverviewRow = z.infer<typeof shiftStartOverviewSchema>[number];

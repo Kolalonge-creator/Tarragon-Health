@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { loose } from "@/lib/clinician/loose-client";
-import { deskVerifySchema, dispenseResultSchema, pharmacyQuestionsSchema, type DeskVerification, type DispenseResult, type PharmacyQuestionRow } from "./model";
+import { deskVerifySchema, dispenseResultSchema, pharmacyQuestionsSchema, visitItemsSchema, type DeskVerification, type DispenseResult, type PharmacyQuestionRow, type VisitItem } from "./model";
 
 /**
  * S28 counter desk. Both calls run as the signed-in pharmacist through SECURITY DEFINER functions that check the pharmacy, the code and
@@ -15,6 +15,22 @@ export function useVerifyCollection() {
       if (error) throw error;
       const parsed = deskVerifySchema.safeParse((data as unknown[] | null)?.[0]);
       if (!parsed.success) throw new Error("Unexpected answer from the server.");
+      return parsed.data;
+    },
+  });
+}
+
+/**
+ * S28e: the code is checked ONCE for the whole visit (a wrong try counts once, not once per medicine); the answer has one row per medicine, each
+ * with its own result (ok, or refused for that medicine: a controlled medicine, or no live medicine). Supplying is still one medicine at a time.
+ */
+export function useVerifyVisit() {
+  return useMutation({
+    mutationFn: async ({ visit, code }: { visit: string; code: string }): Promise<VisitItem[]> => {
+      const { data, error } = await loose(createClient()).rpc("pharmacist_verify_visit", { p_visit: visit, p_code: code });
+      if (error) throw error;
+      const parsed = visitItemsSchema.safeParse(data);
+      if (!parsed.success || parsed.data.length === 0) throw new Error("Unexpected answer from the server.");
       return parsed.data;
     },
   });

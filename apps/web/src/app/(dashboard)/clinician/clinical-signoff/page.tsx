@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, POST_CHECKIN_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -21,23 +21,43 @@ import { CvRiskConfigPanel } from "../_signoff-panels/cv-risk-config-panel";
 import { RiskQuestionnaireConfigPanel } from "../_signoff-panels/risk-questionnaire-config-panel";
 import { VaccinationSchedulePanel } from "../_signoff-panels/vaccination-schedule-panel";
 import { LabPanelsPanel } from "../_signoff-panels/lab-panels-panel";
+import { LabFallbackPanel } from "../_signoff-panels/lab-fallback-panel";
 import { ClinicalConfigVersionsPanel } from "../_signoff-panels/clinical-config-versions-panel";
 import { PrnLimitRulesPanel } from "../_signoff-panels/prn-limit-rules-panel";
+import { MedicineInteractionRulesPanel } from "../_signoff-panels/medicine-interaction-rules-panel";
 import { HomeBpProgrammePanel } from "../_signoff-panels/home-bp-programme-panel";
+import { CuffGuidancePanel } from "../_signoff-panels/cuff-guidance-panel";
+import { BpDevicesList } from "../recommended-devices/devices-list";
+import { CuffCheckRulesPanel } from "../_signoff-panels/cuff-check-rules-panel";
 import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
+import { NutritionTargetsConfigPanel } from "../_signoff-panels/nutrition-targets-config-panel";
+import { HealthReportConfigPanel } from "../_signoff-panels/health-report-config-panel";
+import { SerologyRulesPanel } from "../_signoff-panels/serology-rules-panel";
+import { ObservationLimitsPanel } from "../_signoff-panels/observation-limits-panel";
+import { ActivitySafetyConfigPanel } from "../_signoff-panels/activity-safety-config-panel";
 import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
 import { TriageRulesPanel } from "../_signoff-panels/triage-rules-panel";
 import { QualityConfigPanel } from "../_signoff-panels/quality-config-panel";
 import { readPendingQualityConfigSignoff } from "@/lib/queries/pending-quality-config-signoff";
 import { CapacityConfigPanel } from "../_signoff-panels/capacity-config-panel";
+import { OpsDeskConfigPanel } from "../_signoff-panels/ops-desk-config-panel";
 import { readPendingCapacityConfigSignoff } from "@/lib/queries/pending-capacity-config-signoff";
 import { PagingDeliveryConfigPanel, TaskLayerConfigPanel } from "../_signoff-panels/queue-paging-config-panel";
 import { readPagingActivationCheck, readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
+import { PostCheckinPanel } from "../_signoff-panels/post-checkin-panel";
+import { readPendingPostCheckinSignoff } from "@/lib/queries/pending-post-checkin-signoff";
 import { UnifiedRedPagingPanel } from "../_signoff-panels/unified-red-paging-panel";
+import { LegacyNoticeRetirementPanel } from "../_signoff-panels/legacy-notice-retirement-panel";
+import { readLegacyNoticeRetirementState } from "@/lib/queries/pending-legacy-notice-retirement-signoff";
 import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
+import { FastSugarWordingPanel } from "../_signoff-panels/fast-sugar-wording-panel";
 import { GlucoseTaskTypePanel } from "../_signoff-panels/glucose-task-type-panel";
+import { VitalsTaskTypePanel } from "../_signoff-panels/vitals-task-type-panel";
+import { VitalsTriageRulesPanel } from "../_signoff-panels/vitals-triage-rules-panel";
 import { RedOutreachPanel } from "../_signoff-panels/red-outreach-panel";
 import { SoleCmoExceptionPanel } from "../_signoff-panels/sole-cmo-exception-panel";
+import { ThresholdPolicyPanel } from "../_signoff-panels/threshold-policy-panel";
+import { readThresholdHubState } from "@/lib/queries/threshold-overrides";
 import { GlucoseTriageRulesPanel } from "../_signoff-panels/glucose-triage-rules-panel";
 import { WordingAttestationPanel } from "../_signoff-panels/wording-attestation-panel";
 import { ProposedValuesPanel } from "../_signoff-panels/proposed-values-panel";
@@ -47,7 +67,7 @@ import { readFlash } from "@/lib/go-live/flash";
 import { FlashClean } from "@/components/go-live/flash-clean";
 import { t } from "@tarragon/i18n";
 import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
-import { attestItemKey, C4_CODE, HOME_BP_GUARD, PATTERN_CODE, PATTERN_GUARD, PROPOSED_VALUES_ITEM_KEY, TRIAGE_DRAFT_ITEM_KEY } from "@/lib/clinical/s06-s10-signoff-model";
+import { attestItemKey, C4_CODE, CUFF_FLAG_CODE, CUFF_FLAG_GUARD, CUFF_PROMPT_CODE, CUFF_PROMPT_GUARD, HOME_BP_GUARD, PATTERN_CODE, PATTERN_GUARD, PROPOSED_VALUES_ITEM_KEY, TRIAGE_DRAFT_ITEM_KEY } from "@/lib/clinical/s06-s10-signoff-model";
 import { SignoffChecklist } from "@/app/(dashboard)/admin/settings/clinical-signoff/signoff-checklist";
 import { SignoffQueueList } from "@/app/(dashboard)/admin/settings/clinical-protocols/signoff-queue-list";
 import {
@@ -76,10 +96,19 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   risk_questionnaire_configs: () => <RiskQuestionnaireConfigPanel />,
   vaccination_schedule_signoffs: () => <VaccinationSchedulePanel />,
   lab_panel_signoffs: () => <LabPanelsPanel />,
+  lab_fallback_wording_signoffs: () => <LabFallbackPanel />,
   clinical_config_versions: () => <ClinicalConfigVersionsPanel />,
   prn_limit_rules: () => <PrnLimitRulesPanel />,
+  medicine_interaction_rule_sets: () => <MedicineInteractionRulesPanel />,
   home_bp_programme_signoffs: () => <HomeBpProgrammePanel />,
+  bp_cuff_guidance_signoffs: () => <CuffGuidancePanel />,
+  cuff_check_rules: () => <CuffCheckRulesPanel />,
   my_health_config: () => <MyHealthConfigPanel />,
+  nutrition_target_config: () => <NutritionTargetsConfigPanel />,
+  health_report_config_versions: () => <HealthReportConfigPanel />,
+  serology_rule_versions: () => <SerologyRulesPanel />,
+  observation_limit_signoffs: () => <ObservationLimitsPanel />,
+  activity_safety_config: () => <ActivitySafetyConfigPanel />,
 };
 
 /**
@@ -197,13 +226,19 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has(TRIAGE_DRAFT_ITEM_KEY)) inlinePanels[TRIAGE_DRAFT_ITEM_KEY] = <TriageRulesPanel back="hub" />;
   if (keys.has(attestItemKey(HOME_BP_GUARD, C4_CODE))) inlinePanels[attestItemKey(HOME_BP_GUARD, C4_CODE)] = <WordingAttestationPanel kind="c4" />;
   if (keys.has(attestItemKey(PATTERN_GUARD, PATTERN_CODE))) inlinePanels[attestItemKey(PATTERN_GUARD, PATTERN_CODE)] = <WordingAttestationPanel kind="pattern" />;
+  if (keys.has(attestItemKey(CUFF_FLAG_GUARD, CUFF_FLAG_CODE))) inlinePanels[attestItemKey(CUFF_FLAG_GUARD, CUFF_FLAG_CODE)] = <WordingAttestationPanel kind="cuff_flag" />;
+  if (keys.has(attestItemKey(CUFF_PROMPT_GUARD, CUFF_PROMPT_CODE))) inlinePanels[attestItemKey(CUFF_PROMPT_GUARD, CUFF_PROMPT_CODE)] = <WordingAttestationPanel kind="cuff_prompt" />;
   if (keys.has(PROPOSED_VALUES_ITEM_KEY)) inlinePanels[PROPOSED_VALUES_ITEM_KEY] = <ProposedValuesPanel rows={hub.s06s10.openProposed} />;
 
   if (keys.has("ai_governance")) inlinePanels.ai_governance = <AiGovernancePanel />;
 
   if (keys.has(COMMUNITY_ITEM_KEY)) inlinePanels[COMMUNITY_ITEM_KEY] = <CommunitySignoffPanel />;
 
+  // S07y: the recommended blood pressure monitors waiting for review, reviewed inline against the registry link shown with each.
+  if (keys.has(BP_DEVICE_REVIEW_ITEM_KEY)) inlinePanels[BP_DEVICE_REVIEW_ITEM_KEY] = <BpDevicesList mode="cmo" />;
+
   if (keys.has(GLUCOSE_TASK_TYPE_ITEM_KEY)) inlinePanels[GLUCOSE_TASK_TYPE_ITEM_KEY] = <GlucoseTaskTypePanel />;
+  if (keys.has(VITALS_TASK_TYPE_ITEM_KEY)) inlinePanels[VITALS_TASK_TYPE_ITEM_KEY] = <VitalsTaskTypePanel />;
   if (keys.has(QUALITY_CONFIG_ITEM_KEY)) {
     const pendingConfigs = await readPendingQualityConfigSignoff(supabase);
     inlinePanels[QUALITY_CONFIG_ITEM_KEY] = <QualityConfigPanel qualityVersion={pendingConfigs.qualityVersion} credentialingVersion={pendingConfigs.credentialingVersion} />;
@@ -212,9 +247,25 @@ export default async function ClinicianClinicalSignoffPage({
     const unifiedRed = await readUnifiedRedPagingState(supabase);
     inlinePanels[UNIFIED_RED_PAGING_ITEM_KEY] = <UnifiedRedPagingPanel waitingVersion={unifiedRed.waitingVersion} liveVersion={unifiedRed.liveVersion} />;
   }
+  if (keys.has(LEGACY_NOTICE_RETIREMENT_ITEM_KEY)) {
+    const legacyRetire = await readLegacyNoticeRetirementState(supabase);
+    inlinePanels[LEGACY_NOTICE_RETIREMENT_ITEM_KEY] = <LegacyNoticeRetirementPanel liveVersion={legacyRetire.liveVersion} waiting={legacyRetire.waiting} measurement={legacyRetire.measurement} />;
+  }
   if (keys.has(CAPACITY_CONFIG_ITEM_KEY)) {
     const pendingCapacity = await readPendingCapacityConfigSignoff(supabase);
     inlinePanels[CAPACITY_CONFIG_ITEM_KEY] = <CapacityConfigPanel capacityVersion={pendingCapacity.capacityVersion} capacityRules={pendingCapacity.capacityRules} leadVersion={pendingCapacity.leadVersion} leadCapDraft={pendingCapacity.leadCapDraft} leadCapInForce={pendingCapacity.leadCapInForce} />;
+  }
+  if (keys.has(POST_CHECKIN_ITEM_KEY)) {
+    const pendingCheckin = await readPendingPostCheckinSignoff(supabase);
+    inlinePanels[POST_CHECKIN_ITEM_KEY] = <PostCheckinPanel version={pendingCheckin.version} rules={pendingCheckin.rules} />;
+  }
+  if (keys.has(THRESHOLD_POLICY_ITEM_KEY)) {
+    const thresholds = await readThresholdHubState(supabase);
+    inlinePanels[THRESHOLD_POLICY_ITEM_KEY] = <ThresholdPolicyPanel policyId={thresholds.policyId} version={thresholds.policyVersion} />;
+  }
+  if (keys.has(OPS_DESK_CONFIG_ITEM_KEY)) {
+    const pendingOps = await readPendingCapacityConfigSignoff(supabase);
+    inlinePanels[OPS_DESK_CONFIG_ITEM_KEY] = <OpsDeskConfigPanel version={pendingOps.opsDeskVersion} />;
   }
   if (keys.has(TASK_LAYER_CONFIG_ITEM_KEY) || keys.has(PAGING_DELIVERY_CONFIG_ITEM_KEY)) {
     const pending = await readPendingQueuePagingConfigSignoff(supabase);
@@ -228,6 +279,10 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has(SOLE_CMO_EXCEPTION_ITEM_KEY)) inlinePanels[SOLE_CMO_EXCEPTION_ITEM_KEY] = <SoleCmoExceptionPanel />;
   // Glucose triage rules (plan item R2): the numbers, the guideline basis of every rule, the patient wording in full, then the Sign control.
   if (keys.has(GLUCOSE_TRIAGE_ITEM_KEY)) inlinePanels[GLUCOSE_TRIAGE_ITEM_KEY] = <GlucoseTriageRulesPanel back="hub" />;
+  // Pulse, SpO2 and temperature triage rules: the numbers, the guideline basis (with the NEWS2 comparison), the patient wording in full, then the Sign control.
+  if (keys.has(VITALS_TRIAGE_ITEM_KEY)) inlinePanels[VITALS_TRIAGE_ITEM_KEY] = <VitalsTriageRulesPanel back="hub" />;
+  // The fast-sugar treatment wording (OQ-326): its own signature, apart from the glucose rules above.
+  if (keys.has(FAST_SUGAR_ITEM_KEY)) inlinePanels[FAST_SUGAR_ITEM_KEY] = <FastSugarWordingPanel />;
 
   if (keys.has(PROTOCOL_DRAFTS_ITEM_KEY)) {
     inlinePanels[PROTOCOL_DRAFTS_ITEM_KEY] = (

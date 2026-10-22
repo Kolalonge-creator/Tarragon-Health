@@ -9,7 +9,7 @@ import { newRunId } from "./harness/env";
 import { seedOnCallTeam } from "./harness/oncall";
 import { finishJourney } from "./harness/report";
 import { currentRuleSet, fixtureApprovalEnabled, fixtureApproveNewestDraft, hasRealApproval, type RuleSetRow } from "./harness/ruleset";
-import { completeOnboardingFixture, createUser, newOrganisation, signIn } from "./harness/sessions";
+import { completeOnboardingFixture, createUser, grantMembershipFixture, newOrganisation, signIn } from "./harness/sessions";
 import { lit, sql, sqlRows, sqlValue } from "./harness/sql";
 
 /**
@@ -49,6 +49,8 @@ test.describe("Journey 2: a red reading at night", () => {
     const patient = await createUser(runId, "patient", { role: "patient", organisationId: org, phone: `+23480${runId.replace(/\D/g, "0").slice(-8).padStart(8, "0")}`, fullName: "[s85] Night Patient" });
     const supporter = await createUser(runId, "supporter", { role: "patient", organisationId: org, fullName: "[s85] Night Supporter" });
     completeOnboardingFixture(patient.id, org, { receivesCare: true });
+    // The scenario is a Member's red reading: on a Free patient a red event never pages a doctor, by design.
+    grantMembershipFixture(patient.id, org);
     sql(`insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action)
            select ${lit(org)}, ${lit(supporter.id)}, cv.consent_type, cv.id, cv.version, 'accepted'
              from public.consent_versions cv where cv.is_current and cv.consent_type = 'terms_of_service';

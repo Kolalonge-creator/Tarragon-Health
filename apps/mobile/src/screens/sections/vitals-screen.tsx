@@ -8,10 +8,12 @@ import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
 import { BP_THRESHOLDS, classifyBpLevel, type BpLevel, type BpThresholds } from "@/lib/bp-classification";
 import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-trend";
 import { loadActiveThresholds } from "@/lib/threshold-sync";
+import { loadCuffGuidance } from "@/lib/cuff-guidance";
 import { BP_CHECKLIST_SYMPTOMS, CUFF_TYPES, planBpLog, redFlagsAmong, type BpChecklistSymptom, type CuffType } from "@/lib/bp-checklist";
 import { logBpWithExtras } from "@/lib/bp-log";
 import { bpAckMessage, bpRowState } from "@/lib/bp-ack-view";
 import { listOutbox } from "@/lib/outbox";
+import { toHomeReadings } from "@/lib/home-check";
 import { refreshApprovedGlucoseRuleSet, refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
 import { answerSymptomQuestion, type QuestionSymptom } from "@/lib/symptom-question";
 import { readObstetricStatus, refreshObstetricStatus } from "@/lib/obstetric-status";
@@ -69,6 +71,7 @@ import { FreeFollowUpCard } from "@/screens/sections/free-follow-up-card";
 import { SymptomScreen } from "@/screens/sections/symptom-screen";
 import { MonitoringCoverCard } from "@/screens/sections/monitoring-cover-card";
 import { SymptomChecklist, TechniqueGuide } from "@/screens/sections/bp-extras";
+import { LifestyleLogCard } from "@/screens/sections/lifestyle-log-card";
 
 // Versioned S07 values (rest time, gap between readings, severity recorded for a ticked symptom).
 const HOME_PROTOCOL = loadHomeProtocol();
@@ -155,6 +158,8 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [ack, setAck] = useState<BpAckDelivery | null>(null);
   // The saved blood pressure row the acknowledgement is about, so a saved-on-this-phone line can turn into received when the outbox sends it.
   const [ackRowId, setAckRowId] = useState<string | null>(null);
+  // Bumped after every saved reading so the seven-day home check card and its guided session step forward.
+  const [homeReload, setHomeReload] = useState(0);
   const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
   const [triageCard, setTriageCard] = useState<{ message: string; tone: "warn" | "info"; audioId: string | null } | null>(null);
   const [cuffType, setCuffType] = useState<CuffType | null>(null);
@@ -218,10 +223,23 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
 
   const cuffKey = `@tarragon/cuff-type/v1:${patientId}`;
   useEffect(() => {
+    let live = true;
+    // The choice remembered on this phone wins. S07y: with none remembered, the cuff the person recorded in the home check's cuff guide is the starting choice
+    // (one S12b vocabulary), but only for her own readings, never for someone she is logging for. She can still change it per reading.
     AsyncStorage.getItem(cuffKey)
-      .then((v) => setCuffType(CUFF_TYPES.find((c) => c === v) ?? null))
+      .then(async (v) => {
+        const remembered = CUFF_TYPES.find((c) => c === v) ?? null;
+        if (remembered || beneficiaryProfileId) return remembered;
+        return (await loadCuffGuidance())?.cuff?.cuffType ?? null;
+      })
+      .then((next) => {
+        if (live) setCuffType(next);
+      })
       .catch(() => {});
-  }, [cuffKey]);
+    return () => {
+      live = false;
+    };
+  }, [cuffKey, beneficiaryProfileId]);
   const chooseCuff = (c: CuffType | "none") => {
     const next = c === "none" ? null : c;
     setCuffType(next);
@@ -372,6 +390,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     setPulse("");
     setTicked([]);
     await load();
+    setHomeReload((n) => n + 1);
   }
 
   async function handleQuestionAnswer(symptoms: QuestionSymptom[]) {
@@ -423,6 +442,10 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     : "";
   const levelLabel = (level: BpLevel) => tr(`vitals.level.${level}` as MessageKey);
   const ackText = bpAckMessage(ack, locale);
+  // The guided home-check panel works from the readings this screen already holds (cuff and manual only), and gives way while guidance for the reading just saved is showing.
+  const homeSessionReadings = useMemo(() => toHomeReadings(rawReadings), [rawReadings]);
+  // Emergency guidance or the emergency-symptom question is open: the steps give way until it is dealt with. A repeat prompt does not hold them, since measuring again is what it asks.
+  const holdSession = guidance !== null || question !== null;
 
   return (
     <Screen>
@@ -562,7 +585,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       ) : null}
 
       {/* The seven-day home check (S07x): appears only when the server guard is open, and not while acting for someone else. */}
-      {!beneficiaryProfileId ? <HomeCheckCard patientId={patientId} /> : null}
+      {!beneficiaryProfileId ? <HomeCheckCard patientId={patientId} reloadToken={homeReload} session={{ readings: homeSessionReadings, hold: holdSession }} /> : null}
 
       {/* Log a reading */}
       <Card style={{ gap: space.md }}>
@@ -616,6 +639,9 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         beneficiaryProfileId={beneficiaryProfileId}
         onEmergency={(detail, synced, wordingCode) => setGuidance({ detail, synced, wordingCode: wordingCode ?? null })}
       />
+
+      {/* S47a: water, sleep, mood and inhaler use; renders nothing until the extended_observations module is on */}
+      <LifestyleLogCard beneficiaryProfileId={beneficiaryProfileId} signedInUserId={patientId} />
 
       {/* Recent readings */}
       <View style={{ gap: space.sm }}>

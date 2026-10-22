@@ -4,6 +4,8 @@ import { computeBmi } from "@/lib/obesity/classify";
 import { fetchHeightStatus, type HeightStatus } from "@/lib/health-metrics/height";
 import { readPatientVitalsOrThrow } from "@/lib/clinical/vitals-audited";
 import { parseAssistedAttribution, type AssistedAttribution } from "@tarragon/shared";
+import { trendBandsEligible } from "@tarragon/shared";
+import { readModuleEnabled } from "@/lib/vitals/extended-observations";
 
 export function useVitalsReadings(patientId: string) {
   return useQuery({
@@ -99,6 +101,38 @@ export function useVitalsTrend(
       }));
     },
     staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+    enabled: !!patientId,
+  });
+}
+
+/**
+ * S47a: whether the standard target bands may be drawn on this person's glucose and weight charts: the `trend_target_bands` module is on, she is an adult,
+ * and she is not recorded as pregnant (see trendBandsEligible). Any read that fails means no band, never a guessed one.
+ */
+export function useTrendBandsEligible(patientId: string) {
+  return useQuery({
+    queryKey: ["trend-bands-eligible", patientId],
+    queryFn: async (): Promise<boolean> => {
+      const supabase = createClient();
+      // Pregnancy is recorded in patient_pregnancy (the profile flag is not kept in step with it) and a recent delivery in postnatal_profiles; either one,
+      // or any read that fails, means no standard band.
+      const [moduleEnabled, prof, preg, post] = await Promise.all([
+        readModuleEnabled(supabase, "trend_target_bands"),
+        supabase.from("profiles").select("date_of_birth, is_pregnant").eq("id", patientId).maybeSingle(),
+        supabase.from("patient_pregnancy").select("is_pregnant").eq("patient_id", patientId).maybeSingle(),
+        supabase.from("postnatal_profiles").select("delivery_date").eq("patient_id", patientId).order("delivery_date", { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      if (prof.error || preg.error || post.error || !prof.data) return false;
+      return trendBandsEligible({
+        moduleEnabled,
+        dateOfBirth: prof.data.date_of_birth,
+        isPregnant: prof.data.is_pregnant === true || preg.data?.is_pregnant === true,
+        lastDeliveryDate: post.data?.delivery_date ?? null,
+      });
+    },
+    staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     retry: false,
     enabled: !!patientId,
