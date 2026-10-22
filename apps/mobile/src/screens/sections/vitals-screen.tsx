@@ -50,6 +50,7 @@ import type { VitalReadingPayload } from "@/lib/api";
 import { loadCachedEmergencyFacts, type EmergencyContact } from "@/lib/emergency";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/drafts";
 import { space, radii, useTheme } from "@/ui/design";
+import { LogQueueNote } from "@/ui/log-queue-note";
 import {
   AppText,
   Badge,
@@ -642,6 +643,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         ) : null}
         {ackText ? <InlineAlert tone="info" message={ackText} /> : null}
         <Button title={tr("vitals.log.save")} onPress={handleSave} loading={saving} />
+        <LogQueueNote />
       </Card>
 
       <OtherVitalCard
@@ -996,6 +998,7 @@ function OtherVitalCard({
         </>
       ) : null}
       <Button title={tr("vitals.other.save")} onPress={handleSave} loading={saving} />
+      <LogQueueNote />
     </Card>
   );
 }

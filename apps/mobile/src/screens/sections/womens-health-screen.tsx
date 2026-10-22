@@ -273,7 +273,7 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
             <CycleDangerSigns />
             {activePregnancy && <PregnancyRedFlagCheck patientId={patientId} organisationId={organisationId} />}
             {/* S67: bundled danger-sign guide, readable with no signal and no PIN (INV-06). */}
-            {activePregnancy && <PregnancyDangerGuideCard />}
+            {activePregnancy && <PregnancyDangerGuideCard onMessageCareTeam={() => onNavigate("messages")} />}
           </>
         }
       >
@@ -359,6 +359,7 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
             organisationId={organisationId}
             lmp={activePregnancy.last_menstrual_period_date}
             edd={activePregnancy.estimated_due_date}
+            onMessageCareTeam={() => onNavigate("messages")}
           />
         </>
       )}

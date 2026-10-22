@@ -23,6 +23,7 @@ import { radius, spacing } from "@/ui/theme";
 import { lightPalette, useLegacyColors, useTheme } from "@/ui/design";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+import { LogQueueNote } from "@/ui/log-queue-note";
 import { SymptomCheckerCard } from "@/screens/sections/symptom-checker-card";
 
 interface SymptomScreenProps {
@@ -363,6 +364,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
         {error ? <ErrorText>{error}</ErrorText> : null}
         {savedLabel ? <MutedText>{savedLabel}</MutedText> : null}
         <PrimaryButton title="Save symptom" onPress={handleSymptomSave} loading={saving} />
+        <LogQueueNote />
       </Card>
 
       <View style={{ gap: 10 }}>

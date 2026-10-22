@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { cn } from "@/lib/utils";
+import { t } from "@tarragon/i18n";
+import { AlertTemplate } from "@/components/alerts/alert-template";
 
 /**
  * Pregnancy red-flag safety pathway (§44.8) — a dedicated checklist alongside
@@ -116,6 +118,17 @@ export function PregnancyRedFlagCheck({ patientId }: { patientId: string }) {
               {pending ? "Getting help…" : "Get emergency guidance"}
             </Button>
           </form>
+          {state?.success && (
+            <div className="mt-4">
+              {/* UI-C: the standard alert card (noticed, meaning, one step, message your care team). */}
+              <AlertTemplate
+                clinical
+                noticed={t("alerttpl.preg.check.noticed")}
+                meaning={t("alerttpl.preg.go_now.meaning")}
+                step={t("preg.card.go_now.body")}
+              />
+            </div>
+          )}
         </CardContent>
       )}
     </Card>

@@ -5266,3 +5266,25 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-726 S67-screens: nothing was rendered in a browser or simulator; the screens are checked by tests and type checks only (raised by the S67 screens build)
 - Web: React Testing Library plus axe, 23 tests. Phone: pure logic and outbox tests only (the mobile jest config renders no components), so `pregnancy-tools.tsx` has not been run on a device. Needs a look on web, an Android phone and an iPhone once `maternal_enabled` is on for a test account.
 - Decision: open (needs a test session).
+
+### OQ-727 UI-C: two pregnancy "what it may mean" lines are proposed clinical wording (raised by the UI-C devices, offline and alerts build)
+- `alerttpl.preg.contact_today.meaning` and `alerttpl.preg.go_now.meaning` (packages/i18n/src/ui-device-offline-alert-copy.ts) are the new "what it may mean" line in the standard alert template used by the pregnancy cards. They are proposed copy, not signed. The title and step lines reuse the existing `preg.card.*` wording unchanged.
+- Decision needed: CMO review of the two lines (`UI_C_COPY_REVIEW.clinicalKeys`).
+
+### OQ-728 UI-C: no audio clip exists for device states, and the web has no ListenButton (raised by the UI-C build)
+- Phone: Listen is wired on the device-state card (`DEVICE_STATE_CLIP`, all null today, so the explaining sentence is the text fallback) and on the pregnancy danger cards using existing clip EMG-008 (shows only if that clip can play). Web has no ListenButton at all, so change 7 was not built on web.
+- Options: (a) record and sign three device-state clips, then fill `DEVICE_STATE_CLIP`; (b) port ListenButton to web (needs a web audio service).
+- Decision: open.
+
+### OQ-729 UI-C: parts skipped because open PRs own the files (raised by the UI-C build)
+- Not touched: the data-connections hub and `wearable-connect-card.tsx` (#1295), the child growth card and child log (#1296/#1297), care circle (#1298), cohorts. `devices-screen.tsx`, `vitals-screen.tsx` and `packages/i18n/src/en.ts` are also edited by #1295 and other branches, in different hunks; expect a trivial merge at most. The web `wearable-connect-card` still lacks the three-state line and is a known red-styling offender.
+- Decision: apply the same `deviceSyncState`/`lastSyncedInWords` helpers there after #1295 merges.
+
+### OQ-730 UI-C: red styling on non-clinical patient cards (found by the new alert-tone lint)
+- The lint (packages/shared/src/copy-lint/alert-tone-lint.test.ts) passes by listing 25 web patient cards that already use red: ask-tarragon-card, cancer-screening-card, communication-history-card, developmental-screening-card, goals-and-milestones-card, device-data-deletion-card, growth-tracking-card, hbpm-summary-card, held-readings-card, health-check-video-consult-card, hospital-admissions-card, lab-monitoring-card, lab-trend-card, nutrition-support-card, maternal-child-cards, optional-screenings-card, reproductive-health-card, verified-documents-card, senior-case-review-card, services-promo-card, wearable-connect-card, skin-photo-card, vaccination-card-import, written-question-card, weekly-summary-card. Many are probably error text or genuine alerts; each needs a human call (fix to green/amber/grey, or move to the clinical allowlist). The list can only shrink.
+- Mobile screens use red in many files (e.g. womens-health, symptom, anchor-ui); the lint scopes mobile to the device, queue and alert-template files only.
+- Decision: open.
+
+### OQ-731 UI-C: nothing was run on a device or in a browser (raised by the UI-C build)
+- Phone components (`LogQueueNote`, `AlertTemplate`, device rows) are covered by type checks and pure-logic tests only, as the mobile jest config renders no components. The queue note reads the existing outbox summary (`waiting`); the web has no offline queue, so change 10 is phone only.
+- Decision: open (needs a test session).
