@@ -135,15 +135,27 @@ export function sanitizeHomePins(input: unknown): HomePinKey[] {
 
 export interface HomePinLockContext {
   activeMedicationCount: number;
+  /**
+   * vitals_readings.vital_type values the patient's enrolled chronic programme(s) monitor
+   * (chronic_condition_programmes.monitoring_vitals). Omitted means none known.
+   */
+  monitoredVitals?: readonly string[];
 }
 
 /**
- * Pins the patient cannot remove. Deliberately small: today's doses stay on the
- * home screen for anyone taking a medication, so a missed dose cannot be hidden
- * by tidying the screen. Everything else is the patient's choice.
+ * Pins the patient cannot remove: the ones their care relies on, so tidying the screen cannot
+ * hide them. Today's doses for anyone taking a medication, and the tile for each vital their
+ * enrolled programme monitors (for example blood pressure for hypertension). Everything else is
+ * the patient's choice.
  */
 export function lockedHomePins(ctx: HomePinLockContext): HomePinKey[] {
-  return ctx.activeMedicationCount > 0 ? ["doses_today"] : [];
+  const locked: HomePinKey[] = [];
+  const monitored = ctx.monitoredVitals ?? [];
+  for (const key of HOME_PIN_KEYS) {
+    if (isHomeVitalPin(key) && monitored.includes(HOME_PIN_VITAL_TYPE[key])) locked.push(key);
+  }
+  if (ctx.activeMedicationCount > 0) locked.push("doses_today");
+  return locked;
 }
 
 /**

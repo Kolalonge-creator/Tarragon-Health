@@ -7,6 +7,7 @@ import {
   resolveHomePins,
   sanitizeHomePins,
   type HomePinKey,
+  type HomePinLockContext,
   type HomePinVitalValue,
   type HomeValuePinKey,
 } from "@tarragon/shared";
@@ -30,6 +31,28 @@ export async function loadStoredHomePins(patientId: string): Promise<QueryResult
       .maybeSingle();
     if (error) return { ok: false, error: error.message };
     return { ok: true, data: data?.pinned ?? null };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * The vitals this patient's enrolled chronic programme(s) monitor; their pins stay on the home
+ * screen. A failed read is reported so a save can refuse instead of guessing "none".
+ */
+export async function loadMonitoredVitals(patientId: string): Promise<QueryResult<string[]>> {
+  try {
+    const { data, error } = await supabase
+      .from("chronic_programme_enrolments")
+      .select("programme:chronic_condition_programmes(monitoring_vitals)")
+      .eq("patient_id", patientId)
+      .eq("status", "enrolled");
+    if (error) return { ok: false, error: error.message };
+    const vitals = new Set<string>();
+    for (const row of data ?? []) {
+      for (const v of row.programme?.monitoring_vitals ?? []) vitals.add(v);
+    }
+    return { ok: true, data: [...vitals] };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
@@ -73,16 +96,16 @@ export async function loadPinnedVitalValues(
 
 /**
  * Saves the signed-in patient's own pins, in order, against RLS. Anything that
- * must stay on (today's doses for anyone on a medication) is added back before
- * saving. Returns the list that was actually saved.
+ * must stay on (today's doses for anyone on a medication, the vitals their
+ * programme monitors) is added back before saving. Returns the list that was actually saved.
  */
 export async function saveHomePins(
   patientId: string,
   organisationId: string,
   pins: readonly HomePinKey[],
-  activeMedicationCount: number,
+  lockContext: HomePinLockContext,
 ): Promise<QueryResult<HomePinKey[]>> {
-  const toSave = resolveHomePins(sanitizeHomePins(pins), { activeMedicationCount }, []);
+  const toSave = resolveHomePins(sanitizeHomePins(pins), lockContext, []);
   try {
     const { error } = await supabase
       .from("patient_home_layout")

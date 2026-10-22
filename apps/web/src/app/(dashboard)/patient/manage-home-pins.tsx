@@ -121,7 +121,9 @@ export function ManageHomePins({
                       {HOME_PIN_LABEL[key]}
                       {locked && (
                         <span className="ml-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                          Stays on while you have a medication
+                          {HOME_PIN_GROUP[key] === "medications"
+                            ? "Stays on while you have a medication"
+                            : "Stays on because your care programme monitors it"}
                         </span>
                       )}
                     </span>

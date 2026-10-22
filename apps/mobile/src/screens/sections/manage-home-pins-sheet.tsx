@@ -107,7 +107,7 @@ export function ManageHomePinsSheet({ visible, onClose, pins, lockedPins, onSave
                     <AppText variant="body">{tr(pinLabel(key))}</AppText>
                     {locked ? (
                       <AppText variant="caption" tone="textSubtle">
-                        {tr("home.pins.locked")}
+                        {tr(HOME_PIN_GROUP[key] === "medications" ? "home.pins.locked" : "home.pins.locked_programme")}
                       </AppText>
                     ) : null}
                   </View>

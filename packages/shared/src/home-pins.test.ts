@@ -86,6 +86,11 @@ describe("resolveHomePins", () => {
     expect(resolveHomePins(["doses_today", "bp"], ON_MEDS)).toEqual(["doses_today", "bp"]);
   });
 
+  it("brings back a monitored vital's pin that the saved list left out", () => {
+    expect(resolveHomePins(["sleep"], { activeMedicationCount: 0, monitoredVitals: ["blood_pressure"] })).toEqual(["sleep", "bp"]);
+    expect(resolveHomePins(null, { activeMedicationCount: 0, monitoredVitals: ["blood_pressure"] })).toEqual([...DEFAULT_HOME_PINS]);
+  });
+
   it("keeps the locked pin even when the saved list is full", () => {
     const full = HOME_PIN_KEYS.filter((k) => k !== "doses_today").slice(0, MAX_HOME_PINS);
     const out = resolveHomePins(full, ON_MEDS);
@@ -102,6 +107,19 @@ describe("lockedHomePins", () => {
   it("locks today's doses only for someone taking a medication", () => {
     expect(lockedHomePins(NO_MEDS)).toEqual([]);
     expect(lockedHomePins(ON_MEDS)).toEqual(["doses_today"]);
+  });
+
+  it("locks the tile for each vital the patient's programme monitors", () => {
+    expect(lockedHomePins({ activeMedicationCount: 0, monitoredVitals: ["blood_pressure"] })).toEqual(["bp"]);
+    expect(lockedHomePins({ activeMedicationCount: 0, monitoredVitals: ["glucose", "weight"] })).toEqual(["glucose", "weight"]);
+  });
+
+  it("combines programme vitals with today's doses", () => {
+    expect(lockedHomePins({ activeMedicationCount: 1, monitoredVitals: ["blood_pressure"] })).toEqual(["bp", "doses_today"]);
+  });
+
+  it("ignores vitals that have no tile, and unknown values", () => {
+    expect(lockedHomePins({ activeMedicationCount: 0, monitoredVitals: ["ketones", "mood", "nonsense"] })).toEqual([]);
   });
 });
 

@@ -477,6 +477,7 @@ export const en = {
   "home.pins.saving": "Saving",
   "home.pins.error": "We could not save that. Nothing was changed. Please try again.",
   "home.pins.locked": "Stays on while you have a medication",
+  "home.pins.locked_programme": "Stays on because your care programme monitors it",
   "home.pins.move_up": "Move {name} up",
   "home.pins.move_down": "Move {name} down",
   "home.pins.up": "Up",

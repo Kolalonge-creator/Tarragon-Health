@@ -10,6 +10,8 @@ const upsert = jest.fn();
 let user: { id: string } | null = { id: "patient-1" };
 let activeMeds: number | null = 0;
 let medsError: { message: string } | null = null;
+let monitored: { vitals: string[]; readFailed: boolean } = { vitals: [], readFailed: false };
+jest.mock("@/lib/patient/home-pins", () => ({ getMonitoredVitals: jest.fn(async () => monitored) }));
 let orgId: string | null = "org-1";
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -35,6 +37,7 @@ beforeEach(() => {
   user = { id: "patient-1" };
   activeMeds = 0;
   medsError = null;
+  monitored = { vitals: [], readFailed: false };
   orgId = "org-1";
 });
 
@@ -62,6 +65,19 @@ describe("saveHomePins", () => {
     activeMeds = 2;
     await saveHomePins(["bp"]);
     expect(upsert.mock.calls[0][0].pinned).toEqual(["bp", "doses_today"]);
+  });
+
+  it("adds back the pin for a vital the patient's programme monitors", async () => {
+    monitored = { vitals: ["blood_pressure"], readFailed: false };
+    await saveHomePins(["sleep"]);
+    expect(upsert.mock.calls[0][0].pinned).toEqual(["sleep", "bp"]);
+  });
+
+  it("refuses to save when the programme's vitals could not be read", async () => {
+    monitored = { vitals: [], readFailed: true };
+    const result = await saveHomePins(["bp"]);
+    expect(result.ok).toBe(false);
+    expect(upsert).not.toHaveBeenCalled();
   });
 
   it("does not add it for someone with no active medication", async () => {

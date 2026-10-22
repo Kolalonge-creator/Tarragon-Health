@@ -34,6 +34,33 @@ export async function getStoredHomePins(patientId: string): Promise<StoredHomePi
   return { pins: data?.pinned ?? null, readFailed: false };
 }
 
+export interface MonitoredVitals {
+  /** vital_type values the patient's enrolled programme(s) monitor. */
+  vitals: string[];
+  /** True when the read failed: the lock list could be incomplete, so a save must not go ahead. */
+  readFailed: boolean;
+}
+
+/**
+ * The vitals this patient's enrolled chronic programme(s) monitor. Their pins stay on the home
+ * screen (see lockedHomePins). A supporter acting for someone reads the same, through the
+ * supporter's own access.
+ */
+export async function getMonitoredVitals(patientId: string): Promise<MonitoredVitals> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("chronic_programme_enrolments")
+    .select("programme:chronic_condition_programmes(monitoring_vitals)")
+    .eq("patient_id", patientId)
+    .eq("status", "enrolled");
+  if (error) return { vitals: [], readFailed: true };
+  const vitals = new Set<string>();
+  for (const row of data ?? []) {
+    for (const v of row.programme?.monitoring_vitals ?? []) vitals.add(v);
+  }
+  return { vitals: [...vitals], readFailed: false };
+}
+
 export interface PinnedVitalValues {
   values: Partial<Record<HomeValuePinKey, HomePinVitalValue>>;
   /** Tiles whose read failed: shown as "couldn't load", never as "no reading yet". */

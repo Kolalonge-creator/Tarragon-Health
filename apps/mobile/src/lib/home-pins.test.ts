@@ -3,7 +3,7 @@
  * (never turned into "show nothing"), a save keeps the pins that must stay on, and the vitals tiles never take
  * a wearable's estimate for pulse, oxygen or temperature.
  */
-import { loadPinnedVitalValues, loadStoredHomePins, saveHomePins } from "./home-pins";
+import { loadMonitoredVitals, loadPinnedVitalValues, loadStoredHomePins, saveHomePins } from "./home-pins";
 import { supabase } from "./supabase";
 
 jest.mock("./supabase", () => ({ supabase: { from: jest.fn() } }));
@@ -50,7 +50,7 @@ describe("saveHomePins", () => {
   it("upserts the patient's own list for their own id", async () => {
     const calls: Call[] = [];
     mockFrom.mockReturnValue(query({}, calls));
-    const result = await saveHomePins("p1", "org-1", ["sleep", "bp"], 0);
+    const result = await saveHomePins("p1", "org-1", ["sleep", "bp"], { activeMedicationCount: 0 });
     expect(result).toEqual({ ok: true, data: ["sleep", "bp"] });
     expect(calls.find((c) => c.method === "upsert")?.args).toEqual([
       { patient_id: "p1", organisation_id: "org-1", pinned: ["sleep", "bp"] },
@@ -61,19 +61,43 @@ describe("saveHomePins", () => {
   it("adds today's doses back for someone on a medication, even if the list left it out", async () => {
     const calls: Call[] = [];
     mockFrom.mockReturnValue(query({}, calls));
-    const result = await saveHomePins("p1", "org-1", ["bp"], 3);
+    const result = await saveHomePins("p1", "org-1", ["bp"], { activeMedicationCount: 3 });
     expect(result).toEqual({ ok: true, data: ["bp", "doses_today"] });
     expect((calls.find((c) => c.method === "upsert")?.args[0] as { pinned: string[] }).pinned).toEqual(["bp", "doses_today"]);
   });
 
+  it("adds back the pin for a vital the patient's programme monitors", async () => {
+    mockFrom.mockReturnValue(query({}));
+    expect(await saveHomePins("p1", "org-1", ["sleep"], { activeMedicationCount: 0, monitoredVitals: ["blood_pressure"] })).toEqual({ ok: true, data: ["sleep", "bp"] });
+  });
+
   it("drops unknown keys and keeps an empty list as a real choice", async () => {
     mockFrom.mockReturnValue(query({}));
-    expect(await saveHomePins("p1", "org-1", ["nonsense" as never], 0)).toEqual({ ok: true, data: [] });
+    expect(await saveHomePins("p1", "org-1", ["nonsense" as never], { activeMedicationCount: 0 })).toEqual({ ok: true, data: [] });
   });
 
   it("reports a failed save", async () => {
     mockFrom.mockReturnValue(query({ error: { message: "offline" } }));
-    expect(await saveHomePins("p1", "org-1", ["bp"], 0)).toEqual({ ok: false, error: "offline" });
+    expect(await saveHomePins("p1", "org-1", ["bp"], { activeMedicationCount: 0 })).toEqual({ ok: false, error: "offline" });
+  });
+});
+
+describe("loadMonitoredVitals", () => {
+  it("collects the vitals each enrolled programme monitors, without repeats", async () => {
+    mockFrom.mockReturnValue(
+      query({ data: [{ programme: { monitoring_vitals: ["blood_pressure", "weight"] } }, { programme: { monitoring_vitals: ["blood_pressure"] } }, { programme: null }] }),
+    );
+    expect(await loadMonitoredVitals("p1")).toEqual({ ok: true, data: ["blood_pressure", "weight"] });
+  });
+
+  it("is empty for a patient with no programme", async () => {
+    mockFrom.mockReturnValue(query({ data: [] }));
+    expect(await loadMonitoredVitals("p1")).toEqual({ ok: true, data: [] });
+  });
+
+  it("reports a failed read instead of answering none", async () => {
+    mockFrom.mockReturnValue(query({ error: { message: "network" } }));
+    expect(await loadMonitoredVitals("p1")).toEqual({ ok: false, error: "network" });
   });
 });
 

@@ -18,7 +18,7 @@ A key added here needs a destination on both surfaces (typed `Record`s force tha
 ## Decisions
 1. **One row per patient, an ordered text array** (`patient_home_layout.pinned`). A reorder is one atomic write. No row means "never customised" (show defaults); an empty array means "chose to show nothing".
 2. **Only the patient's own account has a layout.** RLS lets a patient read and write only their own row. A supporter acting for someone else sees that person's defaults and has no Customise control.
-3. **One pin cannot be removed: `doses_today` for anyone with an active medication.** The database cannot know this, so both apps add it back on every read and again on every save. Rule lives in `lockedHomePins`. BP and glucose are deliberately not locked: there is no reliable per-patient condition signal on the Overview yet (see Open items).
+3. **Some pins cannot be removed.** `doses_today` for anyone with an active medication, and the tile for each vital the patient's enrolled chronic programme monitors (`chronic_condition_programmes.monitoring_vitals`, for example blood pressure for hypertension). The database cannot know this, so both apps add them back on every read and again on every save. Rule lives in `lockedHomePins`. A save refuses if either input could not be read.
 4. **No invented numbers.** A vitals tile with no reading says "No reading yet". Pulse, oxygen and temperature never take a wearable's estimate (same rule as the BP tile). Blood pressure and glucose keep their existing sources and the reader's glucose unit.
 5. **Display preference only.** No clinical value is stored here, nothing is escalated from it, and the emergency and red-flag paths are untouched.
 6. Registered in `data_registry` (operational, exported, proposed class pending CMO/DPO confirmation). The minor-dependant guard attaches itself on table creation.
@@ -34,10 +34,9 @@ A key added here needs a destination on both surfaces (typed `Record`s force tha
 - Mobile: `lib/home-pins.ts`, `lib/home-pin-targets.ts`, `screens/sections/home-pin-tiles.tsx`, `manage-home-pins-sheet.tsx`, `overview-screen.tsx`, six new icons in `ui/kit/Icon.tsx`.
 
 ## Open items
-- On **read**, the doses lock still depends on the summary stats; if that medications query fails the tile can drop for that load (the existing stats code reports 0). Fixing it means surfacing the stats failure, which is outside this change.
-- A preventive-care patient who pins `screenings` sees that count twice on web (the fixed screening tiles remain).
+- On **read**, the doses lock still depends on the summary stats; if that medications query fails the tile can drop for that load (the existing stats code reports 0). Fixing it means surfacing the stats failure, which is outside this change. The programme-vitals lock is read on its own, and on mobile Customise is hidden when that read fails.
+- A preventive-care patient's `screenings` pin is not drawn on web because the fixed "Screenings due" tile already shows it; the pin still saves and shows on a care-plan layout.
 - Up to six small vitals queries per render; one latest-per-type query would be cheaper.
-- **Locking BP and glucose** for patients whose care plan monitors them needs a reliable condition signal (the care plan's monitored vitals, not yet read on the Overview).
 - Mobile `screenings` is a shortcut, not a count, because the mobile summary stats carry no screening count.
 - Mobile weight opens the Vitals section; web opens the Weight page.
 - The migration has not been replayed against a fresh database or applied live; the SQL proof has not been run. Do both before merging, and check `list_migrations` on the live project for anything recent first.
