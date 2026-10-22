@@ -73,3 +73,11 @@ export async function requestCuffProposal(photoUri: string): Promise<CuffReaderR
     return { ok: false, kind: "offline", message: CUFF_READER_COPY.offline };
   }
 }
+
+/**
+ * A proposal belongs to the photo it was asked for. If the person took another photo while the request was in flight, the answer is for a
+ * photo they no longer see and must be dropped, never poured into the boxes beside the new photo.
+ */
+export function proposalIsStale(requestedUri: string, currentUri: string | null): boolean {
+  return currentUri !== requestedUri;
+}

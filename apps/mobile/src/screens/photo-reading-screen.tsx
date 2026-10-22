@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { draftFromRecognisedText, HELD_READING_COPY, type PhotoDeviceKind, type PhotoDraft, type PhotoField } from "@tarragon/shared";
 import { postPhotoReading } from "@/lib/api";
 import { enqueuePhotoReading } from "@/lib/offline-queue";
 import { buildPhotoRequest, draftFromPhoto, finalisePhotoReading, hasTextRecogniser, takeDevicePhoto } from "@/lib/photo-capture";
-import { CUFF_READER_COPY, isCuffReaderOpen, requestCuffProposal } from "@/lib/cuff-reader";
+import { CUFF_READER_COPY, isCuffReaderOpen, proposalIsStale, requestCuffProposal } from "@/lib/cuff-reader";
 import { loadReadingSubjects, type ReadingSubject } from "@/lib/reading-subject";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
@@ -87,6 +87,7 @@ export function PhotoReadingScreen({ userId, onClose }: Props) {
   const [cuffOpen, setCuffOpen] = useState(false);
   const [cuffBusy, setCuffBusy] = useState(false);
   const [cuffNote, setCuffNote] = useState<string | null>(null);
+  const currentPhotoRef = useRef<string | null>(null);
 
   useEffect(() => {
     void loadReadingSubjects(userId).then(setSubjects);
@@ -105,8 +106,10 @@ export function PhotoReadingScreen({ userId, onClose }: Props) {
     setCuffBusy(true);
     setCuffNote(null);
     setError(null);
-    const out = await requestCuffProposal(photoUri);
+    const requestedUri = photoUri;
+    const out = await requestCuffProposal(requestedUri);
     setCuffBusy(false);
+    if (proposalIsStale(requestedUri, currentPhotoRef.current)) return;
     if (!out.ok) {
       setCuffNote(out.message);
       return;
@@ -129,6 +132,8 @@ export function PhotoReadingScreen({ userId, onClose }: Props) {
       return;
     }
     const next = await draftFromPhoto(kind, taken.uri);
+    currentPhotoRef.current = taken.uri;
+    setCuffNote(null);
     setPhotoUri(taken.uri);
     setTakenAt(new Date());
     setDraft(next);

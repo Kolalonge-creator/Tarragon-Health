@@ -1,4 +1,4 @@
-import { CUFF_READER_COPY, interpretCuffResponse, isCuffReaderOpen, requestCuffProposal } from "./cuff-reader";
+import { CUFF_READER_COPY, proposalIsStale, interpretCuffResponse, isCuffReaderOpen, requestCuffProposal } from "./cuff-reader";
 import { supabase } from "./supabase";
 import { draftFromRecognisedText, finalisePhotoReading } from "@tarragon/shared";
 
@@ -80,5 +80,13 @@ describe("requestCuffProposal", () => {
     getSession.mockResolvedValue({ data: { session: null } });
     expect(await requestCuffProposal("file:///cuff.jpg")).toMatchObject({ ok: false });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("proposalIsStale", () => {
+  it("drops an answer for a photo the person has since replaced", () => {
+    expect(proposalIsStale("file:///a.jpg", "file:///b.jpg")).toBe(true);
+    expect(proposalIsStale("file:///a.jpg", null)).toBe(true);
+    expect(proposalIsStale("file:///a.jpg", "file:///a.jpg")).toBe(false);
   });
 });
