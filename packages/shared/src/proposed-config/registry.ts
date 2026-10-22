@@ -4557,6 +4557,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
         screening_excluded_code_patterns: ["cervic", "mammo", "breast", "hpv", "(^|_)pap(_|$)", "psa", "prostat", "ovar", "pregnan", "antenat", "fertil", "contracep", "menstr", "hiv", "hep", "syphil", "(^|_)sti(_|$)", "mental", "phq", "gad", "depress", "anxiet"],
         protected_topic_patterns: ["cervic", "mammo", "breast", "hpv", "(^|_)pap(_|$)", "psa", "prostat", "ovar", "pregnan", "antenat", "postnat", "maternal", "fertil", "contracep", "menstr", "menopaus", "period", "sexual", "hiv", "hep", "syphil", "(^|_)sti(_|$)", "mental", "phq", "gad", "depress", "anxiet", "mood", "stress", "wellbeing", "trauma", "grief", "suicid", "self.harm"],
         escalation_alert_types_allowed: ["abnormal_result", "abnormal_monitoring", "deterioration", "medication_safety"],
+        protected_lesson_categories: ["mental_health", "womens_health", "mens_health", "cancer_screening"],
       },
     },
     owner: "CMO",

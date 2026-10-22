@@ -243,8 +243,8 @@ begin
     perform pg_temp.mkmood(v_orgA, r.patient, (((v_m + 3)::timestamp + time '09:00') at time zone 'Africa/Lagos'));
     for i in 20 .. 31 loop perform pg_temp.mkmood(v_orgA, r.patient, ((((v_m - 150) + i)::timestamp + time '07:00') at time zone 'Africa/Lagos')); end loop;
   end loop;
-  insert into public.health_education_content (code, title, body) values ('zz-outd-lesson-ok', 'Eating well with high blood pressure', 'x') returning id into v_content_ok;
-  insert into public.health_education_content (code, title, body) values ('zz-outd-lesson-mood', 'Looking after your mood', 'x') returning id into v_content_mood;
+  insert into public.health_education_content (code, title, body, category) values ('zz-outd-lesson-ok', 'Eating well with high blood pressure', 'x', 'nutrition') returning id into v_content_ok;
+  insert into public.health_education_content (code, title, body, category) values ('zz-outd-lesson-mood', 'Looking after your mood', 'x', 'mental_health') returning id into v_content_mood;
   insert into public.wellness_badges (code, name, criteria_type, criteria_threshold) values ('zz_outd_badge_ok', 'Outcomes proof ordinary badge', 'points_total', 1) returning id into v_badge_ok;
   insert into public.wellness_badges (code, name, criteria_type, criteria_reason, criteria_threshold) values ('zz_outd_badge_mood', 'Outcomes proof mood badge', 'reason_count', 'mood_logged', 1) returning id into v_badge_mood;
   for r in select patient, j, grp from fxg where org = v_orgA and grp in ('high', 'low') and ((grp = 'high' and j <= 25) or (grp = 'low' and j between 7 and 31)) loop
@@ -662,6 +662,10 @@ begin
     raise exception 'FAIL 8b: a dashboard function names a protected-category table';
   end if;
   if not exists (select 1 from pg_proc p where p.proname = 'outcomes_dash_engagement' and p.prosrc ~ 'suppress_(cell|groups)|min_cell_floor') then raise exception 'FAIL 8c: the engagement panel does not use the shared minimum rule'; end if;
+  if exists (select 1 from pg_proc p where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace) and (p.proname like 'outcomes_dash%' or p.proname like '%outcomes_dashboard%' or p.proname like '%founder_unfrozen%')
+               and p.prosrc ~* '(from|join)\s+public\.(vitals_readings|patient_allergies|patient_conditions|lab_analyte_readings)\M') then
+    raise exception 'FAIL 8d: a dashboard function reads a corrected table directly instead of private.<table>_current';
+  end if;
 
   ------------------------------------------------------------------------------------------------------------------------------------
   -- SABOTAGE: each fix is undone once; the check that depends on it must flip
@@ -725,16 +729,22 @@ begin
     raise exception 'VACUOUS TEST (l): the topic filter does not tell the mood lesson from the ordinary one';
   end if;
   v_after := private.outcomes_dash_cfg() #> '{engagement,protected_topic_patterns}';
-  update public.outcomes_dashboard_config set config = jsonb_set(config, '{engagement,protected_topic_patterns}', '[]'::jsonb) where is_active;
+  update public.outcomes_dashboard_config set config = jsonb_set(jsonb_set(config, '{engagement,protected_topic_patterns}', '[]'::jsonb), '{engagement,protected_lesson_categories}', '[]'::jsonb) where is_active;
   v_x := private.outcomes_dash_engagement(v_orgA, v_m, private.outcomes_dash_cfg());
   if (v_x #>> '{lessons_completed,count}')::integer <= 25 then raise exception 'VACUOUS TEST (l): with no protected topics the mood lessons were still not counted'; end if;
   update public.outcomes_dashboard_config set config = jsonb_set(config, '{engagement,protected_topic_patterns}', v_after) where is_active;
+  update public.outcomes_dashboard_config set config = jsonb_set(config, '{engagement,protected_lesson_categories}', '["mental_health", "womens_health", "mens_health", "cancer_screening"]'::jsonb) where is_active;
   -- (m) the escalation filter neutered: more than 25 people must now be counted
   v_def2 := pg_get_functiondef('private.outcomes_dash_escalation_ok(uuid,text[],text[])'::regprocedure);
   execute 'create or replace function private.outcomes_dash_escalation_ok(p_alert uuid, p_types text[], p_patterns text[]) returns boolean language sql as ''select true''';
   v_x := private.outcomes_dash_counts(v_orgA, v_m1 - 1, private.outcomes_dash_cfg());
   if (v_x ->> 'escalation_open')::integer <= 25 then raise exception 'VACUOUS TEST (m): with the escalation filter neutered the count did not grow'; end if;
   execute v_def2;
+  -- (n) a dashboard function that reads a corrected table directly must be caught by the scan in 8d
+  execute 'create function private.outcomes_dash_zz_sabotage() returns integer language sql as ''select count(*)::integer from public.vitals_readings v''';
+  if not exists (select 1 from pg_proc p where p.proname = 'outcomes_dash_zz_sabotage' and p.prosrc ~* '(from|join)\s+public\.(vitals_readings|patient_allergies|patient_conditions|lab_analyte_readings)\M') then
+    raise exception 'VACUOUS TEST (n): the direct-read scan does not see a direct read of vitals_readings';
+  end if;
   -- (e) the publishable CHECK dropped
   alter table public.outcomes_dashboard_reports drop constraint outcomes_dashboard_reports_publishable_check;
   if pg_temp.try(format($q$insert into public.outcomes_dashboard_reports (organisation_id, period_start, period_end, data_cutoff, config_version, has_data, is_baseline, report, publishable)

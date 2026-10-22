@@ -20,7 +20,7 @@ type Dashboard = {
   min_age_years: number;
   confidence_level: number;
   comparison: { min_per_group: number; high_active_days_per_30: number; low_active_days_per_30: number; exclude_blood_pressure_from_engagement: boolean; exclude_checkins_from_comparison: boolean; points_rules_included: string[] };
-  engagement: { points_rules_included: string[]; milestone_rules: string[]; vital_types_allowed: string[]; screening_excluded_code_patterns: string[]; protected_topic_patterns: string[]; escalation_alert_types_allowed: string[] };
+  engagement: { points_rules_included: string[]; milestone_rules: string[]; vital_types_allowed: string[]; screening_excluded_code_patterns: string[]; protected_topic_patterns: string[]; escalation_alert_types_allowed: string[]; protected_lesson_categories: string[] };
 };
 
 describe("outcomes.dashboard mirrors the outcomes_dashboard_config v1 seed", () => {
@@ -67,6 +67,8 @@ describe("outcomes.dashboard mirrors the outcomes_dashboard_config v1 seed", () 
     expect(v.engagement.vital_types_allowed).toContain("blood_pressure");
     // only ordinary alert kinds count as an escalation; a symptom escalation can be about anything
     expect(v.engagement.escalation_alert_types_allowed).not.toContain("symptom_escalation");
+    // lessons in a protected library category are never counted
+    for (const c of ["mental_health", "womens_health", "mens_health"]) expect(v.engagement.protected_lesson_categories).toContain(c);
     for (const word of ["mood lesson", "pregnancy", "menstrual cycle", "depression", "hiv"]) expect(v.engagement.protected_topic_patterns.some((p) => new RegExp(p, "i").test(word))).toBe(true);
     for (const m of v.engagement.milestone_rules) expect(v.engagement.points_rules_included).toContain(m);
   });

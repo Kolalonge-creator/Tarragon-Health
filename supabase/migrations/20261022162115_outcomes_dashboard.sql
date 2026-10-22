@@ -72,7 +72,8 @@ values (1, $json$
     "vital_types_allowed": ["blood_pressure", "glucose", "pulse", "temperature", "spo2", "respiratory_rate", "peak_flow", "ketones"],
     "screening_excluded_code_patterns": ["cervic", "mammo", "breast", "hpv", "(^|_)pap(_|$)", "psa", "prostat", "ovar", "pregnan", "antenat", "fertil", "contracep", "menstr", "hiv", "hep", "syphil", "(^|_)sti(_|$)", "mental", "phq", "gad", "depress", "anxiet"],
     "protected_topic_patterns": ["cervic", "mammo", "breast", "hpv", "(^|_)pap(_|$)", "psa", "prostat", "ovar", "pregnan", "antenat", "postnat", "maternal", "fertil", "contracep", "menstr", "menopaus", "period", "sexual", "hiv", "hep", "syphil", "(^|_)sti(_|$)", "mental", "phq", "gad", "depress", "anxiet", "mood", "stress", "wellbeing", "trauma", "grief", "suicid", "self.harm"],
-    "escalation_alert_types_allowed": ["abnormal_result", "abnormal_monitoring", "deterioration", "medication_safety"]
+    "escalation_alert_types_allowed": ["abnormal_result", "abnormal_monitoring", "deterioration", "medication_safety"],
+    "protected_lesson_categories": ["mental_health", "womens_health", "mens_health", "cancer_screening"]
   }
 }
 $json$::jsonb, 'PROPOSED, not signed by anyone. Mirrors the outcomes.dashboard entry in packages/shared/src/proposed-config. The CMO owns the thresholds.', true);
@@ -270,7 +271,7 @@ as $$
     ) w
     left join lateral (
       select count(*)::integer as n from (
-        select (v.taken_at at time zone 'Africa/Lagos')::date as day from public.vitals_readings v
+        select (v.taken_at at time zone 'Africa/Lagos')::date as day from private.vitals_readings_current v
          where v.patient_id = d.patient_id and v.taken_at >= w.w_from and v.taken_at < w.w_to and v.correction_status is null
            and v.source::text in ('manual', 'device') and v.vital_type::text in (select jsonb_array_elements_text(p_cfg #> '{engagement,vital_types_allowed}'))
            and (not coalesce((p_cfg #>> '{comparison,exclude_blood_pressure_from_engagement}')::boolean, true) or v.vital_type::text <> 'blood_pressure')
@@ -286,6 +287,7 @@ as $$
           join public.health_education_content hc on hc.id = e.content_id
          where e.patient_id = d.patient_id and e.status = 'understood' and e.understood_at >= w.w_from and e.understood_at < w.w_to
            and not private.outcomes_dash_text_protected(hc.code || ' ' || hc.title, array(select jsonb_array_elements_text(p_cfg #> '{engagement,protected_topic_patterns}')))
+           and hc.category::text <> all (array(select jsonb_array_elements_text(p_cfg #> '{engagement,protected_lesson_categories}')))
       ) days
     ) act on true
     left join lateral (
@@ -408,6 +410,7 @@ declare
   v_mile text[] := array(select jsonb_array_elements_text(p_cfg #> '{engagement,milestone_rules}'));
   v_pat text[] := array(select jsonb_array_elements_text(p_cfg #> '{engagement,screening_excluded_code_patterns}'));
   v_topic text[] := array(select jsonb_array_elements_text(p_cfg #> '{engagement,protected_topic_patterns}'));
+  v_lcat text[] := array(select jsonb_array_elements_text(p_cfg #> '{engagement,protected_lesson_categories}'));
   v_vitals text[] := array(select jsonb_array_elements_text(p_cfg #> '{engagement,vital_types_allowed}'));
   a record; l record; k record; m record; s record; mm record;
   v_groups jsonb; v_cohorts jsonb;
@@ -422,7 +425,7 @@ begin
   create temp table _od_days on commit drop as
     select distinct x.patient_id, x.day from (
       select v.patient_id, (v.taken_at at time zone 'Africa/Lagos')::date as day
-        from public.vitals_readings v join _od_pop q on q.patient_id = v.patient_id
+        from private.vitals_readings_current v join _od_pop q on q.patient_id = v.patient_id
        where v.taken_at >= v_from and v.taken_at < v_to and v.correction_status is null and v.source::text in ('manual', 'device')
          and v.vital_type::text = any (v_vitals)
       union all
@@ -436,13 +439,13 @@ begin
       union all
       select e.patient_id, (e.understood_at at time zone 'Africa/Lagos')::date
         from public.health_education_progress e join _od_pop q on q.patient_id = e.patient_id join public.health_education_content hc on hc.id = e.content_id
-       where e.status = 'understood' and e.understood_at >= v_from and e.understood_at < v_to and not private.outcomes_dash_text_protected(hc.code || ' ' || hc.title, v_topic)
+       where e.status = 'understood' and e.understood_at >= v_from and e.understood_at < v_to and not private.outcomes_dash_text_protected(hc.code || ' ' || hc.title, v_topic) and hc.category::text <> all (v_lcat)
     ) x;
 
   select count(distinct patient_id) as people, count(*) as person_days into a from _od_days;
   select count(*) as n, count(distinct e.patient_id) as people into l
     from public.health_education_progress e join _od_pop q on q.patient_id = e.patient_id join public.health_education_content hc on hc.id = e.content_id
-   where e.status = 'understood' and e.understood_at >= v_from and e.understood_at < v_to and not private.outcomes_dash_text_protected(hc.code || ' ' || hc.title, v_topic);
+   where e.status = 'understood' and e.understood_at >= v_from and e.understood_at < v_to and not private.outcomes_dash_text_protected(hc.code || ' ' || hc.title, v_topic) and hc.category::text <> all (v_lcat);
   select count(*) as n, count(distinct c.patient_id) as people into k
     from public.medication_adherence_checkins c join _od_pop q on q.patient_id = c.patient_id
    where c.status = 'responded' and c.responded_at >= v_from and c.responded_at < v_to;
