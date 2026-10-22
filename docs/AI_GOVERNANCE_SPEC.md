@@ -47,6 +47,8 @@ Registered grandfathered and wired through `runGovernedAi` in the same change
 call site on one side without the other now fails the migration. Counting by hand is what let these
 three run for weeks.
 
+**AI-022, Cuff Display Reader (2026-10-22, item 6).** Registered DISABLED (`is_enabled = false`, `runtime_governed = false`, `draft`; migration `*_cuff_camera_and_result_passport_guards.sql`). Call site `apps/web/src/lib/vitals/cuff-display-vision.ts`, reached only through `POST /api/mobile/cuff-display-proposal`, which goes through `runGovernedAi()` (`AI_SYSTEMS.cuffDisplayReader`, fails closed) and is also behind the `cuff_camera_enabled` go-live guard. It proposes systolic, diastolic and pulse from a photo; the person sees the photo beside editable boxes and ticks every number before the existing `photo_confirmed` path saves it. The photo is held in memory for the one call and is never stored or logged; the audit row records "proposal_made" or "refused:<reason>", never a number. No evaluation run, prompt version, knowledge source or approval was seeded: its criteria stay unmet, so it cannot be enabled until a human evaluates it. AI-021 is reserved by the unmerged S07y diary reader. Fallback: type the numbers (the S70a photo screen or the plain form).
+
 
 ---
 

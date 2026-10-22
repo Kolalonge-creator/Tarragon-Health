@@ -147,6 +147,14 @@ export const AI_SYSTEMS = {
     // paragraph) costs nothing. AI-018 is taken on the S43 branch (document capture). Registered DISABLED.
     failClosedIfGovernanceUnavailable: true,
   },
+  cuffDisplayReader: {
+    code: "AI-022",
+    // Proposes the numbers on a home blood pressure cuff display from a photo the patient chooses to send (item 6, cuff camera). Moderate risk,
+    // but the numbers land on a clinical record path once the patient confirms them, so it fails closed like AI-003: the fallback (type the
+    // numbers from the display, the path that has always worked) costs nothing. AI-021 is taken by the unmerged S07y diary reader. Registered
+    // DISABLED, runtime_governed false, behind the cuff_camera_enabled guard.
+    failClosedIfGovernanceUnavailable: true,
+  },
 } as const;
 
 export type AiSystemKey = keyof typeof AI_SYSTEMS;

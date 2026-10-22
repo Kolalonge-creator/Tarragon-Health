@@ -2,7 +2,7 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { NAV_ICON } from "@/lib/icons";
-import { SECTION_KEYS, summaryConfig, type SectionKey } from "@/lib/doctor-summary-pdf/model";
+import { VISIT_SECTION_KEYS, summaryConfig, type SectionKey } from "@/lib/doctor-summary-pdf/model";
 import { t, type MessageKey } from "@tarragon/i18n";
 
 /**
@@ -42,7 +42,7 @@ export default async function DoctorSummaryPage() {
               </div>
               <fieldset className="space-y-2">
                 <legend className="text-sm font-medium">{t("visitsummary.sections", uiLanguage)}</legend>
-                {SECTION_KEYS.map((key) => (
+                {VISIT_SECTION_KEYS.map((key) => (
                   <label key={key} className="flex items-center gap-2 text-sm">
                     <input type="checkbox" name="section" value={key} defaultChecked={DEFAULT_ON.includes(key)} className="h-4 w-4" />
                     {t(`visitsummary.section.${key}` as MessageKey, uiLanguage)}
