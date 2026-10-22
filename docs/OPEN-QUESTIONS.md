@@ -5002,3 +5002,5 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - `expo-file-system`'s native module must be in the installed binary (see `lib/offline-downloads/index.ts`), so the "Save a copy on this phone" button needs the same fresh EAS build and `runtimeVersion` bump as other native additions; where it is missing the button reports a calm failure. "Open or send" uses the built-in share sheet (a file URL works on iOS; Android needs a document provider and was not tested). Nothing was run on a physical phone or simulator.
 - The lab allow-list codes (`PASSPORT_LAB_CODES`) are taken from codes seen in the repository; the CMO should confirm the list against what laboratories actually send.
 - Decision: open.
+
+- Update 2026-10-22 (OQ-CUFF-1, OQ-598): the founder decided "approve for evaluation only" (see docs/DECISIONS.md, 2026-10-22). The server vision call stays dormant; go-live still needs a human AI-022 evaluation, a DPO view, defined guard conditions, rate limiting and a further written decision.
