@@ -52,6 +52,7 @@ import { MyPhonesScreen } from "@/screens/sections/my-phones-screen";
 import { ExerciseScreen } from "@/screens/sections/exercise-screen";
 import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
 import { ConsultationRoomScreen } from "@/screens/sections/consultation-room-screen";
+import { DirectoryScreen } from "@/screens/sections/directory-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
 import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
 import { TestingDaysScreen } from "@/screens/sections/testing-days-screen";
@@ -380,6 +381,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     ),
     healthCheck: () => <HealthCheckScreen patientId={userId} onNavigate={handleSelect} />,
     findASpecialist: () => <FindASpecialistScreen patientId={userId} />,
+    directory: () => <DirectoryScreen />,
     healthyAgeing: () => (
       <HealthyAgeingScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
     ),
