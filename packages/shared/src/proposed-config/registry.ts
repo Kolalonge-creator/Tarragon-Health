@@ -2325,6 +2325,23 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-16",
     source: "docs/design/S29.md; docs/research/S26-S30-competitor-review-and-build-plan.md (S29d); spec 4.7, 8.6",
   },
+  {
+    key: "care_circle.supporter_tools",
+    // Care Circle supporter tools (S69b). Live values are the active row of `care_circle_tools_config`; this entry mirrors it and
+    // care-circle-tools-mirror.test.ts fails if the migration seed and this value drift. missed_dose_grace_minutes: how long a dose
+    // slot may stay unanswered before a supporter the patient chose is nudged (Medisafe Medfriend waits 30 minutes; PROPOSED).
+    // missed_dose_window_minutes: after the grace, how long the nudge may still be sent (about an hour; later it would be stale and is
+    // dropped). missed_dose_max_per_day: nudges per supporter per day. digest_days: the days a weekly digest counts. task_max_open:
+    // open shared tasks per person. task_keep_days: how long finished tasks are kept. task_max_days_ahead: how far ahead a job's date may be. task_stale_days: an open job is cancelled this many days after its date. task_done_visible_days: how long a finished job stays on the list. The nudge never applies to a red event and is
+    // held back by the patient-first window while the care_circle_checkin_window module is on. All modules ship OFF; the CMO rules on
+    // the nudge (OQ-S69b-3).
+    value: { missed_dose_grace_minutes: 30, missed_dose_window_minutes: 60, missed_dose_max_per_day: 3, digest_days: 7, task_max_open: 10, task_keep_days: 30, task_max_days_ahead: 90, task_stale_days: 7, task_done_visible_days: 7 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S69b-care-circle.md; docs/research/S69.md; Medisafe Medfriend, Apple Health Sharing, Lotsa Helping Hands patterns",
+  },
   // S69: community cohorts and challenges (spec 17.6 to 17.9). Live values are the active row of `community_config` and the rows of
   // `challenge_templates`; a test (community-mirror.test.ts) fails if either drifts from the migration seed.
   {

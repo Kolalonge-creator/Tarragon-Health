@@ -1,5 +1,6 @@
 import { activeWording } from "./clinical-wording";
 import { cycleCopy } from "./cycle-copy";
+import { circleToolsCopy } from "./care-circle-tools-copy";
 import { maternalChild } from "./maternal-child";
 import { designPrinciplesCopy } from "./design-principles-copy";
 import { pregnancyTools } from "./pregnancy-tools";
@@ -4561,6 +4562,8 @@ export const en = {
   "signupinv.notice.denied": "Only an admin can manage sign-up invites.",
   // S66: private cycle section, planning mode, contraception education, menopause (proposed copy, CMO review pending: see cycle-copy.ts)
   ...cycleCopy,
+  // S69b: Care Circle presets, preview, shared jobs, digest, nudge (proposed copy, CMO and DPO review pending: see care-circle-tools-copy.ts)
+  ...circleToolsCopy,
   "directory.title": "Find care near you",
   "directory.intro": "Hospitals, clinics, labs, pharmacies and specialists. Every listing shows when a person last checked it.",
   "directory.not_open": "The directory is not open yet. We will tell you when it is.",
