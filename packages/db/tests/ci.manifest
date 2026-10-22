@@ -1413,4 +1413,5 @@ oq714_remove_patient_price_compare.sql
 money_reconciliation_daily_alert.sql
 # Money reconciliation menu badge (2026-10-21): an hourly snapshot of the mismatch count, read through a finance-only function that refuses a snapshot older than three hours or missing (never an old number), clients cannot read the table. Sabotage: staleness check and finance gate removed; the checks must flip.
 money_reconciliation_badge.sql
+# Patient home layout (2026-10-22): which tiles a patient pins to their home screen. A patient writes and reads only their own row, cannot stamp another organisation, cannot delete; unknown keys, nulls and more than twelve are refused by the database. Sabotage: select policy opened, organisation clause removed; both checks must flip.
 patient_home_layout.sql

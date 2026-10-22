@@ -55,6 +55,10 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
   const [storedPins, setStoredPins] = useState<string[] | null>(null);
   const [vitalValues, setVitalValues] = useState<Partial<Record<HomeValuePinKey, HomePinVitalValue>>>({});
   const [manageOpen, setManageOpen] = useState(false);
+  // A failed layout read shows the defaults but must not offer Customise: saving from them would overwrite a layout we could not see.
+  const [pinsReadFailed, setPinsReadFailed] = useState(false);
+  // A failed vitals read must read as "couldn't load", never "no reading yet".
+  const [vitalsFailed, setVitalsFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [scoreReloadToken, setScoreReloadToken] = useState(0);
@@ -86,8 +90,10 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
     // A failed pins read falls back to the default tiles; it is not worth an error banner.
     const saved = pinsRes.ok ? pinsRes.data : null;
     setStoredPins(saved);
+    setPinsReadFailed(!pinsRes.ok);
     const shown = resolveHomePins(saved, { activeMedicationCount: s.ok ? s.data.activeMedicationCount : 0 });
     const values = await loadPinnedVitalValues(patientId, shown);
+    setVitalsFailed(!values.ok);
     if (values.ok) setVitalValues(values.data);
   }, [patientId]);
 
@@ -117,7 +123,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
   const pinContext = { activeMedicationCount: activeMeds };
   const pins = useMemo(() => resolveHomePins(storedPins, { activeMedicationCount: activeMeds }), [storedPins, activeMeds]);
   // Only the patient's own account has a layout to change; the organisation id is omitted when acting for someone else.
-  const canCustomise = organisationId !== undefined;
+  const canCustomise = organisationId !== undefined && !pinsReadFailed;
 
   const savePins = useCallback(
     async (next: HomePinKey[]): Promise<boolean> => {
@@ -126,6 +132,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
       if (!result.ok) return false;
       setStoredPins(result.data);
       const values = await loadPinnedVitalValues(patientId, result.data);
+      setVitalsFailed(!values.ok);
       if (values.ok) setVitalValues(values.data);
       return true;
     },
@@ -306,7 +313,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
                 />
               ) : null}
             </View>
-            <HomePinTiles pins={pins} stats={stats} glucoseUnit={glucoseUnit} vitalValues={vitalValues} onNavigate={onNavigate} />
+            <HomePinTiles pins={pins} stats={stats} glucoseUnit={glucoseUnit} vitalValues={vitalValues} vitalsFailed={vitalsFailed} onNavigate={onNavigate} />
           </>
         )}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.md }}>

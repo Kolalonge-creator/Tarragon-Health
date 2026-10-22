@@ -60,6 +60,13 @@ describe("ManageHomePins", () => {
     expect((await screen.findByRole("alert")).textContent).toMatch(/Couldn't save that/);
   });
 
+  it("says so when the request itself fails, and keeps the dialog open", async () => {
+    saveHomePins.mockRejectedValue(new Error("Failed to fetch"));
+    open(["bp"]);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/couldn't reach the server/i);
+  });
+
   it("has no accessibility violations once opened", async () => {
     const { container } = render(<ManageHomePins initialPins={["bp", "doses_today"]} lockedPins={["doses_today"]} />);
     fireEvent.click(screen.getByRole("button", { name: "Customise" }));

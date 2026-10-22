@@ -90,7 +90,7 @@ export default async function PatientOverviewPage() {
     getPatientPreventionStats(subjectId),
     // The patient's own pinned tiles. A supporter acting for someone else cannot
     // read (or change) that person's layout, so they see the defaults.
-    acting ? Promise.resolve(null) : getStoredHomePins(subjectId),
+    acting ? Promise.resolve({ pins: null, readFailed: false }) : getStoredHomePins(subjectId),
     // Same gate ai-coach-chat.tsx's own mount point (care/page.tsx) applies —
     // runCoachTurn's own entitlement check would otherwise return a canned
     // decline reply that AskTarragonCard has no way to distinguish from a real
@@ -137,7 +137,7 @@ export default async function PatientOverviewPage() {
   // patient already has three screening tiles above, so only BP by default.
   const pinContext = { activeMedicationCount: stats.activeMedicationCount };
   const pins = resolveHomePins(
-    storedPins,
+    storedPins.pins,
     pinContext,
     prevention.hasActiveCarePlan ? undefined : ["bp"],
   );
@@ -271,7 +271,8 @@ export default async function PatientOverviewPage() {
         {!acting && (
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-charcoal-ink/70 dark:text-night-ink/70">Pinned</h2>
-            <ManageHomePins initialPins={pins} lockedPins={lockedHomePins(pinContext)} />
+            {/* Hidden when the saved layout could not be read: saving from the defaults would overwrite it. */}
+            {!storedPins.readFailed && <ManageHomePins initialPins={pins} lockedPins={lockedHomePins(pinContext)} />}
           </div>
         )}
         <HomePinTiles

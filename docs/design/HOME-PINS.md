@@ -23,6 +23,10 @@ A key added here needs a destination on both surfaces (typed `Record`s force tha
 5. **Display preference only.** No clinical value is stored here, nothing is escalated from it, and the emergency and red-flag paths are untouched.
 6. Registered in `data_registry` (operational, exported, proposed class pending CMO/DPO confirmation). The minor-dependant guard attaches itself on table creation.
 
+7. **Failures are shown, not hidden.** A failed layout read shows the defaults but hides Customise (saving from the defaults would overwrite a layout we could not read). A failed vitals read shows "Couldn't load", never "No reading yet". A save refuses when the medication count cannot be read, so the lock never fails open on write. A rejected save request shows a message in the dialog.
+8. **Unsaved defaults differ by surface.** Web gives a preventive-care patient one BP tile beside their screening tiles; mobile has always shown four tiles. Once a patient saves, the same list shows on both.
+9. The CHECK in the migration is a copy of `HOME_PIN_KEYS`; `packages/shared/src/home-pins-migration.test.ts` fails if they drift.
+
 ## Files
 - DB: `supabase/migrations/20261022002351_patient_home_layout.sql`, proof `packages/db/tests/patient_home_layout.sql` (registered in `ci.manifest`, includes a sabotage step).
 - Shared: `packages/shared/src/home-pins.ts` (+ test), `database.types.ts` (this table only, spliced by hand), `packages/i18n/src/en.ts` (`home.pins.*`, `home.pin.*`).
@@ -30,6 +34,9 @@ A key added here needs a destination on both surfaces (typed `Record`s force tha
 - Mobile: `lib/home-pins.ts`, `lib/home-pin-targets.ts`, `screens/sections/home-pin-tiles.tsx`, `manage-home-pins-sheet.tsx`, `overview-screen.tsx`, six new icons in `ui/kit/Icon.tsx`.
 
 ## Open items
+- On **read**, the doses lock still depends on the summary stats; if that medications query fails the tile can drop for that load (the existing stats code reports 0). Fixing it means surfacing the stats failure, which is outside this change.
+- A preventive-care patient who pins `screenings` sees that count twice on web (the fixed screening tiles remain).
+- Up to six small vitals queries per render; one latest-per-type query would be cheaper.
 - **Locking BP and glucose** for patients whose care plan monitors them needs a reliable condition signal (the care plan's monitored vitals, not yet read on the Overview).
 - Mobile `screenings` is a shortcut, not a count, because the mobile summary stats carry no screening count.
 - Mobile weight opens the Vitals section; web opens the Weight page.

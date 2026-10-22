@@ -3,7 +3,7 @@
 --  * a patient cannot write or read another patient's layout, and cannot delete a row;
 --  * the database refuses an unknown key, a list of more than 12, and a null element;
 --  * anon has no access, the table is in the data registry, and the minor-dependant guard has no gaps.
--- SABOTAGE: the select policy opened to everyone. The cross-patient read check must flip.
+-- SABOTAGE: (1) the select policy opened to everyone; (2) the organisation clause removed from the insert policy. Both checks must flip.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -64,6 +64,8 @@ begin
   perform pg_temp.setf('org', v_org);
   perform pg_temp.setf('p1', pg_temp.mkuser(v_org, 'p1', 'patient'));
   perform pg_temp.setf('p2', pg_temp.mkuser(v_org, 'p2', 'patient'));
+  insert into public.organisations (name) values ('PHL other org') returning id into v_org;
+  perform pg_temp.setf('org2', v_org);
 end $$;
 
 -- 1 own layout -----------------------------------------------------------------------------------------------------------------------
@@ -81,6 +83,11 @@ select pg_temp.ck('1', 'an empty list is allowed: chose to show nothing', '0', p
 select pg_temp.ck('2', 'a patient cannot write a layout for someone else', 'ERR 42501', pg_temp.as_user(pg_temp.f('p2'), format($$
   insert into public.patient_home_layout (patient_id, organisation_id, pinned) values (%L, %L, array['bp']) returning 'x' $$,
   pg_temp.f('p1'), pg_temp.f('org'))));
+select pg_temp.ck('2', 'a patient cannot stamp a layout with another organisation', 'ERR 42501', pg_temp.as_user(pg_temp.f('p2'), format($$
+  insert into public.patient_home_layout (patient_id, organisation_id, pinned) values (%L, %L, array['bp']) returning 'x' $$,
+  pg_temp.f('p2'), pg_temp.f('org2'))));
+select pg_temp.ck('2', 'nor move an existing layout into another organisation', 'ERR 42501', pg_temp.as_user(pg_temp.f('p1'), format($$
+  update public.patient_home_layout set organisation_id = %L where patient_id = %L returning 'x' $$, pg_temp.f('org2'), pg_temp.f('p1'))));
 select pg_temp.ck('2', 'a patient cannot read someone else''s layout', '0', pg_temp.as_user(pg_temp.f('p2'), format($$
   select count(*)::text from public.patient_home_layout where patient_id = %L $$, pg_temp.f('p1'))));
 select pg_temp.ck('2', 'a patient cannot change someone else''s layout', '0', pg_temp.as_user(pg_temp.f('p2'), format($$
@@ -110,6 +117,13 @@ create policy patient_home_layout_select on public.patient_home_layout for selec
 select pg_temp.ck('sabotage', 'with the policy opened a stranger could read the layout', '0', pg_temp.as_user(pg_temp.f('p2'), format($$
   select count(*)::text from public.patient_home_layout where patient_id = %L $$, pg_temp.f('p1'))));
 
+-- SABOTAGE 2: with the organisation clause removed from the insert policy, a patient CAN stamp another organisation's id (so the org checks above can fail)
+drop policy patient_home_layout_insert on public.patient_home_layout;
+create policy patient_home_layout_insert on public.patient_home_layout for insert to authenticated with check (patient_id = (select auth.uid()));
+select pg_temp.ck('sabotage', 'with the organisation clause removed a patient could stamp another organisation', 'ERR 42501', pg_temp.as_user(pg_temp.f('p2'), format($$
+  insert into public.patient_home_layout (patient_id, organisation_id, pinned) values (%L, %L, array['bp']) returning 'x' $$,
+  pg_temp.f('p2'), pg_temp.f('org2'))));
+
 -- verdict ---------------------------------------------------------------------------------------------------------------------------
 do $$
 declare v_bad text;
@@ -117,8 +131,8 @@ begin
   select string_agg(phase || ' / ' || check_name || ': expected ' || coalesce(expected, 'NULL') || ' got ' || coalesce(actual, 'NULL'), E'\n')
     into v_bad from results where expected is distinct from actual and phase <> 'sabotage';
   if v_bad is not null then raise exception E'patient home layout proof FAILED:\n%', v_bad; end if;
-  if not exists (select 1 from results where phase = 'sabotage' and expected is distinct from actual) then
-    raise exception 'patient home layout proof: the sabotage did not flip a check, so the policy check proves nothing';
+  if (select count(*) from results where phase = 'sabotage' and expected is distinct from actual) < 2 then
+    raise exception 'patient home layout proof: a sabotage did not flip its check, so that policy check proves nothing';
   end if;
   raise notice 'patient home layout proof: % checks passed', (select count(*) from results where phase <> 'sabotage');
 end $$;

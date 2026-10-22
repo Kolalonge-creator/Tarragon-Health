@@ -21,6 +21,8 @@ interface HomePinTilesProps {
   stats: SummaryStats;
   glucoseUnit: GlucoseDisplayUnit;
   vitalValues: Partial<Record<HomeValuePinKey, HomePinVitalValue>>;
+  /** The vitals read failed: a vitals tile says so instead of "no reading yet". */
+  vitalsFailed: boolean;
   onNavigate: (section: SectionId) => void;
 }
 
@@ -33,7 +35,7 @@ const TILE_LABEL: Partial<Record<HomePinKey, MessageKey>> = {
 };
 
 /** The patient's pinned tiles. Tapping one opens the section behind it. */
-export function HomePinTiles({ pins, stats, glucoseUnit, vitalValues, onNavigate }: HomePinTilesProps) {
+export function HomePinTiles({ pins, stats, glucoseUnit, vitalValues, vitalsFailed, onNavigate }: HomePinTilesProps) {
   const locale = asLocale(useUiLanguage());
   const tr = (key: MessageKey) => t(key, locale);
   const dash = "-";
@@ -56,7 +58,7 @@ export function HomePinTiles({ pins, stats, glucoseUnit, vitalValues, onNavigate
       default: {
         if (isHomeValuePin(pin)) {
           const reading = vitalValues[pin];
-          return reading ? { value: reading.value, unit: reading.unit } : { hint: tr("home.pins.no_reading") };
+          return reading ? { value: reading.value, unit: reading.unit } : { hint: tr(vitalsFailed ? "home.pins.load_failed" : "home.pins.no_reading") };
         }
         // A shortcut: the screen it opens has the detail, so the tile does not pretend to a number.
         return { hint: tr("home.pins.open") };

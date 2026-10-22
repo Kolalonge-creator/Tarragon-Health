@@ -44,7 +44,7 @@ function Tile({ pin, children }: { pin: HomePinKey; children: React.ReactNode })
 
 async function PinGrid(props: HomePinTilesProps) {
   const { patientId, pins, stats, glucoseUnit, screeningsDue, bpTileProps } = props;
-  const vitalValues = await getPinnedVitalValues(patientId, pins);
+  const { values: vitalValues, failed: failedVitals } = await getPinnedVitalValues(patientId, pins);
 
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -123,12 +123,14 @@ async function PinGrid(props: HomePinTilesProps) {
           default: {
             if (isHomeValuePin(pin)) {
               const reading = vitalValues[pin];
+              // A failed read must not look like "no reading yet": a real reading may exist.
+              const hint = failedVitals.includes(pin) ? "Couldn't load, tap to open" : "No reading yet";
               return (
                 <Tile key={pin} pin={pin}>
                   <StatTile
                     icon={icon}
                     label={HOME_PIN_LABEL[pin]}
-                    {...statTileValue(reading?.value, "No reading yet", reading?.unit)}
+                    {...statTileValue(reading?.value, hint, reading?.unit)}
                   />
                 </Tile>
               );

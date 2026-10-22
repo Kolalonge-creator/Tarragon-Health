@@ -46,9 +46,14 @@ export function ManageHomePins({
   function save() {
     setError(null);
     startTransition(async () => {
-      const result = await saveHomePins(pins);
-      if (result.ok) setOpen(false);
-      else setError(result.error);
+      try {
+        const result = await saveHomePins(pins);
+        if (result.ok) setOpen(false);
+        else setError(result.error);
+      } catch {
+        // Offline, a server error, or a stale tab after a deploy: say so rather than do nothing.
+        setError("We couldn't reach the server. Nothing was changed. Please try again.");
+      }
     });
   }
 

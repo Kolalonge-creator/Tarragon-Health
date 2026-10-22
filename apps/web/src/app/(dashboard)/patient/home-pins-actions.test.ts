@@ -8,7 +8,8 @@ jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 
 const upsert = jest.fn();
 let user: { id: string } | null = { id: "patient-1" };
-let activeMeds = 0;
+let activeMeds: number | null = 0;
+let medsError: { message: string } | null = null;
 let orgId: string | null = "org-1";
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -19,7 +20,7 @@ jest.mock("@/lib/supabase/server", () => ({
         return { select: () => ({ eq: () => ({ single: async () => ({ data: orgId ? { organisation_id: orgId } : null }) }) }) };
       }
       if (table === "medications") {
-        return { select: () => ({ eq: () => ({ eq: async () => ({ count: activeMeds }) }) }) };
+        return { select: () => ({ eq: () => ({ eq: async () => ({ count: activeMeds, error: medsError }) }) }) };
       }
       if (table === "patient_home_layout") return { upsert };
       throw new Error(`unexpected table ${table}`);
@@ -33,6 +34,7 @@ beforeEach(() => {
   upsert.mockReset().mockResolvedValue({ error: null });
   user = { id: "patient-1" };
   activeMeds = 0;
+  medsError = null;
   orgId = "org-1";
 });
 
@@ -66,6 +68,14 @@ describe("saveHomePins", () => {
     activeMeds = 0;
     await saveHomePins(["bp"]);
     expect(upsert.mock.calls[0][0].pinned).toEqual(["bp"]);
+  });
+
+  it("refuses to save when the medication count could not be read, rather than treating it as none", async () => {
+    medsError = { message: "timeout" };
+    activeMeds = null;
+    const result = await saveHomePins(["bp"]);
+    expect(result.ok).toBe(false);
+    expect(upsert).not.toHaveBeenCalled();
   });
 
   it("refuses input that is not a list of strings, and writes nothing", async () => {

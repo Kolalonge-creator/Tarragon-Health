@@ -39,14 +39,17 @@ export async function saveHomePins(pins: unknown): Promise<SaveHomePinsResult> {
     .single();
   if (!profile?.organisation_id) return { ok: false, error: "Couldn't save that. Please try again." };
 
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from("medications")
     .select("id", { count: "exact", head: true })
     .eq("patient_id", user.id)
     .eq("is_active", true);
 
+  // The pin that must stay on depends on this count; a failed read must not pass for "no medications".
+  if (countError || count === null) return { ok: false, error: "Couldn't save that. Please try again." };
+
   // An empty `sanitize` result is a real choice ("show nothing"); resolve only adds back what is locked.
-  const toSave = resolveHomePins(sanitizeHomePins(parsed.data), { activeMedicationCount: count ?? 0 }, []);
+  const toSave = resolveHomePins(sanitizeHomePins(parsed.data), { activeMedicationCount: count }, []);
 
   const { error } = await supabase
     .from("patient_home_layout")

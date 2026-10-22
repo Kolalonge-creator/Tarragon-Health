@@ -482,6 +482,7 @@ export const en = {
   "home.pins.up": "Up",
   "home.pins.down": "Down",
   "home.pins.no_reading": "No reading yet",
+  "home.pins.load_failed": "Could not load. Pull down to retry.",
   "home.pins.open": "Tap to open",
   "home.pins.group.vitals": "Vitals",
   "home.pins.group.medications": "Medications",
