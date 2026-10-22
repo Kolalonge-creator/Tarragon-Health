@@ -21,6 +21,7 @@ export * from "./wellbeing-library";
 export * from "./therapy-programmes";
 export * from "./home-pins";
 export * from "./measurement-units";
+export * from "./rewards-pending";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,
 // Enums, Constants, Json. Single source of truth for the DB schema.

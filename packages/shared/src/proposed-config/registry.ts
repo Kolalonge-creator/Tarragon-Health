@@ -2673,6 +2673,38 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
   },
   {
+    key: "rewards.pending_credit",
+    // S58b. Live value is the `pending_credit` row of `reward_config`; milestones-mirror.test.ts fails if the two drift. UNSIGNED, not clinical.
+    // How long an undecided point-earning action is shown as "on its way", when the screen offers the support route, and how far back it looks.
+    value: {"expected_within_minutes": 15, "ask_after_minutes": 120, "look_back_hours": 72},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S58b.md; supabase/migrations/*_s58b_pending_credit_milestones_refund_restore.sql",
+  },
+  {
+    key: "rewards.milestone_display",
+    // S58b. Live value is the `milestone_display` row of `reward_config`. A milestone card is shown until dismissed, at most this long after first shown.
+    value: {"show_for_hours": 72},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S58b.md; supabase/migrations/*_s58b_pending_credit_milestones_refund_restore.sql",
+  },
+  {
+    key: "rewards.milestones",
+    // S58b. Live value is the active `milestone_definitions` version 1 seed; milestones-mirror.test.ts parses the migration marker. Care steps only:
+    // no milestone may reference weight, BMI or any body metric (CHECK constraint), and none is about a result. UNSIGNED.
+    value: [{"code": "first_bp_logged", "kind": "first_event", "trigger_event": "vitals.logged", "params": {"requires": "blood_pressure"}}, {"code": "first_glucose_logged", "kind": "first_event", "trigger_event": "vitals.logged", "params": {"requires": "glucose"}}, {"code": "adherence_4_weeks", "kind": "adherence_window", "trigger_event": "adherence.checkin_answered", "params": {"days": 28}}, {"code": "first_lab_done", "kind": "first_event", "trigger_event": "lab_result.released", "params": {}}, {"code": "first_review_attended", "kind": "first_event", "trigger_event": "encounter.completed", "params": {}}, {"code": "first_lesson_completed", "kind": "first_event", "trigger_event": "lesson.completed", "params": {}}, {"code": "first_course_completed", "kind": "first_event", "trigger_event": "course.completed", "params": {}}],
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S58b.md; supabase/migrations/*_s58b_pending_credit_milestones_refund_restore.sql",
+  },
+  {
     key: "rewards.rules",
     // S58 (spec 11.1): what earns Health Points, by rule code, with caps and decay. Live value is the active `reward_rules` version 1
     // seed; rewards-mirror.test.ts parses the migration marker. No rule may reference weight, BMI or any body metric (CHECK constraint).
