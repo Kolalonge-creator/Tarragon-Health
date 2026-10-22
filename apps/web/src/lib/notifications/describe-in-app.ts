@@ -144,6 +144,13 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "consult_join_ready") {
     return { text: "Your consultation room is open. Open the app to join.", href: `/patient/consultation/${String(payload.encounter_id ?? "")}` };
   }
+  // PCC: neutral previews (INV-07).
+  if (n.template === "consult_checkin_due") {
+    return { text: "Your care team has a quick check-in for you. Open the app to answer", href: `/patient/consult-checkin/${String(payload.checkin_id ?? "")}` };
+  }
+  if (n.template === "consult_checkin_nudge") {
+    return { text: "Your quick check-in is still waiting whenever you are ready", href: `/patient/consult-checkin/${String(payload.checkin_id ?? "")}` };
+  }
   if (n.template === "consult_missed") {
     return {
       text: payload.credit_returned === true ? "Your consultation did not go ahead. Your credit is back in the app." : "Your consultation did not go ahead. Open the app to rebook.",
@@ -383,6 +390,22 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "written_question_received") {
     return { text: "Your care team has your message", href: "/patient/care" };
   }
+  // S27h. Neutral by design (INV-07): never a value, an analyte or a flag.
+  if (n.template === "lab_result_still_reviewing") {
+    return { text: "Your care team is still reviewing something in your health record. It is taking longer than we hoped. Open the app to see when to expect it", href: "/patient/labs" };
+  }
+  if (n.template === "lab_result_contact_us") {
+    return { text: "Your care team would like to speak with you. Please open the app and send them a message when you can", href: "/patient/messages" };
+  }
+  if (n.template === "lab_critical_call") {
+    return { text: "A priority review needs you now. Open the review page and acknowledge it", href: "/clinician/lab-results" };
+  }
+  if (n.template === "lab_critical_escalation") {
+    return { text: "A priority review has not been acknowledged by the clinicians on call", href: "/clinician/lab-results" };
+  }
+  if (n.template === "lab_hold_aging") {
+    return { text: "A review has been waiting longer than planned", href: "/clinician/lab-results" };
+  }
   if (n.template === "lab_result_corrected") {
     return { text: "Your care team has updated something in your health record. Open the app to see what changed", href: "/patient/labs" };
   }
@@ -438,6 +461,12 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "note_release_requested") {
     return { text: "A patient asked about a note. Open your messages to answer", href: "/clinician/messages" };
+  }
+  if (n.template === "visit_summary_ready") {
+    return { text: "Your care team has written a summary of your visit", href: "/patient/care#after-visit-summary" };
+  }
+  if (n.template === "visit_summary_withdrawn") {
+    return { text: "Your care team took back a summary", href: "/patient/care#after-visit-summary" };
   }
   if (n.template === "note_released") {
     return { text: "Your care team has made a note available", href: "/patient/care" };
@@ -670,6 +699,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "circle_joined") {
     return { text: "Someone has joined your Care Circle", href: "/patient/care-circle" };
   }
+  if (n.template === "circle_consultation_invite") {
+    // CGJ: a patient invited this supporter to join one call. Fixed neutral line, no name, no time, no reason (INV-07).
+    return { text: "You have been invited to join a call", href: "/patient/supporting" };
+  }
   if (n.template === "circle_left") {
     return { text: "Someone has left your Care Circle", href: "/patient/care-circle" };
   }
@@ -762,6 +795,17 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "on_call_expired") {
     return { text: "Nobody has answered a priority case. Phone the clinician on call now", href: "/rota" };
+  }
+  if (n.template === "on_call_ops_desk") {
+    // From private.ops_desk_assign (ops desk resilience, OQ-441): fixed neutral wording, nothing from the payload (INV-07). A person makes the calls.
+    return { text: "A priority case has not been answered. You are the ops contact: phone the clinician on call now", href: "/admin/ops/desk" };
+  }
+  if (n.template === "on_call_ops_desk_uncovered") {
+    // also sent to the CMO, whose account cannot open /admin/*: the shared rota page, as for on_call_expired
+    return { text: "A priority case has not been answered and no ops contact is on duty. Phone the clinician on call now", href: "/rota" };
+  }
+  if (n.template === "on_call_ops_desk_roster") {
+    return { text: "Nobody reachable may be on call right now. Open the ops desk and phone the people on the call sheet", href: "/admin/ops/desk" };
   }
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };

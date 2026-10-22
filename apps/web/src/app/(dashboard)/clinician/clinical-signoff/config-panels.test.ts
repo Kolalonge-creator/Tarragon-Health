@@ -42,6 +42,16 @@ describe("sign-off hub inline panels", () => {
     expect(panel).toContain('code="glucose_care_triage"');
   });
 
+  it("opens the pulse, oxygen and temperature triage rules inline on the hub, with the guideline basis and the amber task type confirm", () => {
+    expect(source).toContain("inlinePanels[VITALS_TRIAGE_ITEM_KEY] = <VitalsTriageRulesPanel");
+    expect(source).toContain("inlinePanels[VITALS_TASK_TYPE_ITEM_KEY] = <VitalsTaskTypePanel");
+    const panel = readFileSync(join(__dirname, "../_signoff-panels/vitals-triage-rules-panel.tsx"), "utf8");
+    expect(panel).toContain("VITALS_RULE_BASIS");
+    expect(panel).toContain("VITALS_CITATIONS");
+    expect(panel).toContain("VITALS_WORDING_DATA");
+    expect(panel).toContain('code="vitals_care_triage"');
+  });
+
   it("renders an inline confirm panel for each task type that needs the CMO (call the patient, urgent glucose review), integration of P2 and P3", () => {
     expect(source).toContain("inlinePanels[RED_OUTREACH_ITEM_KEY] = <RedOutreachPanel");
     expect(source).toContain("inlinePanels[GLUCOSE_TASK_TYPE_ITEM_KEY] = <GlucoseTaskTypePanel");
@@ -67,6 +77,16 @@ describe("sign-off hub inline panels", () => {
     expect(panel).toContain('name="test_pack_run"');
     // nothing activates automatically: the only caller of the switch-on RPC is the CMO-gated server action
     const actions = readFileSync(join(__dirname, "unified-red-paging-actions.ts"), "utf8");
+    expect(actions).toContain("canAssignCases");
+  });
+
+  it("opens the legacy notice retirement panel inline on the hub, with the test-pack confirmation, the evidence and a switch-off (S19f)", () => {
+    expect(source).toContain("inlinePanels[LEGACY_NOTICE_RETIREMENT_ITEM_KEY] = <LegacyNoticeRetirementPanel");
+    const panel = readFileSync(join(__dirname, "../_signoff-panels/legacy-notice-retirement-panel.tsx"), "utf8");
+    expect(panel).toContain("switchOnLegacyNoticeRetirementAction");
+    expect(panel).toContain("switchOffLegacyNoticeRetirementAction");
+    expect(panel).toContain('name="test_pack_run"');
+    const actions = readFileSync(join(__dirname, "legacy-notice-retirement-actions.ts"), "utf8");
     expect(actions).toContain("canAssignCases");
   });
 

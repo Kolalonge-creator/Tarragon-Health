@@ -7,3 +7,5 @@ export * from "./language";
 export * from "./numbers";
 export * from "./screens";
 export { THERAPY_GROUP, THERAPY_GROUP_META, therapyClips, withTherapyClips, therapyAudioFor } from "./therapy";
+export * from "./report-audio";
+export * from "./workout-audio";

@@ -43,7 +43,7 @@ export default async function EmergencyCardPrintPage() {
   const supabase = await createClient();
   // S43: the person chooses what the card shows. Applied here, before the QR text and the body are built from it.
   const [fullFacts, { data: fieldsRow }] = await Promise.all([
-    loadEmergencyDatasetForPatient(supabase, user.id),
+    loadEmergencyDatasetForPatient(supabase, user.id, { includeCoverage: true }),
     supabase
       .from("emergency_card_fields")
       .select(

@@ -7,6 +7,9 @@ import {
   loadExerciseProgrammes,
   loadLatestReadinessScreen,
   loadExerciseEnrollments,
+  loadActivityGate,
+  loadWorkoutPlans,
+  type WorkoutPlan,
   submitReadinessScreen,
   enrollExerciseProgramme,
   type ExerciseProgramme,
@@ -14,6 +17,12 @@ import {
   type ExerciseEnrollment,
   type ReadinessAnswers,
 } from "@/lib/exercise";
+import { t } from "@tarragon/i18n";
+import { getProposedConfig } from "@tarragon/shared";
+import { intensityAllowed, type ActivityGateResult } from "@tarragon/clinical/activity-gate";
+import { orderPlans, type WorkoutPlanDisplayConfig } from "@tarragon/clinical/workout-plans";
+import { usePatientAge } from "@/lib/use-patient-age";
+import { ActivityGateCard } from "@/screens/sections/movement-extras";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
@@ -55,6 +64,10 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
   const [programmes, setProgrammes] = useState<ExerciseProgramme[]>([]);
   const [screen, setScreen] = useState<ExerciseReadinessScreen | null>(null);
   const [enrollments, setEnrollments] = useState<ExerciseEnrollment[]>([]);
+  // null until the gate has answered; nothing is offered before then. An unreadable answer is the fail-closed one, never a permissive guess.
+  const [gate, setGate] = useState<{ gate: ActivityGateResult; unavailable: boolean } | null>(null);
+  const [plans, setPlans] = useState<WorkoutPlan[]>([]);
+  const age = usePatientAge(patientId, Date.now());
 
   const [screenOpen, setScreenOpen] = useState(false);
   const [answers, setAnswers] = useState<ReadinessAnswers>(EMPTY_ANSWERS);
@@ -66,11 +79,15 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
   const [justEnrolled, setJustEnrolled] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [programmesResult, screenResult, enrollmentsResult] = await Promise.all([
+    const [programmesResult, screenResult, enrollmentsResult, gateResult, planResult] = await Promise.all([
       loadExerciseProgrammes(),
       loadLatestReadinessScreen(patientId),
       loadExerciseEnrollments(patientId),
+      loadActivityGate(),
+      loadWorkoutPlans(),
     ]);
+    setGate(gateResult);
+    setPlans(planResult);
     if (programmesResult.ok) setProgrammes(programmesResult.data);
     if (screenResult.ok) setScreen(screenResult.data);
     if (enrollmentsResult.ok) setEnrollments(enrollmentsResult.data);
@@ -120,8 +137,13 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
     );
   }
 
+  const resting = gate?.gate.decision === "rest";
+  const displayCfg = getProposedConfig("activity.workout_plans").value as unknown as WorkoutPlanDisplayConfig;
+  const orderedPlans = orderPlans(plans, age, displayCfg);
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+      <ActivityGateCard gate={gate} />
       <View>
         <ScreenTitle>Exercise programmes</ScreenTitle>
         <MutedText>
@@ -210,10 +232,32 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
         </Card>
       )}
 
+      {plans.length > 0 && !resting ? (
+        <Card style={{ gap: 10 }}>
+          <SectionLabel>{t("activity.plans.title")}</SectionLabel>
+          {orderedPlans.map((plan) => (
+            <View key={plan.code} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.card, padding: 12, gap: 6 }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{plan.title}</Text>
+              <Badge tone="neutral">{plan.format === "chair_class" ? t("activity.plans.chair") : t("activity.plans.home")}</Badge>
+              {plan.sessions.map((s, i) => (
+                <View key={i} style={{ gap: 2 }}>
+                  <MutedText>{`${s.minutes} ${t("activity.plans.minutes")}`}</MutedText>
+                  {s.steps.map((step, j) => (
+                    <Text key={j} style={{ fontSize: 13.5, color: colors.ink }}>{`${j + 1}. ${step}`}</Text>
+                  ))}
+                </View>
+              ))}
+            </View>
+          ))}
+        </Card>
+      ) : null}
+
+      {!resting && gate ? (
       <Card style={{ gap: 10 }}>
         <SectionLabel>Programme catalogue</SectionLabel>
         {programmes.map((p) => {
           const cleared = p.intensity_level === "beginner" || (p.intensity_level === "moderate" ? okModerate : okVigorous);
+          const gateAllows = intensityAllowed(gate.gate, p.intensity_level === "beginner" ? "gentle" : p.intensity_level);
           return (
             <View key={p.id} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.card, padding: 12, gap: 8 }}>
               <View>
@@ -225,8 +269,8 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
                 </View>
               </View>
               <SecondaryButton
-                title={cleared ? "Start" : "Needs clearance"}
-                disabled={!cleared}
+                title={!gateAllows ? "Not right now" : cleared ? "Start" : "Needs clearance"}
+                disabled={!cleared || !gateAllows}
                 loading={enrolling === p.id}
                 onPress={() => void handleEnroll(p)}
               />
@@ -236,6 +280,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
         })}
         {enrollError ? <ErrorText>{enrollError}</ErrorText> : null}
       </Card>
+      ) : null}
     </ScrollView>
   );
 }

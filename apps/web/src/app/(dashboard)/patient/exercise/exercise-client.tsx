@@ -16,6 +16,13 @@ import {
   type ExerciseActionState,
 } from "./actions";
 import { READINESS_QUESTIONS } from "@/lib/validation/exercise";
+import { intensityAllowed, type ActivityGateResult } from "@tarragon/clinical/activity-gate";
+import { useActivityGate, useWorkoutPlans, type WorkoutPlan } from "@/lib/queries/activity-gate";
+import { ActivityGateBanner } from "@/components/activity/activity-gate-banner";
+import { t } from "@tarragon/i18n";
+import { getProposedConfig } from "@tarragon/shared";
+import { orderPlans, type WorkoutPlanDisplayConfig } from "@tarragon/clinical/workout-plans";
+import { usePatientChronologicalAge } from "@/lib/queries/patient-demographics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,9 +44,16 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
 
   const okModerate = clearsForModerate(screen.data);
   const okVigorous = clearsForVigorous(screen.data);
+  // The activity safety gate (S48a). The database refuses an enrolment the gate forbids; this only keeps the page from offering one. While the
+  // answer is loading nothing is offered, and an unreadable answer is the fail-closed one (gentle only), never a permissive guess.
+  const gateQuery = useActivityGate();
+  const plans = useWorkoutPlans();
+  const gate: ActivityGateResult | null = gateQuery.data?.gate ?? null;
+  const resting = gate?.decision === "rest";
 
   return (
     <div className="space-y-6">
+      <ActivityGateBanner />
       <ReadinessCard patientId={patientId} screen={screen.data} />
 
       {(enrollments.data?.length ?? 0) > 0 && (
@@ -58,22 +72,28 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Programme catalogue</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {programmes.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
-          {(programmes.data ?? []).map((p) => (
-            <ProgrammeRow
-              key={p.id}
-              patientId={patientId}
-              programme={p}
-              cleared={p.intensity_level === "beginner" || (p.intensity_level === "moderate" ? okModerate : okVigorous)}
-            />
-          ))}
-        </CardContent>
-      </Card>
+      {(plans.data?.length ?? 0) > 0 && !resting && <WorkoutPlansCard plans={plans.data ?? []} patientId={patientId} />}
+
+      {!resting && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Programme catalogue</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(programmes.isLoading || gateQuery.isLoading) && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+            {gate !== null &&
+              (programmes.data ?? []).map((p) => (
+                <ProgrammeRow
+                  key={p.id}
+                  patientId={patientId}
+                  programme={p}
+                  cleared={p.intensity_level === "beginner" || (p.intensity_level === "moderate" ? okModerate : okVigorous)}
+                  gateAllows={intensityAllowed(gate, p.intensity_level === "beginner" ? "gentle" : p.intensity_level)}
+                />
+              ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -147,10 +167,13 @@ function ProgrammeRow({
   patientId,
   programme,
   cleared,
+  gateAllows,
 }: {
   patientId: string;
   programme: ExerciseProgramme;
   cleared: boolean;
+  /** False when the activity safety gate keeps this person to gentler activity for now. */
+  gateAllows: boolean;
 }) {
   const queryClient = useQueryClient();
   const [state, formAction, pending] = useActionState<ExerciseActionState, FormData>(
@@ -177,13 +200,48 @@ function ProgrammeRow({
         </div>
         <form action={formAction}>
           <input type="hidden" name="programme_id" value={programme.id} />
-          <Button type="submit" size="sm" disabled={pending || !cleared}>
-            {cleared ? "Start" : "Needs clearance"}
+          <Button type="submit" size="sm" disabled={pending || !cleared || !gateAllows}>
+            {!gateAllows ? "Not right now" : cleared ? "Start" : "Needs clearance"}
           </Button>
         </form>
       </div>
       {state?.error && <p className="mt-2 text-xs text-destructive dark:text-red-400">{state.error}</p>}
       {state?.success && <p className="mt-2 text-xs text-brand-green dark:text-brand-green-bright">Started.</p>}
     </div>
+  );
+}
+
+/** Reviewed home workouts and chair-based classes the gate allows. Shown only when a clinician has reviewed at least one; never an empty "coming soon". */
+function WorkoutPlansCard({ plans, patientId }: { plans: WorkoutPlan[]; patientId: string }) {
+  const age = usePatientChronologicalAge(patientId);
+  // Older adults see chair-based classes first. This is only the order; the database gate decides which plans are shown at all.
+  const ordered = orderPlans(plans, age.data ?? null, getProposedConfig("activity.workout_plans").value as unknown as WorkoutPlanDisplayConfig);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("activity.plans.title")}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {ordered.map((p) => (
+          <div key={p.code} className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4">
+            <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{p.title}</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              <Badge variant="grey">{p.format === "chair_class" ? t("activity.plans.chair") : t("activity.plans.home")}</Badge>
+              <Badge variant="grey">{INTENSITY_LABEL[p.level === "gentle" ? "beginner" : p.level]}</Badge>
+            </div>
+            {p.sessions.map((s, i) => (
+              <div key={i} className="mt-2">
+                <p className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">{s.minutes} {t("activity.plans.minutes")}</p>
+                <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-sm text-charcoal-ink dark:text-night-ink">
+                  {s.steps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              </div>
+            ))}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }

@@ -3,12 +3,17 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { VitalsForm } from "@/app/(dashboard)/patient/vitals-form";
+import { LifestyleLogCard } from "@/app/(dashboard)/patient/lifestyle-log-card";
+import { InhalerHistory } from "@/app/(dashboard)/patient/inhaler-history";
+import { createClient } from "@/lib/supabase/server";
+import { readExtendedObservationsEnabled } from "@/lib/vitals/extended-observations";
 import { MonitoringCoverCard } from "@/components/monitoring-cover-card";
 import { HbpmSummaryCard } from "@/app/(dashboard)/patient/hbpm-summary-card";
 import { GlucoseInsights } from "@/app/(dashboard)/patient/glucose-insights";
 import { VitalsHistory } from "@/app/(dashboard)/patient/vitals-history";
 import { HeldReadingsCard } from "@/app/(dashboard)/patient/held-readings-card";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
+import { AgpCard } from "@/components/agp-card";
 import { SymptomLogForm } from "@/app/(dashboard)/patient/symptom-log-form";
 import { SymptomLogHistory } from "@/app/(dashboard)/patient/symptom-log-history";
 import { FeatureConsentGate } from "@/components/consent/feature-consent-gate";
@@ -22,12 +27,15 @@ import { getSymptomCheckerEligibility, getSymptomReviewEntitled, getSymptomRevie
 import { degradedModeConfig } from "@/lib/symptom-triage/safe-run";
 import { ComplicationStatus } from "@/app/(dashboard)/patient/complication-status";
 import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
+import { ThresholdOverrideNotice } from "@/app/(dashboard)/patient/threshold-override-notice";
 import { WeeklySummaryCard } from "@/app/(dashboard)/patient/weekly-summary-card";
 import { VisitReportCard } from "@/app/(dashboard)/patient/visit-report-card";
 
 export default async function PatientVitalsPage() {
   const { profile, subjectId, subjectDateOfBirth, glucoseUnit } = await getPatientDashboardContext();
   const ageYears = ageFromDateOfBirth(subjectDateOfBirth);
+  // S47a: water, sleep, mood and inhaler logs show only while the extended_observations module is on (born off).
+  const extendedObservationsOn = await readExtendedObservationsEnabled(await createClient());
   const presentingComplaints = await listAvailablePresentingComplaints();
   // The stated review time is read from the signed SLA only when the checker is open (nothing to promise otherwise).
   const reviewTime = presentingComplaints.length > 0 ? await getSymptomReviewTime() : ({ stated: false } as const);
@@ -42,7 +50,10 @@ export default async function PatientVitalsPage() {
       description="Log readings and symptoms, and see how they trend over time."
       icon={SEMANTIC_ICON.bp}
     >
+      {subjectId === profile.id ? <ThresholdOverrideNotice /> : null}
       <VitalsTrendChart patientId={subjectId} />
+      {/* Renders nothing until there is sensor glucose to show. */}
+      <AgpCard patientId={subjectId} audience="patient" />
       <WeeklySummaryCard patientId={subjectId} glucoseUnit={glucoseUnit} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -56,6 +67,9 @@ export default async function PatientVitalsPage() {
           <GlucoseInsights patientId={subjectId} />
         </div>
       </div>
+
+      {extendedObservationsOn ? <LifestyleLogCard types={["water_ml", "sleep_hours", "mood", "inhaler_use"]} /> : null}
+      {extendedObservationsOn ? <InhalerHistory patientId={subjectId} /> : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SymptomLogForm patientId={subjectId} ageYears={ageYears} />
@@ -82,7 +96,7 @@ export default async function PatientVitalsPage() {
 
       {/* Renders nothing unless a value that cannot be real is waiting for the person to check it (S70a). */}
       <HeldReadingsCard patientId={subjectId} />
-      <VitalsHistory patientId={subjectId} />
+      <VitalsHistory patientId={subjectId} viewerId={profile.id} />
       <VisitReportCard />
       {/* Renders nothing unless the patient has an active diabetes care
           plan — see diabetes-daily-log.tsx for the gate. */}

@@ -260,16 +260,19 @@ export async function logSmoking(
 
 export interface ActivityState {
   dailyStepGoal: number | null;
+  /** This week against the person's own goal (S48a, 5.1). Null when the week could not be loaded. */
+  week: { activeMinutes: number; goalMinutes: number; daysStepGoalMet: number } | null;
   entries: {
     loggedOn: string;
     activityName: string | null;
     durationMinutes: number | null;
     stepCount: number | null;
+    distanceM: number | null;
   }[];
 }
 
 export async function loadActivityState(patientId: string): Promise<QueryResult<ActivityState>> {
-  const [goalRes, logRes] = await Promise.all([
+  const [goalRes, logRes, weekRes] = await Promise.all([
     supabase
       .from("patient_activity_goals")
       .select("daily_step_goal")
@@ -277,43 +280,34 @@ export async function loadActivityState(patientId: string): Promise<QueryResult<
       .maybeSingle(),
     supabase
       .from("activity_log_entries")
-      .select("logged_on, activity_name, duration_minutes, step_count")
+      .select("logged_on, activity_name, duration_minutes, step_count, distance_m")
       .eq("patient_id", patientId)
       .gte("logged_on", sinceDate())
       .order("logged_on", { ascending: false }),
+    supabase.rpc("activity_week_progress"),
   ]);
   if (logRes.error) return { ok: false, error: logRes.error.message };
 
+  const w = weekRes.error || weekRes.data === null || typeof weekRes.data !== "object" || Array.isArray(weekRes.data)
+    ? null
+    : (weekRes.data as { active_minutes?: number; weekly_active_minutes_goal?: number; days_step_goal_met?: number });
   return {
     ok: true,
     data: {
       dailyStepGoal: goalRes.data?.daily_step_goal ?? null,
+      week:
+        w && typeof w.active_minutes === "number" && typeof w.weekly_active_minutes_goal === "number"
+          ? { activeMinutes: w.active_minutes, goalMinutes: w.weekly_active_minutes_goal, daysStepGoalMet: w.days_step_goal_met ?? 0 }
+          : null,
       entries: (logRes.data ?? []).map((r) => ({
         loggedOn: r.logged_on,
         activityName: r.activity_name,
         durationMinutes: r.duration_minutes,
         stepCount: r.step_count,
+        distanceM: r.distance_m,
       })),
     },
   };
-}
-
-export async function logActivity(
-  patientId: string,
-  input: { activityName: string; durationMinutes: number }
-): Promise<{ error?: string }> {
-  const orgId = await organisationId(patientId);
-  if (!orgId) return { error: "No organisation on file" };
-  const { error } = await supabase.from("activity_log_entries").insert({
-    organisation_id: orgId,
-    patient_id: patientId,
-    logged_on: lagosToday(),
-    entry_type: "workout",
-    activity_name: input.activityName,
-    duration_minutes: input.durationMinutes,
-    source: "manual",
-  });
-  return error ? { error: error.message } : {};
 }
 
 // ── Meals ──────────────────────────────────────────────────────────────────

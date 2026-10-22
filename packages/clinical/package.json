@@ -12,7 +12,10 @@
     "./assistant-danger-screen": "./src/assistant-danger-screen.ts",
     "./lab-units": "./src/lab-units.ts",
     "./titration": "./src/titration-entry.ts",
-    "./pathways": "./src/pathways/index.ts"
+    "./pathways": "./src/pathways/index.ts",
+    "./activity-gate": "./src/activity-gate.ts",
+    "./activity-readiness": "./src/activity-readiness.ts",
+    "./workout-plans": "./src/workout-plans.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

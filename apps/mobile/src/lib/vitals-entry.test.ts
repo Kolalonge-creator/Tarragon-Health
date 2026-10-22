@@ -14,6 +14,8 @@ import {
   parseStrictNumber,
   validateBpEntry,
   validateOtherEntry,
+  typedToStoredEntry,
+  rangeHintInPatientUnit,
 } from "./vitals-entry";
 
 describe("parseStrictNumber", () => {
@@ -108,5 +110,32 @@ describe("phone bounds are never wider than the server's (apps/web validation)",
       }
     }
     expect(mgDlToMmolL(GLUCOSE_BOUNDS.mg_dl.max)).toBeLessThanOrEqual(GLUCOSE_BOUNDS.mmol_l.max + 0.5);
+  });
+});
+
+describe("typedToStoredEntry", () => {
+  const imperial = { weight: "lb", temperature: "f", length: "in" } as const;
+  it("converts pounds and degrees F to the stored unit", () => {
+    expect(typedToStoredEntry("weight", "154.3", imperial)).toBe("70");
+    expect(typedToStoredEntry("temperature", "98.6", imperial)).toBe("37");
+  });
+  it("leaves metric, other vitals and non-numbers alone", () => {
+    expect(typedToStoredEntry("weight", "70")).toBe("70");
+    expect(typedToStoredEntry("pulse", "72", imperial)).toBe("72");
+    expect(typedToStoredEntry("weight", "abc", imperial)).toBe("abc");
+  });
+  it("makes a pounds figure that would be a kg typo fail the kg bounds, not slip through", () => {
+    // 20 lb is 9.1 kg: below any adult weight bound, so the existing range check still catches it
+    const stored = typedToStoredEntry("weight", "20", imperial);
+    expect(validateOtherEntry("weight", stored, "mg_dl").ok).toBe(false);
+  });
+});
+
+describe("rangeHintInPatientUnit", () => {
+  it("gives the accepted range in pounds or degrees F, and nothing for metric or other vitals", () => {
+    expect(rangeHintInPatientUnit("weight", { weight: "lb", temperature: "c", length: "cm" })).toMatch(/ lb$/);
+    expect(rangeHintInPatientUnit("temperature", { weight: "kg", temperature: "f", length: "cm" })).toMatch(/ \u00b0F$/);
+    expect(rangeHintInPatientUnit("weight")).toBeNull();
+    expect(rangeHintInPatientUnit("pulse", { weight: "lb", temperature: "f", length: "in" })).toBeNull();
   });
 });

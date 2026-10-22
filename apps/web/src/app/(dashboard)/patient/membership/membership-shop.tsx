@@ -12,6 +12,7 @@ import { checkoutErrorKey, isCoveredReply, isMessageKey, orderStateKey, type Cat
 import { CheckoutError, useCatalogue, useMyMembership, useMyOrders, useQuote, useStartCheckout } from "@/lib/queries/commerce";
 import { useSponsorableProfiles } from "@/lib/queries/care-access";
 import { RefundRequestDialog } from "./refund-request-dialog";
+import { RefundRule } from "./refund-rule";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 const TOUCH = "min-h-11";
@@ -218,6 +219,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
                 {codeFailed ? <p role="status">{t(quote?.rateLimited ? "shop.error.discount_code_rate_limited" : "shop.error.discount_code_invalid", locale)}</p> : null}
               </div>
             ) : null}
+            <RefundRule locale={locale} membership={item.kind === "membership"} pack={item.kind === "care_pack"} id={item.code} />
             <p className={`text-sm ${MUTED}`}>{t("shop.no_renew", locale)}</p>
             {blocked ? (
               <p role="status">{t("shop.member_until", locale, { date: formatPatientDate(memberUntil) })}</p>
@@ -234,8 +236,9 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
   );
 }
 
-function History({ rows, locale }: { rows: OrderRow[]; locale: Locale }) {
+function History({ rows, locale, kindByCode }: { rows: OrderRow[]; locale: Locale; kindByCode: ReadonlyMap<string, string> }) {
   const [refundTarget, setRefundTarget] = useState<OrderRow | null>(null);
+  const paidRow = rows.find((o) => o.state === "paid") ?? null;
 
   return (
     <Card>
@@ -269,7 +272,12 @@ function History({ rows, locale }: { rows: OrderRow[]; locale: Locale }) {
             ))}
           </ul>
         )}
-        {rows.some((o) => o.state === "paid") && <p className={`mt-3 text-sm ${MUTED}`}>{t("refund.policy.cooling_off", locale)}</p>}
+        {/* The receipt carries the same plain-words rule as the checkout, for the most recent paid order (S26b). */}
+        {paidRow ? (
+          <div className="mt-3">
+            <RefundRule locale={locale} membership={kindByCode.get(paidRow.code) === "membership"} pack={kindByCode.get(paidRow.code) === "care_pack"} id="receipt" />
+          </div>
+        ) : null}
       </CardContent>
       {refundTarget && (
         <RefundRequestDialog
@@ -333,7 +341,7 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary }: { locale
       {items.filter((item) => !chosenId || item.kind === "membership").map((item) => (
         <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} beneficiary={chosenId} beneficiaryName={beneficiary?.name ?? profiles.find((p) => p.id === chosenId)?.full_name ?? undefined} />
       ))}
-      <History rows={orders.data ?? []} locale={locale} />
+      <History rows={orders.data ?? []} locale={locale} kindByCode={new Map(items.map((i) => [i.code, i.kind]))} />
     </div>
   );
 }

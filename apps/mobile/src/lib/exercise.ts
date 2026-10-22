@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
 import type { Tables } from "@tarragon/shared";
+import { parseActivityGate, unavailableActivityGate, type ActivityGateResult } from "@tarragon/clinical/activity-gate";
 
 export type ExerciseProgramme = Tables<"exercise_programmes">;
 export type ExerciseReadinessScreen = Tables<"exercise_readiness_screens">;
@@ -102,4 +103,31 @@ export async function enrollExerciseProgramme(
     programme_id: programmeId,
   });
   return error ? { error: error.message } : {};
+}
+
+/**
+ * The activity safety gate (S48a). public.activity_gate() is the enforcing answer; the app only reads and shows it. If the question cannot be
+ * asked (offline, an error) the answer is the fail-closed one (gentle only), and `unavailable` lets the screen say so rather than pretend.
+ */
+export async function loadActivityGate(): Promise<{ gate: ActivityGateResult; unavailable: boolean }> {
+  const { data, error } = await supabase.rpc("activity_gate");
+  if (error) return { gate: unavailableActivityGate(), unavailable: true };
+  return { gate: parseActivityGate(data), unavailable: false };
+}
+
+export interface WorkoutPlan {
+  code: string;
+  title: string;
+  level: "gentle" | "moderate" | "vigorous";
+  format: "home" | "chair_class";
+  sessions: { minutes: number; steps: string[] }[];
+  /** DRAFT slot: empty until a clinician-reviewed recording exists. Text steps are always shown. */
+  audio_clip_ids?: string[];
+}
+
+/** Reviewed workout plans the gate allows for this person. Empty until a clinician has reviewed one. */
+export async function loadWorkoutPlans(): Promise<WorkoutPlan[]> {
+  const { data, error } = await supabase.rpc("my_workout_plans");
+  if (error || !Array.isArray(data)) return [];
+  return data as unknown as WorkoutPlan[];
 }

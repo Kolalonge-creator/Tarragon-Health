@@ -19,6 +19,8 @@ export * from "./record-integrity";
 export * from "./adult-registration";
 export * from "./wellbeing-library";
 export * from "./therapy-programmes";
+export * from "./home-pins";
+export * from "./measurement-units";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,
 // Enums, Constants, Json. Single source of truth for the DB schema.
@@ -249,6 +251,8 @@ export * from "./ui-language";
 export * from "./clinical-tier";
 export * from "./specialist-type-options";
 export * from "./proposed-config";
+export * from "./observation-limits";
+export * from "./trend-bands";
 export * from "./learning";
 export * from "./assistant-safety";
 export * from "./assistant-emergency";
@@ -266,6 +270,7 @@ export * from "./notification-settings";
 export * from "./notification-diagnosis";
 export * from "./directory-links";
 export * from "./proposed-config/emergency-pack";
+export * from "./proposed-config/biomarker-grade-bands";
 
 // S66: the single cycle prediction engine, thermal shift, pattern report and planning copy (web and mobile both read it from here).
 export * from "./cycle";
@@ -278,6 +283,7 @@ export { sponsorMinimumGroupSize } from "./sponsor-min-group";
 // S70a (Module 18): device plausibility, cross-source de-duplication, photo capture, CGM sustained events, DeviceSource interface.
 export * from "./device-plausibility";
 export * from "./device-dedupe";
+export * from "./assisted-entry";
 export * from "./photo-reading";
 export * from "./cgm-events";
 export * from "./device-source";
@@ -287,3 +293,8 @@ export * from "./therapy-content/wave-a-drafts";
 export * from "./therapy-queue";
 export * from "./therapy-results";
 export * from "./device-guides";
+export * from "./emergency-coverage";
+export * from "./immunisation-card";
+export * from "./outside-record";
+export * from "./my-phones";
+export * from "./nutrition";

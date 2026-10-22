@@ -2,6 +2,7 @@
 
 import { en, t, type Locale, type MessageKey } from "@tarragon/i18n";
 import { entitlementLines, entitlementSource, type EntitlementView } from "@tarragon/commerce";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { itemLabel } from "@/lib/commerce/item-label";
 import { isMessageKey } from "@/lib/commerce/model";
@@ -11,6 +12,8 @@ const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 
 function stateBadge(state: string) {
   switch (state) {
+    case "grace":
+      return "bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200";
     case "active":
       return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
     case "revoked":
@@ -47,9 +50,17 @@ function EntitlementItem({ row, locale }: { row: EntitlementView; locale: Locale
         <p className={`text-sm ${MUTED}`}>{say(source, locale)}</p>
         {row.partCovered ? <p className={`text-sm ${MUTED}`}>{t("entitlement.part_covered", locale)}</p> : null}
       </div>
-      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${stateBadge(row.state)}`}>
-        {t(STATE_KEYS[row.state], locale)}
-      </span>
+      <div className="flex flex-col items-end gap-2">
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${stateBadge(row.phase)}`}>
+          {row.phase === "grace" ? t("entitlement.phase.grace", locale) : t(STATE_KEYS[row.state], locale)}
+        </span>
+        {/* One tap to renew during the short read-only grace: it opens the same purchase. Nothing is charged by this link. */}
+        {row.phase === "grace" && row.itemCode ? (
+          <Link href={`/patient/membership/${row.itemCode}`} className="inline-flex min-h-11 items-center underline">
+            {t("entitlement.grace.renew", locale)}
+          </Link>
+        ) : null}
+      </div>
     </li>
   );
 }

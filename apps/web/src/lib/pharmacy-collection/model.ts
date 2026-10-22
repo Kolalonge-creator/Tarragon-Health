@@ -1,14 +1,15 @@
 import { z } from "zod";
+import { getProposedConfig } from "@tarragon/shared";
 
 /**
  * S28: shapes and rules for choosing a pharmacy to collect from and for the counter desk. Pure: no I/O.
  * The database is the protection (only the owner chooses, only verified pharmacies, the code is checked and locked there); these checks
  * only give a clear message first.
  */
-export const CHOOSE_ERRORS = ["pharmacy_not_available", "collection_already_started", "collection_not_open", "pharmacy_collection_off", "not_permitted_for_this_person", "suggestion_not_open"] as const;
+export const CHOOSE_ERRORS = ["pharmacy_not_available", "collection_already_started", "collection_not_open", "pharmacy_collection_off", "not_permitted_for_this_person", "suggestion_not_open", "visit_size_invalid"] as const;
 export type ChooseError = (typeof CHOOSE_ERRORS)[number];
 
-export const NOTICES = ["chosen", "new_code", "withdrawn", "failed", "suggestion_declined", ...CHOOSE_ERRORS] as const;
+export const NOTICES = ["chosen", "chosen_many", "new_code", "withdrawn", "failed", "suggestion_declined", ...CHOOSE_ERRORS] as const;
 export type Notice = (typeof NOTICES)[number];
 export const asNotice = (v: unknown): Notice | null => ((NOTICES as readonly unknown[]).includes(v) ? (v as Notice) : null);
 
@@ -25,6 +26,36 @@ export const chooseFormSchema = z.object({
   location: z.string().uuid(),
   for: z.string().uuid().optional(),
 });
+/**
+ * S28e (OQ-275): up to this many waiting prescriptions can go to one pharmacy together. Read from the versioned configuration `pharmacy.collection_rules`
+ * (max_items_per_visit), never typed here; the database enforces the active row and refuses more.
+ */
+export const MAX_VISIT_ITEMS: number = (() => {
+  const v = (getProposedConfig("pharmacy.collection_rules", "9999-12-31").value as { max_items_per_visit?: number }).max_items_per_visit;
+  // a missing key is a drift between the registry and the database, so it fails loudly here (and in the drift test), never as "no limit"
+  if (typeof v !== "number" || v < 2) throw new Error("pharmacy.collection_rules is missing max_items_per_visit");
+  return v;
+})();
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The pharmacy list is one form: a button per pharmacy (`choice` = "partner:location") plus a tick box per other waiting prescription (`also`).
+ * Returns the ids to send together (the page's own prescription first), or null when anything is malformed. The database still checks every one.
+ */
+export function visitChoice(input: { prescription: unknown; choice: unknown; also: unknown[] }): { prescription: string; partner: string; location: string; also: string[] } | "too_many" | null {
+  if (typeof input.prescription !== "string" || !UUID_RE.test(input.prescription)) return null;
+  if (typeof input.choice !== "string") return null;
+  const [partner, location, ...extra] = input.choice.split(":");
+  if (extra.length > 0 || !partner || !location || !UUID_RE.test(partner) || !UUID_RE.test(location)) return null;
+  const also: string[] = [];
+  for (const a of input.also) {
+    if (typeof a !== "string" || !UUID_RE.test(a)) return null;
+    if (a !== input.prescription && !also.includes(a)) also.push(a);
+  }
+  if (also.length + 1 > MAX_VISIT_ITEMS) return "too_many";
+  return { prescription: input.prescription, partner, location, also };
+}
+
 export const prescriptionOnlySchema = z.object({ prescription: z.string().uuid(), for: z.string().uuid().optional() });
 export const suggestionFormSchema = z.object({ prescription: z.string().uuid(), suggestion: z.string().uuid() });
 
@@ -69,6 +100,42 @@ export const collectionSchema = z.object({
 export type Collection = z.infer<typeof collectionSchema>;
 export const collectionRowsSchema = z.array(collectionSchema);
 
+// ---- S28e: the other medicines waiting, and the prescriptions that share one visit code ----
+export const overviewItemSchema = z.object({
+  prescription_id: z.string().uuid(),
+  medicine: z.string().nullable(),
+  state: z.string(),
+  visit_id: z.string().uuid().nullable(),
+  pharmacy_name: z.string().nullable(),
+  location_name: z.string().nullable(),
+  address: z.string().nullable(),
+  code: z.string().nullable(),
+  code_expires_at: z.string().nullable(),
+  locked: z.boolean(),
+  expired: z.boolean(),
+  stock_confirmed_at: z.string().nullable(),
+  other_pharmacy_needed: z.boolean(),
+  controlled: z.boolean().nullable(),
+});
+export type OverviewItem = z.infer<typeof overviewItemSchema>;
+export const overviewItemsSchema = z.array(overviewItemSchema);
+
+export const visitMemberSchema = z.object({
+  prescription_id: z.string().uuid(),
+  medicine: z.string().nullable(),
+  state: z.string(),
+  collected: z.boolean(),
+  stock_confirmed_at: z.string().nullable(),
+  other_pharmacy_needed: z.boolean(),
+});
+export type VisitMember = z.infer<typeof visitMemberSchema>;
+export const visitMembersSchema = z.array(visitMemberSchema);
+
+/** Prescriptions she could add to this one: waiting to be sent (signed), not this one. Anything already sent stays with its own pharmacy. */
+export function alsoSendable(items: OverviewItem[], thisPrescription: string): OverviewItem[] {
+  return items.filter((i) => i.state === "signed" && i.prescription_id !== thisPrescription);
+}
+
 /** What the patient screen should offer for a prescription in this state. */
 export type CollectionView = "choose" | "code" | "collected" | "repeat" | "closed";
 export function viewFor(c: Collection): CollectionView {
@@ -78,49 +145,6 @@ export function viewFor(c: Collection): CollectionView {
   if (c.state === "sent") return "code";
   if (c.state === "signed") return "choose";
   return "closed";
-}
-
-// ---- S54 8.9: the price and stock comparison the patient sees before choosing ----
-export const priceLineSchema = z.object({
-  item: z.number(),
-  drug: z.string(),
-  pack: z.string().nullable(),
-  price_kobo: z.number(),
-  stock: z.string(),
-  verified_batch: z.boolean(),
-  strength_confirmed: z.boolean(),
-});
-export const priceRowSchema = z.object({
-  partner_id: z.string().uuid(),
-  partner_name: z.string(),
-  location_id: z.string().uuid(),
-  location_name: z.string(),
-  state: z.string().nullable(),
-  address: z.string().nullable(),
-  items_total: z.number(),
-  items_matched: z.number(),
-  total_kobo: z.number(),
-  all_in_stock: z.boolean(),
-  any_low_stock: z.boolean(),
-  all_verified_batch: z.boolean(),
-  prices_updated_at: z.string().nullable(),
-  lines: z.array(priceLineSchema),
-});
-export type PriceRow = z.infer<typeof priceRowSchema>;
-export const priceRowsSchema = z.array(priceRowSchema);
-
-/** Money is integer kobo everywhere; this is only for showing it. */
-export function nairaFromKobo(kobo: number): string {
-  const naira = Math.round(kobo) / 100;
-  return `\u20A6${naira.toLocaleString("en-NG", { minimumFractionDigits: naira % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}`;
-}
-
-export type StockLabelKey = "pharmprice.in_stock" | "pharmprice.low_stock" | "pharmprice.unavailable" | "pharmprice.unknown_stock";
-export function stockKey(stock: string): StockLabelKey {
-  if (stock === "in_stock") return "pharmprice.in_stock";
-  if (stock === "low_stock") return "pharmprice.low_stock";
-  if (stock === "unavailable") return "pharmprice.unavailable";
-  return "pharmprice.unknown_stock";
 }
 
 // ---- the counter desk (pharmacist) ----
@@ -149,6 +173,36 @@ export const deskVerifySchema = z.object({
   outstanding_note: z.string().nullable(),
 });
 export type DeskVerification = z.infer<typeof deskVerifySchema>;
+
+// ---- S28e: stock yes or no, and the counter for a whole visit ----
+export const STOCK_OUTCOMES = ["confirmed", "out_of_stock", "controlled_medicine", "already_reported", "not_found"] as const;
+export type StockOutcome = (typeof STOCK_OUTCOMES)[number];
+export const stockOutcomeSchema = z.enum(STOCK_OUTCOMES);
+
+/** Per waiting prescription at this pharmacy: the visit it was sent in (if any) and when the pharmacy said "we have this". Ids and a time only. */
+export const collectionExtrasSchema = z.array(z.object({ prescription_id: z.string().uuid(), visit_id: z.string().uuid().nullable(), stock_confirmed_at: z.string().nullable() }));
+export type CollectionExtra = z.infer<typeof collectionExtrasSchema>[number];
+/** The pharmacy list groups the prescriptions that were sent together: visit id to its prescription ids, in the order the database gave them. */
+export function groupByVisit(rows: CollectionExtra[]): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const r of rows) if (r.visit_id) out.set(r.visit_id, [...(out.get(r.visit_id) ?? []), r.prescription_id]);
+  return out;
+}
+
+export const visitItemSchema = z.object({
+  outcome: z.string(),
+  prescription_id: z.string().uuid().nullable(),
+  item_outcome: z.string().nullable(),
+  patient_name: z.string().nullable(),
+  patient_number: z.string().nullable(),
+  items: z.array(z.record(z.string(), z.unknown())).nullable(),
+  allergies: z.array(z.object({ allergen: z.string().nullable(), reaction: z.string().nullable(), severity: z.string().nullable() })).nullable(),
+  supplies_dispensed: z.number(),
+  supplies_permitted: z.number(),
+  outstanding_note: z.string().nullable(),
+});
+export type VisitItem = z.infer<typeof visitItemSchema>;
+export const visitItemsSchema = z.array(visitItemSchema);
 
 export const dispenseResultSchema = z.object({ outcome: z.string(), supplies_dispensed: z.number(), supplies_permitted: z.number() });
 export type DispenseResult = z.infer<typeof dispenseResultSchema>;

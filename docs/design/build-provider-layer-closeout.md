@@ -32,7 +32,7 @@ Branch `build/provider-layer-completion`. Nothing was applied, deployed, merged 
 Every vendor behaviour in the research tables tagged [K] (recalled from the published reference; the vendor pages could not be opened in this session). The first real run of the sandbox check is the proof. Paystack settlement field names remain unproven until a real settlement is read. The browser probe page was not run on a handset. The gold-set gate has only synthetic scores.
 
 ## Apply and deploy order (lead)
-1. Migrations in file order after merge: `20261020183417_p4y_payout_controls_reaudit.sql`, then `20261020190127_p4z_provider_layer_health_read.sql`. Live head when written: `20261020173600`. Both proved in a rolled-back transaction on the live project; nothing was left behind (checked). `release_payout_batch` was rewritten from its live definition (identical to the S31x file at the time).
+1. Migrations in file order after merge: `20261022113417_p4y_payout_controls_reaudit.sql`, then `20261022113629_p4z_provider_layer_health_read.sql`. Live head when written: `20261022103847` or newer (re-check). Both proved in a rolled-back transaction on the live project; nothing was left behind (checked). `release_payout_batch` was rewritten from its live definition (identical to the S31x file at the time).
 2. Deploy functions `zoom-webhook`, `resend-webhook`, `paystack-webhook` (body cap; Zoom replay window) and anything importing `_shared/integrations` or `_shared/payouts` (`payouts`, `order-checkout`, `settlement-reconcile`, `provider-event-drain`). Code first, schema second is safe here either way: no function depends on the new SQL.
 3. Web deploy (chain-health card). Until p4z is applied the card shows "could not be read", never healthy.
 4. Nothing to switch on.

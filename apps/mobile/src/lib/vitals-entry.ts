@@ -12,6 +12,19 @@
  * (vitals-entry.test.ts) checks the server accepts every bound below, so the
  * direction to fix a mismatch stays: widen the server first, then follow it here.
  */
+import {
+  DEFAULT_MEASUREMENT_UNITS,
+  observationLimit,
+  roundForStorage,
+  temperatureFromC,
+  weightFromKg,
+  TEMPERATURE_UNIT_LABEL,
+  WEIGHT_UNIT_LABEL,
+  temperatureToC,
+  weightToKg,
+  type MeasurementUnits,
+} from "@tarragon/shared";
+
 export type OtherVitalType = "glucose" | "weight" | "temperature" | "spo2" | "pulse";
 export type GlucoseUnit = "mmol_l" | "mg_dl";
 
@@ -25,23 +38,32 @@ export function parseStrictNumber(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * S47a: every bound below is read from the versioned config (observations.plausibility in packages/shared), the one value the web form, the API route
+ * and the database CHECK also follow, instead of being typed in here. The phone bundles the config, so a limit still works with no signal.
+ */
+const bound = (key: Parameters<typeof observationLimit>[0]) => {
+  const l = observationLimit(key);
+  return { min: l.min, max: l.max };
+};
+
 export const BP_BOUNDS = {
-  systolic: { min: 60, max: 260 },
-  diastolic: { min: 30, max: 160 },
+  systolic: bound("systolic_mmhg"),
+  diastolic: bound("diastolic_mmhg"),
 } as const;
 
 export const OTHER_VITAL_BOUNDS: Record<Exclude<OtherVitalType, "glucose">, { min: number; max: number }> = {
-  weight: { min: 20, max: 300 },
-  temperature: { min: 30, max: 45 },
-  spo2: { min: 50, max: 100 },
-  pulse: { min: 20, max: 300 },
+  weight: bound("weight_kg"),
+  temperature: bound("temperature_c"),
+  spo2: bound("spo2_pct"),
+  pulse: bound("pulse_bpm"),
 };
 
 /** A glucose value out of range for one unit is very often a correct value in the
  * other (mg/dL is 18 times mmol/L), so the range error points at the unit toggle. */
 export const GLUCOSE_BOUNDS: Record<GlucoseUnit, { min: number; max: number }> = {
-  mmol_l: { min: 1, max: 40 },
-  mg_dl: { min: 18, max: 720 },
+  mmol_l: bound("glucose_mmol_l"),
+  mg_dl: bound("glucose_mg_dl"),
 };
 
 /** A ketone value typed on the glucose quick-log: a typo gate, far wider than any band (the bands live only in the glucose_care_triage rule set). Mirrors params.validation.ketoneMaxMmol and the server (vitals_readings_ketones_mmol_l_check: 0 to 20). */
@@ -82,4 +104,34 @@ export function validateOtherEntry(type: OtherVitalType, raw: string, glucoseUni
     };
   }
   return { ok: true, value };
+}
+
+/**
+ * A weight or temperature typed in the patient's own unit (lb, degrees F), as the text of the stored unit (kg, degrees C)
+ * so the bounds check and the saved payload keep working in one unit. Anything that is not a number, or any other vital,
+ * comes back untouched for the validator to refuse.
+ */
+export function typedToStoredEntry(type: OtherVitalType, raw: string, units: MeasurementUnits = DEFAULT_MEASUREMENT_UNITS): string {
+  const needsConversion = (type === "weight" && units.weight === "lb") || (type === "temperature" && units.temperature === "f");
+  if (!needsConversion) return raw;
+  const typed = parseStrictNumber(raw);
+  if (typed === null) return raw;
+  const stored = type === "weight" ? weightToKg(typed, units.weight) : temperatureToC(typed, units.temperature);
+  return String(roundForStorage(stored, 1));
+}
+
+/**
+ * The accepted range in the patient's own unit, to sit after the existing (metric) range message, so someone who typed
+ * pounds or degrees F is not left with only a kilogram or Celsius figure. Null when their unit already is the stored one.
+ */
+export function rangeHintInPatientUnit(type: OtherVitalType, units: MeasurementUnits = DEFAULT_MEASUREMENT_UNITS): string | null {
+  if (type === "weight" && units.weight === "lb") {
+    const b = OTHER_VITAL_BOUNDS.weight;
+    return `${Math.round(weightFromKg(b.min, "lb"))}\u2013${Math.round(weightFromKg(b.max, "lb"))} ${WEIGHT_UNIT_LABEL.lb}`;
+  }
+  if (type === "temperature" && units.temperature === "f") {
+    const b = OTHER_VITAL_BOUNDS.temperature;
+    return `${temperatureFromC(b.min, "f").toFixed(1)}\u2013${temperatureFromC(b.max, "f").toFixed(1)} ${TEMPERATURE_UNIT_LABEL.f}`;
+  }
+  return null;
 }

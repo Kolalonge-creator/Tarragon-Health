@@ -1,6 +1,6 @@
 import type * as SQLite from "expo-sqlite";
 import * as Crypto from "expo-crypto";
-import { NETWORK_ERROR_MESSAGE, postVitalReading, type VitalReadingPayload } from "./api";
+import { NETWORK_ERROR_MESSAGE, postMealLog, postVitalReading, type VitalReadingPayload } from "./api";
 import { supabase } from "./supabase";
 import type { ContractionSessionPayload, KickSessionPayload } from "./pregnancy-payloads";
 import { getStoreWithSchema } from "./secure-db";
@@ -55,8 +55,34 @@ export interface RedCarePayload {
   response: "sought_care" | "could_not_get_care";
 }
 
+/**
+ * S49a: a meal written in words (logged, repeated in one tap, or picked from a favourite). Only the words travel: the server recomputes the
+ * nutrition from its food table, so a phone can never write its own calories. Idempotent by the outbox client id, so a retry after a lost
+ * reply is a duplicate, not a second meal. A meal photo is NOT queued here (the photo upload needs a connection; see lifestyle-trackers).
+ */
+export interface MealPayload {
+  meal_type: "breakfast" | "lunch" | "dinner" | "snack";
+  description: string;
+}
+
+/**
+ * S48b: a workout the person did, saved on the phone first. The kind is one of the seven activity kinds (the database enum); the name is derived
+ * by the database from the kind. Idempotent by the outbox client id (activity_log_entries.client_id), so a retry is a duplicate, not a second workout.
+ * Logging something that already happened is never blocked by the activity safety gate.
+ */
+export interface ActivityPayload {
+  activity_kind: "walking" | "running" | "cycling" | "dancing" | "football" | "farm_manual_work" | "chair_based";
+  duration_minutes: number;
+  /** Whole metres, or null. */
+  distance_m: number | null;
+  /** The Lagos calendar day it happened. */
+  logged_on: string;
+}
+
 export type OutboxPayload =
+  | ActivityPayload
   | VitalReadingPayload
+  | MealPayload
   | SymptomPayload
   | DosePayload
   | RedCarePayload
@@ -556,13 +582,51 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
       return error ? asFailure(error) : { ok: true };
     }
 
+    if (item.kind === "meal") {
+      const result = await postMealLog(item.payload as MealPayload, item.clientId, item.clientRecordedAt);
+      if (result.success) return { ok: true };
+      return { ok: false, message: result.error, status: result.status };
+    }
+
+    if (item.kind === "activity") {
+      const p = item.payload as ActivityPayload;
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", item.subjectId)
+        .single();
+      if (profileError) return asFailure(profileError);
+      if (!profile?.organisation_id) return { ok: false, status: 400, message: "No organisation on file" };
+      const { error } = await supabase.from("activity_log_entries").insert({
+        organisation_id: profile.organisation_id,
+        patient_id: item.subjectId,
+        entry_type: "workout",
+        activity_kind: p.activity_kind,
+        duration_minutes: p.duration_minutes,
+        distance_m: p.distance_m,
+        logged_on: p.logged_on,
+        client_id: item.clientId,
+      });
+      return error ? asFailure(error) : { ok: true };
+    }
+
     if (item.kind === "red_care") {
       const p = item.payload as RedCarePayload;
-      const { error } = await supabase.rpc("record_red_care_response" as never, {
-        p_client_id: item.clientId,
-        p_response: p.response,
-        p_client_recorded_at: item.clientRecordedAt,
-      } as never);
+      // A caregiver with the person's account open answers FOR the person: the database allows it only for a live manage grant that names
+      // receive_alerts or log_readings and stores the row as the person's with the helper's id on it. The person's own answer is unchanged.
+      const forSomeoneElse = item.subjectId !== item.ownerUserId;
+      const { error } = forSomeoneElse
+        ? await supabase.rpc("record_red_care_response_for" as never, {
+            p_patient: item.subjectId,
+            p_client_id: item.clientId,
+            p_response: p.response,
+            p_client_recorded_at: item.clientRecordedAt,
+          } as never)
+        : await supabase.rpc("record_red_care_response" as never, {
+            p_client_id: item.clientId,
+            p_response: p.response,
+            p_client_recorded_at: item.clientRecordedAt,
+          } as never);
       return error ? asFailure(error) : { ok: true };
     }
 

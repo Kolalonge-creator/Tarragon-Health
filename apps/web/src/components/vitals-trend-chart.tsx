@@ -1,14 +1,21 @@
 "use client";
 import {
+  assistedEntryCaption,
+  bandCaption,
   glucoseInDisplayUnit,
+  glucoseTrendBand,
   GLUCOSE_UNIT_LABEL,
+  weightTrendBand,
+  weightFromKg,
+  WEIGHT_UNIT_LABEL,
   type GlucoseDisplayUnit,
 } from "@tarragon/shared";
 import { useGlucoseUnit } from "@/components/glucose-unit-provider";
+import { useMeasurementUnits } from "@/components/measurement-units-provider";
 
 import { useState, type Key as ReactKey } from "react";
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
-import { useVitalsTrend, useHba1cTrend, useBmiTrend, useHeightStatus } from "@/lib/queries/vitals";
+import { CartesianGrid, Line, LineChart, ReferenceArea, XAxis, YAxis } from "recharts";
+import { useVitalsTrend, useHba1cTrend, useBmiTrend, useHeightStatus, useTrendBandsEligible } from "@/lib/queries/vitals";
 import { getHba1cBracket } from "@/lib/rules/hba1c-bracket";
 import { bmiCategory, type BmiCategory } from "@/lib/obesity/classify";
 import { HeightDiscrepancyBanner } from "@/components/height-discrepancy-banner";
@@ -54,9 +61,25 @@ const HBA1C_CONFIG: ChartConfig = {
   value: { label: "HbA1c (%)", color: "var(--chart-glucose)" },
 };
 
-const WEIGHT_CONFIG: ChartConfig = {
-  weight_kg: { label: "Weight (kg)", color: "var(--chart-glucose)" },
-};
+/** Plotted in the reader's weight unit (stored kg is converted below), so the label is built per unit like glucose. */
+function weightConfig(unit: "kg" | "lb"): ChartConfig {
+  return { weight_display: { label: `Weight (${WEIGHT_UNIT_LABEL[unit]})`, color: "var(--chart-glucose)" } };
+}
+
+const RANGE_OPTIONS = [
+  { days: 7, label: "7 days" },
+  { days: 30, label: "30 days" },
+  { days: 90, label: "90 days" },
+] as const;
+
+type Summary = { min: number; avg: number; max: number };
+
+/** Lowest, average and highest of the plotted values for the range, or null with nothing to summarise. */
+function summarise(values: Array<number | null | undefined>): Summary | null {
+  const v = values.filter((x): x is number => typeof x === "number" && Number.isFinite(x));
+  if (v.length === 0) return null;
+  return { min: Math.min(...v), avg: v.reduce((a, b) => a + b, 0) / v.length, max: Math.max(...v) };
+}
 
 const PULSE_CONFIG: ChartConfig = {
   pulse_bpm: { label: "Heart rate (bpm)", color: "var(--chart-systolic)" },
@@ -138,10 +161,13 @@ type TrendMode = "blood_pressure" | "glucose" | "weight" | "pulse" | "hba1c" | "
 
 export function VitalsTrendChart({ patientId }: { patientId: string }) {
   const glucoseUnit = useGlucoseUnit();
+  const { weight: weightUnit } = useMeasurementUnits();
   const [mode, setMode] = useState<TrendMode>("blood_pressure");
+  const [rangeDays, setRangeDays] = useState<number>(90);
   const vitalsTrend = useVitalsTrend(
     patientId,
-    mode === "hba1c" || mode === "bmi" ? "blood_pressure" : mode
+    mode === "hba1c" || mode === "bmi" ? "blood_pressure" : mode,
+    rangeDays,
   );
   const hba1cTrend = useHba1cTrend(patientId);
   const bmiTrend = useBmiTrend(patientId);
@@ -160,8 +186,32 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
       "glucose_mmol_l" in reading && typeof reading.glucose_mmol_l === "number"
         ? glucoseInDisplayUnit(reading.glucose_mmol_l, glucoseUnit)
         : null,
+    weight_display:
+      "weight_kg" in reading && typeof reading.weight_kg === "number"
+        ? Math.round(weightFromKg(reading.weight_kg, weightUnit) * 10) / 10
+        : null,
   }));
+  // Low, average and high for the chosen range, in what is plotted. Only for the single-number charts.
+  const summaryUnit = mode === "glucose" ? GLUCOSE_UNIT_LABEL[glucoseUnit] : mode === "weight" ? WEIGHT_UNIT_LABEL[weightUnit] : mode === "pulse" ? "bpm" : "";
+  const summary =
+    mode === "glucose"
+      ? summarise(points.map((p) => p.glucose_display))
+      : mode === "weight"
+        ? summarise(points.map((p) => ("weight_kg" in p && typeof p.weight_kg === "number" ? weightFromKg(p.weight_kg, weightUnit) : null)))
+        : mode === "pulse"
+          ? summarise(points.map((p) => ("pulse_bpm" in p ? p.pulse_bpm : null)))
+          : null;
   const lastIndex = points.length - 1;
+  // Points a helper entered for the person (assisted entry), said once under the chart so a clinician never reads them as the person's own.
+  const assistedCaption = assistedEntryCaption(points.filter((p) => "assisted" in p && p.assisted === true).length, points.length, points.filter((p) => "assistedOverLimit" in p && p.assistedOverLimit === true).length);
+  // S47a 4.6: the standard bands are drawn only for an adult who is not pregnant, and only while the trend_target_bands module is on (the bands are
+  // PROPOSED until the CMO confirms them). Anything unknown means no band.
+  const bandsEligible = useTrendBandsEligible(patientId).data === true;
+  const glucoseBand = bandsEligible ? glucoseTrendBand(glucoseUnit) : null;
+  const weightBandKg = bandsEligible ? weightTrendBand(heightStatus.data?.heightCm) : null;
+  const weightBand = weightBandKg
+    ? { ...weightBandKg, low: Math.round(weightFromKg(weightBandKg.low, weightUnit) * 10) / 10, high: Math.round(weightFromKg(weightBandKg.high, weightUnit) * 10) / 10 }
+    : null;
   const noHeightOnFile =
     mode === "bmi" && !heightStatus.isLoading && heightStatus.data?.heightCm == null;
   const heightDiscrepancy = mode === "bmi" ? heightStatus.data?.discrepancy : null;
@@ -213,6 +263,28 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
           </Button>
         </div>
 
+        {mode !== "hba1c" && mode !== "bmi" && (
+          <div role="group" aria-label="Time range" className="flex flex-wrap gap-2">
+            {RANGE_OPTIONS.map((r) => (
+              <Button key={r.days} size="sm" variant={rangeDays === r.days ? "default" : "outline"} aria-pressed={rangeDays === r.days} onClick={() => setRangeDays(r.days)}>
+                {r.label}
+              </Button>
+            ))}
+          </div>
+        )}
+        {summary && !isLoading && !isError && (
+          <dl data-testid="trend-summary" className="grid grid-cols-3 gap-2 text-center text-sm">
+            {([["Lowest", summary.min], ["Average", summary.avg], ["Highest", summary.max]] as const).map(([label, v]) => (
+              <div key={label} className="rounded-lg bg-charcoal-ink/[0.04] p-2 dark:bg-night-ink/10">
+                <dt className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{label}</dt>
+                <dd className="font-semibold text-charcoal-ink dark:text-night-ink">
+                  {mode === "pulse" || (mode === "glucose" && glucoseUnit === "mg_dl") ? Math.round(v) : v.toFixed(1)} {summaryUnit}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
+
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
           <p className={notAvailable ? "text-sm text-amber-700" : "text-sm text-red-600 dark:text-red-300"}>
@@ -240,6 +312,11 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
             profileHeightCm={heightDiscrepancy.profileHeightCm}
             questionnaireHeightCm={heightDiscrepancy.questionnaireHeightCm}
           />
+        )}
+        {assistedCaption && (
+          <p data-testid="assisted-entry-caption" className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+            {assistedCaption}
+          </p>
         )}
         {!isLoading && !isError && !noHeightOnFile && points.length < 2 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Not enough readings yet.</p>
@@ -289,9 +366,14 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
           </div>
         )}
         {points.length >= 2 && mode === "glucose" && (
+          <div className="space-y-2">
           <ChartContainer config={glucoseConfig(glucoseUnit)}>
             <LineChart data={points}>
               <CartesianGrid {...GRID_PROPS} />
+              {/* S47a 4.6: the target band, shaded and also named in the caption below (colour is never the only signal). */}
+              {glucoseBand ? (
+                <ReferenceArea y1={glucoseBand.low} y2={glucoseBand.high} fill="var(--chart-glucose)" fillOpacity={0.12} ifOverflow="hidden" />
+              ) : null}
               <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} axisLine={false} />
               <YAxis
                 tick={AXIS_TICK}
@@ -315,11 +397,21 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
               />
             </LineChart>
           </ChartContainer>
+          {glucoseBand ? (
+            <p data-testid="glucose-band-caption" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              {bandCaption("glucose", glucoseBand, GLUCOSE_UNIT_LABEL[glucoseUnit])}
+            </p>
+          ) : null}
+          </div>
         )}
         {points.length >= 2 && mode === "weight" && (
-          <ChartContainer config={WEIGHT_CONFIG}>
+          <div className="space-y-2">
+          <ChartContainer config={weightConfig(weightUnit)}>
             <LineChart data={points}>
               <CartesianGrid {...GRID_PROPS} />
+              {weightBand ? (
+                <ReferenceArea y1={weightBand.low} y2={weightBand.high} fill="var(--chart-glucose)" fillOpacity={0.12} ifOverflow="hidden" />
+              ) : null}
               <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} axisLine={false} />
               <YAxis
                 tick={AXIS_TICK}
@@ -331,12 +423,22 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
               <ChartTooltip content={<ChartTooltipContent />} />
               <Line
                 {...LINE_PROPS}
-                dataKey="weight_kg"
-                stroke="var(--color-weight_kg)"
+                dataKey="weight_display"
+                stroke="var(--color-weight_display)"
                 dot={makeEndpointDot(lastIndex, "var(--chart-glucose)", "above")}
               />
             </LineChart>
           </ChartContainer>
+          {weightBand ? (
+            <p data-testid="weight-band-caption" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              {bandCaption("weight", weightBand, WEIGHT_UNIT_LABEL[weightUnit])}
+            </p>
+          ) : bandsEligible ? (
+            <p data-testid="weight-band-missing" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              Add your height in your profile settings to see the usual target range for your weight on this chart.
+            </p>
+          ) : null}
+          </div>
         )}
         {points.length >= 2 && mode === "pulse" && (
           <ChartContainer config={PULSE_CONFIG}>

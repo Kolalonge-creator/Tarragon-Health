@@ -31,6 +31,7 @@ import { SyncScreen } from "@/screens/sync-screen";
 import { startWrittenQuestionFlushing } from "@/lib/written-questions/queue-flush";
 import { MessagesScreen } from "@/screens/sections/messages-screen";
 import { HealthPassportScreen } from "@/screens/sections/health-passport-screen";
+import { RecordsRequestsScreen } from "@/screens/sections/records-requests-screen";
 import { EmergencyCardScreen } from "@/screens/sections/emergency-card-screen";
 import { SettingsScreen } from "@/screens/sections/settings-screen";
 import { SupportingScreen } from "@/screens/sections/supporting-screen";
@@ -42,9 +43,12 @@ import { TechnicalSupportScreen } from "@/screens/sections/technical-support-scr
 import { HealthSummaryScreen } from "@/screens/sections/health-summary-screen";
 import { BpHistoryScreen } from "@/screens/sections/bp-history-screen";
 import { MonthlyReportScreen } from "@/screens/sections/monthly-report-screen";
+import { HealthReportScreen } from "@/screens/sections/health-report-screen";
 import { ProgrammesScreen } from "@/screens/sections/programmes-screen";
 import { TimelineScreen } from "@/screens/sections/timeline-screen";
 import { MyHealthScreen } from "@/screens/sections/my-health-screen";
+import { RecordShareScreen } from "@/screens/sections/record-share-screen";
+import { MyPhonesScreen } from "@/screens/sections/my-phones-screen";
 import { ExerciseScreen } from "@/screens/sections/exercise-screen";
 import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
 import { ConsultationRoomScreen } from "@/screens/sections/consultation-room-screen";
@@ -295,6 +299,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     bpHistory: () => <BpHistoryScreen patientId={subjectId} userId={userId} organisationId={organisationId} />,
     // A summary belongs to the person it is about: while acting for someone else the screen says so and reads nothing.
     monthlySummary: () => <MonthlyReportScreen acting={!!acting} />,
+    healthReport: () => <HealthReportScreen acting={!!acting} />,
     // Joining a programme is the person's own choice: nothing changes while acting for someone else.
     programmes: () => <ProgrammesScreen acting={!!acting} />,
     medications: () => (
@@ -323,7 +328,9 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     myActions: () => <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />,
     healthSummary: () => <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />,
     timeline: () => <TimelineScreen patientId={subjectId} onNavigate={handleSelect} />,
+    shareRecords: () => <RecordShareScreen userId={userId} acting={acting != null} />,
     myHealth: () => <MyHealthScreen userId={userId} acting={acting != null} onNavigate={handleSelect} />,
+    myPhones: () => <MyPhonesScreen userId={userId} acting={acting != null} />,
     exercise: () => <ExerciseScreen patientId={subjectId} organisationId={organisationId} />,
     devices: () =>
       openDevice ? (
@@ -348,6 +355,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         subjectName={acting?.fullName ?? undefined}
       />
     ),
+    recordsRequests: () => <RecordsRequestsScreen actingForOther={subjectId !== userId} />,
     receipts: () => <ReceiptsScreen />,
     paymentRequests: () => <PaymentRequestsScreen />,
     reminders: () => <RemindersScreen userId={userId} />,
@@ -378,7 +386,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     lifestyle: () => <LifestyleScreen patientId={userId} onNavigate={handleSelect} />,
     meals: () => <MealsScreen patientId={subjectId} />,
     sleep: () => <SleepScreen patientId={subjectId} />,
-    activity: () => <ActivityScreen patientId={subjectId} />,
+    activity: () => <ActivityScreen patientId={subjectId} organisationId={organisationId} />,
     smoking: () => <SmokingScreen patientId={subjectId} />,
     alcohol: () => <AlcoholScreen patientId={subjectId} />,
     weightManagement: () => <WeightManagementScreen userId={userId} onNavigate={handleSelect} />,

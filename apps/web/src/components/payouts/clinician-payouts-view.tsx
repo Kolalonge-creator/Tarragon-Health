@@ -37,7 +37,13 @@ export async function ClinicianPayoutsView() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Card><CardContent className="pt-4"><p className="text-xs text-charcoal-ink/60">In the next payout</p><p className="text-xl font-semibold">{formatKobo(o.next_payout_kobo)}</p></CardContent></Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-xs text-charcoal-ink/60">In the next payout</p>
+            <p className="text-xl font-semibold">{formatKobo(o.next_payout_kobo)}</p>
+            {(o.held_kobo ?? 0) > 0 && <p className="text-xs text-charcoal-ink/60">{formatKobo(o.held_kobo ?? 0)} more is on hold while we look at a question you asked.</p>}
+          </CardContent>
+        </Card>
         <Card><CardContent className="pt-4"><p className="text-xs text-charcoal-ink/60">Smallest payout we send</p><p className="text-xl font-semibold">{o.minimum_payout_kobo === null ? "None" : formatKobo(o.minimum_payout_kobo)}</p><p className="text-xs text-charcoal-ink/60">Smaller amounts wait and join the next week.</p></CardContent></Card>
       </div>
 
@@ -80,6 +86,12 @@ export async function ClinicianPayoutsView() {
                     </li>
                   ))}
                 </ul>
+                <div className="mt-2 space-y-1 text-sm">
+                  <p className="flex justify-between gap-2"><span>Gross</span><span>{formatKobo(p.amount_kobo)}</span></p>
+                  <p className="flex justify-between gap-2"><span>Withholding (entered by finance, not calculated)</span><span>{formatKobo(-(p.withholding_kobo ?? 0))}</span></p>
+                  <p className="flex justify-between gap-2 font-semibold"><span>Net</span><span>{formatKobo(p.net_kobo ?? p.amount_kobo)}</span></p>
+                  <a href={`/api/clinician/payout-statement/${p.id}/pdf`} className="text-brand-green underline" download>Download the PDF statement</a>
+                </div>
                 {returnedNote(p) && <p role="status" className="mt-2 text-sm text-red-700">{returnedNote(p)}{p.reversed_at ? ` Returned on ${day(p.reversed_at)}.` : ""}</p>}
                 {p.reference && <p className="mt-2 text-xs text-charcoal-ink/60">Transfer reference {p.reference}</p>}
               </details>

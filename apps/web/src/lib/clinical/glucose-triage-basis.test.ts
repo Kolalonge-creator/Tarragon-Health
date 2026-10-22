@@ -38,10 +38,10 @@ describe("glucose triage guideline basis (CMO sign-off hub)", () => {
     expect(all).not.toMatch(/—/);
   });
 
-  it("tells the CMO the open points that matter before signing: unsaved signs, late readings, and both pipelines paging", () => {
+  it("tells the CMO the open points that matter before signing: unsaved signs, monitor and wearable grading, and both pipelines paging", () => {
     const text = GLUCOSE_OPEN_POINTS.join(" ");
     expect(text).toMatch(/NOT yet stored on the server/);
-    expect(text).toMatch(/Only manual and Bluetooth meter glucose readings/);
+    expect(text).toMatch(/Continuous monitor and wearable glucose is graded by this rule set too/);
     expect(text).toMatch(/one decimal place/);
     expect(text).toMatch(/paged by BOTH/);
   });
