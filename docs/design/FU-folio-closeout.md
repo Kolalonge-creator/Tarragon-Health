@@ -43,3 +43,8 @@ Two stacked PRs. PR 1 (`fu/folio-base-table-lock`) is code only. PR 2 (`fu/folio
 
 ## Not proven
 No live production run: the migration is not applied; the proof ran on a local isolated stack. PostgREST embedded-join behaviour is proved at the SQL level (join, security_invoker view, count) and not through a real PostgREST request. Mobile and the console app read no folio.
+
+## Re-do on main-dev (2026-10-22)
+PR #1167 merged into the step-1 branch, not main-dev, so the lock never applied. This PR carries the same step-2 diff on `origin/main-dev`, migration re-timestamped `20261022114116`. Step 1 is already in production. Re-audit of current main-dev found no new direct reader of `clinical_staff.credential_number` and no `select *` or embed on the table in apps/web, apps/mobile, apps/console, packages or edge functions; the live SQL scan found one new folio reader, `public.sign_health_report` (SECURITY DEFINER, snapshots the signer's own folio into `health_reports.signer_registration`; unaffected by the lock). `folio-base-table-reads.test.ts` now also fails on ANY non-reviewed source file that names the folio.
+
+Further open questions from the second review: `provider_credential_monitor()` returns folios of every organisation to any admin or CMO (not org-scoped); `health_reports.signer_registration`, `verify_prescription_public` (anon, by token) and `desk_verify_prescription` carry copies of the folio; `clinical_staff_live_folio_unique` lets a colleague who cannot read folios probe for an existing number via a 23505 on a blind write; a sibling credentials table would make the lock structural.
