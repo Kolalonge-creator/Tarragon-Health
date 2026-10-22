@@ -113,6 +113,9 @@ export default async function PatientVitalsPage() {
         organisationId={profile.organisation_id}
         ageYears={ageYears}
       />
+      {ageYears !== null && ageYears < 19 ? null : (
+        <Link href="/patient/child" className="text-sm font-semibold underline">{t("cdl.title")}</Link>
+      )}
       <div id="symptom-check" className="scroll-mt-24 space-y-3">
         {/* S59c: a follow-up waiting for an answer (renders nothing otherwise, and only while the checker is open). */}
         {presentingComplaints.length > 0 && subjectId === profile.id ? <SymptomCheckbackBanner /> : null}
