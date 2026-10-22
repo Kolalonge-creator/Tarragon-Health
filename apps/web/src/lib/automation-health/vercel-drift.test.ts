@@ -6,8 +6,8 @@ describe("vercel.json and the automations seed", () => {
   const root = join(__dirname, "..", "..", "..");
   const crons: { path: string; schedule: string }[] = JSON.parse(readFileSync(join(root, "vercel.json"), "utf8")).crons;
   const migDir = join(root, "..", "..", "supabase", "migrations");
-  // S80b seeded the crons that existed then; a later migration seeds the ones other builds added since. Both files together are the seed.
-  const sql = ["20261007204718_s80b_automations_registry.sql", "20261016004217_s80b_seed_vercel_crons_added_since.sql"]
+  // S80b seeded the crons that existed then; a later migration seeds the ones other builds added since. Applied migrations are never edited, so a cron added after them registers itself in its own migration; all of these files together are the seed.
+  const sql = ["20261007204718_s80b_automations_registry.sql", "20261016004217_s80b_seed_vercel_crons_added_since.sql", "20261022093328_learning_expiry_backlog.sql"]
     .map((f) => readFileSync(join(migDir, f), "utf8"))
     .join("\n");
 

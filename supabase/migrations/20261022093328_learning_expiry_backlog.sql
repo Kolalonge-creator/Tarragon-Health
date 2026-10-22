@@ -384,8 +384,8 @@ revoke all on function public.health_education_item_trust(text[]) from public, a
 grant execute on function public.health_education_item_trust(text[]) to authenticated;
 
 -- ---------------------------------------------------------------------------
--- 8b. Register the new Vercel cron in both owner registries (idempotent; the same row is also added to the two older seed files so a fresh
---     replay carries it, and tests in apps/web pin vercel.json to those files).
+-- 8b. Register the new Vercel cron in both owner registries (idempotent). Already-applied seed migrations are not edited;
+--     tests in apps/web pin vercel.json to those seed files plus this one.
 -- ---------------------------------------------------------------------------
 insert into public.automation_jobs (job_name, schedule, source)
 values ('/api/cron/learning-expiry-alerts', '15 6 * * *', 'vercel')
