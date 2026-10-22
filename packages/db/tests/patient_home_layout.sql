@@ -60,11 +60,11 @@ do $$
 declare v_org uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
-  if v_org is null then insert into public.organisations (name) values ('PHL proof org') returning id into v_org; end if;
+  if v_org is null then insert into public.organisations (name, type) values ('PHL proof org', 'clinic') returning id into v_org; end if;
   perform pg_temp.setf('org', v_org);
   perform pg_temp.setf('p1', pg_temp.mkuser(v_org, 'p1', 'patient'));
   perform pg_temp.setf('p2', pg_temp.mkuser(v_org, 'p2', 'patient'));
-  insert into public.organisations (name) values ('PHL other org') returning id into v_org;
+  insert into public.organisations (name, type) values ('PHL other org', 'clinic') returning id into v_org;
   perform pg_temp.setf('org2', v_org);
 end $$;
 
