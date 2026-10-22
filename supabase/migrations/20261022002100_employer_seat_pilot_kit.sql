@@ -465,7 +465,7 @@ begin
        and en.status = 'completed' and en.ended_at >= e.starts_at and en.ended_at < v_cut
      where e.pilot_id = v_p.id and e.is_test = v_p.is_test;
     select count(distinct e.patient_id) into v_checkin_people
-      from public.entitlements e join public.vitals_readings vr on vr.patient_id = e.patient_id
+      from public.entitlements e join private.vitals_readings_current vr on vr.patient_id = e.patient_id
        and vr.taken_at >= e.starts_at and vr.taken_at < v_cut
      where e.pilot_id = v_p.id and e.is_test = v_p.is_test;
     v_usage := jsonb_build_object('suppressed', false,

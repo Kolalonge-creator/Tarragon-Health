@@ -77,8 +77,8 @@ end $f$;
 create function pg_temp.today() returns date language sql as $$ select (now() at time zone 'Africa/Lagos')::date $$;
 -- every key name anywhere in a jsonb value, in byte order
 create function pg_temp.all_keys(j jsonb) returns text language sql as $$
-  select string_agg(distinct key, ',' order by key collate "C")
-    from (select jsonb_object_keys(v) as key from jsonb_path_query(j, 'strict $.**') v where jsonb_typeof(v) = 'object') s
+  select string_agg(key, ',' order by key collate "C")
+    from (select distinct jsonb_object_keys(v) as key from jsonb_path_query(j, 'strict $.**') v where jsonb_typeof(v) = 'object') s
 $$;
 
 -- Fixtures -------------------------------------------------------------------------------------------------------------
