@@ -121,7 +121,7 @@ export type PagingHealth = z.infer<typeof pagingHealthSchema>;
  * No patient identity travels with it. It is information for the clinician and never stops the paging.
  */
 export const redPatientResponseSchema = z
-  .object({ response: z.enum(["sought_care", "could_not_get_care"]), responded_at: z.string() })
+  .object({ response: z.enum(["sought_care", "could_not_get_care"]), responded_at: z.string(), answered_by_caregiver: z.boolean().optional() })
   .nullable();
 export type RedPatientResponse = z.infer<typeof redPatientResponseSchema>;
 

@@ -19,6 +19,8 @@ export * from "./record-integrity";
 export * from "./adult-registration";
 export * from "./wellbeing-library";
 export * from "./therapy-programmes";
+export * from "./home-pins";
+export * from "./measurement-units";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,
 // Enums, Constants, Json. Single source of truth for the DB schema.
@@ -281,6 +283,7 @@ export { sponsorMinimumGroupSize } from "./sponsor-min-group";
 // S70a (Module 18): device plausibility, cross-source de-duplication, photo capture, CGM sustained events, DeviceSource interface.
 export * from "./device-plausibility";
 export * from "./device-dedupe";
+export * from "./assisted-entry";
 export * from "./photo-reading";
 export * from "./cgm-events";
 export * from "./device-source";
@@ -295,3 +298,9 @@ export * from "./immunisation-card";
 export * from "./outside-record";
 export * from "./my-phones";
 export * from "./nutrition";
+
+// S43m: health history entry rules shared by web and phone.
+export * from "./health-history";
+
+// S43m: multi-year biomarker trend parsing and chart geometry, shared by the web page and the phone screen.
+export * from "./biomarker-trend";
