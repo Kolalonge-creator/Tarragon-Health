@@ -29,6 +29,7 @@ import { ComplicationStatus } from "@/app/(dashboard)/patient/complication-statu
 import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
 import { ThresholdOverrideNotice } from "@/app/(dashboard)/patient/threshold-override-notice";
 import { WeeklySummaryCard } from "@/app/(dashboard)/patient/weekly-summary-card";
+import { WeeklyCardsSection } from "@/app/(dashboard)/patient/weekly-cards-section";
 import { VisitReportCard } from "@/app/(dashboard)/patient/visit-report-card";
 
 export default async function PatientVitalsPage() {
@@ -52,6 +53,7 @@ export default async function PatientVitalsPage() {
     >
       {subjectId === profile.id ? <ThresholdOverrideNotice /> : null}
       <VitalsTrendChart patientId={subjectId} />
+      {subjectId === profile.id ? <WeeklyCardsSection patientId={subjectId} /> : null}
       {/* Renders nothing until there is sensor glucose to show. */}
       <AgpCard patientId={subjectId} audience="patient" />
       <WeeklySummaryCard patientId={subjectId} glucoseUnit={glucoseUnit} />

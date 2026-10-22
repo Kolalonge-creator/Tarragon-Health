@@ -48,3 +48,15 @@ export {
   type ActivityConditionRecord, type ActivityGateDecision, type ActivityGateInput, type ActivityGateReason, type ActivityGateResult, type ActivityIntensity,
   type ActivityKindConfig, type ActivityRuleConfig, type ActivitySafetyConfig, type ActivityTriageEvent, type ConditionMatchConfig,
 } from "./activity-gate";
+export {
+  buildToday, parseHomeCardConfig, HomeCardConfigError, HOME_CARD_CODES, MAX_PRIMARY_ACTIONS,
+  type HomeCardCode, type HomeCardConfig, type HomeCardDef, type HomeCardPick, type HomeCardRules, type HomeCardState, type TodayFacts, type TodayPlan,
+} from "./today-build";
+export {
+  computeReadiness, parseReadinessConfig, ReadinessConfigError,
+  type ReadinessBand, type ReadinessConfig, type ReadinessInput, type ReadinessNoneReason, type ReadinessResult, type ReadinessSignal, type SignalMove, type TimedValue,
+} from "./readiness";
+export {
+  buildWeeklySummary, parseWeeklyConfig, WeeklyConfigError,
+  type WeeklyCard, type WeeklyCardCode, type WeeklyConfig, type WeeklyInput, type WeeklyLine, type WeeklySummary,
+} from "./weekly-summary";

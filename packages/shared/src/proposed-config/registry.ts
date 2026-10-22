@@ -7027,6 +7027,46 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S49a.md; supabase/migrations/20261020181309_s49a_food_logging_foundation.sql",
   },
   {
+    key: "today.home_cards",
+    // The Today screen's cards, the weekly summary gates and wearable readiness (S47b, v5 4.1, 4.5, 4.6). Live value is `home_card_config`.config, seeded
+    // INACTIVE and unsigned; the CMO signs it through sign_home_card_config. The Today screen never shows more than TWO primary actions: `max_primary_actions`
+    // is capped at 2 by the database validator and again in code, so no configuration can raise it. Readiness is a plain-language band built from stored
+    // wearable sleep, HRV and resting heart rate compared with the person's OWN recent baseline, always labelled an estimate, never a medical claim.
+    // packages/shared/src/proposed-config/today-mirror.test.ts fails if this drifts from the migration seed.
+    value: {
+      max_primary_actions: 2,
+      cards: [
+        { code: "task_due", priority: 10, primary_eligible: true, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "medicines", priority: 20, primary_eligible: true, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "readings", priority: 30, primary_eligible: true, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "goal", priority: 40, primary_eligible: true, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "lesson", priority: 50, primary_eligible: false, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "assistant_nudge", priority: 60, primary_eligible: false, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "streak", priority: 70, primary_eligible: false, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "weekly_summary", priority: 80, primary_eligible: false, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "readiness", priority: 90, primary_eligible: false, rules: { goals_any: [], pathways_any: [], requires_device: true } },
+      ],
+      streak: { enabled: true },
+      weekly: { min_bp_readings: 3, window_days: 7 },
+      readiness: {
+        enabled: true,
+        max_age_hours: 36,
+        baseline_days: 14,
+        min_baseline_days: 5,
+        min_signals: 2,
+        sleep_drop_pct: 15,
+        hrv_drop_pct: 15,
+        hrv_rise_pct: 5,
+        resting_hr_rise_bpm: 5,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/design/S47b.md; supabase/migrations/*_s47b_home_cards_and_readiness.sql",
+  },
+  {
     key: "triage.single_reading_vitals_bands",
     // The combined registry of single-reading dangerous vitals bands (pulse, SpO2, temperature) and the typo gates around them. These are the starting
     // values of the DRAFT rule set `vitals_care_triage` v1, taken over unchanged from the live older classifiers (private.classify_pulse_level,
