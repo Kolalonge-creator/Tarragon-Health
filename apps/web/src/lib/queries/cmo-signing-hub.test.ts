@@ -41,6 +41,15 @@ const readPendingGlucoseTaskTypeSignoff = jest.fn<(...args: unknown[]) => Promis
 jest.mock("@/lib/queries/pending-glucose-task-type-signoff", () => ({
   readPendingGlucoseTaskTypeSignoff: (...args: unknown[]) => readPendingGlucoseTaskTypeSignoff(...args),
 }));
+const readPendingVitalsTriageSignoff = jest.fn<(...args: unknown[]) => Promise<GlucosePending>>();
+jest.mock("@/lib/queries/pending-vitals-triage-signoff", () => ({
+  VITALS_TRIAGE_ITEM_KEY: "vitals_triage_rule_set",
+  readPendingVitalsTriageSignoff: (...args: unknown[]) => readPendingVitalsTriageSignoff(...args),
+}));
+const readPendingVitalsTaskTypeSignoff = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-vitals-task-type-signoff", () => ({
+  readPendingVitalsTaskTypeSignoff: (...args: unknown[]) => readPendingVitalsTaskTypeSignoff(...args),
+}));
 type QualityPending = { qualityVersion: number | null; credentialingVersion: number | null; failed: boolean };
 const readPendingQualityConfigSignoff = jest.fn<(...args: unknown[]) => Promise<QualityPending>>();
 jest.mock("@/lib/queries/pending-quality-config-signoff", () => ({
@@ -132,6 +141,10 @@ beforeEach(() => {
   readPendingGlucoseTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: false });
   readPendingGlucoseTriageSignoff.mockReset();
   readPendingGlucoseTriageSignoff.mockResolvedValue(noGlucose);
+  readPendingVitalsTriageSignoff.mockReset();
+  readPendingVitalsTriageSignoff.mockResolvedValue(noGlucose);
+  readPendingVitalsTaskTypeSignoff.mockReset();
+  readPendingVitalsTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: false });
   readPendingQualityConfigSignoff.mockReset();
   readPendingQualityConfigSignoff.mockResolvedValue(noQualityConfig);
   readPendingCapacityConfigSignoff.mockReset();
@@ -331,6 +344,30 @@ describe("readCmoSigningHub: glucose triage rules (plan item R2)", () => {
     expect((await readCmoSigningHub(supabase)).items).toEqual([]);
     readPendingGlucoseTriageSignoff.mockResolvedValue({ pending: false, version: null, approvedVersion: null, note: null, failed: true });
     expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the glucose triage rules"] });
+  });
+});
+
+describe("readCmoSigningHub: pulse, oxygen and temperature triage rules", () => {
+  it("lists the draft vitals rule set and its task type as two lines under /clinician, the task type first", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingVitalsTriageSignoff.mockResolvedValue({ pending: true, version: 1, approvedVersion: null, note: null, failed: false });
+    readPendingVitalsTaskTypeSignoff.mockResolvedValue({ waiting: true, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items.map((i) => i.key)).toEqual(["vitals_task_type", "vitals_triage_rule_set"]);
+    expect(hub.items[1]).toMatchObject({ href: "/clinician/vitals-triage-rules", severity: "draft_pending" });
+    expect(hub.items[1]?.detail).toMatch(/shadow only/);
+    expect(hub.items[0]?.href.startsWith("/clinician")).toBe(true);
+  });
+  it("says which version stays in force once one is approved", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingVitalsTriageSignoff.mockResolvedValue({ pending: true, version: 2, approvedVersion: 1, note: null, failed: false });
+    expect((await readCmoSigningHub(supabase)).items[0]?.detail).toMatch(/Version 1 stays in force/);
+  });
+  it("names an unreadable source instead of going quiet", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingVitalsTriageSignoff.mockResolvedValue({ pending: false, version: null, approvedVersion: null, note: null, failed: true });
+    readPendingVitalsTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the pulse, oxygen and temperature triage rules", "the amber vitals review task type"] });
   });
 });
 

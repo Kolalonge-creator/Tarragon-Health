@@ -10,6 +10,8 @@ import { emergencyCardQrSvg, emergencyCardUrl } from "@/lib/emergency/card";
 import { EmergencyCardControls } from "./emergency-card-controls";
 import { BloodAttestationForm } from "./blood-attestation-form";
 import { CardFieldsForm } from "./card-fields-form";
+import { CoverageForm } from "./coverage-form";
+import { t } from "@tarragon/i18n";
 import { LockScreenImageCard } from "./lock-screen-image-card";
 import { applyCardFieldChoices, choicesFromRow, hiddenFields } from "@/lib/emergency/field-choices";
 import { loadEmergencyDatasetForPatient } from "@/lib/emergency/dataset";
@@ -68,9 +70,16 @@ export default async function EmergencyCardPage() {
     .eq("patient_id", user.id)
     .maybeSingle();
 
+  // S09y: cover the patient typed in (own-row read). A failed read is not an empty form: saving would overwrite cover that is really there.
+  const { data: coverageRow, error: coverageError } = await supabase
+    .from("emergency_card_coverage")
+    .select("scheme, member_number, plan_name")
+    .eq("patient_id", user.id)
+    .maybeSingle();
+
   // S47d: the preview is built from the same facts and the same choices as the printed card and the live link
   const previewChoices = choicesFromRow(fields);
-  const previewFacts = acting ? null : applyCardFieldChoices(await loadEmergencyDatasetForPatient(supabase, user.id), previewChoices);
+  const previewFacts = acting ? null : applyCardFieldChoices(await loadEmergencyDatasetForPatient(supabase, user.id, { includeCoverage: true }), previewChoices);
 
   const { data: lookups, error: lookupsError } = active
     ? await supabase
@@ -144,6 +153,22 @@ export default async function EmergencyCardPage() {
 
       {/* S43: the person chooses which details a stranger can see, on the printed card and the live link alike. */}
       {acting ? null : <CardFieldsForm initial={choicesFromRow(fields)} />}
+      {acting ? null : coverageError ? (
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">{t("ecf.coverage.title")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p role="alert" className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+              {t("ecf.coverage.load_failed")}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <CoverageForm
+          initial={coverageRow ? { scheme: coverageRow.scheme === "nhia" ? "nhia" : "hmo", memberNumber: coverageRow.member_number, planName: coverageRow.plan_name } : null}
+        />
+      )}
       {acting || !choicesFromRow(fields).lock_screen_opt_in ? null : <LockScreenImageCard />}
       {previewFacts ? <EmergencyCardPreview facts={previewFacts} hidden={hiddenFields(previewChoices)} /> : null}
 

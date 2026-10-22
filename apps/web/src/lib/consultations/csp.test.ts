@@ -46,6 +46,17 @@ describe("Content-Security-Policy for the in-app call", () => {
     expect(value).not.toMatch(/\*(?!\.)/);
   });
 
+  it("gives the invited caregiver's room the same widened policy and no other path (CGJ)", async () => {
+    const list = await rules();
+    const room = list.find((r) => r.source.includes("consultation"));
+    const guest = list.find((r) => r.source === "/patient/supporting/consultation/:encounterId");
+    expect(guest).toBeDefined();
+    expect(csp(guest!)).toBe(csp(room!));
+    // the supporter's other pages keep the strict policy
+    expect(list.filter((r) => /supporting/.test(r.source) && csp(r).includes("zoom")).map((r) => r.source)).toEqual(["/patient/supporting/consultation/:encounterId"]);
+    expect(list.findIndex((r) => r === guest)).toBeGreaterThan(list.findIndex((r) => r.source === "/(.*)"));
+  });
+
   it("is declared after the general rule, because the last matching rule wins for the same header", async () => {
     const list = await rules();
     expect(list.findIndex((r) => r.source.includes("consultation"))).toBeGreaterThan(list.findIndex((r) => r.source === "/(.*)"));

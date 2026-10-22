@@ -1,10 +1,13 @@
 import { describe, expect, it } from "@jest/globals";
 import {
+  asVideoRole,
+  caregiverParticipantKey,
   createMockVideo,
   isSafeWebhookChallenge,
   isSampleDue,
   ladderInputFromConnection,
   participantKey,
+  passFromCaregiverKey,
   qualityFromAudioStats,
   qualityFromNetworkLevel,
   roleFromParticipantKey,
@@ -45,6 +48,38 @@ describe("participant keys (who actually entered the call)", () => {
     expect(await roleFromParticipantKey(SECRET, ENC, `c${patient.slice(1)}`)).toBeNull();
     expect(await roleFromParticipantKey(SECRET, ENC, "")).toBeNull();
     expect(await roleFromParticipantKey("another-secret", ENC, patient)).toBeNull();
+  });
+});
+
+describe("caregiver participant keys (CGJ: who entered a call as an invited caregiver)", () => {
+  const PASS_A = "a1111111-1111-4111-8111-111111111111";
+  const PASS_B = "b2222222-2222-4222-8222-222222222222";
+
+  it("is an opaque key within the vendor limit that cannot be mistaken for a patient or clinician key", async () => {
+    const key = await caregiverParticipantKey(SECRET, ENC, PASS_A);
+    expect(key).toMatch(/^g[0-9a-f]{34}$/);
+    expect(key.length).toBeLessThanOrEqual(36);
+    expect(key).not.toContain(PASS_A.slice(0, 8));
+    expect(await roleFromParticipantKey(SECRET, ENC, key)).toBeNull();
+  });
+
+  it("verifies to its own pass on its own call only, and stays the same on a rejoin", async () => {
+    const a = await caregiverParticipantKey(SECRET, ENC, PASS_A);
+    expect(a).toBe(await caregiverParticipantKey(SECRET, ENC, PASS_A));
+    expect(await passFromCaregiverKey(SECRET, ENC, a, [PASS_A, PASS_B])).toBe(PASS_A);
+    expect(await passFromCaregiverKey(SECRET, ENC, await caregiverParticipantKey(SECRET, ENC, PASS_B), [PASS_A, PASS_B])).toBe(PASS_B);
+    // another call, another secret, a pass that is not on this call, an empty list and a guessed key all prove nothing
+    expect(await passFromCaregiverKey(SECRET, OTHER, a, [PASS_A, PASS_B])).toBeNull();
+    expect(await passFromCaregiverKey("another-secret", ENC, a, [PASS_A])).toBeNull();
+    expect(await passFromCaregiverKey(SECRET, ENC, a, [PASS_B])).toBeNull();
+    expect(await passFromCaregiverKey(SECRET, ENC, a, [])).toBeNull();
+    expect(await passFromCaregiverKey(SECRET, ENC, "g" + "0".repeat(34), [PASS_A])).toBeNull();
+  });
+
+  it("a patient key never verifies as a caregiver, and the display label is the role word", async () => {
+    expect(await passFromCaregiverKey(SECRET, ENC, await participantKey(SECRET, ENC, "patient"), [PASS_A])).toBeNull();
+    expect(asVideoRole("caregiver")).toBe("caregiver");
+    expect(asVideoRole("Ada Okafor")).toBeNull();
   });
 });
 

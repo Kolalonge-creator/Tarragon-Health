@@ -91,6 +91,8 @@ const documentRow = z.object({
   document_date: str,
   mime_type: str,
   source: str,
+  /** S09y: whether a clinician checked a patient-supplied record. Absent in an older snapshot, which is read as not checked. */
+  verification_status: str,
   created_at: z.string(),
 });
 

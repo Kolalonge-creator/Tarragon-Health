@@ -8,7 +8,7 @@ import type { ProviderResult } from "./result.ts";
  * - A token is short-lived and role-scoped. Only a clinician token can end a room.
  * - Connection quality is reported as events so the app can fall back to audio only (low bandwidth is normal here).
  */
-export type VideoRole = "patient" | "clinician" | "observer";
+export type VideoRole = "patient" | "clinician" | "observer" | "caregiver";
 export type ConnectionQuality = "good" | "fair" | "poor" | "lost";
 
 export interface CreateRoomInput {
@@ -139,7 +139,7 @@ export interface VideoProvider {
 }
 
 /** Roles travel as the participant's display label, which is all a vendor SDK lets us attach to a person. Never a name. */
-export const ROLE_LABELS: readonly VideoRole[] = ["patient", "clinician", "observer"];
+export const ROLE_LABELS: readonly VideoRole[] = ["patient", "clinician", "observer", "caregiver"];
 export const asVideoRole = (label: unknown): VideoRole | null => (typeof label === "string" ? (ROLE_LABELS.find((r) => r === label) ?? null) : null);
 
 export const MAX_TOKEN_TTL_SECONDS = 4 * 60 * 60;

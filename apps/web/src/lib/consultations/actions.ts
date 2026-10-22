@@ -113,3 +113,64 @@ export async function completeConsultationAction(encounterId: string): Promise<{
   const res = await supabase.rpc("complete_encounter" as never, { p_encounter: id.data } as never);
   return { ok: !res.error };
 }
+
+// ---- CGJ: a caregiver invited into one call -------------------------------------------------------------------------------------
+// Each of these runs as the signed-in person's own session and the database decides who may do what (patient or proxy invites, the
+// invited caregiver answers, the assigned clinician removes). Results are a short code; no name, link or key ever comes back.
+
+export type CaregiverFail = { ok: false; reason: "signed_out" | "not_allowed" | "invalid" | "failed" };
+
+async function caregiverRpc(fn: string, args: Record<string, unknown>): Promise<{ ok: true; data: unknown } | CaregiverFail> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, reason: "signed_out" };
+  const res = await supabase.rpc(fn as never, args as never);
+  if (!res.error) return { ok: true, data: res.data };
+  // 42501 is "you may not"; anything else is a refusal the person can only retry or give up on. The message is never passed on.
+  return { ok: false, reason: res.error.code === "42501" ? "not_allowed" : "failed" };
+}
+
+export async function inviteCaregiverAction(encounterId: string, memberId: string): Promise<{ ok: true; passId: string } | CaregiverFail> {
+  const e = idSchema.safeParse(encounterId);
+  const m = idSchema.safeParse(memberId);
+  if (!e.success || !m.success) return { ok: false, reason: "invalid" };
+  const res = await caregiverRpc("invite_caregiver_to_consultation", { p_encounter: e.data, p_member: m.data });
+  if (!res.ok) return res;
+  const passId = (res.data as { pass_id?: unknown } | null)?.pass_id;
+  return typeof passId === "string" ? { ok: true, passId } : { ok: false, reason: "failed" };
+}
+
+export async function cancelCaregiverInviteAction(passId: string): Promise<{ ok: true } | CaregiverFail> {
+  const p = idSchema.safeParse(passId);
+  if (!p.success) return { ok: false, reason: "invalid" };
+  const res = await caregiverRpc("cancel_caregiver_invite", { p_pass: p.data });
+  return res.ok ? { ok: true } : res;
+}
+
+export async function respondCaregiverInviteAction(passId: string, accept: boolean): Promise<{ ok: true } | CaregiverFail> {
+  const p = idSchema.safeParse(passId);
+  if (!p.success || typeof accept !== "boolean") return { ok: false, reason: "invalid" };
+  const res = await caregiverRpc("respond_caregiver_consultation_invite", { p_pass: p.data, p_accept: accept });
+  return res.ok ? { ok: true } : res;
+}
+
+const removalReasonSchema = z.enum(["not_expected", "privacy", "disruption", "other"]);
+
+/** The assigned clinician removes a caregiver from this one call. Final for the call: the person cannot be re-invited or rejoin. */
+export async function removeCaregiverAction(passId: string, reason?: "not_expected" | "privacy" | "disruption" | "other"): Promise<{ ok: true } | CaregiverFail> {
+  const p = idSchema.safeParse(passId);
+  const r = reason === undefined ? { success: true as const, data: null } : removalReasonSchema.safeParse(reason);
+  if (!p.success || !r.success) return { ok: false, reason: "invalid" };
+  const res = await caregiverRpc("remove_caregiver_from_consultation", { p_pass: p.data, p_reason_code: r.data });
+  return res.ok ? { ok: true } : res;
+}
+
+/** The caregiver's own client reports that they left. Best effort by design: nothing else depends on it. */
+export async function reportCaregiverLeftAction(encounterId: string): Promise<{ ok: boolean }> {
+  const e = idSchema.safeParse(encounterId);
+  if (!e.success) return { ok: false };
+  const res = await caregiverRpc("report_caregiver_left", { p_encounter: e.data });
+  return { ok: res.ok };
+}
