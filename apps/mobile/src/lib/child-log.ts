@@ -73,19 +73,20 @@ export const setSessionChild = (id: string | null): void => {
   chosenThisSession = id;
 };
 
-const LABEL_KEY = "tarragon.childlog.label.v1";
-export async function loadLastLabel(): Promise<string> {
+/** Keyed per signed-in account: on a shared phone one person's name tag is never offered to the next. */
+const labelKey = (userId: string) => `tarragon.childlog.label.v1.${userId}`;
+export async function loadLastLabel(userId: string): Promise<string> {
   try {
-    return (await AsyncStorage.getItem(LABEL_KEY)) ?? "";
+    return (await AsyncStorage.getItem(labelKey(userId))) ?? "";
   } catch {
     return "";
   }
 }
-export async function saveLastLabel(label: string): Promise<void> {
+export async function saveLastLabel(userId: string, label: string): Promise<void> {
   try {
     const clean = cleanCaregiverLabel(label);
-    if (clean) await AsyncStorage.setItem(LABEL_KEY, clean);
-    else await AsyncStorage.removeItem(LABEL_KEY);
+    if (clean) await AsyncStorage.setItem(labelKey(userId), clean);
+    else await AsyncStorage.removeItem(labelKey(userId));
   } catch {
     /* a convenience only */
   }
@@ -246,7 +247,10 @@ export async function takeCardPhoto(child: ChildDetail, labelRaw: string, deps: 
     const payload: CardPhotoPayload = { file_uri: uri, size_bytes: bytes.length, logged_by_label: cleanCaregiverLabel(labelRaw), organisation_id: child.organisationId };
     try {
       const item = await enqueue({ kind: "card_photo", subjectId: child.profileId, payload });
-      return await settle(item.clientId);
+      const outcome = await settle(item.clientId);
+      // The entry was withdrawn ("not open yet"): its file must not stay on the phone.
+      if (outcome === "not_open") await deps.store.remove(uri);
+      return outcome;
     } catch (error) {
       await deps.store.remove(uri);
       throw error;

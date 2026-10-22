@@ -5,6 +5,7 @@
 import { __resetOutboxForTests, enqueue, flushOutbox, getPendingCount, listOutbox } from "./outbox";
 import { logChildGrowth, pendingChildEvents, queueLifecycle, queueMotherFeed, takeCardPhoto, tapChildEvent, type CardPhotoDeps, type ChildDetail } from "./child-log";
 import { sendCardPhoto, cardPhotoPath } from "./child-log-send";
+import { wipeThisPhone } from "./device-lease";
 import { __setCardPhotoStoreForTests, type CardPhotoStore } from "./card-photo-store";
 import type { CardPhotoPayload, ChildEventPayload } from "./child-log-payloads";
 
@@ -175,6 +176,9 @@ function fakeStore(initial: Record<string, Uint8Array> = {}): CardPhotoStore & {
     async remove(uri) {
       files.delete(uri);
     },
+    async removeAll() {
+      files.clear();
+    },
   };
 }
 
@@ -230,6 +234,21 @@ describe("the paper card photo", () => {
     expect(await takeCardPhoto(CHILD, "", deps(store, null))).toBe("cancelled");
     expect(await takeCardPhoto(CHILD, "", { ...deps(store), read: async () => Uint8Array.from([1, 2, 3]) })).toBe("unusable");
     expect(await getPendingCount()).toBe(0);
+    expect(store.files.size).toBe(0);
+  });
+
+  it("when the entry is withdrawn as 'not open yet' the photo file is deleted too", async () => {
+    const store = fakeStore();
+    mockInsertError = { code: "55000", message: "The card photo is not open yet" };
+    expect(await takeCardPhoto(CHILD, "", deps(store))).toBe("not_open");
+    expect(await getPendingCount()).toBe(0);
+    expect(store.files.size).toBe(0);
+  });
+
+  it("the lost-phone wipe deletes every waiting card photo", async () => {
+    const store = fakeStore({ "file:///cards/a.jpg": JPEG, "file:///cards/b.jpg": JPEG });
+    __setCardPhotoStoreForTests(store);
+    await wipeThisPhone("lease_expired", null);
     expect(store.files.size).toBe(0);
   });
 

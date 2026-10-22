@@ -11,6 +11,8 @@ export interface CardPhotoStore {
   load(uri: string): Promise<Uint8Array | null>;
   /** Best effort. A file that cannot be deleted stays in the app's own folder, which only this app can read. */
   remove(uri: string): Promise<void>;
+  /** Deletes every waiting card photo (the lost-phone wipe). Best effort. */
+  removeAll(): Promise<void>;
 }
 
 interface FsModule {
@@ -52,6 +54,15 @@ export const defaultCardPhotoStore: CardPhotoStore = {
       if (file.exists) file.delete();
     } catch (error) {
       recordSyncError("offline_outbox", "remove_failed", error);
+    }
+  },
+  async removeAll() {
+    try {
+      const { Directory, Paths } = fs();
+      const dir = new Directory(Paths.document, "child-card-photos");
+      if (dir.exists) (dir as unknown as { delete(): void }).delete();
+    } catch (error) {
+      recordSyncError("offline_outbox", "remove_all_failed", error);
     }
   },
 };

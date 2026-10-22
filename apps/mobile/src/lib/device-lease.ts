@@ -7,6 +7,7 @@ import { countDangerUnsent, countUnsentByOwner, flushOutbox } from "./outbox";
 import { flushOfflineQueues } from "./offline-queue";
 import { clearQueueOwner, countQueuedByOwner } from "./offline-queue-store";
 import { destroyStore } from "./secure-db";
+import { getCardPhotoStore } from "./card-photo-store";
 import { forgetAllDeviceIds, getOrCreateDeviceId, listDeviceAccounts } from "./store-key";
 import { addStoreNotice } from "./store-notices";
 import { leaseVerdict, type WipeReason } from "./store-rules";
@@ -162,6 +163,12 @@ export async function wipeThisPhone(
     await destroyStore();
   } finally {
     await clearQueueOwner();
+  }
+  // 4b. Card photos waiting to send (S68b) are files in the app folder, not rows in the store: they would otherwise outlive the wipe.
+  try {
+    await getCardPhotoStore().removeAll();
+  } catch (error) {
+    recordSyncError("offline_outbox", "wipe:cardPhotos", error);
   }
   // 5. Fresh ids for EVERY account known on this phone (signed in or not), so each registers as a new device next time.
   //    Before the sweep below, which would otherwise remove the list of accounts first.

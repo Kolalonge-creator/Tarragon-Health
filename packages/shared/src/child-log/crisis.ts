@@ -10,6 +10,14 @@ export function childCrisisLead(result: GrowthBandResult | null): boolean {
   return result !== null && result.kind === "band" && result.crisis;
 }
 
+/**
+ * What a screen shows when the growth read may have failed: a successful read decides; a failed or still-loading read falls back to the last known
+ * crisis state, so a known crisis is never hidden by a bad signal. Pure, so phone and web share the rule and its tests.
+ */
+export function crisisToShow(readOk: boolean, computedFromRead: boolean, lastKnown: boolean): boolean {
+  return readOk ? computedFromRead : lastKnown;
+}
+
 /** A safe `tel:` link, or null when the number is not plausible. Digits and a leading plus only: never anything a record could smuggle in. */
 export function crisisCallHref(number: string): string | null {
   return /^\+?[0-9]{3,15}$/.test(number) ? `tel:${number}` : null;

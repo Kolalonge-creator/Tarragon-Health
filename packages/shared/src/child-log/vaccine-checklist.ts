@@ -87,10 +87,10 @@ export function buildChildVaccineChecklist(
     sched.weeks.forEach((w, i) => {
       const doseNumber = i + 1;
       const dueDate = addDays(input.dateOfBirth, Math.round(w * 7));
-      const byNumber = mine.find((r) => r.dose_number === doseNumber);
-      // A record with a dose number that does not line up (a card that only says "booster") still counts by how many doses were given.
-      const byCount = !byNumber && mine.length >= doseNumber ? [...mine].sort((a, b) => a.date_administered.localeCompare(b.date_administered))[doseNumber - 1] : undefined;
-      const rec = byNumber ?? byCount;
+      // Strictly by dose number. (An earlier version also counted by how many doses were on file, which marked a missing dose as done when a
+      // record had a different number. vaccination_records is unique per profile, vaccine and dose number, so a second row with the same
+      // number cannot exist, and a record whose number does not match this dose is not evidence that THIS dose was given.)
+      const rec = mine.find((r) => r.dose_number === doseNumber);
       if (rec) {
         out.push({ code: cat.code, name: cat.name, doseNumber, dueDate, status: "done", doneOn: rec.date_administered, trust: doseTrust(rec.verification_status) });
         return;

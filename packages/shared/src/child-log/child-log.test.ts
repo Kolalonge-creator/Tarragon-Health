@@ -1,5 +1,6 @@
-import { describe, expect, it } from "@jest/globals";
+import { describe, expect, it, jest } from "@jest/globals";
 import {
+  createChildSwitcher,
   ageInMonths,
   bandForPoint,
   childEventFromRow,
@@ -86,6 +87,15 @@ describe("growth bands (words over the database z-scores, shape and word as well
     expect(childCrisisLead(null)).toBe(false);
   });
 
+  it("a value the database flagged implausible but still routed as severe keeps the crisis lead (MUAC 105 mm, weight-for-height z -5.4)", () => {
+    const r = bandForPoint({ ...base, weightForHeightZ: -5.4, nutritionClass: "severe_acute", implausible: true });
+    expect(r).toEqual({ kind: "band", band: "talk_to_care_team", crisis: true });
+    expect(childCrisisLead(r)).toBe(true);
+    // an implausible value that was NOT routed as severe still only asks for a re-check
+    expect(bandForPoint({ ...base, nutritionClass: "none", implausible: true })).toEqual({ kind: "check_measurement" });
+    expect(childCrisisLead(bandForPoint({ ...base, nutritionClass: "moderate_acute", implausible: true }))).toBe(false);
+  });
+
   it("an implausible value is never banded; no z-score is never called growing well", () => {
     expect(bandForPoint({ ...base, implausible: true })).toEqual({ kind: "check_measurement" });
     expect(bandForPoint({ ...base, weightForAgeZ: null, heightForAgeZ: null, weightForHeightZ: null })).toEqual({ kind: "no_reference" });
@@ -138,15 +148,26 @@ describe("vaccine checklist from the NPHCDA schedule data", () => {
     expect(rejected.find((d) => d.code === "child_penta" && d.doseNumber === 1)?.status).not.toBe("done");
   });
 
-  it("a card that only says how many doses counts by number", () => {
+  it("matches strictly by dose number: dose 3 on file does not make dose 2 done", () => {
     const list = buildChildVaccineChecklist({
       dateOfBirth: dob, sex: "male", today: "2026-06-01", catalog,
       records: [
         { vaccination_catalog_id: "penta", dose_number: 1, date_administered: "2026-02-15", verification_status: "self_reported" },
-        { vaccination_catalog_id: "penta", dose_number: 1, date_administered: "2026-03-15", verification_status: "self_reported" },
+        { vaccination_catalog_id: "penta", dose_number: 3, date_administered: "2026-04-15", verification_status: "self_reported" },
       ],
     });
-    expect(list.filter((d) => d.code === "child_penta").map((d) => d.status)).toEqual(["done", "done", "overdue"]);
+    expect(list.filter((d) => d.code === "child_penta").map((d) => `${d.doseNumber}:${d.status}`)).toEqual(["1:done", "2:overdue", "3:done"]);
+  });
+
+  it("two records on file never complete a series they do not number (no count fallback)", () => {
+    const list = buildChildVaccineChecklist({
+      dateOfBirth: dob, sex: "male", today: "2026-06-01", catalog,
+      records: [
+        { vaccination_catalog_id: "penta", dose_number: 7, date_administered: "2026-02-15", verification_status: "self_reported" },
+        { vaccination_catalog_id: "penta", dose_number: 8, date_administered: "2026-03-15", verification_status: "self_reported" },
+      ],
+    });
+    expect(list.filter((d) => d.code === "child_penta").map((d) => d.status)).toEqual(["overdue", "overdue", "overdue"]);
   });
 });
 
@@ -259,5 +280,46 @@ describe("rows and chart layout", () => {
     expect(markerPath("triangle", 10, 10, 5)).toMatch(/^M /);
     expect(layoutGrowthChart([], { width: 300, height: 200 }).markers).toEqual([]);
     expect(ageInMonths("2026-01-01", "2026-04-02T10:00:00Z")).toBeCloseTo(3.1, 0);
+  });
+});
+
+describe("the real switch-child flow relocks the private section", () => {
+  it("leaving a child relocks at once, and choosing the other child does not need a second relock", () => {
+    const relock = jest.fn();
+    const sw = createChildSwitcher(relock);
+    sw.show("c1");
+    expect(relock).not.toHaveBeenCalled();
+    sw.leave(); // "Switch child" pressed: the screen clears its choice here
+    expect(relock).toHaveBeenCalledTimes(1);
+    sw.show("c2");
+    expect(relock).toHaveBeenCalledTimes(1);
+  });
+  it("leaving and choosing the SAME child still relocks (a handed-over phone)", () => {
+    const relock = jest.fn();
+    const sw = createChildSwitcher(relock);
+    sw.show("c1");
+    sw.leave();
+    sw.show("c1");
+    expect(relock).toHaveBeenCalledTimes(1);
+  });
+  it("a direct change of child with no leave (a link or the back button) relocks", () => {
+    const relock = jest.fn();
+    const sw = createChildSwitcher(relock);
+    sw.show("c1");
+    sw.show("c2");
+    expect(relock).toHaveBeenCalledTimes(1);
+    sw.show("c2");
+    expect(relock).toHaveBeenCalledTimes(1);
+  });
+  it("nothing is relocked before any child was shown", () => {
+    const relock = jest.fn();
+    const sw = createChildSwitcher(relock);
+    sw.leave();
+    sw.show("c1");
+    expect(relock).not.toHaveBeenCalled();
+  });
+  it("sabotage: the old comparison (previous id read after the screen cleared it) never relocks", () => {
+    const clearedFirst: string | null = null;
+    expect(mustRelockOnSwitch(clearedFirst, "c2")).toBe(false);
   });
 });

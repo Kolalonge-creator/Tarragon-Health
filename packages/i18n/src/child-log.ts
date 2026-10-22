@@ -116,6 +116,7 @@ export const childLog = {
   "cdl.export.title": "One-page record",
   "cdl.export.help": "A one-page PDF with the growth chart and the vaccine record, to show a clinic or a school.",
   "cdl.export.button": "Download PDF",
+  "cdl.export.no_access": "You do not have access to this part of the record, so we cannot make this page. Ask the person who looks after this child to share it with you.",
   "cdl.pdf.title": "Growth and vaccine record",
   "cdl.pdf.name": "Name",
   "cdl.pdf.dob": "Date of birth",

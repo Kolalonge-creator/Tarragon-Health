@@ -124,15 +124,18 @@ end $f$;
 
 do $$
 declare
-  v_org uuid; v_mum uuid; v_dad uuid; v_cg uuid; v_stranger uuid; v_clin uuid; v_child uuid; v_child2 uuid; v_real uuid; g uuid;
-  r text; e1 uuid := gen_random_uuid(); e2 uuid := gen_random_uuid(); cid uuid := gen_random_uuid();
+  v_org uuid; v_mum uuid; v_dad uuid; v_cg uuid; v_stranger uuid; v_clin uuid; v_clin2 uuid; v_co uuid; v_adult uuid; v_child uuid; v_child2 uuid; v_real uuid; g uuid;
+  r text; e1 uuid := gen_random_uuid(); e2 uuid := gen_random_uuid(); v_self uuid := gen_random_uuid(); cid uuid := gen_random_uuid();
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_mum := pg_temp.mkuser(v_org, 'mum', 'patient', (current_date - interval '28 years')::date, 'female');
   v_dad := pg_temp.mkuser(v_org, 'partner', 'patient'); v_cg := pg_temp.mkuser(v_org, 'plain_view', 'patient');
-  v_stranger := pg_temp.mkuser(v_org, 'stranger', 'patient'); v_clin := pg_temp.mkuser(v_org, 'clin', 'clinician');
+  v_stranger := pg_temp.mkuser(v_org, 'stranger', 'patient'); v_clin := pg_temp.mkuser(v_org, 'clin', 'clinician'); v_clin2 := pg_temp.mkuser(v_org, 'clin_untied', 'clinician'); v_co := pg_temp.mkuser(v_org, 'coord', 'care_coordinator');
   v_child := pg_temp.mkchild(v_org, v_mum, 'baby', current_date - 60, 'female');
   v_child2 := pg_temp.mkchild(v_org, v_stranger, 'other_baby', current_date - 90, 'male');
+  -- ONE clinician is tied to the child (care team assignment); the other is staff of the same organisation with NO tie
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, care_coordinator_id, assigned_at) values (v_org, v_child, v_clin, v_co, now());
+  perform pg_temp.setf('clin2', v_clin2);
   perform pg_temp.setf('org', v_org); perform pg_temp.setf('mum', v_mum); perform pg_temp.setf('dad', v_dad); perform pg_temp.setf('cg', v_cg);
   perform pg_temp.setf('stranger', v_stranger); perform pg_temp.setf('clin', v_clin); perform pg_temp.setf('child', v_child); perform pg_temp.setf('child2', v_child2);
 
@@ -176,12 +179,32 @@ begin
   perform pg_temp.ck('the read-only partner (view grant + medical_history on the child) reads it', '6', pg_temp.q_as(v_dad, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
   perform pg_temp.ck('a view grant with no category reads nothing', '0', pg_temp.q_as(v_cg, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
   perform pg_temp.ck('a stranger reads nothing', '0', pg_temp.q_as(v_stranger, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
-  perform pg_temp.ck('the care team reads it', '6', pg_temp.q_as(v_clin, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
+  perform pg_temp.ck('a clinician WITH a care tie reads it', '6', pg_temp.q_as(v_clin, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
+  perform pg_temp.ck('a clinician of the same organisation WITHOUT a tie is refused (reads 0)', '0', pg_temp.q_as(v_clin2, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
+  perform pg_temp.ck('the tied clinician may record for the child, the untied one may not', 'ok|true',
+    pg_temp.try_as(v_clin, format($q$insert into public.child_daily_events (organisation_id, patient_id, client_id, kind, occurred_at) values (%L, %L, gen_random_uuid(), 'nappy_wet', now())$q$, v_org, v_child))
+    || '|' || (pg_temp.try_as(v_clin2, format($q$insert into public.child_daily_events (organisation_id, patient_id, client_id, kind, occurred_at) values (%L, %L, gen_random_uuid(), 'nappy_wet', now())$q$, v_org, v_child)) like '%row-level security%')::text);
+  perform pg_temp.ck('...and the tied clinician''s row is stored as clinician_recorded', 'clinician_recorded', (select source from public.child_daily_events where patient_id = v_child and recorded_by = v_clin limit 1));
+  perform pg_temp.ck('both child tables are registered as TIED (G1) and no select policy keeps the plain organisation-wide staff read (G2)', 'tied|tied|0',
+    (select string_agg(mode, '|' order by table_name) from public.staff_read_scope where table_name in ('child_card_photos', 'child_daily_events'))
+    || '|' || (select count(*)::text from pg_policies where schemaname = 'public' and tablename in ('child_daily_events', 'child_card_photos') and cmd in ('SELECT', 'ALL') and coalesce(qual, '') like '%private.is_org_staff(organisation_id)%'));
+  perform pg_temp.ck('a correction cannot point at itself (the trigger refuses it first; the CHECK is the backstop)', 'true',
+    (pg_temp.try_as(v_mum, format($q$insert into public.child_daily_events (id, organisation_id, patient_id, client_id, kind, occurred_at, corrects_id) values (%L, %L, %L, gen_random_uuid(), 'feed', now(), %L)$q$, v_self, v_org, v_child, v_self)) like '%child_daily_events_not_self_correcting%' or pg_temp.try_as(v_mum, format($q$insert into public.child_daily_events (id, organisation_id, patient_id, client_id, kind, occurred_at, corrects_id) values (%L, %L, %L, gen_random_uuid(), 'feed', now(), %L)$q$, gen_random_uuid(), v_org, v_child, v_self)) like '%must point at an entry for the same child%')::text);
   perform pg_temp.ck('anon is refused', 'permission denied for table child_daily_events', pg_temp.try_anon('select 1 from public.child_daily_events limit 1'));
   perform pg_temp.ck('the read-only partner cannot write', 'true',
     (pg_temp.try_as(v_dad, format($q$insert into public.child_daily_events (organisation_id, patient_id, client_id, kind, occurred_at) values (%L, %L, gen_random_uuid(), 'nappy_wet', now())$q$, v_org, v_child)) like '%row-level security%')::text);
   perform pg_temp.ck('a stranger cannot write for the child', 'true',
     (pg_temp.try_as(v_stranger, format($q$insert into public.child_daily_events (organisation_id, patient_id, client_id, kind, occurred_at) values (%L, %L, gen_random_uuid(), 'nappy_wet', now())$q$, v_org, v_child)) like '%row-level security%')::text);
+
+  -- a manager of someone who is no longer a minor cannot write for them through the old grant
+  v_adult := pg_temp.mkuser(v_org, 'adult_dep', 'patient', (current_date - interval '19 years')::date, 'female');
+  update public.profiles set is_dependent_account = true, dependent_kind = 'minor_child' where id = v_adult;
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v_adult, v_mum, 'manage', v_mum);
+  perform pg_temp.ck('a manage grant over someone aged 19 does not allow a daily-log entry', 'true',
+    (pg_temp.try_as(v_mum, format($q$insert into public.child_daily_events (organisation_id, patient_id, client_id, kind, occurred_at) values (%L, %L, gen_random_uuid(), 'nappy_wet', now())$q$, v_org, v_adult)) like '%row-level security%')::text);
+  perform pg_temp.ck('the storage insert policy ties the child folder to a child the uploader may act for', 'true',
+    (select (count(*) = 1 and bool_and(with_check like '%can_act_for_minor%'))::text from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'child card photo uploader insert'));
+  perform pg_temp.ck('can_act_for_minor is not executable by anon', 'false', has_function_privilege('anon', 'private.can_act_for_minor(uuid)', 'EXECUTE')::text);
 
   -- ...and the partner reaches NOTHING of the mother's: her EPDS screen, feed log, life stage and pregnancy record
   insert into public.mental_health_screens (organisation_id, patient_id, instrument, total_score, severity_band, item_responses) values (v_org, v_mum, 'epds', 0, 'minimal', '{"items":[0,0,0,0,0,0,0,0,0,0]}');
@@ -253,6 +276,7 @@ declare
 begin
   insert into results values ('sabotaged', 'a REAL child is refused while maternal_enabled is off', 'The daily log is not open yet',
     pg_temp.try_as(v_mum, format($q$insert into public.child_daily_events (organisation_id, patient_id, client_id, kind, occurred_at) values (%L, %L, gen_random_uuid(), 'nappy_wet', now())$q$, v_org, v_real)));
+  insert into results values ('sabotaged', 'a clinician of the same organisation WITHOUT a tie is refused (reads 0)', '0', pg_temp.q_as(pg_temp.f('clin2'), format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
   insert into results values ('sabotaged', 'a stranger reads nothing', '0', pg_temp.q_as(v_stranger, format('select count(*)::text from public.child_daily_events where patient_id = %L', v_child)));
   ins := format($q$insert into public.child_daily_events (organisation_id, patient_id, client_id, kind, occurred_at) values (%L, %L, %L, 'nappy_wet', now())$q$, v_org, v_child, c);
   perform pg_temp.try_as(v_mum, ins);
