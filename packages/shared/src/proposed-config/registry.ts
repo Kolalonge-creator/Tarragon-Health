@@ -4530,6 +4530,32 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S60.md section 6; spec 12.12; docs/OPEN-QUESTIONS.md OQ-S60-05",
   },
   {
+    key: "outcomes.dashboard",
+    // Honest outcomes dashboard (docs/design/OUTCOMES.md). Mirrors outcomes_dashboard_config version 1; a test fails if the migration seed and this value
+    // drift. Audience: the founder / super admin and the CMO only. comparison.*: a group needs at least min_per_group people measured at both ends (the
+    // greater of this and the platform minimum for a cut by two attributes); "high" engagement is at least high_active_days_per_30 active days in each
+    // 30 days after joining and "low" is at most low_active_days_per_30; blood pressure readings are NOT counted as engagement for the comparison because
+    // they are how control is measured. engagement.*: only these Health Points rules count in any points figure (rules that can touch screening, lab or
+    // review data are left out), and screening codes matching these patterns are never counted. The CMO owns every number here.
+    value: {
+      due_days: [90, 180],
+      primary_day: 90,
+      min_age_years: 18,
+      confidence_level: 0.95,
+      comparison: { min_per_group: 30, high_active_days_per_30: 12, low_active_days_per_30: 4, exclude_blood_pressure_from_engagement: true },
+      engagement: {
+        points_rules_included: ["vitals_logged", "meal_logged", "adherence_checkin_completed", "education_lesson_completed", "lpe_task_completed", "lpe_goal_achieved", "course_completed", "challenge_completed", "wellness_class_attended"],
+        milestone_rules: ["course_completed", "lpe_goal_achieved"],
+        screening_excluded_code_patterns: ["cervic", "mammo", "breast", "hpv", "(^|_)pap(_|$)", "psa", "prostat", "ovar", "pregnan", "antenat", "fertil", "contracep", "menstr", "hiv", "hep", "syphil", "(^|_)sti(_|$)", "mental", "phq", "gad", "depress", "anxiet"],
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/OUTCOMES.md; docs/OPEN-QUESTIONS.md OQ-OUT-01 to OQ-OUT-10",
+  },
+  {
     key: "paging.watchdog",
     // S78a (spec 23.15, CMO decision S-8). Mirrors paging_config version 2, which is PROPOSED and INACTIVE: the active row stays version 1 until the CMO signs
     // a new version. watchdog_grace_seconds: how long a red triage event may exist with no page before the database watchdog creates it itself (INV-05; the
