@@ -52,6 +52,8 @@ begin
   if v_uid is null then raise exception 'not authorised' using errcode = '42501'; end if;
   select * into v_pr from public.profiles where id = v_uid and role = 'patient';
   if not found then raise exception 'not authorised' using errcode = '42501'; end if;
+  -- the duplicate check below is check-then-insert: serialise this patient's hand-off requests so two taps at once make one hand-off (lock released at commit)
+  perform pg_advisory_xact_lock(hashtextextended(v_uid::text || ':handoff', 0));
   if p_note is not null and char_length(p_note) > 500 then raise exception 'note too long' using errcode = '22023'; end if;
   if p_screen is not null then
     select * into v_s from public.mental_health_screens where id = p_screen and patient_id = v_uid;
@@ -137,15 +139,19 @@ language plpgsql security definer set search_path = '' as $$
 declare v_uid uuid := (select auth.uid()); v_h public.mental_health_handoffs%rowtype; v_n integer;
 begin
   if v_uid is null then raise exception 'not authorised' using errcode = '42501'; end if;
+  -- everyone who is not an eligible clinician gets the same NULL, before anything is looked up: no 'unknown hand-off' answer to probe with, and no
+  -- 'denied' row written into a patient's trail by a caller who is not even a clinician
+  if not private.is_mental_health_clinician() then return null; end if;
   select * into v_h from public.mental_health_handoffs where id = p_handoff;
-  if not found then raise exception 'unknown hand-off' using errcode = '22023'; end if;
-  if not (private.is_mental_health_clinician() and private.clinician_has_patient_access(v_h.patient_id)) then
+  if not found then return null; end if;
+  if not private.clinician_has_patient_access(v_h.patient_id) then
     perform private.audit_mental_health_read(v_h.patient_id, array['handoffs'], 'attempted to mark a hand-off seen', 'denied');
     return null;
   end if;
   update public.mental_health_handoffs set state = 'seen', seen_by = v_uid, seen_at = now() where id = p_handoff and state = 'open';
   get diagnostics v_n = row_count;
-  perform private.audit_mental_health_read(v_h.patient_id, array['handoffs'], 'marked a hand-off seen', 'success');
+  -- a success is audited only when something changed
+  if v_n > 0 then perform private.audit_mental_health_read(v_h.patient_id, array['handoffs'], 'marked a hand-off seen', 'success'); end if;
   return v_n > 0;
 end $$;
 revoke all on function public.mark_mental_health_handoff_seen(uuid) from public, anon;
@@ -270,6 +276,7 @@ begin
   select * into v_pr from public.profiles where id = v_uid and role = 'patient';
   if not found then raise exception 'not authorised' using errcode = '42501'; end if;
   if not private.go_live_open_patient('wellbeing_summary_share_enabled', v_uid) then raise exception 'feature_not_open' using errcode = '55000'; end if;
+  perform pg_advisory_xact_lock(hashtextextended(v_uid::text || ':share', 0));
   if v_note is not null and char_length(v_note) > v_max then raise exception 'note too long' using errcode = '22023'; end if;
   v_sum := private.build_wellbeing_summary(v_uid, coalesce(p_include_screens, false), coalesce(p_include_checkins, false), coalesce(p_include_sleep, false));
   if not private.wellbeing_summary_has_content(v_sum) and v_note is null then raise exception 'nothing to share' using errcode = '22023'; end if;
@@ -350,7 +357,8 @@ begin
   if not (private.mh_int_in(r, '{missed_checkins,prior_window_days}', 7, 180) and private.mh_int_in(r, '{missed_checkins,min_prior_checkins}', 2, 100)
           and private.mh_int_in(r, '{missed_checkins,silent_days}', 3, 90)) then return false; end if;
   if not private.mh_int_in(r, '{unactioned_handoff,after_hours}', 1, 720) then return false; end if;
-  if not (private.mh_int_in(r, '{follow_up,task_due_minutes}', 15, 43200) and private.mh_int_in(r, '{follow_up,snooze_days}', 0, 60)) then return false; end if;
+  if not (private.mh_int_in(r, '{follow_up,task_due_minutes}', 15, 43200) and private.mh_int_in(r, '{follow_up,snooze_days}', 0, 60)
+          and private.mh_int_in(r, '{follow_up,talk_request_due_minutes}', 15, 43200)) then return false; end if;
   if not private.mh_int_in(r, '{max_rows}', 1, 500) or not private.mh_int_in(r, '{count_cache_minutes}', 0, 120) then return false; end if;
   return true;
 end $$;
@@ -360,7 +368,7 @@ alter table public.mental_health_worklist_config add constraint mental_health_wo
 
 -- mh-worklist-v1-begin
 insert into public.mental_health_worklist_config (version, is_active, effective_from, rules, notes)
-values (1, false, '2026-10-22', $json${"rising_screen":{"enabled":true,"look_back_days":120,"phq9_min_rise":5,"gad7_min_rise":4},"overdue_screen":{"enabled":true,"grace_days":14,"instruments":["phq9","gad7"]},"sleep_trouble":{"enabled":true,"window_days":14,"min_entries":7,"short_sleep_hours":5.5,"low_quality_at_or_below":2,"min_trouble_nights":5},"missed_checkins":{"enabled":false,"prior_window_days":28,"min_prior_checkins":8,"silent_days":10},"unactioned_handoff":{"enabled":true,"after_hours":48},"follow_up":{"task_due_minutes":4320,"snooze_days":7},"max_rows":100,"count_cache_minutes":10}$json$::jsonb,
+values (1, false, '2026-10-22', $json${"rising_screen":{"enabled":true,"look_back_days":120,"phq9_min_rise":5,"gad7_min_rise":4},"overdue_screen":{"enabled":true,"grace_days":14,"instruments":["phq9","gad7"]},"sleep_trouble":{"enabled":true,"window_days":14,"min_entries":7,"short_sleep_hours":5.5,"low_quality_at_or_below":2,"min_trouble_nights":5},"missed_checkins":{"enabled":false,"prior_window_days":28,"min_prior_checkins":8,"silent_days":10},"unactioned_handoff":{"enabled":true,"after_hours":48},"follow_up":{"task_due_minutes":4320,"talk_request_due_minutes":240,"snooze_days":7},"max_rows":100,"count_cache_minutes":10}$json$::jsonb,
   'DRAFT, UNSIGNED (S56b, 2026-10-22). Every number is PROPOSED by the build, not a clinical decision: the CMO must read, amend (a new version) or confirm. The score rises are placeholders chosen to be easy to read, not validated change thresholds. The check-ins-stopped rule is shipped DISABLED (founder decision, OQ-S56b-03): the code stays, a later signed version may enable it.')
 on conflict (version) do nothing;
 -- mh-worklist-v1-end
@@ -532,6 +540,23 @@ language sql stable security definer set search_path = '' as $$
 $$;
 revoke all on function private.mh_worklist_active_config() from public, anon, authenticated;
 
+-- Patients who might be tied to a clinician, from the tables clinician_has_patient_access reads, as a set (a SUPERSET: the exact test, with its
+-- status and time conditions, is still applied to each candidate). It lets the worklist start from the caller's own patients instead of testing
+-- every patient in the organisation.
+create or replace function private.mh_tie_candidates(p_uid uuid) returns setof uuid
+language sql stable security definer set search_path = '' as $$
+  select cta.patient_id from public.care_team_assignment cta where p_uid in (cta.clinician_id, cta.clinical_director_id, cta.care_coordinator_id)
+  union select e.patient_id from public.escalations e where e.assigned_doctor_id = p_uid
+  union select a.patient_id from public.clinician_alerts a join public.clinical_staff cs on cs.id in (a.responsible_clinician_id, a.backup_clinician_id) where cs.profile_id = p_uid
+  union select ap.patient_id from public.appointments ap where ap.clinician_id = p_uid
+  union select en.patient_id from public.encounters en where en.clinician_id = p_uid
+  union select vc.patient_id from public.video_consultations vc where vc.initiated_by = p_uid
+  union select ct.patient_id from public.clinical_tasks ct where p_uid in (ct.pushed_to, ct.lead_clinician_id, ct.claimed_by)
+  union select pg.patient_id from public.pages pg where pg.acknowledged_by = p_uid
+  union select sr.patient_id from public.specialist_referrals sr join public.clinical_staff cs on cs.id = sr.assigned_specialist_id where cs.profile_id = p_uid
+$$;
+revoke all on function private.mh_tie_candidates(uuid) from public, anon, authenticated;
+
 -- The calling clinician's worklist: hits for patients the caller is TIED to (private.clinician_has_patient_access; never is_org_staff, never
 -- break-glass), whose guard is open (on, or caller and patient both test accounts). Empty for anyone else, and when nothing is signed.
 create or replace function private.mh_worklist_for_caller()
@@ -548,9 +573,9 @@ begin
   v_max := (v_cfg.rules #>> '{max_rows}')::integer;
   v_tied := array(
     select e.pid from (
-      select s.patient_id as pid from public.mental_health_screens s where s.organisation_id = v_org
-      union select c.patient_id from public.wellbeing_checkins c where c.organisation_id = v_org and c.checked_in_at > now() - interval '400 days'
-      union select h.patient_id from public.mental_health_handoffs h where h.organisation_id = v_org) e
+      select s.patient_id as pid from public.mental_health_screens s where s.organisation_id = v_org and s.patient_id in (select private.mh_tie_candidates(v_uid))
+      union select c.patient_id from public.wellbeing_checkins c where c.organisation_id = v_org and c.patient_id in (select private.mh_tie_candidates(v_uid)) and c.checked_in_at > now() - interval '400 days'
+      union select h.patient_id from public.mental_health_handoffs h where h.organisation_id = v_org and h.patient_id in (select private.mh_tie_candidates(v_uid))) e
      where private.clinician_has_patient_access(e.pid) and private.go_live_open('mental_health_worklist_enabled', e.pid, v_uid));
   if cardinality(v_tied) = 0 then return; end if;
   return query
@@ -589,9 +614,13 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object('patient_id', w.o_patient_id, 'full_name', w.o_name, 'patient_number', w.o_number, 'reasons', w.o_reasons,
                                                'followed_up_at', w.o_followed_up_at, 'followed_up_task', w.o_followed_up_task) order by w.o_followed_up_at is not null, w.o_rank, w.o_number), '[]'::jsonb)
     into v_rows from private.mh_worklist_for_caller() w;
-  -- one audit row per patient served (INV-10): the list shows their reasons, so each patient's own trail shows it
+  -- an audit row per patient served per day (INV-10): the list shows their reasons, so each patient's own trail shows it
   for v_pid in select (x ->> 'patient_id')::uuid from jsonb_array_elements(v_rows) x loop
-    perform private.audit_mental_health_read(v_pid, array['worklist'], 'mental health follow-up worklist', 'success');
+    -- once per clinician, patient and Lagos day for the list view (a re-render adds nothing); opening the record through the audited read audits every time
+    if not exists (select 1 from public.audit_log l where l.actor_id = v_uid and l.action = 'staff.mental_health_read' and l.result = 'success' and l.subject_patient_id = v_pid
+                      and l.event -> 'sections' ? 'worklist' and (l.created_at at time zone 'Africa/Lagos')::date = (now() at time zone 'Africa/Lagos')::date) then
+      perform private.audit_mental_health_read(v_pid, array['worklist'], 'mental health follow-up worklist', 'success');
+    end if;
   end loop;
   return jsonb_build_object('status', 'ok', 'config_version', v_cfg.version, 'rows', v_rows, 'notes', v_notes);
 end $$;
@@ -633,7 +662,7 @@ create or replace function public.create_mental_health_worklist_follow_up(p_pati
 language plpgsql security definer set search_path = '' as $$
 declare
   v_uid uuid := (select auth.uid()); v_cfg public.mental_health_worklist_config; v_row record; v_task uuid; v_id uuid := gen_random_uuid();
-  v_note text := nullif(btrim(p_note), ''); v_org uuid; v_test boolean;
+  v_note text := nullif(btrim(p_note), ''); v_org uuid; v_test boolean; v_due integer; v_talk boolean;
 begin
   if v_uid is null then raise exception 'not authorised' using errcode = '42501'; end if;
   if p_patient is null then raise exception 'unknown patient' using errcode = '22023'; end if;
@@ -647,6 +676,14 @@ begin
   select * into v_row from private.mh_worklist_for_caller() w where w.o_patient_id = p_patient;
   if not found then raise exception 'that patient is not on your worklist' using errcode = '22023'; end if;
   select organisation_id, coalesce(is_test, false) into v_org, v_test from public.profiles where id = p_patient;
+  -- the check below is check-then-insert: serialise this clinician's follow-ups for this patient and Lagos day (the lock is released at commit)
+  perform pg_advisory_xact_lock(hashtextextended(p_patient::text || v_uid::text || ((now() at time zone 'Africa/Lagos')::date)::text, 0));
+  -- A questionnaire or a shared summary is cleared only if THIS clinician has opened that patient's hand-offs through the audited read since it
+  -- arrived. A request to talk is never cleared by a follow-up: a person asked for someone to get in touch, so it stays until marked seen.
+  update public.mental_health_handoffs h set state = 'seen', seen_by = v_uid, seen_at = now()
+   where h.patient_id = p_patient and h.state = 'open' and h.kind in ('screen', 'doctor_summary')
+     and exists (select 1 from public.audit_log l where l.actor_id = v_uid and l.action = 'staff.mental_health_read' and l.result = 'success' and l.subject_patient_id = p_patient
+                    and l.event -> 'sections' ? 'handoffs' and l.created_at > h.created_at);
   -- the same clinician following up the same patient again on the same Lagos day gets the task already made: one action, one task, not one per click
   select a.task_id into v_task from public.mental_health_worklist_actions a
    where a.patient_id = p_patient and a.clinician_id = v_uid and (a.created_at at time zone 'Africa/Lagos')::date = (now() at time zone 'Africa/Lagos')::date
@@ -657,9 +694,11 @@ begin
   end if;
   -- admin_clinical is the task type the hand-off already uses: it is not a plan-gated doctor-time review. The key is random, so nothing a wider
   -- reader of clinical_tasks sees says "mental health worklist" or which patient was on it.
-  v_task := private.create_clinical_task(p_patient, 'admin_clinical', (v_cfg.rules #>> '{follow_up,task_due_minutes}')::integer, 'mhw:' || gen_random_uuid());
-  -- a follow-up is the clinician acting on the patient, so every hand-off still waiting for this patient is marked seen (audited below)
-  update public.mental_health_handoffs set state = 'seen', seen_by = v_uid, seen_at = now() where patient_id = p_patient and state = 'open';
+  -- a person who asked someone to get in touch gets the shorter due time
+  v_due := (v_cfg.rules #>> '{follow_up,task_due_minutes}')::integer;
+  select exists (select 1 from public.mental_health_handoffs h where h.patient_id = p_patient and h.state = 'open' and h.kind = 'talk_request') into v_talk;
+  if v_talk then v_due := least(v_due, (v_cfg.rules #>> '{follow_up,talk_request_due_minutes}')::integer); end if;
+  v_task := private.create_clinical_task(p_patient, 'admin_clinical', v_due, 'mhw:' || gen_random_uuid());
   insert into public.mental_health_worklist_actions (id, organisation_id, patient_id, clinician_id, config_version, reasons, task_id, note, is_test)
   values (v_id, v_org, p_patient, v_uid, v_cfg.version,
           coalesce((select array_agg(distinct x ->> 'code') from jsonb_array_elements(v_row.o_reasons) x), '{}'::text[]), v_task, v_note, v_test);
@@ -690,7 +729,7 @@ begin
      or has_function_privilege('anon', 'public.sign_mental_health_worklist_config(integer)', 'EXECUTE') then
     raise exception 'S56b self-check: anon can execute a new function';
   end if;
-  if has_function_privilege('authenticated', 'private.mh_worklist_hits(uuid,jsonb,uuid[])', 'EXECUTE') or has_function_privilege('authenticated', 'private.mh_worklist_for_caller()', 'EXECUTE')
+  if has_function_privilege('authenticated', 'private.mh_worklist_hits(uuid,jsonb,uuid[])', 'EXECUTE') or has_function_privilege('authenticated', 'private.mh_worklist_for_caller()', 'EXECUTE') or has_function_privilege('authenticated', 'private.mh_tie_candidates(uuid)', 'EXECUTE')
      or has_function_privilege('authenticated', 'private.build_wellbeing_summary(uuid,boolean,boolean,boolean)', 'EXECUTE') then
     raise exception 'S56b self-check: a signed-in user can call a private function directly';
   end if;

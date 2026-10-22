@@ -78,6 +78,7 @@ describe("worklist rules in words", () => {
     expect(text).not.toContain("none for 10 days");
     expect(text).toContain("48 hours");
     expect(text).toContain("72 hours");
+    expect(text).toContain("4 hours when the patient asked someone to get in touch");
     expect(view?.lines.length).toBe(5); // score rise, overdue, sleep, waiting hand-off, follow-up task
     expect(text).toContain("At most 100 patients");
   });

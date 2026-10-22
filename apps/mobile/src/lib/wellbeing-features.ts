@@ -17,6 +17,19 @@ import { supabase } from "@/lib/supabase";
  */
 export class FeatureRefusedError extends Error {}
 
+/**
+ * Did the server REFUSE this person (signed out, expired or invalid session, not allowed)? Only a 401 or 403, or an explicit authentication error,
+ * counts. A 5xx (502, 503, 504 during an outage) or a network failure means the server could not be reached, and then the saved answer is used:
+ * closing the calm tool because the server is down would take away help exactly when it is needed.
+ */
+export function isServerRefusal(res: { status?: number; error: { code?: string | null; message?: string | null } | null }): boolean {
+  if (!res.error) return false;
+  if (res.status === 401 || res.status === 403) return true;
+  const code = res.error.code ?? "";
+  if (/^PGRST30[0-3]$/.test(code) || code === "42501" || /^(invalid_jwt|bad_jwt|not_authenticated|no_authorization)$/i.test(code)) return true;
+  return /jwt (expired|invalid)|invalid jwt|invalid token|not authenticated/i.test(res.error.message ?? "");
+}
+
 export interface FeatureIO {
   fetchOpen(): Promise<unknown>;
   read(): Promise<string | null>;
@@ -56,9 +69,8 @@ export function loadWellbeingFeatures(patientId: string): Promise<WellbeingFeatu
   return resolveWellbeingFeatures({
     fetchOpen: async () => {
       const res = await supabase.rpc("wellbeing_features_open");
-      // The server answered with a refusal (an error code or an HTTP error status, for example an expired session): that closes everything. An
-      // error with neither is the phone failing to reach the server, and only that may fall back to the saved answer.
-      if (res.error && (res.error.code || res.status >= 400)) throw new FeatureRefusedError(res.error.message);
+      // A refusal (401, 403, an authentication error) closes everything. Anything else (a 5xx outage, a network failure) falls back to the saved answer.
+      if (isServerRefusal(res)) throw new FeatureRefusedError(res.error?.message ?? "refused");
       if (res.error) throw new Error(res.error.message);
       return res.data;
     },

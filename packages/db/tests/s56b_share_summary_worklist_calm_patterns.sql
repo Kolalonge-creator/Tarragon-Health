@@ -98,6 +98,16 @@ begin
   return pg_temp.q_as(p_uid, format('select public.share_wellbeing_summary_with_care_team(%L, %L, %L, %L, %L)::text', p_s, p_c, p_sl, p_note, h));
 end $f$;
 
+-- sabotage helper: install a changed copy of a function and hand back the original definition so it can be put back
+create function pg_temp.swap(p_sig text, p_old text, p_new text) returns text language plpgsql as
+$f$ declare v_def text := pg_get_functiondef(p_sig::regprocedure); v_new text;
+begin
+  v_new := replace(v_def, p_old, p_new);
+  if v_new = v_def then raise exception 'sabotage on % did not change the function', p_sig; end if;
+  execute v_new;
+  return v_def;
+end $f$;
+
 -- fixture-defs-begin
 create function pg_temp.mkuser(p_org uuid, p_label text, p_role text, p_test boolean default true) returns uuid
 language plpgsql as $f$
@@ -315,6 +325,7 @@ begin
   perform pg_temp.ck('...and raises no second task', '1', (select count(*)::text from public.clinical_tasks where id in (select task_id from public.mental_health_handoffs where patient_id = a and kind = 'doctor_summary')));
   -- the "tell my care team" request is its own kind
   v_h2 := pg_temp.q_as(a, $q$select public.request_mental_health_handoff(null, 'a very anxious moment')::text$q$)::uuid;
+  perform pg_temp.setf('h2', v_h2);
   perform pg_temp.ck('a request to talk has its own kind', 'talk_request', (select kind from public.mental_health_handoffs where id = v_h2));
   perform pg_temp.ck('...and a repeat within ten minutes returns the same one', v_h2::text, pg_temp.q_as(a, $q$select public.request_mental_health_handoff(null, 'again')::text$q$));
   perform pg_temp.setf('hS', pg_temp.q_as(a, format($q$select public.request_mental_health_handoff(%L)::text$q$, (select id from public.mental_health_screens where patient_id = a and instrument = 'phq9' order by created_at desc limit 1)))::uuid);
@@ -351,6 +362,9 @@ begin
   perform pg_temp.ck('a coordinator cannot mark it seen', '', coalesce(pg_temp.q_as(pg_temp.f('coord'), format('select public.mark_mental_health_handoff_seen(%L)::text', pg_temp.f('hA'))), ''));
   perform pg_temp.ck('the patient cannot mark it seen', '', coalesce(pg_temp.q_as(a, format('select public.mark_mental_health_handoff_seen(%L)::text', pg_temp.f('hA'))), ''));
   perform pg_temp.ck('it is still open after those', 'open', (select state from public.mental_health_handoffs where id = pg_temp.f('hA')));
+  perform pg_temp.ck('the patient''s attempt wrote nothing into their own trail (no clinician, no denied row)', '0', (select count(*)::text from public.audit_log where actor_id = a and action = 'staff.mental_health_read'));
+  perform pg_temp.ck('a clinician asking about a hand-off that does not exist gets the same NULL as everyone (no oracle)', '', coalesce(pg_temp.q_as(pg_temp.f('doctied'), format('select public.mark_mental_health_handoff_seen(%L)::text', gen_random_uuid())), ''));
+  perform pg_temp.ck('...and so does a patient', '', coalesce(pg_temp.q_as(a, format('select public.mark_mental_health_handoff_seen(%L)::text', gen_random_uuid())), ''));
   perform pg_temp.ck('anon cannot mark it seen', '42501', pg_temp.try_anon(format('select public.mark_mental_health_handoff_seen(%L)', pg_temp.f('hA'))));
 end $$;
 
@@ -400,6 +414,10 @@ begin
   perform pg_temp.ck('...the count agrees and is only a number', '3', pg_temp.q_as(pg_temp.f('doctied'), 'select public.count_mental_health_worklist()::text'));
   perform pg_temp.ck('the other clinician sees only the patient tied to them', 'E', pg_temp.names(pg_temp.f('docuntied')));
   perform pg_temp.ck('...count 1', '1', pg_temp.q_as(pg_temp.f('docuntied'), 'select public.count_mental_health_worklist()::text'));
+  perform pg_temp.ck('the worklist starts from the caller''s own candidates: the other clinician''s are E and not A', 'true',
+    (select (pg_temp.f('E') in (select private.mh_tie_candidates(pg_temp.f('docuntied'))) and pg_temp.f('A') not in (select private.mh_tie_candidates(pg_temp.f('docuntied'))))::text));
+  perform pg_temp.ck('...and every patient the exact tie admits is among the candidates (a superset)', '0',
+    (select count(*)::text from public.profiles p where p.role = 'patient' and p.id not in (select private.mh_tie_candidates(pg_temp.f('doctied'))) and p.id in (pg_temp.f('A'), pg_temp.f('B'), pg_temp.f('C'), pg_temp.f('D'), pg_temp.f('F'))));
   -- break-glass: an emergency grant still opens ONE patient's record (2026-10-07 decision) but never puts a patient on a list
   insert into public.emergency_record_access_grants (requester_id, requester_org_id, patient_id, patient_org_id, reason, expires_at)
     values (pg_temp.f('docuntied'), pg_temp.f('org'), pg_temp.f('A'), pg_temp.f('org'), 'proof break-glass', now() + interval '1 hour');
@@ -446,12 +464,16 @@ begin
   perform pg_temp.ck('...with the hours it has waited', 'true', (select ((y -> 'facts' ->> 'hours_waiting')::integer >= 72)::text from jsonb_array_elements(v -> 'rows') x, jsonb_array_elements(x -> 'reasons') y where y ->> 'code' = 'unactioned_handoff' limit 1));
   perform pg_temp.ck('marking it seen as the tied clinician works', 'true', pg_temp.q_as(pg_temp.f('doctied'), format('select public.mark_mental_health_handoff_seen(%L)::text', pg_temp.f('hA'))));
   perform pg_temp.ck('...and records who and when', 'seen|true', (select state || '|' || (seen_by = pg_temp.f('doctied') and seen_at is not null)::text from public.mental_health_handoffs where id = pg_temp.f('hA')));
+  n := pg_temp.n_audit(pg_temp.f('doctied'), 'success', 'handoffs')::integer;
   perform pg_temp.ck('...marking it again changes nothing', 'false', pg_temp.q_as(pg_temp.f('doctied'), format('select public.mark_mental_health_handoff_seen(%L)::text', pg_temp.f('hA'))));
+  perform pg_temp.ck('...and writes no success row (a success is audited only when something changed)', n::text, pg_temp.n_audit(pg_temp.f('doctied'), 'success', 'handoffs'));
   v := pg_temp.worklist(pg_temp.f('doctied'));
   perform pg_temp.ck('...and the waiting reason clears', '0', (select count(*)::text from jsonb_array_elements(v -> 'rows') x, jsonb_array_elements(x -> 'reasons') y where y ->> 'code' = 'unactioned_handoff'));
   -- audit: one row per patient served, with the section, in the patient's own trail; the count writes none
   select count(*) into n from public.audit_log where actor_id = pg_temp.f('doctied') and action = 'staff.mental_health_read' and event -> 'sections' ? 'worklist' and result = 'success';
-  perform pg_temp.ck('every patient served is an audit row', 'true', (n >= 3)::text);
+  perform pg_temp.ck('every patient served is an audit row, once per day: A, B and C', '3', n::text);
+  perform pg_temp.worklist(pg_temp.f('doctied')); perform pg_temp.worklist(pg_temp.f('doctied'));
+  perform pg_temp.ck('...re-rendering the list the same day adds none', '3', (select count(*)::text from public.audit_log where actor_id = pg_temp.f('doctied') and action = 'staff.mental_health_read' and result = 'success' and event -> 'sections' ? 'worklist'));
   perform pg_temp.ck('...in the patient''s own trail', '0', (select count(*)::text from public.audit_log where actor_id = pg_temp.f('doctied') and event -> 'sections' ? 'worklist' and subject_patient_id is null));
   perform pg_temp.ck('...none for the controls', '0', (select count(*)::text from public.audit_log where actor_id = pg_temp.f('doctied') and event -> 'sections' ? 'worklist' and subject_patient_id in (pg_temp.f('D'), pg_temp.f('E'))));
   perform pg_temp.ck('a refused list writes no patient audit row for the coordinator', '0', pg_temp.n_audit(pg_temp.f('coord'), 'success', 'worklist'));
@@ -492,6 +514,8 @@ begin
   update public.mental_health_handoffs set created_at = now() - interval '3 days' where id = pg_temp.f('hS');
   v := pg_temp.worklist(pg_temp.f('doctied'));
   perform pg_temp.ck('a waiting questionnaire hand-off is a reason', 'screen', (select y -> 'facts' ->> 'kind' from jsonb_array_elements(v -> 'rows') x, jsonb_array_elements(x -> 'reasons') y where (x ->> 'patient_id')::uuid = a and y ->> 'code' = 'unactioned_handoff'));
+  -- the clinician opens A's hand-offs through the audited read (that is what lets a follow-up clear the questionnaire hand-off)
+  perform pg_temp.q_as(pg_temp.f('doctied'), format($q$select public.read_patient_mental_health_audited(%L, 'opening the chart to follow up', array['screens','handoffs'])::text$q$, a));
   t := pg_temp.q_as(pg_temp.f('doctied'), format($q$select public.create_mental_health_worklist_follow_up(%L, 'rising score, please call')::text$q$, a));
   perform pg_temp.ck('the tied clinician makes a follow-up for A', 'true', (t !~ '^ERR' and t is not null)::text);
   v_task := t::uuid;
@@ -503,9 +527,12 @@ begin
     (select case when clinician_id = pg_temp.f('doctied') then 'doctied' end || '|' || config_version from public.mental_health_worklist_actions where patient_id = a));
   perform pg_temp.ck('...the reasons are kept as codes', 'true', (select (reasons @> array['rising_screen'])::text from public.mental_health_worklist_actions where patient_id = a));
   perform pg_temp.ck('...the event was emitted (no event error was written)', '0', (select count(*)::text from public.audit_log where action = 'mh_worklist_event.error'));
-  perform pg_temp.ck('...every hand-off still waiting for A is now marked seen by the clinician who acted', 'doctied|0',
-    (select case when bool_and(seen_by = pg_temp.f('doctied')) then 'doctied' else 'other' end from public.mental_health_handoffs where patient_id = a and seen_at is not null and created_at > now() - interval '4 days') || '|' || (select count(*)::text from public.mental_health_handoffs where patient_id = a and state = 'open'));
-  perform pg_temp.ck('...so the waiting reason clears for A', '0', (select count(*)::text from jsonb_array_elements(pg_temp.worklist(pg_temp.f('doctied')) -> 'rows') x, jsonb_array_elements(x -> 'reasons') y where (x ->> 'patient_id')::uuid = a and y ->> 'code' = 'unactioned_handoff'));
+  perform pg_temp.ck('...the questionnaire hand-off the clinician opened is cleared, by that clinician', 'seen|true',
+    (select state || '|' || (seen_by = pg_temp.f('doctied'))::text from public.mental_health_handoffs where id = pg_temp.f('hS')));
+  perform pg_temp.ck('...a request to talk is NOT cleared by a follow-up', 'open', (select state from public.mental_health_handoffs where id = pg_temp.f('h2')));
+  perform pg_temp.ck('...and the task for a person who asked to be contacted is due within hours, not days (240 minutes)', 'true',
+    (select (due_at < now() + interval '5 hours')::text from public.clinical_tasks where id = v_task));
+  perform pg_temp.ck('...so the questionnaire reason clears for A', '0', (select count(*)::text from jsonb_array_elements(pg_temp.worklist(pg_temp.f('doctied')) -> 'rows') x, jsonb_array_elements(x -> 'reasons') y where (x ->> 'patient_id')::uuid = a and y ->> 'code' = 'unactioned_handoff'));
   perform pg_temp.ck('...and the follow-up is audited', 'true', (pg_temp.n_audit(pg_temp.f('doctied'), 'success', 'worklist_follow_up')::integer >= 1)::text);
   v := pg_temp.worklist(pg_temp.f('doctied'));
   perform pg_temp.ck('A stays on the list, marked as followed up (nothing is hidden)', 'true',
@@ -513,6 +540,19 @@ begin
   perform pg_temp.ck('...and is listed after the patients who have not been followed up', 'A', (select k2 from jsonb_array_elements(v -> 'rows') with ordinality x(j, o) join (select k as k2, fx.v from fx) f on f.v = (j ->> 'patient_id')::uuid order by o desc limit 1));
   perform pg_temp.ck('the same clinician again the same day gets the same task', v_task::text, pg_temp.q_as(pg_temp.f('doctied'), format($q$select public.create_mental_health_worklist_follow_up(%L)::text$q$, a)));
   perform pg_temp.ck('...and no second action row was written', '1', (select count(*)::text from public.mental_health_worklist_actions where patient_id = a));
+  -- B: an unopened shared summary is not cleared by a follow-up; once the clinician has opened it, it is
+  update public.mental_health_handoffs set created_at = now() - interval '3 days' where patient_id = pg_temp.f('B') and kind = 'doctor_summary';
+  v_task := pg_temp.q_as(pg_temp.f('doctied'), format($q$select public.create_mental_health_worklist_follow_up(%L)::text$q$, pg_temp.f('B')))::uuid;
+  perform pg_temp.ck('B: a follow-up without opening the summary leaves it waiting', 'open', (select state from public.mental_health_handoffs where patient_id = pg_temp.f('B') and kind = 'doctor_summary'));
+  perform pg_temp.ck('B: with no request to talk the task keeps the normal due time (72 hours)', 'true', (select (due_at > now() + interval '60 hours')::text from public.clinical_tasks where id = v_task));
+  perform pg_temp.q_as(pg_temp.f('doctied'), format($q$select public.read_patient_mental_health_audited(%L, 'opening the chart to follow up', array['handoffs'])::text$q$, pg_temp.f('B')));
+  perform pg_temp.q_as(pg_temp.f('doctied'), format($q$select public.create_mental_health_worklist_follow_up(%L)::text$q$, pg_temp.f('B')));
+  perform pg_temp.ck('B: after the clinician opened it, the next follow-up call clears it', 'seen', (select state from public.mental_health_handoffs where patient_id = pg_temp.f('B') and kind = 'doctor_summary'));
+  perform pg_temp.ck('B: and still only one action row that day', '1', (select count(*)::text from public.mental_health_worklist_actions where patient_id = pg_temp.f('B')));
+  perform pg_temp.ck('the follow-up and hand-off functions serialise on an advisory lock (the duplicate check is check-then-insert)', 'true',
+    (pg_get_functiondef('public.create_mental_health_worklist_follow_up(uuid,text)'::regprocedure) like '%pg_advisory_xact_lock%'
+     and pg_get_functiondef('public.request_mental_health_handoff(uuid,text)'::regprocedure) like '%pg_advisory_xact_lock%'
+     and pg_get_functiondef('public.share_wellbeing_summary_with_care_team(boolean,boolean,boolean,text,text)'::regprocedure) like '%pg_advisory_xact_lock%')::text);
   -- refusals
   perform pg_temp.ck('an untied clinician gets nothing (null), audited as denied', '',
     coalesce(pg_temp.q_as(pg_temp.f('docuntied'), format($q$select public.create_mental_health_worklist_follow_up(%L)::text$q$, a)), ''));
@@ -606,13 +646,62 @@ begin
   perform pg_temp.ck('the patient reads their own row', '1', pg_temp.q_as(a, 'select count(*)::text from public.wellbeing_checkin_preferences'));
 end $$;
 
+-- 9b. Second-round sabotages, one at a time (the original is put back after each) --------------------------------------------------------------------
+do $$
+declare d text; n0 integer; n1 integer; hb uuid; b uuid := pg_temp.f('B'); doc uuid := pg_temp.f('doctied');
+begin
+  -- (h) the list audits once per clinician, patient and day
+  select count(*) into n0 from public.audit_log where actor_id = doc and action = 'staff.mental_health_read' and event -> 'sections' ? 'worklist';
+  perform pg_temp.worklist(doc);
+  select count(*) into n1 from public.audit_log where actor_id = doc and action = 'staff.mental_health_read' and event -> 'sections' ? 'worklist';
+  perform pg_temp.ck('a re-render adds no audit row', '0', (n1 - n0)::text);
+  d := pg_temp.swap('public.list_mental_health_worklist()', 'if not exists (select 1 from public.audit_log l where l.actor_id = v_uid', 'if true or not exists (select 1 from public.audit_log l where l.actor_id = v_uid');
+  perform pg_temp.worklist(doc);
+  select count(*) into n0 from public.audit_log where actor_id = doc and action = 'staff.mental_health_read' and event -> 'sections' ? 'worklist';
+  perform pg_temp.sab('(h) a re-render adds no audit row', '0', (n0 - n1)::text);
+  execute d;
+
+  -- (i) a follow-up never clears a request to talk
+  insert into public.mental_health_handoffs (organisation_id, patient_id, kind, patient_note, created_at) values (pg_temp.f('org'), b, 'talk_request', 'please call', now() - interval '1 day') returning id into hb;
+  perform pg_temp.q_as(doc, format($q$select public.create_mental_health_worklist_follow_up(%L)::text$q$, b));
+  perform pg_temp.ck('a follow-up leaves a request to talk open even after the chart was opened', 'open', (select state from public.mental_health_handoffs where id = hb));
+  d := pg_temp.swap('public.create_mental_health_worklist_follow_up(uuid,text)', 'and h.kind in (''screen'', ''doctor_summary'')', '');
+  perform pg_temp.q_as(pg_temp.f('doctied'), format($q$select public.read_patient_mental_health_audited(%L, 'opening the chart again', array['handoffs'])::text$q$, b));
+  perform pg_temp.q_as(doc, format($q$select public.create_mental_health_worklist_follow_up(%L)::text$q$, b));
+  perform pg_temp.sab('(i) a follow-up leaves a request to talk open even after the chart was opened', 'open', (select state from public.mental_health_handoffs where id = hb));
+  execute d;
+
+  -- (j) the same-day duplicate check
+  select count(*) into n0 from public.mental_health_worklist_actions where patient_id = b;
+  perform pg_temp.q_as(doc, format($q$select public.create_mental_health_worklist_follow_up(%L)::text$q$, b));
+  select count(*) into n1 from public.mental_health_worklist_actions where patient_id = b;
+  perform pg_temp.ck('a repeat follow-up the same day writes no second action row', '0', (n1 - n0)::text);
+  d := pg_temp.swap('public.create_mental_health_worklist_follow_up(uuid,text)', 'if v_task is not null then', 'if false then');
+  perform pg_temp.q_as(doc, format($q$select public.create_mental_health_worklist_follow_up(%L)::text$q$, b));
+  select count(*) into n0 from public.mental_health_worklist_actions where patient_id = b;
+  perform pg_temp.sab('(j) a repeat follow-up the same day writes no second action row', '0', (n0 - n1)::text);
+  execute d;
+
+  -- (k) the advisory lock
+  d := pg_temp.swap('public.create_mental_health_worklist_follow_up(uuid,text)', 'perform pg_advisory_xact_lock(hashtextextended(', 'perform (hashtextextended(');
+  perform pg_temp.sab('(k) the follow-up function holds an advisory lock', 'true', (pg_get_functiondef('public.create_mental_health_worklist_follow_up(uuid,text)'::regprocedure) like '%pg_advisory_xact_lock%')::text);
+  execute d;
+
+  -- (l) mark-seen answers non-clinicians before anything is looked up
+  d := pg_temp.swap('public.mark_mental_health_handoff_seen(uuid)', 'if not private.is_mental_health_clinician() then return null; end if;', '');
+  perform pg_temp.q_as(pg_temp.f('A'), format('select public.mark_mental_health_handoff_seen(%L)::text', pg_temp.f('hA')));
+  perform pg_temp.sab('(l) a patient''s attempt writes nothing into their own trail', '0', (select count(*)::text from public.audit_log where actor_id = pg_temp.f('A') and action = 'staff.mental_health_read' and result = 'denied'));
+  execute d;
+  delete from public.mental_health_worklist_count_cache;
+end $$;
+
 -- 10. SABOTAGE: each protection removed must flip its checks ---------------------------------------------------------------------------------------
 do $$
 declare v_def text; v_new text;
 begin
   -- (a) the tie filter removed from the worklist
   v_def := pg_get_functiondef('private.mh_worklist_for_caller()'::regprocedure);
-  v_new := replace(v_def, 'private.clinician_has_patient_access(e.pid) and ', '');
+  v_new := replace(replace(v_def, 'private.clinician_has_patient_access(e.pid) and ', ''), 'private.mh_tie_candidates(v_uid)', 'p.id from public.profiles p');
   if v_new = v_def then raise exception 'sabotage (a) did not change the function'; end if;
   execute v_new;
   -- (b) the clinician gate opened to everyone with a staff row
@@ -663,7 +752,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 8 then raise exception 'VACUOUS TEST: the sabotage flipped % of 8 checks (need 8)', v_caught; end if;
+  if v_caught < 13 then raise exception 'VACUOUS TEST: the sabotage flipped % of 13 checks (need 13)', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

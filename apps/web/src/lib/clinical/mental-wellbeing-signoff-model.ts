@@ -77,7 +77,7 @@ export function worklistRulesView(rules: unknown): WorklistRulesView | null {
   const rs = rules.rising_screen, os = rules.overdue_screen, st = rules.sleep_trouble, mc = rules.missed_checkins, uh = rules.unactioned_handoff, fu = rules.follow_up;
   const need = [num(rs, "look_back_days"), num(rs, "phq9_min_rise"), num(rs, "gad7_min_rise"), num(os, "grace_days"), num(st, "window_days"), num(st, "min_entries"),
     num(st, "min_trouble_nights"), num(st, "low_quality_at_or_below"), num(st, "short_sleep_hours"), num(mc, "prior_window_days"), num(mc, "min_prior_checkins"), num(mc, "silent_days"),
-    num(uh, "after_hours"), num(fu, "task_due_minutes"), num(fu, "snooze_days"), num(rules, "max_rows"), num(rules, "count_cache_minutes")];
+    num(uh, "after_hours"), num(fu, "task_due_minutes"), num(fu, "talk_request_due_minutes"), num(fu, "snooze_days"), num(rules, "max_rows"), num(rules, "count_cache_minutes")];
   if (need.some((n) => n === null)) return null;
   const lines: string[] = [];
   lines.push(on(rs) ? `A PHQ-9 that rose by ${num(rs, "phq9_min_rise")} or more, or a GAD-7 that rose by ${num(rs, "gad7_min_rise")} or more, between the two latest screens within ${num(rs, "look_back_days")} days.` : "Rising scores: switched off.");
@@ -86,6 +86,6 @@ export function worklistRulesView(rules: unknown): WorklistRulesView | null {
   // The check-ins-stopped rule is not in the first draft (founder decision, OQ-S56b-03), so it is not listed while it is off.
   if (on(mc)) lines.push(`${num(mc, "min_prior_checkins")} or more mood check-ins in the ${num(mc, "prior_window_days")} days before, then none for ${num(mc, "silent_days")} days.`);
   lines.push(on(uh) ? `A hand-off, summary or request to talk that nobody has marked seen for ${num(uh, "after_hours")} hours.` : "Waiting hand-offs: switched off.");
-  lines.push(`A follow-up made from the list is a task due in ${Math.round((num(fu, "task_due_minutes") as number) / 60)} hours; the patient stays on the list, marked, for ${num(fu, "snooze_days")} days. At most ${num(rules, "max_rows")} patients are shown.`);
+  lines.push(`A follow-up made from the list is a task due in ${Math.round((num(fu, "task_due_minutes") as number) / 60)} hours, or ${Math.round((num(fu, "talk_request_due_minutes") as number) / 60)} hours when the patient asked someone to get in touch (a request to talk is never cleared by a follow-up, only by someone marking it seen); the patient stays on the list, marked, for ${num(fu, "snooze_days")} days. At most ${num(rules, "max_rows")} patients are shown.`);
   return { lines };
 }

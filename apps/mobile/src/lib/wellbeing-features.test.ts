@@ -3,7 +3,7 @@ import { describe, expect, it, jest } from "@jest/globals";
 jest.mock("./supabase", () => ({ supabase: {} }));
 jest.mock("@react-native-async-storage/async-storage", () => ({ __esModule: true, default: { getItem: async () => null, setItem: async () => undefined } }));
 
-import { FeatureRefusedError, featuresCacheKey, resolveWellbeingFeatures, type FeatureIO } from "./wellbeing-features";
+import { FeatureRefusedError, featuresCacheKey, isServerRefusal, resolveWellbeingFeatures, type FeatureIO } from "./wellbeing-features";
 
 const DAY = 86_400_000;
 const OPEN = { panic: true, insights: true, share: true, insights_hidden: false, worklist: true, worklist_activity_opt_out: false };
@@ -74,3 +74,26 @@ describe("wellbeing features on the phone", () => {
 function parse(raw: typeof CLOSED) {
   return { panic: raw.panic, insights: raw.insights, share: raw.share, insightsHidden: raw.insights_hidden, worklist: raw.worklist, worklistActivityOptOut: raw.worklist_activity_opt_out };
 }
+
+describe("what counts as the server refusing", () => {
+  const res = (status: number, code: string | null, message = "x") => ({ status, error: { code, message } });
+  it("a 401 or 403 is a refusal", () => {
+    expect(isServerRefusal(res(401, ""))).toBe(true);
+    expect(isServerRefusal(res(403, ""))).toBe(true);
+  });
+  it("explicit authentication errors are a refusal", () => {
+    expect(isServerRefusal(res(400, "PGRST301"))).toBe(true);
+    expect(isServerRefusal(res(400, "", "JWT expired"))).toBe(true);
+  });
+  it("502, 503 and 504 are an outage, not a refusal, so the calm tool keeps its saved answer", () => {
+    for (const status of [500, 502, 503, 504]) expect(isServerRefusal(res(status, "", "Bad gateway"))).toBe(false);
+    expect(isServerRefusal(res(503, "PGRST000"))).toBe(false);
+  });
+  it("a network failure (no status) is not a refusal", () => {
+    expect(isServerRefusal({ status: 0, error: { code: "", message: "TypeError: Network request failed" } })).toBe(false);
+    expect(isServerRefusal({ error: { message: "Network request failed" } })).toBe(false);
+  });
+  it("no error is no refusal", () => {
+    expect(isServerRefusal({ status: 200, error: null })).toBe(false);
+  });
+});
