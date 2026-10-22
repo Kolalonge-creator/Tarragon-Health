@@ -1,3 +1,4 @@
+import { computeBpControlRate, type ControlGateRule, type ControlReading } from "@tarragon/clinical";
 import { buildMonthlyView, monthLabel, parseMonthlyPayload, t, type Locale } from "@tarragon/i18n";
 
 /**
@@ -23,6 +24,8 @@ export interface BpMonthlySummary {
   weeks: string[];
   homeChecks: string[];
   adherence: string;
+  /** Share of the month's home readings in the patient's target. Null when the caller supplied no readings (nothing is said). */
+  controlRate: string | null;
   footer: string;
 }
 
@@ -39,6 +42,11 @@ export function buildBpMonthlySummary(args: {
   reportRows: unknown;
   month: string | null;
   checks: readonly HomeCheckRow[];
+  /**
+   * The patient's own home blood pressure readings for the month. When given, the summary says how many were inside her target, only
+   * once the existing average gate is met (otherwise it says there are not enough readings). Omit it to leave the line out.
+   */
+  control?: { readings: readonly ControlReading[]; gateRules: readonly ControlGateRule[]; minGapMinutes: number };
   locale?: Locale;
 }): BpMonthlySummary | null {
   const locale = args.locale ?? "en";
@@ -61,6 +69,23 @@ export function buildBpMonthlySummary(args: {
       t("bpsummary.home_check", locale, { date: checkDate(c.window_end, locale), sys: c.mean_systolic, dia: c.mean_diastolic, readings: c.readings, days: c.days }),
     );
 
+  let controlRate: string | null = null;
+  if (args.control) {
+    // The last instant of the month in LAGOS time (UTC+1): midnight UTC at the end of the month is already 01:00 on the 1st in Lagos.
+    const lastMs = Math.min(Date.parse(`${endKey}T00:00:00Z`) - 3_600_000 - 1, Date.now());
+    const rate = computeBpControlRate({
+      readings: args.control.readings,
+      target: { systolicBelow: payload.target.systolic, diastolicBelow: payload.target.diastolic },
+      gateRules: args.control.gateRules,
+      nowMs: lastMs,
+      periodDays: Math.round((Date.parse(`${endKey}T00:00:00Z`) - Date.parse(`${monthStart}T00:00:00Z`)) / 86_400_000),
+      minGapMinutes: args.control.minGapMinutes,
+    });
+    controlRate = rate.gateMet
+      ? t("bpsummary.control_rate", locale, { inTarget: rate.inTarget ?? 0, total: rate.counted, pct: rate.percentInTarget ?? 0, days: rate.days })
+      : t("bpsummary.control_rate_none", locale);
+  }
+
   return {
     month: monthStart,
     title: t("bpsummary.title", locale),
@@ -69,6 +94,15 @@ export function buildBpMonthlySummary(args: {
     weeks: view.weeks,
     homeChecks,
     adherence: payload.adherence_pct === null ? t("bpsummary.adherence_none", locale) : t("bpsummary.adherence", locale, { pct: payload.adherence_pct }),
+    controlRate,
     footer: t("bpsummary.footer", locale),
   };
+}
+
+/** The month a summary would be for (first day, YYYY-MM-01), so the caller can load that month's readings first. Null when there is none. */
+export function resolveSummaryMonth(reportRows: unknown, month: string | null): string | null {
+  if (!Array.isArray(reportRows)) return null;
+  const payloads = reportRows.flatMap((row) => (isObj(row) ? [parseMonthlyPayload(row["payload"])] : [])).filter((p) => p !== null);
+  const found = month === null ? payloads[0] : payloads.find((p) => p.month === month);
+  return found ? found.month : null;
 }
