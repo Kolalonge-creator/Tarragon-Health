@@ -108,8 +108,11 @@ export async function loadAdherenceReport(
   supabase: SupabaseClient<Database>,
   patientId: string,
   nowMs: number = Date.now(),
+  /** The doctor summary PDF covers the period the patient picked; the printed adherence report keeps its configured length. */
+  weeksOverride?: number,
 ): Promise<AdherenceReportResult> {
-  const weeksCount = reportWeeksConfig();
+  const weeksCount = weeksOverride ?? reportWeeksConfig();
+  if (!Number.isInteger(weeksCount) || weeksCount < 1 || weeksCount > 26) return { ok: false, error: "The report period is not valid." };
   const since = addDays(lagosLocalDate(nowMs), -(weeksCount * 7 + 1));
 
   const [cfgRes, medsRes, logsRes] = await Promise.all([

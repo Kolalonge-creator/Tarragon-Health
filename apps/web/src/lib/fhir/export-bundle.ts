@@ -270,6 +270,9 @@ export function buildFhirBundle(snapshot: ExportSnapshot, mapping: FhirMapping):
       resourceType: "DocumentReference",
       id: d.id,
       status: "current",
+      // S09y: a file the patient supplied is 'preliminary' (not checked) until a clinician checked it. A file filed by a clinician or laboratory is final.
+      docStatus: d.source === "patient" && d.verification_status !== "verified" ? "preliminary" : "final",
+      description: d.source === "patient" && d.verification_status !== "verified" ? "Supplied by the patient, not checked by a clinician" : undefined,
       type: { coding: [{ system: systems.document_type, code: d.document_type }], text: d.document_type.replace(/_/g, " ") },
       subject,
       date: d.created_at,

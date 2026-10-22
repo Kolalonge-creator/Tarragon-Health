@@ -3,8 +3,7 @@
 --  A. Quality rules (8.11): a pharmacy is listable only with a verified licence AND a recorded NAFDAC-source attestation; only an admin or
 --     partner manager can attest, through the function; a prescription cannot be routed to an unlisted pharmacy by any door.
 --  B. Verified batch (8.11): only Tarragon staff can set it; a pharmacy cannot mark its own batch; it needs a listable pharmacy.
---  C. Price compare (8.9): the patient sees only listable pharmacies, cheapest complete match first, no price for a different strength;
---     another patient, a clinician, a pharmacist and anon are refused; the output and the function carry no commission or earning (8.16).
+--  C. (Price compare, 8.9, removed by OQ-714: see oq714_remove_patient_price_compare.sql.)
 --  D. (Pharmacist chat, 8.12, is S74's and has its own proof; S54 builds none.)
 --  E. Refill (8.10): the reminder payload names the chosen pharmacy; the patient can read where to collect; nobody else can.
 --  F. No delivery (D5, done by OQ-261): the order table has no delivery column left; an ordinary order still works.
@@ -113,9 +112,6 @@ begin
   perform pg_temp.setf('adm', pg_temp.mkuser(v_org, 'adm', 'admin', 'S54 Admin'));
   perform pg_temp.setf('rx1', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine","dose":"5 mg","quantity":"30 tablets"}]'::jsonb, 'signed'));
   perform pg_temp.setf('rx2', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine","dose":"5 mg","quantity":"30 tablets"},{"drug":"Metformin","dose":"500 mg","quantity":"60 tablets"}]'::jsonb, 'signed'));
-  perform pg_temp.setf('rx4', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Insulin glargine","dose":"100 units/ml","quantity":"5 pens"}]'::jsonb, 'signed'));
-  perform pg_temp.setf('rx5', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Paracetamol","dose":"500 mg","quantity":"20 tablets"}]'::jsonb, 'signed'));
-  perform pg_temp.setf('rx6', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine 5 mg tablets","dose":"5 mg","quantity":"30"}]'::jsonb, 'signed'));
   perform pg_temp.setf('rx3', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine","dose":"2.5 mg","quantity":"30 tablets"}]'::jsonb, 'signed'));
 end $$;
 
@@ -188,8 +184,8 @@ select pg_temp.ck('B', 'B2b ...and it is stamped with who and when', 'true',
   (select (verified_batch_at is not null and verified_batch_by = pg_temp.f('adm'))::text from public.pharmacy_medications where pharmacy_partner_id = pg_temp.f('pA') and strength = '5 mg'));
 select pg_temp.ck('B', 'B3 a batch cannot be verified for an unlisted pharmacy (B has no attestation)', 'ERR:22023',
   pg_temp.q_as(pg_temp.f('adm'), format($q$update public.pharmacy_medications set verified_batch = true where pharmacy_partner_id = %L returning 'x'$q$, pg_temp.f('pB'))));
-select pg_temp.ck('B', 'B4 the patient reads the flag and when, never who', 'true|ERR:42501',
-  (pg_temp.q_as(pg_temp.f('pat'), format($q$select verified_batch::text from public.pharmacy_medications where pharmacy_partner_id = %L and strength = '5 mg'$q$, pg_temp.f('pA'))) = 'true')::text || '|' ||
+select pg_temp.ck('B', 'B4 a patient reads neither the flag nor who set it (the patient read was dropped with the price comparison, OQ-714)', 'ERR:42501|ERR:42501',
+  pg_temp.q_as(pg_temp.f('pat'), format($q$select verified_batch::text from public.pharmacy_medications where pharmacy_partner_id = %L and strength = '5 mg'$q$, pg_temp.f('pA'))) || '|' ||
   pg_temp.q_as(pg_temp.f('pat'), format($q$select verified_batch_by::text from public.pharmacy_medications where pharmacy_partner_id = %L and strength = '5 mg'$q$, pg_temp.f('pA'))));
 
 -- an unrelated edit on a verified line of a pharmacy that has since stopped being listable is never blocked...
@@ -207,34 +203,7 @@ select pg_temp.ck('B', 'B6b ...and that clears the verified flag (the check no l
 update public.pharmacy_medications set price_kobo = 300000 where pharmacy_partner_id = pg_temp.f('pA') and strength = '5 mg';
 select pg_temp.ck('B', 'B7 an admin re-verifies it', 'x', pg_temp.q_as(pg_temp.f('adm'), format($q$update public.pharmacy_medications set verified_batch = true where pharmacy_partner_id = %L and strength = '5 mg' returning 'x'$q$, pg_temp.f('pA'))));
 
--- C. price compare ------------------------------------------------------------------------------------------------------------------------
-select pg_temp.ck('C', 'C1 for a one-item prescription the patient sees only the listable pharmacies, cheapest first (C 2500 then A 3000)', 'S54 Pharmacy C|S54 Pharmacy A',
-  pg_temp.q_as(pg_temp.f('pat'), format($q$select string_agg(partner_name, '|' order by ord) from (select partner_name, row_number() over () ord from public.patient_price_compare(%L)) x$q$, pg_temp.f('rx1'))));
-select pg_temp.ck('C', 'C2 B (unattested), D (expired licence) and every unlisted pharmacy are absent', '0',
-  pg_temp.q_as(pg_temp.f('pat'), format($q$select count(*)::text from public.patient_price_compare(%L) where partner_name ~ '(B no|D expired)'$q$, pg_temp.f('rx1'))));
-select pg_temp.ck('C', 'C3 the total is the matched price; C is flagged low stock; A shows the verified batch', '250000|true|false',
-  pg_temp.q_as(pg_temp.f('pat'), format($q$select total_kobo::text || '|' || any_low_stock::text || '|' || all_verified_batch::text from public.patient_price_compare(%L) where partner_name = 'S54 Pharmacy C'$q$, pg_temp.f('rx1'))));
-select pg_temp.ck('C', 'C4 A (all verified) reads as verified', 'true',
-  pg_temp.q_as(pg_temp.f('pat'), format($q$select all_verified_batch::text from public.patient_price_compare(%L) where partner_name = 'S54 Pharmacy A'$q$, pg_temp.f('rx1'))));
-select pg_temp.ck('C', 'C5 a two-item prescription ranks the pharmacy that supplies both first (C), not the cheaper partial one (A: metformin unavailable but listed)', 'S54 Pharmacy C',
-  pg_temp.q_as(pg_temp.f('pat'), format($q$select partner_name from public.patient_price_compare(%L) limit 1$q$, pg_temp.f('rx2'))));
-select pg_temp.ck('C', 'C6 a strength nobody stocks is never priced from another strength (2.5 mg finds nothing)', '0',
-  pg_temp.q_as(pg_temp.f('pat'), format($q$select count(*)::text from public.patient_price_compare(%L)$q$, pg_temp.f('rx3'))));
-select pg_temp.ck('C', 'C6b a different insulin is never priced (glargine is not aspart)', '0',
-  pg_temp.q_as(pg_temp.f('pat'), format($q$select count(*)::text from public.patient_price_compare(%L)$q$, pg_temp.f('rx4'))));
-select pg_temp.ck('C', 'C6c a price line with no strength is not matched to a prescription that names a strength', '0',
-  pg_temp.q_as(pg_temp.f('pat'), format($q$select count(*)::text from public.patient_price_compare(%L)$q$, pg_temp.f('rx5'))));
-select pg_temp.ck('C', 'C6d a name that carries the strength and a form word still matches (Amlodipine 5 mg tablets finds the same two pharmacies)', '2',
-  pg_temp.q_as(pg_temp.f('pat'), format($q$select count(*)::text from public.patient_price_compare(%L)$q$, pg_temp.f('rx6'))));
-select pg_temp.ck('C', 'C7 another patient is refused', 'ERR:42501', pg_temp.q_as(pg_temp.f('pat2'), format($q$select count(*)::text from public.patient_price_compare(%L)$q$, pg_temp.f('rx1'))));
-select pg_temp.ck('C', 'C8 a clinician is refused (no ranking, no prices for the prescriber)', 'ERR:42501', pg_temp.q_as(pg_temp.f('doc'), format($q$select count(*)::text from public.patient_price_compare(%L)$q$, pg_temp.f('rx1'))));
-select pg_temp.ck('C', 'C9 a pharmacist is refused', 'ERR:42501', pg_temp.q_as(pg_temp.f('phA'), format($q$select count(*)::text from public.patient_price_compare(%L)$q$, pg_temp.f('rx1'))));
-select pg_temp.ck('C', 'C10 anon is refused', 'ERR:42501', pg_temp.anon_q(format($q$select count(*)::text from public.patient_price_compare(%L)$q$, pg_temp.f('rx1'))));
-select pg_temp.ck('C', 'C11 8.16: the function source never names a commission', 'false', (pg_get_functiondef('public.patient_price_compare(uuid)'::regprocedure) ~* 'commission')::text);
-select pg_temp.ck('C', 'C12 8.16: nothing in the patient''s output holds the fixture commission values', 'false',
-  (pg_temp.q_as(pg_temp.f('pat'), format($q$select string_agg(to_jsonb(c)::text, ' ') from public.patient_price_compare(%L) c$q$, pg_temp.f('rx2'))) ~ '(0\.4321|98765|0\.0123|commission)')::text);
-select pg_temp.ck('C', 'C13 the output columns hold no earning', '0',
-  (select count(*)::text from pg_proc p, unnest(p.proargnames) n where p.oid = 'public.patient_price_compare(uuid)'::regprocedure and n ~* '(commission|margin|earn|rate)'));
+-- C. (the patient price comparison was removed by OQ-714, v5 Part C.2; oq714_remove_patient_price_compare.sql proves it is gone.)
 
 -- D. (the pharmacist chat is S74's and has its own proof; S54 builds none.)
 
