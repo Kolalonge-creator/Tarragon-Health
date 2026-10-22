@@ -70,10 +70,10 @@ export function sampleData(sections: DoctorSummaryData["sections"] = [...VISIT_S
     ),
     allergiesConditions: { allergies: [{ allergen: "Penicillin", detail: "rash, moderate", provenance: "patient" }], conditions: ["hypertension", "diabetes"] },
     glucose: buildGlucoseSection([
-      { takenAt: "2026-10-15T06:30:00Z", mmolL: 6.4, context: "fasting", source: "manual", validationStatus: "valid" },
-      { takenAt: "2026-10-13T13:10:00Z", mmolL: 9.8, context: "post_meal", source: "device", validationStatus: "valid" },
-      { takenAt: "2026-10-11T06:40:00Z", mmolL: 7.1, context: "fasting", source: "manual", validationStatus: "valid" },
-      { takenAt: "2026-10-10T06:40:00Z", mmolL: 2.0, context: "random", source: "manual", validationStatus: "rejected" },
+      { takenAt: "2026-10-15T06:30:00Z", mmolL: 6.4, context: "fasting", source: "manual", validationStatus: "valid" }, // band-ok: sample PDF values for the preview, not a threshold
+      { takenAt: "2026-10-13T13:10:00Z", mmolL: 9.8, context: "post_meal", source: "device", validationStatus: "valid" }, // band-ok: sample PDF values for the preview, not a threshold
+      { takenAt: "2026-10-11T06:40:00Z", mmolL: 7.1, context: "fasting", source: "manual", validationStatus: "valid" }, // band-ok: sample PDF values for the preview, not a threshold
+      { takenAt: "2026-10-10T06:40:00Z", mmolL: 2.0, context: "random", source: "manual", validationStatus: "rejected" }, // band-ok: sample PDF values for the preview, not a threshold
     ]),
     labs: buildLabSection(
       [

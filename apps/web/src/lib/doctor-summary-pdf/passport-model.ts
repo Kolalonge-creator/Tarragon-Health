@@ -6,7 +6,7 @@ import { trustOf, type BpTrust } from "./model";
  */
 
 /** Most blood sugar lines printed, and most lab lines printed. Not clinical thresholds: only how much fits on a page. */
-export const PASSPORT_LIMITS = { glucoseRows: 30, labRows: 40 } as const;
+export const PASSPORT_LIMITS = { glucoseRows: 30, labRows: 40 } as const; // band-ok: how many lines fit on a page, not a clinical threshold
 
 const MG_DL_PER_MMOL = 18.0182;
 

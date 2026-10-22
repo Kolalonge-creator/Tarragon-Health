@@ -55,7 +55,7 @@ export interface DoctorSummaryData {
 export type DoctorSummaryResult = { ok: true; data: DoctorSummaryData } | { ok: false; error: string };
 
 /** Row limits for one read. Hitting one is shown on the page (BpSection.capped, symptoms.capped). */
-export const READ_LIMITS = { bpCounted: 2000, bpOther: 500, symptoms: 500, skipped: 500, glucose: 500, labs: 400 } as const;
+export const READ_LIMITS = { bpCounted: 2000, bpOther: 500, symptoms: 500, skipped: 500, glucose: 500, labs: 400 } as const; // band-ok: row limits for one read, not a clinical threshold
 
 export async function loadDoctorSummary(
   supabase: SupabaseClient<Database>,
