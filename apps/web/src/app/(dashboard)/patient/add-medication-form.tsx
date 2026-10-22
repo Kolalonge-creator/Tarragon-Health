@@ -2,6 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import { useAddMedication, useMedications } from "@/lib/queries/medications";
+import { ensureDoseAnchorSlots, useAnchors } from "@/lib/queries/dose-anchors";
+import { createClient } from "@/lib/supabase/client";
+import { defaultsProfile } from "@/lib/medication-schedule/anchor-profile";
+import { AnchorChooser } from "./anchor-chooser";
+import { allTimes, anchorBaseTime, parseScheduleSpec, toStoredSpec, type ResolvedAnchor, type AnchorId, type AnchorProfile } from "@tarragon/medicines";
+import type { Json } from "@tarragon/shared";
 import { useInteractionCheckOpen, useMedicineCatalogue } from "@/lib/queries/medicine-catalogue";
 import { useBrandMap, useDuplicateIngredientCheckOpen, useInteractionRules, useSetNafdacNumber } from "@/lib/queries/medicine-safety";
 import { t } from "@tarragon/i18n";
@@ -101,6 +107,11 @@ export function AddMedicationForm({
   const [refillDate, setRefillDate] = useState("");
   const [scheduleTimes, setScheduleTimes] = useState<string[]>([]);
   const [newTime, setNewTime] = useState("");
+  // S08z: doses tied to the patient's day (a meal, waking, a prayer, bedtime) instead of a clock time. Patient self-add only.
+  const [anchored, setAnchored] = useState<ResolvedAnchor[]>([]);
+  const [anchorDrafts, setAnchorDrafts] = useState<Partial<Record<AnchorId, string>>>({});
+  const anchorsQuery = useAnchors(patientId);
+  const anchorProfile: AnchorProfile = anchorsQuery.data?.profile ?? defaultsProfile();
   const [validationError, setValidationError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   // The allergy list was not readable by this clinician, so the post-add allergy cross-check did not run (INV-10: unknown, not none).
@@ -179,6 +190,8 @@ export function AddMedicationForm({
     setFrequency("");
     setRefillDate("");
     setScheduleTimes([]);
+    setAnchored([]);
+    setAnchorDrafts({});
     setStartedBySpecialist(false);
     setPrescriberName("");
     setPrescriberDocUrl("");
@@ -196,7 +209,66 @@ export function AddMedicationForm({
     setOverrideReason("");
   }
 
+  /**
+   * The stored schedule and the anchor times to save for a medicine tied to the patient's day. The window check and the legacy list of
+   * times use the times the patient typed here, ahead of the ones already saved.
+   */
+  function anchoredSchedule(data: MedicationInput, slotOf: Record<string, string>): { schedule_times: string[]; schedule_spec: Json; anchorTimes: Partial<Record<AnchorId, string>> } | { error: string } {
+    const times = { ...anchorProfile.times };
+    const toSave: Partial<Record<AnchorId, string>> = {};
+    for (const a of anchored) {
+      const typed = anchorDrafts[a.anchor];
+      if (typed !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(typed)) return { error: t("doseanchor.myday.error") };
+      const wanted = typed ?? anchorBaseTime(anchorProfile, a.anchor);
+      if (typed !== undefined || (anchorProfile.times[a.anchor] ?? []).length === 0) {
+        toSave[a.anchor] = wanted;
+        times[a.anchor] = [{ effectiveFrom: "9999-12-31", time: wanted }];
+      }
+    }
+    // The schedule stores the opaque slot, never the anchor's name (religious belief): see packages/medicines anchors.ts.
+    const slots: Record<string, AnchorId> = { ...anchorProfile.slots };
+    for (const [anchor, slot] of Object.entries(slotOf)) slots[slot] = anchor as AnchorId;
+    const parsed = parseScheduleSpec(
+      {
+        kind: "daily",
+        times: data.schedule_times,
+        anchored: anchored.map((a) => ({ slot: slotOf[a.anchor], offsetMinutes: a.offsetMinutes })),
+        startDate: null,
+        endDate: null,
+        foodNote: null,
+        windowMinutes: 0,
+      },
+      { ...anchorProfile, slots, times }
+    );
+    if (!parsed.ok) return { error: t("doseanchor.myday.error") };
+    return { schedule_times: allTimes(parsed.spec), schedule_spec: toStoredSpec(parsed.spec) as unknown as Json, anchorTimes: toSave };
+  }
+
   function submitMedication(data: MedicationInput) {
+    if (source === "patient" && anchored.length > 0) {
+      // A medicine tied to the day needs the patient's opaque slot for each anchor, made by the server.
+      void (async () => {
+        const ensured = await ensureDoseAnchorSlots(createClient(), patientId, anchored.map((a) => a.anchor));
+        if (ensured === null) {
+          setValidationError(t("doseanchor.myday.error"));
+          return;
+        }
+        const built = anchoredSchedule(data, ensured);
+        if ("error" in built) {
+          setValidationError(built.error);
+          return;
+        }
+        sendMedication(data, built);
+      })();
+      return;
+    }
+    sendMedication(data, {});
+  }
+
+  function sendMedication(
+    data: MedicationInput,
+    withAnchors: Partial<{ schedule_times: string[]; schedule_spec: Json; anchorTimes: Partial<Record<AnchorId, string>> }>
+  ) {
     const effectiveSource = specialistFieldsShown ? "specialist" : source;
     // Read before resetForm clears the box; "" means nothing to store.
     const nafdac = source === "patient" ? nafdacNumberToStore(nafdacTyped) : null;
@@ -205,6 +277,7 @@ export function AddMedicationForm({
     addMedication.mutate(
       {
         ...data,
+        ...withAnchors,
         patientId,
         source: effectiveSource,
         safety: source === "clinician" ? { allergiesConfirmed, overrideReason } : undefined,
@@ -638,6 +711,9 @@ export function AddMedicationForm({
               onChange={(event) => setRefillDate(event.target.value)}
             />
           </div>
+          {source === "patient" ? (
+            <AnchorChooser profile={anchorProfile} value={anchored} onChange={setAnchored} drafts={anchorDrafts} onDrafts={setAnchorDrafts} />
+          ) : null}
           <div className="space-y-1.5">
             <Label htmlFor="new_time">Dose times</Label>
             <div className="flex flex-wrap gap-2">
