@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useMedications, useTodaysDoseLogs, useLogDose, todayIsoDate } from "@/lib/queries/medications";
-import { buildTodaysDoseChecklist, type DoseStatus } from "@/lib/medication-schedule/checklist";
+import { useAnchors } from "@/lib/queries/dose-anchors";
+import { anchorPhrase, t } from "@tarragon/i18n";
+import { buildTodaysDoseChecklist, hasAnchoredDoses, type DoseStatus } from "@/lib/medication-schedule/checklist";
 import { MISSED_REASONS } from "@/lib/validation/medication-logs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,12 +51,17 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
   const { data: medications, isLoading: medsLoading } = useMedications(patientId);
   const { data: logs, isLoading: logsLoading } = useTodaysDoseLogs(patientId);
   const logDose = useLogDose();
+  // S08z: doses tied to the patient's day resolve against their own anchor times and day shifts.
+  const { data: anchors } = useAnchors(patientId);
   // Key: `${medicationId}-${time}` of the row currently asking for a missed-reason.
   const [reasonPromptFor, setReasonPromptFor] = useState<string | null>(null);
 
   const isLoading = medsLoading || logsLoading;
+  // A dose tied to the patient's day is shown only once their own times have been read: at the proposed starting times it could show a
+  // time that is not theirs, and an answer logged against it would sit on a slot the server does not hold.
+  const anchoredWaiting = medications !== undefined && hasAnchoredDoses(medications) && anchors?.loaded !== true;
   const checklist =
-    medications && logs ? buildTodaysDoseChecklist(medications, logs) : [];
+    medications && logs && !anchoredWaiting ? buildTodaysDoseChecklist(medications, logs, undefined, anchors?.profile) : [];
 
   function log(
     medicationId: string,
@@ -85,7 +92,12 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
-        {!isLoading && checklist.length === 0 && (
+        {!isLoading && anchoredWaiting && (
+          <p role="status" className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+            {t("doseanchor.today_waiting")}
+          </p>
+        )}
+        {!isLoading && !anchoredWaiting && checklist.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-6 text-center">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-soft-sage/60 dark:bg-brand-green/15">
               <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest/60 dark:text-brand-green-bright/70" strokeWidth={2} aria-hidden />
@@ -113,7 +125,10 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
                         </span>
                         <Badge variant={badge.variant}>{badge.label}</Badge>
                       </div>
-                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{item.drugName}</p>
+                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                        {item.drugName}
+                        {item.anchored ? ` · ${anchorPhrase(item.anchored.anchor, item.anchored.offsetMinutes)}` : ""}
+                      </p>
                     </div>
                     {medication && (
                       <div className="flex flex-wrap gap-2">

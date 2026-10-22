@@ -22,6 +22,10 @@ export interface TrendPoint {
   flag: string | null;
   source: "lab_result" | "legacy_report" | string;
   laboratory: string | null;
+  /** The second source behind a collapsed duplicate (DUP-1): the same value reached the record by two routes and is shown once. */
+  alsoFrom?: string | null;
+  /** True when another source reports the same test for the same time with a DIFFERENT value or unit. Both values are listed; none is chosen. */
+  disagrees?: boolean;
 }
 
 export interface TrendTarget {
@@ -35,6 +39,8 @@ export interface TrendSeries {
   points: TrendPoint[];
   unitMixed: boolean;
   target: TrendTarget | null;
+  /** True when any point disagrees with another source (DUP-1). */
+  disputed?: boolean;
 }
 
 function num(v: unknown): number | null {
@@ -68,6 +74,8 @@ export function parseTrend(json: unknown): TrendSeries | null {
       flag: str(r.flag),
       source: str(r.source) ?? "lab_result",
       laboratory: str(r.laboratory),
+      alsoFrom: str(r.also_from),
+      disagrees: r.disagrees === true,
     });
   }
   points.sort((a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime());
@@ -82,7 +90,7 @@ export function parseTrend(json: unknown): TrendSeries | null {
       if (min !== null || max !== null) target = { min, max, condition: str(r.condition) };
     }
   }
-  return { code: typeof j.code === "string" ? j.code : "", points, unitMixed: j.unit_mixed === true, target };
+  return { code: typeof j.code === "string" ? j.code : "", points, unitMixed: j.unit_mixed === true, target, disputed: j.disputed === true || points.some((p) => p.disagrees === true) };
 }
 
 export function unitKey(unit: string | null): string {

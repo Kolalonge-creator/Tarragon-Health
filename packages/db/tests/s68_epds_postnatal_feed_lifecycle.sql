@@ -230,7 +230,7 @@ begin
   perform pg_temp.ck('an unrelated patient reads no feeds', '0', pg_temp.q_as(v_other, format('select count(*)::text from public.breastfeeding_feed_log where patient_id = %L', v_mum)));
   perform pg_temp.ck('a plain view caregiver reads no feeds', '0', pg_temp.q_as(v_cg, format('select count(*)::text from public.breastfeeding_feed_log where patient_id = %L', v_mum)));
   perform pg_temp.ck('a Care Circle supporter reads no feeds', '0', pg_temp.q_as(v_sup, format('select count(*)::text from public.breastfeeding_feed_log where patient_id = %L', v_mum)));
-  perform pg_temp.ck('the care team reads the feeds', '1', pg_temp.q_as(v_clin, format('select count(*)::text from public.breastfeeding_feed_log where patient_id = %L', v_mum)));
+  perform pg_temp.ck('the care team reads the feeds (the formula feed, and the far-future one clamped to now)', '2', pg_temp.q_as(v_clin, format('select count(*)::text from public.breastfeeding_feed_log where patient_id = %L', v_mum)));
   perform pg_temp.ck('anon reads nothing', 'permission denied for table breastfeeding_feed_log', pg_temp.try_anon('select 1 from public.breastfeeding_feed_log limit 1'));
   -- a child that is not hers
   v_child := pg_temp.mkchild(v_org, v_other, 'someone_elses_child', current_date - 60, 'male');

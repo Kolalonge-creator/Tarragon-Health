@@ -98,7 +98,7 @@ begin
   if v_uid is not null then
     new.recorded_by := v_uid;
     new.source := case when v_uid <> new.patient_id
-                        and not exists (select 1 from public.profile_access pa where pa.profile_id = new.patient_id and pa.grantee_user_id = v_uid)
+                        and not exists (select 1 from public.profile_access pa where pa.profile_id = new.patient_id and pa.grantee_user_id = v_uid and (pa.expires_at is null or pa.expires_at > now()))
                         and private.staff_may_write(new.patient_id, v_org, 'medical_history'::public.care_access_category)
                        then 'clinician_recorded' else 'caregiver' end;
   end if;
@@ -256,7 +256,7 @@ begin
     new.recorded_by := old.recorded_by; new.source := old.source;
   end if;
   if new.child_profile_id is not null and v_uid is not null and not private.is_org_staff(new.organisation_id) and not exists (
-       select 1 from public.profile_access pa where pa.profile_id = new.child_profile_id and pa.grantee_user_id = new.patient_id and pa.permission_level = 'manage') then
+       select 1 from public.profile_access pa where pa.profile_id = new.child_profile_id and pa.grantee_user_id = new.patient_id and pa.permission_level = 'manage' and (pa.expires_at is null or pa.expires_at > now())) then
     raise exception 'The child profile is not one you manage' using errcode = '42501';
   end if;
   return new;

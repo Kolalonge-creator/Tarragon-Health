@@ -21,6 +21,8 @@ export type SectionId =
   | "healthSummary"
   | "timeline"
   | "myHealth"
+  | "documents"
+  | "dataExchange"
   | "biomarkers"
   | "healthHistory"
   | "symptomJournal"
@@ -160,6 +162,18 @@ export const SECTIONS: SectionDef[] = [
     id: "biomarkers",
     label: "Results over time",
     icon: "stats-chart-outline",
+    group: "Your health",
+  },
+  {
+    id: "documents",
+    label: "Photos of documents",
+    icon: "camera-outline",
+    group: "Your health",
+  },
+  {
+    id: "dataExchange",
+    label: "Records from other places",
+    icon: "swap-horizontal-outline",
     group: "Your health",
   },
   {

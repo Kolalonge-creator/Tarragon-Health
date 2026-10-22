@@ -1,7 +1,7 @@
-import { View } from "react-native";
+import { Switch, View } from "react-native";
 import { t } from "@tarragon/i18n";
 import { failedLoadMessage, staleNotice } from "@/lib/passport-format";
-import { space } from "@/ui/design";
+import { space, useTheme } from "@/ui/design";
 import { AppText, Button, InlineAlert } from "@/ui/kit";
 
 /** Shown above a copy that could not be refreshed: says why, and when the copy was saved. Never claims the copy is current. */
@@ -33,6 +33,24 @@ export function PassportHeader({ title, description }: { title: string; descript
           {description}
         </AppText>
       ) : null}
+    </View>
+  );
+}
+
+/** A labelled on/off row: the label is read with the switch, the hint (if any) after it, and the row is at least 48 pt tall. */
+export function ToggleRow({ label, hint, value, onChange }: { label: string; hint?: string; value: boolean; onChange: (next: boolean) => void }) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md, minHeight: 48 }}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <AppText variant="body">{label}</AppText>
+        {hint ? (
+          <AppText variant="caption" tone="textMuted">
+            {hint}
+          </AppText>
+        ) : null}
+      </View>
+      <Switch value={value} onValueChange={onChange} accessibilityLabel={label} accessibilityHint={hint} trackColor={{ true: colors.brand, false: colors.border }} />
     </View>
   );
 }
