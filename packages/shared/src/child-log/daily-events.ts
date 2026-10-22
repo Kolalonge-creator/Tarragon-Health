@@ -38,10 +38,14 @@ export function cleanCaregiverLabel(raw: string | null | undefined, settings: Ch
   return cleaned.length > 0 ? cleaned : null;
 }
 
-/** An entry cannot be dated in the future (a small clock skew is allowed). */
-export function eventTimeOk(occurredAtIso: string, nowMs: number, skewMinutes = 5): boolean {
+/**
+ * A phone clock that runs fast must never lose a tap. The database no longer refuses a future time (a CHECK did, and the outbox treats a check
+ * violation as final): it CLAMPS occurred_at to its own now() and keeps the phone's claim in client_recorded_at. This mirrors that clamp for
+ * display of an entry that has not been sent yet. A time that cannot be read is treated as "now".
+ */
+export function clampEventTime(occurredAtIso: string, nowMs: number): string {
   const t = Date.parse(occurredAtIso);
-  return Number.isFinite(t) && t <= nowMs + skewMinutes * 60_000;
+  return new Date(Number.isFinite(t) ? Math.min(t, nowMs) : nowMs).toISOString();
 }
 
 /** Drops every row that a later correcting event points at, so the timeline never shows both. */

@@ -22,7 +22,7 @@ import { useLegacyColors } from "@/ui/design";
 import { PrivateSection } from "@/ui/private-section";
 import { Card, ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
 import { FeedLogCardMobile, LifecycleCardMobile } from "@/screens/sections/maternal-child-card";
-import { ChildGrowth, CrisisLead, resultOf } from "./child-growth";
+import { ChildGrowth, CrisisLead, latestResultOf } from "./child-growth";
 import { ChildTimeline } from "./child-timeline";
 import { ChildVaccines } from "./child-vaccines";
 import { OneTapRow } from "./one-tap-row";
@@ -87,8 +87,7 @@ export function ChildLogScreen({ userId, onNavigate }: { userId: string; onNavig
       setVaccines(v.ok ? v.data : null); setVaccinesFailed(!v.ok);
       setPending(p);
       if (g.ok) {
-        const last = g.data.length > 0 ? g.data[g.data.length - 1]! : null;
-        const severe = last ? childCrisisLead(resultOf(last)) : false;
+        const severe = childCrisisLead(latestResultOf(g.data));
         void rememberChildCrisis(childId, severe);
         setKnownCrisis((prev) => {
           const next = new Set(prev);
@@ -124,9 +123,8 @@ export function ChildLogScreen({ userId, onNavigate }: { userId: string; onNavig
     });
   }, [events, growth, vaccines]);
 
-  const latestGrowth = growth && growth.length > 0 ? growth[growth.length - 1]! : null;
   const readOk = growth !== null && !growthFailed;
-  const crisis = childId ? crisisToShow(readOk, latestGrowth ? childCrisisLead(resultOf(latestGrowth)) : false, knownCrisis.has(childId)) : false;
+  const crisis = childId ? crisisToShow(readOk, growth ? childCrisisLead(latestResultOf(growth)) : false, knownCrisis.has(childId)) : false;
 
   if (children === undefined) return <Card><MutedText>{t("common.try_again")}</MutedText></Card>;
   if (children === null) return <Card><ErrorText>{t("cdl.log.failed")}</ErrorText></Card>;

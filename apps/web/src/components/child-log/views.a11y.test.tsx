@@ -90,7 +90,7 @@ describe("TimelineList", () => {
 
 describe("GrowthBandsView", () => {
   it("names the latest band in words, draws one marker per point with a shape, has a table alternative and no axe violations", async () => {
-    const { container } = await expectNoA11yViolations(<GrowthBandsView rows={rows} weightPoints={pts((r) => r.weightKg ?? 0)} heightPoints={pts((r) => r.heightCm ?? 0)} />);
+    const { container } = await expectNoA11yViolations(<GrowthBandsView rows={rows} latest={rows[rows.length - 1]!.result} weightPoints={pts((r) => r.weightKg ?? 0)} heightPoints={pts((r) => r.heightCm ?? 0)} />);
     expect(screen.getAllByText("Talk to your care team").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByRole("img", { name: /weight in kilograms/i })).toBeTruthy();
     expect(container.querySelectorAll("svg path")).toHaveLength(6);
@@ -102,9 +102,17 @@ describe("GrowthBandsView", () => {
     expect(container.textContent).not.toMatch(/\b(lb|lbs|oz|inch)/i);
   });
   it("says so when a measurement could not be read, instead of calling it fine", () => {
-    render(<GrowthBandsView rows={[{ id: "x", measuredAt: "2026-10-20T00:00:00Z", weightKg: 5, heightCm: null, result: { kind: "no_reference" } }]} weightPoints={[]} heightPoints={[]} />);
+    render(<GrowthBandsView rows={[{ id: "x", measuredAt: "2026-10-20T00:00:00Z", weightKg: 5, heightCm: null, result: { kind: "no_reference" } }]} latest={{ kind: "no_reference" }} weightPoints={[]} heightPoints={[]} />);
     expect(screen.getByText(/could not read this measurement/i)).toBeTruthy();
     expect(screen.queryByText("Growing well")).toBeNull();
+  });
+});
+
+describe("GrowthBandsView: re-check note beside a routed band", () => {
+  it("shows the band AND the check-the-measurement line when the database flagged the value implausible but routed it", () => {
+    render(<GrowthBandsView rows={[]} latest={{ kind: "band", band: "talk_to_care_team", crisis: false, recheck: true }} weightPoints={[]} heightPoints={[]} />);
+    expect(screen.getByText("Talk to your care team")).toBeTruthy();
+    expect(screen.getByText(/check the measurement/i)).toBeTruthy();
   });
 });
 

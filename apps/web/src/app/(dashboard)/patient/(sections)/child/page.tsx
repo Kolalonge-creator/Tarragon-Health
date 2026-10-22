@@ -39,7 +39,7 @@ export default async function ChildLogPage({ searchParams }: { searchParams: Pro
 
   const rows = (grants ?? []).flatMap((g) => (g.profile ? [{ level: g.permission_level, p: g.profile }] : []));
   const choices = childChoices(
-    rows.map(({ level, p }) => ({ profileId: p.id, fullName: p.full_name, permissionLevel: level, isDependentAccount: p.is_dependent_account === true, dependentKind: p.dependent_kind })),
+    rows.map(({ level, p }) => ({ profileId: p.id, fullName: p.full_name, permissionLevel: level, isDependentAccount: p.is_dependent_account === true, dependentKind: p.dependent_kind, dateOfBirth: p.date_of_birth ?? null })),
   );
   const state = pickerState(choices, requested ?? null);
 

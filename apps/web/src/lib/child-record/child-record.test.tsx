@@ -63,6 +63,15 @@ describe("a severe result leads the record, even when the value was flagged impl
     expect(data.latestBand).toBe("talk_to_care_team");
     expect(allText(ChildRecordDocument({ data }))).toMatch(/nearest clinic now/);
   });
+  it("a weight-only re-weigh after the severe row does not clear the lead on the page (the class is carried forward)", () => {
+    const reweigh: GrowthSourceRow = { id: "g10", measured_at: "2026-04-10T09:00:00Z", weight_kg: 4.5, height_cm: null, weight_for_age_z: -1, height_for_age_z: null, weight_for_height_z: null, nutrition_class: "none", plausibility_flags: [], muac_mm: null, bilateral_oedema: false };
+    const data = buildChildRecord({ ...input, growth: [{ ...severe, muac_mm: 105, bilateral_oedema: false }, reweigh] });
+    expect(data.crisis).toBe(true);
+  });
+  it("a MUAC 118 mm moderate row flagged implausible keeps talk to your care team on the page", () => {
+    const moderate: GrowthSourceRow = { ...severe, nutrition_class: "moderate_acute", muac_mm: 118 };
+    expect(buildChildRecord({ ...input, growth: [moderate] }).latestBand).toBe("talk_to_care_team");
+  });
   it("no lead when nothing severe", () => {
     expect(buildChildRecord(input).crisis).toBe(false);
     expect(allText(ChildRecordDocument({ data: buildChildRecord(input) }))).not.toMatch(/nearest clinic now/);

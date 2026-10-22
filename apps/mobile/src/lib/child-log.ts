@@ -58,7 +58,8 @@ export async function loadChildren(userId: string): Promise<ChildDetail[] | null
   if (error || !data) return null;
   const rows = data.flatMap((row) => (row.profile ? [{ level: row.permission_level, p: row.profile }] : []));
   const choices = childChoices(
-    rows.map(({ level, p }) => ({ profileId: p.id, fullName: p.full_name, permissionLevel: level, isDependentAccount: p.is_dependent_account === true, dependentKind: p.dependent_kind })),
+    rows.map(({ level, p }) => ({ profileId: p.id, fullName: p.full_name, permissionLevel: level, isDependentAccount: p.is_dependent_account === true, dependentKind: p.dependent_kind, dateOfBirth: p.date_of_birth ?? null })),
+    new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10),
   );
   return choices.map((c) => {
     const p = rows.find((r) => r.p.id === c.profileId)?.p;
@@ -307,6 +308,8 @@ export interface GrowthRow {
   weightForAgeZ: number | null;
   heightForAgeZ: number | null;
   weightForHeightZ: number | null;
+  muacMm: number | null;
+  bilateralOedema: boolean;
   nutritionClass: "severe_acute" | "moderate_acute" | "none" | null;
   implausible: boolean;
   referenceVersion: string | null;
@@ -315,7 +318,7 @@ export interface GrowthRow {
 export async function loadChildGrowth(childId: string): Promise<QueryResult<GrowthRow[]>> {
   const { data, error } = await supabase
     .from("child_growth_measurements")
-    .select("id, measured_at, weight_kg, height_cm, weight_for_age_z, height_for_age_z, weight_for_height_z, nutrition_class, plausibility_flags, reference_version")
+    .select("id, measured_at, weight_kg, height_cm, weight_for_age_z, height_for_age_z, weight_for_height_z, muac_mm, bilateral_oedema, nutrition_class, plausibility_flags, reference_version")
     .eq("patient_id", childId)
     .order("measured_at", { ascending: true });
   if (error || !data) return { ok: false, error: "failed" };
@@ -329,6 +332,8 @@ export async function loadChildGrowth(childId: string): Promise<QueryResult<Grow
       weightForAgeZ: r.weight_for_age_z,
       heightForAgeZ: r.height_for_age_z,
       weightForHeightZ: r.weight_for_height_z,
+      muacMm: r.muac_mm,
+      bilateralOedema: r.bilateral_oedema === true,
       nutritionClass: r.nutrition_class === "severe_acute" || r.nutrition_class === "moderate_acute" || r.nutrition_class === "none" ? r.nutrition_class : null,
       implausible: Array.isArray(r.plausibility_flags) && r.plausibility_flags.length > 0,
       referenceVersion: r.reference_version,

@@ -34,29 +34,52 @@ export interface GrowthPointInput {
 export type GrowthBandResult =
   | { readonly kind: "check_measurement" }
   | { readonly kind: "no_reference" }
-  | { readonly kind: "band"; readonly band: GrowthBand; readonly crisis: boolean };
+  /** `recheck`: the database also flagged a value as implausible, so the screen adds "please check the measurement" beside the band. */
+  | { readonly kind: "band"; readonly band: GrowthBand; readonly crisis: boolean; readonly recheck: boolean };
 
 /**
  * One point, one band: the worst of the z-scores that exist. The database's own acute-nutrition class (MUAC, swelling, weight-for-height) always
  * wins: severe is "talk to your care team" AND a crisis, which the screen must lead with as "go to the nearest clinic now" and a call button;
- * moderate is "talk to your care team" without the crisis lead. No z-score at all means the chart could not read it: the screen says that,
- * it never invents "growing well".
+ * moderate is "talk to your care team" without the crisis lead. The database KEEPS an implausible value and still routes it (S68d), so both classes
+ * are read BEFORE the implausible branch: an implausible value only becomes "check the measurement" when the database routed nothing from it.
+ * No z-score at all means the chart could not read it: the screen says that, it never invents "growing well".
  */
 export function bandForPoint(p: GrowthPointInput, rules: GrowthBandRules = growthBandRules().rules): GrowthBandResult {
   const crisis = p.nutritionClass === "severe_acute";
-  // The database keeps an implausible value and STILL ROUTES it (S68d). A severe class therefore leads even when the value looks like a slip:
-  // the screen asks for a re-check and tells the person to go to the clinic. The crisis is never hidden behind "check the measurement".
-  if (p.implausible) return crisis ? { kind: "band", band: "talk_to_care_team", crisis: true } : { kind: "check_measurement" };
+  const moderate = p.nutritionClass === "moderate_acute";
+  if (p.implausible) {
+    if (crisis || moderate) return { kind: "band", band: "talk_to_care_team", crisis, recheck: true };
+    return { kind: "check_measurement" };
+  }
   const zs = [p.weightForAgeZ, p.heightForAgeZ, p.weightForHeightZ].filter((z): z is number => z !== null && Number.isFinite(z));
-  if (zs.length === 0 && p.nutritionClass !== "moderate_acute" && !crisis) return { kind: "no_reference" };
+  if (zs.length === 0 && !moderate && !crisis) return { kind: "no_reference" };
   const worst = zs.length === 0 ? 0 : Math.max(...zs.map(Math.abs));
   let band: GrowthBand = worst <= rules.growing_well_max_abs_z ? "growing_well" : worst <= rules.keep_an_eye_max_abs_z ? "keep_an_eye_on" : "talk_to_care_team";
-  if (crisis || p.nutritionClass === "moderate_acute") band = "talk_to_care_team";
-  return { kind: "band", band, crisis };
+  if (crisis || moderate) band = "talk_to_care_team";
+  return { kind: "band", band, crisis, recheck: false };
 }
 
-/** The result for the most recent measurement in a series, or null for an empty series. */
-export function latestBand(points: readonly (GrowthPointInput & { readonly measuredAt: string })[], rules?: GrowthBandRules): GrowthBandResult | null {
-  const last = [...points].sort((a, b) => Date.parse(b.measuredAt) - Date.parse(a.measuredAt))[0];
-  return last ? bandForPoint(last, rules) : null;
+export type GrowthSeriesRow = GrowthPointInput & {
+  readonly measuredAt: string;
+  readonly muacMm?: number | null;
+  readonly bilateralOedema?: boolean;
+};
+
+/** A row carries a nutrition-relevant reading when the database had something to classify: arm measurement, swelling, or weight-for-height. */
+export function carriesNutritionReading(r: GrowthSeriesRow): boolean {
+  return (r.muacMm !== null && r.muacMm !== undefined) || r.bilateralOedema === true || r.weightForHeightZ !== null;
+}
+
+/**
+ * The result for the most recent measurement, with the acute-nutrition class CARRIED FORWARD. S68d classifies each row on its own and a row with no
+ * arm measurement, swelling or weight-for-height (a weight-only re-weigh) is stored as "none", which is "nothing to classify", not "recovered". So the
+ * class used is the latest row that carries a nutrition-relevant reading; a weight-only row cannot clear a severe or moderate result. Shared by the
+ * phone, the web and the PDF so all three lead the same way.
+ */
+export function latestBand(points: readonly GrowthSeriesRow[], rules?: GrowthBandRules): GrowthBandResult | null {
+  const sorted = [...points].sort((a, b) => Date.parse(b.measuredAt) - Date.parse(a.measuredAt));
+  const last = sorted[0];
+  if (!last) return null;
+  const carrier = carriesNutritionReading(last) ? last : sorted.find(carriesNutritionReading);
+  return bandForPoint(carrier && carrier !== last ? { ...last, nutritionClass: carrier.nutritionClass } : last, rules);
 }

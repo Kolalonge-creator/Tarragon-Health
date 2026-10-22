@@ -7,6 +7,8 @@
  */
 export interface ChildGrant {
   permissionLevel: "view" | "manage";
+  /** profile_access.expires_at: an expired grant is no grant (OQ-192: every access helper checks it). */
+  expiresAt?: string | null;
   categories: readonly string[];
   /** The child's profile is a minor_child dependent and is under 18. */
   childIsMinorDependant: boolean;
@@ -14,9 +16,10 @@ export interface ChildGrant {
 
 export const EXPORT_CATEGORIES = ["medical_history", "vaccinations"] as const;
 
-export function mayPrintChildRecord(userId: string, childId: string, grant: ChildGrant | null): boolean {
+export function mayPrintChildRecord(userId: string, childId: string, grant: ChildGrant | null, now: Date = new Date()): boolean {
   if (userId === childId) return true;
   if (!grant) return false;
+  if (grant.expiresAt && Date.parse(grant.expiresAt) <= now.getTime()) return false;
   // A manage grant over a minor stands in for the child (every category). It does not once the child is 18 or more.
   if (grant.permissionLevel === "manage" && grant.childIsMinorDependant) return true;
   return EXPORT_CATEGORIES.every((c) => grant.categories.includes(c));
