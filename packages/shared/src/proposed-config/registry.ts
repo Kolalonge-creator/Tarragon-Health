@@ -7366,7 +7366,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-22",
-    source: "docs/design/S59c.md section 2; supabase/migrations/20261022115652_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-01",
+    source: "docs/design/S59c.md section 2; supabase/migrations/20261022233226_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-01",
   },
   {
     key: "symptom.describe_synonyms",
@@ -7538,7 +7538,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-22",
-    source: "docs/design/S59c.md section 3; supabase/migrations/20261022115652_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-02",
+    source: "docs/design/S59c.md section 3; supabase/migrations/20261022233226_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-02",
   },
   {
     key: "symptom.result_explainer",
@@ -7749,7 +7749,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-22",
-    source: "docs/design/S59c.md section 4; supabase/migrations/20261022115652_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-03",
+    source: "docs/design/S59c.md section 4; supabase/migrations/20261022233226_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-03",
   },
   {
     key: "symptom.safety_net",
@@ -7808,6 +7808,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-22",
-    source: "docs/design/S59c.md section 5; supabase/migrations/20261022115652_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-04",
+    source: "docs/design/S59c.md section 5; supabase/migrations/20261022233226_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-04",
   },
 ];
