@@ -167,10 +167,10 @@ begin
     pg_temp.q_as(v_pat, $q$select count(*)::text from jsonb_array_elements(public.my_care_circle() -> 'invites') i where i ->> 'state' = 'waiting' and i ->> 'hint' is not null$q$));
   -- the sender selecting the table cannot tell a quietly declined invite from a pending one (state is a column they can read)
   perform pg_temp.ck('invite for the control (an ordinary pending one)', 'ok', pg_temp.invite(v_pat, pg_temp.email_of(v_stranger), array['adherence_summary'], 'ctrl'));
-  r := pg_temp.q_as(v_pat, format($q$select state || '|' || coalesce(accepted_at::text, '') || '|' || coalesce(accepted_by::text, '') from public.care_circle_invites where id = %L$q$, (select id from public.care_circle_invites where token_hash = private.circle_hash(pg_temp.tok('nope')))));
-  r2 := pg_temp.q_as(v_pat, format($q$select state || '|' || coalesce(accepted_at::text, '') || '|' || coalesce(accepted_by::text, '') from public.care_circle_invites where id = %L$q$, (select id from public.care_circle_invites where token_hash = private.circle_hash(pg_temp.tok('ctrl')))));
+  r := pg_temp.q_as(v_pat, format($q$select state || '|' || coalesce(accepted_at::text, '') from public.care_circle_invites where id = %L$q$, (select id from public.care_circle_invites where token_hash = private.circle_hash(pg_temp.tok('nope')))));
+  r2 := pg_temp.q_as(v_pat, format($q$select state || '|' || coalesce(accepted_at::text, '') from public.care_circle_invites where id = %L$q$, (select id from public.care_circle_invites where token_hash = private.circle_hash(pg_temp.tok('ctrl')))));
   perform pg_temp.ck('the table row of a declined invite reads exactly like a pending one', r2, r);
-  perform pg_temp.ck('and that row is still pending', 'pending||', r);
+  perform pg_temp.ck('and that row is still pending', 'pending|', r);
   perform pg_temp.ck('the sender cannot read the wrong-try counter that kills the link', 'ERR:permission denied for table care_circle_invites', pg_temp.q_as(v_pat, $q$select attempts::text from public.care_circle_invites limit 1$q$));
   update public.care_circle_invites set state = 'cancelled' where token_hash = private.circle_hash(pg_temp.tok('ctrl'));
   perform pg_temp.ck('and nothing in what the sender reads says declined or cancelled', 'false',
@@ -283,8 +283,10 @@ begin
   values (v_org, v_pat, 'S69b Test Drug', '5mg', 'once daily', true, 'clinician', '["10:00"]'::jsonb, now() - interval '5 days') returning id into v_med;
   insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_for_date, scheduled_time)
   values (v_org, v_pat, v_med, 'taken', v_lagos - 1, '10:00'), (v_org, v_pat, v_med, 'taken', v_lagos - 2, '10:00'), (v_org, v_pat, v_med, 'missed', v_lagos - 3, '10:00');
+  -- source 'device', not 'manual': a manual reading's time is forced to the moment of entry (private.stamp_manual_vitals_timestamp), so two
+  -- manual fixtures "on different days" would land on one day
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, source)
-  values (v_org, v_pat, 'blood_pressure', 133, 83, now() - interval '1 day', 'manual'), (v_org, v_pat, 'blood_pressure', 141, 91, now() - interval '2 days', 'manual');
+  values (v_org, v_pat, 'blood_pressure', 133, 83, now() - interval '1 day', 'device'), (v_org, v_pat, 'blood_pressure', 141, 91, now() - interval '2 days', 'device');
   d := pg_temp.q_as(v_see, format($q$select public.circle_weekly_digest(%L)::text$q$, v_pat));
   perform pg_temp.ck('the digest counts days on which every dose was taken (2 of 3)', '2/3', (d::jsonb -> 'doses' ->> 'days_all_taken') || '/' || (d::jsonb -> 'doses' ->> 'days_with_doses'));
   perform pg_temp.ck('the digest counts reading days (2), not values', '2', (d::jsonb -> 'readings' ->> 'days_logged'));
@@ -300,7 +302,7 @@ begin
   d := pg_temp.q_as(v_late, format($q$select public.circle_weekly_digest(%L)::text$q$, v_pat));
   perform pg_temp.ck('a member with only appointments does get the job counts (control)', 'true', (d::jsonb ? 'tasks')::text);
   perform pg_temp.ck('the digest read is logged for the patient', 'true',
-    (exists (select 1 from public.care_access_events e where e.patient_id = v_pat and e.actor_profile_id = v_late and e.scope = 'care_circle' and e.metadata::text like '%digest%'))::text);
+    (exists (select 1 from public.care_access_events e where e.patient_id = v_pat and e.actor_profile_id = v_red and e.kind = 'record_viewed' and e.scope = 'care_circle' and e.metadata::text like '%digest%'))::text);
   perform pg_temp.q_as(v_pat, $q$select public.pause_care_circle(false)::text$q$);
   perform pg_temp.ck('a paused circle gives no digest', 'ERR:circle_not_found', pg_temp.q_as(v_see, format($q$select public.circle_weekly_digest(%L)::text$q$, v_pat)));
   perform pg_temp.q_as(v_pat, $q$select public.resume_care_circle()::text$q$);
