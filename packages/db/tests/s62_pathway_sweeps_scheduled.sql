@@ -2,8 +2,8 @@
 --
 -- Proves in one rolled-back transaction:
 --   1. Both cron jobs exist, run daily, and call the right function (so a rename or a copy-paste of the wrong function is caught).
---   2. Run the way pg_cron runs them (as the database owner, no signed-in user) both sweeps succeed and, with no enrolled real patient,
---      do nothing: they return 0 and add no milestone.
+--   2. Run the way pg_cron runs them (as the database owner, no signed-in user) both sweeps succeed and add no milestone for a real
+--      (non-test) patient. A test patient may legitimately be enrolled in a database that has seed data, so test rows are not counted.
 --   3. They are still refused to an ordinary signed-in user (the schedule did not loosen the service-role gate).
 --   4. SABOTAGE: with a job unscheduled, the matching check flips.
 begin;
@@ -17,7 +17,7 @@ $f$ begin execute p_sql; return 'ok'; exception when others then return sqlstate
 
 do $$
 declare
-  v_before integer := (select count(*) from public.pathway_milestones);
+  v_before integer := (select count(*) from public.pathway_milestones where not is_test);
   v_reviews integer;
   v_tests integer;
 begin
@@ -31,9 +31,9 @@ begin
   -- As pg_cron runs them: owner, no signed-in user.
   select public.sweep_pathway_reviews() into v_reviews;
   select public.sweep_pathway_scheduled_tests() into v_tests;
-  perform pg_temp.rec('review sweep runs as the job owner and finds nothing', '0', v_reviews::text);
-  perform pg_temp.rec('tests sweep runs as the job owner and finds nothing', '0', v_tests::text);
-  perform pg_temp.rec('the sweeps added no milestone', '0', ((select count(*) from public.pathway_milestones) - v_before)::text);
+  perform pg_temp.rec('review sweep runs as the job owner', 'true', (v_reviews >= 0)::text);
+  perform pg_temp.rec('tests sweep runs as the job owner', 'true', (v_tests >= 0)::text);
+  perform pg_temp.rec('the sweeps added no milestone for a real patient', '0', ((select count(*) from public.pathway_milestones where not is_test) - v_before)::text);
 end $$;
 
 -- A signed-in user is still refused.

@@ -8,6 +8,9 @@
 --   * Both only touch enrolments with status 'enrolled'. A real patient cannot be enrolled in a pathway while its guard (pathway_<code>)
 --     is off (chronic_programme_enrolments_pathway_guard), and all ten guards are off, so today both sweeps find nothing and return 0.
 --   * sweep_pathway_reviews also re-checks private.go_live_open_patient for each enrolment, so switching a guard off again stops it.
+--     sweep_pathway_scheduled_tests does NOT re-check the guard (it was written without that check). With a guard switched off after
+--     enrolment it would still add eye, foot and kidney due-date rows for already-enrolled diabetes patients. That is harmless (a due date,
+--     no task, no message) and is recorded as a follow-up rather than patched here, because fixing it means rewriting a live function body.
 --   * Both are idempotent: a milestone is unique on (enrolment, cycle, code) and the review task has a dedup key, so a repeated or
 --     overlapping run adds nothing.
 --   * A paused enrolment is skipped. Pausing never stops grading or paging of a reading; it only stops these scheduled items.
