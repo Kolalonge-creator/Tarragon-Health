@@ -13,6 +13,7 @@ import { MaskedCallButton } from "@/components/masked-call-button";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
+import { AgpCard } from "@/components/agp-card";
 import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { PatientTimeline } from "@/components/patient-timeline";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
@@ -367,6 +368,8 @@ export default async function ClinicianPatientPage({
                 <BpLadderPanel patientId={patient.id} />
                 <HealthTrendsCard patientId={patient.id} audience="clinician" />
                 <VitalsTrendChart patientId={patient.id} />
+                {/* Renders nothing until the patient has sensor glucose; display only, raises no task. */}
+                <AgpCard patientId={patient.id} audience="clinician" />
                 <LipidProfileCard patientId={patient.id} />
                 <CardiovascularRiskPanel
                   patientId={patient.id}

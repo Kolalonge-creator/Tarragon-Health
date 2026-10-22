@@ -41,6 +41,15 @@ const readPendingGlucoseTaskTypeSignoff = jest.fn<(...args: unknown[]) => Promis
 jest.mock("@/lib/queries/pending-glucose-task-type-signoff", () => ({
   readPendingGlucoseTaskTypeSignoff: (...args: unknown[]) => readPendingGlucoseTaskTypeSignoff(...args),
 }));
+const readPendingVitalsTriageSignoff = jest.fn<(...args: unknown[]) => Promise<GlucosePending>>();
+jest.mock("@/lib/queries/pending-vitals-triage-signoff", () => ({
+  VITALS_TRIAGE_ITEM_KEY: "vitals_triage_rule_set",
+  readPendingVitalsTriageSignoff: (...args: unknown[]) => readPendingVitalsTriageSignoff(...args),
+}));
+const readPendingVitalsTaskTypeSignoff = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-vitals-task-type-signoff", () => ({
+  readPendingVitalsTaskTypeSignoff: (...args: unknown[]) => readPendingVitalsTaskTypeSignoff(...args),
+}));
 type QualityPending = { qualityVersion: number | null; credentialingVersion: number | null; failed: boolean };
 const readPendingQualityConfigSignoff = jest.fn<(...args: unknown[]) => Promise<QualityPending>>();
 jest.mock("@/lib/queries/pending-quality-config-signoff", () => ({
@@ -59,6 +68,16 @@ jest.mock("@/lib/queries/pending-queue-paging-config-signoff", () => ({
   readPendingQueuePagingConfigSignoff: (...args: unknown[]) => readPendingQueuePagingConfigSignoff(...args),
 }));
 const noQueuePaging: QueuePagingPending = { taskLayer: null, taskLayerRules: null, pagingVersion: null, pagingRules: null, pagingInForceRules: null, failed: false };
+const readPendingBpDeviceReview = jest.fn<(...args: unknown[]) => Promise<{ waiting: number; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-bp-device-review", () => ({
+  readPendingBpDeviceReview: (...args: unknown[]) => readPendingBpDeviceReview(...args),
+}));
+type PostCheckinPending = { version: number | null; rules: unknown; failed: boolean };
+const readPendingPostCheckinSignoff = jest.fn<(...args: unknown[]) => Promise<PostCheckinPending>>();
+jest.mock("@/lib/queries/pending-post-checkin-signoff", () => ({
+  readPendingPostCheckinSignoff: (...args: unknown[]) => readPendingPostCheckinSignoff(...args),
+}));
+const noPostCheckin: PostCheckinPending = { version: null, rules: null, failed: false };
 const readPendingSoleCmoException = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
 const readLegacyNoticeRetirementState = jest.fn<(...args: unknown[]) => Promise<{ liveVersion: { version: number } | null; waiting: unknown[]; measurement: unknown[]; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-legacy-notice-retirement-signoff", () => ({
@@ -83,7 +102,7 @@ jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
 }));
 
-import { OPS_DESK_CONFIG_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub, SOLE_CMO_EXCEPTION_ITEM_KEY } from "./cmo-signing-hub";
+import { POST_CHECKIN_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub, SOLE_CMO_EXCEPTION_ITEM_KEY } from "./cmo-signing-hub";
 
 const supabase = {} as SupabaseClient<Database>;
 
@@ -99,6 +118,8 @@ function item(key: string, severity: SignoffQueueItem["severity"], count?: numbe
 }
 
 beforeEach(() => {
+  readPendingBpDeviceReview.mockReset();
+  readPendingBpDeviceReview.mockResolvedValue({ waiting: 0, failed: false });
   readSignoffQueue.mockReset();
   readPendingAiGovernanceSignoff.mockReset();
   readPendingAiGovernanceSignoff.mockResolvedValue(noAi);
@@ -120,6 +141,10 @@ beforeEach(() => {
   readPendingGlucoseTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: false });
   readPendingGlucoseTriageSignoff.mockReset();
   readPendingGlucoseTriageSignoff.mockResolvedValue(noGlucose);
+  readPendingVitalsTriageSignoff.mockReset();
+  readPendingVitalsTriageSignoff.mockResolvedValue(noGlucose);
+  readPendingVitalsTaskTypeSignoff.mockReset();
+  readPendingVitalsTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: false });
   readPendingQualityConfigSignoff.mockReset();
   readPendingQualityConfigSignoff.mockResolvedValue(noQualityConfig);
   readPendingCapacityConfigSignoff.mockReset();
@@ -130,6 +155,8 @@ beforeEach(() => {
   readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: false, signed: false, failed: false });
   readPendingQueuePagingConfigSignoff.mockReset();
   readPendingQueuePagingConfigSignoff.mockResolvedValue(noQueuePaging);
+  readPendingPostCheckinSignoff.mockReset();
+  readPendingPostCheckinSignoff.mockResolvedValue(noPostCheckin);
 });
 
 describe("readCmoSigningHub: fast-sugar wording (OQ-326)", () => {
@@ -235,6 +262,26 @@ describe("readCmoSigningHub: ops desk checklist gate", () => {
   });
 });
 
+describe("readCmoSigningHub: check-ins after a consultation", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds one line, under /clinician, for an unsigned draft", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingPostCheckinSignoff.mockResolvedValue({ version: 1, rules: null, failed: false });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === POST_CHECKIN_ITEM_KEY);
+    expect(line?.count).toBe(1);
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/No check-in is sent until you sign/);
+  });
+  it("adds no line when nothing waits, and names a failed read", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === POST_CHECKIN_ITEM_KEY)).toBeUndefined();
+    readPendingPostCheckinSignoff.mockResolvedValue({ version: null, rules: null, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the check-in configuration");
+  });
+});
+
 describe("readCmoSigningHub: capacity, rest and fire drills", () => {
   const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
   it("adds one line, under /clinician, that counts both drafts and signs nothing", async () => {
@@ -297,6 +344,30 @@ describe("readCmoSigningHub: glucose triage rules (plan item R2)", () => {
     expect((await readCmoSigningHub(supabase)).items).toEqual([]);
     readPendingGlucoseTriageSignoff.mockResolvedValue({ pending: false, version: null, approvedVersion: null, note: null, failed: true });
     expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the glucose triage rules"] });
+  });
+});
+
+describe("readCmoSigningHub: pulse, oxygen and temperature triage rules", () => {
+  it("lists the draft vitals rule set and its task type as two lines under /clinician, the task type first", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingVitalsTriageSignoff.mockResolvedValue({ pending: true, version: 1, approvedVersion: null, note: null, failed: false });
+    readPendingVitalsTaskTypeSignoff.mockResolvedValue({ waiting: true, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items.map((i) => i.key)).toEqual(["vitals_task_type", "vitals_triage_rule_set"]);
+    expect(hub.items[1]).toMatchObject({ href: "/clinician/vitals-triage-rules", severity: "draft_pending" });
+    expect(hub.items[1]?.detail).toMatch(/shadow only/);
+    expect(hub.items[0]?.href.startsWith("/clinician")).toBe(true);
+  });
+  it("says which version stays in force once one is approved", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingVitalsTriageSignoff.mockResolvedValue({ pending: true, version: 2, approvedVersion: 1, note: null, failed: false });
+    expect((await readCmoSigningHub(supabase)).items[0]?.detail).toMatch(/Version 1 stays in force/);
+  });
+  it("names an unreadable source instead of going quiet", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingVitalsTriageSignoff.mockResolvedValue({ pending: false, version: null, approvedVersion: null, note: null, failed: true });
+    readPendingVitalsTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the pulse, oxygen and temperature triage rules", "the amber vitals review task type"] });
   });
 });
 
@@ -572,5 +643,21 @@ describe("legacy notice retirement line (S19f)", () => {
     expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "legacy_notice_retirement")).toBeUndefined();
     readLegacyNoticeRetirementState.mockResolvedValue({ liveVersion: null, waiting: [], measurement: [], failed: true });
     expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the older clinician-message retirement"] });
+  });
+});
+
+describe("readCmoSigningHub: recommended blood pressure monitors (S07y)", () => {
+  it("adds one line, linking into /clinician, only when a monitor waits for review", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingBpDeviceReview.mockResolvedValue({ waiting: 2, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items).toHaveLength(1);
+    expect(hub.items[0]).toMatchObject({ key: "bp_device_review", count: 2, href: "/clinician/recommended-devices" });
+  });
+  it("says nothing when none waits, and names the source when it cannot be read", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    expect((await readCmoSigningHub(supabase)).items).toHaveLength(0);
+    readPendingBpDeviceReview.mockResolvedValue({ waiting: 0, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the recommended blood pressure monitors"] });
   });
 });

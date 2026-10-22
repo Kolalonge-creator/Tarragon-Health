@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { flushSync } from "react-dom";
 import type { MediaMode } from "@tarragon/integrations/client";
-import { prepareSdkJoinAction, reportCallEventAction } from "@/lib/consultations/actions";
+import { prepareSdkJoinAction, reportCallEventAction, reportCaregiverLeftAction } from "@/lib/consultations/actions";
 import { CallController, type CallNotice, type CallPolicy } from "@/lib/consultations/call-controller";
 import { loadZoomEmbedded, type ZoomEmbeddedClient, type ZoomEmbeddedGlobal } from "@/lib/consultations/zoom-sdk";
 
@@ -26,7 +26,7 @@ export type CallState = "idle" | "joining" | "in_call";
 
 export interface InAppCallOptions {
   readonly encounterId: string;
-  readonly role: "patient" | "clinician";
+  readonly role: "patient" | "clinician" | "caregiver";
   readonly policy: CallPolicy | null;
   readonly initialMode: MediaMode | null;
   /** The ladder reached the phone: show the dial-in card. */
@@ -48,6 +48,12 @@ interface Attempt {
   sdk: ZoomEmbeddedGlobal | null;
   client: ZoomEmbeddedClient | null;
   controller: CallController | null;
+  /** True once the person is in the call (a caregiver has no controller, so the guard cannot be told from `controller`). */
+  live: boolean;
+  /** Runs once when a live attempt ends (a caregiver reports leaving; best effort). */
+  onEnd: (() => void) | null;
+  /** Detaches the caregiver's close listener. */
+  detach: (() => void) | null;
   /** Set once cleanup has started, so ending an attempt twice (a close after a phone handover, a failure after Leave) is one cleanup. */
   cleaned: Promise<void> | null;
 }
@@ -59,7 +65,7 @@ function newAttempt(): Attempt {
   });
   // Rejecting with nobody racing it is normal (an attempt that finished), so it must not surface as an unhandled rejection.
   aborted.catch(() => undefined);
-  return { cancelled: false, aborted, abort, sdk: null, client: null, controller: null, cleaned: null };
+  return { cancelled: false, aborted, abort, sdk: null, client: null, controller: null, live: false, onEnd: null, detach: null, cleaned: null };
 }
 
 /** Leaves the call and destroys the SDK's client for ONE attempt. Never throws and never waits longer than LEAVE_PATIENCE_MS. */
@@ -73,6 +79,14 @@ async function doCleanup(a: Attempt): Promise<void> {
   a.cancelled = true;
   a.abort();
   a.controller?.stop();
+  a.detach?.();
+  if (a.live) {
+    try {
+      a.onEnd?.();
+    } catch {
+      // reporting that someone left is best effort
+    }
+  }
   if (a.client) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const patience = new Promise<void>((resolve) => {
@@ -185,6 +199,22 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
           }),
         );
         if (abandoned()) throw new Error("abandoned");
+        if (role === "caregiver") {
+          // CGJ: a caregiver runs NO fallback ladder. Their connection must never move the patient's call to audio only or the phone,
+          // and they report nothing about the call's mode. They only leave, and notice when the call closes under them.
+          const onConnection = (p: unknown) => {
+            const state = typeof p === "object" && p !== null ? (p as { state?: unknown }).state : undefined;
+            const s = typeof state === "string" ? state.toLowerCase() : "";
+            if (s === "closed" || s === "fail") void end(a, () => setNotice(null));
+          };
+          client.on("connection-change", onConnection);
+          a.detach = () => client.off("connection-change", onConnection);
+          a.onEnd = () => void reportCaregiverLeftAction(encounterId);
+          a.live = true;
+          setNotice(null);
+          setState("in_call");
+          return "started";
+        }
         const controller = new CallController({
           client,
           policy,
@@ -205,6 +235,7 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
           },
         });
         a.controller = controller;
+        a.live = true;
         controller.start();
         setNotice(null);
         setState("in_call");
@@ -230,7 +261,7 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
         return await run(a, media);
       } finally {
         // An attempt that did not end up in a call frees the guard; one that is live keeps it until it ends.
-        if (current.current === a && !a.controller) {
+        if (current.current === a && !a.live) {
           current.current = null;
           if (mounted.current) setState("idle");
         }

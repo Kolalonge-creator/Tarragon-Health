@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { confirmDocumentFieldsAction, rejectDocumentReadingAction, requestDocumentReadingAction } from "@/lib/document-capture/actions";
 import { decisionsForRpc, summariseDecisions, type FieldDecision, type SuggestedField } from "@/lib/document-capture/suggestions";
 import { t, type Locale, type MessageKey } from "@tarragon/i18n";
+import { OutsideRecordStatus, type OutsideRecordStatusInput } from "@/components/outside-record-status";
 
 export interface DocumentRow {
   id: string;
@@ -17,6 +18,8 @@ export interface DocumentRow {
   ocrState: string | null;
   fields: SuggestedField[];
   photoUrl: string | null;
+  /** S09y: whether a clinician has checked this record. Anything short of a checked-and-stamped record reads "supplied by you, not yet checked". */
+  verification: OutsideRecordStatusInput;
 }
 
 function typeLabel(type: string, locale: Locale): string {
@@ -177,6 +180,7 @@ export function DocumentList({ rows, canConfirm, locale }: { rows: DocumentRow[]
                     </a>
                   )}
                 </div>
+                <OutsideRecordStatus {...row.verification} locale={locale} />
                 {row.ocrState === "suggested" && <SuggestionReview row={row} canConfirm={canConfirm} locale={locale} />}
                 {row.ocrState === "pending" && <PendingActions row={row} canConfirm={canConfirm} locale={locale} />}
                 {row.ocrState === "confirmed" && (

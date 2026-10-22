@@ -1193,6 +1193,30 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S16-S20-pager-delivery.md; docs/plans/S16-S20-review-and-build-plan.md section 5, decisions 9, 10, 11, 15",
   },
   {
+    key: "shift_start.test_rules",
+    // Shift-start test page (migration 20261016190204). Live values are the active row of `shift_start_test_config`; this entry mirrors it
+    // and a test fails if the migration seed and this value drift. lead_minutes: the test page goes to the primary and the backup this long
+    // before the shift starts. grace_minutes: the shift is counted as not covered if a test page is still unacknowledged this long after
+    // the shift starts (the deadline). undelivered_after_minutes: a test page with no receipt on any device or screen after this long is
+    // shown to the clinician as "not reached you" with instructions. late_send_minutes: a shift that started less than this long ago, with
+    // no test yet (a tick was missed), still gets one; an older shift never does, so switching the guard on does not disturb a running shift.
+    // max_per_run: test pages sent per one-minute tick. proof_lookback_days: the go-live guard wants a test page acknowledged this recently.
+    // The feature itself is OFF until the CMO switches the go-live guard `shift_start_test` on.
+    value: {
+      lead_minutes: 10,
+      grace_minutes: 15,
+      undelivered_after_minutes: 5,
+      late_send_minutes: 3,
+      max_per_run: 20,
+      proof_lookback_days: 30,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/build-shift-start-test.md; docs/research/build-shift-start-test.md",
+  },
+  {
     key: "paging.delivery_rules_v2",
     // The same delivery rules with objective on-call readiness SWITCHED ON (a working push subscription, a verified email and a recent
     // acknowledged test page to be put on the rota; swaps are never blocked). Shipped as an INACTIVE, unsigned row (paging_delivery_config
@@ -2088,6 +2112,22 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 2,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S21.md; docs/research/S21.md",
+  },
+  {
+    key: "consultations.caregiver_join",
+    // A Care Circle member invited by the patient into ONE consultation call (CGJ, founder decision: per call, no standing access).
+    // Mirrored by `consultation_caregiver_config` version 1 (a drift test compares the two).
+    //  inviteExpiryMinutes: how long an invite lasts at most; it also ends when the call's join window closes or the call ends.
+    //  maxCaregiversPerCall: how many invited people one call may hold at once.
+    //  minAgeYears: a caregiver is an adult; a KNOWN age under this is refused.
+    //  requireDateOfBirth: false because a supporter-only account is never asked for a date of birth, so true would exclude exactly the
+    //  daughter or son who supports a parent from another city. A dependant's account is refused either way (OQ-CGJ-4).
+    value: { inviteExpiryMinutes: 240, maxCaregiversPerCall: 1, minAgeYears: 18, requireDateOfBirth: false },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/CGJ.md; docs/OPEN-QUESTIONS.md OQ-CGJ-1 to OQ-CGJ-5",
   },
   {
     key: "consultations.host_key",
@@ -3638,6 +3678,28 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S07y.md; supabase/migrations/20261020184217_s07y_home_cuff_vs_clinic_check.sql. No guideline fixes these numbers: the 5 mmHg diastolic figure echoes common device-validation mean-difference limits, the rest are engineering proposals.",
   },
   {
+    key: "bp.cuff_sizing",
+    // S07y. PROPOSED, unsigned. Arm circumference (whole cm, rounded half up) to cuff size, from the published AHA 2019 and ESH 2023 cuff-size tables (docs/research/S07y.md).
+    // Live value is the active, signed row of `bp_cuff_guidance_signoffs`.config; cuff-sizing-mirror.test.ts fails if the migration seed and this value drift.
+    // The CMO checks the ranges against the Nigerian guideline (NG-2023 section 3.1.1) before signing. The wording lives in packages/i18n (hc.cuff.*); wordingSha256 pins it (cuff-wording-pin.test.ts), so changing a word needs a new version and a new signature.
+    value: {
+      "sizes": [
+        { "key": "small_adult", "minCm": 22, "maxCm": 26 },
+        { "key": "adult", "minCm": 27, "maxCm": 34 },
+        { "key": "large_adult", "minCm": 35, "maxCm": 44 },
+        { "key": "extra_large", "minCm": 45, "maxCm": 52 }
+      ],
+      "measureMinCm": 15,
+      "measureMaxCm": 60,
+      "wordingSha256": "1179c39d263814d87b9563886afd9fc18f2764d58368f29f0bb53318033162cf"
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/research/S07y.md; AHA 2019 (Muntner) and ESH 2023 (Mancia) cuff-size tables; supabase/migrations/20261021113725_s07y_cuff_guidance_and_bp_band_report.sql",
+  },
+  {
     key: "offline.trust",
     // S06x. PROPOSED: how long a phone may go without checking in before its encrypted-store key lease expires and it does its last upload
     // attempt and wipes (D3 in docs/plans/S06-S10-cmo-decisions-2026-10-07.md says 30 days; the server column
@@ -3836,6 +3898,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-13",
     source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C6; docs/design/S08x.md",
+  },
+  {
+    key: "record.doctor_summary_pdf",
+    // The patient-generated visit summary PDF (blood pressure, medicines, adherence, symptoms): the period choices and the row caps.
+    // Display only: it changes no treatment, raises no task and classifies no reading. Wearable readings are listed but never averaged
+    // or charted (`averageSources`); the list is the reading sources a home cuff, a typed entry or a confirmed photo of a cuff display can have.
+    value: { periodDays: [30, 60, 90], defaultDays: 30, maxBpRows: 30, maxSymptoms: 30, maxSkippedDoses: 30, averageSources: ["manual", "device", "photo_confirmed"] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/BUILD-SPEC-v5.md 2.9; docs/design/S43.md; docs/design/doctor-summary-pdf.md",
   },
   {
     key: "triage.coverage",
@@ -4141,6 +4215,34 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S70-2 (branch docs/s70-s75-decisions), OQ-310; docs/plans/S66-S70-cmo-signoff-pack.md A12",
+  },
+  {
+    key: "devices.cgm_agp",
+    // Display-only continuous glucose profile (ambulatory glucose profile layout) for the patient and the clinician. It never creates a task or a
+    // page: the sustained-event rules above stay the only CGM safety path. The five range bands follow the International Consensus on Time in
+    // Range (secondary source, primary text not read). The pattern numbers are product choices, PROPOSED, for the CMO to confirm or change:
+    // a window is only named when enough days of that time of day were recorded, and the words it produces describe readings, never a cause
+    // and never a dose. percentiles 15 and 75 copy the example report the founder shared (its legend names the 15th and 75th); the usual AGP uses
+    // 25 and 75 with 5 and 95 as an outer band, so the CMO should confirm which one clinicians expect. dedupe_minutes drops a reading that follows
+    // another by less than that, so one sensor reaching us by two routes is not counted twice.
+    value: {
+      window_days: 14,
+      timezone: "Africa/Lagos",
+      bin_minutes: 30,
+      slot_minutes: 15,
+      min_active_pct: 70,
+      min_days_with_data: 10,
+      min_readings_per_bin: 20,
+      dedupe_minutes: 2,
+      band_edges_mmol_l: { very_low: 3.0, low: 3.9, high: 10.0, very_high: 13.9 },
+      percentiles: { lower: 15, upper: 75 },
+      pattern: { min_run_minutes: 120, low_share_pct: 10, high_share_pct: 50 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "Founder request 2026-10-21 (glucose profile for the diabetes chat); International Consensus on Time in Range; docs/DECISIONS.md S70-2 for the sustained-event path it sits beside",
   },
   {
     key: "devices.ecg_alert",
@@ -5909,6 +6011,52 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/S41-S45-cmo-signoff-pack.md section B; founder decisions 2026-10-07",
   },
   {
+    key: "records_request.letter",
+    // Records request letter (docs/design/RRL.md). UNSIGNED PLACEHOLDER WORDING: written by an engineer, not by counsel, and nothing here has been
+    // reviewed as legal text. It asks a facility for the person's own records and names the Nigeria Data Protection Act 2023 right of access only
+    // because the person asked for that framing; it states no section number, no deadline as law and no penalty. Counsel replaces it by publishing
+    // a higher version (OQ-RRL-1). The letter is printed or handed over by the person; the platform never sends it.
+    value: {
+      wording_status: "unsigned_placeholder_pending_counsel",
+      title: "Request for a copy of my health records",
+      greeting: "To the Medical Records Officer, {facility}",
+      intro:
+        "I am the person these records are about. I am asking for a copy of the health records you hold about me, and I am making this request under my right of access to my own personal data under the Nigeria Data Protection Act 2023.",
+      identity_heading: "Details that identify me",
+      identity_labels: { name: "Name", date_of_birth: "Date of birth", phone: "Phone" },
+      fill_in: ["Hospital or patient number, if you know it:", "Address or email to send the records to:"],
+      scope_heading: "What I am asking for",
+      scopes: {
+        discharge_summary: "My discharge summary or summaries",
+        lab_results: "My laboratory results",
+        imaging_report: "The written reports of my scans and X-rays",
+        whole_record: "My whole record, as far as it can be given to me",
+      },
+      format: "Either a paper copy or an electronic copy will do. Please tell me if there is a form to fill in or a charge, and what you need from me to prove who I am.",
+      timing: "I would be grateful for a reply as soon as you can, and I will follow up with you after {days} days. If you need more time or more information from me, please tell me.",
+      closing: "Thank you for your help.",
+      sign_off: "Yours faithfully,",
+      footer: "Prepared at my request with TarragonHealth.",
+      draft_notice: "Draft wording, not yet checked by a lawyer.",
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/RRL.md; spec 2.3 and 2.11 (records fill the Passport); wording pending counsel",
+  },
+  {
+    key: "records_request.response_days",
+    // How long after the person hands the letter over the app treats a request as overdue. A PLACEHOLDER pending counsel and not a statement of what
+    // the law requires: the app only says "you asked on <date>, you hoped for a reply by <date>". It sets a reminder, never a legal claim.
+    value: { days: 30, label: "placeholder_pending_counsel" },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/RRL.md; OQ-RRL-1",
+  },
+  {
     key: "fhir.mapping",
     // FHIR export mapping (S44, spec 2.10). Identifiers, not thresholds, but they decide what an outside system believes a value means, so they
     // are versioned data a human reviews, not code. The Nigeria Core and NPHCDA implementation guides are both still under development
@@ -6644,6 +6792,132 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S47-decisions-applied.md",
   },
   {
+    key: "consultations.post_checkin",
+    // Post-consultation check-ins (PCC, founder decision: a fixed short check-in at 48 hours and 7 days, red flags escalate, no model).
+    // Mirrored by post_consult_checkin_config version 1 (a drift test compares the two). Born INACTIVE and unsigned: the sweep schedules nothing
+    // until the CMO signs it on the sign-off hub AND an admin switches the post_consult_checkins_enabled guard on. The wording and each
+    // option's route are what the CMO signs. Quiet hours: the sender defers for a person's own quiet window; notification_window here only holds
+    // the reminder inside 07:00 to 21:00 Africa/Lagos. The task exists whatever the time.
+    value: {
+      "offsets": [
+        {
+          "code": "h48",
+          "after_minutes": 2880
+        },
+        {
+          "code": "d7",
+          "after_minutes": 10080
+        }
+      ],
+      "encounter_types": [
+        "video",
+        "audio",
+        "phone"
+      ],
+      "nudge_after_minutes": 1440,
+      "max_nudges": 1,
+      "expire_after_minutes": 2880,
+      "skip_if_patient_wrote_within_minutes": 1440,
+      "notification_window": {
+        "start_hour": 7,
+        "end_hour": 21
+      },
+      "concern_alert_level": "clinician_review",
+      "free_text_max_chars": 500,
+      "task_title": "A quick check-in after your visit",
+      "task_description": "A few short questions so your care team knows how you are getting on.",
+      "questions": [
+        {
+          "id": "feeling",
+          "text": "How are you feeling since your visit?",
+          "options": [
+            {
+              "code": "better",
+              "label": "Better",
+              "route": "ok"
+            },
+            {
+              "code": "same",
+              "label": "About the same",
+              "route": "ok"
+            },
+            {
+              "code": "worse",
+              "label": "Worse",
+              "route": "concern_alert",
+              "alert_type": "symptom_escalation"
+            }
+          ]
+        },
+        {
+          "id": "new_symptoms",
+          "text": "Have you noticed any new or worsening symptoms?",
+          "options": [
+            {
+              "code": "no",
+              "label": "No",
+              "route": "ok"
+            },
+            {
+              "code": "yes",
+              "label": "Yes",
+              "route": "concern_alert",
+              "alert_type": "symptom_escalation"
+            }
+          ]
+        },
+        {
+          "id": "medicines",
+          "text": "Are you taking your medicines as agreed with your care team?",
+          "options": [
+            {
+              "code": "yes",
+              "label": "Yes",
+              "route": "ok"
+            },
+            {
+              "code": "none_prescribed",
+              "label": "I was not given any medicines",
+              "route": "ok"
+            },
+            {
+              "code": "some_missed",
+              "label": "I have missed some doses",
+              "route": "clinician_task"
+            },
+            {
+              "code": "cannot_take",
+              "label": "I cannot take them",
+              "route": "concern_alert",
+              "alert_type": "symptom_escalation"
+            }
+          ]
+        },
+        {
+          "id": "unclear",
+          "text": "Is anything from your visit unclear?",
+          "options": [
+            {
+              "code": "no",
+              "label": "No, it is all clear",
+              "route": "ok"
+            },
+            {
+              "code": "yes",
+              "label": "Yes, I would like some help",
+              "route": "clarify_task"
+            }
+          ]
+        }
+      ]
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/PCC.md; supabase/migrations/20261016183857_pcc_post_consult_checkins.sql",
+  },
+  {
     key: "biomarkers.grade_bands",
     // Tarragon's Good / Acceptable / Needs-attention bands for the patient results cards (/patient/biomarkers). The data lives in
     // ./biomarker-grade-bands.ts. PROPOSED: until the CMO publishes a confirmed version no patient sees a Tarragon grade and the cards
@@ -6751,5 +7025,30 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-20",
     source: "docs/design/S49a.md; supabase/migrations/20261020181309_s49a_food_logging_foundation.sql",
+  },
+  {
+    key: "triage.single_reading_vitals_bands",
+    // The combined registry of single-reading dangerous vitals bands (pulse, SpO2, temperature) and the typo gates around them. These are the starting
+    // values of the DRAFT rule set `vitals_care_triage` v1, taken over unchanged from the live older classifiers (private.classify_pulse_level,
+    // classify_spo2_level, classify_temperature_level, read 2026-10-16) so that the shadow divergence report compares like with like. Four places hold
+    // these numbers and a drift test (packages/clinical/src/vitals-drift.test.ts) fails when any two disagree: this entry, the rule set params in
+    // packages/clinical/src/rules/vitals-care-v1.ts (which the migration seeds), the phone's `vitals.device_red_rules`, and the older SQL classifiers.
+    // The CMO signs the RULE SET; this entry is how a reviewer sees the numbers, with their owner and version, in one place.
+    // Pulse and the others use "at or below" / "at or above" (inclusive) and "below" (exclusive) exactly as the rule set reads them.
+    // amberReviewDueMinutes is the due time of the amber review task (72 hours, the older amber alert's review time); minAdultAgeYears is the age under which
+    // a fast heart rate (101 to 149) is routed to a clinician instead of paged.
+    value: {
+      validation: { pulseMin: 10, pulseMax: 300, spo2Min: 30, spo2Max: 100, temperatureMin: 20, temperatureMax: 46 },
+      minAdultAgeYears: 18,
+      amberReviewDueMinutes: 4320,
+      pulse: { emergencyAtOrBelow: 35, emergencyAtOrAbove: 150, redAtOrBelow: 39, redAtOrAbove: 121, amberAtOrBelow: 49, amberAtOrAbove: 101 },
+      spo2: { emergencyBelow: 90, redAtOrBelow: 92, amberAtOrBelow: 94 },
+      temperature: { emergencyAtOrAbove: 40, emergencyBelow: 35, redAtOrAbove: 39, amberAtOrAbove: 38 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/build-vitals-rule-sets.md; triage_rule_sets vitals_care_triage version 1 (draft)",
   },
 ];

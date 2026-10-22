@@ -10,6 +10,7 @@ import {
   type AccessLogEntry,
   type PassState,
 } from "@/lib/my-health";
+import { ImmunisationSummary, OutsideRecordsSection } from "./my-health-records";
 import type { SectionId } from "@/lib/sections";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
@@ -119,6 +120,8 @@ export function MyHealthScreen({ userId, acting, onNavigate }: MyHealthScreenPro
         </Card>
       ) : (
         <>
+          <ImmunisationSummary patientId={userId} />
+          <OutsideRecordsSection patientId={userId} />
           <Card>
             <Text style={{ color: colors.ink, fontWeight: "600", fontSize: 16 }}>{t("my_health.pass.title")}</Text>
             <MutedText>{t("my_health.pass.description")}</MutedText>

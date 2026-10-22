@@ -5,7 +5,7 @@ import { parseCircleMonthly, type CircleMonthlyRow, type MessageKey } from "@tar
  * that is not what was expected means "nothing to show". The supporter view is the only thing a supporter can read about a
  * patient; a block that is absent is "not shared", never "zero".
  */
-export const CIRCLE_PERMISSIONS = ["adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care"] as const;
+export const CIRCLE_PERMISSIONS = ["adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care", "attend_consultation"] as const;
 export type CirclePermission = (typeof CIRCLE_PERMISSIONS)[number];
 export const GRANT_DAY_CHOICES = [30, 90, 365] as const;
 
@@ -15,6 +15,7 @@ const PERMISSION_KEYS: Readonly<Record<CirclePermission, MessageKey>> = {
   appointments: "circle.perm.appointments",
   red_alerts: "circle.perm.red_alerts",
   pay_for_care: "circle.perm.pay_for_care",
+  attend_consultation: "consult.cg.perm",
 };
 export const permissionKey = (p: CirclePermission): MessageKey => PERMISSION_KEYS[p];
 

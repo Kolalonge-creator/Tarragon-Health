@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { rowFromChoices } from "./field-choices";
+import { coverageInputSchema } from "./coverage";
 
 export type EmergencyCardActionResult = { error?: string; success?: boolean; message?: string };
 
@@ -72,6 +73,32 @@ export async function saveEmergencyCardFieldsAction(input: unknown): Promise<Eme
   revalidatePath("/patient/emergency-card");
   revalidatePath("/patient/emergency-card/print");
   return { success: true, message: "Saved." };
+}
+
+/**
+ * S09y: the patient's own HMO / NHIA cover for the emergency card. Both fields blank removes it. The database function is the only door (no table
+ * write is granted), takes no patient argument, and records the audit row with field names only, never the number.
+ */
+export async function saveEmergencyCardCoverageAction(input: unknown): Promise<EmergencyCardActionResult & { field?: "member_number" | "plan_name" | "scheme" }> {
+  const parsed = coverageInputSchema.safeParse(input);
+  if (!parsed.success) {
+    const field = parsed.error.issues[0]?.path[0];
+    return { error: "invalid", field: field === "member_number" || field === "plan_name" ? field : "scheme" };
+  }
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_emergency_card_coverage", {
+    p_scheme: parsed.data.scheme,
+    p_member_number: parsed.data.member_number,
+    p_plan_name: parsed.data.plan_name,
+  });
+  if (error) return { error: "That could not be saved. Please try again." };
+
+  revalidatePath("/patient/emergency-card");
+  revalidatePath("/patient/emergency-card/print");
+  return { success: true, message: parsed.data.member_number === "" && parsed.data.plan_name === "" ? "removed" : "saved" };
 }
 
 export async function revokeEmergencyCardAction(): Promise<EmergencyCardActionResult> {
