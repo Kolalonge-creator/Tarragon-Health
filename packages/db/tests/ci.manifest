@@ -346,6 +346,8 @@ s04b2_consent_receipts_and_deletion_grace.sql
 # above), which builds its own fixtures generically and already covers this.
 
 s04b1_adult_registration_dependants_proxy.sql
+age_rules_use_lagos_date_standing_scan.sql
+adult_gate_uses_lagos_date.sql
 # S04b-1 standing proof: every patient_id table is guarded or listed, so a later PR cannot bypass the under-18 scope guard.
 minor_dependant_table_policy_complete.sql
 
@@ -1303,6 +1305,8 @@ s63_therapy_programmes.sql
 # (idempotent replay, no body metrics, plausible readings only, red flow first, caps/decay, tiers, grace, capped checkout discount,
 # append-only ledger, aggregate-only employer seam, roles) with three sabotage steps.
 s58_rewards_engine.sql
+# EMP: employer seat pilot kit. Create (finance only, seat and window limits, price snapshot of the organisation price, one live pilot per employer, terms frozen), invoice once, payment confirmed by finance with a method and a unique reference (replay changes nothing), claims wait until paid then take seats, the purchased count is a hard cap, a pilot seat is never billed twice (arrears generator finds nothing), ended and not-yet-open windows grant nothing and say why, cancel voids the invoice; the aggregate report: closed key set, no member id, name or phone in the output, minimum cell, complementary suppression, rounding to 5, last completed Lagos week, test accounts excluded, only the employer itself and finance read it, an employer admin reads zero encounter, reading and entitlement rows (with controls that a platform admin can). Sabotage: complementary suppression removed, minimum-group gate removed, report scope widened, seat cap removed; all four must flip.
+employer_seat_pilot_kit.sql
 # Vitals rule set (pulse, SpO2, temperature): readings reach the triage engine in shadow. One observation.recorded (kind vitals, ids only) per manual or Bluetooth reading, urgent when the older classifier says anything but green, and none for a wearable reading, blood pressure or glucose; the context (value, age, the patient's own amber line, a blood pressure reading not found, an entered-in-error reading not graded); the vitals writer (shadow while the rule set is a draft, one row per reading, urgent event for a red, rejected stores nothing, another rule set and a recheck status refused) and that it never resolves a pending blood pressure recheck; no task and no page from a shadow event, one amber_vitals_review task and one page once approved (rolled back); the sweep re-emits a lost event once, every ten minutes; service-role-only grants. Sabotage: the blood pressure writer used on a vitals reading, and the producer trigger dropped; both must flip a check.
 build_vitals_triage_wiring.sql
 # Vitals rule set: the shadow divergence report (both_urgent, neither_urgent, shadow_only_urgent, live_only_urgent, live_urgent_no_shadow, the by-design marker for a child's heart rate, the patient's own amber line; test accounts, wearable readings, readings older than the draft and the last quarter hour left out; admin or the active clinical director only, a patient refused, anon cannot execute) and the fix that keeps the engine parity report to blood pressure results (glucose and vitals results were counted there as a legacy-none red). Sabotage: the S19d body of the parity rows, and a live-level function that never sees anything wrong; both must flip.
@@ -1318,6 +1322,10 @@ shift_start_test_page.sql
 patient_threshold_overrides.sql
 # Ops desk resilience for an expired red page (OQ-441, decision S16-S20-10): named ops contacts need a confirmed real number and hours (a placeholder is never live); an expired page or a nobody-reachable incident is assigned to the primary on duty (push, in-app and email only, never sms or voice), moves to the deputy after the configured time once, and a silent deputy raises one closing sev1; nobody on duty opens a sev1 and tells the leadership; the uncovered-roster sev1 needs a real rota and the config switch; the call log and the checklist attestations are append only; the call sheet never shows a patient; the checklist gate on the on-call cover guard ships OFF and holds back only switching it ON when the CMO config says so; RLS for admin, CMO, plain clinician, patient, anon and another organisation. Sabotage: the assignment trigger, the append-only trigger, the confirmation rule and the gate function; each flips.
 ops_desk_expired_page.sql
+# --- Added 2026-10-16 (follow-up N) ----------------------------------------------------------------------------
+# Caregiver answer to the red-care question (record_red_care_response_for) and caregiver assisted entry of readings (log_readings
+# capability, guard trigger, ledger, rate limits, pharmacy seam closed), with three sabotage steps.
+assisted_entry_and_caregiver_red_care.sql
 # Task queue gaps OQ-432/433/435: a Member's symptom-check review is ONE symptom_review task (Free keeps the alert, a task that cannot be made falls back to the alert with an audit row and incident); pharmacy_flag_review requires prescribing, admin_clinical only for the prescription subtype; a lead or pushed doctor who lacks a required competency is skipped with the reason on the transition. Sabotage: the lead check, the pushed-doctor check, the prescribing rule and the task producer each removed; each must flip.
 task_queue_gaps_oq432_433_435.sql
 # S19e native page receipts: a live native (ios/android, Expo token) push subscription with a push receipt confirms a mobile-only clinician route (90 s early window); no subscription or a disabled one does not; page_channel_ready defaults false; the function is not executable by anon or authenticated. Sabotage: the web-only definition must flip the native check.
@@ -1378,6 +1386,8 @@ s47a_observation_types.sql
 s49a_food_logging_foundation.sql
 # S48a: activity safety gate (red event in 48h = rest, enforced on enrolment incl. re-activation), kinds/goals/events, unreviewed workout plans hidden, owner-only private routes. Sabotage: trigger dropped, gate ignoring red, staff route policy; each must flip.
 s48a_activity_safety_gate.sql
+# S48b: activity client_id makes an offline retry a duplicate; workout sessions must be 10 to 20 minutes, chair-based classes gentle, audio ids only on reviewed plans; route_recording_status is true only with the guard AND the person's switch on, never for anon. Sabotage: minutes CHECK dropped, client_id index dropped, always-yes status; each must flip.
+s48b_activity_offline_plans_route_status.sql
 s27h_lab_lifecycle_and_quality.sql
 
 
@@ -1403,9 +1413,6 @@ oq192_profile_access_permission_tightening.sql
 # stored never computed and blocks a send; per-line pay status follows the S31 payout (with retry); the pilot-minimum activity check holds
 # a suspicious top-up for a person; a late line is netted once. Eight sabotage steps (dispute guard, ledger guard, withholding guard, activity check, withholding period filter, back-dating rule, raced-duplicate handler).
 s30b_earnings_disputes_withholding_pilot.sql
-# --- Added 2026-10-21 (S25b) ---------------------------------------------------
-# S25b: pay the annual Membership in parts, behind the platform module membership_instalments (OFF). The parts add up to the price exactly, the first part unlocks access and the 365 days run from it, a replayed webhook credits nothing twice, a wrong amount or a part paid twice is a visible mismatch plus an incident, a missed part past its grace lapses access and paying it restores access, reminders 3 days before and on the day, each part posts its own ledger entry and schedule, a refund of a partly paid order is one refund per paid part against its own charge (a part paid between request and decision included), flag-off behaviour unchanged. Sabotage: the part routing removed, the replay guards removed, the lapse sweep emptied, the sum trigger switched off, the refund claim made to ignore the part; all five must flip.
-s25b_membership_instalments.sql
 money_reconciliation_screen.sql
 # OQ-714: the patient price comparison is gone: no patient_price_compare function in any schema, a signed-in or anon call is 42883; the chooser function (authenticated yes, anon no), the care-team suggestion read, the shared matcher, the listable rule, the routing and verified-batch triggers and the catalogue columns all stay and work. Sabotage: a function by the retired name is planted and the first check's own query finds it.
 oq714_remove_patient_price_compare.sql
@@ -1413,3 +1420,12 @@ oq714_remove_patient_price_compare.sql
 money_reconciliation_daily_alert.sql
 # Money reconciliation menu badge (2026-10-21): an hourly snapshot of the mismatch count, read through a finance-only function that refuses a snapshot older than three hours or missing (never an old number), clients cannot read the table. Sabotage: staleness check and finance gate removed; the checks must flip.
 money_reconciliation_badge.sql
+# Patient home layout (2026-10-22): which tiles a patient pins to their home screen. A patient writes and reads only their own row, cannot stamp another organisation, cannot delete; unknown keys, nulls and more than twelve are refused by the database. Sabotage: select policy opened, organisation clause removed; both checks must flip.
+patient_home_layout.sql
+
+
+
+# --- Added 2026-10-21 (S25b removed) -------------------------------------------
+# The Membership is one yearly payment again: the instalment tables, functions, columns, module row, templates and cron job are gone, no function body names them, refunds_one_live is one live refund per order, and the one-payment flow (pay, replay, mismatch, cancel, refund once for the whole amount, provider claim) works. Sabotage: nine removed things put back one at a time; all nine structural checks must flip.
+membership_instalments_removed.sql
+

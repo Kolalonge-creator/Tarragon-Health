@@ -2402,21 +2402,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/research/S26-S30-competitor-review-and-build-plan.md (S26b); supabase/migrations/20261021091357_s26b_entitlement_and_refund_hardening.sql",
   },
   {
-    key: "instalments.membership_schedule",
-    // S25b: how the annual Membership can be paid in parts (founder decision 2026-10-20, against INV-09). `parts` payments; part n is due
-    // `due_offsets_days[n-1]` days after the FIRST part is paid (the first offset is always 0); access unlocks after the first part and its 365 days run
-    // from it. A part still unpaid `grace_days` after its due date lapses access until it is paid. Reminders go `reminder_days_before` days before a
-    // due date (0 = on the day). Behind the platform module membership_instalments (OFF). PROPOSED, founder and counsel decisions pending
-    // (OQ-715 to OQ-718). Mirrored by instalment_policy_config in the migration seed, with a drift test. The last due date plus the grace must fall
-    // inside the access window; the database refuses a schedule that does not.
-    value: { parts: 3, due_offsets_days: [0, 30, 60], grace_days: 5, reminder_days_before: [3, 0] },
-    owner: "Founder",
-    status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-20",
-    source: "docs/design/S25b.md; docs/OPEN-QUESTIONS.md OQ-715; supabase/migrations/20261021104312_s25b_membership_instalments.sql",
-  },
-  {
     key: "refunds.order_rules",
     // S26b: the plain-words refund rule shown at checkout and on the receipt. cooling_off_days applies to every order that is not a Membership
     // (a Membership uses membership.refund). decision_sla_days is how long the care team has to answer; bank_days_min/max is the usual time for
@@ -3377,6 +3362,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (D2, C3, C10); supabase/migrations/20261013003317_two_tier_membership_pricing.sql",
   },
   {
+    key: "employer.seat_pilot",
+    // EMP (docs/design/EMP.md): limits for an employer seat pilot and the rounding of its report. max_seats_per_pilot and
+    // max_window_days stop a typo in a finance form; usage counts are shown rounded to report_round_to; usage_report_enabled stays false until counsel and the DPO have signed the employee notice (OQ-EMP-7, OQ-EMP-9), so a pilot reports seat counts only. The minimum cell is NOT here: the report uses the one platform rule, private.min_cell_floor (S75a, OQ-233), so there is a single number to change (I9). The
+    // price is NOT here: a pilot seat is priced at the organisation price in force (commerce.membership_prices). Mirrored by
+    // employer_seat_pilot_config in the migration seed, with a drift test. UNSIGNED: the founder has not approved the limits.
+    value: { max_seats_per_pilot: 500, max_window_days: 120, report_round_to: 5, usage_report_enabled: false },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/EMP.md; supabase/migrations/20261022002100_employer_seat_pilot_kit.sql",
+  },
+  {
     key: "membership.lapse",
     // Founder decision 2026-10-12: when a Membership year ENDS NATURALLY the person keeps Member status for a 14 day grace, then is
     // Free again (state lapsed). A refund is different: it ends Member access at once (membership.refund, decision 2026-10-12). Renewal reminders go 30, 14 and 7 days before the end (in-app, push or email; never SMS). Mirrored by
@@ -3867,6 +3865,38 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-20",
     source: "docs/BUILD-SPEC-v5.md Module 5 (5.1); supabase/migrations/20261020180745_s48a_activity_safety_gate.sql",
+  },
+  {
+    key: "activity.readiness_bands",
+    // Training load, recovery and sleep bands from stored device readings (S48b, spec 5.6). PROPOSED, unsigned, owner CMO. Compared with the person's
+    // OWN usual only, never with other people. recent_days against the baseline before it; a band needs at least min_recent_days and
+    // min_baseline_days days with data. usual_band_pct: within this percent either way is "about your usual". load: the last acute_days average
+    // against the chronic_days average (needs min_chronic_days days with data); below light_ratio is lighter, above heavy_ratio is heavier.
+    // Pinned by activity-readiness.test.ts. Dormant until real provider data exists (no provider credentials today).
+    value: {
+      recent_days: 3,
+      baseline_days: 28,
+      min_recent_days: 2,
+      min_baseline_days: 7,
+      usual_band_pct: 10,
+      load: { acute_days: 7, chronic_days: 28, min_chronic_days: 14, light_ratio: 0.8, heavy_ratio: 1.3 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 5 (5.6); docs/design/S48b.md",
+  },
+  {
+    key: "activity.workout_plans",
+    // Workout plan display rules (S48b, spec 5.3 / 5.4). session_minutes mirrors the database CHECK workout_plans_session_minutes_chk (a mirror test
+    // fails on drift). older_adult_age: from this age a chair-based class is listed first (a display order only, the gate decides what is allowed).
+    value: { session_minutes: { min: 10, max: 20 }, older_adult_age: 65 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 5 (5.3, 5.4); supabase/migrations/20261021182454_s48b_activity_offline_plans_route_status.sql",
   },
   {
     key: "medicines.prn_limits",
@@ -7050,5 +7080,16 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-16",
     source: "docs/design/build-vitals-rule-sets.md; triage_rule_sets vitals_care_triage version 1 (draft)",
+  },
+  {
+    key: "assisted_entry.limits",
+    // A helper (family member or other caregiver) entering readings for the person: how many per helper per person per hour and per helper per
+    // day. PROPOSED, Founder owned, no clinical meaning. Live value is the active row of `assisted_entry_config`.rules.
+    value: { max_per_helper_per_person_per_hour: 6, max_per_helper_per_day: 30 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/build-assisted-entry.md; supabase/migrations/*_assisted_entry_and_caregiver_red_care.sql",
   },
 ];

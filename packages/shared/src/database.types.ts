@@ -2580,6 +2580,7 @@ export type Database = {
         Row: {
           activity_kind: Database["public"]["Enums"]["activity_kind"] | null
           activity_name: string | null
+          client_id: string | null
           created_at: string
           distance_m: number | null
           duration_minutes: number | null
@@ -2597,6 +2598,7 @@ export type Database = {
         Insert: {
           activity_kind?: Database["public"]["Enums"]["activity_kind"] | null
           activity_name?: string | null
+          client_id?: string | null
           created_at?: string
           distance_m?: number | null
           duration_minutes?: number | null
@@ -2614,6 +2616,7 @@ export type Database = {
         Update: {
           activity_kind?: Database["public"]["Enums"]["activity_kind"] | null
           activity_name?: string | null
+          client_id?: string | null
           created_at?: string
           distance_m?: number | null
           duration_minutes?: number | null
@@ -16942,6 +16945,113 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_seat_pilots: {
+        Row: {
+          activated_at: string | null
+          activated_by: string | null
+          benefit_package_id: string
+          close_reason: string | null
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          created_by: string | null
+          ends_on: string
+          id: string
+          invoice_id: string | null
+          is_test: boolean
+          organisation_id: string
+          payment_method: string | null
+          payment_reference: string | null
+          seat_price_id: string
+          seat_price_kobo: number
+          seats_purchased: number
+          starts_on: string
+          state: string
+          terms_version: string
+          total_kobo: number
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          activated_by?: string | null
+          benefit_package_id: string
+          close_reason?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          ends_on: string
+          id?: string
+          invoice_id?: string | null
+          is_test?: boolean
+          organisation_id: string
+          payment_method?: string | null
+          payment_reference?: string | null
+          seat_price_id: string
+          seat_price_kobo: number
+          seats_purchased: number
+          starts_on: string
+          state?: string
+          terms_version: string
+          total_kobo: number
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          activated_by?: string | null
+          benefit_package_id?: string
+          close_reason?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          ends_on?: string
+          id?: string
+          invoice_id?: string | null
+          is_test?: boolean
+          organisation_id?: string
+          payment_method?: string | null
+          payment_reference?: string | null
+          seat_price_id?: string
+          seat_price_kobo?: number
+          seats_purchased?: number
+          starts_on?: string
+          state?: string
+          terms_version?: string
+          total_kobo?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_seat_pilots_benefit_package_id_fkey"
+            columns: ["benefit_package_id"]
+            isOneToOne: false
+            referencedRelation: "employer_benefit_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_seat_pilots_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "employer_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_seat_pilots_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_seat_pilots_seat_price_id_fkey"
+            columns: ["seat_price_id"]
+            isOneToOne: false
+            referencedRelation: "organisation_member_prices"
             referencedColumns: ["id"]
           },
         ]
@@ -31817,6 +31927,42 @@ export type Database = {
           },
         ]
       }
+      patient_home_layout: {
+        Row: {
+          organisation_id: string
+          patient_id: string
+          pinned: string[]
+          updated_at: string
+        }
+        Insert: {
+          organisation_id: string
+          patient_id: string
+          pinned?: string[]
+          updated_at?: string
+        }
+        Update: {
+          organisation_id?: string
+          patient_id?: string
+          pinned?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_home_layout_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_home_layout_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_hospital_admissions: {
         Row: {
           admitted_on: string
@@ -35749,6 +35895,9 @@ export type Database = {
           emergency_contact_relationship: string | null
           full_name: string | null
           glucose_display_unit: string
+          weight_display_unit: string
+          temperature_display_unit: string
+          length_display_unit: string
           height_cm: number | null
           height_reconciled_at: string | null
           id: string
@@ -35804,6 +35953,9 @@ export type Database = {
           emergency_contact_relationship?: string | null
           full_name?: string | null
           glucose_display_unit?: string
+          weight_display_unit?: string
+          temperature_display_unit?: string
+          length_display_unit?: string
           height_cm?: number | null
           height_reconciled_at?: string | null
           id: string
@@ -35859,6 +36011,9 @@ export type Database = {
           emergency_contact_relationship?: string | null
           full_name?: string | null
           glucose_display_unit?: string
+          weight_display_unit?: string
+          temperature_display_unit?: string
+          length_display_unit?: string
           height_cm?: number | null
           height_reconciled_at?: string | null
           id?: string
@@ -46002,6 +46157,8 @@ export type Database = {
           id: string
           ketone_urine: string | null
           ketones_mmol_l: number | null
+          assisted_entry: boolean
+          assisted_rate_exceeded: boolean
           logged_by_profile_id: string | null
           note: string | null
           organisation_id: string
@@ -46053,6 +46210,8 @@ export type Database = {
           id?: string
           ketone_urine?: string | null
           ketones_mmol_l?: number | null
+          assisted_entry?: boolean
+          assisted_rate_exceeded?: boolean
           logged_by_profile_id?: string | null
           note?: string | null
           organisation_id: string
@@ -46104,6 +46263,8 @@ export type Database = {
           id?: string
           ketone_urine?: string | null
           ketones_mmol_l?: number | null
+          assisted_entry?: boolean
+          assisted_rate_exceeded?: boolean
           logged_by_profile_id?: string | null
           note?: string | null
           organisation_id?: string
@@ -47382,6 +47543,7 @@ export type Database = {
           seat_price_kobo: number | null
           organisation_id: string
           patient_id: string
+          pilot_id: string | null
           remaining_uses: number | null
           reminded_at: string | null
           starts_at: string
@@ -47403,6 +47565,7 @@ export type Database = {
           seat_price_kobo?: number | null
           organisation_id: string
           patient_id: string
+          pilot_id?: string | null
           remaining_uses?: number | null
           reminded_at?: string | null
           starts_at?: string
@@ -47424,6 +47587,7 @@ export type Database = {
           seat_price_kobo?: number | null
           organisation_id?: string
           patient_id?: string
+          pilot_id?: string | null
           remaining_uses?: number | null
           reminded_at?: string | null
           starts_at?: string
@@ -47899,8 +48063,6 @@ export type Database = {
           processing_started_at: string | null
           provider_checked_at: string | null
           provider_status: string | null
-          payment_id: string | null
-          refund_group: string | null
         }
         Insert: {
           amount_kobo: number
@@ -47927,8 +48089,6 @@ export type Database = {
           processing_started_at?: string | null
           provider_checked_at?: string | null
           provider_status?: string | null
-          payment_id?: string | null
-          refund_group?: string | null
         }
         Update: {
           amount_kobo?: number
@@ -47955,8 +48115,6 @@ export type Database = {
           processing_started_at?: string | null
           provider_checked_at?: string | null
           provider_status?: string | null
-          payment_id?: string | null
-          refund_group?: string | null
         }
         Relationships: [
           {
@@ -49628,6 +49786,7 @@ export type Database = {
       activity_gate: { Args: Record<PropertyKey, never>; Returns: Json };
       activity_week_progress: { Args: { p_week_start?: string }; Returns: Json };
       my_workout_plans: { Args: Record<PropertyKey, never>; Returns: Json };
+      route_recording_status: { Args: Record<PropertyKey, never>; Returns: boolean };
       sign_activity_safety_config: { Args: { p_id: string }; Returns: string };
       medication_refill_pharmacy: { Args: { p_medication: string }; Returns: { partner_id: string; partner_name: string | null; location_name: string | null; address: string | null }[] };
       attest_pharmacy_nafdac_source: { Args: { p_partner: string; p_note: string }; Returns: Json };
@@ -50592,6 +50751,28 @@ export type Database = {
         Returns: string;
       };
       organisation_seat_summary: { Args: { p_org: string }; Returns: Json };
+      close_employer_seat_pilot: {
+        Args: { p_pilot: string; p_reason: string }
+        Returns: string
+      };
+      confirm_employer_seat_pilot_payment: {
+        Args: { p_method: string; p_pilot: string; p_reference: string }
+        Returns: Json
+      };
+      create_employer_seat_pilot: {
+        Args: {
+          p_benefit_package: string
+          p_ends_on: string
+          p_is_test?: boolean
+          p_org: string
+          p_seats: number
+          p_starts_on: string
+          p_terms_version: string
+        }
+        Returns: string
+      };
+      employer_seat_pilot_report: { Args: { p_pilot: string }; Returns: Json };
+      issue_employer_seat_pilot_invoice: { Args: { p_pilot: string }; Returns: string };
       admin_create_institution_org: {
         Args: { p_name: string; p_type: string }
         Returns: string
@@ -55680,12 +55861,6 @@ export type Database = {
         Returns: Json
       }
       admin_refund_ops: { Args: never; Returns: Json }
-      // S25b: pay the annual Membership in parts
-      create_instalment_order: { Args: { p_client_key?: string; p_code: string; p_parts?: number }; Returns: Json }
-      prepare_instalment_payment: { Args: { p_instalment: string }; Returns: Json }
-      my_instalment_plans: { Args: never; Returns: Json }
-      admin_instalment_overview: { Args: never; Returns: Json }
-      instalment_policy_public: { Args: never; Returns: Json }
       admin_settle_processing_refund: {
         Args: { p_paid: boolean; p_reference?: string; p_refund: string }
         Returns: Json
@@ -56246,6 +56421,7 @@ export type Database = {
         | "communicate_with_care_team"
         | "manage_payments"
         | "receive_alerts"
+        | "log_readings"
       care_engagement_level:
         | "highly_engaged"
         | "engaged"
@@ -58556,6 +58732,7 @@ export const Constants = {
         "communicate_with_care_team",
         "manage_payments",
         "receive_alerts",
+        "log_readings",
       ],
       care_engagement_level: [
         "highly_engaged",
