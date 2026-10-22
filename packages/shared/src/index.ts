@@ -304,3 +304,6 @@ export * from "./health-history";
 
 // S43m: multi-year biomarker trend parsing and chart geometry, shared by the web page and the phone screen.
 export * from "./biomarker-trend";
+
+// S69c: cooperative framing of cohort challenges (shared goal path, weeks active, daily cap, shame-copy lint), shared by web and phone.
+export * from "./community-cooperative";

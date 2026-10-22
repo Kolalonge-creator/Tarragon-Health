@@ -17,6 +17,9 @@
 --   12. The solo wellness challenge nudge no longer carries a title or progress figure.
 --   13. SABOTAGE: the floor, leave-one-out, the effort-only rule, the individual-value guard, the participation RLS and the notice payload are each
 --       broken in turn; every one of the six checks must flip.
+--   14. (S69c) cooperative framing: cohort of 9 shows nothing, cohort of 10 only the total and a band, no individual value or id in any view, the daily
+--       cap, day-level dates, rest check-in (equal weight, once a day), a private skip and leaving that notify nobody, weeks active, and own history
+--       kept after a challenge ends. Three more sabotages (cap trigger, notifying skip, widened created_at) must flip.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -522,6 +525,113 @@ begin
 end $$;
 
 ---------------------------------------------------------------------------------------------------------------------------------------------------
+-- S69c: cooperative framing. Real checks first (before any sabotage below replaces a function).
+---------------------------------------------------------------------------------------------------------------------------------------------------
+do $$
+declare
+  v_org uuid := pg_temp.f('org'); v_mod uuid; v_co uuid; v_ch uuid; v_chlog uuid; v_u uuid; v_i integer; v_first uuid; v_stranger uuid;
+  v_members uuid[] := '{}'; v_today date := (now() at time zone 'Africa/Lagos')::date; v_txt text; v_before text; v_after text; v_n1 integer; v_n2 integer;
+  v_keys text; r jsonb; v_wk integer; v_purged text;
+begin
+  v_mod := pg_temp.mkuser(v_org, 'coopMod', 'patient');
+  v_co := (pg_temp.j(v_mod, $q$select public.cohort_create('Cooperative Proof Group', 'workplace', true)::text$q$) ->> 'cohort_id')::uuid;
+  v_ch := (pg_temp.j(v_mod, format('select public.cohort_start_challenge(%L::uuid, %L, (now() at time zone %L)::date, 14)::text', v_co, 'move_together', 'Africa/Lagos')) ->> 'challenge_id')::uuid;
+  v_chlog := (pg_temp.j(v_mod, format('select public.cohort_start_challenge(%L::uuid, %L, (now() at time zone %L)::date, 14)::text', v_co, 'log_days', 'Africa/Lagos')) ->> 'challenge_id')::uuid;
+  pg_temp.setf('coopCh', v_ch); pg_temp.setf('coopChLog', v_chlog); pg_temp.setf('coopCo', v_co);
+
+  -- a cohort of 9 shows nothing
+  for v_i in 1..9 loop
+    v_u := pg_temp.enrol(v_org, v_co, v_mod, 'coop' || v_i); v_members := v_members || v_u;
+    insert into public.challenge_participation (organisation_id, challenge_id, patient_id, day, value, source) values (v_org, v_ch, v_u, v_today, 40 + v_i, 'self_report');
+  end loop;
+  v_first := v_members[1];
+  perform private.challenge_aggregate(v_ch, false); perform pg_temp.publish_all();
+  perform pg_temp.ck('C1 a cohort of 9 shows nothing (hidden)', 'hidden',
+    (select e -> 'total' ->> 'state' from jsonb_array_elements(pg_temp.j(v_first, format('select public.cohort_challenges(%L::uuid)::text', v_co))) e where e ->> 'challenge_id' = v_ch::text));
+
+  -- the tenth contributor: only the total and a band show
+  v_u := pg_temp.enrol(v_org, v_co, v_mod, 'coop10'); v_members := v_members || v_u;
+  insert into public.challenge_participation (organisation_id, challenge_id, patient_id, day, value, source) values (v_org, v_ch, v_u, v_today, 47, 'self_report');
+  perform private.challenge_aggregate(v_ch, false); perform pg_temp.publish_all();
+  r := (select e -> 'total' from jsonb_array_elements(pg_temp.j(v_first, format('select public.cohort_challenges(%L::uuid)::text', v_co))) e where e ->> 'challenge_id' = v_ch::text);
+  perform pg_temp.ck('C2 a cohort of 10 shows the total', 'shown', r ->> 'state');
+  select string_agg(k, ',' order by k) into v_keys from jsonb_object_keys(r) k;
+  perform pg_temp.ck('C2 only the total, progress, goal flag, band, date and final flag are present', 'as_of,final,goal_reached,group_size,progress_pct,state,total', v_keys);
+  perform pg_temp.ck('C2 the contributor band is a band, not a count', '10-19', r ->> 'group_size');
+  v_txt := pg_temp.q_as(v_first, format('select public.cohort_challenges(%L::uuid)::text', v_co));
+  perform pg_temp.ck('C3 no individual value (41 to 49) appears in any challenge view', 'false', (v_txt ~ '(^|[^0-9a-fA-F])4[1-9]([^0-9a-fA-F]|$)')::text);
+  perform pg_temp.ck('C3 no member id appears in any challenge view', 'false', (select bool_or(v_txt like '%' || m::text || '%') from unnest(v_members) m)::text);
+  perform pg_temp.ck('C3 no rank or leaderboard key appears in any challenge view', 'false', (v_txt ~* 'rank|leader|yours|mine')::text);
+
+  -- (e) the daily cap, whatever wrote the row: a day metric stores 1, however large the value
+  insert into public.challenge_participation (organisation_id, challenge_id, patient_id, day, value, source) values (v_org, v_chlog, v_first, v_today, 5, 'self_report');
+  perform pg_temp.ck('C4 a day metric never counts for more than one a day', '1', (select value::text from public.challenge_participation where challenge_id = v_chlog and patient_id = v_first and day = v_today));
+  insert into public.challenge_participation (organisation_id, challenge_id, patient_id, day, value, source) values (v_org, v_ch, v_members[2], v_today - 1, 200, 'self_report');
+  perform pg_temp.ck('C4 a minutes day is capped by the configured daily cap', '180', (select value::text from public.challenge_participation where challenge_id = v_ch and patient_id = v_members[2] and day = v_today - 1));
+
+  -- (f) day-level timestamps only
+  perform pg_temp.ck('C5 challenge_participation.created_at is a date', 'date',
+    (select data_type from information_schema.columns where table_schema = 'public' and table_name = 'challenge_participation' and column_name = 'created_at'));
+  perform pg_temp.ck('C5 no timestamp column on effort or skip rows', '0',
+    (select count(*)::text from information_schema.columns where table_schema = 'public' and table_name in ('challenge_participation', 'challenge_skips') and data_type like 'timestamp%'));
+
+  -- (c) rest check-in counts the same as the day's effort (one day on a day metric; the configured minutes on a minutes metric), once a day
+  v_u := v_members[3];
+  delete from public.challenge_participation where challenge_id = v_ch and patient_id = v_u;
+  perform pg_temp.ck('C6 a rest check-in is counted', 'true', pg_temp.q_as(v_u, format('select (public.rest_checkin_for_challenge(%L::uuid) ->> %L)', v_ch, 'counted')));
+  perform pg_temp.ck('C6 on a minutes challenge it counts the configured rest minutes', '20', (select value::text from public.challenge_participation where challenge_id = v_ch and patient_id = v_u and day = v_today));
+  perform pg_temp.q_as(v_u, format('select public.rest_checkin_for_challenge(%L::uuid)::text', v_ch));
+  perform pg_temp.ck('C6 a second rest check-in the same day is still one row', '1', (select count(*)::text from public.challenge_participation where challenge_id = v_ch and patient_id = v_u and day = v_today));
+  perform pg_temp.q_as(v_first, format('select public.rest_checkin_for_challenge(%L::uuid)::text', v_chlog));
+  perform pg_temp.ck('C6 a rest check-in never overwrites a day that already has effort', 'self_report', (select source from public.challenge_participation where challenge_id = v_chlog and patient_id = v_first and day = v_today));
+  v_stranger := pg_temp.mkuser(v_org, 'coopStranger', 'patient');
+  perform pg_temp.ck('C6 a non-member gets the neutral answer', '{"ok": false, "reason": "not_available"}', pg_temp.q_as(v_stranger, format('select public.rest_checkin_for_challenge(%L::uuid)::text', v_ch)));
+
+  -- (d) skip this week: private, no notice, no change to anything the group sees
+  v_before := pg_temp.q_as(v_members[4], format('select public.cohort_challenges(%L::uuid)::text', v_co));
+  select count(*) into v_n1 from public.notifications;
+  select count(*) into v_wk from public.audit_log;
+  perform pg_temp.ck('C7 a member can skip this week', '{"ok": true}', pg_temp.q_as(v_u, format('select public.skip_challenge_week(%L::uuid)::text', v_ch)));
+  perform pg_temp.ck('C7 skipping is recorded for the member alone', '1', pg_temp.q_as(v_u, $q$select count(*)::text from public.challenge_skips$q$));
+  perform pg_temp.ck('C7 nobody else can read the skip', '0', pg_temp.q_as(v_members[4], $q$select count(*)::text from public.challenge_skips$q$));
+  perform pg_temp.ck('C7 the moderator cannot read the skip', '0', pg_temp.q_as(v_mod, $q$select count(*)::text from public.challenge_skips$q$));
+  select count(*) into v_n2 from public.notifications;
+  perform pg_temp.ck('C7 skipping sends no notification to anyone', v_n1::text, v_n2::text);
+  perform pg_temp.ck('C7 skipping writes no audit entry', v_wk::text, (select count(*)::text from public.audit_log));
+  v_after := pg_temp.q_as(v_members[4], format('select public.cohort_challenges(%L::uuid)::text', v_co));
+  perform pg_temp.ck('C7 the group view is identical after a skip', v_before, v_after);
+  perform pg_temp.q_as(v_u, format('select public.undo_skip_challenge_week(%L::uuid)::text', v_ch));
+  perform pg_temp.ck('C7 a skip can be taken back', '0', (select count(*)::text from public.challenge_skips where patient_id = v_u));
+  perform pg_temp.ck('C7 a non-member cannot skip', '{"ok": false, "reason": "not_available"}', pg_temp.q_as(v_stranger, format('select public.skip_challenge_week(%L::uuid)::text', v_ch)));
+
+  -- (b) weeks active: cumulative, unaffected by a skip, never negative shame
+  perform pg_temp.q_as(v_u, format('select public.skip_challenge_week(%L::uuid)::text', v_ch));
+  perform pg_temp.ck('C8 weeks active counts the week with a rest check-in', '1', pg_temp.q_as(v_u, format('select (public.my_challenge_summary(%L::uuid) ->> %L)', v_ch, 'weeks_active')));
+  perform pg_temp.ck('C8 the summary key set (sorted)', 'available,contributing,did_today,rest_available,skipped_this_week,weeks_active',
+    (select string_agg(k, ',' order by k) from jsonb_object_keys(pg_temp.j(v_u, format('select public.my_challenge_summary(%L::uuid)::text', v_ch))) k));
+
+  -- leaving never notifies the group
+  select count(*) into v_n1 from public.notifications;
+  perform pg_temp.q_as(v_members[5], format('select public.cohort_leave(%L::uuid)::text', v_co));
+  select count(*) into v_n2 from public.notifications;
+  perform pg_temp.ck('C9 leaving sends no notification to anyone', v_n1::text, v_n2::text);
+
+  -- (g) the member's own history survives the end of a challenge (the scheduled run no longer purges it)
+  update public.challenges set starts_on = v_today - 100, ends_on = v_today - 90 where id = v_ch;
+  v_purged := (private.cohort_run() ->> 'purged');
+  perform pg_temp.ck('C10 the scheduled run purges nothing', '0', v_purged);
+  perform pg_temp.ck('C10 the member still sees their own effort in their history', 'true',
+    (pg_temp.j(v_u, $q$select public.my_effort_history()::text$q$) -> 'challenges' @> '[{"label": "Move together"}]'::jsonb)::text);
+  perform pg_temp.ck('C10 history shows days and rest days only for the member''s own rows', '1',
+    (select (e ->> 'rest_days') from jsonb_array_elements(pg_temp.j(v_u, $q$select public.my_effort_history()::text$q$) -> 'challenges') e limit 1));
+  perform pg_temp.ck('C10 another member''s history does not include this member''s rest day', '0',
+    (select coalesce(sum((e ->> 'rest_days')::int), 0)::text from jsonb_array_elements(pg_temp.j(v_members[6], $q$select public.my_effort_history()::text$q$) -> 'challenges') e));
+  perform pg_temp.ck('C10 anon cannot run the new functions', '42501',
+    pg_temp.try_anon($q$select public.my_effort_history()$q$));
+  update public.challenges set starts_on = v_today, ends_on = v_today + 13 where id = v_ch;
+end $$;
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
 -- SABOTAGE: break each protection in turn; the matching check must flip
 ---------------------------------------------------------------------------------------------------------------------------------------------------
 -- (S1) the floor lowered to 2: a 9-contributor cohort (C, after taking one out) would show a total
@@ -605,6 +715,44 @@ begin
   perform pg_temp.sab('S6 a notice carrying the cohort name', '0', (select count(*)::text from public.notifications where template = 'community_update' and payload <> '{}'::jsonb));
 end $$;
 
+
+-- (S7) the daily cap trigger removed: a day metric would store the raw 5 instead of 1
+do $$
+declare v_org uuid := pg_temp.f('org'); v_ch uuid := pg_temp.f('coopChLog'); v_u uuid; v_today date := (now() at time zone 'Africa/Lagos')::date;
+begin
+  select patient_id into v_u from public.cohort_members where cohort_id = pg_temp.f('coopCo') and state = 'active' and patient_id not in (select patient_id from public.challenge_participation where challenge_id = v_ch) limit 1;
+  drop trigger challenge_participation_daily_cap on public.challenge_participation;
+  insert into public.challenge_participation (organisation_id, challenge_id, patient_id, day, value, source) values (v_org, v_ch, v_u, v_today, 5, 'self_report');
+  perform pg_temp.sab('S7 with the cap trigger gone a day metric still counts 1', '1', (select value::text from public.challenge_participation where challenge_id = v_ch and patient_id = v_u and day = v_today));
+end $$;
+
+-- (S8) a skip that tells the group: the "no notification on skip" check must catch it
+do $$
+declare v_org uuid := pg_temp.f('org'); v_ch uuid := pg_temp.f('coopCh'); v_u uuid; v_n1 integer; v_n2 integer;
+begin
+  select patient_id into v_u from public.cohort_members where cohort_id = pg_temp.f('coopCo') and state = 'active' and role = 'member' limit 1;
+  select count(*) into v_n1 from public.notifications;
+  create or replace function public.skip_challenge_week(p_challenge uuid) returns jsonb language plpgsql security definer set search_path = '' as $f$
+  begin
+    insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
+    select m.patient_id, m.organisation_id, 'in_app', 'community_update', '{}'::jsonb, 'pending', 'non_clinical', 'routine'::public.notification_priority, 'challenges', p_challenge
+      from public.cohort_members m where m.state = 'active';
+    return jsonb_build_object('ok', true);
+  end $f$;
+  perform pg_temp.q_as(v_u, format('select public.skip_challenge_week(%L::uuid)::text', v_ch));
+  select count(*) into v_n2 from public.notifications;
+  perform pg_temp.sab('S8 a skip that notifies the group', '0', (v_n2 - v_n1)::text);
+end $$;
+
+-- (S9) created_at widened back to a timestamp: the day-level check must catch it
+do $$
+begin
+  alter table public.challenge_participation alter column created_at drop default;
+  alter table public.challenge_participation alter column created_at type timestamptz using created_at::timestamptz;
+  perform pg_temp.sab('S9 created_at back to a time of day', 'date',
+    (select data_type from information_schema.columns where table_schema = 'public' and table_name = 'challenge_participation' and column_name = 'created_at'));
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -614,7 +762,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 6 then raise exception 'VACUOUS TEST: the sabotage flipped % of 6 checks (%)', v_caught,
+  if v_caught < 9 then raise exception 'VACUOUS TEST: the sabotage flipped % of 9 checks (%)', v_caught,
     (select string_agg(check_name || ' => ' || expected || ' vs ' || coalesce(actual, 'null'), '; ') from results where phase = 'sabotaged'); end if;
 end $$;
 

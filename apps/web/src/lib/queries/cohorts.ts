@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/client";
 import {
   inviteMadeSchema,
   parseBoard,
+  parseHistory,
+  parseSummary,
   parseChallenges,
   parseModReports,
   parseMyCohorts,
@@ -178,6 +180,43 @@ export function useStartChallenge() {
   return useRpcMutation(
     (v: { cohort: string; template: string; startsOn: string; days: number }) =>
       rpc(createClient().rpc("cohort_start_challenge", { p_cohort: v.cohort, p_template: v.template, p_starts_on: v.startsOn, p_days: v.days })),
+    ALL,
+  );
+}
+
+/** S69c: the member's own summary for one challenge (weeks active, whether this week is skipped). Never part of a group view. */
+export function useChallengeSummary(challengeId: string) {
+  return useQuery({
+    queryKey: ["community", "summary", challengeId] as const,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("my_challenge_summary", { p_challenge: challengeId });
+      if (error) throw new CommunityError(error.message);
+      return parseSummary(data);
+    },
+  });
+}
+
+/** S69c: the member's own effort history, kept after a challenge ends. */
+export function useEffortHistory() {
+  return useQuery({
+    queryKey: ["community", "history"] as const,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("my_effort_history");
+      if (error) throw new CommunityError(error.message);
+      return parseHistory(data);
+    },
+  });
+}
+
+export function useRestCheckin() {
+  return useRpcMutation((challenge: string) => rpc(createClient().rpc("rest_checkin_for_challenge", { p_challenge: challenge })), ALL);
+}
+
+/** Skip (or take back the skip of) this week. Nothing is sent to the group. */
+export function useSkipWeek() {
+  return useRpcMutation(
+    (v: { challenge: string; skip: boolean }) =>
+      rpc(v.skip ? createClient().rpc("skip_challenge_week", { p_challenge: v.challenge }) : createClient().rpc("undo_skip_challenge_week", { p_challenge: v.challenge })),
     ALL,
   );
 }

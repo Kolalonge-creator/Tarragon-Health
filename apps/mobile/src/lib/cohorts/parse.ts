@@ -141,3 +141,28 @@ export function communityErrorKey(message: unknown): MessageKey {
   const hit = Object.keys(ERROR_KEYS).find((c) => message.includes(c));
   return (hit ? ERROR_KEYS[hit] : undefined) ?? "community.error.unknown";
 }
+
+/** S69c: the member's OWN summary and OWN effort history. Neither is part of any group view. */
+export type ChallengeSummary = { available: false } | { available: true; contributing: boolean; didToday: boolean; skippedThisWeek: boolean; restAvailable: boolean; weeksActive: number };
+export function parseSummary(data: unknown): ChallengeSummary {
+  const o = obj(data);
+  if (!o || o.available !== true) return { available: false };
+  const contributing = bool(o.contributing), didToday = bool(o.did_today), skipped = bool(o.skipped_this_week), rest = bool(o.rest_available), weeks = num(o.weeks_active);
+  return contributing !== null && didToday !== null && skipped !== null && rest !== null && weeks !== null
+    ? { available: true, contributing, didToday, skippedThisWeek: skipped, restAvailable: rest, weeksActive: weeks }
+    : { available: false };
+}
+
+export type HistoryRow = { label: string; startsOn: string; daysWithEffort: number; restDays: number };
+export type EffortHistory = { weeksActive: number; challenges: HistoryRow[] };
+export function parseHistory(data: unknown): EffortHistory {
+  const o = obj(data);
+  const weeks = o ? num(o.weeks_active) : null;
+  if (!o || weeks === null || !Array.isArray(o.challenges)) return { weeksActive: 0, challenges: [] };
+  const challenges = o.challenges.flatMap((row): HistoryRow[] => {
+    const r = obj(row);
+    const label = r ? str(r.label) : null, starts = r ? str(r.starts_on) : null, days = r ? num(r.days_with_effort) : null, rest = r ? num(r.rest_days) : null;
+    return label && starts && days !== null && rest !== null ? [{ label, startsOn: starts, daysWithEffort: days, restDays: rest }] : [];
+  });
+  return { weeksActive: weeks, challenges };
+}

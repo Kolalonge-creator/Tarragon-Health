@@ -56235,6 +56235,11 @@ export type Database = {
       contribute_to_challenge: { Args: { p_challenge: string; p_day?: string; p_minutes?: number }; Returns: Json };
       my_challenge_status: { Args: { p_challenge: string }; Returns: Json };
       cohort_board: { Args: { p_challenge: string }; Returns: Json };
+      skip_challenge_week: { Args: { p_challenge: string }; Returns: Json };
+      undo_skip_challenge_week: { Args: { p_challenge: string }; Returns: Json };
+      rest_checkin_for_challenge: { Args: { p_challenge: string; p_day?: string }; Returns: Json };
+      my_challenge_summary: { Args: { p_challenge: string }; Returns: Json };
+      my_effort_history: { Args: never; Returns: Json };
       admin_community_freeze: { Args: { p_cohort: string; p_frozen: boolean; p_note: string }; Returns: Json };
       admin_community_reports: { Args: never; Returns: Json };
       admin_community_resolve_report: { Args: { p_action: string; p_bar?: boolean; p_report: string }; Returns: Json };
