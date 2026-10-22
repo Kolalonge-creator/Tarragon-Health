@@ -5091,9 +5091,9 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - The brief made an in-app inbox item optional. It was not built: OQ-S58-09 says no points notification exists, and a milestone names a care step (INV-07). If wanted, it must be one neutral, key-based, in-app item ("You have a new card on your Wellness page") with no step named, never push-required.
 - Decision: open (founder).
 
-### OQ-S58b-04 Milestones are shown to minors too (raised by S58b)
-- DECIDED SAFER DEFAULT (review follow-up): the versioned switch `milestone_display.show_to_minors` is false, so no card is shown under 18; the milestone is still recorded. A milestone is a fixed card with no points and no chance, so turning it on is safe if the founder wants it. A guardian view is not built (the card is read only by the person). If the founder wants none for under 18s, add an age gate in `my_pending_milestone`.
-- Decision: open (founder).
+### OQ-S58b-04 Milestones and points for under-18 dependants (raised by S58b; resolved by the S04b-1 guard)
+- No milestone or points row is ever written for an under-18 dependant. S04b-1 guards every `patient_id` table (including `points_award_decisions` and `milestones_achieved`); `public.points_award` returns 0 for a minor dependant before any write (it used to risk a 42501 inside the award path), milestone evaluation and the backfill skip them, and no card is shown. The earlier `show_to_minors` switch was removed because it could never apply. Only if the founder wants minors to hold milestones would `milestones_achieved` have to be classified `allowed` with `private.classify_minor_dependant_table` (a product and DPO decision, not done).
+- Decision: closed unless the founder reopens (founder).
 
 ### OQ-S58b-05 Milestone list and the four-week rule are PROPOSED (raised by S58b)
 - Seven milestones; four weeks of check-ins means 24 of the last 28 Lagos days (28 minus the `streak_grace` allowance of 1 per 7). A first blood pressure or glucose check celebrates whatever the value, if it is plausible; "first reading in range" is deliberately absent. Pending credit: expected within 15 minutes, ask after 120, look back 72 hours; a card is shown at most 72 hours after first shown. All unsigned, not clinical.

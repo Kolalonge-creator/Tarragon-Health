@@ -2686,7 +2686,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   {
     key: "rewards.milestone_display",
     // S58b. Live value is the `milestone_display` row of `reward_config`. A milestone card is shown until dismissed, at most this long after first shown.
-    value: {"show_for_hours": 72, "show_to_minors": false},
+    value: {"show_for_hours": 72},
     owner: "Founder",
     status: "proposed",
     version: 1,

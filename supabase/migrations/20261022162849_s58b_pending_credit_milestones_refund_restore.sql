@@ -26,8 +26,8 @@
 insert into public.reward_config (key, version, value, status, note) values
 ('pending_credit', 1, $json${"expected_within_minutes":15,"ask_after_minutes":120,"look_back_hours":72,"ignore_before":"2026-10-07"}$json$::jsonb, 'proposed',
  'Pending credit: an action whose points have not been decided yet is shown as on its way until expected_within_minutes, then still pending; after ask_after_minutes the screen offers the support route. look_back_hours bounds how old an undecided action can be and still be listed; ignore_before drops events older than the rewards rollout (they were never going to be decided).'),
-('milestone_display', 1, $json${"show_for_hours":72,"show_to_minors":false}$json$::jsonb, 'proposed',
- 'A milestone card is shown until it is dismissed, and at most this long after it was first shown. It never blocks anything and is never shown while an emergency is open. show_to_minors false (the safer default while OQ-S58b-04 is undecided): a person under minor_age_years is never shown a card; the milestone is still recorded.')
+('milestone_display', 1, $json${"show_for_hours":72}$json$::jsonb, 'proposed',
+ 'A milestone card is shown until it is dismissed, and at most this long after it was first shown. It never blocks anything and is never shown while an emergency is open. There is no minor switch: an under-18 dependant can hold no row in a patient table (S04b-1 scope guard), so no milestone or points row is ever written for one.')
 on conflict (key, version) do nothing;
 -- rewards-s58b-seeds-end
 
@@ -273,7 +273,7 @@ declare
   v_n integer := 0;
 begin
   select * into e from public.domain_events where id = p_event;
-  if not found or e.patient_id is null then return 0; end if;
+  if not found or e.patient_id is null or private.is_minor_dependant(e.patient_id) then return 0; end if;
 
   for d in
     select distinct on (code) * from public.milestone_definitions
@@ -320,6 +320,11 @@ as $$
 declare
   v_points integer;
 begin
+  -- An under-18 dependant can hold no points or milestone row (S04b-1 minor_dependant_scope guards every patient_id table, including
+  -- points_award_decisions and milestones_achieved): return before any write rather than raise 42501 inside the award path.
+  if exists (select 1 from public.domain_events ev where ev.id = p_event_id and ev.patient_id is not null and private.is_minor_dependant(ev.patient_id)) then
+    return 0;
+  end if;
   v_points := private.points_award_event(p_event_id);
   begin
     perform private.milestones_evaluate_event(p_event_id);
@@ -363,16 +368,8 @@ declare
   v_uid uuid := auth.uid();
   v_hours integer := coalesce((private.reward_config('milestone_display') ->> 'show_for_hours')::integer, 72);
   m public.milestones_achieved%rowtype;
-  v_cfg jsonb := private.reward_config('milestone_display');
-  v_minor_years integer := coalesce((private.reward_config('minor_age_years') ->> 'years')::integer, 18);
 begin
   if v_uid is null then return null; end if;
-  -- Versioned switch (default off): a person under the minor age is not shown a card unless the founder turns it on. The milestone is still recorded.
-  if not coalesce((v_cfg ->> 'show_to_minors')::boolean, false)
-     and exists (select 1 from public.profiles p where p.id = v_uid and p.date_of_birth is not null
-                  and p.date_of_birth > (now() at time zone 'Africa/Lagos')::date - make_interval(years => v_minor_years)) then
-    return null;
-  end if;
   if exists (select 1 from public.emergency_events x where x.patient_id = v_uid and x.status in ('active', 'acknowledged')) then
     return null;
   end if;
@@ -531,6 +528,7 @@ select p.organisation_id, h.patient_id, h.code, 1, null, true, now(), now(), now
   ) h
   join public.profiles p on p.id = h.patient_id
  where p.organisation_id is not null
+   and not private.is_minor_dependant(h.patient_id) -- the S04b-1 scope guard refuses any row about an under-18 dependant
 on conflict (patient_id, milestone_code) do nothing;
 
 -- ---------------------------------------------------------------------------
@@ -547,6 +545,9 @@ begin
      or has_table_privilege('authenticated', 'public.milestones_achieved', 'UPDATE')
      or has_table_privilege('authenticated', 'public.milestones_achieved', 'DELETE') then
     raise exception 'authenticated can write milestones_achieved';
+  end if;
+  if not exists (select 1 from public.minor_dependant_table_policy where table_name = 'milestones_achieved' and policy = 'guarded') then
+    raise exception 'milestones_achieved is not guarded for under-18 dependants';
   end if;
   if has_table_privilege('anon', 'public.milestones_achieved', 'SELECT') then raise exception 'anon can read milestones_achieved'; end if;
   if has_function_privilege('anon', 'public.my_points_pending()', 'EXECUTE')

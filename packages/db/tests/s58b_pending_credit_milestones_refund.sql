@@ -104,7 +104,7 @@ create function pg_temp.bal(p uuid) returns integer language sql as $$ select co
 do $$
 declare
   v_org uuid; v_a uuid; v_b uuid; v_c uuid; v_d uuid; v_g uuid; v_h uuid; v_p uuid; v_r uuid; v_r2 uuid; v_r3 uuid;
-  v_vid uuid; v_ev uuid; v_t1 timestamptz; v_iso_award integer; v_iso_audit boolean; v_iso_inc boolean; v_minor uuid; v_hist uuid; v_pl uuid; v_nb uuid; v_i integer; v_j jsonb; v_m uuid; v_o uuid; v_life integer;
+  v_vid uuid; v_ev uuid; v_t1 timestamptz; v_iso_award integer; v_iso_audit boolean; v_iso_inc boolean; v_minor uuid; v_minor_err boolean; v_n integer; v_hist uuid; v_pl uuid; v_nb uuid; v_i integer; v_j jsonb; v_m uuid; v_o uuid; v_life integer;
 begin
   select organisation_id into v_org from public.profiles where role = 'admin' limit 1;
   v_a := pg_temp.mkuser(v_org, 'a', 'patient'); v_b := pg_temp.mkuser(v_org, 'b', 'patient');
@@ -272,15 +272,22 @@ begin
   perform pg_temp.ck('6h an undecided event from before the rollout date is not listed as pending', jsonb_array_length(pg_temp.as_json(v_p, $q$select public.my_points_pending()$q$)) = 0);
   update public.reward_config set is_active = false where key = 'pending_credit' and version = 2;
 
-  -- ================= 6b. age gate: not shown to under 18 by default =================
+  -- ================= 6b. an under-18 dependant: nothing is written, nothing is shown, nothing errors =================
+  -- S04b-1 guards every patient_id table (points_award_decisions, milestones_achieved, the ledger) against a row about an under-18 dependant.
   v_minor := pg_temp.mkuser(v_org, 'minor', 'patient');
   update public.profiles set date_of_birth = current_date - interval '12 years', is_dependent_account = true, dependent_kind = 'minor_child' where id = v_minor;
-  perform public.points_award(pg_temp.fire(v_minor, 'lab_result.released', 'ms-minor-lab'));
-  perform pg_temp.ck('6b1 a minor''s milestone is still recorded', pg_temp.has_ms(v_minor, 'first_lab_done'));
-  perform pg_temp.ck('6b2 but no card is shown to a minor by default', pg_temp.as_json(v_minor, $q$select public.my_pending_milestone()$q$) is null);
-  insert into public.reward_config (key, version, value) values ('milestone_display', 2, '{"show_for_hours":72,"show_to_minors":true}');
-  perform pg_temp.ck('6b3 turning the versioned switch on shows it', pg_temp.as_json(v_minor, $q$select public.my_pending_milestone()$q$) ->> 'code' = 'first_lab_done');
-  update public.reward_config set is_active = false where key = 'milestone_display' and version = 2;
+  v_ev := pg_temp.fire(v_minor, 'lesson.completed', 'ms-minor-les');
+  begin
+    v_n := public.points_award(v_ev);
+    v_minor_err := false;
+  exception when others then v_minor_err := true; end;
+  perform pg_temp.ck('6b1 the awarder returns without error for a minor dependant', not v_minor_err and v_n = 0);
+  perform pg_temp.ck('6b2 and writes no decision, no points and no milestone row for them',
+    not exists (select 1 from public.points_award_decisions where patient_id = v_minor)
+    and not exists (select 1 from public.wellness_points_ledger where patient_id = v_minor)
+    and not pg_temp.has_ms(v_minor, 'first_lesson_completed'));
+  perform pg_temp.ck('6b3 no card is shown', pg_temp.as_json(v_minor, $q$select public.my_pending_milestone()$q$) is null);
+  perform pg_temp.ck('6b4 milestones_achieved is a guarded table', exists (select 1 from public.minor_dependant_table_policy where table_name = 'milestones_achieved' and policy = 'guarded'));
 
   -- ================= 7. refund returns spent points =================
   insert into public.wellness_points_balances (patient_id, organisation_id, balance, lifetime_earned) values (v_r, v_org, 700, 700)
@@ -388,21 +395,21 @@ begin
   insert into results(check_name, ok) values ('SABOTAGE C: without the guard a card appears during an open emergency (so check 4b really guards it)', v_flip);
   if not v_flip then raise exception 'VACUOUS: emergency suppression test'; end if;
 
-  -- E. age gate removed => a minor is shown a card
+  -- E. minor early-return removed => the award path raises for an under-18 dependant (the S04b-1 guard refuses the write)
   begin
     update public.profiles set date_of_birth = current_date - interval '12 years', is_dependent_account = true, dependent_kind = 'minor_child' where id = v_p;
-    v_e := private.emit_domain_event('lab_result.released', v_org, '{"lab_result_id":"x"}', 'sab-lab-4', v_p);
-    perform private.milestones_evaluate_event(v_e);
-    v_def := pg_get_functiondef('public.my_pending_milestone()'::regprocedure);
-    v_def := replace(v_def, 'if not coalesce((v_cfg ->> ''show_to_minors'')::boolean, false)', 'if false');
+    v_e := pg_temp.fire(v_p, 'lesson.completed', 'sab-les-4');
+    v_def := pg_get_functiondef('public.points_award(uuid)'::regprocedure);
+    v_def := replace(v_def, 'ev.patient_id is not null and private.is_minor_dependant(ev.patient_id)', 'false');
     execute v_def;
-    perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
-    v_flip := public.my_pending_milestone() is not null;
-    perform set_config('request.jwt.claims', '', true);
+    begin
+      perform public.points_award(v_e);
+      v_flip := false;
+    exception when sqlstate '42501' then v_flip := true; end;
     raise exception 'rollback_sab';
   exception when others then if sqlerrm <> 'rollback_sab' then v_flip := false; end if; end;
-  insert into results(check_name, ok) values ('SABOTAGE E: without the age gate a minor is shown a card (so check 6b2 really guards it)', v_flip);
-  if not v_flip then raise exception 'VACUOUS: age gate test'; end if;
+  insert into results(check_name, ok) values ('SABOTAGE E: without the early return the award path raises for a minor dependant (so checks 6b1 and 6b2 really guard it)', v_flip);
+  if not v_flip then raise exception 'VACUOUS: minor dependant test'; end if;
 
   -- F. earlier-history check removed => an existing member's next reading is called a first
   begin
