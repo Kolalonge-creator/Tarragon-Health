@@ -4972,6 +4972,7 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 
 ### OQ-DP-02 Home "safety message is waiting" line (raised by the design-principles pass, 2026-10-22)
 - New plain, non-clinical Home copy (`dp.next.red_alert.*`): "A safety message is waiting for you". It names nothing clinical and does not claim a clinician was told. It sits below the emergency dialog. CMO to confirm the line, or reword.
+- Also for the CMO to confirm (same item): the dose card (`dp.next.dose.*`: "A dose is due" / "Open your list and mark what you have taken today", no medicine name) and the safety-check card shown when the emergency read fails (`dp.next.safety_check.*`: "Check for safety messages"). Neither claims a clinician was told.
 - Decision: open (CMO). Build order of the card is the founder's; items that were on the card before (screening, video times, check-in, review) now sit after refill, before the lesson. Confirm that placement.
 
 ### OQ-DP-03 Home has about 40 cards (raised by the design-principles pass, 2026-10-22)

@@ -2,10 +2,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { isAssistantOffered } from "@/lib/ai-coach/offered";
 import { SEMANTIC_ICON, APP_ICON } from "@/lib/icons";
-import { t, type MessageKey } from "@tarragon/i18n";
+import * as Sentry from "@sentry/nextjs";
+import { t } from "@tarragon/i18n";
 import { lagosLocalDate, addDays, LAGOS_OFFSET_MS } from "@tarragon/medicines";
 import { buildTodaysDoseChecklist } from "@/lib/medication-schedule/checklist";
-import { NEXT_ACTION_COPY_SLUG, pickNextAction, type NextAction } from "@/lib/patient/next-action-priority";
+import { NEXT_ACTION_COPY, pickNextAction, type NextAction } from "@/lib/patient/next-action-priority";
 
 /**
  * "Next best action" -- the ONE card at the top of the patient dashboard (design principle 1: Home shows one next action). Pure synthesis
@@ -14,7 +15,7 @@ import { NEXT_ACTION_COPY_SLUG, pickNextAction, type NextAction } from "@/lib/pa
  * above this card, so it never competes with an emergency and never carries clinical wording of its own.
  */
 /** Data + date work lives outside the component body (react-hooks/purity). */
-async function resolveNextAction(patientId: string): Promise<NextAction> {
+export async function resolveNextAction(patientId: string): Promise<NextAction> {
   const supabase = await createClient();
   const nowMs = Date.now();
   // Due dates are Lagos calendar dates (Africa/Lagos), never the UTC date.
@@ -98,9 +99,29 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
     supabase.rpc("weekly_micro_lesson"),
   ]);
 
-  // A failed read must not look like "nothing waiting". Log it and let pickNextAction avoid the all-clear.
-  const failed = [redAlert, activeMeds, doseLogs, screening, consult, checkin, review, refill, recentVital, lesson].filter((r) => r.error);
-  if (failed.length > 0) console.error("next-best-action: query failed", failed.map((r) => r.error?.message));
+  // A failed read must never look like "nothing waiting". The red-alert read is special: a failure is UNKNOWN, not "no alert", and
+  // gets its own card. The lesson lookup is optional (it errors or returns nothing when the feature is off or the lesson is
+  // members-only), so its failure only means "no lesson" and is not reported as a data failure.
+  const failed = (
+    [
+      ["emergency_events", redAlert],
+      ["medications", activeMeds],
+      ["medication_logs", doseLogs],
+      ["screening", screening],
+      ["consult", consult],
+      ["checkin", checkin],
+      ["review", review],
+      ["refill", refill],
+      ["vitals", recentVital],
+    ] as const
+  ).filter(([, r]) => r.error);
+  if (failed.length > 0) {
+    // Same primitive runBestEffort uses; there is no thrown exception here, so report the query errors directly.
+    Sentry.captureException(new Error("next-best-action: read failed"), {
+      extra: { failed: failed.map(([name, r]) => ({ name, message: r.error?.message })) },
+    });
+  }
+  const redAlertUnknown = !!redAlert.error;
 
   // A dose is due when a slot today has passed (Lagos clock) and is still pending. Same checklist the Today list uses.
   const checklist = buildTodaysDoseChecklist(activeMeds.data ?? [], doseLogs.data ?? [], nowMs);
@@ -109,6 +130,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
 
   return pickNextAction({
     hasUnansweredRedAlert: !!redAlert.data,
+    redAlertUnknown,
     hasDoseDue,
     readingDue: !recentVital.data,
     refillDrugName: refill.data?.drug_name ?? null,
@@ -131,8 +153,8 @@ export async function NextBestAction({ patientId }: { patientId: string }) {
   const supabase = await createClient();
   const [action, coachAccess] = await Promise.all([resolveNextAction(patientId), isAssistantOffered(supabase)]);
   const Icon = APP_ICON[action.icon] ?? SEMANTIC_ICON.preventive;
-  const slug = NEXT_ACTION_COPY_SLUG[action.kind];
-  const copy = (part: "title" | "body" | "cta") => t(`dp.next.${slug}.${part}` as MessageKey, "en", action.params);
+  const keys = NEXT_ACTION_COPY[action.kind];
+  const copy = (part: "title" | "body" | "cta") => t(keys[part], "en", action.params);
 
   return (
     <div className="flex h-full flex-col justify-center gap-4 bg-gradient-to-br from-deep-forest to-brand-green p-6 text-white sm:p-8">

@@ -1,4 +1,5 @@
 import type { AppIconName } from "@/lib/icons";
+import type { MessageKey } from "@tarragon/i18n";
 
 /**
  * Design principle 1 (Home shows one next action).
@@ -18,6 +19,7 @@ import type { AppIconName } from "@/lib/icons";
  */
 export type NextActionKind =
   | "red_alert"
+  | "safety_check"
   | "dose_due"
   | "reading_due"
   | "refill_low"
@@ -30,6 +32,8 @@ export type NextActionKind =
 
 export interface NextActionFacts {
   hasUnansweredRedAlert: boolean;
+  /** True when the emergency-event read FAILED. Unknown is not "no alert": it gets its own card just below a confirmed alert. */
+  redAlertUnknown?: boolean;
   /** Any dose slot today whose time has passed and which is still pending. */
   hasDoseDue: boolean;
   /** True when NO reading has been logged in the last 7 days. */
@@ -54,6 +58,7 @@ export interface NextAction {
 
 export const NEXT_ACTION_ORDER: readonly NextActionKind[] = [
   "red_alert",
+  "safety_check",
   "dose_due",
   "reading_due",
   "refill_low",
@@ -65,22 +70,28 @@ export const NEXT_ACTION_ORDER: readonly NextActionKind[] = [
   "caught_up",
 ];
 
-/** The `dp.next.<slug>.title|body|cta` copy slug for each kind. */
-export const NEXT_ACTION_COPY_SLUG = {
-  red_alert: "red_alert",
-  dose_due: "dose",
-  reading_due: "reading",
-  refill_low: "refill",
-  screening_due: "screening",
-  consult_slots: "consult",
-  checkin_open: "checkin",
-  review_due: "review",
-  lesson_ready: "lesson",
-  caught_up: "caught_up",
-} as const satisfies Record<NextActionKind, string>;
+type CopyKeys = Record<"title" | "body" | "cta", MessageKey>;
+/**
+ * Literal message keys per kind (typed lookup, no dynamic key cast). Each entry is checked against the i18n catalogue by `MessageKey`
+ * and by the copy test, which resolves every key.
+ */
+export const NEXT_ACTION_COPY: Record<NextActionKind, CopyKeys> = {
+  red_alert: { title: "dp.next.red_alert.title", body: "dp.next.red_alert.body", cta: "dp.next.red_alert.cta" },
+  safety_check: { title: "dp.next.safety_check.title", body: "dp.next.safety_check.body", cta: "dp.next.safety_check.cta" },
+  dose_due: { title: "dp.next.dose.title", body: "dp.next.dose.body", cta: "dp.next.dose.cta" },
+  reading_due: { title: "dp.next.reading.title", body: "dp.next.reading.body", cta: "dp.next.reading.cta" },
+  refill_low: { title: "dp.next.refill.title", body: "dp.next.refill.body", cta: "dp.next.refill.cta" },
+  screening_due: { title: "dp.next.screening.title", body: "dp.next.screening.body", cta: "dp.next.screening.cta" },
+  consult_slots: { title: "dp.next.consult.title", body: "dp.next.consult.body", cta: "dp.next.consult.cta" },
+  checkin_open: { title: "dp.next.checkin.title", body: "dp.next.checkin.body", cta: "dp.next.checkin.cta" },
+  review_due: { title: "dp.next.review.title", body: "dp.next.review.body", cta: "dp.next.review.cta" },
+  lesson_ready: { title: "dp.next.lesson.title", body: "dp.next.lesson.body", cta: "dp.next.lesson.cta" },
+  caught_up: { title: "dp.next.caught_up.title", body: "dp.next.caught_up.body", cta: "dp.next.caught_up.cta" },
+};
 
 export function pickNextAction(f: NextActionFacts): NextAction {
   if (f.hasUnansweredRedAlert) return { kind: "red_alert", icon: "warning", href: "/patient#overview" };
+  if (f.redAlertUnknown) return { kind: "safety_check", icon: "warning", href: "/patient#overview" };
   if (f.hasDoseDue) return { kind: "dose_due", icon: "medication", href: "/patient/medications" };
   if (f.readingDue) return { kind: "reading_due", icon: "bp", href: "/patient/vitals" };
   if (f.refillDrugName) return { kind: "refill_low", icon: "medication", href: "/patient/medications", params: { name: f.refillDrugName } };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { t, en } from "@tarragon/i18n";
-import { NEXT_ACTION_COPY_SLUG, NEXT_ACTION_ORDER, pickNextAction, type NextActionFacts, type NextActionKind } from "./next-action-priority";
+import { NEXT_ACTION_COPY, NEXT_ACTION_ORDER, pickNextAction, type NextActionFacts, type NextActionKind } from "./next-action-priority";
 
 const NONE: NextActionFacts = {
   hasUnansweredRedAlert: false,
@@ -67,7 +67,7 @@ describe("pickNextAction (design principle 1: Home shows one next action)", () =
     expect(new Set(NEXT_ACTION_ORDER).size).toBe(NEXT_ACTION_ORDER.length);
     for (const kind of NEXT_ACTION_ORDER) {
       for (const part of ["title", "body", "cta"] as const) {
-        const key = `dp.next.${NEXT_ACTION_COPY_SLUG[kind]}.${part}` as keyof typeof en;
+        const key = NEXT_ACTION_COPY[kind][part];
         expect(en[key]).toBeDefined();
         expect(t(key, "en", { name: "x" })).not.toMatch(/—/);
       }
@@ -88,5 +88,19 @@ describe("failed reads never read as all clear", () => {
   });
   it("still lets a red alert win over a failed read", () => {
     expect(pickNextAction({ ...NONE, hasUnansweredRedAlert: true, dataUnavailable: true }).kind).toBe("red_alert");
+  });
+});
+
+describe("unknown red-alert state and the dose card", () => {
+  it("an unknown red-alert read ranks below a confirmed alert and above every other step", () => {
+    expect(pickNextAction({ ...ALL, redAlertUnknown: true }).kind).toBe("red_alert");
+    expect(pickNextAction({ ...ALL, hasUnansweredRedAlert: false, redAlertUnknown: true }).kind).toBe("safety_check");
+  });
+  it("the safety-check and dose cards make no clinician claim, name no medicine, and use no em dash", () => {
+    for (const k of ["safety_check", "dose_due"] as const) {
+      const text = (["title", "body", "cta"] as const).map((p) => t(NEXT_ACTION_COPY[k][p])).join(" ");
+      expect(text).not.toMatch(/—|your doctor|care team has|has been (told|notified)/i);
+    }
+    expect(t("dp.next.dose.title")).toBe("A dose is due");
   });
 });
