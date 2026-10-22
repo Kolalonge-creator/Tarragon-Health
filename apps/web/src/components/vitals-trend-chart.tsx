@@ -1,5 +1,6 @@
 "use client";
 import {
+  assistedEntryCaption,
   bandCaption,
   glucoseInDisplayUnit,
   glucoseTrendBand,
@@ -165,6 +166,8 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
         : null,
   }));
   const lastIndex = points.length - 1;
+  // Points a helper entered for the person (assisted entry), said once under the chart so a clinician never reads them as the person's own.
+  const assistedCaption = assistedEntryCaption(points.filter((p) => "assisted" in p && p.assisted === true).length, points.length, points.filter((p) => "assistedOverLimit" in p && p.assistedOverLimit === true).length);
   // S47a 4.6: the standard bands are drawn only for an adult who is not pregnant, and only while the trend_target_bands module is on (the bands are
   // PROPOSED until the CMO confirms them). Anything unknown means no band.
   const bandsEligible = useTrendBandsEligible(patientId).data === true;
@@ -248,6 +251,11 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
             profileHeightCm={heightDiscrepancy.profileHeightCm}
             questionnaireHeightCm={heightDiscrepancy.questionnaireHeightCm}
           />
+        )}
+        {assistedCaption && (
+          <p data-testid="assisted-entry-caption" className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+            {assistedCaption}
+          </p>
         )}
         {!isLoading && !isError && !noHeightOnFile && points.length < 2 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Not enough readings yet.</p>
