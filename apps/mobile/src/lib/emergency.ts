@@ -172,6 +172,22 @@ export function applyEmergencyFieldChoices(facts: EmergencyFacts, chosen: Emerge
   };
 }
 
+/**
+ * After the person hides something: take it out of the saved copy straight away, before any reload. The copy only ever loses details here (it cannot
+ * learn a newly shown one without a read), so even if the reload that follows fails the card on the phone no longer carries what they hid.
+ */
+export async function narrowCachedEmergencyFacts(chosen: EmergencyFieldChoicesRow): Promise<void> {
+  try {
+    const cached = await loadCachedEmergencyFacts();
+    if (!cached) return;
+    const narrowed = applyEmergencyFieldChoices(cached, chosen);
+    const withheld = (cached.medicinesNotShown ?? 0) + (narrowed.medicinesNotShown ?? 0);
+    await SecureStore.setItemAsync(CACHE_KEY, JSON.stringify({ ...narrowed, medicinesNotShown: chosen.show_medications && withheld > 0 ? withheld : undefined }));
+  } catch {
+    // Best effort: the reload that follows rewrites the copy from the database.
+  }
+}
+
 export type SaveCoverageResult = { ok: true; removed: boolean } | { ok: false; field: "member_number" | "plan_name" | "scheme" | "save" };
 
 /**
