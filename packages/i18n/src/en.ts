@@ -2,6 +2,7 @@ import { activeWording } from "./clinical-wording";
 import { cycleCopy } from "./cycle-copy";
 import { maternalChild } from "./maternal-child";
 import { pregnancyTools } from "./pregnancy-tools";
+import { outcomesDashboardCopy } from "./outcomes-dashboard-copy";
 import { activeGlucoseWording } from "./glucose-wording";
 
 /**
@@ -24,6 +25,7 @@ export const en = {
   "common.back": "Back",
   ...maternalChild,
   ...pregnancyTools,
+  ...outcomesDashboardCopy,
   "console.login.title": "Staff sign-in",
   "console.login.subtitle": "Sign in to the TarragonHealth console.",
   "console.login.email": "Email",

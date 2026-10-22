@@ -1,0 +1,395 @@
+[
+    {
+        "id": "012e0955-3a95-4de2-9fec-859fd03a1b96",
+        "report": {
+            "month": "2026-08-01",
+            "scope": {
+                "adults_only": true,
+                "dependants_excluded": true,
+                "test_accounts_excluded": true,
+                "protected_categories_excluded": [
+                    "mental_health",
+                    "reproductive_health",
+                    "sexual_health",
+                    "hiv_hepatitis"
+                ]
+            },
+            "panels": {
+                "outcomes": {
+                    "diabetes": [
+                        {
+                            "day": 90,
+                            "cohort": "diabetes",
+                            "hba1c_goal": {
+                                "people": 92,
+                                "reached": 30,
+                                "interval": {
+                                    "low": 0.2389,
+                                    "high": 0.4272
+                                },
+                                "suppressed": false,
+                                "reached_pct": 32.6
+                            },
+                            "hba1c_change": {
+                                "n": 92,
+                                "sd": 0.44,
+                                "low": -0.68,
+                                "high": -0.50,
+                                "mean": -0.59
+                            }
+                        },
+                        {
+                            "day": 180,
+                            "cohort": "diabetes",
+                            "hba1c_goal": {
+                                "reason": "under_minimum",
+                                "minimum": 20,
+                                "suppressed": true
+                            },
+                            "hba1c_change": {
+                                "reason": "under_minimum",
+                                "minimum": 20,
+                                "suppressed": true
+                            }
+                        }
+                    ],
+                    "data_cutoff": "2026-08-31",
+                    "escalations": [
+                        {
+                            "people": 20,
+                            "status": "open",
+                            "suppressed": false
+                        },
+                        {
+                            "people": 20,
+                            "status": "referred",
+                            "suppressed": false
+                        },
+                        {
+                            "people": 20,
+                            "status": "resolved",
+                            "suppressed": false
+                        }
+                    ],
+                    "hypertension": [
+                        {
+                            "day": 90,
+                            "due": {
+                                "n": 92,
+                                "reason": "small_cell",
+                                "minimum": 20,
+                                "suppressed": true
+                            },
+                            "cohort": "hypertension"
+                        },
+                        {
+                            "day": 180,
+                            "due": {
+                                "reason": "under_minimum",
+                                "minimum": 20,
+                                "suppressed": true
+                            },
+                            "cohort": "hypertension"
+                        }
+                    ],
+                    "minimum_cell": 20,
+                    "not_measured": [
+                        "medicine_refill_completion",
+                        "glucose_time_in_range"
+                    ],
+                    "time_to_first_review": {
+                        "reason": "small_cell",
+                        "minimum": 20,
+                        "suppressed": true
+                    }
+                },
+                "comparison": {
+                    "day": 90,
+                    "cohorts": {
+                        "diabetes": {
+                            "points": {
+                                "groups": [
+                                    {
+                                        "group": "earners",
+                                        "suppressed": false,
+                                        "hba1c_change": {
+                                            "n": 52,
+                                            "sd": 0.24,
+                                            "low": -1.00,
+                                            "high": -0.87,
+                                            "mean": -0.93
+                                        },
+                                        "people_with_hba1c_change": 52
+                                    },
+                                    {
+                                        "group": "non_earners",
+                                        "suppressed": false,
+                                        "hba1c_change": {
+                                            "n": 40,
+                                            "sd": 0.11,
+                                            "low": -0.19,
+                                            "high": -0.11,
+                                            "mean": -0.15
+                                        },
+                                        "people_with_hba1c_change": 40
+                                    }
+                                ],
+                                "low_group": "non_earners",
+                                "high_group": "earners",
+                                "difference_in_differences": {
+                                    "hba1c": {
+                                        "low": -0.859,
+                                        "high": -0.710,
+                                        "available": true,
+                                        "difference": -0.785,
+                                        "interval_includes_zero": false
+                                    }
+                                }
+                            },
+                            "engagement": {
+                                "groups": [
+                                    {
+                                        "group": "high",
+                                        "reason": "complementary",
+                                        "suppressed": true
+                                    },
+                                    {
+                                        "group": "low",
+                                        "suppressed": false,
+                                        "hba1c_change": {
+                                            "n": 40,
+                                            "sd": 0.11,
+                                            "low": -0.19,
+                                            "high": -0.11,
+                                            "mean": -0.15
+                                        },
+                                        "people_with_hba1c_change": 40
+                                    },
+                                    {
+                                        "group": "middle",
+                                        "reason": "under_minimum",
+                                        "suppressed": true
+                                    }
+                                ],
+                                "low_group": "low",
+                                "high_group": "high",
+                                "difference_in_differences": {
+                                    "hba1c": {
+                                        "available": false
+                                    }
+                                }
+                            }
+                        },
+                        "hypertension": {
+                            "points": {
+                                "groups": [
+                                    {
+                                        "group": "earners",
+                                        "suppressed": false,
+                                        "systolic_change": {
+                                            "n": 49,
+                                            "sd": 3.97,
+                                            "low": -20.95,
+                                            "high": -18.73,
+                                            "mean": -19.84
+                                        },
+                                        "controlled_after_pct": 65.3,
+                                        "controlled_before_pct": 26.5,
+                                        "controlled_after_interval": {
+                                            "low": 0.5131,
+                                            "high": 0.7708
+                                        },
+                                        "change_in_controlled_share": {
+                                            "n": 49,
+                                            "sd": 0.61,
+                                            "low": 0.22,
+                                            "high": 0.56,
+                                            "mean": 0.39
+                                        },
+                                        "controlled_before_interval": {
+                                            "low": 0.1621,
+                                            "high": 0.4026
+                                        },
+                                        "people_measured_at_both_ends": 49,
+                                        "not_measured_at_both_ends_pct": null
+                                    },
+                                    {
+                                        "group": "non_earners",
+                                        "suppressed": false,
+                                        "systolic_change": {
+                                            "n": 40,
+                                            "sd": 2.43,
+                                            "low": -11.75,
+                                            "high": -10.25,
+                                            "mean": -11.00
+                                        },
+                                        "controlled_after_pct": 40.0,
+                                        "controlled_before_pct": 25.0,
+                                        "controlled_after_interval": {
+                                            "low": 0.2635,
+                                            "high": 0.5540
+                                        },
+                                        "change_in_controlled_share": {
+                                            "n": 40,
+                                            "sd": 0.66,
+                                            "low": -0.06,
+                                            "high": 0.36,
+                                            "mean": 0.15
+                                        },
+                                        "controlled_before_interval": {
+                                            "low": 0.1419,
+                                            "high": 0.4019
+                                        },
+                                        "people_measured_at_both_ends": 40,
+                                        "not_measured_at_both_ends_pct": 0.0
+                                    }
+                                ],
+                                "low_group": "non_earners",
+                                "high_group": "earners",
+                                "difference_in_differences": {
+                                    "control": {
+                                        "low": -0.029,
+                                        "high": 0.504,
+                                        "available": true,
+                                        "difference": 0.238,
+                                        "interval_includes_zero": true
+                                    },
+                                    "systolic": {
+                                        "low": -10.178,
+                                        "high": -7.495,
+                                        "available": true,
+                                        "difference": -8.837,
+                                        "interval_includes_zero": false
+                                    }
+                                }
+                            },
+                            "engagement": {
+                                "groups": [
+                                    {
+                                        "group": "high",
+                                        "reason": "complementary",
+                                        "suppressed": true
+                                    },
+                                    {
+                                        "group": "low",
+                                        "suppressed": false,
+                                        "systolic_change": {
+                                            "n": 40,
+                                            "sd": 2.43,
+                                            "low": -11.75,
+                                            "high": -10.25,
+                                            "mean": -11.00
+                                        },
+                                        "controlled_after_pct": 40.0,
+                                        "controlled_before_pct": 25.0,
+                                        "controlled_after_interval": {
+                                            "low": 0.2635,
+                                            "high": 0.5540
+                                        },
+                                        "change_in_controlled_share": {
+                                            "n": 40,
+                                            "sd": 0.66,
+                                            "low": -0.06,
+                                            "high": 0.36,
+                                            "mean": 0.15
+                                        },
+                                        "controlled_before_interval": {
+                                            "low": 0.1419,
+                                            "high": 0.4019
+                                        },
+                                        "people_measured_at_both_ends": 40,
+                                        "not_measured_at_both_ends_pct": 0.0
+                                    },
+                                    {
+                                        "group": "middle",
+                                        "reason": "under_minimum",
+                                        "suppressed": true
+                                    }
+                                ],
+                                "low_group": "low",
+                                "high_group": "high",
+                                "difference_in_differences": {
+                                    "control": {
+                                        "available": false
+                                    },
+                                    "systolic": {
+                                        "available": false
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "pre_period": "day_0_same_people",
+                    "confidence_level": 0.95,
+                    "minimum_per_group": 30,
+                    "not_a_causal_claim": true,
+                    "association_not_proof": true,
+                    "engagement_excludes_blood_pressure_readings": true
+                },
+                "engagement": {
+                    "month": "2026-08-01",
+                    "by_cohort": [
+                        {
+                            "cohort": "2026-03",
+                            "suppressed": false,
+                            "active_days": 120,
+                            "active_people": 40,
+                            "points_issued": 400,
+                            "mean_active_days": 3.0
+                        }
+                    ],
+                    "milestones": {
+                        "reason": "under_minimum",
+                        "minimum": 20,
+                        "suppressed": true
+                    },
+                    "minimum_cell": 20,
+                    "active_people": {
+                        "count": 40,
+                        "people": 40,
+                        "suppressed": false
+                    },
+                    "points_issued": {
+                        "points": 400,
+                        "earners": 40,
+                        "suppressed": false
+                    },
+                    "screenings_done": {
+                        "count": 30,
+                        "people": 30,
+                        "suppressed": false
+                    },
+                    "lessons_completed": {
+                        "reason": "under_minimum",
+                        "minimum": 20,
+                        "suppressed": true
+                    },
+                    "active_logging_days": {
+                        "people": 40,
+                        "suppressed": false,
+                        "person_days": 120,
+                        "mean_per_active_person": 3.0
+                    },
+                    "minimum_cell_by_cohort": 30,
+                    "medicine_checkins_answered": {
+                        "reason": "under_minimum",
+                        "minimum": 20,
+                        "suppressed": true
+                    }
+                }
+            },
+            "schema": 1,
+            "held_back": false,
+            "internal_only": true,
+            "not_a_causal_claim": true
+        },
+        "has_data": true,
+        "held_back": false,
+        "data_cutoff": "2026-08-31",
+        "is_baseline": true,
+        "publishable": false,
+        "generated_at": "2026-10-22T11:08:54.321356+01:00",
+        "period_start": "2026-08-01",
+        "config_version": 1
+    }
+]

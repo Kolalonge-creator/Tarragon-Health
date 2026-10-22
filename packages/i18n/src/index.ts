@@ -30,3 +30,4 @@ export { activeGlucoseWording, GLUCOSE_WORDING_CODES, GLUCOSE_WORDING_DATA, GLUC
 export { activeVitalsWording, VITALS_WORDING_CODES, VITALS_WORDING_DATA, VITALS_WORDING_KEYS, VITALS_WORDING_SIGNED, type VitalsWordingCode } from "./vitals-wording";
 export * from "./points";
 export * from "./anchor-phrase";
+export { outcomesDashboardCopy, outcomesDashText } from "./outcomes-dashboard-copy";

@@ -669,6 +669,8 @@ export function getNavSections(
                 { label: "Go-live guards", href: "/clinician/go-live", icon: "governance" },
                 // The symptom checker's regulatory position, accuracy audit and safety settings (S60). CMO only; the page redirects others.
                 { label: "Symptom checker safety", href: "/clinician/symptom-safety", icon: "governance" },
+                // Do Health Points and taking part change outcomes, or do healthier people just take part more? Engagement and outcomes kept apart (OUTCOMES). CMO only; the page redirects others.
+                { label: "Engagement and outcomes", href: "/clinician/engagement-outcomes", icon: "analytics" },
                 // Weekly payout drafts the CMO may approve (S36j, founder decision 2026-10-06). CMO only; the page redirects others. Sending stays with the admin.
                 { label: "Payout approvals", href: "/clinician/payout-approvals", icon: "governance" },
                 // The monthly review of a sample of assistant conversations, plus every reported one (S52). CMO only; the page redirects anyone below that tier.
@@ -800,6 +802,8 @@ export function getNavSections(
             // Blood pressure control 90 days after joining: aggregate only, small numbers withheld (S38).
             { label: "Outcomes", href: "/admin/outcomes", icon: "analytics" },
             { label: "Response times", href: "/admin/outcomes/response-times", icon: "analytics" },
+            // Do Health Points and taking part change outcomes, or do healthier people just take part more? Internal, never published (OUTCOMES).
+            { label: "Engagement and outcomes", href: "/admin/outcomes/engagement", icon: "analytics" },
             { label: "Risk fairness", href: "/admin/risk-fairness", icon: "analytics" },
             { label: "Other outcome measures", href: "/admin/outcomes/measures", icon: "analytics" },
             { label: "Export outcomes", href: "/admin/outcomes/export", icon: "analytics" },
