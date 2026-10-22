@@ -1,6 +1,6 @@
 "use client";
 
-import { useAssistedEntryAttribution, useVitalsReadingsPage } from "@/lib/queries/vitals";
+import { useAssistedEntryAttribution, useLastCuffCheck, useVitalsReadingsPage } from "@/lib/queries/vitals";
 import { useOwnTriageResults } from "@/lib/queries/triage-results";
 import { ReadingTriageNote } from "./reading-triage-note";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +23,8 @@ import { ReadingStatus } from "@/components/reading-status";
 import { readingStatus } from "@/lib/vitals/reading-status";
 import { formatPatientDateTime } from "@/lib/format-date";
 import { ChangedMarker, EditReading } from "./reading-edit";
-import { SourceBadge, WristSpo2Note } from "@/components/source-badge";
+import { classifyBpLevel } from "@/lib/rules/bp-classification";
+import { CufflessCalibrationNote, SourceBadge, WristSpo2Note } from "@/components/source-badge";
 /** Design principle 2: the status chip (icon + plain word + colour) for a reading, from the existing deterministic classifiers. */
 function StatusChip({ reading }: { reading: Tables<"vitals_readings"> }) {
   const status = readingStatus(reading);
@@ -101,6 +102,9 @@ export function VitalsHistory({ patientId, viewerId }: { patientId: string; view
     useVitalsReadingsPage(patientId);
   const readings = data?.pages.flatMap((p) => p.rows) ?? [];
   const assistedIds = readings.filter((r) => r.assisted_entry).map((r) => r.id);
+  // S70b: only looked up when a wearable blood pressure estimate is on the page, and only for the person's own record.
+  const hasBpEstimate = readings.some((r) => r.vital_type === "blood_pressure" && r.source === "wearable");
+  const { data: lastCuffCheckAt } = useLastCuffCheck(patientId, hasBpEstimate && (viewerId === undefined || viewerId === patientId));
   const { data: attribution } = useAssistedEntryAttribution(patientId, assistedIds);
   // P6: the grade the patient was shown for each reading that has one. A failed load only leaves the note out.
   const { data: triageResults } = useOwnTriageResults(readings.flatMap((r) => (r.triage_event_id ? [r.triage_event_id] : [])));
@@ -141,6 +145,7 @@ export function VitalsHistory({ patientId, viewerId }: { patientId: string; view
                     <ChangedMarker reading={reading} />
                   </p>
                   <WristSpo2Note source={reading.source} vitalType={reading.vital_type} />
+                  <CufflessCalibrationNote source={reading.source} vitalType={reading.vital_type} lastCuffCheckAt={lastCuffCheckAt} level={classifyBpLevel(reading.systolic, reading.diastolic)} />
                   {reading.note && (
                     <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{reading.note}</p>
                   )}

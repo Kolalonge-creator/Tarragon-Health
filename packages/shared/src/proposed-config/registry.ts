@@ -7329,4 +7329,40 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-22",
     source: "Founder request 2026-10-22 (item 14); docs/OPEN-QUESTIONS.md OQ-NAFDAC-HELPER-1",
   },
+  {
+    key: "bp.cuffless_calibration",
+    // S70b: a wrist or ring blood pressure is an ESTIMATE. It carries the date it was last compared with a real cuff, and the label goes "stale" after
+    // staleAfterDays. The label never changes a number, grade or alert. cuffCheckWithinDays is the "worth a cuff check this week" window of the prompt and its task.
+    // PROPOSED, CMO owned, unsigned. The SQL task trigger takes its due date from the same number (a mirror test keeps them equal).
+    value: { staleAfterDays: 28, cuffCheckWithinDays: 7 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S70b.md; supabase/migrations/*_s70b_cuffless_cuff_check_task.sql",
+  },
+  {
+    key: "devices.connection_health",
+    // S70b: the Data connections screen. A connected source whose last sync is older than the number of days for its kind shows "reconnect needed" or
+    // "no recent data". A display state only: nothing is paged and no reading is hidden. PROPOSED, Founder owned, no clinical meaning.
+    value: { staleAfterDays: { cloud_wearable: 3, health_store: 3, bluetooth_device: 30, manual: 30 } },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S70b.md",
+  },
+  {
+    key: "pharmacy.reading_point",
+    // S70b: a reading taken at a partner pharmacy, through the assisted-entry seam (source stays 'manual', so it is triaged exactly like a typed reading).
+    // The person makes a one-time code; the pharmacist enters it, which opens a counter visit for authorisationMinutes and up to maxReadings readings.
+    // The code has codeLength digits and is valid for codeValidMinutes; a pharmacy that enters maxFailedAttempts wrong codes inside lockoutMinutes is locked
+    // out of trying more for that long; a person can make at most maxCodesPerHour codes an hour. PROPOSED, Founder owned. Plausible-value limits are NOT here: the existing hold-an-impossible-value trigger applies.
+    value: { codeLength: 8, codeValidMinutes: 15, authorisationMinutes: 10, maxReadings: 3, maxFailedAttempts: 5, lockoutMinutes: 15, maxCodesPerHour: 5 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S70b.md; supabase/migrations/*_s70b_pharmacy_reading_point.sql",
+  },
 ];

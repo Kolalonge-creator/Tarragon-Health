@@ -4,7 +4,7 @@
  * fingertip recheck. The photo label is the one the spec names.
  */
 import { render, screen } from "@testing-library/react";
-import { SourceBadge, WristSpo2Note } from "./source-badge";
+import { CufflessCalibrationNote, SourceBadge, WristSpo2Note } from "./source-badge";
 
 describe("SourceBadge", () => {
   it.each([
@@ -30,5 +30,38 @@ describe("WristSpo2Note", () => {
     expect(container.textContent).toBe("");
     rerender(<WristSpo2Note source="wearable" vitalType="pulse" />);
     expect(container.textContent).toBe("");
+  });
+});
+
+describe("CufflessCalibrationNote (S70b)", () => {
+  const now = new Date("2026-10-22T12:00:00Z");
+  const ago = (d: number) => new Date(now.getTime() - d * 86_400_000).toISOString();
+  it("says estimate and when it was last checked against a cuff", () => {
+    const { container } = render(<CufflessCalibrationNote source="wearable" vitalType="blood_pressure" lastCuffCheckAt={ago(3)} now={now} />);
+    expect(container.textContent).toMatch(/Estimate\./);
+    expect(container.textContent).toMatch(/Last checked against a cuff on/);
+    expect(container.textContent).toMatch(/worth a cuff check this week/);
+    expect(container.textContent).not.toMatch(/rough guide/);
+  });
+  it("goes stale after the proposed number of days", () => {
+    const { container } = render(<CufflessCalibrationNote source="wearable" vitalType="blood_pressure" lastCuffCheckAt={ago(40)} now={now} />);
+    expect(container.textContent).toMatch(/rough guide/);
+  });
+  it("says never checked when there is no cuff reading, and says nothing about a date when it could not be looked up", () => {
+    const never = render(<CufflessCalibrationNote source="wearable" vitalType="blood_pressure" lastCuffCheckAt={null} now={now} />);
+    expect(never.container.textContent).toMatch(/Not checked against a cuff yet/);
+    never.unmount();
+    const unknown = render(<CufflessCalibrationNote source="wearable" vitalType="blood_pressure" lastCuffCheckAt={undefined} now={now} />);
+    expect(unknown.container.textContent).toMatch(/could not check when this was last compared/);
+    expect(unknown.container.textContent).not.toMatch(/Last checked against a cuff on|Not checked against/);
+  });
+  it("a raised estimate keeps only the factual line: no rough-guide wording and no general cuff-check line", () => {
+    const { container } = render(<CufflessCalibrationNote source="wearable" vitalType="blood_pressure" lastCuffCheckAt={ago(40)} level="red" now={now} />);
+    expect(container.textContent).toMatch(/Last checked against a cuff on/);
+    expect(container.textContent).not.toMatch(/rough guide|worth a cuff check/);
+  });
+  it("shows nothing for a cuff reading or another vital", () => {
+    expect(render(<CufflessCalibrationNote source="manual" vitalType="blood_pressure" lastCuffCheckAt={null} />).container.textContent).toBe("");
+    expect(render(<CufflessCalibrationNote source="wearable" vitalType="pulse" lastCuffCheckAt={null} />).container.textContent).toBe("");
   });
 });

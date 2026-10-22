@@ -26,6 +26,7 @@ export {
 } from "./home-bp";
 export { cuffSizeKey, isPlausibleArmCm, parseCuffSizingConfig, type CuffSizeBand, type CuffSizeKey, type CuffSizingConfig } from "./cuff-size";
 export { planSession, type SessionInput, type SessionStep } from "./home-bp-session";
+export { buildHomeBpClinicianSummary, preMeasureChecklist, sessionTracker, type ChecklistItem, type HomeBpClinicianSummary, type TrackerCell, type TrackerState } from "./home-bp-guide";
 export {
   classifyPair, evaluateCuffCheck, homeMeanAround, pairDifference, parseCuffCheckConfig,
   type BpValue, type CuffCheckConfig, type CuffCheckResult, type CuffFlagKind, type PairClass, type PairDifference, type TimedBp,

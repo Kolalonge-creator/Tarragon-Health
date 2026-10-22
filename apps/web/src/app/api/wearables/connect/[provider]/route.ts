@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   getWearableOAuthUrl,
   isWearableProviderConfigured,
+  isWearableProviderUnavailable,
   type CloudOAuthWearableProvider,
 } from "@/lib/wearables/oauth-providers";
 import { createWearableOAuthState } from "@/lib/wearables/state-token";
@@ -69,6 +70,12 @@ export async function GET(
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  if (isWearableProviderUnavailable(provider)) {
+    return NextResponse.redirect(
+      new URL(`/patient/data-connections?wearable_error=unavailable&provider=${provider}`, request.url)
+    );
   }
 
   if (!isWearableProviderConfigured(provider)) {

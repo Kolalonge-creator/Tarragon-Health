@@ -2,6 +2,9 @@ import { describe, expect, it, beforeEach, afterEach } from "@jest/globals";
 import {
   getWearableOAuthUrl,
   isWearableProviderConfigured,
+  isWearableProviderConnectable,
+  isWearableProviderUnavailable,
+  unavailableWearableProviders,
   type CloudOAuthWearableProvider,
 } from "./oauth-providers";
 
@@ -78,6 +81,35 @@ describe("getWearableOAuthUrl", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.url).not.toContain("super-secret-value");
+    }
+  });
+});
+
+describe("unavailable providers (Fitbit legacy API ends, S70b)", () => {
+  it("switches Fitbit off by default and leaves the others offered", () => {
+    expect(unavailableWearableProviders({})).toEqual(["fitbit"]);
+    expect(isWearableProviderUnavailable("fitbit", {})).toBe(true);
+    expect(isWearableProviderUnavailable("oura", {})).toBe(false);
+  });
+
+  it("can be changed by configuration alone, and an empty value offers everything again", () => {
+    expect(unavailableWearableProviders({ WEARABLE_UNAVAILABLE_PROVIDERS: "" })).toEqual([]);
+    expect(unavailableWearableProviders({ WEARABLE_UNAVAILABLE_PROVIDERS: " Fitbit , whoop ,nonsense" })).toEqual(["fitbit", "whoop"]);
+  });
+
+  it("is not connectable even with credentials, but is still reported as configured so existing data keeps working", () => {
+    process.env.FITBIT_CLIENT_ID = "abc";
+    process.env.FITBIT_CLIENT_SECRET = "shh";
+    const saved = process.env.WEARABLE_UNAVAILABLE_PROVIDERS;
+    delete process.env.WEARABLE_UNAVAILABLE_PROVIDERS;
+    try {
+      expect(isWearableProviderConfigured("fitbit")).toBe(true);
+      expect(isWearableProviderConnectable("fitbit")).toBe(false);
+      process.env.WEARABLE_UNAVAILABLE_PROVIDERS = "";
+      expect(isWearableProviderConnectable("fitbit")).toBe(true);
+    } finally {
+      if (saved === undefined) delete process.env.WEARABLE_UNAVAILABLE_PROVIDERS;
+      else process.env.WEARABLE_UNAVAILABLE_PROVIDERS = saved;
     }
   });
 });

@@ -137,6 +137,12 @@ export async function fetchVitalsThresholds(): Promise<MobileThresholds | null> 
   return result.ok ? result.data : null;
 }
 
+/** Cloud wearable providers switched off for new connections, from the server's one list. null when it could not be read (never guessed). */
+export async function fetchUnavailableWearableProviders(): Promise<string[] | null> {
+  const result = await request<{ unavailable: string[] }>("/api/mobile/wearable-availability", "GET");
+  return result.ok && Array.isArray(result.data.unavailable) ? result.data.unavailable : null;
+}
+
 /** What the consultation routes return when the call itself failed, as opposed to the server answering with a reason. "offline"
  * means the request never got an answer, so the screen can say the place is safe and keep trying. */
 export type ConsultationCallResult<T> = { ok: true; data: T } | { ok: false; offline: boolean };
