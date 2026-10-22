@@ -486,3 +486,9 @@ Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six 
 | **OQ-S54D-1: price and per-pharmacy stock in the pharmacy chooser stay removed.** | OQ-714 stands. The 48-hour stale-stock rule and the medicine runway bar stay as built. |
 | **OQ-NAFDAC-HELPER-1: the NAFDAC helper is a Greenbook link only.** | The `sms:` link, the pre-filled scratch-code text and the 38353 short-code config entry are removed entirely. The block keeps the link to NAFDAC's public registered-product check and the wording "A registration match is not proof that a pack is genuine." The guard `nafdac_verify_helper_enabled` stays OFF. INV-08 is no longer in play. |
 | **OQ-S54D-2: tighten fully.** | No supporter, including a manage-level supporter, may read a ran-out or cannot-afford reason unless the person opted in for that exact reason. Old reason values already stored on dose rows are moved to the private table and blanked, so a supporter no longer sees them. |
+## Founder decision, 2026-10-22 (cuff display photo reader: approved for evaluation only)
+
+| Decision | Chosen |
+|---|---|
+| **A governed server-side vision call may be built and evaluated to read a blood pressure cuff display from a photo (AI-022).** Narrows the OQ-598 line "server vision not approved". | The founder, 2026-10-22, in chat, chose "Approve for evaluation only". The feature stays OFF behind guard `cuff_camera_enabled`; AI-022 stays registered disabled. |
+| **What is still required before go-live** | A human-run AI-022 evaluation on real cuff photos, a DPO view on the transient image (held in memory only, never stored or logged), defined go-live conditions for the guard, per-user rate limiting on the route, and a further written founder go-live decision. No evaluation, approval or guard change is made by this entry. |
