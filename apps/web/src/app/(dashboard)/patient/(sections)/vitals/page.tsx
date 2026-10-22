@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { t } from "@tarragon/i18n";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardSection } from "@/components/ui/dashboard-section";
@@ -83,6 +85,9 @@ export default async function PatientVitalsPage() {
         organisationId={profile.organisation_id}
         ageYears={ageYears}
       />
+      {ageYears !== null && ageYears < 19 ? null : (
+        <Link href="/patient/child" className="text-sm font-semibold underline">{t("cdl.title")}</Link>
+      )}
       <div id="symptom-check" className="scroll-mt-24">
         <SymptomTriageCheck
           patientId={subjectId}

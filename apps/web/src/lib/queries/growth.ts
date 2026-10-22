@@ -14,6 +14,7 @@ export interface GrowthMeasurementRow {
   bmi_for_age_z: number | null;
   weight_for_height_z: number | null;
   muac_mm: number | null;
+  bilateral_oedema: boolean;
   muac_for_age_z: number | null;
   reference_version: string | null;
   plausibility_flags: string[];
@@ -32,7 +33,7 @@ export function useGrowthMeasurements(patientId: string) {
       const { data, error } = await supabase
         .from("child_growth_measurements")
         .select(
-          "id, measured_at, age_days_at_measurement, height_cm, weight_kg, head_circumference_cm, bmi, weight_for_age_z, height_for_age_z, bmi_for_age_z, weight_for_height_z, muac_mm, muac_for_age_z, reference_version, plausibility_flags, nutrition_class"
+          "id, measured_at, age_days_at_measurement, height_cm, weight_kg, head_circumference_cm, bmi, weight_for_age_z, height_for_age_z, bmi_for_age_z, weight_for_height_z, muac_mm, bilateral_oedema, muac_for_age_z, reference_version, plausibility_flags, nutrition_class"
         )
         .eq("patient_id", patientId)
         .order("measured_at", { ascending: true });

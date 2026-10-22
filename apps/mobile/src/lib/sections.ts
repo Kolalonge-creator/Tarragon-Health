@@ -29,6 +29,7 @@ export type SectionId =
   | "shareRecords"
   | "myPhones"
   | "womensHealth"
+  | "childLog"
   | "sexualHealth"
   | "wellbeing"
   | "healthCheck"
@@ -215,6 +216,12 @@ export const SECTIONS: SectionDef[] = [
     id: "womensHealth",
     label: "Women's Health",
     icon: "female-outline",
+    group: "Your health",
+  },
+  {
+    id: "childLog",
+    label: "Baby's daily log",
+    icon: "happy-outline",
     group: "Your health",
   },
   {

@@ -222,14 +222,15 @@ begin
   perform pg_temp.ck('...and allowed once it is on', 'ok', pg_temp.try_as(v_real, format($q$insert into public.breastfeeding_feed_log (organisation_id, patient_id, feed_type) values (%L, %L, 'formula')$q$, v_org, v_real)));
   perform pg_temp.guard_state(false);
   perform pg_temp.ck('a forged clinician source is overwritten', 'patient_entered', (select source from (select source from public.breastfeeding_feed_log where patient_id = v_real) x));
-  perform pg_temp.ck('a feed in the far future is refused', 'true', (pg_temp.try_as(v_mum, format($q$insert into public.breastfeeding_feed_log (organisation_id, patient_id, feed_type, fed_at) values (%L, %L, 'formula', now() + interval '2 days')$q$, v_org, v_mum)) like '%feed_log_not_in_future%')::text);
+  r := pg_temp.try_as(v_mum, format($q$insert into public.breastfeeding_feed_log (organisation_id, patient_id, feed_type, fed_at) values (%L, %L, 'formula', now() + interval '2 days')$q$, v_org, v_mum));
+  perform pg_temp.ck('a feed in the far future is accepted and clamped to now (S68b: a fast phone clock must not lose a tap)', 'ok|true', r || '|' || (select (max(fed_at) <= now())::text from public.breastfeeding_feed_log where patient_id = v_mum));
   perform pg_temp.ck('nobody can write a feed for another person', 'true', (pg_temp.try_as(v_other, format($q$insert into public.breastfeeding_feed_log (organisation_id, patient_id, feed_type) values (%L, %L, 'formula')$q$, v_org, v_mum)) like '%row-level security%')::text);
   perform pg_temp.ck('a caregiver with the grant cannot write a feed', 'true', (pg_temp.try_as(v_cgcat, format($q$insert into public.breastfeeding_feed_log (organisation_id, patient_id, feed_type) values (%L, %L, 'formula')$q$, v_org, v_mum)) like '%row-level security%')::text);
   perform pg_temp.ck('the mother cannot delete a feed directly', 'permission denied for table breastfeeding_feed_log', pg_temp.try_as(v_mum, 'delete from public.breastfeeding_feed_log'));
   perform pg_temp.ck('an unrelated patient reads no feeds', '0', pg_temp.q_as(v_other, format('select count(*)::text from public.breastfeeding_feed_log where patient_id = %L', v_mum)));
   perform pg_temp.ck('a plain view caregiver reads no feeds', '0', pg_temp.q_as(v_cg, format('select count(*)::text from public.breastfeeding_feed_log where patient_id = %L', v_mum)));
   perform pg_temp.ck('a Care Circle supporter reads no feeds', '0', pg_temp.q_as(v_sup, format('select count(*)::text from public.breastfeeding_feed_log where patient_id = %L', v_mum)));
-  perform pg_temp.ck('the care team reads the feeds', '1', pg_temp.q_as(v_clin, format('select count(*)::text from public.breastfeeding_feed_log where patient_id = %L', v_mum)));
+  perform pg_temp.ck('the care team reads the feeds (the formula feed, and the far-future one clamped to now)', '2', pg_temp.q_as(v_clin, format('select count(*)::text from public.breastfeeding_feed_log where patient_id = %L', v_mum)));
   perform pg_temp.ck('anon reads nothing', 'permission denied for table breastfeeding_feed_log', pg_temp.try_anon('select 1 from public.breastfeeding_feed_log limit 1'));
   -- a child that is not hers
   v_child := pg_temp.mkchild(v_org, v_other, 'someone_elses_child', current_date - 60, 'male');

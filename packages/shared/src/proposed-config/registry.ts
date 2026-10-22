@@ -7329,4 +7329,27 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-22",
     source: "Founder request 2026-10-22 (item 14); docs/OPEN-QUESTIONS.md OQ-NAFDAC-HELPER-1",
   },
+  {
+    key: "child_log.growth_bands",
+    // S68b: the three plain-language bands on the child growth chart, read from the z-score the database already computed (WHO 2006 / 2007).
+    // A point is "growing well" when its worst absolute z-score is at or under growing_well_max_abs_z, "keep an eye on" up to keep_an_eye_max_abs_z,
+    // and "talk to your care team" beyond that. A severe acute nutrition class is always "talk to your care team". PROPOSED: the CMO confirms.
+    value: { growing_well_max_abs_z: 2, keep_an_eye_max_abs_z: 3 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "S68b, WHO convention of +-2 and +-3 standard deviations used as plain-language bands; a display band, not a diagnosis. NOT signed (OQ-S68B-1).",
+  },
+  {
+    key: "child_log.settings",
+    // S68b: display and device settings for the daily child log. No clinical meaning. due_window_days: a vaccine dose counts as "due" from this many days
+    // before its date. recheck_note: the re-ask time for the mother's private items is NOT here, it is `private_section.lock`.
+    value: { due_window_days: 14, timeline_limit: 200, caregiver_label_max_chars: 24, card_photo_max_edge_px: 1600, card_photo_jpeg_quality: 0.6, card_photo_max_bytes: 1500000 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "S68b, daily child log. Device and display values only; the due window is a proposal for the CMO (OQ-S68B-2).",
+  },
 ];

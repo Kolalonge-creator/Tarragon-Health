@@ -1,6 +1,7 @@
 import { activeWording } from "./clinical-wording";
 import { cycleCopy } from "./cycle-copy";
 import { maternalChild } from "./maternal-child";
+import { childLog } from "./child-log";
 import { designPrinciplesCopy } from "./design-principles-copy";
 import { pregnancyTools } from "./pregnancy-tools";
 import { activeGlucoseWording } from "./glucose-wording";
@@ -24,6 +25,7 @@ export const en = {
   "common.try_again": "Try again",
   "common.back": "Back",
   ...maternalChild,
+  ...childLog,
   ...designPrinciplesCopy,
   ...pregnancyTools,
   "console.login.title": "Staff sign-in",
