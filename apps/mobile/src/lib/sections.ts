@@ -28,6 +28,7 @@ export type SectionId =
   | "wellbeing"
   | "healthCheck"
   | "findASpecialist"
+  | "directory"
   | "healthyAgeing"
   | "lifestyle"
   | "weightManagement"
@@ -203,6 +204,12 @@ export const SECTIONS: SectionDef[] = [
     id: "findASpecialist",
     label: "Find a specialist",
     icon: "search-outline",
+    group: "Your health",
+  },
+  {
+    id: "directory",
+    label: "Find care near you",
+    icon: "location-outline",
     group: "Your health",
   },
   {
