@@ -1429,3 +1429,5 @@ patient_home_layout.sql
 # The Membership is one yearly payment again: the instalment tables, functions, columns, module row, templates and cron job are gone, no function body names them, refunds_one_live is one live refund per order, and the one-payment flow (pay, replay, mismatch, cancel, refund once for the whole amount, provider claim) works. Sabotage: nine removed things put back one at a time; all nine structural checks must flip.
 membership_instalments_removed.sql
 
+# Learning content expiry backlog (2026-10-22): admin and the active CMO read the 30/14/7 list, summary and owner list and assign owners while a patient, an ordinary clinician and a visitor are refused; hidden items listed with days; the daily job sends one generic count-only notice per active owner and one CMO digest, once a day; republishing a previously published item needs a new change note. Sabotage: access check neutered, note gate dropped, once-a-day index dropped; each must flip.
+learning_expiry_backlog.sql

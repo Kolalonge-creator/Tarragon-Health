@@ -122,6 +122,15 @@ describe("the Chief Medical Officer index", () => {
   });
 });
 
+describe("the Chief Medical Officer index for the learning content review list", () => {
+  it("finds the review list by what the CMO would type, under /clinician", () => {
+    const cmo = buildAdminSearchIndex([], [], CMO_EXTRA_PAGES);
+    expect(searchAdminEntries(cmo, "expiry backlog").map((e) => e.href)).toContain("/clinician/learning-review");
+    expect(searchAdminEntries(cmo, "assign owner").map((e) => e.href)).toContain("/clinician/learning-review");
+    expect(cmo.every((e) => e.href.startsWith("/clinician"))).toBe(true);
+  });
+});
+
 describe("the Chief Medical Officer index for testing-day results", () => {
   it("finds the point-of-care results page by ECG, urine and HbA1c", () => {
     const cmo = buildAdminSearchIndex([], [], CMO_EXTRA_PAGES);
@@ -300,6 +309,11 @@ describe("Learning Centre admin pages (S55) are searchable", () => {
   it("finds the readiness page", () => {
     expect(top("placeholder")[0]).toBe("/admin/settings/health-education/readiness");
     expect(top("review date")[0]).toBe("/admin/settings/health-education/readiness");
+  });
+  it("finds the expiry backlog page (every console page needs a search entry)", () => {
+    expect(top("expiry backlog")[0]).toBe("/admin/settings/health-education/expiry");
+    expect(top("assign owner")[0]).toBe("/admin/settings/health-education/expiry");
+    expect(top("hidden by expiry")[0]).toBe("/admin/settings/health-education/expiry");
   });
   it("finds the zero-result search page", () => {
     expect(top("no result")[0]).toBe("/admin/settings/health-education/search-gaps");

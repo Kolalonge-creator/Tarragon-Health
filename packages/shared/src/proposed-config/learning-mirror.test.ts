@@ -19,12 +19,13 @@ describe("learning.* configuration mirrors the learning_config seeds", () => {
   it("micro_lesson", () => expect(seed("micro-lesson")).toEqual(getProposedConfig("learning.micro_lesson").value));
   it("offline_pack", () => expect(seed("offline-pack")).toEqual(getProposedConfig("learning.offline_pack").value));
   it("creator_perk", () => expect(seed("creator-perk", "_s55_weekly_lesson_and_members_only_creator_series.sql")).toEqual(getProposedConfig("learning.creator_perk").value));
+  it("expiry_alerts", () => expect(seed("expiry-alerts", "_learning_expiry_backlog.sql")).toEqual(getProposedConfig("learning.expiry_alerts").value));
   it("search_gap_log", () => expect(seed("search-gap")).toEqual(getProposedConfig("learning.search_gap_log").value));
   it("search_synonyms", () =>
     expect(seed("synonyms")).toEqual((getProposedConfig("learning.search_synonyms").value as { groups: unknown }).groups));
 
   it("every value is proposed and unsigned (no sign-off was created)", () => {
-    for (const k of ["micro_lesson", "offline_pack", "creator_perk", "search_gap_log", "search_synonyms"]) {
+    for (const k of ["micro_lesson", "offline_pack", "creator_perk", "search_gap_log", "search_synonyms", "expiry_alerts"]) {
       expect(getProposedConfig(`learning.${k}`).status).toBe("proposed");
     }
   });

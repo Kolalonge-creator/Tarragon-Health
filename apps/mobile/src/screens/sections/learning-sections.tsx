@@ -107,6 +107,7 @@ export function LessonFooter({ code, title, fallback }: { code: string; title: s
     evidenceSource: trust?.evidence_source,
     clinicalAuthorName: trust?.clinical_author_name,
     creatorName: trust?.creator_name ?? fallback?.creatorName,
+    reviewChangeNote: trust?.review_change_note,
   });
   const selfCare = trust?.self_care_action ?? fallback?.selfCareAction;
   const audioClip = trust?.audio_clip_id ?? fallback?.audioClipId ?? null;
@@ -134,6 +135,7 @@ export function LessonFooter({ code, title, fallback }: { code: string; title: s
         {line.author ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.author", { name: line.author })}</AppText> : null}
         {line.reviewedBy ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.reviewed_by", { name: line.reviewedBy })}</AppText> : null}
         {line.reviewedOn ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.reviewed_on", { date: line.reviewedOn })}</AppText> : null}
+        {line.changeNote ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.changed", { note: line.changeNote })}</AppText> : null}
         {line.nextReview ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.next_review", { date: line.nextReview })}</AppText> : null}
         {line.sources ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.sources", { sources: line.sources })}</AppText> : null}
         {line.incomplete ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.pending")}</AppText> : null}

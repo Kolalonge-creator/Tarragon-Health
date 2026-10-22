@@ -8,5 +8,6 @@ insert into public.automations (name, kind, schedule, source_ref) values
   ('vercel:community-housekeeping', 'vercel_cron', '50 3 * * *', '/api/cron/community-housekeeping'),
   ('vercel:skin-photo-purge', 'vercel_cron', '35 3 * * *', '/api/cron/skin-photo-purge'),
   ('vercel:assistant-silence', 'vercel_cron', '40 7 * * *', '/api/cron/assistant-silence'),
-  ('vercel:assistant-review-sample', 'vercel_cron', '0 4 1 * *', '/api/cron/assistant-review-sample')
+  ('vercel:assistant-review-sample', 'vercel_cron', '0 4 1 * *', '/api/cron/assistant-review-sample'),
+  ('vercel:learning-expiry-alerts', 'vercel_cron', '15 6 * * *', '/api/cron/learning-expiry-alerts')
 on conflict (name) do nothing;

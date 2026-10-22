@@ -36,6 +36,7 @@ export function LearningItemFooter({
     evidenceSource: trust?.evidence_source,
     clinicalAuthorName: trust?.clinical_author_name,
     creatorName: trust?.creator_name,
+    reviewChangeNote: trust?.review_change_note,
   });
   const actions = buildNextStep(trust?.self_care_action);
   // The server says whether the public link would actually open (article, shareable, reviewed, dated, in date): never offer a link that 404s.
@@ -55,6 +56,7 @@ export function LearningItemFooter({
         {line.author && <p>{t("learn.trust.author", "en", { name: line.author })}</p>}
         {line.reviewedBy && <p>{t("learn.trust.reviewed_by", "en", { name: line.reviewedBy })}</p>}
         {line.reviewedOn && <p>{t("learn.trust.reviewed_on", "en", { date: line.reviewedOn })}</p>}
+        {line.changeNote && <p data-testid="change-note">{t("learn.trust.changed", "en", { note: line.changeNote })}</p>}
         {line.nextReview && <p>{t("learn.trust.next_review", "en", { date: line.nextReview })}</p>}
         {line.sources && <p>{t("learn.trust.sources", "en", { sources: line.sources })}</p>}
         {line.incomplete && <p>{t("learn.trust.pending")}</p>}

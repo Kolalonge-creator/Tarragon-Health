@@ -39,6 +39,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { t } from "@tarragon/i18n";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
@@ -829,9 +830,17 @@ export function CategoryDetail({
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600 dark:text-red-300">Could not load this topic right now.</p>}
         {data && items.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-            {query ? "Nothing matches that search." : "Nothing here yet."}
-          </p>
+          <div className="space-y-1 text-sm text-charcoal-ink/60 dark:text-night-ink/60" data-testid="topic-empty-state">
+            {query ? (
+              <p>Nothing matches that search.</p>
+            ) : (
+              <>
+                {/* Calm, not an error: a topic can be empty because every item in it is waiting for its next review. */}
+                <p className="font-medium text-charcoal-ink/80 dark:text-night-ink/80">{t("learn.empty.title")}</p>
+                <p>{t("learn.empty.body")}</p>
+              </>
+            )}
+          </div>
         )}
         {items.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
