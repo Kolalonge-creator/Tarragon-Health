@@ -196,6 +196,7 @@ export function getNavSections(
             },
             { label: "Your month", href: "/patient/progress", icon: "analytics" },
             { label: "Programmes", href: "/patient/programmes", icon: "members" },
+            { label: "Your care pathway", href: "/patient/pathway", icon: "carePlan" },
             { label: "Appointments", href: "/patient/appointments", icon: "booking" },
           ],
         },
