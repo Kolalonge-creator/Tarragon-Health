@@ -25,6 +25,8 @@ import { GrowthTrackingCard } from "@/app/(dashboard)/patient/growth-tracking-ca
 import { SymptomTriageCheck } from "@/app/(dashboard)/patient/symptom-triage-check";
 import { getSymptomCheckerEligibility, getSymptomReviewEntitled, getSymptomReviewTime, listAvailablePresentingComplaints } from "@/app/(dashboard)/patient/symptom-triage-actions";
 import { degradedModeConfig } from "@/lib/symptom-triage/safe-run";
+import { loadAssessmentUx, NO_ASSESSMENT_UX } from "@/lib/symptom-triage/ux-config";
+import { SymptomCheckbackBanner } from "@/app/(dashboard)/patient/symptom-checkback-banner";
 import { ComplicationStatus } from "@/app/(dashboard)/patient/complication-status";
 import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
 import { ThresholdOverrideNotice } from "@/app/(dashboard)/patient/threshold-override-notice";
@@ -42,6 +44,8 @@ export default async function PatientVitalsPage() {
   // S59b: who the checker is for must be an adult with a date of birth; a clinician's look at a check is for Members.
   const eligibility = presentingComplaints.length > 0 ? await getSymptomCheckerEligibility() : ("ok" as const);
   const reviewEntitled = presentingComplaints.length > 0 ? await getSymptomReviewEntitled() : false;
+  // S59c: the describe table, the explainer and the safety-net lines, each only when signed and equal to the live signed version (a draft is inert).
+  const ux = presentingComplaints.length > 0 ? await loadAssessmentUx() : NO_ASSESSMENT_UX;
 
   return (
     <DashboardSection
@@ -83,7 +87,9 @@ export default async function PatientVitalsPage() {
         organisationId={profile.organisation_id}
         ageYears={ageYears}
       />
-      <div id="symptom-check" className="scroll-mt-24">
+      <div id="symptom-check" className="scroll-mt-24 space-y-3">
+        {/* S59c: a follow-up waiting for an answer (renders nothing otherwise, and only while the checker is open). */}
+        {presentingComplaints.length > 0 && subjectId === profile.id ? <SymptomCheckbackBanner /> : null}
         <SymptomTriageCheck
           patientId={subjectId}
           presentingComplaints={presentingComplaints}
@@ -91,6 +97,7 @@ export default async function PatientVitalsPage() {
           reviewTime={reviewTime}
           eligibility={eligibility}
           reviewEntitled={reviewEntitled}
+          ux={ux}
         />
       </div>
 

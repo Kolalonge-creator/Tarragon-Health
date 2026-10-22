@@ -7329,4 +7329,485 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-22",
     source: "Founder request 2026-10-22 (item 14); docs/OPEN-QUESTIONS.md OQ-NAFDAC-HELPER-1",
   },
+  {
+    key: "symptom.checkback",
+    // S59c (follow-up check-back): when a completed symptom check that ended as self-care or a routine appointment is followed up with "better, same or worse?"
+    // and "did you get care?", and when a "same" answer nudges toward a booking. An UNSIGNED DRAFT: while status is "draft" nothing is scheduled. The CMO signs
+    // it through sign_symptom_ux_config('checkback', n); the live value is the active row of `symptom_ux_config` (kind checkback). The delays are product choices, not
+    // clinical thresholds. Urgent and emergency results are never followed up this way (a human is already involved). Mirrored in the engine package's drafts.ts and
+    // the migration seed; tests fail if the three differ.
+    value: {
+      "version": 1,
+      "status": "draft",
+      "clinical_sign_off": null,
+      "provenance": {
+        "source": "docs/design/S59c.md section 2",
+        "note": "Agent-proposed timing for the CMO. Delays and the nudge rule are product choices, not clinical thresholds. Not reviewed by a clinician."
+      },
+      "categories": {
+        "self_management": {
+          "delay_hours": 48,
+          "same_nudge_after_hours": 72
+        },
+        "routine": {
+          "delay_hours": 24,
+          "same_nudge_after_hours": 24
+        }
+      },
+      "expire_after_hours": 48,
+      "nudge_after_hours": 12,
+      "max_nudges": 1,
+      "notification_window": {
+        "start_hour": 7,
+        "end_hour": 21
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S59c.md section 2; supabase/migrations/20261022115652_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-01",
+  },
+  {
+    key: "symptom.describe_synonyms",
+    // S59c (describe it): the deterministic synonym table that routes a person's own words to one of the SIGNED, ACTIVE pathways, after the shared danger-phrase screen
+    // has run on the device. An UNSIGNED DRAFT: while status is "draft" nothing matches and the person goes to the ordinary checklist and picker. English plus common
+    // Nigerian English; no Pidgin (D-14). A wrong route only changes which questions are asked: the red-flag floor runs over every answer either way.
+    // Live value: the active row of `symptom_ux_config` (kind describe). Mirrored in drafts.ts and the migration seed.
+    value: {
+      "version": 1,
+      "status": "draft",
+      "clinical_sign_off": null,
+      "provenance": {
+        "source": "docs/design/S59c.md section 3",
+        "note": "Agent-proposed routing words. A wrong route only changes which questions are asked: the red-flag floor runs over every answer either way. Not reviewed by a clinician or a Nigerian-English speaker."
+      },
+      "min_score": 2,
+      "ambiguity_margin": 2,
+      "danger_event_min_gap_minutes": 30,
+      "entries": [
+        {
+          "id": "headache_clear",
+          "pathway_key": "headache",
+          "weight": 2,
+          "phrases": [
+            "headache*",
+            "head ache",
+            "head pain",
+            "migraine*",
+            "pain in my head",
+            "pain in the head",
+            "my head hurts",
+            "head hurts",
+            "head is hurting",
+            "head is paining",
+            "my head is paining me",
+            "head is pounding",
+            "pounding head",
+            "throbbing head"
+          ]
+        },
+        {
+          "id": "headache_hint",
+          "pathway_key": "headache",
+          "weight": 1,
+          "phrases": [
+            "head feels heavy",
+            "heavy head",
+            "sore head"
+          ]
+        },
+        {
+          "id": "chest_pain_clear",
+          "pathway_key": "chest_pain",
+          "weight": 2,
+          "phrases": [
+            "chest pain*",
+            "chest ache",
+            "pain in my chest",
+            "pain in the chest",
+            "chest hurts",
+            "chest is hurting",
+            "chest is paining",
+            "my chest is paining me",
+            "chest paining",
+            "heart pain",
+            "pain around my heart"
+          ]
+        },
+        {
+          "id": "chest_pain_hint",
+          "pathway_key": "chest_pain",
+          "weight": 1,
+          "phrases": [
+            "chest feels heavy",
+            "heavy chest",
+            "sore chest",
+            "chest discomfort"
+          ]
+        },
+        {
+          "id": "breathlessness_clear",
+          "pathway_key": "breathlessness",
+          "weight": 2,
+          "phrases": [
+            "breathless*",
+            "short of breath",
+            "shortness of breath",
+            "difficulty breathing",
+            "difficulty in breathing",
+            "trouble breathing",
+            "hard to breathe",
+            "cannot catch my breath",
+            "can't catch my breath",
+            "out of breath",
+            "panting",
+            "wheez*"
+          ]
+        },
+        {
+          "id": "breathlessness_hint",
+          "pathway_key": "breathlessness",
+          "weight": 1,
+          "phrases": [
+            "breathing is heavy",
+            "breathing fast",
+            "breathing hard",
+            "chest is tight"
+          ]
+        },
+        {
+          "id": "fever_clear",
+          "pathway_key": "fever",
+          "weight": 2,
+          "phrases": [
+            "fever*",
+            "feverish",
+            "high temperature",
+            "my body is hot",
+            "body is hot",
+            "body hot",
+            "hot body",
+            "feeling hot",
+            "chills",
+            "shivering"
+          ]
+        },
+        {
+          "id": "fever_hint",
+          "pathway_key": "fever",
+          "weight": 1,
+          "phrases": [
+            "temperature",
+            "sweating at night"
+          ]
+        },
+        {
+          "id": "abdominal_pain_clear",
+          "pathway_key": "abdominal_pain",
+          "weight": 2,
+          "phrases": [
+            "stomach pain*",
+            "stomach ache",
+            "stomach is paining",
+            "my stomach is paining me",
+            "belly pain",
+            "belly ache",
+            "belly is paining",
+            "tummy pain",
+            "tummy ache",
+            "abdominal pain",
+            "pain in my stomach",
+            "pain in my belly",
+            "cramps"
+          ]
+        },
+        {
+          "id": "abdominal_pain_hint",
+          "pathway_key": "abdominal_pain",
+          "weight": 1,
+          "phrases": [
+            "stomach feels",
+            "bloated",
+            "upset stomach"
+          ]
+        }
+      ]
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S59c.md section 3; supabase/migrations/20261022115652_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-02",
+  },
+  {
+    key: "symptom.result_explainer",
+    // S59c (Why this result): one plain-words reason per signed red-flag rule and per question-tree outcome, shown beside the person's own answers. An UNSIGNED DRAFT:
+    // while status is "draft" no explanation is shown at all, and a rule with no entry shows nothing (nothing is invented). Restates the signed v1 rules and their rationale;
+    // no cause, no ranking, no diagnosis. Live value: the active row of `symptom_ux_config` (kind explainer). Mirrored in drafts.ts and the migration seed.
+    value: {
+      "version": 1,
+      "status": "draft",
+      "clinical_sign_off": null,
+      "provenance": {
+        "source": "docs/design/S59c.md section 4",
+        "note": "Plain-words restatement of the signed v1 red-flag rules and the rationale on each signed outcome. No new clinical rule. Not reviewed by a clinician."
+      },
+      "entries": [
+        {
+          "id": "rule:headache.thunderclap_onset",
+          "reason": "You told us the headache came on suddenly and is very strong. A sudden, very strong headache is one of the signs this check treats as serious."
+        },
+        {
+          "id": "rule:headache.neuro_deficit",
+          "reason": "You told us you have new weakness, numbness or confusion with the headache. Those are signs this check treats as serious."
+        },
+        {
+          "id": "rule:headache.meningitic_signs",
+          "reason": "You told us you have a fever and a stiff neck with the headache. Together they are signs this check treats as serious."
+        },
+        {
+          "id": "rule:headache.vision_loss",
+          "reason": "You told us you have lost some vision with the headache. That is a sign this check treats as serious."
+        },
+        {
+          "id": "rule:headache.recent_head_injury",
+          "reason": "You told us the headache followed a recent knock to the head and is quite strong. That is a sign this check treats as serious."
+        },
+        {
+          "id": "rule:headache.immunocompromised_new_severe",
+          "reason": "You told us about something in your health history that makes a strong headache worth a prompt look."
+        },
+        {
+          "id": "rule:headache.pregnancy_severe",
+          "reason": "You told us about something in your health history that makes a strong headache worth a prompt look."
+        },
+        {
+          "id": "rule:chest_pain.cardiac_pattern",
+          "reason": "You told us the chest pain comes with breathlessness, sweating, or pain in your arm or jaw. Together they are signs this check treats as serious."
+        },
+        {
+          "id": "rule:chest_pain.sudden_severe_tearing",
+          "reason": "You told us the chest pain started suddenly and is very strong. That is a sign this check treats as serious."
+        },
+        {
+          "id": "rule:chest_pain.syncope",
+          "reason": "You told us you fainted with the chest pain. That is a sign this check treats as serious."
+        },
+        {
+          "id": "rule:chest_pain.known_cardiac_history",
+          "reason": "You told us about something in your health history that makes chest pain worth checking straight away."
+        },
+        {
+          "id": "rule:breathlessness.severe_sudden",
+          "reason": "You told us the breathlessness came on suddenly and is severe even at rest. That is a sign this check treats as serious."
+        },
+        {
+          "id": "rule:breathlessness.spo2_low",
+          "reason": "You told us your oxygen reading was low. That is a sign this check treats as serious."
+        },
+        {
+          "id": "rule:breathlessness.chest_pain",
+          "reason": "You told us you have chest pain with the breathlessness. Together they are signs this check treats as serious."
+        },
+        {
+          "id": "rule:breathlessness.cannot_complete_sentences",
+          "reason": "You told us you are too breathless to finish a sentence. That is a sign this check treats as serious."
+        },
+        {
+          "id": "rule:breathlessness.unilateral_leg_swelling",
+          "reason": "You told us one leg is swollen along with the breathlessness. Together they are signs this check treats as serious."
+        },
+        {
+          "id": "outcome:headache.urgent_worsening",
+          "reason": "Your answers show a headache that is getting worse or waking you from sleep. This check asks for a prompt look at a headache that follows that pattern.",
+          "tell_us_sooner_if": [
+            "the pain comes on suddenly and is very strong",
+            "you have new weakness, numbness or confusion",
+            "you lose some of your vision",
+            "you get a fever with a stiff neck"
+          ]
+        },
+        {
+          "id": "outcome:headache.routine_frequent",
+          "reason": "Your answers show headaches that come often. This check suggests a routine appointment to look at the pattern.",
+          "tell_us_sooner_if": [
+            "the pain comes on suddenly and is very strong",
+            "you have new weakness, numbness or confusion",
+            "you lose some of your vision",
+            "you get a fever with a stiff neck"
+          ]
+        },
+        {
+          "id": "outcome:headache.self_mild",
+          "reason": "Your answers show a mild headache with none of the warning signs on this check's list. That is why it suggests looking after yourself and keeping an eye on it.",
+          "tell_us_sooner_if": [
+            "the pain comes on suddenly and is very strong",
+            "you have new weakness, numbness or confusion",
+            "you lose some of your vision",
+            "you get a fever with a stiff neck"
+          ]
+        },
+        {
+          "id": "outcome:headache.routine_moderate",
+          "reason": "Your answers show a headache that is slowing you down, with none of the warning signs on this check's list. This check suggests a routine appointment.",
+          "tell_us_sooner_if": [
+            "the pain comes on suddenly and is very strong",
+            "you have new weakness, numbness or confusion",
+            "you lose some of your vision",
+            "you get a fever with a stiff neck"
+          ]
+        },
+        {
+          "id": "outcome:headache.urgent_severe",
+          "reason": "Your answers show severe pain without a clear reason from the questions asked. This check asks for a prompt look.",
+          "tell_us_sooner_if": [
+            "the pain comes on suddenly and is very strong",
+            "you have new weakness, numbness or confusion",
+            "you lose some of your vision",
+            "you get a fever with a stiff neck"
+          ]
+        },
+        {
+          "id": "outcome:chest_pain.urgent_exertional",
+          "reason": "Your answers show chest pain that comes on with effort. This check asks for a prompt look at that pattern.",
+          "tell_us_sooner_if": [
+            "the pain comes with breathlessness, sweating, or pain in your arm or jaw",
+            "the pain starts suddenly and is very strong",
+            "you faint"
+          ]
+        },
+        {
+          "id": "outcome:chest_pain.self_msk",
+          "reason": "Your answers show chest pain that changes when you press on it and has stayed steady, with none of the warning signs on this check's list. That is why it suggests looking after yourself and keeping an eye on it.",
+          "tell_us_sooner_if": [
+            "the pain comes with breathlessness, sweating, or pain in your arm or jaw",
+            "the pain starts suddenly and is very strong",
+            "you faint"
+          ]
+        },
+        {
+          "id": "outcome:chest_pain.routine_msk",
+          "reason": "Your answers show chest pain that changes when you press on it and is new or changing. This check suggests a routine appointment.",
+          "tell_us_sooner_if": [
+            "the pain comes with breathlessness, sweating, or pain in your arm or jaw",
+            "the pain starts suddenly and is very strong",
+            "you faint"
+          ]
+        },
+        {
+          "id": "outcome:chest_pain.urgent_new",
+          "reason": "Your answers show new chest pain, under an hour old, without a clear pattern. This check asks for a prompt look.",
+          "tell_us_sooner_if": [
+            "the pain comes with breathlessness, sweating, or pain in your arm or jaw",
+            "the pain starts suddenly and is very strong",
+            "you faint"
+          ]
+        },
+        {
+          "id": "outcome:chest_pain.routine_general",
+          "reason": "Your answers show chest pain lasting several hours or longer, with none of the warning signs on this check's list. This check suggests a routine appointment.",
+          "tell_us_sooner_if": [
+            "the pain comes with breathlessness, sweating, or pain in your arm or jaw",
+            "the pain starts suddenly and is very strong",
+            "you faint"
+          ]
+        },
+        {
+          "id": "outcome:breathlessness.routine_exertional",
+          "reason": "Your answers show breathlessness that comes with effort and eases with rest. This check suggests a routine appointment.",
+          "tell_us_sooner_if": [
+            "the breathlessness comes on suddenly and is severe even at rest",
+            "you cannot finish a sentence",
+            "you have chest pain with it",
+            "one leg swells up"
+          ]
+        },
+        {
+          "id": "outcome:breathlessness.urgent_worsening",
+          "reason": "Your answers show breathlessness that has been getting worse over days. This check asks for a prompt look.",
+          "tell_us_sooner_if": [
+            "the breathlessness comes on suddenly and is severe even at rest",
+            "you cannot finish a sentence",
+            "you have chest pain with it",
+            "one leg swells up"
+          ]
+        },
+        {
+          "id": "outcome:breathlessness.self_mild",
+          "reason": "Your answers show mild, steady breathlessness with none of the warning signs on this check's list. That is why it suggests looking after yourself and keeping an eye on it.",
+          "tell_us_sooner_if": [
+            "the breathlessness comes on suddenly and is severe even at rest",
+            "you cannot finish a sentence",
+            "you have chest pain with it",
+            "one leg swells up"
+          ]
+        }
+      ]
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S59c.md section 4; supabase/migrations/20261022115652_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-03",
+  },
+  {
+    key: "symptom.safety_net",
+    // S59c (safety-net advice): the per-pathway "go to a hospital or call for help straight away if ..." lines, added to the generic safety net that is always shown. An UNSIGNED
+    // DRAFT: while status is "draft" only the generic block shows. The one number it may carry is the national emergency number, shown only when signed AND confirmed (OQ-87);
+    // no helpline number is shipped. Live value: the active row of `symptom_ux_config` (kind safety_net). Mirrored in drafts.ts and the migration seed.
+    value: {
+      "version": 1,
+      "status": "draft",
+      "clinical_sign_off": null,
+      "provenance": {
+        "source": "docs/design/S59c.md section 5",
+        "note": "Plain-words restatement of the signed v1 red-flag rules of each pathway. No new clinical rule and no phone number. Not reviewed by a clinician."
+      },
+      "emergency_number": {
+        "value": "112",
+        "confirmed": false
+      },
+      "entries": [
+        {
+          "id": "headache_all",
+          "pathway_key": "headache",
+          "category": "*",
+          "triggers": [
+            "the headache comes on suddenly and is very strong",
+            "you have new weakness, numbness or confusion",
+            "you lose some of your vision",
+            "you have a fever and a stiff neck",
+            "the headache follows a knock to the head"
+          ]
+        },
+        {
+          "id": "chest_pain_all",
+          "pathway_key": "chest_pain",
+          "category": "*",
+          "triggers": [
+            "the pain comes with breathlessness, sweating, or pain in your arm or jaw",
+            "the pain starts suddenly and is very strong",
+            "you faint"
+          ]
+        },
+        {
+          "id": "breathlessness_all",
+          "pathway_key": "breathlessness",
+          "category": "*",
+          "triggers": [
+            "the breathlessness comes on suddenly and is severe even at rest",
+            "you cannot finish a sentence",
+            "you have chest pain with it",
+            "one leg swells up"
+          ]
+        }
+      ]
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S59c.md section 5; supabase/migrations/20261022115652_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-04",
+  },
 ];
