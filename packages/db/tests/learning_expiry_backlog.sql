@@ -36,7 +36,7 @@ begin
   values (v, 'lxb-' || p_label || '@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, is_test)
   values (v, p_org, p_role::public.user_role, 'LXB ' || p_label, true)
-  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true;
+  on conflict (id) do update set role = excluded.role, organisation_id = excluded.organisation_id, full_name = excluded.full_name, is_test = true, is_active = true;
   return v;
 end $f$;
 create function pg_temp.mkdoc(p_org uuid, p_label text, p_tier text, p_admin uuid) returns uuid language plpgsql as $f$
