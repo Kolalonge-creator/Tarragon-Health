@@ -5266,3 +5266,34 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-726 S67-screens: nothing was rendered in a browser or simulator; the screens are checked by tests and type checks only (raised by the S67 screens build)
 - Web: React Testing Library plus axe, 23 tests. Phone: pure logic and outbox tests only (the mobile jest config renders no components), so `pregnancy-tools.tsx` has not been run on a device. Needs a look on web, an Android phone and an iPhone once `maternal_enabled` is on for a test account.
 - Decision: open (needs a test session).
+
+### OQ-727 UI-B-1: all new privacy, hide and check-in wording needs CMO and DPO review (raised by UI-B)
+- `packages/i18n/src/privacy-circle-copy.ts` (`uib.*`) is proposed copy, marked `pending_cmo_dpo_review`. Two lines state product facts that someone must confirm: that a person given access to the cycle section can see "what you log, for example period days and how you felt", and that the care team summary cannot be switched off from the app.
+- Decision: open.
+
+### OQ-728 UI-B-2: "Who can see this" rows are statements, not toggles (raised by UI-B)
+- The research asks for three toggles. Only the Care Circle row maps to a real control (Care Circle access, on its own page), and nothing exists to pause the care team's summary view. The screen therefore says so ("You cannot switch this off here yet") instead of showing a switch that does nothing.
+- Options: (a) as built; (b) build "Pause sharing with my care team" for cycle data on the category-scoped access model (needs a migration and a clinical-safety review); (c) hide the row.
+- Decision: open.
+
+### OQ-729 UI-B-3: the Care Circle invite step does not yet link to "Who can see this" (raised by UI-B)
+- `care-circle-manager.tsx`, `join-card.tsx` and the mobile `care-circle-section.tsx` are changed by open PR #1297 (presets and preview), so they were not edited. `WhoCanSeeThis` is ready to be linked from the invite step once #1297 merges.
+- Decision: open (follow-up after #1297).
+
+### OQ-730 UI-B-4: "Hide on this phone" is a convenience, not a lock (raised by UI-B)
+- It stores a flag per account and card on the device (SecureStore on the phone, localStorage on the web) and "Show again" asks for no PIN. It is wired on the web growth card and the phone contraception page only. The cycle and pregnancy screens belong to another workstream; the component takes `card="cycle"` / `"pregnancy"` and can be wrapped there.
+- Options: (a) as built; (b) make "Show again" ask for the PrivateSection PIN when one is set.
+- Decision: open.
+
+### OQ-731 UI-B-5: the check-in snooze cannot extend the server-side window; the mobile check-in was not changed (raised by UI-B)
+- Web `check-in-card.tsx` now offers one "Not right now", then asks again with "No problem. Want to answer now?". The snooze is a quarter of `care_circle.rules.checkin_window_minutes` and says plainly that the circle may be told if the question runs out. Whether a relative is told at all is decided on the server (supporters who receive check-in requests); changing that rule or letting the patient delay the timer needs a migration and a decision.
+- The phone `CheckInCard` lives in `care-circle-section.tsx`, which open PR #1297 changes, so it was not touched. `help-alert-card.tsx` is the patient's own "ask for help" tap and was left alone (red-event path untouched).
+- Decision: open.
+
+### OQ-732 UI-B-6: cohorts empty and could-not-load states are web only (raised by UI-B)
+- The phone `cohorts-section.tsx` is changed by open PR #1298, so it was not edited. On the web, a load error is now a generic "could not load your groups" with Try again; the earlier per-code error message for a failed list read is no longer shown there.
+- Decision: open (phone follow-up after #1298).
+
+### OQ-733 UI-B-7: the reproductive-topic notification lint is code only (raised by UI-B)
+- `packages/notifications/src/reproductive-topics.ts` adds words (trimester, baby, birth control, IUD, growth, and others) on top of the INV-07 list. They are not in the database `notification_forbidden_terms` list because the existing test requires the code and database lists to match and no migration was written. The new test covers sender templates, the in-app inbox, notification catalogue keys, and the lock-screen text scheduled in `apps/mobile`.
+- Decision: open (add the words to the database list in a later migration if wanted).

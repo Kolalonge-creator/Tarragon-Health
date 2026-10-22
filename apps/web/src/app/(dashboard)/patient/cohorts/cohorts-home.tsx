@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormError } from "@/components/ui/form-error";
+import { EmptyState, LoadFailedState } from "@/components/ui/empty-state";
 import { COHORT_KINDS, KIND_KEYS, communityErrorKey, type CohortKind } from "@/lib/cohorts/model";
 import { CommunityError, useCommunityOff, useCreateCohort, useMyCohorts } from "@/lib/queries/cohorts";
 
@@ -23,7 +24,8 @@ export function CommunityHome({ locale }: { locale: Locale }) {
   const [agree, setAgree] = useState(false);
 
   if (mine.isPending) return <p className={MUTED} role="status">{t("community.loading", locale)}</p>;
-  if (mine.isError) return <FormError id="community-error" message={t(communityErrorKey(mine.error instanceof CommunityError ? mine.error.message : null), locale)} />;
+  // A failed read is not an empty list: it says so and offers Try again (UI-B).
+  if (mine.isError) return <LoadFailedState message={t("uib.cohorts.load_failed", locale)} retryLabel={t("common.try_again", locale)} onRetry={() => void mine.refetch()} />;
   const data = mine.data;
   if (!data.open) return <p role="status">{t("community.closed", locale)}</p>;
 
@@ -49,7 +51,12 @@ export function CommunityHome({ locale }: { locale: Locale }) {
           <Card>
             <CardHeader><CardTitle>{t("community.your_groups", locale)}</CardTitle></CardHeader>
             <CardContent>
-              {data.cohorts.length === 0 ? <p className={MUTED}>{t("community.empty", locale)}</p> : (
+              {data.cohorts.length === 0 ? (
+                <EmptyState
+                  message={t("uib.cohorts.empty", locale)}
+                  action={<Button asChild className={TOUCH}><a href="#cohort-name">{t("uib.cohorts.empty_button", locale)}</a></Button>}
+                />
+              ) : (
                 <ul className="space-y-3">
                   {data.cohorts.map((c) => (
                     <li key={c.cohort_id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">

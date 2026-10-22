@@ -4,6 +4,7 @@ import { cycleCopy, t } from "@tarragon/i18n";
 import { supabase } from "@/lib/supabase";
 import { useLegacyColors } from "@/ui/design";
 import { MutedText } from "@/ui/legacy-kit";
+import { HideOnThisPhone } from "@/ui/hide-on-this-phone";
 
 /**
  * Neutral contraception education (S66, 16.3, decision A13): an alphabetical list with one factual line each, no ranking, no dosing, no
@@ -16,12 +17,16 @@ export function ContraceptionEducation() {
   const colors = useLegacyColors();
   const [open, setOpen] = useState<boolean | null>(null);
   const [shown, setShown] = useState(false);
+  const [accountId, setAccountId] = useState<string | null>(null);
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => setAccountId(data.session?.user.id ?? null));
+  }, []);
   useEffect(() => {
     void supabase.rpc("go_live_guard_is_open", { p_key: "reproductive_content_enabled" }).then(({ data, error }) => setOpen(!error && data === true));
   }, []);
   if (open === null) return null;
   if (!open) return <MutedText>{t("contraception.edu.closed")}</MutedText>;
-  return (
+  const body = (
     <View style={{ gap: 8 }}>
       <Text onPress={() => setShown(!shown)} style={{ fontSize: 13, fontWeight: "700", color: colors.brandPressed }}>
         {shown ? "Hide the options" : t("contraception.edu.title")}
@@ -44,5 +49,13 @@ export function ContraceptionEducation() {
         </>
       )}
     </View>
+  );
+  // UI-B: "Hide on this phone" needs to know whose phone-copy it is; with no signed-in account the card is shown as before.
+  return accountId ? (
+    <HideOnThisPhone accountId={accountId} card="contraception">
+      {body}
+    </HideOnThisPhone>
+  ) : (
+    body
   );
 }

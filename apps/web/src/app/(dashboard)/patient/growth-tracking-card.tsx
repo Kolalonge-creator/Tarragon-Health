@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HideOnThisPhone } from "@/components/privacy/hide-on-this-phone";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
 import { formatPatientDate } from "@/lib/format-date";
@@ -38,7 +39,7 @@ function formatDate(iso: string): string {
  * header), they read "Reference data pending", never a fabricated percentile.
  * Renders nothing for a subject 19 or older — this is a paediatric chart.
  */
-export function GrowthTrackingCard({
+function GrowthTrackingCardBody({
   patientId,
   organisationId,
   ageYears,
@@ -252,5 +253,15 @@ export function GrowthTrackingCard({
         </form>
       </CardContent>
     </Card>
+  );
+}
+
+/** The growth card with the "Hide on this phone" switch (UI-B). Keyed by the child or person being measured, on this device only. */
+export function GrowthTrackingCard(props: { patientId: string; organisationId: string | null; ageYears: number | null }) {
+  if (props.ageYears !== null && props.ageYears >= 19) return null;
+  return (
+    <HideOnThisPhone accountId={props.patientId} card="growth">
+      <GrowthTrackingCardBody {...props} />
+    </HideOnThisPhone>
   );
 }

@@ -24,6 +24,32 @@ beforeEach(() => {
   respond.mockReset();
 });
 
+describe("CheckInCard snooze (UI-B)", () => {
+  it("offers one snooze, then asks again in gentler words with no second snooze", async () => {
+    jest.useFakeTimers();
+    render(<CheckInCard locale="en" />);
+    expect(screen.getByText(/may be told/)).toBeTruthy();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Not right now" })));
+    expect(screen.queryByRole("button", { name: "I am fine" })).toBeNull();
+    expect(respond).not.toHaveBeenCalled();
+    await act(async () => { jest.advanceTimersByTime(300_000); });
+    expect(screen.getByText("No problem. Want to answer now?")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "I am fine" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Not right now" })).toBeNull();
+    jest.useRealTimers();
+  });
+
+  it("the snooze tells nobody anything: no answer call is made", async () => {
+    render(<CheckInCard locale="en" />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Not right now" })));
+    expect(respond).not.toHaveBeenCalled();
+  });
+
+  it("is axe-clean with the snooze button showing", async () => {
+    await expectNoA11yViolations(<CheckInCard locale="en" />);
+  });
+});
+
 describe("CheckInCard", () => {
   it("is absent when nothing is waiting (so absent while the go-live is off)", () => {
     pending = { data: false };
