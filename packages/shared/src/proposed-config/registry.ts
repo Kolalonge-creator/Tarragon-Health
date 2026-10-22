@@ -4432,6 +4432,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       unactioned_handoff: { enabled: true, after_hours: 48 },
       follow_up: { task_due_minutes: 4320, snooze_days: 7 },
       max_rows: 100,
+      count_cache_minutes: 10,
     },
     owner: "CMO",
     status: "proposed",
@@ -4440,8 +4441,21 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S56b.md",
   },
   {
+    key: "wellbeing.features_cache",
+    // S56b: how long the phone trusts a saved "this feature is open" answer when it cannot reach the server. After this many days a saved
+    // OPEN answer is ignored for the share and patterns features. The calm tool is the one exception: a saved "open" is kept so help is
+    // never lost offline. A saved CLOSED answer is never turned into an open one, and an answer the server REFUSES (for example an expired
+    // session) closes everything.
+    value: { offline_trust_days: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S56b.md",
+  },
+  {
     key: "wellbeing.share_summary",
-    // S56b: the windows of the "Share with my doctor" summary (how many recent scores, how many weeks of check-ins, how many days of sleep diary,
+    // S56b: the windows of the "Share with my care team" summary (how many recent scores, how many weeks of check-ins, how many days of sleep diary,
     // the longest note). A display choice, not a clinical one. Live value is `private.wellbeing_share_cfg()`; a test fails on drift.
     value: { version: 1, screen_points: 3, checkin_weeks: 4, sleep_days: 14, note_max_chars: 500 },
     owner: "CMO",

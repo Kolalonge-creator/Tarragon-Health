@@ -1,5 +1,5 @@
 /**
- * The "Share with my doctor" summary (S56b, function 1): the shape the database builds, a defensive reader, and one formatter that web, phone and
+ * The "Share with my care team" summary (S56b, function 1): the shape the database builds, a defensive reader, and one formatter that web, phone and
  * the clinician's view all use, so the preview a patient approves and what the care team reads are the same words.
  *
  * What is in it (and nothing else): the raw totals of the latest PHQ-9 and GAD-7 with the band the signed instrument already stored and the raw
@@ -130,4 +130,10 @@ export function summarySections(
   }
   if (note !== null && note.trim() !== "") out.push({ heading: translate("wsum.note_heading"), lines: [note.trim()] });
   return out;
+}
+
+/** The preview the database returns: the summary and a hash of it. The send carries the hash, so what was previewed is what is sent. */
+export function parseSummaryPreview(raw: unknown): { summary: WellbeingSummary; hash: string } | null {
+  if (!isObj(raw) || typeof raw.hash !== "string" || raw.hash === "" || !isObj(raw.summary)) return null;
+  return { summary: parseWellbeingSummary(raw.summary), hash: raw.hash };
 }

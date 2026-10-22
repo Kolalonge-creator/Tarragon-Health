@@ -42,7 +42,7 @@ describe("CalmToolButton", () => {
     open();
     const dialog = screen.getByRole("dialog", { name: "Calming exercise" });
     expect(dialog.getAttribute("aria-modal")).toBe("true");
-    expect(screen.getByText("You are safe right now. This feeling is strong, and it will pass.")).toBeTruthy();
+    expect(screen.getByText("Take a slow breath with us. If you are in danger, tap the red button below.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "I am in danger or thinking of harming myself" })).toBeTruthy();
     expect(rpc).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -108,7 +108,7 @@ describe("CalmToolButton", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/could not send that just now/);
     rpc.mockResolvedValueOnce({ data: "h1", error: null });
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Tell my care team" })); });
-    expect(screen.getByRole("status").textContent).toMatch(/Your care team will pick this up/);
+    expect(screen.getByRole("status").textContent).toMatch(/We have shared this with your care team/);
   });
 
   it("closes on Escape and returns focus to the button", () => {

@@ -6,7 +6,7 @@
 -- GUARDS (INV-14), each born off:
 --   mental_health_worklist_enabled   the clinician follow-up worklist. Conditions: the worklist rules are signed (data), the CMO records that
 --                                    clinician cover for the follow-up tasks exists (attestation), the CMO switch.
---   wellbeing_summary_share_enabled  the patient's "Share with my doctor" summary. Conditions: cover to read shared summaries (attestation), CMO switch.
+--   wellbeing_summary_share_enabled  the patient's "Share with my care team" summary. Conditions: cover to read shared summaries (attestation), CMO switch.
 --   panic_tool_enabled               the calm tool (breathing and 5-4-3-2-1 grounding, offline). Conditions: the CMO has read the exact wording
 --                                    (attestation bound to a fingerprint of the panic.* strings), the flow has been tried with a screen reader
 --                                    and reduced motion on a real phone (attestation), CMO switch. The crisis card is NEVER behind it.
@@ -22,7 +22,7 @@ insert into public.go_live_guards (key, label, blocks, condition_text, switch_ro
    'The worklist rules are signed by the Chief Medical Officer; clinician cover for the follow-up tasks is confirmed',
    'cmo', array['public.list_mental_health_worklist', 'public.count_mental_health_worklist', 'public.create_mental_health_worklist_follow_up'],
    'The crisis path (any self-harm answer), the older clinician alert, the audited read of a patient''s own record, the hand-off a patient sends and the crisis card are not behind it.'),
-  ('wellbeing_summary_share_enabled', 'Share with my doctor (wellbeing summary)',
+  ('wellbeing_summary_share_enabled', 'Share with my care team (wellbeing summary)',
    'A patient building and sending a summary of their scores, check-ins and sleep diary to their care team',
    'Clinician cover to read shared summaries within a working day is confirmed',
    'cmo', array['public.preview_wellbeing_summary', 'public.share_wellbeing_summary_with_care_team'],
@@ -44,9 +44,16 @@ on conflict (key) do nothing;
 -- only while the latest attestation's note carries it. A Jest test (packages/i18n/src/s56b-wording-pin.test.ts) fails if the strings and these
 -- constants disagree, so editing a word means shipping a new fingerprint here, which closes the feature until the CMO attests the new text.
 create or replace function private.s56b_panic_fingerprint() returns text
-language sql immutable set search_path = '' as $$ select '08d630a12368'::text $$;
+language sql immutable set search_path = '' as $$ select 'bba851068943'::text $$;
 create or replace function private.s56b_insights_fingerprint() returns text
-language sql immutable set search_path = '' as $$ select '9dcccb25574a'::text $$;
+language sql immutable set search_path = '' as $$ select '864a362dd12b'::text $$;
+-- the summary wording (wsum.*) and the sentence telling a patient what the follow-up list uses (wnotice.*)
+create or replace function private.s56b_share_fingerprint() returns text
+language sql immutable set search_path = '' as $$ select '53060e2f3813'::text $$;
+create or replace function private.s56b_worklist_notice_fingerprint() returns text
+language sql immutable set search_path = '' as $$ select '8f52a2818174'::text $$;
+revoke all on function private.s56b_share_fingerprint() from public, anon, authenticated;
+revoke all on function private.s56b_worklist_notice_fingerprint() from public, anon, authenticated;
 revoke all on function private.s56b_panic_fingerprint() from public, anon, authenticated;
 revoke all on function private.s56b_insights_fingerprint() from public, anon, authenticated;
 
@@ -74,11 +81,15 @@ begin
         (select 'version ' || max(version) from public.mental_health_worklist_config where is_active and approved_at is not null)),
       private.go_live_cond('worklist_cover_confirmed', 'Clinician cover for the follow-up tasks it creates is confirmed',
         private.go_live_attested(p_key, 'worklist_cover_confirmed'), 'attestation', null),
+      private.go_live_cond('worklist_notice_wording_signed', 'The Chief Medical Officer has read the sentence that tells patients what the list uses',
+        private.s56b_attested_with(p_key, 'worklist_notice_wording_signed', private.s56b_worklist_notice_fingerprint()), 'attestation', null),
       private.go_live_cond('cmo_switch', 'Chief Medical Officer sign-off', true, 'switch', 'Given by the Chief Medical Officer pressing the switch'));
   elsif p_key = 'wellbeing_summary_share_enabled' then
     return jsonb_build_array(
       private.go_live_cond('share_cover_confirmed', 'A clinician reads a shared summary within a working day (cover confirmed)',
         private.go_live_attested(p_key, 'share_cover_confirmed'), 'attestation', null),
+      private.go_live_cond('share_wording_signed', 'The Chief Medical Officer has read the exact words of the share screen',
+        private.s56b_attested_with(p_key, 'share_wording_signed', private.s56b_share_fingerprint()), 'attestation', null),
       private.go_live_cond('cmo_switch', 'Chief Medical Officer sign-off', true, 'switch', 'Given by the Chief Medical Officer pressing the switch'));
   elsif p_key = 'panic_tool_enabled' then
     return jsonb_build_array(
@@ -119,7 +130,7 @@ do $patch$
 declare
   v_def text := pg_get_functiondef('public.attest_go_live_condition(text,text,boolean,text)'::regprocedure);
   v_anchor text;
-  v_new constant text := $n$, ('mental_health_worklist_enabled', 'worklist_cover_confirmed'), ('wellbeing_summary_share_enabled', 'share_cover_confirmed'), ('panic_tool_enabled', 'panic_wording_signed'), ('panic_tool_enabled', 'panic_accessibility_checked'), ('mood_insights_enabled', 'insights_wording_signed')$n$;
+  v_new constant text := $n$, ('mental_health_worklist_enabled', 'worklist_cover_confirmed'), ('wellbeing_summary_share_enabled', 'share_cover_confirmed'), ('panic_tool_enabled', 'panic_wording_signed'), ('panic_tool_enabled', 'panic_accessibility_checked'), ('mood_insights_enabled', 'insights_wording_signed'), ('mental_health_worklist_enabled', 'worklist_notice_wording_signed'), ('wellbeing_summary_share_enabled', 'share_wording_signed')$n$;
 begin
   if position('panic_wording_signed' in v_def) > 0 then return; end if;
   if position($a$('cuff_visit_prompt', 'visit_prompt_wording_signed')$a$ in v_def) > 0 then
@@ -144,19 +155,23 @@ alter table public.wellbeing_checkin_preferences add column if not exists mood_i
 
 create or replace function public.wellbeing_features_open() returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
-declare v_uid uuid := (select auth.uid()); v_hidden boolean;
+declare v_uid uuid := (select auth.uid()); v_hidden boolean; v_optout boolean;
 begin
   if v_uid is null or not exists (select 1 from public.profiles where id = v_uid and role = 'patient') then
-    return jsonb_build_object('panic', false, 'insights', false, 'share', false, 'insights_hidden', false);
+    return jsonb_build_object('panic', false, 'insights', false, 'share', false, 'insights_hidden', false, 'worklist', false, 'worklist_activity_opt_out', false);
   end if;
   select coalesce((select p.mood_insights_hidden from public.wellbeing_checkin_preferences p where p.patient_id = v_uid), false) into v_hidden;
+  v_optout := private.mh_activity_opted_out(v_uid);
   return jsonb_build_object(
     'panic', private.go_live_open_patient('panic_tool_enabled', v_uid)
              and private.s56b_wording_ok('panic_tool_enabled', 'panic_wording_signed', private.s56b_panic_fingerprint(), v_uid),
     'insights', private.go_live_open_patient('mood_insights_enabled', v_uid)
              and private.s56b_wording_ok('mood_insights_enabled', 'insights_wording_signed', private.s56b_insights_fingerprint(), v_uid),
-    'share', private.go_live_open_patient('wellbeing_summary_share_enabled', v_uid),
-    'insights_hidden', v_hidden);
+    'share', private.go_live_open_patient('wellbeing_summary_share_enabled', v_uid)
+             and private.s56b_wording_ok('wellbeing_summary_share_enabled', 'share_wording_signed', private.s56b_share_fingerprint(), v_uid),
+    'worklist', private.go_live_open_patient('mental_health_worklist_enabled', v_uid)
+             and private.s56b_wording_ok('mental_health_worklist_enabled', 'worklist_notice_wording_signed', private.s56b_worklist_notice_fingerprint(), v_uid),
+    'insights_hidden', v_hidden, 'worklist_activity_opt_out', v_optout);
 end $$;
 revoke all on function public.wellbeing_features_open() from public, anon;
 grant execute on function public.wellbeing_features_open() to authenticated;
@@ -184,8 +199,8 @@ begin
   if (select count(*) from public.go_live_guards where key in ('mental_health_worklist_enabled', 'wellbeing_summary_share_enabled', 'panic_tool_enabled', 'mood_insights_enabled') and not is_on) <> 4 then
     raise exception 'S56b self-check: the four guards must exist and be off';
   end if;
-  if jsonb_array_length(private.go_live_conditions('mental_health_worklist_enabled', null)) <> 3
-     or jsonb_array_length(private.go_live_conditions('wellbeing_summary_share_enabled', null)) <> 2
+  if jsonb_array_length(private.go_live_conditions('mental_health_worklist_enabled', null)) <> 4
+     or jsonb_array_length(private.go_live_conditions('wellbeing_summary_share_enabled', null)) <> 3
      or jsonb_array_length(private.go_live_conditions('panic_tool_enabled', null)) <> 3
      or jsonb_array_length(private.go_live_conditions('mood_insights_enabled', null)) <> 2 then
     raise exception 'S56b self-check: a guard has the wrong number of conditions';

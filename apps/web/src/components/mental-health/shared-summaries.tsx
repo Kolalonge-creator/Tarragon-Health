@@ -23,7 +23,7 @@ export function SharedSummaries({ patientId }: { patientId: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   if (isError || !data) return null;
-  const rows = data.filter((h) => h.kind === "doctor_summary" || h.kind === "talk_request");
+  const rows = data;
   if (rows.length === 0) return null;
 
   async function markSeen(id: string) {
@@ -49,7 +49,7 @@ export function SharedSummaries({ patientId }: { patientId: string }) {
         {rows.map((h) => (
           <div key={h.id} className="space-y-2 border-b border-charcoal-ink/10 pb-3 last:border-0 dark:border-night-ink/15">
             <p className="font-medium">
-              {h.kind === "doctor_summary" ? "Summary the patient chose to share" : "The patient asked someone to get in touch"}, {when(h.created_at)}
+              {h.kind === "doctor_summary" ? "Summary the patient chose to share" : h.kind === "talk_request" ? "The patient asked someone to get in touch" : "Questionnaire the patient sent"}, {when(h.created_at)}
               {h.state === "open" ? "" : h.seen_at ? `. Marked seen ${when(h.seen_at)}.` : `. ${h.state}.`}
             </p>
             {h.kind === "doctor_summary" &&
@@ -59,7 +59,10 @@ export function SharedSummaries({ patientId }: { patientId: string }) {
                   <ul className="list-disc pl-5 text-charcoal-ink/85 dark:text-night-ink/85">{s.lines.map((l, i) => <li key={i}>{l}</li>)}</ul>
                 </div>
               ))}
-            {h.kind === "talk_request" && h.patient_note && <p className="text-charcoal-ink/85 dark:text-night-ink/85">{h.patient_note}</p>}
+            {h.kind === "screen" && typeof h.summary.instrument === "string" && (
+              <p className="text-charcoal-ink/85 dark:text-night-ink/85">{String(h.summary.instrument).toUpperCase()} {String(h.summary.severity_band ?? "")} {String(h.summary.total_score ?? "")}</p>
+            )}
+            {h.kind !== "doctor_summary" && h.patient_note && <p className="text-charcoal-ink/85 dark:text-night-ink/85">{h.patient_note}</p>}
             {h.state === "open" && (
               <Button type="button" size="sm" variant="outline" disabled={busy === h.id} onClick={() => markSeen(h.id)}>
                 Mark as seen

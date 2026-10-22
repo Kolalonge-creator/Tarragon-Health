@@ -2,7 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 import type { MoodTrendDay } from "../mental-health";
 import {
   advancePanic, groundingKey, hasAnyChoice, initialPanicState, median, moodInsights, moodInsightsConfig, NOTHING_CHOSEN, panicBreathView, panicToolConfig,
-  panicCircleScale, panicSteppedScale, parseWellbeingSummary, parseWorklist, describeReason, renderInsight, summarySections, weekdayName, WORKLIST_LIMITS,
+  panicCircleScale, panicSteppedScale, parseWellbeingSummary, parseWorklist, describeReason, renderInsight, summarySections, weekdayName, WORKLIST_LIMITS, parseSummaryPreview, parseWellbeingFeatures, NO_WELLBEING_FEATURES, featuresToRaw,
 } from "./index";
 
 const day = (n: number, over: Partial<MoodTrendDay> = {}): MoodTrendDay => {
@@ -188,5 +188,26 @@ describe("worklist reader and descriptions", () => {
     expect(describeReason({ code: "unactioned_handoff", facts: { kind: "doctor_summary", hours_waiting: 60 } })).toContain("60 hours");
     expect(WORKLIST_LIMITS.join(" ")).toMatch(/not a risk predictor/);
     expect(WORKLIST_LIMITS.join(" ")).toMatch(/Silence is not safety/);
+  });
+});
+
+describe("preview hash and features", () => {
+  it("reads the preview with its hash and refuses one without", () => {
+    expect(parseSummaryPreview({ summary: { version: 1, screens: [] }, hash: "abc" })?.hash).toBe("abc");
+    expect(parseSummaryPreview({ summary: {}, hash: "" })).toBeNull();
+    expect(parseSummaryPreview({ hash: "abc" })).toBeNull();
+    expect(parseSummaryPreview("x")).toBeNull();
+  });
+  it("features round-trip through the server's own shape and fail closed", () => {
+    const f = parseWellbeingFeatures({ panic: true, worklist: true, worklist_activity_opt_out: true });
+    expect(parseWellbeingFeatures(featuresToRaw(f))).toEqual(f);
+    expect(parseWellbeingFeatures({ worklist: "true" })).toEqual(NO_WELLBEING_FEATURES);
+  });
+  it("the weekday name in a pattern sentence comes from the catalogue key, so it is under the attestation", () => {
+    const i = { kind: "weekday" as const, template: "insights.tpl.weekday" as const, weekday: 3, a: { low: 4, total: 5 }, b: { low: 1, total: 25 }, gap: 0.6 };
+    expect(renderInsight(i, (k) => k)).toBe("insights.tpl.weekday");
+    let seen = "";
+    renderInsight(i, (k, p) => { if (p?.weekday) seen = String(p.weekday); return k; });
+    expect(seen).toBe("insights.weekday.3");
   });
 });

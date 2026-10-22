@@ -6,8 +6,8 @@ const btn = "min-h-11 rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold 
 const field = "mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink dark:border-night-ink/25";
 
 function Attestation({ slot }: { slot: AttestationSlot }) {
-  const fp = slot.wordingPrefix ? wordingFingerprint(slot.wordingPrefix) : null;
-  const lines = slot.wordingPrefix ? wordingLines(slot.wordingPrefix) : [];
+  const fp = slot.wordingSet ? wordingFingerprint(slot.wordingSet) : null;
+  const lines = slot.wordingSet ? wordingLines(slot.wordingSet) : [];
   return (
     <div className="space-y-3 rounded-lg border border-charcoal-ink/10 p-4">
       <h4 className="font-medium text-charcoal-ink">{slot.title}</h4>

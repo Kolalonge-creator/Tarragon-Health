@@ -23,19 +23,23 @@ const guard = (key: string, conditions: { code: string; met: boolean }[]): Guard
 });
 
 describe("the fingerprint the CMO's attestation is bound to", () => {
-  it("is the one the database holds, for the calm tool and for the patterns view", () => {
-    expect(wordingFingerprint("panic.")).toBe(shipped("s56b_panic_fingerprint"));
-    expect(wordingFingerprint("insights.")).toBe(shipped("s56b_insights_fingerprint"));
+  it("is the one the database holds, for the calm tool, the patterns view, the share screen and the follow-up notice", () => {
+    expect(wordingFingerprint("panic")).toBe(shipped("s56b_panic_fingerprint"));
+    expect(wordingFingerprint("insights")).toBe(shipped("s56b_insights_fingerprint"));
+    expect(wordingFingerprint("share")).toBe(shipped("s56b_share_fingerprint"));
+    expect(wordingFingerprint("worklist")).toBe(shipped("s56b_worklist_notice_fingerprint"));
   });
   it("changes when one word changes (so an old attestation cannot cover new wording)", () => {
     const cat = { ...(en as Record<string, string>) };
-    const before = wordingFingerprint("panic.", cat);
+    const before = wordingFingerprint("panic", cat);
     cat["panic.intro_1"] = `${cat["panic.intro_1"]} Really.`;
-    expect(wordingFingerprint("panic.", cat)).not.toBe(before);
-    expect(wordingFingerprint("insights.", cat)).toBe(wordingFingerprint("insights."));
+    expect(wordingFingerprint("panic", cat)).not.toBe(before);
+    expect(wordingFingerprint("insights", cat)).toBe(wordingFingerprint("insights"));
+    cat["mood.tag.work"] = "Job";
+    expect(wordingFingerprint("insights", cat)).not.toBe(wordingFingerprint("insights"));
   });
   it("the panel shows every panic.* string, in key order", () => {
-    const lines = wordingLines("panic.");
+    const lines = wordingLines("panic");
     expect(lines.length).toBe(Object.keys(en).filter((k) => k.startsWith("panic.")).length);
     expect(lines.map((l) => l.key)).toEqual([...lines.map((l) => l.key)].sort());
   });
@@ -73,6 +77,7 @@ describe("worklist rules in words", () => {
     expect(text).toContain("none for 10 days");
     expect(text).toContain("48 hours");
     expect(text).toContain("72 hours");
+    expect(view?.lines.length).toBeGreaterThan(5);
     expect(text).toContain("At most 100 patients");
   });
   it("says a switched-off rule is switched off, and refuses a draft with a missing number", () => {

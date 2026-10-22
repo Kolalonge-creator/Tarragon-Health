@@ -23,8 +23,8 @@ function shipped(fn: string): string {
 }
 
 /** First 12 hex characters of the SHA-256 of "key=value\n" for every key with the prefix, sorted by key. The CMO panel computes the same value. */
-export function wordingFingerprint(catalogue: Record<string, string>, prefix: string): string {
-  const keys = Object.keys(catalogue).filter((k) => k.startsWith(prefix)).sort();
+export function wordingFingerprint(catalogue: Record<string, string>, ...prefixes: string[]): string {
+  const keys = Object.keys(catalogue).filter((k) => prefixes.some((p) => k.startsWith(p))).sort();
   return createHash("sha256").update(keys.map((k) => `${k}=${catalogue[k]}\n`).join("")).digest("hex").slice(0, 12);
 }
 
@@ -52,7 +52,8 @@ describe("calm tool wording (panic.*)", () => {
 
 describe("patterns wording (insights.*)", () => {
   it("has the fingerprint the database holds", () => {
-    expect(wordingFingerprint(cat, "insights.")).toBe(shipped("s56b_insights_fingerprint"));
+    // the sentences, the weekday names they print and the tag labels they print are all under the one attestation
+    expect(wordingFingerprint(cat, "insights.", "mood.tag.")).toBe(shipped("s56b_insights_fingerprint"));
   });
   // The sentences must describe what happened on the same days. None may say or imply that one thing caused another.
   const CAUSAL = /\b(because|cause|causes|caused|causing|due to|owing to|leads? to|led to|result of|results? in|resulted|makes? you|made you|making you|triggers?|triggered|reason|therefore|explains?|explained|so that|thanks to|brings? on|brought on|affects?|affected|impact\w*|influenc\w*|contribut\w*)\b/i;
@@ -76,6 +77,40 @@ describe("patterns wording (insights.*)", () => {
   });
   it("the screen title does not use the word trigger", () => {
     expect(cat["insights.title"]).not.toMatch(/trigger/i);
+  });
+});
+
+describe("share summary and follow-up list wording are pinned too", () => {
+  it("wsum.* has the fingerprint the database holds", () => {
+    expect(wordingFingerprint(cat, "wsum.")).toBe(shipped("s56b_share_fingerprint"));
+  });
+  it("wnotice.* (what the list uses, and the opt-out) has the fingerprint the database holds", () => {
+    expect(wordingFingerprint(cat, "wnotice.")).toBe(shipped("s56b_worklist_notice_fingerprint"));
+  });
+  it("changing one tag label changes the patterns fingerprint", () => {
+    expect(wordingFingerprint({ ...cat, "mood.tag.work": "Job" }, "insights.", "mood.tag.")).not.toBe(wordingFingerprint(cat, "insights.", "mood.tag."));
+  });
+  it("the follow-up notice names what the list uses and never the journal or notes as used", () => {
+    expect(cat["wnotice.text"]).toMatch(/check in/);
+    expect(cat["wnotice.text"]).toMatch(/sleep diary/);
+    expect(cat["wnotice.text"]).toMatch(/never uses your private journal or your notes/);
+  });
+});
+
+describe("assurance and promise wording (CMO review, item 5)", () => {
+  it("the first calm line does not assure the person they are safe or that it will pass, and points to help", () => {
+    expect(cat["panic.intro_1"]).not.toMatch(/\b(safe|will pass|fine|ok|okay)\b/i);
+    expect(cat["panic.intro_1"]).toMatch(/If you are in danger/);
+  });
+  it("no sent message promises a response or a time", () => {
+    for (const k of ["panic.tell_team_sent", "wsum.sent"]) {
+      expect(cat[k]).toBe("We have shared this with your care team.");
+      expect(cat[k]).not.toMatch(/will|soon|within|pick|get in touch|reply|call/i);
+    }
+  });
+  it("the patient-facing name is care team, not one doctor", () => {
+    expect(cat["wsum.title"]).toBe("Share with my care team");
+    expect(keysOf("wsum.").map((k) => cat[k]).join(" ")).not.toMatch(/my doctor/i);
   });
 });
 

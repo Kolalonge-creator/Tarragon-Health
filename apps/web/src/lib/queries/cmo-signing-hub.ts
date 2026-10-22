@@ -430,7 +430,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
   if (mentalWellbeingPending > 0) {
     items.push({
       key: MENTAL_WELLBEING_ITEM_KEY,
-      title: "Mental wellbeing: follow-up list, share with my doctor, calm tool, patterns",
+      title: "Mental wellbeing: follow-up list, share with my care team, calm tool, patterns",
       detail: `${mentalWellbeingPending} thing${mentalWellbeingPending === 1 ? "" : "s"} waiting for you${mentalWellbeing.worklistVersion !== null ? ` (the follow-up list rules, version ${mentalWellbeing.worklistVersion}, to sign)` : ""}. Nothing is shown to a patient or a clinician until you record or sign these and switch the matching guard on.`,
       href: "/clinician/clinical-signoff",
       severity: "draft_pending",

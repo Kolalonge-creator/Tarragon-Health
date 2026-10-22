@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { hasAnyChoice, NOTHING_CHOSEN, parseWellbeingSummary, shareSummaryConfig, summarySections, type SummaryChoices, type WellbeingSummary } from "@tarragon/shared";
+import { hasAnyChoice, NOTHING_CHOSEN, parseSummaryPreview, shareSummaryConfig, summarySections, type SummaryChoices, type WellbeingSummary } from "@tarragon/shared";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { supabase } from "@/lib/supabase";
 import { useLegacyColors, useTextInputStyle } from "@/ui/design";
@@ -26,7 +26,7 @@ function Check({ label, value, onChange }: { label: string; value: boolean; onCh
 }
 
 /**
- * "Share with my doctor" on the phone (S56b, function 1). Same rules as the web card: every box starts unticked, the person sees a preview of
+ * "Share with my care team" on the phone (S56b, function 1). Same rules as the web card: every box starts unticked, the person sees a preview of
  * exactly what would be sent before anything leaves, sending is a separate tap, and the same words can be shown full screen to read out at a
  * visit. Only scores, check-in averages and the sleep diary can be chosen (the database builder cannot reach anything else).
  */
@@ -35,8 +35,8 @@ export function ShareSummaryCard({ enabled }: { enabled: boolean }) {
   const inputStyle = useTextInputStyle();
   const cfg = shareSummaryConfig();
   const [choices, setChoices] = useState<SummaryChoices>(NOTHING_CHOSEN);
-  const [preview, setPreview] = useState<{ summary: WellbeingSummary; note: string } | null>(null);
-  const [state, setState] = useState<"idle" | "previewing" | "sending" | "sent" | "error" | "preview_error">("idle");
+  const [preview, setPreview] = useState<{ summary: WellbeingSummary; note: string; hash: string } | null>(null);
+  const [state, setState] = useState<"idle" | "previewing" | "sending" | "sent" | "error" | "preview_error" | "changed">("idle");
   const [aloud, setAloud] = useState(false);
   if (!enabled) return null;
 
@@ -51,7 +51,9 @@ export function ShareSummaryCard({ enabled }: { enabled: boolean }) {
     try {
       const { data, error } = await supabase.rpc("preview_wellbeing_summary", { p_include_screens: choices.screens, p_include_checkins: choices.checkins, p_include_sleep: choices.sleep });
       if (error) throw error;
-      setPreview({ summary: parseWellbeingSummary(data), note: choices.note.trim() });
+      const parsed = parseSummaryPreview(data);
+      if (!parsed) throw new Error("unexpected preview");
+      setPreview({ summary: parsed.summary, note: choices.note.trim(), hash: parsed.hash });
       setState("idle");
     } catch {
       setPreview(null);
@@ -64,12 +66,19 @@ export function ShareSummaryCard({ enabled }: { enabled: boolean }) {
     try {
       const { error } = await supabase.rpc("share_wellbeing_summary_with_care_team", {
         p_include_screens: choices.screens, p_include_checkins: choices.checkins, p_include_sleep: choices.sleep,
+        p_expected_hash: preview?.hash,
         ...(choices.note.trim() === "" ? {} : { p_note: choices.note.trim() }),
       });
       if (error) throw error;
       setState("sent");
-    } catch {
-      setState("error");
+    } catch (e) {
+      // the entries changed after the preview: nothing was sent, look again
+      if (e instanceof Object && "message" in e && String((e as { message: unknown }).message).includes("summary_changed")) {
+        setPreview(null);
+        setState("changed");
+      } else {
+        setState("error");
+      }
     }
   }
 
@@ -98,6 +107,7 @@ export function ShareSummaryCard({ enabled }: { enabled: boolean }) {
           <MutedText>{tr("wsum.note_hint", { max: cfg.note_max_chars })}</MutedText>
           {!hasAnyChoice(choices) && <MutedText>{tr("wsum.nothing")}</MutedText>}
           <SecondaryButton title={tr("wsum.preview")} onPress={() => void buildPreview()} disabled={!hasAnyChoice(choices)} loading={state === "previewing"} />
+          {state === "changed" && <ErrorText>{tr("wsum.changed")}</ErrorText>}
           {state === "preview_error" && <ErrorText>{tr("wsum.preview_error")}</ErrorText>}
           {preview && (
             <View style={{ gap: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10 }}>

@@ -9,6 +9,7 @@ import { MoodBesideReadings } from "@/components/mental-health/mood-beside-readi
 import { CalmLibraryCard } from "@/components/wellbeing/calm-library-card";
 import { JournalCard } from "@/components/wellbeing/journal-card";
 import { SleepToolsCard } from "@/components/wellbeing/sleep-tools-card";
+import { WorklistNotice } from "@/components/wellbeing/worklist-notice";
 import { CalmToolButton } from "@/components/wellbeing/calm-tool";
 import { ShareSummaryCard } from "@/components/wellbeing/share-summary-card";
 import { MoodPatternsCard } from "@/components/wellbeing/mood-patterns-card";
@@ -193,6 +194,7 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
       )}
 
       <SharedPhoneSettings />
+      <WorklistNotice key={String(features.worklistActivityOptOut)} enabled={features.worklist} optedOut={features.worklistActivityOptOut} />
 
       {!sharedPhoneReady ? (
         <ActivityIndicator color={colors.brand} />

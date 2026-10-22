@@ -47389,6 +47389,7 @@ export type Database = {
       wellbeing_checkin_preferences: {
         Row: {
           mood_insights_hidden: boolean
+          worklist_activity_opt_out: boolean
           organisation_id: string
           patient_id: string
           reminder_frequency_days: number
@@ -47396,6 +47397,7 @@ export type Database = {
         }
         Insert: {
           mood_insights_hidden?: boolean
+          worklist_activity_opt_out?: boolean
           organisation_id: string
           patient_id: string
           reminder_frequency_days?: number
@@ -47403,6 +47405,7 @@ export type Database = {
         }
         Update: {
           mood_insights_hidden?: boolean
+          worklist_activity_opt_out?: boolean
           organisation_id?: string
           patient_id?: string
           reminder_frequency_days?: number
@@ -56585,9 +56588,10 @@ export type Database = {
       list_mental_health_worklist: { Args: Record<PropertyKey, never>; Returns: Json }
       mark_mental_health_handoff_seen: { Args: { p_handoff: string }; Returns: boolean }
       preview_wellbeing_summary: { Args: { p_include_checkins?: boolean; p_include_screens?: boolean; p_include_sleep?: boolean }; Returns: Json }
+      set_worklist_activity_opt_out: { Args: { p_opt_out: boolean }; Returns: undefined }
       set_mood_insights_hidden: { Args: { p_hidden: boolean }; Returns: undefined }
       share_wellbeing_summary_with_care_team: {
-        Args: { p_include_checkins?: boolean; p_include_screens?: boolean; p_include_sleep?: boolean; p_note?: string }
+        Args: { p_expected_hash?: string; p_include_checkins?: boolean; p_include_screens?: boolean; p_include_sleep?: boolean; p_note?: string }
         Returns: string
       }
       sign_mental_health_worklist_config: { Args: { p_version: number }; Returns: undefined }

@@ -1,4 +1,4 @@
--- S56b step 1 of 2: "Share with my doctor" summary and the mental health follow-up worklist.
+-- S56b step 1 of 2: "Share with my care team" summary and the mental health follow-up worklist.
 -- Design: docs/design/S56b.md. Builds on S56 (per-patient access INV-12, audited reads INV-10, hand-offs) and S57 (sleep diary).
 --
 -- WHAT THIS ADDS
@@ -15,7 +15,7 @@
 --      and who meet a rule in the versioned configuration mental_health_worklist_config. The configuration is born UNSIGNED and INACTIVE; only
 --      the CMO's sign_mental_health_worklist_config activates a version; until then the list returns status 'not_signed' and no rows. Every
 --      patient served is an audit_log row (staff.mental_health_read, section 'worklist'). A care coordinator is refused. Creating a follow-up
---      makes a real clinical_tasks row through private.create_clinical_task (task type symptom_review) and a mental_health_worklist_actions row.
+--      makes a real clinical_tasks row through private.create_clinical_task (task type admin_clinical, random key) and a mental_health_worklist_actions row.
 --      Behind the guard mental_health_worklist_enabled (step 2).
 --
 -- WHAT THE WORKLIST DOES NOT DETECT (the screen says this too): it is not a risk predictor. It sees only what a patient entered. A patient who
@@ -36,6 +36,9 @@ alter table public.mental_health_handoffs alter column kind set default 'screen'
 alter table public.mental_health_handoffs alter column kind set not null;
 alter table public.mental_health_handoffs drop constraint if exists mental_health_handoffs_kind_check;
 alter table public.mental_health_handoffs add constraint mental_health_handoffs_kind_check check (kind in ('screen', 'doctor_summary', 'talk_request'));
+-- A Care Circle supporter with the mental health consent can read a hand-off row (S56 policy); they must not learn which clinician handled it.
+revoke select on public.mental_health_handoffs from authenticated;
+grant select (id, organisation_id, patient_id, screen_id, summary, patient_note, state, task_id, is_test, created_at, kind, seen_at) on public.mental_health_handoffs to authenticated;
 create index if not exists mental_health_handoffs_seen_by_idx on public.mental_health_handoffs (seen_by) where seen_by is not null;
 create index if not exists mental_health_handoffs_open_idx on public.mental_health_handoffs (organisation_id, created_at) where state = 'open';
 
@@ -148,6 +151,27 @@ end $$;
 revoke all on function public.mark_mental_health_handoff_seen(uuid) from public, anon;
 grant execute on function public.mark_mental_health_handoff_seen(uuid) to authenticated;
 
+-- The patient may ask that their check-in activity and sleep diary are not used by the follow-up list. It switches off only the two rules
+-- that read that activity (sleep trouble, check-ins that stopped); scores, hand-offs and anything they chose to send are unaffected.
+alter table public.wellbeing_checkin_preferences add column if not exists worklist_activity_opt_out boolean not null default false;
+create or replace function private.mh_activity_opted_out(p_patient uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select coalesce((select p.worklist_activity_opt_out from public.wellbeing_checkin_preferences p where p.patient_id = p_patient), false)
+$$;
+revoke all on function private.mh_activity_opted_out(uuid) from public, anon, authenticated;
+create or replace function public.set_worklist_activity_opt_out(p_opt_out boolean) returns void
+language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := (select auth.uid()); v_org uuid;
+begin
+  if v_uid is null then raise exception 'not authorised' using errcode = '42501'; end if;
+  select organisation_id into v_org from public.profiles where id = v_uid and role = 'patient';
+  if v_org is null then raise exception 'not authorised' using errcode = '42501'; end if;
+  insert into public.wellbeing_checkin_preferences (patient_id, organisation_id, worklist_activity_opt_out) values (v_uid, v_org, coalesce(p_opt_out, false))
+  on conflict (patient_id) do update set worklist_activity_opt_out = excluded.worklist_activity_opt_out, updated_at = now();
+end $$;
+revoke all on function public.set_worklist_activity_opt_out(boolean) from public, anon;
+grant execute on function public.set_worklist_activity_opt_out(boolean) to authenticated;
+
 -- ---------------------------------------------------------------------------
 -- 2. The patient-built summary
 -- ---------------------------------------------------------------------------
@@ -224,17 +248,19 @@ revoke all on function private.wellbeing_summary_has_content(jsonb) from public,
 
 create or replace function public.preview_wellbeing_summary(p_include_screens boolean default false, p_include_checkins boolean default false, p_include_sleep boolean default false)
 returns jsonb language plpgsql stable security definer set search_path = '' as $$
-declare v_uid uuid := (select auth.uid());
+declare v_uid uuid := (select auth.uid()); v_sum jsonb;
 begin
   if v_uid is null or not exists (select 1 from public.profiles where id = v_uid and role = 'patient') then raise exception 'not authorised' using errcode = '42501'; end if;
   if not private.go_live_open_patient('wellbeing_summary_share_enabled', v_uid) then raise exception 'feature_not_open' using errcode = '55000'; end if;
-  return private.build_wellbeing_summary(v_uid, coalesce(p_include_screens, false), coalesce(p_include_checkins, false), coalesce(p_include_sleep, false));
+  v_sum := private.build_wellbeing_summary(v_uid, coalesce(p_include_screens, false), coalesce(p_include_checkins, false), coalesce(p_include_sleep, false));
+  -- the hash is what the send must carry: if the entries change after the preview, the send is refused and the person looks again
+  return jsonb_build_object('summary', v_sum, 'hash', md5(v_sum::text));
 end $$;
 revoke all on function public.preview_wellbeing_summary(boolean, boolean, boolean) from public, anon;
 grant execute on function public.preview_wellbeing_summary(boolean, boolean, boolean) to authenticated;
 
 create or replace function public.share_wellbeing_summary_with_care_team(
-  p_include_screens boolean default false, p_include_checkins boolean default false, p_include_sleep boolean default false, p_note text default null)
+  p_include_screens boolean default false, p_include_checkins boolean default false, p_include_sleep boolean default false, p_note text default null, p_expected_hash text default null)
 returns uuid language plpgsql security definer set search_path = '' as $$
 declare
   v_uid uuid := (select auth.uid()); v_pr public.profiles%rowtype; v_sum jsonb; v_note text := nullif(btrim(p_note), '');
@@ -247,6 +273,7 @@ begin
   if v_note is not null and char_length(v_note) > v_max then raise exception 'note too long' using errcode = '22023'; end if;
   v_sum := private.build_wellbeing_summary(v_uid, coalesce(p_include_screens, false), coalesce(p_include_checkins, false), coalesce(p_include_sleep, false));
   if not private.wellbeing_summary_has_content(v_sum) and v_note is null then raise exception 'nothing to share' using errcode = '22023'; end if;
+  if p_expected_hash is null or p_expected_hash <> md5(v_sum::text) then raise exception 'summary_changed' using errcode = '22023'; end if;
   -- the same summary and note sent again within ten minutes is the same hand-off: one task, not two
   select id into v_dup from public.mental_health_handoffs
    where patient_id = v_uid and kind = 'doctor_summary' and state = 'open' and created_at > now() - interval '10 minutes'
@@ -254,7 +281,7 @@ begin
   if v_dup is not null then return v_dup; end if;
   insert into public.mental_health_handoffs (id, organisation_id, patient_id, screen_id, summary, patient_note, is_test, kind)
   values (v_id, v_pr.organisation_id, v_uid, null, v_sum, v_note, coalesce(v_pr.is_test, false), 'doctor_summary');
-  v_task := private.create_clinical_task(v_uid, 'admin_clinical', null, 'mh_summary:' || v_id);
+  v_task := private.create_clinical_task(v_uid, 'admin_clinical', null, 'mhs:' || gen_random_uuid());
   update public.mental_health_handoffs set task_id = v_task where id = v_id;
   begin
     perform private.emit_domain_event('wellbeing.summary_shared', v_pr.organisation_id, jsonb_build_object('handoff_id', v_id),
@@ -265,8 +292,8 @@ begin
   end;
   return v_id;
 end $$;
-revoke all on function public.share_wellbeing_summary_with_care_team(boolean, boolean, boolean, text) from public, anon;
-grant execute on function public.share_wellbeing_summary_with_care_team(boolean, boolean, boolean, text) to authenticated;
+revoke all on function public.share_wellbeing_summary_with_care_team(boolean, boolean, boolean, text, text) from public, anon;
+grant execute on function public.share_wellbeing_summary_with_care_team(boolean, boolean, boolean, text, text) to authenticated;
 
 insert into public.event_types (event_type, description, owner_section, is_urgent) values
   ('wellbeing.summary_shared', 'A patient chose to share a wellbeing summary with their care team (ids only; the summary is read through the audited path)', 'S56b', false),
@@ -324,7 +351,7 @@ begin
           and private.mh_int_in(r, '{missed_checkins,silent_days}', 3, 90)) then return false; end if;
   if not private.mh_int_in(r, '{unactioned_handoff,after_hours}', 1, 720) then return false; end if;
   if not (private.mh_int_in(r, '{follow_up,task_due_minutes}', 15, 43200) and private.mh_int_in(r, '{follow_up,snooze_days}', 0, 60)) then return false; end if;
-  if not private.mh_int_in(r, '{max_rows}', 1, 500) then return false; end if;
+  if not private.mh_int_in(r, '{max_rows}', 1, 500) or not private.mh_int_in(r, '{count_cache_minutes}', 0, 120) then return false; end if;
   return true;
 end $$;
 revoke all on function private.mh_worklist_rules_valid(jsonb) from public, anon, authenticated;
@@ -333,7 +360,7 @@ alter table public.mental_health_worklist_config add constraint mental_health_wo
 
 -- mh-worklist-v1-begin
 insert into public.mental_health_worklist_config (version, is_active, effective_from, rules, notes)
-values (1, false, '2026-10-22', $json${"rising_screen":{"enabled":true,"look_back_days":120,"phq9_min_rise":5,"gad7_min_rise":4},"overdue_screen":{"enabled":true,"grace_days":14,"instruments":["phq9","gad7"]},"sleep_trouble":{"enabled":true,"window_days":14,"min_entries":7,"short_sleep_hours":5.5,"low_quality_at_or_below":2,"min_trouble_nights":5},"missed_checkins":{"enabled":true,"prior_window_days":28,"min_prior_checkins":8,"silent_days":10},"unactioned_handoff":{"enabled":true,"after_hours":48},"follow_up":{"task_due_minutes":4320,"snooze_days":7},"max_rows":100}$json$::jsonb,
+values (1, false, '2026-10-22', $json${"rising_screen":{"enabled":true,"look_back_days":120,"phq9_min_rise":5,"gad7_min_rise":4},"overdue_screen":{"enabled":true,"grace_days":14,"instruments":["phq9","gad7"]},"sleep_trouble":{"enabled":true,"window_days":14,"min_entries":7,"short_sleep_hours":5.5,"low_quality_at_or_below":2,"min_trouble_nights":5},"missed_checkins":{"enabled":true,"prior_window_days":28,"min_prior_checkins":8,"silent_days":10},"unactioned_handoff":{"enabled":true,"after_hours":48},"follow_up":{"task_due_minutes":4320,"snooze_days":7},"max_rows":100,"count_cache_minutes":10}$json$::jsonb,
   'DRAFT, UNSIGNED (S56b, 2026-10-22). Every number is PROPOSED by the build, not a clinical decision: the CMO must read, amend (a new version) or confirm. The score rises are placeholders chosen to be easy to read, not validated change thresholds. Check-in silence is the rule the CMO may well switch off (check-ins are a patient-controlled habit, see OQ-S56b-03).')
 on conflict (version) do nothing;
 -- mh-worklist-v1-end
@@ -425,10 +452,10 @@ select private.guard_minor_dependant_table('mental_health_worklist_actions', 'pa
 -- ---------------------------------------------------------------------------
 -- 5. The rules (set based, org scoped) and the caller's tied worklist
 -- ---------------------------------------------------------------------------
--- Every rule reads only what the patient entered, within the windows in the SIGNED configuration. A patient is considered only if they have
--- used the mental wellbeing area at all (a screen, a check-in or a hand-off): a sleep diary kept for its own sake does not put anyone on a
--- mental health list. The hits are not yet filtered by the tie; the caller functions do that.
-create or replace function private.mh_worklist_hits(p_org uuid, r jsonb)
+-- Every rule reads only what the patient entered, within the windows in the SIGNED configuration, and only for the patients passed in: the
+-- caller first narrows to patients who used the mental wellbeing area at all (a screen, a check-in or a hand-off) AND are tied to the caller,
+-- so the window functions never run over the whole organisation.
+create or replace function private.mh_worklist_hits(p_org uuid, r jsonb, p_patients uuid[])
 returns table (patient_id uuid, reason text, facts jsonb)
 language plpgsql stable security definer set search_path = '' as $$
 declare
@@ -436,16 +463,11 @@ declare
   v_cadence_signed boolean := exists (select 1 from public.mental_health_screening_cadences where is_active and approved_at is not null);
 begin
   return query
-  with engaged as (
-    select s.patient_id as pid from public.mental_health_screens s where s.organisation_id = p_org
-    union select c.patient_id from public.wellbeing_checkins c where c.organisation_id = p_org and c.checked_in_at > now() - interval '400 days'
-    union select h.patient_id from public.mental_health_handoffs h where h.organisation_id = p_org
-  )
   -- a positive hand-off nobody has marked seen (the oldest per patient)
   select x.pid, 'unactioned_handoff'::text, jsonb_build_object('handoff_id', x.id, 'kind', x.kind, 'hours_waiting', floor(extract(epoch from (now() - x.created_at)) / 3600)::integer)
     from (select distinct on (h.patient_id) h.patient_id as pid, h.id, h.kind, h.created_at
             from public.mental_health_handoffs h
-           where (r #>> '{unactioned_handoff,enabled}')::boolean and h.organisation_id = p_org and h.state = 'open'
+           where (r #>> '{unactioned_handoff,enabled}')::boolean and h.organisation_id = p_org and h.patient_id = any (p_patients) and h.state = 'open'
              and h.created_at < now() - make_interval(hours => (r #>> '{unactioned_handoff,after_hours}')::integer)
            order by h.patient_id, h.created_at) x
   union all
@@ -456,7 +478,7 @@ begin
                  lag(s.total_score) over w as prev_score, lag(s.created_at) over w as prev_at,
                  row_number() over (partition by s.patient_id, s.instrument order by s.created_at desc) as rn
             from public.mental_health_screens s
-           where (r #>> '{rising_screen,enabled}')::boolean and s.organisation_id = p_org and s.instrument in ('phq9', 'gad7')
+           where (r #>> '{rising_screen,enabled}')::boolean and s.organisation_id = p_org and s.patient_id = any (p_patients) and s.instrument in ('phq9', 'gad7')
              and s.created_at > now() - make_interval(days => 2 * (r #>> '{rising_screen,look_back_days}')::integer)
           window w as (partition by s.patient_id, s.instrument order by s.created_at)) y
    where y.rn = 1 and y.prev_score is not null
@@ -467,7 +489,7 @@ begin
   -- the next screen is overdue against the (signed) cadence: the schedule is rolled forward from that cadence on every screen
   select sch.patient_id, 'overdue_screen'::text, jsonb_build_object('instrument', sch.instrument, 'due_date', sch.due_date, 'days_overdue', v_today - sch.due_date)
     from public.mental_health_screening_schedules sch
-   where (r #>> '{overdue_screen,enabled}')::boolean and v_cadence_signed and sch.organisation_id = p_org
+   where (r #>> '{overdue_screen,enabled}')::boolean and v_cadence_signed and sch.organisation_id = p_org and sch.patient_id = any (p_patients)
      and sch.instrument in (select jsonb_array_elements_text(r #> '{overdue_screen,instruments}'))
      and sch.due_date < v_today - (r #>> '{overdue_screen,grace_days}')::integer
   union all
@@ -479,7 +501,7 @@ begin
             from public.sleep_log_entries e
            where (r #>> '{sleep_trouble,enabled}')::boolean and e.organisation_id = p_org
              and e.logged_on > v_today - (r #>> '{sleep_trouble,window_days}')::integer
-             and e.patient_id in (select pid from engaged)
+             and e.patient_id = any (p_patients) and not private.mh_activity_opted_out(e.patient_id)
            group by e.patient_id) l
    where l.entries >= (r #>> '{sleep_trouble,min_entries}')::integer and l.trouble >= (r #>> '{sleep_trouble,min_trouble_nights}')::integer
   union all
@@ -490,12 +512,12 @@ begin
                  (count(*) filter (where c.checked_in_at > now() - make_interval(days => (r #>> '{missed_checkins,silent_days}')::integer)))::integer as recent_n,
                  max((c.checked_in_at at time zone 'Africa/Lagos')::date) as last_d
             from public.wellbeing_checkins c
-           where (r #>> '{missed_checkins,enabled}')::boolean and c.organisation_id = p_org
+           where (r #>> '{missed_checkins,enabled}')::boolean and c.organisation_id = p_org and c.patient_id = any (p_patients) and not private.mh_activity_opted_out(c.patient_id)
              and c.checked_in_at > now() - make_interval(days => (r #>> '{missed_checkins,prior_window_days}')::integer + (r #>> '{missed_checkins,silent_days}')::integer)
            group by c.patient_id) m
    where m.prior_n >= (r #>> '{missed_checkins,min_prior_checkins}')::integer and m.recent_n = 0;
 end $$;
-revoke all on function private.mh_worklist_hits(uuid, jsonb) from public, anon, authenticated;
+revoke all on function private.mh_worklist_hits(uuid, jsonb, uuid[]) from public, anon, authenticated;
 
 create or replace function private.mh_worklist_rank(p_code text) returns integer
 language sql immutable set search_path = '' as $$
@@ -516,7 +538,7 @@ create or replace function private.mh_worklist_for_caller()
 returns table (o_patient_id uuid, o_name text, o_number text, o_rank integer, o_reasons jsonb, o_followed_up_at timestamptz, o_followed_up_task uuid)
 language plpgsql stable security definer set search_path = '' as $$
 declare
-  v_uid uuid := (select auth.uid()); v_org uuid; v_cfg public.mental_health_worklist_config; v_snooze integer; v_max integer;
+  v_uid uuid := (select auth.uid()); v_org uuid; v_cfg public.mental_health_worklist_config; v_snooze integer; v_max integer; v_tied uuid[];
 begin
   if v_uid is null or not private.is_mental_health_clinician() then return; end if;
   v_cfg := private.mh_worklist_active_config();
@@ -524,10 +546,16 @@ begin
   select organisation_id into v_org from public.profiles where id = v_uid;
   v_snooze := (v_cfg.rules #>> '{follow_up,snooze_days}')::integer;
   v_max := (v_cfg.rules #>> '{max_rows}')::integer;
+  v_tied := array(
+    select e.pid from (
+      select s.patient_id as pid from public.mental_health_screens s where s.organisation_id = v_org
+      union select c.patient_id from public.wellbeing_checkins c where c.organisation_id = v_org and c.checked_in_at > now() - interval '400 days'
+      union select h.patient_id from public.mental_health_handoffs h where h.organisation_id = v_org) e
+     where private.clinician_has_patient_access(e.pid) and private.go_live_open('mental_health_worklist_enabled', e.pid, v_uid));
+  if cardinality(v_tied) = 0 then return; end if;
   return query
-  with hits as (select h.patient_id as pid, h.reason, h.facts from private.mh_worklist_hits(v_org, v_cfg.rules) h),
-       tied as (select distinct hh.pid from hits hh
-                 where private.clinician_has_patient_access(hh.pid) and private.go_live_open('mental_health_worklist_enabled', hh.pid, v_uid))
+  with hits as (select h.patient_id as pid, h.reason, h.facts from private.mh_worklist_hits(v_org, v_cfg.rules, v_tied) h),
+       tied as (select distinct hh.pid from hits hh)
   select p.id, p.full_name, p.patient_number,
          (select min(private.mh_worklist_rank(hh.reason)) from hits hh where hh.pid = p.id),
          (select jsonb_agg(jsonb_build_object('code', hh.reason, 'facts', hh.facts) order by private.mh_worklist_rank(hh.reason)) from hits hh where hh.pid = p.id),
@@ -570,14 +598,31 @@ end $$;
 revoke all on function public.list_mental_health_worklist() from public, anon;
 grant execute on function public.list_mental_health_worklist() to authenticated;
 
+-- The count is kept for a few minutes per clinician (a bare number, no identity) so a menu badge does not rerun the rules on every page.
+create table if not exists public.mental_health_worklist_count_cache (
+  clinician_id uuid primary key references public.profiles (id) on delete cascade,
+  n            integer not null check (n >= 0),
+  computed_at  timestamptz not null default now()
+);
+alter table public.mental_health_worklist_count_cache enable row level security;
+revoke all on public.mental_health_worklist_count_cache from public, anon, authenticated;
+
 -- A bare number: how many tied patients are on the list. Identity-free, so it can sit in a menu. 0 for anyone who is not a tied clinician.
 create or replace function public.count_mental_health_worklist() returns integer
-language plpgsql stable security definer set search_path = '' as $$
-declare v_uid uuid := (select auth.uid());
+language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := (select auth.uid()); v_cfg public.mental_health_worklist_config; v_n integer; v_at timestamptz; v_mins integer;
 begin
   if v_uid is null or not private.is_mental_health_clinician() then return 0; end if;
   if not (private.go_live_guard_on('mental_health_worklist_enabled') or exists (select 1 from public.profiles where id = v_uid and is_test)) then return 0; end if;
-  return (select count(*)::integer from private.mh_worklist_for_caller());
+  v_cfg := private.mh_worklist_active_config();
+  if v_cfg.id is null then return 0; end if;
+  v_mins := (v_cfg.rules ->> 'count_cache_minutes')::integer;
+  select n, computed_at into v_n, v_at from public.mental_health_worklist_count_cache where clinician_id = v_uid;
+  if found and v_mins > 0 and v_at > now() - make_interval(mins => v_mins) then return v_n; end if;
+  v_n := (select count(*)::integer from private.mh_worklist_for_caller());
+  insert into public.mental_health_worklist_count_cache (clinician_id, n, computed_at) values (v_uid, v_n, now())
+  on conflict (clinician_id) do update set n = excluded.n, computed_at = excluded.computed_at;
+  return v_n;
 end $$;
 revoke all on function public.count_mental_health_worklist() from public, anon;
 grant execute on function public.count_mental_health_worklist() to authenticated;
@@ -602,8 +647,19 @@ begin
   select * into v_row from private.mh_worklist_for_caller() w where w.o_patient_id = p_patient;
   if not found then raise exception 'that patient is not on your worklist' using errcode = '22023'; end if;
   select organisation_id, coalesce(is_test, false) into v_org, v_test from public.profiles where id = p_patient;
-  v_task := private.create_clinical_task(p_patient, 'symptom_review', (v_cfg.rules #>> '{follow_up,task_due_minutes}')::integer,
-                                         'mh_worklist:' || p_patient || ':' || ((now() at time zone 'Africa/Lagos')::date));
+  -- the same clinician following up the same patient again on the same Lagos day gets the task already made: one action, one task, not one per click
+  select a.task_id into v_task from public.mental_health_worklist_actions a
+   where a.patient_id = p_patient and a.clinician_id = v_uid and (a.created_at at time zone 'Africa/Lagos')::date = (now() at time zone 'Africa/Lagos')::date
+     and a.task_id is not null order by a.created_at desc limit 1;
+  if v_task is not null then
+    perform private.audit_mental_health_read(p_patient, array['worklist_follow_up'], 'repeated a worklist follow-up task', 'success');
+    return v_task;
+  end if;
+  -- admin_clinical is the task type the hand-off already uses: it is not a plan-gated doctor-time review. The key is random, so nothing a wider
+  -- reader of clinical_tasks sees says "mental health worklist" or which patient was on it.
+  v_task := private.create_clinical_task(p_patient, 'admin_clinical', (v_cfg.rules #>> '{follow_up,task_due_minutes}')::integer, 'mhw:' || gen_random_uuid());
+  -- a follow-up is the clinician acting on the patient, so every hand-off still waiting for this patient is marked seen (audited below)
+  update public.mental_health_handoffs set state = 'seen', seen_by = v_uid, seen_at = now() where patient_id = p_patient and state = 'open';
   insert into public.mental_health_worklist_actions (id, organisation_id, patient_id, clinician_id, config_version, reasons, task_id, note, is_test)
   values (v_id, v_org, p_patient, v_uid, v_cfg.version,
           coalesce((select array_agg(distinct x ->> 'code') from jsonb_array_elements(v_row.o_reasons) x), '{}'::text[]), v_task, v_note, v_test);
@@ -628,13 +684,13 @@ begin
   if exists (select 1 from public.mental_health_worklist_config where is_active or approved_at is not null) then raise exception 'S56b self-check: a worklist config shipped signed or active'; end if;
   if has_function_privilege('anon', 'public.list_mental_health_worklist()', 'EXECUTE') or has_function_privilege('anon', 'public.count_mental_health_worklist()', 'EXECUTE')
      or has_function_privilege('anon', 'public.create_mental_health_worklist_follow_up(uuid,text)', 'EXECUTE')
-     or has_function_privilege('anon', 'public.share_wellbeing_summary_with_care_team(boolean,boolean,boolean,text)', 'EXECUTE')
+     or has_function_privilege('anon', 'public.share_wellbeing_summary_with_care_team(boolean,boolean,boolean,text,text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.preview_wellbeing_summary(boolean,boolean,boolean)', 'EXECUTE')
      or has_function_privilege('anon', 'public.mark_mental_health_handoff_seen(uuid)', 'EXECUTE')
      or has_function_privilege('anon', 'public.sign_mental_health_worklist_config(integer)', 'EXECUTE') then
     raise exception 'S56b self-check: anon can execute a new function';
   end if;
-  if has_function_privilege('authenticated', 'private.mh_worklist_hits(uuid,jsonb)', 'EXECUTE') or has_function_privilege('authenticated', 'private.mh_worklist_for_caller()', 'EXECUTE')
+  if has_function_privilege('authenticated', 'private.mh_worklist_hits(uuid,jsonb,uuid[])', 'EXECUTE') or has_function_privilege('authenticated', 'private.mh_worklist_for_caller()', 'EXECUTE')
      or has_function_privilege('authenticated', 'private.build_wellbeing_summary(uuid,boolean,boolean,boolean)', 'EXECUTE') then
     raise exception 'S56b self-check: a signed-in user can call a private function directly';
   end if;

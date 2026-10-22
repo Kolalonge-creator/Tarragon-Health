@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  hasAnyChoice, NOTHING_CHOSEN, parseWellbeingSummary, shareSummaryConfig, summarySections, type SummaryChoices, type WellbeingSummary,
+  hasAnyChoice, NOTHING_CHOSEN, parseSummaryPreview, shareSummaryConfig, summarySections, type SummaryChoices, type WellbeingSummary,
 } from "@tarragon/shared";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { createClient } from "@/lib/supabase/client";
@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 const tr = (key: string, params?: Record<string, string | number>) => t(key as MessageKey, "en", params);
 
 /**
- * "Share with my doctor" (S56b, function 1). The patient builds a short summary for their care team and nothing is chosen for them: every
+ * "Share with my care team" (S56b, function 1). The patient builds a short summary for their care team and nothing is chosen for them: every
  * section starts unticked. They see a PREVIEW of exactly what would be sent before anything leaves; sending is a separate, explicit tap. The
  * only things offered are scores, check-in averages and the sleep diary (the database builder cannot reach anything else). The same words can be shown full-screen to read out at a visit.
  * Behind the CMO-switched guard wellbeing_summary_share_enabled: the page does not render this card until it is open.
@@ -20,8 +20,8 @@ const tr = (key: string, params?: Record<string, string | number>) => t(key as M
 export function ShareSummaryCard({ enabled }: { enabled: boolean }) {
   const cfg = shareSummaryConfig();
   const [choices, setChoices] = useState<SummaryChoices>(NOTHING_CHOSEN);
-  const [preview, setPreview] = useState<{ summary: WellbeingSummary; note: string } | null>(null);
-  const [state, setState] = useState<"idle" | "previewing" | "sending" | "sent" | "error" | "preview_error">("idle");
+  const [preview, setPreview] = useState<{ summary: WellbeingSummary; note: string; hash: string } | null>(null);
+  const [state, setState] = useState<"idle" | "previewing" | "sending" | "sent" | "error" | "preview_error" | "changed">("idle");
   const [aloud, setAloud] = useState(false);
   if (!enabled) return null;
 
@@ -38,7 +38,9 @@ export function ShareSummaryCard({ enabled }: { enabled: boolean }) {
         p_include_screens: choices.screens, p_include_checkins: choices.checkins, p_include_sleep: choices.sleep,
       });
       if (error) throw error;
-      setPreview({ summary: parseWellbeingSummary(data), note: choices.note.trim() });
+      const parsed = parseSummaryPreview(data);
+      if (!parsed) throw new Error("unexpected preview");
+      setPreview({ summary: parsed.summary, note: choices.note.trim(), hash: parsed.hash });
       setState("idle");
     } catch {
       setPreview(null);
@@ -51,12 +53,19 @@ export function ShareSummaryCard({ enabled }: { enabled: boolean }) {
     try {
       const { error } = await createClient().rpc("share_wellbeing_summary_with_care_team", {
         p_include_screens: choices.screens, p_include_checkins: choices.checkins, p_include_sleep: choices.sleep,
+        p_expected_hash: preview?.hash,
         ...(choices.note.trim() === "" ? {} : { p_note: choices.note.trim() }),
       });
       if (error) throw error;
       setState("sent");
-    } catch {
-      setState("error");
+    } catch (e) {
+      // the entries changed after the preview: nothing was sent, look again
+      if (e instanceof Object && "message" in e && String((e as { message: unknown }).message).includes("summary_changed")) {
+        setPreview(null);
+        setState("changed");
+      } else {
+        setState("error");
+      }
     }
   }
 
@@ -95,6 +104,7 @@ export function ShareSummaryCard({ enabled }: { enabled: boolean }) {
 
             {!hasAnyChoice(choices) && <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{tr("wsum.nothing")}</p>}
             <Button type="button" variant="outline" onClick={buildPreview} disabled={!hasAnyChoice(choices) || state === "previewing"}>{tr("wsum.preview")}</Button>
+            {state === "changed" && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{tr("wsum.changed")}</p>}
             {state === "preview_error" && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{tr("wsum.preview_error")}</p>}
 
             {preview && (

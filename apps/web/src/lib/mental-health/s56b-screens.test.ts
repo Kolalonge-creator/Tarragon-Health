@@ -64,6 +64,11 @@ describe("the share summary can only send what the patient chose", () => {
     expect(src).toMatch(/useState<SummaryChoices>\(NOTHING_CHOSEN\)/);
     expect(rpcNames(src)).toEqual(["preview_wellbeing_summary", "share_wellbeing_summary_with_care_team"]);
   });
+  it("sends the hash of what was previewed, so a changed entry is refused and the person looks again", () => {
+    expect(src).toContain("p_expected_hash: preview?.hash");
+    expect(src).toContain("summary_changed");
+    expect(src).toContain('state === "changed"');
+  });
   it("never offers or mentions the journal as something to send", () => {
     expect(src.toLowerCase()).not.toContain("journal");
   });

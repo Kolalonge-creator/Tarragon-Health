@@ -18,6 +18,7 @@ import { MentalHealthHandoffCard } from "@/components/mental-health/handoff-card
 import { SharedPhoneGate } from "@/components/mental-health/shared-phone-gate";
 import { SharedPhoneSettings } from "@/components/mental-health/shared-phone-settings";
 import { MoodBesideReadings } from "@/app/(dashboard)/patient/mood-beside-readings";
+import { WorklistNotice } from "@/components/mental-health/worklist-notice";
 import { CalmToolButton } from "@/components/mental-health/calm-tool";
 import { ShareSummaryCard } from "@/components/mental-health/share-summary-card";
 import { MoodPatterns } from "@/components/mental-health/mood-patterns";
@@ -52,6 +53,7 @@ export default async function PatientWellbeingPage() {
       </details>
 
       <SharedPhoneSettings />
+      {ownProfile && <WorklistNotice enabled={features.worklist} optedOut={features.worklistActivityOptOut} />}
 
       <SharedPhoneGate>
         <WellbeingTiles patientId={subjectId} />

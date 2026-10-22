@@ -134,6 +134,6 @@ export function renderInsight(
   };
   if (insight.kind === "sleep") params.median = insight.medianSleepHours ?? 0;
   if (insight.kind === "tag") params.tag = translate(`mood.tag.${insight.tag ?? "other"}`);
-  if (insight.kind === "weekday") params.weekday = weekdayName(insight.weekday ?? 0);
+  if (insight.kind === "weekday") params.weekday = translate(`insights.weekday.${((insight.weekday ?? 0) % 7 + 7) % 7}`);
   return translate(insight.template, params);
 }

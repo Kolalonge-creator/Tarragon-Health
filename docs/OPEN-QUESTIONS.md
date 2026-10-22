@@ -5303,3 +5303,8 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-S56b-09 What the build could not run (S56b)
 - Docker was unavailable. The two migrations and the proof were run on a throwaway Postgres 16 with a hand-made stand-in for the platform tables (197 checks passed, six sabotages flipped); the real stack replay, the full `scripts/run-db-proofs.sh` and every older proof have NOT been run. Jest (shared, i18n, web, mobile), typecheck and lint were run for real. Nothing was run in a browser or on a phone.
 - Decision: open (CI replay must pass before merge).
+
+### OQ-S56b-10 Opt-out scope and a task type for worklist follow-ups (S56b review round 1, 2026-10-22)
+- The patient opt-out switches off only the sleep-diary and check-in-silence rules. A patient who wants nothing on the list at all is not offered that: scores they entered into a clinical questionnaire, and anything they send, are clinical record. Decision: open (CMO/DPO: is that the right line, and is the notice sentence enough for NDPA transparency).
+- Follow-ups use the existing `admin_clinical` type, which the hand-off already used. If the CMO wants a dedicated type (own competency, own due time) it should be added as a DRAFT awaiting confirmation like `crisis_follow_up`. Decision: open (CMO).
+- S56's own hand-off task key (`mh_handoff:<id>`) is still readable by wider task readers; changing it was out of scope here. Decision: open (engineering follow-up).

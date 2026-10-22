@@ -1,4 +1,4 @@
--- S56b proof: "Share with my doctor", the mental health follow-up worklist, the four go-live guards and the patient-private patterns preference.
+-- S56b proof: "Share with my care team", the mental health follow-up worklist, the four go-live guards and the patient-private patterns preference.
 -- Roles proved: patient (own and another), tied clinician, untied clinician, tied care coordinator, CMO without a tie, admin, finance, analyst,
 -- a non-test patient and clinician (so the guards are really closed), anon.
 -- What is proved: the summary holds only what the patient chose and never a check-in note, a tag, a questionnaire item answer or a journal;
@@ -88,6 +88,14 @@ $f$ begin
   update public.go_live_guards
      set is_on = p_on, changed_at = case when p_on then now() end, changed_by = case when p_on then pg_temp.f('admin') end, change_note = case when p_on then 'S56b proof' end
    where key = p_key;
+end $f$;
+
+-- preview the summary, then send it with the hash the preview returned (what the app does)
+create function pg_temp.share(p_uid uuid, p_s boolean, p_c boolean, p_sl boolean, p_note text) returns text language plpgsql as
+$f$ declare h text;
+begin
+  h := pg_temp.q_as(p_uid, format('select (public.preview_wellbeing_summary(%L, %L, %L) ->> ''hash'')', p_s, p_c, p_sl));
+  return pg_temp.q_as(p_uid, format('select public.share_wellbeing_summary_with_care_team(%L, %L, %L, %L, %L)::text', p_s, p_c, p_sl, p_note, h));
 end $f$;
 
 -- fixture-defs-begin
@@ -204,28 +212,31 @@ begin
   foreach g in array array['mental_health_worklist_enabled', 'wellbeing_summary_share_enabled', 'panic_tool_enabled', 'mood_insights_enabled'] loop
     perform pg_temp.ck('the guard ' || g || ' exists and is off', 'true', exists (select 1 from public.go_live_guards where key = g and not is_on)::text);
   end loop;
-  perform pg_temp.ck('the worklist guard has three conditions', '3', jsonb_array_length(private.go_live_conditions('mental_health_worklist_enabled', null))::text);
-  perform pg_temp.ck('the share guard has two conditions', '2', jsonb_array_length(private.go_live_conditions('wellbeing_summary_share_enabled', null))::text);
+  perform pg_temp.ck('the worklist guard has four conditions', '4', jsonb_array_length(private.go_live_conditions('mental_health_worklist_enabled', null))::text);
+  perform pg_temp.ck('the share guard has three conditions', '3', jsonb_array_length(private.go_live_conditions('wellbeing_summary_share_enabled', null))::text);
   perform pg_temp.ck('the calm tool guard has three conditions', '3', jsonb_array_length(private.go_live_conditions('panic_tool_enabled', null))::text);
   perform pg_temp.ck('the patterns guard has two conditions', '2', jsonb_array_length(private.go_live_conditions('mood_insights_enabled', null))::text);
-  perform pg_temp.ck('the attestable list carries the five new conditions', '5',
-    (select count(*)::text from unnest(array['worklist_cover_confirmed', 'share_cover_confirmed', 'panic_wording_signed', 'panic_accessibility_checked', 'insights_wording_signed']) c
+  perform pg_temp.ck('the attestable list carries the seven new conditions', '7',
+    (select count(*)::text from unnest(array['worklist_cover_confirmed', 'share_cover_confirmed', 'panic_wording_signed', 'panic_accessibility_checked', 'insights_wording_signed', 'worklist_notice_wording_signed', 'share_wording_signed']) c
       where pg_get_functiondef('public.attest_go_live_condition(text,text,boolean,text)'::regprocedure) like '%' || c || '%'));
   perform pg_temp.ck('the worklist configuration v1 is born unsigned and inactive', 'true',
     exists (select 1 from public.mental_health_worklist_config where version = 1 and not is_active and approved_at is null and approved_by is null)::text);
   perform pg_temp.ck('no attestation exists that the build made', '0',
     (select count(*)::text from public.go_live_attestations where guard_key in ('mental_health_worklist_enabled', 'wellbeing_summary_share_enabled', 'panic_tool_enabled', 'mood_insights_enabled')));
   foreach fn in array array['public.list_mental_health_worklist()', 'public.count_mental_health_worklist()', 'public.create_mental_health_worklist_follow_up(uuid,text)',
-    'public.share_wellbeing_summary_with_care_team(boolean,boolean,boolean,text)', 'public.preview_wellbeing_summary(boolean,boolean,boolean)', 'public.mark_mental_health_handoff_seen(uuid)',
+    'public.share_wellbeing_summary_with_care_team(boolean,boolean,boolean,text,text)', 'public.set_worklist_activity_opt_out(boolean)', 'public.preview_wellbeing_summary(boolean,boolean,boolean)', 'public.mark_mental_health_handoff_seen(uuid)',
     'public.sign_mental_health_worklist_config(integer)', 'public.wellbeing_features_open()', 'public.set_mood_insights_hidden(boolean)'] loop
     perform pg_temp.ck('anon cannot execute ' || fn, 'false', has_function_privilege('anon', fn, 'EXECUTE')::text);
     perform pg_temp.ck('a signed-in user can execute ' || fn, 'true', has_function_privilege('authenticated', fn, 'EXECUTE')::text);
   end loop;
-  foreach fn in array array['private.mh_worklist_hits(uuid,jsonb)', 'private.mh_worklist_for_caller()', 'private.build_wellbeing_summary(uuid,boolean,boolean,boolean)',
+  foreach fn in array array['private.mh_worklist_hits(uuid,jsonb,uuid[])', 'private.mh_activity_opted_out(uuid)', 'private.s56b_share_fingerprint()', 'private.s56b_worklist_notice_fingerprint()', 'private.mh_worklist_for_caller()', 'private.build_wellbeing_summary(uuid,boolean,boolean,boolean)',
     'private.s56b_wording_ok(text,text,text,uuid)', 'private.s56b_attested_with(text,text,text)', 'private.s56b_go_live_conditions(text)', 'private.wellbeing_share_cfg()'] loop
     perform pg_temp.ck('a signed-in user cannot execute ' || fn, 'false', has_function_privilege('authenticated', fn, 'EXECUTE')::text);
   end loop;
   perform pg_temp.ck('the actions table has no table privilege for a signed-in user', 'false', has_table_privilege('authenticated', 'public.mental_health_worklist_actions', 'SELECT')::text);
+  perform pg_temp.ck('the count cache is not readable either', 'false', has_table_privilege('authenticated', 'public.mental_health_worklist_count_cache', 'SELECT')::text);
+  perform pg_temp.ck('a hand-off''s seen_by is not readable by a signed-in user (a supporter with the consent must not learn who handled it)', 'false', has_column_privilege('authenticated', 'public.mental_health_handoffs', 'seen_by', 'SELECT')::text);
+  perform pg_temp.ck('...while seen_at is', 'true', has_column_privilege('authenticated', 'public.mental_health_handoffs', 'seen_at', 'SELECT')::text);
   perform pg_temp.ck('...and no policy at all', '0', (select count(*)::text from pg_policies where tablename = 'mental_health_worklist_actions'));
 end $$;
 
@@ -236,26 +247,28 @@ begin
   perform pg_temp.ck('a real patient: the share preview is refused while the guard is off', 'true',
     (pg_temp.q_as(r, 'select public.preview_wellbeing_summary(true, true, true)::text') like 'ERR:feature_not_open%')::text);
   perform pg_temp.ck('a real patient: sending is refused while the guard is off', 'true',
-    (pg_temp.q_as(r, $q$select public.share_wellbeing_summary_with_care_team(true, false, false, 'hello')::text$q$) like 'ERR:feature_not_open%')::text);
-  perform pg_temp.ck('a real patient: nothing is open', '{"panic": false, "share": false, "insights": false, "insights_hidden": false}',
+    (pg_temp.q_as(r, $q$select public.share_wellbeing_summary_with_care_team(true, false, false, 'hello', 'x')::text$q$) like 'ERR:feature_not_open%')::text);
+  perform pg_temp.ck('a real patient: nothing is open', '{"panic": false, "share": false, "insights": false, "worklist": false, "insights_hidden": false, "worklist_activity_opt_out": false}',
     pg_temp.q_as(r, 'select public.wellbeing_features_open()::text'));
   perform pg_temp.ck('a test patient is open for the share while the guard is off (the test-account rule)', 'true',
     (pg_temp.q_as(pg_temp.f('A'), 'select (public.wellbeing_features_open() ->> ''share'')') = 'true')::text);
-  perform pg_temp.ck('a clinician sees no feature as open', '{"panic": false, "share": false, "insights": false, "insights_hidden": false}',
+  perform pg_temp.ck('a clinician sees no feature as open', '{"panic": false, "share": false, "insights": false, "worklist": false, "insights_hidden": false, "worklist_activity_opt_out": false}',
     pg_temp.q_as(pg_temp.f('doctied'), 'select public.wellbeing_features_open()::text'));
   perform pg_temp.ck('anon is refused at the features question', '42501', pg_temp.try_anon('select public.wellbeing_features_open()'));
   perform pg_temp.ck('a real clinician: the worklist is off', 'off', pg_temp.names(pg_temp.f('realdoc')));
   perform pg_temp.ck('...and counts 0', '0', pg_temp.q_as(pg_temp.f('realdoc'), 'select public.count_mental_health_worklist()::text'));
 end $$;
 
--- 2. Share with my doctor: only what was chosen, never a note, a tag or an item answer -----------------------------------------------
+-- 2. Share with my care team: only what was chosen, never a note, a tag or an item answer -----------------------------------------------
 do $$
 declare
-  a uuid := pg_temp.f('A'); v_prev jsonb; v_h uuid; v_h2 uuid; v_stored jsonb; v_before integer; v_text text;
+  v_hash text; a uuid := pg_temp.f('A'); v_prev jsonb; v_h uuid; v_h2 uuid; v_stored jsonb; v_before integer; v_text text;
 begin
   perform pg_temp.guard('wellbeing_summary_share_enabled', true);
   select count(*) into v_before from public.mental_health_handoffs where patient_id = a;
   v_prev := pg_temp.q_as(a, 'select public.preview_wellbeing_summary(true, true, true)::text')::jsonb;
+  v_hash := v_prev ->> 'hash';
+  v_prev := v_prev -> 'summary';
   perform pg_temp.ck('preview writes nothing', v_before::text, (select count(*)::text from public.mental_health_handoffs where patient_id = a));
   perform pg_temp.ck('preview: the latest PHQ-9 and the raw change', '14|6', (v_prev -> 'screens' -> 0 -> 'points' -> 0 ->> 'total') || '|' || (v_prev -> 'screens' -> 0 ->> 'change_since_previous'));
   perform pg_temp.ck('preview: the GAD-7 is there too', 'gad7', v_prev -> 'screens' -> 1 ->> 'instrument');
@@ -268,26 +281,38 @@ begin
   perform pg_temp.ck('...no tag', 'false', (v_text like '%"work"%' or v_text like '%tags%')::text);
   perform pg_temp.ck('...nothing named journal', 'false', (v_text ilike '%journal%')::text);
   perform pg_temp.ck('only the chosen section is present (scores alone)', 'true',
-    (select (s ? 'screens') and not (s ? 'check_ins') and not (s ? 'sleep') from (select pg_temp.q_as(a, 'select public.preview_wellbeing_summary(true, false, false)::text')::jsonb s) x)::text);
+    (select (s ? 'screens') and not (s ? 'check_ins') and not (s ? 'sleep') from (select pg_temp.q_as(a, 'select (public.preview_wellbeing_summary(true, false, false) -> ''summary'')::text')::jsonb s) x)::text);
   perform pg_temp.ck('nothing is chosen by default: the function defaults add no section', 'true',
-    (select not (s ? 'screens') and not (s ? 'check_ins') and not (s ? 'sleep') from (select pg_temp.q_as(a, 'select public.preview_wellbeing_summary()::text')::jsonb s) x)::text);
+    (select not (s ? 'screens') and not (s ? 'check_ins') and not (s ? 'sleep') from (select pg_temp.q_as(a, 'select (public.preview_wellbeing_summary() -> ''summary'')::text')::jsonb s) x)::text);
   perform pg_temp.ck('sending nothing at all is refused', 'true', (pg_temp.q_as(a, 'select public.share_wellbeing_summary_with_care_team()::text') like 'ERR:nothing to share%')::text);
   perform pg_temp.ck('a note that is too long is refused', 'true',
     (pg_temp.q_as(a, format('select public.share_wellbeing_summary_with_care_team(false, false, false, %L)::text', repeat('x', 501))) like 'ERR:note too long%')::text);
   perform pg_temp.ck('a note alone is enough', 'true',
-    (pg_temp.q_as(pg_temp.f('B'), $q$select public.share_wellbeing_summary_with_care_team(false, false, false, 'I want to talk about sleep')::text$q$) !~ '^ERR')::text);
+    (pg_temp.share(pg_temp.f('B'), false, false, false, 'I want to talk about sleep') !~ '^ERR')::text);
+  -- the preview is bound to the send (a changed entry, a missing or a wrong hash are all refused and nothing is stored)
+  perform pg_temp.ck('sending without the preview''s hash is refused', 'true',
+    (pg_temp.q_as(a, $q$select public.share_wellbeing_summary_with_care_team(true, true, true, 'x')::text$q$) like 'ERR:summary_changed%')::text);
+  perform pg_temp.ck('sending with the wrong hash is refused', 'true',
+    (pg_temp.q_as(a, $q$select public.share_wellbeing_summary_with_care_team(true, true, true, 'x', 'deadbeef')::text$q$) like 'ERR:summary_changed%')::text);
+  insert into public.wellbeing_checkins (organisation_id, patient_id, mood_score, stress_score, sleep_quality, activity_level, checked_in_at) values (pg_temp.f('org'), a, 5, 1, 5, 5, now() - interval '1 hour');
+  perform pg_temp.ck('an entry that changed after the preview makes the old hash fail', 'true',
+    (pg_temp.q_as(a, format($q$select public.share_wellbeing_summary_with_care_team(true, true, true, 'x', %L)::text$q$, v_hash)) like 'ERR:summary_changed%')::text);
+  perform pg_temp.ck('...and nothing was stored', '0', (select count(*)::text from public.mental_health_handoffs where patient_id = a and kind = 'doctor_summary'));
+  delete from public.wellbeing_checkins where patient_id = a and checked_in_at > now() - interval '2 hours';
 
-  v_h := pg_temp.q_as(a, $q$select public.share_wellbeing_summary_with_care_team(true, true, true, 'I want to talk about work')::text$q$)::uuid;
+  v_h := pg_temp.share(a, true, true, true, 'I want to talk about work')::uuid;
   perform pg_temp.setf('hA', v_h);
   select summary into v_stored from public.mental_health_handoffs where id = v_h;
   perform pg_temp.ck('the stored summary is the previewed one', 'true', (v_stored = v_prev)::text);
   perform pg_temp.ck('it is a doctor summary, open, with the patient''s own words', 'doctor_summary|open|I want to talk about work',
     (select kind || '|' || state || '|' || patient_note from public.mental_health_handoffs where id = v_h));
-  perform pg_temp.ck('a real clinical task was made', 'admin_clinical', (select type from public.clinical_tasks where dedup_key = 'mh_summary:' || v_h));
+  perform pg_temp.ck('a real clinical task was made', 'admin_clinical', (select type from public.clinical_tasks where id = (select task_id from public.mental_health_handoffs where id = v_h)));
+  perform pg_temp.ck('...its key is random and names neither a summary nor the patient', 'true',
+    (select (dedup_key ~ '^mhs:[0-9a-f-]{36}$' and dedup_key not like '%' || a::text || '%')::text from public.clinical_tasks where id = (select task_id from public.mental_health_handoffs where id = v_h)));
   perform pg_temp.ck('the event was emitted (no event error was written)', '0', (select count(*)::text from public.audit_log where action = 'wellbeing_summary_event.error' and entity_id = v_h));
   perform pg_temp.ck('the same summary sent again returns the same hand-off', v_h::text,
-    pg_temp.q_as(a, $q$select public.share_wellbeing_summary_with_care_team(true, true, true, 'I want to talk about work')::text$q$));
-  perform pg_temp.ck('...and raises no second task', '1', (select count(*)::text from public.clinical_tasks where dedup_key like 'mh_summary:%' and patient_id = a));
+    pg_temp.share(a, true, true, true, 'I want to talk about work'));
+  perform pg_temp.ck('...and raises no second task', '1', (select count(*)::text from public.clinical_tasks where id in (select task_id from public.mental_health_handoffs where patient_id = a and kind = 'doctor_summary')));
   -- the "tell my care team" request is its own kind
   v_h2 := pg_temp.q_as(a, $q$select public.request_mental_health_handoff(null, 'a very anxious moment')::text$q$)::uuid;
   perform pg_temp.ck('a request to talk has its own kind', 'talk_request', (select kind from public.mental_health_handoffs where id = v_h2));
@@ -295,10 +320,11 @@ begin
   perform pg_temp.setf('hS', pg_temp.q_as(a, format($q$select public.request_mental_health_handoff(%L)::text$q$, (select id from public.mental_health_screens where patient_id = a and instrument = 'phq9' order by created_at desc limit 1)))::uuid);
   perform pg_temp.ck('a screen hand-off keeps the old kind', 'screen', (select kind from public.mental_health_handoffs where id = pg_temp.f('hS')));
   -- who can send and who can read
-  perform pg_temp.ck('a clinician cannot send a patient summary', 'true', (pg_temp.q_as(pg_temp.f('doctied'), 'select public.share_wellbeing_summary_with_care_team(true)::text') like 'ERR:not authorised%')::text);
+  perform pg_temp.ck('a clinician cannot send a patient summary', 'true', (pg_temp.q_as(pg_temp.f('doctied'), 'select public.share_wellbeing_summary_with_care_team(true, false, false, null, ''x'')::text') like 'ERR:not authorised%')::text);
   perform pg_temp.ck('anon cannot send', '42501', pg_temp.try_anon('select public.share_wellbeing_summary_with_care_team(true)'));
   perform pg_temp.ck('another patient cannot read the hand-off table', '0', pg_temp.q_as(pg_temp.f('D'), 'select count(*)::text from public.mental_health_handoffs'));
   perform pg_temp.ck('the tied clinician cannot read the hand-off table directly', '0', pg_temp.q_as(pg_temp.f('doctied'), 'select count(*)::text from public.mental_health_handoffs'));
+  perform pg_temp.ck('the patient cannot read seen_by', 'true', (pg_temp.q_as(a, 'select seen_by::text from public.mental_health_handoffs limit 1') like 'ERR:permission denied%')::text);
   perform pg_temp.ck('the patient reads their own hand-offs', '3', pg_temp.q_as(a, 'select count(*)::text from public.mental_health_handoffs'));
 end $$;
 
@@ -415,26 +441,61 @@ begin
   perform pg_temp.ck('...nor for the CMO with nobody tied', '0', pg_temp.n_audit(pg_temp.f('cmo'), 'success', 'worklist'));
 end $$;
 
+-- 5b. The count is kept briefly (a bare number), and the patient's opt-out removes the two activity rules only ------------------------------------
+do $$
+begin
+  delete from public.mental_health_worklist_count_cache;
+  perform pg_temp.ck('the count is worked out and kept', '3', pg_temp.q_as(pg_temp.f('doctied'), 'select public.count_mental_health_worklist()::text'));
+  perform pg_temp.ck('...as a bare number for that clinician only', '3|1', (select n::text from public.mental_health_worklist_count_cache where clinician_id = pg_temp.f('doctied')) || '|' || (select count(*)::text from public.mental_health_worklist_count_cache));
+  update public.mental_health_worklist_count_cache set n = 99 where clinician_id = pg_temp.f('doctied');
+  perform pg_temp.ck('inside the window the kept number is served', '99', pg_temp.q_as(pg_temp.f('doctied'), 'select public.count_mental_health_worklist()::text'));
+  update public.mental_health_worklist_count_cache set computed_at = now() - interval '1 hour' where clinician_id = pg_temp.f('doctied');
+  perform pg_temp.ck('after the window it is worked out again', '3', pg_temp.q_as(pg_temp.f('doctied'), 'select public.count_mental_health_worklist()::text'));
+  perform pg_temp.ck('the cache does not outlive the guard (a count is 0 for a coordinator whatever is kept)', '0', pg_temp.q_as(pg_temp.f('coord'), 'select public.count_mental_health_worklist()::text'));
+  -- opt-out
+  perform pg_temp.ck('C opts out of the activity rules', 'ok', pg_temp.try_as(pg_temp.f('C'), 'select public.set_worklist_activity_opt_out(true)'));
+  perform pg_temp.ck('B opts out too', 'ok', pg_temp.try_as(pg_temp.f('B'), 'select public.set_worklist_activity_opt_out(true)'));
+  perform pg_temp.ck('A opts out (A is on the list for a score, which the opt-out does not touch)', 'ok', pg_temp.try_as(pg_temp.f('A'), 'select public.set_worklist_activity_opt_out(true)'));
+  perform pg_temp.ck('...C and B leave the list; A stays', 'A', pg_temp.names(pg_temp.f('doctied')));
+  perform pg_temp.ck('the features question reports the choice', 'true', (pg_temp.q_as(pg_temp.f('C'), 'select public.wellbeing_features_open()::text')::jsonb ->> 'worklist_activity_opt_out'));
+  perform pg_temp.ck('a clinician cannot set a patient''s opt-out', 'true', (pg_temp.try_as(pg_temp.f('doctied'), 'select public.set_worklist_activity_opt_out(true)') <> 'ok')::text);
+  perform pg_temp.ck('anon cannot', '42501', pg_temp.try_anon('select public.set_worklist_activity_opt_out(true)'));
+  perform pg_temp.try_as(pg_temp.f('C'), 'select public.set_worklist_activity_opt_out(false)');
+  perform pg_temp.try_as(pg_temp.f('B'), 'select public.set_worklist_activity_opt_out(false)');
+  perform pg_temp.try_as(pg_temp.f('A'), 'select public.set_worklist_activity_opt_out(false)');
+  perform pg_temp.ck('...and back on when they change their mind', 'A,B,C', pg_temp.names(pg_temp.f('doctied')));
+  delete from public.mental_health_worklist_count_cache;
+end $$;
+
 -- 6. A follow-up from the worklist is a real task ----------------------------------------------------------------------------------------
 do $$
-declare t text; v jsonb; a uuid := pg_temp.f('A'); v_key text;
+declare t text; v jsonb; a uuid := pg_temp.f('A'); v_task uuid;
 begin
+  -- a questionnaire hand-off nobody marked seen, waiting three days: it pins A to the top until someone acts
+  update public.mental_health_handoffs set created_at = now() - interval '3 days' where id = pg_temp.f('hS');
+  v := pg_temp.worklist(pg_temp.f('doctied'));
+  perform pg_temp.ck('a waiting questionnaire hand-off is a reason', 'screen', (select y -> 'facts' ->> 'kind' from jsonb_array_elements(v -> 'rows') x, jsonb_array_elements(x -> 'reasons') y where (x ->> 'patient_id')::uuid = a and y ->> 'code' = 'unactioned_handoff'));
   t := pg_temp.q_as(pg_temp.f('doctied'), format($q$select public.create_mental_health_worklist_follow_up(%L, 'rising score, please call')::text$q$, a));
   perform pg_temp.ck('the tied clinician makes a follow-up for A', 'true', (t !~ '^ERR' and t is not null)::text);
-  v_key := 'mh_worklist:' || a || ':' || (now() at time zone 'Africa/Lagos')::date;
-  perform pg_temp.ck('it is a real symptom review task', 'symptom_review', (select type from public.clinical_tasks where dedup_key = v_key));
-  perform pg_temp.ck('...with a due time in the future (the signed rules say 72 hours)', 'true', (select (due_at > now() + interval '1 hour')::text from public.clinical_tasks where dedup_key = v_key));
+  v_task := t::uuid;
+  perform pg_temp.ck('it is a real task of the hand-off type, not a plan-gated doctor-time review', 'admin_clinical', (select type from public.clinical_tasks where id = v_task));
+  perform pg_temp.ck('...with a random key that names neither the worklist nor the patient', 'true', (select (dedup_key ~ '^mhw:[0-9a-f-]{36}$' and dedup_key not like '%' || a::text || '%')::text from public.clinical_tasks where id = v_task));
+  perform pg_temp.ck('...no task key anywhere carries the old readable forms', '0', (select count(*)::text from public.clinical_tasks where dedup_key like 'mh_worklist:%' or dedup_key like 'mh_summary:%'));
+  perform pg_temp.ck('...with a due time in the future (the signed rules say 72 hours)', 'true', (select (due_at > now() + interval '1 hour')::text from public.clinical_tasks where id = v_task));
   perform pg_temp.ck('...and an action row records who, which rules and the reasons', 'doctied|1',
     (select case when clinician_id = pg_temp.f('doctied') then 'doctied' end || '|' || config_version from public.mental_health_worklist_actions where patient_id = a));
   perform pg_temp.ck('...the reasons are kept as codes', 'true', (select (reasons @> array['rising_screen'])::text from public.mental_health_worklist_actions where patient_id = a));
   perform pg_temp.ck('...the event was emitted (no event error was written)', '0', (select count(*)::text from public.audit_log where action = 'mh_worklist_event.error'));
+  perform pg_temp.ck('...every hand-off still waiting for A is now marked seen by the clinician who acted', 'doctied|0',
+    (select case when bool_and(seen_by = pg_temp.f('doctied')) then 'doctied' else 'other' end from public.mental_health_handoffs where patient_id = a and seen_at is not null and created_at > now() - interval '4 days') || '|' || (select count(*)::text from public.mental_health_handoffs where patient_id = a and state = 'open'));
+  perform pg_temp.ck('...so the waiting reason clears for A', '0', (select count(*)::text from jsonb_array_elements(pg_temp.worklist(pg_temp.f('doctied')) -> 'rows') x, jsonb_array_elements(x -> 'reasons') y where (x ->> 'patient_id')::uuid = a and y ->> 'code' = 'unactioned_handoff'));
   perform pg_temp.ck('...and the follow-up is audited', 'true', (pg_temp.n_audit(pg_temp.f('doctied'), 'success', 'worklist_follow_up')::integer >= 1)::text);
   v := pg_temp.worklist(pg_temp.f('doctied'));
   perform pg_temp.ck('A stays on the list, marked as followed up (nothing is hidden)', 'true',
     (select (x ->> 'followed_up_at') is not null from jsonb_array_elements(v -> 'rows') x where (x ->> 'patient_id')::uuid = a)::text);
   perform pg_temp.ck('...and is listed after the patients who have not been followed up', 'A', (select k2 from jsonb_array_elements(v -> 'rows') with ordinality x(j, o) join (select k as k2, fx.v from fx) f on f.v = (j ->> 'patient_id')::uuid order by o desc limit 1));
-  perform pg_temp.q_as(pg_temp.f('doctied'), format($q$select public.create_mental_health_worklist_follow_up(%L)::text$q$, a));
-  perform pg_temp.ck('the same day again merges into the one task', '1', (select count(*)::text from public.clinical_tasks where dedup_key = v_key and state not in ('completed', 'cancelled')));
+  perform pg_temp.ck('the same clinician again the same day gets the same task', v_task::text, pg_temp.q_as(pg_temp.f('doctied'), format($q$select public.create_mental_health_worklist_follow_up(%L)::text$q$, a)));
+  perform pg_temp.ck('...and no second action row was written', '1', (select count(*)::text from public.mental_health_worklist_actions where patient_id = a));
   -- refusals
   perform pg_temp.ck('an untied clinician gets nothing (null), audited as denied', '',
     coalesce(pg_temp.q_as(pg_temp.f('docuntied'), format($q$select public.create_mental_health_worklist_follow_up(%L)::text$q$, a)), ''));
@@ -448,8 +509,9 @@ begin
     (pg_temp.q_as(pg_temp.f('doctied'), format($q$select public.create_mental_health_worklist_follow_up(%L)::text$q$, pg_temp.f('D'))) like 'ERR:that patient is not on your worklist%')::text);
   perform pg_temp.ck('a note over 300 characters is refused', 'true',
     (pg_temp.q_as(pg_temp.f('doctied'), format('select public.create_mental_health_worklist_follow_up(%L, %L)::text', pg_temp.f('B'), repeat('y', 301))) like 'ERR:note too long%')::text);
-  perform pg_temp.ck('no task was made for the untied patient', '0', (select count(*)::text from public.clinical_tasks where dedup_key like 'mh_worklist:' || pg_temp.f('E') || '%'));
+  perform pg_temp.ck('no task was made for the untied patient', '0', (select count(*)::text from public.mental_health_worklist_actions where patient_id = pg_temp.f('E')));
   -- the table behind it
+  perform pg_temp.ck('nobody can read the count cache', 'true', (pg_temp.q_as(pg_temp.f('doctied'), 'select count(*)::text from public.mental_health_worklist_count_cache') like 'ERR:permission denied%')::text);
   perform pg_temp.ck('the tied clinician cannot read the actions table', 'true', (pg_temp.q_as(pg_temp.f('doctied'), 'select count(*)::text from public.mental_health_worklist_actions') like 'ERR:permission denied%')::text);
   perform pg_temp.ck('the admin cannot read the actions table', 'true', (pg_temp.q_as(pg_temp.f('admin'), 'select count(*)::text from public.mental_health_worklist_actions') like 'ERR:permission denied%')::text);
   perform pg_temp.ck('the patient cannot read the actions table', 'true', (pg_temp.q_as(a, 'select count(*)::text from public.mental_health_worklist_actions') like 'ERR:permission denied%')::text);
@@ -502,7 +564,14 @@ begin
   perform pg_temp.ck('patterns: the CMO attests with the fingerprint', 'ok',
     pg_temp.try_as(c, format($q$select public.attest_go_live_condition('mood_insights_enabled', 'insights_wording_signed', true, %L)$q$, 'Text fingerprint ' || private.s56b_insights_fingerprint() || '. Read in full.')));
   perform pg_temp.ck('patterns: ...and it opens for the real patient', 'true', (pg_temp.q_as(r, feats)::jsonb ->> 'insights'));
-  perform pg_temp.ck('the share guard has no wording to attest: it opens with the guard alone', 'true', (pg_temp.q_as(r, feats)::jsonb ->> 'share'));
+  perform pg_temp.ck('share: guard on, wording not attested: closed for a real patient', 'false', (pg_temp.q_as(r, feats)::jsonb ->> 'share'));
+  perform pg_temp.ck('share: the CMO attests with the fingerprint', 'ok',
+    pg_temp.try_as(c, format($q$select public.attest_go_live_condition('wellbeing_summary_share_enabled', 'share_wording_signed', true, %L)$q$, 'Text fingerprint ' || private.s56b_share_fingerprint() || '. Read in full.')));
+  perform pg_temp.ck('share: ...and it opens', 'true', (pg_temp.q_as(r, feats)::jsonb ->> 'share'));
+  perform pg_temp.ck('follow-up notice: the guard is on but the sentence is not attested, so a real patient is not told (and is not on the list either)', 'false', (pg_temp.q_as(r, feats)::jsonb ->> 'worklist'));
+  perform pg_temp.ck('follow-up notice: the CMO attests with the fingerprint', 'ok',
+    pg_temp.try_as(c, format($q$select public.attest_go_live_condition('mental_health_worklist_enabled', 'worklist_notice_wording_signed', true, %L)$q$, 'Text fingerprint ' || private.s56b_worklist_notice_fingerprint() || '. Read in full.')));
+  perform pg_temp.ck('follow-up notice: ...and the patient is shown it', 'true', (pg_temp.q_as(r, feats)::jsonb ->> 'worklist'));
 end $$;
 
 -- 9. Hiding the patterns view is the patient's own preference -----------------------------------------------------------------------------------
@@ -526,7 +595,7 @@ declare v_def text; v_new text;
 begin
   -- (a) the tie filter removed from the worklist
   v_def := pg_get_functiondef('private.mh_worklist_for_caller()'::regprocedure);
-  v_new := replace(v_def, 'private.clinician_has_patient_access(hh.pid) and ', '');
+  v_new := replace(v_def, 'private.clinician_has_patient_access(e.pid) and ', '');
   if v_new = v_def then raise exception 'sabotage (a) did not change the function'; end if;
   execute v_new;
   -- (b) the clinician gate opened to everyone with a staff row
@@ -541,6 +610,14 @@ begin
   -- (e) the actions table opened
   execute 'grant select on public.mental_health_worklist_actions to authenticated';
   execute 'create policy sabotage_open on public.mental_health_worklist_actions for select to authenticated using (true)';
+  -- (f) the opt-out ignored
+  execute 'create or replace function private.mh_activity_opted_out(p_patient uuid) returns boolean language sql stable security definer set search_path = '''' as $q$ select false $q$';
+  -- (g) the preview hash not checked
+  v_def := pg_get_functiondef('public.share_wellbeing_summary_with_care_team(boolean,boolean,boolean,text,text)'::regprocedure);
+  v_new := replace(v_def, 'if p_expected_hash is null or p_expected_hash <> md5(v_sum::text) then', 'if false then');
+  if v_new = v_def then raise exception 'sabotage (g) did not change the function'; end if;
+  execute v_new;
+  delete from public.mental_health_worklist_count_cache;
 end $$;
 do $$
 declare v_before integer; v_after integer;
@@ -553,6 +630,10 @@ begin
   select count(*) into v_after from public.audit_log where actor_id = pg_temp.f('doctied') and action = 'staff.mental_health_read' and event -> 'sections' ? 'worklist';
   perform pg_temp.sab('(c) listing the worklist still writes an audit row per patient', 'true', (v_after > v_before)::text);
   perform pg_temp.sab('(d) a preview carries no check-in note', 'false', (pg_temp.q_as(pg_temp.f('A'), 'select public.preview_wellbeing_summary(true, true, true)::text') like '%NOTESECRET%')::text);
+  perform pg_temp.try_as(pg_temp.f('C'), 'select public.set_worklist_activity_opt_out(true)');
+  perform pg_temp.sab('(f) a patient who opted out is not on the list for check-in silence', 'true', (pg_temp.names(pg_temp.f('doctied')) not like '%C%')::text);
+  insert into public.wellbeing_checkins (organisation_id, patient_id, mood_score, stress_score, sleep_quality, activity_level, checked_in_at) values (pg_temp.f('org'), pg_temp.f('D'), 5, 1, 5, 5, now() - interval '1 hour');
+  perform pg_temp.sab('(g) a send with a stale hash is refused', 'true', (pg_temp.q_as(pg_temp.f('D'), 'select public.share_wellbeing_summary_with_care_team(true, true, true, ''x'', ''stale'')::text') like 'ERR:summary_changed%')::text);
   perform pg_temp.sab('(e) the tied clinician still cannot read the actions table', 'true', (pg_temp.q_as(pg_temp.f('doctied'), 'select count(*)::text from public.mental_health_worklist_actions') like 'ERR:permission denied%')::text);
 end $$;
 
@@ -565,7 +646,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 6 then raise exception 'VACUOUS TEST: the sabotage flipped % of 6 checks (need 6)', v_caught; end if;
+  if v_caught < 8 then raise exception 'VACUOUS TEST: the sabotage flipped % of 8 checks (need 8)', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result
