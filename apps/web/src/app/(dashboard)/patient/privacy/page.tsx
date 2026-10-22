@@ -45,10 +45,10 @@ export default async function PrivacyCentrePage() {
     if (result.error) Sentry.captureMessage(`${name} failed`, { level: "warning", tags: { pg_code: result.error.code ?? "none" } });
   }
   const matrix = matrixResult.error ? null : parseConsentMatrix(matrixResult.data);
-  const history = (Array.isArray(historyResult.data) ? historyResult.data : []) as unknown as Array<{ data_type: string; purpose: string; action: string; at: string }>;
+  const history = (Array.isArray(historyResult.data) ? historyResult.data : []) as unknown as Array<{ id?: string; data_type: string; purpose: string; action: string; at: string }>;
   const historyItems: ConsentHistoryItem[] = history
     .filter((h) => (CONSENT_DATA_TYPES as readonly string[]).includes(h.data_type) && (CONSENT_PURPOSES as readonly string[]).includes(h.purpose))
-    .map((h) => ({ data_type: h.data_type as ConsentHistoryItem["data_type"], purpose: h.purpose as ConsentHistoryItem["purpose"], action: h.action === "granted" ? "granted" : "withdrawn", at: h.at }));
+    .map((h) => ({ id: typeof h.id === "string" ? h.id : undefined, data_type: h.data_type as ConsentHistoryItem["data_type"], purpose: h.purpose as ConsentHistoryItem["purpose"], action: h.action === "granted" ? "granted" : "withdrawn", at: h.at }));
   const arrangements = (Array.isArray(arrangementResult.data) ? arrangementResult.data : []) as unknown as ProxyArrangement[];
 
   return (

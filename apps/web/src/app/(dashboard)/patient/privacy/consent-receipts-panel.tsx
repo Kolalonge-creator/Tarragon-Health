@@ -1,6 +1,7 @@
 "use client";
 
 import { receiptSentence } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
 import { usePatientConsentReceipts } from "@/lib/queries/consent";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -52,6 +53,11 @@ export function ConsentReceiptsPanel({ patientId }: { patientId: string }) {
                     <p className="mt-2 text-charcoal-ink/50 dark:text-night-ink/55">These are the words on file for that version. This record pre-dates receipts, so it has no fingerprint.</p>
                   )}
                 </details>
+                {r.id ? (
+                  <a className="mt-1 inline-block text-xs underline" href={`/api/patient/consent-receipt/pdf?scope=document_event&id=${encodeURIComponent(r.id)}`} download>
+                    {t("consent.receipt.download")}
+                  </a>
+                ) : null}
               </li>
             ))}
           </ul>

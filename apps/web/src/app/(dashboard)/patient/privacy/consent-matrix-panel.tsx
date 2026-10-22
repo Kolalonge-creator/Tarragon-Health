@@ -24,6 +24,8 @@ import {
 } from "./consent-matrix-actions";
 
 export interface ConsentHistoryItem {
+  /** The history entry id, used to link that change's receipt. Absent only if the database did not send one. */
+  id?: string;
   data_type: ConsentDataType;
   purpose: ConsentPurpose;
   action: "granted" | "withdrawn";
@@ -198,6 +200,13 @@ export function ConsentMatrixPanel({ matrix, history }: { matrix: ConsentMatrix;
           </p>
         )}
 
+        <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+          <a className="font-medium underline" href="/api/patient/consent-receipt/pdf?scope=all" download>
+            {t("consent.receipt.download_all")}
+          </a>
+          <span className="block">{t("consent.receipt.download_hint")}</span>
+        </p>
+
         <details className="text-sm">
           <summary className="cursor-pointer text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">{t("consent.matrix.history.title")}</summary>
           {history.length === 0 ? (
@@ -207,6 +216,14 @@ export function ConsentMatrixPanel({ matrix, history }: { matrix: ConsentMatrix;
               {history.map((h, i) => (
                 <li key={`${h.at}-${i}`} className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
                   {when(h.at)} · {t(h.action === "granted" ? "consent.matrix.history.granted" : "consent.matrix.history.withdrawn")} · {t(key(`consent.data.${h.data_type}`))}, {t(key(`consent.purpose.${h.purpose}`))}
+                  {h.id ? (
+                    <>
+                      {" · "}
+                      <a className="underline" href={`/api/patient/consent-receipt/pdf?scope=matrix_event&id=${encodeURIComponent(h.id)}`} download>
+                        {t("consent.receipt.download")}
+                      </a>
+                    </>
+                  ) : null}
                 </li>
               ))}
             </ul>

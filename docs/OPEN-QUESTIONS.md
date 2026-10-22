@@ -4603,6 +4603,17 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
 
+### OQ-RCPT-1-1 Consent receipt download is web only (raised by RCPT-1, 2026-10-20)
+- The mobile privacy screen has no session-authenticated way to fetch the web PDF route, and the mobile document flows use their own bearer routes. A bearer route (or an in-app render) would add it. Not built.
+- Decision: open (product).
+
+### OQ-RCPT-1-2 Receipt wording is placeholder until counsel approves it (raised by RCPT-1, 2026-10-20)
+- The matrix wording is `draft_pending_counsel` (OQ-330), so a receipt says so on the page. The strings in `consent.receipt.*` are plain-language engineering text, not legal text. Counsel reviews them with the matrix wording.
+- Decision: open (counsel).
+
+### OQ-RCPT-1-3 A guardian cannot download a dependant's receipts (raised by RCPT-1, 2026-10-20)
+- By design for this change (own rows only). If a guardian needs them, it is a new access rule on the audited function, with the category checks the dependant model already has.
+- Decision: open (product, DPO).
 ### OQ-S08z-1 The starting time of each anchor is PROPOSED (raised by S08z, 2026-10-20)
 - `medicines.dose_anchors.anchors` (and the seeded `dose_anchor_defaults`) hold a plausible starting time for each of ten parts of the day (waking, the five daily prayers, three meals, bedtime). They are placeholders: nothing is computed from location or a calendar, and the patient confirms the time of each anchor they use. Needed: the founder or CMO confirms or replaces them (a new registry version and a new migration row, never an edit in place).
 - Decision: open (founder).
@@ -5051,6 +5062,35 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Decision: open.
 
 - Update 2026-10-22 (OQ-CUFF-1, OQ-598): the founder decided "approve for evaluation only" (see docs/DECISIONS.md, 2026-10-22). The server vision call stays dormant; go-live still needs a human AI-022 evaluation, a DPO view, defined guard conditions, rate limiting and a further written decision.
+### OQ-DP-01 Glucose readings have no status word on the patient history (raised by the design-principles pass, 2026-10-22)
+- A single-reading classifier exists (`classifyLatestGlucoseLevel`) but no patient-facing word set is signed (`glucose-wording.json` is unsigned). Principle 2 (number + word + colour + icon) therefore cannot be met for glucose without new clinical wording.
+- Options: (a) CMO signs a short word set per level, then glucose joins `readingStatus()`; (b) leave glucose as a number only. Recommend (a).
+- Decision: open (CMO).
+
+### OQ-DP-02 Home "safety message is waiting" line (raised by the design-principles pass, 2026-10-22)
+- New plain, non-clinical Home copy (`dp.next.red_alert.*`): "A safety message is waiting for you". It names nothing clinical and does not claim a clinician was told. It sits below the emergency dialog. CMO to confirm the line, or reword.
+- Also for the CMO to confirm (same item): the dose card (`dp.next.dose.*`: "A dose is due" / "Open your list and mark what you have taken today", no medicine name) and the safety-check card shown when the emergency read fails (`dp.next.safety_check.*`: "Check for safety messages"). Neither claims a clinician was told.
+- Decision: open (CMO). Build order of the card is the founder's; items that were on the card before (screening, video times, check-in, review) now sit after refill, before the lesson. Confirm that placement.
+
+### OQ-DP-03 Home has about 40 cards (raised by the design-principles pass, 2026-10-22)
+- One next action is now correct at the top, but `(sections)/page.tsx` still stacks about 40 cards below it, each with its own query. No bundle measurement was run. Options: (a) founder picks a short list of cards to keep on Home and moves the rest behind "More"; (b) measure first with a bundle analysis and a low-end Android profile. Recommend (b) then (a).
+- Decision: open (founder).
+
+### OQ-DP-04 Doctor trust cue is not on every clinical item (raised by the design-principles pass, 2026-10-22)
+- `ReviewedByDoctor` is keyed by escalation only. Medication changes, care-plan cards and AI-assisted summaries need an inventory of which carry `reviewed_by`/`signed_by`; add the cue only where a real record exists.
+- Decision: open (product, then a build session).
+
+### OQ-DP-05 Web has no offline write queue (raised by the design-principles pass, 2026-10-22)
+- Mobile queues and shows a pending state. Web blocks the save offline and says so. A web queue needs ordering and conflict rules and a clinical-safety review (a queued red reading must never read as "sent"). Not built.
+- Decision: open (founder).
+
+### OQ-DP-06 Shared-phone mode only covers mental-health screens; non-discreet push body is template text (raised by the design-principles pass, 2026-10-22)
+- No app-wide quick profile switch or "hide now". With `discreet_mode` off, a push body is the template text (up to 160 characters), protected by the INV-07 template lint only. Options: default discreet on for new accounts, or an app-wide hide. Recommend discussing with the S56 owner.
+- Decision: open (founder).
+
+### OQ-DP-07 Competitor patterns not built (raised by the design-principles pass, 2026-10-22)
+- Range gauge on results, one insight card on Home, tappable suggested questions for the assistant, shareable doctor report from readings. The assistant and learning files are being edited by other sessions, so none was started.
+- Decision: open (founder).
 
 ### Follow-up to OQ-S64-4: the older video-visit "full refund" line is accurate for its mechanism (2026-10-22)
 - Checked while reconciling S61 to S65 against current `main-dev`. `book-video-visit.tsx` says "If nobody can take it, you get a full refund". That path (`video_visit_requests`) takes a real Paystack payment, holds it, and `/api/cron/video-visit-refunds` refunds it in cash through the Paystack Refunds API when no doctor accepts within 48 hours. So the sentence describes what happens; it is not a credit-versus-cash mix-up.
@@ -5080,3 +5120,28 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-S43m-12 Turning and trimming uses buttons, not a drag box; a document photo is not queued while offline (raised by the S43m build, 2026-10-20)
 - The trim is four steppers (4 percent a press, at most 40 percent an edge and 70 percent an axis) with a shaded preview, chosen so it works with a screen reader, large type and a low-end phone with no gesture library. It has not been tried by a person on a phone; a drag box could be added later. A document that cannot be saved for want of a connection stays on the add screen for a retry and is lost if the person leaves it (the screen says so); making it survive means a new outbox kind with an encrypted file store, which was left out of this change on purpose.
 - Decision: open (product).
+## S67 pregnancy screens (OQ-346 follow-up): questions from OQ-722
+
+### OQ-722 S67-screens: the care team has no audited read of kick sessions, contraction sessions or the birth plan (raised by the S67 screens build)
+- Checked: no function reads `kick_counts`, `contractions` or `birth_plans` for staff (only `antenatal_schedule_review_prompt` exists, and it reads neither). RLS lets org staff read the rows (`private.pregnancy_staff_may_read`), but a console tab that selected them directly would not write the audit entry INV-10 wants for an individual patient read. Nothing was added to the clinician Women's Health tab.
+- Options: (a) a SECURITY INVOKER function `clinician_pregnancy_tools_summary(p_pregnancy_id)` that calls `private.log_audit('read', ...)` then returns the last sessions and the plan (recommended, same pattern as `antenatal_schedule_review_prompt`); (b) show only the emergency event the session already raises.
+- Decision: open.
+
+### OQ-723 S67-screens: the phone keeps the last "guard open" answer so the tools open with no signal (raised by the S67 screens build)
+- `maternalGuardOpen` fails closed with no earlier answer, but after one successful check it remembers "open" on the phone and uses it offline (INV-06). A guard switched off while the phone is offline keeps showing the tools until the next successful check. The database does not read the guard for these tables (RLS only), so the guard is a courtesy gate on the screens, as for the other maternal cards.
+- Options: (a) keep as built (recommended); (b) always fail closed offline (the tools vanish with no signal, which defeats the offline counter).
+- Decision: open.
+
+### OQ-724 S67-screens: web has no offline queue, so a web kick or contraction session that cannot be saved is not retried (raised by the S67 screens build)
+- The fixed card still shows and says "could not be saved"; the phone path (outbox) retries. A web session that fails to save never raises the server-side care-team alert for a sign or before-37-weeks result.
+- Options: (a) accept, the web screens are a secondary path (recommended for the test period); (b) keep a small local retry queue on web.
+- Decision: open.
+
+### OQ-725 S67-screens: the web danger-sign card is behind the guard, the red-flag check is not (raised by the S67 screens build)
+- `PregnancyDangerCard` (web) follows the brief and shows only when `maternal_enabled` is open. The older `PregnancyRedFlagCheck` and the phone's bundled danger guide (opens only for an active pregnancy, but the phone copy of the guard answer also gates the new tools) are not gated. A real patient therefore sees danger-sign content on the red-flag check even while the new tools are off.
+- Options: (a) as built (recommended; the safety content is never hidden); (b) gate the web card the same as the phone card.
+- Decision: open.
+
+### OQ-726 S67-screens: nothing was rendered in a browser or simulator; the screens are checked by tests and type checks only (raised by the S67 screens build)
+- Web: React Testing Library plus axe, 23 tests. Phone: pure logic and outbox tests only (the mobile jest config renders no components), so `pregnancy-tools.tsx` has not been run on a device. Needs a look on web, an Android phone and an iPhone once `maternal_enabled` is on for a test account.
+- Decision: open (needs a test session).
