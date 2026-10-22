@@ -41,7 +41,17 @@ START_TS="$(psql "$DB_URL" -X -q -t -A -c 'select now()' 2>/dev/null || echo 197
 TAG="s18rc_$$_$(date +%s)"
 psql_q() { psql "$DB_URL" -X -q -t -A -v ON_ERROR_STOP=1 "$@"; }
 
+# The 'paging-health' cron job (every minute) opens a COMMITTED "nobody reachable" incident for any real on-call rota whose clinicians have no
+# push subscription -- exactly what this proof's fixtures are. The rota is removed below but the incident was not, so a later proof that opens
+# the same incident reference (ops_desk_expired_page.sql) found it already open, only refreshed it, and never ran the assignment trigger: a
+# failure that depended on whether a minute boundary fell inside this script's ~14 seconds. The job is paused for the run and put back in the
+# EXIT trap (the same way s19_page_ack_sweep_race.sh pauses sweep-pages), and whatever it opened while a fixture rota lived is removed.
+HEALTH_CRON_WAS_ACTIVE="$(psql_q -c "select active from cron.job where jobname = 'paging-health'" 2>/dev/null || true)"
+
 cleanup() {
+  if [[ "$HEALTH_CRON_WAS_ACTIVE" == "t" ]]; then
+    psql_q -c "select cron.alter_job((select jobid from cron.job where jobname = 'paging-health'), active := true)" >/dev/null 2>&1
+  fi
   psql_q <<SQL >/dev/null 2>&1
 set session_replication_role = replica;   -- local, disposable database: several of these logs are append only
 drop function if exists public.s18_assign_naive(uuid);
@@ -52,7 +62,8 @@ delete from public.rota_swaps where rota_id in (select id from public.on_call_ro
 delete from public.on_call_rota where primary_clinician_id in (select id from public.profiles where full_name like '$TAG%');
 delete from public.domain_events where patient_id in (select id from public.profiles where full_name like '$TAG%');
 delete from public.audit_log where actor_id in (select id from public.profiles where full_name like '$TAG%');
-delete from public.ops_incidents where (external_reference like 'lead_unassigned:%' or external_reference like 'rota_gap:%') and created_at >= '$START_TS';
+delete from public.ops_incidents where (external_reference like 'lead_unassigned:%' or external_reference like 'rota_gap:%'
+  or external_reference like 'page\_nobody\_reachable:%' or external_reference like 'ops\_desk\_%') and created_at >= '$START_TS';
 delete from public.clinician_competencies where clinical_staff_id in (select id from public.clinical_staff where full_name like '$TAG%');
 delete from public.clinical_staff where full_name like '$TAG%';
 delete from public.clinician_documents where owner_profile_id in (select id from public.profiles where full_name like '$TAG%');
@@ -62,6 +73,15 @@ SQL
   rm -rf "$WORK"
 }
 trap cleanup EXIT
+
+# pause the health job for this run, then wait out any run already in flight
+if [[ "$HEALTH_CRON_WAS_ACTIVE" == "t" ]]; then
+  psql_q -c "select cron.alter_job((select jobid from cron.job where jobname = 'paging-health'), active := false)" >/dev/null || { echo "could not pause the paging-health cron job" >&2; exit 1; }
+  for _ in $(seq 1 40); do
+    [[ "$(psql_q -c "select count(*) from pg_stat_activity where pid <> pg_backend_pid() and query ilike '%private.sweep_paging_health%' and state <> 'idle'")" == "0" ]] && break
+    sleep 0.25
+  done
+fi
 
 fail() { echo "FAIL | $1" >&2; exit 1; }
 PASS_LINES=()
