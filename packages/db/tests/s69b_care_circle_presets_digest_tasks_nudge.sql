@@ -400,7 +400,7 @@ begin
   -- 8. grants -----------------------------------------------------------------------------------------------------------------
   perform pg_temp.ck('anon cannot call the digest', '42501', pg_temp.try_anon(format($q$select public.circle_weekly_digest(%L)$q$, v_pat)));
   perform pg_temp.ck('anon cannot post a job', '42501', pg_temp.try_anon(format($q$select public.post_circle_task(%L, 'errand')$q$, v_pat)));
-  perform pg_temp.ck('anon cannot say not now', '42501', pg_temp.try_anon($q$select public.decline_care_circle_invite('xxxxxxxxxxxxxxxxxxxxxxxxxxxx')$q$));
+  perform pg_temp.ck('anon cannot say not now', '42501', pg_temp.try_anon($q$select public.decline_care_circle_invite('not-a-real-invite-token-just-long-enough')$q$));
   perform pg_temp.ck('anon reads nothing from the tables', '42501', pg_temp.try_anon($q$select * from public.care_circle_tasks$q$));
   perform pg_temp.ck('a signed-in user cannot read the nudge ledger directly', 'ERR:permission denied for table care_circle_missed_dose_alerts',
     pg_temp.q_as(v_help2, $q$select count(*)::text from public.care_circle_missed_dose_alerts$q$));

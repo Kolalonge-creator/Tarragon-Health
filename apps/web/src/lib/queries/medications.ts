@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { handleIfPermissionDenied } from "@/lib/audit/log-denied-action";
 import { readPatientMedicationsOrThrow, type AuditedMedication } from "@/lib/clinical/medications-audited";
-import type { Tables } from "@tarragon/shared";
+import type { Json, Tables } from "@tarragon/shared";
 import type { AmendMedicationInput, MedicationInput } from "@/lib/validation/medications";
 import type { MedicationLogInput } from "@/lib/validation/medication-logs";
 import type { SafetyResubmit } from "@/lib/prescriptions/parse-safety-error";
@@ -150,6 +150,10 @@ export function useAddMedication() {
         source: "patient" | "clinician" | "specialist";
         /** S24 signing checks: only meaningful for a clinician prescription, sent again after a SAFETY_FINDINGS stop. */
         safety?: SafetyAnswers;
+        /** S08z: a patient-added medicine tied to the day. The stored schedule (without the runtime anchor profile). */
+        schedule_spec?: Json;
+        /** S08z: anchor times the patient confirmed or typed in the form. Saved first; the medicine is not added if they do not save. */
+        anchorTimes?: Partial<Record<string, string>>;
       }
     ) => {
       const supabase = createClient();
@@ -194,10 +198,17 @@ export function useAddMedication() {
         prescriber_name,
         prescriber_document_url,
         safety,
+        anchorTimes,
         ...rest
       } = input;
       // The signing answers belong to a clinician prescription only; a patient's own insert never carries them.
       void safety;
+      // The times the patient set for the parts of their day they tied this to are saved first (the database may start them tomorrow
+      // when today already has answers). A medicine is never added tied to a time that did not save.
+      if (anchorTimes && Object.keys(anchorTimes).length > 0) {
+        const { error: anchorError } = await supabase.rpc("save_dose_anchor_times", { p_patient: patientId, p_times: anchorTimes });
+        if (anchorError) throw anchorError;
+      }
       // The id is made here so the form can attach the NAFDAC number a patient noted from the pack (S08y) without reading the row back:
       // RETURNING would need a SELECT policy, and someone acting for the patient can insert without being able to select.
       const id = crypto.randomUUID();

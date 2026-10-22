@@ -11,7 +11,7 @@ Branch `s69b-care-circle-presets`. Built on S29 (`docs/design/S29.md`), S29c, S2
 6. **Who looked.** The digest, the job list (and posting by a helper) and the nudge list each write a `record_viewed` line in `care_access_events` (scope `care_circle`), which is the list the patient already sees. The patient changing the nudge switch writes `permission_changed`.
 
 ## Files
-- DB: `supabase/migrations/20261022112036_s69b_care_circle_presets_digest_tasks_nudge.sql`, proof `packages/db/tests/s69b_care_circle_presets_digest_tasks_nudge.sql` (registered in `ci.manifest`).
+- DB: `supabase/migrations/20261022220326_s69b_care_circle_presets_digest_tasks_nudge.sql`, proof `packages/db/tests/s69b_care_circle_presets_digest_tasks_nudge.sql` (registered in `ci.manifest`).
 - Config: `care_circle.supporter_tools` in `packages/shared/src/proposed-config/registry.ts`, mirrored by `care_circle_tools_config`; `care-circle-tools-mirror.test.ts`.
 - Copy: `packages/i18n/src/care-circle-tools-copy.ts` (prefix `cctools.`, pending review). Notices: three templates in `supabase/functions/send-pending-notifications/templates.ts` and `apps/web/src/lib/notifications/describe-in-app.ts`.
 - Web: `apps/web/src/components/care-circle/` (permission-summary, preset-picker, circle-tasks-panel, weekly-digest-card, nudges-card), edits to the manager, join card, supporter view and supporting page, hooks in `lib/queries/care-circle.ts`.

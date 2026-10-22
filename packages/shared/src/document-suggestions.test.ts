@@ -1,3 +1,4 @@
+import { describe, expect, it } from "@jest/globals";
 import {
   MAX_FIELD_VALUE_LENGTH,
   MAX_SUGGESTED_FIELDS,
@@ -7,7 +8,7 @@ import {
   summariseDecisions,
   type RawCapture,
   type SuggestedField,
-} from "./suggestions";
+} from "./document-suggestions";
 
 function raw(fields: RawCapture["fields"], extra: Partial<RawCapture> = {}): RawCapture {
   return { ocr_text: "page text", fields, unreadable_reason: null, ...extra };

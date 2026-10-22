@@ -494,7 +494,7 @@ begin
   if 'weekly_bp_trend' = any (m.permissions) then
     -- days on which a reading was logged: a count, never a value, a time or a note
     select count(distinct (taken_at at time zone 'Africa/Lagos')::date) into v_read
-      from public.vitals_readings
+      from private.vitals_readings_current
      where patient_id = p_patient and vital_type = 'blood_pressure' and systolic is not null and diastolic is not null
        and coalesce(validation_status::text, '') <> 'rejected'
        and taken_at >= v_from::timestamp at time zone 'Africa/Lagos';
