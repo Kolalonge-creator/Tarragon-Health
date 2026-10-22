@@ -3387,7 +3387,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-16",
-    source: "docs/design/EMP.md; supabase/migrations/20261016183429_employer_seat_pilot_kit.sql",
+    source: "docs/design/EMP.md; supabase/migrations/20261022002100_employer_seat_pilot_kit.sql",
   },
   {
     key: "membership.lapse",

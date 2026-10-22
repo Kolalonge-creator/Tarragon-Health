@@ -228,6 +228,11 @@ begin
     pg_temp.owner_try(format($q$insert into public.employer_invoices (organisation_id, contract_id, period_start, period_end, billing_model, amount_kobo) values (%L, %L, %L, %L, 'per_active_member', 1000)$q$, a, v_contract, pg_temp.today() + 30, pg_temp.today() + 60)));
   perform pg_temp.ck('a per-head contract invoice well after the pilot window is not blocked', 'ok',
     pg_temp.owner_try(format($q$insert into public.employer_invoices (organisation_id, contract_id, period_start, period_end, billing_model, amount_kobo) values (%L, %L, %L, %L, 'per_employee', 1000)$q$, a, v_contract, pg_temp.today() + 200, pg_temp.today() + 230)));
+  perform pg_temp.ck('recording a pilot invoice as paid touches no ledger: no trigger on employer_invoices reads a journal or ledger table', '0',
+    (select count(*)::text from pg_trigger t join pg_proc f on f.oid = t.tgfoid
+      where t.tgrelid = 'public.employer_invoices'::regclass and not t.tgisinternal and f.prosrc ~* '(journal|ledger)'));
+  perform pg_temp.ck('and no journal entry mentions the pilot invoice', '0',
+    (select count(*)::text from public.audit_log where action ~* 'journal' and entity_id = v_inv));
   perform pg_temp.ck('the confirmation is audited once', '1', (select count(*)::text from public.audit_log where action = 'employer_seat_pilot.payment_confirmed' and entity_id = v_pilot));
 end $$;
 
@@ -242,7 +247,7 @@ begin
   perform pg_temp.setf('roster13', r13);
   perform pg_temp.ck('the thirteenth claim gets no seat', '0', (select count(*)::text from public.entitlements where patient_id = pg_temp.f('p13')));
   perform pg_temp.ck('and the roster row says no seat left', 'no_seat_left', (select seat_state from public.employer_roster_members where id = r13));
-  perform pg_temp.ck('an ops incident was raised once for it', '1', (select count(*)::text from public.ops_incidents where external_reference = 'pilot-no-seat:' || r13));
+  perform pg_temp.ck('one ops incident was raised for the pilot', '1', (select count(*)::text from public.ops_incidents where external_reference = 'pilot-no-seat:' || v_pilot));
   perform pg_temp.ck('the thirteenth person is not a Member', 'false', private.patient_is_member(pg_temp.f('p13'))::text);
   update public.employer_roster_members set eligible_until = null where id = r13;
   perform pg_temp.ck('re-syncing the claim does not sneak a seat in', '0', (select count(*)::text from public.entitlements where patient_id = pg_temp.f('p13')));
@@ -279,6 +284,11 @@ begin
   r14 := pg_temp.claim(a, pg_temp.f('pkgA'), pg_temp.f('p14'));
   perform pg_temp.ck('after the pilot ended a new claim gets no seat', 'pilot_closed/0',
     (select seat_state from public.employer_roster_members where id = r14) || '/' || (select count(*)::text from public.entitlements where patient_id = pg_temp.f('p14')));
+  perform pg_temp.claim(a, pg_temp.f('pkgA'), pg_temp.f('p20'));
+  perform pg_temp.ck('many late claims after the end raise ONE incident for the pilot, not one per person', '1',
+    (select count(*)::text from public.ops_incidents where external_reference = 'pilot-closed:' || pg_temp.f('pilotA')));
+  perform pg_temp.ck('and they wait with a clear state, no seat', 'pilot_closed/0',
+    (select seat_state from public.employer_roster_members where claimed_profile_id = pg_temp.f('p20')) || '/' || (select count(*)::text from public.entitlements where patient_id = pg_temp.f('p20')));
   perform pg_temp.ck('an ended pilot cannot be reopened', 'pilot_state_transition_not_allowed', pg_temp.owner_try(format($q$update public.employer_seat_pilots set state = 'active' where id = %L$q$, pg_temp.f('pilotA'))));
 
   -- a pilot whose window opens in ten days: paid, but today is before the window
@@ -335,7 +345,7 @@ begin
 
   -- move the seats two weeks back and plant activity two weeks old
   update public.entitlements set starts_at = now() - interval '21 days', ends_at = now() + interval '300 days' where pilot_id = v_pilot;
-  -- 6 members have a completed consultation (9 consultations in all), 10 have a check-in
+  -- 6 members have a completed consultation (9 consultations in all), 10 have logged a reading
   for i in 1..6 loop
     insert into public.encounters (organisation_id, patient_id, type, status, started_at, ended_at, policy_version, is_test)
     values ('00000000-0000-0000-0000-000000000001', pg_temp.f('p' || i), 'async', 'completed', now() - interval '12 days', now() - interval '12 days', 1, true);
@@ -358,8 +368,8 @@ begin
   perform pg_temp.ck('6 of 12 members had a consultation: shown, rounded to the nearest 5 = 5 (this week''s consultation is not counted)', '5',
     (r -> 'usage' ->> 'members_with_consultation'));
   perform pg_temp.ck('9 consultations are shown rounded to 10', '10', (r -> 'usage' ->> 'consultations_completed'));
-  perform pg_temp.ck('10 of 12 members logged a check-in: withheld, because the 2 who did not would be identifiable (complementary suppression)', 'null',
-    coalesce(r -> 'usage' ->> 'members_with_check_in', 'null'));
+  perform pg_temp.ck('10 of 12 members logged a reading: withheld, because the 2 who did not would be identifiable (complementary suppression)', 'null',
+    coalesce(r -> 'usage' ->> 'members_with_reading', 'null'));
   update public.outcome_config set config = jsonb_set(config, '{min_cell}', '20') where is_active;
   perform pg_temp.ck('with the production platform floor of 20, a 12 member pilot reports no usage at all', 'true',
     (pg_temp.q_as(pg_temp.f('corpA'), format($q$select (public.employer_seat_pilot_report(%L) -> 'usage' ->> 'suppressed')$q$, v_pilot)))::text);
@@ -372,7 +382,7 @@ begin
     coalesce(private.suppress_cell(5, array[5, 7]::bigint[], 5), 'ok') || '/' || coalesce(private.suppress_cell(7, array[7, 5]::bigint[], 5), 'ok') || '/' ||
     coalesce(private.suppress_cell(8, array[8, 4]::bigint[], 5), 'ok') || '/' || coalesce(private.suppress_cell(12, array[12, 0]::bigint[], 5), 'ok'));
 
-  perform pg_temp.ck('the whole report has a closed set of keys: no name, no id of a person, no condition, no reading', 'active,claimed,claims_without_seat,consultations_completed,ends_on,generated_at,id,members_with_check_in,members_with_consultation,min_cell,pilot,purchased,rounded_to,seat_price_kobo,seats,starts_on,state,suppressed,terms_version,total_kobo,unclaimed,usage,usage_through',
+  perform pg_temp.ck('the whole report has a closed set of keys: no name, no id of a person, no condition, no reading', 'active,claimed,claims_without_seat,consultations_completed,ends_on,generated_at,id,members_with_consultation,members_with_reading,min_cell,pilot,purchased,rounded_to,seat_price_kobo,seats,starts_on,state,suppressed,terms_version,total_kobo,unclaimed,usage,usage_through',
     pg_temp.all_keys(r));
   perform pg_temp.ck('no member id appears anywhere in the output', 'false',
     (select bool_or(v_json like '%' || v::text || '%') from fx where k ~ '^p[0-9]+$')::text);
@@ -441,7 +451,7 @@ begin
     has_function_privilege('anon', 'private.grant_org_seat(uuid)', 'EXECUTE')::text || '/' || has_function_privilege('authenticated', 'private.grant_org_seat(uuid)', 'EXECUTE')::text);
 end $$;
 
--- SABOTAGE 1: the platform cell rule never withholds; the 10-of-12 check-in count must now be shown
+-- SABOTAGE 1: the platform cell rule never withholds; the 10-of-12 reading count must now be shown
 create temp table orig_defs(k text primary key, d text) on commit drop;
 insert into orig_defs values ('suppress_cell', pg_get_functiondef('private.suppress_cell'::regproc));
 create or replace function private.suppress_cell(p_n bigint, p_categories bigint[] default null, p_min integer default null) returns text
@@ -449,7 +459,7 @@ language sql stable security definer set search_path = '' as $$ select null::tex
 do $$
 declare r jsonb := pg_temp.q_as(pg_temp.f('admin'), format($q$select public.employer_seat_pilot_report(%L)::text$q$, pg_temp.f('pilotA')))::jsonb;
 begin
-  insert into results values ('sabotaged', 'a count whose complement is 2 people is withheld', 'null', coalesce(r -> 'usage' ->> 'members_with_check_in', 'null'));
+  insert into results values ('sabotaged', 'a count whose complement is 2 people is withheld', 'null', coalesce(r -> 'usage' ->> 'members_with_reading', 'null'));
 end $$;
 do $$ begin execute (select d from orig_defs where k = 'suppress_cell'); end $$;
 

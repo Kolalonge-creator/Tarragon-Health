@@ -34,7 +34,7 @@ export const pilotReportSchema = z.object({
       suppressed: z.literal(false),
       members_with_consultation: nullableCount,
       consultations_completed: nullableCount,
-      members_with_check_in: nullableCount,
+      members_with_reading: nullableCount,
     }),
   ]),
   min_cell: count,
@@ -86,11 +86,11 @@ export function pilotReportToCsv(report: PilotReport): string {
     const why = report.usage.reason === "not_enabled" ? "Usage figures are not switched on for this pilot" : "Too few members yet to report usage";
     rows.push(["Members who had a consultation", withheld, why]);
     rows.push(["Consultations completed", withheld, why]);
-    rows.push(["Members who logged a check-in", withheld, why]);
+    rows.push(["Members who logged a reading in the app", withheld, why]);
   } else {
     rows.push(["Members who had a consultation", report.usage.members_with_consultation ?? withheld, note]);
     rows.push(["Consultations completed", report.usage.consultations_completed ?? withheld, note]);
-    rows.push(["Members who logged a check-in", report.usage.members_with_check_in ?? withheld, note]);
+    rows.push(["Members who logged a reading in the app", report.usage.members_with_reading ?? withheld, note]);
   }
   return ["Measure,Value,Note", ...rows.map((r) => r.map(csvCell).join(","))].join("\r\n") + "\r\n";
 }
@@ -110,14 +110,18 @@ export const createPilotSchema = z
 
 export const confirmPaymentSchema = z.object({
   pilotId: z.string().uuid(),
+  organisationId: z.string().uuid(),
   method: z.enum(["bank_transfer", "paystack_link"]),
   reference: z.string().trim().min(4, "Enter the bank or Paystack reference (at least 4 characters).").max(120),
 });
 
 export const closePilotSchema = z.object({
   pilotId: z.string().uuid(),
+  organisationId: z.string().uuid(),
   reason: z.string().trim().min(10, "Give a reason of at least 10 characters.").max(500),
 });
+
+export const issuePilotSchema = z.object({ pilotId: z.string().uuid(), organisationId: z.string().uuid() });
 
 const ERROR_TEXT: Record<string, string> = {
   pilot_not_authorised: "Only finance can do this.",

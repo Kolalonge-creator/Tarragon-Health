@@ -3,6 +3,7 @@ import {
   closePilotSchema,
   confirmPaymentSchema,
   createPilotSchema,
+  issuePilotSchema,
   nairaFromKobo,
   parsePilotReport,
   pilotErrorText,
@@ -14,7 +15,7 @@ const ID = "6f1d6c1e-4f5e-4a52-9d57-2a3c1d3b8f10";
 const shown = {
   pilot: { id: ID, state: "active", starts_on: "2026-11-02", ends_on: "2026-12-02", terms_version: "terms-v1", total_kobo: 120000000, seat_price_kobo: 10000000 },
   seats: { purchased: 12, claimed: 12, active: 11, unclaimed: 0, claims_without_seat: 2 },
-  usage: { suppressed: false, members_with_consultation: 5, consultations_completed: 10, members_with_check_in: null },
+  usage: { suppressed: false, members_with_consultation: 5, consultations_completed: 10, members_with_reading: null },
   min_cell: 5,
   rounded_to: 5,
   usage_through: "2026-11-08",
@@ -54,7 +55,7 @@ describe("CSV export is the same aggregate and nothing more", () => {
     const csv = pilotReportToCsv(parsed);
     const lines = csv.trim().split("\r\n");
     expect(lines[0]).toBe("Measure,Value,Note");
-    expect(csv).toContain("Members who logged a check-in,withheld,");
+    expect(csv).toContain("Members who logged a reading in the app,withheld,");
     expect(csv).toContain("Members who had a consultation,5,");
     expect(csv).not.toContain(ID);
     for (const line of lines.slice(1)) expect(line.split(",").length).toBeGreaterThanOrEqual(3);
@@ -66,7 +67,7 @@ describe("CSV export is the same aggregate and nothing more", () => {
     const csv = pilotReportToCsv(parsed);
     expect(csv).toContain("Members who had a consultation,withheld,");
     expect(csv).toContain("Consultations completed,withheld,");
-    expect(csv).toContain("Members who logged a check-in,withheld,");
+    expect(csv).toContain("Members who logged a reading in the app,withheld,");
   });
 
   it("neutralises spreadsheet formulas in any text cell", () => {
@@ -94,11 +95,16 @@ describe("money and form helpers", () => {
   });
 
   it("validates payment confirmation and closing", () => {
-    expect(confirmPaymentSchema.safeParse({ pilotId: ID, method: "paystack_link", reference: "PSK-1001" }).success).toBe(true);
-    expect(confirmPaymentSchema.safeParse({ pilotId: ID, method: "cash", reference: "PSK-1001" }).success).toBe(false);
-    expect(confirmPaymentSchema.safeParse({ pilotId: ID, method: "bank_transfer", reference: "ab" }).success).toBe(false);
-    expect(closePilotSchema.safeParse({ pilotId: ID, reason: "too short" }).success).toBe(false);
-    expect(closePilotSchema.safeParse({ pilotId: ID, reason: "Employer withdrew before paying" }).success).toBe(true);
+    expect(confirmPaymentSchema.safeParse({ pilotId: ID, organisationId: ID, method: "paystack_link", reference: "PSK-1001" }).success).toBe(true);
+    expect(confirmPaymentSchema.safeParse({ pilotId: ID, organisationId: ID, method: "cash", reference: "PSK-1001" }).success).toBe(false);
+    expect(confirmPaymentSchema.safeParse({ pilotId: ID, organisationId: ID, method: "bank_transfer", reference: "ab" }).success).toBe(false);
+    expect(closePilotSchema.safeParse({ pilotId: ID, organisationId: ID, reason: "too short" }).success).toBe(false);
+    expect(closePilotSchema.safeParse({ pilotId: ID, organisationId: ID, reason: "Employer withdrew before paying" }).success).toBe(true);
+    // the organisation id is validated too, in all three finance steps
+    expect(closePilotSchema.safeParse({ pilotId: ID, organisationId: "not-a-uuid", reason: "Employer withdrew before paying" }).success).toBe(false);
+    expect(confirmPaymentSchema.safeParse({ pilotId: ID, method: "bank_transfer", reference: "BANK-2002" }).success).toBe(false);
+    expect(issuePilotSchema.safeParse({ pilotId: ID, organisationId: "x" }).success).toBe(false);
+    expect(issuePilotSchema.safeParse({ pilotId: ID, organisationId: ID }).success).toBe(true);
   });
 
   it("turns database errors into plain words and never echoes raw SQL text", () => {

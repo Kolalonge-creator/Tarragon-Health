@@ -15,11 +15,13 @@
 -- Dormant: the organisation_membership module stays off and this migration switches nothing on. The pilot RPCs need a Membership
 -- benefit package, and such a package cannot exist while that module is off.
 --
--- Live counts before this migration: NOT READ. The live database was unreachable from the authoring session (connection timeouts),
--- so the bodies extended here come from the committed migration files (20261013003317 for grant_org_seat). Verify with
--- pg_get_functiondef('private.grant_org_seat(uuid)') before applying. Per the design note the same migration recorded zero
--- employer_roster_members, zero benefit packages and zero invoices on 2026-10-12, so nothing needs converting.
--- ROLLBACK: restore the 20261013003317 body of private.grant_org_seat; drop table employer_seat_pilots cascade; drop
+-- Live state read 2026-10-22 (read-only): private.grant_org_seat is the 20261013003317 body PLUS a `tier` column on the patient_memberships insert
+-- (private.membership_tier_for_item), which comes from a membership-ladder migration (20261021110528) that is live but not yet on main-dev.
+-- This body therefore detects the column at run time and writes `tier` only when it exists, so it is correct both on a replay of main-dev (no
+-- column) and on the live project (column present). The file sorts AFTER the ladder migration, so a later merge of the ladder cannot undo it.
+-- employer_set_invoice_status posts nothing to the ledger (it updates the row and writes one audit_log row) and employer_invoices carries no
+-- ledger trigger, so recording a pilot invoice as paid creates no journal entry (OQ-EMP-2); the proof asserts that.
+-- ROLLBACK: restore the live body of private.grant_org_seat (without the pilot block); drop table employer_seat_pilots cascade; drop
 --   employer_seat_pilot_config; alter table entitlements drop column pilot_id; restore the two-value seat_state check.
 
 -- ---------------------------------------------------------------------------
@@ -178,6 +180,8 @@ declare
   v_pilot public.employer_seat_pilots%rowtype;
   v_org uuid;
   v_used integer;
+  v_has_tier boolean := exists (select 1 from information_schema.columns
+                                 where table_schema = 'public' and table_name = 'patient_memberships' and column_name = 'tier');
   v_today date := (now() at time zone 'Africa/Lagos')::date;
   v_ends timestamptz; v_ent uuid; v_is_test boolean;
 begin
@@ -221,15 +225,16 @@ begin
     end if;
     if v_pilot.state = 'ended' or v_today > v_pilot.ends_on then
       update public.employer_roster_members set seat_state = 'pilot_closed' where id = r.id and seat_state is distinct from 'pilot_closed';
-      perform private.order_incident(r.organisation_id, 'pilot-closed:' || r.id, 'A rostered employee claimed after the pilot window closed',
-        'Roster row ' || r.id || ' claimed after the pilot window or after the pilot ended, so no seat was created. Decide with the employer whether to extend or start a new offer.');
+      -- ONE open incident per pilot (the reference is the pilot, not the person), so late claims wait without an alert per claim
+      perform private.order_incident(r.organisation_id, 'pilot-closed:' || v_pilot.id, 'People are claiming after a seat pilot closed',
+        'Employees are joining after the pilot window or after the pilot ended, so no seat was created for them (latest roster row ' || r.id || '). They wait until a new offer is paid. Decide with the employer.');
       return 'pilot_closed';
     end if;
     select count(*) into v_used from public.entitlements where pilot_id = v_pilot.id;
     if v_used >= v_pilot.seats_purchased then
       update public.employer_roster_members set seat_state = 'no_seat_left' where id = r.id and seat_state is distinct from 'no_seat_left';
-      perform private.order_incident(r.organisation_id, 'pilot-no-seat:' || r.id, 'A rostered employee claimed but every pilot seat is taken',
-        'Roster row ' || r.id || ' claimed after all ' || v_pilot.seats_purchased || ' purchased seats were taken, so no seat was created. The employer can buy more seats in a new offer.');
+      perform private.order_incident(r.organisation_id, 'pilot-no-seat:' || v_pilot.id, 'Employees are claiming but every pilot seat is taken',
+        'All ' || v_pilot.seats_purchased || ' purchased seats are taken, so employees who join now wait (latest roster row ' || r.id || '). The employer can buy more seats in a new offer.');
       return 'no_seat_left';
     end if;
   end if;
@@ -248,8 +253,14 @@ begin
   on conflict (roster_member_id) where state = 'active' and roster_member_id is not null do nothing
   returning id into v_ent;
   if v_ent is not null then
-    insert into public.patient_memberships (organisation_id, patient_id, source, starts_at, ends_at, is_test)
-    values (r.organisation_id, r.claimed_profile_id, 'employer', now(), v_ends, coalesce(v_is_test, false));
+    if v_has_tier then
+      execute 'insert into public.patient_memberships (organisation_id, patient_id, source, starts_at, ends_at, is_test, tier) '
+              'values ($1, $2, ''employer'', now(), $3, $4, private.membership_tier_for_item($5))'
+        using r.organisation_id, r.claimed_profile_id, v_ends, coalesce(v_is_test, false), it.code;
+    else
+      insert into public.patient_memberships (organisation_id, patient_id, source, starts_at, ends_at, is_test)
+      values (r.organisation_id, r.claimed_profile_id, 'employer', now(), v_ends, coalesce(v_is_test, false));
+    end if;
   end if;
   return 'seat';
 end $$;
@@ -462,7 +473,7 @@ begin
                                         then to_jsonb((round(v_consult_people::numeric / v_round) * v_round)::integer) end,
       'consultations_completed', case when private.suppress_cell(v_consult_people, array[v_consult_people, v_denom - v_consult_people]::bigint[], v_min) is null
                                       then to_jsonb((round(v_consults::numeric / v_round) * v_round)::integer) end,
-      'members_with_check_in', case when private.suppress_cell(v_checkin_people, array[v_checkin_people, v_denom - v_checkin_people]::bigint[], v_min) is null
+      'members_with_reading', case when private.suppress_cell(v_checkin_people, array[v_checkin_people, v_denom - v_checkin_people]::bigint[], v_min) is null
                                     then to_jsonb((round(v_checkin_people::numeric / v_round) * v_round)::integer) end);
   end if;
   return jsonb_build_object(

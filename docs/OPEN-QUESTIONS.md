@@ -3924,9 +3924,21 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - The usage block counts members with a consultation or a check-in from `encounters` and `vitals_readings`. No record shows the employee saw the notice or agreed, and the notice is a draft. Conservative default taken: `employer.seat_pilot.usage_report_enabled = false`, so a pilot reports seat counts only until counsel and the DPO sign the employee notice and the founder switches it on (an update of the active `employer_seat_pilot_config` row; the registry value must change with it). Alternative: record an in-app acknowledgement per seat and count only members who gave it.
 - Decision: open (counsel, DPO).
 
-### OQ-EMP-10 An ended pilot keeps governing its employer
-- After a pilot ends, new roster claims for that employer get no seat (`pilot_closed`) until a new pilot is paid; ordinary arrears billing returns only if the pilot was cancelled. This avoids silent billing after the review. A paid new pilot re-offers seats to people refused earlier. Alternative: let an ended pilot hand the employer back to arrears billing.
-- Decision: open (founder).
+### OQ-EMP-10 An ended or expired pilot: claims wait, one incident per pilot (decided default 2026-10-22)
+- After a pilot ends or its claim window closes, new roster claims get no seat (`pilot_closed`) and wait. Ordinary arrears billing does NOT resume on its own, because that would bill an employer who only agreed to a block. Only ONE open incident per pilot is raised (reference `pilot-closed:<pilot id>`), not one per person. A new paid pilot re-offers seats to everyone who was refused. Alternative: hand the employer back to arrears billing after the pilot.
+- Decision: open (founder), default implemented.
+
+### OQ-EMP-11 The per-head overlap guard raises; it is not a batch operation
+- `employer_generate_invoice` creates one invoice for one organisation per call and nothing in the repository calls it in a loop or from a schedule, so the guard `pilot_covers_this_period` can only refuse the single call finance made, with a plain message. A silent skip would hide a real double billing, so it raises. If a batch run is ever added it must catch this error per organisation.
+- Decision: informational.
+
+### OQ-EMP-12 A seat claimed on the last day runs the full twelve months
+- The seat term is the catalogue duration from the claim day, not capped at the claim window. Documented in the employer terms draft (3.2). Alternative: cap the seat at a fixed end date.
+- Decision: informational (founder).
+
+### OQ-EMP-13 The live project is ahead of main-dev on the Membership ladder
+- Live `private.grant_org_seat` writes `patient_memberships.tier` (migration `20261021110528 membership_evergreen_ladder_foundation`, live, not on main-dev). The pilot migration detects the column at run time and sorts after it, so it works on a main-dev replay and on live. When the ladder merges, its `grant_org_seat` body must carry the pilot block; the pilot proof fails if it does not.
+- Decision: informational.
 
 ### OQ-EMP-8 starts_on is the offer date, not a gate
 - Seats can be claimed from the day payment is confirmed until ends_on. A "not before" date would leave a paid employee waiting with no sweep to release them. Alternative: a daily sweep that grants seats when the window opens.

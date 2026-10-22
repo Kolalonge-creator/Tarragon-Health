@@ -133,7 +133,7 @@ function PilotReportView({ report }: { report: PilotReport }) {
             <dl className="grid gap-3 sm:grid-cols-3">
               <Stat label="Members who had a consultation" value={figure(u.members_with_consultation)} />
               <Stat label="Consultations completed" value={figure(u.consultations_completed)} />
-              <Stat label="Members who logged a check-in" value={figure(u.members_with_check_in)} />
+              <Stat label="Members who logged a reading in the app" value={figure(u.members_with_reading)} />
             </dl>
             <p className="text-sm text-charcoal-ink/60">
               {employerPilotText("pilot.usage.note", { rounded: report.rounded_to, through: report.usage_through, min: report.min_cell })}

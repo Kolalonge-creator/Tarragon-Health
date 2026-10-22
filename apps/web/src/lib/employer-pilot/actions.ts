@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { closePilotSchema, confirmPaymentSchema, createPilotSchema, pilotErrorText } from "./model";
+import { closePilotSchema, confirmPaymentSchema, createPilotSchema, issuePilotSchema, pilotErrorText } from "./model";
 
 export type PilotActionState = { error?: string; message?: string } | undefined;
 
@@ -38,13 +38,12 @@ export async function createPilot(_prev: PilotActionState, formData: FormData): 
 
 export async function issuePilotInvoice(_prev: PilotActionState, formData: FormData): Promise<PilotActionState> {
   if (!(await getCurrentUser())) return { error: "Not signed in" };
-  const pilotId = String(formData.get("pilotId") ?? "");
-  const organisationId = String(formData.get("organisationId") ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(pilotId)) return { error: "That pilot was not found." };
+  const parsed = issuePilotSchema.safeParse({ pilotId: formData.get("pilotId"), organisationId: formData.get("organisationId") });
+  if (!parsed.success) return { error: "That pilot was not found." };
   const supabase = await createClient();
-  const { error } = await supabase.rpc("issue_employer_seat_pilot_invoice", { p_pilot: pilotId });
+  const { error } = await supabase.rpc("issue_employer_seat_pilot_invoice", { p_pilot: parsed.data.pilotId });
   if (error) return { error: pilotErrorText(error.message) };
-  revalidate(organisationId);
+  revalidate(parsed.data.organisationId);
   return { message: "Invoice issued. Send it to the employer with the bank details or a Paystack payment link." };
 }
 
@@ -52,7 +51,6 @@ export async function confirmPilotPayment(_prev: PilotActionState, formData: For
   if (!(await getCurrentUser())) return { error: "Not signed in" };
   const parsed = confirmPaymentSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
-  const organisationId = String(formData.get("organisationId") ?? "");
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("confirm_employer_seat_pilot_payment", {
     p_pilot: parsed.data.pilotId,
@@ -60,7 +58,7 @@ export async function confirmPilotPayment(_prev: PilotActionState, formData: For
     p_reference: parsed.data.reference,
   });
   if (error) return { error: pilotErrorText(error.message) };
-  revalidate(organisationId);
+  revalidate(parsed.data.organisationId);
   const result = (data as { result?: string } | null)?.result;
   return { message: result === "replay" ? "Already confirmed with this reference. Nothing changed." : "Payment recorded. The pilot is active." };
 }
@@ -69,10 +67,9 @@ export async function closePilot(_prev: PilotActionState, formData: FormData): P
   if (!(await getCurrentUser())) return { error: "Not signed in" };
   const parsed = closePilotSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
-  const organisationId = String(formData.get("organisationId") ?? "");
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("close_employer_seat_pilot", { p_pilot: parsed.data.pilotId, p_reason: parsed.data.reason });
   if (error) return { error: pilotErrorText(error.message) };
-  revalidate(organisationId);
+  revalidate(parsed.data.organisationId);
   return { message: data === "ended" ? "Pilot ended. Members keep the Membership they were given." : "Pilot cancelled." };
 }
