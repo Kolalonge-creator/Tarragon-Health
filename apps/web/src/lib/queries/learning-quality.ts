@@ -4,6 +4,8 @@ import type { Database } from "@tarragon/shared";
 import {
   parseRecordLessonConfig,
   selectRecordLesson,
+  bpLessonLevel,
+  glucoseLessonLevel,
   type BandedReading,
   type LabFlag,
   type LabItemInput,
@@ -104,7 +106,9 @@ export function useShareTeachback(code: string) {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("share_teachback_with_care_team", { p_code: code, p_share: share });
       if (error) throw error;
-      return data === true;
+      // false means the database refused (for example the lesson could not be saved for the visit): surface it, never look like it worked.
+      if (data !== true) throw new Error("teachback share refused");
+      return true;
     },
   });
 }
@@ -180,13 +184,15 @@ async function loadRecordLesson(patientId: string): Promise<RecordLessonState> {
   const bloodPressure: BandedReading[] = [];
   const glucose: BandedReading[] = [];
   for (const v of vitals.data ?? []) {
-    if (v.vital_type === "blood_pressure") bloodPressure.push({ id: v.id, takenAt: v.taken_at, level: classifyBpLevel(v.systolic, v.diastolic) });
-    else if (v.vital_type === "glucose") glucose.push({ id: v.id, takenAt: v.taken_at, level: classifyLatestGlucoseLevel(v.glucose_mmol_l) });
+    if (v.vital_type === "blood_pressure") bloodPressure.push({ id: v.id, takenAt: v.taken_at, level: bpLessonLevel(classifyBpLevel(v.systolic, v.diastolic), v.systolic, v.diastolic) });
+    else if (v.vital_type === "glucose") glucose.push({ id: v.id, takenAt: v.taken_at, level: glucoseLessonLevel(classifyLatestGlucoseLevel(v.glucose_mmol_l)) });
   }
 
   // 4. Released lab items only. The database function already drops unreleased, superseded and sensitive-positive results; the selector re-checks.
   const labRes = await supabase.rpc("record_lesson_lab_items");
-  const labItems: LabItemInput[] = (labRes.error ? [] : (labRes.data ?? [])).map((i) => ({
+  // A failed lab read must not look like "no labs": a critical result would silently stop outranking a lesson. Fail closed: no lesson.
+  if (labRes.error) return { kind: "none" };
+  const labItems: LabItemInput[] = (labRes.data ?? []).map((i) => ({
     id: i.id,
     resultId: i.result_id,
     analyteCode: i.analyte_code,

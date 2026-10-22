@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@jest/globals";
 import {
   READING_GRADE_VECTORS,
+  bpLessonLevel,
+  glucoseLessonLevel,
   checkReadingGrade,
   countSyllables,
   isPortionGuideBody,
@@ -234,5 +236,43 @@ describe("portion audience", () => {
     expect(portionAudienceFor("diabetes", null)).toBe("diabetes");
     expect(portionAudienceFor("nutrition", "diabetes")).toBe("diabetes");
     expect(portionAudienceFor("hypertension", "hypertension")).toBe("blood_pressure");
+  });
+});
+
+describe("review fixes: urgent window, lesson levels", () => {
+  it("a red latest reading older than the suppression window no longer shows the urgent box, and still never yields a lesson", () => {
+    const d = selectRecordLesson({ ...empty, bloodPressure: [r("x", 5, "red"), r("a", 6, "amber"), r("b", 7, "amber"), r("c", 8, "amber")] }, cfg);
+    expect(d.kind).toBe("none");
+  });
+  it("a critical lab older than the window is not urgent forever, and its analyte shows no lesson", () => {
+    expect(selectRecordLesson({ ...empty, labItems: [lab("l1", "r1", 30, "critical")] }, cfg)).toEqual({ kind: "none", reason: "no_data" });
+    expect(selectRecordLesson({ ...empty, labItems: [lab("l1", "r1", 1, "critical")] }, cfg).kind).toBe("urgent");
+  });
+  it("a very low blood pressure is not 'in a good range' and a glucose reading is never in range for a lesson", () => {
+    expect(bpLessonLevel("green", 75, 45)).toBe("unknown");
+    expect(bpLessonLevel("green", 118, 76)).toBe("green");
+    expect(bpLessonLevel("amber", 142, 90)).toBe("amber");
+    expect(glucoseLessonLevel("green")).toBe("unknown");
+    expect(glucoseLessonLevel("amber")).toBe("unknown");
+    expect(glucoseLessonLevel("red")).toBe("red");
+    expect(glucoseLessonLevel("emergency")).toBe("emergency");
+    // urgent glucose still outranks a BP lesson
+    expect(selectRecordLesson({ ...empty, bloodPressure: [r("g", 0, "green")], glucose: [r("x", 0, glucoseLessonLevel("emergency"))] }, cfg).kind).toBe("urgent");
+  });
+});
+
+describe("review fix: glossary on an engine without lookbehind", () => {
+  it("returns the plain text instead of throwing", () => {
+    const Real = RegExp;
+    const Fake = function (src: string | RegExp, flags?: string) {
+      if (typeof src === "string" && src.includes("(?<!")) throw new SyntaxError("Invalid regular expression: invalid group specifier name");
+      return new Real(src, flags);
+    } as unknown as RegExpConstructor;
+    (globalThis as { RegExp: RegExpConstructor }).RegExp = Fake;
+    try {
+      expect(splitByGlossary("Your blood pressure is fine", [{ term: "blood pressure", definition: "The force of blood in your arteries" }])).toEqual([{ text: "Your blood pressure is fine" }]);
+    } finally {
+      (globalThis as { RegExp: RegExpConstructor }).RegExp = Real;
+    }
   });
 });

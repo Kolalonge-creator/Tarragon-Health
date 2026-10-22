@@ -1,6 +1,8 @@
 import {
   parseRecordLessonConfig,
   selectRecordLesson,
+  bpLessonLevel,
+  glucoseLessonLevel,
   type BandedReading,
   type LabFlag,
   type LabItemInput,
@@ -110,12 +112,14 @@ export async function loadRecordLesson(patientId: string): Promise<RecordLessonS
   const bloodPressure: BandedReading[] = [];
   const glucose: BandedReading[] = [];
   for (const v of vitals.data ?? []) {
-    if (v.vital_type === "blood_pressure") bloodPressure.push({ id: v.id, takenAt: v.taken_at, level: classifyBpLevel(v.systolic, v.diastolic) });
-    else if (v.vital_type === "glucose") glucose.push({ id: v.id, takenAt: v.taken_at, level: glucoseLevel(v.glucose_mmol_l) });
+    if (v.vital_type === "blood_pressure") bloodPressure.push({ id: v.id, takenAt: v.taken_at, level: bpLessonLevel(classifyBpLevel(v.systolic, v.diastolic), v.systolic, v.diastolic) });
+    else if (v.vital_type === "glucose") glucose.push({ id: v.id, takenAt: v.taken_at, level: glucoseLessonLevel(glucoseLevel(v.glucose_mmol_l)) });
   }
 
   const labRes = await supabase.rpc("record_lesson_lab_items");
-  const labItems: LabItemInput[] = (labRes.error ? [] : (labRes.data ?? [])).map((i) => ({
+  // A failed lab read must not look like "no labs" (a critical result would stop outranking a lesson). Fail closed: no lesson.
+  if (labRes.error) return { kind: "none" };
+  const labItems: LabItemInput[] = (labRes.data ?? []).map((i) => ({
     id: i.id,
     resultId: i.result_id,
     analyteCode: i.analyte_code,

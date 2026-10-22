@@ -369,7 +369,8 @@ function ContentHistory({ item }: { item: HealthEducationContent }) {
  * this only shows it before the Publish button is pressed.
  */
 function ReadingGradeNote({ item }: { item: HealthEducationContent }) {
-  const { grade } = readingGrade(item.body);
+  // The database grades the harder of the body and the summary; show the same number.
+  const grade = Math.max(readingGrade(item.body).grade, readingGrade(item.summary ?? "").grade);
   const cfg = getProposedConfig("learning.reading_grade").value as unknown as ReadingGradeConfig;
   const override = useSetReadingGradeOverride();
   const [reason, setReason] = useState("");
@@ -403,7 +404,11 @@ function ReadingGradeNote({ item }: { item: HealthEducationContent }) {
         </div>
       )}
       {overridden && <p className="text-charcoal-ink/60">{t("learn.grade.overridden")}</p>}
-      {override.isError && <p className="text-red-600">{(override.error as Error).message}</p>}
+      {override.isError && (
+        <p className="text-red-600">
+          {/only the chief medical officer/i.test((override.error as Error).message) ? "Only the Chief Medical Officer can record this override." : (override.error as Error).message}
+        </p>
+      )}
     </div>
   );
 }

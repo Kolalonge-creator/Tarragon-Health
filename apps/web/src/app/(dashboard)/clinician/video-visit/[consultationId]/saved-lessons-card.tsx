@@ -23,7 +23,7 @@ export async function SavedLessonsCard({ patientId, consultationId }: { patientI
     );
   }
   if (!data || data.length === 0) return null;
-  // Teach-back answers the patient chose to share (counts only). The same tie check and an audit row apply; a failed read just omits the list.
+  // Teach-back answers the patient chose to share (counts only). The same tie check and an audit row apply; a failed read is said out loud below, never shown as an empty list.
   const sharedRes = await supabase.rpc("consultation_shared_teachbacks", { p_patient: patientId });
   const teachbacks = sharedRes.error ? [] : (sharedRes.data ?? []);
   const waiting = data.filter((l) => !l.discussed_at);
@@ -49,6 +49,11 @@ export async function SavedLessonsCard({ patientId, consultationId }: { patientI
             </li>
           ))}
         </ul>
+        {sharedRes.error && (
+          <p className="border-t border-charcoal-ink/10 pt-2 text-charcoal-ink/70" role="alert" data-testid="shared-teachbacks-failed">
+            We could not load the quiz answers this patient may have shared. Refresh the page, or ask the patient directly.
+          </p>
+        )}
         {teachbacks.length > 0 && (
           <div className="space-y-1 border-t border-charcoal-ink/10 pt-2" data-testid="shared-teachbacks">
             <p className="font-medium">{t("learn.teachback.staff_title")}</p>

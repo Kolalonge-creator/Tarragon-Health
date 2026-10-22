@@ -5003,3 +5003,8 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Neither migration has been applied to the live project and no live write was made. The types for the new tables and functions were spliced into `packages/shared/src/database.types.ts` by hand (not regenerated, per the standing rule), and not into the older copy in `packages/db`.
 - Nothing was run in a browser or on a phone.
 - Decision: open (CI).
+
+### OQ-S55-QG-07 Low blood pressure floor and glucose bands for "what this reading means" lessons
+- Review of the quality-gates branch found that the platform's blood pressure "green" includes a very low reading and the single-reading glucose classifier cannot tell "in range" from "high". A lesson saying "your reading is in a good range" would then reassure falsely.
+- Built conservatively and PROPOSED: a low blood pressure floor of 90/60 (no in-range lesson below it; `LOW_BP_FLOOR` in packages/shared learning/record-lesson.ts and the same numbers in `record_lesson_shown`), and every glucose lesson is refused by the database and never offered by the app until a clinician-signed glucose band exists.
+- Needs the CMO: confirm or replace the 90/60 floor, and sign a glucose in-range / above-range band so glucose lessons can be switched on.

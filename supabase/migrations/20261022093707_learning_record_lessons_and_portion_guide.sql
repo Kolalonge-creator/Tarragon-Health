@@ -43,8 +43,9 @@ declare
   v_status text;
 begin
   if new.content_status = 'published'
-     and (tg_op = 'INSERT' or old.content_status is distinct from 'published')
-     and new.body ~ '(^|\n)\s*\[portion [a-z0-9_]+ [a-z_]+\]' then
+     and (tg_op = 'INSERT' or old.content_status is distinct from 'published' or old.body is distinct from new.body)
+     -- deliberately broader than the renderer's marker (any whitespace, any hand name): anything that could render as a guide is gated
+     and new.body ~* '(^|\n)\s*\[portion\s' then
     select c.status into v_status from public.learning_config c where c.key = 'portion_guide' and c.is_active order by c.version desc limit 1;
     if v_status is distinct from 'confirmed' then
       raise exception 'A food portion guide cannot be published while its amounts are still proposed: a clinician or dietitian must set them and the configuration must be confirmed'
@@ -122,6 +123,8 @@ declare
   v_needed integer;
   v_ok integer;
   v_distinct integer;
+  v_results integer;
+  v_oldest timestamptz;
   c public.health_education_content%rowtype;
   v_show uuid;
 begin
@@ -153,19 +156,43 @@ begin
       from public.lab_result_items i join public.lab_results r on r.id = i.lab_result_id
      where i.id = any(v_ids) and i.patient_id = v_me;
     if v_distinct is distinct from 1 or v_ok <> v_n then return 'refused'; end if;
+    -- The cited items must be separate results and exactly the newest ones for this analyte: an old normal value cannot be cited while a newer
+    -- result says otherwise, and a "sustained" run is a run of distinct, successive results, not two items of one report.
+    select count(distinct i.lab_result_id), min(r.received_at) into v_results, v_oldest
+      from public.lab_result_items i join public.lab_results r on r.id = i.lab_result_id
+     where i.id = any(v_ids) and i.patient_id = v_me;
+    if v_results is distinct from v_n then return 'refused'; end if;
+    if (select count(distinct r2.id) from public.lab_result_items i2 join public.lab_results r2 on r2.id = i2.lab_result_id
+         where i2.patient_id = v_me and i2.analyte_code = v_analyte and r2.release_state = 'released' and r2.superseded_by is null
+           and not exists (select 1 from public.lab_result_items s2 where s2.lab_result_id = r2.id and s2.sensitive_positive)
+           and r2.received_at >= v_oldest) <> v_n then
+      return 'refused';
+    end if;
+    -- A critical released result inside the suppression window outranks a lesson.
+    if exists (select 1 from public.lab_result_items c2 join public.lab_results r3 on r3.id = c2.lab_result_id
+                where c2.patient_id = v_me and c2.flag = 'critical' and r3.release_state = 'released' and r3.superseded_by is null
+                  and r3.received_at >= now() - make_interval(hours => v_suppress)) then
+      return 'refused';
+    end if;
     v_needed := case when p_band = 'normal' then 1 else (v_cfg #>> '{lab,sustained_results}')::integer end;
     if (p_band = 'normal' and v_n <> 1) or (p_band <> 'normal' and v_n < v_needed) then return 'refused'; end if;
     v_expected := v_cfg #>> array['lessons', 'lab', v_analyte, p_band];
   else
     if p_source = 'blood_pressure' then
+      -- in_target: the single cited reading must be the newest blood pressure and not a low one (a very low reading is not "in a good range").
+      -- The low floor (90/60) is PROPOSED and awaits the CMO; until confirmed it only ever makes the lesson more conservative.
       select count(*) filter (where v.patient_id = v_me and v.correction_status is null and v.vital_type = 'blood_pressure'
                                 and private.classify_bp_level(v.systolic, v.diastolic) = case when p_band = 'in_target' then 'green' else 'amber' end
+                                and (p_band <> 'in_target' or (v.systolic >= 90 and v.diastolic >= 60
+                                     and not exists (select 1 from public.vitals_readings w
+                                                      where w.patient_id = v_me and w.vital_type = 'blood_pressure' and w.correction_status is null
+                                                        and w.taken_at > v.taken_at)))
                                 and (p_band = 'in_target' or v.taken_at >= now() - make_interval(days => v_window)))
         into v_ok from public.vitals_readings v where v.id = any(v_ids);
     else
-      select count(*) filter (where v.patient_id = v_me and v.correction_status is null and v.glucose_mmol_l is not null
-                                and (p_band = 'in_target' or v.taken_at >= now() - make_interval(days => v_window)))
-        into v_ok from public.vitals_readings v where v.id = any(v_ids);
+      -- No database glucose classifier exists, and the single-reading classifier cannot tell "in range" from "high but not yet an alert", so the
+      -- database refuses every glucose lesson until a clinician-signed glucose band exists in private.* (the app mirrors this and never offers one).
+      return 'refused';
     end if;
     if v_ok <> v_n then return 'refused'; end if;
     v_needed := (v_cfg #>> '{vitals,sustained_readings}')::integer;
@@ -177,7 +204,7 @@ begin
   -- 2. The lesson is the one the configuration names for this band.
   if v_expected is null or v_expected <> p_lesson_code then return 'refused'; end if;
 
-  -- 3. Urgent-help outranks a lesson: a red or emergency blood pressure, or an emergency event, inside the window blocks it (the app re-checks glucose and labs).
+  -- 3. Urgent-help outranks a lesson: a red or emergency blood pressure, or an emergency event, inside the window blocks it (a critical released lab is checked above; glucose lessons are refused outright).
   if exists (select 1 from public.vitals_readings v
               where v.patient_id = v_me and v.correction_status is null and v.vital_type = 'blood_pressure'
                 and v.taken_at >= now() - make_interval(hours => v_suppress)

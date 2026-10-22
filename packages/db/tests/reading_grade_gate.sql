@@ -126,7 +126,7 @@ begin
   perform pg_temp.ck('O6 the CMO records an override with a real reason',
     pg_temp.as_try(v_cmo, format('select public.set_reading_grade_override(%L, %L)', v_dense_id, 'The drug name cannot be made simpler')) = 'ok');
   perform pg_temp.ck('O7 the override is attributed to the CMO, bound to the body, and audited',
-    (select reading_grade_override_by = v_cmo and reading_grade_override_body_md5 = md5(body) from public.health_education_content where id = v_dense_id)
+    (select reading_grade_override_by = v_cmo and reading_grade_override_body_md5 = md5(body || chr(31) || coalesce(summary, '')) from public.health_education_content where id = v_dense_id)
     and exists (select 1 from public.audit_log where actor_id = v_cmo and action = 'learning.reading_grade_override' and entity_id = v_dense_id));
   perform pg_temp.ck('O8 with the override the dense item publishes', pg_temp.publish(v_dense_id) = 'ok');
   perform pg_temp.ck('O9 a published item cannot be given an override',
@@ -161,6 +161,17 @@ begin
   alter table public.health_education_content enable trigger health_education_reading_grade_gate;
   perform pg_temp.ck('E4 an item published before the gate existed can still be edited in unrelated ways (the gate only looks at a move to published)',
     pg_temp.owner_try(format('update public.health_education_content set sort_order = sort_order + 1 where id = %L', v_id)) = 'ok');
+
+  -- an in-place edit of a published item, and a hard summary, are graded too
+  v_id := pg_temp.mkdraft('rg-inplace', v_plain);
+  perform pg_temp.ck('E9a plain content publishes', pg_temp.publish(v_id) = 'ok');
+  perform pg_temp.ck('E9 editing a published item to dense wording is refused (the gate also runs on an in-place text change)',
+    pg_temp.owner_try(format('update public.health_education_content set body = %L where id = %L', v_dense, v_id)) = '23514');
+  perform pg_temp.ck('E9b an unrelated edit to the same published item still works',
+    pg_temp.owner_try(format('update public.health_education_content set sort_order = sort_order + 1 where id = %L', v_id)) = 'ok');
+  v_id := pg_temp.mkdraft('rg-summary', v_plain);
+  update public.health_education_content set summary = v_dense where id = v_id;
+  perform pg_temp.ck('E10 a plain body with a hard-to-read summary cannot be published', pg_temp.publish(v_id) = '23514');
 
   perform pg_temp.ck('E5 the report is available to an admin and lists the dense items',
     pg_temp.as_count(v_admin, $q$select count(*) from public.learning_reading_grade_report() where over_maximum$q$) >= 1);

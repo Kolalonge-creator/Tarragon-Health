@@ -108,6 +108,8 @@ declare
   v_max numeric;
   v_min integer;
   v_grade numeric := private.reading_grade(new.body);
+  v_sum_grade numeric := private.reading_grade(coalesce(new.summary, ''));
+  v_gate numeric;
 begin
   if tg_op = 'INSERT' or new.reading_grade is distinct from v_grade or new.reading_grade_checked_at is null then
     new.reading_grade_checked_at := now();
@@ -128,8 +130,12 @@ begin
     end if;
   end if;
 
+  -- The gate runs when an item becomes published AND whenever the graded text (body or summary) of an already published item changes, so an
+  -- in-place edit cannot slip hard wording past it. The grade is the harder of the body and the summary.
+  v_gate := greatest(v_grade, v_sum_grade);
   if new.content_status = 'published'
-     and (tg_op = 'INSERT' or old.content_status is distinct from 'published')
+     and (tg_op = 'INSERT' or old.content_status is distinct from 'published'
+          or old.body is distinct from new.body or old.summary is distinct from new.summary)
      and not new.is_placeholder
      and new.reading_level is distinct from 'clinician' then
     v_cfg := private.learning_config('reading_grade');
@@ -138,11 +144,11 @@ begin
     end if;
     v_max := (v_cfg ->> 'max_grade')::numeric;
     v_min := (v_cfg ->> 'min_override_reason_chars')::integer;
-    if v_grade > v_max then
+    if v_gate > v_max then
       if new.reading_grade_override_reason is null
          or char_length(btrim(new.reading_grade_override_reason)) < v_min
-         or new.reading_grade_override_body_md5 is distinct from md5(new.body) then
-        raise exception 'Reading grade % is above the maximum of % for patient content. Shorten the sentences and use simpler words, or a reviewer records an override reason first.', v_grade, v_max
+         or new.reading_grade_override_body_md5 is distinct from md5(new.body || chr(31) || coalesce(new.summary, '')) then
+        raise exception 'Reading grade % is above the maximum of % for patient content. Shorten the sentences and use simpler words, or a reviewer records an override reason first.', v_gate, v_max
           using errcode = '23514';
       end if;
     end if;
@@ -188,14 +194,14 @@ begin
      set reading_grade_override_reason = btrim(p_reason),
          reading_grade_override_by = v_actor,
          reading_grade_override_at = now(),
-         reading_grade_override_body_md5 = md5(v_row.body)
+         reading_grade_override_body_md5 = md5(v_row.body || chr(31) || coalesce(v_row.summary, ''))
    where id = p_content_id;
   perform set_config('tarragon.reading_grade_override', '', true);
 
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
   values (v_org, v_actor, 'learning.reading_grade_override', 'health_education_content', p_content_id,
-          jsonb_build_object('grade', private.reading_grade(v_row.body)));
-  return private.reading_grade(v_row.body);
+          jsonb_build_object('grade', greatest(private.reading_grade(v_row.body), private.reading_grade(coalesce(v_row.summary, '')))));
+  return greatest(private.reading_grade(v_row.body), private.reading_grade(coalesce(v_row.summary, '')));
 end;
 $$;
 revoke execute on function public.set_reading_grade_override(uuid, text) from public, anon;
@@ -216,12 +222,12 @@ begin
     raise exception 'Admin or Chief Medical Officer only' using errcode = '42501';
   end if;
   return query
-    select c.code, c.title, c.content_status, private.reading_grade(c.body),
-           private.reading_grade(c.body) > v_max,
-           (c.reading_grade_override_body_md5 is not distinct from md5(c.body) and c.reading_grade_override_reason is not null)
+    select c.code, c.title, c.content_status, greatest(private.reading_grade(c.body), private.reading_grade(coalesce(c.summary, ''))),
+           greatest(private.reading_grade(c.body), private.reading_grade(coalesce(c.summary, ''))) > v_max,
+           (c.reading_grade_override_body_md5 is not distinct from md5(c.body || chr(31) || coalesce(c.summary, '')) and c.reading_grade_override_reason is not null)
       from public.health_education_content c
      where not c.is_placeholder and c.reading_level is distinct from 'clinician'
-     order by private.reading_grade(c.body) desc, c.code;
+     order by greatest(private.reading_grade(c.body), private.reading_grade(coalesce(c.summary, ''))) desc, c.code;
 end;
 $$;
 revoke execute on function public.learning_reading_grade_report() from public, anon;
@@ -642,6 +648,9 @@ begin
       join public.health_education_content c on c.id = r.content_id
       join public.learning_saved_for_consultation s on s.patient_id = r.patient_id and s.content_id = r.content_id
      where r.patient_id = p_patient and r.shared_with_care_team
+       -- a share counts only for the save it was made with: removing the saved lesson and saving it again later (for another visit)
+       -- does not carry the old consent over
+       and r.shared_at is not null and r.shared_at >= s.saved_at
        and private.health_education_is_servable(c.is_active, c.content_status, c.next_review_due)
      order by r.taken_at desc;
 end;

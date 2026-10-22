@@ -103,6 +103,27 @@ export type RecordLessonDecision =
 const HOUR_MS = 3_600_000;
 const DAY_MS = 86_400_000;
 
+/**
+ * A reading the platform's classifier calls "green" is not always "in a good range": a very low blood pressure classifies as green, and the
+ * single-reading glucose classifier cannot tell "in range" from "high but not yet an alert". These two mappers turn such a green into "unknown"
+ * (no lesson) so a lesson never reassures about a reading it should not.
+ * The low blood pressure floor is PROPOSED (90/60) and awaits the CMO; until confirmed it only ever makes the lesson more conservative. It mirrors
+ * the floor in public.record_lesson_shown. Glucose has no database classifier at all, so the database refuses every glucose lesson and this
+ * mapper never offers one as in range.
+ */
+export const LOW_BP_FLOOR = { systolic: 90, diastolic: 60 } as const;
+
+export function bpLessonLevel(level: RecordLevel, systolic: number | null | undefined, diastolic: number | null | undefined): RecordLevel {
+  if (level !== "green") return level;
+  if (systolic == null || diastolic == null) return "unknown";
+  return systolic < LOW_BP_FLOOR.systolic || diastolic < LOW_BP_FLOOR.diastolic ? "unknown" : "green";
+}
+
+/** Glucose is never "in range" for a lesson: only the urgent bands carry through (so urgent help still wins); everything else is unknown. */
+export function glucoseLessonLevel(level: RecordLevel): RecordLevel {
+  return level === "red" || level === "emergency" ? level : "unknown";
+}
+
 const isUrgent = (l: RecordLevel) => l === "red" || l === "emergency";
 const byTimeDesc = <T extends { takenAt: string }>(a: T, b: T) => Date.parse(b.takenAt) - Date.parse(a.takenAt);
 
@@ -123,10 +144,11 @@ function vitalsDecision(
   if (!latest) return none;
 
   const suppressFrom = nowMs - config.suppress_hours_after_urgent * HOUR_MS;
-  const urgentHit = isUrgent(latest.level)
-    ? latest
-    : known.find((r) => isUrgent(r.level) && Date.parse(r.takenAt) >= suppressFrom);
+  // Urgent help is bounded by the suppression window: a red reading older than the window no longer shows the urgent box, but it still blocks
+  // a lesson (the latest reading is not in a good range, so nothing reassuring is shown).
+  const urgentHit = known.find((r) => isUrgent(r.level) && Date.parse(r.takenAt) >= suppressFrom);
   if (urgentHit) return { ...none, urgent: { kind: "urgent", source, sourceId: urgentHit.id } };
+  if (isUrgent(latest.level)) return { ...none, sustainedMiss: true };
 
   const codes = config.lessons[source];
   if (latest.level === "green") {
@@ -156,6 +178,7 @@ function vitalsDecision(
 function labDecisions(
   items: readonly LabItemInput[],
   config: RecordLessonConfig,
+  nowMs: number,
 ): { urgent: Extract<RecordLessonDecision, { kind: "urgent" }> | null; candidates: Candidate[]; sustainedMiss: boolean; unconfigured: boolean } {
   const out = { urgent: null as Extract<RecordLessonDecision, { kind: "urgent" }> | null, candidates: [] as Candidate[], sustainedMiss: false, unconfigured: false };
   // Rule 3: released only; drop a result whole if any of its items is a sensitive positive.
@@ -165,7 +188,11 @@ function labDecisions(
   );
 
   const critical = usable.filter((i) => i.flag === "critical").sort((a, b) => Date.parse(b.receivedAt) - Date.parse(a.receivedAt))[0];
-  if (critical) out.urgent = { kind: "urgent", source: "lab", sourceId: critical.id };
+  // Bounded by the suppression window, like the vitals. An older critical value no longer shows the urgent box, but the analyte below still
+  // shows no lesson while its latest value is critical.
+  if (critical && Date.parse(critical.receivedAt) >= nowMs - config.suppress_hours_after_urgent * HOUR_MS) {
+    out.urgent = { kind: "urgent", source: "lab", sourceId: critical.id };
+  }
 
   const byAnalyte = new Map<string, LabItemInput[]>();
   for (const i of usable) byAnalyte.set(i.analyteCode, [...(byAnalyte.get(i.analyteCode) ?? []), i]);
@@ -202,7 +229,7 @@ export function selectRecordLesson(input: RecordLessonInput, config: RecordLesso
   const nowMs = Date.parse(input.now);
   const bp = vitalsDecision("blood_pressure", input.bloodPressure, config, nowMs);
   const gl = vitalsDecision("glucose", input.glucose, config, nowMs);
-  const lab = labDecisions(input.labItems, config);
+  const lab = labDecisions(input.labItems, config, nowMs);
 
   // Rule 1: urgent outranks everything, for every source.
   const urgent = bp.urgent ?? gl.urgent ?? lab.urgent;

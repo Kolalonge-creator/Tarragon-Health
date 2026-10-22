@@ -32,7 +32,13 @@ export function splitByGlossary(text: string, terms: readonly GlossaryTerm[]): G
   if (forms.length === 0) return [{ text }];
   forms.sort((a, b) => b.form.length - a.form.length);
   const byLower = new Map(forms.map((f) => [f.form.toLowerCase(), f.term]));
-  const pattern = new RegExp(`(?<![A-Za-z0-9])(?:${forms.map((f) => escapeRegExp(f.form)).join("|")})(?![A-Za-z0-9])`, "gi");
+  let pattern: RegExp;
+  try {
+    pattern = new RegExp(`(?<![A-Za-z0-9])(?:${forms.map((f) => escapeRegExp(f.form)).join("|")})(?![A-Za-z0-9])`, "gi");
+  } catch {
+    // An engine without lookbehind (older iOS Safari) cannot build this pattern. The glossary must never block a lesson: show the plain text.
+    return [{ text }];
+  }
 
   const seen = new Set<GlossaryTerm>();
   const out: GlossarySegment[] = [];

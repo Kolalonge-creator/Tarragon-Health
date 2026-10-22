@@ -203,6 +203,7 @@ export function TeachbackQuizNative({ code }: { code: string }) {
     setFailed(false);
     try {
       if (await shareTeachback(code, !shared)) setShared(!shared);
+      else setFailed(true); // refused by the database: say so rather than look like it worked
     } catch {
       setFailed(true);
     } finally {

@@ -97,13 +97,14 @@ begin
   return v;
 end $f$;
 -- a lab result with one item; returns the item id
-create function pg_temp.lab(p_org uuid, p_pat uuid, p_analyte text, p_flag text, p_state text, p_sensitive boolean default false, p_result uuid default null) returns uuid language plpgsql as $f$
+create function pg_temp.lab(p_org uuid, p_pat uuid, p_analyte text, p_flag text, p_state text, p_sensitive boolean default false, p_result uuid default null, p_days_ago numeric default 0) returns uuid language plpgsql as $f$
 declare v_res uuid := coalesce(p_result, gen_random_uuid()); v_item uuid := gen_random_uuid();
 begin
   set local session_replication_role = replica;   -- the release state machine is not what is under test
   if p_result is null then
-    insert into public.lab_results (id, organisation_id, patient_id, source, submitted_by_kind, release_state, release_reason, released_at, is_test)
-    values (v_res, p_org, p_pat, 'pdf_upload', 'tarragon_team', p_state, case when p_state = 'released' then 'proof' end, case when p_state = 'released' then now() end, true);
+    insert into public.lab_results (id, organisation_id, patient_id, source, submitted_by_kind, release_state, release_reason, released_at, received_at, is_test)
+    values (v_res, p_org, p_pat, 'pdf_upload', 'tarragon_team', p_state, case when p_state = 'released' then 'proof' end, case when p_state = 'released' then now() end,
+            now() - make_interval(secs => (p_days_ago * 86400)::int), true);
   end if;
   insert into public.lab_result_items (id, lab_result_id, organisation_id, patient_id, analyte_code, value_numeric, value_text, unit, flag, sensitive_positive, is_test)
   values (v_item, v_res, p_org, p_pat, p_analyte, case when p_sensitive then null else 5.2 end, case when p_sensitive then 'positive' end, '', p_flag, p_sensitive, true);
@@ -115,7 +116,7 @@ do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_pt uuid; v_pr uuid; v_po uuid;
   v_g1 uuid; v_a1 uuid; v_a2 uuid; v_a3 uuid; v_other uuid; v_red uuid; v_l1 uuid; v_l3 uuid; v_lh1 uuid; v_lh2 uuid; v_lres uuid; v_sens uuid; v_amber uuid;
-  v_t text;
+  v_t text; v_p3 uuid; v_n1 uuid; v_n2 uuid; v_c1 uuid; v_r1 uuid;
 begin
   select id into v_org from public.organisations limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -123,6 +124,7 @@ begin
   v_pt := pg_temp.mkuser(v_org, 'test-patient', 'patient', true);
   v_pr := pg_temp.mkuser(v_org, 'real-patient', 'patient', false);
   v_po := pg_temp.mkuser(v_org, 'other-patient', 'patient', true);
+  v_p3 := pg_temp.mkuser(v_org, 'third-patient', 'patient', true);
   insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
   values (v_cmo, v_org, 'RL CMO', 'chief_medical_officer', true, 'MDCN', 'RL-CMO-1', true, v_admin, v_admin, now());
 
@@ -227,7 +229,7 @@ begin
     pg_temp.as_text(v_pt, format($q$select public.record_lesson_shown('glucose', 'in_target', 'record-glucose-in-target', array[%L]::uuid[])$q$, pg_temp.glu(v_org, v_pt, 6.1, 0.1))) = 'refused');
 
   -- labs
-  v_l1 := pg_temp.lab(v_org, v_pt, 'hba1c', 'normal', 'released');
+  v_l1 := pg_temp.lab(v_org, v_pt, 'hba1c', 'normal', 'released', false, null, 30);
   perform pg_temp.ck('R19 a normal released HbA1c may show its lesson',
     pg_temp.as_text(v_pt, format($q$select public.record_lesson_shown('lab', 'normal', 'record-lab-hba1c-normal', array[%L]::uuid[])$q$, v_l1)) = 'shown');
   perform pg_temp.ck('R20 a result that is not released is never used (INV-03)',
@@ -239,10 +241,10 @@ begin
   perform pg_temp.ck('R21 a released result that also holds a sensitive positive is never used (INV-04)',
     pg_temp.as_text(v_pt, format($q$select public.record_lesson_shown('lab', 'normal', 'record-lab-hba1c-normal', array[%L]::uuid[])$q$, v_l3)) = 'refused');
   -- high: never from one value, a sustained run only
-  v_lh1 := pg_temp.lab(v_org, v_pt, 'hba1c', 'high', 'released');
+  v_lh1 := pg_temp.lab(v_org, v_pt, 'hba1c', 'high', 'released', false, null, 20);
   perform pg_temp.ck('R22 one high result never produces a lesson',
     pg_temp.as_text(v_pt, format($q$select public.record_lesson_shown('lab', 'high', 'record-lab-hba1c-high', array[%L]::uuid[])$q$, v_lh1)) = 'refused');
-  v_lh2 := pg_temp.lab(v_org, v_pt, 'hba1c', 'high', 'released');
+  v_lh2 := pg_temp.lab(v_org, v_pt, 'hba1c', 'high', 'released', false, null, 10);
   perform pg_temp.ck('R23 two high results do',
     pg_temp.as_text(v_pt, format($q$select public.record_lesson_shown('lab', 'high', 'record-lab-hba1c-high', array[%L, %L]::uuid[])$q$, v_lh1, v_lh2)) = 'shown');
 
@@ -254,6 +256,38 @@ begin
   perform pg_temp.ck('R23b another person reads none of it, and anon is refused',
     pg_temp.as_count(v_po, format('select count(*) from public.record_lesson_lab_items() where id = %L', v_l1)) = 0
     and pg_temp.as_try(null, 'select * from public.record_lesson_lab_items()') = '42501');
+
+  -- ================= R+. server-side re-checks added in review (recency, distinct results, low pressure, glucose, critical lab) =================
+  -- glucose: no database classifier exists, so every glucose lesson is refused even when the lesson is published
+  perform pg_temp.ck('R28 a glucose lesson is refused even when the lesson is published (no database glucose band)',
+    pg_temp.publish_seed('record-glucose-in-target') = 'ok'
+    and pg_temp.as_text(v_p3, format($q$select public.record_lesson_shown('glucose', 'in_target', 'record-glucose-in-target', array[%L]::uuid[])$q$, pg_temp.glu(v_org, v_p3, 13.0, 0.1))) = 'refused');
+  -- blood pressure: only the newest reading can be cited as "in a good range", and never a low one
+  v_n1 := pg_temp.bp(v_org, v_p3, 118, 76, 2);
+  v_n2 := pg_temp.bp(v_org, v_p3, 142, 90, 1);
+  perform pg_temp.ck('R29 an older green reading cannot be cited while a newer reading exists',
+    pg_temp.as_text(v_p3, format($q$select public.record_lesson_shown('blood_pressure', 'in_target', 'record-bp-in-target', array[%L]::uuid[])$q$, v_n1)) = 'refused');
+  perform pg_temp.ck('R29a control: the same reading is accepted once nothing newer exists',
+    (select pg_temp.owner_msg(format('delete from public.vitals_readings where id = %L', v_n2))) = 'ok'
+    and pg_temp.as_text(v_p3, format($q$select public.record_lesson_shown('blood_pressure', 'in_target', 'record-bp-in-target', array[%L]::uuid[])$q$, v_n1)) = 'shown');
+  v_n2 := pg_temp.bp(v_org, v_p3, 82, 50, 0.05);
+  perform pg_temp.ck('R30 a low reading (82/50) is not "in a good range"',
+    pg_temp.as_text(v_p3, format($q$select public.record_lesson_shown('blood_pressure', 'in_target', 'record-bp-in-target', array[%L]::uuid[])$q$, v_n2)) = 'refused');
+  -- labs: distinct, newest results only; a critical released result outranks a lesson
+  v_c1 := pg_temp.lab(v_org, v_p3, 'hba1c', 'high', 'released', false, null, 40);
+  v_r1 := pg_temp.lab(v_org, v_p3, 'hba1c', 'high', 'released', false, (select lab_result_id from public.lab_result_items where id = v_c1), 40);
+  perform pg_temp.ck('R31 two items of one result are not a sustained run of two results',
+    pg_temp.as_text(v_p3, format($q$select public.record_lesson_shown('lab', 'high', 'record-lab-hba1c-high', array[%L, %L]::uuid[])$q$, v_c1, v_r1)) = 'refused');
+  v_n1 := pg_temp.lab(v_org, v_p3, 'hba1c', 'high', 'released', false, null, 20);
+  v_n2 := pg_temp.lab(v_org, v_p3, 'hba1c', 'normal', 'released', false, null, 5);
+  perform pg_temp.ck('R32 an older high run cannot be cited when a newer result exists',
+    pg_temp.as_text(v_p3, format($q$select public.record_lesson_shown('lab', 'high', 'record-lab-hba1c-high', array[%L, %L]::uuid[])$q$, v_c1, v_n1)) = 'refused');
+  perform pg_temp.ck('R32a an old normal result cannot be cited when a newer one exists, the newest can',
+    pg_temp.as_text(v_p3, format($q$select public.record_lesson_shown('lab', 'normal', 'record-lab-hba1c-normal', array[%L]::uuid[])$q$, v_n1)) = 'refused'
+    and pg_temp.as_text(v_p3, format($q$select public.record_lesson_shown('lab', 'normal', 'record-lab-hba1c-normal', array[%L]::uuid[])$q$, v_n2)) = 'shown');
+  perform pg_temp.lab(v_org, v_p3, 'hba1c', 'critical', 'released', false, null, 0.5);
+  perform pg_temp.ck('R33 a critical released lab inside the window blocks a lab lesson that was accepted a moment ago',
+    pg_temp.as_text(v_p3, format($q$select public.record_lesson_shown('lab', 'normal', 'record-lab-hba1c-normal', array[%L]::uuid[])$q$, v_n2)) = 'refused');
 
   -- tables and roles
   perform pg_temp.ck('R24 a client cannot write the shows table',
