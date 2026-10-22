@@ -126,8 +126,7 @@ begin
       array['adherence_4_weeks','first_bp_logged','first_course_completed','first_glucose_logged','first_lab_done','first_lesson_completed','first_review_attended']);
 
   -- ================= 2. event driven, idempotent =================
-  insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source) values (v_org, v_a, 'blood_pressure', 118, 76, 'manual') returning id into v_vid;
-  update public.vitals_readings set created_at = now() - interval '10 days' where id = v_vid;
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source, created_at) values (v_org, v_a, 'blood_pressure', 118, 76, 'manual', now() - interval '10 days') returning id into v_vid;
   v_ev := pg_temp.vit_event(v_vid);
   perform public.points_award(v_ev);
   perform pg_temp.ck('2a the first blood pressure check celebrates', pg_temp.has_ms(v_a, 'first_bp_logged'));
@@ -185,7 +184,7 @@ begin
   perform public.points_award(pg_temp.fire(v_hist, 'lab_result.released', 'hist-lab'));
   perform pg_temp.ck('2b5 an earlier released lab stops a first-lab card', not pg_temp.has_ms(v_hist, 'first_lab_done'));
   -- the same rule as points: any implausible measured field earns nothing and is no milestone
-  insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, pulse_bpm, source) values (v_org, v_pl, 'blood_pressure', 120, 80, 300, 'manual') returning id into v_vid;
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, pulse_bpm, source) values (v_org, v_pl, 'blood_pressure', 120, 80, 260, 'manual') returning id into v_vid;
   perform public.points_award(pg_temp.vit_event(v_vid));
   perform pg_temp.ck('2b6 a blood pressure reading with an implausible pulse is no milestone', not pg_temp.has_ms(v_pl, 'first_bp_logged'));
   -- a silent backfill row: born dismissed, no event, stops a card; a non-backfilled row without an event is refused
@@ -275,7 +274,7 @@ begin
 
   -- ================= 6b. age gate: not shown to under 18 by default =================
   v_minor := pg_temp.mkuser(v_org, 'minor', 'patient');
-  update public.profiles set date_of_birth = current_date - interval '12 years' where id = v_minor;
+  update public.profiles set date_of_birth = current_date - interval '12 years', is_dependent_account = true, dependent_kind = 'minor_child' where id = v_minor;
   perform public.points_award(pg_temp.fire(v_minor, 'lab_result.released', 'ms-minor-lab'));
   perform pg_temp.ck('6b1 a minor''s milestone is still recorded', pg_temp.has_ms(v_minor, 'first_lab_done'));
   perform pg_temp.ck('6b2 but no card is shown to a minor by default', pg_temp.as_json(v_minor, $q$select public.my_pending_milestone()$q$) is null);
@@ -287,7 +286,7 @@ begin
   insert into public.wellness_points_balances (patient_id, organisation_id, balance, lifetime_earned) values (v_r, v_org, 700, 700)
   on conflict (patient_id) do update set balance = 700, lifetime_earned = 700;
   v_o := pg_temp.mkorder(v_org, v_r, 500, 'S58B-REF-1');
-  update public.orders set state = 'paid' where id = v_o;
+  update public.orders set state = 'paid', paid_at = now(), fee_kobo = 0, total_kobo = amount_kobo where id = v_o;
   perform pg_temp.ck('7a payment spends the points once', pg_temp.bal(v_r) = 200);
   update public.orders set state = 'refunded' where id = v_o;
   perform pg_temp.ck('7b a refund returns exactly what was spent', pg_temp.bal(v_r) = 700);
@@ -303,7 +302,7 @@ begin
   exception when unique_violation then perform pg_temp.ck('7f a second return for the same order is blocked by the ledger key', true); end;
   -- nothing spent (no balance at payment): nothing to return
   v_o := pg_temp.mkorder(v_org, v_r2, 500, 'S58B-REF-2');
-  update public.orders set state = 'paid' where id = v_o;
+  update public.orders set state = 'paid', paid_at = now(), fee_kobo = 0, total_kobo = amount_kobo where id = v_o;
   update public.orders set state = 'refunded' where id = v_o;
   perform pg_temp.ck('7g an order that spent nothing returns nothing', not exists (select 1 from public.wellness_points_ledger where patient_id = v_r2) and pg_temp.bal(v_r2) = 0);
   -- cancelled order never touched the balance
@@ -391,7 +390,7 @@ begin
 
   -- E. age gate removed => a minor is shown a card
   begin
-    update public.profiles set date_of_birth = current_date - interval '12 years' where id = v_p;
+    update public.profiles set date_of_birth = current_date - interval '12 years', is_dependent_account = true, dependent_kind = 'minor_child' where id = v_p;
     v_e := private.emit_domain_event('lab_result.released', v_org, '{"lab_result_id":"x"}', 'sab-lab-4', v_p);
     perform private.milestones_evaluate_event(v_e);
     v_def := pg_get_functiondef('public.my_pending_milestone()'::regprocedure);
@@ -432,7 +431,7 @@ begin
     v_o := gen_random_uuid();
     insert into public.orders (id, organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, list_amount_kobo, points_applied, points_reduction_kobo, paystack_reference, is_test)
     values (v_o, v_org, v_p, v_p, v_item, v_price, 475000, 500000, 500, 25000, 'S58B-SAB', true);
-    update public.orders set state = 'paid' where id = v_o;
+    update public.orders set state = 'paid', paid_at = now(), fee_kobo = 0, total_kobo = amount_kobo where id = v_o;
     update public.orders set state = 'refunded' where id = v_o;
     v_flip := (select balance from public.wellness_points_balances where patient_id = v_p) = 200;
     raise exception 'rollback_sab';
