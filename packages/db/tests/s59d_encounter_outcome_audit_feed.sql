@@ -337,7 +337,8 @@ begin
   alter function private.record_symptom_outcomes_for_note(uuid) rename to record_orig;
   create function private.record_symptom_outcomes_for_note(p_note uuid) returns integer language plpgsql as $q$
   begin
-    if current_setting('s59d.fail_first', true) = 'on' then perform set_config('s59d.fail_first', 'off', true); raise exception 'sabotaged link'; end if;
+    -- fails for the A01 note only (a GUC flag cannot be used: its reset would be rolled back with the failing sub-transaction)
+    if (select diagnosis_code from public.clinical_encounter_notes where id = p_note) = 'A01' then raise exception 'sabotaged link'; end if;
     return private.record_orig(p_note);
   end $q$;
   f := pg_temp.flow(v_org, v_q, v_c1, 'urgent', 'A01');
@@ -346,22 +347,26 @@ begin
   perform public.set_encounter_note_diagnosis_code(v_amend, 'B50.9');
   perform pg_temp.back();
   perform pg_temp.sign(v_c1, (f ->> 'note')::uuid); perform pg_temp.sign(v_c1, v_amend);
-  perform set_config('s59d.fail_first', 'on', true);
   perform pg_temp.complete(v_c1, (f ->> 'enc')::uuid);
   if (select status from public.encounters where id = (f ->> 'enc')::uuid) <> 'completed' then raise exception 'FAIL 5e1: a failing link with a failing audit insert blocked the completion'; end if;
-  if not exists (select 1 from public.symptom_encounter_outcomes where assessment_id = (f ->> 'a')::uuid) then raise exception 'FAIL 5e2: the first failing note stopped the next one'; end if;
+  if not exists (select 1 from public.symptom_encounter_outcomes where assessment_id = (f ->> 'a')::uuid and diagnosis_code = 'B50.9') then raise exception 'FAIL 5e2: the failing A01 note stopped the B50.9 note from being linked'; end if;
+  if exists (select 1 from public.symptom_encounter_outcomes where assessment_id = (f ->> 'a')::uuid and diagnosis_code = 'A01') then raise exception 'FAIL 5e2b: the sabotaged note was linked'; end if;
   alter table public.audit_log drop constraint s59d_no_link_error;
   drop function private.record_symptom_outcomes_for_note(uuid);
   alter function private.record_orig(uuid) rename to record_symptom_outcomes_for_note;
 
   -- 6. the feed never blocks care
-  create or replace function private.record_symptom_outcomes_for_note(p_note uuid) returns integer language plpgsql as $q$ begin raise exception 'sabotaged link'; end $q$;
+  alter function private.record_symptom_outcomes_for_note(uuid) rename to record_orig;
+  create function private.record_symptom_outcomes_for_note(p_note uuid) returns integer language plpgsql as $q$ begin raise exception 'sabotaged link'; end $q$;
   f := pg_temp.flow(v_org, v_p, v_c1, 'urgent', 'B50.9');
   perform pg_temp.sign(v_c1, (f ->> 'note')::uuid);
   if (select status from public.clinical_encounter_notes where id = (f ->> 'note')::uuid) <> 'finalized' then raise exception 'FAIL 6a: a failing feed blocked the signature'; end if;
   perform pg_temp.complete(v_c1, (f ->> 'enc')::uuid);
   if (select status from public.encounters where id = (f ->> 'enc')::uuid) <> 'completed' then raise exception 'FAIL 6b: a failing feed blocked the completion'; end if;
   if not exists (select 1 from public.audit_log where action = 'symptom_outcome.link_error' and entity_id = (f ->> 'note')::uuid) then raise exception 'FAIL 6c: the failure was not audited'; end if;
+  -- put the real link function back, so the sabotage checks below discriminate
+  drop function private.record_symptom_outcomes_for_note(uuid);
+  alter function private.record_orig(uuid) rename to record_symptom_outcomes_for_note;
 
   -- SABOTAGE (a): the guard trigger dropped, a delete must now succeed
   drop trigger symptom_encounter_outcomes_00_guard on public.symptom_encounter_outcomes;
