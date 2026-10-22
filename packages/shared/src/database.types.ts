@@ -16946,6 +16946,113 @@ export type Database = {
           },
         ]
       }
+      employer_seat_pilots: {
+        Row: {
+          activated_at: string | null
+          activated_by: string | null
+          benefit_package_id: string
+          close_reason: string | null
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          created_by: string | null
+          ends_on: string
+          id: string
+          invoice_id: string | null
+          is_test: boolean
+          organisation_id: string
+          payment_method: string | null
+          payment_reference: string | null
+          seat_price_id: string
+          seat_price_kobo: number
+          seats_purchased: number
+          starts_on: string
+          state: string
+          terms_version: string
+          total_kobo: number
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          activated_by?: string | null
+          benefit_package_id: string
+          close_reason?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          ends_on: string
+          id?: string
+          invoice_id?: string | null
+          is_test?: boolean
+          organisation_id: string
+          payment_method?: string | null
+          payment_reference?: string | null
+          seat_price_id: string
+          seat_price_kobo: number
+          seats_purchased: number
+          starts_on: string
+          state?: string
+          terms_version: string
+          total_kobo: number
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          activated_by?: string | null
+          benefit_package_id?: string
+          close_reason?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          ends_on?: string
+          id?: string
+          invoice_id?: string | null
+          is_test?: boolean
+          organisation_id?: string
+          payment_method?: string | null
+          payment_reference?: string | null
+          seat_price_id?: string
+          seat_price_kobo?: number
+          seats_purchased?: number
+          starts_on?: string
+          state?: string
+          terms_version?: string
+          total_kobo?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_seat_pilots_benefit_package_id_fkey"
+            columns: ["benefit_package_id"]
+            isOneToOne: false
+            referencedRelation: "employer_benefit_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_seat_pilots_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "employer_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_seat_pilots_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_seat_pilots_seat_price_id_fkey"
+            columns: ["seat_price_id"]
+            isOneToOne: false
+            referencedRelation: "organisation_member_prices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employer_roster_members: {
         Row: {
           added_by: string | null
@@ -47388,6 +47495,7 @@ export type Database = {
           seat_price_kobo: number | null
           organisation_id: string
           patient_id: string
+          pilot_id: string | null
           remaining_uses: number | null
           reminded_at: string | null
           starts_at: string
@@ -47409,6 +47517,7 @@ export type Database = {
           seat_price_kobo?: number | null
           organisation_id: string
           patient_id: string
+          pilot_id?: string | null
           remaining_uses?: number | null
           reminded_at?: string | null
           starts_at?: string
@@ -47430,6 +47539,7 @@ export type Database = {
           seat_price_kobo?: number | null
           organisation_id?: string
           patient_id?: string
+          pilot_id?: string | null
           remaining_uses?: number | null
           reminded_at?: string | null
           starts_at?: string
@@ -50598,6 +50708,28 @@ export type Database = {
         Returns: string;
       };
       organisation_seat_summary: { Args: { p_org: string }; Returns: Json };
+      close_employer_seat_pilot: {
+        Args: { p_pilot: string; p_reason: string }
+        Returns: string
+      };
+      confirm_employer_seat_pilot_payment: {
+        Args: { p_method: string; p_pilot: string; p_reference: string }
+        Returns: Json
+      };
+      create_employer_seat_pilot: {
+        Args: {
+          p_benefit_package: string
+          p_ends_on: string
+          p_is_test?: boolean
+          p_org: string
+          p_seats: number
+          p_starts_on: string
+          p_terms_version: string
+        }
+        Returns: string
+      };
+      employer_seat_pilot_report: { Args: { p_pilot: string }; Returns: Json };
+      issue_employer_seat_pilot_invoice: { Args: { p_pilot: string }; Returns: string };
       admin_create_institution_org: {
         Args: { p_name: string; p_type: string }
         Returns: string
