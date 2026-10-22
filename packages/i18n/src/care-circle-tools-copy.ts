@@ -44,7 +44,7 @@ export const circleToolsCopy = {
   "cctools.preview.control.sender": "You can stop sharing at any time, and you can always see who looked.",
   "cctools.preview.control.invitee": "{name} can stop sharing at any time, and can see each time you look.",
   "cctools.preview.none": "Nothing is shared yet. Choose what they can do.",
-  "cctools.preview.cross_org": "Because your account is with a different organisation, paying and shared jobs are not available to you.",
+  "cctools.preview.cross_org": "Because your account is with a different organisation, some options are not available to you.",
 
   // --- the sender's list: neutral, never says declined
   "cctools.invite.waiting": "Waiting for them",

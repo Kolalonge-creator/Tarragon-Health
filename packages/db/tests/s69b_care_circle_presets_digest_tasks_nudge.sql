@@ -5,9 +5,13 @@
 -- and viewers refused, pause hides them, a removed helper's job goes back to open, supporter reads are logged); the digest (module
 -- gate, only blocks for permissions held, counts not values, logged); the nudge (module gate, opt-in per supporter, needs the medicines
 -- permission, grace and window honoured, once per slot, an answered slot is silent, paused is silent, the patient-first window holds it,
--- the notice carries no payload) and that a RED EVENT still reaches supporters at once with nothing from the nudge involved.
+-- the notice carries no payload; slots come from the schedule, so a weekday-only medicine on an off day, a past end date, a taper to zero, a
+-- schedule that has not taken effect yet and a malformed time all send nothing; an answered slot leaves the nudge list) and that a RED EVENT
+-- STILL reaches supporters at once with nothing from the nudge involved. Also: a quietly declined invite cannot be told from a pending one by
+-- the sender selecting the table, and counts in the invite cap the same; a red_alerts-only member reads no job and no job count.
 -- SABOTAGE (each must flip a check): the opt-in test removed from the sweep; the permission test removed from the digest; the viewer made
--- a helper in the task gate.
+-- a helper in the task gate; the sweep reading the raw time list; the view-permission gate removed from the task role; "not now" made to
+-- change the invite's state.
 
 begin;
 
@@ -112,7 +116,7 @@ end $f$;
 do $$
 declare
   v_org uuid; v_admin uuid; v_pat uuid; v_see uuid; v_help uuid; v_help2 uuid; v_nope uuid; v_stranger uuid; v_late uuid;
-  v_inv_see uuid; v_inv_help uuid; r text; v_mem uuid; v_task uuid; v_task2 uuid; v_med uuid; v_med2 uuid; n integer; v_day date; v_pg uuid; d text;
+  v_inv_see uuid; v_inv_help uuid; v_red uuid; v_poster uuid; v_cap_old text; r text; r2 text; v_mem uuid; v_task uuid; v_task2 uuid; v_med uuid; v_med2 uuid; n integer; v_day date; v_pg uuid; d text;
   v_lagos date := (now() at time zone 'Africa/Lagos')::date;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
@@ -124,11 +128,16 @@ begin
   v_nope := pg_temp.mkuser(v_org, 'nope', 'patient', true);     -- will quietly say "not now"
   v_stranger := pg_temp.mkuser(v_org, 'stranger', 'patient', true);
   v_late := pg_temp.mkuser(v_org, 'late', 'patient', true);     -- appointments only (no medicines permission)
+  v_red := pg_temp.mkuser(v_org, 'red', 'patient', true);       -- red_alerts only
+  v_poster := pg_temp.mkuser(v_org, 'poster', 'patient', true); -- Can see and help, later dropped to Can see
+  -- the proof makes many invites in one day; the daily limit is not what is under test
+  update public.care_circle_config set rules = jsonb_set(rules, '{max_invites_per_day}', '50') where is_active;
 
   -- 1. the presets are ordinary permission sets the existing database accepts ------------------------------------------------
   perform pg_temp.ck('Can see joins', 'true', (pg_temp.join_with(v_pat, v_see, array['adherence_summary', 'weekly_bp_trend', 'appointments', 'red_alerts'], 'see') like '%"ok": true%')::text);
   perform pg_temp.ck('Can see and help joins', 'true', (pg_temp.join_with(v_pat, v_help, array['adherence_summary', 'weekly_bp_trend', 'appointments', 'red_alerts', 'pay_for_care'], 'help') like '%"ok": true%')::text);
   perform pg_temp.ck('second helper joins', 'true', (pg_temp.join_with(v_pat, v_help2, array['adherence_summary', 'weekly_bp_trend', 'appointments', 'red_alerts', 'pay_for_care'], 'help2') like '%"ok": true%')::text);
+  perform pg_temp.ck('red_alerts-only member joins', 'true', (pg_temp.join_with(v_pat, v_red, array['red_alerts'], 'red') like '%"ok": true%')::text);
   perform pg_temp.ck('appointments-only member joins', 'true', (pg_temp.join_with(v_pat, v_late, array['appointments'], 'late') like '%"ok": true%')::text);
 
   -- 2. the quiet "waiting" state ----------------------------------------------------------------------------------------------
@@ -142,10 +151,30 @@ begin
   perform pg_temp.ck('nobody is told anything', '0', (select count(*)::text from public.notifications where created_at >= now() - interval '1 minute' and recipient_id in (v_pat, v_nope) and template like 'circle\_%' and template not in ('circle_joined')));
   perform pg_temp.ck('the sender still sees it, as waiting', '1',
     pg_temp.q_as(v_pat, $q$select count(*)::text from jsonb_array_elements(public.my_care_circle() -> 'invites') i where i ->> 'state' = 'waiting' and i ->> 'hint' is not null$q$));
+  -- the sender selecting the table cannot tell a quietly declined invite from a pending one (state is a column they can read)
+  perform pg_temp.ck('invite for the control (an ordinary pending one)', 'ok', pg_temp.invite(v_pat, pg_temp.email_of(v_stranger), array['adherence_summary'], 'ctrl'));
+  r := pg_temp.q_as(v_pat, format($q$select state || '|' || coalesce(accepted_at::text, '') || '|' || coalesce(accepted_by::text, '') from public.care_circle_invites where id = %L$q$, (select id from public.care_circle_invites where token_hash = private.circle_hash(pg_temp.tok('nope')))));
+  r2 := pg_temp.q_as(v_pat, format($q$select state || '|' || coalesce(accepted_at::text, '') || '|' || coalesce(accepted_by::text, '') from public.care_circle_invites where id = %L$q$, (select id from public.care_circle_invites where token_hash = private.circle_hash(pg_temp.tok('ctrl')))));
+  perform pg_temp.ck('the table row of a declined invite reads exactly like a pending one', r2, r);
+  perform pg_temp.ck('and that row is still pending', 'pending||', r);
+  perform pg_temp.ck('the sender cannot read the wrong-try counter that kills the link', 'ERR:permission denied for table care_circle_invites', pg_temp.q_as(v_pat, $q$select attempts::text from public.care_circle_invites limit 1$q$));
+  update public.care_circle_invites set state = 'cancelled' where token_hash = private.circle_hash(pg_temp.tok('ctrl'));
   perform pg_temp.ck('and nothing in what the sender reads says declined or cancelled', 'false',
     pg_temp.q_as(v_pat, $q$select (public.my_care_circle()::text ~* 'declin|cancel|reject')::text$q$));
   perform pg_temp.ck('the sender can still cancel it', 'true', pg_temp.q_as(v_pat, format($q$select public.cancel_care_circle_invite(%L)::text$q$, (select id from public.care_circle_invites where token_hash = private.circle_hash(pg_temp.tok('nope'))))));
   perform pg_temp.ck('and then it is gone from the list', '0', pg_temp.q_as(v_pat, $q$select count(*)::text from jsonb_array_elements(public.my_care_circle() -> 'invites') i$q$));
+  -- the invite cap counts a declined invite exactly as it counts a pending one
+  select (rules ->> 'max_members') into v_cap_old from public.care_circle_config where is_active;
+  update public.care_circle_invites set state = 'cancelled' where token_hash = private.circle_hash(pg_temp.tok('ctrl'));
+  perform pg_temp.invite(v_pat, pg_temp.email_of(v_nope), array['adherence_summary'], 'cap1');
+  perform pg_temp.q_as(v_nope, format($q$select public.decline_care_circle_invite(%L)::text$q$, pg_temp.tok('cap1')));
+  update public.care_circle_config set rules = jsonb_set(rules, '{max_members}', to_jsonb((select count(*) from public.care_circle_members where patient_id = v_pat and state = 'active' and expires_at > now()) + 1)) where is_active;
+  perform pg_temp.ck('with a declined invite holding the last place, a new person is refused: circle_full', 'ERR:circle_full', pg_temp.invite(v_pat, 'someone@example.invalid', array['adherence_summary'], 'cap2'));
+  perform pg_temp.q_as(v_pat, format($q$select public.cancel_care_circle_invite(%L)::text$q$, (select id from public.care_circle_invites where token_hash = private.circle_hash(pg_temp.tok('cap1')))));
+  perform pg_temp.ck('once the sender cancels it the place is free', 'ok', pg_temp.invite(v_pat, 'someone@example.invalid', array['adherence_summary'], 'cap2'));
+  perform pg_temp.ck('and an ordinary pending invite holds the place the same way: circle_full', 'ERR:circle_full', pg_temp.invite(v_pat, 'another@example.invalid', array['adherence_summary'], 'cap3'));
+  perform pg_temp.q_as(v_pat, format($q$select public.cancel_care_circle_invite(%L)::text$q$, (select id from public.care_circle_invites where token_hash = private.circle_hash(pg_temp.tok('cap2')))));
+  update public.care_circle_config set rules = jsonb_set(rules, '{max_members}', to_jsonb(v_cap_old::integer)) where is_active;
   -- it also stops showing when it runs out on its own
   perform pg_temp.invite(v_pat, pg_temp.email_of(v_nope), array['adherence_summary'], 'nope2');
   perform pg_temp.q_as(v_nope, format($q$select public.decline_care_circle_invite(%L)::text$q$, pg_temp.tok('nope2')));
@@ -174,11 +203,15 @@ begin
   select id into v_task from public.care_circle_tasks where patient_id = v_pat order by created_at desc limit 1;
   perform pg_temp.ck('helpers are told, neutrally, with no payload', '1', pg_temp.cnt(v_help, 'circle_task_update', v_task, 'in_app'));
   perform pg_temp.ck('the viewer is not told (cannot act)', '0', pg_temp.cnt(v_see, 'circle_task_update', v_task));
-  perform pg_temp.ck('the notice carries no payload', 'true', (select bool_and(payload = '{}'::jsonb) from public.notifications where template = 'circle_task_update' and source_id = v_task)::text);
+  perform pg_temp.ck('the notice carries nothing but whose circle it is', 'true', (select bool_and((payload - 'patient_id') = '{}'::jsonb and payload ->> 'patient_id' = v_pat::text) from public.notifications where template = 'circle_task_update' and source_id = v_task)::text);
   perform pg_temp.ck('a viewer ("Can see") cannot claim', 'ERR:circle_not_found', pg_temp.q_as(v_see, format($q$select public.claim_circle_task(%L)::text$q$, v_task)));
   perform pg_temp.ck('a viewer cannot post', 'ERR:circle_task_needs_help_preset', pg_temp.q_as(v_see, format($q$select public.post_circle_task(%L, 'errand')::text$q$, v_pat)));
   perform pg_temp.ck('a viewer can read the list and is a viewer', 'viewer', pg_temp.q_as(v_see, format($q$select (public.circle_tasks(%L) ->> 'role')$q$, v_pat)));
   perform pg_temp.ck('a stranger gets the same not-found', 'ERR:circle_not_found', pg_temp.q_as(v_stranger, format($q$select public.circle_tasks(%L)::text$q$, v_pat)));
+  perform pg_temp.ck('a red_alerts-only member reads no job', 'ERR:circle_not_found', pg_temp.q_as(v_red, format($q$select public.circle_tasks(%L)::text$q$, v_pat)));
+  perform pg_temp.ck('a red_alerts-only member cannot claim', 'ERR:circle_not_found', pg_temp.q_as(v_red, format($q$select public.claim_circle_task(%L)::text$q$, v_task)));
+  perform pg_temp.ck('a red_alerts-only member cannot post', 'ERR:circle_not_found', pg_temp.q_as(v_red, format($q$select public.post_circle_task(%L, 'errand')::text$q$, v_pat)));
+  perform pg_temp.ck('a member with only appointments is a viewer of the jobs (control)', 'viewer', pg_temp.q_as(v_late, format($q$select (public.circle_tasks(%L) ->> 'role')$q$, v_pat)));
   perform pg_temp.ck('a stranger cannot claim', 'ERR:circle_not_found', pg_temp.q_as(v_stranger, format($q$select public.claim_circle_task(%L)::text$q$, v_task)));
   perform pg_temp.ck('a supporter reads no row of the table directly', '0', pg_temp.q_as(v_help, $q$select count(*)::text from public.care_circle_tasks$q$));
   perform pg_temp.ck('the patient reads their own rows', '1', pg_temp.q_as(v_pat, $q$select count(*)::text from public.care_circle_tasks$q$));
@@ -193,8 +226,12 @@ begin
   perform pg_temp.ck('the claimer completes it', 'true', pg_temp.q_as(v_help2, format($q$select public.complete_circle_task(%L)::text$q$, v_task)));
   perform pg_temp.ck('done is done', 'done', (select state from public.care_circle_tasks where id = v_task));
   -- a supporter's reads of the list are in the patient's own "who looked" list
+  -- the log keeps one line per person per surface per hour (private.log_care_access), so each read is checked on the person's first look
   perform pg_temp.ck('a supporter reading the jobs is logged for the patient', 'true',
-    (exists (select 1 from public.care_access_events e where e.patient_id = v_pat and e.actor_profile_id = v_help and e.scope = 'care_circle' and e.metadata::text like '%tasks%'))::text);
+    (exists (select 1 from public.care_access_events e where e.patient_id = v_pat and e.actor_profile_id = v_see and e.kind = 'record_viewed' and e.scope = 'care_circle' and e.metadata::text like '%tasks%'))::text);
+  perform pg_temp.q_as(v_see, format($q$select public.circle_tasks(%L)::text$q$, v_pat));
+  perform pg_temp.q_as(v_see, format($q$select public.circle_tasks(%L)::text$q$, v_pat));
+  perform pg_temp.ck('and repeated reads in the hour add no further lines', '1', (select count(*)::text from public.care_access_events e where e.patient_id = v_pat and e.actor_profile_id = v_see and e.kind = 'record_viewed' and e.scope = 'care_circle'));
   -- a helper who is removed loses the job
   perform pg_temp.q_as(v_pat, format($q$select public.post_circle_task(%L, 'visit')::text$q$, v_pat));
   select id into v_task2 from public.care_circle_tasks where patient_id = v_pat and state = 'open' order by created_at desc limit 1;
@@ -208,6 +245,17 @@ begin
   perform pg_temp.ck('while paused a helper sees nothing', 'ERR:circle_not_found', pg_temp.q_as(v_help2, format($q$select public.circle_tasks(%L)::text$q$, v_pat)));
   perform pg_temp.ck('while paused the patient still sees their jobs', 'patient', pg_temp.q_as(v_pat, format($q$select (public.circle_tasks(%L) ->> 'role')$q$, v_pat)));
   perform pg_temp.q_as(v_pat, $q$select public.resume_care_circle()::text$q$);
+  -- a poster who is dropped to "Can see" can no longer remove their own job, and the list says so
+  perform pg_temp.ck('(setup) the poster joins as Can see and help', 'true', (pg_temp.join_with(v_pat, v_poster, array['adherence_summary', 'weekly_bp_trend', 'appointments', 'red_alerts', 'pay_for_care'], 'poster') like '%"ok": true%')::text);
+  perform pg_temp.q_as(v_poster, format($q$select public.post_circle_task(%L, 'phone_call')::text$q$, v_pat));
+  select id into v_task from public.care_circle_tasks where created_by = v_poster order by created_at desc limit 1;
+  perform pg_temp.ck('while a helper, the poster may remove their job (the flag says so)', 'true',
+    pg_temp.q_as(v_poster, format($q$select (select (t ->> 'can_cancel') from jsonb_array_elements(public.circle_tasks(%L) -> 'tasks') t where t ->> 'task_id' = %L)$q$, v_pat, v_task)));
+  perform pg_temp.q_as(v_pat, format($q$select public.update_care_circle_member(%L, array['adherence_summary', 'weekly_bp_trend', 'appointments', 'red_alerts'])::text$q$, pg_temp.member(v_pat, v_poster)));
+  perform pg_temp.ck('after being dropped to Can see, the flag is false', 'false',
+    pg_temp.q_as(v_poster, format($q$select (select (t ->> 'can_cancel') from jsonb_array_elements(public.circle_tasks(%L) -> 'tasks') t where t ->> 'task_id' = %L)$q$, v_pat, v_task)));
+  perform pg_temp.ck('and the call agrees with the flag', 'false', pg_temp.q_as(v_poster, format($q$select public.cancel_circle_task(%L)::text$q$, v_task)));
+  perform pg_temp.ck('the patient can still remove it', 'true', pg_temp.q_as(v_pat, format($q$select public.cancel_circle_task(%L)::text$q$, v_task)));
   -- the limit
   update public.care_circle_config set rules = rules where is_active; -- no-op, keeps the config read
   for n in 1..12 loop
@@ -217,8 +265,8 @@ begin
   perform pg_temp.ck('the number of open jobs is limited', 'ERR:task_limit', r);
 
   -- 5. the weekly digest ---------------------------------------------------------------------------------------------------------
-  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, schedule_times)
-  values (v_org, v_pat, 'S69b Test Drug', '5mg', 'once daily', true, 'clinician', '["10:00"]'::jsonb) returning id into v_med;
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, schedule_times, created_at)
+  values (v_org, v_pat, 'S69b Test Drug', '5mg', 'once daily', true, 'clinician', '["10:00"]'::jsonb, now() - interval '5 days') returning id into v_med;
   insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_for_date, scheduled_time)
   values (v_org, v_pat, v_med, 'taken', v_lagos - 1, '10:00'), (v_org, v_pat, v_med, 'taken', v_lagos - 2, '10:00'), (v_org, v_pat, v_med, 'missed', v_lagos - 3, '10:00');
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, source)
@@ -232,8 +280,13 @@ begin
   perform pg_temp.ck('a member with only appointments gets no doses block', 'false', (d::jsonb ? 'doses')::text);
   perform pg_temp.ck('and no readings block', 'false', (d::jsonb ? 'readings')::text);
   perform pg_temp.ck('a stranger gets not-found', 'ERR:circle_not_found', pg_temp.q_as(v_stranger, format($q$select public.circle_weekly_digest(%L)::text$q$, v_pat)));
+  d := pg_temp.q_as(v_red, format($q$select public.circle_weekly_digest(%L)::text$q$, v_pat));
+  perform pg_temp.ck('a red_alerts-only member gets a digest with no job counts', 'false', (d::jsonb ? 'tasks')::text);
+  perform pg_temp.ck('and none of the other blocks', 'false', (d::jsonb ? 'doses' or d::jsonb ? 'readings' or d::jsonb ? 'appointments')::text);
+  d := pg_temp.q_as(v_late, format($q$select public.circle_weekly_digest(%L)::text$q$, v_pat));
+  perform pg_temp.ck('a member with only appointments does get the job counts (control)', 'true', (d::jsonb ? 'tasks')::text);
   perform pg_temp.ck('the digest read is logged for the patient', 'true',
-    (exists (select 1 from public.care_access_events e where e.patient_id = v_pat and e.actor_profile_id = v_see and e.scope = 'care_circle' and e.metadata::text like '%digest%'))::text);
+    (exists (select 1 from public.care_access_events e where e.patient_id = v_pat and e.actor_profile_id = v_late and e.scope = 'care_circle' and e.metadata::text like '%digest%'))::text);
   perform pg_temp.q_as(v_pat, $q$select public.pause_care_circle(false)::text$q$);
   perform pg_temp.ck('a paused circle gives no digest', 'ERR:circle_not_found', pg_temp.q_as(v_see, format($q$select public.circle_weekly_digest(%L)::text$q$, v_pat)));
   perform pg_temp.q_as(v_pat, $q$select public.resume_care_circle()::text$q$);
@@ -266,6 +319,52 @@ begin
     (pg_temp.q_as(v_help2, $q$select public.circle_recent_nudges()::text$q$) ~* 'dose|medic|drug|10:00|missed')::text);
   perform pg_temp.ck('reading the nudge list is logged for the patient', 'true',
     (exists (select 1 from public.care_access_events e where e.patient_id = v_pat and e.actor_profile_id = v_help2 and e.metadata::text like '%nudge%'))::text);
+  -- the nudge list leaves once the dose is answered
+  insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_for_date, scheduled_time)
+  values (v_org, v_pat, v_med, 'taken', v_lagos, '10:00');
+  perform pg_temp.ck('the nudge list is empty once the dose has been answered', '[]', pg_temp.q_as(v_help2, $q$select public.circle_recent_nudges()::text$q$));
+  delete from public.medication_logs where medication_id = v_med and scheduled_for_date = v_lagos;
+  -- slots come from the structured schedule: nothing is nudged for a medicine that is not due today
+  delete from public.care_circle_missed_dose_alerts;
+  delete from public.notifications where template = 'circle_gentle_nudge';
+  update public.medications set is_active = false where id = v_med;
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, schedule_times, schedule_spec, created_at)
+  values (v_org, v_pat, 'S69b Weekday Drug', '5mg', 'weekdays', true, 'clinician', '[]'::jsonb,
+          jsonb_build_object('kind', 'weekdays', 'days', jsonb_build_array(((extract(dow from v_lagos)::integer + 1) % 7)), 'times', jsonb_build_array('10:00')), now() - interval '5 days')
+  returning id into v_med2;
+  perform pg_temp.ck('a weekday-only medicine on an off day: no nudge', '0', private.sweep_circle_missed_doses((v_lagos + time '10:35'))::text);
+  update public.medications set is_active = false where id = v_med2;
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, schedule_times, schedule_spec, created_at)
+  values (v_org, v_pat, 'S69b Ended Drug', '5mg', 'daily', true, 'clinician', '[]'::jsonb,
+          jsonb_build_object('kind', 'daily', 'times', jsonb_build_array('10:00'), 'startDate', (v_lagos - 30)::text, 'endDate', (v_lagos - 1)::text), now() - interval '40 days')
+  returning id into v_med2;
+  perform pg_temp.ck('a medicine whose end date has passed: no nudge', '0', private.sweep_circle_missed_doses((v_lagos + time '10:35'))::text);
+  update public.medications set is_active = false where id = v_med2;
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, schedule_times, schedule_spec, created_at)
+  values (v_org, v_pat, 'S69b Tapered Drug', '5mg', 'taper', true, 'clinician', '[]'::jsonb,
+          jsonb_build_object('kind', 'taper', 'startDate', v_lagos::text, 'steps', jsonb_build_array(jsonb_build_object('days', 5, 'times', jsonb_build_array(), 'doseText', '0 mg'))), now() - interval '5 days')
+  returning id into v_med2;
+  perform pg_temp.ck('a medicine tapered to zero today: no nudge', '0', private.sweep_circle_missed_doses((v_lagos + time '10:35'))::text);
+  update public.medications set is_active = false where id = v_med2;
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, schedule_times, created_at)
+  values (v_org, v_pat, 'S69b New Drug', '5mg', 'daily', true, 'clinician', '["10:00"]'::jsonb, now() + interval '2 days')
+  returning id into v_med2;
+  perform pg_temp.ck('a schedule that has not taken effect yet: no nudge for an earlier slot', '0', private.sweep_circle_missed_doses((v_lagos + time '10:35'))::text);
+  update public.medications set is_active = false where id = v_med2;
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, schedule_times, created_at)
+  values (v_org, v_pat, 'S69b Broken Drug', '5mg', 'daily', true, 'clinician', '["banana", "25:99"]'::jsonb, now() - interval '5 days')
+  returning id into v_med2;
+  perform pg_temp.ck('a malformed time text is ignored and does not abort the sweep', '0', private.sweep_circle_missed_doses((v_lagos + time '10:35'))::text);
+  update public.medications set is_active = false where id = v_med2;
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, schedule_times, schedule_spec, created_at)
+  values (v_org, v_pat, 'S69b Spec Drug', '5mg', 'daily', true, 'clinician', '[]'::jsonb,
+          jsonb_build_object('kind', 'daily', 'times', jsonb_build_array('10:00'), 'startDate', (v_lagos - 10)::text), now() - interval '12 days')
+  returning id into v_med2;
+  perform pg_temp.ck('control: a structured daily schedule that is due does nudge', '1', private.sweep_circle_missed_doses((v_lagos + time '10:35'))::text);
+  update public.medications set is_active = false where id = v_med2;
+  delete from public.care_circle_missed_dose_alerts;
+  delete from public.notifications where template = 'circle_gentle_nudge';
+  update public.medications set is_active = true where id = v_med;
   -- an old slot is not nudged (stale), an answered slot is silent
   delete from public.care_circle_missed_dose_alerts;
   perform pg_temp.ck('long after the window: a stale nudge is not sent', '0', private.sweep_circle_missed_doses((v_lagos + time '12:30'))::text);
@@ -333,6 +432,31 @@ begin
   execute d;
   update public.care_circle_tasks set state = 'open', claimed_by = null where id = v_task2;
   insert into results values ('sabotaged', 'a Can-see supporter cannot claim a job', 'ERR:circle_not_found', pg_temp.q_as(v_see, format($q$select public.claim_circle_task(%L)::text$q$, v_task2)));
+  -- (d) the sweep reads the raw time list instead of the structured schedule: a structured daily schedule that is due sends nothing
+  select pg_get_functiondef('private.sweep_circle_missed_doses(timestamp)'::regprocedure) into d;
+  d := replace(d, 'cross join lateral private.medication_slots_on(med.schedule_spec, med.schedule_times, v_today) sl', 'cross join lateral (select jsonb_array_elements_text(med.schedule_times) as slot_time) sl');
+  if d = pg_get_functiondef('private.sweep_circle_missed_doses(timestamp)'::regprocedure) then raise exception 'sabotage (d) did not change the function'; end if;
+  execute d;
+  delete from public.care_circle_missed_dose_alerts;
+  delete from public.notifications where template = 'circle_gentle_nudge';
+  update public.medications set is_active = false where id = v_med;
+  update public.medications set is_active = true where id = v_med2;
+  insert into results values ('sabotaged', 'a due structured schedule is nudged', '1', private.sweep_circle_missed_doses((v_lagos + time '10:35'))::text);
+  -- (e) the view-permission gate removed from the task role: a red_alerts-only member reads the jobs
+  select pg_get_functiondef('private.circle_task_role(uuid)'::regprocedure) into d;
+  d := replace(d, ' or not private.circle_perms_see_tasks(m.permissions)', '');
+  if d = pg_get_functiondef('private.circle_task_role(uuid)'::regprocedure) then raise exception 'sabotage (e) did not change the function'; end if;
+  execute d;
+  insert into results values ('sabotaged', 'a red_alerts-only member reads no job', 'ERR:circle_not_found', pg_temp.q_as(v_red, format($q$select public.circle_tasks(%L)::text$q$, v_pat)));
+  -- (f) "not now" made to change the invite's state: the sender can tell at the table
+  select pg_get_functiondef('public.decline_care_circle_invite(text)'::regprocedure) into d;
+  d := replace(d, 'set attempts = greatest(attempts, (private.circle_rules() ->> ''max_attempts'')::integer)', 'set state = ''cancelled''');
+  if d = pg_get_functiondef('public.decline_care_circle_invite(text)'::regprocedure) then raise exception 'sabotage (f) did not change the function'; end if;
+  execute d;
+  perform pg_temp.invite(v_pat, pg_temp.email_of(v_nope), array['adherence_summary'], 'nope3');
+  perform pg_temp.q_as(v_nope, format($q$select public.decline_care_circle_invite(%L)::text$q$, pg_temp.tok('nope3')));
+  insert into results values ('sabotaged', 'a declined invite still reads pending at the table', 'pending',
+    pg_temp.q_as(v_pat, format($q$select state from public.care_circle_invites where id = %L$q$, (select id from public.care_circle_invites where token_hash = private.circle_hash(pg_temp.tok('nope3'))))));
 end $$;
 
 do $$
@@ -345,7 +469,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
+  if v_caught < 6 then raise exception 'VACUOUS TEST: the sabotage flipped % of 6 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

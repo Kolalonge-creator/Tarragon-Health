@@ -37,4 +37,14 @@ describe("S69b Care Circle notices", () => {
     const text = describeInApp({ template: "circle_gentle_nudge", payload }).text;
     expect(text).toBe("Someone in your Care Circle may like a friendly call");
   });
+
+  it("a shared-job notice to a helper opens that person's page and the id never appears in the text; the patient's own opens the Care Circle", () => {
+    const id = "123e4567-e89b-12d3-a456-426614174000";
+    const helper = describeInApp({ template: "circle_task_update", payload: { patient_id: id } });
+    expect(helper.href).toBe(`/patient/supporting/circle/${id}`);
+    expect(helper.text).not.toContain(id);
+    expect(describeInApp({ template: "circle_task_update", payload: {} }).href).toBe("/patient/care-circle");
+    // a payload that is not a uuid is never put into a link
+    expect(describeInApp({ template: "circle_task_update", payload: { patient_id: "../../admin" } }).href).toBe("/patient/care-circle");
+  });
 });

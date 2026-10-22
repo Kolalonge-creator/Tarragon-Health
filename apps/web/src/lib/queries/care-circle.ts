@@ -481,6 +481,10 @@ export function useCircleTasks(patientId: string, enabled: boolean) {
     queryKey: ["care-circle", "tasks", patientId] as const,
     enabled,
     retry: false,
+    // an audited read: no refetch on focus or reconnect, so one visit is one logged look
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await createClient().rpc("circle_tasks", { p_patient: patientId });
       if (error) throw new CircleError(error.message);
@@ -522,6 +526,9 @@ export function useWeeklyDigest(patientId: string, enabled: boolean) {
     queryKey: ["care-circle", "digest", patientId] as const,
     enabled,
     retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 10 * 60_000,
     queryFn: async () => {
       const { data, error } = await createClient().rpc("circle_weekly_digest", { p_patient: patientId });
       if (error) throw new CircleError(error.message);
@@ -535,7 +542,10 @@ export function useRecentNudges(enabled: boolean) {
   return useQuery({
     queryKey: ["care-circle", "nudges"] as const,
     enabled,
-    refetchInterval: 120_000,
+    // an audited read: read on arrival, no polling and no refetch on focus
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await createClient().rpc("circle_recent_nudges");
       if (isMissingFunction(error)) return [];

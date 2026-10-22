@@ -17,8 +17,7 @@
 --   (e) Every supporter read added here (digest, task list, nudge list) is written to care_access_events, the patient's own list.
 --
 -- Live checks owed before apply (nothing was applied from this branch): list_migrations for anything recent; pg_get_functiondef of
--- public.my_care_circle (this file restates the S75 A5 body with additions), public.cancel_care_circle_invite and
--- private.circle_member_for (read, not replaced).
+-- public.my_care_circle (this file restates the S75 A5 body with additions) and private.circle_member_for (read, not replaced).
 
 -- ---------------------------------------------------------------------------
 -- 1. Config (PROPOSED, Founder owner), mirrored as care_circle.supporter_tools in packages/shared/src/proposed-config
@@ -40,14 +39,17 @@ declare k text;
 begin
   -- every key is a positive whole number; a missing or odd one would make a comparison null and quietly lift a limit
   foreach k in array array['missed_dose_grace_minutes', 'missed_dose_window_minutes', 'missed_dose_max_per_day', 'digest_days',
-                           'task_max_open', 'task_keep_days'] loop
+                           'task_max_open', 'task_keep_days', 'task_max_days_ahead', 'task_stale_days', 'task_done_visible_days'] loop
     if (r ->> k) is null or (r ->> k) !~ '^[0-9]{1,5}$' or (r ->> k)::integer < 1 then return false; end if;
   end loop;
   return (r ->> 'missed_dose_grace_minutes')::integer between 5 and 240
      and (r ->> 'missed_dose_window_minutes')::integer between 15 and 240
      and (r ->> 'missed_dose_max_per_day')::integer <= 10
      and (r ->> 'digest_days')::integer between 1 and 14
-     and (r ->> 'task_max_open')::integer <= 50;
+     and (r ->> 'task_max_open')::integer <= 50
+     and (r ->> 'task_max_days_ahead')::integer <= 365
+     and (r ->> 'task_stale_days')::integer <= 90
+     and (r ->> 'task_done_visible_days')::integer <= 30;
 exception when others then
   return false;
 end;
@@ -63,7 +65,10 @@ insert into public.care_circle_tools_config (version, is_active, effective_from,
   "missed_dose_max_per_day": 3,
   "digest_days": 7,
   "task_max_open": 10,
-  "task_keep_days": 30
+  "task_keep_days": 30,
+  "task_max_days_ahead": 90,
+  "task_stale_days": 7,
+  "task_done_visible_days": 7
 }
 $json$::jsonb);
 -- care-circle-tools-rules-end
@@ -97,10 +102,9 @@ alter table public.care_circle_members add column missed_dose_alert boolean not 
 comment on column public.care_circle_members.missed_dose_alert is
   'S69b. The patient chose to let this supporter be nudged when a dose has had no answer after the grace period. Off by default; cleared when adherence_summary is removed.';
 
--- "Not now": the invite is dead for the supporter but the sender keeps seeing "waiting for them" until it expires on its own.
-alter table public.care_circle_invites add column quiet_declined boolean not null default false;
-comment on column public.care_circle_invites.quiet_declined is
-  'S69b. The invitee chose "not now". The sender is never told; the invite shows as waiting until it expires. Not granted to authenticated.';
+-- "Not now" adds no column and changes no state: the invite stays state 'pending' (the sender can select that column, and the invite
+-- cap and the daily invite limit count it exactly as before) and is made dead for the invitee by using up its wrong-try allowance,
+-- which private.circle_invite_for_caller already treats as "this token no longer works" (attempts is not granted to authenticated).
 
 create function private.circle_member_clear_nudge() returns trigger
 language plpgsql set search_path = ''
@@ -124,40 +128,15 @@ begin
   -- the same lookup and the same silent failure as preview and accept (it counts a wrong-account try; it RETURNS, never raises)
   i := private.circle_invite_for_caller(p_token, true);
   if i.id is null then return jsonb_build_object('ok', false); end if;
-  update public.care_circle_invites set state = 'cancelled', quiet_declined = true where id = i.id;
-  -- nobody is notified: the person who asked sees "waiting for them" and nothing else
+  update public.care_circle_invites set attempts = greatest(attempts, (private.circle_rules() ->> 'max_attempts')::integer) where id = i.id;
+  -- nobody is notified and no column the sender can read changes: the invite is still 'pending' and shows as waiting until it expires
   return jsonb_build_object('ok', true);
 end $$;
 revoke all on function public.decline_care_circle_invite(text) from public, anon;
 grant execute on function public.decline_care_circle_invite(text) to authenticated;
 
--- A new invite to the same person replaces one they quietly turned down, so the sender's list never shows two "waiting" lines for them.
-create function private.circle_invite_clear_quiet() returns trigger
-language plpgsql security definer set search_path = ''
-as $$
-begin
-  update public.care_circle_invites set quiet_declined = false
-   where patient_id = new.patient_id and invitee_hash = new.invitee_hash and quiet_declined and id <> new.id;
-  return new;
-end $$;
-revoke all on function private.circle_invite_clear_quiet() from public, anon, authenticated;
-create trigger care_circle_invites_clear_quiet after insert on public.care_circle_invites
-  for each row execute function private.circle_invite_clear_quiet();
-
--- The sender may still cancel an invite that is showing as "waiting", including one the other person quietly turned down.
-create or replace function public.cancel_care_circle_invite(p_invite uuid) returns boolean
-language plpgsql security definer set search_path = ''
-as $$
-declare n integer;
-begin
-  update public.care_circle_invites set state = 'cancelled', quiet_declined = false
-   where id = p_invite and patient_id = (select auth.uid()) and (state = 'pending' or (state = 'cancelled' and quiet_declined));
-  get diagnostics n = row_count;
-  return n = 1;
-end $$;
-
--- Body restated from 20261007160007_s75_a5_circle_monthly_share_flag.sql with: the invite list also carrying quiet-declined invites
--- (as state "waiting", the same word as a pending one), and each member carrying missed_dose_alert.
+-- Body restated from 20261007160007_s75_a5_circle_monthly_share_flag.sql with: each invite carrying the neutral word "waiting" and each
+-- member carrying missed_dose_alert.
 create or replace function public.my_care_circle() returns jsonb
 language sql stable security definer set search_path = ''
 as $$
@@ -171,8 +150,7 @@ as $$
     'invites', coalesce((select jsonb_agg(jsonb_build_object('invite_id', i.id, 'hint', i.invitee_hint, 'kind', i.invitee_kind,
                 'relationship', i.relationship, 'permissions', to_jsonb(i.permissions), 'expires_at', i.expires_at, 'state', 'waiting') order by i.created_at)
               from public.care_circle_invites i
-             where i.patient_id = (select auth.uid()) and i.expires_at > now()
-               and (i.state = 'pending' or (i.state = 'cancelled' and i.quiet_declined))), '[]'::jsonb),
+             where i.patient_id = (select auth.uid()) and i.state = 'pending' and i.expires_at > now()), '[]'::jsonb),
     'pause', (select jsonb_build_object('paused_until', p.paused_until, 'pause_alerts', p.pause_alerts)
                 from public.care_circle_pauses p where p.patient_id = (select auth.uid()) and p.paused_until > now()),
     'pause_days', (private.circle_rules() ->> 'pause_days')::integer)
@@ -257,6 +235,13 @@ values ('care_circle_tasks', 'patient_id', 'operational', 'delete', false,
         'S69b 2026-10-22: PROPOSED, to be confirmed by the CMO and DPO. Bookkeeping that one gentle nudge was sent to one supporter for one dose slot (no medicine name stored beyond the medication id). in_export is false: it names the supporter.')
 on conflict (table_name) do nothing;
 
+-- Jobs and the digest's job counts are visible only to a member who holds at least one view permission or pay_for_care. A supporter who
+-- holds only red_alerts (or only attend_consultation) is in the circle for a different reason and reads no job.
+create function private.circle_perms_see_tasks(p_permissions text[]) returns boolean
+language sql immutable set search_path = ''
+as $$ select coalesce(p_permissions && array['adherence_summary', 'weekly_bp_trend', 'appointments', 'pay_for_care']::text[], false) $$;
+revoke all on function private.circle_perms_see_tasks(text[]) from public, anon, authenticated;
+
 -- Who is the caller in this circle? 'patient' (their own circle), 'helper' (an active, unexpired, not-paused member in the
 -- "Can see and help" preset, i.e. holding pay_for_care), 'viewer' (any other active member), or null (a stranger, an expired or removed
 -- member: they all get the same "not found").
@@ -270,7 +255,7 @@ begin
     return case when exists (select 1 from public.profiles where id = p_patient and is_active and receives_care) then 'patient' end;
   end if;
   m := private.circle_member_for(p_patient);
-  if m.id is null then return null; end if;
+  if m.id is null or not private.circle_perms_see_tasks(m.permissions) then return null; end if;
   return case when 'pay_for_care' = any (m.permissions) then 'helper' else 'viewer' end;
 end $$;
 revoke all on function private.circle_task_role(uuid) from public, anon, authenticated;
@@ -285,10 +270,12 @@ begin
     if p_to_patient then
       perform private.circle_notify_always(p_task.patient_id, p_task.organisation_id, 'circle_task_update', 'care_circle_tasks', p_task.id, array['in_app'], 'routine');
     else
+      -- the only thing in a helper's payload is whose circle it is, so the inbox line can open that person's page; it is never echoed in text
       for r in select m.supporter_id from public.care_circle_members m join public.profiles sp on sp.id = m.supporter_id and sp.is_active
                 where m.patient_id = p_task.patient_id and m.state = 'active' and m.expires_at > now() and 'pay_for_care' = any (m.permissions)
                   and m.supporter_id <> p_task.created_by and sp.is_test = p_task.is_test and not private.circle_paused(m.patient_id) loop
-        perform private.circle_notify_always(r.supporter_id, p_task.organisation_id, 'circle_task_update', 'care_circle_tasks', p_task.id, array['in_app'], 'routine');
+        insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
+        values (r.supporter_id, p_task.organisation_id, 'in_app', 'circle_task_update', jsonb_build_object('patient_id', p_task.patient_id), 'pending', 'non_clinical', 'routine', 'care_circle_tasks', p_task.id);
       end loop;
     end if;
   exception when others then
@@ -309,6 +296,7 @@ declare
   v_uid uuid := (select auth.uid());
   v_role text;
   v_today date := (now() at time zone 'Africa/Lagos')::date;
+  v_ahead integer := (private.circle_tools_rules() ->> 'task_max_days_ahead')::integer;
   t public.care_circle_tasks%rowtype;
   p public.profiles%rowtype;
 begin
@@ -320,7 +308,7 @@ begin
   if p_kind is null or p_kind not in ('take_to_appointment', 'take_to_lab', 'collect_medicines', 'visit', 'phone_call', 'errand') then
     raise exception 'task_kind_invalid' using errcode = '22023';
   end if;
-  if p_needed_by is not null and (p_needed_by < v_today or p_needed_by > v_today + 90) then raise exception 'task_date_invalid' using errcode = '22023'; end if;
+  if p_needed_by is not null and (p_needed_by < v_today or p_needed_by > v_today + v_ahead) then raise exception 'task_date_invalid' using errcode = '22023'; end if;
   select * into p from public.profiles where id = p_patient;
   if (select count(*) from public.care_circle_tasks where patient_id = p_patient and state in ('open', 'claimed'))
        >= (private.circle_tools_rules() ->> 'task_max_open')::integer then
@@ -343,6 +331,7 @@ create function public.circle_tasks(p_patient uuid) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare v_uid uuid := (select auth.uid()); v_role text; v_today date := (now() at time zone 'Africa/Lagos')::date; out jsonb;
+  v_visible integer := (private.circle_tools_rules() ->> 'task_done_visible_days')::integer;
 begin
   if v_uid is null then raise exception 'circle_not_authorised' using errcode = '42501'; end if;
   if not private.module_enabled('care_circle_tasks') then raise exception 'circle_tools_unavailable' using errcode = 'P0001'; end if;
@@ -355,12 +344,13 @@ begin
            'posted_by_me', t.created_by = v_uid,
            'can_claim', v_role = 'helper' and t.state = 'open',
            'can_release', t.state = 'claimed' and t.claimed_by = v_uid,
-           'can_complete', t.state = 'claimed' and (t.claimed_by = v_uid or v_role = 'patient') or (t.state = 'open' and v_role = 'patient'),
-           'can_cancel', t.state in ('open', 'claimed') and (t.created_by = v_uid or v_role = 'patient'))
+           'can_complete', (t.state = 'claimed' and (v_role = 'patient' or (v_role = 'helper' and t.claimed_by = v_uid))) or (t.state = 'open' and v_role = 'patient'),
+           -- the same rule cancel_circle_task enforces: the patient, or the poster while still a helper (a poster who dropped to viewer cannot)
+           'can_cancel', t.state in ('open', 'claimed') and (v_role = 'patient' or (v_role = 'helper' and t.created_by = v_uid)))
            order by (t.state = 'done'), t.needed_by nulls last, t.created_at), '[]'::jsonb)
     into out
     from public.care_circle_tasks t left join public.profiles cp on cp.id = t.claimed_by
-   where t.patient_id = p_patient and (t.state in ('open', 'claimed') or (t.state = 'done' and t.done_at > now() - interval '7 days'));
+   where t.patient_id = p_patient and (t.state in ('open', 'claimed') or (t.state = 'done' and t.done_at > now() - make_interval(days => v_visible)));
   -- a supporter's look is written to the patient's own list (the patient reading their own tasks is not a look)
   if v_role <> 'patient' then
     perform private.log_care_access(p_patient, 'record_viewed', 'care_circle', jsonb_build_object('blocks', jsonb_build_array('tasks')), v_uid);
@@ -446,6 +436,7 @@ create function private.sweep_circle_tasks() returns integer
 language plpgsql security definer set search_path = ''
 as $$
 declare n integer := 0; k integer; v_keep integer := (private.circle_tools_rules() ->> 'task_keep_days')::integer;
+  v_stale integer := (private.circle_tools_rules() ->> 'task_stale_days')::integer;
 begin
   update public.care_circle_tasks t set state = 'open', claimed_by = null, claimed_at = null
    where t.state = 'claimed' and not exists (
@@ -454,7 +445,7 @@ begin
         and 'pay_for_care' = any (m.permissions));
   get diagnostics k = row_count; n := n + k;
   update public.care_circle_tasks set state = 'cancelled', claimed_by = null
-   where state in ('open', 'claimed') and needed_by is not null and needed_by < (now() at time zone 'Africa/Lagos')::date - 7;
+   where state in ('open', 'claimed') and needed_by is not null and needed_by < (now() at time zone 'Africa/Lagos')::date - v_stale;
   get diagnostics k = row_count; n := n + k;
   delete from public.care_circle_tasks where state in ('done', 'cancelled') and updated_at < now() - make_interval(days => v_keep);
   get diagnostics k = row_count; n := n + k;
@@ -516,11 +507,13 @@ begin
     out := out || jsonb_build_object('appointments', jsonb_build_object('next_at', v_next));
   end if;
 
-  -- tasks are visible to the whole circle, so the counts need no extra permission (module care_circle_tasks decides if any exist)
-  select count(*) filter (where state = 'open'), count(*) filter (where state = 'claimed'),
-         count(*) filter (where state = 'done' and done_at > now() - make_interval(days => v_days))
-    into v_open, v_claimed, v_done from public.care_circle_tasks where patient_id = p_patient;
-  out := out || jsonb_build_object('tasks', jsonb_build_object('open', v_open, 'claimed', v_claimed, 'done', v_done));
+  -- job counts are visible to members who may see jobs at all (a view permission or pay_for_care), not to a red_alerts-only member
+  if private.circle_perms_see_tasks(m.permissions) then
+    select count(*) filter (where state = 'open'), count(*) filter (where state = 'claimed'),
+           count(*) filter (where state = 'done' and done_at > now() - make_interval(days => v_days))
+      into v_open, v_claimed, v_done from public.care_circle_tasks where patient_id = p_patient;
+    out := out || jsonb_build_object('tasks', jsonb_build_object('open', v_open, 'claimed', v_claimed, 'done', v_done));
+  end if;
 
   perform private.log_care_access(p_patient, 'record_viewed', 'care_circle', jsonb_build_object('blocks', jsonb_build_array('digest')), v_uid);
   return out;
@@ -598,22 +591,32 @@ begin
   if private.module_enabled('care_circle_checkin_window') then v_hold := (private.circle_rules() ->> 'checkin_window_minutes')::integer; end if;
   -- nothing here reads a triage event, a page or an emergency event: a red event reaches supporters at once through
   -- private.notify_circle_red_alert, which this migration does not touch.
+  -- The slots come from private.medication_slots_on, exactly as queue_medication_dose_reminders reads them, so start and end dates,
+  -- every-n-days, weekdays and tapers are respected, and a malformed schedule has no slots instead of aborting the sweep. A slot that
+  -- falls before the schedule took effect (a medicine just added or just edited) is never nudged. The time text is checked before it is
+  -- cast, inside a CASE, so a bad string can never abort the sweep outside the per-row handler below.
   for r in
-    select m.id as member_id, m.patient_id, m.supporter_id, m.organisation_id, m.is_test, m.alert_mode, med.id as medication_id, t.schedule_time
-      from public.care_circle_members m
-      join public.profiles sp on sp.id = m.supporter_id and sp.is_active and sp.is_test = m.is_test
-      join public.profiles pp on pp.id = m.patient_id and pp.is_active
-      join public.medications med on med.patient_id = m.patient_id and med.is_active
-      cross join lateral jsonb_array_elements_text(med.schedule_times) as t (schedule_time)
-     where m.state = 'active' and m.expires_at > now() and m.missed_dose_alert and 'adherence_summary' = any (m.permissions)
-       and not private.circle_paused(m.patient_id)
-       and t.schedule_time ~ '^([01]\d|2[0-3]):[0-5]\d$'
-       and (v_today + t.schedule_time::time) + make_interval(mins => v_grace + v_hold) <= v_now
-       and (v_today + t.schedule_time::time) + make_interval(mins => v_grace + v_hold + v_win) > v_now
+    select s.member_id, s.patient_id, s.supporter_id, s.organisation_id, s.is_test, s.alert_mode, s.medication_id, s.slot_time as schedule_time
+      from (
+        select m.id as member_id, m.patient_id, m.supporter_id, m.organisation_id, m.is_test, m.alert_mode, med.id as medication_id, sl.slot_time,
+               case when sl.slot_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' then v_today + sl.slot_time::time end as slot_at,
+               (greatest(med.created_at, coalesce(med.schedule_effective_from, med.created_at)) at time zone 'Africa/Lagos') as active_from
+          from public.care_circle_members m
+          join public.profiles sp on sp.id = m.supporter_id and sp.is_active and sp.is_test = m.is_test
+          join public.profiles pp on pp.id = m.patient_id and pp.is_active
+          join public.medications med on med.patient_id = m.patient_id and med.is_active
+          cross join lateral private.medication_slots_on(med.schedule_spec, med.schedule_times, v_today) sl
+         where m.state = 'active' and m.expires_at > now() and m.missed_dose_alert and 'adherence_summary' = any (m.permissions)
+           and not private.circle_paused(m.patient_id)
+      ) s
+     where s.slot_at is not null
+       and s.slot_at >= s.active_from
+       and s.slot_at + make_interval(mins => v_grace + v_hold) <= v_now
+       and s.slot_at + make_interval(mins => v_grace + v_hold + v_win) > v_now
        -- any answer at all (taken, late, skipped, missed, not available) means the patient has dealt with the slot
-       and not exists (select 1 from public.medication_logs l where l.medication_id = med.id and l.scheduled_for_date = v_today and l.scheduled_time = t.schedule_time)
+       and not exists (select 1 from public.medication_logs l where l.medication_id = s.medication_id and l.scheduled_for_date = v_today and l.scheduled_time = s.slot_time)
        and not exists (select 1 from public.care_circle_missed_dose_alerts a
-                        where a.member_id = m.id and a.medication_id = med.id and a.scheduled_for_date = v_today and a.scheduled_time = t.schedule_time)
+                        where a.member_id = s.member_id and a.medication_id = s.medication_id and a.scheduled_for_date = v_today and a.scheduled_time = s.slot_time)
   loop
     begin
       select count(distinct a.scheduled_time) into v_sent from public.care_circle_missed_dose_alerts a
@@ -664,6 +667,9 @@ begin
      where m.supporter_id = v_uid and m.state = 'active' and m.expires_at > now() and m.missed_dose_alert
        and 'adherence_summary' = any (m.permissions) and not private.circle_paused(m.patient_id)
        and a.notified and a.sent_at > now() - make_interval(hours => v_hours)
+       -- once the patient has answered the slot (taken, late, skipped, missed or not available) there is nothing left to nudge about
+       and not exists (select 1 from public.medication_logs l
+                        where l.medication_id = a.medication_id and l.scheduled_for_date = a.scheduled_for_date and l.scheduled_time = a.scheduled_time)
      group by m.patient_id, pp.full_name
      order by max(a.sent_at) desc
   loop

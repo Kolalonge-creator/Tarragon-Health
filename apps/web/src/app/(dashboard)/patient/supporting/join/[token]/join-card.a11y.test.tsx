@@ -34,6 +34,8 @@ describe("JoinCard", () => {
     expect(screen.getByText(/Ngozi asked you to join their Care Circle as Daughter/)).toBeTruthy();
     // the original list of what is shared: exactly the two permissions the invite carries
     expect(document.querySelectorAll("#join-sees ~ ul li")).toHaveLength(2);
+    // and every list item on the card: those two, plus the preview (sees: trend and weekly note; can: pay and shared jobs)
+    expect(screen.getAllByRole("listitem")).toHaveLength(6);
     expect(screen.getByText(/never single readings/)).toBeTruthy();
     cleanup();
     await expectNoA11yViolations(<JoinCard token="tok" locale="en" />);
@@ -76,10 +78,12 @@ describe("JoinCard", () => {
     preview = { isPending: false, data: { ...OK, permissions: ["weekly_bp_trend"], cross_organisation: true } };
     render(<JoinCard token="tok" locale="en" />);
     expect(document.querySelectorAll("#join-sees ~ ul li")).toHaveLength(1);
-    expect(screen.queryByText(/Paying for my care/)).toBeNull();
-    // and the plain-language preview says the same: no payment, no shared jobs
-    expect(screen.queryByText(/Pay for care/)).toBeNull();
+    // one permission, plus the preview (the trend and the weekly note), nothing about paying or jobs
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    // the guard: the word "pay" appears nowhere on the card for a supporter in another organisation
+    expect(screen.queryByText(/pay/i)).toBeNull();
     expect(screen.queryByText(/small shared jobs/)).toBeNull();
+    expect(screen.getByText(/some options are not available to you/)).toBeTruthy();
   });
 
   it("S29e: offers the same link in the app through the app scheme, with the token encoded", () => {

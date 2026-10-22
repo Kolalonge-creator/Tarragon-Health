@@ -28,7 +28,7 @@ describe("care_circle.supporter_tools mirrors the migration seed", () => {
     const e = getProposedConfig("care_circle.supporter_tools");
     expect(e.status).toBe("proposed");
     expect(e.owner).toBe("Founder");
-    expect(Object.keys(e.value as object).sort()).toEqual(["digest_days", "missed_dose_grace_minutes", "missed_dose_max_per_day", "missed_dose_window_minutes", "task_keep_days", "task_max_open"]);
+    expect(Object.keys(e.value as object).sort()).toEqual(["digest_days", "missed_dose_grace_minutes", "missed_dose_max_per_day", "missed_dose_window_minutes", "task_done_visible_days", "task_keep_days", "task_max_days_ahead", "task_max_open", "task_stale_days"]);
   });
 
   it("the grace period is the 30-minute wait the reference product uses and the window after it is about an hour", () => {

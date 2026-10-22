@@ -705,8 +705,11 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     return { text: "Someone in your Care Circle may like a friendly call", href: "/patient/supporting" };
   }
   if (n.template === "circle_task_update") {
-    // S69b: a shared job changed. No name, no kind of job, nothing medical.
-    return { text: "Your circle has an update", href: "/patient/care-circle" };
+    // S69b: a shared job changed. No name, no kind of job, nothing medical. A notice to a helper carries only whose circle it is (a uuid,
+    // never echoed in the text) so it opens that person's page; the patient's own notice opens their Care Circle.
+    const pid = typeof payload["patient_id"] === "string" ? payload["patient_id"] : null;
+    const isUuid = pid !== null && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pid);
+    return { text: "Your circle has an update", href: isUuid ? `/patient/supporting/circle/${pid}` : "/patient/care-circle" };
   }
   if (n.template === "circle_joined") {
     return { text: "Someone has joined your Care Circle", href: "/patient/care-circle" };

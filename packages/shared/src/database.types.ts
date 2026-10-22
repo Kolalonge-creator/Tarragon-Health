@@ -48465,6 +48465,42 @@ export type Database = {
         }
         Relationships: []
       }
+      care_circle_missed_dose_alerts: {
+        Row: {
+          id: string
+          medication_id: string
+          member_id: string
+          notified: boolean
+          organisation_id: string
+          patient_id: string
+          scheduled_for_date: string
+          scheduled_time: string
+          sent_at: string
+        }
+        Insert: {
+          id?: string
+          medication_id: string
+          member_id: string
+          notified?: boolean
+          organisation_id: string
+          patient_id: string
+          scheduled_for_date: string
+          scheduled_time: string
+          sent_at?: string
+        }
+        Update: {
+          id?: string
+          medication_id?: string
+          member_id?: string
+          notified?: boolean
+          organisation_id?: string
+          patient_id?: string
+          scheduled_for_date?: string
+          scheduled_time?: string
+          sent_at?: string
+        }
+        Relationships: []
+      }
       care_circle_pauses: {
         Row: {
           created_at: string
@@ -48495,6 +48531,81 @@ export type Database = {
           pause_alerts?: boolean
           paused_until?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      care_circle_tasks: {
+        Row: {
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          created_by: string
+          done_at: string | null
+          id: string
+          is_test: boolean
+          kind: string
+          needed_by: string | null
+          organisation_id: string
+          patient_id: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          created_by: string
+          done_at?: string | null
+          id?: string
+          is_test?: boolean
+          kind: string
+          needed_by?: string | null
+          organisation_id: string
+          patient_id: string
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          created_by?: string
+          done_at?: string | null
+          id?: string
+          is_test?: boolean
+          kind?: string
+          needed_by?: string | null
+          organisation_id?: string
+          patient_id?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      care_circle_tools_config: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          rules: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          rules: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          rules?: Json
+          version?: number
         }
         Relationships: []
       }
