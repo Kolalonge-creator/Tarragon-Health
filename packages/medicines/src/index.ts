@@ -1,5 +1,6 @@
 export * from "./lagos";
 export * from "./types";
+export * from "./anchors";
 export * from "./schedule";
 export * from "./dose-state";
 export * from "./adherence";
