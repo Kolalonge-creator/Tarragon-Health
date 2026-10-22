@@ -115,7 +115,7 @@ $$ select pg_temp.as_count(p_admin, format('select coalesce((select n::integer f
 do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_doc uuid; v_own uuid; v_pat uuid; v_off uuid;
-  v_i uuid; v_n integer; v_t text; v_res jsonb; v_before integer;
+  v_i uuid; v_cl uuid; v_n integer; v_t text; v_res jsonb; v_before integer;
   b_hidden integer; b_d7 integer; b_d14 integer; b_d30 integer; b_noowner integer;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
@@ -258,6 +258,24 @@ begin
     pg_temp.as_try(v_admin, format($q$update public.health_education_content set review_change_note = %L where id = %L$q$, repeat('x', 501), v_i)) <> 'ok'
     or (select char_length(review_change_note) <= 500 from public.health_education_content where id = v_i));
 
+  -- ================= E. review findings: a lesson held back for a passed review date, and the two note bypasses =================
+  -- E1/E2: a course lesson the S33 job took out of service (is_active = false, clinical_review, date passed) is still listed, as hidden, and counted.
+  select m.content_id into v_cl from public.health_education_programme_modules m order by m.content_id limit 1;
+  v_before := pg_temp.sm(v_admin, 'hidden');
+  update public.health_education_content set content_status = 'draft', is_active = false, review_change_note = 'The note that described the previous version.' where id = v_cl;
+  update public.health_education_content set content_status = 'clinical_review', next_review_due = pg_temp.today() - 1 where id = v_cl;
+  perform pg_temp.ck('E1 a lesson held back for a passed review date is listed as hidden',
+    pg_temp.as_count(v_admin, format($q$select count(*) from public.learning_expiry_backlog() where content_id = %L and hidden$q$, v_cl)) = 1);
+  perform pg_temp.ck('E2 and it is counted in the hidden tile', pg_temp.sm(v_admin, 'hidden') = v_before + 1);
+  -- E3: the stale note is cleared on the S33 route straight to clinical_review, not only on the admin's move to 'updated'
+  perform pg_temp.ck('E3 the previous version note is cleared when an item goes straight to clinical_review',
+    (select review_change_note is null from public.health_education_content where id = v_cl));
+  -- E4: the note cannot be edited on a live (published) item, where no reviewer would see it before patients do
+  v_i := pg_temp.mkitem('lx-live', 90, null);
+  v_t := 'ok';
+  begin update public.health_education_content set review_change_note = 'Now safe to stop your tablets if you feel well.' where id = v_i; exception when others then v_t := sqlstate; end;
+  perform pg_temp.ck('E4 the change note cannot be edited on a live item (23514)', v_t = '23514');
+
   -- ================= SABOTAGE =================
   -- (i) the access check neutered: a patient then reads the backlog (the check is what refuses them)
   create or replace function private.learning_can_manage_expiry() returns boolean language sql stable as $f$ select true $f$;
@@ -276,6 +294,12 @@ begin
   reset role;
   perform pg_temp.ck('S3 sabotage: with the once-a-day index dropped the owner is notified twice',
     (select count(*) from public.notifications where recipient_id = v_own and template = 'learning_expiry_owner') = 2);
+
+  -- (iv) the held-lesson rule dropped: the lesson held back for a passed review date then vanishes from the list
+  create or replace function private.learning_held_for_overdue_review(uuid, boolean, public.health_education_content_status, date)
+    returns boolean language sql stable as $f$ select false $f$;
+  perform pg_temp.ck('S4 sabotage: without the held-lesson rule the held lesson is missing from the list',
+    pg_temp.as_count(v_admin, format($q$select count(*) from public.learning_expiry_backlog() where content_id = %L$q$, v_cl)) = 0);
 
   raise notice 'PASS: learning expiry backlog, % checks', (select count(*) from results);
 end $$;

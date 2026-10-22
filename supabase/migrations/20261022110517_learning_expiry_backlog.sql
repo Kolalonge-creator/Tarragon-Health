@@ -91,6 +91,23 @@ $$;
 revoke all on function private.learning_expiry_thresholds() from public, anon;
 grant execute on function private.learning_expiry_thresholds() to authenticated, service_role;
 
+-- A course lesson the hourly S33 job took out of service because its review date passed (is_active = false, back in clinical_review).
+-- These are the lessons the screen most needs to show: they are hidden from patients and would otherwise vanish from every count.
+create or replace function private.learning_held_for_overdue_review(
+  p_content_id uuid, p_is_active boolean, p_status public.health_education_content_status, p_next_review_due date
+)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select not p_is_active
+     and p_status = 'clinical_review'
+     and private.health_education_content_expired(p_status, p_next_review_due)
+     and private.is_course_lesson(p_content_id);
+$$;
+revoke all on function private.learning_held_for_overdue_review(uuid, boolean, public.health_education_content_status, date) from public, anon, authenticated;
+
 -- ---------------------------------------------------------------------------
 -- 4. The backlog list. One row per active, real, dated item that is hidden already or within the largest threshold of its review date.
 -- ---------------------------------------------------------------------------
@@ -125,7 +142,7 @@ begin
          c.owner_profile_id, p.full_name
     from public.health_education_content c
     left join public.profiles p on p.id = c.owner_profile_id
-   where c.is_active
+   where (c.is_active or private.learning_held_for_overdue_review(c.id, c.is_active, c.content_status, c.next_review_due))
      and not c.is_placeholder
      and c.next_review_due is not null
      and (private.health_education_content_expired(c.content_status, c.next_review_due)
@@ -153,7 +170,8 @@ begin
   end if;
   return query
   select 'hidden'::text, count(*) from public.health_education_content c
-   where c.is_active and not c.is_placeholder and private.health_education_content_expired(c.content_status, c.next_review_due)
+   where (c.is_active or private.learning_held_for_overdue_review(c.id, c.is_active, c.content_status, c.next_review_due))
+     and not c.is_placeholder and private.health_education_content_expired(c.content_status, c.next_review_due)
   union all
   select 'd' || t::text, count(*) from unnest(v_th) t
     join public.health_education_content c
@@ -164,7 +182,8 @@ begin
    group by t
   union all
   select 'no_owner'::text, count(*) from public.health_education_content c
-   where c.is_active and not c.is_placeholder and c.owner_profile_id is null
+   where (c.is_active or private.learning_held_for_overdue_review(c.id, c.is_active, c.content_status, c.next_review_due))
+     and not c.is_placeholder and c.owner_profile_id is null
      and c.next_review_due is not null
      and (private.health_education_content_expired(c.content_status, c.next_review_due) or (c.next_review_due - v_today) <= coalesce(v_th[1], 0))
   union all
@@ -190,6 +209,7 @@ begin
   select p.id, p.full_name, p.role::text
     from public.profiles p
    where p.is_active
+     and (private.current_org_id() is null or p.organisation_id = private.current_org_id())
      and (p.role = 'admin'
           or exists (select 1 from public.clinical_staff cs where cs.profile_id = p.id and cs.active and cs.status = 'active'))
    order by p.full_name nulls last, p.id;
@@ -211,9 +231,10 @@ begin
   if p_owner is not null and not exists (
        select 1 from public.profiles p
         where p.id = p_owner and p.is_active
+          and (private.current_org_id() is null or p.organisation_id = private.current_org_id())
           and (p.role = 'admin'
                or exists (select 1 from public.clinical_staff cs where cs.profile_id = p.id and cs.active and cs.status = 'active'))) then
-    raise exception 'An owner must be an active admin or an active member of the clinical team' using errcode = '23514';
+    raise exception 'An owner must be an active admin or an active member of the clinical team in your organisation' using errcode = '23514';
   end if;
   update public.health_education_content set owner_profile_id = p_owner where id = p_content_id;
   if not found then
@@ -239,9 +260,18 @@ begin
   end if;
   -- Editing starts a new version: the note describes the version that was live, so it is cleared when the item leaves service for
   -- editing (unless the same update is writing a fresh one). The admin then writes a note for the new version before it can publish.
-  if new.content_status = 'updated' and old.content_status is distinct from 'updated'
+  -- Every route out of service for editing counts: the admin's own move to 'updated', and the S33 routes that go straight to
+  -- 'clinical_review' (a course lesson whose clinical text was edited, or whose review date passed).
+  if new.content_status in ('updated', 'clinical_review') and old.content_status not in ('updated', 'clinical_review')
      and new.review_change_note is not distinct from old.review_change_note then
     new.review_change_note := null;
+  end if;
+  -- The note is patient-visible text that no reviewer sees unless it is written while the new version is in review. It is not part of the
+  -- clinical-text tuple that sends an item back to review, so it cannot be changed on an item that is live (published to published).
+  if new.content_status = 'published' and old.content_status = 'published'
+     and new.review_change_note is distinct from old.review_change_note then
+    raise exception 'The change note is written while a new version is in review, not edited on a live item'
+      using errcode = '23514';
   end if;
   if new.content_status = 'published'
      and old.content_status in ('updated', 'clinical_review', 'approved')

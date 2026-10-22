@@ -30,16 +30,16 @@ const END_VERBS = ["end", "ends", "ending", "ended"] as const;
  */
 const TRIAGE_FLOOR_PROPOSED_PHRASES: readonly string[] = [
   // diabetic emergencies (high and low)
-  "sugar is very high", "sugar very high", "sugar is too high", "reading says hi", "breath smells like fruit", "fruity breath",
+  "sugar is very high", "sugar very high", "sugar is too high", "reading says hi|", "breath smells like fruit", "fruity breath",
   "sugar is very low", "sugar very low", "sugar is too low", "sugar dropped",
   // high pressure with a dangerous headache
   "pressure is very high", "pressure very high", "pressure is too high", "pressure has gone very high", "pressure is up and my head",
-  "bp is very high", "bp is too high", "bp machine shows very",
+  "bp is very high", "bp is too high", "bp machine shows very high",
   // stroke wordings
   "cannot move his", "cannot move her", "cannot move my", "can't move his", "can't move her", "mouth is pulling", "mouth pulling", "mouth is twisted",
   "talking nonsense",
   // not waking, fits
-  "will not wake up", "wont wake up", "won't wake up", "not waking up", "had a fit",
+  "will not wake up", "wont wake up", "won't wake up", "not waking up", "had a fit|",
   // pregnancy danger signs
   "baby is not moving", "baby has stopped moving", "baby stopped moving", "baby is not kicking", "not feeling the baby move",
   // airway swelling and allergy
@@ -90,7 +90,7 @@ export const ASSISTANT_DANGER_PAIRS: readonly (readonly [readonly string[], read
   [["fever", "febrile"], ["confused", "confusion", "drowsy", "unresponsive", "not responding"]],
   [["sugar", "glucose", "diabetes", "diabetic"], ["vomiting", "vomit", "vomited"]],
   [["pregnant", "pregnancy"], ["headache", "blurry", "blurred", "flashing", "seizure", "seizures", "convulsion", "bleeding"]],
-  [["tongue", "throat", "lips"], ["swelling", "swollen"]],
+  [["tongue", "lips"], ["swelling", "swollen"]],
 ];
 
 /**
@@ -120,10 +120,13 @@ const escapeRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$
  * also open at the END so an inflection still fires ("chest pains", "strokes", "wont stop bleeding" variants); a pair word is closed at
  * the end ("numb" never matches "numbers"), because a pair is two common words that only mean something together.
  */
-function wordRegex(entry: string, closedAtEnd = false): RegExp {
+function wordRegex(rawEntry: string, closedAtEnd = false): RegExp {
+  // A trailing `|` closes a phrase at the end too ("reading says hi|" never matches "reading says high", "had a fit|" never "had a fitness class").
+  const closed = closedAtEnd || rawEntry.endsWith("|");
+  const entry = rawEntry.endsWith("|") ? rawEntry.slice(0, -1) : rawEntry;
   const stem = entry.endsWith("*");
   const body = escapeRegex(stem ? entry.slice(0, -1) : entry).replace(/\s+/g, "\\s+");
-  return new RegExp(`(?<![a-z0-9])${body}${!stem && closedAtEnd ? "(?![a-z0-9])" : ""}`);
+  return new RegExp(`(?<![a-z0-9])${body}${!stem && closed ? "(?![a-z0-9])" : ""}`);
 }
 
 const PHRASE_ENTRIES = [...WRITTEN_QUESTION_DANGER_PHRASES, ...ASSISTANT_EXTRA_DANGER_PHRASES];
@@ -140,7 +143,7 @@ export function isSelfHarmScreen(screen: AssistantDangerScreen): boolean {
 
 export function screenAssistantMessage(text: string): AssistantDangerScreen {
   const haystack = normalise(text);
-  const phrases = PHRASE_REGEX.filter(([, re]) => re.test(haystack)).map(([p]) => p.replace(/\*$/, ""));
+  const phrases = PHRASE_REGEX.filter(([, re]) => re.test(haystack)).map(([p]) => p.replace(/[*|]$/, ""));
   const pairs = PAIR_REGEX.filter(([, a, b]) => a.test(haystack) && b.test(haystack)).map(([label]) => label);
   const matched = [...new Set([...phrases, ...pairs])];
   return { redFlag: matched.length > 0, matched };

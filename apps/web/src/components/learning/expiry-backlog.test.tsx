@@ -10,11 +10,12 @@ import { ExpiryBacklog } from "./expiry-backlog";
 
 const mutate = jest.fn();
 let backlog: { isLoading: boolean; isError: boolean; data: unknown[] | undefined } = { isLoading: false, isError: false, data: [] };
-let summary: { data: unknown[] | undefined } = { data: [] };
+let summary: { data: unknown[] | undefined; isError?: boolean } = { data: [] };
+let candidatesFailed = false;
 jest.mock("@/lib/queries/learning-centre", () => ({
   useLearningExpiryBacklog: () => backlog,
   useLearningExpirySummary: () => summary,
-  useLearningOwnerCandidates: () => ({ data: [{ profile_id: "p1", full_name: "Dr Owner", role: "clinician" }] }),
+  useLearningOwnerCandidates: () => ({ data: candidatesFailed ? undefined : [{ profile_id: "p1", full_name: "Dr Owner", role: "clinician" }], isError: candidatesFailed }),
   useSetLearningContentOwner: () => ({ mutate, isPending: false, isError: false, isSuccess: false }),
 }));
 
@@ -27,6 +28,7 @@ beforeEach(() => {
   mutate.mockReset();
   backlog = { isLoading: false, isError: false, data: [] };
   summary = { data: [] };
+  candidatesFailed = false;
 });
 
 describe("ExpiryBacklog", () => {
@@ -70,6 +72,17 @@ describe("ExpiryBacklog", () => {
     backlog = { isLoading: false, isError: true, data: undefined };
     render(<ExpiryBacklog />);
     expect(screen.getByRole("alert").textContent).toContain("Learning content review list");
+  });
+
+  it("says so when the summary or the owner list fails to load, instead of showing no tiles and an empty owner list", () => {
+    summary = { data: undefined, isError: true };
+    const { unmount } = render(<ExpiryBacklog />);
+    expect(screen.getByTestId("expiry-side-error").textContent).toContain("could not load");
+    unmount();
+    summary = { data: [] };
+    candidatesFailed = true;
+    render(<ExpiryBacklog />);
+    expect(screen.getByTestId("expiry-side-error")).toBeTruthy();
   });
 
   it("has no accessibility violations", async () => {

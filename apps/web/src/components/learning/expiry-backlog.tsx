@@ -31,6 +31,8 @@ export function ExpiryBacklog() {
     return <LoadErrorCard title={t("learn.expiry.title")} what={t("learn.expiry.title")} detail={t("learn.expiry.error")} />;
   }
 
+  // A failed side query must be seen: without it the tiles vanish and the owner list is empty, which reads as "nobody to assign".
+  const sideFailed = summary.isError || candidates.isError;
   const groups = groupBacklog(backlog.data);
   const metric = (m: string) => summary.data?.find((r) => r.metric === m)?.n ?? 0;
   const withinBuckets = (summary.data ?? [])
@@ -41,6 +43,9 @@ export function ExpiryBacklog() {
   return (
     <div className="space-y-6">
       <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("learn.expiry.intro")}</p>
+      {sideFailed && (
+        <p role="alert" className="text-sm text-red-700 dark:text-red-300" data-testid="expiry-side-error">{t("learn.expiry.error")}</p>
+      )}
 
       {summary.data && (
         <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="expiry-summary">

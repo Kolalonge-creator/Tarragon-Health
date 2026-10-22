@@ -47,9 +47,12 @@ describe("learning expiry alerts cron", () => {
 
   it("answers 500 when the run fails, so a broken run is seen", async () => {
     result = { data: null, error: { message: "boom" } };
+    jest.spyOn(console, "error").mockImplementation(() => undefined);
     const res = await GET(req("s3cret"));
     expect(res.status).toBe(500);
-    expect((await res.json()).error).toBe("learning_expiry_alerts_failed");
+    const body = await res.json();
+    expect(body.error).toBe("learning_expiry_alerts_failed");
+    expect(JSON.stringify(body)).not.toContain("boom"); // the database message is logged, never returned
   });
 
   it("is scheduled exactly once, daily (five-field cron with a fixed minute and hour, never sub-daily)", () => {

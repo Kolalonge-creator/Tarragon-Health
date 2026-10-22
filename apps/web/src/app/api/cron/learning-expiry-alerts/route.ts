@@ -13,12 +13,12 @@ export async function GET(request: Request): Promise<Response> {
   if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new Response("Not authorised", { status: 401 });
   }
-  const svc = createServiceRoleClient() as unknown as {
-    rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
-  };
+  const svc = createServiceRoleClient();
   const { data, error } = await svc.rpc("learning_expiry_run_alerts", {});
   if (error) {
-    return Response.json({ error: "learning_expiry_alerts_failed", message: error.message }, { status: 500 });
+    // Logged here for the operator; the response body names no database detail.
+    console.error("learning_expiry_alerts_failed", error.message);
+    return Response.json({ error: "learning_expiry_alerts_failed" }, { status: 500 });
   }
   return Response.json(data ?? {}, { status: 200 });
 }
