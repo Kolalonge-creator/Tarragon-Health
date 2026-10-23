@@ -12,6 +12,9 @@
 --   3. The selection-bias panel: who is in a programme's figures against who is not, on the few attributes Tarragon holds (age band, sex,
 --      baseline blood pressure band, how they joined), plus an intent-to-treat view (everyone who joined, missing shown as missing, the
 --      people who dropped out shown apart) beside the completers view. Descriptive, never causal. No clinician appears anywhere.
+--   3b. The heavy per-person work runs ONCE A NIGHT into public.cascade_snapshots (one row per person per condition per snapshot day, like the S38
+--      outcome snapshots; pg_cron job 'cascade-snapshots', private function, no caller check, unschedulable and unrunnable by users). The reports only
+--      aggregate the latest snapshot and say "as at <date>"; with no snapshot yet they say snapshot_pending. Signing the definitions runs the job once.
 --   4. The sponsor pilot / renewal pack carries both (sponsor audience: no attribute comparison at all; both comparisons are internal to the admin view).
 --
 -- DEFINITIONS THAT DIFFER FROM THE EXISTING S38 / S75 BP REPORT (on purpose, stated in every output):
@@ -147,6 +150,8 @@ begin
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
     values ((select organisation_id from public.profiles where id = (select auth.uid())), (select auth.uid()), 'outcome_cascade_config.signed',
             'outcome_cascade_config', c.id, jsonb_build_object('version', p_version));
+  -- the first snapshot under the signed definitions, so the figures do not wait for the night
+  perform private.compute_cascade_snapshots();
 end $$;
 revoke all on function public.sign_outcome_cascade_config(integer) from public, anon, authenticated;
 grant execute on function public.sign_outcome_cascade_config(integer) to authenticated;
@@ -237,6 +242,93 @@ end $$;
 revoke all on function private.cascade_people(text, jsonb, uuid[], date, date) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
+-- 2b. The nightly snapshot (the S38 pattern: one append-by-day table, a private SECURITY DEFINER job on pg_cron)
+-- ---------------------------------------------------------------------------
+-- One row per person, condition and snapshot day. Only people the cascade counts are in it (adult, joined, active, NOT a test account, not pregnant).
+-- The columns after control_state are the few attributes the selection panel compares on. No user, signed in or not, can touch the table: the reports
+-- read it through SECURITY DEFINER functions that aggregate. A patient deletion cascades through the owner.
+create table public.cascade_snapshots (
+  snapshot_date   date not null,
+  condition       text not null check (condition in ('hypertension', 'diabetes')),
+  patient_id      uuid not null references public.profiles (id) on delete cascade,
+  organisation_id uuid not null references public.organisations (id) on delete restrict,
+  anchor          date not null,
+  screened        boolean not null,
+  diagnosed       boolean not null,
+  treated         boolean not null,
+  control_state   text check (control_state is null or control_state in ('controlled', 'uncontrolled', 'unknown')),
+  age_band        text,
+  sex             text,
+  baseline_bp     text,
+  channel         text,
+  config_version  integer not null references public.outcome_cascade_config (version) on delete restrict,
+  computed_at     timestamptz not null default now(),
+  primary key (snapshot_date, condition, patient_id),
+  check ((control_state is not null) = treated)
+);
+create index cascade_snapshots_patient_idx on public.cascade_snapshots (patient_id);
+create index cascade_snapshots_org_idx on public.cascade_snapshots (organisation_id);
+alter table public.cascade_snapshots enable row level security;
+revoke all on public.cascade_snapshots from public, anon, authenticated;
+
+-- The newest snapshot day computed under the given definitions version (null = none yet).
+create function private.cascade_snapshot_date(p_condition text, p_version integer) returns date
+language sql stable security definer set search_path = ''
+as $$ select max(snapshot_date) from public.cascade_snapshots where condition = p_condition and config_version = p_version $$;
+revoke all on function private.cascade_snapshot_date(text, integer) from public, anon, authenticated;
+
+create function private.cascade_snapshot_attrs(p_date date, p_ids uuid[]) returns table (patient_id uuid, age_band text, sex text, baseline_bp text, channel text)
+language sql stable security definer set search_path = ''
+as $$ select s.patient_id, s.age_band, s.sex, s.baseline_bp, s.channel from public.cascade_snapshots s
+       where s.snapshot_date = p_date and s.condition = 'hypertension' and s.patient_id = any (p_ids) $$;
+revoke all on function private.cascade_snapshot_attrs(date, uuid[]) from public, anon, authenticated;
+
+-- The job. No caller check: it is not reachable by anyone but the database owner and pg_cron. It may run before the CMO signs (it then uses the newest
+-- draft definitions); nothing is shown from a snapshot until the signed version matches. Idempotent per day; a failure keeps yesterday's snapshot and
+-- opens one ops incident (never only a log line).
+create function private.compute_cascade_snapshots(p_now timestamptz default now()) returns integer
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_today date := (p_now at time zone 'Africa/Lagos')::date;
+  v_cfg jsonb; v_cond text; n integer := 0; k integer; v_org uuid;
+begin
+  v_cfg := coalesce(private.cascade_config(), (select config || jsonb_build_object('_version', version) from public.outcome_cascade_config order by version desc limit 1));
+  if v_cfg is null then return 0; end if;
+  begin
+    delete from public.cascade_snapshots where snapshot_date = v_today or snapshot_date < v_today - 60;
+    foreach v_cond in array array['hypertension', 'diabetes'] loop
+      insert into public.cascade_snapshots (snapshot_date, condition, patient_id, organisation_id, anchor, screened, diagnosed, treated, control_state,
+                                            age_band, sex, baseline_bp, channel, config_version)
+      with cp as materialized (select * from private.cascade_people(v_cond, v_cfg, null, null, null)),
+           att as (select * from private.selection_attrs(v_cfg, (select array_agg(c.patient_id) from cp c)))
+      select v_today, v_cond, cp.patient_id, pr.organisation_id, cp.anchor, cp.screened, cp.diagnosed, cp.treated, cp.control_state,
+             att.age_band, att.sex, att.baseline_bp, att.channel, (v_cfg ->> '_version')::integer
+        from cp join public.profiles pr on pr.id = cp.patient_id left join att on att.patient_id = cp.patient_id
+       where not coalesce(pr.is_test, false) and pr.organisation_id is not null;
+      get diagnostics k = row_count;
+      n := n + k;
+    end loop;
+  exception when others then
+    select id into v_org from public.organisations order by created_at limit 1;
+    if exists (select 1 from public.ops_incidents where external_reference = 'cascade-snapshots-failing' and status not in ('resolved', 'closed')) then
+      update public.ops_incidents set summary = 'The last cascade snapshot failed (' || left(sqlerrm, 200) || ').'
+       where external_reference = 'cascade-snapshots-failing' and status not in ('resolved', 'closed');
+    else
+      insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
+      values (v_org, 'operational', 'sev3', 'Cascade of care snapshots are failing',
+              'The last cascade snapshot failed (' || left(sqlerrm, 200) || '). The cascade and selection reports keep showing the previous snapshot until it is fixed.',
+              'cascade-snapshots-failing', now() + interval '1 day', now() + interval '3 days');
+    end if;
+    return 0;
+  end;
+  return n;
+end $$;
+revoke all on function private.compute_cascade_snapshots(timestamptz) from public, anon, authenticated;
+-- after the S38 outcome snapshots (01:40), whose day-0 average the baseline blood pressure band reads
+select cron.schedule('cascade-snapshots', '50 1 * * *', $$ select private.compute_cascade_snapshots(); $$);
+
+-- ---------------------------------------------------------------------------
 -- 3. Stages as figures, through the single minimum-cell rule
 -- ---------------------------------------------------------------------------
 -- A stage shown is {code,label,definition,n,pct_of_enrolled,step_of,pct_of_step}; a stage withheld has no number at all.
@@ -309,22 +401,29 @@ as $$
 declare
   v_cfg jsonb := private.cascade_config();
   v_min integer;
-  t jsonb; m jsonb; v_rows jsonb; v_months jsonb := '[]'::jsonb; v_groups jsonb := '[]'::jsonb; v_marked jsonb; v_reason text;
+  t jsonb; m jsonb; v_rows jsonb; v_months jsonb := '[]'::jsonb; v_groups jsonb := '[]'::jsonb; v_marked jsonb; v_reason text; v_date date;
 begin
   if v_cfg is null then
     return jsonb_build_object('withheld', true, 'reason', 'awaiting_cmo_signature', 'condition', p_condition);
+  end if;
+  -- the figures come from the latest nightly snapshot taken under the SIGNED definitions, never from a live scan of every Member
+  v_date := private.cascade_snapshot_date(p_condition, (v_cfg ->> '_version')::integer);
+  if v_date is null then
+    return jsonb_build_object('withheld', true, 'reason', 'snapshot_pending', 'condition', p_condition);
   end if;
   v_min := greatest(private.min_cell_floor(), coalesce(p_min, 0));
   -- whole calendar months of joining, so two ranges a day apart cannot be subtracted
   if p_from is not null then p_from := date_trunc('month', p_from)::date; end if;
   if p_to is not null then p_to := (date_trunc('month', p_to) + interval '1 month' - interval '1 day')::date; end if;
 
-  -- One pass over the people (a single query, no temporary table, so it also runs in a read-only transaction): the rollup row with no month is the total.
+  -- One pass over the snapshot rows (a single query, no temporary table, so it also runs in a read-only transaction): the rollup row with no month is the total.
   select coalesce(jsonb_agg(to_jsonb(q) order by q.mon nulls first), '[]'::jsonb) into v_rows from (
     select date_trunc('month', anchor)::date as mon, count(*) as n, count(*) filter (where screened) as scr, count(*) filter (where diagnosed) as dx,
            count(*) filter (where treated) as tx, count(*) filter (where control_state = 'controlled') as ctrl,
            count(*) filter (where control_state = 'uncontrolled') as unc, count(*) filter (where control_state = 'unknown') as unk
-      from private.cascade_people(p_condition, v_cfg, p_patients, p_from, p_to)
+      from public.cascade_snapshots s
+     where s.snapshot_date = v_date and s.condition = p_condition and s.config_version = (v_cfg ->> '_version')::integer
+       and (p_patients is null or s.patient_id = any (p_patients)) and (p_from is null or s.anchor >= p_from) and (p_to is null or s.anchor <= p_to)
      group by rollup (date_trunc('month', anchor)::date)) q;
   select x into t from jsonb_array_elements(v_rows) x where x -> 'mon' = 'null'::jsonb limit 1;
   t := coalesce(t, jsonb_build_object('n', 0, 'scr', 0, 'dx', 0, 'tx', 0, 'ctrl', 0, 'unc', 0, 'unk', 0));
@@ -346,7 +445,7 @@ begin
   end loop;
 
   return jsonb_build_object(
-    'condition', p_condition, 'config_version', (v_cfg ->> '_version')::integer, 'minimum_cell', v_min,
+    'condition', p_condition, 'config_version', (v_cfg ->> '_version')::integer, 'minimum_cell', v_min, 'as_at', v_date,
     'total', private.cascade_stages_json(v_cfg, p_condition, (t ->> 'n')::bigint, (t ->> 'scr')::bigint, (t ->> 'dx')::bigint, (t ->> 'tx')::bigint,
                                           (t ->> 'ctrl')::bigint, (t ->> 'unc')::bigint, (t ->> 'unk')::bigint, v_min),
     'by_month_of_joining', v_months,
@@ -402,7 +501,7 @@ revoke all on function private.selection_attrs(jsonb, uuid[]) from public, anon,
 
 -- One comparison: two groups of people (as id arrays), attribute by attribute. A group below the minimum is withheld whole; inside a group
 -- the categories go through suppress_groups. Percentages are of the group total and only given for a category that is shown.
-create function private.selection_compare(p_cfg jsonb, p_a uuid[], p_b uuid[], p_min integer) returns jsonb
+create function private.selection_compare(p_date date, p_a uuid[], p_b uuid[], p_min integer) returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
 declare
@@ -414,8 +513,8 @@ begin
   end if;
   -- the attributes of both groups, once, as one JSON array (no temporary table, so it also runs in a read-only transaction)
   select coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) into v_sel from (
-    select 'a'::text as grp, * from private.selection_attrs(p_cfg, p_a)
-    union all select 'b', * from private.selection_attrs(p_cfg, p_b)) x;
+    select 'a'::text as grp, * from private.cascade_snapshot_attrs(p_date, p_a)
+    union all select 'b', * from private.cascade_snapshot_attrs(p_date, p_b)) x;
   foreach v_attr in array array['age_band', 'sex', 'baseline_bp', 'channel'] loop
     select coalesce(jsonb_agg(distinct c), '[]'::jsonb) into v_cats from (
       select t ->> v_attr as c from jsonb_array_elements(v_sel) t) x;
@@ -440,7 +539,7 @@ begin
   end loop;
   return jsonb_build_object('suppressed', false, 'group_a_total', na, 'group_b_total', nb, 'attributes', v_out);
 end $$;
-revoke all on function private.selection_compare(jsonb, uuid[], uuid[], integer) from public, anon, authenticated;
+revoke all on function private.selection_compare(date, uuid[], uuid[], integer) from public, anon, authenticated;
 
 -- Intent-to-treat beside completers for the people in a programme's figures, at one due day.
 --   everyone who joined (anchor in range, in the figures) = ITT population.
@@ -490,33 +589,31 @@ as $$
 declare
   v_cfg jsonb := private.cascade_config();
   c public.sponsor_cohorts%rowtype; v_min integer; v_agreed uuid[]; v_a uuid[]; v_b uuid[]; v_c uuid[]; v_joined uuid[];
-  v_age integer; v_joined_n integer; v_org_floor integer; d integer; v_itt jsonb := '{}'::jsonb; v_cmp jsonb := '{}'::jsonb;
+  v_joined_n integer; v_org_floor integer; d integer; v_itt jsonb := '{}'::jsonb; v_cmp jsonb := '{}'::jsonb; v_date date;
 begin
   if v_cfg is null then return jsonb_build_object('withheld', true, 'reason', 'awaiting_cmo_signature'); end if;
+  v_date := private.cascade_snapshot_date('hypertension', (v_cfg ->> '_version')::integer);
+  if v_date is null then return jsonb_build_object('withheld', true, 'reason', 'snapshot_pending'); end if;
   select * into c from public.sponsor_cohorts where id = p_cohort;
   if not found then raise exception 'sponsor_cohort_not_found' using errcode = '22023'; end if;
   select min_cohort_size into v_org_floor from public.organisations where id = c.sponsor_org_id;
   v_min := coalesce(p_min, private.min_cell_floor(v_org_floor));
-  v_age := (v_cfg ->> 'min_adult_age_years')::integer;
   if p_from is not null then p_from := date_trunc('month', p_from)::date; end if;
   if p_to is not null then p_to := (date_trunc('month', p_to) + interval '1 month' - interval '1 day')::date; end if;
 
   v_agreed := private.sponsor_agreed_members(p_cohort);
-  -- adults with a joining date in range, not pregnant (the same scope as the cascade)
-  select coalesce(array_agg(x.pid), '{}') into v_a from (select p.id as pid from public.profiles p cross join lateral (select private.outcome_anchor(p.id) as anchor) q
-     where p.id = any (v_agreed) and q.anchor is not null and p.date_of_birth is not null and p.date_of_birth <= (q.anchor - make_interval(years => v_age))::date
-       and (p_from is null or q.anchor >= p_from) and (p_to is null or q.anchor <= p_to) and not (coalesce((v_cfg ->> 'exclude_pregnant')::boolean, false) and exists (select 1 from public.patient_pregnancy pp where pp.patient_id = p.id and pp.is_pregnant))) x;
   select coalesce(array_agg(pc.patient_id), '{}') into v_joined from public.profile_cohorts pc join public.profiles p on p.id = pc.patient_id
    where pc.cohort_id = p_cohort and pc.left_at is null and not pc.is_test and not coalesce(p.is_test, false) and p.is_active;
   v_joined_n := cardinality(v_joined);
-  -- joined but not in the figures (internal only)
-  select coalesce(array_agg(x.pid), '{}') into v_b from (select p.id as pid from public.profiles p cross join lateral (select private.outcome_anchor(p.id) as anchor) q
-     where p.id = any (v_joined) and not (p.id = any (v_agreed)) and q.anchor is not null and p.date_of_birth is not null and p.date_of_birth <= (q.anchor - make_interval(years => v_age))::date
-       and (p_from is null or q.anchor >= p_from) and (p_to is null or q.anchor <= p_to) and not (coalesce((v_cfg ->> 'exclude_pregnant')::boolean, false) and exists (select 1 from public.patient_pregnancy pp where pp.patient_id = p.id and pp.is_pregnant))) x;
-  -- other adult Members who are not in this programme at all
-  select coalesce(array_agg(x.pid), '{}') into v_c from (select p.id as pid from public.profiles p cross join lateral (select private.outcome_anchor(p.id) as anchor) q
-     where p.role = 'patient' and p.is_active and not coalesce(p.is_test, false) and not (p.id = any (v_joined)) and q.anchor is not null and p.date_of_birth is not null
-       and p.date_of_birth <= (q.anchor - make_interval(years => v_age))::date and (p_from is null or q.anchor >= p_from) and (p_to is null or q.anchor <= p_to) and not (coalesce((v_cfg ->> 'exclude_pregnant')::boolean, false) and exists (select 1 from public.patient_pregnancy pp where pp.patient_id = p.id and pp.is_pregnant))) x;
+  -- The three groups come from the nightly snapshot, which already holds only adults with a joining date, not pregnant, not test accounts:
+  -- in the figures (agreed), joined but not in the figures (internal only), and other adult Members who are not in this programme at all.
+  select coalesce(array_agg(s.patient_id) filter (where s.patient_id = any (v_agreed)), '{}'),
+         coalesce(array_agg(s.patient_id) filter (where s.patient_id = any (v_joined) and not (s.patient_id = any (v_agreed))), '{}'),
+         coalesce(array_agg(s.patient_id) filter (where not (s.patient_id = any (v_joined))), '{}')
+    into v_a, v_b, v_c
+    from public.cascade_snapshots s
+   where s.snapshot_date = v_date and s.condition = 'hypertension' and s.config_version = (v_cfg ->> '_version')::integer
+     and (p_from is null or s.anchor >= p_from) and (p_to is null or s.anchor <= p_to);
 
   -- Both comparisons are INTERNAL ONLY. The sponsor pack gets neither: not the one with people who declined to share (they declined), and not the one
   -- with other Members (it describes Members outside the programme, who never agreed to anything with this sponsor). See OQ-WP3-05 if the founder
@@ -525,10 +622,10 @@ begin
     v_cmp := jsonb_build_object(
       'in_figures_vs_other_members',
         jsonb_build_object('group_a_is', 'Members of this programme who agreed to share group figures', 'group_b_is', 'other adult Members who are not in this programme',
-                           'result', private.selection_compare(v_cfg, v_a, v_c, v_min), 'audience', 'internal only, never in a sponsor pack'),
+                           'result', private.selection_compare(v_date, v_a, v_c, v_min), 'audience', 'internal only, never in a sponsor pack'),
       'in_figures_vs_joined_not_agreed',
         jsonb_build_object('group_a_is', 'Members of this programme who agreed to share group figures', 'group_b_is', 'Members of this programme who joined but did not agree',
-                           'result', private.selection_compare(v_cfg, v_a, v_b, v_min), 'audience', 'internal only, never in a sponsor pack'));
+                           'result', private.selection_compare(v_date, v_a, v_b, v_min), 'audience', 'internal only, never in a sponsor pack'));
   else
     v_cmp := jsonb_build_object(
       'in_figures_vs_other_members', jsonb_build_object('withheld', true, 'reason', 'not_shown_to_sponsors'),
@@ -540,7 +637,7 @@ begin
   end loop;
 
   return jsonb_build_object(
-    'config_version', (v_cfg ->> '_version')::integer, 'minimum_cell', v_min,
+    'config_version', (v_cfg ->> '_version')::integer, 'minimum_cell', v_min, 'as_at', v_date,
     'audience', case when p_internal then 'internal' else 'sponsor' end,
     'who_is_in_the_figures', case when private.suppress_cell(cardinality(v_a), null, v_min) is null
         then jsonb_build_object('suppressed', false, 'in_figures', cardinality(v_a)) else jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', v_min) end,
@@ -635,6 +732,11 @@ begin
   if has_table_privilege('anon', 'public.outcome_cascade_config', 'SELECT') or has_table_privilege('authenticated', 'public.outcome_cascade_config', 'INSERT,UPDATE,DELETE') then
     raise exception 'WP3: outcome_cascade_config is reachable';
   end if;
+  if has_table_privilege('anon', 'public.cascade_snapshots', 'SELECT') or has_table_privilege('authenticated', 'public.cascade_snapshots', 'SELECT,INSERT,UPDATE,DELETE')
+     or has_function_privilege('anon', 'private.compute_cascade_snapshots(timestamptz)', 'EXECUTE') or has_function_privilege('authenticated', 'private.compute_cascade_snapshots(timestamptz)', 'EXECUTE') then
+    raise exception 'WP3: a user can reach the cascade snapshots';
+  end if;
+  if not exists (select 1 from cron.job where jobname = 'cascade-snapshots') then raise exception 'WP3: the nightly cascade snapshot is not scheduled'; end if;
   if exists (select 1 from public.outcome_cascade_config where is_active or approved_at is not null) then
     raise exception 'WP3: a cascade config is signed or active by a migration';
   end if;

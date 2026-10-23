@@ -1,9 +1,9 @@
-import { attributeLabel, isAwaitingSignature, isStageShown, parseCascadeReport, parseSelectionPanel, stageWithheldText } from "./cascade-report";
+import { attributeLabel, isStageShown, isWithheldReport, panelWithheld, parseCascadeReport, parseSelectionPanel, stageWithheldText, withheldReportText } from "./cascade-report";
 import { assertNoCausalWording, packRows } from "./pack";
 
 const shown = (code: string, n: number, step: string | null) => ({ code, label: code, definition: "d", suppressed: false as const, n, pct_of_enrolled: 50, step_of: step, pct_of_step: step ? 50 : null });
 const report = {
-  condition: "hypertension", config_version: 1, minimum_cell: 20,
+  condition: "hypertension", config_version: 1, minimum_cell: 20, as_at: "2026-10-23",
   total: {
     suppressed: false,
     stages: [shown("enrolled", 40, null), { code: "screened", label: "s", definition: "d", suppressed: true, reason: "small_difference", minimum: 20 }, shown("diagnosed", 30, "enrolled")],
@@ -20,14 +20,27 @@ describe("parseCascadeReport", () => {
   it("reads a report where one stage is withheld and carries no number for it", () => {
     const r = parseCascadeReport(report);
     expect(r).not.toBeNull();
-    if (!r || isAwaitingSignature(r) || r.total.suppressed) throw new Error("unexpected");
+    if (!r || isWithheldReport(r) || r.total.suppressed) throw new Error("unexpected");
     const withheld = r.total.stages.filter((s) => !isStageShown(s));
     expect(withheld).toHaveLength(1);
     expect(JSON.stringify(withheld[0])).not.toMatch(/"n"/);
   });
   it("reads the unsigned reply as awaiting signature and nothing else", () => {
     const r = parseCascadeReport({ withheld: true, reason: "awaiting_cmo_signature", condition: "diabetes" });
-    expect(r && isAwaitingSignature(r)).toBe(true);
+    expect(r && isWithheldReport(r)).toBe(true);
+  });
+  it("reads snapshot_pending as withheld, with its own words, and carries no number", () => {
+    const r = parseCascadeReport({ withheld: true, reason: "snapshot_pending", condition: "hypertension" });
+    expect(r && isWithheldReport(r) && r.reason).toBe("snapshot_pending");
+    expect(withheldReportText("snapshot_pending")).toMatch(/nightly snapshot has not run yet/);
+    expect(withheldReportText("awaiting_cmo_signature")).toMatch(/signature/);
+  });
+  it("requires the snapshot day ('as at') on a shown report", () => {
+    const { as_at: _drop, ...noDate } = report;
+    void _drop;
+    expect(parseCascadeReport(noDate)).toBeNull();
+    const r = parseCascadeReport(report);
+    expect(r && !isWithheldReport(r) && r.as_at).toBe("2026-10-23");
   });
   it("refuses a reply that does not match (shown as not available, never half-rendered)", () => {
     expect(parseCascadeReport({ ...report, comparison_group: "yes" })).toBeNull();
@@ -45,7 +58,7 @@ describe("parseCascadeReport", () => {
 describe("parseSelectionPanel", () => {
   const cat = { category: "female", group_a: { suppressed: false, n: 9, pct: 50 }, group_b: { suppressed: true, reason: "small_cell" } };
   const panel = {
-    config_version: 1, minimum_cell: 20, audience: "sponsor",
+    config_version: 1, minimum_cell: 20, as_at: "2026-10-23", audience: "sponsor",
     who_is_in_the_figures: { suppressed: false, in_figures: 40 },
     eligible_roster: { available: false, reason: "Tarragon holds no list." },
     seats: { suppressed: false, seats_offered: 100, members_joined: 45, take_up_pct_of_seats: 45, note: "Seats are codes handed out." },
@@ -65,6 +78,15 @@ describe("parseSelectionPanel", () => {
   };
   it("reads a sponsor-audience panel with missing shown beside the completers", () => {
     expect(parseSelectionPanel(panel)).not.toBeNull();
+  });
+  it("reads a snapshot_pending panel as withheld", () => {
+    const p = parseSelectionPanel({ withheld: true, reason: "snapshot_pending" });
+    expect(p && panelWithheld(p)).toBe(true);
+  });
+  it("refuses a shown panel with no snapshot day", () => {
+    const { as_at: _d, ...rest } = panel;
+    void _d;
+    expect(parseSelectionPanel(rest)).toBeNull();
   });
   it("refuses a panel that drops the not-causal flag", () => {
     expect(parseSelectionPanel({ ...panel, not_a_causal_claim: false })).toBeNull();

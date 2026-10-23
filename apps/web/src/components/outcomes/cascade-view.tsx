@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   controlLabel,
-  isAwaitingSignature,
+  isWithheldReport,
+  withheldReportText,
   isStageShown,
   stageWithheldText,
   type CascadeBlock,
@@ -50,10 +51,11 @@ export function CascadeView({ title, report }: { title: string; report: CascadeR
       <h2 id={`cascade-${title}`} className="text-lg font-medium">{title}</h2>
       {!report ? (
         <p role="alert">This cascade could not be read. Please refresh, or ask an admin or the CMO to open it.</p>
-      ) : isAwaitingSignature(report) ? (
-        <p>Awaiting the Chief Medical Officer&apos;s signature.</p>
+      ) : isWithheldReport(report) ? (
+        <p>{withheldReportText(report.reason)}</p>
       ) : (
         <>
+          <p className="text-sm">As at <strong>{report.as_at}</strong> (the nightly snapshot). Changes since then appear after the next one.</p>
           <Card>
             <CardHeader><CardTitle>All months together</CardTitle></CardHeader>
             <CardContent><Block block={report.total} minimum={report.minimum_cell} /></CardContent>

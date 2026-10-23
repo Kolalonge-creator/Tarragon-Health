@@ -17,6 +17,10 @@
 --   6b. REVIEW FIXES: the 7-day control window ends on the report day (readings 85 days old but controlled are UNKNOWN); only a valid reading, or one that
 --      waits only for a missing arm or position, counts (an empty flag list does not make a reading usable); the cascade and the panel run with no
 --      temporary table (stable functions); the sponsor audience carries neither attribute comparison.
+--   6c. THE NIGHTLY SNAPSHOT: the job runs before signing yet nothing is shown; it holds no test account, child or pregnant member; the aggregate EQUALS a
+--      recompute from the live tables on the fixture and carries the snapshot day ("as at"); the reports read the snapshot, not the live data (a later
+--      reading changes nothing until the job runs again); with no snapshot the reports say snapshot_pending; the table and the job are out of reach of
+--      every user and the cron job exists. Sabotage: a tampered snapshot row flips the equality check.
 --   7. SABOTAGE: suppress_cell / suppress_difference replaced by versions that never withhold; the withheld checks must FLIP. A proof that cannot fail
 --      is not a proof.
 -- Wrapped in BEGIN/ROLLBACK; mints its own fixtures. The platform minimum is lowered to 3 on the active outcome_config under test.
@@ -226,12 +230,19 @@ begin
   perform pg_temp.bp(pg_temp.f('O6'), 3, 150, 95);
   perform pg_temp.bpv(pg_temp.f('O7'), 3, 125, 80, 3, 'requires_validation', array['insufficient_context', 'sudden_change']);
 
+  p := pg_temp.mkmember('Z1', 200);
+  perform pg_temp.setf('Z1', p);
+  perform pg_temp.plan(p, 'hypertension', true);
+
   perform private.compute_outcome_snapshots(now());
 end $$;
 
 -- state of one review case after the cascade: screened / control_state ('-' when not on treatment)
 create function pg_temp.case_of(p_label text) returns text language sql as
 $$ select r.screened::text || '/' || coalesce(r.control_state, '-') from private.cascade_people('hypertension', private.cascade_config(), array[pg_temp.f(p_label)], null, null) r $$;
+
+create function pg_temp.case_of_ctrl(p_label text) returns text language sql as
+$$ select coalesce(r.control_state, '-') from private.cascade_people('hypertension', private.cascade_config(), array[pg_temp.f(p_label)], null, null) r $$;
 
 create function pg_temp.review_cases(p_phase text) returns void language plpgsql as
 $f$ begin
@@ -260,6 +271,13 @@ begin
   r := pg_temp.q_as(pg_temp.f('admin'), format($q$ select public.sponsor_pilot_pack(%L)::text $q$, pg_temp.f('ph')))::jsonb;
   perform pg_temp.ck('1d unsigned: the pack withholds the cascade', 'true', (r #> '{pack,cascade_of_care,hypertension,withheld}')::text);
   perform pg_temp.ck('1e unsigned: the pack withholds the selection panel', 'awaiting_cmo_signature', r #>> '{pack,selection_panel,reason}');
+  -- the nightly job may run before the CMO signs; nothing is shown from it
+  perform private.compute_cascade_snapshots();
+  perform pg_temp.ck('1e2 the job ran before signing and holds rows', 'true', ((select count(*) from public.cascade_snapshots) > 0)::text);
+  r := pg_temp.q_as(pg_temp.f('admin'), $q$ select public.cascade_of_care_report('hypertension')::text $q$)::jsonb;
+  perform pg_temp.ck('1e3 ... yet the report is still withheld until the CMO signs', 'awaiting_cmo_signature', r ->> 'reason');
+  r := pg_temp.q_as(pg_temp.f('admin'), format($q$ select public.sponsor_pilot_pack(%L)::text $q$, pg_temp.f('ph')))::jsonb;
+  perform pg_temp.ck('1e4 ... and so is the pack (cascade and panel)', 'true/awaiting_cmo_signature', (r #>> '{pack,cascade_of_care,hypertension,withheld}') || '/' || (r #>> '{pack,selection_panel,reason}'));
   perform pg_temp.ck('1f an admin cannot sign', 'ERR:42501', pg_temp.q_as(pg_temp.f('admin'), $q$ select public.sign_outcome_cascade_config(1)::text $q$));
   perform pg_temp.ck('1g a clinician who is not the CMO cannot sign', 'ERR:42501', pg_temp.q_as(pg_temp.f('clin'), $q$ select public.sign_outcome_cascade_config(1)::text $q$));
   perform pg_temp.ck('1h a patient cannot sign', 'ERR:42501', pg_temp.q_as(pg_temp.f('patient'), $q$ select public.sign_outcome_cascade_config(1)::text $q$));
@@ -361,7 +379,7 @@ begin
   perform pg_temp.ck('4h anon cannot run either report', '42501/42501', pg_temp.try_anon($q$ select public.cascade_of_care_report('hypertension') $q$) || '/' || pg_temp.try_anon(format($q$ select public.selection_panel_report(%L) $q$, pg_temp.f('ph'))));
   perform pg_temp.ck('4i an unknown condition is refused', 'ERR:22023', pg_temp.q_as(pg_temp.f('admin'), $q$ select public.cascade_of_care_report('asthma')::text $q$));
   perform pg_temp.ck('4j admin reads the internal panel, which includes the did-not-agree comparison', 'internal', (pg_temp.q_as(pg_temp.f('admin'), format($q$ select public.selection_panel_report(%L)::text $q$, pg_temp.f('ph')))::jsonb) ->> 'audience');
-  perform pg_temp.ck('4k each report read is audited', '3/1', (select count(*) filter (where action = 'outcomes.cascade_report')::text || '/' || count(*) filter (where action = 'outcomes.selection_panel')::text from public.audit_log where actor_id in (pg_temp.f('admin'), pg_temp.f('cmo')) and action in ('outcomes.cascade_report', 'outcomes.selection_panel')) );
+  perform pg_temp.ck('4k each report read is audited', '4/1', (select count(*) filter (where action = 'outcomes.cascade_report')::text || '/' || count(*) filter (where action = 'outcomes.selection_panel')::text from public.audit_log where actor_id in (pg_temp.f('admin'), pg_temp.f('cmo')) and action in ('outcomes.cascade_report', 'outcomes.selection_panel')) );
 
   -- 5. no clinician anywhere: no key names a clinician, doctor, tier or assignee, in the panel, the cascade or the pack
   r := pg_temp.q_as(pg_temp.f('admin'), format($q$ select public.sponsor_pilot_pack(%L)::text $q$, pg_temp.f('ph')))::jsonb;
@@ -414,6 +432,77 @@ begin
     coalesce((select string_agg(s, ', ') from unnest(v_fns) s where exists (select 1 from pg_proc p where (p.pronamespace::regnamespace::text || '.' || p.proname) = s and p.prosrc ~* '(responsible_clinician|assigned_clinician|claimed_by|clinical_staff|doctor_tier)' and s not in ('public.sign_outcome_cascade_config'))), 'none'));
 end $$;
 
+-- 6c. The nightly snapshot
+create function pg_temp.snapshot_equals_recompute(p_phase text) returns void language plpgsql as
+$f$
+declare ids uuid[]; a text; b text; r jsonb;
+begin
+  select array_agg(pc.patient_id) into ids from public.profile_cohorts pc where pc.cohort_id = pg_temp.f('ph') and pc.reporting_consent;
+  select count(*)::text || '/' || count(*) filter (where screened) || '/' || count(*) filter (where diagnosed) || '/' || count(*) filter (where treated) || '/' ||
+         count(*) filter (where control_state = 'controlled') || '/' || count(*) filter (where control_state = 'uncontrolled') || '/' || count(*) filter (where control_state = 'unknown')
+    into a from private.cascade_people('hypertension', private.cascade_config(), ids, null, null);
+  r := private.cascade_aggregate('hypertension', ids, null, null, 3);
+  -- the aggregate's stage numbers (a withheld stage is read from the snapshot rows through the same filter the aggregate uses)
+  select count(*)::text || '/' || count(*) filter (where screened) || '/' || count(*) filter (where diagnosed) || '/' || count(*) filter (where treated) || '/' ||
+         count(*) filter (where control_state = 'controlled') || '/' || count(*) filter (where control_state = 'uncontrolled') || '/' || count(*) filter (where control_state = 'unknown')
+    into b from public.cascade_snapshots s where s.condition = 'hypertension' and s.snapshot_date = (r ->> 'as_at')::date and s.patient_id = any (ids);
+  perform pg_temp.sk(p_phase, '6c1 the aggregate over the snapshot equals a recompute from the live tables (enrolled/screened/diagnosed/treated/controlled/uncontrolled/unknown)', a, b);
+  perform pg_temp.sk(p_phase, '6c2 the stage figures the report shows are those of the snapshot (enrolled 18, diagnosed 14, on a medicine 11, controlled 5)', '18/14/11/5',
+    (r #>> '{total,stages,0,n}') || '/' || (r #>> '{total,stages,2,n}') || '/' || (r #>> '{total,stages,3,n}') || '/' || (r #>> '{total,stages,4,n}'));
+end $f$;
+select pg_temp.snapshot_equals_recompute('real');
+
+do $$
+declare r jsonb; v_today date := (now() at time zone 'Africa/Lagos')::date; v_before text; v_after text;
+begin
+  perform pg_temp.ck('6c3 the snapshot holds no test account, no child and no pregnant member', '0',
+    (select count(*)::text from public.cascade_snapshots s where s.patient_id in (pg_temp.f('xtest')) or s.patient_id in (select id from public.profiles where full_name in ('WP3 X-child', 'WP3 X-pregnant'))
+        or s.patient_id in (select id from public.profiles where is_test)));
+  perform pg_temp.ck('6c4 the report says "as at" the snapshot day', v_today::text, (pg_temp.q_as(pg_temp.f('admin'), $q$ select public.cascade_of_care_report('hypertension')::text $q$)::jsonb) ->> 'as_at');
+  perform pg_temp.ck('6c5 the panel says "as at" the snapshot day', v_today::text, (private.selection_panel_build(pg_temp.f('ph'), null, null, true, null)) ->> 'as_at');
+  perform pg_temp.ck('6c6 one row per person per condition per day', 'true', (not exists (select 1 from public.cascade_snapshots group by snapshot_date, condition, patient_id having count(*) > 1))::text);
+  -- the reports read the snapshot, not the live data
+  select control_state into v_before from public.cascade_snapshots where patient_id = pg_temp.f('Z1') and condition = 'hypertension' and snapshot_date = v_today;
+  perform pg_temp.bp(pg_temp.f('Z1'), 3, 125, 80);
+  select control_state into v_after from public.cascade_snapshots where patient_id = pg_temp.f('Z1') and condition = 'hypertension' and snapshot_date = v_today;
+  perform pg_temp.ck('6c7 a new reading changes the live state but not the snapshot until the job runs', 'unknown/unknown/controlled', v_before || '/' || v_after || '/' || pg_temp.case_of_ctrl('Z1'));
+  perform private.compute_cascade_snapshots();
+  perform pg_temp.ck('6c8 the next run picks it up, once (idempotent per day)', 'controlled/1', (select control_state || '/' || count(*) from public.cascade_snapshots where patient_id = pg_temp.f('Z1') and condition = 'hypertension' and snapshot_date = v_today group by control_state));
+  -- no snapshot yet: a clear withheld state, never a live scan
+  delete from public.cascade_snapshots;
+  r := pg_temp.q_as(pg_temp.f('admin'), $q$ select public.cascade_of_care_report('hypertension')::text $q$)::jsonb;
+  perform pg_temp.ck('6c9 no snapshot: the report says snapshot_pending and carries no total', 'true/snapshot_pending/false', (r ->> 'withheld') || '/' || (r ->> 'reason') || '/' || (r ? 'total')::text);
+  r := private.selection_panel_build(pg_temp.f('ph'), null, null, false, null);
+  perform pg_temp.ck('6c10 no snapshot: the panel says snapshot_pending', 'snapshot_pending', r ->> 'reason');
+  r := pg_temp.q_as(pg_temp.f('admin'), format($q$ select public.sponsor_pilot_pack(%L)::text $q$, pg_temp.f('ph')))::jsonb;
+  perform pg_temp.ck('6c11 no snapshot: the pack is still issued, with the cascade pending', 'true/snapshot_pending', (r ->> 'ok') || '/' || (r #>> '{pack,cascade_of_care,hypertension,reason}'));
+  perform private.compute_cascade_snapshots();
+  perform pg_temp.ck('6c12 the job restores the snapshot', 'true', ((select count(*) from public.cascade_snapshots) > 0)::text);
+  -- access: nobody can reach the table or run the job; the cron job exists and is out of reach of users
+  perform pg_temp.ck('6c13 no table privilege for anon or authenticated, row level security on', 'false/false/true',
+    (has_table_privilege('anon', 'public.cascade_snapshots', 'SELECT,INSERT,UPDATE,DELETE')::text) || '/' || (has_table_privilege('authenticated', 'public.cascade_snapshots', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE')::text) || '/' ||
+    (select relrowsecurity::text from pg_class where oid = 'public.cascade_snapshots'::regclass));
+  perform pg_temp.ck('6c14 an admin, the CMO, a clinician and a patient all get permission denied on the table', 'ERR:42501/ERR:42501/ERR:42501/ERR:42501',
+    (pg_temp.q_as(pg_temp.f('admin'), $q$ select count(*)::text from public.cascade_snapshots $q$)) || '/' || (pg_temp.q_as(pg_temp.f('cmo'), $q$ select count(*)::text from public.cascade_snapshots $q$)) || '/' ||
+    (pg_temp.q_as(pg_temp.f('clin'), $q$ select count(*)::text from public.cascade_snapshots $q$)) || '/' || (pg_temp.q_as(pg_temp.f('patient'), $q$ select count(*)::text from public.cascade_snapshots $q$)));
+  perform pg_temp.ck('6c15 anon is refused the table', '42501', pg_temp.try_anon($q$ select count(*) from public.cascade_snapshots $q$));
+  perform pg_temp.ck('6c16 nobody can run the job: admin, CMO and anon are refused', 'ERR:42501/ERR:42501/42501',
+    (pg_temp.q_as(pg_temp.f('admin'), $q$ select private.compute_cascade_snapshots()::text $q$)) || '/' || (pg_temp.q_as(pg_temp.f('cmo'), $q$ select private.compute_cascade_snapshots()::text $q$)) || '/' ||
+    (pg_temp.try_anon($q$ select private.compute_cascade_snapshots() $q$)));
+  perform pg_temp.ck('6c17 the cron job exists and runs the snapshot job nightly', '1/true',
+    (select count(*)::text || '/' || bool_and(command ~ 'private\.compute_cascade_snapshots\(\)' and schedule ~ '^[0-9]+ [0-9]+ \* \* \*$')::text from cron.job where jobname = 'cascade-snapshots'));
+  perform pg_temp.ck('6c18 users cannot reach the cron schema (so they cannot unschedule it)', 'false/false', has_schema_privilege('authenticated', 'cron', 'USAGE')::text || '/' || has_schema_privilege('anon', 'cron', 'USAGE')::text);
+  perform pg_temp.ck('6c19 the report functions do not scan Members live (no profiles or vitals_readings read in the aggregate and the panel)', 'none',
+    coalesce((select string_agg(p.proname, ', ') from pg_proc p where p.pronamespace = 'private'::regnamespace and p.proname in ('cascade_aggregate', 'selection_panel_build', 'selection_compare')
+              and p.prosrc ~* 'cascade_people|selection_attrs|public\.vitals_readings|outcome_anchor'), 'none'));
+end $$;
+
+-- 6c SABOTAGE: one snapshot row is tampered with; the equality check must flip (the report really reads the snapshot, and the check can fail)
+update public.cascade_snapshots set control_state = 'uncontrolled' where condition = 'hypertension' and control_state = 'controlled'
+   and patient_id = (select patient_id from public.cascade_snapshots where condition = 'hypertension' and control_state = 'controlled' and patient_id in (select patient_id from public.profile_cohorts where cohort_id = pg_temp.f('ph')) limit 1);
+select pg_temp.snapshot_equals_recompute('sabotaged-snapshot');
+select private.compute_cascade_snapshots();
+
 -- 7a. SABOTAGE of the review fixes: (i) the window is widened to 100 days, so 85-day-old readings count again (2n must flip); (ii) the usable-reading rule is the
 --     old looser form, so an empty flag list counts again (2o must flip); (iii) any requires_validation reading counts (2q and 2t must flip as well)
 set local session_replication_role = replica;
@@ -451,6 +540,8 @@ begin
   select count(*), string_agg(check_name, '; ') into v_flipped, v_names from results s
    where s.phase = 'sabotaged' and s.expected is distinct from s.actual and s.check_name ~ '^(2b|2k)';
   if v_flipped < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of 2 withheld checks (%)', v_flipped, v_names; end if;
+  select count(*) into v_flipped from results s where s.phase = 'sabotaged-snapshot' and s.expected is distinct from s.actual and s.check_name ~ '^6c1';
+  if v_flipped < 1 then raise exception 'VACUOUS TEST: a tampered snapshot row did not flip the equality check'; end if;
   select count(*) into v_flipped from results s where s.phase = 'sabotaged-window' and s.expected is distinct from s.actual and s.check_name ~ '^2n';
   if v_flipped < 1 then raise exception 'VACUOUS TEST: widening the window did not flip 2n'; end if;
   select count(*) into v_flipped from results s where s.phase = 'sabotaged-flags' and s.expected is distinct from s.actual and s.check_name ~ '^2o';
@@ -461,6 +552,6 @@ end $$;
 
 select check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results where phase = 'real' order by check_name;
 select 'SABOTAGE ' || check_name as check_name, expected, actual, case when expected is distinct from actual then 'PASS' else 'FAIL' end as result
-  from results where (phase = 'sabotaged' and check_name ~ '^(2b|2k)') or (phase = 'sabotaged-window' and check_name ~ '^2n') or (phase = 'sabotaged-flags' and check_name ~ '^2o') or (phase = 'sabotaged-any' and check_name ~ '^(2o|2q|2t)') order by check_name;
+  from results where (phase = 'sabotaged' and check_name ~ '^(2b|2k)') or (phase = 'sabotaged-snapshot' and check_name ~ '^6c1') or (phase = 'sabotaged-window' and check_name ~ '^2n') or (phase = 'sabotaged-flags' and check_name ~ '^2o') or (phase = 'sabotaged-any' and check_name ~ '^(2o|2q|2t)') order by check_name;
 
 rollback;

@@ -5,7 +5,8 @@ import { z } from "zod";
  * is shown as "not available" instead of half-rendered numbers. A figure that is withheld has no number in the reply, so none can be drawn here;
  * control that cannot be read is "unknown" and stays in the figure. Nothing here names or ranks a clinician.
  */
-const awaiting = z.object({ withheld: z.literal(true), reason: z.literal("awaiting_cmo_signature"), condition: z.string().optional() });
+/** Nothing is shown: either the CMO has not signed the definitions, or the nightly snapshot has not run yet under them. No number is in the reply. */
+const awaiting = z.object({ withheld: z.literal(true), reason: z.enum(["awaiting_cmo_signature", "snapshot_pending"]), condition: z.string().optional() });
 
 const stageShown = z.object({
   code: z.string(), label: z.string(), definition: z.string(), suppressed: z.literal(false),
@@ -33,6 +34,8 @@ export const cascadeReportSchema = z.union([
     condition: z.enum(["hypertension", "diabetes"]),
     config_version: z.number().int(),
     minimum_cell: z.number().int(),
+    /** The day of the nightly snapshot these figures are from (Lagos date). */
+    as_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     total: cascadeBlock,
     by_month_of_joining: z.array(monthRow),
     not_available: z.array(z.object({ item: z.string(), reason: z.string() })),
@@ -50,7 +53,16 @@ export function parseCascadeReport(data: unknown): CascadeReport | null {
   const r = cascadeReportSchema.safeParse(data);
   return r.success ? r.data : null;
 }
-export const isAwaitingSignature = (r: CascadeReport): r is z.infer<typeof awaiting> => "withheld" in r;
+export const isWithheldReport = (r: CascadeReport): r is z.infer<typeof awaiting> => "withheld" in r;
+/** @deprecated kept for older imports: the same test as isWithheldReport. */
+export const isAwaitingSignature = isWithheldReport;
+
+/** Plain words for a report or panel that shows nothing. */
+export function withheldReportText(reason: "awaiting_cmo_signature" | "snapshot_pending"): string {
+  return reason === "snapshot_pending"
+    ? "The first nightly snapshot has not run yet. Figures appear here once it has, and say which day they are as at."
+    : "Awaiting the Chief Medical Officer's signature of the definitions. Nothing is counted until then.";
+}
 export const isStageShown = (s: CascadeStage): s is z.infer<typeof stageShown> => s.suppressed === false;
 
 const KEY_LABELS: Record<string, string> = { controlled: "Controlled", uncontrolled: "Not controlled", unknown: "Control unknown (too few or no recent readings)" };
@@ -100,7 +112,7 @@ const ittDay = z.union([
 export const selectionPanelSchema = z.union([
   awaiting,
   z.object({
-    config_version: z.number().int(), minimum_cell: z.number().int(), audience: z.enum(["internal", "sponsor"]),
+    config_version: z.number().int(), minimum_cell: z.number().int(), as_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), audience: z.enum(["internal", "sponsor"]),
     who_is_in_the_figures: z.union([z.object({ suppressed: z.literal(false), in_figures: z.number().int() }), z.object({ suppressed: z.literal(true), reason: z.string(), minimum: z.number().int() })]),
     eligible_roster: z.object({ available: z.literal(false), reason: z.string() }),
     seats: z.union([
@@ -122,7 +134,7 @@ export function parseSelectionPanel(data: unknown): SelectionPanel | null {
   const r = selectionPanelSchema.safeParse(data);
   return r.success ? r.data : null;
 }
-export const panelAwaitingSignature = (p: SelectionPanel): p is z.infer<typeof awaiting> => "withheld" in p;
+export const panelWithheld = (p: SelectionPanel): p is z.infer<typeof awaiting> => "withheld" in p;
 export const isIttShown = (c: z.infer<typeof ittShown> | { suppressed: true }): c is z.infer<typeof ittShown> => c.suppressed === false;
 
 const ATTRIBUTE_LABELS: Record<string, string> = { age_band: "Age when they joined", sex: "Sex", baseline_bp: "Blood pressure in the first week", channel: "How they joined" };

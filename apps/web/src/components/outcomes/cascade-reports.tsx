@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CascadeView } from "@/components/outcomes/cascade-view";
-import { isAwaitingSignature, parseCascadeReport, type CascadeReport } from "@/lib/outcomes/cascade-report";
+import { isWithheldReport, parseCascadeReport, type CascadeReport } from "@/lib/outcomes/cascade-report";
 
 /**
  * The body of the cascade-of-care page, shared by the admin page and the Chief Medical Officer's own page (a CMO account is `clinician` and cannot
@@ -17,7 +17,7 @@ export async function CascadeReports({ supabase, from, to }: { supabase: Supabas
     { title: "Hypertension", report: htn.error ? null : parseCascadeReport(htn.data) },
     { title: "Diabetes", report: dm.error ? null : parseCascadeReport(dm.data) },
   ];
-  const awaiting = reports.some((r) => r.report && isAwaitingSignature(r.report));
+  const awaiting = reports.some((r) => r.report && isWithheldReport(r.report) && r.report.reason === "awaiting_cmo_signature");
   return (
     <>
       <p className="text-sm">Ranges are by whole calendar month of joining, so a figure cannot be narrowed to a few people.</p>

@@ -3,9 +3,10 @@ import {
   attributeLabel,
   isIttShown,
   MISSING_LABELS,
-  panelAwaitingSignature,
+  panelWithheld,
   parseSelectionPanel,
   stageWithheldText,
+  withheldReportText,
   type SelectionComparison,
 } from "@/lib/outcomes/cascade-report";
 
@@ -45,10 +46,11 @@ export async function SelectionPanelSection({ supabase, cohortId, from, to }: { 
       <h2 id="sp-selection" className="font-medium">Who is in these figures, and who is not</h2>
       {!panel ? (
         <p role="alert">The panel could not be read. Please refresh.</p>
-      ) : panelAwaitingSignature(panel) ? (
-        <p>Awaiting the Chief Medical Officer&apos;s signature of the cascade and panel definitions. Nothing is shown until then.</p>
+      ) : panelWithheld(panel) ? (
+        <p>{withheldReportText(panel.reason)}</p>
       ) : (
         <>
+          <p className="text-sm">As at <strong>{panel.as_at}</strong> (the nightly snapshot).</p>
           <p className="text-sm">{panel.note}</p>
           <p className="text-sm">{panel.eligible_roster.reason}</p>
           {panel.seats.suppressed ? <p>Seats: {stageWithheldText(panel.seats.reason, panel.seats.minimum)}</p> : <p>Seats offered {panel.seats.seats_offered}, members joined {panel.seats.members_joined} ({panel.seats.take_up_pct_of_seats ?? "not given"}%). {panel.seats.note}</p>}
