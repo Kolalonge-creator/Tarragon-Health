@@ -29,3 +29,7 @@ Clinician chart, beside the S07x clinic reading form: `CuffCheckPanel` (flags, r
 
 ## Open
 OQ-S07YL-1: a home-log pair sees only home readings before the clinic reading is saved. OQ-S07YL-2: whether a subject-access request must include pairs and flags (DPO). OQ-S07YL-3: no patient screen for the neutral line yet. OQ-S07YL-4: no look-back sweep at switch-on and no way to void a wrong pair. The attestation is recorded against the exact text of `cuff.visit_prompt`, which a Jest test pins (changing it means re-attesting).
+
+## Delivery
+
+Shipped in two PRs: part 1 (the database layer for both behaviours and the pharmacy label) and part 2 (the paper diary screens, routes and the AI-021 call site).

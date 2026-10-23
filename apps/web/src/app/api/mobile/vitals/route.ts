@@ -1,8 +1,8 @@
 import { HELD_READING_COPY, isLabelGuardRefusal, withoutPharmacyLabel } from "@tarragon/shared";
+import { derivedUuid } from "@/lib/vitals/derived-uuid";
 import { DEFAULT_LOCALE, t } from "@tarragon/i18n";
 import { readDeviceFlags } from "@/lib/devices/flags";
 import { readOutcome } from "@/lib/devices/reading-outcome";
-import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { runBestEffort } from "@/lib/sentry/run-best-effort";
@@ -92,8 +92,7 @@ const mobileVitalsSchema = z
 
 /** A stable UUID for a second reading made from one queued entry (RFC 4122 shape, derived from the entry's own id and a label). */
 function derivedClientId(clientReadingId: string, label: string): string {
-  const h = createHash("sha256").update(`${clientReadingId}:${label}`).digest("hex");
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
+  return derivedUuid(`${clientReadingId}:${label}`);
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
