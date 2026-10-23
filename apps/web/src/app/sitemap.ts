@@ -35,6 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     telehealthConsent: 0.3,
     terms: 0.3,
     accessibility: 0.3,
+    pricingAndAccessibility: 0.5,
     cookies: 0.3,
   };
 
