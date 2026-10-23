@@ -9,7 +9,13 @@ import { getProposedConfig } from "@tarragon/shared";
 import * as Sentry from "@sentry/nextjs";
 import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import { symptomTriageStepSchema, type SymptomTriageStepInput } from "@/lib/validation/symptom-triage";
-import { bundledFloorDrift, nextTriageStep } from "@tarragon/symptom-triage-engine";
+import {
+  PROXY_PREGNANCY_RAISED_BY,
+  applyProxyPregnancyFloor,
+  applyProxyPregnancyRule,
+  bundledFloorDrift,
+  nextTriageStep,
+} from "@tarragon/symptom-triage-engine";
 import type { AnsweredQuestion, PresentingComplaintProtocol, QuestionNode } from "@tarragon/symptom-triage-engine";
 import type { Database, Json } from "@tarragon/shared";
 
@@ -27,7 +33,7 @@ export type StepContext = {
   resolveSubjectId: (userId: string) => Promise<string>;
 };
 
-export type CheckerBlockReason = "under_18" | "dob_required";
+export type CheckerBlockReason = "under_18" | "dob_required" | "pregnancy_self_only";
 
 export type SymptomTriageStepResult =
   | { status: "unavailable" }
@@ -51,6 +57,8 @@ export type SymptomTriageStepResult =
       urgencyLevel: string | null;
       /** The checker is for a child (answered by a parent or carer): the screen leaves out the consultation booking (adults only). */
       forDependant: boolean;
+      /** A "pregnant" answer was ticked for another person: it raised the result (at least urgent), it is not stored, and the screen says why. */
+      proxyPregnancyNote: boolean;
       /** False when the check could not be saved; the screen says so. */
       recorded: boolean;
       /** S59c ("Why this result"): the keys of EVERY red-flag rule that fired, not just the first. Rule ids only, never text. */
@@ -92,7 +100,8 @@ export async function runSymptomStep(input: SymptomTriageStepInput, ctx: StepCon
   if (!parsed.success) {
     return { status: "error", error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { capture, answers, questionLog } = parsed.data;
+  const { answers, questionLog } = parsed.data;
+  let capture = parsed.data.capture;
 
   // F1 (INV-14): closed means closed, whatever the client sent. The database refuses the insert as well.
   // The fail-safe below never reaches around this: a closed checker answers nothing and records nothing.
@@ -117,10 +126,25 @@ export async function runSymptomStep(input: SymptomTriageStepInput, ctx: StepCon
     if (eligibility !== "ok") return eligibility === "error" ? { status: "unavailable" } : { status: "blocked", reason: eligibility };
   }
 
+  // Founder decision (OQ-S59d-05): pregnancy questions can only be answered by the person themselves. When someone else runs the check
+  // (acting-for or dependant), the pregnancy pathway does not run and the pregnancy history answer is dropped before the engine or the
+  // record ever sees it. The caller still gets the emergency guidance on the blocked screen. A direct call cannot bypass this: it is here,
+  // in the loader (getActivePathway) and in the database (symptom_triage_assessments_02_proxy_pregnancy).
+  const forProxy = who.person !== null && who.person.userId !== who.person.subjectId;
+  const proxyRule = applyProxyPregnancyRule(capture, forProxy);
+  if (proxyRule.blocked) {
+    // The carer may be describing a pregnancy emergency: the screen leads with the emergency guidance, and the person's care team is told
+    // through the same durable path an unrecorded urgent result uses (incident plus follow-up task, neutral text, no condition named).
+    await escalateUnrecorded(who.person, subject, capture.presentingComplaintKey, "urgent", "pregnancy pathway refused for someone answering for another person");
+    return { status: "blocked", reason: "pregnancy_self_only" };
+  }
+  // A proxy's "pregnant" answer is never STORED (storedCapture), but it still counts for the decision (engineCapture), and floors the result.
+  capture = proxyRule.storedCapture;
+
   // The protocol may be unreadable (a database error): that is a degraded run, not a reason to say nothing.
   let active: { pathway: PresentingComplaintProtocol; protocolVersion: number } | null = null;
   try {
-    active = await getActivePathway(capture.presentingComplaintKey, ctx.supabase);
+    active = await getActivePathway(capture.presentingComplaintKey, ctx.supabase, { forProxy });
   } catch {
     active = null;
   }
@@ -148,7 +172,19 @@ export async function runSymptomStep(input: SymptomTriageStepInput, ctx: StepCon
       Sentry.captureException(e, { extra: { where: "symptom_check_context" } });
     }
   }
-  const result = await runSymptomCheck({ pathway: active?.pathway ?? null, capture, answers, questionLog, state: subject?.state ?? null, context });
+  const base = await runSymptomCheck({ pathway: active?.pathway ?? null, capture: proxyRule.engineCapture, answers, questionLog, state: subject?.state ?? null, context });
+  const floor = base.nextQuestion ? { category: base.category, raised: false } : applyProxyPregnancyFloor(base.category, proxyRule.pregnancyTickedByProxy);
+  const result = floor.raised
+    ? {
+        ...base,
+        category: floor.category,
+        clinicianReviewRequired: true,
+        safetyNetMessageKey: "proxy.pregnancy_floor",
+        raisedBy: [...base.raisedBy, PROXY_PREGNANCY_RAISED_BY],
+        rationale: `${base.rationale} A pregnancy answer ticked for another person raises this to at least urgent.`,
+      }
+    : base;
+  const proxyPregnancyNote = !result.nextQuestion && proxyRule.pregnancyTickedByProxy;
 
   if (result.nextQuestion) {
     return {
@@ -192,6 +228,7 @@ export async function runSymptomStep(input: SymptomTriageStepInput, ctx: StepCon
     firedRuleKeys: (result.redFlagScreen?.fired ?? []).map((f) => f.key),
     tightenedBy: [...(result.raisedBy ?? [])],
     questionsAsked: finalQuestionsAsked,
+    proxyPregnancyNote,
   };
 
   if (subject === null) {
@@ -297,7 +334,7 @@ async function escalateUnrecorded(
 
 
 /** ok | under_18 | dob_required, or "error" when it could not be read (treated as closed). */
-export async function readEligibility(supabase: StepClient, subjectId: string): Promise<"ok" | CheckerBlockReason | "error"> {
+export async function readEligibility(supabase: StepClient, subjectId: string): Promise<"ok" | Exclude<CheckerBlockReason, "pregnancy_self_only"> | "error"> {
   try {
     const { data, error } = await supabase.rpc("symptom_checker_eligibility", { p_subject: subjectId });
     if (error) return "error";

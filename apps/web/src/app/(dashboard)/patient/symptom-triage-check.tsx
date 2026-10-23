@@ -74,9 +74,11 @@ type Stage =
       tightenedBy: string[];
       questionsAsked: AnsweredQuestion[];
       checkedAt: string;
+      /** A pregnancy answer was ticked for another person: it raised the result and is not stored. */
+      proxyPregnancy?: boolean;
     }
   | { step: "unavailable" }
-  | { step: "blocked"; reason: "under_18" | "dob_required" }
+  | { step: "blocked"; reason: "under_18" | "dob_required" | "pregnancy_self_only" }
   | { step: "error"; message: string };
 
 type CaptureDraft = {
@@ -133,6 +135,7 @@ function handleStepResult(result: SymptomTriageStepResult, capture: SymptomCaptu
     tightenedBy: result.tightenedBy ?? [],
     questionsAsked: result.questionsAsked ?? [],
     checkedAt: new Date().toISOString(),
+    proxyPregnancy: result.proxyPregnancyNote,
   };
 }
 
@@ -485,6 +488,9 @@ export function SymptomTriageCheck({
             {describeDanger?.selfHarm && <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("symptom.describe.selfharm")}</p>}
             {describeDanger && describeRecorded === "paged" && <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("symptom.describe.notified")}</p>}
             {describeDanger && describeRecorded === "recorded_only" && <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("symptom.describe.saved_only")}</p>}
+            {stage.proxyPregnancy && (
+              <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">{t("symptom.proxy_pregnancy.note")}</p>
+            )}
             <NotADiagnosis />
             {(() => {
               const extras = resultExtras(stage);
@@ -735,10 +741,10 @@ export const CARER_CONCERN_STORAGE_KEY = "tarragon.booking_reason";
  * the child's concern in as a free-text note (consultations are adults only, OQ-129). The note travels in this browser tab's session
  * storage, never in a URL, because it is health information.
  */
-function CheckerBlocked({ reason, bare = false }: { reason: "under_18" | "dob_required"; bare?: boolean }) {
+function CheckerBlocked({ reason, bare = false }: { reason: "under_18" | "dob_required" | "pregnancy_self_only"; bare?: boolean }) {
   const [concern, setConcern] = useState("");
-  const title = reason === "under_18" ? "symptom.blocked.under18.title" : "symptom.blocked.dob.title";
-  const body = reason === "under_18" ? "symptom.blocked.under18.body" : "symptom.blocked.dob.body";
+  const title = reason === "under_18" ? "symptom.blocked.under18.title" : reason === "pregnancy_self_only" ? "symptom.blocked.pregnancy_self_only.title" : "symptom.blocked.dob.title";
+  const body = reason === "under_18" ? "symptom.blocked.under18.body" : reason === "pregnancy_self_only" ? "symptom.blocked.pregnancy_self_only.body" : "symptom.blocked.dob.body";
   function rememberConcern() {
     try {
       const text = concern.trim().slice(0, 500);
