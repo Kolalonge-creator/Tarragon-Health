@@ -2,7 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { PROPOSED_CONFIG, getProposedConfig } from "@tarragon/shared";
-import { SEED_PATHWAYS, categoryAtLeast, riskTighteningConfigSchema, type SymptomCapture } from "@tarragon/symptom-triage-engine";
+import { S59D_DRAFT_PATHWAYS, SEED_PATHWAYS, categoryAtLeast, riskTighteningConfigSchema, type SymptomCapture } from "@tarragon/symptom-triage-engine";
 import { degradedModeConfig, lagosMonth, runSymptomCheck } from "./safe-run";
 
 const pathway = SEED_PATHWAYS.find((p) => p.key === "headache")!;
@@ -59,10 +59,11 @@ describe("the shipped prevalence layer is inert until the CMO signs it", () => {
     const entries = riskTighteningConfigSchema.parse(getProposedConfig("symptom.risk_tightening").value).entries;
     const ids = entries.map((e) => e.id).join(" ");
     for (const word of ["malaria", "lassa"]) expect(ids).toContain(word);
-    // every entry's keys must be askable by a signed pathway, or it could never match
-    const askable = new Set(SEED_PATHWAYS.flatMap((p) => [p.key, ...p.knownAssociatedSymptoms, ...p.knownHistory]));
+    // every entry's keys must be askable by a signed pathway, or by an S59d DRAFT pathway that the CMO signs in the same version
+    // (S59d, version 3 of the config: the fever hooks need the S59d fever pathway), or it could never match
+    const askable = new Set([...SEED_PATHWAYS, ...S59D_DRAFT_PATHWAYS].flatMap((p) => [p.key, ...p.knownAssociatedSymptoms, ...p.knownHistory, ...p.knownTriggers]));
     for (const e of entries) {
-      for (const k of [...(e.applies_when.any_associated_symptom ?? []), ...(e.applies_when.any_history ?? []), ...(e.applies_when.complaint_keys ?? [])]) {
+      for (const k of [...(e.applies_when.any_associated_symptom ?? []), ...(e.applies_when.any_history ?? []), ...(e.applies_when.any_trigger ?? []), ...(e.applies_when.complaint_keys ?? [])]) {
         expect(askable.has(k)).toBe(true);
       }
     }

@@ -148,7 +148,10 @@ begin
   end if;
 
   -- 5. all conditions met: sign (fixture only, inside this rolled-back transaction) then switch on, assess, switch off
-  update public.triage_protocols set is_active = true where version = (select min(version) from public.triage_protocols) and not is_active;
+  -- S59d: an active version must carry a signature (triage_protocols_active_requires_signature), so the fixture is signed by any clinical_staff row
+  if not exists (select 1 from public.clinical_staff) then raise exception 'fixture: need a clinical_staff row to stand in as the signer'; end if;
+  update public.triage_protocols set is_active = true, approved_at = now(), approved_by = (select id from public.clinical_staff limit 1)
+   where version = (select min(version) from public.triage_protocols) and not is_active;
   update public.escalation_slas s set config = d.config
     from (select config from public.escalation_slas where version = v_ver) d
    where s.is_active;
