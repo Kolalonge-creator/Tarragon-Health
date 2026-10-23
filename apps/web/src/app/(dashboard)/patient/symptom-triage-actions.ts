@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveSubjectId } from "@/lib/acting/acting-for";
 import { getActiveTriageProtocolConfig, isSymptomCheckerOpen } from "@/lib/symptom-triage/protocol";
+import { pathwayIsSelfOnly } from "@tarragon/symptom-triage-engine";
 import { runSymptomStep, readEligibility, type CheckerBlockReason, type SymptomTriageStepResult } from "@/lib/symptom-triage/run-step";
 import { SEED_PATHWAYS } from "@tarragon/symptom-triage-engine";
 import type { SymptomTriageStepInput } from "@/lib/validation/symptom-triage";
@@ -36,7 +37,16 @@ export async function listAvailablePresentingComplaints(): Promise<PresentingCom
   if (!(await isSymptomCheckerOpen())) return [];
   const active = await getActiveTriageProtocolConfig();
   if (!active) return [];
-  return active.config.pathways.map((p) => ({
+  // OQ-S59d-05: pregnancy questions are the person's own. When this check is for someone else, those pathways are not offered.
+  let forProxy = false;
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    forProxy = user ? (await resolveSubjectId(user.id)) !== user.id : false;
+  } catch {
+    forProxy = true; // cannot tell who it is for: do not offer a self-only pathway
+  }
+  return active.config.pathways.filter((p) => !(forProxy && pathwayIsSelfOnly(p.key))).map((p) => ({
     key: p.key,
     label: p.label,
     bundledCurrent: JSON.stringify(SEED_PATHWAYS.find((s) => s.key === p.key) ?? null) === JSON.stringify(p),
@@ -58,7 +68,7 @@ export async function stepSymptomTriage(input: SymptomTriageStepInput): Promise<
 }
 
 /** Whether the checker can be used for the person it would be for: ok, or why not. The screen shows a calm state for anything else. */
-export async function getSymptomCheckerEligibility(): Promise<"ok" | CheckerBlockReason | "error"> {
+export async function getSymptomCheckerEligibility(): Promise<"ok" | Exclude<CheckerBlockReason, "pregnancy_self_only"> | "error"> {
   const supabase = await createClient();
   const {
     data: { user },

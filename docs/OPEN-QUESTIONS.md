@@ -5331,3 +5331,50 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-S58b-06 The DB proof has not run on the real schema (raised by S58b)
 - Docker was down. The proof `s58b_pending_credit_milestones_refund.sql` passed (59 rows including 5 sabotage flips) only against a stubbed scratch Postgres 16 that stands in for upstream objects. Run it with `run-db-proofs.sh` on a local stack before merging; merging auto-applies migrations.
 - Decision: open (engineering).
+
+### OQ-S59d-01 Which draft does the CMO sign? (raised by S59d, 2026-10-22)
+- There are now two unsigned drafts in `triage_protocols`: the S59 draft (signed adult pathways, chest pain with no floor, adult v2 extras, three paediatric pathways) and the S59d draft, which is a strict superset of it plus adult fever with suspected malaria or typhoid, pregnancy danger signs, high blood pressure complications and diabetes complications. Signing replaces the whole active config.
+- Recommendation: sign the S59d version, not the S59 one; the S59d migration asserts that it keeps every pathway of the S59 draft and every rule key of its `fever`. The sign-off panel now shows every rule, question and source of a draft before the Sign button.
+- Decision: open (CMO).
+
+### OQ-S59d-02 Adult fever: the malaria and typhoid questions (raised by S59d, 2026-10-22)
+- Open clinical questions F1 to F5 are listed in `docs/research/S59d-pathway-coverage.md` and on the sign-off panel: the 3-day prolonged-fever line (the v2 draft said 5), whether an untested fever is "routine: get tested" or urgent after some days, a positive test always urgent, fever in sickle cell disease (urgent drafted, many protocols say emergency), and the travel, rainy-season and Lassa hooks in `symptom.risk_tightening` version 3 (`any_trigger` is a new optional key that can only add a match).
+- No Nigerian typhoid seasonality was found, so there is no typhoid season hook. The Nigerian national malaria guideline edition was not opened.
+- Decision: open (CMO).
+
+### OQ-S59d-03 Record readings as tightening for blood pressure and diabetes (raised by S59d, 2026-10-22)
+- `symptom.context_tightening` version 3 adds drafts that raise a result from the recent record only: systolic 180 or diastolic 120 for the blood pressure pathway, glucose 3.8 or lower (below 3.9) or 20 or higher for the diabetes pathway, pregnancy with fever or belly pain. The glucose 20 line has no opened source. The look-back window (`symptom.context_window_days`) is unchanged.
+- Decision: open (CMO).
+
+### OQ-S59d-04 The diagnosis-to-urgency map, and what "agrees" means for the auto-fed audit (raised by S59d, 2026-10-22)
+- The audit can only count a signed consultation diagnosis once a map says which urgency category the diagnosis maps to. `symptom_diagnosis_urgency_maps` version 1 (34 ICD-10 prefix placeholders, mirrored by the PROPOSED `symptom.diagnosis_urgency_map`) is unsigned and inactive; until the CMO confirms a version through `confirm_symptom_diagnosis_urgency_map`, rows keep the code and no category, and the audit counts nothing from them.
+- A diagnosis does not have an urgency; the map is a clinical judgement about the urgency a presentation of that diagnosis deserved. The CMO may prefer to drop auto-feeding for diagnoses where this is too coarse, and to treat unmapped codes as not counted (as drafted).
+- `agrees` compares the mapped category with the category the patient was GIVEN (clinician override first) and is a snapshot at link time; a later override does not change it.
+- Decision: open (CMO).
+
+### OQ-S59d-05 The pregnancy pathway must not be run for someone else (raised by S59d, 2026-10-22; decided 2026-10-22, CHANGED after review: founder to confirm)
+- Founder decision (CMO/DPO question): BLOCK it. Only the person themselves answers `pregnancy_danger_signs` and pregnancy-context questions. When a carer or relative runs the check for another person, the pathway is not offered, the engine and the record never receive a pregnancy answer, and the result says plainly that pregnancy questions can only be answered by the person themselves, with the emergency guidance still shown.
+- Enforced in `applyProxyPregnancyRule` (engine package), `runSymptomStep`, the loader `getActivePathway` (`forProxy`), the web picker, and the database trigger `symptom_triage_assessments_02_proxy_pregnancy` (migration `s59d_proxy_pregnancy_guard`). Mobile answers only for the person themselves.
+- CHANGED after review: dropping a proxy's "pregnant" answer LOWERED urgency (headache.pregnancy_severe, fever.pregnant, the pregnancy context entries take it as input). Now a proxy's pregnancy answer is never stored but is used in memory, so rule-level results equal the self case, and the result is floored at least urgent with a plain line saying pregnancy changes how urgent this is and that pregnancy questions can only be answered by the person themselves. The blocked pathway screen leads with "If this is an emergency, go to the nearest hospital now" (112 only once signed and confirmed) and raises the same incident and follow-up task an unrecorded urgent result does.
+- Decision: CONFIRMED (founder, 2026-10-23): a proxy's pregnancy answer is never stored, is used in memory, and floors the result at least urgent with the plain line.
+
+### OQ-S59d-06 Reproductive-health symptom pathways were not drafted (raised by S59d, 2026-10-22)
+- Menstrual, contraception and fertility symptoms are `reproductive_health` category data (no emergency break-glass, guardian gate for adolescents). A symptom pathway would store the answers in a session row with the weaker session-level read. Skipped on purpose; postnatal and early-pregnancy pathways are also not drafted (CMO question P4).
+- Decision: open (CMO and DPO).
+
+### OQ-S59d-07 Safety-net advice for diabetes and blood pressure pathways (raised by S59d, 2026-10-22)
+- The pathways decide a category only. What to do right now (treat a low sugar with fast sugar then recheck, ketone testing, sit and rest before a repeat blood pressure) belongs to the safety-net advice, which is being built separately. Without it, an "urgent" low sugar reads as "be seen soon", which is not enough for a person who is shaky now.
+- Decision: open (CMO, with the safety-net advice owner).
+
+### OQ-S59d-08 Nothing yet lets a clinician type the ICD-10 code (raised by S59d, 2026-10-22)
+- The audit feed needs `clinical_encounter_notes.diagnosis_code`, set on a draft note by the new `set_encounter_note_diagnosis_code`. No note editor field calls it yet, so no auto row can exist until the editor (and the scribe draft path) gain a code field. The free-text `diagnosis` is not parsed.
+- Choices made and open: a signed amendment of any kind (correction, addendum or late entry) retracts the original's row, and only a coded amendment writes a new one; async and phone consultations are not linked (the chain is booking-based); a retraction after a monthly report was generated does not change that report (reports are permanent).
+- Decision: open (product, CMO).
+
+### OQ-S59d-09 Check the live active protocol row before the app gate ships (raised by S59d, 2026-10-22)
+- The app now treats only an ACTIVE and SIGNED triage protocol row as live (both `approved_at` and `approved_by` set), and a new NOT VALID constraint refuses an unsigned active row from now on. If the live active row was ever activated without both fields, the app gate would switch the checker off. Run the query in `docs/design/S59d.md` section 7 before merging. The checker is behind `symptom_checker_enabled` (OFF) either way.
+- Decision: open (engineering, before merge).
+
+### OQ-S59d-10 New patient wording needs the CMO's wording sign-off (raised by S59d, 2026-10-22)
+- Forty `symptom.opt.*` labels were added for the draft pathways (English only, no diagnosis named, tested). They are new patient-facing clinical wording and must be reviewed with the pathways. The check screen must also collect the measurements the rules use (`systolic`, `diastolic`, `glucose_mmol_l`, `temperature_c`) for the measurement rules to fire; that screen is not part of this piece of work.
+- Decision: open (CMO).

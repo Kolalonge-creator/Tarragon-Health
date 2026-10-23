@@ -123,8 +123,10 @@ begin
   select version into v_old_active from public.triage_protocols where is_active limit 1;
   set local session_replication_role = replica;
   update public.triage_protocols set is_active = false where is_active;
-  insert into public.triage_protocols (version, config, notes, is_active)
-    values ((select max(version) + 1 from public.triage_protocols), '{"version": 0, "pathways": [{"key": "paediatric_fever"}]}', 'S59b proof only', true);
+  -- S59d: an active version must carry a signature (triage_protocols_active_requires_signature)
+  if not exists (select 1 from public.clinical_staff) then raise exception 'fixture: need a clinical_staff row to stand in as the signer'; end if;
+  insert into public.triage_protocols (version, config, notes, is_active, approved_at, approved_by)
+    values ((select max(version) + 1 from public.triage_protocols), '{"version": 0, "pathways": [{"key": "paediatric_fever"}]}', 'S59b proof only', true, now(), (select id from public.clinical_staff limit 1));
   set local session_replication_role = origin;
   if private.symptom_checker_age_status(v_child) <> 'ok' then raise exception 'FAIL 1i: a signed paediatric pathway does not open the checker for a child'; end if;
   if private.symptom_checker_age_status(v_nodob) <> 'dob_required' then raise exception 'FAIL 1j: a signed paediatric pathway lets a missing date of birth through'; end if;

@@ -36,6 +36,8 @@ export const riskEntrySchema = z
         complaint_keys: z.array(z.string().min(1)).min(1).optional(),
         any_associated_symptom: z.array(z.string().min(1)).min(1).optional(),
         any_history: z.array(z.string().min(1)).min(1).optional(),
+        /** S59d: a trigger already captured in this check (for example `recent_travel`). Like every other key it can only add a match. */
+        any_trigger: z.array(z.string().min(1)).min(1).optional(),
       })
       .strict(),
     /** The most this entry can do: raise a result to AT LEAST this category. */
@@ -77,6 +79,7 @@ export function entryApplies(entry: RiskEntry, ctx: RiskContext): boolean {
   if (w.complaint_keys && w.complaint_keys.length > 0 && !w.complaint_keys.includes(ctx.capture.presentingComplaintKey)) return false;
   if (w.any_associated_symptom && w.any_associated_symptom.length > 0 && !w.any_associated_symptom.some((s) => ctx.capture.associatedSymptoms.includes(s))) return false;
   if (w.any_history && w.any_history.length > 0 && !w.any_history.some((h) => ctx.capture.relevantHistory.includes(h))) return false;
+  if (w.any_trigger && w.any_trigger.length > 0 && !w.any_trigger.some((t) => ctx.capture.triggers.includes(t))) return false;
   return true;
 }
 

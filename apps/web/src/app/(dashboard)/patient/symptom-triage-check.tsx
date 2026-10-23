@@ -58,9 +58,11 @@ type Stage =
       /** The six-level wording, only from a signed urgency map; null shows the four-category result alone. */
       urgencyLevel: string | null;
       forDependant: boolean;
+      /** A pregnancy answer was ticked for another person: it raised the result and is not stored. */
+      proxyPregnancy?: boolean;
     }
   | { step: "unavailable" }
-  | { step: "blocked"; reason: "under_18" | "dob_required" }
+  | { step: "blocked"; reason: "under_18" | "dob_required" | "pregnancy_self_only" }
   | { step: "error"; message: string };
 
 type CaptureDraft = {
@@ -111,6 +113,7 @@ function handleStepResult(result: SymptomTriageStepResult): Stage {
     onDevice: false,
     urgencyLevel: result.urgencyLevel,
     forDependant: result.forDependant,
+    proxyPregnancy: result.proxyPregnancyNote,
   };
 }
 
@@ -361,6 +364,9 @@ export function SymptomTriageCheck({
                 A member of our care team will also take a look at this one directly.
               </p>
             )}
+            {stage.proxyPregnancy && (
+              <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">{t("symptom.proxy_pregnancy.note")}</p>
+            )}
             <NotADiagnosis />
             {stage.assessmentId && reviewEntitled && <ReviewRequest assessmentId={stage.assessmentId} reviewTime={reviewTime} />}
             {stage.assessmentId && !reviewEntitled && <MembersOnlyReview />}
@@ -594,10 +600,10 @@ export const CARER_CONCERN_STORAGE_KEY = "tarragon.booking_reason";
  * the child's concern in as a free-text note (consultations are adults only, OQ-129). The note travels in this browser tab's session
  * storage, never in a URL, because it is health information.
  */
-function CheckerBlocked({ reason, bare = false }: { reason: "under_18" | "dob_required"; bare?: boolean }) {
+function CheckerBlocked({ reason, bare = false }: { reason: "under_18" | "dob_required" | "pregnancy_self_only"; bare?: boolean }) {
   const [concern, setConcern] = useState("");
-  const title = reason === "under_18" ? "symptom.blocked.under18.title" : "symptom.blocked.dob.title";
-  const body = reason === "under_18" ? "symptom.blocked.under18.body" : "symptom.blocked.dob.body";
+  const title = reason === "under_18" ? "symptom.blocked.under18.title" : reason === "pregnancy_self_only" ? "symptom.blocked.pregnancy_self_only.title" : "symptom.blocked.dob.title";
+  const body = reason === "under_18" ? "symptom.blocked.under18.body" : reason === "pregnancy_self_only" ? "symptom.blocked.pregnancy_self_only.body" : "symptom.blocked.dob.body";
   function rememberConcern() {
     try {
       const text = concern.trim().slice(0, 500);
