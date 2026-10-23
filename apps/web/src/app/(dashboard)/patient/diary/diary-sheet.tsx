@@ -224,7 +224,7 @@ export function DiarySheet({ readerOpen }: { readerOpen: boolean }) {
               </Button>
               <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t("diary.photo.hint")}</p>
             </div>
-            {photoUrl && (
+            {photoUrl && photoUrl.startsWith("blob:") && (
               // the person's own photo, kept only in this page, so each suggested row can be checked against it
               // eslint-disable-next-line @next/next/no-img-element
               <img src={photoUrl} alt="Your diary page" className="max-h-72 w-auto rounded-md border border-charcoal-ink/10" />

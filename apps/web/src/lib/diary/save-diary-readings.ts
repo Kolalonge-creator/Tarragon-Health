@@ -247,9 +247,9 @@ export async function saveDiaryReadings(
   let safetyAssessmentFailed = false;
   if (savedBp > 0) safetyAssessmentFailed = (await runBestEffort(() => assessBp(supabase, ctx.subjectId, ctx.organisationId), extra("safety_assessment_bp"))) || safetyAssessmentFailed;
   if (savedPulse > 0) safetyAssessmentFailed = (await runBestEffort(() => assessPulse(supabase, ctx.subjectId, ctx.organisationId), extra("safety_assessment_pulse"))) || safetyAssessmentFailed;
-  if (savedGlucose > 0) safetyAssessmentFailed = (await runBestEffort(() => assessGlucose(supabase, ctx.subjectId, ctx.organisationId), extra("safety_assessment_glucose"))) || safetyAssessmentFailed;
+  if (savedGlucose > 0) safetyAssessmentFailed = (await runBestEffort(() => assessGlucose(supabase, ctx.subjectId, ctx.organisationId), extra("safety_assessment_glucose"))) || safetyAssessmentFailed;  // band-ok: a count of rows saved compared with zero, not a clinical threshold
   // Genuinely inert bookkeeping: a lost health-score refresh has no clinical-safety consequence.
-  if (savedBp + savedPulse + savedGlucose > 0) await runBestEffort(() => assessScore(supabase, ctx.subjectId, ctx.organisationId), extra("post_insert_best_effort"));
+  if (savedBp + savedPulse + savedGlucose > 0) await runBestEffort(() => assessScore(supabase, ctx.subjectId, ctx.organisationId), extra("post_insert_best_effort"));  // band-ok: a count of rows saved compared with zero, not a clinical threshold
 
   const bpAckLevel: BpAckLevel | undefined = savedBp > 0 ? (safetyAssessmentFailed ? "unknown" : worst) : undefined;
   return { results, ...(bpAckLevel ? { bpAckLevel } : {}), safetyAssessmentFailed };
