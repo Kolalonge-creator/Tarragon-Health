@@ -148,7 +148,7 @@ export const cycleCopy = {
   "cycle.access.row": "{when}: {reader}",
   "cycle.access.refused": "{when}: {reader} tried and was not allowed.",
   "cycle.access.load_failed": "We could not load this list just now. This is not the same as nobody having looked. Please try again.",
-  "cycle.access.not_shared": "Your cycle details are never shown to a sponsor, an employer or anyone in your Care Circle unless you give them access to this section.",
+  "cycle.access.not_shared": "Your cycle details are never shown to a sponsor, an employer or your Care Circle. A family member or carer sees them only if you choose that kind of information for them under Family.",
 
   // --- deleting what you entered (decision C)
   "cycle.delete.title": "Delete what you have entered",
