@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { en } from "./en";
 import { t } from "./translate";
-import { deviceSyncState, lastSyncedInWords, queueNoteView, UI_C_COPY_REVIEW, uiDeviceOfflineAlertCopy } from "./ui-device-offline-alert-copy";
+import { deviceSyncState, lastSyncedInWords, needsFix, queueNoteView, shortDateInWords, UI_C_COPY_REVIEW, uiDeviceOfflineAlertCopy } from "./ui-device-offline-alert-copy";
 
 const say = (key: keyof typeof uiDeviceOfflineAlertCopy, params?: Record<string, string | number>) => t(key, "en", params);
 const keys = Object.keys(uiDeviceOfflineAlertCopy) as (keyof typeof uiDeviceOfflineAlertCopy)[];
@@ -35,18 +35,39 @@ describe("UI-C copy", () => {
 });
 
 describe("deviceSyncState", () => {
-  it("is working for an active device with no error, even before its first reading", () => {
-    expect(deviceSyncState({ status: "active" })).toBe("working");
-    expect(deviceSyncState({ status: "active", lastSyncError: "" })).toBe("working");
+  const now = Date.parse("2026-10-20T11:00:00Z");
+  const D = 7;
+  const recent = "2026-10-19T11:00:00Z";
+  it("is working for an active device with no error that synced within the limit", () => {
+    expect(deviceSyncState({ status: "active", lastSyncedAt: recent }, now, D)).toBe("working");
+    expect(deviceSyncState({ status: "active", lastSyncError: "", lastSyncedAt: recent }, now, D)).toBe("working");
+  });
+  it("waits for the first reading when nothing has ever synced", () => {
+    expect(deviceSyncState({ status: "active" }, now, D)).toBe("waiting");
+    expect(deviceSyncState({ status: "active", lastSyncedAt: "junk" }, now, D)).toBe("waiting");
+  });
+  it("is stale when the last sync is older than the limit, and not at exactly the limit", () => {
+    expect(deviceSyncState({ status: "active", lastSyncedAt: "2026-07-22T11:00:00Z" }, now, D)).toBe("stale");
+    expect(deviceSyncState({ status: "active", lastSyncedAt: "2026-10-13T11:00:00Z" }, now, D)).toBe("working");
+    expect(deviceSyncState({ status: "active", lastSyncedAt: "2026-10-13T10:59:00Z" }, now, D)).toBe("stale");
+    expect(needsFix("stale")).toBe(true);
+    expect(needsFix("working")).toBe(false);
   });
   it("needs a fix on an error status or a recorded sync error", () => {
-    expect(deviceSyncState({ status: "error" })).toBe("needs_fix");
-    expect(deviceSyncState({ status: "active", lastSyncError: "token expired" })).toBe("needs_fix");
+    expect(deviceSyncState({ status: "error" }, now, D)).toBe("needs_fix");
+    expect(deviceSyncState({ status: "active", lastSyncError: "token expired", lastSyncedAt: recent }, now, D)).toBe("needs_fix");
   });
-  it("is not set up when unpaired, disconnected, paused or unknown, whatever the last error says", () => {
-    for (const status of ["unpaired", "disconnected", "paused", null, undefined]) {
-      expect(deviceSyncState({ status, lastSyncError: "old error" })).toBe("not_set_up");
+  it("is paused, not 'not set up', when paused", () => {
+    expect(deviceSyncState({ status: "paused", lastSyncError: "old error" }, now, D)).toBe("paused");
+  });
+  it("is not set up when unpaired, disconnected or unknown, whatever the last error says", () => {
+    for (const status of ["unpaired", "disconnected", null, undefined]) {
+      expect(deviceSyncState({ status, lastSyncError: "old error" }, now, D)).toBe("not_set_up");
     }
+  });
+  it("shortDateInWords gives a Lagos date", () => {
+    expect(shortDateInWords("2026-07-22T23:30:00Z")).toBe("23 Jul");
+    expect(shortDateInWords(null)).toBe("");
   });
 });
 
@@ -70,7 +91,7 @@ describe("lastSyncedInWords (Africa/Lagos)", () => {
   it("says not synced yet for nothing or a bad date, and never negative days for a clock set ahead", () => {
     expect(lastSyncedInWords(null, now, say)).toBe("Not synced yet");
     expect(lastSyncedInWords("not a date", now, say)).toBe("Not synced yet");
-    expect(lastSyncedInWords("2026-10-21T11:00:00Z", now, say)).toBe("Today at 12:00");
+    expect(lastSyncedInWords("2026-10-21T11:00:00Z", now, say)).toBe("Just now");
   });
 });
 

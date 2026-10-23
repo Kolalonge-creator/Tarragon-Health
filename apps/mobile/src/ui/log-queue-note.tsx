@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { queueNoteView, t } from "@tarragon/i18n";
 import { getOutboxSummary } from "@/lib/outbox";
+import { supabase } from "@/lib/supabase";
 import { space } from "@/ui/design";
 import { AppText, Badge } from "@/ui/kit";
 
@@ -21,19 +22,28 @@ export function usePendingLogCount(): number {
 let lastKnown = 0;
 const listeners = new Set<(n: number) => void>();
 let timer: ReturnType<typeof setInterval> | null = null;
+let authWatch: { unsubscribe: () => void } | null = null;
+
+function publish(n: number) {
+  lastKnown = n;
+  listeners.forEach((fn) => fn(n));
+}
 
 function readOnce() {
   getOutboxSummary()
-    .then((s) => {
-      lastKnown = s.waiting;
-      listeners.forEach((fn) => fn(s.waiting));
-    })
-    .catch(() => {});
+    .then((s) => publish(s.waiting))
+    // A failed read must not leave an old number on screen (on a shared phone it could be another account's).
+    .catch(() => publish(0));
 }
 
 function subscribe(fn: (n: number) => void): () => void {
   listeners.add(fn);
   if (listeners.size === 1) {
+    // Signing in, out or switching account clears the number at once, then reads the new account's queue.
+    authWatch = supabase.auth.onAuthStateChange(() => {
+      publish(0);
+      readOnce();
+    }).data.subscription;
     readOnce();
     timer = setInterval(readOnce, REFRESH_MS);
   } else {
@@ -41,9 +51,12 @@ function subscribe(fn: (n: number) => void): () => void {
   }
   return () => {
     listeners.delete(fn);
-    if (listeners.size === 0 && timer) {
-      clearInterval(timer);
+    if (listeners.size === 0) {
+      if (timer) clearInterval(timer);
       timer = null;
+      authWatch?.unsubscribe();
+      authWatch = null;
+      lastKnown = 0;
     }
   };
 }

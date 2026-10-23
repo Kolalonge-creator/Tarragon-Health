@@ -61,6 +61,7 @@ function ActionCard({ variant, extra }: { variant: "contact_today" | "go_now"; e
   return (
     <AlertTemplate
       clinical
+      urgent={variant === "go_now"}
       noticed={variant === "go_now" ? t("preg.card.go_now.title") : t("preg.card.contact_today.title")}
       meaning={variant === "go_now" ? t("alerttpl.preg.go_now.meaning") : t("alerttpl.preg.contact_today.meaning")}
       step={extra ? `${step} ${extra}` : step}
@@ -74,7 +75,7 @@ function ActionCard({ variant, extra }: { variant: "contact_today" | "go_now"; e
  * The danger-sign guide. Bundled data: opens with no signal, no PIN and no sign-in state to wait for (INV-06). Render it in the
  * `outside` slot of the lock, not inside it.
  */
-export function PregnancyDangerGuideCard({ onMessageCareTeam }: { onMessageCareTeam?: () => void } = {}) {
+export function PregnancyDangerGuideCard() {
   const colors = useLegacyColors();
   const entries = pregnancyDangerGuide();
   return (
@@ -88,7 +89,6 @@ export function PregnancyDangerGuideCard({ onMessageCareTeam }: { onMessageCareT
         <Text key={e.sign} style={{ fontSize: 13.5, color: colors.ink }}>{`• ${e.label}`}</Text>
       ))}
       <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{DANGER_GUIDE_ACTION}</Text>
-      {onMessageCareTeam ? <SecondaryButton title={t("alerttpl.message_care_team")} onPress={onMessageCareTeam} /> : null}
     </Card>
   );
 }

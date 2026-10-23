@@ -17,7 +17,12 @@ interface AlertTemplateProps {
   step: string;
   /** True only for a real clinical alert (a danger sign). A reminder, a device state or a tip is never clinical. */
   clinical?: boolean;
-  /** When given, the card ends with a "Message your care team" button. */
+  /**
+   * True for "go now" cards: the step comes first, larger and bold, and there is no message button beside it. The emergency instruction
+   * stays the most prominent thing on the card.
+   */
+  urgent?: boolean;
+  /** When given (and not urgent), the card ends with a "Message your care team" button. */
   onMessageCareTeam?: () => void;
   /** A recorded clip for the title, if one exists. With none, the words are all there is. */
   listenClipId?: string | null;
@@ -27,7 +32,7 @@ interface AlertTemplateProps {
  * The standard alert card (UI-C change 12): what we noticed, what it may mean, one step, and a button to message your care team.
  * No exclamation marks, no "WARNING", no fear words; the alert-tone lint holds that. The words carry the meaning, not the colour.
  */
-export function AlertTemplate({ noticed, meaning, step, clinical = false, onMessageCareTeam, listenClipId }: AlertTemplateProps) {
+export function AlertTemplate({ noticed, meaning, step, clinical = false, urgent = false, onMessageCareTeam, listenClipId }: AlertTemplateProps) {
   const colors = useLegacyColors();
   return (
     <Card style={{ borderLeftWidth: 4, borderLeftColor: clinical ? CLINICAL_RED : BRAND_GREEN, gap: 8 }}>
@@ -37,15 +42,18 @@ export function AlertTemplate({ noticed, meaning, step, clinical = false, onMess
         </Text>
         <CardListen clipId={listenClipId} />
       </View>
+      {urgent ? <Text style={{ fontSize: 18, fontWeight: "800", color: colors.ink }}>{step}</Text> : null}
       <View style={{ gap: 2 }}>
         <MutedText>{t("alerttpl.label.meaning")}</MutedText>
         <Text style={{ fontSize: 14, color: colors.ink }}>{meaning}</Text>
       </View>
-      <View style={{ gap: 2 }}>
-        <MutedText>{t("alerttpl.label.step")}</MutedText>
-        <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{step}</Text>
-      </View>
-      {onMessageCareTeam ? <SecondaryButton title={t("alerttpl.message_care_team")} onPress={onMessageCareTeam} /> : null}
+      {urgent ? null : (
+        <View style={{ gap: 2 }}>
+          <MutedText>{t("alerttpl.label.step")}</MutedText>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{step}</Text>
+        </View>
+      )}
+      {onMessageCareTeam && !urgent ? <SecondaryButton title={t("alerttpl.message_care_team")} onPress={onMessageCareTeam} /> : null}
     </Card>
   );
 }

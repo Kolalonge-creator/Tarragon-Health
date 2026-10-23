@@ -5288,3 +5288,11 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-731 UI-C: nothing was run on a device or in a browser (raised by the UI-C build)
 - Phone components (`LogQueueNote`, `AlertTemplate`, device rows) are covered by type checks and pure-logic tests only, as the mobile jest config renders no components. The queue note reads the existing outbox summary (`waiting`); the web has no offline queue, so change 10 is phone only.
 - Decision: open (needs a test session).
+
+### OQ-732 UI-C: someone else's device rows cannot show errors or a paused state (raised by the UI-C review fixes)
+- `devices_i_manage` returns no status or last_sync_error column, so rows for people you support use "active" plus the real last-synced time (staleness and "waiting" now work from that). Showing an error or a paused state for them needs the RPC to return those columns, which is a migration, not done here.
+- Decision: open.
+
+### OQ-733 UI-C: the "no readings for N days" limit is a proposed value (raised by the UI-C review fixes)
+- `devices.sync_staleness` (staleAfterDays 7) in packages/shared/src/proposed-config/registry.ts is proposed, CMO owned, unsigned. Until it is signed, a device with no sync for more than 7 days reads "Needs a quick fix".
+- Decision: CMO to confirm or change the number.

@@ -123,6 +123,7 @@ export function PregnancyRedFlagCheck({ patientId }: { patientId: string }) {
               {/* UI-C: the standard alert card (noticed, meaning, one step, message your care team). */}
               <AlertTemplate
                 clinical
+                urgent
                 noticed={t("alerttpl.preg.check.noticed")}
                 meaning={t("alerttpl.preg.go_now.meaning")}
                 step={t("preg.card.go_now.body")}

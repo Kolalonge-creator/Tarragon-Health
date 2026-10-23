@@ -29,6 +29,14 @@ describe("AlertTemplate", () => {
     expect(screen.getByRole("alert")).toBeTruthy();
   });
 
+  it("urgent: the step is the most prominent element, shown once, with no message link beside it", () => {
+    const { container } = render(<AlertTemplate {...props} clinical urgent />);
+    expect(screen.getAllByText(props.step)).toHaveLength(1);
+    expect(screen.getByText(props.step).className).toMatch(/text-lg/);
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(container.textContent).not.toMatch(/Message your care team/);
+  });
+
   it("can leave the button out", () => {
     render(<AlertTemplate {...props} messageHref={null} />);
     expect(screen.queryByRole("link")).toBeNull();

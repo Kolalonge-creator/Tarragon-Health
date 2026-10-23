@@ -18,13 +18,25 @@ import { fileURLToPath } from "node:url";
 const repoRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 const read = (rel: string) => readFileSync(join(repoRoot, rel), "utf8");
 
-const WEB_RED = /\b(?:hover:|dark:|focus-visible:)*(?:text|bg|border|ring|fill|stroke)-red-\d{2,3}\b/;
-const MOBILE_RED = /#DC2626|#dc2626|dangerText|dangerBg|tone="(?:danger|emergency)"/;
+const WEB_RED = /\b(?:text|bg|border|ring|fill|stroke|outline|divide|from|via|to|decoration|accent|caret|shadow)-(?:red|rose|destructive)(?:-\d{2,3}|\b)/;
+const MOBILE_RED = /dangerText|dangerBg|tone="(?:danger|emergency)"/;
+
+/** A hex colour that reads as red: strong red channel, weak green and blue. Catches #DC2626, #f00, #E11D48 and the like. */
+export function hasHexRed(text: string): boolean {
+  for (const m of text.matchAll(/#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/g)) {
+    const h = m[1] as string;
+    const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16)) as [number, number, number];
+    if (r >= 0xb0 && g <= 0x60 && b <= 0x70) return true;
+  }
+  return false;
+}
+const isRedLine = (line: string, web: boolean): boolean => (web ? WEB_RED.test(line) : MOBILE_RED.test(line)) || hasHexRed(line);
 const BANNED_WORDS = /\bWARNING\b|\bWarning:/;
 
-/** A string value that carries "!" as punctuation (not `!=`, `!x` or `!==`). */
+/** A string value that carries "!" as punctuation: "Done!", "Really?!", "Wait...!", "Done !" (but not `!=`, `!==` or `!x`). */
 function hasExclamation(text: string): boolean {
-  return /[A-Za-z0-9.,)"'’]!(?![=])(?:\s|$|["'`])/.test(text);
+  return /!(?!=)(?=\s|$)/.test(text);
 }
 
 export function toneProblems(text: string): string[] {
@@ -39,7 +51,18 @@ function codeLines(src: string): string[] {
   return src.split("\n").filter((l) => !/^\s*(\/\/|\/\*|\*|\{\s*\/\*)/.test(l));
 }
 
-const STRING_LINE = /^\s*"[A-Za-z0-9_.]+":\s*"((?:[^"\\]|\\.)*)",?\s*$/;
+/**
+ * Every double-quoted string literal in a source file, with its line number, comments removed. Works on the whole text rather than
+ * line by line, so a value on the line after its key, a concatenated value and a template-like entry are all seen.
+ */
+export function stringLiterals(src: string): { text: string; line: number }[] {
+  const stripped = src.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " ")).replace(/(^|[^:"'`])\/\/[^\n]*/g, (m, p1: string) => p1 + " ".repeat(m.length - p1.length));
+  const out: { text: string; line: number }[] = [];
+  for (const m of stripped.matchAll(/"((?:[^"\\\n]|\\.)*)"/g)) {
+    out.push({ text: m[1] as string, line: stripped.slice(0, m.index).split("\n").length });
+  }
+  return out;
+}
 
 describe("alert-tone lint: patient-facing strings", () => {
   const dir = "packages/i18n/src";
@@ -47,17 +70,16 @@ describe("alert-tone lint: patient-facing strings", () => {
 
   it("scans a meaningful number of strings (a silently empty scan must fail)", () => {
     let n = 0;
-    for (const f of files) for (const l of read(`${dir}/${f}`).split("\n")) if (STRING_LINE.test(l)) n++;
+    for (const f of files) n += stringLiterals(read(`${dir}/${f}`)).length;
     expect(n).toBeGreaterThan(1000);
   });
 
   it("has no WARNING and no exclamation mark in any string value", () => {
     const offenders: string[] = [];
     for (const f of files) {
-      read(`${dir}/${f}`).split("\n").forEach((line, i) => {
-        const m = STRING_LINE.exec(line);
-        if (m && toneProblems(m[1] as string).length > 0) offenders.push(`${dir}/${f}:${i + 1}`);
-      });
+      for (const lit of stringLiterals(read(`${dir}/${f}`))) {
+        if (toneProblems(lit.text).length > 0) offenders.push(`${dir}/${f}:${lit.line} ${lit.text.slice(0, 40)}`);
+      }
     }
     expect(offenders).toEqual([]);
   });
@@ -67,6 +89,19 @@ describe("alert-tone lint: patient-facing strings", () => {
     expect(toneProblems("Please call us!")).toContain("exclamation");
     expect(toneProblems("Saved on this phone. It will send when you are online.")).toEqual([]);
     expect(toneProblems("a !== b")).toEqual([]);
+    expect(toneProblems("a != b, !flag")).toEqual([]);
+    expect(toneProblems("Are you sure?!")).toContain("exclamation");
+    expect(toneProblems("Take care...!")).toContain("exclamation");
+    expect(toneProblems("Done !")).toContain("exclamation");
+    expect(toneProblems("Hello!")).toContain("exclamation");
+    expect(toneProblems("Warning: this")).toContain("warning-word");
+  });
+
+  it("sees a multi-line entry, where the value sits on the line after its key", () => {
+    const src = '  "a.b":\n    "Please hurry!",\n  "c.d": "fine",\n  // "x": "ignored!"\n';
+    const lits = stringLiterals(src);
+    expect(lits.map((l) => l.text)).toEqual(["a.b", "Please hurry!", "c.d", "fine"]);
+    expect(lits.filter((l) => toneProblems(l.text).length > 0).map((l) => l.line)).toEqual([2]);
   });
 });
 
@@ -113,27 +148,20 @@ const KNOWN_RED_CARD_OFFENDERS = new Set<string>([
 
 describe("alert-tone lint: no red on non-clinical cards", () => {
   it("keeps red out of the device, sync and queue surfaces", () => {
+    // A missing file throws: a renamed or deleted card must be updated here, never silently skipped.
     for (const rel of NON_CLINICAL_STRICT_WEB) {
-      let src: string;
-      try {
-        src = read(rel);
-      } catch {
-        continue; // a file that no longer exists cannot offend
-      }
-      expect([rel, codeLines(src).filter((l) => WEB_RED.test(l))]).toEqual([rel, []]);
+      expect([rel, codeLines(read(rel)).filter((l) => isRedLine(l, true))]).toEqual([rel, []]);
     }
     for (const rel of NON_CLINICAL_STRICT_MOBILE) {
-      expect([rel, codeLines(read(rel)).filter((l) => MOBILE_RED.test(l))]).toEqual([rel, []]);
+      expect([rel, codeLines(read(rel)).filter((l) => isRedLine(l, false))]).toEqual([rel, []]);
     }
-    // The strict set must include the files this change touched, so the test cannot drift away from them.
-    expect(NON_CLINICAL_STRICT_MOBILE).toContain("apps/mobile/src/screens/devices-screen.tsx");
   });
 
   it("RATCHET: web patient cards with red are only the known ones", () => {
     const dir = "apps/web/src/app/(dashboard)/patient";
     const cards = readdirSync(join(repoRoot, dir)).filter((f) => /card.*\.tsx$/.test(f) && !f.endsWith(".test.tsx"));
     expect(cards.length).toBeGreaterThan(40);
-    const withRed = cards.filter((f) => codeLines(read(`${dir}/${f}`)).some((l) => WEB_RED.test(l)));
+    const withRed = cards.filter((f) => codeLines(read(`${dir}/${f}`)).some((l) => isRedLine(l, true)));
     const unexpected = withRed.filter((f) => !KNOWN_RED_CARD_OFFENDERS.has(f) && !CLINICAL_RED_OK.has(f));
     expect(unexpected).toEqual([]);
     // The list may only shrink: a card that has been fixed must be removed from it.
@@ -144,7 +172,15 @@ describe("alert-tone lint: no red on non-clinical cards", () => {
   it("the red detector discriminates", () => {
     expect(WEB_RED.test('className="text-red-600 dark:text-red-300"')).toBe(true);
     expect(WEB_RED.test('className="text-charcoal-ink"')).toBe(false);
-    expect(MOBILE_RED.test('borderLeftColor: "#DC2626"')).toBe(true);
-    expect(MOBILE_RED.test("color: colors.brand")).toBe(false);
+    expect(WEB_RED.test('className="bg-rose-50 text-destructive"')).toBe(true);
+    expect(WEB_RED.test('className="border-red-200"')).toBe(true);
+    expect(WEB_RED.test('className="text-brand-green bg-green-100"')).toBe(false);
+    expect(isRedLine('borderLeftColor: "#DC2626"', false)).toBe(true);
+    expect(isRedLine('color: "#f00"', false)).toBe(true);
+    expect(isRedLine('color: "#E11D48"', false)).toBe(true);
+    expect(isRedLine('tone="danger"', false)).toBe(true);
+    expect(isRedLine('color: "#0E7C52"', false)).toBe(false);
+    expect(isRedLine('color: "#FFFFFF"', false)).toBe(false);
+    expect(isRedLine("color: colors.brand", false)).toBe(false);
   });
 });

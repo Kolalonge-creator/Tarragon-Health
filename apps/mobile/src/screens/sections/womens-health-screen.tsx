@@ -273,7 +273,7 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
             <CycleDangerSigns />
             {activePregnancy && <PregnancyRedFlagCheck patientId={patientId} organisationId={organisationId} />}
             {/* S67: bundled danger-sign guide, readable with no signal and no PIN (INV-06). */}
-            {activePregnancy && <PregnancyDangerGuideCard onMessageCareTeam={() => onNavigate("messages")} />}
+            {activePregnancy && <PregnancyDangerGuideCard />}
           </>
         }
       >
