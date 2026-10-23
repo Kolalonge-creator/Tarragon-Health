@@ -21,6 +21,7 @@ export * from "./mental-health";
 export * from "./record-integrity";
 export * from "./adult-registration";
 export * from "./wellbeing-library";
+export * from "./mental-wellbeing";
 export * from "./therapy-programmes";
 export * from "./home-pins";
 export * from "./measurement-units";

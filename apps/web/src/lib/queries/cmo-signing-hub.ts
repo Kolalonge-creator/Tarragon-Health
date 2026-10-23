@@ -22,6 +22,8 @@ import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-pag
 import { readLegacyNoticeRetirementState } from "@/lib/queries/pending-legacy-notice-retirement-signoff";
 import { readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
 import { readPendingBpDeviceReview } from "@/lib/queries/pending-bp-device-review";
+import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
+import { MENTAL_WELLBEING_ITEM_KEY } from "@/lib/clinical/mental-wellbeing-signoff-model";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -75,7 +77,7 @@ export const TASK_LAYER_CONFIG_ITEM_KEY = "queue_task_layer_config";
 export const PAGING_DELIVERY_CONFIG_ITEM_KEY = "paging_delivery_config";
 /** S07y: recommended blood pressure monitors an admin entered that wait for the CMO to review them against a public validation registry. */
 export const BP_DEVICE_REVIEW_ITEM_KEY = "bp_device_review";
-export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY };
+export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY };
 
 /**
  * Everything that needs the Chief Medical Officer's signature, in one list.
@@ -97,7 +99,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -122,6 +124,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readThresholdHubState(supabase),
     readPendingBpDeviceReview(supabase),
     readPendingPostCheckinSignoff(supabase),
+    readPendingMentalWellbeingSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -422,6 +425,19 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  // S56b: the follow-up list rules to sign and the attestations the four wellbeing guards need. Nothing here signs or switches anything.
+  const mentalWellbeingPending = (mentalWellbeing.worklistVersion !== null ? 1 : 0) + mentalWellbeing.attestations.length;
+  if (mentalWellbeingPending > 0) {
+    items.push({
+      key: MENTAL_WELLBEING_ITEM_KEY,
+      title: "Mental wellbeing: follow-up list, share with my care team, calm tool, patterns",
+      detail: `${mentalWellbeingPending} thing${mentalWellbeingPending === 1 ? "" : "s"} waiting for you${mentalWellbeing.worklistVersion !== null ? ` (the follow-up list rules, version ${mentalWellbeing.worklistVersion}, to sign)` : ""}. Nothing is shown to a patient or a clinician until you record or sign these and switch the matching guard on.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: mentalWellbeingPending,
+    });
+  }
+
   const failedSources = [
     ...queue.failedSources,
     ...s06s10.failedSources,
@@ -443,6 +459,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(queuePaging.failed ? ["the task layer and paging delivery configurations"] : []),
     ...(bpDevices.failed ? ["the recommended blood pressure monitors"] : []),
     ...(postCheckin.failed ? ["the check-in configuration"] : []),
+    ...(mentalWellbeing.failed ? ["the mental wellbeing sign-offs"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it

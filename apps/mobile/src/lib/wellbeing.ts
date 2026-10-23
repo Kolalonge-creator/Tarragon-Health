@@ -170,12 +170,20 @@ export function wellbeingTagLabel(tag: string): string {
  * say it could not load rather than show an empty week.
  */
 export async function loadMoodBesideReadings(patientId: string): Promise<MoodTrendDay[]> {
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  return loadMoodDays(patientId, 30);
+}
+
+/**
+ * The same merge for any window. The patterns view (S56b) uses 90 days and works the counts out ON THIS PHONE from these rows: nothing is sent
+ * anywhere, stored or scored.
+ */
+export async function loadMoodDays(patientId: string, windowDays: number): Promise<MoodTrendDay[]> {
+  const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
   const sinceIso = since.toISOString();
   const [checkins, bp, sleep] = await Promise.all([
-    supabase.from("wellbeing_checkins").select("checked_in_at, mood_score, stress_score, tags").eq("patient_id", patientId).gte("checked_in_at", sinceIso).order("checked_in_at", { ascending: true }),
-    supabase.from("vitals_readings").select("taken_at, systolic, diastolic").eq("patient_id", patientId).eq("vital_type", "blood_pressure").neq("source", "wearable").gte("taken_at", sinceIso).order("taken_at", { ascending: true }).limit(200),
-    supabase.from("sleep_log_entries").select("logged_on, duration_hours").eq("patient_id", patientId).gte("logged_on", sinceIso.slice(0, 10)).order("logged_on", { ascending: true }),
+    supabase.from("wellbeing_checkins").select("checked_in_at, mood_score, stress_score, tags").eq("patient_id", patientId).gte("checked_in_at", sinceIso).order("checked_in_at", { ascending: true }).limit(2000),
+    supabase.from("vitals_readings").select("taken_at, systolic, diastolic").eq("patient_id", patientId).eq("vital_type", "blood_pressure").neq("source", "wearable").gte("taken_at", sinceIso).order("taken_at", { ascending: true }).limit(1000),
+    supabase.from("sleep_log_entries").select("logged_on, duration_hours").eq("patient_id", patientId).gte("logged_on", sinceIso.slice(0, 10)).order("logged_on", { ascending: true }).limit(400),
   ]);
   if (checkins.error) throw checkins.error;
   if (bp.error) throw bp.error;

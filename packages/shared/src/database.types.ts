@@ -27842,11 +27842,14 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          kind: string
           is_test: boolean
           organisation_id: string
           patient_id: string
           patient_note: string | null
           screen_id: string | null
+          seen_at: string | null
+          seen_by: string | null
           state: string
           summary: Json
           task_id: string | null
@@ -27854,11 +27857,14 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          kind?: string
           is_test?: boolean
           organisation_id: string
           patient_id: string
           patient_note?: string | null
           screen_id?: string | null
+          seen_at?: string | null
+          seen_by?: string | null
           state?: string
           summary?: Json
           task_id?: string | null
@@ -27866,14 +27872,92 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          kind?: string
           is_test?: boolean
           organisation_id?: string
           patient_id?: string
           patient_note?: string | null
           screen_id?: string | null
+          seen_at?: string | null
+          seen_by?: string | null
           state?: string
           summary?: Json
           task_id?: string | null
+        }
+        Relationships: []
+      }
+      mental_health_worklist_actions: {
+        Row: {
+          clinician_id: string
+          config_version: number
+          created_at: string
+          id: string
+          is_test: boolean
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          reasons: string[]
+          task_id: string | null
+        }
+        Insert: {
+          clinician_id: string
+          config_version: number
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          reasons: string[]
+          task_id?: string | null
+        }
+        Update: {
+          clinician_id?: string
+          config_version?: number
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          reasons?: string[]
+          task_id?: string | null
+        }
+        Relationships: []
+      }
+      mental_health_worklist_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          rules: Json
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          rules: Json
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          rules?: Json
+          version?: number
         }
         Relationships: []
       }
@@ -47463,18 +47547,24 @@ export type Database = {
       }
       wellbeing_checkin_preferences: {
         Row: {
+          mood_insights_hidden: boolean
+          worklist_activity_opt_out: boolean
           organisation_id: string
           patient_id: string
           reminder_frequency_days: number
           updated_at: string
         }
         Insert: {
+          mood_insights_hidden?: boolean
+          worklist_activity_opt_out?: boolean
           organisation_id: string
           patient_id: string
           reminder_frequency_days?: number
           updated_at?: string
         }
         Update: {
+          mood_insights_hidden?: boolean
+          worklist_activity_opt_out?: boolean
           organisation_id?: string
           patient_id?: string
           reminder_frequency_days?: number
@@ -56668,6 +56758,19 @@ export type Database = {
         Returns: Json
       }
       request_mental_health_handoff: { Args: { p_note?: string; p_screen?: string }; Returns: string }
+      count_mental_health_worklist: { Args: Record<PropertyKey, never>; Returns: number }
+      create_mental_health_worklist_follow_up: { Args: { p_note?: string; p_patient: string }; Returns: string }
+      list_mental_health_worklist: { Args: Record<PropertyKey, never>; Returns: Json }
+      mark_mental_health_handoff_seen: { Args: { p_handoff: string }; Returns: boolean }
+      preview_wellbeing_summary: { Args: { p_include_checkins?: boolean; p_include_screens?: boolean; p_include_sleep?: boolean }; Returns: Json }
+      set_worklist_activity_opt_out: { Args: { p_opt_out: boolean }; Returns: undefined }
+      set_mood_insights_hidden: { Args: { p_hidden: boolean }; Returns: undefined }
+      share_wellbeing_summary_with_care_team: {
+        Args: { p_expected_hash?: string; p_include_checkins?: boolean; p_include_screens?: boolean; p_include_sleep?: boolean; p_note?: string }
+        Returns: string
+      }
+      sign_mental_health_worklist_config: { Args: { p_version: number }; Returns: undefined }
+      wellbeing_features_open: { Args: Record<PropertyKey, never>; Returns: Json }
       therapy_run_progress: { Args: { p_enrolment: string }; Returns: Json }
       therapy_check_entry_screen: { Args: { p_answers: Json; p_programme_code: string }; Returns: Json }
       stop_therapy_enrolment: { Args: { p_enrolment: string }; Returns: Json }

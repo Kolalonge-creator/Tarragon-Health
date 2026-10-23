@@ -4452,6 +4452,74 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S56.md; spec 10.3",
   },
   {
+    key: "mental_health.worklist_rules",
+    // S56b: the rules of the clinician follow-up worklist. Live value is the SIGNED row of `mental_health_worklist_config`; v1 is born unsigned and
+    // inactive and a test fails if the migration seed and this value drift. The worklist shows nothing until the CMO signs a version AND the guard
+    // mental_health_worklist_enabled is on. The build proposed every number; none is a validated clinical threshold.
+    value: {
+      rising_screen: { enabled: true, look_back_days: 120, phq9_min_rise: 5, gad7_min_rise: 4 },
+      overdue_screen: { enabled: true, grace_days: 14, instruments: ["phq9", "gad7"] },
+      sleep_trouble: { enabled: true, window_days: 14, min_entries: 7, short_sleep_hours: 5.5, low_quality_at_or_below: 2, min_trouble_nights: 5 },
+      missed_checkins: { enabled: false, prior_window_days: 28, min_prior_checkins: 8, silent_days: 10 },
+      unactioned_handoff: { enabled: true, after_hours: 48 },
+      follow_up: { task_due_minutes: 4320, talk_request_due_minutes: 240, snooze_days: 7 },
+      max_rows: 100,
+      count_cache_minutes: 10,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S56b.md",
+  },
+  {
+    key: "wellbeing.features_cache",
+    // S56b: how long the phone trusts a saved "this feature is open" answer when it cannot reach the server. After this many days a saved
+    // OPEN answer is ignored for the share and patterns features. The calm tool is the one exception: a saved "open" is kept so help is
+    // never lost offline. A saved CLOSED answer is never turned into an open one, and an answer the server REFUSES (for example an expired
+    // session) closes everything.
+    value: { offline_trust_days: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S56b.md",
+  },
+  {
+    key: "wellbeing.share_summary",
+    // S56b: the windows of the "Share with my care team" summary (how many recent scores, how many weeks of check-ins, how many days of sleep diary,
+    // the longest note). A display choice, not a clinical one. Live value is `private.wellbeing_share_cfg()`; a test fails on drift.
+    value: { version: 1, screen_points: 3, checkin_weeks: 4, sleep_days: 14, note_max_chars: 500 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S56b.md",
+  },
+  {
+    key: "wellbeing.mood_insights",
+    // S56b: how much of a patient's own data the patterns view needs before it says anything, and how big a difference it reports. Computed on
+    // the server (web) or on the phone from the patient's own entries; nothing is stored, sent or scored. A pattern is shown only when each group
+    // has at least min_group_days days and the share of below-usual days differs by at least min_gap (0 to 1).
+    value: { window_days: 90, min_days_with_mood: 21, min_group_days: 5, min_gap: 0.25, max_patterns: 3 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S56b.md",
+  },
+  {
+    key: "wellbeing.panic_tool",
+    // S56b: the pace and length of the calm tool. Wording is versioned with the i18n panic.* strings (a fingerprint of them is what the CMO attests).
+    // Slow breathing: in 4 seconds, out 6, for 60 seconds. This is a gentle pace, not a treatment claim.
+    value: { content_version: 1, inhale_seconds: 4, exhale_seconds: 6, total_seconds: 60, grounding_counts: [5, 4, 3, 2, 1] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S56b.md",
+  },
+  {
     key: "learning.micro_lesson",
     // S55 (spec 9.2): a weekly lesson (one per programme week) takes under five minutes, asks for one action and ends in one check question. Live value is the
     // active `micro_lesson` row of `learning_config`; a test fails if the migration seed and this value drift. UNSIGNED.

@@ -619,6 +619,8 @@ export function getNavSections(
                 // itself redirects/shows a friendly message for anyone else.
                 // Patients ordered by who may need a call first; only your own tied patients (S38c).
                 { label: "Risk worklist", href: "/clinician/risk-worklist", icon: "analytics" },
+                // Tied patients who may need a mental health follow-up, by fixed rules the CMO signs; shows nothing until signed (S56b). Doctors only: the database refuses coordinators.
+                { label: "Mental health follow-ups", href: "/clinician/mental-health-worklist", icon: "mood", countKey: "mentalHealthWorklistWaiting" },
                 // Say whether the automatic grade was right for a task you completed; off until the CMO approves (S38e).
                 { label: "Review automatic grades", href: "/clinician/triage-review", icon: "review" },
                 { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
