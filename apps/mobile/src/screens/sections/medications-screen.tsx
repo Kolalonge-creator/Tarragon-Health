@@ -26,6 +26,7 @@ import { loadAdherenceBand, loadMedicineRules } from "@/lib/medicines-config";
 import { loadReminderBehaviour } from "@/lib/s07-config";
 import { space, useTheme } from "@/ui/design";
 import { AppText, Badge, Button, Card, EmptyState, InlineAlert, LegacySheet, ListItem, Screen, Skeleton, SkeletonGroup, useToast } from "@/ui/kit";
+import { LogQueueNote } from "@/ui/log-queue-note";
 import { SyncBanner } from "@/screens/sync-banner";
 import { MedicineCabinetScreen } from "@/screens/sections/medicine-cabinet-screen";
 import { CareChangeCard } from "@/screens/sections/care-change-card";
@@ -484,6 +485,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
                         ) : null}
                       </View>
                     ) : null}
+                    {showActions && open !== "earlier" && open !== "skip" ? <LogQueueNote /> : null}
 
                     {open === "earlier" ? (
                       <View style={{ gap: space.sm }}>

@@ -25,6 +25,7 @@ import { queueActivity } from "@/lib/activity-movement";
 import { MovementGate, ReadinessCard, RouteRecorderCard, WeeklyGoalEditor } from "@/screens/sections/movement-extras";
 import { BarcodeBlock, FoodPickerBlock, RepeatAndFavouritesCard, TargetsCard } from "@/screens/sections/meal-diary-extras";
 import { loadGuidance, queueMeal } from "@/lib/food-diary";
+import { LogQueueNote } from "@/ui/log-queue-note";
 import { appendPhrase, type Guidance } from "@/lib/food-diary-model";
 import {
   Badge,
@@ -508,6 +509,7 @@ export function MealsScreen({ patientId }: { patientId: string }) {
         ) : null}
 
         <PrimaryButton title={t("Save this meal")} onPress={() => void onSubmit()} loading={saving} />
+        <LogQueueNote />
         {saveError ? <ErrorText>{saveError}</ErrorText> : null}
         {savedMessage ? <MutedText>{savedMessage}</MutedText> : null}
         {lastEstimate ? (

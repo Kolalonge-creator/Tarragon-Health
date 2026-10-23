@@ -14,6 +14,7 @@ import { PhotoReadingScreen } from "@/screens/photo-reading-screen";
 import { loadDeviceFlags, NO_DEVICE_FLAGS, type DeviceFlags } from "@/lib/device-flags";
 import { loadReadingSubjects, type ManagedDevice, type ReadingSubject } from "@/lib/reading-subject";
 import { loadManagedDevices, pairDeviceFor } from "@/lib/managed-devices";
+import { attentionNames, deviceRowSubtitle, deviceRowView } from "@/lib/device-row-view";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import {
@@ -27,6 +28,7 @@ import {
   SectionLabel,
 } from "@/ui/legacy-kit";
 import { FeatureConsentGate } from "@/ui/feature-consent-gate";
+import { CardListen } from "@/ui/kit/CardListen";
 
 type PatientDevice = Tables<"patient_devices">;
 
@@ -43,6 +45,9 @@ const DEVICE_LABELS: Record<string, string> = {
   thermometer: "Thermometer",
   pulse_oximeter: "Pulse oximeter",
 };
+
+/** devices_i_manage returns only active pairings and no status or sync-error column, so the last-sync time is the only signal for someone else's device (OQ-732). */
+const MANAGED_DEVICE_STATUS = "active";
 
 function deviceLabel(deviceType: string): string {
   return DEVICE_LABELS[deviceType] ?? deviceType;
@@ -88,6 +93,22 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
   const [pairSubjectId, setPairSubjectId] = useState(patientId);
   const [managed, setManaged] = useState<ManagedDevice[]>([]);
   const [showPhoto, setShowPhoto] = useState(false);
+
+  // UI-C: the one state worth explaining in words (and with a Listen button once a clip exists): a fix before a set-up.
+  const attention = (() => {
+    const rows = devices.map((d) => ({
+      name: d.nickname ?? d.model ?? deviceLabel(d.device_type),
+      view: deviceRowView({ status: d.status, lastSyncError: d.last_sync_error, lastSyncedAt: d.last_synced_at }),
+    }));
+    // A fix before a set-up; every device in that state is named, so with several devices the person knows which one.
+    const groups: ((st: string) => boolean)[] = [(st) => st === "needs_fix" || st === "stale", (st) => st === "not_set_up"];
+    for (const group of groups) {
+      const hits = rows.filter((r) => group(r.view.state));
+      const first = hits[0];
+      if (first) return { view: first.view, names: attentionNames(hits.map((h) => h.name)) };
+    }
+    return null;
+  })();
 
   const refreshPendingSync = useCallback(async () => {
     setPendingSyncCount(await getOfflineQueuePendingCount());
@@ -285,13 +306,14 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           </Card>
         ) : (
           <GroupedList>
-            {devices.map((item) => (
+            {devices.map((item) => {
+              // UI-C: one of three plain states, the last sync in words, and one Green fix button when it is not working.
+              const view = deviceRowView({ status: item.status, lastSyncError: item.last_sync_error, lastSyncedAt: item.last_synced_at });
+              return (
               <GroupedListRow
                 key={item.id}
                 title={item.nickname ?? item.model ?? deviceLabel(item.device_type)}
-                subtitle={`${deviceLabel(item.device_type)} · Last synced: ${
-                  item.last_synced_at ? new Date(item.last_synced_at).toLocaleDateString() : "never"
-                }`}
+                subtitle={deviceRowSubtitle(deviceLabel(item.device_type), view)}
                 onPress={() => onOpenDevice(item)}
                 leading={
                   <View
@@ -308,19 +330,43 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
                   </View>
                 }
                 trailing={
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Report a problem with this device"
-                    onPress={() => openFaultReport(item)}
-                    hitSlop={8}
-                  >
-                    <Ionicons name="alert-circle-outline" size={20} color={colors.faint} />
-                  </Pressable>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    {view.fixLabel ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={view.fixLabel}
+                        accessibilityHint={view.explain}
+                        onPress={() => (view.state === "not_set_up" || view.state === "paused" ? setPairing(true) : openFaultReport(item))}
+                        hitSlop={8}
+                        style={{ backgroundColor: colors.brand, borderRadius: radius.control, minHeight: 36, paddingHorizontal: 14, justifyContent: "center" }}
+                      >
+                        <Text style={{ fontSize: 13, fontWeight: "700", color: "#FFFFFF" }}>{view.fixLabel}</Text>
+                      </Pressable>
+                    ) : null}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Report a problem with this device"
+                      onPress={() => openFaultReport(item)}
+                      hitSlop={8}
+                    >
+                      <Ionicons name="alert-circle-outline" size={20} color={colors.faint} />
+                    </Pressable>
+                  </View>
                 }
               />
-            ))}
+              );
+            })}
           </GroupedList>
         )}
+        {attention ? (
+          <Card style={{ gap: 6, backgroundColor: colors.groupBg }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink, flex: 1 }}>{`${attention.names}: ${attention.view.stateLabel}`}</Text>
+              <CardListen clipId={attention.view.clipId} />
+            </View>
+            <MutedText>{attention.view.explain}</MutedText>
+          </Card>
+        ) : null}
       </View>
 
       {/* Honest framing for the first store release: the BLE pairing path
@@ -351,7 +397,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
               <GroupedListRow
                 key={item.id}
                 title={`${item.personName}: ${item.nickname ?? item.model ?? deviceLabel(item.deviceType)}`}
-                subtitle={`${deviceLabel(item.deviceType)} · Last synced: ${item.lastSyncedAt ? new Date(item.lastSyncedAt).toLocaleDateString() : "never"}`}
+                subtitle={deviceRowSubtitle(deviceLabel(item.deviceType), deviceRowView({ status: MANAGED_DEVICE_STATUS, lastSyncedAt: item.lastSyncedAt }))}
                 onPress={() =>
                   onOpenDevice({
                     id: item.id,
