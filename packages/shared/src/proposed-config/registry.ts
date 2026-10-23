@@ -4749,6 +4749,55 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S60.md section 6; spec 12.12; docs/OPEN-QUESTIONS.md OQ-S60-05",
   },
   {
+    key: "outcomes.dashboard",
+    // Honest outcomes dashboard (docs/design/OUTCOMES.md). Mirrors outcomes_dashboard_config version 1; a test fails if the migration seed and this value
+    // drift. Audience: the founder / super admin and the CMO only. comparison.*: a group needs at least min_per_group people measured at both ends (the
+    // greater of this and the platform minimum for a cut by two attributes); "high" engagement is at least high_active_days_per_30 active days in each
+    // 30 days after joining and "low" is at most low_active_days_per_30; blood pressure readings are NOT counted as engagement for the comparison because
+    // they are how control is measured. engagement.*: only these Health Points rules count in any points figure (rules that can touch screening, lab or
+    // review data are left out), and screening codes matching these patterns are never counted. The CMO owns every number here.
+    value: {
+      due_days: [90, 180],
+      primary_day: 90,
+      min_age_years: 18,
+      confidence_level: 0.95,
+      comparison: {
+        min_per_group: 30,
+        high_active_days_per_30: 12,
+        low_active_days_per_30: 4,
+        exclude_blood_pressure_from_engagement: true,
+        exclude_checkins_from_comparison: true,
+        points_rules_included: ["meal_logged", "lpe_task_completed", "lpe_goal_achieved", "challenge_completed", "wellness_class_attended"],
+      },
+      engagement: {
+        points_rules_included: ["vitals_logged", "meal_logged", "adherence_checkin_completed", "lpe_task_completed", "lpe_goal_achieved", "challenge_completed", "wellness_class_attended"],
+        milestone_rules: ["lpe_goal_achieved"],
+        vital_types_allowed: ["blood_pressure", "glucose", "pulse", "temperature", "spo2", "respiratory_rate", "peak_flow", "ketones"],
+        screening_excluded_code_patterns: ["cervic", "mammo", "breast", "hpv", "(^|_)pap(_|$)", "psa", "prostat", "ovar", "pregnan", "antenat", "fertil", "contracep", "menstr", "hiv", "hep", "syphil", "(^|_)sti(_|$)", "mental", "phq", "gad", "depress", "anxiet"],
+        protected_topic_patterns: ["cervic", "mammo", "breast", "hpv", "(^|_)pap(_|$)", "psa", "prostat", "ovar", "pregnan", "antenat", "postnat", "maternal", "fertil", "contracep", "menstr", "menopaus", "period", "sexual", "hiv", "hep", "syphil", "(^|_)sti(_|$)", "mental", "phq", "gad", "depress", "anxiet", "mood", "stress", "wellbeing", "trauma", "grief", "suicid", "self.harm"],
+        escalation_alert_types_allowed: ["abnormal_result", "abnormal_monitoring", "deterioration", "medication_safety"],
+        protected_lesson_categories: ["mental_health", "womens_health", "mens_health", "cancer_screening"],
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/OUTCOMES.md; docs/OPEN-QUESTIONS.md OQ-OUT-01 to OQ-OUT-10",
+  },
+  {
+    key: "outcomes.founder_unfrozen_view",
+    // Founder decision on OQ-OUT-09 and OQ-OUT-11. Mirrors outcomes_dashboard_config version 1 `founder_unfrozen_view`. OFF by default. When on, the super-admin
+    // account (not the CMO, not anyone else) can open a read that computes to today the outcome figures the held-back rule froze. It lifts only the freeze: the
+    // minimum cell, complementary suppression and protected-data exclusions still apply; every read needs a reason and is audited; nothing is stored; no export.
+    value: { enabled: false },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/OUTCOMES.md section Founder view; docs/OPEN-QUESTIONS.md OQ-OUT-09, OQ-OUT-11",
+  },
+  {
     key: "paging.watchdog",
     // S78a (spec 23.15, CMO decision S-8). Mirrors paging_config version 2, which is PROPOSED and INACTIVE: the active row stays version 1 until the CMO signs
     // a new version. watchdog_grace_seconds: how long a red triage event may exist with no page before the database watchdog creates it itself (INV-05; the

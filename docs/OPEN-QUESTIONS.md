@@ -5392,6 +5392,73 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Docker was down. The proof `s58b_pending_credit_milestones_refund.sql` passed (59 rows including 5 sabotage flips) only against a stubbed scratch Postgres 16 that stands in for upstream objects. Run it with `run-db-proofs.sh` on a local stack before merging; merging auto-applies migrations.
 - Decision: open (engineering).
 
+### OQ-OUT-01 The thresholds behind the engagement groups and the comparison are PROPOSED and unsigned
+- Blocks: anyone acting on the comparison panel of the outcomes dashboard (`docs/design/OUTCOMES.md`).
+- Built: `outcomes_dashboard_config` v1 (mirrored as `outcomes.dashboard`): "takes part a lot" is at least 12 active days in each 30 days after joining, "a little" is at most 4, a comparison group needs 30 people measured at both ends (never below the platform floor of 30 for a two-attribute cut), 95 percent intervals, adults only, blood pressure readings excluded from the engagement that draws the groups. These are engineering defaults, not clinical or statistical advice.
+- Needed from the CMO (and a statistician if one is available): confirm or change the numbers. A change is a new config version, never an edit.
+- Decision: open (CMO).
+
+### OQ-OUT-02 Only a randomised holdout can say whether Health Points work
+- The dashboard can only show associations. People who take part more are healthier and more motivated to begin with, so even the first-week baseline and the difference in differences cannot separate "points helped" from "keen people do better". The one design that can is a random holdout (for example, new Members are randomly assigned to earn Health Points or to a delayed start).
+- Options: (a) keep the dashboard as an internal descriptive tool only and make no claim (built); (b) design a randomised rollout for the next cohort, with consent wording and the CMO's view on withholding a benefit from a random half; (c) wait for the programme to reach a size where a holdout is meaningful.
+- Needed from the founder and CMO: whether to pursue (b), and when. Nothing in the build assumes it.
+- Decision: open (founder and CMO).
+
+### OQ-OUT-03 Medicine refill completion is not measured
+- Asked for: "medication refill/adherence rate". Adherence is measured (S08 weekly adherence at day 90 and 180, kept apart from control). A refill actually collected is not: `medication_refill_state` records only that a reminder was sent. The page lists it under "not measured" instead of inventing a rate.
+- Options: (a) wait for pharmacy dispensing records (S28) and define "refilled within N days of the due date" from them; (b) use the confirmed-refill action clinicians already take (`medications` confirm refill), which measures prescriber confirmation and not collection.
+- Needed from the CMO: which definition counts as a refill.
+- Decision: open (CMO).
+
+### OQ-OUT-04 Glucose control has no signed definition beyond HbA1c
+- Only HbA1c change and goal (S75 snapshots, which exist only once `outcome_config` v3 is active) are shown for diabetes. A share of glucose readings in the person's own range (`patient_glucose_targets`) or a CGM time in range would be a second measure, but no signed definition exists, so none was invented.
+- Note: until S75's `outcome_config` v3 is activated by the CMO the HbA1c blocks read "not enough data yet" in production.
+- Needed from the CMO: whether to add a glucose-in-range measure and its definition.
+- Decision: open (CMO).
+
+### OQ-OUT-05 "Time to first review" is the first acknowledgement of the alert raised for an abnormal screening result
+- It reads `clinician_alerts.acknowledged_at` for alerts linked to a `screening_results` row (kinds marked sensitive or matching the protected patterns are left out). It is not the same as a doctor reading the result, and it does not cover lab results released under S27, or alerts from readings.
+- Needed from the CMO: whether "acknowledged" is the right proxy, or whether the S16 task claim time (first claim of the linked task) should be used, and whether S27 lab results should be included.
+- Decision: open (CMO).
+
+### OQ-OUT-06 Who is left in a comparison group is itself selected
+- Only people measured at both ends are compared, and people who take part more are more likely to be measured. The page shows the share not measured at both ends beside each group, but does not correct for it. A correction (weighting, or a sensitivity range counting every unmeasured person as not controlled) would be a statistical choice.
+- Needed from the CMO or a statistician: whether to add a "worst case" row (everyone unmeasured counted as not controlled), which is the same stance as the existing blood pressure report.
+- Decision: open (CMO).
+
+### OQ-OUT-07 The Illinois workplace wellness trial sentence is general and its source is not checked in the repository
+- `outcomes.dash.caveat.trial` says a large randomised workplace wellness trial in Illinois found that staff who joined in were already healthier before the programme began. This matches the published description of that study's participation finding, but the paper is not in the repository and the sentence has not been checked against it line by line.
+- Needed: a human (CMO or counsel) to read the paper and confirm or soften the sentence before the page is shown to anyone outside the founder and the CMO. The page is internal either way.
+- Decision: open (CMO).
+
+### OQ-OUT-08 Sub-cells of two stored reports can still be subtracted
+- The held-back rule guarantees that the people newly counted between two reports are 0 or at least the floor in total. It does not guard each sub-cell (for example "controlled" among them) one at a time, and it does not guard the monthly engagement cells (each month is disjoint, so those are safe). S38 and S75 accept the same residual.
+- Options: (a) accept (the audience is the founder and CMO, who can already read more); (b) round counts to the nearest 5 in stored reports; (c) hold back unless the newly due people are at least twice the floor.
+- Decision: open (founder).
+
+### OQ-OUT-09 In a small pilot the outcome figures will often be frozen or withheld
+- With fewer than 20 people newly due between reports the outcome cutoff does not move, and a cohort with one small category (for example 3 people with no readings) is withheld whole, as the existing blood pressure report already does. This is deliberate and calm on the page, but it means the dashboard may say "not enough data yet" for months.
+- Needed from the founder: whether that is acceptable, or whether the platform floor of 20 should be lowered for this internal page only (not recommended: a founder who sees fewer than 20 people can usually guess who they are).
+- Decision: open (founder).
+
+### OQ-OUT-10 Where this page sits for the CMO, and who else might ask for it
+- Super admin and the CMO read it; an analyst, finance user, doctor and care coordinator are refused. The CMO page is under `/clinician/engagement-outcomes` because a CMO account cannot open `/admin`. The reports are per organisation (the caller's own).
+- Needed from the founder: whether an "analyst" role should ever read it, and whether a second organisation (a payer, a provider organisation) must never see it (it cannot today: the functions return only the caller's organisation to a super admin or CMO).
+- Decision: open (founder).
+
+
+### OQ-OUT-11 After the review, reports will be held back often and some figures were narrowed (2026-10-22)
+- The held-back rule now covers every shown denominator and group, so in a small pilot almost every month some group moves by 1 to 19 people and the outcome figures stay at the previous cutoff. The first report is never held. Reports must also be made in order. Escalation status is current state, not state on the cutoff date. Points from lessons and courses are left out of all points figures because the ledger does not record their topic; mood, sleep and water readings are not counted as taking part; an escalation counts only when tied to an ordinary alert.
+- Option: raise nothing and accept frozen months (built); or round the stored counts so smaller moves are not disclosive (see OQ-OUT-08).
+- The Illinois sentence was reworded to a general one (no specific trial named); OQ-OUT-07 is now only about whether the general sentence is supportable.
+- Decision: open (founder and CMO).
+
+
+### OQ-OUT-12 OQ-OUT-09 and OQ-OUT-11 are DECIDED (founder, 2026-10-22): a founder-only unfrozen view
+- Decision: keep the frozen, stored reports as they are, and add a super-admin-only read that works the held-back figures out to today (`read_outcomes_founder_unfrozen`, page `/admin/outcomes/engagement/founder`). Off by default, a reason required and audited, nothing stored, no export, not for the CMO. The minimum-cell rule and protected-data exclusions are not lifted. OQ-OUT-09 and OQ-OUT-11 are closed by this.
+- Still open: the platform has no separate founder role, so "founder" is the super-admin account (`profiles.role = 'admin'`); if more than one such account exists, each can open the view. The switch is off until the founder turns it on (a new `outcomes_dashboard_config` version).
+- Decision: closed (founder).
+- CONFIRMED (founder, 2026-10-23): with no separate founder role, the unfrozen view stays gated to `profiles.role = 'admin'`, off by default, reason required and audited.
 ### OQ-S59d-01 Which draft does the CMO sign? (raised by S59d, 2026-10-22)
 - There are now two unsigned drafts in `triage_protocols`: the S59 draft (signed adult pathways, chest pain with no floor, adult v2 extras, three paediatric pathways) and the S59d draft, which is a strict superset of it plus adult fever with suspected malaria or typhoid, pregnancy danger signs, high blood pressure complications and diabetes complications. Signing replaces the whole active config.
 - Recommendation: sign the S59d version, not the S59 one; the S59d migration asserts that it keeps every pathway of the S59 draft and every rule key of its `fever`. The sign-off panel now shows every rule, question and source of a draft before the Sign button.

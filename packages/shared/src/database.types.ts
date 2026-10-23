@@ -30280,6 +30280,81 @@ export type Database = {
           },
         ]
       }
+      outcomes_dashboard_config: {
+        Row: {
+          config: Json
+          created_at: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      outcomes_dashboard_reports: {
+        Row: {
+          config_version: number
+          data_cutoff: string
+          generated_at: string
+          generated_by: string | null
+          has_data: boolean
+          held_back: boolean
+          id: string
+          internal_only: boolean
+          is_baseline: boolean
+          organisation_id: string
+          period_end: string
+          period_start: string
+          publishable: boolean
+          report: Json
+        }
+        Insert: {
+          config_version: number
+          data_cutoff: string
+          generated_at?: string
+          generated_by?: string | null
+          has_data: boolean
+          held_back?: boolean
+          id?: string
+          internal_only?: boolean
+          is_baseline: boolean
+          organisation_id: string
+          period_end: string
+          period_start: string
+          publishable?: boolean
+          report: Json
+        }
+        Update: {
+          config_version?: number
+          data_cutoff?: string
+          generated_at?: string
+          generated_by?: string | null
+          has_data?: boolean
+          held_back?: boolean
+          id?: string
+          internal_only?: boolean
+          is_baseline?: boolean
+          organisation_id?: string
+          period_end?: string
+          period_start?: string
+          publishable?: boolean
+          report?: Json
+        }
+        Relationships: []
+      }
       panel_bundles: {
         Row: {
           category: Database["public"]["Enums"]["panel_bundle_category"]
@@ -50683,6 +50758,10 @@ export type Database = {
       community_unhide_author: { Args: { p_id: string }; Returns: Json }
       community_unmask_candidates: { Args: never; Returns: Json }
       log_outcome_export: { Args: { p_from?: string; p_to?: string }; Returns: undefined };
+      log_outcomes_dashboard_export: { Args: Record<PropertyKey, never>; Returns: undefined };
+      read_outcomes_dashboard: { Args: { p_limit?: number }; Returns: Json };
+      read_outcomes_founder_unfrozen: { Args: { p_reason: string }; Returns: Json };
+      run_outcomes_dashboard_now: { Args: { p_month: string }; Returns: string };
       my_monthly_reports: { Args: { p_limit?: number }; Returns: Json };
       my_reproductive_access_log: { Args: { p_limit?: number }; Returns: Json }
       override_patient_risk: { Args: { p_days?: number; p_level: string; p_patient: string; p_reason: string }; Returns: Json };
