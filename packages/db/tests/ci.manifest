@@ -1483,3 +1483,12 @@ s59d_draft_protocol_never_live.sql
 
 # S59d (OQ-S59d-05 decided): pregnancy answers are the person own. A check logged by someone else is refused for the pregnancy pathway (42501) and a pregnant history answer is removed from its stored capture; the person themselves is untouched. Sabotage: trigger dropped, the proxy pathway must be recorded. NOT RUN by its author (Docker down); trigger exercised on a stub schema.
 s59d_proxy_pregnancy_guard.sql
+
+# S74 (missing proofs): pharmacy verified sourcing, per-supply NAFDAC number (write once) and the in-app pharmacist chat. Every role tried with a simulated session (patient, owning pharmacy, other pharmacy, clinician, admin, anon); the gate opens for the allowed role; grants and anon execute checked. Sabotage: append-only trigger, chat-open test, write-once trigger, admin test, table grant + open policy.
+s74_pharmacy_sourcing_and_chat.sql
+
+# S74 (missing proof): the clinic slot and reservation contract. Dormancy (module off, clinic not operational), own-clinic staff only, capacity under hold, expiry frees a place, confirm and cancel own only, the roster for the clinic only, no direct table access. Sabotage: staff test, bookable test, table grant + policy, one-live-reservation index, closed-slot confirm guard.
+s74_clinic_slot_contract.sql
+
+# OQ-431: the two S72 expiry functions are scheduled (pg_cron), the scheduled command runs with no session and expires only the right rows, idempotent, public functions keep their admin/service gate. Sabotage: job unscheduled, core no-op, core over-broad.
+s72_expiry_schedules.sql
