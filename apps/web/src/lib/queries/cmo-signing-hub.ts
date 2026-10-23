@@ -22,6 +22,7 @@ import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-pag
 import { readLegacyNoticeRetirementState } from "@/lib/queries/pending-legacy-notice-retirement-signoff";
 import { readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
 import { readPendingBpDeviceReview } from "@/lib/queries/pending-bp-device-review";
+import { readPendingSymptomUxSignoff } from "@/lib/queries/pending-symptom-ux-signoff";
 import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
 import { MENTAL_WELLBEING_ITEM_KEY } from "@/lib/clinical/mental-wellbeing-signoff-model";
 
@@ -77,6 +78,8 @@ export const TASK_LAYER_CONFIG_ITEM_KEY = "queue_task_layer_config";
 export const PAGING_DELIVERY_CONFIG_ITEM_KEY = "paging_delivery_config";
 /** S07y: recommended blood pressure monitors an admin entered that wait for the CMO to review them against a public validation registry. */
 export const BP_DEVICE_REVIEW_ITEM_KEY = "bp_device_review";
+/** S59c: the symptom checker assessment-experience configs (follow-up timing, describe-it words, why-this-result reasons, safety-net lines). */
+export const SYMPTOM_UX_ITEM_KEY = "symptom_assessment_ux";
 export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY };
 
 /**
@@ -99,7 +102,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, M
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -125,6 +128,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingBpDeviceReview(supabase),
     readPendingPostCheckinSignoff(supabase),
     readPendingMentalWellbeingSignoff(supabase),
+    readPendingSymptomUxSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -425,6 +429,16 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (symptomUx.waiting.length > 0) {
+    items.push({
+      key: SYMPTOM_UX_ITEM_KEY,
+      title: "Symptom checker: follow-up, describe-it, reasons and safety-net wording",
+      detail: `${symptomUx.waiting.length} draft${symptomUx.waiting.length === 1 ? "" : "s"} (${symptomUx.waiting.map((w) => `${w.kind.replace("_", " ")} version ${w.version}`).join(", ")}) waiting for your signature. Each is shown in full. Until you sign one, the feature it drives stays on its safe default, and the symptom checker itself stays behind its own go-live guard.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: symptomUx.waiting.length,
+    });
+  }
   // S56b: the follow-up list rules to sign and the attestations the four wellbeing guards need. Nothing here signs or switches anything.
   const mentalWellbeingPending = (mentalWellbeing.worklistVersion !== null ? 1 : 0) + mentalWellbeing.attestations.length;
   if (mentalWellbeingPending > 0) {
@@ -459,6 +473,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(queuePaging.failed ? ["the task layer and paging delivery configurations"] : []),
     ...(bpDevices.failed ? ["the recommended blood pressure monitors"] : []),
     ...(postCheckin.failed ? ["the check-in configuration"] : []),
+    ...(symptomUx.failed ? ["the symptom checker assessment wording and timing"] : []),
     ...(mentalWellbeing.failed ? ["the mental wellbeing sign-offs"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);

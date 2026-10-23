@@ -16,7 +16,7 @@ import {
   bundledFloorDrift,
   nextTriageStep,
 } from "@tarragon/symptom-triage-engine";
-import type { PresentingComplaintProtocol, QuestionNode } from "@tarragon/symptom-triage-engine";
+import type { AnsweredQuestion, PresentingComplaintProtocol, QuestionNode } from "@tarragon/symptom-triage-engine";
 import type { Database, Json } from "@tarragon/shared";
 
 /**
@@ -61,6 +61,12 @@ export type SymptomTriageStepResult =
       proxyPregnancyNote: boolean;
       /** False when the check could not be saved; the screen says so. */
       recorded: boolean;
+      /** S59c ("Why this result"): the keys of EVERY red-flag rule that fired, not just the first. Rule ids only, never text. */
+      firedRuleKeys: string[];
+      /** S59c: ids of the risk, context or dependant entries that raised the category. */
+      tightenedBy: string[];
+      /** S59c: the questions asked and answered, as recorded, so the explanation can show the person's own answers. */
+      questionsAsked: AnsweredQuestion[];
     };
 
 type Subject = { userId: string; subjectId: string; organisationId: string; state: string | null };
@@ -218,6 +224,10 @@ export async function runSymptomStep(input: SymptomTriageStepInput, ctx: StepCon
     degraded: result.degraded,
     urgencyLevel: result.urgencyLevel as string | null,
     forDependant: subject !== null && subject.userId !== subject.subjectId,
+    // (defensive: these only feed an optional explanation, so a partial result must never stop the answer being returned)
+    firedRuleKeys: (result.redFlagScreen?.fired ?? []).map((f) => f.key),
+    tightenedBy: [...(result.raisedBy ?? [])],
+    questionsAsked: finalQuestionsAsked,
     proxyPregnancyNote,
   };
 

@@ -5318,6 +5318,53 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-726 S67-screens: nothing was rendered in a browser or simulator; the screens are checked by tests and type checks only (raised by the S67 screens build)
 - Web: React Testing Library plus axe, 23 tests. Phone: pure logic and outbox tests only (the mobile jest config renders no components), so `pregnancy-tools.tsx` has not been run on a device. Needs a look on web, an Android phone and an iPhone once `maternal_enabled` is on for a test account.
 - Decision: open (needs a test session).
+### OQ-S59c-01 The follow-up after a symptom check needs a signed timing before it can run (raised by S59c)
+- Built and born closed: a self-care or routine result is followed up "better, same or worse?" and "did you get care?" 24 hours (routine) or 48 hours (self-care) later, with one reminder 12 hours after it opens, open for 48 hours, notices only between 07:00 and 21:00 Lagos. All of it is `symptom.checkback`, an UNSIGNED DRAFT; the delays are product choices, not clinical thresholds. Nothing is scheduled until the CMO signs `checkback` through `sign_symptom_ux_config` AND the symptom checker guard is open for that patient.
+- The CMO is asked to confirm or change: which results are followed up (self-care and routine only; urgent and emergency already put a human in the loop), the two delays, the "same after N hours points to a booking" times (24 and 72 hours), the reminder and the window.
+- The outcome (progress, care received, newly ticked signs, action, hours since the check) is stored on `symptom_checkbacks` for the accuracy audit to read later; nothing reads it back yet.
+- Decision: open (CMO).
+
+### OQ-S59c-02 The describe-it table is routing words, in English and common Nigerian English, not Pidgin (raised by S59c)
+- The synonym table (`symptom.describe_synonyms`) is an UNSIGNED DRAFT, so today the describe box is not shown at all and the checker is exactly as it was (the box appears only when a table is signed and matches the live one). It contains plain English and common Nigerian English ("my body is hot", "my head is paining me"); it contains no Pidgin (repository decision D-14, English only). Nobody who speaks Nigerian English has reviewed the phrases.
+- A wrong route only changes which questions are asked; the red-flag floor runs over every answer either way, and the person always confirms a suggested check. The CMO (or a reviewer they name) should read the phrase list and the two numbers (`min_score` 2, `ambiguity_margin` 2) before signing.
+- Founder question: whether Pidgin wording should ever be added (it would reverse D-14 for this one table). Not done.
+- Decision: open (CMO, founder).
+
+### OQ-S59c-03 "Why this result" restates signed rules in plain words; the CMO must read every sentence (raised by S59c)
+- `symptom.result_explainer` is an UNSIGNED DRAFT with one reason per signed red-flag rule and per signed question-tree outcome, written from the rule labels and the rationale already on each outcome. It adds no clinical rule, and it has not been reviewed by a clinician. Until it is signed no explanation is shown at all, and a rule with no text shows nothing (nothing is invented).
+- Two entries (the pregnancy and the weakened-defences headache rules) deliberately say only "something in your health history" so the screen, a copied card or a shared phone never repeats a pregnancy or HIV answer. The explanation also drops the pregnancy answer from "what you told us". The CMO may prefer different wording.
+- Not built, by instruction: a ranking of causes, any diagnosis, any model-written text.
+- Decision: open (CMO).
+
+### OQ-S59c-04 Safety-net lines and the emergency number (raised by S59c)
+- The generic safety net is always shown from the string catalogue (get worse quickly, something seriously wrong, nearest hospital, ask someone to take you). The pathway lines (`symptom.safety_net`) are an UNSIGNED DRAFT restating the signed red flags; unsigned means only the generic block shows.
+- No helpline number is shipped. The one number the config can carry is the national emergency number, recorded as 112 with `confirmed: false`, so it is never shown. It appears only when the config is signed AND the CMO sets `confirmed` true in a new version (OQ-87 and the crisis card note say 112 awaits CMO confirmation). The wording is "where it connects in your area", not a promise.
+- Decision: open (CMO).
+
+### OQ-S59c-05 Danger wording typed in the describe box also raises a neutral emergency event (raised by S59c; DECIDED by the founder 2026-10-22)
+- Decision: on a hit of the shared danger-phrase screen the device still shows emergency guidance at once and throws the words away, and ALSO calls `public.record_describe_danger(session, category)`, which raises an `emergency_events` row (source `symptom_triage`) through the existing path. Only a random per-session key, the coarse code `danger` or `self_harm`, the patient and the time are stored. It is once per session, runs whatever the plan, and is closed with the checker (INV-14). A failure is audited (`symptom_describe.error`), opens a sev3 incident and answers `recorded: false`; it never blocks the on-screen guidance. The screen says the care team was told ONLY when the event was recorded.
+- Second review (2026-10-22), read from the code: the emergency path messages the person's emergency contact ten minutes after ANY active, unacknowledged event (`private.notify_unacknowledged_emergencies` -> `alert_emergency_contact_copies`: push, in-app and email with the person's name) unless `emergency_events.suppress_contact_notify` is true. So this event is now inserted with `suppress_contact_notify = true`: a typed phrase reaches the care team only, never the contact, unless the person chooses it another way. A side effect: the patient's own "alert my contact now" button also returns 0 for this event (the same switch); the person can still use it on any other emergency event. The red-alert watch (a message back to the patient) and the Care Circle notice (unified pages from allow-listed sources only, flag off) are not contact notices.
+- Plans: `record_describe_danger` returns `doctor_alerted`, true only when a clinician alert was really raised. A plan without doctor time gets the event and the existing Free guidance record, no page, and the screen says "we saved this, we cannot promise someone will contact you, message your care team or go to a clinic now". Acting for someone else records nothing (web action refuses; the phone never shows the box). Rate limit: one event per person per `danger_event_min_gap_minutes` (PROPOSED, 30, in the describe config, so it needs the describe table signed; unsigned answers `not_enabled`) and once per session key.
+- Question for the CMO and DPO: is "never the contact, even for self-harm" right, or should a clinician decide to call the contact? The rule as built never contacts anyone outside the care team on the person's behalf here.
+- Status: decided and built; not signed, applied or live.
+
+### OQ-S59c-06 A plan without doctor time gets guidance, not an alert, when a follow-up says "worse" (raised by S59c; DECIDED by the founder 2026-10-22: stays guidance-only, as built)
+- `answer_symptom_checkback` follows the rule every symptom path already follows: if the person's plan does not include doctor time (`private.patient_may_page_doctor`) a "worse" or a new warning sign is shown on screen with the safe routes and no clinician alert is raised; an emergency still opens the emergency path. The screen says so plainly ("message your care team in the app, or go to a clinic today") and does not claim the care team was told.
+- Confirm this is still the intended rule for the two-tier model (Free has no doctor time).
+- Decision: open (founder, CMO).
+
+### OQ-S59c-07 The follow-up is answered by the patient, in their own account, as an adult (raised by S59c)
+- The follow-up goes to, and is answered by, the person the check was for. A carer acting for an adult cannot answer it, and checks for under 18s do not exist (the checker refuses under 18 until a paediatric protocol is signed). Staff read an answer only through the tied, audited read (`read_symptom_checkback_audited`); there is no staff table policy.
+- Decision: open (founder).
+
+### OQ-S59c-08 Signing is only half of switching a feature on: the signed text must be copied into the release (raised by S59c)
+- The apps bundle a copy of each config so the screens work offline. A bundled copy is used only when it is signed and equals the live signed version (the signer's name is not compared; an unreadable live copy counts as unverified); anything else keeps the safe default and reports to Sentry, including the case where the live copy is signed but the bundle is not. So after the CMO signs a version, someone must paste the signed JSON (`symptom_ux_active_config(kind)`) into `packages/symptom-triage-engine/src/assessment-ux/drafts.ts`, the registry entry and, as the next version's seed, a migration, in one release. Until then nothing changes for a patient.
+- Process question: who does this copy, and should it be a generated step? The `follow-up` timing is the one config the database owns outright; the app does not need a copy of it.
+- Decision: open (founder).
+
+### OQ-S59c-09 `send-pending-notifications` must be redeployed for the follow-up notices (raised by S59c)
+- Two neutral templates (`symptom_checkback_due`, `symptom_checkback_nudge`) were added to the sender's source and the in-app copy. The deployed function does not have them until it is redeployed; until then a follow-up still appears in the app (the in-app item and the banner) but the push and email notice for it would not render. Nothing was deployed by this session.
+- Decision: open (founder, at release).
 ### OQ-S56b-01 Who the mental health worklist shows (S56b, 2026-10-22)
 - A clinician sees a patient only when they are TIED to them (`clinician_has_patient_access`: assignment, task, acknowledged page, appointment, referral). Break-glass grants are deliberately NOT a route onto a worklist (they are for an emergency read, not a standing list). A patient who never screened, checked in, logged sleep or sent a hand-off is invisible, and a care coordinator is refused (no scores). The CMO is a clinician like any other: no tie, no rows.
 - The rules run set-based over the organisation on every open and every count; fine for the pilot, too heavy for the 25,000-Member tier. A nightly snapshot table (with the same tie filter at read time) is the follow-up (scale plan SR1).

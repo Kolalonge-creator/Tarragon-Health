@@ -14,6 +14,7 @@ import { activeEmergencyKey } from "@/lib/queries/emergency";
 import { CATEGORY_SAFETY_NET_MESSAGE, getSafetyNetMessage } from "@/lib/symptom-triage/safety-net-copy";
 import {
   SEED_PATHWAYS,
+  buildResultExtras,
   categoryAtLeast,
   evaluateBundledRedFlags,
   nextTriageStep,
@@ -22,6 +23,7 @@ import {
   type AnsweredQuestion,
   type DegradedModeConfig,
   type Onset,
+  type Explanation,
   type QuestionNode,
   type SymptomCapture,
   type TriageCategory,
@@ -29,6 +31,13 @@ import {
 } from "@tarragon/symptom-triage-engine";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { NotADiagnosis } from "@/components/symptom/not-a-diagnosis";
+import { DescribeEntry } from "@/components/symptom/describe-entry";
+import { recordDescribeDangerAction } from "./symptom-checkback/[id]/actions";
+import { WhyThisResult } from "@/components/symptom/why-this-result";
+import { SafetyNetBlock } from "@/components/symptom/safety-net-block";
+import { SaveCardPanel } from "@/components/symptom/save-card";
+import { tr } from "@/lib/symptom-triage/tr";
+import type { AssessmentUx } from "@/lib/symptom-triage/ux-config";
 import { SymptomNextSteps, resultHeadline } from "./symptom-next-steps";
 import { SkinPhotoCard } from "./skin-photo-card";
 import { reviewTimeSentence } from "@/lib/symptom-triage/review-time";
@@ -58,6 +67,13 @@ type Stage =
       /** The six-level wording, only from a signed urgency map; null shows the four-category result alone. */
       urgencyLevel: string | null;
       forDependant: boolean;
+      /** S59c: what the explanation, the safety net and the save card are built from. Ids and answers only, never typed text. */
+      complaintKey: string;
+      capture: SymptomCapture | null;
+      firedRuleKeys: string[];
+      tightenedBy: string[];
+      questionsAsked: AnsweredQuestion[];
+      checkedAt: string;
       /** A pregnancy answer was ticked for another person: it raised the result and is not stored. */
       proxyPregnancy?: boolean;
     }
@@ -89,7 +105,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   self_management: "Self-care for now",
 };
 
-function handleStepResult(result: SymptomTriageStepResult): Stage {
+function handleStepResult(result: SymptomTriageStepResult, capture: SymptomCapture | null, complaintKey: string): Stage {
   if (result.status === "unavailable") return { step: "unavailable" };
   if (result.status === "blocked") return { step: "blocked", reason: result.reason };
   if (result.status === "error") return { step: "error", message: result.error };
@@ -113,6 +129,12 @@ function handleStepResult(result: SymptomTriageStepResult): Stage {
     onDevice: false,
     urgencyLevel: result.urgencyLevel,
     forDependant: result.forDependant,
+    complaintKey,
+    capture,
+    firedRuleKeys: result.firedRuleKeys ?? [],
+    tightenedBy: result.tightenedBy ?? [],
+    questionsAsked: result.questionsAsked ?? [],
+    checkedAt: new Date().toISOString(),
     proxyPregnancy: result.proxyPregnancyNote,
   };
 }
@@ -136,6 +158,12 @@ async function resultOnDevice(capture: SymptomCapture, degraded: DegradedModeCon
     onDevice: true,
     urgencyLevel: null,
     forDependant: false,
+    complaintKey: capture.presentingComplaintKey,
+    capture,
+    firedRuleKeys: r.redFlagScreen.fired.map((f) => f.key),
+    tightenedBy: [],
+    questionsAsked: [],
+    checkedAt: new Date().toISOString(),
   };
 }
 
@@ -165,6 +193,7 @@ export function SymptomTriageCheck({
   reviewTime,
   eligibility,
   reviewEntitled,
+  ux,
 }: {
   patientId: string;
   presentingComplaints: PresentingComplaintOption[];
@@ -176,11 +205,19 @@ export function SymptomTriageCheck({
   eligibility: "ok" | "under_18" | "dob_required" | "error";
   /** S59b: the person is a Member, so a clinician review can be requested. Free people see the message route instead. */
   reviewEntitled: boolean;
+  /** S59c: the describe table, the explainer and the safety-net lines, each present only when signed and equal to the live signed version. */
+  ux: AssessmentUx;
 }) {
   const [stage, setStage] = useState<Stage>({ step: "pick_complaint" });
   const [pending, startTransition] = useTransition();
   const queryClient = useQueryClient();
   const [complaintKey, setComplaintKey] = useState<string>("");
+  // S59c: set when the describe box found danger wording (the words are gone; only the fact is kept), and after "Clear this screen"
+  const [describeDanger, setDescribeDanger] = useState<{ selfHarm: boolean } | null>(null);
+  // OQ-S59c-05: one random key per open screen makes the "danger wording found" event once-only; the care team is said to be told ONLY if it was recorded
+  const [describeSession] = useState(() => crypto.randomUUID());
+  const [describeRecorded, setDescribeRecorded] = useState<"none" | "paged" | "recorded_only">("none");
+  const [cleared, setCleared] = useState(false);
 
   if (presentingComplaints.length === 0) {
     // Closed: the go-live guard `symptom_checker_enabled` is off, or no protocol is signed yet. Never a
@@ -225,7 +262,71 @@ export function SymptomTriageCheck({
 
   function pickComplaint(key: string) {
     setComplaintKey(key);
+    setDescribeDanger(null);
+    setCleared(false);
     setStage({ step: "capture", complaintKey: key });
+  }
+
+  /** S59c: the person's own words contained danger wording. Emergency guidance at once, on this device, before and whatever anything else does. */
+  function describeFoundDanger(selfHarm: boolean) {
+    setDescribeDanger({ selfHarm });
+    setDescribeRecorded("none");
+    // the guidance below is already on screen; this only tells the care team the FACT (a coarse code, never the words) and never blocks anything
+    recordDescribeDangerAction({ session: describeSession, category: selfHarm ? "self_harm" : "danger" })
+      .then((r) => setDescribeRecorded(r.recorded === true ? (r.doctorAlerted === true ? "paged" : "recorded_only") : "none"))
+      .catch(() => setDescribeRecorded("none"));
+    setCleared(false);
+    setStage({
+      step: "result",
+      category: "emergency",
+      clinicianReviewRequired: false, // the old generic line stays off; the truthful 'notified' line below shows only once the event is recorded
+      safetyNetMessageKey: "describe.danger",
+      assessmentId: null,
+      degraded: false,
+      recorded: false,
+      onDevice: true,
+      urgencyLevel: null,
+      forDependant: false,
+      complaintKey: "",
+      capture: null,
+      firedRuleKeys: [],
+      tightenedBy: [],
+      questionsAsked: [],
+      checkedAt: new Date().toISOString(),
+    });
+  }
+
+  /** What "Why this result" and the save card are built from, derived from this result only (never from typed text). */
+  function resultExtras(result: ResultStage): { explanation: Explanation | null; card: string } {
+    const category = result.category as TriageCategory;
+    const bundledCurrent = presentingComplaints.find((c) => c.key === result.complaintKey)?.bundledCurrent === true;
+    const { explanation, card } = buildResultExtras(
+      {
+        category,
+        complaintKey: result.complaintKey,
+        complaintLabel: presentingComplaints.find((c) => c.key === result.complaintKey)?.label ?? null,
+        headline: resultHeadline(category, result.urgencyLevel as UrgencyLevel | null, CATEGORY_LABEL[result.category] ?? result.category.replace(/_/g, " ")),
+        nextStep: category === "emergency" ? t("symptom.emergency.go_now") : getSafetyNetMessage(result.safetyNetMessageKey, category as keyof typeof CATEGORY_SAFETY_NET_MESSAGE),
+        dateLabel: new Date(result.checkedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "long", year: "numeric" }),
+        capture: result.capture,
+        firedRuleKeys: result.firedRuleKeys,
+        safetyNetMessageKey: result.safetyNetMessageKey,
+        tightenedBy: result.tightenedBy,
+        questionsAsked: result.questionsAsked,
+        useBundledConditions: bundledCurrent || result.onDevice,
+      },
+      { explainer: ux.explainer, safetyNet: ux.safetyNet },
+      tr,
+    );
+    return { explanation, card };
+  }
+
+  /** S59c shared-phone safety: forget the result, the card and anything typed, and go back to the start. Nothing was ever stored. */
+  function clearScreen() {
+    setDescribeDanger(null);
+    setComplaintKey("");
+    setStage({ step: "pick_complaint" });
+    setCleared(true);
   }
 
   function submitCapture(capture: CaptureDraft) {
@@ -245,6 +346,12 @@ export function SymptomTriageCheck({
         onDevice: true,
         urgencyLevel: null,
         forDependant: false,
+        complaintKey: capture.presentingComplaintKey,
+        capture: capture as SymptomCapture,
+        firedRuleKeys: local.fired.map((f) => f.key),
+        tightenedBy: [],
+        questionsAsked: [],
+        checkedAt: new Date().toISOString(),
       };
       setStage(shown);
     }
@@ -260,7 +367,7 @@ export function SymptomTriageCheck({
       try {
         const result = await stepSymptomTriage({ capture, answers: {}, questionLog: [] });
         // closed or unavailable never replaces an on-device emergency
-        const next = handleStepResult(result);
+        const next = handleStepResult(result, capture as SymptomCapture, capture.presentingComplaintKey);
         const final = keepMoreUrgent(shown, next);
         setStage(final);
         // the emergency dialog should appear at once, not on its next poll (a capture can now complete as emergency or urgent)
@@ -289,7 +396,7 @@ export function SymptomTriageCheck({
       let next: Stage;
       try {
         const result = await stepSymptomTriage({ capture: current.capture, answers, questionLog: current.questionLog });
-        next = handleStepResult(result);
+        next = handleStepResult(result, current.capture as SymptomCapture, current.capture.presentingComplaintKey);
       } catch {
         next = await resultOnDevice(current.capture as SymptomCapture, degradedConfig);
       }
@@ -310,7 +417,12 @@ export function SymptomTriageCheck({
       </CardHeader>
       <CardContent className="space-y-4">
         {stage.step === "pick_complaint" && (
-          <div className="space-y-2">
+          <div className="space-y-3">
+            {cleared && (
+              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70" role="status">
+                {t("symptom.card.cleared")}
+              </p>
+            )}
             <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               Tell us what&apos;s going on and we&apos;ll help you work out the safest next step.
             </p>
@@ -321,6 +433,15 @@ export function SymptomTriageCheck({
                 </Button>
               ))}
             </div>
+            {/* S59c: shown only when the synonym table is signed and matches the live one; an unsigned table leaves the checker exactly as it was. */}
+            {ux.describe && (
+              <DescribeEntry
+                complaints={presentingComplaints.map((c) => ({ key: c.key, label: c.label }))}
+                table={ux.describe}
+                onChoose={pickComplaint}
+                onDanger={describeFoundDanger}
+              />
+            )}
           </div>
         )}
 
@@ -364,21 +485,41 @@ export function SymptomTriageCheck({
                 A member of our care team will also take a look at this one directly.
               </p>
             )}
+            {describeDanger?.selfHarm && <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("symptom.describe.selfharm")}</p>}
+            {describeDanger && describeRecorded === "paged" && <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("symptom.describe.notified")}</p>}
+            {describeDanger && describeRecorded === "recorded_only" && <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("symptom.describe.saved_only")}</p>}
             {stage.proxyPregnancy && (
               <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">{t("symptom.proxy_pregnancy.note")}</p>
             )}
             <NotADiagnosis />
-            {stage.assessmentId && reviewEntitled && <ReviewRequest assessmentId={stage.assessmentId} reviewTime={reviewTime} />}
-            {stage.assessmentId && !reviewEntitled && <MembersOnlyReview />}
-            <SymptomNextSteps
-              category={stage.category as TriageCategory}
-              urgencyLevel={stage.urgencyLevel as UrgencyLevel | null}
-              forDependant={stage.forDependant}
-              complaintKey={complaintKey}
-              assessmentId={stage.assessmentId}
-            />
-            {stage.category !== "emergency" && <SkinPhotoCard assessmentId={stage.assessmentId} />}
-            <Button type="button" variant="outline" onClick={() => setStage({ step: "pick_complaint" })}>
+            {(() => {
+              const extras = resultExtras(stage);
+              return (
+                <>
+                  {extras.explanation && <WhyThisResult explanation={extras.explanation} />}
+                  {stage.category !== "emergency" && <SafetyNetBlock pathwayKey={stage.complaintKey} category={stage.category as TriageCategory} config={ux.safetyNet} />}
+                  {stage.assessmentId && reviewEntitled && <ReviewRequest assessmentId={stage.assessmentId} reviewTime={reviewTime} />}
+                  {stage.assessmentId && !reviewEntitled && <MembersOnlyReview />}
+                  <SymptomNextSteps
+                    category={stage.category as TriageCategory}
+                    urgencyLevel={stage.urgencyLevel as UrgencyLevel | null}
+                    forDependant={stage.forDependant}
+                    complaintKey={complaintKey}
+                    assessmentId={stage.assessmentId}
+                  />
+                  {stage.category !== "emergency" && <SkinPhotoCard assessmentId={stage.assessmentId} />}
+                  <SaveCardPanel text={extras.card} onClear={clearScreen} />
+                </>
+              );
+            })()}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDescribeDanger(null);
+                setStage({ step: "pick_complaint" });
+              }}
+            >
               Check another symptom
             </Button>
           </div>

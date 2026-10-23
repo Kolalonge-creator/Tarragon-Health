@@ -24,6 +24,7 @@ import { lightPalette, useLegacyColors, useTheme } from "@/ui/design";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 import { SymptomCheckerCard } from "@/screens/sections/symptom-checker-card";
+import { SymptomCheckbackCard } from "@/screens/sections/symptom-checkback-card";
 
 interface SymptomScreenProps {
   patientId: string;
@@ -188,6 +189,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
         <MutedText>Log a symptom and see your recent history.</MutedText>
       </View>
 
+      <SymptomCheckbackCard actingForSomeoneElse={beneficiaryProfileId !== undefined} />
       <SymptomCheckerCard actingForSomeoneElse={beneficiaryProfileId !== undefined} />
 
       <Card style={{ gap: 0, borderColor: "#FECACA", padding: 0, overflow: "hidden" }}>
