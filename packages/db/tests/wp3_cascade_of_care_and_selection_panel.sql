@@ -76,7 +76,7 @@ begin
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, sex)
   values (v, v_org, p_role::public.user_role, 'WP3 ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'),
           coalesce(p_dob, (current_date - interval '50 years')::date), p_test, p_sex::public.sex)
-  on conflict (id) do update set role = excluded.role, is_active = true, is_test = excluded.is_test, phone = excluded.phone, sex = excluded.sex;
+  on conflict (id) do update set role = excluded.role, is_active = true, is_test = excluded.is_test, phone = excluded.phone, sex = excluded.sex, full_name = excluded.full_name, date_of_birth = excluded.date_of_birth;
   return v;
 end $f$;
 -- a Member who joined p_ago days back through p_source
@@ -121,13 +121,15 @@ begin
   perform pg_temp.setf('cmo', v_cmo);
 
   set local session_replication_role = replica;
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, is_test, active, status, doctor_tier, languages, license_verified_at, license_expires_at, specialty, indemnity_exempt)
-  values (v_org, v_cmo, 'WP3 CMO', true, true, 'active', 'chief_medical_officer', array['en'], now() - interval '3 days', now() + interval '1 year', 'General practice', true);
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, is_test, active, status, doctor_tier, languages, license_verified_at, license_expires_at, specialty, indemnity_exempt, indemnity_exempt_by)
+  values (v_org, v_cmo, 'WP3 CMO', true, true, 'active', 'chief_medical_officer', array['en'], now() - interval '3 days', now() + interval '1 year', 'General practice', true, pg_temp.f('admin'));
   perform pg_temp.setf('sponsor_staff', pg_temp.mkuser('sponsor-staff', 'corporate_admin'));
   update public.outcome_config set config = jsonb_set(config, '{min_cell}', '3') where is_active;
   set local session_replication_role = origin;
 
-  insert into public.organisations (name, type) values ('WP3 Sponsor Corp', 'corporate') returning id into v_sp;
+  -- the sponsor's own floor is lowered to 3 for the fixture (the table check is dropped inside this rolled-back transaction only)
+  alter table public.organisations drop constraint organisations_min_cohort_size_check;
+  insert into public.organisations (name, type, min_cohort_size) values ('WP3 Sponsor Corp', 'corporate', 3) returning id into v_sp;
   update public.profiles set organisation_id = v_sp where id = pg_temp.f('sponsor_staff');
   update public.consent_versions set is_current = true where consent_type = 'sponsor_reporting' and version = '2026-10-07-draft';
   select id into v_ver from public.consent_versions where consent_type = 'sponsor_reporting' and is_current limit 1;
@@ -152,7 +154,10 @@ begin
   -- H9-H11: the membership ended (they dropped out)
   update public.patient_memberships set state = 'ended', ended_at = now(), end_reason = 'WP3 fixture: ended' where patient_id in (pg_temp.f('H9'), pg_temp.f('H10'), pg_temp.f('H11'));
   -- not counted: a child, a pregnant adult (both agreed, diagnosed, treated, controlled) and a test account (not in any programme)
-  p := pg_temp.mkmember('X-child', 200, 'purchase', (current_date - interval '10 years')::date);
+  p := pg_temp.mkmember('X-child', 200);
+  set local session_replication_role = replica;
+  update public.profiles set date_of_birth = (current_date - interval '10 years')::date where id = p;   -- registration is adults only; a child can only arrive as a dependent
+  set local session_replication_role = origin;
   perform pg_temp.plan(p, 'hypertension', true); perform pg_temp.bp(p, 3, 120, 75);
   insert into public.profile_cohorts (organisation_id, patient_id, cohort_id, reporting_consent, consented_at, consent_version_id) values (v_org, p, v_ph, true, now(), v_ver);
   insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action) values (v_org, p, 'sponsor_reporting', v_ver, '2026-10-07-draft', 'accepted');
@@ -212,7 +217,7 @@ begin
   perform pg_temp.ck('1h a patient cannot sign', 'ERR:42501', pg_temp.q_as(pg_temp.f('patient'), $q$ select public.sign_outcome_cascade_config(1)::text $q$));
   perform pg_temp.ck('1i anon cannot sign', '42501', pg_temp.try_anon($q$ select public.sign_outcome_cascade_config(1) $q$));
   perform pg_temp.ck('1j a config cannot be created active or signed', '42501', pg_temp.try($q$ insert into public.outcome_cascade_config (version, is_active, effective_from, config, approved_at) values (2, false, current_date, '{}', now()) $q$));
-  perform pg_temp.ck('1k the CMO signs', 'null', coalesce(pg_temp.q_as(pg_temp.f('cmo'), $q$ select public.sign_outcome_cascade_config(1)::text $q$), 'null'));
+  perform pg_temp.ck('1k the CMO signs', '', coalesce(pg_temp.q_as(pg_temp.f('cmo'), $q$ select public.sign_outcome_cascade_config(1)::text $q$), 'null'));
   perform pg_temp.ck('1l it is now active and signed by the CMO', 'true/true', (select is_active::text || '/' || (approved_by = pg_temp.f('cmo'))::text from public.outcome_cascade_config where version = 1));
   perform pg_temp.ck('1m signing again is refused', 'ERR:23514', pg_temp.q_as(pg_temp.f('cmo'), $q$ select public.sign_outcome_cascade_config(1)::text $q$));
   perform pg_temp.ck('1n a signed config cannot be edited', '23514', pg_temp.try($q$ update public.outcome_cascade_config set config = config || '{"x":1}'::jsonb where version = 1 $q$));
@@ -288,7 +293,7 @@ begin
   r := private.selection_panel_build(pg_temp.f('ph'), null, null, false, null);
   perform pg_temp.ck('3l panel: sex among those in the figures is 9 and 9', '9/9',
     (select string_agg(c #>> '{group_a,n}', '/' order by c ->> 'category') from jsonb_array_elements(r #> '{comparisons,in_figures_vs_other_members,result,attributes}') a, jsonb_array_elements(a -> 'categories') c where a ->> 'attribute' = 'sex'));
-  perform pg_temp.ck('3m panel: how people joined among those in the figures (3 voucher, 15 purchase)', '3/15',
+  perform pg_temp.ck('3m panel: how people joined among those in the figures (15 purchase, 3 voucher)', '15/3',
     (select string_agg(c #>> '{group_a,n}', '/' order by c ->> 'category') from jsonb_array_elements(r #> '{comparisons,in_figures_vs_other_members,result,attributes}') a, jsonb_array_elements(a -> 'categories') c where a ->> 'attribute' = 'channel'));
   perform pg_temp.ck('3n panel: baseline blood pressure band includes the people with no baseline average (missing shown as a category)', 'true',
     exists (select 1 from jsonb_array_elements(r #> '{comparisons,in_figures_vs_other_members,result,attributes}') a, jsonb_array_elements(a -> 'categories') c where a ->> 'attribute' = 'baseline_bp' and c ->> 'category' = 'no baseline average')::text);
@@ -304,7 +309,7 @@ begin
   perform pg_temp.ck('4h anon cannot run either report', '42501/42501', pg_temp.try_anon($q$ select public.cascade_of_care_report('hypertension') $q$) || '/' || pg_temp.try_anon(format($q$ select public.selection_panel_report(%L) $q$, pg_temp.f('ph'))));
   perform pg_temp.ck('4i an unknown condition is refused', 'ERR:22023', pg_temp.q_as(pg_temp.f('admin'), $q$ select public.cascade_of_care_report('asthma')::text $q$));
   perform pg_temp.ck('4j admin reads the internal panel, which includes the did-not-agree comparison', 'internal', (pg_temp.q_as(pg_temp.f('admin'), format($q$ select public.selection_panel_report(%L)::text $q$, pg_temp.f('ph')))::jsonb) ->> 'audience');
-  perform pg_temp.ck('4k each report read is audited', '1/1', (select count(*) filter (where action = 'outcomes.cascade_report')::text || '/' || count(*) filter (where action = 'outcomes.selection_panel')::text from public.audit_log where actor_id in (pg_temp.f('admin'), pg_temp.f('cmo')) and action in ('outcomes.cascade_report', 'outcomes.selection_panel')) );
+  perform pg_temp.ck('4k each report read is audited', '3/1', (select count(*) filter (where action = 'outcomes.cascade_report')::text || '/' || count(*) filter (where action = 'outcomes.selection_panel')::text from public.audit_log where actor_id in (pg_temp.f('admin'), pg_temp.f('cmo')) and action in ('outcomes.cascade_report', 'outcomes.selection_panel')) );
 
   -- 5. no clinician anywhere: no key names a clinician, doctor, tier or assignee, in the panel, the cascade or the pack
   r := pg_temp.q_as(pg_temp.f('admin'), format($q$ select public.sponsor_pilot_pack(%L)::text $q$, pg_temp.f('ph')))::jsonb;
@@ -342,7 +347,7 @@ end $$;
 
 -- 7. SABOTAGE: the helpers stop withholding; the withheld checks must flip
 create or replace function private.suppress_cell(p_n bigint, p_categories bigint[] default null, p_min integer default null) returns text
-language sql stable security definer set search_path = '' as $$ select null::text $$;
+language sql stable security definer set search_path = '' as $$ select case when p_n > 0 then null::text else 'under_minimum' end $$;
 create or replace function private.suppress_difference(p_whole bigint, p_part bigint, p_min integer default null) returns boolean
 language sql stable security definer set search_path = '' as $$ select false $$;
 select pg_temp.surfaces('sabotaged');

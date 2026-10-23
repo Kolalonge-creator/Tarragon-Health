@@ -455,10 +455,10 @@ begin
                                 and exists (select 1 from public.patient_memberships m2 where m2.patient_id = k.patient_id)) as ended
     into a from private.v_bp_cohort_day k where k.day = p_day and k.patient_id = any (p_members) and (p_from is null or k.anchor >= p_from) and (p_to is null or k.anchor <= p_to);
   v_ended := a.ended; v_active := a.ins - a.ended;
-  v_cohort := private.outcome_cohort_json(a.n::integer, a.ctrl::integer, a.unc::integer, a.ins::integer, p_min);
-  if private.suppress_cell(a.n, null, p_min) is not null then
+  if a.n = 0 or private.suppress_cell(a.n, null, p_min) is not null then
     return jsonb_build_object('day', p_day, 'suppressed', true, 'reason', 'under_minimum', 'minimum', p_min);
   end if;
+  v_cohort := private.outcome_cohort_json(a.n::integer, a.ctrl::integer, a.unc::integer, a.ins::integer, p_min);
   v_groups := private.suppress_groups(jsonb_build_array(
       jsonb_build_object('key', 'membership_ended', 'n', v_ended), jsonb_build_object('key', 'still_a_member_no_reading', 'n', v_active)), p_min);
   for x in select * from jsonb_array_elements(v_groups) loop
