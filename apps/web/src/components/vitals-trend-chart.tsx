@@ -11,6 +11,7 @@ import {
   type GlucoseDisplayUnit,
 } from "@tarragon/shared";
 import { useGlucoseUnit } from "@/components/glucose-unit-provider";
+import { DEFAULT_LOCALE, t } from "@tarragon/i18n";
 import { useMeasurementUnits } from "@/components/measurement-units-provider";
 
 import { useState, type Key as ReactKey } from "react";
@@ -202,6 +203,13 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
           ? summarise(points.map((p) => ("pulse_bpm" in p ? p.pulse_bpm : null)))
           : null;
   const lastIndex = points.length - 1;
+  // S07y: a point that was taken at a pharmacy or clinic machine, or copied from a paper diary, is plotted like any other and SAYS so below the chart.
+  const originOf = (p: unknown): string | null => {
+    const v = (p as { entry_origin?: unknown }).entry_origin;
+    return typeof v === "string" ? v : null;
+  };
+  const pharmacyPoints = points.filter((p) => originOf(p) === "pharmacy_machine").length;
+  const diaryPoints = points.filter((p) => originOf(p) === "paper_diary").length;
   // Points a helper entered for the person (assisted entry), said once under the chart so a clinician never reads them as the person's own.
   const assistedCaption = assistedEntryCaption(points.filter((p) => "assisted" in p && p.assisted === true).length, points.length, points.filter((p) => "assistedOverLimit" in p && p.assistedOverLimit === true).length);
   // S47a 4.6: the standard bands are drawn only for an adult who is not pregnant, and only while the trend_target_bands module is on (the bands are
@@ -320,6 +328,12 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
         )}
         {!isLoading && !isError && !noHeightOnFile && points.length < 2 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Not enough readings yet.</p>
+        )}
+        {points.length >= 2 && (pharmacyPoints > 0 || diaryPoints > 0) && (
+          <div data-testid="trend-origin-note" className="space-y-0.5 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+            {pharmacyPoints > 0 && <p>{t("pharm.trend_note", DEFAULT_LOCALE, { count: pharmacyPoints })}</p>}
+            {diaryPoints > 0 && <p>{t("diary.trend_note", DEFAULT_LOCALE, { count: diaryPoints })}</p>}
+          </div>
         )}
         {points.length >= 2 && mode === "blood_pressure" && (
           <div className="space-y-2">

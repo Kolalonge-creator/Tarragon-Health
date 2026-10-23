@@ -28719,6 +28719,7 @@ export type Database = {
           backdate_window_hours: number
           created_at: string
           device_lease_days: number
+          diary_window_days: number
           future_skew_minutes: number
           is_active: boolean
           note: string | null
@@ -28732,6 +28733,7 @@ export type Database = {
           backdate_window_hours: number
           created_at?: string
           device_lease_days?: number
+          diary_window_days?: number
           future_skew_minutes: number
           is_active?: boolean
           note?: string | null
@@ -28745,6 +28747,7 @@ export type Database = {
           backdate_window_hours?: number
           created_at?: string
           device_lease_days?: number
+          diary_window_days?: number
           future_skew_minutes?: number
           is_active?: boolean
           note?: string | null
@@ -46691,6 +46694,8 @@ export type Database = {
           created_at: string
           cuff_type: string | null
           device_id: string | null
+          entry_origin: string | null
+          place_label: string | null
           diastolic: number | null
           external_reading_id: string | null
           glucose_events: string[]
@@ -46742,6 +46747,8 @@ export type Database = {
           created_at?: string
           cuff_type?: string | null
           device_id?: string | null
+          entry_origin?: string | null
+          place_label?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
           glucose_events?: string[]
@@ -46795,6 +46802,8 @@ export type Database = {
           created_at?: string
           cuff_type?: string | null
           device_id?: string | null
+          entry_origin?: string | null
+          place_label?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
           glucose_events?: string[]

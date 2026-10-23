@@ -1,4 +1,5 @@
 import { ageFromDateOfBirth } from "@tarragon/shared";
+import { readProvenanceGuards } from "@/lib/diary/guards";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -34,6 +35,8 @@ import { VisitReportCard } from "@/app/(dashboard)/patient/visit-report-card";
 export default async function PatientVitalsPage() {
   const { profile, subjectId, subjectDateOfBirth, glucoseUnit } = await getPatientDashboardContext();
   const ageYears = ageFromDateOfBirth(subjectDateOfBirth);
+  // S07y: the pharmacy label is born off; the box only appears once its guard is open for this person.
+  const guards = await readProvenanceGuards(await createClient());
   // S47a: water, sleep, mood and inhaler logs show only while the extended_observations module is on (born off).
   const extendedObservationsOn = await readExtendedObservationsEnabled(await createClient());
   const presentingComplaints = await listAvailablePresentingComplaints();
@@ -61,7 +64,7 @@ export default async function PatientVitalsPage() {
             one moment they are actually thinking about what happens to it. */}
         <MonitoringCoverCard />
 
-        <VitalsForm patientId={subjectId} />
+        <VitalsForm patientId={subjectId} pharmacyOpen={guards.pharmacyOpen} />
         <div className="space-y-4">
           <HbpmSummaryCard patientId={subjectId} />
           <GlucoseInsights patientId={subjectId} />

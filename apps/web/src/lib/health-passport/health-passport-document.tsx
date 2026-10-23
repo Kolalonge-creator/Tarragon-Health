@@ -2,7 +2,15 @@ import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/render
 import { formatHba1cWithBracket } from "@/lib/rules/hba1c-bracket";
 import { registerPdfFonts, PDF_FONT_FAMILY } from "@/lib/pdf/register-fonts";
 import { PDF_LOGO_SRC, PDF_CONTACT_EMAIL } from "@/lib/pdf/pdf-brand";
+import { entryOriginLabelKey } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
 import { stripDoctorHonorific, type HealthPassportData } from "./get-health-passport-data";
+
+/** S07y: a latest reading taken at a pharmacy or clinic machine, or copied from a paper diary, says so beside its value. */
+function originSuffix(latest: Record<string, unknown>): string {
+  const key = entryOriginLabelKey(typeof latest.entry_origin === "string" ? latest.entry_origin : null);
+  return key ? `; ${t(key)}` : "";
+}
 
 registerPdfFonts();
 
@@ -152,7 +160,8 @@ export function HealthPassportDocument({
               <Text>{VITAL_LABEL[v.vitalType] ?? v.vitalType}</Text>
               <Text style={styles.muted}>
                 {formatVitalValue(v.vitalType, v.latest)} ({v.readingCount} readings, last{" "}
-                {new Date(v.takenAt).toLocaleDateString()})
+                {new Date(v.takenAt).toLocaleDateString()}
+                {originSuffix(v.latest)})
               </Text>
             </View>
           ))}
