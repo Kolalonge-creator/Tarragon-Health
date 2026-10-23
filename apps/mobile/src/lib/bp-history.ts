@@ -32,7 +32,7 @@ async function loadServerReadings(patientId: string): Promise<{ rows: ServerBpRo
   try {
     const { data, error } = await supabase
       .from("vitals_readings")
-      .select("id, systolic, diastolic, taken_at, source, client_reading_id")
+      .select("id, systolic, diastolic, taken_at, source, client_reading_id, entry_origin")
       .eq("patient_id", patientId)
       .eq("vital_type", "blood_pressure")
       .order("taken_at", { ascending: false })
@@ -56,7 +56,7 @@ async function loadQueued(patientId: string): Promise<QueuedBp[]> {
     .filter((q) => q.subjectId === patientId && (q.payload as VitalReadingPayload).vital_type === "blood_pressure")
     .map((q) => {
       const p = q.payload as Extract<VitalReadingPayload, { vital_type: "blood_pressure" }>;
-      return { clientId: q.clientId, state: q.state, systolic: p.systolic, diastolic: p.diastolic, clientRecordedAt: q.clientRecordedAt, supportCode: q.supportCode };
+      return { clientId: q.clientId, state: q.state, systolic: p.systolic, diastolic: p.diastolic, clientRecordedAt: q.clientRecordedAt, supportCode: q.supportCode, entryOrigin: p.entry_origin ?? null };
     });
 }
 

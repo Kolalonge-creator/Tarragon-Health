@@ -478,3 +478,17 @@ Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six 
 | **OQ-S27h-03 ACCEPTED.** | Acknowledging an open critical-value call ties the called clinician to that patient (INV-12) until the call closes, for at most 24 hours, so the clinician can open the value they were called about. Bounded: never for the patient, a conflicted clinician or one who is not eligible; the tie ends when the call closes or after 24 hours, whichever is first. Being paged alone does not tie anyone. (Build note: the shipped branch of `private.clinician_has_patient_access` is already bounded by the S19 `page_access_hours` paging rule, the same window as an acknowledged page; confirm that rule's active value is 24 hours. No code change in this entry.) |
 | **Money reconciliation screen access stays: finance, admin and the `finance.view` permission**, with a daily alert. | No widening and no narrowing. The daily alert is a separate task (the `money_reconciliation_daily_alert` and `money_reconciliation_badge_snapshot` work), not part of the instalment removal. |
 | **OQ-519 (earlier numbered OQ-275, "One medicine per prescription"): several medicines in one signed prescription = YES.** | To be PLANNED as a separate build. It needs S24 signing, the prescription PDF and the QR verification to change together (they all assume one medicine per prescription today) and a CMO review before anything is built. S28e's one-code-per-pharmacy-visit stays as the interim. Nothing is built by this entry. |
+
+## Founder decisions, 2026-10-22 (S54d: chooser, NAFDAC helper, private ran-out reason)
+
+| Decision | Chosen |
+|---|---|
+| **OQ-S54D-1: price and per-pharmacy stock in the pharmacy chooser stay removed.** | OQ-714 stands. The 48-hour stale-stock rule and the medicine runway bar stay as built. |
+| **OQ-NAFDAC-HELPER-1: the NAFDAC helper is a Greenbook link only.** | The `sms:` link, the pre-filled scratch-code text and the 38353 short-code config entry are removed entirely. The block keeps the link to NAFDAC's public registered-product check and the wording "A registration match is not proof that a pack is genuine." The guard `nafdac_verify_helper_enabled` stays OFF. INV-08 is no longer in play. |
+| **OQ-S54D-2: tighten fully.** | No supporter, including a manage-level supporter, may read a ran-out or cannot-afford reason unless the person opted in for that exact reason. Old reason values already stored on dose rows are moved to the private table and blanked, so a supporter no longer sees them. |
+## Founder decision, 2026-10-22 (cuff display photo reader: approved for evaluation only)
+
+| Decision | Chosen |
+|---|---|
+| **A governed server-side vision call may be built and evaluated to read a blood pressure cuff display from a photo (AI-022).** Narrows the OQ-598 line "server vision not approved". | The founder, 2026-10-22, in chat, chose "Approve for evaluation only". The feature stays OFF behind guard `cuff_camera_enabled`; AI-022 stays registered disabled. |
+| **What is still required before go-live** | A human-run AI-022 evaluation on real cuff photos, a DPO view on the transient image (held in memory only, never stored or logged), defined go-live conditions for the guard, per-user rate limiting on the route, and a further written founder go-live decision. No evaluation, approval or guard change is made by this entry. |
