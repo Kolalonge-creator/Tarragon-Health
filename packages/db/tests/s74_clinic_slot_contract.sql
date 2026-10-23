@@ -272,7 +272,7 @@ begin
   perform pg_temp.r('D19 a hold on a slot that does not exist is refused', 'ERR:22023', pg_temp.call_as(pat, format('public.patient_hold_clinic_slot(%L)', gen_random_uuid())));
   -- a clinic that closes a slot while a patient holds it: the patient cannot confirm into a closed slot
   s3 := pg_temp.mkslot(recA, 'A', 103, 3); r3 := pg_temp.q_as(pat3, format('select public.patient_hold_clinic_slot(%L)::text', s3))::uuid;
-  perform pg_temp.call_as(recA, format('public.clinic_close_slot(%L)', s3));
+  update public.clinic_booking_slots set state = 'closed' where id = s3;   -- closed behind the hold's back (the close function now cancels it; this isolates the confirm guard)
   perform pg_temp.r('D20 a hold on a slot the clinic then closes cannot be confirmed (slot_not_available)', 'ERR:22023', pg_temp.call_as(pat3, format('public.patient_confirm_clinic_reservation(%L)', r3)));
   -- module turned off between hold and confirm
   r4 := pg_temp.q_as(pat3, format('select public.patient_hold_clinic_slot(%L)::text', pg_temp.mkslot(recA, 'A', 110, 3)))::uuid;
@@ -338,6 +338,70 @@ begin
     pg_temp.q_as(recA, 'update public.clinic_booking_slots set capacity = 50'));
 end $$;
 
+-- H. Hardening (migration 20261023213957): no duplicate slot without a location, closing cancels and tells, no cancelling a confirmed place after the start ----------
+do $$
+declare recA uuid := pg_temp.f('recA'); recB uuid := pg_temp.f('recB'); pat uuid := pg_temp.f('pat'); pat2 uuid := pg_temp.f('pat2'); pat3 uuid := pg_temp.f('pat3');
+  clin uuid := pg_temp.f('clin'); v_poA uuid := pg_temp.f('po_A'); v_poB uuid := pg_temp.f('po_B'); sh uuid; sp uuid; ra uuid; rb uuid; rc uuid; rs uuid; rh uuid; v_def text; v_t timestamptz;
+begin
+  -- 1. a slot with no location cannot be published twice
+  v_t := now() + interval '200 hours';
+  perform pg_temp.r('H1 a slot with no location is published once; the same start again is refused (23505); another clinic may use that start', 'ok|ERR:23505|ok',
+    pg_temp.call_as(recA, format('public.clinic_publish_slot(%L, %L::timestamptz, %L::timestamptz)', v_poA, v_t, v_t + interval '1 hour')) || '|' ||
+    pg_temp.call_as(recA, format('public.clinic_publish_slot(%L, %L::timestamptz, %L::timestamptz)', v_poA, v_t, v_t + interval '1 hour')) || '|' ||
+    pg_temp.call_as(recB, format('public.clinic_publish_slot(%L, %L::timestamptz, %L::timestamptz)', v_poB, v_t, v_t + interval '1 hour')));
+  perform pg_temp.r('H2 a located slot and a no-location slot at one start can both exist', 'ok',
+    pg_temp.call_as(recA, format('public.clinic_publish_slot(%L, %L::timestamptz, %L::timestamptz, 1, %L)', v_poA, v_t, v_t + interval '1 hour', pg_temp.f('loc_A'))));
+
+  -- 2. closing a slot cancels the places and tells each patient once
+  sh := pg_temp.mkslot(recA, 'A', 210, 4);
+  ra := pg_temp.q_as(pat, format('select public.patient_hold_clinic_slot(%L)::text', sh))::uuid; perform pg_temp.call_as(pat, format('public.patient_confirm_clinic_reservation(%L)', ra));
+  rb := pg_temp.q_as(pat2, format('select public.patient_hold_clinic_slot(%L)::text', sh))::uuid;
+  rc := pg_temp.q_as(pat3, format('select public.patient_hold_clinic_slot(%L)::text', sh))::uuid; perform pg_temp.call_as(pat3, format('public.patient_cancel_clinic_reservation(%L)', rc));
+  perform pg_temp.r('H3 before closing: one confirmed, one held, one already cancelled', 'confirmed,held,cancelled',
+    pg_temp.val(format('select string_agg(state, '','' order by array_position(array[''confirmed'',''held'',''cancelled''], state)) from public.clinic_slot_reservations where slot_id = %L', sh)));
+  perform pg_temp.r('H4 another clinic''s receptionist and a patient cannot close it, and nothing changes', 'ERR:42501|ERR:42501|2',
+    pg_temp.call_as(recB, format('public.clinic_close_slot(%L)', sh)) || '|' || pg_temp.call_as(pat, format('public.clinic_close_slot(%L)', sh)) || '|' ||
+    pg_temp.val(format('select count(*)::text from public.clinic_slot_reservations where slot_id = %L and state in (''held'', ''confirmed'')', sh)));
+  perform pg_temp.r('H5 the clinic closes it (the gate opens): every live place is cancelled, the roster is empty, the slot is closed', 'ok|cancelled,cancelled,cancelled|0|closed',
+    pg_temp.call_as(recA, format('public.clinic_close_slot(%L)', sh)) || '|' ||
+    pg_temp.val(format('select string_agg(state, '','') from public.clinic_slot_reservations where slot_id = %L', sh)) || '|' ||
+    pg_temp.count_as(recA, format('public.clinic_slot_roster(%L)', sh)) || '|' ||
+    pg_temp.val(format('select state from public.clinic_booking_slots where id = %L', sh)));
+  perform pg_temp.r('H6 each patient who lost a live place has one in-app notice with no payload; the one who had already cancelled has none', '1|1|0|0',
+    (select count(*)::text from public.notifications where template = 'clinic_booking_cancelled_by_clinic' and recipient_id = pat and payload = '{}'::jsonb) || '|' ||
+    (select count(*)::text from public.notifications where template = 'clinic_booking_cancelled_by_clinic' and recipient_id = pat2 and payload = '{}'::jsonb) || '|' ||
+    (select count(*)::text from public.notifications where template = 'clinic_booking_cancelled_by_clinic' and recipient_id = pat3) || '|' ||
+    (select count(*)::text from public.notifications where template = 'clinic_booking_cancelled_by_clinic' and channel <> 'in_app'));
+  perform pg_temp.r('H7 closing again does nothing and tells nobody twice', 'ok|2',
+    pg_temp.call_as(recA, format('public.clinic_close_slot(%L)', sh)) || '|' || (select count(*)::text from public.notifications where template = 'clinic_booking_cancelled_by_clinic'));
+  perform pg_temp.r('H8 the closing is audited with the count and no patient detail', '1|2',
+    (select count(*)::text from public.audit_log where action = 'clinic.slot_closed' and entity_id = sh) || '|' ||
+    (select (event ->> 'reservations_cancelled') from public.audit_log where action = 'clinic.slot_closed' and entity_id = sh));
+  perform pg_temp.r('H9 the cancelled patient can place a new hold on another slot straight away', 'ok', pg_temp.call_as(pat, format('public.patient_hold_clinic_slot(%L)', pg_temp.mkslot(recA, 'A', 212, 2))));
+  -- a notice that cannot be written never blocks the close
+  sp := pg_temp.mkslot(recA, 'A', 214, 2);
+  rh := pg_temp.q_as(pat2, format('select public.patient_hold_clinic_slot(%L)::text', sp))::uuid;
+  v_def := pg_get_functiondef('private.rx_notify(uuid,uuid,text)'::regprocedure);
+  create or replace function private.rx_notify(p_recipient uuid, p_org uuid, p_template text) returns void language plpgsql security definer set search_path = '' as $f$ begin raise exception 'notice store down'; end $f$;
+  perform pg_temp.r('H10 if the notice cannot be written the close still succeeds and the place is still cancelled', 'ok|cancelled',
+    pg_temp.call_as(recA, format('public.clinic_close_slot(%L)', sp)) || '|' || pg_temp.val(format('select state from public.clinic_slot_reservations where id = %L', rh)));
+  execute v_def;
+
+  -- 3. a confirmed place cannot be cancelled once the slot has started
+  sp := pg_temp.mkslot(recA, 'A', 216, 4);
+  rs := pg_temp.q_as(pat, format('select public.patient_hold_clinic_slot(%L)::text', sp))::uuid; perform pg_temp.call_as(pat, format('public.patient_confirm_clinic_reservation(%L)', rs));
+  rh := pg_temp.q_as(pat2, format('select public.patient_hold_clinic_slot(%L)::text', sp))::uuid;
+  perform pg_temp.r('H11 before the start a confirmed place can still be cancelled by its owner (control: a second place on another slot)', 'ok',
+    pg_temp.call_as(pat3, format('public.patient_cancel_clinic_reservation(%L)', pg_temp.q_as(pat3, format('select public.patient_hold_clinic_slot(%L)::text', pg_temp.mkslot(recA, 'A', 218, 2))))));
+  update public.clinic_booking_slots set starts_at = now() - interval '30 minutes', ends_at = now() + interval '30 minutes' where id = sp;
+  perform pg_temp.r('H12 once the slot has started the confirmed place cannot be cancelled (slot_already_started) and stays confirmed', 'ERR:22023|confirmed',
+    pg_temp.call_as(pat, format('public.patient_cancel_clinic_reservation(%L)', rs)) || '|' || pg_temp.val(format('select state from public.clinic_slot_reservations where id = %L', rs)));
+  perform pg_temp.r('H13 another patient and anon are still refused as not found', 'ERR:42501|ERR:42501',
+    pg_temp.call_as(pat3, format('public.patient_cancel_clinic_reservation(%L)', rs)) || '|' || pg_temp.call_anon(format('public.patient_cancel_clinic_reservation(%L)', rs)));
+  perform pg_temp.r('H14 an unconfirmed hold on a started slot can still be released by its owner', 'ok|cancelled',
+    pg_temp.call_as(pat2, format('public.patient_cancel_clinic_reservation(%L)', rh)) || '|' || pg_temp.val(format('select state from public.clinic_slot_reservations where id = %L', rh)));
+end $$;
+
 -- G. SABOTAGE ------------------------------------------------------------------------------------------------------------------------
 -- (a) the calendar-staff test forced true: a patient publishes a slot
 create or replace function private.clinic_calendar_staff(p_clinic uuid) returns boolean language sql stable security definer set search_path = '' as $$ select true $$;
@@ -374,6 +438,45 @@ begin
   perform pg_temp.sab('a hold on a closed slot is still refused at confirm', 'ERR:22023', pg_temp.call_as(pg_temp.f('pat'), format('public.patient_confirm_clinic_reservation(%L)', v_r)));
 end $$;
 
+-- (f) the old plain unique rule: two no-location slots at one start can be published again
+alter table public.clinic_booking_slots drop constraint clinic_booking_slots_one_per_start;
+alter table public.clinic_booking_slots add constraint clinic_booking_slots_old_unique unique (clinic_partner_id, location_id, starts_at);
+select pg_temp.call_as(pg_temp.f('recA'), format('public.clinic_publish_slot(%L, now() + interval ''300 hours'', now() + interval ''301 hours'')', pg_temp.f('po_A')));
+select pg_temp.sab('a second no-location slot at one start is still refused', 'ERR:23505',
+  pg_temp.call_as(pg_temp.f('recA'), format('public.clinic_publish_slot(%L, now() + interval ''300 hours'', now() + interval ''301 hours'')', pg_temp.f('po_A'))));
+-- (g) the old close (no cancelling): the confirmed place survives the close
+create or replace function public.clinic_close_slot(p_slot uuid) returns void language plpgsql security definer set search_path = '' as $f$
+declare s public.clinic_booking_slots%rowtype;
+begin
+  select * into s from public.clinic_booking_slots where id = p_slot for update;
+  if not found or not private.clinic_calendar_staff(s.clinic_partner_id) then raise exception 'Slot not found' using errcode = '42501'; end if;
+  update public.clinic_booking_slots set state = 'closed' where id = p_slot;
+end $f$;
+do $$
+declare v_s uuid; v_r uuid;
+begin
+  v_s := pg_temp.mkslot(pg_temp.f('recA'), 'A', 320, 3);
+  v_r := pg_temp.q_as(pg_temp.f('pat'), format('select public.patient_hold_clinic_slot(%L)::text', v_s))::uuid;
+  perform pg_temp.call_as(pg_temp.f('recA'), format('public.clinic_close_slot(%L)', v_s));
+  perform pg_temp.sab('closing a slot still cancels a held place', 'cancelled', pg_temp.val(format('select state from public.clinic_slot_reservations where id = %L', v_r)));
+end $$;
+-- (h) the old cancel: a confirmed place can be cancelled after the start
+create or replace function public.patient_cancel_clinic_reservation(p_reservation uuid) returns void language plpgsql security definer set search_path = '' as $f$
+begin
+  update public.clinic_slot_reservations set state = 'cancelled', cancelled_at = now(), hold_expires_at = null
+   where id = p_reservation and patient_id = (select auth.uid()) and state in ('held', 'confirmed');
+  if not found then raise exception 'Reservation not found' using errcode = '42501'; end if;
+end $f$;
+do $$
+declare v_s uuid; v_r uuid;
+begin
+  v_s := pg_temp.mkslot(pg_temp.f('recA'), 'A', 330, 3);
+  v_r := pg_temp.q_as(pg_temp.f('pat'), format('select public.patient_hold_clinic_slot(%L)::text', v_s))::uuid;
+  perform pg_temp.call_as(pg_temp.f('pat'), format('public.patient_confirm_clinic_reservation(%L)', v_r));
+  update public.clinic_booking_slots set starts_at = now() - interval '31 minutes', ends_at = now() + interval '30 minutes' where id = v_s;
+  perform pg_temp.sab('a started slot still refuses cancelling a confirmed place', 'ERR:22023', pg_temp.call_as(pg_temp.f('pat'), format('public.patient_cancel_clinic_reservation(%L)', v_r)));
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -383,7 +486,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 5 then raise exception 'VACUOUS TEST: the sabotage flipped % of 5 checks', v_caught; end if;
+  if v_caught < 8 then raise exception 'VACUOUS TEST: the sabotage flipped % of 8 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results where phase = 'real' order by check_name;

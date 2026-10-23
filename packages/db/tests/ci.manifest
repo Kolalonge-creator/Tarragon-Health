@@ -1492,3 +1492,6 @@ s74_clinic_slot_contract.sql
 
 # OQ-431: the two S72 expiry functions are scheduled (pg_cron), the scheduled command runs with no session and expires only the right rows, idempotent, public functions keep their admin/service gate. Sabotage: job unscheduled, core no-op, core over-broad.
 s72_expiry_schedules.sql
+
+# S74: the last place of a clinic slot under real contention (20 concurrent sessions, capacity 1 and 3), with a lock-free control that must over-subscribe. A .sh proof (one session cannot race itself); local database only.
+s74_clinic_last_place_race.sh
