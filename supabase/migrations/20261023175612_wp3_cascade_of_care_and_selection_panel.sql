@@ -12,7 +12,7 @@
 --   3. The selection-bias panel: who is in a programme's figures against who is not, on the few attributes Tarragon holds (age band, sex,
 --      baseline blood pressure band, how they joined), plus an intent-to-treat view (everyone who joined, missing shown as missing, the
 --      people who dropped out shown apart) beside the completers view. Descriptive, never causal. No clinician appears anywhere.
---   4. The sponsor pilot / renewal pack carries both (sponsor audience: no attribute of a person who declined to share is ever shown).
+--   4. The sponsor pilot / renewal pack carries both (sponsor audience: no attribute comparison at all; both comparisons are internal to the admin view).
 --
 -- DEFINITIONS THAT DIFFER FROM THE EXISTING S38 / S75 BP REPORT (on purpose, stated in every output):
 --   * S38 judges a person against their OWN home target, else 140/90, at fixed days after joining. The cascade judges the most recent 7-day
@@ -83,7 +83,6 @@ insert into public.outcome_cascade_config (version, is_active, effective_from, c
     "controlled_below": { "systolic": 140, "diastolic": 90 },
     "control_window_days": 7,
     "min_readings": 3,
-    "lookback_days": 90,
     "diagnosis_icd10_prefixes": ["I10", "I11", "I12", "I13", "I15", "I16"],
     "diagnosis_statuses": ["active", "controlled", "uncontrolled"],
     "stages": [
@@ -91,7 +90,7 @@ insert into public.outcome_cascade_config (version, is_active, effective_from, c
       { "code": "screened", "label": "Blood pressure measured", "definition": "Enrolled Members with at least one cleared blood pressure reading on the platform (home or recorded by a clinician). This is a share of enrolled Members, not screening coverage of a population." },
       { "code": "diagnosed", "label": "Hypertension on record", "definition": "Enrolled Members with an active hypertension care plan, or a hypertension entry on the problem list (ICD-10 I10 to I16) marked active, controlled or uncontrolled. Includes people with no reading yet." },
       { "code": "on_treatment", "label": "On a recorded medicine", "definition": "Diagnosed Members with at least one active, current medicine recorded under their hypertension care plan. The medicine class is not held, so this counts any medicine under that plan. Lifestyle-only treatment is not counted." },
-      { "code": "controlled", "label": "Blood pressure under 140/90", "definition": "Members on treatment whose most recent 7-day home average, from at least 3 cleared readings in the last 90 days, is under 140 systolic and under 90 diastolic. Members on treatment with too few or no recent readings are shown as control unknown, not as uncontrolled." }
+      { "code": "controlled", "label": "Blood pressure under 140/90", "definition": "Members on treatment whose average of the cleared home readings in the last 7 days up to the day the report is run, from at least 3 readings in those 7 days, is under 140 systolic and under 90 diastolic. Members on treatment with fewer than 3 cleared readings in the last 7 days are shown as control unknown, not as uncontrolled." }
     ],
     "not_available": [
       { "item": "Population screening coverage", "reason": "Tarragon holds no register of the people who could have been screened, so a screened share of a population cannot be given." },
@@ -127,7 +126,7 @@ insert into public.outcome_cascade_config (version, is_active, effective_from, c
   },
   "notes": {
     "cascade": "A cascade of Tarragon Members, not of a population. It is a count of people at a point in time, not a measure of what any service did. Differences between months can come from who joined.",
-    "difference_from_s38": "Control here means the most recent 7-day home average is under 140/90, as at the day the report is run. The day-90 and day-180 blood pressure reports judge each person against their own home target when they have one, at fixed days after joining. The two measures can differ."
+    "difference_from_s38": "Control here means the average of the cleared home readings in the 7 days up to the day the report is run is under 140/90. The day-90 and day-180 blood pressure reports judge each person against their own home target when they have one, at fixed days after joining. The two measures can differ."
   }
 }
 $json$::jsonb, 'PROPOSED, v1, UNSIGNED, INACTIVE (WP3). Owner: CMO. Cascade-of-care stage definitions, the 140/90 and 7.0 percent control lines, and the selection panel bands. Nothing shows until the CMO signs.');
@@ -161,6 +160,14 @@ revoke all on function private.cascade_config() from public, anon, authenticated
 -- ---------------------------------------------------------------------------
 -- 2. The people and their stages (one row per person; real tables only)
 -- ---------------------------------------------------------------------------
+-- A reading counts when it is cleared (valid), or when it waits for validation ONLY because the arm or position was not recorded (insufficient_context,
+-- the value is not in doubt). An empty flag list is NOT enough: an empty array is a subset of every array, which would admit any reading whatever its
+-- status. (S38 uses the looser form; see OQ-WP3-04. This function is used by WP3 code only.)
+create function private.wp3_reading_usable(p_status public.vitals_validation_status, p_flags text[]) returns boolean
+language sql immutable set search_path = ''
+as $$ select p_status = 'valid' or (p_status = 'requires_validation' and cardinality(coalesce(p_flags, '{}'::text[])) > 0 and p_flags <@ array['insufficient_context']::text[]) $$;
+revoke all on function private.wp3_reading_usable(public.vitals_validation_status, text[]) from public, anon, authenticated;
+
 -- control_state is only set for a person on treatment: 'controlled', 'uncontrolled' or 'unknown'.
 create function private.cascade_people(p_condition text, p_cfg jsonb, p_patients uuid[], p_from date, p_to date)
 returns table (patient_id uuid, anchor date, screened boolean, diagnosed boolean, treated boolean, control_state text)
@@ -187,7 +194,7 @@ begin
     select s.pid, s.anc,
       case when p_condition = 'hypertension' then
              exists (select 1 from public.vitals_readings v where v.patient_id = s.pid and v.vital_type = 'blood_pressure' and v.systolic is not null and v.diastolic is not null
-                       and v.correction_status is null and (v.validation_status = 'valid' or coalesce(v.validation_flags, '{}'::text[]) <@ array['insufficient_context']::text[]))
+                       and v.correction_status is null and private.wp3_reading_usable(v.validation_status, v.validation_flags))
            else
              exists (select 1 from public.vitals_readings v where v.patient_id = s.pid and v.vital_type = 'glucose' and v.glucose_mmol_l is not null and v.correction_status is null and v.validation_status = 'valid')
              or exists (select 1 from public.lab_analyte_readings l where l.patient_id = s.pid and l.code = 'hba1c' and l.correction_status is null)
@@ -210,18 +217,13 @@ begin
                 (select case when w.n >= (c ->> 'min_readings')::integer
                              then case when w.avg_s < (c #>> '{controlled_below,systolic}')::numeric and w.avg_d < (c #>> '{controlled_below,diastolic}')::numeric then 'controlled' else 'uncontrolled' end
                              else 'unknown' end
-                   from (select count(*) as n, avg(r.systolic) as avg_s, avg(r.diastolic) as avg_d
-                           from (select v.systolic, v.diastolic, (v.taken_at at time zone 'Africa/Lagos')::date as d
-                                   from public.vitals_readings v
-                                  where v.patient_id = t.pid and v.vital_type = 'blood_pressure' and v.systolic is not null and v.diastolic is not null
-                                    and v.correction_status is null and (v.validation_status = 'valid' or coalesce(v.validation_flags, '{}'::text[]) <@ array['insufficient_context']::text[])
-                                    and (v.taken_at at time zone 'Africa/Lagos')::date >= ((now() at time zone 'Africa/Lagos')::date - (c ->> 'lookback_days')::integer)) r
-                          where r.d > (select max(r2.d) from (select (v2.taken_at at time zone 'Africa/Lagos')::date as d
-                                         from public.vitals_readings v2
-                                        where v2.patient_id = t.pid and v2.vital_type = 'blood_pressure' and v2.systolic is not null and v2.diastolic is not null
-                                          and v2.correction_status is null and (v2.validation_status = 'valid' or coalesce(v2.validation_flags, '{}'::text[]) <@ array['insufficient_context']::text[])
-                                          and (v2.taken_at at time zone 'Africa/Lagos')::date >= ((now() at time zone 'Africa/Lagos')::date - (c ->> 'lookback_days')::integer)) r2)
-                                       - (c ->> 'control_window_days')::integer) w)
+                   from (select count(*) as n, avg(v.systolic) as avg_s, avg(v.diastolic) as avg_d
+                           from public.vitals_readings v
+                          where v.patient_id = t.pid and v.vital_type = 'blood_pressure' and v.systolic is not null and v.diastolic is not null
+                            and v.correction_status is null and private.wp3_reading_usable(v.validation_status, v.validation_flags)
+                            -- the window ends on the day the report is run (Lagos), never on the person's own last reading
+                            and (v.taken_at at time zone 'Africa/Lagos')::date >  ((now() at time zone 'Africa/Lagos')::date - (c ->> 'control_window_days')::integer)
+                            and (v.taken_at at time zone 'Africa/Lagos')::date <= (now() at time zone 'Africa/Lagos')::date) w)
               else
                 (select case when l.val is null then 'unknown' when l.val < (c ->> 'controlled_hba1c_below_percent')::numeric then 'controlled' else 'uncontrolled' end
                    from (select (select x.value::numeric from public.lab_analyte_readings x
@@ -302,12 +304,12 @@ revoke all on function private.cascade_stages_json(jsonb, text, bigint, bigint, 
 -- enrolled counts, so one withheld month cannot be recovered as the total minus the others.
 create function private.cascade_aggregate(p_condition text, p_patients uuid[], p_from date, p_to date, p_min integer default null)
 returns jsonb
-language plpgsql security definer set search_path = ''
+language plpgsql stable security definer set search_path = ''
 as $$
 declare
   v_cfg jsonb := private.cascade_config();
   v_min integer;
-  t record; m record; v_months jsonb := '[]'::jsonb; v_groups jsonb := '[]'::jsonb; v_marked jsonb;
+  t jsonb; m jsonb; v_rows jsonb; v_months jsonb := '[]'::jsonb; v_groups jsonb := '[]'::jsonb; v_marked jsonb; v_reason text;
 begin
   if v_cfg is null then
     return jsonb_build_object('withheld', true, 'reason', 'awaiting_cmo_signature', 'condition', p_condition);
@@ -317,35 +319,36 @@ begin
   if p_from is not null then p_from := date_trunc('month', p_from)::date; end if;
   if p_to is not null then p_to := (date_trunc('month', p_to) + interval '1 month' - interval '1 day')::date; end if;
 
-  drop table if exists pg_temp._wp3_people;
-  create temp table _wp3_people on commit drop as select * from private.cascade_people(p_condition, v_cfg, p_patients, p_from, p_to);
+  -- One pass over the people (a single query, no temporary table, so it also runs in a read-only transaction): the rollup row with no month is the total.
+  select coalesce(jsonb_agg(to_jsonb(q) order by q.mon nulls first), '[]'::jsonb) into v_rows from (
+    select date_trunc('month', anchor)::date as mon, count(*) as n, count(*) filter (where screened) as scr, count(*) filter (where diagnosed) as dx,
+           count(*) filter (where treated) as tx, count(*) filter (where control_state = 'controlled') as ctrl,
+           count(*) filter (where control_state = 'uncontrolled') as unc, count(*) filter (where control_state = 'unknown') as unk
+      from private.cascade_people(p_condition, v_cfg, p_patients, p_from, p_to)
+     group by rollup (date_trunc('month', anchor)::date)) q;
+  select x into t from jsonb_array_elements(v_rows) x where x -> 'mon' = 'null'::jsonb limit 1;
+  t := coalesce(t, jsonb_build_object('n', 0, 'scr', 0, 'dx', 0, 'tx', 0, 'ctrl', 0, 'unc', 0, 'unk', 0));
 
-  select count(*) as n, count(*) filter (where screened) as scr, count(*) filter (where diagnosed) as dx, count(*) filter (where treated) as tx,
-         count(*) filter (where control_state = 'controlled') as ctrl, count(*) filter (where control_state = 'uncontrolled') as unc,
-         count(*) filter (where control_state = 'unknown') as unk
-    into t from _wp3_people;
-
-  for m in select date_trunc('month', anchor)::date as mon, count(*) as n, count(*) filter (where screened) as scr, count(*) filter (where diagnosed) as dx,
-                  count(*) filter (where treated) as tx, count(*) filter (where control_state = 'controlled') as ctrl,
-                  count(*) filter (where control_state = 'uncontrolled') as unc, count(*) filter (where control_state = 'unknown') as unk
-             from _wp3_people group by 1 order by 1 loop
-    v_groups := v_groups || jsonb_build_object('key', m.mon::text, 'n', m.n);
+  for m in select x from jsonb_array_elements(v_rows) x where x -> 'mon' <> 'null'::jsonb loop
+    v_groups := v_groups || jsonb_build_object('key', m ->> 'mon', 'n', (m ->> 'n')::bigint);
   end loop;
   v_marked := private.suppress_groups(v_groups, v_min);
-  for m in select date_trunc('month', anchor)::date as mon, count(*) as n, count(*) filter (where screened) as scr, count(*) filter (where diagnosed) as dx,
-                  count(*) filter (where treated) as tx, count(*) filter (where control_state = 'controlled') as ctrl,
-                  count(*) filter (where control_state = 'uncontrolled') as unc, count(*) filter (where control_state = 'unknown') as unk
-             from _wp3_people group by 1 order by 1 loop
-    if coalesce((select (x ->> 'suppressed')::boolean from jsonb_array_elements(v_marked) x where x ->> 'key' = m.mon::text), true) then
-      v_months := v_months || jsonb_build_object('month', m.mon, 'suppressed', true, 'reason', coalesce((select x ->> 'reason' from jsonb_array_elements(v_marked) x where x ->> 'key' = m.mon::text), 'under_minimum'), 'minimum', v_min);
+  for m in select x from jsonb_array_elements(v_rows) x where x -> 'mon' <> 'null'::jsonb loop
+    v_reason := null;
+    select case when (g ->> 'suppressed')::boolean then coalesce(g ->> 'reason', 'under_minimum') end into v_reason
+      from jsonb_array_elements(v_marked) g where g ->> 'key' = m ->> 'mon';
+    if v_reason is not null then
+      v_months := v_months || jsonb_build_object('month', m ->> 'mon', 'suppressed', true, 'reason', v_reason, 'minimum', v_min);
     else
-      v_months := v_months || jsonb_build_object('month', m.mon, 'cascade', private.cascade_stages_json(v_cfg, p_condition, m.n, m.scr, m.dx, m.tx, m.ctrl, m.unc, m.unk, v_min));
+      v_months := v_months || jsonb_build_object('month', m ->> 'mon', 'cascade', private.cascade_stages_json(v_cfg, p_condition,
+          (m ->> 'n')::bigint, (m ->> 'scr')::bigint, (m ->> 'dx')::bigint, (m ->> 'tx')::bigint, (m ->> 'ctrl')::bigint, (m ->> 'unc')::bigint, (m ->> 'unk')::bigint, v_min));
     end if;
   end loop;
 
   return jsonb_build_object(
     'condition', p_condition, 'config_version', (v_cfg ->> '_version')::integer, 'minimum_cell', v_min,
-    'total', private.cascade_stages_json(v_cfg, p_condition, t.n, t.scr, t.dx, t.tx, t.ctrl, t.unc, t.unk, v_min),
+    'total', private.cascade_stages_json(v_cfg, p_condition, (t ->> 'n')::bigint, (t ->> 'scr')::bigint, (t ->> 'dx')::bigint, (t ->> 'tx')::bigint,
+                                          (t ->> 'ctrl')::bigint, (t ->> 'unc')::bigint, (t ->> 'unk')::bigint, v_min),
     'by_month_of_joining', v_months,
     'not_available', v_cfg #> array[p_condition, 'not_available'],
     'note', v_cfg #>> '{notes,cascade}',
@@ -400,26 +403,26 @@ revoke all on function private.selection_attrs(jsonb, uuid[]) from public, anon,
 -- One comparison: two groups of people (as id arrays), attribute by attribute. A group below the minimum is withheld whole; inside a group
 -- the categories go through suppress_groups. Percentages are of the group total and only given for a category that is shown.
 create function private.selection_compare(p_cfg jsonb, p_a uuid[], p_b uuid[], p_min integer) returns jsonb
-language plpgsql security definer set search_path = ''
+language plpgsql stable security definer set search_path = ''
 as $$
 declare
-  v_attr text; v_out jsonb := '[]'::jsonb; v_cats jsonb; v_cat text; ga jsonb; gb jsonb; na bigint := cardinality(p_a); nb bigint := cardinality(p_b);
-  ra jsonb; rb jsonb; row_a jsonb; row_b jsonb; v_ok_a boolean := private.suppress_cell(cardinality(p_a), null, p_min) is null; v_ok_b boolean := private.suppress_cell(cardinality(p_b), null, p_min) is null;
+  v_attr text; v_out jsonb := '[]'::jsonb; v_cats jsonb; ga jsonb; gb jsonb; na bigint := cardinality(p_a); nb bigint := cardinality(p_b);
+  ra jsonb; rb jsonb; v_sel jsonb;
 begin
-  if not v_ok_a or not v_ok_b then
+  if private.suppress_cell(cardinality(p_a), null, p_min) is not null or private.suppress_cell(cardinality(p_b), null, p_min) is not null then
     return jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', p_min);
   end if;
-  drop table if exists pg_temp._wp3_sel;
-  create temp table _wp3_sel on commit drop as
+  -- the attributes of both groups, once, as one JSON array (no temporary table, so it also runs in a read-only transaction)
+  select coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) into v_sel from (
     select 'a'::text as grp, * from private.selection_attrs(p_cfg, p_a)
-    union all select 'b', * from private.selection_attrs(p_cfg, p_b);
+    union all select 'b', * from private.selection_attrs(p_cfg, p_b)) x;
   foreach v_attr in array array['age_band', 'sex', 'baseline_bp', 'channel'] loop
     select coalesce(jsonb_agg(distinct c), '[]'::jsonb) into v_cats from (
-      select case v_attr when 'age_band' then age_band when 'sex' then sex when 'baseline_bp' then baseline_bp else channel end as c from _wp3_sel) x;
+      select t ->> v_attr as c from jsonb_array_elements(v_sel) t) x;
     select coalesce(jsonb_agg(jsonb_build_object('key', c, 'n', cnt)), '[]'::jsonb) into ga from (
-      select case v_attr when 'age_band' then age_band when 'sex' then sex when 'baseline_bp' then baseline_bp else channel end as c, count(*) as cnt from _wp3_sel where grp = 'a' group by 1) x;
+      select t ->> v_attr as c, count(*) as cnt from jsonb_array_elements(v_sel) t where t ->> 'grp' = 'a' group by 1) x;
     select coalesce(jsonb_agg(jsonb_build_object('key', c, 'n', cnt)), '[]'::jsonb) into gb from (
-      select case v_attr when 'age_band' then age_band when 'sex' then sex when 'baseline_bp' then baseline_bp else channel end as c, count(*) as cnt from _wp3_sel where grp = 'b' group by 1) x;
+      select t ->> v_attr as c, count(*) as cnt from jsonb_array_elements(v_sel) t where t ->> 'grp' = 'b' group by 1) x;
     ra := private.suppress_groups(ga, p_min);
     rb := private.suppress_groups(gb, p_min);
     v_out := v_out || jsonb_build_object('attribute', v_attr, 'categories', coalesce((
@@ -443,7 +446,7 @@ revoke all on function private.selection_compare(jsonb, uuid[], uuid[], integer)
 --   everyone who joined (anchor in range, in the figures) = ITT population.
 --   due: the day-D snapshot exists. measured: controlled or uncontrolled. missing: no usable reading, split into "membership ended" and "still a Member".
 create function private.selection_itt(p_members uuid[], p_day integer, p_from date, p_to date, p_min integer) returns jsonb
-language plpgsql security definer set search_path = ''
+language plpgsql stable security definer set search_path = ''
 as $$
 declare
   v_enrolled bigint; a record; v_ended bigint; v_active bigint; v_cohort jsonb; v_groups jsonb; v_miss jsonb := '[]'::jsonb; x jsonb;
@@ -478,11 +481,11 @@ begin
 end $$;
 revoke all on function private.selection_itt(uuid[], integer, date, date, integer) from public, anon, authenticated;
 
--- The panel for one programme. p_internal = true is the admin / CMO view (also compares with members who joined but did not agree to
--- share); false is the sponsor-pack view, which never shows an attribute of a person who declined.
+-- The panel for one programme. p_internal = true is the admin view (both attribute comparisons); false is the sponsor-pack view, which carries
+-- neither comparison. It always carries who is in the figures, seats, and the intent-to-treat view beside the completers.
 create function private.selection_panel_build(p_cohort uuid, p_from date, p_to date, p_internal boolean, p_min integer default null)
 returns jsonb
-language plpgsql security definer set search_path = ''
+language plpgsql stable security definer set search_path = ''
 as $$
 declare
   v_cfg jsonb := private.cascade_config();
@@ -515,16 +518,21 @@ begin
      where p.role = 'patient' and p.is_active and not coalesce(p.is_test, false) and not (p.id = any (v_joined)) and q.anchor is not null and p.date_of_birth is not null
        and p.date_of_birth <= (q.anchor - make_interval(years => v_age))::date and (p_from is null or q.anchor >= p_from) and (p_to is null or q.anchor <= p_to) and not (coalesce((v_cfg ->> 'exclude_pregnant')::boolean, false) and exists (select 1 from public.patient_pregnancy pp where pp.patient_id = p.id and pp.is_pregnant))) x;
 
-  v_cmp := jsonb_build_object('in_figures_vs_other_members',
-      jsonb_build_object('group_a_is', 'Members of this programme who agreed to share group figures', 'group_b_is', 'other adult Members who are not in this programme',
-                         'result', private.selection_compare(v_cfg, v_a, v_c, v_min)));
+  -- Both comparisons are INTERNAL ONLY. The sponsor pack gets neither: not the one with people who declined to share (they declined), and not the one
+  -- with other Members (it describes Members outside the programme, who never agreed to anything with this sponsor). See OQ-WP3-05 if the founder
+  -- wants the second one shown to sponsors.
   if p_internal then
-    v_cmp := v_cmp || jsonb_build_object('in_figures_vs_joined_not_agreed',
-      jsonb_build_object('group_a_is', 'Members of this programme who agreed to share group figures', 'group_b_is', 'Members of this programme who joined but did not agree',
-                         'result', private.selection_compare(v_cfg, v_a, v_b, v_min), 'audience', 'internal only, never in a sponsor pack'));
+    v_cmp := jsonb_build_object(
+      'in_figures_vs_other_members',
+        jsonb_build_object('group_a_is', 'Members of this programme who agreed to share group figures', 'group_b_is', 'other adult Members who are not in this programme',
+                           'result', private.selection_compare(v_cfg, v_a, v_c, v_min), 'audience', 'internal only, never in a sponsor pack'),
+      'in_figures_vs_joined_not_agreed',
+        jsonb_build_object('group_a_is', 'Members of this programme who agreed to share group figures', 'group_b_is', 'Members of this programme who joined but did not agree',
+                           'result', private.selection_compare(v_cfg, v_a, v_b, v_min), 'audience', 'internal only, never in a sponsor pack'));
   else
-    v_cmp := v_cmp || jsonb_build_object('in_figures_vs_joined_not_agreed',
-      jsonb_build_object('withheld', true, 'reason', 'not_shown_to_sponsors'));
+    v_cmp := jsonb_build_object(
+      'in_figures_vs_other_members', jsonb_build_object('withheld', true, 'reason', 'not_shown_to_sponsors'),
+      'in_figures_vs_joined_not_agreed', jsonb_build_object('withheld', true, 'reason', 'not_shown_to_sponsors'));
   end if;
 
   foreach d in array array[90, 180] loop
@@ -571,20 +579,19 @@ language plpgsql security definer set search_path = ''
 as $$
 declare
   c public.sponsor_cohorts%rowtype; v_members uuid[]; v_fig jsonb; v_meas jsonb := '{}'::jsonb; m text; v_signed boolean := private.outcome_measures_signed();
-  v_min integer; v_doc jsonb; v_hits text[]; d integer; v_by jsonb; v_pack jsonb; v_casc jsonb; v_small boolean;
+  v_min integer; v_doc jsonb; v_hits text[]; d integer; v_by jsonb; v_pack jsonb; v_casc jsonb;
 begin
   select * into c from public.sponsor_cohorts where id = p_cohort;
   if not found then raise exception 'sponsor_cohort_not_found' using errcode = '22023'; end if;
   v_members := private.sponsor_agreed_members(p_cohort);
   v_fig := private.sponsor_report_aggregate(p_cohort, p_from, p_to);
   v_min := (v_fig ->> 'minimum_cell')::integer;
-  v_small := private.suppress_cell(cardinality(v_members), null, v_min) is not null;
   -- All four measures. PHQ-9 and GAD-7 reach a sponsor ONLY as suppressed group figures, through private.outcome_measure_cohort (CMO decision 2026-10-14, S75-7): never a person,
   -- never below the minimum cohort size.
   foreach m in array array['hba1c', 'weight', 'phq9', 'gad7'] loop
     if not v_signed then
       v_meas := v_meas || jsonb_build_object(m, jsonb_build_object('withheld', true, 'reason', 'awaiting_cmo_signature'));
-    elsif v_small then
+    elsif private.suppress_cell(cardinality(v_members), null, v_min) is not null then
       v_meas := v_meas || jsonb_build_object(m, jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', v_min));
     else
       v_by := '{}'::jsonb;
@@ -593,7 +600,7 @@ begin
     end if;
   end loop;
   -- WP3: the cascade of care (members who agreed to share only) and the selection-bias panel (sponsor audience).
-  v_casc := case when v_small then jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', v_min)
+  v_casc := case when private.suppress_cell(cardinality(v_members), null, v_min) is not null then jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', v_min)
                  else jsonb_build_object('hypertension', private.cascade_aggregate('hypertension', v_members, p_from, p_to, v_min),
                                          'diabetes', private.cascade_aggregate('diabetes', v_members, p_from, p_to, v_min)) end;
   v_pack := jsonb_build_object(
@@ -602,11 +609,11 @@ begin
     'evaluation_design', private.outcome_measure_rule('{pack,evaluation_design}') #>> '{}',
     'caveat', private.outcome_measure_rule('{pack,caveat}') #>> '{}',
     'group_figures', v_fig,
-    'retention_and_engagement', case when not v_small then private.retention_aggregate(p_from, p_to, v_members)
+    'retention_and_engagement', case when private.suppress_cell(cardinality(v_members), null, v_min) is null then private.retention_aggregate(p_from, p_to, v_members)
                                      else jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', v_min) end,
     'clinical_measures', v_meas,
     'cascade_of_care', v_casc,
-    'selection_panel', case when v_small then jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', v_min)
+    'selection_panel', case when private.suppress_cell(cardinality(v_members), null, v_min) is not null then jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', v_min)
                             else private.selection_panel_build(p_cohort, p_from, p_to, false, v_min) end,
     'not_a_causal_claim', true);
   v_hits := private.causal_wording_hits(private.json_text(v_pack));

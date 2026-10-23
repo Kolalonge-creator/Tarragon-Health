@@ -5565,3 +5565,11 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-WP3-03 People who were eligible but did not enrol cannot be counted (raised by WP3, 2026-10-23)
 - The selection panel compares members in a programme's figures with (a) other adult Members who are not in that programme and, for staff only, (b) members who joined but did not agree to share. A sponsor's eligible roster is not held, so seat take-up (codes handed out) is shown labelled as seats, not eligible people. Showing attributes of members who declined to share group figures is limited to the internal admin view; counsel should confirm that internal comparison is consistent with the sponsor-reporting consent text.
 - Decision: open (counsel, DPO, founder).
+
+### OQ-WP3-04 S38 and S75 count any reading with an empty flag list (raised by WP3 review, 2026-10-23)
+- The S38 snapshot job, `private.v_bp_cohort_90d`/`v_bp_cohort_day` and the pack's other blood pressure figures admit a reading when `validation_status = 'valid' OR coalesce(validation_flags, '{}') <@ array['insufficient_context']`. An empty array is a subset of every array, so that also admits a `requires_validation` reading with no flags. WP3 uses the tightened rule (valid, or requires_validation with only insufficient_context) in its own code and did not edit S38. Whether S38 should change (it would move already-written snapshots' future rows, not past ones) is a CMO and engineering decision.
+- Decision: open (CMO, engineering).
+
+### OQ-WP3-05 Should a sponsor see how its members compare with other Members? (raised by WP3 review, 2026-10-23)
+- The sponsor pack's selection panel withholds both attribute comparisons (people who declined, and other adult Members). Showing the comparison with other Members to a sponsor would describe people outside the programme who agreed to nothing with that sponsor, even as small-cell-suppressed shares. Counsel and the DPO would need to confirm before it is shown; the internal admin view keeps it.
+- Decision: open (founder, counsel, DPO).

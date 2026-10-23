@@ -4,7 +4,7 @@ import type { CascadeRulesView } from "@/lib/queries/pending-cascade-config-sign
 function Condition({ name, c }: { name: string; c: CascadeRulesView["hypertension"] }) {
   return (
     <div className="space-y-1 text-sm text-charcoal-ink">
-      <p className="font-medium">{name}: control means {c.controlled} (most recent reading within {c.lookbackDays} days)</p>
+      <p className="font-medium">{name}: controlled means {c.controlled}</p>
       <ol className="list-decimal space-y-1 pl-5 text-charcoal-ink/80">
         {c.stages.map((s) => (
           <li key={s.label}><span className="font-medium">{s.label}.</span> {s.definition}</li>

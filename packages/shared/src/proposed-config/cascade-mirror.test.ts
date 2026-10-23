@@ -8,7 +8,7 @@ import { getProposedConfig, PROPOSED_CONFIG } from "./index";
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
 
 type Stage = { code: string; label: string; definition: string };
-type Condition = { stages: Stage[]; not_available: { item: string; reason: string }[]; lookback_days: number };
+type Condition = { stages: Stage[]; not_available: { item: string; reason: string }[]; lookback_days?: number };
 type Cascade = {
   min_adult_age_years: number;
   exclude_pregnant: boolean;
@@ -48,6 +48,17 @@ describe("outcomes.cascade_rules mirrors the migration seed (WP3)", () => {
     for (const c of [cfg.value.hypertension, cfg.value.diabetes]) {
       expect(c.stages.map((s) => s.code)).toEqual(["enrolled", "screened", "diagnosed", "on_treatment", "controlled"]);
     }
+  });
+
+  it("the hypertension window is the last control_window_days up to the report day, from min_readings, and the text says so", () => {
+    const h = cfg.value.hypertension;
+    expect(h.control_window_days).toBe(7);
+    expect(h.min_readings).toBe(3);
+    expect(h.lookback_days).toBeUndefined();
+    const controlled = h.stages.find((s) => s.code === "controlled")?.definition ?? "";
+    expect(controlled).toMatch(/last 7 days up to the day the report is run/);
+    expect(controlled).toMatch(/fewer than 3 cleared readings in the last 7 days are shown as control unknown/);
+    expect(controlled).not.toMatch(/most recent/);
   });
 
   it("states what cannot be derived instead of inventing it", () => {

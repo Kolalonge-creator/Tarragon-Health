@@ -8237,7 +8237,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
         },
         "control_window_days": 7,
         "min_readings": 3,
-        "lookback_days": 90,
         "diagnosis_icd10_prefixes": [
           "I10",
           "I11",
@@ -8275,7 +8274,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
           {
             "code": "controlled",
             "label": "Blood pressure under 140/90",
-            "definition": "Members on treatment whose most recent 7-day home average, from at least 3 cleared readings in the last 90 days, is under 140 systolic and under 90 diastolic. Members on treatment with too few or no recent readings are shown as control unknown, not as uncontrolled."
+            "definition": "Members on treatment whose average of the cleared home readings in the last 7 days up to the day the report is run, from at least 3 readings in those 7 days, is under 140 systolic and under 90 diastolic. Members on treatment with fewer than 3 cleared readings in the last 7 days are shown as control unknown, not as uncontrolled."
           }
         ],
         "not_available": [
@@ -8383,7 +8382,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       },
       "notes": {
         "cascade": "A cascade of Tarragon Members, not of a population. It is a count of people at a point in time, not a measure of what any service did. Differences between months can come from who joined.",
-        "difference_from_s38": "Control here means the most recent 7-day home average is under 140/90, as at the day the report is run. The day-90 and day-180 blood pressure reports judge each person against their own home target when they have one, at fixed days after joining. The two measures can differ."
+        "difference_from_s38": "Control here means the average of the cleared home readings in the 7 days up to the day the report is run is under 140/90. The day-90 and day-180 blood pressure reports judge each person against their own home target when they have one, at fixed days after joining. The two measures can differ."
       }
     },
     owner: "CMO",

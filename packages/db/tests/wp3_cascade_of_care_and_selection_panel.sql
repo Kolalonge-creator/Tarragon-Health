@@ -14,6 +14,9 @@
 --   4. ROLES: admin and CMO can read; a clinician, a patient, sponsor staff and anon cannot (42501 / no execute). No clinician appears as a key.
 --   5. PACK: the sponsor pack carries both, passes the causal-wording check, and the wording check still refuses a causal claim.
 --   6. SCANS: no hand-written minimum comparison, every new function has an explicit search_path, none is executable by anon.
+--   6b. REVIEW FIXES: the 7-day control window ends on the report day (readings 85 days old but controlled are UNKNOWN); only a valid reading, or one that
+--      waits only for a missing arm or position, counts (an empty flag list does not make a reading usable); the cascade and the panel run with no
+--      temporary table (stable functions); the sponsor audience carries neither attribute comparison.
 --   7. SABOTAGE: suppress_cell / suppress_difference replaced by versions that never withhold; the withheld checks must FLIP. A proof that cannot fail
 --      is not a proof.
 -- Wrapped in BEGIN/ROLLBACK; mints its own fixtures. The platform minimum is lowered to 3 on the active outcome_config under test.
@@ -93,6 +96,15 @@ $f$ begin
     insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, source)
     values ((select organisation_id from public.profiles where id = p), p, 'blood_pressure', p_s, p_d, pg_temp.at_day(pg_temp.today() - p_days_ago + k, 9), 'device');
   end loop;
+end $f$;
+create function pg_temp.bpv(p uuid, p_days_ago integer, p_s integer, p_d integer, p_n integer, p_status text, p_flags text[]) returns void language plpgsql as
+$f$ begin
+  set local session_replication_role = replica;   -- the validation trigger would overwrite the status and flags we want to fix
+  for k in 0 .. p_n - 1 loop
+    insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, source, validation_status, validation_flags)
+    values ((select organisation_id from public.profiles where id = p), p, 'blood_pressure', p_s, p_d, pg_temp.at_day(pg_temp.today() - p_days_ago + k, 9), 'device', p_status::public.vitals_validation_status, p_flags);
+  end loop;
+  set local session_replication_role = origin;
 end $f$;
 create function pg_temp.plan(p uuid, p_cond text, p_med boolean) returns void language plpgsql as
 $f$ declare v_org uuid := (select organisation_id from public.profiles where id = p); v_cp uuid;
@@ -193,8 +205,44 @@ begin
     insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action) values (v_org, p, 'sponsor_reporting', v_ver, '2026-10-07-draft', 'accepted');
   end loop;
 
+  -- THE REVIEW CASES (not in any programme): each is diagnosed and on a medicine, and each is judged on the readings alone.
+  --   O1 three controlled readings, 85 days old (the old rule anchored the window on the person's own last reading and called this controlled)
+  --   O2 three recent controlled readings, status requires_validation with an EMPTY flag list (an empty list is a subset of everything: not usable)
+  --   O3 three recent controlled readings, requires_validation ONLY for insufficient_context (usable)
+  --   O4 three recent controlled readings, requires_validation for sudden_change (not usable)
+  --   O5 two recent controlled readings (fewer than the minimum of 3 in the window)
+  --   O6 three recent readings at 150/95 (uncontrolled: the control)
+  --   O7 three recent controlled readings, requires_validation for insufficient_context AND sudden_change (not usable)
+  for i in 1 .. 7 loop
+    p := pg_temp.mkmember('O' || i, 200);
+    perform pg_temp.setf('O' || i, p);
+    perform pg_temp.plan(p, 'hypertension', true);
+  end loop;
+  perform pg_temp.bp(pg_temp.f('O1'), 85, 125, 80);
+  perform pg_temp.bpv(pg_temp.f('O2'), 3, 125, 80, 3, 'requires_validation', '{}'::text[]);
+  perform pg_temp.bpv(pg_temp.f('O3'), 3, 125, 80, 3, 'requires_validation', array['insufficient_context']);
+  perform pg_temp.bpv(pg_temp.f('O4'), 3, 125, 80, 3, 'requires_validation', array['sudden_change']);
+  perform pg_temp.bp(pg_temp.f('O5'), 2, 125, 80, 2);
+  perform pg_temp.bp(pg_temp.f('O6'), 3, 150, 95);
+  perform pg_temp.bpv(pg_temp.f('O7'), 3, 125, 80, 3, 'requires_validation', array['insufficient_context', 'sudden_change']);
+
   perform private.compute_outcome_snapshots(now());
 end $$;
+
+-- state of one review case after the cascade: screened / control_state ('-' when not on treatment)
+create function pg_temp.case_of(p_label text) returns text language sql as
+$$ select r.screened::text || '/' || coalesce(r.control_state, '-') from private.cascade_people('hypertension', private.cascade_config(), array[pg_temp.f(p_label)], null, null) r $$;
+
+create function pg_temp.review_cases(p_phase text) returns void language plpgsql as
+$f$ begin
+  perform pg_temp.sk(p_phase, '2n readings 85 days old, all controlled: the member is UNKNOWN, not controlled (window ends on the report day)', 'true/unknown', pg_temp.case_of('O1'));
+  perform pg_temp.sk(p_phase, '2o requires_validation with an EMPTY flag list is not usable: not screened, control unknown', 'false/unknown', pg_temp.case_of('O2'));
+  perform pg_temp.sk(p_phase, '2p requires_validation ONLY for insufficient_context is usable: screened and controlled', 'true/controlled', pg_temp.case_of('O3'));
+  perform pg_temp.sk(p_phase, '2q requires_validation for sudden_change is not usable: not screened, control unknown', 'false/unknown', pg_temp.case_of('O4'));
+  perform pg_temp.sk(p_phase, '2r two readings in the last 7 days (fewer than the minimum 3): control unknown', 'true/unknown', pg_temp.case_of('O5'));
+  perform pg_temp.sk(p_phase, '2s three recent readings at 150/95: uncontrolled (control case, so the checks above are not vacuous)', 'true/uncontrolled', pg_temp.case_of('O6'));
+  perform pg_temp.sk(p_phase, '2t insufficient_context together with another flag is not usable', 'false/unknown', pg_temp.case_of('O7'));
+end $f$;
 
 create function pg_temp.members(p_prefix text) returns uuid[] language sql as
 $$ select coalesce(array_agg(id order by full_name), '{}') from public.profiles where full_name ~ ('^WP3 ' || p_prefix || '[0-9]+$') $$;
@@ -265,7 +313,8 @@ begin
   -- the panel, sponsor audience
   r := private.selection_panel_build(pg_temp.f('ph'), null, null, false, null);
   perform pg_temp.sk(p_phase, '3a the panel counts the 18 who are in the figures', '18', r #>> '{who_is_in_the_figures,in_figures}');
-  perform pg_temp.sk(p_phase, '3b sponsor audience: the joined-but-did-not-agree comparison is not shown', 'not_shown_to_sponsors', r #>> '{comparisons,in_figures_vs_joined_not_agreed,reason}');
+  perform pg_temp.sk(p_phase, '3b sponsor audience: NEITHER attribute comparison is shown', 'not_shown_to_sponsors/not_shown_to_sponsors', (r #>> '{comparisons,in_figures_vs_joined_not_agreed,reason}') || '/' || (r #>> '{comparisons,in_figures_vs_other_members,reason}'));
+  perform pg_temp.sk(p_phase, '3b2 sponsor audience: no attribute or category appears anywhere in the panel', 'false', (r::text ~ '"attributes"|"categories"|"age_band"')::text);
   perform pg_temp.sk(p_phase, '3c the eligible roster is stated as not available', 'false', r #>> '{eligible_roster,available}');
   perform pg_temp.sk(p_phase, '3d the fixed descriptive-not-causal note is present', 'true', (r ->> 'note' ~ '^These comparisons are descriptive, not causal')::text);
   perform pg_temp.sk(p_phase, '3e seats are named as seats, not eligible people', 'true', (r #>> '{seats,note}' ~ 'not a count of the people who were eligible')::text);
@@ -277,20 +326,23 @@ begin
     (select max(x ->> 'n') filter (where x ->> 'key' = 'membership_ended') || '/' || max(x ->> 'n') filter (where x ->> 'key' = 'still_a_member_no_reading') from jsonb_array_elements(v_i -> 'missing_split') x));
   perform pg_temp.sk(p_phase, '3j day 180: nobody has a reading in the window, so all 18 are missing and the completers rate is not given', '0/18/null',
     (r #>> '{intent_to_treat_and_completers,day_180,intent_to_treat,controlled}') || '/' || (r #>> '{intent_to_treat_and_completers,day_180,intent_to_treat,insufficient_data}') || '/' || coalesce(r #>> '{intent_to_treat_and_completers,day_180,completers_only,rate_pct}', 'null'));
-  -- internal audience adds the comparison with people who joined but did not agree
+  -- internal audience: both comparisons are given
   r := private.selection_panel_build(pg_temp.f('ph'), null, null, true, null);
   perform pg_temp.sk(p_phase, '3k internal audience: the comparison with people who did not agree is given (18 against 4)', '18/4',
     (r #>> '{comparisons,in_figures_vs_joined_not_agreed,result,group_a_total}') || '/' || (r #>> '{comparisons,in_figures_vs_joined_not_agreed,result,group_b_total}'));
+  perform pg_temp.sk(p_phase, '3k2 internal audience: the comparison with other Members is given (18 against more than 3)', 'true',
+    ((r #>> '{comparisons,in_figures_vs_other_members,result,group_a_total}')::integer = 18 and (r #>> '{comparisons,in_figures_vs_other_members,result,group_b_total}')::integer >= 3)::text);
 end
 $f$;
 
 select pg_temp.surfaces('real');
+select pg_temp.review_cases('real');
 
 do $$
 declare r jsonb; v_keys text; v_bad text;
 begin
-  -- 3l a category in the panel: sex among the 18 (9 female, 9 male), both shown, as numbers and shares
-  r := private.selection_panel_build(pg_temp.f('ph'), null, null, false, null);
+  -- 3l a category in the panel: sex among the 18 (9 female, 9 male), both shown, as numbers and shares (internal audience: the sponsor pack has no attribute comparison)
+  r := private.selection_panel_build(pg_temp.f('ph'), null, null, true, null);
   perform pg_temp.ck('3l panel: sex among those in the figures is 9 and 9', '9/9',
     (select string_agg(c #>> '{group_a,n}', '/' order by c ->> 'category') from jsonb_array_elements(r #> '{comparisons,in_figures_vs_other_members,result,attributes}') a, jsonb_array_elements(a -> 'categories') c where a ->> 'attribute' = 'sex'));
   perform pg_temp.ck('3m panel: how people joined among those in the figures (15 purchase, 3 voucher)', '15/3',
@@ -319,7 +371,7 @@ begin
   select string_agg(distinct k, ', ') into v_keys from (select (regexp_matches(r::text, '"([a-z_0-9]*(clinician|doctor|tier|assigned|reviewer|claimed)[a-z_0-9]*)"\s*:', 'g'))[1] k) q;
   perform pg_temp.ck('5d no key in the pack names a clinician', 'none', coalesce(v_keys, 'none'));
   perform pg_temp.ck('5e the pack never lists a person or an id', 'none', case when r::text ~ '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' then 'a uuid appears' else 'none' end);
-  perform pg_temp.ck('5f the pack does not carry any attribute of the people who did not agree', 'true', case when (r #> '{pack,selection_panel,comparisons,in_figures_vs_joined_not_agreed}') ? 'result' then 'false' else 'true' end);
+  perform pg_temp.ck('5f the pack carries no attribute comparison at all, neither with people who declined nor with other Members', 'false', (r::text ~ '"attributes"|"categories"|"group_b_is"')::text);
   perform pg_temp.ck('5g a causal claim is still refused by the wording check', '1', cardinality(private.causal_wording_hits('The programme caused the fall in blood pressure.'))::text);
   perform pg_temp.ck('5h the fixed note is allowed because it states a limit', '0', cardinality(private.causal_wording_hits(private.cascade_config() #>> '{selection_panel,note}'))::text);
   perform pg_temp.ck('5i the pack for the tiny programme withholds the cascade and the panel', 'under_minimum/under_minimum',
@@ -327,6 +379,23 @@ begin
 end $$;
 
 -- 6. scans
+do $$
+begin
+  perform pg_temp.ck('2u wp3_reading_usable: valid is usable', 'true', private.wp3_reading_usable('valid', '{}'::text[])::text);
+  perform pg_temp.ck('2v wp3_reading_usable: requires_validation with no flags is NOT usable', 'false', private.wp3_reading_usable('requires_validation', '{}'::text[])::text);
+  perform pg_temp.ck('2w wp3_reading_usable: requires_validation with a null flag list is NOT usable', 'false', private.wp3_reading_usable('requires_validation', null)::text);
+  perform pg_temp.ck('2x wp3_reading_usable: only insufficient_context is usable', 'true/false', private.wp3_reading_usable('requires_validation', array['insufficient_context'])::text || '/' || private.wp3_reading_usable('requires_validation', array['insufficient_context', 'duplicate_entry'])::text);
+  -- 6f/6g: no temporary table anywhere in the new code, and the report functions are STABLE, so they run in a read-only transaction
+  perform pg_temp.ck('6f no new function creates a temporary table', 'none',
+    coalesce((select string_agg(p.proname, ', ') from pg_proc p where p.pronamespace = 'private'::regnamespace and (p.proname like 'cascade\_%' or p.proname like 'selection\_%' or p.proname like 'wp3\_%') and p.prosrc ~* '(create +(global +|local +)?temp(orary)? +table|pg_temp\.)'), 'none'));
+  perform pg_temp.ck('6g the cascade and panel builders are STABLE', 'none',
+    coalesce((select string_agg(p.proname, ', ') from pg_proc p where p.pronamespace = 'private'::regnamespace and p.proname in ('cascade_people', 'cascade_aggregate', 'cascade_stages_json', 'selection_attrs', 'selection_compare', 'selection_itt', 'selection_panel_build') and p.provolatile <> 's'), 'none'));
+  -- 6h the sponsor pack differs from S75c only by the cascade and selection additions: every S75c key is still there
+  perform pg_temp.ck('6h the pack keeps every S75c key', 'true',
+    (select bool_and(k in (select jsonb_object_keys((pg_temp.q_as(pg_temp.f('admin'), format($q$ select public.sponsor_pilot_pack(%L)::text $q$, pg_temp.f('ph')))::jsonb) -> 'pack')))
+       from unnest(array['cover', 'evaluation_design', 'caveat', 'group_figures', 'retention_and_engagement', 'clinical_measures', 'not_a_causal_claim']) k)::text);
+end $$;
+
 do $$
 declare v_hand text; v_nosp text; v_anon text; v_fns text[] := array['private.cascade_people', 'private.cascade_stages_json', 'private.cascade_aggregate', 'private.selection_attrs', 'private.selection_compare', 'private.selection_itt', 'private.selection_panel_build', 'private.cascade_config', 'public.cascade_of_care_report', 'public.selection_panel_report', 'public.sign_outcome_cascade_config'];
 begin
@@ -344,6 +413,24 @@ begin
   perform pg_temp.ck('6e no new function names a clinician column', 'none',
     coalesce((select string_agg(s, ', ') from unnest(v_fns) s where exists (select 1 from pg_proc p where (p.pronamespace::regnamespace::text || '.' || p.proname) = s and p.prosrc ~* '(responsible_clinician|assigned_clinician|claimed_by|clinical_staff|doctor_tier)' and s not in ('public.sign_outcome_cascade_config'))), 'none'));
 end $$;
+
+-- 7a. SABOTAGE of the review fixes: (i) the window is widened to 100 days, so 85-day-old readings count again (2n must flip); (ii) the usable-reading rule is the
+--     old looser form, so an empty flag list counts again (2o must flip); (iii) any requires_validation reading counts (2q and 2t must flip as well)
+set local session_replication_role = replica;
+update public.outcome_cascade_config set config = jsonb_set(config, '{hypertension,control_window_days}', '100') where version = 1;
+set local session_replication_role = origin;
+select pg_temp.review_cases('sabotaged-window');
+set local session_replication_role = replica;
+update public.outcome_cascade_config set config = jsonb_set(config, '{hypertension,control_window_days}', '7') where version = 1;
+set local session_replication_role = origin;
+create or replace function private.wp3_reading_usable(p_status public.vitals_validation_status, p_flags text[]) returns boolean
+language sql immutable set search_path = '' as $$ select p_status = 'valid' or coalesce(p_flags, '{}'::text[]) <@ array['insufficient_context']::text[] $$;
+select pg_temp.review_cases('sabotaged-flags');
+create or replace function private.wp3_reading_usable(p_status public.vitals_validation_status, p_flags text[]) returns boolean
+language sql immutable set search_path = '' as $$ select true $$;
+select pg_temp.review_cases('sabotaged-any');
+create or replace function private.wp3_reading_usable(p_status public.vitals_validation_status, p_flags text[]) returns boolean
+language sql immutable set search_path = '' as $$ select p_status = 'valid' or (p_status = 'requires_validation' and cardinality(coalesce(p_flags, '{}'::text[])) > 0 and p_flags <@ array['insufficient_context']::text[]) $$;
 
 -- 7. SABOTAGE: the helpers stop withholding; the withheld checks must flip
 create or replace function private.suppress_cell(p_n bigint, p_categories bigint[] default null, p_min integer default null) returns text
@@ -364,10 +451,16 @@ begin
   select count(*), string_agg(check_name, '; ') into v_flipped, v_names from results s
    where s.phase = 'sabotaged' and s.expected is distinct from s.actual and s.check_name ~ '^(2b|2k)';
   if v_flipped < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of 2 withheld checks (%)', v_flipped, v_names; end if;
+  select count(*) into v_flipped from results s where s.phase = 'sabotaged-window' and s.expected is distinct from s.actual and s.check_name ~ '^2n';
+  if v_flipped < 1 then raise exception 'VACUOUS TEST: widening the window did not flip 2n'; end if;
+  select count(*) into v_flipped from results s where s.phase = 'sabotaged-flags' and s.expected is distinct from s.actual and s.check_name ~ '^2o';
+  if v_flipped < 1 then raise exception 'VACUOUS TEST: the old looser rule did not flip 2o (empty flag list)'; end if;
+  select count(*), string_agg(check_name, '; ') into v_flipped, v_names from results s where s.phase = 'sabotaged-any' and s.expected is distinct from s.actual and s.check_name ~ '^(2o|2q|2t)';
+  if v_flipped < 3 then raise exception 'VACUOUS TEST: counting every reading flipped % of 3 flag checks (%)', v_flipped, v_names; end if;
 end $$;
 
 select check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results where phase = 'real' order by check_name;
 select 'SABOTAGE ' || check_name as check_name, expected, actual, case when expected is distinct from actual then 'PASS' else 'FAIL' end as result
-  from results where phase = 'sabotaged' and check_name ~ '^(2b|2k)' order by check_name;
+  from results where (phase = 'sabotaged' and check_name ~ '^(2b|2k)') or (phase = 'sabotaged-window' and check_name ~ '^2n') or (phase = 'sabotaged-flags' and check_name ~ '^2o') or (phase = 'sabotaged-any' and check_name ~ '^(2o|2q|2t)') order by check_name;
 
 rollback;
