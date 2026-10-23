@@ -11,6 +11,8 @@ export interface CatalogueItem {
   descriptionKey: string;
   includedKeys: string[];
   amountKobo: number;
+  /** S71: the recorded price split (clinician_fee, partner_fee, tarragon_service_fee), integer kobo. Empty when the price has no recorded split. */
+  components: Record<string, number>;
 }
 export interface OrderRow {
   orderId: string;
@@ -40,6 +42,14 @@ const isObj = (x: unknown): x is Record<string, unknown> => typeof x === "object
 const isKobo = (x: unknown): x is number => typeof x === "number" && Number.isSafeInteger(x) && x >= 0;
 const str = (x: unknown): x is string => typeof x === "string";
 
+/** Only whole, non-negative kobo values are kept; anything else is dropped, so a malformed split can only make the screen show the single honest "Price" line. */
+export function parseComponents(x: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!isObj(x)) return out;
+  for (const [k, v] of Object.entries(x)) if (isKobo(v)) out[k] = v;
+  return out;
+}
+
 export function parseCatalogue(data: unknown): CatalogueItem[] {
   if (!Array.isArray(data)) return [];
   const out: CatalogueItem[] = [];
@@ -49,7 +59,7 @@ export function parseCatalogue(data: unknown): CatalogueItem[] {
     if (!kind || !str(r["code"]) || !/^[a-z][a-z0-9_]{2,63}$/.test(r["code"]) || !str(r["name_key"]) || !str(r["description_key"])) continue;
     if (!isKobo(r["amount_kobo"]) || r["amount_kobo"] === 0) continue;
     const included = Array.isArray(r["included_keys"]) ? r["included_keys"].filter(str) : [];
-    out.push({ code: r["code"], kind, nameKey: r["name_key"], descriptionKey: r["description_key"], includedKeys: included, amountKobo: r["amount_kobo"] });
+    out.push({ code: r["code"], kind, nameKey: r["name_key"], descriptionKey: r["description_key"], includedKeys: included, amountKobo: r["amount_kobo"], components: parseComponents(r["components"]) });
   }
   return out;
 }
