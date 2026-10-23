@@ -48,22 +48,22 @@ begin
   -- six readings on six days, all with an arm and position (so the insert trigger leaves them valid), then set the interesting states directly
   for i in 1..6 loop
     insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, position, arm, taken_at, source)
-    values (v_org, p, 'blood_pressure', 100 + i * 10, 70 + i, 'seated', 'left', ((d - i)::timestamp + interval '12 hours') at time zone 'Africa/Lagos', 'device')
+    values (v_org, p, 'blood_pressure', 100 + i * 10, 70 + i, 'seated', 'left', ((d - i)::timestamp + interval '12 hours') at time zone 'Africa/Lagos', 'manual')
     returning id into v_id;
     ids := ids || v_id;
   end loop;
-  -- i=1 (110) valid; i=2 (120) waiting + only insufficient_context; i=3 (130) waiting + empty; i=4 (140) waiting + null;
+  -- i=1 (110) valid; i=2 (120) waiting + only insufficient_context; i=3 (130) waiting + empty; i=4 (140) waiting + sudden_change only (the flag column is NOT NULL, so a null list cannot be stored);
   -- i=5 (150) waiting + insufficient_context + sudden_change; i=6 (160) waiting + duplicate_entry
   update public.vitals_readings set validation_status = 'requires_validation', validation_flags = array['insufficient_context'] where id = ids[2];
   update public.vitals_readings set validation_status = 'requires_validation', validation_flags = '{}'::text[] where id = ids[3];
-  update public.vitals_readings set validation_status = 'requires_validation', validation_flags = null where id = ids[4];
+  update public.vitals_readings set validation_status = 'requires_validation', validation_flags = array['sudden_change'] where id = ids[4];
   update public.vitals_readings set validation_status = 'requires_validation', validation_flags = array['insufficient_context', 'sudden_change'] where id = ids[5];
   update public.vitals_readings set validation_status = 'requires_validation', validation_flags = array['duplicate_entry'] where id = ids[6];
   perform pg_temp.chk('2-setup fixture states landed', '1/1/1/1/1/1',
     (select count(*) filter (where id = ids[1] and validation_status = 'valid')
         || '/' || count(*) filter (where id = ids[2] and validation_flags = array['insufficient_context'])
         || '/' || count(*) filter (where id = ids[3] and validation_flags = '{}'::text[] and validation_status = 'requires_validation')
-        || '/' || count(*) filter (where id = ids[4] and validation_flags is null and validation_status = 'requires_validation')
+        || '/' || count(*) filter (where id = ids[4] and validation_flags = array['sudden_change'])
         || '/' || count(*) filter (where id = ids[5] and cardinality(validation_flags) = 2)
         || '/' || count(*) filter (where id = ids[6] and validation_flags = array['duplicate_entry'])
        from public.vitals_readings where patient_id = p));
@@ -92,14 +92,14 @@ begin
     || has_function_privilege('authenticated', 'private.bp_reading_usable(public.vitals_validation_status, text[])', 'EXECUTE')::text || '/'
     || (select provolatile = 'i' from pg_proc where oid = 'private.bp_reading_usable(public.vitals_validation_status, text[])'::regprocedure)::text);
 
-  -- 4. SABOTAGE: restore the old inline pattern in bp_window_stats; the same fixture must now count MORE (the empty and null flag readings)
+  -- 4. SABOTAGE: restore the old inline pattern in bp_window_stats; the same fixture must now count MORE (the empty-flag reading)
   v_def := pg_get_functiondef('private.bp_window_stats(uuid,date,date)'::regprocedure);
   v_old := '(validation_status = ''valid'' or coalesce(validation_flags, ''{}''::text[]) <@ array[''insufficient_context'']::text[])';
   if position('private.bp_reading_usable(validation_status, validation_flags)' in v_def) = 0 then raise exception 'sabotage setup FAIL: helper call not found'; end if;
   execute replace(v_def, 'private.bp_reading_usable(validation_status, validation_flags)', v_old);
   select n into v_n_sab from private.bp_window_stats(p, d - 10, d);
   if v_n_sab = v_n then raise exception 'VACUOUS TEST: restoring the old pattern did not change the count (% vs %)', v_n_sab, v_n; end if;
-  perform pg_temp.chk('4 sabotage: the old pattern also counts the empty-flag and null-flag readings (valid, insufficient_context, empty, null)', '4', v_n_sab::text);
+  perform pg_temp.chk('4 sabotage: the old pattern also counts the empty-flag reading (valid, insufficient_context, empty)', '3', v_n_sab::text);
   execute v_def;  -- restore
   select n into v_n from private.bp_window_stats(p, d - 10, d);
   perform pg_temp.chk('4 restored: back to 2', '2', v_n::text);
