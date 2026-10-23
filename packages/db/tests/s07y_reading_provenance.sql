@@ -368,7 +368,10 @@ begin
     raise exception 'S07y proof FAILED: %', (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and check_name like 'SABOTAGE%' and expected <> actual;
-  if v_caught < 5 then raise exception 'VACUOUS TEST: a sabotage did not flip (% of 5)', v_caught; end if;
+  if v_caught < 5 then
+    raise exception 'VACUOUS TEST: a sabotage did not flip (% of 5): %', v_caught,
+      (select string_agg(check_name || ' [expected ' || coalesce(expected, 'null') || ' got ' || coalesce(actual, 'null') || ']', '; ') from results where phase = 'sabotaged' and check_name like 'SABOTAGE%' and (expected is not distinct from actual or actual is null));
+  end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results where phase = 'real' order by check_name;
