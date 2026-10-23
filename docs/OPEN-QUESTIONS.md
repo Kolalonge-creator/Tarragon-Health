@@ -263,7 +263,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-39 `is_test` on orders and payments, and the existing metric surfaces (raised by S02)
 - OQ-09 asks for `is_test` on orders and payments. There is no single orders or payments table, and three `*_quality_metrics` views plus 56 `analytics_*` RPCs read patient data without an `is_test` filter. S02 delivered the column on `profiles` and `clinical_staff`, the write guard, the convention and a ratchet for new views.
 - Options: (a) do the column and the retrofit with S37/S38 when payouts and metrics are built (recommended); (b) a dedicated retrofit session now.
-- Decision:
+- Decision: the 56 `analytics_*` RPCs part is built on branch `wp4/analytics-is-test-filter` (not applied; see OQ-389 and `docs/design/OQ39-analytics-is-test.md`). The three `*_quality_metrics` views and `is_test` on orders and payments are separate and still open.
 
 ### OQ-40 Tied-patient read scope needs its data before it can be enforced (raised by S02)
 - The audited-read gate admits only support.view_as holders and active break-glass grants. INV-12's other ways in (active task, lead assignment, on-call page) need tables that S16 to S19 create. Until then no clinician has a routine audited read of identity or consent data.
@@ -3012,7 +3012,7 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 
 ### OQ-389 OQ-39 progress (raised by S75a)
 - Fixed for the surfaces touched: reproductive analytics, institution subsidy summary, payer dashboard, the new reports. The 56 older `analytics_*` RPCs still ignore `is_test`; see the S75 progress entry for the list. Retrofit or retire them in one session.
-- Decision:
+- Decision: **built, NOT applied (branch `wp4/analytics-is-test-filter`)**. Retrofit by one central predicate, not 56 edits and not retirement: schema `analytics_clean` with 55 `security_invoker` views (the relation minus `profiles.is_test`), 46 RPC bodies re-created from their live definitions with relations redirected, 6 record lookups and writers exempt on purpose, 4 config-only functions untouched, plus the nightly snapshot refresh and `get_geo_health_aggregates` that feed them. Three functions have no caller anywhere and were kept (filtered), not dropped; retiring them is still open for the founder. Migration `20261023175503_oq39_analytics_rpcs_exclude_test_accounts.sql`, design `docs/design/OQ39-analytics-is-test.md`, proof `oq39_analytics_exclude_test_data.sql` (catalogue scan that fails on any new unfiltered `analytics_*` function, behavioural run over every function, sabotage). The proof passed on a Postgres 17 loaded from a schema-only dump of live (not on a full `supabase db reset`, see BUILD-PROGRESS); do not mark INV-13 met for analytics until CI replay is green and the migration is applied.
 ## S73 pricing engine (2026-10-07)
 
 ### OQ-328 Sponsor coverage cannot be charged yet (raised by S73)
