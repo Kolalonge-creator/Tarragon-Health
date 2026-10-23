@@ -31,158 +31,251 @@ revoke all on schema analytics_clean from public, anon, authenticated;
 comment on schema analytics_clean is 'OQ-39 / INV-13: test-account-free views for the analytics_* RPCs. Not exposed: no role but the owner has USAGE.';
 
 
-create or replace view analytics_clean.ai_conversations with (security_invoker = true) as
-  select t.* from public.ai_conversations t where not exists (select 1 from public.profiles tp where tp.id = t.profile_id and tp.is_test);
+-- One source of truth for the views: this catalogue (view name, the relation it is a filtered copy of, the full select).
+-- private.rebuild_analytics_clean_views() regenerates every view from it, so a column added, dropped or retyped on a base table
+-- is a one-line fix in the migration that changes the table. Owner only: closed to every API role.
+create table if not exists private.analytics_clean_view_sources (
+  view_name   text primary key,
+  source_rel  text,          -- the relation the view filters (null when it filters a function result)
+  definition  text not null  -- the select that defines the view, predicate included
+);
+revoke all on table private.analytics_clean_view_sources from public, anon, authenticated, service_role;
+comment on table private.analytics_clean_view_sources is 'OQ-39: source and predicate of every analytics_clean view. Edit here, then call private.rebuild_analytics_clean_views().';
 
-create or replace view analytics_clean.appointment_waiting_list with (security_invoker = true) as
-  select t.* from public.appointment_waiting_list t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+create or replace function private.rebuild_analytics_clean_views()
+returns int language plpgsql set search_path = '' as $f$
+declare r record; n int := 0;
+begin
+  for r in select view_name, definition from private.analytics_clean_view_sources order by view_name loop
+    execute format('create or replace view analytics_clean.%I with (security_invoker = true) as %s', r.view_name, r.definition);
+    n := n + 1;
+  end loop;
+  -- a view that cannot be replaced in place (a base column was dropped or retyped) needs
+  -- private.drop_analytics_clean_views() first, in the same migration, before the ALTER TABLE
+  execute 'revoke all on all tables in schema analytics_clean from public, anon, authenticated';
+  return n;
+end $f$;
+comment on function private.rebuild_analytics_clean_views() is 'OQ-39: (re)creates every analytics_clean view from private.analytics_clean_view_sources. Idempotent. Picks up columns ADDED to a base table. After DROP COLUMN or ALTER COLUMN TYPE call private.drop_analytics_clean_views() before the ALTER and this function after it.';
 
-create or replace view analytics_clean.appointments with (security_invoker = true) as
-  select t.* from public.appointments t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+create or replace function private.drop_analytics_clean_views()
+returns int language plpgsql set search_path = '' as $f$
+declare r record; n int := 0;
+begin
+  for r in select view_name from private.analytics_clean_view_sources order by view_name loop
+    execute format('drop view if exists analytics_clean.%I', r.view_name); n := n + 1;
+  end loop;
+  return n;
+end $f$;
+comment on function private.drop_analytics_clean_views() is 'OQ-39: drops every analytics_clean view so a base column can be dropped or retyped; always followed by private.rebuild_analytics_clean_views() in the same migration.';
+revoke all on function private.rebuild_analytics_clean_views() from public, anon, authenticated, service_role;
+revoke all on function private.drop_analytics_clean_views() from public, anon, authenticated, service_role;
 
-create or replace view analytics_clean.audit_log with (security_invoker = true) as
-  select t.* from public.audit_log t where not exists (select 1 from public.profiles tp where tp.id = t.actor_id and tp.is_test) and not exists (select 1 from public.profiles tp where tp.id = t.subject_patient_id and tp.is_test);
 
-create or replace view analytics_clean.booking_requests with (security_invoker = true) as
-  select t.* from public.booking_requests t where not exists (select 1 from public.profiles tp where tp.id = t.profile_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('ai_conversations', 'public.ai_conversations', $def$
+  select t.* from public.ai_conversations t where not exists (select 1 from public.profiles tp where tp.id = t.profile_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.care_engagement_scores with (security_invoker = true) as
-  select t.* from public.care_engagement_scores t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('appointment_waiting_list', 'public.appointment_waiting_list', $def$
+  select t.* from public.appointment_waiting_list t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.care_messages with (security_invoker = true) as
-  select t.* from public.care_messages t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('appointments', 'public.appointments', $def$
+  select t.* from public.appointments t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.care_plan_status_history with (security_invoker = true) as
-  select t.* from public.care_plan_status_history t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('audit_log', 'public.audit_log', $def$
+  select t.* from public.audit_log t where not exists (select 1 from public.profiles tp where tp.id = t.actor_id and tp.is_test) and not exists (select 1 from public.profiles tp where tp.id = t.subject_patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.care_plans with (security_invoker = true) as
-  select t.* from public.care_plans t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('booking_requests', 'public.booking_requests', $def$
+  select t.* from public.booking_requests t where not exists (select 1 from public.profiles tp where tp.id = t.profile_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.care_team_assignment with (security_invoker = true) as
-  select t.* from public.care_team_assignment t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('care_engagement_scores', 'public.care_engagement_scores', $def$
+  select t.* from public.care_engagement_scores t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.clinical_incident_reports with (security_invoker = true) as
-  select t.* from public.clinical_incident_reports t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('care_messages', 'public.care_messages', $def$
+  select t.* from public.care_messages t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.clinical_staff with (security_invoker = true) as
-  select t.* from public.clinical_staff t where not t.is_test and not exists (select 1 from public.profiles tp where tp.id = t.profile_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('care_plan_status_history', 'public.care_plan_status_history', $def$
+  select t.* from public.care_plan_status_history t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.clinician_alerts with (security_invoker = true) as
-  select t.* from public.clinician_alerts t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('care_plans', 'public.care_plans', $def$
+  select t.* from public.care_plans t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.commissions with (security_invoker = true) as
-  select t.* from public.commissions t where (t.commission_type is null or t.source_id is null or case t.commission_type::text when 'service_purchase' then not exists (select 1 from public.service_purchases s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test) when 'lab' then not exists (select 1 from public.lab_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test) when 'pharmacy' then not exists (select 1 from public.pharmacy_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test) when 'referral' then not exists (select 1 from public.specialist_referrals s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test) when 'home_visit' then true when 'delivery' then true else false end);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('care_team_assignment', 'public.care_team_assignment', $def$
+  select t.* from public.care_team_assignment t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.complaints with (security_invoker = true) as
-  select t.* from public.complaints t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test) and not exists (select 1 from public.profiles tp where tp.id = t.created_by and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('clinical_incident_reports', 'public.clinical_incident_reports', $def$
+  select t.* from public.clinical_incident_reports t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.escalations with (security_invoker = true) as
-  select t.* from public.escalations t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('clinical_staff', 'public.clinical_staff', $def$
+  select t.* from public.clinical_staff t where not t.is_test and not exists (select 1 from public.profiles tp where tp.id = t.profile_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.facilities with (security_invoker = true) as
-  select t.* from public.facilities t where not t.is_test;
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('clinician_alerts', 'public.clinician_alerts', $def$
+  select t.* from public.clinician_alerts t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.identity_verifications with (security_invoker = true) as
-  select t.* from public.identity_verifications t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('commissions', 'public.commissions', $def$
+  select t.* from public.commissions t where (t.commission_type is null or t.source_id is null or case t.commission_type::text when 'service_purchase' then not exists (select 1 from public.service_purchases s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test) when 'lab' then not exists (select 1 from public.lab_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test) when 'pharmacy' then not exists (select 1 from public.pharmacy_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test) when 'referral' then not exists (select 1 from public.specialist_referrals s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test) when 'home_visit' then true when 'delivery' then true else false end)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.lab_orders with (security_invoker = true) as
-  select t.* from public.lab_orders t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('complaints', 'public.complaints', $def$
+  select t.* from public.complaints t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test) and not exists (select 1 from public.profiles tp where tp.id = t.created_by and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.lpe_enrollments with (security_invoker = true) as
-  select t.* from public.lpe_enrollments t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('escalations', 'public.escalations', $def$
+  select t.* from public.escalations t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.medication_reviews with (security_invoker = true) as
-  select t.* from public.medication_reviews t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('facilities', 'public.facilities', $def$
+  select t.* from public.facilities t where not t.is_test$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.medications with (security_invoker = true) as
-  select t.* from public.medications t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('identity_verifications', 'public.identity_verifications', $def$
+  select t.* from public.identity_verifications t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.notifications with (security_invoker = true) as
-  select t.* from public.notifications t where not exists (select 1 from public.profiles tp where tp.id = t.recipient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('lab_orders', 'public.lab_orders', $def$
+  select t.* from public.lab_orders t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.patient_care_gaps with (security_invoker = true) as
-  select t.* from public.patient_care_gaps t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('lpe_enrollments', 'public.lpe_enrollments', $def$
+  select t.* from public.lpe_enrollments t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.patient_consents with (security_invoker = true) as
-  select t.* from public.patient_consents t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('medication_reviews', 'public.medication_reviews', $def$
+  select t.* from public.medication_reviews t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.patient_engagement_scores with (security_invoker = true) as
-  select t.* from public.patient_engagement_scores t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('medications', 'public.medications', $def$
+  select t.* from public.medications t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.patient_milestones with (security_invoker = true) as
-  select t.* from public.patient_milestones t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('notifications', 'public.notifications', $def$
+  select t.* from public.notifications t where not exists (select 1 from public.profiles tp where tp.id = t.recipient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.patient_risk_scores with (security_invoker = true) as
-  select t.* from public.patient_risk_scores t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('patient_care_gaps', 'public.patient_care_gaps', $def$
+  select t.* from public.patient_care_gaps t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.patient_timeline with (security_invoker = true) as
-  select t.* from public.patient_timeline t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('patient_consents', 'public.patient_consents', $def$
+  select t.* from public.patient_consents t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.payment_transactions with (security_invoker = true) as
-  select t.* from public.payment_transactions t where (t.booking_order_type is null or t.booking_order_id is null or case t.booking_order_type::text when 'service_purchase' then not exists (select 1 from public.service_purchases s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test) when 'lab' then not exists (select 1 from public.lab_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test) when 'pharmacy' then not exists (select 1 from public.pharmacy_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test) when 'referral' then not exists (select 1 from public.specialist_referrals s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test) when 'home_visit' then true when 'delivery' then true else false end);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('patient_engagement_scores', 'public.patient_engagement_scores', $def$
+  select t.* from public.patient_engagement_scores t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.pharmacy_orders with (security_invoker = true) as
-  select t.* from public.pharmacy_orders t where not t.is_test and not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('patient_milestones', 'public.patient_milestones', $def$
+  select t.* from public.patient_milestones t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.prevention_risk_scores with (security_invoker = true) as
-  select t.* from public.prevention_risk_scores t where not exists (select 1 from public.profiles tp where tp.id = t.profile_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('patient_risk_scores', 'public.patient_risk_scores', $def$
+  select t.* from public.patient_risk_scores t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.preventive_programme_enrolments with (security_invoker = true) as
-  select t.* from public.preventive_programme_enrolments t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('patient_timeline', 'public.patient_timeline', $def$
+  select t.* from public.patient_timeline t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.profiles with (security_invoker = true) as
-  select t.* from public.profiles t where not t.is_test;
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('payment_transactions', 'public.payment_transactions', $def$
+  select t.* from public.payment_transactions t where (t.booking_order_type is null or t.booking_order_id is null or case t.booking_order_type::text when 'service_purchase' then not exists (select 1 from public.service_purchases s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test) when 'lab' then not exists (select 1 from public.lab_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test) when 'pharmacy' then not exists (select 1 from public.pharmacy_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test) when 'referral' then not exists (select 1 from public.specialist_referrals s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test) when 'home_visit' then true when 'delivery' then true else false end)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.programme_purchases with (security_invoker = true) as
-  select t.* from public.programme_purchases t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('pharmacy_orders', 'public.pharmacy_orders', $def$
+  select t.* from public.pharmacy_orders t where not t.is_test and not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.reputation_review_prompts with (security_invoker = true) as
-  select t.* from public.reputation_review_prompts t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('prevention_risk_scores', 'public.prevention_risk_scores', $def$
+  select t.* from public.prevention_risk_scores t where not exists (select 1 from public.profiles tp where tp.id = t.profile_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.safeguarding_concerns with (security_invoker = true) as
-  select t.* from public.safeguarding_concerns t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('preventive_programme_enrolments', 'public.preventive_programme_enrolments', $def$
+  select t.* from public.preventive_programme_enrolments t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.screening_results with (security_invoker = true) as
-  select t.* from public.screening_results t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('profiles', 'public.profiles', $def$
+  select t.* from public.profiles t where not t.is_test$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.screening_schedules with (security_invoker = true) as
-  select t.* from public.screening_schedules t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('programme_purchases', 'public.programme_purchases', $def$
+  select t.* from public.programme_purchases t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.screening_upgrades with (security_invoker = true) as
-  select t.* from public.screening_upgrades t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('reputation_review_prompts', 'public.reputation_review_prompts', $def$
+  select t.* from public.reputation_review_prompts t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.service_purchases with (security_invoker = true) as
-  select t.* from public.service_purchases t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('safeguarding_concerns', 'public.safeguarding_concerns', $def$
+  select t.* from public.safeguarding_concerns t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.specialist_referrals with (security_invoker = true) as
-  select t.* from public.specialist_referrals t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('screening_results', 'public.screening_results', $def$
+  select t.* from public.screening_results t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.support_tickets with (security_invoker = true) as
-  select t.* from public.support_tickets t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test) and not exists (select 1 from public.profiles tp where tp.id = t.created_by and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('screening_schedules', 'public.screening_schedules', $def$
+  select t.* from public.screening_schedules t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.vaccination_records with (security_invoker = true) as
-  select t.* from public.vaccination_records t where not exists (select 1 from public.profiles tp where tp.id = t.profile_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('screening_upgrades', 'public.screening_upgrades', $def$
+  select t.* from public.screening_upgrades t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.vaccination_schedules with (security_invoker = true) as
-  select t.* from public.vaccination_schedules t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('service_purchases', 'public.service_purchases', $def$
+  select t.* from public.service_purchases t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.web_events with (security_invoker = true) as
-  select t.* from public.web_events t where not exists (select 1 from public.profiles tp where tp.id = t.profile_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('specialist_referrals', 'public.specialist_referrals', $def$
+  select t.* from public.specialist_referrals t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.doctor_current_staff with (security_invoker = true) as
-  select t.* from private.doctor_current_staff t where not exists (select 1 from public.profiles tp where tp.id = t.profile_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('support_tickets', 'public.support_tickets', $def$
+  select t.* from public.support_tickets t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test) and not exists (select 1 from public.profiles tp where tp.id = t.created_by and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.doctor_paid_work with (security_invoker = true) as
-  select t.* from private.doctor_paid_work t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('vaccination_records', 'public.vaccination_records', $def$
+  select t.* from public.vaccination_records t where not exists (select 1 from public.profiles tp where tp.id = t.profile_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.vitals_readings_current with (security_invoker = true) as
-  select t.* from private.vitals_readings_current t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('vaccination_schedules', 'public.vaccination_schedules', $def$
+  select t.* from public.vaccination_schedules t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.vitals_readings_diagnostic with (security_invoker = true) as
-  select t.* from private.vitals_readings_diagnostic t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('web_events', 'public.web_events', $def$
+  select t.* from public.web_events t where not exists (select 1 from public.profiles tp where tp.id = t.profile_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
-create or replace view analytics_clean.real_patient_ids with (security_invoker = true) as
-  select r.patient_id from private.real_patient_ids() r where not exists (select 1 from public.profiles tp where tp.id = r.patient_id and tp.is_test);
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('doctor_current_staff', 'private.doctor_current_staff', $def$
+  select t.* from private.doctor_current_staff t where not exists (select 1 from public.profiles tp where tp.id = t.profile_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
+
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('doctor_paid_work', 'private.doctor_paid_work', $def$
+  select t.* from private.doctor_paid_work t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
+
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('vitals_readings_current', 'private.vitals_readings_current', $def$
+  select t.* from private.vitals_readings_current t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
+
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('vitals_readings_diagnostic', 'private.vitals_readings_diagnostic', $def$
+  select t.* from private.vitals_readings_diagnostic t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
+
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('real_patient_ids', null, $def$
+  select r.patient_id from private.real_patient_ids() r where not exists (select 1 from public.profiles tp where tp.id = r.patient_id and tp.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
+
+select private.rebuild_analytics_clean_views();
 
 revoke all on all tables in schema analytics_clean from public, anon, authenticated;
 

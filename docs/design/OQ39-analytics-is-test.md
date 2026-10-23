@@ -44,8 +44,16 @@ Local Postgres 17, 500k `vitals_readings`, 500k `web_events`, 220k `audit_log`, 
 
 No nested loop and no per-row subplan: the flagged set is tiny and is hashed or merged once. The vitals case loses its parallel plan under the merge anti join and doubles; acceptable for a nightly or on-demand analyst query at this size, and the cheaper form (`not in (select id from profiles where is_test)`) would plan the same way. Revisit with the scale plan sizes. The proof itself cannot run on a database of this size: the 49 RPCs times three phases exhausted the container memory (killed by signal 9), so the proof ran on the small seeded database only.
 
+## Changing a table behind an analytics_clean view (recipe)
+The views are generated, not hand-written. `private.analytics_clean_view_sources` records, for every view, the relation it filters and the full select (predicate included). `private.rebuild_analytics_clean_views()` re-creates every view from that catalogue (idempotent, owner only, executable by no API role), and `private.drop_analytics_clean_views()` drops them all. Both are closed to anon, authenticated and service_role, as is the catalogue.
+
+* **ADD COLUMN** on any table behind a view: add `select private.rebuild_analytics_clean_views();` after the `ALTER TABLE` in the same migration. Without it the RPCs cannot see the column.
+* **DROP COLUMN or ALTER COLUMN TYPE** on such a table: Postgres refuses while a view uses the column. In the same migration, in this order: `select private.drop_analytics_clean_views();`, the `ALTER TABLE`, `select private.rebuild_analytics_clean_views();`. If the new column set breaks a predicate (for example the person column is renamed), edit the row in the catalogue first.
+* **A new relation behind a new view:** insert its row in the catalogue (source and select, predicate with `profiles.is_test`), then rebuild. A new analytics_* function must read it through `analytics_clean.<name>`; the scan in `oq39_analytics_exclude_test_data.sql` enforces that.
+* **Enforcement:** `packages/db/tests/oq39_analytics_clean_views_drift.sql` (in `ci.manifest`) fails when any source table has a column its view lacks, and prints the exact fix line (`select private.rebuild_analytics_clean_views();`). It carries a sabotage row (a column added to a real table is flagged, the fix clears it) and runs the DROP COLUMN / ALTER TYPE recipe on a fixture table: a direct `ALTER COLUMN TYPE` is refused with `0A000`, the drop, alter, rebuild sequence succeeds inside one transaction and the rebuilt view keeps the `is_test` filter. A view that exists without a catalogue row, or the reverse, also fails.
+
 ## Risk
-* Column drift: a view freezes its column list. A column added later is invisible to the RPCs until the view is re-created; dropping a selected column fails loudly. Accepted.
+* Column drift: a view freezes its column list. Handled, not just accepted: see the recipe below.
 * Behaviour change: dashboards drop to zero test rows (intended).
 * Not covered: `leads` (no account), the exempt lookups, and any direct table read outside these RPCs (the three `*_quality_metrics` views, OQ-39 part 2, are separate and unchanged).
 
