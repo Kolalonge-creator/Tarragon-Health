@@ -1,4 +1,4 @@
-import { parseQuote } from "@tarragon/commerce";
+import { parseNotIncluded, parseQuote, type NotIncludedEntry } from "@tarragon/commerce";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -16,6 +16,7 @@ export default async function IncludedPage({ params }: { params: Promise<{ code:
   const { uiLanguage } = await getPatientDashboardContext();
   let item = null;
   let yours: number | null = null;
+  let notIncluded: readonly NotIncludedEntry[] = [];
   if (CODE.test(code)) {
     const supabase = await createClient();
     // same visibility as the shop: an item that is not on sale shows nothing, so no price is shown before launch
@@ -25,12 +26,14 @@ export default async function IncludedPage({ params }: { params: Promise<{ code:
       item = parsed.data;
       const { data: q } = await supabase.rpc("price_quote", { p_code: code });
       yours = parseQuote(q)?.amountDueKobo ?? null;
+      const { data: ni } = await supabase.rpc("catalogue_not_included", { p_code: code });
+      notIncluded = parseNotIncluded(ni)[code] ?? [];
     }
   }
   return (
     <div className="space-y-6">
       <PageHeader title="What is included" icon={SEMANTIC_ICON.billing} backTo={{ href: "/patient/membership", label: "Membership" }} />
-      <IncludedView item={item} yourPriceKobo={yours} locale={uiLanguage} />
+      <IncludedView item={item} yourPriceKobo={yours} locale={uiLanguage} notIncluded={notIncluded} />
     </div>
   );
 }

@@ -3,10 +3,10 @@ import { ActivityIndicator, Alert, Switch, Text, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
 import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
-import { estimatedBreakdown, formatNaira, type FeeEstimateSchedule, type Quote } from "@tarragon/commerce";
+import { estimatedBreakdown, formatNaira, monthlyEquivalentKobo, type FeeEstimateSchedule, type NotIncludedEntry, type PriceChangeNotice, type Quote } from "@tarragon/commerce";
 import { getProposedConfig, type ConfigValue } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
-import { loadCatalogue, loadMembership, loadMyOrders, loadQuote, startCheckout, verifyOrder } from "@/lib/commerce/api";
+import { loadCatalogue, loadMembership, loadMyOrders, loadNotIncluded, loadPriceChangeNotices, loadQuote, startCheckout, verifyOrder } from "@/lib/commerce/api";
 import { EntitlementsSection } from "./entitlements-section";
 import { checkoutErrorKey, keepsRetryKey, orderStateKey, type CatalogueItem, type MembershipState, type OrderRow } from "@/lib/commerce/parse";
 import { useLegacyColors } from "@/ui/design";
@@ -38,6 +38,8 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   const [items, setItems] = useState<CatalogueItem[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [membership, setMembership] = useState<MembershipState>({ isMember: false, endsAt: null });
+  const [notIncluded, setNotIncluded] = useState<Readonly<Record<string, readonly NotIncludedEntry[]>>>({});
+  const [priceNotices, setPriceNotices] = useState<PriceChangeNotice[]>([]);
   const [loaded, setLoaded] = useState(false);
   // S72 (19.9): the database's own quote for each item, with and without Health Points. Points lower only Tarragon's own fee, for one payment, if chosen.
   const [quotes, setQuotes] = useState<Record<string, { plain: Quote | null; points: Quote | null }>>({});
@@ -50,7 +52,10 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   const keys = useRef(new Map<string, string>());
 
   const refresh = useCallback(async () => {
-    const [c, o, m] = await Promise.all([loadCatalogue(), loadMyOrders(), loadMembership()]);
+    const [c, o, m, ni, pn] = await Promise.all([loadCatalogue(), loadMyOrders(), loadMembership(), loadNotIncluded(), loadPriceChangeNotices()]);
+    // these two only add information; a failed read shows nothing extra, never a guess
+    setNotIncluded(ni.ok ? ni.data : {});
+    setPriceNotices(!beneficiary && pn.ok ? pn.data : []);
     if (c.ok) {
       setItems(c.data);
       if (!beneficiary) {
@@ -137,6 +142,18 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
       {beneficiary ? <MutedText>{tr("circle.pay.only_year")}</MutedText> : null}
       {!beneficiary && membership.isMember && membership.endsAt ? <MutedText>{tr("shop.member_until", { date: lagos(membership.endsAt) })}</MutedText> : null}
       {!beneficiary && membership.graceEndsAt ? <MutedText>{tr("shop.in_grace", { date: lagos(membership.graceEndsAt) })}</MutedText> : null}
+      {priceNotices.length > 0 ? (
+        <Card>
+          <Text style={{ fontWeight: "700", color: colors.ink }}>{tr("pricechange.title")}</Text>
+          {priceNotices.map((n) => (
+            <View key={`${n.itemCode}-${n.endsAt}`} style={{ gap: 4, marginTop: 6 }}>
+              <Text style={{ color: colors.ink }}>{tr("pricechange.body", { name: copy(n.nameKey), paid: naira(n.paidListKobo), date: lagos(n.newFrom), price: naira(n.newKobo) })}</Text>
+              <Text style={{ color: colors.ink }}>{tr("pricechange.kept", { ends: lagos(n.endsAt) })}</Text>
+            </View>
+          ))}
+          <MutedText>{tr("pricechange.renew")}</MutedText>
+        </Card>
+      ) : null}
       {items.length === 0 ? <MutedText>{tr("shop.not_open")}</MutedText> : null}
       {items.filter((item) => !beneficiary || item.kind === "membership").map((item) => {
         const q = quotes[item.code];
@@ -153,7 +170,19 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
             {item.includedKeys.map((k) => (
               <Text key={k} style={{ color: colors.ink }}>{`• ${copy(k)}`}</Text>
             ))}
+            {(notIncluded[item.code] ?? []).filter((e) => copy(e.labelKey) !== "").length > 0 ? (
+              <View style={{ marginTop: 8 }}>
+                <Text style={{ fontWeight: "600", color: colors.ink }}>{tr("notincl.title")}</Text>
+                {(notIncluded[item.code] ?? []).filter((e) => copy(e.labelKey) !== "").map((e) => (
+                  <Text key={e.labelKey} style={{ color: colors.ink }} accessibilityLabel={e.extraCode !== null && e.amountKobo === null ? tr("notincl.ask_us_label", { name: copy(e.labelKey) }) : undefined}>
+                    {e.extraCode === null ? `• ${copy(e.labelKey)}` : `• ${copy(e.labelKey)}: ${e.amountKobo !== null ? naira(e.amountKobo) : tr("notincl.ask_us")}`}
+                  </Text>
+                ))}
+                {(notIncluded[item.code] ?? []).some((e) => e.extraCode !== null) ? <MutedText>{tr("notincl.sold_separately")}</MutedText> : null}
+              </View>
+            ) : null}
             <Text style={{ color: colors.ink, marginTop: 8 }}>{`${tr("pay.fee.price")}: ${naira(b.priceKobo)}`}</Text>
+            {monthlyEquivalentKobo(b.priceKobo, item.durationDays) !== null ? <MutedText>{tr("price.monthly_equivalent", { amount: naira(monthlyEquivalentKobo(b.priceKobo, item.durationDays) ?? 0) })}</MutedText> : null}
             <Text style={{ color: colors.ink }}>{`${tr("pay.fee.line")}: ${tr("shop.fee.about", { amount: naira(b.feeKobo) })}`}</Text>
             <Text style={{ color: colors.ink, fontWeight: "700" }}>{`${tr("pay.fee.total")}: ${tr("shop.fee.about", { amount: naira(b.totalKobo) })}`}</Text>
             <MutedText>{tr("pay.fee.explain")}</MutedText>

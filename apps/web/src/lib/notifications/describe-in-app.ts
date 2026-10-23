@@ -144,6 +144,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "consult_join_ready") {
     return { text: "Your consultation room is open. Open the app to join.", href: `/patient/consultation/${String(payload.encounter_id ?? "")}` };
   }
+  // WP1: a neutral preview (INV-07); the details are on the Membership screen, never in the bell.
+  if (n.template === "price_change_notice") {
+    return { text: "A price is changing. You have already paid for what you hold, so nothing changes for you. Open the app to see the details", href: "/patient/membership" };
+  }
   // PCC: neutral previews (INV-07).
   if (n.template === "consult_checkin_due") {
     return { text: "Your care team has a quick check-in for you. Open the app to answer", href: `/patient/consult-checkin/${String(payload.checkin_id ?? "")}` };

@@ -4179,6 +4179,21 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S73.md; docs/DECISIONS.md S72-1, S73-1; OQ-321, OQ-324",
   },
   {
+    key: "pricing.transparency",
+    // Pricing transparency (WP1, competitor gaps B1 to B3). monthly_equivalent: a yearly price is also shown as about a twelfth each month, in
+    // whole naira (kobo / 12 rounded half up), for an item that lasts between annual_duration_days.min and .max days, ALWAYS with "billed once a
+    // year" beside it: it is a way to compare, not a payment plan, and no monthly payment exists (decided; instalments were removed). It is never
+    // shown for Free, for a sponsor-covered price or when a quote leaves nothing to pay. max_not_included: how many things one item may list as not
+    // included (the database allows the same number). The not-included LISTS themselves are data (public.catalog_item_extras, effective-dated), and
+    // a price on that list always comes from the price book, never from here.
+    value: { monthly_equivalent: { months: 12, rounding: "half_up_whole_naira" }, annual_duration_days: { min: 360, max: 370 }, max_not_included: 12 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-23",
+    source: "docs/research S71-S75 competitor gap analysis (B1, B2, B3); docs/DECISIONS.md S72-2 (no monthly billing)",
+  },
+  {
     key: "commerce.processing_fee_estimate",
     // v3 (S71, 19.4 and 19.7): adds the estimate for a card issued outside Nigeria, which a Care Circle supporter abroad will often use. Paystack lists
     // 3.9 percent + NGN 100, uncapped, for international cards (the 2026-10-06 reading recorded in v2). The local figures are unchanged. Still only an

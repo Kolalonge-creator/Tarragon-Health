@@ -1,6 +1,6 @@
 import type { QueryResult } from "../medications";
 import { supabase } from "../supabase";
-import { parseCreatedPaymentRequest, parseEntitlements, parsePaymentRequests, parseQuote, type CreatedPaymentRequest, type EntitlementView, type PaymentRequestRow, type Quote } from "@tarragon/commerce";
+import { parseCreatedPaymentRequest, parseEntitlements, parseNotIncluded, parsePaymentRequests, parsePriceChangeNotices, parseQuote, type CreatedPaymentRequest, type EntitlementView, type NotIncludedEntry, type PaymentRequestRow, type PriceChangeNotice, type Quote } from "@tarragon/commerce";
 import { parseCatalogue, parseCheckout, parseCovered, parseMembership, parseOrders, parseVerify, type CatalogueItem, type MembershipState, type OrderRow } from "./parse";
 
 /** The patient side of S25 checkout. Only the item code and a retry key are ever sent; the price comes from the database. */
@@ -12,6 +12,16 @@ export type CheckoutResult =
 export async function loadCatalogue(): Promise<QueryResult<CatalogueItem[]>> {
   const { data, error } = await supabase.rpc("catalogue");
   return error ? { ok: false, error: error.message } : { ok: true, data: parseCatalogue(data) };
+}
+/** What each item does not include, with the price of each extra today (null means "Ask us"). Shown beside the price, never instead of it. */
+export async function loadNotIncluded(): Promise<QueryResult<Readonly<Record<string, readonly NotIncludedEntry[]>>>> {
+  const { data, error } = await supabase.rpc("catalogue_not_included");
+  return error ? { ok: false, error: error.message } : { ok: true, data: parseNotIncluded(data) };
+}
+/** A price is changing for something the signed-in person already holds. */
+export async function loadPriceChangeNotices(): Promise<QueryResult<PriceChangeNotice[]>> {
+  const { data, error } = await supabase.rpc("my_price_change_notices");
+  return error ? { ok: false, error: error.message } : { ok: true, data: parsePriceChangeNotices(data) };
 }
 export async function loadMyOrders(): Promise<QueryResult<OrderRow[]>> {
   const { data, error } = await supabase.rpc("my_orders");
