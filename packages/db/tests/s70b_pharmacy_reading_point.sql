@@ -8,7 +8,7 @@
 -- assisted_entry_pharmacy_enabled cannot be switched on (no conditions are defined, by design; this migration does not touch private.go_live_conditions), so that insert must be REFUSED.
 -- Only after that does the proof replace the open() function with the seam alone, INSIDE the rolled-back transaction, to exercise the rest.
 -- SABOTAGE (each must flip at least one check): (1) the reading cap removed from the claim, (2) the person check removed from claim, seam and organisation lookup,
--- (3) the go-live guard AND removed from open() (the 'refused while the real guard is off' check must flip), (4) the live-pharmacy check removed.
+-- (3) the go-live guard AND removed from open() (the 'refused while the real guard is off' check must flip), (4) the live-pharmacy check removed, (5) no visit needed at all (a pharmacist with no open visit then gets a reading in).
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -75,9 +75,23 @@ begin
   if w = v then raise exception 'sabotage text not found in %.%', p_schema, p_name; end if;
   execute w;
 end $f$;
+-- Test-only stand-in for the go-live guard (which cannot be switched on): open() becomes the seam alone, and the assisted-entry basis function stops asking the guard too.
+-- Without the second part the assisted-entry guard trigger (which asks private.assisted_entry_basis) would refuse every pharmacist insert, exactly as it should while the
+-- real guard is off. The 'real gate' check runs BEFORE this and proves that refusal. Idempotent.
 create function pg_temp.seam_only() returns void language plpgsql as
 $f$ begin
   execute 'create or replace function private.pharmacy_assisted_entry_open(p_patient uuid) returns boolean language sql stable security definer set search_path = '''' as $b$ select private.pharmacy_assisted_entry_allowed(p_patient) $b$';
+  if (select p.prosrc from pg_proc p where p.proname = 'assisted_entry_basis' and p.pronamespace = 'private'::regnamespace) like '%go_live_guard_on(''assisted_entry_pharmacy_enabled'')%' then
+    perform pg_temp.sab('private', 'assisted_entry_basis', 'if private.go_live_guard_on(''assisted_entry_pharmacy_enabled'')', 'if true');
+  end if;
+end $f$;
+-- Sabotage helper: the seam, the organisation lookup and the claim check all say yes whether or not a visit exists.
+create function pg_temp.open_to_everyone() returns void language plpgsql as
+$f$ begin
+  execute 'create or replace function private.pharmacy_assisted_entry_allowed(p_patient uuid) returns boolean language sql stable security definer set search_path = '''' as $b$ select true $b$';
+  execute 'create or replace function private.pharmacy_visit_org(p_patient uuid) returns table (organisation_id uuid) language sql stable security definer set search_path = '''' as $b$ select p.organisation_id from public.profiles p where p.id = p_patient $b$';
+  perform pg_temp.sab('public', 'pharmacist_record_bp', 'if v_org is null then', 'v_org := coalesce(v_org, (select p.organisation_id from public.profiles p where p.id = p_patient)); if false then');
+  perform pg_temp.seam_only();
 end $f$;
 
 create function pg_temp.run(p_phase text) returns void language plpgsql as
@@ -231,6 +245,11 @@ do $$ begin perform pg_temp.run('sab_guard'); end $$;
 select pg_temp.sab('private', 'pharmacy_partner_live', 'select coalesce((select pp.is_active', 'select true or coalesce((select pp.is_active');
 do $$ begin perform pg_temp.run('sab_live'); end $$;
 
+-- SABOTAGE 5: no visit needed at all (seam, organisation lookup and the claim check all say yes): a pharmacist with NO open visit then gets a reading in, so the
+-- 'no visit yet' refusal must flip. It is installed before run(), so step 3 sees the sabotaged state.
+select pg_temp.open_to_everyone();
+do $$ begin perform pg_temp.run('sab_novisit'); end $$;
+
 do $$
 declare v_bad integer; v_flip integer; v_ph text; v_check text;
 begin
@@ -243,7 +262,8 @@ begin
       ('sab_limit', 'reading 4 is past the limit and is refused'),
       ('sab_person', 'the visit does not cover a different person'),
       ('sab_guard', 'real gate: insert refused while the go-live guard is off'),
-      ('sab_live', 'a deactivated pharmacy cannot open a visit')) as t(ph, chk) loop
+      ('sab_live', 'a deactivated pharmacy cannot open a visit'),
+      ('sab_novisit', 'no visit yet: a pharmacist cannot record a reading')) as t(ph, chk) loop
     select count(*) into v_flip from results where phase = v_ph and check_name = v_check and expected is distinct from actual;
     if v_flip < 1 then raise exception 'VACUOUS TEST: sabotage % did not flip "%"', v_ph, v_check; end if;
   end loop;
