@@ -5305,6 +5305,32 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-726 S67-screens: nothing was rendered in a browser or simulator; the screens are checked by tests and type checks only (raised by the S67 screens build)
 - Web: React Testing Library plus axe, 23 tests. Phone: pure logic and outbox tests only (the mobile jest config renders no components), so `pregnancy-tools.tsx` has not been run on a device. Needs a look on web, an Android phone and an iPhone once `maternal_enabled` is on for a test account.
 - Decision: open (needs a test session).
+## S58b (pending credit, milestone celebrations, points returned on refund; 2026-10-22)
+
+### OQ-S58b-01 Which switch turns points at checkout on, and who sets the numbers (raised by S58b)
+- The brief asked to wire S58's `apply_points_discount` to checkout. It does not exist (S58 migration 3 dropped it on 2026-10-16; S71 to S73 own points at checkout). The live path is switched by `pricing_config.rules.points.enabled` (false) with `points_per_step` 100, `reduction_per_step_kobo` 5000, `max_steps_per_order` 5, `max_percent_of_service_fee` 50 (all PROPOSED). The S58 value `rewards.points_redemption_cap_kobo` (0) and OQ-S58-01's share and cap values belong to the unbuilt path and are not read by anything live.
+- Founder: confirm that the S73 rules are the one true set (then retire `rewards.points_redemption_cap_kobo` and OQ-S58-01's redemption half), or ask for the S58 percentage-of-price model instead (that would be a second path and needs a decision against INV-09). Until then no live numbers were chosen and points stay off.
+- Decision: DECIDED (founder, 2026-10-23): the S73 rules are the one true set, read from `pricing_config.rules.points` (live value checked 2026-10-23: `enabled` false, 100 points per step, 5000 kobo per step, 5 steps, 50 percent cap). `rewards.points_redemption_cap_kobo` stays unread and is to be retired with OQ-S58-01's redemption half; no second path is built. Points stay off until the founder turns the switch on.
+
+### OQ-S58b-02 Should a refund return the points that were spent? (raised by S58b)
+- Built as yes: a paid order that spent points and is refunded returns exactly those points once, as a non-earning `release` row. The alternative (keep them spent) means the cash comes back and the points do not. Partial refunds: the order model has only whole-order `refunded`, so a partial refund is not represented.
+- Decision: open (founder). Confirm or remove the `refunded` branch of `private.orders_pricing_effects`.
+
+### OQ-S58b-03 No notification for a milestone (raised by S58b)
+- The brief made an in-app inbox item optional. It was not built: OQ-S58-09 says no points notification exists, and a milestone names a care step (INV-07). If wanted, it must be one neutral, key-based, in-app item ("You have a new card on your Wellness page") with no step named, never push-required.
+- Decision: open (founder).
+
+### OQ-S58b-04 Milestones and points for under-18 dependants (raised by S58b; resolved by the S04b-1 guard)
+- No milestone or points row is ever written for an under-18 dependant. S04b-1 guards every `patient_id` table (including `points_award_decisions` and `milestones_achieved`); `public.points_award` returns 0 for a minor dependant before any write (it used to risk a 42501 inside the award path), milestone evaluation and the backfill skip them, and no card is shown. The earlier `show_to_minors` switch was removed because it could never apply. Only if the founder wants minors to hold milestones would `milestones_achieved` have to be classified `allowed` with `private.classify_minor_dependant_table` (a product and DPO decision, not done).
+- Decision: closed unless the founder reopens (founder).
+
+### OQ-S58b-05 Milestone list and the four-week rule are PROPOSED (raised by S58b)
+- Seven milestones; four weeks of check-ins means 24 of the last 28 Lagos days (28 minus the `streak_grace` allowance of 1 per 7). A first blood pressure or glucose check celebrates whatever the value, if it is plausible; "first reading in range" is deliberately absent. Pending credit: expected within 15 minutes, ask after 120, look back 72 hours; a card is shown at most 72 hours after first shown. All unsigned, not clinical.
+- Decision: open (founder). The CMO is informed that a dangerous but plausible first reading still celebrates the step.
+
+### OQ-S58b-06 The DB proof has not run on the real schema (raised by S58b)
+- Docker was down. The proof `s58b_pending_credit_milestones_refund.sql` passed (59 rows including 5 sabotage flips) only against a stubbed scratch Postgres 16 that stands in for upstream objects. Run it with `run-db-proofs.sh` on a local stack before merging; merging auto-applies migrations.
+- Decision: open (engineering).
 
 ### OQ-S59d-01 Which draft does the CMO sign? (raised by S59d, 2026-10-22)
 - There are now two unsigned drafts in `triage_protocols`: the S59 draft (signed adult pathways, chest pain with no floor, adult v2 extras, three paediatric pathways) and the S59d draft, which is a strict superset of it plus adult fever with suspected malaria or typhoid, pregnancy danger signs, high blood pressure complications and diabetes complications. Signing replaces the whole active config.
