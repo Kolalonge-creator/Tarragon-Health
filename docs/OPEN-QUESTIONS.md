@@ -5543,6 +5543,7 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-S59d-08 Nothing yet lets a clinician type the ICD-10 code (raised by S59d, 2026-10-22)
 - The audit feed needs `clinical_encounter_notes.diagnosis_code`, set on a draft note by the new `set_encounter_note_diagnosis_code`. No note editor field calls it yet, so no auto row can exist until the editor (and the scribe draft path) gain a code field. The free-text `diagnosis` is not parsed.
 - Choices made and open: a signed amendment of any kind (correction, addendum or late entry) retracts the original's row, and only a coded amendment writes a new one; async and phone consultations are not linked (the chain is booking-based); a retraction after a monthly report was generated does not change that report (reports are permanent).
+- Built 2026-10-23 (note-editor-icd10): the draft note card has an optional "ICD-10 code" input under Diagnosis (shape checked in the browser by `lib/clinical/icd10.ts`, the same pattern as the database check). It saves through `set_encounter_note_diagnosis_code` on Save changes and before signing; a malformed code blocks both. The scribe draft fills the same card, so it needs no separate field. The first save of a brand-new note has no code box; it appears once the draft exists. Other open choices below are unchanged.
 - Decision: open (product, CMO).
 
 ### OQ-S59d-09 Check the live active protocol row before the app gate ships (raised by S59d, 2026-10-22)
