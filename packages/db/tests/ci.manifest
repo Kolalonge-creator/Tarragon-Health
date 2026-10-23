@@ -1483,3 +1483,6 @@ s59d_draft_protocol_never_live.sql
 
 # S59d (OQ-S59d-05 decided): pregnancy answers are the person own. A check logged by someone else is refused for the pregnancy pathway (42501) and a pregnant history answer is removed from its stored capture; the person themselves is untouched. Sabotage: trigger dropped, the proxy pathway must be recorded. NOT RUN by its author (Docker down); trigger exercised on a stub schema.
 s59d_proxy_pregnancy_guard.sql
+
+# WP7 (OQ-WP3-04): the shared blood pressure usable-reading rule. Empty flag list never qualifies; helper truth table, bp_window_stats on a mixed fixture, structure of the 4 converted objects, API-role closure. Sabotage: old inline pattern restored in bp_window_stats must change the count. Reports calling the helper: snapshot job and the two cohort views are checked structurally, not by value.
+wp7_bp_usable_reading_rule.sql
