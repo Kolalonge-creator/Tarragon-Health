@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { useGrowthMeasurements, useLogGrowthMeasurement, useMaternalFollowUpOpen } from "@/lib/queries/growth";
 import { t } from "@tarragon/i18n";
@@ -10,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HideOnThisPhone } from "@/components/privacy/hide-on-this-phone";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
 import { formatPatientDate } from "@/lib/format-date";
@@ -38,7 +40,7 @@ function formatDate(iso: string): string {
  * header), they read "Reference data pending", never a fabricated percentile.
  * Renders nothing for a subject 19 or older — this is a paediatric chart.
  */
-export function GrowthTrackingCard({
+function GrowthTrackingCardBody({
   patientId,
   organisationId,
   ageYears,
@@ -252,5 +254,33 @@ export function GrowthTrackingCard({
         </form>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * The growth card with the "Hide in this browser" switch (UI-B). The flag is keyed by the signed-in ACCOUNT and the child being
+ * measured, so two people (or two children) on one browser keep separate choices. Nothing is drawn until the account is known, so a
+ * hidden card never flashes; with no signed-in account the card is simply shown.
+ */
+export function GrowthTrackingCard(props: { patientId: string; organisationId: string | null; ageYears: number | null }) {
+  const [account, setAccount] = useState<{ resolved: boolean; id: string | null }>({ resolved: false, id: null });
+  useEffect(() => {
+    let alive = true;
+    void createClient().auth.getUser().then(({ data }) => {
+      if (alive) setAccount({ resolved: true, id: data.user?.id ?? null });
+    }, () => {
+      if (alive) setAccount({ resolved: true, id: null });
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (props.ageYears !== null && props.ageYears >= 19) return null;
+  if (!account.resolved) return null;
+  if (!account.id) return <GrowthTrackingCardBody {...props} />;
+  return (
+    <HideOnThisPhone accountId={`${account.id}.${props.patientId}`} card="growth">
+      <GrowthTrackingCardBody {...props} />
+    </HideOnThisPhone>
   );
 }

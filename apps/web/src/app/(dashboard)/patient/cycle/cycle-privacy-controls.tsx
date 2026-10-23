@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { formatPatientDate } from "@/lib/format-date";
 import { t } from "@tarragon/i18n";
+import { WhoCanSeeThis } from "@/components/privacy/who-can-see-this";
 import { parseAccessLog, parseDeletionStatus, type AccessRow, type DeletionStatus } from "./privacy-parsers";
 
 /**
@@ -56,6 +57,7 @@ export function CyclePrivacyControls() {
 
   return (
     <div className="space-y-6">
+      <WhoCanSeeThis />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{t("cycle.access.title")}</CardTitle>
