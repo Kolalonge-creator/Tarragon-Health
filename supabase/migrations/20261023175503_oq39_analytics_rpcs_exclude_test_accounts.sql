@@ -7,12 +7,12 @@
 -- public.<t> / private.<t> text-replaced by analytics_clean.<t>. Signature, return type, volatility, SECURITY DEFINER,
 -- search_path = '' and grants are unchanged (CREATE OR REPLACE keeps the ACL; the grants are restated below anyway).
 --
--- Counted first (live, 2026-10-23): 56 analytics_* functions in public, all SECURITY DEFINER with search_path = '',
--- EXECUTE for authenticated + service_role only (anon false). 6 profiles carry is_test = true. Three functions have no
--- caller in apps/, packages/, supabase/functions, any cron job, view, policy or other function body
--- (analytics_clinical_rule_performance, analytics_health_economics, analytics_population_dataset_preview). They are
--- NOT dropped: filtering them is the same mechanical edit and dropping a function an unmerged branch may call is the
--- riskier act. Retire them in a separate decision.
+-- Counted first (live, 2026-10-23): 56 analytics_* functions in public, all SECURITY DEFINER with search_path = '', ACL
+-- (postgres, authenticated, service_role) (anon none; read from proacl). 6 profiles carry is_test = true.
+-- Three functions have no caller on main-dev (analytics_clinical_rule_performance, analytics_health_economics,
+-- analytics_population_dataset_preview). Only analytics_clinical_rule_performance is retired below: it has no caller
+-- on any branch either, and no cron job, view, policy or function body names it. The other two are called from apps code
+-- on the unmerged branch origin/worktree-population-health-intelligence-gaps, so they are kept and filtered.
 --
 -- Also re-created because they feed an analytics_* RPC: private.refresh_analytics_snapshot_business_summary() (the
 -- nightly snapshot analytics_business_summary reads; it is refreshed at the end of this migration) and
@@ -64,18 +64,6 @@ create or replace view analytics_clean.care_team_assignment with (security_invok
 create or replace view analytics_clean.clinical_incident_reports with (security_invoker = true) as
   select t.* from public.clinical_incident_reports t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
 
-create or replace view analytics_clean.clinical_rule_action_records with (security_invoker = true) as
-  select t.* from public.clinical_rule_action_records t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
-
-create or replace view analytics_clean.clinical_rule_events with (security_invoker = true) as
-  select t.* from public.clinical_rule_events t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
-
-create or replace view analytics_clean.clinical_rule_executions with (security_invoker = true) as
-  select t.* from public.clinical_rule_executions t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
-
-create or replace view analytics_clean.clinical_rules with (security_invoker = true) as
-  select t.* from public.clinical_rules t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
-
 create or replace view analytics_clean.clinical_staff with (security_invoker = true) as
   select t.* from public.clinical_staff t where not t.is_test and not exists (select 1 from public.profiles tp where tp.id = t.profile_id and tp.is_test);
 
@@ -83,7 +71,7 @@ create or replace view analytics_clean.clinician_alerts with (security_invoker =
   select t.* from public.clinician_alerts t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
 
 create or replace view analytics_clean.commissions with (security_invoker = true) as
-  select t.* from public.commissions t where not ((t.commission_type::text = 'service_purchase' and exists (select 1 from public.service_purchases s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test)) or (t.commission_type::text = 'lab' and exists (select 1 from public.lab_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test)) or (t.commission_type::text = 'pharmacy' and exists (select 1 from public.pharmacy_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test)) or (t.commission_type::text = 'referral' and exists (select 1 from public.specialist_referrals s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test)));
+  select t.* from public.commissions t where (t.commission_type is null or t.source_id is null or case t.commission_type::text when 'service_purchase' then not exists (select 1 from public.service_purchases s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test) when 'lab' then not exists (select 1 from public.lab_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test) when 'pharmacy' then not exists (select 1 from public.pharmacy_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test) when 'referral' then not exists (select 1 from public.specialist_referrals s join public.profiles tp on tp.id = s.patient_id where s.id = t.source_id and tp.is_test) when 'home_visit' then true when 'delivery' then true else false end);
 
 create or replace view analytics_clean.complaints with (security_invoker = true) as
   select t.* from public.complaints t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test) and not exists (select 1 from public.profiles tp where tp.id = t.created_by and tp.is_test);
@@ -131,7 +119,7 @@ create or replace view analytics_clean.patient_timeline with (security_invoker =
   select t.* from public.patient_timeline t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
 
 create or replace view analytics_clean.payment_transactions with (security_invoker = true) as
-  select t.* from public.payment_transactions t where not ((t.booking_order_type::text = 'service_purchase' and exists (select 1 from public.service_purchases s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test)) or (t.booking_order_type::text = 'lab' and exists (select 1 from public.lab_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test)) or (t.booking_order_type::text = 'pharmacy' and exists (select 1 from public.pharmacy_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test)) or (t.booking_order_type::text = 'referral' and exists (select 1 from public.specialist_referrals s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test)));
+  select t.* from public.payment_transactions t where (t.booking_order_type is null or t.booking_order_id is null or case t.booking_order_type::text when 'service_purchase' then not exists (select 1 from public.service_purchases s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test) when 'lab' then not exists (select 1 from public.lab_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test) when 'pharmacy' then not exists (select 1 from public.pharmacy_orders s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test) when 'referral' then not exists (select 1 from public.specialist_referrals s join public.profiles tp on tp.id = s.patient_id where s.id = t.booking_order_id and tp.is_test) when 'home_visit' then true when 'delivery' then true else false end);
 
 create or replace view analytics_clean.pharmacy_orders with (security_invoker = true) as
   select t.* from public.pharmacy_orders t where not t.is_test and not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test);
@@ -677,104 +665,6 @@ end; $function$;
 revoke all on function public.analytics_clinical_outcomes() from public, anon;
 
 grant execute on function public.analytics_clinical_outcomes() to authenticated, service_role;
-
-CREATE OR REPLACE FUNCTION public.analytics_clinical_rule_performance(p_from timestamp with time zone DEFAULT (now() - '30 days'::interval), p_to timestamp with time zone DEFAULT now())
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-declare
-  v_result jsonb;
-begin
-  if not private.is_analyst() then
-    return '{}'::jsonb;
-  end if;
-
-  select jsonb_build_object('per_rule', coalesce(jsonb_agg(t order by t.execution_count desc), '[]'::jsonb))
-    into v_result
-  from (
-    select
-      e.rule_key,
-      max(e.rule_version)                                                  as latest_version_seen,
-      r.name,
-      r.category,
-      r.domain,
-      r.status,
-      count(*)                                                             as execution_count,
-      count(*) filter (where e.mode = 'shadow')                            as shadow_execution_count,
-      count(*) filter (where e.outcome = 'actions_emitted')                as fired_count,
-      count(*) filter (where e.outcome = 'shadow_recorded')                as would_have_fired_count,
-      count(*) filter (where e.outcome = 'population_not_matched')         as out_of_population_count,
-      count(*) filter (where e.outcome = 'conditions_not_met')             as conditions_not_met_count,
-      count(*) filter (where e.outcome = 'suppressed')                     as suppressed_count,
-      count(*) filter (where e.outcome = 'superseded')                     as superseded_count,
-      count(*) filter (where e.outcome = 'error')                          as error_count,
-      coalesce(a.action_count, 0)                                          as action_count,
-      coalesce(a.override_count, 0)                                        as override_count,
-      -- Override rate is over ACTIONS THAT REALLY HAPPENED. Dividing by all
-      -- actions would let a rule sitting in shadow, which no clinician can
-      -- possibly have overridden, report a flattering 0%.
-      case when coalesce(a.emitted_count, 0) = 0 then null
-           else round(coalesce(a.override_count, 0)::numeric * 100 / a.emitted_count, 1)
-      end                                                                  as override_rate_pct,
-      coalesce(a.adjudicated_count, 0)                                     as adjudicated_count,
-      coalesce(a.false_positive_count, 0)                                  as false_positive_count,
-      case when coalesce(a.adjudicated_count, 0) = 0 then null
-           else round(coalesce(a.false_positive_count, 0)::numeric * 100 / a.adjudicated_count, 1)
-      end                                                                  as false_positive_rate_pct,
-      -- Clinician acceptance: of the actions a clinician has actually
-      -- adjudicated, the share they neither overrode nor called a false
-      -- positive. Null (not 100) when nothing has been adjudicated yet.
-      case when coalesce(a.adjudicated_count, 0) = 0 then null
-           else round(
-             (a.adjudicated_count - coalesce(a.false_positive_count, 0) - coalesce(a.override_count, 0))::numeric
-               * 100 / a.adjudicated_count, 1)
-      end                                                                  as acceptance_rate_pct
-    from analytics_clean.clinical_rule_executions e
-    left join lateral (
-      select
-        count(*)                                                     as action_count,
-        count(*) filter (where ar.status = 'emitted')                as emitted_count,
-        count(*) filter (where ar.clinician_override)                as override_count,
-        count(*) filter (where ca.resolution_outcome is not null)    as adjudicated_count,
-        count(*) filter (where ca.resolution_outcome = 'false_positive') as false_positive_count
-      from analytics_clean.clinical_rule_action_records ar
-      left join analytics_clean.clinician_alerts ca
-        on ar.produced_table = 'clinician_alerts' and ca.id = ar.produced_id
-      where ar.rule_key = e.rule_key
-        and ar.created_at >= p_from and ar.created_at < p_to
-    ) a on true
-    join analytics_clean.clinical_rules r
-      on r.id = e.rule_id
-    where e.evaluated_at >= p_from and e.evaluated_at < p_to
-    group by e.rule_key, r.name, r.category, r.domain, r.status,
-             a.action_count, a.emitted_count, a.override_count,
-             a.adjudicated_count, a.false_positive_count
-  ) t;
-
-  return coalesce(v_result, jsonb_build_object('per_rule', '[]'::jsonb)) || jsonb_build_object(
-    'window', jsonb_build_object('from', p_from, 'to', p_to),
-    'queue', (
-      select jsonb_build_object(
-        'pending',   count(*) filter (where status = 'pending'),
-        'failed',    count(*) filter (where status = 'failed'),
-        'processed', count(*) filter (where status = 'processed')
-      )
-      from analytics_clean.clinical_rule_events
-      where occurred_at >= p_from and occurred_at < p_to
-    ),
-    'awaiting_clinician_oversight', (
-      select count(*) from analytics_clean.clinical_rule_action_records
-      where status = 'awaiting_oversight'
-    )
-  );
-end;
-$function$;
-
-revoke all on function public.analytics_clinical_rule_performance(timestamp with time zone,timestamp with time zone) from public, anon;
-
-grant execute on function public.analytics_clinical_rule_performance(timestamp with time zone,timestamp with time zone) to authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.analytics_complaints_summary(p_from timestamp with time zone DEFAULT (now() - '90 days'::interval), p_to timestamp with time zone DEFAULT now())
  RETURNS jsonb
@@ -2997,9 +2887,32 @@ begin
 end;
 $function$;
 
-revoke all on function private.refresh_analytics_snapshot_business_summary() from public, anon, authenticated;
+revoke all on function private.refresh_analytics_snapshot_business_summary() from public, anon;
 
-select private.refresh_analytics_snapshot_business_summary();
+grant execute on function private.refresh_analytics_snapshot_business_summary() to authenticated, service_role;
+
+-- refresh the stored snapshot now so INV-13 holds immediately; guarded so a fresh replay without the table cannot abort
+do $$ begin
+  if to_regclass('analytics.rpc_snapshots') is not null then
+    perform private.refresh_analytics_snapshot_business_summary();
+  else
+    raise notice 'OQ-39: analytics.rpc_snapshots absent, snapshot refresh skipped (the nightly job refreshes it)';
+  end if;
+end $$;
+
+-- Retire analytics_clinical_rule_performance. Counted first (live, 2026-10-23): no caller in apps/, packages/ or supabase/functions
+-- on main-dev, none in any branch's apps code (history search), no cron job, view or policy, and no other function body names it.
+-- The assertion below repeats the function-body check so the drop cannot go through if that stops being true.
+do $$
+declare v_dep text;
+begin
+  select string_agg(p.oid::regprocedure::text, ', ') into v_dep from pg_proc p
+  where p.prosrc ilike '%analytics_clinical_rule_performance%' and p.proname <> 'analytics_clinical_rule_performance';
+  if v_dep is not null then raise exception 'OQ-39: analytics_clinical_rule_performance is referenced by %', v_dep; end if;
+  if exists (select 1 from pg_class c where c.relkind in ('v','m') and pg_get_viewdef(c.oid) ilike '%analytics_clinical_rule_performance%') then
+    raise exception 'OQ-39: a view references analytics_clinical_rule_performance'; end if;
+end $$;
+drop function if exists public.analytics_clinical_rule_performance(timestamp with time zone, timestamp with time zone);
 
 
 do $$

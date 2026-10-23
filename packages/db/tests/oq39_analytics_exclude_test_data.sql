@@ -61,11 +61,38 @@ declare v_bad text[]; v_n int; v_views int;
 begin
   select count(*) into v_n from pg_proc where pronamespace = 'public'::regnamespace and proname like 'analytics\_%';
   select count(*) into v_views from pg_class where relnamespace = 'analytics_clean'::regnamespace and relkind = 'v';
-  insert into oq39_results values ('A0 inventory: analytics_* functions and filter views', v_n || ' functions, ' || v_views || ' views', '>= 56 functions, >= 50 views',
-    case when v_n >= 56 and v_views >= 50 then 'PASS' else 'FAIL' end);
+  insert into oq39_results values ('A0 inventory: analytics_* functions and filter views', v_n || ' functions, ' || v_views || ' views', '>= 55 functions, >= 50 views',
+    case when v_n >= 55 and v_views >= 50 then 'PASS' else 'FAIL' end);
   v_bad := pg_temp.oq39_scan();
   insert into oq39_results values ('A1 no non-exempt analytics_* function reads an unfiltered person relation', coalesce(array_to_string(v_bad, '; '), 'none'), 'none',
     case when cardinality(v_bad) = 0 then 'PASS' else 'FAIL' end);
+end $$;
+
+-- A2. enum coverage: the commissions / payment_transactions views resolve the patient per order type. Every label of both enums
+-- must be handled by the view (mapped to a patient table, or declared person-less). A new label then fails here instead of
+-- silently being read as "not a test patient"; until it is mapped the view excludes the row (fail closed).
+create function pg_temp.oq39_unhandled_labels(p_enum regtype, p_view regclass, p_extra text[]) returns text[] language plpgsql as $$
+declare v_def text := pg_get_viewdef(p_view); v_bad text[] := '{}'; l text;
+begin
+  for l in select enumlabel::text from pg_enum where enumtypid = p_enum union select unnest(p_extra) loop
+    if position('''' || l || '''' in v_def) = 0 then v_bad := v_bad || l; end if;
+  end loop;
+  return v_bad;
+end $$;
+do $$
+declare v_bt regtype; v_c text[]; v_p text[]; v_s text[];
+begin
+  select a.atttypid::regtype into v_bt from pg_attribute a where a.attrelid = 'public.payment_transactions'::regclass and a.attname = 'booking_order_type';
+  v_c := pg_temp.oq39_unhandled_labels('public.commission_type'::regtype, 'analytics_clean.commissions'::regclass, '{}');
+  v_p := pg_temp.oq39_unhandled_labels(v_bt, 'analytics_clean.payment_transactions'::regclass, '{}');
+  insert into oq39_results values ('A2 every commission_type label is handled by analytics_clean.commissions', coalesce(nullif(array_to_string(v_c, ','), ''), 'all handled'), 'all handled',
+    case when cardinality(v_c) = 0 then 'PASS' else 'FAIL' end);
+  insert into oq39_results values ('A2 every booking_order_type label is handled by analytics_clean.payment_transactions', coalesce(nullif(array_to_string(v_p, ','), ''), 'all handled'), 'all handled',
+    case when cardinality(v_p) = 0 then 'PASS' else 'FAIL' end);
+  -- sabotage: a label the view does not know must be reported
+  v_s := pg_temp.oq39_unhandled_labels('public.commission_type'::regtype, 'analytics_clean.commissions'::regclass, array['zz_new_order_type']);
+  insert into oq39_results values ('A2 sabotage: an unmapped new order type is reported', array_to_string(v_s, ','), 'zz_new_order_type',
+    case when v_s = array['zz_new_order_type'] then 'PASS' else 'FAIL' end);
 end $$;
 
 -- ---------------------------------------------------------------------------------------------------------------
