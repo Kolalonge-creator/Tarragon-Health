@@ -10,7 +10,7 @@
 --   reviews it) and MED-BRE-001..005 (the breathing kind is a script item with steps and a pattern, not an audio item, and sits behind the
 --   clinical-scripts guard; the five spoken breathing guides need the CMO to decide how they are catalogued).
 -- COUNTS: media_library rows before: 12 structure placeholders and 24 draft narration scripts (none has one of these codes).
--- NOTE: tracks over 5 MB (max_track_bytes) stream but are not offered for offline download (media_offline_manifest).
+-- STREAM ONLY (founder, 2026-10-23): every row is downloadable = false, so media_offline_manifest never lists it and the app offers no offline copy.
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('audio', 'audio', true, 15728640, array['audio/mpeg'])
@@ -19,7 +19,7 @@ on conflict (id) do nothing;
 insert into public.media_library (id, code, kind, title, series, series_position, language, voice, duration_seconds, bytes, audio_url,
                                   content_status, is_placeholder, is_active, downloadable)
 select md5('tarragon-media-library:' || v.code)::uuid, v.code, v.kind, v.title, v.series, v.pos, 'en', v.voice, v.dur, v.bytes, v.url,
-       'draft', false, false, true
+       'draft', false, false, false   -- downloadable = false: stream only (founder, 2026-10-23)
 from (values
   ('med-bell', 'soundscape', 'Meditation bell (8 seconds, for timers)', 'general', 90, NULL, 8, 129193, 'https://koiplnmbgnqnbywhpjlf.supabase.co/storage/v1/object/public/audio/media-library/MED-BELL.mp3'),
   ('med-body-02', 'meditation', 'Neck and shoulders release', 'general', 20, 'Tarragon woman voice', 436, 6977453, 'https://koiplnmbgnqnbywhpjlf.supabase.co/storage/v1/object/public/audio/media-library/MED-BODY-02.mp3'),
@@ -87,6 +87,9 @@ begin
      and (is_active or content_status <> 'published' and content_status <> 'draft' or reviewed_by_name is not null
           or private.media_is_servable(is_active, content_status, is_placeholder, next_review_due));
   if v_bad <> 0 then raise exception 'FAIL: % library audio rows are active, reviewed or servable', v_bad; end if;
+  if exists (select 1 from public.media_library where audio_url like '%/public/audio/media-library/MED-%' and downloadable) then
+    raise exception 'FAIL: a library audio row is downloadable (stream only)';
+  end if;
   if exists (select 1 from public.media_library where code in ('med-ser-faith') or code like 'med-bre-%') then
     raise exception 'FAIL: a left-out file got a row';
   end if;
