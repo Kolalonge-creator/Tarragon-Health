@@ -4603,6 +4603,46 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 - `medications` has no NAFDAC column and none was added (no migration in this change). A number the person confirms fills the name and strength they can edit, then is forgotten. An unverified catalogue row never counts as a match. If the care team should see the number, that is a separate additive column and a decision on who reads it.
 - Decision: open (product).
 
+## S07y: blood pressure taken at a pharmacy or clinic machine, and the paper diary (2026-10-20)
+
+Design: `docs/design/S07y-reading-labels-and-diary.md`. All three guards (`pharmacy_bp_readings`, `paper_diary_entry`, `paper_diary_ai_reader`) are OFF and AI-021 is DISABLED. Nothing below is signed or approved by this build.
+
+### OQ-S07YL-1 Is a pharmacy or clinic machine reading a "clinic-like" reading, and is the label wording right? (raised by S07y; CMO)
+- Built: the person ticks "This was taken at a pharmacy or clinic machine" (optionally names the place). It is stored as an ordinary manual reading with the label `pharmacy_machine`, graded and triaged exactly like any reading, shown everywhere with "Taken at a pharmacy or clinic machine", and left out of the 7-day home average, the signed home check (C1) and, through it, the white-coat and masked comparison (C3). C1 to C3 are unsigned, so this exclusion is a proposal, not a clinical ruling.
+- Behaviour worth knowing: if the guard is closed at the moment a labelled reading is saved (a stale page, or a reading the phone queued before the switch went off) the reading is saved as an ORDINARY one with the setting in its note and the person is told, never refused, so a dangerous value cannot be lost to a go-live switch. In that case the reading IS counted in the home average (it carries no label), which is today's behaviour for every reading.
+- Needed: the CMO confirms (a) the wording of the tick, its hint and the label, (b) that such a reading is shown and graded but never counted as a home reading, and (c) whether a machine of unknown make and calibration should carry any caveat on the patient screen. Until then the guard has no conditions and cannot be switched on.
+- Decision: open (CMO).
+
+### OQ-S07YL-2 Which other blood pressure calculations should leave a pharmacy reading out? (raised by S07y; CMO)
+- Left out by this build: `home_bp_assess`, `hbpm_average`, `bp_window_stats`, the phone's 7-day average and home check. Still counting a pharmacy reading as any cuff reading (found by the code reviews): the ML control-rate assessment (`assess-bp-control.ts`), `risk_compute`, `outcome_compute_snapshot` (the S38 control status), `patient_monitoring_core`, the S75 cohort day and 90-day views, the clinical summary, the S46 yearly health report averages (`health_report_collect`), the S29 and S42 weekly blood pressure series, the doctor summary's "latest readings" and FHIR export (`observations` does not carry the label). So a patient and a clinician can see two different "average BP" figures (the home average, which leaves a pharmacy reading out, and the report or outcome average, which does not). Option (b) below closes that in one place. Rationale for leaving the risk and control calculations alone for now: a high pharmacy reading is real evidence about this person's control, and hiding it from a risk score is the less safe default; keeping it out of the HOME average is a question about what the average means, not about whether the reading is real. A pharmacy reading also closes the open "Missing expected blood-pressure readings" soft flag and resets the monitoring-gap clock, as any reading does.
+- Options: (a) leave as built (recommended until C1 to C3 are signed); (b) add the label to the diagnostic view's filter so every "diagnostic" reader drops it (one line, but it also changes risk and outcome figures); (c) decide reader by reader. The same list applies to `paper_diary` (OQ-S07YL-3).
+- Decision: open (CMO).
+
+### OQ-S07YL-3 May a paper-diary reading count toward the home average or the signed seven-day check? (raised by S07y; CMO)
+- Built: a diary reading is labelled "From your paper diary", is IN the general 7-day home average (it is a home reading the person wrote down) and is OUT of the signed seven-day protocol (C1 is a guided session with technique and timing that a diary cannot prove). Both are proposals.
+- Decision: open (CMO). Flipping either is one line in `home_bp_assess` or `hbpm_average`.
+
+### OQ-S07YL-4 A dangerous OLD value from a diary pages the care team and shows the emergency guidance (raised by S07y; CMO)
+- Asked for and built: a confirmed dangerous diary value fires the deterministic red-flag pipeline and the patient-facing emergency safety net exactly as a live entry does (proved for blood pressure, glucose and pulse). A value dated up to 30 days ago therefore opens an emergency record, can page, and shows "go to the nearest hospital now" even though the person may be well today. This errs on the safe side and a person who wrote a crisis number in a diary should be asked how they are.
+- Needed: whether a value older than some number of hours should instead go to a same-day care-team review without the emergency takeover. That is a clinical threshold; none was invented here. Decision: open (CMO).
+
+### OQ-S07YL-5 Confirm the PROPOSED limits (raised by S07y; CMO)
+- `vitals.diary_import` v1: a diary reading may be dated up to 30 days back (database column `offline_sync_config.diary_window_days`, drift test), one save carries at most 20 rows, a photo is at most 8 MB. A pharmacy reading keeps the existing 72 hour window. Plausibility limits are the existing `devices.plausibility` (no new limit was added). Decision: open (CMO).
+
+### OQ-S07YL-6 AI-021 (the diary reader) cannot be switched on yet (raised by S07y; CMO, DPO, founder)
+- Registered disabled, draft, not runtime governed. No evaluation run, approval or knowledge source was seeded. Before it can go live: a set of real, consented, handwritten Nigerian diary pages as golden cases (none exist), an evaluation recorded by a person (digit confusions such as 1 and 7, 5 and 6, 0 and 6 are the main risk), the data agreement with the model provider, and a clinical safety case. The photo is sent to the provider for the read and is not kept by us; the DPO should confirm that is acceptable. The typed sheet needs none of this.
+- Decision: open.
+
+### OQ-S07YL-7 The three guards have no switch-on conditions (raised by S07y)
+- A guard with no conditions reports "unknown guard" and cannot be switched on from the dashboard (fail closed). The conditions to add when the questions above are answered: for `pharmacy_bp_readings` and `paper_diary_entry` the CMO's confirmation of the label wording and the exclusions plus the clinical safety case; for `paper_diary_ai_reader` the AI-021 evaluation, the provider data agreement and the safety case. The `private.go_live_conditions` branches are patched by many open branches, so this build did not restate that function (the S43 reasoning). Test accounts pass the guards, so the whole flow can be exercised with a test account today.
+- Decision: open (the session that adds the conditions).
+
+### OQ-S07YL-8 Phase B: a pharmacist at a partner pharmacy records a reading (raised by S07y; founder, CMO, pharmacy lead)
+- Not built; designed in `docs/design/S07y-reading-labels-and-diary.md` section 9. Needs: authorship (pharmacist or the confirming patient) and what the record shows; which pharmacy roles may write and who carries the duty of care at the counter for a dangerous value; code shape, lifetime and threat model; a write-only door (INV-10/12); whether the machine's make and calibration are recorded; abuse limits; an active licensed pharmacy (none today, OQ-274). It should be decided together with the assisted-entry seam (`private.pharmacy_assisted_entry_allowed`, PR #1185), not as a second seam.
+- Decision: open.
+
+### OQ-S07YL-9 Export, FHIR and the data registry (raised by S07y; DPO)
+- `entry_origin` and `place_label` are columns on `vitals_readings`, so they are already part of the patient's own data export and the S39d registry row for that table. The place is a name the person typed; it is never used for any decision. The `observations` view (and so S44's FHIR export) does not carry the label; a pharmacy reading therefore exports as an ordinary patient-recorded observation. Options: carry the label into `observations.context` (a small change to a public view) so a receiving clinician sees the setting. Decision: open (DPO, interoperability).
 ### OQ-S06z-1 Price per megabyte behind the data-cost estimate is PROPOSED (raised by S06z, 2026-10-20)
 - `offline.data_cost.price_per_mb_kobo` is 80 (N0.80 a MB, about N800 a GB), a guess at a mid-range prepaid bundle. It only feeds a figure labelled "estimate". Needed: the founder confirms or replaces it against current Nigerian prepaid prices, by publishing a new registry version (never an edit in place).
 - Decision: open (founder).
@@ -4816,8 +4856,7 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 
 ### OQ-S47A-6 Switching the logs and the chart bands on (raised by S47a, 2026-10-20)
 - Platform modules `extended_observations` (the four logs) and `trend_target_bands` (the chart bands) are born off and the database refuses the rows while it is off. It needs: OQ-S47A-1 signed, an answer to OQ-S47A-3, and the edge function `process-events` redeployed with the S47a change to `observation-handler.ts` (it returns at once for kinds water, sleep and mood; an older deployed handler also finds nothing to grade because the context loader answers "not a blood pressure reading", but redeploy first all the same).
-- Decision: open (founder).
-### OQ-S48A-1 The activity safety rules are PROPOSED and unsigned (raised by S48a, 2026-10-20)
+- Decision: open (founder).### OQ-S48A-1 The activity safety rules are PROPOSED and unsigned (raised by S48a, 2026-10-20)
 - Every figure (48 hour red and amber windows, 7 day unsettled blood pressure window), every maximum level and every blocked kind for pregnancy, high-risk pregnancy, unsettled hypertension, arthritis and back pain is a starting proposal in `activity_safety_config` v1. The CMO reads and signs it on the sign-off hub ("Activity safety rules"). The gate already enforces these rows because it only ever restricts; if the CMO changes a row, that is a new version.
 - Also needed from the CMO: the ICD-10 prefixes and name patterns that count as arthritis, back pain and hypertension; whether a diabetes rule is wanted (v1 has none); and whether `shadow` triage rows (graded by a rule set nobody has approved) should count towards rest. v1 counts them, which is the safe direction.
 - Decision: open (CMO).
@@ -4847,8 +4886,7 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 
 ### OQ-S48A-7 Pregnancy and the enrolment gate when staff enrol a patient (raised by S48a, 2026-10-20)
 - Pregnancy is part of the enrolment gate for the patient themself, for staff the category-scoped path (`staff_may_read(..., 'reproductive_health')`) entitles, and for a system actor. For other organisation staff it is left out, so the refusal wording cannot disclose it. The cost: an untied staff member can enrol a pregnant patient into a programme the patient's own enrolment would be refused. Organisation-wide staff insert on `patient_exercise_enrollments` is existing behaviour; S39b may want to tie it.
-- Decision: open (CMO and DPO).
-### OQ-IPS-1 Validate the IPS export before anyone relies on it (raised by the IPS build, 2026-10-20)
+- Decision: open (CMO and DPO).### OQ-IPS-1 Validate the IPS export before anyone relies on it (raised by the IPS build, 2026-10-20)
 - The file is IPS-shaped (structure) but no HL7 validator was run and no IPS or Nigeria Core profile is claimed. Run the HAPI validator against a real export and against the IPS implementation guide, record the result, and only then decide whether a later `fhir.ips_mapping` version may list a profile URL. Do not state conformance in product or marketing copy until then.
 - Decision: open (founder / health-informatics advisor).
 
@@ -4862,6 +4900,7 @@ This is not an open question (the heading level keeps it out of the uniqueness s
 
 ### OQ-IPS-4 Items inside general sections are not sorted by purpose, for supporters too (raised by the IPS build, 2026-10-20)
 - `fhir_export_snapshot` (S47b) hides reproductive and mental-health-named conditions, medicines and allergies only for a guardian of a 10 to 17 year old without a waiver. A supporter who holds only the medications or conditions category, and the person themselves, still get such items inside Problems and Medicines, as in the existing collection export. The summary says so in words (file narrative and page copy) but a sentence is not a control. Decide whether the snapshot should withhold those items for every non-self reader, and whether a stopped medicine should be left out of the Medicines section. Do not weaken the existing exclusion; this build adds no new way to read them.
+- Decision: open (CMO / DPO).
 - Decision: open (CMO / DPO).
 ### OQ-RRL-1 Counsel must review the letter wording and the reply period (raised by the records request build, 2026-10-20)
 - `records_request.letter` v1 is engineer-written, UNSIGNED placeholder wording. It names the Nigeria Data Protection Act 2023 right of access as the person's own request and states no section, deadline or penalty. `records_request.response_days` (30) is a placeholder reminder period, not a statement of what the law requires. Counsel supplies approved wording and the period as a higher config version; until then the UI says the wording is a draft. Do not show anything as legal advice.
