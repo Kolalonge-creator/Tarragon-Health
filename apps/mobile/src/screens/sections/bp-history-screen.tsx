@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
+import { entryOriginLabelKey } from "@tarragon/shared";
 import { askForCorrection, loadBpHistory, type BpHistoryLoad } from "@/lib/bp-history";
 import {
   buildHistory,
@@ -139,6 +140,9 @@ function ReadingCard({ row, tr, onAsk }: { row: HistoryRow; tr: (k: MessageKey, 
       ? tr("history.sync.not_accepted", { code: reading.supportCode ?? "" })
       : tr(`history.sync.${reading.syncState}` as MessageKey);
 
+  // S07y: a reading taken at a pharmacy or clinic machine, or copied from a paper diary, says so on every row (never hidden)
+  const originKey = entryOriginLabelKey(reading.entryOrigin);
+
   return (
     <Card style={{ gap: space.sm }}>
       <AppText
@@ -149,6 +153,7 @@ function ReadingCard({ row, tr, onAsk }: { row: HistoryRow; tr: (k: MessageKey, 
       </AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
         <Badge label={tr(`history.source.${reading.source}` as MessageKey)} />
+        {originKey ? <Badge label={tr(originKey)} /> : null}
         <Badge label={syncText} tone={syncTone} />
       </View>
       {correction ? (

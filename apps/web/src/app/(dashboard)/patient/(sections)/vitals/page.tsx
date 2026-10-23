@@ -1,4 +1,7 @@
+import Link from "next/link";
 import { ageFromDateOfBirth } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
+import { readProvenanceGuards } from "@/lib/diary/guards";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -34,6 +37,8 @@ import { VisitReportCard } from "@/app/(dashboard)/patient/visit-report-card";
 export default async function PatientVitalsPage() {
   const { profile, subjectId, subjectDateOfBirth, glucoseUnit } = await getPatientDashboardContext();
   const ageYears = ageFromDateOfBirth(subjectDateOfBirth);
+  // S07y: the pharmacy label and the paper diary are born off; the form and the link only appear once the guard is open for this person.
+  const guards = await readProvenanceGuards(await createClient());
   // S47a: water, sleep, mood and inhaler logs show only while the extended_observations module is on (born off).
   const extendedObservationsOn = await readExtendedObservationsEnabled(await createClient());
   const presentingComplaints = await listAvailablePresentingComplaints();
@@ -61,7 +66,7 @@ export default async function PatientVitalsPage() {
             one moment they are actually thinking about what happens to it. */}
         <MonitoringCoverCard />
 
-        <VitalsForm patientId={subjectId} />
+        <VitalsForm patientId={subjectId} pharmacyOpen={guards.pharmacyOpen} />
         <div className="space-y-4">
           <HbpmSummaryCard patientId={subjectId} />
           <GlucoseInsights patientId={subjectId} />
@@ -70,6 +75,14 @@ export default async function PatientVitalsPage() {
 
       {extendedObservationsOn ? <LifestyleLogCard types={["water_ml", "sleep_hours", "mood", "inhaler_use"]} /> : null}
       {extendedObservationsOn ? <InhalerHistory patientId={subjectId} /> : null}
+      {guards.diaryEntryOpen && (
+        <p className="text-sm">
+          <Link href="/patient/diary" className="font-medium underline" data-testid="diary-entry-link">
+            {t("diary.entry_link")}
+          </Link>
+          <span className="ml-2 text-charcoal-ink/60 dark:text-night-ink/60">{t("diary.entry_link_hint")}</span>
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SymptomLogForm patientId={subjectId} ageYears={ageYears} />

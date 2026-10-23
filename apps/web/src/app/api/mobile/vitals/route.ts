@@ -1,7 +1,8 @@
-import { HELD_READING_COPY } from "@tarragon/shared";
+import { HELD_READING_COPY, isLabelGuardRefusal, withoutPharmacyLabel } from "@tarragon/shared";
+import { derivedUuid } from "@/lib/vitals/derived-uuid";
+import { DEFAULT_LOCALE, t } from "@tarragon/i18n";
 import { readDeviceFlags } from "@/lib/devices/flags";
 import { readOutcome } from "@/lib/devices/reading-outcome";
-import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { runBestEffort } from "@/lib/sentry/run-best-effort";
@@ -91,8 +92,7 @@ const mobileVitalsSchema = z
 
 /** A stable UUID for a second reading made from one queued entry (RFC 4122 shape, derived from the entry's own id and a label). */
 function derivedClientId(clientReadingId: string, label: string): string {
-  const h = createHash("sha256").update(`${clientReadingId}:${label}`).digest("hex");
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
+  return derivedUuid(`${clientReadingId}:${label}`);
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -258,7 +258,18 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
   }
 
-  const { error: insertError } = await supabase.from("vitals_readings").insert(row);
+  // S07y: a place only means something with the pharmacy label (the database refuses a place without it)
+  if (row.vital_type === "blood_pressure" && !row.entry_origin) row.place_label = null;
+
+  let { error: insertError } = await supabase.from("vitals_readings").insert(row);
+  // S07y: 55000 on a labelled reading is the label's guard being closed for this person (switched off after the phone queued it, or a stale cache). A dangerous
+  // value must never be lost to a go-live switch, so the reading is saved as an ORDINARY one, exactly as it would have been before the label existed, with the
+  // setting kept in its note so the care team can still see it; the response says the label was not kept.
+  let labelDropped = false;
+  if (isLabelGuardRefusal(insertError) && row.vital_type === "blood_pressure" && row.entry_origin) {
+    ({ error: insertError } = await supabase.from("vitals_readings").insert(withoutPharmacyLabel(row, t("pharm.note_prefix", DEFAULT_LOCALE)) as TablesInsert<"vitals_readings">));
+    labelDropped = insertError === null;
+  }
   if (insertError) {
     // A queued offline reading may retry blind after a dropped connection —
     // a 23505 against vitals_readings_client_dedupe_idx means this exact
@@ -348,6 +359,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   return NextResponse.json({
     success: true,
+    ...(labelDropped ? { label_dropped: true } : {}),
     ...(safetyAssessmentFailed ? { safetyAssessmentFailed: true } : {}),
   });
 }

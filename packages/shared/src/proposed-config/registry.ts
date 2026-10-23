@@ -3718,6 +3718,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["lease\\w*days?\\s*[=:]\\s*30\\b", "probe\\w*(interval|seconds)\\w*\\s*[=:]\\s*60\\b"],
   },
   {
+    key: "offline.data_cost",
+    // S06z. PROPOSED: the price of one megabyte of mobile data in kobo (80 kobo = N0.80 a MB, about N800 a GB, a typical Nigerian prepaid
+    // bundle rate) used ONLY to show the patient an estimate of what syncing cost them on mobile data (it is labelled an estimate wherever shown;
+    // a patient's real plan will differ). max_hold_hours is the longest an ordinary reading or dose log waits for Wi-Fi when the patient has chosen
+    // "sync on Wi-Fi only"; it is held well inside the 12 hours after which the server's missed-dose job marks an unanswered dose missed, so the
+    // care team never sees a false miss because a phone stayed on mobile data. Urgent and danger-flagged entries never wait (urgent kinds are a safety rule in code, not config).
+    value: {
+      price_per_mb_kobo: 80,
+      max_hold_hours: 6,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-09-30",
+    source: "docs/design/S06z.md (data-cost meter in naira); builds on S06x data-use meter (docs/design/S06x.md section 5)",
+    guardPatterns: ["pricePerMb\\w*\\s*[=:]\\s*80\\b", "maxHold\\w*\\s*[=:]\\s*6\\b"],
+  },
+  {
     key: "medicines.dose_anchors",
     // S08z. PROPOSED: dose times anchored to daily events. `anchors` are the STARTING times shown for each anchor (waking, meals, the five daily prayers,
     // bedtime) before a patient sets their own; a patient confirms each one they use, and it is never presented as a prayer calendar or as clinical guidance. They
@@ -4212,6 +4230,33 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S51.md; docs/BUILD-SPEC-v5.md B.7 (nudges)",
   },
   {
+    key: "assistant.triage_floor_eval",
+    // Clinician-style emergency test set for the assistant's deterministic red-flag floor (INV-01). The runner is
+    // packages/clinical/src/triage-floor-eval.ts; the vignette file is packages/clinical/fixtures/triage-floor-vignettes.v1.json.
+    // Under-triage (an emergency vignette the floor misses) is never acceptable, so its ceiling is 0. Over-triage (a non-urgent vignette
+    // that trips the floor) is the accepted failure, but it is measured: the ceiling is a PROPOSED number the CMO confirms after reading
+    // the report. The two minimums stop the set being thinned out to pass. No database mirror: this is a test-time setting only.
+    value: { max_under_triage_rate: 0, max_over_triage_rate: 0.1, min_emergency_vignettes: 60, min_non_urgent_vignettes: 60 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S51.md; docs/research/S51-S55-review-and-build-plan.md; BUILD-SPEC-v5 INV-01",
+  },
+  {
+    key: "learning.expiry_alerts",
+    // Learning content that is close to its review date (the S55 expiry rule hides it ON that date and this setting never changes that rule).
+    // `thresholds_days` are the days-before-the-review-date at which the owner of an item gets one generic in-app notice and the CMO gets a
+    // digest.
+    // Mirrored by the active `expiry_alerts` row of `learning_config` (migration *_learning_expiry_backlog.sql); a test pins the two. UNSIGNED.
+    value: { thresholds_days: [30, 14, 7] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/research/S51-S55-review-and-build-plan.md; docs/design/S55.md",
+  },
+  {
     key: "devices.plausibility",
     // S70a (18.9). Two classes. IMPOSSIBLE values are held as "please confirm" and never triaged or saved to the record until the
     // person re-checks. EXTREME BUT POSSIBLE values are saved and triaged as normal (a real crisis is never blocked). The typed-entry
@@ -4408,6 +4453,80 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S55.md section 8; founder decision 2026-10-07",
+  },
+  {
+    key: "learning.reading_grade",
+    // S55 quality gates (item 12a): the highest Flesch-Kincaid grade patient content may have when published, and the shortest written reason a
+    // reviewer must give to override it. Live value is the active `reading_grade` row of `learning_config`; the database computes the grade itself
+    // (private.reading_grade, the same formula as packages/shared learning/reading-grade.ts) and refuses to publish above it. UNSIGNED: the CMO sets it.
+    value: { max_grade: 8, min_override_reason_chars: 15 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/BUILD-PROGRESS.md (learning quality gates, 2026-10-22); spec 9.6; OQ-S55-QG-01",
+  },
+  {
+    key: "learning.teachback",
+    // S55 quality gates (item 12c): one to three authored questions per lesson, two to four options each. The database enforces the same limits.
+    // Live value is the active `teachback` row of `learning_config`. UNSIGNED.
+    value: { min_questions: 1, max_questions: 3, min_options: 2, max_options: 4 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/BUILD-PROGRESS.md (learning quality gates, 2026-10-22); OQ-S55-QG-04",
+  },
+  {
+    key: "learning.record_lessons",
+    // S55 quality gates (item 7): which published lesson goes with which band of a blood pressure, glucose or lab result, and how much of a pattern
+    // is needed before a lesson above the lowest band may show. No threshold lives here: the bands come from the platform's own classifiers. The
+    // lesson codes name DRAFT rows that cannot be served until a clinician publishes them. Behind the `record_triggered_lessons_enabled` guard (OFF).
+    // Live value is the active `record_lessons` row of `learning_config`. UNSIGNED: the CMO chooses the lessons, the pattern sizes and the window.
+    value: {
+      suppress_hours_after_urgent: 72,
+      vitals: { sustained_readings: 3, window_days: 14 },
+      lab: { sustained_results: 2 },
+      lessons: {
+        blood_pressure: { in_target: "record-bp-in-target", above_target: "record-bp-above-target" },
+        glucose: { in_target: "record-glucose-in-target", above_target: "record-glucose-above-target" },
+        lab: { hba1c: { normal: "record-lab-hba1c-normal", high: "record-lab-hba1c-high" } },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/BUILD-PROGRESS.md (learning quality gates, 2026-10-22); OQ-S55-QG-02",
+  },
+  {
+    key: "learning.portion_guide",
+    // S55 quality gates (item 8): the hand-measure amounts shown in the local food portion guide for diabetes and for blood pressure. EVERY NUMBER
+    // is a placeholder, written so the screens can be built and checked, not clinical advice. A guide that uses these numbers cannot be published
+    // until a clinician or dietitian has set them and the row is marked confirmed (the database refuses while it is proposed). Live value is the
+    // active `portion_guide` row of `learning_config`; the phone bundles this value for offline use. UNSIGNED.
+    value: {
+      portions: {
+        swallow: { diabetes: { amount: 1, unit: "fist", per: "meal" }, blood_pressure: { amount: 1, unit: "fist", per: "meal" } },
+        rice_jollof: { diabetes: { amount: 1, unit: "fist", per: "meal" }, blood_pressure: { amount: 1, unit: "fist", per: "meal" } },
+        beans: { diabetes: { amount: 1, unit: "cupped_hand", per: "meal" }, blood_pressure: { amount: 1, unit: "cupped_hand", per: "meal" } },
+        soup: { diabetes: { amount: 2, unit: "cupped_hand", per: "meal" }, blood_pressure: { amount: 1, unit: "cupped_hand", per: "meal" } },
+        plantain: { diabetes: { amount: 1, unit: "palm", per: "meal" }, blood_pressure: { amount: 1, unit: "palm", per: "meal" } },
+        yam: { diabetes: { amount: 1, unit: "fist", per: "meal" }, blood_pressure: { amount: 1, unit: "fist", per: "meal" } },
+        bread: { diabetes: { amount: 2, unit: "slice", per: "meal" }, blood_pressure: { amount: 2, unit: "slice", per: "meal" } },
+        drinks: { diabetes: { amount: 0, unit: "cupped_hand", per: "day" } },
+        fruit: { diabetes: { amount: 1, unit: "fist", per: "meal" }, blood_pressure: { amount: 2, unit: "fist", per: "day" } },
+        protein: { diabetes: { amount: 1, unit: "palm", per: "meal" }, blood_pressure: { amount: 1, unit: "palm", per: "meal" } },
+        fried_food: { diabetes: { amount: 1, unit: "fist", per: "week" }, blood_pressure: { amount: 1, unit: "fist", per: "week" } },
+        seasoning_cube: { blood_pressure: { amount: 1, unit: "cube", per: "pot" } },
+        table_salt: { blood_pressure: { amount: 1, unit: "pinch", per: "pot" } },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/BUILD-PROGRESS.md (learning quality gates, 2026-10-22); OQ-S55-QG-03",
   },
   {
     key: "learning.search_gap_log",
@@ -5714,6 +5833,27 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S65.md; CMO decisions Q17 and Q18",
+  },
+  {
+    key: "vitals.diary_import",
+    // S07y. PROPOSED: how far back a reading copied from the person's own paper diary may be dated (the server column offline_sync_config.diary_window_days
+    // mirrors it and diary-import-mirror.test.ts fails if they drift; outside the window the reading is REFUSED, never stamped as now), the future skew the
+    // clock may have (the same value as offline_sync_config.future_skew_minutes), how many rows one confirmation may carry, and the largest photo of a diary page
+    // the reading assistant (AI-021, off) will accept, and how many photos one person may send for reading in an hour. It adds NO clinical threshold: what counts as impossible or dangerous is the existing devices.plausibility
+    // and the triage rules, unchanged. The Chief Medical Officer confirms the window (OQ-S07YL-5).
+    value: {
+      window_days: 30,
+      future_skew_minutes: 5,
+      max_rows_per_save: 20,
+      max_photo_bytes: 8000000,
+      max_reads_per_hour: 20,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/S07y-reading-labels-and-diary.md; supabase/migrations/20261020181520_s07y_reading_provenance_pharmacy_and_paper_diary.sql",
+    guardPatterns: ["diary\\w*days?\\s*[=:]\\s*30\\b"],
   },
   {
     key: "vitals.device_red_rules",
@@ -7278,6 +7418,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S53-pack-scan.md; NAFDAC Greenbook public examples",
   },
   {
+    key: "lab_value.duplicate_match",
+    // DUP-1: when the same lab value reaches a record by two routes (a partner lab's structured result and a filed paper report), a pair is a
+    // DUPLICATE when the code matches, the dates are within window_days, the unit is the same and the values are within value_tolerance_pct of
+    // each other. Same test and window but a different value or unit is a DISAGREEMENT: both are shown and a clinician is told, none is picked.
+    // Live values are the active row of `lab_value_match_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // PROPOSED: the CMO or the lab liaison confirms the window and the tolerance.
+    value: { window_days: 2, value_tolerance_pct: 0.5, require_same_unit: true },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/DUP-1.md",
+  },
+  {
     key: "observations.plausibility",
     // S47a (BUILD-SPEC-v5 4.3, 4.7): the typo gate for every hand-typed number. Hard limits refuse with a plain message; soft limits (water, sleep,
     // inhaler puffs) only ask the person to confirm. Mirrored in the database CHECK for the lifestyle types and the inhaler log; a test fails on drift.
@@ -7366,5 +7520,75 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-16",
     source: "docs/design/build-assisted-entry.md; supabase/migrations/*_assisted_entry_and_caregiver_red_care.sql",
+  },
+  {
+    key: "medicines.reminder_reliability",
+    // Reminder reliability on a phone that may stop background apps (Android makers such as Tecno and Infinix, and iPhone Focus or notification limits). PROPOSED, CMO owned.
+    //  unconfirmedFollowUpMinutes: one gentle follow-up this long after a dose time with no answer. maxUnconfirmedFollowUpsPerDose is the cap per dose (1).
+    //  selfTestDelaySeconds: the reliability test notification arrives this long after the person starts it. selfTestAnswerWindowSeconds: how long after it
+    //  is due the app waits before asking "did you see it?". selfTestStaleDays: a result older than this is asked for again.
+    //  iosPendingLimit: iOS keeps at most 64 pending local notifications; the rolling plan (reminders.behaviour maxPending) stays under it.
+    //  iosTimeSensitive: mark dose reminders time sensitive on iPhone. It only has an effect in a build made with IOS_TIME_SENSITIVE=1 (see app.config.js). Critical Alerts are NOT used.
+    value: {
+      unconfirmedFollowUpMinutes: 30,
+      maxUnconfirmedFollowUpsPerDose: 1,
+      selfTestDelaySeconds: 60,
+      selfTestAnswerWindowSeconds: 120,
+      selfTestStaleDays: 30,
+      iosPendingLimit: 64,
+      iosTimeSensitive: true,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/research/S08.md section 3; Founder request 2026-10-22 (item 4, reminder reliability)",
+  },
+  {
+    key: "medicines.dose_reasons",
+    // Why a dose was not taken, one tap alongside taken. `code` is stored against the dose event. `private` reasons are kept apart from the
+    // dose log (medication_dose_reasons): only the person, someone acting for them and the tied care team read them; a supporter reads one only after
+    // the person opted in for that reason (dose_reason_sharing). `status` is the dose status the tap records. `opensPharmacy`: a gentle in-app
+    // prompt to open the pharmacy page; it never raises a clinician alert by itself. The SQL function private.is_private_dose_reason mirrors the
+    // private codes; a test fails on drift.
+    value: [
+      { code: "side_effect", status: "skipped", private: false, opensPharmacy: false },
+      { code: "felt_well", status: "skipped", private: false, opensPharmacy: false },
+      { code: "ran_out", status: "not_available", private: true, opensPharmacy: true },
+      { code: "other", status: "skipped", private: false, opensPharmacy: false },
+    ],
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "Founder request 2026-10-22 (item 5); existing phone skip reasons in medications-screen.tsx",
+  },
+  {
+    key: "medicines.runway_and_stock_freshness",
+    // The "days of medicine left" bar and how old a pharmacy's stock answer may be. PROPOSED, CMO owned.
+    //  barFullDays: the bar is full at this many days or more. offerCollectBelowDays: the one-tap "choose where to collect" shows at or under this many days.
+    //  lowSupplyDays: the bar reads low at or under this many days (equals medicines.dose_rules lowSupplyDays).
+    //  maxStockAgeHours: a pharmacy stock confirmation older than this is NOT shown as available; the page says "ask the pharmacy to confirm".
+    // No price is shown (OQ-714, founder 2026-10-21).
+    value: { barFullDays: 30, offerCollectBelowDays: 14, lowSupplyDays: 7, maxStockAgeHours: 48 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "Founder request 2026-10-22 (item 9); OQ-714",
+  },
+  {
+    key: "medicines.nafdac_verify_helper",
+    // The NAFDAC check helper, behind the go-live guard nafdac_verify_helper_enabled (OFF). Founder decision 2026-10-22: a link to NAFDAC's public
+    // registered-product check only (no text message, no short code). The address was read on 2026-10-22 (the site calls itself Nigeria's Registered
+    // Product Database). A registration match is not proof that a pack is genuine.
+    value: {
+      registrationCheck: { name: "NAFDAC Greenbook", url: "https://greenbook.nafdac.gov.ng", readOn: "2026-10-22" },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "Founder request 2026-10-22 (item 14); docs/OPEN-QUESTIONS.md OQ-NAFDAC-HELPER-1",
   },
 ];

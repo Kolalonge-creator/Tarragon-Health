@@ -1,17 +1,21 @@
-import { RECHECK_WITH_FINGERTIP_OXIMETER, sourceBadgeLabel } from "@tarragon/shared";
+import { RECHECK_WITH_FINGERTIP_OXIMETER, entryOriginLabelKey, sourceBadgeLabel } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
 
 /**
  * Where a reading came from, on every reading in every list (S70a, 18.9). A typed value, a Bluetooth device, a watch or wearable, a glucose
  * sensor and a photo the person checked each read differently, so nobody mistakes a wrist estimate for a fingertip test (53.9). The words
  * come from one place, `sourceBadgeLabel` in the shared package, so web and phone say the same thing.
  */
-export function SourceBadge({ source }: { source: string | null | undefined }) {
+export function SourceBadge({ source, origin }: { source: string | null | undefined; origin?: string | null | undefined }) {
+  // S07y: a reading taken at a pharmacy or clinic machine, or copied from a paper diary, says so. The label replaces "Typed by you" (the reading was
+  // still typed by the person, but where it came from is the more useful fact), and is never left out of any list.
+  const originKey = entryOriginLabelKey(origin);
   return (
     <span
       data-testid="source-badge"
       className="ml-2 inline-block rounded-full bg-charcoal-ink/10 px-2 py-0.5 text-[11px] font-medium text-charcoal-ink/60 dark:bg-night-ink/15 dark:text-night-ink/60"
     >
-      {sourceBadgeLabel(source)}
+      {originKey ? t(originKey) : sourceBadgeLabel(source)}
     </span>
   );
 }

@@ -39,6 +39,17 @@ describe("LearningItemFooter", () => {
     expect(line.textContent).not.toContain("Review details are being added");
   });
 
+  it("shows what changed at the last review when the record has a note, and nothing when it has none (a first publish)", () => {
+    trust = { ...FULL, review_change_note: "Updated the salt advice to match the new protocol." };
+    const { rerender } = render(<LearningItemFooter code="htn-basics" title="Basics" />);
+    expect(screen.getByTestId("change-note").textContent).toBe("What changed at the last review: Updated the salt advice to match the new protocol.");
+    trust = { ...FULL, review_change_note: null };
+    rerender(<LearningItemFooter code="htn-basics" title="Basics" />);
+    expect(screen.queryByTestId("change-note")).toBeNull();
+    // the review date line is still there either way
+    expect(screen.getByTestId("trust-line").textContent).toContain("Next review due 2027-09-01");
+  });
+
   it("says details are being added, and invents nothing, when the record lacks them", () => {
     trust = { code: "old", reviewed_by_name: null, reviewed_at: null, source_reference: null, evidence_source: null, self_care_action: null, is_shareable: false };
     render(<LearningItemFooter code="old" title="Old" />);
