@@ -26,7 +26,7 @@ import { SafetyLinesPanel } from "@/components/scribe/safety-lines-panel";
 import { extractSafetyLines } from "@/lib/scribe/safety-lines";
 import { draftHash, sectionOutcomes } from "@/lib/scribe/review-record";
 import { t } from "@tarragon/i18n";
-import { ICD10_HINT, normaliseIcd10 } from "@/lib/clinical/icd10";
+import { ICD10_HINT, normaliseIcd10, saveCodeIfChanged } from "@/lib/clinical/icd10";
 import { useScribeAvailable } from "@/lib/scribe/use-scribe-available";
 import { scribeErrorMessage } from "@/lib/scribe/error-messages";
 import { createNoteAmendment, setNoteProtected, withdrawNoteAsEnteredInError } from "./note-actions";
@@ -81,7 +81,7 @@ function NoteFields({
   onChange: (field: keyof typeof values, value: string) => void;
   disabled?: boolean;
   /** Only on a saved draft: the ICD-10 code that feeds the symptom checker accuracy audit once the note is signed. */
-  diagnosisCode?: { value: string; onChange: (value: string) => void; problem: boolean };
+  diagnosisCode?: { value: string; onChange: (value: string) => void; problem: boolean; amends?: boolean };
 }) {
   return (
     <div className="grid gap-3">
@@ -140,6 +140,11 @@ function NoteFields({
             {diagnosisCode.problem ? "That is not an ICD-10 code. " : ""}
             {ICD10_HINT} It is used only when you sign the note, to check how the symptom checker did.
           </p>
+          {diagnosisCode.amends && (
+            <p className="mt-1 text-xs text-charcoal-ink/70">
+              This note amends a signed note. Signing it replaces the original&apos;s code in that check, so enter the code again if the diagnosis still stands.
+            </p>
+          )}
         </div>
       )}
       <div>
@@ -550,16 +555,15 @@ function DraftNoteCard({
 
   /** Saves the ICD-10 code when it changed. False means "do not go on": a malformed code or a refused save. */
   async function persistCode(): Promise<boolean> {
-    if (!codeCheck.ok) return false;
-    if (codeCheck.code === (note.diagnosis_code ?? null)) return true;
-    try {
-      await setCode.mutateAsync({ noteId: note.id, patientId, code: codeCheck.code });
+    const result = await saveCodeIfChanged(diagnosisCode, note.diagnosis_code ?? null, (code) =>
+      setCode.mutateAsync({ noteId: note.id, patientId, code }),
+    );
+    if (result.ok) {
       setCodeError(null);
       return true;
-    } catch (err) {
-      setCodeError(err instanceof Error ? err.message : "The ICD-10 code could not be saved.");
-      return false;
     }
+    if (result.reason === "refused") setCodeError(result.message ?? "The ICD-10 code could not be saved.");
+    return false;
   }
 
   const noteFieldsPayload = () => ({
@@ -600,7 +604,7 @@ function DraftNoteCard({
         <NoteFields
           values={fields}
           onChange={(field, value) => setFields((f) => ({ ...f, [field]: value }))}
-          diagnosisCode={{ value: diagnosisCode, onChange: setDiagnosisCode, problem: !codeCheck.ok }}
+          diagnosisCode={{ value: diagnosisCode, onChange: (value) => { setDiagnosisCode(value); setCodeError(null); }, problem: !codeCheck.ok, amends: Boolean(note.amends_note_id) }}
         />
         {codeError && <p className="text-sm text-red-600">{codeError}</p>}
         {scribeAvailable && (
@@ -644,11 +648,16 @@ function DraftNoteCard({
           <Button
             size="sm"
             variant="outline"
-            disabled={update.isPending || setCode.isPending || !codeCheck.ok}
+            disabled={update.isPending || setCode.isPending}
             onClick={async () => {
               if (!(await persistScribe())) return;
-              if (!(await persistCode())) return;
               update.mutate({ noteId: note.id, patientId, fields: noteFieldsPayload() });
+              // The other fields are saved even when the code is not valid yet; only the code waits.
+              if (!codeCheck.ok) {
+                setCodeError("The other changes were saved. Fix or clear the ICD-10 code to save it.");
+                return;
+              }
+              await persistCode();
             }}
           >
             {update.isPending ? "Saving…" : "Save changes"}
