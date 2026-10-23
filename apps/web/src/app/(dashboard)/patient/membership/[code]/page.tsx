@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { createClient } from "@/lib/supabase/server";
 import { catalogueItemSchema } from "@/lib/commerce/model";
+import { showMonthlyEquivalent } from "../monthly-switch";
 import { IncludedView } from "./included-view";
 
 export const metadata = { title: "What is included" };
@@ -33,7 +34,7 @@ export default async function IncludedPage({ params }: { params: Promise<{ code:
   return (
     <div className="space-y-6">
       <PageHeader title="What is included" icon={SEMANTIC_ICON.billing} backTo={{ href: "/patient/membership", label: "Membership" }} />
-      <IncludedView item={item} yourPriceKobo={yours} locale={uiLanguage} notIncluded={notIncluded} />
+      <IncludedView item={item} yourPriceKobo={yours} locale={uiLanguage} notIncluded={notIncluded} showMonthly={showMonthlyEquivalent()} />
     </div>
   );
 }

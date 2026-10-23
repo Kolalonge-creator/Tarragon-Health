@@ -4180,13 +4180,13 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "pricing.transparency",
-    // Pricing transparency (WP1, competitor gaps B1 to B3). monthly_equivalent: a yearly price is also shown as about a twelfth each month, in
+    // Pricing transparency (WP1, competitor gaps B1 to B3). monthly_equivalent.enabled is OFF until the founder confirms (OQ-WP1-02: the founder has said Member is one yearly payment and no monthly figure); while off, no screen shows any monthly figure. When on, a yearly price is also shown as about a twelfth each month, in
     // whole naira (kobo / 12 rounded half up), for an item that lasts between annual_duration_days.min and .max days, ALWAYS with "billed once a
     // year" beside it: it is a way to compare, not a payment plan, and no monthly payment exists (decided; instalments were removed). It is never
     // shown for Free, for a sponsor-covered price or when a quote leaves nothing to pay. max_not_included: how many things one item may list as not
     // included (the database allows the same number). The not-included LISTS themselves are data (public.catalog_item_extras, effective-dated), and
     // a price on that list always comes from the price book, never from here.
-    value: { monthly_equivalent: { months: 12, rounding: "half_up_whole_naira" }, annual_duration_days: { min: 360, max: 370 }, max_not_included: 12 },
+    value: { monthly_equivalent: { enabled: false, months: 12, rounding: "half_up_whole_naira" }, annual_duration_days: { min: 360, max: 370 }, max_not_included: 12 },
     owner: "Founder",
     status: "proposed",
     version: 1,

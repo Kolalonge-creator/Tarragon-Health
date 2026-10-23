@@ -43,7 +43,9 @@ export function NotIncludedList({ entries, locale, id }: { entries: readonly Not
  * sentence is one string so the monthly figure can never appear without the plain statement beside it. Nothing is shown for Free, a
  * covered price, or an item that is not a year long.
  */
-export function MonthlyEquivalent({ amountDueKobo, durationDays, locale }: { amountDueKobo: number; durationDays: number | null; locale: Locale }) {
+export function MonthlyEquivalent({ amountDueKobo, durationDays, locale, enabled = false }: { amountDueKobo: number; durationDays: number | null; locale: Locale; enabled?: boolean }) {
+  // off until the founder confirms (pricing.transparency, OQ-WP1-02): then nothing monthly is shown anywhere
+  if (!enabled) return null;
   const monthly = monthlyEquivalentKobo(amountDueKobo, durationDays);
   if (monthly === null) return null;
   return <p className={`text-sm ${MUTED}`}>{t("price.monthly_equivalent", locale, { amount: naira(monthly) })}</p>;

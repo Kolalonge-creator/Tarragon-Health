@@ -16,7 +16,7 @@ const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
  * sentences. It carries no personal detail beyond the price the signed-in person would pay, so its address is safe to pass on. The price
  * comes from the same database quote as checkout (S73), so this page and the charge cannot disagree.
  */
-export function IncludedView({ item, yourPriceKobo, locale, notIncluded = [] }: { item: CatalogueItem | null; yourPriceKobo: number | null; locale: Locale; notIncluded?: readonly NotIncludedEntry[] }) {
+export function IncludedView({ item, yourPriceKobo, locale, notIncluded = [], showMonthly = false }: { item: CatalogueItem | null; yourPriceKobo: number | null; locale: Locale; notIncluded?: readonly NotIncludedEntry[]; showMonthly?: boolean }) {
   if (!item) {
     return (
       <div className="space-y-3">
@@ -44,7 +44,7 @@ export function IncludedView({ item, yourPriceKobo, locale, notIncluded = [] }: 
           <div className="flex justify-between"><dt>{t(yours === null ? "pay.fee.price" : "included.list_price", locale)}</dt><dd>{"₦"}{formatNaira(item.amount_kobo)}</dd></div>
           {yours !== null ? <div className="flex justify-between font-semibold"><dt>{t("included.your_price", locale)}</dt><dd>{"₦"}{formatNaira(yours)}</dd></div> : null}
         </dl>
-        <MonthlyEquivalent amountDueKobo={yourPriceKobo ?? item.amount_kobo} durationDays={item.duration_days} locale={locale} />
+        <MonthlyEquivalent amountDueKobo={yourPriceKobo ?? item.amount_kobo} durationDays={item.duration_days} locale={locale} enabled={showMonthly} />
         <p className={`text-sm ${MUTED}`}>{t("pay.fee.explain", locale)}</p>
       </section>
       <NotIncludedList entries={notIncluded} locale={locale} id={item.code} />

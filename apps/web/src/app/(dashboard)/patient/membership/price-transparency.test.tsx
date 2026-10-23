@@ -6,6 +6,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { MonthlyEquivalent, NotIncludedList, PriceChangeCard } from "./price-transparency";
+import { showMonthlyEquivalent } from "./monthly-switch";
 import { IncludedView } from "./[code]/included-view";
 
 const ITEM = {
@@ -48,13 +49,18 @@ describe("NotIncludedList", () => {
 
 describe("MonthlyEquivalent", () => {
   it("states the monthly figure and that it is billed once a year in one sentence", () => {
-    render(<MonthlyEquivalent amountDueKobo={8_400_000} durationDays={365} locale="en" />);
+    render(<MonthlyEquivalent amountDueKobo={8_400_000} durationDays={365} locale="en" enabled />);
     expect(screen.getByText("About ₦7,000 a month. Billed once a year, not monthly.")).toBeTruthy();
+  });
+
+  it("shows nothing at all while it is switched off (the default)", () => {
+    const { container } = render(<MonthlyEquivalent amountDueKobo={8_400_000} durationDays={365} locale="en" />);
+    expect(container.textContent).toBe("");
   });
 
   it("shows nothing for Free, a covered price, or an item that is not a year long", () => {
     for (const [amount, days] of [[0, 365], [8_400_000, 90], [8_400_000, null]] as const) {
-      const { container } = render(<MonthlyEquivalent amountDueKobo={amount} durationDays={days} locale="en" />);
+      const { container } = render(<MonthlyEquivalent amountDueKobo={amount} durationDays={days} locale="en" enabled />);
       expect(container.textContent).toBe("");
       cleanup();
     }
@@ -70,7 +76,7 @@ describe("PriceChangeCard", () => {
     const text = document.body.textContent ?? "";
     expect(text).toContain("₦84,000");
     expect(text).toContain("₦129,000");
-    expect(text).toMatch(/already paid, so nothing changes for you/);
+    expect(text).toMatch(/already paid for, so nothing changes/);
     expect(text).toMatch(/Nothing is charged by itself/);
     expect(text).not.toMatch(/warning|urgent|act now|last chance|hurry/i);
     cleanup();
@@ -83,15 +89,26 @@ describe("PriceChangeCard", () => {
   });
 });
 
+describe("the switch", () => {
+  it("is off in the shipped configuration", () => {
+    expect(showMonthlyEquivalent()).toBe(false);
+  });
+});
+
 describe("IncludedView with the transparency lines", () => {
   it("puts the monthly line under the price and the not-included list on the page", () => {
-    render(<IncludedView item={ITEM} yourPriceKobo={8_400_000} locale="en" notIncluded={[{ labelKey: "catalog.notincl.medicines", extraCode: null, amountKobo: null }]} />);
+    render(<IncludedView item={ITEM} yourPriceKobo={8_400_000} locale="en" notIncluded={[{ labelKey: "catalog.notincl.medicines", extraCode: null, amountKobo: null }]} showMonthly />);
     expect(screen.getByText("About ₦7,000 a month. Billed once a year, not monthly.")).toBeTruthy();
     expect(screen.getByText("What is not included")).toBeTruthy();
   });
 
+  it("shows no monthly line while the switch is off", () => {
+    render(<IncludedView item={ITEM} yourPriceKobo={8_400_000} locale="en" />);
+    expect(screen.queryByText(/a month/)).toBeNull();
+  });
+
   it("shows no monthly line when the person's own price is zero (covered)", () => {
-    render(<IncludedView item={ITEM} yourPriceKobo={0} locale="en" />);
+    render(<IncludedView item={ITEM} yourPriceKobo={0} locale="en" showMonthly />);
     expect(screen.queryByText(/a month/)).toBeNull();
   });
 });

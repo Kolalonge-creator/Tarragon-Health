@@ -4833,8 +4833,8 @@ export const en = {
   "notincl.ask_us_label": "{name}: ask us for the price",
   "price.monthly_equivalent": "About {amount} a month. Billed once a year, not monthly.",
   "pricechange.title": "A price is changing",
-  "pricechange.body": "When you bought {name}, the usual price was {paid}. From {date} the usual price is {price}.",
-  "pricechange.kept": "You have already paid, so nothing changes for you. It stays as it is until {ends}.",
+  "pricechange.body": "When {name} was bought, the usual price was {paid}. From {date} the usual price is {price}.",
+  "pricechange.kept": "It is already paid for, so nothing changes. It stays as it is until {ends}.",
   "pricechange.renew": "If you choose to buy it again later, the price on the day you buy applies. Nothing is charged by itself.",
   // ---- S71: itemised checkout (19.7), sponsor-paid items (19.5), HMO eligibility (19.6), foreign card (19.4) ----
   "checkout.itemised.title": "What you are paying for",

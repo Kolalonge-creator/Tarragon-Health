@@ -8,6 +8,7 @@ import { EntitlementsCard } from "./entitlements-card";
 import { HmoEligibilityCard } from "./hmo-eligibility-card";
 import { FundSupportCard } from "./fund-support-card";
 import { MembershipShop } from "./membership-shop";
+import { showMonthlyEquivalent } from "./monthly-switch";
 import { RefundStatusCard } from "./refund-status-card";
 
 export const metadata = { title: "Membership" };
@@ -26,7 +27,7 @@ export default async function MembershipPage() {
       <EntitlementsCard locale={uiLanguage} />
       <RefundStatusCard locale={uiLanguage} />
       <FundSupportCard locale={uiLanguage} />
-      <MembershipShop locale={uiLanguage} fee={fee} notIncluded={parseNotIncluded(notIncluded.data)} priceNotices={parsePriceChangeNotices(notices.data)} />
+      <MembershipShop locale={uiLanguage} fee={fee} notIncluded={parseNotIncluded(notIncluded.data)} priceNotices={parsePriceChangeNotices(notices.data)} showMonthly={showMonthlyEquivalent()} />
       <HmoEligibilityCard locale={uiLanguage} />
     </div>
   );

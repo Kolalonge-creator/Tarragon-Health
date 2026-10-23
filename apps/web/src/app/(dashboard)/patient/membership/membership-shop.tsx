@@ -43,7 +43,7 @@ const goTo: Go = (url) => window.location.assign(url);
 /** Set when a supporter pays for someone in their Care Circle (S29): the order is for them, the card is the payer's own. */
 export interface Beneficiary { readonly id: string; readonly name: string }
 
-function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiaryName, notIncluded }: { item: CatalogueItem; locale: Locale; fee: FeeEstimateSchedule; memberUntil: string | null; go: Go; beneficiary: string | undefined; beneficiaryName: string | undefined; notIncluded: readonly NotIncludedEntry[] }) {
+function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiaryName, notIncluded, showMonthly }: { item: CatalogueItem; locale: Locale; fee: FeeEstimateSchedule; memberUntil: string | null; go: Go; beneficiary: string | undefined; beneficiaryName: string | undefined; notIncluded: readonly NotIncludedEntry[]; showMonthly: boolean }) {
   const start = useStartCheckout();
   // One key per card, made on first use and kept, so a double tap or a retry after a dropped connection is the SAME order.
   const clientKey = useRef<string | null>(null);
@@ -192,7 +192,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
                 <p className={`text-sm ${MUTED}`}>{t("shop.fee.estimate", locale)}</p>
               </>
             )}
-            {!codeFailed ? <MonthlyEquivalent amountDueKobo={shownKobo} durationDays={item.duration_days} locale={locale} /> : null}
+            {!codeFailed ? <MonthlyEquivalent amountDueKobo={shownKobo} durationDays={item.duration_days} locale={locale} enabled={showMonthly} /> : null}
             {pointsLine !== null && pointsQuote !== null && !blocked ? (
               <div className="space-y-1">
                 <label className={`${TOUCH} flex items-center gap-2 font-medium`}>
@@ -297,7 +297,7 @@ function History({ rows, locale, kindByCode }: { rows: OrderRow[]; locale: Local
 }
 
 /** `go` is where the patient is sent to pay; a test passes its own, the app uses the browser's navigation. */
-export function MembershipShop({ locale, fee, go = goTo, beneficiary, notIncluded = {}, priceNotices = [] }: { locale: Locale; fee: FeeEstimateSchedule; go?: Go; beneficiary?: Beneficiary; notIncluded?: Readonly<Record<string, readonly NotIncludedEntry[]>>; priceNotices?: readonly PriceChangeNotice[] }) {
+export function MembershipShop({ locale, fee, go = goTo, beneficiary, notIncluded = {}, priceNotices = [], showMonthly = false }: { locale: Locale; fee: FeeEstimateSchedule; go?: Go; beneficiary?: Beneficiary; notIncluded?: Readonly<Record<string, readonly NotIncludedEntry[]>>; priceNotices?: readonly PriceChangeNotice[]; showMonthly?: boolean }) {
   const catalogue = useCatalogue();
   const orders = useMyOrders();
   const membership = useMyMembership();
@@ -343,7 +343,7 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary, notInclude
       ) : null}
       {catalogue.isSuccess && items.length === 0 ? <p>{t("shop.not_open", locale)}</p> : null}
       {items.filter((item) => !chosenId || item.kind === "membership").map((item) => (
-        <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} beneficiary={chosenId} beneficiaryName={beneficiary?.name ?? profiles.find((p) => p.id === chosenId)?.full_name ?? undefined} notIncluded={notIncluded[item.code] ?? []} />
+        <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} beneficiary={chosenId} beneficiaryName={beneficiary?.name ?? profiles.find((p) => p.id === chosenId)?.full_name ?? undefined} notIncluded={notIncluded[item.code] ?? []} showMonthly={showMonthly} />
       ))}
       <History rows={orders.data ?? []} locale={locale} kindByCode={new Map(items.map((i) => [i.code, i.kind]))} />
     </div>

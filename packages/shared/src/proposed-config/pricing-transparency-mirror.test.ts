@@ -14,7 +14,7 @@ function read(dir: string, suffix: string): string {
 }
 
 const cfg = getProposedConfig("pricing.transparency").value as {
-  monthly_equivalent: { months: number; rounding: string };
+  monthly_equivalent: { enabled: boolean; months: number; rounding: string };
   annual_duration_days: { min: number; max: number };
   max_not_included: number;
 };
@@ -27,10 +27,15 @@ describe("pricing.transparency mirrors the code and the migration", () => {
     expect(cfg.max_not_included).toBe(MAX_NOT_INCLUDED);
   });
 
+  it("the monthly equivalent is OFF until the founder confirms it", () => {
+    expect(cfg.monthly_equivalent.enabled).toBe(false);
+    expect(cfg.monthly_equivalent.rounding).toBe("half_up_whole_naira");
+  });
+
   it("the database allows the same number of not-included rows", () => {
     const sql = read("supabase/migrations", "_wp1_pricing_transparency.sql");
     expect(sql).toContain(`>= ${cfg.max_not_included} then`);
-    expect(sql).toContain(`cardinality(v_codes) > ${cfg.max_not_included}`);
+    expect(sql).toContain(`cardinality(v_codes) + v_labels > ${cfg.max_not_included}`);
   });
 
   it("every label key the migration seeds has words in English", () => {

@@ -146,7 +146,7 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   // WP1: a neutral preview (INV-07); the details are on the Membership screen, never in the bell.
   if (n.template === "price_change_notice") {
-    return { text: "A price is changing. You have already paid for what you hold, so nothing changes for you. Open the app to see the details", href: "/patient/membership" };
+    return { text: "A price is changing. What you hold is already paid for, so nothing changes for you. Open the app to see the details", href: "/patient/membership" };
   }
   // PCC: neutral previews (INV-07).
   if (n.template === "consult_checkin_due") {

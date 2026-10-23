@@ -54,15 +54,20 @@ describe("the plan card", () => {
   });
 
   it("shows about a twelfth a month with the plain statement that it is billed once a year", () => {
-    render(<MembershipShop locale="en" fee={FEE} />);
+    render(<MembershipShop locale="en" fee={FEE} showMonthly />);
     expect(screen.getByText("About ₦7,000 a month. Billed once a year, not monthly.")).toBeTruthy();
     // the only button pays the whole year: there is no monthly option anywhere
     expect(screen.queryByText(/per month|monthly payment|instal/i)).toBeNull();
   });
 
+  it("shows nothing monthly while the switch is off, which is the default until the founder confirms", () => {
+    render(<MembershipShop locale="en" fee={FEE} />);
+    expect(screen.queryByText(/a month/)).toBeNull();
+  });
+
   it("shows no monthly line when a sponsor covers the whole price", () => {
     quote = covered;
-    render(<MembershipShop locale="en" fee={FEE} />);
+    render(<MembershipShop locale="en" fee={FEE} showMonthly />);
     expect(screen.queryByText(/a month/)).toBeNull();
   });
 

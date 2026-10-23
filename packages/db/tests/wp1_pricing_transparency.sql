@@ -9,7 +9,10 @@
 --     nothing, for a sponsor-covered purchase, for a new price equal to the old one or for the first price; a replay cannot write a second one (unique index);
 --     a failure to write a notice never blocks the price change and is recorded in audit_log
 --   * my_price_change_notices: the person sees only their own, with the old and new price in kobo; anon is refused
--- SABOTAGE: the unique index dropped, the notice trigger dropped, and the immutability trigger dropped; each check must flip.
+--   * (review fixes) the list still shows while checkout is closed; the 12-row cap counts words rows and priced rows together (extras_too_many) and both
+--     the row guard and the admin function lock the item first; the payer is told as well as the holder when they differ; the price is still set when the
+--     notice write AND the error-log write both fail, and the recorded failure carries the organisation
+-- SABOTAGE: the unique index, the notice trigger and the immutability guard dropped, and the old unprotected error handler put back; each check must flip.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -123,6 +126,13 @@ begin
   v_o := pg_temp.mk(pg_temp.f('p1'), 'wp1_year')::jsonb;
   v_ref := v_o ->> 'reference';
   perform pg_temp.pay(v_ref, 8400000);
+  -- p3 holds a second yearly entitlement that a different person (the payer, as a Care Circle supporter would) bought for them
+  v_o := pg_temp.mk(pg_temp.f('p3'), 'wp1_year')::jsonb;
+  perform pg_temp.pay(v_o ->> 'reference', 8400000);
+  perform pg_temp.setf('payer', pg_temp.mkuser(v_org, 'payer', 'patient'));
+  alter table public.orders disable trigger orders_state_machine;
+  update public.orders set buyer_profile_id = pg_temp.f('payer') where id = (v_o ->> 'order_id')::uuid;
+  alter table public.orders enable trigger orders_state_machine;
 end $$;
 
 -- 1. The not-included list: prices come from the price book, never invented ----------------------------------------------------
@@ -148,7 +158,8 @@ begin
     (select case when pg_temp.owner_sql($q$update public.catalog_items set active = false where code = 'wp1_year'$q$) = 'ok'
                  then pg_temp.q_as(v_p2, $q$select jsonb_array_length(public.catalogue_not_included('wp1_year'))::text$q$) end));
   perform pg_temp.owner_sql($q$update public.catalog_items set active = true where code = 'wp1_year'$q$);
-  perform pg_temp.ck('closed checkout shows nothing', '0',
+  -- information does not depend on the buying switch: the list is still there while checkout is closed
+  perform pg_temp.ck('closed checkout still shows the list', '1',
     (select case when pg_temp.owner_sql($q$update public.platform_modules set is_enabled = false where key = 'v5_checkout'$q$) = 'ok'
                  then pg_temp.q_as(v_p2, $q$select jsonb_array_length(public.catalogue_not_included('wp1_year'))::text$q$) end));
   perform pg_temp.owner_sql($q$update public.platform_modules set is_enabled = true where key = 'v5_checkout'$q$);
@@ -216,6 +227,25 @@ begin
     then (select count(*)::text from public.catalog_item_extras where catalog_item_id = v_year and valid_to is null) end));
 end $$;
 
+-- 3b. The cap counts the words rows too, and the trigger takes a lock so two admins cannot both pass the count
+do $$
+declare v_org uuid := pg_temp.f('org'); v_admin uuid := pg_temp.f('admin'); v_cap uuid; i integer;
+begin
+  insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, duration_days, grants_lead, active)
+  values (v_org, 'wp1_cap', 'care_pack', 'catalog.proof.name', 'catalog.proof.description', 30, false, true) returning id into v_cap;
+  for i in 1..11 loop
+    insert into public.catalog_item_extras (organisation_id, catalog_item_id, label_key, valid_from) values (v_org, v_cap, 'catalog.notincl.cap' || i, now() - interval '1 day');
+  end loop;
+  perform pg_temp.ck('eleven words rows plus two priced extras is over the cap and is refused with a clear code', 'true',
+    (pg_temp.try_as(v_admin, $q$select public.admin_set_item_extras('wp1_cap', '{wp1_extra,wp1_noprice}', 'A proper reason here')$q$) like '%extras_too_many%')::text);
+  perform pg_temp.ck('nothing was changed by the refused call', '11', (select count(*)::text from public.catalog_item_extras where catalog_item_id = v_cap and valid_to is null));
+  perform pg_temp.ck('eleven words rows plus one priced extra is exactly twelve and is allowed', 'ok',
+    pg_temp.try_as(v_admin, $q$select public.admin_set_item_extras('wp1_cap', '{wp1_extra}', 'A proper reason here')$q$));
+  perform pg_temp.ck('and the twelve are open', '12', (select count(*)::text from public.catalog_item_extras where catalog_item_id = v_cap and valid_to is null));
+  perform pg_temp.ck('the row guard locks the item before it counts', 'true', (pg_get_functiondef('private.catalog_item_extras_guard()'::regprocedure) ilike '%for update%')::text);
+  perform pg_temp.ck('the admin function locks the item before it counts', 'true', (pg_get_functiondef('public.admin_set_item_extras(text,text[],text)'::regprocedure) ilike '%for update%')::text);
+end $$;
+
 -- 4. The price-change notice -----------------------------------------------------------------------------------------------------------
 do $$
 declare v_admin uuid := pg_temp.f('admin'); v_p1 uuid := pg_temp.f('p1'); v_p2 uuid := pg_temp.f('p2'); v_new uuid; r jsonb; v_n text;
@@ -228,6 +258,9 @@ begin
   perform pg_temp.setf('newprice', v_new);
   perform pg_temp.ck('the person who paid the old price and still holds it gets exactly one notice', '1', pg_temp.notices(v_p1));
   perform pg_temp.ck('a person who holds nothing gets none', '0', pg_temp.notices(v_p2));
+  perform pg_temp.ck('the holder of a purchase made by someone else gets one notice', '1', pg_temp.notices(pg_temp.f('p3')));
+  perform pg_temp.ck('the person who paid for it gets one notice too', '1', pg_temp.notices(pg_temp.f('payer')));
+  perform pg_temp.ck('the payer can read the details', '1', (pg_temp.q_as(pg_temp.f('payer'), 'select jsonb_array_length(public.my_price_change_notices())::text')));
   perform pg_temp.ck('the notice is in-app, non-clinical, and names the price and item only', 'in_app|non_clinical|membership-free',
     (select channel::text || '|' || content_class::text || '|' || case when payload ?& array['price_id', 'item_code'] and (select count(*) from jsonb_object_keys(payload)) = 2 then 'membership-free' else 'unexpected' end
        from public.notifications where recipient_id = v_p1 and template = 'price_change_notice'));
@@ -277,6 +310,15 @@ begin
   perform pg_temp.ck('the price is set even though its notice could not be written', 'ok', v_r);
   perform pg_temp.ck('the new price exists', '1', (select count(*)::text from public.prices where catalog_item_id = pg_temp.f('year') and amount_kobo = 13500000));
   perform pg_temp.ck('the failure is recorded, not hidden', (v_before + 1)::text, (select count(*)::text from public.audit_log where action = 'price_change_notice.error'));
+  -- the error log itself failing must not block the price either
+  create function pg_temp.refuse_audit() returns trigger language plpgsql as $f$ begin raise exception 'audit_write_blocked'; end $f$;
+  create trigger wp1_refuse_audit before insert on public.audit_log for each row when (new.action = 'price_change_notice.error') execute function pg_temp.refuse_audit();
+  v_r := pg_temp.try_as(v_admin, $q$select public.set_item_price('wp1_year', 14200000, '{}', 'A change while both writes fail', now() + interval '3500 milliseconds')$q$);
+  perform pg_temp.ck('the price is set even when the failure log cannot be written either', 'ok', v_r);
+  perform pg_temp.ck('and that price exists', '1', (select count(*)::text from public.prices where catalog_item_id = pg_temp.f('year') and amount_kobo = 14200000));
+  drop trigger wp1_refuse_audit on public.audit_log;
+  perform pg_temp.ck('the recorded failure carries the organisation', pg_temp.f('org')::text,
+    (select organisation_id::text from public.audit_log where action = 'price_change_notice.error' order by created_at desc limit 1));
   drop trigger wp1_refuse_notice on public.notifications;
 end $$;
 
@@ -291,6 +333,31 @@ begin
 end $$;
 
 -- 7. SABOTAGE: three protections removed; each check must flip -------------------------------------------------------------------------------
+-- (d) the old handler: its error log has no organisation and no protection of its own, so a failing log aborts the price
+create or replace function private.notify_price_change() returns trigger language plpgsql security definer set search_path = '' as $f$
+declare prev public.prices%rowtype;
+begin
+  select * into prev from public.prices where catalog_item_id = new.catalog_item_id and valid_to = new.valid_from limit 1;
+  if not found or prev.amount_kobo = new.amount_kobo then return new; end if;
+  begin
+    insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
+    select e.organisation_id, e.patient_id, 'in_app', 'pending', 'price_change_notice', jsonb_build_object('price_id', new.id, 'item_code', 'x'), 'non_clinical'
+      from public.entitlements e join public.orders o on o.id = e.order_id where o.catalog_item_id = new.catalog_item_id and e.state = 'active';
+  exception when others then
+    insert into public.audit_log (action, entity_type, entity_id, event) values ('price_change_notice.error', 'price', new.id, '{}');
+  end;
+  return new;
+end $f$;
+create function pg_temp.refuse_any() returns trigger language plpgsql as $f$ begin raise exception 'write_blocked'; end $f$;
+create trigger wp1_sab_notice before insert on public.notifications for each row when (new.template = 'price_change_notice') execute function pg_temp.refuse_any();
+create trigger wp1_sab_audit before insert on public.audit_log for each row when (new.action = 'price_change_notice.error') execute function pg_temp.refuse_any();
+do $$
+begin
+  insert into results values ('sabotaged', 'the price is set even when the failure log cannot be written either', 'ok',
+    pg_temp.try_as(pg_temp.f('admin'), $q$select public.set_item_price('wp1_year', 14400000, '{}', 'Sabotage: the old handler', now() + interval '3600 milliseconds')$q$));
+end $$;
+drop trigger wp1_sab_notice on public.notifications;
+drop trigger wp1_sab_audit on public.audit_log;
 drop index public.notifications_price_change_once;
 drop trigger prices_notify_change on public.prices;
 drop trigger catalog_item_extras_guard on public.catalog_item_extras;
@@ -322,9 +389,9 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_real from results where phase = 'real';
-  if v_real < 50 then raise exception 'VACUOUS TEST: only % checks ran', v_real; end if;
+  if v_real < 60 then raise exception 'VACUOUS TEST: only % checks ran', v_real; end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

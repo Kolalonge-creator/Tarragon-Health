@@ -34,6 +34,8 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   const tr = useCallback((key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params), [locale]);
   const copy = useCallback((key: string) => (isKey(key) ? t(key, locale) : ""), [locale]);
   const fee = getProposedConfig<ConfigValue>("commerce.processing_fee_estimate").value as unknown as FeeEstimateSchedule;
+  // OFF until the founder confirms it (pricing.transparency, OQ-WP1-02): then no monthly figure is shown
+  const monthlyOn = (getProposedConfig<ConfigValue>("pricing.transparency").value as unknown as { monthly_equivalent?: { enabled?: unknown } }).monthly_equivalent?.enabled === true;
 
   const [items, setItems] = useState<CatalogueItem[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
@@ -182,7 +184,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
               </View>
             ) : null}
             <Text style={{ color: colors.ink, marginTop: 8 }}>{`${tr("pay.fee.price")}: ${naira(b.priceKobo)}`}</Text>
-            {monthlyEquivalentKobo(b.priceKobo, item.durationDays) !== null ? <MutedText>{tr("price.monthly_equivalent", { amount: naira(monthlyEquivalentKobo(b.priceKobo, item.durationDays) ?? 0) })}</MutedText> : null}
+            {monthlyOn && monthlyEquivalentKobo(b.priceKobo, item.durationDays) !== null ? <MutedText>{tr("price.monthly_equivalent", { amount: naira(monthlyEquivalentKobo(b.priceKobo, item.durationDays) ?? 0) })}</MutedText> : null}
             <Text style={{ color: colors.ink }}>{`${tr("pay.fee.line")}: ${tr("shop.fee.about", { amount: naira(b.feeKobo) })}`}</Text>
             <Text style={{ color: colors.ink, fontWeight: "700" }}>{`${tr("pay.fee.total")}: ${tr("shop.fee.about", { amount: naira(b.totalKobo) })}`}</Text>
             <MutedText>{tr("pay.fee.explain")}</MutedText>

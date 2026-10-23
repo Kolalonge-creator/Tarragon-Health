@@ -5,12 +5,12 @@
 --   * catalog_item_extras: effective-dated, immutable rows saying what an item does not include. A row is EITHER a real catalogue item (an
 --     "extra": its name and its price come from the catalogue and the price book, never from this table) OR an i18n label key for something that
 --     is not sold here at all (for example medicines). Closing a row is the only change ever made to one, so the history is the version trail.
---   * public.catalogue_not_included(p_code): what a signed-in patient may see, with the same visibility as catalogue() (an item that is not on
---     sale shows nothing). An extra with no live price comes back with amount_kobo null and the screen says "Ask us": a price is never invented.
+--   * public.catalogue_not_included(p_code): what a signed-in patient may see for an item that is on sale with a live price. It is information, so it is NOT
+--     tied to the checkout switch. An extra with no live price comes back with amount_kobo null and the screen says "Ask us": a price is never invented.
 --   * public.admin_item_extras() / public.admin_set_item_extras(): an admin chooses which catalogue items are listed as extras for an item,
 --     with a reason, audited. Label-only rows are code-governed (they need i18n copy) and are left alone by this function.
 --   * price_change_notice: when a new list price replaces a different one, every person holding an active, unfinished entitlement of that item
---     that they paid the old price for gets ONE in-app notice. The unique index makes a replay a no-op. A failure to write a notice never blocks
+--     that was bought at the old price (and the person who paid, when that is someone else) gets ONE in-app notice each. The unique index makes a replay a no-op. A failure to write a notice never blocks
 --     the price change (it is logged to audit_log). The old price is honoured because nothing renews by itself: what a person already paid is
 --     paid, and the new price applies only to a purchase they choose to make later.
 --   * public.my_price_change_notices(): the details behind the notice, for the card on the Membership screen.
@@ -59,7 +59,8 @@ begin
     end if;
     return new;
   end if;
-  select * into a from public.catalog_items where id = new.catalog_item_id;
+  -- one writer at a time per item, so two admins cannot both pass the count below
+  select * into a from public.catalog_items where id = new.catalog_item_id for update;
   if a.organisation_id is distinct from new.organisation_id or a.audience <> 'patient' then raise exception 'extras_item_invalid' using errcode = '22023'; end if;
   if new.extra_item_id is not null then
     select * into b from public.catalog_items where id = new.extra_item_id;
@@ -93,7 +94,7 @@ select i.organisation_id, i.id, x.id, v.label_key, v.sort_order, 'Seeded by WP1 
 on conflict do nothing;
 
 -- ---------------------------------------------------------------------------
--- 2. Patient read: same visibility as catalogue()
+-- 2. Patient read: an item that is on sale with a live price (information, so it does NOT depend on the checkout switch)
 -- ---------------------------------------------------------------------------
 create function public.catalogue_not_included(p_code text default null) returns jsonb
 language sql stable security definer set search_path = ''
@@ -114,7 +115,6 @@ as $$
    where i.active and i.audience = 'patient' and (private.current_price(i.id)).id is not null
      and (p_code is null or i.code = p_code)
      and i.organisation_id = (select organisation_id from public.profiles where id = (select auth.uid()))
-     and coalesce((select is_enabled from public.platform_modules where key = 'v5_checkout'), false)
 $$;
 revoke all on function public.catalogue_not_included(text) from public, anon;
 grant execute on function public.catalogue_not_included(text) to authenticated;
@@ -146,13 +146,17 @@ language plpgsql security definer set search_path = ''
 as $$
 declare
   v_org uuid := (select organisation_id from public.profiles where id = (select auth.uid()));
-  it public.catalog_items%rowtype; v_codes text[] := coalesce(p_extra_codes, '{}'); v_c text; v_x public.catalog_items%rowtype; v_pos smallint := 20; v_open integer;
+  it public.catalog_items%rowtype; v_codes text[] := coalesce(p_extra_codes, '{}'); v_c text; v_x public.catalog_items%rowtype; v_pos smallint := 20; v_open integer; v_labels integer;
 begin
   if (select auth.uid()) is null or not private.is_admin() then raise exception 'catalogue_not_authorised' using errcode = '42501'; end if;
   if char_length(btrim(coalesce(p_reason, ''))) < 10 then raise exception 'catalogue_reason_needed' using errcode = '22023'; end if;
   select * into it from public.catalog_items where organisation_id = v_org and code = p_code and audience = 'patient';
   if not found then raise exception 'unknown_item' using errcode = '22023'; end if;
-  if cardinality(v_codes) > 12 or (select count(distinct c) from unnest(v_codes) c) <> cardinality(v_codes) then raise exception 'extras_invalid' using errcode = '22023'; end if;
+  if (select count(distinct c) from unnest(v_codes) c) <> cardinality(v_codes) then raise exception 'extras_invalid' using errcode = '22023'; end if;
+  -- the whole list (words rows plus priced rows) is at most 12; lock the item so a second admin waits
+  perform 1 from public.catalog_items where id = it.id for update;
+  select count(*) into v_labels from public.catalog_item_extras where catalog_item_id = it.id and valid_to is null and label_key is not null;
+  if cardinality(v_codes) + v_labels > 12 then raise exception 'extras_too_many' using errcode = '22023'; end if;
   -- close the priced rows that are no longer wanted
   update public.catalog_item_extras r set valid_to = now()
    where r.catalog_item_id = it.id and r.valid_to is null and r.extra_item_id is not null
@@ -178,10 +182,10 @@ grant execute on function public.admin_set_item_extras(text, text[], text) to au
 -- ---------------------------------------------------------------------------
 insert into public.notification_templates (key, category, business_priority, audience, default_channels, timing, description) values
   ('price_change_notice', 'administrative', 'routine', 'patient', array['in_app']::public.notification_channel[], 'immediate',
-   'The price of something you already hold is changing. Nothing is charged: what you paid is paid, and the new price applies only if you choose to buy again.')
+   'The price of something you already hold is changing. Nothing is charged: what was paid is paid, and the new price applies only if you choose to buy again.')
 on conflict (key) do nothing;
 insert into public.notification_template_locales (template_key, locale, channel, subject, body) values
-  ('price_change_notice', 'en', 'in_app', null, 'A price is changing. You have already paid for what you hold, so nothing changes for you. Open the app to see the details')
+  ('price_change_notice', 'en', 'in_app', null, 'A price is changing. What you hold is already paid for, so nothing changes for you. Open the app to see the details')
 on conflict (template_key, locale, channel) do nothing;
 
 create unique index notifications_price_change_once
@@ -194,20 +198,28 @@ begin
   select * into prev from public.prices where catalog_item_id = new.catalog_item_id and valid_to = new.valid_from limit 1;
   if not found or prev.amount_kobo = new.amount_kobo then return new; end if;
   begin
+    -- the person who holds it AND the person who paid for it, when they are different (a Care Circle supporter); one notice each
     insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
-    select distinct on (e.patient_id) e.organisation_id, e.patient_id, 'in_app', 'pending', 'price_change_notice',
-           jsonb_build_object('price_id', new.id, 'item_code', it.code), 'non_clinical'
-      from public.entitlements e
-      join public.orders o on o.id = e.order_id
-      join public.prices pp on pp.id = o.price_id
-      join public.catalog_items it on it.id = o.catalog_item_id
-     where o.catalog_item_id = new.catalog_item_id and e.state = 'active' and e.ends_at is not null and e.ends_at > now()
-       and o.sponsor_share_kobo = 0 and pp.amount_kobo <> new.amount_kobo
+    select distinct on (r.recipient) (select organisation_id from public.profiles where id = r.recipient), r.recipient, 'in_app', 'pending', 'price_change_notice',
+           jsonb_build_object('price_id', new.id, 'item_code', r.code), 'non_clinical'
+      from (
+        select unnest(array[e.patient_id, o.buyer_profile_id]) as recipient, it.code
+          from public.entitlements e
+          join public.orders o on o.id = e.order_id
+          join public.prices pp on pp.id = o.price_id
+          join public.catalog_items it on it.id = o.catalog_item_id
+         where o.catalog_item_id = new.catalog_item_id and e.state = 'active' and e.ends_at is not null and e.ends_at > now()
+           and o.sponsor_share_kobo = 0 and pp.amount_kobo <> new.amount_kobo
+      ) r
     on conflict do nothing;
   exception when others then
-    -- a notice must never stop a price from being set; the failure is recorded, not hidden
-    insert into public.audit_log (action, entity_type, entity_id, event)
-    values ('price_change_notice.error', 'price', new.id, jsonb_build_object('error', left(sqlerrm, 300)));
+    -- a notice must never stop a price from being set. The failure is recorded; recording it can itself fail and that is swallowed too.
+    begin
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+      values (new.organisation_id, 'price_change_notice.error', 'price', new.id, jsonb_build_object('error', left(sqlerrm, 300)));
+    exception when others then
+      null;
+    end;
   end;
   return new;
 end $$;
@@ -228,7 +240,7 @@ as $$
         join public.prices pp on pp.id = o.price_id
         join public.catalog_items it on it.id = o.catalog_item_id
         cross join lateral (select p.amount_kobo, p.valid_from from public.prices p where p.catalog_item_id = it.id order by p.valid_from desc limit 1) np
-       where e.patient_id = (select auth.uid()) and e.state = 'active' and e.ends_at is not null and e.ends_at > now()
+       where (e.patient_id = (select auth.uid()) or o.buyer_profile_id = (select auth.uid())) and e.state = 'active' and e.ends_at is not null and e.ends_at > now()
          and o.sponsor_share_kobo = 0 and np.amount_kobo <> pp.amount_kobo and np.valid_from > pp.valid_from
     ) n
 $$;
