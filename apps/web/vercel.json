@@ -120,6 +120,10 @@
     {
       "path": "/api/cron/assistant-review-sample",
       "schedule": "0 4 1 * *"
+    },
+    {
+      "path": "/api/cron/learning-expiry-alerts",
+      "schedule": "15 6 * * *"
     }
   ]
 }
