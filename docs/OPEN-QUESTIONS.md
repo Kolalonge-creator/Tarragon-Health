@@ -5552,3 +5552,9 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-S59d-10 New patient wording needs the CMO's wording sign-off (raised by S59d, 2026-10-22)
 - Forty `symptom.opt.*` labels were added for the draft pathways (English only, no diagnosis named, tested). They are new patient-facing clinical wording and must be reviewed with the pathways. The check screen must also collect the measurements the rules use (`systolic`, `diastolic`, `glucose_mmol_l`, `temperature_c`) for the measurement rules to fire; that screen is not part of this piece of work.
 - Decision: open (CMO).
+
+### OQ-S57c-01 Library audio is in a public bucket as drafts; who reviews it, and the five breathing guides (raised 2026-10-23)
+- Built: public Storage bucket `audio` (OQ-204 option a, no write policy; files go up with the service role or CLI) and 46 DRAFT `media_library` rows for the ElevenLabs masters in `audio/library/masters` (`med-*` codes, audio URL, length and size filled; not active, not reviewed, so not servable). Publishing needs a named reviewer (brand for all) and a future review date on the admin media-library page; nobody has listened to these files yet (audio/library/MANIFEST.md).
+- Left out: MED-SER-FAITH (founder decision 2026-10-07: the CMO writes faith-compatible content, a named faith leader reviews it) and MED-BRE-001 to 005 (the breathing kind is a script item with steps and a pattern behind `wellbeing_library_clinical_scripts`; the CMO decides how spoken breathing guides are catalogued).
+- Tracks over 5 MB (about 30 of the 46) stream but are not offered for offline download under `max_track_bytes`. Founder: raise the cap or accept streaming only.
+- Decision: open (CMO for the breathing guides and the faith item; founder for the download cap).
