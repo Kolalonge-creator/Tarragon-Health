@@ -12,6 +12,8 @@ export interface PlainStatementInput {
   readonly price: string | null;
   /** The refund window in days, or null when it could not be read. */
   readonly refundDays: number | null;
+  /** Where the statement is shown. Inside the app, "see the price in the app" would be circular, so it points at the Membership screen. */
+  readonly surface?: "public" | "app";
 }
 
 export interface PlainStatement {
@@ -23,10 +25,12 @@ export interface PlainStatement {
     readonly freeHead: string;
     readonly freeBody: string;
     readonly paidHead: string;
-    readonly paidBody: string;
+    /** The Membership offer, read from the same catalogue keys the pricing page uses, so a change to the offer changes both. */
+    readonly offerDescription: string;
+    readonly offerIncludes: readonly string[];
+    readonly noRenew: string;
     readonly priceLine: string;
     readonly refundLine: string | null;
-    readonly medicines: string;
     readonly noTricks: string;
     readonly seePage: string;
   };
@@ -49,11 +53,12 @@ export function plainStatement(input: PlainStatementInput, locale: Locale = "en"
       freeHead: tr("pricing.free_head"),
       freeBody: tr("pricing.free_body"),
       paidHead: tr("pricing.paid_head"),
-      paidBody: tr("pricing.paid_body"),
-      priceLine: input.price === null ? tr("pricing.price_unavailable") : tr("pricing.price", { price: input.price }),
+      offerDescription: t("catalog.membership_annual.description", locale),
+      offerIncludes: [1, 2, 3, 4].map((n) => t(`catalog.membership_annual.incl.${n}` as MessageKey, locale)),
+      noRenew: tr("pricing.no_renew"),
+      priceLine: input.price === null ? tr(input.surface === "app" ? "pricing.price_unavailable_app" : "pricing.price_unavailable") : tr("pricing.price", { price: input.price }),
       refundLine:
         input.price !== null && input.refundDays !== null ? tr("pricing.refund", { days: input.refundDays }) : null,
-      medicines: tr("pricing.medicines"),
       noTricks: tr("pricing.no_tricks"),
       seePage: tr("pricing.see_page"),
     },

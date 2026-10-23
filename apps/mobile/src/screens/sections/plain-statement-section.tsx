@@ -1,9 +1,10 @@
 import { useMemo } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { asLocale, plainStatement } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { Card, MutedText, SectionLabel } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit";
 import { readPlainStatementInput } from "@/lib/plain-statement-input";
 
 const PUBLIC_SITE = "https://tarragonhealth.ng";
@@ -14,7 +15,7 @@ const PUBLIC_SITE = "https://tarragonhealth.ng";
  */
 export function PlainStatementSection() {
   const locale = asLocale(useUiLanguage());
-  const s = useMemo(() => plainStatement(readPlainStatementInput(), locale), [locale]);
+  const s = useMemo(() => plainStatement({ ...readPlainStatementInput(), surface: "app" }, locale), [locale]);
   const open = (path: string) => () => void WebBrowser.openBrowserAsync(`${PUBLIC_SITE}${path}`).catch(() => {});
 
   return (
@@ -23,7 +24,7 @@ export function PlainStatementSection() {
       <MutedText>{s.intro}</MutedText>
 
       <Card style={{ gap: 6 }}>
-        <Text accessibilityRole="header">{s.privacy.title}</Text>
+        <AppText variant="title" heading>{s.privacy.title}</AppText>
         {s.privacy.points.map((p) => (
           <MutedText key={p}>{p}</MutedText>
         ))}
@@ -31,20 +32,23 @@ export function PlainStatementSection() {
       </Card>
 
       <Card style={{ gap: 6 }}>
-        <Text accessibilityRole="header">{s.pricing.title}</Text>
-        <Text>{s.pricing.freeHead}</Text>
+        <AppText variant="title" heading>{s.pricing.title}</AppText>
+        <AppText>{s.pricing.freeHead}</AppText>
         <MutedText>{s.pricing.freeBody}</MutedText>
-        <Text>{s.pricing.paidHead}</Text>
-        <MutedText>{s.pricing.paidBody}</MutedText>
-        <Text>{s.pricing.priceLine}</Text>
+        <AppText>{s.pricing.paidHead}</AppText>
+        <MutedText>{s.pricing.offerDescription}</MutedText>
+        {s.pricing.offerIncludes.map((line) => (
+          <MutedText key={line}>{line}</MutedText>
+        ))}
+        <MutedText>{s.pricing.noRenew}</MutedText>
+        <AppText>{s.pricing.priceLine}</AppText>
         {s.pricing.refundLine ? <MutedText>{s.pricing.refundLine}</MutedText> : null}
-        <MutedText>{s.pricing.medicines}</MutedText>
         <MutedText>{s.pricing.noTricks}</MutedText>
         <Link label={s.pricing.seePage} onPress={open("/pricing")} />
       </Card>
 
       <Card style={{ gap: 6 }}>
-        <Text accessibilityRole="header">{s.access.title}</Text>
+        <AppText variant="title" heading>{s.access.title}</AppText>
         {s.access.points.map((p) => (
           <MutedText key={p}>{p}</MutedText>
         ))}
@@ -53,7 +57,7 @@ export function PlainStatementSection() {
       </Card>
 
       <Card style={{ gap: 6 }}>
-        <Text accessibilityRole="header">{s.ads.title}</Text>
+        <AppText variant="title" heading>{s.ads.title}</AppText>
         <MutedText>{s.ads.body}</MutedText>
       </Card>
     </View>
