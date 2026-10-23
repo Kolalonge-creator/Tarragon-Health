@@ -4,6 +4,7 @@ import { t, pointsRuleLabel, pointsTierLabel } from "@tarragon/i18n";
 import { useMyPointsStatus, useRewardRules, useWellnessPointsLedger } from "@/lib/queries/wellness";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { PendingCredit } from "./pending-credit";
 
 /**
  * Health Points (S58, spec 11.1 to 11.3). Balance, how to earn, this year's level and a "coming soon" note for checkout
@@ -37,6 +38,8 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
             </span>
           </div>
         )}
+
+        <PendingCredit patientId={patientId} />
 
         {status && (
           <section aria-labelledby="points-level">
