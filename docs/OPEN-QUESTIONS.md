@@ -5365,6 +5365,53 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-S59c-09 `send-pending-notifications` must be redeployed for the follow-up notices (raised by S59c)
 - Two neutral templates (`symptom_checkback_due`, `symptom_checkback_nudge`) were added to the sender's source and the in-app copy. The deployed function does not have them until it is redeployed; until then a follow-up still appears in the app (the in-app item and the banner) but the push and email notice for it would not render. Nothing was deployed by this session.
 - Decision: open (founder, at release).
+### OQ-S56b-01 Who the mental health worklist shows (S56b, 2026-10-22)
+- A clinician sees a patient only when they are TIED to them (`clinician_has_patient_access`: assignment, task, acknowledged page, appointment, referral). Break-glass grants are deliberately NOT a route onto a worklist (they are for an emergency read, not a standing list). A patient who never screened, checked in, logged sleep or sent a hand-off is invisible, and a care coordinator is refused (no scores). The CMO is a clinician like any other: no tie, no rows.
+- The rules run set-based over the organisation on every open and every count; fine for the pilot, too heavy for the 25,000-Member tier. A nightly snapshot table (with the same tie filter at read time) is the follow-up (scale plan SR1).
+- Decision: decided reading, founder to confirm (see OQ-S56b-11): record access via break-glass unchanged, worklist list tied-only. Engineering owns the snapshot.
+
+### OQ-S56b-02 Every worklist number is a placeholder until the CMO signs (S56b)
+- v1 (born unsigned and inactive): PHQ-9 rise 5 or more, GAD-7 rise 4 or more within 120 days; overdue 14 days after the date the signed schedule set; at least 5 short (under 5.5 hours) or poor (rated 2 or lower) nights out of at least 7 logged in 14 days; 8 or more check-ins in the 28 days before then 10 silent days; a hand-off unseen for 48 hours; follow-up task due in 72 hours; list capped at 100. None is a validated change threshold. The CMO can amend by signing a new version (the old one is never edited).
+- Decision: open (CMO).
+
+### OQ-S56b-03 Is "check-ins stopped" a fair thing to watch? (S56b)
+- Module 46.13 and the S56 research say check-ins are a habit the patient controls and are never used to score risk. The worklist rule reads their silence for the tied clinician only (audited, not a score, not an alert). It is the rule most likely to feel like surveillance. Recommendation: switch it off in the first signed version unless the CMO wants it; it is one `enabled` flag in the rules.
+- Decision: open (CMO and founder).
+
+### OQ-S56b-04 What goes into the summary a patient sends (S56b)
+- Included: the latest PHQ-9 and GAD-7 totals (three of each), the band the signed instrument already stored, the raw change since the one before, weekly mood and stress means for four weeks, sleep diary highlights for fourteen days, the patient's own note. Excluded on purpose: the private journal, questionnaire item answers (so item 9 never travels this way; the F1 crisis path owns that), check-in notes and tags, wearable data. The hand-off creates an `admin_clinical` task, so the clinician who claims it becomes tied; until someone claims it, no one is tied and it also shows on the worklist as unseen after 48 hours.
+- Decision: open (CMO confirms the contents and the windows; `wellbeing.share_summary`).
+
+### OQ-S56b-05 The calm tool's wording and pace need the CMO, and a real phone (S56b)
+- The `panic.*` strings (including "You are safe right now. This feeling is strong, and it will pass.") and the pace (in 4 seconds, out 6, 60 seconds, then 5-4-3-2-1) are a PROPOSED draft. The CMO attests the exact words in the hub (bound to a fingerprint) and someone must try it with TalkBack or VoiceOver and with reduced motion on a real phone: the build ran only jsdom and source scans, not a device. The crisis wording is unchanged and 112 remains awaiting CMO approval (OQ-S56-03).
+- On the web the exercise is offline only after the page has loaded (there is no service worker); on the phone it is fully bundled and the "is it open" answer is kept per person.
+- Decision: open (CMO; whoever tests on a phone).
+
+### OQ-S56b-06 Patterns are co-occurrence counts, and some may sting (S56b)
+- The view compares the days on which mood was below the patient's own middle mood, split by their own middle sleep, their own middle blood pressure, a chosen tag and the day of the week, only after 21 days of check-ins in 90 and only when each group has 5 days and the shares differ by 25 points. It never says why. Tags such as grief or loneliness can produce a sentence a person may not want to see; the card can be hidden, is shown only on the person's own profile (never a caregiver acting for them) and sends nothing anywhere. The four sentence templates are pinned by fingerprint for the CMO's attestation.
+- Decision: open (CMO reads the four sentences; founder may want tags left out).
+
+### OQ-S56b-07 Hand-offs of kind `talk_request` and the worklist (S56b)
+- "Tell my care team" after the calm tool sends a fixed, patient-visible sentence as the note, creates an `admin_clinical` task like every hand-off, and is a worklist reason after 48 hours unseen. It is not the urgent path: an emergency still goes through the crisis card and the F1 page. The sentence is part of the attested wording.
+- Decision: open (CMO confirms 48 hours is the right wait for a request to talk).
+
+### OQ-S56b-08 Test accounts bypass the wording attestation (S56b)
+- `wellbeing_features_open()` lets a test account (and a test clinician with a test patient) through before the guard is on, and for the two wording guards also before the attestation, so the flows can be walked end to end. A real person is only reachable once the guard is on and, for the calm tool and patterns, an attestation carries the current fingerprint (proved with a non-test patient).
+- Decision: open (founder confirms this is the intended test rule).
+
+### OQ-S56b-09 What the build could not run (S56b)
+- Docker was unavailable. The two migrations and the proof were run on a throwaway Postgres 16 with a hand-made stand-in for the platform tables (197 checks passed, six sabotages flipped); the real stack replay, the full `scripts/run-db-proofs.sh` and every older proof have NOT been run. Jest (shared, i18n, web, mobile), typecheck and lint were run for real. Nothing was run in a browser or on a phone.
+- Decision: open (CI replay must pass before merge).
+
+### OQ-S56b-10 Opt-out scope and a task type for worklist follow-ups (S56b review round 1, 2026-10-22)
+- The patient opt-out switches off only the sleep-diary and check-in-silence rules. A patient who wants nothing on the list at all is not offered that: scores they entered into a clinical questionnaire, and anything they send, are clinical record. Decision: open (CMO/DPO: is that the right line, and is the notice sentence enough for NDPA transparency).
+- Follow-ups use the existing `admin_clinical` type, which the hand-off already used. If the CMO wants a dedicated type (own competency, own due time) it should be added as a DRAFT awaiting confirmation like `crisis_follow_up`. Decision: open (CMO).
+- S56's own hand-off task key (`mh_handoff:<id>`) is still readable by wider task readers; changing it was out of scope here. Decision: open (engineering follow-up).
+
+### OQ-S56b-11 Founder decisions on OQ-S56b-01, -03 and -08 (S56b, 2026-10-22)
+- OQ-S56b-03 decided: the "check-ins stopped" rule is DISABLED in the first draft rule set (v1 ships `missed_checkins.enabled = false`, the sign-off panel does not list it). The rule code stays; a later signed version may enable it (proved with a v2).
+- OQ-S56b-08 decided: the test-account bypass stays as built (`is_test` is trigger-guarded).
+- OQ-S56b-01, decided reading: record access via break-glass unchanged (an emergency grant still opens one patient's record through the audited read, proved), worklist LIST tied-only (an emergency grant never puts a patient on a list or in the count). CONFIRMED (founder, 2026-10-23): break-glass record access unchanged, worklist list and count tied-clinician only.
 ## S58b (pending credit, milestone celebrations, points returned on refund; 2026-10-22)
 
 ### OQ-S58b-01 Which switch turns points at checkout on, and who sets the numbers (raised by S58b)
@@ -5392,6 +5439,73 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Docker was down. The proof `s58b_pending_credit_milestones_refund.sql` passed (59 rows including 5 sabotage flips) only against a stubbed scratch Postgres 16 that stands in for upstream objects. Run it with `run-db-proofs.sh` on a local stack before merging; merging auto-applies migrations.
 - Decision: open (engineering).
 
+### OQ-OUT-01 The thresholds behind the engagement groups and the comparison are PROPOSED and unsigned
+- Blocks: anyone acting on the comparison panel of the outcomes dashboard (`docs/design/OUTCOMES.md`).
+- Built: `outcomes_dashboard_config` v1 (mirrored as `outcomes.dashboard`): "takes part a lot" is at least 12 active days in each 30 days after joining, "a little" is at most 4, a comparison group needs 30 people measured at both ends (never below the platform floor of 30 for a two-attribute cut), 95 percent intervals, adults only, blood pressure readings excluded from the engagement that draws the groups. These are engineering defaults, not clinical or statistical advice.
+- Needed from the CMO (and a statistician if one is available): confirm or change the numbers. A change is a new config version, never an edit.
+- Decision: open (CMO).
+
+### OQ-OUT-02 Only a randomised holdout can say whether Health Points work
+- The dashboard can only show associations. People who take part more are healthier and more motivated to begin with, so even the first-week baseline and the difference in differences cannot separate "points helped" from "keen people do better". The one design that can is a random holdout (for example, new Members are randomly assigned to earn Health Points or to a delayed start).
+- Options: (a) keep the dashboard as an internal descriptive tool only and make no claim (built); (b) design a randomised rollout for the next cohort, with consent wording and the CMO's view on withholding a benefit from a random half; (c) wait for the programme to reach a size where a holdout is meaningful.
+- Needed from the founder and CMO: whether to pursue (b), and when. Nothing in the build assumes it.
+- Decision: open (founder and CMO).
+
+### OQ-OUT-03 Medicine refill completion is not measured
+- Asked for: "medication refill/adherence rate". Adherence is measured (S08 weekly adherence at day 90 and 180, kept apart from control). A refill actually collected is not: `medication_refill_state` records only that a reminder was sent. The page lists it under "not measured" instead of inventing a rate.
+- Options: (a) wait for pharmacy dispensing records (S28) and define "refilled within N days of the due date" from them; (b) use the confirmed-refill action clinicians already take (`medications` confirm refill), which measures prescriber confirmation and not collection.
+- Needed from the CMO: which definition counts as a refill.
+- Decision: open (CMO).
+
+### OQ-OUT-04 Glucose control has no signed definition beyond HbA1c
+- Only HbA1c change and goal (S75 snapshots, which exist only once `outcome_config` v3 is active) are shown for diabetes. A share of glucose readings in the person's own range (`patient_glucose_targets`) or a CGM time in range would be a second measure, but no signed definition exists, so none was invented.
+- Note: until S75's `outcome_config` v3 is activated by the CMO the HbA1c blocks read "not enough data yet" in production.
+- Needed from the CMO: whether to add a glucose-in-range measure and its definition.
+- Decision: open (CMO).
+
+### OQ-OUT-05 "Time to first review" is the first acknowledgement of the alert raised for an abnormal screening result
+- It reads `clinician_alerts.acknowledged_at` for alerts linked to a `screening_results` row (kinds marked sensitive or matching the protected patterns are left out). It is not the same as a doctor reading the result, and it does not cover lab results released under S27, or alerts from readings.
+- Needed from the CMO: whether "acknowledged" is the right proxy, or whether the S16 task claim time (first claim of the linked task) should be used, and whether S27 lab results should be included.
+- Decision: open (CMO).
+
+### OQ-OUT-06 Who is left in a comparison group is itself selected
+- Only people measured at both ends are compared, and people who take part more are more likely to be measured. The page shows the share not measured at both ends beside each group, but does not correct for it. A correction (weighting, or a sensitivity range counting every unmeasured person as not controlled) would be a statistical choice.
+- Needed from the CMO or a statistician: whether to add a "worst case" row (everyone unmeasured counted as not controlled), which is the same stance as the existing blood pressure report.
+- Decision: open (CMO).
+
+### OQ-OUT-07 The Illinois workplace wellness trial sentence is general and its source is not checked in the repository
+- `outcomes.dash.caveat.trial` says a large randomised workplace wellness trial in Illinois found that staff who joined in were already healthier before the programme began. This matches the published description of that study's participation finding, but the paper is not in the repository and the sentence has not been checked against it line by line.
+- Needed: a human (CMO or counsel) to read the paper and confirm or soften the sentence before the page is shown to anyone outside the founder and the CMO. The page is internal either way.
+- Decision: open (CMO).
+
+### OQ-OUT-08 Sub-cells of two stored reports can still be subtracted
+- The held-back rule guarantees that the people newly counted between two reports are 0 or at least the floor in total. It does not guard each sub-cell (for example "controlled" among them) one at a time, and it does not guard the monthly engagement cells (each month is disjoint, so those are safe). S38 and S75 accept the same residual.
+- Options: (a) accept (the audience is the founder and CMO, who can already read more); (b) round counts to the nearest 5 in stored reports; (c) hold back unless the newly due people are at least twice the floor.
+- Decision: open (founder).
+
+### OQ-OUT-09 In a small pilot the outcome figures will often be frozen or withheld
+- With fewer than 20 people newly due between reports the outcome cutoff does not move, and a cohort with one small category (for example 3 people with no readings) is withheld whole, as the existing blood pressure report already does. This is deliberate and calm on the page, but it means the dashboard may say "not enough data yet" for months.
+- Needed from the founder: whether that is acceptable, or whether the platform floor of 20 should be lowered for this internal page only (not recommended: a founder who sees fewer than 20 people can usually guess who they are).
+- Decision: open (founder).
+
+### OQ-OUT-10 Where this page sits for the CMO, and who else might ask for it
+- Super admin and the CMO read it; an analyst, finance user, doctor and care coordinator are refused. The CMO page is under `/clinician/engagement-outcomes` because a CMO account cannot open `/admin`. The reports are per organisation (the caller's own).
+- Needed from the founder: whether an "analyst" role should ever read it, and whether a second organisation (a payer, a provider organisation) must never see it (it cannot today: the functions return only the caller's organisation to a super admin or CMO).
+- Decision: open (founder).
+
+
+### OQ-OUT-11 After the review, reports will be held back often and some figures were narrowed (2026-10-22)
+- The held-back rule now covers every shown denominator and group, so in a small pilot almost every month some group moves by 1 to 19 people and the outcome figures stay at the previous cutoff. The first report is never held. Reports must also be made in order. Escalation status is current state, not state on the cutoff date. Points from lessons and courses are left out of all points figures because the ledger does not record their topic; mood, sleep and water readings are not counted as taking part; an escalation counts only when tied to an ordinary alert.
+- Option: raise nothing and accept frozen months (built); or round the stored counts so smaller moves are not disclosive (see OQ-OUT-08).
+- The Illinois sentence was reworded to a general one (no specific trial named); OQ-OUT-07 is now only about whether the general sentence is supportable.
+- Decision: open (founder and CMO).
+
+
+### OQ-OUT-12 OQ-OUT-09 and OQ-OUT-11 are DECIDED (founder, 2026-10-22): a founder-only unfrozen view
+- Decision: keep the frozen, stored reports as they are, and add a super-admin-only read that works the held-back figures out to today (`read_outcomes_founder_unfrozen`, page `/admin/outcomes/engagement/founder`). Off by default, a reason required and audited, nothing stored, no export, not for the CMO. The minimum-cell rule and protected-data exclusions are not lifted. OQ-OUT-09 and OQ-OUT-11 are closed by this.
+- Still open: the platform has no separate founder role, so "founder" is the super-admin account (`profiles.role = 'admin'`); if more than one such account exists, each can open the view. The switch is off until the founder turns it on (a new `outcomes_dashboard_config` version).
+- Decision: closed (founder).
+- CONFIRMED (founder, 2026-10-23): with no separate founder role, the unfrozen view stays gated to `profiles.role = 'admin'`, off by default, reason required and audited.
 ### OQ-S59d-01 Which draft does the CMO sign? (raised by S59d, 2026-10-22)
 - There are now two unsigned drafts in `triage_protocols`: the S59 draft (signed adult pathways, chest pain with no floor, adult v2 extras, three paediatric pathways) and the S59d draft, which is a strict superset of it plus adult fever with suspected malaria or typhoid, pregnancy danger signs, high blood pressure complications and diabetes complications. Signing replaces the whole active config.
 - Recommendation: sign the S59d version, not the S59 one; the S59d migration asserts that it keeps every pathway of the S59 draft and every rule key of its `fever`. The sign-off panel now shows every rule, question and source of a draft before the Sign button.
