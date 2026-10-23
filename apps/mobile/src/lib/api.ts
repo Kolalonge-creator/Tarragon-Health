@@ -44,7 +44,16 @@ export interface PostVitalReadingResult {
  * apps/web/src/app/api/mobile/vitals/route.ts — the six vital types the
  * native quick-log screen collects (MOBILE_APP_SPEC.md §2.2). */
 export type VitalReadingPayload =
-  | { vital_type: "blood_pressure"; systolic: number; diastolic: number; note?: string; cuff_type?: "upper_arm" | "wrist" | "not_sure" }
+  | {
+      vital_type: "blood_pressure";
+      systolic: number;
+      diastolic: number;
+      note?: string;
+      cuff_type?: "upper_arm" | "wrist" | "not_sure";
+      /** S07y: taken at a pharmacy or clinic machine. Saved as an ordinary reading with this label (the server refuses it while its guard is off). */
+      entry_origin?: "pharmacy_machine";
+      place_label?: string;
+    }
   | {
       vital_type: "glucose";
       glucose_value: number;

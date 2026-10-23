@@ -1,4 +1,4 @@
-import { BP_ESTIMATE_SOURCE, diagnosticBpReadings, getProposedConfig, isEstimateBpSource, mgDlToMmolL } from "@tarragon/shared";
+import { BP_ESTIMATE_SOURCE, getProposedConfig, homeBpReadings, isEstimateBpSource, mgDlToMmolL } from "@tarragon/shared";
 import { deviceRedFlags, type DeviceRedRules } from "@tarragon/clinical";
 import { supabase } from "./supabase";
 import type { VitalReadingPayload } from "./api";
@@ -17,20 +17,33 @@ export interface BpReading {
   level: BpLevel;
   /** Where the reading came from; "wearable" is an estimate (see @tarragon/shared bp-estimate). Absent for a reading saved on this phone. */
   source?: string | null;
+  /** S07y: null for an ordinary reading; pharmacy_machine or paper_diary says where it was taken (see @tarragon/shared reading-provenance). */
+  entryOrigin?: string | null;
+  /** S07y: the place the person named for a pharmacy_machine reading. Never used for any decision. */
+  placeLabel?: string | null;
   /** True for a reading saved on this phone that has not reached the server yet. */
   pending?: boolean;
 }
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-type BpRow = { id: string; systolic: number | null; diastolic: number | null; taken_at: string; client_reading_id?: string | null; source?: string | null };
+type BpRow = {
+  id: string;
+  systolic: number | null;
+  diastolic: number | null;
+  taken_at: string;
+  client_reading_id?: string | null;
+  source?: string | null;
+  entry_origin?: string | null;
+  place_label?: string | null;
+};
 
 export async function loadRecentBpReadings(patientId: string, limit = 10): Promise<BpReading[]> {
   let rows: BpRow[];
   try {
     const { data, error } = await supabase
       .from("vitals_readings")
-      .select("id, systolic, diastolic, taken_at, client_reading_id, source")
+      .select("id, systolic, diastolic, taken_at, client_reading_id, source, entry_origin, place_label")
       .eq("patient_id", patientId)
       .eq("vital_type", "blood_pressure")
       // A wearable (cuffless) estimate is excluded in the query, not after the limit, so a watch that syncs often can never crowd cuff readings out of the window.
@@ -57,6 +70,8 @@ export async function loadRecentBpReadings(patientId: string, limit = 10): Promi
       takenAt: r.taken_at,
       level: classifyBpLevel(r.systolic, r.diastolic),
       source: r.source ?? null,
+      entryOrigin: r.entry_origin ?? null,
+      placeLabel: r.place_label ?? null,
     }));
   // Readings logged on this phone and not yet sent (S06): shown at their logged
   // time, marked pending, so an offline reading does not look lost.
@@ -80,6 +95,8 @@ export async function loadRecentBpReadings(patientId: string, limit = 10): Promi
         diastolic: p.diastolic,
         takenAt: q.clientRecordedAt,
         level: classifyBpLevel(p.systolic, p.diastolic),
+        // a reading waiting on this phone keeps the label the person ticked
+        entryOrigin: p.entry_origin ?? null,
         pending: true,
       };
     });
@@ -124,8 +141,9 @@ export interface SevenDayAverage {
 
 export function computeSevenDayAverage(readings: BpReading[]): SevenDayAverage | null {
   const cutoff = Date.now() - SEVEN_DAYS_MS;
-  // A wearable (cuffless) estimate is never part of an average (docs/design/BP-wearable-estimates.md).
-  const recent = diagnosticBpReadings(readings).filter((r) => new Date(r.takenAt).getTime() >= cutoff);
+  // A wearable (cuffless) estimate is never part of an average (docs/design/BP-wearable-estimates.md), and neither is a reading taken at a pharmacy or clinic
+  // machine (S07y): it is shown and graded, but it is not a home reading. Matches private.hbpm_average on the server.
+  const recent = homeBpReadings(readings).filter((r) => new Date(r.takenAt).getTime() >= cutoff);
   if (recent.length === 0) return null;
   const sys = Math.round(recent.reduce((sum, r) => sum + r.systolic, 0) / recent.length);
   const dia = Math.round(recent.reduce((sum, r) => sum + r.diastolic, 0) / recent.length);

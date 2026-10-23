@@ -5594,6 +5594,27 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S65.md; CMO decisions Q17 and Q18",
   },
   {
+    key: "vitals.diary_import",
+    // S07y. PROPOSED: how far back a reading copied from the person's own paper diary may be dated (the server column offline_sync_config.diary_window_days
+    // mirrors it and diary-import-mirror.test.ts fails if they drift; outside the window the reading is REFUSED, never stamped as now), the future skew the
+    // clock may have (the same value as offline_sync_config.future_skew_minutes), how many rows one confirmation may carry, and the largest photo of a diary page
+    // the reading assistant (AI-021, off) will accept, and how many photos one person may send for reading in an hour. It adds NO clinical threshold: what counts as impossible or dangerous is the existing devices.plausibility
+    // and the triage rules, unchanged. The Chief Medical Officer confirms the window (OQ-S07YL-5).
+    value: {
+      window_days: 30,
+      future_skew_minutes: 5,
+      max_rows_per_save: 20,
+      max_photo_bytes: 8000000,
+      max_reads_per_hour: 20,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/S07y-reading-labels-and-diary.md; supabase/migrations/20261020181520_s07y_reading_provenance_pharmacy_and_paper_diary.sql",
+    guardPatterns: ["diary\\w*days?\\s*[=:]\\s*30\\b"],
+  },
+  {
     key: "vitals.device_red_rules",
     // Thresholds the phone evaluates itself for pulse, SpO2 and temperature (INV-06). They copy the live SQL classifiers; a parity test
     // reads the migrations and fails if either side moves. Not new clinical thresholds.
