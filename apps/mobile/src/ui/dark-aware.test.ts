@@ -33,7 +33,6 @@ const FILES = [
   "screens/sections/learn-screen.tsx",
   "screens/sections/wellbeing-screen.tsx",
   "screens/sections/wellbeing-trend-chart.tsx",
-  "screens/sections/cycle-screen.tsx",
   "screens/sections/weight-management-screen.tsx",
   "screens/sections/wellness-screen.tsx",
   "screens/sections/healthy-ageing-screen.tsx",

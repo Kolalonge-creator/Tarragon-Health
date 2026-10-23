@@ -121,8 +121,11 @@ function buildArcs(prediction: CyclePrediction): Arc[] {
 export function CycleRing({
   prediction: rawPrediction,
   planningMode,
+  periodInProgress = false,
 }: {
   prediction: CyclePrediction;
+  /** UI-A: while a period is under way the "n days to your next period" line is not shown. */
+  periodInProgress?: boolean;
   /** "Planning a pregnancy" (S85 D2). Off hides the estimated ovulation arcs; there is no default. */
   planningMode: boolean;
 }) {
@@ -228,7 +231,7 @@ export function CycleRing({
           {phaseLabel(prediction.currentPhase, planningMode)}
         </text>
       </svg>
-      <p className="mt-1 text-center text-sm text-charcoal-ink/70 dark:text-night-ink/70">{subline}</p>
+      {!periodInProgress && <p className="mt-1 text-center text-sm text-charcoal-ink/70 dark:text-night-ink/70">{subline}</p>}
     </div>
   );
 }

@@ -56,4 +56,24 @@ describe("cycle copy (S66)", () => {
     expect(cycleCopy["menopause.education_3"]).toContain("does not give advice about hormone treatment");
     expect(cycleCopy["menopause.bleeding_urgent"]).toMatch(/always needs to be checked/);
   });
+  it("UI-A strings: no exclamation marks, no shouting words, every fertile-window string says it is not contraception, and the offline claim is two sentences", () => {
+    const ui = keys.filter((k) => /^cycle\.(status|confidence|log|flow|symptom|mood|ovulation_test|legend|offline|listen|danger\.(noticed|meaning|step|message))/.test(k));
+    expect(ui.length).toBeGreaterThan(50);
+    for (const k of ui) {
+      expect(cycleCopy[k]).not.toMatch(/!/);
+      expect(cycleCopy[k]).not.toMatch(/warning|urgent|alarm/i);
+    }
+    for (const k of ["cycle.legend.fertile", "cycle.legend.ovulation"] as const) expect(cycleCopy[k]).toContain(cycleCopy["cycle.not_contraception"]);
+    expect(cycleCopy["cycle.offline.saved"]).toBe("Saved on this phone. It will send when you are online.");
+  });
+
+  it("every flow, symptom, mood and ovulation-test option the log can send has a label", () => {
+    const need = [
+      ...["none", "spotting", "light", "medium", "heavy", "flooding"].map((v) => `cycle.flow.${v}`),
+      ...["cramps", "headache", "bloating", "breast_tenderness", "back_pain", "fatigue", "nausea", "acne", "diarrhoea", "constipation", "food_cravings", "insomnia"].map((v) => `cycle.symptom.${v}`),
+      ...["calm", "happy", "energetic", "irritable", "anxious", "low", "mood_swings"].map((v) => `cycle.mood.${v}`),
+      ...["negative", "positive", "peak"].map((v) => `cycle.ovulation_test.${v}`),
+    ];
+    for (const k of need) expect(k in cycleCopy).toBe(true);
+  });
 });
