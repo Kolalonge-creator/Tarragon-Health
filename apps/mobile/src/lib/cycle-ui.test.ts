@@ -1,5 +1,5 @@
 import { addDays, predictCycle } from "@tarragon/shared";
-import { addIsoDays, confidenceDotsLabel, confidenceSentence, isPickable, lastSevenDays, monthGrid, saveFeedback, shiftMonth, statusSentence, statusTone } from "./cycle-ui";
+import { draftFor, draftFromLog, guardedAction, refreshFailureView, withDraft, withoutDraft, addIsoDays, confidenceDotsLabel, confidenceSentence, isPickable, lastSevenDays, monthGrid, saveFeedback, shiftMonth, statusSentence, statusTone } from "./cycle-ui";
 import { listenClipsFor } from "./cycle-listen";
 
 const today = "2026-10-10";
@@ -73,5 +73,45 @@ describe("save feedback never claims a save that did not happen", () => {
 describe("listen", () => {
   it("lists no clip until one is recorded and signed off", () => {
     expect(listenClipsFor("status")).toBeNull();
+  });
+});
+
+describe("a period in progress", () => {
+  it("says it started N days ago, never a countdown", () => {
+    const p = run([-97, -69, -41, -2]);
+    expect(statusSentence(p, { startedOn: addIsoDays(today, -2), today })).toBe("Your period started 2 days ago.");
+    expect(statusSentence(p, { startedOn: addIsoDays(today, -1), today })).toBe("Your period started 1 day ago.");
+    expect(statusSentence(p, { startedOn: today, today })).toBe("Your period started today.");
+    expect(statusSentence(p, { startedOn: addIsoDays(today, -2), today })).not.toMatch(/expected/);
+  });
+});
+
+describe("day-log draft survives closing the sheet", () => {
+  const saved = { flow: "light", symptoms: ["cramps"], moods: [], notes: "x", basal_body_temperature_c: 36.5, ovulation_test_result: null };
+  it("opens with the saved log when there is no draft", () => {
+    expect(draftFor({}, "2026-10-09", saved)).toEqual(draftFromLog(saved));
+    expect(draftFromLog(null)).toEqual({ flow: null, symptoms: [], moods: [], notes: "", bbt: "", ovulationTest: null });
+  });
+  it("restores unsaved choices for that date only, and clears them after a save", () => {
+    const edited = { ...draftFromLog(saved), flow: "heavy", notes: "typed" };
+    let drafts = withDraft({}, "2026-10-09", edited);
+    expect(draftFor(drafts, "2026-10-09", saved)).toEqual(edited);
+    expect(draftFor(drafts, "2026-10-08", null)).toEqual(draftFromLog(null));
+    drafts = withoutDraft(drafts, "2026-10-09");
+    expect(draftFor(drafts, "2026-10-09", saved)).toEqual(draftFromLog(saved));
+  });
+});
+
+describe("failures never hide a save or leave a button dead", () => {
+  it("turns a throw into a calm failure", async () => {
+    const r = await guardedAction(async () => {
+      throw new Error("boom");
+    });
+    expect(r).toEqual({ ok: false, error: "Could not save that just now. Please try again." });
+    expect(await guardedAction(async () => ({ ok: true }))).toEqual({ ok: true });
+  });
+  it("a failed refresh after data is on screen keeps the screen", () => {
+    expect(refreshFailureView(true)).toBe("saved_note");
+    expect(refreshFailureView(false)).toBe("full_error");
   });
 });

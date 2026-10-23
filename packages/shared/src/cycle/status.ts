@@ -1,4 +1,4 @@
-import type { CycleConfidence, CyclePrediction } from "./prediction";
+import { daysBetween, type CycleConfidence, type CyclePrediction } from "./prediction";
 
 /**
  * UI-A: the one plain-word status for the top of a cycle card, and the three-dot confidence scale. Pure, no strings: the screens turn
@@ -9,7 +9,7 @@ import type { CycleConfidence, CyclePrediction } from "./prediction";
  * Tone never means "danger". A late period is amber ("worth a look"), never red: red is for the clinical flags and alerts only.
  */
 
-export type CycleStatusKind = "no_history" | "overdue" | "today" | "any_day" | "in_days";
+export type CycleStatusKind = "no_history" | "in_progress" | "overdue" | "today" | "any_day" | "in_days";
 export type CycleStatusTone = "brand" | "amber" | "grey";
 export type ConfidenceDots = 0 | 1 | 2 | 3;
 
@@ -20,7 +20,18 @@ export interface CycleStatus {
   tone: CycleStatusTone;
 }
 
-export function cycleStatus(prediction: CyclePrediction): CycleStatus {
+/** A period that has started and not yet been marked ended: `startedOn` is its first day, `today` the date being shown. */
+export interface PeriodInProgress {
+  startedOn: string;
+  today: string;
+}
+
+export function cycleStatus(prediction: CyclePrediction, inProgress?: PeriodInProgress | null): CycleStatus {
+  // While a period is under way the countdown to the next one is not shown: on day 2 of bleeding "27 days to go" reads as wrong.
+  if (inProgress) {
+    const days = Math.max(0, daysBetween(inProgress.startedOn, inProgress.today));
+    return { kind: "in_progress", days, tone: "brand" };
+  }
   if (!prediction.predictedNextPeriodDate) return { kind: "no_history", days: null, tone: "grey" };
   if (prediction.isOverdue) {
     const days = prediction.daysOverdue !== null && prediction.daysOverdue > 0 ? prediction.daysOverdue : null;

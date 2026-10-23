@@ -38,6 +38,17 @@ describe("cycleStatus", () => {
   });
 });
 
+describe("a period in progress", () => {
+  it("says it started N days ago and shows no countdown", () => {
+    const p = run([-97, -69, -41, -2]);
+    expect(cycleStatus(p, { startedOn: addDays(today, -2), today })).toEqual({ kind: "in_progress", days: 2, tone: "brand" });
+    expect(cycleStatus(p, { startedOn: today, today })).toEqual({ kind: "in_progress", days: 0, tone: "brand" });
+  });
+  it("without one in progress the countdown still shows", () => {
+    expect(cycleStatus(run([-97, -69, -41, -13])).kind).toBe("in_days");
+  });
+});
+
 describe("confidenceDots", () => {
   it("maps the engine's own level to 0 to 3 dots and never shows more than it has", () => {
     expect(confidenceDots("none")).toBe(0);

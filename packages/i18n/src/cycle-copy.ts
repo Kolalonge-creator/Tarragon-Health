@@ -54,6 +54,9 @@ export const cycleCopy = {
   "cycle.status.overdue_days": "Your period is about {days} days later than the estimate.",
   "cycle.status.overdue_one": "Your period is about 1 day later than the estimate.",
   "cycle.status.overdue": "Your period is later than the estimate.",
+  "cycle.status.started_today": "Your period started today.",
+  "cycle.status.started_one": "Your period started 1 day ago.",
+  "cycle.status.started_days": "Your period started {days} days ago.",
   "cycle.confidence.none": "No estimate yet.",
   "cycle.confidence.low": "Early estimate. It gets better after 3 cycles.",
   "cycle.confidence.medium": "Fairly steady estimate.",
@@ -134,7 +137,7 @@ export const cycleCopy = {
   // --- UI-A: the access list (empty is an empty state with one sentence and one button; a failed load is a different state)
   "cycle.load_failed": "We could not load your cycle just now. Please try again.",
   "cycle.load_retry": "Try again",
-  "cycle.access.empty_button": "Check again",
+  "cycle.refresh_failed": "Saved. We could not refresh the screen just now.",
   "cycle.access.retry": "Try again",
 
   // --- who can see this (decision: a plain-language access screen showing the audit log)

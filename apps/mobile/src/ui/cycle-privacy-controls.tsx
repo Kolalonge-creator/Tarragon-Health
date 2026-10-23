@@ -54,7 +54,7 @@ export function CyclePrivacyControls() {
           </View>
         )}
         {Array.isArray(access) && access.length === 0 && (
-          <EmptyState icon="safe" title={t("cycle.access.empty")} actionLabel={t("cycle.access.empty_button")} onAction={() => void load()} />
+          <EmptyState icon="safe" title={t("cycle.access.empty")} />
         )}
         {Array.isArray(access) &&
           access.map((row, i) => (

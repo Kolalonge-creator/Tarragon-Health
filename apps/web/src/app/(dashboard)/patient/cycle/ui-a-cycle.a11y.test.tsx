@@ -64,6 +64,21 @@ describe("week strip", () => {
   });
 });
 
+describe("a period in progress", () => {
+  it("says it started N days ago and shows no countdown", () => {
+    const p = predict([-97, -69, -41, -2]);
+    render(<CycleStatusLine prediction={p} inProgress={{ startedOn: addDays(today, -2), today }} />);
+    expect(screen.getByRole("status").textContent).toBe("Your period started 2 days ago.");
+  });
+});
+
+describe("touch targets", () => {
+  it("'Pick another date' is at least 44px tall", () => {
+    render(<CycleWeekStrip today={today} selectedDate={today} onSelectDate={() => {}} loggedDays={new Set()} />);
+    expect(screen.getByRole("link", { name: "Pick another date" }).className).toMatch(/min-h-11/);
+  });
+});
+
 describe("calendar marks legend", () => {
   it("explains marks by shape and word; the planning rows appear only in planning mode and carry the label", async () => {
     const off = await expectNoA11yViolations(<CalendarMarksLegend planningMode={false} />);
@@ -77,13 +92,15 @@ describe("calendar marks legend", () => {
 });
 
 describe("danger signs follow the alert template", () => {
-  it("shows noticed, meaning, one step, then a message button, with no exclamation marks or WARNING", async () => {
+  it("shows the one step first, then noticed, meaning, then a message button, with no exclamation marks or WARNING", async () => {
     const { container } = await expectNoA11yViolations(<CycleDangerSigns />);
     const text = container.textContent ?? "";
-    const order = ["What to look out for", "What it may mean", "One step", "Message your care team"].map((s) => text.indexOf(s));
+    const order = ["One step", "What to look out for", "What it may mean", "Message your care team"].map((s) => text.indexOf(s));
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(text).not.toMatch(/!|warning/i);
-    expect(screen.getByRole("link", { name: "Message your care team" }).getAttribute("href")).toBe("/patient/messages");
+    const link = screen.getByRole("link", { name: "Message your care team" });
+    expect(link.getAttribute("href")).toBe("/patient/messages");
+    expect(link.className).toMatch(/min-h-11/);
   });
 });

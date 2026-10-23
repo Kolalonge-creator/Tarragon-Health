@@ -5290,3 +5290,8 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-731 UI-A: nothing was rendered on a phone or in a browser (raised by the UI-A cycle build)
 - Web: React Testing Library plus axe on the new parts (status, confidence, week strip, legend, danger signs). Phone: type check, pure-logic tests and source scans only (the mobile Jest config renders no components). The bottom sheet with pinned save, the month sheet, the 16 point actions and text scaling at 200 percent have not been seen. Needs a look on an Android phone and an iPhone with a test account.
 - Decision: open (needs a test session).
+
+### OQ-732 UI-A: an urgent cycle flag from the engine sits behind the section PIN lock (raised by the UI-A cycle build review)
+- The engine's urgent flags are inside `PrivateSection`, so on a locked phone they are not shown; only the static danger-signs card is. This matches S66 (flags hold personal data) and is not a regression. The question is whether a locked screen should show a data-free line such as "Open your cycle for a message from your care team".
+- Options: (a) as built (recommended, shared-phone privacy); (b) add a neutral line outside the lock that names no cycle detail.
+- Decision: open.

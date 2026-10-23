@@ -175,6 +175,7 @@ export function CycleTracker({
   const selectedLog = dailyLogs.find((log) => log.log_date === selectedDate) ?? null;
   const { stats } = prediction;
   const hasHistory = cycles.length > 0;
+  const periodInProgress = openCycle ? { startedOn: openCycle.period_start_date, today } : null;
   const loggedDays = new Set(
     dailyLogs
       .filter((log) => log.flow || log.symptoms.length > 0 || log.moods.length > 0 || log.notes)
@@ -223,9 +224,9 @@ export function CycleTracker({
           <CardDescription>{prediction.confidenceReason}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          <CycleStatusLine prediction={prediction} />
+          <CycleStatusLine prediction={prediction} inProgress={periodInProgress} />
           <ConfidenceLine confidence={prediction.confidence} />
-          <CycleRing prediction={prediction} planningMode={planningMode} />
+          <CycleRing prediction={prediction} planningMode={planningMode} periodInProgress={periodInProgress !== null} />
           <CycleLegend planningMode={planningMode} />
 
           {prediction.currentPhase !== "unknown" && (

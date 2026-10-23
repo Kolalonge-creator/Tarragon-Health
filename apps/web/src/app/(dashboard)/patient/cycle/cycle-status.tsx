@@ -1,5 +1,5 @@
 import { t } from "@tarragon/i18n";
-import { confidenceDots, cycleStatus, type CycleConfidence, type CyclePrediction } from "@tarragon/shared";
+import { confidenceDots, cycleStatus, type CycleConfidence, type CyclePrediction, type PeriodInProgress } from "@tarragon/shared";
 import { CalendarClock, Clock, Info } from "lucide-react";
 
 /**
@@ -8,9 +8,12 @@ import { CalendarClock, Clock, Info } from "lucide-react";
  * them and invent no certainty. The tint is green, amber for "a little later than the estimate", or grey. Never red.
  */
 
-export function statusSentence(prediction: CyclePrediction): string {
-  const s = cycleStatus(prediction);
+export function statusSentence(prediction: CyclePrediction, inProgress?: PeriodInProgress | null): string {
+  const s = cycleStatus(prediction, inProgress);
   switch (s.kind) {
+    case "in_progress":
+      if (s.days === 0 || s.days === null) return t("cycle.status.started_today");
+      return s.days === 1 ? t("cycle.status.started_one") : t("cycle.status.started_days", undefined, { days: s.days });
     case "no_history":
       return t("cycle.status.no_history");
     case "today":
@@ -56,8 +59,8 @@ export function ConfidenceLine({ confidence }: { confidence: CycleConfidence }) 
   );
 }
 
-export function CycleStatusLine({ prediction }: { prediction: CyclePrediction }) {
-  const status = cycleStatus(prediction);
+export function CycleStatusLine({ prediction, inProgress }: { prediction: CyclePrediction; inProgress?: PeriodInProgress | null }) {
+  const status = cycleStatus(prediction, inProgress);
   const tone =
     status.tone === "amber"
       ? "bg-amber-50 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200"
@@ -69,7 +72,7 @@ export function CycleStatusLine({ prediction }: { prediction: CyclePrediction })
     <div className={`flex items-center gap-3 rounded-lg p-3 ${tone}`} data-testid="cycle-status-line">
       <Icon className="h-6 w-6 shrink-0" strokeWidth={2} aria-hidden />
       <p role="status" className="text-base font-semibold">
-        {statusSentence(prediction)}
+        {statusSentence(prediction, inProgress)}
       </p>
     </div>
   );

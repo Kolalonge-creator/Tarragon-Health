@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, Switch, useWindowDimensions, View } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { en, FERTILE_WINDOW_LABEL, FERTILE_WINDOW_LINK_TEXT, t } from "@tarragon/i18n";
@@ -18,7 +18,7 @@ import {
   type MenstrualSymptom,
 } from "@/lib/cycle";
 import { FERTILE_WINDOW_DISCLAIMER, nextPeriodSummary, type CycleClinicalFlag, type ReproductiveLifeStage } from "@/lib/cycle-prediction";
-import { countPendingCycleLogs, saveFeedback, type SaveFeedback } from "@/lib/cycle-ui";
+import { countPendingCycleLogs, draftFor, guardedAction, refreshFailureView, saveFeedback, withDraft, withoutDraft, type DayDraft, type SaveFeedback } from "@/lib/cycle-ui";
 import { getConnectionKind } from "@/lib/connection-kind";
 import type { SectionId } from "@/lib/sections";
 import { space, useTheme } from "@/ui/design";
@@ -112,6 +112,11 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
   const [actionPending, setActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [logOpen, setLogOpen] = useState(false);
+  // Unsaved choices live here, not in the sheet: the sheet unmounts its form when it closes. Cleared only by a successful save.
+  const [drafts, setDrafts] = useState<Record<string, DayDraft>>({});
+  // A save went through but the re-read failed: keep the screen and say so, never "we could not load your cycle".
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const hasData = useRef(false);
   const [savedNote, setSavedNote] = useState<SaveFeedback | "idle">("idle");
   const [pendingLogs, setPendingLogs] = useState(0);
   // "Planning a pregnancy" (S85 D2): the fertile window and temperature-based ovulation confirmation show only while on.
@@ -140,8 +145,23 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
     await refresh(next);
   }
 
-  const refresh = useCallback(async (modeOverride?: boolean) => {
+  /** Re-reads the tracker. Returns whether it worked; a failure after data is on screen keeps the screen (see refreshFailureView). */
+  const refresh = useCallback(async (modeOverride?: boolean): Promise<boolean> => {
     setActionError(null);
+    try {
+      return await refreshInner(modeOverride);
+    } catch {
+      return failRefresh();
+    }
+  }, [patientId]);
+
+  function failRefresh(): boolean {
+    if (refreshFailureView(hasData.current) === "saved_note") setRefreshFailed(true);
+    else setError(t("cycle.load_failed"));
+    return false;
+  }
+
+  async function refreshInner(modeOverride?: boolean): Promise<boolean> {
     // Same query shape as web's CyclePage: read the patient's self-reported
     // life stage + average cycle length to seed the prediction, defaulting
     // to "menstruating" exactly like the web page does when nothing is
@@ -156,17 +176,17 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
     const mode = modeOverride ?? (await loadPlanningMode(patientId));
 
     const result = await loadCycleTracker(patientId, stage, profile?.average_cycle_length_days ?? null, mode);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
+    if (!result.ok) return failRefresh();
+    hasData.current = true;
+    setRefreshFailed(false);
     setError(null);
     // The mode and the prediction built with it change together, so a screen never pairs one with the other's.
     setPlanningMode(mode);
     setTracker(result.data);
     setSelectedDate((prev) => prev || result.data.today);
     setPendingLogs(await countPendingCycleLogs());
-  }, [patientId]);
+    return true;
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -219,11 +239,13 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
   const hasHistory = cycles.length > 0;
   const selectedLog = dailyLogs.find((log) => log.log_date === selectedDate) ?? null;
   const canLogSelectedAsStart = selectedDate !== "" && selectedDate < today;
+  const periodInProgress = openCycle ? { startedOn: openCycle.period_start_date, today } : null;
 
   async function withAction(run: () => Promise<{ ok: boolean; error?: string }>) {
     setActionError(null);
     setActionPending(true);
-    const result = await run();
+    // guardedAction never throws, so the button always comes back to life.
+    const result = await guardedAction(run);
     setActionPending(false);
     if (!result.ok) {
       setActionError(result.error ?? "Could not save that just now. Please try again.");
@@ -238,10 +260,19 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
         Log your period and how you feel, and see what to expect next. Everything here is an estimate from your own history, not a diagnosis.
       </AppText>
 
+      {refreshFailed && (
+        <Card style={{ gap: space.sm }}>
+          <AppText variant="body" accessibilityRole="alert">
+            {t("cycle.refresh_failed")}
+          </AppText>
+          <CycleActionButton title={t("cycle.load_retry")} variant="secondary" onPress={() => void refresh()} />
+        </Card>
+      )}
+
       <FlagsCard flags={prediction.flags} onNavigate={onNavigate} />
 
       {/* ---------- Where you are now ---------- */}
-      <CycleStatusCard prediction={prediction}>
+      <CycleStatusCard prediction={prediction} inProgress={periodInProgress}>
         {prediction.currentPhase !== "unknown" && (
           <View accessible style={{ gap: 2 }}>
             <AppText variant="bodyStrong">
@@ -255,7 +286,8 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
         )}
 
         <PlanningModeSwitch enabled={planningMode} pending={modePending} error={modeError} onChange={changePlanningMode} />
-        {planningMode && <FertileWindowNotice onNavigate={onNavigate} />}
+        {/* Shown once on the screen: with history the "What to expect" card below carries it. */}
+        {planningMode && !hasHistory && <FertileWindowNotice onNavigate={onNavigate} />}
 
         {openCycle ? (
           <CycleActionButton
@@ -301,7 +333,7 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
                   Most likely {shortDate(prediction.predictedNextPeriodEarliest)} to {shortDate(prediction.predictedNextPeriodLatest)}
                 </AppText>
               )}
-              <AppText variant="body" tone="textMuted">{nextPeriodSummary(prediction)}</AppText>
+              {!periodInProgress && <AppText variant="body" tone="textMuted">{nextPeriodSummary(prediction)}</AppText>}
             </View>
             {planningMode && (
               <View style={{ flexBasis: "45%", flexGrow: 1, gap: 2 }}>
@@ -358,18 +390,20 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
         <CycleSaveNote state={savedNote} pending={pendingLogs} />
       </Card>
 
-      <Sheet visible={logOpen} onClose={() => setLogOpen(false)} title={`${t("cycle.log.title")}: ${shortDate(selectedDate)}`}>
+      <Sheet visible={logOpen} avoidKeyboard onClose={() => setLogOpen(false)} title={`${t("cycle.log.title")}: ${shortDate(selectedDate)}`}>
         <DayLogForm
           key={selectedDate}
           patientId={patientId}
           organisationId={organisationId}
           date={selectedDate}
-          existing={selectedLog}
+          draft={draftFor(drafts, selectedDate, selectedLog)}
+          onDraft={(draft) => setDrafts((d) => withDraft(d, selectedDate, draft))}
           onSaved={async (outcome) => {
             if (outcome === "saved") {
-              await refresh();
+              setDrafts((d) => withoutDraft(d, selectedDate));
               setSavedNote("saved");
               setLogOpen(false);
+              await refresh();
             }
           }}
           planningMode={planningMode}
@@ -539,7 +573,8 @@ function DayLogForm({
   patientId,
   organisationId,
   date,
-  existing,
+  draft,
+  onDraft,
   onSaved,
   planningMode,
   onNavigate,
@@ -547,21 +582,26 @@ function DayLogForm({
   patientId: string;
   organisationId: string;
   date: string;
-  existing: import("@/lib/cycle").MenstrualDailyLog | null;
+  /** The choices so far (saved log or unsaved draft). Held by the screen so closing the sheet keeps them. */
+  draft: DayDraft;
+  onDraft: (draft: DayDraft) => void;
   onSaved: (outcome: SaveFeedback) => Promise<void>;
   /** "Planning a pregnancy" (S85 D2). Off hides the sentence that reads a temperature rise as ovulation. */
   planningMode: boolean;
   onNavigate: (section: SectionId) => void;
 }) {
   const { height } = useWindowDimensions();
-  const [flow, setFlow] = useState<MenstrualFlowLevel | null>(existing?.flow ?? null);
-  const [symptoms, setSymptoms] = useState<MenstrualSymptom[]>((existing?.symptoms as MenstrualSymptom[]) ?? []);
-  const [moods, setMoods] = useState<MenstrualMood[]>((existing?.moods as MenstrualMood[]) ?? []);
-  const [notes, setNotes] = useState(existing?.notes ?? "");
-  const [bbt, setBbt] = useState(existing?.basal_body_temperature_c != null ? String(existing.basal_body_temperature_c) : "");
-  const [ovulationTest, setOvulationTest] = useState<MenstrualOvulationTestResult | null>(
-    (existing?.ovulation_test_result as MenstrualOvulationTestResult | null) ?? null
-  );
+  const flow = draft.flow as MenstrualFlowLevel | null;
+  const symptoms = draft.symptoms as MenstrualSymptom[];
+  const moods = draft.moods as MenstrualMood[];
+  const ovulationTest = draft.ovulationTest as MenstrualOvulationTestResult | null;
+  const { notes, bbt } = draft;
+  const setFlow = (v: MenstrualFlowLevel | null) => onDraft({ ...draft, flow: v });
+  const setSymptoms = (f: (c: MenstrualSymptom[]) => MenstrualSymptom[]) => onDraft({ ...draft, symptoms: f(symptoms) });
+  const setMoods = (f: (c: MenstrualMood[]) => MenstrualMood[]) => onDraft({ ...draft, moods: f(moods) });
+  const setNotes = (v: string) => onDraft({ ...draft, notes: v });
+  const setBbt = (v: string) => onDraft({ ...draft, bbt: v });
+  const setOvulationTest = (v: MenstrualOvulationTestResult | null) => onDraft({ ...draft, ovulationTest: v });
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<SaveFeedback | "idle">("idle");
 
@@ -569,18 +609,23 @@ function DayLogForm({
     if (!date) return;
     setFeedback("idle");
     setSubmitting(true);
-    const result = await saveDailyLog({
-      patientId,
-      organisationId,
-      logDate: date,
-      flow,
-      symptoms,
-      moods,
-      notes: notes.trim() || null,
-      basalBodyTemperatureC: bbt.trim() === "" ? null : Number(bbt),
-      ovulationTestResult: ovulationTest,
-    });
-    // Nothing is held on the phone yet (OQ-727), so an offline failure honestly says "not sent" and keeps the choices on screen.
+    let result: { ok: boolean; error?: string };
+    try {
+      result = await saveDailyLog({
+        patientId,
+        organisationId,
+        logDate: date,
+        flow,
+        symptoms,
+        moods,
+        notes: notes.trim() || null,
+        basalBodyTemperatureC: bbt.trim() === "" ? null : Number(bbt),
+        ovulationTestResult: ovulationTest,
+      });
+    } catch {
+      result = { ok: false };
+    }
+    // Nothing is held on the phone yet (OQ-727), so an offline failure honestly says "not sent" and keeps the choices (they are in the draft).
     const offline = result.ok ? false : (await getConnectionKind()) === "none";
     const outcome = saveFeedback({ ok: result.ok, heldOnPhone: false, offline });
     setSubmitting(false);

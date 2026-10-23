@@ -83,7 +83,7 @@ function Chip({
       onClick={onClick}
       aria-pressed={selected}
       className={[
-        "min-h-9 rounded-full border px-3 py-1.5 text-sm transition",
+        "min-h-11 rounded-full border px-3 py-1.5 text-sm transition",
         selected
           ? tone === "period"
             ? "border-transparent text-white"

@@ -57,7 +57,7 @@ export function CycleWeekStrip({
       </div>
       <a
         href="#cycle-calendar"
-        className="inline-block text-sm font-medium text-brand-green underline dark:text-brand-green-bright"
+        className="inline-flex min-h-11 items-center text-sm font-medium text-brand-green underline dark:text-brand-green-bright"
       >
         {t("cycle.log.pick_other")}
       </a>

@@ -72,11 +72,8 @@ export function CyclePrivacyControls() {
             </div>
           )}
           {Array.isArray(access) && access.length === 0 && (
-            <div data-testid="cycle-access-empty" className="space-y-3 py-2 text-center">
+            <div data-testid="cycle-access-empty" className="py-2 text-center">
               <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">{t("cycle.access.empty")}</p>
-              <Button type="button" size="sm" onClick={() => void load()}>
-                {t("cycle.access.empty_button")}
-              </Button>
             </div>
           )}
           {Array.isArray(access) &&

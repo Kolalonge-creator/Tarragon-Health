@@ -1,5 +1,5 @@
 import { t } from "@tarragon/i18n";
-import { confidenceDots, cycleStatus, type ConfidenceDots, type CycleConfidence, type CyclePrediction, type CycleStatusTone } from "@tarragon/shared";
+import { confidenceDots, cycleStatus, type ConfidenceDots, type CycleConfidence, type CyclePrediction, type CycleStatusTone, type PeriodInProgress } from "@tarragon/shared";
 
 /**
  * UI-A: the plain words and small date helpers behind the redesigned cycle screen. Pure, so Jest can check them without a device.
@@ -7,9 +7,12 @@ import { confidenceDots, cycleStatus, type ConfidenceDots, type CycleConfidence,
  */
 
 /** "Period expected in about 3 days." or the calm late wording. Never a percentage, never a promise. */
-export function statusSentence(prediction: CyclePrediction): string {
-  const s = cycleStatus(prediction);
+export function statusSentence(prediction: CyclePrediction, inProgress?: PeriodInProgress | null): string {
+  const s = cycleStatus(prediction, inProgress);
   switch (s.kind) {
+    case "in_progress":
+      if (s.days === 0 || s.days === null) return t("cycle.status.started_today");
+      return s.days === 1 ? t("cycle.status.started_one") : t("cycle.status.started_days", undefined, { days: s.days });
     case "no_history":
       return t("cycle.status.no_history");
     case "today":
@@ -24,8 +27,8 @@ export function statusSentence(prediction: CyclePrediction): string {
   }
 }
 
-export function statusTone(prediction: CyclePrediction): CycleStatusTone {
-  return cycleStatus(prediction).tone;
+export function statusTone(prediction: CyclePrediction, inProgress?: PeriodInProgress | null): CycleStatusTone {
+  return cycleStatus(prediction, inProgress).tone;
 }
 
 export function confidenceSentence(confidence: CycleConfidence): string {
@@ -118,4 +121,72 @@ export function saveFeedback(input: { ok: boolean; heldOnPhone: boolean; offline
 /** How many cycle logs are waiting on the phone. Always 0 until the offline outbox carries a cycle log kind (OQ-727). */
 export async function countPendingCycleLogs(): Promise<number> {
   return 0;
+}
+
+// --- the day-log draft: kept by the screen, not by the sheet, so closing the sheet does not lose what was chosen -----------------
+
+export interface DayDraft {
+  flow: string | null;
+  symptoms: string[];
+  moods: string[];
+  notes: string;
+  bbt: string;
+  ovulationTest: string | null;
+}
+
+interface DraftSource {
+  flow: string | null;
+  symptoms: string[];
+  moods: string[];
+  notes: string | null;
+  basal_body_temperature_c: number | null;
+  ovulation_test_result: string | null;
+}
+
+export function draftFromLog(existing: DraftSource | null): DayDraft {
+  return {
+    flow: existing?.flow ?? null,
+    symptoms: [...(existing?.symptoms ?? [])],
+    moods: [...(existing?.moods ?? [])],
+    notes: existing?.notes ?? "",
+    bbt: existing?.basal_body_temperature_c != null ? String(existing.basal_body_temperature_c) : "",
+    ovulationTest: existing?.ovulation_test_result ?? null,
+  };
+}
+
+/** What the sheet opens with for a date: the unsaved draft if there is one, else the saved log, else empty. */
+export function draftFor(drafts: Readonly<Record<string, DayDraft>>, date: string, existing: DraftSource | null): DayDraft {
+  return drafts[date] ?? draftFromLog(existing);
+}
+
+export function withDraft(drafts: Readonly<Record<string, DayDraft>>, date: string, draft: DayDraft): Record<string, DayDraft> {
+  return { ...drafts, [date]: draft };
+}
+
+/** Called after a successful save only. A failed save keeps the draft. */
+export function withoutDraft(drafts: Readonly<Record<string, DayDraft>>, date: string): Record<string, DayDraft> {
+  const next = { ...drafts };
+  delete next[date];
+  return next;
+}
+
+// --- errors that must not hide a save ----------------------------------------------------------------------------------------
+
+/**
+ * Runs a write and never throws: a thrown error becomes a calm failure, so the caller can always reset its "busy" flag.
+ */
+export async function guardedAction(run: () => Promise<{ ok: boolean; error?: string }>): Promise<{ ok: boolean; error?: string }> {
+  try {
+    return await run();
+  } catch {
+    return { ok: false, error: "Could not save that just now. Please try again." };
+  }
+}
+
+/**
+ * When a re-read fails: if the screen already has data (a save just succeeded), keep the screen and add a small
+ * "saved, but could not refresh" note; only a first load with nothing to show becomes the full error.
+ */
+export function refreshFailureView(hasData: boolean): "saved_note" | "full_error" {
+  return hasData ? "saved_note" : "full_error";
 }
