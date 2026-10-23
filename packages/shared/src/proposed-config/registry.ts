@@ -8221,4 +8221,175 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-22",
     source: "docs/design/S59c.md section 5; supabase/migrations/20261022233226_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-04",
   },
+  {
+    key: "outcomes.cascade_rules",
+    // WP3: the cascade-of-care stage definitions (hypertension and diabetes), the 140/90 and 7.0 percent control lines, and the selection-bias panel bands.
+    // The database holds it as `outcome_cascade_config` v1 (UNSIGNED, INACTIVE until the Chief Medical Officer signs on the sign-off hub; nothing shows before).
+    // A test compares this value with the migration seed. The control line differs on purpose from the S38 day-90 / day-180 BP reports (fixed 140/90, most recent
+    // 7-day average, as at the report day, instead of each person's own home target at fixed days after joining); every output says so.
+    value: {
+      "min_adult_age_years": 18,
+      "exclude_pregnant": true,
+      "hypertension": {
+        "controlled_below": {
+          "systolic": 140,
+          "diastolic": 90
+        },
+        "control_window_days": 7,
+        "min_readings": 3,
+        "lookback_days": 90,
+        "diagnosis_icd10_prefixes": [
+          "I10",
+          "I11",
+          "I12",
+          "I13",
+          "I15",
+          "I16"
+        ],
+        "diagnosis_statuses": [
+          "active",
+          "controlled",
+          "uncontrolled"
+        ],
+        "stages": [
+          {
+            "code": "enrolled",
+            "label": "Enrolled adult Members",
+            "definition": "Members aged 18 or over with a known date of birth and a joining date, not pregnant, not a test account."
+          },
+          {
+            "code": "screened",
+            "label": "Blood pressure measured",
+            "definition": "Enrolled Members with at least one cleared blood pressure reading on the platform (home or recorded by a clinician). This is a share of enrolled Members, not screening coverage of a population."
+          },
+          {
+            "code": "diagnosed",
+            "label": "Hypertension on record",
+            "definition": "Enrolled Members with an active hypertension care plan, or a hypertension entry on the problem list (ICD-10 I10 to I16) marked active, controlled or uncontrolled. Includes people with no reading yet."
+          },
+          {
+            "code": "on_treatment",
+            "label": "On a recorded medicine",
+            "definition": "Diagnosed Members with at least one active, current medicine recorded under their hypertension care plan. The medicine class is not held, so this counts any medicine under that plan. Lifestyle-only treatment is not counted."
+          },
+          {
+            "code": "controlled",
+            "label": "Blood pressure under 140/90",
+            "definition": "Members on treatment whose most recent 7-day home average, from at least 3 cleared readings in the last 90 days, is under 140 systolic and under 90 diastolic. Members on treatment with too few or no recent readings are shown as control unknown, not as uncontrolled."
+          }
+        ],
+        "not_available": [
+          {
+            "item": "Population screening coverage",
+            "reason": "Tarragon holds no register of the people who could have been screened, so a screened share of a population cannot be given."
+          },
+          {
+            "item": "Undiagnosed raised blood pressure",
+            "reason": "A raised reading in a Member with no diagnosis is followed up clinically, and the platform does not hold a confirmed-raised-without-diagnosis record to count."
+          },
+          {
+            "item": "Prevalence",
+            "reason": "This is a cascade of Tarragon Members, not of a population, and says nothing about how common hypertension is."
+          }
+        ]
+      },
+      "diabetes": {
+        "controlled_hba1c_below_percent": 7.0,
+        "lookback_days": 180,
+        "valid_min": 3.0,
+        "valid_max": 20.0,
+        "diagnosis_icd10_prefixes": [
+          "E10",
+          "E11",
+          "E13",
+          "E14"
+        ],
+        "diagnosis_statuses": [
+          "active",
+          "controlled",
+          "uncontrolled"
+        ],
+        "stages": [
+          {
+            "code": "enrolled",
+            "label": "Enrolled adult Members",
+            "definition": "Members aged 18 or over with a known date of birth and a joining date, not pregnant, not a test account."
+          },
+          {
+            "code": "screened",
+            "label": "Glucose or HbA1c measured",
+            "definition": "Enrolled Members with at least one cleared glucose reading or an HbA1c result on the platform. This is a share of enrolled Members, not screening coverage of a population."
+          },
+          {
+            "code": "diagnosed",
+            "label": "Diabetes on record",
+            "definition": "Enrolled Members with an active diabetes care plan, or a diabetes entry on the problem list (ICD-10 E10 to E14) marked active, controlled or uncontrolled. Includes people with no result yet."
+          },
+          {
+            "code": "on_treatment",
+            "label": "On a recorded medicine",
+            "definition": "Diagnosed Members with at least one active, current medicine recorded under their diabetes care plan. The medicine class is not held, so this counts any medicine under that plan."
+          },
+          {
+            "code": "controlled",
+            "label": "HbA1c under 7.0 percent",
+            "definition": "Members on treatment whose most recent HbA1c in the last 180 days is under 7.0 percent. Members on treatment with no recent HbA1c are shown as control unknown, not as uncontrolled. The fixed 7.0 line is used, not each person's own care-plan target."
+          }
+        ],
+        "not_available": [
+          {
+            "item": "Population screening coverage",
+            "reason": "Tarragon holds no register of the people who could have been screened, so a screened share of a population cannot be given."
+          },
+          {
+            "item": "Undiagnosed diabetes",
+            "reason": "The platform does not hold a record of raised glucose in a Member with no diagnosis to count."
+          },
+          {
+            "item": "Prevalence",
+            "reason": "This is a cascade of Tarragon Members, not of a population, and says nothing about how common diabetes is."
+          }
+        ]
+      },
+      "selection_panel": {
+        "age_bands": [
+          [
+            18,
+            39
+          ],
+          [
+            40,
+            49
+          ],
+          [
+            50,
+            59
+          ],
+          [
+            60,
+            69
+          ],
+          [
+            70,
+            150
+          ]
+        ],
+        "severe_from": {
+          "systolic": 160,
+          "diastolic": 100
+        },
+        "note": "These comparisons are descriptive, not causal. They show who is in the figures and who is not, on the few details Tarragon holds. They cannot show why people joined or stayed, and they do not show that the programme caused any difference.",
+        "eligible_roster_reason": "Tarragon holds no list of the people a sponsor could have enrolled, so people who were eligible but did not enrol cannot be counted. The comparison given is with other adult Members who are not in this programme's figures."
+      },
+      "notes": {
+        "cascade": "A cascade of Tarragon Members, not of a population. It is a count of people at a point in time, not a measure of what any service did. Differences between months can come from who joined.",
+        "difference_from_s38": "Control here means the most recent 7-day home average is under 140/90, as at the day the report is run. The day-90 and day-180 blood pressure reports judge each person against their own home target when they have one, at fixed days after joining. The two measures can differ."
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-23",
+    source: "docs/design/WP3.md; WHO HEARTS / DHIS2 cascade terms; HEDIS CBP 140/90. Unsigned until the CMO signs.",
+  },
 ];

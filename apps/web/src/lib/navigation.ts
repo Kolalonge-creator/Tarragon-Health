@@ -812,6 +812,7 @@ export function getNavSections(
             { label: "Founder view (small groups)", href: "/admin/outcomes/engagement/founder", icon: "analytics" },
             { label: "Risk fairness", href: "/admin/risk-fairness", icon: "analytics" },
             { label: "Other outcome measures", href: "/admin/outcomes/measures", icon: "analytics" },
+            { label: "Cascade of care", href: "/admin/outcomes/cascade", icon: "analytics" },
             { label: "Export outcomes", href: "/admin/outcomes/export", icon: "analytics" },
             // Programme codes for insurers, employers and NGOs, and their aggregate group figures (S38e).
             { label: "Sponsors", href: "/admin/sponsors", icon: "members" },
