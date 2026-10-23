@@ -131,10 +131,10 @@ declare v_org uuid := pg_temp.f('org'); v_year uuid := pg_temp.f('year'); v_p2 u
 begin
   perform pg_temp.ck('the buyer holds an unfinished entitlement (fixture)', '1',
     (select count(*)::text from public.entitlements where patient_id = pg_temp.f('p1') and state = 'active' and ends_at > now()));
-  insert into public.catalog_item_extras (organisation_id, catalog_item_id, extra_item_id, sort_order) values (v_org, v_year, pg_temp.f('extra'), 1);
-  insert into public.catalog_item_extras (organisation_id, catalog_item_id, extra_item_id, sort_order) values (v_org, v_year, pg_temp.f('noprice'), 2);
-  insert into public.catalog_item_extras (organisation_id, catalog_item_id, extra_item_id, sort_order) values (v_org, v_year, pg_temp.f('off'), 3);
-  insert into public.catalog_item_extras (organisation_id, catalog_item_id, label_key, sort_order) values (v_org, v_year, 'catalog.notincl.medicines', 0);
+  insert into public.catalog_item_extras (organisation_id, catalog_item_id, extra_item_id, sort_order, valid_from) values (v_org, v_year, pg_temp.f('extra'), 1, now() - interval '1 day');
+  insert into public.catalog_item_extras (organisation_id, catalog_item_id, extra_item_id, sort_order, valid_from) values (v_org, v_year, pg_temp.f('noprice'), 2, now() - interval '1 day');
+  insert into public.catalog_item_extras (organisation_id, catalog_item_id, extra_item_id, sort_order, valid_from) values (v_org, v_year, pg_temp.f('off'), 3, now() - interval '1 day');
+  insert into public.catalog_item_extras (organisation_id, catalog_item_id, label_key, sort_order, valid_from) values (v_org, v_year, 'catalog.notincl.medicines', 0, now() - interval '1 day');
   r := pg_temp.q_as(v_p2, $q$select public.catalogue_not_included('wp1_year')::text$q$)::jsonb;
   perform pg_temp.ck('one item comes back for the code asked for', '1', jsonb_array_length(r)::text);
   perform pg_temp.ck('the words-only entry is first and has no price', 'catalog.notincl.medicines|', (r -> 0 -> 'items' -> 0 ->> 'label_key') || '|' || coalesce(r -> 0 -> 'items' -> 0 ->> 'amount_kobo', ''));
@@ -254,9 +254,16 @@ begin
     (select case when pg_temp.owner_sql(format($q$insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, uses, grants_lead, active) values (%L, 'wp1_first', 'consultation', 'catalog.proof.name', 'catalog.proof.description', 1, false, true)$q$, pg_temp.f('org'))) = 'ok'
                  and pg_temp.owner_sql(format($q$insert into public.prices (organisation_id, catalog_item_id, amount_kobo) select %L, id, 100000 from public.catalog_items where code = 'wp1_first'$q$, pg_temp.f('org'))) = 'ok'
                  then (select count(*)::text from public.notifications where template = 'price_change_notice' and payload ->> 'item_code' = 'wp1_first') end));
-  -- a sponsor-covered purchase did not pay the list price, so it is not told about it
-  perform pg_temp.ck('a purchase with a sponsor share is not told about a list price', '0',
-    (select case when pg_temp.owner_sql(format($q$update public.orders set sponsor_share_kobo = 0 where buyer_profile_id = %L$q$, v_p1)) = 'ok' then '0' end));
+  -- a sponsor-covered purchase did not pay the list price, so it is not told about it (the arithmetic check is lifted here only, to give the order a share)
+  perform pg_temp.ck('fixture: the arithmetic check is lifted for this proof', 'ok', pg_temp.owner_sql('alter table public.orders drop constraint orders_pricing_adds_up'));
+  perform pg_temp.owner_sql('alter table public.orders disable trigger orders_state_machine');
+  perform pg_temp.ck('fixture: the order is given a sponsor share', 'ok', pg_temp.owner_sql(format($q$update public.orders set sponsor_share_kobo = 100 where buyer_profile_id = %L$q$, v_p1)));
+  perform pg_temp.ck('a sponsor-covered purchase sees no notice details', '[]', pg_temp.q_as(v_p1, 'select public.my_price_change_notices()::text'));
+  perform pg_temp.ck('a purchase with a sponsor share is not told about a later list price', '1',
+    (select case when pg_temp.try_as(v_admin, $q$select public.set_item_price('wp1_year', 13000000, '{}', 'A change that a sponsored purchase should not hear about', now() + interval '2500 milliseconds')$q$) = 'ok'
+                 then pg_temp.notices(v_p1) end));
+  perform pg_temp.owner_sql(format($q$update public.orders set sponsor_share_kobo = 0 where buyer_profile_id = %L$q$, v_p1));
+  perform pg_temp.owner_sql('alter table public.orders enable trigger orders_state_machine');
 end $$;
 
 -- 5. A notice that cannot be written never blocks the price ----------------------------------------------------------------------------
