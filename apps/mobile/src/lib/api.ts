@@ -177,6 +177,8 @@ export interface SymptomCheckerState {
   open: boolean;
   eligibility: "ok" | "under_18" | "dob_required" | "error";
   complaints: { key: string; label: string; bundledCurrent: boolean }[];
+  /** S59c: the describe table, the explainer and the safety-net lines the server has checked against the live signed version (null = not in force). Absent on an older server. */
+  ux?: { describe: unknown; explainer: unknown; safetyNet: unknown };
 }
 export async function getSymptomCheckerState(): Promise<SymptomCheckerState | null> {
   const result = await request<SymptomCheckerState>("/api/mobile/symptom-check", "GET");
@@ -188,13 +190,56 @@ export type SymptomStepResponse =
   | { status: "blocked"; reason: "under_18" | "dob_required" }
   | { status: "error"; error: string }
   | { status: "in_progress"; question: { type: "question"; kind: "boolean"; key: string; prompt: string } | { type: "question"; kind: "choice"; key: string; prompt: string; options: { value: string; label: string }[] }; state: { capture: Record<string, unknown>; answers: Record<string, boolean | string>; questionLog: { questionKey: string; prompt: string; answer: boolean | string; answeredAt: string }[] } }
-  | { status: "complete"; category: string; clinicianReviewRequired: boolean; safetyNetMessageKey: string; assessmentId: string | null; degraded: boolean; urgencyLevel: string | null; forDependant: boolean; recorded: boolean };
+  | { status: "complete"; category: string; clinicianReviewRequired: boolean; safetyNetMessageKey: string; assessmentId: string | null; degraded: boolean; urgencyLevel: string | null; forDependant: boolean; recorded: boolean; firedRuleKeys?: string[]; tightenedBy?: string[]; questionsAsked?: { questionKey: string; prompt: string; answer: boolean | string; answeredAt: string }[] };
 
 /** One step. Not retried blind (a repeat after a timeout could record a second check); a failure returns null and the screen uses
  * its on-device result, which can only be as safe or safer than silence. */
 export async function postSymptomStep(input: unknown): Promise<SymptomStepResponse | null> {
   const result = await request<SymptomStepResponse>("/api/mobile/symptom-check", "POST", input, false, true);
   return result.ok ? result.data : null;
+}
+
+/** S59c: the follow-up after a symptom check. The same server code the web uses (apps/web/src/app/api/mobile/symptom-checkback). Any
+ * failure returns null and the screen shows nothing (a follow-up is never required for anything). */
+export interface SymptomCheckbackView {
+  id: string;
+  state: "scheduled" | "open" | "answered" | "expired" | "cancelled";
+  assessment_id: string;
+  category: "self_management" | "routine";
+  complaint_key: string;
+  complaint_label: string;
+  checked_at: string;
+  hours_since_check: number;
+  sign_vocabulary: string[];
+  capture: { presentingComplaintKey: string; onset: "sudden" | "gradual" | "unknown"; severity: number; associatedSymptoms: string[]; triggers: string[]; relevantHistory: string[]; measurements: Record<string, number> };
+  outcome: { action: "close" | "keep_watching" | "book" | "escalate" | "emergency"; progress: string; escalated: boolean; alert_raised?: boolean; emergency?: boolean; doctor_access?: boolean | null } | null;
+}
+
+export async function getOpenSymptomCheckbacks(): Promise<{ open: boolean; checkbacks: { id: string }[] } | null> {
+  const result = await request<{ open: boolean; checkbacks: { id: string }[] }>("/api/mobile/symptom-checkback", "GET");
+  return result.ok ? result.data : null;
+}
+
+export async function getSymptomCheckback(id: string): Promise<{ open: boolean; view: SymptomCheckbackView | null } | null> {
+  const result = await request<{ open: boolean; view: SymptomCheckbackView | null }>(`/api/mobile/symptom-checkback?id=${encodeURIComponent(id)}`, "GET");
+  return result.ok ? result.data : null;
+}
+
+export type SymptomCheckbackAnswer =
+  | { ok: true; complaintKey: string; outcome: { action: "close" | "keep_watching" | "book" | "escalate" | "emergency"; escalated: boolean; alert_raised: boolean; emergency: boolean; doctor_access?: boolean | null; assessment_id: string } }
+  | { ok: false; reason: "invalid" | "signed_out" | "closed" | "not_open" | "failed" };
+
+/** Not retried blind (a repeat after a timeout is harmless on the server, which returns the stored answer, but the screen keeps its own result). */
+export async function postSymptomCheckback(input: { checkbackId: string; progress: "better" | "same" | "worse"; care: string | null; signs: string[] }): Promise<SymptomCheckbackAnswer | null> {
+  const result = await request<SymptomCheckbackAnswer>("/api/mobile/symptom-checkback", "POST", input, false, true);
+  return result.ok ? result.data : null;
+}
+
+/** S59c (OQ-S59c-05): danger wording was found in the describe box ON THE PHONE. Only a session key and a coarse code are sent, never the words.
+ * Says whether it was recorded and whether a clinician was really paged (a plan without doctor time is recorded but not paged); any failure is false/false and the screen then makes no promise. */
+export async function postDescribeDanger(input: { session: string; category: "danger" | "self_harm" }): Promise<{ recorded: boolean; doctorAlerted: boolean }> {
+  const result = await request<{ recorded?: boolean; doctorAlerted?: boolean }>("/api/mobile/symptom-describe-danger", "POST", input, false, true);
+  return result.ok ? { recorded: result.data.recorded === true, doctorAlerted: result.data.doctorAlerted === true } : { recorded: false, doctorAlerted: false };
 }
 
 export interface HealthSyncCursor {

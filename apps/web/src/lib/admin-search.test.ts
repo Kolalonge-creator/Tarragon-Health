@@ -333,3 +333,33 @@ describe("Learning creator credentials page for clinicians (S55)", () => {
     expect(searchAdminEntries(cmoIdx, "mdcn creator", 3).map((e) => e.href)[0]).toBe("/clinician/learning-creator");
   });
 });
+
+describe("the engagement and outcomes dashboard is searchable", () => {
+  const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
+
+  it("is found by the words someone would type, for the admin and for the CMO", () => {
+    for (const q of ["engagement and outcomes", "do points work", "health points outcomes", "difference in differences", "self selection"]) {
+      expect(hit(adminIndex, q)).toContain("/admin/outcomes/engagement");
+      expect(hit(cmoIndex, q)).toContain("/clinician/engagement-outcomes");
+    }
+  });
+
+  it("points the CMO at /clinician and never at /admin", () => {
+    expect(cmoIndex.filter((e) => e.href.includes("engagement")).every((e) => e.href.startsWith("/clinician"))).toBe(true);
+  });
+});
+
+describe("the founder view is searchable by the admin and never by the CMO", () => {
+  const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  it("is found by the words someone would type", () => {
+    for (const q of ["founder view", "unfrozen", "held back figures", "small groups"]) {
+      expect(searchAdminEntries(adminIndex, q, 8).map((e) => e.href)).toContain("/admin/outcomes/engagement/founder");
+    }
+  });
+  it("is not in the CMO's index at all", () => {
+    expect(cmoIndex.some((e) => e.href.includes("founder"))).toBe(false);
+  });
+});

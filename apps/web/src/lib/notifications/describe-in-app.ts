@@ -151,6 +151,13 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "consult_checkin_nudge") {
     return { text: "Your quick check-in is still waiting whenever you are ready", href: `/patient/consult-checkin/${String(payload.checkin_id ?? "")}` };
   }
+  // S59c: neutral previews for the follow-up after a symptom check (INV-07). Nothing names a symptom, a result or a person.
+  if (n.template === "symptom_checkback_due") {
+    return { text: "Your care team would like to know how you are getting on. Open the app to answer", href: `/patient/symptom-checkback/${String(payload.checkback_id ?? "")}` };
+  }
+  if (n.template === "symptom_checkback_nudge") {
+    return { text: "Your quick follow-up is still waiting whenever you are ready", href: `/patient/symptom-checkback/${String(payload.checkback_id ?? "")}` };
+  }
   if (n.template === "consult_missed") {
     return {
       text: payload.credit_returned === true ? "Your consultation did not go ahead. Your credit is back in the app." : "Your consultation did not go ahead. Open the app to rebook.",
