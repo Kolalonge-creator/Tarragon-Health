@@ -26,6 +26,9 @@ const MESSAGES: Readonly<Record<string, string>> = {
   price_components_must_sum: "The itemised split must add up to the price.",
   unknown_item: "That item no longer exists.",
   go_live_guard_closed: "Its go-live guard is off. Switch the guard on (Go-live guards page) once its conditions are met, then switch the item on.",
+  extras_invalid: "That list is not valid: an item cannot list itself, a code twice, or more than 12 extras.",
+  extras_item_invalid: "Only patient items of your organisation can be listed.",
+  extras_too_many: "An item can list at most 12 things it does not include.",
   institutional_item_priced_by_book: "This item is priced by a price book, not a list price.",
 };
 function describe(error: { message: string }): string {
@@ -58,4 +61,20 @@ export async function setItemPrice(_prev: CatalogueActionState, formData: FormDa
   if (error) return { error: describe(error) };
   revalidatePath("/admin/catalogue");
   return { message: "Price saved." };
+}
+
+const extrasSchema = z.object({ code: CODE, extras: z.array(CODE).max(12, "List at most 12 extras."), reason });
+
+/**
+ * Chooses which other catalogue items are listed as "not included, sold separately" for an item. Their prices are read from the price book
+ * at display time, never typed here. The database closes removed rows and adds new ones (a dated trail), checks the caller is an admin and audits it.
+ */
+export async function setItemExtras(_prev: CatalogueActionState, formData: FormData): Promise<CatalogueActionState> {
+  const parsed = extrasSchema.safeParse({ code: formData.get("code"), extras: formData.getAll("extra"), reason: formData.get("reason") });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_set_item_extras", { p_code: parsed.data.code, p_extra_codes: parsed.data.extras, p_reason: parsed.data.reason });
+  if (error) return { error: describe(error) };
+  revalidatePath("/admin/catalogue");
+  return { message: "List saved." };
 }

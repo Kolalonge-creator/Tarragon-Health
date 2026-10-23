@@ -51611,6 +51611,8 @@ export type Database = {
         Returns: undefined
       }
       admin_catalogue: { Args: never; Returns: Json };
+      admin_item_extras: { Args: never; Returns: Json };
+      admin_set_item_extras: { Args: { p_code: string; p_extra_codes: string[]; p_reason: string }; Returns: number };
       admin_organisation_prices: { Args: never; Returns: Json };
       clear_organisation_member_price: {
         Args: { p_employer_org: string; p_reason: string; p_valid_from?: string };
@@ -51749,6 +51751,8 @@ export type Database = {
       care_message_scope: { Args: { p_message: string }; Returns: Json };
       catalogue: { Args: never; Returns: Json };
       catalogue_item: { Args: { p_code: string }; Returns: Json };
+      catalogue_not_included: { Args: { p_code?: string }; Returns: Json };
+      my_price_change_notices: { Args: never; Returns: Json };
       price_quote: {
         Args: { p_beneficiary?: string; p_code: string; p_discount_code?: string; p_use_points?: boolean }
         Returns: Json
