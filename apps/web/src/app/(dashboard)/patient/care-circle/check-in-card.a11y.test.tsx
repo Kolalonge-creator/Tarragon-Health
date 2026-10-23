@@ -18,6 +18,7 @@ jest.mock("@/lib/queries/care-circle", () => ({
 }));
 
 beforeEach(() => {
+  window.sessionStorage.clear();
   enabled = { data: true };
   pending = { data: true };
   respondState = { isPending: false, isError: false };
@@ -32,11 +33,29 @@ describe("CheckInCard snooze (UI-B)", () => {
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Not right now" })));
     expect(screen.queryByRole("button", { name: "I am fine" })).toBeNull();
     expect(respond).not.toHaveBeenCalled();
-    await act(async () => { jest.advanceTimersByTime(300_000); });
+    // The snooze is sized against the SHORTEST window the server allows (1 minute): a quarter of it, 15 seconds, never the full 5.
+    await act(async () => { jest.advanceTimersByTime(14_000); });
+    expect(screen.queryByRole("button", { name: "I am fine" })).toBeNull();
+    await act(async () => { jest.advanceTimersByTime(1_000); });
     expect(screen.getByText("No problem. Want to answer now?")).toBeTruthy();
     expect(screen.getByRole("button", { name: "I am fine" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Not right now" })).toBeNull();
     jest.useRealTimers();
+  });
+
+  it("a reload during or after the snooze cannot take a second snooze", async () => {
+    const first = render(<CheckInCard locale="en" />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Not right now" })));
+    first.unmount();
+    // reloaded while snoozed: still hidden
+    const during = render(<CheckInCard locale="en" />);
+    expect(screen.queryByRole("button", { name: "I am fine" })).toBeNull();
+    during.unmount();
+    // reloaded after the snooze ended: asked again, and no second snooze offered
+    window.sessionStorage.setItem("tarragon.checkin.snooze_until", String(Date.now() - 1_000));
+    render(<CheckInCard locale="en" />);
+    expect(screen.getByText("No problem. Want to answer now?")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Not right now" })).toBeNull();
   });
 
   it("the snooze tells nobody anything: no answer call is made", async () => {

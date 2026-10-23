@@ -1,12 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { checkInSnoozeSeconds, getProposedConfig } from "@tarragon/shared";
+import { CHECKIN_WINDOW_MIN_MINUTES, checkInSnoozeSeconds, restoreCheckInSnooze, type CheckInSnoozeState } from "@tarragon/shared";
 import { t, type Locale } from "@tarragon/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-error";
 import { useCheckInEnabled, useCheckInPending, useRespondCheckIn } from "@/lib/queries/care-circle";
+
+const SNOOZE_KEY = "tarragon.checkin.snooze_until";
+function readDeadline(): number | null {
+  try {
+    const raw = window.sessionStorage.getItem(SNOOZE_KEY);
+    return raw === null ? null : Number(raw);
+  } catch {
+    return null;
+  }
+}
+function writeDeadline(ms: number): void {
+  try {
+    window.sessionStorage.setItem(SNOOZE_KEY, String(ms));
+  } catch {
+    /* no storage: the snooze still works for this page view */
+  }
+}
+function clearDeadline(): void {
+  try {
+    window.sessionStorage.removeItem(SNOOZE_KEY);
+  } catch {
+    /* nothing to clear */
+  }
+}
 
 /**
  * S29e: a question from someone in the circle is waiting. The patient answers with one tap and nobody else is told. Never says who
@@ -19,7 +43,8 @@ export function CheckInCard({ locale }: { locale: Locale }) {
   const respond = useRespondCheckIn();
   const [outcome, setOutcome] = useState<"answered" | "too_late" | null>(null);
   // UI-B: one snooze per question. "snoozed" hides the card for a short while, "asked_again" is the second showing (no further snooze).
-  const [snooze, setSnooze] = useState<"none" | "snoozed" | "asked_again">("none");
+  // The deadline is kept for this browser session so a reload cannot give a second snooze (the question has no id the client can read).
+  const [snooze, setSnooze] = useState<CheckInSnoozeState>(() => restoreCheckInSnooze(readDeadline(), Date.now()));
   const waiting = pending.data === true;
 
   // A later question starts clean: an old "thank you" must never hide a new button (adjusted while rendering, not in an effect).
@@ -27,12 +52,16 @@ export function CheckInCard({ locale }: { locale: Locale }) {
   if (waiting !== wasWaiting) {
     setWasWaiting(waiting);
     if (waiting) setOutcome(null);
-    setSnooze("none");
+    else {
+      // The question ended (answered, or run out): the next one may be snoozed once again.
+      clearDeadline();
+      setSnooze("none");
+    }
   }
   useEffect(() => {
     if (snooze !== "snoozed") return;
-    const rules = getProposedConfig("care_circle.rules").value as { checkin_window_minutes?: number };
-    const timer = setTimeout(() => setSnooze("asked_again"), checkInSnoozeSeconds(rules.checkin_window_minutes ?? 0) * 1000);
+    const left = Math.max(0, (readDeadline() ?? 0) - Date.now());
+    const timer = setTimeout(() => setSnooze("asked_again"), left);
     return () => clearTimeout(timer);
   }, [snooze]);
   // The layout is on every page, so the thank-you goes away by itself.
@@ -71,7 +100,11 @@ export function CheckInCard({ locale }: { locale: Locale }) {
           {t("checkin.respond", locale)}
         </Button>
         {again ? null : (
-          <Button type="button" variant="outline" className="ml-2 min-h-11" disabled={respond.isPending} onClick={() => setSnooze("snoozed")}>
+          <Button type="button" variant="outline" className="ml-2 min-h-11" disabled={respond.isPending} onClick={() => {
+            // The live window is decided on the server and cannot be read here, so the snooze is sized against the shortest window it allows.
+            writeDeadline(Date.now() + checkInSnoozeSeconds(CHECKIN_WINDOW_MIN_MINUTES) * 1000);
+            setSnooze("snoozed");
+          }}>
             {t("uib.checkin.snooze", locale)}
           </Button>
         )}

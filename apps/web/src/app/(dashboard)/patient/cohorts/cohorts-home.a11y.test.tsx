@@ -28,6 +28,14 @@ describe("CommunityHome states", () => {
     await expectNoA11yViolations(<CommunityHome locale="en" />);
   });
 
+  it("while Try again is running it shows a loading state, not the old error, and the button is disabled", () => {
+    mine = { isPending: false, isError: true, isFetching: true, refetch, data: undefined };
+    render(<CommunityHome locale="en" />);
+    expect(screen.getByRole("status").textContent).toMatch(/Loading your groups/);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect((screen.getByRole("button", { name: "Try again" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("could not load: says so, is not the empty sentence, and Try again refetches", async () => {
     mine = { isPending: false, isError: true, refetch, data: undefined };
     render(<CommunityHome locale="en" />);

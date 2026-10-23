@@ -18,19 +18,22 @@ export const privacyCircleCopy = {
   "uib.who.care_team.title": "My care team",
   "uib.who.care_team.body": "A member of your care team who looks after you can open a short summary when they need it. Each time is written in the list below. You cannot switch this off here yet.",
   "uib.who.circle.title": "People I choose",
-  "uib.who.circle.body": "Nobody in your Care Circle can see this unless you add them and give them access to this section. You can take that access away at any time.",
-  "uib.who.preview.title": "What someone in your Care Circle would see",
-  "uib.who.preview.none": "If you have not given them access to this section: nothing from it.",
-  "uib.who.preview.granted": "If you give them access: they can see what you log in this section, for example your period days and how you felt.",
-  "uib.who.preview.notifications": "Reminders and messages from this section never say what they are about, on your screen or on theirs.",
+  "uib.who.circle.body": "Nothing from this section is shared through your Care Circle. Care Circle members only see what you allow for them there, such as appointments and alerts, never what you log here.",
+  "uib.who.preview.title": "What other people would see",
+  "uib.who.preview.none": "A Care Circle member: nothing from this section.",
+  "uib.who.preview.granted": "A family member or carer you have given access under Family: only the kinds of health information you chose for them. This section is left out unless you choose it for that person.",
+  "uib.who.preview.notifications": "Reminders and messages from this section never say what they are about.",
   "uib.who.limit": "A limit to know about: anyone who has your login can see this section. A PIN on this phone helps if the phone is shared, but it is not a full lock.",
-  "uib.who.link": "Choose who is in your Care Circle",
+  "uib.who.link": "Choose who has access under Family",
 
   // --- Hide on this phone (change 6)
   "uib.hide.action": "Hide on this phone",
   "uib.hide.hidden": "This card is hidden on this phone.",
   "uib.hide.show": "Show again",
   "uib.hide.note": "This only hides the card on this phone. It does not delete anything and it does not change who else can see it.",
+  "uib.hide.action_web": "Hide in this browser",
+  "uib.hide.hidden_web": "This card is hidden in this browser.",
+  "uib.hide.note_web": "This only hides the card in this browser. It does not delete anything and it does not change who else can see it.",
 
   // --- Care Circle check-in (change 13)
   "uib.checkin.snooze": "Not right now",

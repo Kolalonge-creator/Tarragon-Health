@@ -14,11 +14,11 @@ export function EmptyState({ message, action }: { message: string; action?: Reac
 }
 
 /** The different "could not load" state: says so plainly, is not the same as empty, and offers Try again. */
-export function LoadFailedState({ message, retryLabel, onRetry }: { message: string; retryLabel: string; onRetry: () => void }) {
+export function LoadFailedState({ message, retryLabel, onRetry, retrying = false, retryingMessage }: { message: string; retryLabel: string; onRetry: () => void; retrying?: boolean; retryingMessage?: string }) {
   return (
-    <div role="alert" className="space-y-3 rounded-lg border p-4">
-      <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">{message}</p>
-      <button type="button" onClick={onRetry} className="inline-flex min-h-11 items-center rounded-md border px-4 text-sm font-medium">
+    <div role={retrying ? "status" : "alert"} aria-busy={retrying} className="space-y-3 rounded-lg border p-4">
+      <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">{retrying && retryingMessage ? retryingMessage : message}</p>
+      <button type="button" onClick={onRetry} disabled={retrying} className="inline-flex min-h-11 items-center rounded-md border px-4 text-sm font-medium disabled:opacity-60">
         {retryLabel}
       </button>
     </div>

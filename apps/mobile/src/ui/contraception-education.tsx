@@ -17,9 +17,14 @@ export function ContraceptionEducation() {
   const colors = useLegacyColors();
   const [open, setOpen] = useState<boolean | null>(null);
   const [shown, setShown] = useState(false);
-  const [accountId, setAccountId] = useState<string | null>(null);
+  // undefined = not read yet. Nothing from the card is drawn until the account is known (and then until the stored hide flag is read, in
+  // HideOnThisPhone), so a card hidden on this phone never flashes. A failed read counts as "no account": the card is shown.
+  const [accountId, setAccountId] = useState<string | null | undefined>(undefined);
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data }) => setAccountId(data.session?.user.id ?? null));
+    void supabase.auth.getSession().then(
+      ({ data }) => setAccountId(data.session?.user.id ?? null),
+      () => setAccountId(null),
+    );
   }, []);
   useEffect(() => {
     void supabase.rpc("go_live_guard_is_open", { p_key: "reproductive_content_enabled" }).then(({ data, error }) => setOpen(!error && data === true));
@@ -51,6 +56,7 @@ export function ContraceptionEducation() {
     </View>
   );
   // UI-B: "Hide on this phone" needs to know whose phone-copy it is; with no signed-in account the card is shown as before.
+  if (accountId === undefined) return null;
   return accountId ? (
     <HideOnThisPhone accountId={accountId} card="contraception">
       {body}

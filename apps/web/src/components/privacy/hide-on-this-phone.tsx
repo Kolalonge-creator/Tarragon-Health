@@ -8,8 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { browserLockStorage } from "@/components/private-section/use-private-lock";
 
 /**
- * "Hide on this phone" (UI-B change 6): a quick switch on a sensitive card (cycle, pregnancy, contraception, growth) so a glance at a
- * shared screen does not show it. Stored on this device only, with the same storage the PrivateSection lock uses. It deletes nothing,
+ * "Hide in this browser" (UI-B change 6; the phone says "Hide on this phone"): a quick switch on a sensitive card (cycle, pregnancy,
+ * contraception, growth) so a glance at a shared screen does not show it. Stored in this browser only, with the same storage the PrivateSection lock uses. It deletes nothing,
  * changes nobody else's access and is not a lock (showing the card again needs no PIN); a PIN is PrivateSection's job, and the note
  * under the button says so. A storage that cannot be read leaves the card visible, never hidden.
  *
@@ -55,7 +55,7 @@ export function HideOnThisPhone({
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
           <p role="status" className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-            {t("uib.hide.hidden")}
+            {t("uib.hide.hidden_web")}
           </p>
           <Button type="button" size="sm" variant="outline" className="min-h-11" onClick={() => void change(false)}>
             {t("uib.hide.show")}
@@ -74,10 +74,10 @@ export function HideOnThisPhone({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-end gap-2">
         <span id={`hide-note-${card}`} className="sr-only">
-          {t("uib.hide.note")}
+          {t("uib.hide.note_web")}
         </span>
         <Button type="button" size="sm" variant="ghost" className="min-h-11" aria-describedby={`hide-note-${card}`} onClick={() => void change(true)}>
-          {t("uib.hide.action")}
+          {t("uib.hide.action_web")}
         </Button>
       </div>
       {failed && (

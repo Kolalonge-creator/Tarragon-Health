@@ -16,9 +16,11 @@ describe("WhoCanSeeThis", () => {
     render(<WhoCanSeeThis />);
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
     for (const name of ["Only me", "My care team", "People I choose"]) expect(screen.getByText(name)).toBeTruthy();
-    expect(screen.getByText(/What someone in your Care Circle would see/)).toBeTruthy();
+    expect(screen.getByText(/What other people would see/)).toBeTruthy();
+    expect(screen.getByText(/A Care Circle member: nothing from this section/)).toBeTruthy();
     expect(screen.getByText(/not a full lock/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Choose who is in your Care Circle" }).getAttribute("href")).toBe("/patient/care-circle");
+    expect(screen.getByRole("link", { name: "Choose who has access under Family" }).getAttribute("href")).toBe("/patient/family");
+    expect(document.body.textContent).not.toMatch(/Care Circle[^.]*can see[^.]*period/i);
     expect(document.body.textContent).not.toMatch(/—|your doctor/i);
     cleanup();
     await expectNoA11yViolations(<WhoCanSeeThis />);
@@ -40,9 +42,9 @@ describe("HideOnThisPhone", () => {
       </HideOnThisPhone>,
     );
     await screen.findByText("private card body");
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Hide on this phone" })));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Hide in this browser" })));
     expect(screen.queryByText("private card body")).toBeNull();
-    expect(screen.getByText("This card is hidden on this phone.")).toBeTruthy();
+    expect(screen.getByText("This card is hidden in this browser.")).toBeTruthy();
     // The placeholder does not say what is hidden.
     expect(document.body.textContent).not.toMatch(/growth|cycle|pregnan|contracept/i);
     unmount();
@@ -51,7 +53,7 @@ describe("HideOnThisPhone", () => {
         <p>private card body</p>
       </HideOnThisPhone>,
     );
-    await screen.findByText("This card is hidden on this phone.");
+    await screen.findByText("This card is hidden in this browser.");
     expect(screen.queryByText("private card body")).toBeNull();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Show again" })));
     expect(screen.getByText("private card body")).toBeTruthy();
@@ -76,7 +78,7 @@ describe("HideOnThisPhone", () => {
       </HideOnThisPhone>,
     );
     await screen.findByText("private card body");
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Hide on this phone" })));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Hide in this browser" })));
     expect(screen.getByText("private card body")).toBeTruthy();
     expect(screen.getByRole("alert")).toBeTruthy();
   });
@@ -89,7 +91,7 @@ describe("HideOnThisPhone", () => {
       </HideOnThisPhone>,
     );
     await screen.findByText("body");
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Hide on this phone" })));
-    expect(r.container.textContent).toContain("hidden on this phone");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Hide in this browser" })));
+    expect(r.container.textContent).toContain("hidden in this browser");
   });
 });

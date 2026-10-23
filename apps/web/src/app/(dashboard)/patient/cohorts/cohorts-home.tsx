@@ -25,7 +25,7 @@ export function CommunityHome({ locale }: { locale: Locale }) {
 
   if (mine.isPending) return <p className={MUTED} role="status">{t("community.loading", locale)}</p>;
   // A failed read is not an empty list: it says so and offers Try again (UI-B).
-  if (mine.isError) return <LoadFailedState message={t("uib.cohorts.load_failed", locale)} retryLabel={t("common.try_again", locale)} onRetry={() => void mine.refetch()} />;
+  if (mine.isError) return <LoadFailedState message={t("uib.cohorts.load_failed", locale)} retryLabel={t("common.try_again", locale)} onRetry={() => void mine.refetch()} retrying={mine.isFetching} retryingMessage={t("community.loading", locale)} />;
   const data = mine.data;
   if (!data.open) return <p role="status">{t("community.closed", locale)}</p>;
 

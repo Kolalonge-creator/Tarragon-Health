@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { useGrowthMeasurements, useLogGrowthMeasurement, useMaternalFollowUpOpen } from "@/lib/queries/growth";
 import { t } from "@tarragon/i18n";
@@ -256,11 +257,29 @@ function GrowthTrackingCardBody({
   );
 }
 
-/** The growth card with the "Hide on this phone" switch (UI-B). Keyed by the child or person being measured, on this device only. */
+/**
+ * The growth card with the "Hide in this browser" switch (UI-B). The flag is keyed by the signed-in ACCOUNT and the child being
+ * measured, so two people (or two children) on one browser keep separate choices. Nothing is drawn until the account is known, so a
+ * hidden card never flashes; with no signed-in account the card is simply shown.
+ */
 export function GrowthTrackingCard(props: { patientId: string; organisationId: string | null; ageYears: number | null }) {
+  const [account, setAccount] = useState<{ resolved: boolean; id: string | null }>({ resolved: false, id: null });
+  useEffect(() => {
+    let alive = true;
+    void createClient().auth.getUser().then(({ data }) => {
+      if (alive) setAccount({ resolved: true, id: data.user?.id ?? null });
+    }, () => {
+      if (alive) setAccount({ resolved: true, id: null });
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   if (props.ageYears !== null && props.ageYears >= 19) return null;
+  if (!account.resolved) return null;
+  if (!account.id) return <GrowthTrackingCardBody {...props} />;
   return (
-    <HideOnThisPhone accountId={props.patientId} card="growth">
+    <HideOnThisPhone accountId={`${account.id}.${props.patientId}`} card="growth">
       <GrowthTrackingCardBody {...props} />
     </HideOnThisPhone>
   );

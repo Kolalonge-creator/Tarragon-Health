@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { HIDEABLE_CARDS, checkInSnoozeSeconds, hideOnDeviceKey, isHiddenOnDevice, setHiddenOnDevice } from "./hide-on-device";
+import { CHECKIN_WINDOW_MAX_MINUTES, CHECKIN_WINDOW_MIN_MINUTES, HIDEABLE_CARDS, checkInSnoozeSeconds, restoreCheckInSnooze, hideOnDeviceKey, isHiddenOnDevice, setHiddenOnDevice } from "./hide-on-device";
 import type { LockStorage } from "./controller";
 
 function memory(): LockStorage & { data: Map<string, string> } {
@@ -33,6 +33,23 @@ describe("hide on this phone", () => {
   });
   it("the key holds no condition word beyond the card id and never the data itself", () => {
     expect(hideOnDeviceKey("a1", "pregnancy")).toBe("hide_on_device:a1:pregnancy");
+  });
+});
+
+describe("check-in snooze restore", () => {
+  const now = 1_000_000_000;
+  it("none without a deadline, snoozed before it, asked_again after it", () => {
+    expect(restoreCheckInSnooze(null, now)).toBe("none");
+    expect(restoreCheckInSnooze(now + 5_000, now)).toBe("snoozed");
+    expect(restoreCheckInSnooze(now - 5_000, now)).toBe("asked_again");
+  });
+  it("a deadline older than the longest window is stale", () => {
+    expect(restoreCheckInSnooze(now - (CHECKIN_WINDOW_MAX_MINUTES * 60_000 + 1), now)).toBe("none");
+    expect(restoreCheckInSnooze(Number.NaN, now)).toBe("none");
+  });
+  it("sized against the shortest server window, the snooze is 15 seconds and never past half of any window", () => {
+    expect(checkInSnoozeSeconds(CHECKIN_WINDOW_MIN_MINUTES)).toBe(15);
+    for (const w of [1, 2, 5, 60]) expect(checkInSnoozeSeconds(w)).toBeLessThanOrEqual(w * 30);
   });
 });
 

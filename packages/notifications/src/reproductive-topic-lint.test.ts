@@ -24,7 +24,7 @@ const strip = (s: string) => s.replace(/ZQ[a-z0-9]+QZ/gi, " ");
 
 describe("the extra reproductive words discriminate (sabotage controls)", () => {
   it("catch the topic words a lock screen would still give away", () => {
-    for (const bad of ["Your second trimester check", "Your baby's growth", "Birth control reminder", "Time for your IUD check", "Contraception reminder"]) {
+    for (const bad of ["Your second trimester check", "Your baby's growth", "Birth control reminder", "Time for your IUD check", "Contraception reminder", "Your implants", "IUDs due", "Wombs", "She is labouring", "Growths noted", "An expectant mother"]) {
       expect({ bad, hit: dirty(bad).length > 0 }).toEqual({ bad, hit: true });
     }
   });
@@ -41,14 +41,45 @@ describe("the extra reproductive words discriminate (sabotage controls)", () => 
 
 describe("sender templates (push, email, sms) carry no reproductive topic word", () => {
   const entries = Object.entries(TEMPLATE_MAP);
-  it("covers every template", () => expect(entries.length).toBeGreaterThanOrEqual(75));
+  const senderSrc = readFileSync("../../supabase/functions/send-pending-notifications/templates.ts", "utf8");
+  // Branches the canary payload never reaches: every `x === "literal"` in the sender source becomes a payload variant, plus the
+  // recipient and band values the sender is called with in production.
+  const compared = new Map<string, Set<string>>();
+  const note = (k: string, v: string) => compared.set(k, (compared.get(k) ?? new Set<string>()).add(v));
+  for (const m of senderSrc.matchAll(/\b(\w+)\s*[!=]==\s*"([^"]+)"/g)) note(m[1] as string, m[2] as string);
+  for (const v of ["supporter", "patient", "clinician"]) note("recipient_kind", v);
+  for (const v of ["care_team", "patient", "admin"]) note("role", v);
+  for (const v of ["red", "amber", "green", "navy", "none"]) note("band", v);
+  const variants: Array<Record<string, unknown>> = [{}];
+  for (const [k, vs] of compared) for (const v of vs) variants.push({ [k]: v });
+  // The i18n_key path (credential_notice): real catalogue keys that have both a subject and a body.
+  const i18nKeys = Object.keys(en).filter((k) => k.endsWith(".subject") && `${k.slice(0, -8)}.body` in en).map((k) => k.slice(0, -8));
+  const payloadWith = (extra: Record<string, unknown>) =>
+    new Proxy({} as Record<string, unknown>, { get: (_t, k) => (typeof k === "string" ? (k in extra ? extra[k] : canary(k)) : undefined) });
+  const renderText = (fn: (typeof entries)[number][1], extra: Record<string, unknown>) => {
+    const r = fn(payloadWith(extra), ctx);
+    return strip([r.smsText, r.email?.subject, r.email?.text, r.email?.html].filter(Boolean).join(" "));
+  };
+
+  it("covers every template, with real payload variants for the branches", () => {
+    expect(entries.length).toBeGreaterThanOrEqual(75);
+    expect(variants.length).toBeGreaterThanOrEqual(20);
+    expect(i18nKeys.length).toBeGreaterThanOrEqual(5);
+  });
   for (const [key, fn] of entries) {
     it(`${key}`, () => {
-      const r = fn(proxy(), ctx);
-      const text = strip([r.smsText, r.email?.subject, r.email?.text, r.email?.html].filter(Boolean).join(" "));
-      expect(reproductiveTopicWords(text)).toEqual([]);
+      for (const extra of variants) expect({ key, extra, hits: reproductiveTopicWords(renderText(fn, extra)) }).toEqual({ key, extra, hits: [] });
     });
   }
+  it("credential_notice resolved through every real i18n key is neutral", () => {
+    const fn = TEMPLATE_MAP["credential_notice"]!;
+    for (const k of i18nKeys) expect({ k, hits: reproductiveTopicWords(renderText(fn, { i18n_key: k, i18n_params: {} })) }).toEqual({ k, hits: [] });
+  });
+  it("sabotage: a branch that names a topic is only reached by a variant, and is then caught", () => {
+    const leaky = (p: Record<string, unknown>) => (p.recipient_kind === "supporter" ? "Her IUDs are due" : "Hello");
+    expect(reproductiveTopicWords(leaky(proxy()))).toEqual([]);
+    expect(variants.some((extra) => reproductiveTopicWords(leaky(payloadWith(extra))).length > 0)).toBe(true);
+  });
 });
 
 describe("in-app inbox previews carry no reproductive topic word", () => {
@@ -85,7 +116,8 @@ describe("lock-screen text the phone schedules itself (apps/mobile local notific
     it(file.replace(root, "mobile"), () => {
       const src = readFileSync(file, "utf8");
       // Every catalogue key the file looks up, and every quoted literal on a title: / body: line.
-      const keys = [...src.matchAll(/\b(?:t|text)\(\s*["']([a-z0-9_.]+)["']/g)].map((m) => m[1] as string);
+      // Any quoted catalogue key in the file counts, so a key held in a variable or an object is still read.
+      const keys = [...src.matchAll(/["']([a-z0-9_]+(?:\.[a-z0-9_]+)+)["']/g)].map((m) => m[1] as string);
       const literals = [
         ...src.matchAll(/\b(?:title|body|subtitle)\s*:\s*["'`]([^"'`\n]+)["'`]/g),
         ...src.matchAll(/\b[A-Z][A-Z_]*(?:TITLE|BODY)\s*=\s*["'`]([^"'`\n]+)["'`]/g),

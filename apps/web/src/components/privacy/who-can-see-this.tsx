@@ -5,7 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 /**
  * "Who can see this" (UI-B change 5): three rows, one sentence of consequence each, a preview of what someone in the Care Circle would
  * see, and the limit stated. Only claims what is true on screen today: the rows are not switches because the care team summary cannot
- * be paused here yet (the wording says so), and the Care Circle row points to where access is actually given or taken away.
+ * be paused here yet (the wording says so). The Care Circle cannot be given this section at all (its permissions are adherence, weekly
+ * blood pressure trend, appointments, red alerts and paying), so the row says that; the link goes to Family, where the separate
+ * category-based carer access is chosen.
  */
 const ROWS = [
   { id: "only_me", title: "uib.who.only_me.title", body: "uib.who.only_me.body" },
@@ -13,7 +15,7 @@ const ROWS = [
   { id: "circle", title: "uib.who.circle.title", body: "uib.who.circle.body" },
 ] as const;
 
-export function WhoCanSeeThis({ circleHref = "/patient/care-circle" }: { circleHref?: string }) {
+export function WhoCanSeeThis({ familyHref = "/patient/family" }: { familyHref?: string }) {
   return (
     <Card aria-labelledby="who-can-see-title">
       <CardHeader>
@@ -40,7 +42,7 @@ export function WhoCanSeeThis({ circleHref = "/patient/care-circle" }: { circleH
           <p className="text-sm">{t("uib.who.preview.notifications")}</p>
         </section>
         <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{t("uib.who.limit")}</p>
-        <Link href={circleHref} className="inline-flex min-h-11 items-center text-sm font-medium underline">
+        <Link href={familyHref} className="inline-flex min-h-11 items-center text-sm font-medium underline">
           {t("uib.who.link")}
         </Link>
       </CardContent>
