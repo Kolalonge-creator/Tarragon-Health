@@ -3,7 +3,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getProposedConfig } from "./index";
-import { ANNUAL_DURATION_DAYS, ANNUAL_MONTHS, MAX_NOT_INCLUDED } from "../../../commerce/src/index";
 
 const ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..");
 
@@ -12,6 +11,17 @@ function read(dir: string, suffix: string): string {
   if (!file) throw new Error(`${suffix} not found in ${dir}`);
   return readFileSync(join(ROOT, dir, file), "utf8");
 }
+
+// Read the constants from the source text: packages/shared cannot import the edge-function module (its .ts import paths need allowImportingTsExtensions).
+const commerceSrc = read("supabase/functions/_shared/commerce", "price-transparency.ts");
+const num = (re: RegExp): number => {
+  const m = re.exec(commerceSrc);
+  if (!m?.[1]) throw new Error(`constant not found: ${re}`);
+  return Number(m[1]);
+};
+const ANNUAL_MONTHS = num(/ANNUAL_MONTHS\s*=\s*(\d+)/);
+const ANNUAL_DURATION_DAYS = { min: num(/ANNUAL_DURATION_DAYS\s*=\s*\{\s*min:\s*(\d+)/), max: num(/ANNUAL_DURATION_DAYS\s*=\s*\{[^}]*max:\s*(\d+)/) };
+const MAX_NOT_INCLUDED = num(/MAX_NOT_INCLUDED\s*=\s*(\d+)/);
 
 const cfg = getProposedConfig("pricing.transparency").value as {
   monthly_equivalent: { enabled: boolean; months: number; rounding: string };
