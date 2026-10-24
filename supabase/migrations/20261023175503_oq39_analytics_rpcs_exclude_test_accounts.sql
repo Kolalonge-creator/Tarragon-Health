@@ -40,6 +40,7 @@ create table if not exists private.analytics_clean_view_sources (
   definition  text not null  -- the select that defines the view, predicate included
 );
 revoke all on table private.analytics_clean_view_sources from public, anon, authenticated, service_role;
+alter table private.analytics_clean_view_sources enable row level security;   -- no policy: nobody but the owner reads it (S39 catalogue wants RLS on every table)
 comment on table private.analytics_clean_view_sources is 'OQ-39: source and predicate of every analytics_clean view. Edit here, then call private.rebuild_analytics_clean_views().';
 
 create or replace function private.rebuild_analytics_clean_views()
@@ -81,10 +82,6 @@ insert into private.analytics_clean_view_sources (view_name, source_rel, definit
 
 insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('appointments', 'public.appointments', $def$
   select t.* from public.appointments t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
-  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
-
-insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('audit_log', 'public.audit_log', $def$
-  select t.* from public.audit_log t where not exists (select 1 from public.profiles tp where tp.id = t.actor_id and tp.is_test) and not exists (select 1 from public.profiles tp where tp.id = t.subject_patient_id and tp.is_test)$def$)
   on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
 insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('booking_requests', 'public.booking_requests', $def$
@@ -261,14 +258,6 @@ insert into private.analytics_clean_view_sources (view_name, source_rel, definit
 
 insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('doctor_paid_work', 'private.doctor_paid_work', $def$
   select t.* from private.doctor_paid_work t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
-  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
-
-insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('vitals_readings_current', 'private.vitals_readings_current', $def$
-  select t.* from private.vitals_readings_current t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
-  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
-
-insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('vitals_readings_diagnostic', 'private.vitals_readings_diagnostic', $def$
-  select t.* from private.vitals_readings_diagnostic t where not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$)
   on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
 
 insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values ('real_patient_ids', null, $def$
@@ -607,18 +596,18 @@ begin
     return '{}'::jsonb;
   end if;
   return jsonb_build_object(
-    'total', (select count(*) from analytics_clean.audit_log a
+    'total', (select count(*) from (select r.* from public.audit_log r where not exists (select 1 from public.profiles tp where tp.id = r.actor_id and tp.is_test) and not exists (select 1 from public.profiles tp where tp.id = r.subject_patient_id and tp.is_test)) a
               where (p_from is null or a.created_at >= p_from) and (p_to is null or a.created_at <= p_to)),
     'by_action', (select coalesce(jsonb_agg(jsonb_build_object('action', action, 'count', c) order by c desc), '[]'::jsonb)
-      from (select action, count(*) c from analytics_clean.audit_log
+      from (select action, count(*) c from (select r.* from public.audit_log r where not exists (select 1 from public.profiles tp where tp.id = r.actor_id and tp.is_test) and not exists (select 1 from public.profiles tp where tp.id = r.subject_patient_id and tp.is_test)) audit_log
             where (p_from is null or created_at >= p_from) and (p_to is null or created_at <= p_to)
             group by action) t),
     'by_entity', (select coalesce(jsonb_agg(jsonb_build_object('entity_type', entity_type, 'count', c) order by c desc), '[]'::jsonb)
-      from (select coalesce(entity_type, 'unknown') entity_type, count(*) c from analytics_clean.audit_log
+      from (select coalesce(entity_type, 'unknown') entity_type, count(*) c from (select r.* from public.audit_log r where not exists (select 1 from public.profiles tp where tp.id = r.actor_id and tp.is_test) and not exists (select 1 from public.profiles tp where tp.id = r.subject_patient_id and tp.is_test)) audit_log
             where (p_from is null or created_at >= p_from) and (p_to is null or created_at <= p_to)
             group by coalesce(entity_type, 'unknown')) t),
     'by_day', (select coalesce(jsonb_agg(jsonb_build_object('bucket', to_char(bucket, 'YYYY-MM-DD'), 'count', c) order by bucket), '[]'::jsonb)
-      from (select date_trunc('day', created_at) bucket, count(*) c from analytics_clean.audit_log
+      from (select date_trunc('day', created_at) bucket, count(*) c from (select r.* from public.audit_log r where not exists (select 1 from public.profiles tp where tp.id = r.actor_id and tp.is_test) and not exists (select 1 from public.profiles tp where tp.id = r.subject_patient_id and tp.is_test)) audit_log
             where (p_from is null or created_at >= p_from) and (p_to is null or created_at <= p_to)
             group by 1) t)
   );
@@ -712,7 +701,7 @@ begin
     'bp_control', (
       with latest as (
         select distinct on (patient_id) patient_id, systolic, diastolic
-        from analytics_clean.vitals_readings_diagnostic where vital_type='blood_pressure' and systolic is not null and diastolic is not null
+        from (select r.* from private.vitals_readings_diagnostic r where not exists (select 1 from public.profiles tp where tp.id = r.patient_id and tp.is_test)) vitals_readings_diagnostic where vital_type='blood_pressure' and systolic is not null and diastolic is not null
         order by patient_id, taken_at desc
       )
       select jsonb_build_object('total', count(*), 'controlled', count(*) filter (where systolic < 140 and diastolic < 90),
@@ -722,7 +711,7 @@ begin
     'glucose_control', (
       with latest as (
         select distinct on (patient_id) patient_id, glucose_mmol_l
-        from analytics_clean.vitals_readings_diagnostic where vital_type='glucose' and glucose_mmol_l is not null
+        from (select r.* from private.vitals_readings_diagnostic r where not exists (select 1 from public.profiles tp where tp.id = r.patient_id and tp.is_test)) vitals_readings_diagnostic where vital_type='glucose' and glucose_mmol_l is not null
         order by patient_id, taken_at desc
       )
       select jsonb_build_object('total', count(*), 'controlled', count(*) filter (where glucose_mmol_l <= 7.0),
@@ -1404,7 +1393,7 @@ begin
   if not private.is_analyst() then return '[]'::jsonb; end if;
   return jsonb_build_array(
     jsonb_build_object('feature','Vitals logging','patients',
-      (select count(distinct v.patient_id) from analytics_clean.vitals_readings_current v
+      (select count(distinct v.patient_id) from (select r.* from private.vitals_readings_current r where not exists (select 1 from public.profiles tp where tp.id = r.patient_id and tp.is_test)) v
        join analytics_clean.real_patient_ids rp on rp.patient_id = v.patient_id)),
     jsonb_build_object('feature','AI health coach','patients',
       (select count(distinct a.profile_id) from analytics_clean.ai_conversations a
@@ -1576,7 +1565,7 @@ begin
       )
     ),
     'security', jsonb_build_object(
-      'audit_events_30d', (select count(*) from analytics_clean.audit_log where created_at >= now() - interval '30 days'),
+      'audit_events_30d', (select count(*) from (select r.* from public.audit_log r where not exists (select 1 from public.profiles tp where tp.id = r.actor_id and tp.is_test) and not exists (select 1 from public.profiles tp where tp.id = r.subject_patient_id and tp.is_test)) audit_log where created_at >= now() - interval '30 days'),
       'admin_accounts', (select count(*) from analytics_clean.profiles where role='admin'),
       'analyst_accounts', (select count(*) from analytics_clean.profiles where role='analyst')
     ),
@@ -1946,12 +1935,12 @@ begin
     ),
     recent_activity as (
       select distinct patient_id
-      from analytics_clean.vitals_readings_diagnostic
+      from (select r.* from private.vitals_readings_diagnostic r where not exists (select 1 from public.profiles tp where tp.id = r.patient_id and tp.is_test)) vitals_readings_diagnostic
       where taken_at >= now() - interval '90 days'
     ),
     latest_bp as (
       select distinct on (patient_id) patient_id, systolic, diastolic
-      from analytics_clean.vitals_readings_diagnostic
+      from (select r.* from private.vitals_readings_diagnostic r where not exists (select 1 from public.profiles tp where tp.id = r.patient_id and tp.is_test)) vitals_readings_diagnostic
       where vital_type = 'blood_pressure'
         and systolic is not null and diastolic is not null
         and taken_at >= now() - interval '90 days'
@@ -1959,7 +1948,7 @@ begin
     ),
     latest_glucose as (
       select distinct on (patient_id) patient_id, glucose_mmol_l
-      from analytics_clean.vitals_readings_diagnostic
+      from (select r.* from private.vitals_readings_diagnostic r where not exists (select 1 from public.profiles tp where tp.id = r.patient_id and tp.is_test)) vitals_readings_diagnostic
       where vital_type = 'glucose'
         and glucose_mmol_l is not null
         and taken_at >= now() - interval '90 days'
@@ -2809,7 +2798,7 @@ begin
         select p.id,
           greatest(
             (select max(occurred_at) from analytics_clean.web_events w where w.profile_id = p.id),
-            (select max(created_at) from analytics_clean.vitals_readings_current v where v.patient_id = p.id),
+            (select max(created_at) from (select r.* from private.vitals_readings_current r where not exists (select 1 from public.profiles tp where tp.id = r.patient_id and tp.is_test)) v where v.patient_id = p.id),
             (select max(updated_at) from analytics_clean.ai_conversations a where a.profile_id = p.id)
           ) last_active
         from analytics_clean.profiles p where p.role = 'patient'
@@ -3018,8 +3007,16 @@ begin
   where ((p.pronamespace = 'public'::regnamespace and p.proname like 'analytics\_%')
          or p.oid in ('private.refresh_analytics_snapshot_business_summary()'::regprocedure, 'public.get_geo_health_aggregates()'::regprocedure))
     and p.proname not in ('analytics_patient_search','analytics_patient_activity','analytics_audit_log','analytics_log_patient_access','analytics_upsert_finance_input','analytics_upsert_risk')
-    and p.prosrc ~ ('\m(public|private)\.' || c.relname || '\M[^(]');
+    and regexp_replace(p.prosrc, 'from public\.profiles tp where tp\.id = r\.[a-z_]+ and tp\.is_test', '', 'g') ~ ('\m(public|private)\.' || c.relname || '\M[^(]');
   if v_leak is not null then raise exception 'OQ-39: still reads an unfiltered relation: %', v_leak; end if;
+  -- every reference to an inline-filtered relation is wrapped in its filter
+  select string_agg(p.oid::regprocedure::text, ', ') into v_leak from pg_proc p
+  where ((p.pronamespace = 'public'::regnamespace and p.proname like 'analytics\_%')
+         or p.oid in ('private.refresh_analytics_snapshot_business_summary()'::regprocedure, 'public.get_geo_health_aggregates()'::regprocedure))
+    and p.proname not in ('analytics_patient_search','analytics_patient_activity','analytics_audit_log','analytics_log_patient_access','analytics_upsert_finance_input','analytics_upsert_risk')
+    and regexp_count(p.prosrc, '(public\.audit_log|private\.vitals_readings_(current|diagnostic))(\M)')
+        <> regexp_count(p.prosrc, 'from (public\.audit_log|private\.vitals_readings_(current|diagnostic)) r where not exists \(select 1 from public\.profiles tp');
+  if v_leak is not null then raise exception 'OQ-39: an inline-filtered relation is read unwrapped by %', v_leak; end if;
   -- the views are not reachable by the API roles
   if has_schema_privilege('anon', 'analytics_clean', 'USAGE') or has_schema_privilege('authenticated', 'analytics_clean', 'USAGE') then
     raise exception 'OQ-39: analytics_clean must not be usable by anon or authenticated'; end if;

@@ -27,7 +27,7 @@ declare
   v_person text[] := array['patient_id','profile_id','recipient_id','actor_id','is_test','user_id'];
 begin
   for f in
-    select p.oid, p.proname, p.prosrc from pg_proc p
+    select p.oid, p.proname, regexp_replace(p.prosrc, 'from public\.profiles tp where tp\.id = r\.[a-z_]+ and tp\.is_test', '', 'g') as prosrc, p.prosrc as raw from pg_proc p
     where (p.pronamespace = 'public'::regnamespace and p.proname like 'analytics\_%'
            and not (p.proname = any (v_exempt)))
        or p.oid in ('private.refresh_analytics_snapshot_business_summary()'::regprocedure,
@@ -36,6 +36,14 @@ begin
     for m in select distinct (regexp_matches(f.prosrc, '\m(public|private)\.([a-z_][a-z_0-9]*)\M(?!\s*\()', 'g'))[1] as sch,
                              (regexp_matches(f.prosrc, '\m(public|private)\.([a-z_][a-z_0-9]*)\M(?!\s*\()', 'g'))[2] as rel
     loop
+      -- 0. a relation filtered INLINE (existing proofs pin how these are read): every reference must sit in the wrapper
+      if (m.sch || '.' || m.rel) in ('public.audit_log', 'private.vitals_readings_current', 'private.vitals_readings_diagnostic') then
+        if regexp_count(f.raw, '(?<![\w.])' || replace(m.sch || '.' || m.rel, '.', '\.') || '\M')
+           <> regexp_count(f.raw, 'from ' || replace(m.sch || '.' || m.rel, '.', '\.') || ' r where not exists \(select 1 from public\.profiles tp where tp\.id = r\.[a-z_]+ and tp\.is_test\)') then
+          v_bad := v_bad || (f.proname || ' reads ' || m.sch || '.' || m.rel || ' without the inline test-account filter');
+        end if;
+        continue;
+      end if;
       -- 1. reads a relation that has an analytics_clean view
       if exists (select 1 from pg_class c where c.relnamespace = 'analytics_clean'::regnamespace and c.relname = m.rel and c.relkind = 'v') then
         v_bad := v_bad || (f.proname || ' reads ' || m.sch || '.' || m.rel || ' directly'); continue;
@@ -61,8 +69,8 @@ declare v_bad text[]; v_n int; v_views int;
 begin
   select count(*) into v_n from pg_proc where pronamespace = 'public'::regnamespace and proname like 'analytics\_%';
   select count(*) into v_views from pg_class where relnamespace = 'analytics_clean'::regnamespace and relkind = 'v';
-  insert into oq39_results values ('A0 inventory: analytics_* functions and filter views', v_n || ' functions, ' || v_views || ' views', '>= 55 functions, >= 50 views',
-    case when v_n >= 55 and v_views >= 50 then 'PASS' else 'FAIL' end);
+  insert into oq39_results values ('A0 inventory: analytics_* functions and filter views', v_n || ' functions, ' || v_views || ' views', '>= 55 functions, >= 45 views',
+    case when v_n >= 55 and v_views >= 45 then 'PASS' else 'FAIL' end);
   v_bad := pg_temp.oq39_scan();
   insert into oq39_results values ('A1 no non-exempt analytics_* function reads an unfiltered person relation', coalesce(array_to_string(v_bad, '; '), 'none'), 'none',
     case when cardinality(v_bad) = 0 then 'PASS' else 'FAIL' end);
@@ -135,7 +143,7 @@ create function pg_temp.oq39_table_extras(p_tbl regclass) returns jsonb language
     ('clinical_incident_reports','category','other'),('clinical_incident_reports','severity','low'),
     ('safeguarding_concerns','concern_category','other'),('clinical_rule_events','source','cron'),('clinical_rules','specificity','50'),
     ('clinical_staff','active','true'),('clinical_staff','license_verified_at',now()::text),
-    ('complaints','category','other'),('patient_risk_scores','score_type','bp_control'),('patient_timeline','trust_tier','system'),
+    ('complaints','category','other'),('vitals_readings','vital_type','blood_pressure'),('vitals_readings','systolic','120'),('vitals_readings','diastolic','80'),('patient_risk_scores','score_type','bp_control'),('patient_timeline','trust_tier','system'),
     ('clinical_rule_action_records','status','awaiting_oversight')
   ) s(tbl, attname, val) where 'public.' || s.tbl = p_tbl::text or s.tbl = p_tbl::text $$;
 
@@ -269,7 +277,15 @@ begin
   exception when others then
     insert into oq39_seed_log values (p_kind, 'public.web_events(staff)', 'FAILED: ' || sqlerrm);
   end;
-  -- an audit row about the person (system actor), the second column the audit view tests
+  -- relations filtered inline (no view): one blood pressure reading for the person, one audit row by their staff member
+  begin
+    perform pg_temp.oq39_seed('public.vitals_readings'::regclass, 'patient_id', v_person, '{}', 0, v_person, v_istest);
+    perform pg_temp.oq39_seed('public.audit_log'::regclass, 'actor_id', v_staff, '{"subject_patient_id": null}', 0, v_staff, v_istest);
+    insert into oq39_seed_log values (p_kind, 'inline: vitals_readings, audit_log(actor)', 'ok');
+  exception when others then
+    insert into oq39_seed_log values (p_kind, 'inline: vitals_readings, audit_log(actor)', 'FAILED: ' || sqlerrm);
+  end;
+  -- an audit row about the person (system actor), the second column the audit filter tests
   begin
     perform pg_temp.oq39_seed('public.audit_log'::regclass, 'subject_patient_id', v_person, '{"actor_id": null}', 0, v_person, v_istest);
     insert into oq39_seed_log values (p_kind, 'public.audit_log(subject)', 'ok');
@@ -421,6 +437,23 @@ begin
     execute format('create or replace view analytics_clean.%I with (security_invoker = true) as select t.* from %s t where not exists (select 1 from public.profiles tp where tp.id = t.%s and tp.is_test)',
       v_pair.vw, v_pair.base,
       case v_pair.vw when 'profiles' then 'id' when 'service_purchases' then 'patient_id' else 'patient_id' end);
+  end loop;
+end $$;
+
+-- C3. the inline filters: strip the predicate from a function body and the test patient must leak in
+do $$
+declare v_pair record; v_before jsonb; v_after jsonb; v_def text;
+begin
+  for v_pair in select * from (values ('analytics_clinical_outcomes', 'public.analytics_clinical_outcomes()'),
+                                      ('analytics_audit_summary', 'public.analytics_audit_summary(timestamptz, timestamptz)')) x(fn, sig) loop
+    v_before := pg_temp.oq39_call(v_pair.fn);
+    v_def := pg_get_functiondef(v_pair.sig::regprocedure);
+    execute replace(v_def, 'and tp.is_test)', 'and tp.is_test and false)');
+    v_after := pg_temp.oq39_call(v_pair.fn);
+    insert into oq39_results values ('C3 sabotage: inline filter removed from ' || v_pair.fn || ' lets test data in',
+      case when v_after <> v_before then 'output changed (test data leaked in)' else 'unchanged' end, 'output changes',
+      case when v_after <> v_before then 'PASS' else 'FAIL' end);
+    execute v_def;
   end loop;
 end $$;
 
