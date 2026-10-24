@@ -263,7 +263,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-39 `is_test` on orders and payments, and the existing metric surfaces (raised by S02)
 - OQ-09 asks for `is_test` on orders and payments. There is no single orders or payments table, and three `*_quality_metrics` views plus 56 `analytics_*` RPCs read patient data without an `is_test` filter. S02 delivered the column on `profiles` and `clinical_staff`, the write guard, the convention and a ratchet for new views.
 - Options: (a) do the column and the retrofit with S37/S38 when payouts and metrics are built (recommended); (b) a dedicated retrofit session now.
-- Decision:
+- Decision: the 56 `analytics_*` RPCs part is built on branch `wp4/analytics-is-test-filter` (not applied; see OQ-389 and `docs/design/OQ39-analytics-is-test.md`). The three `*_quality_metrics` views and `is_test` on orders and payments are separate and still open.
 
 ### OQ-40 Tied-patient read scope needs its data before it can be enforced (raised by S02)
 - The audited-read gate admits only support.view_as holders and active break-glass grants. INV-12's other ways in (active task, lead assignment, on-call page) need tables that S16 to S19 create. Until then no clinician has a routine audited read of identity or consent data.
@@ -2250,7 +2250,7 @@ Built on top of F1; nothing applied to production; `symptom_checker_enabled` sta
 
 ### OQ-331 Should the care purpose be optional for reproductive and mental health data?
 - S42 marks all five care cells required (care needs the data a person chooses to add; sensitive types stay protected by the category-scoped access model, not by this switch). A person who does not want such data held asks for deletion or does not add it. A different answer (care optional for those two types) would mean the care team loses sight of data the person already entered.
-- Decision: open (founder, CMO, counsel).
+- **Decision (founder and CMO, 2026-10-23): keep the care purpose required** for all five cells, including reproductive and mental health data. A person who does not want such data held asks for deletion or does not add it. Counsel input on OQ-330 wording is still separate.
 
 ### OQ-332 Sponsor reporting is not wired because the sponsor report is on PR #988
 - `private.consent_in_force(patient, data_type, 'sponsor_reporting')` is the seam. When #988 merges, `sponsor_outcome_report` should also require it (and decide how `profile_cohorts.reporting_consent` relates to the matrix: recommend the matrix cell becomes the single source and the cohort flag a mirror).
@@ -3012,7 +3012,7 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 
 ### OQ-389 OQ-39 progress (raised by S75a)
 - Fixed for the surfaces touched: reproductive analytics, institution subsidy summary, payer dashboard, the new reports. The 56 older `analytics_*` RPCs still ignore `is_test`; see the S75 progress entry for the list. Retrofit or retire them in one session.
-- Decision:
+- Decision: **built, NOT applied (branch `wp4/analytics-is-test-filter`)**. Retrofit by one central predicate, not 56 edits and not retirement: schema `analytics_clean` with 51 `security_invoker` views (the relation minus `profiles.is_test`), 45 RPC bodies re-created from their live definitions with relations redirected, 6 record lookups and writers exempt on purpose, 4 config-only functions untouched, plus the nightly snapshot refresh and `get_geo_health_aggregates` that feed them. `analytics_clinical_rule_performance` had no caller anywhere and is dropped; `analytics_health_economics` and `analytics_population_dataset_preview` have no main-dev caller but are called by the unmerged branch `worktree-population-health-intelligence-gaps`, so they were kept (filtered). Migration `20261023175503_oq39_analytics_rpcs_exclude_test_accounts.sql`, design `docs/design/OQ39-analytics-is-test.md`, proof `oq39_analytics_exclude_test_data.sql` (catalogue scan that fails on any new unfiltered `analytics_*` function, behavioural run over every function, sabotage). The proof passed on a Postgres 17 loaded from a schema-only dump of live (not on a full `supabase db reset`, see BUILD-PROGRESS); do not mark INV-13 met for analytics until CI replay is green and the migration is applied.
 ## S73 pricing engine (2026-10-07)
 
 ### OQ-328 Sponsor coverage cannot be charged yet (raised by S73)
@@ -3099,7 +3099,7 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 ### OQ-420 Community Access Fund: the published reasons, limits and who approves are unsigned (raised by S72, function 19.11; extends OQ-323)
 - Built as PROPOSED, owner Founder and counsel (`access_fund.rules` v1, active row of `checkout_extras_config`): four published reasons (the cost is the main barrier, recent loss of income, supporting a dependant, referred by the care team), most one grant can cover 100,000 naira, a grant works for 60 days, smallest gift 1,000 naira, a pledge waits 14 days, at most 3 open pledges. Operations (admin) approve with a written reason; a second approver is not required (S72-3).
 - Needed: review of the wording of the reasons, and the numbers; whether the CMO or only admins approve; and the guard condition `grant_criteria_signed_off`. Nothing opens until these and counsel (OQ-323) are done.
-- Decision: open.
+- **Decision (founder, 2026-10-23): accepted as proposed.** The four reasons, 100,000 naira per grant, 60 days, 1,000 naira smallest gift, 14 day pledge, 3 open pledges, admins approve with a written reason (no CMO approval step, no monthly CMO review). The guard condition `grant_criteria_signed_off` is attested only with the counsel opinion (OQ-323); the Fund stays OFF until then.
 
 ### OQ-421 How restricted gifts and Fund-paid orders are accounted for (raised by S72, function 19.11)
 - No ledger entry is made for a donation or a grant. A donation is not revenue; it is a restricted gift held for a purpose, which needs a finance and counsel decision (a restricted-funds liability, who holds the money, tax and charity status). A Fund-paid order is booked by S71's path to account 1210 "Sponsor receivable", which is the wrong name for the Fund (the Fund owes nothing; it is Tarragon's own restricted money) and needs the same decision.
@@ -3117,7 +3117,7 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 
 ### OQ-424 Payment request limits are unsigned (raised by S72, function 19.13)
 - `payment_requests.rules` v1 (PROPOSED, owner Founder): a link works 7 days, 5 open per person, 10 made a day, 30 link lookups an hour per visitor, 10 payment starts an hour per payer. The link page shows no name of the person who asked; showing a first name would tell a stranger holding a leaked link that a named person uses Tarragon, so it was left out. Confirm the numbers and that no name is wanted.
-- Decision: open.
+- **Decision (founder, 2026-10-23): confirmed as proposed.** 7 day link, 5 open per person, 10 made a day, 30 lookups an hour per visitor, 10 payment starts an hour per payer, and no name of the person who asked on the link page.
 
 ### OQ-425 Payment requests can only ask for the yearly Membership (raised by S72; extends decision S29c)
 - Founder decision S29c (2026-10-06) says nothing smaller than the full yearly Membership can be paid for someone else, so `create_payment_request` accepts only what `private.gift_item_allowed` allows. If one-off items ever return, the request follows with no change here. The request also cannot be paid when the person already has a Membership.
@@ -5573,6 +5573,24 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-WP3-05 Should a sponsor see how its members compare with other Members? (raised by WP3 review, 2026-10-23)
 - The sponsor pack's selection panel withholds both attribute comparisons (people who declined, and other adult Members). Showing the comparison with other Members to a sponsor would describe people outside the programme who agreed to nothing with that sponsor, even as small-cell-suppressed shares. Counsel and the DPO would need to confirm before it is shown; the internal admin view keeps it.
 - Decision: open (founder, counsel, DPO).
+
+### OQ-WP1-01 Price changes for organisation member prices are not announced (raised by WP1, 2026-10-23)
+- WP1 tells a holder (and the person who paid, when different) in the app when a LIST price changes. It does not cover `organisation_member_prices` (an employer's per-member price) or institutional price book rates: those members are not bought through an order the notice can follow, and there is no equally small hook. The employer, not the member, is the party told, through the employer contract.
+- Decision: open (product). If members should be told, the hook belongs in the employer membership flow, not in `prices`.
+
+### OQ-WP1-02 May the app say "about N a month, billed once a year"? (raised by WP1, 2026-10-23)
+- The founder has said Member is one yearly payment and has refused any monthly figure or instalment (S72-2 stands). WP1 built the monthly line (kobo / 12, rounded half up to whole naira, always the sentence "Billed once a year, not monthly") but it is OFF: `pricing.transparency` `monthly_equivalent.enabled = false`, and web and mobile show nothing monthly while it is off.
+- Question for the founder: confirm that "About ₦7,000 a month. Billed once a year, not monthly." is acceptable as a way to compare. If yes, flip `enabled` in the registry (a normal reviewed change). If no, remove the line.
+- Decision: open (founder).
+
+### OQ-WP1-03 All WP1 seeded wording is PROPOSED and unreviewed (raised by WP1, 2026-10-23)
+- Seeded "not included" entries: Membership lists medicines (the sentence already in its description), care in a hospital or clinic and emergency treatment, a consultation and a lab package; the single consultation lists medicines and a lab package. The words `catalog.notincl.*`, `notincl.*` and `pricechange.*` and the bell line are new patient-facing copy. None has been read by the founder or the CMO. The consultation and the lab package have no live price, so they show "Ask us" on day one by design.
+- Decision: open (founder for wording, CMO for the hospital and emergency line).
+
+### OQ-WP7-01 WP3 should switch to the shared usable-reading helper (raised by WP7, 2026-10-23)
+- WP7 (migration `20261023214131_wp7_bp_usable_reading_rule.sql`) put the OQ-WP3-04 rule in `private.bp_reading_usable(status, flags)` and converted the S38 snapshot job, `private.bp_window_stats` and the two cohort views to it. WP3 defines the same rule as `private.wp3_reading_usable`. When WP3 merges, replace its calls with `private.bp_reading_usable` and drop its copy, so the rule lives in one place.
+- Already-written `outcome_snapshots` rows were not rewritten. Live count of snapshot rows that would differ under the new rule, read-only on 2026-10-23: 0 (all 767 live BP readings are waiting with only `insufficient_context`).
+- Decision: open (engineering, at WP3 merge).
 
 ### OQ-S57c-01 Library audio: private bucket, stream only, drafts until reviewed (raised 2026-10-23)
 - Built: PRIVATE Storage bucket `audio` (no storage policy at all) and 46 DRAFT `media_library` rows for the ElevenLabs masters in `audio/library/masters` (`med-*` codes; `audio_url` holds the storage path; length and size filled; every row `downloadable = false`). The recordings play only through `/api/media/{code}/stream`: signed-in, the catalogue's own rule decides (patients get only a published, in-date item), the file is fetched with the service role by a 60-second signed address and passed on with Range support, never cached, inline, and refused when opened as a page. The web player drops the download control. A person can still record what plays; no file or link is ever offered.

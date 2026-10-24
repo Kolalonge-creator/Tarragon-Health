@@ -2102,7 +2102,7 @@ export const en = {
   "admin.refunds.approve": "Approve refund",
   "admin.refunds.reject": "Decline refund",
   "admin.refunds.note_placeholder": "Add a note (optional)",
-  "admin.refunds.confirm_approve": "Approve this refund of {{amount}}? The money will be returned to the patient's card.",
+  "admin.refunds.confirm_approve": "Approve this refund of {amount}? The money will be returned to the patient's card.",
   "admin.refunds.confirm_reject": "Decline this refund request?",
   // S27: lab results.
   "labres.title": "Your lab results",
@@ -4824,6 +4824,18 @@ export const en = {
   "included.buy": "Go to checkout",
   "included.your_price": "Your price",
   "included.list_price": "Usual price",
+  // ---- WP1: pricing transparency (what is not included, the monthly equivalent, a price that is changing) ----
+  "catalog.notincl.medicines": "Medicines. You take your prescription to any pharmacy and pay there.",
+  "catalog.notincl.hospital_care": "Care in a hospital or clinic, and emergency treatment",
+  "notincl.title": "What is not included",
+  "notincl.sold_separately": "These are sold separately. The price is what it is today.",
+  "notincl.ask_us": "Ask us",
+  "notincl.ask_us_label": "{name}: ask us for the price",
+  "price.monthly_equivalent": "About {amount} a month. Billed once a year, not monthly.",
+  "pricechange.title": "A price is changing",
+  "pricechange.body": "When {name} was bought, the usual price was {paid}. From {date} the usual price is {price}.",
+  "pricechange.kept": "It is already paid for, so nothing changes. It stays as it is until {ends}.",
+  "pricechange.renew": "If you choose to buy it again later, the price on the day you buy applies. Nothing is charged by itself.",
   // ---- S71: itemised checkout (19.7), sponsor-paid items (19.5), HMO eligibility (19.6), foreign card (19.4) ----
   "checkout.itemised.title": "What you are paying for",
   "checkout.line.clinician_fee": "Clinician fee",

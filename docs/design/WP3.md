@@ -1,6 +1,6 @@
 # WP3 design note: cascade of care and the selection-bias panel
 
-2026-10-23. Builds on S75 (`docs/design/S75.md`, `docs/design/S75-outcome-measures.md`). One migration: `20261024182921_wp3_cascade_of_care_and_selection_panel.sql`. Proof: `packages/db/tests/wp3_cascade_of_care_and_selection_panel.sql`.
+2026-10-23. Builds on S75 (`docs/design/S75.md`, `docs/design/S75-outcome-measures.md`). One migration: `20261024201705_wp3_cascade_of_care_and_selection_panel.sql`. Proof: `packages/db/tests/wp3_cascade_of_care_and_selection_panel.sql`.
 
 ## What is reused, not rebuilt
 The single minimum-cell rule (`private.min_cell_floor`, `suppress_cell`, `suppress_difference`, `suppress_groups`), `private.outcome_cohort_json` (strict rate, completers rate, missing share), `private.v_bp_cohort_day` (day 90 and 180 control), `private.sponsor_agreed_members` (only members who agreed), `private.sponsor_pack_build` and its causal-wording refusal in the database and again in the app, the audited admin and CMO gate, `/admin/outcomes`, the sponsor page and the pack route (the pack flattens every leaf, so the new sections reach the CSV and PDF with no change to the route).
