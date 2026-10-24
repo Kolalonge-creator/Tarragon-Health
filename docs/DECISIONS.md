@@ -492,3 +492,17 @@ Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six 
 |---|---|
 | **A governed server-side vision call may be built and evaluated to read a blood pressure cuff display from a photo (AI-022).** Narrows the OQ-598 line "server vision not approved". | The founder, 2026-10-22, in chat, chose "Approve for evaluation only". The feature stays OFF behind guard `cuff_camera_enabled`; AI-022 stays registered disabled. |
 | **What is still required before go-live** | A human-run AI-022 evaluation on real cuff photos, a DPO view on the transient image (held in memory only, never stored or logged), defined go-live conditions for the guard, per-user rate limiting on the route, and a further written founder go-live decision. No evaluation, approval or guard change is made by this entry. |
+
+## Founder and CMO decisions, 2026-10-23 (S71 to S75 gap closure; PRs 1316 to 1320 and follow-ups)
+
+| Decision | Chosen |
+|---|---|
+| **Community Access Fund rules (OQ-420).** | Accepted as proposed: four reasons, 100,000 naira per grant, 60 days, 1,000 naira smallest gift, 14 day pledge, 3 open pledges. Admins approve with a written reason; no CMO approval or monthly CMO review. The Fund stays OFF until counsel clears it (OQ-323). |
+| **Payment request limits (OQ-424).** | Confirmed as proposed, with no name shown on the link page. |
+| **Health Points at checkout (S73/S72).** | Values approved: 100 points per step, 5,000 kobo off Tarragon's own fee per step, at most 5 steps, never more than 50 percent of the service fee, minimum payable 10,000 kobo. A refund returns the spent points. Stays OFF behind `pricing_config.rules.points.enabled` until the founder switches it on. |
+| **Cascade-of-care definitions (OQ-WP3-01), CMO.** | Approved as written: hypertension controlled when the 7 day average is under 140/90 from at least 3 readings; diabetes controlled when the latest HbA1c in 180 days is under 7.0 percent; on treatment is any active medicine under the condition's care plan; pregnant members and under 18s excluded; fixed lines. The signature itself is made on the CMO sign-off hub after the migration is applied; nothing is signed by an agent. |
+| **Usable blood pressure reading (OQ-WP3-04).** | Tighten S38 and S75 to the stricter rule (valid, or requires_validation with only insufficient_context and a non-empty flag list). Already written snapshots are not rewritten. |
+| **Sponsors never see a comparison with other Members (OQ-WP3-05).** | Internal admin view only; revisit only after a counsel and DPO opinion. |
+| **Care purpose stays required for reproductive and mental health data (OQ-331).** | No change. |
+| **Monthly-equivalent line on the Membership price.** | Stays OFF. The Membership is one yearly payment and no monthly figure is shown. |
+
