@@ -1484,6 +1484,9 @@ s59d_draft_protocol_never_live.sql
 # S59d (OQ-S59d-05 decided): pregnancy answers are the person own. A check logged by someone else is refused for the pregnancy pathway (42501) and a pregnant history answer is removed from its stored capture; the person themselves is untouched. Sabotage: trigger dropped, the proxy pathway must be recorded. NOT RUN by its author (Docker down); trigger exercised on a stub schema.
 s59d_proxy_pregnancy_guard.sql
 
+# WP1b: points spent on an order come back on refund in proportion to the money refunded, exactly once (builds on S58b's full-refund branch). A full refund returns all, a partial returns floor(spent x refunded / charged) never more, a replay or a second refund returns only what is outstanding, a route with no refund row keeps the full return once, nothing spent or a rejected refund returns nothing, a points failure never blocks a refund and is logged with the organisation, ledger only (INV-09), points values and the OFF switch untouched. Sabotage: the refund hook dropped, the proportional rule removed and the no-refund-row guard removed, each check must flip.
+wp1b_points_return_on_refund.sql
+
 # S74 (missing proofs): pharmacy verified sourcing, per-supply NAFDAC number (write once) and the in-app pharmacist chat. Every role tried with a simulated session (patient, owning pharmacy, other pharmacy, clinician, admin, anon); the gate opens for the allowed role; grants and anon execute checked. Sabotage: append-only trigger, chat-open test, write-once trigger, admin test, table grant + open policy.
 s74_pharmacy_sourcing_and_chat.sql
 
