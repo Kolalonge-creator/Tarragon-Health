@@ -27,7 +27,7 @@ export function MediaPlayer({ mediaId, src, sleepTimer }: { mediaId: string; src
   };
   return (
     <div className="space-y-3">
-      <audio ref={audio} controls preload="none" src={src} onEnded={finish} className="w-full" />
+      <audio ref={audio} controls controlsList="nodownload noplaybackrate" preload="none" src={src} onEnded={finish} onContextMenu={(e) => e.preventDefault()} className="w-full" />
       {sleepTimer && (
         <div className="grid gap-1">
           <label htmlFor="sleep-stop" className="text-sm">{t("library.player.sleep_timer")}</label>

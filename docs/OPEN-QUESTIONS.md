@@ -5543,6 +5543,7 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-S59d-08 Nothing yet lets a clinician type the ICD-10 code (raised by S59d, 2026-10-22)
 - The audit feed needs `clinical_encounter_notes.diagnosis_code`, set on a draft note by the new `set_encounter_note_diagnosis_code`. No note editor field calls it yet, so no auto row can exist until the editor (and the scribe draft path) gain a code field. The free-text `diagnosis` is not parsed.
 - Choices made and open: a signed amendment of any kind (correction, addendum or late entry) retracts the original's row, and only a coded amendment writes a new one; async and phone consultations are not linked (the chain is booking-based); a retraction after a monthly report was generated does not change that report (reports are permanent).
+- Built 2026-10-23 (note-editor-icd10): the draft note card has an optional "ICD-10 code" input under Diagnosis (shape checked in the browser by `lib/clinical/icd10.ts`, the same pattern as the database check). It saves through `set_encounter_note_diagnosis_code` on Save changes and before signing; a malformed code blocks both. The scribe draft fills the same card, so it needs no separate field. The first save of a brand-new note has no code box; it appears once the draft exists. Other open choices below are unchanged.
 - Decision: open (product, CMO).
 
 ### OQ-S59d-09 Check the live active protocol row before the app gate ships (raised by S59d, 2026-10-22)
@@ -5552,3 +5553,10 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-S59d-10 New patient wording needs the CMO's wording sign-off (raised by S59d, 2026-10-22)
 - Forty `symptom.opt.*` labels were added for the draft pathways (English only, no diagnosis named, tested). They are new patient-facing clinical wording and must be reviewed with the pathways. The check screen must also collect the measurements the rules use (`systolic`, `diastolic`, `glucose_mmol_l`, `temperature_c`) for the measurement rules to fire; that screen is not part of this piece of work.
 - Decision: open (CMO).
+
+### OQ-S57c-01 Library audio: private bucket, stream only, drafts until reviewed (raised 2026-10-23)
+- Built: PRIVATE Storage bucket `audio` (no storage policy at all) and 46 DRAFT `media_library` rows for the ElevenLabs masters in `audio/library/masters` (`med-*` codes; `audio_url` holds the storage path; length and size filled; every row `downloadable = false`). The recordings play only through `/api/media/{code}/stream`: signed-in, the catalogue's own rule decides (patients get only a published, in-date item), the file is fetched with the service role by a 60-second signed address and passed on with Range support, never cached, inline, and refused when opened as a page. The web player drops the download control. A person can still record what plays; no file or link is ever offered.
+- DECIDED (founder, 2026-10-23): stream only on the platform, no download, 24-month review cycle, the founder as brand reviewer when publishing.
+- Left out: MED-SER-FAITH (the CMO writes faith-compatible content, a named faith leader reviews it) and MED-BRE-001 to 005 (breathing is a script item with steps and a pattern behind `wellbeing_library_clinical_scripts`; the CMO decides how spoken guides are catalogued).
+- Not built: the phone app has no audio library player (OQ line 3640: needs an audio engine and a runtimeVersion bump), so stream-only holds on the web only until that exists.
+- Decision: open (CMO for the breathing guides and the faith item).

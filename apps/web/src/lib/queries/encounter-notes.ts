@@ -168,6 +168,26 @@ export function useUpdateEncounterNoteDraft() {
 }
 
 /**
+ * Sets (or clears, with null) the ICD-10 code of a draft note. Separate from
+ * `update_encounter_note_draft` on purpose: the code is what feeds the symptom
+ * checker accuracy audit once the note is signed (S59d), so the database checks
+ * its shape and refuses it on a signed note. The free-text diagnosis is not parsed.
+ */
+export function useSetEncounterNoteDiagnosisCode() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ noteId, code }: { noteId: string; patientId: string; code: string | null }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("set_encounter_note_diagnosis_code", { p_note: noteId, p_code: code ?? "" });
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: notesQueryKey(variables.patientId) });
+    },
+  });
+}
+
+/**
  * Signs and locks a draft note. private.enforce_clinical_encounter_note_attribution
  * stamps finalized_by_staff/finalized_at server-side and blocks any further
  * edit — this is a one-way transition, mirrored by the DB's own CHECK
