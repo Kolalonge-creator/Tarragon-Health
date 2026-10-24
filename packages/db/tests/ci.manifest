@@ -1493,6 +1493,9 @@ s59d_draft_protocol_never_live.sql
 # S59d (OQ-S59d-05 decided): pregnancy answers are the person own. A check logged by someone else is refused for the pregnancy pathway (42501) and a pregnant history answer is removed from its stored capture; the person themselves is untouched. Sabotage: trigger dropped, the proxy pathway must be recorded. NOT RUN by its author (Docker down); trigger exercised on a stub schema.
 s59d_proxy_pregnancy_guard.sql
 
+# WP3: the cascade of care (hypertension, diabetes) and the selection-bias panel on S75. Dormant until the CMO signs outcome_cascade_config (unsigned: every figure and the pack cascade and panel say awaiting_cmo_signature); only the CMO signs (admin, clinician, patient, anon refused); exact stage counts for a fixture with a test account, a child and a pregnant adult left out; a stage whose gap to its parent is under the minimum is withheld; control that cannot be read is unknown and stays in the figure; a programme under the minimum is withheld whole; the joined-but-did-not-agree comparison is internal only; intent to treat beside completers with missing split into ended and still a Member; roles (admin, CMO read; clinician, patient, sponsor staff, anon refused); no clinician key; scans (no hand-written minimum compare, search_path set, anon no execute). Sabotage: suppress_cell and suppress_difference never withhold, the withheld checks must flip. NOT RUN by CI yet at authoring: ran on a local replay.
+wp3_cascade_of_care_and_selection_panel.sql
+
 # WP7 (OQ-WP3-04): the shared blood pressure usable-reading rule. Empty flag list never qualifies; helper truth table, bp_window_stats on a mixed fixture, structure of the 4 converted objects, API-role closure. Sabotage: old inline pattern restored in bp_window_stats must change the count. Reports calling the helper: snapshot job and the two cohort views are checked structurally, not by value.
 wp7_bp_usable_reading_rule.sql
 
