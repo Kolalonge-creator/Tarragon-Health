@@ -1406,6 +1406,8 @@ s49a_food_logging_foundation.sql
 s48b_activity_offline_plans_route_status.sql
 s27h_lab_lifecycle_and_quality.sql
 
+# Adult-only registration counts the 18th birthday in Lagos time: helper = Lagos date minus 18 years, both gates use it, a person turning 18 today in Lagos signs up and one a day younger is refused (relative to the cutoff, so hour-independent). Sabotage: the boundary moved a day earlier; the turns-18-today sign-up must flip.
+adult_registration_lagos_date.sql
 
 
 
