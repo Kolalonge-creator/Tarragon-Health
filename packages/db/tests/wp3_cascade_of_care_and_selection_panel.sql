@@ -1,5 +1,5 @@
 -- ===========================================================================
--- Proof: 20261023175612_wp3_cascade_of_care_and_selection_panel.sql (WP3; INV-10, INV-13, INV-16, invariant I9; S75a single minimum-cell rule).
+-- Proof: 20261024182921_wp3_cascade_of_care_and_selection_panel.sql (WP3; INV-10, INV-13, INV-16, invariant I9; S75a single minimum-cell rule).
 --
 --   1. DORMANT UNTIL SIGNED: the seeded config is inactive and unsigned; with nothing signed every cascade and the pack's cascade and panel say
 --      "awaiting_cmo_signature" and show no number. Only the Chief Medical Officer signs (an admin, a clinician, a patient are refused); a signed

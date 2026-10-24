@@ -5573,3 +5573,10 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-WP3-05 Should a sponsor see how its members compare with other Members? (raised by WP3 review, 2026-10-23)
 - The sponsor pack's selection panel withholds both attribute comparisons (people who declined, and other adult Members). Showing the comparison with other Members to a sponsor would describe people outside the programme who agreed to nothing with that sponsor, even as small-cell-suppressed shares. Counsel and the DPO would need to confirm before it is shown; the internal admin view keeps it.
 - Decision: open (founder, counsel, DPO).
+
+### OQ-S57c-01 Library audio: private bucket, stream only, drafts until reviewed (raised 2026-10-23)
+- Built: PRIVATE Storage bucket `audio` (no storage policy at all) and 46 DRAFT `media_library` rows for the ElevenLabs masters in `audio/library/masters` (`med-*` codes; `audio_url` holds the storage path; length and size filled; every row `downloadable = false`). The recordings play only through `/api/media/{code}/stream`: signed-in, the catalogue's own rule decides (patients get only a published, in-date item), the file is fetched with the service role by a 60-second signed address and passed on with Range support, never cached, inline, and refused when opened as a page. The web player drops the download control. A person can still record what plays; no file or link is ever offered.
+- DECIDED (founder, 2026-10-23): stream only on the platform, no download, 24-month review cycle, the founder as brand reviewer when publishing.
+- Left out: MED-SER-FAITH (the CMO writes faith-compatible content, a named faith leader reviews it) and MED-BRE-001 to 005 (breathing is a script item with steps and a pattern behind `wellbeing_library_clinical_scripts`; the CMO decides how spoken guides are catalogued).
+- Not built: the phone app has no audio library player (OQ line 3640: needs an audio engine and a runtimeVersion bump), so stream-only holds on the web only until that exists.
+- Decision: open (CMO for the breathing guides and the faith item).
