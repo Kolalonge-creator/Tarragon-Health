@@ -14,6 +14,9 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
  *    a browser tab. Anything that plays in an audio element is allowed.
  * A person can still record what plays; nothing here offers, links or caches a file.
  */
+// A long sleep story can take longer than the default limit to pass on to a slow connection.
+export const maxDuration = 60;
+
 const BUCKET = "audio";
 const CODE = /^[a-z0-9][a-z0-9-]{2,63}$/;
 const AUDIO_KINDS = new Set(["meditation", "sleep_story", "soundscape"]);

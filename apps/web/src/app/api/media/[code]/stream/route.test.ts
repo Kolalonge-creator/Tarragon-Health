@@ -74,6 +74,17 @@ describe("GET /api/media/{code}/stream", () => {
     row = { kind: "meditation", audio_url: "media-library/../secret.mp3" };
     expect((await call("med-crs-01")).status).toBe(404);
   });
+  it("reports a storage failure and an out-of-range request without leaking the signed address", async () => {
+    signed = null;
+    expect((await call("med-crs-01")).status).toBe(404);
+    signed = { signedUrl: "https://storage.example/signed" };
+    fetchMock.mockRejectedValueOnce(new Error("network"));
+    expect((await call("med-crs-01")).status).toBe(502);
+    fetchMock.mockResolvedValueOnce(new Response("", { status: 416 }));
+    const res = await call("med-crs-01", { range: "bytes=999-" });
+    expect(res.status).toBe(416);
+    expect(await res.text()).not.toContain("storage.example");
+  });
   it("a failed catalogue read is an error, not a silent empty answer", async () => {
     rowError = { message: "boom" };
     expect((await call("med-crs-01")).status).toBe(502);
