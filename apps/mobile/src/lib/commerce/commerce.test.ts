@@ -190,6 +190,11 @@ describe("S72 api: entitlements, quote with points, refunds, payment requests", 
     expect(Object.hasOwn(en, checkoutErrorKey("request_in_use"))).toBe(true);
   });
 
+  it("a catalogue row carries both the price split (checkout) and how long it lasts (monthly line)", () => {
+    const row = parseCatalogue([{ ...item, duration_days: 365, components: { partner_fee: 3_000_000, tarragon_service_fee: 9_000_000 } }])[0];
+    expect(row).toMatchObject({ durationDays: 365, components: { partner_fee: 3_000_000, tarragon_service_fee: 9_000_000 } });
+  });
+
   it("WP1: keeps how long an item lasts so the yearly price can show a monthly equivalent, and nothing for a bad value", () => {
     expect(parseCatalogue([{ ...item, duration_days: 365 }])[0]).toMatchObject({ durationDays: 365 });
     expect(parseCatalogue([{ ...item, duration_days: null }])[0]).toMatchObject({ durationDays: null });

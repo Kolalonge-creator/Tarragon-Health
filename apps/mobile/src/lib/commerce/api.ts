@@ -32,7 +32,7 @@ export async function loadMembership(): Promise<QueryResult<MembershipState>> {
   return error ? { ok: false, error: error.message } : { ok: true, data: parseMembership(data) };
 }
 
-async function errorCodeOf(error: unknown): Promise<string> {
+export async function errorCodeOf(error: unknown): Promise<string> {
   const ctx = (error as { context?: unknown } | null)?.context;
   if (ctx && typeof (ctx as Response).clone === "function") {
     try {
