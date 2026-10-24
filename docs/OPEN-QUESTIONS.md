@@ -5553,3 +5553,8 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-S59d-10 New patient wording needs the CMO's wording sign-off (raised by S59d, 2026-10-22)
 - Forty `symptom.opt.*` labels were added for the draft pathways (English only, no diagnosis named, tested). They are new patient-facing clinical wording and must be reviewed with the pathways. The check screen must also collect the measurements the rules use (`systolic`, `diastolic`, `glucose_mmol_l`, `temperature_c`) for the measurement rules to fire; that screen is not part of this piece of work.
 - Decision: open (CMO).
+
+### OQ-WP7-01 WP3 should switch to the shared usable-reading helper (raised by WP7, 2026-10-23)
+- WP7 (migration `20261023214131_wp7_bp_usable_reading_rule.sql`) put the OQ-WP3-04 rule in `private.bp_reading_usable(status, flags)` and converted the S38 snapshot job, `private.bp_window_stats` and the two cohort views to it. WP3 defines the same rule as `private.wp3_reading_usable`. When WP3 merges, replace its calls with `private.bp_reading_usable` and drop its copy, so the rule lives in one place.
+- Already-written `outcome_snapshots` rows were not rewritten. Live count of snapshot rows that would differ under the new rule, read-only on 2026-10-23: 0 (all 767 live BP readings are waiting with only `insufficient_context`).
+- Decision: open (engineering, at WP3 merge).
