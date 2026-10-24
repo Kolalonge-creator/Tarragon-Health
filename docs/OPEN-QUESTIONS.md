@@ -2250,7 +2250,7 @@ Built on top of F1; nothing applied to production; `symptom_checker_enabled` sta
 
 ### OQ-331 Should the care purpose be optional for reproductive and mental health data?
 - S42 marks all five care cells required (care needs the data a person chooses to add; sensitive types stay protected by the category-scoped access model, not by this switch). A person who does not want such data held asks for deletion or does not add it. A different answer (care optional for those two types) would mean the care team loses sight of data the person already entered.
-- Decision: open (founder, CMO, counsel).
+- **Decision (founder and CMO, 2026-10-23): keep the care purpose required** for all five cells, including reproductive and mental health data. A person who does not want such data held asks for deletion or does not add it. Counsel input on OQ-330 wording is still separate.
 
 ### OQ-332 Sponsor reporting is not wired because the sponsor report is on PR #988
 - `private.consent_in_force(patient, data_type, 'sponsor_reporting')` is the seam. When #988 merges, `sponsor_outcome_report` should also require it (and decide how `profile_cohorts.reporting_consent` relates to the matrix: recommend the matrix cell becomes the single source and the cohort flag a mirror).
@@ -3099,7 +3099,7 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 ### OQ-420 Community Access Fund: the published reasons, limits and who approves are unsigned (raised by S72, function 19.11; extends OQ-323)
 - Built as PROPOSED, owner Founder and counsel (`access_fund.rules` v1, active row of `checkout_extras_config`): four published reasons (the cost is the main barrier, recent loss of income, supporting a dependant, referred by the care team), most one grant can cover 100,000 naira, a grant works for 60 days, smallest gift 1,000 naira, a pledge waits 14 days, at most 3 open pledges. Operations (admin) approve with a written reason; a second approver is not required (S72-3).
 - Needed: review of the wording of the reasons, and the numbers; whether the CMO or only admins approve; and the guard condition `grant_criteria_signed_off`. Nothing opens until these and counsel (OQ-323) are done.
-- Decision: open.
+- **Decision (founder, 2026-10-23): accepted as proposed.** The four reasons, 100,000 naira per grant, 60 days, 1,000 naira smallest gift, 14 day pledge, 3 open pledges, admins approve with a written reason (no CMO approval step, no monthly CMO review). The guard condition `grant_criteria_signed_off` is attested only with the counsel opinion (OQ-323); the Fund stays OFF until then.
 
 ### OQ-421 How restricted gifts and Fund-paid orders are accounted for (raised by S72, function 19.11)
 - No ledger entry is made for a donation or a grant. A donation is not revenue; it is a restricted gift held for a purpose, which needs a finance and counsel decision (a restricted-funds liability, who holds the money, tax and charity status). A Fund-paid order is booked by S71's path to account 1210 "Sponsor receivable", which is the wrong name for the Fund (the Fund owes nothing; it is Tarragon's own restricted money) and needs the same decision.
@@ -3117,7 +3117,7 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 
 ### OQ-424 Payment request limits are unsigned (raised by S72, function 19.13)
 - `payment_requests.rules` v1 (PROPOSED, owner Founder): a link works 7 days, 5 open per person, 10 made a day, 30 link lookups an hour per visitor, 10 payment starts an hour per payer. The link page shows no name of the person who asked; showing a first name would tell a stranger holding a leaked link that a named person uses Tarragon, so it was left out. Confirm the numbers and that no name is wanted.
-- Decision: open.
+- **Decision (founder, 2026-10-23): confirmed as proposed.** 7 day link, 5 open per person, 10 made a day, 30 lookups an hour per visitor, 10 payment starts an hour per payer, and no name of the person who asked on the link page.
 
 ### OQ-425 Payment requests can only ask for the yearly Membership (raised by S72; extends decision S29c)
 - Founder decision S29c (2026-10-06) says nothing smaller than the full yearly Membership can be paid for someone else, so `create_payment_request` accepts only what `private.gift_item_allowed` allows. If one-off items ever return, the request follows with no change here. The request also cannot be paid when the person already has a Membership.
