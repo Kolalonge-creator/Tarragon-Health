@@ -5554,6 +5554,11 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Forty `symptom.opt.*` labels were added for the draft pathways (English only, no diagnosis named, tested). They are new patient-facing clinical wording and must be reviewed with the pathways. The check screen must also collect the measurements the rules use (`systolic`, `diastolic`, `glucose_mmol_l`, `temperature_c`) for the measurement rules to fire; that screen is not part of this piece of work.
 - Decision: open (CMO).
 
+### OQ-WP7-01 WP3 should switch to the shared usable-reading helper (raised by WP7, 2026-10-23)
+- WP7 (migration `20261023214131_wp7_bp_usable_reading_rule.sql`) put the OQ-WP3-04 rule in `private.bp_reading_usable(status, flags)` and converted the S38 snapshot job, `private.bp_window_stats` and the two cohort views to it. WP3 defines the same rule as `private.wp3_reading_usable`. When WP3 merges, replace its calls with `private.bp_reading_usable` and drop its copy, so the rule lives in one place.
+- Already-written `outcome_snapshots` rows were not rewritten. Live count of snapshot rows that would differ under the new rule, read-only on 2026-10-23: 0 (all 767 live BP readings are waiting with only `insufficient_context`).
+- Decision: open (engineering, at WP3 merge).
+
 ### OQ-S57c-01 Library audio: private bucket, stream only, drafts until reviewed (raised 2026-10-23)
 - Built: PRIVATE Storage bucket `audio` (no storage policy at all) and 46 DRAFT `media_library` rows for the ElevenLabs masters in `audio/library/masters` (`med-*` codes; `audio_url` holds the storage path; length and size filled; every row `downloadable = false`). The recordings play only through `/api/media/{code}/stream`: signed-in, the catalogue's own rule decides (patients get only a published, in-date item), the file is fetched with the service role by a 60-second signed address and passed on with Range support, never cached, inline, and refused when opened as a page. The web player drops the download control. A person can still record what plays; no file or link is ever offered.
 - DECIDED (founder, 2026-10-23): stream only on the platform, no download, 24-month review cycle, the founder as brand reviewer when publishing.
