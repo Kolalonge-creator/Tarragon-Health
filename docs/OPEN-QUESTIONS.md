@@ -5553,3 +5553,23 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-S59d-10 New patient wording needs the CMO's wording sign-off (raised by S59d, 2026-10-22)
 - Forty `symptom.opt.*` labels were added for the draft pathways (English only, no diagnosis named, tested). They are new patient-facing clinical wording and must be reviewed with the pathways. The check screen must also collect the measurements the rules use (`systolic`, `diastolic`, `glucose_mmol_l`, `temperature_c`) for the measurement rules to fire; that screen is not part of this piece of work.
 - Decision: open (CMO).
+
+### OQ-WP3-01 Cascade stage definitions and control lines need the CMO's signature (raised by WP3, 2026-10-23)
+- `outcome_cascade_config` v1 is PROPOSED, unsigned and inactive. Until the CMO signs it on the sign-off hub, every cascade figure and the pack's cascade and selection panel say "awaiting the CMO's signature". To decide: (a) the 140/90 line for hypertension control and the 7.0 percent line for diabetes (both fixed, not each person's own target, unlike the day-90 and day-180 reports); (b) "on treatment" means any active medicine recorded under the condition's care plan, because the medicine class is not held; (c) pregnant members and anyone under 18 are left out; (d) the lookback windows (90 days for blood pressure with a 7-day average of at least 3 readings, 180 days for HbA1c).
+- Decision: open (CMO).
+
+### OQ-WP3-02 "Screened" has no population denominator (raised by WP3, 2026-10-23)
+- Tarragon holds no register of the people who could have been screened, so the screened stage is a share of enrolled Members, and population screening coverage, undiagnosed raised blood pressure and prevalence are listed as "not available" in every output. If the founder wants a true coverage figure, a sponsor-supplied eligibility list (or a census figure for a named programme) would have to be added as a new data source.
+- Decision: open (founder, product).
+
+### OQ-WP3-03 People who were eligible but did not enrol cannot be counted (raised by WP3, 2026-10-23)
+- The selection panel compares members in a programme's figures with (a) other adult Members who are not in that programme and, for staff only, (b) members who joined but did not agree to share. A sponsor's eligible roster is not held, so seat take-up (codes handed out) is shown labelled as seats, not eligible people. Showing attributes of members who declined to share group figures is limited to the internal admin view; counsel should confirm that internal comparison is consistent with the sponsor-reporting consent text.
+- Decision: open (counsel, DPO, founder).
+
+### OQ-WP3-04 S38 and S75 count any reading with an empty flag list (raised by WP3 review, 2026-10-23)
+- The S38 snapshot job, `private.v_bp_cohort_90d`/`v_bp_cohort_day` and the pack's other blood pressure figures admit a reading when `validation_status = 'valid' OR coalesce(validation_flags, '{}') <@ array['insufficient_context']`. An empty array is a subset of every array, so that also admits a `requires_validation` reading with no flags. WP3 uses the tightened rule (valid, or requires_validation with only insufficient_context) in its own code and did not edit S38. Whether S38 should change (it would move already-written snapshots' future rows, not past ones) is a CMO and engineering decision.
+- Decision: open (CMO, engineering).
+
+### OQ-WP3-05 Should a sponsor see how its members compare with other Members? (raised by WP3 review, 2026-10-23)
+- The sponsor pack's selection panel withholds both attribute comparisons (people who declined, and other adult Members). Showing the comparison with other Members to a sponsor would describe people outside the programme who agreed to nothing with that sponsor, even as small-cell-suppressed shares. Counsel and the DPO would need to confirm before it is shown; the internal admin view keeps it.
+- Decision: open (founder, counsel, DPO).
