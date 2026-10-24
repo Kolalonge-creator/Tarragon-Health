@@ -90,6 +90,10 @@ end $f$;
 create function pg_temp.line(p_org uuid, p_doc uuid, p_admin uuid, p_kobo bigint, p_ago text) returns uuid language sql as
 $$ select private.ledger_insert(p_org, p_doc, 'adjustment', 'manual', gen_random_uuid(), p_kobo, null, '{"proof": true}'::jsonb,
      now() - p_ago::interval, false, 'proof line for S30b disputes', p_admin) $$;
+-- an age that always lands one Lagos day before the last completed Sunday: a payout draft only holds lines earned up to the end of that
+-- Sunday (private.payout_cutoff), so a fixed "5 days ago" is inside the draft Monday to Friday and outside it on Saturday and Sunday
+create function pg_temp.inside_last_week() returns text language sql as
+$$ select (((now() at time zone 'Africa/Lagos')::date - private.payout_last_period_end()) + 1)::text || ' days' $$;
 -- the payout guard, for the proof only
 create function pg_temp.guard_on() returns void language plpgsql as
 $f$ begin
@@ -146,7 +150,7 @@ declare
   l1 uuid; l2 uuid; l3 uuid; lb uuid; lb_old uuid; lb2 uuid; d1 uuid; d1b uuid; r1 uuid := gen_random_uuid(); r2 uuid := gen_random_uuid(); v_n integer; v_pay uuid; r jsonb;
 begin
   l1 := pg_temp.line(v_org, v_a, v_admin, 60000, '20 days'); l2 := pg_temp.line(v_org, v_a, v_admin, 70000, '15 days'); l3 := pg_temp.line(v_org, v_a, v_admin, 50000, '12 days');
-  lb := pg_temp.line(v_org, v_b, v_admin, 200000, '14 days'); lb_old := pg_temp.line(v_org, v_b, v_admin, 1000, '90 days'); lb2 := pg_temp.line(v_org, v_b, v_admin, 20000, '5 days');
+  lb := pg_temp.line(v_org, v_b, v_admin, 200000, '14 days'); lb_old := pg_temp.line(v_org, v_b, v_admin, 1000, '90 days'); lb2 := pg_temp.line(v_org, v_b, v_admin, 20000, pg_temp.inside_last_week());
   perform pg_temp.setf('l1', l1); perform pg_temp.setf('l2', l2); perform pg_temp.setf('l3', l3); perform pg_temp.setf('lb', lb); perform pg_temp.setf('lb2', lb2);
   perform pg_temp.act(v_admin); v_n := public.build_payout_drafts_now(); perform pg_temp.back();
   perform pg_temp.ck('setup: drafts for A (180000/3) and B (221000/3)', '180000/3,221000/3',
@@ -285,8 +289,7 @@ begin
   -- a dispute rebuilds the draft: the typed withholding is carried over, not dropped
   -- the rebuilt draft only holds lines up to the last completed Lagos Sunday, so the line is placed relative to that date: a fixed '3 days' fell
   -- inside the draft on a Wednesday and outside it from Thursday on
-  perform pg_temp.setf('lb3', pg_temp.line(pg_temp.f('org'), v_b, v_admin, 5000,
-    (((now() at time zone 'Africa/Lagos')::date - private.payout_last_period_end()) + 1)::text || ' days'));
+  perform pg_temp.setf('lb3', pg_temp.line(pg_temp.f('org'), v_b, v_admin, 5000, pg_temp.inside_last_week()));
   perform pg_temp.act(v_b); perform public.withdraw_earnings_dispute(public.open_earnings_dispute(pg_temp.f('lb3'), 'other', null)); perform pg_temp.back();
   perform pg_temp.ck('a line already answered cannot be questioned again', 'dispute_already_answered', pg_temp.try_as(v_b, format('select public.open_earnings_dispute(%L, ''other'')', pg_temp.f('lb2'))));
   perform pg_temp.ck('a deduction cannot be questioned to keep it out of a payout', 'dispute_negative_line',
