@@ -53,6 +53,9 @@ insert into allow values
   -- patient avatars: a random-named file under the person's own folder, shown by its stored public address; private bucket plus signed
   -- addresses is OQ-S39-avatars (every place that shows an avatar would change)
   ('public_bucket', 'patient-avatars'),
+  -- library audio (S57c, OQ-204 option a, founder choice 2026-10-23): non-personal wellbeing recordings, no write policy. Public means anyone with the
+  -- address can fetch a file whatever its catalogue row says, so files are uploaded only when their row is about to be published (OQ-S57c-01)
+  ('public_bucket', 'audio'),
   -- tables with a patient_id that any signed-in person may legitimately read in full (none today)
   ('open_patient_table', '__none__');
 -- NOT swept: the platform admin role. It reads across organisations by design (customer support and investigations, INV-12 note); its reads
