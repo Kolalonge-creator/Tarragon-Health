@@ -205,7 +205,7 @@ begin
              or exists (select 1 from private.lab_analyte_readings_current l where l.patient_id = s.pid and l.code = 'hba1c' and l.correction_status is null)
       end as scr,
       (exists (select 1 from public.care_plans cp where cp.patient_id = s.pid and cp.condition::text = p_condition and cp.status = 'active')
-       or exists (select 1 from public.patient_conditions pc
+       or exists (select 1 from private.patient_conditions_current pc
                    where pc.patient_id = s.pid and pc.status::text in (select jsonb_array_elements_text(c -> 'diagnosis_statuses'))
                      and exists (select 1 from jsonb_array_elements_text(c -> 'diagnosis_icd10_prefixes') x where upper(coalesce(pc.icd10_code, '')) like x || '%'))) as dx
       from scoped s
