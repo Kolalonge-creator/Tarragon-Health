@@ -5,6 +5,7 @@
  */
 import { cleanup, render, screen } from "@testing-library/react";
 import { expectNoA11yViolations } from "@/test/a11y";
+import { findShameCopy } from "@tarragon/shared";
 import { CohortView } from "./cohort-view";
 
 const COHORT = { cohort_id: "c1", name: "Grace Fellowship Group", kind: "church", state: "active", is_moderator: false, muted: false, contributing: true };
@@ -25,7 +26,9 @@ jest.mock("@/lib/queries/cohorts", () => {
     useMyCohorts: () => mockMine,
     useCohortChallenges: () => ({ isPending: false, data: jest.requireActual("@/lib/cohorts/model").parseChallenges(mockChallenges.map((c) => ({ ...c, yours: 163 }))) }),
     useRoster: () => ({ data: [{ member_id: "m1", first_name: "Ada", role: "moderator", is_you: false }, { member_id: "m2", first_name: "Chidi", role: "member", is_you: true }] }),
-    useBoard: () => ({ isPending: false, data: { state: "shown", rows: [{ label: "Your group", rank: 1, progress_pct: 100, is_yours: true }, { label: "Group 2", rank: 2, progress_pct: 50, is_yours: false }, { label: "Group 3", rank: 3, progress_pct: 20, is_yours: false }] } }),
+    useChallengeSummary: () => ({ data: { available: true, contributing: true, did_today: false, skipped_this_week: false, rest_available: true, weeks_active: 3 } }),
+    useEffortHistory: () => ({ data: { weeks_active: 3, challenges: [{ label: "Move together", unit: "minutes", starts_on: "2026-09-01", ends_on: "2026-09-14", phase: "ended", days_with_effort: 6, total_effort: 140, rest_days: 1 }] } }),
+    useRestCheckin: mockNoop, useSkipWeek: mockNoop,
     useModeratorReports: () => ({ data: [] }),
     useTemplates: () => ({ data: [] }),
     useCreateInvite: mockNoop, useStartChallenge: mockNoop, useCloseCohort: mockNoop, useRemoveMember: mockNoop, useContribute: mockNoop, useTotalsConsent: mockNoop,
@@ -60,10 +63,32 @@ describe("CohortView", () => {
     expect(container.textContent).not.toMatch(/insulin|pregnan|kidney|eating|condition/i);
   });
 
-  it("compares groups with anonymous labels", () => {
+  it("draws a shared goal path in shape and words, from the group total only", () => {
+    const { container } = render(<CohortView cohortId="c1" locale="en" />);
+    expect(screen.getAllByText(/Step 1 of 5: reached/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Together the group reached its shared goal/).length).toBeGreaterThan(0);
+    expect(container.querySelectorAll("svg[aria-hidden='true']").length).toBeGreaterThan(0);
+  });
+
+  it("draws an empty path with a waiting line when the total is hidden", () => {
     render(<CohortView cohortId="c1" locale="en" />);
-    expect(screen.getAllByText("Your group: 100 percent of goal").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Group 2: 50 percent of goal").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Step 1 of 5: the next step/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("The shared goal path appears once enough people have taken part.").length).toBeGreaterThan(0);
+  });
+
+  it("shows weeks active, a rest check-in and a no-penalty skip, with no shame wording and no comparison between groups", () => {
+    const { container } = render(<CohortView cohortId="c1" locale="en" />);
+    expect(screen.getAllByText("Weeks you have taken part: 3").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Rest and check in").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Skip this week").length).toBeGreaterThan(0);
+    expect(findShameCopy(container.textContent ?? "")).toEqual([]);
+    expect(container.textContent).not.toMatch(/How groups compare|Group 2|Group 3/);
+  });
+
+  it("keeps the member's own effort history in their own view", () => {
+    render(<CohortView cohortId="c1" locale="en" />);
+    expect(screen.getByText("Your effort history")).toBeTruthy();
+    expect(screen.getByText("Move together: 6 days taking part, 1 of them rest check-ins")).toBeTruthy();
   });
 
   it("offers no moderator tools to a plain member, and no WhatsApp anywhere", () => {

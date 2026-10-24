@@ -17,8 +17,6 @@ export type MyCohorts = { open: boolean; off: boolean; cohorts: Cohort[] };
 export type Total = { state: "pending" } | { state: "hidden" } | { state: "shown"; total: number; progressPct: number; goalReached: boolean; groupSize: string; asOf: string };
 export type Challenge = { challengeId: string; label: string; unit: Unit; startsOn: string; endsOn: string; phase: "scheduled" | "active" | "ended" | "cancelled"; available: boolean; total: Total };
 export type RosterRow = { memberId: string; firstName: string; role: "member" | "moderator"; isYou: boolean };
-export type BoardRow = { label: string; rank: number; progressPct: number; isYours: boolean };
-export type Board = { state: "hidden" } | { state: "not_ready" } | { state: "shown"; rows: BoardRow[] };
 export type Template = { code: string; label: string; unit: Unit; defaultDays: number };
 
 const obj = (v: unknown): Record<string, unknown> | null => (typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
@@ -74,20 +72,6 @@ export function parseRoster(data: unknown): RosterRow[] {
   });
 }
 
-export function parseBoard(data: unknown): Board {
-  const o = obj(data);
-  if (o?.state === "not_ready") return { state: "not_ready" };
-  if (o?.state === "shown" && Array.isArray(o.rows)) {
-    const rows = o.rows.flatMap((row): BoardRow[] => {
-      const r = obj(row);
-      const label = r ? str(r.label) : null, rank = r ? num(r.rank) : null, pct = r ? num(r.progress_pct) : null, yours = r ? bool(r.is_yours) : null;
-      return label && rank !== null && pct !== null && yours !== null ? [{ label, rank, progressPct: pct, isYours: yours }] : [];
-    });
-    return { state: "shown", rows };
-  }
-  return { state: "hidden" };
-}
-
 export function parseTemplates(data: unknown): Template[] {
   if (!Array.isArray(data)) return [];
   return data.flatMap((row): Template[] => {
@@ -140,4 +124,29 @@ export function communityErrorKey(message: unknown): MessageKey {
   if (typeof message !== "string") return "community.error.unknown";
   const hit = Object.keys(ERROR_KEYS).find((c) => message.includes(c));
   return (hit ? ERROR_KEYS[hit] : undefined) ?? "community.error.unknown";
+}
+
+/** S69c: the member's OWN summary and OWN effort history. Neither is part of any group view. */
+export type ChallengeSummary = { available: false } | { available: true; contributing: boolean; didToday: boolean; skippedThisWeek: boolean; restAvailable: boolean; weeksActive: number };
+export function parseSummary(data: unknown): ChallengeSummary {
+  const o = obj(data);
+  if (!o || o.available !== true) return { available: false };
+  const contributing = bool(o.contributing), didToday = bool(o.did_today), skipped = bool(o.skipped_this_week), rest = bool(o.rest_available), weeks = num(o.weeks_active);
+  return contributing !== null && didToday !== null && skipped !== null && rest !== null && weeks !== null
+    ? { available: true, contributing, didToday, skippedThisWeek: skipped, restAvailable: rest, weeksActive: weeks }
+    : { available: false };
+}
+
+export type HistoryRow = { label: string; startsOn: string; daysWithEffort: number; restDays: number };
+export type EffortHistory = { weeksActive: number; challenges: HistoryRow[] };
+export function parseHistory(data: unknown): EffortHistory {
+  const o = obj(data);
+  const weeks = o ? num(o.weeks_active) : null;
+  if (!o || weeks === null || !Array.isArray(o.challenges)) return { weeksActive: 0, challenges: [] };
+  const challenges = o.challenges.flatMap((row): HistoryRow[] => {
+    const r = obj(row);
+    const label = r ? str(r.label) : null, starts = r ? str(r.starts_on) : null, days = r ? num(r.days_with_effort) : null, rest = r ? num(r.rest_days) : null;
+    return label && starts && days !== null && rest !== null ? [{ label, startsOn: starts, daysWithEffort: days, restDays: rest }] : [];
+  });
+  return { weeksActive: weeks, challenges };
 }

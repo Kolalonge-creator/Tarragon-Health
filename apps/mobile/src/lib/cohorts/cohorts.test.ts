@@ -1,6 +1,7 @@
+import { findShameCopy } from "@tarragon/shared";
 import { en } from "@tarragon/i18n";
 import {
-  COHORT_KINDS, KIND_KEYS, UNIT_KEYS, communityErrorKey, communityJoinPath, parseBoard, parseChallenges, parseInviteMade, parseMyCohorts, parseOk, parsePreview, parseRoster, tokenFromInput,
+  COHORT_KINDS, KIND_KEYS, UNIT_KEYS, communityErrorKey, communityJoinPath, parseChallenges, parseHistory, parseSummary, parseInviteMade, parseMyCohorts, parseOk, parsePreview, parseRoster, tokenFromInput,
 } from "./parse";
 
 const mockRpc = jest.fn();
@@ -29,16 +30,10 @@ describe("community parsing", () => {
   it("treats garbage as nothing to show", () => {
     expect(parseChallenges("x")).toEqual([]);
     expect(parseMyCohorts(undefined)).toEqual({ open: false, off: false, cohorts: [] });
-    expect(parseBoard({ state: "boom" })).toEqual({ state: "hidden" });
     expect(parseRoster([{ member_id: 1 }])).toEqual([]);
     expect(parsePreview({ ok: true, name: "x", kind: "club" })).toEqual({ ok: false });
     expect(parseInviteMade({ token: "short", expires_at: "x" })).toBeNull();
     expect(parseOk(null).ok).toBe(false);
-  });
-
-  it("a board row carries a label, a rank and a percentage, never a cohort name", () => {
-    const b = parseBoard({ state: "shown", rows: [{ label: "Group 2", rank: 2, progress_pct: 50, is_yours: false, cohort_name: "Grace Fellowship" }] });
-    expect(JSON.stringify(b)).not.toContain("Grace");
   });
 
   it("reads the token from a pasted link or a bare token, and nothing else", () => {
@@ -84,5 +79,28 @@ describe("community api", () => {
   it("challenges fail soft", async () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: "boom" } });
     expect((await loadChallenges("c1")).ok).toBe(false);
+  });
+});
+
+describe("S69c cooperative parsing", () => {
+  it("parses the member's own summary and drops anything else", () => {
+    const s = parseSummary({ available: true, contributing: true, did_today: false, skipped_this_week: true, rest_available: true, weeks_active: 4, rank: 2, group_values: [1] });
+    expect(s).toEqual({ available: true, contributing: true, didToday: false, skippedThisWeek: true, restAvailable: true, weeksActive: 4 });
+    expect(JSON.stringify(s)).not.toMatch(/rank|group_values/);
+    expect(parseSummary({ available: false })).toEqual({ available: false });
+    expect(parseSummary("x")).toEqual({ available: false });
+  });
+  it("parses the effort history (own rows, kept after a challenge ends)", () => {
+    const h = parseHistory({ weeks_active: 5, challenges: [{ label: "Move together", starts_on: "2026-09-01", days_with_effort: 6, rest_days: 1, total_effort: 140, other_member: "x" }, { label: 1 }] });
+    expect(h).toEqual({ weeksActive: 5, challenges: [{ label: "Move together", startsOn: "2026-09-01", daysWithEffort: 6, restDays: 1 }] });
+    expect(parseHistory(null)).toEqual({ weeksActive: 0, challenges: [] });
+  });
+  it("every cooperative string is warm: no shame wording and no em dash", () => {
+    for (const [k, v] of Object.entries(en)) {
+      if (!k.startsWith("community.coop.")) continue;
+      expect(findShameCopy(v)).toEqual([]);
+      expect(v).not.toMatch(/—/);
+      expect(v).not.toMatch(/your doctor/i);
+    }
   });
 });

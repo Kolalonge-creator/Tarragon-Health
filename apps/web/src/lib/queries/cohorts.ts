@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import {
   inviteMadeSchema,
-  parseBoard,
+  parseHistory,
+  parseSummary,
   parseChallenges,
   parseModReports,
   parseMyCohorts,
@@ -18,7 +19,6 @@ export const communityKeys = {
   group: (id: string) => ["community", "group", id] as const,
   roster: (id: string) => ["community", "roster", id] as const,
   reports: (id: string) => ["community", "reports", id] as const,
-  board: (challengeId: string) => ["community", "board", challengeId] as const,
   templates: ["community", "templates"] as const,
 };
 
@@ -58,17 +58,6 @@ export function useRoster(cohortId: string) {
       const { data, error } = await createClient().rpc("cohort_roster", { p_cohort: cohortId });
       if (error) throw new CommunityError(error.message);
       return parseRoster(data);
-    },
-  });
-}
-
-export function useBoard(challengeId: string) {
-  return useQuery({
-    queryKey: communityKeys.board(challengeId),
-    queryFn: async () => {
-      const { data, error } = await createClient().rpc("cohort_board", { p_challenge: challengeId });
-      if (error) throw new CommunityError(error.message);
-      return parseBoard(data);
     },
   });
 }
@@ -178,6 +167,45 @@ export function useStartChallenge() {
   return useRpcMutation(
     (v: { cohort: string; template: string; startsOn: string; days: number }) =>
       rpc(createClient().rpc("cohort_start_challenge", { p_cohort: v.cohort, p_template: v.template, p_starts_on: v.startsOn, p_days: v.days })),
+    ALL,
+  );
+}
+
+/** S69c: the member's own summary for one challenge (weeks active, whether this week is skipped). Never part of a group view. */
+export function useChallengeSummary(challengeId: string) {
+  return useQuery({
+    queryKey: ["community", "summary", challengeId] as const,
+    gcTime: 0, // private to the signed-in member: nothing stays cached once the screen is gone (a keyed-by-user cache is not available client side)
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("my_challenge_summary", { p_challenge: challengeId });
+      if (error) throw new CommunityError(error.message);
+      return parseSummary(data);
+    },
+  });
+}
+
+/** S69c: the member's own effort history, kept after a challenge ends. */
+export function useEffortHistory() {
+  return useQuery({
+    queryKey: ["community", "history"] as const,
+    gcTime: 0,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("my_effort_history");
+      if (error) throw new CommunityError(error.message);
+      return parseHistory(data);
+    },
+  });
+}
+
+export function useRestCheckin() {
+  return useRpcMutation((challenge: string) => rpc(createClient().rpc("rest_checkin_for_challenge", { p_challenge: challenge })), ALL);
+}
+
+/** Skip (or take back the skip of) this week. Nothing is sent to the group. */
+export function useSkipWeek() {
+  return useRpcMutation(
+    (v: { challenge: string; skip: boolean }) =>
+      rpc(v.skip ? createClient().rpc("skip_challenge_week", { p_challenge: v.challenge }) : createClient().rpc("undo_skip_challenge_week", { p_challenge: v.challenge })),
     ALL,
   );
 }

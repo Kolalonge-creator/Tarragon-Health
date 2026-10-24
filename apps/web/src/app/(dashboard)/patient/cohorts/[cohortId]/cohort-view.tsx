@@ -7,10 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormError } from "@/components/ui/form-error";
+import { CooperativeActions, EffortHistoryCard, SharedGoalPath } from "./cooperative";
 import { REPORT_REASONS, REPORT_REASON_KEYS, UNIT_KEYS, communityErrorKey, communityJoinPath, type Challenge, type ReportReason } from "@/lib/cohorts/model";
 import {
   CommunityError,
-  useBoard,
   useCloseCohort,
   useCohortChallenges,
   useContribute,
@@ -35,38 +35,6 @@ function errText(e: unknown, locale: Locale): string | null {
   return t(communityErrorKey(e instanceof CommunityError ? e.message : null), locale);
 }
 
-/** A goal bar. It shows the cohort's percentage only; there is no input anywhere that could carry a person's figure. */
-function GoalBar({ percent, label }: { percent: number; label: string }) {
-  return (
-    <div>
-      <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label={label} className="h-3 w-full overflow-hidden rounded-full bg-charcoal-ink/10 dark:bg-night-ink/20">
-        <div className="h-full rounded-full bg-brand-green" style={{ width: `${percent}%` }} />
-      </div>
-      <p className="mt-1 text-sm">{label}</p>
-    </div>
-  );
-}
-
-function BoardPanel({ challengeId, locale }: { challengeId: string; locale: Locale }) {
-  const board = useBoard(challengeId);
-  if (board.isPending || !board.data || board.data.state === "hidden") return null;
-  return (
-    <div role="group" aria-labelledby={`board-${challengeId}`} className="space-y-2 rounded-lg border p-3">
-      <h4 id={`board-${challengeId}`} className="font-medium">{t("community.board.title", locale)}</h4>
-      <p className={`text-sm ${MUTED}`}>{t("community.board.note", locale)}</p>
-      {board.data.state === "not_ready" ? <p className="text-sm">{t("community.board.not_ready", locale)}</p> : (
-        <ol className="space-y-1">
-          {board.data.rows.map((r) => (
-            <li key={`${r.rank}-${r.label}`} className={r.is_yours ? "font-medium" : ""}>
-              {t("community.board.row", locale, { label: r.is_yours ? t("community.board.yours", locale) : r.label, percent: String(r.progress_pct) })}
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
-  );
-}
-
 function ChallengeCard({ c, locale, consenting }: { c: Challenge; locale: Locale; consenting: boolean }) {
   const contribute = useContribute();
   const [minutes, setMinutes] = useState("");
@@ -84,12 +52,18 @@ function ChallengeCard({ c, locale, consenting }: { c: Challenge; locale: Locale
 
       {c.total.state === "shown" ? (
         <div className="space-y-2">
-          <GoalBar percent={c.total.progress_pct} label={t("community.challenge.progress", locale, { percent: String(c.total.progress_pct) })} />
+          <SharedGoalPath progressPct={c.total.progress_pct} locale={locale} idPrefix={c.challenge_id} />
+          <p>{t("community.challenge.progress", locale, { percent: String(c.total.progress_pct) })}</p>
           <p>{t("community.challenge.total", locale, { total: String(c.total.total), unit: t(UNIT_KEYS[c.unit], locale) })}</p>
           {c.total.goal_reached ? <p role="status" className="font-medium">{t("community.challenge.goal", locale)}</p> : null}
           <p className={`text-sm ${MUTED}`}>{t("community.challenge.group_size", locale, { band: c.total.group_size })} · {t("community.challenge.as_of", locale, { date: c.total.as_of })}</p>
         </div>
-      ) : c.total.state === "hidden" ? <p className={MUTED}>{t("community.challenge.hidden", locale)}</p> : <p className={MUTED}>{t("community.challenge.pending", locale)}</p>}
+      ) : (
+        <div className="space-y-2">
+          <SharedGoalPath progressPct={null} locale={locale} idPrefix={c.challenge_id} />
+          <p className={MUTED}>{t(c.total.state === "hidden" ? "community.challenge.hidden" : "community.challenge.pending", locale)}</p>
+        </div>
+      )}
 
       {!c.available ? <p className="text-sm">{t("community.challenge.unavailable", locale)}</p> : c.phase === "active" ? (
         <div className="space-y-2">
@@ -118,7 +92,7 @@ function ChallengeCard({ c, locale, consenting }: { c: Challenge; locale: Locale
         </div>
       ) : null}
 
-      <BoardPanel challengeId={c.challenge_id} locale={locale} />
+      <CooperativeActions challengeId={c.challenge_id} active={c.phase === "active"} consenting={!needsConsent} locale={locale} />
     </li>
   );
 }
@@ -268,6 +242,8 @@ export function CohortView({ cohortId, locale }: { cohortId: string; locale: Loc
           )}
         </CardContent>
       </Card>
+
+      <EffortHistoryCard locale={locale} />
 
       <Card>
         <CardHeader><CardTitle>{t("community.group.members", locale)}</CardTitle></CardHeader>

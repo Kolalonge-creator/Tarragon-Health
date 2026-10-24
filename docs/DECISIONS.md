@@ -492,3 +492,12 @@ Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six 
 |---|---|
 | **A governed server-side vision call may be built and evaluated to read a blood pressure cuff display from a photo (AI-022).** Narrows the OQ-598 line "server vision not approved". | The founder, 2026-10-22, in chat, chose "Approve for evaluation only". The feature stays OFF behind guard `cuff_camera_enabled`; AI-022 stays registered disabled. |
 | **What is still required before go-live** | A human-run AI-022 evaluation on real cuff photos, a DPO view on the transient image (held in memory only, never stored or logged), defined go-live conditions for the guard, per-user rate limiting on the route, and a further written founder go-live decision. No evaluation, approval or guard change is made by this entry. |
+
+## S66-S70 competitor build, 2026-10-22, founder in chat
+
+| Decision | Chosen |
+|---|---|
+| **Cohorts: no cohort-against-cohort board (OQ-740).** | `public.cohort_board` is dropped (s69c migration). No screen ranks groups. |
+| **Care Circle "Can see and help" keeps `pay_for_care` as its stand-in marker for now (OQ-S69b-2).** | A dedicated permission is a later PR. Recorded here only; the work is on branch s69b-care-circle-presets. |
+| **Missed-dose supporter nudge: yes, opt-in only, 30 minute grace (OQ-S69b-3).** | The numbers are PROPOSED and the CMO still owns them. The module stays OFF. |
+| **Under-18 rule: an infant's feed, sleep and nappy log counts as preventive tracking and is allowed (OQ-S68B-3).** | It is still closed by `maternal_enabled`. |

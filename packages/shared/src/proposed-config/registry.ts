@@ -2362,6 +2362,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S69.md; docs/plans/S66-S70-cmo-signoff-pack.md (A16)",
   },
+  // S69c: the cooperative rules for cohort challenges. Live value is the active row of `cohort_coop_config`; cohorts-cooperative-mirror.test.ts
+  // fails if it drifts from the migration seed. daily_cap_*: the most one person's single day can count for (so nobody dominates a total).
+  // rest_checkin_minutes: what a rest check-in counts as on a minutes challenge (a day or a lesson on the others). path_milestones: steps on
+  // the shared-goal path. Nothing here is signed.
+  {
+    key: "cohorts.cooperative",
+    value: { daily_cap_days: 1, daily_cap_lessons: 3, daily_cap_minutes: 180, rest_checkin_minutes: 20, path_milestones: 5 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S69.md (S69c); migration s69c_cooperative_shared_goal",
+  },
   // S63: digital therapy programmes. DRAFT, unsigned: the CMO confirms or replaces both entries by publishing a higher version.
   {
     key: "therapy.exclusion_lists",
