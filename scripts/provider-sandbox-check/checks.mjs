@@ -16,6 +16,8 @@ import {
   hmacHex,
 } from "../../supabase/functions/_shared/integrations/index.ts";
 
+import { checkCheckoutChannels } from "./checkout-channels.mjs";
+
 export const SECRET_ENV_NAMES = [
   "PAYSTACK_TEST_SECRET_KEY", "PAYSTACK_SECRET_KEY", "PAYSTACK_WEBHOOK_SECRET",
   "ZOOM_CLIENT_SECRET", "ZOOM_SDK_SECRET", "ZOOM_WEBHOOK_SECRET_TOKEN",
@@ -285,6 +287,8 @@ export async function runChecks({ env, fetch: fetchImpl, only = [], allowZoomMee
   if (want("zoom")) await checkZoom(env, fetchImpl, results, { allowZoomMeeting });
   if (want("resend")) await checkResend(env, fetchImpl, results);
   if (want("termii")) await checkTermii(env, fetchImpl, results);
+  // opt-in only (S71): initialises one unpaid checkout per channel and lists the manual steps. See docs/design/S71-checkout-test-run.md.
+  if (only.includes("paystack-checkout")) await checkCheckoutChannels(env, fetchImpl, results);
   return { refused: null, results };
 }
 
