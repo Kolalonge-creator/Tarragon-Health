@@ -198,11 +198,11 @@ begin
   ), flags as (
     select s.pid, s.anc,
       case when p_condition = 'hypertension' then
-             exists (select 1 from public.vitals_readings v where v.patient_id = s.pid and v.vital_type = 'blood_pressure' and v.systolic is not null and v.diastolic is not null
+             exists (select 1 from private.vitals_readings_current v where v.patient_id = s.pid and v.vital_type = 'blood_pressure' and v.systolic is not null and v.diastolic is not null
                        and v.correction_status is null and private.wp3_reading_usable(v.validation_status, v.validation_flags))
            else
-             exists (select 1 from public.vitals_readings v where v.patient_id = s.pid and v.vital_type = 'glucose' and v.glucose_mmol_l is not null and v.correction_status is null and v.validation_status = 'valid')
-             or exists (select 1 from public.lab_analyte_readings l where l.patient_id = s.pid and l.code = 'hba1c' and l.correction_status is null)
+             exists (select 1 from private.vitals_readings_current v where v.patient_id = s.pid and v.vital_type = 'glucose' and v.glucose_mmol_l is not null and v.correction_status is null and v.validation_status = 'valid')
+             or exists (select 1 from private.lab_analyte_readings_current l where l.patient_id = s.pid and l.code = 'hba1c' and l.correction_status is null)
       end as scr,
       (exists (select 1 from public.care_plans cp where cp.patient_id = s.pid and cp.condition::text = p_condition and cp.status = 'active')
        or exists (select 1 from public.patient_conditions pc
@@ -223,7 +223,7 @@ begin
                              then case when w.avg_s < (c #>> '{controlled_below,systolic}')::numeric and w.avg_d < (c #>> '{controlled_below,diastolic}')::numeric then 'controlled' else 'uncontrolled' end
                              else 'unknown' end
                    from (select count(*) as n, avg(v.systolic) as avg_s, avg(v.diastolic) as avg_d
-                           from public.vitals_readings v
+                           from private.vitals_readings_current v
                           where v.patient_id = t.pid and v.vital_type = 'blood_pressure' and v.systolic is not null and v.diastolic is not null
                             and v.correction_status is null and private.wp3_reading_usable(v.validation_status, v.validation_flags)
                             -- the window ends on the day the report is run (Lagos), never on the person's own last reading
@@ -231,7 +231,7 @@ begin
                             and (v.taken_at at time zone 'Africa/Lagos')::date <= (now() at time zone 'Africa/Lagos')::date) w)
               else
                 (select case when l.val is null then 'unknown' when l.val < (c ->> 'controlled_hba1c_below_percent')::numeric then 'controlled' else 'uncontrolled' end
-                   from (select (select x.value::numeric from public.lab_analyte_readings x
+                   from (select (select x.value::numeric from private.lab_analyte_readings_current x
                                   where x.patient_id = t.pid and x.code = 'hba1c' and x.unit = 'percent' and x.correction_status is null
                                     and x.value between (c ->> 'valid_min')::numeric and (c ->> 'valid_max')::numeric
                                     and (x.taken_at at time zone 'Africa/Lagos')::date >= ((now() at time zone 'Africa/Lagos')::date - (c ->> 'lookback_days')::integer)
@@ -327,6 +327,20 @@ end $$;
 revoke all on function private.compute_cascade_snapshots(timestamptz) from public, anon, authenticated;
 -- after the S38 outcome snapshots (01:40), whose day-0 average the baseline blood pressure band reads
 select cron.schedule('cascade-snapshots', '50 1 * * *', $$ select private.compute_cascade_snapshots(); $$);
+
+-- ---------------------------------------------------------------------------
+-- 2c. The data registry (S39d): every public table that holds a patient's rows is registered with a retention class and an export flag
+-- ---------------------------------------------------------------------------
+-- cascade_snapshots is derived working data, rebuilt every night from the clinical tables; it is classed operational (deleted, not reviewed) and
+-- exported with the person's other rows. The default S39d classification, awaiting CMO and DPO review like every other row.
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes)
+select t.table_name, 'patient_id', private.retention_class_for(t.table_name),
+       case when private.retention_class_for(t.table_name) = 'operational' then 'delete' else 'review' end,
+       private.retention_class_for(t.table_name) <> 'audit',
+       'Registered with the default S39d classification when the WP3 cascade snapshot was added; derived nightly from the clinical tables; awaiting review.'
+  from unnest(array['cascade_snapshots']) as t(table_name)
+ where to_regclass('public.' || t.table_name) is not null
+on conflict (table_name) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- 3. Stages as figures, through the single minimum-cell rule
