@@ -11428,6 +11428,7 @@ export type Database = {
           clinical_encounter_id: string | null;
           created_at: string;
           diagnosis: string | null;
+          diagnosis_code: string | null
           encounter_date: string;
           encounter_type: string;
           escalation_id: string | null;
@@ -11469,6 +11470,7 @@ export type Database = {
           clinical_encounter_id?: string | null;
           created_at?: string;
           diagnosis?: string | null;
+          diagnosis_code?: string | null
           encounter_date?: string;
           encounter_type: string;
           escalation_id?: string | null;
@@ -11510,6 +11512,7 @@ export type Database = {
           clinical_encounter_id?: string | null;
           created_at?: string;
           diagnosis?: string | null;
+          diagnosis_code?: string | null
           encounter_date?: string;
           encounter_type?: string;
           escalation_id?: string | null;
@@ -56504,6 +56507,10 @@ export type Database = {
       trigger_population_outreach: {
         Args: { p_population_id: string }
         Returns: number
+      }
+      set_encounter_note_diagnosis_code: {
+        Args: { p_code: string; p_note: string }
+        Returns: undefined
       }
       update_encounter_note_draft: {
         Args: { p_fields: Json; p_note: string }
