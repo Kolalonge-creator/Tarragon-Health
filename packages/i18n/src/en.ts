@@ -2102,7 +2102,7 @@ export const en = {
   "admin.refunds.approve": "Approve refund",
   "admin.refunds.reject": "Decline refund",
   "admin.refunds.note_placeholder": "Add a note (optional)",
-  "admin.refunds.confirm_approve": "Approve this refund of {{amount}}? The money will be returned to the patient's card.",
+  "admin.refunds.confirm_approve": "Approve this refund of {amount}? The money will be returned to the patient's card.",
   "admin.refunds.confirm_reject": "Decline this refund request?",
   // S27: lab results.
   "labres.title": "Your lab results",
