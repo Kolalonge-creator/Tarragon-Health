@@ -5554,6 +5554,19 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Forty `symptom.opt.*` labels were added for the draft pathways (English only, no diagnosis named, tested). They are new patient-facing clinical wording and must be reviewed with the pathways. The check screen must also collect the measurements the rules use (`systolic`, `diastolic`, `glucose_mmol_l`, `temperature_c`) for the measurement rules to fire; that screen is not part of this piece of work.
 - Decision: open (CMO).
 
+### OQ-WP1-01 Price changes for organisation member prices are not announced (raised by WP1, 2026-10-23)
+- WP1 tells a holder (and the person who paid, when different) in the app when a LIST price changes. It does not cover `organisation_member_prices` (an employer's per-member price) or institutional price book rates: those members are not bought through an order the notice can follow, and there is no equally small hook. The employer, not the member, is the party told, through the employer contract.
+- Decision: open (product). If members should be told, the hook belongs in the employer membership flow, not in `prices`.
+
+### OQ-WP1-02 May the app say "about N a month, billed once a year"? (raised by WP1, 2026-10-23)
+- The founder has said Member is one yearly payment and has refused any monthly figure or instalment (S72-2 stands). WP1 built the monthly line (kobo / 12, rounded half up to whole naira, always the sentence "Billed once a year, not monthly") but it is OFF: `pricing.transparency` `monthly_equivalent.enabled = false`, and web and mobile show nothing monthly while it is off.
+- Question for the founder: confirm that "About ₦7,000 a month. Billed once a year, not monthly." is acceptable as a way to compare. If yes, flip `enabled` in the registry (a normal reviewed change). If no, remove the line.
+- Decision: open (founder).
+
+### OQ-WP1-03 All WP1 seeded wording is PROPOSED and unreviewed (raised by WP1, 2026-10-23)
+- Seeded "not included" entries: Membership lists medicines (the sentence already in its description), care in a hospital or clinic and emergency treatment, a consultation and a lab package; the single consultation lists medicines and a lab package. The words `catalog.notincl.*`, `notincl.*` and `pricechange.*` and the bell line are new patient-facing copy. None has been read by the founder or the CMO. The consultation and the lab package have no live price, so they show "Ask us" on day one by design.
+- Decision: open (founder for wording, CMO for the hospital and emergency line).
+
 ### OQ-WP7-01 WP3 should switch to the shared usable-reading helper (raised by WP7, 2026-10-23)
 - WP7 (migration `20261023214131_wp7_bp_usable_reading_rule.sql`) put the OQ-WP3-04 rule in `private.bp_reading_usable(status, flags)` and converted the S38 snapshot job, `private.bp_window_stats` and the two cohort views to it. WP3 defines the same rule as `private.wp3_reading_usable`. When WP3 merges, replace its calls with `private.bp_reading_usable` and drop its copy, so the rule lives in one place.
 - Already-written `outcome_snapshots` rows were not rewritten. Live count of snapshot rows that would differ under the new rule, read-only on 2026-10-23: 0 (all 767 live BP readings are waiting with only `insufficient_context`).
