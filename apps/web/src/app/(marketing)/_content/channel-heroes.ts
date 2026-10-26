@@ -42,7 +42,7 @@ export type ChannelHeroCopy = {
  * is the reader's own experience, not a statistic this site cannot source.
  */
 export const DEFAULT_HERO: ChannelHeroCopy = {
-  eyebrow: "Free to join. You only pay for a doctor's time.",
+  eyebrow: "Free to join. No card needed.",
   title: "Care that stays with you.",
   description:
     "Care usually stops the moment you leave the hospital. Tarragon is what happens next: your readings watched, your screenings tracked, and a doctor when you actually need one.",

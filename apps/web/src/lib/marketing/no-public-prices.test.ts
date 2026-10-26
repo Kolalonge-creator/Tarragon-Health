@@ -17,6 +17,7 @@ const ROOTS = [join(SRC, "app", "(marketing)"), join(SRC, "lib", "marketing")];
 const NAIRA_TEMPLATE_ALLOWED: Record<string, string> = {
   "app/(marketing)/pricing/page.tsx": "the Membership price, from commerce.membership_prices",
   "app/(marketing)/gift/page.tsx": "the Membership price, from commerce.membership_prices",
+  "app/(marketing)/page.tsx": "the Membership price on the homepage, from commerce.membership_prices (same source as /pricing)",
   "app/(marketing)/_components/roi-calculator.tsx":
     "an employer sketch whose every figure is a visitor-editable assumption and a modelled saving; it quotes no Tarragon price",
 };
@@ -56,7 +57,7 @@ describe("no public price other than the Membership price", () => {
     for (const rel of Object.keys(NAIRA_TEMPLATE_ALLOWED)) {
       const f = files.find((x) => x.rel === rel);
       expect(f).toBeDefined();
-      if (rel.endsWith("pricing/page.tsx") || rel.endsWith("gift/page.tsx")) {
+      if (rel.endsWith("pricing/page.tsx") || rel.endsWith("gift/page.tsx") || rel === "app/(marketing)/page.tsx") {
         expect(f!.text).toContain("commerce.membership_prices");
       }
     }
