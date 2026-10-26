@@ -72,7 +72,7 @@ declare ev uuid := pg_temp.mkuser('ev-a', 'patient'); r text;
 begin
   insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, ends_at, is_test, tier)
   values ('00000000-0000-0000-0000-000000000001', ev, 'purchase', 'active', now() - interval '100 days', now() + interval '265 days', true, 'evergreen');
-  r := pg_temp.q_as(ev, $q$select public.create_order('membership_upgrade_plus', gen_random_uuid())::text$q$);
+  r := pg_temp.q_as(ev, $q$select public.create_order('membership_upgrade_plus', gen_random_uuid(), null, null, false, null, 'Oyo')::text$q$);
   if r like 'ERR:%' then raise exception 'FAIL first upgrade order refused: %', r; end if;
   r := pg_temp.q_as(ev, $q$select public.create_order('membership_upgrade_plus', gen_random_uuid())::text$q$);
   if r not like 'ERR:%upgrade_already_open%' then raise exception 'FAIL a second open upgrade order was accepted: %', r; end if;

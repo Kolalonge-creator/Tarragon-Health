@@ -14,7 +14,7 @@ begin
       ('public.record_order_payment(text,bigint,bigint,bigint,text,text,text,text,timestamptz,jsonb,bigint)', array['membership_tier_for_item', 'membership_upgrade_plus', 'upgrade_not_applicable', 'upgraded_membership_id']),
       ('private.post_order_to_ledger(uuid,boolean)', array['membership_upgrade_plus', 'upgraded_membership_id']),
       ('public.decide_order_refund(uuid,boolean,text)', array['membership_upgrade_plus', 'upgraded_membership_id']),
-      ('public.create_order(text,uuid,uuid,text,boolean,bigint)', array['membership_two_member_tiers', 'upgrade_already_open', 'upgrade_not_available']),
+      ('public.create_order(text,uuid,uuid,text,boolean,bigint,text)', array['membership_two_member_tiers', 'upgrade_already_open', 'upgrade_not_available', 'plus_state_required']),
       ('private.settle_sponsor_order(uuid)', array['membership_tier_for_item']),
       ('public.respond_to_gifted_pack(uuid,boolean)', array['membership_tier_for_item']),
       ('private.grant_org_seat(uuid)', array['membership_tier_for_item']),

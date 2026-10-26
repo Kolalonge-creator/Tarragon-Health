@@ -16,6 +16,8 @@ const UP = { ...base, code: "membership_upgrade_plus", name_key: "catalog.member
 let catalogue: { data: unknown[]; isSuccess: boolean };
 let membership: { data: { is_member: boolean; ends_at: string | null; source: string | null; tier?: "evergreen" | "plus" | null; in_grace?: boolean; grace_ends_at?: string | null } };
 const mutateAsync = jest.fn();
+const setStateMutate = jest.fn();
+let setStateResult: { isError: boolean; error: unknown; isPending: boolean } = { isError: false, error: null, isPending: false };
 jest.mock("@/lib/queries/commerce", () => {
   const actual = jest.requireActual("@/lib/queries/commerce");
   return {
@@ -25,17 +27,23 @@ jest.mock("@/lib/queries/commerce", () => {
     useMyOrders: () => ({ data: [] }),
     useStartCheckout: () => ({ mutateAsync, isPending: false }),
     useQuote: () => ({ data: null }),
+    useSetMyPlusState: () => ({ mutate: setStateMutate, ...setStateResult }),
   };
 });
+let plusStates: { state: string; display_name: string }[] = [{ state: "Lagos", display_name: "Lagos" }, { state: "Oyo", display_name: "Oyo" }];
+jest.mock("@/lib/queries/service-regions", () => ({ usePlusCollectionStates: () => ({ data: plusStates, isSuccess: true }) }));
 jest.mock("@/lib/queries/care-access", () => ({ useSponsorableProfiles: () => ({ data: [] }) }));
 jest.mock("@/lib/queries/order-refunds", () => ({ useRefundPolicy: () => ({ data: undefined }), useRequestOrderRefund: () => ({ mutateAsync: jest.fn(), isPending: false }) }));
 
 const assign = jest.fn();
 beforeEach(() => {
+  plusStates = [{ state: "Lagos", display_name: "Lagos" }, { state: "Oyo", display_name: "Oyo" }];
   catalogue = { data: [PLUS, EG, UP], isSuccess: true };
   membership = { data: { is_member: false, ends_at: null, source: null, tier: null } };
   mutateAsync.mockReset();
   assign.mockReset();
+  setStateMutate.mockReset();
+  setStateResult = { isError: false, error: null, isPending: false };
 });
 
 describe("MembershipShop with the Membership ladder", () => {
@@ -87,9 +95,15 @@ describe("MembershipShop with the Membership ladder", () => {
     expect(screen.getByText(/Your Membership runs until/)).toBeTruthy();
     expect(screen.queryByText("Annual blood panel: no")).toBeNull();
     expect(screen.getByText("₦45,000")).toBeTruthy();
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Move up to Membership Plus" })));
+    // the upgrade is bought for an approved state: nothing can be paid until one is chosen
+    const payUp = screen.getByRole("button", { name: "Move up to Membership Plus" }) as HTMLButtonElement;
+    expect(payUp.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Where will your blood tests be collected?"), { target: { value: "Oyo" } });
+    expect(payUp.disabled).toBe(false);
+    await act(async () => fireEvent.click(payUp));
     const arg = mutateAsync.mock.calls[0]![0] as Record<string, unknown>;
     expect(arg.code).toBe("membership_upgrade_plus");
+    expect(arg.collectionState).toBe("Oyo");
     expect(assign).toHaveBeenCalledWith("https://checkout.paystack.com/up");
   });
 
@@ -122,5 +136,106 @@ describe("MembershipShop with the Membership ladder", () => {
     expect(screen.getByText("Annual blood panel: yes")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "Pay with Paystack" }).length).toBe(2);
     expect(screen.queryByRole("button", { name: "Move up to Membership Plus" })).toBeNull();
+  });
+  it("Membership Plus asks for an approved state before payment, warns that it stays fixed, and sends it with the order", async () => {
+    mutateAsync.mockResolvedValue({ order_id: "o3", reference: "tho_z", amount_kobo: 12_900_000, checkout_url: "https://checkout.paystack.com/plus" });
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.getAllByLabelText("Where will your blood tests be collected?").length).toBe(1);
+    expect(screen.getByText(/stays fixed/)).toBeTruthy();
+    const options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toEqual(["Choose a state", "Lagos", "Oyo"]);
+    const [membershipPay, plusPay] = screen.getAllByRole("button", { name: "Pay with Paystack" }) as HTMLButtonElement[];
+    expect(membershipPay!.disabled).toBe(false);
+    expect(plusPay!.disabled).toBe(true);
+    await act(async () => fireEvent.click(plusPay!));
+    expect(mutateAsync).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("Where will your blood tests be collected?"), { target: { value: "Lagos" } });
+    await act(async () => fireEvent.click(plusPay!));
+    const arg = mutateAsync.mock.calls[0]![0] as Record<string, unknown>;
+    expect(arg.code).toBe("membership_annual");
+    expect(arg.collectionState).toBe("Lagos");
+  });
+
+  it("Membership (no Plus) is not limited by state: no picker on its card and no state sent", async () => {
+    mutateAsync.mockResolvedValue({ order_id: "o4", reference: "tho_w", amount_kobo: 8_400_000, checkout_url: "https://checkout.paystack.com/eg" });
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    const [membershipPay] = screen.getAllByRole("button", { name: "Pay with Paystack" });
+    await act(async () => fireEvent.click(membershipPay!));
+    const arg = mutateAsync.mock.calls[0]![0] as Record<string, unknown>;
+    expect(arg.code).toBe("membership_annual_no_panel");
+    expect(arg.collectionState).toBeUndefined();
+  });
+
+  it("when no state is approved yet, Plus says so and cannot be paid, while Membership still can", () => {
+    plusStates = [];
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.getByText(/not open in any state yet/)).toBeTruthy();
+    const [membershipPay, plusPay] = screen.getAllByRole("button", { name: "Pay with Paystack" }) as HTMLButtonElement[];
+    expect(membershipPay!.disabled).toBe(false);
+    expect(plusPay!.disabled).toBe(true);
+  });
+
+  it("before the ladder is on, the single Membership has no state picker", () => {
+    catalogue = { data: [PLUS, UP], isSuccess: true };
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.queryByLabelText("Where will your blood tests be collected?")).toBeNull();
+  });
+
+  it("a Plus member is told which state their blood tests are collected in", () => {
+    membership = { data: { is_member: true, ends_at: "2027-08-01T00:00:00Z", source: "purchase", tier: "plus", collection_state: "Ogun" } as never };
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.getByText("Your Membership Plus blood tests are collected in Ogun.")).toBeTruthy();
+  });
+  it("choosing a different state makes a different order: the retry key is not reused", async () => {
+    mutateAsync.mockResolvedValue({ order_id: "o5", reference: "tho_k", amount_kobo: 12_900_000, checkout_url: "https://checkout.paystack.com/k" });
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    const select = screen.getByLabelText("Where will your blood tests be collected?");
+    const plusPay = () => screen.getAllByRole("button", { name: "Pay with Paystack" })[1]!;
+    fireEvent.change(select, { target: { value: "Lagos" } });
+    await act(async () => fireEvent.click(plusPay()));
+    fireEvent.change(select, { target: { value: "Oyo" } });
+    await act(async () => fireEvent.click(plusPay()));
+    const [a, b] = mutateAsync.mock.calls.map((c) => c[0] as { clientKey: string; collectionState: string });
+    expect([a!.collectionState, b!.collectionState]).toEqual(["Lagos", "Oyo"]);
+    expect(a!.clientKey).not.toBe(b!.clientKey);
+  });
+
+  it("paying for someone else asks for THEIR state, by name", () => {
+    render(<MembershipShop locale="en" fee={FEE} go={assign} beneficiary={{ id: "11111111-1111-4111-8111-111111111111", name: "Amina" }} />);
+    expect(screen.getByLabelText("Where will Amina's blood tests be collected?")).toBeTruthy();
+    expect(screen.queryByLabelText("Where will your blood tests be collected?")).toBeNull();
+  });
+});
+
+describe("A Plus member with no collection state (OQ-PLUS-1)", () => {
+  const plusNoState = (collection_state: string | null) => ({ data: { is_member: true, ends_at: "2027-06-01T00:00:00Z", source: "employer", tier: "plus" as const, collection_state } });
+
+  it("is asked to choose once, and saving sends the chosen state", () => {
+    membership = plusNoState(null);
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    const save = screen.getByRole("button", { name: "Save my state" }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Where will your blood tests be collected?"), { target: { value: "Oyo" } });
+    expect(save.disabled).toBe(false);
+    fireEvent.click(save);
+    expect(setStateMutate).toHaveBeenCalledWith("Oyo");
+  });
+
+  it("shows nothing to set once the state exists, and nothing for Membership without Plus", () => {
+    membership = plusNoState("Lagos");
+    const { unmount } = render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.queryByRole("button", { name: "Save my state" })).toBeNull();
+    expect(screen.getByText("Your Membership Plus blood tests are collected in Lagos.")).toBeTruthy();
+    unmount();
+    membership = { data: { is_member: true, ends_at: "2027-06-01T00:00:00Z", source: "purchase", tier: "evergreen" } };
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.queryByRole("button", { name: "Save my state" })).toBeNull();
+  });
+
+  it("says a withdrawn state is not open instead of a generic failure", () => {
+    membership = plusNoState(null);
+    setStateResult = { isError: true, error: new Error("plus_state_not_available"), isPending: false };
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.getByText(/not open in that state/)).toBeTruthy();
   });
 });
