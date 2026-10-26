@@ -5598,3 +5598,10 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Left out: MED-SER-FAITH (the CMO writes faith-compatible content, a named faith leader reviews it) and MED-BRE-001 to 005 (breathing is a script item with steps and a pattern behind `wellbeing_library_clinical_scripts`; the CMO decides how spoken guides are catalogued).
 - Not built: the phone app has no audio library player (OQ line 3640: needs an audio engine and a runtimeVersion bump), so stream-only holds on the web only until that exists.
 - Decision: open (CMO for the breathing guides and the faith item).
+
+### OQ-QUEUED-1 A queued year's revenue schedule is not re-based when the year starts early (raised 2026-10-26)
+- Built: a Membership year bought onto a running Plus year is queued and starts when the Plus year ends (`docs/DECISIONS.md`, 2026-10-26). Its revenue schedule is built at payment and starts on the queued start date.
+- Gap: if the Plus year is refunded or ended early, the queued year starts at once, but a schedule already built keeps the later start. Nothing in finance re-bases a recognition schedule, and the difference is only timing of recognition for a rare case.
+- Options: (a) add a finance function that moves a schedule's start; (b) accept the timing difference and say so in the finance notes; (c) build the schedule only when the year actually starts.
+- Recommendation: (b) until a finance owner asks, because the case needs a race and the amounts are small.
+- Decision: open (finance owner).
