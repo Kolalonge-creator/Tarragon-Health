@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-error";
 import { formatPatientDate } from "@/lib/format-date";
 import { checkoutErrorKey, isCoveredReply, isMessageKey, orderStateKey, type CatalogueItem, type OrderRow } from "@/lib/commerce/model";
-import { CheckoutError, useCatalogue, useMyMembership, useMyOrders, useQuote, useStartCheckout } from "@/lib/queries/commerce";
+import { CheckoutError, useAutoRenewEnabled, useCatalogue, useMyMembership, useMyOrders, useQuote, useStartCheckout } from "@/lib/queries/commerce";
 import { useSponsorableProfiles } from "@/lib/queries/care-access";
 import { RefundRequestDialog } from "./refund-request-dialog";
 import { RefundRule } from "./refund-rule";
@@ -17,6 +17,14 @@ import { MonthlyEquivalent, NotIncludedList, PriceChangeCard } from "./price-tra
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 const TOUCH = "min-h-11";
+
+/**
+ * Whether the automatic-renewal box starts ticked. It starts UNTICKED: renewal charges a card without a further action from the person, so
+ * the tick is an explicit, affirmative choice made at the moment of payment (counsel has not been asked whether a pre-ticked box is
+ * acceptable for Nigerian card-on-file payments, and an unticked default is the safe reading of consumer-protection norms). Flip this
+ * one constant only after that advice.
+ */
+const RENEW_TICKED_BY_DEFAULT = false;
 
 /** The words for the state of a refund the person asked for (S72, 19.8). */
 function refundStateKey(state: string): MessageKey {
@@ -53,6 +61,9 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
   // S72 (19.9): Health Points lower only Tarragon's own fee, for this one payment. The database works out whether any can be used; the choice is the person's.
   const [usePoints, setUsePoints] = useState(false);
+  // Automatic renewal (own Membership only, never a gift, never for a sponsor-paid order): offered only while the switch is on.
+  const renewSwitch = useAutoRenewEnabled();
+  const [renew, setRenew] = useState(RENEW_TICKED_BY_DEFAULT);
   const quoteQuery = useQuote({ code: item.code, ...(beneficiary ? { beneficiary } : {}), discountCode: appliedCode });
   const pointsQuoteQuery = useQuote({ code: item.code, ...(beneficiary ? { beneficiary } : {}), discountCode: appliedCode, usePoints: true });
   const pointsQuote = beneficiary === undefined ? (pointsQuoteQuery.data ?? null) : null;
@@ -62,6 +73,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
   const shownKobo = quote?.amountDueKobo ?? item.amount_kobo;
   const b = estimatedBreakdown(shownKobo, fee);
   const blocked = item.kind === "membership" && memberUntil !== null;
+  const canRenew = renewSwitch.data === true && item.kind === "membership" && item.code !== "membership_upgrade_plus" && beneficiary === undefined && !blocked;
   const codeFailed = appliedCode !== null && quote !== null && quote.discountCodeOk === false;
   // S71 (19.5): a sponsor pays the whole price. There is then no payment step at all: no fee, no code box, no card, and the button says what it does.
   const covered = quote?.coveredInFull === true && !codeFailed;
@@ -87,6 +99,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
         ...(appliedCode && !codeFailed ? { discountCode: appliedCode } : {}),
         ...(pointsOn ? { usePoints: true } : {}),
         ...(quote !== null && !codeFailed ? { expectedAmountKobo: quote.amountDueKobo } : {}),
+        ...(canRenew && renew ? { autoRenew: true } : {}),
       });
       // a fully covered order comes back already paid, with no checkout link: nothing is opened and nothing is paid
       if (isCoveredReply(r)) {
@@ -223,7 +236,18 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
               </div>
             ) : null}
             <RefundRule locale={locale} membership={item.kind === "membership"} pack={item.kind === "care_pack"} id={item.code} />
-            <p className={`text-sm ${MUTED}`}>{t("shop.no_renew", locale)}</p>
+            {canRenew ? (
+              <div className="space-y-1">
+                <label className={`${TOUCH} flex items-center gap-2 font-medium`}>
+                  <input type="checkbox" checked={renew} onChange={(e) => setRenew(e.target.checked)} aria-describedby={`renew-hint-${item.code}`} className="h-5 w-5" />
+                  {t("shop.renew.label", locale)}
+                </label>
+                <p id={`renew-hint-${item.code}`} className={`text-sm ${MUTED}`}>{t("shop.renew.detail", locale, { amount: `\u20A6${formatNaira(item.amount_kobo)}` })}</p>
+                <p className={`text-sm ${MUTED}`}>{t("shop.renew.card_only", locale)}</p>
+              </div>
+            ) : (
+              <p className={`text-sm ${MUTED}`}>{t("shop.no_renew", locale)}</p>
+            )}
             {blocked ? (
               <p role="status">{t("shop.member_until", locale, { date: formatPatientDate(memberUntil) })}</p>
             ) : (
