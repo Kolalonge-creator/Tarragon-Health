@@ -253,7 +253,12 @@ begin
   end if;
 
   -- the price is whatever the Membership costs when the renewal falls due, with no discount and no points; a sponsor never renews on a card
-  q := private.price_quote_calc(m.patient_id, m.patient_id, it.code, null, false);
+  begin
+    q := private.price_quote_calc(m.patient_id, m.patient_id, it.code, null, false);
+  exception when others then
+    -- e.g. membership_not_open (the billing guard is closed): do not charge, do not raise; the next daily run asks again
+    return jsonb_build_object('skip', 'quote_unavailable');
+  end;
   v_amount := (q ->> 'amount_due_kobo')::bigint;
   if coalesce((q ->> 'sponsor_share_kobo')::bigint, 0) > 0 or v_amount is null or v_amount <= 0 then return jsonb_build_object('skip', 'not_chargeable'); end if;
 
@@ -278,6 +283,23 @@ begin
 end $$;
 revoke all on function public.service_prepare_membership_renewal(uuid) from public, anon, authenticated;
 grant execute on function public.service_prepare_membership_renewal(uuid) to service_role;
+
+-- References of EARLIER attempts for this membership's current year that are not known to be paid: the sweep verifies each with Paystack
+-- before it makes another attempt, so a charge that succeeded but never confirmed cannot be charged twice.
+create or replace function public.service_renewal_open_references(p_membership uuid) returns table (reference text)
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if (select auth.role()) is distinct from 'service_role' then raise exception 'order_not_authorised' using errcode = '42501'; end if;
+  return query
+    select a.reference from public.membership_renewal_attempts a
+      join public.orders o on o.id = a.order_id
+      join public.patient_memberships m on m.id = a.membership_id
+     where a.membership_id = p_membership and a.term_ends_at = m.ends_at and o.state <> 'paid' and a.outcome in ('started', 'pending', 'charged', 'failed')
+     order by a.attempt_no;
+end $$;
+revoke all on function public.service_renewal_open_references(uuid) from public, anon, authenticated;
+grant execute on function public.service_renewal_open_references(uuid) to service_role;
 
 create or replace function public.service_record_renewal_attempt(p_reference text, p_outcome text, p_error text default null) returns jsonb
 language plpgsql security definer set search_path = ''

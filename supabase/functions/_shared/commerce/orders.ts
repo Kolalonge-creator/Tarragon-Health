@@ -1,4 +1,4 @@
-import { paymentMatchesOrder, type PaymentProvider } from "../integrations/payment.ts";
+import { paymentMatchesOrder, type PaymentProvider, type SavedAuthorization } from "../integrations/payment.ts";
 import { fail, ok, type ProviderResult } from "../integrations/result.ts";
 
 /**
@@ -45,7 +45,17 @@ export interface OpenOrder {
 }
 
 /** What the flows need from the database. The Supabase implementation is in supabase-store.ts. */
+/** A card Paystack reported for a payment, offered to the store after the order is paid. The database keeps it only if the buyer consented. */
+export interface SaveCardInput {
+  readonly reference: string;
+  readonly authorization: SavedAuthorization;
+  readonly customerCode: string | null;
+  readonly email: string | null;
+}
+
 export interface OrderStore {
+  /** Offers the card that paid to the renewal logic. Best effort: a failure here never undoes or delays a payment. */
+  saveCard(input: SaveCardInput): Promise<ProviderResult<string>>;
   record(input: RecordPaymentInput): Promise<ProviderResult<RecordOutcome>>;
   flagMismatch(input: MismatchInput): Promise<ProviderResult<RecordOutcome>>;
   close(reference: string, reason: "abandoned" | "failed" | "expired"): Promise<ProviderResult<boolean>>;
@@ -108,6 +118,11 @@ export async function confirmPayment(
   switch (r.result) {
     case "paid":
     case "replay":
+      // Offer the card to the renewal logic. It saves one only when this order carries the buyer's consent and Paystack says the card is
+      // reusable; for every other order it is a no-op. Never allowed to change the outcome of the payment itself.
+      if (v.authorization) {
+        await deps.store.saveCard({ reference: args.reference, authorization: v.authorization, customerCode: v.customerCode ?? null, email: v.customerEmail }).catch(() => undefined);
+      }
       return { outcome: r.result, orderId: r.orderId };
     case "mismatch":
       return { outcome: "mismatch", reason: r.reason, orderId: r.orderId };
