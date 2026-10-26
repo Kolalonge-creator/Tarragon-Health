@@ -5605,3 +5605,10 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Options: (a) a clinician task "enter values from the uploaded annual result" using an existing task type (needs the CMO to sign the task rule); (b) route the upload into the held-result path the lab partner uses, so it is structured and clinician-released before the patient sees values (INV-03); (c) leave it as a record document and say so. The card copy now says only that the result is kept with the health record.
 - Recommendation: (b), because it reuses the safety path that already holds a result until a doctor releases it.
 - Decision: open (founder and CMO).
+
+### OQ-PLUS-1 Membership Plus given without a checkout carries no collection state (raised 2026-10-26)
+- Built: Membership Plus and the upgrade to it need an admin-approved state at checkout (`create_order`), stored on the order and copied to the membership, fixed after payment, shown to the member. Only while the module `membership_two_member_tiers` is on.
+- Gap: Plus can also arrive without that checkout: an employer seat (`grant_org_seat`, which maps a seat to Plus), an admin grant (`grant_membership_tier`), a gift accepted later, a legacy conversion. Those memberships have `collection_state` null, so Tarragon cannot tell where to arrange their blood collection.
+- Options: (a) require a state when an employer registers a Plus seat or an admin grants Plus (a field on the roster row and on the grant form); (b) ask the member to choose from the approved list on first use of the collection flow; (c) leave null and let the care team arrange it by hand.
+- Recommendation: (b) for gifts and legacy rows, (a) for seats and grants, because the employer and the admin already know the person's state.
+- Decision: open (founder).

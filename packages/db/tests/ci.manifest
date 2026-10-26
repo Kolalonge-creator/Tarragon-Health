@@ -1531,3 +1531,6 @@ membership_ladder_review_fixes.sql
 
 # The Membership ladder survives the remove-instalments migration (2026-10-26): after full replay the final function bodies still carry the tier, upgrade, refund, ledger and gate changes, and no function names a removed instalment object. Sabotage: a removed clause must be detected.
 membership_ladder_survives_instalment_removal.sql
+
+# Membership Plus checkout state (2026-10-26): create_order needs an approved state for Plus and the upgrade while the tier module is on (ignored when off, and for Membership); stored on the order, copied to the membership, shown by my_membership; FK, anon closed, old signature gone. Sabotage: the approved-state check removed must flip.
+plus_checkout_collection_state.sql
