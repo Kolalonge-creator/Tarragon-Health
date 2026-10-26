@@ -18,6 +18,8 @@ alter table public.orders add column upgraded_membership_id uuid references publ
 comment on column public.orders.upgraded_membership_id is
   'Only for a membership_upgrade_plus order: the membership whose tier the payment flipped to plus. The refund and the revenue schedule read it.';
 
+-- earlier migrations in this session left a three-argument patch_fn in pg_temp; a two-argument call would then be ambiguous
+drop function if exists pg_temp.patch_fn(regprocedure, text[], integer[]);
 create or replace function pg_temp.patch_fn(p_sig regprocedure, p_pairs text[]) returns void language plpgsql as $f$
 declare d text := pg_get_functiondef(p_sig); i integer := 1; n integer;
 begin
