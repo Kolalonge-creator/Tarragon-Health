@@ -511,3 +511,9 @@ Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six 
 | **Care purpose stays required for reproductive and mental health data (OQ-331).** | No change. |
 | **Monthly-equivalent line on the Membership price.** | Stays OFF. The Membership is one yearly payment and no monthly figure is shown. |
 
+
+## Founder decision, 2026-10-26 (three-tier launch conditions: independent CMO condition removed)
+
+| Decision | Ruling |
+|---|---|
+| **Launch condition (3) of the 2026-10-21 three-tier entry: "an independent, non-founder CMO engaged".** | Removed by the founder. The Chief Medical Officer of record signs the baseline-labs prescribing rule and the home blood pressure target; no separate independent CMO is required before the lower tier can be switched on. The other conditions stand: (2) the baseline-labs rule signed by the CMO on the sign-off hub and never by an agent; (4) one live Paystack payment and refund proven end to end and posted to the GL, together with the live guards `checkout_enabled` and `membership_billing_enabled` and the `membership_two_member_tiers` module. The ladder switch (`marketing.membership_ladder_public`) merges only after all of these. |
