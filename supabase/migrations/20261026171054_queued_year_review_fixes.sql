@@ -31,9 +31,11 @@ begin
 end $f$;
 
 -- 1b. no second purchase while the next year waits
-select pg_temp.patch_fn('public.create_order(text,uuid,uuid,text,boolean,bigint)'::regprocedure, array[
+-- by name, not by argument list: create_order gains a trailing argument in the Plus checkout migration, in either order of arrival
+select pg_temp.patch_fn(p.oid::regprocedure, array[
   $p$m.patient_id = v_ben and m.state = 'active' and (m.ends_at is null or m.ends_at > now())$p$,
-  $p$m.patient_id = v_ben and ((m.state = 'active' and (m.ends_at is null or m.ends_at > now())) or m.state = 'scheduled')$p$]);
+  $p$m.patient_id = v_ben and ((m.state = 'active' and (m.ends_at is null or m.ends_at > now())) or m.state = 'scheduled')$p$])
+  from pg_proc p where p.proname = 'create_order' and p.pronamespace = 'public'::regnamespace;
 select pg_temp.patch_fn(p.oid::regprocedure, array[
   $p$m.patient_id = v_ben and m.state = 'active' and (m.ends_at is null or m.ends_at > now())$p$,
   $p$m.patient_id = v_ben and ((m.state = 'active' and (m.ends_at is null or m.ends_at > now())) or m.state = 'scheduled')$p$])
@@ -91,7 +93,7 @@ end $$;
 
 do $$
 begin
-  if pg_get_functiondef('public.create_order(text,uuid,uuid,text,boolean,bigint)'::regprocedure) not ilike '%m.state = ''scheduled''%'
+  if not exists (select 1 from pg_proc p where p.proname = 'create_order' and p.pronamespace = 'public'::regnamespace and pg_get_functiondef(p.oid) ilike '%m.state = ''scheduled''%')
      or pg_get_functiondef('public.decide_order_refund(uuid,boolean,text)'::regprocedure) not ilike '%whether or not an entitlement%'
      or pg_get_functiondef('private.run_membership_lifecycle()'::regprocedure) not ilike '%queued_rolled%'
      or pg_get_functiondef('public.my_entitlements()'::regprocedure) not ilike '%e.starts_at > now()%' then
