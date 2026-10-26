@@ -5604,4 +5604,4 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Gap: if the Plus year is refunded or ended early, the queued year starts at once, but a schedule already built keeps the later start. Nothing in finance re-bases a recognition schedule, and the difference is only timing of recognition for a rare case.
 - Options: (a) add a finance function that moves a schedule's start; (b) accept the timing difference and say so in the finance notes; (c) build the schedule only when the year actually starts.
 - Recommendation: (b) until a finance owner asks, because the case needs a race and the amounts are small.
-- Decision: open (finance owner).
+- Decision (founder, 2026-10-26, "do what is best"): option (b). The queued year's recognition keeps its later start; only the timing of recognition differs, the amounts are small and the case needs a race. Finance can ask for (a) later. Nothing to build.
