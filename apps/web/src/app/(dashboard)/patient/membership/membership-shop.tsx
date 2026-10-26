@@ -138,7 +138,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
         </IncludedBox>
         <NotIncludedList entries={notIncluded} locale={locale} id={item.code} grouped={ladder} />
         <p><Link href={`/patient/membership/${item.code}`} className="underline">{t("shop.see_included", locale)}</Link></p>
-        {needsState && !blocked ? <PlusStatePicker id={`plus-state-${item.code}`} value={collectionState} onChange={setCollectionState} locale={locale} /> : null}
+        {needsState && !blocked ? <PlusStatePicker id={`plus-state-${item.code}`} value={collectionState} locale={locale} {...(beneficiary !== undefined ? { forName: beneficiaryName ?? t("circle.pay.someone", locale) } : {})} onChange={(v) => { clientKey.current = null; setCollectionState(v); }} /> : null}
         {coveredDone ? (
           <section aria-labelledby={`covered-done-${item.code}`} className="space-y-1" role="status">
             <h3 id={`covered-done-${item.code}`} className="font-medium">{t("sponsor.done.title", locale)}</h3>

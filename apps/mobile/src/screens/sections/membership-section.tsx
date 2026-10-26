@@ -46,8 +46,8 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   const [priceNotices, setPriceNotices] = useState<PriceChangeNotice[]>([]);
   const [loaded, setLoaded] = useState(false);
   // Membership Plus is bought for an approved state where blood is collected; only these can be chosen, and the choice stays fixed once paid
-  const [plusStates, setPlusStates] = useState<PlusState[]>([]);
-  const [plusStatesLoaded, setPlusStatesLoaded] = useState(false);
+  const [plusStates, setPlusStates] = useState<PlusState[] | null>(null);
+  const [plusStatesFailed, setPlusStatesFailed] = useState(false);
   const [collectionState, setCollectionState] = useState("");
   // S72 (19.9): the database's own quote for each item, with and without Health Points. Points lower only Tarragon's own fee, for one payment, if chosen.
   const [quotes, setQuotes] = useState<Record<string, { plain: Quote | null; points: Quote | null }>>({});
@@ -65,7 +65,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   const refresh = useCallback(async () => {
     const [c, o, m, ni, pn, ps] = await Promise.all([loadCatalogue(), loadMyOrders(), loadMembership(), loadNotIncluded(), loadPriceChangeNotices(), loadPlusStates()]);
     setPlusStates(ps);
-    setPlusStatesLoaded(true);
+    setPlusStatesFailed(ps === null);
     // these two only add information; a failed read shows nothing extra, never a guess
     setNotIncluded(ni.ok ? ni.data : {});
     setPriceNotices(!beneficiary && pn.ok ? pn.data : []);
@@ -216,19 +216,29 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
             {tierCard && monthlyOn ? <MutedText>{tr("shop.tier.monthly", { amount: naira(monthlyFramingKobo(quote?.amountDueKobo ?? item.amountKobo)) })}</MutedText> : null}
             {needsStateFor(item) && !blocked ? (
               <View style={{ gap: 6, marginTop: 8 }}>
-                <Text style={{ fontWeight: "600", color: colors.ink }}>{tr("shop.plus.state.label")}</Text>
-                {plusStatesLoaded && plusStates.length === 0 ? (
+                <Text style={{ fontWeight: "600", color: colors.ink }}>{beneficiary ? tr("shop.plus.state.label_for", { name: beneficiary.name }) : tr("shop.plus.state.label")}</Text>
+                {plusStatesFailed ? (
+                  <View style={{ gap: 6 }}>
+                    <ErrorText>{tr("shop.plus.state.error")}</ErrorText>
+                    <SecondaryButton title={tr("shop.plus.state.retry")} onPress={() => void refresh()} />
+                  </View>
+                ) : plusStates !== null && plusStates.length === 0 ? (
                   <MutedText>{tr("shop.plus.state.none")}</MutedText>
                 ) : (
                   <View accessibilityRole="radiogroup" style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                    {plusStates.map((s) => {
+                    {(plusStates ?? []).map((s) => {
                       const on = collectionState === s.state;
                       return (
                         <Pressable
                           key={s.state}
                           accessibilityRole="radio"
                           accessibilityState={{ checked: on }}
-                          onPress={() => setCollectionState(s.state)}
+                          onPress={() => {
+                            // a different state is a different order: never replay the payment started for the old one
+                            keys.current.delete("membership_annual");
+                            keys.current.delete(UPGRADE_CODE);
+                            setCollectionState(s.state);
+                          }}
                           style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 14, borderRadius: 22, borderWidth: 1, borderColor: on ? colors.ink : colors.muted }}
                         >
                           <Text style={{ color: colors.ink, fontWeight: on ? "700" : "400" }}>{s.displayName}</Text>
@@ -237,7 +247,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
                     })}
                   </View>
                 )}
-                <MutedText>{tr("shop.plus.state.warning")}</MutedText>
+                <MutedText>{beneficiary ? tr("shop.plus.state.warning_for", { name: beneficiary.name }) : tr("shop.plus.state.warning")}</MutedText>
               </View>
             ) : null}
             <Text style={{ fontWeight: "600", color: colors.ink, marginTop: 8 }}>{tr("shop.included")}</Text>

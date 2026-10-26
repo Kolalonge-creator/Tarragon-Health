@@ -10,7 +10,7 @@ export const ORDER_ERROR_CODES = [
   "checkout_not_open", "item_not_available", "already_member", "no_capacity", "too_many_open_orders",
   "order_beneficiary_not_allowed", "gift_item_not_allowed", "order_not_authorised",
   // S73: the pricing engine
-  "membership_not_open", "upgrade_not_available", "upgrade_already_open", "plus_state_required", "plus_state_not_available", "quote_changed", "sponsor_billing_not_open", "order_fully_covered", "discount_code_invalid", "discount_code_rate_limited",
+  "membership_not_open", "upgrade_not_available", "upgrade_already_open", "plus_state_required", "plus_state_not_available", "plus_state_changed", "plus_needs_direct_checkout", "checkout_updating", "quote_changed", "sponsor_billing_not_open", "order_fully_covered", "discount_code_invalid", "discount_code_rate_limited",
   // S71: sponsor-paid items and HMO eligibility
   "sponsor_budget_exhausted", "sponsor_payment_not_open",
   // S72: payment requests (the supporter's link)

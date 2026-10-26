@@ -29,7 +29,7 @@ const STATUS: Record<string, number> = {
   email_needed: 422, checkout_not_open: 409, item_not_available: 409, already_member: 409, no_capacity: 409, too_many_open_orders: 429,
   request_not_found: 404, request_expired: 410, request_cancelled: 410, request_used: 410, request_in_use: 409, request_own: 403, request_not_payable: 409, request_order_mismatch: 409,
   order_beneficiary_not_allowed: 403, gift_item_not_allowed: 403, order_not_authorised: 403,
-  membership_not_open: 409, upgrade_not_available: 409, upgrade_already_open: 409, plus_state_required: 422, plus_state_not_available: 422, quote_changed: 409, sponsor_billing_not_open: 409, order_fully_covered: 409, discount_code_invalid: 422, discount_code_rate_limited: 429, sponsor_budget_exhausted: 409, sponsor_payment_not_open: 409, already_paid: 409, order_closed: 409, payment_unavailable: 502, checkout_link_lost: 409, unknown: 500,
+  membership_not_open: 409, upgrade_not_available: 409, upgrade_already_open: 409, plus_state_required: 422, plus_state_not_available: 422, plus_state_changed: 409, plus_needs_direct_checkout: 409, checkout_updating: 503, quote_changed: 409, sponsor_billing_not_open: 409, order_fully_covered: 409, discount_code_invalid: 422, discount_code_rate_limited: 429, sponsor_budget_exhausted: 409, sponsor_payment_not_open: 409, already_paid: 409, order_closed: 409, payment_unavailable: 502, checkout_link_lost: 409, unknown: 500,
 };
 
 export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<Response> {
@@ -94,6 +94,8 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
       if (extras?.expectedAmountKobo !== undefined) args["p_expected_amount_kobo"] = extras.expectedAmountKobo;
       if (extras?.collectionState) args["p_collection_state"] = extras.collectionState;
       const { data, error } = await deps.rpcAsUser(auth, viaRequest ? "create_request_order" : "create_order", args);
+      // the database has not been updated to the version this function calls yet (the new argument is missing): say so plainly instead of failing as unknown
+      if (error && /could not find the function/i.test(error.message)) return { ok: false, code: "checkout_updating" };
       if (error) return { ok: false, code: mapOrderError(error.message) };
       const d = data as Record<string, unknown> | null;
       // a code that cannot be used comes back as a result, not an error, so the failed try is kept by the database

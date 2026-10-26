@@ -253,9 +253,15 @@ Deno.test("Plus: a malformed state is refused before anything is created, and a 
 });
 
 Deno.test("Plus: the database's refusals have their own codes", async () => {
-  for (const [msg, status] of [["plus_state_required", 422], ["plus_state_not_available", 422], ["upgrade_not_available", 409], ["upgrade_already_open", 409]] as const) {
+  for (const [msg, status] of [["plus_state_required", 422], ["plus_state_not_available", 422], ["plus_state_changed", 409], ["plus_needs_direct_checkout", 409], ["upgrade_not_available", 409], ["upgrade_already_open", 409]] as const) {
     const { d } = deps({ rpc: () => ({ data: null, error: { message: msg } }) });
     const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY }), d);
     assertEquals([res.status, (await res.json()).error], [status, msg]);
   }
+});
+
+Deno.test("Plus: a database that does not have the new argument yet is a plain 503 'checkout_updating', not an unknown failure", async () => {
+  const { d } = deps({ rpc: () => ({ data: null, error: { message: "Could not find the function public.create_order(p_code, p_client_key, p_collection_state) in the schema cache" } }) });
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, collection_state: "Lagos" }), d);
+  assertEquals([res.status, (await res.json()).error], [503, "checkout_updating"]);
 });

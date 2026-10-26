@@ -4,7 +4,9 @@
 --      an approved state is stored on the order. Membership (no Plus) ignores the argument entirely, even a bad one.
 --   3. Paying records the state on the membership (new row, and the upgrade); my_membership returns it; withdrawing the state afterwards does not change an order already made.
 --   4. Only a real state can be stored (FK); anon cannot call create_order; the old six-argument create_order is gone.
---   SABOTAGE: the approved-state check removed; an unapproved state must then be accepted (so check 2 can fail).
+--   5. Review fixes: a retry with another state is refused, Plus cannot be requested through a supporter's link, a withdrawn or missing state at payment
+--      raises an incident, an accepted gift carries the state.
+--   SABOTAGE: the approved-state check removed (check 2), and the replay guard removed (RF2); each must flip.
 begin;
 
 create function pg_temp.mkuser(p_label text, p_role text) returns uuid language plpgsql as $f$
@@ -124,6 +126,64 @@ begin
   if (select tier || '|' || coalesce(collection_state, '-') from public.patient_memberships where patient_id = u and state = 'active') <> 'plus|Ogun' then raise exception 'FAIL 3g: the upgraded membership does not carry the state'; end if;
 end $$;
 
+-- REVIEW FIXES: replay with another state, payment request, withdrawn or missing state at payment, gift accepted later
+do $$
+declare ad uuid := (select v::uuid from fx where k = 'ad'); p uuid := pg_temp.mkuser('rp', 'patient'); q uuid := pg_temp.mkuser('pr', 'patient'); w uuid := pg_temp.mkuser('wd', 'patient');
+        n uuid := pg_temp.mkuser('nostate', 'patient'); b uuid := pg_temp.mkuser('gb', 'patient'); g uuid := pg_temp.mkuser('gr', 'patient');
+        ck uuid := gen_random_uuid(); r text; o jsonb; eid uuid;
+begin
+  -- a retry with the SAME key but another state must not replay the order made for the first state
+  r := pg_temp.q_as(p, format($q$select public.create_order('membership_annual', %L, null, null, false, null, 'Lagos')::text$q$, ck));
+  if r like 'ERR:%' then raise exception 'FAIL RF1: first order refused: %', r; end if;
+  r := pg_temp.q_as(p, format($q$select public.create_order('membership_annual', %L, null, null, false, null, 'Oyo')::text$q$, ck));
+  if r not like 'ERR:%plus_state_changed%' then raise exception 'FAIL RF2: a retry with another state replayed the old order: %', r; end if;
+  r := pg_temp.q_as(p, format($q$select public.create_order('membership_annual', %L, null, null, false, null, 'Lagos')::text$q$, ck));
+  if r like 'ERR:%' or (r::jsonb ->> 'replay') is distinct from 'true' then raise exception 'FAIL RF3: the same state on a retry must replay: %', r; end if;
+
+  -- Plus cannot be requested through a supporter's link (the supporter cannot choose the state)
+  r := pg_temp.q_as(q, $q$select public.create_payment_request('membership_annual')::text$q$);
+  if r not like 'ERR:%plus_needs_direct_checkout%' then raise exception 'FAIL RF4: a payment request for Plus was accepted: %', r; end if;
+
+  -- an order made for a state that is withdrawn before the payment arrives: paid, but a person is told
+  r := pg_temp.order_as(w, 'membership_annual', 'Osun');
+  o := r::jsonb;
+  update public.service_regions set plus_collection_enabled = false where state = 'Osun';
+  perform pg_temp.pay(o ->> 'reference', (o ->> 'amount_kobo')::bigint);
+  if not exists (select 1 from public.ops_incidents where external_reference = 'order-plus-state-withdrawn:' || (o ->> 'order_id')) then raise exception 'FAIL RF5: no incident for a state withdrawn before payment'; end if;
+  update public.service_regions set plus_collection_enabled = true where state = 'Osun';
+
+  -- a Plus order opened while the module was off, paid after it was switched on: paid, but a person is told
+  update public.platform_modules set is_enabled = false where key = 'membership_two_member_tiers';
+  r := pg_temp.order_as(n, 'membership_annual');
+  o := r::jsonb;
+  update public.platform_modules set is_enabled = true where key = 'membership_two_member_tiers';
+  perform pg_temp.pay(o ->> 'reference', (o ->> 'amount_kobo')::bigint);
+  if not exists (select 1 from public.ops_incidents where external_reference = 'order-plus-no-state:' || (o ->> 'order_id')) then raise exception 'FAIL RF6: no incident for a Plus order paid with no state'; end if;
+
+  -- a gift of Plus carries the buyer's chosen state to the membership when the recipient accepts
+  -- (created directly: buying for someone else needs a Care Circle grant, which is not what this checks; the order carries the state the buyer chose)
+  declare v_it uuid; v_pr uuid; v_amt bigint; v_ref text := 'pcg_' || replace(gen_random_uuid()::text, '-', '');
+  begin
+    select id into v_it from public.catalog_items where code = 'membership_annual' order by created_at limit 1;
+    select id, amount_kobo into v_pr, v_amt from public.prices where catalog_item_id = v_it and valid_to is null;
+    insert into public.orders (id, organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, paystack_reference, is_test, list_amount_kobo, collection_state)
+    values (gen_random_uuid(), '00000000-0000-0000-0000-000000000001', b, g, v_it, v_pr, v_amt, v_ref, true, v_amt, 'Ogun');
+    o := jsonb_build_object('reference', v_ref, 'amount_kobo', v_amt, 'order_id', (select id from public.orders where paystack_reference = v_ref));
+  end;
+  -- a gift waits for acceptance only for an item that grants a lead clinician: switch that back on for this step
+  update public.catalog_items set grants_lead = true where code = 'membership_annual';
+  perform pg_temp.pay(o ->> 'reference', (o ->> 'amount_kobo')::bigint);
+  select e.id into eid from public.entitlements e where e.order_id = (o ->> 'order_id')::uuid;
+  if (select acceptance from public.entitlements where id = eid) <> 'pending' then raise exception 'FAIL RF8 fixture: the gift is not waiting for acceptance'; end if;
+  r := pg_temp.q_as(g, format($q$select public.respond_to_gifted_pack(%L, true)::text$q$, eid));
+  if r like 'ERR:%' then raise exception 'FAIL RF9: acceptance failed: %', r; end if;
+  update public.catalog_items set grants_lead = false where code = 'membership_annual';
+  if (select collection_state from public.patient_memberships where patient_id = g and state = 'active') is distinct from 'Ogun' then raise exception 'FAIL RF10: the accepted gift did not carry the state'; end if;
+
+  -- the sponsor-covered path copies the state too (checked in the function body: a sponsor programme fixture is not built here)
+  if position('o.collection_state' in pg_get_functiondef('private.settle_sponsor_order(uuid)'::regprocedure)) = 0 then raise exception 'FAIL RF11: settle_sponsor_order does not copy the state'; end if;
+end $$;
+
 -- 4. integrity and closure
 do $$
 declare p uuid := pg_temp.mkuser('fk', 'patient'); r text;
@@ -147,6 +207,18 @@ begin
   execute replace(d, 'if not private.plus_collection_state_enabled(v_state) then', 'if false and not private.plus_collection_state_enabled(v_state) then');
   r := pg_temp.order_as(p, 'membership_annual', 'Kano');
   if r like 'ERR:%plus_state_not_available%' then raise exception 'FAIL the approved-state check did not flip under sabotage'; end if;
+end $$;
+
+-- SABOTAGE: the replay guard removed; a retry with another state must then replay the old order (so RF2 can fail)
+do $$
+declare d text; p uuid := pg_temp.mkuser('sab2', 'patient'); ck uuid := gen_random_uuid(); r text;
+begin
+  d := pg_get_functiondef('public.create_order(text,uuid,uuid,text,boolean,bigint,text)'::regprocedure);
+  if position('raise exception ''plus_state_changed''' in d) = 0 then raise exception 'FAIL sabotage 2 cannot apply, test is stale'; end if;
+  execute replace(d, 'raise exception ''plus_state_changed''', 'perform 1; --');
+  r := pg_temp.q_as(p, format($q$select public.create_order('membership_annual', %L, null, null, false, null, 'Lagos')::text$q$, ck));
+  r := pg_temp.q_as(p, format($q$select public.create_order('membership_annual', %L, null, null, false, null, 'Oyo')::text$q$, ck));
+  if r like 'ERR:%plus_state_changed%' then raise exception 'FAIL the replay guard did not flip under sabotage'; end if;
 end $$;
 
 select 'PASS plus_checkout_collection_state' as result;

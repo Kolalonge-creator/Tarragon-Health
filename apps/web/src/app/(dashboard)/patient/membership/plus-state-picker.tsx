@@ -9,12 +9,12 @@ import { usePlusCollectionStates } from "@/lib/queries/service-regions";
  * (service_regions.plus_collection_enabled); the database refuses anything else. The warning is shown BEFORE payment because the
  * state stays fixed (founder decision 2026-10-26).
  */
-export function PlusStatePicker({ id, value, onChange, locale }: { id: string; value: string; onChange: (state: string) => void; locale: Locale }) {
+export function PlusStatePicker({ id, value, onChange, locale, forName }: { id: string; value: string; onChange: (state: string) => void; locale: Locale; forName?: string }) {
   const states = usePlusCollectionStates();
   const list = states.data ?? [];
   return (
     <div className="space-y-2 rounded-lg border border-charcoal-ink/10 p-3 dark:border-night-ink/15">
-      <label htmlFor={id} className="block font-medium">{t("shop.plus.state.label", locale)}</label>
+      <label htmlFor={id} className="block font-medium">{forName ? t("shop.plus.state.label_for", locale, { name: forName }) : t("shop.plus.state.label", locale)}</label>
       {states.isSuccess && list.length === 0 ? (
         <p role="status">{t("shop.plus.state.none", locale)}</p>
       ) : (
@@ -25,7 +25,7 @@ export function PlusStatePicker({ id, value, onChange, locale }: { id: string; v
           ))}
         </Select>
       )}
-      <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("shop.plus.state.warning", locale)}</p>
+      <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{forName ? t("shop.plus.state.warning_for", locale, { name: forName }) : t("shop.plus.state.warning", locale)}</p>
     </div>
   );
 }

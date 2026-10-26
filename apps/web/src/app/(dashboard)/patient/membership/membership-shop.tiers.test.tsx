@@ -181,4 +181,23 @@ describe("MembershipShop with the Membership ladder", () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     expect(screen.getByText("Your Membership Plus blood tests are collected in Ogun.")).toBeTruthy();
   });
+  it("choosing a different state makes a different order: the retry key is not reused", async () => {
+    mutateAsync.mockResolvedValue({ order_id: "o5", reference: "tho_k", amount_kobo: 12_900_000, checkout_url: "https://checkout.paystack.com/k" });
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    const select = screen.getByLabelText("Where will your blood tests be collected?");
+    const plusPay = () => screen.getAllByRole("button", { name: "Pay with Paystack" })[1]!;
+    fireEvent.change(select, { target: { value: "Lagos" } });
+    await act(async () => fireEvent.click(plusPay()));
+    fireEvent.change(select, { target: { value: "Oyo" } });
+    await act(async () => fireEvent.click(plusPay()));
+    const [a, b] = mutateAsync.mock.calls.map((c) => c[0] as { clientKey: string; collectionState: string });
+    expect([a!.collectionState, b!.collectionState]).toEqual(["Lagos", "Oyo"]);
+    expect(a!.clientKey).not.toBe(b!.clientKey);
+  });
+
+  it("paying for someone else asks for THEIR state, by name", () => {
+    render(<MembershipShop locale="en" fee={FEE} go={assign} beneficiary={{ id: "11111111-1111-4111-8111-111111111111", name: "Amina" }} />);
+    expect(screen.getByLabelText("Where will Amina's blood tests be collected?")).toBeTruthy();
+    expect(screen.queryByLabelText("Where will your blood tests be collected?")).toBeNull();
+  });
 });

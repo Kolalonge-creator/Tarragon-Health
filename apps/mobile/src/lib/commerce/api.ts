@@ -32,10 +32,10 @@ export async function loadMembership(): Promise<QueryResult<MembershipState>> {
   return error ? { ok: false, error: error.message } : { ok: true, data: parseMembership(data) };
 }
 
-/** The states where Membership Plus blood collection is approved. A failed read gives an empty list, so Plus simply cannot be paid rather than guessed. */
-export async function loadPlusStates(): Promise<PlusState[]> {
+/** The states where Membership Plus blood collection is approved. A failed read is `null` (so the screen can say "could not load" and offer a retry), never an empty list, which means "none approved". */
+export async function loadPlusStates(): Promise<PlusState[] | null> {
   const { data, error } = await supabase.rpc("plus_collection_states");
-  return error ? [] : parsePlusStates(data);
+  return error ? null : parsePlusStates(data);
 }
 
 export async function errorCodeOf(error: unknown): Promise<string> {

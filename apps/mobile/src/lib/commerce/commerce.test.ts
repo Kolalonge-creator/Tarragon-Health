@@ -236,21 +236,21 @@ describe("S72 api: entitlements, quote with points, refunds, payment requests", 
   });
 
   it("Plus: the new refusals have copy, never a raw code", () => {
-    for (const code of ["plus_state_required", "plus_state_not_available", "upgrade_already_open", "upgrade_not_available"]) {
+    for (const code of ["plus_state_required", "plus_state_not_available", "plus_state_changed", "plus_needs_direct_checkout", "checkout_updating", "upgrade_already_open", "upgrade_not_available"]) {
       const key = checkoutErrorKey(code);
       expect(Object.hasOwn(en, key)).toBe(true);
       expect(key).not.toBe("shop.error.unknown");
     }
   });
 
-  it("Plus: the chosen state is sent with the order only when there is one, and a failed read of the states is an empty list", async () => {
+  it("Plus: the chosen state is sent with the order only when there is one, and a failed read of the states is null, not an empty list", async () => {
     mockInvoke.mockResolvedValue({ data: { order_id: "o", reference: "r", amount_kobo: 12900000, checkout_url: "https://checkout.paystack.com/x" }, error: null });
     await startCheckout("membership_annual", "k1", undefined, { collectionState: "Lagos" });
     expect((mockInvoke.mock.calls.at(-1)![1] as { body: Record<string, unknown> }).body).toMatchObject({ code: "membership_annual", collection_state: "Lagos" });
     await startCheckout("membership_annual_no_panel", "k2");
     expect((mockInvoke.mock.calls.at(-1)![1] as { body: Record<string, unknown> }).body).not.toHaveProperty("collection_state");
     mockRpc.mockResolvedValue({ data: null, error: { message: "x" } });
-    expect(await loadPlusStates()).toEqual([]);
+    expect(await loadPlusStates()).toBeNull();   // a failed read is not the same as "none approved"
     mockRpc.mockResolvedValue({ data: [{ state: "Osun", display_name: "Osun" }], error: null });
     expect(await loadPlusStates()).toEqual([{ state: "Osun", displayName: "Osun" }]);
   });
