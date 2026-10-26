@@ -6,6 +6,8 @@
 --   4. When the Plus year ends EARLY (any path) the queued year starts now and keeps its paid length.
 --   5. Refunding a still-queued order cancels only that row: the running Plus year is untouched.
 --   6. The renewal reminder skips a person whose next year is already queued.
+--   Review fixes: the roll gap, order deletion, refund without an entitlement, lifecycle reporting, queued entitlement hidden, lapse path, a chain
+--   of two queued years, and the gift path.
 --   SABOTAGE: (a) the activation trigger dropped, (b) the refund cancel clause disabled: checks 4 and 5 must flip.
 begin;
 
@@ -184,6 +186,118 @@ begin
   select count(*) into nc from public.notifications where recipient_id = c;
   if nc = 0 then raise exception 'FAIL fixture: the control person got no reminder, so the test proves nothing'; end if;
   if nq <> 0 then raise exception 'FAIL a person with a queued year was sent % renewal reminder(s)', nq; end if;
+end $$;
+
+-- REVIEW FIXES (migration *_queued_year_review_fixes.sql)
+-- R1. in the roll gap (Plus year run out, queued year waiting) no new Membership can be bought, by any of the three order paths
+do $$
+declare p uuid := pg_temp.queued_patient('r1'); ad uuid := (select v::uuid from fx where k = 'ad'); r text; old_id uuid;
+begin
+  update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = ad, activation_note = 'proof' where key in ('v5_checkout', 'membership_two_member_tiers');
+  update public.catalog_items set active = true where code in ('membership_annual', 'membership_annual_no_panel');
+  select id into old_id from public.patient_memberships where patient_id = p and state = 'active';
+  update public.patient_memberships set ends_at = now() - interval '2 hours' where id = old_id;
+  update public.patient_memberships set starts_at = now() - interval '2 hours', ends_at = now() - interval '2 hours' + interval '365 days' where patient_id = p and state = 'scheduled';
+  r := pg_temp.q_as(p, $q$select public.create_order('membership_annual_no_panel', gen_random_uuid())::text$q$);
+  if r not like 'ERR:%already_member%' then raise exception 'FAIL R1: a Membership could be bought while the next year waits: %', r; end if;
+  r := pg_temp.q_as(p, $q$select public.create_order('membership_annual', gen_random_uuid())::text$q$);
+  if r not like 'ERR:%already_member%' then raise exception 'FAIL R1b: Membership Plus could be bought while the next year waits: %', r; end if;
+  -- the ten minute job closes the gap
+  if not exists (select 1 from cron.job where jobname = 'membership-queued-roll' and schedule = '*/10 * * * *') then raise exception 'FAIL R1c: the ten minute roll job is not scheduled'; end if;
+  perform private.roll_queued_membership_years();
+  if (select state from public.patient_memberships where id = old_id) <> 'ended' then raise exception 'FAIL R1d: the job did not roll the year'; end if;
+end $$;
+
+-- R2. an order with a queued year can be deleted (purge or erasure); the paid row stays, unlinked
+do $$
+declare p uuid := pg_temp.queued_patient('r2'); oid uuid;
+begin
+  select order_id into oid from public.patient_memberships where patient_id = p and state = 'scheduled';
+  -- orders are immutable in normal operation; a purge (as the test-account purge does) switches user triggers off, so do the same here
+  alter table public.orders disable trigger user;
+  alter table public.payments disable trigger user;
+  alter table public.entitlements disable trigger user;
+  delete from public.payments where order_id = oid;
+  delete from public.entitlements where order_id = oid;
+  begin delete from public.orders where id = oid;
+  exception when others then raise exception 'FAIL R2: deleting an order with a queued year failed: %', sqlerrm; end;
+  if (select order_id from public.patient_memberships where patient_id = p and state = 'scheduled') is not null then raise exception 'FAIL R2b: the link was not cleared'; end if;
+  alter table public.orders enable trigger user;
+  alter table public.payments enable trigger user;
+  alter table public.entitlements enable trigger user;
+end $$;
+
+-- R3. a refund cancels the queued year even when the entitlement is no longer active
+do $$
+declare p uuid := pg_temp.queued_patient('r3'); ad uuid := (select v::uuid from fx where k = 'ad'); oid uuid; r text; v_refund uuid;
+begin
+  select order_id into oid from public.patient_memberships where patient_id = p and state = 'scheduled';
+  r := pg_temp.q_as(p, format($q$select public.request_order_refund(%L, 'proof refund, entitlement gone first')::text$q$, oid));
+  if r like 'ERR:%' then raise exception 'FAIL R3 fixture: refund request %', r; end if;
+  v_refund := (r::jsonb ->> 'refund_id')::uuid;
+  update public.entitlements set state = 'revoked' where order_id = oid;
+  r := pg_temp.q_as(ad, format($q$select public.decide_order_refund(%L, true, 'approved in proof')::text$q$, v_refund));
+  if r like 'ERR:%' then raise exception 'FAIL R3: refund decision %', r; end if;
+  if (select state from public.patient_memberships where order_id = oid) <> 'ended' then raise exception 'FAIL R3: a refunded order kept a queued year that will start later'; end if;
+  if (select state from public.patient_memberships where patient_id = p and tier = 'plus') <> 'active' then raise exception 'FAIL R3b: the running Plus year was touched'; end if;
+end $$;
+
+-- R4 and R5. the job reports the roll; a queued entitlement is not shown as running
+do $$
+declare p uuid := pg_temp.queued_patient('r5'); j jsonb;
+begin
+  j := private.run_membership_lifecycle();
+  if not (j ? 'queued_rolled') then raise exception 'FAIL R4: the lifecycle result does not report queued_rolled: %', j; end if;
+  if jsonb_array_length(pg_temp.q_as(p, 'select public.my_entitlements()::text')::jsonb) <> 0 then raise exception 'FAIL R5: a queued year shows as a running entitlement'; end if;
+end $$;
+
+-- lapse path: the Plus year is left unrolled past its grace (job down); the lapse still starts the queued year
+do $$
+declare p uuid := pg_temp.queued_patient('l1'); old_id uuid; v_end timestamptz := now() - interval '20 days'; n integer;
+begin
+  select id into old_id from public.patient_memberships where patient_id = p and state = 'active';
+  update public.patient_memberships set ends_at = v_end where id = old_id;
+  update public.patient_memberships set starts_at = v_end, ends_at = v_end + interval '365 days' where patient_id = p and state = 'scheduled';
+  n := private.lapse_expired_memberships();
+  if (select state from public.patient_memberships where id = old_id) <> 'lapsed' then raise exception 'FAIL lapse: the old year was not lapsed'; end if;
+  if (select state from public.patient_memberships where patient_id = p and tier = 'evergreen' order by created_at desc limit 1) <> 'active' then raise exception 'FAIL lapse: the queued year did not start'; end if;
+end $$;
+
+-- two queued years chain: the second starts when the first ends, and only the first starts at the roll
+do $$
+declare p uuid := pg_temp.queued_patient('c1'); s1 timestamptz; e1 timestamptz; s2 timestamptz; old_id uuid;
+begin
+  perform pg_temp.pay(pg_temp.mkorder(p, 'membership_annual_no_panel'));
+  select starts_at, ends_at into s1, e1 from public.patient_memberships where patient_id = p and state = 'scheduled' order by starts_at limit 1;
+  select starts_at into s2 from public.patient_memberships where patient_id = p and state = 'scheduled' order by starts_at desc limit 1;
+  if (select count(*) from public.patient_memberships where patient_id = p and state = 'scheduled') <> 2 then raise exception 'FAIL chain: expected two queued years'; end if;
+  if s2 <> e1 then raise exception 'FAIL chain: the second queued year does not start when the first ends (% vs %)', s2, e1; end if;
+  select id into old_id from public.patient_memberships where patient_id = p and state = 'active';
+  perform private.end_membership_now(old_id, null, 'proof: end the Plus year to start the chain');
+  if (select count(*) from public.patient_memberships where patient_id = p and state = 'active') <> 1 then raise exception 'FAIL chain: not exactly one active year'; end if;
+  if (select count(*) from public.patient_memberships where patient_id = p and state = 'scheduled') <> 1 then raise exception 'FAIL chain: the second queued year started too'; end if;
+end $$;
+
+-- gift path: a Membership gifted to a Plus holder is queued when the recipient accepts
+do $$
+declare b uuid := pg_temp.mkuser('gift-buyer', 'patient'); p uuid := pg_temp.mkuser('gift-recipient', 'patient'); ref text; it uuid; pr uuid; amt bigint; eid uuid; r text; s public.patient_memberships;
+begin
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, ends_at, is_test, tier)
+  values ('00000000-0000-0000-0000-000000000001', p, 'purchase', 'active', now() - interval '100 days', now() + interval '265 days', true, 'plus');
+  select id into it from public.catalog_items where code = 'membership_annual_no_panel' order by created_at limit 1;
+  select id, amount_kobo into pr, amt from public.prices where catalog_item_id = it and valid_to is null;
+  ref := 'qyg_' || replace(gen_random_uuid()::text, '-', '');
+  insert into public.orders (id, organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, paystack_reference, is_test, list_amount_kobo)
+  values (gen_random_uuid(), '00000000-0000-0000-0000-000000000001', b, p, it, pr, amt, ref, true, amt);
+  perform pg_temp.pay(ref);
+  select e.id into eid from public.entitlements e join public.orders o on o.id = e.order_id where o.paystack_reference = ref;
+  if (select acceptance from public.entitlements where id = eid) <> 'pending' then raise exception 'FAIL gift fixture: the gift is not waiting for acceptance'; end if;
+  r := pg_temp.q_as(p, format($q$select public.respond_to_gifted_pack(%L, true)::text$q$, eid));
+  if r like 'ERR:%' then raise exception 'FAIL gift: acceptance failed: %', r; end if;
+  select * into s from public.patient_memberships where patient_id = p and state = 'scheduled';
+  if s.id is null or s.tier <> 'evergreen' then raise exception 'FAIL gift: the accepted gift was not queued'; end if;
+  if (select tier from public.patient_memberships where patient_id = p and state = 'active') <> 'plus' then raise exception 'FAIL gift: the running Plus year was changed'; end if;
+  if (select starts_at from public.entitlements where id = eid) is distinct from s.starts_at then raise exception 'FAIL gift: the entitlement does not carry the queued start'; end if;
 end $$;
 
 -- SABOTAGE (a): no activation trigger -> an early end leaves the queued year unstarted
