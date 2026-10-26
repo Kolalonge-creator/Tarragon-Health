@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { FREE_FEATURES } from "../_content/pricing";
+import { renewalCopy } from "@/lib/marketing/membership";
 
 /**
  * Free vs Membership, side by side, for the homepage.
@@ -23,10 +24,13 @@ export function HomePlanCompare({
   price,
   refundDays,
   membershipIncludes,
+  autoRenews,
 }: {
   price: string;
   refundDays: number;
   membershipIncludes: readonly string[];
+  /** The platform's renewal switch; every renewal sentence follows it (see lib/marketing/membership.ts). */
+  autoRenews: boolean;
 }) {
   return (
     <div className="mx-auto grid max-w-4xl gap-5 md:grid-cols-2">
@@ -63,10 +67,7 @@ export function HomePlanCompare({
               <li key={line}>{line}</li>
             ))}
           </ul>
-          <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/65">
-            Lasts a year and does not renew by itself; we remind you before it ends. Refundable within{" "}
-            {refundDays} days.
-          </p>
+          <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/65">{renewalCopy(autoRenews, refundDays).short}</p>
           <div className="mt-auto pt-6">
             <Button asChild size="lg" variant="accent" className="w-full">
               <Link href="/signup">Get started</Link>

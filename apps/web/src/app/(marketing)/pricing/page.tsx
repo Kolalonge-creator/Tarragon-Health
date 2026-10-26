@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { t } from "@tarragon/i18n";
-import { MEMBERSHIP_INCLUDES, membershipPriceLabel, refundWindowDays } from "@/lib/marketing/membership";
+import { MEMBERSHIP_INCLUDES, membershipAutoRenews, membershipPriceLabel, refundWindowDays, renewalCopy } from "@/lib/marketing/membership";
 import { Section, SectionHeading } from "../_components/section";
 import { PricingFreeFeatures } from "../_components/pricing-free-features";
 import { PricingLabelBadge } from "../_components/pricing-label";
@@ -23,7 +23,7 @@ export const metadata: Metadata = pageMetadata({
 
 export const revalidate = 3600;
 
-function pricingFaq(price: string, refundDays: number) {
+function pricingFaq(price: string, refundDays: number, autoRenews: boolean) {
   return [
     {
       question: "What are the two plans?",
@@ -31,8 +31,7 @@ function pricingFaq(price: string, refundDays: number) {
     },
     {
       question: "Does Membership renew by itself?",
-      answer:
-        "No. It lasts a year and we remind you 30, 14 and 7 days before it ends. For 14 days after it ends you keep your Member access, and your records stay with you whatever you choose.",
+      answer: renewalCopy(autoRenews, refundDays).faqAnswer,
     },
     {
       question: "Can I get a refund?",
@@ -54,7 +53,8 @@ function pricingFaq(price: string, refundDays: number) {
 export default async function PricingPage() {
   const price = membershipPriceLabel();
   const refundDays = refundWindowDays();
-  const faq = pricingFaq(price, refundDays);
+  const autoRenews = await membershipAutoRenews();
+  const faq = pricingFaq(price, refundDays, autoRenews);
   /** FAQPage structured data for the pricing questions; eligible for rich results. */
   const pricingFaqJsonLd = {
     "@context": "https://schema.org",
@@ -108,7 +108,7 @@ export default async function PricingPage() {
             ))}
           </ul>
           <p className="mt-4 text-sm text-charcoal-ink/70">
-            It lasts a year and does not renew by itself. We remind you before it ends, and you keep your Member access for 14 days after.
+            {renewalCopy(autoRenews, refundDays).pricingBox}
           </p>
           <p className="mt-2 text-sm text-charcoal-ink/70">
             Refunds: within {refundDays} days of buying it. After that it cannot be refunded.

@@ -25,7 +25,7 @@ import { HOME_HOW_IT_WORKS, PROOF_STATS, SERVICE_CARDS } from "./_content/servic
 import { DEFAULT_HERO } from "./_content/channel-heroes";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
-import { MEMBERSHIP_INCLUDES, membershipPriceLabel, refundWindowDays } from "@/lib/marketing/membership";
+import { MEMBERSHIP_INCLUDES, membershipAutoRenews, membershipPriceLabel, refundWindowDays, renewalCopy } from "@/lib/marketing/membership";
 
 const HOME_TITLE = "TarragonHealth | Care that stays with you";
 
@@ -64,7 +64,7 @@ export const revalidate = 3600;
  * facts /pricing and /services state. FAQPage structured data is emitted for
  * them below. Redesign 2026-10-26: the homepage previously had no FAQ at all.
  */
-function homeFaq(price: string, refundDays: number) {
+function homeFaq(price: string, refundDays: number, autoRenews: boolean) {
   return [
     {
       question: "Is Tarragon really free?",
@@ -82,7 +82,7 @@ function homeFaq(price: string, refundDays: number) {
     },
     {
       question: "Does Membership renew by itself?",
-      answer: `No. It lasts a year and we remind you before it ends. You can ask for a refund within ${refundDays} days of buying it.`,
+      answer: renewalCopy(autoRenews, refundDays).faqAnswer,
     },
   ];
 }
@@ -92,7 +92,8 @@ export default async function MarketingHomePage() {
   const { walkthroughVideo } = homepage;
   const price = membershipPriceLabel();
   const refundDays = refundWindowDays();
-  const faq = homeFaq(price, refundDays);
+  const autoRenews = await membershipAutoRenews();
+  const faq = homeFaq(price, refundDays, autoRenews);
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -221,7 +222,7 @@ export default async function MarketingHomePage() {
           title="Free to start. Membership when you want a doctor involved."
           description="Two plans, nothing in between. Everything you can do yourself costs nothing."
         />
-        <HomePlanCompare price={price} refundDays={refundDays} membershipIncludes={MEMBERSHIP_INCLUDES} />
+        <HomePlanCompare price={price} refundDays={refundDays} membershipIncludes={MEMBERSHIP_INCLUDES} autoRenews={autoRenews} />
       </Section>
 
       {/* 7. Two ways in, then the three programmes as cards. */}

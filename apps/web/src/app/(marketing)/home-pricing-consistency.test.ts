@@ -42,8 +42,12 @@ describe("homepage pricing copy", () => {
     }
   });
 
-  it("says Membership does not renew by itself, matching /pricing", () => {
-    expect(read("_components/home-plan-compare.tsx")).toMatch(/does not renew by itself/i);
-    expect(read("pricing/page.tsx")).toMatch(/does not renew by itself/i);
+  it("takes every renewal sentence from the one switch-driven source, never typed into a page", () => {
+    for (const file of ["_components/home-plan-compare.tsx", "pricing/page.tsx", "page.tsx", "monitoring/page.tsx", "pricing/how-it-works/page.tsx"]) {
+      const src = read(file);
+      expect(src).not.toMatch(/does not renew by itself/i);
+      expect(src).not.toMatch(/renews (on that card|automatically)/i);
+    }
+    for (const file of ["_components/home-plan-compare.tsx", "pricing/page.tsx", "page.tsx"]) expect(read(file)).toContain("renewalCopy(");
   });
 });
