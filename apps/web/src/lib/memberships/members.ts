@@ -30,6 +30,8 @@ export const grantMembershipSchema = z.object({
   reason: reasonSchema,
   // Membership has no annual blood panel; Membership Plus has it. Absent means plus, as before the ladder.
   tier: z.enum(["evergreen", "plus"]).default("plus"),
+  // Membership Plus blood collection is arranged in one approved state; the database requires it while Plus is limited by state.
+  collectionState: z.string().trim().max(80).optional(),
 });
 
 export const endMembershipSchema = z.object({
@@ -51,6 +53,8 @@ const ERROR_WORDS: Record<string, string> = {
   membership_end_in_past: "The end date must be in the future.",
   membership_already_active: "This person already has an active membership. End it first if you need to change it.",
   membership_none_active: "This person has no active membership to end.",
+  plus_state_required: "Choose the state where this person's Membership Plus blood tests will be collected.",
+  plus_state_not_available: "Membership Plus is not open in that state. Choose an approved state.",
 };
 
 export function describeMembershipError(

@@ -1534,3 +1534,5 @@ membership_ladder_survives_instalment_removal.sql
 
 # Membership Plus checkout state (2026-10-26): create_order needs an approved state for Plus and the upgrade while the tier module is on (ignored when off, and for Membership); stored on the order, copied to the membership, shown by my_membership; FK, anon closed, old signature gone. Sabotage: the approved-state check removed must flip.
 plus_checkout_collection_state.sql
+# Plus without a checkout (2026-10-26, OQ-PLUS-1): admin grant of Plus needs an approved state while the tier module is on (authority error wins over the state error, a refusal leaves nothing behind); a Plus member with no state chooses once (approved only, set once, Membership holder refused, audited, anon closed). Sabotage: the requirement and the set-once rule removed must each flip.
+plus_state_without_checkout.sql

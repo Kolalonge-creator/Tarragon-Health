@@ -16,6 +16,8 @@ const UP = { ...base, code: "membership_upgrade_plus", name_key: "catalog.member
 let catalogue: { data: unknown[]; isSuccess: boolean };
 let membership: { data: { is_member: boolean; ends_at: string | null; source: string | null; tier?: "evergreen" | "plus" | null; in_grace?: boolean; grace_ends_at?: string | null } };
 const mutateAsync = jest.fn();
+const setStateMutate = jest.fn();
+let setStateResult: { isError: boolean; error: unknown; isPending: boolean } = { isError: false, error: null, isPending: false };
 jest.mock("@/lib/queries/commerce", () => {
   const actual = jest.requireActual("@/lib/queries/commerce");
   return {
@@ -25,6 +27,7 @@ jest.mock("@/lib/queries/commerce", () => {
     useMyOrders: () => ({ data: [] }),
     useStartCheckout: () => ({ mutateAsync, isPending: false }),
     useQuote: () => ({ data: null }),
+    useSetMyPlusState: () => ({ mutate: setStateMutate, ...setStateResult }),
   };
 });
 let plusStates: { state: string; display_name: string }[] = [{ state: "Lagos", display_name: "Lagos" }, { state: "Oyo", display_name: "Oyo" }];
@@ -39,6 +42,8 @@ beforeEach(() => {
   membership = { data: { is_member: false, ends_at: null, source: null, tier: null } };
   mutateAsync.mockReset();
   assign.mockReset();
+  setStateMutate.mockReset();
+  setStateResult = { isError: false, error: null, isPending: false };
 });
 
 describe("MembershipShop with the Membership ladder", () => {
@@ -199,5 +204,38 @@ describe("MembershipShop with the Membership ladder", () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} beneficiary={{ id: "11111111-1111-4111-8111-111111111111", name: "Amina" }} />);
     expect(screen.getByLabelText("Where will Amina's blood tests be collected?")).toBeTruthy();
     expect(screen.queryByLabelText("Where will your blood tests be collected?")).toBeNull();
+  });
+});
+
+describe("A Plus member with no collection state (OQ-PLUS-1)", () => {
+  const plusNoState = (collection_state: string | null) => ({ data: { is_member: true, ends_at: "2027-06-01T00:00:00Z", source: "employer", tier: "plus" as const, collection_state } });
+
+  it("is asked to choose once, and saving sends the chosen state", () => {
+    membership = plusNoState(null);
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    const save = screen.getByRole("button", { name: "Save my state" }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Where will your blood tests be collected?"), { target: { value: "Oyo" } });
+    expect(save.disabled).toBe(false);
+    fireEvent.click(save);
+    expect(setStateMutate).toHaveBeenCalledWith("Oyo");
+  });
+
+  it("shows nothing to set once the state exists, and nothing for Membership without Plus", () => {
+    membership = plusNoState("Lagos");
+    const { unmount } = render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.queryByRole("button", { name: "Save my state" })).toBeNull();
+    expect(screen.getByText("Your Membership Plus blood tests are collected in Lagos.")).toBeTruthy();
+    unmount();
+    membership = { data: { is_member: true, ends_at: "2027-06-01T00:00:00Z", source: "purchase", tier: "evergreen" } };
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.queryByRole("button", { name: "Save my state" })).toBeNull();
+  });
+
+  it("says a withdrawn state is not open instead of a generic failure", () => {
+    membership = plusNoState(null);
+    setStateResult = { isError: true, error: new Error("plus_state_not_available"), isPending: false };
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.getByText(/not open in that state/)).toBeTruthy();
   });
 });

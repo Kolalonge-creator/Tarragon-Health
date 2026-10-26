@@ -8,7 +8,7 @@ import { buildCheckoutView, itemisedRows, returnNotice } from "@/lib/commerce/ch
 import { HmoEligibilitySection } from "./hmo-eligibility-section";
 import { getProposedConfig, type ConfigValue } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
-import { loadCatalogue, loadMembership, loadMyOrders, loadNotIncluded, loadPlusStates, loadPriceChangeNotices, loadQuote, startCheckout, verifyOrder } from "@/lib/commerce/api";
+import { loadCatalogue, loadMembership, loadMyOrders, loadNotIncluded, loadPlusStates, loadPriceChangeNotices, loadQuote, setMyPlusState, startCheckout, verifyOrder } from "@/lib/commerce/api";
 import { EntitlementsSection } from "./entitlements-section";
 import { checkoutErrorKey, keepsRetryKey, orderStateKey, type CatalogueItem, type MembershipState, type OrderRow, type PlusState } from "@/lib/commerce/parse";
 import { useLegacyColors } from "@/ui/design";
@@ -49,6 +49,10 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   const [plusStates, setPlusStates] = useState<PlusState[] | null>(null);
   const [plusStatesFailed, setPlusStatesFailed] = useState(false);
   const [collectionState, setCollectionState] = useState("");
+  // a Plus member who has no state yet (employer seat, earlier grant) chooses it once
+  const [setupState, setSetupState] = useState("");
+  const [setupBusy, setSetupBusy] = useState(false);
+  const [setupError, setSetupError] = useState<MessageKey | null>(null);
   // S72 (19.9): the database's own quote for each item, with and without Health Points. Points lower only Tarragon's own fee, for one payment, if chosen.
   const [quotes, setQuotes] = useState<Record<string, { plain: Quote | null; points: Quote | null }>>({});
   const [usePoints, setUsePoints] = useState<Record<string, boolean>>({});
@@ -183,6 +187,51 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
           <Text style={{ color: colors.ink }}>{tr("shop.tier.same_care")}</Text>
           <MutedText>{tr("shop.tier.urgent_same")}</MutedText>
         </View>
+      ) : null}
+      {!beneficiary && ladder && tierNow === "plus" && membership.isMember && !membership.collectionState ? (
+        <Card>
+          <Text style={{ fontWeight: "700", color: colors.ink }}>{tr("shop.plus.state.set_title")}</Text>
+          {plusStatesFailed ? (
+            <View style={{ gap: 6 }}>
+              <ErrorText>{tr("shop.plus.state.error")}</ErrorText>
+              <SecondaryButton title={tr("shop.plus.state.retry")} onPress={() => void refresh()} />
+            </View>
+          ) : plusStates !== null && plusStates.length === 0 ? (
+            <MutedText>{tr("shop.plus.state.none")}</MutedText>
+          ) : (
+            <View accessibilityRole="radiogroup" style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+              {(plusStates ?? []).map((s) => {
+                const on = setupState === s.state;
+                return (
+                  <Pressable
+                    key={s.state}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: on }}
+                    onPress={() => setSetupState(s.state)}
+                    style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 14, borderRadius: 22, borderWidth: 1, borderColor: on ? colors.ink : colors.muted }}
+                  >
+                    <Text style={{ color: colors.ink, fontWeight: on ? "700" : "400" }}>{s.displayName}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+          <MutedText>{tr("shop.plus.state.warning")}</MutedText>
+          {setupError ? <ErrorText>{tr(setupError)}</ErrorText> : null}
+          <PrimaryButton
+            title={setupBusy ? tr("shop.plus.state.set_saving") : tr("shop.plus.state.set_button")}
+            disabled={!setupState || setupBusy}
+            onPress={() => {
+              setSetupBusy(true);
+              setSetupError(null);
+              void setMyPlusState(setupState).then((r) => {
+                setSetupBusy(false);
+                if (r.ok) { void refresh(); return; }
+                setSetupError(r.message.includes("plus_state_not_available") ? "shop.error.plus_state_not_available" : r.message.includes("plus_state_already_set") ? "shop.plus.state.already_set" : "shop.plus.state.set_error");
+              });
+            }}
+          />
+        </Card>
       ) : null}
       {!beneficiary && membership.collectionState ? <MutedText>{tr("shop.plus.state.yours", { state: membership.collectionState })}</MutedText> : null}
       {!beneficiary && membership.graceEndsAt ? <MutedText>{tr("shop.in_grace", { date: lagos(membership.graceEndsAt) })}</MutedText> : null}

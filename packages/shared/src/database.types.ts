@@ -51992,8 +51992,12 @@ export type Database = {
         Returns: string;
       };
       grant_membership_tier: {
-        Args: { p_ends_at?: string; p_patient: string; p_reason: string; p_tier: string };
+        Args: { p_collection_state?: string; p_ends_at?: string; p_patient: string; p_reason: string; p_tier: string };
         Returns: string;
+      };
+      set_my_plus_collection_state: {
+        Args: { p_state: string };
+        Returns: undefined;
       };
       list_assisted_recovery_requests: {
         Args: { p_state?: string }

@@ -67,6 +67,18 @@ export function useMyMembership() {
   });
 }
 
+/** A Plus member whose state was never set (employer seat, grant made earlier, older row) chooses it once; the database refuses a second change. */
+export function useSetMyPlusState() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (state: string) => {
+      const { error } = await createClient().rpc("set_my_plus_collection_state", { p_state: state });
+      if (error) throw error;
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: commerceKeys.membership }),
+  });
+}
+
 /** What the person has, from the database's own view (S72, 19.12): where each came from, uses left and days left. */
 export function useMyEntitlements() {
   return useQuery({

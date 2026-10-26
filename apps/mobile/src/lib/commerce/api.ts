@@ -38,6 +38,12 @@ export async function loadPlusStates(): Promise<PlusState[] | null> {
   return error ? null : parsePlusStates(data);
 }
 
+/** A Plus member with no collection state (employer seat, earlier grant) chooses it once; the database refuses a second change. */
+export async function setMyPlusState(state: string): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { error } = await supabase.rpc("set_my_plus_collection_state", { p_state: state });
+  return error ? { ok: false, message: error.message } : { ok: true };
+}
+
 export async function errorCodeOf(error: unknown): Promise<string> {
   const ctx = (error as { context?: unknown } | null)?.context;
   if (ctx && typeof (ctx as Response).clone === "function") {

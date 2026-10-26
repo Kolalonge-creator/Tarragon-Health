@@ -15,6 +15,7 @@ import { useSponsorableProfiles } from "@/lib/queries/care-access";
 import { RefundRequestDialog } from "./refund-request-dialog";
 import { RefundRule } from "./refund-rule";
 import { PlusStatePicker } from "./plus-state-picker";
+import { PlusStateSetup } from "./plus-state-setup";
 import { MonthlyEquivalent, NotIncludedList, PriceChangeCard } from "./price-transparency";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
@@ -357,6 +358,7 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary, notInclude
           <p className={MUTED}>{t("shop.tier.urgent_same", locale)}</p>
         </div>
       ) : null}
+      {!chosenId && ladder && tierNow === "plus" && membership.data?.is_member && !membership.data.collection_state ? <PlusStateSetup locale={locale} /> : null}
       {!chosenId && membership.data?.collection_state ? <p role="status">{t("shop.plus.state.yours", locale, { state: membership.data.collection_state })}</p> : null}
       {graceEnds ? <p role="status">{t("shop.in_grace", locale, { date: formatPatientDate(graceEnds) })}</p> : null}
       {!beneficiary && profiles.length > 0 ? (
