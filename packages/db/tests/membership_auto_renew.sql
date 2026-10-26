@@ -386,6 +386,10 @@ end $$;
 do $$
 declare v_p14 uuid := pg_temp.f('p14'); v_ref text; v_m uuid; h jsonb; v_before integer; v_after integer; v_admin uuid := pg_temp.f('p1');
 begin
+  -- the switch was only just turned on in this proof: no 'missing' alarm yet
+  perform pg_temp.ck('on the day the switch is turned on there is no false sweep-missing alarm', 'false',
+    (private.check_renewal_health() ->> 'sweep_missing'));
+  update public.platform_modules set enabled_at = now() - interval '48 hours' where key = 'membership_auto_renew';
   h := private.check_renewal_health();
   perform pg_temp.ck('with the switch ON and no run ever reported, the watchdog says the sweep is missing and opens an incident', 'true/1',
     (h ->> 'sweep_missing') || '/' || (select count(*)::text from public.ops_incidents where external_reference like 'membership-renewal-sweep-missing:%'));

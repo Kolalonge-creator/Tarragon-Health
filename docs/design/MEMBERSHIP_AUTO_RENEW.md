@@ -72,6 +72,12 @@ checkout, the renewal card on the Membership page, the renewal notices, and (in 
 - The mobile app has the same unticked consent switch and the same renewal card with a one-tap cancel as the web (the
   `RENEW_ON_BY_DEFAULT` constant mirrors the web one). Both read the platform switch, so neither shows anything while it is off.
 - Employer seats and vouchers never renew on a card.
+- **A price rise stops automatic renewal for that year.** The price check compares against the price last shown, and the notices show the
+  price in force at the time, so a rise that takes effect after the last notice is never charged: every affected member is told once and
+  renews by hand. Announcing a rise 30 days ahead does not change this. Teaching the notices to quote the price that will be in force on the
+  renewal date (so a rise announced early can be accepted) is the natural next step before the first planned price increase.
+- A run cut off by the function's time limit reports nothing, so the watchdog calls it "missing" (true, but it hides that it was too slow).
+- A renewal charge larger than the order is absorbed as a fee only up to the fee Paystack reports taking, and is not separately alarmed.
 - A renewal that fails three times is not retried again; the Membership then runs out and lapses on the existing 14-day grace path.
 - The saved authorization code is stored as plain text in a service-role-only table (disk-level encryption only). Moving it to the
   Vault, or encrypting the column, is a reasonable hardening before the switch is turned on at scale.

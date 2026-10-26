@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { en, t, type Locale, type MessageKey } from "@tarragon/i18n";
 import Link from "next/link";
-import { estimatedBreakdown, formatNaira, itemiseCheckout, type FeeEstimateSchedule, type NotIncludedEntry, type PriceChangeNotice } from "@tarragon/commerce";
+import { RENEWAL_CONSENT_TICKED_BY_DEFAULT, estimatedBreakdown, formatNaira, itemiseCheckout, type FeeEstimateSchedule, type NotIncludedEntry, type PriceChangeNotice } from "@tarragon/commerce";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-error";
@@ -18,13 +18,7 @@ import { MonthlyEquivalent, NotIncludedList, PriceChangeCard } from "./price-tra
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 const TOUCH = "min-h-11";
 
-/**
- * Whether the automatic-renewal box starts ticked. It starts UNTICKED: renewal charges a card without a further action from the person, so
- * the tick is an explicit, affirmative choice made at the moment of payment (counsel has not been asked whether a pre-ticked box is
- * acceptable for Nigerian card-on-file payments, and an unticked default is the safe reading of consumer-protection norms). Flip this
- * one constant only after that advice.
- */
-const RENEW_TICKED_BY_DEFAULT = false;
+// Whether the renewal box starts ticked is one shared constant (RENEWAL_CONSENT_TICKED_BY_DEFAULT in @tarragon/commerce), the same on web and mobile.
 
 /** The words for the state of a refund the person asked for (S72, 19.8). */
 function refundStateKey(state: string): MessageKey {
@@ -63,7 +57,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
   const [usePoints, setUsePoints] = useState(false);
   // Automatic renewal (own Membership only, never a gift, never for a sponsor-paid order): offered only while the switch is on.
   const renewSwitch = useAutoRenewEnabled();
-  const [renew, setRenew] = useState(RENEW_TICKED_BY_DEFAULT);
+  const [renew, setRenew] = useState(RENEWAL_CONSENT_TICKED_BY_DEFAULT);
   const quoteQuery = useQuote({ code: item.code, ...(beneficiary ? { beneficiary } : {}), discountCode: appliedCode });
   const pointsQuoteQuery = useQuote({ code: item.code, ...(beneficiary ? { beneficiary } : {}), discountCode: appliedCode, usePoints: true });
   const pointsQuote = beneficiary === undefined ? (pointsQuoteQuery.data ?? null) : null;

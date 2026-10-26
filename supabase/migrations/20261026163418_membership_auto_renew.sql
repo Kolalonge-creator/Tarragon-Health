@@ -413,13 +413,17 @@ grant execute on function public.service_record_renewal_run(boolean, jsonb) to s
 create or replace function private.check_renewal_health() returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
-declare v_org uuid; v_last public.membership_renewal_runs%rowtype; v_overdue integer; v_missing boolean; v_failing boolean; v_day text := to_char(now() at time zone 'Africa/Lagos', 'YYYY-MM-DD');
+declare v_org uuid; v_enabled_at timestamptz; v_last public.membership_renewal_runs%rowtype; v_overdue integer; v_missing boolean; v_failing boolean; v_day text := to_char(now() at time zone 'Africa/Lagos', 'YYYY-MM-DD');
 begin
   if not public.membership_auto_renew_enabled() then return jsonb_build_object('skipped', true); end if;
   select organisation_id into v_org from public.catalog_items where code = 'membership_annual' order by created_at limit 1;
+  -- never let the alarm itself fail for want of an organisation
+  if v_org is null then select id into v_org from public.organisations order by created_at limit 1; end if;
+  select enabled_at into v_enabled_at from public.platform_modules where key = 'membership_auto_renew';
   select * into v_last from public.membership_renewal_runs order by ran_at desc limit 1;
-  v_missing := not found or v_last.ran_at < now() - interval '26 hours';
-  v_failing := found and (not v_last.ok or v_last.failed > 0) and v_last.ran_at >= now() - interval '26 hours';
+  -- no 'missing' alarm until the switch has been on for 26 hours: the first sweep may not have had a chance to run yet
+  v_missing := (not found or v_last.ran_at < now() - interval '26 hours') and coalesce(v_enabled_at, now() - interval '30 days') < now() - interval '26 hours';
+  v_failing := v_last.id is not null and (not v_last.ok or v_last.failed > 0) and v_last.ran_at >= now() - interval '26 hours';
   select count(*) into v_overdue from public.patient_memberships m
    where m.state = 'active' and m.auto_renew and m.ends_at is not null and m.ends_at > now() and m.ends_at <= now() + interval '2 days'
      and exists (select 1 from public.membership_cards c where c.patient_id = m.patient_id)

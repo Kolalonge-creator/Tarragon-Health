@@ -65,6 +65,7 @@ describe("MembershipShop: automatic renewal", () => {
     expect(hint).toMatch(/₦129,000 today/);
     expect(hint).toMatch(/up to 3 days before your year ends/);
     expect(hint).toMatch(/unless you cancel/);
+    expect(hint).toMatch(/If the price has gone up since we last told you, we do not charge you/);
     expect(hint).toMatch(/cancel renewal in one tap/);
     expect(hint).toMatch(/keep the year you have paid for/);
     expect(screen.getByText(/Only a card payment can renew by itself/)).toBeTruthy();

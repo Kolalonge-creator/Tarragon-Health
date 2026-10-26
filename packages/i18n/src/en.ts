@@ -1826,7 +1826,7 @@ export const en = {
   "shop.no_renew": "This does not renew by itself. We remind you 7 days before it ends, and you choose whether to buy again.",
   "shop.paid_for_you": "Paid for you by {name}.",
   "shop.renew.label": "Renew my Membership automatically each year",
-  "shop.renew.detail": "We keep this card with our payment partner, Paystack, and charge it up to 3 days before your year ends, for the price then ({amount} today), unless you cancel. We message you before every charge. You can cancel renewal in one tap on this page, and you keep the year you have paid for.",
+  "shop.renew.detail": "We keep this card with our payment partner, Paystack, and charge it up to 3 days before your year ends, for the price then ({amount} today), unless you cancel. If the price has gone up since we last told you, we do not charge you: we tell you first. We message you before every charge. You can cancel renewal in one tap on this page, and you keep the year you have paid for.",
   "shop.renew.card_only": "Only a card payment can renew by itself. If you pay by bank transfer or USSD, we remind you before your year ends and you choose whether to buy again.",
   "renewal.title": "Renewal",
   "renewal.on": "Your Membership renews on {date}. We charge your card ending {last4} up to 3 days before, for {amount}, and message you first. You can cancel any time.",

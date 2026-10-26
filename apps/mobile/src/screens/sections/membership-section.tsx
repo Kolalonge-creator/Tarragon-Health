@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Switch, Text, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
 import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
-import { formatNaira, monthlyEquivalentKobo, type FeeEstimateSchedule, type NotIncludedEntry, type PriceChangeNotice, type Quote } from "@tarragon/commerce";
+import { RENEWAL_CONSENT_TICKED_BY_DEFAULT, formatNaira, monthlyEquivalentKobo, type FeeEstimateSchedule, type NotIncludedEntry, type PriceChangeNotice, type Quote } from "@tarragon/commerce";
 import { buildCheckoutView, itemisedRows, returnNotice } from "@/lib/commerce/checkout-view";
 import { HmoEligibilitySection } from "./hmo-eligibility-section";
 import { getProposedConfig, type ConfigValue } from "@tarragon/shared";
@@ -17,12 +17,7 @@ import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui
 
 const naira = (kobo: number) => `₦${formatNaira(kobo)}`;
 
-/**
- * Whether the automatic-renewal switch starts ON. It starts OFF: renewal charges a card without a further action from the person, so the
- * tick is an explicit, affirmative choice made at the moment of payment. The same constant, and the same reasoning, as the web checkout
- * (RENEW_TICKED_BY_DEFAULT in apps/web/.../membership-shop.tsx); flip both only after counsel's advice.
- */
-const RENEW_ON_BY_DEFAULT = false;
+// Whether the renewal switch starts on is one shared constant (RENEWAL_CONSENT_TICKED_BY_DEFAULT in @tarragon/commerce), the same on web and mobile.
 const isKey = (k: string): k is MessageKey => Object.hasOwn(en, k);
 
 function lagos(iso: string): string {
@@ -126,7 +121,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
       // the total the person was shown: the database refuses the order if it now works out a different one
       ...(chosen !== null ? { expectedAmountKobo: chosen.amountDueKobo } : {}),
       // the person's own tick, only ever sent when they gave it
-      ...(canRenewItem(item) && (renew[item.code] ?? RENEW_ON_BY_DEFAULT) ? { autoRenew: true } : {}),
+      ...(canRenewItem(item) && (renew[item.code] ?? RENEWAL_CONSENT_TICKED_BY_DEFAULT) ? { autoRenew: true } : {}),
     });
     if (!r.ok) {
       if (!keepsRetryKey(r.code)) keys.current.delete(item.code);
@@ -284,7 +279,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   <Text style={{ color: colors.ink, flexShrink: 1 }}>{tr("shop.renew.label")}</Text>
                   <Switch
-                    value={renew[item.code] ?? RENEW_ON_BY_DEFAULT} onValueChange={(v) => setRenew((m) => ({ ...m, [item.code]: v }))}
+                    value={renew[item.code] ?? RENEWAL_CONSENT_TICKED_BY_DEFAULT} onValueChange={(v) => setRenew((m) => ({ ...m, [item.code]: v }))}
                     accessibilityLabel={tr("shop.renew.label")}
                   />
                 </View>
