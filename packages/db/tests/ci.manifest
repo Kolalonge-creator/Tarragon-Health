@@ -1529,3 +1529,6 @@ membership_ladder_review_fixes.sql
 
 # The Membership ladder survives the remove-instalments migration (2026-10-26): after full replay the final function bodies still carry the tier, upgrade, refund, ledger and gate changes, and no function names a removed instalment object. Sabotage: a removed clause must be detected.
 membership_ladder_survives_instalment_removal.sql
+
+# Baseline-labs prescribing rule (CMO-owned, 2026-10-26): only the CMO signs (admin, senior doctor, patient, anon refused) and the signing is audited; with no signed rule a start or dose increase is untouched; with the rule active a start or increase is refused when kidney function, potassium or glucose (plus HbA1c if diabetes on the problem list) is missing or older than 90 days, a decrease and a same-dose amendment are allowed, patient self-reports and imports never blocked. Sabotage: trigger function emptied must flip the refusal check.
+baseline_labs_rule.sql

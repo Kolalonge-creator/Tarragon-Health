@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { MENTAL_WELLBEING_ITEM_KEY, SYMPTOM_UX_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, POST_CHECKIN_ITEM_KEY, CASCADE_CONFIG_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { MENTAL_WELLBEING_ITEM_KEY, SYMPTOM_UX_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, POST_CHECKIN_ITEM_KEY, CASCADE_CONFIG_ITEM_KEY, BASELINE_LABS_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -46,6 +46,8 @@ import { PagingDeliveryConfigPanel, TaskLayerConfigPanel } from "../_signoff-pan
 import { readPagingActivationCheck, readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
 import { PostCheckinPanel } from "../_signoff-panels/post-checkin-panel";
 import { CascadeConfigPanel } from "../_signoff-panels/cascade-config-panel";
+import { BaselineLabsRulePanel } from "../_signoff-panels/baseline-labs-rule-panel";
+import { readPendingBaselineLabsRuleSignoff } from "@/lib/queries/pending-baseline-labs-rule-signoff";
 import { readPendingCascadeConfigSignoff } from "@/lib/queries/pending-cascade-config-signoff";
 import { MentalWellbeingPanel } from "../_signoff-panels/mental-wellbeing-panel";
 import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
@@ -276,6 +278,10 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has(CASCADE_CONFIG_ITEM_KEY)) {
     const pendingCascade = await readPendingCascadeConfigSignoff(supabase);
     inlinePanels[CASCADE_CONFIG_ITEM_KEY] = <CascadeConfigPanel version={pendingCascade.version} rules={pendingCascade.rules} />;
+  }
+  if (keys.has(BASELINE_LABS_ITEM_KEY)) {
+    const pendingBaseline = await readPendingBaselineLabsRuleSignoff(supabase);
+    inlinePanels[BASELINE_LABS_ITEM_KEY] = <BaselineLabsRulePanel version={pendingBaseline.version} rule={pendingBaseline.rule} />;
   }
   if (keys.has(THRESHOLD_POLICY_ITEM_KEY)) {
     const thresholds = await readThresholdHubState(supabase);

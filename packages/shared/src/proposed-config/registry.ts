@@ -8452,4 +8452,151 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-23",
     source: "docs/design/WP3.md; WHO HEARTS / DHIS2 cascade terms; HEDIS CBP 140/90. Unsigned until the CMO signs.",
   },
+  {
+    key: "prescribing.baseline_labs_rule",
+    // The baseline-labs prescribing rule: kidney function, potassium and glucose (plus HbA1c if diabetic) within a recent window before a doctor starts or
+    // raises the dose of a blood-pressure-lowering or glucose-lowering medicine. The database holds it as `baseline_labs_rule_config` v1 (UNSIGNED, INACTIVE
+    // until the Chief Medical Officer signs on the sign-off hub; until then the check does nothing). A test compares this value with the migration seed.
+    value: {
+        "applies_to": {
+          "start_new_medicine": true,
+          "dose_increase": true,
+          "sources_checked": [
+            "clinician",
+            "specialist"
+          ],
+          "sources_never_checked": [
+            "patient",
+            "fhir_import"
+          ],
+          "note": "Checked when a doctor starts one of these medicines, or increases its dose. A person recording a medicine they already take, an imported record, a stopped medicine and a dose that stays the same or goes down are never checked."
+        },
+        "drug_classes": {
+          "bp_lowering": {
+            "label": "Blood-pressure-lowering medicines",
+            "name_patterns": [
+              "%losartan%",
+              "%telmisartan%",
+              "%valsartan%",
+              "%irbesartan%",
+              "%candesartan%",
+              "%olmesartan%",
+              "%azilsartan%",
+              "%ramipril%",
+              "%lisinopril%",
+              "%enalapril%",
+              "%perindopril%",
+              "%captopril%",
+              "%benazepril%",
+              "%fosinopril%",
+              "%quinapril%",
+              "%amlodipine%",
+              "%nifedipine%",
+              "%felodipine%",
+              "%lercanidipine%",
+              "%nitrendipine%",
+              "%hydrochlorothiazide%",
+              "%hctz%",
+              "%indapamide%",
+              "%bendroflumethiazide%",
+              "%chlortalidone%",
+              "%chlorthalidone%",
+              "%spironolactone%",
+              "%amiloride%",
+              "%eplerenone%",
+              "%moduretic%"
+            ]
+          },
+          "glucose_lowering": {
+            "label": "Glucose-lowering medicines",
+            "name_patterns": [
+              "%metformin%",
+              "%gliclazide%",
+              "%glibenclamide%",
+              "%glimepiride%",
+              "%sitagliptin%",
+              "%vildagliptin%",
+              "%linagliptin%",
+              "%empagliflozin%",
+              "%dapagliflozin%",
+              "%pioglitazone%",
+              "%insulin%",
+              "%liraglutide%",
+              "%semaglutide%"
+            ]
+          },
+          "note": "The blood-pressure group uses exactly the medicine names the existing blood-pressure prescribing safety check already recognises (ACE inhibitors, ARBs, calcium channel blockers, thiazide-type and potassium-sparing diuretics). Beta blockers, alpha blockers, methyldopa, hydralazine and loop diuretics are NOT in this version. The glucose group is the glucose-lowering medicines named elsewhere in the platform. To add a medicine, the CMO asks for a new version."
+        },
+        "required_baseline": {
+          "for_every_medicine_in_both_groups": [
+            "kidney_function",
+            "potassium",
+            "glucose"
+          ],
+          "additionally_if_diabetes_on_record": [
+            "hba1c"
+          ],
+          "analytes": {
+            "kidney_function": {
+              "label": "Kidney function (creatinine or eGFR)",
+              "analyte_codes": [
+                "creatinine"
+              ],
+              "note": "Creatinine is the stored kidney-function result; eGFR is calculated from it, so a recent creatinine counts."
+            },
+            "potassium": {
+              "label": "Potassium",
+              "analyte_codes": [
+                "potassium"
+              ]
+            },
+            "glucose": {
+              "label": "Glucose",
+              "analyte_codes": [
+                "fasting_glucose",
+                "random_glucose"
+              ],
+              "note": "A laboratory glucose result (fasting or random). A glucose the patient logged at home does not count."
+            },
+            "hba1c": {
+              "label": "HbA1c",
+              "analyte_codes": [
+                "hba1c"
+              ]
+            }
+          },
+          "diabetes_on_record": {
+            "icd10_prefixes": [
+              "E10",
+              "E11",
+              "E13",
+              "E14"
+            ],
+            "statuses": [
+              "active",
+              "controlled",
+              "uncontrolled"
+            ],
+            "note": "Diabetes is taken from the patient's problem list (the same ICD-10 prefixes and statuses the cascade of care uses). A person starting a glucose-lowering medicine with no diabetes entry on the list does not need an HbA1c under this version."
+          }
+        },
+        "recency_window_days": 90,
+        "recency_window_note": "PROPOSED: 90 days. A result counts only if the specimen was collected (or the result dated) within this many days before the medicine is started or the dose is raised. The CMO may change this by asking for a new version before signing.",
+        "when_labs_are_missing": {
+          "action": "refuse",
+          "bypass_available": false,
+          "message": "The start or dose increase is refused and the doctor sees which labs are missing. The doctor orders them and tries again once the results are on file.",
+          "bypass_note": "Version 1 has no bypass or override. If the CMO wants an emergency or clinician-override route, that is a new version."
+        },
+        "informational": {
+          "membership": "Membership includes doctor-ordered baseline labs at the member price, paid separately. This note changes nothing in the check."
+        },
+        "proposed_note": "Every clinical value here is PROPOSED (the two medicine groups, the required labs, the 90-day window, refuse with no bypass). Nothing applies until the Chief Medical Officer signs. No agent signs."
+      },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-26",
+    source: "docs/DECISIONS.md 2026-10-21 (three-tier Membership ladder, go-live condition 2); supabase/migrations/20261026183108_baseline_labs_prescribing_rule.sql. Unsigned until the CMO signs.",
+  },
 ];
