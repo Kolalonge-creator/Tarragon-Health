@@ -24,10 +24,10 @@ const ENTRIES = [
 export function HomeEntryChips() {
   return (
     <Section className="py-8 sm:py-10">
-      <p className="text-center font-heading text-lg font-semibold text-charcoal-ink">
+      <p id="home-entry-heading" className="text-center font-heading text-lg font-semibold text-charcoal-ink">
         What brings you here?
       </p>
-      <ul className="mt-4 flex flex-wrap justify-center gap-3">
+      <ul aria-labelledby="home-entry-heading" className="mt-4 flex flex-wrap justify-center gap-3">
         {ENTRIES.map((entry) => (
           <li key={entry.href}>
             <Link
