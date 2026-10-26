@@ -149,6 +149,42 @@ export function useSetServiceRegionActive() {
 }
 
 /**
+ * Admin approves or withdraws Membership Plus blood collection in a state. Independent of the
+ * state's is_active switch: the nationwide partner-lab list never depends on this. The DB trigger
+ * stamps plus_collection_enabled_at and writes the audit row.
+ */
+export function useSetServicePlusCollection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("service_regions")
+        .update({ plus_collection_enabled: enabled })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["service-regions"] });
+      queryClient.invalidateQueries({ queryKey: ["plus-collection-states"] });
+    },
+  });
+}
+
+/** The states where Membership Plus blood collection is approved: what the Plus checkout offers. */
+export function usePlusCollectionStates() {
+  return useQuery({
+    queryKey: ["plus-collection-states"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("plus_collection_states");
+      if (error) throw error;
+      return (data ?? []) as { state: string; display_name: string }[];
+    },
+  });
+}
+
+/**
  * Open-waitlist demand per state for the admin page — how many people are waiting on each
  * state, so ops can see pull before flipping. Admin reads all rows via RLS (is_admin);
  * counted client-side (no group-by RPC needed at this volume).

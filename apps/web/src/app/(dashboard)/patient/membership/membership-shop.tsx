@@ -14,6 +14,8 @@ import { CheckoutError, useCatalogue, useMyMembership, useMyOrders, useQuote, us
 import { useSponsorableProfiles } from "@/lib/queries/care-access";
 import { RefundRequestDialog } from "./refund-request-dialog";
 import { RefundRule } from "./refund-rule";
+import { PlusStatePicker } from "./plus-state-picker";
+import { PlusStateSetup } from "./plus-state-setup";
 import { MonthlyEquivalent, NotIncludedList, PriceChangeCard } from "./price-transparency";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
@@ -70,6 +72,9 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
   // The upgrade is bought BY a current member, so being one never blocks it.
   const blocked = item.kind === "membership" && memberUntil !== null && item.code !== UPGRADE_CODE;
   const tierCard = ladder && panelIncluded(item.code) !== null;
+  // Membership Plus (and the upgrade to it) is bought for an approved state where blood is collected; only while the ladder is on, as in the database
+  const needsState = ladder && (item.code === "membership_annual" || item.code === UPGRADE_CODE);
+  const [collectionState, setCollectionState] = useState("");
   const codeFailed = appliedCode !== null && quote !== null && quote.discountCodeOk === false;
   // S71 (19.5): a sponsor pays the whole price. There is then no payment step at all: no fee, no code box, no card, and the button says what it does.
   const covered = quote?.coveredInFull === true && !codeFailed;
@@ -81,6 +86,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
   const explainLines = quote !== null && quote.lines.some((l) => l.rule !== "list") ? quote.lines : null;
 
   async function pay() {
+    if (needsState && !collectionState) return;
     // For someone else, say their name and what happens before any card is touched (S29c): they are asked to accept, and a no is a refund.
     if (beneficiary !== undefined) {
       const who = beneficiaryName ?? t("circle.pay.someone", locale);
@@ -95,6 +101,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
         ...(appliedCode && !codeFailed ? { discountCode: appliedCode } : {}),
         ...(pointsOn ? { usePoints: true } : {}),
         ...(quote !== null && !codeFailed ? { expectedAmountKobo: quote.amountDueKobo } : {}),
+        ...(needsState ? { collectionState } : {}),
       });
       // a fully covered order comes back already paid, with no checkout link: nothing is opened and nothing is paid
       if (isCoveredReply(r)) {
@@ -132,6 +139,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
         </IncludedBox>
         <NotIncludedList entries={notIncluded} locale={locale} id={item.code} grouped={ladder} />
         <p><Link href={`/patient/membership/${item.code}`} className="underline">{t("shop.see_included", locale)}</Link></p>
+        {needsState && !blocked ? <PlusStatePicker id={`plus-state-${item.code}`} value={collectionState} locale={locale} {...(beneficiary !== undefined ? { forName: beneficiaryName ?? t("circle.pay.someone", locale) } : {})} onChange={(v) => { clientKey.current = null; setCollectionState(v); }} /> : null}
         {coveredDone ? (
           <section aria-labelledby={`covered-done-${item.code}`} className="space-y-1" role="status">
             <h3 id={`covered-done-${item.code}`} className="font-medium">{t("sponsor.done.title", locale)}</h3>
@@ -145,7 +153,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
             {blocked ? (
               <p role="status">{t("shop.member_until", locale, { date: formatPatientDate(memberUntil) })}</p>
             ) : (
-              <Button type="button" className={TOUCH} onClick={pay} disabled={start.isPending}>
+              <Button type="button" className={TOUCH} onClick={pay} disabled={start.isPending || (needsState && !collectionState)}>
                 {start.isPending ? t("sponsor.getting", locale) : t("sponsor.get", locale)}
               </Button>
             )}
@@ -239,7 +247,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
             {blocked ? (
               <p role="status">{t("shop.member_until", locale, { date: formatPatientDate(memberUntil) })}</p>
             ) : (
-              <Button type="button" className={TOUCH} onClick={pay} disabled={start.isPending}>
+              <Button type="button" className={TOUCH} onClick={pay} disabled={start.isPending || (needsState && !collectionState)}>
                 {start.isPending ? t("shop.paying", locale) : item.code === UPGRADE_CODE ? t("shop.tier.upgrade.pay", locale) : t("shop.pay", locale)}
               </Button>
             )}
@@ -351,6 +359,8 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary, notInclude
         </div>
       ) : null}
       {!chosenId && membership.data?.next_starts_at ? <p role="status">{t("shop.tier.next_year", locale, { date: formatPatientDate(membership.data.next_starts_at) })}</p> : null}
+      {!chosenId && ladder && tierNow === "plus" && membership.data?.is_member && !membership.data.collection_state ? <PlusStateSetup locale={locale} /> : null}
+      {!chosenId && membership.data?.collection_state ? <p role="status">{t("shop.plus.state.yours", locale, { state: membership.data.collection_state })}</p> : null}
       {graceEnds ? <p role="status">{t("shop.in_grace", locale, { date: formatPatientDate(graceEnds) })}</p> : null}
       {!beneficiary && profiles.length > 0 ? (
         <fieldset>

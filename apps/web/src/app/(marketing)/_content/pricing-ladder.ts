@@ -9,6 +9,7 @@
  * no em dashes, no Basic / Lite / Standard / Premium / Gold, no stronger visual weight on one card.
  */
 import { t } from "@tarragon/i18n";
+import { renewalCopy } from "@/lib/marketing/membership";
 
 export interface LadderCard {
   id: "free" | "evergreen" | "evergreen_plus";
@@ -74,7 +75,7 @@ export function ladderCards(price: LadderPriceLabels): LadderCard[] {
   ];
 }
 
-export function ladderFaq(refundDays: number): { question: string; answer: string }[] {
+export function ladderFaq(refundDays: number, autoRenews = false): { question: string; answer: string }[] {
   return [
     {
       question: "What is the difference between Membership and Membership Plus?",
@@ -88,8 +89,7 @@ export function ladderFaq(refundDays: number): { question: string; answer: strin
     },
     {
       question: "Does it renew by itself?",
-      answer:
-        "No. It lasts a year and we remind you 30, 14 and 7 days before it ends. For 14 days after it ends you keep your Member access, and your records stay with you whatever you choose.",
+      answer: renewalCopy(autoRenews, refundDays).faqAnswer,
     },
     {
       question: "Can I get a refund?",

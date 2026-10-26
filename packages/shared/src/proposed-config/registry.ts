@@ -3394,6 +3394,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (D2, C3, C10); supabase/migrations/20261013003317_two_tier_membership_pricing.sql",
   },
   {
+    key: "commerce.membership_prices",
+    // Version 2, 2026-10-26 (founder: "go with 129,000"). The individual Membership is 129,000 naira a year. The live `prices` row for
+    // membership_annual has been 12,900,000 kobo since 2026-10-21 18:17 UTC (the three-tier decision in docs/DECISIONS.md, applied live
+    // from the Evergreen-ladder branch, whose migration is not on main-dev yet), while version 1 above, and so the website, still said
+    // 120,000: a visitor was shown one price and the app charged another. The organisation price is unchanged. Version 1 is kept: it is
+    // what the launch migration inserted, and the mirror test pins that history.
+    value: { individual_kobo: 12_900_000, organisation_member_kobo: 10_000_000 },
+    owner: "Founder",
+    status: "confirmed",
+    version: 2,
+    effectiveFrom: "2026-10-21",
+    source: "docs/DECISIONS.md (three-tier annual-only membership, 2026-10-21); founder confirmed 129,000 in chat on 2026-10-26; the live prices row valid from 2026-10-21",
+  },
+  {
     key: "employer.seat_pilot",
     // EMP (docs/design/EMP.md): limits for an employer seat pilot and the rounding of its report. max_seats_per_pilot and
     // max_window_days stop a typo in a finance form; usage counts are shown rounded to report_round_to; usage_report_enabled stays false until counsel and the DPO have signed the employee notice (OQ-EMP-7, OQ-EMP-9), so a pilot reports seat counts only. The minimum cell is NOT here: the report uses the one platform rule, private.min_cell_floor (S75a, OQ-233), so there is a single number to change (I9). The
