@@ -53,6 +53,9 @@ export const membershipSchema = z.object({
   grace_ends_at: z.string().nullable().optional(),
   /** Membership (no annual blood panel) or plus (with it); null when Free. */
   tier: z.enum(["evergreen", "plus"]).nullable().optional(),
+  /** A year already paid for that starts when this one ends (a Membership bought onto a running Plus year). */
+  next_tier: z.enum(["evergreen", "plus"]).nullable().optional(),
+  next_starts_at: z.string().nullable().optional(),
 });
 export type MembershipState = z.infer<typeof membershipSchema>;
 

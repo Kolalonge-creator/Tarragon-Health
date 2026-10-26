@@ -2027,6 +2027,7 @@ export const en = {
   "shop.tier.same_care": "Membership and Membership Plus are the same care. The only difference is the yearly blood panel.",
   "shop.tier.urgent_same": "If a reading or a symptom looks urgent, the guidance you see is the same on every plan, including Free.",
   "shop.tier.you_have_plus": "You have Membership Plus until {date}.",
+  "shop.tier.next_year": "Your next year is already paid for and starts on {date}.",
   "shop.tier.you_have_evergreen": "Your Membership runs until {date}. You can add the yearly blood panel for the difference, once, without changing your year.",
   "shop.tier.upgrade.pay": "Move up to Membership Plus",
   "shop.error.gift_item_not_allowed": "Only the full yearly Membership can be paid for someone else.",

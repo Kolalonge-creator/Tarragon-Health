@@ -171,6 +171,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
           <MutedText>{tr("shop.tier.urgent_same")}</MutedText>
         </View>
       ) : null}
+      {!beneficiary && membership.nextStartsAt ? <MutedText>{tr("shop.tier.next_year", { date: lagos(membership.nextStartsAt) })}</MutedText> : null}
       {!beneficiary && membership.graceEndsAt ? <MutedText>{tr("shop.in_grace", { date: lagos(membership.graceEndsAt) })}</MutedText> : null}
       {priceNotices.length > 0 ? (
         <Card>

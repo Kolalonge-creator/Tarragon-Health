@@ -350,6 +350,7 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary, notInclude
           <p className={MUTED}>{t("shop.tier.urgent_same", locale)}</p>
         </div>
       ) : null}
+      {!chosenId && membership.data?.next_starts_at ? <p role="status">{t("shop.tier.next_year", locale, { date: formatPatientDate(membership.data.next_starts_at) })}</p> : null}
       {graceEnds ? <p role="status">{t("shop.in_grace", locale, { date: formatPatientDate(graceEnds) })}</p> : null}
       {!beneficiary && profiles.length > 0 ? (
         <fieldset>

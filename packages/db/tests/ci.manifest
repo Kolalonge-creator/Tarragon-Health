@@ -1529,3 +1529,6 @@ membership_ladder_review_fixes.sql
 
 # The Membership ladder survives the remove-instalments migration (2026-10-26): after full replay the final function bodies still carry the tier, upgrade, refund, ledger and gate changes, and no function names a removed instalment object. Sabotage: a removed clause must be detected.
 membership_ladder_survives_instalment_removal.sql
+
+# Queued Membership year (2026-10-26): a Membership payment or accepted gift onto a running Plus year is queued to start when it ends (same and higher tier still extend); roll at natural end, activation when the Plus year ends early, a refund of a queued order cancels only that row, reminders skip a queued person, my_membership shows the next year. Sabotage: activation trigger dropped and refund cancel clause disabled must flip.
+membership_queued_year.sql

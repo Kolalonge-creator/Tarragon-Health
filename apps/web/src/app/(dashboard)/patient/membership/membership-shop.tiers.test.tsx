@@ -14,7 +14,7 @@ const EG = { ...base, code: "membership_annual_no_panel", name_key: "catalog.mem
 const UP = { ...base, code: "membership_upgrade_plus", name_key: "catalog.membership_upgrade_plus.name", description_key: "catalog.membership_upgrade_plus.description", included_keys: ["catalog.membership_upgrade_plus.incl.1"], amount_kobo: 4_500_000 };
 
 let catalogue: { data: unknown[]; isSuccess: boolean };
-let membership: { data: { is_member: boolean; ends_at: string | null; source: string | null; tier?: "evergreen" | "plus" | null; in_grace?: boolean; grace_ends_at?: string | null } };
+let membership: { data: { is_member: boolean; ends_at: string | null; source: string | null; tier?: "evergreen" | "plus" | null; in_grace?: boolean; grace_ends_at?: string | null; next_tier?: "evergreen" | "plus" | null; next_starts_at?: string | null } };
 const mutateAsync = jest.fn();
 jest.mock("@/lib/queries/commerce", () => {
   const actual = jest.requireActual("@/lib/queries/commerce");
@@ -122,5 +122,10 @@ describe("MembershipShop with the Membership ladder", () => {
     expect(screen.getByText("Annual blood panel: yes")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "Pay with Paystack" }).length).toBe(2);
     expect(screen.queryByRole("button", { name: "Move up to Membership Plus" })).toBeNull();
+  });
+  it("a Plus member whose Membership year is already queued is told when the next year starts", () => {
+    membership = { data: { is_member: true, ends_at: "2027-08-01T00:00:00Z", source: "purchase", tier: "plus", next_tier: "evergreen", next_starts_at: "2027-08-01T00:00:00Z" } };
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.getByText(/Your next year is already paid for and starts on/)).toBeTruthy();
   });
 });
