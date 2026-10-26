@@ -2,7 +2,7 @@
 -- blood-pressure-lowering or glucose-lowering medicine.
 -- Source of the requirement: docs/DECISIONS.md, 2026-10-21 (three-tier Membership ladder), go-live condition (2): "a CMO-owned baseline-labs
 -- prescribing rule (baseline kidney function and potassium, glucose, HbA1c if diabetic, before starting or uptitrating a BP or glucose-lowering
--- drug), signed by the independent CMO and never by an agent".
+-- drug), signed by the independent CMO and never by an agent". Amended 2026-10-26 (docs/DECISIONS.md): the separate independent-CMO condition was removed; the Chief Medical Officer of record signs, and never an agent.
 --
 -- WHAT THIS ADDS (it changes no stored patient row and, until the CMO signs, changes no behaviour for anyone):
 --   1. baseline_labs_rule_config: versioned, PROPOSED, born UNSIGNED and INACTIVE (same shape as outcome_cascade_config, WP3). Only
@@ -184,7 +184,8 @@ begin
     if not exists (
       select 1 from private.lab_analyte_readings_current l
        where l.patient_id = p_patient and l.code = any (v_codes)
-         and coalesce(l.specimen_collected_at, l.taken_at) >= now() - make_interval(days => v_window)) then
+         and coalesce(l.specimen_collected_at, l.taken_at) >= now() - make_interval(days => v_window)
+         and coalesce(l.specimen_collected_at, l.taken_at) <= now() + interval '1 day') then
       v_missing := v_missing || coalesce(v_cfg -> 'required_baseline' -> 'analytes' -> v_key ->> 'label', v_key);
     end if;
   end loop;
@@ -215,6 +216,30 @@ begin
 end $$;
 revoke all on function private.dose_not_increased(text, text) from public, anon, authenticated;
 
+-- Times per day a free-text frequency stands for, or null when it cannot be read. Only used to SHOW a frequency did not go up.
+create function private.frequency_per_day(p_text text) returns integer
+language sql immutable set search_path = ''
+as $$
+  select case
+    when t ~ '\m(four times|4 times|4x|qds|qid|q6h)\M' then 4
+    when t ~ '\m(three times|3 times|3x|tds|tid|q8h)\M' then 3
+    when t ~ '\m(twice|two times|2 times|2x|bd|bid|q12h)\M' then 2
+    when t ~ '\m(once|daily|od|nocte|mane|every morning|every night)\M' then 1
+    else null end
+  from (select lower(coalesce(p_text, '')) as t) x
+$$;
+revoke all on function private.frequency_per_day(text) from public, anon, authenticated;
+
+-- True only when we can SHOW the frequency did not go up (same text, or both readable and not higher).
+create function private.frequency_not_increased(p_old text, p_new text) returns boolean
+language sql immutable set search_path = ''
+as $$
+  select coalesce(lower(btrim(p_old)) = lower(btrim(p_new)), p_old is null and p_new is null)
+      or (private.frequency_per_day(p_old) is not null and private.frequency_per_day(p_new) is not null
+          and private.frequency_per_day(p_new) <= private.frequency_per_day(p_old))
+$$;
+revoke all on function private.frequency_not_increased(text, text) from public, anon, authenticated;
+
 create function private.enforce_baseline_labs_rule() returns trigger
 language plpgsql security definer set search_path = ''
 as $$
@@ -228,11 +253,15 @@ begin
   if not private.baseline_labs_drug_in_scope(v_cfg, new.drug_name) then return new; end if;
 
   if tg_op = 'UPDATE' then
-    if new.dose is not distinct from old.dose then return new; end if;
-    if old.drug_name is not distinct from new.drug_name and private.dose_not_increased(old.dose, new.dose) then return new; end if;
+    -- a restart (stopped to active) or a different drug is a START; otherwise only a higher dose or frequency is an uptitration
+    if old.is_active is true and old.drug_name is not distinct from new.drug_name then
+      if new.dose is not distinct from old.dose and new.frequency is not distinct from old.frequency then return new; end if;
+      if private.dose_not_increased(old.dose, new.dose) and private.frequency_not_increased(old.frequency, new.frequency) then return new; end if;
+    end if;
   elsif new.previous_version_id is not null then                              -- an amendment inserts a new version of an existing prescription
     select * into v_prev from public.medications where id = new.previous_version_id;
-    if v_prev.id is not null and v_prev.drug_name is not distinct from new.drug_name and private.dose_not_increased(v_prev.dose, new.dose) then return new; end if;
+    if v_prev.id is not null and v_prev.drug_name is not distinct from new.drug_name
+       and private.dose_not_increased(v_prev.dose, new.dose) and private.frequency_not_increased(v_prev.frequency, new.frequency) then return new; end if;
   end if;
 
   v_missing := private.baseline_labs_missing(new.patient_id, new.drug_name);
@@ -244,7 +273,7 @@ begin
   return new;
 end $$;
 revoke all on function private.enforce_baseline_labs_rule() from public, anon, authenticated;
-create trigger medications_c_baseline_labs_rule before insert or update of dose on public.medications
+create trigger medications_c_baseline_labs_rule before insert or update of dose, frequency, is_active, drug_name on public.medications
   for each row execute function private.enforce_baseline_labs_rule();
 
 -- Self-check

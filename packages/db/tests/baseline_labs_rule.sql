@@ -76,6 +76,20 @@ begin
   perform pg_temp.back();
   return r;
 end $f$;
+create function pg_temp.updf(p_uid uuid, p_id uuid, p_freq text) returns text language plpgsql as
+$f$ declare r text; n integer;
+begin
+  perform set_config('request.jwt.claims', json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', p_uid::text, true);
+  begin
+    update public.medications set frequency = p_freq where id = p_id;
+    get diagnostics n = row_count;
+    r := case when n = 1 then 'ok' else 'norows:' || n end;
+  exception when others then r := sqlstate || ':' || sqlerrm;
+  end;
+  perform pg_temp.back();
+  return r;
+end $f$;
 create function pg_temp.med(p_org uuid, p_pat uuid, p_drug text, p_dose text, p_source text, p_prev uuid default null) returns uuid language plpgsql as
 $f$ declare v uuid;
 begin
@@ -87,7 +101,7 @@ end $f$;
 do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_smo uuid; v_pat uuid; v_dm uuid; v_ver integer;
-  v_m uuid; v_old uuid; v_txt text; v_n integer; v_missing text[];
+  v_m uuid; v_old uuid; v_fut uuid; v_nl uuid; v_stop uuid; v_ren uuid; v_fq uuid; v_fm uuid; v_fm2 uuid; v_txt text; v_n integer; v_missing text[];
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -96,6 +110,7 @@ begin
   v_smo := pg_temp.mkdoc(v_org, v_admin, 'smo', 'senior_medical_officer');
   v_pat := pg_temp.mkuser(v_org, 'patient', 'patient');
   v_dm := pg_temp.mkuser(v_org, 'diabetic', 'patient');
+  v_fq := pg_temp.mkuser(v_org, 'freq', 'patient');
   insert into public.patient_conditions (organisation_id, patient_id, condition_name, icd10_code, status)
   values (v_org, v_dm, 'Type 2 diabetes', 'E11', 'active');
 
@@ -171,6 +186,37 @@ begin
   perform pg_temp.lab(v_org, v_old, 'potassium', 'mmol/L', 120);
   perform pg_temp.rec('d12 a potassium older than 90 days: a start is refused', '23514', left(pg_temp.msg(format('select pg_temp.med(%L,%L,%L,%L,%L)', v_org, v_old, 'Ramipril', '5 mg', 'clinician')), 5));
   perform pg_temp.rec('d13 and only the potassium is named', '{Potassium}', private.baseline_labs_missing(v_old, 'Ramipril')::text);
+
+  -- d (review fixes). a lab dated in the future does not count; a restart, a rename and a frequency increase are checked; a lower frequency is not
+  v_fut := pg_temp.mkuser(v_org, 'future', 'patient');
+  perform pg_temp.lab(v_org, v_fut, 'creatinine', 'umol/L', 10);
+  perform pg_temp.lab(v_org, v_fut, 'fasting_glucose', 'mmol/L', 10);
+  perform pg_temp.lab(v_org, v_fut, 'potassium', 'mmol/L', -10);
+  perform pg_temp.rec('d14 a potassium dated in the future does not count', '{Potassium}', private.baseline_labs_missing(v_fut, 'Ramipril')::text);
+
+  v_nl := pg_temp.mkuser(v_org, 'nolabs', 'patient');
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, is_active)
+    values (v_org, v_nl, 'Losartan', '50 mg', 'once daily', 'clinician', false) returning id into v_stop;
+  perform pg_temp.rec('d15 restarting a stopped medicine with no labs is refused', '23514',
+    left(pg_temp.msg(format('update public.medications set is_active = true where id = %L', v_stop)), 5));
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, is_active)
+    values (v_org, v_nl, 'Paracetamol', '500 mg', 'once daily', 'clinician', true) returning id into v_ren;
+  perform pg_temp.rec('d16 renaming an unrelated drug into a checked one with no labs is refused', '23514',
+    left(pg_temp.msg(format('update public.medications set drug_name = %L where id = %L', 'Ramipril', v_ren)), 5));
+
+  -- seed an existing clinician prescription for a patient with no labs (the trigger is paused only to plant the row)
+  alter table public.medications disable trigger medications_c_baseline_labs_rule;
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, is_active)
+    values (v_org, v_fq, 'Losartan', '50 mg', 'once daily', 'clinician', true) returning id into v_fm;
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, is_active)
+    values (v_org, v_fq, 'Amlodipine', '5 mg', 'twice daily', 'clinician', true) returning id into v_fm2;
+  alter table public.medications enable trigger medications_c_baseline_labs_rule;
+  perform pg_temp.rec('d17 a higher frequency at the same strength is checked, and refused with no labs', '23514',
+    left(pg_temp.updf(v_cmo, v_fm, 'three times daily'), 5));
+  perform pg_temp.rec('d18 the same frequency written differently is not an increase', 'ok',
+    pg_temp.updf(v_cmo, v_fm, 'once daily '));
+  perform pg_temp.rec('d19 a lower frequency is not an increase', 'ok',
+    pg_temp.updf(v_cmo, v_fm2, 'once daily'));
 
   -- f. HbA1c only for diabetes
   perform pg_temp.lab(v_org, v_dm, 'creatinine', 'umol/L', 5);
