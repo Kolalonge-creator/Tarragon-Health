@@ -101,7 +101,7 @@ begin
   select organisation_id, id into v_org, v_item from public.catalog_items where code = 'membership_annual' order by created_at limit 1;
   perform pg_temp.setf('org', v_org);
   perform pg_temp.setf('item', v_item);
-  for i in 1..8 loop perform pg_temp.setf('p' || i, pg_temp.mkuser(v_org, 'p' || i)); end loop;
+  for i in 1..11 loop perform pg_temp.setf('p' || i, pg_temp.mkuser(v_org, 'p' || i)); end loop;
   update public.catalog_items set active = true where id = v_item;
 end $$;
 
@@ -197,6 +197,10 @@ begin
   update public.membership_renewal_attempts set created_at = now() - interval '21 hours' where membership_id = v_m;
   perform pg_temp.ck('a fourth try is refused', 'attempts_exhausted',
     (pg_temp.q_svc(format($q$select public.service_prepare_membership_renewal(%L)::text$q$, v_m))::jsonb ->> 'skip'));
+  perform pg_temp.ck('the open-references function lists the three earlier attempts of this year, in order', '3',
+    pg_temp.q_svc(format($q$select count(*)::text from public.service_renewal_open_references(%L)$q$, v_m)));
+  perform pg_temp.ck('and a patient cannot call it', 'true',
+    (pg_temp.q_as(v_p2, format($q$select count(*)::text from public.service_renewal_open_references(%L)$q$, v_m)) like 'ERR:%')::text);
   perform pg_temp.ck('three attempts made three orders, and only the last is still open', '3/1',
     (select count(*)::text from public.orders where renews_membership_id = v_m) || '/' || (select count(*)::text from public.orders where renews_membership_id = v_m and state = 'created'));
   perform pg_temp.ck('and the membership itself was never touched by the failures', 'active', (select state from public.patient_memberships where id = v_m));
@@ -282,6 +286,61 @@ begin
   perform pg_temp.ck('a card with no auto-renewing membership behind it is deleted', '1', v_n::text);
   perform pg_temp.ck('and p6, still on auto-renewal, keeps theirs', '1', (select count(*)::text from public.membership_cards where patient_id = v_p6));
 end $$;
+
+-- 6b. A renewal confirmed AFTER the end date keeps the person's choice; one cancelled in between does not renew -------------------------------
+do $$
+declare v_p9 uuid := pg_temp.f('p9'); v_p10 uuid := pg_temp.f('p10'); v_ref text; v_m uuid; r jsonb; v_amt bigint; v_new timestamptz; v_note text;
+begin
+  -- p9: renewing, the confirmation lands a day after the year ended
+  v_ref := pg_temp.buy(v_p9, true);
+  perform pg_temp.q_svc(format($q$select public.save_membership_card(%L, 'AUTH_p9', true, 'sig9', 'visa', '9999', '03', '2031', 'CUS_p9', 'p9@example.invalid')::text$q$, v_ref));
+  select id into v_m from public.patient_memberships where patient_id = v_p9;
+  update public.patient_memberships set ends_at = now() + interval '2 days' where id = v_m;
+  r := pg_temp.q_svc(format($q$select public.service_prepare_membership_renewal(%L)::text$q$, v_m))::jsonb;
+  v_amt := (r ->> 'amount_kobo')::bigint;
+  update public.patient_memberships set starts_at = now() - interval '400 days', ends_at = now() - interval '1 day' where id = v_m;
+  perform pg_temp.q_svc(format($q$select public.record_order_payment(%L, %s, 0, %s, 'NGN', 'success', 'sweep')::text$q$, r ->> 'reference', v_amt, v_amt));
+  perform pg_temp.ck('a late-confirmed renewal leaves exactly one active membership, and the old one is ended', '1/ended',
+    (select count(*)::text from public.patient_memberships where patient_id = v_p9 and state = 'active') || '/' || (select state from public.patient_memberships where id = v_m));
+  perform pg_temp.ck('the NEW membership inherits auto-renew, the item and the consent time', 'true/membership_annual/true',
+    (select auto_renew::text || '/' || renewal_item_code || '/' || (renewal_consent_at is not null)::text from public.patient_memberships where patient_id = v_p9 and state = 'active'));
+  select ends_at into v_new from public.patient_memberships where patient_id = v_p9 and state = 'active';
+  v_note := (select payload ->> 'ends_at' from public.notifications where recipient_id = v_p9 and template = 'membership_renewed');
+  perform pg_temp.ck('and the renewed notice shows the NEW end date, not the old one', to_char(v_new at time zone 'Africa/Lagos', 'FMDD Mon YYYY'), v_note);
+  perform pg_temp.ck('the saved card survives the next housekeeping run', '1', (private.cleanup_membership_cards() * 0 + (select count(*) from public.membership_cards where patient_id = v_p9))::text);
+
+  -- p10: cancels after the charge was prepared; the late confirmation must not switch renewal back on
+  v_ref := pg_temp.buy(v_p10, true);
+  perform pg_temp.q_svc(format($q$select public.save_membership_card(%L, 'AUTH_p10', true, 'sig10', 'visa', '1010', '03', '2031', 'CUS_p10', 'p10@example.invalid')::text$q$, v_ref));
+  select id into v_m from public.patient_memberships where patient_id = v_p10;
+  update public.patient_memberships set ends_at = now() + interval '2 days' where id = v_m;
+  r := pg_temp.q_svc(format($q$select public.service_prepare_membership_renewal(%L)::text$q$, v_m))::jsonb;
+  v_amt := (r ->> 'amount_kobo')::bigint;
+  perform pg_temp.q_as(v_p10, 'select public.cancel_membership_renewal()::text');
+  update public.patient_memberships set starts_at = now() - interval '400 days', ends_at = now() - interval '1 day' where id = v_m;
+  perform pg_temp.q_svc(format($q$select public.record_order_payment(%L, %s, 0, %s, 'NGN', 'success', 'sweep')::text$q$, r ->> 'reference', v_amt, v_amt));
+  perform pg_temp.ck('a person who cancelled in between is NOT put back on auto-renew by the late confirmation', 'false/0',
+    (select auto_renew::text from public.patient_memberships where patient_id = v_p10 and state = 'active') || '/' || (select count(*)::text from public.membership_cards where patient_id = v_p10));
+end $$;
+
+-- 6c. A renewal that cannot even be attempted is told once, never silently --------------------------------------------------------------
+do $$
+declare v_p11 uuid := pg_temp.f('p11'); v_ref text; v_m uuid; v_item uuid := pg_temp.f('item');
+begin
+  v_ref := pg_temp.buy(v_p11, true);
+  perform pg_temp.q_svc(format($q$select public.save_membership_card(%L, 'AUTH_p11', true, 'sig11', 'visa', '1111', '03', '2031', 'CUS_p11', 'p11@example.invalid')::text$q$, v_ref));
+  select id into v_m from public.patient_memberships where patient_id = v_p11;
+  update public.patient_memberships set ends_at = now() + interval '2 days' where id = v_m;
+  update public.catalog_items set active = false where id = v_item;
+  perform pg_temp.ck('with the item closed the renewal is skipped', 'item_unavailable',
+    (pg_temp.q_svc(format($q$select public.service_prepare_membership_renewal(%L)::text$q$, v_m))::jsonb ->> 'skip'));
+  perform pg_temp.q_svc(format($q$select public.service_prepare_membership_renewal(%L)::text$q$, v_m));
+  perform pg_temp.ck('and the person is told ONCE that it could not renew, not twice', '1',
+    (select count(*)::text from public.notifications where recipient_id = v_p11 and template = 'membership_renewal_failed'));
+  perform pg_temp.ck('no order and no charge was made', '0', (select count(*)::text from public.orders where renews_membership_id = v_m));
+  update public.catalog_items set active = true where id = v_item;
+end $$;
+
 
 -- SABOTAGE 1: take the consent check out of save_membership_card; an order with no consent must now save a card
 do $$

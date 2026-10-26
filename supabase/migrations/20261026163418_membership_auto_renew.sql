@@ -237,11 +237,11 @@ begin
   if not found or m.state <> 'active' or not m.auto_renew or m.ends_at is null then return jsonb_build_object('skip', 'not_eligible'); end if;
   if m.ends_at <= now() or m.ends_at > now() + interval '3 days' then return jsonb_build_object('skip', 'outside_window'); end if;
   select * into c from public.membership_cards where patient_id = m.patient_id;
-  if not found then return jsonb_build_object('skip', 'no_card'); end if;
+  if not found then perform private.notify_renewal_blocked(m.id); return jsonb_build_object('skip', 'no_card'); end if;
   select * into pr from public.profiles where id = m.patient_id and is_active;
-  if not found then return jsonb_build_object('skip', 'inactive'); end if;
+  if not found then perform private.notify_renewal_blocked(m.id); return jsonb_build_object('skip', 'inactive'); end if;
   select * into it from public.catalog_items where organisation_id = pr.organisation_id and code = m.renewal_item_code;
-  if not found or not it.active or it.kind <> 'membership' then return jsonb_build_object('skip', 'item_unavailable'); end if;
+  if not found or not it.active or it.kind <> 'membership' then perform private.notify_renewal_blocked(m.id); return jsonb_build_object('skip', 'item_unavailable'); end if;
 
   if exists (select 1 from public.orders where renews_membership_id = m.id and renewal_term_ends_at = m.ends_at and state in ('paid', 'refunded')) then
     return jsonb_build_object('skip', 'already_renewed');
@@ -257,10 +257,10 @@ begin
     q := private.price_quote_calc(m.patient_id, m.patient_id, it.code, null, false);
   exception when others then
     -- e.g. membership_not_open (the billing guard is closed): do not charge, do not raise; the next daily run asks again
-    return jsonb_build_object('skip', 'quote_unavailable');
+    perform private.notify_renewal_blocked(m.id); return jsonb_build_object('skip', 'quote_unavailable');
   end;
   v_amount := (q ->> 'amount_due_kobo')::bigint;
-  if coalesce((q ->> 'sponsor_share_kobo')::bigint, 0) > 0 or v_amount is null or v_amount <= 0 then return jsonb_build_object('skip', 'not_chargeable'); end if;
+  if coalesce((q ->> 'sponsor_share_kobo')::bigint, 0) > 0 or v_amount is null or v_amount <= 0 then perform private.notify_renewal_blocked(m.id); return jsonb_build_object('skip', 'not_chargeable'); end if;
 
   v_ref := 'ren_' || replace(gen_random_uuid()::text, '-', '');
   -- close any earlier open attempt for this year (the caller verified it with Paystack first); a late payment on it would still be honoured
@@ -319,7 +319,7 @@ begin
       select * into pr from public.profiles where id = m.patient_id;
       insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
       values (pr.organisation_id, m.patient_id, private.patient_reminder_channel(m.patient_id), 'pending', 'membership_renewal_failed',
-              jsonb_build_object('membership_id', m.id, 'ends_at', to_char(m.ends_at at time zone 'Africa/Lagos', 'FMDD Mon YYYY'),
+              jsonb_build_object('membership_id', m.id, 'term', a.term_ends_at::text, 'ends_at', to_char(m.ends_at at time zone 'Africa/Lagos', 'FMDD Mon YYYY'),
                                  'final', a.attempt_no = 3));
     end if;
   end if;
@@ -328,6 +328,23 @@ end $$;
 revoke all on function public.service_record_renewal_attempt(text, text, text) from public, anon, authenticated;
 grant execute on function public.service_record_renewal_attempt(text, text, text) to service_role;
 
+-- A renewal that cannot even be attempted (item closed, no quote, no card, a sponsor share) after the person was told it would renew is told
+-- ONCE for that year, never silently. The same wording as a failed charge: renew by hand.
+create or replace function private.notify_renewal_blocked(p_membership uuid) returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare m public.patient_memberships%rowtype; pr public.profiles%rowtype;
+begin
+  select * into m from public.patient_memberships where id = p_membership;
+  if exists (select 1 from public.notifications n where n.recipient_id = m.patient_id and n.template = 'membership_renewal_failed'
+                and n.payload ->> 'membership_id' = m.id::text and n.payload ->> 'term' = m.ends_at::text and (n.payload ->> 'final')::boolean) then return; end if;
+  select * into pr from public.profiles where id = m.patient_id;
+  insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
+  values (pr.organisation_id, m.patient_id, private.patient_reminder_channel(m.patient_id), 'pending', 'membership_renewal_failed',
+          jsonb_build_object('membership_id', m.id, 'term', m.ends_at::text, 'final', true, 'ends_at', to_char(m.ends_at at time zone 'Africa/Lagos', 'FMDD Mon YYYY')));
+end $$;
+revoke all on function private.notify_renewal_blocked(uuid) from public, anon, authenticated;
+
 -- the "your Membership has renewed" notice, queued from record_order_payment so it fires whichever path (sweep, webhook, reconcile) confirms
 create or replace function private.queue_membership_renewed_notice(p_order uuid) returns void
 language plpgsql security definer set search_path = ''
@@ -335,7 +352,8 @@ as $$
 declare o public.orders%rowtype; m public.patient_memberships%rowtype; c public.membership_cards%rowtype;
 begin
   select * into o from public.orders where id = p_order;
-  select * into m from public.patient_memberships where id = o.renews_membership_id;
+  -- the patient's CURRENT membership: the same row after an on-time renewal, the new row after a late one
+  select * into m from public.patient_memberships where patient_id = o.beneficiary_patient_id and state = 'active' order by starts_at desc limit 1;
   select * into c from public.membership_cards where patient_id = o.beneficiary_patient_id;
   insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
   values (o.organisation_id, o.beneficiary_patient_id, private.patient_reminder_channel(o.beneficiary_patient_id), 'pending', 'membership_renewed',
@@ -358,6 +376,7 @@ declare
   it public.catalog_items%rowtype;
   v_reason text;
   v_ent uuid;
+  v_old public.patient_memberships%rowtype;
   v_start timestamptz := coalesce(p_paid_at, now());
 begin
   if (select auth.role()) is distinct from 'service_role' then raise exception 'order_not_authorised' using errcode = '42501'; end if;
@@ -415,6 +434,9 @@ begin
   returning id into v_ent;
 
   if v_ent is not null and it.kind = 'membership' and not (o.buyer_profile_id <> o.beneficiary_patient_id and it.grants_lead) then
+    -- a renewal that is confirmed AFTER the end date closes the old row and opens a new one; the new one must inherit the person's renewal
+    -- choice as it stands NOW (a cancel in between is respected), or renewal would silently stop after the first late confirmation
+    if o.renews_membership_id is not null then select * into v_old from public.patient_memberships where id = o.renews_membership_id; end if;
     update public.patient_memberships set state = 'ended', ended_at = now(), end_reason = 'Lapsed on its end date, closed automatically'
      where patient_id = o.beneficiary_patient_id and state = 'active' and ends_at is not null and ends_at <= now();
     if exists (select 1 from public.patient_memberships where patient_id = o.beneficiary_patient_id and state = 'active') then
@@ -428,8 +450,11 @@ begin
           'Order ' || o.id || ' was paid while the patient already had an active membership. A dated one was extended by the paid period; check whether a refund is due.');
       end if;
     else
-      insert into public.patient_memberships (organisation_id, patient_id, source, starts_at, ends_at, is_test, tier)
-      values (o.organisation_id, o.beneficiary_patient_id, 'purchase', v_start, v_start + make_interval(days => it.duration_days), o.is_test, private.membership_tier_for_item(it.code));
+      insert into public.patient_memberships (organisation_id, patient_id, source, starts_at, ends_at, is_test, tier, auto_renew, renewal_item_code, renewal_consent_at)
+      values (o.organisation_id, o.beneficiary_patient_id, 'purchase', v_start, v_start + make_interval(days => it.duration_days), o.is_test, private.membership_tier_for_item(it.code),
+              coalesce(v_old.auto_renew, false),
+              case when coalesce(v_old.auto_renew, false) then v_old.renewal_item_code end,
+              case when coalesce(v_old.auto_renew, false) then v_old.renewal_consent_at end);
     end if;
     if o.renews_membership_id is not null then perform private.queue_membership_renewed_notice(o.id); end if;
   end if;

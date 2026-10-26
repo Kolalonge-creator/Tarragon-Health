@@ -63,7 +63,7 @@ describe("MembershipShop: automatic renewal", () => {
     expect(box.checked).toBe(false);
     const hint = document.getElementById(box.getAttribute("aria-describedby")!)!.textContent!;
     expect(hint).toMatch(/₦129,000 today/);
-    expect(hint).toMatch(/about a week before your year ends/);
+    expect(hint).toMatch(/up to 3 days before your year ends/);
     expect(hint).toMatch(/unless you cancel/);
     expect(hint).toMatch(/cancel renewal in one tap/);
     expect(hint).toMatch(/keep the year you have paid for/);
