@@ -64,7 +64,7 @@ describe("the Membership ladder pricing content", () => {
     const gift = readFileSync(join(__dirname, "..", "..", "app", "(marketing)", "gift", "page.tsx"), "utf8");
     expect(gift).toContain('getProposedConfig("marketing.membership_ladder_public")');
     expect(gift).toContain('getProposedConfig("commerce.membership_ladder")');
-    expect(gift).toContain("commerce.membership_prices");
+    expect(gift).toContain("@/lib/marketing/membership");
   });
 
   it("there are exactly two member prices and no volume tier in the ladder config", () => {

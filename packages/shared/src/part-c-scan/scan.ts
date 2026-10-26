@@ -33,8 +33,8 @@ export const PART_C_RULES: readonly PartCRule[] = [
   {
     id: "auto-renew",
     part: "C.1",
-    reason: "care packs never auto-renew; only a negation may mention it",
-    pattern: /auto-?renew/i,
+    reason: "care packs never auto-renew; only a negation may mention it. Membership renewal is allowed by founder decision 2026-10-26, so code identifiers (autoRenew, auto_renew) are not flagged, only prose",
+    pattern: /auto[- ]renew/i,
     unless: /\b(no|nothing|never|not|without|off)\b/i,
   },
   {

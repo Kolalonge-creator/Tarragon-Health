@@ -10,6 +10,7 @@ import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { membershipPriceLabel } from "@/lib/marketing/membership";
 import { GiftPersonalizer } from "./_components/gift-personalizer";
 
 export const metadata: Metadata = pageMetadata({
@@ -20,12 +21,6 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export const revalidate = 3600;
-
-/** The Membership price, read from the versioned config (integer kobo), never typed into a page. */
-function membershipPrice(): string {
-  const v = getProposedConfig("commerce.membership_prices").value as { individual_kobo: number };
-  return formatNaira(v.individual_kobo);
-}
 
 /** Whether the Membership ladder is public (marketing.membership_ladder_public). False until the launch conditions are met. */
 function ladderIsPublic(): boolean {
@@ -111,7 +106,7 @@ const HOW_IT_WORKS = [
 ];
 
 export default function GiftPage() {
-  const price = membershipPrice();
+  const price = membershipPriceLabel();
   const faq = giftFaq(price);
   return (
     <>

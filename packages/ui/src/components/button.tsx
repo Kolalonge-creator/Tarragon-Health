@@ -9,6 +9,10 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-brand-green text-white hover:bg-brand-green/90",
+        // Sprout Gold with Charcoal Ink text (about 6.7:1; white on this gold is about 2.7:1 and fails AA). The one
+        // accent button per view, for the main conversion on a photo or the upgrade prompt.
+        // Never an alarm colour. See docs/BRAND_GUIDE.md section 5.
+        accent: "bg-sprout-gold font-semibold text-charcoal-ink hover:bg-sprout-gold/90",
         outline:
           "border border-charcoal-ink/20 bg-transparent text-charcoal-ink hover:bg-charcoal-ink/5 dark:border-night-ink/25 dark:text-night-ink dark:hover:bg-night-ink/10",
         ghost:

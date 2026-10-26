@@ -3,10 +3,12 @@ import Link from "next/link";
 import { formatNaira } from "@tarragon/commerce";
 import { t } from "@tarragon/i18n";
 import { getProposedConfig } from "@tarragon/shared";
+import { MEMBERSHIP_INCLUDES, membershipAutoRenews, membershipPriceLabel, refundWindowDays, renewalCopy } from "@/lib/marketing/membership";
 import { Section, SectionHeading } from "../_components/section";
 import { PricingFreeFeatures } from "../_components/pricing-free-features";
 import { PricingLabelBadge } from "../_components/pricing-label";
 import { CtaBand } from "../_components/cta-band";
+import { TestimonialsSection } from "../_components/testimonials-section";
 import { EmergencyNotice } from "../_components/emergency-notice";
 import { FaqAccordion } from "../_components/marketing-faq-accordion";
 import { Button } from "@/components/ui/button";
@@ -24,18 +26,6 @@ export const metadata: Metadata = pageMetadata({
 
 export const revalidate = 3600;
 
-/** The individual Membership price, read from the versioned config (integer kobo), never typed into a page. */
-function membershipPriceKobo(): number {
-  const v = getProposedConfig("commerce.membership_prices").value as { individual_kobo: number };
-  return v.individual_kobo;
-}
-
-/** The refund window in days, read from the versioned config (membership.refund), never typed into a page. */
-function refundWindowDays(): number {
-  const v = getProposedConfig("membership.refund").value as { window_days: number };
-  return v.window_days;
-}
-
 /** Whether the three-card ladder is public (marketing.membership_ladder_public). False until the launch conditions are met. */
 function ladderIsPublic(): boolean {
   return (getProposedConfig("marketing.membership_ladder_public").value as { enabled: boolean }).enabled === true;
@@ -47,14 +37,7 @@ function ladderPriceKobo(): { evergreen: number; evergreenPlus: number } {
   return { evergreen: v.evergreen_kobo, evergreenPlus: v.evergreen_plus_kobo };
 }
 
-const MEMBERSHIP_INCLUDES = [
-  t("catalog.membership_annual.incl.1", "en"),
-  t("catalog.membership_annual.incl.2", "en"),
-  t("catalog.membership_annual.incl.3", "en"),
-  t("catalog.membership_annual.incl.4", "en"),
-] as const;
-
-function pricingFaq(price: string, refundDays: number) {
+function pricingFaq(price: string, refundDays: number, autoRenews: boolean) {
   return [
     {
       question: "What are the two plans?",
@@ -62,8 +45,7 @@ function pricingFaq(price: string, refundDays: number) {
     },
     {
       question: "Does Membership renew by itself?",
-      answer:
-        "No. It lasts a year and we remind you 30, 14 and 7 days before it ends. For 14 days after it ends you keep your Member access, and your records stay with you whatever you choose.",
+      answer: renewalCopy(autoRenews, refundDays).faqAnswer,
     },
     {
       question: "Can I get a refund?",
@@ -82,10 +64,10 @@ function pricingFaq(price: string, refundDays: number) {
   ];
 }
 
-function LadderPricing({ refundDays }: { refundDays: number }) {
+function LadderPricing({ refundDays, autoRenews }: { refundDays: number; autoRenews: boolean }) {
   const kobo = ladderPriceKobo();
   const cards = ladderCards({ evergreen: `₦${formatNaira(kobo.evergreen)}`, evergreenPlus: `₦${formatNaira(kobo.evergreenPlus)}` });
-  const faq = ladderFaq(refundDays);
+  const faq = ladderFaq(refundDays, autoRenews);
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -122,7 +104,7 @@ function LadderPricing({ refundDays }: { refundDays: number }) {
         </div>
         <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-charcoal-ink/70">{LADDER_SAFETY_STATEMENT}</p>
         <p className="mx-auto mt-2 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          Each paid plan lasts a year and does not renew by itself. Refunds: within {refundDays} days of buying.
+          {renewalCopy(autoRenews, refundDays).short}
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Button asChild size="lg">
@@ -166,10 +148,11 @@ function LadderPricing({ refundDays }: { refundDays: number }) {
 }
 
 export default async function PricingPage() {
-  if (ladderIsPublic()) return <LadderPricing refundDays={refundWindowDays()} />;
-  const price = formatNaira(membershipPriceKobo());
+  if (ladderIsPublic()) return <LadderPricing refundDays={refundWindowDays()} autoRenews={await membershipAutoRenews()} />;
+  const price = membershipPriceLabel();
   const refundDays = refundWindowDays();
-  const faq = pricingFaq(price, refundDays);
+  const autoRenews = await membershipAutoRenews();
+  const faq = pricingFaq(price, refundDays, autoRenews);
   /** FAQPage structured data for the pricing questions; eligible for rich results. */
   const pricingFaqJsonLd = {
     "@context": "https://schema.org",
@@ -223,7 +206,7 @@ export default async function PricingPage() {
             ))}
           </ul>
           <p className="mt-4 text-sm text-charcoal-ink/70">
-            It lasts a year and does not renew by itself. We remind you before it ends, and you keep your Member access for 14 days after.
+            {renewalCopy(autoRenews, refundDays).pricingBox}
           </p>
           <p className="mt-2 text-sm text-charcoal-ink/70">
             Refunds: within {refundDays} days of buying it. After that it cannot be refunded.
@@ -264,6 +247,9 @@ export default async function PricingPage() {
           </div>
         </div>
       </Section>
+
+      {/* Real, consented, published quotes only; renders nothing until there are some. */}
+      <TestimonialsSection />
 
       <Section variant="sage" className="pb-24">
         <EmergencyNotice className="mb-10" />
