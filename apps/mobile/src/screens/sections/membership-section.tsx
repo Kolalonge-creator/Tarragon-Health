@@ -8,13 +8,21 @@ import { buildCheckoutView, itemisedRows, returnNotice } from "@/lib/commerce/ch
 import { HmoEligibilitySection } from "./hmo-eligibility-section";
 import { getProposedConfig, type ConfigValue } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
-import { loadCatalogue, loadMembership, loadMyOrders, loadNotIncluded, loadPriceChangeNotices, loadQuote, startCheckout, verifyOrder } from "@/lib/commerce/api";
+import { loadAutoRenewEnabled, loadCatalogue, loadMembership, loadMyOrders, loadNotIncluded, loadPriceChangeNotices, loadQuote, startCheckout, verifyOrder } from "@/lib/commerce/api";
 import { EntitlementsSection } from "./entitlements-section";
+import { RenewalSection } from "./renewal-section";
 import { checkoutErrorKey, keepsRetryKey, orderStateKey, type CatalogueItem, type MembershipState, type OrderRow } from "@/lib/commerce/parse";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
 const naira = (kobo: number) => `₦${formatNaira(kobo)}`;
+
+/**
+ * Whether the automatic-renewal switch starts ON. It starts OFF: renewal charges a card without a further action from the person, so the
+ * tick is an explicit, affirmative choice made at the moment of payment. The same constant, and the same reasoning, as the web checkout
+ * (RENEW_TICKED_BY_DEFAULT in apps/web/.../membership-shop.tsx); flip both only after counsel's advice.
+ */
+const RENEW_ON_BY_DEFAULT = false;
 const isKey = (k: string): k is MessageKey => Object.hasOwn(en, k);
 
 function lagos(iso: string): string {
@@ -49,6 +57,9 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   const [quotes, setQuotes] = useState<Record<string, { plain: Quote | null; points: Quote | null }>>({});
   const [usePoints, setUsePoints] = useState<Record<string, boolean>>({});
   const [entKey, setEntKey] = useState(0);
+  // Automatic renewal: offered only while the platform switch is on, only for the person's OWN Membership (never a gift), never when they already hold one.
+  const [renewSwitch, setRenewSwitch] = useState(false);
+  const [renew, setRenew] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
   const [notice, setNotice] = useState<MessageKey | null>(null);
@@ -59,7 +70,8 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   const keys = useRef(new Map<string, string>());
 
   const refresh = useCallback(async () => {
-    const [c, o, m, ni, pn] = await Promise.all([loadCatalogue(), loadMyOrders(), loadMembership(), loadNotIncluded(), loadPriceChangeNotices()]);
+    const [c, o, m, ni, pn, rs] = await Promise.all([loadCatalogue(), loadMyOrders(), loadMembership(), loadNotIncluded(), loadPriceChangeNotices(), loadAutoRenewEnabled()]);
+    setRenewSwitch(rs);
     // these two only add information; a failed read shows nothing extra, never a guess
     setNotIncluded(ni.ok ? ni.data : {});
     setPriceNotices(!beneficiary && pn.ok ? pn.data : []);
@@ -79,6 +91,11 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  /** Automatic renewal is offered only for the person's own Membership while the switch is on, and never to someone who already holds one. */
+  function canRenewItem(item: CatalogueItem): boolean {
+    return renewSwitch && !beneficiary && item.kind === "membership" && item.code !== "membership_upgrade_plus" && !membership.isMember;
+  }
 
   /** For someone else the name and what happens come first, before any card is touched (S29c): they are asked to accept, and a no is a refund. */
   function confirmGift(item: CatalogueItem) {
@@ -108,6 +125,8 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
       ...(chosen === q?.points && chosen !== null && usePoints[item.code] === true ? { usePoints: true } : {}),
       // the total the person was shown: the database refuses the order if it now works out a different one
       ...(chosen !== null ? { expectedAmountKobo: chosen.amountDueKobo } : {}),
+      // the person's own tick, only ever sent when they gave it
+      ...(canRenewItem(item) && (renew[item.code] ?? RENEW_ON_BY_DEFAULT) ? { autoRenew: true } : {}),
     });
     if (!r.ok) {
       if (!keepsRetryKey(r.code)) keys.current.delete(item.code);
@@ -153,6 +172,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   return (
     <View style={{ gap: 12 }}>
       {beneficiary ? null : <EntitlementsSection refreshKey={entKey} />}
+      {beneficiary ? null : <RenewalSection refreshKey={entKey} />}
       <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{beneficiary ? tr("circle.pay.who", { name: beneficiary.name }) : tr("shop.title")}</Text>
       {beneficiary ? <MutedText>{tr("circle.pay.note", { name: beneficiary.name })}</MutedText> : null}
       {beneficiary ? <MutedText>{tr("circle.pay.only_year")}</MutedText> : null}
@@ -259,7 +279,21 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
                 <MutedText>{tr("checkout.points.explain")}</MutedText>
               </View>
             ) : null}
-            <MutedText>{tr("shop.no_renew")}</MutedText>
+            {canRenewItem(item) ? (
+              <View style={{ gap: 4, marginTop: 6 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <Text style={{ color: colors.ink, flexShrink: 1 }}>{tr("shop.renew.label")}</Text>
+                  <Switch
+                    value={renew[item.code] ?? RENEW_ON_BY_DEFAULT} onValueChange={(v) => setRenew((m) => ({ ...m, [item.code]: v }))}
+                    accessibilityLabel={tr("shop.renew.label")}
+                  />
+                </View>
+                <MutedText>{tr("shop.renew.detail", { amount: naira(item.amountKobo) })}</MutedText>
+                <MutedText>{tr("shop.renew.card_only")}</MutedText>
+              </View>
+            ) : (
+              <MutedText>{tr("shop.no_renew")}</MutedText>
+            )}
             {blocked ? null : (
               <PrimaryButton
                 title={view.mode === "covered" ? (busy === item.code ? tr("sponsor.getting") : tr("sponsor.get")) : busy === item.code ? tr("shop.paying") : tr("shop.pay")}

@@ -33,17 +33,31 @@ checkout, the renewal card on the Membership page, the renewal notices, and (in 
    last one, and when they cancel. Never SMS.
 7. **Cancel.** `cancel_membership_renewal()`: renewal off, saved card deleted, the paid year untouched, one confirmation. Turning it
    back on needs a new card payment with the box ticked (Paystack can only tokenise a card through a real charge).
-8. **Refund.** A refund inside the window ends the Membership at once (existing behaviour); the nightly `membership-card-cleanup` job
+8. **Price protection.** A renewal is charged only if the current price is no higher than the price the person was last SHOWN: the list
+   price at the first payment, then the amount in each 30/14/7-day notice, then the amount of each renewal charged
+   (`patient_memberships.renewal_notified_kobo`). If the price rose after that, the card is NOT charged: they get one
+   `membership_renewal_price_changed` notice with the new amount and how to renew by hand. A price that fell is charged at the lower price.
+9. **Monitoring.** Every run of the sweep reports itself (`membership_renewal_runs`), including a run with nothing due and a run that
+   failed. A daily watchdog (`membership-renewal-watchdog`, 08:00 UTC, silent while the switch is off) opens an ops incident, once per
+   cause per day, when the sweep has not reported in 26 hours (a missing or wrong vault secret, a crashed function, a stopped cron),
+   when the last run failed or had failed charges, or when a membership ending within 2 days was never attempted.
+10. **Processing fee on a renewal.** If Paystack adds its fee to a `charge_authorization` and reports no separate requested amount, the
+   charge request carries the price it asked for (`metadata.renewal_expected_kobo`, set only by the server) and `confirmPayment` reads
+   a larger amount with nothing separate as price plus fee. The database still demands the exact order price, and the fee is still
+   capped at what Paystack reports taking, so an overcharge is refused. The first real test charge still confirms which way Paystack
+   behaves.
+11. **Refund.** A refund inside the window ends the Membership at once (existing behaviour); the nightly `membership-card-cleanup` job
    then deletes the card.
 
 ## Before the switch is turned on (checklist)
 
 - [ ] **Paystack.** Confirm with Paystack support that reusable authorizations are enabled for this account and for Nigerian cards,
-  that `charge_authorization` works for a yearly charge, and how the **processing fee** is applied on `charge_authorization` (the
-  order amount is the price; `confirmPayment` already handles price-plus-fee, but it has never been seen on a renewal charge).
+  and that `charge_authorization` works for a yearly charge. The processing-fee behaviour is handled either way (item 10) but has never
+  been seen on a real renewal charge: check the recorded fee on the test charge.
 - [ ] **Test mode end to end.** Buy with a Paystack test card with the box ticked; move `ends_at` to 2 days away; run the function;
   watch the renewal order, the extension, the ledger posting and all notices. Then one real, small, watched charge with a staff card.
-- [ ] **Secrets.** Vault secret `membership_renewal_secret` and the edge function env `MEMBERSHIP_RENEWAL_SECRET` (same value).
+- [ ] **Secrets.** Vault secret `membership_renewal_secret` and the edge function env `MEMBERSHIP_RENEWAL_SECRET` (same value). If
+  either is missing the watchdog opens an incident within a day; do not rely on that, check it before turning the switch on.
 - [ ] **Deploy** `membership-renewal`, and redeploy every function that bundles `_shared/commerce` (`order-checkout`, `order-verify`,
   `order-reconcile`, `paystack-webhook`) so they all carry the card-capture change.
 - [ ] **Counsel.** Whether an unticked box is required, the wording of the consent text, the terms of service, and the data-protection
@@ -55,8 +69,8 @@ checkout, the renewal card on the Membership page, the renewal notices, and (in 
 
 ## Known limits
 
-- The mobile app has no consent box, so a purchase made in the mobile app does not renew by itself (its copy stays "does not renew by
-  itself", which is true for those purchases).
+- The mobile app has the same unticked consent switch and the same renewal card with a one-tap cancel as the web (the
+  `RENEW_ON_BY_DEFAULT` constant mirrors the web one). Both read the platform switch, so neither shows anything while it is off.
 - Employer seats and vouchers never renew on a card.
 - A renewal that fails three times is not retried again; the Membership then runs out and lapses on the existing 14-day grace path.
 - The saved authorization code is stored as plain text in a service-role-only table (disk-level encryption only). Moving it to the

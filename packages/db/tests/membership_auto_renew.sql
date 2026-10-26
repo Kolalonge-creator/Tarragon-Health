@@ -101,7 +101,7 @@ begin
   select organisation_id, id into v_org, v_item from public.catalog_items where code = 'membership_annual' order by created_at limit 1;
   perform pg_temp.setf('org', v_org);
   perform pg_temp.setf('item', v_item);
-  for i in 1..11 loop perform pg_temp.setf('p' || i, pg_temp.mkuser(v_org, 'p' || i)); end loop;
+  for i in 1..14 loop perform pg_temp.setf('p' || i, pg_temp.mkuser(v_org, 'p' || i)); end loop;
   update public.catalog_items set active = true where id = v_item;
 end $$;
 
@@ -230,6 +230,8 @@ begin
     (select count(*)::text from public.payments where order_id = v_order and status = 'success') || '/' || (select state from public.orders where id = v_order));
   -- replay (the webhook and the sweep both confirm)
   v_res := pg_temp.q_svc(format($q$select public.record_order_payment(%L, %s, 0, %s, 'NGN', 'success', 'sweep')::text$q$, r ->> 'reference', v_amt, v_amt))::jsonb ->> 'result';
+  perform pg_temp.ck('a paid renewal sets the next baseline to what was charged', v_amt::text,
+    (select renewal_notified_kobo::text from public.patient_memberships where id = v_m));
   perform pg_temp.ck('a replay is a replay', 'replay', v_res);
   perform pg_temp.ck('and extends nothing a second time', 'true',
     ((select ends_at from public.patient_memberships where id = v_m) = v_end + interval '365 days')::text);
@@ -271,6 +273,9 @@ begin
     (select template || '/' || (payload ->> 'card_last4') || '/' || ((payload ->> 'amount') ~ '^[0-9,]+$')::text from public.notifications where recipient_id = v_p6 and template like 'membership%'));
   perform pg_temp.ck('p7, not on auto-renewal, gets the plain reminder with no amount', 'membership_renewal_reminder/false',
     (select template || '/' || (payload ? 'amount')::text from public.notifications where recipient_id = v_p7 and template like 'membership%'));
+  perform pg_temp.ck('the amount in the notice is the amount recorded as shown to them', 'true',
+    ((select renewal_notified_kobo from public.patient_memberships where patient_id = v_p6 and state = 'active')::text
+       = replace((select payload ->> 'amount' from public.notifications where recipient_id = v_p6 and template = 'membership_auto_renewal_notice'), ',', '') || '00')::text);
   perform pg_temp.ck('the renewal notice tells them how to cancel and never mentions a clinical thing', 'true',
     (select bool_and(body ~* 'cancel' and body !~* '(blood|pressure|diabet|result|medic)') from public.notification_template_locales where template_key = 'membership_auto_renewal_notice')::text);
   perform pg_temp.ck('no renewal notice was ever an SMS', '0', (select count(*)::text from public.notifications where template like 'membership_%renew%' and channel::text = 'sms'));
@@ -342,6 +347,88 @@ begin
 end $$;
 
 
+-- 6d. A price rise since the person was last shown the price is told, never charged -------------------------------------------------------
+do $$
+declare v_p12 uuid := pg_temp.f('p12'); v_p13 uuid := pg_temp.f('p13'); v_ref text; v_m uuid; r jsonb; v_amt bigint;
+begin
+  -- p12 was shown 100,000 kobo less than the price is now
+  v_ref := pg_temp.buy(v_p12, true);
+  perform pg_temp.q_svc(format($q$select public.save_membership_card(%L, 'AUTH_p12', true, 'sig12', 'visa', '1212', '03', '2031', 'CUS_p12', 'p12@example.invalid')::text$q$, v_ref));
+  perform pg_temp.ck('the first payment records the list price they agreed to as the baseline', 'true',
+    ((select renewal_notified_kobo from public.patient_memberships where patient_id = v_p12) = (select list_amount_kobo from public.orders where paystack_reference = v_ref))::text);
+  select id into v_m from public.patient_memberships where patient_id = v_p12;
+  update public.patient_memberships set ends_at = now() + interval '2 days', renewal_notified_kobo = renewal_notified_kobo - 100000 where id = v_m;
+  perform pg_temp.ck('a price higher than the one last shown is NOT charged', 'price_changed',
+    (pg_temp.q_svc(format($q$select public.service_prepare_membership_renewal(%L)::text$q$, v_m))::jsonb ->> 'skip'));
+  perform pg_temp.q_svc(format($q$select public.service_prepare_membership_renewal(%L)::text$q$, v_m));
+  perform pg_temp.ck('the person is told once, with the new amount', '1/true',
+    (select count(*)::text from public.notifications where recipient_id = v_p12 and template = 'membership_renewal_price_changed') || '/'
+    || (select ((payload ->> 'amount') ~ '^[0-9,]+$')::text from public.notifications where recipient_id = v_p12 and template = 'membership_renewal_price_changed'));
+  perform pg_temp.ck('and no order and no attempt was made', '0/0',
+    (select count(*)::text from public.orders where renews_membership_id = v_m) || '/' || (select count(*)::text from public.membership_renewal_attempts where membership_id = v_m));
+  -- once they have been shown the new price (a later notice records it), the same renewal goes ahead
+  update public.patient_memberships set renewal_notified_kobo = renewal_notified_kobo + 100000 where id = v_m;
+  r := pg_temp.q_svc(format($q$select public.service_prepare_membership_renewal(%L)::text$q$, v_m))::jsonb;
+  perform pg_temp.ck('after they were shown the current price the charge is prepared', 'true', ((r ->> 'reference') is not null)::text);
+
+  -- p13 was shown MORE than the price is now: a fall is charged at the lower, current price
+  v_ref := pg_temp.buy(v_p13, true);
+  perform pg_temp.q_svc(format($q$select public.save_membership_card(%L, 'AUTH_p13', true, 'sig13', 'visa', '1313', '03', '2031', 'CUS_p13', 'p13@example.invalid')::text$q$, v_ref));
+  select id into v_m from public.patient_memberships where patient_id = v_p13;
+  update public.patient_memberships set ends_at = now() + interval '2 days', renewal_notified_kobo = renewal_notified_kobo + 1000000 where id = v_m;
+  r := pg_temp.q_svc(format($q$select public.service_prepare_membership_renewal(%L)::text$q$, v_m))::jsonb;
+  v_amt := (r ->> 'amount_kobo')::bigint;
+  perform pg_temp.ck('a price that fell is charged at the current, lower price', 'true',
+    (v_amt = (private.price_quote_calc(v_p13, v_p13, 'membership_annual', null, false) ->> 'amount_due_kobo')::bigint and v_amt < (select renewal_notified_kobo from public.patient_memberships where id = v_m))::text);
+end $$;
+
+-- 6e. The watchdog: a sweep that silently stops, a failing sweep, and a membership nobody attempted ------------------------------------------
+do $$
+declare v_p14 uuid := pg_temp.f('p14'); v_ref text; v_m uuid; h jsonb; v_before integer; v_after integer; v_admin uuid := pg_temp.f('p1');
+begin
+  h := private.check_renewal_health();
+  perform pg_temp.ck('with the switch ON and no run ever reported, the watchdog says the sweep is missing and opens an incident', 'true/1',
+    (h ->> 'sweep_missing') || '/' || (select count(*)::text from public.ops_incidents where external_reference like 'membership-renewal-sweep-missing:%'));
+  perform private.check_renewal_health();
+  perform pg_temp.ck('running it again the same day does not open a second incident', '1',
+    (select count(*)::text from public.ops_incidents where external_reference like 'membership-renewal-sweep-missing:%'));
+  perform pg_temp.q_svc($q$select public.service_record_renewal_run(true, '{"considered":3,"renewed":3,"failed":0,"pending":0,"skipped":0,"alreadyPaid":0}'::jsonb)::text$q$);
+  h := private.check_renewal_health();
+  perform pg_temp.ck('after a good run is reported, the sweep is no longer missing and nothing is failing', 'false/false',
+    (h ->> 'sweep_missing') || '/' || (h ->> 'failures'));
+  perform pg_temp.q_svc($q$select public.service_record_renewal_run(true, '{"considered":3,"renewed":1,"failed":2}'::jsonb)::text$q$);
+  h := private.check_renewal_health();
+  perform pg_temp.ck('a run with failed charges is reported as failing, with an incident', 'true/1',
+    (h ->> 'failures') || '/' || (select count(*)::text from public.ops_incidents where external_reference like 'membership-renewal-failures:%'));
+  perform pg_temp.q_svc($q$select public.service_record_renewal_run(false, '{}'::jsonb)::text$q$);
+  perform pg_temp.ck('a run that failed outright is also failing', 'true', (private.check_renewal_health() ->> 'failures'));
+  perform pg_temp.q_svc($q$select public.service_record_renewal_run(true, '{"considered":0}'::jsonb)::text$q$);
+  perform pg_temp.ck('and a clean run afterwards clears it', 'false', (private.check_renewal_health() ->> 'failures'));
+  update public.membership_renewal_runs set ran_at = now() - interval '30 hours';
+  perform pg_temp.ck('a last run older than 26 hours counts as missing again', 'true', (private.check_renewal_health() ->> 'sweep_missing'));
+  perform pg_temp.q_svc($q$select public.service_record_renewal_run(true, '{"considered":0}'::jsonb)::text$q$);
+
+  -- a membership ending tomorrow, card on file, never attempted
+  v_ref := pg_temp.buy(v_p14, true);
+  perform pg_temp.q_svc(format($q$select public.save_membership_card(%L, 'AUTH_p14', true, 'sig14', 'visa', '1414', '03', '2031', 'CUS_p14', 'p14@example.invalid')::text$q$, v_ref));
+  select id into v_m from public.patient_memberships where patient_id = v_p14;
+  update public.patient_memberships set ends_at = now() + interval '1 day' where id = v_m;
+  v_before := (private.check_renewal_health() ->> 'overdue')::integer;
+  perform pg_temp.ck('a membership due within 2 days that nobody attempted is overdue', 'true', (v_before >= 1)::text);
+  perform pg_temp.q_svc(format($q$select public.service_prepare_membership_renewal(%L)::text$q$, v_m));
+  v_after := (private.check_renewal_health() ->> 'overdue')::integer;
+  perform pg_temp.ck('once it has been attempted it is no longer overdue', '1', (v_before - v_after)::text);
+
+  perform pg_temp.ck('a patient cannot report a run', 'true', (pg_temp.q_as(v_p14, $q$select public.service_record_renewal_run(true, '{}'::jsonb)::text$q$) like 'ERR:%')::text);
+  perform pg_temp.ck('and cannot read the run log', 'true', (pg_temp.q_as(v_p14, 'select count(*)::text from public.membership_renewal_runs') like 'ERR:%')::text);
+
+  -- with the switch OFF the watchdog is silent
+  update public.platform_modules set is_enabled = false where key = 'membership_auto_renew';
+  perform pg_temp.ck('with the switch OFF the watchdog does nothing', 'true', (private.check_renewal_health() ->> 'skipped'));
+  update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = v_admin, activation_note = 'switched back on inside the auto-renew proof' where key = 'membership_auto_renew';
+end $$;
+
+
 -- SABOTAGE 1: take the consent check out of save_membership_card; an order with no consent must now save a card
 do $$
 declare d text; v_p4 uuid := pg_temp.f('p4'); v_ref text;
@@ -377,6 +464,23 @@ begin
     (select count(*)::text from public.ops_incidents where external_reference = 'order-membership-overlap:' || v_order));
 end $$;
 
+-- SABOTAGE 3: take the price-rise check out of prepare; a person shown a lower price must now be prepared for a HIGHER charge
+do $$
+declare d text; v_p12 uuid := pg_temp.f('p12'); v_m uuid; r jsonb;
+begin
+  d := replace(pg_get_functiondef('public.service_prepare_membership_renewal(uuid)'::regprocedure),
+               'if v_amount is not null and v_amount > coalesce(m.renewal_notified_kobo, 0) then', 'if false then');
+  if d = pg_get_functiondef('public.service_prepare_membership_renewal(uuid)'::regprocedure) then raise exception 'VACUOUS TEST: sabotage text 3 not found'; end if;
+  execute d;
+  -- a fresh patient shown 1 kobo less than the price
+  perform pg_temp.setf('p15', pg_temp.mkuser(pg_temp.f('org'), 'p15'));
+  perform pg_temp.q_svc(format($q$select public.save_membership_card(%L, 'AUTH_p15', true, 'sig15', 'visa', '1515', '03', '2031', 'CUS_p15', 'p15@example.invalid')::text$q$, pg_temp.buy(pg_temp.f('p15'), true)));
+  select id into v_m from public.patient_memberships where patient_id = pg_temp.f('p15');
+  update public.patient_memberships set ends_at = now() + interval '2 days', renewal_notified_kobo = renewal_notified_kobo - 1 where id = v_m;
+  r := pg_temp.q_svc(format($q$select public.service_prepare_membership_renewal(%L)::text$q$, v_m))::jsonb;
+  insert into results values ('sabotaged', 'a price rise since the last notice is not charged', 'price_changed', coalesce(r ->> 'skip', 'charged'));
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -387,7 +491,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of 2 checks', v_caught; end if;
+  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

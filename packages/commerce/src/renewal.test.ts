@@ -25,6 +25,7 @@ interface Plan { open?: string[]; prepare?: PrepareResult; due?: string[]; ref?:
 /** A fake of the database half. It records every attempt so a test can assert exactly how each ended. */
 function fakeRenewals(plan: Plan = {}) {
   const attempts: { reference: string; outcome: string; error: string | null }[] = [];
+  const runs: { succeeded: boolean; summary: unknown }[] = [];
   const calls = { prepare: 0 };
   const store: RenewalStore = {
     async due() { return ok(plan.due ?? ["m-1"]); },
@@ -34,8 +35,9 @@ function fakeRenewals(plan: Plan = {}) {
       return ok(plan.prepare ?? { prepared: { orderId: "order-2", reference: plan.ref ?? "ren_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", amountKobo: PRICE, email: "p@example.com", authorizationCode: CARD.code, attemptNo: 1 } });
     },
     async recordAttempt(reference, outcome, error) { attempts.push({ reference, outcome, error }); return ok(true); },
+    async recordRun(succeeded, summary) { runs.push({ succeeded, summary }); return ok(true); },
   };
-  return { store, attempts, calls };
+  return { store, attempts, calls, runs };
 }
 
 const RENEWAL_REF = "ren_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -203,5 +205,33 @@ describe("membership-renewal handler", () => {
     const res = await handleRenewal(req("s"), { secret: "s", renewal: { payments, store, renewals: fakeRenewals({ due: [] }).store } });
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ considered: 0, renewed: 0 });
+  });
+
+  it("reports EVERY authorised run to the watchdog, including one with nothing due, and never reports an unauthorised call", async () => {
+    const { payments, store } = await boughtWithCard();
+    const renewals = fakeRenewals({ due: [] });
+    await handleRenewal(req("s"), { secret: "s", renewal: { payments, store, renewals: renewals.store } });
+    expect(renewals.runs).toEqual([{ succeeded: true, summary: { considered: 0, renewed: 0, failed: 0, pending: 0, skipped: 0, alreadyPaid: 0 } }]);
+    await handleRenewal(req("wrong"), { secret: "s", renewal: { payments, store, renewals: renewals.store } });
+    await handleRenewal(req("s"), { secret: null, renewal: { payments, store, renewals: renewals.store } });
+    expect(renewals.runs).toHaveLength(1);
+  });
+
+  it("reports a run that failed outright as not ok, and answers 500", async () => {
+    const { payments, store } = await boughtWithCard();
+    const renewals = fakeRenewals();
+    const broken = { ...renewals.store, due: async () => fail("vendor_error", "db down", true) } as typeof renewals.store;
+    const res = await handleRenewal(req("s"), { secret: "s", renewal: { payments, store, renewals: broken } });
+    expect(res.status).toBe(500);
+    expect(renewals.runs).toEqual([{ succeeded: false, summary: null }]);
+  });
+
+  it("a failure to report a run never changes the answer", async () => {
+    const { payments, store } = await boughtWithCard();
+    const renewals = fakeRenewals({ due: [] });
+    for (const recordRun of [async () => fail("vendor_error", "x", true), async () => { throw new Error("down"); }]) {
+      const res = await handleRenewal(req("s"), { secret: "s", renewal: { payments, store, renewals: { ...renewals.store, recordRun } as typeof renewals.store } });
+      expect(res.status).toBe(200);
+    }
   });
 });

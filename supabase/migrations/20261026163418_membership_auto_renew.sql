@@ -52,7 +52,11 @@ alter table public.patient_memberships
   add column auto_renew boolean not null default false,
   add column renewal_item_code text,
   add column renewal_consent_at timestamptz,
-  add column renewal_cancelled_at timestamptz;
+  add column renewal_cancelled_at timestamptz,
+  -- the price the person was last SHOWN for the next renewal (at the first payment, then at each 30/14/7 day notice, then at each renewal
+  -- charged). A renewal is charged only if the current price is no higher than this; a rise is told to them first, never charged.
+  add column renewal_notified_kobo bigint check (renewal_notified_kobo is null or renewal_notified_kobo > 0),
+  add column renewal_notified_at timestamptz;
 alter table public.patient_memberships
   add constraint patient_memberships_auto_renew_needs_consent
   check (not auto_renew or (renewal_item_code is not null and renewal_consent_at is not null));
@@ -85,6 +89,23 @@ create table public.membership_cards (
 );
 alter table public.membership_cards enable row level security;
 revoke all on public.membership_cards from public, anon, authenticated;
+
+-- One row per run of the daily sweep, written by the edge function. The watchdog reads it: a sweep that never reports in is the failure
+-- nobody would otherwise see (a missing secret answers 401 and renews nobody, silently).
+create table public.membership_renewal_runs (
+  id uuid primary key default gen_random_uuid(),
+  ran_at timestamptz not null default clock_timestamp(),
+  ok boolean not null,
+  considered integer not null default 0,
+  renewed integer not null default 0,
+  failed integer not null default 0,
+  pending integer not null default 0,
+  skipped integer not null default 0,
+  already_paid integer not null default 0
+);
+alter table public.membership_renewal_runs enable row level security;
+revoke all on public.membership_renewal_runs from public, anon, authenticated;
+create index membership_renewal_runs_ran_idx on public.membership_renewal_runs (ran_at desc);
 
 create table public.membership_renewal_attempts (
   id uuid primary key default gen_random_uuid(),
@@ -151,7 +172,9 @@ begin
   on conflict (patient_id) do update set authorization_code = excluded.authorization_code, customer_code = excluded.customer_code,
     email = excluded.email, signature = excluded.signature, brand = excluded.brand, last4 = excluded.last4, exp_month = excluded.exp_month,
     exp_year = excluded.exp_year, source_order_id = excluded.source_order_id, updated_at = now();
-  update public.patient_memberships set auto_renew = true, renewal_item_code = it.code, renewal_consent_at = o.renewal_consent_at, renewal_cancelled_at = null where id = m.id;
+  -- the baseline: the LIST price they saw and agreed to renew at (not a first-year discount)
+  update public.patient_memberships set auto_renew = true, renewal_item_code = it.code, renewal_consent_at = o.renewal_consent_at, renewal_cancelled_at = null,
+         renewal_notified_kobo = coalesce(o.list_amount_kobo, o.amount_kobo), renewal_notified_at = now() where id = m.id;
   update public.orders set renewal_card_result = 'saved' where id = o.id;
   return jsonb_build_object('result', 'saved', 'membership_id', m.id);
 end $$;
@@ -260,6 +283,11 @@ begin
     perform private.notify_renewal_blocked(m.id); return jsonb_build_object('skip', 'quote_unavailable');
   end;
   v_amount := (q ->> 'amount_due_kobo')::bigint;
+  -- the price may only stay the same or fall since the person was last shown it; a rise is told to them, never charged
+  if v_amount is not null and v_amount > coalesce(m.renewal_notified_kobo, 0) then
+    perform private.notify_renewal_price_changed(m.id, v_amount);
+    return jsonb_build_object('skip', 'price_changed');
+  end if;
   if coalesce((q ->> 'sponsor_share_kobo')::bigint, 0) > 0 or v_amount is null or v_amount <= 0 then perform private.notify_renewal_blocked(m.id); return jsonb_build_object('skip', 'not_chargeable'); end if;
 
   v_ref := 'ren_' || replace(gen_random_uuid()::text, '-', '');
@@ -344,6 +372,76 @@ begin
           jsonb_build_object('membership_id', m.id, 'term', m.ends_at::text, 'final', true, 'ends_at', to_char(m.ends_at at time zone 'Africa/Lagos', 'FMDD Mon YYYY')));
 end $$;
 revoke all on function private.notify_renewal_blocked(uuid) from public, anon, authenticated;
+
+-- The price rose after the person was last shown it, so the card was NOT charged. Told once per year, with the new amount.
+create or replace function private.notify_renewal_price_changed(p_membership uuid, p_amount_kobo bigint) returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare m public.patient_memberships%rowtype; pr public.profiles%rowtype;
+begin
+  select * into m from public.patient_memberships where id = p_membership;
+  if exists (select 1 from public.notifications n where n.recipient_id = m.patient_id and n.template = 'membership_renewal_price_changed'
+                and n.payload ->> 'membership_id' = m.id::text and n.payload ->> 'term' = m.ends_at::text) then return; end if;
+  select * into pr from public.profiles where id = m.patient_id;
+  insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
+  values (pr.organisation_id, m.patient_id, private.patient_reminder_channel(m.patient_id), 'pending', 'membership_renewal_price_changed',
+          jsonb_build_object('membership_id', m.id, 'term', m.ends_at::text, 'amount', to_char(p_amount_kobo / 100, 'FM999,999,999'),
+                             'ends_at', to_char(m.ends_at at time zone 'Africa/Lagos', 'FMDD Mon YYYY')));
+end $$;
+revoke all on function private.notify_renewal_price_changed(uuid, bigint) from public, anon, authenticated;
+
+-- The sweep reports every run, including a run with nothing due and a run that failed.
+create or replace function public.service_record_renewal_run(p_ok boolean, p_summary jsonb default '{}'::jsonb) returns boolean
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if (select auth.role()) is distinct from 'service_role' then raise exception 'order_not_authorised' using errcode = '42501'; end if;
+  insert into public.membership_renewal_runs (ok, considered, renewed, failed, pending, skipped, already_paid)
+  values (coalesce(p_ok, false),
+          coalesce((p_summary ->> 'considered')::integer, 0), coalesce((p_summary ->> 'renewed')::integer, 0), coalesce((p_summary ->> 'failed')::integer, 0),
+          coalesce((p_summary ->> 'pending')::integer, 0), coalesce((p_summary ->> 'skipped')::integer, 0), coalesce((p_summary ->> 'alreadyPaid')::integer, 0));
+  return true;
+end $$;
+revoke all on function public.service_record_renewal_run(boolean, jsonb) from public, anon, authenticated;
+grant execute on function public.service_record_renewal_run(boolean, jsonb) to service_role;
+
+-- The watchdog (daily, two hours after the sweep). Opens an ops incident, once per cause per day, when automatic renewal is ON and
+--   (a) the sweep has not reported in 26 hours (a missing vault secret, a wrong secret, a crashed function, a cron that stopped),
+--   (b) the last run failed outright or had failed charges, or
+--   (c) a membership that should already have been attempted (ends within 2 days, card on file, no attempt, not paid, nobody told) was not.
+-- It does nothing while the switch is OFF. Returns what it found, so a test can assert it.
+create or replace function private.check_renewal_health() returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare v_org uuid; v_last public.membership_renewal_runs%rowtype; v_overdue integer; v_missing boolean; v_failing boolean; v_day text := to_char(now() at time zone 'Africa/Lagos', 'YYYY-MM-DD');
+begin
+  if not public.membership_auto_renew_enabled() then return jsonb_build_object('skipped', true); end if;
+  select organisation_id into v_org from public.catalog_items where code = 'membership_annual' order by created_at limit 1;
+  select * into v_last from public.membership_renewal_runs order by ran_at desc limit 1;
+  v_missing := not found or v_last.ran_at < now() - interval '26 hours';
+  v_failing := found and (not v_last.ok or v_last.failed > 0) and v_last.ran_at >= now() - interval '26 hours';
+  select count(*) into v_overdue from public.patient_memberships m
+   where m.state = 'active' and m.auto_renew and m.ends_at is not null and m.ends_at > now() and m.ends_at <= now() + interval '2 days'
+     and exists (select 1 from public.membership_cards c where c.patient_id = m.patient_id)
+     and not exists (select 1 from public.membership_renewal_attempts a where a.membership_id = m.id and a.term_ends_at = m.ends_at)
+     and not exists (select 1 from public.orders o where o.renews_membership_id = m.id and o.renewal_term_ends_at = m.ends_at and o.state in ('paid', 'refunded'))
+     and not exists (select 1 from public.notifications n where n.recipient_id = m.patient_id and n.payload ->> 'membership_id' = m.id::text and n.payload ->> 'term' = m.ends_at::text);
+  if v_missing then
+    perform private.order_incident(v_org, 'membership-renewal-sweep-missing:' || v_day, 'The daily Membership renewal run has not reported in',
+      'Automatic renewal is ON but the sweep has not reported in for over 26 hours, so nobody is being renewed. Check the membership_renewal_secret in Vault matches MEMBERSHIP_RENEWAL_SECRET on the function, that membership-renewal is deployed, and the cron job membership-auto-renew-daily.');
+  end if;
+  if v_failing then
+    perform private.order_incident(v_org, 'membership-renewal-failures:' || v_day, 'Membership renewals are failing',
+      'The last renewal run reported ' || v_last.failed || ' failed charge(s)' || case when not v_last.ok then ' and the run itself failed' else '' end || '. Look at membership_renewal_attempts and the payments for the affected members.');
+  end if;
+  if v_overdue > 0 then
+    perform private.order_incident(v_org, 'membership-renewal-overdue:' || v_day, 'Membership renewals are overdue',
+      v_overdue || ' membership(s) end within 2 days, have a saved card and renewal on, and have not been attempted or told anything.');
+  end if;
+  return jsonb_build_object('sweep_missing', v_missing, 'failures', v_failing, 'overdue', v_overdue);
+end $$;
+revoke all on function private.check_renewal_health() from public, anon, authenticated;
+select cron.schedule('membership-renewal-watchdog', '0 8 * * *', $$ select private.check_renewal_health(); $$);
 
 -- the "your Membership has renewed" notice, queued from record_order_payment so it fires whichever path (sweep, webhook, reconcile) confirms
 create or replace function private.queue_membership_renewed_notice(p_order uuid) returns void
@@ -456,7 +554,12 @@ begin
               case when coalesce(v_old.auto_renew, false) then v_old.renewal_item_code end,
               case when coalesce(v_old.auto_renew, false) then v_old.renewal_consent_at end);
     end if;
-    if o.renews_membership_id is not null then perform private.queue_membership_renewed_notice(o.id); end if;
+    if o.renews_membership_id is not null then
+      -- the next renewal's baseline is what they were just charged
+      update public.patient_memberships set renewal_notified_kobo = o.amount_kobo, renewal_notified_at = now()
+       where patient_id = o.beneficiary_patient_id and state = 'active' and auto_renew;
+      perform private.queue_membership_renewed_notice(o.id);
+    end if;
   end if;
 
   if v_ent is not null and it.grants_lead and not (o.buyer_profile_id <> o.beneficiary_patient_id and it.grants_lead) and not exists (select 1 from private.lead_candidates(o.beneficiary_patient_id, '{}', true)) then
@@ -485,6 +588,8 @@ insert into public.notification_templates (key, category, business_priority, aud
    'Sent when a Membership has renewed on the saved card. States the amount charged and the new end date.'),
   ('membership_renewal_failed', 'operational', 'important', 'patient', '{in_app,push,email}', 'immediate',
    'Sent when the renewal charge did not go through (first miss, and the last try). Access continues to the end date plus the grace period; the person can renew by hand.'),
+  ('membership_renewal_price_changed', 'operational', 'important', 'patient', '{in_app,push,email}', 'immediate',
+   'Sent when the Membership price rose after the person was last shown it, so their card was NOT charged. States the new amount and how to renew by hand. Never SMS.'),
   ('membership_renewal_cancelled', 'operational', 'important', 'patient', '{in_app,push,email}', 'immediate',
    'Confirms that automatic renewal is off, the saved card was deleted, and the paid year stays in full.')
 on conflict (key) do nothing;
@@ -498,6 +603,9 @@ insert into public.notification_template_locales (template_key, locale, channel,
   ('membership_renewal_failed', 'en', 'in_app', 'We could not renew your Membership', 'The renewal charge did not go through. Your Membership stays active until {{ends_at}} and for 14 days after. You can renew by hand from the Membership page.'),
   ('membership_renewal_failed', 'en', 'push', 'We could not renew your Membership', 'The charge did not go through. You can renew from the Membership page.'),
   ('membership_renewal_failed', 'en', 'email', 'We could not renew your TarragonHealth Membership', E'Hi there,\n\nThe renewal charge did not go through. Your Membership stays active until {{ends_at}}, and for 14 days after that. You can renew by hand, with any card, from the Membership page in the app.\n\nYour records stay with you either way.'),
+  ('membership_renewal_price_changed', 'en', 'in_app', 'The Membership price has changed', 'The price of Membership is now ₦{{amount}}, which is more than we last told you, so we have not charged your card. To keep your Membership, renew from the Membership page before {{ends_at}}. You keep your Member access for 14 days after it ends.'),
+  ('membership_renewal_price_changed', 'en', 'push', 'The Membership price has changed', 'It is now ₦{{amount}}, so we have not charged your card. You can renew from the Membership page.'),
+  ('membership_renewal_price_changed', 'en', 'email', 'The TarragonHealth Membership price has changed', E'Hi there,\n\nThe price of Membership is now ₦{{amount}}, which is more than we last told you. Because of that we have not charged your card, and nothing has been taken.\n\nIf you would like to keep your Membership, you can renew from the Membership page in the app before {{ends_at}}. You keep your Member access for 14 days after it ends, and your records stay with you either way.'),
   ('membership_renewal_cancelled', 'en', 'in_app', 'Automatic renewal is off', 'Your Membership will not renew. You keep the year you have paid for, until {{ends_at}}, and we have deleted the saved card.'),
   ('membership_renewal_cancelled', 'en', 'push', 'Automatic renewal is off', 'You keep your Membership until {{ends_at}}. Nothing more will be charged.'),
   ('membership_renewal_cancelled', 'en', 'email', 'Automatic renewal is off for your TarragonHealth Membership', E'Hi there,\n\nAutomatic renewal is off. You keep the year you have already paid for, until {{ends_at}}, and nothing more will be charged. We have deleted the saved card.\n\nYou can join again whenever you like from the Membership page.')
@@ -530,6 +638,8 @@ begin
       -- no amount or no card means we cannot honestly say "we will charge", so fall back to the plain reminder
       if v_amount is null or v_last4 is null then v_auto := false; end if;
     end if;
+    -- the amount we are about to tell them is the amount they have been SHOWN; the charge may not exceed it
+    if v_auto then update public.patient_memberships set renewal_notified_kobo = v_amount, renewal_notified_at = now() where id = r.id; end if;
     insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
     values (r.organisation_id, r.patient_id, private.patient_reminder_channel(r.patient_id), 'pending',
             case when r.source = 'employer' then 'membership_employer_cover_ending'

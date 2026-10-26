@@ -41,6 +41,8 @@ export interface MockPaymentControl {
   setAuthorization(reference: string, authorization: SavedAuthorization): void;
   /** How the next `chargeAuthorization` calls end: a decline, still pending, or a success (the default). */
   setChargeOutcome(status: Exclude<TransactionStatus, "abandoned" | "reversed">): void;
+  /** Makes the next renewal charges come back with this processing fee ADDED to the amount and no separate requested amount (the worst case). */
+  setRenewalFee(feeKobo: number): void;
   /** Every `chargeAuthorization` the mock received, in order, so a test can assert what was charged. */
   readonly chargeCalls: readonly { reference: string; email: string; amountKobo: number; authorizationCode: string }[];
   /** Makes the next call of any kind fail the way a dropped connection does. */
@@ -62,6 +64,8 @@ interface Charge {
   metadata: Record<string, unknown>;
   channels: readonly PaymentChannel[] | undefined;
   authorization: SavedAuthorization | null;
+  /** True when Paystack reports no separate requested amount: the whole amount looks like the price. */
+  hideRequested?: boolean;
 }
 
 export function createMockPayment(now: () => number = () => Date.now()): PaymentProvider & MockPaymentControl {
@@ -73,6 +77,7 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
   const settlements = new Map<number, { totalKobo: number; feesKobo: number; lines: SettlementTransaction[] }>();
   let failNext = false;
   let seq = 0;
+  let renewalFee = 0;
   let chargeOutcome: "success" | "failed" | "pending" = "success";
   const chargeCalls: { reference: string; email: string; amountKobo: number; authorizationCode: string }[] = [];
 
@@ -93,6 +98,9 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
     secret,
 
     chargeCalls,
+    setRenewalFee(feeKobo) {
+      renewalFee = feeKobo;
+    },
     setAuthorization(reference, authorization) {
       const c = charges.get(reference);
       if (!c) throw new Error("unknown reference");
@@ -175,7 +183,7 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
         reference: c.reference,
         status: c.status,
         amountKobo: c.amountKobo + c.feeKobo,
-        requestedAmountKobo: c.amountKobo,
+        requestedAmountKobo: c.hideRequested ? c.amountKobo + c.feeKobo : c.amountKobo,
         feesKobo: c.feeKobo,
         currency: "NGN",
         paidAt: c.paidAt,
@@ -201,7 +209,8 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
         reference: input.reference,
         email: input.email,
         amountKobo: input.amountKobo,
-        feeKobo: 0,
+        feeKobo: renewalFee,
+        hideRequested: renewalFee > 0,
         status: chargeOutcome,
         paidAt: chargeOutcome === "success" ? new Date(now()).toISOString() : null,
         metadata: { ...(input.metadata ?? {}) },
@@ -212,9 +221,9 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
       return ok({
         reference: c.reference,
         status: c.status,
-        amountKobo: c.amountKobo,
-        requestedAmountKobo: c.amountKobo,
-        feesKobo: 0,
+        amountKobo: c.amountKobo + c.feeKobo,
+        requestedAmountKobo: c.hideRequested ? c.amountKobo + c.feeKobo : c.amountKobo,
+        feesKobo: c.feeKobo,
         currency: "NGN",
         paidAt: c.paidAt,
         customerEmail: c.email,

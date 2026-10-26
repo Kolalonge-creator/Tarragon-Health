@@ -33,6 +33,8 @@ export interface RenewalStore {
   openReferences(membershipId: string): Promise<ProviderResult<readonly string[]>>;
   prepare(membershipId: string): Promise<ProviderResult<PrepareResult>>;
   recordAttempt(reference: string, outcome: "charged" | "failed" | "pending", error: string | null): Promise<ProviderResult<boolean>>;
+  /** Reports that a run happened (and how it went) so the watchdog can tell a sweep that silently stopped from one with nothing to do. */
+  recordRun(succeeded: boolean, summary: RenewalSummary | null): Promise<ProviderResult<boolean>>;
 }
 
 export interface RenewalDeps {
@@ -83,7 +85,8 @@ export async function runRenewals(deps: RenewalDeps, opts: { readonly limit?: nu
       email: r.email,
       amountKobo: r.amountKobo,
       authorizationCode: r.authorizationCode,
-      metadata: { kind: "order", order_id: r.orderId, renewal: true },
+      // renewal_expected_kobo lets confirmPayment tell price from price-plus-fee if Paystack adds a fee and reports no separate requested amount
+      metadata: { kind: "order", order_id: r.orderId, renewal: true, renewal_expected_kobo: r.amountKobo },
     });
     if (!charged.ok) {
       // A timeout or dropped connection may hide a charge that went through: record PENDING and let the next run verify it.
@@ -154,6 +157,10 @@ export function supabaseRenewalStore(client: RpcClient): RenewalStore {
         return ok({ prepared: { orderId: d["order_id"], reference: d["reference"], amountKobo: d["amount_kobo"], email: d["email"], authorizationCode: d["authorization_code"], attemptNo: d["attempt_no"] } });
       }
       return fail("bad_response", "Unexpected reply from service_prepare_membership_renewal");
+    },
+    async recordRun(succeeded, summary) {
+      const r = await call("service_record_renewal_run", { p_ok: succeeded, p_summary: summary ?? {} });
+      return r.ok ? ok(true) : r;
     },
     async recordAttempt(reference, outcome, error) {
       const r = await call("service_record_renewal_attempt", { p_reference: reference, p_outcome: outcome, p_error: error });

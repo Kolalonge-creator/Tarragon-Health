@@ -4,6 +4,7 @@ import { confirmPayment } from "../../../supabase/functions/_shared/commerce/ord
 import { runRenewals, supabaseRenewalStore, type RenewalStore } from "../../../supabase/functions/_shared/commerce/renewal.ts";
 import { supabaseOrderStore, type RpcClient } from "../../../supabase/functions/_shared/commerce/supabase-store.ts";
 import { fail, ok } from "../../../supabase/functions/_shared/integrations/result.ts";
+import type { PaymentProvider, VerifiedTransaction } from "../../../supabase/functions/_shared/integrations/payment.ts";
 import { MemoryStore } from "./support/memory-store.ts";
 
 const FIRST = "tho_0123456789abcdef0123456789abcdef";
@@ -26,6 +27,7 @@ async function renewable(orderAmount: number) {
     openReferences: async () => ok([]),
     prepare: async () => ok({ prepared: { orderId: "order-2", reference: RENEWAL_REF, amountKobo: PRICE, email: "p@example.com", authorizationCode: CARD.code, attemptNo: 1 } }),
     recordAttempt: async (_ref, outcome) => { attempts.push({ outcome }); return ok(true); },
+    recordRun: async () => ok(true),
   };
   return { payments, store, renewals, attempts };
 }
@@ -76,6 +78,10 @@ describe("supabaseRenewalStore", () => {
     expect(await s.recordAttempt("ren_y1234567", "failed", "declined")).toEqual({ ok: true, data: true });
     expect(c.calls[0]).toEqual(["service_due_membership_renewals", { p_limit: 5 }]);
     expect(c.calls[3]).toEqual(["service_record_renewal_attempt", { p_reference: "ren_y1234567", p_outcome: "failed", p_error: "declined" }]);
+    expect(await s.recordRun(true, { considered: 2, renewed: 1, failed: 1, pending: 0, skipped: 0, alreadyPaid: 0 })).toEqual({ ok: true, data: true });
+    expect(c.calls[4]).toEqual(["service_record_renewal_run", { p_ok: true, p_summary: { considered: 2, renewed: 1, failed: 1, pending: 0, skipped: 0, alreadyPaid: 0 } }]);
+    expect((await s.recordRun(false, null)).ok).toBe(true);
+    expect(c.calls[5]).toEqual(["service_record_renewal_run", { p_ok: false, p_summary: {} }]);
     const skipping = supabaseRenewalStore(rpc(() => ({ data: { skip: "too_soon" }, error: null })));
     expect(await skipping.prepare("m-1")).toEqual({ ok: true, data: { skip: "too_soon" } });
   });
@@ -89,6 +95,7 @@ describe("supabaseRenewalStore", () => {
     expect(await odd.due(1)).toMatchObject({ ok: false, error: { code: "bad_response" } });
     expect(await odd.openReferences("m")).toMatchObject({ ok: false, error: { code: "bad_response" } });
     expect(await odd.prepare("m")).toMatchObject({ ok: false, error: { code: "bad_response" } });
+    expect((await bad.recordRun(true, null)).ok).toBe(false);
     const partial = supabaseRenewalStore(rpc(() => ({ data: { order_id: "o" }, error: null })));
     expect(await partial.prepare("m")).toMatchObject({ ok: false, error: { code: "bad_response" } });
   });
@@ -105,5 +112,55 @@ describe("supabaseOrderStore.saveCard", () => {
     }]);
     expect(await supabaseOrderStore(rpc(() => ({ data: "x", error: null }))).saveCard({ reference: FIRST, authorization: CARD, customerCode: null, email: null })).toEqual({ ok: true, data: "unknown" });
     expect((await supabaseOrderStore(rpc(() => ({ data: null, error: { message: "e" } }))).saveCard({ reference: FIRST, authorization: CARD, customerCode: null, email: null })).ok).toBe(false);
+  });
+});
+
+describe("a renewal charge that comes back with Paystack's fee added and no separate requested amount", () => {
+  it("is recorded as paid at the exact order price with the fee kept apart, not flagged as a mismatch", async () => {
+    const { payments, store, renewals, attempts } = await renewable(PRICE);
+    payments.setRenewalFee(193_500);
+    const r = await runRenewals({ payments, store, renewals });
+    expect(r).toMatchObject({ ok: true, data: { renewed: 1, failed: 0 } });
+    expect(store.mismatches).toHaveLength(0);
+    const rec = store.payments.at(-1)!;
+    expect([rec.amountKobo, rec.feeKobo, rec.totalKobo]).toEqual([PRICE, 193_500, PRICE + 193_500]);
+    expect(attempts).toEqual([{ outcome: "charged" }]);
+  });
+
+  it("the webhook path (confirmPayment alone, no sweep) reaches the same answer from the charge's own metadata", async () => {
+    const { payments, store } = await renewable(PRICE);
+    payments.setRenewalFee(193_500);
+    await payments.chargeAuthorization({ reference: RENEWAL_REF, email: "p@example.com", amountKobo: PRICE, authorizationCode: CARD.code, metadata: { kind: "order", renewal: true, renewal_expected_kobo: PRICE } });
+    expect(await confirmPayment({ payments, store }, { reference: RENEWAL_REF, source: "webhook" })).toMatchObject({ outcome: "paid" });
+    expect(store.orders.get(RENEWAL_REF)!.state).toBe("paid");
+  });
+
+  it("without that metadata the exact-price rule still refuses (nothing is trusted from a charge that did not come from the sweep)", async () => {
+    const { payments, store } = await renewable(PRICE);
+    payments.setRenewalFee(193_500);
+    await payments.chargeAuthorization({ reference: RENEWAL_REF, email: "p@example.com", amountKobo: PRICE, authorizationCode: CARD.code, metadata: { kind: "order" } });
+    expect(await confirmPayment({ payments, store }, { reference: RENEWAL_REF, source: "webhook" })).toMatchObject({ outcome: "mismatch" });
+    expect(store.orders.get(RENEWAL_REF)!.state).toBe("created");
+  });
+
+  /** a payments stub that reports exactly one verified transaction */
+  const stub = (v: Partial<VerifiedTransaction>): PaymentProvider => ({
+    verifyTransaction: async () => ok({ reference: RENEWAL_REF, status: "success", amountKobo: PRICE, requestedAmountKobo: PRICE, feesKobo: 0, currency: "NGN", paidAt: "2026-10-26T06:00:00.000Z", customerEmail: "p@example.com", metadata: {}, ...v } as VerifiedTransaction),
+  }) as unknown as PaymentProvider;
+
+  it("an extra amount larger than the fee Paystack reports taking is still refused", async () => {
+    const store = new MemoryStore();
+    store.add({ reference: RENEWAL_REF, amountKobo: PRICE });
+    const payments = stub({ amountKobo: PRICE + 500_000, requestedAmountKobo: PRICE + 500_000, feesKobo: 193_500, metadata: { renewal_expected_kobo: PRICE } });
+    expect(await confirmPayment({ payments, store }, { reference: RENEWAL_REF, source: "sweep" })).toMatchObject({ outcome: "mismatch" });
+  });
+
+  it("an amount BELOW the expected price is never adjusted, and a zero or non-integer expected price is ignored", async () => {
+    for (const meta of [{ renewal_expected_kobo: PRICE + 1 }, { renewal_expected_kobo: 0 }, { renewal_expected_kobo: 1.5 }, { renewal_expected_kobo: "x" }]) {
+      const store = new MemoryStore();
+      store.add({ reference: RENEWAL_REF, amountKobo: PRICE });
+      const payments = stub({ metadata: meta });
+      expect(await confirmPayment({ payments, store }, { reference: RENEWAL_REF, source: "sweep" })).toMatchObject({ outcome: "paid" });
+    }
   });
 });

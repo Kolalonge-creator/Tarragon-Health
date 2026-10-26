@@ -59,6 +59,15 @@ describe("mock payment: saved cards", () => {
     expect(await p.chargeAuthorization(base)).toMatchObject({ ok: false, error: { code: "conflict" } });
   });
 
+  it("can simulate Paystack adding its fee to a renewal with no separate requested amount, and verify agrees", async () => {
+    const p = await mockWithCard();
+    p.setRenewalFee(193_500);
+    const r = await p.chargeAuthorization({ reference: NEW_REF, email: "a@example.com", amountKobo: 12_900_000, authorizationCode: CARD.code });
+    expect(r).toMatchObject({ ok: true, data: { amountKobo: 13_093_500, requestedAmountKobo: 13_093_500, feesKobo: 193_500 } });
+    const v = await p.verifyTransaction(NEW_REF);
+    expect(v).toMatchObject({ ok: true, data: { amountKobo: 13_093_500, requestedAmountKobo: 13_093_500, feesKobo: 193_500 } });
+  });
+
   it("can be driven to a decline, to pending, and to a dropped connection", async () => {
     const p = await mockWithCard();
     p.setChargeOutcome("failed");

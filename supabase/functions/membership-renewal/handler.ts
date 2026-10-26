@@ -11,6 +11,9 @@ export async function handleRenewal(req: Request, deps: { readonly secret: strin
   if (!sameSecret(req.headers.get("x-membership-renewal-secret") ?? "", deps.secret)) return Response.json({ error: "unauthorised" }, { status: 401 });
   if (!deps.renewal) return Response.json({ error: "payment_unavailable" }, { status: 503 });
   const r = await runRenewals(deps.renewal);
+  // Report every run, good or bad, so the database watchdog can tell "ran with nothing to do" from "silently stopped". Best effort: a failure to
+  // report must never change what the sweep did or what it answers.
+  await Promise.resolve(deps.renewal.renewals.recordRun(r.ok, r.ok ? r.data : null)).catch(() => undefined);
   if (!r.ok) return Response.json({ error: "sweep_failed" }, { status: 500 });
   return Response.json(r.data);
 }

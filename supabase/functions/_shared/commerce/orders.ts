@@ -1,4 +1,4 @@
-import { paymentMatchesOrder, type PaymentProvider, type SavedAuthorization } from "../integrations/payment.ts";
+import { paymentMatchesOrder, type PaymentProvider, type SavedAuthorization, type VerifiedTransaction } from "../integrations/payment.ts";
 import { fail, ok, type ProviderResult } from "../integrations/result.ts";
 
 /**
@@ -80,6 +80,20 @@ export type ConfirmOutcome =
   /** A call to Paystack or the database failed. Safe to repeat; the caller should ask for a retry (a 5xx to a webhook). */
   | { readonly outcome: "retry"; readonly where: "provider" | "store" };
 
+/**
+ * A renewal charge (charge_authorization) may come back with the processing fee added and no separate `requested_amount`, so the price we
+ * asked for looks like the whole amount and would fail the exact-price match AFTER the card was charged. Our own charge request carries the
+ * price it asked for in `metadata.renewal_expected_kobo` (set only by the server, never by the customer), so a larger amount with nothing
+ * separate reported is read as price plus fee. Everything after this is unchanged and strict: the database still demands the exact order
+ * price, and `paymentMatchesOrder` still refuses a fee larger than the processor reports taking.
+ */
+function withRenewalExpectedPrice(v: VerifiedTransaction): VerifiedTransaction {
+  const expected = v.metadata["renewal_expected_kobo"];
+  if (typeof expected !== "number" || !Number.isSafeInteger(expected) || expected <= 0) return v;
+  if (v.requestedAmountKobo !== v.amountKobo || v.amountKobo <= expected) return v;
+  return { ...v, requestedAmountKobo: expected };
+}
+
 export async function confirmPayment(
   deps: CommerceDeps,
   args: { readonly reference: string; readonly source: PaymentSource; readonly eventKey?: string | null },
@@ -89,7 +103,7 @@ export async function confirmPayment(
   if (!verified.ok) {
     return verified.error.code === "not_found" ? { outcome: "not_found" } : { outcome: "retry", where: "provider" };
   }
-  const v = verified.data;
+  const v = withRenewalExpectedPrice(verified.data);
   if (v.status === "pending") return { outcome: "pending" };
   if (v.status !== "success") return { outcome: "unpaid", status: v.status };
 
