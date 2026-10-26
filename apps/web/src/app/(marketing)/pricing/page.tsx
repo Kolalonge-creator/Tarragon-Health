@@ -6,6 +6,7 @@ import { Section, SectionHeading } from "../_components/section";
 import { PricingFreeFeatures } from "../_components/pricing-free-features";
 import { PricingLabelBadge } from "../_components/pricing-label";
 import { CtaBand } from "../_components/cta-band";
+import { TestimonialsSection } from "../_components/testimonials-section";
 import { EmergencyNotice } from "../_components/emergency-notice";
 import { FaqAccordion } from "../_components/marketing-faq-accordion";
 import { Button } from "@/components/ui/button";
@@ -148,6 +149,9 @@ export default async function PricingPage() {
           </div>
         </div>
       </Section>
+
+      {/* Real, consented, published quotes only; renders nothing until there are some. */}
+      <TestimonialsSection />
 
       <Section variant="sage" className="pb-24">
         <EmergencyNotice className="mb-10" />

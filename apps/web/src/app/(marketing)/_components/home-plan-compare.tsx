@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { FREE_FEATURES } from "../_content/pricing";
 
 /**
  * Free vs Membership, side by side, for the homepage.
@@ -34,11 +35,12 @@ export function HomePlanCompare({
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">The app</p>
           <p className="mt-2 font-heading text-3xl font-bold text-charcoal-ink">Free</p>
           <p className="mt-1 text-sm text-charcoal-ink/65">No time limit. No card needed.</p>
+          {/* Derived from the same FREE_FEATURES /pricing renders, so the homepage
+              can never promise a free feature the pricing page does not. */}
           <ul className="mt-5 space-y-2 text-sm leading-relaxed text-charcoal-ink/80">
-            <li>Log blood pressure, sugar, weight and medication in one record</li>
-            <li>Every reading checked against care protocols, with clear guidance if one is dangerous</li>
-            <li>Reminders, and a screening and vaccination calendar built for you</li>
-            <li>The education library and the AI health coach</li>
+            {FREE_FEATURES.slice(0, 4).map((group) => (
+              <li key={group.id}>{group.title}</li>
+            ))}
           </ul>
           <div className="mt-auto pt-6">
             <Button asChild variant="outline" size="lg" className="w-full">
