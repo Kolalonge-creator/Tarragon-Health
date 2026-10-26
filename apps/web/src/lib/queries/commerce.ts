@@ -74,7 +74,7 @@ export function useMyMembership() {
  */
 export function useAutoRenewEnabled() {
   return useQuery({
-    queryKey: ["commerce", "auto-renew-enabled"] as const,
+    queryKey: ["commerce", "renewalSwitch"] as const,
     queryFn: async () => {
       const { data, error } = await createClient().rpc("membership_auto_renew_enabled");
       if (error) return false;
