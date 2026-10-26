@@ -506,3 +506,13 @@ Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six 
 | **Care purpose stays required for reproductive and mental health data (OQ-331).** | No change. |
 | **Monthly-equivalent line on the Membership price.** | Stays OFF. The Membership is one yearly payment and no monthly figure is shown. |
 
+
+## Founder decision, 2026-10-26 (annual test bundle open to everyone; Membership Plus gated by state)
+
+| Decision | Chosen |
+|---|---|
+| **The annual test bundle is open nationwide, to Free, Membership and Membership Plus, and to people abroad.** Refines the 2026-10-21 rule "Membership has no annual panel". | The founder, 2026-10-26, in chat. The patient picks the annual BUNDLE (never single tests), then chooses a partner lab or their own lab. Partner lab: choose state, then town, then see the partner labs near them with address (Synlab today; any lab added later uses the same structure). Own lab: download or print the request form (PDF) and take it to any lab. Either way the patient uploads the result when done. Tarragon does not collect blood on this path. |
+| **Who pays the lab on that path.** | The patient pays the lab directly (same as the existing self-arranged model). No Tarragon partner billing on this path. |
+| **What Membership Plus adds.** | Tarragon-arranged blood collection, available only in states an admin has approved. The Plus checkout requires the buyer to pick a state from the approved list before payment. Any of the 36 states plus FCT can be added; the admin approves or withdraws a state against capacity. Launch states: Lagos, Oyo (Ibadan), Osun, Ogun. |
+| **Supersedes in part** | The 2026-10-21 entry's statement that the annual panel is a Plus-only entitlement: the bundle flow is open to all; what is Plus-only is the Tarragon-arranged collection (and the price step now buys collection). Prices (84,000 / 129,000 / 45,000 upgrade), annual-only, no instalments and the flag `membership_two_member_tiers` (off until its blockers are met) are unchanged. |
+| **Open for the founder** | Whether the 45,000 step still covers panel cost plus collection (panel cost assumption NGN 35,000 was set when the panel was Plus-only). Whether a Plus holder who moves to a non-approved state keeps the collection benefit (proposed: refund the step or switch them to the self-arranged path). |
