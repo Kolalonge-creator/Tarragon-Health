@@ -66,13 +66,20 @@ export function HomePlanCompare({
             {refundDays} days.
           </p>
           <div className="mt-auto pt-6">
-            <Button asChild size="lg" className="w-full">
+            <Button asChild size="lg" variant="accent" className="w-full">
               <Link href="/signup">Get started</Link>
             </Button>
           </div>
         </CardContent>
       </Card>
 
+      <p className="text-center text-sm text-charcoal-ink/70 md:col-span-2">
+        Buying for a parent or relative?{" "}
+        <Link href={MARKETING_ROUTES.gift} className="font-medium text-brand-green underline-offset-2 hover:underline">
+          Give them a year of Membership
+        </Link>
+        .
+      </p>
       <p className="text-center text-sm text-charcoal-ink/70 md:col-span-2">
         Every price is in naira. You see the exact price and confirm it before anything is charged.{" "}
         <Link

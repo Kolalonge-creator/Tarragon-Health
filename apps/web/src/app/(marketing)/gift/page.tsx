@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { formatNaira } from "@tarragon/commerce";
-import { getProposedConfig } from "@tarragon/shared";
 import { CtaBand } from "../_components/cta-band";
 import { FaqAccordion, type FaqItem } from "../_components/marketing-faq-accordion";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
@@ -10,6 +8,7 @@ import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { membershipPriceLabel } from "@/lib/marketing/membership";
 import { GiftPersonalizer } from "./_components/gift-personalizer";
 
 export const metadata: Metadata = pageMetadata({
@@ -20,12 +19,6 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export const revalidate = 3600;
-
-/** The Membership price, read from the versioned config (integer kobo), never typed into a page. */
-function membershipPrice(): string {
-  const v = getProposedConfig("commerce.membership_prices").value as { individual_kobo: number };
-  return formatNaira(v.individual_kobo);
-}
 
 const WAYS_TO_GIVE = [
   {
@@ -97,7 +90,7 @@ const HOW_IT_WORKS = [
 ];
 
 export default function GiftPage() {
-  const price = membershipPrice();
+  const price = membershipPriceLabel();
   const faq = giftFaq(price);
   return (
     <>

@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { formatNaira } from "@tarragon/commerce";
-import { t } from "@tarragon/i18n";
-import { getProposedConfig } from "@tarragon/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChannelHero } from "./_components/channel-hero";
 import { ContinuityPath } from "./_components/continuity-path";
@@ -28,6 +25,7 @@ import { HOME_HOW_IT_WORKS, PROOF_STATS, SERVICE_CARDS } from "./_content/servic
 import { DEFAULT_HERO } from "./_content/channel-heroes";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { MEMBERSHIP_INCLUDES, membershipPriceLabel, refundWindowDays } from "@/lib/marketing/membership";
 
 const HOME_TITLE = "TarragonHealth | Care that stays with you";
 
@@ -61,25 +59,6 @@ export const metadata: Metadata = {
  */
 export const revalidate = 3600;
 
-/** The individual Membership price in kobo, read from versioned config exactly as /pricing does; never typed into a page. */
-function membershipPriceKobo(): number {
-  const v = getProposedConfig("commerce.membership_prices").value as { individual_kobo: number };
-  return v.individual_kobo;
-}
-
-/** The refund window in days (membership.refund config), same source as /pricing. */
-function refundWindowDays(): number {
-  const v = getProposedConfig("membership.refund").value as { window_days: number };
-  return v.window_days;
-}
-
-const MEMBERSHIP_INCLUDES = [
-  t("catalog.membership_annual.incl.1", "en"),
-  t("catalog.membership_annual.incl.2", "en"),
-  t("catalog.membership_annual.incl.3", "en"),
-  t("catalog.membership_annual.incl.4", "en"),
-] as const;
-
 /**
  * Four questions a first-time visitor actually has, answered with the same
  * facts /pricing and /services state. FAQPage structured data is emitted for
@@ -111,7 +90,7 @@ function homeFaq(price: string, refundDays: number) {
 export default async function MarketingHomePage() {
   const { homepage } = MARKETING_MEDIA;
   const { walkthroughVideo } = homepage;
-  const price = formatNaira(membershipPriceKobo());
+  const price = membershipPriceLabel();
   const refundDays = refundWindowDays();
   const faq = homeFaq(price, refundDays);
   const faqJsonLd = {

@@ -77,11 +77,11 @@ export const CHANNEL_HEROES: Record<ChannelHeroKey, ChannelHeroCopy> = {
     eyebrow: "For family abroad",
     title: "You already send money home for health.",
     description:
-      "Buy a specific check instead. You know exactly what you paid for, and you're told when they use it.",
+      "Give a parent or relative a year of Membership instead: a yearly blood test and a monthly video call with their care team. They choose to accept it, and you are told when they do.",
     primaryHref: MARKETING_ROUTES.gift,
-    primaryLabel: "Gift a health check",
-    secondaryHref: MARKETING_ROUTES.howPricingWorks,
-    secondaryLabel: "How care vouchers work",
+    primaryLabel: "Give a year of Membership",
+    secondaryHref: MARKETING_ROUTES.pricing,
+    secondaryLabel: "See what it costs",
   },
 };
 

@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { formatNaira } from "@tarragon/commerce";
 import { t } from "@tarragon/i18n";
-import { getProposedConfig } from "@tarragon/shared";
+import { MEMBERSHIP_INCLUDES, membershipPriceLabel, refundWindowDays } from "@/lib/marketing/membership";
 import { Section, SectionHeading } from "../_components/section";
 import { PricingFreeFeatures } from "../_components/pricing-free-features";
 import { PricingLabelBadge } from "../_components/pricing-label";
@@ -22,25 +21,6 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export const revalidate = 3600;
-
-/** The individual Membership price, read from the versioned config (integer kobo), never typed into a page. */
-function membershipPriceKobo(): number {
-  const v = getProposedConfig("commerce.membership_prices").value as { individual_kobo: number };
-  return v.individual_kobo;
-}
-
-/** The refund window in days, read from the versioned config (membership.refund), never typed into a page. */
-function refundWindowDays(): number {
-  const v = getProposedConfig("membership.refund").value as { window_days: number };
-  return v.window_days;
-}
-
-const MEMBERSHIP_INCLUDES = [
-  t("catalog.membership_annual.incl.1", "en"),
-  t("catalog.membership_annual.incl.2", "en"),
-  t("catalog.membership_annual.incl.3", "en"),
-  t("catalog.membership_annual.incl.4", "en"),
-] as const;
 
 function pricingFaq(price: string, refundDays: number) {
   return [
@@ -71,7 +51,7 @@ function pricingFaq(price: string, refundDays: number) {
 }
 
 export default async function PricingPage() {
-  const price = formatNaira(membershipPriceKobo());
+  const price = membershipPriceLabel();
   const refundDays = refundWindowDays();
   const faq = pricingFaq(price, refundDays);
   /** FAQPage structured data for the pricing questions; eligible for rich results. */

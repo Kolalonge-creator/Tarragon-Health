@@ -32,8 +32,9 @@ describe("homepage pricing copy", () => {
 
   it("reads the Membership price and refund window from config instead of typing them", () => {
     const page = read("page.tsx");
-    expect(page).toContain('getProposedConfig("commerce.membership_prices")');
-    expect(page).toContain('getProposedConfig("membership.refund")');
+    expect(page).toContain("membershipPriceLabel()");
+    expect(page).toContain("refundWindowDays()");
+    expect(page).not.toContain("getProposedConfig");
     // A typed naira amount in any marketing file is also caught repo-wide by
     // src/lib/marketing/no-public-prices.test.ts; checked here for the home files too.
     for (const file of HOME_FILES) {

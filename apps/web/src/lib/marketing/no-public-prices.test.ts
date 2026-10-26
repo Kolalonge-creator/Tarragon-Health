@@ -58,7 +58,8 @@ describe("no public price other than the Membership price", () => {
       const f = files.find((x) => x.rel === rel);
       expect(f).toBeDefined();
       if (rel.endsWith("pricing/page.tsx") || rel.endsWith("gift/page.tsx") || rel === "app/(marketing)/page.tsx") {
-        expect(f!.text).toContain("commerce.membership_prices");
+        // The price comes from the one shared reader, which itself reads versioned config.
+        expect(f!.text).toContain("@/lib/marketing/membership");
       }
     }
   });
@@ -69,10 +70,14 @@ describe("no public price other than the Membership price", () => {
     expect(hits).toEqual([]);
   });
 
-  it("the pricing page reads the refund window from config rather than typing it", () => {
+  it("the shared membership module reads the price and refund window from config rather than typing them", () => {
+    const mod = files.find((f) => f.rel === "lib/marketing/membership.ts");
+    expect(mod).toBeDefined();
+    expect(mod!.text).toContain('getProposedConfig("commerce.membership_prices")');
+    expect(mod!.text).toContain('getProposedConfig("membership.refund")');
     const page = files.find((f) => f.rel === "app/(marketing)/pricing/page.tsx");
     expect(page).toBeDefined();
-    expect(page!.text).toContain('getProposedConfig("membership.refund")');
+    expect(page!.text).toContain("refundWindowDays");
     expect(page!.text).not.toMatch(/within 21 days/);
   });
 
