@@ -80,3 +80,14 @@ export function renewalCopy(autoRenews: boolean, refundDays: number) {
         monitoringAnswer: "No. It lasts a year. We remind you 30, 14 and 7 days before it ends, and you keep your Member access for 14 days after. There is no card kept on file and nothing to cancel.",
       };
 }
+
+/** Whether the three-plan ladder (Free, Membership, Membership Plus) is public (marketing.membership_ladder_public). False until the launch conditions are met. */
+export function membershipLadderPublic(): boolean {
+  return (getProposedConfig("marketing.membership_ladder_public").value as { enabled: boolean }).enabled === true;
+}
+
+/** The two paid prices of the ladder, formatted for display with the currency symbol, read from commerce.membership_ladder. */
+export function membershipLadderPriceLabels(): { evergreen: string; evergreenPlus: string } {
+  const v = getProposedConfig("commerce.membership_ladder").value as { evergreen_kobo: number; evergreen_plus_kobo: number };
+  return { evergreen: "\u20A6" + formatNaira(v.evergreen_kobo), evergreenPlus: "\u20A6" + formatNaira(v.evergreen_plus_kobo) };
+}

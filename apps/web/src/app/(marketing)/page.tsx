@@ -18,14 +18,16 @@ import { PartnerLogoStrip } from "./_components/partner-logo-strip";
 import { StepsExplorer } from "./_components/steps-explorer";
 import { FaqAccordion } from "./_components/marketing-faq-accordion";
 import { HomeEntryChips } from "./_components/home-entry-chips";
+import { HomeLadderCompare } from "./_components/home-ladder-compare";
 import { HomePlanCompare } from "./_components/home-plan-compare";
+import { ladderCards } from "./_content/pricing-ladder";
 import { HomeBusinessDoor } from "./_components/home-business-door";
 import { MARKETING_MEDIA } from "./_content/media";
 import { HOME_HOW_IT_WORKS, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
 import { DEFAULT_HERO } from "./_content/channel-heroes";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
-import { MEMBERSHIP_INCLUDES, membershipAutoRenews, membershipPriceLabel, refundWindowDays, renewalCopy } from "@/lib/marketing/membership";
+import { MEMBERSHIP_INCLUDES, membershipAutoRenews, membershipLadderPriceLabels, membershipLadderPublic, membershipPriceLabel, refundWindowDays, renewalCopy } from "@/lib/marketing/membership";
 
 const HOME_TITLE = "TarragonHealth | Care that stays with you";
 
@@ -64,11 +66,13 @@ export const revalidate = 3600;
  * facts /pricing and /services state. FAQPage structured data is emitted for
  * them below. Redesign 2026-10-26: the homepage previously had no FAQ at all.
  */
-function homeFaq(price: string, refundDays: number, autoRenews: boolean) {
+function homeFaq(price: string, refundDays: number, autoRenews: boolean, ladder: { evergreen: string; evergreenPlus: string } | null) {
   return [
     {
       question: "Is Tarragon really free?",
-      answer: `Yes. The app is free, with no time limit and no card. Membership is optional: ₦${price} a year, and it adds a yearly blood test and a video call with your care team every month.`,
+      answer: ladder
+        ? `Yes. The app is free, with no time limit and no card. Membership (${ladder.evergreen} a year) and Membership Plus (${ladder.evergreenPlus} a year) are optional. Both add a video call with your care team every month, and Membership Plus also includes the yearly blood panel.`
+        : `Yes. The app is free, with no time limit and no card. Membership is optional: ₦${price} a year, and it adds a yearly blood test and a video call with your care team every month.`,
     },
     {
       question: "Do I need a diagnosis to join?",
@@ -93,7 +97,8 @@ export default async function MarketingHomePage() {
   const price = membershipPriceLabel();
   const refundDays = refundWindowDays();
   const autoRenews = await membershipAutoRenews();
-  const faq = homeFaq(price, refundDays, autoRenews);
+  const ladderPrices = membershipLadderPublic() ? membershipLadderPriceLabels() : null;
+  const faq = homeFaq(price, refundDays, autoRenews, ladderPrices);
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -219,10 +224,18 @@ export default async function MarketingHomePage() {
       <Section variant="sage">
         <SectionHeading
           eyebrow="What it costs"
-          title="Free to start. Membership when you want a doctor involved."
-          description="Two plans, nothing in between. Everything you can do yourself costs nothing."
+          title={ladderPrices ? "Free, Membership or Membership Plus" : "Free to start. Membership when you want a doctor involved."}
+          description={
+            ladderPrices
+              ? "Everything you can do yourself costs nothing. Membership and Membership Plus are a year of care with your care team. The one difference is the yearly blood panel."
+              : "Two plans, nothing in between. Everything you can do yourself costs nothing."
+          }
         />
-        <HomePlanCompare price={price} refundDays={refundDays} membershipIncludes={MEMBERSHIP_INCLUDES} autoRenews={autoRenews} />
+        {ladderPrices ? (
+          <HomeLadderCompare cards={ladderCards(ladderPrices)} refundDays={refundDays} autoRenews={autoRenews} />
+        ) : (
+          <HomePlanCompare price={price} refundDays={refundDays} membershipIncludes={MEMBERSHIP_INCLUDES} autoRenews={autoRenews} />
+        )}
       </Section>
 
       {/* 7. Two ways in, then the three programmes as cards. */}
