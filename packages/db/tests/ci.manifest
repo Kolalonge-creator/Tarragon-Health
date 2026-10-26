@@ -1523,3 +1523,9 @@ s72_expiry_schedules.sql
 
 # S74: the last place of a clinic slot under real contention (20 concurrent sessions, capacity 1 and 3), with a lock-free control that must over-subscribe. A .sh proof (one session cannot race itself); local database only.
 s74_clinic_last_place_race.sh
+
+# Membership ladder review fixes (2026-10-26): one open upgrade order; a second upgrade payment is a mismatch not a paid order; refund and revenue schedule follow the upgraded membership; renewal in grace takes the bought tier; voucher guard by catalogue code. Sabotage: payment guard removed must flip.
+membership_ladder_review_fixes.sql
+
+# The Membership ladder survives the remove-instalments migration (2026-10-26): after full replay the final function bodies still carry the tier, upgrade, refund, ledger and gate changes, and no function names a removed instalment object. Sabotage: a removed clause must be detected.
+membership_ladder_survives_instalment_removal.sql

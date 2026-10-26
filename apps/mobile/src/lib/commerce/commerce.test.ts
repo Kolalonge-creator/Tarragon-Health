@@ -1,4 +1,5 @@
 import { en } from "@tarragon/i18n";
+import { arrangeItems } from "@tarragon/commerce";
 import { checkoutErrorKey, keepsRetryKey, orderStateKey, parseCatalogue, parseCheckout, parseCovered, parseMembership, parseOrders, parseVerify } from "./parse";
 
 const mockInvoke = jest.fn();
@@ -215,5 +216,16 @@ describe("S72 api: entitlements, quote with points, refunds, payment requests", 
     mockRpc.mockResolvedValue({ data: null, error: { message: "x" } });
     expect((await loadNotIncluded()).ok).toBe(false);
     expect((await loadPriceChangeNotices()).ok).toBe(false);
+  });
+
+  it("a member in the 14 day grace is shown both tier cards on the phone (the screen passes the parsed state to arrangeItems)", () => {
+    const grace = parseMembership({ is_member: true, in_grace: true, tier: "plus", ends_at: "2026-10-20T00:00:00Z", grace_ends_at: "2026-11-03T00:00:00Z" });
+    const items = [{ code: "membership_annual" }, { code: "membership_annual_no_panel" }, { code: "membership_upgrade_plus" }];
+    const arranged = arrangeItems(items, { tier: grace.isMember ? (grace.tier ?? null) : null, isMember: grace.isMember, inGrace: false, forSomeoneElse: false });
+    expect(arranged.tierCards.map((i) => i.code)).toEqual(["membership_annual_no_panel", "membership_annual"]);
+    expect(arranged.upgrade).toBeNull();
+    // a current Plus member sees no card to buy
+    const current = parseMembership({ is_member: true, tier: "plus", ends_at: "2027-08-01T00:00:00Z" });
+    expect(arrangeItems(items, { tier: current.tier ?? null, isMember: current.isMember, inGrace: false, forSomeoneElse: false }).tierCards).toEqual([]);
   });
 });

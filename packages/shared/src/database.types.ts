@@ -48462,6 +48462,7 @@ export type Database = {
           state: string
           total_kobo: number | null
           updated_at: string
+          upgraded_membership_id: string | null
         }
         Insert: {
           amount_kobo: number
@@ -48485,6 +48486,7 @@ export type Database = {
           state?: string
           total_kobo?: number | null
           updated_at?: string
+          upgraded_membership_id?: string | null
         }
         Update: {
           amount_kobo?: number
@@ -48508,6 +48510,7 @@ export type Database = {
           state?: string
           total_kobo?: number | null
           updated_at?: string
+          upgraded_membership_id?: string | null
         }
         Relationships: [
           {

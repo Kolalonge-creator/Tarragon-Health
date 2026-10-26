@@ -14,7 +14,7 @@ const EG = { ...base, code: "membership_annual_no_panel", name_key: "catalog.mem
 const UP = { ...base, code: "membership_upgrade_plus", name_key: "catalog.membership_upgrade_plus.name", description_key: "catalog.membership_upgrade_plus.description", included_keys: ["catalog.membership_upgrade_plus.incl.1"], amount_kobo: 4_500_000 };
 
 let catalogue: { data: unknown[]; isSuccess: boolean };
-let membership: { data: { is_member: boolean; ends_at: string | null; source: string | null; tier?: "evergreen" | "plus" | null } };
+let membership: { data: { is_member: boolean; ends_at: string | null; source: string | null; tier?: "evergreen" | "plus" | null; in_grace?: boolean; grace_ends_at?: string | null } };
 const mutateAsync = jest.fn();
 jest.mock("@/lib/queries/commerce", () => {
   const actual = jest.requireActual("@/lib/queries/commerce");
@@ -107,5 +107,20 @@ describe("MembershipShop with the Membership ladder", () => {
     expect(screen.getByText("Tarragon Membership")).toBeTruthy();
     expect(screen.queryByText("Annual blood panel: no")).toBeNull();
     expect(screen.queryByText("Move up to Membership Plus")).toBeNull();
+  });
+  it("shows no monthly figure on either tier while the monthly line is off, and shows it only when switched on", () => {
+    const { container, rerender } = render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(container.textContent ?? "").not.toMatch(/a month/i);
+    rerender(<MembershipShop locale="en" fee={FEE} go={assign} showMonthly />);
+    expect(container.textContent ?? "").toMatch(/a month/i);
+  });
+
+  it("a member in the 14 day grace sees both tier cards and can renew, not an upgrade-only screen", () => {
+    membership = { data: { is_member: true, ends_at: "2026-10-20T00:00:00Z", source: "purchase", tier: "plus", in_grace: true, grace_ends_at: "2026-11-03T00:00:00Z" } };
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.getByText("Annual blood panel: no")).toBeTruthy();
+    expect(screen.getByText("Annual blood panel: yes")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Pay with Paystack" }).length).toBe(2);
+    expect(screen.queryByRole("button", { name: "Move up to Membership Plus" })).toBeNull();
   });
 });
