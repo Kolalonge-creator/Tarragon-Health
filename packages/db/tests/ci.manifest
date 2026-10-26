@@ -1436,6 +1436,16 @@ oq714_remove_patient_price_compare.sql
 money_reconciliation_daily_alert.sql
 # Money reconciliation menu badge (2026-10-21): an hourly snapshot of the mismatch count, read through a finance-only function that refuses a snapshot older than three hours or missing (never an old number), clients cannot read the table. Sabotage: staleness check and finance gate removed; the checks must flip.
 money_reconciliation_badge.sql
+
+
+# Membership ladder foundation (2026-10-21): tier column default plus, tier helpers, Membership item inactive, 8.4M/12.9M prices, tier stamped by every Membership-creating path, panel gate. Sabotage: tier function forced to plus must flip the Membership check.
+membership_evergreen_ladder_foundation.sql
+
+# Membership to Membership Plus upgrade (2026-10-21): module starts OFF, create_order rules, payment flips tier with no entitlement and no end-date change, ledger over remaining days, refund restores evergreen. Sabotage: refund restore reversed must flip.
+membership_upgrade_order.sql
+
+# Membership ladder follow-ups (2026-10-21): extension keeps the larger tier, no instalments for paid tiers, a care voucher can never be a Membership, reminders carry the tier, org prices only for codes with limits, admin tier grant. Sabotage: extension patch reversed must flip.
+membership_ladder_followups.sql
 # Patient home layout (2026-10-22): which tiles a patient pins to their home screen. A patient writes and reads only their own row, cannot stamp another organisation, cannot delete; unknown keys, nulls and more than twelve are refused by the database. Sabotage: select policy opened, organisation clause removed; both checks must flip.
 patient_home_layout.sql
 
@@ -1516,3 +1526,8 @@ s74_clinic_last_place_race.sh
 
 # Plus collection states + open annual bundle (2026-10-26): launch states, nationwide lab picker, once-a-year start for any plan, direct insert refused, anon closed. Sabotage: the origin-guard extension reverted must make starting fail.
 plus_collection_states_and_annual_bundle.sql
+# Membership ladder review fixes (2026-10-26): one open upgrade order; a second upgrade payment is a mismatch not a paid order; refund and revenue schedule follow the upgraded membership; renewal in grace takes the bought tier; voucher guard by catalogue code. Sabotage: payment guard removed must flip.
+membership_ladder_review_fixes.sql
+
+# The Membership ladder survives the remove-instalments migration (2026-10-26): after full replay the final function bodies still carry the tier, upgrade, refund, ledger and gate changes, and no function names a removed instalment object. Sabotage: a removed clause must be detected.
+membership_ladder_survives_instalment_removal.sql
