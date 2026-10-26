@@ -1513,3 +1513,6 @@ s72_expiry_schedules.sql
 
 # S74: the last place of a clinic slot under real contention (20 concurrent sessions, capacity 1 and 3), with a lock-free control that must over-subscribe. A .sh proof (one session cannot race itself); local database only.
 s74_clinic_last_place_race.sh
+
+# Membership auto-renewal (dormant, switch OFF): a card is saved only with consent on a paid order and only if reusable; unreachable to a patient; the sweep window, one order per attempt, 3 tries a day apart, who is told; a renewal extends from the OLD end date once, raises no overlap incident, replay-safe; cancel keeps the paid year and deletes the card; the reminder becomes the renewal notice only for auto-renewers; housekeeping. Sabotage: the consent check and the renewal incident exemption removed; both checks must flip.
+membership_auto_renew.sql
