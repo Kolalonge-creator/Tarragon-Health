@@ -26,7 +26,12 @@ describe("the registry migration lists exactly the crons in vercel.json", () => 
   it("has the same set", () => {
     const sql = readFileSync(join(dir, file as string), "utf8");
     const block = sql.slice(sql.indexOf("select v.job_name, v.schedule, 'vercel'"), sql.indexOf("-- vercel-crons-end"));
-    const listed = [...block.matchAll(/'(\/api\/cron\/[a-z0-9-]+)'/g)].map((m) => m[1]).sort();
+    // Applied migrations are never edited: a cron added later registers itself in its own migration with a single-row insert into automation_jobs.
+    const later = readdirSync(dir)
+      .filter((f) => f > (file as string) && f.endsWith(".sql"))
+      .map((f) => readFileSync(join(dir, f), "utf8"))
+      .flatMap((t) => [...t.matchAll(/insert into public\.automation_jobs \(job_name, schedule, source\)\s*values \('(\/api\/cron\/[a-z0-9-]+)'/g)].map((m) => m[1]));
+    const listed = [...[...block.matchAll(/'(\/api\/cron\/[a-z0-9-]+)'/g)].map((m) => m[1]), ...later].sort();
     expect(listed).toEqual(paths);
   });
 });

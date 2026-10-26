@@ -1,4 +1,7 @@
+import Link from "next/link";
 import { ageFromDateOfBirth } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
+import { readProvenanceGuards } from "@/lib/diary/guards";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -25,6 +28,8 @@ import { GrowthTrackingCard } from "@/app/(dashboard)/patient/growth-tracking-ca
 import { SymptomTriageCheck } from "@/app/(dashboard)/patient/symptom-triage-check";
 import { getSymptomCheckerEligibility, getSymptomReviewEntitled, getSymptomReviewTime, listAvailablePresentingComplaints } from "@/app/(dashboard)/patient/symptom-triage-actions";
 import { degradedModeConfig } from "@/lib/symptom-triage/safe-run";
+import { loadAssessmentUx, NO_ASSESSMENT_UX } from "@/lib/symptom-triage/ux-config";
+import { SymptomCheckbackBanner } from "@/app/(dashboard)/patient/symptom-checkback-banner";
 import { ComplicationStatus } from "@/app/(dashboard)/patient/complication-status";
 import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
 import { ThresholdOverrideNotice } from "@/app/(dashboard)/patient/threshold-override-notice";
@@ -34,6 +39,8 @@ import { VisitReportCard } from "@/app/(dashboard)/patient/visit-report-card";
 export default async function PatientVitalsPage() {
   const { profile, subjectId, subjectDateOfBirth, glucoseUnit } = await getPatientDashboardContext();
   const ageYears = ageFromDateOfBirth(subjectDateOfBirth);
+  // S07y: the pharmacy label and the paper diary are born off; the form and the link only appear once the guard is open for this person.
+  const guards = await readProvenanceGuards(await createClient());
   // S47a: water, sleep, mood and inhaler logs show only while the extended_observations module is on (born off).
   const extendedObservationsOn = await readExtendedObservationsEnabled(await createClient());
   const presentingComplaints = await listAvailablePresentingComplaints();
@@ -42,6 +49,8 @@ export default async function PatientVitalsPage() {
   // S59b: who the checker is for must be an adult with a date of birth; a clinician's look at a check is for Members.
   const eligibility = presentingComplaints.length > 0 ? await getSymptomCheckerEligibility() : ("ok" as const);
   const reviewEntitled = presentingComplaints.length > 0 ? await getSymptomReviewEntitled() : false;
+  // S59c: the describe table, the explainer and the safety-net lines, each only when signed and equal to the live signed version (a draft is inert).
+  const ux = presentingComplaints.length > 0 ? await loadAssessmentUx() : NO_ASSESSMENT_UX;
 
   return (
     <DashboardSection
@@ -61,7 +70,7 @@ export default async function PatientVitalsPage() {
             one moment they are actually thinking about what happens to it. */}
         <MonitoringCoverCard />
 
-        <VitalsForm patientId={subjectId} />
+        <VitalsForm patientId={subjectId} pharmacyOpen={guards.pharmacyOpen} />
         <div className="space-y-4">
           <HbpmSummaryCard patientId={subjectId} />
           <GlucoseInsights patientId={subjectId} />
@@ -70,6 +79,14 @@ export default async function PatientVitalsPage() {
 
       {extendedObservationsOn ? <LifestyleLogCard types={["water_ml", "sleep_hours", "mood", "inhaler_use"]} /> : null}
       {extendedObservationsOn ? <InhalerHistory patientId={subjectId} /> : null}
+      {guards.diaryEntryOpen && (
+        <p className="text-sm">
+          <Link href="/patient/diary" className="font-medium underline" data-testid="diary-entry-link">
+            {t("diary.entry_link")}
+          </Link>
+          <span className="ml-2 text-charcoal-ink/60 dark:text-night-ink/60">{t("diary.entry_link_hint")}</span>
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SymptomLogForm patientId={subjectId} ageYears={ageYears} />
@@ -83,7 +100,9 @@ export default async function PatientVitalsPage() {
         organisationId={profile.organisation_id}
         ageYears={ageYears}
       />
-      <div id="symptom-check" className="scroll-mt-24">
+      <div id="symptom-check" className="scroll-mt-24 space-y-3">
+        {/* S59c: a follow-up waiting for an answer (renders nothing otherwise, and only while the checker is open). */}
+        {presentingComplaints.length > 0 && subjectId === profile.id ? <SymptomCheckbackBanner /> : null}
         <SymptomTriageCheck
           patientId={subjectId}
           presentingComplaints={presentingComplaints}
@@ -91,12 +110,13 @@ export default async function PatientVitalsPage() {
           reviewTime={reviewTime}
           eligibility={eligibility}
           reviewEntitled={reviewEntitled}
+          ux={ux}
         />
       </div>
 
       {/* Renders nothing unless a value that cannot be real is waiting for the person to check it (S70a). */}
       <HeldReadingsCard patientId={subjectId} />
-      <VitalsHistory patientId={subjectId} />
+      <VitalsHistory patientId={subjectId} viewerId={profile.id} />
       <VisitReportCard />
       {/* Renders nothing unless the patient has an active diabetes care
           plan — see diabetes-daily-log.tsx for the gate. */}

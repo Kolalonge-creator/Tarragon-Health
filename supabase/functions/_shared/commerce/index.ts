@@ -8,3 +8,4 @@ export * from "./entitlements.ts";
 export * from "./payment-request.ts";
 export * from "./fund.ts";
 export * from "./tiers.ts";
+export * from "./price-transparency.ts";

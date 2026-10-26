@@ -4,7 +4,7 @@ import { checkoutErrorKey, keepsRetryKey, orderStateKey, parseCatalogue, parseCh
 const mockInvoke = jest.fn();
 const mockRpc = jest.fn();
 jest.mock("../supabase", () => ({ supabase: { functions: { invoke: (...a: unknown[]) => mockInvoke(...a) }, rpc: (...a: unknown[]) => mockRpc(...a) } }));
-import { loadCatalogue, loadMembership, loadMyOrders, startCheckout, verifyOrder } from "./api";
+import { loadCatalogue, loadMembership, loadMyOrders, loadNotIncluded, loadPriceChangeNotices, startCheckout, verifyOrder } from "./api";
 
 const item = { code: "membership_annual", kind: "membership", name_key: "catalog.membership_annual.name", description_key: "catalog.membership_annual.description", included_keys: ["a", 3, "b"], amount_kobo: 12_000_000 };
 
@@ -190,5 +190,30 @@ describe("S72 api: entitlements, quote with points, refunds, payment requests", 
     expect(parseOrders([o])[0]).toMatchObject({ isBuyer: true, refundState: null });
     expect(checkoutErrorKey("request_expired")).toBe("request.error.expired");
     expect(Object.hasOwn(en, checkoutErrorKey("request_in_use"))).toBe(true);
+  });
+
+  it("a catalogue row carries both the price split (checkout) and how long it lasts (monthly line)", () => {
+    const row = parseCatalogue([{ ...item, duration_days: 365, components: { partner_fee: 3_000_000, tarragon_service_fee: 9_000_000 } }])[0];
+    expect(row).toMatchObject({ durationDays: 365, components: { partner_fee: 3_000_000, tarragon_service_fee: 9_000_000 } });
+  });
+
+  it("WP1: keeps how long an item lasts so the yearly price can show a monthly equivalent, and nothing for a bad value", () => {
+    expect(parseCatalogue([{ ...item, duration_days: 365 }])[0]).toMatchObject({ durationDays: 365 });
+    expect(parseCatalogue([{ ...item, duration_days: null }])[0]).toMatchObject({ durationDays: null });
+    expect(parseCatalogue([{ ...item, duration_days: "365" }])[0]).toMatchObject({ durationDays: null });
+    expect(parseCatalogue([item])[0]).toMatchObject({ durationDays: null });
+  });
+
+  it("WP1: loads the not-included list and the price-change notices, and a failed read is an error the screen ignores, not a guess", async () => {
+    mockRpc.mockResolvedValue({ data: [{ code: "membership_annual", items: [{ label_key: "catalog.notincl.medicines", extra_code: null, amount_kobo: null }] }], error: null });
+    const ni = await loadNotIncluded();
+    expect(ni.ok && ni.data["membership_annual"]).toEqual([{ labelKey: "catalog.notincl.medicines", extraCode: null, amountKobo: null }]);
+    expect(mockRpc).toHaveBeenLastCalledWith("catalogue_not_included");
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    expect(await loadPriceChangeNotices()).toEqual({ ok: true, data: [] });
+    expect(mockRpc).toHaveBeenLastCalledWith("my_price_change_notices");
+    mockRpc.mockResolvedValue({ data: null, error: { message: "x" } });
+    expect((await loadNotIncluded()).ok).toBe(false);
+    expect((await loadPriceChangeNotices()).ok).toBe(false);
   });
 });

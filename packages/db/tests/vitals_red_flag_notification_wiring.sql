@@ -146,6 +146,33 @@ begin
   end if;
   raise notice 'PASS 2: RED SpO2 reading paged a clinician via its own per-trigger path (priority=critical, non_clinical)';
 
+  -- 3) INV-07: nothing stored for the clinician carries a clinical label. The text sent is neutral, but the stored payload used to hold
+  --    vital_label / level_label / source_label ('blood pressure', 'a check-in', ...), which the J2 journey rightly flags. patient_name stays.
+  if (select count(*) from public.notifications where recipient_id = v_clinician
+        and template in ('emergency_event_clinician_alert', 'vitals_red_flag_clinician_alert')) < 2 then
+    raise exception 'VACUOUS: fewer than two clinician alert notifications were written, so there is no payload to check';
+  end if;
+  if exists (select 1 from public.notifications where recipient_id = v_clinician
+               and payload ?| array['vital_label', 'level_label', 'source_label']) then
+    raise exception 'FAIL: a clinician alert notification still carries a clinical label in its payload: %',
+      (select payload::text from public.notifications where recipient_id = v_clinician
+         and payload ?| array['vital_label', 'level_label', 'source_label'] limit 1);
+  end if;
+  if not exists (select 1 from public.notifications where recipient_id = v_clinician and payload ? 'patient_name') then
+    raise exception 'FAIL: the clinician alert lost patient_name, which the console needs';
+  end if;
+  raise notice 'PASS 3: clinician alert payloads carry patient_name and no clinical label (INV-07)';
+
+  -- SABOTAGE: write the old-shaped payload and prove the detector above would have caught it.
+  insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
+  values (v_org, v_clinician, 'in_app', 'pending', 'vitals_red_flag_clinician_alert',
+          jsonb_build_object('patient_name', 'x', 'vital_label', 'blood pressure', 'level_label', 'Priority 1'));
+  if not exists (select 1 from public.notifications where recipient_id = v_clinician
+                   and payload ?| array['vital_label', 'level_label', 'source_label']) then
+    raise exception 'VACUOUS TEST: the label detector did not see the old payload shape';
+  end if;
+  raise notice 'PASS 3b: the label detector flips on the old payload shape';
+
   raise notice 'ALL VITALS_RED_FLAG_NOTIFICATION_WIRING CHECKS PASSED';
 end $$;
 

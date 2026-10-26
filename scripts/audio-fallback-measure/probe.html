@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio fallback handset probe</title>
+<style>
+  :root { --bg:#fff; --fg:#12324B; --muted:#5b6b78; --line:#d6dde3; --accent:#0E7C52; --warn:#9a3412; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#10181f; --fg:#e8eef2; --muted:#9db0bd; --line:#2b3a46; --accent:#34d399; --warn:#fdba74; } }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--fg); font:16px/1.45 system-ui, sans-serif; max-width:640px; margin-inline:auto; }
+  h1 { font-size:1.25rem; margin:0 0 4px; } h2 { font-size:1.05rem; margin:24px 0 8px; }
+  p, li { color:var(--muted); } label { display:block; margin:10px 0 4px; color:var(--fg); }
+  input, select, textarea { width:100%; box-sizing:border-box; padding:10px; font:inherit; border:1px solid var(--line); border-radius:8px; background:transparent; color:var(--fg); }
+  button { padding:12px 16px; font:inherit; border-radius:8px; border:1px solid var(--accent); background:var(--accent); color:#fff; margin:6px 6px 6px 0; }
+  button.secondary { background:transparent; color:var(--accent); }
+  table { width:100%; border-collapse:collapse; } td, th { border-bottom:1px solid var(--line); padding:6px 4px; text-align:left; font-size:.9rem; }
+  .out { font-variant-numeric: tabular-nums; color:var(--fg); }
+  .warn { color:var(--warn); }
+</style>
+</head>
+<body>
+<h1>Audio fallback handset probe</h1>
+<p>One run, on one handset, in one condition. Nothing here is sent anywhere: it stays on this page until you copy or download the result. No patient, no call content, no account.</p>
+
+<h2>1. The handset and the condition</h2>
+<label for="tester">Your name (the tester)</label><input id="tester" autocomplete="off">
+<label for="model">Handset make and model (for example Tecno Spark 10)</label><input id="model" autocomplete="off">
+<label for="profile">Condition under test</label>
+<select id="profile">
+  <option value="3g_throttled">3G, throttled</option>
+  <option value="2g_edge">2G / Edge</option>
+  <option value="power_saving">Power saving mode on</option>
+  <option value="lossy_wifi">Wi-Fi with packet loss added</option>
+  <option value="4g">4G, normal (the baseline)</option>
+  <option value="other">Other (say what in the notes)</option>
+</select>
+<label><input type="checkbox" id="powersaving" style="width:auto"> Power saving mode is ON on this handset right now</label>
+<div id="env" class="out"></div>
+
+<h2>2. Link timing from this handset</h2>
+<p>Takes 30 small requests to a public address. A failed or slow request is counted as a lost one: it is a rough stand-in for packet loss, not a measurement of it.</p>
+<label for="rtturl">Address to time (any HTTPS address that answers quickly)</label>
+<input id="rtturl" value="https://www.cloudflare.com/cdn-cgi/trace">
+<button id="runrtt">Run link timing</button>
+<div id="rttout" class="out"></div>
+
+<h2>3. Join time (a stopwatch, on a real call)</h2>
+<p>Start the stopwatch at the moment you tap Join in the real app. Stop it when you can hear or see the other person.</p>
+<button id="joinstart">Start</button><button id="joinstop" class="secondary">Stop</button> <span id="joinout" class="out"></span>
+
+<h2>4. How much loss can the call take?</h2>
+<p>Add loss to the connection (router, Network Link Conditioner, or a lossy hotspot) in steps while talking to someone. For each step tap the result.</p>
+<label for="loss">Loss added, percent</label><input id="loss" type="number" min="0" max="100" step="1" value="0">
+<button data-r="clear">Speech clear</button><button data-r="choppy" class="secondary">Choppy but understood</button><button data-r="unintelligible" class="secondary">Cannot understand</button><button data-r="dropped" class="secondary">Call dropped</button>
+<table id="steps"><thead><tr><th>Loss %</th><th>Result</th></tr></thead><tbody></tbody></table>
+
+<h2>5. How long until the app drops to audio only?</h2>
+<p>Start the stopwatch at the moment you make the connection bad. Stop it when the app shows audio only.</p>
+<button id="fbstart">Connection made bad: start</button><button id="fbstop" class="secondary">Audio only shown: stop</button> <span id="fbout" class="out"></span>
+
+<h2>6. Notes and result</h2>
+<textarea id="notes" rows="3" placeholder="Anything unusual: the app version, the call platform, what you changed."></textarea>
+<button id="make">Make the result</button><button id="dl" class="secondary">Download file</button>
+<textarea id="result" rows="8" readonly></textarea>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const state = { rtt: null, joinMs: null, steps: [], fbStart: null, fbDelayMs: null, joinStart: null, battery: null };
+const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
+const connection = conn ? { effectiveType: conn.effectiveType ?? null, downlinkMbps: conn.downlink ?? null, rttMs: conn.rtt ?? null, saveData: conn.saveData ?? null } : null;
+$("env").textContent = connection ? `Browser reports: ${connection.effectiveType ?? "?"}, about ${connection.downlinkMbps ?? "?"} Mbps down, ${connection.rttMs ?? "?"} ms round trip, data saver ${connection.saveData ? "on" : "off"}` : "This browser does not report connection details. That is fine: the timings below are measured.";
+if (navigator.getBattery) navigator.getBattery().then((b) => { state.battery = { level: Math.round(b.level * 100), charging: b.charging }; }).catch(() => {});
+
+$("runrtt").onclick = async () => {
+  const url = $("rtturl").value; const samples = []; $("rttout").textContent = "Running...";
+  for (let i = 0; i < 30; i++) {
+    const t0 = performance.now(); const c = new AbortController(); const timer = setTimeout(() => c.abort(), 3000);
+    try { await fetch(`${url}${url.includes("?") ? "&" : "?"}_=${Date.now()}${i}`, { mode: "no-cors", cache: "no-store", signal: c.signal }); samples.push(Math.round(performance.now() - t0)); }
+    catch { samples.push(null); }
+    clearTimeout(timer);
+    $("rttout").textContent = `${i + 1} of 30`;
+  }
+  state.rtt = { url, samples };
+  const ok = samples.filter((x) => x !== null).sort((a, b) => a - b);
+  $("rttout").textContent = ok.length ? `Median ${ok[Math.floor(ok.length / 2)]} ms, slowest ${ok[ok.length - 1]} ms, ${samples.length - ok.length} of 30 failed or took over 3 s` : "All 30 failed. Check the address and the connection.";
+};
+$("joinstart").onclick = () => { state.joinStart = performance.now(); $("joinout").textContent = "running"; };
+$("joinstop").onclick = () => { if (state.joinStart === null) return; state.joinMs = Math.round(performance.now() - state.joinStart); state.joinStart = null; $("joinout").textContent = `${(state.joinMs / 1000).toFixed(1)} s`; };
+$("fbstart").onclick = () => { state.fbStart = performance.now(); state.fbDelayMs = null; $("fbout").textContent = "running"; };
+$("fbstop").onclick = () => { if (state.fbStart === null) return; state.fbDelayMs = Math.round(performance.now() - state.fbStart); state.fbStart = null; $("fbout").textContent = `${(state.fbDelayMs / 1000).toFixed(1)} s`; };
+document.querySelectorAll("button[data-r]").forEach((b) => b.onclick = () => {
+  const lossPercent = Number($("loss").value); if (!Number.isFinite(lossPercent) || lossPercent < 0 || lossPercent > 100) return;
+  state.steps.push({ lossPercent, result: b.dataset.r });
+  const tr = document.createElement("tr"); tr.innerHTML = "<td></td><td></td>"; tr.children[0].textContent = lossPercent; tr.children[1].textContent = b.dataset.r;
+  $("steps").tBodies[0].appendChild(tr);
+});
+function build() {
+  return {
+    schema: "tarragon-audio-fallback-run/v1", runId: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, startedAt: new Date().toISOString(),
+    tester: $("tester").value.trim(), handset: { model: $("model").value.trim(), userAgent: navigator.userAgent },
+    profile: $("profile").value, powerSaving: $("powersaving").checked, battery: state.battery, connection,
+    rttProbe: state.rtt, joinTimeMs: state.joinMs, lossSteps: state.steps, fallbackDelayMs: state.fbDelayMs, notes: $("notes").value.trim(),
+  };
+}
+$("make").onclick = () => { $("result").value = JSON.stringify(build(), null, 2); };
+$("dl").onclick = () => {
+  const run = build(); $("result").value = JSON.stringify(run, null, 2);
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([$("result").value], { type: "application/json" })); a.download = `audio-fallback-run-${run.runId}.json`; a.click();
+};
+</script>
+</body>
+</html>

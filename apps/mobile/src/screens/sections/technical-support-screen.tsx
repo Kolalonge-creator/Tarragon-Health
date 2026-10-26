@@ -8,6 +8,7 @@ import {
   type SupportTicketStatus,
 } from "@/lib/technical-support";
 import { loadCachedEmergencyFacts, type EmergencyContact } from "@/lib/emergency";
+import { takeSupportPrefill } from "@/lib/support-prefill";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
@@ -46,8 +47,10 @@ export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalS
   const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
   const { scheme } = useTheme();
-  const [subject, setSubject] = useState("");
-  const [description, setDescription] = useState("");
+  // One-shot hand-off from the points screen (S58b); a plain visit gets empty fields.
+  const [prefill] = useState(() => takeSupportPrefill());
+  const [subject, setSubject] = useState(prefill?.subject ?? "");
+  const [description, setDescription] = useState(prefill?.description ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);

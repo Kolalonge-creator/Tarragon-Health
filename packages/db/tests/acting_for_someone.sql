@@ -77,11 +77,12 @@ begin
 end $$;
 
 -- Idempotent: a browser fixture may already have left a real grant here.
-insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)
+-- Assisted entry: a helper writes readings only with the log_readings capability (or an unrestricted grant plus the vitals category).
+insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, permissions)
 select (select v from ids where k='mum'), (select v from ids where k='supporter'), 'manage',
-       (select v from ids where k='mum')
+       (select v from ids where k='mum'), array['log_readings']::public.caregiver_permission[]
 on conflict (profile_id, grantee_user_id)
-do update set permission_level = 'manage';
+do update set permission_level = 'manage', permissions = array['log_readings']::public.caregiver_permission[];
 insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)
 select (select v from ids where k='mum'), (select v from ids where k='viewer'), 'view',
        (select v from ids where k='mum')

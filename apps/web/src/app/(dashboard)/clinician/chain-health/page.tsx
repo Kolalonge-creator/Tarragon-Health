@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { ChainHealthPanel } from "@/components/chain-health/chain-health-panel";
 import { parseChainHealth, parseReliability } from "@/lib/chain-health/model";
+import { ProviderLayerCard } from "@/components/chain-health/provider-layer-card";
+import { loadProviderLayerHealth } from "@/lib/providers/load";
 
 export const metadata = { title: "Chain health" };
 export const dynamic = "force-dynamic";
@@ -19,7 +21,7 @@ export default async function ClinicianChainHealthPage({ searchParams }: { searc
   if (profile.role !== "admin" && staff?.doctor_tier !== "chief_medical_officer") redirect("/clinician");
   const sp = await searchParams;
   const supabase = await createClient();
-  const [h, rel] = await Promise.all([supabase.rpc("chain_health"), supabase.rpc("chain_reliability_report", { p_days: 30 })]);
+  const [h, rel, providers] = await Promise.all([supabase.rpc("chain_health"), supabase.rpc("chain_reliability_report", { p_days: 30 }), loadProviderLayerHealth()]);
   const result = sp.r === "started" || sp.r === "wait" || sp.r === "failed" ? sp.r : null;
   return (
     <div className="space-y-6">
@@ -28,6 +30,7 @@ export default async function ClinicianChainHealthPage({ searchParams }: { searc
         description="Whether a reading becomes a grade, a task or a page, a neutral notice and an acknowledgement, and how long each step takes. Counts, seconds and stage names only: no patient appears here."
       />
       <ChainHealthPanel health={h.error ? null : parseChainHealth(h.data)} reliability={rel.error ? null : parseReliability(rel.data)} from="clinician" result={result} />
+      <ProviderLayerCard health={providers} />
     </div>
   );
 }

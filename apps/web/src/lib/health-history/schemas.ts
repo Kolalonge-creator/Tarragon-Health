@@ -6,19 +6,11 @@ import { z } from "zod";
  * nothing here can claim a clinician stood behind an entry: these schemas only
  * keep the text sane before it is sent.
  */
-export const FAMILY_RELATIONSHIPS = [
-  "mother",
-  "father",
-  "sibling",
-  "child",
-  "maternal_grandmother",
-  "maternal_grandfather",
-  "paternal_grandmother",
-  "paternal_grandfather",
-  "aunt_or_uncle",
-  "other",
-] as const;
-export type FamilyRelationship = (typeof FAMILY_RELATIONSHIPS)[number];
+import { FAMILY_RELATIONSHIPS, type FamilyRelationship } from "@tarragon/shared";
+
+// The list itself lives in @tarragon/shared so the phone screen and this form cannot drift.
+export { FAMILY_RELATIONSHIPS };
+export type { FamilyRelationship };
 
 function currentYear(): number {
   return new Date().getFullYear();

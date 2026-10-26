@@ -7,6 +7,7 @@ import { deviceReadingHoldSchema, deviceReadingSchema } from "@/lib/validation/d
 import { anyDeviceModuleOn, readDeviceFlags } from "@/lib/devices/flags";
 import { readOutcome } from "@/lib/devices/reading-outcome";
 import { mgDlToMmolL, type TablesInsert } from "@tarragon/shared";
+import { assistedRefusalResponse } from "@/lib/vitals/assisted-refusal";
 
 /**
  * Device-sync ingestion boundary for the Expo mobile app — CLAUDE.md
@@ -137,6 +138,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       p_device_id: device_id,
       p_last_error: insertError.message,
     });
+    const refused = assistedRefusalResponse(insertError);
+    if (refused) return NextResponse.json({ error: refused.message }, { status: refused.status });
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 

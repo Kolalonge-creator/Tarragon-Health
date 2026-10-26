@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -70,6 +70,8 @@ export interface LifestyleTrackerConfig<S> {
   summary: (state: S) => { label: string; value: string } | null;
   history: (state: S) => TrackerHistoryItem[];
   emptyHistory: string;
+  /** Optional extra cards between the intro and the form (S48b: the activity advice, the weekly goal, device bands). `reload` re-reads the tracker. */
+  extras?: (state: S | null, reload: () => Promise<void>) => ReactNode;
 }
 
 export function LifestyleTrackerScreen<S>({ config }: { config: LifestyleTrackerConfig<S> }) {
@@ -157,6 +159,8 @@ export function LifestyleTrackerScreen<S>({ config }: { config: LifestyleTracker
       </View>
 
       {loadError ? <ErrorText>{loadError}</ErrorText> : null}
+
+      {config.extras ? config.extras(state, load) : null}
 
       {summary ? (
         <Card>

@@ -1,3 +1,4 @@
+import { isAnchorOffset, isSlotKey, resolveAnchoredDose, anchorBaseTime, specNamesAPrayer, type AnchorId, type AnchoredDose, type AnchorProfile } from "./anchors";
 import { addDays, daysBetween, isValidLocalDate, isValidTime, weekdayOf, type LocalDate } from "./lagos";
 import type { FoodNote, ScheduleSpec, Slot, TaperStep } from "./types";
 
@@ -27,7 +28,8 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-function cleanTimes(raw: unknown, errors: string[], field: string): string[] {
+function cleanTimes(raw: unknown, errors: string[], field: string, allowEmpty = false): string[] {
+  if (allowEmpty && (raw === undefined || raw === null || (Array.isArray(raw) && raw.length === 0))) return [];
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_TIMES_PER_DAY) {
     errors.push(`${field}:count`);
     return [];
@@ -57,8 +59,38 @@ function parseTaperStep(raw: unknown, errors: string[], i: number): TaperStep {
   return { days: typeof days === "number" ? days : 0, times, doseText };
 }
 
-/** Validate untrusted JSON (a database column, a form) into a ScheduleSpec. Never throws. */
-export function parseScheduleSpec(input: unknown): ParseResult {
+const ANCHORABLE_KINDS = ["daily", "every_n_days", "weekdays"];
+
+function cleanAnchored(raw: unknown, errors: string[]): AnchoredDose[] {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw) || raw.length > MAX_TIMES_PER_DAY) {
+    errors.push("anchored:count");
+    return [];
+  }
+  const out: AnchoredDose[] = [];
+  const seen = new Set<string>();
+  raw.forEach((entry, i) => {
+    const e = isRecord(entry) ? entry : {};
+    if (!isSlotKey(e.slot)) errors.push(`anchored[${i}].slot`);
+    if (!isAnchorOffset(e.offsetMinutes)) errors.push(`anchored[${i}].offsetMinutes`);
+    // An entry carries a slot and an offset and nothing else: in particular never the anchor's own name.
+    if (Object.keys(e).some((k) => k !== "slot" && k !== "offsetMinutes")) errors.push(`anchored[${i}]:keys`);
+    if (isSlotKey(e.slot) && isAnchorOffset(e.offsetMinutes)) {
+      const key = `${e.slot}|${e.offsetMinutes}`;
+      if (seen.has(key)) errors.push(`anchored[${i}]:duplicate`);
+      seen.add(key);
+      out.push({ slot: e.slot, offsetMinutes: e.offsetMinutes });
+    }
+  });
+  return out.sort((a, b) => (a.slot === b.slot ? a.offsetMinutes - b.offsetMinutes : a.slot < b.slot ? -1 : 1));
+}
+
+/**
+ * Validate untrusted JSON (a database column, a form) into a ScheduleSpec. Never throws. When the patient's anchor profile is
+ * given it is attached to the result (runtime only) so anchored doses resolve, and the window check counts them at their
+ * resolved times.
+ */
+export function parseScheduleSpec(input: unknown, profile?: AnchorProfile): ParseResult {
   const errors: string[] = [];
   if (!isRecord(input)) return { ok: false, errors: ["spec:shape"] };
 
@@ -77,12 +109,26 @@ export function parseScheduleSpec(input: unknown): ParseResult {
     if (typeof w === "number" && Number.isInteger(w) && w >= 0 && w <= MAX_WINDOW_MINUTES) windowMinutes = w;
     else errors.push("windowMinutes");
   }
-  const common = { startDate, endDate, foodNote, windowMinutes };
+  // A prayer name anywhere in a stored schedule would reach every reader of the medicine (religious belief); the slot is the only way in.
+  if (specNamesAPrayer(input)) errors.push("spec:anchor_name");
+  const kindIsAnchorable = typeof input.kind === "string" && ANCHORABLE_KINDS.includes(input.kind);
+  const anchored = cleanAnchored(input.anchored, errors);
+  if (anchored.length > 0 && !kindIsAnchorable) errors.push("anchored:kind");
+  const common = {
+    startDate,
+    endDate,
+    foodNote,
+    windowMinutes,
+    ...(anchored.length > 0 ? { anchored } : {}),
+    ...(profile ? { anchorProfile: profile } : {}),
+  };
+  const hasAnchored = anchored.length > 0 && kindIsAnchorable;
+  const timesOf = () => cleanTimes(input.times, errors, "times", hasAnchored);
 
   let spec: ScheduleSpec | null = null;
   switch (input.kind) {
     case "daily":
-      spec = { ...common, kind: "daily", times: cleanTimes(input.times, errors, "times") };
+      spec = { ...common, kind: "daily", times: timesOf() };
       break;
     case "every_n_days": {
       const n = input.intervalDays;
@@ -92,7 +138,7 @@ export function parseScheduleSpec(input: unknown): ParseResult {
       spec = {
         ...common,
         kind: "every_n_days",
-        times: cleanTimes(input.times, errors, "times"),
+        times: timesOf(),
         intervalDays: typeof n === "number" ? n : 0,
         anchorDate: anchorDate ?? "1970-01-01",
       };
@@ -105,7 +151,7 @@ export function parseScheduleSpec(input: unknown): ParseResult {
       spec = {
         ...common,
         kind: "weekdays",
-        times: cleanTimes(input.times, errors, "times"),
+        times: timesOf(),
         days: valid ? [...new Set(raw as number[])].sort((a, b) => a - b) : [],
       };
       break;
@@ -131,11 +177,17 @@ export function parseScheduleSpec(input: unknown): ParseResult {
     default:
       errors.push("kind");
   }
+  if (hasAnchored && spec !== null && "times" in spec && spec.times.length + anchored.length > MAX_TIMES_PER_DAY) errors.push("times:count");
   if (errors.length > 0 || spec === null) return { ok: false, errors };
   // A window must close before the next dose time: two overlapping windows leave a dose "due"
   // after the next one has started, so it could never read as unanswered at the right time.
   if (windowMinutes > 0) {
-    const timeLists = spec.kind === "taper" ? spec.steps.map((s) => s.times) : spec.kind === "as_needed" ? [] : [spec.times];
+    const timeLists =
+      spec.kind === "taper"
+        ? spec.steps.map((s) => s.times)
+        : spec.kind === "as_needed"
+          ? []
+          : [[...new Set([...spec.times, ...(profile ? anchoredBaseTimes(spec.anchored ?? [], profile) : [])])]];
     if (timeLists.some((times) => minGapMinutes(times) <= windowMinutes)) return { ok: false, errors: ["windowMinutes:overlap"] };
   }
   return { ok: true, spec };
@@ -151,6 +203,20 @@ export function specFromLegacyTimes(times: unknown): ScheduleSpec {
   const good = Array.isArray(times) ? [...new Set(times.filter(isValidTime))].sort() : [];
   if (good.length === 0) return { ...common, kind: "as_needed", maxPerDay: null };
   return { ...common, kind: "daily", times: good };
+}
+
+/** The clock times anchored doses take with no shift in force: what the schedule normally looks like. */
+function anchoredBaseTimes(anchored: AnchoredDose[], profile: AnchorProfile): string[] {
+  const out: string[] = [];
+  for (const a of anchored) {
+    const anchor = profile.slots[a.slot];
+    // A slot the patient's mapping does not know has no normal time.
+    if (anchor === undefined) continue;
+    const total = minutesOf(anchorBaseTime(profile, anchor)) + a.offsetMinutes;
+    const m = ((total % 1440) + 1440) % 1440;
+    out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  }
+  return out;
 }
 
 function minutesOf(time: string): number {
@@ -197,12 +263,57 @@ function timesOnDate(spec: ScheduleSpec, date: LocalDate): { times: string[]; do
   }
 }
 
-/** The dose slots on one Lagos date. As-needed medicines never have slots. */
+/** Whether a daily, every-N-days or weekdays schedule has an occurrence on this (schedule) date, before the start and end dates. */
+function occursOn(spec: ScheduleSpec, date: LocalDate): boolean {
+  switch (spec.kind) {
+    case "daily":
+      return true;
+    case "every_n_days": {
+      const diff = daysBetween(spec.anchorDate, date);
+      return diff >= 0 && diff % spec.intervalDays === 0;
+    }
+    case "weekdays":
+      return spec.days.includes(weekdayOf(date));
+    default:
+      return false;
+  }
+}
+
+function inRange(spec: ScheduleSpec, date: LocalDate): boolean {
+  return !(spec.startDate !== null && date < spec.startDate) && !(spec.endDate !== null && date > spec.endDate);
+}
+
+// Times are de-duplicated before sorting, so two slots never share a time.
+const byTime = (a: Slot, b: Slot): number => (a.time < b.time ? -1 : 1);
+
+/**
+ * The dose slots on one Lagos date. As-needed medicines never have slots. An anchored dose belongs to the SCHEDULE day it
+ * was resolved from, so one that crosses midnight lands on the neighbouring date: this looks at the day before, the day
+ * itself and the day after, and keeps what resolves onto `date`. A schedule with anchored doses and no attached anchor
+ * profile resolves its anchored doses at nothing (callers always attach one).
+ */
 export function slotsOn(spec: ScheduleSpec, date: LocalDate): Slot[] {
-  if (spec.startDate !== null && date < spec.startDate) return [];
-  if (spec.endDate !== null && date > spec.endDate) return [];
-  const { times, doseText } = timesOnDate(spec, date);
-  return [...times].sort().map((time) => ({ date, time, doseText }));
+  const fixed: Slot[] = [];
+  if (inRange(spec, date)) {
+    const { times, doseText } = timesOnDate(spec, date);
+    for (const time of times) fixed.push({ date, time, doseText });
+  }
+  const anchored = spec.anchored;
+  const profile = spec.anchorProfile;
+  if (anchored === undefined || anchored.length === 0 || profile === undefined) return fixed.sort(byTime);
+  const seen = new Set(fixed.map((s) => s.time));
+  const out = [...fixed];
+  for (const day of [addDays(date, -1), date, addDays(date, 1)]) {
+    if (!inRange(spec, day) || !occursOn(spec, day)) continue;
+    for (const dose of anchored) {
+      const r = resolveAnchoredDose(profile, dose, day);
+      if (r !== null && r.date === date && !seen.has(r.time)) {
+        seen.add(r.time);
+        out.push({ date, time: r.time, doseText: null, anchored: { anchor: r.anchor, offsetMinutes: dose.offsetMinutes } });
+      }
+    }
+  }
+  return out.sort(byTime);
 }
 
 /** The slots from `from` to `to`, both inclusive. Ranges over 400 days are refused. */
@@ -230,10 +341,47 @@ export function slotCloseMinutes(spec: ScheduleSpec, missedAfterMinutes: number)
  */
 export function allTimes(spec: ScheduleSpec): string[] {
   if (spec.kind === "as_needed") return [];
-  const times = spec.kind === "taper" ? spec.steps.flatMap((s) => s.times) : spec.times;
+  const times =
+    spec.kind === "taper"
+      ? spec.steps.flatMap((s) => s.times)
+      : [...spec.times, ...(spec.anchorProfile ? anchoredBaseTimes(spec.anchored ?? [], spec.anchorProfile) : [])];
   return [...new Set(times)].sort();
+}
+
+/** The spec as it is stored: without the runtime anchor profile. */
+export function toStoredSpec(spec: ScheduleSpec): ScheduleSpec {
+  const stored = { ...spec };
+  delete stored.anchorProfile;
+  return stored;
 }
 
 export function slotKey(medicationId: string, slot: Pick<Slot, "date" | "time">): string {
   return `${medicationId}|${slot.date}|${slot.time}`;
+}
+
+/**
+ * Which medicines would have a flexible window overlap the next dose if these anchors were moved to these times (S08z). The changes
+ * are judged TOGETHER, as the database judges them (on the final state of one save), so moving breakfast and lunch as a pair is not
+ * refused because breakfast alone would be too close to the old lunch. Only schedules with anchored doses and a window can conflict.
+ * Returns their ids; empty means the change is safe. The database refuses the same change, so this is what lets the phone say why
+ * before it tries.
+ */
+export function anchorChangeConflicts(
+  medicines: readonly { id: string; spec: ScheduleSpec }[],
+  profile: AnchorProfile,
+  changes: Partial<Record<AnchorId, string>>,
+): string[] {
+  const times: AnchorProfile["times"] = { ...profile.times };
+  for (const [anchor, time] of Object.entries(changes) as [AnchorId, string][]) times[anchor] = [{ effectiveFrom: "9999-12-31", time }];
+  const moved: AnchorProfile = { ...profile, times };
+  const out: string[] = [];
+  for (const { id, spec } of medicines) {
+    if (spec.kind === "taper" || spec.kind === "as_needed") continue;
+    const window = spec.windowMinutes ?? 0;
+    const anchored = spec.anchored ?? [];
+    if (window <= 0 || anchored.length === 0) continue;
+    const all = [...new Set([...spec.times, ...anchoredBaseTimes(anchored, moved)])];
+    if (minGapMinutes(all) <= window) out.push(id);
+  }
+  return out;
 }

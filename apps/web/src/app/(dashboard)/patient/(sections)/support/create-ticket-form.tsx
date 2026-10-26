@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
  * (sections)/layout.tsx) takes over the screen immediately, no separate UI
  * needed here.
  */
-export function CreateTicketForm({ patientId }: { patientId: string }) {
+export function CreateTicketForm({ patientId, prefill }: { patientId: string; prefill?: { subject: string; description: string } }) {
   const [state, formAction, pending] = useActionState(createSupportTicket, undefined);
   const queryClient = useQueryClient();
 
@@ -41,6 +41,7 @@ export function CreateTicketForm({ patientId }: { patientId: string }) {
         <input
           id="ticket-subject"
           name="subject"
+          defaultValue={prefill?.subject}
           required
           maxLength={200}
           placeholder="Short summary of the app or technical issue"
@@ -55,6 +56,7 @@ export function CreateTicketForm({ patientId }: { patientId: string }) {
         <textarea
           id="ticket-description"
           name="description"
+          defaultValue={prefill?.description}
           required
           rows={4}
           maxLength={4000}

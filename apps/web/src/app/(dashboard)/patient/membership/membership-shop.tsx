@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { en, t, type Locale, type MessageKey } from "@tarragon/i18n";
 import Link from "next/link";
-import { estimatedBreakdown, formatNaira, itemiseCheckout, type FeeEstimateSchedule } from "@tarragon/commerce";
+import { estimatedBreakdown, formatNaira, itemiseCheckout, type FeeEstimateSchedule, type NotIncludedEntry, type PriceChangeNotice } from "@tarragon/commerce";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-error";
@@ -14,6 +14,7 @@ import { CheckoutError, useCatalogue, useMyMembership, useMyOrders, useQuote, us
 import { useSponsorableProfiles } from "@/lib/queries/care-access";
 import { RefundRequestDialog } from "./refund-request-dialog";
 import { RefundRule } from "./refund-rule";
+import { MonthlyEquivalent, NotIncludedList, PriceChangeCard } from "./price-transparency";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 const TOUCH = "min-h-11";
@@ -43,7 +44,12 @@ const goTo: Go = (url) => window.location.assign(url);
 /** Set when a supporter pays for someone in their Care Circle (S29): the order is for them, the card is the payer's own. */
 export interface Beneficiary { readonly id: string; readonly name: string }
 
-function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiaryName, ladder }: { item: CatalogueItem; locale: Locale; fee: FeeEstimateSchedule; memberUntil: string | null; go: Go; beneficiary: string | undefined; beneficiaryName: string | undefined; ladder: boolean }) {
+/** One card shows the included list as a region; two cards side by side use a labelled group so the page has no duplicate landmark. */
+function IncludedBox({ ladder, id, children }: { ladder: boolean; id: string; children: React.ReactNode }) {
+  return ladder ? <div role="group" aria-labelledby={id}>{children}</div> : <section aria-labelledby={id}>{children}</section>;
+}
+
+function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiaryName, ladder, notIncluded, showMonthly }: { item: CatalogueItem; locale: Locale; fee: FeeEstimateSchedule; memberUntil: string | null; go: Go; beneficiary: string | undefined; beneficiaryName: string | undefined; ladder: boolean; notIncluded: readonly NotIncludedEntry[]; showMonthly: boolean }) {
   const start = useStartCheckout();
   // One key per card, made on first use and kept, so a double tap or a retry after a dropped connection is the SAME order.
   const clientKey = useRef<string | null>(null);
@@ -115,15 +121,16 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
       </CardHeader>
       <CardContent className="space-y-4">
         <p>{copy(item.description_key, locale)}</p>
-        {tierCard ? <p className={MUTED}>{t("shop.tier.monthly", locale, { amount: `\u20A6${formatNaira(monthlyFramingKobo(shownKobo))}` })}</p> : null}
-        <div role="group" aria-labelledby={`incl-${item.code}`}>
+        {tierCard && showMonthly ? <p className={MUTED}>{t("shop.tier.monthly", locale, { amount: `\u20A6${formatNaira(monthlyFramingKobo(shownKobo))}` })}</p> : null}
+        <IncludedBox ladder={ladder} id={`incl-${item.code}`}>
           <h3 id={`incl-${item.code}`} className="font-medium">{t("shop.included", locale)}</h3>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             {item.included_keys.map((k) => (
               <li key={k}>{copy(k, locale)}</li>
             ))}
           </ul>
-        </div>
+        </IncludedBox>
+        <NotIncludedList entries={notIncluded} locale={locale} id={item.code} grouped={ladder} />
         <p><Link href={`/patient/membership/${item.code}`} className="underline">{t("shop.see_included", locale)}</Link></p>
         {coveredDone ? (
           <section aria-labelledby={`covered-done-${item.code}`} className="space-y-1" role="status">
@@ -197,6 +204,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
                 <p className={`text-sm ${MUTED}`}>{t("shop.fee.estimate", locale)}</p>
               </>
             )}
+            {!codeFailed ? <MonthlyEquivalent amountDueKobo={shownKobo} durationDays={item.duration_days} locale={locale} enabled={showMonthly} /> : null}
             {pointsLine !== null && pointsQuote !== null && !blocked ? (
               <div className="space-y-1">
                 <label className={`${TOUCH} flex items-center gap-2 font-medium`}>
@@ -301,7 +309,7 @@ function History({ rows, locale, kindByCode }: { rows: OrderRow[]; locale: Local
 }
 
 /** `go` is where the patient is sent to pay; a test passes its own, the app uses the browser's navigation. */
-export function MembershipShop({ locale, fee, go = goTo, beneficiary }: { locale: Locale; fee: FeeEstimateSchedule; go?: Go; beneficiary?: Beneficiary }) {
+export function MembershipShop({ locale, fee, go = goTo, beneficiary, notIncluded = {}, priceNotices = [], showMonthly = false }: { locale: Locale; fee: FeeEstimateSchedule; go?: Go; beneficiary?: Beneficiary; notIncluded?: Readonly<Record<string, readonly NotIncludedEntry[]>>; priceNotices?: readonly PriceChangeNotice[]; showMonthly?: boolean }) {
   const catalogue = useCatalogue();
   const orders = useMyOrders();
   const membership = useMyMembership();
@@ -332,6 +340,7 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary }: { locale
           <p className={MUTED}>{t("circle.pay.only_year", locale)}</p>
         </section>
       ) : null}
+      {!chosenId ? <PriceChangeCard notices={priceNotices} locale={locale} /> : null}
       {memberUntil ? (
         <p role="status">{ladder && tierNow === "plus" ? t("shop.tier.you_have_plus", locale, { date: memberDate }) : ladder && tierNow === "evergreen" ? t("shop.tier.you_have_evergreen", locale, { date: memberDate }) : t("shop.member_until", locale, { date: memberDate })}</p>
       ) : null}
@@ -360,8 +369,8 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary }: { locale
       ) : null}
       {catalogue.isSuccess && items.length === 0 ? <p>{t("shop.not_open", locale)}</p> : null}
       <div className={ladder && arranged.tierCards.length > 1 ? "grid gap-6 md:grid-cols-2" : "space-y-6"} data-testid="shop-cards">
-        {visible.map((item) => (
-          <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} beneficiary={chosenId} ladder={ladder} beneficiaryName={beneficiary?.name ?? profiles.find((p) => p.id === chosenId)?.full_name ?? undefined} />
+        {visible.filter((item) => !chosenId || item.kind === "membership").map((item) => (
+          <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} beneficiary={chosenId} ladder={ladder} beneficiaryName={beneficiary?.name ?? profiles.find((p) => p.id === chosenId)?.full_name ?? undefined} notIncluded={notIncluded[item.code] ?? []} showMonthly={showMonthly} />
         ))}
       </div>
       <History rows={orders.data ?? []} locale={locale} kindByCode={new Map(items.map((i) => [i.code, i.kind]))} />
