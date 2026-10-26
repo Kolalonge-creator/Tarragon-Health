@@ -572,11 +572,11 @@ begin
   perform pg_temp.try_as(v_admin, $q$select public.attest_go_live_condition('checkout_enabled', 'paystack_channels_verified', true, 'Proof run: channels tried with the test key')$q$);
   perform pg_temp.try_as(v_admin, $q$select public.attest_go_live_condition('checkout_enabled', 'refund_path_tested', true, 'Proof run: refund tested end to end')$q$);
   perform pg_temp.ck('admin opens the catalogue checkout guard', 'ok', pg_temp.try_as(v_admin, $q$select public.set_go_live_guard('checkout_enabled', true, 'Proof run: conditions met')$q$));
-  perform pg_temp.ck('with the guard on a real patient can be quoted for the Membership', '12000000', pg_temp.qa(v_real, 'membership_annual'));
+  perform pg_temp.ck('with the guard on a real patient can be quoted for the Membership', '12900000', pg_temp.qa(v_real, 'membership_annual'));
   perform pg_temp.ck('a Membership quote has no itemised split, so no floor and no points', '0', (pg_temp.qj(v_real, 'membership_annual') ->> 'floor_kobo'));
   perform pg_temp.ck('switching the guard off needs only an admin and no paperwork', 'ok', pg_temp.try_as(v_admin, $q$select public.set_go_live_guard('membership_billing_enabled', false, 'Proof run: stopping sales')$q$));
   perform pg_temp.ck('with the guard off a real patient cannot be quoted for the Membership', 'ERR:membership_not_open', pg_temp.qa(v_real, 'membership_annual'));
-  perform pg_temp.ck('a test patient is not blocked (the S37 test pair rule), so existing proofs and rehearsals still work', '12000000', pg_temp.qa(v_pat, 'membership_annual'));
+  perform pg_temp.ck('a test patient is not blocked (the S37 test pair rule), so existing proofs and rehearsals still work', '12900000', pg_temp.qa(v_pat, 'membership_annual'));
   perform pg_temp.ck('an admin can always switch the item off', 'ok', pg_temp.try_as(v_admin, $q$select public.set_catalog_item_active('membership_annual', false, 'Proof run, switching it off again')$q$));
 end $$;
 

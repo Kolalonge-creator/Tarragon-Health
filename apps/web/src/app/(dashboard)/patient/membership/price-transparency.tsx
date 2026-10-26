@@ -15,11 +15,12 @@ function copy(key: string, locale: Locale): string {
  * What an item does not include (competitor gap B1). A priced extra shows the price the database gives for it today; an extra with no live
  * price shows "Ask us", never a number made up here. Words-only entries (for example medicines) carry no price at all.
  */
-export function NotIncludedList({ entries, locale, id }: { entries: readonly NotIncludedEntry[]; locale: Locale; id: string }) {
+export function NotIncludedList({ entries, locale, id, grouped = false }: { entries: readonly NotIncludedEntry[]; locale: Locale; id: string; grouped?: boolean }) {
   const shown = entries.filter((e) => copy(e.labelKey, locale) !== "");
   if (shown.length === 0) return null;
+  const Box = grouped ? "div" : "section";
   return (
-    <section aria-labelledby={`notincl-${id}`} className="space-y-2">
+    <Box role={grouped ? "group" : undefined} aria-labelledby={`notincl-${id}`} className="space-y-2">
       <h3 id={`notincl-${id}`} className="font-medium">{t("notincl.title", locale)}</h3>
       <ul className="list-disc space-y-1 pl-5">
         {shown.map((e) => {
@@ -34,7 +35,7 @@ export function NotIncludedList({ entries, locale, id }: { entries: readonly Not
         })}
       </ul>
       {shown.some((e) => e.extraCode !== null) ? <p className={`text-sm ${MUTED}`}>{t("notincl.sold_separately", locale)}</p> : null}
-    </section>
+    </Box>
   );
 }
 
