@@ -20,6 +20,67 @@ begin
   return r;
 end $f$;
 
+
+-- Review fixes (migration *_annual_bundle_review_fixes.sql): acting for someone, the lock, the INSERT audit, the town rule
+do $$
+declare
+  v_org uuid; a uuid := gen_random_uuid(); b uuid := gen_random_uuid(); c uuid := gen_random_uuid(); r text; v_def text; v_ord uuid;
+begin
+  select id into v_org from public.organisations order by created_at limit 1;
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data) values
+    (a, 'rfa-' || a || '@example.invalid', 'x', now(), '{}', '{}'), (b, 'rfb-' || b || '@example.invalid', 'x', now(), '{}', '{}'), (c, 'rfc-' || c || '@example.invalid', 'x', now(), '{}', '{}');
+  insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test) values
+    (a, v_org, 'patient', 'RF dependant', '+23480' || lpad((random()*99999999)::int::text, 8, '0'), '1950-01-01', true),
+    (b, v_org, 'patient', 'RF carer', '+23480' || lpad((random()*99999999)::int::text, 8, '0'), '1980-01-01', true),
+    (c, v_org, 'patient', 'RF stranger', '+23480' || lpad((random()*99999999)::int::text, 8, '0'), '1980-01-01', true)
+  on conflict (id) do update set role = 'patient', is_test = true, is_active = true;
+
+  -- a stranger cannot start the dependant's bundle; the carer without the permission cannot either
+  r := pg_temp.as_user(c, format('select public.start_annual_bundle(null, %L)::text', a));
+  if r not like 'ERR:42501%' then raise exception 'FAIL R1: a stranger started someone else''s bundle: %', r; end if;
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, permissions)
+    values (a, b, 'manage', a, array['log_readings']::public.caregiver_permission[]);
+  r := pg_temp.as_user(b, format('select public.start_annual_bundle(null, %L)::text', a));
+  if r not like 'ERR:42501%' then raise exception 'FAIL R2: a carer without book_appointments started the bundle: %', r; end if;
+  -- with the permission, the order belongs to the dependant, not the carer
+  update public.profile_access set permissions = array['book_appointments']::public.caregiver_permission[] where profile_id = a and grantee_user_id = b;
+  r := pg_temp.as_user(b, format('select public.start_annual_bundle(null, %L)::text', a));
+  if r like 'ERR:%' then raise exception 'FAIL R3: a permitted carer could not start the bundle: %', r; end if;
+  v_ord := r::uuid;
+  if (select patient_id from public.lab_orders where id = v_ord) is distinct from a then raise exception 'FAIL R4: the order is not the dependant''s'; end if;
+  if exists (select 1 from public.lab_orders where patient_id = b and panel_code = 'membership_annual') then raise exception 'FAIL R5: the carer got a bundle on their own account'; end if;
+
+  -- the lock that makes the once-a-year check hold when two calls overlap (one session cannot race itself, so the lock is checked in the body)
+  if position('pg_advisory_xact_lock' in pg_get_functiondef('public.start_annual_bundle(uuid,uuid)'::regprocedure)) = 0 then raise exception 'FAIL R6: the per-patient lock is gone'; end if;
+  if to_regprocedure('public.start_annual_bundle(uuid)') is not null then raise exception 'FAIL R7: the ambiguous one-argument overload exists'; end if;
+
+  -- an approval made by INSERT is audited and timestamped like one made by UPDATE
+  insert into public.service_regions (state, display_name, plus_collection_enabled) values ('ZZ Proof State', 'ZZ Proof State', true);
+  if (select plus_collection_enabled_at from public.service_regions where state = 'ZZ Proof State') is null then raise exception 'FAIL R8: an inserted approval has no timestamp'; end if;
+  if not exists (select 1 from public.audit_log where action = 'service_region.plus_collection_enabled' and event ->> 'state' = 'ZZ Proof State') then raise exception 'FAIL R9: an inserted approval was not audited'; end if;
+  delete from public.service_regions where state = 'ZZ Proof State';
+
+  -- an active branch needs a town
+  begin
+    insert into public.lab_provider_locations (lab_provider_id, name, state, address, is_active)
+      select id, 'RF no-town branch', 'Kano', '2 Test Road', true from public.lab_providers where is_active order by created_at limit 1;
+    raise exception 'FAIL R10: an active branch with no town was accepted';
+  exception when check_violation then null; end;
+  begin
+    update public.lab_provider_locations set town = null where state = 'Oyo' and is_active;
+    raise exception 'FAIL R11: an active branch lost its town';
+  exception when check_violation then null; end;
+
+  -- SABOTAGE: the permission check removed; a stranger must then be able to start someone else's bundle (so R1 can fail)
+  v_def := pg_get_functiondef('public.start_annual_bundle(uuid,uuid)'::regprocedure);
+  if position('and not private.can_act_for(v_patient' in v_def) = 0 then raise exception 'FAIL R12: sabotage cannot apply, test is stale'; end if;
+  execute replace(v_def, 'and not private.can_act_for(v_patient', 'and false and not private.can_act_for(v_patient');
+  delete from public.lab_orders where patient_id = a;
+  r := pg_temp.as_user(c, format('select public.start_annual_bundle(null, %L)::text', a));
+  if r like 'ERR:42501%' then raise exception 'FAIL R13: the acting-for check did not flip under sabotage'; end if;
+  execute v_def;
+end $$;
+
 do $$
 declare
   v_org uuid; v_pat uuid := gen_random_uuid(); v_staff uuid := gen_random_uuid(); v_admin uuid := gen_random_uuid();
@@ -77,7 +138,7 @@ begin
   if r not like 'ERR:%' then raise exception 'FAIL C4: a direct insert skipping the function must be refused, got %', r; end if;
   r := pg_temp.as_user(v_staff, 'select public.start_annual_bundle(null)::text');
   if r not like 'ERR:42501%' then raise exception 'FAIL C5: a non-patient must be refused, got %', r; end if;
-  if has_function_privilege('anon', 'public.start_annual_bundle(uuid)', 'EXECUTE') or has_function_privilege('anon', 'public.list_annual_bundle_labs(text,text)', 'EXECUTE')
+  if has_function_privilege('anon', 'public.start_annual_bundle(uuid,uuid)', 'EXECUTE') or has_function_privilege('anon', 'public.list_annual_bundle_labs(text,text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.list_annual_bundle_towns(text)', 'EXECUTE') or has_function_privilege('anon', 'public.plus_collection_states()', 'EXECUTE') then
     raise exception 'FAIL C6: anon can execute a bundle function'; end if;
 

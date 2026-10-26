@@ -24103,6 +24103,7 @@ export type Database = {
           name: string
           opening_hours?: Json | null
           state: string
+          town?: string | null
         }
         Update: {
           address?: string
@@ -50617,13 +50618,13 @@ export type Database = {
         Args: { p_state: string; p_town?: string }
         Returns: {
           address: string
-          contact_phone: string
+          contact_phone: string | null
           location_id: string
           location_name: string
-          opening_hours: Json
+          opening_hours: Json | null
           provider_name: string
           state: string
-          town: string
+          town: string | null
         }[]
       }
       list_annual_bundle_towns: {
@@ -50635,7 +50636,7 @@ export type Database = {
         Returns: { display_name: string; state: string }[]
       }
       start_annual_bundle: {
-        Args: { p_location_id?: string }
+        Args: { p_location_id?: string; p_patient?: string }
         Returns: string
       }
       add_visit_summary_item_to_tasks: { Args: { p_item: string }; Returns: string }

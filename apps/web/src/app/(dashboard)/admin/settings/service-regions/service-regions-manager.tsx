@@ -33,6 +33,9 @@ export function ServiceRegionsManager() {
       <CardContent className="space-y-4">
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600">Could not load service regions.</p>}
+        <p className="text-xs text-charcoal-ink/60">
+          Plus approval is recorded and audited here. The Plus checkout does not read it yet; it will when the Membership Plus tier is switched on.
+        </p>
         {setPlus.isError && (
           <p className="text-sm text-red-600">Could not update Plus collection for that state. Please try again.</p>
         )}
@@ -62,9 +65,18 @@ export function ServiceRegionsManager() {
                       size="sm"
                       variant="outline"
                       disabled={setPlus.isPending}
-                      onClick={() =>
-                        setPlus.mutate({ id: region.id, enabled: !region.plus_collection_enabled })
-                      }
+                      onClick={() => {
+                        // Withdrawing is the one direction that can strand someone: a Plus holder's collection state is fixed when they join.
+                        if (
+                          region.plus_collection_enabled &&
+                          !window.confirm(
+                            `Withdraw Membership Plus from ${region.display_name}? Plus checkout stops offering this state straight away. Anyone who already chose it for blood collection keeps that choice, so contact them before you withdraw it.`,
+                          )
+                        ) {
+                          return;
+                        }
+                        setPlus.mutate({ id: region.id, enabled: !region.plus_collection_enabled });
+                      }}
                     >
                       {region.plus_collection_enabled ? "Withdraw Plus" : "Approve for Plus"}
                     </Button>

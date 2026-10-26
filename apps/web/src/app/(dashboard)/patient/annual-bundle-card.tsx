@@ -20,7 +20,8 @@ type Mode = "partner" | "own";
  * The patient asks for the bundle (never single tests), then either picks a partner lab near them
  * (state, then town, then an address to go to) or takes the printed request to a lab of their own.
  * Either way the patient pays the lab directly and uploads the result afterwards, through the
- * request card that appears in "Your test requests". Tarragon-arranged blood collection is a
+ * request card that appears in "Your test requests". An uploaded result is a document in the record; it is not yet read into
+ * structured lab values (OQ-BUNDLE-1). Tarragon-arranged blood collection is a
  * separate Membership Plus benefit, available only in states an admin has approved.
  */
 export function AnnualBundleCard({ patientId }: { patientId: string }) {
@@ -74,7 +75,7 @@ export function AnnualBundleCard({ patientId }: { patientId: string }) {
         <CardTitle>Annual test bundle</CardTitle>
         <CardDescription>
           One set of blood tests, once a year, for everyone. Choose where you will do it. You pay the lab
-          directly, then upload your result here and your care team can review it with you.
+          directly, then upload your result in \u201cYour test requests\u201d below so it is kept with your health record.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

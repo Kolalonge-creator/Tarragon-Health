@@ -49,7 +49,9 @@ export function useStartAnnualBundle(patientId: string) {
   return useMutation({
     mutationFn: async (locationId: string | null) => {
       const supabase = createClient();
+      // the bundle belongs to the person being looked after (the Labs page may be showing a dependant), not to whoever is signed in
       const { data, error } = await supabase.rpc("start_annual_bundle", {
+        p_patient: patientId,
         ...(locationId ? { p_location_id: locationId } : {}),
       });
       if (error) throw error;

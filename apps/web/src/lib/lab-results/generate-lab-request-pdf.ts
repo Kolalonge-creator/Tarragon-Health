@@ -6,7 +6,7 @@ import { DocumentFolioRefusedError, fetchDocumentFolios } from "@/lib/clinical/d
 
 export type GenerateLabRequestPdfResult =
   | { ok: true; buffer: Buffer; filename: string; orderNumber: string | null }
-  | { ok: false; error: "not_found" };
+  | { ok: false; error: "not_found" | "panel_unavailable" };
 
 /**
  * Builds the take-anywhere test request PDF for one lab order.
@@ -71,20 +71,29 @@ export async function generateLabRequestPdf(
   // active version's analytes. Optional analytes are marked so the lab only runs them if asked.
   let annualPanelName: string | null = null;
   if (order.panel_code && testNames.length === 0) {
-    const { data: version } = await supabase
+    const { data: version, error: versionError } = await supabase
       .from("lab_panel_versions")
       .select("analytes")
       .eq("panel_code", order.panel_code)
       .eq("is_active", true)
       .maybeSingle();
-    const analytes = Array.isArray(version?.analytes) ? version.analytes : [];
+    // A request with no list of tests is worse than no request: the lab cannot tell what to run. Fail, and say why in the log.
+    if (versionError || !version) {
+      console.error("annual bundle request: the active panel version could not be read", { panel: order.panel_code, error: versionError?.message });
+      return { ok: false, error: "panel_unavailable" };
+    }
+    const analytes = Array.isArray(version.analytes) ? version.analytes : [];
     testNames = analytes.flatMap((a) => {
       if (!a || typeof a !== "object" || Array.isArray(a)) return [];
       const label = typeof a.label === "string" ? a.label : null;
       if (!label) return [];
       return [a.optional === true ? `${label} (only if the doctor asks)` : label];
     });
-    if (testNames.length > 0) annualPanelName = "Annual health check bundle";
+    if (testNames.length === 0) {
+      console.error("annual bundle request: the active panel version lists no tests", { panel: order.panel_code });
+      return { ok: false, error: "panel_unavailable" };
+    }
+    annualPanelName = "Annual health check bundle";
   }
 
   // Null-gated attribution, exactly like ReviewedByDoctor: a name is printed

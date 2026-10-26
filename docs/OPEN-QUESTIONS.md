@@ -5598,3 +5598,10 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Left out: MED-SER-FAITH (the CMO writes faith-compatible content, a named faith leader reviews it) and MED-BRE-001 to 005 (breathing is a script item with steps and a pattern behind `wellbeing_library_clinical_scripts`; the CMO decides how spoken guides are catalogued).
 - Not built: the phone app has no audio library player (OQ line 3640: needs an audio engine and a runtimeVersion bump), so stream-only holds on the web only until that exists.
 - Decision: open (CMO for the breathing guides and the faith item).
+
+### OQ-BUNDLE-1 An annual-bundle result the patient uploads is a document, not lab values (raised 2026-10-26)
+- Built: the open annual test bundle (partner lab or own lab, patient pays the lab). The patient uploads the result in "Your test requests" through the existing patient upload, which stores a result document on the order.
+- Gap: that document is not read into `lab_results` (creatinine, potassium, glucose, HbA1c and the rest). So the cascade of care, the trends and the proposed baseline-labs rule (`docs/design/baseline-labs-rule-proposal.md`) cannot use it, and no doctor review of it is created. Staff can enter values from a held result through the existing results entry (S27); nothing prompts them to for this order type.
+- Options: (a) a clinician task "enter values from the uploaded annual result" using an existing task type (needs the CMO to sign the task rule); (b) route the upload into the held-result path the lab partner uses, so it is structured and clinician-released before the patient sees values (INV-03); (c) leave it as a record document and say so. The card copy now says only that the result is kept with the health record.
+- Recommendation: (b), because it reuses the safety path that already holds a result until a doctor releases it.
+- Decision: open (founder and CMO).
