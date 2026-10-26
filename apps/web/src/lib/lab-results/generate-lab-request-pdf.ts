@@ -38,7 +38,7 @@ export async function generateLabRequestPdf(
   const { data: order } = await supabase
     .from("lab_orders")
     .select(
-      "id, order_number, ordered_at, patient_id, ordered_by, clinical_indication, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, description, test_codes)",
+      "id, order_number, ordered_at, patient_id, ordered_by, clinical_indication, panel_code, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, description, test_codes)",
     )
     .eq("id", orderId)
     .maybeSingle();
@@ -65,6 +65,26 @@ export async function generateLabRequestPdf(
     testNames = Array.from(
       new Set(testCodes.map((code) => nameByCode.get(code)).filter((n): n is string => !!n)),
     );
+  }
+
+  // The annual bundle is a signed panel (lab_panel_versions), not a panel_bundles row: its tests are the
+  // active version's analytes. Optional analytes are marked so the lab only runs them if asked.
+  let annualPanelName: string | null = null;
+  if (order.panel_code && testNames.length === 0) {
+    const { data: version } = await supabase
+      .from("lab_panel_versions")
+      .select("analytes")
+      .eq("panel_code", order.panel_code)
+      .eq("is_active", true)
+      .maybeSingle();
+    const analytes = Array.isArray(version?.analytes) ? version.analytes : [];
+    testNames = analytes.flatMap((a) => {
+      if (!a || typeof a !== "object" || Array.isArray(a)) return [];
+      const label = typeof a.label === "string" ? a.label : null;
+      if (!label) return [];
+      return [a.optional === true ? `${label} (only if the doctor asks)` : label];
+    });
+    if (testNames.length > 0) annualPanelName = "Annual health check bundle";
   }
 
   // Null-gated attribution, exactly like ReviewedByDoctor: a name is printed
@@ -98,7 +118,7 @@ export async function generateLabRequestPdf(
     sex: patient.sex,
     orderNumber: order.order_number,
     orderedAt: order.ordered_at,
-    panelName: order.panel_bundle?.name ?? "Requested tests",
+    panelName: order.panel_bundle?.name ?? annualPanelName ?? "Requested tests",
     panelDescription: order.panel_bundle?.description ?? null,
     testNames,
     requestedByName,

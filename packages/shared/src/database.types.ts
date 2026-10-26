@@ -134,6 +134,39 @@ export type Database = {
         }
         Relationships: []
       }
+      lab_panel_versions: {
+        Row: {
+          analytes: Json
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          note: string | null
+          panel_code: string
+          version: number
+        }
+        Insert: {
+          analytes: Json
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          panel_code: string
+          version: number
+        }
+        Update: {
+          analytes?: Json
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          panel_code?: string
+          version?: number
+        }
+        Relationships: []
+      }
       patient_day_shifts: {
         Row: {
           cancelled_from: string | null
@@ -23800,6 +23833,7 @@ export type Database = {
           phlebotomist_name: string | null
           phlebotomist_phone: string | null
           order_number: string | null
+          panel_code: string | null
           ordered_at: string
           ordered_by: string | null
           organisation_id: string
@@ -23856,6 +23890,7 @@ export type Database = {
           phlebotomist_name?: string | null
           phlebotomist_phone?: string | null
           order_number?: string | null
+          panel_code?: string | null
           ordered_at?: string
           ordered_by?: string | null
           organisation_id: string
@@ -23912,6 +23947,7 @@ export type Database = {
           phlebotomist_name?: string | null
           phlebotomist_phone?: string | null
           order_number?: string | null
+          panel_code?: string | null
           ordered_at?: string
           ordered_by?: string | null
           organisation_id?: string
@@ -24052,6 +24088,7 @@ export type Database = {
           name: string
           opening_hours: Json | null
           state: string
+          town: string | null
         }
         Insert: {
           address: string
@@ -24080,6 +24117,7 @@ export type Database = {
           name?: string
           opening_hours?: Json | null
           state?: string
+          town?: string | null
         }
         Relationships: [
           {
@@ -42066,6 +42104,8 @@ export type Database = {
           display_name: string
           id: string
           is_active: boolean
+          plus_collection_enabled: boolean
+          plus_collection_enabled_at: string | null
           state: string
           updated_at: string
         }
@@ -42075,6 +42115,8 @@ export type Database = {
           display_name: string
           id?: string
           is_active?: boolean
+          plus_collection_enabled?: boolean
+          plus_collection_enabled_at?: string | null
           state: string
           updated_at?: string
         }
@@ -42084,6 +42126,8 @@ export type Database = {
           display_name?: string
           id?: string
           is_active?: boolean
+          plus_collection_enabled?: boolean
+          plus_collection_enabled_at?: string | null
           state?: string
           updated_at?: string
         }
@@ -50569,6 +50613,31 @@ export type Database = {
       }
     }
     Functions: {
+      list_annual_bundle_labs: {
+        Args: { p_state: string; p_town?: string }
+        Returns: {
+          address: string
+          contact_phone: string
+          location_id: string
+          location_name: string
+          opening_hours: Json
+          provider_name: string
+          state: string
+          town: string
+        }[]
+      }
+      list_annual_bundle_towns: {
+        Args: { p_state: string }
+        Returns: { lab_count: number; town: string }[]
+      }
+      plus_collection_states: {
+        Args: never
+        Returns: { display_name: string; state: string }[]
+      }
+      start_annual_bundle: {
+        Args: { p_location_id?: string }
+        Returns: string
+      }
       add_visit_summary_item_to_tasks: { Args: { p_item: string }; Returns: string }
       approve_visit_summary: { Args: { p_summary: string }; Returns: undefined }
       assemble_visit_summary: { Args: { p_note: string }; Returns: string }

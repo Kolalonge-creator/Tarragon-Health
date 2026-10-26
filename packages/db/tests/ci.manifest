@@ -1513,3 +1513,6 @@ s72_expiry_schedules.sql
 
 # S74: the last place of a clinic slot under real contention (20 concurrent sessions, capacity 1 and 3), with a lock-free control that must over-subscribe. A .sh proof (one session cannot race itself); local database only.
 s74_clinic_last_place_race.sh
+
+# Plus collection states + open annual bundle (2026-10-26): launch states, nationwide lab picker, once-a-year start for any plan, direct insert refused, anon closed. Sabotage: the origin-guard extension reverted must make starting fail.
+plus_collection_states_and_annual_bundle.sql
