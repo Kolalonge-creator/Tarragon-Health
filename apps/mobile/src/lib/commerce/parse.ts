@@ -38,6 +38,8 @@ export interface MembershipState {
   graceEndsAt?: string;
   /** Membership (no annual blood panel) or plus (with it), only while the year is running. */
   tier?: "evergreen" | "plus";
+  /** When a year is already paid for and waits to start (a Membership bought onto a running Plus year). */
+  nextStartsAt?: string;
   /** Membership Plus only: the state fixed when it was bought, where blood is collected. */
   collectionState?: string;
 }
@@ -97,7 +99,7 @@ export function parseMembership(data: unknown): MembershipState {
   if (!isObj(data) || data["is_member"] !== true) return { isMember: false, endsAt: null };
   if (data["in_grace"] === true) return { isMember: false, endsAt: null, ...(str(data["grace_ends_at"]) ? { graceEndsAt: data["grace_ends_at"] } : {}) };
   const tier = data["tier"] === "evergreen" || data["tier"] === "plus" ? data["tier"] : undefined;
-  return { isMember: true, endsAt: str(data["ends_at"]) ? data["ends_at"] : null, ...(tier ? { tier } : {}), ...(str(data["collection_state"]) ? { collectionState: data["collection_state"] } : {}) };
+  return { isMember: true, endsAt: str(data["ends_at"]) ? data["ends_at"] : null, ...(tier ? { tier } : {}), ...(str(data["next_starts_at"]) ? { nextStartsAt: data["next_starts_at"] } : {}), ...(str(data["collection_state"]) ? { collectionState: data["collection_state"] } : {}) };
 }
 
 /** S71: a sponsor pays the whole order, so there is no checkout link and nothing to open. */

@@ -5599,6 +5599,13 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Not built: the phone app has no audio library player (OQ line 3640: needs an audio engine and a runtimeVersion bump), so stream-only holds on the web only until that exists.
 - Decision: open (CMO for the breathing guides and the faith item).
 
+### OQ-QUEUED-1 A queued year's revenue schedule is not re-based when the year starts early (raised 2026-10-26)
+- Built: a Membership year bought onto a running Plus year is queued and starts when the Plus year ends (`docs/DECISIONS.md`, 2026-10-26). Its revenue schedule is built at payment and starts on the queued start date.
+- Gap: if the Plus year is refunded or ended early, the queued year starts at once, but a schedule already built keeps the later start. Nothing in finance re-bases a recognition schedule, and the difference is only timing of recognition for a rare case.
+- Options: (a) add a finance function that moves a schedule's start; (b) accept the timing difference and say so in the finance notes; (c) build the schedule only when the year actually starts.
+- Recommendation: (b) until a finance owner asks, because the case needs a race and the amounts are small.
+- Decision (founder, 2026-10-26, "do what is best"): option (b). The queued year's recognition keeps its later start; only the timing of recognition differs, the amounts are small and the case needs a race. Finance can ask for (a) later. Nothing to build.
+
 ### OQ-BUNDLE-1 An annual-bundle result the patient uploads is a document, not lab values (raised 2026-10-26)
 - Built: the open annual test bundle (partner lab or own lab, patient pays the lab). The patient uploads the result in "Your test requests" through the existing patient upload, which stores a result document on the order.
 - Gap: that document is not read into `lab_results` (creatinine, potassium, glucose, HbA1c and the rest). So the cascade of care, the trends and the proposed baseline-labs rule (`docs/design/baseline-labs-rule-proposal.md`) cannot use it, and no doctor review of it is created. Staff can enter values from a held result through the existing results entry (S27); nothing prompts them to for this order type.

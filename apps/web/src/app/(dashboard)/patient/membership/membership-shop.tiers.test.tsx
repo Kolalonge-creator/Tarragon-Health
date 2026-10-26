@@ -14,7 +14,7 @@ const EG = { ...base, code: "membership_annual_no_panel", name_key: "catalog.mem
 const UP = { ...base, code: "membership_upgrade_plus", name_key: "catalog.membership_upgrade_plus.name", description_key: "catalog.membership_upgrade_plus.description", included_keys: ["catalog.membership_upgrade_plus.incl.1"], amount_kobo: 4_500_000 };
 
 let catalogue: { data: unknown[]; isSuccess: boolean };
-let membership: { data: { is_member: boolean; ends_at: string | null; source: string | null; tier?: "evergreen" | "plus" | null; in_grace?: boolean; grace_ends_at?: string | null } };
+let membership: { data: { is_member: boolean; ends_at: string | null; source: string | null; tier?: "evergreen" | "plus" | null; in_grace?: boolean; grace_ends_at?: string | null; next_tier?: "evergreen" | "plus" | null; next_starts_at?: string | null } };
 const mutateAsync = jest.fn();
 const setStateMutate = jest.fn();
 let setStateResult: { isError: boolean; error: unknown; isPending: boolean } = { isError: false, error: null, isPending: false };
@@ -137,6 +137,12 @@ describe("MembershipShop with the Membership ladder", () => {
     expect(screen.getAllByRole("button", { name: "Pay with Paystack" }).length).toBe(2);
     expect(screen.queryByRole("button", { name: "Move up to Membership Plus" })).toBeNull();
   });
+  it("a Plus member whose Membership year is already queued is told when the next year starts", () => {
+    membership = { data: { is_member: true, ends_at: "2027-08-01T00:00:00Z", source: "purchase", tier: "plus", next_tier: "evergreen", next_starts_at: "2027-08-01T00:00:00Z" } };
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.getByText(/Your next year is already paid for and starts on/)).toBeTruthy();
+  });
+
   it("Membership Plus asks for an approved state before payment, warns that it stays fixed, and sends it with the order", async () => {
     mutateAsync.mockResolvedValue({ order_id: "o3", reference: "tho_z", amount_kobo: 12_900_000, checkout_url: "https://checkout.paystack.com/plus" });
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);

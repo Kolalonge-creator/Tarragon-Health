@@ -188,6 +188,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
           <MutedText>{tr("shop.tier.urgent_same")}</MutedText>
         </View>
       ) : null}
+      {!beneficiary && membership.nextStartsAt ? <MutedText>{tr("shop.tier.next_year", { date: lagos(membership.nextStartsAt) })}</MutedText> : null}
       {!beneficiary && ladder && tierNow === "plus" && membership.isMember && !membership.collectionState ? (
         <Card>
           <Text style={{ fontWeight: "700", color: colors.ink }}>{tr("shop.plus.state.set_title")}</Text>

@@ -229,6 +229,11 @@ describe("S72 api: entitlements, quote with points, refunds, payment requests", 
     expect(arrangeItems(items, { tier: current.tier ?? null, isMember: current.isMember, inGrace: false, forSomeoneElse: false }).tierCards).toEqual([]);
   });
 
+  it("keeps when a queued year starts, and ignores a malformed value", () => {
+    expect(parseMembership({ is_member: true, tier: "plus", ends_at: "2027-08-01T00:00:00Z", next_tier: "evergreen", next_starts_at: "2027-08-01T00:00:00Z" })).toEqual({ isMember: true, endsAt: "2027-08-01T00:00:00Z", tier: "plus", nextStartsAt: "2027-08-01T00:00:00Z" });
+    expect(parseMembership({ is_member: true, tier: "plus", ends_at: "2027-08-01T00:00:00Z", next_starts_at: 5 })).toEqual({ isMember: true, endsAt: "2027-08-01T00:00:00Z", tier: "plus" });
+  });
+
   it("Plus: parses the approved states, drops rows that are not states, and keeps the member's fixed state", () => {
     expect(parsePlusStates([{ state: "Lagos", display_name: "Lagos" }, { state: 5 }, null, { state: "Oyo", display_name: "Oyo" }])).toEqual([{ state: "Lagos", displayName: "Lagos" }, { state: "Oyo", displayName: "Oyo" }]);
     expect(parsePlusStates("nope")).toEqual([]);

@@ -358,6 +358,7 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary, notInclude
           <p className={MUTED}>{t("shop.tier.urgent_same", locale)}</p>
         </div>
       ) : null}
+      {!chosenId && membership.data?.next_starts_at ? <p role="status">{t("shop.tier.next_year", locale, { date: formatPatientDate(membership.data.next_starts_at) })}</p> : null}
       {!chosenId && ladder && tierNow === "plus" && membership.data?.is_member && !membership.data.collection_state ? <PlusStateSetup locale={locale} /> : null}
       {!chosenId && membership.data?.collection_state ? <p role="status">{t("shop.plus.state.yours", locale, { state: membership.data.collection_state })}</p> : null}
       {graceEnds ? <p role="status">{t("shop.in_grace", locale, { date: formatPatientDate(graceEnds) })}</p> : null}
