@@ -2264,6 +2264,21 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S23.md",
   },
   {
+    key: "scribe.review_rules",
+    // S76-S80 scribe gap closure. support_min_overlap: the share of a draft sentence's content words (and every number in it) that must appear in
+    // the visit text for the sentence to count as "said in the visit"; below it the sentence is marked "not said in the visit" and the clinician
+    // must keep it on purpose or remove it before the draft can be used. min_content_terms: a sentence with fewer content words than this is not
+    // judged (stock phrases). offline_queue_ttl_minutes: how long a draft request that could not be sent waits on this device before it is dropped.
+    // max_diff_words: a section longer than this is stored as one replacement rather than a word-by-word diff. follow_up_task_max_days: the
+    // furthest due date a drafted follow-up task may carry. Deterministic matching only; no model decides support.
+    value: { support_min_overlap: 0.6, min_content_terms: 3, offline_queue_ttl_minutes: 30, max_diff_words: 1500, follow_up_task_max_days: 180 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S23.md; S76-S80 scribe gap closure",
+  },
+  {
     key: "scribe.prompt_cache_ttl_seconds",
     value: 3600,
     owner: "Founder",
@@ -2324,6 +2339,23 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 4,
     effectiveFrom: "2026-10-16",
     source: "docs/design/S29.md; docs/research/S26-S30-competitor-review-and-build-plan.md (S29d); spec 4.7, 8.6",
+  },
+  {
+    key: "care_circle.supporter_tools",
+    // Care Circle supporter tools (S69b). Live values are the active row of `care_circle_tools_config`; this entry mirrors it and
+    // care-circle-tools-mirror.test.ts fails if the migration seed and this value drift. missed_dose_grace_minutes: how long a dose
+    // slot may stay unanswered before a supporter the patient chose is nudged (Medisafe Medfriend waits 30 minutes; PROPOSED).
+    // missed_dose_window_minutes: after the grace, how long the nudge may still be sent (about an hour; later it would be stale and is
+    // dropped). missed_dose_max_per_day: nudges per supporter per day. digest_days: the days a weekly digest counts. task_max_open:
+    // open shared tasks per person. task_keep_days: how long finished tasks are kept. task_max_days_ahead: how far ahead a job's date may be. task_stale_days: an open job is cancelled this many days after its date. task_done_visible_days: how long a finished job stays on the list. The nudge never applies to a red event and is
+    // held back by the patient-first window while the care_circle_checkin_window module is on. All modules ship OFF; the CMO rules on
+    // the nudge (OQ-S69b-3).
+    value: { missed_dose_grace_minutes: 30, missed_dose_window_minutes: 60, missed_dose_max_per_day: 3, digest_days: 7, task_max_open: 10, task_keep_days: 30, task_max_days_ahead: 90, task_stale_days: 7, task_done_visible_days: 7 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S69b-care-circle.md; docs/research/S69.md; Medisafe Medfriend, Apple Health Sharing, Lotsa Helping Hands patterns",
   },
   // S69: community cohorts and challenges (spec 17.6 to 17.9). Live values are the active row of `community_config` and the rows of
   // `challenge_templates`; a test (community-mirror.test.ts) fails if either drifts from the migration seed.

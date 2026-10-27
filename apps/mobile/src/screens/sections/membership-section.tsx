@@ -8,6 +8,7 @@ import { buildCheckoutView, itemisedRows, returnNotice } from "@/lib/commerce/ch
 import { HmoEligibilitySection } from "./hmo-eligibility-section";
 import { getProposedConfig, type ConfigValue } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
+import { needsPlusStateSetup, plusStateSetupErrorKey } from "@/lib/commerce/plus-state-setup";
 import { loadCatalogue, loadMembership, loadMyOrders, loadNotIncluded, loadPlusStates, loadPriceChangeNotices, loadQuote, setMyPlusState, startCheckout, verifyOrder } from "@/lib/commerce/api";
 import { EntitlementsSection } from "./entitlements-section";
 import { checkoutErrorKey, keepsRetryKey, orderStateKey, type CatalogueItem, type MembershipState, type OrderRow, type PlusState } from "@/lib/commerce/parse";
@@ -189,7 +190,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
         </View>
       ) : null}
       {!beneficiary && membership.nextStartsAt ? <MutedText>{tr("shop.tier.next_year", { date: lagos(membership.nextStartsAt) })}</MutedText> : null}
-      {!beneficiary && ladder && tierNow === "plus" && membership.isMember && !membership.collectionState ? (
+      {needsPlusStateSetup({ ladder, forSomeoneElse: beneficiary !== undefined, tier: tierNow, membership }) ? (
         <Card>
           <Text style={{ fontWeight: "700", color: colors.ink }}>{tr("shop.plus.state.set_title")}</Text>
           {plusStatesFailed ? (
@@ -228,7 +229,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
               void setMyPlusState(setupState).then((r) => {
                 setSetupBusy(false);
                 if (r.ok) { void refresh(); return; }
-                setSetupError(r.message.includes("plus_state_not_available") ? "shop.error.plus_state_not_available" : r.message.includes("plus_state_already_set") ? "shop.plus.state.already_set" : "shop.plus.state.set_error");
+                setSetupError(plusStateSetupErrorKey(r.message));
               });
             }}
           />

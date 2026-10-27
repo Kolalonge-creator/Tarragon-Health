@@ -1471,6 +1471,11 @@ cuff_camera_and_result_passport_guards.sql
 
 # S62 follow-up: the review and scheduled-test sweeps are scheduled daily (06:08 and 06:18 UTC), call the right function, run cleanly as the job owner and add nothing while no real patient is enrolled, and still refuse a signed-in user. Sabotage: each job unscheduled and the matching check flips.
 s62_pathway_sweeps_scheduled.sql
+
+# S69b: Care Circle presets, the quiet waiting state, shared jobs, the weekly digest and the gentle nudge. Modules ship OFF; each tool refuses while off; viewers cannot claim; digest blocks follow permissions and carry counts not values; the nudge needs the patient's opt-in, the medicines permission, the grace period and window, the patient-first window holds it, a red event is untouched. The sweep follows the structured schedule (off day, end date, taper, not yet in effect, malformed time send nothing); a declined invite reads and counts as pending to the sender; a red_alerts-only member reads no job. Sabotage: six changes, all must flip.
+s69b_care_circle_presets_digest_tasks_nudge.sql
+
+
 s62_tests_sweep_guard.sql
 # CMO OQ-358 / OQ-358b (folio base-table lock, step 2): the MDCN folio is refused on the clinical_staff base table to a colleague, a patient and anon (named, select *, filtered) while every other column, joins and a security_invoker view over the table still work; clinical_staff_folio returns the clinician their own folio, the CMO and an admin a colleague's, a colleague and a patient nothing, anon cannot execute it; the directory view still serves names; admin writes untouched; every non-folio column is granted; clinician_licence_public and the slot list carry no folio; lab and verified-document kinds return a null folio. Sabotage: the table grant put back and the function without its entitlement check must each flip.
 clinical_staff_folio_base_table_lock.sql
@@ -1541,3 +1546,5 @@ plus_state_without_checkout.sql
 
 # S76 gap closure, clinician DB track (2026-10-27): config signed only by the CMO; second-clinician re-offer (a different qualifying clinician, never the holder, not on leave, not red, recorded when nobody is free); device-fault task producer; silence-as-signal (amber at most, patient never contacted); blast-radius preview (CMO/admin, aggregate, small cells suppressed, no identifiers, audited). All behind guards that are OFF. Sabotage: previous-holder exclusion removed, amber ceiling removed, suppress_cell made permissive, read policy opened; each must flip a check.
 s76_clinician_reoffer_silence_blast_radius.sql
+# S76-S80 scribe: signed diff record (append-only, versioned, linked to the review record, signed text read from the note), problem reports (fixed taxonomy), CMO count reads, and the document prompt inserted unapproved and inactive (the reader returns nothing until a human approves). Sabotage: the review-record link removed, and the CMO check removed; both checks must flip.
+s76_scribe_signed_diffs_reports_document_prompt.sql
