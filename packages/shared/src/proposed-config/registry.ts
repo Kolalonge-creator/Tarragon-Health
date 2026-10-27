@@ -8452,4 +8452,153 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-23",
     source: "docs/design/WP3.md; WHO HEARTS / DHIS2 cascade terms; HEDIS CBP 140/90. Unsigned until the CMO signs.",
   },
+  {
+    key: "care_gaps.rules",
+    // S90: the care gap rule thresholds (missed reading, no HbA1c or lipids in 12 months, rising trend, refill lapse, adherence lapse), the outreach ladder, the
+    // weekly cap and quiet hours, and the experiment scaffolding. The database holds it as `care_gap_rule_config` v1 (UNSIGNED, INACTIVE until the Chief Medical
+    // Officer signs on the sign-off hub; with it unsigned the engine runs in shadow mode and nobody is contacted). A test compares this value with the migration seed.
+    // Two numbers are null on purpose (a diabetes reading cadence and the systolic rise that makes a trend): the CMO supplies them, the engine invents none.
+    value: {
+      "verify_against_source": true,
+      "founder_position": "Values in the hypertension rules come from decision pack item 4.2 (CMO-approved 2026-10-07 as the founder's recorded position, pending independent review, not signed). Every number carries verify against source until the CMO confirms the guideline text was opened.",
+      "scope": {
+        "members_only": true,
+        "exclude_minors": true,
+        "conditions": [
+          "hypertension",
+          "diabetes"
+        ]
+      },
+      "rules": {
+        "missed_reading": {
+          "enabled": true,
+          "owner_role": "care_coordinator",
+          "patient_ladder": true,
+          "hypertension_days_without_reading": 14,
+          "diabetes_days_without_reading": null,
+          "source": "Pack 4.2: a home reading every 7 days when uncontrolled or newly started, every 14 days when controlled, and overdue means 7 days past due. 14 is the uncontrolled cadence plus the overdue allowance. Control state is not read by this rule, so one line serves everyone with an active hypertension plan.",
+          "cmo_to_supply": [
+            "diabetes_days_without_reading"
+          ],
+          "cmo_note": "The pack gives no home glucose cadence for diabetes (item 4.5 gives targets and triggers only). Until the CMO supplies one, a missed glucose reading is not a gap and this rule is inert for diabetes."
+        },
+        "no_hba1c_12_months": {
+          "enabled": true,
+          "owner_role": "care_coordinator",
+          "patient_ladder": true,
+          "lookback_days": 365,
+          "grace_days": 30,
+          "analyte_codes": [
+            "hba1c"
+          ],
+          "applies_to": [
+            "diabetes"
+          ],
+          "source": "Pack 4.2 annual labs and the 30 days past due line for labs; pack 4.5 names HbA1c for diabetes. A new plan counts from the day it started, so nobody is flagged on day one."
+        },
+        "no_lipids_12_months": {
+          "enabled": true,
+          "owner_role": "care_coordinator",
+          "patient_ladder": true,
+          "lookback_days": 365,
+          "grace_days": 30,
+          "analyte_codes": [
+            "lipid_panel",
+            "lipid_profile",
+            "lipid",
+            "total_cholesterol",
+            "ldl",
+            "ldl_cholesterol",
+            "triglycerides"
+          ],
+          "applies_to": [
+            "hypertension",
+            "diabetes"
+          ],
+          "source": "Pack 4.2 annual labs list lipids; same 30 days past due line. The analyte codes are the ones the lab ingestion uses today; a laboratory that sends a different code will not clear this gap until its code is added in a new version."
+        },
+        "rising_bp_trend": {
+          "enabled": true,
+          "owner_role": "clinician",
+          "patient_ladder": false,
+          "window_days": 14,
+          "min_readings_per_window": 3,
+          "min_rise_systolic_mmhg": null,
+          "source": "Compares the average of usable home blood pressure readings in the latest window with the window before it, through the existing private.bp_window_stats helper (so it follows the shared usable-reading rule). Nothing here changes a medicine; a gap is a task for a doctor to review.",
+          "cmo_to_supply": [
+            "min_rise_systolic_mmhg"
+          ],
+          "cmo_note": "The pack names the 7-day average and 3 readings on 2 days as the trigger (item 4.2) but gives no rise to call a trend. The engine invents none: with the rise left null this rule is inert. The window length and minimum readings are PROPOSED operational values for the CMO to confirm or change."
+        },
+        "medication_refill_lapse": {
+          "enabled": true,
+          "owner_role": "care_coordinator",
+          "patient_ladder": true,
+          "days_past_due": 7,
+          "source": "PROPOSED, not in the pack. Uses the refill date the medicines module already holds (the same date that drives the refill reminder) and mirrors the 7 day overdue allowance for a reading. CMO to confirm or change."
+        },
+        "adherence_lapse": {
+          "enabled": true,
+          "owner_role": "care_coordinator",
+          "patient_ladder": true,
+          "signal_event": "adherence.below_line",
+          "within_days": 10,
+          "source": "Reads the P6 adherence.below_line signal that the daily coverage sweep already emits (the adherence line itself lives in the signed or draft bp_care_triage rule set and is not copied here). 10 days matches the window P6 uses to avoid re-grading the same week."
+        }
+      },
+      "ladder": {
+        "steps": [
+          "push",
+          "in_app",
+          "email",
+          "coordinator_call"
+        ],
+        "days_between_steps": 3,
+        "weekly_cap_per_patient": 2,
+        "quiet_hours": {
+          "start": "20:00",
+          "end": "08:00"
+        },
+        "coordinator_followup_days": 3,
+        "unreachable_after_staff_attempts": 2,
+        "reopen_after_manual_close_days": 30,
+        "note": "PROPOSED operational values, not clinical. The weekly cap counts messages actually sent to a patient across all gaps in a rolling 7 days. Quiet hours are Lagos time. A staff call is never capped. A person may mark a gap unreachable only after the stated number of logged staff attempts. A gap a person closed as declined, unreachable or wrong is not opened again for the stated number of days, so a patient who said no is not chased every night."
+      },
+      "ab": {
+        "enabled": false,
+        "outcome_days": 7,
+        "experiments": [
+          {
+            "key": "copy_variant",
+            "variants": [
+              "a",
+              "b"
+            ]
+          },
+          {
+            "key": "send_hour",
+            "variants": [
+              9,
+              17
+            ]
+          }
+        ],
+        "note": "Scaffolding only. Nothing is switched on: with enabled false every patient sees variant a and the normal window. Outcome means the gap was closed by a recorded signal within outcome_days of a send, never that a message was opened."
+      },
+      "notifications": {
+        "template_first": "care_gap_checkin",
+        "template_followup": "care_gap_checkin_followup",
+        "rule": "Neutral by design (INV-07): no condition, reading, result or medicine is ever named, and the payload carries no clinical key."
+      },
+      "notes": {
+        "closure": "A gap closes only when a recorded outcome appears (a reading or lab row, a refill, a recovered adherence line), or a person records declined, unreachable or wrong with a note. A message sent or opened never closes a gap.",
+        "institutions": "Institutions see counts of people by gap type and the closed counts from the ledger, through the single minimum-cell rule, never an individual."
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S90.md; decision pack docs/plans/S88-S100-decisions-and-cmo-signoff-pack.md item 4.2 (cadence, overdue lines, annual labs). Unsigned until the CMO signs.",
+  },
 ];

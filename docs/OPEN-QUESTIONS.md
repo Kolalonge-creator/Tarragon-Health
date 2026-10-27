@@ -5620,3 +5620,25 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Options: (a) require a state when an employer registers a Plus seat or an admin grants Plus (a field on the roster row and on the grant form); (b) ask the member to choose from the approved list on first use of the collection flow; (c) leave null and let the care team arrange it by hand.
 - Recommendation: (b) for legacy rows, (a) for seats and grants, because the employer and the admin already know the person's state.
 - Decision (founder, 2026-10-26): Plus given without a checkout needs a collection state. Built: (a) an admin grant of Plus needs an approved state while the module is on (`grant_membership_tier`, a state field on the grant form); (b) a Plus member whose state is empty chooses it once from the approved list (`set_my_plus_collection_state`, web and mobile), which also covers employer seats and older rows. Not built: a state field on the employer roster row, because the member already chooses on first use and the employer rarely knows it; add it if an employer pilot asks.
+
+### OQ-S90-01 Care gap definitions and thresholds need the CMO (raised 2026-10-27)
+- Built: six rules with their lines in `care_gap_rule_config` v1 (PROPOSED, unsigned): hypertension missed reading 14 days (pack 4.2: 7-day cadence plus 7-day overdue); HbA1c and lipids 365 days plus 30 days grace; refill 7 days past due; adherence signal within 10 days; trend windows of 14 days with 3 readings.
+- Gap: two numbers the pack does not give are left **null**, so those rules do nothing: a home glucose cadence for diabetes, and the systolic rise that counts as a trend. The refill line (7) and the trend window are not in the pack either. Every pack number still says "verify against source", and item 4.2 still needs the independent clinical reviewer (gate G1).
+- Options: (a) the CMO supplies the numbers in a v2 draft and signs; (b) keep the two rules off. Recommendation: (a) after the source check; the panel on the sign-off hub shows exactly what is not supplied.
+- Related: S88 holds the pack text as `clinical_config_versions` kind `hypertension_care_gap_rules`. The engine reads its own config, so the same numbers now live in two places. Recommendation: keep both until the S88 kind is signed, then add a drift test between them rather than merge two governance ledgers.
+
+### OQ-S90-02 This slice was built ahead of the S40 gate (raised 2026-10-27)
+- The plan says nothing past S87 starts without a waiver (decision F2). This slice was built on instruction, local only, unpushed, unapplied. Founder: confirm the waiver (or hold the merge) before it is pushed.
+
+### OQ-S90-03 Free patients and the S90 items not built (raised 2026-10-27)
+- The engine looks only at current Members with an active hypertension or diabetes plan (the P6 rule), because Free consumes no care-team time. Not built: silent-patient re-engagement as its own trigger, the patient "today" card and private streak (CMO gate), outcome nudges from a patient's own trend (CMO signs the rules). Founder: confirm Members only.
+
+### OQ-S90-04 Employer reports need the 50-person floor (raised 2026-10-27)
+- Pack 4.6 says employer reports are shown only for groups of 50 or more enrolled staff. The institution ledger uses `greatest(platform minimum, organisations.min_cohort_size)`, the same rule every other aggregate uses, and the corporate dashboard's own cohort gate; the 50 floor is not wired for employer organisations. Recommendation: wire it in the follow-up that moves all employer aggregates to one function, rather than special-casing this one.
+
+### OQ-S90-05 Doctor-owned gaps and the clinical task layer (raised 2026-10-27)
+- A rising trend gap is owned by a doctor and shows on that doctor's care gap list; it is not mirrored into `care_tasks` or the S16 clinical task layer, so it carries no deadline, claim or escalation. Options: (a) leave as a list; (b) create a clinical task with a task type the CMO signs. Recommendation: (b) once the trend rise is supplied (OQ-S90-01), because a task has a response clock and a gap does not.
+
+### OQ-S90-06 Operational values and experiments (raised 2026-10-27)
+- The weekly cap (2), step spacing (3 days), quiet hours (20:00 to 08:00 Lagos), the 30-day no-reopen after a person closes a gap, and "unreachable after 2 staff attempts" are operational PROPOSED values, signed with the config. Experiments (copy variant, send hour) are scaffolding only and switched off; the evidence base has no randomised study of re-engaging silent patients, so the founder should decide what consent or notice an experiment needs before any is switched on.
+

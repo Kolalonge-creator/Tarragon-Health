@@ -155,6 +155,16 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "consult_checkin_nudge") {
     return { text: "Your quick check-in is still waiting whenever you are ready", href: `/patient/consult-checkin/${String(payload.checkin_id ?? "")}` };
   }
+  // S90: neutral previews for the care gap engine (INV-07). Nothing names a condition, a reading, a result, a medicine or a number.
+  if (n.template === "care_gap_checkin") {
+    return {
+      text: payload.copy_variant === "b" ? "A short step from your care team is waiting in the app. It takes a minute or two" : "Something small is waiting for you in the app. Open it when you have a minute",
+      href: "/patient",
+    };
+  }
+  if (n.template === "care_gap_checkin_followup") {
+    return { text: "A short step from your care team is waiting in the app. It takes a minute or two", href: "/patient" };
+  }
   // S59c: neutral previews for the follow-up after a symptom check (INV-07). Nothing names a symptom, a result or a person.
   if (n.template === "symptom_checkback_due") {
     return { text: "Your care team would like to know how you are getting on. Open the app to answer", href: `/patient/symptom-checkback/${String(payload.checkback_id ?? "")}` };

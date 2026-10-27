@@ -2129,6 +2129,36 @@ export const TEMPLATE_MAP: Record<
       text: "Your quick check-in is still waiting in the Tarragon Health app, whenever you are ready.",
     },
   }),
+  // S90: neutral by design (INV-07). Nothing names a condition, a reading, a result, a medicine, a test or a number; the step itself is in the app after sign-in.
+  // The payload carries only `copy_variant` ("a" or "b", set when an experiment is running); the same words live in packages/i18n/src/care-gap-copy.ts and a test pins them.
+  care_gap_checkin: (payload) => {
+    const b = payload.copy_variant === "b";
+    const line = b ? "A short step from your care team is waiting in the Tarragon Health app. It takes a minute or two." : "Something small is waiting for you in the Tarragon Health app. Open it when you have a minute.";
+    return {
+      smsText: b ? "A short step from your care team is waiting in the Tarragon Health app. Tarragon Health" : "Something small is waiting for you in the Tarragon Health app. Tarragon Health",
+      pushUrl: "/patient",
+      email: {
+        subject: "A small step is waiting for you",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>${line}</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p></div>`,
+        text: line,
+      },
+    };
+  },
+  care_gap_checkin_followup: () => ({
+    smsText: "A short step from your care team is waiting in the Tarragon Health app. Tarragon Health",
+    pushUrl: "/patient",
+    email: {
+      subject: "A small step is waiting for you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your care team left a short step for you in the Tarragon Health app. It takes a minute or two.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p></div>`,
+      text: "Your care team left a short step for you in the Tarragon Health app. It takes a minute or two.",
+    },
+  }),
   // S59c: neutral by design (INV-07). Nothing names a symptom, a result or a person; the follow-up questions are in the app after sign-in.
   symptom_checkback_due: (payload) => ({
     smsText: "Your care team would like to know how you are getting on. Open the app to answer. Tarragon Health",
