@@ -1169,6 +1169,36 @@ export type Database = {
         }
         Relationships: []
       }
+      pharmacy_counter_snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          min_doses: number
+          organisation_id: string
+          profile_id: string
+          share_id: string
+          weeks: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          min_doses: number
+          organisation_id: string
+          profile_id: string
+          share_id: string
+          weeks: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          min_doses?: number
+          organisation_id?: string
+          profile_id?: string
+          share_id?: string
+          weeks?: Json
+        }
+        Relationships: []
+      }
       learning_search_gaps: {
         Row: {
           first_seen: string
@@ -52308,6 +52338,12 @@ export type Database = {
         Returns: undefined;
       };
       queue_next: { Args: { p_types?: string[] }; Returns: Json };
+      queue_my_reoffers: { Args: Record<PropertyKey, never>; Returns: Json };
+      sign_clinician_loop_config: { Args: { p_note: string; p_version: number }; Returns: undefined };
+      threshold_blast_radius_preview: {
+        Args: { p_current: number; p_direction: string; p_include_test?: boolean; p_metric: string; p_proposed: number };
+        Returns: Json;
+      };
       queue_summary: { Args: Record<PropertyKey, never>; Returns: Json };
       confirm_offline_device_wipe: { Args: { p_danger?: number; p_device: string; p_reason?: string; p_unsent: number }; Returns: boolean }
       offline_device_checkin: { Args: { p_device: string; p_platform: string }; Returns: Json }
@@ -53745,6 +53781,14 @@ export type Database = {
         Returns: boolean
       }
       confirm_lab_code_mapping: { Args: { p_id: string }; Returns: Json }
+      create_pharmacy_counter_snapshot: {
+        Args: { p_weeks: Json; p_min_doses: number; p_expires_in_hours?: number }
+        Returns: Json
+      }
+      pharmacy_snapshot_by_token: {
+        Args: { p_token: string; p_pin?: string; p_client_key?: string }
+        Returns: Json
+      }
       create_record_share: {
         Args: {
           p_sections: string[]

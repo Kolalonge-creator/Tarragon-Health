@@ -394,6 +394,7 @@ export function getNavSections(
                 { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
                 { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
                 { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
+                { label: "AI monitoring", href: "/admin/ops/ai-monitoring", icon: "governance" },
                 { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
                 { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
               ],
@@ -684,6 +685,7 @@ export function getNavSections(
                 // Audits of completed clinical work and hand-back reviews (S36c). CMO only; the page redirects anyone below that tier.
                 { label: "Quality and safety", href: "/clinician/quality", icon: "review" },
                 { label: "AI answer review", href: "/clinician/ai-review", icon: "review" },
+                { label: "AI monitoring", href: "/clinician/ai-monitoring", icon: "governance" },
                 { label: "Research protocols", href: "/clinician/research", icon: "governance" },
                 // Every clinician with status, licence, competencies; decide competency grants and reinstatements, pause someone (S36d). CMO only; the page redirects others.
                 { label: "Clinician roster", href: "/clinician/roster", icon: "members" },
@@ -704,6 +706,7 @@ export function getNavSections(
                 { label: "Clinical protocols", href: "/clinician/protocols", icon: "review" },
                 { label: "Titration protocols", href: "/clinician/titration-protocols", icon: "review" },
                 { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
+                { label: "Compare triage versions", href: "/clinician/triage-protocols/compare", icon: "review" },
                 { label: "Blood pressure triage rules", href: "/clinician/triage-rules", icon: "bp" },
                 { label: "Glucose triage rules", href: "/clinician/glucose-triage-rules", icon: "bp" },
                 { label: "Pulse, oxygen and temperature triage rules", href: "/clinician/vitals-triage-rules", icon: "bp" },
@@ -759,6 +762,7 @@ export function getNavSections(
                 { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
                 { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
                 { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
+                { label: "AI monitoring", href: "/admin/ops/ai-monitoring", icon: "governance" },
               ],
             },
           ];
@@ -850,6 +854,7 @@ export function getNavSections(
             { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
             { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
             { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
+            { label: "AI monitoring", href: "/admin/ops/ai-monitoring", icon: "governance" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
@@ -861,6 +866,7 @@ export function getNavSections(
             { label: "AI governance", href: "/admin/settings/ai-governance", icon: "audit" },
             { label: "AI cost", href: "/admin/settings/ai-governance/cost", icon: "audit" },
             { label: "Symptom triage protocols", href: "/admin/settings/triage-protocols", icon: "escalation" },
+            { label: "Compare triage versions", href: "/admin/settings/triage-protocols/compare", icon: "escalation" },
             { label: "Result release policies", href: "/admin/settings/result-release-policies", icon: "labs" },
             { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
             { label: "Provider quality", href: "/admin/provider-quality", icon: "governance" },
@@ -954,6 +960,7 @@ export function getNavSections(
             { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
             { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
             { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
+            { label: "AI monitoring", href: "/admin/ops/ai-monitoring", icon: "governance" },
             { label: "Feature flags", href: "/admin/settings/feature-flags", icon: "flag" },
           ],
         },
@@ -1008,6 +1015,7 @@ export function getNavSections(
             { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
             { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
             { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
+            { label: "AI monitoring", href: "/admin/ops/ai-monitoring", icon: "governance" },
           ],
         },
         {

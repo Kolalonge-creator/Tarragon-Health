@@ -41,3 +41,27 @@ paths = [
   # They live in history on build/provider-layer-completion, which CI scans, so they cannot be reworded away. Generic rule only.
   '''packages/integrations/src/fixtures/zoom/.*\.json$''',
 ]
+
+# S88 crash-reporting scrubber tests: fake tokens that exist in history on s88/crash-reporting-sentry-lab-guard (commits 0eef9c740 and 9e3d0e356,
+# which CI scans, so they cannot be reworded away without force-pushing an open PR). They are the public jwt.io sample header/payload with a
+# made-up signature and a made-up sk_live_ lookalike, fed to the PHI/secret scrubber to prove it redacts them. Neither is a credential.
+# The S88 tip builds both at runtime, so no new literal is committed; these entries can be deleted once that history is gone. Each entry is limited to one rule, the two test files,
+# and the exact fake value (condition = "AND": path AND secret must both match); any other jwt or stripe-access-token hit anywhere is still reported.
+[[rules]]
+id = "jwt"
+[[rules.allowlists]]
+description = "S88 scrubber test fixture: public jwt.io sample token with a fake signature"
+condition = "AND"
+paths = [
+  '''supabase/functions/_shared/observability/sentry\.test\.ts$''',
+  '''apps/mobile/src/lib/crash-report\.test\.ts$''',
+]
+regexes = ['''eyJhbGciOiJIUzI1NiJ9\.eyJzdWIiOiIxMjM0NTY3ODkwIn0\.abcdefghijk''']
+
+[[rules]]
+id = "stripe-access-token"
+[[rules.allowlists]]
+description = "S88 scrubber test fixture: made-up sk_live_ lookalike"
+condition = "AND"
+paths = ['''apps/mobile/src/lib/crash-report\.test\.ts$''']
+regexes = ['''sk_live_51HxyzABCDEFGHIJ''']

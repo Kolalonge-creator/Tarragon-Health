@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { secureKvGet, secureKvSet } from "./secure-kv";
 import type { PersonalBpTarget } from "./bp-trend-rules";
 import { supabase } from "./supabase";
 
@@ -75,7 +75,7 @@ export async function readCachedBpTarget(userId: string, patientId: string): Pro
 
 async function readCache(userId: string, patientId: string): Promise<PersonalBpTarget | null> {
   try {
-    const raw = await AsyncStorage.getItem(cacheKey(userId, patientId));
+    const raw = await secureKvGet(cacheKey(userId, patientId));
     if (!raw) return null;
     const v = JSON.parse(raw) as { target?: PersonalBpTarget | null };
     const t = v.target;
@@ -99,7 +99,7 @@ export async function loadBpTarget(userId: string, patientId: string): Promise<B
       const { data, error } = await supabase.rpc("my_home_bp_target");
       if (!error) {
         const target = toServerTarget(Array.isArray(data) ? data[0] : null);
-        await AsyncStorage.setItem(cacheKey(userId, patientId), JSON.stringify({ target })).catch(() => {});
+        await secureKvSet(cacheKey(userId, patientId), JSON.stringify({ target }));
         return { target, fromCache: false };
       }
       // Any other failure (no signal, a server error) is not "the function is missing": use the copy on the phone.
@@ -113,7 +113,7 @@ export async function loadBpTarget(userId: string, patientId: string): Promise<B
     if (!error) {
       const target = toTarget(data);
       // An empty answer is remembered too, so a target the care team removed does not linger.
-      await AsyncStorage.setItem(cacheKey(userId, patientId), JSON.stringify({ target })).catch(() => {});
+      await secureKvSet(cacheKey(userId, patientId), JSON.stringify({ target }));
       return { target, fromCache: false };
     }
   } catch {
