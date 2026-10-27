@@ -18,8 +18,8 @@ interface Shown {
  * The check runs in this browser with the deterministic matcher in @tarragon/clinical; the text is never sent anywhere. Only a matched phrase from
  * the signed list is recorded, so every show and every dismissal is logged. A prompt is visual and dismissible; it never blocks the consultation.
  *
- * NOT MOUNTED in the consultation room yet: the room does not host the scribe or any text input for the transcript (OQ-210). Mount it where the
- * scribe panel is mounted once that is decided. The server refuses unless the guard is on and the patient's consent stands.
+ * Mounted in the clinician consultation room page (OQ-210 mount decision: the text box sits in the room, the scribe stays in the note editor). The page
+ * renders it only while the live_redflag_prompts_enabled guard is open; the server refuses unless the guard is on and the patient's consent stands.
  */
 export function LiveRedFlagPrompts({ encounterId }: { encounterId: string }) {
   const [segment, setSegment] = useState("");

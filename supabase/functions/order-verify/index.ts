@@ -4,7 +4,8 @@ import { supabaseOrderStore } from "../_shared/commerce/index.ts";
 import { paymentFromEnv } from "../_shared/integrations/index.ts";
 import { handleVerify } from "./handler.ts";
 
-Deno.serve((req) => {
+import { withSentry } from "../_shared/observability/sentry.ts";
+Deno.serve(withSentry("order-verify", (req) => {
   const url = Deno.env.get("SUPABASE_URL")!;
   const service = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
   const payments = paymentFromEnv(
@@ -16,4 +17,4 @@ Deno.serve((req) => {
     rpcAsUser: (authorization, fn, args) =>
       createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } }).rpc(fn, args),
   });
-});
+}));

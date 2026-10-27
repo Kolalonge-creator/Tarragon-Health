@@ -9,6 +9,7 @@ import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui
 import { CallInvitesSection } from "./call-invites-section";
 import { MembershipSection } from "./membership-section";
 import { SupporterBlocks } from "./supporter-blocks";
+import { DigestCard, NudgesCard, TasksCard, useToolsStatus } from "./circle-tools";
 
 function lagosDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -21,6 +22,7 @@ function PersonView({ person, onBack, onLeft }: { person: SupportedPerson; onBac
   const [view, setView] = useState<SupporterView | null | undefined>(undefined);
   const [paying, setPaying] = useState(false);
   const [failed, setFailed] = useState(false);
+  const tools = useToolsStatus();
 
   useEffect(() => {
     void loadSupporterView(person.patientId).then((r) => {
@@ -56,6 +58,8 @@ function PersonView({ person, onBack, onLeft }: { person: SupportedPerson; onBac
       <MutedText>{t("circle.view.shared_until", locale, { date: lagosDate(view.sharedUntil) })}</MutedText>
 
       <SupporterBlocks view={view} />
+      <DigestCard patientId={person.patientId} tools={tools} />
+      <TasksCard patientId={person.patientId} tools={tools} />
 
       {view.canPay ? <PrimaryButton title={t("circle.view.pay", locale)} onPress={() => setPaying(true)} /> : null}
       <SecondaryButton
@@ -177,6 +181,7 @@ export function CircleSupportingSection() {
   const [missed, setMissed] = useState<UnansweredCheckIn[]>([]);
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [open, setOpen] = useState<SupportedPerson | null>(null);
+  const tools = useToolsStatus();
 
   const refresh = useCallback(async () => {
     const [p, a, u] = await Promise.all([loadSupported(), loadOpenAlerts(), loadUnanswered()]);
@@ -205,6 +210,7 @@ export function CircleSupportingSection() {
   return (
     <View style={{ gap: 12 }}>
       <CallInvitesSection />
+      <NudgesCard tools={tools} onOpen={(id) => { const p = people.find((x) => x.patientId === id); if (p) setOpen(p); }} />
       {alerts.map((a) => <AlertCard key={a.patientId} alert={a} onChanged={() => void refresh()} />)}
       {missed.map((m) => (
         <Card key={m.patientId} style={{ gap: 6 }}>

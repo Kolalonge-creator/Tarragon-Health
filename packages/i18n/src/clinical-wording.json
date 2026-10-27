@@ -89,8 +89,13 @@
     }
   },
   "fertileWindow": {
-    "note": "S85 D2 / OQ-12. The words every screen that shows the fertile window must carry. UNSIGNED: no `signed` record exists, nobody but the CMO adds one. `current` and `proposed` are the same founder-mandated text on purpose: a missing label is the unsafe state, so the label renders correctly whether or not the CMO has signed. Banned anywhere in the app: 'safe days', 'avoid pregnancy', 'natural contraception'.",
-    "signed": null,
+    "note": "S85 D2 / OQ-12. The words every screen that shows the fertile window must carry. Signed 2026-10-27 (see `signed`). `current` and `proposed` are the same founder-mandated text on purpose: a missing label is the unsafe state, so the label renders correctly whether or not the CMO has signed. Banned anywhere in the app: 'safe days', 'avoid pregnancy', 'natural contraception'.",
+    "signed": {
+      "by": "Kola Longe, founder (acting as CMO)",
+      "on": "2026-10-27",
+      "version": 1,
+      "note": "Recorded on the founder's own instruction in chat on 2026-10-27 after the exact text was shown and approved: label, link, the mode name 'Planning a pregnancy' (off by default) and the three banned phrases. Founder acting as CMO, not a separate CMO signature; the CMO of record may re-sign by raising `version`."
+    },
     "banned": [
       "safe days",
       "avoid pregnancy",

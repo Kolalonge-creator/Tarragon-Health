@@ -1,4 +1,16 @@
-import { attemptsFromRows, blockedReasonKey, completionOptions, escalatedTaskSchema, lagosLocalToIso, SYSTEM_CLOSED_TASK_TYPES, slaState, rankLeadPatients, classCounts, completeTaskSchema, leadPatientsSchema, minutesLeft, patientSummarySchema, queueSummarySchema, safetyConcernSchema } from "./queue-console";
+import { attemptsFromRows, blockedReasonKey, completionOptions, escalatedTaskSchema, lagosLocalToIso, SYSTEM_CLOSED_TASK_TYPES, slaState, rankLeadPatients, classCounts, completeTaskSchema, leadPatientsSchema, minutesLeft, patientSummarySchema, queueReasonKey, queueSummarySchema, safetyConcernSchema } from "./queue-console";
+
+describe("queueReasonKey", () => {
+  const now = new Date("2026-10-06T10:00:00Z");
+  it("explains escalated, overdue, class 1, due soon and ordinary work from existing fields only", () => {
+    expect(queueReasonKey({ priority_class: 3, due_at: null, state: "escalated" }, now)).toBe("queue.reason.escalated");
+    expect(queueReasonKey({ priority_class: 3, due_at: "2026-10-06T09:00:00Z" }, now)).toBe("queue.reason.overdue");
+    expect(queueReasonKey({ priority_class: 1, due_at: "2026-10-06T18:00:00Z" }, now)).toBe("queue.reason.class1");
+    expect(queueReasonKey({ priority_class: 3, due_at: "2026-10-06T10:20:00Z" }, now, 30)).toBe("queue.reason.due_soon");
+    expect(queueReasonKey({ priority_class: 3, due_at: "2026-10-06T18:00:00Z" }, now, 30)).toBe("queue.reason.ordered");
+    expect(queueReasonKey({ priority_class: null, due_at: null }, now)).toBe("queue.reason.ordered");
+  });
+});
 
 describe("minutesLeft", () => {
   const now = new Date("2026-10-06T10:00:00Z");

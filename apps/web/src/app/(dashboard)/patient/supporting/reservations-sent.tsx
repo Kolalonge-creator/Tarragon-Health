@@ -37,9 +37,10 @@ function ClaimLink({ token, firstName }: { token: string; firstName: string }) {
   const [copied, setCopied] = useState(false);
   const url = `${typeof window === "undefined" ? "" : window.location.origin}/claim/${token}`;
   return (
-    <div className="mt-2 space-y-1">
+    <div className="mt-2 space-y-1" data-testid="claim-link-share">
+      <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">Share this link with {firstName}</p>
       <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
-        Give this link to {firstName} yourself. We do not text them. It is private to you and them.
+        Your payment went through. Send {firstName} this link yourself. We do not text them. It is private to you and them.
       </p>
       <div className="flex gap-2">
         <input readOnly value={url} aria-label={`Claim link for ${firstName}`} className="min-w-0 flex-1 rounded-lg border border-charcoal-ink/20 bg-white px-2 py-1 text-xs text-charcoal-ink dark:border-night-ink/25" />
@@ -72,6 +73,7 @@ export function ReservationsSent() {
   const { data: reservations, isLoading } = useSponsoredReservations();
 
   if (isLoading || !reservations || reservations.length === 0) return null;
+  const waiting = reservations.filter((r) => r.status === "invited" && r.inviteToken);
 
   return (
     <Card>
@@ -82,6 +84,13 @@ export function ReservationsSent() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {waiting.length > 0 && (
+          <p role="status" className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-charcoal-ink dark:bg-amber-500/15 dark:text-night-ink">
+            {waiting.length === 1
+              ? `Paid. Share the link below with ${waiting[0].recipientFirstName}, so they can claim it.`
+              : `Paid. ${waiting.length} links are ready to share below, so each person can claim theirs.`}
+          </p>
+        )}
         <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/10">
           {reservations.map((r) => (
             <li key={r.id} className="py-3">

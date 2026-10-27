@@ -16,7 +16,7 @@ export default async function CareCirclePage() {
     <div className="space-y-6">
       <PageHeader title="Your Care Circle" icon={SEMANTIC_ICON.family} backTo={{ href: "/patient/family", label: "Your people" }} />
       <HelpAlertCard patientId={profile.id} locale={uiLanguage} />
-      <CareCircleManager locale={uiLanguage} />
+      <CareCircleManager locale={uiLanguage} patientId={profile.id} />
       <RecoveryContactCard />
     </div>
   );

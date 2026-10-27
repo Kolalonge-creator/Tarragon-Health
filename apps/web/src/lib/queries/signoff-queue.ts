@@ -49,6 +49,7 @@ type VersionedTableName =
   | "nutrition_target_config"
   | "lowcarb_protocol_config"
   | "activity_safety_config"
+  | "home_card_config"
   | "observation_limit_signoffs"
   | "home_bp_programme_signoffs"
   | "health_report_config_versions"
@@ -84,6 +85,7 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   { table: "health_report_config_versions", title: "Yearly Health Report settings", slug: "health-report-config" },
   { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
   { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
+  { table: "home_card_config", title: "Today screen cards, weekly summary and readiness", slug: "home-card-config" },
   { table: "bp_cuff_guidance_signoffs", title: "Home blood pressure cuff sizes", slug: "cuff-guidance" },
 ];
 

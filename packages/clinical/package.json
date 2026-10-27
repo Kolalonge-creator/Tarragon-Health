@@ -15,8 +15,11 @@
     "./pathways": "./src/pathways/index.ts",
     "./activity-gate": "./src/activity-gate.ts",
     "./lowcarb-programme": "./src/lowcarb-programme.ts",
+    "./today": "./src/today.ts",
     "./activity-readiness": "./src/activity-readiness.ts",
-    "./workout-plans": "./src/workout-plans.ts"
+    "./workout-plans": "./src/workout-plans.ts",
+    "./omission-check": "./src/omission-check.ts",
+    "./text-match": "./src/text-match.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
