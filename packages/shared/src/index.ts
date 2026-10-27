@@ -284,6 +284,10 @@ export * from "./cycle";
 export * from "./private-section";
 export * from "./maternal-child";
 export { sponsorMinimumGroupSize } from "./sponsor-min-group";
+export { assessDeviceSync, loadDeviceSyncConfig, SYNC_CLOCK_SKEW_TOLERANCE_MS } from "./device-sync-freshness";
+export { loadVisitFollowUpConfig, visitFollowUpOpen } from "./visit-follow-up";
+export type { VisitFollowUpConfig } from "./visit-follow-up";
+export type { DeviceSyncConfig, DeviceSyncFreshness, DeviceSyncLevel, DeviceSyncMessageKey } from "./device-sync-freshness";
 
 // S70a (Module 18): device plausibility, cross-source de-duplication, photo capture, CGM sustained events, DeviceSource interface.
 export * from "./device-plausibility";

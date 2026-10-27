@@ -26,7 +26,8 @@ import { NO_PROVENANCE_GUARDS, loadProvenanceGuards, type ProvenanceGuards } fro
 import { bpAckMessage, bpRowState } from "@/lib/bp-ack-view";
 import { listOutbox } from "@/lib/outbox";
 import { toHomeReadings } from "@/lib/home-check";
-import { refreshApprovedGlucoseRuleSet, refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
+import { readPendingRecheck, refreshApprovedGlucoseRuleSet, refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage, type PendingRecheck } from "@/lib/triage-device";
+import { RecheckCountdownCard } from "@/ui/recheck-countdown-card";
 import { answerSymptomQuestion, type QuestionSymptom } from "@/lib/symptom-question";
 import { readObstetricStatus, refreshObstetricStatus } from "@/lib/obstetric-status";
 import { loadBpSymptomChecklist, loadHomeProtocol } from "@/lib/s07-config";
@@ -178,6 +179,17 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [homeReload, setHomeReload] = useState(0);
   const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
   const [triageCard, setTriageCard] = useState<{ message: string; tone: "warn" | "info"; audioId: string | null } | null>(null);
+  // The repeat the rule set asked for, kept so the screen can show WHEN (a countdown). It adds to the cards above and never replaces or delays them.
+  const [pendingRecheck, setPendingRecheck] = useState<PendingRecheck | null>(null);
+  // The repeat is stored under the person the reading is FOR (the resolved subject), which is the beneficiary when logging for someone else.
+  const recheckSubject = beneficiaryProfileId ?? patientId;
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const [cuffType, setCuffType] = useState<CuffType | null>(null);
   const [rulesStale, setRulesStale] = useState(false);
   const [obstetric, setObstetric] = useState(false);
@@ -200,6 +212,12 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   // never also becomes a card. Colour is always paired with the words in the message.
   const showTriage = useCallback(
     (d: DeviceTriage | null | undefined) => {
+      // Whatever was just graded may have saved, replaced or cleared the pending repeat; re-read it so the countdown follows.
+      void readPendingRecheck(recheckSubject)
+        .then((r) => {
+          if (mounted.current) setPendingRecheck(r);
+        })
+        .catch(() => {});
       if (!d || d.severity === "emergency" || !d.message) {
         setTriageCard(null);
         return;
@@ -209,7 +227,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       const advice = d.cuffAdvice ? ` ${t(d.cuffAdvice.title as MessageKey, locale)}. ${t(d.cuffAdvice.body as MessageKey, locale)}` : "";
       setTriageCard({ message: `${t(d.message.title as MessageKey, locale)}. ${t(d.message.body as MessageKey, locale)}${advice}`, tone, audioId: d.audioId });
     },
-    [locale],
+    [locale, recheckSubject],
   );
   useEffect(() => {
     // A first elevated reading whose repeat never came is graded as if repeated (spec 6.2); and the rules are kept fresh.
@@ -231,6 +249,12 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       .catch(() => {});
     void resolveExpiredRecheck(patientId)
       .then((d) => d && showTriage(d))
+      .catch(() => {});
+    // Reopening the app inside the wait: show the countdown again (a pending repeat is stored on the phone).
+    void readPendingRecheck(recheckSubject)
+      .then((r) => {
+        if (mounted.current) setPendingRecheck(r);
+      })
       .catch(() => {});
   }, [patientId, beneficiaryProfileId, showTriage]);
 
@@ -673,6 +697,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
             {triageCard.audioId ? <ListenButton clipIds={[triageCard.audioId]} lang={locale} /> : null}
           </>
         ) : null}
+        <RecheckCountdownCard pending={pendingRecheck} />
         {ackText ? <InlineAlert tone="info" message={ackText} /> : null}
         <Button title={tr("vitals.log.save")} onPress={handleSave} loading={saving} />
       </Card>

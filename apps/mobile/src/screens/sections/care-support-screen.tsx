@@ -76,6 +76,8 @@ function when(iso: string): string {
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 interface CareSupportScreenProps {
+  /** Opens the Messages section (the after-visit summary offers it for the few days after a visit). */
+  onOpenMessages?: () => void;
   patientId: string;
   organisationId: string;
   /** Pushes the native "manage this visit" screen once a video-visit
@@ -121,7 +123,7 @@ interface CareSupportScreenProps {
  * vouchers, wellness points, testimonials) that the web page itself treats
  * as lower priority than the content above.
  */
-export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit, onOpenConsultation }: CareSupportScreenProps) {
+export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit, onOpenConsultation, onOpenMessages }: CareSupportScreenProps) {
   const colors = useLegacyColors();
   return (
     <ScrollView
@@ -146,7 +148,7 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit,
       />
       <MembershipSection />
       <WrittenQuestionsSection />
-      <VisitSummarySection />
+      <VisitSummarySection onOpenMessages={onOpenMessages} />
       <PatientNotesSection />
       <SecondOpinionSection patientId={patientId} organisationId={organisationId} />
       <SeniorCaseReviewSection patientId={patientId} />

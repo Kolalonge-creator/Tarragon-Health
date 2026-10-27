@@ -1370,6 +1370,8 @@ s06z_my_phones.sql
 # OQ-436: public.deadman_status() for the external dead-man's switch: service_role only; heartbeat age; a due and old pending delivery is counted and a fresh or done one is not; dead letters counted only from the last 24 hours; only open sev1/sev2 incidents counted. Sabotage: the function is replaced by one without the pending filter and the window; the checks must flip.
 oq436_deadman_status.sql
 pharmacy_counter_snapshot.sql
+# Sweeper heartbeats for the dead-man's switch: deadman_status() keeps its four keys and adds stale/failing/missing counts for an allow-list of eleven safety sweepers (critical_cron_jobs, service_role only, RLS on); every listed name must be an active cron.job after replay; a listed job with no cron.job is counted missing and named. The stale and failing rules need run history and were proved on a scratch Postgres (14 checks incl. an unknown slice is not stale). Sabotage: function without the new keys.
+deadman_sweeper_heartbeats.sql
 # S07y: the pharmacy_machine and paper_diary reading labels on the ordinary reading table: guards, bounded time rules (pharmacy 72 h, diary 30 days, refused outside), frozen label, home protocol and home averages leave them out as decided, and a dangerous labelled value fires exactly what an ordinary one fires (BP, glucose, pulse; the ordinary control is not vacuous). A labelled reading can still be corrected after its window and with its guard off. Sabotage: the protocol filter, the diary window, the guard check, the home-average filter and the correction branch each removed; all five must flip.
 s07y_reading_provenance.sql
 # --- Added 2026-10-20 (S47a observation types and safety) ---

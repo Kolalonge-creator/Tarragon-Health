@@ -3664,6 +3664,38 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/OPEN-QUESTIONS.md OQ-436; supabase/migrations/20261019204512_oq436_deadman_status.sql; docs/PLATFORM_OUTAGE_RUNBOOK.md external dead-man's switch",
   },
   {
+    key: "ops.deadman_thresholds",
+    // v2: adds the safety-sweeper counts from public.deadman_status() (migration 20261027083719). Only a "down" verdict opens the incident
+    // issue (.github/scripts/deadman-check.sh); "degraded" is a log warning. So ONE silent safety sweeper (the 15 second re-page sweep, the
+    // recheck sweep) is "down": that failure looks like "no red events", which is exactly what the external switch exists to catch.
+    // A single failed run is only "degraded" (down at two), because a transient error that heals itself should not open an issue.
+    // A listed job with no active cron job is never "down": it means the allow-list names a job that was renamed or unscheduled, a
+    // configuration fault. The per-job allowance (max_silence_minutes) lives in public.critical_cron_jobs. PROPOSED by engineering;
+    // the founder confirms. Do not mark confirmed from an agent.
+    value: {
+      dbQueryTimeoutMs: 5000,
+      heartbeatDegradedSeconds: 90,
+      heartbeatDownSeconds: 180,
+      dueOlderThanSeconds: 300,
+      dueUnclaimedDegradedCount: 1,
+      dueUnclaimedDownCount: 10,
+      deadLetterDegradedCount: 1,
+      deadLetterDownCount: 25,
+      openSev1Sev2DegradedCount: 1,
+      openSev1Sev2DownCount: 5,
+      staleCriticalJobsDegradedCount: 1,
+      staleCriticalJobsDownCount: 1,
+      failingCriticalJobsDegradedCount: 1,
+      failingCriticalJobsDownCount: 2,
+      missingCriticalJobsDegradedCount: 1,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-27",
+    source: "supabase/migrations/20261027083719_deadman_status_safety_sweeper_heartbeats.sql; docs/research/S81-S85-competitor-gap-analysis-2026-10-22.md (heartbeats for the sweepers)",
+  },
+  {
     key: "ops.alert_rules",
     // SR5 operations alert rules (docs/plans/SCALE-READINESS-PLAN.md section 3). Live values are the rows of `ops_alert_rules`; this
     // entry mirrors the migration seed and a test fails if they drift. Every number is a proposal for the founder and CMO: the
@@ -3940,6 +3972,38 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-20",
     source: "docs/S06X_DEVICE_CHECKLIST.md; docs/plans/S06-S10-competitor-gap-and-build-plan.md S06x-c; docs/device-lab/RUNBOOK.md",
     guardPatterns: ["cold\\w*start\\w*(ms)?\\s*[=:]\\s*3_?000\\b", "installed\\w*size\\w*(mb)?\\s*[=:]\\s*40\\b"],
+  },
+  {
+    key: "visit.follow_up_prompt",
+    // PROPOSED: how many days after an after-visit summary is approved the app keeps a "questions about this visit? message your care team"
+    // prompt in front of the person. A prompt only: it creates no entitlement, changes no price, and promises no response time, and after it
+    // ends the person can still message their care team from Messages. The written-question follow-up window (async_question.behaviour
+    // followUpDays 7) is separate and unchanged. 7 days is a starting point (the same figure) for the founder to confirm.
+    // Read through loadVisitFollowUpConfig() in packages/shared, never as a literal.
+    value: {
+      days: 7,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/research/S81-S85-competitor-gap-analysis-2026-10-22.md (K Health 7 day reconnect); docs/design/AVS.md; docs/design/S22.md followUpDays",
+  },
+  {
+    key: "devices.sync_freshness",
+    // PROPOSED: how many days a paired device or connected wearable may go without syncing before the app adds a calm note that the newest
+    // reading the person sees may not be the latest one. Wording only: no clinical rule reads this (the rule engines window readings by
+    // their own signed or proposed rules), and a stale display never changes a grade. 7 days is a starting point for the founder to confirm.
+    // Read through loadDeviceSyncConfig() in packages/shared, never as a literal.
+    value: {
+      stale_after_days: 7,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/research/S81-S85-competitor-gap-analysis-2026-10-22.md (last synced display; Swissmedic notice on a glucose app that kept showing the last value)",
+    guardPatterns: ["stale\\w*days?\\s*[=:]\\s*7\\b"],
   },
   {
     key: "offline.freshness",
