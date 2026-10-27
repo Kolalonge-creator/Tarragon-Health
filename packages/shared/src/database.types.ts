@@ -49108,6 +49108,7 @@ export type Database = {
           id: string
           invite_id: string | null
           is_test: boolean
+          missed_dose_alert: boolean
           monthly_report_shared: boolean
           monthly_report_shared_at: string | null
           notice_final_for: string | null
@@ -49129,6 +49130,7 @@ export type Database = {
           id?: string
           invite_id?: string | null
           is_test?: boolean
+          missed_dose_alert?: boolean
           monthly_report_shared?: boolean
           monthly_report_shared_at?: string | null
           notice_final_for?: string | null
@@ -49150,6 +49152,7 @@ export type Database = {
           id?: string
           invite_id?: string | null
           is_test?: boolean
+          missed_dose_alert?: boolean
           monthly_report_shared?: boolean
           monthly_report_shared_at?: string | null
           notice_final_for?: string | null
@@ -49163,6 +49166,42 @@ export type Database = {
           state?: string
           supporter_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      care_circle_missed_dose_alerts: {
+        Row: {
+          id: string
+          medication_id: string
+          member_id: string
+          notified: boolean
+          organisation_id: string
+          patient_id: string
+          scheduled_for_date: string
+          scheduled_time: string
+          sent_at: string
+        }
+        Insert: {
+          id?: string
+          medication_id: string
+          member_id: string
+          notified?: boolean
+          organisation_id: string
+          patient_id: string
+          scheduled_for_date: string
+          scheduled_time: string
+          sent_at?: string
+        }
+        Update: {
+          id?: string
+          medication_id?: string
+          member_id?: string
+          notified?: boolean
+          organisation_id?: string
+          patient_id?: string
+          scheduled_for_date?: string
+          scheduled_time?: string
+          sent_at?: string
         }
         Relationships: []
       }
@@ -49196,6 +49235,81 @@ export type Database = {
           pause_alerts?: boolean
           paused_until?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      care_circle_tasks: {
+        Row: {
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          created_by: string
+          done_at: string | null
+          id: string
+          is_test: boolean
+          kind: string
+          needed_by: string | null
+          organisation_id: string
+          patient_id: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          created_by: string
+          done_at?: string | null
+          id?: string
+          is_test?: boolean
+          kind: string
+          needed_by?: string | null
+          organisation_id: string
+          patient_id: string
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          created_by?: string
+          done_at?: string | null
+          id?: string
+          is_test?: boolean
+          kind?: string
+          needed_by?: string | null
+          organisation_id?: string
+          patient_id?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      care_circle_tools_config: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          rules: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          rules: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          rules?: Json
+          version?: number
         }
         Relationships: []
       }
@@ -56984,6 +57098,18 @@ export type Database = {
       cancel_care_circle_invite: { Args: { p_invite: string }; Returns: boolean };
       circle_open_alerts: { Args: never; Returns: Json };
       circle_ack_alert: { Args: { p_patient: string }; Returns: boolean };
+      // S69b (spliced by hand from supabase/migrations/20261027183410_s69b_*.sql; not a wholesale regeneration)
+      decline_care_circle_invite: { Args: { p_token: string }; Returns: Json };
+      circle_tools_status: { Args: never; Returns: Json };
+      set_circle_missed_dose_alert: { Args: { p_member: string; p_on: boolean }; Returns: boolean };
+      post_circle_task: { Args: { p_kind: string; p_needed_by?: string; p_patient: string }; Returns: Json };
+      circle_tasks: { Args: { p_patient: string }; Returns: Json };
+      claim_circle_task: { Args: { p_task: string }; Returns: boolean };
+      release_circle_task: { Args: { p_task: string }; Returns: boolean };
+      complete_circle_task: { Args: { p_task: string }; Returns: boolean };
+      cancel_circle_task: { Args: { p_task: string }; Returns: boolean };
+      circle_weekly_digest: { Args: { p_patient: string }; Returns: Json };
+      circle_recent_nudges: { Args: never; Returns: Json };
       circle_check_in_pending: { Args: never; Returns: Json };
       circle_unanswered_check_ins: { Args: never; Returns: Json };
       circle_ack_unanswered: { Args: { p_patient: string }; Returns: boolean };

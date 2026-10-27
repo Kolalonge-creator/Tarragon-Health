@@ -1,8 +1,8 @@
 import type { QueryResult } from "../medications";
 import { supabase } from "../supabase";
 import {
-  circleErrorKey, parseAcceptInvite, parseAlerts, parseCheckInPending, parseCheckInResult, parseInvitePreview, parseUnanswered, parseGiftAnswer, parsePendingGifts, parseInviteMade, parseMyCircle, parseOk, parsePaused, parsePreviewView, parseSupported, parseSupporterView, parseViewLog,
-  type AlertMode, type CheckInResult, type CirclePermission, type InvitePreview, type UnansweredCheckIn, type InviteMade, type PendingGift, type MyCircle, type OpenAlert, type PreviewView, type SupportedPerson, type SupporterView, type ViewLogRow,
+  circleErrorKey, parseDeclined, parseDigest, parseNudges, parseTasks, parseToolsStatus, parseAcceptInvite, parseAlerts, parseCheckInPending, parseCheckInResult, parseInvitePreview, parseUnanswered, parseGiftAnswer, parsePendingGifts, parseInviteMade, parseMyCircle, parseOk, parsePaused, parsePreviewView, parseSupported, parseSupporterView, parseViewLog,
+  type AlertMode, type CircleDigest, type CircleNudge, type CircleTaskList, type ToolsStatus, type CheckInResult, type CirclePermission, type InvitePreview, type UnansweredCheckIn, type InviteMade, type PendingGift, type MyCircle, type OpenAlert, type PreviewView, type SupportedPerson, type SupporterView, type ViewLogRow,
 } from "./parse";
 
 export async function loadMyCircle(): Promise<QueryResult<MyCircle>> {
@@ -140,4 +140,45 @@ export async function answerCheckIn(): Promise<boolean | null> {
 export async function loadUnanswered(): Promise<QueryResult<UnansweredCheckIn[]>> {
   const { data, error } = await supabase.rpc("circle_unanswered_check_ins");
   return error ? { ok: false, error: error.message } : { ok: true, data: parseUnanswered(data) };
+}
+
+// ---------------------------------------------------------------------------
+// S69b
+// ---------------------------------------------------------------------------
+/** Which tools are on. A failed read is "all off". */
+export async function loadToolsStatus(): Promise<ToolsStatus> {
+  const { data, error } = await supabase.rpc("circle_tools_status");
+  return error ? parseToolsStatus(null) : parseToolsStatus(data);
+}
+/** "Not now": silent for the person who asked. false: it was not saved (the screen says so; the invite stays open). */
+export async function declineInvite(token: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("decline_care_circle_invite", { p_token: token });
+  return !error && parseDeclined(data);
+}
+export async function setMissedDoseAlert(memberId: string, on: boolean): Promise<boolean> {
+  const { error } = await supabase.rpc("set_circle_missed_dose_alert", { p_member: memberId, p_on: on });
+  return !error;
+}
+/** null: the module is off, the access ended or the read failed; the screen shows nothing for any of them. */
+export async function loadTasks(patientId: string): Promise<CircleTaskList | null> {
+  const { data, error } = await supabase.rpc("circle_tasks", { p_patient: patientId });
+  return error ? null : parseTasks(data);
+}
+export async function postTask(patientId: string, kind: string, neededBy: string | null): Promise<{ ok: true } | { ok: false; limit: boolean }> {
+  const { error } = await supabase.rpc("post_circle_task", { p_patient: patientId, p_kind: kind, ...(neededBy ? { p_needed_by: neededBy } : {}) });
+  return error ? { ok: false, limit: error.message.includes("task_limit") } : { ok: true };
+}
+export type TaskAction = "claim_circle_task" | "release_circle_task" | "complete_circle_task" | "cancel_circle_task";
+/** true: done. false: it was no longer possible (for a claim: someone else got there first). null: not saved. */
+export async function taskAction(action: TaskAction, taskId: string): Promise<boolean | null> {
+  const { data, error } = await supabase.rpc(action, { p_task: taskId });
+  return error ? null : data === true;
+}
+export async function loadDigest(patientId: string): Promise<CircleDigest | null> {
+  const { data, error } = await supabase.rpc("circle_weekly_digest", { p_patient: patientId });
+  return error ? null : parseDigest(data);
+}
+export async function loadNudges(): Promise<CircleNudge[]> {
+  const { data, error } = await supabase.rpc("circle_recent_nudges");
+  return error ? [] : parseNudges(data);
 }
