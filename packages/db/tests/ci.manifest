@@ -1617,4 +1617,5 @@ w40_restore_drills.sql
 # W-02 override reason codes: override_alert_level with append-only events, claim-history task reasons, relationship-checked brief feedback, owner-only raw rows, CMO count functions (groups of 3+). Sabotage: override update, claim history, relationship check, CMO check, minimum group size each removed.
 w02_override_reason_codes.sql
 # W-01 doctor-time capture: append-only own-rows time entries, consult trigger, CMO-only aggregate with no clinician column. Sabotage: claimed_by check and CMO check removed; both must flip.
+# W-01 doctor-time capture: owner-only append-only time entries (void, idempotent), consult trigger, CMO/finance aggregate over Members with zero-minute Members and consult-over-task overlap. Sabotage: relationship check, idempotency, voided filter, overlap, denominator each removed.
 w01_clinician_time_entries.sql

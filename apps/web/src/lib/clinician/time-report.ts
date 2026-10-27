@@ -1,32 +1,52 @@
 import { z } from "zod";
+import type { MessageKey } from "@tarragon/i18n";
 
-/** Reads the W-01 aggregate. Rows are by kind of work and membership only; there is deliberately no clinician field. */
+/**
+ * Reads the W-01 aggregate. Two kinds of row, both by membership: 'total' (per tier: Members, mean, median and p90 of each Member's TOTAL
+ * minutes, zero-minute Members included) and 'source' (total minutes per kind of work, no medians). There is deliberately no clinician field.
+ */
 const rowSchema = z.object({
-  source: z.enum(["task", "consult", "message", "manual"]),
+  kind: z.enum(["total", "source"]),
   tier: z.string(),
-  members: z.number(),
+  source: z.enum(["task", "consult", "message", "manual"]).nullable(),
+  members: z.number().nullable(),
+  mean_minutes: z.number().nullable(),
   median_minutes: z.number().nullable(),
   p90_minutes: z.number().nullable(),
-  total_minutes: z.number(),
+  total_minutes: z.number().nullable(),
 });
 
 export type MemberMonthMinutesRow = z.infer<typeof rowSchema>;
+export type TimeSource = NonNullable<MemberMonthMinutesRow["source"]>;
 
-/** Null when the answer is not the expected shape, so the page says it could not load rather than showing an empty table. */
-export function parseMemberMonthMinutes(data: unknown): MemberMonthMinutesRow[] | null {
-  const parsed = z.array(rowSchema).safeParse(data);
-  if (!parsed.success) return null;
-  // A fixed order by kind of work and membership (never by a figure about a person).
-  const order = ["consult", "task", "message", "manual"];
-  return [...parsed.data].sort((a, b) => order.indexOf(a.source) - order.indexOf(b.source) || a.tier.localeCompare(b.tier));
+const ORDER: TimeSource[] = ["consult", "task", "message", "manual"];
+
+export interface TimeReport {
+  totals: MemberMonthMinutesRow[];
+  sources: MemberMonthMinutesRow[];
 }
 
-const SOURCE: Record<MemberMonthMinutesRow["source"], string> = {
-  consult: "Consultations",
-  task: "Tasks",
-  message: "Messages",
-  manual: "Added by hand",
+/** Null when the answer is not the expected shape, so the page says it could not load rather than showing an empty table. */
+export function parseMemberMonthMinutes(data: unknown): TimeReport | null {
+  const parsed = z.array(rowSchema).safeParse(data);
+  if (!parsed.success) return null;
+  // A fixed order by membership and kind of work (never by a figure about a person).
+  const rows = [...parsed.data];
+  return {
+    totals: rows.filter((r) => r.kind === "total").sort((a, b) => a.tier.localeCompare(b.tier)),
+    sources: rows
+      .filter((r) => r.kind === "source")
+      .sort((a, b) => a.tier.localeCompare(b.tier) || ORDER.indexOf(a.source ?? "manual") - ORDER.indexOf(b.source ?? "manual")),
+  };
+}
+
+const SOURCE_KEY: Record<TimeSource, MessageKey> = {
+  task: "time.source.task",
+  consult: "time.source.consult",
+  message: "time.source.message",
+  manual: "time.source.manual",
 };
 
-export const sourceLabel = (s: MemberMonthMinutesRow["source"]): string => SOURCE[s];
-export const tierLabel = (tier: string): string => (tier === "plus" ? "Membership Plus" : tier === "evergreen" ? "Membership" : tier);
+export const sourceLabelKey = (s: TimeSource): MessageKey => SOURCE_KEY[s];
+export const tierLabelKey = (tier: string): MessageKey | null =>
+  tier === "plus" ? "time.tier.plus" : tier === "evergreen" ? "time.tier.evergreen" : null;
