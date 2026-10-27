@@ -71,3 +71,15 @@ Founder and CMO decide the scope question first, because it changes the length o
 8. Founder: decide OQ-548, OQ-550, OQ-267 or defer each in writing.
 9. Rerun CI and the release-integrity job on main-dev; confirm migrations applied (criterion 2).
 10. Only then the founder or CMO writes "Stage 1 complete" at the top of `docs/BUILD-PROGRESS.md`.
+
+
+## Update, 2026-10-27 (later the same day): items decided in chat
+
+Founder decisions recorded in `docs/DECISIONS.md` (section "Founder decisions, 2026-10-27"):
+- Gate scope is the FULL gate.
+- D1 is superseded by `bp_care_triage` v7 (approved 2026-10-27 00:09 UTC); no signature needed; retire v4 to v6 drafts.
+- D2 fertile-window wording is recorded as signed (founder acting as CMO) in `clinical-wording.json`.
+- D3 is recorded as "SMS is for verification codes only"; the clinician Termii SMS and voice code is deleted on branch `s87/scan-rules-sms-allowlist`.
+- PITR: the founder will upgrade Supabase to Pro and enable PITR, then run and record a restore test. Still open until done and verified.
+
+The gate is still NOT passed. Remaining items are listed in the numbered checklist above; items 3 (D1 to D3) are now closed once this branch merges.
