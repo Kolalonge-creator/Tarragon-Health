@@ -176,6 +176,7 @@ begin
 end $$;
 
 -- 2. re-offer ----------------------------------------------------------------------------------------------------------------------------
+create temp table s76_pre_state as select id, state from public.clinical_tasks where id = pg_temp.f('t_aged');
 select private.reoffer_unacknowledged_tasks();
 insert into results values ('real', 'aged task: offered once', '1', pg_temp.reoffers(pg_temp.f('t_aged'), 'offered'));
 insert into results values ('real', 'aged task: offered to a different clinician, not the holder, not the one on leave, not the patient', 'true',
@@ -191,7 +192,7 @@ insert into results values ('real', 'nobody qualified: audited', '1',
   (select count(*)::text from public.audit_log where action = 'clinical_task.reoffer_no_candidate' and entity_id = pg_temp.f('t_none')));
 insert into results values ('real', 'a real patient task is untouched while the guard is off', '0',
   (select count(*)::text from public.clinical_task_reoffers where task_id = pg_temp.f('t_real')));
-insert into results values ('real', 'the re-offer did not change the task state', 'offered_to_lead',
+insert into results values ('real', 'the re-offer did not change the task state', (select state::text from s76_pre_state),
   (select state::text from public.clinical_tasks where id = pg_temp.f('t_aged')) );
 select private.reoffer_unacknowledged_tasks();
 insert into results values ('real', 'a second sweep does not re-offer again (reoffer_max)', '1', pg_temp.reoffers(pg_temp.f('t_aged'), 'offered'));
