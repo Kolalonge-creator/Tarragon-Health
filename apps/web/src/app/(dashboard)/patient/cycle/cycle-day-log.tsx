@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { THERMAL_SHIFT_EXPLAINER } from "@/lib/rules/cycle-thermal-shift";
+import { t } from "@tarragon/i18n";
 import { FertileWindowNotice } from "./fertile-window-notice";
 
 import { formatPatientDate } from "@/lib/format-date";
@@ -26,43 +27,43 @@ import { formatPatientDate } from "@/lib/format-date";
  */
 
 export const FLOW_OPTIONS: { value: MenstrualFlowLevel; label: string }[] = [
-  { value: "none", label: "None" },
-  { value: "spotting", label: "Spotting" },
-  { value: "light", label: "Light" },
-  { value: "medium", label: "Medium" },
-  { value: "heavy", label: "Heavy" },
-  { value: "flooding", label: "Very heavy" },
+  { value: "none", label: t("cycle.flow.none") },
+  { value: "spotting", label: t("cycle.flow.spotting") },
+  { value: "light", label: t("cycle.flow.light") },
+  { value: "medium", label: t("cycle.flow.medium") },
+  { value: "heavy", label: t("cycle.flow.heavy") },
+  { value: "flooding", label: t("cycle.flow.flooding") },
 ];
 
 const SYMPTOM_OPTIONS: { value: MenstrualSymptom; label: string }[] = [
-  { value: "cramps", label: "Cramps" },
-  { value: "headache", label: "Headache" },
-  { value: "bloating", label: "Bloating" },
-  { value: "breast_tenderness", label: "Sore breasts" },
-  { value: "back_pain", label: "Back pain" },
-  { value: "fatigue", label: "Tiredness" },
-  { value: "nausea", label: "Nausea" },
-  { value: "acne", label: "Skin breakout" },
-  { value: "diarrhoea", label: "Loose stool" },
-  { value: "constipation", label: "Constipation" },
-  { value: "food_cravings", label: "Cravings" },
-  { value: "insomnia", label: "Trouble sleeping" },
+  { value: "cramps", label: t("cycle.symptom.cramps") },
+  { value: "headache", label: t("cycle.symptom.headache") },
+  { value: "bloating", label: t("cycle.symptom.bloating") },
+  { value: "breast_tenderness", label: t("cycle.symptom.breast_tenderness") },
+  { value: "back_pain", label: t("cycle.symptom.back_pain") },
+  { value: "fatigue", label: t("cycle.symptom.fatigue") },
+  { value: "nausea", label: t("cycle.symptom.nausea") },
+  { value: "acne", label: t("cycle.symptom.acne") },
+  { value: "diarrhoea", label: t("cycle.symptom.diarrhoea") },
+  { value: "constipation", label: t("cycle.symptom.constipation") },
+  { value: "food_cravings", label: t("cycle.symptom.food_cravings") },
+  { value: "insomnia", label: t("cycle.symptom.insomnia") },
 ];
 
 const OVULATION_TEST_OPTIONS: { value: MenstrualOvulationTestResult; label: string }[] = [
-  { value: "negative", label: "Negative" },
-  { value: "positive", label: "Positive" },
-  { value: "peak", label: "Peak" },
+  { value: "negative", label: t("cycle.ovulation_test.negative") },
+  { value: "positive", label: t("cycle.ovulation_test.positive") },
+  { value: "peak", label: t("cycle.ovulation_test.peak") },
 ];
 
 const MOOD_OPTIONS: { value: MenstrualMood; label: string }[] = [
-  { value: "calm", label: "Calm" },
-  { value: "happy", label: "Happy" },
-  { value: "energetic", label: "Energetic" },
-  { value: "irritable", label: "Irritable" },
-  { value: "anxious", label: "Anxious" },
-  { value: "low", label: "Low" },
-  { value: "mood_swings", label: "Up and down" },
+  { value: "calm", label: t("cycle.mood.calm") },
+  { value: "happy", label: t("cycle.mood.happy") },
+  { value: "energetic", label: t("cycle.mood.energetic") },
+  { value: "irritable", label: t("cycle.mood.irritable") },
+  { value: "anxious", label: t("cycle.mood.anxious") },
+  { value: "low", label: t("cycle.mood.low") },
+  { value: "mood_swings", label: t("cycle.mood.mood_swings") },
 ];
 
 function Chip({
@@ -82,7 +83,7 @@ function Chip({
       onClick={onClick}
       aria-pressed={selected}
       className={[
-        "rounded-full border px-3 py-1.5 text-xs transition",
+        "min-h-11 rounded-full border px-3 py-1.5 text-sm transition",
         selected
           ? tone === "period"
             ? "border-transparent text-white"
@@ -93,6 +94,11 @@ function Chip({
         selected && tone === "period" ? { backgroundColor: "var(--cycle-period)" } : undefined
       }
     >
+      {selected && (
+        <span aria-hidden className="mr-1">
+          &#10003;
+        </span>
+      )}
       {label}
     </button>
   );
@@ -280,12 +286,19 @@ export function CycleDayLog({
           is per-field, so one human sentence is the whole message. */}
       <FormError id={errorId} message={save.isError && "Could not save that just now. Please try again."} />
 
+      {/* UI-A: the web has no offline queue (OQ-724), so offline this says the day was NOT sent. It never says "saved on this phone". */}
+      {save.isError && typeof navigator !== "undefined" && !navigator.onLine && (
+        <p role="status" className="text-sm text-amber-800 dark:text-amber-300">
+          {t("cycle.offline.not_sent")}
+        </p>
+      )}
+
       <div className="flex items-center gap-3">
         <Button type="submit" size="sm" disabled={save.isPending}>
           {save.isPending ? "Saving..." : "Save this day"}
         </Button>
         {save.isSuccess && !save.isPending && (
-          <span className="text-xs text-brand-green dark:text-brand-green-bright">Saved</span>
+          <span role="status" className="text-sm text-brand-green dark:text-brand-green-bright">{t("cycle.log.saved")}</span>
         )}
       </div>
     </form>

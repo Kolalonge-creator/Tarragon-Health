@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Switch, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ScrollView, Switch, useWindowDimensions, View } from "react-native";
 import { supabase } from "@/lib/supabase";
-import { en, FERTILE_WINDOW_LABEL, FERTILE_WINDOW_LINK_TEXT } from "@tarragon/i18n";
+import { en, FERTILE_WINDOW_LABEL, FERTILE_WINDOW_LINK_TEXT, t } from "@tarragon/i18n";
 import { phaseDescription, phaseLabel, THERMAL_SHIFT_EXPLAINER } from "@/lib/cycle-fertile-mode";
 import {
   deletePeriod,
@@ -17,40 +17,32 @@ import {
   type MenstrualOvulationTestResult,
   type MenstrualSymptom,
 } from "@/lib/cycle";
-import {
-  FERTILE_WINDOW_DISCLAIMER,
-  nextPeriodSummary,
-  type CycleClinicalFlag,
-  type CycleConfidence,
-  type ReproductiveLifeStage,
-} from "@/lib/cycle-prediction";
+import { FERTILE_WINDOW_DISCLAIMER, nextPeriodSummary, type CycleClinicalFlag, type ReproductiveLifeStage } from "@/lib/cycle-prediction";
+import { countPendingCycleLogs, draftFor, guardedAction, refreshFailureView, saveFeedback, withDraft, withoutDraft, type DayDraft, type SaveFeedback } from "@/lib/cycle-ui";
+import { getConnectionKind } from "@/lib/connection-kind";
 import type { SectionId } from "@/lib/sections";
-import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
-import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { space, useTheme } from "@/ui/design";
+import { AppText, Button, Card, Field, Icon, Screen, Sheet, Skeleton, SkeletonGroup, type IconName } from "@/ui/kit";
 import { PrivateSection } from "@/ui/private-section";
 import { CycleDangerSigns } from "@/ui/cycle-danger-signs";
 import { CyclePrivacyControls } from "@/ui/cycle-privacy-controls";
 import { FeatureConsentGate } from "@/ui/feature-consent-gate";
+import { CycleActionButton, CycleChip, CycleListen, CycleSaveNote } from "@/ui/cycle-parts";
+import { CycleStatusCard } from "@/ui/cycle-status-card";
+import { CycleWeekStrip } from "@/ui/cycle-date-picker";
 
 /**
- * The cycle tracker's native screen (spec §44's large sub-feature —
- * previously WebView-only, see docs/mobile-native-conversion/womens-health.md
- * and the note this replaced in womens-health-screen.tsx). Mirrors
- * apps/web/.../patient/cycle/{page,cycle-tracker,cycle-day-log}.tsx: period
- * logging, the day-by-day symptom/mood/flow log, the prediction engine's
- * "what to expect" numbers, clinical flags, patterns, and history.
+ * The cycle tracker's native screen (spec §44's large sub-feature). Mirrors apps/web/.../patient/cycle/{page,cycle-tracker,cycle-day-log}.tsx:
+ * period logging, the day-by-day symptom/mood/flow log, the prediction engine's "what to expect" numbers, clinical flags, patterns, history.
  *
- * Deliberately NOT ported in this pass: the month-grid calendar visual
- * (cycle-calendar.tsx) and the pattern-over-time/thermal-shift insights
- * cards (cycle-insights-card.tsx, lib/rules/cycle-insights.ts,
- * lib/rules/cycle-thermal-shift.ts) and the health-library "worth a read"
- * card (lib/rules/cycle-reading.ts). Every field those would need is still
- * captured here (BBT, ovulation test, symptoms, moods) so no data is lost —
- * a day is picked with the stepper below rather than a calendar grid, and
- * the underlying prediction/flags engine (lib/cycle-prediction.ts) is a
- * verbatim, un-simplified port. Revisit the calendar/insights visuals as a
- * follow-up if the founder wants full parity.
+ * UI-A redesign (docs/research/S66-S70-design-ui-comparison.md, changes 1 to 4, 7, 8, 10, 11, 12, 14): the screen is on the kit now
+ * (14 point body, 16 point actions, the dark palette, text scaling), the top card is one plain-word status with confidence in words and
+ * three dots, the day is picked from a week strip (no typed date), the day log is a bottom sheet with tick-and-word chips and the save
+ * pinned at the bottom, and every card that explains something can be listened to once a recorded clip exists. "Nothing here is
+ * required." stays. No streaks, no "you missed a day", no red outside the clinical flags and the danger signs.
+ *
+ * Deliberately NOT ported: the month-grid calendar visual (cycle-calendar.tsx) beyond the date-picking sheet, and the pattern-over-time
+ * and thermal-shift insights cards. Every field they need is still captured here.
  */
 
 interface CycleScreenProps {
@@ -78,79 +70,10 @@ function shortDate(iso: string | null): string {
   });
 }
 
-const CONFIDENCE_LABEL: Record<CycleConfidence, string> = {
-  none: "No estimate yet",
-  low: "Rough estimate",
-  medium: "Fairly confident",
-  high: "Confident",
-};
-
-const confidenceColor = (colors: ReturnType<typeof useLegacyColors>): Record<CycleConfidence, string> => ({
-  none: colors.faint,
-  low: colors.status.warn,
-  medium: colors.brand,
-  high: colors.brand,
-});
-
-function Chip({ label, active, onPress, tone = "neutral" }: { label: string; active: boolean; onPress: () => void; tone?: "neutral" | "period" }) {
-  const colors = useLegacyColors();
-  return (
-    <Text
-      onPress={onPress}
-      style={{
-        fontSize: 12.5,
-        fontWeight: "600",
-        paddingVertical: 7,
-        paddingHorizontal: 11,
-        borderRadius: 999,
-        backgroundColor: active ? (tone === "period" ? colors.danger : colors.brand) : colors.groupBg,
-        color: active ? "#FFFFFF" : colors.ink,
-      }}
-    >
-      {label}
-    </Text>
-  );
-}
-
-const FLOW_OPTIONS: { value: MenstrualFlowLevel; label: string }[] = [
-  { value: "none", label: "None" },
-  { value: "spotting", label: "Spotting" },
-  { value: "light", label: "Light" },
-  { value: "medium", label: "Medium" },
-  { value: "heavy", label: "Heavy" },
-  { value: "flooding", label: "Very heavy" },
-];
-
-const SYMPTOM_OPTIONS: { value: MenstrualSymptom; label: string }[] = [
-  { value: "cramps", label: "Cramps" },
-  { value: "headache", label: "Headache" },
-  { value: "bloating", label: "Bloating" },
-  { value: "breast_tenderness", label: "Sore breasts" },
-  { value: "back_pain", label: "Back pain" },
-  { value: "fatigue", label: "Tiredness" },
-  { value: "nausea", label: "Nausea" },
-  { value: "acne", label: "Skin breakout" },
-  { value: "diarrhoea", label: "Loose stool" },
-  { value: "constipation", label: "Constipation" },
-  { value: "food_cravings", label: "Cravings" },
-  { value: "insomnia", label: "Trouble sleeping" },
-];
-
-const MOOD_OPTIONS: { value: MenstrualMood; label: string }[] = [
-  { value: "calm", label: "Calm" },
-  { value: "happy", label: "Happy" },
-  { value: "energetic", label: "Energetic" },
-  { value: "irritable", label: "Irritable" },
-  { value: "anxious", label: "Anxious" },
-  { value: "low", label: "Low" },
-  { value: "mood_swings", label: "Up and down" },
-];
-
-const OVULATION_TEST_OPTIONS: { value: MenstrualOvulationTestResult; label: string }[] = [
-  { value: "negative", label: "Negative" },
-  { value: "positive", label: "Positive" },
-  { value: "peak", label: "Peak" },
-];
+const FLOW_VALUES: MenstrualFlowLevel[] = ["none", "spotting", "light", "medium", "heavy", "flooding"];
+const SYMPTOM_VALUES: MenstrualSymptom[] = ["cramps", "headache", "bloating", "breast_tenderness", "back_pain", "fatigue", "nausea", "acne", "diarrhoea", "constipation", "food_cravings", "insomnia"];
+const MOOD_VALUES: MenstrualMood[] = ["calm", "happy", "energetic", "irritable", "anxious", "low", "mood_swings"];
+const OVULATION_TEST_VALUES: MenstrualOvulationTestResult[] = ["negative", "positive", "peak"];
 
 function toggle<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
@@ -162,7 +85,6 @@ function toggle<T>(list: T[], value: T): T[] {
  * account, so a phone shared by two people keeps two PINs.
  */
 function CycleScreenInner(props: CycleScreenProps) {
-  const colors = useLegacyColors();
   const [accountId, setAccountId] = useState(props.patientId);
   useEffect(() => {
     void supabase.auth.getUser().then(({ data }) => {
@@ -170,29 +92,33 @@ function CycleScreenInner(props: CycleScreenProps) {
     });
   }, []);
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
-      <View>
-        <ScreenTitle>Your cycle</ScreenTitle>
-      </View>
-      <PrivateSection accountId={accountId} title="Your tracker" outside={<CycleDangerSigns />}>
+    <Screen>
+      <AppText variant="headline" heading>
+        Your cycle
+      </AppText>
+      <PrivateSection accountId={accountId} title="Your tracker" outside={<CycleDangerSigns onMessageCareTeam={() => props.onNavigate("messages")} />}>
         <CycleScreenBody {...props} />
         {accountId === props.patientId && <CyclePrivacyControls />}
       </PrivateSection>
-    </ScrollView>
+    </Screen>
   );
 }
 
 function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenProps) {
-  const colors = useLegacyColors();
-  const textInputStyle = useTextInputStyle();
-  const { scheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tracker, setTracker] = useState<CycleTrackerData | null>(null);
   const [selectedDate, setSelectedDate] = useState("");
-  const [dateDraft, setDateDraft] = useState("");
   const [actionPending, setActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [logOpen, setLogOpen] = useState(false);
+  // Unsaved choices live here, not in the sheet: the sheet unmounts its form when it closes. Cleared only by a successful save.
+  const [drafts, setDrafts] = useState<Record<string, DayDraft>>({});
+  // A save went through but the re-read failed: keep the screen and say so, never "we could not load your cycle".
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const hasData = useRef(false);
+  const [savedNote, setSavedNote] = useState<SaveFeedback | "idle">("idle");
+  const [pendingLogs, setPendingLogs] = useState(0);
   // "Planning a pregnancy" (S85 D2): the fertile window and temperature-based ovulation confirmation show only while on.
   const [planningMode, setPlanningMode] = useState(false);
   const [modePending, setModePending] = useState(false);
@@ -219,8 +145,23 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
     await refresh(next);
   }
 
-  const refresh = useCallback(async (modeOverride?: boolean) => {
+  /** Re-reads the tracker. Returns whether it worked; a failure after data is on screen keeps the screen (see refreshFailureView). */
+  const refresh = useCallback(async (modeOverride?: boolean): Promise<boolean> => {
     setActionError(null);
+    try {
+      return await refreshInner(modeOverride);
+    } catch {
+      return failRefresh();
+    }
+  }, [patientId]);
+
+  function failRefresh(): boolean {
+    if (refreshFailureView(hasData.current) === "saved_note") setRefreshFailed(true);
+    else setError(t("cycle.load_failed"));
+    return false;
+  }
+
+  async function refreshInner(modeOverride?: boolean): Promise<boolean> {
     // Same query shape as web's CyclePage: read the patient's self-reported
     // life stage + average cycle length to seed the prediction, defaulting
     // to "menstruating" exactly like the web page does when nothing is
@@ -235,42 +176,62 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
     const mode = modeOverride ?? (await loadPlanningMode(patientId));
 
     const result = await loadCycleTracker(patientId, stage, profile?.average_cycle_length_days ?? null, mode);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
+    if (!result.ok) return failRefresh();
+    hasData.current = true;
+    setRefreshFailed(false);
     setError(null);
     // The mode and the prediction built with it change together, so a screen never pairs one with the other's.
     setPlanningMode(mode);
     setTracker(result.data);
     setSelectedDate((prev) => prev || result.data.today);
-  }, [patientId]);
+    setPendingLogs(await countPendingCycleLogs());
+    return true;
+  }
 
   useEffect(() => {
     setLoading(true);
     refresh().finally(() => setLoading(false));
   }, [refresh]);
 
-  useEffect(() => {
-    setDateDraft(selectedDate);
-  }, [selectedDate]);
+  // Marks for the week strip and the date sheet: days with a log, and days of a logged period.
+  const loggedDays = useMemo(() => new Set((tracker?.dailyLogs ?? []).filter((l) => l.flow || l.symptoms.length > 0 || l.moods.length > 0 || l.notes).map((l) => l.log_date)), [tracker]);
+  const periodDays = useMemo(() => {
+    const days = new Set<string>();
+    for (const c of tracker?.cycles ?? []) {
+      const end = c.period_end_date ?? c.period_start_date;
+      const d = new Date(`${c.period_start_date}T00:00:00Z`);
+      for (let guard = 0; guard < 20 && d.toISOString().slice(0, 10) <= end; guard += 1) {
+        days.add(d.toISOString().slice(0, 10));
+        d.setUTCDate(d.getUTCDate() + 1);
+      }
+    }
+    return days;
+  }, [tracker]);
 
   if (loading) {
     return (
-      <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 40 }}>
-        <ActivityIndicator color={colors.brand} />
-      </View>
+      <SkeletonGroup label={t("cycle.status.listen_title")}>
+        <Skeleton width="100%" height={140} />
+      </SkeletonGroup>
     );
   }
 
+  // A failed load says it failed and offers a retry: it is never shown as "nothing logged".
   if (error || !tracker) {
     return (
-      <View style={{ gap: 16 }}>
-        <Card style={{ gap: 8 }}>
-          <ErrorText>{error ?? "We could not load your cycle just now."}</ErrorText>
-          <SecondaryButton title="Try again" onPress={() => { setLoading(true); refresh().finally(() => setLoading(false)); }} />
-        </Card>
-      </View>
+      <Card style={{ gap: space.md }}>
+        <AppText variant="body" accessibilityRole="alert">
+          {t("cycle.load_failed")}
+        </AppText>
+        <CycleActionButton
+          title={t("cycle.load_retry")}
+          variant="secondary"
+          onPress={() => {
+            setLoading(true);
+            refresh().finally(() => setLoading(false));
+          }}
+        />
+      </Card>
     );
   }
 
@@ -278,11 +239,13 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
   const hasHistory = cycles.length > 0;
   const selectedLog = dailyLogs.find((log) => log.log_date === selectedDate) ?? null;
   const canLogSelectedAsStart = selectedDate !== "" && selectedDate < today;
+  const periodInProgress = openCycle ? { startedOn: openCycle.period_start_date, today } : null;
 
   async function withAction(run: () => Promise<{ ok: boolean; error?: string }>) {
     setActionError(null);
     setActionPending(true);
-    const result = await run();
+    // guardedAction never throws, so the button always comes back to life.
+    const result = await guardedAction(run);
     setActionPending(false);
     if (!result.ok) {
       setActionError(result.error ?? "Could not save that just now. Please try again.");
@@ -292,96 +255,103 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
   }
 
   return (
-    <View style={{ gap: 16 }}>
-      <View>
-        <MutedText>
-          Log your period and how you feel, and see what to expect next. Everything here is an
-          estimate from your own history, not a diagnosis.
-        </MutedText>
-      </View>
+    <View style={{ gap: space.lg }}>
+      <AppText variant="body" tone="textMuted">
+        Log your period and how you feel, and see what to expect next. Everything here is an estimate from your own history, not a diagnosis.
+      </AppText>
+
+      {refreshFailed && (
+        <Card style={{ gap: space.sm }}>
+          <AppText variant="body" accessibilityRole="alert">
+            {t("cycle.refresh_failed")}
+          </AppText>
+          <CycleActionButton title={t("cycle.load_retry")} variant="secondary" onPress={() => void refresh()} />
+        </Card>
+      )}
 
       <FlagsCard flags={prediction.flags} onNavigate={onNavigate} />
 
       {/* ---------- Where you are now ---------- */}
-      <Card style={{ gap: 10 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Where you are now</Text>
-          <Text style={{ fontSize: 11.5, fontWeight: "700", color: confidenceColor(colors)[prediction.confidence] }}>
-            {CONFIDENCE_LABEL[prediction.confidence]}
-          </Text>
-        </View>
-        <MutedText>{prediction.confidenceReason}</MutedText>
-
+      <CycleStatusCard prediction={prediction} inProgress={periodInProgress}>
         {prediction.currentPhase !== "unknown" && (
-          <View style={{ backgroundColor: colors.brandTint, borderRadius: radius.control, padding: 10, gap: 2 }}>
-            <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
+          <View accessible style={{ gap: 2 }}>
+            <AppText variant="bodyStrong">
               {phaseLabel(prediction.currentPhase, planningMode)}
               {prediction.currentCycleDay ? ` · Day ${prediction.currentCycleDay}` : ""}
-            </Text>
-            <Text style={{ fontSize: 12.5, color: colors.muted }}>{phaseDescription(prediction.currentPhase, planningMode)}</Text>
+            </AppText>
+            <AppText variant="body" tone="textMuted">
+              {phaseDescription(prediction.currentPhase, planningMode)}
+            </AppText>
           </View>
         )}
 
         <PlanningModeSwitch enabled={planningMode} pending={modePending} error={modeError} onChange={changePlanningMode} />
-        {planningMode && <FertileWindowNotice onNavigate={onNavigate} />}
+        {/* Shown once on the screen: with history the "What to expect" card below carries it. */}
+        {planningMode && !hasHistory && <FertileWindowNotice onNavigate={onNavigate} />}
 
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {openCycle ? (
-            <SecondaryButton
-              title="My period has ended"
-              loading={actionPending}
-              onPress={() => withAction(() => endPeriod({ cycleId: openCycle.id, endDate: today }))}
-            />
-          ) : (
-            <SecondaryButton
-              title="My period started today"
-              loading={actionPending}
-              onPress={() => withAction(() => logPeriod({ patientId, organisationId, periodStartDate: today }))}
-            />
-          )}
-        </View>
-        {actionError && <ErrorText>{actionError}</ErrorText>}
-      </Card>
+        {openCycle ? (
+          <CycleActionButton
+            title="My period has ended"
+            variant="secondary"
+            loading={actionPending}
+            onPress={() => withAction(() => endPeriod({ cycleId: openCycle.id, endDate: today }))}
+          />
+        ) : (
+          <CycleActionButton
+            title="My period started today"
+            loading={actionPending}
+            onPress={() => withAction(() => logPeriod({ patientId, organisationId, periodStartDate: today }))}
+          />
+        )}
+        {actionError && (
+          <AppText variant="body" tone="dangerText" accessibilityRole="alert">
+            {actionError}
+          </AppText>
+        )}
+      </CycleStatusCard>
 
       {/* ---------- What to expect ---------- */}
       {hasHistory && (
-        <Card style={{ gap: 10 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>What to expect</Text>
-          <MutedText>
-            Estimates from your own logged cycles. They are not a promise, and they get sharper
-            each time you log a period.
-          </MutedText>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-            <View style={{ flexBasis: "45%", flexGrow: 1 }}>
-              <MutedText>{prediction.isOverdue ? "Was expected" : "Next period"}</MutedText>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+        <Card style={{ gap: space.md }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
+            <AppText variant="title" heading style={{ flex: 1 }}>
+              What to expect
+            </AppText>
+            <CycleListen card="expect" />
+          </View>
+          <AppText variant="body" tone="textMuted">
+            Estimates from your own logged cycles. They are not a promise, and they get sharper each time you log a period.
+          </AppText>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.lg }}>
+            <View style={{ flexBasis: "45%", flexGrow: 1, gap: 2 }}>
+              <AppText variant="body" tone="textMuted">{prediction.isOverdue ? "Was expected" : "Next period"}</AppText>
+              <AppText variant="bodyLarge" style={{ fontWeight: "700" }}>
                 {longDate(prediction.predictedNextPeriodDate)}
-              </Text>
+              </AppText>
               {prediction.predictedNextPeriodEarliest && (
-                <MutedText>
-                  Most likely {shortDate(prediction.predictedNextPeriodEarliest)} to{" "}
-                  {shortDate(prediction.predictedNextPeriodLatest)}
-                </MutedText>
+                <AppText variant="body" tone="textMuted">
+                  Most likely {shortDate(prediction.predictedNextPeriodEarliest)} to {shortDate(prediction.predictedNextPeriodLatest)}
+                </AppText>
               )}
-              <MutedText>{nextPeriodSummary(prediction)}</MutedText>
+              {!periodInProgress && <AppText variant="body" tone="textMuted">{nextPeriodSummary(prediction)}</AppText>}
             </View>
             {planningMode && (
-              <View style={{ flexBasis: "45%", flexGrow: 1 }}>
-                <MutedText>Estimated ovulation</MutedText>
-                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+              <View style={{ flexBasis: "45%", flexGrow: 1, gap: 2 }}>
+                <AppText variant="body" tone="textMuted">Estimated ovulation</AppText>
+                <AppText variant="bodyLarge" style={{ fontWeight: "700" }}>
                   {longDate(prediction.predictedOvulationDate)}
-                </Text>
+                </AppText>
                 {prediction.fertileWindowStart && (
-                  <MutedText>
+                  <AppText variant="body" tone="textMuted">
                     Fertile window {shortDate(prediction.fertileWindowStart)} to {shortDate(prediction.fertileWindowEnd)}
-                  </MutedText>
+                  </AppText>
                 )}
               </View>
             )}
           </View>
           {planningMode && (
             <>
-              <Text style={{ fontSize: 11.5, color: colors.subtle }}>{FERTILE_WINDOW_DISCLAIMER}</Text>
+              <AppText variant="body" tone="textMuted">{FERTILE_WINDOW_DISCLAIMER}</AppText>
               <FertileWindowNotice onNavigate={onNavigate} />
             </>
           )}
@@ -389,83 +359,91 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
       )}
 
       {/* ---------- Day log ---------- */}
-      <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Log a day</Text>
-        <MutedText>Tap anything that applies. Nothing here is required.</MutedText>
+      <Card style={{ gap: space.md }}>
+        <AppText variant="title" heading>
+          {t("cycle.log.title")}
+        </AppText>
+        <AppText variant="body" tone="textMuted">{t("cycle.log.intro")}</AppText>
 
-        <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Date</Text>
-            <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={dateDraft} onChangeText={setDateDraft} placeholder="YYYY-MM-DD" style={textInputStyle} />
-          </View>
-          <SecondaryButton
-            title="Go"
-            onPress={() => {
-              if (dateDraft && !Number.isNaN(Date.parse(`${dateDraft}T00:00:00Z`))) setSelectedDate(dateDraft);
-            }}
-          />
-          {selectedDate !== today && <SecondaryButton title="Today" onPress={() => setSelectedDate(today)} />}
-        </View>
+        <CycleWeekStrip today={today} selected={selectedDate} onSelect={setSelectedDate} loggedDays={loggedDays} periodDays={periodDays} />
+
+        <AppText variant="bodyStrong" accessibilityLiveRegion="polite">
+          {longDate(selectedDate)}
+        </AppText>
 
         {canLogSelectedAsStart && (
-          <Text
-            onPress={() => withAction(() => logPeriod({ patientId, organisationId, periodStartDate: selectedDate }))}
-            style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}
-          >
-            It started on {shortDate(selectedDate)} →
-          </Text>
+          <Button
+            title={`${t("cycle.log.started_here")}: ${shortDate(selectedDate)}`}
+            variant="ghost"
+            fullWidth={false}
+            onPress={() => void withAction(() => logPeriod({ patientId, organisationId, periodStartDate: selectedDate }))}
+          />
         )}
 
+        <CycleActionButton
+          title={t("cycle.log.open")}
+          onPress={() => {
+            setSavedNote("idle");
+            setLogOpen(true);
+          }}
+        />
+        <CycleSaveNote state={savedNote} pending={pendingLogs} />
+      </Card>
+
+      <Sheet visible={logOpen} avoidKeyboard onClose={() => setLogOpen(false)} title={`${t("cycle.log.title")}: ${shortDate(selectedDate)}`}>
         <DayLogForm
           key={selectedDate}
           patientId={patientId}
           organisationId={organisationId}
           date={selectedDate}
-          existing={selectedLog}
-          dateLabel={longDate(selectedDate)}
-          onSaved={refresh}
+          draft={draftFor(drafts, selectedDate, selectedLog)}
+          onDraft={(draft) => setDrafts((d) => withDraft(d, selectedDate, draft))}
+          onSaved={async (outcome) => {
+            if (outcome === "saved") {
+              setDrafts((d) => withoutDraft(d, selectedDate));
+              setSavedNote("saved");
+              setLogOpen(false);
+              await refresh();
+            }
+          }}
           planningMode={planningMode}
           onNavigate={onNavigate}
         />
-      </Card>
+      </Sheet>
 
       {/* ---------- Patterns ---------- */}
       {prediction.stats.usedCycles > 0 && (
-        <Card style={{ gap: 10 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your patterns</Text>
-          <MutedText>
+        <Card style={{ gap: space.md }}>
+          <AppText variant="title" heading>
+            Your patterns
+          </AppText>
+          <AppText variant="body" tone="textMuted">
             Measured from the {prediction.stats.usedCycles} most recent cycle
             {prediction.stats.usedCycles === 1 ? "" : "s"} you logged.
-          </MutedText>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14 }}>
+          </AppText>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.lg }}>
             <View style={{ flexBasis: "28%", flexGrow: 1 }}>
-              <MutedText>Average cycle</MutedText>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+              <AppText variant="body" tone="textMuted">Average cycle</AppText>
+              <AppText variant="bodyLarge" style={{ fontWeight: "700" }}>
                 {prediction.stats.averageCycleLengthDays} days
-              </Text>
+              </AppText>
               {prediction.stats.shortestCycleDays !== null && (
-                <MutedText>
+                <AppText variant="body" tone="textMuted">
                   {prediction.stats.shortestCycleDays}–{prediction.stats.longestCycleDays} days
-                </MutedText>
+                </AppText>
               )}
             </View>
             <View style={{ flexBasis: "28%", flexGrow: 1 }}>
-              <MutedText>Period length</MutedText>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
-                {prediction.stats.averagePeriodDurationDays !== null
-                  ? `${prediction.stats.averagePeriodDurationDays} days`
-                  : "Not logged"}
-              </Text>
+              <AppText variant="body" tone="textMuted">Period length</AppText>
+              <AppText variant="bodyLarge" style={{ fontWeight: "700" }}>
+                {prediction.stats.averagePeriodDurationDays !== null ? `${prediction.stats.averagePeriodDurationDays} days` : "Not logged"}
+              </AppText>
             </View>
             <View style={{ flexBasis: "28%", flexGrow: 1 }}>
-              <MutedText>Regularity</MutedText>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
-                {prediction.stats.regularity === "regular"
-                  ? "Regular"
-                  : prediction.stats.regularity === "irregular"
-                    ? "Variable"
-                    : "Not enough data"}
-              </Text>
+              <AppText variant="body" tone="textMuted">Regularity</AppText>
+              <AppText variant="bodyLarge" style={{ fontWeight: "700" }}>
+                {prediction.stats.regularity === "regular" ? "Regular" : prediction.stats.regularity === "irregular" ? "Variable" : "Not enough data"}
+              </AppText>
             </View>
           </View>
         </Card>
@@ -473,43 +451,34 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
 
       {/* ---------- History ---------- */}
       {hasHistory && (
-        <Card style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Periods you have logged</Text>
-          <MutedText>
-            Remove any that were logged by mistake. A wrong start date changes every estimate
-            that comes after it.
-          </MutedText>
+        <Card style={{ gap: space.md }}>
+          <AppText variant="title" heading>
+            Periods you have logged
+          </AppText>
+          <AppText variant="body" tone="textMuted">
+            Remove any that were logged by mistake. A wrong start date changes every estimate that comes after it.
+          </AppText>
           {cycles.slice(0, 12).map((cycle) => (
-            <View
-              key={cycle.id}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                borderTopWidth: 1,
-                borderTopColor: colors.border,
-                paddingTop: 8,
-              }}
-            >
-              <Text style={{ fontSize: 13, color: colors.ink }}>
+            <View key={cycle.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
+              <AppText variant="body" style={{ flex: 1 }}>
                 {longDate(cycle.period_start_date)}
                 {cycle.period_end_date ? ` to ${shortDate(cycle.period_end_date)}` : " (open)"}
-              </Text>
-              <Text
-                onPress={() => withAction(() => deletePeriod(cycle.id))}
-                style={{ fontSize: 12.5, fontWeight: "700", color: colors.danger }}
-              >
-                Remove
-              </Text>
+              </AppText>
+              <Button
+                title="Remove"
+                variant="ghost"
+                fullWidth={false}
+                accessibilityLabel={`Remove the period logged on ${longDate(cycle.period_start_date)}`}
+                onPress={() => void withAction(() => deletePeriod(cycle.id))}
+              />
             </View>
           ))}
         </Card>
       )}
 
-      <Text style={{ fontSize: 11.5, color: colors.subtle }}>
-        Your cycle information is part of your health record. Your care team can see it; nobody
-        else can. It plays no part in scoring your health risk.
-      </Text>
+      <AppText variant="caption" tone="textSubtle">
+        Your cycle information is part of your health record. Your care team can see it; nobody else can. It plays no part in scoring your health risk.
+      </AppText>
     </View>
   );
 }
@@ -520,84 +489,82 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
  * A missing label is the unsafe state, so there is no prop that hides it.
  */
 function FertileWindowNotice({ onNavigate }: { onNavigate: (section: SectionId) => void }) {
-  const colors = useLegacyColors();
   return (
-    <View
-      testID="fertile-window-notice"
-      style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, gap: 4 }}
-    >
-      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>{FERTILE_WINDOW_LABEL}</Text>
-      <Text onPress={() => onNavigate("womensHealth")} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
-        {FERTILE_WINDOW_LINK_TEXT}
-      </Text>
+    <View testID="fertile-window-notice" style={{ gap: space.xs }}>
+      <AppText variant="bodyStrong">{FERTILE_WINDOW_LABEL}</AppText>
+      <Button title={FERTILE_WINDOW_LINK_TEXT} variant="ghost" fullWidth={false} onPress={() => onNavigate("womensHealth")} />
     </View>
   );
 }
 
-function PlanningModeSwitch({
-  enabled,
-  pending,
-  error,
-  onChange,
-}: {
-  enabled: boolean;
-  pending: boolean;
-  error: boolean;
-  onChange: (next: boolean) => void;
-}) {
-  const colors = useLegacyColors();
+function PlanningModeSwitch({ enabled, pending, error, onChange }: { enabled: boolean; pending: boolean; error: boolean; onChange: (next: boolean) => void }) {
   return (
-    <View style={{ gap: 4 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{en["cycle.planning_mode.title"]}</Text>
-          <MutedText>{en["cycle.planning_mode.description"]}</MutedText>
-          {enabled && <MutedText>{en["cycle.planning_mode.on_note"]}</MutedText>}
+    <View style={{ gap: space.xs }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md }}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <AppText variant="bodyStrong">{en["cycle.planning_mode.title"]}</AppText>
+          <AppText variant="body" tone="textMuted">{en["cycle.planning_mode.description"]}</AppText>
+          {enabled && <AppText variant="body" tone="textMuted">{en["cycle.planning_mode.on_note"]}</AppText>}
         </View>
-        <Switch
-          value={enabled}
-          disabled={pending}
-          onValueChange={onChange}
-          accessibilityLabel={en["cycle.planning_mode.title"]}
-        />
+        <Switch value={enabled} disabled={pending} onValueChange={onChange} accessibilityLabel={en["cycle.planning_mode.title"]} />
       </View>
-      {error && <ErrorText>{en["cycle.planning_mode.error"]}</ErrorText>}
+      {error && (
+        <AppText variant="body" tone="dangerText" accessibilityRole="alert">
+          {en["cycle.planning_mode.error"]}
+        </AppText>
+      )}
     </View>
   );
 }
 
+/**
+ * Flags the engine raised. An urgent flag is a true clinical alert, so it keeps the red edge and follows the alert template
+ * (what we noticed, what it may mean, one step, a message button). Everything else is a calm "worth mentioning" card with no red.
+ */
 function FlagsCard({ flags, onNavigate }: { flags: CycleClinicalFlag[]; onNavigate: (section: SectionId) => void }) {
-  const colors = useLegacyColors();
+  const { colors } = useTheme();
   if (flags.length === 0) return null;
   const urgent = flags.filter((f) => f.severity === "urgent");
   const rest = flags.filter((f) => f.severity !== "urgent");
 
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: space.md }}>
       {urgent.map((flag) => (
-        <View key={flag.id} style={{ borderLeftWidth: 4, borderLeftColor: colors.danger, backgroundColor: colors.status.warnBg, borderRadius: radius.control, padding: 12, gap: 4 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.danger }}>{flag.label}</Text>
-          <Text style={{ fontSize: 12.5, color: colors.ink }}>{flag.detail}</Text>
-          <Text onPress={() => onNavigate("messages")} style={{ fontSize: 12.5, fontWeight: "700", color: colors.danger }}>
-            Message your care team →
-          </Text>
-        </View>
+        <Card key={flag.id} style={{ gap: space.sm, borderLeftWidth: 4, borderLeftColor: colors.dangerText }}>
+          <View style={{ flexDirection: "row", gap: space.sm, alignItems: "center" }}>
+            <Icon name="alert" size={18} tone="dangerText" />
+            <AppText variant="bodyStrong" tone="dangerText" style={{ flex: 1 }}>
+              {flag.label}
+            </AppText>
+          </View>
+          <AppText variant="body">{flag.detail}</AppText>
+          <CycleActionButton title={t("cycle.danger.message_button")} variant="secondary" onPress={() => onNavigate("messages")} />
+        </Card>
       ))}
       {rest.length > 0 && (
-        <Card style={{ gap: 8 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>Worth mentioning to your care team</Text>
-          <MutedText>These are patterns we noticed in what you logged. None of them is an emergency.</MutedText>
+        <Card style={{ gap: space.sm }}>
+          <AppText variant="title" heading>
+            Worth mentioning to your care team
+          </AppText>
+          <AppText variant="body" tone="textMuted">These are patterns we noticed in what you logged. None of them is an emergency.</AppText>
           {rest.map((flag) => (
             <View key={flag.id}>
-              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{flag.label}</Text>
-              <MutedText>{flag.detail}</MutedText>
+              <AppText variant="bodyStrong">{flag.label}</AppText>
+              <AppText variant="body" tone="textMuted">{flag.detail}</AppText>
             </View>
           ))}
-          <Text onPress={() => onNavigate("messages")} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
-            Message your care team →
-          </Text>
+          <CycleActionButton title={t("cycle.danger.message_button")} variant="secondary" onPress={() => onNavigate("messages")} />
         </Card>
       )}
+    </View>
+  );
+}
+
+function GroupHeading({ icon, label }: { icon: IconName; label: string }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }} accessibilityRole="header">
+      <Icon name={icon} size={18} tone="brandText" />
+      <AppText variant="bodyStrong">{label}</AppText>
     </View>
   );
 }
@@ -606,8 +573,8 @@ function DayLogForm({
   patientId,
   organisationId,
   date,
-  existing,
-  dateLabel,
+  draft,
+  onDraft,
   onSaved,
   planningMode,
   onNavigate,
@@ -615,134 +582,111 @@ function DayLogForm({
   patientId: string;
   organisationId: string;
   date: string;
-  existing: import("@/lib/cycle").MenstrualDailyLog | null;
-  dateLabel: string;
-  onSaved: () => Promise<void>;
+  /** The choices so far (saved log or unsaved draft). Held by the screen so closing the sheet keeps them. */
+  draft: DayDraft;
+  onDraft: (draft: DayDraft) => void;
+  onSaved: (outcome: SaveFeedback) => Promise<void>;
   /** "Planning a pregnancy" (S85 D2). Off hides the sentence that reads a temperature rise as ovulation. */
   planningMode: boolean;
   onNavigate: (section: SectionId) => void;
 }) {
-  const colors = useLegacyColors();
-  const textInputStyle = useTextInputStyle();
-  const { scheme } = useTheme();
-  const [flow, setFlow] = useState<MenstrualFlowLevel | null>(existing?.flow ?? null);
-  const [symptoms, setSymptoms] = useState<MenstrualSymptom[]>((existing?.symptoms as MenstrualSymptom[]) ?? []);
-  const [moods, setMoods] = useState<MenstrualMood[]>((existing?.moods as MenstrualMood[]) ?? []);
-  const [notes, setNotes] = useState(existing?.notes ?? "");
-  const [bbt, setBbt] = useState(existing?.basal_body_temperature_c != null ? String(existing.basal_body_temperature_c) : "");
-  const [ovulationTest, setOvulationTest] = useState<MenstrualOvulationTestResult | null>(
-    (existing?.ovulation_test_result as MenstrualOvulationTestResult | null) ?? null
-  );
+  const { height } = useWindowDimensions();
+  const flow = draft.flow as MenstrualFlowLevel | null;
+  const symptoms = draft.symptoms as MenstrualSymptom[];
+  const moods = draft.moods as MenstrualMood[];
+  const ovulationTest = draft.ovulationTest as MenstrualOvulationTestResult | null;
+  const { notes, bbt } = draft;
+  const setFlow = (v: MenstrualFlowLevel | null) => onDraft({ ...draft, flow: v });
+  const setSymptoms = (f: (c: MenstrualSymptom[]) => MenstrualSymptom[]) => onDraft({ ...draft, symptoms: f(symptoms) });
+  const setMoods = (f: (c: MenstrualMood[]) => MenstrualMood[]) => onDraft({ ...draft, moods: f(moods) });
+  const setNotes = (v: string) => onDraft({ ...draft, notes: v });
+  const setBbt = (v: string) => onDraft({ ...draft, bbt: v });
+  const setOvulationTest = (v: MenstrualOvulationTestResult | null) => onDraft({ ...draft, ovulationTest: v });
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [feedback, setFeedback] = useState<SaveFeedback | "idle">("idle");
 
   async function submit() {
     if (!date) return;
-    setError(null);
-    setSaved(false);
+    setFeedback("idle");
     setSubmitting(true);
-    const result = await saveDailyLog({
-      patientId,
-      organisationId,
-      logDate: date,
-      flow,
-      symptoms,
-      moods,
-      notes: notes.trim() || null,
-      basalBodyTemperatureC: bbt.trim() === "" ? null : Number(bbt),
-      ovulationTestResult: ovulationTest,
-    });
-    setSubmitting(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    let result: { ok: boolean; error?: string };
+    try {
+      result = await saveDailyLog({
+        patientId,
+        organisationId,
+        logDate: date,
+        flow,
+        symptoms,
+        moods,
+        notes: notes.trim() || null,
+        basalBodyTemperatureC: bbt.trim() === "" ? null : Number(bbt),
+        ovulationTestResult: ovulationTest,
+      });
+    } catch {
+      result = { ok: false };
     }
-    setSaved(true);
-    await onSaved();
+    // Nothing is held on the phone yet (OQ-727), so an offline failure honestly says "not sent" and keeps the choices (they are in the draft).
+    const offline = result.ok ? false : (await getConnectionKind()) === "none";
+    const outcome = saveFeedback({ ok: result.ok, heldOnPhone: false, offline });
+    setSubmitting(false);
+    setFeedback(outcome);
+    await onSaved(outcome);
   }
 
   return (
-    <View style={{ gap: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
-      <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.ink }}>{dateLabel}</Text>
+    <View style={{ gap: space.md }}>
+      <ScrollView style={{ maxHeight: height * 0.55 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: space.lg, paddingBottom: space.md }}>
+        <AppText variant="body" tone="textMuted">{t("cycle.log.intro")}</AppText>
 
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Flow</Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-        {FLOW_OPTIONS.map((option) => (
-          <Chip
-            key={option.value}
-            label={option.label}
-            tone="period"
-            active={flow === option.value}
-            onPress={() => setFlow(flow === option.value ? null : option.value)}
-          />
-        ))}
-      </View>
-
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>How you felt physically</Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-        {SYMPTOM_OPTIONS.map((option) => (
-          <Chip
-            key={option.value}
-            label={option.label}
-            active={symptoms.includes(option.value)}
-            onPress={() => setSymptoms((current) => toggle(current, option.value))}
-          />
-        ))}
-      </View>
-
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Mood</Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-        {MOOD_OPTIONS.map((option) => (
-          <Chip
-            key={option.value}
-            label={option.label}
-            active={moods.includes(option.value)}
-            onPress={() => setMoods((current) => toggle(current, option.value))}
-          />
-        ))}
-      </View>
-
-      {/* S85 D2: temperature and ovulation-test logging is fertility tracking, so it appears only while "Planning a
-          pregnancy" is on. Values already saved for the day are kept (the state above is seeded from them). */}
-      {planningMode && (
-        <>
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Tracking ovulation? (optional)</Text>
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <View style={{ flex: 1, gap: 4 }}>
-              <MutedText>Waking temperature (°C)</MutedText>
-              <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={bbt} onChangeText={setBbt} placeholder="36.50" keyboardType="decimal-pad" style={textInputStyle} />
-            </View>
-          </View>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-            {OVULATION_TEST_OPTIONS.map((option) => (
-              <Chip
-                key={option.value}
-                label={option.label}
-                active={ovulationTest === option.value}
-                onPress={() => setOvulationTest(ovulationTest === option.value ? null : option.value)}
-              />
+        <View style={{ gap: space.sm }}>
+          <GroupHeading icon="glucose" label={t("cycle.log.group_flow")} />
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+            {FLOW_VALUES.map((value) => (
+              <CycleChip key={value} group label={t(`cycle.flow.${value}` as const)} selected={flow === value} onPress={() => setFlow(flow === value ? null : value)} />
             ))}
           </View>
-          <MutedText>Take your temperature before getting out of bed. {THERMAL_SHIFT_EXPLAINER}</MutedText>
-          <FertileWindowNotice onNavigate={onNavigate} />
-        </>
-      )}
+        </View>
 
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Anything else (optional)</Text>
-      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
-        value={notes}
-        onChangeText={setNotes}
-        placeholder="Only you and your care team can see this."
-        style={textInputStyle}
-        multiline
-      />
+        <View style={{ gap: space.sm }}>
+          <GroupHeading icon="symptoms" label={t("cycle.log.group_physical")} />
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+            {SYMPTOM_VALUES.map((value) => (
+              <CycleChip key={value} label={t(`cycle.symptom.${value}` as const)} selected={symptoms.includes(value)} onPress={() => setSymptoms((c) => toggle(c, value))} />
+            ))}
+          </View>
+        </View>
 
-      {error && <ErrorText>Could not save that just now. Please try again.</ErrorText>}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <PrimaryButton title="Save this day" onPress={submit} loading={submitting} />
-        {saved && !submitting && <MutedText>Saved</MutedText>}
-      </View>
+        <View style={{ gap: space.sm }}>
+          <GroupHeading icon="mood" label={t("cycle.log.group_mood")} />
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+            {MOOD_VALUES.map((value) => (
+              <CycleChip key={value} label={t(`cycle.mood.${value}` as const)} selected={moods.includes(value)} onPress={() => setMoods((c) => toggle(c, value))} />
+            ))}
+          </View>
+        </View>
+
+        {/* S85 D2: temperature and ovulation-test logging is fertility tracking, so it appears only while "Planning a
+            pregnancy" is on. Values already saved for the day are kept (the state above is seeded from them). */}
+        {planningMode && (
+          <View style={{ gap: space.sm }}>
+            <GroupHeading icon="heart" label={t("cycle.log.group_ovulation_test")} />
+            <Field label={t("cycle.log.temperature_label")} value={bbt} onChangeText={setBbt} placeholder="36.50" keyboardType="decimal-pad" />
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+              {OVULATION_TEST_VALUES.map((value) => (
+                <CycleChip key={value} group label={t(`cycle.ovulation_test.${value}` as const)} selected={ovulationTest === value} onPress={() => setOvulationTest(ovulationTest === value ? null : value)} />
+              ))}
+            </View>
+            <AppText variant="body" tone="textMuted">Take your temperature before getting out of bed. {THERMAL_SHIFT_EXPLAINER}</AppText>
+            <FertileWindowNotice onNavigate={onNavigate} />
+          </View>
+        )}
+
+        <Field label={t("cycle.log.notes_label")} value={notes} onChangeText={setNotes} placeholder={t("cycle.log.notes_placeholder")} multiline />
+      </ScrollView>
+
+      {/* Pinned: the save sits outside the scrolling part, so it is always on screen. */}
+      <CycleSaveNote state={feedback === "saved" ? "idle" : feedback} pending={0} />
+      <CycleActionButton title={t("cycle.log.save")} onPress={() => void submit()} loading={submitting} />
     </View>
   );
 }

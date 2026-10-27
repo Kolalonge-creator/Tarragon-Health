@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Modal, Pressable, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from "react-native";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from "react-native-reanimated";
@@ -15,6 +15,8 @@ interface SheetProps {
   title: string;
   children: ReactNode;
   closeLabel?: string;
+  /** Lifts the sheet above the on-screen keyboard (for a sheet with text fields). Off by default so other sheets are unchanged. */
+  avoidKeyboard?: boolean;
 }
 
 /**
@@ -22,15 +24,16 @@ interface SheetProps {
  * the title is announced, and focus is held inside (accessibilityViewIsModal).
  * Motion is a short slide and fade; under reduced motion it appears instantly.
  */
-export function Sheet({ visible, onClose, title, children, closeLabel }: SheetProps) {
+export function Sheet({ visible, onClose, title, children, closeLabel, avoidKeyboard = false }: SheetProps) {
   const { colors, scheme, reducedMotion } = useTheme();
   const locale = asLocale(useUiLanguage());
   const closeText = closeLabel ?? t("kit.close", locale);
   const insets = useSafeAreaInsets();
+  const Root = avoidKeyboard ? KeyboardAvoidingView : View;
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <View style={{ flex: 1, justifyContent: "flex-end" }} accessibilityViewIsModal>
+      <Root style={{ flex: 1, justifyContent: "flex-end" }} accessibilityViewIsModal {...(avoidKeyboard ? { behavior: Platform.OS === "ios" ? ("padding" as const) : ("height" as const) } : {})}>
         <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(140)} exiting={reducedMotion ? undefined : FadeOut.duration(120)} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}>
           <Pressable accessibilityRole="button" accessibilityLabel={closeText} onPress={onClose} style={{ flex: 1, backgroundColor: colors.scrim }} />
         </Animated.View>
@@ -61,7 +64,7 @@ export function Sheet({ visible, onClose, title, children, closeLabel }: SheetPr
           </View>
           {children}
         </Animated.View>
-      </View>
+      </Root>
     </Modal>
   );
 }
