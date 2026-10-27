@@ -4,7 +4,8 @@ import { supabaseOrderStore } from "../_shared/commerce/index.ts";
 import { featureFlagOn, paymentFromEnv, supabaseHealthStore, withPaymentBreaker, type FlagReader } from "../_shared/integrations/index.ts";
 import { handleCheckout } from "./handler.ts";
 
-Deno.serve(async (req) => {
+import { withSentry } from "../_shared/observability/sentry.ts";
+Deno.serve(withSentry("order-checkout", async (req) => {
   const url = Deno.env.get("SUPABASE_URL")!;
   const service = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
   const asUser = (authorization: string) =>
@@ -28,4 +29,4 @@ Deno.serve(async (req) => {
     },
     rpcAsUser: (authorization, fn, args) => asUser(authorization).rpc(fn, args),
   });
-});
+}));
