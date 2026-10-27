@@ -5,7 +5,8 @@ import { checkoutErrorKey, keepsRetryKey, orderStateKey, parseCatalogue, parseCh
 const mockInvoke = jest.fn();
 const mockRpc = jest.fn();
 jest.mock("../supabase", () => ({ supabase: { functions: { invoke: (...a: unknown[]) => mockInvoke(...a) }, rpc: (...a: unknown[]) => mockRpc(...a) } }));
-import { loadCatalogue, loadMembership, loadMyOrders, loadNotIncluded, loadPlusStates, loadPriceChangeNotices, startCheckout, verifyOrder } from "./api";
+import { loadCatalogue, loadMembership, loadMyOrders, loadNotIncluded, loadPlusStates, loadPriceChangeNotices, setMyPlusState, startCheckout, verifyOrder } from "./api";
+import { needsPlusStateSetup, plusStateSetupErrorKey } from "./plus-state-setup";
 
 const item = { code: "membership_annual", kind: "membership", name_key: "catalog.membership_annual.name", description_key: "catalog.membership_annual.description", included_keys: ["a", 3, "b"], amount_kobo: 12_000_000 };
 
@@ -258,5 +259,37 @@ describe("S72 api: entitlements, quote with points, refunds, payment requests", 
     expect(await loadPlusStates()).toBeNull();   // a failed read is not the same as "none approved"
     mockRpc.mockResolvedValue({ data: [{ state: "Osun", display_name: "Osun" }], error: null });
     expect(await loadPlusStates()).toEqual([{ state: "Osun", displayName: "Osun" }]);
+  });
+});
+
+describe("the Plus state card for a member with no state (OQ-PLUS-1)", () => {
+  const plus = { isMember: true, endsAt: "2027-08-01T00:00:00Z", tier: "plus" as const };
+  const base = { ladder: true, forSomeoneElse: false, tier: "plus", membership: plus };
+
+  it("shows only for the member's own live Plus with no state, while the ladder is on", () => {
+    expect(needsPlusStateSetup(base)).toBe(true);
+    expect(needsPlusStateSetup({ ...base, membership: { ...plus, collectionState: "Oyo" } })).toBe(false);   // already set
+    expect(needsPlusStateSetup({ ...base, ladder: false })).toBe(false);
+    expect(needsPlusStateSetup({ ...base, forSomeoneElse: true })).toBe(false);
+    expect(needsPlusStateSetup({ ...base, tier: "evergreen" })).toBe(false);
+    expect(needsPlusStateSetup({ ...base, tier: null })).toBe(false);
+    expect(needsPlusStateSetup({ ...base, membership: { isMember: false, endsAt: null } })).toBe(false);
+  });
+
+  it("gives every refusal copy that exists, never a raw code", () => {
+    for (const message of ["plus_state_not_available", "plus_state_already_set", "network down", ""]) {
+      const key = plusStateSetupErrorKey(message);
+      expect(Object.hasOwn(en, key)).toBe(true);
+    }
+    expect(plusStateSetupErrorKey("P0001: plus_state_not_available")).toBe("shop.error.plus_state_not_available");
+    expect(plusStateSetupErrorKey("plus_state_already_set")).toBe("shop.plus.state.already_set");
+  });
+
+  it("saves through the database function and reports a refusal as a message, not a throw", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+    expect(await setMyPlusState("Oyo")).toEqual({ ok: true });
+    expect(mockRpc).toHaveBeenLastCalledWith("set_my_plus_collection_state", { p_state: "Oyo" });
+    mockRpc.mockResolvedValue({ data: null, error: { message: "plus_state_already_set" } });
+    expect(await setMyPlusState("Lagos")).toEqual({ ok: false, message: "plus_state_already_set" });
   });
 });
