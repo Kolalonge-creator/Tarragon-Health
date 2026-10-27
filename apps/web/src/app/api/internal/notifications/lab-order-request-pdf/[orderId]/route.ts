@@ -39,7 +39,7 @@ export async function GET(
   const { orderId } = await params;
   const supabase = createServiceRoleClient();
   const result = await generateLabRequestPdf(supabase, orderId);
-  if (!result.ok) return new Response(null, { status: 404 });
+  if (!result.ok) return new Response(null, { status: result.error === "panel_unavailable" ? 503 : 404 });
 
   return new Response(new Uint8Array(result.buffer), {
     headers: {

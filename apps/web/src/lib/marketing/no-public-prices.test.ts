@@ -17,6 +17,7 @@ const ROOTS = [join(SRC, "app", "(marketing)"), join(SRC, "lib", "marketing")];
 const NAIRA_TEMPLATE_ALLOWED: Record<string, string> = {
   "app/(marketing)/pricing/page.tsx": "the Membership price, from commerce.membership_prices",
   "app/(marketing)/gift/page.tsx": "the Membership price, from commerce.membership_prices",
+  "app/(marketing)/page.tsx": "the Membership price on the homepage, from commerce.membership_prices (same source as /pricing)",
   "app/(marketing)/_components/roi-calculator.tsx":
     "an employer sketch whose every figure is a visitor-editable assumption and a modelled saving; it quotes no Tarragon price",
 };
@@ -56,8 +57,9 @@ describe("no public price other than the Membership price", () => {
     for (const rel of Object.keys(NAIRA_TEMPLATE_ALLOWED)) {
       const f = files.find((x) => x.rel === rel);
       expect(f).toBeDefined();
-      if (rel.endsWith("pricing/page.tsx") || rel.endsWith("gift/page.tsx")) {
-        expect(f!.text).toContain("commerce.membership_prices");
+      if (rel.endsWith("pricing/page.tsx") || rel.endsWith("gift/page.tsx") || rel === "app/(marketing)/page.tsx") {
+        // The price comes from the one shared reader, which itself reads versioned config.
+        expect(f!.text).toContain("@/lib/marketing/membership");
       }
     }
   });
@@ -68,10 +70,14 @@ describe("no public price other than the Membership price", () => {
     expect(hits).toEqual([]);
   });
 
-  it("the pricing page reads the refund window from config rather than typing it", () => {
+  it("the shared membership module reads the price and refund window from config rather than typing them", () => {
+    const mod = files.find((f) => f.rel === "lib/marketing/membership.ts");
+    expect(mod).toBeDefined();
+    expect(mod!.text).toContain('getProposedConfig("commerce.membership_prices")');
+    expect(mod!.text).toContain('getProposedConfig("membership.refund")');
     const page = files.find((f) => f.rel === "app/(marketing)/pricing/page.tsx");
     expect(page).toBeDefined();
-    expect(page!.text).toContain('getProposedConfig("membership.refund")');
+    expect(page!.text).toContain("refundWindowDays");
     expect(page!.text).not.toMatch(/within 21 days/);
   });
 
