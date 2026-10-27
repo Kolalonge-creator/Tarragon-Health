@@ -2,8 +2,18 @@
 
 **To:** [Outside Counsel — Data Protection & Health Regulatory, to be confirmed]
 **From:** Dr Kola Longe, Founder, TarragonHealth
-**Date:** 31 July 2026 (v3 — full rewrite; the previous version described a product we no longer build, see below)
+**Date:** 27 October 2026 (v4, a refresh of the 31 July 2026 v3 memo. The sections on staffing, channels, money and the open-items list are rewritten to match the live platform. DRAFT for counsel: anything in square brackets is an open item and no legal fact below has been confirmed by counsel)
 **Re:** Review requested — data protection, telehealth, consumer terms, and fintech/CBN posture ahead of public launch
+
+## What changed since v3 (31 July 2026)
+
+- **WhatsApp has been removed entirely** (founder decision, 30 September 2026). No WhatsApp channel, webhook, template or inbox exists. The channels are the app (in-app inbox), push, email and voice; SMS is used only for phone verification codes.
+- **There is no wallet and no stored balance.** The Health Wallet and the later Platform Credit were removed. Patients pay per item at checkout through Paystack, or use a Care Voucher a sponsor has bought for them. Question 1 of v3 (CBN licence for the wallet) is withdrawn and replaced by a narrower question about Care Vouchers.
+- **There is no subscription.** The app is free. A Member pays once for a year of Membership or Membership Plus. Membership does not renew by itself. [Auto-renewal code exists but is switched off and cannot apply to gifts or sponsored years; the public wording says there is no subscription.]
+- **Naira only.** Paystack in naira is the only live payment provider. Stripe and the foreign-currency price book are removed.
+- **Refund:** 21 days from purchase, full price, then no refund except where we fail to deliver or the law requires it [counsel to confirm against the FCCPC; see Question 7].
+- **Doctor ladder:** one doctor tier plus a Chief Medical Officer, replacing the five-tier ladder described in v3. There is no independent Chief Medical Officer; the founder holds that role [verify with counsel whether this is acceptable for governance sign-off and indemnity].
+- **NDPC registration is approved and the founder's Data Protection Officer appointment has been accepted by the NDPC (15 September 2026).** DPO name and contact: [founder to supply]. NDPC registration reference: [founder to supply].
 
 ## What changed since v2 of this memo, and why it matters
 
@@ -12,8 +22,8 @@ Version 2 of this memo (29 July 2026) was written against `docs/tarragon-build-s
 **Four things from the narrower spec did survive**, because the founder separately confirmed them as real product decisions on their own merits, not because the narrower spec was adopted wholesale:
 1. **No capitation, ever.** We take no per-member premium and bear no insurance risk on any organisational contract.
 2. **Institutions get aggregate data only.** An employer or HMO that pays for its members' access sees only de-identified, small-cell-suppressed statistics about the group — never an individual member's record.
-3. **One price list.** We do not maintain a separate, higher foreign-currency price book. The Naira price is the only stored price; a dollar price is derived from it at an admin-set reference rate.
-4. **Individual enrolment.** There is no household or family subscription. Each person — including a minor, enrolled by their guardian — has their own account. A person may separately name a next of kin, who can be contacted in an emergency and can view (not edit) that person's record with consent.
+3. **One price list, in naira.** We do not maintain a separate foreign-currency price book, and no dollar or pound price is shown or charged. [The v3 text said a dollar price was derived at a reference rate; that was removed with Stripe. A reference-rate display for people abroad is an open founder item, not a live feature.]
+4. **Individual enrolment.** There is no household or family plan. Each person — including a minor, enrolled by their guardian — has their own account. A person may separately name a next of kin, who can be contacted in an emergency and can view (not edit) that person's record with consent.
 
 Everything else about the platform's actual scope, clinical model, and communication design is different from what v2 described, as set out below.
 
@@ -29,18 +39,15 @@ TarragonHealth (Tarragon Health Ltd, RC 9702108) is Nigeria's digital-first chro
 
 We do not own or operate any hospital, clinic, or laboratory — every lab, pharmacy, and specialist a patient interacts with is an independent partner organisation.
 
-## Clinical staffing: a five-tier ladder, not the two accountability models v2 described
+## Clinical staffing: one doctor tier plus a Chief Medical Officer
 
-Every clinical judgement is made by an employed or contracted doctor; no case is ever closed by non-clinical staff. We do **not** operate the "tech_layer" vs. "provider" accountability-model switch v2 described — that mechanism does not exist in the live platform. Instead, clinical authority is layered by seniority:
+Every clinical judgement is made by an employed or contracted doctor; no case is ever closed by non-clinical staff. The five-tier ladder in v3 of this memo has been collapsed:
 
-- **Care Coordinator** (employed, non-clinical) — logistics only: check-ins, adherence tracking, booking. Cannot interpret a result, adjust medication, or close an escalation.
-- **Tier 1** — Medical Officer, under 3 years' experience. First-line review of routine/stable readings under protocol; may confirm an existing stable prescription's refill, never initiate a new one.
-- **Tier 2** — Medical Officer, 3+ years. Initiates new medications, adjusts doses, handles Tier 1 escalations.
-- **Tier 3** — Senior Medical Officer. Complex/multi-drug case management; audits Tiers 1–2.
-- **Tier 4** — Senior Registrar (part-time contract). Pre-referral consult, sets referral urgency, owns clinical protocols, supervises Tiers 1–3.
-- **Tier 5** — Partner Specialist (referral-only, per-consult contract). Complex or procedural input; hands routine follow-up back to Tier 3/4.
+- **Care Coordinator** (employed, non-clinical): logistics only: check-ins, adherence tracking, booking. Cannot interpret a result, adjust medication, or close an escalation.
+- **Doctor (Senior Medical Officer level):** the one doctor tier: standard, complex and specialist cases, initiating medicines, and referrals. Whether a doctor is employed or contracted is a separate attribute; a contracted doctor must hold indemnity cover recorded in the system before activation.
+- **Chief Medical Officer:** everything a doctor does, plus oversight of the caseload, reassigning cases, and signing clinical protocols. The founder currently holds this role; there is no independent Chief Medical Officer.
 
-Every doctor's MDCN registration is verified before they may see patients and checked continuously afterwards — a doctor whose registration or indemnity cover lapses is automatically suspended from the system overnight, no manual step required. **MDCN's own confirmation that this tier-authority split is compliant with Nigerian medical-practice regulation is an open item on our side, not yet obtained** — we do not represent the tier ladder as regulator-approved anywhere, and we would value your view on whether MDCN engagement is a prerequisite for public launch or can follow it.
+Every doctor's MDCN registration is verified before they may see patients and checked continuously afterwards; a doctor whose registration or indemnity cover lapses is automatically suspended overnight. **MDCN's own confirmation that this authority split complies with Nigerian medical-practice regulation has not been obtained**, and we do not represent it as regulator-approved anywhere. We would value your view on whether MDCN engagement is a prerequisite for public launch, and whether a founder-held Chief Medical Officer role is acceptable.
 
 ## How results are classified and escalated
 
@@ -48,17 +55,17 @@ Every reading is classified automatically against a clinical protocol appropriat
 
 Response-time commitments are pathway-specific rather than one flat table, reflecting genuinely different clinical urgency across contexts (a routine screening abnormality is not the same urgency as a red-flagged home blood-pressure reading). The founder has confirmed this differentiation is deliberate, not an inconsistency to reconcile to one number. A case classified as an emergency cannot be closed on a written note alone — the system enforces, at the database level, that a closing doctor must have completed a real synchronous voice or video contact with the patient first.
 
-## Communications: five channels, WhatsApp is notification-only
+## Communications: the app first, no WhatsApp
 
-- **The app** carries the clinical record and every clinical conversation.
-- **A phone or video call** — increasingly via a masked-number system so neither party's real number is exposed to the other — is how clinical judgement is delivered.
-- **SMS** is urgent backup and the primary channel for patients without a smartphone.
-- **WhatsApp is notification-only.** It carries reminders, alerts, and confirmations — never a diagnosis, a specific result, or a medication name. This is enforced by a database constraint, not merely a policy: a notification row cannot be flagged as carrying clinical content and also be queued on WhatsApp, SMS, or email simultaneously. Patients may also message their doctor on WhatsApp for support, with the doctor replying there too — but that is a human-routed inbox, never an automated system parsing an inbound message into a platform action. **No feature on the platform requires a WhatsApp send to succeed** — signup and every core patient action happen via the app.
-- **Email** carries documents, receipts, and reports.
+- **The app** carries the clinical record and every clinical conversation, including the two-way thread between a patient and their care team.
+- **Push and email** carry reminders, alerts, confirmations, documents, receipts and reports. A notification never carries a diagnosis, a specific result, or a medication name; this is enforced by a database constraint on notification content class, not only by policy.
+- **A phone or video call** is how clinical judgement is delivered. The final fallback for an unanswered urgent page to a clinician is an in-console alarm and a phone call by a named person.
+- **SMS** is used only for phone verification codes.
+- **WhatsApp does not exist on the platform.** It was removed on 30 September 2026. No feature requires any notification to succeed: signup and every core action happen in the app or on the web.
 
-## Money: subscriptions, a wallet, and a real fintech question for you
+## Money: pay per item, a one-off yearly Membership, no stored balance
 
-Patients pay by subscription (Naira, one price list, derived-rate diaspora payment) or per booking. We also operate a **Health Wallet** — a real stored-value balance a patient (or a consented family member/sponsor, local or abroad) tops up via card, which can then be spent on bookings within the platform. **This is the item we most need your read on.** We have built CBN-tiered-KYC-shaped balance ceilings (a lower cap for an unverified wallet, a higher cap once a real identity check is on file) and non-blocking compliance flagging for unusual funding patterns, as risk controls — but we have not sought, and do not hold, any Central Bank of Nigeria payment-service-provider licence or equivalent authorisation, and we need your view on whether the wallet as designed requires one, or whether it can properly operate under Paystack's/Stripe's own licensed rails as a pass-through. See "Questions for your review," Question 1.
+The app is free. People pay for a doctor's time and for the yearly Membership, in naira, through Paystack; we do not see or store card details. A Member buys **Membership** or **Membership Plus** (the difference is whether the yearly blood panel is included and collected for them). It is a one-off payment for a year; it does not renew automatically and is not a subscription. Someone else (a family member, a sponsor abroad, an employer) may pay for a person's access by buying a **Care Voucher** or a Membership year for them. A voucher is for that person's account alone, is never redeemable for cash, and is not a stored balance we hold for anyone. We hold no wallet, no balance and no float, and we have not sought a Central Bank of Nigeria licence because we no longer hold customer funds [counsel to confirm that a Care Voucher, which is prepaid for a named service, does not itself need one; see Question 1].
 
 ## Where your data is stored, and international transfer
 
@@ -70,7 +77,7 @@ Since v2, we have begun using a third-party large-language-model API (Anthropic'
 
 ## Nine questions for your review
 
-**1. The Health Wallet and CBN.** Does the wallet, as described above, require a CBN payment-service-provider licence, tiered-KYC compliance beyond what we've built as a precaution, or AML/CFT transaction-monitoring obligations we haven't yet met? This is now our highest-priority open question, alongside cross-border transfer.
+**1. Care Vouchers and CBN.** The Health Wallet from v3 no longer exists. Does a Care Voucher (prepaid by one person for another person's named health service, never redeemable for cash, refunded only to the original payer) fall outside CBN payment-service licensing, and are there AML/CFT or consumer-prepayment obligations we have not met?
 
 **2. Cross-border data transfer (Supabase).** Which lawful mechanism should we rely on for the eu-west-1 transfer — an adequacy finding, contractual safeguards, or patient consent to that specific transfer — and is this a hard blocker for public launch?
 
@@ -78,11 +85,11 @@ Since v2, we have begun using a third-party large-language-model API (Anthropic'
 
 **4. Sensitive personal data and lawful basis.** Is the consent-scope structure in Schedule A (general care necessity, plus named specific consents individually revocable) the right architecture under the Nigeria Data Protection Act 2023? May account activation be conditioned on the "escalation contact" consent, as our platform currently requires?
 
-**5. Controller/processor status and NDPC registration.** Are we controller, processor, or both, depending on whether a patient is self-enrolled or organisation-enrolled? What is our current NDPC registration status, and is DPO appointment a prerequisite for the live patients we already have, or can it follow?
+**5. Controller/processor status and NDPC registration.** Are we controller, processor, or both, depending on whether a patient is self-enrolled or organisation-enrolled? NDPC registration is approved and the DPO appointment has been accepted (15 September 2026); please confirm that nothing further is owed to the NDPC, and confirm the DPO's published contact requirements. [DPO name and contact: founder to supply.]
 
-**6. MDCN and the tier ladder.** Does the five-tier clinical-authority model described above (a Tier 1 doctor confirming an existing refill but never initiating a new prescription, for example) need MDCN's affirmative confirmation before we can rely on it, and if so, is that a launch blocker?
+**6. MDCN and the tier ladder.** Does the clinical-authority model described above (one doctor tier, a Chief Medical Officer who signs protocols, no independent Chief Medical Officer) need MDCN's affirmative confirmation before we can rely on it, and if so, is that a launch blocker?
 
-**7. Consumer protection (FCCPC).** Does our "cancel any time, access runs to the end of the paid period, no pro-rata refund" position meet the Federal Competition and Consumer Protection Act's requirements for a subscription service?
+**7. Consumer protection (FCCPC).** Our position is: a Membership is a one-off yearly purchase, refundable in full within 21 days of buying it, and not refundable after that except where we fail to deliver or the law requires it. Does that meet the Federal Competition and Consumer Protection Act's requirements (sections 120 and 127 in particular)? Is the position sound once the yearly blood panel has already been delivered inside the 21 days? [Founder decision on any deduction is open.]
 
 **8. Minors and dependants.** Does our guardian-enrols-a-child-under-18 mechanism (enforced as a database-level age constraint, one account per person, no shared family account) meet the Act's threshold for guardian consent to a minor's data?
 
@@ -96,9 +103,9 @@ Since v2, we have begun using a third-party large-language-model API (Anthropic'
 Each schedule has been rewritten to match the platform actually described above. Sections still requiring your input are marked in brackets, and repeated in the checklist below.
 
 ## Open items checklist
-1. **CBN posture for the Health Wallet** — see Question 1. New since v2, now the top priority alongside cross-border transfer.
-2. **Data Protection Officer** — appointment, name, and contact details.
-3. **NDPC registration status** — confirm current status and whether it gates the live patients already on the platform.
+1. **CBN posture for Care Vouchers**: see Question 1 (the wallet itself is gone).
+2. **Data Protection Officer**: appointment accepted by the NDPC on 15 September 2026; name and contact details [founder to supply].
+3. **NDPC registration**: approved; registration reference [founder to supply]; confirm nothing further is owed.
 4. **Lawful mechanism for the Supabase eu-west-1 cross-border transfer** — see Question 2.
 5. **Anthropic DPA and disclosure adequacy** — see Question 3, a new item since v2.
 6. **MDCN confirmation of the tier-authority model** — see Question 6.
