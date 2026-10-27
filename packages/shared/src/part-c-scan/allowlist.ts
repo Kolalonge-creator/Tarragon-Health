@@ -13,11 +13,13 @@ export interface PartCAllow {
   readonly reason: string;
 }
 
-const EXP = "2026-11-06";
 
 export const PART_C_ALLOWLIST: readonly PartCAllow[] = [
   // SMS: none beyond verification codes (sent by Supabase phone auth, never through the app). The emergency-contact exception (D3) and clinician SMS paging were removed 2026-10-16 (OQ-332, OQ-333).
   // Fertile window: the six `fertile-window-label` entries were removed by S85 D2 (OQ-12): opt-in "Planning a pregnancy"
   // mode and the shared label are built on web and phone. Do not add one back; fix the screen.
   // Platform Credit: the last allowlist entry (OQ-309, paystack-webhook refund branch) was deleted with its branch 2026-10-27 after live evidence of 0 rows.
+  { rule: "patient-sms", file: "supabase/functions/abnormal-result-handler/index.ts", oq: "OQ-727", expires: "2026-11-26", reason: "Termii SMS fallback that pages clinicians when the clinician alert row is missing; D3 and the 2026-10-07 CMO decision say no page is sent by SMS" },
+  { rule: "patient-sms", file: "supabase/functions/send-pending-notifications/index.ts", oq: "OQ-727", expires: "2026-11-26", reason: "Termii SMS and voice senders in the notification pipeline; routine SMS is refused by decide(), the voice and clinician-paging legs remain until OQ-727 is decided" },
+  { rule: "paystack-recurring", file: "supabase/functions/paystack-webhook/handler.ts", oq: "OQ-97", expires: "2026-11-26", reason: "dormant subscription.create handler (0 live subscriptions); OQ-97 decided to delete the retired plan paths" },
 ];

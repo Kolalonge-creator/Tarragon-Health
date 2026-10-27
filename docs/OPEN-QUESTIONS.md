@@ -2706,7 +2706,7 @@ The S86 gate refuses to enable a language unless the registry (`i18n.language_re
 - Blocks: nothing. `supabase/functions/paystack-webhook/handler.ts` (around line 756) handles `metadata.kind = "platform_credit_topup"` by refunding and reconciling. Platform Credit was removed from the schema on 2026-09-30 (0 balances, 0 ledger entries, 0 top-ups), so the branch can only fire for a charge started before removal.
 - Options: (a) keep the branch for 30 days as a safety net, then delete it; (b) delete it now.
 - Recommend (a), then delete and remove the Part C allowlist entry. Deploy order: code first, nothing in the schema depends on it.
-- Decision: pending.
+- Decision (S87 scan extension, 2026-10-27): option (b) taken after evidence. Live `payment_transactions` has 3 rows in total, none with `platform_credit` in the payload, 0 unprocessed, 0 in the last 30 days; removal was 2026-09-30. The branch and its allowlist entry are deleted; a stray late charge now reaches the unrecognised-kind failure and is marked failed (still loud, tested). Deploy: code only, nothing in the schema depends on it; needs the `paystack-webhook` redeploy.
 
 ### OQ-574 Employer roster invitations can be sent by SMS (raised by S87)
 - Blocks: nothing. `dashboard/corporate/roster-manager.tsx` offers an "SMS" invitation channel for roster members. It is not a verification code or clinician paging, so it is outside the SMS rule (OQ-05, D3 draft of 2026-10-07).
@@ -5620,3 +5620,21 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Options: (a) require a state when an employer registers a Plus seat or an admin grants Plus (a field on the roster row and on the grant form); (b) ask the member to choose from the approved list on first use of the collection flow; (c) leave null and let the care team arrange it by hand.
 - Recommendation: (b) for legacy rows, (a) for seats and grants, because the employer and the admin already know the person's state.
 - Decision (founder, 2026-10-26): Plus given without a checkout needs a collection state. Built: (a) an admin grant of Plus needs an approved state while the module is on (`grant_membership_tier`, a state field on the grant form); (b) a Plus member whose state is empty chooses it once from the approved list (`set_my_plus_collection_state`, web and mobile), which also covers employer seats and older rows. Not built: a state field on the employer roster row, because the member already chooses on first use and the employer rarely knows it; add it if an employer pilot asks.
+
+### OQ-727 Clinician-paging SMS and voice code still exists in two Edge Functions (raised by S87 scan extension)
+- Blocks: nothing. D3 (S87-1) and the CMO decision of 2026-10-07 say no page to a clinician goes by SMS (final fallback: in-console alarm plus a named ops person phoning). `supabase/functions/abnormal-result-handler/index.ts` still sends a Termii SMS to clinicians when the clinician alert row is missing, and `supabase/functions/send-pending-notifications/index.ts` still holds the Termii SMS and voice senders (routine SMS is refused by `decide()`, voice is a channel value). The widened `patient-sms` scan rule now sees them; both files are allowlisted until 2026-11-26.
+- Options: (a) delete the SMS fallback in `abnormal-result-handler` (route the missing-row case to the in-console alarm and the ops phone call) and the SMS sender in the pipeline, keep the voice leg only if the ops phone call uses it; (b) record a founder exception for clinician paging.
+- Recommend (a). Ship code first, no schema depends on it. Needs the CMO to confirm the voice leg.
+- Decision: pending.
+
+### OQ-728 Marketing testimonial and claims review needs a person (raised by S87 scan extension)
+- Blocks: nothing. The new scan rules `marketing-claim`, `doctor-led-headline`, `testimonial-hardcoded` and `trial-copy` find 0 hits outside debunking copy ("miracle cures", "marketed as cancer cures that aren't"). A line scan cannot judge implied claims (for example "reverse", "eliminate") or whether `patient_testimonials` rows carry a real consent record.
+- Options: (a) CMO and marketing read the public pages once before launch and add any phrase they dislike to the rule; (b) rely on the scan alone.
+- Recommend (a).
+- Decision: pending.
+
+### OQ-729 Cancellation is "nothing to cancel" for packs; Membership refund window is the only exit (raised by S87 reachability test)
+- Blocks: nothing. `packages/shared/src/part-c-scan/exit-paths-reachable.test.ts` proves account deletion (`/patient/privacy`, reviewed at `/admin/data-rights`) and a refund request (`/patient/financial-profile`, rule beside every purchase) are reachable from the app's own navigation, and that the pricing, terms and services pages say what a person can do. No gap found, nothing built. The open point is wording only: packs say "nothing to cancel" and a Membership has the refund window; a person who wants to stop a Membership after the window has no stated path.
+- Options: (a) add one sentence to the Membership screen saying that after the refund window the Membership simply ends at the year's end and is not renewed unless the person chooses; (b) leave as is.
+- Recommend (a) once the renewal decision of 2026-10-26 is reflected in copy.
+- Decision: pending.
