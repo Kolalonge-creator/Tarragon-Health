@@ -4,6 +4,8 @@ import { z } from "zod";
  * W-03: the red-page ladder read (public.red_ladder_status), parsed. A reply that does not match is "could not be read", never half a page of
  * healthy-looking numbers. Counts, seconds, stage names and clinician names only: no patient and no phone number appears here.
  */
+const switchChange = z.object({ changed_at: z.string(), changed_by: z.string(), new_value: z.boolean(), reason: z.string() });
+
 const coverageSchema = z.object({
   required_clinicians: z.number(),
   window_days: z.number(),
@@ -14,12 +16,14 @@ const coverageSchema = z.object({
   hours_covered: z.number(),
   hours_uncovered: z.number(),
   hours_without_backup: z.number(),
+  self_granted_not_counted: z.number(),
   meets_minimum: z.boolean(),
   clinicians: z.array(z.object({ name: z.string(), shifts: z.number(), hours: z.number(), credentialed: z.boolean() })),
   sole_cmo_exception: z.object({
     sunset: z.string().nullable(),
     days_to_sunset: z.number().nullable(),
     in_force: z.boolean(),
+    exception_ended: z.boolean(),
     expires_at: z.string().nullable(),
   }),
 });
@@ -34,6 +38,7 @@ export const redLadderSchema = z.object({
     last_stage: z.string().nullable(),
     runs_24h: z.number(),
     failures_24h: z.number(),
+    blips_24h: z.number(),
   }),
   dead_letters: z.object({
     paging_enabled: z.boolean(),
@@ -43,6 +48,7 @@ export const redLadderSchema = z.object({
     paged_30d: z.number(),
   }),
   rota: coverageSchema,
+  switch_changes: z.object({ red_lane: switchChange.nullable(), dead_letter_paging: switchChange.nullable() }),
   phone_fallbacks: z.object({
     expired_pages_30d: z.number(),
     expired_pages_without_call_30d: z.number(),
@@ -79,7 +85,13 @@ export function ladderConcerns(l: RedLadder): LadderConcern[] {
     });
   }
   const sc = l.rota.sole_cmo_exception;
-  if (sc.sunset && sc.days_to_sunset !== null && sc.days_to_sunset <= 30 && !l.rota.meets_minimum) {
+  if (sc.exception_ended && l.rota.self_granted_not_counted > 0) {
+    out.push({
+      key: "sole_cmo_ended",
+      text: `The sole chief medical officer exception has ended. ${l.rota.self_granted_not_counted} clinician(s) who granted themselves the on-call competency no longer count towards cover.`,
+      severe: !l.rota.meets_minimum,
+    });
+  } else if (sc.sunset && sc.days_to_sunset !== null && sc.days_to_sunset <= 30 && !l.rota.meets_minimum) {
     out.push({
       key: "sole_cmo",
       text: sc.days_to_sunset < 0 ? "The sole chief medical officer exception has ended and cover is still below the minimum." : `The sole chief medical officer exception ends in ${sc.days_to_sunset} day(s) and cover is still below the minimum.`,

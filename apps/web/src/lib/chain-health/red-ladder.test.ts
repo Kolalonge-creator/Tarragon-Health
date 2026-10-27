@@ -2,13 +2,14 @@ import { describe, expect, it } from "@jest/globals";
 import { ladderConcerns, parseRedLadder } from "./red-ladder";
 
 const good = {
-  red_lane: { enabled: true, detection_budget_seconds: 360, inject_every_minutes: 3, last_judged_at: "2026-10-27T10:00:00Z", last_passed: true, last_stage: null, runs_24h: 480, failures_24h: 0 },
+  red_lane: { enabled: true, detection_budget_seconds: 360, inject_every_minutes: 3, last_judged_at: "2026-10-27T10:00:00Z", last_passed: true, last_stage: null, runs_24h: 480, failures_24h: 0, blips_24h: 0 },
   dead_letters: { paging_enabled: true, subscribers: ["paging.on_red"], open: 0, unassigned: 0, paged_30d: 0 },
   rota: {
     required_clinicians: 5, window_days: 28, distinct_on_rota: 5, distinct_credentialed_on_rota: 5, eligible_on_call_staff: 5, hours_total: 672, hours_covered: 672,
-    hours_uncovered: 0, hours_without_backup: 0, meets_minimum: true, clinicians: [{ name: "A", shifts: 3, hours: 24, credentialed: true }],
-    sole_cmo_exception: { sunset: "2027-01-31", days_to_sunset: 96, in_force: true, expires_at: "2027-01-31T23:00:00Z" },
+    hours_uncovered: 0, hours_without_backup: 0, self_granted_not_counted: 0, meets_minimum: true, clinicians: [{ name: "A", shifts: 3, hours: 24, credentialed: true }],
+    sole_cmo_exception: { sunset: "2027-01-31", days_to_sunset: 96, in_force: true, exception_ended: false, expires_at: "2027-01-31T23:00:00Z" },
   },
+  switch_changes: { red_lane: null, dead_letter_paging: null },
   phone_fallbacks: { expired_pages_30d: 0, expired_pages_without_call_30d: 0, calls_30d: 0, last_call_at: null },
 };
 
@@ -49,6 +50,17 @@ describe("ladderConcerns", () => {
     expect(near[1].severe).toBe(true);
     const ended = ladderConcerns({ ...good, rota: { ...short, sole_cmo_exception: { ...good.rota.sole_cmo_exception, days_to_sunset: -2, in_force: false } } });
     expect(ended[1].text).toContain("has ended");
+  });
+
+  it("says plainly when the exception has ended and a self-granted competency no longer counts", () => {
+    const c = ladderConcerns({ ...good, rota: { ...good.rota, meets_minimum: false, distinct_credentialed_on_rota: 4, self_granted_not_counted: 1, sole_cmo_exception: { ...good.rota.sole_cmo_exception, exception_ended: true, days_to_sunset: -3, in_force: false } } });
+    expect(c.map((x) => x.key)).toEqual(["rota", "sole_cmo_ended"]);
+    expect(c[1].text).toContain("no longer count");
+  });
+
+  it("accepts a recorded switch change", () => {
+    const l = parseRedLadder({ ...good, switch_changes: { red_lane: { changed_at: "2026-10-27T09:00:00Z", changed_by: "Dr A", new_value: true, reason: "drill window agreed" }, dead_letter_paging: null } });
+    expect(l?.switch_changes.red_lane?.changed_by).toBe("Dr A");
   });
 
   it("flags expired pages with no logged phone call", () => {
