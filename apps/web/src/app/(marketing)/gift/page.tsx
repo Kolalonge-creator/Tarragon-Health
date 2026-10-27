@@ -41,7 +41,7 @@ const WAYS_TO_GIVE = [
   },
   {
     title: "They choose to accept it",
-    body: "The gift waits for them to say yes. If they decline, or do not answer within 14 days, you are refunded in full. Nothing about a gift ever bills them, then or later.",
+    body: "The gift waits for them to say yes. If they decline, or do not answer within 14 days, we will refund you. Nothing about a gift ever bills them, then or later.",
   },
   {
     title: "Invite them, and we will say thank you",
@@ -65,11 +65,11 @@ function giftFaq(price: string): FaqItem[] {
     {
       question: "Will I see their results?",
       answer:
-        "No. You see that the gift is paid, accepted, declined or refunded. Nothing about their health. Results go to them and their care team, and to nobody else.",
+        "No. You see only where the gift stands: waiting, accepted, declined, or not answered. Nothing about their health. Results go to them and their care team, and to nobody else.",
     },
     {
       question: "What if they say no, or do not answer?",
-      answer: "You are refunded in full. The gift is theirs to accept, and it waits 14 days for their answer. If they say no, you see that it was declined and nothing more.",
+      answer: "We will refund you. The gift is theirs to accept, and it waits 14 days for their answer. If they say no you see \"declined\", and if they have not answered you see \"not answered\". You do not see why.",
     },
     {
       question: "What if I am buying from outside Nigeria?",
@@ -101,7 +101,7 @@ const HOW_IT_WORKS = [
   {
     step: 4,
     title: "They say yes",
-    body: "They say yes on a short call with us, or in the app. If there is no answer in 14 days, you are refunded in full.",
+    body: "They say yes on a short call with us, or in the app. If there is no answer in 14 days, we will refund you.",
   },
 ];
 
