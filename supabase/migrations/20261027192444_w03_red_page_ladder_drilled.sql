@@ -1,0 +1,768 @@
+-- W-03: the red-page ladder, watched every minute and ending in a named human.
+--
+-- WHAT THIS ADDS (all additive; nothing patient-facing changes, red guidance is untouched on every plan):
+--   1. chain-canary-red: a SEPARATE per-minute job. Each minute it injects the red fixture through the real insert path, and judges every
+--      run that is at least eval_after_seconds old: graded red, bus deliveries done, page made to the (synthetic) on-call clinician,
+--      acknowledged. A failure opens a sev1 incident. The existing 30-minute full canary (minutes 11 and 41) is not touched and the red
+--      lane writes to its OWN table, so chain_health, the reliability report and the heartbeat keep reading only the full canary.
+--      The detection budget is a CHECK on the config row: one injection every inject_every_minutes plus the evaluation wait, rounded
+--      up to whole cron ticks, must be at most 180 seconds. Ships OFF (red_lane_enabled = false); the cron job exists but does nothing.
+--      Why pg_cron and not a new sub-daily vercel.json cron: Vercel refuses deploys with sub-daily crons on this plan (see the repo's
+--      "Vercel cron frequency limit" note) and every other per-minute job on this project (sweep-pages, paging-health, ops-desk-sweep,
+--      triage-recheck-sweep) already runs in pg_cron next to the data it reads.
+--   2. A dead letter on a red-class event subscriber (default paging.on_red, queue.create_from_triage, triage.grade_observation) opens a
+--      sev1 incident and assigns the named ops person through the EXISTING ops desk (private.ops_desk_assign: primary, then deputy after
+--      deputy_after_seconds, then an uncovered alarm). The ops person gets a push, in-app and email notice (never SMS: the ops desk
+--      trigger refuses it) with a new neutral template on_call_ops_desk_dead_letter. Decision recorded in the PR: this is NOT a row in
+--      public.pages, because pages.patient_id and pages.triage_event_id are NOT NULL and sweep_pages/page_task assume a clinical case;
+--      forcing a "system" kind into that table would put a patient-less row in front of every paging function. Ships OFF
+--      (dead_letter_paging_enabled = false).
+--   3. rota_coverage_report(): do five credentialed clinicians cover the next 28 days of the rota, with hours uncovered and hours with
+--      no credentialed backup. The numbers (5, 28) are PROPOSED values in rota_cover_policy, not constants in code.
+--   4. The sole-CMO on-call exception gets a hard DATED expiry (rota_cover_policy.sole_cmo_exception_sunset, PROPOSED 2027-01-31, end of
+--      that day in Lagos). New exceptions are capped to it, none can be signed after it, private.sole_cmo_exception_active refuses after
+--      it, and a daily sweep closes lapsed exceptions and raises an incident while cover is still below the minimum. A competency
+--      already granted is NOT auto-removed (that could drop the only CMO off a live rota; same reasoning as the exception's own design).
+--      Test rows (is_test) are exempt so the existing proofs cannot rot when the date passes.
+--   5. page_phone_fallbacks: the log of the final fallback phone call (the in-console alarm plus a named person phoning). Written by
+--      log_page_phone_fallback() and mirrored automatically from ops_desk_call_log for an expired-page incident.
+--   6. red_ladder_status(): one read for /clinician/chain-health.
+--
+-- NOT TOUCHED: drill_enabled and the fire-drill switches, any go_live_guards key, platform_modules, patient-facing red guidance,
+-- escalate_unconfirmed_critical_notifications, sweep_pages, create_red_page, chain_canary_tick, chain_health.
+-- ROWS AFFECTED ON APPLY: 0 existing rows changed (new tables get one singleton config row each; one function is replaced:
+-- private.ops_desk_assign gets a template switch, everything else in it is the live body, read 2026-10-27).
+-- Replaces: private.ops_desk_assign (template choice), private.sole_cmo_exception_active (sunset check).
+-- Nothing here is destructive.
+
+-- 1. Policy (PROPOSED values, CMO owned) ----------------------------------------------------------------------------------------
+create table public.rota_cover_policy (
+  id                         boolean primary key default true check (id),
+  required_clinicians        integer not null default 5 check (required_clinicians between 1 and 50),
+  window_days                integer not null default 28 check (window_days between 7 and 90),
+  sole_cmo_exception_sunset  date,
+  note                       text,
+  updated_at                 timestamptz not null default now()
+);
+alter table public.rota_cover_policy enable row level security;
+create policy rota_cover_policy_read on public.rota_cover_policy for select to authenticated
+  using (private.is_admin() or private.credential_is_cmo());
+revoke all on public.rota_cover_policy from public, anon, authenticated;
+grant select on public.rota_cover_policy to authenticated;
+insert into public.rota_cover_policy (required_clinicians, window_days, sole_cmo_exception_sunset, note)
+values (5, 28, date '2027-01-31', 'W-03 PROPOSED (founder/CMO to confirm): five credentialed on-call clinicians cover a 28-day rota; the sole-CMO on-call exception ends after 2027-01-31 (Lagos).');
+comment on table public.rota_cover_policy is 'W-03: PROPOSED rota cover minimum and the dated end of the sole-CMO on-call exception. One row. Changed only by a migration or by the CMO through SQL, never by a client.';
+
+-- 2. Red lane config and runs ---------------------------------------------------------------------------------------------------
+create table public.chain_canary_red_config (
+  id                          boolean primary key default true check (id),
+  red_lane_enabled            boolean not null default false,
+  dead_letter_paging_enabled  boolean not null default false,
+  inject_every_minutes        integer not null default 1 check (inject_every_minutes between 1 and 60),
+  eval_after_seconds          integer not null default 90 check (eval_after_seconds between 30 and 600),
+  red_class_subscribers       text[] not null default array['paging.on_red', 'queue.create_from_triage', 'triage.grade_observation'],
+  note                        text,
+  updated_at                  timestamptz not null default now(),
+  -- a seeded failure must be seen within three minutes: the wait for the next injection plus the wait for a judging tick
+  constraint chain_canary_red_detects_within_three_minutes
+    check (inject_every_minutes * 60 + (((eval_after_seconds + 59) / 60) * 60) <= 180)
+);
+alter table public.chain_canary_red_config enable row level security;
+create policy chain_canary_red_config_read on public.chain_canary_red_config for select to authenticated
+  using (private.is_admin() or private.credential_is_cmo());
+revoke all on public.chain_canary_red_config from public, anon, authenticated;
+grant select on public.chain_canary_red_config to authenticated;
+insert into public.chain_canary_red_config (note) values ('W-03 first version, PROPOSED (CMO). Both switches ship OFF; turning them on is a deliberate act by the CMO.');
+
+create table public.chain_canary_red_runs (
+  id            uuid primary key default gen_random_uuid(),
+  injected_at   timestamptz not null default clock_timestamp(),
+  fixture_code  text not null,
+  reading_id    uuid,
+  symptom_id    uuid,
+  judged_at     timestamptz,
+  passed        boolean,
+  failed_stage  text,
+  details       jsonb not null default '{}'::jsonb,
+  check ((judged_at is null) = (passed is null)),
+  check (passed is distinct from false or failed_stage is not null)
+);
+create index chain_canary_red_runs_injected_idx on public.chain_canary_red_runs (injected_at desc);
+alter table public.chain_canary_red_runs enable row level security;
+create policy chain_canary_red_runs_read on public.chain_canary_red_runs for select to authenticated
+  using (private.is_admin() or private.credential_is_cmo());
+revoke all on public.chain_canary_red_runs from public, anon, authenticated;
+grant select on public.chain_canary_red_runs to authenticated;
+
+create function private.chain_canary_start_red() returns uuid
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  s public.chain_canary_subjects;
+  f public.chain_canary_fixtures;
+  v_id uuid := gen_random_uuid();
+  v_rid uuid; v_sym uuid;
+begin
+  select * into f from public.chain_canary_fixtures where is_enabled and expect_page and vital_type = 'blood_pressure' order by code limit 1;
+  if not found then raise exception 'no enabled red blood pressure fixture'; end if;
+  s := private.chain_canary_ensure();
+  perform private.chain_canary_ensure_rota(s);
+  if not private.patient_is_member(s.patient_id) then
+    insert into public.patient_memberships (organisation_id, patient_id, source, state, is_test) values (s.organisation_id, s.patient_id, 'purchase', 'active', true);
+  end if;
+  -- the synthetic reading must not carry a clicking admin or CMO as its actor
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('request.jwt.claims', '', true);
+  if f.symptom_type is not null then
+    insert into public.symptoms (organisation_id, patient_id, symptom_type, severity) values (s.organisation_id, s.patient_id, f.symptom_type::public.symptom_type, 3) returning id into v_sym;
+  end if;
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source, taken_at)
+  values (s.organisation_id, s.patient_id, 'blood_pressure', f.systolic, f.diastolic, 'manual', now()) returning id into v_rid;
+  insert into public.chain_canary_red_runs (id, fixture_code, reading_id, symptom_id) values (v_id, f.code, v_rid, v_sym);
+  return v_id;
+end $$;
+revoke all on function private.chain_canary_start_red() from public, anon, authenticated;
+
+create function private.chain_canary_evaluate_red(p_run uuid) returns boolean
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  r public.chain_canary_red_runs;
+  s public.chain_canary_subjects;
+  te public.triage_events;
+  pg public.pages;
+  v_stage text; v_msg text; v_n integer; v_row record; v_task_row record; v_errs jsonb := '[]'::jsonb;
+begin
+  select * into r from public.chain_canary_red_runs where id = p_run and judged_at is null for update;
+  if not found then return null; end if;
+  select * into s from public.chain_canary_subjects;
+
+  begin
+    select * into te from public.triage_events where trigger_type = 'observation' and trigger_id = r.reading_id order by shadow, created_at limit 1;
+    if te.id is null then
+      v_stage := 'graded'; v_msg := 'no triage event for the red reading: the event bus processor, the observation subscriber or the engine did not run';
+    elsif te.grade <> 'red' then
+      v_stage := 'graded_wrong_grade'; v_msg := format('the red fixture was graded %s (rule %s v%s). If the rule set was deliberately changed, update the fixture.', te.grade, te.rule_set_code, te.rule_set_version);
+    elsif te.shadow then
+      v_stage := 'graded_shadow'; v_msg := 'graded by a rule set that is not approved (shadow): no page would be made';
+    end if;
+
+    if v_stage is null then
+      select count(*) into v_n from public.domain_events e where e.event_type = 'triage.graded' and e.aggregate_id = te.id;
+      if v_n = 0 then
+        v_stage := 'event_emitted'; v_msg := 'triage.graded was not emitted for the graded event';
+      else
+        for v_row in
+          select d.subscriber_key, d.status, d.last_error
+            from public.domain_event_deliveries d join public.domain_events e on e.id = d.event_id
+           where e.event_type = 'triage.graded' and e.aggregate_id = te.id and d.subscriber_key = 'paging.on_red'
+        loop
+          if v_row.status <> 'done' then
+            v_stage := 'event_delivered'; v_msg := format('subscriber %s is %s%s', v_row.subscriber_key, v_row.status, coalesce(': ' || left(v_row.last_error, 160), ''));
+          end if;
+        end loop;
+        if v_stage is null and not exists (select 1 from public.domain_event_deliveries d join public.domain_events e on e.id = d.event_id
+                                            where e.event_type = 'triage.graded' and e.aggregate_id = te.id and d.subscriber_key = 'paging.on_red') then
+          v_stage := 'event_delivered'; v_msg := 'the paging subscriber has no delivery for the graded event';
+        end if;
+      end if;
+    end if;
+
+    if v_stage is null then
+      select * into pg from public.pages where triage_event_id = te.id and parent_page_id is null;
+      if pg.id is null then
+        v_stage := 'page'; v_msg := 'a red event made no page for the on-call clinician';
+      elsif pg.to_clinician_id is distinct from s.clinician_id then
+        v_stage := 'page'; v_msg := 'the page went to someone other than the synthetic on-call clinician';
+      elsif pg.acknowledged_at is null then
+        v_stage := 'ack'; v_msg := 'the synthetic clinician did not acknowledge the page (public.acknowledge_page or the page write guard is broken)';
+      end if;
+    end if;
+  exception when others then
+    v_stage := 'evaluate'; v_msg := 'the red lane check itself failed: ' || sqlerrm;
+  end;
+
+  -- clean up so the lane does not leave work behind. Same scope and rules as the full canary's clean-up (the synthetic organisation only).
+  begin
+    for v_task_row in select id from public.clinical_tasks where organisation_id = s.organisation_id and state in ('created', 'offered_to_lead', 'open', 'escalated', 'claimed') loop
+      begin
+        perform private.apply_task_transition(v_task_row.id, 'cancelled', 'lead', null, 'chain canary clean-up');
+      exception when others then v_errs := v_errs || to_jsonb('task: ' || sqlerrm); end;
+    end loop;
+    begin
+      perform set_config('tarragon.paging_write', 'on', true);
+      update public.pages set closed_at = now(), close_note = 'chain canary clean-up' where organisation_id = s.organisation_id and closed_at is null;
+      perform set_config('tarragon.paging_write', 'off', true);
+    exception when others then perform set_config('tarragon.paging_write', 'off', true); v_errs := v_errs || to_jsonb('page: ' || sqlerrm); end;
+    begin
+      update public.clinician_alerts set status = 'resolved', resolution_action = 'chain canary clean-up', resolution_outcome = 'no_action_needed'
+         where organisation_id = s.organisation_id and status not in ('resolved', 'closed');
+    exception when others then v_errs := v_errs || to_jsonb('alerts: ' || sqlerrm); end;
+    begin
+      update public.emergency_events set status = 'resolved' where organisation_id = s.organisation_id and status = 'active';
+    exception when others then v_errs := v_errs || to_jsonb('emergency: ' || sqlerrm); end;
+  exception when others then v_errs := v_errs || to_jsonb('cleanup: ' || sqlerrm);
+  end;
+
+  update public.chain_canary_red_runs
+     set judged_at = clock_timestamp(), passed = v_stage is null, failed_stage = v_stage,
+         details = jsonb_build_object('message', v_msg, 'cleanup_errors', v_errs, 'judged_after_seconds', round(extract(epoch from clock_timestamp() - r.injected_at))::int)
+   where id = p_run;
+
+  if v_stage is not null then
+    perform private.ops_alert_incident('chain_canary_red:' || v_stage,
+      'Red page chain canary missed at stage: ' || v_stage,
+      format('The per-minute check of the red event chain failed at stage "%s". %s Open the chain health page (/clinician/chain-health) for the timeline. A real red event could be stuck the same way: phone the on-call clinician for any open case.', v_stage, coalesce(v_msg, '')),
+      'sev1');
+  end if;
+  return v_stage is null;
+end $$;
+revoke all on function private.chain_canary_evaluate_red(uuid) from public, anon, authenticated;
+
+create function private.chain_canary_evaluate_red_safe(p_run uuid) returns void
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  perform private.chain_canary_evaluate_red(p_run);
+exception when others then
+  begin
+    update public.chain_canary_red_runs set judged_at = clock_timestamp(), passed = false, failed_stage = 'evaluate', details = jsonb_build_object('error', sqlerrm)
+     where id = p_run and judged_at is null;
+  exception when others then null; end;
+  begin
+    perform private.ops_alert_incident('chain_canary_red:evaluate', 'Red page chain canary could not be evaluated',
+      'Red lane run ' || p_run || ' could not be judged: ' || sqlerrm || '. Until this is fixed the red chain is not being checked every minute.', 'sev1');
+  exception when others then raise warning 'red canary: could not raise the evaluate incident: %', sqlerrm; end;
+end $$;
+revoke all on function private.chain_canary_evaluate_red_safe(uuid) from public, anon, authenticated;
+
+create function private.chain_canary_red_tick() returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  c public.chain_canary_red_config;
+  r record;
+  v_eval integer := 0; v_started uuid; v_last timestamptz;
+begin
+  select * into c from public.chain_canary_red_config;
+  if not found or not c.red_lane_enabled then return jsonb_build_object('skipped', 'disabled'); end if;
+  if not pg_try_advisory_xact_lock(hashtext('chain_canary_red_tick')) then return jsonb_build_object('skipped', 'busy'); end if;
+
+  -- the lane must not die quietly: judged BEFORE this tick writes anything
+  begin
+    select max(judged_at) into v_last from public.chain_canary_red_runs;
+    if v_last is not null and v_last < now() - interval '5 minutes' then
+      perform private.ops_alert_incident('chain_canary_red:stale', 'Red page chain canary has stopped reporting',
+        format('No red lane run has been judged since %s although the per-minute job is running.', v_last), 'sev1');
+    end if;
+  exception when others then raise warning 'red canary stale check failed: %', sqlerrm; end;
+
+  for r in select id from public.chain_canary_red_runs
+            where judged_at is null and injected_at <= clock_timestamp() - make_interval(secs => c.eval_after_seconds) order by injected_at loop
+    perform private.chain_canary_evaluate_red_safe(r.id);
+    v_eval := v_eval + 1;
+  end loop;
+
+  if not exists (select 1 from public.chain_canary_red_runs where injected_at > clock_timestamp() - make_interval(secs => c.inject_every_minutes * 60 - 5)) then
+    begin
+      v_started := private.chain_canary_start_red();
+    exception when others then
+      declare v_err text := sqlerrm;
+      begin
+        insert into public.chain_canary_red_runs (fixture_code, judged_at, passed, failed_stage, details)
+          values ('start', clock_timestamp(), false, 'start', jsonb_build_object('error', v_err));
+        perform private.ops_alert_incident('chain_canary_red:start', 'Red page chain canary could not start',
+          'The synthetic red reading could not be inserted: ' || v_err, 'sev1');
+      exception when others then raise warning 'red canary start failure could not be recorded: %', sqlerrm; end;
+    end;
+  end if;
+
+  delete from public.chain_canary_red_runs where injected_at < now() - interval '7 days';
+  return jsonb_build_object('evaluated', v_eval, 'started', v_started);
+end $$;
+revoke all on function private.chain_canary_red_tick() from public, anon, authenticated;
+
+-- the same gate as the full canary: nothing to check while the platform holds no real patient
+select cron.schedule('chain-canary-red', '* * * * *',
+  $$select private.chain_canary_red_tick() where exists (select 1 from public.profiles where role = 'patient' and not is_test);$$);
+
+-- 3. Dead letters on red-class subscribers reach a named human --------------------------------------------------------------
+create table public.red_dead_letter_pages (
+  delivery_id      uuid primary key,
+  organisation_id  uuid not null,
+  subscriber_key   text not null,
+  event_type       text not null,
+  incident_id      uuid,
+  assigned_to      uuid,
+  paged_at         timestamptz not null default now(),
+  resolved_at      timestamptz,
+  is_test          boolean not null default false
+);
+create index red_dead_letter_pages_open_idx on public.red_dead_letter_pages (paged_at) where resolved_at is null;
+alter table public.red_dead_letter_pages enable row level security;
+create policy red_dead_letter_pages_read on public.red_dead_letter_pages for select to authenticated
+  using (private.is_admin() or private.credential_is_cmo());
+revoke all on public.red_dead_letter_pages from public, anon, authenticated;
+grant select on public.red_dead_letter_pages to authenticated;
+comment on table public.red_dead_letter_pages is 'W-03: one row per dead-lettered delivery on a red-class subscriber that was handed to the ops desk. No patient data: ids, subscriber and event type only.';
+
+-- ops_desk_assign: the live body (read 2026-10-27) with ONE change, the template. A dead letter must not tell the ops person that "nobody
+-- reachable may be on call" (the roster wording); it gets its own neutral notice.
+create or replace function private.ops_desk_assign(p_incident uuid, p_mode text default 'first', p_exclude uuid default null) returns uuid
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  i public.ops_incidents%rowtype;
+  v_page uuid;
+  v_test boolean := false;
+  v_ref uuid;
+  c record;
+  v_reason text;
+  v_asg uuid;
+begin
+  select * into i from public.ops_incidents where id = p_incident;
+  if not found or i.organisation_id is null then return null; end if;
+  if i.external_reference ~ '^page_expired:[0-9a-f-]{36}$' then
+    v_page := substring(i.external_reference from 14)::uuid;
+    select p.is_test into v_test from public.pages p where p.id = v_page;
+  end if;
+  v_test := coalesce(v_test, false);
+  v_ref := coalesce(v_page, i.id);
+
+  if p_mode = 'first' then
+    select * into c from private.ops_desk_on_duty(i.organisation_id, v_test) d where d.role = 'primary' and d.profile_id is distinct from p_exclude order by d.contact_id limit 1;
+    v_reason := 'first_choice';
+    if not found then
+      select * into c from private.ops_desk_on_duty(i.organisation_id, v_test) d where d.role = 'deputy' and d.profile_id is distinct from p_exclude order by d.contact_id limit 1;
+      v_reason := 'primary_not_on_duty';
+    end if;
+  else
+    select * into c from private.ops_desk_on_duty(i.organisation_id, v_test) d where d.role = 'deputy' and d.profile_id is distinct from p_exclude order by d.contact_id limit 1;
+    v_reason := 'primary_unacknowledged';
+  end if;
+
+  if c.contact_id is null and p_mode <> 'first' then return null; end if;
+  if c.contact_id is null then
+    -- a drill (test page) is never a real emergency: no sev1 and no notice, only the audit row
+    if v_test then
+      insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+        values (i.organisation_id, null, 'ops_desk.uncovered_test', 'ops_incident', i.id, jsonb_build_object('mode', p_mode));
+      return null;
+    end if;
+    -- nobody named is on duty: say so loudly, and tell the clinical lead and administrators. The expired-page notice has already gone to them.
+    perform private.page_incident(i.organisation_id, 'ops_desk_uncovered:' || i.id, 'No named ops person for this hour: phone the on-call clinician now',
+      'A red event page needs a phone call and no ops contact is on duty for this hour (or none is named). Phone the on-call clinician and the chief medical officer yourself and record the calls on the Ops desk page. Name and activate ops contacts so this does not happen again.');
+    -- a standing "nobody reachable" condition already sits in the incident queue; only an expired page needs the extra notice
+    if v_page is not null then
+      perform private.page_notify_leadership(i.organisation_id, v_ref, v_test, 'on_call_ops_desk_uncovered');
+    end if;
+    insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+      values (i.organisation_id, null, 'ops_desk.uncovered', 'ops_incident', i.id, jsonb_build_object('mode', p_mode));
+    return null;
+  end if;
+
+  insert into public.ops_desk_assignments (organisation_id, incident_id, contact_id, profile_id, role, reason, is_test)
+  values (i.organisation_id, i.id, c.contact_id, c.profile_id, c.role, v_reason, v_test)
+  on conflict (incident_id, contact_id) do nothing
+  returning id into v_asg;
+  if v_asg is null then return null; end if;
+  update public.ops_incidents set owner_id = c.profile_id where id = i.id;
+  if v_page is not null then
+    perform private.page_notify_ref(c.profile_id, i.organisation_id, 'on_call_ops_desk', v_page, 'pages', array['push', 'in_app', 'email'], true);
+  elsif i.external_reference like 'page\_dead\_letter:%' then
+    perform private.ops_desk_notify_incident(c.profile_id, i.organisation_id, 'on_call_ops_desk_dead_letter', i.id);
+  else
+    -- a standing "nobody reachable" condition has no page: the notice points at the incident it is about, not at a page that does not exist
+    perform private.ops_desk_notify_incident(c.profile_id, i.organisation_id, 'on_call_ops_desk_roster', i.id);
+  end if;
+  insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+    values (i.organisation_id, null, 'ops_desk.assigned', 'ops_incident', i.id, jsonb_build_object('assigned_to', c.profile_id, 'role', c.role, 'reason', v_reason));
+  return v_asg;
+end;
+$$;
+revoke all on function private.ops_desk_assign(uuid, text, uuid) from public, anon, authenticated;
+
+create function private.sweep_red_dead_letters() returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  c public.chain_canary_red_config;
+  d record; x record;
+  v_ref text; v_inc uuid; v_asg uuid; v_who uuid;
+  v_new integer := 0; v_late integer := 0; v_resolved integer := 0; v_errors integer := 0;
+begin
+  select * into c from public.chain_canary_red_config;
+  if not found or not c.dead_letter_paging_enabled then return jsonb_build_object('skipped', 'disabled'); end if;
+
+  for d in
+    select dl.id, dl.subscriber_key, dl.organisation_id, e.event_type, e.is_test
+      from public.domain_event_deliveries dl join public.domain_events e on e.id = dl.event_id
+     where dl.status = 'dead' and not e.is_test and dl.subscriber_key = any (c.red_class_subscribers)
+       and dl.updated_at > now() - interval '7 days'
+       and not exists (select 1 from public.red_dead_letter_pages p where p.delivery_id = dl.id)
+     order by dl.updated_at limit 50
+  loop
+    begin
+      v_ref := 'page_dead_letter:' || d.id;
+      perform private.page_incident(d.organisation_id, v_ref, 'A red event step failed for good: phone the on-call clinician',
+        format('A step of the red event chain (%s, event %s) failed permanently and is in the dead letter. A red event may not have reached the on-call clinician. Phone the on-call clinician and the chief medical officer, ask whether any case is open, and record the call. Delivery %s.', d.subscriber_key, d.event_type, d.id));
+      select id into v_inc from public.ops_incidents where external_reference = v_ref order by created_at desc limit 1;
+      insert into public.red_dead_letter_pages (delivery_id, organisation_id, subscriber_key, event_type, incident_id, is_test)
+        values (d.id, d.organisation_id, d.subscriber_key, d.event_type, v_inc, d.is_test);
+      v_asg := private.ops_desk_assign(v_inc, 'first', null);
+      if v_asg is not null then
+        select profile_id into v_who from public.ops_desk_assignments where id = v_asg;
+        update public.red_dead_letter_pages set assigned_to = v_who where delivery_id = d.id;
+      end if;
+      insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+        values (d.organisation_id, null, 'red_dead_letter.paged', 'domain_event_delivery', d.id, jsonb_build_object('subscriber', d.subscriber_key, 'assigned', v_asg is not null));
+      v_new := v_new + 1;
+    exception when others then
+      v_errors := v_errors + 1;
+      begin
+        insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+          values (d.organisation_id, 'red_dead_letter.sweep_error', 'domain_event_delivery', d.id, jsonb_build_object('error', sqlerrm));
+        perform private.page_incident(d.organisation_id, 'red_dead_letter_sweep_failed', 'Paging the ops desk about a dead letter failed',
+          'A dead-lettered red chain step could not be handed to the ops desk (see audit_log red_dead_letter.sweep_error). Phone the on-call clinician and the chief medical officer now.');
+      exception when others then raise warning 'red dead letter sweep: % failed and so did the fallback: %', d.id, sqlerrm; end;
+    end;
+  end loop;
+
+  -- opened while nobody was on duty: assign as soon as someone is (the ops desk sweep only retries the expired-page and roster incidents)
+  for x in
+    select p.delivery_id, p.incident_id, p.organisation_id from public.red_dead_letter_pages p
+      join public.ops_incidents i on i.id = p.incident_id and i.status not in ('resolved', 'closed')
+     where p.resolved_at is null and p.assigned_to is null and not p.is_test
+       and not exists (select 1 from public.ops_desk_assignments a where a.incident_id = p.incident_id)
+  loop
+    begin
+      if exists (select 1 from private.ops_desk_on_duty(x.organisation_id, false)) then
+        v_asg := private.ops_desk_assign(x.incident_id, 'first', null);
+        if v_asg is not null then
+          update public.red_dead_letter_pages set assigned_to = (select profile_id from public.ops_desk_assignments where id = v_asg) where delivery_id = x.delivery_id;
+          v_late := v_late + 1;
+        end if;
+      end if;
+    exception when others then
+      v_errors := v_errors + 1;
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+        values (x.organisation_id, 'red_dead_letter.sweep_error', 'domain_event_delivery', x.delivery_id, jsonb_build_object('error', sqlerrm, 'step', 'late_assign'));
+    end;
+  end loop;
+
+  -- the delivery was requeued and finished: the alarm closes itself (a person can still reopen the question)
+  for x in
+    select p.delivery_id, p.incident_id from public.red_dead_letter_pages p
+     where p.resolved_at is null
+       and not exists (select 1 from public.domain_event_deliveries dl where dl.id = p.delivery_id and dl.status = 'dead')
+  loop
+    update public.red_dead_letter_pages set resolved_at = now() where delivery_id = x.delivery_id;
+    update public.ops_incidents set status = 'resolved', root_cause = coalesce(root_cause, 'The dead-lettered delivery was requeued and no longer fails (closed automatically).')
+     where id = x.incident_id and status not in ('resolved', 'closed');
+    v_resolved := v_resolved + 1;
+  end loop;
+  return jsonb_build_object('paged', v_new, 'late', v_late, 'resolved', v_resolved, 'errors', v_errors);
+end $$;
+revoke all on function private.sweep_red_dead_letters() from public, anon, authenticated;
+
+select cron.schedule('red-dead-letter-sweep', '* * * * *', $$select private.sweep_red_dead_letters();$$);
+
+-- 4. Rota coverage ---------------------------------------------------------------------------------------------------------------
+create function private.rota_coverage(p_org uuid, p_test boolean, p_from timestamptz default now()) returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  pol public.rota_cover_policy;
+  v_to timestamptz;
+  v_out jsonb;
+  v_elig integer;
+  v_exc public.sole_cmo_exceptions;
+begin
+  select * into pol from public.rota_cover_policy;
+  v_to := p_from + make_interval(days => pol.window_days);
+  select count(*) into v_elig from public.clinical_staff cs
+   where cs.organisation_id = p_org and cs.is_test = p_test and cs.active and cs.status = 'active'
+     and private.clinician_is_eligible(cs.profile_id, now()) and private.has_competency(cs.profile_id, 'on_call');
+  select * into v_exc from public.sole_cmo_exceptions where organisation_id = p_org and is_test = p_test and revoked_at is null order by signed_at desc limit 1;
+
+  with win as (
+    select r.* from public.on_call_rota r
+     where r.organisation_id = p_org and r.is_test = p_test and r.cancelled_at is null and r.starts_at < v_to and r.ends_at > p_from
+  ), pp as (
+    select x.pid, count(*) as shifts, max(x.ends_at) as last_end,
+           sum(extract(epoch from (least(x.ends_at, v_to) - greatest(x.starts_at, p_from))) / 3600.0) as hours
+      from (select primary_clinician_id as pid, starts_at, ends_at from win
+            union all select backup_clinician_id, starts_at, ends_at from win where backup_clinician_id is not null) x
+     group by x.pid
+  ), ppl as (
+    -- credentialed through the END of their last shift in the window, so a licence that runs out mid-window counts as a gap
+    select pp.*, private.clinician_is_eligible(pp.pid, least(pp.last_end, v_to - interval '1 second')) as elig, private.has_competency(pp.pid, 'on_call') as comp
+      from pp
+  ), hrs as (
+    select g as h from generate_series(date_trunc('hour', p_from), v_to - interval '1 hour', interval '1 hour') g
+  ), hc as (
+    select hrs.h,
+           exists (select 1 from win w join ppl a on a.pid = w.primary_clinician_id where a.elig and a.comp and w.starts_at <= hrs.h and w.ends_at > hrs.h) as prim,
+           exists (select 1 from win w join ppl a on a.pid = w.backup_clinician_id where a.elig and a.comp and w.starts_at <= hrs.h and w.ends_at > hrs.h) as back
+      from hrs
+  )
+  select jsonb_build_object(
+    'required_clinicians', pol.required_clinicians,
+    'window_days', pol.window_days,
+    'window_from', p_from, 'window_to', v_to,
+    'distinct_on_rota', (select count(*) from ppl),
+    'distinct_credentialed_on_rota', (select count(*) from ppl where elig and comp),
+    'eligible_on_call_staff', v_elig,
+    'hours_total', (select count(*) from hc),
+    'hours_covered', (select count(*) from hc where prim),
+    'hours_uncovered', (select count(*) from hc where not prim),
+    'hours_without_backup', (select count(*) from hc where prim and not back),
+    'meets_minimum', ((select count(*) from ppl where elig and comp) >= pol.required_clinicians and not exists (select 1 from hc where not prim)),
+    'clinicians', coalesce((select jsonb_agg(jsonb_build_object('name', coalesce(cs.full_name, 'Unnamed'), 'shifts', ppl.shifts, 'hours', round(ppl.hours::numeric, 1), 'credentialed', ppl.elig and ppl.comp)
+                                          order by ppl.hours desc)
+                              from ppl left join public.clinical_staff cs on cs.profile_id = ppl.pid), '[]'::jsonb),
+    'sole_cmo_exception', jsonb_build_object(
+       'sunset', pol.sole_cmo_exception_sunset,
+       'days_to_sunset', case when pol.sole_cmo_exception_sunset is null then null else pol.sole_cmo_exception_sunset - (now() at time zone 'Africa/Lagos')::date end,
+       'in_force', v_exc.id is not null and v_exc.expires_at > now(),
+       'expires_at', v_exc.expires_at)
+  ) into v_out
+  from (select 1) one;
+  return v_out;
+end $$;
+revoke all on function private.rota_coverage(uuid, boolean, timestamptz) from public, anon, authenticated;
+
+create function public.rota_coverage_report() returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+declare v_org uuid; v_test boolean;
+begin
+  if not (private.is_admin() or private.credential_is_cmo()) then raise exception 'not allowed' using errcode = '42501'; end if;
+  select organisation_id, coalesce(is_test, false) into v_org, v_test from public.profiles where id = auth.uid();
+  if v_org is null then raise exception 'not allowed' using errcode = '42501'; end if;
+  return private.rota_coverage(v_org, v_test, now());
+end $$;
+revoke all on function public.rota_coverage_report() from public, anon;
+grant execute on function public.rota_coverage_report() to authenticated;
+
+-- 5. The sole-CMO exception gets a dated end ----------------------------------------------------------------------------------------
+create function private.sole_cmo_sunset_end() returns timestamptz
+language sql stable security definer set search_path = ''
+as $$ select ((sole_cmo_exception_sunset + 1)::timestamp at time zone 'Africa/Lagos') from public.rota_cover_policy $$;
+revoke all on function private.sole_cmo_sunset_end() from public, anon, authenticated;
+
+create function private.sole_cmo_exception_cap_to_sunset() returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+declare v_end timestamptz := private.sole_cmo_sunset_end();
+begin
+  if new.is_test or v_end is null then return new; end if;
+  if now() >= v_end then
+    raise exception 'the sole chief medical officer exception ended on its fixed date; add credentialed on-call cover instead' using errcode = '23514';
+  end if;
+  new.expires_at := least(new.expires_at, v_end);
+  return new;
+end $$;
+revoke all on function private.sole_cmo_exception_cap_to_sunset() from public, anon, authenticated;
+create trigger sole_cmo_exceptions_cap_to_sunset before insert on public.sole_cmo_exceptions
+  for each row execute function private.sole_cmo_exception_cap_to_sunset();
+
+-- live body (read 2026-10-27) plus the dated end
+create or replace function private.sole_cmo_exception_active(p_org uuid, p_code text, p_signer uuid) returns uuid
+language sql stable security definer set search_path = ''
+as $$
+  select e.id from public.sole_cmo_exceptions e
+  join public.clinical_staff cs on cs.profile_id = p_signer and cs.organisation_id = p_org
+  where e.organisation_id = p_org and e.competency_code = p_code and e.signed_by = p_signer
+    and e.revoked_at is null and e.expires_at > now()
+    and (e.is_test or private.sole_cmo_sunset_end() is null or now() < private.sole_cmo_sunset_end())
+    and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer'
+    and private.sole_cmo_count(p_org, cs.is_test) = 1
+  limit 1
+$$;
+revoke all on function private.sole_cmo_exception_active(uuid, text, uuid) from public, anon, authenticated;
+
+create function private.sole_cmo_sunset_sweep() returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  pol public.rota_cover_policy;
+  e record; o record;
+  v_closed integer := 0; v_warned integer := 0; v_cov jsonb; v_days integer;
+begin
+  select * into pol from public.rota_cover_policy;
+  if pol.sole_cmo_exception_sunset is null then return jsonb_build_object('skipped', 'no sunset date'); end if;
+  v_days := pol.sole_cmo_exception_sunset - (now() at time zone 'Africa/Lagos')::date;
+
+  for e in select id, organisation_id from public.sole_cmo_exceptions where revoked_at is null and not is_test and expires_at <= now() loop
+    update public.sole_cmo_exceptions set revoked_at = now(), revoke_reason = 'dated expiry reached (closed automatically)' where id = e.id;
+    insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+      values (e.organisation_id, null, 'sole_cmo_exception.expired', 'sole_cmo_exception', e.id, jsonb_build_object('sunset', pol.sole_cmo_exception_sunset));
+    v_closed := v_closed + 1;
+  end loop;
+
+  -- from 30 days before the date until cover meets the minimum: one incident per organisation that has (or had) a live exception
+  if v_days <= 30 then
+    for o in select distinct organisation_id from public.sole_cmo_exceptions where not is_test loop
+      begin
+        v_cov := private.rota_coverage(o.organisation_id, false, now());
+        if not coalesce((v_cov ->> 'meets_minimum')::boolean, false) then
+          perform private.ops_alert_incident('sole_cmo_sunset:' || o.organisation_id,
+            case when v_days < 0 then 'The sole chief medical officer on-call exception has ended and cover is below the minimum'
+                 else 'The sole chief medical officer on-call exception ends soon and cover is below the minimum' end,
+            format('The exception ends after %s (%s day(s) left). The rota has %s credentialed on-call clinician(s) of the %s required for the next %s days. Add credentialed cover, or decide in writing what happens next. A competency already granted is not removed automatically.',
+                   pol.sole_cmo_exception_sunset, v_days, v_cov ->> 'distinct_credentialed_on_rota', pol.required_clinicians, pol.window_days),
+            case when v_days <= 7 then 'sev2' else 'sev3' end::public.ops_incident_severity);
+          v_warned := v_warned + 1;
+        end if;
+      exception when others then
+        insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+          values (o.organisation_id, 'sole_cmo_sunset.sweep_error', 'organisation', o.organisation_id, jsonb_build_object('error', sqlerrm));
+      end;
+    end loop;
+  end if;
+  return jsonb_build_object('closed', v_closed, 'warned', v_warned, 'days_to_sunset', v_days);
+end $$;
+revoke all on function private.sole_cmo_sunset_sweep() from public, anon, authenticated;
+select cron.schedule('sole-cmo-sunset-sweep', '7 4 * * *', $$select private.sole_cmo_sunset_sweep();$$);
+
+-- 6. The final fallback: a phone call, logged ------------------------------------------------------------------------------------
+create table public.page_phone_fallbacks (
+  id                 uuid primary key default gen_random_uuid(),
+  organisation_id    uuid not null,
+  page_id            uuid,
+  incident_id        uuid,
+  called_by          uuid not null,
+  callee_profile_id  uuid,
+  callee_kind        text not null check (callee_kind in ('on_call_clinician', 'chief_medical_officer', 'clinical_lead', 'other')),
+  outcome            text not null check (char_length(btrim(outcome)) > 0),
+  note               text,
+  source             text not null default 'rpc' check (source in ('rpc', 'ops_desk')),
+  source_call_id     uuid unique,
+  called_at          timestamptz not null default now(),
+  is_test            boolean not null default false,
+  check (page_id is not null or incident_id is not null)
+);
+create index page_phone_fallbacks_page_idx on public.page_phone_fallbacks (page_id);
+create index page_phone_fallbacks_called_idx on public.page_phone_fallbacks (called_at desc);
+alter table public.page_phone_fallbacks enable row level security;
+create policy page_phone_fallbacks_read on public.page_phone_fallbacks for select to authenticated
+  using (organisation_id = (select organisation_id from public.profiles where id = auth.uid()) and (private.is_admin() or private.credential_is_cmo()));
+revoke all on public.page_phone_fallbacks from public, anon, authenticated;
+grant select on public.page_phone_fallbacks to authenticated;
+comment on table public.page_phone_fallbacks is 'W-03: the log of the final fallback phone call for a red page (in-console alarm, then a named person phones). Ids, kinds and outcomes only; no patient detail and no phone numbers.';
+
+create function public.log_page_phone_fallback(p_page uuid, p_callee uuid, p_callee_kind text, p_outcome text, p_note text default null) returns uuid
+language plpgsql security definer set search_path = ''
+as $$
+declare v_org uuid; v_pg public.pages%rowtype; v_id uuid;
+begin
+  select organisation_id into v_org from public.profiles where id = auth.uid();
+  if v_org is null or not (private.is_admin() or private.credential_is_cmo()
+       or exists (select 1 from public.ops_desk_contacts c where c.profile_id = auth.uid() and c.is_active)) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  select * into v_pg from public.pages where id = p_page and organisation_id = v_org;
+  if not found then raise exception 'page not found' using errcode = 'P0002'; end if;
+  insert into public.page_phone_fallbacks (organisation_id, page_id, called_by, callee_profile_id, callee_kind, outcome, note, is_test)
+    values (v_org, coalesce(v_pg.parent_page_id, v_pg.id), auth.uid(), p_callee, p_callee_kind, btrim(p_outcome), left(p_note, 500), v_pg.is_test)
+    returning id into v_id;
+  insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+    values (v_org, auth.uid(), 'page.phone_fallback_logged', 'page', coalesce(v_pg.parent_page_id, v_pg.id), jsonb_build_object('callee_kind', p_callee_kind, 'outcome', btrim(p_outcome)));
+  return v_id;
+end $$;
+revoke all on function public.log_page_phone_fallback(uuid, uuid, text, text, text) from public, anon;
+grant execute on function public.log_page_phone_fallback(uuid, uuid, text, text, text) to authenticated;
+
+-- every call recorded on the ops desk for an expired page is mirrored; a failure here must never stop the call from being logged
+create function private.mirror_ops_call_to_phone_fallbacks() returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+declare v_ref text; v_page uuid;
+begin
+  begin
+    select external_reference into v_ref from public.ops_incidents where id = new.incident_id;
+    if v_ref ~ '^page_expired:[0-9a-f-]{36}$' then v_page := substring(v_ref from 14)::uuid; end if;
+    insert into public.page_phone_fallbacks (organisation_id, page_id, incident_id, called_by, callee_profile_id, callee_kind, outcome, note, source, source_call_id, called_at, is_test)
+      values (new.organisation_id, v_page, new.incident_id, new.called_by, new.callee_profile_id,
+              case new.callee_kind when 'on_call_primary' then 'on_call_clinician' when 'on_call_backup' then 'on_call_clinician' when 'chief_medical_officer' then 'chief_medical_officer' else 'other' end,
+              coalesce(nullif(btrim(new.outcome), ''), 'unknown'), new.note, 'ops_desk', new.id, new.called_at, new.is_test)
+      on conflict (source_call_id) do nothing;
+  exception when others then
+    raise warning 'phone fallback mirror failed for call %: %', new.id, sqlerrm;
+  end;
+  return null;
+end $$;
+revoke all on function private.mirror_ops_call_to_phone_fallbacks() from public, anon, authenticated;
+create trigger ops_desk_call_log_mirror_phone_fallbacks after insert on public.ops_desk_call_log
+  for each row execute function private.mirror_ops_call_to_phone_fallbacks();
+
+-- 7. One read for /clinician/chain-health -----------------------------------------------------------------------------------------
+create function public.red_ladder_status() returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  c public.chain_canary_red_config;
+  v_org uuid; v_test boolean;
+  v_last record;
+begin
+  if not (private.is_admin() or private.credential_is_cmo()) then raise exception 'not allowed' using errcode = '42501'; end if;
+  select organisation_id, coalesce(is_test, false) into v_org, v_test from public.profiles where id = auth.uid();
+  select * into c from public.chain_canary_red_config;
+  select * into v_last from public.chain_canary_red_runs where judged_at is not null order by judged_at desc limit 1;
+  return jsonb_build_object(
+    'red_lane', jsonb_build_object(
+      'enabled', c.red_lane_enabled,
+      'detection_budget_seconds', c.inject_every_minutes * 60 + (((c.eval_after_seconds + 59) / 60) * 60),
+      'last_judged_at', v_last.judged_at, 'last_passed', v_last.passed, 'last_stage', v_last.failed_stage,
+      'runs_24h', (select count(*) from public.chain_canary_red_runs where judged_at > now() - interval '24 hours'),
+      'failures_24h', (select count(*) from public.chain_canary_red_runs where judged_at > now() - interval '24 hours' and not passed)),
+    'dead_letters', jsonb_build_object(
+      'paging_enabled', c.dead_letter_paging_enabled,
+      'subscribers', to_jsonb(c.red_class_subscribers),
+      'open', (select count(*) from public.red_dead_letter_pages where organisation_id = v_org and resolved_at is null and not is_test),
+      'unassigned', (select count(*) from public.red_dead_letter_pages where organisation_id = v_org and resolved_at is null and assigned_to is null and not is_test),
+      'paged_30d', (select count(*) from public.red_dead_letter_pages where organisation_id = v_org and paged_at > now() - interval '30 days' and not is_test)),
+    'rota', private.rota_coverage(v_org, v_test, now()),
+    'phone_fallbacks', jsonb_build_object(
+      'expired_pages_30d', (select count(*) from public.pages p where p.organisation_id = v_org and p.is_test = v_test and p.parent_page_id is null and p.expired_at > now() - interval '30 days'),
+      'expired_pages_without_call_30d', (select count(*) from public.pages p where p.organisation_id = v_org and p.is_test = v_test and p.parent_page_id is null
+                                           and p.expired_at > now() - interval '30 days'
+                                           and not exists (select 1 from public.page_phone_fallbacks f where f.page_id = p.id)),
+      'calls_30d', (select count(*) from public.page_phone_fallbacks where organisation_id = v_org and called_at > now() - interval '30 days' and not is_test),
+      'last_call_at', (select max(called_at) from public.page_phone_fallbacks where organisation_id = v_org and not is_test))
+  );
+end $$;
+revoke all on function public.red_ladder_status() from public, anon;
+grant execute on function public.red_ladder_status() to authenticated;
+
+-- 8. Assertions ----------------------------------------------------------------------------------------------------------------------
+do $$
+declare v_fn text;
+begin
+  foreach v_fn in array array[
+    'private.chain_canary_red_tick()', 'private.chain_canary_start_red()', 'private.chain_canary_evaluate_red(uuid)', 'private.chain_canary_evaluate_red_safe(uuid)',
+    'private.sweep_red_dead_letters()', 'private.rota_coverage(uuid, boolean, timestamptz)', 'private.sole_cmo_sunset_sweep()', 'private.sole_cmo_sunset_end()',
+    'private.sole_cmo_exception_active(uuid, text, uuid)', 'private.ops_desk_assign(uuid, text, uuid)', 'private.mirror_ops_call_to_phone_fallbacks()',
+    'public.rota_coverage_report()', 'public.log_page_phone_fallback(uuid, uuid, text, text, text)', 'public.red_ladder_status()'] loop
+    if has_function_privilege('anon', v_fn, 'EXECUTE') then raise exception 'W-03: anon can execute %', v_fn; end if;
+  end loop;
+  foreach v_fn in array array[
+    'private.chain_canary_red_tick()', 'private.chain_canary_start_red()', 'private.chain_canary_evaluate_red(uuid)', 'private.sweep_red_dead_letters()',
+    'private.rota_coverage(uuid, boolean, timestamptz)', 'private.sole_cmo_sunset_sweep()', 'private.ops_desk_assign(uuid, text, uuid)'] loop
+    if has_function_privilege('authenticated', v_fn, 'EXECUTE') then raise exception 'W-03: authenticated can execute %', v_fn; end if;
+  end loop;
+  if has_table_privilege('authenticated', 'public.chain_canary_red_runs', 'INSERT') or has_table_privilege('authenticated', 'public.page_phone_fallbacks', 'INSERT')
+     or has_table_privilege('authenticated', 'public.red_dead_letter_pages', 'UPDATE') or has_table_privilege('authenticated', 'public.chain_canary_red_config', 'UPDATE')
+     or has_table_privilege('anon', 'public.rota_cover_policy', 'SELECT') then
+    raise exception 'W-03: table grants are too wide';
+  end if;
+  if (select count(*) from cron.job where jobname = 'chain-canary-red' and schedule = '* * * * *') <> 1
+     or (select count(*) from cron.job where jobname = 'chain-canary' and schedule = '11,41 * * * *') <> 1
+     or (select count(*) from cron.job where jobname = 'red-dead-letter-sweep') <> 1 then
+    raise exception 'W-03: cron jobs are not as expected';
+  end if;
+  if (select red_lane_enabled or dead_letter_paging_enabled from public.chain_canary_red_config) then raise exception 'W-03: must ship OFF'; end if;
+  if pg_get_functiondef('private.ops_desk_assign(uuid, text, uuid)'::regprocedure) not like '%on_call_ops_desk_dead_letter%' then raise exception 'W-03: ops_desk_assign was not replaced'; end if;
+  if pg_get_functiondef('private.sole_cmo_exception_active(uuid, text, uuid)'::regprocedure) not like '%sole_cmo_sunset_end%' then raise exception 'W-03: sole_cmo_exception_active was not replaced'; end if;
+end $$;
