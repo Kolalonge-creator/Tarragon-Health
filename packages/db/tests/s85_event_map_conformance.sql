@@ -13,8 +13,12 @@
 --      of these gets a subscriber this proof fails until the registry (event-map.ts and the lists below) is updated.
 --   3. GAP events whose type does not exist yet: none since S85b. The loop is kept (empty) so a future gap with no type can be listed
 --      here and in REGISTRY-GAP-TYPES-NO-TYPE.
+--   3b. GLUCOSE specifically (review of S85b): observation.recorded is shared by blood pressure and glucose, so the type being wired proves nothing about
+--      glucose. A real glucose reading (manual source) inserted for a test patient must emit exactly one observation.recorded event with kind glucose and
+--      one delivery for the triage subscriber, through private.emit_glucose_observation_recorded and its trigger on vitals_readings. A blood pressure
+--      reading must emit none of the glucose kind.
 --   4. SABOTAGE: switch off the triage subscriber and the observation.recorded fan-out check must flip; add a subscriber to a gap
---      type and the gap check must flip. A proof that cannot fail is not a proof.
+--      type and the gap check must flip; drop the glucose trigger and the glucose emission check must flip. A proof that cannot fail is not a proof.
 --
 -- The two lines below are read by the Jest registry test so the TypeScript and SQL registries cannot drift apart.
 -- REGISTRY-GAP-TYPES-NO-SUBSCRIBER: dose.recorded, dose.missed, symptom_check.completed, lab_result.received, device.synced, pregnancy.recorded, questionnaire.completed
@@ -41,6 +45,29 @@ create function pg_temp.subs_of(p_type text) returns text language sql as $f$
   select coalesce(string_agg(subscriber_key, ',' order by subscriber_key), '') from public.event_subscribers where event_type = p_type and is_active
 $f$;
 
+create function pg_temp.mkpatient(p_org uuid, p_label text) returns uuid language plpgsql as $f$
+declare v uuid := gen_random_uuid();
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v, 's85-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}');
+  insert into public.profiles (id, organisation_id, role, full_name, date_of_birth, is_test)
+  values (v, p_org, 'patient'::public.user_role, 'S85 ' || p_label, (current_date - interval '50 years')::date, true)
+  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, date_of_birth = excluded.date_of_birth;
+  return v;
+end $f$;
+
+-- Emits (by inserting a real reading) and reports what the bus recorded for it: "<events>|<kind>|<triage deliveries>".
+create function pg_temp.glucose_emission(p_org uuid, p_patient uuid) returns text language plpgsql as $f$
+declare v_id uuid; v_events integer; v_kind text; v_deliveries integer;
+begin
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, glucose_mmol_l, glucose_context, source, taken_at)
+    values (p_org, p_patient, 'glucose', 6.1, 'fasting', 'manual', clock_timestamp() - interval '1 hour') returning id into v_id;
+  select count(*), max(payload ->> 'kind') into v_events, v_kind from public.domain_events where event_type = 'observation.recorded' and idempotency_key = 'glu:' || v_id;
+  select count(*) into v_deliveries from public.domain_event_deliveries d join public.domain_events e on e.id = d.event_id
+    where e.idempotency_key = 'glu:' || v_id and d.subscriber_key = 'triage.grade_observation';
+  return v_events || '|' || coalesce(v_kind, '') || '|' || v_deliveries;
+end $f$;
+
 create function pg_temp.emit_error(p_org uuid, p_type text) returns text language plpgsql as $f$
 begin
   perform private.emit_domain_event(p_type, p_org, '{}'::jsonb, 's85-gap-' || p_type);
@@ -63,6 +90,8 @@ declare
   v_gap_with_type text[] := array['dose.recorded', 'dose.missed', 'lab_result.received', 'symptom_check.completed', 'pregnancy.recorded', 'device.synced', 'questionnaire.completed'];
   v_gap_no_type text[] := array[]::text[];  -- empty since S85b: glucose, wearable and PHQ-9 were re-keyed to the real event types
   i integer;
+  v_pat uuid;
+  v_bp uuid;
 begin
   insert into public.organisations (name, type) values ('S85 event map proof', 'clinic') returning id into v_org;
 
@@ -78,6 +107,18 @@ begin
     insert into results values ('real', v_t || ': every subscriber names a handler key', 'true',
       (not exists (select 1 from public.event_subscribers where event_type = v_t and is_active and coalesce(handler_key, '') = ''))::text);
   end loop;
+
+  -- 1b. glucose has its own emitter: a real glucose reading emits one event of kind glucose and the triage subscriber gets its delivery
+  v_pat := pg_temp.mkpatient(v_org, 'glucose-patient');
+  insert into results values ('real', 'glucose: the emitter function exists', 'true', (to_regprocedure('private.emit_glucose_observation_recorded()') is not null)::text);
+  insert into results values ('real', 'glucose: its trigger is on vitals_readings and enabled', '1',
+    (select count(*)::text from pg_trigger t where t.tgrelid = 'public.vitals_readings'::regclass and t.tgname = 'vitals_readings_emit_glucose_observation'
+        and t.tgenabled <> 'D' and t.tgfoid = 'private.emit_glucose_observation_recorded()'::regprocedure));
+  insert into results values ('real', 'glucose: a glucose reading emits one observation.recorded event, kind glucose, and one triage delivery', '1|glucose|1', pg_temp.glucose_emission(v_org, v_pat));
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source, taken_at)
+    values (v_org, v_pat, 'blood_pressure', 118, 76, 'device', now() - interval '2 hours') returning id into v_bp;
+  insert into results values ('real', 'glucose: a blood pressure reading emits no event of kind glucose', '0',
+    (select count(*)::text from public.domain_events where event_type = 'observation.recorded' and idempotency_key = 'glu:' || v_bp));
 
   -- 2. gaps with a type: nothing listens
   foreach v_t in array v_gap_with_type loop
@@ -99,9 +140,14 @@ end $$;
 
 -- 4. SABOTAGE. Same checks, damaged database. Each must flip.
 do $$
-declare v_org uuid; v_n integer;
+declare v_org uuid; v_n integer; v_pat uuid;
 begin
   select id into v_org from public.organisations where name = 'S85 event map proof';
+  select p.id into v_pat from public.profiles p where p.organisation_id = v_org and p.full_name = 'S85 glucose-patient';
+  -- the glucose trigger dropped: a glucose reading must no longer emit, so the emission check flips (blood pressure's emitter is untouched)
+  drop trigger vitals_readings_emit_glucose_observation on public.vitals_readings;
+  insert into results values ('sabotaged', 'glucose still emits observation.recorded without its trigger', '1|glucose|1', pg_temp.glucose_emission(v_org, v_pat));
+
   update public.event_subscribers set is_active = false where subscriber_key = 'triage.grade_observation';
   select pg_temp.fan_out(v_org, 'observation.recorded', 's85-sabotage-obs') into v_n;
   insert into results values ('sabotaged', 'observation.recorded still has its triage delivery', '1', v_n::text);
@@ -121,8 +167,8 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 2 then
-    raise exception 'VACUOUS TEST: sabotage flipped % of 2 checks (the subscriber switch-off and the added gap subscriber must both be caught)', v_caught;
+  if v_caught < 3 then
+    raise exception 'VACUOUS TEST: sabotage flipped % of 3 checks (the subscriber switch-off, the added gap subscriber and the dropped glucose trigger must all be caught)', v_caught;
   end if;
 end $$;
 

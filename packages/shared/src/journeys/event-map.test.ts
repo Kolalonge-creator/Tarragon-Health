@@ -109,6 +109,40 @@ describe("sabotage: the conformance check notices damage (it does not pass vacuo
     expect(evaluateRow(byId("silence-detected"), noCoverage).missing).toContain("effect");
   });
 
+  it("review: the glucose row needs GLUCOSE evidence; blood pressure emitting the same event type no longer satisfies it", () => {
+    expect(byId("glucose-reading-logged").kindEvidence).toMatchObject({ kind: "glucose", emitterFunction: "emit_glucose_observation_recorded" });
+    // the glucose emitter function renamed away: the blood pressure emitter still emits observation.recorded, so the type check alone would pass
+    const renamed = without(src, {
+      migrations: src.migrations.map((m) => ({ ...m, text: m.text.replace(/private\.emit_glucose_observation_recorded/g, "private.emit_glucose_observation_recorded_x") })),
+    });
+    expect(emittedEventTypes(renamed).has("observation.recorded")).toBe(true);
+    expect(evaluateRow(byId("glucose-reading-logged"), renamed).missing).toContain("emitter");
+    expect(evaluateRow(byId("bp-reading-logged"), renamed).missing).toEqual([]);
+    expect(checkEventMap(renamed).map((f) => f.rowId)).toContain("glucose-reading-logged");
+  });
+
+  it("review: the glucose emitter must carry kind glucose, must emit observation.recorded, and must be attached by a trigger", () => {
+    const wrongKind = without(src, { migrations: src.migrations.map((m) => ({ ...m, text: m.text.replace(/'kind', 'glucose'/g, "'kind', 'water'") })) });
+    expect(evaluateRow(byId("glucose-reading-logged"), wrongKind).missing).toContain("emitter");
+    const wrongType = without(src, {
+      migrations: src.migrations.map((m) => ({
+        ...m,
+        text: m.name.includes("r2_glucose_triage_wiring") ? m.text.replace("'observation.recorded', new.organisation_id", "'observation.recorded_x', new.organisation_id") : m.text,
+      })),
+    });
+    expect(evaluateRow(byId("glucose-reading-logged"), wrongType).missing).toContain("emitter");
+    const noTrigger = without(src, {
+      migrations: src.migrations.map((m) => ({ ...m, text: m.text.replace(/execute function private\.emit_glucose_observation_recorded\(\)/g, "execute function private.something_else()") })),
+    });
+    expect(evaluateRow(byId("glucose-reading-logged"), noTrigger).missing).toContain("emitter");
+  });
+
+  it("review: the handler must route kind glucose, or the glucose effect is not reached", () => {
+    const noRoute = without(src, { sharedTs: src.sharedTs.replace(/payload\["kind"\] === "glucose"/g, 'payload["kind"] === "x"') });
+    expect(evaluateRow(byId("glucose-reading-logged"), noRoute).missing).toContain("effect");
+    expect(evaluateRow(byId("bp-reading-logged"), noRoute).missing).toEqual([]);
+  });
+
   it("S85b: no row names an event type that no migration seeds unless it says the type is missing (stale names stay out)", () => {
     const seeded = seededEventTypes(src);
     for (const r of EVENT_MAP) {
