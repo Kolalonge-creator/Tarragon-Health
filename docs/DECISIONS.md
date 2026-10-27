@@ -524,6 +524,20 @@ Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six 
 | **CMO** | The founder states that they are the CMO. Recording that as the founder's statement only; whether it satisfies the 2026-10-21 condition for an independent, non-founder CMO is for the founder to decide and record. An agent never signs a clinical rule: the baseline-labs proposal is drafted at `docs/design/baseline-labs-rule-proposal.md` for signing through the CMO sign-off hub. |
 | **Follow-up decisions, 2026-10-26 (same day, in chat).** | (1) A result uploaded for the bundle is read into platform values by AI in the background (OQ-BUNDLE-1): already provided by the existing governed reader AI-005, which drafts values for a doctor to file, so nothing new was built. (2) Membership Plus given without a checkout (admin grant, employer seat, older row) needs a collection state (OQ-PLUS-1): an admin grant asks for it, and a member with none chooses once. (3) A queued year's revenue schedule is not re-based when the year starts early (OQ-QUEUED-1 option (b), the founder said do what is best). |
 
+
+## Founder decisions, 2026-10-27 (S40 gate: D1, D2, D3 and the clinician SMS rule)
+
+Recorded in chat by the founder, who stated they are acting as CMO. These are founder-in-chat records, not a separate CMO signature; the CMO of record may re-sign.
+
+| Item | Decision |
+|---|---|
+| **D1 (180/120 symptom question).** | Superseded, no signature. `bp_care_triage` v7 was approved on 2026-10-27 at 00:09 UTC and is the rule in force (severe reading with a red-flag symptom is RED with guidance and an on-call page; a red-flag symptom below the severe line is AMBER urgent review within 240 minutes; recheck rules). The older D1 draft text and the draft versions v4 to v6 are retired from the gate and should be retired in the database. |
+| **D2 (fertile window).** | Exact wording approved: label "Not contraception. This cannot prevent pregnancy."; link "Learn about contraception and talk to your care team."; mode "Planning a pregnancy", off by default; banned phrases "safe days", "avoid pregnancy", "natural contraception". Recorded in `packages/i18n/src/clinical-wording.json` as `fertileWindow.signed` (by "Kola Longe, founder (acting as CMO)", on 2026-10-27, version 1). |
+| **D3 (SMS).** | Recorded as: SMS is for phone verification codes only (sent by Supabase phone auth). The emergency-contact exception was removed on 2026-10-16 and the clinician Termii SMS and voice paging code is deleted (OQ-727, branch `s87/scan-rules-sms-allowlist`). Clinician pages use in-app, push and email, then the in-console alarm and a named ops person phoning. Spec D-12 and OQ-05 are read to match. |
+| **S40 gate scope.** | Full: every open item closed, or deferred in writing with an owner and date. Not the narrow "BP journey carries one real patient" gate. |
+| **PITR.** | The founder will upgrade Supabase to Pro and enable point-in-time recovery, then a restore test is run and recorded. |
+
+
 ## Founder decision, 2026-10-27 (no independent CMO; Membership and Membership Plus switched on)
 
 | Decision | Chosen |
