@@ -14,6 +14,8 @@ const bytesToB64 = (b: ArrayBuffer): string => btoa(String.fromCharCode(...new U
 
 export async function verifySvix(secret: string, h: SvixHeaders, body: string, nowMs: number, toleranceSec = 300): Promise<boolean> {
   if (!h.id || !h.timestamp || !h.signature) return false;
+  // Svix sends whole seconds. Number() would also take "1e3" or " 12 ", so the shape is checked first.
+  if (!/^\d{1,12}$/.test(h.timestamp)) return false;
   const ts = Number(h.timestamp);
   if (!Number.isFinite(ts) || Math.abs(nowMs / 1000 - ts) > toleranceSec) return false;
   const key = await crypto.subtle.importKey("raw", b64ToBytes(secret.replace(/^whsec_/, "")), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);

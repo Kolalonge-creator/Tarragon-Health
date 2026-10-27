@@ -2129,6 +2129,31 @@ export const TEMPLATE_MAP: Record<
       text: "Your quick check-in is still waiting in the Tarragon Health app, whenever you are ready.",
     },
   }),
+  // S59c: neutral by design (INV-07). Nothing names a symptom, a result or a person; the follow-up questions are in the app after sign-in.
+  symptom_checkback_due: (payload) => ({
+    smsText: "Your care team would like to know how you are getting on. Open the app to answer. Tarragon Health",
+    pushUrl: `/patient/symptom-checkback/${String(payload.checkback_id ?? "")}`,
+    email: {
+      subject: "How are you getting on?",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your care team would like to know how you are getting on. Open the Tarragon Health app to answer.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p></div>`,
+      text: "Your care team would like to know how you are getting on. Open the Tarragon Health app to answer.",
+    },
+  }),
+  symptom_checkback_nudge: (payload) => ({
+    smsText: "Your quick follow-up is still waiting whenever you are ready. Tarragon Health",
+    pushUrl: `/patient/symptom-checkback/${String(payload.checkback_id ?? "")}`,
+    email: {
+      subject: "Your quick follow-up is still waiting",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your quick follow-up is still waiting in the Tarragon Health app, whenever you are ready.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p></div>`,
+      text: "Your quick follow-up is still waiting in the Tarragon Health app, whenever you are ready.",
+    },
+  }),
   consult_missed: (payload) => ({
     smsText:
       payload.credit_returned === true

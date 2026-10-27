@@ -16,7 +16,9 @@
     "./activity-gate": "./src/activity-gate.ts",
     "./fasting-safety": "./src/fasting-safety.ts",
     "./fasting-details": "./src/fasting-details.ts",
-    "./glucose-response": "./src/glucose-response.ts"
+    "./glucose-response": "./src/glucose-response.ts",
+    "./activity-readiness": "./src/activity-readiness.ts",
+    "./workout-plans": "./src/workout-plans.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

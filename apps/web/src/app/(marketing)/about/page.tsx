@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
+import { TestimonialsSection } from "../_components/testimonials-section";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { PhotoBannerHero } from "../_components/marketing-photo-banner-hero";
 import { TrustPillars } from "../_components/trust-pillars";
@@ -180,6 +181,9 @@ export default function AboutPage() {
           .
         </p>
       </Section>
+
+      {/* Real, consented, published quotes only; renders nothing until there are some. */}
+      <TestimonialsSection />
 
       <Section>
         <p className="mx-auto mb-8 max-w-xl text-center font-heading text-xl font-semibold text-charcoal-ink sm:text-2xl">

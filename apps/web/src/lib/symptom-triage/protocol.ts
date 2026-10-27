@@ -4,7 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/server";
 import {
-  parseTriageProtocolConfig,
+  liveProtocolConfig,
+  pathwayIsSelfOnly,
   type PresentingComplaintProtocol,
   type TriageProtocolConfig,
 } from "@tarragon/symptom-triage-engine";
@@ -26,16 +27,14 @@ export async function getActiveTriageProtocolConfig(client?: SupabaseClient<Data
   const supabase = client ?? (await createClient());
   const { data, error } = await supabase
     .from("triage_protocols")
-    .select("config, version")
+    .select("config, version, is_active, approved_at, approved_by")
     .eq("is_active", true)
     .maybeSingle();
 
   if (error || !data) return null;
 
-  const config = parseTriageProtocolConfig(data.config);
-  if (!config) return null;
-
-  return { config, protocolVersion: data.version };
+  // S59d: only an ACTIVE and SIGNED row is ever live. A draft pathway (S59 paediatric, S59d) can never come back from here.
+  return liveProtocolConfig(data);
 }
 
 /**
@@ -54,7 +53,10 @@ export async function isSymptomCheckerOpen(client?: SupabaseClient<Database>): P
 export async function getActivePathway(
   presentingComplaintKey: string,
   client?: SupabaseClient<Database>,
+  options: { forProxy?: boolean } = {},
 ): Promise<{ pathway: PresentingComplaintProtocol; protocolVersion: number } | null> {
+  // Pregnancy questions can only be answered by the person themselves: a direct call for someone else gets no pathway at all.
+  if (options.forProxy && pathwayIsSelfOnly(presentingComplaintKey)) return null;
   const active = await getActiveTriageProtocolConfig(client);
   if (!active) return null;
 

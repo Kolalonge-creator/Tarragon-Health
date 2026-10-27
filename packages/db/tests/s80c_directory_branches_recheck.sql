@@ -72,7 +72,7 @@ begin
   insert into public.user_permission_grants (profile_id, permission_key, granted_by) values
     (v_ops, 'ops.console.view', v_admin), (v_lab, 'partners.labs.manage', v_admin), (v_pharm, 'partners.pharmacies.manage', v_admin);
   insert into public.lab_providers (name, is_active, license_number, license_verified_at, license_expires_at, accreditation) values ('S80c4 Lab', true, 'S27H-PROOF-1', now(), now() + interval '1 year', 'ISO 15189') returning id into v_lp;
-  insert into public.lab_provider_locations (lab_provider_id, name, state, address) values (v_lp, 'Yaba branch', 'Lagos', '1 Test Road') returning id into v_ll;
+  insert into public.lab_provider_locations (lab_provider_id, name, state, town, address) values (v_lp, 'Yaba branch', 'Lagos', 'Yaba', '1 Test Road') returning id into v_ll;
   insert into public.pharmacy_partners (name, is_active, onboarding_status) values ('S80c4 Pharmacy', true, 'activated') returning id into v_pp;
   insert into public.pharmacy_partner_locations (pharmacy_partner_id, name, state) values (v_pp, 'Ikeja branch', 'Lagos') returning id into v_pl;
   perform pg_temp.setf('admin', v_admin); perform pg_temp.setf('ops', v_ops); perform pg_temp.setf('labmgr', v_lab);

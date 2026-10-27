@@ -70,6 +70,7 @@ export function useCreateLabPartnerFacility() {
       providerId: string;
       name: string;
       state: string;
+      town: string;
       address: string;
       contactPhone?: string;
       latitude?: number;
@@ -80,6 +81,7 @@ export function useCreateLabPartnerFacility() {
         lab_provider_id: input.providerId,
         name: input.name,
         state: input.state,
+        town: input.town,
         address: input.address,
         contact_phone: input.contactPhone || null,
         latitude: input.latitude ?? null,

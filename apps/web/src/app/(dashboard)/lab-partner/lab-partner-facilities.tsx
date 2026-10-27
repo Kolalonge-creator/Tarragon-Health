@@ -28,6 +28,7 @@ export function LabPartnerFacilities() {
 
   const [name, setName] = useState("");
   const [state, setState] = useState("");
+  const [town, setTown] = useState("");
   const [address, setAddress] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -53,11 +54,12 @@ export function LabPartnerFacilities() {
             e.preventDefault();
             setError(null);
             create.mutate(
-              { providerId, name, state, address, contactPhone },
+              { providerId, name, state, town, address, contactPhone },
               {
                 onSuccess: () => {
                   setName("");
                   setState("");
+                  setTown("");
                   setAddress("");
                   setContactPhone("");
                 },
@@ -73,6 +75,10 @@ export function LabPartnerFacilities() {
           <div className="space-y-1">
             <Label htmlFor="branch-state">State</Label>
             <Input id="branch-state" value={state} onChange={(e) => setState(e.target.value)} required />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="branch-town">Town</Label>
+            <Input id="branch-town" value={town} onChange={(e) => setTown(e.target.value)} required />
           </div>
           <div className="space-y-1 sm:col-span-2">
             <Label htmlFor="branch-address">Address</Label>

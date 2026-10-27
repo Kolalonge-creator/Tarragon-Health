@@ -5,6 +5,8 @@
 export interface NetState {
   isConnected: boolean | null;
   isInternetReachable: boolean | null;
+  /** NetInfo's connection type ("wifi", "cellular", ...). Absent in older callers. */
+  type?: string | null;
 }
 
 /** The radio claims a connection and the OS has not said the internet is unreachable. A claim, not proof: the probe is the proof. */

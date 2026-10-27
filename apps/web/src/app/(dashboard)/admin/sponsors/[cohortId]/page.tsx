@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { parseSponsorReport, withheldText } from "@/lib/sponsors/report";
+import { SelectionPanelSection } from "./selection-panel-section";
 
 export const metadata = { title: "Sponsor group figures" };
 export const dynamic = "force-dynamic";
@@ -68,6 +69,7 @@ export default async function SponsorReportPage({ params, searchParams }: { para
             <p>{r.definition}</p>
             <p>{r.limitations}</p>
           </section>
+          <SelectionPanelSection supabase={supabase} cohortId={cohortId} from={from.success ? from.data : undefined} to={to.success ? to.data : undefined} />
           <form method="post" action={`/admin/sponsors/${cohortId}/export`} className="flex flex-wrap items-end gap-3">
             <input type="hidden" name="from" value={from.success && from.data ? from.data : ""} />
             <input type="hidden" name="to" value={to.success && to.data ? to.data : ""} />
@@ -77,7 +79,7 @@ export default async function SponsorReportPage({ params, searchParams }: { para
           <section aria-labelledby="sp-pack" className="space-y-2">
             <h2 id="sp-pack" className="font-medium">Pilot and renewal pack</h2>
             <p className="text-sm">
-              The figures above, retention and engagement, and any clinical measure the Chief Medical Officer has signed, with a fixed note on how the figures were
+              The figures above, retention and engagement, and any clinical measure the Chief Medical Officer has signed, the cascade of care and the selection panel (once signed), with a fixed note on how the figures were
               gathered and what they cannot show. The pack is refused if any sentence claims that the programme caused a result. It is a description of the members
               who agreed, with no comparison group.
             </p>

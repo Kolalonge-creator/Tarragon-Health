@@ -1,6 +1,7 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
-import { requestSchema, summaryConfig, SECTION_KEYS } from "@/lib/doctor-summary-pdf/model";
+import { requestSchema, summaryConfig, SECTION_KEYS, usesPassportSections } from "@/lib/doctor-summary-pdf/model";
+import { isPassportOpen } from "@/lib/doctor-summary-pdf/passport-guard";
 import { loadDoctorSummary, recordSummaryGeneration } from "@/lib/doctor-summary-pdf/load";
 import { DoctorSummaryPdfDocument } from "@/lib/doctor-summary-pdf/document";
 
@@ -47,6 +48,11 @@ export async function POST(request: Request): Promise<Response> {
     sections: form.getAll("section").map(String).filter((s) => (SECTION_KEYS as readonly string[]).includes(s)),
   });
   if (!parsed.success) return new Response("Choose at least one section and a period.", { status: 400 });
+
+  // The result passport sections (blood sugar, lab results) exist only while their go-live guard is open. Nothing is read or audited before this.
+  if (usesPassportSections(parsed.data.sections) && !(await isPassportOpen(supabase))) {
+    return new Response("The result passport is not switched on yet.", { status: 404 });
+  }
 
   const audited = await recordSummaryGeneration(supabase, { id: user.id, organisationId: profile.organisation_id }, parsed.data);
   if (!audited.ok) return new Response("The summary could not be built just now. Please try again.", { status: 503 });

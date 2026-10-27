@@ -17,6 +17,7 @@ import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
+import { CalmToolButton } from "@/components/mental-health/calm-tool";
 
 const SCALE = [1, 2, 3, 4, 5] as const;
 
@@ -48,7 +49,7 @@ function ScaleQuestion({ name, prompt, low, high }: { name: string; prompt: stri
  * sleep, activity, each a 1-5 scale, plus an optional note. Deliberately
  * optional and never blocking, same framing as the mental-health screen.
  */
-export function WellbeingCheckinForm({ patientId }: { patientId: string }) {
+export function WellbeingCheckinForm({ patientId, calmToolEnabled = false }: { patientId: string; calmToolEnabled?: boolean }) {
   const [state, formAction, pending] = useActionState(logWellbeingCheckin, undefined);
   const queryClient = useQueryClient();
   const { data: preference } = useWellbeingCheckinPreference(patientId);
@@ -75,6 +76,8 @@ export function WellbeingCheckinForm({ patientId }: { patientId: string }) {
         <CardTitle className="text-base">How are you doing today?</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* The calm tool is one tap from the check-in too (S56b). Outside the form, so it never submits anything. */}
+        <CalmToolButton enabled={calmToolEnabled} />
         <form action={formAction} className="space-y-5">
           {WELLBEING_SCALE_QUESTIONS.map((q) => (
             <ScaleQuestion key={q.name} name={q.name} prompt={q.prompt} low={q.low} high={q.high} />

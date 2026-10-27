@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { Tables } from "@tarragon/shared";
+import { parsePendingCredit, parsePendingMilestone, type PendingCreditItem, type Tables } from "@tarragon/shared";
 
 /**
  * Wellness gamification (points, badges, challenges, classes). An engagement
@@ -127,6 +127,53 @@ export function useWellnessPointsLedger(patientId: string, limit = 20) {
     },
     enabled: !!patientId,
     refetchInterval: 60_000,
+  });
+}
+
+/** Actions the database has recorded whose points are not decided yet ("on their way"). Never throws on screen: a failure shows nothing. */
+export function useMyPointsPending(patientId: string) {
+  return useQuery({
+    queryKey: ["wellness-points-pending", patientId] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("my_points_pending");
+      if (error) return [] as PendingCreditItem[];
+      return parsePendingCredit(data);
+    },
+    enabled: !!patientId,
+    refetchInterval: 60_000,
+  });
+}
+
+/**
+ * The one calm milestone card, or null. The database returns nothing while an emergency is open, so the red flow always comes first.
+ * Asking stamps "seen" in the database; this query does not poll, so a card is fetched once per visit.
+ */
+export function useMyPendingMilestone(patientId: string) {
+  return useQuery({
+    queryKey: ["wellness-pending-milestone", patientId] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("my_pending_milestone");
+      if (error) return null;
+      return parsePendingMilestone(data);
+    },
+    enabled: !!patientId,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity,
+  });
+}
+
+export function useDismissMilestone(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("dismiss_milestone", { p_id: id });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.setQueryData(["wellness-pending-milestone", patientId], null),
   });
 }
 

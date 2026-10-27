@@ -80,6 +80,7 @@ export const CAREGIVER_PERMISSIONS = [
   "communicate_with_care_team",
   "manage_payments",
   "receive_alerts",
+  "log_readings",
 ] as const;
 
 export type CaregiverPermission = (typeof CAREGIVER_PERMISSIONS)[number];
@@ -98,6 +99,9 @@ export const CAREGIVER_PERMISSION_LABEL: Record<CaregiverPermission, string> = {
   communicate_with_care_team: "Message the care team",
   manage_payments: "Pay bills",
   receive_alerts: "Be told when something needs attention",
+  // Assisted entry: the helper types in a blood pressure or sugar reading for the person. Every such reading says who entered it, is limited
+  // per hour, and goes through the same checks as a reading the person typed themselves.
+  log_readings: "Enter blood pressure and sugar readings for you",
 };
 
 /**

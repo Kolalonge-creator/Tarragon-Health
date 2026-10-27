@@ -92,6 +92,9 @@ import {
   Siren,
   LifeBuoy,
   WifiOff,
+  CircleAlert,
+  CircleHelp,
+  OctagonAlert,
   Share2,
   type LucideIcon,
 } from "lucide-react";
@@ -248,3 +251,17 @@ export const APP_ICON = {
 } as const;
 
 export type AppIconName = keyof typeof APP_ICON;
+
+/**
+ * Design principle 2 (every number comes with a word, a colour and an icon): one icon per status level, so colour is never the only
+ * signal. Each level has a different SHAPE (tick, circle with mark, triangle, octagon, question mark), not just a different hue, so it
+ * still reads for a colour-blind person or on a washed-out low-end screen. Keys match the green/amber/red/emergency/unknown scale of
+ * `apps/web/src/lib/rules/*-classification.ts`.
+ */
+export const STATUS_ICON = {
+  green: CheckCircle2,
+  amber: CircleAlert,
+  red: AlertTriangle,
+  emergency: OctagonAlert,
+  unknown: CircleHelp,
+} as const;
