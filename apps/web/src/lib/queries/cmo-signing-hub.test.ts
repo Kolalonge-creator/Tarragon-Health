@@ -86,6 +86,11 @@ const readPendingBaselineLabsRuleSignoff = jest.fn<(...args: unknown[]) => Promi
 jest.mock("@/lib/queries/pending-baseline-labs-rule-signoff", () => ({
   readPendingBaselineLabsRuleSignoff: (...args: unknown[]) => readPendingBaselineLabsRuleSignoff(...args),
 }));
+const readBaselineLabsOverrideAttention = jest.fn<(...args: unknown[]) => Promise<{ overdue: number; used30d: number; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-baseline-labs-override-attention", () => ({
+  ...jest.requireActual<object>("@/lib/queries/pending-baseline-labs-override-attention"),
+  readBaselineLabsOverrideAttention: (...args: unknown[]) => readBaselineLabsOverrideAttention(...args),
+}));
 type SymptomUxPending = { waiting: { kind: string; version: number; rules: unknown }[]; failed: boolean };
 const readPendingSymptomUxSignoff = jest.fn<(...args: unknown[]) => Promise<SymptomUxPending>>();
 jest.mock("@/lib/queries/pending-symptom-ux-signoff", () => ({
@@ -181,6 +186,8 @@ beforeEach(() => {
   readPendingCascadeConfigSignoff.mockResolvedValue(noPostCheckin);
   readPendingBaselineLabsRuleSignoff.mockReset();
   readPendingBaselineLabsRuleSignoff.mockResolvedValue({ version: null, rule: null, failed: false });
+  readBaselineLabsOverrideAttention.mockReset();
+  readBaselineLabsOverrideAttention.mockResolvedValue({ overdue: 0, used30d: 0, failed: false });
   readPendingSymptomUxSignoff.mockReset();
   readPendingSymptomUxSignoff.mockResolvedValue(noSymptomUx);
   readPendingMentalWellbeingSignoff.mockReset();
@@ -347,6 +354,16 @@ describe("readCmoSigningHub: baseline labs prescribing rule", () => {
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the baseline labs prescribing rule");
+  });
+  it("shows overrides still waiting for their labs as attention, not as something to sign, and names a failed read", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readBaselineLabsOverrideAttention.mockResolvedValue({ overdue: 2, used30d: 4, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.attention.find((a) => a.key === "baseline_labs_override_followup")?.count).toBe(2);
+    expect(hub.items.find((i) => i.key === "baseline_labs_override_followup")).toBeUndefined();
+    readBaselineLabsOverrideAttention.mockResolvedValue({ overdue: 0, used30d: 0, failed: true });
+    const failed = await readCmoSigningHub(supabase);
+    expect(failed.failedSources).toContain("the baseline labs overrides");
   });
 });
 

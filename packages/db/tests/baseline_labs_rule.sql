@@ -103,6 +103,18 @@ begin
   perform pg_temp.back();
   return r;
 end $f$;
+create function pg_temp.attn(p_uid uuid) returns text language plpgsql as
+$f$ declare r text;
+begin
+  perform set_config('request.jwt.claims', json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', p_uid::text, true);
+  begin
+    r := (public.baseline_labs_override_attention() ->> 'overdue') || '/' || (public.baseline_labs_override_attention() ->> 'used_30d');
+  exception when others then r := sqlstate;
+  end;
+  perform pg_temp.back();
+  return r;
+end $f$;
 create function pg_temp.med_as(p_uid uuid, p_org uuid, p_pat uuid, p_drug text, p_dose text) returns text language plpgsql as
 $f$ declare r text;
 begin
@@ -128,7 +140,7 @@ end $f$;
 do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_smo uuid; v_pat uuid; v_dm uuid; v_ver integer;
-  v_m uuid; v_nh uuid; v_ou uuid; v_mid uuid; v_u1 uuid; v_u2 uuid; v_old uuid; v_fut uuid; v_nl uuid; v_stop uuid; v_ren uuid; v_fq uuid; v_fm uuid; v_fm2 uuid; v_txt text; v_n integer; v_missing text[];
+  v_m uuid; v_u3 uuid; v_nh uuid; v_ou uuid; v_mid uuid; v_u1 uuid; v_u2 uuid; v_old uuid; v_fut uuid; v_nl uuid; v_stop uuid; v_ren uuid; v_fq uuid; v_fm uuid; v_fm2 uuid; v_txt text; v_n integer; v_missing text[];
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -312,6 +324,22 @@ begin
   perform pg_temp.ovr(v_smo, v_ou, 'Gliclazide', 'labs_ordered_results_pending', 'Labs ordered this morning, results due tomorrow');
   update public.baseline_labs_overrides set valid_until = now() - interval '1 minute' where patient_id = v_ou and drug_name = 'Gliclazide';
   perform pg_temp.rec('j13 an override expires after its window', '23514', pg_temp.med_as(v_smo, v_org, v_ou, 'Gliclazide', '40 mg'));
+
+  -- k. the override covers the medicine however the prescriber words it, and never a different one
+  v_u3 := pg_temp.mkuser(v_org, 'wording', 'patient');
+  perform pg_temp.rec('k1 an override recorded as Insulin glargine', 'ok', pg_temp.ovr(v_smo, v_u3, 'Insulin glargine', 'emergency_treatment', 'Hyperglycaemic crisis, treatment cannot wait for results'));
+  perform pg_temp.rec('k2 covers the medicine written with a strength and different capitals', 'ok', pg_temp.med_as(v_smo, v_org, v_u3, 'INSULIN GLARGINE 100 units/ml', '10 units'));
+  perform pg_temp.rec('k3 an override recorded for metformin does not cover gliclazide', '23514', (
+    select case when pg_temp.ovr(v_smo, v_u3, 'Metformin', 'labs_ordered_results_pending', 'Labs ordered this morning, results due tomorrow') = 'ok'
+           then pg_temp.med_as(v_smo, v_org, v_u3, 'Gliclazide', '40 mg') end));
+
+  -- l. the CMO hub sees overrides whose labs are still outstanding after the follow-up time
+  perform pg_temp.rec('l1 a patient cannot read the attention counts', '42501', pg_temp.attn(v_ou));
+  perform pg_temp.rec('l2 nothing is overdue yet', 'true', (pg_temp.attn(v_cmo) like '0/%')::text);
+  update public.baseline_labs_overrides set labs_followup_due_at = now() - interval '1 hour' where patient_id = v_ou and used_at is not null;
+  perform pg_temp.rec('l3 a used override with no labs after 48 hours is counted', 'true', (pg_temp.attn(v_cmo) like '1/%')::text);
+  update public.medication_lab_monitoring set status = 'completed', completed_at = now() where patient_id = v_ou and monitoring_label = 'Baseline labs after a documented override';
+  perform pg_temp.rec('l4 once the labs are done it is no longer counted', 'true', (pg_temp.attn(v_cmo) like '0/%')::text);
 
   -- g. SABOTAGE: the trigger function emptied; the refusal must disappear
   create or replace function private.enforce_baseline_labs_rule() returns trigger language plpgsql security definer set search_path = '' as $s$ begin return new; end $s$;

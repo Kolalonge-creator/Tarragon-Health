@@ -8643,7 +8643,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
           "followup_hours": 48,
           "who": "A doctor with prescribing authority, for one patient and one medicine, used once by the same doctor."
         },
-        "bypass_note": "A doctor can record a documented override: one of three reasons plus a written reason of at least 20 characters. It is valid for 30 minutes, for that doctor, that patient and that medicine, and can be used once. Every override is written to the audit log, and it puts a pending 'baseline labs' item on the patient's lab monitoring list, due in 48 hours, so the labs are not forgotten."
+        "bypass_note": "A doctor can record a documented override: one of three reasons plus a written reason of at least 20 characters. It is valid for 30 minutes, for that doctor, that patient and that medicine (however the prescriber words the name, for example insulin glargine or insulin glargine 100 units/ml), and can be used once. Every override is written to the audit log, and it puts a pending 'baseline labs' item on the patient's lab monitoring list, due in 48 hours, so the labs are not forgotten. If the labs are still outstanding after 48 hours, the item appears on this hub as something needing your attention."
       },
       "informational": {
         "membership": "Membership includes doctor-ordered baseline labs at the member price, paid separately. This note changes nothing in the check."

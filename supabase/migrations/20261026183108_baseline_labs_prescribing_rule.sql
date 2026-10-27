@@ -254,7 +254,7 @@ insert into public.baseline_labs_rule_config (version, is_active, effective_from
       "followup_hours": 48,
       "who": "A doctor with prescribing authority, for one patient and one medicine, used once by the same doctor."
     },
-    "bypass_note": "A doctor can record a documented override: one of three reasons plus a written reason of at least 20 characters. It is valid for 30 minutes, for that doctor, that patient and that medicine, and can be used once. Every override is written to the audit log, and it puts a pending 'baseline labs' item on the patient's lab monitoring list, due in 48 hours, so the labs are not forgotten."
+    "bypass_note": "A doctor can record a documented override: one of three reasons plus a written reason of at least 20 characters. It is valid for 30 minutes, for that doctor, that patient and that medicine (however the prescriber words the name, for example insulin glargine or insulin glargine 100 units/ml), and can be used once. Every override is written to the audit log, and it puts a pending 'baseline labs' item on the patient's lab monitoring list, due in 48 hours, so the labs are not forgotten. If the labs are still outstanding after 48 hours, the item appears on this hub as something needing your attention."
   },
   "informational": {
     "membership": "Membership includes doctor-ordered baseline labs at the member price, paid separately. This note changes nothing in the check."
@@ -333,6 +333,19 @@ as $$
     select 1 from jsonb_array_elements_text(coalesce(p_cfg -> 'drug_classes' -> p_group -> 'name_patterns', '[]'::jsonb)) pat(p) where p_drug ilike pat.p)
 $$;
 revoke all on function private.baseline_labs_drug_in_group(jsonb, text, text) from public, anon, authenticated;
+
+-- Do these two drug names stand for the same covered medicine? True when they match the same name pattern of the rule, so an override recorded
+-- as 'Insulin glargine' also covers 'Insulin glargine 100 units/ml' as the prescriber writes it, and never a different medicine.
+create function private.baseline_labs_same_medicine(p_cfg jsonb, p_a text, p_b text) returns boolean
+language sql immutable set search_path = ''
+as $$
+  select p_cfg is not null and p_a is not null and p_b is not null and exists (
+    select 1
+      from jsonb_each(p_cfg -> 'drug_classes') g(grp, body)
+     cross join lateral jsonb_array_elements_text(case when jsonb_typeof(g.body) = 'object' then g.body -> 'name_patterns' else '[]'::jsonb end) pat(p)
+     where p_a ilike pat.p and p_b ilike pat.p)
+$$;
+revoke all on function private.baseline_labs_same_medicine(jsonb, text, text) from public, anon, authenticated;
 
 -- The labs still missing (display labels), in the order they are required. Empty array = nothing missing OR no signed rule OR the drug is out of scope.
 create function private.baseline_labs_missing(p_patient uuid, p_drug text) returns text[]
@@ -478,7 +491,7 @@ begin
     -- the one way past: this doctor's own unused, unexpired documented override for this patient and medicine
     select id into v_ovr from public.baseline_labs_overrides
      where prescriber_id = (select auth.uid()) and patient_id = new.patient_id and used_at is null and valid_until >= now()
-       and lower(btrim(drug_name)) = lower(btrim(new.drug_name))
+       and private.baseline_labs_same_medicine(v_cfg, drug_name, new.drug_name)
      order by created_at desc limit 1 for update;
     if v_ovr is not null then
       update public.baseline_labs_overrides set used_at = now(), used_medication_id = new.id where id = v_ovr;
@@ -532,6 +545,25 @@ end $$;
 revoke all on function public.record_baseline_labs_override(uuid, text, text, text) from public, anon, authenticated;
 grant execute on function public.record_baseline_labs_override(uuid, text, text, text) to authenticated;
 
+-- For the CMO hub: overrides whose labs are still outstanding after the follow-up time, and how many overrides were used lately. CMO or admin only.
+create function public.baseline_labs_override_attention() returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  perform private.uid_or_deny();
+  if not (private.credential_is_cmo() or private.is_admin()) then
+    raise exception 'only the chief medical officer or an admin can read this' using errcode = '42501';
+  end if;
+  return jsonb_build_object(
+    'overdue', (select count(*) from public.baseline_labs_overrides o
+                 where o.used_at is not null and o.labs_followup_due_at < now()
+                   and exists (select 1 from public.medication_lab_monitoring m
+                                where m.medication_id = o.used_medication_id and m.monitoring_label = 'Baseline labs after a documented override' and m.status = 'pending')),
+    'used_30d', (select count(*) from public.baseline_labs_overrides o where o.used_at >= now() - interval '30 days'));
+end $$;
+revoke all on function public.baseline_labs_override_attention() from public, anon, authenticated;
+grant execute on function public.baseline_labs_override_attention() to authenticated;
+
 -- After a medicine is started or raised under an override, put the missing labs on the patient's existing lab monitoring list, due when the rule says.
 create function private.baseline_labs_followup() returns trigger
 language plpgsql security definer set search_path = ''
@@ -559,7 +591,8 @@ begin
      or has_function_privilege('authenticated', 'private.baseline_labs_missing(uuid,text)', 'EXECUTE') then
     raise exception 'baseline labs rule: a function is reachable by anon or authenticated';
   end if;
-  if has_function_privilege('anon', 'public.record_baseline_labs_override(uuid,text,text,text)', 'EXECUTE')
+  if has_function_privilege('anon', 'public.baseline_labs_override_attention()', 'EXECUTE')
+     or has_function_privilege('anon', 'public.record_baseline_labs_override(uuid,text,text,text)', 'EXECUTE')
      or has_table_privilege('authenticated', 'public.baseline_labs_overrides', 'INSERT,UPDATE,DELETE')
      or has_table_privilege('anon', 'public.baseline_labs_overrides', 'SELECT') then
     raise exception 'baseline labs rule: the override function or table is reachable by the wrong role';
