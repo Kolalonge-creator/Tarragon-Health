@@ -292,6 +292,16 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/patient/supporting",
     };
   }
+  if (n.template === "sponsor_bereavement_correction") {
+    // From public.approve_death_record_reversal() (W-21). One per sponsor who had already been sent the earlier note. The first name arrives
+    // only when the sponsor already had the person in an active link; otherwise "someone you support". WORDING PENDING CMO SIGN-OFF.
+    const first = typeof payload.first_name === "string" ? payload.first_name.trim() : "";
+    const who = first.length > 0 ? first : "someone you support";
+    return {
+      text: `A note we sent earlier about ${who} was sent in error. They are well. We are sorry.`,
+      href: "/patient/supporting",
+    };
+  }
   if (n.template === "sponsor_monthly_report") {
     // From private.queue_sponsor_monthly_reports(). The standing monthly
     // summary to whoever is paying for someone else's care: what they have
