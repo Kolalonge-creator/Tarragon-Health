@@ -10,8 +10,11 @@
  *    OS version, a coarse device brand, and a random install id. Nothing else is ever attached. No user, no request,
  *    no breadcrumbs, no extra, no component stack.
  *  - never throws, never awaits on the caller's path: `capture` returns void and the send is fire and forget with a timeout.
- *  - never writes to disk: there is no retry queue. A report that fails to send is dropped.
- *  - rate limited and de-duplicated per process, so a render loop cannot flood Sentry or the radio.
+ *  - never writes to disk: there is no retry queue. A report that fails to send is dropped. (A fatal is the one case that
+ *    waits, briefly: `handleGlobalError` holds the previous handler for a bounded grace so the send can leave the radio
+ *    before the OS kills the process. No file, no marker, nothing persisted.)
+ *  - rate limited and de-duplicated per process, so a render loop cannot flood Sentry or the radio. Fatals have their own
+ *    budget and are de-duplicated only against other fatals, so a burst of non-fatal noise can never swallow a crash.
  */
 import { scrubErrorType, scrubMessage, scrubStack, type ScrubbedFrame } from "./crash-scrub";
 
@@ -32,8 +35,10 @@ export interface CrashReporterOptions {
   context: CrashContext;
   fetchImpl?: typeof fetch;
   now?: () => number;
-  /** Events allowed per process. */
+  /** Non-fatal events allowed per process. Fatals have their own budget (maxFatals) and never consume this one. */
   maxEvents?: number;
+  /** Fatal events allowed per process. They do not count against the non-fatal cap. */
+  maxFatals?: number;
   /** Minimum gap between two sends, ms. */
   minGapMs?: number;
   timeoutMs?: number;
@@ -44,6 +49,11 @@ export type CaptureSource = "global_handler" | "promise_rejection" | "error_boun
 export interface CrashReporter {
   readonly enabled: boolean;
   capture(error: unknown, source: CaptureSource, fatal?: boolean): void;
+  /**
+   * Same as `capture`, but the send starts synchronously and the returned promise settles when the request has finished,
+   * failed or timed out. It never rejects. Used for fatals so the caller can wait a bounded time before the process dies.
+   */
+  captureAndFlush(error: unknown, source: CaptureSource, fatal?: boolean): Promise<void>;
 }
 
 export interface ParsedDsn {
@@ -130,7 +140,7 @@ export function buildCrashEvent(
   };
 }
 
-const NOOP: CrashReporter = { enabled: false, capture: () => {} };
+const NOOP: CrashReporter = { enabled: false, capture: () => {}, captureAndFlush: () => Promise.resolve() };
 
 export function createCrashReporter(opts: CrashReporterOptions): CrashReporter {
   const parsed = parseDsn(opts.dsn);
@@ -139,49 +149,195 @@ export function createCrashReporter(opts: CrashReporterOptions): CrashReporter {
   if (!fetchImpl) return NOOP;
   const now = opts.now ?? (() => Date.now());
   const maxEvents = opts.maxEvents ?? 10;
+  const maxFatals = opts.maxFatals ?? 5;
   const minGapMs = opts.minGapMs ?? 5_000;
   const timeoutMs = opts.timeoutMs ?? 3_000;
   const seen = new Set<string>();
   let sent = 0;
+  let sentFatal = 0;
   let lastSendAt = -Infinity;
+
+  /** Starts the send synchronously (when the event is accepted) and returns a promise that settles, never rejects. */
+  function send(error: unknown, source: CaptureSource, fatal: boolean): Promise<void> {
+    try {
+      const t = now();
+      const event = buildCrashEvent(error, source, fatal, opts.context, t);
+      const ex = event.exception.values[0]!;
+      const top = ex.stacktrace.frames[ex.stacktrace.frames.length - 1];
+      // The level is part of the fingerprint: a fatal is never dropped because a non-fatal looked the same.
+      const fingerprint = `${event.level}|${ex.type}|${ex.value}|${top ? `${top.filename}:${top.lineno}` : ""}`;
+      if (seen.has(fingerprint)) return Promise.resolve();
+      if (fatal) {
+        // Fatals bypass the non-fatal cap and the gap; they have a small budget of their own.
+        if (sentFatal >= maxFatals) return Promise.resolve();
+        sentFatal += 1;
+      } else {
+        if (sent >= maxEvents) return Promise.resolve();
+        if (t - lastSendAt < minGapMs) return Promise.resolve();
+        sent += 1;
+        lastSendAt = t;
+      }
+      seen.add(fingerprint);
+      const body =
+        JSON.stringify({ event_id: event.event_id, sent_at: new Date(t).toISOString(), dsn: parsed.dsn }) + "\n" +
+        JSON.stringify({ type: "event" }) + "\n" +
+        JSON.stringify(event);
+      const controller = typeof AbortController === "function" ? new AbortController() : null;
+      const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+      let request: Promise<unknown>;
+      try {
+        // Called synchronously: for a fatal there is no time for a deferred microtask to matter, but it must start now.
+        request = Promise.resolve(
+          fetchImpl(`${parsed.endpoint}?sentry_key=${parsed.publicKey}&sentry_version=7`, {
+            method: "POST",
+            headers: { "content-type": "application/x-sentry-envelope" },
+            body,
+            signal: controller?.signal,
+          }),
+        );
+      } catch {
+        request = Promise.resolve();
+      }
+      return request
+        .then(
+          () => undefined,
+          () => undefined,
+        )
+        .then(() => {
+          if (timer) clearTimeout(timer);
+        });
+    } catch {
+      // A reporter that fails must be invisible.
+      return Promise.resolve();
+    }
+  }
 
   return {
     enabled: true,
     capture(error, source, fatal = false) {
+      void send(error, source, fatal);
+    },
+    captureAndFlush(error, source, fatal = false) {
+      return send(error, source, fatal);
+    },
+  };
+}
+
+export interface GlobalErrorOptions {
+  /** Longest the previous handler is held back for a fatal so the report can leave the device. */
+  graceMs?: number;
+  setTimeoutImpl?: (fn: () => void, ms: number) => unknown;
+  clearTimeoutImpl?: (id: unknown) => void;
+}
+
+/** Default grace before a fatal error is handed to the previous handler (and so to the OS crash). */
+export const FATAL_GRACE_MS = 800;
+
+/**
+ * The ErrorUtils global-handler body. A non-fatal is captured and the previous handler is called straight away. For a
+ * fatal the send starts synchronously, and the previous handler is held back until the request settles or `graceMs`
+ * passes, whichever is first, because the previous handler is what lets native kill the process. The previous handler is
+ * always called exactly once. With a dormant reporter nothing is delayed.
+ */
+export function handleGlobalError(
+  reporter: CrashReporter | null,
+  error: unknown,
+  fatal: boolean | undefined,
+  previous: ((e: unknown, fatal?: boolean) => void) | undefined,
+  describe: (e: unknown) => unknown,
+  opts: GlobalErrorOptions = {},
+): void {
+  const isFatal = fatal === true;
+  if (!reporter || !reporter.enabled) {
+    previous?.(error, fatal);
+    return;
+  }
+  if (!isFatal) {
+    try {
+      reporter.capture(describe(error), "global_handler", false);
+    } catch {
+      // never
+    }
+    previous?.(error, fatal);
+    return;
+  }
+  const setT = opts.setTimeoutImpl ?? ((fn: () => void, ms: number) => setTimeout(fn, ms));
+  const clearT = opts.clearTimeoutImpl ?? ((id: unknown) => clearTimeout(id as ReturnType<typeof setTimeout>));
+  let called = false;
+  let timer: unknown = null;
+  const proceed = () => {
+    if (called) return;
+    called = true;
+    if (timer !== null) clearT(timer);
+    previous?.(error, fatal);
+  };
+  let flushed: Promise<void>;
+  try {
+    flushed = reporter.captureAndFlush(describe(error), "global_handler", true);
+  } catch {
+    flushed = Promise.resolve();
+  }
+  timer = setT(proceed, opts.graceMs ?? FATAL_GRACE_MS);
+  void flushed.then(proceed, proceed);
+}
+
+export interface RejectionTrackerOptions {
+  capture: (error: unknown) => void;
+  /** React Native's own tracker (dev only: LogBox warnings). Always called so its behaviour is unchanged. */
+  previous?: { onUnhandled?: (id: number, error: unknown) => void; onHandled?: (id: number) => void } | null;
+  /** How long a rejection waits for a late handler before it is reported. */
+  settleMs?: number;
+  setTimeoutImpl?: (fn: () => void, ms: number) => unknown;
+  clearTimeoutImpl?: (id: unknown) => void;
+}
+
+/**
+ * Hermes calls onUnhandled when a rejected promise has no handler yet and onHandled when one is attached later. A
+ * rejection is reported only if no handler shows up within `settleMs`, so a handled rejection is not reported. The
+ * previous tracker (RN installs one in development) is chained, not replaced.
+ */
+export function createRejectionTracker(opts: RejectionTrackerOptions): {
+  allRejections: true;
+  onUnhandled: (id: number, error: unknown) => void;
+  onHandled: (id: number) => void;
+} {
+  const setT = opts.setTimeoutImpl ?? ((fn: () => void, ms: number) => setTimeout(fn, ms));
+  const clearT = opts.clearTimeoutImpl ?? ((id: unknown) => clearTimeout(id as ReturnType<typeof setTimeout>));
+  const settleMs = opts.settleMs ?? 2_000;
+  const pending = new Map<number, unknown>();
+  return {
+    allRejections: true,
+    onUnhandled(id, error) {
       try {
-        const t = now();
-        const event = buildCrashEvent(error, source, fatal, opts.context, t);
-        const ex = event.exception.values[0];
-        const top = ex.stacktrace.frames[ex.stacktrace.frames.length - 1];
-        const fingerprint = `${ex.type}|${ex.value}|${top ? `${top.filename}:${top.lineno}` : ""}`;
-        // A fatal is never dropped for the gap (the process is about to die) but is still de-duplicated and capped.
-        if (seen.has(fingerprint)) return;
-        if (sent >= maxEvents) return;
-        if (!fatal && t - lastSendAt < minGapMs) return;
-        seen.add(fingerprint);
-        sent += 1;
-        lastSendAt = t;
-        const body =
-          JSON.stringify({ event_id: event.event_id, sent_at: new Date(t).toISOString(), dsn: parsed.dsn }) + "\n" +
-          JSON.stringify({ type: "event" }) + "\n" +
-          JSON.stringify(event);
-        const controller = typeof AbortController === "function" ? new AbortController() : null;
-        const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
-        Promise.resolve()
-          .then(() =>
-            fetchImpl(`${parsed.endpoint}?sentry_key=${parsed.publicKey}&sentry_version=7`, {
-              method: "POST",
-              headers: { "content-type": "application/x-sentry-envelope" },
-              body,
-              signal: controller?.signal,
-            }),
-          )
-          .catch(() => {})
-          .finally(() => {
-            if (timer) clearTimeout(timer);
-          });
+        opts.previous?.onUnhandled?.(id, error);
       } catch {
-        // A reporter that fails must be invisible.
+        // never
+      }
+      try {
+        pending.set(
+          id,
+          setT(() => {
+            pending.delete(id);
+            try {
+              opts.capture(error);
+            } catch {
+              // never
+            }
+          }, settleMs),
+        );
+      } catch {
+        // never
+      }
+    },
+    onHandled(id) {
+      try {
+        opts.previous?.onHandled?.(id);
+      } catch {
+        // never
+      }
+      if (pending.has(id)) {
+        clearT(pending.get(id));
+        pending.delete(id);
       }
     },
   };
