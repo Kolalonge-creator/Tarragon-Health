@@ -8524,4 +8524,40 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-23",
     source: "docs/design/WP3.md; WHO HEARTS / DHIS2 cascade terms; HEDIS CBP 140/90. Unsigned until the CMO signs.",
   },
+  {
+    key: "support.sla_targets",
+    // S80d (Module 25.4): the support ticket clock. A ticket's first reply and its resolution are each due a number of minutes (hours for resolution)
+    // after it was logged, by priority. A ticket flagged clinical has its own, shorter first-reply target. warn_fraction is how much of the target may
+    // pass before the queue shows "due soon". These are PROPOSED operations targets, not a promise to patients; the founder confirms them. The clock
+    // only ever FLAGS a ticket on the staff queue: it never closes, reassigns or messages anyone.
+    value: {
+      first_response_minutes: { critical: 30, high: 120, normal: 480, low: 1440 },
+      resolution_hours: { critical: 8, high: 24, normal: 72, low: 168 },
+      clinical_first_response_minutes: 60,
+      warn_fraction: 0.75,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S80.md section 25.4 (SLA clock). Unconfirmed: no support SLA has been agreed with the founder yet.",
+  },
+  {
+    key: "ai.monitoring_rules",
+    // S80d (Module 25.10): the monthly AI review sample. The database holds it as `ai_monitoring_config` v1 (UNSIGNED, INACTIVE until the Chief Medical
+    // Officer signs on the sign-off hub; the monthly draw does nothing before). A test compares this value with the migration seed, and checks that
+    // sample_rate equals `ai.review_sample_rate`. always_sample lists the groups that are always drawn: conversations that touched an emergency or
+    // doctor-escalation grade, answers a patient reported as wrong, and cost spikes (tokens at least min_tokens and more than factor times the
+    // system's median for the month). No model price is held here; prices are entered by finance in ai_model_prices.
+    value: {
+      sample_rate: 0.05,
+      always_sample: ["emergency_touching", "patient_reported", "cost_spike"],
+      cost_spike: { factor: 3, min_tokens: 4000 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/plans/S80-S85-cmo-decision-pack.md decision 6; ai_monitoring_config version 1 (inactive). Unsigned until the CMO signs.",
+  },
 ];
