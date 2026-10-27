@@ -647,3 +647,11 @@ jobs:
       # quietly join the pile that never runs.
       - name: Run database proof scripts
         run: ./scripts/run-db-proofs.sh
+
+      # W-36: the anon-reads-zero-rows scan on the freshly replayed database. rls_shape_gate.sql already runs above through
+      # ci.manifest. This step is report-only (continue-on-error) for its first runs: the local stack carries Supabase-managed
+      # objects the live project does not, and the public-by-design list was written from live. Drop continue-on-error once it
+      # has passed on a few PRs. The same scan is a blocking job against the live project in release-integrity.yml.
+      - name: Anon reads zero rows (replay database, report-only)
+        continue-on-error: true
+        run: node scripts/release-integrity/check-anon-zero-rows.mjs --local

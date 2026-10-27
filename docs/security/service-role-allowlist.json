@@ -1,7 +1,11 @@
 {
  "generated": "2026-10-27",
- "note": "Baseline of every non-test file that uses the service-role key. Adding a file needs a reviewed reason; removing one is always fine.",
+ "note": "Baseline of every non-test file that uses the service-role key (files), and every file that imports a helper module that does (wrapper_callers). Adding a file needs a reviewed reason; removing one is always fine.",
  "files": [
+  {
+   "file": ".github/workflows/ci.yml",
+   "category": "CI workflow secret reference"
+  },
   {
    "file": "apps/web/src/app/(dashboard)/admin/account-recovery/actions.ts",
    "category": "app server code (baselined 2026-10-27; owner to justify)"
@@ -818,5 +822,33 @@
    "file": "supabase/functions/zoom-webhook/index.ts",
    "category": "edge function (runs with no user session)"
   }
+ ],
+ "wrappers": [
+  "apps/web/src/lib/supabase/service-role.ts",
+  "apps/web/src/lib/supabase/sign-storage-paths.ts",
+  "apps/web/src/lib/care-messages/attachments.ts",
+  "apps/web/src/lib/imaging-reports/documents.ts",
+  "apps/web/src/lib/referrals/outcome-documents.ts",
+  "apps/web/src/lib/prescriptions/signature.ts",
+  "apps/web/src/lib/auth/signup-gate.ts",
+  "apps/web/src/lib/protocol-api/check-quota.ts",
+  "apps/web/src/lib/protocol-api/log-usage.ts",
+  "apps/web/src/lib/notifications/queue-risk-signal-attention.ts"
+ ],
+ "wrapper_callers": [
+  "apps/web/src/app/(dashboard)/clinician/outside-records/[documentId]/page.tsx",
+  "apps/web/src/app/(dashboard)/clinician/referrals/[referralId]/page.tsx",
+  "apps/web/src/app/(dashboard)/clinician/vaccinations/page.tsx",
+  "apps/web/src/app/(dashboard)/patient/imaging-report-documents.tsx",
+  "apps/web/src/app/api/care-messages/attachments/[attachmentId]/route.ts",
+  "apps/web/src/app/api/protocol-api/v1/bp-triage/route.ts",
+  "apps/web/src/app/api/protocol-api/v1/cv-risk/route.ts",
+  "apps/web/src/app/api/protocol-api/v1/diabetes-risk/route.ts",
+  "apps/web/src/app/signup/actions.ts",
+  "apps/web/src/app/signup/page.tsx",
+  "apps/web/src/lib/ecg-reports/documents.ts",
+  "apps/web/src/lib/imaging-reports/extraction-actions.ts",
+  "apps/web/src/lib/lab-results/documents.ts",
+  "apps/web/src/lib/prescriptions/load-prescription-pdf-data.ts"
  ]
 }

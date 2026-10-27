@@ -5,7 +5,7 @@
 // Modes:
 //   (default)  diff live against the committed baseline. Prints added / removed / changed policies.
 //              Exits 1 only when the baseline has "enforce": true. Otherwise report only, exit 0.
-//   --write    write the current live snapshot to the baseline file ("enforce": false). A human reviews and commits it.
+//   --write    write the current live snapshot to the baseline file (keeping an existing "enforce" value; a new baseline starts at false). A human reviews and commits it.
 //   --out FILE also write the current snapshot to FILE (the nightly job uploads it as an artifact).
 //
 // The baseline is empty until someone runs --write: nothing here pretends a baseline exists.
@@ -44,6 +44,19 @@ export function diff(live, base) {
   };
 }
 
+/** The snapshot to write. An existing baseline's `enforce` value is kept: refreshing the policies must not silently switch enforcement off. */
+export function buildSnapshot(live, existing, generated) {
+  return JSON.stringify({ enforce: existing?.enforce === true, generated, policies: live }) + "\n";
+}
+
+function readExisting(path) {
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
 function main() {
   if (!process.env.SUPABASE_ACCESS_TOKEN) {
     console.error("SUPABASE_ACCESS_TOKEN is not set: cannot read pg_policies.");
@@ -61,10 +74,10 @@ function main() {
     rmSync(dir, { recursive: true, force: true });
   }
   const args = process.argv.slice(2);
-  const snapshot = JSON.stringify({ enforce: false, generated: new Date().toISOString().slice(0, 10), policies: live }, null, 0) + "\n";
+  const path = join(root, BASELINE);
+  const snapshot = buildSnapshot(live, readExisting(path), new Date().toISOString().slice(0, 10));
   const out = args.indexOf("--out");
   if (out !== -1) writeFileSync(args[out + 1], snapshot);
-  const path = join(root, BASELINE);
   if (args.includes("--write")) {
     writeFileSync(path, snapshot);
     console.log(`Wrote ${live.length} policies to ${BASELINE}.`);
