@@ -2022,7 +2022,7 @@ export const en = {
   "circle.invite.share_text": "I would like you to join my Care Circle on Tarragon Health: {link}",
   "circle.invite.done": "Done",
   "circle.perm.adherence_summary": "A weekly summary of whether I am taking my medicines",
-  "circle.perm.weekly_bp_trend": "My weekly blood pressure trend (averages only, never single readings)",
+  "circle.perm.weekly_bp_trend": "My weekly blood pressure averages (the number, not single readings). Shown only if I choose.",
   "circle.perm.appointments": "My next appointment and any I missed",
   "circle.perm.red_alerts": "A message asking them to check on me when my care team sees something urgent",
   "circle.perm.pay_for_care": "Paying for my care (they see no health information from paying)",

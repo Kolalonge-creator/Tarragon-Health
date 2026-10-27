@@ -50,6 +50,8 @@ declare
   v_rep jsonb; v_view jsonb; v_n integer; i integer; v_txt text; v_ok boolean; v_ok2 boolean; v_ok3 boolean; k integer;
 begin
   v_now3 := pg_temp.at_day(v_first + 2);
+  -- W-11: versus_target and direction are returned only with sponsor_outcome_surfaces on (off by default); this proof checks the shape with it on
+  update public.platform_modules set is_enabled = true where key = 'sponsor_outcome_surfaces';
   h := pg_temp.mkuser('patient', 'S38d Patient');
   s1 := pg_temp.mkuser('patient', 'S38d Supporter BP');   s2 := pg_temp.mkuser('patient', 'S38d Supporter Adherence');
   s3 := pg_temp.mkuser('patient', 'S38d Supporter Appts'); s4 := pg_temp.mkuser('patient', 'S38d Supporter Both');
