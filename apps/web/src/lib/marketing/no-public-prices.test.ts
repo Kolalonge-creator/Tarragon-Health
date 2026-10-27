@@ -1,14 +1,15 @@
 /**
- * The platform has two plans, Free and Membership (decision 2026-10-13). The marketing site and everything else public must quote ONE
- * naira price: the Membership price, read from versioned config. This scans the source of every marketing route and the marketing
- * library and fails on any other naira amount, on a naira template outside the files that read the Membership price from config, and
- * on any import of the per-service price machinery that used to exist.
+ * Public price rule (replaces the TT-11 "one price" premise, which the 2026-10-21 three-tier decision superseded; see docs/DECISIONS.md).
+ * The marketing site and everything else public may quote EXACTLY TWO member prices, Membership and Membership Plus, plus the upgrade
+ * difference between them, every one read from versioned config (commerce.membership_ladder, or commerce.membership_prices while the
+ * ladder is off). It may quote no volume or seat-tier wording and no other naira figure. This holds with the ladder OFF and ON.
  *
  * It scans source, not rendered HTML (the pages are server components with data loaders). A figure typed into a page is the only way
  * a stray price gets onto the site, and this catches that. Comments and test files are ignored.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { getProposedConfig } from "@tarragon/shared";
 
 const SRC = join(__dirname, "..", "..");
 const ROOTS = [join(SRC, "app", "(marketing)"), join(SRC, "lib", "marketing")];
@@ -38,7 +39,7 @@ function stripComments(text: string): string {
 
 const files = ROOTS.flatMap(walk).map((p) => ({ rel: relative(SRC, p).split("\\").join("/"), text: stripComments(readFileSync(p, "utf8")) }));
 
-describe("no public price other than the Membership price", () => {
+describe("public prices: exactly two member prices plus the upgrade difference, nothing else", () => {
   it("scans a real set of marketing files", () => {
     expect(files.length).toBeGreaterThan(50);
   });
@@ -62,6 +63,27 @@ describe("no public price other than the Membership price", () => {
         expect(f!.text).toContain("@/lib/marketing/membership");
       }
     }
+  });
+
+  it("reads prices only from the two member-price config keys", () => {
+    const allowed = new Set(["commerce.membership_ladder", "commerce.membership_prices"]);
+    const used = new Set<string>();
+    for (const f of files) for (const m of f.text.matchAll(/getProposedConfig\(\s*"(commerce\.[a-z_]+)"/g)) used.add(m[1]);
+    expect([...used].filter((k) => !allowed.has(k))).toEqual([]);
+    expect(used.size).toBeGreaterThan(0);
+  });
+
+  it("the ladder config holds exactly two member prices and one upgrade difference that equals their gap", () => {
+    const v = getProposedConfig("commerce.membership_ladder").value as Record<string, unknown>;
+    const priceKeys = Object.keys(v).filter((k) => k.endsWith("_kobo")).sort();
+    expect(priceKeys).toEqual(["evergreen_kobo", "evergreen_plus_kobo", "upgrade_kobo"]);
+    expect(v.upgrade_kobo).toBe((v.evergreen_plus_kobo as number) - (v.evergreen_kobo as number));
+  });
+
+  it("uses no volume, seat-tier, bulk or discount wording in public copy", () => {
+    const banned = /\b(volume (?:pric|discount|tier)\w*|bulk (?:pric|discount)\w*|seat floor|per[- ]seat (?:pric|discount)\w*|tiered pric\w*|multi-?year (?:pric|discount)\w*|family plan|instalments?)\b/i;
+    const hits = files.filter((f) => banned.test(f.text)).map((f) => f.rel);
+    expect(hits).toEqual([]);
   });
 
   it("does not use the old per-service price machinery or the public price list", () => {
