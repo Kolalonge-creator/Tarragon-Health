@@ -6132,11 +6132,17 @@ Source: `INNOVATION-BUILD-GAP.md` section 5. Each has a recommendation in that d
 - Options: (a) semiannual review of Plus and the step; (b) fixed.
 - Recommendation: (a), once Synlab states the panel currency (break-even about 1,840 NGN/USD fully dollar-indexed, about 2,180 if half). Blocks: W-52.
 
-### OQ-GAP-NAME1 Public name of the single product while the ladder is OFF (raised by W-46)
+### OQ-GAP-NAME1 Public name of the single product while the ladder is OFF (raised by W-46, DECIDED 2026-10-27)
 - Finding: `commerce.membership_prices` shows the Plus price (129,000 naira) on the single-product `/pricing` page, the homepage FAQ and the receipts. After the rename that product is called "Membership Plus", which is honest, but it shows the Plus name publicly before the ladder is switched on.
 - Options: (a) accept "Membership Plus" on the single-product pages until the ladder is switched on; (b) switch the ladder on; (c) hide the price until then.
 - Recommendation: (a) or (b). Never show 129,000 under the name "Membership".
+- Decision (founder, 2026-10-27, in chat): option (a). Merge the rename now; the single-product pages show "Membership Plus" while the ladder is OFF. Never show 129,000 under the name "Membership". Status: DECIDED.
 
 ### Closed as stale on 2026-10-27
 - OQ-171 and OQ-488 (Paying for someone else is not open yet): the S29 pay-for-a-loved-one flow shipped; see the supersession notes in DECISIONS.md.
 - D-16 (independent CMO): decided in DECISIONS.md, 2026-10-27 (no independent CMO).
+
+### OQ-GAP-VOUCHER-LAYAWAY Care Voucher layaway: keep or retire (raised by W-47, 2026-10-27)
+- Finding: Membership instalments were removed on 2026-10-21, but paying a Care Voucher in parts is still live (`payTowardVoucher`, `voucher-checkout.ts` `p_instalment_kobo`, the "Pay towards this" button). The gift page copy says a named health check or doctor's time can be bought "in one go or in instalments", and the public-price scan allows exactly that sentence while layaway exists.
+- Options: (a) keep voucher layaway and keep the sentence; (b) retire voucher layaway, and remove the sentence and the scan allowance in the same change.
+- Recommendation: decide with the founder; (a) is true today. If (b), remove the sentence first (code first, schema second).

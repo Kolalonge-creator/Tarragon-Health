@@ -606,3 +606,37 @@ Source: `INNOVATION-BUILD-GAP.md` section 5 (founder answers, in chat, 2026-10-2
 - **The plan's and the build brief's statements** listed in section 6 of the build-gap document (25 rows) are superseded by the corrected statements there, in particular: Plus kept the code `membership_annual` (no `membership_plus` code); the cumulative-payment panel-release rule is already gone with instalments; seat floors per code are not built; the weekly BP block and sponsor "controlled" labels on a 140/90 default are defects until D-09 lands; the "declined" label is now chosen (D-14); "photos stay on device" is false while AI-022 exists (D-02); "audit tamper-evident" and "Encrypted" are not claimed until W-38 and W-43 land.
 - **OQ-171 and OQ-488 ("Paying for someone else is not open yet").** Superseded by the shipped S29 pay-for-a-loved-one flow (`create_order` accepts a beneficiary from an unexpired `pay_for_care` Circle member; a gift that grants a lead waits for the patient's yes). The two questions are closed as stale; see OPEN-QUESTIONS.
 - **The 2026-10-26 bundle decision, in the founder's wording as recorded.** The annual test bundle is open nationwide to Free, Membership and Membership Plus, and to people abroad. The patient picks the bundle (never single tests), chooses a partner lab or their own, and pays the lab directly. Membership Plus adds Tarragon-arranged blood collection in states an admin has approved; the Plus checkout asks for an approved state before payment. The 45,000-naira step covers both the panel and the collection and is Plus-only. Free and Membership signup is never blocked by state. This refines, and does not repeal, the 2026-10-21 prices (84,000 / 129,000 / 45,000 upgrade).
+
+
+## Founder decisions, 2026-10-27, later the same day (clarifications and further rulings; recorded by W-61)
+
+Append-only: this section adds to, and does not reword, the 2026-10-27 build-gap entry above. IDs written GAP-Dxx are the build-gap document's decision numbers, so they are not confused with the older D-08 (speech to text) and D-14 (English only) in this file. Owner of every row: the founder. No code, flag or price changed by this entry.
+
+| ID | Decision | Rationale | Unblocks |
+|---|---|---|---|
+| **GAP-D08 (clarified)** | AI-001 "restricted" means: clinician alerts keep opening exactly as before, and the ANSWERS the assistant gives are restricted. The assistant gives a note instead of specific advice and routes specific questions to the care-team message flow. The CMO or an admin may lift or re-apply the restricted mode; every change is logged, counted, and notified to the CMO. The 30-day auto-off stands: if the CMO risk acceptance is unsigned by 2026-11-26 AI-001 is switched off. | Over-triage is the safe direction. The founder wants alerts to continue (nothing is silenced) while the unsafe surface, free-text specific advice, is narrowed until the two failing required suites are re-run. | W-10 |
+| **GAP-D14 (refined, pending founder confirmation)** | An explicit decline reads "declined" to the payer. A gift that is never answered reads "not answered", not "declined". The founder is asked to confirm this slight deviation from the single "declined" wording. | Honest to the payer in both cases; an unanswered gift is not a refusal and calling it one would add family friction. | W-14, W-19 |
+| **GAP-NAME1** | Decided, option (a): merge the rename now. While the ladder is OFF the single-product pages show "Membership Plus". | See OPEN-QUESTIONS (OQ-GAP-NAME1). | W-46 |
+| **Pharmacy BP readings** | A blood pressure reading taken at a pharmacy is judged on the CLINIC line (140/90), not the home line (135/85). | A pharmacy reading is a measured-by-someone-else reading in a clinic-like setting. | W-11, W-25 |
+| **Membership offer after red guidance** | The Membership offer appears on the next calm screen after red guidance, with the price and the 21-day refund beside it. Never inside a red state and never straight after one. | Same guidance on every plan; a red screen is for safety, not selling (GAP-D03). | W-53 |
+| **"Care team has been notified" line for Free** | The line is gated for Free users in the breast-symptom, emergency-contraception and hospital-admission flows: it is shown only when a doctor has actually been alerted. | Free red events do not page a doctor; the line must never claim otherwise. | W-53 |
+| **Death-record reversal** | Reversing a recorded death needs two approvals: an admin plus a different admin or the CMO. Without both, the record is final. | A death record stops care, billing and messages; reversal is rare and must not be one person's call. | bereavement work |
+| **Red-page canary cadence** | The canary runs every 3 minutes. The honest worst-case paging time is stated as 540 seconds. | An honest number beats an optimistic one on a safety path. | W-03 |
+| **Dead-letter route** | A dead-lettered notification stays an ops-desk incident (a human sees it); it is not auto-retried forever. | Keeps a human on every failed delivery. | W-03 |
+| **Sole-CMO exception end date** | 2027-01-31, PROPOSED (not yet confirmed): the period during which the founder acts as sole CMO ends then and the exception is reviewed. | Gives the no-independent-CMO exception an end date instead of leaving it open. | W-03, W-04, W-25 |
+| **Under-18 Care Circle refusal** | A Care Circle membership is refused by date of birth for any account under 18, whatever the account type. | Date of birth is the one fact that cannot be set wrong by choosing an account type. | W-11 |
+| **Bereavement sponsor message** | In-app only, held for 48 hours before the sponsor sees it, and a correction is sent if the record is reversed. | A message about a death must not go out on a mistake. | bereavement work |
+
+### Sources and as-of for the figures in the supersession notes above
+
+All figures are as of 2026-10-27 at main-dev commit `06f55f162`. A figure here is read from the file named; if the file changes, this table is the part to re-check.
+
+| Figure | Where it comes from |
+|---|---|
+| 84,000 / 129,000 naira and the 45,000 naira upgrade (8,400,000 / 12,900,000 / 4,500,000 kobo) | `packages/shared/src/proposed-config/registry.ts`, key `commerce.membership_ladder`, version 1, effective 2026-10-21; migration `20261021110528_membership_evergreen_ladder_foundation.sql` |
+| 129,000 naira shown by the single-product pages (`individual_kobo` 12,900,000) | same file, key `commerce.membership_prices`, version 2, effective 2026-10-21 (version 1 was 12,000,000, 120,000 naira, effective 2026-10-12) |
+| NGN 100,000 flat organisation seat (`organisation_member_kobo` 10,000,000) | same file, key `commerce.membership_prices`, versions 1 and 2; migration `20261013003317_two_tier_membership_pricing.sql` |
+| Seat limits: default 10,000,000 kobo, floor 5,000,000, ceiling 20,000,000, one active row | `supabase/migrations/20261013003317_two_tier_membership_pricing.sql` (the `membership_annual` limits row) |
+| 21-day refund | registry key `membership.refund` (`window_days` 21), status PROPOSED |
+| 14-day gift acceptance window | migration `supabase/migrations/20261007101733_s29d_gift_window_14_days.sql` (the earlier `20261006204511_s29b_gifted_care_pack_acceptance.sql` set 30 as PROPOSED); corrected in `docs/design/S29.md` by this change |
+| 6/8 clinical accuracy and 2/4 fairness for AI-001 | `INNOVATION-BUILD-GAP.md` section 5, row D-08, from the AI governance evaluation records; re-check before relying on them |
