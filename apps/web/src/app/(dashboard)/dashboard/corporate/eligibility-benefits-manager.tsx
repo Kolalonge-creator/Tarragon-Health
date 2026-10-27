@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { formatNaira } from "@tarragon/commerce";
+import { t } from "@tarragon/i18n";
 import {
   useEmployerAccount,
   useEmployerLocations,
@@ -225,7 +226,7 @@ function BenefitPackagesCard({ organisationId }: { organisationId: string }) {
               <option value="">Select…</option>
               {seats.data?.module_open && seats.data.price_kobo ? (
                 <option value={MEMBERSHIP_OPTION}>
-                  Tarragon Membership (₦{formatNaira(seats.data.price_kobo)} per member per year, billed to your organisation)
+                  {t("catalog.membership_annual.name", "en")} (₦{formatNaira(seats.data.price_kobo)} per member per year, billed to your organisation)
                 </option>
               ) : null}
               {(plans.data ?? []).map((p) => (

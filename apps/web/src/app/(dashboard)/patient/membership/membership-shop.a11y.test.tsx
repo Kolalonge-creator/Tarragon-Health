@@ -53,7 +53,7 @@ beforeEach(() => {
 describe("MembershipShop", () => {
   it("shows the item, what is included, the price and an estimated fee labelled as an estimate", async () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
-    expect(screen.getByText("Tarragon Membership")).toBeTruthy();
+    expect(screen.getByText("Membership Plus")).toBeTruthy();
     expect(screen.getByText(/A video call with your care team every month/)).toBeTruthy();
     expect(screen.getByText("₦120,000")).toBeTruthy();
     expect(screen.getAllByText(/about ₦/).length).toBe(2);

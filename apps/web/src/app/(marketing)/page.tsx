@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
+import { t } from "@tarragon/i18n";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChannelHero } from "./_components/channel-hero";
 import { ContinuityPath } from "./_components/continuity-path";
@@ -72,7 +73,7 @@ function homeFaq(price: string, refundDays: number, autoRenews: boolean, ladder:
       question: "Is Tarragon really free?",
       answer: ladder
         ? `Yes. The app is free, with no time limit and no card. Membership (${ladder.evergreen} a year) and Membership Plus (${ladder.evergreenPlus} a year) are optional. Both add a video call with your care team every month, and Membership Plus also includes the yearly blood panel.`
-        : `Yes. The app is free, with no time limit and no card. Membership is optional: ₦${price} a year, and it adds a yearly blood test and a video call with your care team every month.`,
+        : `Yes. The app is free, with no time limit and no card. ${t("catalog.membership_annual.name", "en")} is optional: ₦${price} a year, and it adds a yearly blood test and a video call with your care team every month.`,
     },
     {
       question: "Do I need a diagnosis to join?",

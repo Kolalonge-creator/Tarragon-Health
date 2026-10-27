@@ -38,10 +38,12 @@ function ladderPriceKobo(): { evergreen: number; evergreenPlus: number } {
 }
 
 function pricingFaq(price: string, refundDays: number, autoRenews: boolean) {
+  // Ladder OFF: the one product on sale is the catalogue's membership_annual (it includes the blood panel), named as the catalogue names it.
+  const product = t("catalog.membership_annual.name", "en");
   return [
     {
       question: "What are the two plans?",
-      answer: `Free and Membership. Free is the app: tracking, reminders, education and guidance, with no time limit and no card. Membership is ₦${price} a year and adds a yearly blood test and a video call with your care team every month.`,
+      answer: `Free and ${product}. Free is the app: tracking, reminders, education and guidance, with no time limit and no card. ${product} is ₦${price} a year and adds a yearly blood test and a video call with your care team every month.`,
     },
     {
       question: "Does Membership renew by itself?",
