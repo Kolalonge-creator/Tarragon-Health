@@ -147,6 +147,8 @@ export function createCrashReporter(opts: CrashReporterOptions): CrashReporter {
   if (!parsed) return NOOP;
   const fetchImpl = opts.fetchImpl ?? (typeof fetch === "function" ? fetch : undefined);
   if (!fetchImpl) return NOOP;
+  const target: ParsedDsn = parsed;
+  const doFetch: typeof fetch = fetchImpl;
   const now = opts.now ?? (() => Date.now());
   const maxEvents = opts.maxEvents ?? 10;
   const maxFatals = opts.maxFatals ?? 5;
@@ -179,7 +181,7 @@ export function createCrashReporter(opts: CrashReporterOptions): CrashReporter {
       }
       seen.add(fingerprint);
       const body =
-        JSON.stringify({ event_id: event.event_id, sent_at: new Date(t).toISOString(), dsn: parsed.dsn }) + "\n" +
+        JSON.stringify({ event_id: event.event_id, sent_at: new Date(t).toISOString(), dsn: target.dsn }) + "\n" +
         JSON.stringify({ type: "event" }) + "\n" +
         JSON.stringify(event);
       const controller = typeof AbortController === "function" ? new AbortController() : null;
@@ -188,7 +190,7 @@ export function createCrashReporter(opts: CrashReporterOptions): CrashReporter {
       try {
         // Called synchronously: for a fatal there is no time for a deferred microtask to matter, but it must start now.
         request = Promise.resolve(
-          fetchImpl(`${parsed.endpoint}?sentry_key=${parsed.publicKey}&sentry_version=7`, {
+          doFetch(`${target.endpoint}?sentry_key=${target.publicKey}&sentry_version=7`, {
             method: "POST",
             headers: { "content-type": "application/x-sentry-envelope" },
             body,
