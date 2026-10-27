@@ -285,6 +285,13 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/patient/care",
     };
   }
+  if (n.template === "sponsor_bereavement") {
+    // From private.on_patient_deceased() (W-21). Exactly one per sponsor. No name, no amount, no health data, no link.
+    return {
+      text: "We are very sorry. We have stopped all messages and renewals. Our team will be in touch about the unused months.",
+      href: "/patient/supporting",
+    };
+  }
   if (n.template === "sponsor_monthly_report") {
     // From private.queue_sponsor_monthly_reports(). The standing monthly
     // summary to whoever is paying for someone else's care: what they have
