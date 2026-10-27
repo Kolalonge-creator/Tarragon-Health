@@ -137,7 +137,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "You cover the cost, if you want to",
-        body: "Buy them a named health check or a doctor's time whenever suits you. It is for their account alone, and it cannot be exchanged for cash. Their lab tests are still paid straight to the laboratory, at that lab's price; send them what a test costs if you want to help with that too.",
+        body: "Buy them a named health check or a doctor's time whenever suits you, in one go or in instalments. It is for their account alone, and it cannot be exchanged for cash. Their lab tests are still paid straight to the laboratory, at that lab's price; send them what a test costs if you want to help with that too.",
       },
     ],
     metadata: {
