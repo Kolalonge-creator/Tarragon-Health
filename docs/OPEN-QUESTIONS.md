@@ -5598,3 +5598,24 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Left out: MED-SER-FAITH (the CMO writes faith-compatible content, a named faith leader reviews it) and MED-BRE-001 to 005 (breathing is a script item with steps and a pattern behind `wellbeing_library_clinical_scripts`; the CMO decides how spoken guides are catalogued).
 - Not built: the phone app has no audio library player (OQ line 3640: needs an audio engine and a runtimeVersion bump), so stream-only holds on the web only until that exists.
 - Decision: open (CMO for the breathing guides and the faith item).
+
+### OQ-QUEUED-1 A queued year's revenue schedule is not re-based when the year starts early (raised 2026-10-26)
+- Built: a Membership year bought onto a running Plus year is queued and starts when the Plus year ends (`docs/DECISIONS.md`, 2026-10-26). Its revenue schedule is built at payment and starts on the queued start date.
+- Gap: if the Plus year is refunded or ended early, the queued year starts at once, but a schedule already built keeps the later start. Nothing in finance re-bases a recognition schedule, and the difference is only timing of recognition for a rare case.
+- Options: (a) add a finance function that moves a schedule's start; (b) accept the timing difference and say so in the finance notes; (c) build the schedule only when the year actually starts.
+- Recommendation: (b) until a finance owner asks, because the case needs a race and the amounts are small.
+- Decision (founder, 2026-10-26, "do what is best"): option (b). The queued year's recognition keeps its later start; only the timing of recognition differs, the amounts are small and the case needs a race. Finance can ask for (a) later. Nothing to build.
+
+### OQ-BUNDLE-1 An annual-bundle result the patient uploads (raised 2026-10-26, RESOLVED 2026-10-27: no new build needed)
+- Question: is a result uploaded for the annual bundle just a document, or is it read into platform values?
+- Founder decision (2026-10-26): the upload stays a plain document and AI in the background reads it into platform values.
+- Finding (2026-10-27, read from the code): this already exists. The bundle upload in "Your test requests" is the same patient upload (`uploadPatientResult` in `lib/lab-results/actions.ts`) that every patient result uses, and it calls `runLabReportExtraction` after saving. That is the registered system AI-005 (`labReportExtraction`, live, kill switch honoured, every outcome in `ai_interaction_log`). It reads the report into a DRAFT for a doctor to file from the clinician panel (`lab-report-extraction-panel.tsx`), so values reach `lab_results` only after a doctor confirms (INV-03). The earlier gap text in this entry was wrong. No new AI system, evaluation or approval is needed.
+- Left as is: filing is a doctor action, so values appear in trends and the cascade of care after a doctor confirms, not instantly. A bundle result with no readable values stays a document and the doctor enters them by hand.
+
+### OQ-PLUS-1 Membership Plus given without a checkout carries no collection state (raised 2026-10-26)
+- Built: Membership Plus and the upgrade to it need an admin-approved state at checkout (`create_order`), stored on the order and copied to the membership, fixed after payment, shown to the member. Only while the module `membership_two_member_tiers` is on.
+- Covered since the checkout review: a gift accepted later and a sponsor-covered Plus order carry the state the buyer chose (copied from the order); Plus cannot be requested through a supporter's payment link while the module is on.
+- Gap: Plus can still arrive without any checkout: an employer seat (`grant_org_seat`, which maps a seat to Plus), an admin grant (`grant_membership_tier`), a legacy conversion, and the grandfathered rows. Those memberships have `collection_state` null, so Tarragon cannot tell where to arrange their blood collection.
+- Options: (a) require a state when an employer registers a Plus seat or an admin grants Plus (a field on the roster row and on the grant form); (b) ask the member to choose from the approved list on first use of the collection flow; (c) leave null and let the care team arrange it by hand.
+- Recommendation: (b) for legacy rows, (a) for seats and grants, because the employer and the admin already know the person's state.
+- Decision (founder, 2026-10-26): Plus given without a checkout needs a collection state. Built: (a) an admin grant of Plus needs an approved state while the module is on (`grant_membership_tier`, a state field on the grant form); (b) a Plus member whose state is empty chooses it once from the approved list (`set_my_plus_collection_state`, web and mobile), which also covers employer seats and older rows. Not built: a state field on the employer roster row, because the member already chooses on first use and the employer rarely knows it; add it if an employer pilot asks.

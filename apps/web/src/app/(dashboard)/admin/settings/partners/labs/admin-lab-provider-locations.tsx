@@ -85,6 +85,7 @@ export function AdminLabProviderLocations({
 
   const [name, setName] = useState("");
   const [state, setState] = useState("");
+  const [town, setTown] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
 
@@ -179,6 +180,12 @@ export function AdminLabProviderLocations({
             onChange={(e) => setState(e.target.value)}
           />
           <Input
+            placeholder="Town (patients pick this)"
+            className="h-8 text-xs"
+            value={town}
+            onChange={(e) => setTown(e.target.value)}
+          />
+          <Input
             placeholder="Address"
             className="h-8 text-xs sm:col-span-2"
             value={address}
@@ -200,7 +207,7 @@ export function AdminLabProviderLocations({
           size="sm"
           className="mt-2"
           disabled={
-            !name.trim() || !state.trim() || !address.trim() || create.isPending
+            !name.trim() || !state.trim() || !town.trim() || !address.trim() || create.isPending
           }
           onClick={() =>
             create.mutate(
@@ -208,6 +215,7 @@ export function AdminLabProviderLocations({
                 labProviderId,
                 name: name.trim(),
                 state: state.trim(),
+                town: town.trim(),
                 address: address.trim(),
                 contactPhone: phone.trim() || null,
               },
@@ -215,6 +223,7 @@ export function AdminLabProviderLocations({
                 onSuccess: () => {
                   setName("");
                   setState("");
+                  setTown("");
                   setAddress("");
                   setPhone("");
                 },

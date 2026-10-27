@@ -1524,11 +1524,19 @@ s72_expiry_schedules.sql
 # S74: the last place of a clinic slot under real contention (20 concurrent sessions, capacity 1 and 3), with a lock-free control that must over-subscribe. A .sh proof (one session cannot race itself); local database only.
 s74_clinic_last_place_race.sh
 
+# Plus collection states + open annual bundle (2026-10-26): launch states, nationwide lab picker, once-a-year start for any plan, direct insert refused, anon closed. Sabotage: the origin-guard extension reverted must make starting fail.
+plus_collection_states_and_annual_bundle.sql
 # Membership ladder review fixes (2026-10-26): one open upgrade order; a second upgrade payment is a mismatch not a paid order; refund and revenue schedule follow the upgraded membership; renewal in grace takes the bought tier; voucher guard by catalogue code. Sabotage: payment guard removed must flip.
 membership_ladder_review_fixes.sql
 
 # The Membership ladder survives the remove-instalments migration (2026-10-26): after full replay the final function bodies still carry the tier, upgrade, refund, ledger and gate changes, and no function names a removed instalment object. Sabotage: a removed clause must be detected.
 membership_ladder_survives_instalment_removal.sql
 
-# Baseline-labs prescribing rule (CMO-owned, 2026-10-26): only the CMO signs (admin, senior doctor, patient, anon refused) and the signing is audited; with no signed rule a start or dose increase is untouched; with the rule active a start or increase is refused when kidney function, potassium or glucose (plus HbA1c if diabetes on the problem list) is missing or older than 90 days, a decrease and a same-dose amendment are allowed, patient self-reports and imports never blocked. Sabotage: trigger function emptied must flip the refusal check.
+# Baseline-labs prescribing rule (CMO-owned, 2026-10-26): only the CMO signs (admin, senior doctor, patient, anon refused) and the signing is audited; with no signed rule a start or dose increase is untouched; with the rule active a start or increase is refused when kidney function, potassium or glucose (plus HbA1c for every glucose-lowering medicine and for diabetics on blood-pressure medicines) is missing or older than 90 days, a decrease and a same-dose amendment are allowed, patient self-reports and imports never blocked; a documented override (one doctor, patient and medicine, once, audited, with a 48 hour lab follow-up) is the only way past a refusal; units are compared by amount. Sabotage: trigger function emptied must flip the refusal check.
 baseline_labs_rule.sql
+# Queued Membership year (2026-10-26): a Membership payment or accepted gift onto a running Plus year is queued to start when it ends (same and higher tier still extend); roll at natural end, activation when the Plus year ends early, a refund of a queued order cancels only that row, reminders skip a queued person, my_membership shows the next year. Sabotage: activation trigger dropped and refund cancel clause disabled must flip.
+membership_queued_year.sql
+# Membership Plus checkout state (2026-10-26): create_order needs an approved state for Plus and the upgrade while the tier module is on (ignored when off, and for Membership); stored on the order, copied to the membership, shown by my_membership; FK, anon closed, old signature gone. Sabotage: the approved-state check removed must flip.
+plus_checkout_collection_state.sql
+# Plus without a checkout (2026-10-26, OQ-PLUS-1): admin grant of Plus needs an approved state while the tier module is on (authority error wins over the state error, a refusal leaves nothing behind); a Plus member with no state chooses once (approved only, set once, Membership holder refused, audited, anon closed). Sabotage: the requirement and the set-once rule removed must each flip.
+plus_state_without_checkout.sql
