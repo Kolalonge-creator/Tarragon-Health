@@ -41,11 +41,11 @@ describe("emergencyHospitalGuidance", () => {
 });
 
 describe("freeRedNoDoctorSentence (two-tier Free red path, CMO 2026-10-08)", () => {
-  it("says in plain words that no doctor was alerted because the patient is on the Free plan", () => {
+  it("gives the same red guidance on every plan, with no plan framing (W-53, D-03)", () => {
     expect(freeRedNoDoctorSentence(null)).toBe(
-      "A doctor has not been alerted, because you are on the Free plan. Doctor review is part of Membership."
+      "This reading is high enough that you should get care today. You do not need to wait to hear from us."
     );
-    expect(freeRedNoDoctorSentence(undefined)).toContain("Free plan");
+    expect(freeRedNoDoctorSentence(undefined)).not.toMatch(/Free plan|Membership/);
   });
 
   it("is absent when a clinician alert was raised, so the dialog never says both", () => {

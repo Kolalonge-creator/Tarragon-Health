@@ -5425,6 +5425,7 @@ export const en = {
   "community.mod.closed": "This group is closed.",
   "community.mod.no_health": "As moderator you see first names only. You never see anyone's health information or effort.",
   "freered.go_now": "Go to the nearest hospital's emergency department now. Please do not wait to hear from anyone here first.",
+  "freered.red.no_wait": "This reading is high enough that you should get care today. You do not need to wait to hear from us.",
   "freered.no_doctor": "A doctor has not been alerted, because you are on the Free plan. Doctor review is part of Membership.",
   "freered.recheck": "If you can, sit down and rest for a few minutes, then take your reading again. Getting care comes first.",
   "freered.contact": "We can let your emergency contact know. That message never includes any health details.",

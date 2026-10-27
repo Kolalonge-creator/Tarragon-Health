@@ -16,7 +16,7 @@ export const CATEGORY_SAFETY_NET_MESSAGE: Record<TriageCategory, string> = {
   emergency:
     "Based on what you've told us, please go to the nearest emergency department now. Don't wait to hear back from us first.",
   urgent:
-    "Based on what you've told us, you should be seen by a clinician soon. Our care team has been notified and will follow up with you.",
+    "Based on what you've told us, you should be seen by a clinician soon.",
   routine:
     "Based on what you've told us, this is best followed up with a routine appointment — nothing suggests it needs to be seen right away.",
   self_management:
