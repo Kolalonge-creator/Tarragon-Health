@@ -36,6 +36,7 @@ export {
   type GlucoseInput, type GlucoseRuleSet, type GlucoseObservationTrigger, type GlucoseContextCode, type GlucoseSymptomCode, type GlucoseDiabetesType, type KetoneUrine,
 } from "./glucose-engine";
 export { GLUCOSE_SIGN_SYMPTOM_TYPE, TICKED_ON_GLUCOSE_FORM_NOTE, type GlucoseSignSymptomType } from "./glucose-signs";
+export { computeBpControlRate, type BpControlRate, type ControlReading, type ControlTarget, type ControlGateRule } from "./bp-control-rate";
 export {
   gradeVitals, validateVitalsInput, validateVitalsRuleSet, buildVitalsContext, VITALS_RULE_SET_CODE, VITALS_METRICS, VITALS_CONTEXT_FIELDS,
   type VitalsInput, type VitalsRuleSet, type VitalsObservationTrigger, type VitalsMetric,
@@ -50,7 +51,19 @@ export {
   type ActivityKindConfig, type ActivityRuleConfig, type ActivitySafetyConfig, type ActivityTriageEvent, type ConditionMatchConfig,
 } from "./activity-gate";
 export {
+  buildToday, parseHomeCardConfig, HomeCardConfigError, HOME_CARD_CODES, MAX_PRIMARY_ACTIONS,
+  type HomeCardCode, type HomeCardConfig, type HomeCardDef, type HomeCardPick, type HomeCardRules, type HomeCardState, type TodayFacts, type TodayPlan,
+} from "./today-build";
+export {
+  computeReadiness, parseReadinessConfig, ReadinessConfigError,
+  type ReadinessBand, type ReadinessConfig, type ReadinessInput, type ReadinessNoneReason, type ReadinessResult, type ReadinessSignal, type SignalMove, type TimedValue,
+} from "./readiness";
+export {
+  buildWeeklySummary, parseWeeklyConfig, WeeklyConfigError,
+  type WeeklyCard, type WeeklyCardCode, type WeeklyConfig, type WeeklyInput, type WeeklyLine, type WeeklySummary,
+} from "./weekly-summary";
+export {
   assessReadiness, readinessMessageKeys,
-  type LoadLevel, type ReadinessBand, type ReadinessBandsConfig, type ReadinessLevel, type ReadinessMetric, type ReadinessResult, type WearableReadingPoint,
+  type LoadLevel, type ReadinessBand as ActivityReadinessBand, type ReadinessBandsConfig, type ReadinessLevel, type ReadinessMetric, type ReadinessResult as ActivityReadinessResult, type WearableReadingPoint,
 } from "./activity-readiness";
 export { orderPlans, planHasAudioSlot, sessionsWithinRange, type WorkoutPlanDisplayConfig, type WorkoutPlanLike } from "./workout-plans";

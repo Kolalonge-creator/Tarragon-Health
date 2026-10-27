@@ -24,6 +24,7 @@ export * from "./care-change";
 export * from "./audio-scripts";
 export * from "./monthly-report";
 export * from "./cycle-copy";
+export * from "./care-circle-tools-copy";
 export * from "./employer-pilot-copy";
 export * from "./maternal-child";
 export { activeGlucoseWording, GLUCOSE_WORDING_CODES, GLUCOSE_WORDING_DATA, GLUCOSE_WORDING_KEYS, GLUCOSE_WORDING_SIGNED, type GlucoseWordingCode } from "./glucose-wording";

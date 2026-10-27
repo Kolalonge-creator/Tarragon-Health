@@ -80,6 +80,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/settings/nutrition-targets-config", "nutrition targets daily calories safe minimum salt sugar fibre meal summary read only signed"],
   ["/clinician/observation-limits", "limits typed numbers plausibility water sleep mood inhaler puffs implausible typo sign cmo glucose weight pulse extended observations"],
   ["/admin/settings/observation-limits", "limits typed numbers plausibility water sleep mood inhaler puffs read only signed"],
+  ["/clinician/home-card-config", "today screen cards home cards weekly summary streak readiness wearable estimate primary actions two sign cmo s47b"],
+  ["/admin/settings/home-card-config", "today screen cards weekly summary streak readiness read only signed"],
   ["/clinician/activity-safety-config", "activity safety rules exercise workout rest gentle red amber pregnancy arthritis back pain hypertension sign cmo gate s48a"],
   ["/admin/settings/activity-safety-config", "activity safety rules exercise workout rest gentle read only signed gate"],
   ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo s06 s07 s08 s09 s10 c1 c2 c3 c4 c5 c6 c7 c8 cuff wording low blood pressure adherence as needed prn limits lock screen pass"],
@@ -118,6 +120,12 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/ops/automation-health", "automation health automations scheduled job jobs cron schedule owner owners runbook failed stale unowned background task reminders chasing reports sync"],
   ["/admin/ops/ai-cost", "ai cost spend price prices model tokens naira kobo month monthly assistant coach scribe unpriced budget"],
   ["/admin/settings/translations", "translation translations translate language languages review native speaker clinical reviewed draft text strings pidgin yoruba hausa igbo"],
+  ["/admin/ops/ai-monitoring", "ai monitoring monitor sample monthly scheduler review rules signed reported answers wrong patient report emergency cost spike escalation accuracy agreement"],
+  ["/clinician/ai-monitoring", "ai monitoring monitor sample monthly scheduler review rules signed reported answers wrong patient report emergency cost spike escalation accuracy agreement"],
+  ["/clinician/triage-protocols/compare", "compare triage protocol versions diff difference change control regression replay loosened red flag symptom checker knowledge base draft signed"],
+  ["/admin/settings/triage-protocols/compare", "compare triage protocol versions diff difference change control regression replay loosened red flag symptom checker knowledge base draft signed"],
+  ["/clinician/support-tickets", "support tickets queue log email log phone call ticket technical help sla overdue past target possible emergency red flag"],
+  ["/clinician/support-tickets/thread", "patient support thread conversation app phone email one thread everything patient sent channels"],
   ["/clinician/ai-review", "ai review answers sample sampled flagged verdict accurate harmful minor issue assistant coach reported answer safety audit"],
   ["/clinician/research", "research protocol protocols ethics approval data sharing agreement de-identified export participants consent study evaluation registered cmo dpo data protection officer"],
   ["/admin/settings/research", "research protocol protocols data protection officer dpo confirm ethics approval data sharing agreement export study"],
@@ -182,6 +190,9 @@ export const ADMIN_EXTRA_PAGES: AdminSearchEntry[] = [
 
 /** The same, for the Chief Medical Officer, whose account role cannot open /admin. */
 export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
+  { label: "AI monitoring", href: "/clinician/ai-monitoring", group: "Clinical governance", hint: "The monthly AI review sample, answers patients reported as wrong, and how often doctors agreed with the automatic grade." },
+  { label: "Compare triage versions", href: "/clinician/triage-protocols/compare", group: "Clinical governance", hint: "What changed between two versions of the symptom triage rules, and the same cases replayed against both. Read only." },
+  { label: "Support tickets", href: "/clinician/support-tickets", group: "Clinical queue", hint: "The support queue: log an email or a phone call as a ticket, see what is past its target and what looks like an emergency." },
   { label: "Clinician applications", href: "/clinician/credentialing", group: "Clinician credentialing", hint: "Review new clinicians, approve, grant competencies." },
   { label: "Licences and cover", href: "/clinician/credentialing/expiry", group: "Clinician credentialing", hint: "Licence and indemnity expiry, grace periods, pause or reinstate access." },
   { label: "Training and test content", href: "/clinician/credentialing/content", group: "Clinician credentialing", hint: "Write and approve the training modules and test scenarios." },
@@ -209,6 +220,7 @@ export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Yearly report settings", href: "/clinician/health-report-config", group: "Clinical sign-off", hint: "Sign the targets, minimum readings, priority windows and suggested recheck weeks behind every yearly report." },
   { label: "Hepatitis and HIV repeat rules", href: "/clinician/serology-rules", group: "Clinical sign-off", hint: "Confirm the anti-HBs level that records hepatitis B immunity." },
   { label: "Limits for typed numbers", href: "/clinician/observation-limits", group: "Clinical sign-off", hint: "Sign the typo limits for water, sleep, mood and inhaler logs, and restate the limits for glucose, weight, pulse and blood pressure (S47a)." },
+  { label: "Today screen and weekly summary", href: "/clinician/home-card-config", group: "Clinical sign-off", hint: "Confirm and sign which cards the Today screen shows, the weekly summary minimum and the wearable readiness thresholds (S47b)." },
   { label: "Activity safety rules", href: "/clinician/activity-safety-config", group: "Clinical sign-off", hint: "Sign when a patient is told to rest or kept to gentle activity, and the kinds blocked for pregnancy, arthritis and back pain." },
 ];
 
