@@ -937,9 +937,9 @@ begin
        where x.status = 'open'
          and (p_force or x.last_checked_at is null or x.last_checked_at < p_now - v_recheck
               or case when x.gap_type in ('missed_reading', 'rising_bp_trend')
-                      then exists (select 1 from public.vitals_readings v where v.patient_id = x.patient_id and v.created_at > x.last_checked_at)
+                      then exists (select 1 from private.vitals_readings_current v where v.patient_id = x.patient_id and v.created_at > x.last_checked_at)
                       when x.gap_type in ('no_hba1c_12_months', 'no_lipids_12_months')
-                      then exists (select 1 from public.lab_analyte_readings l where l.patient_id = x.patient_id and l.created_at > x.last_checked_at)
+                      then exists (select 1 from private.lab_analyte_readings_current l where l.patient_id = x.patient_id and l.created_at > x.last_checked_at)
                       when x.gap_type = 'medication_refill_lapse'
                       then exists (select 1 from public.medications m where m.id = x.subject_id and m.updated_at > x.last_checked_at)
                       else false end)

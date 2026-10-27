@@ -226,7 +226,8 @@ $$ select id from public.care_gaps where patient_id = p and gap_type = p_type or
 create function pg_temp.guard(p_on boolean) returns void language plpgsql as
 $f$ begin
   set local session_replication_role = replica;   -- the S37 guard trigger wants a log row; this proof flips the switch directly inside its own rolled-back transaction
-  update public.go_live_guards set is_on = p_on where key = 'care_gap_engine_enabled';
+  update public.go_live_guards set is_on = p_on, changed_at = case when p_on then now() end, changed_by = case when p_on then pg_temp.f('admin') end,
+         change_note = case when p_on then 'S90 proof run' end where key = 'care_gap_engine_enabled';
   set local session_replication_role = origin;
 end $f$;
 create function pg_temp.sent(p uuid) returns integer language sql as
