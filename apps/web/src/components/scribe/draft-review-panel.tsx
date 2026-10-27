@@ -1,12 +1,12 @@
 "use client";
 
+import { AiLabel } from "@/components/ai/ai-label";
 import { useMemo, useState } from "react";
 import { t } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { splitEntities } from "@/lib/scribe/entity-highlight";
 import { matchSentences, sentenceKey, visitLines, type SentenceSupport } from "@/lib/scribe/support-match";
 import { ProblemReportForm, type ProblemReportInput } from "./problem-report-form";
@@ -91,7 +91,7 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], sourceT
       <CardHeader>
         <div className="flex items-center gap-2">
           <CardTitle className="text-base">{t("scribe.draft.heading", "en")}</CardTitle>
-          <Badge variant="amber">Draft</Badge>
+          <AiLabel variant="unreviewed" tone="amber" />
         </div>
         <p className="text-xs text-charcoal-ink/50">{t("scribe.draft.disclaimer", "en")}</p>
         <p className="rounded-md bg-amber-50 p-2 text-xs text-charcoal-ink">{t("scribe.review.look_for", "en")}</p>

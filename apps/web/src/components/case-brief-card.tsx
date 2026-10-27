@@ -1,5 +1,6 @@
 "use client";
 
+import { AiLabel } from "@/components/ai/ai-label";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -74,7 +75,7 @@ export function CaseBriefCard({
       <CardHeader>
         <div className="flex items-center gap-2">
           <CardTitle>Case summary</CardTitle>
-          <Badge variant="grey">AI-drafted, not yet reviewed</Badge>
+          <AiLabel variant="unreviewed" />
         </div>
         <CardDescription>
           A quick summary grounded only in this patient&apos;s recorded data. Read it alongside the
