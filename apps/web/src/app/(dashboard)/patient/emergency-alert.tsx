@@ -9,7 +9,8 @@ import { acknowledgeEmergency, alertEmergencyContactNow } from "./actions";
 import { recordRedCareResponse } from "./red-care-actions";
 import { Button } from "@/components/ui/button";
 import { FormError, fieldErrorId } from "@/components/ui/form-error";
-import { emergencyHospitalGuidance, freeRedNoDoctorSentence } from "./emergency-guidance";
+import { emergencyHospitalGuidance, redNoAlertDisclosure } from "./emergency-guidance";
+import { markRedAcknowledgedThisSession } from "./red-session";
 
 /**
  * Site-wide emergency alert. Whenever the patient has an active, un-acknowledged
@@ -87,6 +88,7 @@ export function EmergencyAlert({
       setError(result.error);
       return;
     }
+    markRedAcknowledgedThisSession();
     queryClient.invalidateQueries({ queryKey: activeEmergencyKey(patientId) });
   }
 
@@ -171,9 +173,9 @@ export function EmergencyAlert({
 
           {/* Two-tier (CMO 2026-10-08): on the Free plan no doctor is alerted, and the screen says so in plain words, then keeps
               the guidance complete without one. W-53 / D-03: no Membership prompt in any red state; it is offered on the next calm screen. */}
-          {freeRedNoDoctorSentence(event.clinician_alert_id) && (
+          {redNoAlertDisclosure(event.clinician_alert_id) && (
             <div className="space-y-3 rounded-lg border border-charcoal-ink/10 p-4 text-sm text-charcoal-ink dark:border-night-ink/15 dark:text-night-ink" data-testid="free-red-block">
-              <p className="font-medium">{freeRedNoDoctorSentence(event.clinician_alert_id)}</p>
+              <p className="font-medium">{redNoAlertDisclosure(event.clinician_alert_id)}</p>
               <p>{t("freered.recheck", "en")}</p>
               {hasEmergencyContact && <p>{t("freered.contact", "en")}</p>}
               <div className="flex flex-wrap gap-3">

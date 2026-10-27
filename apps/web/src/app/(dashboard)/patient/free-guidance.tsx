@@ -6,8 +6,8 @@ import { useAcknowledgeFreeGuidance, useFreeGuidance } from "@/lib/queries/free-
 
 /**
  * Two-tier (founder 2026-10-12): the Free rule for amber triage and heart-failure weight gain. Calm in-app guidance, the same
- * guidance on every plan. W-53 / D-03 (2026-10-27): no "no doctor was alerted" plan framing and no Membership prompt here; Membership
- * is offered on a calm screen. Nothing here reaches a doctor.
+ * guidance on every plan. W-53 / D-03 (2026-10-27): a plain, true "no doctor has been alerted" line (no plan wording) and no Membership
+ * prompt here; Membership is offered on a calm screen. Nothing here reaches a doctor.
  */
 export function FreeGuidance({ patientId }: { patientId: string }) {
   const { data } = useFreeGuidance(patientId);
@@ -20,6 +20,7 @@ export function FreeGuidance({ patientId }: { patientId: string }) {
         {t("freered.checkin.title", "en")}
       </h2>
       <p>{body}</p>
+      <p className="font-medium">{t("freered.red.no_alert", "en")}</p>
       <div className="flex flex-wrap gap-3">
         <Button type="button" variant="outline" disabled={ack.isPending} onClick={() => ack.mutate(data.id)}>
           {t("freered.guidance.ok", "en")}

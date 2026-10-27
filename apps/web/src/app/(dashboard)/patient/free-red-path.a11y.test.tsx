@@ -41,10 +41,11 @@ describe("EmergencyAlert on the Free plan", () => {
   it("gives the same guidance without plan framing, keeps the acknowledge button, offers a hospital search and no Join prompt", async () => {
     mockEmergency.mockReturnValue({ ...baseEvent, clinician_alert_id: null });
     const { container } = render(<EmergencyAlert patientId="p1" hasEmergencyContact />);
-    expect(screen.getByText("This reading is high enough that you should get care today. You do not need to wait to hear from us.")).toBeTruthy();
+    expect(screen.getByText("No doctor has been alerted about this reading. Please get care now.")).toBeTruthy();
     // W-53 / D-03: no Membership prompt in any red state, and no plan framing.
     expect(screen.queryByRole("link", { name: "Join as a Member" })).toBeNull();
     expect(container.textContent).not.toMatch(/Free plan|Membership|Join/);
+    expect(container.textContent).toContain("No doctor has been alerted about this reading. Please get care now.");
     expect(screen.getByRole("link", { name: /Find a hospital near you/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: "I'm getting help" })).toBeTruthy();
     expect(container.textContent).not.toMatch(/care team has been told/i);
@@ -55,6 +56,7 @@ describe("EmergencyAlert on the Free plan", () => {
     mockEmergency.mockReturnValue({ ...baseEvent, clinician_alert_id: "alert-1" });
     render(<EmergencyAlert patientId="p1" hasEmergencyContact />);
     expect(screen.queryByTestId("free-red-block")).toBeNull();
+    expect(screen.queryByText(/No doctor has been alerted/)).toBeNull();
     expect(screen.queryByRole("link", { name: "Join as a Member" })).toBeNull();
     expect(screen.getByText(/care team has been told/i)).toBeTruthy();
   });
@@ -89,7 +91,8 @@ describe("FreeGuidance (amber and heart failure on the Free plan)", () => {
     const { container } = render(<FreeGuidance patientId="p1" />);
     expect(container.textContent).toContain("Your weight has gone up quickly");
     expect(screen.queryByRole("link", { name: "Join as a Member" })).toBeNull();
-    expect(container.textContent).not.toMatch(/Free plan|Membership|not been alerted/);
+    expect(container.textContent).not.toMatch(/Free plan|Membership/);
+    expect(container.textContent).toContain("No doctor has been alerted about this reading. Please get care now.");
     expect(container.textContent).not.toMatch(/warning|danger|—/i);
     fireEvent.click(screen.getByRole("button", { name: "Got it" }));
     expect(mockAck).toHaveBeenCalledWith("g1");

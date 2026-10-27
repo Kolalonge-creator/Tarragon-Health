@@ -27,8 +27,10 @@ describe("flaggedReadingMessage", () => {
   it("tells a Member the care team was notified", () => {
     expect(flaggedReadingMessage(true)).toMatch(/care team has been notified/);
   });
-  it("tells a Free patient only that the entry is saved", () => {
-    expect(flaggedReadingMessage(false)).toBe("Your entry is saved.");
-    expect(flaggedReadingMessage(false)).not.toMatch(/notified|doctor/i);
+  it("tells a Free patient the entry is saved and the reading is outside the usual range, with no follow-up promise", () => {
+    expect(flaggedReadingMessage(false)).toBe(
+      "Your entry is saved. This reading is outside your usual range. If you feel unwell, please get care today.",
+    );
+    expect(flaggedReadingMessage(false)).not.toMatch(/notified|in touch|follow/i);
   });
 });

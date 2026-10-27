@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
 
 /**
  * W-53 (2026-10-27, founder decision D-03): a patient is only ever told "your care team has been notified / a doctor will be in touch" when
@@ -23,9 +24,9 @@ export async function patientHasDoctorReview(supabase: SupabaseClient<Database>,
   }
 }
 
-/** The reply to a logged reading that raised a flag. Only a Member is told the care team has been notified (C-02). */
+/** The reply to a logged reading that raised a flag. Only a Member is told the care team has been notified (C-02); Free still hears that the reading is outside the usual range, with no promise of follow-up (wording pending CMO sign-off). */
 export function flaggedReadingMessage(doctorReview: boolean): string {
   return doctorReview
     ? "Thanks for logging this. Your care team has been notified and a doctor will be in touch."
-    : "Your entry is saved.";
+    : t("freered.reading.free_flag", "en");
 }

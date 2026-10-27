@@ -1,4 +1,5 @@
 import type { TriageCategory } from "@tarragon/symptom-triage-engine";
+import { t } from "@tarragon/i18n";
 
 /**
  * Patient-facing "safest next step" copy (platform brief §37.8): a clear
@@ -16,7 +17,7 @@ export const CATEGORY_SAFETY_NET_MESSAGE: Record<TriageCategory, string> = {
   emergency:
     "Based on what you've told us, please go to the nearest emergency department now. Don't wait to hear back from us first.",
   urgent:
-    "Based on what you've told us, you should be seen by a clinician soon.",
+    "Based on what you've told us, you should be seen by a clinician soon. Our care team has been notified and will follow up with you.", // doctor-review-gated: getSafetyNetMessage serves this only when doctorReview is true
   routine:
     "Based on what you've told us, this is best followed up with a routine appointment — nothing suggests it needs to be seen right away.",
   self_management:
@@ -38,6 +39,15 @@ const SPECIFIC_SAFETY_NET_MESSAGE: Partial<Record<string, string>> = {
     "Pain that's worse when you press on your chest and has stayed stable for a day or more is often muscular — rest and an over-the-counter pain reliever, if you'd normally use one, is a reasonable next step.",
 };
 
-export function getSafetyNetMessage(safetyNetMessageKey: string, category: TriageCategory): string {
-  return SPECIFIC_SAFETY_NET_MESSAGE[safetyNetMessageKey] ?? CATEGORY_SAFETY_NET_MESSAGE[category];
+/**
+ * W-53: the signed `urgent` sentence promises that the care team has been notified. That is only true when doctor review is (a Member), so
+ * for anyone else the category fallback uses this neutral variant. PENDING CMO SIGN-OFF; the signed text above is untouched.
+ */
+export const FREE_URGENT_SAFETY_NET_MESSAGE = t("freered.urgent.free", "en");
+
+export function getSafetyNetMessage(safetyNetMessageKey: string, category: TriageCategory, doctorReview = false): string {
+  const specific = SPECIFIC_SAFETY_NET_MESSAGE[safetyNetMessageKey];
+  if (specific) return specific;
+  if (category === "urgent" && !doctorReview) return FREE_URGENT_SAFETY_NET_MESSAGE;
+  return CATEGORY_SAFETY_NET_MESSAGE[category];
 }
