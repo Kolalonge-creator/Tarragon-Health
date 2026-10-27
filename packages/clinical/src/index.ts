@@ -54,3 +54,4 @@ export {
   type LoadLevel, type ReadinessBand, type ReadinessBandsConfig, type ReadinessLevel, type ReadinessMetric, type ReadinessResult, type WearableReadingPoint,
 } from "./activity-readiness";
 export { orderPlans, planHasAudioSlot, sessionsWithinRange, type WorkoutPlanDisplayConfig, type WorkoutPlanLike } from "./workout-plans";
+export { checkOmissions, mentions, hasFollowUpInterval, type OmissionRules, type OmissionRulesMeta, type OmissionInput, type OmissionResult, type OmissionFlag, type OmissionFlagKind, type UnusedSourceItem } from "./omission-check";

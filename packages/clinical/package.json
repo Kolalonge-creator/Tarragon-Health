@@ -15,7 +15,8 @@
     "./pathways": "./src/pathways/index.ts",
     "./activity-gate": "./src/activity-gate.ts",
     "./activity-readiness": "./src/activity-readiness.ts",
-    "./workout-plans": "./src/workout-plans.ts"
+    "./workout-plans": "./src/workout-plans.ts",
+    "./omission-check": "./src/omission-check.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -10,6 +10,17 @@ import { usePatientCareGaps } from "@/lib/queries/patient-care-gaps";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { getProposedConfig } from "@tarragon/shared";
+import { useVitalsReadings } from "@/lib/queries/vitals";
+import { useCareTasks } from "@/lib/queries/care-tasks";
+import { usePreVisitConsultations } from "@/lib/queries/previsit-consultations";
+import { buildPreVisitBrief, ok, unavailable, type Available, type BriefRules } from "@/lib/previsit/brief";
+import { PreVisitBriefView } from "@/components/previsit/previsit-brief";
+
+/** A query result as the brief wants it: rows when the read worked, "unavailable" when it was refused or failed (never "none"). */
+function availableFrom<T>(q: { data: readonly T[] | undefined; isError: boolean; isLoading: boolean }): Available<T> {
+  return q.isError || q.data === undefined ? unavailable<T>() : ok(q.data);
+}
 
 const RISK_BADGE: Record<string, BadgeProps["variant"]> = {
   low: "green",
@@ -95,13 +106,19 @@ export function PreVisitSummary({
   const carePlans = useCarePlans(patientId);
   const medications = useMedications(patientId);
   const careGaps = usePatientCareGaps(patientId);
+  const vitals = useVitalsReadings(patientId);
+  const tasks = useCareTasks(patientId);
+  const consultations = usePreVisitConsultations(patientId);
 
   const isLoading =
     riskScores.isLoading ||
     mentalHealth.isLoading ||
     carePlans.isLoading ||
     medications.isLoading ||
-    careGaps.isLoading;
+    careGaps.isLoading ||
+    vitals.isLoading ||
+    tasks.isLoading ||
+    consultations.isLoading;
   const hasNothing =
     !isLoading &&
     !mentalHealth.isError &&
@@ -116,6 +133,24 @@ export function PreVisitSummary({
 
   const activeMedCount = (medications.data ?? []).length;
   const nextAction = deriveNextAction(mentalHealth.data, riskScores.data, medications.data);
+
+  const briefLines = isLoading
+    ? []
+    : buildPreVisitBrief(
+        {
+          now: new Date(),
+          vitals: availableFrom(vitals),
+          medications: availableFrom(medications),
+          tasks: availableFrom(tasks),
+          careGaps: availableFrom(careGaps),
+          carePlans: availableFrom(carePlans),
+          consultations: availableFrom(consultations),
+          // Fail closed: only the mental-health read has a confirmed access signal here (a refusal sets isError). Reproductive-health and
+          // sensitive-positive rows stay out of the brief until a category-scoped check is wired in.
+          access: { reproductive_health: false, mental_health: !mentalHealth.isError, sensitive_positive: false },
+        },
+        getProposedConfig("copilot.previsit_brief_rules").value as unknown as BriefRules,
+      );
 
   return (
     <Card className="border-brand-green/30">
@@ -154,6 +189,8 @@ export function PreVisitSummary({
             </span>
           </div>
         )}
+
+        {briefLines.length > 0 && <PreVisitBriefView lines={briefLines} />}
 
         {(careGaps.data ?? []).length > 0 && (
           <div>

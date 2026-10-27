@@ -8452,4 +8452,54 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-23",
     source: "docs/design/WP3.md; WHO HEARTS / DHIS2 cascade terms; HEDIS CBP 140/90. Unsigned until the CMO signs.",
   },
+  {
+    key: "copilot.previsit_brief_rules",
+    value: {
+      // Display windows for the deterministic pre-visit brief (S89). Descriptive only: no model, no scoring, nothing decided.
+      windowDays: 30,
+      minReadingsForTrend: 3,
+      maxReadingsRead: 20,
+      recentLabResultDays: 90,
+      // A refill date this many days past counts as an adherence gap. Descriptive; the clinician decides what it means.
+      refillOverdueDays: 0,
+      // Words that mark a record row as sensitive. A row matching one is dropped unless the viewer's access for that category is confirmed.
+      sensitiveTerms: {
+        reproductive_health: ["menstrua", "pregnan", "antenatal", "postnatal", "contracept", "fertility", "reproductive", "cycle"],
+        mental_health: ["phq", "gad-7", "gad7", "audit-c", "auditc", "depress", "anxiety", "mental", "mood", "self-harm", "suicid"],
+        sensitive_positive: ["hiv", "hepatitis", "hbv", "hcv", "sti ", "syphilis"],
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S89.md; docs/plans/S88-S100-decisions-and-cmo-signoff-pack.md 4.1. Unsigned: the CMO confirms windows, minimum counts and the sensitive-term list.",
+  },
+  {
+    key: "copilot.omission_panel_enabled",
+    value: false,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S89.md. OFF until the CMO signs copilot.omission_rules; the panel never blocks signing either way.",
+  },
+  {
+    key: "copilot.omission_rules",
+    value: {
+      // Drug classes used to match a drug named in a draft against a recorded allergy. A class word in an allergy entry flags every member.
+      allergyClasses: {
+        penicillin: ["penicillin", "amoxicillin", "ampicillin", "flucloxacillin", "augmentin", "co-amoxiclav", "amoxiclav", "piperacillin"],
+        sulfonamide: ["sulfa", "sulfonamide", "sulfamethoxazole", "co-trimoxazole", "cotrimoxazole", "septrin"],
+        nsaid: ["nsaid", "ibuprofen", "diclofenac", "naproxen", "aspirin", "ketorolac", "piroxicam"],
+      },
+      // A draft for a patient with one of these conditions on file should state a follow-up interval.
+      followUpRequiredConditions: ["hypertension", "diabetes"],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S89.md. Unsigned clinical lists: the CMO owns the class membership, the condition list and the wording. Flags only; nothing here decides or blocks.",
+  },
 ];

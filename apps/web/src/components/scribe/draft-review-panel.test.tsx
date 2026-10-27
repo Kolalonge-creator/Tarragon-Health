@@ -25,7 +25,7 @@ describe("DraftReviewPanel review step", () => {
     boxes().forEach((b) => fireEvent.click(b));
     expect(useButton().disabled).toBe(false);
     fireEvent.click(useButton());
-    expect(onUse).toHaveBeenCalledWith(expect.objectContaining({ plan: "Rest and fluids." }), "Summary.");
+    expect(onUse).toHaveBeenCalledWith(expect.objectContaining({ plan: "Rest and fluids." }), "Summary.", expect.objectContaining({ leftUnedited: true }));
   });
 
   it("editing a confirmed section clears its confirmation and asks again", () => {
@@ -50,7 +50,7 @@ describe("DraftReviewPanel review step", () => {
     expect(screen.queryByTestId("entity-check")).toBeNull();
     boxes().forEach((b) => fireEvent.click(b));
     fireEvent.click(useButton());
-    expect(onUse).toHaveBeenCalledWith(expect.objectContaining({ plan: "Rest and fluids." }), "Summary.");
+    expect(onUse).toHaveBeenCalledWith(expect.objectContaining({ plan: "Rest and fluids." }), "Summary.", expect.objectContaining({ leftUnedited: true }));
   });
 
   it("updates the marks when the clinician edits the section", () => {
@@ -58,5 +58,27 @@ describe("DraftReviewPanel review step", () => {
     fireEvent.change(screen.getAllByRole("textbox")[3], { target: { value: "Paracetamol 1 g three times daily" } });
     const marked = Array.from(screen.getByTestId("entity-check").querySelectorAll("mark")).map((m) => m.textContent);
     expect(marked).toEqual(["Paracetamol", "1 g"]);
+  });
+
+  it("S89: cannot be used without the attestation, even with every section confirmed (and editing clears it)", () => {
+    render(<DraftReviewPanel draft={draft} patientSummary="Summary." onUse={jest.fn()} onDiscard={jest.fn()} />);
+    const sections = boxes().slice(0, 6);
+    sections.forEach((b) => fireEvent.click(b));
+    expect(useButton().disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText(/I reviewed this draft against the record/));
+    expect(useButton().disabled).toBe(false);
+    fireEvent.change(screen.getAllByRole("textbox")[3], { target: { value: "Rest." } });
+    expect(useButton().disabled).toBe(true);
+  });
+
+  it("S89: carries the AI label and reports a non-zero edit rate when the clinician changed the draft", () => {
+    const onUse = jest.fn();
+    render(<DraftReviewPanel draft={draft} patientSummary="Summary." onUse={onUse} onDiscard={jest.fn()} />);
+    expect(screen.getByTestId("ai-label")).toBeTruthy();
+    fireEvent.change(screen.getAllByRole("textbox")[3], { target: { value: "Rest, fluids and review." } });
+    boxes().forEach((b) => fireEvent.click(b));
+    fireEvent.click(useButton());
+    expect(onUse.mock.calls[0]![2]).toMatchObject({ leftUnedited: false });
+    expect(onUse.mock.calls[0]![2].editRate).toBeGreaterThan(0);
   });
 });

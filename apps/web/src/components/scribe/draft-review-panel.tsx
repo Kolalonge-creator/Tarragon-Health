@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { AiLabel } from "@/components/ai/ai-label";
+import { editTelemetryFromPairs, type EditTelemetry } from "@/lib/ai-text/ai-spans";
 import { splitEntities } from "@/lib/scribe/entity-highlight";
 import { afterEdit, canUseDraft, isEmptySection, setConfirmed, unconfirmed, type Confirmations, type DraftSectionKey } from "@/lib/scribe/draft-review";
 
@@ -35,7 +37,10 @@ interface DraftReviewPanelProps {
   patientSummary: string;
   /** Deterministic checks the server ran on a draft written from confirmed facts (uncited text, unknown ids, invented numbers). */
   warnings?: readonly { section: string; kind: string; detail?: string }[];
-  onUse: (draft: DraftSection, patientSummary: string) => void;
+  /** The third argument is the browser-side edit-rate figure for this review (S89): computed from what the clinician changed, never sent by this panel. */
+  onUse: (draft: DraftSection, patientSummary: string, telemetry: EditTelemetry) => void;
+  /** S89: the clinician must tick "I reviewed this draft against the record" before using the draft. Default true. */
+  requireAttestation?: boolean;
   onDiscard: () => void;
 }
 
@@ -43,11 +48,13 @@ interface DraftReviewPanelProps {
  * The AI draft, held in the browser only. "Use in note" hands it to the note form, which is where the clinician edits,
  * saves and signs it. Nothing is written to the patient record from here (INV-11).
  */
-export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, onDiscard }: DraftReviewPanelProps) {
+export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, onDiscard, requireAttestation = true }: DraftReviewPanelProps) {
   const [fields, setFields] = useState({ ...draft, patientSummary });
   const [confirmed, setConfirmedState] = useState<Confirmations>({});
   const [edited, setEdited] = useState<Partial<Record<DraftSectionKey, boolean>>>({});
+  const [attested, setAttested] = useState(false);
   const remaining = unconfirmed(confirmed).length;
+  const original = { ...draft, patientSummary };
 
   const sections: Array<{ key: keyof typeof fields; label: string }> = [
     { key: "history", label: t("scribe.draft.history", "en") },
@@ -64,6 +71,7 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
         <div className="flex items-center gap-2">
           <CardTitle className="text-base">{t("scribe.draft.heading", "en")}</CardTitle>
           <Badge variant="amber">Draft</Badge>
+          <AiLabel reviewed={remaining === 0} />
         </div>
         <p className="text-xs text-charcoal-ink/50">{t("scribe.draft.disclaimer", "en")}</p>
         <p className="rounded-md bg-amber-50 p-2 text-xs text-charcoal-ink">{t("scribe.review.look_for", "en")}</p>
@@ -88,7 +96,10 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
                 setFields((prev) => ({ ...prev, [key]: e.target.value }));
                 if (confirmed[key]) setEdited((prev) => ({ ...prev, [key]: true }));
                 setConfirmedState((prev) => afterEdit(prev, key));
+                setAttested(false);
               }}
+              // Text still exactly as the model wrote it and not yet confirmed: marked as AI-inserted and unreviewed.
+              className={fields[key] === original[key] && !confirmed[key] && !isEmptySection(fields[key]) ? "ring-1 ring-amber-300 bg-amber-50/50" : undefined}
               rows={key === "patientSummary" ? 4 : 3}
             />
             <EntityCheck text={fields[key]} />
@@ -118,10 +129,16 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
         <p role="status" className="text-xs text-charcoal-ink/70">
           {remaining === 0 ? t("scribe.review.all_done", "en") : t("scribe.review.remaining", "en", { count: remaining })}
         </p>
+        {requireAttestation && (
+          <label className="flex items-center gap-2 text-xs text-charcoal-ink">
+            <input type="checkbox" checked={attested} onChange={(e) => setAttested(e.target.checked)} />
+            I reviewed this draft against the record
+          </label>
+        )}
         <div className="flex gap-3">
           <Button
             size="sm"
-            disabled={!canUseDraft(confirmed)}
+            disabled={!canUseDraft(confirmed) || (requireAttestation && !attested)}
             onClick={() =>
               onUse(
                 {
@@ -131,7 +148,8 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
                   plan: fields.plan,
                   followUp: fields.followUp,
                 },
-                fields.patientSummary
+                fields.patientSummary,
+                editTelemetryFromPairs((Object.keys(original) as (keyof typeof original)[]).map((k) => ({ original: original[k], final: fields[k] }))),
               )
             }
           >

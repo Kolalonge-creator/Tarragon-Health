@@ -21,6 +21,7 @@ import { PatientIdentityConfirm } from "@/components/patient-identity-confirm";
 import { ConsultationFollowUpsPanel } from "./consultation-follow-ups-panel";
 import { VisitSummaryPanel } from "./visit-summary-panel";
 import { ScribePanel, type ScribeDraftResult } from "@/components/scribe";
+import { OmissionPanel } from "@/components/copilot/omission-panel";
 import { attachScribeDraftToNote, confirmScribeSafetyLines, recordScribeReview } from "@/lib/scribe/actions";
 import { SafetyLinesPanel } from "@/components/scribe/safety-lines-panel";
 import { extractSafetyLines } from "@/lib/scribe/safety-lines";
@@ -607,6 +608,8 @@ function DraftNoteCard({
           diagnosisCode={{ value: diagnosisCode, onChange: (value) => { setDiagnosisCode(value); setCodeError(null); }, problem: !codeCheck.ok, amends: Boolean(note.amends_note_id) }}
         />
         {codeError && <p className="text-sm text-red-600">{codeError}</p>}
+        {/* S89: flags only, never blocks signing; renders nothing while copilot.omission_panel_enabled is off (the default). */}
+        <OmissionPanel patientId={patientId} draftText={[fields.history, fields.examinationFindings, fields.assessment, fields.plan, fields.followUpInstructions].join("\n")} />
         {scribeAvailable && (
           <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
             <ScribePanel
