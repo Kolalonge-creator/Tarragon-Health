@@ -163,6 +163,12 @@ export interface CoachGraphDeps {
    * the single point of failure 40.18 exists to prevent.
    */
   systemPrompt?: string;
+  /**
+   * W-10: AI-001 is restricted to advisory display. When true, the model's own 'clinician_review' classification is still shown to the
+   * patient and recorded, but no longer opens a clinician alert by itself. The deterministic keyword guardrail, the fixed refusal screens
+   * and the emergency path are unchanged.
+   */
+  advisoryOnly?: boolean;
 }
 
 /**
@@ -737,12 +743,26 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
     return { clinicianAlertId };
   }
 
+  /** W-10: advisory-only record of a model-classified clinician_review turn. Writes the audit row, never a clinician alert. */
+  async function logReviewAdvisory(state: CoachGraphState): Promise<Partial<CoachGraphState>> {
+    await deps.supabase.from("audit_log").insert({
+      organisation_id: state.organisationId,
+      actor_id: state.profileId,
+      action: "ai_coach.clinician_review_advisory_only",
+      entity_type: "ai_conversations",
+      entity_id: state.conversationId,
+      event: { model: state.modelId, restricted_mode: "advisory_only" },
+    });
+    return {};
+  }
+
   return new StateGraph(CoachState)
     .addNode("keywordGuardrail", keywordGuardrail)
     .addNode("clarify", clarify)
     .addNode("llmTurn", llmTurn)
     .addNode("emergency", emergency)
     .addNode("logReview", logReview)
+    .addNode("logReviewAdvisory", logReviewAdvisory)
     .addEdge(START, "keywordGuardrail")
     .addConditionalEdges(
       "keywordGuardrail",
@@ -760,12 +780,13 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       "llmTurn",
       (state) => {
         if (state.tier === "emergency") return "emergency";
-        if (state.tier === "clinician_review") return "logReview";
+        if (state.tier === "clinician_review") return deps.advisoryOnly === true ? "logReviewAdvisory" : "logReview";
         return END;
       },
-      { emergency: "emergency", logReview: "logReview", [END]: END }
+      { emergency: "emergency", logReview: "logReview", logReviewAdvisory: "logReviewAdvisory", [END]: END }
     )
     .addEdge("emergency", END)
     .addEdge("logReview", END)
+    .addEdge("logReviewAdvisory", END)
     .compile();
 }

@@ -272,6 +272,7 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
         getServiceRoleSupabase,
         model: params.model,
         systemPrompt: governedSystemPrompt(config) ?? undefined,
+        advisoryOnly: config?.restricted_mode === "advisory_only",
       });
       const result = await graph.invoke({
         profileId,

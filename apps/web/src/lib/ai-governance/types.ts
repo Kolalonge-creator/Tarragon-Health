@@ -113,6 +113,12 @@ export const aiRuntimeConfigSchema = z.object({
   prompt: aiGovernedPromptSchema.nullable(),
   guardrails: z.array(aiGuardrailSchema),
   knowledge_sources: z.array(aiKnowledgeSourceSchema),
+  /**
+   * W-10: advisory_only means the system may show its output but must not take an automated action by itself. Optional so a deploy
+   * that is briefly ahead of its migration reads as unrestricted, the behaviour that existed before the column did.
+   */
+  restricted_mode: z.enum(["none", "advisory_only"]).optional(),
+  reevaluation_due: z.string().nullable().optional(),
 });
 
 export type AiRuntimeConfig = z.infer<typeof aiRuntimeConfigSchema>;
