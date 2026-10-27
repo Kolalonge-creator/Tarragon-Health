@@ -52338,6 +52338,12 @@ export type Database = {
         Returns: undefined;
       };
       queue_next: { Args: { p_types?: string[] }; Returns: Json };
+      queue_my_reoffers: { Args: Record<PropertyKey, never>; Returns: Json };
+      sign_clinician_loop_config: { Args: { p_note: string; p_version: number }; Returns: undefined };
+      threshold_blast_radius_preview: {
+        Args: { p_current: number; p_direction: string; p_include_test?: boolean; p_metric: string; p_proposed: number };
+        Returns: Json;
+      };
       queue_summary: { Args: Record<PropertyKey, never>; Returns: Json };
       confirm_offline_device_wipe: { Args: { p_danger?: number; p_device: string; p_reason?: string; p_unsent: number }; Returns: boolean }
       offline_device_checkin: { Args: { p_device: string; p_platform: string }; Returns: Json }

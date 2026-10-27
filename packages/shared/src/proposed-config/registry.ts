@@ -8574,4 +8574,26 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-27",
     source: "docs/plans/S80-S85-cmo-decision-pack.md decision 6; ai_monitoring_config version 1 (inactive). Unsigned until the CMO signs.",
   },
+  {
+    key: "clinician.loop_rules",
+    // Clinician loop rules (S76 gap closure): minutes before an unclaimed task of each priority class is re-offered to a second clinician
+    // (class 1, red, is never re-offered: it has its own paging ladder), how many times, the silence window (days with no reading by an
+    // enrolled patient who was recording, the lookback and minimum prior readings that count as "was recording", days before a repeat) and
+    // the lookback of the threshold blast-radius preview. Live values are the active row of `clinician_loop_config`; it is born INACTIVE
+    // and unsigned and a test fails if the migration seed and this value drift.
+    value: {
+      reoffer_after_minutes: { "2": 15, "3": 30, "4": 60, "5": 240, "6": 480, "7": 720, "8": 1440, "9": 1440 },
+      reoffer_max: 1,
+      silence_days: 5,
+      silence_lookback_days: 30,
+      silence_min_prior_readings: 3,
+      silence_recheck_days: 7,
+      blast_lookback_days: 30,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "supabase migration s76_clinician_second_offer_silence_blast_radius; docs/research/S75-S80-review-and-build-plan.md 23.2, 23.3. Unsigned until the CMO signs.",
+  },
 ];
