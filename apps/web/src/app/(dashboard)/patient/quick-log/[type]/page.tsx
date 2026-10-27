@@ -2,6 +2,8 @@ import { redirect, notFound } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { VitalsForm } from "../../vitals-form";
+import { createClient } from "@/lib/supabase/server";
+import { readProvenanceGuards } from "@/lib/diary/guards";
 import { VITAL_TYPES, type VitalType } from "@/lib/vitals/vital-types";
 
 const TYPE_LABEL: Record<VitalType, string> = Object.fromEntries(
@@ -32,6 +34,7 @@ export default async function QuickLogPage({
   const profile = await getCurrentProfile();
   if (!profile) redirect(`/login?redirect=/patient/quick-log/${type}`);
   if (profile.role !== "patient") redirect("/");
+  const guards = await readProvenanceGuards(await createClient());
 
   return (
     <div className="mx-auto max-w-lg space-y-6 px-4 py-8">
@@ -46,7 +49,7 @@ export default async function QuickLogPage({
         backTo={{ href: "/patient/vitals", label: "All my vitals" }}
         description="A few seconds now, and it goes straight into your record."
       />
-      <VitalsForm patientId={profile.id} lockedType={type} />
+      <VitalsForm patientId={profile.id} lockedType={type} pharmacyOpen={guards.pharmacyOpen} />
     </div>
   );
 }

@@ -310,6 +310,16 @@ async function countOpenComplaints(supabase: Client) {
 /** The same set as therapy-approvals/queue.tsx: requests for patients this
  * clinician holds a task for (S56, INV-12). A care coordinator gets 0 (the
  * function returns 0 for them). */
+/**
+ * Patients on the mental health follow-up worklist (S56b). A bare number from a function that counts only patients the caller is TIED to
+ * (INV-12) and returns 0 for anyone else, for an unsigned configuration and while the guard is off, so the menu leaks no identity.
+ */
+async function countMentalHealthWorklistWaiting(supabase: Client) {
+  const { data, error } = await supabase.rpc("count_mental_health_worklist");
+  if (error) throw error;
+  return typeof data === "number" ? data : 0;
+}
+
 async function countTherapyApprovalsWaiting(supabase: Client) {
   // S56: therapy bookings are per-patient (INV-12); the count is the requests this clinician holds a task for.
   const { data, error } = await supabase.rpc("count_therapy_approvals_waiting");
@@ -461,7 +471,8 @@ export type WorklistCountKey =
   | "fhirProposedResourcesPending"
   | "preventiveHealthCheckReviewsWaiting"
   | "curbsideConsultsAwaitingReply"
-  | "recordChangeRequestsWaiting";
+  | "recordChangeRequestsWaiting"
+  | "mentalHealthWorklistWaiting";
 
 /**
  * Exported so the "a broken query must never render as 0" invariant above is
@@ -498,6 +509,7 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   openSupportTickets: countOpenSupportTickets,
   openComplaints: countOpenComplaints,
   therapyApprovalsWaiting: countTherapyApprovalsWaiting,
+  mentalHealthWorklistWaiting: countMentalHealthWorklistWaiting,
   careThreadsAwaitingReply: countCareThreadsAwaitingReply,
   labOrdersAwaitingHomeVisitAssignment: countLabOrdersAwaitingHomeVisitAssignment,
   labResultConsultsWaiting: countLabResultConsultsWaiting,

@@ -56,6 +56,13 @@ describe("rewards.* configuration mirrors the reward_config seeds", () => {
     expect(sql).toContain(body.source.replace(/\\/g, "\\"));
   });
 
+  it("no milestone (S58b) references a body metric either: the same ban covers rules and milestones", () => {
+    const body = /(^|[^a-z])(weight|bmi|waist|hip|hips|obes[a-z]*|calor[a-z]*|kcal|kg|lbs|pounds|slim|lean|body|fat|size|shape|thin|inches)([^a-z]|$)/i;
+    const milestones = getProposedConfig("rewards.milestones").value as Array<Record<string, unknown>>;
+    expect(milestones.length).toBeGreaterThanOrEqual(7);
+    for (const m of milestones) expect(JSON.stringify(m)).not.toMatch(body);
+  });
+
   it("every rule is a fixed reward (no chance-based reward for anyone, so none for a minor)", () => {
     expect(sql).toContain("reward_kind = 'fixed'");
     for (const r of getProposedConfig("rewards.rules").value as Array<Record<string, unknown>>) {

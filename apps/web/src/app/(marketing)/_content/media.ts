@@ -120,10 +120,6 @@ export const MARKETING_MEDIA = {
       // example would describe a capability the shipped feature lacks.
       imageAlt: "The Tarragon app's health domains screen, showing readings grouped into areas like Rhythm & recovery, Cardiovascular and Metabolic health",
     } satisfies MarketingMediaSlot,
-    preventionCallout: {
-      imageSrc: "/marketing/photos/body/prevention-reviewing-notes.jpg",
-      imageAlt: "A woman reviewing a printed health document at home",
-    } satisfies MarketingMediaSlot,
     /** Set youtubeId when a product walkthrough is ready on YouTube. */
     walkthroughVideo: {
       youtubeId: "",

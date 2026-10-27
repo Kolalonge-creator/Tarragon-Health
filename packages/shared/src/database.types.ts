@@ -134,6 +134,39 @@ export type Database = {
         }
         Relationships: []
       }
+      lab_panel_versions: {
+        Row: {
+          analytes: Json
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          note: string | null
+          panel_code: string
+          version: number
+        }
+        Insert: {
+          analytes: Json
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          panel_code: string
+          version: number
+        }
+        Update: {
+          analytes?: Json
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          panel_code?: string
+          version?: number
+        }
+        Relationships: []
+      }
       patient_day_shifts: {
         Row: {
           cancelled_from: string | null
@@ -2462,6 +2495,81 @@ export type Database = {
           status?: string
           value?: Json
           version?: number
+        }
+        Relationships: []
+      }
+      milestone_definitions: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          params: Json
+          status: string
+          trigger_event: string
+          version: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kind: string
+          params?: Json
+          status?: string
+          trigger_event: string
+          version: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          params?: Json
+          status?: string
+          trigger_event?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      milestones_achieved: {
+        Row: {
+          achieved_at: string
+          dismissed_at: string | null
+          event_id: string
+          id: string
+          milestone_code: string
+          milestone_version: number
+          organisation_id: string
+          patient_id: string
+          seen_at: string | null
+        }
+        Insert: {
+          achieved_at?: string
+          dismissed_at?: string | null
+          event_id: string
+          id?: string
+          milestone_code: string
+          milestone_version: number
+          organisation_id: string
+          patient_id: string
+          seen_at?: string | null
+        }
+        Update: {
+          achieved_at?: string
+          dismissed_at?: string | null
+          event_id?: string
+          id?: string
+          milestone_code?: string
+          milestone_version?: number
+          organisation_id?: string
+          patient_id?: string
+          seen_at?: string | null
         }
         Relationships: []
       }
@@ -11353,6 +11461,7 @@ export type Database = {
           clinical_encounter_id: string | null;
           created_at: string;
           diagnosis: string | null;
+          diagnosis_code: string | null
           encounter_date: string;
           encounter_type: string;
           escalation_id: string | null;
@@ -11394,6 +11503,7 @@ export type Database = {
           clinical_encounter_id?: string | null;
           created_at?: string;
           diagnosis?: string | null;
+          diagnosis_code?: string | null
           encounter_date?: string;
           encounter_type: string;
           escalation_id?: string | null;
@@ -11435,6 +11545,7 @@ export type Database = {
           clinical_encounter_id?: string | null;
           created_at?: string;
           diagnosis?: string | null;
+          diagnosis_code?: string | null
           encounter_date?: string;
           encounter_type?: string;
           escalation_id?: string | null;
@@ -23722,6 +23833,7 @@ export type Database = {
           phlebotomist_name: string | null
           phlebotomist_phone: string | null
           order_number: string | null
+          panel_code: string | null
           ordered_at: string
           ordered_by: string | null
           organisation_id: string
@@ -23778,6 +23890,7 @@ export type Database = {
           phlebotomist_name?: string | null
           phlebotomist_phone?: string | null
           order_number?: string | null
+          panel_code?: string | null
           ordered_at?: string
           ordered_by?: string | null
           organisation_id: string
@@ -23834,6 +23947,7 @@ export type Database = {
           phlebotomist_name?: string | null
           phlebotomist_phone?: string | null
           order_number?: string | null
+          panel_code?: string | null
           ordered_at?: string
           ordered_by?: string | null
           organisation_id?: string
@@ -23974,6 +24088,7 @@ export type Database = {
           name: string
           opening_hours: Json | null
           state: string
+          town: string | null
         }
         Insert: {
           address: string
@@ -23988,6 +24103,7 @@ export type Database = {
           name: string
           opening_hours?: Json | null
           state: string
+          town?: string | null
         }
         Update: {
           address?: string
@@ -24002,6 +24118,7 @@ export type Database = {
           name?: string
           opening_hours?: Json | null
           state?: string
+          town?: string | null
         }
         Relationships: [
           {
@@ -27767,11 +27884,14 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          kind: string
           is_test: boolean
           organisation_id: string
           patient_id: string
           patient_note: string | null
           screen_id: string | null
+          seen_at: string | null
+          seen_by: string | null
           state: string
           summary: Json
           task_id: string | null
@@ -27779,11 +27899,14 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          kind?: string
           is_test?: boolean
           organisation_id: string
           patient_id: string
           patient_note?: string | null
           screen_id?: string | null
+          seen_at?: string | null
+          seen_by?: string | null
           state?: string
           summary?: Json
           task_id?: string | null
@@ -27791,14 +27914,92 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          kind?: string
           is_test?: boolean
           organisation_id?: string
           patient_id?: string
           patient_note?: string | null
           screen_id?: string | null
+          seen_at?: string | null
+          seen_by?: string | null
           state?: string
           summary?: Json
           task_id?: string | null
+        }
+        Relationships: []
+      }
+      mental_health_worklist_actions: {
+        Row: {
+          clinician_id: string
+          config_version: number
+          created_at: string
+          id: string
+          is_test: boolean
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          reasons: string[]
+          task_id: string | null
+        }
+        Insert: {
+          clinician_id: string
+          config_version: number
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          reasons: string[]
+          task_id?: string | null
+        }
+        Update: {
+          clinician_id?: string
+          config_version?: number
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          reasons?: string[]
+          task_id?: string | null
+        }
+        Relationships: []
+      }
+      mental_health_worklist_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          rules: Json
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          rules: Json
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          rules?: Json
+          version?: number
         }
         Relationships: []
       }
@@ -28719,6 +28920,7 @@ export type Database = {
           backdate_window_hours: number
           created_at: string
           device_lease_days: number
+          diary_window_days: number
           future_skew_minutes: number
           is_active: boolean
           note: string | null
@@ -28732,6 +28934,7 @@ export type Database = {
           backdate_window_hours: number
           created_at?: string
           device_lease_days?: number
+          diary_window_days?: number
           future_skew_minutes: number
           is_active?: boolean
           note?: string | null
@@ -28745,6 +28948,7 @@ export type Database = {
           backdate_window_hours?: number
           created_at?: string
           device_lease_days?: number
+          diary_window_days?: number
           future_skew_minutes?: number
           is_active?: boolean
           note?: string | null
@@ -30117,6 +30321,81 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      outcomes_dashboard_config: {
+        Row: {
+          config: Json
+          created_at: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      outcomes_dashboard_reports: {
+        Row: {
+          config_version: number
+          data_cutoff: string
+          generated_at: string
+          generated_by: string | null
+          has_data: boolean
+          held_back: boolean
+          id: string
+          internal_only: boolean
+          is_baseline: boolean
+          organisation_id: string
+          period_end: string
+          period_start: string
+          publishable: boolean
+          report: Json
+        }
+        Insert: {
+          config_version: number
+          data_cutoff: string
+          generated_at?: string
+          generated_by?: string | null
+          has_data: boolean
+          held_back?: boolean
+          id?: string
+          internal_only?: boolean
+          is_baseline: boolean
+          organisation_id: string
+          period_end: string
+          period_start: string
+          publishable?: boolean
+          report: Json
+        }
+        Update: {
+          config_version?: number
+          data_cutoff?: string
+          generated_at?: string
+          generated_by?: string | null
+          has_data?: boolean
+          held_back?: boolean
+          id?: string
+          internal_only?: boolean
+          is_baseline?: boolean
+          organisation_id?: string
+          period_end?: string
+          period_start?: string
+          publishable?: boolean
+          report?: Json
+        }
+        Relationships: []
       }
       panel_bundles: {
         Row: {
@@ -41826,6 +42105,8 @@ export type Database = {
           display_name: string
           id: string
           is_active: boolean
+          plus_collection_enabled: boolean
+          plus_collection_enabled_at: string | null
           state: string
           updated_at: string
         }
@@ -41835,6 +42116,8 @@ export type Database = {
           display_name: string
           id?: string
           is_active?: boolean
+          plus_collection_enabled?: boolean
+          plus_collection_enabled_at?: string | null
           state: string
           updated_at?: string
         }
@@ -41844,6 +42127,8 @@ export type Database = {
           display_name?: string
           id?: string
           is_active?: boolean
+          plus_collection_enabled?: boolean
+          plus_collection_enabled_at?: string | null
           state?: string
           updated_at?: string
         }
@@ -46691,6 +46976,8 @@ export type Database = {
           created_at: string
           cuff_type: string | null
           device_id: string | null
+          entry_origin: string | null
+          place_label: string | null
           diastolic: number | null
           external_reading_id: string | null
           glucose_events: string[]
@@ -46742,6 +47029,8 @@ export type Database = {
           created_at?: string
           cuff_type?: string | null
           device_id?: string | null
+          entry_origin?: string | null
+          place_label?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
           glucose_events?: string[]
@@ -46795,6 +47084,8 @@ export type Database = {
           created_at?: string
           cuff_type?: string | null
           device_id?: string | null
+          entry_origin?: string | null
+          place_label?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
           glucose_events?: string[]
@@ -47304,18 +47595,24 @@ export type Database = {
       }
       wellbeing_checkin_preferences: {
         Row: {
+          mood_insights_hidden: boolean
+          worklist_activity_opt_out: boolean
           organisation_id: string
           patient_id: string
           reminder_frequency_days: number
           updated_at: string
         }
         Insert: {
+          mood_insights_hidden?: boolean
+          worklist_activity_opt_out?: boolean
           organisation_id: string
           patient_id: string
           reminder_frequency_days?: number
           updated_at?: string
         }
         Update: {
+          mood_insights_hidden?: boolean
+          worklist_activity_opt_out?: boolean
           organisation_id?: string
           patient_id?: string
           reminder_frequency_days?: number
@@ -48210,6 +48507,7 @@ export type Database = {
           state: string
           total_kobo: number | null
           updated_at: string
+          upgraded_membership_id: string | null
         }
         Insert: {
           amount_kobo: number
@@ -48233,6 +48531,7 @@ export type Database = {
           state?: string
           total_kobo?: number | null
           updated_at?: string
+          upgraded_membership_id?: string | null
         }
         Update: {
           amount_kobo?: number
@@ -48256,6 +48555,7 @@ export type Database = {
           state?: string
           total_kobo?: number | null
           updated_at?: string
+          upgraded_membership_id?: string | null
         }
         Relationships: [
           {
@@ -50317,6 +50617,31 @@ export type Database = {
       }
     }
     Functions: {
+      list_annual_bundle_labs: {
+        Args: { p_state: string; p_town?: string }
+        Returns: {
+          address: string
+          contact_phone: string | null
+          location_id: string
+          location_name: string
+          opening_hours: Json | null
+          provider_name: string
+          state: string
+          town: string | null
+        }[]
+      }
+      list_annual_bundle_towns: {
+        Args: { p_state: string }
+        Returns: { lab_count: number; town: string }[]
+      }
+      plus_collection_states: {
+        Args: never
+        Returns: { display_name: string; state: string }[]
+      }
+      start_annual_bundle: {
+        Args: { p_location_id?: string; p_patient?: string }
+        Returns: string
+      }
       add_visit_summary_item_to_tasks: { Args: { p_item: string }; Returns: string }
       approve_visit_summary: { Args: { p_summary: string }; Returns: undefined }
       assemble_visit_summary: { Args: { p_note: string }; Returns: string }
@@ -50509,6 +50834,10 @@ export type Database = {
       community_unhide_author: { Args: { p_id: string }; Returns: Json }
       community_unmask_candidates: { Args: never; Returns: Json }
       log_outcome_export: { Args: { p_from?: string; p_to?: string }; Returns: undefined };
+      log_outcomes_dashboard_export: { Args: Record<PropertyKey, never>; Returns: undefined };
+      read_outcomes_dashboard: { Args: { p_limit?: number }; Returns: Json };
+      read_outcomes_founder_unfrozen: { Args: { p_reason: string }; Returns: Json };
+      run_outcomes_dashboard_now: { Args: { p_month: string }; Returns: string };
       my_monthly_reports: { Args: { p_limit?: number }; Returns: Json };
       my_reproductive_access_log: { Args: { p_limit?: number }; Returns: Json }
       override_patient_risk: { Args: { p_days?: number; p_level: string; p_patient: string; p_reason: string }; Returns: Json };
@@ -50611,6 +50940,9 @@ export type Database = {
       response_times_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       retention_completion_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       bp_control_report_180d: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      cascade_of_care_report: { Args: { p_condition: string; p_from?: string; p_to?: string }; Returns: Json };
+      selection_panel_report: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
+      sign_outcome_cascade_config: { Args: { p_version: number }; Returns: undefined };
       triage_agreement_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       admin_set_reward_rule: {
         Args: { p_active: boolean; p_caps: Json; p_code: string; p_points: number }
@@ -50793,6 +51125,18 @@ export type Database = {
       my_points_status: {
         Args: never
         Returns: Json
+      }
+      my_points_pending: {
+        Args: never
+        Returns: Json
+      }
+      my_pending_milestone: {
+        Args: never
+        Returns: Json
+      }
+      dismiss_milestone: {
+        Args: { p_id: string }
+        Returns: boolean
       }
       patient_released_lab_results: { Args: { p_patient: string; p_reason: string }; Returns: Json };
       lab_partner_mark_collected: { Args: { p_order: string }; Returns: undefined };
@@ -51343,6 +51687,8 @@ export type Database = {
         Returns: undefined
       }
       admin_catalogue: { Args: never; Returns: Json };
+      admin_item_extras: { Args: never; Returns: Json };
+      admin_set_item_extras: { Args: { p_code: string; p_extra_codes: string[]; p_reason: string }; Returns: number };
       admin_organisation_prices: { Args: never; Returns: Json };
       clear_organisation_member_price: {
         Args: { p_employer_org: string; p_reason: string; p_valid_from?: string };
@@ -51481,6 +51827,8 @@ export type Database = {
       care_message_scope: { Args: { p_message: string }; Returns: Json };
       catalogue: { Args: never; Returns: Json };
       catalogue_item: { Args: { p_code: string }; Returns: Json };
+      catalogue_not_included: { Args: { p_code?: string }; Returns: Json };
+      my_price_change_notices: { Args: never; Returns: Json };
       price_quote: {
         Args: { p_beneficiary?: string; p_code: string; p_discount_code?: string; p_use_points?: boolean }
         Returns: Json
@@ -51642,6 +51990,14 @@ export type Database = {
       grant_membership: {
         Args: { p_ends_at?: string; p_patient: string; p_reason: string };
         Returns: string;
+      };
+      grant_membership_tier: {
+        Args: { p_collection_state?: string; p_ends_at?: string; p_patient: string; p_reason: string; p_tier: string };
+        Returns: string;
+      };
+      set_my_plus_collection_state: {
+        Args: { p_state: string };
+        Returns: undefined;
       };
       list_assisted_recovery_requests: {
         Args: { p_state?: string }
@@ -52185,10 +52541,6 @@ export type Database = {
       }
       analytics_business_summary: { Args: never; Returns: Json }
       analytics_clinical_outcomes: { Args: never; Returns: Json }
-      analytics_clinical_rule_performance: {
-        Args: { p_from?: string; p_to?: string }
-        Returns: Json
-      }
       analytics_complaints_summary: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
@@ -56236,6 +56588,10 @@ export type Database = {
         Args: { p_population_id: string }
         Returns: number
       }
+      set_encounter_note_diagnosis_code: {
+        Args: { p_code: string; p_note: string }
+        Returns: undefined
+      }
       update_encounter_note_draft: {
         Args: { p_fields: Json; p_note: string }
         Returns: undefined
@@ -56493,6 +56849,19 @@ export type Database = {
         Returns: Json
       }
       request_mental_health_handoff: { Args: { p_note?: string; p_screen?: string }; Returns: string }
+      count_mental_health_worklist: { Args: Record<PropertyKey, never>; Returns: number }
+      create_mental_health_worklist_follow_up: { Args: { p_note?: string; p_patient: string }; Returns: string }
+      list_mental_health_worklist: { Args: Record<PropertyKey, never>; Returns: Json }
+      mark_mental_health_handoff_seen: { Args: { p_handoff: string }; Returns: boolean }
+      preview_wellbeing_summary: { Args: { p_include_checkins?: boolean; p_include_screens?: boolean; p_include_sleep?: boolean }; Returns: Json }
+      set_worklist_activity_opt_out: { Args: { p_opt_out: boolean }; Returns: undefined }
+      set_mood_insights_hidden: { Args: { p_hidden: boolean }; Returns: undefined }
+      share_wellbeing_summary_with_care_team: {
+        Args: { p_expected_hash?: string; p_include_checkins?: boolean; p_include_screens?: boolean; p_include_sleep?: boolean; p_note?: string }
+        Returns: string
+      }
+      sign_mental_health_worklist_config: { Args: { p_version: number }; Returns: undefined }
+      wellbeing_features_open: { Args: Record<PropertyKey, never>; Returns: Json }
       therapy_run_progress: { Args: { p_enrolment: string }; Returns: Json }
       therapy_check_entry_screen: { Args: { p_answers: Json; p_programme_code: string }; Returns: Json }
       stop_therapy_enrolment: { Args: { p_enrolment: string }; Returns: Json }

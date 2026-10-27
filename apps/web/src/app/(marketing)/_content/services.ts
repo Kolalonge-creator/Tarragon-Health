@@ -109,16 +109,6 @@ export const PROOF_STATS = [
   },
 ] as const;
 
-/** Preventive health is a platform wedge, not a secondary add-on (FEATURE_SPEC Cat 2→1 upgrade).
- * Framed for the HEALTHY visitor first (prevention-first repositioning,
- * 2026-07-23): staying well is the aspiration; catching things early is the
- * safety net, not a fear pitch. */
-export const PREVENTION_CALLOUT = {
-  title: "Healthy? Tarragon is built for you too",
-  body:
-    "You don't need a diagnosis to belong here. The app is free: it builds you and your children a personal screening and vaccination calendar and plans your yearly Health Check, which you pay for once you take it. Most years, that's simply confirmation you're doing fine; if something's ever found, a doctor follows up within a day, or within 12 hours if it's critical.",
-} as const;
-
 /** Everything the shared record actually watches (services page capability
  * cloud + homepage marquee). Real capabilities only, matching what's built
  * per CLAUDE.md; never add an item that isn't actually tracked. */

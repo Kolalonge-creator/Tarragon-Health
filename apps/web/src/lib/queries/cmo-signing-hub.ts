@@ -22,6 +22,10 @@ import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-pag
 import { readLegacyNoticeRetirementState } from "@/lib/queries/pending-legacy-notice-retirement-signoff";
 import { readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
 import { readPendingBpDeviceReview } from "@/lib/queries/pending-bp-device-review";
+import { readPendingCascadeConfigSignoff } from "@/lib/queries/pending-cascade-config-signoff";
+import { readPendingSymptomUxSignoff } from "@/lib/queries/pending-symptom-ux-signoff";
+import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
+import { MENTAL_WELLBEING_ITEM_KEY } from "@/lib/clinical/mental-wellbeing-signoff-model";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -75,7 +79,11 @@ export const TASK_LAYER_CONFIG_ITEM_KEY = "queue_task_layer_config";
 export const PAGING_DELIVERY_CONFIG_ITEM_KEY = "paging_delivery_config";
 /** S07y: recommended blood pressure monitors an admin entered that wait for the CMO to review them against a public validation registry. */
 export const BP_DEVICE_REVIEW_ITEM_KEY = "bp_device_review";
-export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY };
+/** S59c: the symptom checker assessment-experience configs (follow-up timing, describe-it words, why-this-result reasons, safety-net lines). */
+export const SYMPTOM_UX_ITEM_KEY = "symptom_assessment_ux";
+/** WP3: the cascade-of-care definitions (stages, the 140/90 and 7.0 percent control lines, the selection panel note). Nothing is counted anywhere until signed. */
+export const CASCADE_CONFIG_ITEM_KEY = "cascade_config";
+export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY };
 
 /**
  * Everything that needs the Chief Medical Officer's signature, in one list.
@@ -97,7 +105,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -122,6 +130,9 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readThresholdHubState(supabase),
     readPendingBpDeviceReview(supabase),
     readPendingPostCheckinSignoff(supabase),
+    readPendingMentalWellbeingSignoff(supabase),
+    readPendingSymptomUxSignoff(supabase),
+    readPendingCascadeConfigSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -422,6 +433,40 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (symptomUx.waiting.length > 0) {
+    items.push({
+      key: SYMPTOM_UX_ITEM_KEY,
+      title: "Symptom checker: follow-up, describe-it, reasons and safety-net wording",
+      detail: `${symptomUx.waiting.length} draft${symptomUx.waiting.length === 1 ? "" : "s"} (${symptomUx.waiting.map((w) => `${w.kind.replace("_", " ")} version ${w.version}`).join(", ")}) waiting for your signature. Each is shown in full. Until you sign one, the feature it drives stays on its safe default, and the symptom checker itself stays behind its own go-live guard.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: symptomUx.waiting.length,
+    });
+  }
+  // S56b: the follow-up list rules to sign and the attestations the four wellbeing guards need. Nothing here signs or switches anything.
+  const mentalWellbeingPending = (mentalWellbeing.worklistVersion !== null ? 1 : 0) + mentalWellbeing.attestations.length;
+  if (mentalWellbeingPending > 0) {
+    items.push({
+      key: MENTAL_WELLBEING_ITEM_KEY,
+      title: "Mental wellbeing: follow-up list, share with my care team, calm tool, patterns",
+      detail: `${mentalWellbeingPending} thing${mentalWellbeingPending === 1 ? "" : "s"} waiting for you${mentalWellbeing.worklistVersion !== null ? ` (the follow-up list rules, version ${mentalWellbeing.worklistVersion}, to sign)` : ""}. Nothing is shown to a patient or a clinician until you record or sign these and switch the matching guard on.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: mentalWellbeingPending,
+    });
+  }
+
+  if (cascadeConfig.version !== null) {
+    items.push({
+      key: CASCADE_CONFIG_ITEM_KEY,
+      title: "Cascade of care definitions",
+      detail: `Cascade definitions version ${cascadeConfig.version} (the five stages, the 140/90 and 7.0 percent control lines, what is shown as not available, and the selection panel note) are waiting for your signature. Nothing is counted on screen, in a file or in a sponsor pack until you sign.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   const failedSources = [
     ...queue.failedSources,
     ...s06s10.failedSources,
@@ -443,6 +488,9 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(queuePaging.failed ? ["the task layer and paging delivery configurations"] : []),
     ...(bpDevices.failed ? ["the recommended blood pressure monitors"] : []),
     ...(postCheckin.failed ? ["the check-in configuration"] : []),
+    ...(cascadeConfig.failed ? ["the cascade of care definitions"] : []),
+    ...(symptomUx.failed ? ["the symptom checker assessment wording and timing"] : []),
+    ...(mentalWellbeing.failed ? ["the mental wellbeing sign-offs"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it

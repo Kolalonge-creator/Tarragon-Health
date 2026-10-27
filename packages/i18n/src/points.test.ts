@@ -44,12 +44,45 @@ describe("points namespace copy (S58)", () => {
   });
 });
 
-import { pointsRuleLabel, pointsTierLabel } from "./points";
+import { milestoneCopy, pendingActionLabel, pointsRuleLabel, pointsTierLabel } from "./points";
 describe("points labels", () => {
   it("labels known codes and degrades unknown ones to plain words", () => {
     expect(pointsRuleLabel("lab_done")).toBe("Get a lab test done");
     expect(pointsRuleLabel("some_new_reason")).toBe("some new reason");
     expect(pointsTierLabel("leaf")).toBe("Leaf");
     expect(pointsTierLabel("unknown")).toBe("unknown");
+  });
+});
+
+describe("S58b milestone and pending copy", () => {
+  const codes = ["first_bp_logged", "first_glucose_logged", "adherence_4_weeks", "first_lab_done", "first_review_attended", "first_lesson_completed", "first_course_completed"];
+
+  it("has a title and a body for every seeded milestone", () => {
+    for (const c of codes) {
+      const m = milestoneCopy(c);
+      expect(m.title.length).toBeGreaterThan(5);
+      expect(m.body.length).toBeGreaterThan(5);
+      expect(m.title).not.toBe(milestoneCopy("not_a_code").title);
+    }
+  });
+
+  it("an unknown code reads as a generic thank-you, never a key", () => {
+    expect(milestoneCopy("brand_new_code").title).toBe("You took a real step in your care");
+  });
+
+  it("celebrates doing a step, never a body measure, a result or a comparison", () => {
+    const text = codes.map((c) => `${milestoneCopy(c).title} ${milestoneCopy(c).body}`).join(" ");
+    expect(text).not.toMatch(/\b(weight|bmi|waist|calorie|slim|lean|fat|kg|normal|abnormal|healthy range|in range|rank|leaderboard|beat|top)\b/i);
+  });
+
+  it("uses no em dash anywhere in the new copy", () => {
+    const keys = (Object.keys(en) as (keyof typeof en)[]).filter((k) => /^points\.(milestone|pending)\./.test(k));
+    expect(keys.length).toBeGreaterThan(15);
+    for (const k of keys) expect([k, en[k].includes("\u2014")]).toEqual([k, false]);
+  });
+
+  it("labels a refund return and the first pending action", () => {
+    expect(pointsRuleLabel("order_refunded")).toBe("Returned after a refund");
+    expect(pendingActionLabel(["meal_logged"])).toBe("Log a meal");
   });
 });

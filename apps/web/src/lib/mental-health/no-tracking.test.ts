@@ -35,8 +35,17 @@ const WEB_ENTRY = [
   "lib/queries/mental-health.ts",
   "lib/queries/wellbeing.ts",
   "lib/queries/mood-trend.ts",
+  // S56b: the calm tool, the share summary, the patterns view, the clinician worklist and the shared-summaries panel
+  "components/mental-health/calm-tool.tsx",
+  "components/mental-health/share-summary-card.tsx",
+  "components/mental-health/mood-patterns.tsx",
+  "components/mental-health/mood-patterns-visibility.tsx",
+  "components/mental-health/shared-summaries.tsx",
+  "lib/queries/mood-trend-data.ts",
+  "lib/wellbeing",
+  "app/(dashboard)/clinician/mental-health-worklist",
 ];
-const MOBILE_ENTRY = ["screens/sections/wellbeing-screen.tsx", "screens/sections/wellbeing-trend-chart.tsx", "components/mental-health", "components/wellbeing", "lib/calm-library.ts", "lib/journal-store.ts", "lib/mental-health.ts", "lib/wellbeing.ts", "lib/shared-phone.ts", "screens/sections/therapy-programme-screen.tsx", "components/therapy", "lib/therapy-programmes.ts"];
+const MOBILE_ENTRY = ["screens/sections/wellbeing-screen.tsx", "screens/sections/wellbeing-trend-chart.tsx", "components/mental-health", "components/wellbeing", "lib/calm-library.ts", "lib/journal-store.ts", "lib/mental-health.ts", "lib/wellbeing.ts", "lib/shared-phone.ts", "screens/sections/therapy-programme-screen.tsx", "components/therapy", "lib/therapy-programmes.ts", "lib/wellbeing-features.ts"];
 
 function filesUnder(p: string): string[] {
   if (!existsSync(p)) return [];
