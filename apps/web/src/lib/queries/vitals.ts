@@ -3,8 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { computeBmi } from "@/lib/obesity/classify";
 import { fetchHeightStatus, type HeightStatus } from "@/lib/health-metrics/height";
 import { readPatientVitalsOrThrow } from "@/lib/clinical/vitals-audited";
-import { parseAssistedAttribution, type AssistedAttribution } from "@tarragon/shared";
-import { trendBandsEligible } from "@tarragon/shared";
+import { parseAssistedAttribution, trendBandsEligible, type AssistedAttribution, type Tables } from "@tarragon/shared";
 import { readModuleEnabled } from "@/lib/vitals/extended-observations";
 
 export function useVitalsReadings(patientId: string) {
@@ -71,6 +70,26 @@ export function useVitalsReadingsPage(patientId: string) {
 
 const TREND_WINDOW_DAYS = 90;
 
+/**
+ * The fields a trend chart plots, from one stored reading. `entry_origin` is carried (S07y) so the chart can say how many of its points were taken at a
+ * pharmacy or clinic machine or copied from a paper diary: a point whose label is dropped here would look like an ordinary home reading.
+ */
+export function toTrendPoint(r: Pick<Tables<"vitals_readings">, "taken_at" | "systolic" | "diastolic" | "glucose_mmol_l" | "glucose_context" | "weight_kg" | "pulse_bpm" | "entry_origin" | "assisted_entry" | "assisted_rate_exceeded">) {
+  return {
+    taken_at: r.taken_at,
+    systolic: r.systolic,
+    diastolic: r.diastolic,
+    glucose_mmol_l: r.glucose_mmol_l,
+    glucose_context: r.glucose_context,
+    weight_kg: r.weight_kg,
+    pulse_bpm: r.pulse_bpm,
+    entry_origin: r.entry_origin,
+    // A helper entered it for the person (the database sets this flag, never the client; staff-measured rows are not flagged).
+    assisted: r.assisted_entry === true,
+    assistedOverLimit: r.assisted_rate_exceeded === true,
+  };
+}
+
 export type VitalsTrendType = "blood_pressure" | "glucose" | "weight" | "pulse";
 
 /** Ascending-order readings for charting (opposite of useVitalsReadings's
@@ -87,18 +106,7 @@ export function useVitalsTrend(
     queryFn: async () => {
       const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
       const rows = await readPatientVitalsOrThrow(createClient(), patientId, { vitalType, since, ascending: true, limit: 5000 });
-      return rows.map((r) => ({
-        taken_at: r.taken_at,
-        systolic: r.systolic,
-        diastolic: r.diastolic,
-        glucose_mmol_l: r.glucose_mmol_l,
-        glucose_context: r.glucose_context,
-        weight_kg: r.weight_kg,
-        pulse_bpm: r.pulse_bpm,
-        // A helper entered it for the person (the database sets this flag, never the client; staff-measured rows are not flagged).
-        assisted: r.assisted_entry === true,
-        assistedOverLimit: r.assisted_rate_exceeded === true,
-      }));
+      return rows.map(toTrendPoint);
     },
     staleTime: 60_000,
     refetchOnWindowFocus: false,

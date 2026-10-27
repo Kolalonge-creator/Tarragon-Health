@@ -19,6 +19,16 @@ jest.mock("@/lib/supabase/bearer", () => ({
   }),
 }));
 
+let limited: "none" | "burst" | "daily" = "none";
+const rateLimitCalls: string[] = [];
+jest.mock("@/lib/rate-limit", () => ({
+  rateLimit: async (key: string) => {
+    rateLimitCalls.push(key);
+    const hit = (limited === "burst" && key.includes(":burst:")) || (limited === "daily" && key.includes(":daily:"));
+    return { success: !hit, retryAfterSeconds: hit ? 42 : 0 };
+  },
+}));
+
 const readCuffDisplay = jest.fn();
 jest.mock("@/lib/vitals/cuff-display-vision", () => ({
   CUFF_VISION_MODEL_ID: "test-model",
@@ -56,6 +66,8 @@ beforeEach(() => {
   moduleOn = true;
   killSwitch = false;
   lastSummary = undefined;
+  limited = "none";
+  rateLimitCalls.length = 0;
   guard = { data: true, error: null };
   rpc.mockImplementation(async () => guard);
   readCuffDisplay.mockResolvedValue({ ok: true, output: good });
@@ -112,6 +124,26 @@ describe("POST /api/mobile/cuff-display-proposal", () => {
     killSwitch = false;
     readCuffDisplay.mockResolvedValue({ ok: false, reason: "error" });
     expect(await (await POST(req())).json()).toEqual({ status: "unavailable", reason: "fallback" });
+  });
+
+  it("limits each person by their verified id, before the photo is read, and the phone gets its usual type-the-numbers answer", async () => {
+    for (const which of ["burst", "daily"] as const) {
+      limited = which;
+      readCuffDisplay.mockClear();
+      const res = await POST(req());
+      expect(res.status).toBe(429);
+      expect(res.headers.get("Retry-After")).toBe("42");
+      expect(await res.json()).toEqual({ status: "unavailable", reason: "rate_limited" });
+      expect(readCuffDisplay).not.toHaveBeenCalled();
+    }
+    expect(rateLimitCalls).toEqual(expect.arrayContaining(["cuff-display:burst:user-1", "cuff-display:daily:user-1"]));
+  });
+
+  it("does not spend the limiter while the guard is closed or the person has no session", async () => {
+    await POST(req({ auth: false }));
+    guard = { data: false, error: null };
+    await POST(req());
+    expect(rateLimitCalls).toEqual([]);
   });
 
   it("only ever reads the platform_modules switch: it has no path that writes a reading", async () => {

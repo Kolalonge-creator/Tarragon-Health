@@ -10,6 +10,7 @@ import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { membershipPriceLabel } from "@/lib/marketing/membership";
 import { GiftPersonalizer } from "./_components/gift-personalizer";
 
 export const metadata: Metadata = pageMetadata({
@@ -21,10 +22,16 @@ export const metadata: Metadata = pageMetadata({
 
 export const revalidate = 3600;
 
-/** The Membership price, read from the versioned config (integer kobo), never typed into a page. */
-function membershipPrice(): string {
-  const v = getProposedConfig("commerce.membership_prices").value as { individual_kobo: number };
-  return formatNaira(v.individual_kobo);
+/** Whether the Membership ladder is public (marketing.membership_ladder_public). False until the launch conditions are met. */
+function ladderIsPublic(): boolean {
+  return (getProposedConfig("marketing.membership_ladder_public").value as { enabled: boolean }).enabled === true;
+}
+
+/** What is being given, in words. With the ladder public there are two yearly gifts, each priced from versioned config. */
+function givingSummary(price: string): string {
+  if (!ladderIsPublic()) return `A year of Membership, \u20A6${price}`;
+  const v = getProposedConfig("commerce.membership_ladder").value as { evergreen_kobo: number; evergreen_plus_kobo: number };
+  return `A year of Membership (\u20A6${formatNaira(v.evergreen_kobo)}) or Membership Plus (\u20A6${formatNaira(v.evergreen_plus_kobo)}, with the yearly blood panel)`;
 }
 
 const WAYS_TO_GIVE = [
@@ -46,7 +53,9 @@ function giftFaq(price: string): FaqItem[] {
   return [
     {
       question: "What exactly am I giving?",
-      answer: `A year of Membership, ₦${price}. It is the same Membership anyone can join: a yearly blood test, a video call with their care team every month, written questions between calls and prescriptions their care team signs. Medicines are not included.`,
+      answer: ladderIsPublic()
+        ? `${givingSummary(price)}. Both are the same care: a video call with their care team every month, written questions between calls and prescriptions their care team signs. The only difference is the yearly blood panel. Medicines are not included.`
+        : `A year of Membership, ₦${price}. It is the same Membership anyone can join: a yearly blood test, a video call with their care team every month, written questions between calls and prescriptions their care team signs. Medicines are not included.`,
     },
     {
       question: "Who can I give it to?",
@@ -97,7 +106,7 @@ const HOW_IT_WORKS = [
 ];
 
 export default function GiftPage() {
-  const price = membershipPrice();
+  const price = membershipPriceLabel();
   const faq = giftFaq(price);
   return (
     <>
@@ -106,7 +115,9 @@ export default function GiftPage() {
       <PhotoBannerHero
         eyebrow="Care that stays with them"
         title="Give the Gift of Health"
-        description={`Give someone a year of Membership, ₦${price}: a yearly blood test and a video call with their care team every month. Theirs to accept, nothing to renew.`}
+        description={ladderIsPublic()
+          ? `${givingSummary(price)}. A video call with their care team every month. Theirs to accept, nothing to renew.`
+          : `Give someone a year of Membership, ₦${price}: a yearly blood test and a video call with their care team every month. Theirs to accept, nothing to renew.`}
         primaryHref="/signup?intent=support"
         primaryLabel="Give a year of Membership"
         secondaryHref="/login"

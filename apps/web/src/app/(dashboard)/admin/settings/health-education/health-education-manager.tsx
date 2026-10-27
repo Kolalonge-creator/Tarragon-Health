@@ -280,6 +280,17 @@ function ContentForm({
           <Input id="content_self_care" value={form.self_care_action ?? ""} onChange={(e) => set("self_care_action", e.target.value || null)} />
           <p className="text-xs text-charcoal-ink/60">Asking the care team, booking and the urgent-help box are added by the template and cannot be edited here.</p>
         </div>
+        <div className="space-y-1 sm:col-span-2">
+          <Label htmlFor="content_change_note">What changed since the last review (required when you publish a new version)</Label>
+          <Input
+            id="content_change_note"
+            maxLength={500}
+            placeholder="For example: updated the salt advice to match the new protocol"
+            value={form.review_change_note ?? ""}
+            onChange={(e) => set("review_change_note", e.target.value || null)}
+          />
+          <p className="text-xs text-charcoal-ink/60">Patients see this on the item. Not needed the first time an item is published, or when it is simply reviewed again with nothing changed.</p>
+        </div>
         <div className="space-y-1">
           <Label htmlFor="content_audio_clip">Audio clip id (S32 manifest, optional)</Label>
           <Input id="content_audio_clip" className="font-mono text-xs" placeholder="LSN-001" value={form.audio_clip_id ?? ""} onChange={(e) => set("audio_clip_id", e.target.value || null)} />
@@ -512,6 +523,7 @@ function ContentRow({ item }: { item: HealthEducationContent }) {
               clinical_author_name: item.clinical_author_name,
               evidence_source: item.evidence_source,
               self_care_action: item.self_care_action,
+              review_change_note: item.review_change_note,
               audio_clip_id: item.audio_clip_id,
               is_micro_lesson: item.is_micro_lesson,
               lesson_action: item.lesson_action,
@@ -572,6 +584,9 @@ export function HealthEducationManager() {
                 </Link>
                 <Link href="/admin/settings/health-education/readiness" className="text-brand-green hover:underline">
                   Content readiness →
+                </Link>
+                <Link href="/admin/settings/health-education/expiry" className="text-brand-green hover:underline">
+                  Review list and expiry →
                 </Link>
                 <Link href="/admin/settings/health-education/search-gaps" className="text-brand-green hover:underline">
                   Searches with no result →

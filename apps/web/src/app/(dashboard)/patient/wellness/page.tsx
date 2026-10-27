@@ -7,6 +7,7 @@ import { isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
 import { isMealPlanGenerationConfigured } from "@/lib/nutrition/meal-plan-generate";
 import { NutritionFlow } from "../nutrition-flow";
 import { WellnessPointsCard } from "./points-card";
+import { MilestoneCard } from "./milestone-card";
 import { BadgesGrid } from "./badges-grid";
 import { ChallengesSection } from "./challenges-section";
 import { ClassesSection } from "./classes-section";
@@ -39,6 +40,8 @@ export default async function WellnessHubPage() {
         icon={SEMANTIC_ICON.points}
         description="Small, everyday habits add up. Earn points for logging, learning, and finishing challenges, and collect badges along the way. Points show your progress; they are not money."
       />
+
+      <MilestoneCard patientId={profile.id} />
 
       <WellnessPointsCard patientId={profile.id} />
 

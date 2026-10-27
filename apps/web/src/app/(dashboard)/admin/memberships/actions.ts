@@ -21,15 +21,23 @@ export async function grantMembership(
     patientId: String(formData.get("patient_id") ?? ""),
     endsOn: String(formData.get("ends_on") ?? "").trim() || undefined,
     reason: String(formData.get("reason") ?? ""),
+    tier: String(formData.get("tier") ?? "") || undefined,
+    collectionState: String(formData.get("collection_state") ?? "").trim() || undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc("grant_membership", {
+  // Both tiers go through the tier-aware function: Plus needs an approved collection state while Plus is limited by state (OQ-PLUS-1).
+  const args = {
     p_patient: parsed.data.patientId,
     p_reason: parsed.data.reason,
     // Omitted when there is no end date: the argument is optional in the database.
     ...(parsed.data.endsOn ? { p_ends_at: endOfDayLagos(parsed.data.endsOn) } : {}),
+  };
+  const { error } = await supabase.rpc("grant_membership_tier", {
+    ...args,
+    p_tier: parsed.data.tier,
+    ...(parsed.data.tier === "plus" && parsed.data.collectionState ? { p_collection_state: parsed.data.collectionState } : {}),
   });
   if (error) return { error: describeMembershipError(error) };
   revalidatePath(parsed.data.base);

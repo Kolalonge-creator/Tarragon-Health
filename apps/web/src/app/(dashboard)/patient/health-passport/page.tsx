@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { formatGlucose, type GlucoseDisplayUnit } from "@tarragon/shared";
+import { entryOriginLabelKey, formatGlucose, type GlucoseDisplayUnit } from "@tarragon/shared";
 import { getGlucoseDisplayUnit } from "@/lib/patient/glucose-unit";
 import Link from "next/link";
 import { t } from "@tarragon/i18n";
@@ -56,6 +56,12 @@ function formatVitalValue(
     default:
       return "—";
   }
+}
+
+/** S07y: a latest reading taken at a pharmacy or clinic machine, or copied from a paper diary, says so beside its value. */
+function originSuffix(latest: Record<string, unknown>): string {
+  const key = entryOriginLabelKey(typeof latest.entry_origin === "string" ? latest.entry_origin : null);
+  return key ? ` · ${t(key)}` : "";
 }
 
 export default async function HealthPassportPage() {
@@ -160,6 +166,7 @@ export default async function HealthPassportPage() {
                     <span className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
                       {formatVitalValue(v.vitalType, v.latest, glucoseUnit)} · {v.readingCount} readings this
                       period · last logged {formatPatientDate(v.takenAt)}
+                      {originSuffix(v.latest)}
                     </span>
                   </li>
                 ))}

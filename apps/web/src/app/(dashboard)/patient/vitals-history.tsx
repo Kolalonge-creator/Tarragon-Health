@@ -25,6 +25,8 @@ import { formatPatientDateTime } from "@/lib/format-date";
 import { ChangedMarker, EditReading } from "./reading-edit";
 import { classifyBpLevel } from "@/lib/rules/bp-classification";
 import { CufflessCalibrationNote, SourceBadge, WristSpo2Note } from "@/components/source-badge";
+import { t } from "@tarragon/i18n";
+
 /** Design principle 2: the status chip (icon + plain word + colour) for a reading, from the existing deterministic classifiers. */
 function StatusChip({ reading }: { reading: Tables<"vitals_readings"> }) {
   const status = readingStatus(reading);
@@ -140,11 +142,17 @@ export function VitalsHistory({ patientId, viewerId }: { patientId: string; view
                         viewerIsHelper={viewerId != null && reading.logged_by_profile_id === viewerId}
                       />
                     ) : (
-                      <SourceBadge source={reading.source} />
+                      <SourceBadge source={reading.source} origin={reading.entry_origin} />
                     )}
                     <ChangedMarker reading={reading} />
                   </p>
                   <WristSpo2Note source={reading.source} vitalType={reading.vital_type} />
+                  {reading.entry_origin === "pharmacy_machine" && (
+                    <p data-testid="pharmacy-note" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                      {reading.place_label ? `${reading.place_label}. ` : ""}
+                      {t("pharm.history_note")}
+                    </p>
+                  )}
                   <CufflessCalibrationNote source={reading.source} vitalType={reading.vital_type} lastCuffCheckAt={lastCuffCheckAt} level={classifyBpLevel(reading.systolic, reading.diastolic)} />
                   {reading.note && (
                     <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{reading.note}</p>

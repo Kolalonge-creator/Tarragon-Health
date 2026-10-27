@@ -5,6 +5,7 @@ import { CtaBand } from "../../_components/cta-band";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { membershipAutoRenews } from "@/lib/marketing/membership";
 import {
   BOOKING_STEPS,
   CARE_VOUCHER_INTRO,
@@ -16,10 +17,10 @@ import {
   HMO_COMPARE_NOTE,
   HMO_COMPARE_ROWS,
   FREE_TRIAL_INTRO,
-  FREE_TRIAL_TERMS,
+  freeTrialTerms,
   FREE_TRIALS,
   OUR_UNDERTAKINGS,
-  PRICING_PROMISES,
+  pricingPromises,
 } from "../../_content/pricing";
 
 export const metadata: Metadata = pageMetadata({
@@ -31,7 +32,8 @@ export const metadata: Metadata = pageMetadata({
 
 export const revalidate = 3600;
 
-export default function HowPricingWorksPage() {
+export default async function HowPricingWorksPage() {
+  const autoRenews = await membershipAutoRenews();
   return (
     <>
       {/* Text hero, matching its parent /pricing (which has no photo hero
@@ -60,7 +62,7 @@ export default function HowPricingWorksPage() {
       <Section variant="sage">
         <SectionHeading eyebrow="Our promise" title="The No-Hidden-Cost Promise" />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
-          {PRICING_PROMISES.map((promise) => (
+          {pricingPromises(autoRenews).map((promise) => (
             <div
               key={promise}
               className="rounded-xl border border-charcoal-ink/10 bg-white p-5 text-sm leading-relaxed text-charcoal-ink/75"
@@ -91,7 +93,7 @@ export default function HowPricingWorksPage() {
           ))}
         </div>
         <ul className="mx-auto mt-6 max-w-3xl space-y-2 text-center text-sm text-charcoal-ink/70">
-          {FREE_TRIAL_TERMS.map((term) => (
+          {freeTrialTerms(autoRenews).map((term) => (
             <li key={term}>{term}</li>
           ))}
         </ul>

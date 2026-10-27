@@ -17,6 +17,7 @@ import { AgpCard } from "@/components/agp-card";
 import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { PatientTimeline } from "@/components/patient-timeline";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
+import { SharedSummaries } from "@/components/mental-health/shared-summaries";
 import { PreVisitSummary } from "./pre-visit-summary";
 import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
@@ -411,6 +412,7 @@ export default async function ClinicianPatientPage({
                 <EcgReportDocumentsSection patientId={patient.id} />
                 <ImagingOrdersSection patientId={patient.id} canOrder={isClinicalTier(callerStaff)} />
                 <MentalHealthSummary patientId={patient.id} showScores />
+                <SharedSummaries patientId={patient.id} />
                 {isClinicalTier(callerStaff) && <ReferToSpecialistForm patientId={patient.id} />}
                 <ScreenOrderResultsSection patientId={patient.id} />
                 <ScreeningResultForm patientId={patient.id} />

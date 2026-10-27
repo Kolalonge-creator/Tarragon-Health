@@ -9,6 +9,16 @@
  * questions point to the "Need help" card on the Care page
  * (navigation_requests, module 75) rather than to a ticket here.
  */
+import { t } from "@tarragon/i18n";
+import { getProposedConfig } from "@tarragon/shared";
+import { formatKobo } from "@/lib/format-money";
+
+/** S06z: the data-cost answer is built from the same configured price the phone app uses (offline.data_cost), never typed here. */
+function dataCostAnswer(): string {
+  const config = getProposedConfig<{ readonly price_per_mb_kobo: number; readonly max_hold_hours: number }>("offline.data_cost").value;
+  return t("datacost.web.faq_answer", undefined, { price: formatKobo(config.price_per_mb_kobo), hours: config.max_hold_hours });
+}
+
 export interface SupportFaqEntry {
   question: string;
   answer: string;
@@ -34,6 +44,10 @@ export const SUPPORT_FAQS: SupportFaqEntry[] = [
     question: "How do I contact my doctor?",
     answer:
       "Use Messages to reach your care team directly in the app — that's the on-the-record way to reach them. This Help & support page is for technical issues and complaints; Messages is for talking with your care team.",
+  },
+  {
+    question: t("datacost.web.faq_question"),
+    answer: dataCostAnswer(),
   },
   {
     question: "How do I update my profile?",

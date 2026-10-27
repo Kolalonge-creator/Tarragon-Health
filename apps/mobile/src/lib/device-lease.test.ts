@@ -47,10 +47,11 @@ jest.mock("./offline-queue", () => ({
   },
 }));
 jest.mock("./outbox", () => ({
-  flushOutbox: async () => {
+  // The last upload attempt before a wipe ignores any Wi-Fi-only hold (S06z): a held row must not be destroyed unsent.
+  flushOutboxIncludingHeld: async () => {
     calls.push("flush");
     if (mockFlushThrows) throw new Error("Network request failed");
-    return { synced: 0, remaining: 0, stoppedOffline: true, held: 0, newlyRejected: 0 };
+    return { synced: 0, remaining: 0, stoppedOffline: true, held: 0, newlyRejected: 0, heldForWifi: 0 };
   },
   countUnsentByOwner: async () => {
     calls.push("count");
