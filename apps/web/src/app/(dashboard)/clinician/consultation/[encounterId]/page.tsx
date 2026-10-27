@@ -9,6 +9,7 @@ import { CaregiverCallPanel } from "@/components/consultation/caregiver-call-pan
 import { parseCaregiverList } from "@/lib/consultations/caregivers";
 import { ConsultCheckinsCard } from "@/components/consultation/consult-checkins-card";
 import { clinicianCheckinsSchema } from "@/lib/consult-checkin/model";
+import { LiveRedFlagPrompts } from "@/components/consultation/live-redflag-prompts";
 import { ClinicianIntakePanel, type ClinicianIntake } from "@/components/consultation/clinician-intake-panel";
 
 /**
@@ -50,6 +51,10 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
   const { data: caregiverData } = await supabase.rpc("consultation_caregivers" as never, { p_encounter: encounterId } as never);
   const caregivers = parseCaregiverList(caregiverData);
 
+  // S77 (23.7): typed or pasted transcript text only, no audio. Rendered only while the live_redflag_prompts_enabled guard is open; a failed
+  // read renders nothing (the guard stays off by default and the server refuses a record while it is off).
+  const { data: livePromptsOpen } = await supabase.rpc("go_live_guard_is_open" as never, { p_key: "live_redflag_prompts_enabled" } as never);
+
   return (
     <DashboardPlaceholder greeting="Consultation" roleLabel="Clinician" comingUp={[]}>
       <div className="flex items-center justify-between gap-2">
@@ -72,6 +77,7 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
       )}
       {caregivers && <CaregiverCallPanel encounterId={encounterId} list={caregivers} locale="en" />}
       <ConsultCheckinsCard checkins={checkinParsed.success ? checkinParsed.data : null} failed={checkinFailed} />
+      {livePromptsOpen === true && <LiveRedFlagPrompts encounterId={encounterId} />}
       <ConsultationRoom view={view} locale="en" call={callPolicy ? { policy: callPolicy } : null} />
     </DashboardPlaceholder>
   );

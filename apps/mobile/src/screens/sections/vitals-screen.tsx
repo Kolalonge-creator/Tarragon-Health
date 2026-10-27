@@ -1,3 +1,4 @@
+import { SeriesTrendsCard } from "@/screens/sections/series-trends-card";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, View } from "react-native";
@@ -621,6 +622,9 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       {!loading && windowed.length > 0 ? (
         <TrendInsightsCard insights={insights} tr={tr} minReadingsForChart={MIN_READINGS_FOR_CHART} targetKnowable={!beneficiaryProfileId} />
       ) : null}
+
+      {/* Blood sugar and weight over time, with the target range when one applies (S47b); draws nothing without readings. */}
+      <SeriesTrendsCard subjectId={beneficiaryProfileId ?? patientId} />
 
       {/* The seven-day home check (S07x): appears only when the server guard is open, and not while acting for someone else. */}
       {!beneficiaryProfileId ? <HomeCheckCard patientId={patientId} reloadToken={homeReload} session={{ readings: homeSessionReadings, hold: holdSession }} /> : null}

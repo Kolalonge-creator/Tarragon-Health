@@ -6,7 +6,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { selectPayment, type FetchLike } from "../_shared/integrations/index.ts";
 import { listBanks, sendPayout, verifyBank, type PayoutDeps } from "../_shared/payouts/handler.ts";
 
-Deno.serve(async (req) => {
+import { withSentry } from "../_shared/observability/sentry.ts";
+Deno.serve(withSentry("payouts", async (req) => {
   if (req.method !== "POST") return Response.json({ error: "method_not_allowed" }, { status: 405 });
   const auth = req.headers.get("Authorization");
   if (!auth?.startsWith("Bearer ")) return Response.json({ error: "unauthorised" }, { status: 401 });
@@ -41,4 +42,4 @@ Deno.serve(async (req) => {
     : body.action === "banks" ? await listBanks(deps)
     : { status: 400, body: { error: "invalid_input" } };
   return Response.json(out.body, { status: out.status });
-});
+}));

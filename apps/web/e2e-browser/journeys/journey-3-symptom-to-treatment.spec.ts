@@ -11,8 +11,10 @@ import { test } from "@playwright/test";
  *    day three; the symptom checker's suggestion and the doctor's diagnosis are compared in the monthly accuracy
  *    audit."
  *
- * Nothing can be driven end to end today: the entry point (the symptom checker, Module 12, sessions S59 and S60)
- * is not built. This file exists so the journey has a named home, and so each downstream piece that IS built has
+ * Nothing can be driven end to end today. Checked again in S85b: the symptom checker (S59, S60) is built, but it is
+ * behind the symptom_checker_enabled go-live guard (off), its seeded pathways are headache, chest pain and breathlessness
+ * only (no urinary complaint), and by founder decision it never returns possible causes. The typed steps in
+ * packages/shared/src/journeys/journeys.ts carry the exact reason for each. This file exists so the journey has a named home, and so each downstream piece that IS built has
  * its proof pointer recorded in one place. Every test is skipped with its blocker; none is a silent pass.
  *
  * Pieces that exist and have DB-level proofs, to be stitched in once S59/S60 land:

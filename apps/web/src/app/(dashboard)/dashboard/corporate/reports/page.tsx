@@ -8,6 +8,7 @@ import { LifestyleOutcomesCard } from "@/components/lifestyle-outcomes-card";
 import { OutcomeReportsPanel } from "../outcome-reports-panel";
 import { SubsidySpendSummary } from "@/components/institution/subsidy-spend-summary";
 import { loadCorporateDashboardData } from "../dashboard-data";
+import { PrivacyLedgerCard } from "../privacy-ledger-card";
 
 /** Only ever rendered once corporate/layout.tsx has established an
  * organisation exists. Outcome reports (the snapshot generator) still works
@@ -27,6 +28,7 @@ export default async function CorporateReportsPage() {
         <InstitutionPrivacyNotice />
         <CohortTooSmallNotice cohortSize={data.access.cohortSize} minCohortSize={data.access.minCohortSize} />
         <OutcomeReportsPanel organisationId={data.organisationId} />
+        <PrivacyLedgerCard />
       </div>
     );
   }
@@ -57,6 +59,7 @@ export default async function CorporateReportsPage() {
       <LifestyleOutcomesCard supabase={data.access.client} organisationId={data.access.organisationId} />
       <OutcomeReportsPanel organisationId={data.organisationId} />
       <SubsidySpendSummary organisationId={data.organisationId} />
+      <PrivacyLedgerCard />
     </div>
   );
 }

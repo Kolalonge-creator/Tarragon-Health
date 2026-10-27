@@ -1,5 +1,6 @@
 "use client";
 
+import { AiLabel } from "@/components/ai/ai-label";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -21,7 +22,6 @@ import { validateCertificateFile, CERTIFICATE_ACCEPT, VACCINATION_ROUTES } from 
 import { createClient } from "@/lib/supabase/client";
 import { syncVaccinationScheduleAction } from "./vaccination-actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -190,7 +190,7 @@ function CardExtractionReview({
     <li className="space-y-3 py-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">Check before filing</p>
-        <Badge variant="amber">AI-drafted, not yet filed</Badge>
+        <AiLabel variant="unfiled" tone="amber" />
       </div>
 
       {extraction.unreadable_reason && (
