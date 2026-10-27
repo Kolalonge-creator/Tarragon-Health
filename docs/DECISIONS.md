@@ -523,3 +523,38 @@ Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six 
 | **Clarified by the founder, same day.** | (1) The 45,000 naira step covers BOTH the panel and the collection, and it is Plus-only. (2) A Plus holder's collection state is the state they chose when they registered for Plus. If they later move to a state that is not approved, they travel to a state that runs the test with the panel; they are not switched to self-arranged and not refunded. Registration must say this plainly before payment. (3) Free and Membership signup is never blocked by state: anyone can join either online from anywhere, including states where Plus is not offered. |
 | **CMO** | The founder states that they are the CMO. Recording that as the founder's statement only; whether it satisfies the 2026-10-21 condition for an independent, non-founder CMO is for the founder to decide and record. An agent never signs a clinical rule: the baseline-labs proposal is drafted at `docs/design/baseline-labs-rule-proposal.md` for signing through the CMO sign-off hub. |
 | **Follow-up decisions, 2026-10-26 (same day, in chat).** | (1) A result uploaded for the bundle stays a plain document, and AI in the background reads it into platform values (OQ-BUNDLE-1): decided, build pending behind AI governance and a clinician release step. (2) Membership Plus given without a checkout (admin grant, employer seat, older row) needs a collection state (OQ-PLUS-1): an admin grant asks for it, and a member with none chooses once. (3) A queued year's revenue schedule is not re-based when the year starts early (OQ-QUEUED-1 option (b), the founder said do what is best). |
+
+## Founder decision, 2026-10-27 (OQ-727: no SMS or voice paging of clinicians; delete the Termii senders)
+
+| Decision | Chosen |
+|---|---|
+| **Delete the Termii SMS and voice paging of clinicians.** | The founder, 2026-10-27, option (a) of OQ-727. Confirms D3 (S87-1) and the CMO decision of 2026-10-07 (S16-S20 decision 10): a red-event or abnormal-result page to a clinician uses in-app, push and email only. |
+| **SMS scope** | Verification codes only, sent by Supabase phone auth through `supabase/functions/auth-send-sms-hook` (unchanged). No other Termii send exists in code. |
+| **Final fallback** | The in-console alarm and a phone call by a named ops person (an `ops_incidents` row whose reference starts `page_nobody_reachable:` assigns the ops desk primary, then the deputy). The abnormal-result handler now opens that incident when no page can be queued, instead of writing an audit row only. |
+| **Order of work** | Code first (this change); schema second (OQ-732: enum values, preferences, INV-08 trigger) and a new signed `escalation_slas` version without `sms` literals (OQ-730) later. Wiring the exhausted-ladder alarm to the ops desk is OQ-731. |
+| **Pre-existing fault fixed in the same change** | `send-pending-notifications` called `platformDisabledChannel(row)`, a helper deleted in S85-D3 (#1031), so every batch with a pending row would have thrown a ReferenceError. The call is removed; the file is now type-checked in CI. Check the deployed version against source before relying on any past claim that it was redeployed. |
+
+
+| **Follow-up decisions, 2026-10-26 (same day, in chat).** | (1) A result uploaded for the bundle is read into platform values by AI in the background (OQ-BUNDLE-1): already provided by the existing governed reader AI-005, which drafts values for a doctor to file, so nothing new was built. (2) Membership Plus given without a checkout (admin grant, employer seat, older row) needs a collection state (OQ-PLUS-1): an admin grant asks for it, and a member with none chooses once. (3) A queued year's revenue schedule is not re-based when the year starts early (OQ-QUEUED-1 option (b), the founder said do what is best). |
+
+
+## Founder decisions, 2026-10-27 (S40 gate: D1, D2, D3 and the clinician SMS rule)
+
+Recorded in chat by the founder, who stated they are acting as CMO. These are founder-in-chat records, not a separate CMO signature; the CMO of record may re-sign.
+
+| Item | Decision |
+|---|---|
+| **D1 (180/120 symptom question).** | Superseded, no signature. `bp_care_triage` v7 was approved on 2026-10-27 at 00:09 UTC and is the rule in force (severe reading with a red-flag symptom is RED with guidance and an on-call page; a red-flag symptom below the severe line is AMBER urgent review within 240 minutes; recheck rules). The older D1 draft text and the draft versions v4 to v6 are retired from the gate and should be retired in the database. |
+| **D2 (fertile window).** | Exact wording approved: label "Not contraception. This cannot prevent pregnancy."; link "Learn about contraception and talk to your care team."; mode "Planning a pregnancy", off by default; banned phrases "safe days", "avoid pregnancy", "natural contraception". Recorded in `packages/i18n/src/clinical-wording.json` as `fertileWindow.signed` (by "Kola Longe, founder (acting as CMO)", on 2026-10-27, version 1). |
+| **D3 (SMS).** | Recorded as: SMS is for phone verification codes only (sent by Supabase phone auth). The emergency-contact exception was removed on 2026-10-16 and the clinician Termii SMS and voice paging code is deleted (OQ-727, branch `s87/scan-rules-sms-allowlist`). Clinician pages use in-app, push and email, then the in-console alarm and a named ops person phoning. Spec D-12 and OQ-05 are read to match. |
+| **S40 gate scope.** | Full: every open item closed, or deferred in writing with an owner and date. Not the narrow "BP journey carries one real patient" gate. |
+| **PITR.** | The founder will upgrade Supabase to Pro and enable point-in-time recovery, then a restore test is run and recorded. |
+
+
+## Founder decision, 2026-10-27 (no independent CMO; Membership and Membership Plus switched on)
+
+| Decision | Chosen |
+|---|---|
+| **No independent CMO.** | The founder, 2026-10-27, in chat: there is no independent, non-founder CMO. The founder is the CMO and signs the CMO items. This closes the question left open on 2026-10-26 about whether the founder's own statement satisfies the 2026-10-21 condition for an independent CMO: it is not required. An agent still never signs a clinical protocol or rule. |
+| **Membership and Membership Plus switched on.** | The founder, 2026-10-27, in chat. `membership_two_member_tiers` was switched on in the live database by the admin account, with the reason recorded in the audit log. Plus now needs an admin-approved collection state at checkout (Lagos, Oyo, Osun and Ogun approved); Membership and Free are never limited by state. |
+| **Launch conditions knowingly open at switch-on.** | (1) The baseline-labs prescribing rule is drafted (`docs/design/baseline-labs-rule-proposal.md`) but unsigned and its check is not built; it waits for the CMO's answers to its four questions, then a build, then the CMO signs on the sign-off hub. (2) No live Paystack payment and refund has been run for the new tiers yet. The founder chose to proceed without either. |

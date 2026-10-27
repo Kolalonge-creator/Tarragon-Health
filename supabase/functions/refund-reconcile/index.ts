@@ -4,7 +4,8 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { handleRefundReconcile, parseProviderRefund, type ProviderRefund, type ReconcileStore } from "./handler.ts";
 
-Deno.serve((req) => {
+import { withSentry } from "../_shared/observability/sentry.ts";
+Deno.serve(withSentry("refund-reconcile", (req) => {
   const url = Deno.env.get("SUPABASE_URL");
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const paystack = Deno.env.get("PAYSTACK_SECRET_KEY");
@@ -51,4 +52,4 @@ Deno.serve((req) => {
     : null;
 
   return handleRefundReconcile(req, { secret: Deno.env.get("REFUND_RECONCILE_SECRET") ?? null, store, fetchRefund });
-});
+}));

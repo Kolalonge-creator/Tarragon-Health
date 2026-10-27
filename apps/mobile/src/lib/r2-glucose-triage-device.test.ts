@@ -10,6 +10,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { secureKvGet } from "./secure-kv";
 import { expectationWithDefaults, GLUCOSE_CARE_V1, summarise, type GlucoseInput, type GlucoseRuleSet, type ResultSummary } from "@tarragon/clinical";
 import { mgDlToMmolL } from "@tarragon/shared";
 import { evaluateGlucoseOnDevice } from "./glucose-log";
@@ -236,10 +237,10 @@ describe("the phone's glucose rule set and facts", () => {
       patient_diabetes_profile: { data: { confirmed_type: null, patient_reported_type: "type_1" }, error: null },
     };
     expect(await refreshPatientFacts(SUBJECT)).toBe("updated");
-    expect(JSON.parse((await AsyncStorage.getItem(FACTS_KEY)) ?? "{}")).toMatchObject({ diabetesType: "type_1" });
+    expect(JSON.parse((await secureKvGet(FACTS_KEY)) ?? "{}")).toMatchObject({ diabetesType: "type_1" });
     mockTable["patient_diabetes_profile"] = { data: { confirmed_type: "gestational", patient_reported_type: "type_1" }, error: null };
     await refreshPatientFacts(SUBJECT);
-    expect(JSON.parse((await AsyncStorage.getItem(FACTS_KEY)) ?? "{}")).toMatchObject({ diabetesType: "gestational" });
+    expect(JSON.parse((await secureKvGet(FACTS_KEY)) ?? "{}")).toMatchObject({ diabetesType: "gestational" });
     // Gestational diabetes is routed to a clinician (GL-P3), not graded as type 1 or 2.
     const triage = await gradeGlucoseOnDevice({ subjectId: SUBJECT, mmol: 6, context: "random", symptoms: [] });
     expect(triage.result.ruleId).toBe("GL-P3");

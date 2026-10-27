@@ -11,7 +11,12 @@ jest.mock("@/lib/scribe/actions", () => ({
   revokeScribeConsent: jest.fn(),
   findScribeFactsFromText: (...a: unknown[]) => findFacts(...a),
   draftScribeFromFacts: (...a: unknown[]) => draftFromFacts(...a),
+  reportScribeProblem: jest.fn(async () => ({ ok: true })),
+  draftScribeDocument: jest.fn(),
+  acceptFollowUpTaskProposal: jest.fn(),
 }));
+// jsdom has no crypto.subtle; the real hash is covered in review-record.test.ts
+jest.mock("@/lib/scribe/review-record", () => ({ textHash: async () => "a".repeat(64) }));
 
 import { ScribePanel } from "./scribe-panel";
 
@@ -19,6 +24,7 @@ const noteId = "11111111-1111-4111-8111-111111111111";
 const renderPanel = () => render(<ScribePanel patientId="22222222-2222-4222-8222-222222222222" encounterNoteId={noteId} onUseDraft={jest.fn()} />);
 
 beforeEach(() => {
+  window.sessionStorage.clear();
   getState.mockReset();
   recordConsent.mockReset();
   findFacts.mockReset();
@@ -122,7 +128,7 @@ describe("ScribePanel consent gate", () => {
     const onUseDraft = jest.fn();
     render(<ScribePanel patientId="22222222-2222-4222-8222-222222222222" encounterNoteId={noteId} onUseDraft={onUseDraft} />);
     fireEvent.click(await screen.findByRole("button", { name: /Start AI scribe/ }));
-    fireEvent.change(await screen.findByRole("textbox"), { target: { value: "x".repeat(60) } });
+    fireEvent.change(await screen.findByRole("textbox"), { target: { value: "Headache for two days. You had a headache. " + "x".repeat(30) } });
     fireEvent.click(screen.getByRole("button", { name: "Find the facts" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
     fireEvent.click(screen.getByRole("button", { name: /Write the draft/ }));
@@ -133,5 +139,43 @@ describe("ScribePanel consent gate", () => {
     const result = onUseDraft.mock.calls[0]![0];
     expect(result.editTelemetry).toMatchObject({ leftUnedited: false });
     expect(result.editTelemetry.editRate).toBeGreaterThan(0);
+  });
+
+  it("offline: the request is kept on this device, nothing is sent as a failure, and it can be sent again", async () => {
+    getState.mockResolvedValue({ state: "given", may_start: true });
+    recordConsent.mockResolvedValue({ ok: true, id: "33333333-3333-4333-8333-333333333333" });
+    findFacts.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    findFacts.mockResolvedValueOnce({ status: "ok", facts: [], droppedUnverified: 0, modelId: "m", promptVersion: "p" });
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: /Start AI scribe/ }));
+    fireEvent.change(await screen.findByRole("textbox"), { target: { value: "x".repeat(60) } });
+    fireEvent.click(screen.getByRole("button", { name: "Find the facts" }));
+    await screen.findByText(/You are offline. Your notes are saved on this device/);
+    expect(window.sessionStorage.length).toBe(1);
+    fireEvent.click(screen.getByRole("button", { name: "Send now" }));
+    await waitFor(() => expect(findFacts).toHaveBeenCalledTimes(2));
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("a server refusal is not queued", async () => {
+    getState.mockResolvedValue({ state: "given", may_start: true });
+    recordConsent.mockResolvedValue({ ok: true, id: "33333333-3333-4333-8333-333333333333" });
+    findFacts.mockRejectedValueOnce(new Error("consent_not_active"));
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: /Start AI scribe/ }));
+    fireEvent.change(await screen.findByRole("textbox"), { target: { value: "x".repeat(60) } });
+    fireEvent.click(screen.getByRole("button", { name: "Find the facts" }));
+    await waitFor(() => expect(screen.queryByText(/saved on this device/)).toBeNull());
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("the plain template fills the box with headings and needs no network", async () => {
+    getState.mockResolvedValue({ state: "given", may_start: true });
+    recordConsent.mockResolvedValue({ ok: true, id: "33333333-3333-4333-8333-333333333333" });
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: /Start AI scribe/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Use a plain template" }));
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toContain("History:");
+    expect(findFacts).not.toHaveBeenCalled();
   });
 });

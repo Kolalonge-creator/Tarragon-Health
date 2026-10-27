@@ -4,8 +4,10 @@ import Link from "next/link";
 import { t, type Locale } from "@tarragon/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { withoutCrossOrganisation } from "@tarragon/shared";
+import { PermissionSummary } from "@/components/care-circle/permission-summary";
 import { permissionKey } from "@/lib/care-circle/model";
-import { useAcceptInvite, usePreviewInvite } from "@/lib/queries/care-circle";
+import { useAcceptInvite, useDeclineInvite, usePreviewInvite } from "@/lib/queries/care-circle";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 const TOUCH = "min-h-11";
@@ -13,6 +15,7 @@ const TOUCH = "min-h-11";
 export function JoinCard({ token, locale }: { token: string; locale: Locale }) {
   const preview = usePreviewInvite(token);
   const accept = useAcceptInvite();
+  const decline = useDeclineInvite();
 
   if (preview.isPending) return <p className={MUTED} role="status">…</p>;
 
@@ -25,6 +28,15 @@ export function JoinCard({ token, locale }: { token: string; locale: Locale }) {
             <Link href={`/patient/supporting/circle/${accept.data.patient_id}`}>{t("circle.join.open", locale)}</Link>
           </Button>
         </CardContent>
+      </Card>
+    );
+  }
+
+  if (decline.isSuccess && decline.data) {
+    // "Not now" is silent for the person who asked, and this says only what is true for this person: nothing was shared.
+    return (
+      <Card>
+        <CardContent className="pt-6"><p role="status">{t("cctools.join.not_now_done", locale)}</p></CardContent>
       </Card>
     );
   }
@@ -47,6 +59,12 @@ export function JoinCard({ token, locale }: { token: string; locale: Locale }) {
       <CardHeader><CardTitle>{t("circle.join.title", locale)}</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <p>{t("circle.join.body", locale, { name: p.inviter_first_name, relationship: p.relationship })}</p>
+        <PermissionSummary
+          permissions={p.cross_organisation ? withoutCrossOrganisation(p.permissions) : p.permissions}
+          audience="invitee"
+          name={p.inviter_first_name}
+          crossOrganisation={p.cross_organisation === true}
+        />
         <section aria-labelledby="join-sees">
           <h3 id="join-sees" className="font-medium">{t("circle.join.sees", locale)}</h3>
           <ul className="mt-2 list-disc space-y-1 pl-5">
@@ -57,10 +75,11 @@ export function JoinCard({ token, locale }: { token: string; locale: Locale }) {
           <Button type="button" className={TOUCH} disabled={accept.isPending} onClick={() => accept.mutate(token)}>
             {t("circle.join.accept", locale)}
           </Button>
-          <Button asChild variant="outline" className={TOUCH}>
-            <Link href="/patient/supporting">{t("circle.join.decline", locale)}</Link>
+          <Button type="button" variant="outline" className={TOUCH} disabled={decline.isPending} onClick={() => decline.mutate(token)}>
+            {t("cctools.join.not_now", locale)}
           </Button>
         </div>
+        {decline.isError || (decline.isSuccess && !decline.data) ? <p role="alert" className="text-sm">{t("cctools.join.not_now_error", locale)}</p> : null}
         {/* The web page is the fallback for a phone without the app; with the app, this hands the same link over (custom scheme, no rebuild). */}
         <p className="text-sm">
           <a className="underline" href={`tarragonhealth://join/${encodeURIComponent(token)}`}>{t("joinlink.open_in_app", locale)}</a>

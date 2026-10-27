@@ -10,7 +10,7 @@ const accepts = () => screen.getAllByRole("button", { name: /^Accept sentence/ }
 describe("AiDraftBlock", () => {
   it("carries the AI label and marks every span as unreviewed", () => {
     render(<AiDraftBlock initialText={TEXT} onSign={jest.fn()} />);
-    expect(screen.getByTestId("ai-label").textContent).toContain("AI-drafted, not yet reviewed");
+    expect(screen.getByTestId("ai-label").textContent).toContain("Drafted by AI, not yet reviewed");
     expect(document.querySelectorAll('[data-span-status="unreviewed"]')).toHaveLength(2);
   });
 

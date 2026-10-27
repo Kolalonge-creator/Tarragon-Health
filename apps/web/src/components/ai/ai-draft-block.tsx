@@ -72,7 +72,7 @@ export function AiDraftBlock({ initialText, onSign, signLabel = "Sign", onTeleme
 
   return (
     <div className="space-y-2" data-testid="ai-draft-block">
-      <AiLabel reviewed={allReviewed(spans) && !nothingLeft} />
+      <AiLabel variant={allReviewed(spans) && !nothingLeft ? "drafted" : "unreviewed"} />
       <div className="whitespace-pre-wrap text-sm text-charcoal-ink">
         {spans.map((s) => {
           if (s.status === "removed") return null;

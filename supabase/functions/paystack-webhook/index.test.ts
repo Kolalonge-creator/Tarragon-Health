@@ -22,7 +22,7 @@
 //        supabase/functions/paystack-webhook/index.test.ts
 
 import { assert, assertEquals, assertExists } from "jsr:@std/assert@1";
-import { handleWebhookRequest, verifySignature } from "./handler.ts";
+import { handleWebhookRequest, notifySponsorReservationReady, verifySignature } from "./handler.ts";
 import { FakeSupabaseClient } from "./test-fake-supabase.ts";
 
 const SECRET = "test-webhook-secret-do-not-use-in-prod";
@@ -429,9 +429,16 @@ Deno.test({
 });
 
 Deno.test({
-  name: "charge.success (sponsored_service_reservation): a genuinely trigger-activated reservation is marked processed and an invite SMS is attempted (best-effort — TERMII_API_KEY unset here, so it fails without a network call)",
+  name: "charge.success (sponsored_service_reservation): a genuinely trigger-activated reservation is marked processed and NO SMS is sent (Part C / D3: the sponsor shares the claim link)",
   permissions: { env: ["PAYSTACK_WEBHOOK_SECRET", "TERMII_API_KEY", "APP_BASE_URL"] },
   async fn() {
+    const fetchCalls: string[] = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = ((input: Request | URL | string) => {
+      fetchCalls.push(String(input));
+      return Promise.reject(new Error("no outbound call expected"));
+    }) as typeof fetch;
+    try {
     const client = newClient();
     // Simulates private.activate_sponsored_service_reservation having
     // already flipped the row to 'invited' and minted payment_provider_ref
@@ -444,6 +451,7 @@ Deno.test({
         status: "invited",
         payment_provider_ref: "TXN_REF_001",
         invite_token: "tok_abc123",
+        sponsor_profile_id: "sponsor-1",
         recipient_phone: "+2348012345678",
         recipient_first_name: "Amaka",
       },
@@ -459,6 +467,21 @@ Deno.test({
     const txn = client.rows("payment_transactions")[0];
     assertExists(txn.processed_at);
     assertEquals(txn.organisation_id, "org-1");
+    // No Termii call: fetch must never be reached for this event.
+    assertEquals(fetchCalls.length, 0);
+    // The SPONSOR (who has a profile) gets exactly one neutral in-app notice that the link is ready to share. The
+    // recipient is never contacted, and the notice carries no phone, name, token or link.
+    const notices = client.rows("notifications");
+    assertEquals(notices.length, 1);
+    assertEquals(notices[0].recipient_id, "sponsor-1");
+    assertEquals(notices[0].channel, "in_app");
+    assertEquals(notices[0].template, "sponsored_reservation_ready");
+    assertEquals(notices[0].source_id, "resv-1");
+    assertEquals(notices[0].content_class, "non_clinical");
+    assert(!/Amaka|2348012345678|tok_abc123|claim/i.test(JSON.stringify(notices[0])));
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   },
 });
 
@@ -734,7 +757,7 @@ Deno.test({
 // Paystack when the feature went away) has no handler any more. It must be marked FAILED loudly so
 // finance sees money that arrived with nowhere to go, never reported as successfully processed.
 Deno.test({
-  name: "charge.success (platform_credit_topup, retired kind): falls through and is marked failed, never silently processed",
+  name: "charge.success (retired platform_credit_topup kind, branch deleted OQ-309): hits the unrecognised-kind failure and is never silently processed",
   permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
   async fn() {
     const client = newClient();
@@ -742,7 +765,28 @@ Deno.test({
 
     const txn = client.rows("payment_transactions")[0];
     assertEquals(txn.processed_at, undefined);
-    assert(typeof txn.error === "string" && txn.error.includes("retired platform_credit_topup"));
+    assert(typeof txn.error === "string" && txn.error.includes("unrecognised metadata.kind=platform_credit_topup"));
+    // The finance instruction the deleted branch used to carry: the kind, the reference and what to do.
+    assert(txn.error.includes("reference=TXN_REF_001"));
+    assert(txn.error.includes("refund it in Paystack and reconcile manually"));
+  },
+});
+
+Deno.test({
+  name: "sponsor reservation notice: one row per reservation (a second call adds none) and a database error never throws",
+  permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
+  async fn() {
+    const client = newClient();
+    const resv = { id: "resv-9", organisation_id: "org-1", sponsor_profile_id: "sponsor-9" };
+    await notifySponsorReservationReady(client as never, resv);
+    await notifySponsorReservationReady(client as never, resv);
+    assertEquals(client.rows("notifications").length, 1);
+    // no sponsor profile: nothing is written, nothing throws
+    await notifySponsorReservationReady(client as never, { ...resv, id: "resv-10", sponsor_profile_id: null });
+    assertEquals(client.rows("notifications").length, 1);
+    // a client that throws must not propagate: the payment's activation already happened
+    const broken = { from: () => { throw new Error("db down"); } };
+    await notifySponsorReservationReady(broken as never, resv);
   },
 });
 
