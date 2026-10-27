@@ -25,7 +25,7 @@ export interface MentalHealthPayload {
   checkins?: Tables<"wellbeing_checkins">[];
   therapy_sessions?: Record<string, unknown>[];
   schedules?: { id: string; patient_id: string; instrument: string; due_date: string }[];
-  handoffs?: { id: string; patient_id: string; screen_id: string | null; summary: Record<string, unknown>; patient_note: string | null; state: string; task_id: string | null; created_at: string }[];
+  handoffs?: { id: string; patient_id: string; screen_id: string | null; kind: string; summary: Record<string, unknown>; patient_note: string | null; state: string; task_id: string | null; seen_at: string | null; created_at: string }[];
 }
 
 export type MentalHealthResult =

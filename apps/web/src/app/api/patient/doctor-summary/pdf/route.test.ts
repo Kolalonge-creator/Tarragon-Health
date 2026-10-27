@@ -1,4 +1,5 @@
 const getUser = jest.fn();
+let guard: { data: unknown; error: unknown } = { data: true, error: null };
 let mockProfile: { organisation_id: string | null; role: string } | null = { organisation_id: "org1", role: "patient" };
 const order: string[] = [];
 const recordSummaryGeneration = jest.fn(async () => {
@@ -20,6 +21,7 @@ jest.mock("@/lib/doctor-summary-pdf/load", () => ({
 jest.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser },
+    rpc: async () => guard,
     from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: mockProfile }) }) }) }),
   }),
 }));
@@ -35,6 +37,7 @@ function post(fields: [string, string][]): Request {
 beforeEach(() => {
   jest.clearAllMocks();
   order.length = 0;
+  guard = { data: true, error: null };
   mockProfile = { organisation_id: "org1", role: "patient" };
   getUser.mockResolvedValue({ data: { user: { id: "p1" } } });
   recordSummaryGeneration.mockImplementation(async () => {
@@ -116,5 +119,35 @@ describe("POST /api/patient/doctor-summary/pdf", () => {
     const res = await POST(post([["section", "medicines"]]));
     expect(res.status).toBe(503);
     expect(renderToBuffer).not.toHaveBeenCalled();
+  });
+});
+
+describe("result passport sections (item 10)", () => {
+  it("builds the glucose and lab sections while the guard is open", async () => {
+    const res = await POST(post([["section", "glucose"], ["section", "lab_results"]]));
+    expect(res.status).toBe(200);
+    expect(loadDoctorSummary).toHaveBeenCalledWith(expect.anything(), "p1", { days: expect.any(Number), sections: ["glucose", "lab_results"] }, expect.any(Number), expect.anything());
+  });
+
+  it("answers 404 and reads, audits and renders nothing while result_passport_enabled is closed", async () => {
+    guard = { data: false, error: null };
+    for (const s of ["glucose", "lab_results"]) {
+      const res = await POST(post([["section", "bp"], ["section", s]]));
+      expect(res.status).toBe(404);
+    }
+    expect(recordSummaryGeneration).not.toHaveBeenCalled();
+    expect(loadDoctorSummary).not.toHaveBeenCalled();
+    expect(renderToBuffer).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the guard cannot be read", async () => {
+    guard = { data: null, error: { message: "down" } };
+    expect((await POST(post([["section", "lab_results"]]))).status).toBe(404);
+    expect(loadDoctorSummary).not.toHaveBeenCalled();
+  });
+
+  it("does not change the visit summary: the old sections never ask the guard", async () => {
+    guard = { data: false, error: null };
+    expect((await POST(post([["section", "bp"], ["section", "medicines"]]))).status).toBe(200);
   });
 });

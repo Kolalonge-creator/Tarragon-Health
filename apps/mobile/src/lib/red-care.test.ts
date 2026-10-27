@@ -44,15 +44,33 @@ describe("red care answer through the outbox", () => {
   });
 
   it("sends the database function with the outbox client id and the answer", async () => {
-    const item = await enqueue({ kind: "red_care", subjectId: "p1", payload: { response: "sought_care" } });
+    const item = await enqueue({ kind: "red_care", subjectId: "user-1", payload: { response: "sought_care" } });
     await flushOutbox();
     expect(mockRpcs).toHaveLength(1);
     expect(mockRpcs[0]).toMatchObject({ fn: "record_red_care_response", args: { p_client_id: item.clientId, p_response: "sought_care" } });
+    expect(mockRpcs[0]?.args).not.toHaveProperty("p_patient");
     expect(await getPendingCount()).toBe(0);
   });
 
+  it("a caregiver answering for the person sends the for-person function naming the person, with the same client id", async () => {
+    const item = await enqueue({ kind: "red_care", subjectId: "patient-9", payload: { response: "could_not_get_care" } });
+    await flushOutbox();
+    expect(mockRpcs).toHaveLength(1);
+    expect(mockRpcs[0]).toMatchObject({ fn: "record_red_care_response_for", args: { p_patient: "patient-9", p_client_id: item.clientId, p_response: "could_not_get_care" } });
+    expect(await getPendingCount()).toBe(0);
+  });
+
+  it("a caregiver without permission (42501) is shown as not saved, not retried forever", async () => {
+    await enqueue({ kind: "red_care", subjectId: "patient-9", payload: { response: "sought_care" } });
+    mockRpcError = { code: "42501", message: "you are not allowed to answer for this person" };
+    await flushOutbox();
+    const [row] = await listOutbox("red_care");
+    expect(row?.state).toBe("rejected");
+    expect(await answerRedCare("patient-9", "sought_care")).toBe("failed");
+  });
+
   it("a blind retry after a lost reply sends the same client id again, never a new one", async () => {
-    await enqueue({ kind: "red_care", subjectId: "p1", payload: { response: "sought_care" } });
+    await enqueue({ kind: "red_care", subjectId: "user-1", payload: { response: "sought_care" } });
     mockRpcError = { message: "Network request failed" };
     await flushOutbox();
     mockRpcError = null;
@@ -62,7 +80,7 @@ describe("red care answer through the outbox", () => {
   });
 
   it("a red alert that has not reached the server yet (P0002) is retried, not rejected", async () => {
-    await enqueue({ kind: "red_care", subjectId: "p1", payload: { response: "sought_care" } });
+    await enqueue({ kind: "red_care", subjectId: "user-1", payload: { response: "sought_care" } });
     mockRpcError = { code: "P0002", message: "no red alert to answer yet" };
     await flushOutbox();
     const [row] = await listOutbox("red_care");

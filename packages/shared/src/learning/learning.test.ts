@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { buildNextStep, buildTrustLine, expandSearchTerms, isExpired, lagosToday, normaliseQuery, planOfflinePack, reconcilePack, searchLocal } from "./index";
+import { bucketDays, buildNextStep, buildTrustLine, expandSearchTerms, groupBacklog, isExpired, lagosToday, normaliseQuery, planOfflinePack, reconcilePack, searchLocal } from "./index";
 
 const cfg = { max_total_bytes: 1000, max_items: 3, audio_wifi_only: true };
 const NOW = new Date("2026-10-07T12:00:00Z");
@@ -97,5 +97,36 @@ describe("What can I do next? and the trust line", () => {
     expect(full).toMatchObject({ reviewedBy: "Dr A", reviewedOn: "2026-09-01", sources: "WHO 2021", incomplete: false });
     expect(buildTrustLine({ reviewedByName: "Dr A" }).incomplete).toBe(true);
     expect(buildTrustLine({}).reviewedBy).toBeNull();
+  });
+});
+
+describe("review change note on the trust line", () => {
+  it("carries a real note and leaves a blank or missing one out (a first publish has none)", () => {
+    expect(buildTrustLine({ reviewChangeNote: "  Updated the salt advice.  " }).changeNote).toBe("Updated the salt advice.");
+    expect(buildTrustLine({ reviewChangeNote: "   " }).changeNote).toBeNull();
+    expect(buildTrustLine({}).changeNote).toBeNull();
+  });
+  it("a missing note does not make the line incomplete", () => {
+    const full = buildTrustLine({ reviewedByName: "Dr A", reviewedAt: "2026-09-01T10:00:00Z", sourceReference: "WHO 2021" });
+    expect(full.incomplete).toBe(false);
+  });
+});
+
+describe("expiry backlog grouping", () => {
+  const row = (bucket: string, days: number, id: string) => ({ bucket, days_until_due: days, id });
+  it("puts hidden first, then the most urgent threshold, and drops empty and unknown buckets", () => {
+    const groups = groupBacklog([row("d30", 20, "a"), row("hidden", -3, "b"), row("d7", 5, "c"), row("d14", 10, "d"), row("later", 99, "e"), row("d7", 2, "f")]);
+    expect(groups.map((g) => g.bucket)).toEqual(["hidden", "d7", "d14", "d30"]);
+    expect(groups.find((g) => g.bucket === "d7")?.rows.map((r) => r.id)).toEqual(["c", "f"]);
+    expect(groups[0]?.days).toBeNull();
+  });
+  it("reads its buckets from the rows, so a changed threshold setting needs no code change", () => {
+    expect(groupBacklog([row("d21", 20, "a"), row("d3", 1, "b")]).map((g) => g.days)).toEqual([3, 21]);
+    expect(groupBacklog([])).toEqual([]);
+  });
+  it("reads a bucket name as days", () => {
+    expect(bucketDays("d14")).toBe(14);
+    expect(bucketDays("hidden")).toBeNull();
+    expect(bucketDays("d")).toBeNull();
   });
 });

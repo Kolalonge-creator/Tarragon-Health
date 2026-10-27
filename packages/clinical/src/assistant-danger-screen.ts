@@ -21,6 +21,34 @@ import { WRITTEN_QUESTION_DANGER_PHRASES } from "./written-question-screen";
 const PRONOUNS = ["my", "his", "her", "their"] as const;
 const END_VERBS = ["end", "ends", "ending", "ended"] as const;
 
+/**
+ * PROPOSED wording added 2026-10-22 after the clinician-style vignette set (`triage-floor-eval.ts`, `fixtures/triage-floor-vignettes.v1.json`)
+ * found that the floor missed 28 of 73 emergencies (38.4%), mostly diabetic emergencies, severe headache with high pressure, sepsis, pregnancy
+ * danger signs and swelling of the tongue or throat. UNSIGNED: an engineer wrote these, no clinician has reviewed them, and they sit in their own
+ * block so the CMO can accept, change or remove each one (docs/OPEN-QUESTIONS.md lists them). They add to the assistant's list only; the signed
+ * written-question list and its database function are untouched. Over-triggering is the accepted failure, and the same vignette file measures it.
+ */
+const TRIAGE_FLOOR_PROPOSED_PHRASES: readonly string[] = [
+  // diabetic emergencies (high and low)
+  "sugar is very high", "sugar very high", "sugar is too high", "reading says hi|", "breath smells like fruit", "fruity breath",
+  "sugar is very low", "sugar very low", "sugar is too low", "sugar dropped",
+  // high pressure with a dangerous headache
+  "pressure is very high", "pressure very high", "pressure is too high", "pressure has gone very high", "pressure is up and my head",
+  "bp is very high", "bp is too high", "bp machine shows very high",
+  // stroke wordings
+  "cannot move his", "cannot move her", "cannot move my", "can't move his", "can't move her", "mouth is pulling", "mouth pulling", "mouth is twisted",
+  "talking nonsense",
+  // not waking, fits
+  "will not wake up", "wont wake up", "won't wake up", "not waking up", "had a fit|",
+  // pregnancy danger signs
+  "baby is not moving", "baby has stopped moving", "baby stopped moving", "baby is not kicking", "not feeling the baby move",
+  // airway swelling and allergy
+  "throat is closing", "throat is tight", "tongue is swollen", "tongue is swelling",
+  // bleeding and poisoning
+  "bleeding will not stop", "bleeding wont stop", "bleeding won't stop", "bleeding is not stopping", "vomiting blood", "vomited blood", "coughing blood",
+  "coughing up blood", "blood in my vomit", "drank kerosene", "drank petrol", "drank bleach", "drank poison",
+];
+
 export const ASSISTANT_EXTRA_DANGER_PHRASES: readonly string[] = [
   // chest
   "tight chest", "chest tight", "tightness in my chest", "tight in my chest", "pressure in my chest", "chest pressure", "crushing chest", "pain in my chest",
@@ -47,6 +75,7 @@ export const ASSISTANT_EXTRA_DANGER_PHRASES: readonly string[] = [
   "took double", "taken double", "took too much", "taken too much", "took extra tablet", "took extra pill", "took extra dose", "took an extra tablet",
   "took an extra pill", "took an extra dose", "took the wrong", "took twice", "taken twice", "wont stop bleeding",
   "overdosed", "accidentally took", "swallowed the wrong",
+  ...TRIAGE_FLOOR_PROPOSED_PHRASES,
 ];
 
 /** Each side is a list of alternatives; one word from each side anywhere in the message is an emergency. Whole words (`*` is a stem). */
@@ -57,6 +86,11 @@ export const ASSISTANT_DANGER_PAIRS: readonly (readonly [readonly string[], read
   [["chest"], ["crushing", "squeezing", "squeezed", "tight", "tightness"]],
   [["speech"], ["slurred", "slurring", "slur"]],
   [["face"], ["droop*", "droopy"]],
+  // PROPOSED, unsigned (see TRIAGE_FLOOR_PROPOSED_PHRASES): a danger sign next to a dangerous setting.
+  [["fever", "febrile"], ["confused", "confusion", "drowsy", "unresponsive", "not responding"]],
+  [["sugar", "glucose", "diabetes", "diabetic"], ["vomiting", "vomit", "vomited"]],
+  [["pregnant", "pregnancy"], ["headache", "blurry", "blurred", "flashing", "seizure", "seizures", "convulsion", "bleeding"]],
+  [["tongue", "lips"], ["swelling", "swollen"]],
 ];
 
 /**
@@ -86,10 +120,13 @@ const escapeRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$
  * also open at the END so an inflection still fires ("chest pains", "strokes", "wont stop bleeding" variants); a pair word is closed at
  * the end ("numb" never matches "numbers"), because a pair is two common words that only mean something together.
  */
-function wordRegex(entry: string, closedAtEnd = false): RegExp {
+function wordRegex(rawEntry: string, closedAtEnd = false): RegExp {
+  // A trailing `|` closes a phrase at the end too ("reading says hi|" never matches "reading says high", "had a fit|" never "had a fitness class").
+  const closed = closedAtEnd || rawEntry.endsWith("|");
+  const entry = rawEntry.endsWith("|") ? rawEntry.slice(0, -1) : rawEntry;
   const stem = entry.endsWith("*");
   const body = escapeRegex(stem ? entry.slice(0, -1) : entry).replace(/\s+/g, "\\s+");
-  return new RegExp(`(?<![a-z0-9])${body}${!stem && closedAtEnd ? "(?![a-z0-9])" : ""}`);
+  return new RegExp(`(?<![a-z0-9])${body}${!stem && closed ? "(?![a-z0-9])" : ""}`);
 }
 
 const PHRASE_ENTRIES = [...WRITTEN_QUESTION_DANGER_PHRASES, ...ASSISTANT_EXTRA_DANGER_PHRASES];
@@ -106,7 +143,7 @@ export function isSelfHarmScreen(screen: AssistantDangerScreen): boolean {
 
 export function screenAssistantMessage(text: string): AssistantDangerScreen {
   const haystack = normalise(text);
-  const phrases = PHRASE_REGEX.filter(([, re]) => re.test(haystack)).map(([p]) => p.replace(/\*$/, ""));
+  const phrases = PHRASE_REGEX.filter(([, re]) => re.test(haystack)).map(([p]) => p.replace(/[*|]$/, ""));
   const pairs = PAIR_REGEX.filter(([, a, b]) => a.test(haystack) && b.test(haystack)).map(([label]) => label);
   const matched = [...new Set([...phrases, ...pairs])];
   return { redFlag: matched.length > 0, matched };

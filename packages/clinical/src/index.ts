@@ -10,6 +10,7 @@ export { effectiveRange, type SexRange, type LabSex } from "./lab-release";
 export { classifyLabResult, explanationAllowed, LabEntryError, QUALITATIVE_VALUES, type LabPanelDefinition, type LabAnalyteDefinition, type LabItemInput, type LabClassification, type LabFlag, type LabReleaseState } from "./lab-release";
 export { screenWrittenQuestion, WRITTEN_QUESTION_DANGER_PHRASES, type WrittenQuestionScreen } from "./written-question-screen";
 export { screenAssistantMessage, isSelfHarmScreen, ASSISTANT_EXTRA_DANGER_PHRASES, ASSISTANT_DANGER_PAIRS, type AssistantDangerScreen } from "./assistant-danger-screen";
+export { parseVignetteSet, runTriageFloor, triageFloorFailures, formatTriageFloorReport, VignetteSetFormatError, type Vignette, type VignetteKind, type VignetteSet, type TriageFloorLimits, type TriageFloorReport } from "./triage-floor-eval";
 export { proposeTitration, validateProtocolDefinition, proposalToChangeArgs, ProtocolDefinitionError } from "./titration";
 export { TITRATION_STOP_KEYS, TITRATION_LABEL_KEYS } from "./titration-messages";
 export type * from "./titration-types";
@@ -49,3 +50,8 @@ export {
   type ActivityConditionRecord, type ActivityGateDecision, type ActivityGateInput, type ActivityGateReason, type ActivityGateResult, type ActivityIntensity,
   type ActivityKindConfig, type ActivityRuleConfig, type ActivitySafetyConfig, type ActivityTriageEvent, type ConditionMatchConfig,
 } from "./activity-gate";
+export {
+  assessReadiness, readinessMessageKeys,
+  type LoadLevel, type ReadinessBand, type ReadinessBandsConfig, type ReadinessLevel, type ReadinessMetric, type ReadinessResult, type WearableReadingPoint,
+} from "./activity-readiness";
+export { orderPlans, planHasAudioSlot, sessionsWithinRange, type WorkoutPlanDisplayConfig, type WorkoutPlanLike } from "./workout-plans";

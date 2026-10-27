@@ -12,6 +12,7 @@ const read = (rel: string) => readFileSync(join(SRC, rel), "utf8");
 const RESULT_SURFACES = [
   "app/(dashboard)/patient/symptom-triage-check.tsx",
   "components/symptom/symptom-reviews-page.tsx",
+  "app/(dashboard)/patient/symptom-checkback/[id]/checkback-form.tsx",
 ];
 
 describe("the shared 'not a diagnosis' label (S60, spec 12.9)", () => {

@@ -127,6 +127,16 @@ export interface LogBpResult {
 type OkPlan = Extract<BpLogPlan, { ok: true }>;
 
 /**
+ * S07y: where this reading was taken, when it was not at home. Only ever "pharmacy_machine" (a reading from a pharmacy or clinic machine, shown and graded like
+ * any other but not counted in the home average). The reading is saved as an ordinary one, so the same on-device check, the same emergency guidance and the
+ * same server-side red-flag engines run for it; the label changes nothing about what is done with a dangerous value.
+ */
+export interface BpProvenance {
+  entryOrigin: "pharmacy_machine";
+  placeLabel: string | null;
+}
+
+/**
  * Saves every row of the log on the phone in one step (all or none), then
  * tries to send. A red-flag symptom is queued before the reading, so it is
  * sent first when the network and server allow. A symptom the server errors on is
@@ -143,6 +153,7 @@ export async function logBpWithExtras(
   beneficiaryProfileId?: string,
   evaluate: TriageEvaluator = evaluateOnDevice,
   onOutcome?: (outcome: TriageOutcome) => void,
+  provenance?: BpProvenance,
 ): Promise<LogBpResult> {
   // The subject is needed for the on-device history, but never worth waiting for: a slow or expired
   // session read must not hold back the emergency guidance (INV-06), so the check proceeds without it.
@@ -190,6 +201,7 @@ export async function logBpWithExtras(
         systolic: plan.systolic,
         diastolic: plan.diastolic,
         ...(plan.cuffType ? { cuff_type: plan.cuffType } : {}),
+        ...(provenance ? { entry_origin: provenance.entryOrigin, ...(provenance.placeLabel ? { place_label: provenance.placeLabel } : {}) } : {}),
       },
       danger: outcome.bpFlag !== null || outcome.severity !== null,
     },

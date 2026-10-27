@@ -1,6 +1,19 @@
 "use client";
 import { vitalSavedMessage } from "@/lib/vitals/bp-ack-message";
 import { useGlucoseUnit } from "@/components/glucose-unit-provider";
+import { t } from "@tarragon/i18n";
+import { useMeasurementUnits } from "@/components/measurement-units-provider";
+import { UnitConvertedInput } from "./unit-converted-input";
+import {
+  LENGTH_UNIT_LABEL,
+  PLACE_LABEL_MAX,
+  formatLength,
+  TEMPERATURE_UNIT_LABEL,
+  WEIGHT_UNIT_LABEL,
+  lengthToCm,
+  temperatureToC,
+  weightToKg,
+} from "@tarragon/shared";
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,8 +47,11 @@ export function VitalsForm({
   patientId,
   lockedType,
   title,
+  pharmacyOpen = false,
 }: {
   patientId: string;
+  /** S07y: whether the "taken at a pharmacy or clinic machine" box is offered (the pharmacy_bp_readings guard is open for this person). Closed: no box. */
+  pharmacyOpen?: boolean;
   /** When set, hides the reading-type selector and locks the form to this
    * type — powers the /patient/quick-log/[type] deep-link pages so a
    * reminder can link straight to "log glucose" with no extra
@@ -48,9 +64,18 @@ export function VitalsForm({
   // everyone. Before this, a patient on a mg/dL meter had to re-pick the unit
   // on every single entry, and forgetting once stored a reading 18x wrong.
   const preferredUnit = useGlucoseUnit();
+  const units = useMeasurementUnits();
   const [glucoseUnit, setGlucoseUnit] = useState<GlucoseUnit>(preferredUnit);
   const [ketoneKind, setKetoneKind] = useState<KetoneKind>("blood");
+  const [atPharmacy, setAtPharmacy] = useState(false);
   const [state, formAction, pending] = useActionState(logVital, undefined);
+  // S07y: the tick belongs to ONE reading. React clears the form's own inputs after a saved reading, but this tick is controlled state, so it is cleared here
+  // (the supported "adjust state when a value changes" pattern, not an effect): otherwise the next home reading could go out labelled as a pharmacy one.
+  const [seenState, setSeenState] = useState(state);
+  if (state !== seenState) {
+    setSeenState(state);
+    if (state?.success) setAtPharmacy(false);
+  }
   const queryClient = useQueryClient();
 
   // Blocks a submission the browser already knows is doomed instead of
@@ -200,6 +225,37 @@ export function VitalsForm({
                 <Label htmlFor="diastolic">Diastolic (mmHg)</Label>
                 <Input id="diastolic" name="diastolic" type="number" required {...readingErrorProps} />
               </div>
+              {pharmacyOpen && (
+                <div className="col-span-2 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <input
+                      id="entry_origin"
+                      name="entry_origin"
+                      type="checkbox"
+                      value="pharmacy_machine"
+                      checked={atPharmacy}
+                      onChange={(event) => setAtPharmacy(event.target.checked)}
+                      aria-describedby="pharmacy-tick-hint"
+                      className="mt-1 h-4 w-4"
+                    />
+                    <div>
+                      <Label htmlFor="entry_origin">{t("pharm.tick")}</Label>
+                      <p id="pharmacy-tick-hint" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                        {t("pharm.tick_hint")}
+                      </p>
+                    </div>
+                  </div>
+                  {atPharmacy && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="place_label">{t("pharm.place")}</Label>
+                      <Input id="place_label" name="place_label" type="text" maxLength={PLACE_LABEL_MAX} aria-describedby="place-label-hint" />
+                      <p id="place-label-hint" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                        {t("pharm.place_hint")}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -325,10 +381,14 @@ export function VitalsForm({
 
           {vitalType === "weight" && (
             <div className="space-y-1.5">
-              <Label htmlFor="weight_kg">Weight (kg)</Label>
-              <Input
+              <Label htmlFor="weight_kg">Weight ({WEIGHT_UNIT_LABEL[units.weight]})</Label>
+              <UnitConvertedInput
+                key={units.weight}
                 id="weight_kg"
                 name="weight_kg"
+                typedIsStored={units.weight === "kg"}
+                toStored={(v) => weightToKg(v, units.weight)}
+                decimals={1}
                 type="number"
                 step="0.1"
                 required
@@ -346,10 +406,14 @@ export function VitalsForm({
 
           {vitalType === "temperature" && (
             <div className="space-y-1.5">
-              <Label htmlFor="temperature_c">Temperature (°C)</Label>
-              <Input
+              <Label htmlFor="temperature_c">Temperature ({TEMPERATURE_UNIT_LABEL[units.temperature]})</Label>
+              <UnitConvertedInput
+                key={units.temperature}
                 id="temperature_c"
                 name="temperature_c"
+                typedIsStored={units.temperature === "c"}
+                toStored={(v) => temperatureToC(v, units.temperature)}
+                decimals={1}
                 type="number"
                 step="0.1"
                 required
@@ -367,10 +431,14 @@ export function VitalsForm({
 
           {vitalType === "waist_circumference" && (
             <div className="space-y-1.5">
-              <Label htmlFor="waist_cm">Waist circumference (cm)</Label>
-              <Input
+              <Label htmlFor="waist_cm">Waist circumference ({LENGTH_UNIT_LABEL[units.length]})</Label>
+              <UnitConvertedInput
+                key={units.length}
                 id="waist_cm"
                 name="waist_cm"
+                typedIsStored={units.length === "cm"}
+                toStored={(v) => lengthToCm(v, units.length)}
+                decimals={1}
                 type="number"
                 step="0.5"
                 required
@@ -381,7 +449,7 @@ export function VitalsForm({
                 className="text-xs text-charcoal-ink/60 dark:text-night-ink/60"
               >
                 Measure around your middle, just above the hip bones, after breathing out.
-                A raised measurement is 94 cm or more for men, 80 cm or more for women.
+                A raised measurement is {formatLength(94, units.length)} or more for men, {formatLength(80, units.length)} or more for women.
               </p>
             </div>
           )}
@@ -430,6 +498,11 @@ export function VitalsForm({
 
           <FormError id={errorId} message={displayedError} />
           <FormSuccess message={state?.success && !ackStale && !offlineBlocked && !crosscheck && vitalSavedMessage(state.bpAckLevel)} />
+          {state?.success && state.notice && !ackStale && !offlineBlocked && !crosscheck ? (
+            <p data-testid="label-dropped-notice" className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+              {state.notice}
+            </p>
+          ) : null}
 
           {!crosscheck && (
             <Button type="submit" disabled={pending}>

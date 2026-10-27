@@ -22,7 +22,9 @@ export default async function LibraryItemPage({ params }: { params: Promise<{ co
   if (!item) notFound();
   const script = (item.script ?? {}) as Script;
   const steps = (script.steps ?? []).map((s) => s.text ?? "").filter((s) => s.length > 0);
-  const audioSrc = item.audio_url;
+  // The file is private: it is played through the signed-in stream route, never from a stored address.
+  // A path in our own library folder is private and plays only through the route; an address an admin entered keeps playing as before.
+  const audioSrc = item.audio_url?.startsWith("media-library/") ? `/api/media/${encodeURIComponent(item.code)}/stream` : item.audio_url;
 
   return (
     <WellbeingShell>

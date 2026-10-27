@@ -143,12 +143,12 @@ begin
   insert into public.lab_providers (name, is_active, license_number, license_verified_at, license_expires_at, accreditation) values ('LLR Fixture Lab', true, 'S27H-PROOF-1', now(), now() + interval '1 year', 'ISO 15189')
   returning id into v_provider;
 
-  insert into public.lab_provider_locations (lab_provider_id, name, state, address, is_active)
-  values (v_provider, 'LLR Fixture Branch 1', 'Lagos', '1 Fixture Road', true)
+  insert into public.lab_provider_locations (lab_provider_id, name, state, town, address, is_active)
+  values (v_provider, 'LLR Fixture Branch 1', 'Lagos', 'Ikeja', '1 Fixture Road', true)
   returning id into v_location;
 
-  insert into public.lab_provider_locations (lab_provider_id, name, state, address, is_active)
-  values (v_provider, 'LLR Fixture Branch 2', 'Lagos', '2 Fixture Road', true)
+  insert into public.lab_provider_locations (lab_provider_id, name, state, town, address, is_active)
+  values (v_provider, 'LLR Fixture Branch 2', 'Lagos', 'Ikeja', '2 Fixture Road', true)
   returning id into v_location_2;
 
   -- Two active tests on the fixture provider — the minimum needed to

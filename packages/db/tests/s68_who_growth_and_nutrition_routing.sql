@@ -314,7 +314,7 @@ begin
   perform pg_temp.ck('neutral title', 'Child growth check: same-day review', v_al.title);
   perform pg_temp.ck('a test clinician is paged once', '1', (select count(*)::text from public.notifications where recipient_id = v_clin and source_id = v_al.id));
   perform pg_temp.ck('a real clinician is NOT paged for a test child', '0', (select count(*)::text from public.notifications where recipient_id = v_real and source_id = v_al.id));
-  perform pg_temp.ck('the page names no reading and no condition', 'child growth check', (select payload ->> 'vital_label' from public.notifications where recipient_id = v_clin and source_id = v_al.id limit 1));
+  perform pg_temp.ck('the page names no reading and no condition (it carries no label at all, INV-07)', 'false', (select (payload ?| array['vital_label', 'level_label', 'source_label'])::text from public.notifications where recipient_id = v_clin and source_id = v_al.id limit 1));
   perform pg_temp.ck('the outbox carries child.growth_recorded', '1', (select count(*)::text from public.domain_events where event_type = 'child.growth_recorded' and aggregate_id = m.id));
   perform pg_temp.ck('...and an urgent child.nutrition_flagged', 'urgent', (select priority from public.domain_events where event_type = 'child.nutrition_flagged' and aggregate_id = m.id));
   insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, muac_mm) values (v_org, v_t, now() + interval '1 minute', 105);

@@ -9,6 +9,9 @@ import {
   type TimelineEventType,
 } from "@/lib/timeline";
 import { isClinicalTier } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
+import { failedLoadMessage } from "@/lib/passport-format";
+import { isOffline } from "@/lib/passport-cache";
 import { formatDoctorName } from "@/lib/doctor-name";
 import type { SectionId } from "@/lib/sections";
 import { spacing } from "@/ui/theme";
@@ -41,7 +44,10 @@ const EVENT_LINK_SECTION: Partial<Record<TimelineEventType, SectionId>> = {
   care_plan_updated: "healthSummary",
   condition_recorded: "healthSummary",
   condition_status_changed: "healthSummary",
-  document_uploaded: "healthSummary",
+  document_uploaded: "documents",
+  // S43m: the two things a person enters themselves open the screen that holds them.
+  symptom_logged: "symptomJournal",
+  procedure_recorded: "healthHistory",
 };
 
 function formatWhen(value: string): string {
@@ -63,16 +69,18 @@ function formatWhen(value: string): string {
 // doctor-profile-page equivalent to link that detail to.
 export function actorSubtitle(actor: TimelineEvent["actor"]): string | undefined {
   if (!actor?.full_name) return undefined;
-  if (!isClinicalTier(actor)) return "By your care team";
-  return `By ${formatDoctorName(actor.full_name)}`;
+  if (!isClinicalTier(actor)) return t("mpass.timeline.by_team");
+  return t("mpass.timeline.by_doctor", "en", { name: formatDoctorName(actor.full_name) });
 }
 
 interface TimelineScreenProps {
   patientId: string;
+  /** While acting for someone else the symptom journal is not shown (it is the signed-in person's own), so those events are not linked to it. */
+  acting?: boolean;
   onNavigate: (section: SectionId) => void;
 }
 
-export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
+export function TimelineScreen({ patientId, acting = false, onNavigate }: TimelineScreenProps) {
   const colors = useLegacyColors();
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,24 +114,24 @@ export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
       <View>
-        <ScreenTitle>Full activity timeline</ScreenTitle>
-        <MutedText>Every update to your record, newest first.</MutedText>
+        <ScreenTitle>{t("mpass.timeline.title")}</ScreenTitle>
+        <MutedText>{t("mpass.timeline.description")}</MutedText>
       </View>
 
       {loading ? (
         <ActivityIndicator color={colors.brand} />
       ) : error ? (
-        <ErrorText>{error}</ErrorText>
+        <ErrorText>{failedLoadMessage(isOffline({ message: error }))}</ErrorText>
       ) : events.length === 0 ? (
         <Card>
-          <MutedText>No activity yet. Readings, medications and results will appear here.</MutedText>
+          <MutedText>{t("mpass.timeline.empty")}</MutedText>
         </Card>
       ) : (
         <>
           <GroupedList>
             {events.map((event) => {
               const style = TIMELINE_EVENT_STYLE[event.event_type];
-              const section = EVENT_LINK_SECTION[event.event_type];
+              const section = acting && (event.event_type === "symptom_logged" || event.event_type === "document_uploaded") ? undefined : EVENT_LINK_SECTION[event.event_type];
               const subtitleParts = [
                 event.summary ? humaniseSummary(event.summary) : null,
                 formatWhen(event.occurred_at),
@@ -154,7 +162,7 @@ export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
           </GroupedList>
           {hasMore ? (
             <SecondaryButton
-              title="Load more"
+              title={t("mpass.timeline.more")}
               loading={loadingMore}
               onPress={() => {
                 const next = limit + PAGE_SIZE;
@@ -164,7 +172,7 @@ export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
             />
           ) : (
             <Text style={{ textAlign: "center", color: colors.subtle, fontSize: 13 }}>
-              You&apos;ve reached the beginning of your record.
+              {t("mpass.timeline.end")}
             </Text>
           )}
         </>

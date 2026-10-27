@@ -1,6 +1,9 @@
 import type * as SQLite from "expo-sqlite";
 import { getStoreWithSchema } from "./secure-db";
 import { addDataUsage } from "./data-usage";
+import { getConnectionKind } from "./connection-kind";
+import { shouldHoldPullForWifi } from "./data-cost-rules";
+import { readWifiOnly } from "./wifi-only";
 import { driftFloor, hasDrifted } from "./mirror-drift";
 import { supabase } from "./supabase";
 import { recordSyncError } from "./sync-diagnostics";
@@ -60,6 +63,24 @@ async function setupMirror(db: SQLite.SQLiteDatabase): Promise<void> {
       subject_id text not null,
       row text not null
     );
+    create table if not exists local_anchor_times (
+      id text primary key,
+      owner_user_id text not null,
+      subject_id text not null,
+      row text not null
+    );
+    create table if not exists local_dose_anchor_slots (
+      id text primary key,
+      owner_user_id text not null,
+      subject_id text not null,
+      row text not null
+    );
+    create table if not exists local_day_shifts (
+      id text primary key,
+      owner_user_id text not null,
+      subject_id text not null,
+      row text not null
+    );
     create table if not exists sync_state (key text primary key, value text not null);`
   );
 }
@@ -92,6 +113,11 @@ export interface PullResult {
   drifted: MirrorKind[];
   /** Tables the widened re-read then brought back in line. */
   repaired: MirrorKind[];
+  /**
+   * True when the patient chose Wi-Fi only, the phone is on mobile data and the history pages (readings, symptoms, doses) were left for
+   * Wi-Fi (S06z). Medicines and tasks, which are small and can change what the patient should do, are still read.
+   */
+  historyHeldForWifi: boolean;
   /**
    * Set when any part of the pull did not finish for a reason other than the network: a failed query, a page budget that ran
    * out with pages left, or drift the widened read could not repair (S06y). Such a pull never records a "last updated" time.
@@ -240,11 +266,122 @@ async function countLocal(
   return row?.n ?? 0;
 }
 
+/**
+ * S08z: the person's anchor times and day shifts. Small, and the server is the only writer, so each pull replaces the whole list.
+ * A marker records that they have been read at least once, so the phone can tell "this person has none" from "not read yet".
+ */
+async function pullAnchors(db: SQLite.SQLiteDatabase, owner: string, subjectId: string, result: PullResult): Promise<void> {
+  const [times, shifts, slots] = await Promise.all([
+    supabase.from("patient_dose_anchors").select("anchor, effective_from, local_time").eq("patient_id", subjectId),
+    supabase.from("patient_day_shifts").select("id, starts_on, ends_on, offsets, cancelled_from, created_at").eq("patient_id", subjectId),
+    supabase.from("patient_dose_anchor_slots").select("slot, anchor").eq("patient_id", subjectId),
+  ]);
+  result.pages += 1;
+  const failure = times.error ?? shifts.error ?? slots.error;
+  if (failure) {
+    if (classifyFailure({ code: failure.code, message: failure.message }) === "network") result.stoppedOffline = true;
+    recordSyncError("offline_outbox", "pull:anchors", failure.message);
+    return;
+  }
+  const timeRows = times.data ?? [];
+  const shiftRows = shifts.data ?? [];
+  const slotRows = slots.data ?? [];
+  result.bytes += JSON.stringify(timeRows).length + JSON.stringify(shiftRows).length + JSON.stringify(slotRows).length;
+  await db.execAsync("begin");
+  try {
+    await db.runAsync("delete from local_anchor_times where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
+    await db.runAsync("delete from local_day_shifts where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
+    await db.runAsync("delete from local_dose_anchor_slots where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
+    for (const row of slotRows) {
+      await db.runAsync("insert or replace into local_dose_anchor_slots (id, owner_user_id, subject_id, row) values (?, ?, ?, ?)", [
+        `${subjectId}|${row.slot}`,
+        owner,
+        subjectId,
+        JSON.stringify(row),
+      ]);
+    }
+    for (const row of timeRows) {
+      await db.runAsync("insert or replace into local_anchor_times (id, owner_user_id, subject_id, row) values (?, ?, ?, ?)", [
+        `${subjectId}|${row.anchor}|${row.effective_from}`,
+        owner,
+        subjectId,
+        JSON.stringify(row),
+      ]);
+    }
+    for (const row of shiftRows) {
+      await db.runAsync("insert or replace into local_day_shifts (id, owner_user_id, subject_id, row) values (?, ?, ?, ?)", [
+        row.id,
+        owner,
+        subjectId,
+        JSON.stringify(row),
+      ]);
+    }
+    await writeCursor(db, `anchors:${owner}:${subjectId}`, new Date().toISOString());
+    await db.execAsync("commit");
+  } catch (e) {
+    await db.execAsync("rollback");
+    throw e;
+  }
+  result.pulled += timeRows.length + shiftRows.length + slotRows.length;
+}
+
+/** Reads a person's anchor times and shifts from the server now (not throttled). Never throws; false when it could not. */
+export async function pullAnchorsFor(subjectId: string): Promise<boolean> {
+  try {
+    const owner = await currentUserId();
+    if (!owner) return false;
+    const db = await getDb();
+    const result: PullResult = { pulled: 0, stoppedOffline: false, pages: 0, bytes: 0, drifted: [], repaired: [], historyHeldForWifi: false };
+    const connection = await getConnectionKind();
+    await pullAnchors(db, owner, subjectId, result);
+    await addDataUsage(result.bytes, new Date(), connection);
+    return (await readCursor(db, `anchors:${owner}:${subjectId}`)) !== null;
+  } catch (error) {
+    recordSyncError("offline_outbox", "pull:anchors", error);
+    return false;
+  }
+}
+
+/** True once this person's anchor times and shifts have been read from the server on this phone. */
+export async function anchorsKnownFor(subjectId: string): Promise<boolean> {
+  try {
+    const owner = await currentUserId();
+    if (!owner) return false;
+    return (await readCursor(await getDb(), `anchors:${owner}:${subjectId}`)) !== null;
+  } catch {
+    return false;
+  }
+}
+
+export async function readLocalAnchorRows<T>(subjectId: string): Promise<T[]> {
+  const owner = await currentUserId();
+  if (!owner) return [];
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ row: string }>("select row from local_anchor_times where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
+  return rows.map((r) => JSON.parse(r.row) as T);
+}
+
+export async function readLocalSlotRows<T>(subjectId: string): Promise<T[]> {
+  const owner = await currentUserId();
+  if (!owner) return [];
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ row: string }>("select row from local_dose_anchor_slots where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
+  return rows.map((r) => JSON.parse(r.row) as T);
+}
+
+export async function readLocalShiftRows<T>(subjectId: string): Promise<T[]> {
+  const owner = await currentUserId();
+  if (!owner) return [];
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ row: string }>("select row from local_day_shifts where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
+  return rows.map((r) => JSON.parse(r.row) as T);
+}
+
 /** Active medications are small and clinician-owned: replace the whole list. */
 async function pullMedications(db: SQLite.SQLiteDatabase, owner: string, subjectId: string, result: PullResult) {
   const { data, error } = await supabase
     .from("medications")
-    .select("id, drug_name, dose, frequency, schedule_times, schedule_spec, source, is_active, superseded_at, created_at, schedule_effective_from")
+    .select("id, patient_id, drug_name, dose, frequency, schedule_times, schedule_spec, source, is_active, superseded_at, created_at, schedule_effective_from")
     .eq("patient_id", subjectId)
     .eq("is_active", true);
   result.pages += 1;
@@ -329,7 +466,7 @@ export async function readMirrorLastPulledAt(subjectId: string): Promise<string 
 
 /** Pulls the patient's own changes into the mirror. Never throws. */
 export async function pullChanges(subjectId: string): Promise<PullResult> {
-  const result: PullResult = { pulled: 0, stoppedOffline: false, pages: 0, bytes: 0, drifted: [], repaired: [] };
+  const result: PullResult = { pulled: 0, stoppedOffline: false, pages: 0, bytes: 0, drifted: [], repaired: [], historyHeldForWifi: false };
   try {
     await ensureLowDataLoaded();
     const owner = await currentUserId();
@@ -337,13 +474,25 @@ export async function pullChanges(subjectId: string): Promise<PullResult> {
     const db = await getDb();
     const startedAt = new Date(Date.now()).toISOString();
     const config = await loadOfflineSyncConfig();
+    // S06z: on Wi-Fi only, over mobile data, the bulky history reads wait. Never the very first read on a phone (it would show an empty app).
+    const wifiOnly = await readWifiOnly();
+    const connection = await getConnectionKind();
+    if (wifiOnly) {
+      const pulledBefore =
+        (await readCursor(db, `pull:${owner}:${subjectId}:vital`)) !== null ||
+        (await readCursor(db, `pull:${owner}:${subjectId}:symptom`)) !== null ||
+        (await readCursor(db, `pull:${owner}:${subjectId}:dose`)) !== null;
+      result.historyHeldForWifi = shouldHoldPullForWifi({ wifiOnly, connection, hasPulledBefore: pulledBefore });
+    }
     for (const kind of ["vital", "symptom", "dose"] as const) {
+      if (result.historyHeldForWifi) break;
       if (result.stoppedOffline) break;
       // Each table gets its own page budget so a big vitals backlog cannot starve the others.
       await pullKind(db, kind, owner, subjectId, config, { pagesLeft: activeBudget().maxPagesPerPull }, result);
       if (!result.stoppedOffline) await verifyCounts(db, kind, owner, subjectId, config, result);
     }
     if (!result.stoppedOffline) await pullMedications(db, owner, subjectId, result);
+    if (!result.stoppedOffline) await pullAnchors(db, owner, subjectId, result).catch((error) => recordSyncError("offline_outbox", "pull:anchors", error));
     if (!result.stoppedOffline) await pullTasks(db, owner, subjectId, result);
     // The copy is only as new as the START of a pull that reached the end without going offline (S06y). A pull that
     // stopped half way records nothing, so the screens keep showing the older time instead of claiming a fresh copy.
@@ -352,7 +501,7 @@ export async function pullChanges(subjectId: string): Promise<PullResult> {
     }
     // Local housekeeping, safe offline. Never lets a purge failure fail the pull.
     await purgeMirror(owner).catch((error) => recordSyncError("offline_outbox", "purgeMirror", error));
-    await addDataUsage(result.bytes);
+    await addDataUsage(result.bytes, new Date(), connection);
   } catch (error) {
     recordSyncError("offline_outbox", "pull", error);
   }
@@ -432,7 +581,7 @@ export async function readLocalTasks<T>(subjectId: string): Promise<T[]> {
  */
 export async function clearLocalMirror(): Promise<void> {
   const db = await getDb();
-  await db.execAsync("delete from local_records; delete from local_medications; delete from local_tasks; delete from sync_state;");
+  await db.execAsync("delete from local_records; delete from local_medications; delete from local_tasks; delete from local_anchor_times; delete from local_dose_anchor_slots; delete from local_day_shifts; delete from sync_state;");
   // saved yearly reports are part of the same sign-out wipe; a failure here must not leave the rest of the wipe undone
   await clearAllHealthReportCache().catch(() => undefined);
 }

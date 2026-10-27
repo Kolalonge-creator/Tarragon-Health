@@ -64,7 +64,7 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
                   <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{order.order_number}</span>
                 </div>
                 <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
-                  {order.panel_bundle?.name ?? "Lab test"}
+                  {order.panel_bundle?.name ?? (order.panel_code ? "Annual health check bundle" : "Lab test")}
                 </p>
                 {/* Null-gated: only a clinician-generated order ever sets
                     ordered_by, so this line is absent for a self-service

@@ -257,6 +257,8 @@ export type HealthEducationContentInput = {
   clinical_author_name?: string | null;
   evidence_source?: string | null;
   self_care_action?: string | null;
+  /** What changed since the last review. Required by the database when a previously published item is published again; shown to patients. */
+  review_change_note?: string | null;
   audio_clip_id?: string | null;
   is_micro_lesson?: boolean;
   lesson_action?: string | null;
