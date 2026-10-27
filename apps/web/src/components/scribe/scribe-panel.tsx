@@ -7,7 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DraftReviewPanel, type DraftSection } from "./draft-review-panel";
-import { draftScribeFromFacts, findScribeFactsFromText, getScribeConsentState, recordScribeConsent, revokeScribeConsent } from "@/lib/scribe/actions";
+import { draftScribeFromFacts, findScribeFactsFromText, getScribeConsentState, recordScribeConsent, reportScribeProblem, revokeScribeConsent } from "@/lib/scribe/actions";
+import { DocumentDraftsPanel } from "./document-drafts-panel";
+import { clearQueuedDraftRequest, isOfflineError, queueDraftRequest, readQueuedDraftRequest } from "@/lib/scribe/offline-queue";
+import { plainNoteTemplate } from "@/lib/scribe/plain-template";
+import { textHash } from "@/lib/scribe/review-record";
 import type { ScribeFact } from "@/lib/scribe/facts";
 import { FactsReviewPanel } from "./facts-review-panel";
 import { consentView, type ConsentView } from "@/lib/scribe/consent-state";
@@ -24,6 +28,7 @@ type ScribeState =
   | { step: "idle" }
   | { step: "input"; consentId: string }
   | { step: "finding"; consentId: string }
+  | { step: "queued"; consentId: string; saved: boolean }
   | { step: "facts"; consentId: string; facts: readonly ScribeFact[]; dropped: number }
   | { step: "generating"; consentId: string }
   | {
@@ -34,6 +39,8 @@ type ScribeState =
       modelId: string;
       promptVersion: string;
       warnings: readonly { section: string; kind: string; detail?: string }[];
+      facts: readonly ScribeFact[];
+      transcriptHash: string;
     }
   | { step: "self" }
   | { step: "used" }
@@ -51,6 +58,8 @@ export interface ScribeDraftResult {
   modelId: string;
   promptVersion: string;
   source: "stt" | "typed";
+  /** sha256 of the visit text the draft was made from (for the stored edit diff). */
+  transcriptHash: string;
 }
 
 interface ScribePanelProps {
@@ -76,7 +85,16 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
     getScribeConsentState(encounterNoteId)
       .then((s) => {
         const view = consentView(s);
-        setState(view.kind === "can_start" ? { step: "idle" } : { step: "gate", view });
+        if (view.kind !== "can_start") {
+          setState({ step: "gate", view });
+          return;
+        }
+        // A draft request that could not be sent earlier on this device (same tab, short time): offer it again.
+        const queued = readQueuedDraftRequest(encounterNoteId);
+        if (queued) {
+          setText(queued.text);
+          setState({ step: "queued", consentId: queued.consentId, saved: true });
+        } else setState({ step: "idle" });
       })
       .catch(() => setState({ step: "gate_error" }));
   }, [encounterNoteId]);
@@ -107,17 +125,24 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
   }
 
   // Stage one: list the facts in the clinician's notes. Nothing is drafted yet and nothing is stored.
-  function handleFindFacts(consentId: string) {
+  function handleFindFacts(consentId: string, visitText: string = text) {
     setState({ step: "finding", consentId });
     startTransition(async () => {
       try {
-        const result = await findScribeFactsFromText({ scribeConsentId: consentId, encounterNoteId, language, text });
+        const result = await findScribeFactsFromText({ scribeConsentId: consentId, encounterNoteId, language, text: visitText });
+        clearQueuedDraftRequest(encounterNoteId);
         if (result.status === "disabled") {
           setState({ step: "error", message: t("scribe.unavailable", "en"), consentId });
           return;
         }
         setState({ step: "facts", consentId, facts: result.facts, dropped: result.droppedUnverified });
       } catch (err) {
+        // Offline: keep the request on this device for a short time and send it when the connection is back. No audio is ever queued.
+        if (isOfflineError(err)) {
+          const saved = queueDraftRequest({ noteId: encounterNoteId, consentId, text: visitText });
+          setState({ step: "queued", consentId, saved });
+          return;
+        }
         setState({ step: "error", message: scribeErrorMessage(err), consentId });
       }
     });
@@ -133,9 +158,12 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
           setState({ step: "error", message: t("scribe.unavailable", "en"), consentId });
           return;
         }
+        const transcriptHash = await textHash(text);
         setState({
           step: "review",
           consentId,
+          facts: confirmed,
+          transcriptHash,
           draft: result.draft,
           patientSummary: result.patientSummary,
           modelId: result.modelId,
@@ -148,7 +176,22 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
     });
   }
 
+  // Back online: send the queued request without the clinician having to ask again.
+  const queuedConsentId = state.step === "queued" ? state.consentId : null;
+  useEffect(() => {
+    if (!queuedConsentId) return;
+    const onOnline = () => {
+      const q = readQueuedDraftRequest(encounterNoteId);
+      if (q) handleFindFacts(queuedConsentId, q.text);
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+    // handleFindFacts only reads stable values and setters; re-subscribing on its identity would reset the listener every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queuedConsentId, encounterNoteId]);
+
   async function handleRevoke(consentId: string) {
+    clearQueuedDraftRequest(encounterNoteId);
     try {
       await revokeScribeConsent(consentId);
       setText("");
@@ -218,6 +261,14 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
             placeholder={t("scribe.input.placeholder", "en")}
           />
           <p className="text-xs text-charcoal-ink/50">{t("scribe.input.help", "en")}</p>
+          {text.trim() === "" && (
+            <div>
+              <Button size="sm" variant="outline" type="button" onClick={() => setText(plainNoteTemplate())}>
+                {t("scribeui.template.button", "en")}
+              </Button>
+              <p className="text-xs text-charcoal-ink/50">{t("scribeui.template.help", "en")}</p>
+            </div>
+          )}
           {text.length > 0 && tooShort && <p className="text-xs text-amber-700">{t("scribe.input.too_short", "en")}</p>}
           <div className="flex gap-2">
             <Button size="sm" disabled={tooShort} onClick={() => handleFindFacts(state.consentId)}>
@@ -240,6 +291,21 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
         </div>
       );
 
+    case "queued": {
+      const { consentId } = state;
+      return (
+        <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3">
+          <p role="status" className="text-sm text-charcoal-ink">{t(state.saved ? "scribeui.offline.queued" : "scribeui.offline.not_saved", "en")}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => handleFindFacts(consentId, text)}>{t("scribeui.offline.retry", "en")}</Button>
+            <Button size="sm" variant="ghost" onClick={() => { clearQueuedDraftRequest(encounterNoteId); setState({ step: "input", consentId }); }}>
+              {t("scribeui.offline.discard", "en")}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
     case "facts": {
       const { consentId } = state;
       return (
@@ -254,11 +320,15 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
 
     case "review": {
       const { consentId } = state;
+      const reviewState = state;
       return (
+        <div className="space-y-4">
         <DraftReviewPanel
           draft={state.draft}
           patientSummary={state.patientSummary}
           warnings={state.warnings}
+          sourceText={text}
+          onReport={async (r) => (await reportScribeProblem({ noteId: encounterNoteId, consentId, draftKind: "note", section: r.section, category: r.category, comment: r.comment || undefined })).ok}
           onUse={(draft, patientSummary) => {
             onUseDraft({
               draft,
@@ -269,6 +339,7 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
               modelId: state.modelId,
               promptVersion: state.promptVersion,
               source: "typed",
+              transcriptHash: state.transcriptHash,
             });
             setText("");
             setState({ step: "used" });
@@ -278,6 +349,15 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
             loadGate();
           }}
         />
+        <DocumentDraftsPanel
+          patientId={patientId}
+          noteId={encounterNoteId}
+          consentId={consentId}
+          facts={reviewState.facts}
+          patientContext={patientContext}
+          onReport={async (kind, r) => (await reportScribeProblem({ noteId: encounterNoteId, consentId, draftKind: kind, section: null, category: r.category, comment: r.comment || undefined })).ok}
+        />
+        </div>
       );
     }
 
