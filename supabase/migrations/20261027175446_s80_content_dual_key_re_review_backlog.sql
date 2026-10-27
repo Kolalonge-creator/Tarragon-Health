@@ -18,7 +18,9 @@
 -- 3. DUAL KEY. authored_by (stamped at insert, immutable for a signed-in user) and last_edited_by (stamped when a source field changes) are
 --    recorded. For safety_relevant content (default true; only the CMO may set it false) the person who authored or last edited the text
 --    cannot be the CMO who approves or re-affirms it. Rows with no authored_by (all 283 live rows) fall back to comparing clinical_author_name
---    with the approver's name. Consequence to know: a CMO who writes content cannot approve it herself; a second reviewer is needed.
+--    with the approver's name. When ANOTHER active Chief Medical Officer exists, the author cannot approve. When the approver is the ONLY active
+--    CMO, a refusal would leave safety content unpublishable forever, so the approval is allowed as a SOLE-REVIEWER EXCEPTION: it is written into the
+--    status history note and the audit log (content.sole_reviewer_approval) so it can be found and re-reviewed when a second reviewer exists.
 -- 4. BACKLOG. public.content_review_backlog() lists, for the CMO (and read-only for an admin), items that need re-review, are past their review
 --    date, or are live without ever being clinician-reviewed.
 -- 5. REGRESSION FIX. The fix-first and S80a replacements of set_health_education_content_status (203417, 204226) re-created the function whole and
@@ -115,6 +117,7 @@ declare
   v_version integer;
   v_row public.health_education_content%rowtype;
   v_actor_name text;
+  v_sole boolean := false;
 begin
   if not (private.is_admin() or v_cmo) then
     raise exception 'Only an admin or the Chief Medical Officer may change health-education content status';
@@ -149,7 +152,12 @@ begin
     select lower(btrim(full_name)) into v_actor_name from public.profiles where id = v_actor;
     if v_row.authored_by = v_actor or v_row.last_edited_by = v_actor
        or (v_row.clinical_author_name is not null and v_actor_name is not null and lower(btrim(v_row.clinical_author_name)) = v_actor_name) then
-      raise exception 'not authorised: the author or last editor of safety-relevant content cannot also approve it (a second reviewer is needed)';
+      if exists (select 1 from public.clinical_staff cs
+                  where cs.organisation_id = (select organisation_id from public.profiles where id = v_actor)
+                    and cs.active and cs.doctor_tier = 'chief_medical_officer' and cs.profile_id is distinct from v_actor) then
+        raise exception 'not authorised: the author or last editor of safety-relevant content cannot also approve it (another Chief Medical Officer can)';
+      end if;
+      v_sole := true;   -- the only active CMO: allowed, but recorded below
     end if;
   end if;
 
@@ -173,7 +181,12 @@ begin
   perform set_config('tarragon.content_status_rpc', '', true);
 
   insert into public.health_education_content_status_history (content_id, from_status, to_status, actor_id, note)
-  values (p_content_id, v_current, p_new_status, v_actor, p_note);
+  values (p_content_id, v_current, p_new_status, v_actor,
+          case when v_sole then 'Sole-reviewer exception (no other active Chief Medical Officer). ' || coalesce(p_note, '') else p_note end);
+  if v_sole then
+    perform private.log_audit('content.sole_reviewer_approval', 'health_education_content', p_content_id,
+      jsonb_build_object('to_status', p_new_status::text));
+  end if;
 
   if p_new_status = 'published' then
     select organisation_id into v_org from public.profiles where id = v_actor;

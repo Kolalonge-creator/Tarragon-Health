@@ -8,6 +8,7 @@ declare
   v_org uuid;
   v_admin uuid := gen_random_uuid();
   v_cmo uuid := gen_random_uuid();
+  v_cmo2 uuid := gen_random_uuid();
   v_patient uuid := gen_random_uuid();
   v_cat public.health_education_category;
   v_a uuid; v_b uuid; v_c uuid; v_d uuid; v_e uuid; v_f uuid; v_pub_unrev uuid;
@@ -30,6 +31,13 @@ begin
   update public.profiles set organisation_id = v_org, role = 'patient', full_name='S80DK Patient', is_test = true where id = v_patient;
   insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
   values (v_cmo, v_org, 'S80DK CMO', 'chief_medical_officer', true, 'MDCN', 'S80DK-CMO-1', true, v_admin, v_admin, now());
+
+  -- a SECOND active CMO exists, so the author cannot approve (the sole-reviewer exception is tested further down)
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_cmo2, 's80dk-cmo2@example.invalid','x',now(),'{}','{}');
+  update public.profiles set organisation_id = v_org, role = 'clinician', full_name='S80DK CMO Two', is_test = true where id = v_cmo2;
+  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
+  values (v_cmo2, v_org, 'S80DK CMO Two', 'chief_medical_officer', true, 'MDCN', 'S80DK-CMO-2', true, v_admin, v_admin, now());
 
   create temp table _r (step text, ok boolean) on commit drop;
   grant all on _r to authenticated;
@@ -84,6 +92,22 @@ begin
     raise exception 'FAIL: a control (gate should open) was refused';
   end if;
   raise notice 'PASS: dual key refuses author, last editor and named author; others and non-safety content open; expired date refuses publish';
+
+  -- SOLE-REVIEWER EXCEPTION: with the second CMO gone, the lone CMO may approve her own authored item, and it is recorded
+  update public.clinical_staff set active = false where profile_id = v_cmo2;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_cmo, 'role','authenticated')::text, true);
+  set local role authenticated;
+  begin perform public.set_health_education_content_status(v_a,'approved'); v_ok := true; exception when others then v_ok := false; end;
+  reset role;
+  if not v_ok then raise exception 'FAIL: the only active CMO could not approve her own item'; end if;
+  if not exists (select 1 from public.health_education_content_status_history h where h.content_id = v_a and h.to_status = 'approved' and h.note like 'Sole-reviewer exception%') then
+    raise exception 'FAIL: the sole-reviewer approval was not written into the status history';
+  end if;
+  if not exists (select 1 from public.audit_log where action = 'content.sole_reviewer_approval' and entity_id = v_a) then
+    raise exception 'FAIL: the sole-reviewer approval was not audited';
+  end if;
+  update public.clinical_staff set active = true where profile_id = v_cmo2;
+  raise notice 'PASS: the only active CMO may approve her own item, and it is recorded in history and audit';
 
   -- NEEDS RE-REVIEW: publish B (admin), admin edits its body, translations drop to draft, admin cannot clear the flag
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role','authenticated')::text, true);
