@@ -48,6 +48,9 @@ export default async function SupportingPage() {
         }
       />
 
+      {/* First, because Paystack returns the payer here: a paid reservation's claim link is the next thing they need (no SMS goes to the person). Renders nothing when there is none. */}
+      <ReservationsSent />
+
       <RecoveryDutiesCard />
 
       <CaregiverCallInvites locale={uiLanguage} />
@@ -55,8 +58,6 @@ export default async function SupportingPage() {
       <CircleSupporting locale={uiLanguage} />
 
       <SupportedPeople />
-
-      <ReservationsSent />
 
       {/* The other half of the same relationship, on the same page on purpose.
           Someone who both supports a person and is supported BY one should be

@@ -133,6 +133,7 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
   sponsor_care_reviewed: "care_messages",
   sponsor_person_quiet: "care_messages",
   sponsored_plan_started: "care_messages",
+  sponsored_reservation_ready: "billing",
 
   vitals_reminder: "education_wellness",
   vitals_monitoring_due: "education_wellness",

@@ -219,6 +219,42 @@ export function intervalToMs(interval: string | null): number {
 }
 
 /**
+ * Tell the SPONSOR (never the recipient, who has no profile and is not texted: Part C D3) that the claim link for a
+ * paid reservation is ready to share. One in-app row, neutral wording rendered from the repo's template mechanism
+ * (`sponsored_reservation_ready`), keyed to the reservation so a redelivery never adds a second. Best effort: it never
+ * throws and never fails the payment, whose activation already happened in the database.
+ */
+export async function notifySponsorReservationReady(
+  supabase: SupabaseClient,
+  reservation: { id: string; organisation_id: string; sponsor_profile_id: string | null },
+): Promise<void> {
+  if (!reservation.sponsor_profile_id) return;
+  try {
+    const { data: existing } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("template", "sponsored_reservation_ready")
+      .eq("source_id", reservation.id)
+      .maybeSingle();
+    if (existing) return;
+    const { error } = await supabase.from("notifications").insert({
+      organisation_id: reservation.organisation_id,
+      recipient_id: reservation.sponsor_profile_id,
+      channel: "in_app",
+      status: "pending",
+      template: "sponsored_reservation_ready",
+      payload: {},
+      content_class: "non_clinical",
+      source_table: "sponsored_service_reservations",
+      source_id: reservation.id,
+    });
+    if (error) console.error("paystack-webhook: sponsor reservation notice failed", { reservationId: reservation.id, error });
+  } catch (err) {
+    console.error("paystack-webhook: sponsor reservation notice threw", { reservationId: reservation.id, err });
+  }
+}
+
+/**
  * Every label public.payment_transaction_type actually carries. The insert
  * below used to write `event.event` verbatim, which meant any event name
  * Postgres did not recognise made the whole INSERT fail with 22P02 — and the
@@ -789,7 +825,7 @@ export async function processVerifiedEvent(
 
           const { data: reservation } = await supabase
             .from("sponsored_service_reservations")
-            .select("id, organisation_id, status, payment_provider_ref")
+            .select("id, organisation_id, status, payment_provider_ref, sponsor_profile_id")
             .eq("id", reservationId)
             .maybeSingle();
 
@@ -802,8 +838,11 @@ export async function processVerifiedEvent(
           } else {
             await markProcessed({ organisation_id: reservation.organisation_id });
             // No SMS is sent (Part C, D3: SMS is for verification codes only). The sponsor shares the
-            // claim link themselves from /patient/supporting (ClaimLink, their own share sheet); the
-            // reservation is already activated and nothing depends on anyone being notified.
+            // claim link themselves from /patient/supporting (ClaimLink, their own share sheet), which is
+            // where Paystack returns them. The sponsor (who has a profile) also gets one neutral in-app
+            // notice that the link is ready. It is best effort and never required: the reservation is
+            // already activated, and a failed or missing notice changes nothing about it.
+            await notifySponsorReservationReady(supabase, reservation);
           }
         } else {
           // Exhaustiveness: CheckoutKind has exactly 10 members and every one
@@ -824,7 +863,10 @@ export async function processVerifiedEvent(
           // kind" failure instead of a silent, wrong subscription_add_ons
           // lookup.
           const unexpectedKind: never = metadata.kind;
-          await markFailed(`charge.success with unrecognised metadata.kind=${String(unexpectedKind)}`);
+          await markFailed(
+            `charge.success with unrecognised metadata.kind=${String(unexpectedKind)} (reference=${event.data.reference}): ` +
+              "if this is a retired charge (for example the removed platform_credit_topup), refund it in Paystack and reconcile manually",
+          );
         }
         break;
       }

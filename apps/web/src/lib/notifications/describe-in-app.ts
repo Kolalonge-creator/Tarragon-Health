@@ -320,6 +320,11 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: isPayer ? "/patient/supporting" : "/patient/subscription",
     };
   }
+  if (n.template === "sponsored_reservation_ready") {
+    // From the Paystack webhook (OQ-727, no SMS): the person the sponsor paid for is not texted, so the sponsor is told the
+    // claim link is ready to share. Fixed neutral line: no name, service or price (INV-07).
+    return { text: "The care you paid for is ready to share. Copy the link and give it to them yourself", href: "/patient/supporting" };
+  }
   if (n.template === "care_message_safety_flag") {
     // From private.after_care_message_insert_safety_screen() (17.12) — a
     // patient/sponsor care message matched the deterministic danger-phrase
