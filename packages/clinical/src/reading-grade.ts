@@ -4,9 +4,11 @@
  * The grade (A, B or C) is for the care team and for outcome analysis only. It is NEVER shown to the patient as a mark or a score (a patient who sees "C" stops logging),
  * never in a notification, and never changes a medicine or a red-flag decision. A low grade means "less certain", not "wrong".
  *
- *   A  plausible, seated, rested for the configured minutes, and at least one repeat reading in the same sitting
- *   B  plausible and seated, but rest is not recorded or too short, or there is no repeat reading
- *   C  implausible, or not seated / position unknown
+ *   C                  implausible, or a recorded position that is not seated
+ *   unknown            plausible, but the position was never recorded (not the same as "not seated")
+ *   rest_not_recorded  plausible and seated, but rest minutes are not known (true of every stored reading today: rest is not stored anywhere)
+ *   A                  seated, rested for the configured minutes, and at least one repeat reading in the same sitting
+ *   B                  seated, rest known, but too short or no repeat reading
  *
  * Every number comes from the versioned configuration `bp.target_config` (mirrored by the database row `bp_target_config`). The numbers are PROPOSED and the row is UNSIGNED
  * (founder decision D-09): nothing here may be described as signed or validated. The same rule is written in SQL (`private.bp_reading_grade`); the proof script runs one
@@ -15,7 +17,7 @@
  * A wearable or cuffless estimate never reaches this function's callers: the database view that feeds statistics drops them (see `isEstimateBpSource` in @tarragon/shared).
  */
 
-export type ReadingGrade = "A" | "B" | "C";
+export type ReadingGrade = "A" | "B" | "C" | "unknown" | "rest_not_recorded";
 
 /** Where a reading was measured. `clinic` comes from the care team's clinic table; `unlabelled` means nobody said. */
 export type MeasurementContext = "home_self" | "home_assisted" | "pharmacy" | "diary" | "clinic" | "unlabelled";
@@ -68,9 +70,12 @@ export function isPlausibleBp(systolic: number, diastolic: number, cfg: ReadingG
 
 export function gradeBpReading(input: ReadingGradeInput, cfg: ReadingGradeConfig): ReadingGrade {
   if (!isPlausibleBp(input.systolic, input.diastolic, cfg)) return "C";
+  // a position nobody recorded is "unknown", not "not seated"
+  if (input.position === null || input.position === undefined) return "unknown";
   if (input.position !== "seated") return "C";
-  const rested = typeof input.restedMinutes === "number" && input.restedMinutes >= cfg.restMinutes;
-  if (rested && input.repeatCount >= 1) return "A";
+  // without a recorded rest we cannot say A or B
+  if (typeof input.restedMinutes !== "number") return "rest_not_recorded";
+  if (input.restedMinutes >= cfg.restMinutes && input.repeatCount >= 1) return "A";
   return "B";
 }
 

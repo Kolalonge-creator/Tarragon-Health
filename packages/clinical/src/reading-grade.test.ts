@@ -16,29 +16,27 @@ const UNSIGNED = parseBpTargetConfig(1, false, RAW);
 const SIGNED = parseBpTargetConfig(1, true, RAW);
 const GRADE = UNSIGNED.grade;
 
-const input = (over: Partial<ReadingGradeInput>): ReadingGradeInput => ({ systolic: 120, diastolic: 80, position: "seated", restedMinutes: 5, repeatCount: 1, ...over });
+interface GradeCase extends ReadingGradeInput { readonly name: string; readonly expected: ReadingGrade }
 
-// The same table is run through private.bp_reading_grade in packages/db/tests/w25_measurement_context.sql. Keep the two in step.
-const CASES: ReadonlyArray<readonly [string, ReadingGradeInput, ReadingGrade]> = [
-  ["seated, rested 5, repeat", input({}), "A"],
-  ["seated, rested 4, repeat", input({ restedMinutes: 4 }), "B"],
-  ["seated, rest not recorded, repeat", input({ restedMinutes: null }), "B"],
-  ["seated, rested 5, no repeat", input({ repeatCount: 0 }), "B"],
-  ["standing", input({ position: "standing" }), "C"],
-  ["lying", input({ position: "lying" }), "C"],
-  ["position not recorded", input({ position: null }), "C"],
-  ["systolic below the plausible floor", input({ systolic: 59, diastolic: 40 }), "C"],
-  ["systolic not above diastolic", input({ systolic: 80, diastolic: 120 }), "C"],
-  ["diastolic above the plausible ceiling", input({ systolic: 200, diastolic: 161 }), "C"],
-];
+// ONE case table (reading-grade-cases.json). Jest runs it through gradeBpReading; the SQL proof embeds a copy and runs it through private.bp_reading_grade, and the
+// test below fails if the copy in the proof differs from this file.
+const CASES: GradeCase[] = JSON.parse(readFileSync(new URL("./reading-grade-cases.json", import.meta.url), "utf8"));
+const PROOF = readFileSync(new URL("../../db/tests/w25_measurement_context.sql", import.meta.url), "utf8");
 
 describe("gradeBpReading", () => {
-  it.each(CASES)("%s", (_name, i, want) => {
-    expect(gradeBpReading(i, GRADE)).toBe(want);
+  it.each(CASES.map((c) => [c.name, c] as const))("%s", (_name, c) => {
+    expect(gradeBpReading(c, GRADE)).toBe(c.expected);
   });
 
-  it("an implausible reading is C even when everything else is perfect", () => {
-    expect(gradeBpReading(input({ systolic: 300, diastolic: 80 }), GRADE)).toBe("C");
+  it("the SQL proof embeds exactly this case table", () => {
+    const m = /grade-cases-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(PROOF);
+    if (!m?.[1]) throw new Error("grade cases not found in the proof");
+    expect(JSON.parse(m[1])).toEqual(CASES);
+  });
+
+  it("an unrecorded position is unknown, never C; rest is never assumed", () => {
+    expect(gradeBpReading({ systolic: 120, diastolic: 80, position: undefined, restedMinutes: 5, repeatCount: 1 }, GRADE)).toBe("unknown");
+    expect(gradeBpReading({ systolic: 120, diastolic: 80, position: "seated", restedMinutes: undefined, repeatCount: 5 }, GRADE)).toBe("rest_not_recorded");
   });
 
   it("plausibility bounds are inclusive", () => {

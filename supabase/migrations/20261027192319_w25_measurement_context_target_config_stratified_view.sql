@@ -9,7 +9,7 @@
 --      private.bp_target_config_active() returns null until a row is signed, so any consumer that asks for "the signed target" gets nothing.
 --   3. private.v_bp_readings_all: ONE read view over vitals_readings (manual and device blood pressure only; a wearable or cuffless estimate NEVER enters) and clinic_bp_readings.
 --   4. private.bp_reading_grade(): grade A / B / C by protocol adherence (seated, rested, repeat reading, plausible). Clinician and analytics only; never shown to the patient.
---      Rest time is not captured anywhere in the database yet, so a stored reading can be graded B at best until it is (see the proof and the PR notes).
+--      Rest time is not captured anywhere in the database yet, so the view labels a reading C, unknown (position never recorded) or rest_not_recorded; never A or B.
 --   5. private.bp_outcome_stratified(): a NEW aggregate by tier, context, grade and source. Home and clinic are never blended: each context is judged on its own line,
 --      and a control figure is returned ONLY when a signed target exists. Not granted to anyone and not read by any screen, report or sponsor surface.
 --
@@ -17,6 +17,11 @@
 -- view (the rebuild call below is guarded and idempotent).
 
 -- 1. the column -----------------------------------------------------------------------------------------------------------------------
+-- LOCKING: add column (nullable, no default) is metadata only, and ADD CONSTRAINT ... NOT VALID takes its lock briefly without scanning. The two VALIDATE steps are
+-- deliberately NOT in this file: validating inside the same transaction would hold the ACCESS EXCLUSIVE lock of the ALTER across two full scans of vitals_readings.
+-- They live in the follow-up migration 20261027200107_w25b_validate_measurement_context_constraints.sql (VALIDATE takes only SHARE UPDATE EXCLUSIVE, in its own transaction).
+-- A NOT VALID check is still enforced for every new or changed row from the moment it is added; only the proof about OLD rows is deferred, and the column is all null.
+set local lock_timeout = '15s';
 alter table public.vitals_readings add column if not exists measurement_context text;
 
 alter table public.vitals_readings
@@ -28,8 +33,6 @@ alter table public.vitals_readings
   check (measurement_context is null or entry_origin is null
          or (entry_origin = 'pharmacy_machine' and measurement_context = 'pharmacy')
          or (entry_origin = 'paper_diary' and measurement_context = 'diary')) not valid;
-alter table public.vitals_readings validate constraint vitals_readings_measurement_context_check;
-alter table public.vitals_readings validate constraint vitals_readings_measurement_context_origin_check;
 
 comment on column public.vitals_readings.measurement_context is 'W-25: where a blood pressure was measured: home_self, home_assisted (someone helped at home), pharmacy, diary (copied from the person''s own diary). Null = not labelled. Frozen after insert (a correction is a supersede). Never used for a red-flag decision.';
 
@@ -77,7 +80,7 @@ create table public.bp_target_config (
   check (jsonb_typeof(config -> 'targets') = 'object' and jsonb_typeof(config -> 'grade') = 'object' and jsonb_typeof(config -> 'contextToTarget') = 'object')
 );
 create unique index bp_target_config_one_active on public.bp_target_config (is_active) where is_active;
-comment on table public.bp_target_config is 'W-25 / D-09: home and clinic blood pressure targets and the reading-grade thresholds. Born unsigned and inactive. There is no signer yet; a row can be active only if approved_by is set (check). Read it through private.bp_target_config_active() (signed only) or public.get_bp_target_config() (latest, with a signed flag).';
+comment on table public.bp_target_config is 'Platform-level governed configuration, so it has no organisation_id (the same shape as home_bp_programme_signoffs, escalation_slas and the other signed single-active-row tables). W-25 / D-09: home and clinic blood pressure targets and the reading-grade thresholds. Born unsigned and inactive. There is no signer yet; a row can be active only if approved_by is set (check). Read it through private.bp_target_config_active() (signed only) or public.get_bp_target_config() (latest, with a signed flag).';
 
 -- bp-target-config-begin
 insert into public.bp_target_config (version, is_active, config, notes)
@@ -108,10 +111,29 @@ create trigger refuse_superseded_activation before update of is_active on public
   for each row when (new.is_active and not old.is_active)
   execute function private.refuse_activating_superseded_version();
 
+-- RLS on, no policy and no grant: a user role reads nothing from the table. public.get_bp_target_config() is the only read path.
 alter table public.bp_target_config enable row level security;
 revoke all on public.bp_target_config from public, anon, authenticated;
-grant select on public.bp_target_config to authenticated;
-create policy bp_target_config_read on public.bp_target_config for select to authenticated using (true);
+
+-- 9. an approved row never changes: a change is a new version
+create function private.bp_target_config_immutable() returns trigger
+language plpgsql set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    if old.approved_by is not null then raise exception 'a signed bp_target_config version cannot be deleted' using errcode = '42501'; end if;
+    return old;
+  end if;
+  if old.approved_by is not null
+     and (new.config is distinct from old.config or new.approved_by is distinct from old.approved_by
+          or new.approved_at is distinct from old.approved_at or new.version is distinct from old.version) then
+    raise exception 'a signed bp_target_config version cannot be changed: make a new version' using errcode = '42501';
+  end if;
+  return new;
+end $$;
+revoke all on function private.bp_target_config_immutable() from public, anon, authenticated;
+create trigger bp_target_config_immutable before update or delete on public.bp_target_config
+  for each row execute function private.bp_target_config_immutable();
 
 create function private.bp_target_config_active() returns jsonb
 language sql stable security definer set search_path = ''
@@ -136,36 +158,43 @@ revoke all on function public.get_bp_target_config() from public, anon;
 grant execute on function public.get_bp_target_config() to authenticated;
 
 -- 3. the grade -----------------------------------------------------------------------------------------------------------------------
--- A: plausible, seated, rested for the configured minutes, and a repeat reading in the same sitting.
--- B: plausible and seated, but rest is not recorded or too short, or there is no repeat reading.
--- C: implausible, or not seated / position unknown. The rule is also written in TypeScript (packages/clinical/src/reading-grade.ts); the proof runs one table through both.
-create function private.bp_reading_grade(p_position text, p_rest_minutes numeric, p_repeat_count integer, p_systolic integer, p_diastolic integer)
+-- C: implausible, or a recorded position that is not seated.
+-- unknown: plausible but the position was never recorded (NOT the same as "not seated", so it is not graded C).
+-- rest_not_recorded: plausible and seated, but rest minutes are not known. Rest minutes are stored NOWHERE in the database today, so this is what every stored reading gets;
+--   the view never labels a reading A or B on rest it does not have.
+-- A: seated, rested for the configured minutes, and a repeat reading in the same sitting. B: seated, rest known, but too short or no repeat reading.
+-- The thresholds come in as p_cfg (the grade object of the latest bp_target_config row); with no configuration the function returns null: no number is hard-coded here.
+-- The rule is also written in TypeScript (packages/clinical/src/reading-grade.ts); one shared case table (reading-grade-cases.json) runs through both.
+create function private.bp_reading_grade(p_position text, p_rest_minutes numeric, p_repeat_count integer, p_systolic integer, p_diastolic integer, p_cfg jsonb)
 returns text
-language plpgsql stable security definer set search_path = ''
+language plpgsql immutable set search_path = ''
 as $$
 declare
-  g jsonb := coalesce(private.bp_target_config_latest() #> '{config,grade}', '{}'::jsonb);
-  v_rest numeric := coalesce((g ->> 'restMinutes')::numeric, 5);
-  v_sys_min integer := coalesce((g #>> '{plausible,systolicMin}')::integer, 60);
-  v_sys_max integer := coalesce((g #>> '{plausible,systolicMax}')::integer, 260);
-  v_dia_min integer := coalesce((g #>> '{plausible,diastolicMin}')::integer, 30);
-  v_dia_max integer := coalesce((g #>> '{plausible,diastolicMax}')::integer, 160);
+  v_rest    numeric := (p_cfg ->> 'restMinutes')::numeric;
+  v_sys_min integer := (p_cfg #>> '{plausible,systolicMin}')::integer;
+  v_sys_max integer := (p_cfg #>> '{plausible,systolicMax}')::integer;
+  v_dia_min integer := (p_cfg #>> '{plausible,diastolicMin}')::integer;
+  v_dia_max integer := (p_cfg #>> '{plausible,diastolicMax}')::integer;
 begin
+  if v_rest is null or v_sys_min is null or v_sys_max is null or v_dia_min is null or v_dia_max is null then return null; end if;
   if p_systolic is null or p_diastolic is null
      or p_systolic < v_sys_min or p_systolic > v_sys_max
      or p_diastolic < v_dia_min or p_diastolic > v_dia_max
      or p_systolic <= p_diastolic then
     return 'C';
   end if;
-  if p_position is distinct from 'seated' then return 'C'; end if;
-  if p_rest_minutes is not null and p_rest_minutes >= v_rest and coalesce(p_repeat_count, 0) >= 1 then return 'A'; end if;
+  if p_position is null then return 'unknown'; end if;
+  if p_position <> 'seated' then return 'C'; end if;
+  if p_rest_minutes is null then return 'rest_not_recorded'; end if;
+  if p_rest_minutes >= v_rest and coalesce(p_repeat_count, 0) >= 1 then return 'A'; end if;
   return 'B';
 end $$;
-revoke all on function private.bp_reading_grade(text, numeric, integer, integer, integer) from public, anon, authenticated;
+revoke all on function private.bp_reading_grade(text, numeric, integer, integer, integer, jsonb) from public, anon, authenticated;
 
 -- 4. ONE read view over both tables --------------------------------------------------------------------------------------------------
 -- Vitals side: the diagnostic view (a wearable or cuffless estimate is already out of it) joined to the base row for measurement_context, and only manual / device readings.
 -- Clinic side: clinic_bp_readings as a clinic context, ungraded. security_invoker is off on purpose (private schema, no grant to any role), like the S75 cohort views.
+-- The grade thresholds are read once (cross join), not per row. No repeat-reading count is computed: with rest never stored the count cannot change any label.
 create view private.v_bp_readings_all with (security_invoker = off) as
   select 'vitals'::text as origin_table,
          d.id as reading_id, d.patient_id, d.organisation_id, d.taken_at,
@@ -176,18 +205,10 @@ create view private.v_bp_readings_all with (security_invoker = off) as
                   'unlabelled') as context,
          d."position" as reading_position, d.arm, d.cuff_type,
          d.validation_status, d.validation_flags,
-         private.bp_reading_grade(
-           d."position", null::numeric,
-           (select count(*)::integer
-              from private.vitals_readings_diagnostic o
-             where o.patient_id = d.patient_id and o.vital_type = 'blood_pressure' and o.id <> d.id
-               and o.systolic is not null and o.source::text in ('manual', 'device')
-               and abs(extract(epoch from (o.taken_at - d.taken_at))) between
-                   coalesce((private.bp_target_config_latest() #>> '{config,grade,minGapMinutes}')::numeric, 1) * 60
-               and coalesce((private.bp_target_config_latest() #>> '{config,grade,repeatWindowMinutes}')::numeric, 10) * 60),
-           d.systolic::integer, d.diastolic::integer) as reading_grade
+         private.bp_reading_grade(d."position", null::numeric, null::integer, d.systolic::integer, d.diastolic::integer, cfg.g) as reading_grade
     from private.vitals_readings_diagnostic d
     join public.vitals_readings b on b.id = d.id
+    cross join (select private.bp_target_config_latest() #> '{config,grade}' as g) cfg
    where b.correction_status is null
      and d.vital_type = 'blood_pressure' and d.systolic is not null and d.diastolic is not null
      and d.source::text in ('manual', 'device')
@@ -200,9 +221,12 @@ create view private.v_bp_readings_all with (security_invoker = off) as
          null::text
     from public.clinic_bp_readings c;
 revoke all on private.v_bp_readings_all from public, anon, authenticated;
-comment on view private.v_bp_readings_all is 'W-25: one row per blood pressure reading that may feed a statistic: manual and device readings (never a wearable estimate, never a superseded reading) and care-team clinic readings. context is the stored measurement_context, else derived from entry_origin, else unlabelled; clinic rows are context clinic and ungraded.';
+comment on view private.v_bp_readings_all is 'W-25: one row per blood pressure reading that may feed a statistic: manual and device readings (never a wearable estimate, never a superseded reading) and care-team clinic readings. context is the stored measurement_context, else derived from entry_origin, else unlabelled; clinic rows are context clinic and ungraded. reading_grade is never A or B today (rest minutes are not stored): it is C, unknown or rest_not_recorded.';
 
 -- 5. the stratified outcome (aggregate, small numbers withheld, home and clinic never blended) ----------------------------------------
+-- STAYS UNGRANTED. Strata overlap (a person can sit in several), so a reader holding two strata could difference a small cell out. The complementary-suppression pass the
+-- S75 doorway applies (suppress_difference across overlapping cells) is NOT built here; until it is, nobody may execute this function, and the migration asserts that.
+-- Tier is the person's membership tier AS OF their latest reading in the stratum (patient_memberships dates; the grace period is not applied).
 create function private.bp_outcome_stratified(p_from date default null, p_to date default null) returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
@@ -212,23 +236,31 @@ declare
   v_active  jsonb   := private.bp_target_config_active();
   v_from    date    := coalesce(p_from, (now() at time zone 'Africa/Lagos')::date - 90);
   v_to      date    := coalesce(p_to, (now() at time zone 'Africa/Lagos')::date);
-  v_minread integer := coalesce((v_latest #>> '{config,grade,minReadingsPerPerson}')::integer, 3);
+  v_lo      timestamptz := (coalesce(p_from, (now() at time zone 'Africa/Lagos')::date - 90))::timestamp at time zone 'Africa/Lagos';
+  v_hi      timestamptz := (coalesce(p_to, (now() at time zone 'Africa/Lagos')::date) + 1)::timestamp at time zone 'Africa/Lagos';
+  v_minread integer := (v_latest #>> '{config,grade,minReadingsPerPerson}')::integer;
   v_rows    jsonb;
 begin
+  if v_minread is null then raise exception 'bp_target_config_missing' using errcode = 'P0002'; end if;
   with r as (
-    select v.patient_id, v.context, coalesce(v.reading_grade, 'n/a') as grade, v.source, v.systolic, v.diastolic
+    select v.patient_id, v.context, coalesce(v.reading_grade, 'n/a') as grade, v.source, v.systolic, v.diastolic, v.taken_at
       from private.v_bp_readings_all v
       join public.profiles p on p.id = v.patient_id and not coalesce(p.is_test, false)
-     where (v.taken_at at time zone 'Africa/Lagos')::date between v_from and v_to
+     where v.taken_at >= v_lo and v.taken_at < v_hi
   ), pp as (
-    select patient_id, context, grade, source, count(*) as n, avg(systolic) as s, avg(diastolic) as d
+    select patient_id, context, grade, source, count(*) as n, avg(systolic) as s, avg(diastolic) as d, max(taken_at) as last_at
       from r group by patient_id, context, grade, source
   ), st as (
-    select coalesce(private.patient_membership_tier(pp.patient_id), 'free') as tier, pp.context, pp.grade, pp.source,
-           pp.s, pp.d,
+    select coalesce(t.tier, 'free') as tier, pp.context, pp.grade, pp.source, pp.s, pp.d,
            (v_active #>> array['targets', v_active #>> array['contextToTarget', pp.context], 'systolic'])::numeric as t_sys,
            (v_active #>> array['targets', v_active #>> array['contextToTarget', pp.context], 'diastolic'])::numeric as t_dia
-      from pp where pp.n >= v_minread
+      from pp
+      left join lateral (
+        select m.tier from public.patient_memberships m
+         where m.patient_id = pp.patient_id and m.starts_at <= pp.last_at
+           and (coalesce(m.ends_at, m.ended_at) is null or coalesce(m.ends_at, m.ended_at) > pp.last_at)
+         order by (m.tier = 'plus') desc, m.starts_at desc limit 1) t on true
+     where pp.n >= v_minread
   ), agg as (
     select tier, context, grade, source,
            count(*) as people,
@@ -255,8 +287,9 @@ begin
     'target_config_version', v_latest ->> 'version',
     'target_signed', v_active is not null,
     'control_withheld_reason', case when v_active is null then 'target_unsigned' end,
+    'tier_basis', 'as_of_latest_reading_in_stratum',
     'strata', v_rows,
-    'note', 'Descriptive only. A person can appear in more than one stratum, so strata do not add up to a total. Home, diary and clinic-type readings are judged on their own targets and never blended. Unlabelled readings are counted but never judged.',
+    'note', 'Internal and descriptive only. A person can appear in more than one stratum, so strata do not add up to a total and must not be differenced. Home, diary and clinic-type readings are judged on their own targets and never blended (pharmacy readings use the clinic line). Unlabelled readings are counted but never judged. The grade is never A or B because rest minutes are not stored. Tier is the membership tier on the date of the latest reading in the stratum.',
     'not_a_causal_claim', true,
     'generated_at', now());
 end $$;
@@ -277,22 +310,26 @@ begin
   if private.bp_target_config_active() is not null then raise exception 'W25: an unsigned target is being served as signed'; end if;
   if (select (config #>> '{targets,home,systolic}') || '/' || (config #>> '{targets,home,diastolic}') || ' ' || (config #>> '{targets,clinic,systolic}') || '/' || (config #>> '{targets,clinic,diastolic}')
         from public.bp_target_config where version = 1) <> '135/85 140/90' then raise exception 'W25: seed targets changed'; end if;
-  if has_table_privilege('authenticated', 'public.bp_target_config', 'INSERT') or has_table_privilege('authenticated', 'public.bp_target_config', 'UPDATE') then
-    raise exception 'W25: authenticated can write the target config';
+  if has_table_privilege('authenticated', 'public.bp_target_config', 'SELECT') or has_table_privilege('authenticated', 'public.bp_target_config', 'INSERT')
+     or has_table_privilege('authenticated', 'public.bp_target_config', 'UPDATE') then
+    raise exception 'W25: authenticated has direct access to the target config';
   end if;
   if has_table_privilege('anon', 'public.bp_target_config', 'SELECT') then raise exception 'W25: anon can read the target config'; end if;
   if has_function_privilege('anon', 'public.get_bp_target_config()', 'EXECUTE') then raise exception 'W25: anon can read the target config through the function'; end if;
   if has_function_privilege('anon', 'private.bp_outcome_stratified(date, date)', 'EXECUTE')
      or has_function_privilege('authenticated', 'private.bp_outcome_stratified(date, date)', 'EXECUTE')
      or has_function_privilege('authenticated', 'private.bp_target_config_active()', 'EXECUTE')
-     or has_function_privilege('authenticated', 'private.bp_reading_grade(text, numeric, integer, integer, integer)', 'EXECUTE') then
+     or has_function_privilege('authenticated', 'private.bp_reading_grade(text, numeric, integer, integer, integer, jsonb)', 'EXECUTE') then
     raise exception 'W25: a private function is open to a user role';
   end if;
   if has_table_privilege('authenticated', 'private.v_bp_readings_all', 'SELECT') or has_table_privilege('anon', 'private.v_bp_readings_all', 'SELECT') then
     raise exception 'W25: the read view is open to a user role';
   end if;
-  if private.bp_reading_grade('seated', 5, 1, 120, 80) <> 'A' or private.bp_reading_grade('seated', null, 1, 120, 80) <> 'B'
-     or private.bp_reading_grade('standing', 5, 1, 120, 80) <> 'C' or private.bp_reading_grade('seated', 5, 1, 80, 120) <> 'C' then
+  if private.bp_reading_grade('seated', 5, 1, 120, 80, (private.bp_target_config_latest() #> '{config,grade}')) <> 'A'
+     or private.bp_reading_grade(null, 5, 1, 120, 80, (private.bp_target_config_latest() #> '{config,grade}')) <> 'unknown'
+     or private.bp_reading_grade('seated', null, 1, 120, 80, (private.bp_target_config_latest() #> '{config,grade}')) <> 'rest_not_recorded'
+     or private.bp_reading_grade('standing', 5, 1, 120, 80, (private.bp_target_config_latest() #> '{config,grade}')) <> 'C'
+     or private.bp_reading_grade('seated', 5, 1, 120, 80, null) is not null then
     raise exception 'W25: grade truth table';
   end if;
 end
