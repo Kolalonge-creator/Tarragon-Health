@@ -39,6 +39,11 @@ export function BpMonthlySummaryDocument({ summary }: { summary: BpMonthlySummar
               <Text style={styles.muted}>{line}</Text>
             </View>
           ))}
+          {summary.controlRate ? (
+            <View style={styles.row}>
+              <Text>{summary.controlRate}</Text>
+            </View>
+          ) : null}
         </View>
 
         {summary.homeChecks.length > 0 ? (

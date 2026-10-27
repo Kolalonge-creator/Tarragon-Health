@@ -294,6 +294,7 @@ export * from "./cgm-events";
 export * from "./device-source";
 export * from "./causal-wording";
 export * from "./lock-screen-pass";
+export * from "./my-phones";
 export * from "./therapy-content/wave-a-drafts";
 export * from "./therapy-queue";
 export * from "./therapy-results";

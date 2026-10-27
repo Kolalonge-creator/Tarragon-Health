@@ -63,11 +63,47 @@ describe("monthly blood pressure and medicines summary", () => {
     expect(s.footer).toContain("no laboratory results");
   });
 
-  it("the data route reads only the caller's profile, her monthly reports and her home checks (never a laboratory, clinic or pattern table)", () => {
+  it("the data route reads only the caller's profile, her monthly reports and her home checks (never a laboratory, clinic or pattern table; her own home blood pressure readings for the control line)", () => {
     const route = readFileSync(join(__dirname, "../../app/api/patient/bp-monthly-summary/pdf/route.ts"), "utf8");
     const tables = [...route.matchAll(/\.from\("([a-z_]+)"\)/g)].map((m) => m[1]);
     const rpcs = [...route.matchAll(/\.rpc\("([a-z_]+)"/g)].map((m) => m[1]);
-    expect(tables.sort()).toEqual(["home_bp_checks", "profiles"]);
+    expect(tables.sort()).toEqual(["home_bp_checks", "profiles", "vitals_readings"]);
     expect(rpcs).toEqual(["my_monthly_reports"]);
+  });
+});
+
+describe("home readings in target (control rate)", () => {
+  const GATE = [{ minReadings: 3, minDays: 3, minPerDay: 1 }];
+  const reading = (day: string, sys: number, dia: number) => ({ systolic: sys, diastolic: dia, atMs: Date.parse(`2026-09-${day}T08:00:00Z`) });
+  const control = (readings: ReturnType<typeof reading>[]) => ({ readings, gateRules: GATE, minGapMinutes: 1 });
+
+  it("says nothing at all when no readings were supplied", () => {
+    expect(buildBpMonthlySummary({ patientName: "Ada", reportRows: rows, month: null, checks: [] })?.controlRate).toBeNull();
+  });
+
+  it("reports how many home readings were in target once the existing gate is met, against the report's own target", () => {
+    const s = buildBpMonthlySummary({
+      patientName: "Ada",
+      reportRows: rows,
+      month: null,
+      checks: [],
+      control: control([reading("02", 120, 80), reading("05", 130, 82), reading("09", 150, 95)]),
+    })!;
+    expect(s.controlRate).toContain("2 of 3 (67 percent)");
+    expect(s.controlRate).toContain("not a diagnosis");
+  });
+
+  it("gives no figure below the gate", () => {
+    const s = buildBpMonthlySummary({ patientName: "Ada", reportRows: rows, month: null, checks: [], control: control([reading("02", 120, 80)]) })!;
+    expect(s.controlRate).toMatch(/not enough readings/);
+    expect(s.controlRate).not.toMatch(/percent/);
+  });
+
+  it("counts the month in Lagos days: a reading at 00:30 on the 1st (Lagos) is in, one at 00:30 on the next month's 1st is out", () => {
+    const first = { systolic: 120, diastolic: 80, atMs: Date.parse("2026-08-31T23:30:00Z") }; // 00:30 on 1 Sept in Lagos
+    const next = { systolic: 150, diastolic: 95, atMs: Date.parse("2026-09-30T23:30:00Z") }; // 00:30 on 1 Oct in Lagos
+    const mid = [reading("05", 125, 80), reading("12", 128, 82)];
+    const s = buildBpMonthlySummary({ patientName: "Ada", reportRows: rows, month: null, checks: [], control: control([first, ...mid, next]) })!;
+    expect(s.controlRate).toContain("3 of 3");
   });
 });
