@@ -3335,6 +3335,31 @@ following are recorded in the system:
 ### OQ-S07X-5 The home check configuration ships inside the app (raised by S07x)
 - The phone reads `bp.home_programme` from the code registry (as the other S07 values do); the server reads the signed row. If the CMO signs a changed version, installed phones keep the old protocol until the next build or update, while the server records the result against the new bands. Today the two are identical (a test fails on drift). Moving the phone's read to a synced config is the same follow-up already noted for the other S07 values.
 
+### OQ-S79-1 Employer-funded rewards pool is a requested number only
+- S79 records a rewards budget the sponsor would like to set aside (`institution_programme_configs.rewards_budget_kobo`, capped by `institution.rules`). No pool, balance, per-person cap or checkout discount is built: OQ-S58-06 is informational, INV-09 forbids a stored balance, and the legal vehicle for an employer-funded pool is undecided. Build the pool only after a founder decision.
+- Decision: open (founder).
+
+### OQ-S79-2 Module 24 events are audit rows, not outbox events
+- `cohort.enrolled` and `sponsor.report_generated` exist only as audit actions (`sponsor.cohort_joined`, `sponsor.staff_exported`, `sponsor.pack_exported`). Registering them as outbox events needs a consumer to exist first.
+- Decision: open (product).
+
+### OQ-S79-3 The pathway list a sponsor may choose from is a proposal
+- `institution.rules.programme_pathways` = hypertension, diabetes, prevention_screening, nutrition_and_activity. Reproductive, pregnancy and mental health are deliberately absent. The CMO should confirm the list before the switch is turned on.
+- Decision: open (CMO).
+
+### OQ-S79-4 A usage statement must itemise for audit, and itemising can single a person out
+- Statement lines used by fewer people than the minimum are folded into "other services" (amount only). Finance may need the folded detail to reconcile an invoice; that must go through Tarragon finance, not the sponsor view. If a sponsor's contract requires itemised proof, counsel and the DPO must say how.
+- Decision: open (finance, DPO).
+
+### OQ-S79-5 Second approver for eligibility files that end access
+- A file that ends anyone needs a second person (or Tarragon); a file ending 30% or more of the active list needs Tarragon (`institution.rules`). A one-person HR team cannot approve its own removal file. Confirm the 30% and whether a solo employer should be allowed to confirm by email instead.
+- Decision: open (founder).
+
+### OQ-S79-6 Where the single code entry appears for members
+- `enter_enrolment_code` exists and is tested but is not wired into the patient web or mobile join screens (those still use `join_cohort` and the employer code path). Wire it when the module is switched on.
+- Decision: open (product).
+## S85b: web offline emergency guidance and the journeys refresh (raised 2026-10-27)
+
 ### OQ-S75X-1 PHQ-9 item 9 below the score line (raised by S75 exclusions; RESOLVED 2026-10-14, DECISIONS S75-9: option (a), the gap is accepted)
 - The exclusion keeps a person out of every outcome report if their PHQ-9 TOTAL reached 20 (config v4 `safeguarding.score_from`). A person who answered item 9 above zero but scored under 20 is NOT excluded by this rule, because the S75 proof forbids any function on the outcomes path from reading item answers or the crisis flag (a positive item 9 follows the red pathway, not analytics). Their score is therefore in the mental-health figures, which only an admin, an analyst or the CMO read as suppressed aggregates.
 - The other build (#1087) excluded them by reading item 9 and the crisis flag. Choose one: (a) accept the gap above, (b) let ONE function read the crisis flag solely to remove a person (and change the scan in `s75_outcome_measures.sql` check 7e to allow exactly that function), or (c) count a person as excluded when an escalation already exists for them. Until decided, v4 stays PROPOSED and inactive.

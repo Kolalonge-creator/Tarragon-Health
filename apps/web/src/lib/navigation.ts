@@ -825,6 +825,7 @@ export function getNavSections(
             { label: "Export outcomes", href: "/admin/outcomes/export", icon: "analytics" },
             // Programme codes for insurers, employers and NGOs, and their aggregate group figures (S38e).
             { label: "Sponsors", href: "/admin/sponsors", icon: "members" },
+            { label: "Institution console", href: "/admin/sponsors/institution", icon: "members" },
             { label: "Triage agreement", href: "/admin/triage-agreement", icon: "analytics" },
             // Fee schedules, what contracted clinicians have earned, adjustments (S30).
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },

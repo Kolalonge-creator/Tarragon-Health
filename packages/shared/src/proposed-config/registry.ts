@@ -4216,6 +4216,26 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S71.md; docs/DECISIONS.md S71-1; OQ-325",
   },
   {
+    key: "institution.rules",
+    // Institution console (S79). Live values are the active row of `institution_config`; this entry mirrors it and a test fails if the migration seed and
+    // this value drift. roster_stage_max_rows: rows in one staged eligibility file. roster_end_second_approver_pct: when a file would end access for at
+    // least this share of the active list, only Tarragon may approve it. roster_batch_expiry_days: a staged file not finished by then is cleared.
+    // rewards_budget_max_kobo: the most a sponsor may ASK to set aside (a request, never a balance). programme_pathways: the pathways a sponsor may choose;
+    // reproductive, pregnancy and mental health pathways are deliberately absent. The pathway list needs CMO confirmation (OQ-S79-3).
+    value: {
+      roster_stage_max_rows: 5000,
+      roster_end_second_approver_pct: 30,
+      roster_batch_expiry_days: 7,
+      rewards_budget_max_kobo: 5_000_000_000,
+      programme_pathways: ["hypertension", "diabetes", "prevention_screening", "nutrition_and_activity"],
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S79.md; OQ-S79-1, OQ-S79-3",
+  },
+  {
     key: "access_fund.rules",
     // Community Access Fund (S72, function 19.11). Live values are the `access_fund` object of the active row of `checkout_extras_config`; this entry
     // mirrors it and a test fails if the migration seed and this value drift. min_donation_kobo: smallest pledge. max_grant_kobo: the most one grant can
