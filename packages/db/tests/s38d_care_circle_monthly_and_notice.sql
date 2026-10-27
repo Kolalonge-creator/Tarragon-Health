@@ -50,8 +50,6 @@ declare
   v_rep jsonb; v_view jsonb; v_n integer; i integer; v_txt text; v_ok boolean; v_ok2 boolean; v_ok3 boolean; k integer;
 begin
   v_now3 := pg_temp.at_day(v_first + 2);
-  -- W-11: versus_target and direction are returned only with sponsor_outcome_surfaces on (off by default); this proof checks the shape with it on
-  update public.platform_modules set is_enabled = true where key = 'sponsor_outcome_surfaces';
   h := pg_temp.mkuser('patient', 'S38d Patient');
   s1 := pg_temp.mkuser('patient', 'S38d Supporter BP');   s2 := pg_temp.mkuser('patient', 'S38d Supporter Adherence');
   s3 := pg_temp.mkuser('patient', 'S38d Supporter Appts'); s4 := pg_temp.mkuser('patient', 'S38d Supporter Both');
@@ -103,8 +101,17 @@ begin
   execute 'reset role';
   insert into s38d_results values ('2a weekly_bp_trend: monthly rows, newest first, at most 3', coalesce(jsonb_array_length(v_view -> 'monthly'), -1) || '/' || (v_view #>> '{monthly,0,month}' = v_m::text)::text, '3/true',
     case when jsonb_array_length(v_view -> 'monthly') = 3 and v_view #>> '{monthly,0,month}' = v_m::text then 'PASS' else 'FAIL' end);
-  insert into s38d_results values ('2b the average is whole numbers with enough_readings and a direction', (v_view #>> '{monthly,0,average,systolic}') || '/' || (v_view #>> '{monthly,0,enough_readings}') || '/' || coalesce(v_view #>> '{monthly,0,direction}', 'none'),
-    '147/true/similar', case when (v_view #>> '{monthly,0,average,systolic}') = '147' and (v_view #>> '{monthly,0,enough_readings}') = 'true' and v_view #>> '{monthly,0,direction}' = 'similar' then 'PASS' else 'FAIL' end);
+  -- W-11: versus_target and direction are behind platform_modules sponsor_outcome_surfaces, which is OFF by default
+  insert into s38d_results values ('2b the average is whole numbers with enough_readings; no direction while the outcome module is off', (v_view #>> '{monthly,0,average,systolic}') || '/' || (v_view #>> '{monthly,0,enough_readings}') || '/' || coalesce(v_view #>> '{monthly,0,direction}', 'none'),
+    '147/true/none', case when (v_view #>> '{monthly,0,average,systolic}') = '147' and (v_view #>> '{monthly,0,enough_readings}') = 'true' and v_view #>> '{monthly,0,direction}' is null then 'PASS' else 'FAIL' end);
+  -- separate step: the module ON shows the direction (switched back off straight after)
+  update public.platform_modules set is_enabled = true where key = 'sponsor_outcome_surfaces';
+  execute 'set local role authenticated';
+  v_rep := public.circle_supporter_view(h);
+  execute 'reset role';
+  update public.platform_modules set is_enabled = false where key = 'sponsor_outcome_surfaces';
+  insert into s38d_results values ('2b2 with the outcome module on the direction is shown', coalesce(v_rep #>> '{monthly,0,direction}', 'none'), 'similar',
+    case when v_rep #>> '{monthly,0,direction}' = 'similar' then 'PASS' else 'FAIL' end);
   v_txt := (v_view -> 'monthly')::text;
   insert into s38d_results values ('2c a BP-only member sees no adherence', (v_txt ~ 'adherence')::text, 'false', case when v_txt !~ 'adherence' then 'PASS' else 'FAIL' end);
   insert into s38d_results values ('2d no target numbers, week split or reading counts are shared', (v_txt ~ '"(target|weeks|readings|days_logged|minimum_readings)"')::text, 'false',
