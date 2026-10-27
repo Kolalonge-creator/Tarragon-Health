@@ -7,6 +7,8 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { ResourceCarousel } from "../_components/resource-carousel";
 import { PlanPreviewSample } from "../_components/plan-preview-sample";
 import { StepsExplorer } from "../_components/steps-explorer";
+import { StaggeredReveal } from "../_components/staggered-reveal";
+import { PILLARS, PILLARS_SECTION_COPY } from "../_content/pillars";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
 
 export const revalidate = 300;
@@ -166,6 +168,25 @@ export default async function PreventionPage() {
           </Link>
           , no sign-up required.
         </p>
+      </Section>
+
+      <Section>
+        <SectionHeading
+          eyebrow={PILLARS_SECTION_COPY.eyebrow}
+          title={PILLARS_SECTION_COPY.title}
+          description={PILLARS_SECTION_COPY.description}
+        />
+        <StaggeredReveal className="grid gap-px overflow-hidden rounded-2xl bg-charcoal-ink/10 sm:grid-cols-2 lg:grid-cols-5">
+          {PILLARS.map((pillar) => (
+            <div
+              key={pillar.module}
+              className="relative h-full bg-white p-6 transition-transform duration-300 hover:z-10 hover:-translate-y-1 hover:shadow-lg"
+            >
+              <h3 className="font-heading text-base font-semibold text-charcoal-ink">{pillar.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{pillar.body}</p>
+            </div>
+          ))}
+        </StaggeredReveal>
       </Section>
 
       <Section variant="sage">

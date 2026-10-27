@@ -23,8 +23,8 @@ describe("the two-tier Membership prices mirror the migrations", () => {
   };
   const sql = migration("_two_tier_membership_pricing.sql");
 
-  it("states the founder's numbers in integer kobo: 120,000 naira individual, 100,000 naira per organisation member", () => {
-    expect(prices).toEqual({ individual_kobo: 12_000_000, organisation_member_kobo: 10_000_000 });
+  it("states the founder's numbers in integer kobo: 129,000 naira individual (live since 2026-10-21, confirmed 2026-10-26), 100,000 naira per organisation member", () => {
+    expect(prices).toEqual({ individual_kobo: 12_900_000, organisation_member_kobo: 10_000_000 });
   });
 
   it("the organisation price limits seed is identical to the registry", () => {
@@ -33,10 +33,11 @@ describe("the two-tier Membership prices mirror the migrations", () => {
     expect(JSON.parse(match[1])).toEqual(limits);
   });
 
-  it("the individual price row is the registry's individual price", () => {
+  it("the LAUNCH price row in this migration was 120,000 naira; the registry is the later, live 129,000 (the migration that raised it is not on main-dev yet)", () => {
     const m = /insert into public\.prices[^;]*?values \(it\.organisation_id, it\.id, (\d+), v_now,/.exec(sql);
     if (!m?.[1]) throw new Error("individual price insert not found");
-    expect(Number(m[1])).toBe(prices.individual_kobo);
+    expect(Number(m[1])).toBe(12_000_000);
+    expect(prices.individual_kobo).toBeGreaterThan(Number(m[1]));
   });
 
   it("the default organisation price row is the registry's organisation price", () => {
