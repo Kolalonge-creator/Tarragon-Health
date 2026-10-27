@@ -287,18 +287,18 @@ begin
   perform pg_temp.ck('M21 a brand typed as two words', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Novo Rapid FlexPen"]}'));
   perform pg_temp.ck('M22 two letters swapped', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Mixtrad 30/70"]}'));
   perform pg_temp.ck('M23 a short brand with a slip', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Fiasb"]}'));
-  perform pg_temp.ck('M24 an accented letter is folded', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Insul' || chr(237) || 'n glargine"]}'));
-  perform pg_temp.ck('M25 full-width letters cannot be read, so the screen fails safe', 'needs_supervision|supervision_unclassified', pg_temp.run_case('{"meds":["' || chr(65321) || chr(65326) || chr(65331) || chr(65333) || chr(65324) || chr(65321) || chr(65326) || '"]}'));
+  perform pg_temp.ck('M24 an accented letter is folded', 'needs_supervision|supervision_insulin', pg_temp.run_case(('{"meds":["Insul' || chr(237) || 'n glargine"]}')::jsonb));
+  perform pg_temp.ck('M25 full-width letters cannot be read, so the screen fails safe', 'needs_supervision|supervision_unclassified', pg_temp.run_case(('{"meds":["' || chr(65321) || chr(65326) || chr(65331) || chr(65333) || chr(65324) || chr(65321) || chr(65326) || '"]}')::jsonb));
   perform pg_temp.ck('M26 an SGLT2 combination brand not in the old list', 'not_eligible|medicine_sglt2_inhibitor', pg_temp.run_case('{"meds":["Steglujan"]}'));
   perform pg_temp.ck('M27 a misspelt sulfonylurea brand', 'needs_supervision|supervision_sulfonylurea', pg_temp.run_case('{"meds":["Daonli 5mg"]}'));
   perform pg_temp.ck('M28 an insulin plus GLP-1 combination', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Xultophy 100/3.6"]}'));
-  perform pg_temp.ck('M29 a soft hyphen inside the name', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["in' || chr(173) || 'sulin"]}'));
-  perform pg_temp.ck('M30 an accented metformin is still recognised', 'eligible|none', pg_temp.run_case('{"meds":["Metform' || chr(237) || 'n 500mg"]}'));
+  perform pg_temp.ck('M29 a soft hyphen inside the name', 'needs_supervision|supervision_insulin', pg_temp.run_case(('{"meds":["in' || chr(173) || 'sulin"]}')::jsonb));
+  perform pg_temp.ck('M30 an accented metformin is still recognised', 'eligible|none', pg_temp.run_case(('{"meds":["Metform' || chr(237) || 'n 500mg"]}')::jsonb));
   perform pg_temp.ck('M31 a slip with the strength attached', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Mixtrad30/70"]}'));
   perform pg_temp.ck('M32 a slip with the dose attached', 'needs_supervision|supervision_sulfonylurea', pg_temp.run_case('{"meds":["Daonli5mg"]}'));
   perform pg_temp.ck('M33 a slip in a brand typed as two words', 'needs_supervision|supervision_insulin', pg_temp.run_case('{"meds":["Novo Rapd"]}'));
-  perform pg_temp.ck('M34 an ordinary medicine with a smart dash is not flagged', 'eligible|none', pg_temp.run_case('{"meds":["Paracetamol 500mg ' || chr(8211) || ' PRN"]}'));
-  perform pg_temp.ck('M35 non-breaking spaces are separators', 'eligible|none', pg_temp.run_case('{"meds":["Vitamin' || chr(160) || 'D3 1000' || chr(160) || 'IU"]}'));
+  perform pg_temp.ck('M34 an ordinary medicine with a smart dash is not flagged', 'eligible|none', pg_temp.run_case(('{"meds":["Paracetamol 500mg ' || chr(8211) || ' PRN"]}')::jsonb));
+  perform pg_temp.ck('M35 non-breaking spaces are separators', 'eligible|none', pg_temp.run_case(('{"meds":["Vitamin' || chr(160) || 'D3 1000' || chr(160) || 'IU"]}')::jsonb));
 end $$;
 
 -- c. enrolment ---------------------------------------------------------------------------------------------------------------------
