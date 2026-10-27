@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { t, pointsTierLabel, pointsRuleLabel } from "@tarragon/i18n";
+import { t, pointsTierLabel, pointsRuleLabel, milestoneCopy, pendingActionLabel } from "@tarragon/i18n";
+import { describePending, type PendingCreditItem, type PendingMilestone } from "@tarragon/shared";
+import { setSupportPrefill } from "@/lib/support-prefill";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import {
   enrolInWellnessChallenge,
@@ -11,6 +13,9 @@ import {
   loadWellnessChallengeProgress,
   loadWellnessChallengesCatalogue,
   loadMyPointsStatus,
+  loadMyPointsPending,
+  loadMyPendingMilestone,
+  dismissMilestone,
   loadRewardRules,
   loadWellnessPointsLedger,
   markWellnessClassAttended,
@@ -29,7 +34,7 @@ import {
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
-import { Card, ErrorText, MutedText, ScreenTitle } from "@/ui/legacy-kit";
+import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle } from "@/ui/legacy-kit";
 
 function classDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -73,12 +78,14 @@ interface WellnessScreenProps {
  * mutation is a plain RLS-scoped call or a SECURITY DEFINER RPC already
  * granted to authenticated.
  */
-export function WellnessScreen({ patientId, organisationId }: WellnessScreenProps) {
+export function WellnessScreen({ patientId, organisationId, onNavigate }: WellnessScreenProps) {
   const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<MyPointsStatus | null>(null);
   const [rules, setRules] = useState<RewardRule[]>([]);
   const [ledger, setLedger] = useState<WellnessPointsLedgerEntry[]>([]);
+  const [pending, setPending] = useState<PendingCreditItem[]>([]);
+  const [milestone, setMilestone] = useState<PendingMilestone | null>(null);
   const [badgeCatalogue, setBadgeCatalogue] = useState<WellnessBadge[]>([]);
   const [myBadges, setMyBadges] = useState<PatientWellnessBadge[]>([]);
   const [challengeCatalogue, setChallengeCatalogue] = useState<WellnessChallenge[]>([]);
@@ -87,7 +94,7 @@ export function WellnessScreen({ patientId, organisationId }: WellnessScreenProp
   const [registrations, setRegistrations] = useState<WellnessClassRegistration[]>([]);
 
   const refresh = useCallback(async () => {
-    const [b, rl, l, bc, mb, cc, en, cl, reg] = await Promise.all([
+    const [b, rl, l, bc, mb, cc, en, cl, reg, pc, ms] = await Promise.all([
       loadMyPointsStatus(),
       loadRewardRules(),
       loadWellnessPointsLedger(patientId, 8),
@@ -97,6 +104,8 @@ export function WellnessScreen({ patientId, organisationId }: WellnessScreenProp
       loadMyChallengeEnrolments(patientId),
       loadUpcomingWellnessClasses(),
       loadMyClassRegistrations(patientId),
+      loadMyPointsPending(),
+      loadMyPendingMilestone(),
     ]);
     setStatus(b);
     setRules(rl);
@@ -107,6 +116,8 @@ export function WellnessScreen({ patientId, organisationId }: WellnessScreenProp
     setEnrolments(en);
     setClasses(cl);
     setRegistrations(reg);
+    setPending(pc);
+    setMilestone((current) => ms ?? current);
   }, [patientId]);
 
   useEffect(() => {
@@ -136,7 +147,27 @@ export function WellnessScreen({ patientId, organisationId }: WellnessScreenProp
         </MutedText>
       </View>
 
-      <PointsCard status={status} rules={rules} ledger={ledger} />
+      {milestone && (
+        <MilestoneCard
+          milestone={milestone}
+          onDismiss={() => {
+            const id = milestone.id;
+            setMilestone(null);
+            void dismissMilestone(id);
+          }}
+        />
+      )}
+
+      <PointsCard
+        status={status}
+        rules={rules}
+        ledger={ledger}
+        pending={pending}
+        onAskSupport={() => {
+          setSupportPrefill({ subject: t("points.pending.ask_prefill_subject"), description: t("points.pending.ask_prefill_body") });
+          onNavigate("technicalSupport");
+        }}
+      />
       <BadgesCard catalogue={badgeCatalogue} earned={myBadges} />
       <ChallengesCard catalogue={challengeCatalogue} enrolments={enrolments} onChanged={refresh} />
       <ClassesCard
@@ -150,14 +181,62 @@ export function WellnessScreen({ patientId, organisationId }: WellnessScreenProp
   );
 }
 
+/**
+ * S58b. One calm card for a care step that was just done. No animation (nothing to switch off for reduced motion), no counter, no
+ * comparison, no loss wording, and the database returns nothing while an emergency is open, so a red flow always comes first.
+ */
+function MilestoneCard({ milestone, onDismiss }: { milestone: PendingMilestone; onDismiss: () => void }) {
+  const colors = useLegacyColors();
+  const copy = milestoneCopy(milestone.code);
+  return (
+    <Card style={{ gap: 6 }}>
+      <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, color: colors.muted }}>{t("points.milestone.heading")}</Text>
+      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{copy.title}</Text>
+      <MutedText>{copy.body}</MutedText>
+      <PrimaryButton title={t("points.milestone.dismiss")} onPress={onDismiss} />
+    </Card>
+  );
+}
+
+function PendingCreditList({ items, onAskSupport }: { items: PendingCreditItem[]; onAskSupport: () => void }) {
+  const colors = useLegacyColors();
+  if (items.length === 0) return null;
+  const askSupport = items.some((i) => i.ask_support);
+  return (
+    <View style={{ gap: 4 }}>
+      <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, color: colors.muted }}>{t("points.pending.title")}</Text>
+      <MutedText>{t("points.pending.intro")}</MutedText>
+      {items.map((item) => {
+        const d = describePending(item);
+        return (
+          <View key={item.event_id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 3, gap: 8 }}>
+            <Text style={{ fontSize: 13, color: colors.ink, flexShrink: 1 }}>{pendingActionLabel(item.rule_codes)}</Text>
+            <MutedText>{d.state === "expected" ? t("points.pending.expected", "en", { time: d.time }) : t("points.pending.later")}</MutedText>
+          </View>
+        );
+      })}
+      {askSupport && (
+        <View style={{ gap: 6 }}>
+          <MutedText>{t("points.pending.ask")}</MutedText>
+          <PrimaryButton title={t("points.pending.ask_link")} onPress={onAskSupport} />
+        </View>
+      )}
+    </View>
+  );
+}
+
 function PointsCard({
   status,
   rules,
   ledger,
+  pending,
+  onAskSupport,
 }: {
   status: MyPointsStatus | null;
   rules: RewardRule[];
   ledger: WellnessPointsLedgerEntry[];
+  pending: PendingCreditItem[];
+  onAskSupport: () => void;
 }) {
   const colors = useLegacyColors();
   const currentBalance = status?.balance ?? 0;
@@ -175,6 +254,8 @@ function PointsCard({
           {status?.lifetime_earned ? ` · ${t("points.earned_all_time", "en", { points: status.lifetime_earned.toLocaleString() })}` : ""}
         </MutedText>
       </View>
+
+      <PendingCreditList items={pending} onAskSupport={onAskSupport} />
 
       {status && (
         <View style={{ gap: 2 }}>

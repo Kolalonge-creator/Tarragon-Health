@@ -32,3 +32,5 @@ export * from "./points";
 export * from "./portion-copy";
 export * from "./anchor-phrase";
 export * from "./plain-statement";
+
+export { outcomesDashboardCopy, outcomesDashText } from "./outcomes-dashboard-copy";

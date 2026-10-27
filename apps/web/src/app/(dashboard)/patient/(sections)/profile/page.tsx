@@ -111,7 +111,7 @@ export default async function PatientProfilePage() {
       {/* One plain page: privacy first, what costs money, what the app does for large text, screen readers and audio. */}
       <section id="pricing-accessibility" aria-label="Pricing and accessibility" className="scroll-mt-24">
         <PlainStatementView
-          statement={plainStatement({ ...readPlainStatementInput(), surface: "app" })}
+          statement={plainStatement(await readPlainStatementInput("app"))}
           idPrefix="settings-plain"
           privacyHref="/patient/privacy"
           accessibilityHref={absoluteUrl(MARKETING_ROUTES.accessibility)}

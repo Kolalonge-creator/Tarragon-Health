@@ -15,8 +15,8 @@ export const metadata: Metadata = pageMetadata({
 
 export const revalidate = 3600;
 
-export default function PricingAndAccessibilityPage() {
-  const statement = plainStatement(readPlainStatementInput());
+export default async function PricingAndAccessibilityPage() {
+  const statement = plainStatement(await readPlainStatementInput("public"));
   return (
     <Section className="pt-20">
       <article className="mx-auto max-w-2xl">

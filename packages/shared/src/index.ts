@@ -10,6 +10,9 @@ export * from "./ml-client";
 export * from "./ai-coach-types";
 export * from "./device-readings";
 export * from "./bp-estimate";
+export * from "./reading-provenance";
+export * from "./diary-import";
+export * from "./diary-sheet";
 export * from "./bp-ack";
 export * from "./health-record";
 export * from "./onboarding-answers";
@@ -18,9 +21,11 @@ export * from "./mental-health";
 export * from "./record-integrity";
 export * from "./adult-registration";
 export * from "./wellbeing-library";
+export * from "./mental-wellbeing";
 export * from "./therapy-programmes";
 export * from "./home-pins";
 export * from "./measurement-units";
+export * from "./rewards-pending";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,
 // Enums, Constants, Json. Single source of truth for the DB schema.

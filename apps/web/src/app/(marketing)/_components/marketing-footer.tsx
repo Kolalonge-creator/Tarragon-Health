@@ -231,6 +231,8 @@ export function MarketingFooter() {
           © {new Date().getFullYear()} TarragonHealth. Health monitoring for Nigerians.
           <span className="text-white/40"> · </span>
           RC 9702108
+          <span className="text-white/40"> · </span>
+          Registered with the Nigeria Data Protection Commission
         </p>
         <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
           {FOOTER_LINKS.legal.map((link, i) => (
@@ -238,7 +240,7 @@ export function MarketingFooter() {
               {i > 0 ? <span className="text-white/30">·</span> : null}
               <Link
                 href={link.href}
-                className="text-white/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy rounded-sm"
+                className="inline-block py-2 text-white/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy rounded-sm"
               >
                 {link.label}
               </Link>

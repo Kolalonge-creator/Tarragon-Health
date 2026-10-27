@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@tarragon/shared";
+import { entryOriginLabelKey, type Database } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
 import type { EmergencyClinicalFacts } from "@/lib/emergency/card";
 import { loadEmergencyDatasetForPatient } from "@/lib/emergency/dataset";
 
@@ -13,6 +14,12 @@ import { loadEmergencyDatasetForPatient } from "@/lib/emergency/dataset";
  *
  * `buildDoctorSummary` is pure: it turns gathered rows into the printed lines.
  */
+
+/** S07y: "Taken at a pharmacy or clinic machine" or "From your paper diary", or null for an ordinary reading. */
+function originLabel(origin: string | null | undefined): string | null {
+  const key = entryOriginLabelKey(origin);
+  return key ? t(key) : null;
+}
 
 export type Provenance = "patient" | "clinician_confirmed" | "care_plan" | "laboratory" | "device" | "imported";
 
@@ -43,7 +50,7 @@ export interface DoctorSummaryInput {
   facts: EmergencyClinicalFacts;
   /** Medicines with who stands behind each: a signed prescription is a clinician's; a medicine the patient added is the patient's. Falls back to the card's list, all patient-entered. */
   medications?: { name: string; dose: string | null; frequency: string | null; prescribed: boolean }[];
-  vitals: { vitalType: string; text: string; takenAt: string; source: string }[];
+  vitals: { vitalType: string; text: string; takenAt: string; source: string; /** S07y: where it was taken, when it was not an ordinary reading. */ entryOrigin?: string | null }[];
   labs: { code: string; text: string; takenAt: string; range: string | null; flag: string | null }[];
   vaccinations: { name: string; doseNumber: number | null; givenAt: string | null; verified: boolean }[];
   procedures: { name: string; when: string | null; verified: boolean }[];
@@ -120,7 +127,7 @@ export function buildDoctorSummary(input: DoctorSummaryInput): DoctorSummary {
       emptyText: "None recorded",
       lines: input.vitals.map((v) => ({
         text: VITAL_LABEL[v.vitalType] ?? humanise(v.vitalType),
-        detail: [v.text, date(v.takenAt)].filter(Boolean).join(", "),
+        detail: [v.text, date(v.takenAt), originLabel(v.entryOrigin)].filter(Boolean).join(", "),
         provenance: (v.source === "device" || v.source === "cgm" || v.source === "wearable" ? "device" : v.source === "fhir_import" ? "imported" : "patient") as Provenance,
       })),
     },
@@ -184,7 +191,7 @@ export async function getDoctorSummary(supabase: SupabaseClient<Database>, patie
     ...VITAL_TYPES.map((vt) =>
       supabase
         .from("vitals_readings")
-        .select("vital_type, systolic, diastolic, glucose_mmol_l, weight_kg, pulse_bpm, temperature_c, spo2_pct, source, taken_at")
+        .select("vital_type, systolic, diastolic, glucose_mmol_l, weight_kg, pulse_bpm, temperature_c, spo2_pct, source, taken_at, entry_origin")
         .eq("patient_id", patientId)
         .eq("vital_type", vt)
         .is("correction_status", null)
@@ -205,7 +212,7 @@ export async function getDoctorSummary(supabase: SupabaseClient<Database>, patie
       : v.vital_type === "temperature" ? `${v.temperature_c} C`
       : v.vital_type === "spo2" ? `${v.spo2_pct}%`
       : "";
-    if (text) vitals.push({ vitalType: v.vital_type, text, takenAt: v.taken_at, source: String(v.source) });
+    if (text) vitals.push({ vitalType: v.vital_type, text, takenAt: v.taken_at, source: String(v.source), entryOrigin: v.entry_origin });
   }
 
   type LabListItem = {

@@ -5,31 +5,62 @@ import { plainStatement } from "./plain-statement";
 describe("plain pricing and accessibility statement", () => {
   it("quotes the price and refund window it is given, and nothing else", () => {
     const s = plainStatement({ price: "100", refundDays: 7 });
-    expect(s.pricing.priceLine).toBe("Membership costs ₦100 a year.");
+    expect(s.pricing.offers[0].priceLine).toBe("Tarragon Membership costs ₦100 a year.");
     expect(s.pricing.refundLine).toContain("7 days");
   });
 
   it("shows no number at all when the price cannot be read", () => {
     const s = plainStatement({ price: null, refundDays: 7 });
-    expect(s.pricing.priceLine).toBe("See the price in the app before you pay.");
+    expect(s.pricing.offers[0].priceLine).toBe("See the price in the app before you pay.");
     expect(s.pricing.refundLine).toBeNull();
-    expect(JSON.stringify(s.pricing.priceLine)).not.toMatch(/₦/);
+    expect(s.pricing.offers[0].priceLine).not.toMatch(/₦/);
   });
 
   it("uses an in-app fallback that does not send the reader in a circle", () => {
     const app = plainStatement({ price: null, refundDays: null, surface: "app" });
-    expect(app.pricing.priceLine).toBe("See the Membership screen for the price before you pay.");
+    expect(app.pricing.offers[0].priceLine).toBe("See the Membership screen for the price before you pay.");
   });
 
-  it("describes the Membership offer from the same catalogue keys the pricing page uses (drift guard)", () => {
+  it("ladder off: one offer, described from the same catalogue keys the pricing page uses (drift guard)", () => {
     const s = plainStatement({ price: "1", refundDays: 1 });
-    expect(s.pricing.offerDescription).toBe(en["catalog.membership_annual.description"]);
-    expect(s.pricing.offerIncludes).toEqual([
+    expect(s.pricing.offers).toHaveLength(1);
+    expect(s.pricing.difference).toBeNull();
+    expect(s.pricing.offers[0].description).toBe(en["catalog.membership_annual.description"]);
+    expect(s.pricing.offers[0].includes).toEqual([
       en["catalog.membership_annual.incl.1"],
       en["catalog.membership_annual.incl.2"],
       en["catalog.membership_annual.incl.3"],
       en["catalog.membership_annual.incl.4"],
     ]);
+  });
+
+  it("ladder on: Membership and Membership Plus, each with its own price and catalogue text, the blood panel the one difference", () => {
+    const s = plainStatement({ price: "1", refundDays: 1, ladder: { membership: "84,000", plus: "129,000" } });
+    expect(s.pricing.offers.map((o) => o.name)).toEqual(["Membership", "Membership Plus"]);
+    expect(s.pricing.offers[0].priceLine).toBe("Membership costs ₦84,000 a year.");
+    expect(s.pricing.offers[1].priceLine).toBe("Membership Plus costs ₦129,000 a year.");
+    expect(s.pricing.offers[0].description).toBe(en["catalog.membership_annual_no_panel.description"]);
+    expect(s.pricing.offers[0].includes).toHaveLength(3);
+    expect(s.pricing.offers[1].description).toBe(en["catalog.membership_annual.description"]);
+    expect(s.pricing.offers[1].includes).toHaveLength(4);
+    expect(s.pricing.offers[0].includes.join(" ")).not.toMatch(/blood test/i);
+    expect(s.pricing.offers[1].includes.join(" ")).toMatch(/blood test/i);
+    expect(s.pricing.difference).toMatch(/only difference is the yearly blood panel/);
+  });
+
+  it("ladder on with one unreadable price: that offer shows the fallback, not a number", () => {
+    const s = plainStatement({ price: null, refundDays: 1, surface: "app", ladder: { membership: "84,000", plus: null } });
+    expect(s.pricing.offers[1].priceLine).toBe("See the Membership screen for the price before you pay.");
+    expect(s.pricing.offers[0].priceLine).toContain("₦84,000");
+  });
+
+  it("uses the surface's renewal sentence when given and adds no second refund line; with none it makes no renewal claim", () => {
+    const withLine = plainStatement({ price: "1", refundDays: 7, renewalLine: "Lasts a year." });
+    expect(withLine.pricing.renewalLine).toBe("Lasts a year.");
+    expect(withLine.pricing.refundLine).toBeNull();
+    const without = plainStatement({ price: "1", refundDays: 7 });
+    expect(without.pricing.renewalLine).toBeNull();
+    expect(JSON.stringify({ ...without, pricing: { ...without.pricing, renewalLine: undefined } })).not.toMatch(/renew/i);
   });
 
   it("has privacy first and no banned wording", () => {

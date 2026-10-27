@@ -30,6 +30,7 @@ export function PlainStatementView({
   const Title = headingLevel;
   const Sub = headingLevel === "h1" ? "h2" : "h3";
   const Minor = headingLevel === "h1" ? "h3" : "h4";
+  const Third = headingLevel === "h1" ? "h4" : "h5";
   return (
     <div className="space-y-8">
       <header>
@@ -54,15 +55,21 @@ export function PlainStatementView({
         <Minor className={`mt-4 ${strongClass}`}>{s.pricing.freeHead}</Minor>
         <p className={`mt-1 ${bodyClass}`}>{s.pricing.freeBody}</p>
         <Minor className={`mt-4 ${strongClass}`}>{s.pricing.paidHead}</Minor>
-        <p className={`mt-1 ${bodyClass}`}>{s.pricing.offerDescription}</p>
-        <ul className={`mt-2 list-disc space-y-1 pl-5 ${bodyClass}`}>
-          {s.pricing.offerIncludes.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-        <p className={`mt-1 ${bodyClass}`}>{s.pricing.noRenew}</p>
-        <p className={`mt-2 ${strongClass}`}>{s.pricing.priceLine}</p>
-        {s.pricing.refundLine ? <p className={`mt-1 ${bodyClass}`}>{s.pricing.refundLine}</p> : null}
+        {s.pricing.difference ? <p className={`mt-1 ${bodyClass}`}>{s.pricing.difference}</p> : null}
+        {s.pricing.offers.map((o) => (
+          <div key={o.name} className="mt-3">
+            <Third className={strongClass}>{o.name}</Third>
+            <p className={`mt-1 ${bodyClass}`}>{o.description}</p>
+            <ul className={`mt-2 list-disc space-y-1 pl-5 ${bodyClass}`}>
+              {o.includes.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+            <p className={`mt-2 ${strongClass}`}>{o.priceLine}</p>
+          </div>
+        ))}
+        {s.pricing.renewalLine ? <p className={`mt-2 ${bodyClass}`}>{s.pricing.renewalLine}</p> : null}
+        {s.pricing.refundLine ? <p className={`mt-2 ${bodyClass}`}>{s.pricing.refundLine}</p> : null}
         <p className={`mt-1 ${bodyClass}`}>{s.pricing.noTricks}</p>
         <p className="mt-3">
           <Link href={pricingHref} className={linkClass}>{s.pricing.seePage}</Link>

@@ -12,7 +12,7 @@ describe("PlainStatementView", () => {
       <PlainStatementView statement={plainStatement({ price: "100", refundDays: 7 })} headingLevel="h1" {...props} />,
     );
     expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
-    expect(screen.getByText("Membership costs ₦100 a year.")).toBeTruthy();
+    expect(screen.getByText("Tarragon Membership costs ₦100 a year.")).toBeTruthy();
   });
 
   it("has no axe violations inside Settings (h2) and shows no number when the price is unknown", async () => {
@@ -21,6 +21,18 @@ describe("PlainStatementView", () => {
     );
     expect(screen.getByText("See the price in the app before you pay.")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/₦\s?\d/);
+  });
+
+  it("renders both Membership and Membership Plus when the ladder is on, with no axe violations", async () => {
+    await expectNoA11yViolations(
+      <PlainStatementView
+        statement={plainStatement({ price: null, refundDays: 7, ladder: { membership: "1", plus: "2" } })}
+        headingLevel="h1"
+        {...props}
+      />,
+    );
+    expect(screen.getByText("Membership Plus costs ₦2 a year.")).toBeTruthy();
+    expect(screen.getByText("Membership costs ₦1 a year.")).toBeTruthy();
   });
 
   it("puts privacy before pricing before accessibility, with a link to the full privacy text", async () => {

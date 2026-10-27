@@ -15,7 +15,7 @@ const PUBLIC_SITE = "https://tarragonhealth.ng";
  */
 export function PlainStatementSection() {
   const locale = asLocale(useUiLanguage());
-  const s = useMemo(() => plainStatement({ ...readPlainStatementInput(), surface: "app" }, locale), [locale]);
+  const s = useMemo(() => plainStatement(readPlainStatementInput(), locale), [locale]);
   const open = (path: string) => () => void WebBrowser.openBrowserAsync(`${PUBLIC_SITE}${path}`).catch(() => {});
 
   return (
@@ -36,12 +36,17 @@ export function PlainStatementSection() {
         <AppText>{s.pricing.freeHead}</AppText>
         <MutedText>{s.pricing.freeBody}</MutedText>
         <AppText>{s.pricing.paidHead}</AppText>
-        <MutedText>{s.pricing.offerDescription}</MutedText>
-        {s.pricing.offerIncludes.map((line) => (
-          <MutedText key={line}>{line}</MutedText>
+        {s.pricing.difference ? <MutedText>{s.pricing.difference}</MutedText> : null}
+        {s.pricing.offers.map((o) => (
+          <View key={o.name} style={{ gap: 6 }}>
+            <AppText>{o.name}</AppText>
+            <MutedText>{o.description}</MutedText>
+            {o.includes.map((line) => (
+              <MutedText key={line}>{line}</MutedText>
+            ))}
+            <AppText>{o.priceLine}</AppText>
+          </View>
         ))}
-        <MutedText>{s.pricing.noRenew}</MutedText>
-        <AppText>{s.pricing.priceLine}</AppText>
         {s.pricing.refundLine ? <MutedText>{s.pricing.refundLine}</MutedText> : null}
         <MutedText>{s.pricing.noTricks}</MutedText>
         <Link label={s.pricing.seePage} onPress={open("/pricing")} />

@@ -8,6 +8,10 @@ Items 6 and 10 of the S51-S55 patient tools batch (2026-10-22). Both are dormant
 - Refusals are deterministic: no display or low confidence, a missing top or bottom number, a top number not above the bottom, a value outside the physiological ranges. All ask the person to retake or type.
 - No enum change. The saved reading is `photo_confirmed` and takes the same red-flag path as a typed one (the S70a route is untouched).
 
+### Limits and go-live conditions (2026-10-23)
+
+The route limits each person to 6 photos per 10 minutes and 30 per day before the photo is read (proposed values, OQ-CUFF-4). The proposed written conditions for opening `cuff_camera_enabled` are in OQ-CUFF-4. They are not wired into `private.go_live_conditions` yet, so the guard still cannot be opened from the dashboard.
+
 ## Item 10: result passport
 - Reused: the visit summary PDF builder and route (section choice, audit row, no verdict language), the share links (time limit, PIN, view cap, revoke, patient-visible access log) and the sensitive-positive row level security.
 - Added: `glucose` and `lab_results` sections, the guard, a page, a bearer route and a phone card that keeps an offline copy.
