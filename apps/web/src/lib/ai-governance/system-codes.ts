@@ -140,6 +140,14 @@ export const AI_SYSTEMS = {
     // behind the document_capture_enabled go-live guard.
     failClosedIfGovernanceUnavailable: true,
   },
+  paperDiaryReader: {
+    code: "AI-021",
+    // Reads a photo of a handwritten blood pressure or glucose diary page into SUGGESTED rows the person checks and confirms one by one (S07y). Nothing it
+    // reads is stored, the photo is not kept, and it is never in a triage or red-flag path (INV-01): a confirmed row goes through the same deterministic
+    // triage as a typed reading. Moderate risk, but it renders clinical values on the patient's own record path, so it fails closed like AI-003 and AI-018:
+    // the fallback (type the rows from the diary) costs nothing. Registered DISABLED (draft, not runtime_governed) and behind the paper_diary_ai_reader guard.
+    failClosedIfGovernanceUnavailable: true,
+  },
   healthReportSummaryDraft: {
     code: "AI-019",
     // Drafts the one-paragraph summary of a yearly Health Report for a clinician to edit and sign (S46). Moderate risk but stricter than the

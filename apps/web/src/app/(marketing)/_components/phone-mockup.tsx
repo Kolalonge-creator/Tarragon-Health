@@ -1,7 +1,7 @@
 import Image from "next/image";
 
 /**
- * Realistic iPhone Pro-line bezel, factored out of app-dashboard-mockup.tsx
+ * Realistic iPhone Pro-line bezel
  * so every product page can drop in its own real screen (captured from the
  * Expo app or the iOS Simulator against a live QA account) instead of a
  * stylised illustration — same reasoning the brand guide applies to hero

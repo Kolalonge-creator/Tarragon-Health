@@ -6,6 +6,7 @@ Proves, against each vendor's own sandbox or test mode, that the code the platfo
 1. Make a file called `.env.sandbox` OUTSIDE git (it is ignored; never commit it) with only the variables for the vendors you want checked (list below).
 2. `node --env-file=.env.sandbox scripts/provider-sandbox-check.mjs`
    - one vendor only: add `--only paystack` (or `zoom`, `resend`, `termii`)
+   - checkout channels (card, bank transfer, USSD; initialises unpaid checkouts only, then lists the manual steps, all NOT RUN): `--only paystack-checkout`, see `docs/design/S71-checkout-test-run.md`
    - Zoom creates and deletes one short real meeting: add `--allow-zoom-meeting`
    - keep a record: add `--json sandbox-result.json` (secrets are masked in it too)
 3. Needs Node 22.18 or newer (it runs the TypeScript adapters directly). Exit code 0: nothing failed and something passed. 1: a check failed. 2: refused, or no credentials were given.

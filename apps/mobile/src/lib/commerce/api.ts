@@ -1,7 +1,7 @@
 import type { QueryResult } from "../medications";
 import { supabase } from "../supabase";
-import { parseCreatedPaymentRequest, parseEntitlements, parsePaymentRequests, parseQuote, type CreatedPaymentRequest, type EntitlementView, type PaymentRequestRow, type Quote } from "@tarragon/commerce";
-import { parseCatalogue, parseCheckout, parseCovered, parseMembership, parseOrders, parseVerify, type CatalogueItem, type MembershipState, type OrderRow } from "./parse";
+import { parseCreatedPaymentRequest, parseEntitlements, parseNotIncluded, parsePaymentRequests, parsePriceChangeNotices, parseQuote, type CreatedPaymentRequest, type EntitlementView, type NotIncludedEntry, type PaymentRequestRow, type PriceChangeNotice, type Quote } from "@tarragon/commerce";
+import { parseCatalogue, parseCheckout, parseCovered, parseMembership, parseOrders, parsePlusStates, parseVerify, type CatalogueItem, type MembershipState, type OrderRow, type PlusState } from "./parse";
 
 /** The patient side of S25 checkout. Only the item code and a retry key are ever sent; the price comes from the database. */
 export type CheckoutResult =
@@ -13,6 +13,16 @@ export async function loadCatalogue(): Promise<QueryResult<CatalogueItem[]>> {
   const { data, error } = await supabase.rpc("catalogue");
   return error ? { ok: false, error: error.message } : { ok: true, data: parseCatalogue(data) };
 }
+/** What each item does not include, with the price of each extra today (null means "Ask us"). Shown beside the price, never instead of it. */
+export async function loadNotIncluded(): Promise<QueryResult<Readonly<Record<string, readonly NotIncludedEntry[]>>>> {
+  const { data, error } = await supabase.rpc("catalogue_not_included");
+  return error ? { ok: false, error: error.message } : { ok: true, data: parseNotIncluded(data) };
+}
+/** A price is changing for something the signed-in person already holds. */
+export async function loadPriceChangeNotices(): Promise<QueryResult<PriceChangeNotice[]>> {
+  const { data, error } = await supabase.rpc("my_price_change_notices");
+  return error ? { ok: false, error: error.message } : { ok: true, data: parsePriceChangeNotices(data) };
+}
 export async function loadMyOrders(): Promise<QueryResult<OrderRow[]>> {
   const { data, error } = await supabase.rpc("my_orders");
   return error ? { ok: false, error: error.message } : { ok: true, data: parseOrders(data) };
@@ -22,7 +32,19 @@ export async function loadMembership(): Promise<QueryResult<MembershipState>> {
   return error ? { ok: false, error: error.message } : { ok: true, data: parseMembership(data) };
 }
 
-async function errorCodeOf(error: unknown): Promise<string> {
+/** The states where Membership Plus blood collection is approved. A failed read is `null` (so the screen can say "could not load" and offer a retry), never an empty list, which means "none approved". */
+export async function loadPlusStates(): Promise<PlusState[] | null> {
+  const { data, error } = await supabase.rpc("plus_collection_states");
+  return error ? null : parsePlusStates(data);
+}
+
+/** A Plus member with no collection state (employer seat, earlier grant) chooses it once; the database refuses a second change. */
+export async function setMyPlusState(state: string): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { error } = await supabase.rpc("set_my_plus_collection_state", { p_state: state });
+  return error ? { ok: false, message: error.message } : { ok: true };
+}
+
+export async function errorCodeOf(error: unknown): Promise<string> {
   const ctx = (error as { context?: unknown } | null)?.context;
   if (ctx && typeof (ctx as Response).clone === "function") {
     try {
@@ -37,12 +59,14 @@ async function errorCodeOf(error: unknown): Promise<string> {
 }
 
 /** `beneficiary` is set only when paying for someone in the caller's Care Circle (S29); the database decides whether that is allowed. */
-export async function startCheckout(code: string, clientKey: string, beneficiary?: string, extras?: { usePoints?: boolean; expectedAmountKobo?: number }): Promise<CheckoutResult> {
+export async function startCheckout(code: string, clientKey: string, beneficiary?: string, extras?: { usePoints?: boolean; expectedAmountKobo?: number; collectionState?: string }): Promise<CheckoutResult> {
   // S72 (19.9): Health Points lower only Tarragon's own fee, for this one payment, and only when the person chose. The total they were shown is sent so the
   // database refuses the order if it now works out a different one.
   const body = {
     code, client_key: clientKey, ...(beneficiary ? { beneficiary } : {}),
     ...(extras?.usePoints ? { use_points: true } : {}), ...(extras?.expectedAmountKobo !== undefined ? { expected_amount_kobo: extras.expectedAmountKobo } : {}),
+    // Membership Plus only: the approved state chosen for blood collection
+    ...(extras?.collectionState ? { collection_state: extras.collectionState } : {}),
   };
   const { data, error } = await supabase.functions.invoke("order-checkout", { body });
   if (error) return { ok: false, code: await errorCodeOf(error) };

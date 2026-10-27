@@ -28089,6 +28089,81 @@ export type Database = {
           },
         ]
       }
+      milestone_definitions: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          params: Json
+          status: string
+          trigger_event: string
+          version: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kind: string
+          params?: Json
+          status?: string
+          trigger_event: string
+          version: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          params?: Json
+          status?: string
+          trigger_event?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      milestones_achieved: {
+        Row: {
+          achieved_at: string
+          dismissed_at: string | null
+          event_id: string
+          id: string
+          milestone_code: string
+          milestone_version: number
+          organisation_id: string
+          patient_id: string
+          seen_at: string | null
+        }
+        Insert: {
+          achieved_at?: string
+          dismissed_at?: string | null
+          event_id: string
+          id?: string
+          milestone_code: string
+          milestone_version: number
+          organisation_id: string
+          patient_id: string
+          seen_at?: string | null
+        }
+        Update: {
+          achieved_at?: string
+          dismissed_at?: string | null
+          event_id?: string
+          id?: string
+          milestone_code?: string
+          milestone_version?: number
+          organisation_id?: string
+          patient_id?: string
+          seen_at?: string | null
+        }
+        Relationships: []
+      }
       points_award_decisions: {
         Row: {
           decided_at: string
@@ -37301,6 +37376,8 @@ export type Database = {
           correction_status: Database["public"]["Enums"]["correction_status"] | null
           created_at: string
           device_id: string | null
+          entry_origin: string | null
+          place_label: string | null
           diastolic: number | null
           external_reading_id: string | null
           glucose_events: string[]
@@ -37348,6 +37425,8 @@ export type Database = {
           correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           device_id?: string | null
+          entry_origin?: string | null
+          place_label?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
           glucose_events?: string[]
@@ -37397,6 +37476,8 @@ export type Database = {
           correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           device_id?: string | null
+          entry_origin?: string | null
+          place_label?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
           glucose_events?: string[]
@@ -39834,10 +39915,6 @@ export type Database = {
       }
       analytics_business_summary: { Args: never; Returns: Json }
       analytics_clinical_outcomes: { Args: never; Returns: Json }
-      analytics_clinical_rule_performance: {
-        Args: { p_from?: string; p_to?: string }
-        Returns: Json
-      }
       analytics_complaints_summary: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
@@ -41997,6 +42074,18 @@ export type Database = {
       my_points_status: {
         Args: never
         Returns: Json
+      }
+      my_points_pending: {
+        Args: never
+        Returns: Json
+      }
+      my_pending_milestone: {
+        Args: never
+        Returns: Json
+      }
+      dismiss_milestone: {
+        Args: { p_id: string }
+        Returns: boolean
       }
       my_provider_performance: {
         Args: { p_from?: string; p_to?: string }

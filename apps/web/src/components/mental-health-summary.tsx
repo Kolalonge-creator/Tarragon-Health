@@ -31,6 +31,8 @@ export function MentalHealthSummary({
   const { data, isError } = useLatestMentalHealthScreens(patientId);
   const history = useMentalHealthScreenHistory(patientId);
   const handoffs = useMentalHealthHandoffs(patientId);
+  // Shared summaries and requests to talk have their own panel (SharedSummaries); this list is the older one-screen hand-off.
+  const screenHandoffs = (handoffs.data ?? []).filter((h) => h.kind === "screen");
   // A refusal must read as "not available to you", never as "no screens" (S56, INV-10, INV-12).
   if (isError) {
     return showScores ? (
@@ -108,10 +110,10 @@ export function MentalHealthSummary({
             </span>
           </div>
         )}
-        {showScores && (handoffs.data ?? []).length > 0 && (
+        {showScores && screenHandoffs.length > 0 && (
           <div className="border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-2 text-xs">
             <p className="font-medium">{t("mood.handoff.sent_heading")}</p>
-            {(handoffs.data ?? []).slice(0, 3).map((h) => (
+            {screenHandoffs.slice(0, 3).map((h) => (
               <p key={h.id} className="text-charcoal-ink/70 dark:text-night-ink/70">
                 {new Date(h.created_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" })}
                 {typeof h.summary.instrument === "string" ? `, ${String(h.summary.instrument).toUpperCase()} ${String(h.summary.severity_band ?? "")} ${String(h.summary.total_score ?? "")}`.trimEnd() : ""}

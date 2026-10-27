@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { readDeviceFlags } from "@/lib/devices/flags";
+import { rateLimit } from "@/lib/rate-limit";
 import { AI_SYSTEMS, runGovernedAi } from "@/lib/ai-governance";
 import { CUFF_VISION_MODEL_ID, isCuffVisionConfigured, readCuffDisplay } from "@/lib/vitals/cuff-display-vision";
 import { normaliseCuffProposal, proposalToRecognisedLines, type CuffProposal } from "@/lib/vitals/cuff-display-proposal";
@@ -22,6 +23,12 @@ const MAX_BYTES = 6 * 1024 * 1024;
 // HEIC/HEIF is not accepted by the vision API (see pack-actions.ts); the phone sends JPEG.
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 const GUARD_KEY = "cuff_camera_enabled";
+// Per person, because every call is a paid vision call on a photo of a health device. A retake or two is normal; a loop is not. The short rule
+// stops a burst, the daily rule stops a slow drip. Both are checked before the photo is even read from the request. PROPOSED values: the
+// evaluation (OQ-CUFF-4) is what should set the final numbers. The limiter is shared across instances only when Upstash is configured;
+// until then it is a per-instance window (packages/auth/src/rate-limit.ts), so these are a ceiling per instance, not a hard global cap.
+const BURST_RULE = { limit: 6, windowSeconds: 10 * 60 };
+const DAILY_RULE = { limit: 30, windowSeconds: 24 * 60 * 60 };
 
 type Outcome = { ok: true; proposal: CuffProposal } | { ok: false };
 
@@ -45,6 +52,16 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Reading numbers from a photo is not switched on yet" }, { status: 404 });
   }
   if (!isCuffVisionConfigured()) return NextResponse.json({ status: "unavailable", reason: "not_configured" });
+
+  // Keyed by the verified user id, never by anything the client sends. The phone shows its usual "type the numbers" message for this answer.
+  const [burst, daily] = await Promise.all([
+    rateLimit(`cuff-display:burst:${user.id}`, BURST_RULE),
+    rateLimit(`cuff-display:daily:${user.id}`, DAILY_RULE),
+  ]);
+  if (!burst.success || !daily.success) {
+    const retryAfter = Math.max(1, burst.success ? daily.retryAfterSeconds : burst.retryAfterSeconds);
+    return NextResponse.json({ status: "unavailable", reason: "rate_limited" }, { status: 429, headers: { "Retry-After": String(retryAfter) } });
+  }
 
   let form: FormData;
   try {
