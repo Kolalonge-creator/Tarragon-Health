@@ -25,7 +25,7 @@ import { getPendingPaymentIssue, type PendingPaymentIssue } from "@/lib/services
 import { PaymentIssueCard } from "@/screens/sections/payment-issue-card";
 import { AccountNotices } from "@/screens/sections/account-notices";
 import { HowYoureDoingCard } from "@/screens/sections/how-youre-doing-card";
-import { TodayCard } from "@/screens/sections/today-card";
+import { TodayPlan } from "@/screens/sections/today-plan";
 import { LessonFooter, WeeklyLessonCard } from "@/screens/sections/learning-sections";
 import { RecordLessonCardNative } from "@/screens/sections/learning-quality-sections";
 import { HomeCheckCard } from "@/screens/sections/home-check-card";
@@ -297,7 +297,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
       ) : null}
 
       {/* After the video visit card: a visit that starts soon must stay near the top. */}
-      <TodayCard patientId={patientId} onNavigate={onNavigate} reloadToken={scoreReloadToken} />
+      <TodayPlan patientId={patientId} onNavigate={onNavigate} reloadToken={scoreReloadToken} />
       <HomeCheckCard patientId={patientId} reloadToken={scoreReloadToken} />
 
       {/* S55: this week's micro-lesson (spec 9.2); draws nothing when there is no in-date lesson. */}

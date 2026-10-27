@@ -8,7 +8,7 @@ export const queueRowSchema = z.object({
   sample_id: z.string().uuid(),
   system_code: z.string(),
   sample_month: z.string(),
-  sampled_by_rule: z.enum(["stratified", "flagged"]),
+  sampled_by_rule: z.enum(["stratified", "flagged", "risk_emergency", "risk_reported", "risk_cost_spike"]),
   output_summary: z.string().nullable(),
   created_at: z.string(),
 });
