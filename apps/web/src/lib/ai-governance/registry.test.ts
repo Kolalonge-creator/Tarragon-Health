@@ -25,6 +25,8 @@ function client(responses: RpcResult[]): AiGovernanceClient & { rpc: jest.Mock }
 function registered(overrides: Partial<AiRuntimeConfig> = {}): AiRuntimeConfig {
   return {
     registered: true,
+    restricted_mode: "none",
+    reevaluation_due: null,
     system_code: "AI-001",
     system_id: "00000000-0000-0000-0000-000000000001",
     name: "AI Health Coach",

@@ -114,11 +114,13 @@ export const aiRuntimeConfigSchema = z.object({
   guardrails: z.array(aiGuardrailSchema),
   knowledge_sources: z.array(aiKnowledgeSourceSchema),
   /**
-   * W-10: advisory_only means the system may show its output but must not take an automated action by itself. Optional so a deploy
-   * that is briefly ahead of its migration reads as unrestricted, the behaviour that existed before the column did.
+   * W-10: advisory_only means the system's answers are restricted (see ai-coach/advisory.ts). DEFAULTS TO advisory_only when the key is
+   * missing, on purpose: a deploy briefly ahead of its migration, or a payload that has drifted, must read as the cautious state, never as
+   * unrestricted. Other systems ignore the value; for AI-001 the cautious state only adds a fixed note and sends personal-advice
+   * questions to the care team. A readable 'none' is the only way to be unrestricted.
    */
-  restricted_mode: z.enum(["none", "advisory_only"]).optional(),
-  reevaluation_due: z.string().nullable().optional(),
+  restricted_mode: z.enum(["none", "advisory_only"]).default("advisory_only"),
+  reevaluation_due: z.string().nullable().default(null),
 });
 
 export type AiRuntimeConfig = z.infer<typeof aiRuntimeConfigSchema>;

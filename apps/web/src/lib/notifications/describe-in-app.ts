@@ -13,6 +13,9 @@ export interface InAppNotificationInput {
  * card (17.8) can reuse the same copy instead of a second, drifting mapping. */
 export function describe(n: InAppNotificationInput): { text: string; href: string } {
   const payload = (n.payload ?? {}) as Record<string, unknown>;
+  if (n.template === "ai_restriction_notice") {
+    return { text: String(payload.message ?? "The AI Health Coach restriction needs your attention"), href: "/clinician/ai-risk-acceptance" };
+  }
   if (n.template === "health_education_unlock") {
     const title = String(payload.lesson_title ?? "a new lesson");
     const count = Number(payload.lesson_count ?? 1);

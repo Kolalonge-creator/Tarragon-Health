@@ -341,6 +341,27 @@ export const TEMPLATE_MAP: Record<
   string,
   (payload: Record<string, unknown>, ctx: TemplateRenderContext) => TemplateRender
 > = {
+  // W-10: notices to the Chief Medical Officer (and admins on a switch-off) about the AI Health Coach restriction: a change, 14/7/2 days
+  // left, switched off. In-app and email only, never SMS (the producer, private.ai_restriction_notify, queues no sms row). Fixed neutral
+  // wording from the database; nothing about any patient.
+  ai_restriction_notice: (payload) => {
+    const subject = String(payload.subject ?? "The AI Health Coach restriction needs your attention");
+    const message = String(payload.message ?? "Open the risk acceptance page to review the AI Health Coach restriction.");
+    return {
+      smsText: message,
+      pushUrl: "/clinician/ai-risk-acceptance",
+      email: {
+        subject,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>${escapeHtmlForBroadcast(message)}</p>` +
+          `<p>Open Tarragon Health and go to the AI risk acceptance page.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: `${message}\n\nOpen Tarragon Health and go to the AI risk acceptance page.\n\nTarragon Health`,
+      },
+    };
+  },
   vitals_reminder: (payload) => {
     const dueDate = String(payload.due_date ?? "soon");
     // suggested_vital_type is a best-effort hint from queue_vitals_reminders
