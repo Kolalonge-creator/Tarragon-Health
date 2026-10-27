@@ -1,5 +1,6 @@
 "use client";
 
+import { AiLabel } from "@/components/ai/ai-label";
 import { useState } from "react";
 import { useDraftReply, useGenerateDraftReply, type CareMessageDraftReply } from "@/lib/queries/care-messages";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -50,7 +51,7 @@ export function DraftReplyCard({ threadId }: { threadId: string }) {
       <CardHeader>
         <div className="flex items-center gap-2">
           <CardTitle className="text-sm">Suggested reply</CardTitle>
-          <Badge variant="grey">AI-drafted, not yet reviewed</Badge>
+          <AiLabel variant="unreviewed" />
         </div>
         <CardDescription>
           Read this, then write your own reply below. It is never sent for you.

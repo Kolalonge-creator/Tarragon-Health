@@ -954,6 +954,22 @@ export const TEMPLATE_MAP: Record<
       },
     };
   },
+  sponsored_reservation_ready: () => ({
+    // Part C D3 (no SMS): the person the sponsor paid for is never texted, so the sponsor is told in the app that the
+    // link is ready to share. Neutral (INV-07): names no person, service, price or condition.
+    smsText: "The care you paid for is ready to share. Tarragon Health",
+    pushUrl: "/patient/supporting",
+    email: {
+      subject: "The care you paid for is ready to share",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your payment went through and the care you paid for is ready to share.</p>` +
+        `<p>Open Tarragon Health, go to People you support, and copy the private link to give to them yourself. We do not text them.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Your payment went through and the care you paid for is ready to share.\n\nOpen Tarragon Health, go to People you support, and copy the private link to give to them yourself. We do not text them.\n\nTarragon Health",
+    },
+  }),
   sponsor_spend_receipt: (payload) => {
     const beneficiary = String(payload.beneficiary_name ?? "someone you support");
     const what = String(payload.what ?? "care");
@@ -1443,6 +1459,28 @@ export const TEMPLATE_MAP: Record<
           `<p>Hello,</p>` +
           `<p>${escapeHtmlForBroadcast(message)}</p>` +
           `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: `Hello,\n\n${message}\n\nTarragon Health`,
+      },
+    };
+  },
+  // S80 directory freshness: an email to a partner's contact address asking them to confirm their listing details. Names only the
+  // last check date; no patient, clinical or financial detail (non_clinical content class). Sent only while the
+  // directory_partner_stale_email guard is on.
+  directory_partner_recheck_notice: (payload) => {
+    // The listing name is deliberately not echoed: a laboratory or pharmacy name can trip the neutral-wording lint, and the recipient already
+    // knows which listing the address belongs to.
+    const last = String(payload.last_checked ?? "not yet");
+    const message = `Please confirm that the details we show for your listing are still correct (address, opening hours, phone and licence). We last checked on ${last}. Reply to this email or tell your Tarragon Health contact.`;
+    return {
+      smsText: message,
+      email: {
+        subject: "Please confirm your Tarragon Health listing details",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hello,</p>` +
+          `<p>${escapeHtmlForBroadcast(message)}</p>` +
           `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
           `</div>`,
         text: `Hello,\n\n${message}\n\nTarragon Health`,
