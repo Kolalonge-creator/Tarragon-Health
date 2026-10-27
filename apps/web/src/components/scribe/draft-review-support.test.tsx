@@ -60,7 +60,7 @@ describe("DraftReviewPanel with the visit text", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Reject this section" })[0]);
     confirmAll();
     fireEvent.click(useButton());
-    expect(onUse).toHaveBeenCalledWith(expect.objectContaining({ history: "" }), "");
+    expect(onUse).toHaveBeenCalledWith(expect.objectContaining({ history: "" }), "", expect.objectContaining({ leftUnedited: false }));
   });
 
   it("every draft carries the AI-drafted, unsigned watermark", () => {

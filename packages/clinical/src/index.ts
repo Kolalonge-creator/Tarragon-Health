@@ -67,3 +67,5 @@ export {
   type LoadLevel, type ReadinessBand as ActivityReadinessBand, type ReadinessBandsConfig, type ReadinessLevel, type ReadinessMetric, type ReadinessResult as ActivityReadinessResult, type WearableReadingPoint,
 } from "./activity-readiness";
 export { orderPlans, planHasAudioSlot, sessionsWithinRange, type WorkoutPlanDisplayConfig, type WorkoutPlanLike } from "./workout-plans";
+export { checkOmissions, mentions, hasFollowUpInterval, type OmissionRules, type OmissionRulesMeta, type OmissionInput, type OmissionResult, type OmissionFlag, type OmissionFlagKind, type UnusedSourceItem } from "./omission-check";
+export { normaliseText, tokenise, textMatchesTerm, textMatchesAny, tokensMatchTerm, editDistanceAtMost, applyAliases, FUZZY_MIN_LENGTH, type MatchOptions } from "./text-match";

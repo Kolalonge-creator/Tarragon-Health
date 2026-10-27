@@ -113,6 +113,34 @@ describe("ScribePanel consent gate", () => {
     expect(draftFromFacts).toHaveBeenCalledWith(expect.objectContaining({ confirmedFacts: [expect.objectContaining({ id: "f1" })] }));
   });
 
+  it("S89: the edit-rate figures from the review reach onUseDraft instead of being dropped", async () => {
+    getState.mockResolvedValue({ state: "given", may_start: true });
+    recordConsent.mockResolvedValue({ ok: true, id: "33333333-3333-4333-8333-333333333333" });
+    findFacts.mockResolvedValue({ status: "ok", facts: [{ id: "f1", type: "symptom", text: "Headache.", quote: "headache", speaker: "patient" }], droppedUnverified: 0, modelId: "m", promptVersion: "p" });
+    draftFromFacts.mockResolvedValue({
+      status: "ok",
+      draft: { history: "Headache.", examination: "", assessment: "", plan: "", followUp: "" },
+      patientSummary: "You had a headache.",
+      groundingWarnings: [],
+      modelId: "m",
+      promptVersion: "p",
+    });
+    const onUseDraft = jest.fn();
+    render(<ScribePanel patientId="22222222-2222-4222-8222-222222222222" encounterNoteId={noteId} onUseDraft={onUseDraft} />);
+    fireEvent.click(await screen.findByRole("button", { name: /Start AI scribe/ }));
+    fireEvent.change(await screen.findByRole("textbox"), { target: { value: "Headache for two days. You had a headache. " + "x".repeat(30) } });
+    fireEvent.click(screen.getByRole("button", { name: "Find the facts" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
+    fireEvent.click(screen.getByRole("button", { name: /Write the draft/ }));
+    await screen.findByText(/Use in note/);
+    fireEvent.change(screen.getByLabelText(/^History/), { target: { value: "Headache for two days." } });
+    screen.getAllByRole("checkbox").forEach((b) => fireEvent.click(b));
+    fireEvent.click(screen.getByRole("button", { name: /Use in note/ }));
+    const result = onUseDraft.mock.calls[0]![0];
+    expect(result.editTelemetry).toMatchObject({ leftUnedited: false });
+    expect(result.editTelemetry.editRate).toBeGreaterThan(0);
+  });
+
   it("offline: the request is kept on this device, nothing is sent as a failure, and it can be sent again", async () => {
     getState.mockResolvedValue({ state: "given", may_start: true });
     recordConsent.mockResolvedValue({ ok: true, id: "33333333-3333-4333-8333-333333333333" });

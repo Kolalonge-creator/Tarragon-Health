@@ -8596,4 +8596,126 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-27",
     source: "supabase migration s76_clinician_second_offer_silence_blast_radius; docs/research/S75-S80-review-and-build-plan.md 23.2, 23.3. Unsigned until the CMO signs.",
   },
+  {
+    key: "copilot.previsit_brief_enabled",
+    value: false,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S89.md. OFF while copilot.previsit_brief_rules is unsigned: the pre-visit summary then shows only the existing deterministic cards and makes none of the extra audited reads the brief needs.",
+  },
+  {
+    key: "copilot.previsit_brief_rules",
+    value: {
+      // Display windows for the deterministic pre-visit brief (S89). Descriptive only: no model, no scoring, nothing decided.
+      windowDays: 30,
+      minReadingsForTrend: 3,
+      // Rows fetched per reading type (blood pressure, glucose) inside the window. A fetch that returns this many is treated as cut off.
+      maxReadingsRead: 100,
+      recentLabResultDays: 90,
+      // A refill date more than this many calendar days (Africa/Lagos) before today counts as an adherence gap. 0: due today is not yet overdue.
+      refillOverdueDays: 0,
+      // Words that mark a record row as sensitive, matched as WHOLE words after lowercasing and removing accents ("hiv" does not match
+      // "archive"). A trailing * makes the last word a prefix ("pregnan*" matches pregnant). A row matching one is dropped unless the
+      // viewer's access for that category is confirmed. UNSIGNED: the CMO owns this list.
+      sensitiveTerms: {
+        reproductive_health: [
+          "menstrua*", "amenorrh*", "dysmenorrh*", "pregnan*", "gestation*", "antenatal", "prenatal", "perinatal", "postnatal", "postpartum",
+          "puerper*", "obstetric*", "gynae*", "gynec*", "miscarriage", "abortion", "termination of pregnancy", "ivf", "iui", "fertil*", "infertil*",
+          "contracept*", "ovulat*", "pcos", "polycystic ovar*", "endometrio*", "fibroid*", "cervical", "pap smear", "papanicolaou", "hpv",
+          "breastfeed*", "lactation", "menopaus*", "reproductive",
+          "microgynon", "levonorgestrel", "norethisterone", "ethinylestradiol", "ethinyl estradiol", "desogestrel", "drospirenone",
+          "medroxyprogesterone", "depo provera", "implanon", "nexplanon", "jadelle", "mirena", "iud", "iucd", "postinor", "misoprostol",
+          "mifepristone", "clomiphene",
+        ],
+        mental_health: [
+          "phq", "gad", "audit c", "auditc", "depress*", "anxi*", "mental", "mood", "self harm", "selfharm", "suicid*", "psychosis", "psychotic",
+          "schizophren*", "bipolar", "mania", "manic", "ptsd", "ocd", "panic", "psychiatr*", "psycholog*", "psychotherap*", "counselling",
+          "counseling", "addiction", "substance", "alcohol", "antidepressant*", "antipsychotic*", "benzodiazepine*",
+          "sertraline", "fluoxetine", "citalopram", "escitalopram", "paroxetine", "amitriptyline", "venlafaxine", "mirtazapine", "olanzapine",
+          "risperidone", "quetiapine", "haloperidol", "chlorpromazine", "aripiprazole", "clozapine", "lithium", "diazepam", "lorazepam",
+          "alprazolam", "clonazepam",
+        ],
+        sensitive_positive: [
+          "hiv", "aids", "arv", "arvs", "antiretroviral*", "tenofovir", "lamivudine", "dolutegravir", "efavirenz", "zidovudine", "abacavir",
+          "nevirapine", "lopinavir", "ritonavir", "atazanavir", "emtricitabine", "tld", "hepatitis", "hbv", "hcv", "sti", "stis", "std", "stds",
+          "syphilis", "gonorrh*", "chlamydia", "herpes", "genital warts", "trichomon*", "tuberculosis",
+        ],
+      },
+      // Structured classification beats text where the source row has a code. A care plan's condition code (care_plans.condition) and a
+      // video consultation's context code map to non_sensitive or a category. A code not listed (for example "other", "specialist_consult")
+      // is UNKNOWN: it is shown only to a viewer with access to every sensitive category (fail closed).
+      carePlanConditionClass: {
+        hypertension: "non_sensitive", diabetes: "non_sensitive", obesity: "non_sensitive", ckd: "non_sensitive", cardiovascular: "non_sensitive",
+        asthma: "non_sensitive", copd: "non_sensitive", heart_failure: "non_sensitive",
+      },
+      consultationContextClass: { annual_review: "non_sensitive", general_checkin: "non_sensitive", lab_result_consult: "non_sensitive" },
+      // Medicines positively known to be non-sensitive. A medicine is shown to a viewer without full access only if it is on a care plan with a
+      // non_sensitive condition above, or its name is here, and no sensitive term matched it. Everything else is UNKNOWN (fail closed).
+      nonSensitiveMedicationTerms: [
+        "amlodipine", "lisinopril", "enalapril", "ramipril", "losartan", "telmisartan", "valsartan", "candesartan", "hydrochlorothiazide",
+        "bendroflumethiazide", "indapamide", "atenolol", "bisoprolol", "metoprolol", "carvedilol", "nifedipine", "furosemide", "spironolactone",
+        "metformin", "glibenclamide", "gliclazide", "glimepiride", "sitagliptin", "empagliflozin", "dapagliflozin", "insulin", "atorvastatin",
+        "simvastatin", "rosuvastatin", "salbutamol", "beclometasone", "budesonide", "paracetamol",
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S89.md; docs/plans/S88-S100-decisions-and-cmo-signoff-pack.md 4.1. Unsigned: the CMO confirms windows, minimum counts, the sensitive-term list and the non-sensitive code and medicine lists.",
+  },
+  {
+    key: "copilot.omission_panel_enabled",
+    value: false,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S89.md. OFF until the CMO signs copilot.omission_rules; the panel never blocks signing either way.",
+  },
+  {
+    key: "copilot.omission_rules",
+    value: {
+      // Drug classes used to match a drug named in a draft against a recorded allergy. A word of a class in an allergy entry flags every member.
+      // Matching is by whole word after lowercasing and removing accents, with one typo allowed in words of six letters or more.
+      allergyClasses: {
+        penicillin: [
+          "penicillin", "amoxicillin", "ampicillin", "flucloxacillin", "cloxacillin", "benzylpenicillin", "phenoxymethylpenicillin", "augmentin",
+          "co-amoxiclav", "amoxiclav", "clavulin", "amoxil", "piperacillin", "tazobactam", "tazocin", "ampiclox", "flucloxin",
+        ],
+        sulfonamide: [
+          "sulfa", "sulfonamide", "sulfamethoxazole", "sulfadiazine", "sulfasalazine", "co-trimoxazole", "cotrimoxazole", "trimethoprim-sulfamethoxazole",
+          "bactrim", "septrin", "septran", "fansidar", "sulfadoxine",
+        ],
+        nsaid: ["nsaid", "ibuprofen", "diclofenac", "naproxen", "aspirin", "ketorolac", "piroxicam", "celecoxib", "indomethacin", "brufen", "voltaren", "cataflam", "mefenamic acid", "ponstan"],
+        cephalosporin: ["cephalosporin", "cefuroxime", "ceftriaxone", "cefixime", "cefalexin", "cephalexin", "cefotaxime", "ceftazidime", "zinnat", "rocephin", "ceporex"],
+        macrolide: ["macrolide", "erythromycin", "azithromycin", "clarithromycin", "zithromax"],
+        fluoroquinolone: ["quinolone", "fluoroquinolone", "ciprofloxacin", "levofloxacin", "ofloxacin", "norfloxacin", "ciprotab", "ciprobay"],
+        opioid: ["opioid", "codeine", "morphine", "tramadol", "pethidine", "oxycodone", "fentanyl", "tramal"],
+        antimalarial: ["artemether", "lumefantrine", "coartem", "artesunate", "amodiaquine", "chloroquine", "quinine", "artequin"],
+      },
+      // Groups of words for the same drug that sit outside any class (generic and brand).
+      drugSynonyms: [["paracetamol", "acetaminophen", "panadol", "tylenol"], ["salbutamol", "albuterol", "ventolin"], ["metronidazole", "flagyl"]],
+      // Allergens positively known not to be drugs; anything the lists cannot place raises "allergy not checked: unrecognised allergen".
+      nonDrugAllergens: [
+        "peanut", "peanuts", "groundnut", "groundnuts", "nut", "nuts", "tree nut", "egg", "eggs", "milk", "dairy", "lactose", "shellfish", "fish",
+        "prawn", "prawns", "crab", "soy", "soya", "wheat", "gluten", "sesame", "latex", "pollen", "dust", "dust mite", "mould", "mold", "bee sting",
+        "insect", "cat", "dog", "nkda", "none", "nil", "no known drug allergies",
+      ],
+      allergenNoiseWords: ["allergy", "allergic", "allergies", "reaction", "severe", "mild", "rash", "hives", "swelling", "known", "history", "drug", "drugs", "to", "with", "and", "anaphylaxis"],
+      // Spelling variants mapped to one spelling.
+      spellingAliases: { sulpha: "sulfa", sulphonamide: "sulfonamide", sulphamethoxazole: "sulfamethoxazole", sulphadiazine: "sulfadiazine", acetaminofen: "acetaminophen", cephalosporine: "cephalosporin", penicilin: "penicillin" },
+      // A draft for a patient with one of these conditions on file should state a follow-up interval.
+      followUpRequiredConditions: ["hypertension", "diabetes"],
+      // A stated interval counts only inside a clause that is about a follow-up (so "twice a day" and "cough for 3 days" never count).
+      followUpContextTerms: ["review*", "follow up", "followup", "recheck*", "see you", "return*", "come back", "appointment*", "repeat*"],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S89.md. Unsigned clinical lists: the CMO owns the class membership, the condition list and the wording. Flags only; nothing here decides or blocks.",
+  },
 ];

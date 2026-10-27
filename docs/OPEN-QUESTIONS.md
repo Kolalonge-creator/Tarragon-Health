@@ -5670,6 +5670,23 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Recommendation: (b) for legacy rows, (a) for seats and grants, because the employer and the admin already know the person's state.
 - Decision (founder, 2026-10-26): Plus given without a checkout needs a collection state. Built: (a) an admin grant of Plus needs an approved state while the module is on (`grant_membership_tier`, a state field on the grant form); (b) a Plus member whose state is empty chooses it once from the approved list (`set_my_plus_collection_state`, web and mobile), which also covers employer seats and older rows. Not built: a state field on the employer roster row, because the member already chooses on first use and the employer rarely knows it; add it if an employer pilot asks.
 
+## S89 first slice (2026-10-27)
+
+### OQ-S89-01: where the edit-rate figures and the sign attestation are stored
+- Gap: `record_scribe_review` stores per-section outcomes and a draft hash only. The word-level edit rate (`ai-spans.ts`) and the "I reviewed this draft against the record" attestation are computed in the browser and not persisted; the shadow-measurement plan in `docs/design/S89.md` needs both.
+- Options: (a) a new table keyed by note id and review id; (b) add columns to the existing review record; (c) keep browser-only and measure from the section outcomes already stored.
+- Recommendation: (b), one migration, null-gated, applied only after the CMO approves the measurement plan. Not built in this slice.
+
+### OQ-S89-02: access signals for reproductive health and sensitive-positive rows in the pre-visit summary
+- Gap: the summary confirms only mental-health access (the existing refused-read signal). Reproductive-health and sensitive-positive rows are therefore always left out of the brief and the omission panel, even for a clinician who is allowed to see them.
+- Update 2026-10-27 (review pass): the same applies to mental health. "The mental-health read did not error" was being used as an access signal, but row-level security answers a refused read with empty rows, so it was fail-open. All three categories now stay denied in the pre-visit summary. No client-callable category access check exists (only `has_emergency_access` / `can_read_clinical` in the `private` schema, not exposed). The brief is also off by default (`copilot.previsit_brief_enabled`). Legacy cards in the same summary (care gaps, care plans, medication count) are not category-filtered and predate this slice.
+- Options: (a) leave them out until a category-scoped access check is exposed to the client; (b) add a server-side check and pass the result down.
+- Recommendation: (b) in a later slice, writing the category-scoped check fresh and proving a refused session, per the reproductive-health rule in CLAUDE.md.
+
+### OQ-S89-03: CMO sign-off for copilot config
+- `copilot.omission_rules`, `copilot.omission_panel_enabled` (OFF), `copilot.previsit_brief_rules` and `copilot.previsit_brief_enabled` (OFF) are PROPOSED, unsigned. The panel and the brief stay off until the CMO signs the rules.
+- Review pass 2026-10-27 extended the unsigned lists a lot: sensitive terms per category (whole-word, with drug names such as ARVs, contraceptives, antidepressants and antipsychotics), non-sensitive care-plan, consultation and medicine lists, allergy classes with brand names, synonym groups, non-drug allergens, spelling aliases and follow-up context words. **The CMO owns every one of these lists.** Decisions needed: is "alcohol" and "benzodiazepine*" mental health; is tuberculosis sensitive-positive; is "cervical" reproductive; which medicines may be called non-sensitive; whether a specialist consultation is ever non-sensitive by default.
+
 ## S85b: web offline emergency guidance and the journeys refresh (raised 2026-10-27)
 
 ### OQ-S85B-1 The offline web guidance uses wording the founder signed, not the CMO
