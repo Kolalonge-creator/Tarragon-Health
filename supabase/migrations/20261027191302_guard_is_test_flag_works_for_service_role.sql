@@ -60,9 +60,10 @@ begin
   if has_function_privilege('anon', 'private.guard_is_test_flag()', 'EXECUTE') then
     raise exception 'anon can execute guard_is_test_flag';
   end if;
-  -- Both triggers must still be attached; this migration replaces the function only.
-  if (select count(*) from pg_trigger t
-       where t.tgfoid = 'private.guard_is_test_flag()'::regprocedure and not t.tgisinternal) <> 2 then
-    raise exception 'guard_is_test_flag should be attached to exactly profiles and clinical_staff';
+  -- Both guarded tables must still carry the trigger; this migration replaces the function only.
+  if (select count(distinct t.tgrelid) from pg_trigger t
+       where t.tgfoid = 'private.guard_is_test_flag()'::regprocedure and not t.tgisinternal
+         and t.tgrelid in ('public.profiles'::regclass, 'public.clinical_staff'::regclass)) <> 2 then
+    raise exception 'guard_is_test_flag should be attached to profiles and clinical_staff';
   end if;
 end $$;
