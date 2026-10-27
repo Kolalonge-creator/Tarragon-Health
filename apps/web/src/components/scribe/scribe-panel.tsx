@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DraftReviewPanel, type DraftSection } from "./draft-review-panel";
+import type { EditTelemetry } from "@/lib/ai-text/ai-spans";
 import { draftScribeFromFacts, findScribeFactsFromText, getScribeConsentState, recordScribeConsent, reportScribeProblem, revokeScribeConsent } from "@/lib/scribe/actions";
 import { DocumentDraftsPanel } from "./document-drafts-panel";
 import { clearQueuedDraftRequest, isOfflineError, queueDraftRequest, readQueuedDraftRequest } from "@/lib/scribe/offline-queue";
@@ -58,6 +59,11 @@ export interface ScribeDraftResult {
   modelId: string;
   promptVersion: string;
   source: "stt" | "typed";
+  /**
+   * Browser-side edit-rate figures for this review (S89), held with the draft so they are not dropped on the way to the note form.
+   * Nothing persists them yet: `record_scribe_review` has no argument for them (OQ-S89-01).
+   */
+  editTelemetry?: EditTelemetry;
   /** sha256 of the visit text the draft was made from (for the stored edit diff). */
   transcriptHash: string;
 }
@@ -329,7 +335,7 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
           warnings={state.warnings}
           sourceText={text}
           onReport={async (r) => (await reportScribeProblem({ noteId: encounterNoteId, consentId, draftKind: "note", section: r.section, category: r.category, comment: r.comment || undefined })).ok}
-          onUse={(draft, patientSummary) => {
+          onUse={(draft, patientSummary, editTelemetry) => {
             onUseDraft({
               draft,
               patientSummary,
@@ -339,6 +345,7 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
               modelId: state.modelId,
               promptVersion: state.promptVersion,
               source: "typed",
+              editTelemetry,
               transcriptHash: state.transcriptHash,
             });
             setText("");

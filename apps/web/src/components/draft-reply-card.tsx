@@ -1,11 +1,11 @@
 "use client";
 
-import { AiLabel } from "@/components/ai/ai-label";
 import { useState } from "react";
 import { useDraftReply, useGenerateDraftReply, type CareMessageDraftReply } from "@/lib/queries/care-messages";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AiDraftBlock } from "@/components/ai/ai-draft-block";
 
 function formatGeneratedAt(value: string): string {
   return new Date(value).toLocaleString("en-GB", {
@@ -51,7 +51,6 @@ export function DraftReplyCard({ threadId }: { threadId: string }) {
       <CardHeader>
         <div className="flex items-center gap-2">
           <CardTitle className="text-sm">Suggested reply</CardTitle>
-          <AiLabel variant="unreviewed" />
         </div>
         <CardDescription>
           Read this, then write your own reply below. It is never sent for you.
@@ -108,9 +107,10 @@ function DraftReplyBody({
         </Badge>
       )}
 
-      <p className="whitespace-pre-wrap rounded-md bg-charcoal-ink/[0.03] dark:bg-night-ink/10 p-3 text-sm text-charcoal-ink dark:text-night-ink">
-        {draft.draft_text}
-      </p>
+      {/* AI text is marked sentence by sentence (and carries the AI label) until each is accepted or edited. Read-only here: no sign, nothing is sent. */}
+      <div className="rounded-md bg-charcoal-ink/[0.03] dark:bg-night-ink/10 p-3">
+        <AiDraftBlock key={draft.generated_at} initialText={draft.draft_text ?? ""} />
+      </div>
 
       {draft.needs_clinical_review && (
         <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">

@@ -3335,6 +3335,31 @@ following are recorded in the system:
 ### OQ-S07X-5 The home check configuration ships inside the app (raised by S07x)
 - The phone reads `bp.home_programme` from the code registry (as the other S07 values do); the server reads the signed row. If the CMO signs a changed version, installed phones keep the old protocol until the next build or update, while the server records the result against the new bands. Today the two are identical (a test fails on drift). Moving the phone's read to a synced config is the same follow-up already noted for the other S07 values.
 
+### OQ-S79-1 Employer-funded rewards pool is a requested number only
+- S79 records a rewards budget the sponsor would like to set aside (`institution_programme_configs.rewards_budget_kobo`, capped by `institution.rules`). No pool, balance, per-person cap or checkout discount is built: OQ-S58-06 is informational, INV-09 forbids a stored balance, and the legal vehicle for an employer-funded pool is undecided. Build the pool only after a founder decision.
+- Decision: open (founder).
+
+### OQ-S79-2 Module 24 events are audit rows, not outbox events
+- `cohort.enrolled` and `sponsor.report_generated` exist only as audit actions (`sponsor.cohort_joined`, `sponsor.staff_exported`, `sponsor.pack_exported`). Registering them as outbox events needs a consumer to exist first.
+- Decision: open (product).
+
+### OQ-S79-3 The pathway list a sponsor may choose from is a proposal
+- `institution.rules.programme_pathways` = hypertension, diabetes, prevention_screening, nutrition_and_activity. Reproductive, pregnancy and mental health are deliberately absent. The CMO should confirm the list before the switch is turned on.
+- Decision: open (CMO).
+
+### OQ-S79-4 A usage statement must itemise for audit, and itemising can single a person out
+- Statement lines used by fewer people than the minimum are folded into "other services" (amount only). Finance may need the folded detail to reconcile an invoice; that must go through Tarragon finance, not the sponsor view. If a sponsor's contract requires itemised proof, counsel and the DPO must say how.
+- Decision: open (finance, DPO).
+
+### OQ-S79-5 Second approver for eligibility files that end access
+- A file that ends anyone needs a second person (or Tarragon); a file ending 30% or more of the active list needs Tarragon (`institution.rules`). A one-person HR team cannot approve its own removal file. Confirm the 30% and whether a solo employer should be allowed to confirm by email instead.
+- Decision: open (founder).
+
+### OQ-S79-6 Where the single code entry appears for members
+- `enter_enrolment_code` exists and is tested but is not wired into the patient web or mobile join screens (those still use `join_cohort` and the employer code path). Wire it when the module is switched on.
+- Decision: open (product).
+## S85b: web offline emergency guidance and the journeys refresh (raised 2026-10-27)
+
 ### OQ-S75X-1 PHQ-9 item 9 below the score line (raised by S75 exclusions; RESOLVED 2026-10-14, DECISIONS S75-9: option (a), the gap is accepted)
 - The exclusion keeps a person out of every outcome report if their PHQ-9 TOTAL reached 20 (config v4 `safeguarding.score_from`). A person who answered item 9 above zero but scored under 20 is NOT excluded by this rule, because the S75 proof forbids any function on the outcomes path from reading item answers or the crisis flag (a positive item 9 follows the red pathway, not analytics). Their score is therefore in the mental-health figures, which only an admin, an analyst or the CMO read as suppressed aggregates.
 - The other build (#1087) excluded them by reading item 9 and the crisis flag. Choose one: (a) accept the gap above, (b) let ONE function read the crisis flag solely to remove a person (and change the scan in `s75_outcome_measures.sql` check 7e to allow exactly that function), or (c) count a person as excluded when an escalation already exists for them. Until decided, v4 stays PROPOSED and inactive.
@@ -5670,29 +5695,23 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Recommendation: (b) for legacy rows, (a) for seats and grants, because the employer and the admin already know the person's state.
 - Decision (founder, 2026-10-26): Plus given without a checkout needs a collection state. Built: (a) an admin grant of Plus needs an approved state while the module is on (`grant_membership_tier`, a state field on the grant form); (b) a Plus member whose state is empty chooses it once from the approved list (`set_my_plus_collection_state`, web and mobile), which also covers employer seats and older rows. Not built: a state field on the employer roster row, because the member already chooses on first use and the employer rarely knows it; add it if an employer pilot asks.
 
-### OQ-S79-1 Employer-funded rewards pool is a requested number only
-- S79 records a rewards budget the sponsor would like to set aside (`institution_programme_configs.rewards_budget_kobo`, capped by `institution.rules`). No pool, balance, per-person cap or checkout discount is built: OQ-S58-06 is informational, INV-09 forbids a stored balance, and the legal vehicle for an employer-funded pool is undecided. Build the pool only after a founder decision.
-- Decision: open (founder).
+## S89 first slice (2026-10-27)
 
-### OQ-S79-2 Module 24 events are audit rows, not outbox events
-- `cohort.enrolled` and `sponsor.report_generated` exist only as audit actions (`sponsor.cohort_joined`, `sponsor.staff_exported`, `sponsor.pack_exported`). Registering them as outbox events needs a consumer to exist first.
-- Decision: open (product).
+### OQ-S89-01: where the edit-rate figures and the sign attestation are stored
+- Gap: `record_scribe_review` stores per-section outcomes and a draft hash only. The word-level edit rate (`ai-spans.ts`) and the "I reviewed this draft against the record" attestation are computed in the browser and not persisted; the shadow-measurement plan in `docs/design/S89.md` needs both.
+- Options: (a) a new table keyed by note id and review id; (b) add columns to the existing review record; (c) keep browser-only and measure from the section outcomes already stored.
+- Recommendation: (b), one migration, null-gated, applied only after the CMO approves the measurement plan. Not built in this slice.
 
-### OQ-S79-3 The pathway list a sponsor may choose from is a proposal
-- `institution.rules.programme_pathways` = hypertension, diabetes, prevention_screening, nutrition_and_activity. Reproductive, pregnancy and mental health are deliberately absent. The CMO should confirm the list before the switch is turned on.
-- Decision: open (CMO).
+### OQ-S89-02: access signals for reproductive health and sensitive-positive rows in the pre-visit summary
+- Gap: the summary confirms only mental-health access (the existing refused-read signal). Reproductive-health and sensitive-positive rows are therefore always left out of the brief and the omission panel, even for a clinician who is allowed to see them.
+- Update 2026-10-27 (review pass): the same applies to mental health. "The mental-health read did not error" was being used as an access signal, but row-level security answers a refused read with empty rows, so it was fail-open. All three categories now stay denied in the pre-visit summary. No client-callable category access check exists (only `has_emergency_access` / `can_read_clinical` in the `private` schema, not exposed). The brief is also off by default (`copilot.previsit_brief_enabled`). Legacy cards in the same summary (care gaps, care plans, medication count) are not category-filtered and predate this slice.
+- Options: (a) leave them out until a category-scoped access check is exposed to the client; (b) add a server-side check and pass the result down.
+- Recommendation: (b) in a later slice, writing the category-scoped check fresh and proving a refused session, per the reproductive-health rule in CLAUDE.md.
 
-### OQ-S79-4 A usage statement must itemise for audit, and itemising can single a person out
-- Statement lines used by fewer people than the minimum are folded into "other services" (amount only). Finance may need the folded detail to reconcile an invoice; that must go through Tarragon finance, not the sponsor view. If a sponsor's contract requires itemised proof, counsel and the DPO must say how.
-- Decision: open (finance, DPO).
+### OQ-S89-03: CMO sign-off for copilot config
+- `copilot.omission_rules`, `copilot.omission_panel_enabled` (OFF), `copilot.previsit_brief_rules` and `copilot.previsit_brief_enabled` (OFF) are PROPOSED, unsigned. The panel and the brief stay off until the CMO signs the rules.
+- Review pass 2026-10-27 extended the unsigned lists a lot: sensitive terms per category (whole-word, with drug names such as ARVs, contraceptives, antidepressants and antipsychotics), non-sensitive care-plan, consultation and medicine lists, allergy classes with brand names, synonym groups, non-drug allergens, spelling aliases and follow-up context words. **The CMO owns every one of these lists.** Decisions needed: is "alcohol" and "benzodiazepine*" mental health; is tuberculosis sensitive-positive; is "cervical" reproductive; which medicines may be called non-sensitive; whether a specialist consultation is ever non-sensitive by default.
 
-### OQ-S79-5 Second approver for eligibility files that end access
-- A file that ends anyone needs a second person (or Tarragon); a file ending 30% or more of the active list needs Tarragon (`institution.rules`). A one-person HR team cannot approve its own removal file. Confirm the 30% and whether a solo employer should be allowed to confirm by email instead.
-- Decision: open (founder).
-
-### OQ-S79-6 Where the single code entry appears for members
-- `enter_enrolment_code` exists and is tested but is not wired into the patient web or mobile join screens (those still use `join_cohort` and the employer code path). Wire it when the module is switched on.
-- Decision: open (product).
 ## S85b: web offline emergency guidance and the journeys refresh (raised 2026-10-27)
 
 ### OQ-S85B-1 The offline web guidance uses wording the founder signed, not the CMO
