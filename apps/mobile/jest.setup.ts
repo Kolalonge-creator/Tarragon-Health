@@ -36,6 +36,8 @@ beforeEach(() => {
   // jest.mock calls take effect (low-data.test.ts mocks expo-secure-store itself).
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   (require("./src/lib/secure-db") as typeof import("./src/lib/secure-db")).__resetStoreForTests();
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  (require("./src/lib/secure-kv") as typeof import("./src/lib/secure-kv")).__resetKvForTests();
   asyncStorageMock.__reset();
   bleMock.__reset();
 });
