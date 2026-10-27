@@ -50642,6 +50642,11 @@ export type Database = {
         Args: { p_location_id?: string; p_patient?: string }
         Returns: string
       }
+      my_sensitive_request_optin: {
+        Args: Record<PropertyKey, never>
+        Returns: { available: boolean; opted_in: boolean }[]
+      }
+      set_my_sensitive_request_optin: { Args: { p_opt_in: boolean }; Returns: boolean }
       my_screening_requests: {
         Args: { p_patient?: string }
         Returns: {

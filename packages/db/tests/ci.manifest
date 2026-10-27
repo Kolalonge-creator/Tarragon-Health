@@ -1540,3 +1540,5 @@ plus_checkout_collection_state.sql
 plus_state_without_checkout.sql
 # S98 (2026-10-27): the preventive engine issues the self-arranged test request by itself. One request per due schedule from a SIGNED rule set (test patient exempt), never for a sensitive test, no bundle, future date or unsigned set; idempotent; reminders carry the request and stop after upload; my_screening_requests scoped. Sabotage: sensitive skip, idempotency, signed-set condition, upload check each removed must flip.
 s98_preventive_test_request_automation.sql
+# S98b (2026-10-27): sensitive screenings get an automatic request only with the second guard AND the patient's own revocable, audited opt-in (own row, adults, RLS and grants), signed rule set, and no test name in notification/reminder payloads or the audit entry. Sabotage: opt-in check, second guard, payload masking each removed must flip.
+s98b_sensitive_request_optin.sql
