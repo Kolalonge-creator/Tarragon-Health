@@ -1541,3 +1541,5 @@ plus_state_without_checkout.sql
 
 # S79 Institution console (2026-10-27): module ships OFF; configuration requests (pathway list excludes mental and reproductive health, versioned, immutable, admin review); append-only usage records and write-once statements with no person column, small service lines folded; procurement pack and privacy ledger audited and free of any person; staged eligibility upload (add/remove/replace, row errors, second approver, leavers end the employer link only, staged values blanked); one enrolment-code entry with namespace guard; sponsor staff cannot read any new table. Sabotage: namespace trigger, pathway check, second-approver check and fold each removed must flip.
 s79_institution_console.sql
+# S76-S80 scribe: signed diff record (append-only, versioned, linked to the review record, signed text read from the note), problem reports (fixed taxonomy), CMO count reads, and the document prompt inserted unapproved and inactive (the reader returns nothing until a human approves). Sabotage: the review-record link removed, and the CMO check removed; both checks must flip.
+s76_scribe_signed_diffs_reports_document_prompt.sql
