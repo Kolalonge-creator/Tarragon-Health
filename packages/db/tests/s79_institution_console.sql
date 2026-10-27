@@ -307,7 +307,7 @@ begin
   update public.profiles set organisation_id = v_cons where id = pat;
   insert into public.sponsor_cohorts (organisation_id, sponsor_org_id, name, code, valid_from, valid_to, max_uses, status)
     values (v_cons, v_sp2, 'S79 NGO programme', 'NGQPRQG2', current_date - 1, current_date + 90, 50, 'active');
-  r := pg_temp.call_as(pat, $q$select public.enter_enrolment_code('ngop-rog2')$q$);
+  r := pg_temp.call_as(pat, $q$select public.enter_enrolment_code('ngqp-rqg2')$q$);
   perform pg_temp.rec('5a a programme code works, typed in lower case with a dash', (r ->> 'ok') || '/' || (r ->> 'kind'), 'true/programme');
   r := pg_temp.call_as(pat, $q$select public.enter_enrolment_code('EMPLQY22')$q$);
   perform pg_temp.rec('5b an employer code works through the same entry', (r ->> 'ok') || '/' || (r ->> 'kind'), 'true/employer');
