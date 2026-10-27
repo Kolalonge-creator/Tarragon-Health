@@ -2556,6 +2556,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S36.md; spec 25.3, 25.9; OQ-214",
   },
   {
+    key: "directory.staleness",
+    // Directory freshness score thresholds (S80 gap closure, spec 25.9). The score is 100 on the day a listing is verified, 50 on its due date and
+    // 0 at twice the cadence (see directory.verification_cadence). Live values are the active row of `directory_staleness_config`; this entry mirrors
+    // it and a test fails if the migration seed and this value drift. UNSIGNED. A notice below `notice_below_score` is sent at most every
+    // `notice_repeat_days` and only while the directory_partner_stale_email guard is on. A previously verified listing below `hide_below_score` leaves
+    // the patient lab picker only while the directory_hide_stale_partners guard is on. Both guards are born off.
+    value: { notice_below_score: 50, notice_repeat_days: 14, hide_below_score: 20 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S80.md; spec 25.9",
+  },
+  {
     key: "reliability.dashboard",
     // The reliability and SLA dashboard (S36e, spec 9.5 and 9.4). Display settings only: how far ahead the rota gap view looks, how many
     // clinicians a group must hold before the operations view may show a score distribution (a group of one or two is someone's own
