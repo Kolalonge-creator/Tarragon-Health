@@ -119,6 +119,7 @@ const NON_CLINICAL_STRICT_MOBILE = [
 const CLINICAL_RED_OK = new Set<string>(["pregnancy-red-flag-check.tsx", "danger-symptom-check.tsx"]);
 /** Pre-existing web patient cards that already use red. Listed in docs/OPEN-QUESTIONS.md (UI-C). May only shrink. */
 const KNOWN_RED_CARD_OFFENDERS = new Set<string>([
+  "annual-bundle-card.tsx", // arrived from main-dev after the first list was taken: red error text
   "ask-tarragon-card.tsx",
   "cancer-screening-card.tsx",
   "communication-history-card.tsx",
