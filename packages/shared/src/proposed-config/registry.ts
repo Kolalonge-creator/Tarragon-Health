@@ -2588,6 +2588,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S36.md; spec 25.3, 25.9; OQ-214",
   },
   {
+    key: "directory.staleness",
+    // Directory freshness score thresholds (S80 gap closure, spec 25.9). The score is 100 on the day a listing is verified, 50 on its due date and
+    // 0 at twice the cadence (see directory.verification_cadence). Live values are the active row of `directory_staleness_config`; this entry mirrors
+    // it and a test fails if the migration seed and this value drift. UNSIGNED. A notice below `notice_below_score` is sent at most every
+    // `notice_repeat_days` and only while the directory_partner_stale_email guard is on. A previously verified listing below `hide_below_score` leaves
+    // the patient lab picker only while the directory_hide_stale_partners guard is on. Both guards are born off.
+    value: { notice_below_score: 50, notice_repeat_days: 14, hide_below_score: 20 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S80.md; spec 25.9",
+  },
+  {
     key: "reliability.dashboard",
     // The reliability and SLA dashboard (S36e, spec 9.5 and 9.4). Display settings only: how far ahead the rota gap view looks, how many
     // clinicians a group must hold before the operations view may show a score distribution (a group of one or two is someone's own
@@ -4200,6 +4214,26 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S71.md; docs/DECISIONS.md S71-1; OQ-325",
+  },
+  {
+    key: "institution.rules",
+    // Institution console (S79). Live values are the active row of `institution_config`; this entry mirrors it and a test fails if the migration seed and
+    // this value drift. roster_stage_max_rows: rows in one staged eligibility file. roster_end_second_approver_pct: when a file would end access for at
+    // least this share of the active list, only Tarragon may approve it. roster_batch_expiry_days: a staged file not finished by then is cleared.
+    // rewards_budget_max_kobo: the most a sponsor may ASK to set aside (a request, never a balance). programme_pathways: the pathways a sponsor may choose;
+    // reproductive, pregnancy and mental health pathways are deliberately absent. The pathway list needs CMO confirmation (OQ-S79-3).
+    value: {
+      roster_stage_max_rows: 5000,
+      roster_end_second_approver_pct: 30,
+      roster_batch_expiry_days: 7,
+      rewards_budget_max_kobo: 5_000_000_000,
+      programme_pathways: ["hypertension", "diabetes", "prevention_screening", "nutrition_and_activity"],
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S79.md; OQ-S79-1, OQ-S79-3",
   },
   {
     key: "access_fund.rules",
@@ -8559,5 +8593,149 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-27",
     source: "docs/plans/S80-S85-cmo-decision-pack.md decision 6; ai_monitoring_config version 1 (inactive). Unsigned until the CMO signs.",
+  },
+  {
+    key: "clinician.loop_rules",
+    // Clinician loop rules (S76 gap closure): minutes before an unclaimed task of each priority class is re-offered to a second clinician
+    // (class 1, red, is never re-offered: it has its own paging ladder), how many times, the silence window (days with no reading by an
+    // enrolled patient who was recording, the lookback and minimum prior readings that count as "was recording", days before a repeat) and
+    // the lookback of the threshold blast-radius preview. Live values are the active row of `clinician_loop_config`; it is born INACTIVE
+    // and unsigned and a test fails if the migration seed and this value drift.
+    value: {
+      reoffer_after_minutes: { "2": 15, "3": 30, "4": 60, "5": 240, "6": 480, "7": 720, "8": 1440, "9": 1440 },
+      reoffer_max: 1,
+      silence_days: 5,
+      silence_lookback_days: 30,
+      silence_min_prior_readings: 3,
+      silence_recheck_days: 7,
+      blast_lookback_days: 30,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "supabase migration s76_clinician_second_offer_silence_blast_radius; docs/research/S75-S80-review-and-build-plan.md 23.2, 23.3. Unsigned until the CMO signs.",
+  },
+  {
+    key: "copilot.previsit_brief_enabled",
+    value: false,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S89.md. OFF while copilot.previsit_brief_rules is unsigned: the pre-visit summary then shows only the existing deterministic cards and makes none of the extra audited reads the brief needs.",
+  },
+  {
+    key: "copilot.previsit_brief_rules",
+    value: {
+      // Display windows for the deterministic pre-visit brief (S89). Descriptive only: no model, no scoring, nothing decided.
+      windowDays: 30,
+      minReadingsForTrend: 3,
+      // Rows fetched per reading type (blood pressure, glucose) inside the window. A fetch that returns this many is treated as cut off.
+      maxReadingsRead: 100,
+      recentLabResultDays: 90,
+      // A refill date more than this many calendar days (Africa/Lagos) before today counts as an adherence gap. 0: due today is not yet overdue.
+      refillOverdueDays: 0,
+      // Words that mark a record row as sensitive, matched as WHOLE words after lowercasing and removing accents ("hiv" does not match
+      // "archive"). A trailing * makes the last word a prefix ("pregnan*" matches pregnant). A row matching one is dropped unless the
+      // viewer's access for that category is confirmed. UNSIGNED: the CMO owns this list.
+      sensitiveTerms: {
+        reproductive_health: [
+          "menstrua*", "amenorrh*", "dysmenorrh*", "pregnan*", "gestation*", "antenatal", "prenatal", "perinatal", "postnatal", "postpartum",
+          "puerper*", "obstetric*", "gynae*", "gynec*", "miscarriage", "abortion", "termination of pregnancy", "ivf", "iui", "fertil*", "infertil*",
+          "contracept*", "ovulat*", "pcos", "polycystic ovar*", "endometrio*", "fibroid*", "cervical", "pap smear", "papanicolaou", "hpv",
+          "breastfeed*", "lactation", "menopaus*", "reproductive",
+          "microgynon", "levonorgestrel", "norethisterone", "ethinylestradiol", "ethinyl estradiol", "desogestrel", "drospirenone",
+          "medroxyprogesterone", "depo provera", "implanon", "nexplanon", "jadelle", "mirena", "iud", "iucd", "postinor", "misoprostol",
+          "mifepristone", "clomiphene",
+        ],
+        mental_health: [
+          "phq", "gad", "audit c", "auditc", "depress*", "anxi*", "mental", "mood", "self harm", "selfharm", "suicid*", "psychosis", "psychotic",
+          "schizophren*", "bipolar", "mania", "manic", "ptsd", "ocd", "panic", "psychiatr*", "psycholog*", "psychotherap*", "counselling",
+          "counseling", "addiction", "substance", "alcohol", "antidepressant*", "antipsychotic*", "benzodiazepine*",
+          "sertraline", "fluoxetine", "citalopram", "escitalopram", "paroxetine", "amitriptyline", "venlafaxine", "mirtazapine", "olanzapine",
+          "risperidone", "quetiapine", "haloperidol", "chlorpromazine", "aripiprazole", "clozapine", "lithium", "diazepam", "lorazepam",
+          "alprazolam", "clonazepam",
+        ],
+        sensitive_positive: [
+          "hiv", "aids", "arv", "arvs", "antiretroviral*", "tenofovir", "lamivudine", "dolutegravir", "efavirenz", "zidovudine", "abacavir",
+          "nevirapine", "lopinavir", "ritonavir", "atazanavir", "emtricitabine", "tld", "hepatitis", "hbv", "hcv", "sti", "stis", "std", "stds",
+          "syphilis", "gonorrh*", "chlamydia", "herpes", "genital warts", "trichomon*", "tuberculosis",
+        ],
+      },
+      // Structured classification beats text where the source row has a code. A care plan's condition code (care_plans.condition) and a
+      // video consultation's context code map to non_sensitive or a category. A code not listed (for example "other", "specialist_consult")
+      // is UNKNOWN: it is shown only to a viewer with access to every sensitive category (fail closed).
+      carePlanConditionClass: {
+        hypertension: "non_sensitive", diabetes: "non_sensitive", obesity: "non_sensitive", ckd: "non_sensitive", cardiovascular: "non_sensitive",
+        asthma: "non_sensitive", copd: "non_sensitive", heart_failure: "non_sensitive",
+      },
+      consultationContextClass: { annual_review: "non_sensitive", general_checkin: "non_sensitive", lab_result_consult: "non_sensitive" },
+      // Medicines positively known to be non-sensitive. A medicine is shown to a viewer without full access only if it is on a care plan with a
+      // non_sensitive condition above, or its name is here, and no sensitive term matched it. Everything else is UNKNOWN (fail closed).
+      nonSensitiveMedicationTerms: [
+        "amlodipine", "lisinopril", "enalapril", "ramipril", "losartan", "telmisartan", "valsartan", "candesartan", "hydrochlorothiazide",
+        "bendroflumethiazide", "indapamide", "atenolol", "bisoprolol", "metoprolol", "carvedilol", "nifedipine", "furosemide", "spironolactone",
+        "metformin", "glibenclamide", "gliclazide", "glimepiride", "sitagliptin", "empagliflozin", "dapagliflozin", "insulin", "atorvastatin",
+        "simvastatin", "rosuvastatin", "salbutamol", "beclometasone", "budesonide", "paracetamol",
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S89.md; docs/plans/S88-S100-decisions-and-cmo-signoff-pack.md 4.1. Unsigned: the CMO confirms windows, minimum counts, the sensitive-term list and the non-sensitive code and medicine lists.",
+  },
+  {
+    key: "copilot.omission_panel_enabled",
+    value: false,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S89.md. OFF until the CMO signs copilot.omission_rules; the panel never blocks signing either way.",
+  },
+  {
+    key: "copilot.omission_rules",
+    value: {
+      // Drug classes used to match a drug named in a draft against a recorded allergy. A word of a class in an allergy entry flags every member.
+      // Matching is by whole word after lowercasing and removing accents, with one typo allowed in words of six letters or more.
+      allergyClasses: {
+        penicillin: [
+          "penicillin", "amoxicillin", "ampicillin", "flucloxacillin", "cloxacillin", "benzylpenicillin", "phenoxymethylpenicillin", "augmentin",
+          "co-amoxiclav", "amoxiclav", "clavulin", "amoxil", "piperacillin", "tazobactam", "tazocin", "ampiclox", "flucloxin",
+        ],
+        sulfonamide: [
+          "sulfa", "sulfonamide", "sulfamethoxazole", "sulfadiazine", "sulfasalazine", "co-trimoxazole", "cotrimoxazole", "trimethoprim-sulfamethoxazole",
+          "bactrim", "septrin", "septran", "fansidar", "sulfadoxine",
+        ],
+        nsaid: ["nsaid", "ibuprofen", "diclofenac", "naproxen", "aspirin", "ketorolac", "piroxicam", "celecoxib", "indomethacin", "brufen", "voltaren", "cataflam", "mefenamic acid", "ponstan"],
+        cephalosporin: ["cephalosporin", "cefuroxime", "ceftriaxone", "cefixime", "cefalexin", "cephalexin", "cefotaxime", "ceftazidime", "zinnat", "rocephin", "ceporex"],
+        macrolide: ["macrolide", "erythromycin", "azithromycin", "clarithromycin", "zithromax"],
+        fluoroquinolone: ["quinolone", "fluoroquinolone", "ciprofloxacin", "levofloxacin", "ofloxacin", "norfloxacin", "ciprotab", "ciprobay"],
+        opioid: ["opioid", "codeine", "morphine", "tramadol", "pethidine", "oxycodone", "fentanyl", "tramal"],
+        antimalarial: ["artemether", "lumefantrine", "coartem", "artesunate", "amodiaquine", "chloroquine", "quinine", "artequin"],
+      },
+      // Groups of words for the same drug that sit outside any class (generic and brand).
+      drugSynonyms: [["paracetamol", "acetaminophen", "panadol", "tylenol"], ["salbutamol", "albuterol", "ventolin"], ["metronidazole", "flagyl"]],
+      // Allergens positively known not to be drugs; anything the lists cannot place raises "allergy not checked: unrecognised allergen".
+      nonDrugAllergens: [
+        "peanut", "peanuts", "groundnut", "groundnuts", "nut", "nuts", "tree nut", "egg", "eggs", "milk", "dairy", "lactose", "shellfish", "fish",
+        "prawn", "prawns", "crab", "soy", "soya", "wheat", "gluten", "sesame", "latex", "pollen", "dust", "dust mite", "mould", "mold", "bee sting",
+        "insect", "cat", "dog", "nkda", "none", "nil", "no known drug allergies",
+      ],
+      allergenNoiseWords: ["allergy", "allergic", "allergies", "reaction", "severe", "mild", "rash", "hives", "swelling", "known", "history", "drug", "drugs", "to", "with", "and", "anaphylaxis"],
+      // Spelling variants mapped to one spelling.
+      spellingAliases: { sulpha: "sulfa", sulphonamide: "sulfonamide", sulphamethoxazole: "sulfamethoxazole", sulphadiazine: "sulfadiazine", acetaminofen: "acetaminophen", cephalosporine: "cephalosporin", penicilin: "penicillin" },
+      // A draft for a patient with one of these conditions on file should state a follow-up interval.
+      followUpRequiredConditions: ["hypertension", "diabetes"],
+      // A stated interval counts only inside a clause that is about a follow-up (so "twice a day" and "cough for 3 days" never count).
+      followUpContextTerms: ["review*", "follow up", "followup", "recheck*", "see you", "return*", "come back", "appointment*", "repeat*"],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S89.md. Unsigned clinical lists: the CMO owns the class membership, the condition list and the wording. Flags only; nothing here decides or blocks.",
   },
 ];

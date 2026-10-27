@@ -21,7 +21,7 @@ new versioned entry there, not by editing a script.
 
 ## 1. Build the binary (once; needs the founder's EAS login)
 
-`runtimeVersion` in `apps/mobile/app.json` is `0.1.0-native7` today. One fresh native build must exist for it. It carries SQLCipher, NetInfo,
+`runtimeVersion` in `apps/mobile/app.json` is `0.1.0-native8` today. One fresh native build must exist for it. It carries SQLCipher, NetInfo,
 the exact-alarm Kotlin module and the boot permission. An OTA update cannot deliver any of these.
 
 ```bash
@@ -111,4 +111,4 @@ For each: reminder delivered on time with the app closed, delivered after reboot
 2. **S06x acceptance** (`docs/design/S06x.md` section on what is not measured, and `docs/S06X_DEVICE_CHECKLIST.md`): fill the table in the checklist from the reports. A cell is "met" only where the report says PASS on a real phone with a release build. Anything "not measured" stays UNMEASURED. Then append a dated entry to `docs/BUILD-PROGRESS.md` under S06x with the numbers and what was fixed.
 3. **S08x acceptance and OQ-73** (`docs/design/S08x.md` section 4): OQ-73 closes only when the reminder-after-reboot and exact-alarm checks above pass on both Android floor phones, or the ones that fail are written up with the maker setting that fixes them. Record per phone: permission flow on that Android version, boot reschedule, Doze delivery, which maker screens exist.
 4. Anything that misses a budget gets a follow-up item (the budgets are report only, so a miss is a finding to fix, not a blocked release). Anything that cannot be measured with this harness gets a line saying why.
-5. The three founder-side items still open for this run: the phones (D8), the `eas build` for `0.1.0-native7`, and a test account.
+5. The three founder-side items still open for this run: the phones (D8), the `eas build` for the current runtimeVersion, and a test account.

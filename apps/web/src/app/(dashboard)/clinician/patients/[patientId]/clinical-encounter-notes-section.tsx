@@ -21,6 +21,7 @@ import { PatientIdentityConfirm } from "@/components/patient-identity-confirm";
 import { ConsultationFollowUpsPanel } from "./consultation-follow-ups-panel";
 import { VisitSummaryPanel } from "./visit-summary-panel";
 import { ScribePanel, type ScribeDraftResult } from "@/components/scribe";
+import { OmissionPanel } from "@/components/copilot/omission-panel";
 import { attachScribeDraftToNote, confirmScribeSafetyLines, recordScribeReview, recordScribeSignedDiff } from "@/lib/scribe/actions";
 import { buildSignedDiff } from "@/lib/scribe/draft-diff";
 import { SafetyLinesPanel } from "@/components/scribe/safety-lines-panel";
@@ -621,6 +622,8 @@ function DraftNoteCard({
           diagnosisCode={{ value: diagnosisCode, onChange: (value) => { setDiagnosisCode(value); setCodeError(null); }, problem: !codeCheck.ok, amends: Boolean(note.amends_note_id) }}
         />
         {codeError && <p className="text-sm text-red-600">{codeError}</p>}
+        {/* S89: flags only, never blocks signing; renders nothing while copilot.omission_panel_enabled is off (the default). */}
+        <OmissionPanel patientId={patientId} draftText={[fields.history, fields.examinationFindings, fields.assessment, fields.plan, fields.followUpInstructions].join("\n")} />
         {scribeAvailable && (
           <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
             <ScribePanel
@@ -629,7 +632,7 @@ function DraftNoteCard({
               patientContext={ageYears !== undefined && ageYears >= 0 && ageYears <= 130 ? { age: ageYears } : undefined}
               onUseDraft={applyScribeDraft}
             />
-            {scribe && <p className="text-xs text-charcoal-ink/50">AI-drafted text is in the fields above. It is yours to edit; nothing is saved until you save or sign.</p>}
+            {scribe && <p className="text-xs text-charcoal-ink/50">The AI wrote the text in the fields above. It is yours to edit; nothing is saved until you save or sign.</p>}
           </div>
         )}
         {aiDrafted && (

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { AI_LABEL_TEXT } from "@tarragon/i18n";
 import type { CoachChatMessage, CoachSource } from "@tarragon/shared";
 import {
   COACH_DISCLAIMER,
@@ -223,6 +224,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
         {/* S52 (7.8): the emergency button is on every assistant screen, always visible, never behind a guard */}
         <EmergencyBlock patientId={patientId} />
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>AI Health Coach</Text>
+        <MutedText>{AI_LABEL_TEXT.coach}</MutedText>
         <MutedText>Ask me anything about your health. I&apos;m here to help you understand what to do next.</MutedText>
       </View>
 

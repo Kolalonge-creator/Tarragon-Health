@@ -1,12 +1,13 @@
 "use client";
 
+import { AiLabel } from "@/components/ai/ai-label";
 import { useMemo, useState } from "react";
 import { t } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { editTelemetryFromPairs, type EditTelemetry } from "@/lib/ai-text/ai-spans";
 import { splitEntities } from "@/lib/scribe/entity-highlight";
 import { matchSentences, sentenceKey, visitLines, type SentenceSupport } from "@/lib/scribe/support-match";
 import { ProblemReportForm, type ProblemReportInput } from "./problem-report-form";
@@ -41,7 +42,10 @@ interface DraftReviewPanelProps {
   sourceText?: string;
   /** Records a "report a problem" submission; returns true when it was recorded. */
   onReport?: (report: ProblemReportInput) => Promise<boolean>;
-  onUse: (draft: DraftSection, patientSummary: string) => void;
+  /** The third argument is the browser-side edit-rate figure for this review (S89): computed from what the clinician changed, never sent by this panel. */
+  onUse: (draft: DraftSection, patientSummary: string, telemetry: EditTelemetry) => void;
+  /** S89: the clinician must tick "I reviewed this draft against the record" before using the draft. Default true. */
+  requireAttestation?: boolean;
   onDiscard: () => void;
 }
 
@@ -54,11 +58,20 @@ function removeSentence(text: string, sentence: string): string {
  * The AI draft, held in the browser only. "Use in note" hands it to the note form, which is where the clinician edits,
  * saves and signs it. Nothing is written to the patient record from here (INV-11).
  */
-export function DraftReviewPanel({ draft, patientSummary, warnings = [], sourceText, onReport, onUse, onDiscard }: DraftReviewPanelProps) {
+export function DraftReviewPanel({ draft, patientSummary, warnings = [], sourceText, onReport, onUse, onDiscard, requireAttestation = true }: DraftReviewPanelProps) {
   const [fields, setFields] = useState({ ...draft, patientSummary });
   const [confirmed, setConfirmedState] = useState<Confirmations>({});
   const [edited, setEdited] = useState<Partial<Record<DraftSectionKey, boolean>>>({});
+  const [attested, setAttested] = useState(false);
   const remaining = unconfirmed(confirmed).length;
+  const original = { ...draft, patientSummary };
+
+  /** Not reviewed: still exactly the model's text and not confirmed. Edited: changed from the model's text. Confirmed: ticked as read. */
+  function sectionState(key: keyof typeof fields): "not_reviewed" | "edited" | "confirmed" | "empty" {
+    if (isEmptySection(fields[key]) && !confirmed[key]) return "empty";
+    if (confirmed[key]) return "confirmed";
+    return fields[key] === original[key] ? "not_reviewed" : "edited";
+  }
   // Sentences the clinician decided to keep on purpose, keyed by section and sentence text. Editing a sentence changes its key, so a kept
   // decision never carries over to different words.
   const [kept, setKept] = useState<Record<string, true>>({});
@@ -91,7 +104,7 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], sourceT
       <CardHeader>
         <div className="flex items-center gap-2">
           <CardTitle className="text-base">{t("scribe.draft.heading", "en")}</CardTitle>
-          <Badge variant="amber">Draft</Badge>
+          <AiLabel variant={remaining === 0 ? "drafted" : "unreviewed"} tone="amber" />
         </div>
         <p className="text-xs text-charcoal-ink/50">{t("scribe.draft.disclaimer", "en")}</p>
         <p className="rounded-md bg-amber-50 p-2 text-xs text-charcoal-ink">{t("scribe.review.look_for", "en")}</p>
@@ -121,14 +134,24 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], sourceT
         <p className="inline-block rounded border border-amber-400 bg-amber-50 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-800" data-testid="watermark">{t("scribeui.watermark", "en")}</p>
         {sections.map(({ key, label }) => (
           <div key={key}>
-            <Label>{label}</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor={`scribe-section-${key}`}>{label}</Label>
+              {/* The state is a word as well as a colour, so it never depends on colour to be understood. */}
+              <span className="text-xs text-charcoal-ink/70" data-section-state={sectionState(key)}>
+                {sectionStateWord(sectionState(key))}
+              </span>
+            </div>
             <Textarea
+              id={`scribe-section-${key}`}
               value={fields[key]}
               onChange={(e) => {
                 setFields((prev) => ({ ...prev, [key]: e.target.value }));
                 if (confirmed[key]) setEdited((prev) => ({ ...prev, [key]: true }));
                 setConfirmedState((prev) => afterEdit(prev, key));
+                setAttested(false);
               }}
+              // Text still exactly as the model wrote it and not yet confirmed: marked as AI-inserted and unreviewed.
+              className={sectionState(key) === "not_reviewed" ? "ring-1 ring-amber-300 bg-amber-50/50" : undefined}
               rows={key === "patientSummary" ? 4 : 3}
             />
             <EntityCheck text={fields[key]} />
@@ -215,10 +238,16 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], sourceT
             {t("scribeui.support.unresolved", "en", { count: unresolvedTotal })}
           </p>
         )}
+        {requireAttestation && (
+          <label className="flex items-center gap-2 text-xs text-charcoal-ink">
+            <input type="checkbox" checked={attested} onChange={(e) => setAttested(e.target.checked)} />
+            I reviewed this draft against the record
+          </label>
+        )}
         <div className="flex gap-3">
           <Button
             size="sm"
-            disabled={!canUseDraft(confirmed) || unresolvedTotal > 0}
+            disabled={!canUseDraft(confirmed) || unresolvedTotal > 0 || (requireAttestation && !attested)}
             onClick={() =>
               onUse(
                 {
@@ -228,7 +257,8 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], sourceT
                   plan: fields.plan,
                   followUp: fields.followUp,
                 },
-                fields.patientSummary
+                fields.patientSummary,
+                editTelemetryFromPairs((Object.keys(original) as (keyof typeof original)[]).map((k) => ({ original: original[k], final: fields[k] }))),
               )
             }
           >
@@ -243,6 +273,10 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], sourceT
       </CardContent>
     </Card>
   );
+}
+
+function sectionStateWord(state: "not_reviewed" | "edited" | "confirmed" | "empty"): string {
+  return { not_reviewed: "AI text, not reviewed", edited: "Edited, not yet confirmed", confirmed: "Confirmed", empty: "Empty, not yet confirmed" }[state];
 }
 
 /**

@@ -391,6 +391,7 @@ export function getNavSections(
                 { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
                 { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
                 { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+                { label: "Partner chase list", href: "/admin/ops/directory-chase", icon: "review" },
                 { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
                 { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
                 { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
@@ -685,6 +686,7 @@ export function getNavSections(
                 // Audits of completed clinical work and hand-back reviews (S36c). CMO only; the page redirects anyone below that tier.
                 { label: "Quality and safety", href: "/clinician/quality", icon: "review" },
                 { label: "AI answer review", href: "/clinician/ai-review", icon: "review" },
+                { label: "Content review backlog", href: "/clinician/content-review-backlog", icon: "review" },
                 { label: "AI monitoring", href: "/clinician/ai-monitoring", icon: "governance" },
                 { label: "Research protocols", href: "/clinician/research", icon: "governance" },
                 // Every clinician with status, licence, competencies; decide competency grants and reinstatements, pause someone (S36d). CMO only; the page redirects others.
@@ -759,6 +761,7 @@ export function getNavSections(
                 { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
                 { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
                 { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+                { label: "Partner chase list", href: "/admin/ops/directory-chase", icon: "review" },
                 { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
                 { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
                 { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
@@ -822,12 +825,14 @@ export function getNavSections(
             { label: "Export outcomes", href: "/admin/outcomes/export", icon: "analytics" },
             // Programme codes for insurers, employers and NGOs, and their aggregate group figures (S38e).
             { label: "Sponsors", href: "/admin/sponsors", icon: "members" },
+            { label: "Institution console", href: "/admin/sponsors/institution", icon: "members" },
             { label: "Triage agreement", href: "/admin/triage-agreement", icon: "analytics" },
             // Fee schedules, what contracted clinicians have earned, adjustments (S30).
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
             { label: "Earnings questions", href: "/admin/earnings/disputes", icon: "analytics" },
             { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
             { label: "Money reconciliation", href: "/finance/money-reconciliation", icon: "analytics" },
+            { label: "Settlement tie-out", href: "/finance/settlement-tieout", icon: "analytics" },
             // How each laboratory, pharmacy and clinic is doing; pause or reinstate from new work (S74).
             { label: "Partner quality", href: "/admin/partner-quality", icon: "governance" },
             // Samples in flight, delays, rejected samples and re-collections per laboratory (S27h).
@@ -850,6 +855,7 @@ export function getNavSections(
             { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
             { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+                { label: "Partner chase list", href: "/admin/ops/directory-chase", icon: "review" },
             { label: "Automations", href: "/admin/ops/automations", icon: "settings" },
             { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
             { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
@@ -957,6 +963,7 @@ export function getNavSections(
             { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
             { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+                { label: "Partner chase list", href: "/admin/ops/directory-chase", icon: "review" },
             { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
             { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
             { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
@@ -1012,6 +1019,7 @@ export function getNavSections(
             { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
             { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+                { label: "Partner chase list", href: "/admin/ops/directory-chase", icon: "review" },
             { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
             { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
             { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
