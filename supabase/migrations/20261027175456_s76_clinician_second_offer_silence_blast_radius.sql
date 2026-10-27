@@ -278,9 +278,9 @@ begin
       from public.chronic_programme_enrolments e join public.profiles p on p.id = e.patient_id
      where e.status = 'enrolled' and e.enrolled_at <= now() - make_interval(days => v_days)
        and p.role = 'patient' and p.is_active
-       and not exists (select 1 from public.vitals_readings v where v.patient_id = e.patient_id and v.superseded_by_id is null
+       and not exists (select 1 from private.vitals_readings_current v where v.patient_id = e.patient_id
                         and v.taken_at >= now() - make_interval(days => v_days))
-       and (select count(*) from public.vitals_readings v where v.patient_id = e.patient_id and v.superseded_by_id is null
+       and (select count(*) from private.vitals_readings_current v where v.patient_id = e.patient_id
                 and v.taken_at >= now() - make_interval(days => v_look) and v.taken_at < now() - make_interval(days => v_days)) >= v_prior
        and not exists (select 1 from public.clinical_tasks t where t.patient_id = e.patient_id and t.type = 'silence_check' and t.state not in ('completed', 'cancelled'))
        and not exists (select 1 from public.clinical_tasks t where t.patient_id = e.patient_id and t.type = 'silence_check'
@@ -324,8 +324,8 @@ begin
       select v.patient_id,
              bool_or(v.%1$I %2$s $1) as cur_flag,
              bool_or(v.%1$I %2$s $2) as prop_flag
-        from public.vitals_readings v join public.profiles p on p.id = v.patient_id
-       where p.organisation_id = $3 and v.superseded_by_id is null and v.%1$I is not null
+        from private.vitals_readings_current v join public.profiles p on p.id = v.patient_id
+       where p.organisation_id = $3 and v.%1$I is not null
          and v.taken_at >= now() - make_interval(days => $4)
          and ($5 or not p.is_test)
        group by v.patient_id)
