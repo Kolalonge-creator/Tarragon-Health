@@ -126,7 +126,8 @@ begin
   begin update public.institution_programme_configs set pathways = array['hypertension'] where id = v_id; perform pg_temp.rec('1n a stored request cannot be edited', 'edited', 'refused');
   exception when sqlstate 'P0001' then perform pg_temp.rec('1n a stored request cannot be edited', 'refused', 'refused'); end;
   r := pg_temp.call_as(cs, 'select public.institution_config_current()');
-  perform pg_temp.rec('1o the screen lists what exists and the requests, with the services on offer', (jsonb_array_length(r -> 'requests') = 2 and jsonb_array_length(r -> 'items') = 2)::text, 'true');
+  perform pg_temp.rec('1o the screen lists the requests and only ACTIVE services on offer (the inactive fixture items are not offered)', (jsonb_array_length(r -> 'requests') = 2 and jsonb_typeof(r -> 'items') = 'array'
+      and not exists (select 1 from jsonb_array_elements(r -> 'items') e where e ->> 'code' like 's79\_%'))::text, 'true');
 
   -- =============================== 2. Usage ===============================
   -- a programme, one lab panel line used by six different people (five after the refund: shown at a floor of 5), one consult used by one person (folded)
