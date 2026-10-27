@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { recordCaseBriefFeedback } from "@/lib/case-briefs/feedback-actions";
-import { BRIEF_FEEDBACK_LABEL, BRIEF_FEEDBACK_VALUES, type BriefFeedback } from "@/lib/clinician/override-reasons";
+import { t } from "@tarragon/i18n";
+import { BRIEF_FEEDBACK_LABEL_KEY, BRIEF_FEEDBACK_VALUES, type BriefFeedback } from "@/lib/clinician/override-reasons";
 
 /**
  * W-02: three buttons under an AI-drafted case brief (useful, not safe, missing something). Not mounted yet: it is added to the brief card
@@ -20,16 +21,16 @@ export function CaseBriefFeedback({ briefId }: { briefId: string }) {
     else setFailed(true);
   }
 
-  if (sent) return <p role="status" className="text-xs text-charcoal-ink/60">Thank you. Your view helps us check our own summaries.</p>;
+  if (sent) return <p role="status" className="text-xs text-charcoal-ink/60">{t("override.brief.thanks", "en")}</p>;
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="case-brief-feedback">
-      <span className="text-xs text-charcoal-ink/60">How was this summary?</span>
+      <span className="text-xs text-charcoal-ink/60">{t("override.brief.prompt", "en")}</span>
       {BRIEF_FEEDBACK_VALUES.map((v) => (
         <Button key={v} type="button" size="sm" variant="outline" onClick={() => send(v)}>
-          {BRIEF_FEEDBACK_LABEL[v]}
+          {t(BRIEF_FEEDBACK_LABEL_KEY[v], "en")}
         </Button>
       ))}
-      {failed && <span role="alert" className="text-xs text-red-600">That could not be saved. The case is not affected.</span>}
+      {failed && <span role="alert" className="text-xs text-red-600">{t("override.brief.failed", "en")}</span>}
     </div>
   );
 }

@@ -145,12 +145,23 @@ export function useOverrideAlertLevel() {
       alertId: string;
       overrideLevel: EscalationLevel;
       overrideReason: string;
-      overrideReasonCode: OverrideReasonCode;
+      /** Optional until the CMO approves the code list; never blocks the override. */
+      overrideReasonCode?: OverrideReasonCode | null;
     }) => {
       const supabase = createClient();
+      // W-02: the override goes through public.override_alert_level, which also records the optional code in an append-only event row.
+      // If the function is not there yet (an older database), fall back to the plain update this used to be, without the code.
+      const viaRpc = await (supabase as unknown as RpcClient).rpc("override_alert_level", {
+        p_alert: alertId,
+        p_level: overrideLevel,
+        p_reason: overrideReason,
+        ...(overrideReasonCode ? { p_code: overrideReasonCode } : {}),
+      });
+      if (!viaRpc.error) return;
+      if (!isMissingFunction(viaRpc.error)) throw viaRpc.error;
       const { error } = await supabase
         .from("clinician_alerts")
-        .update({ override_level: overrideLevel, override_reason: overrideReason, override_reason_code: overrideReasonCode })
+        .update({ override_level: overrideLevel, override_reason: overrideReason })
         .eq("id", alertId);
       if (error) throw error;
     },
@@ -159,6 +170,13 @@ export function useOverrideAlertLevel() {
       queryClient.invalidateQueries({ queryKey: ["escalations"] });
     },
   });
+}
+
+type RpcClient = { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ error: { code?: string; message?: string } | null }> };
+
+/** PostgREST reports an unknown function as PGRST202 (not in the schema cache) and Postgres as 42883. */
+export function isMissingFunction(error: { code?: string; message?: string }): boolean {
+  return error.code === "PGRST202" || error.code === "42883" || /could not find the function/i.test(error.message ?? "");
 }
 
 /** Clears a previously-set override, reverting display to the system's own classification. */

@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import type { EscalationLevel } from "@tarragon/shared";
 import { t } from "@tarragon/i18n";
-import { OVERRIDE_REASON_CODES, OVERRIDE_REASON_LABEL, type OverrideReasonCode } from "@/lib/clinician/override-reasons";
+import { OVERRIDE_REASON_CODES, OVERRIDE_REASON_LABEL_KEY, type OverrideReasonCode } from "@/lib/clinician/override-reasons";
 
 const LEVEL_OPTIONS: EscalationLevel[] = ["routine", "clinician_review", "urgent_escalation", "emergency"];
 
@@ -101,7 +101,7 @@ export function AlertOverrideControl({
         <option value="">{t("override.choose", "en")}</option>
         {OVERRIDE_REASON_CODES.map((c) => (
           <option key={c} value={c}>
-            {OVERRIDE_REASON_LABEL[c]}
+            {t(OVERRIDE_REASON_LABEL_KEY[c], "en")}
           </option>
         ))}
       </Select>
@@ -117,10 +117,10 @@ export function AlertOverrideControl({
       <div className="flex gap-2">
         <Button
           size="sm"
-          disabled={override.isPending || reason.trim().length === 0 || code === ""}
+          disabled={override.isPending || reason.trim().length === 0}
           onClick={() =>
             override.mutate(
-              { alertId, overrideLevel: level, overrideReason: reason.trim(), overrideReasonCode: code as OverrideReasonCode },
+              { alertId, overrideLevel: level, overrideReason: reason.trim(), overrideReasonCode: code === "" ? null : code },
               {
                 onSuccess: () => {
                   setIsOpen(false);

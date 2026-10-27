@@ -1614,4 +1614,5 @@ w25_measurement_context.sql
 # W-40 restore drills record: admin only (clinician and anon shut out); an open drill changes only its finishing columns; a finished or voided drill is immutable for every role including the owner; nothing deletes; a mistake is voided only through void_restore_drill (admin, 20+ char reason, audited); restore_drill_status ignores voided drills. Sabotage: guard trigger dropped (column lock, finished-row immutability and no-delete flip), insert policy opened, status redefined to ignore voids; each must flip.
 w40_restore_drills.sql
 # W-02 override reason codes: coded task reasons and case brief feedback, own read plus CMO read, CMO-only counts. Sabotage: claimed_by check and CMO check removed; both must flip.
+# W-02 override reason codes: override_alert_level with append-only events, claim-history task reasons, relationship-checked brief feedback, owner-only raw rows, CMO count functions (groups of 3+). Sabotage: override update, claim history, relationship check, CMO check, minimum group size each removed.
 w02_override_reason_codes.sql

@@ -13403,7 +13403,6 @@ export type Database = {
           overridden_by: string | null
           override_level: Database["public"]["Enums"]["alert_level"] | null
           override_reason: string | null
-          override_reason_code: Database["public"]["Enums"]["override_reason_code"] | null
           patient_id: string
           protocol_scope_exceeded: boolean
           protocol_scope_exceeded_at: string | null
@@ -13464,7 +13463,6 @@ export type Database = {
           overridden_by?: string | null
           override_level?: Database["public"]["Enums"]["alert_level"] | null
           override_reason?: string | null
-          override_reason_code?: Database["public"]["Enums"]["override_reason_code"] | null
           patient_id: string
           protocol_scope_exceeded?: boolean
           protocol_scope_exceeded_at?: string | null
@@ -13513,7 +13511,6 @@ export type Database = {
           overridden_by?: string | null
           override_level?: Database["public"]["Enums"]["alert_level"] | null
           override_reason?: string | null
-          override_reason_code?: Database["public"]["Enums"]["override_reason_code"] | null
           patient_id?: string
           protocol_scope_exceeded?: boolean
           protocol_scope_exceeded_at?: string | null
