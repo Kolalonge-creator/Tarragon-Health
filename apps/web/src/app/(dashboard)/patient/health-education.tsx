@@ -39,6 +39,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { t } from "@tarragon/i18n";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
@@ -46,6 +47,11 @@ import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
 import { LearningItemFooter } from "@/components/learning/learning-item-footer";
 import { useHealthEducationItemTrust } from "@/lib/queries/learning-centre";
 import { WeeklyLessonCard } from "@/components/learning/weekly-lesson-card";
+import { RecordLessonCard } from "@/components/learning/record-lesson-card";
+import { GlossaryText } from "@/components/learning/glossary-text";
+import { PortionGuideView } from "@/components/learning/portion-guide-view";
+import { TeachbackQuiz } from "@/components/learning/teachback-quiz";
+import { isPortionGuideBody, portionAudienceFor } from "@tarragon/shared";
 import { LearningSearch } from "@/components/learning/learning-search";
 
 const CONDITION_LABEL: Record<string, string> = {
@@ -338,9 +344,17 @@ function ContentDetailBody({
           Your browser does not support inline audio.
         </audio>
       )}
-      <div className="whitespace-pre-line text-sm leading-relaxed text-charcoal-ink/90 dark:text-night-ink/90">
-        {item.body}
-      </div>
+      {isPortionGuideBody(item.body) ? (
+        <PortionGuideView
+          body={item.body}
+          audience={portionAudienceFor("category" in item ? item.category : null, "condition" in item ? item.condition : null)}
+        />
+      ) : (
+        <GlossaryText
+          text={item.body}
+          className="whitespace-pre-line text-sm leading-relaxed text-charcoal-ink/90 dark:text-night-ink/90"
+        />
+      )}
 
       {questions ? (
         <KnowledgeCheck
@@ -371,6 +385,8 @@ function ContentDetailBody({
       {mark.isError && (
         <p className="text-xs text-red-600 dark:text-red-300">Could not save your progress. Try again.</p>
       )}
+
+      <TeachbackQuiz code={item.code} />
 
       <SetGoalFromLesson item={item} patientId={patientId} organisationId={organisationId} />
       <ContentFeedback contentId={item.content_id} patientId={patientId} organisationId={organisationId} />
@@ -829,9 +845,17 @@ export function CategoryDetail({
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600 dark:text-red-300">Could not load this topic right now.</p>}
         {data && items.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-            {query ? "Nothing matches that search." : "Nothing here yet."}
-          </p>
+          <div className="space-y-1 text-sm text-charcoal-ink/60 dark:text-night-ink/60" data-testid="topic-empty-state">
+            {query ? (
+              <p>Nothing matches that search.</p>
+            ) : (
+              <>
+                {/* Calm, not an error: a topic can be empty because every item in it is waiting for its next review. */}
+                <p className="font-medium text-charcoal-ink/80 dark:text-night-ink/80">{t("learn.empty.title")}</p>
+                <p>{t("learn.empty.body")}</p>
+              </>
+            )}
+          </div>
         )}
         {items.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
@@ -877,6 +901,7 @@ export function HealthEducationLibrary({
   return (
     <div className={cn("space-y-6")}>
       <WeeklyLessonCard patientId={patientId} organisationId={organisationId} />
+      <RecordLessonCard patientId={patientId} />
       <LearningSearch />
       <RecommendationsBanner patientId={patientId} />
 

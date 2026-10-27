@@ -5,6 +5,7 @@ import { CtaBand } from "../_components/cta-band";
 import { FaqAccordion } from "../_components/marketing-faq-accordion";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { membershipAutoRenews, renewalCopy } from "@/lib/marketing/membership";
 
 
 /**
@@ -81,7 +82,12 @@ const FAQ = [
   },
 ];
 
-export default function MonitoringPage() {
+export const revalidate = 3600;
+
+export default async function MonitoringPage() {
+  const autoRenews = await membershipAutoRenews();
+  // the renewal answer is the one sentence on this page that follows the platform's real renewal switch
+  const faq = FAQ.map((f) => (f.question === "Does Membership renew automatically?" ? { ...f, answer: renewalCopy(autoRenews, 0).monitoringAnswer } : f));
   return (
     <>
       <Section>
@@ -149,7 +155,7 @@ export default function MonitoringPage() {
       <Section variant="sage">
         <SectionHeading eyebrow="Questions people ask" title="Before you decide" />
         <div className="mx-auto max-w-3xl">
-          <FaqAccordion items={FAQ} />
+          <FaqAccordion items={faq} />
         </div>
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/60">
           Managing hypertension or diabetes?{" "}

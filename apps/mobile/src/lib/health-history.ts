@@ -1,0 +1,123 @@
+import { en, t, type MessageKey } from "@tarragon/i18n";
+import { validateFamilyHistory, validateProcedure, type HistoryValidationError } from "@tarragon/shared";
+import { supabase } from "./supabase";
+import { isOffline, readThrough, type ReadResult } from "./passport-cache";
+
+/**
+ * Procedures and family history (S43, spec 2.2) on the phone. Same tables, same RLS and the same removal function as the web page
+ * (apps/web/src/lib/health-history/actions.ts). Reads fall back to the last copy (passport-cache.ts); writes need a connection and say so,
+ * because an entry that looks saved but is not is worse than one that waits: history is not an outbox kind and no treatment depends on it.
+ */
+export interface ProcedureItem {
+  id: string;
+  name: string;
+  approximate_year: number | null;
+  performed_on: string | null;
+  facility: string | null;
+  verified_by_clinician: boolean;
+}
+
+export interface FamilyItem {
+  id: string;
+  condition_name: string;
+  relationship: string;
+  age_of_onset_years: number | null;
+  verified_by_clinician: boolean;
+}
+
+export interface HistoryData {
+  procedures: ProcedureItem[];
+  family: FamilyItem[];
+}
+
+export const historyCacheKey = (subjectId: string) => `history:${subjectId}`;
+
+/**
+ * `own` is true when the signed-in person is reading their own record. Only then is a copy kept on the phone: a supporter reads live and keeps
+ * nothing, because the person can withdraw access and a saved copy would outlive it. Family history is readable by its owner alone (the database
+ * policy), so for a supporter it is not asked for and the screen says it is private rather than showing an empty list.
+ */
+export function loadHistory(subjectId: string, own: boolean): Promise<ReadResult<HistoryData>> {
+  return readThrough(historyCacheKey(subjectId), async () => {
+    const [procedures, family] = await Promise.all([
+      supabase
+        .from("procedures")
+        .select("id, name, approximate_year, performed_on, facility, verified_by_clinician")
+        .eq("patient_id", subjectId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      own
+        ? supabase
+            .from("family_history")
+            .select("id, condition_name, relationship, age_of_onset_years, verified_by_clinician")
+            .eq("patient_id", subjectId)
+            .order("created_at", { ascending: false })
+            .limit(100)
+        : Promise.resolve({ data: [] as FamilyItem[], error: null }),
+    ]);
+    if (procedures.error) return { ok: false, error: procedures.error };
+    if (family.error) return { ok: false, error: family.error };
+    return { ok: true, data: { procedures: (procedures.data ?? []) as ProcedureItem[], family: (family.data ?? []) as FamilyItem[] } };
+  }, { keep: own });
+}
+
+/** A rough year is shown as the year only, because many people remember nothing more. */
+export function procedureWhen(p: Pick<ProcedureItem, "performed_on" | "approximate_year">): string {
+  // A date-only value is read as text: parsing it as a Date and asking for the local year would shift 1 January in zones behind UTC.
+  const fromDate = p.performed_on ? /^(\d{4})/.exec(p.performed_on)?.[1] : undefined;
+  if (fromDate) return fromDate;
+  return p.approximate_year ? String(p.approximate_year) : "";
+}
+
+export type WriteResult = { ok: true } | { ok: false; reason: "offline" | "failed" | HistoryValidationError };
+
+interface WriteContext {
+  userId: string;
+  organisationId: string;
+}
+
+/** A retry of the same entry must not make a second row. The screen passes one id per distinct entry; a unique-violation on retry means the first attempt did land. */
+const DUPLICATE = "23505";
+
+export async function addProcedure(input: { name: string; year?: string; facility?: string }, ctx: WriteContext, id?: string): Promise<WriteResult> {
+  const v = validateProcedure(input);
+  if (!v.ok) return { ok: false, reason: v.error };
+  const { error } = await supabase.from("procedures").insert({
+    ...(id ? { id } : {}),
+    organisation_id: ctx.organisationId,
+    patient_id: ctx.userId,
+    name: v.value.name,
+    approximate_year: v.value.year,
+    facility: v.value.facility,
+  });
+  if (error && error.code !== DUPLICATE) return { ok: false, reason: isOffline(error) ? "offline" : "failed" };
+  return { ok: true };
+}
+
+export async function addFamilyHistory(input: { condition: string; relationship: string; onsetAge?: string }, ctx: WriteContext, id?: string): Promise<WriteResult> {
+  const v = validateFamilyHistory(input);
+  if (!v.ok) return { ok: false, reason: v.error };
+  const { error } = await supabase.from("family_history").insert({
+    ...(id ? { id } : {}),
+    organisation_id: ctx.organisationId,
+    patient_id: ctx.userId,
+    condition_name: v.value.condition,
+    relationship: v.value.relationship,
+    age_of_onset_years: v.value.onsetAge,
+  });
+  if (error && error.code !== DUPLICATE) return { ok: false, reason: isOffline(error) ? "offline" : "failed" };
+  return { ok: true };
+}
+
+/** Removal is a tombstone in the database, never a silent delete: a clinician-confirmed item stays in the record for audit. */
+export async function removeHistoryItem(kind: "procedure" | "family_history", id: string): Promise<WriteResult> {
+  const { error } = await supabase.rpc("remove_history_item", { p_kind: kind, p_id: id });
+  if (error) return { ok: false, reason: isOffline(error) ? "offline" : "failed" };
+  return { ok: true };
+}
+
+/** A relative as the person would say it. An older row may hold a word outside the list; it is shown plainly, never as a missing label. */
+export function relativeLabel(relationship: string): string {
+  const key = `mpass.relative.${relationship}`;
+  return Object.hasOwn(en, key) ? t(key as MessageKey) : relationship.replace(/_/g, " ");
+}

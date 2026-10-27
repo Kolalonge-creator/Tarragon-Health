@@ -2,3 +2,8 @@ export * from "./search";
 export * from "./expiry";
 export * from "./pack";
 export * from "./next-step";
+export * from "./reading-grade";
+export * from "./record-lesson";
+export * from "./glossary";
+export * from "./portion-guide";
+export * from "./teachback";

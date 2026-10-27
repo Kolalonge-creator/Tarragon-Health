@@ -28,6 +28,8 @@ export interface HistoryReading {
   diastolic: number;
   takenAt: string;
   source: ReadingSource;
+  /** S07y: null for an ordinary reading; pharmacy_machine or paper_diary says where it was taken. Shown as a label, never hidden. */
+  entryOrigin?: string | null;
   syncState: SyncState;
   /** Shown for a reading that was not accepted, so support can find it. */
   supportCode?: string;
@@ -178,6 +180,7 @@ export interface ServerBpRow {
   taken_at: string;
   source: string | null;
   client_reading_id?: string | null;
+  entry_origin?: string | null;
 }
 
 export interface QueuedBp {
@@ -187,6 +190,8 @@ export interface QueuedBp {
   diastolic: number;
   clientRecordedAt: string;
   supportCode: string;
+  /** S07y: the label the person ticked on a reading still waiting on the phone. */
+  entryOrigin?: string | null;
 }
 
 const sourceOf = (s: string | null): ReadingSource =>
@@ -201,7 +206,7 @@ export function mergeReadings(server: readonly ServerBpRow[], queued: readonly Q
   const onServer = new Set(server.map((r) => r.client_reading_id).filter((id): id is string => !!id));
   const sent: HistoryReading[] = server
     .filter((r): r is ServerBpRow & { systolic: number; diastolic: number } => r.systolic !== null && r.diastolic !== null)
-    .map((r) => ({ id: r.id, systolic: r.systolic, diastolic: r.diastolic, takenAt: r.taken_at, source: sourceOf(r.source), syncState: "sent" }));
+    .map((r) => ({ id: r.id, systolic: r.systolic, diastolic: r.diastolic, takenAt: r.taken_at, source: sourceOf(r.source), entryOrigin: r.entry_origin ?? null, syncState: "sent" }));
   const waiting: HistoryReading[] = queued
     .filter((q) => (q.state === "pending" || q.state === "rejected") && !onServer.has(q.clientId))
     .map((q) => ({
@@ -210,6 +215,7 @@ export function mergeReadings(server: readonly ServerBpRow[], queued: readonly Q
       diastolic: q.diastolic,
       takenAt: q.clientRecordedAt,
       source: "manual",
+      entryOrigin: q.entryOrigin ?? null,
       syncState: q.state === "rejected" ? "not_accepted" : "on_phone",
       ...(q.state === "rejected" ? { supportCode: q.supportCode } : {}),
     }));

@@ -9,6 +9,7 @@ import { CheckMyPack } from "@/app/(dashboard)/patient/check-my-pack";
 import { LabMonitoringCard } from "@/app/(dashboard)/patient/lab-monitoring-card";
 import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
+import { MyDayCard } from "@/app/(dashboard)/patient/my-day-card";
 import { CareChangeCard } from "@/app/(dashboard)/patient/care-change-card";
 import { LowCarbLink } from "@/app/(dashboard)/patient/lowcarb/lowcarb-link";
 import { LoadErrorCard } from "@/components/ui/load-error-card";
@@ -42,6 +43,7 @@ export default async function PatientMedicationsPage() {
 
         <div className="space-y-4">
           <TodaysDoses patientId={subjectId} />
+          <MyDayCard patientId={subjectId} />
           <MedicationReconciliationConfirm patientId={subjectId} />
           <AdherenceCheckins patientId={subjectId} />
           {/* Patients buy from any pharmacy now, so nobody here sees the box.

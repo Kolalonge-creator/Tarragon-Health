@@ -82,6 +82,18 @@ text throughout.
 
 *(Full hex values for Sprout Gold, Soft Sage, Warm Ivory, Charcoal Ink, and Deep Forest are defined in the project's existing CSS design-token file — pull from there, don't re-derive.)*
 
+**Added 2026-10-26 — the accent button.** Tarragon Green is the brand colour, so a green button
+on a green-heavy page (or on a dark photo hero) has no contrast against its surroundings, and a
+competitor review (Omada, Dario and Reliance all use a contrasting accent for the main action)
+found this was the site's weakest conversion cue. Rule: **Tarragon Green stays the default
+button everywhere. Sprout Gold, with Charcoal Ink text, is the single accent button per view**,
+used for (1) the primary conversion on a photographic or dark hero and (2) the Membership/upgrade
+prompt, which is exactly the "upgrade prompts, premium moments" use this palette already assigns
+it. White text on Sprout Gold fails contrast (about 2.7:1); Charcoal Ink on it clears 6.5:1 (about 6.7:1), so
+never put white text on it. Never use gold for anything that signals a problem, and never use
+amber or red for a button at all: those are clinical-status colours (below). In code:
+`<Button variant="accent">` in `packages/ui`.
+
 ### Clinical status colours — a SEPARATE system, never confuse with brand colour
 A 5-state system powers patient/family/clinician dashboards: **Green** (normal/on-track) · **Amber** (borderline/needs attention) · **Red** (abnormal/urgent — reserved strictly for true clinical alerts so it never loses meaning) · **Blue** (informational) · **Grey** (pending/not yet due). Always pair colour with an icon — never colour alone (colour-blind safety).
 

@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "./supabase";
 import { recordSyncError } from "./sync-diagnostics";
 import { classifyFailure } from "./outbox-rules";
-import { countDangerUnsent, countUnsentByOwner, flushOutbox } from "./outbox";
+import { countDangerUnsent, countUnsentByOwner, flushOutboxIncludingHeld } from "./outbox";
 import { flushOfflineQueues } from "./offline-queue";
 import { clearQueueOwner, countQueuedByOwner } from "./offline-queue-store";
 import { destroyStore } from "./secure-db";
@@ -103,7 +103,7 @@ export async function wipeThisPhone(
 ): Promise<{ unsent: number; danger: number }> {
   // 1. The one last upload attempt. A failure here is the expected case for a phone that is offline.
   try {
-    await flushOutbox();
+    await flushOutboxIncludingHeld();
   } catch (error) {
     recordSyncError("offline_outbox", "wipe:lastFlush", error);
   }
@@ -228,7 +228,7 @@ async function sendPendingConfirm(): Promise<void> {
  */
 async function wipeForExpiredLease(state: LeaseState, now: Date): Promise<DeviceCheckOutcome> {
   try {
-    await flushOutbox();
+    await flushOutboxIncludingHeld();
   } catch (error) {
     recordSyncError("offline_outbox", "lease:lastFlush", error);
   }

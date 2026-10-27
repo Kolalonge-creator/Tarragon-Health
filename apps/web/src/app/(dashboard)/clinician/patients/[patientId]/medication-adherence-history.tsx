@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { readMedicationDoseLogAudited } from "@/lib/clinical/dose-log";
+import { privateReasonByLog, readDoseReasonsAudited, reasonLabelFor } from "@/lib/clinical/dose-reasons";
 import { readWeeklyAdherence } from "@/lib/clinical/weekly-adherence";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,11 +22,14 @@ const STATUS_BADGE: Record<string, { variant: "green" | "red" | "amber"; label: 
 export async function MedicationAdherenceHistory({ patientId }: { patientId: string }) {
   const supabase = await createClient();
   // INV-10: the table is closed to staff. A refusal or error shows as "not available", never as "No doses logged yet".
-  const [result, week] = await Promise.all([
+  const [result, week, reasons] = await Promise.all([
     readMedicationDoseLogAudited(supabase, patientId),
     readWeeklyAdherence(supabase, patientId),
+    // S54d: a "ran out, or cannot afford it" reason is kept apart from the dose row; the tied care team reads it through its own audited call.
+    readDoseReasonsAudited(supabase, patientId),
   ]);
   const logs = result.status === "ok" ? result.rows : [];
+  const privateByLog = privateReasonByLog(reasons);
 
   return (
     <Card>
@@ -62,6 +66,16 @@ export async function MedicationAdherenceHistory({ patientId }: { patientId: str
             </>
           )}
         </div>
+        {result.status === "ok" && reasons.status !== "ok" ? (
+          <p className="mb-2 text-xs text-charcoal-ink/60">
+            {reasons.status === "denied"
+              ? "Private reasons for missed doses are not available to you for this patient."
+              : "Private reasons for missed doses could not be loaded just now."}
+          </p>
+        ) : null}
+        {reasons.status === "ok" && reasons.hasMore ? (
+          <p className="mb-2 text-xs text-charcoal-ink/60">Only the most recent private reasons are shown; older ones are not listed here.</p>
+        ) : null}
         {result.status !== "ok" ? (
           <p className="text-sm text-charcoal-ink/60">
             {result.status === "denied"
@@ -91,6 +105,7 @@ export async function MedicationAdherenceHistory({ patientId }: { patientId: str
                       })}
                       {log.logged_by_profile_id ? " · logged by a supporter" : ""}
                       {log.reason ? ` · ${log.reason}` : ""}
+                      {reasonLabelFor(log, privateByLog) ? ` · reason given: ${reasonLabelFor(log, privateByLog)}` : ""}
                     </p>
                   </div>
                   <Badge variant={badge.variant}>{badge.label}</Badge>

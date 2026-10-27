@@ -14,11 +14,16 @@ const ROOT = join(__dirname, "..", "..", "..", "..", "..");
 
 describe("every kind the migration can report has a label and a known owner", () => {
   const sql = readFileSync(join(ROOT, "supabase", "migrations", "20261021110417_money_reconciliation_screen.sql"), "utf8");
-  const kinds = [...sql.matchAll(/select '([a-z_]+)'(?:::text)?, '(?:high|medium)'/g)].map((m) => m[1]);
+  // The two instalment kinds were part of this migration as applied, then removed by the migration that removes pay-in-parts, which patches
+  // them out of the live function. The file stays as history, so the kinds that exist today are the file's kinds minus the removed ones.
+  const removed = readFileSync(join(ROOT, "supabase", "migrations", "20261021183328_remove_membership_instalments.sql"), "utf8");
+  const removedKinds = ["instalment_payment_differs_from_part", "instalment_paid_no_journal"].filter((k) => removed.includes(`select '${k}'`));
+  const kinds = [...sql.matchAll(/select '([a-z_]+)'(?:::text)?, '(?:high|medium)'/g)].map((m) => m[1]).filter((k) => !removedKinds.includes(k));
   const owners = [...new Set([...sql.matchAll(/'(finance|engineering|support)'(?:::text)?, /g)].map((m) => m[1]))];
 
-  it("finds the 29 kinds in the migration", () => {
-    expect(new Set(kinds).size).toBe(29);
+  it("finds the 27 kinds that remain after the instalment kinds were removed", () => {
+    expect(removedKinds).toHaveLength(2);
+    expect(new Set(kinds).size).toBe(27);
   });
   it("labels each one", () => {
     for (const k of kinds) expect(KIND_LABEL[k]).toBeTruthy();

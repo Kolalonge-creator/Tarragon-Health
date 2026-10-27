@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 
-const rpc = jest.fn<(fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }>>();
+const rpc = jest.fn<(fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string; code?: string } | null }>>();
 let user: { id: string } | null = { id: "u1" };
+let subject = "u1";
+jest.mock("@/lib/acting/acting-for", () => ({ resolveSubjectId: async () => subject }));
 jest.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({ auth: { getUser: async () => ({ data: { user } }) }, rpc: (fn: string, a: Record<string, unknown>) => rpc(fn, a) }),
 }));
 import { recordRedCareResponse } from "./red-care-actions";
 
 const EV = "11111111-1111-4111-8111-111111111111";
-beforeEach(() => { rpc.mockReset(); rpc.mockResolvedValue({ error: null }); user = { id: "u1" }; });
+beforeEach(() => { rpc.mockReset(); rpc.mockResolvedValue({ error: null }); user = { id: "u1" }; subject = "u1"; });
 
 describe("recordRedCareResponse", () => {
   it("stores the answer with a client id and returns the same id for a retry", async () => {
@@ -33,5 +35,24 @@ describe("recordRedCareResponse", () => {
     const r = await recordRedCareResponse({ eventId: EV, response: "sought_care" });
     expect(r).toMatchObject({ ok: false, error: "We could not save your answer just now. Please try again." });
     expect(JSON.stringify(r)).not.toContain("relation");
+  });
+
+  it("answers through the for-person function when a caregiver has the person's account open", async () => {
+    subject = "patient-9";
+    const r = await recordRedCareResponse({ eventId: EV, response: "sought_care" });
+    expect(r.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("record_red_care_response_for", { p_patient: "patient-9", p_client_id: r.clientId, p_response: "sought_care", p_emergency_event: EV });
+  });
+  it("keeps the own-account function for the person's own answer", async () => {
+    await recordRedCareResponse({ eventId: EV, response: "sought_care" });
+    expect(rpc.mock.calls[0]?.[0]).toBe("record_red_care_response");
+  });
+  it("tells a caregiver without permission so, in plain words, not as a generic failure", async () => {
+    subject = "patient-9";
+    rpc.mockResolvedValue({ error: { message: "you are not allowed to answer for this person", code: "42501" } });
+    const r = await recordRedCareResponse({ eventId: EV, response: "sought_care" });
+    expect(r).toMatchObject({ ok: false, error: expect.stringContaining("not allowed to answer for this person") });
+    expect(JSON.stringify(r)).not.toContain("42501");
   });
 });

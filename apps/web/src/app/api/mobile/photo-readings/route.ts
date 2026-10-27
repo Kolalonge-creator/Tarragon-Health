@@ -7,6 +7,7 @@ import { photoReadingSchema } from "@/lib/validation/photo-reading";
 import { readDeviceFlags } from "@/lib/devices/flags";
 import { readOutcome } from "@/lib/devices/reading-outcome";
 import type { TablesInsert } from "@tarragon/shared";
+import { assistedRefusalResponse } from "@/lib/vitals/assisted-refusal";
 
 /**
  * Photo reading capture (S70a, 18.3): a reading the person photographed from a device screen and checked digit by digit.
@@ -88,6 +89,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (insertError) {
     // 23505 on vitals_readings_client_dedupe_idx: this exact reading was already saved (an offline-queue retry), an idempotent success.
     if (insertError.code === "23505") return NextResponse.json({ success: true, deduped: true });
+    const refused = assistedRefusalResponse(insertError);
+    if (refused) return NextResponse.json({ error: refused.message }, { status: refused.status });
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 

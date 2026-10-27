@@ -105,6 +105,11 @@ begin
   -- payees must not be test accounts (INV-13): the payout code refuses a test payee, so the payees here are made real for this rolled-back run
   update public.profiles set is_test = false where id in (v_doc, v_doc2, v_admin2);
   update public.clinical_staff set is_test = false where profile_id in (v_doc, v_doc2);
+  -- P4y (OQ-338): the second approver of a batch must be the CMO when the maker is not, so admin2 is the chief medical officer here
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
+      license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
+  values (v_org, v_admin2, 'S31x admin2', 'MDCN', 'S31x-cmo-' || substr(v_admin2::text, 1, 8), true, 'active', now(), v_admin,
+      'chief_medical_officer'::public.doctor_tier, 'contracted'::public.staff_employment_type, 2, true, v_admin, false);
   perform pg_temp.guard_on();
 
   -- 0. Config and flags -----------------------------------------------------------------------------

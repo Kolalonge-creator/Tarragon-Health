@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { asLocale } from "@tarragon/i18n";
+import { runwayBar } from "@tarragon/medicines";
 import { useMyMembership } from "@/lib/queries/commerce";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
 import { stripDoctorTitle } from "@/lib/prescriptions/doctor-name";
@@ -222,6 +224,12 @@ export function MedicationsList({
                       {daysLeftLabel(medication.refill_date)}
                     </p>
                   )}
+                  {medication.refill_date && refillCoordinationEnabled && (
+                    <RunwayBarLine
+                      refillDate={medication.refill_date}
+                      prescriptionId={(medication as { prescription_id?: string | null }).prescription_id ?? null}
+                    />
+                  )}
                   {medication.refill_date && !refillCoordinationEnabled && (
                     <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       Refill coordination is part of a paid plan;{" "}
@@ -428,6 +436,41 @@ function formatCondition(condition: string): string {
     .split("_")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+const EN = asLocale("en");
+
+/**
+ * Item 9: "days of medicine left" as a bar, from the refill date this card already shows (no second calculation), with the one-tap
+ * "choose where to collect" to the existing pharmacy page when the medicine came from a prescription and the date is close. Limits come
+ * from the versioned config mirrored in @tarragon/medicines. Nothing is drawn for an overdue date: the line above already says so.
+ */
+function RunwayBarLine({ refillDate, prescriptionId }: { refillDate: string; prescriptionId: string | null }) {
+  const today = new Date(new Date().toDateString());
+  const target = new Date(new Date(refillDate).toDateString());
+  const bar = runwayBar(Math.round((target.getTime() - today.getTime()) / 86_400_000));
+  if (!bar) return null;
+  const tone = bar.tone === "low" ? "bg-red-600" : bar.tone === "soon" ? "bg-amber-500" : "bg-brand-green";
+  return (
+    <div className="space-y-1">
+      <div
+        role="progressbar"
+        aria-label={t("meds.runway.days_left", EN, { days: bar.daysLeft })}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(bar.fraction * 100)}
+        className="h-2 w-40 overflow-hidden rounded-full bg-charcoal-ink/10"
+      >
+        <div className={`h-2 ${tone}`} style={{ width: `${Math.max(4, Math.round(bar.fraction * 100))}%` }} />
+      </div>
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t("meds.runway.days_left", EN, { days: bar.daysLeft })}</p>
+      {bar.offerCollect && prescriptionId && (
+        <Link className="text-xs underline" href={`/patient/pharmacy/collect/${prescriptionId}`}>
+          {t("meds.runway.choose", EN)}
+        </Link>
+      )}
+    </div>
+  );
 }
 
 /** "· 5 days left" / "· due today" / "· 3 days overdue" for a date string. */

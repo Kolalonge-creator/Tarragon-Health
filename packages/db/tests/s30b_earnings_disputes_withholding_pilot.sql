@@ -146,7 +146,7 @@ declare
   l1 uuid; l2 uuid; l3 uuid; lb uuid; lb_old uuid; lb2 uuid; d1 uuid; d1b uuid; r1 uuid := gen_random_uuid(); r2 uuid := gen_random_uuid(); v_n integer; v_pay uuid; r jsonb;
 begin
   l1 := pg_temp.line(v_org, v_a, v_admin, 60000, '20 days'); l2 := pg_temp.line(v_org, v_a, v_admin, 70000, '15 days'); l3 := pg_temp.line(v_org, v_a, v_admin, 50000, '12 days');
-  lb := pg_temp.line(v_org, v_b, v_admin, 200000, '14 days'); lb_old := pg_temp.line(v_org, v_b, v_admin, 1000, '90 days'); lb2 := pg_temp.line(v_org, v_b, v_admin, 20000, '5 days');
+  lb := pg_temp.line(v_org, v_b, v_admin, 200000, '14 days'); lb_old := pg_temp.line(v_org, v_b, v_admin, 1000, '90 days'); lb2 := pg_temp.line(v_org, v_b, v_admin, 20000, (((now() at time zone 'Africa/Lagos')::date - private.payout_last_period_end()) + 1)::text || ' days');   -- relative to the last period end: a fixed '5 days' fell after it on Saturday and Sunday
   perform pg_temp.setf('l1', l1); perform pg_temp.setf('l2', l2); perform pg_temp.setf('l3', l3); perform pg_temp.setf('lb', lb); perform pg_temp.setf('lb2', lb2);
   perform pg_temp.act(v_admin); v_n := public.build_payout_drafts_now(); perform pg_temp.back();
   perform pg_temp.ck('setup: drafts for A (180000/3) and B (221000/3)', '180000/3,221000/3',
@@ -283,7 +283,10 @@ begin
   perform pg_temp.ck('a payout with a withholding cannot be APPROVED (it could never be sent, and could not be edited afterwards)', 'payout_withholding_undecided',
     pg_temp.try_as(v_admin, format('select public.approve_payout(%L)', v_pb)));
   -- a dispute rebuilds the draft: the typed withholding is carried over, not dropped
-  perform pg_temp.setf('lb3', pg_temp.line(pg_temp.f('org'), v_b, v_admin, 5000, '3 days'));
+  -- the rebuilt draft only holds lines up to the last completed Lagos Sunday, so the line is placed relative to that date: a fixed '3 days' fell
+  -- inside the draft on a Wednesday and outside it from Thursday on
+  perform pg_temp.setf('lb3', pg_temp.line(pg_temp.f('org'), v_b, v_admin, 5000,
+    (((now() at time zone 'Africa/Lagos')::date - private.payout_last_period_end()) + 1)::text || ' days'));
   perform pg_temp.act(v_b); perform public.withdraw_earnings_dispute(public.open_earnings_dispute(pg_temp.f('lb3'), 'other', null)); perform pg_temp.back();
   perform pg_temp.ck('a line already answered cannot be questioned again', 'dispute_already_answered', pg_temp.try_as(v_b, format('select public.open_earnings_dispute(%L, ''other'')', pg_temp.f('lb2'))));
   perform pg_temp.ck('a deduction cannot be questioned to keep it out of a payout', 'dispute_negative_line',

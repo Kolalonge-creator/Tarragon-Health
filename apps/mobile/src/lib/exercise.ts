@@ -121,6 +121,8 @@ export interface WorkoutPlan {
   level: "gentle" | "moderate" | "vigorous";
   format: "home" | "chair_class";
   sessions: { minutes: number; steps: string[] }[];
+  /** DRAFT slot: empty until a clinician-reviewed recording exists. Text steps are always shown. */
+  audio_clip_ids?: string[];
 }
 
 /** Reviewed workout plans the gate allows for this person. Empty until a clinician has reviewed one. */

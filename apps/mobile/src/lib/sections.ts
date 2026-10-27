@@ -21,6 +21,11 @@ export type SectionId =
   | "healthSummary"
   | "timeline"
   | "myHealth"
+  | "documents"
+  | "dataExchange"
+  | "biomarkers"
+  | "healthHistory"
+  | "symptomJournal"
   | "shareRecords"
   | "myPhones"
   // S50b: the supported eating programme. NOT in the drawer: it is reached only by the link on the Medicines screen, shown only to someone who was offered it.
@@ -30,6 +35,7 @@ export type SectionId =
   | "wellbeing"
   | "healthCheck"
   | "findASpecialist"
+  | "directory"
   | "healthyAgeing"
   | "lifestyle"
   | "weightManagement"
@@ -136,9 +142,39 @@ export const SECTIONS: SectionDef[] = [
     group: "Your health",
   },
   {
+    id: "healthHistory",
+    label: "Health history",
+    icon: "clipboard-outline",
+    group: "Your health",
+  },
+  {
+    id: "symptomJournal",
+    label: "Symptom journal",
+    icon: "pulse-outline",
+    group: "Your health",
+  },
+  {
     id: "shareRecords",
     label: "Share records",
     icon: "share-outline",
+    group: "Your health",
+  },
+  {
+    id: "biomarkers",
+    label: "Results over time",
+    icon: "stats-chart-outline",
+    group: "Your health",
+  },
+  {
+    id: "documents",
+    label: "Photos of documents",
+    icon: "camera-outline",
+    group: "Your health",
+  },
+  {
+    id: "dataExchange",
+    label: "Records from other places",
+    icon: "swap-horizontal-outline",
     group: "Your health",
   },
   {
@@ -205,6 +241,12 @@ export const SECTIONS: SectionDef[] = [
     id: "findASpecialist",
     label: "Find a specialist",
     icon: "search-outline",
+    group: "Your health",
+  },
+  {
+    id: "directory",
+    label: "Find care near you",
+    icon: "location-outline",
     group: "Your health",
   },
   {

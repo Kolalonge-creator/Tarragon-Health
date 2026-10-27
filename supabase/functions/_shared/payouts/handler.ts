@@ -46,6 +46,19 @@ export async function sendPayout(deps: PayoutDeps, payoutId: unknown): Promise<H
       status = "error";
       message = known.error.message;
     }
+  } else if (sent.error.retryable || sent.error.code === "timeout" || sent.error.code === "network" || sent.error.code === "bad_response") {
+    // The answer is unknown: a timeout, a 5xx or a 2xx we could not read (bad_response) can mean Paystack never saw the request OR saw it and accepted it. Recording "error" here
+    // would leave the payout "approved" while the money may already be moving, which is the silent-failure case for a payout. Ask by
+    // the same reference: found means the earlier call got through (record what Paystack says); not found means nothing was sent, so
+    // the retry is safe; any other answer leaves it "error" and the retry sends the same reference, which Paystack refuses if it exists.
+    const known = await deps.payment.verifyTransfer(p.reference);
+    if (known.ok) {
+      status = known.data.status;
+      code = known.data.transferCode;
+    } else {
+      status = "error";
+      message = sent.error.message;
+    }
   } else {
     status = "error";
     message = sent.error.message;

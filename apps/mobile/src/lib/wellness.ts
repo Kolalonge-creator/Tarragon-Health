@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
-import type { Tables } from "@tarragon/shared";
 import { pointsRuleLabel } from "@tarragon/i18n";
+import { parsePendingCredit, parsePendingMilestone, type PendingCreditItem, type PendingMilestone, type Tables } from "@tarragon/shared";
 
 /**
  * Wellness gamification (points, badges, challenges, classes). An engagement
@@ -52,6 +52,23 @@ export type RewardRule = Tables<"reward_rules">;
 export async function loadMyPointsStatus(): Promise<MyPointsStatus | null> {
   const { data } = await supabase.rpc("my_points_status");
   return (data as unknown as MyPointsStatus | null) ?? null;
+}
+
+/** Actions recorded whose points are not decided yet ("on their way"). A failure shows nothing rather than an error. */
+export async function loadMyPointsPending(): Promise<PendingCreditItem[]> {
+  const { data, error } = await supabase.rpc("my_points_pending");
+  return error ? [] : parsePendingCredit(data);
+}
+
+/** The one calm milestone card, or null (the database returns null while an emergency is open). Asking stamps it as seen. */
+export async function loadMyPendingMilestone(): Promise<PendingMilestone | null> {
+  const { data, error } = await supabase.rpc("my_pending_milestone");
+  return error ? null : parsePendingMilestone(data);
+}
+
+export async function dismissMilestone(id: string): Promise<boolean> {
+  const { error } = await supabase.rpc("dismiss_milestone", { p_id: id });
+  return !error;
 }
 
 /** Active rules for "how you earn", verified clinical actions first. */

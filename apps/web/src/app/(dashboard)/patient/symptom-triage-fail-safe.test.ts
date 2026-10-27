@@ -92,6 +92,8 @@ describe("chest pain with sweating returns emergency even if the engine fails", 
     const r = await stepSymptomTriage(sweating);
     expect(r).toMatchObject({ status: "complete", category: "emergency", degraded: false, recorded: true });
     expect(assessmentInsert).toHaveBeenCalledTimes(1);
+    // S59c ("Why this result"): the result names every rule that fired, as ids only (never text)
+    expect(r).toMatchObject({ firedRuleKeys: ["chest_pain.cardiac_pattern"], tightenedBy: [], questionsAsked: [] });
   });
 
   it("a corrupt protocol makes the interpreter throw: still emergency, marked degraded, recorded for review", async () => {

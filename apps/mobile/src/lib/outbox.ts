@@ -2,10 +2,14 @@ import type * as SQLite from "expo-sqlite";
 import * as Crypto from "expo-crypto";
 import { NETWORK_ERROR_MESSAGE, postMealLog, postVitalReading, type VitalReadingPayload } from "./api";
 import { supabase } from "./supabase";
-import type { ContractionSessionPayload, KickSessionPayload } from "./pregnancy-payloads";
+import type { BirthPlanPayload, ContractionSessionPayload, KickSessionPayload } from "./pregnancy-payloads";
 import { getStoreWithSchema } from "./secure-db";
 import { applyReportOutcome, reportOnHold, reportRejection } from "./rejection-report";
 import { addDataUsage } from "./data-usage";
+import { getConnectionKind } from "./connection-kind";
+import { isHeldForWifi, loadHoldContext } from "./wifi-hold";
+import type { ConnectionKind } from "./data-cost-rules";
+import { pullAnchorsFor } from "./offline-store";
 import { recordSyncError } from "./sync-diagnostics";
 import { loadOfflineSyncConfig } from "./offline-sync-config";
 import {
@@ -55,6 +59,25 @@ export interface RedCarePayload {
   response: "sought_care" | "could_not_get_care";
 }
 
+/** S08z: anchor times the patient set (anchor id to "HH:MM") and the first Lagos date they apply from. */
+export interface AnchorTimesPayload {
+  times: Record<string, string>;
+  effective_from: string;
+}
+
+/** S08z: a "my day has shifted" entry: the dates and how many minutes to move each named anchor. Sent with the row's client id, so a retry makes one shift. */
+export interface DayShiftPayload {
+  starts_on: string;
+  ends_on: string;
+  offsets: Record<string, number>;
+}
+
+/** S08z: ending a shift the server already holds, from `cancelled_from` onward. */
+export interface DayShiftEndPayload {
+  shift_id: string;
+  cancelled_from: string;
+}
+
 /**
  * S49a: a meal written in words (logged, repeated in one tap, or picked from a favourite). Only the words travel: the server recomputes the
  * nutrition from its food table, so a phone can never write its own calories. Idempotent by the outbox client id, so a retry after a lost
@@ -65,14 +88,33 @@ export interface MealPayload {
   description: string;
 }
 
+/**
+ * S48b: a workout the person did, saved on the phone first. The kind is one of the seven activity kinds (the database enum); the name is derived
+ * by the database from the kind. Idempotent by the outbox client id (activity_log_entries.client_id), so a retry is a duplicate, not a second workout.
+ * Logging something that already happened is never blocked by the activity safety gate.
+ */
+export interface ActivityPayload {
+  activity_kind: "walking" | "running" | "cycling" | "dancing" | "football" | "farm_manual_work" | "chair_based";
+  duration_minutes: number;
+  /** Whole metres, or null. */
+  distance_m: number | null;
+  /** The Lagos calendar day it happened. */
+  logged_on: string;
+}
+
 export type OutboxPayload =
+  | AnchorTimesPayload
+  | DayShiftPayload
+  | DayShiftEndPayload
+  | ActivityPayload
   | VitalReadingPayload
   | MealPayload
   | SymptomPayload
   | DosePayload
   | RedCarePayload
   | KickSessionPayload
-  | ContractionSessionPayload;
+  | ContractionSessionPayload
+  | BirthPlanPayload;
 
 interface OutboxRow {
   client_id: string;
@@ -521,6 +563,8 @@ export interface FlushResult {
   held: number;
   /** Rows marked rejected during this run. */
   newlyRejected: number;
+  /** Ordinary entries left on the phone this run because the patient chose Wi-Fi only and the phone is on mobile data (S06z). Never an urgent entry. */
+  heldForWifi: number;
 }
 
 type SendOutcome = { ok: true } | ({ ok: false } & FailureInfo);
@@ -573,13 +617,78 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
       return { ok: false, message: result.error, status: result.status };
     }
 
+    if (item.kind === "activity") {
+      const p = item.payload as ActivityPayload;
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", item.subjectId)
+        .single();
+      if (profileError) return asFailure(profileError);
+      if (!profile?.organisation_id) return { ok: false, status: 400, message: "No organisation on file" };
+      const { error } = await supabase.from("activity_log_entries").insert({
+        organisation_id: profile.organisation_id,
+        patient_id: item.subjectId,
+        entry_type: "workout",
+        activity_kind: p.activity_kind,
+        duration_minutes: p.duration_minutes,
+        distance_m: p.distance_m,
+        logged_on: p.logged_on,
+        client_id: item.clientId,
+      });
+      return error ? asFailure(error) : { ok: true };
+    }
+
     if (item.kind === "red_care") {
       const p = item.payload as RedCarePayload;
-      const { error } = await supabase.rpc("record_red_care_response" as never, {
+      // A caregiver with the person's account open answers FOR the person: the database allows it only for a live manage grant that names
+      // receive_alerts or log_readings and stores the row as the person's with the helper's id on it. The person's own answer is unchanged.
+      const forSomeoneElse = item.subjectId !== item.ownerUserId;
+      const { error } = forSomeoneElse
+        ? await supabase.rpc("record_red_care_response_for" as never, {
+            p_patient: item.subjectId,
+            p_client_id: item.clientId,
+            p_response: p.response,
+            p_client_recorded_at: item.clientRecordedAt,
+          } as never)
+        : await supabase.rpc("record_red_care_response" as never, {
+            p_client_id: item.clientId,
+            p_response: p.response,
+            p_client_recorded_at: item.clientRecordedAt,
+          } as never);
+      return error ? asFailure(error) : { ok: true };
+    }
+
+    if (item.kind === "birth_plan") {
+      // S67: the plan is one row per pregnancy; a replay writes the same values, so it is idempotent (last saved wins, oldest first).
+      return sendBirthPlan(item);
+    }
+
+    if (item.kind === "anchor_times") {
+      const p = item.payload as AnchorTimesPayload;
+      const { error } = await supabase.rpc("save_dose_anchor_times", {
+        p_patient: item.subjectId,
+        p_times: p.times,
+        p_effective_from: p.effective_from,
+      });
+      return error ? asFailure(error) : { ok: true };
+    }
+
+    if (item.kind === "day_shift") {
+      const p = item.payload as DayShiftPayload;
+      const { error } = await supabase.rpc("create_day_shift", {
+        p_patient: item.subjectId,
         p_client_id: item.clientId,
-        p_response: p.response,
-        p_client_recorded_at: item.clientRecordedAt,
-      } as never);
+        p_starts_on: p.starts_on,
+        p_ends_on: p.ends_on,
+        p_offsets: p.offsets,
+      });
+      return error ? asFailure(error) : { ok: true };
+    }
+
+    if (item.kind === "day_shift_end") {
+      const p = item.payload as DayShiftEndPayload;
+      const { error } = await supabase.rpc("cancel_day_shift", { p_patient: item.subjectId, p_id: p.shift_id });
       return error ? asFailure(error) : { ok: true };
     }
 
@@ -612,7 +721,20 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
  * other branches' schema, see CLAUDE.md), so the insert goes through this narrow shape instead of `any`.
  */
 interface UntypedInsert {
-  from(table: string): { insert(row: Record<string, unknown>): PromiseLike<{ error: { code?: string; message?: string } | null }> };
+  from(table: string): {
+    insert(row: Record<string, unknown>): PromiseLike<{ error: { code?: string; message?: string } | null }>;
+    upsert(row: Record<string, unknown>, opts: { onConflict: string }): PromiseLike<{ error: { code?: string; message?: string } | null }>;
+  };
+}
+
+async function sendBirthPlan(item: OutboxItem): Promise<SendOutcome> {
+  const client = supabase as unknown as UntypedInsert;
+  const p = item.payload as BirthPlanPayload;
+  const { error } = await client.from("birth_plans").upsert(
+    { ...p.plan, organisation_id: p.organisation_id, patient_id: item.subjectId, pregnancy_id: p.pregnancy_id, source: "patient" },
+    { onConflict: "pregnancy_id" },
+  );
+  return error ? asFailure(error) : { ok: true };
 }
 
 async function sendPregnancySession(item: OutboxItem): Promise<SendOutcome> {
@@ -698,19 +820,73 @@ let flushing: Promise<FlushResult> | null = null;
  */
 export function flushOutbox(): Promise<FlushResult> {
   if (!flushing) {
-    flushing = runFlush().finally(() => {
+    flushing = runFlush(false).finally(() => {
       flushing = null;
     });
   }
   return flushing;
 }
 
-async function runFlush(): Promise<FlushResult> {
+/**
+ * S06z: sends everything held for Wi-Fi, whatever the connection. Used by the patient's "Send now on mobile data" and by the
+ * last upload attempt before a phone is wiped (a held row must never be destroyed unsent). It waits for any run in progress
+ * and then runs on its own, so the same row is never in flight twice and the override belongs to this run alone.
+ */
+export async function flushOutboxIncludingHeld(): Promise<FlushResult> {
+  while (flushing) await flushing.catch(() => undefined);
+  const run: Promise<FlushResult> = runFlush(true).finally(() => {
+    if (flushing === run) flushing = null;
+  });
+  flushing = run;
+  return run;
+}
+
+/** How many entries Wi-Fi only is holding back right now, by the same rule the flush uses. */
+export async function countHeldForWifi(rows?: readonly OutboxItem[]): Promise<number> {
+  try {
+    const ctx = await loadHoldContext();
+    if (!ctx.wifiOnly || ctx.connection !== "cellular") return 0;
+    const userId = await currentUserId();
+    const nowMs = Date.now();
+    const items = rows ?? (await listAllOutbox());
+    return items.filter((i) => i.state === "pending" && mayFlushUnder(i.ownerUserId, userId) && isHeldForWifi(i, ctx, nowMs)).length;
+  } catch {
+    return 0;
+  }
+}
+
+/** What one run sent, counted once at the end (S06z) instead of once per row, against the connection it used. */
+interface RunMeter {
+  bytes: number;
+  connection: ConnectionKind;
+}
+
+/**
+ * Once an anchor change or a day shift has been sent, the person's anchors are read back from the server (S08z). The row leaves the
+ * outbox when it is sent, so without this the phone would drop the change from its profile until the next routine pull, and resolve
+ * anchored doses at the OLD time in between (and the server decides the effective date, which the phone should show too).
+ */
+async function runFlush(forced: boolean): Promise<FlushResult> {
+  const meter: RunMeter = { bytes: 0, connection: "unknown" };
+  const sentAnchors = new Set<string>();
+  try {
+    return await runFlushRows(forced, meter, sentAnchors);
+  } finally {
+    await addDataUsage(meter.bytes, new Date(), meter.connection);
+    for (const subjectId of sentAnchors) await pullAnchorsFor(subjectId);
+  }
+}
+
+async function runFlushRows(forced: boolean, meter: RunMeter, sentAnchors: Set<string>): Promise<FlushResult> {
   const db = await getDb();
   const userId = await currentUserId();
   const now = new Date();
   const items = await listAllOutbox();
-  const result: FlushResult = { synced: 0, remaining: items.length, stoppedOffline: false, held: 0, newlyRejected: 0 };
+  const result: FlushResult = { synced: 0, remaining: items.length, stoppedOffline: false, held: 0, newlyRejected: 0, heldForWifi: 0 };
+  // S06z: the Wi-Fi-only choice, the connection and the configured values are read once per run. Any failure means "send".
+  const hold = await loadHoldContext();
+  // The meter attributes this run's bytes to the connection it used: one read per run, and only when there is something to send.
+  meter.connection = items.length > 0 ? (hold.wifiOnly ? hold.connection : await getConnectionKind()) : "unknown";
   // Rejection reports (S06x) wait until every sendable row has gone: an urgent reading must never queue behind
   // two slow requests per old rejected row.
   const toReport: { item: OutboxItem; info?: FailureInfo }[] = [];
@@ -730,10 +906,17 @@ async function runFlush(): Promise<FlushResult> {
     );
     if (due && new Date(due.next_attempt_at).getTime() > now.getTime()) continue;
 
+    // Only a dose log and a weight reading are ever held, and only on a known mobile connection (data-cost-rules.ts).
+    if (isHeldForWifi(item, hold, now.getTime(), forced)) {
+      result.heldForWifi += 1;
+      continue;
+    }
+
     const outcome = await send(item);
     if (outcome.ok) {
       await db.runAsync("delete from outbox where client_id = ?", [item.clientId]);
-      await addDataUsage(JSON.stringify(item.payload).length + 300);
+      meter.bytes += JSON.stringify(item.payload).length + 300;
+      if (item.kind === "anchor_times" || item.kind === "day_shift" || item.kind === "day_shift_end") sentAnchors.add(item.subjectId);
       result.synced += 1;
       result.remaining -= 1;
       continue;

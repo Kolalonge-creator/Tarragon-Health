@@ -46,6 +46,11 @@ import { MonthlyReportScreen } from "@/screens/sections/monthly-report-screen";
 import { HealthReportScreen } from "@/screens/sections/health-report-screen";
 import { ProgrammesScreen } from "@/screens/sections/programmes-screen";
 import { TimelineScreen } from "@/screens/sections/timeline-screen";
+import { DocumentsScreen } from "@/screens/sections/documents/documents-screen";
+import { DataExchangeScreen } from "@/screens/sections/data-exchange-screen";
+import { BiomarkersScreen } from "@/screens/sections/biomarkers-screen";
+import { HealthHistoryScreen } from "@/screens/sections/health-history-screen";
+import { SymptomJournalScreen } from "@/screens/sections/symptom-journal-screen";
 import { MyHealthScreen } from "@/screens/sections/my-health-screen";
 import { RecordShareScreen } from "@/screens/sections/record-share-screen";
 import { MyPhonesScreen } from "@/screens/sections/my-phones-screen";
@@ -53,6 +58,7 @@ import { ExerciseScreen } from "@/screens/sections/exercise-screen";
 import { LowCarbScreen } from "@/screens/sections/lowcarb-screen";
 import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
 import { ConsultationRoomScreen } from "@/screens/sections/consultation-room-screen";
+import { DirectoryScreen } from "@/screens/sections/directory-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
 import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
 import { TestingDaysScreen } from "@/screens/sections/testing-days-screen";
@@ -329,9 +335,14 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       ),
     myActions: () => <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />,
     healthSummary: () => <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />,
-    timeline: () => <TimelineScreen patientId={subjectId} onNavigate={handleSelect} />,
+    timeline: () => <TimelineScreen patientId={subjectId} acting={acting != null} onNavigate={handleSelect} />,
     shareRecords: () => <RecordShareScreen userId={userId} acting={acting != null} />,
+    biomarkers: () => <BiomarkersScreen key={subjectId} subjectId={subjectId} userId={userId} />,
+    documents: () => <DocumentsScreen userId={userId} organisationId={organisationId} acting={acting != null} />,
+    dataExchange: () => <DataExchangeScreen userId={userId} acting={acting != null} />,
     myHealth: () => <MyHealthScreen userId={userId} acting={acting != null} onNavigate={handleSelect} />,
+    healthHistory: () => <HealthHistoryScreen subjectId={subjectId} userId={userId} organisationId={organisationId} />,
+    symptomJournal: () => <SymptomJournalScreen subjectId={subjectId} acting={acting != null} onNavigate={handleSelect} />,
     myPhones: () => <MyPhonesScreen userId={userId} acting={acting != null} />,
     exercise: () => <ExerciseScreen patientId={subjectId} organisationId={organisationId} />,
     // The programme is the person's own (their own yes), so nothing is shown while acting for someone else.
@@ -369,7 +380,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     technicalSupport: () => (
       <TechnicalSupportScreen patientId={userId} organisationId={organisationId} />
     ),
-    emergency: () => <EmergencyCardScreen patientId={userId} />,
+    emergency: () => <EmergencyCardScreen patientId={userId} organisationId={organisationId} />,
     settings: () => (
       <SettingsScreen patientName={patientName} initials={initials} onNavigate={handleSelect} />
     ),
@@ -384,13 +395,14 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     ),
     healthCheck: () => <HealthCheckScreen patientId={userId} onNavigate={handleSelect} />,
     findASpecialist: () => <FindASpecialistScreen patientId={userId} />,
+    directory: () => <DirectoryScreen />,
     healthyAgeing: () => (
       <HealthyAgeingScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
     ),
     lifestyle: () => <LifestyleScreen patientId={userId} onNavigate={handleSelect} />,
     meals: () => <MealsScreen patientId={subjectId} />,
     sleep: () => <SleepScreen patientId={subjectId} />,
-    activity: () => <ActivityScreen patientId={subjectId} />,
+    activity: () => <ActivityScreen patientId={subjectId} organisationId={organisationId} />,
     smoking: () => <SmokingScreen patientId={subjectId} />,
     alcohol: () => <AlcoholScreen patientId={subjectId} />,
     weightManagement: () => <WeightManagementScreen userId={userId} onNavigate={handleSelect} />,

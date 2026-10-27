@@ -14,7 +14,9 @@
     "./titration": "./src/titration-entry.ts",
     "./pathways": "./src/pathways/index.ts",
     "./activity-gate": "./src/activity-gate.ts",
-    "./lowcarb-programme": "./src/lowcarb-programme.ts"
+    "./lowcarb-programme": "./src/lowcarb-programme.ts",
+    "./activity-readiness": "./src/activity-readiness.ts",
+    "./workout-plans": "./src/workout-plans.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

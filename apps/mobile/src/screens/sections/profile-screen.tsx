@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { GLUCOSE_UNIT_LABEL, type GlucoseDisplayUnit } from "@tarragon/shared";
+import {
+  GLUCOSE_UNIT_LABEL,
+  LENGTH_UNIT_LABEL,
+  TEMPERATURE_UNIT_LABEL,
+  WEIGHT_UNIT_LABEL,
+  measurementUnitsFromProfile,
+  type GlucoseDisplayUnit,
+} from "@tarragon/shared";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, type TextInputProps } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
@@ -27,6 +34,7 @@ import {
   loadProfile,
   updateConditionLanguage,
   updateGlucoseDisplayUnit,
+  updateMeasurementUnits,
   updateEmergencyContact,
   updateLocation,
   type CorrectionRequestRow,
@@ -220,6 +228,102 @@ function GlucoseUnitSection({
         ))}
       </View>
       {error ? <ErrorText>{error}</ErrorText> : null}
+    </View>
+  );
+}
+
+type UnitKey = "weight" | "temperature" | "length";
+
+const UNIT_ROWS: ReadonlyArray<{
+  key: UnitKey;
+  column: "weight_display_unit" | "temperature_display_unit" | "length_display_unit";
+  title: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+}> = [
+  { key: "weight", column: "weight_display_unit", title: "Weight", options: [{ value: "kg", label: WEIGHT_UNIT_LABEL.kg }, { value: "lb", label: WEIGHT_UNIT_LABEL.lb }] },
+  { key: "temperature", column: "temperature_display_unit", title: "Temperature", options: [{ value: "c", label: TEMPERATURE_UNIT_LABEL.c }, { value: "f", label: TEMPERATURE_UNIT_LABEL.f }] },
+  { key: "length", column: "length_display_unit", title: "Waist", options: [{ value: "cm", label: LENGTH_UNIT_LABEL.cm }, { value: "in", label: LENGTH_UNIT_LABEL.in }] },
+];
+
+function MeasurementUnitsSection({
+  userId,
+  profile,
+  onSaved,
+}: {
+  userId: string;
+  profile: ProfileRow;
+  onSaved: (patch: Partial<ProfileRow>) => void;
+}) {
+  const colors = useLegacyColors();
+  const [units, setUnits] = useState(measurementUnitsFromProfile(profile));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function choose(row: (typeof UNIT_ROWS)[number], next: string) {
+    if (units[row.key] === next) return;
+    const previous = units;
+    setUnits({ ...units, [row.key]: next } as typeof units);
+    setSaving(true);
+    setError(null);
+    try {
+      await updateMeasurementUnits(userId, { [row.column]: next });
+      onSaved({ [row.column]: next } as Partial<ProfileRow>);
+    } catch (e) {
+      setUnits(previous);
+      setError(e instanceof Error ? e.message : "Couldn't save that just now. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <View style={{ gap: 10 }}>
+      <SectionLabel>Units</SectionLabel>
+      <MutedText>
+        Pick the units you are used to. This only changes how readings are shown and typed in; nothing you have already
+        logged is altered.
+      </MutedText>
+      {UNIT_ROWS.map((row) => (
+        <View key={row.key} style={{ gap: 6 }}>
+          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{row.title}</Text>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            {row.options.map((o) => {
+              const selected = units[row.key] === o.value;
+              return (
+                <Pressable
+                  key={o.value}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`${row.title}: ${o.label}`}
+                  accessibilityState={{ selected, checked: selected }}
+                  onPress={() => void choose(row, o.value)}
+                  disabled={saving}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 12,
+                    borderRadius: radius.control,
+                    alignItems: "center",
+                    backgroundColor: selected ? colors.brand : colors.groupBg,
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  <Text style={{ fontSize: 13.5, fontWeight: "700", color: selected ? "#FFFFFF" : colors.ink }}>{o.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ))}
+      {error ? <ErrorText>{error}</ErrorText> : null}
+    </View>
+  );
+}
+
+function GroupHeading({ title, description }: { title: string; description: string }) {
+  const colors = useLegacyColors();
+  return (
+    <View accessible accessibilityRole="header" style={{ gap: 2 }}>
+      <Text style={{ fontSize: 18, fontWeight: "800", color: colors.ink }}>{title}</Text>
+      <MutedText>{description}</MutedText>
     </View>
   );
 }
@@ -806,20 +910,26 @@ export function ProfileScreen() {
       <ScreenTitle>Profile data</ScreenTitle>
       <MutedText>Keep your details, emergency contacts, and care preferences up to date.</MutedText>
 
+      <GroupHeading title="About you" description="Your details, where you are and who we call in an emergency." />
       <PersonalDetailsSection profile={profile} email={email} />
       <SectionDivider />
       <LocationSection userId={userId} profile={profile} onSaved={patchProfile} />
       <SectionDivider />
-      <ConditionLanguageSection userId={userId} profile={profile} onSaved={patchProfile} />
-      <SectionDivider />
-      <GlucoseUnitSection userId={userId} profile={profile} onSaved={patchProfile} />
-      <SectionDivider />
       <EmergencyContactSection userId={userId} profile={profile} onSaved={patchProfile} />
       <SectionDivider />
+      <GroupHeading title="How things are shown" description="Units and wording, so what you read matches what you know." />
+      <GlucoseUnitSection userId={userId} profile={profile} onSaved={patchProfile} />
+      <SectionDivider />
+      <MeasurementUnitsSection userId={userId} profile={profile} onSaved={patchProfile} />
+      <SectionDivider />
+      <ConditionLanguageSection userId={userId} profile={profile} onSaved={patchProfile} />
+      <SectionDivider />
+      <GroupHeading title="Sign-in & security" description="Who you are to us, and how you get in." />
       <IdentityVerificationSection profile={profile} verification={verification} />
       <SectionDivider />
       <ChangePasswordSection />
       <SectionDivider />
+      <GroupHeading title="Privacy" description="Your data, and what you can ask us to correct." />
       <DataPrivacySection
         userId={userId}
         organisationId={profile.organisation_id}

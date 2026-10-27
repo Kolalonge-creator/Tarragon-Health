@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPatientDate } from "@/lib/format-date";
-import { ActiveForm, PriceForm } from "./catalogue-forms";
+import { ActiveForm, ExtrasForm, PriceForm } from "./catalogue-forms";
 
 export const metadata = { title: "Catalogue and prices" };
 export const dynamic = "force-dynamic";
@@ -20,6 +20,7 @@ const itemRow = z.object({
   code: z.string(), kind: z.string(), audience: z.string().default("patient"), active: z.boolean(), note: z.string().nullable(), paid_orders: z.number().int(),
   duration_days: z.number().int().nullable(), uses: z.number().int().nullable(), grants_lead: z.boolean(), prices: z.array(priceRow),
 });
+const extrasView = z.array(z.object({ code: z.string(), extra_codes: z.array(z.string()) }));
 const view = z.object({ checkout_open: z.boolean(), membership_guard_on: z.boolean().default(false), items: z.array(itemRow) });
 
 export default async function AdminCataloguePage() {
@@ -29,6 +30,9 @@ export default async function AdminCataloguePage() {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("admin_catalogue");
   const parsed = view.safeParse(data);
+  const { data: extrasData } = await supabase.rpc("admin_item_extras");
+  const extrasParsed = extrasView.safeParse(extrasData);
+  const extrasByCode = new Map((extrasParsed.success ? extrasParsed.data : []).map((x) => [x.code, x.extra_codes]));
 
   return (
     <div className="space-y-6">
@@ -72,6 +76,9 @@ export default async function AdminCataloguePage() {
                     </ul>
                   </details>
                   <ActiveForm code={i.code} active={i.active} />
+                  {i.audience === "institution" ? null : (
+                    <ExtrasForm code={i.code} options={parsed.data.items.filter((o) => o.audience === "patient" && o.code !== i.code).map((o) => o.code)} chosen={extrasByCode.get(i.code) ?? []} />
+                  )}
                   {i.audience === "institution" ? <p>Priced by a price book rate for each covered person, never by a list price.</p> : <PriceForm code={i.code} />}
                 </CardContent>
               </Card>

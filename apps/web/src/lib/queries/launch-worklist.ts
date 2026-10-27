@@ -71,6 +71,7 @@ export const LAUNCH_WORKLIST_BUCKET: Record<WorklistCountKey, LaunchWorklistBuck
   openSupportTickets: "followUp",
   openComplaints: "followUp",
   careThreadsAwaitingReply: "followUp",
+  mentalHealthWorklistWaiting: "followUp",
   labOrdersAwaitingHomeVisitAssignment: "followUp",
   fhirProposedResourcesPending: "followUp",
   recordChangeRequestsWaiting: "followUp",
@@ -100,6 +101,7 @@ export const WORKLIST_HREF: Record<WorklistCountKey, string> = {
   labResultConsultsWaiting: "/clinician/lab-result-consults",
   preventiveHealthCheckReviewsWaiting: "/clinician/preventive-health-check-reviews",
   therapyApprovalsWaiting: "/clinician/therapy-approvals",
+  mentalHealthWorklistWaiting: "/clinician/mental-health-worklist",
   referralsNeedingUrgency: "/clinician/referrals",
   waitlistedReferrals: "/clinician/referrals/waitlisted",
   // Not its own nav destination — a filtered state of the referrals page.
@@ -142,6 +144,7 @@ export const WORKLIST_LABEL: Record<WorklistCountKey, string> = {
   labResultConsultsWaiting: "Lab result consults",
   preventiveHealthCheckReviewsWaiting: "Preventive Health Check reviews",
   therapyApprovalsWaiting: "Therapy approvals",
+  mentalHealthWorklistWaiting: "Mental health follow-ups",
   referralsNeedingUrgency: "Referrals",
   waitlistedReferrals: "Waitlisted referrals",
   referralsAwaitingClosure: "Referrals awaiting closure",

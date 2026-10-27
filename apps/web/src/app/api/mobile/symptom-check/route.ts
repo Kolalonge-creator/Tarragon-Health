@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { getActiveTriageProtocolConfig, isSymptomCheckerOpen } from "@/lib/symptom-triage/protocol";
 import { readEligibility, runSymptomStep } from "@/lib/symptom-triage/run-step";
+import { loadAssessmentUx } from "@/lib/symptom-triage/ux-config";
 import { symptomTriageStepSchema } from "@/lib/validation/symptom-triage";
 import { SEED_PATHWAYS } from "@tarragon/symptom-triage-engine";
 
@@ -36,9 +37,13 @@ export async function GET(request: Request): Promise<NextResponse> {
     const active = await getActiveTriageProtocolConfig(auth.supabase);
     if (!active) return closed;
     const eligibility = await readEligibility(auth.supabase, auth.user.id);
+    // S59c: the describe table, the explainer and the safety-net lines, each present only when signed and equal to the live signed version
+    // (a draft is inert: the phone then shows only the generic safety net, no explanation and no suggested check).
+    const ux = await loadAssessmentUx(auth.supabase as never);
     return NextResponse.json({
       open: true,
       eligibility,
+      ux,
       complaints: active.config.pathways.map((p) => ({
         key: p.key,
         label: p.label,

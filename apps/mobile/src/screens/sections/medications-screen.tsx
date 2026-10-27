@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Linking, Platform, View } from "react-native";
-import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { resolveTakenTime, isDoubleTap, lagosLocalDate, slotKey, windowEndTime, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
+import { anchorPhrase, asLocale, t, type MessageKey } from "@tarragon/i18n";
+import { DOSE_REASONS, shouldOfferPharmacy, resolveTakenTime, isDoubleTap, lagosLocalDate, slotKey, windowEndTime, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
 import { useUiLanguage } from "@/lib/ui-language";
 import { readMirrorLastPulledAt } from "@/lib/offline-store";
 import { FreshnessNote } from "@/ui/freshness-note";
@@ -33,6 +33,8 @@ import { LowCarbLinkCard } from "@/screens/sections/lowcarb-link-card";
 import type { SectionId } from "@/lib/sections";
 import { RenewalReviewCard } from "@/screens/sections/renewal-review-card";
 import { PharmacyCollectCard } from "@/screens/sections/pharmacy-collect-card";
+import { ReminderReliabilityCard } from "@/screens/sections/reminder-reliability-card";
+import { loadReasonSharing, setReasonSharing } from "@/lib/dose-reasons";
 
 interface MedicationsScreenProps {
   patientId: string;
@@ -62,12 +64,14 @@ const ANSWERED: readonly SlotState[] = ["taken", "late", "skipped", "unavailable
 
 const EARLIER_MINUTES = [10, 30, 60, 120, 240] as const;
 
-const SKIP_REASONS: { key: MessageKey; status: LoggableStatus; reason: string }[] = [
-  { key: "meds.skip.side_effect", status: "skipped", reason: "side_effect" },
-  { key: "meds.skip.felt_well", status: "skipped", reason: "felt_well" },
-  { key: "meds.skip.ran_out", status: "not_available", reason: "ran_out" },
-  { key: "meds.skip.other", status: "skipped", reason: "other" },
-];
+// Item 5: the reasons come from the versioned config (packages/medicines mirrors `medicines.dose_reasons`). "Ran out" has its own one-tap
+// button beside Taken and Skip, so the skip sheet lists the others.
+const RAN_OUT_REASON = DOSE_REASONS.find((r) => r.opensPharmacy) ?? DOSE_REASONS[0]!;
+const SKIP_REASONS: { key: MessageKey; status: LoggableStatus; reason: string }[] = DOSE_REASONS.filter((r) => r !== RAN_OUT_REASON).map((r) => ({
+  key: `meds.skip.${r.code}` as MessageKey,
+  status: r.status,
+  reason: r.code,
+}));
 
 const ISSUE_TEXT: Record<ReminderIssue, MessageKey> = {
   notifications_off: "meds.reminder_health.notifications_off",
@@ -128,6 +132,9 @@ export function MedicationsScreen({ patientId, organisationId, subjectName, onNa
   // The notice stays on screen after "I took one" until the next tap: a toast would be gone before it is read.
   const [prnNotice, setPrnNotice] = useState<string | null>(null);
   const [prnBusy, setPrnBusy] = useState<string | null>(null);
+  // Item 5: after "I ran out, or cannot afford it", a gentle offer to choose where to collect. An offer only: no alert goes to anyone.
+  const [ranOutPrompt, setRanOutPrompt] = useState(false);
+  const [shareRanOut, setShareRanOut] = useState<boolean | null>(null);
 
   const ownsReminders = !subjectName;
 
@@ -193,10 +200,10 @@ export function MedicationsScreen({ patientId, organisationId, subjectName, onNa
     setDoses((prev) => prev.map((d) => (doseKey(d) === key ? { ...d, status, state } : d)));
   }
 
-  async function record(item: DoseChecklistItem, status: LoggableStatus, opts: { atMs?: number; reason?: string } = {}) {
+  async function record(item: DoseChecklistItem, status: LoggableStatus, opts: { atMs?: number; reason?: string } = {}): Promise<boolean> {
     const key = doseKey(item);
     const t0 = Date.now();
-    if (pendingKeys.has(key) || isDoubleTap(lastTap.current.get(key) ?? null, t0, rules.doubleTapGuardMs)) return;
+    if (pendingKeys.has(key) || isDoubleTap(lastTap.current.get(key) ?? null, t0, rules.doubleTapGuardMs)) return false;
     lastTap.current.set(key, t0);
     setPendingKeys((prev) => new Set(prev).add(key));
     setPanel(null);
@@ -212,6 +219,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName, onNa
       status === "delayed" ? "late" : status === "taken" ? "taken" : status === "not_available" ? "unavailable" : status === "skipped" ? "skipped" : "missed";
     // Optimistic: this is the highest-frequency native write in the app.
     setState(key, status === "delayed" ? "taken" : status === "not_available" ? "skipped" : (status as DoseChecklistItem["status"]), nextState);
+    let saved = false;
     try {
       const result = await logDose(patientId, organisationId, item, status, {
         recordedAt: opts.atMs ? new Date(opts.atMs).toISOString() : undefined,
@@ -229,6 +237,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName, onNa
         await cancelSnooze(key);
         const replanned = ownsReminders ? await replanDoseReminders(patientId) : undefined;
         void refreshSide(replanned);
+        saved = true;
       }
     } catch {
       setRowErrors((prev) => new Set(prev).add(key));
@@ -239,6 +248,30 @@ export function MedicationsScreen({ patientId, organisationId, subjectName, onNa
         next.delete(key);
         return next;
       });
+    }
+    return saved;
+  }
+
+  /** One tap: "I ran out, or cannot afford it this month". The code and status come from the versioned dose-reason config. */
+  async function ranOut(item: DoseChecklistItem) {
+    const def = RAN_OUT_REASON;
+    // Review fix: the thank-you and the sharing choice appear only when the dose was really saved (or queued), never over a failed tap.
+    const saved = await record(item, def.status, { reason: def.code });
+    if (saved && shouldOfferPharmacy(def.code)) {
+      setRanOutPrompt(true);
+      // Someone acting for a dependant can read and set the choice for them too (the database allows a manage-level grant).
+      setShareRanOut(await loadReasonSharing(patientId, def.code));
+    }
+  }
+
+  async function toggleRanOutSharing() {
+    const next = shareRanOut !== true;
+    // Review fix: a failed change must not look like it worked. Stopping a share that did not stop is the harmful case, so say so.
+    if (await setReasonSharing(RAN_OUT_REASON.code, next, patientId)) {
+      setShareRanOut(next);
+      setPanelNote(null);
+    } else {
+      setPanelNote(tr("meds.catchup.failed"));
     }
   }
 
@@ -350,6 +383,8 @@ export function MedicationsScreen({ patientId, organisationId, subjectName, onNa
         </Card>
       ) : null}
 
+      {ownsReminders ? <ReminderReliabilityCard /> : null}
+
       {Platform.OS === "android" && ownsReminders ? (
         <AndroidReminderHelp issues={issues} tr={tr} onGranted={() => void rescheduleAllDoseReminders(patientId).then((r) => refreshSide(r))} />
       ) : null}
@@ -407,7 +442,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName, onNa
                       <View style={{ flex: 1, gap: 2 }}>
                         <AppText variant="bodyStrong">{item.drugName}</AppText>
                         <AppText variant="caption" tone="textMuted">
-                          {[windowLabel(item, tr), item.doseText ?? item.doseLabel ?? null, item.foodNote ? tr(`meds.food.${item.foodNote}` as MessageKey) : null]
+                          {[item.anchored ? capitalise(anchorPhrase(item.anchored.anchor, item.anchored.offsetMinutes, locale)) : null, windowLabel(item, tr), item.doseText ?? item.doseLabel ?? null, item.foodNote ? tr(`meds.food.${item.foodNote}` as MessageKey) : null]
                             .filter(Boolean)
                             .join(" · ")}
                         </AppText>
@@ -450,6 +485,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName, onNa
                         <Button title={tr("meds.action.taken")} fullWidth={false} disabled={pendingKeys.has(key)} onPress={() => void takeNow(item)} />
                         <Button title={tr("meds.action.earlier")} variant="secondary" fullWidth={false} onPress={() => setPanel({ key, kind: "earlier" })} />
                         <Button title={tr("meds.action.skip")} variant="secondary" fullWidth={false} onPress={() => setPanel({ key, kind: "skip" })} />
+                        <Button title={tr("meds.skip.ran_out_afford")} variant="secondary" fullWidth={false} disabled={pendingKeys.has(key)} onPress={() => void ranOut(item)} />
                         {state === "due" || state === "upcoming" ? (
                           <Button title={tr("meds.action.later")} variant="ghost" fullWidth={false} onPress={() => void remindLater(item)} />
                         ) : null}
@@ -505,6 +541,34 @@ export function MedicationsScreen({ patientId, organisationId, subjectName, onNa
           </>
         )}
       </View>
+
+      {ranOutPrompt ? (
+        <Card style={{ gap: space.sm }}>
+          <AppText variant="body">{tr("meds.ran_out.prompt")}</AppText>
+          <AppText variant="caption" tone="textMuted">
+            {tr("meds.ran_out.private_note")}
+          </AppText>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+            <Button
+              title={tr("meds.ran_out.open")}
+              fullWidth={false}
+              onPress={() => {
+                setRanOutPrompt(false);
+                setCabinetOpen(true);
+              }}
+            />
+            <Button title={tr("meds.ran_out.later")} variant="ghost" fullWidth={false} onPress={() => setRanOutPrompt(false)} />
+          </View>
+          {shareRanOut !== null ? (
+            <Button
+              title={shareRanOut ? tr("meds.ran_out.share_on") : tr("meds.ran_out.share_label")}
+              variant="ghost"
+              fullWidth={false}
+              onPress={() => void toggleRanOutSharing()}
+            />
+          ) : null}
+        </Card>
+      ) : null}
 
       {asNeeded.length > 0 ? (
         <Card style={{ gap: space.sm }}>
@@ -648,4 +712,9 @@ function AndroidReminderHelp({
       ) : null}
     </Card>
   );
+}
+
+/** "with breakfast" becomes "With breakfast" at the start of a line. */
+function capitalise(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
