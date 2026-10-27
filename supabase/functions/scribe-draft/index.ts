@@ -8,6 +8,7 @@
 // AI governance: AI-017 scribeDraft. The edge function checks ai_systems.is_enabled before calling Claude.
 //               If disabled, returns { status: "disabled" } so the UI can fall back to manual note entry.
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { withSentry } from "../_shared/observability/sentry.ts";
 import {
   FACTS_DRAFT_SCHEMA,
   FACTS_DRAFT_SYSTEM_PROMPT,
@@ -228,7 +229,7 @@ async function callClaudeJson(
   }
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry("scribe-draft", async (req) => {
   if (req.method !== "POST") return Response.json({ error: "method_not_allowed" }, { status: 405 });
 
   const auth = req.headers.get("Authorization");
@@ -521,4 +522,4 @@ Deno.serve(async (req) => {
     console.error("scribe-draft: Claude call failed", err);
     return Response.json({ error: "model_call_failed" }, { status: 502 });
   }
-});
+}));
