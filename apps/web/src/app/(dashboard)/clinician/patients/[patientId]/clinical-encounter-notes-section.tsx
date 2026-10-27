@@ -629,7 +629,7 @@ function DraftNoteCard({
               patientContext={ageYears !== undefined && ageYears >= 0 && ageYears <= 130 ? { age: ageYears } : undefined}
               onUseDraft={applyScribeDraft}
             />
-            {scribe && <p className="text-xs text-charcoal-ink/50">AI-drafted text is in the fields above. It is yours to edit; nothing is saved until you save or sign.</p>}
+            {scribe && <p className="text-xs text-charcoal-ink/50">The AI wrote the text in the fields above. It is yours to edit; nothing is saved until you save or sign.</p>}
           </div>
         )}
         {aiDrafted && (
