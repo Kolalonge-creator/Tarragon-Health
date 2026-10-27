@@ -632,6 +632,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     return { text: "Your preventive review is due", href: "/patient/prevention" };
   }
   if (n.template === "screening_due") {
+    // S98: when the preventive engine has already issued the test request, say so (generic text, INV-07: no test name).
+    if (typeof payload.lab_order_id === "string" && payload.lab_order_id !== "") {
+      return { text: "Your test request is ready to download", href: "/patient/prevention" };
+    }
     return { text: "A reminder is due", href: "/patient/prevention" };
   }
   if (n.template === "vaccination_due") {
@@ -949,9 +953,11 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "screening_upcoming" || n.template === "screening_overdue" || n.template === "screening_escalated") {
     // From escalating_preventive_reminders.sql -- the overdue/escalated
     // siblings of screening_due above, same payload shape.
+    const hasRequest = typeof payload.lab_order_id === "string" && payload.lab_order_id !== "";
     const label =
       n.template === "screening_upcoming" ? "A reminder is coming up soon"
-      : n.template === "screening_overdue" ? "A reminder is still waiting"
+      : n.template === "screening_overdue" ? (hasRequest ? "Your test request is waiting for you" : "A reminder is still waiting")
+      : hasRequest ? "Your test request is waiting: your care team may follow up"
       : "A reminder is still waiting: your care team may follow up";
     return { text: label, href: "/patient/prevention" };
   }

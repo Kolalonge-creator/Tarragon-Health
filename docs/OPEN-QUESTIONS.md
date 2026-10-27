@@ -5619,3 +5619,18 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Options: (a) require a state when an employer registers a Plus seat or an admin grants Plus (a field on the roster row and on the grant form); (b) ask the member to choose from the approved list on first use of the collection flow; (c) leave null and let the care team arrange it by hand.
 - Recommendation: (b) for legacy rows, (a) for seats and grants, because the employer and the admin already know the person's state.
 - Decision (founder, 2026-10-26): Plus given without a checkout needs a collection state. Built: (a) an admin grant of Plus needs an approved state while the module is on (`grant_membership_tier`, a state field on the grant form); (b) a Plus member whose state is empty chooses it once from the approved list (`set_my_plus_collection_state`, web and mobile), which also covers employer seats and older rows. Not built: a state field on the employer roster row, because the member already chooses on first use and the employer rarely knows it; add it if an employer pilot asks.
+
+### OQ-S98-1 Which calendar items may the engine issue a request for without a person? (raised 2026-10-27)
+Built: only items from a SIGNED screening rule set, only tests with `screen_types.sensitive = false` and an active single-test bundle. Calendar items written by the app from the risk questionnaire (no `rule_set_id`) are NOT auto-issued; the patient still has "Get & print". Options: (a) keep (fail closed until the CMO signs); (b) also auto-issue questionnaire items. Recommendation: (a). Owner: CMO.
+
+### OQ-S98-2 Sensitive tests (HIV, hepatitis B/C, cervical smear, FIT, PSA, imaging) are never auto-issued (raised 2026-10-27)
+They keep the due reminder and the patient's own "Get & print" button; no job creates a request for them (INV-04). Decide whether a sensitive test may ever get an automatic request, and with what wording. Needs the CMO's disclosure path (`home_kit_sensitive_enabled` governs home collection only). Recommendation: leave manual.
+
+### OQ-S98-3 Two messages on the due day (raised 2026-10-27)
+The request insert sends the existing "your test request" email (PDF attached) and a notice on the patient's channel; the 06:35 `screening_due` reminder follows with a link to the same request. Options: (a) accept (the reminder ladder must keep running if the patient does nothing); (b) suppress the first `screening_due` when a request was issued the same day. Recommendation: (a) now, revisit with real usage.
+
+### OQ-S98-4 An uploaded result does not close the calendar item (raised 2026-10-27)
+The upload is kept as a document, shown to the patient as "result received" and to the clinician as "Patient-uploaded, not lab-verified"; the schedule row stays `booked` until a clinician records the result (existing `refresh_screening_schedule_on_result`), or the patient confirms it done. Reminders stop at upload. No OCR or value extraction was built. Decide whether a clinician "record result from this document" shortcut is wanted.
+
+### OQ-S98-5 Edge Function wording (raised 2026-10-27)
+`send-pending-notifications` templates for `screening_due` do not yet mention the request (not redeployed here). The in-app line does. Update and redeploy the template if wanted.
