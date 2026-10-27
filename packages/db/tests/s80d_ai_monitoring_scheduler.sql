@@ -158,6 +158,7 @@ insert into results values ('real', 'a patient cannot read the overview', 'ERR:4
 insert into results values ('real', 'anon cannot read the overview', 'ERR:42501', pg_temp.sql_anon('select public.ai_monitoring_overview()'));
 insert into results values ('real', 'the CMO can read the overview', 'ok', pg_temp.sql_as(pg_temp.f('cmo'), 'select public.ai_monitoring_overview()'));
 create temp table ov(j jsonb) on commit drop;
+grant all on ov to authenticated;
 do $$
 begin
   perform set_config('request.jwt.claims', json_build_object('sub', pg_temp.f('admin'), 'role', 'authenticated')::text, true);

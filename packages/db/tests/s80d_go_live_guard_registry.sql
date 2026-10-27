@@ -15,7 +15,8 @@ do $$
 declare v_was_on boolean; v_guard_was boolean;
 begin
   select is_on into v_guard_was from public.go_live_guards where key = 'public_signup_enabled';
-  update public.go_live_guards set is_on = false where key = 'public_signup_enabled';
+  insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note) select 'public_signup_enabled', 'switched_off', id, 'admin', 'proof setup' from public.profiles limit 1;
+update public.go_live_guards set is_on = false, changed_at = now(), changed_by = (select id from public.profiles limit 1), change_note = 'proof setup' where key = 'public_signup_enabled';
   v_was_on := coalesce(public.platform_switch_is_on('signup_invites_required'), false);
   update public.platform_switches set is_on = false where key = 'signup_invites_required';
 end $$;
@@ -47,7 +48,8 @@ insert into results values ('real', 'a self-declared exemption in user metadata 
   (select private.signup_may_create_user('+2348055500004', 'self-s80d@example.invalid', '{"signup_exempt":"true"}'::jsonb, '{}'::jsonb)::text));
 
 -- 4b. the guard ON opens it to everyone
-update public.go_live_guards set is_on = true where key = 'public_signup_enabled';
+insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note) select 'public_signup_enabled', 'switched_on', id, 'admin', 'proof setup' from public.profiles limit 1;
+update public.go_live_guards set is_on = true, changed_at = now(), changed_by = (select id from public.profiles limit 1), change_note = 'proof setup' where key = 'public_signup_enabled';
 insert into results values ('real', 'guard on: an uninvited person passes', 'true',
   (select private.signup_may_create_user('+2348055500005', 'nobody-s80d@example.invalid', '{}'::jsonb, '{}'::jsonb)::text));
 update public.go_live_guards set is_on = false where key = 'public_signup_enabled';

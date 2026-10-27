@@ -224,6 +224,20 @@ $$;
 revoke all on function public.support_patient_thread(uuid, integer) from public, anon;
 grant execute on function public.support_patient_thread(uuid, integer) to authenticated;
 
+-- ---------------------------------------------------------------------------
+-- S39 registries: a new patient-keyed table must be listed (S39b scope, S39d data registry). It is org-wide staff read like its parent tickets
+-- (support), and holds matched list phrases only, never message text.
+-- ---------------------------------------------------------------------------
+insert into public.staff_read_scope (table_name, mode, patient_expr, category, reason)
+values ('support_ticket_red_flags', 'org', 'patient_id', 'medical_history', 'support')
+on conflict (table_name) do nothing;
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes)
+select 'support_ticket_red_flags', 'patient_id', private.retention_class_for('support_ticket_red_flags'),
+       case when private.retention_class_for('support_ticket_red_flags') = 'operational' then 'delete' else 'review' end,
+       private.retention_class_for('support_ticket_red_flags') <> 'audit',
+       'Registered with the default S39d classification when S80d was added; awaiting review.'
+on conflict (table_name) do nothing;
+
 do $$
 begin
   if has_function_privilege('anon', 'public.log_email_support_ticket(text, text, text, text, public.support_ticket_priority, boolean)', 'EXECUTE')

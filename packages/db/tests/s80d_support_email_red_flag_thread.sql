@@ -204,8 +204,8 @@ do $$
 declare n integer;
 begin
   drop trigger support_tickets_red_flag_scan on public.support_tickets;
-  insert into public.support_tickets (organisation_id, patient_id, category, subject, description, channel)
-  values (pg_temp.f('org'), pg_temp.f('p3'), 'technical', 'Sabotage scan', 'I have chest pain right now', 'email');
+  perform pg_temp.sql_as(pg_temp.f('p3'), format($q$insert into public.support_tickets (organisation_id, patient_id, category, subject, description)
+    values (%L, %L, 'technical', 'Sabotage scan', 'I have chest pain right now')$q$, pg_temp.f('org'), pg_temp.f('p3')));
   select count(*) into n from public.support_ticket_red_flags where patient_id = pg_temp.f('p3');
   insert into results values ('sabotaged', 'a ticket with chest pain is flagged', '1', n::text);
   create trigger support_tickets_red_flag_scan after insert on public.support_tickets
