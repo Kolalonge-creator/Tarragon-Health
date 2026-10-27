@@ -41,8 +41,9 @@ export const orderRowSchema = z.object({
   // S72: whether the signed-in person is the buyer (only the buyer can ask for a refund), and the state of any refund asked for
   is_buyer: z.boolean().optional().default(true),
   refund_state: z.string().nullable().optional().default(null),
-  // W-19 (D-14): only the payer of a gift sees this; the person who received it, and every other order, gets null
-  gift_state: z.enum(["waiting", "accepted", "declined"]).nullable().optional().default(null),
+  // W-19 (D-14): only the payer of a gift sees this; the person who received it, and every other order, gets null. An unknown word parses to
+  // null so one unexpected value can never remove an order from the list.
+  gift_state: z.enum(["waiting", "accepted", "declined", "not_answered", "not_accepted"]).nullable().catch(null),
 });
 export type OrderRow = z.infer<typeof orderRowSchema>;
 

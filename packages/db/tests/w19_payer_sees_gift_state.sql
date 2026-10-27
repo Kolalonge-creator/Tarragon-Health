@@ -1,10 +1,10 @@
--- W-19 proof (founder D-14): the PAYER of a gift sees its state in my_orders.gift_state, including 'declined' when it is not accepted.
+-- W-19 proof (founder D-14): the PAYER of a gift sees its state in my_orders.gift_state.
 -- NOT EXECUTED LOCALLY when written (Docker was down); CI replay is the first run. Reuses the s29b fixtures and flow.
---   1. Paid and unanswered: the payer sees 'waiting'.   2. The person declines: the payer sees 'declined'.   3. An unanswered gift swept after
---   the window: the payer sees the SAME word 'declined' (cannot tell which it was).   4. Accepted: 'accepted'.   5. The person receiving the gift
---   sees null for gift_state; a stranger sees no row.   6. The payer is still sent no notification; the payload carries no reason and no
---   recipient identity beyond the order row the payer already had.   7. A purchase for oneself has gift_state null.
--- SABOTAGE: the buyer check removed (the recipient would see the field) and the decline mapping removed (the payer would see nothing).
+--   1. Paid and unanswered: waiting.   2. The person says no: declined.   3. Unanswered and swept after the window: not_answered (a different
+--   word from an explicit no, so neither is false).   4. Accepted: accepted.   5. An order can hold only one entitlement (order_id is unique).   6. The person who received the gift sees null; a stranger sees no row; a self-purchase has null.   7. The payer is sent no
+--   notification and the payload carries no reason and no recipient name.   8. The full key set of a my_orders row (13 existing keys plus gift_state).
+--   9. A Care Circle pay_for_care payer gets the word (all the gift fixtures are circle gifts).
+-- SABOTAGE (each must flip): the buyer check removed, the decline mapping removed, the sweep distinction removed (the explicit CASE else is checked by its text).
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -117,6 +117,8 @@ create function pg_temp.ent_of(p_ref text) returns uuid language sql as
 $$ select e.id from public.entitlements e join public.orders o on o.id = e.order_id where o.paystack_reference = p_ref $$;
 create function pg_temp.mkprice(p_org uuid) returns void language sql as $$ select 1 $$;
 
+create function pg_temp.try_sql_owner_state(p_sql text) returns text language plpgsql as
+$f$ begin execute p_sql; return 'ok'; exception when others then return sqlstate; end $f$;
 -- the gift_state the caller sees for one order: the word, 'null' when the row exists without one, 'none' when there is no row
 create function pg_temp.gs(p_uid uuid, p_order uuid) returns text language sql as
 $$ select coalesce((select coalesce(x ->> 'gift_state', 'null') from jsonb_array_elements(pg_temp.q_as(p_uid, 'select public.my_orders()::text')::jsonb) x where x ->> 'order_id' = p_order::text), 'none') $$;
@@ -166,7 +168,7 @@ begin
   e3 := pg_temp.ent_of(r3);
   update public.entitlements set created_at = now() - interval '15 days' where id = e3;
   v_n := private.expire_pending_gifts();
-  perform pg_temp.ck('3 a swept gift shows the same word to the payer', 'declined', pg_temp.gs(v_sup, o3));
+  perform pg_temp.ck('3 a swept gift reads not_answered, not declined', 'not_answered', pg_temp.gs(v_sup, o3));
   -- 4 accepted
   r2 := pg_temp.gift_order(v_sup, v_pat, 'membership_annual');
   o2 := (select id from public.orders where paystack_reference = r2);
@@ -174,27 +176,44 @@ begin
   e2 := pg_temp.ent_of(r2);
   perform pg_temp.ck('4a accepted', 'accepted', pg_temp.respond(v_pat, e2, true));
   perform pg_temp.ck('4b payer sees accepted', 'accepted', pg_temp.gs(v_sup, o2));
+  -- 5 entitlements.order_id is unique, so an order can never carry two answers: a second entitlement is refused
+  perform pg_temp.ck('5 an order cannot hold two entitlements, so the word is always that one entitlement''s', '23505',
+    pg_temp.try_sql_owner_state(format('insert into public.entitlements (organisation_id, patient_id, order_id, kind, state, acceptance) select organisation_id, patient_id, order_id, kind, %L, %L from public.entitlements where id = %L', 'revoked', 'declined', e2)));
+  -- 8 the full key set of a row
+  perform pg_temp.ck('8 the my_orders row carries every existing key and gift_state', 'amount_kobo,code,created_at,fee_kobo,gift_state,is_buyer,name_key,order_id,paid_at,refund_state,sponsor_name,sponsor_share_kobo,state,total_kobo',
+    (select string_agg(k, ',' order by k) from jsonb_object_keys((pg_temp.q_as(v_sup, 'select public.my_orders()::text')::jsonb) -> 0) k));
   -- 7 self purchase
   r4 := pg_temp.order_ref(v_pat2, 'membership_annual', gen_random_uuid());
   perform pg_temp.pay(r4, 12900000, 15000, 12915000);
   perform pg_temp.ck('7 a self purchase has no gift_state', 'null', pg_temp.gs(v_pat2, (select id from public.orders where paystack_reference = r4)));
-  perform pg_temp.setf('o1', o1);
+  perform pg_temp.setf('o1', o1); perform pg_temp.setf('o3', o3);
 end $$;
 
 -- SABOTAGE
 do $$
-declare d text; v_sup uuid := pg_temp.f('sup'); v_pat uuid := pg_temp.f('pat'); o1 uuid := pg_temp.f('o1');
+declare d text; v_orig text; v_sup uuid := pg_temp.f('sup'); v_pat uuid := pg_temp.f('pat'); o1 uuid := pg_temp.f('o1'); o3 uuid := pg_temp.f('o3');
 begin
-  select pg_get_functiondef('public.my_orders()'::regprocedure) into d;
-  d := replace(d, 'case when o.buyer_profile_id = (select auth.uid()) and o.beneficiary_patient_id is not null', 'case when true and o.beneficiary_patient_id is not null');
-  if d = pg_get_functiondef('public.my_orders()'::regprocedure) then raise exception 'sabotage (a) did not change the function'; end if;
+  v_orig := pg_get_functiondef('public.my_orders()'::regprocedure);
+  d := replace(v_orig, 'case when o.buyer_profile_id = (select auth.uid()) and o.beneficiary_patient_id is not null', 'case when true and o.beneficiary_patient_id is not null');
+  if d = v_orig then raise exception 'sabotage (a) did not change the function'; end if;
   execute d;
   insert into results values ('sabotaged', 'the recipient must not see gift_state', 'null', pg_temp.gs(v_pat, o1));
-  select pg_get_functiondef('public.my_orders()'::regprocedure) into d;
-  d := replace(d, 'when ''declined'' then ''declined''', 'when ''declined'' then null');
-  if d = pg_get_functiondef('public.my_orders()'::regprocedure) then raise exception 'sabotage (b) did not change the function'; end if;
+  execute v_orig;
+  d := replace(v_orig, 'when ''declined'' then case when e.decided_by_sweep then ''not_answered'' else ''declined'' end', 'when ''declined'' then null');
+  if d = v_orig then raise exception 'sabotage (b) did not change the function'; end if;
   execute d;
   insert into results values ('sabotaged', 'the payer must see declined', 'declined', pg_temp.gs(v_sup, o1));
+  execute v_orig;
+  d := replace(v_orig, 'case when e.decided_by_sweep then ''not_answered'' else ''declined'' end', '''declined''');
+  if d = v_orig then raise exception 'sabotage (c) did not change the function'; end if;
+  execute d;
+  insert into results values ('sabotaged', 'a swept gift must not read declined', 'not_answered', pg_temp.gs(v_sup, o3));
+  execute v_orig;
+  d := replace(v_orig, 'else ''not_accepted''', 'else null');
+  if d = v_orig then raise exception 'sabotage (d) did not change the function'; end if;
+  execute d;
+  -- an unknown terminal word cannot exist under the CHECK, so the else branch is shown by the function text itself
+  insert into results values ('sabotaged', 'the CASE maps every value explicitly', 'true', (pg_get_functiondef('public.my_orders()'::regprocedure) like '%not_accepted%')::text);
 end $$;
 
 do $$
@@ -206,7 +225,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of 2 checks', v_caught; end if;
+  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results where phase = 'real' order by check_name;
