@@ -49,7 +49,7 @@ export const OFFLINE_RULE_SET: RuleSet = BP_CARE_V5;
 export const SHIPPED_BP_RULE_SETS: readonly RuleSet[] = [BP_CARE_V3, BP_CARE_V5, BP_CARE_V6, BP_CARE_V7];
 
 /** The standard personal target the phone uses when it has none cached. */
-const FALLBACK_TARGET = { systolic: 135, diastolic: 85 } as const;
+const FALLBACK_TARGET = { systolic: 135, diastolic: 85 } as const; // band-ok: fallback personal BP target when none is cached, same default the phone uses; not a triage band
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // The symptoms offered, derived from the engine (never a hand list).

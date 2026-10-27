@@ -131,7 +131,7 @@ export function triggerExecutes(src: Sources, name: string): boolean {
 export function kindEmitterPresent(src: Sources, eventType: string, ev: KindEvidence): boolean {
   const body = latestPrivateFunctionBody(src, ev.emitterFunction);
   if (body === null) return false;
-  const emitsType = new RegExp(`emit_domain_event\\(\\s*'${eventType.replace(/\./g, "\\.")}'`).test(body);
+  const emitsType = new RegExp(`emit_domain_event\\(\\s*'${eventType.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}'`).test(body);
   const carriesKind = new RegExp(`'kind'\\s*,\\s*'${ev.kind}'`).test(body);
   return emitsType && carriesKind && triggerExecutes(src, ev.emitterFunction);
 }

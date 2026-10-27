@@ -52,7 +52,7 @@ begin
   values (v, 's85-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, date_of_birth, is_test)
   values (v, p_org, 'patient'::public.user_role, 'S85 ' || p_label, (current_date - interval '50 years')::date, true)
-  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, date_of_birth = excluded.date_of_birth;
+  on conflict (id) do update set organisation_id = excluded.organisation_id, full_name = excluded.full_name, role = excluded.role, is_test = true, is_active = true, date_of_birth = excluded.date_of_birth;
   return v;
 end $f$;
 

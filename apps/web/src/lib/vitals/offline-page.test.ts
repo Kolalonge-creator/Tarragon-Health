@@ -23,9 +23,9 @@ const decode = (t: string): string =>
 /** Every text node of the page (style, script and comments removed), whether or not it is hidden by default. */
 function allText(source: string): string[] {
   const stripped = source
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<!--[\s\S]*?-->/g, " ");
+    .replace(/<style\b[\s\S]*?<\/style\b[^>]*>/gi, " ")
+    .replace(/<script\b[\s\S]*?<\/script\b[^>]*>/gi, " ")
+    .replace(/<!--[\s\S]*?--!?>/g, " ");
   const body = stripped.slice(stripped.search(/<title/i));
   return body
     .split(/<[^>]+>/)
@@ -83,7 +83,7 @@ describe("offline.html emergency guidance", () => {
   });
 
   it("its script reads one storage key and makes no request of any kind", () => {
-    const scripts = html.match(/<script[\s\S]*?<\/script>/gi) ?? [];
+    const scripts = html.match(/<script\b[\s\S]*?<\/script\b[^>]*>/gi) ?? [];
     expect(scripts).toHaveLength(1);
     expect(scripts[0]).not.toMatch(/\bsrc=/i);
     expect(scripts[0]).not.toMatch(/fetch|XMLHttpRequest|sendBeacon|WebSocket|import\(|document\.write|eval\(|innerHTML|localStorage|cookie/i);
