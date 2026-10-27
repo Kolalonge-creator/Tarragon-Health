@@ -3,9 +3,10 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { mapQueueError, validateHandback } from "../_shared/queue/claims.ts";
 
+import { withSentry } from "../_shared/observability/sentry.ts";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry("queue-handback", async (req) => {
   if (req.method !== "POST") return Response.json({ error: "method_not_allowed" }, { status: 405 });
   const auth = req.headers.get("Authorization");
   if (!auth?.startsWith("Bearer ")) return Response.json({ error: "unauthorised" }, { status: 401 });
@@ -32,4 +33,4 @@ Deno.serve(async (req) => {
     return Response.json({ error: code }, { status });
   }
   return Response.json({ ok: true });
-});
+}));

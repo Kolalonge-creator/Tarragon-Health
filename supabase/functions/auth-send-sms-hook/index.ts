@@ -10,6 +10,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { handleHookRequest, MAX_SENDS_PER_HOUR, type HoldStore, type SmsLogStore } from "./handler.ts";
 import { providerFromEnv } from "./provider.ts";
 
+import { withSentry } from "../_shared/observability/sentry.ts";
 const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false },
 });
@@ -49,7 +50,7 @@ const holds: HoldStore = {
   },
 };
 
-Deno.serve((req) =>
+Deno.serve(withSentry("auth-send-sms-hook", (req) =>
   handleHookRequest(req, {
     secret: Deno.env.get("SEND_SMS_HOOK_SECRET") ?? "",
     pepper: Deno.env.get("SMS_LOG_PEPPER") ?? "",
@@ -57,4 +58,4 @@ Deno.serve((req) =>
     store,
     holds,
   }),
-);
+));

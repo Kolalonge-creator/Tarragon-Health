@@ -5,7 +5,9 @@ import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { auditSampleSchema, editRatesSchema } from "@/lib/scribe/review-record";
+import { auditSampleSchema, diffRatesSchema, editRatesSchema } from "@/lib/scribe/review-record";
+import { editRate } from "@/lib/scribe/draft-diff";
+import { PROBLEM_CATEGORIES, PROBLEM_LABEL_KEYS, problemCountsSchema } from "@/lib/scribe/problem-report";
 import { DRAFT_SECTION_KEYS } from "@/lib/scribe/draft-review";
 
 export const metadata = { title: "Scribe quality" };
@@ -21,7 +23,14 @@ const day = (v: string): string => new Date(v).toLocaleDateString("en-GB", { dat
 export default async function ScribeQualityPage() {
   if (!canAssignCases(await getCurrentClinicalStaff())) redirect("/clinician");
   const supabase = loose(await createClient());
-  const [ratesRes, sampleRes] = await Promise.all([supabase.rpc("scribe_edit_rates"), supabase.rpc("scribe_audit_sample", { p_n: 10 })]);
+  const [ratesRes, sampleRes, diffRes, problemRes] = await Promise.all([
+    supabase.rpc("scribe_edit_rates"),
+    supabase.rpc("scribe_audit_sample", { p_n: 10 }),
+    supabase.rpc("scribe_diff_edit_rates"),
+    supabase.rpc("scribe_problem_counts"),
+  ]);
+  const diff = diffRes.error ? null : diffRatesSchema.safeParse(diffRes.data);
+  const problems = problemRes.error ? null : problemCountsSchema.safeParse(problemRes.data);
   const rates = ratesRes.error ? null : editRatesSchema.safeParse(ratesRes.data);
   const sample = sampleRes.error ? null : auditSampleSchema.safeParse(sampleRes.data);
 
@@ -69,6 +78,72 @@ export default async function ScribeQualityPage() {
             </div>
           )}
           <p className="text-xs text-charcoal-ink/60">{t("scribequality.reading", "en")}</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>{diff?.success ? t("scribequality.diff_drafts", "en", { count: diff.data.drafts }) : t("scribequality.diff_title", "en")}</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm font-medium">{t("scribequality.diff_title", "en")}</p>
+          {!diff?.success && <p role="alert" className="text-sm text-red-600">{t("scribequality.load_error", "en")}</p>}
+          {diff?.success && diff.data.drafts === 0 && <p className="text-sm text-charcoal-ink/60">{t("scribequality.diff_none", "en")}</p>}
+          {diff?.success && diff.data.drafts > 0 && (
+            <div className="overflow-x-auto" data-testid="diff-rates">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-charcoal-ink/10 text-xs text-charcoal-ink/60">
+                    <th className="py-1 pr-3">{t("scribequality.section", "en")}</th>
+                    <th className="px-2">{t("scribequality.col_changed", "en")}</th>
+                    <th className="px-2">{t("scribequality.col_words", "en")}</th>
+                    <th className="px-2">{t("scribequality.col_removed", "en")}</th>
+                    <th className="px-2">{t("scribequality.col_added", "en")}</th>
+                    <th className="px-2">{t("scribequality.col_rate", "en")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {DRAFT_SECTION_KEYS.map((k) => {
+                    const c = diff.data.sections[k];
+                    return (
+                      <tr key={k} className="border-b border-charcoal-ink/5">
+                        <td className="py-1 pr-3 font-medium">{k}</td>
+                        <td className="px-2">{c?.drafts_changed ?? 0}</td>
+                        <td className="px-2">{c?.draft_words ?? 0}</td>
+                        <td className="px-2">{c?.words_removed ?? 0}</td>
+                        <td className="px-2">{c?.words_added ?? 0}</td>
+                        <td className="px-2">{Math.round(editRate(c?.draft_words ?? 0, c?.words_removed ?? 0) * 100)}%</td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="font-medium">
+                    <td className="py-1 pr-3">All</td>
+                    <td className="px-2" />
+                    <td className="px-2">{diff.data.draft_words}</td>
+                    <td className="px-2">{diff.data.words_removed}</td>
+                    <td className="px-2">{diff.data.words_added}</td>
+                    <td className="px-2">{Math.round(editRate(diff.data.draft_words, diff.data.words_removed) * 100)}%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="text-xs text-charcoal-ink/60">{t("scribequality.diff_help", "en")}</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>{t("scribequality.problems_title", "en")}</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {!problems?.success && <p role="alert" className="text-sm text-red-600">{t("scribequality.load_error", "en")}</p>}
+          {problems?.success && problems.data.total === 0 && <p className="text-sm text-charcoal-ink/60">{t("scribequality.problems_none", "en")}</p>}
+          {problems?.success && problems.data.total > 0 && (
+            <ul className="text-sm" data-testid="problem-counts">
+              {PROBLEM_CATEGORIES.map((c) => (
+                <li key={c}>
+                  {t(PROBLEM_LABEL_KEYS[c] as Parameters<typeof t>[0], "en")}: {problems.data.by_category[c] ?? 0}
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
 

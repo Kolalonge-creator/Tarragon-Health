@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { formatPatientDate } from "@/lib/format-date";
 import { useRevokeMember, useSupportedPeople, useSupporterView } from "@/lib/queries/care-circle";
 import { SupporterBlocks } from "./supporter-blocks";
+import { WeeklyDigestCard } from "@/components/care-circle/weekly-digest-card";
+import { CircleTasksPanel } from "@/components/care-circle/circle-tasks-panel";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 const TOUCH = "min-h-11";
@@ -35,6 +37,8 @@ export function SupporterView({ patientId, locale }: { patientId: string; locale
       </header>
 
       <SupporterBlocks view={v} locale={locale} />
+      <WeeklyDigestCard patientId={patientId} locale={locale} />
+      <CircleTasksPanel patientId={patientId} locale={locale} />
 
       <div className="flex flex-wrap gap-3">
         {v.can_pay ? (
