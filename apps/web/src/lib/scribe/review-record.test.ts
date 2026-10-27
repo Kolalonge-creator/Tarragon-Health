@@ -49,3 +49,16 @@ describe("draftHash", () => {
     expect(canonicalDraft(reordered)).toBe(canonicalDraft(draft));
   });
 });
+
+describe("textHash", () => {
+  it("is stable across whitespace and differs for different text", async () => {
+    const { textHash } = await import("./review-record");
+    const subtle = { digest: async (_a: string, data: BufferSource) => new Uint8Array(Array.from(new Uint8Array(data as ArrayBuffer)).slice(0, 32).concat(new Array(32).fill(0)).slice(0, 32)).buffer };
+    const a = await textHash("headache  for\ttwo days", subtle);
+    const b = await textHash("headache for two days", subtle);
+    const c = await textHash("headache for three days", subtle);
+    expect(a).toBe(b);
+    expect(a).not.toBe(c);
+    expect(a).toMatch(/^[0-9a-f]{64}$/);
+  });
+});

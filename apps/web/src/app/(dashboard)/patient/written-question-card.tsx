@@ -74,12 +74,8 @@ function QuestionRow({ q, locale }: { q: WrittenQuestion; locale: Locale }) {
         <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{q.question}</p>
         <Badge variant={view.stage === "answered" ? "green" : "blue"}>{t(view.labelKey, locale)}</Badge>
       </div>
-      {view.stage === "waiting" && q.window_due_at && (
-        <p className={`text-xs ${MUTED}`}>
-          {t("wq.window", locale, { hours: Math.max(1, Math.round((new Date(q.window_due_at).getTime() - new Date(q.created_at).getTime()) / 3600000)) })}
-          {` (${formatPatientDateTime(q.window_due_at)})`}
-        </p>
-      )}
+      {/* S-9: no response-time number or due date is published until a CMO-signed response_time_config version exists. */}
+      {view.stage === "waiting" && <p className={`text-xs ${MUTED}`}>{t("wq.window", locale)}</p>}
       {view.missed && <p className={`text-xs ${MUTED}`}>{t("wq.status.missed", locale)}</p>}
       {view.stage === "call" && <p className={`text-sm ${MUTED}`}>{t("wq.call.note", locale)}</p>}
       {view.showAnswer && q.answer && (
@@ -319,7 +315,6 @@ export function WrittenQuestionCard({ patientId, locale }: { patientId: string; 
   const questions = questionsQuery.data ?? [];
 
   const canAsk = allowance !== null && (allowance.is_member || allowance.has_credit);
-  const hours = allowance ? Math.round(allowance.window_minutes / 60) : 24;
 
   return (
     <Card id="ask-a-doctor">
@@ -331,13 +326,13 @@ export function WrittenQuestionCard({ patientId, locale }: { patientId: string; 
           <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("wq.members_only", locale)}</p>
         ) : (
           <>
-            <p className={`text-sm ${MUTED}`}>{t("wq.intro", locale, { hours })}</p>
+            <p className={`text-sm ${MUTED}`}>{t("wq.intro", locale)}</p>
             <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
               {allowance.remaining > 0
                 ? t("wq.allowance.left", locale, { left: allowance.remaining, total: allowance.allowance })
                 : t("wq.allowance.none", locale)}
             </p>
-            <p className={`text-xs ${MUTED}`}>{t("wq.window", locale, { hours })}</p>
+            <p className={`text-xs ${MUTED}`}>{t("wq.window", locale)}</p>
             <p className={`text-xs ${MUTED}`}>{t("wq.promise", locale)}</p>
             <p className="text-xs font-medium text-charcoal-ink dark:text-night-ink">{t("wq.emergency", locale)}</p>
             <QuestionForm patientId={patientId} locale={locale} allowance={allowance} />
