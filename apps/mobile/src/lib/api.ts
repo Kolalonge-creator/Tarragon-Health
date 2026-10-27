@@ -138,6 +138,18 @@ export async function getEatingPlans(): Promise<unknown | null> {
   return result.ok ? result.data : null;
 }
 
+/** S47b: the weekly summary cards, or `{ state: "hidden" }` (show nothing at all). Null when the request failed. */
+export async function getWeeklyCards(): Promise<unknown | null> {
+  const result = await request<unknown>("/api/mobile/weekly-cards", "GET");
+  return result.ok ? result.data : null;
+}
+
+/** S47b: the server fallback for today-build. Facts in (counts and yes or no, never a reading), the plan out. Null when the request failed. */
+export async function postTodayBuild(facts: unknown): Promise<unknown | null> {
+  const result = await request<unknown>("/api/mobile/today-build", "POST", facts);
+  return result.ok ? result.data : null;
+}
+
 export interface MobileThresholds {
   version: string;
   glucose: Record<string, number>;

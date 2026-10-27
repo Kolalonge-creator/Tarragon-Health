@@ -3,6 +3,11 @@ import { createClient } from "@/lib/supabase/client";
 import {
   inviteMadeSchema,
   parseAccept,
+  parseDeclined,
+  parseDigest,
+  parseNudges,
+  parseTasks,
+  parseToolsStatus,
   parseCheckInPending,
   parseCheckInRequest,
   parseMyCircle,
@@ -426,6 +431,126 @@ export function useSupportingAttention(enabled: boolean) {
       const unansweredError = isMissingFunction(unanswered.error) ? null : unanswered.error;
       if (alerts.error || unansweredError) throw new CircleError((alerts.error ?? unansweredError)?.message ?? "unknown");
       return attentionCount(parseOpenAlerts(alerts.data), unanswered.error ? [] : parseUnanswered(unanswered.data));
+    },
+  });
+}
+
+
+// ---------------------------------------------------------------------------
+// S69b: tools status, "not now", the nudge switch, shared jobs, the weekly digest, nudges
+// ---------------------------------------------------------------------------
+/** Which tools are on. A failed read reads as "all off": a control is never shown by accident. */
+export function useToolsStatus() {
+  return useQuery({
+    queryKey: ["care-circle", "tools"] as const,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("circle_tools_status");
+      if (error) return parseToolsStatus(null);
+      return parseToolsStatus(data);
+    },
+  });
+}
+
+/** "Not now": silent for the person who asked. The screen never tells the sender anything. */
+export function useDeclineInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (token: string) => {
+      const { data, error } = await createClient().rpc("decline_care_circle_invite", { p_token: token });
+      if (error) throw new CircleError(error.message);
+      return parseDeclined(data);
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["care-circle"] }),
+  });
+}
+
+export function useSetMissedDoseAlert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { memberId: string; on: boolean }) => {
+      const { error } = await createClient().rpc("set_circle_missed_dose_alert", { p_member: input.memberId, p_on: input.on });
+      if (error) throw new CircleError(error.message);
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: circleKeys.mine }),
+  });
+}
+
+export function useCircleTasks(patientId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["care-circle", "tasks", patientId] as const,
+    enabled,
+    retry: false,
+    // an audited read: no refetch on focus or reconnect, so one visit is one logged look
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("circle_tasks", { p_patient: patientId });
+      if (error) throw new CircleError(error.message);
+      const parsed = parseTasks(data);
+      if (!parsed) throw new CircleError("unknown");
+      return parsed;
+    },
+  });
+}
+
+export type TaskAction = "claim_circle_task" | "release_circle_task" | "complete_circle_task" | "cancel_circle_task";
+/** claim, release, complete and cancel share a shape: one task id in, a boolean out (false means it was no longer possible). */
+export function useTaskAction(patientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { action: TaskAction; taskId: string }) => {
+      const { data, error } = await createClient().rpc(input.action, { p_task: input.taskId });
+      if (error) throw new CircleError(error.message);
+      return data === true;
+    },
+    onSettled: () => void qc.invalidateQueries({ queryKey: ["care-circle", "tasks", patientId] }),
+  });
+}
+
+export function usePostTask(patientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { kind: string; neededBy: string | null }) => {
+      const { error } = await createClient().rpc("post_circle_task", { p_patient: patientId, p_kind: input.kind, ...(input.neededBy ? { p_needed_by: input.neededBy } : {}) });
+      if (error) throw new CircleError(error.message);
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["care-circle", "tasks", patientId] }),
+  });
+}
+
+/** The weekly digest, built on the server from the permissions held. Each open is a logged look. */
+export function useWeeklyDigest(patientId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["care-circle", "digest", patientId] as const,
+    enabled,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("circle_weekly_digest", { p_patient: patientId });
+      if (error) throw new CircleError(error.message);
+      return parseDigest(data);
+    },
+  });
+}
+
+/** People a gentle nudge was sent about, first name only. Empty when the tool is off. */
+export function useRecentNudges(enabled: boolean) {
+  return useQuery({
+    queryKey: ["care-circle", "nudges"] as const,
+    enabled,
+    // an audited read: read on arrival, no polling and no refetch on focus
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("circle_recent_nudges");
+      if (isMissingFunction(error)) return [];
+      if (error) throw new CircleError(error.message);
+      return parseNudges(data);
     },
   });
 }

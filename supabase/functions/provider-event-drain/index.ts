@@ -8,7 +8,8 @@ import { resendDispatcher } from "../resend-webhook/handler.ts";
 import { zoomDispatcher } from "../zoom-webhook/handler.ts";
 import { handleDrain } from "./handler.ts";
 
-Deno.serve((req) => {
+import { withSentry } from "../_shared/observability/sentry.ts";
+Deno.serve(withSentry("provider-event-drain", (req) => {
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
   // The inbox only ever holds events whose signature already verified, so the signature the order branch wants is recomputed
   // from the stored raw body with the same secret: it equals the one Paystack sent.
@@ -29,4 +30,4 @@ Deno.serve((req) => {
     store: supabaseInboxStore(supabase),
     dispatchers: { paystack, zoom: zoomDispatcher(supabase), resend: resendDispatcher(supabase) },
   });
-});
+}));

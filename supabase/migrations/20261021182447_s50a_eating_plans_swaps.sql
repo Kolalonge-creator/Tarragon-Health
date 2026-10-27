@@ -215,7 +215,7 @@ begin
     if exists (select 1 from public.nutrition_target_holds h where h.patient_id = v_uid and h.cleared_at is null)
        or exists (select 1 from public.obesity_ed_screens e where e.patient_id = v_uid and e.positive)
        or exists (select 1 from public.postnatal_profiles np where np.patient_id = v_uid and np.delivery_date > (current_date - 365))
-       or coalesce((select p.date_of_birth > (current_date - interval '18 years') from public.profiles p where p.id = v_uid), true) then
+       or coalesce((select p.date_of_birth > (((now() at time zone 'Africa/Lagos')::date) - interval '18 years') from public.profiles p where p.id = v_uid), true) then
       return jsonb_build_object('state', 'unavailable');
     end if;
     return jsonb_build_object('state', 'ok', 'config_version', v_cfg.version, 'swaps', '[]'::jsonb,

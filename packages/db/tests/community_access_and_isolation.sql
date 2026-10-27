@@ -125,9 +125,9 @@ begin
   v_nodob := pg_temp.mkuser(v_org, 'nodob', 'patient');
   v_dep := pg_temp.mkuser(v_org, 'dependant', 'patient');
   v_merged := pg_temp.mkuser(v_org, 'merged', 'patient');
-  update public.profiles set date_of_birth = (current_date - interval '17 years')::date where id = v_minor;
-  update public.profiles set date_of_birth = (current_date - interval '18 years')::date where id = v_edge;
-  update public.profiles set date_of_birth = (current_date - interval '18 years' + interval '1 day')::date where id = v_young;
+  update public.profiles set date_of_birth = ((now() at time zone 'Africa/Lagos')::date - interval '17 years')::date where id = v_minor;
+  update public.profiles set date_of_birth = ((now() at time zone 'Africa/Lagos')::date - interval '18 years')::date where id = v_edge;
+  update public.profiles set date_of_birth = ((now() at time zone 'Africa/Lagos')::date - interval '18 years' + interval '1 day')::date where id = v_young;
   update public.profiles set date_of_birth = null where id = v_nodob;
   update public.profiles set is_dependent_account = true where id = v_dep;
   update public.profiles set merged_into_profile_id = v_p1 where id = v_merged;

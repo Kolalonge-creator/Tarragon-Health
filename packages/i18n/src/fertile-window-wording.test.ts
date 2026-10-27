@@ -22,9 +22,13 @@ describe("fertile window label (S85 D2, OQ-12)", () => {
     expect(FERTILE_WINDOW_LINK_TEXT).toBe(EXACT_LINK);
   });
 
-  it("is NOT signed by this build: a signature is a CMO act and only a person adds it", () => {
-    expect(FERTILE_WINDOW_SIGNED).toBeNull();
-    expect(WORDING.fertileWindow.signed).toBeNull();
+  it("is signed by a named person on a named date, never by a build; the signed text equals the exact wording", () => {
+    expect(FERTILE_WINDOW_SIGNED).not.toBeNull();
+    expect(FERTILE_WINDOW_SIGNED?.by.length).toBeGreaterThan(0);
+    expect(FERTILE_WINDOW_SIGNED?.on).toBe("2026-10-27");
+    expect(WORDING.fertileWindow.proposed.label).toBe(EXACT_LABEL);
+    expect(WORDING.fertileWindow.proposed.link).toBe(EXACT_LINK);
+    expect(WORDING.fertileWindow.current).toEqual(WORDING.fertileWindow.proposed);
   });
 
   it("unsigned means the interim text, signed means the proposal", () => {

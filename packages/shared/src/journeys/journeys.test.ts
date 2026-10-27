@@ -35,7 +35,7 @@ describe("journey definitions", () => {
   it("known-pending counts per journey (a change here is a deliberate edit to what the platform lacks)", () => {
     expect({ J1: knownPendingCount(J1), J2: knownPendingCount(J2), J3: knownPendingCount(J3), J4: knownPendingCount(J4) }).toEqual({
       J1: 8,
-      J2: 3,
+      J2: 2,
       J3: 12,
       J4: 2,
     });
@@ -48,7 +48,7 @@ describe("Journey 3 typed skeleton", () => {
     const r = run.report();
     expect(r.counts).toEqual({ passed: 0, failed: 0, pending: J3.steps.length, skipped: 0, total: J3.steps.length });
     expect(r.verdict).toBe("incomplete");
-    expect(Object.keys(r.pendingByOwner).sort()).toEqual(["S51", "S53", "S54", "S59", "S60", "S64"]);
+    expect(Object.keys(r.pendingByOwner).sort()).toEqual(["CMO signs a urinary pathway", "FOUNDER decides whether causes are ever shown", "S51", "S53", "S54", "S59", "S60", "S64"]);
     expect(renderReport(r)).toContain("INCOMPLETE");
   });
 
@@ -66,5 +66,74 @@ describe("the four journeys together", () => {
     expect(text).toContain("Journeys: 4");
     // nothing in the wording claims a stage or a gate is done
     expect(text).not.toMatch(/stage 1|\bgate\b|\bcomplete\b/i);
+  });
+});
+
+describe("S85b: the web offline guidance step is a real assertion, not a pending entry", () => {
+  const spec = readFileSync(join(ROOT, "apps", "web", "e2e-browser", "journeys", "journey-2-red-reading-at-night.spec.ts"), "utf8");
+  // The step must exercise three SEPARATE paths with the network off (a symptom alone, a reading alone with the tick cleared, both together) and judge
+  // them against the rule set row and the stored server grade. Each marker below is one piece of that; taking any out must be noticed.
+  const markers: Array<[string, (t: string) => boolean]> = [
+    ["the step is run, not marked pending", (t) => t.includes('run.step("guidance-with-network-off-web"')],
+    ["the network is really switched off", (t) => t.includes("context.setOffline(true)")],
+    ["the signed wording is checked", (t) => t.includes('activeWording("EMG-001")')],
+    ["the symptom-only path is captured", (t) => t.includes("offlineWeb.symptomOnly = true")],
+    ["the tick is cleared before the reading-only path", (t) => /await tick\.uncheck\(\);[\s\S]{0,200}not\.toBeChecked\(\)[\s\S]{0,400}offlineWeb\.readingOnly = /.test(t)],
+    ["the reading-only path is judged by the engine on the reading without the symptom, asked and unasked", (t) => /symptoms: \[\], symptomsAnswered: answered/.test(t) && t.includes('"symptom_check_required"') && t.includes("if (readingNeedsGuidance) expect(offlineWeb.readingOnly")],
+    ["the combined path is compared with the stored server grade", (t) => /graded!\.grade === "red"\) expect\(offlineWeb\.combined/.test(t)],
+    ["the question line and symptom group come from the database rule set", (t) => t.includes("rules.params.symptomGroups.redFlag") && t.includes('rpc("triage_rule_set_for_grading"')],
+  ];
+
+  it("the definition no longer carries a pending entry for it and the spec runs it with the network off", () => {
+    expect(J2.steps.find((s) => s.id === "guidance-with-network-off-web")?.pending).toBeUndefined();
+    for (const [name, check] of markers) expect({ name, present: check(spec) }).toEqual({ name, present: true });
+  });
+
+  it("sabotage: take any one piece out of the spec and the scan notices", () => {
+    const damaged: Array<[string, string]> = [
+      ["the network is really switched off", spec.replace("context.setOffline(true)", "/* online */")],
+      ["the signed wording is checked", spec.replace('activeWording("EMG-001")', "null")],
+      ["the symptom-only path is captured", spec.replace("offlineWeb.symptomOnly = true", "")],
+      ["the tick is cleared before the reading-only path", spec.replace("await tick.uncheck();", "")],
+      ["the reading-only path is judged by the engine on the reading without the symptom, asked and unasked", spec.replace("if (readingNeedsGuidance) expect(offlineWeb.readingOnly", "if (false) expect(offlineWeb.readingOnly")],
+      ["the combined path is compared with the stored server grade", spec.replaceAll('graded!.grade === "red"', "false")],
+      ["the question line and symptom group come from the database rule set", spec.replace("rules.params.symptomGroups.redFlag", "[]")],
+      ["the step is run, not marked pending", spec.replace('run.step("guidance-with-network-off-web"', 'run.pending("guidance-with-network-off-web"')],
+    ];
+    for (const [name, text] of damaged) {
+      const check = markers.find(([n]) => n === name)![1];
+      expect({ name, caught: check(text) === false }).toEqual({ name, caught: true });
+    }
+  });
+
+  it("the stale Pidgin audio wording is gone from journey 1 (D-14, English only)", () => {
+    const step = J1.steps.find((s) => s.id === "result-plain-language-explanation")!;
+    expect(step.title).toMatch(/English/);
+    expect(step.title).not.toMatch(/audio in English; Pidgin was removed/);
+  });
+});
+
+describe("S85b review: a step is only enabled when its assertion measures the spec's own wording", () => {
+  const j1 = readFileSync(join(ROOT, "apps", "web", "e2e-browser", "journeys", "journey-1-first-month.spec.ts"), "utf8");
+
+  it("the goal and Health Points steps carry the spec's own wording and stay pending, each with an accurate reason", () => {
+    const goal = J1.steps.find((s) => s.id === "goal-blood-pressure")!;
+    const points = J1.steps.find((s) => s.id === "health-points-awarded")!;
+    expect(goal.title).toBe("Onboarding records the goal 'blood pressure'");
+    expect(points.title).toBe("Health Points are awarded for consistency");
+    expect(goal.pending?.reason).toMatch(/no goal called blood pressure/);
+    expect(points.pending?.reason).toMatch(/participation reward/);
+  });
+
+  it("the spec does not run either as a journey step (what exists is checked separately and is not counted as the step)", () => {
+    expect(j1).not.toContain('run.step("goal-blood-pressure"');
+    expect(j1).not.toContain('run.step("health-points-awarded"');
+    expect(j1).toContain("supporting check: onboarding saves her own goal and condition answers");
+    expect(j1).toContain("supporting check: logging readings earns capped Health Points through the bus");
+  });
+
+  it("sabotage: a spec that ran the goal step again would be caught by the same scan", () => {
+    const damaged = j1.replace('test.step("supporting check: onboarding saves', 'run.step("goal-blood-pressure", async () => { /* ');
+    expect(damaged).toContain('run.step("goal-blood-pressure"');
   });
 });

@@ -568,6 +568,15 @@ jobs:
             (cd supabase/functions/$d && deno test --no-config . && deno lint --no-config .)
           done
 
+      # OQ-727: the clinician page (abnormal-result-handler) and a typecheck of the notification sender. send-pending-notifications is not
+      # linted yet, but it is type-checked: a call to a helper deleted in S85-D3 (platformDisabledChannel) sat in main-dev for weeks because
+      # nothing compiled this file.
+      - name: Test and typecheck clinician paging and the notification sender
+        if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
+        run: |
+          (cd supabase/functions/abnormal-result-handler && deno test --no-config --allow-read . && deno lint --no-config . && deno check --no-config index.ts)
+          (cd supabase/functions/send-pending-notifications && deno check --no-config index.ts)
+
       # S03: the auth Send SMS hook. Clean under deno lint from day one, so it is widened in directory by directory.
       - name: Test auth SMS hook
         if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
