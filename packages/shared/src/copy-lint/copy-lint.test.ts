@@ -10,6 +10,7 @@ describe("copy-lint detector", () => {
     ['<h1>Free healthcare for all</h1>', "free-healthcare"],
     ['"Ask your doctor about it"', "your-doctor"],
     ['"Fast — and easy"', "em-dash"],
+    ['"Open 9–14 days"', "en-dash"],
   ])("flags %s", (line, rule) => {
     expect(scanText("x.tsx", line).map((v) => v.rule)).toContain(rule);
   });
@@ -25,6 +26,13 @@ describe("copy-lint detector", () => {
       'const x = 1; // a — b',
     ];
     for (const line of clean) expect(scanText("x.tsx", line)).toEqual([]);
+  });
+
+  it("scans the deployed notification templates (W-59)", () => {
+    const root = fileURLToPath(new URL("../../../../", import.meta.url));
+    const files = scanRepo(root, ["supabase/functions/send-pending-notifications"]);
+    expect(files.filter((v) => v.file.endsWith("templates.ts") && v.rule === "em-dash")).toEqual([]);
+    expect(countSourceFiles(root, ["supabase/functions/send-pending-notifications"])).toBeGreaterThanOrEqual(2);
   });
 
   it("reports file and line", () => {

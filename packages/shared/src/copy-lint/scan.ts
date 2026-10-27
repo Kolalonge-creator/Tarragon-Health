@@ -24,6 +24,7 @@ export const COPY_RULES: readonly CopyRule[] = [
   { id: "free-healthcare", pattern: /free health ?care/i, reason: "overpromises; patients pay for a clinician's time" },
   { id: "your-doctor", pattern: /\byour doctor\b/i, reason: 'care is delivered by a team; say "your care team"' },
   { id: "em-dash", pattern: /—/, reason: "no em dashes in user-facing copy" },
+  { id: "en-dash", pattern: /–/, reason: 'no en dashes in user-facing copy; write "9 to 14" or use a colon or full stop' },
 ];
 
 export interface CopyViolation {
@@ -76,7 +77,14 @@ export function countSourceFiles(repoRoot: string, roots: readonly string[] = DE
   return n;
 }
 
-export const DEFAULT_ROOTS = ["apps/web/src", "apps/mobile/src", "packages/notifications/src", "packages/i18n/src"] as const;
+// W-59: the deployed email/push/in-app templates (edge function) are user-facing copy too, so they are in scope.
+export const DEFAULT_ROOTS = [
+  "apps/web/src",
+  "apps/mobile/src",
+  "packages/notifications/src",
+  "packages/i18n/src",
+  "supabase/functions/send-pending-notifications",
+] as const;
 
 export function scanRepo(repoRoot: string, roots: readonly string[] = DEFAULT_ROOTS): CopyViolation[] {
   const out: CopyViolation[] = [];

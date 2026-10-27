@@ -574,12 +574,12 @@ export const TEMPLATE_MAP: Record<
   engagement_reminder_personalized: (payload) => {
     const dimension = typeof payload.lowest_dimension === "string" ? payload.lowest_dimension : null;
     const DIMENSION_COPY: Record<string, string> = {
-      monitoring: "It looks like a monitoring reading is overdue — logging one takes about a minute.",
+      monitoring: "It looks like a monitoring reading is overdue. Logging one takes about a minute.",
       appointments: "You've got an appointment that could use a bit of attention.",
-      medication: "A medication check-in is waiting — a quick answer helps your care team keep track.",
-      lifestyle: "It's been a little quiet on your lifestyle log — even a small update helps.",
+      medication: "A medication check-in is waiting. A quick answer helps your care team keep track.",
+      lifestyle: "It's been a little quiet on your lifestyle log. Even a small update helps.",
       prevention: "A screening or vaccination on your schedule is coming up.",
-      app_usage: "We haven't seen you in a little while — everything OK?",
+      app_usage: "We haven't seen you in a little while. Is everything OK?",
       messages: "There's a message from your care team waiting on a reply.",
       care_plan: "There's a step on your care plan that's still open.",
     };
@@ -620,7 +620,7 @@ export const TEMPLATE_MAP: Record<
   // theory the usual one may simply not be working for them right now.
   engagement_alternative_channel_checkin: () => {
     const message =
-      "We've been trying to reach you and wanted to check in a different way — is everything OK?";
+      "We've been trying to reach you and wanted to check in a different way. Is everything OK?";
     return {
       smsText: `${message} Open the Tarragon Health app, or reply here. Tarragon Health`,
     };
