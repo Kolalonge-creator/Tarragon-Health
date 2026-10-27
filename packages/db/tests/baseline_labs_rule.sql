@@ -90,6 +90,33 @@ begin
   perform pg_temp.back();
   return r;
 end $f$;
+create function pg_temp.ovr(p_uid uuid, p_pat uuid, p_drug text, p_cat text, p_reason text) returns text language plpgsql as
+$f$ declare r text;
+begin
+  perform set_config('request.jwt.claims', json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', p_uid::text, true);
+  begin
+    perform public.record_baseline_labs_override(p_pat, p_drug, p_cat, p_reason);
+    r := 'ok';
+  exception when others then r := sqlstate;
+  end;
+  perform pg_temp.back();
+  return r;
+end $f$;
+create function pg_temp.med_as(p_uid uuid, p_org uuid, p_pat uuid, p_drug text, p_dose text) returns text language plpgsql as
+$f$ declare r text;
+begin
+  perform set_config('request.jwt.claims', json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', p_uid::text, true);
+  begin
+    insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, is_active)
+      values (p_org, p_pat, p_drug, p_dose, 'once daily', 'clinician', true);
+    r := 'ok';
+  exception when others then r := sqlstate;
+  end;
+  perform pg_temp.back();
+  return r;
+end $f$;
 create function pg_temp.med(p_org uuid, p_pat uuid, p_drug text, p_dose text, p_source text, p_prev uuid default null) returns uuid language plpgsql as
 $f$ declare v uuid;
 begin
@@ -101,7 +128,7 @@ end $f$;
 do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_smo uuid; v_pat uuid; v_dm uuid; v_ver integer;
-  v_m uuid; v_old uuid; v_fut uuid; v_nl uuid; v_stop uuid; v_ren uuid; v_fq uuid; v_fm uuid; v_fm2 uuid; v_txt text; v_n integer; v_missing text[];
+  v_m uuid; v_nh uuid; v_ou uuid; v_mid uuid; v_u1 uuid; v_u2 uuid; v_old uuid; v_fut uuid; v_nl uuid; v_stop uuid; v_ren uuid; v_fq uuid; v_fm uuid; v_fm2 uuid; v_txt text; v_n integer; v_missing text[];
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -141,6 +168,9 @@ begin
   perform pg_temp.back();
   perform pg_temp.rec('a5 nothing became active', '0', (select count(*)::text from public.baseline_labs_rule_config where is_active or approved_at is not null));
 
+  perform pg_temp.rec('c5 no rule: an override has nothing to override (22023)', '22023',
+    pg_temp.ovr(v_smo, v_pat, 'Metformin', 'emergency_treatment', 'Hyperglycaemic crisis, treatment cannot wait for results'));
+
   -- b. the CMO signs
   perform pg_temp.act(v_cmo);
   perform pg_temp.rec('b1 the CMO signs', 'ok', pg_temp.msg(format('select public.sign_baseline_labs_rule_config(%s)', v_ver)));
@@ -176,7 +206,9 @@ begin
      and pg_temp.msg(format('select pg_temp.med(%L,%L,%L,%L,%L)', v_org, v_pat, 'Losartan', '50 mg', 'clinician')) not like '%Potassium%')::text);
   perform pg_temp.lab(v_org, v_pat, 'fasting_glucose', 'mmol/L', 10);
   perform pg_temp.rec('d9 all three recent: a start is allowed', 'ok', pg_temp.msg(format('select pg_temp.med(%L,%L,%L,%L,%L)', v_org, v_pat, 'Losartan', '50 mg', 'clinician')));
-  perform pg_temp.rec('d10 all three recent: a dose increase is allowed', 'ok', pg_temp.upd(v_cmo, v_m, '1000 mg'));
+  perform pg_temp.rec('d10a a glucose-lowering dose increase also needs an HbA1c, which is now named', 'true', (pg_temp.upd(v_cmo, v_m, '1000 mg') like '23514:%HbA1c%')::text);
+  perform pg_temp.lab(v_org, v_pat, 'hba1c', 'percent', 10);
+  perform pg_temp.rec('d10 all labs recent: a dose increase is allowed', 'ok', pg_temp.upd(v_cmo, v_m, '1000 mg'));
   perform pg_temp.rec('d11 baseline_labs_missing is empty with labs on file', '0', cardinality(private.baseline_labs_missing(v_pat, 'Losartan'))::text);
 
   -- d. labs older than the window
@@ -225,6 +257,61 @@ begin
   perform pg_temp.rec('f1 a diabetic with no HbA1c is refused and HbA1c named', 'true', (pg_temp.msg(format('select pg_temp.med(%L,%L,%L,%L,%L)', v_org, v_dm, 'Metformin', '500 mg', 'clinician')) like '23514:%HbA1c%')::text);
   perform pg_temp.lab(v_org, v_dm, 'hba1c', 'percent', 5);
   perform pg_temp.rec('f2 a diabetic with an HbA1c is allowed', 'ok', pg_temp.msg(format('select pg_temp.med(%L,%L,%L,%L,%L)', v_org, v_dm, 'Metformin', '500 mg', 'clinician')));
+
+  -- h. every class of blood-pressure medicine, and HbA1c for every glucose-lowering medicine
+  v_ou := pg_temp.mkuser(v_org, 'overridden', 'patient');
+  perform pg_temp.rec('h1 six more blood-pressure classes (beta blocker, loop diuretic, hydralazine, alpha blocker, clonidine, methyldopa) are all refused with no labs', '6',
+    (select count(*)::text from unnest(array['Atenolol', 'Furosemide', 'Hydralazine', 'Doxazosin', 'Clonidine', 'Methyldopa']) d
+      where left(pg_temp.msg(format('select pg_temp.med(%L,%L,%L,%L,%L)', v_org, v_ou, d, '25 mg', 'clinician')), 5) = '23514'));
+  v_nh := pg_temp.mkuser(v_org, 'nondiabetic', 'patient');
+  perform pg_temp.lab(v_org, v_nh, 'creatinine', 'umol/L', 5);
+  perform pg_temp.lab(v_org, v_nh, 'potassium', 'mmol/L', 5);
+  perform pg_temp.lab(v_org, v_nh, 'fasting_glucose', 'mmol/L', 5);
+  perform pg_temp.rec('h2 metformin for someone with no diabetes entry and no HbA1c is refused and names HbA1c', 'true',
+    (pg_temp.msg(format('select pg_temp.med(%L,%L,%L,%L,%L)', v_org, v_nh, 'Metformin', '500 mg', 'clinician')) like '23514:%HbA1c%')::text);
+  perform pg_temp.rec('h3 a blood-pressure medicine for the same person does not need an HbA1c', 'ok',
+    pg_temp.msg(format('select pg_temp.med(%L,%L,%L,%L,%L)', v_org, v_nh, 'Atenolol', '50 mg', 'clinician')));
+  perform pg_temp.lab(v_org, v_nh, 'hba1c', 'percent', 5);
+  perform pg_temp.rec('h4 with an HbA1c on file the metformin start is allowed', 'ok',
+    pg_temp.msg(format('select pg_temp.med(%L,%L,%L,%L,%L)', v_org, v_nh, 'Metformin', '500 mg', 'clinician')));
+
+  -- i. units: a lower dose in a bigger or smaller unit is not an increase
+  v_u1 := pg_temp.mkuser(v_org, 'units', 'patient');
+  alter table public.medications disable trigger medications_c_baseline_labs_rule;
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, is_active)
+    values (v_org, v_u1, 'Metformin', '1 g', 'once daily', 'clinician', true) returning id into v_mid;
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, is_active)
+    values (v_org, v_u1, 'Gliclazide', '500 mg', 'once daily', 'clinician', true) returning id into v_u2;
+  alter table public.medications enable trigger medications_c_baseline_labs_rule;
+  perform pg_temp.rec('i1 1 g down to 500 mg is a decrease and is allowed with no labs', 'ok', pg_temp.upd(v_cmo, v_mid, '500 mg'));
+  perform pg_temp.rec('i2 500 mg up to 1 g is an increase and is refused with no labs', '23514', left(pg_temp.upd(v_cmo, v_u2, '1 g'), 5));
+  perform pg_temp.rec('i3 the dose helper reads amounts and units', 'true/true/false/false/true',
+    private.dose_not_increased('1 g', '500 mg')::text || '/' || private.dose_not_increased('5/10 mg', '5/5 mg')::text || '/' ||
+    private.dose_not_increased('500 mg', '1 g')::text || '/' || private.dose_not_increased('500 mg', '2 tablets')::text || '/' ||
+    private.dose_not_increased('20 units', '10 units')::text);
+
+  -- j. the documented override: one doctor, one patient, one medicine, once, audited, followed up
+  perform pg_temp.rec('j1 a patient cannot record an override', '42501', pg_temp.ovr(v_ou, v_ou, 'Metformin', 'emergency_treatment', 'Hyperglycaemic crisis, treatment cannot wait for results'));
+  perform pg_temp.rec('j2 a reason shorter than 20 characters is refused', '22023', pg_temp.ovr(v_smo, v_ou, 'Metformin', 'emergency_treatment', 'urgent'));
+  perform pg_temp.rec('j3 an unknown reason category is refused', '22023', pg_temp.ovr(v_smo, v_ou, 'Metformin', 'because', 'Hyperglycaemic crisis, treatment cannot wait for results'));
+  perform pg_temp.rec('j4 a medicine the rule does not cover has nothing to override', '22023', pg_temp.ovr(v_smo, v_ou, 'Paracetamol', 'emergency_treatment', 'Hyperglycaemic crisis, treatment cannot wait for results'));
+  perform pg_temp.rec('j5 without an override the start is refused and the message points to the override', 'true',
+    (pg_temp.med_as(v_smo, v_org, v_ou, 'Insulin glargine', '10 units') = '23514' and
+     pg_temp.msg(format('select pg_temp.med(%L,%L,%L,%L,%L)', v_org, v_ou, 'Insulin glargine', '10 units', 'clinician')) like '%documented override%')::text);
+  perform pg_temp.rec('j6 a senior doctor records an override', 'ok', pg_temp.ovr(v_smo, v_ou, 'Insulin glargine', 'emergency_treatment', 'Hyperglycaemic crisis, treatment cannot wait for results'));
+  perform pg_temp.rec('j7 another doctor cannot use it', '23514', pg_temp.med_as(v_cmo, v_org, v_ou, 'Insulin glargine', '10 units'));
+  perform pg_temp.rec('j8 a different medicine for the same patient cannot use it', '23514', pg_temp.med_as(v_smo, v_org, v_ou, 'Metformin', '500 mg'));
+  perform pg_temp.rec('j9 the same doctor, patient and medicine: allowed', 'ok', pg_temp.med_as(v_smo, v_org, v_ou, 'Insulin glargine', '10 units'));
+  perform pg_temp.rec('j10 it works once only', '23514', pg_temp.med_as(v_smo, v_org, v_ou, 'Insulin glargine', '12 units'));
+  perform pg_temp.rec('j11 both the recording and the use are in the audit log', '1/1',
+    (select count(*) filter (where action = 'baseline_labs.override_recorded')::text || '/' || count(*) filter (where action = 'baseline_labs.override_used')::text
+       from public.audit_log where (event ->> 'patient_id' = v_ou::text) or (entity_id in (select used_medication_id from public.baseline_labs_overrides where patient_id = v_ou))));
+  perform pg_temp.rec('j12 the missing labs are on the patient''s lab monitoring list, pending, due in 2 days', '1/pending/2',
+    (select count(*)::text || '/' || min(status::text) || '/' || min(due_date - current_date)::text
+       from public.medication_lab_monitoring where patient_id = v_ou and monitoring_label = 'Baseline labs after a documented override'));
+  perform pg_temp.ovr(v_smo, v_ou, 'Gliclazide', 'labs_ordered_results_pending', 'Labs ordered this morning, results due tomorrow');
+  update public.baseline_labs_overrides set valid_until = now() - interval '1 minute' where patient_id = v_ou and drug_name = 'Gliclazide';
+  perform pg_temp.rec('j13 an override expires after its window', '23514', pg_temp.med_as(v_smo, v_org, v_ou, 'Gliclazide', '40 mg'));
 
   -- g. SABOTAGE: the trigger function emptied; the refusal must disappear
   create or replace function private.enforce_baseline_labs_rule() returns trigger language plpgsql security definer set search_path = '' as $s$ begin return new; end $s$;

@@ -29,13 +29,23 @@ export function BaselineLabsRulePanel({ version, rule }: { version: number | nul
             <p className="font-medium">Labs that must be on file (proposed)</p>
             <ul className="list-disc pl-5 text-charcoal-ink/80">
               <li>For every medicine above: {rule.requiredForAll.join(", ")}.</li>
-              <li>Also, when diabetes is on the patient&apos;s problem list: {rule.requiredIfDiabetes.join(", ")}.</li>
+              <li>Also, for every glucose-lowering medicine: {rule.requiredForGlucoseLowering.join(", ")}.</li>
+              <li>Also, for a blood-pressure-lowering medicine when diabetes is on the patient&apos;s problem list: {rule.requiredIfDiabetes.join(", ")}.</li>
             </ul>
             <p className="mt-1 text-charcoal-ink/80">{rule.diabetesNote}</p>
           </div>
           <p><span className="font-medium">How recent (proposed): {rule.windowDays} days.</span> {rule.windowNote}</p>
           <p><span className="font-medium">If a lab is missing.</span> {rule.whenMissing}</p>
-          <p><span className="font-medium">No bypass in this version.</span> {rule.bypassNote}</p>
+          <div>
+            <p className="font-medium">The documented override (emergencies and pending results)</p>
+            <p className="text-charcoal-ink/80">{rule.bypassNote}</p>
+            <ul className="mt-1 list-disc pl-5 text-charcoal-ink/80">
+              {rule.overrideReasons.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+            <p className="mt-1 text-charcoal-ink/80">{rule.overrideWho}</p>
+          </div>
           <p className="text-charcoal-ink/80">{rule.membershipNote}</p>
         </div>
       ) : (
@@ -43,7 +53,7 @@ export function BaselineLabsRulePanel({ version, rule }: { version: number | nul
       )}
       <label className="flex items-start gap-2 text-sm text-charcoal-ink">
         <input type="checkbox" name="understood" className="mt-1" required disabled={!rule} />
-        <span>I have read the medicines, the labs, the {rule?.windowDays ?? "proposed"}-day window and the refusal with no bypass, and I sign baseline labs rule version {version}. Until I do, nothing is checked.</span>
+        <span>I have read the medicines, the labs, the {rule?.windowDays ?? "proposed"}-day window, the refusal and the documented override, and I sign baseline labs rule version {version}. Until I do, nothing is checked.</span>
       </label>
       <button type="submit" className={btn} disabled={!rule}>Sign baseline labs rule version {version}</button>
     </form>

@@ -8454,145 +8454,202 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "prescribing.baseline_labs_rule",
-    // The baseline-labs prescribing rule: kidney function, potassium and glucose (plus HbA1c if diabetic) within a recent window before a doctor starts or
-    // raises the dose of a blood-pressure-lowering or glucose-lowering medicine. The database holds it as `baseline_labs_rule_config` v1 (UNSIGNED, INACTIVE
+    // The baseline-labs prescribing rule: kidney function, potassium and glucose (plus HbA1c for every glucose-lowering medicine, and for blood-pressure medicines
+    // when diabetic) within a recent window before a doctor starts or raises the dose of a blood-pressure-lowering or glucose-lowering medicine, with a documented,
+    // audited, followed-up override. The database holds it as `baseline_labs_rule_config` v1 (UNSIGNED, INACTIVE
     // until the Chief Medical Officer signs on the sign-off hub; until then the check does nothing). A test compares this value with the migration seed.
     value: {
-        "applies_to": {
-          "start_new_medicine": true,
-          "dose_increase": true,
-          "sources_checked": [
-            "clinician",
-            "specialist"
-          ],
-          "sources_never_checked": [
-            "patient",
-            "fhir_import"
-          ],
-          "note": "Checked when a doctor starts one of these medicines, or increases its dose. A person recording a medicine they already take, an imported record, a stopped medicine and a dose that stays the same or goes down are never checked."
+      "applies_to": {
+        "start_new_medicine": true,
+        "dose_increase": true,
+        "sources_checked": [
+          "clinician",
+          "specialist"
+        ],
+        "sources_never_checked": [
+          "patient",
+          "fhir_import"
+        ],
+        "note": "Checked when a doctor starts one of these medicines, restarts a stopped one, changes a prescription to one of them, or raises its dose or how often it is taken. A person recording a medicine they already take, an imported record, a stopped medicine, and a dose or frequency that stays the same or goes down are never checked. Doses are compared by their amounts and units, so 1 g to 500 mg is a decrease."
+      },
+      "drug_classes": {
+        "bp_lowering": {
+          "label": "Blood-pressure-lowering medicines",
+          "name_patterns": [
+            "%losartan%",
+            "%telmisartan%",
+            "%valsartan%",
+            "%irbesartan%",
+            "%candesartan%",
+            "%olmesartan%",
+            "%azilsartan%",
+            "%sacubitril%",
+            "%ramipril%",
+            "%lisinopril%",
+            "%enalapril%",
+            "%perindopril%",
+            "%captopril%",
+            "%benazepril%",
+            "%fosinopril%",
+            "%quinapril%",
+            "%aliskiren%",
+            "%amlodipine%",
+            "%nifedipine%",
+            "%felodipine%",
+            "%lercanidipine%",
+            "%nitrendipine%",
+            "%diltiazem%",
+            "%verapamil%",
+            "%hydrochlorothiazide%",
+            "%hctz%",
+            "%indapamide%",
+            "%bendroflumethiazide%",
+            "%chlortalidone%",
+            "%chlorthalidone%",
+            "%spironolactone%",
+            "%amiloride%",
+            "%eplerenone%",
+            "%moduretic%",
+            "%furosemide%",
+            "%frusemide%",
+            "%bumetanide%",
+            "%torsemide%",
+            "%atenolol%",
+            "%bisoprolol%",
+            "%metoprolol%",
+            "%propranolol%",
+            "%carvedilol%",
+            "%nebivolol%",
+            "%labetalol%",
+            "%hydralazine%",
+            "%methyldopa%",
+            "%doxazosin%",
+            "%prazosin%",
+            "%terazosin%",
+            "%clonidine%"
+          ]
         },
-        "drug_classes": {
-          "bp_lowering": {
-            "label": "Blood-pressure-lowering medicines",
-            "name_patterns": [
-              "%losartan%",
-              "%telmisartan%",
-              "%valsartan%",
-              "%irbesartan%",
-              "%candesartan%",
-              "%olmesartan%",
-              "%azilsartan%",
-              "%ramipril%",
-              "%lisinopril%",
-              "%enalapril%",
-              "%perindopril%",
-              "%captopril%",
-              "%benazepril%",
-              "%fosinopril%",
-              "%quinapril%",
-              "%amlodipine%",
-              "%nifedipine%",
-              "%felodipine%",
-              "%lercanidipine%",
-              "%nitrendipine%",
-              "%hydrochlorothiazide%",
-              "%hctz%",
-              "%indapamide%",
-              "%bendroflumethiazide%",
-              "%chlortalidone%",
-              "%chlorthalidone%",
-              "%spironolactone%",
-              "%amiloride%",
-              "%eplerenone%",
-              "%moduretic%"
+        "glucose_lowering": {
+          "label": "Glucose-lowering medicines",
+          "name_patterns": [
+            "%metformin%",
+            "%gliclazide%",
+            "%glibenclamide%",
+            "%glimepiride%",
+            "%glipizide%",
+            "%tolbutamide%",
+            "%sitagliptin%",
+            "%vildagliptin%",
+            "%linagliptin%",
+            "%saxagliptin%",
+            "%alogliptin%",
+            "%empagliflozin%",
+            "%dapagliflozin%",
+            "%canagliflozin%",
+            "%ertugliflozin%",
+            "%pioglitazone%",
+            "%acarbose%",
+            "%repaglinide%",
+            "%nateglinide%",
+            "%insulin%",
+            "%liraglutide%",
+            "%semaglutide%",
+            "%dulaglutide%",
+            "%exenatide%",
+            "%tirzepatide%"
+          ]
+        },
+        "note": "Every class of blood-pressure medicine is covered: ACE inhibitors, ARBs, calcium channel blockers, diuretics (thiazide-type, potassium-sparing and loop), beta blockers, alpha blockers, hydralazine, methyldopa and clonidine. The glucose group covers the oral glucose-lowering medicines, the injectable GLP-1 and GIP medicines and every insulin. To add a medicine, the CMO asks for a new version."
+      },
+      "required_baseline": {
+        "for_every_medicine_in_both_groups": [
+          "kidney_function",
+          "potassium",
+          "glucose"
+        ],
+        "additionally_for_every_glucose_lowering_medicine": [
+          "hba1c"
+        ],
+        "additionally_if_diabetes_on_record": [
+          "hba1c"
+        ],
+        "analytes": {
+          "kidney_function": {
+            "label": "Kidney function (creatinine or eGFR)",
+            "analyte_codes": [
+              "creatinine"
+            ],
+            "note": "Creatinine is the stored kidney-function result; eGFR is calculated from it, so a recent creatinine counts."
+          },
+          "potassium": {
+            "label": "Potassium",
+            "analyte_codes": [
+              "potassium"
             ]
           },
-          "glucose_lowering": {
-            "label": "Glucose-lowering medicines",
-            "name_patterns": [
-              "%metformin%",
-              "%gliclazide%",
-              "%glibenclamide%",
-              "%glimepiride%",
-              "%sitagliptin%",
-              "%vildagliptin%",
-              "%linagliptin%",
-              "%empagliflozin%",
-              "%dapagliflozin%",
-              "%pioglitazone%",
-              "%insulin%",
-              "%liraglutide%",
-              "%semaglutide%"
+          "glucose": {
+            "label": "Glucose",
+            "analyte_codes": [
+              "fasting_glucose",
+              "random_glucose"
+            ],
+            "note": "A laboratory glucose result (fasting or random). A glucose the patient logged at home does not count."
+          },
+          "hba1c": {
+            "label": "HbA1c",
+            "analyte_codes": [
+              "hba1c"
             ]
-          },
-          "note": "The blood-pressure group uses exactly the medicine names the existing blood-pressure prescribing safety check already recognises (ACE inhibitors, ARBs, calcium channel blockers, thiazide-type and potassium-sparing diuretics). Beta blockers, alpha blockers, methyldopa, hydralazine and loop diuretics are NOT in this version. The glucose group is the glucose-lowering medicines named elsewhere in the platform. To add a medicine, the CMO asks for a new version."
-        },
-        "required_baseline": {
-          "for_every_medicine_in_both_groups": [
-            "kidney_function",
-            "potassium",
-            "glucose"
-          ],
-          "additionally_if_diabetes_on_record": [
-            "hba1c"
-          ],
-          "analytes": {
-            "kidney_function": {
-              "label": "Kidney function (creatinine or eGFR)",
-              "analyte_codes": [
-                "creatinine"
-              ],
-              "note": "Creatinine is the stored kidney-function result; eGFR is calculated from it, so a recent creatinine counts."
-            },
-            "potassium": {
-              "label": "Potassium",
-              "analyte_codes": [
-                "potassium"
-              ]
-            },
-            "glucose": {
-              "label": "Glucose",
-              "analyte_codes": [
-                "fasting_glucose",
-                "random_glucose"
-              ],
-              "note": "A laboratory glucose result (fasting or random). A glucose the patient logged at home does not count."
-            },
-            "hba1c": {
-              "label": "HbA1c",
-              "analyte_codes": [
-                "hba1c"
-              ]
-            }
-          },
-          "diabetes_on_record": {
-            "icd10_prefixes": [
-              "E10",
-              "E11",
-              "E13",
-              "E14"
-            ],
-            "statuses": [
-              "active",
-              "controlled",
-              "uncontrolled"
-            ],
-            "note": "Diabetes is taken from the patient's problem list (the same ICD-10 prefixes and statuses the cascade of care uses). A person starting a glucose-lowering medicine with no diabetes entry on the list does not need an HbA1c under this version."
           }
         },
-        "recency_window_days": 90,
-        "recency_window_note": "PROPOSED: 90 days. A result counts only if the specimen was collected (or the result dated) within this many days before the medicine is started or the dose is raised. The CMO may change this by asking for a new version before signing.",
-        "when_labs_are_missing": {
-          "action": "refuse",
-          "bypass_available": false,
-          "message": "The start or dose increase is refused and the doctor sees which labs are missing. The doctor orders them and tries again once the results are on file.",
-          "bypass_note": "Version 1 has no bypass or override. If the CMO wants an emergency or clinician-override route, that is a new version."
-        },
-        "informational": {
-          "membership": "Membership includes doctor-ordered baseline labs at the member price, paid separately. This note changes nothing in the check."
-        },
-        "proposed_note": "Every clinical value here is PROPOSED (the two medicine groups, the required labs, the 90-day window, refuse with no bypass). Nothing applies until the Chief Medical Officer signs. No agent signs."
+        "diabetes_on_record": {
+          "icd10_prefixes": [
+            "E10",
+            "E11",
+            "E13",
+            "E14"
+          ],
+          "statuses": [
+            "active",
+            "controlled",
+            "uncontrolled"
+          ],
+          "note": "HbA1c is always required before starting or raising a glucose-lowering medicine, to set the baseline. For a blood-pressure-lowering medicine it is required when diabetes is on the patient's problem list (the same ICD-10 prefixes and statuses the cascade of care uses)."
+        }
       },
+      "recency_window_days": 90,
+      "recency_window_note": "PROPOSED: 90 days. A result counts only if the specimen was collected (or the result dated) within this many days before the medicine is started or the dose is raised. A result dated in the future does not count. The CMO may change this by asking for a new version before signing.",
+      "when_labs_are_missing": {
+        "action": "refuse_unless_documented_override",
+        "bypass_available": true,
+        "message": "The start or increase is refused and the doctor sees which labs are missing. The doctor orders them and tries again once the results are on file, or records a documented override.",
+        "override": {
+          "categories": [
+            {
+              "key": "emergency_treatment",
+              "label": "Emergency treatment: waiting for labs would put the patient at risk"
+            },
+            {
+              "key": "labs_ordered_results_pending",
+              "label": "Labs have been ordered and the results are pending"
+            },
+            {
+              "key": "labs_not_obtainable_documented",
+              "label": "Labs cannot be obtained now, and the reason is written down"
+            }
+          ],
+          "min_reason_length": 20,
+          "valid_minutes": 30,
+          "followup_hours": 48,
+          "who": "A doctor with prescribing authority, for one patient and one medicine, used once by the same doctor."
+        },
+        "bypass_note": "A doctor can record a documented override: one of three reasons plus a written reason of at least 20 characters. It is valid for 30 minutes, for that doctor, that patient and that medicine, and can be used once. Every override is written to the audit log, and it puts a pending 'baseline labs' item on the patient's lab monitoring list, due in 48 hours, so the labs are not forgotten."
+      },
+      "informational": {
+        "membership": "Membership includes doctor-ordered baseline labs at the member price, paid separately. This note changes nothing in the check."
+      },
+      "proposed_note": "Every clinical value here is PROPOSED (the medicine groups, the required labs, the 90-day window, the documented override). Nothing applies until the Chief Medical Officer signs. No agent signs."
+    },
     owner: "CMO",
     status: "proposed",
     version: 1,

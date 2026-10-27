@@ -19,11 +19,15 @@ describe("baselineLabsRuleView", () => {
     expect(v?.windowDays).toBe(90);
     expect(v?.requiredForAll).toEqual(["Kidney function (creatinine or eGFR)", "Potassium", "Glucose"]);
     expect(v?.requiredIfDiabetes).toEqual(["HbA1c"]);
+    expect(v?.requiredForGlucoseLowering).toEqual(["HbA1c"]);
+    expect(v?.overrideReasons).toHaveLength(3);
+    expect(v?.overrideWho).toMatch(/prescribing authority/);
+    expect(v?.groups[0]?.medicines).toEqual(expect.arrayContaining(["atenolol", "furosemide", "hydralazine"]));
     expect(v?.groups.map((g) => g.label)).toEqual(["Blood-pressure-lowering medicines", "Glucose-lowering medicines"]);
     expect(v?.groups[0]?.medicines).toContain("losartan");
     expect(v?.groups[1]?.medicines).toContain("metformin");
     expect(v?.groups.every((g) => g.medicines.every((m) => !m.includes("%")))).toBe(true);
-    expect(v?.bypassNote).toMatch(/no bypass/i);
+    expect(v?.bypassNote).toMatch(/documented override/i);
     expect(v?.proposedNote).toMatch(/PROPOSED/);
   });
   it("returns null when something it must show is missing", () => {
@@ -32,9 +36,11 @@ describe("baselineLabsRuleView", () => {
     expect(baselineLabsRuleView({ ...s, recency_window_days: undefined })).toBeNull();
     expect(baselineLabsRuleView({ ...s, required_baseline: undefined })).toBeNull();
   });
-  it("refuses a draft that offers a bypass, since v1 has none to show", () => {
+  it("refuses a draft whose override is missing or empty, so the CMO never signs a bypass they cannot see", () => {
     const s = seed() as { when_labs_are_missing: Record<string, unknown> };
-    expect(baselineLabsRuleView({ ...s, when_labs_are_missing: { ...s.when_labs_are_missing, bypass_available: true } })).toBeNull();
+    expect(baselineLabsRuleView({ ...s, when_labs_are_missing: { ...s.when_labs_are_missing, override: undefined } })).toBeNull();
+    expect(baselineLabsRuleView({ ...s, when_labs_are_missing: { ...s.when_labs_are_missing, override: { categories: [], who: "x" } } })).toBeNull();
+    expect(baselineLabsRuleView({ ...s, when_labs_are_missing: { ...s.when_labs_are_missing, bypass_available: false } })).toBeNull();
   });
 });
 

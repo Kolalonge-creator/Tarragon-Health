@@ -10,6 +10,9 @@ export type BaselineLabsRuleView = {
   groupsNote: string;
   requiredForAll: string[];
   requiredIfDiabetes: string[];
+  requiredForGlucoseLowering: string[];
+  overrideReasons: string[];
+  overrideWho: string;
   diabetesNote: string;
   windowDays: number;
   windowNote: string;
@@ -49,19 +52,29 @@ export function baselineLabsRuleView(config: unknown): BaselineLabsRuleView | nu
   const glNames = strings(gl.name_patterns);
   const all = strings(rb.for_every_medicine_in_both_groups);
   const dm = strings(rb.additionally_if_diabetes_on_record);
+  const gl2 = strings(rb.additionally_for_every_glucose_lowering_medicine);
   const analytes = rb.analytes;
   const dmRec = rb.diabetes_on_record;
-  if (!bpNames || !glNames || !all || !dm || !isObj(analytes) || !isObj(dmRec)) return null;
+  if (!bpNames || !glNames || !all || !dm || !gl2 || !isObj(analytes) || !isObj(dmRec)) return null;
   const label = (k: string): string | null => {
     const a = analytes[k];
     return isObj(a) && typeof a.label === "string" ? a.label : null;
   };
   const allLabels = all.map(label);
   const dmLabels = dm.map(label);
-  if (allLabels.includes(null) || dmLabels.includes(null)) return null;
+  const glLabels = gl2.map(label);
+  if (allLabels.includes(null) || dmLabels.includes(null) || glLabels.includes(null)) return null;
+  const ov = wm.override;
+  if (!isObj(ov) || !Array.isArray(ov.categories) || typeof ov.who !== "string") return null;
+  const reasons: string[] = [];
+  for (const c of ov.categories) {
+    if (!isObj(c) || typeof c.label !== "string") return null;
+    reasons.push(c.label);
+  }
+  if (reasons.length === 0) return null;
   if (typeof bp.label !== "string" || typeof gl.label !== "string" || typeof dc.note !== "string") return null;
   if (typeof at.note !== "string" || typeof config.recency_window_days !== "number" || typeof config.recency_window_note !== "string") return null;
-  if (typeof wm.message !== "string" || typeof wm.bypass_note !== "string" || wm.bypass_available !== false) return null;
+  if (typeof wm.message !== "string" || typeof wm.bypass_note !== "string" || wm.bypass_available !== true) return null;
   if (typeof info.membership !== "string" || typeof config.proposed_note !== "string" || typeof dmRec.note !== "string") return null;
   return {
     appliesTo: at.note,
@@ -72,6 +85,9 @@ export function baselineLabsRuleView(config: unknown): BaselineLabsRuleView | nu
     groupsNote: dc.note,
     requiredForAll: allLabels as string[],
     requiredIfDiabetes: dmLabels as string[],
+    requiredForGlucoseLowering: glLabels as string[],
+    overrideReasons: reasons,
+    overrideWho: ov.who,
     diabetesNote: dmRec.note,
     windowDays: config.recency_window_days,
     windowNote: config.recency_window_note,
