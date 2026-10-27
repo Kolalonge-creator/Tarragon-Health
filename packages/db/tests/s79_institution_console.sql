@@ -86,7 +86,7 @@ begin
   insert into public.corporate_contracts (organisation_id, name, status, billing_model, billing_rate_kobo, billing_interval, signed_at, signed_by)
     values (v_sp, 'S79 Acme contract', 'active', 'per_employee', 100000, 'monthly', now(), adm);
   insert into public.employer_accounts (organisation_id, verification_status, verified_by, verified_at, onboarding_step, went_live_at, join_code)
-    values (v_sp, 'verified', adm, now(), 'live', now(), 'EMPLOY22');
+    values (v_sp, 'verified', adm, now(), 'live', now(), 'EMPLQY22');
   update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = adm, activation_note = 'S79 proof only' where key = 'institution_console';
 
   -- =============================== 1. Programme configuration ===============================
@@ -132,7 +132,7 @@ begin
   -- =============================== 2. Usage ===============================
   -- a programme, one lab panel line used by six different people (five after the refund: shown at a floor of 5), one consult used by one person (folded)
   insert into public.sponsor_cohorts (organisation_id, sponsor_org_id, name, code, valid_from, valid_to, max_uses, status)
-    values (v_cons, v_sp, 'S79 Acme staff', 'PROOFAA2', current_date - 100, current_date + 300, 100, 'active') returning id into v_cohort;
+    values (v_cons, v_sp, 'S79 Acme staff', 'PRQQFAA2', current_date - 100, current_date + 300, 100, 'active') returning id into v_cohort;
   insert into public.sponsor_programmes (organisation_id, sponsor_org_id, name, item_codes, share_percent, budget_kobo, eligibility, cohort_id, valid_from, valid_to, status)
     values (v_cons, v_sp, 'S79 Acme staff cover', array['s79_lab_panel', 's79_consult'], 100, 50000000, 'cohort', v_cohort, current_date - 100, current_date + 300, 'active') returning id into v_prog;
   insert into public.prices (organisation_id, catalog_item_id, amount_kobo) values (v_cons, v_item, 1000000) returning id into v_price;
@@ -305,31 +305,31 @@ begin
   -- =============================== 5. One enrolment-code entry ===============================
   update public.profiles set organisation_id = v_cons where id = pat;
   insert into public.sponsor_cohorts (organisation_id, sponsor_org_id, name, code, valid_from, valid_to, max_uses, status)
-    values (v_cons, v_sp2, 'S79 NGO programme', 'NGOPROG2', current_date - 1, current_date + 90, 50, 'active');
+    values (v_cons, v_sp2, 'S79 NGO programme', 'NGQPRQG2', current_date - 1, current_date + 90, 50, 'active');
   r := pg_temp.call_as(pat, $q$select public.enter_enrolment_code('ngop-rog2')$q$);
   perform pg_temp.rec('5a a programme code works, typed in lower case with a dash', (r ->> 'ok') || '/' || (r ->> 'kind'), 'true/programme');
-  r := pg_temp.call_as(pat, $q$select public.enter_enrolment_code('EMPLOY22')$q$);
+  r := pg_temp.call_as(pat, $q$select public.enter_enrolment_code('EMPLQY22')$q$);
   perform pg_temp.rec('5b an employer code works through the same entry', (r ->> 'ok') || '/' || (r ->> 'kind'), 'true/employer');
   perform pg_temp.rec('5c the employer path really joined the roster', (select count(*)::text from public.employer_roster_members where organisation_id = v_sp and claimed_profile_id = pat and status = 'claimed'), '1');
   p := pg_temp.mkuser('patient');
   r := pg_temp.call_as(p, $q$select public.enter_enrolment_code('NOSUCHCD')$q$);
-  r2 := pg_temp.call_as(p, $q$select public.enter_enrolment_code('PROOFAA2')$q$);   -- a real code, but for a different organisation's cohort? same consumer org here, so it works
+  r2 := pg_temp.call_as(p, $q$select public.enter_enrolment_code('PRQQFAA2')$q$);   -- a real code, but for a different organisation's cohort? same consumer org here, so it works
   perform pg_temp.rec('5d an unknown code answers only ok false', r::text, '{"ok": false}');
   -- ten bad tries stop even a good code
   for i in 1..10 loop perform pg_temp.call_as(p, $q$select public.enter_enrolment_code('BADCODE9')$q$); end loop;
-  r := pg_temp.call_as(p, $q$select public.enter_enrolment_code('NGOPROG2')$q$);
+  r := pg_temp.call_as(p, $q$select public.enter_enrolment_code('NGQPRQG2')$q$);
   perform pg_temp.rec('5e ten bad tries stop a good code', r::text, '{"ok": false}');
   -- a patient already attached to an employer cannot be moved by a code
-  r := pg_temp.call_as(adm, $q$select public.enter_enrolment_code('NGOPROG2')$q$);
+  r := pg_temp.call_as(adm, $q$select public.enter_enrolment_code('NGQPRQG2')$q$);
   perform pg_temp.rec('5f a non-patient is refused quietly', r::text, '{"ok": false}');
 
   -- namespace guard
   begin
-    insert into public.sponsor_cohorts (organisation_id, sponsor_org_id, name, code, valid_from, valid_to, max_uses) values (v_cons, v_sp, 'Collides', 'EMPLOY22', current_date, current_date + 5, 5);
+    insert into public.sponsor_cohorts (organisation_id, sponsor_org_id, name, code, valid_from, valid_to, max_uses) values (v_cons, v_sp, 'Collides', 'EMPLQY22', current_date, current_date + 5, 5);
     perform pg_temp.rec('5g a programme code equal to an employer code is refused', 'accepted', 'refused');
   exception when unique_violation then perform pg_temp.rec('5g a programme code equal to an employer code is refused', 'refused', 'refused'); end;
   begin
-    update public.employer_accounts set join_code = 'NGOPROG2' where organisation_id = v_sp;
+    update public.employer_accounts set join_code = 'NGQPRQG2' where organisation_id = v_sp;
     perform pg_temp.rec('5h an employer code equal to a programme code is refused', 'accepted', 'refused');
   exception when unique_violation then perform pg_temp.rec('5h an employer code equal to a programme code is refused', 'refused', 'refused'); end;
 
@@ -339,7 +339,7 @@ begin
   r := pg_temp.call_as(adm, $q$select public.admin_enrolment_code_overlap()$q$);
   perform pg_temp.rec('5j the overlap report shows no collision and one organisation running both', jsonb_array_length(r -> 'collisions')::text || '/' || (r ->> 'employer_codes'), '0/1');
   r := pg_temp.call_as(cs, $q$select public.sponsor_code_sheet()$q$);
-  perform pg_temp.rec('5k the code sheet shows the sponsor''s own codes only', (r ->> 'organisation_code') || '/' || jsonb_array_length(r -> 'programmes'), 'EMPLOY22/1');
+  perform pg_temp.rec('5k the code sheet shows the sponsor''s own codes only', (r ->> 'organisation_code') || '/' || jsonb_array_length(r -> 'programmes'), 'EMPLQY22/1');
 
   -- =============================== 6. I9 and RLS ===============================
   foreach v_txt in array array['institution_config', 'institution_programme_configs', 'usage_records', 'usage_statements', 'usage_statement_invoice_links', 'roster_upload_batches', 'roster_upload_rows'] loop
@@ -367,12 +367,12 @@ begin
   -- (a) the namespace trigger dropped: a colliding programme code must then be accepted (5g would FAIL)
   drop trigger sponsor_cohorts_code_namespace on public.sponsor_cohorts;
   begin
-    insert into public.sponsor_cohorts (organisation_id, sponsor_org_id, name, code, valid_from, valid_to, max_uses) values (v_cons, v_sp, 'Collides', 'EMPLOY22', current_date, current_date + 5, 5);
+    insert into public.sponsor_cohorts (organisation_id, sponsor_org_id, name, code, valid_from, valid_to, max_uses) values (v_cons, v_sp, 'Collides', 'EMPLQY22', current_date, current_date + 5, 5);
     perform pg_temp.rec('7a SABOTAGE: without the trigger a colliding code is accepted (5g would FAIL)', 'accepted', 'accepted');
   exception when unique_violation then perform pg_temp.rec('7a SABOTAGE: without the trigger a colliding code is accepted (5g would FAIL)', 'refused', 'accepted'); end;
   -- with the collision now present, the one entry refuses to guess
   p := pg_temp.mkuser('patient');
-  r := pg_temp.call_as(p, $q$select public.enter_enrolment_code('EMPLOY22')$q$);
+  r := pg_temp.call_as(p, $q$select public.enter_enrolment_code('EMPLQY22')$q$);
   perform pg_temp.rec('7a2 an ambiguous code is refused and audited, not guessed', r::text || '/' || (select count(*)::text from public.audit_log where action = 'enrolment_code.ambiguous'), '{"ok": false}/1');
   r := pg_temp.call_as(adm, $q$select public.admin_enrolment_code_overlap()$q$);
   perform pg_temp.rec('7a3 the overlap report shows the collision', jsonb_array_length(r -> 'collisions')::text, '1');
