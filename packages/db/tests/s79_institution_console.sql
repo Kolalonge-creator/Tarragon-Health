@@ -93,7 +93,7 @@ begin
   insert into public.prevention_campaigns (organisation_id, code, name, starts_on, status) values (v_sp, 's79-c-' || substr(md5(random()::text), 1, 8), 'S79 Walk challenge', current_date, 'draft') returning id into v_camp;
   insert into public.prevention_campaigns (organisation_id, code, name, starts_on, status) values (v_sp2, 's79-c-' || substr(md5(random()::text), 1, 8), 'Other org campaign', current_date, 'draft') returning id into v_camp_other;
   insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, active) values (v_cons, 's79_lab_panel', 'lab_panel', 'k.n', 'k.d', false) returning id into v_item;
-  insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, active) values (v_cons, 's79_consult', 'consultation', 'k.n', 'k.d', false);
+  insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, uses, active) values (v_cons, 's79_consult', 'consultation', 'k.n', 'k.d', 1, false);
 
   r := pg_temp.call_as(cs, format($q$select public.institution_config_submit(array['hypertension'], array['s79_lab_panel'], array[%L]::uuid[], 20000000, 'please')$q$, v_camp));
   perform pg_temp.rec('1a sponsor staff submits a request', coalesce(r ->> 'version', r ->> 'error'), '1');
