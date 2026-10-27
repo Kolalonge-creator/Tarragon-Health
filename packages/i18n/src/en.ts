@@ -2097,7 +2097,7 @@ export const en = {
   "circle.pay.already_member": "They are already a member.",
   "circle.member.renew": "Renew for a year",
   "circle.gift.title": "Someone has paid for care for you",
-  "circle.gift.body": "{item}. Nothing starts until you say yes.",
+  "circle.gift.body": "{item}. Nothing starts until you say yes. The person who paid can see only that it was paid for and its state: accepted, declined or refunded. They cannot see your readings, results or messages.",
   "circle.gift.decide_by": "Please answer by {date}.",
   "circle.gift.accept": "Accept",
   "circle.gift.decline": "No thank you",

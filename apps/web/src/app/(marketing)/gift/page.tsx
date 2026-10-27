@@ -41,11 +41,11 @@ const WAYS_TO_GIVE = [
   },
   {
     title: "They choose to accept it",
-    body: "The gift waits for them to accept it. If they decline, or do not answer in time, you are refunded. Nothing about a gift ever bills them, then or later.",
+    body: "The gift waits for them to say yes. If they decline, or do not answer within 14 days, you are refunded in full. Nothing about a gift ever bills them, then or later.",
   },
   {
-    title: "Invite them, you both get a reward",
-    body: "If they are not on Tarragon yet, share your personal referral link; signing up is free. Once they become a Member, you both get a reward voucher, a discount, not cash.",
+    title: "Invite them, and we will say thank you",
+    body: "If they are not on Tarragon yet, share your personal referral link; signing up is free. If they become a Member, we will say thank you.",
   },
 ];
 
@@ -60,16 +60,16 @@ function giftFaq(price: string): FaqItem[] {
     {
       question: "Who can I give it to?",
       answer:
-        "A parent, spouse, sibling or child. If they already use Tarragon, link them as family or next of kin first, from your dashboard's Your people page. If they have not used Tarragon before, you can set up a record for them yourself with their name, phone number and your relationship to them. They do not need a smartphone or an account of their own for this to work.",
+        "A parent, spouse, sibling or child. After you pay, a member of our team phones them to say hello and help them start. They say yes in their own words; nothing begins before that.",
     },
     {
       question: "Will I see their results?",
       answer:
-        "No. Results go to them and their care team, and to nobody else. You are only told when the gift has been accepted.",
+        "No. You see that the gift is paid, accepted, declined or refunded. Nothing about their health. Results go to them and their care team, and to nobody else.",
     },
     {
       question: "What if they say no, or do not answer?",
-      answer: "You are refunded. The gift is theirs to accept, and it waits for their answer.",
+      answer: "You are refunded in full. The gift is theirs to accept, and it waits 14 days for their answer. If they say no, you see that it was declined and nothing more.",
     },
     {
       question: "What if I am buying from outside Nigeria?",
@@ -86,7 +86,7 @@ const HOW_IT_WORKS = [
   {
     step: 1,
     title: "Tell us who it's for",
-    body: "If they already use Tarragon, link them as family or next of kin first. If they don't, set up their record yourself: they don't sign up or do anything before you can pay.",
+    body: "Their name, their phone number and how you know them. They don't need to sign up or do anything before you pay.",
   },
   {
     step: 2,
@@ -96,12 +96,12 @@ const HOW_IT_WORKS = [
   {
     step: 3,
     title: "Pay once",
-    body: "Pay by card, bank transfer or USSD. There is nothing to cancel and it does not renew by itself.",
+    body: "Pay by card or bank transfer, through Paystack. There is nothing to cancel and it does not renew by itself.",
   },
   {
     step: 4,
-    title: "They accept it",
-    body: "The gift waits on their account for their answer. When they accept, their Membership starts.",
+    title: "They say yes",
+    body: "They say yes on a short call with us, or in the app. If there is no answer in 14 days, you are refunded in full.",
   },
 ];
 
