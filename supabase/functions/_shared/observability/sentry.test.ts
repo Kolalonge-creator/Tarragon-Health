@@ -115,3 +115,125 @@ Deno.test("withSentry with no DSN behaves exactly like the bare handler", async 
   assertEquals(res.status, 503);
   assertEquals(calls.length, 0);
 });
+
+// ---- S88 review fixes -------------------------------------------------------------------------------------------------
+import { HIGH_RISK_FUNCTIONS, parseFrames, resetSentryRateLimit, shortHash, stripUrls } from "./sentry.ts";
+
+Deno.test("scrubString removes OTP-like runs, UUIDs, tokens, Postgres detail, JSON and URLs", () => {
+  const cases: [string, string[]][] = [
+    ["code 482913 for sign in", ["482913"]],
+    ["otp 1234 rejected", ["1234"]],
+    ["row 6f1c2d3e-9a8b-4c7d-8e6f-0a1b2c3d4e5f missing", ["6f1c2d3e", "0a1b2c3d4e5f"]],
+    ["Unauthorized Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijk", ["eyJ", "abcdefghijk"]],
+    ["duplicate key value violates unique constraint. Key (phone)=(+2348031234567) already exists", ["8031234567"]],
+    ["Key (email)=(ada@example.com) already exists", ["ada@example.com"]],
+    ["Failing row contains (11, Ada Obi, 140/90)", ["Ada Obi", "140/90"]],
+    ['Unexpected token in JSON {"note":"my chest hurts","glucose":"11.2"}', ["chest", "11.2"]],
+    ['invalid input syntax for type uuid: "adaobi-not-a-uuid"', ["adaobi"]],
+    ["fetch https://x.supabase.co/rest/v1/patients?id=eq.77&name=eq.Ada failed", ["rest/v1", "eq.77", "name=eq", "Ada"]],
+    ["bad filter patient_id=in.(1,2,3) and status=eq.open", ["1,2,3", "eq.open"]],
+  ];
+  for (const [input, gone] of cases) {
+    const out = scrubString(input);
+    for (const bad of gone) assertFalse(out.includes(bad), `"${bad}" survived in: ${out}`);
+  }
+  assertEquals(stripUrls("GET https://u:p@api.example.com:8443/a/b?c=d#e"), "GET https://api.example.com:8443");
+  assert(scrubString("HTTP 503 from upstream").includes("503"));
+});
+
+Deno.test("sabotage: the raw inputs do contain what the scrubber is meant to remove", () => {
+  assert("code 482913 for sign in".includes("482913"));
+  assert(!"x".includes("482913"));
+});
+
+Deno.test("high-risk functions send only the error class and a hash, never the message or extra text", () => {
+  for (const fn of ["auth-send-sms-hook", "scribe-draft", "order-checkout", "payouts"]) {
+    assert(HIGH_RISK_FUNCTIONS.has(fn));
+    const ev = buildEvent(fn, new TypeError("OTP 482913 for Ada Obi"), { phase: "uncaught", note: "Ada Obi", status: 500, phone: "+2348031234567" });
+    const json = JSON.stringify(ev);
+    assertFalse(json.includes("482913"));
+    assertFalse(json.includes("Ada"));
+    assertFalse(json.includes("8031234567"));
+    assertEquals(ev.exception.values[0]!.type, "TypeError");
+    assert(/^message withheld \(ref [0-9a-f]{8}\)$/.test(ev.exception.values[0]!.value));
+    assertEquals(ev.extra, { phase: "uncaught", status: 500 });
+  }
+  // Control: a normal function still carries its (scrubbed) message, so the withholding really is function-specific.
+  const normal = buildEvent("process-events", new Error("boom here"), {});
+  assertEquals(normal.exception.values[0]!.value, "boom here");
+});
+
+Deno.test("a multi-line message cannot leak through the stack, and frames are parsed", () => {
+  const err = new Error("first\nAda Obi line two");
+  err.stack = "Error: first\nAda Obi line two\n    at readIt (file:///src/functions/x/index.ts:12:3)\n    at file:///src/y.ts:4:5";
+  const ev = buildEvent("process-events", err, {});
+  const json = JSON.stringify(ev.exception.values[0]!.stacktrace);
+  assertFalse(json.includes("Ada"));
+  assertEquals(parseFrames(err.stack!), [
+    { function: "readIt", filename: "index.ts", lineno: 12, colno: 3 },
+    { function: "?", filename: "y.ts", lineno: 4, colno: 5 },
+  ]);
+  assertEquals(shortHash("a").length, 8);
+});
+
+Deno.test("withSentry does not wait for Sentry: a never-resolving capture does not delay a 5xx response", { sanitizeOps: false, sanitizeResources: false }, async () => {
+  Deno.env.set("SENTRY_DSN", DSN);
+  resetSentryRateLimit();
+  try {
+    const hang = (() => new Promise(() => {})) as typeof fetch;
+    const started = performance.now();
+    const res = await withSentry("auth-send-sms-hook", () => new Response("no", { status: 502 }), hang)(new Request("https://x.test/"));
+    assertEquals(res.status, 502);
+    assert(performance.now() - started < 200, "response waited on Sentry");
+    // And the throw path rethrows immediately too.
+    const t0 = performance.now();
+    await assertRejects(() => withSentry("auth-send-sms-hook", () => { throw new Error("x"); }, hang)(new Request("https://x.test/")), Error, "x");
+    assert(performance.now() - t0 < 200);
+  } finally {
+    Deno.env.delete("SENTRY_DSN");
+  }
+});
+
+Deno.test("withSentry hands the capture to EdgeRuntime.waitUntil when the platform has it", async () => {
+  Deno.env.set("SENTRY_DSN", DSN);
+  resetSentryRateLimit();
+  const g = globalThis as { EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void } };
+  const held: Promise<unknown>[] = [];
+  g.EdgeRuntime = { waitUntil: (p) => void held.push(p) };
+  try {
+    const { fakeFetch } = recorder();
+    await withSentry("wait-until-fn", () => new Response("no", { status: 500 }), fakeFetch)(new Request("https://x.test/"));
+    assertEquals(held.length, 1);
+    await Promise.all(held);
+  } finally {
+    delete g.EdgeRuntime;
+    Deno.env.delete("SENTRY_DSN");
+  }
+});
+
+Deno.test("rate limit: one event per fingerprint per minute per function, a new fingerprint still goes out", async () => {
+  Deno.env.set("SENTRY_DSN", DSN);
+  resetSentryRateLimit();
+  const realNow = Date.now;
+  let now = 1_000_000;
+  Date.now = () => now;
+  try {
+    const { calls, fakeFetch } = recorder();
+    for (let i = 0; i < 5; i++) await captureEdgeError("rl-fn", new Error("same failure"), {}, fakeFetch);
+    assertEquals(calls.length, 1);
+    await captureEdgeError("rl-fn", new Error("another failure"), {}, fakeFetch);
+    assertEquals(calls.length, 2);
+    await captureEdgeError("other-fn", new Error("same failure"), {}, fakeFetch);
+    assertEquals(calls.length, 3);
+    now += 61_000;
+    await captureEdgeError("rl-fn", new Error("same failure"), {}, fakeFetch);
+    assertEquals(calls.length, 4);
+    // A burst of 5xx responses from one function is one event.
+    const wrapped = withSentry("burst-fn", () => new Response("no", { status: 500 }), fakeFetch);
+    for (let i = 0; i < 10; i++) await wrapped(new Request("https://x.test/"));
+    assertEquals(calls.length, 5);
+  } finally {
+    Date.now = realNow;
+    Deno.env.delete("SENTRY_DSN");
+  }
+});
