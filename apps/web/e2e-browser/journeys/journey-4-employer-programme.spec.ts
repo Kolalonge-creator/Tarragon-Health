@@ -168,13 +168,19 @@ test.describe("Journey 4: an employer programme (privacy)", () => {
       expect(seeded.vitals).toBeGreaterThan(0);
     });
 
-    // KNOWN GAP (shrink only). On this branch a clinician in the same organisation, with no task, lead assignment or page, can
-    // read these tables for every patient in the organisation. S56 (PR 1004, per-patient access for mental wellbeing) closed
-    // mental_health_screens and wellbeing_checkins, so the list shrank to the one table still open. S39b ("tied staff reads", PR 997, 128 tables) closes it and is
-    // not on main-dev yet. The step is pending(S39b) exactly while the leak equals this list; any NEW leaked table fails the journey;
-    // a table that stops leaking fails it too until it is removed from this list (the list only shrinks). See OQ-341.
-    const KNOWN_UNTIED_CLINICIAN_READS = ["menstrual_cycles"];
-    const untiedTables = ["vitals_readings", "symptoms", "lab_results", "menstrual_cycles", "menstrual_daily_logs", "mental_health_screens", "wellbeing_checkins", "reproductive_health_profiles", "patient_pregnancy", "contraception_plans"];
+    // An untied clinician (same organisation, no task, lead assignment or page) must read none of these tables for any patient. History: S56 closed
+    // mental_health_screens and wellbeing_checkins; S39b (tied staff reads, merged) tied the cycle, reproductive and pregnancy summary tables; S88 tied the
+    // nine pregnancy and maternal tables (pregnancies, kick_counts, contractions, birth_plans, postnatal_baby_checks, breastfeeding_feed_log,
+    // lifecycle_states, lifecycle_events, pregnancy_loss_records). The known-leak list is now EMPTY, so there is no pending(S39b) step any more: the step
+    // passes only when the leak list is empty and fails, naming the tables, on any leak. Do not add a table back to KNOWN_UNTIED_CLINICIAN_READS to make
+    // the journey pass; tie the table (see docs/design/S39b.md and the S88 migration). See OQ-549.
+    const KNOWN_UNTIED_CLINICIAN_READS: string[] = [];
+    const untiedTables = [
+      "vitals_readings", "symptoms", "lab_results", "menstrual_cycles", "menstrual_daily_logs", "mental_health_screens", "wellbeing_checkins",
+      "reproductive_health_profiles", "patient_pregnancy", "contraception_plans",
+      "pregnancies", "kick_counts", "contractions", "birth_plans", "postnatal_baby_checks", "breastfeeding_feed_log", "lifecycle_states", "lifecycle_events",
+      "pregnancy_loss_records",
+    ];
     const untied: string[] = [];
     {
       const doc = await signIn(clinician);
@@ -183,19 +189,9 @@ test.describe("Journey 4: an employer programme (privacy)", () => {
         if ((r.count ?? 0) > 0) untied.push(t);
       }
     }
-    if (untied.length === 0) {
-      await run.step("clinician-without-tie-reads-nothing", async () => {});
-    } else if (JSON.stringify([...untied].sort()) === JSON.stringify([...KNOWN_UNTIED_CLINICIAN_READS].sort())) {
-      run.pending(
-        "clinician-without-tie-reads-nothing",
-        "S39b",
-        `tied staff reads (PR 997) are not on main-dev: an untied clinician reads ${untied.join(", ")} for the whole organisation. Everything else listed (${untiedTables.length - untied.length} tables) is correctly empty.`,
-      );
-    } else {
-      await run.step("clinician-without-tie-reads-nothing", async () => {
-        expect(untied, `the untied-clinician leak changed (known: ${KNOWN_UNTIED_CLINICIAN_READS.join(", ")})`).toEqual(KNOWN_UNTIED_CLINICIAN_READS);
-      });
-    }
+    await run.step("clinician-without-tie-reads-nothing", async () => {
+      expect(untied, `an untied clinician read patient rows (known leaks allowed: ${KNOWN_UNTIED_CLINICIAN_READS.join(", ") || "none"})`).toEqual(KNOWN_UNTIED_CLINICIAN_READS);
+    });
 
     await run.step("patient-reads-own-control", async () => {
       const p = await signIn(realPatients[0]!);

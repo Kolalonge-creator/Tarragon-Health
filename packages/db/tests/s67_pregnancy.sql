@@ -72,6 +72,11 @@ begin
     (v_emerg, v_org, 'patient', 'S67 Emergency requester', true)
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, is_test = true;
 
+  -- S88: staff read and write the pregnancy tables only through a care relationship, so v_clin is an active clinician on the patient's care team
+  -- (v_clin_other stays untied, in another organisation)
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
+  values (v_org, v_clin, 'S67 Clinician', true, now(), 'senior_medical_officer') on conflict do nothing;
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_patient, v_clin) on conflict (patient_id) do update set clinician_id = excluded.clinician_id;
   -- caregiver grants: manage with no category; manage + reproductive_health
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v_patient, v_cg_manage, 'manage', v_patient);
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v_patient, v_cg_cat, 'manage', v_patient) returning id into v_grant_cat;
@@ -377,7 +382,7 @@ begin
   perform pg_temp.check_eq('SABOTAGE with the policy opened, the stranger DOES read (so check B is not vacuous)', (v_n > 0)::text, 'true');
   drop policy pregnancies_select on public.pregnancies;
   create policy pregnancies_select on public.pregnancies for select to authenticated
-    using (patient_id = (select auth.uid()) or private.pregnancy_staff_may_read(organisation_id) or private.pregnancy_caregiver_may_read(patient_id));
+    using (patient_id = (select auth.uid()) or private.maternal_staff_may_read(patient_id, organisation_id) or private.pregnancy_caregiver_may_read(patient_id));
   perform pg_temp.as_user(v_stranger);
   select count(*) into v_n from public.pregnancies where patient_id = v_patient;
   reset role;

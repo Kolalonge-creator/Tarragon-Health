@@ -2572,7 +2572,8 @@ Design note: `docs/design/S47-decisions-applied.md`. Everything below that needs
 ### OQ-549 An untied clinician can read reproductive and mental health rows for a whole organisation (raised by S85, journey 4)
 - On main-dev, a real clinician session with no task, lead assignment or page reads `menstrual_cycles`, `mental_health_screens` and `wellbeing_checkins` for every patient in the organisation (300 rows each in the journey fixture). `vitals_readings`, `symptoms`, `lab_results`, `menstrual_daily_logs`, `reproductive_health_profiles`, `patient_pregnancy` and `contraception_plans` were correctly empty. INV-12 says a clinician sees only tied patients.
 - S39b (PR 997, tied staff reads, 128 tables) is the planned fix and is not on main-dev. Journey 4 holds this as `pending(S39b)` only while the leak is exactly those three tables; a new leaked table fails the journey, and a table that stops leaking fails it until the list is shrunk.
-- Decision: pending (merge S39b).
+- **Update 2026-10-27 (S88): CLOSED.** S39b is on main-dev and live (the three tables named here were tied by S39b and S56; journey 4's known-leak list is now empty and the step is a plain assertion). The same sweep found nine pregnancy and maternal tables S39b never reached; they are tied by the S88 migration (see OQ-362, OQ-588).
+- Decision: closed (S88).
 ### OQ-550 The web app has no offline emergency guidance (raised by S85, journey 2)
 - INV-06 is met on the phone (bundled rules, on-device red). On the web, with the network off, the vitals form only refuses to save and says so; no emergency guidance is shown and `offline.html` has none. Journey 2 records `guidance-with-network-off-web` as pending. Options: add static emergency text to the offline page and the service worker (recommended), or declare INV-06 phone only in the spec.
 - Related finding: the phone's bundled fallback rules are `BP_CARE_V1` while the database holds v3; the journey asserts the device grade is never weaker than the server grade on the same facts.
@@ -2652,7 +2653,8 @@ Numbering: the last number used on another branch was OQ-327; S66 starts at OQ-3
 - Decision: open.
 ### OQ-362 Staff reads of the new tables use `is_org_staff` today (raised by S68)
 - Until S39b (tied staff reads, #997) lands, any staff member of the organisation can read the S68 tables through `private.maternal_staff_may_read`, which is one function. S39b must register the nine new tables (growth columns, baby checks, feed log, lifecycle, loss records, deletion receipts) in `staff_read_scope` as tied and change that one function.
-- Decision: open (S39b follow-up).
+- **Closed 2026-10-27 (S88, `20261027175050_s88_tie_staff_reads_pregnancy_and_maternal_tables.sql`):** `private.maternal_staff_may_read` now calls `private.staff_may_read(patient, org, 'reproductive_health')`, the five S68 tables are registered tied, and their two write policies with a literal staff arm use `staff_may_write`. Proof `s88_tied_staff_reads_maternal_tables.sql`. Not yet applied to the live project. S68 growth columns on `child_growth_measurements` and the deletion receipts were already covered or not patient-readable by staff (S39b tied `child_growth_measurements`); no separate action.
+- Decision: closed (S88), pending apply and `/code-review ultra`.
 ### OQ-363 Real-clinician paging for severe acute malnutrition does not use the S19 on-call page (raised by S68; INV-05)
 - The severe route uses the existing alert and `enqueue_critical_notification` loop (as the red-flag symptom handler does), not `create_red_page`, because that function takes a triage event from a BP rule set. A child nutrition triage rule set would be needed to feed the on-call page and its escalation timer.
 - Decision: open (CMO, S11/S19 owners).
@@ -2819,7 +2821,8 @@ The S86 gate refuses to enable a language unless the registry (`i18n.language_re
 ### OQ-588 New pregnancy tables use `is_org_staff`, not the S39b tied-staff rule (raised by S67)
 - INV-12 says a clinician sees only patients they hold a task, lead or page for. S39b (#997) ties 128 tables to that rule but is not on this branch's base, so the new tables read staff access through one helper (`private.pregnancy_staff_may_read`). After S39b merges, retarget that one function and add the new tables to its list and to the S39b proof.
 - Options: (a) retarget the helper after S39b merges (recommended); (b) copy the S39b predicate into each policy now.
-- Decision: open.
+- **Closed 2026-10-27 (S88):** `private.pregnancy_staff_may_read(org)` takes no patient so it cannot be tied in place; instead the four S67 SELECT policies now call `private.maternal_staff_may_read(patient_id, organisation_id)` (tied, `reproductive_health`, so break-glass and audited openings never open them) and `private.pregnancy_may_write` uses `staff_may_write`. The one-argument helper stays defined but no policy calls it. Option (a) in spirit, with one helper for both groups.
+- Decision: closed (S88), pending apply.
 
 ### OQ-346 Patient screens for the counter, timer, birth plan, week card and schedule are not built (raised by S67)
 - Built and tested: rules, storage, RLS, the offline outbox path, the phone's cached facts, the cards' wording, the offline danger guide and the PIN-lock seam. Not built: the web and mobile screens, the clinician view of sessions, the antenatal reminder notification template and cron, retiring the old `antenatal_booking` route, and wiring `maternal_enabled` into the screens. Nothing was run in a simulator or browser.
@@ -5620,3 +5623,12 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Options: (a) require a state when an employer registers a Plus seat or an admin grants Plus (a field on the roster row and on the grant form); (b) ask the member to choose from the approved list on first use of the collection flow; (c) leave null and let the care team arrange it by hand.
 - Recommendation: (b) for legacy rows, (a) for seats and grants, because the employer and the admin already know the person's state.
 - Decision (founder, 2026-10-26): Plus given without a checkout needs a collection state. Built: (a) an admin grant of Plus needs an approved state while the module is on (`grant_membership_tier`, a state field on the grant form); (b) a Plus member whose state is empty chooses it once from the approved list (`set_my_plus_collection_state`, web and mobile), which also covers employer seats and older rows. Not built: a state field on the employer roster row, because the member already chooses on first use and the employer rarely knows it; add it if an employer pilot asks.
+
+### OQ-S88-1 The plan said 8 untied clinical tables; the live sweep found 9, and two reminder tables were left (raised by S88)
+- Live `pg_policies` sweep on 2026-10-27 (SELECT only): every `patient_id` table outside `staff_read_scope` whose policy admits staff by role or organisation. Result: the nine maternal tables fixed by S88, plus `vitals_reminder_rules` (any clinician of the organisation reads every patient's reminder frequency per condition) and `patient_reminder_group_members` (any clinician reads group membership). Neither is a clinical record, so S88 left them. `ai_conversations` already limits staff to conversations with a raised alert or escalation; `clinical_tasks`, `pages`, `lead_assignments`, `encounters` and the caregiver-model tables already use ties of their own.
+- Options: (a) tie both with `staff_may_read` (reminder frequency by condition reveals the condition; recommended); (b) register them as `org` with a reason (work queue).
+- Decision: open.
+
+### OQ-S88-2 Journey 4 proves the nine tables only if the fixture seeds them (raised by S88)
+- The journey's untied-clinician step now lists the nine maternal tables, but its fixture seeds only vitals; a zero read on an empty table proves nothing. The DB proof `s88_tied_staff_reads_maternal_tables.sql` carries the control rows. Options: (a) accept, the DB proof is the real gate (recommended); (b) seed the nine in the journey fixture.
+- Decision: open.

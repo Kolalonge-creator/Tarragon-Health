@@ -1538,3 +1538,5 @@ membership_queued_year.sql
 plus_checkout_collection_state.sql
 # Plus without a checkout (2026-10-26, OQ-PLUS-1): admin grant of Plus needs an approved state while the tier module is on (authority error wins over the state error, a refusal leaves nothing behind); a Plus member with no state chooses once (approved only, set once, Membership holder refused, audited, anon closed). Sabotage: the requirement and the set-once rule removed must each flip.
 plus_state_without_checkout.sql
+# S88: staff read and write the nine pregnancy and maternal tables (pregnancies, kick_counts, contractions, birth_plans, postnatal_baby_checks, breastfeeding_feed_log, lifecycle_states, lifecycle_events, pregnancy_loss_records) only through a care relationship (INV-10, INV-12, OQ-362, OQ-588). Control rows for two patients in all nine; an untied clinician, a coordinator and a break-glass holder read zero; the tied clinician and the patient read exactly the owner count; writes tied; kill switch gives the old read back; registry and anon checks. Sabotage: the helper put back to is_org_staff and an old S67 policy restored must each flip.
+s88_tied_staff_reads_maternal_tables.sql
