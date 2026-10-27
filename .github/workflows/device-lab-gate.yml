@@ -18,6 +18,9 @@ on:
       - "docs/device-lab/**"
       - "scripts/device-lab/**"
 
+permissions:
+  contents: read
+
 jobs:
   device-lab-results:
     name: Device lab results (report only unless required)
