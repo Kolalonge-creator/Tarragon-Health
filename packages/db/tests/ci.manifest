@@ -1607,3 +1607,5 @@ baseline_labs_rule_v2.sql
 clinical_change_requests.sql
 # Research governance hardening: the barred-recipient name check, the subtraction check (identical or at least min_cell different, never a small difference or a one-out-one-in swap), the three new tables closed to clients with RLS, the two-people constraint and one-open-request index, participant keys never returned, no new function callable by anon. Behaviour (CMO requests, a different admin authorises, single use, 7 day expiry, held-back release, ledger, challenge route) proved on a scratch Postgres over the S81 bodies (59 checks incl. sabotage). Sabotage here: the subtraction check made always-true.
 research_governance_hardening.sql
+# W-19 (D-14): the payer of a gift sees waiting, accepted or declined in my_orders.gift_state (declined for both an explicit no and an unanswered gift swept after the window, never why, never anyone else, no notification); the recipient and strangers get nothing; self purchases have none. Sabotage: buyer check removed, decline mapping removed. NOT executed locally (Docker down).
+w19_payer_sees_gift_state.sql

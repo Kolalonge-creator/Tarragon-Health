@@ -99,3 +99,21 @@ describe("S71 additions", () => {
     expect(parseHmoChecks([{ check_id: "c", hmo_name: "A", result: "eligible", checked_at: "x", decided_at: null }, { check_id: "d", hmo_name: "A", result: "weird", checked_at: "x", decided_at: null }])).toHaveLength(1);
   });
 });
+
+describe("W-19 gift_state for the payer", () => {
+  const order = { order_id: "o1", state: "paid", amount_kobo: 500_000, fee_kobo: 150, total_kobo: 500_150, code: "x_item", name_key: "k", created_at: "2026-10-06T10:00:00Z", paid_at: "2026-10-06T10:01:00Z" };
+  it("keeps the three payer states and defaults to null", () => {
+    expect(parseOrders([order])[0]?.gift_state).toBeNull();
+    for (const s of ["waiting", "accepted", "declined"] as const) expect(parseOrders([{ ...order, gift_state: s }])[0]?.gift_state).toBe(s);
+  });
+  it("drops an order carrying an unknown gift state rather than inventing one", () => {
+    expect(parseOrders([{ ...order, gift_state: "refused_by_mum" }])).toHaveLength(0);
+  });
+  it("has copy for each state, with no dash and no reason given", () => {
+    for (const s of ["waiting", "accepted", "declined"]) {
+      const text = en[`order.gift_state.${s}` as keyof typeof en] as string;
+      expect(text.length).toBeGreaterThan(0);
+      expect(text).not.toMatch(/[—–]|because|why/i);
+    }
+  });
+});
