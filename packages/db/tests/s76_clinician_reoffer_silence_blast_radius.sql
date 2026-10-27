@@ -111,7 +111,11 @@ begin
   perform pg_temp.setf('org', v_org); perform pg_temp.setf('admin', v_admin); perform pg_temp.setf('a', v_a); perform pg_temp.setf('b', v_b);
   perform pg_temp.setf('c', v_c); perform pg_temp.setf('cmo', v_cmo); perform pg_temp.setf('pat', v_pat); perform pg_temp.setf('real', v_real);
   perform pg_temp.setf('prog', v_prog);
-  update public.chronic_condition_programmes set is_active = true where id = v_prog;  -- a fresh replay has the pathway closed; this rolls back
+  -- a fresh replay has the pathway closed and opening it needs a signed protocol (a human judgement a fixture must not forge), so open it past the
+  -- activation trigger for this one rolled-back fixture row
+  set local session_replication_role = replica;
+  update public.chronic_condition_programmes set is_active = true where id = v_prog;
+  set local session_replication_role = origin;
 end $$;
 
 -- 1. config ---------------------------------------------------------------------------------------------------------------------------
