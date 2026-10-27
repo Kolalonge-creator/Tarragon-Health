@@ -1169,6 +1169,36 @@ export type Database = {
         }
         Relationships: []
       }
+      pharmacy_counter_snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          min_doses: number
+          organisation_id: string
+          profile_id: string
+          share_id: string
+          weeks: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          min_doses: number
+          organisation_id: string
+          profile_id: string
+          share_id: string
+          weeks: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          min_doses?: number
+          organisation_id?: string
+          profile_id?: string
+          share_id?: string
+          weeks?: Json
+        }
+        Relationships: []
+      }
       learning_search_gaps: {
         Row: {
           first_seen: string
@@ -53745,6 +53775,14 @@ export type Database = {
         Returns: boolean
       }
       confirm_lab_code_mapping: { Args: { p_id: string }; Returns: Json }
+      create_pharmacy_counter_snapshot: {
+        Args: { p_weeks: Json; p_min_doses: number; p_expires_in_hours?: number }
+        Returns: Json
+      }
+      pharmacy_snapshot_by_token: {
+        Args: { p_token: string; p_pin?: string; p_client_key?: string }
+        Returns: Json
+      }
       create_record_share: {
         Args: {
           p_sections: string[]
